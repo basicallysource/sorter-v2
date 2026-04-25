@@ -77,6 +77,7 @@ DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
 DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
+DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 
 
 class _PulseMode(Enum):
@@ -154,6 +155,7 @@ class RuntimeC2(BaseRuntime):
         self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
+        self._pending_downstream_claims: dict[int, float] = {}
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
         self._sample_transport_max_speed: int | None = None
@@ -193,6 +195,7 @@ class RuntimeC2(BaseRuntime):
             "available_slots": int(self.available_slots()),
             "upstream_taken": int(self._upstream_slot.taken()),
             "downstream_taken": int(self._downstream_slot.taken()),
+            "pending_downstream_claims": len(self._pending_downstream_claims),
             "seen_global_ids": len(self._bookkeeping.seen_global_ids),
             "exit_stall_active": self._bookkeeping.exit_stall_since is not None,
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
@@ -202,6 +205,7 @@ class RuntimeC2(BaseRuntime):
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         start = self._tick_begin()
         try:
+            self._sweep_pending_downstream_claims(now_mono)
             tracks = self._fresh_tracks(inbox.tracks)
             visible_tracks = [t for t in tracks if is_visible_track(t)]
             action_tracks = [
@@ -226,6 +230,11 @@ class RuntimeC2(BaseRuntime):
                 self._dispatch_purge_pulse(now_mono)
                 return
             if inbox.capacity_downstream <= 0:
+                if exit_track is not None and self._has_pending_downstream_claim(
+                    exit_track, now_mono
+                ):
+                    self._dispatch_exit_pulse(exit_track, now_mono)
+                    return
                 wiggled = self._maybe_wiggle(exit_track, now_mono)
                 if not wiggled:
                     self._set_state("idle", blocked_reason="downstream_full")
@@ -328,18 +337,30 @@ class RuntimeC2(BaseRuntime):
         # Give the downstream handoff ~3 s to resolve (C3 registers the
         # arriving piece or the slot auto-releases so the ring can keep
         # flowing if the pulse never produced a visible arrival).
-        claimed = self._downstream_slot.try_claim(
-            now_mono=now_mono, hold_time_s=3.0
-        )
-        if not claimed:
-            self._set_state("idle", blocked_reason="downstream_full")
-            return
+        claim_key = self._downstream_claim_key(track)
+        if claim_key is not None and self._has_pending_downstream_claim(
+            track, now_mono
+        ):
+            claimed = False
+        else:
+            claimed = self._downstream_slot.try_claim(
+                now_mono=now_mono,
+                hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,
+            )
+            if not claimed:
+                self._set_state("idle", blocked_reason="downstream_full")
+                return
+            if claim_key is not None:
+                self._pending_downstream_claims[claim_key] = (
+                    now_mono + DEFAULT_DOWNSTREAM_CLAIM_HOLD_S
+                )
         self._bookkeeping.exit_stall_since = None
         self._fire_pulse(
             track=track,
             mode=_PulseMode.PRECISE,
             now_mono=now_mono,
-            commit_to_downstream=True,
+            commit_to_downstream=claimed,
+            downstream_claim_key=claim_key if claimed else None,
             source="c2_pulse",
             label="c2_pulse",
             state="pulsing",
@@ -386,6 +407,7 @@ class RuntimeC2(BaseRuntime):
         source: str,
         label: str,
         state: str,
+        downstream_claim_key: int | None = None,
     ) -> None:
         ejection_ctx: dict[str, Any] = {"mode": mode.value}
         if track is not None:
@@ -416,12 +438,16 @@ class RuntimeC2(BaseRuntime):
                 )
             if not ok and commit_to_downstream:
                 self._downstream_slot.release()
+                if downstream_claim_key is not None:
+                    self._pending_downstream_claims.pop(downstream_claim_key, None)
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         enqueued = self._hw.enqueue(_run_pulse, label=label)
         if not enqueued:
             if commit_to_downstream:
                 self._downstream_slot.release()
+                if downstream_claim_key is not None:
+                    self._pending_downstream_claims.pop(downstream_claim_key, None)
             self._set_state(state, blocked_reason="hw_queue_full")
             return
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
@@ -572,7 +598,30 @@ class RuntimeC2(BaseRuntime):
         self._admission_piece_count = 0
         self._visible_track_count = 0
         self._pending_track_count = 0
+        self._pending_downstream_claims.clear()
         self._next_pulse_at = 0.0
+
+    def _downstream_claim_key(self, track: Track) -> int | None:
+        if track.global_id is None:
+            return None
+        try:
+            return int(track.global_id)
+        except (TypeError, ValueError):
+            return None
+
+    def _has_pending_downstream_claim(self, track: Track, now_mono: float) -> bool:
+        key = self._downstream_claim_key(track)
+        if key is None:
+            return False
+        return self._pending_downstream_claims.get(key, 0.0) > now_mono
+
+    def _sweep_pending_downstream_claims(self, now_mono: float) -> None:
+        expired = [
+            global_id for global_id, deadline in self._pending_downstream_claims.items()
+            if deadline <= now_mono
+        ]
+        for global_id in expired:
+            self._pending_downstream_claims.pop(global_id, None)
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:

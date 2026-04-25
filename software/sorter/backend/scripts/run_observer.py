@@ -58,6 +58,15 @@ def _parse_args() -> argparse.Namespace:
         help="Do not POST /pause after a --resume-controlled run.",
     )
     parser.add_argument(
+        "--post-run-drain-s",
+        type=float,
+        default=8.0,
+        help=(
+            "Before pausing a --resume-controlled run, keep RT running up to "
+            "this many seconds so an in-flight distributor send can complete."
+        ),
+    )
+    parser.add_argument(
         "--screenshot-mode",
         choices=("auto", "none", "macos-screen"),
         default="auto",
@@ -319,7 +328,13 @@ class WsRecorder:
 
 def _piece_payload(row_or_piece: dict[str, Any]) -> dict[str, Any]:
     piece = row_or_piece.get("piece")
-    return piece if isinstance(piece, dict) else row_or_piece
+    if not isinstance(piece, dict):
+        return row_or_piece
+    merged = dict(piece)
+    for key in ("active", "live", "history_finished_at"):
+        if key in row_or_piece and key not in merged:
+            merged[key] = row_or_piece.get(key)
+    return merged
 
 
 def _piece_key(piece: dict[str, Any]) -> str | None:
@@ -441,6 +456,14 @@ def _counts_delta(start: dict[str, Any], end: dict[str, Any]) -> dict[str, int]:
     return out
 
 
+def _distributor_idle(rt_status: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+    runtime_debug = rt_status.get("runtime_debug")
+    distributor = runtime_debug.get("distributor") if isinstance(runtime_debug, dict) else None
+    distributor = distributor if isinstance(distributor, dict) else {}
+    pending = distributor.get("pending")
+    return distributor.get("fsm_state") == "idle" and pending is None, distributor
+
+
 def _derive_sample(
     *,
     rt_status: dict[str, Any],
@@ -457,14 +480,10 @@ def _derive_sample(
     active = [
         piece
         for piece in pieces
-        if piece.get("stage") != "distributed" and not isinstance(piece.get("distributed_at"), (int, float))
+        if piece.get("active") is not False
+        and piece.get("stage") != "distributed"
+        and not isinstance(piece.get("distributed_at"), (int, float))
     ]
-    active_by_gid: dict[int, list[dict[str, Any]]] = {}
-    for piece in active:
-        gid = piece.get("tracked_global_id")
-        if isinstance(gid, int):
-            active_by_gid.setdefault(gid, []).append(piece)
-
     recent_candidates = [
         piece
         for piece in active
@@ -473,6 +492,11 @@ def _derive_sample(
     active_zone = [
         piece for piece in active if piece.get("classification_channel_zone_state") == "active"
     ]
+    active_zone_by_gid: dict[int, list[dict[str, Any]]] = {}
+    for piece in active_zone:
+        gid = piece.get("tracked_global_id")
+        if isinstance(gid, int):
+            active_zone_by_gid.setdefault(gid, []).append(piece)
     active_zone.sort(
         key=lambda piece: (
             _exit_distance(piece, drop_angle) is None,
@@ -510,7 +534,7 @@ def _derive_sample(
     anomalies: list[dict[str, Any]] = []
     duplicate_active_gids = {
         str(gid): [_compact_piece(piece, drop_angle=drop_angle) for piece in group]
-        for gid, group in active_by_gid.items()
+        for gid, group in active_zone_by_gid.items()
         if len(group) > 1
     }
     if duplicate_active_gids:
@@ -604,10 +628,20 @@ def _write_summary(
         f"- Screenshots: `{run_meta['screenshot_count']}`",
         f"- Saved camera frames: `{ws_snapshot.get('saved_frame_count', 0)}`",
         f"- Resume controlled: `{run_meta['resume_controlled']}`",
+        f"- Post-run drain: `{run_meta.get('post_run_drain_s', 0.0):.1f}s`",
         "",
         "## Count Delta",
         "",
     ]
+    drain_result = run_meta.get("post_run_drain_result")
+    if isinstance(drain_result, dict):
+        lines.append(
+            "- Drain result: "
+            f"`drained={bool(drain_result.get('drained'))}` "
+            f"`actual={float(drain_result.get('actual_s') or 0.0):.1f}s` "
+            f"`last={drain_result.get('last_distributor_state', {}).get('fsm_state')}`"
+        )
+        lines.append("")
     counts_delta = summary["counts_delta"]
     if counts_delta:
         for key, value in counts_delta.items():
@@ -699,6 +733,7 @@ def main() -> int:
 
     samples: list[dict[str, Any]] = []
     screenshot_count = 0
+    post_run_drain_result: dict[str, Any] | None = None
     deadline = time.monotonic() + max(0.0, float(args.duration_s))
     sample_period_s = max(0.2, float(args.sample_period_s))
 
@@ -755,6 +790,46 @@ def main() -> int:
             time.sleep(min(sample_period_s, remaining))
     finally:
         if resume_controlled and not args.leave_running:
+            drain_s = max(0.0, float(args.post_run_drain_s))
+            drain_started = time.time()
+            drain_last: dict[str, Any] = {}
+            drained = False
+            if drain_s > 0.0:
+                drain_deadline = time.monotonic() + drain_s
+                while time.monotonic() < drain_deadline:
+                    rt_status = _safe_get(session, backend_base, "/api/rt/status")
+                    drained, drain_last = _distributor_idle(rt_status)
+                    if drained:
+                        break
+                    time.sleep(min(0.25, max(0.0, drain_deadline - time.monotonic())))
+                if not drained and drain_last.get("pending") is not None:
+                    grace_s = min(8.0, max(3.0, drain_s * 0.75))
+                    grace_deadline = time.monotonic() + grace_s
+                    while time.monotonic() < grace_deadline:
+                        rt_status = _safe_get(session, backend_base, "/api/rt/status")
+                        drained, drain_last = _distributor_idle(rt_status)
+                        if drained:
+                            break
+                        time.sleep(min(0.25, max(0.0, grace_deadline - time.monotonic())))
+                post_run_drain_result = {
+                    "requested_s": drain_s,
+                    "actual_s": time.time() - drain_started,
+                    "drained": drained,
+                    "last_distributor_state": {
+                        "fsm_state": drain_last.get("fsm_state"),
+                        "pending": drain_last.get("pending"),
+                        "chute": drain_last.get("chute"),
+                    },
+                }
+                _jsonl_append(
+                    events_file,
+                    {
+                        "captured_at": time.time(),
+                        "elapsed_s": time.time() - started_at,
+                        "tag": "_post_run_drain",
+                        "data": post_run_drain_result,
+                    },
+                )
             try:
                 _post(session, backend_base, "/pause")
             except Exception as exc:
@@ -803,6 +878,8 @@ def main() -> int:
         "screenshot_count": screenshot_count,
         "frame_capture_enabled": not bool(args.no_frame_capture),
         "resume_controlled": resume_controlled,
+        "post_run_drain_s": max(0.0, float(args.post_run_drain_s)),
+        "post_run_drain_result": post_run_drain_result,
     }
     _json_dump(run_dir / "run.json", run_meta)
     _write_summary(

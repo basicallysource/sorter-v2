@@ -58,6 +58,7 @@
 		_stickyPiece = null;
 		_fetchedPiece = null;
 		_fetchStatus = 'idle';
+		showAllEvidence = false;
 	});
 
 	$effect(() => {
@@ -380,6 +381,10 @@
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
 	const usedCropCount = $derived(crops.reduce((n, c) => n + (c.used ? 1 : 0), 0));
+	let showAllEvidence = $state(false);
+	const evidenceCrops = $derived(
+		usedCropCount > 0 && !showAllEvidence ? crops.filter((crop) => crop.used) : crops
+	);
 
 	// --- Matrix-shot ------------------------------------------------------
 	// Reverse-buffered C4 frames captured at first C4 registration.
@@ -744,35 +749,83 @@
 			</section>
 
 			<!-- Evidence: all the crops the system saw, chronological, full-width. -->
-			<section class="border border-border bg-surface">
-				<div
-					class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5"
-				>
-					<div class="flex items-baseline gap-2">
-						<span class="text-xs font-semibold tracking-wider text-text uppercase">Evidence</span>
-						<span class="font-mono text-xs text-text-muted tabular-nums">
-							{crops.length} crop{crops.length === 1 ? '' : 's'}
-							{#if usedCropCount > 0}
-								· {usedCropCount} shipped{/if}
-						</span>
-					</div>
-					{#if usedCropCount > 0}
-						<span class="inline-flex items-center gap-1.5 text-[11px] text-text-muted">
-							<span class="inline-block h-3 w-3 border-2 border-primary"></span>
-							<span>sent to recognizer</span>
-						</span>
-					{/if}
-				</div>
-				<div class="crop-strip flex gap-2 overflow-x-auto p-2">
-					{#if crops.length === 0}
-						<div
-							class="flex h-40 min-w-full items-center justify-center border border-dashed border-border bg-bg text-sm text-text-muted"
-						>
-							No crops available.
+				<section class="border border-border bg-surface">
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5"
+					>
+						<div class="flex items-baseline gap-2">
+							<span class="text-xs font-semibold tracking-wider text-text uppercase">Evidence</span>
+							<span class="font-mono text-xs text-text-muted tabular-nums">
+								{evidenceCrops.length} crop{evidenceCrops.length === 1 ? '' : 's'}
+								{#if evidenceCrops.length !== crops.length}
+									· {crops.length} total
+								{/if}
+								{#if usedCropCount > 0}
+									· {usedCropCount} shipped{/if}
+							</span>
 						</div>
-					{:else}
-						{#each crops as crop (cropKey(crop))}
-							<button
+						<div class="flex flex-wrap items-center gap-2">
+							{#if crops.length > 0}
+								<div class="inline-flex border border-border bg-surface text-[11px]">
+									<button
+										type="button"
+										class={`min-h-9 px-3 transition-colors active:scale-[0.96] ${
+											!showAllEvidence
+												? 'bg-text text-bg'
+												: 'text-text-muted hover:bg-bg hover:text-text'
+										}`}
+										onclick={() => (showAllEvidence = false)}
+									>
+										Recognizer {#if usedCropCount >= 0}({usedCropCount}){/if}
+									</button>
+									<button
+										type="button"
+										class={`min-h-9 border-l border-border px-3 transition-colors active:scale-[0.96] ${
+											showAllEvidence
+												? 'bg-text text-bg'
+												: 'text-text-muted hover:bg-bg hover:text-text'
+										}`}
+										onclick={() => (showAllEvidence = true)}
+									>
+										Alle ({crops.length})
+									</button>
+								</div>
+							{/if}
+							{#if usedCropCount > 0}
+								<span class="inline-flex items-center gap-1.5 text-[11px] text-text-muted">
+									<span class="inline-block h-3 w-3 border-2 border-primary"></span>
+									<span>sent to recognizer</span>
+								</span>
+							{/if}
+						</div>
+					</div>
+					<div class="crop-strip flex gap-2 overflow-x-auto p-2">
+						{#if evidenceCrops.length === 0}
+							<div
+								class="flex h-40 min-w-full flex-col items-center justify-center gap-3 border border-dashed border-border bg-bg px-4 text-center text-sm text-text-muted"
+							>
+								{#if usedCropCount > 0}
+									No recognizer crops in the current filter.
+								{:else}
+									{#if crops.length > 0}
+										No crops were explicitly marked as sent to Recognizer for this piece.
+									{:else}
+										No crops available.
+									{/if}
+								{/if}
+								{#if crops.length > 0 && !showAllEvidence}
+									<button
+										type="button"
+										class="min-h-9 border border-border bg-surface px-3 text-[11px] text-text transition-colors hover:bg-bg active:scale-[0.96]"
+										onclick={() => (showAllEvidence = true)}
+									>
+										Show all evidence images
+									</button>
+								{/if}
+							</div>
+						{:else}
+							{#each evidenceCrops as crop (cropKey(crop))}
+								<button
 								type="button"
 								class={`group flex w-32 flex-shrink-0 flex-col overflow-hidden bg-bg text-left transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
 									crop.used ? 'border-2 border-primary' : 'border border-border'

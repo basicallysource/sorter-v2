@@ -22,6 +22,7 @@
 	let pendingPatch: RuntimeTuningPatch = {};
 	let timer: ReturnType<typeof setTimeout> | null = null;
 
+	const c1 = $derived(tuning.channels?.c1 ?? {});
 	const c2 = $derived(tuning.channels?.c2 ?? {});
 	const c3 = $derived(tuning.channels?.c3 ?? {});
 	const c4 = $derived(tuning.channels?.c4 ?? {});
@@ -121,7 +122,7 @@
 		}
 	}
 
-	function updateChannel(channel: 'c2' | 'c3' | 'c4', values: Record<string, unknown>) {
+	function updateChannel(channel: 'c1' | 'c2' | 'c3' | 'c4', values: Record<string, unknown>) {
 		queuePatch({ channels: { [channel]: values } });
 	}
 
@@ -322,6 +323,54 @@
 				onchange={(e) => updateChannel('c4', { transport_cooldown_ms: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
+
+			{@render tuningLabel(
+				'tune-c4-exit-slow',
+				'Exit Slow',
+				'Angular window before the C4 exit where transport switches to the gentler approach step. Smaller clears intake faster; larger approaches the exit more cautiously.'
+			)}
+			<input
+				id="tune-c4-exit-slow"
+				type="range"
+				min="0"
+				max="60"
+				step="1"
+				value={numberValue(c4.exit_approach_angle_deg, 36)}
+				oninput={(e) => updateChannel('c4', { exit_approach_angle_deg: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="60"
+				step="1"
+				value={numberValue(c4.exit_approach_angle_deg, 36)}
+				onchange={(e) => updateChannel('c4', { exit_approach_angle_deg: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c4-exit-step',
+				'Exit Step',
+				'C4 tray degrees per gentle approach move near the exit. Lower is softer; higher reduces how long one ready piece blocks upstream intake.'
+			)}
+			<input
+				id="tune-c4-exit-step"
+				type="range"
+				min="0.5"
+				max="8"
+				step="0.5"
+				value={numberValue(c4.exit_approach_step_deg, 3)}
+				oninput={(e) => updateChannel('c4', { exit_approach_step_deg: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0.5"
+				max="8"
+				step="0.5"
+				value={numberValue(c4.exit_approach_step_deg, 3)}
+				onchange={(e) => updateChannel('c4', { exit_approach_step_deg: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
 		</div>
 	</div>
 
@@ -337,7 +386,7 @@
 				id="tune-c4-zones"
 				type="range"
 				min="1"
-				max="8"
+				max="12"
 				step="1"
 				value={numberValue(c4.max_zones, 4)}
 				oninput={(e) => updateChannel('c4', { max_zones: inputNumber(e) })}
@@ -345,10 +394,108 @@
 			<input
 				type="number"
 				min="1"
-				max="8"
+				max="12"
 				step="1"
 				value={numberValue(c4.max_zones, 4)}
 				onchange={(e) => updateChannel('c4', { max_zones: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c4-zone-half',
+				'Zone Half',
+				'Angular half-width for one tracked C4 piece zone. Smaller values let nearby tracked pieces coexist; too small can allow noisy duplicate zones.'
+			)}
+			<input
+				id="tune-c4-zone-half"
+				type="range"
+				min="3"
+				max="24"
+				step="1"
+				value={numberValue(c4.intake_body_half_width_deg, 10)}
+				oninput={(e) => updateChannel('c4', { intake_body_half_width_deg: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="3"
+				max="24"
+				step="1"
+				value={numberValue(c4.intake_body_half_width_deg, 10)}
+				onchange={(e) => updateChannel('c4', { intake_body_half_width_deg: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c4-guard',
+				'Guard',
+				'Extra angular spacing around each C4 zone. Lower values allow denser tracked C4 queues; higher values enforce more physical separation.'
+			)}
+			<input
+				id="tune-c4-guard"
+				type="range"
+				min="0"
+				max="30"
+				step="1"
+				value={numberValue(c4.intake_guard_deg, 28)}
+				oninput={(e) => updateChannel('c4', { intake_guard_deg: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="30"
+				step="1"
+				value={numberValue(c4.intake_guard_deg, 28)}
+				onchange={(e) => updateChannel('c4', { intake_guard_deg: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c4-release',
+				'Release',
+				'Tray degrees for the C4 exit-release wiggle. Smaller values reduce tailgating into the same bin; too small may leave the matched piece on the edge.'
+			)}
+			<input
+				id="tune-c4-release"
+				type="range"
+				min="0.5"
+				max="4"
+				step="0.1"
+				value={numberValue(c4.exit_release_shimmy_amplitude_deg, 1.5)}
+				oninput={(e) =>
+					updateChannel('c4', { exit_release_shimmy_amplitude_deg: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0.5"
+				max="4"
+				step="0.1"
+				value={numberValue(c4.exit_release_shimmy_amplitude_deg, 1.5)}
+				onchange={(e) =>
+					updateChannel('c4', { exit_release_shimmy_amplitude_deg: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c4-release-cycles',
+				'Cycles',
+				'Number of tiny forward/back release wiggles per matched C4 piece. More cycles shake harder without advancing the queue.'
+			)}
+			<input
+				id="tune-c4-release-cycles"
+				type="range"
+				min="1"
+				max="4"
+				step="1"
+				value={numberValue(c4.exit_release_shimmy_cycles, 2)}
+				oninput={(e) => updateChannel('c4', { exit_release_shimmy_cycles: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="1"
+				max="4"
+				step="1"
+				value={numberValue(c4.exit_release_shimmy_cycles, 2)}
+				onchange={(e) => updateChannel('c4', { exit_release_shimmy_cycles: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 
@@ -428,7 +575,7 @@
 				id="tune-c3-max"
 				type="range"
 				min="1"
-				max="8"
+				max="12"
 				step="1"
 				value={numberValue(c3.max_piece_count, 3)}
 				oninput={(e) => updateChannel('c3', { max_piece_count: inputNumber(e) })}
@@ -436,7 +583,7 @@
 			<input
 				type="number"
 				min="1"
-				max="8"
+				max="12"
 				step="1"
 				value={numberValue(c3.max_piece_count, 3)}
 				onchange={(e) => updateChannel('c3', { max_piece_count: inputNumber(e) })}
@@ -538,6 +685,54 @@
 				step="20"
 				value={msValue(c2.pulse_cooldown_s, 120)}
 				onchange={(e) => updateChannel('c2', { pulse_cooldown_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c1-cooldown',
+				'C1 Cool',
+				'Minimum wait between blind C1 feed pulses into C2. Higher values slow bulk feed and reduce C2 overfill pressure.'
+			)}
+			<input
+				id="tune-c1-cooldown"
+				type="range"
+				min="100"
+				max="3000"
+				step="50"
+				value={msValue(c1.pulse_cooldown_s, 250)}
+				oninput={(e) => updateChannel('c1', { pulse_cooldown_ms: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="100"
+				max="3000"
+				step="50"
+				value={msValue(c1.pulse_cooldown_s, 250)}
+				onchange={(e) => updateChannel('c1', { pulse_cooldown_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c1-jam-timeout',
+				'C1 Jam',
+				'Seconds without downstream progress before C1 starts jam recovery. Higher values avoid premature recovery while C2 is intentionally slowed.'
+			)}
+			<input
+				id="tune-c1-jam-timeout"
+				type="range"
+				min="1"
+				max="20"
+				step="0.5"
+				value={numberValue(c1.jam_timeout_s, 4)}
+				oninput={(e) => updateChannel('c1', { jam_timeout_s: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="1"
+				max="20"
+				step="0.5"
+				value={numberValue(c1.jam_timeout_s, 4)}
+				onchange={(e) => updateChannel('c1', { jam_timeout_s: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 		</div>

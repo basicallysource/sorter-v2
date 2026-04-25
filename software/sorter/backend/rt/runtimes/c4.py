@@ -107,6 +107,8 @@ class _PieceDossier:
     reject_reason: str | None = None
     handoff_requested: bool = False
     distributor_ready: bool = False
+    eject_enqueued: bool = False
+    eject_committed: bool = False
     appearance_embedding: tuple[float, ...] | None = None
     extras: dict[str, Any] = field(default_factory=dict)
     # Monotonic timestamp of the last distributor_busy rejection; blocks
@@ -514,6 +516,8 @@ class RuntimeC4(BaseRuntime):
                     "future_pending": dossier.classify_future is not None,
                     "handoff_requested": dossier.handoff_requested,
                     "distributor_ready": dossier.distributor_ready,
+                    "eject_enqueued": dossier.eject_enqueued,
+                    "eject_committed": dossier.eject_committed,
                     "recovered": bool(dossier.extras.get("recovered")),
                 }
             )
@@ -1345,6 +1349,9 @@ class RuntimeC4(BaseRuntime):
             if inbox.capacity_downstream <= 0:
                 self._maybe_shimmy(now_mono)
             return
+        if dossier.eject_enqueued:
+            self._set_state("drop_commit", blocked_reason="eject_in_flight")
+            return
 
         if self._handoff is not None:
             if not dossier.handoff_requested:
@@ -1374,6 +1381,13 @@ class RuntimeC4(BaseRuntime):
         self._enqueue_eject(piece_uuid, claim_downstream=True)
 
     def _enqueue_eject(self, piece_uuid: str, *, claim_downstream: bool) -> bool:
+        dossier = self._pieces.get(piece_uuid)
+        if dossier is not None:
+            if dossier.eject_enqueued:
+                self._set_state("drop_commit", blocked_reason="eject_in_flight")
+                return False
+            dossier.eject_enqueued = True
+
         def _do_eject() -> None:
             try:
                 ok = bool(self._eject())
@@ -1381,6 +1395,9 @@ class RuntimeC4(BaseRuntime):
                 self._logger.exception("RuntimeC4: eject_command raised")
                 ok = False
             if not ok:
+                live_dossier = self._pieces.get(piece_uuid)
+                if live_dossier is not None:
+                    live_dossier.eject_enqueued = False
                 self._downstream_slot.release()
                 return
             port = self._handoff
@@ -1393,6 +1410,9 @@ class RuntimeC4(BaseRuntime):
                         piece_uuid,
                     )
                     committed = False
+                live_dossier = self._pieces.get(piece_uuid)
+                if live_dossier is not None:
+                    live_dossier.eject_committed = committed
                 if not committed:
                     self._logger.warning(
                         "RuntimeC4: distributor handoff_commit rejected for piece=%s",
@@ -1400,6 +1420,8 @@ class RuntimeC4(BaseRuntime):
                     )
 
         if not self._hw.enqueue(_do_eject, label="c4_eject"):
+            if dossier is not None:
+                dossier.eject_enqueued = False
             if claim_downstream:
                 self._downstream_slot.release()
             self._set_state("drop_commit", blocked_reason="hw_queue_full")

@@ -32,6 +32,7 @@ from local_state import (
     list_piece_dossiers,
     list_piece_segments,
     list_piece_tracklets,
+    mark_active_piece_dossiers_stale,
     piece_dossier_is_active,
     record_piece_distribution,
     remember_piece_dossier,
@@ -389,6 +390,49 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertEqual("active", new["classification_channel_zone_state"])
         self.assertEqual(tracklet["tracklet_id"], new["current_tracklet_id"])
         self.assertTrue(piece_dossier_is_active(new))
+
+    def test_mark_active_piece_dossiers_stale_clears_restart_zombies(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="piece_dossier_runtime_restart")
+
+        remember_piece_dossier(
+            "piece-active",
+            {
+                "tracked_global_id": 17,
+                "confirmed_real": True,
+                "created_at": 10.0,
+                "updated_at": 10.0,
+                "classification_channel_zone_state": "active",
+                "classification_channel_zone_center_deg": 90.0,
+            },
+            status="registered",
+        )
+        remember_piece_dossier(
+            "piece-distributed",
+            {
+                "tracked_global_id": 18,
+                "created_at": 11.0,
+                "updated_at": 12.0,
+                "distributed_at": 12.0,
+                "classification_channel_zone_state": "active",
+            },
+            status="distributed",
+        )
+
+        self.assertEqual(1, mark_active_piece_dossiers_stale(reason="test_restart"))
+
+        active = get_piece_dossier("piece-active")
+        distributed = get_piece_dossier("piece-distributed")
+        self.assertIsNotNone(active)
+        self.assertIsNotNone(distributed)
+        assert active is not None
+        assert distributed is not None
+        self.assertEqual("stale", active["classification_channel_zone_state"])
+        self.assertEqual("test_restart", active["classification_channel_stale_reason"])
+        self.assertEqual(10.0, active["updated_at"])
+        self.assertFalse(piece_dossier_is_active(active))
+        self.assertEqual("distributed", distributed["stage"])
+        self.assertFalse(piece_dossier_is_active(distributed))
 
     def test_connection_context_closes_sqlite_connections(self) -> None:
         class FakeConnection:

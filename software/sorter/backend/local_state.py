@@ -1380,6 +1380,53 @@ def _supersede_active_sibling_dossiers(
         )
 
 
+def mark_active_piece_dossiers_stale(
+    *,
+    reason: str = "runtime_restarted",
+    session_id: str | None = None,
+) -> int:
+    """Mark persisted live C4 dossier rows as stale for a fresh runtime epoch.
+
+    Tracker raw IDs are intentionally scoped by tracker epoch, but the UI list
+    is backed by persisted piece dossiers. If the backend/runtime restarts
+    before old pieces emitted a lost/distributed event, those rows would keep
+    ``classification_channel_zone_state=active`` forever and collide with new
+    tracker IDs. Staling them at RT start keeps history intact while making the
+    active read model reflect the current runtime epoch only.
+    """
+    initialize_local_state()
+    now = time.time()
+    updated = 0
+    with _connection() as conn:
+        resolved_session_id = session_id
+        if not resolved_session_id:
+            active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+            if active_session_id:
+                resolved_session_id = str(active_session_id)
+        if not resolved_session_id:
+            return 0
+        rows = conn.execute(
+            "SELECT * FROM piece_dossiers "
+            "WHERE session_id = ? "
+            "AND distributed_at IS NULL",
+            (resolved_session_id,),
+        ).fetchall()
+        for row in rows:
+            payload = _piece_dossier_row_to_dict(row)
+            if not isinstance(payload, dict) or not piece_dossier_is_active(payload):
+                continue
+            payload["classification_channel_zone_state"] = "stale"
+            payload["classification_channel_stale_reason"] = str(reason)
+            payload["classification_channel_stale_at"] = now
+            conn.execute(
+                "UPDATE piece_dossiers SET payload_json = ? WHERE piece_uuid = ?",
+                (json.dumps(payload, sort_keys=True), str(row["piece_uuid"])),
+            )
+            updated += 1
+        conn.commit()
+    return updated
+
+
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
     initialize_local_state()
     with _connection() as conn:

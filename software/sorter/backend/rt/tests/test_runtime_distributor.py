@@ -172,6 +172,27 @@ def test_handoff_request_triggers_positioning() -> None:
     assert dist.available_slots() == 0
 
 
+def test_debug_snapshot_reports_chute_move_and_position_health() -> None:
+    dist, _upstream, _rec, *_ = _make(position_query_seq=[None, "L0-S0-B0"])
+    dist.handoff_request(piece_uuid="p1", classification=_classification(), now_mono=1.0)
+
+    snap = dist.debug_snapshot()
+    assert snap["chute"]["last_move_bin"] == "L0-S0-B0"
+    assert snap["chute"]["last_move_ok"] is True
+    assert snap["chute"]["last_move_error"] is None
+    assert snap["chute"]["last_position"] is None
+
+    dist.tick(_inbox(), now_mono=1.1)
+    snap = dist.debug_snapshot()
+    assert snap["chute"]["last_position"] is None
+    assert snap["chute"]["last_position_error"] is None
+
+    dist.tick(_inbox(), now_mono=1.2)
+    snap = dist.debug_snapshot()
+    assert snap["chute"]["last_position"] == "L0-S0-B0"
+    assert snap["chute"]["last_position_error"] is None
+
+
 def test_busy_distributor_rejects_second_handoff() -> None:
     dist, *_ = _make()
     ok1 = dist.handoff_request(piece_uuid="p1", classification=_classification())

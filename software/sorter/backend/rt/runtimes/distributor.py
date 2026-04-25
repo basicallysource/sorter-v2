@@ -112,6 +112,13 @@ class RuntimeDistributor(BaseRuntime):
         self._run_recorder = run_recorder
         self._fsm: _DistState = _DistState.IDLE
         self._pending: _PendingPiece | None = None
+        self._last_chute_move_bin: str | None = None
+        self._last_chute_move_ok: bool | None = None
+        self._last_chute_move_error: str | None = None
+        self._last_chute_move_at: float | None = None
+        self._last_chute_position: str | None = None
+        self._last_chute_position_error: str | None = None
+        self._last_chute_position_at: float | None = None
         self._set_state(self._fsm.value)
 
     # ------------------------------------------------------------------
@@ -266,6 +273,23 @@ class RuntimeDistributor(BaseRuntime):
                 "pending": pending_payload,
                 "position_timeout_s": self._position_timeout_s,
                 "ready_timeout_s": self._ready_timeout_s,
+                "chute": {
+                    "last_move_bin": self._last_chute_move_bin,
+                    "last_move_ok": self._last_chute_move_ok,
+                    "last_move_error": self._last_chute_move_error,
+                    "last_move_age_s": (
+                        max(0.0, now - float(self._last_chute_move_at))
+                        if self._last_chute_move_at is not None
+                        else None
+                    ),
+                    "last_position": self._last_chute_position,
+                    "last_position_error": self._last_chute_position_error,
+                    "last_position_age_s": (
+                        max(0.0, now - float(self._last_chute_position_at))
+                        if self._last_chute_position_at is not None
+                        else None
+                    ),
+                },
             }
         )
         return snap
@@ -326,11 +350,20 @@ class RuntimeDistributor(BaseRuntime):
             try:
                 ok = bool(self._chute_move(target))
             except Exception:
+                self._last_chute_move_bin = target
+                self._last_chute_move_ok = False
+                self._last_chute_move_error = "exception"
+                self._last_chute_move_at = time.monotonic()
                 self._logger.exception(
                     "RuntimeDistributor: chute_move_command raised for bin=%s",
                     target,
                 )
                 ok = False
+            else:
+                self._last_chute_move_bin = target
+                self._last_chute_move_ok = ok
+                self._last_chute_move_error = None if ok else "returned_false"
+                self._last_chute_move_at = time.monotonic()
             if not ok:
                 self._logger.error(
                     "RuntimeDistributor: chute move returned False for bin=%s",
@@ -359,10 +392,17 @@ class RuntimeDistributor(BaseRuntime):
         try:
             current = self._chute_position_query()
         except Exception:
+            self._last_chute_position = None
+            self._last_chute_position_error = "exception"
+            self._last_chute_position_at = now_mono
             self._logger.exception(
                 "RuntimeDistributor: chute_position_query raised"
             )
             current = None
+        else:
+            self._last_chute_position = current
+            self._last_chute_position_error = None
+            self._last_chute_position_at = now_mono
         if current is None:
             # Still in motion.
             return

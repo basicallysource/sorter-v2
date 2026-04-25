@@ -281,6 +281,35 @@ def test_c3_precise_pulse_rolled_back_on_hw_failure() -> None:
     assert down.available() == 1
 
 
+def test_c3_debounces_repeated_exit_claim_but_keeps_pulsing_same_track() -> None:
+    rt, _up, down, log = _make(downstream_cap=4)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=23, angle_rad=0.0)),
+        capacity_downstream=4,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(inbox, now_mono=1.0)
+
+    assert down.taken(now_mono=1.0) == 1
+    assert len([entry for entry in log if entry.startswith("precise:")]) == 2
+    assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+
+
+def test_c3_allows_exit_retry_after_claim_hold_expires() -> None:
+    rt, _up, down, log = _make(downstream_cap=4)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=23, angle_rad=0.0)),
+        capacity_downstream=4,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(inbox, now_mono=4.0)
+
+    assert down.taken(now_mono=4.0) == 1
+    assert len([entry for entry in log if entry.startswith("precise:")]) == 2
+
+
 def test_c3_on_piece_delivered_releases_upstream() -> None:
     rt, up, _down, _log = _make()
     assert up.try_claim() is True

@@ -29,11 +29,17 @@ def _handle() -> SimpleNamespace:
     )
     classification = SimpleNamespace(
         max_zones=4,
+        intake_body_half_width_deg=10.0,
+        intake_guard_deg=28.0,
         transport_speed_scale=4.0,
         stepper_degrees_per_tray_degree=36.0,
         transport_acceleration_microsteps_per_second_sq=4000,
         startup_purge_speed_scale=4.0,
         startup_purge_acceleration_microsteps_per_second_sq=20000,
+        exit_release_shimmy_amplitude_deg=1.5,
+        exit_release_shimmy_cycles=2,
+        exit_release_shimmy_microsteps_per_second=4200,
+        exit_release_shimmy_acceleration_microsteps_per_second_sq=9000,
     )
     c2 = SimpleNamespace(
         _max_piece_count=5,
@@ -59,12 +65,25 @@ def _handle() -> SimpleNamespace:
         _transport_velocity=SimpleNamespace(target_rpm=1.2),
     )
     c4 = SimpleNamespace(
-        _zone_manager=SimpleNamespace(_max_zones=4, max_zones=4),
-        _admission=SimpleNamespace(_max_zones=4, max_raw_detections=None),
+        _zone_manager=SimpleNamespace(
+            _max_zones=4,
+            max_zones=4,
+            _default_half_width=10.0,
+            guard_angle_deg=28.0,
+        ),
+        _admission=SimpleNamespace(
+            _max_zones=4,
+            max_raw_detections=None,
+            _guard_angle_deg=28.0,
+        ),
+        _intake_half_width_deg=10.0,
         _transport_step_deg=3.0,
         _transport_max_step_deg=8.0,
         _transport_cooldown_s=0.18,
         _transport_velocity=SimpleNamespace(target_rpm=0.7),
+        _exit_approach_angle_deg=36.0,
+        _exit_approach_step_deg=3.0,
+        _shimmy_step_deg=1.5,
         _idle_jog_enabled=True,
         _idle_jog_step_deg=2.0,
         _idle_jog_cooldown_s=0.5,
@@ -92,7 +111,14 @@ def _handle() -> SimpleNamespace:
                 classification_channel_config=classification,
             )
         ),
-        c1=SimpleNamespace(),
+        c1=SimpleNamespace(
+            _sample_transport_step_deg=None,
+            _pulse_cooldown_s=0.25,
+            _jam_timeout_s=4.0,
+            _jam_min_pulses=3,
+            _jam_cooldown_s=1.5,
+            _max_recovery_cycles=5,
+        ),
         c2=c2,
         c3=c3,
         c4=c4,
@@ -106,8 +132,41 @@ def test_snapshot_reports_live_values() -> None:
     payload = runtime_tuning.snapshot(handle)
 
     assert payload["channels"]["c4"]["transport_acceleration_usteps_per_s2"] == 4000
+    assert payload["channels"]["c4"]["intake_body_half_width_deg"] == 10.0
+    assert payload["channels"]["c4"]["intake_guard_deg"] == 28.0
+    assert payload["channels"]["c4"]["exit_release_shimmy_amplitude_deg"] == 1.5
+    assert payload["channels"]["c4"]["exit_release_shimmy_cycles"] == 2
+    assert payload["channels"]["c1"]["pulse_cooldown_s"] == 0.25
+    assert payload["channels"]["c1"]["jam_timeout_s"] == 4.0
     assert payload["channels"]["c2"]["normal"]["steps_per_pulse"] == 1000
     assert payload["slots"]["c3_to_c4"] == 4
+
+
+def test_update_c1_feed_and_jam_tuning_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "channels": {
+                "c1": {
+                    "pulse_cooldown_ms": 750,
+                    "jam_timeout_s": 8.0,
+                    "jam_min_pulses": 6,
+                    "jam_cooldown_ms": 2500,
+                    "max_recovery_cycles": 8,
+                }
+            }
+        },
+    )
+
+    assert handle.c1._pulse_cooldown_s == pytest.approx(0.75)
+    assert handle.c1._jam_timeout_s == pytest.approx(8.0)
+    assert handle.c1._jam_min_pulses == 6
+    assert handle.c1._jam_cooldown_s == pytest.approx(2.5)
+    assert handle.c1._max_recovery_cycles == 8
+    assert payload["channels"]["c1"]["pulse_cooldown_s"] == pytest.approx(0.75)
+    assert payload["channels"]["c1"]["jam_timeout_s"] == pytest.approx(8.0)
 
 
 def test_update_c4_motion_and_backpressure_live() -> None:
@@ -119,11 +178,17 @@ def test_update_c4_motion_and_backpressure_live() -> None:
             "channels": {
                 "c4": {
                     "max_zones": 3,
+                    "intake_body_half_width_deg": 8.0,
+                    "intake_guard_deg": 8.0,
                     "transport_step_deg": 4.0,
                     "transport_max_step_deg": 12.0,
                     "transport_cooldown_ms": 140,
                     "transport_acceleration_usteps_per_s2": 60000,
                     "transport_target_rpm": 0.9,
+                    "exit_approach_angle_deg": 24.0,
+                    "exit_approach_step_deg": 4.5,
+                    "exit_release_shimmy_amplitude_deg": 1.2,
+                    "exit_release_shimmy_cycles": 3,
                 }
             }
         },
@@ -131,19 +196,39 @@ def test_update_c4_motion_and_backpressure_live() -> None:
 
     assert handle.c4._zone_manager._max_zones == 3
     assert handle.c4._admission._max_zones == 3
+    assert handle.c4._zone_manager._default_half_width == 8.0
+    assert handle.c4._intake_half_width_deg == 8.0
+    assert handle.c4._zone_manager._guard_deg == 8.0
+    assert handle.c4._admission._guard_angle_deg == 8.0
     assert handle.orchestrator._slots[("c3", "c4")].capacity() == 3
     assert handle.c4._transport_step_deg == 4.0
     assert handle.c4._transport_cooldown_s == pytest.approx(0.14)
+    assert handle.c4._exit_approach_angle_deg == 24.0
+    assert handle.c4._exit_approach_step_deg == 4.5
+    assert handle.c4._shimmy_step_deg == 1.2
     assert (
         handle.irl.irl_config.classification_channel_config.transport_acceleration_microsteps_per_second_sq
         == 60000
     )
+    assert (
+        handle.irl.irl_config.classification_channel_config.exit_release_shimmy_amplitude_deg
+        == 1.2
+    )
+    assert handle.irl.irl_config.classification_channel_config.positioning_window_deg == 24.0
+    assert handle.irl.irl_config.classification_channel_config.exit_approach_step_deg == 4.5
+    assert handle.irl.irl_config.classification_channel_config.exit_release_shimmy_cycles == 3
     assert (
         handle.irl.irl_config.classification_channel_config.stepper_degrees_per_tray_degree
         == 36.0
     )
     assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 36.0
     assert payload["channels"]["c4"]["transport_target_rpm"] == 0.9
+    assert payload["channels"]["c4"]["exit_approach_angle_deg"] == 24.0
+    assert payload["channels"]["c4"]["exit_approach_step_deg"] == 4.5
+    assert payload["channels"]["c4"]["intake_body_half_width_deg"] == 8.0
+    assert payload["channels"]["c4"]["intake_guard_deg"] == 8.0
+    assert payload["channels"]["c4"]["exit_release_shimmy_amplitude_deg"] == 1.2
+    assert payload["channels"]["c4"]["exit_release_shimmy_cycles"] == 3
 
 
 def test_update_c4_rejects_gear_ratio_live_patch() -> None:

@@ -306,10 +306,27 @@ def test_c4_callables_convert_tray_degrees_to_stepper_degrees_live() -> None:
     assert irl.carousel_stepper.moves[-1] == 84.0
 
 
-def test_c4_eject_applies_classification_pulse_profile() -> None:
+def test_c4_eject_uses_narrow_exit_release_shimmy() -> None:
     irl = type("Irl", (), {})()
     irl.carousel_stepper = _CarouselStepper()
-    irl.irl_config = type("Config", (), {"carousel_stepper": _CarouselConfig()})()
+    irl.irl_config = type(
+        "Config",
+        (),
+        {
+            "carousel_stepper": _CarouselConfig(),
+            "classification_channel_config": type(
+                "Classification",
+                (),
+                {
+                    "stepper_degrees_per_tray_degree": 36.0,
+                    "exit_release_shimmy_amplitude_deg": 1.5,
+                    "exit_release_shimmy_cycles": 2,
+                    "exit_release_shimmy_microsteps_per_second": 4200,
+                    "exit_release_shimmy_acceleration_microsteps_per_second_sq": 9000,
+                },
+            )(),
+        },
+    )()
     irl.feeder_config = type(
         "Feeder",
         (),
@@ -330,9 +347,14 @@ def test_c4_eject_applies_classification_pulse_profile() -> None:
 
     assert eject() is True
 
-    assert irl.carousel_stepper.accelerations == [2500]
-    assert irl.carousel_stepper.speed_limits == [(16, 3400)]
-    assert irl.carousel_stepper.moves == [100.0]
+    assert irl.carousel_stepper.accelerations == [9000, 9000, 9000, 9000]
+    assert irl.carousel_stepper.speed_limits == [
+        (16, 4200),
+        (16, 4200),
+        (16, 4200),
+        (16, 4200),
+    ]
+    assert irl.carousel_stepper.moves == [54.0, -54.0, 54.0, -54.0]
 
 
 def test_c4_continuous_move_uses_named_continuous_profile() -> None:

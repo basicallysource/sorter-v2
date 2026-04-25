@@ -20,6 +20,7 @@ import logging
 import math
 import os
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
@@ -157,6 +158,19 @@ class RtRuntimeHandle:
     def start(self, *, paused: bool = False) -> None:
         if self.started:
             return
+        try:
+            from local_state import mark_active_piece_dossiers_stale
+
+            marked = mark_active_piece_dossiers_stale(reason="rt_runtime_start")
+            if marked:
+                logging.getLogger("rt.bootstrap").info(
+                    "RtRuntimeHandle: marked %d stale active piece dossier(s)",
+                    marked,
+                )
+        except Exception:
+            logging.getLogger("rt.bootstrap").exception(
+                "RtRuntimeHandle: stale dossier cleanup raised"
+            )
         c4 = getattr(self, "c4", None)
         arm_startup_purge = getattr(c4, "arm_startup_purge", None)
         if callable(arm_startup_purge):
@@ -1116,14 +1130,12 @@ def build_rt_runtime(
 
     def _on_delivered(piece_uuid: str) -> None:
         try:
-            c4.on_piece_delivered(piece_uuid, now_mono=0.0)
+            c4.on_piece_delivered(piece_uuid, now_mono=time.monotonic())
         except Exception:
             log.exception("rt.bootstrap: c4.on_piece_delivered raised")
 
     def _on_ack(piece_uuid: str, accepted: bool, reason: str) -> None:
-        if accepted:
-            _on_delivered(piece_uuid)
-        else:
+        if not accepted:
             try:
                 c4.on_piece_rejected(piece_uuid, reason)
             except Exception:

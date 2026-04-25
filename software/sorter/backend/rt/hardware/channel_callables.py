@@ -485,6 +485,17 @@ def build_c4_callables(
             carousel_acceleration,
         )
 
+    def _exit_release_speed_limit() -> int | None:
+        return _cfg_optional_int("exit_release_shimmy_microsteps_per_second", None)
+
+    def _exit_release_amplitude_deg() -> float:
+        value = _cfg_float("exit_release_shimmy_amplitude_deg", 1.5)
+        return max(0.1, min(12.0, value))
+
+    def _exit_release_cycles() -> int:
+        value = _cfg_float("exit_release_shimmy_cycles", 2.0)
+        return max(1, min(8, int(round(value))))
+
     def _continuous_acceleration() -> int | None:
         configured = _cfg_optional_int(
             "continuous_acceleration_microsteps_per_second_sq",
@@ -625,7 +636,7 @@ def build_c4_callables(
         return _profile_move(
             deg,
             profile_name=PROFILE_WIGGLE,
-            speed_limit=None,
+            speed_limit=_exit_release_speed_limit(),
             acceleration=_carousel_acceleration(),
         )
 
@@ -655,42 +666,29 @@ def build_c4_callables(
             return False
 
     def eject() -> bool:
-        # Legacy ejection lives in the classification_channel_eject RotorPulseConfig
-        # applied against the carousel stepper at high speed.
-        stepper = getattr(irl, "carousel_stepper", None)
-        feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
-            getattr(irl, "irl_config", None), "feeder_config", None
-        )
-        cfg = (
-            getattr(feeder_cfg, "classification_channel_eject", None)
-            if feeder_cfg
-            else None
-        )
-        if stepper is None or cfg is None:
-            logger.error(
-                "TODO_PHASE5_WIRING: c4 eject - stepper or classification_channel_eject cfg missing"
-            )
-            return False
-        try:
-            deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
-            profile = profile_from_rotor_config(
-                channel="c4",
-                name=PROFILE_EJECT,
-                cfg=cfg,
-                default_speed=_default_speed_limit(),
-                default_acceleration=_transport_acceleration(),
-            )
-            return move_degrees_with_profile(
-                stepper,
-                profile,
-                deg,
-                source="c4_eject",
-                logger=logger,
-                diagnostics=motion_diagnostics,
-            )
-        except Exception:
-            logger.exception("RuntimeC4: eject raised")
-            return False
+        # Normal exit release is a narrow shimmy around the current tray
+        # position. The distributor gate already authorized exactly one
+        # matched piece; this motion should shake that piece off the edge
+        # without advancing followers into the same bin.
+        amplitude = _exit_release_amplitude_deg()
+        speed = _exit_release_speed_limit()
+        acceleration = _carousel_acceleration()
+        for _ in range(_exit_release_cycles()):
+            if not _profile_move(
+                amplitude,
+                profile_name=PROFILE_EJECT,
+                speed_limit=speed,
+                acceleration=acceleration,
+            ):
+                return False
+            if not _profile_move(
+                -amplitude,
+                profile_name=PROFILE_EJECT,
+                speed_limit=speed,
+                acceleration=acceleration,
+            ):
+                return False
+        return True
 
     return (
         carousel_move,

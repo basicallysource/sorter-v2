@@ -106,6 +106,11 @@ def _c1_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
     return {
         "transport": _rotor_snapshot(getattr(feeder_cfg, "first_rotor", None)),
         "sample_transport_step_deg": _runtime_attr(runtime, "_sample_transport_step_deg"),
+        "pulse_cooldown_s": _runtime_attr(runtime, "_pulse_cooldown_s"),
+        "jam_timeout_s": _runtime_attr(runtime, "_jam_timeout_s"),
+        "jam_min_pulses": _runtime_attr(runtime, "_jam_min_pulses"),
+        "jam_cooldown_s": _runtime_attr(runtime, "_jam_cooldown_s"),
+        "max_recovery_cycles": _runtime_attr(runtime, "_max_recovery_cycles"),
     }
 
 
@@ -148,10 +153,18 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
     return {
         "max_zones": _safe_int(getattr(zone_mgr, "max_zones", None)),
         "max_raw_detections": _safe_int(getattr(admission, "max_raw_detections", None)),
+        "intake_body_half_width_deg": _safe_float(
+            getattr(zone_mgr, "_default_half_width", None)
+        ),
+        "intake_guard_deg": _safe_float(
+            getattr(zone_mgr, "_guard_deg", getattr(zone_mgr, "guard_angle_deg", None))
+        ),
         "transport_step_deg": _runtime_attr(runtime, "_transport_step_deg"),
         "transport_max_step_deg": _runtime_attr(runtime, "_transport_max_step_deg"),
         "transport_cooldown_s": _runtime_attr(runtime, "_transport_cooldown_s"),
         "transport_target_rpm": _transport_target_rpm(runtime),
+        "exit_approach_angle_deg": _runtime_attr(runtime, "_exit_approach_angle_deg"),
+        "exit_approach_step_deg": _runtime_attr(runtime, "_exit_approach_step_deg"),
         "transport_speed_scale": _safe_float(
             getattr(class_cfg, "transport_speed_scale", None)
         ),
@@ -166,6 +179,22 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
         ),
         "startup_purge_acceleration_usteps_per_s2": _safe_int(
             getattr(class_cfg, "startup_purge_acceleration_microsteps_per_second_sq", None)
+        ),
+        "exit_release_shimmy_amplitude_deg": _safe_float(
+            getattr(class_cfg, "exit_release_shimmy_amplitude_deg", None)
+        ),
+        "exit_release_shimmy_cycles": _safe_int(
+            getattr(class_cfg, "exit_release_shimmy_cycles", None)
+        ),
+        "exit_release_shimmy_speed_usteps_per_s": _safe_int(
+            getattr(class_cfg, "exit_release_shimmy_microsteps_per_second", None)
+        ),
+        "exit_release_shimmy_acceleration_usteps_per_s2": _safe_int(
+            getattr(
+                class_cfg,
+                "exit_release_shimmy_acceleration_microsteps_per_second_sq",
+                None,
+            )
         ),
         "idle_jog_enabled": _runtime_attr(runtime, "_idle_jog_enabled"),
         "idle_jog_step_deg": _runtime_attr(runtime, "_idle_jog_step_deg"),
@@ -187,9 +216,25 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
 
 
 def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
+    runtime = getattr(handle, "c1", None)
     feeder_cfg = _feeder_cfg(getattr(handle, "irl", None))
-    allowed = {"transport"}
+    allowed = {
+        "transport",
+        "pulse_cooldown_s",
+        "pulse_cooldown_ms",
+        "jam_timeout_s",
+        "jam_timeout_ms",
+        "jam_min_pulses",
+        "jam_cooldown_s",
+        "jam_cooldown_ms",
+        "max_recovery_cycles",
+    }
     _reject_unknown("c1", values, allowed)
+    _set_runtime_seconds(runtime, "_pulse_cooldown_s", values, "pulse_cooldown_s", "pulse_cooldown_ms", 0.0, 30.0)
+    _set_runtime_seconds(runtime, "_jam_timeout_s", values, "jam_timeout_s", "jam_timeout_ms", 0.25, 120.0)
+    _set_runtime_int(runtime, "_jam_min_pulses", values, "jam_min_pulses", min_value=1, max_value=100)
+    _set_runtime_seconds(runtime, "_jam_cooldown_s", values, "jam_cooldown_s", "jam_cooldown_ms", 0.0, 120.0)
+    _set_runtime_int(runtime, "_max_recovery_cycles", values, "max_recovery_cycles", min_value=1, max_value=100)
     if "transport" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "first_rotor", None), values["transport"], "c1.transport")
 
@@ -272,15 +317,23 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
     allowed = {
         "max_zones",
         "max_raw_detections",
+        "intake_body_half_width_deg",
+        "intake_guard_deg",
         "transport_step_deg",
         "transport_max_step_deg",
         "transport_cooldown_s",
         "transport_cooldown_ms",
         "transport_target_rpm",
+        "exit_approach_angle_deg",
+        "exit_approach_step_deg",
         "transport_speed_scale",
         "transport_acceleration_usteps_per_s2",
         "startup_purge_speed_scale",
         "startup_purge_acceleration_usteps_per_s2",
+        "exit_release_shimmy_amplitude_deg",
+        "exit_release_shimmy_cycles",
+        "exit_release_shimmy_speed_usteps_per_s",
+        "exit_release_shimmy_acceleration_usteps_per_s2",
         "idle_jog_enabled",
         "idle_jog_step_deg",
         "idle_jog_cooldown_s",
@@ -321,6 +374,35 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             setattr(admission, "_max_raw_detections", max_raw)
         if class_cfg is not None:
             setattr(class_cfg, "max_raw_detections", max_raw)
+    if "intake_body_half_width_deg" in values:
+        half_width = _float(
+            values["intake_body_half_width_deg"],
+            "c4.intake_body_half_width_deg",
+            min_value=1.0,
+            max_value=60.0,
+        )
+        zone_mgr = getattr(runtime, "_zone_manager", None)
+        if zone_mgr is not None:
+            setattr(zone_mgr, "_default_half_width", half_width)
+        if runtime is not None:
+            setattr(runtime, "_intake_half_width_deg", half_width)
+        if class_cfg is not None:
+            setattr(class_cfg, "intake_body_half_width_deg", half_width)
+    if "intake_guard_deg" in values:
+        guard = _float(
+            values["intake_guard_deg"],
+            "c4.intake_guard_deg",
+            min_value=0.0,
+            max_value=90.0,
+        )
+        zone_mgr = getattr(runtime, "_zone_manager", None)
+        if zone_mgr is not None:
+            setattr(zone_mgr, "_guard_deg", guard)
+        admission = getattr(runtime, "_admission", None)
+        if admission is not None:
+            setattr(admission, "_guard_angle_deg", guard)
+        if class_cfg is not None:
+            setattr(class_cfg, "intake_guard_deg", guard)
     _set_runtime_float(runtime, "_transport_step_deg", values, "transport_step_deg", min_value=0.1, max_value=90.0)
     _set_runtime_float(runtime, "_transport_max_step_deg", values, "transport_max_step_deg", min_value=0.1, max_value=180.0)
     if runtime is not None:
@@ -330,6 +412,8 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             setattr(runtime, "_transport_max_step_deg", max(float(step), float(max_step)))
     _set_runtime_seconds(runtime, "_transport_cooldown_s", values, "transport_cooldown_s", "transport_cooldown_ms", 0.0, 10.0)
     _set_transport_target_rpm(runtime, values)
+    _set_runtime_float(runtime, "_exit_approach_angle_deg", values, "exit_approach_angle_deg", min_value=0.0, max_value=90.0)
+    _set_runtime_float(runtime, "_exit_approach_step_deg", values, "exit_approach_step_deg", min_value=0.1, max_value=24.0)
     _set_runtime_bool(runtime, "_idle_jog_enabled", values, "idle_jog_enabled")
     _set_runtime_float(runtime, "_idle_jog_step_deg", values, "idle_jog_step_deg", min_value=0.1, max_value=45.0)
     _set_runtime_seconds(runtime, "_idle_jog_cooldown_s", values, "idle_jog_cooldown_s", "idle_jog_cooldown_ms", 0.0, 30.0)
@@ -346,8 +430,32 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
     if class_cfg is not None:
         _set_cfg_float(class_cfg, "transport_speed_scale", values, "transport_speed_scale", 0.1, 64.0)
         _set_cfg_optional_int(class_cfg, "transport_acceleration_microsteps_per_second_sq", values, "transport_acceleration_usteps_per_s2", 1, 1_000_000)
+        _set_cfg_float(class_cfg, "positioning_window_deg", values, "exit_approach_angle_deg", 0.0, 90.0)
+        _set_cfg_float(class_cfg, "exit_approach_step_deg", values, "exit_approach_step_deg", 0.1, 24.0)
         _set_cfg_float(class_cfg, "startup_purge_speed_scale", values, "startup_purge_speed_scale", 0.1, 64.0)
         _set_cfg_optional_int(class_cfg, "startup_purge_acceleration_microsteps_per_second_sq", values, "startup_purge_acceleration_usteps_per_s2", 1, 1_000_000)
+        _set_cfg_float(class_cfg, "exit_release_shimmy_amplitude_deg", values, "exit_release_shimmy_amplitude_deg", 0.1, 12.0)
+        _set_cfg_optional_int(class_cfg, "exit_release_shimmy_cycles", values, "exit_release_shimmy_cycles", 1, 8)
+        _set_cfg_optional_int(class_cfg, "exit_release_shimmy_microsteps_per_second", values, "exit_release_shimmy_speed_usteps_per_s", 1, 1_000_000)
+        _set_cfg_optional_int(
+            class_cfg,
+            "exit_release_shimmy_acceleration_microsteps_per_second_sq",
+            values,
+            "exit_release_shimmy_acceleration_usteps_per_s2",
+            1,
+            1_000_000,
+        )
+    if runtime is not None and "exit_release_shimmy_amplitude_deg" in values:
+        setattr(
+            runtime,
+            "_shimmy_step_deg",
+            _float(
+                values["exit_release_shimmy_amplitude_deg"],
+                "c4.exit_release_shimmy_amplitude_deg",
+                min_value=0.1,
+                max_value=12.0,
+            ),
+        )
     if "eject" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "classification_channel_eject", None), values["eject"], "c4.eject")
 

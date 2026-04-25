@@ -342,6 +342,27 @@ def test_c2_pulse_failure_releases_downstream_claim() -> None:
     assert down.available() == 1  # rolled back on failure
 
 
+def test_c2_repeats_exit_pulse_without_duplicate_downstream_claim() -> None:
+    rt, _up, down, log = _make(downstream_cap=1)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+        capacity_downstream=1,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+            capacity_downstream=0,
+        ),
+        now_mono=1.0,
+    )
+
+    assert down.taken(now_mono=1.0) == 1
+    assert log == ["precise:40", "precise:40"]
+    assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+
+
 def test_c2_available_slots_caps_at_piece_count() -> None:
     rt, _up, _down, _log = _make()
     tracks = _batch(

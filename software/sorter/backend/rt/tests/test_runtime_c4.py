@@ -579,6 +579,50 @@ def test_c4_waits_for_distributor_ready_before_ejecting() -> None:
     assert commits == [piece_uuid]
 
 
+def test_c4_ejects_only_once_per_distributor_ready_until_delivery() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=1)
+    handoffs: list[dict[str, Any]] = []
+    commits: list[str] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            commits.append(piece_uuid)
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    piece_uuid = handoffs[0]["piece_uuid"]
+    rt.on_distributor_ready(piece_uuid)
+
+    for t in (0.2, 0.3, 0.4):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=0),
+            now_mono=t,
+        )
+
+    assert log.count("eject") == 1
+    assert commits == [piece_uuid]
+    dossier = rt.dossier_for(piece_uuid)
+    assert dossier is not None
+    assert dossier.eject_enqueued is True
+    assert dossier.eject_committed is True
+
+
 def test_c4_skips_handoff_when_distributor_reports_no_slots() -> None:
     """Distributor-busy should be detected cheaply via available_slots()
     and not spam the full handoff_request path. 250ms retry cooldown."""

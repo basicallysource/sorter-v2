@@ -97,6 +97,14 @@
 	const detail = $derived(detailSnapshot as Detail | null);
 
 	const TS_TOLERANCE_S = 0.005;
+	const MAX_REPRESENTATIVE_SNAPSHOTS = 8;
+	const MIN_PROGRESS_GAP_RATIO = 0.09;
+
+	type SnapshotCandidate = {
+		snapshot: SectorSnapshot;
+		progress: number;
+		used: boolean;
+	};
 
 	function isUsedCrop(captured_ts: number): boolean {
 		if (!usedCropTs || usedCropTs.length === 0) return false;
@@ -177,6 +185,98 @@
 		return best;
 	}
 
+	function pathProgressByTimestamp(path: PathPoint[]): Array<{ ts: number; progress: number }> {
+		if (!path || path.length === 0) return [];
+		if (path.length === 1) return [{ ts: path[0][0], progress: 0 }];
+		const out: Array<{ ts: number; progress: number }> = [{ ts: path[0][0], progress: 0 }];
+		let progress = 0;
+		for (let i = 1; i < path.length; i++) {
+			const prev = path[i - 1];
+			const cur = path[i];
+			progress += Math.hypot(cur[1] - prev[1], cur[2] - prev[2]);
+			out.push({ ts: cur[0], progress });
+		}
+		return out;
+	}
+
+	function progressAtTimestamp(path: PathPoint[], ts: number): number {
+		const progressPoints = pathProgressByTimestamp(path);
+		if (progressPoints.length === 0) return 0;
+		let best = progressPoints[0];
+		let bestDiff = Math.abs(progressPoints[0].ts - ts);
+		for (let i = 1; i < progressPoints.length; i++) {
+			const d = Math.abs(progressPoints[i].ts - ts);
+			if (d < bestDiff) {
+				bestDiff = d;
+				best = progressPoints[i];
+			}
+		}
+		return best.progress;
+	}
+
+	function representativeSectorSnapshots(seg: Segment): SectorSnapshot[] {
+		const snapshots = [...(seg.sector_snapshots ?? [])].sort((a, b) => a.captured_ts - b.captured_ts);
+		if (snapshots.length <= MAX_REPRESENTATIVE_SNAPSHOTS) return snapshots;
+
+		const candidates: SnapshotCandidate[] = snapshots.map((snapshot) => ({
+			snapshot,
+			progress: progressAtTimestamp(seg.path, snapshot.captured_ts),
+			used: isUsedCrop(snapshot.captured_ts)
+		}));
+		const totalProgress = candidates[candidates.length - 1]?.progress ?? 0;
+		const minGap = totalProgress > 0 ? totalProgress * MIN_PROGRESS_GAP_RATIO : 0;
+		const selected = new Map<number, SnapshotCandidate>();
+
+		function canAdd(candidate: SnapshotCandidate, force = false): boolean {
+			if (selected.has(candidate.snapshot.captured_ts)) return false;
+			if (force || minGap <= 0) return true;
+			for (const existing of selected.values()) {
+				if (Math.abs(existing.progress - candidate.progress) < minGap) return false;
+			}
+			return true;
+		}
+
+		function addCandidate(candidate: SnapshotCandidate | undefined, force = false): boolean {
+			if (!candidate) return false;
+			if (!canAdd(candidate, force)) return false;
+			selected.set(candidate.snapshot.captured_ts, candidate);
+			return true;
+		}
+
+		addCandidate(candidates[0], true);
+		addCandidate(candidates[candidates.length - 1], true);
+
+		for (const candidate of candidates) {
+			if (candidate.used) addCandidate(candidate, true);
+		}
+
+		const targetCount = Math.max(MAX_REPRESENTATIVE_SNAPSHOTS, selected.size);
+		if (totalProgress > 0) {
+			for (let i = 1; i < targetCount - 1; i++) {
+				const targetProgress = (totalProgress * i) / (targetCount - 1);
+				const candidate = candidates
+					.filter((entry) => !selected.has(entry.snapshot.captured_ts))
+					.sort(
+						(a, b) =>
+							Math.abs(a.progress - targetProgress) - Math.abs(b.progress - targetProgress)
+					)
+					.find((entry) => canAdd(entry));
+				addCandidate(candidate);
+			}
+		}
+
+		if (selected.size < Math.min(candidates.length, MAX_REPRESENTATIVE_SNAPSHOTS)) {
+			for (const candidate of candidates) {
+				if (selected.size >= Math.min(candidates.length, MAX_REPRESENTATIVE_SNAPSHOTS)) break;
+				addCandidate(candidate);
+			}
+		}
+
+		return [...selected.values()]
+			.sort((a, b) => a.progress - b.progress)
+			.map((entry) => entry.snapshot);
+	}
+
 </script>
 
 {#if !detail}
@@ -187,6 +287,7 @@
 	     room, and fall back to stacked when the container is narrow. -->
 	<div class="flex flex-wrap gap-3">
 		{#each detail.segments as segment, idx (idx)}
+			{@const displayedSnapshots = representativeSectorSnapshots(segment)}
 			{@const seg_snapshot_src = segmentSnapshotSrc(segment)}
 			<div class="flex min-w-0 flex-1 flex-col border border-border bg-bg md:min-w-[320px]">
 				<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-sm">
@@ -201,6 +302,7 @@
 					<span class="text-text-muted">
 						{segment.hit_count} frames · {(segment.duration_s ?? 0).toFixed(2)}s
 						{#if segment.sector_snapshots && segment.sector_snapshots.length > 0}
+							· {displayedSnapshots.length} shown
 							· {segment.sector_snapshots.length}/{segment.sector_count ?? 0} sectors
 						{/if}
 					</span>
@@ -212,7 +314,7 @@
 						preserveAspectRatio="xMidYMid meet"
 					>
 						<defs>
-							{#each segment.sector_snapshots as s (s.captured_ts)}
+							{#each displayedSnapshots as s (s.captured_ts)}
 								<clipPath id={`detail-sec-${instanceId}-${idx}-${s.captured_ts}`}>
 									<path
 										d={wedgePath(
@@ -241,8 +343,8 @@
 								opacity="0.22"
 							/>
 						{/if}
-						{#each segment.sector_snapshots as s (s.captured_ts)}
-							{@const wedge_src = wedgeSrc(s)}
+							{#each displayedSnapshots as s (s.captured_ts)}
+								{@const wedge_src = wedgeSrc(s)}
 							{#if wedge_src}
 								<image
 									href={wedge_src}
@@ -279,8 +381,8 @@
 								stroke-linejoin="round"
 							/>
 						{/if}
-						{#each segment.sector_snapshots as s (s.captured_ts)}
-							{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
+							{#each displayedSnapshots as s (s.captured_ts)}
+								{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
 							{#if hit}
 								{@const used = isUsedCrop(s.captured_ts)}
 								<circle

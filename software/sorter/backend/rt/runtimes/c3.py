@@ -68,6 +68,7 @@ DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
 DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
+DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 ACTION_TRACK_MIN_HITS = 2
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
@@ -145,6 +146,7 @@ class RuntimeC3(BaseRuntime):
         self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
+        self._pending_downstream_claims: dict[int, float] = {}
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
         self._sample_transport_max_speed: int | None = None
@@ -186,6 +188,7 @@ class RuntimeC3(BaseRuntime):
             "available_slots": int(self.available_slots()),
             "upstream_taken": int(self._upstream_slot.taken()),
             "downstream_taken": int(self._downstream_slot.taken()),
+            "pending_downstream_claims": len(self._pending_downstream_claims),
             "seen_global_ids": len(self._book.seen_global_ids),
             "exit_stall_active": self._book.exit_stall_since is not None,
             "holdover_active": self.in_holdover(time.monotonic()),
@@ -196,6 +199,7 @@ class RuntimeC3(BaseRuntime):
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         start = self._tick_begin()
         try:
+            self._sweep_pending_downstream_claims(now_mono)
             tracks = self._fresh_tracks(inbox.tracks)
             visible_tracks = [t for t in tracks if is_visible_track(t)]
             action_tracks = [
@@ -355,12 +359,30 @@ class RuntimeC3(BaseRuntime):
         # approach pulses and normal pulses just rotate the ring.
         claim = None
         if commit_to_downstream:
-            claim = self._downstream_slot.try_claim(
-                now_mono=now_mono, hold_time_s=3.0
+            claim_key = (
+                int(track.global_id)
+                if isinstance(track.global_id, int)
+                else None
             )
-            if not claim:
-                self._set_state("pulsing", blocked_reason="downstream_full")
-                return
+            if (
+                claim_key is not None
+                and self._pending_downstream_claims.get(claim_key, 0.0) > now_mono
+            ):
+                claim = None
+            else:
+                claim = self._downstream_slot.try_claim(
+                    now_mono=now_mono,
+                    hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,
+                )
+                if not claim:
+                    self._set_state("pulsing", blocked_reason="downstream_full")
+                    return
+                if claim_key is not None:
+                    self._pending_downstream_claims[claim_key] = (
+                        now_mono + DEFAULT_DOWNSTREAM_CLAIM_HOLD_S
+                    )
+        else:
+            claim_key = None
         timing = self._ejection.timing_for(
             {"mode": mode.value, "track_id": track.track_id}
         )
@@ -394,6 +416,8 @@ class RuntimeC3(BaseRuntime):
                     self._publish_transit_candidate(track, now_mono)
             if not ok and commits_slot:
                 self._downstream_slot.release()
+                if claim_key is not None:
+                    self._pending_downstream_claims.pop(claim_key, None)
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         label = "c3_pulse_precise" if mode is _PulseMode.PRECISE else "c3_pulse_normal"
@@ -401,6 +425,8 @@ class RuntimeC3(BaseRuntime):
         if not enqueued:
             if commits_slot:
                 self._downstream_slot.release()
+                if claim_key is not None:
+                    self._pending_downstream_claims.pop(claim_key, None)
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
@@ -585,7 +611,16 @@ class RuntimeC3(BaseRuntime):
         self._admission_piece_count = 0
         self._visible_track_count = 0
         self._pending_track_count = 0
+        self._pending_downstream_claims.clear()
         self._next_pulse_at = 0.0
+
+    def _sweep_pending_downstream_claims(self, now_mono: float) -> None:
+        expired = [
+            global_id for global_id, deadline in self._pending_downstream_claims.items()
+            if deadline <= now_mono
+        ]
+        for global_id in expired:
+            self._pending_downstream_claims.pop(global_id, None)
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:

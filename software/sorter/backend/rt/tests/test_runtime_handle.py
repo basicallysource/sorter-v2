@@ -85,6 +85,17 @@ def _empty_handle(camera_service: Any) -> RtRuntimeHandle:
     )
 
 
+def test_start_marks_persisted_active_dossiers_stale() -> None:
+    handle = _empty_handle(_FakeCameraService({}))
+    with patch("local_state.mark_active_piece_dossiers_stale", return_value=3) as mark:
+        handle.start(paused=True)
+
+    mark.assert_called_once_with(reason="rt_runtime_start")
+    assert handle.started is True
+    assert handle.paused is True
+    handle.stop()
+
+
 def _track_batch(feed_id: str) -> TrackBatch:
     return TrackBatch(
         feed_id=feed_id,

@@ -135,6 +135,14 @@ def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
             runtime,
             "_exit_handoff_min_interval_s",
         ),
+        "handoff_retry_escalate_after": _runtime_attr(
+            runtime,
+            "_handoff_retry_escalate_after",
+        ),
+        "handoff_retry_max_pulses": _runtime_attr(
+            runtime,
+            "_handoff_retry_max_pulses",
+        ),
         "transport_target_rpm": _transport_target_rpm(runtime),
         "normal": _rotor_snapshot(getattr(feeder_cfg, "second_rotor_normal", None)),
         "precision": _rotor_snapshot(getattr(feeder_cfg, "second_rotor_precision", None)),
@@ -154,6 +162,14 @@ def _c3_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
         "exit_handoff_min_interval_s": _runtime_attr(
             runtime,
             "_exit_handoff_min_interval_s",
+        ),
+        "handoff_retry_escalate_after": _runtime_attr(
+            runtime,
+            "_handoff_retry_escalate_after",
+        ),
+        "handoff_retry_max_pulses": _runtime_attr(
+            runtime,
+            "_handoff_retry_max_pulses",
         ),
         "transport_target_rpm": _transport_target_rpm(runtime),
         "normal": _rotor_snapshot(getattr(feeder_cfg, "third_rotor_normal", None)),
@@ -177,6 +193,10 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
         "transport_max_step_deg": _runtime_attr(runtime, "_transport_max_step_deg"),
         "transport_cooldown_s": _runtime_attr(runtime, "_transport_cooldown_s"),
         "transport_target_rpm": _transport_target_rpm(runtime),
+        "classify_pretrigger_exit_lead_deg": _runtime_attr(
+            runtime,
+            "_classify_pretrigger_exit_lead_deg",
+        ),
         "exit_approach_angle_deg": _runtime_attr(runtime, "_exit_approach_angle_deg"),
         "exit_approach_step_deg": _runtime_attr(runtime, "_exit_approach_step_deg"),
         "transport_speed_scale": _safe_float(
@@ -302,6 +322,8 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
         "wiggle_cooldown_ms",
         "exit_handoff_min_interval_s",
         "exit_handoff_min_interval_ms",
+        "handoff_retry_escalate_after",
+        "handoff_retry_max_pulses",
         "transport_target_rpm",
         "normal",
         "precision",
@@ -360,6 +382,22 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
         0.0,
         10.0,
     )
+    _set_runtime_int(
+        runtime,
+        "_handoff_retry_escalate_after",
+        values,
+        "handoff_retry_escalate_after",
+        min_value=1,
+        max_value=20,
+    )
+    _set_runtime_int(
+        runtime,
+        "_handoff_retry_max_pulses",
+        values,
+        "handoff_retry_max_pulses",
+        min_value=1,
+        max_value=5,
+    )
     _set_transport_target_rpm(runtime, values)
     if "normal" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "second_rotor_normal", None), values["normal"], "c2.normal")
@@ -383,6 +421,8 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
         "holdover_ms",
         "exit_handoff_min_interval_s",
         "exit_handoff_min_interval_ms",
+        "handoff_retry_escalate_after",
+        "handoff_retry_max_pulses",
         "transport_target_rpm",
         "normal",
         "precision",
@@ -433,6 +473,22 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
         0.0,
         10.0,
     )
+    _set_runtime_int(
+        runtime,
+        "_handoff_retry_escalate_after",
+        values,
+        "handoff_retry_escalate_after",
+        min_value=1,
+        max_value=20,
+    )
+    _set_runtime_int(
+        runtime,
+        "_handoff_retry_max_pulses",
+        values,
+        "handoff_retry_max_pulses",
+        min_value=1,
+        max_value=5,
+    )
     _set_transport_target_rpm(runtime, values)
     if "normal" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "third_rotor_normal", None), values["normal"], "c3.normal")
@@ -456,6 +512,7 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "transport_cooldown_s",
         "transport_cooldown_ms",
         "transport_target_rpm",
+        "classify_pretrigger_exit_lead_deg",
         "exit_approach_angle_deg",
         "exit_approach_step_deg",
         "transport_speed_scale",
@@ -544,6 +601,14 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             setattr(runtime, "_transport_max_step_deg", max(float(step), float(max_step)))
     _set_runtime_seconds(runtime, "_transport_cooldown_s", values, "transport_cooldown_s", "transport_cooldown_ms", 0.0, 10.0)
     _set_transport_target_rpm(runtime, values)
+    _set_runtime_float(
+        runtime,
+        "_classify_pretrigger_exit_lead_deg",
+        values,
+        "classify_pretrigger_exit_lead_deg",
+        min_value=0.0,
+        max_value=180.0,
+    )
     _set_runtime_float(runtime, "_exit_approach_angle_deg", values, "exit_approach_angle_deg", min_value=0.0, max_value=90.0)
     _set_runtime_float(runtime, "_exit_approach_step_deg", values, "exit_approach_step_deg", min_value=0.1, max_value=24.0)
     _set_runtime_bool(runtime, "_idle_jog_enabled", values, "idle_jog_enabled")

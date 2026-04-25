@@ -219,6 +219,40 @@ def test_c3_loaded_ring_uses_precise_pulse_off_exit() -> None:
     assert down.available() == 1
 
 
+def test_c3_records_dropzone_arrival_burst_diagnostics() -> None:
+    rt, _up, _down, _log = _make(max_piece_count=5)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=99, global_id=99, angle_rad=math.radians(120.0)),
+            ),
+            capacity_downstream=0,
+        ),
+        now_mono=9.0,
+    )
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=1, global_id=1, angle_rad=math.radians(120.0)),
+                _track(track_id=2, global_id=2, angle_rad=math.radians(180.0)),
+                _track(track_id=3, global_id=3, angle_rad=math.radians(-120.0)),
+            ),
+            capacity_downstream=0,
+        ),
+        now_mono=10.0,
+    )
+
+    diag = rt.debug_snapshot()["handoff_burst_diagnostics"]
+    assert diag["anomalies"]
+    anomaly = diag["anomalies"][-1]
+    assert anomaly["kind"] == "dropzone_arrival_burst"
+    assert anomaly["runtime_id"] == "c3"
+    assert anomaly["arrival_count_window"] == 3
+    assert anomaly["context"]["piece_count"] == 3
+
+
 def test_c3_approach_pulse_is_precise_without_committing() -> None:
     rt, _up, down, log = _make()
     # Track inside the approach arc (45°) but outside the commit arc
@@ -327,6 +361,25 @@ def test_c3_pending_handoff_retries_same_track_after_spacing_without_new_claim()
     assert down.taken(now_mono=1.0) == 1
     assert len([entry for entry in log if entry.startswith("precise:")]) == 2
     assert rt.debug_snapshot()["pending_downstream_claims"] == 1
+    assert rt.health().state == "pulsing_precise"
+
+
+def test_c3_pending_handoff_escalates_to_double_nudge_without_new_claim() -> None:
+    rt, _up, down, log = _make(downstream_cap=4)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=23, angle_rad=0.0)),
+        capacity_downstream=4,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(inbox, now_mono=1.0)
+    rt.tick(inbox, now_mono=2.0)
+
+    assert down.taken(now_mono=2.0) == 1
+    assert len([entry for entry in log if entry.startswith("precise:")]) == 4
+    snap = rt.debug_snapshot()
+    assert snap["pending_downstream_claims"] == 1
+    assert snap["pending_downstream_retry_max"] == 2
     assert rt.health().state == "pulsing_precise"
 
 

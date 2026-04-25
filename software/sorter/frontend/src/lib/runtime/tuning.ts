@@ -13,6 +13,8 @@ export type RuntimeTuningChannel = {
 	intake_guard_deg?: number | null;
 	pulse_cooldown_s?: number | null;
 	exit_handoff_min_interval_s?: number | null;
+	handoff_retry_escalate_after?: number | null;
+	handoff_retry_max_pulses?: number | null;
 	jam_timeout_s?: number | null;
 	jam_min_pulses?: number | null;
 	jam_cooldown_s?: number | null;
@@ -30,6 +32,7 @@ export type RuntimeTuningChannel = {
 	transport_max_step_deg?: number | null;
 	transport_cooldown_s?: number | null;
 	transport_speed_scale?: number | null;
+	classify_pretrigger_exit_lead_deg?: number | null;
 	exit_approach_angle_deg?: number | null;
 	exit_approach_step_deg?: number | null;
 	stepper_degrees_per_tray_degree?: number | null;

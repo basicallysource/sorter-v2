@@ -528,6 +528,32 @@
 			/>
 
 			{@render tuningLabel(
+				'tune-c4-early-classify',
+				'Early cls',
+				'Degrees before the C4 exit where classification may start once the piece is clear of intake. Higher gives the distributor more time; zero disables early classification.'
+			)}
+			<input
+				id="tune-c4-early-classify"
+				type="range"
+				min="0"
+				max="120"
+				step="2"
+				value={numberValue(c4.classify_pretrigger_exit_lead_deg, 72)}
+				oninput={(e) =>
+					updateChannel('c4', { classify_pretrigger_exit_lead_deg: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="120"
+				step="2"
+				value={numberValue(c4.classify_pretrigger_exit_lead_deg, 72)}
+				onchange={(e) =>
+					updateChannel('c4', { classify_pretrigger_exit_lead_deg: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
 				'tune-c4-unjam',
 				'Unjam',
 				'Time without enough C4 progress before the unjam strategy may kick in. Higher waits longer; lower reacts sooner.'
@@ -740,6 +766,58 @@
 			/>
 
 			{@render tuningLabel(
+				'tune-c3-retry-after',
+				'C3 Retry',
+				'Same-piece C3 handoff retries before a stronger double-nudge is allowed. Lower clears stubborn exit pieces faster; higher is gentler.'
+			)}
+			<input
+				id="tune-c3-retry-after"
+				type="range"
+				min="1"
+				max="6"
+				step="1"
+				value={numberValue(c3.handoff_retry_escalate_after, 2)}
+				oninput={(e) =>
+					updateChannel('c3', { handoff_retry_escalate_after: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="1"
+				max="6"
+				step="1"
+				value={numberValue(c3.handoff_retry_escalate_after, 2)}
+				onchange={(e) =>
+					updateChannel('c3', { handoff_retry_escalate_after: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c3-retry-pulses',
+				'C3 Nudges',
+				'Maximum small precision pulses in one same-piece C3 retry. Keep low to avoid pushing followers through with the front piece.'
+			)}
+			<input
+				id="tune-c3-retry-pulses"
+				type="range"
+				min="1"
+				max="3"
+				step="1"
+				value={numberValue(c3.handoff_retry_max_pulses, 2)}
+				oninput={(e) =>
+					updateChannel('c3', { handoff_retry_max_pulses: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="1"
+				max="3"
+				step="1"
+				value={numberValue(c3.handoff_retry_max_pulses, 2)}
+				onchange={(e) =>
+					updateChannel('c3', { handoff_retry_max_pulses: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
 				'tune-c2-max',
 				'C2 Max',
 				'Maximum pieces C2 should hold before C1 is blocked. Lower prevents a large queue; higher lets C2 buffer more parts.'
@@ -810,6 +888,58 @@
 				value={msValue(c2.exit_handoff_min_interval_s, 850)}
 				onchange={(e) =>
 					updateChannel('c2', { exit_handoff_min_interval_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c2-retry-after',
+				'C2 Retry',
+				'Same-piece C2 handoff retries before a stronger double-nudge is allowed. Lower clears the C2 exit faster; higher protects C3 spacing.'
+			)}
+			<input
+				id="tune-c2-retry-after"
+				type="range"
+				min="1"
+				max="6"
+				step="1"
+				value={numberValue(c2.handoff_retry_escalate_after, 2)}
+				oninput={(e) =>
+					updateChannel('c2', { handoff_retry_escalate_after: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="1"
+				max="6"
+				step="1"
+				value={numberValue(c2.handoff_retry_escalate_after, 2)}
+				onchange={(e) =>
+					updateChannel('c2', { handoff_retry_escalate_after: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-c2-retry-pulses',
+				'C2 Nudges',
+				'Maximum small precision pulses in one same-piece C2 retry. Keep low so C2 does not dump a train into C3.'
+			)}
+			<input
+				id="tune-c2-retry-pulses"
+				type="range"
+				min="1"
+				max="3"
+				step="1"
+				value={numberValue(c2.handoff_retry_max_pulses, 2)}
+				oninput={(e) =>
+					updateChannel('c2', { handoff_retry_max_pulses: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="1"
+				max="3"
+				step="1"
+				value={numberValue(c2.handoff_retry_max_pulses, 2)}
+				onchange={(e) =>
+					updateChannel('c2', { handoff_retry_max_pulses: inputNumber(e) })}
 				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
 			/>
 

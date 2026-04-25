@@ -31,12 +31,14 @@ from rt.events.topics import (
     PIECE_CLASSIFIED,
     PIECE_REGISTERED,
     PIECE_TRANSIT_LINKED,
+    RUNTIME_HANDOFF_BURST,
 )
 from rt.perception.track_policy import action_track, admission_basis, is_visible_track
 from rt.pieces.identity import new_piece_uuid, new_tracker_epoch, tracklet_payload
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
+from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
 from ._strategies import (
     C4Admission,
@@ -51,6 +53,9 @@ from .base import BaseRuntime, HwWorker
 DEFAULT_CLASSIFY_ANGLE_DEG = 90.0
 DEFAULT_EXIT_ANGLE_DEG = 270.0
 DEFAULT_ANGLE_TOLERANCE_DEG = 12.0
+# C4 can classify before the final point-of-no-return so the distributor
+# can preposition while the piece is still travelling toward the exit.
+DEFAULT_CLASSIFY_PRETRIGGER_EXIT_LEAD_DEG = 72.0
 DEFAULT_SHIMMY_STEP_DEG = 4.0
 DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
@@ -152,6 +157,7 @@ class RuntimeC4(BaseRuntime):
         tracker_key: str | None = None,
         tracker_epoch: str | None = None,
         classify_angle_deg: float = DEFAULT_CLASSIFY_ANGLE_DEG,
+        classify_pretrigger_exit_lead_deg: float = DEFAULT_CLASSIFY_PRETRIGGER_EXIT_LEAD_DEG,
         exit_angle_deg: float = DEFAULT_EXIT_ANGLE_DEG,
         angle_tolerance_deg: float = DEFAULT_ANGLE_TOLERANCE_DEG,
         intake_half_width_deg: float = DEFAULT_INTAKE_HALF_WIDTH_DEG,
@@ -231,6 +237,10 @@ class RuntimeC4(BaseRuntime):
         self._eject = eject_command or (lambda: True)
         self._crop_provider = crop_provider
         self._classify_angle_deg = float(classify_angle_deg)
+        self._classify_pretrigger_exit_lead_deg = max(
+            0.0,
+            float(classify_pretrigger_exit_lead_deg),
+        )
         self._exit_angle_deg = float(exit_angle_deg)
         self._angle_tol_deg = float(angle_tolerance_deg)
         self._intake_half_width_deg = float(intake_half_width_deg)
@@ -315,6 +325,11 @@ class RuntimeC4(BaseRuntime):
         self._last_unjam_at: float | None = None
         self._unjam_count: int = 0
         self._startup_purge_state = C4StartupPurgeState()
+        self._handoff_diagnostics = HandoffDiagnostics(
+            runtime_id=self.runtime_id,
+            feed_id=self.feed_id,
+            logger=self._logger,
+        )
 
     def available_slots(self) -> int:
         if self._startup_purge_pending():
@@ -575,6 +590,7 @@ class RuntimeC4(BaseRuntime):
             "angles": {
                 "intake_deg": self._zone_manager.intake_angle_deg,
                 "classify_deg": self._classify_angle_deg,
+                "classify_pretrigger_exit_lead_deg": self._classify_pretrigger_exit_lead_deg,
                 "exit_deg": self._exit_angle_deg,
                 "drop_deg": self._zone_manager.drop_angle_deg,
                 "tolerance_deg": self._angle_tol_deg,
@@ -602,6 +618,7 @@ class RuntimeC4(BaseRuntime):
                 "count": int(self._idle_jog_count),
             },
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
+            "handoff_burst_diagnostics": self._handoff_diagnostics.snapshot(),
             "transport_unjam": {
                 "enabled": bool(self._unjam_enabled),
                 "stall_s": float(self._unjam_stall_s),
@@ -892,7 +909,10 @@ class RuntimeC4(BaseRuntime):
         transit = self._claim_transit_for_track(
             track,
             now_mono=now_mono,
-            allow_cross_channel=not recovered,
+            allow_cross_channel=(
+                not recovered
+                or self._should_claim_recovered_cross_channel(now_mono)
+            ),
         )
         piece_uuid = (
             transit.piece_uuid
@@ -944,8 +964,24 @@ class RuntimeC4(BaseRuntime):
         )
         self._pieces[piece_uuid] = dossier
         self._track_to_piece[gid] = piece_uuid
-        if release_upstream:
+        release_upstream_now = bool(release_upstream)
+        if (
+            not release_upstream_now
+            and recovered
+            and transit is not None
+            and transit.relation == "cross_channel"
+            and transit.source_runtime == "c3"
+        ):
+            release_upstream_now = True
+        if release_upstream_now:
             self._upstream_slot.release()
+        self._record_dropzone_arrival(
+            track=track,
+            dossier=dossier,
+            now_mono=now_mono,
+            release_upstream=release_upstream_now,
+            recovered=recovered,
+        )
         result_payload = self._classification_payload(result)
         classification_status = (
             "classified" if result is not None and result.part_id else "pending"
@@ -1078,6 +1114,9 @@ class RuntimeC4(BaseRuntime):
         if transit is not None:
             self._transit_link_count += 1
         return transit
+
+    def _should_claim_recovered_cross_channel(self, now_mono: float) -> bool:
+        return self._upstream_slot.taken(now_mono=now_mono) > 0
 
     def _piece_uuid_for_track(self, track: Track) -> str | None:
         if track.global_id is not None:
@@ -1225,8 +1264,9 @@ class RuntimeC4(BaseRuntime):
                 continue
             angle_deg = math.degrees(track.angle_rad or 0.0)
             at_classify = self._near_angle(angle_deg, self._classify_angle_deg)
+            at_pretrigger = self._in_classify_pretrigger(angle_deg)
             at_exit = self._near_angle(angle_deg, self._exit_angle_deg)
-            if not at_classify and not at_exit:
+            if not at_classify and not at_pretrigger and not at_exit:
                 self._mark_classify_skip("not_at_classify_angle")
                 continue
             crop = self._build_crop(track)
@@ -1248,7 +1288,29 @@ class RuntimeC4(BaseRuntime):
                 continue
             dossier.classify_future = future
             dossier.last_seen_mono = now_mono
-            self._mark_classify_skip("submitted" if at_classify else "submitted_late_exit")
+            self._mark_classify_skip(
+                "submitted"
+                if at_classify
+                else "submitted_early"
+                if at_pretrigger
+                else "submitted_late_exit"
+            )
+
+    def _in_classify_pretrigger(self, angle_deg: float) -> bool:
+        lead_deg = float(self._classify_pretrigger_exit_lead_deg)
+        if lead_deg <= 0.0:
+            return False
+        if self._near_angle(angle_deg, self._zone_manager.intake_angle_deg):
+            return False
+        intake_guard = (
+            self._intake_half_width_deg
+            + float(getattr(self._zone_manager, "guard_angle_deg", 0.0))
+        )
+        if abs(_wrap_deg(angle_deg - self._zone_manager.intake_angle_deg)) <= intake_guard:
+            return False
+        if self._near_angle(angle_deg, self._exit_angle_deg):
+            return False
+        return abs(_wrap_deg(angle_deg - self._exit_angle_deg)) <= lead_deg
 
     def _mark_classify_skip(self, reason: str) -> None:
         self._last_classify_skip = reason
@@ -1319,10 +1381,32 @@ class RuntimeC4(BaseRuntime):
         if self._handoff is None:
             self._mark_handoff("request_not_wired")
             return
-        for dossier in list(self._pieces.values()):
-            if dossier.result is None or dossier.handoff_requested:
-                continue
-            self._request_distributor_handoff(dossier, now_mono)
+        dossier = self._next_handoff_candidate()
+        if dossier is None:
+            return
+        self._request_distributor_handoff(dossier, now_mono)
+
+    def _next_handoff_candidate(self) -> _PieceDossier | None:
+        for dossier in self._dossiers_by_exit_distance():
+            if dossier.handoff_requested:
+                self._mark_handoff("front_already_requested")
+                return None
+            if dossier.result is None:
+                self._mark_handoff("front_not_classified")
+                return None
+            return dossier
+        return None
+
+    def _dossiers_by_exit_distance(self) -> list[_PieceDossier]:
+        dossiers = list(self._pieces.values())
+        dossiers.sort(key=self._dossier_exit_distance)
+        return dossiers
+
+    def _dossier_exit_distance(self, dossier: _PieceDossier) -> float:
+        zone = self._zone_manager.zone_for(dossier.piece_uuid)
+        if zone is None:
+            return 9999.0
+        return abs(_wrap_deg(float(zone.center_deg) - self._exit_angle_deg))
 
     def _request_distributor_handoff(
         self,
@@ -1385,7 +1469,79 @@ class RuntimeC4(BaseRuntime):
             dossier.last_handoff_attempt_at = now_mono
             return False
         dossier.handoff_requested = True
+        self._record_handoff_move(
+            now_mono=now_mono,
+            source="c4_distributor_handoff_request",
+            step_deg=None,
+            use_exit_approach=None,
+            track_count=len(self._pieces),
+            dossier=dossier,
+        )
         self._mark_handoff("accepted")
+        return True
+
+    def _abort_non_front_handoffs(
+        self,
+        front_piece_uuid: str,
+        now_mono: float,
+    ) -> None:
+        for dossier in list(self._pieces.values()):
+            if dossier.piece_uuid == front_piece_uuid:
+                continue
+            if not dossier.handoff_requested:
+                continue
+            self._abort_handoff_only(
+                dossier,
+                now_mono=now_mono,
+                reason="out_of_order_exit",
+                front_piece_uuid=front_piece_uuid,
+            )
+
+    def _abort_handoff_only(
+        self,
+        dossier: _PieceDossier,
+        *,
+        now_mono: float,
+        reason: str,
+        front_piece_uuid: str | None = None,
+    ) -> bool:
+        if not dossier.handoff_requested:
+            return False
+        port = self._handoff
+        if port is not None:
+            try:
+                port.handoff_abort(
+                    dossier.piece_uuid,
+                    reason=reason,
+                    now_mono=now_mono,
+                )
+            except Exception:
+                self._logger.exception(
+                    "RuntimeC4: distributor handoff_abort raised for piece=%s",
+                    dossier.piece_uuid,
+                )
+        self._downstream_slot.release()
+        dossier.handoff_requested = False
+        dossier.distributor_ready = False
+        dossier.eject_enqueued = False
+        dossier.eject_committed = False
+        dossier.last_handoff_attempt_at = now_mono
+        self._mark_handoff(f"aborted_{reason}")
+        self._record_handoff_move(
+            now_mono=now_mono,
+            source=f"c4_handoff_abort_{reason}",
+            step_deg=None,
+            use_exit_approach=None,
+            track_count=len(self._pieces),
+            dossier=dossier,
+            extra={"front_piece_uuid": front_piece_uuid},
+        )
+        self._logger.warning(
+            "RuntimeC4: aborted distributor handoff for piece=%s reason=%s front=%s",
+            dossier.piece_uuid,
+            reason,
+            front_piece_uuid,
+        )
         return True
 
     def _handoff_dossier_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
@@ -1432,6 +1588,7 @@ class RuntimeC4(BaseRuntime):
         if piece_uuid is None:
             return
         dossier = self._pieces.get(piece_uuid)
+        self._abort_non_front_handoffs(piece_uuid, now_mono)
         if dossier is None or dossier.result is None:
             if inbox.capacity_downstream <= 0:
                 self._maybe_shimmy(now_mono)
@@ -1466,6 +1623,103 @@ class RuntimeC4(BaseRuntime):
             return
 
         self._enqueue_eject(piece_uuid, claim_downstream=True)
+
+    def _record_dropzone_arrival(
+        self,
+        *,
+        track: Track,
+        dossier: _PieceDossier,
+        now_mono: float,
+        release_upstream: bool,
+        recovered: bool,
+    ) -> None:
+        if not release_upstream:
+            return
+        anomaly = self._handoff_diagnostics.record_arrivals(
+            now_mono=now_mono,
+            arrivals=[
+                {
+                    "piece_uuid": dossier.piece_uuid,
+                    "global_id": dossier.global_id,
+                    "track_id": track.track_id,
+                    "angle_deg": self._track_angle_deg(track),
+                    "release_upstream": bool(release_upstream),
+                    "recovered": bool(recovered),
+                    "transit_relation": dossier.extras.get("transit_relation"),
+                    "transit_source_runtime": dossier.extras.get(
+                        "transit_source_runtime"
+                    ),
+                    "score": float(track.score),
+                    "hit_count": int(track.hit_count),
+                    "confirmed_real": bool(track.confirmed_real),
+                }
+            ],
+            context={
+                "dossier_count": len(self._pieces),
+                "zone_count": self._zone_manager.zone_count(),
+                "raw_detection_count": self._raw_detection_count,
+                "upstream_taken": self._upstream_slot.taken(),
+                "downstream_taken": self._downstream_slot.taken(),
+            },
+        )
+        if anomaly is not None:
+            self._publish_handoff_burst(anomaly, now_mono)
+
+    def _record_handoff_move(
+        self,
+        *,
+        now_mono: float,
+        source: str,
+        step_deg: float | None,
+        use_exit_approach: bool | None,
+        track_count: int,
+        dossier: _PieceDossier | None = None,
+        extra: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        front = self._dossiers_by_exit_distance()[0] if self._pieces else None
+        payload: dict[str, Any] = {
+            "source": source,
+            "step_deg": step_deg,
+            "use_exit_approach": use_exit_approach,
+            "track_count": int(track_count),
+            "dossier_count": len(self._pieces),
+            "zone_count": self._zone_manager.zone_count(),
+            "upstream_taken": int(self._upstream_slot.taken()),
+            "downstream_taken": int(self._downstream_slot.taken()),
+        }
+        if front is not None:
+            payload.update({
+                "front_piece_uuid": front.piece_uuid,
+                "front_global_id": front.global_id,
+                "front_exit_distance_deg": self._dossier_exit_distance(front),
+            })
+        if dossier is not None:
+            payload.update({
+                "piece_uuid": dossier.piece_uuid,
+                "global_id": dossier.global_id,
+                "exit_distance_deg": self._dossier_exit_distance(dossier),
+                "handoff_requested": dossier.handoff_requested,
+                "distributor_ready": dossier.distributor_ready,
+                "has_result": dossier.result is not None,
+            })
+        if extra:
+            payload.update(extra)
+        return self._handoff_diagnostics.record_move(
+            now_mono=now_mono,
+            **payload,
+        )
+
+    def _publish_handoff_burst(
+        self,
+        anomaly: dict[str, Any],
+        now_mono: float,
+    ) -> None:
+        self._publish(RUNTIME_HANDOFF_BURST, anomaly, now_mono)
+
+    def _track_angle_deg(self, track: Track) -> float | None:
+        if track.angle_rad is None:
+            return None
+        return math.degrees(float(track.angle_rad))
 
     def _enqueue_eject(self, piece_uuid: str, *, claim_downstream: bool) -> bool:
         dossier = self._pieces.get(piece_uuid)
@@ -1513,6 +1767,15 @@ class RuntimeC4(BaseRuntime):
                 self._downstream_slot.release()
             self._set_state("drop_commit", blocked_reason="hw_queue_full")
             return False
+        self._record_handoff_move(
+            now_mono=time.monotonic(),
+            source="c4_eject",
+            step_deg=None,
+            use_exit_approach=None,
+            track_count=len(self._pieces),
+            dossier=dossier,
+            extra={"claim_downstream": bool(claim_downstream)},
+        )
         self._fsm = _C4State.DROP_COMMIT
         self._set_state(self._fsm.value)
         self._exit_stall_since = None
@@ -1715,6 +1978,13 @@ class RuntimeC4(BaseRuntime):
                 self._logger.exception("RuntimeC4: transport move raised")
 
         if self._hw.enqueue(_do_move, label="c4_transport"):
+            self._record_handoff_move(
+                now_mono=now_mono,
+                source="c4_transport",
+                step_deg=step,
+                use_exit_approach=use_exit_approach,
+                track_count=len(tracks),
+            )
             self._next_transport_at = now_mono + self._transport_cooldown_s
             return True
         return False

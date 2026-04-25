@@ -541,6 +541,41 @@ def test_c4_consumes_c3_to_c4_transit_metadata() -> None:
     assert dossier.extras["transit_source_global_id"] == 77
 
 
+def test_c4_recovered_track_can_claim_pending_c3_transit_and_release_slot() -> None:
+    registry = TrackTransitRegistry()
+    registry.begin(
+        source_runtime="c3",
+        source_feed="c3_feed",
+        source_global_id=77,
+        target_runtime="c4",
+        now_mono=10.0,
+        piece_uuid="piece-from-c3",
+        relation="cross_channel",
+    )
+    rt, up, _down, _clf, _log = _make(max_zones=2, track_transit=registry)
+    assert up.try_claim(now_mono=10.0, hold_time_s=3.0)
+
+    stable_off_intake = _track(
+        global_id=88,
+        angle_deg=120.0,
+        confirmed=False,
+        hit_count=8,
+        score=0.95,
+        first_seen_ts=9.8,
+        last_seen_ts=10.2,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(stable_off_intake, timestamp=10.2), capacity_downstream=1),
+        now_mono=10.2,
+    )
+
+    dossier = rt.dossier_for("piece-from-c3")
+    assert dossier is not None
+    assert dossier.extras["recovered"] is True
+    assert dossier.extras["transit_relation"] == "cross_channel"
+    assert up.available(now_mono=10.2) == 2
+
+
 def test_c4_submits_classifier_at_classify_angle() -> None:
     clf = _StubClassifier()
     rt, _up, _down, clf_out, _log = _make(classifier=clf)
@@ -583,6 +618,211 @@ def test_c4_submits_late_classifier_at_exit_when_classify_angle_was_missed() -> 
 
     assert clf.calls == 1
     assert rt.debug_snapshot()["classify_debug"]["counts"]["submitted_late_exit"] == 1
+
+
+def test_c4_submits_early_classifier_before_classify_angle() -> None:
+    clf = _StubClassifier()
+    rt, _up, _down, _clf_out, _log = _make(
+        classifier=clf,
+        max_zones=1,
+        classify_pretrigger_exit_lead_deg=120.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    assert clf.calls == 0
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=70.0)), capacity_downstream=1),
+        now_mono=0.2,
+    )
+
+    assert clf.calls == 1
+    assert rt.debug_snapshot()["classify_debug"]["counts"]["submitted_early"] == 1
+
+
+def test_c4_prepositions_distributor_after_early_classification() -> None:
+    rt, _up, down, _clf, log = _make(
+        max_zones=1,
+        classify_pretrigger_exit_lead_deg=120.0,
+    )
+    handoffs: list[dict[str, Any]] = []
+    commits: list[str] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            commits.append(piece_uuid)
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=70.0)), capacity_downstream=1),
+        now_mono=0.2,
+    )
+
+    assert len(handoffs) == 1
+    assert handoffs[0]["classification"].part_id == "3001"
+    assert "eject" not in log
+    assert down.available() == 0
+
+    piece_uuid = handoffs[0]["piece_uuid"]
+    rt.on_distributor_ready(piece_uuid)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=0),
+        now_mono=0.4,
+    )
+
+    assert "eject" in log
+    assert commits == [piece_uuid]
+
+
+def test_c4_prepositions_only_next_exit_order_candidate() -> None:
+    rt, _up, _down, _clf, _log = _make(max_zones=3)
+    handoffs: list[dict[str, Any]] = []
+
+    class _Port:
+        def available_slots(self) -> int:
+            return 1
+
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+    rt._register_piece_for_track(  # noqa: SLF001
+        _track(global_id=1, angle_deg=20.0),
+        now_mono=1.0,
+        release_upstream=True,
+        recovered=False,
+    )
+    rt._register_piece_for_track(  # noqa: SLF001
+        _track(global_id=2, angle_deg=170.0),
+        now_mono=1.1,
+        release_upstream=True,
+        recovered=False,
+    )
+    pieces_by_gid = {
+        dossier.global_id: dossier
+        for dossier in rt._pieces.values()  # noqa: SLF001
+    }
+    for dossier in pieces_by_gid.values():
+        dossier.result = ClassifierResult(
+            part_id="3001",
+            color_id="red",
+            category="part",
+            confidence=0.9,
+            algorithm="stub",
+            latency_ms=5.0,
+            meta={},
+        )
+
+    rt._request_pending_handoffs(now_mono=1.2)  # noqa: SLF001
+
+    assert len(handoffs) == 1
+    assert handoffs[0]["piece_uuid"] == pieces_by_gid[2].piece_uuid
+
+
+def test_c4_aborts_out_of_order_ready_handoff_for_front_exit_piece() -> None:
+    rt, _up, down, _clf, _log = _make(max_zones=3)
+    handoffs: list[dict[str, Any]] = []
+    aborts: list[dict[str, Any]] = []
+
+    class _Port:
+        def available_slots(self) -> int:
+            return 1
+
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **kwargs: Any) -> bool:
+            aborts.append({"piece_uuid": piece_uuid, **kwargs})
+            return True
+
+    rt.set_handoff_port(_Port())
+    rt._register_piece_for_track(  # noqa: SLF001
+        _track(global_id=1, angle_deg=20.0),
+        now_mono=1.0,
+        release_upstream=True,
+        recovered=False,
+    )
+    rt._register_piece_for_track(  # noqa: SLF001
+        _track(global_id=2, angle_deg=180.0),
+        now_mono=1.1,
+        release_upstream=True,
+        recovered=False,
+    )
+    pieces_by_gid = {
+        dossier.global_id: dossier
+        for dossier in rt._pieces.values()  # noqa: SLF001
+    }
+    for dossier in pieces_by_gid.values():
+        dossier.result = ClassifierResult(
+            part_id="3001",
+            color_id="red",
+            category="part",
+            confidence=0.9,
+            algorithm="stub",
+            latency_ms=5.0,
+            meta={},
+        )
+    stale = pieces_by_gid[1]
+    stale.handoff_requested = True
+    stale.distributor_ready = True
+    assert down.try_claim(now_mono=1.2, hold_time_s=15.0)
+
+    rt._handle_exit(  # noqa: SLF001
+        [_track(global_id=2, angle_deg=180.0)],
+        RuntimeInbox(tracks=_batch(), capacity_downstream=0),
+        now_mono=1.3,
+    )
+
+    assert aborts and aborts[-1]["piece_uuid"] == stale.piece_uuid
+    assert aborts[-1]["reason"] == "out_of_order_exit"
+    assert handoffs and handoffs[-1]["piece_uuid"] == pieces_by_gid[2].piece_uuid
+    assert stale.handoff_requested is False
+
+
+def test_c4_records_dropzone_arrival_burst_diagnostics() -> None:
+    rt, _up, _down, _clf, _log = _make(max_zones=4)
+
+    for index, angle in enumerate((0.0, 60.0, 120.0), start=1):
+        assert rt._register_piece_for_track(  # noqa: SLF001
+            _track(global_id=index, angle_deg=angle),
+            now_mono=10.0 + index * 0.2,
+            release_upstream=True,
+            recovered=False,
+        )
+
+    diag = rt.debug_snapshot()["handoff_burst_diagnostics"]
+    assert diag["anomalies"]
+    anomaly = diag["anomalies"][-1]
+    assert anomaly["kind"] == "dropzone_arrival_burst"
+    assert anomaly["runtime_id"] == "c4"
+    assert anomaly["arrival_count_window"] == 3
+    assert anomaly["context"]["zone_count"] == 3
 
 
 def test_c4_drop_commit_fires_eject_on_exit() -> None:

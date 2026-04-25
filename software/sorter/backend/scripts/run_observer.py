@@ -470,6 +470,8 @@ def _derive_sample(
     tracked_pieces: dict[str, Any],
     tracks_by_feed: dict[str, dict[str, Any]],
     runtime_stats: dict[str, Any],
+    now_mono: float | None = None,
+    runtime_anomaly_window_s: float = 3.0,
 ) -> dict[str, Any]:
     rows = tracked_pieces.get("items")
     rows = rows if isinstance(rows, list) else []
@@ -557,6 +559,34 @@ def _derive_sample(
             "confirmed_real_track_count": c4_confirmed_count,
             "active_c4_dossier_count": len(active_zone),
         })
+    if isinstance(runtime_debug, dict):
+        for runtime_id in ("c2", "c3", "c4"):
+            runtime_diag = runtime_debug.get(runtime_id)
+            if not isinstance(runtime_diag, dict):
+                continue
+            handoff_diag = runtime_diag.get("handoff_burst_diagnostics")
+            if not isinstance(handoff_diag, dict):
+                continue
+            runtime_anomalies = handoff_diag.get("anomalies")
+            if not isinstance(runtime_anomalies, list) or not runtime_anomalies:
+                continue
+            fresh_anomalies = [
+                anomaly
+                for anomaly in runtime_anomalies
+                if _runtime_anomaly_is_fresh(
+                    anomaly,
+                    now_mono=now_mono,
+                    window_s=runtime_anomaly_window_s,
+                )
+            ]
+            if not fresh_anomalies:
+                continue
+            last_anomaly = fresh_anomalies[-1]
+            anomalies.append({
+                "kind": f"{runtime_id}_dropzone_arrival_burst",
+                "count": len(fresh_anomalies),
+                "last": last_anomaly if isinstance(last_anomaly, dict) else {},
+            })
 
     stats_payload = runtime_stats.get("payload") if isinstance(runtime_stats.get("payload"), dict) else runtime_stats
     counts = stats_payload.get("counts") if isinstance(stats_payload, dict) else None
@@ -588,6 +618,20 @@ def _derive_sample(
         "runtime_counts": counts if isinstance(counts, dict) else {},
         "anomalies": anomalies,
     }
+
+
+def _runtime_anomaly_is_fresh(
+    anomaly: Any,
+    *,
+    now_mono: float | None,
+    window_s: float,
+) -> bool:
+    if now_mono is None or not isinstance(anomaly, dict):
+        return True
+    ts_mono = anomaly.get("ts_mono")
+    if not isinstance(ts_mono, (int, float)):
+        return True
+    return (float(now_mono) - float(ts_mono)) <= max(0.5, float(window_s))
 
 
 def _write_summary(
@@ -769,6 +813,8 @@ def main() -> int:
                 tracked_pieces=tracked_pieces,
                 tracks_by_feed=tracks_by_feed,
                 runtime_stats=runtime_stats,
+                now_mono=time.monotonic(),
+                runtime_anomaly_window_s=max(3.0, sample_period_s * 2.0 + 0.5),
             )
             sample = {
                 "captured_at": now,

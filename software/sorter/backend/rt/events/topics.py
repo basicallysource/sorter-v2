@@ -16,6 +16,7 @@ PERCEPTION_ROTATION = "perception.rotation"
 HARDWARE_ERROR = "hardware.error"
 RUNTIME_STATS = "runtime.stats"
 RUNTIME_MOVE_COMPLETED = "runtime.move_completed"
+RUNTIME_HANDOFF_BURST = "runtime.handoff_burst"
 
 
 __all__ = [
@@ -28,6 +29,7 @@ __all__ = [
     "PIECE_REGISTERED",
     "PIECE_TRANSIT_LINKED",
     "RUNTIME_MOVE_COMPLETED",
+    "RUNTIME_HANDOFF_BURST",
     "RUNTIME_STATS",
     "SYSTEM_HARDWARE_STATE",
     "SYSTEM_SORTER_STATE",

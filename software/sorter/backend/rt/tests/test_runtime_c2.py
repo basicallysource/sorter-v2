@@ -402,6 +402,37 @@ def test_c2_pending_handoff_retries_same_track_after_spacing_without_new_claim()
     assert rt.health().state == "handoff_retry"
 
 
+def test_c2_pending_handoff_escalates_to_double_nudge_without_new_claim() -> None:
+    rt, _up, down, log = _make(downstream_cap=1)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+        capacity_downstream=1,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+            capacity_downstream=0,
+        ),
+        now_mono=1.0,
+    )
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=42, angle_rad=0.0)),
+            capacity_downstream=0,
+        ),
+        now_mono=2.0,
+    )
+
+    assert down.taken(now_mono=2.0) == 1
+    assert log == ["precise:40", "precise:40", "precise:40", "precise:40"]
+    snap = rt.debug_snapshot()
+    assert snap["pending_downstream_claims"] == 1
+    assert snap["pending_downstream_retry_max"] == 2
+    assert rt.health().state == "handoff_retry"
+
+
 def test_c2_exit_spacing_blocks_nearby_next_piece() -> None:
     rt, _up, down, log = _make(
         downstream_cap=4,

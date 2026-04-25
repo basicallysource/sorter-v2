@@ -83,6 +83,7 @@ def _handle() -> SimpleNamespace:
         _transport_max_step_deg=8.0,
         _transport_cooldown_s=0.18,
         _transport_velocity=SimpleNamespace(target_rpm=0.7),
+        _classify_pretrigger_exit_lead_deg=72.0,
         _exit_approach_angle_deg=36.0,
         _exit_approach_step_deg=3.0,
         _shimmy_step_deg=1.5,
@@ -199,6 +200,7 @@ def test_update_c4_motion_and_backpressure_live() -> None:
                     "transport_cooldown_ms": 140,
                     "transport_acceleration_usteps_per_s2": 60000,
                     "transport_target_rpm": 0.9,
+                    "classify_pretrigger_exit_lead_deg": 80.0,
                     "exit_approach_angle_deg": 24.0,
                     "exit_approach_step_deg": 4.5,
                     "exit_release_shimmy_amplitude_deg": 1.2,
@@ -217,6 +219,7 @@ def test_update_c4_motion_and_backpressure_live() -> None:
     assert handle.orchestrator._slots[("c3", "c4")].capacity() == 3
     assert handle.c4._transport_step_deg == 4.0
     assert handle.c4._transport_cooldown_s == pytest.approx(0.14)
+    assert handle.c4._classify_pretrigger_exit_lead_deg == 80.0
     assert handle.c4._exit_approach_angle_deg == 24.0
     assert handle.c4._exit_approach_step_deg == 4.5
     assert handle.c4._shimmy_step_deg == 1.2
@@ -237,6 +240,7 @@ def test_update_c4_motion_and_backpressure_live() -> None:
     )
     assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 36.0
     assert payload["channels"]["c4"]["transport_target_rpm"] == 0.9
+    assert payload["channels"]["c4"]["classify_pretrigger_exit_lead_deg"] == 80.0
     assert payload["channels"]["c4"]["exit_approach_angle_deg"] == 24.0
     assert payload["channels"]["c4"]["exit_approach_step_deg"] == 4.5
     assert payload["channels"]["c4"]["intake_body_half_width_deg"] == 8.0
@@ -297,6 +301,8 @@ def test_update_c2_flow_and_profile_live() -> None:
                     "exit_near_arc_deg": 24.0,
                     "approach_near_arc_deg": 36.0,
                     "exit_handoff_min_interval_ms": 950,
+                    "handoff_retry_escalate_after": 3,
+                    "handoff_retry_max_pulses": 2,
                     "normal": {
                         "steps_per_pulse": 700,
                         "microsteps_per_second": 4200,
@@ -311,6 +317,8 @@ def test_update_c2_flow_and_profile_live() -> None:
     assert handle.c2._pulse_cooldown_s == pytest.approx(0.24)
     assert math.degrees(handle.c2._exit_near_arc) == pytest.approx(24.0)
     assert handle.c2._exit_handoff_min_interval_s == pytest.approx(0.95)
+    assert handle.c2._handoff_retry_escalate_after == 3
+    assert handle.c2._handoff_retry_max_pulses == 2
     assert handle.irl.irl_config.feeder_config.second_rotor_normal.steps_per_pulse == 700
     assert (
         handle.irl.irl_config.feeder_config.second_rotor_normal.acceleration_microsteps_per_second_sq
@@ -328,6 +336,8 @@ def test_update_c3_exit_handoff_spacing_live() -> None:
                 "c3": {
                     "exit_handoff_min_interval_s": 1.1,
                     "holdover_ms": 1200,
+                    "handoff_retry_escalate_after": 4,
+                    "handoff_retry_max_pulses": 3,
                 }
             }
         },
@@ -335,7 +345,10 @@ def test_update_c3_exit_handoff_spacing_live() -> None:
 
     assert handle.c3._exit_handoff_min_interval_s == pytest.approx(1.1)
     assert handle.c3._holdover_s == pytest.approx(1.2)
+    assert handle.c3._handoff_retry_escalate_after == 4
+    assert handle.c3._handoff_retry_max_pulses == 3
     assert payload["channels"]["c3"]["exit_handoff_min_interval_s"] == pytest.approx(1.1)
+    assert payload["channels"]["c3"]["handoff_retry_max_pulses"] == 3
 
 
 def test_update_rejects_unknown_fields() -> None:

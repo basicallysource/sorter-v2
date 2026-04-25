@@ -30,7 +30,7 @@ from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import PERCEPTION_ROTATION
+from rt.events.topics import PERCEPTION_ROTATION, RUNTIME_HANDOFF_BURST
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
@@ -41,6 +41,7 @@ from rt.perception.track_policy import action_track, is_visible_track
 from rt.services.track_transit import TrackTransitRegistry
 from rt.services.transport_velocity import TransportVelocityObserver
 
+from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
@@ -70,6 +71,8 @@ DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
+DEFAULT_HANDOFF_RETRY_ESCALATE_AFTER = 2
+DEFAULT_HANDOFF_RETRY_MAX_PULSES = 2
 ACTION_TRACK_MIN_HITS = 2
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
@@ -115,6 +118,8 @@ class RuntimeC3(BaseRuntime):
         holdover_ms: int = DEFAULT_HOLDOVER_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
+        handoff_retry_escalate_after: int = DEFAULT_HANDOFF_RETRY_ESCALATE_AFTER,
+        handoff_retry_max_pulses: int = DEFAULT_HANDOFF_RETRY_MAX_PULSES,
         feed_id: str = "c3_feed",
         state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
@@ -146,6 +151,11 @@ class RuntimeC3(BaseRuntime):
             0.0,
             float(exit_handoff_min_interval_s),
         )
+        self._handoff_retry_escalate_after = max(
+            1,
+            int(handoff_retry_escalate_after),
+        )
+        self._handoff_retry_max_pulses = max(1, int(handoff_retry_max_pulses))
         self._book = _PieceBookkeeping(seen_global_ids=set())
         self._next_pulse_at: float = 0.0
         self._next_exit_handoff_at: float = 0.0
@@ -154,6 +164,8 @@ class RuntimeC3(BaseRuntime):
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
         self._pending_downstream_claims: dict[int, float] = {}
+        self._pending_downstream_claim_retries: dict[int, int] = {}
+        self._arrival_diagnostics_armed: bool = False
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
         self._sample_transport_max_speed: int | None = None
@@ -162,6 +174,11 @@ class RuntimeC3(BaseRuntime):
             channel="c3",
             exit_angle_deg=0.0,
             target_rpm=DEFAULT_TRANSPORT_TARGET_RPM,
+        )
+        self._handoff_diagnostics = HandoffDiagnostics(
+            runtime_id=self.runtime_id,
+            feed_id=self.feed_id,
+            logger=self._logger,
         )
 
     # Expose mode enum for tests / callers without re-importing.
@@ -196,12 +213,21 @@ class RuntimeC3(BaseRuntime):
             "upstream_taken": int(self._upstream_slot.taken()),
             "downstream_taken": int(self._downstream_slot.taken()),
             "pending_downstream_claims": len(self._pending_downstream_claims),
+            "pending_downstream_retry_max": max(
+                self._pending_downstream_claim_retries.values(),
+                default=0,
+            ),
+            "handoff_retry_escalate_after": int(
+                self._handoff_retry_escalate_after
+            ),
+            "handoff_retry_max_pulses": int(self._handoff_retry_max_pulses),
             "seen_global_ids": len(self._book.seen_global_ids),
             "exit_stall_active": self._book.exit_stall_since is not None,
             "holdover_active": self.in_holdover(time.monotonic()),
             "exit_handoff_spacing_s": max(0.0, self._next_exit_handoff_at - time.monotonic()),
             "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
+            "handoff_burst_diagnostics": self._handoff_diagnostics.snapshot(),
         })
         return snap
 
@@ -220,7 +246,7 @@ class RuntimeC3(BaseRuntime):
             self._admission_piece_count = len(action_tracks)
             self._transport_velocity.update(action_tracks, now_mono=now_mono)
             if not self._purge_mode:
-                self._credit_new_arrivals(action_tracks)
+                self._credit_new_arrivals(action_tracks, now_mono)
             exit_track = self._pick_exit_track(visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
@@ -308,16 +334,22 @@ class RuntimeC3(BaseRuntime):
             return True
         return (batch_ts - last_seen_ts) <= self._track_stale_s
 
-    def _credit_new_arrivals(self, tracks: list[Track]) -> None:
+    def _credit_new_arrivals(self, tracks: list[Track], now_mono: float) -> None:
         seen = self._book.seen_global_ids
+        arrivals: list[dict[str, Any]] = []
         for t in tracks:
             if t.global_id is None:
                 continue
             if t.global_id in seen:
                 continue
             seen.add(t.global_id)
+            arrivals.append(self._track_diagnostics(t))
             # A new confirmed piece entered C3's ring — release upstream slot.
             self._upstream_slot.release()
+        if arrivals and self._arrival_diagnostics_armed:
+            self._record_arrival_burst(arrivals, now_mono)
+        elif arrivals:
+            self._arrival_diagnostics_armed = True
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
         # Commit zone: stable non-ghost tracks within exit_near_arc (~20°).
@@ -382,7 +414,10 @@ class RuntimeC3(BaseRuntime):
         now_mono: float,
         *,
         commit_to_downstream: bool,
+        repeat_count: int = 1,
+        source: str | None = None,
     ) -> None:
+        repeat_count = max(1, int(repeat_count))
         # Only pieces inside the commit zone (passed in as
         # ``commit_to_downstream=True``) reserve a c3_to_c4 slot. Precise
         # approach pulses and normal pulses just rotate the ring.
@@ -414,6 +449,7 @@ class RuntimeC3(BaseRuntime):
                     self._pending_downstream_claims[claim_key] = (
                         now_mono + DEFAULT_DOWNSTREAM_CLAIM_HOLD_S
                     )
+                    self._pending_downstream_claim_retries[claim_key] = 0
                 self._next_exit_handoff_at = (
                     now_mono + self._exit_handoff_min_interval_s
                 )
@@ -426,16 +462,32 @@ class RuntimeC3(BaseRuntime):
         mode_for_worker = mode
         commits_slot = claim is True
         profile_name = PROFILE_GENTLE if mode is _PulseMode.PRECISE else PROFILE_TRANSPORT
+        move_source = source or f"c3_pulse_{mode_for_worker.value}"
+        move_context = self._record_handoff_move(
+            now_mono=now_mono,
+            source=move_source,
+            mode=mode_for_worker.value,
+            repeat_count=repeat_count,
+            commit_to_downstream=commits_slot,
+            track=track,
+        )
 
         def _run_pulse() -> None:
             ok = False
+            completed_count = 0
             try:
-                ok = self._call_pulse_command(
-                    mode_for_worker,
-                    timing.pulse_ms,
-                    profile_name,
-                )
+                ok = True
+                for _ in range(repeat_count):
+                    if not self._call_pulse_command(
+                        mode_for_worker,
+                        timing.pulse_ms,
+                        profile_name,
+                    ):
+                        ok = False
+                        break
+                    completed_count += 1
             except Exception:
+                ok = False
                 self._logger.exception("RuntimeC3: pulse command raised")
             finally:
                 publish_move_completed(
@@ -443,10 +495,19 @@ class RuntimeC3(BaseRuntime):
                     self._logger,
                     runtime_id=self.runtime_id,
                     feed_id=self.feed_id,
-                    source=f"c3_pulse_{mode_for_worker.value}",
+                    source=move_source,
                     ok=bool(ok),
-                    duration_ms=timing.pulse_ms,
-                    extra={"mode": mode_for_worker.value},
+                    duration_ms=timing.pulse_ms * repeat_count,
+                    extra={
+                        "mode": mode_for_worker.value,
+                        "repeat_count": repeat_count,
+                        "completed_count": completed_count,
+                        "commit_to_downstream": bool(commits_slot),
+                        "piece_count": int(self._piece_count),
+                        "visible_track_count": int(self._visible_track_count),
+                        "track_global_id": move_context.get("track_global_id"),
+                        "track_angle_deg": move_context.get("track_angle_deg"),
+                    },
                 )
                 if ok and commits_slot:
                     self._publish_transit_candidate(track, now_mono)
@@ -454,6 +515,7 @@ class RuntimeC3(BaseRuntime):
                 self._downstream_slot.release()
                 if claim_key is not None:
                     self._pending_downstream_claims.pop(claim_key, None)
+                    self._pending_downstream_claim_retries.pop(claim_key, None)
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         label = "c3_pulse_precise" if mode is _PulseMode.PRECISE else "c3_pulse_normal"
@@ -463,19 +525,27 @@ class RuntimeC3(BaseRuntime):
                 self._downstream_slot.release()
                 if claim_key is not None:
                     self._pending_downstream_claims.pop(claim_key, None)
+                    self._pending_downstream_claim_retries.pop(claim_key, None)
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
-        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
+        self._publish_rotation_window(
+            (timing.pulse_ms * repeat_count) / 1000.0,
+            now_mono,
+        )
         self._set_state(f"pulsing_{mode.value}")
 
     def _dispatch_handoff_retry_pulse(self, track: Track, now_mono: float) -> None:
         self._next_exit_handoff_at = now_mono + self._exit_handoff_min_interval_s
         self._book.exit_stall_since = None
+        retry_count = self._bump_downstream_retry_count(track)
+        repeat_count = self._handoff_retry_repeat_count(retry_count)
         self._dispatch_pulse(
             track,
             _PulseMode.PRECISE,
             now_mono,
             commit_to_downstream=False,
+            repeat_count=repeat_count,
+            source="c3_handoff_retry_pulse",
         )
 
     def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
@@ -658,8 +728,11 @@ class RuntimeC3(BaseRuntime):
         self._visible_track_count = 0
         self._pending_track_count = 0
         self._pending_downstream_claims.clear()
+        self._pending_downstream_claim_retries.clear()
+        self._arrival_diagnostics_armed = False
         self._next_pulse_at = 0.0
         self._next_exit_handoff_at = 0.0
+        self._handoff_diagnostics.reset()
 
     def _downstream_claim_key(self, track: Track) -> int | None:
         if track.global_id is None:
@@ -682,6 +755,106 @@ class RuntimeC3(BaseRuntime):
         ]
         for global_id in expired:
             self._pending_downstream_claims.pop(global_id, None)
+            self._pending_downstream_claim_retries.pop(global_id, None)
+
+    def _bump_downstream_retry_count(self, track: Track) -> int:
+        key = self._downstream_claim_key(track)
+        if key is None:
+            return 1
+        count = self._pending_downstream_claim_retries.get(key, 0) + 1
+        self._pending_downstream_claim_retries[key] = count
+        return count
+
+    def _handoff_retry_repeat_count(self, retry_count: int) -> int:
+        if retry_count >= self._handoff_retry_escalate_after:
+            return self._handoff_retry_max_pulses
+        return 1
+
+    def _record_handoff_move(
+        self,
+        *,
+        now_mono: float,
+        source: str,
+        mode: str,
+        repeat_count: int,
+        commit_to_downstream: bool,
+        track: Track | None,
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "source": source,
+            "mode": mode,
+            "repeat_count": int(repeat_count),
+            "commit_to_downstream": bool(commit_to_downstream),
+            "piece_count": int(self._piece_count),
+            "visible_track_count": int(self._visible_track_count),
+            "pending_downstream_claims": len(self._pending_downstream_claims),
+            "upstream_taken": int(self._upstream_slot.taken()),
+            "downstream_taken": int(self._downstream_slot.taken()),
+        }
+        if track is not None:
+            payload.update({
+                "track_global_id": track.global_id,
+                "track_angle_deg": self._track_angle_deg(track),
+            })
+        return self._handoff_diagnostics.record_move(
+            now_mono=now_mono,
+            **payload,
+        )
+
+    def _record_arrival_burst(
+        self,
+        arrivals: list[dict[str, Any]],
+        now_mono: float,
+    ) -> None:
+        anomaly = self._handoff_diagnostics.record_arrivals(
+            now_mono=now_mono,
+            arrivals=arrivals,
+            context={
+                "piece_count": self._piece_count,
+                "visible_track_count": self._visible_track_count,
+                "pending_track_count": self._pending_track_count,
+                "upstream_taken": self._upstream_slot.taken(),
+                "downstream_taken": self._downstream_slot.taken(),
+                "pending_downstream_claims": len(self._pending_downstream_claims),
+            },
+        )
+        if anomaly is not None:
+            self._publish_handoff_burst(anomaly, now_mono)
+
+    def _publish_handoff_burst(
+        self,
+        anomaly: dict[str, Any],
+        now_mono: float,
+    ) -> None:
+        if self._bus is None:
+            return
+        try:
+            self._bus.publish(
+                Event(
+                    topic=RUNTIME_HANDOFF_BURST,
+                    payload=anomaly,
+                    source=self.runtime_id,
+                    ts_mono=float(now_mono),
+                )
+            )
+        except Exception:
+            self._logger.exception("RuntimeC3: handoff-burst publish failed")
+
+    def _track_diagnostics(self, track: Track) -> dict[str, Any]:
+        return {
+            "track_id": track.track_id,
+            "global_id": track.global_id,
+            "piece_uuid": track.piece_uuid,
+            "angle_deg": self._track_angle_deg(track),
+            "score": float(track.score),
+            "hit_count": int(track.hit_count),
+            "confirmed_real": bool(track.confirmed_real),
+        }
+
+    def _track_angle_deg(self, track: Track) -> float | None:
+        if track.angle_rad is None:
+            return None
+        return math.degrees(float(track.angle_rad))
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:

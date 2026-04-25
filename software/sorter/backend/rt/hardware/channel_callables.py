@@ -175,7 +175,7 @@ def build_c2_callables(
     *,
     motion_diagnostics: MotionDiagnostics | None = None,
 ) -> tuple[
-    Callable[[float, str | None], bool],
+    Callable[[Any, float, str | None], bool],
     Callable[[], bool],
     Callable[[float, int | None, int | None], bool],
 ]:
@@ -194,19 +194,28 @@ def build_c2_callables(
         except Exception:
             return None
 
-    def pulse(_pulse_ms: float, profile_name: str | None = None) -> bool:
+    def pulse(mode: Any, _pulse_ms: float, profile_name: str | None = None) -> bool:
         stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
-        cfg = getattr(getattr(irl, "feeder_config", None) or getattr(
+        feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
             getattr(irl, "irl_config", None), "feeder_config", None
-        ), "second_rotor_normal", None)
-        if stepper is None or cfg is None:
+        )
+        if stepper is None or feeder_cfg is None:
             logger.error("TODO_PHASE5_WIRING: c2 pulse - stepper/cfg missing")
             return False
+        mode_value = getattr(mode, "value", mode)
+        cfg = (
+            feeder_cfg.second_rotor_precision
+            if str(mode_value) == "precise"
+            else feeder_cfg.second_rotor_normal
+        )
         try:
             deg = stepper.degrees_for_microsteps(cfg.steps_per_pulse)
+            default_profile = (
+                PROFILE_GENTLE if str(mode_value) == "precise" else PROFILE_TRANSPORT
+            )
             profile = profile_from_rotor_config(
                 channel="c2",
-                name=profile_name or PROFILE_TRANSPORT,
+                name=profile_name or default_profile,
                 cfg=cfg,
             )
             return move_degrees_with_profile(

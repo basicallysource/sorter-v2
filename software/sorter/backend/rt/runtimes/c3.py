@@ -47,11 +47,12 @@ from .base import BaseRuntime, HwWorker
 
 
 DEFAULT_EXIT_ZONE_NEAR_ARC_RAD = math.radians(20.0)
-# Widened deceleration zone: once a confirmed-real track enters this
-# arc, C3 switches to precise (slow) pulses even though the piece is
-# not yet in the commit-zone. Gives the piece a gentle approach
-# instead of slamming into C4 at normal-pulse velocity.
-DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(60.0)
+# Deceleration zone: once a stable track enters this arc but is not yet
+# inside the commit zone, C3 switches to precise (slow) pulses so the
+# piece eases into the C3→C4 transition instead of being slammed at
+# normal-pulse velocity. Pulses outside this arc run at full transport
+# speed so material reaches the exit quickly.
+DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(45.0)
 # Small queue of separated pieces on C3: as soon as a new piece lands
 # in the intake zone C3 nudges it away so the next C2 drop has clear
 # space; the queue drains piece by piece via the normal approach/exit
@@ -327,16 +328,19 @@ class RuntimeC3(BaseRuntime):
         approach_track: Track | None,
         now_mono: float,
     ) -> _PulseMode:
-        # C3 runs at one constant speed for now — the fast NORMAL pulse
-        # was hurling pieces across the C3 to C4 transition instead of
-        # queueing them cleanly. PRECISE stays the single gear until a
-        # proper two-speed profile with a measured deceleration curve
-        # lands. The commit vs. advance distinction is still carried
-        # by ``commit_to_downstream`` in _dispatch_pulse, so only pieces
-        # in the exit arc actually claim a c3_to_c4 slot.
+        # PRECISE in the approach + exit arcs (gentle hand-off into C4),
+        # NORMAL outside so material reaches the exit zone quickly. A
+        # holdover window keeps the gear in PRECISE for ~holdover_s after
+        # the last commit so a piece arriving right behind it does not
+        # eat one normal pulse before the zone gating engages.
         if exit_track is not None:
             self._book.last_precise_at = now_mono
-        return _PulseMode.PRECISE
+            return _PulseMode.PRECISE
+        if approach_track is not None:
+            return _PulseMode.PRECISE
+        if self.in_holdover(now_mono):
+            return _PulseMode.PRECISE
+        return _PulseMode.NORMAL
 
     def _dispatch_pulse(
         self,

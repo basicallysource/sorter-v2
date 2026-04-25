@@ -7,6 +7,14 @@ piece is stuck at the exit but downstream is closed. Port of:
 * ``subsystems/channels/c2_separation.py`` — pulse dispatch + exit-wiggle
 * ``subsystems/feeder/analysis.py``        — track-to-action mapping
 
+Pulse modes mirror C3:
+* PRECISE — track is inside the approach or exit arc; uses
+  ``second_rotor_precision`` for small, slow steps so pieces ease into the
+  C2→C3 transition one at a time.
+* NORMAL  — ring carries pieces but none is near the exit; uses
+  ``second_rotor_normal`` for fast advance so material reaches the exit
+  zone quickly.
+
 The runtime keeps the AdmissionStrategy hook from §2.11 so the interface
 matches Phase 4/5 runtimes; for C2 the default ``AlwaysAdmit`` is fine.
 """
@@ -17,6 +25,7 @@ import logging
 import math
 import time
 from dataclasses import dataclass
+from enum import Enum
 from typing import Any, Callable
 
 from rt.contracts.admission import AdmissionStrategy
@@ -29,6 +38,7 @@ from rt.coupling.slots import CapacitySlot
 from rt.events.topics import PERCEPTION_ROTATION
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
+    PROFILE_GENTLE,
     PROFILE_PURGE,
     PROFILE_TRANSPORT,
 )
@@ -43,6 +53,11 @@ from .base import BaseRuntime, HwWorker
 # Exit-zone wiggle defaults (output-shaft degrees). Mirror legacy
 # ``base.EXIT_WIGGLE_*`` constants.
 DEFAULT_EXIT_ZONE_NEAR_ARC_RAD = math.radians(30.0)
+# Deceleration zone in front of the exit. Once a confirmed-real track is
+# inside this arc but not yet in the commit zone, C2 switches to small
+# precision pulses so pieces are fed gently into the C2→C3 transition
+# rather than blasted through in batches.
+DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(45.0)
 DEFAULT_INTAKE_ZONE_NEAR_ARC_RAD = math.radians(30.0)
 DEFAULT_MAX_PIECE_COUNT = 5
 DEFAULT_PULSE_COOLDOWN_S = 0.12
@@ -64,6 +79,11 @@ DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 
 
+class _PulseMode(Enum):
+    NORMAL = "normal"
+    PRECISE = "precise"
+
+
 @dataclass(slots=True)
 class _PieceBookkeeping:
     # Tracks we've already credited as 'arrived' (so we can release the
@@ -76,6 +96,8 @@ class _PieceBookkeeping:
 
 class RuntimeC2(BaseRuntime):
     """Separation rotor: pulses pieces from the C2 ring to C3."""
+
+    PulseMode = _PulseMode
 
     def __init__(
         self,
@@ -92,6 +114,7 @@ class RuntimeC2(BaseRuntime):
         event_bus: EventBus | None = None,
         max_piece_count: int = DEFAULT_MAX_PIECE_COUNT,
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
+        approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
         intake_zone_near_arc_rad: float = DEFAULT_INTAKE_ZONE_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
         wiggle_stall_ms: int = DEFAULT_WIGGLE_STALL_MS,
@@ -115,6 +138,10 @@ class RuntimeC2(BaseRuntime):
         self._bus = event_bus
         self._max_piece_count = max(1, int(max_piece_count))
         self._exit_near_arc = float(exit_zone_near_arc_rad)
+        self._approach_near_arc = max(
+            float(exit_zone_near_arc_rad),
+            float(approach_zone_near_arc_rad),
+        )
         self._intake_near_arc = float(intake_zone_near_arc_rad)
         self._pulse_cooldown_s = float(pulse_cooldown_s)
         self._wiggle_stall_s = float(wiggle_stall_ms) / 1000.0
@@ -188,6 +215,7 @@ class RuntimeC2(BaseRuntime):
             if not self._purge_mode:
                 self._credit_new_arrivals(action_tracks, now_mono)
             exit_track = self._pick_exit_track(visible_tracks)
+            approach_track = self._pick_approach_track(visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
                 return
@@ -202,17 +230,25 @@ class RuntimeC2(BaseRuntime):
                 if not wiggled:
                     self._set_state("idle", blocked_reason="downstream_full")
                 return
-            if exit_track is None:
-                # Nothing at the exit but the ring carries tracks — advance
-                # so real pieces migrate toward the exit and the ghost-gating
-                # tracker gets rotation evidence for stationary phantoms.
-                self._bookkeeping.exit_stall_since = None
-                if visible_tracks and now_mono >= self._bookkeeping.next_advance_at:
-                    self._dispatch_advance_pulse(now_mono)
-                else:
-                    self._set_state("idle")
+            if exit_track is not None:
+                self._dispatch_exit_pulse(exit_track, now_mono)
                 return
-            self._dispatch_exit_pulse(exit_track, now_mono)
+            self._bookkeeping.exit_stall_since = None
+            if approach_track is not None:
+                # Track is decelerating into the exit zone — fire small
+                # precision pulses without claiming a downstream slot so the
+                # piece eases up to the drop edge instead of being slammed
+                # off the ring.
+                self._dispatch_approach_pulse(approach_track, now_mono)
+                return
+            if visible_tracks and now_mono >= self._bookkeeping.next_advance_at:
+                # Nothing close to the exit yet — advance the ring at full
+                # transport speed so real pieces migrate toward the exit
+                # and the ghost-gating tracker accumulates rotation
+                # evidence for stationary phantoms.
+                self._dispatch_advance_pulse(now_mono)
+            else:
+                self._set_state("idle")
         finally:
             self._tick_end(start)
 
@@ -256,9 +292,26 @@ class RuntimeC2(BaseRuntime):
             self._upstream_slot.release()
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        # The detector is now the primary signal. Rotation-window
-        # confirmation is strong evidence, but stable non-ghost detections
-        # may commit before that catches up.
+        # Commit zone: stable tracks within ``exit_near_arc``. The detector
+        # is the primary signal — rotation-window confirmation is strong
+        # evidence but stable non-ghost detections may commit before it
+        # catches up.
+        return self._closest_actionable_within(tracks, self._exit_near_arc)
+
+    def _pick_approach_track(self, tracks: list[Track]) -> Track | None:
+        # Deceleration zone: stable tracks inside ``approach_near_arc`` but
+        # not yet inside the commit arc. Drives small precise pulses
+        # without claiming a downstream slot.
+        approach = self._closest_actionable_within(tracks, self._approach_near_arc)
+        if approach is None:
+            return None
+        if abs(_wrap_rad(approach.angle_rad or 0.0)) <= self._exit_near_arc:
+            return None
+        return approach
+
+    def _closest_actionable_within(
+        self, tracks: list[Track], arc: float
+    ) -> Track | None:
         candidates = [
             t for t in tracks
             if t.angle_rad is not None and action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
@@ -267,7 +320,7 @@ class RuntimeC2(BaseRuntime):
             return None
         candidates.sort(key=lambda t: abs(_wrap_rad(t.angle_rad or 0.0)))
         head = candidates[0]
-        if abs(_wrap_rad(head.angle_rad or 0.0)) > self._exit_near_arc:
+        if abs(_wrap_rad(head.angle_rad or 0.0)) > arc:
             return None
         return head
 
@@ -281,16 +334,73 @@ class RuntimeC2(BaseRuntime):
         if not claimed:
             self._set_state("idle", blocked_reason="downstream_full")
             return
-        timing = self._ejection.timing_for({"track_id": track.track_id})
         self._bookkeeping.exit_stall_since = None
+        self._fire_pulse(
+            track=track,
+            mode=_PulseMode.PRECISE,
+            now_mono=now_mono,
+            commit_to_downstream=True,
+            source="c2_pulse",
+            label="c2_pulse",
+            state="pulsing",
+        )
+
+    def _dispatch_approach_pulse(self, track: Track, now_mono: float) -> None:
+        """Slow precision pulse for a track decelerating into the exit zone."""
+        self._fire_pulse(
+            track=track,
+            mode=_PulseMode.PRECISE,
+            now_mono=now_mono,
+            commit_to_downstream=False,
+            source="c2_approach_pulse",
+            label="c2_approach_pulse",
+            state="approaching",
+        )
+
+    def _dispatch_advance_pulse(self, now_mono: float) -> None:
+        """Rotate the ring at full transport speed without claiming a slot.
+
+        Fired when the ring carries tracks but none is in the approach or
+        exit zone — keeps the ring moving so real pieces reach the exit
+        and the ghost-gating tracker sees rotation-windowed samples for
+        stationary phantoms.
+        """
+        self._fire_pulse(
+            track=None,
+            mode=_PulseMode.NORMAL,
+            now_mono=now_mono,
+            commit_to_downstream=False,
+            source="c2_advance_pulse",
+            label="c2_advance_pulse",
+            state="advancing",
+        )
+        self._bookkeeping.next_advance_at = now_mono + self._advance_interval_s
+
+    def _fire_pulse(
+        self,
+        *,
+        track: Track | None,
+        mode: _PulseMode,
+        now_mono: float,
+        commit_to_downstream: bool,
+        source: str,
+        label: str,
+        state: str,
+    ) -> None:
+        ejection_ctx: dict[str, Any] = {"mode": mode.value}
+        if track is not None:
+            ejection_ctx["track_id"] = track.track_id
+        if mode is _PulseMode.NORMAL and track is None:
+            ejection_ctx["advance"] = True
+        timing = self._ejection.timing_for(ejection_ctx)
+        profile_name = (
+            PROFILE_GENTLE if mode is _PulseMode.PRECISE else PROFILE_TRANSPORT
+        )
 
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = self._call_pulse_command(
-                    timing.pulse_ms,
-                    PROFILE_TRANSPORT,
-                )
+                ok = bool(self._pulse_command(mode, timing.pulse_ms, profile_name))
             except Exception:
                 self._logger.exception("RuntimeC2: pulse command raised")
             finally:
@@ -299,67 +409,33 @@ class RuntimeC2(BaseRuntime):
                     self._logger,
                     runtime_id=self.runtime_id,
                     feed_id=self.feed_id,
-                    source="c2_pulse",
+                    source=source,
                     ok=bool(ok),
                     duration_ms=timing.pulse_ms,
+                    extra={"mode": mode.value},
                 )
-            if not ok:
+            if not ok and commit_to_downstream:
                 self._downstream_slot.release()
 
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
-        enqueued = self._hw.enqueue(_run_pulse, label="c2_pulse")
+        enqueued = self._hw.enqueue(_run_pulse, label=label)
         if not enqueued:
-            self._downstream_slot.release()
-            self._set_state("pulsing", blocked_reason="hw_queue_full")
+            if commit_to_downstream:
+                self._downstream_slot.release()
+            self._set_state(state, blocked_reason="hw_queue_full")
             return
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
-        self._set_state("pulsing")
-
-    def _dispatch_advance_pulse(self, now_mono: float) -> None:
-        """Rotate the ring without claiming a downstream slot.
-
-        Fired when the ring carries tracks but none is near the exit — keeps
-        the ring moving so real pieces eventually reach the exit and the
-        ghost-gating tracker sees rotation-windowed samples for stationary
-        phantoms.
-        """
-        timing = self._ejection.timing_for({"advance": True})
-
-        def _run_pulse() -> None:
-            ok = False
-            try:
-                ok = self._call_pulse_command(
-                    timing.pulse_ms,
-                    PROFILE_TRANSPORT,
-                )
-            except Exception:
-                self._logger.exception("RuntimeC2: advance pulse command raised")
-            finally:
-                publish_move_completed(
-                    self._bus,
-                    self._logger,
-                    runtime_id=self.runtime_id,
-                    feed_id=self.feed_id,
-                    source="c2_advance_pulse",
-                    ok=bool(ok),
-                    duration_ms=timing.pulse_ms,
-                )
-
-        self._next_pulse_at = now_mono + self._pulse_cooldown_s
-        enqueued = self._hw.enqueue(_run_pulse, label="c2_advance_pulse")
-        if not enqueued:
-            self._set_state("idle", blocked_reason="hw_queue_full")
-            return
-        self._bookkeeping.next_advance_at = now_mono + self._advance_interval_s
-        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
-        self._set_state("advancing")
+        self._set_state(state)
 
     def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
         """Rotate C2 without admission or downstream slot gating."""
         if self._hw.busy() or self._hw.pending() > 0:
             self._set_state("sample_transport", blocked_reason="hw_busy")
             return False
-        timing = self._ejection.timing_for({"sample_transport": True})
+        mode = _PulseMode.NORMAL
+        timing = self._ejection.timing_for(
+            {"sample_transport": True, "mode": mode.value}
+        )
 
         def _run_pulse() -> None:
             ok = False
@@ -377,7 +453,8 @@ class RuntimeC2(BaseRuntime):
                     )
                 else:
                     ok = bool(
-                        self._call_pulse_command(
+                        self._pulse_command(
+                            mode,
                             timing.pulse_ms,
                             PROFILE_CONTINUOUS,
                         )
@@ -431,12 +508,13 @@ class RuntimeC2(BaseRuntime):
         C2->C3 transition regardless of whether C3 is full. Does not claim a
         downstream slot.
         """
-        timing = self._ejection.timing_for({"purge": True})
+        mode = _PulseMode.NORMAL
+        timing = self._ejection.timing_for({"purge": True, "mode": mode.value})
 
         def _run_pulse() -> None:
             ok = False
             try:
-                ok = self._call_pulse_command(timing.pulse_ms, PROFILE_PURGE)
+                ok = bool(self._pulse_command(mode, timing.pulse_ms, PROFILE_PURGE))
             except Exception:
                 self._logger.exception("RuntimeC2: purge pulse command raised")
             finally:
@@ -523,13 +601,6 @@ class RuntimeC2(BaseRuntime):
             self._set_state("exit_wiggle")
             return True
         return False
-
-    def _call_pulse_command(self, pulse_ms: float, profile_name: str) -> bool:
-        try:
-            return bool(self._pulse_command(pulse_ms, profile_name))
-        except TypeError:
-            return bool(self._pulse_command(pulse_ms))
-
 
 def _wrap_rad(angle: float) -> float:
     """Wrap to [-pi, pi]."""

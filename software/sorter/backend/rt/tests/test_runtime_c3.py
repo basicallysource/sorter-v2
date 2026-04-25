@@ -173,13 +173,26 @@ def test_c3_precise_pulse_for_stable_unconfirmed_exit_track() -> None:
     assert down.available() == 0
 
 
-def test_c3_precise_only_pulse_off_exit_never_commits() -> None:
+def test_c3_normal_pulse_off_exit_never_commits() -> None:
     rt, _up, down, log = _make()
-    # Track far from exit — C3 now runs at a single (precise) speed, but
-    # still must not claim a downstream slot until the piece is inside
-    # the commit arc.
+    # Track far from exit — outside both commit and approach arcs.
+    # C3 advances the ring at NORMAL speed and must not claim the
+    # downstream slot until the piece is inside the commit arc.
     inbox = RuntimeInbox(
         tracks=_batch(_track(angle_rad=math.pi)),
+        capacity_downstream=1,
+    )
+    rt.tick(inbox, now_mono=0.0)
+    assert log and log[0].startswith("normal:")
+    assert down.available() == 1
+
+
+def test_c3_approach_pulse_is_precise_without_committing() -> None:
+    rt, _up, down, log = _make()
+    # Track inside the approach arc (45°) but outside the commit arc
+    # (20°) — small precise pulse, no downstream claim.
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(angle_rad=math.radians(35.0))),
         capacity_downstream=1,
     )
     rt.tick(inbox, now_mono=0.0)
@@ -220,10 +233,9 @@ def test_c3_holdover_expires_after_window() -> None:
         RuntimeInbox(tracks=_batch(_track(angle_rad=math.pi)), capacity_downstream=1),
         now_mono=1.0,
     )
-    # C3 now runs at a single speed — every pulse is precise regardless
-    # of holdover state. The holdover flag is still exposed for
-    # debugging but no longer switches the hardware gear.
-    assert log and log[0].startswith("precise:")
+    # Holdover has expired and the track is outside both the commit and
+    # approach arcs — C3 reverts to NORMAL transport pulses.
+    assert log and log[0].startswith("normal:")
 
 
 def test_c3_sample_transport_scales_to_small_continuous_steps() -> None:

@@ -130,7 +130,7 @@ class _RotorStepper:
         return True
 
 
-def test_c2_callable_applies_configured_motion_profile() -> None:
+def test_c2_callable_uses_normal_and_precise_profiles() -> None:
     irl = type("Irl", (), {})()
     irl.c_channel_2_rotor_stepper = _RotorStepper()
     irl.feeder_config = type(
@@ -141,17 +141,23 @@ def test_c2_callable_applies_configured_motion_profile() -> None:
                 steps_per_pulse=1000,
                 microsteps_per_second=5000,
                 acceleration_microsteps_per_second_sq=2500,
-            )
+            ),
+            "second_rotor_precision": _RotorPulseConfig(
+                steps_per_pulse=400,
+                microsteps_per_second=2500,
+                acceleration_microsteps_per_second_sq=2500,
+            ),
         },
     )()
 
     pulse, _wiggle, _continuous = build_c2_callables(irl, logging.getLogger("test"))
 
-    assert pulse(250.0) is True
+    assert pulse("normal", 250.0) is True
+    assert pulse("precise", 1000.0) is True
 
-    assert irl.c_channel_2_rotor_stepper.accelerations == [2500]
-    assert irl.c_channel_2_rotor_stepper.speed_limits == [(16, 5000)]
-    assert irl.c_channel_2_rotor_stepper.moves == [100.0]
+    assert irl.c_channel_2_rotor_stepper.accelerations == [2500, 2500]
+    assert irl.c_channel_2_rotor_stepper.speed_limits == [(16, 5000), (16, 2500)]
+    assert irl.c_channel_2_rotor_stepper.moves == [100.0, 40.0]
 
 
 def test_c2_direct_move_accepts_small_degree_steps() -> None:

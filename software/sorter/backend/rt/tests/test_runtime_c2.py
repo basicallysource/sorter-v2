@@ -80,8 +80,12 @@ def _make(
     downstream = CapacitySlot("c2_to_c3", capacity=downstream_cap)
     log: list[str] = []
 
-    def pulse(pulse_ms: float) -> bool:
-        log.append(f"pulse:{pulse_ms:.0f}")
+    def pulse(
+        mode: RuntimeC2.PulseMode,
+        pulse_ms: float,
+        profile_name: str | None = None,
+    ) -> bool:
+        log.append(f"{mode.value}:{pulse_ms:.0f}")
         return pulse_success
 
     def wiggle() -> bool:
@@ -114,7 +118,8 @@ def test_c2_pulses_when_exit_track_present_and_downstream_free() -> None:
     rt, _up, down, log = _make()
     inbox = RuntimeInbox(tracks=_batch(_track(angle_rad=0.0)), capacity_downstream=1)
     rt.tick(inbox, now_mono=0.0)
-    assert log == ["pulse:40"]
+    # Track at the exit fires a precise pulse and claims the downstream slot.
+    assert log == ["precise:40"]
     assert down.available() == 0
 
 
@@ -125,22 +130,35 @@ def test_c2_pulses_for_stable_unconfirmed_exit_track() -> None:
         capacity_downstream=1,
     )
     rt.tick(inbox, now_mono=0.0)
-    assert log == ["pulse:40"]
+    assert log == ["precise:40"]
     assert down.available() == 0
 
 
-def test_c2_advances_when_ring_has_tracks_but_none_at_exit() -> None:
+def test_c2_approach_pulse_is_precise_without_committing() -> None:
     rt, _up, down, log = _make()
-    # Track is far from exit (angle 90°) — C2 advances the ring without
-    # claiming a downstream slot, so real pieces migrate toward the exit
-    # and the ghost-gating tracker accumulates rotation-windowed evidence.
+    # Track at 30° — outside the 30° commit arc but inside the 45°
+    # approach arc → small precise pulse, no downstream slot claim.
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(angle_rad=math.radians(35.0))),
+        capacity_downstream=1,
+    )
+    rt.tick(inbox, now_mono=0.0)
+    assert log == ["precise:40"]
+    assert down.available() == 1
+    assert rt.health().state == "approaching"
+
+
+def test_c2_advances_at_normal_speed_when_ring_has_no_track_near_exit() -> None:
+    rt, _up, down, log = _make()
+    # Track is far from exit (angle 90°) — outside both commit and
+    # approach arcs. C2 advances the ring at normal transport speed
+    # without claiming a downstream slot.
     inbox = RuntimeInbox(
         tracks=_batch(_track(angle_rad=math.pi / 2.0)),
         capacity_downstream=1,
     )
     rt.tick(inbox, now_mono=0.0)
-    # Advance fires a pulse but does not claim the downstream slot.
-    assert log == ["pulse:40"]
+    assert log == ["normal:40"]
     assert down.available() == 1
     assert rt.health().state == "advancing"
 
@@ -320,7 +338,7 @@ def test_c2_pulse_failure_releases_downstream_claim() -> None:
     rt, _up, down, log = _make(pulse_success=False)
     inbox = RuntimeInbox(tracks=_batch(_track(angle_rad=0.0)), capacity_downstream=1)
     rt.tick(inbox, now_mono=0.0)
-    assert log == ["pulse:40"]
+    assert log == ["precise:40"]
     assert down.available() == 1  # rolled back on failure
 
 
@@ -354,7 +372,7 @@ def test_c2_purge_port_arm_pulses_despite_full_downstream() -> None:
         now_mono=0.0,
     )
 
-    assert log == ["pulse:40"]
+    assert log == ["normal:40"]
     assert rt.available_slots() == 0
 
 

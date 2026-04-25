@@ -413,6 +413,9 @@ class RuntimeC4(BaseRuntime):
             )
             return
         dossier.distributor_ready = True
+        bank_track = self._bank.track(piece_uuid)
+        if bank_track is not None:
+            bank_track.distributor_ready = True
 
     def on_piece_rejected(self, piece_uuid: str, reason: str) -> None:
         """Phase-5 stub: distributor signals the piece cannot be sorted."""
@@ -756,6 +759,11 @@ class RuntimeC4(BaseRuntime):
                     "detection_observations": tr.detection_observations,
                     "confirmed_real_observations": tr.confirmed_real_observations,
                     "last_observed_age_s": ts - tr.last_observed_t,
+                    "handoff_requested": bool(tr.handoff_requested),
+                    "distributor_ready": bool(tr.distributor_ready),
+                    "eject_enqueued": bool(tr.eject_enqueued),
+                    "eject_committed": bool(tr.eject_committed),
+                    "reject_reason": tr.reject_reason,
                 }
             )
         pending_landings_view: list[dict[str, Any]] = []
@@ -1142,6 +1150,15 @@ class RuntimeC4(BaseRuntime):
             angle_deg=angle_deg,
             now_mono=now_mono,
         )
+        # Mirror the dispatch-side context from the dossier into the
+        # bank's PieceTrack so future dispatch reads can go through the
+        # bank as the single source of truth.
+        bank_track = self._bank.track(piece_uuid)
+        if bank_track is not None:
+            bank_track.intake_ts = float(now_mono)
+            bank_track.classified_ts = classified_ts
+            bank_track.reject_reason = reject_reason
+            bank_track.extras.update(extras)
         # If the upstream channel held a landing lease for this piece,
         # consume the oldest pending landing in FIFO order. The bank's
         # lease grant model is geometry-only (it does not know about
@@ -1658,8 +1675,15 @@ class RuntimeC4(BaseRuntime):
             self._set_state("drop_commit", blocked_reason="distributor_busy")
             self._mark_handoff("distributor_busy")
             dossier.last_handoff_attempt_at = now_mono
+            bank_track = self._bank.track(dossier.piece_uuid)
+            if bank_track is not None:
+                bank_track.last_handoff_attempt_at = now_mono
             return False
         dossier.handoff_requested = True
+        bank_track = self._bank.track(dossier.piece_uuid)
+        if bank_track is not None:
+            bank_track.handoff_requested = True
+            bank_track.last_handoff_attempt_at = now_mono
         self._record_handoff_move(
             now_mono=now_mono,
             source="c4_distributor_handoff_request",
@@ -1939,6 +1963,9 @@ class RuntimeC4(BaseRuntime):
                 self._set_state("drop_commit", blocked_reason="eject_in_flight")
                 return False
             dossier.eject_enqueued = True
+        bank_track = self._bank.track(piece_uuid)
+        if bank_track is not None:
+            bank_track.eject_enqueued = True
 
         def _do_eject() -> None:
             try:
@@ -1950,6 +1977,9 @@ class RuntimeC4(BaseRuntime):
                 live_dossier = self._pieces.get(piece_uuid)
                 if live_dossier is not None:
                     live_dossier.eject_enqueued = False
+                live_bank = self._bank.track(piece_uuid)
+                if live_bank is not None:
+                    live_bank.eject_enqueued = False
                 self._downstream_slot.release()
                 return
             port = self._handoff
@@ -1965,6 +1995,9 @@ class RuntimeC4(BaseRuntime):
                 live_dossier = self._pieces.get(piece_uuid)
                 if live_dossier is not None:
                     live_dossier.eject_committed = committed
+                live_bank = self._bank.track(piece_uuid)
+                if live_bank is not None:
+                    live_bank.eject_committed = bool(committed)
                 if not committed:
                     self._logger.warning(
                         "RuntimeC4: distributor handoff_commit rejected for piece=%s",

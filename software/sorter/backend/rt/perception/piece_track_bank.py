@@ -199,6 +199,15 @@ class PieceTrack:
     update — used for the silence / coast / finalize lifecycle.
     ``last_predicted_t`` is just a bookkeeping cursor for the Kalman
     integrator so the next prediction step uses the correct ``dt``.
+
+    Stage 7 of the architecture rollout absorbs the dispatch-side
+    state that used to live in the C4 ``_PieceDossier`` dataclass:
+    ``handoff_requested``, ``distributor_ready``, ``eject_enqueued``,
+    ``eject_committed``, ``reject_reason``, ``last_handoff_attempt_at``,
+    ``classified_ts``, ``intake_ts``, plus a free-form ``extras`` map
+    for runtime breadcrumbs. The bank is now the single source of
+    truth per piece; the dossier remains as a thin dispatch view that
+    delegates here.
     """
 
     piece_uuid: str
@@ -218,6 +227,16 @@ class PieceTrack:
     lifecycle_state: PieceLifecycleState = PieceLifecycleState.TENTATIVE
     class_label: str | None = None
     class_confidence: float | None = None
+    # Dispatch lifecycle (absorbed from _PieceDossier in stage 7).
+    handoff_requested: bool = False
+    distributor_ready: bool = False
+    eject_enqueued: bool = False
+    eject_committed: bool = False
+    reject_reason: str | None = None
+    last_handoff_attempt_at: float = 0.0
+    classified_ts: float | None = None
+    intake_ts: float | None = None
+    extras: dict[str, "object"] = field(default_factory=dict)
 
     @property
     def angle_rad(self) -> float:

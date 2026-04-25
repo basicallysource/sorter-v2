@@ -178,11 +178,17 @@ def build_c1_callables(
     # False return until now). Documented behaviour from
     # ``docs/lab/c-channel-singulation``: progressively stronger
     # back-and-forth shake to free a stuck piece, followed by a forward
-    # push that grows from 15 deg up to a full revolution at the top of
-    # the escalation. RuntimeC1 calls this once per attempt and bumps
-    # ``level`` itself; the cooldown between attempts is owned by the
-    # runtime via ``jam_cooldown_s``.
-    _RECOVERY_PUSH_OUTPUT_DEGREES = (15.0, 45.0, 90.0, 180.0, 360.0)
+    # push that grows with the recovery level. RuntimeC1 calls this once
+    # per attempt and bumps ``level`` itself; the cooldown between
+    # attempts is owned by the runtime via ``jam_cooldown_s``.
+    #
+    # Push degrees retuned 2026-04-25: legacy stack escalated to 360 deg
+    # at level 4 — a complete hopper dump — which under live tuning
+    # appeared as bursts of 50+ pieces hitting C2 at once and
+    # overwhelmed the entire downstream pipeline. The new schedule
+    # caps at 90 deg so even a worst-case escalation does not collapse
+    # singulation downstream.
+    _RECOVERY_PUSH_OUTPUT_DEGREES = (10.0, 20.0, 35.0, 60.0, 90.0)
     _RECOVERY_GEAR_RATIO = 130.0 / 12.0
 
     def _recovery_shake_degrees(cfg: Any, level: int) -> float:

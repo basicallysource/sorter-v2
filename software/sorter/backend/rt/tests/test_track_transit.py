@@ -193,6 +193,29 @@ def test_claim_falls_back_to_geometric_score_without_embeddings() -> None:
     )
 
 
+def test_claim_rejects_track_split_outside_angle_limit() -> None:
+    registry = TrackTransitRegistry()
+    registry.begin(
+        source_runtime="c4",
+        source_feed="c4_feed",
+        source_global_id=1,
+        target_runtime="c4",
+        now_mono=1.0,
+        source_angle_deg=0.0,
+        relation="track_split",
+    )
+
+    claimed = registry.claim(
+        target_runtime="c4",
+        track=_track(global_id=2, angle_deg=120.0),
+        now_mono=1.1,
+        relation_angle_limits_deg={"track_split": 45.0},
+    )
+
+    assert claimed is None
+    assert registry.snapshot(1.1)
+
+
 def test_claim_accepts_candidate_when_track_embedding_is_missing() -> None:
     """One side missing embedding → permissive: do not block the match."""
 

@@ -36,6 +36,7 @@ from .base import BaseRuntime, HwWorker
 
 DEFAULT_CHUTE_SETTLE_S = 0.4
 DEFAULT_FALL_TIME_S = 1.5
+DEFAULT_SIMULATED_CHUTE_MOVE_S = 0.8
 DEFAULT_REJECT_BIN_ID = "reject"
 DEFAULT_RUNTIME_ID = "distributor"
 
@@ -88,6 +89,8 @@ class RuntimeDistributor(BaseRuntime):
         ready_timeout_s: float = 60.0,
         chute_settle_s: float = DEFAULT_CHUTE_SETTLE_S,
         fall_time_s: float = DEFAULT_FALL_TIME_S,
+        simulate_chute: bool = False,
+        simulated_chute_move_s: float = DEFAULT_SIMULATED_CHUTE_MOVE_S,
         run_recorder: Any | None = None,
         state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
@@ -109,9 +112,12 @@ class RuntimeDistributor(BaseRuntime):
         self._ready_timeout_s = max(0.0, float(ready_timeout_s))
         self._chute_settle_s = float(chute_settle_s)
         self._fall_time_s = float(fall_time_s)
+        self._simulate_chute = bool(simulate_chute)
+        self._simulated_chute_move_s = max(0.0, float(simulated_chute_move_s))
         self._run_recorder = run_recorder
         self._fsm: _DistState = _DistState.IDLE
         self._pending: _PendingPiece | None = None
+        self._simulated_position_ready_at: float | None = None
         self._last_chute_move_bin: str | None = None
         self._last_chute_move_ok: bool | None = None
         self._last_chute_move_error: str | None = None
@@ -274,6 +280,13 @@ class RuntimeDistributor(BaseRuntime):
                 "position_timeout_s": self._position_timeout_s,
                 "ready_timeout_s": self._ready_timeout_s,
                 "chute": {
+                    "simulated": bool(self._simulate_chute),
+                    "simulated_move_s": float(self._simulated_chute_move_s),
+                    "simulated_ready_in_s": (
+                        max(0.0, float(self._simulated_position_ready_at) - now)
+                        if self._simulated_position_ready_at is not None
+                        else None
+                    ),
                     "last_move_bin": self._last_chute_move_bin,
                     "last_move_ok": self._last_chute_move_ok,
                     "last_move_error": self._last_chute_move_error,
@@ -345,6 +358,19 @@ class RuntimeDistributor(BaseRuntime):
         if bin_id is None:
             return False
         target = bin_id
+        if self._simulate_chute:
+            self._simulated_position_ready_at = (
+                float(now_mono) + self._simulated_chute_move_s
+            )
+            self._last_chute_move_bin = target
+            self._last_chute_move_ok = True
+            self._last_chute_move_error = None
+            self._last_chute_move_at = now_mono
+            self._last_chute_position = None
+            self._last_chute_position_error = None
+            self._last_chute_position_at = now_mono
+            return True
+        self._simulated_position_ready_at = None
 
         def _do_move() -> None:
             try:
@@ -389,20 +415,34 @@ class RuntimeDistributor(BaseRuntime):
             )
             return
 
-        try:
-            current = self._chute_position_query()
-        except Exception:
-            self._last_chute_position = None
-            self._last_chute_position_error = "exception"
-            self._last_chute_position_at = now_mono
-            self._logger.exception(
-                "RuntimeDistributor: chute_position_query raised"
-            )
-            current = None
-        else:
+        if self._simulate_chute:
+            if (
+                self._simulated_position_ready_at is not None
+                and now_mono < self._simulated_position_ready_at
+            ):
+                self._last_chute_position = None
+                self._last_chute_position_error = None
+                self._last_chute_position_at = now_mono
+                return
+            current = pending.target_bin_id
             self._last_chute_position = current
             self._last_chute_position_error = None
             self._last_chute_position_at = now_mono
+        else:
+            try:
+                current = self._chute_position_query()
+            except Exception:
+                self._last_chute_position = None
+                self._last_chute_position_error = "exception"
+                self._last_chute_position_at = now_mono
+                self._logger.exception(
+                    "RuntimeDistributor: chute_position_query raised"
+                )
+                current = None
+            else:
+                self._last_chute_position = current
+                self._last_chute_position_error = None
+                self._last_chute_position_at = now_mono
         if current is None:
             # Still in motion.
             return

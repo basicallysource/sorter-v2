@@ -77,7 +77,8 @@ DEFAULT_UNJAM_REVERSE_DEG = 3.0
 DEFAULT_UNJAM_FORWARD_DEG = 9.0
 DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.25
 DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 45.0
-DEFAULT_TRACKLET_TRANSIT_TTL_S = 8.0
+DEFAULT_TRACKLET_TRANSIT_TTL_S = 1.25
+DEFAULT_TRACKLET_TRANSIT_MAX_ANGLE_DELTA_DEG = 45.0
 
 
 class _C4State(str, Enum):
@@ -422,6 +423,7 @@ class RuntimeC4(BaseRuntime):
         if dossier.result is not None:
             status = "classified" if dossier.result.part_id else "unknown"
         now_wall = time.time()
+        last_angle_deg = self._dossier_last_angle_deg(dossier)
         self._publish(
             PIECE_REGISTERED,
             {
@@ -431,6 +433,7 @@ class RuntimeC4(BaseRuntime):
                 "stage": "registered",
                 "classification_status": status,
                 "classification_channel_zone_state": "lost",
+                "classification_channel_zone_center_deg": last_angle_deg,
                 "classification_channel_lost_at": now_wall,
                 "updated_at": now_wall,
                 "dossier": {
@@ -439,7 +442,7 @@ class RuntimeC4(BaseRuntime):
                     **self._dossier_tracklet_payload(dossier),
                     "classification_channel_zone_state": "lost",
                     "classification_channel_lost_at": now_wall,
-                    "classification_channel_zone_center_deg": dossier.angle_at_intake_deg,
+                    "classification_channel_zone_center_deg": last_angle_deg,
                     "classification_channel_exit_deg": self._exit_angle_deg,
                 },
             },
@@ -456,6 +459,12 @@ class RuntimeC4(BaseRuntime):
         if registry is None:
             return
         now = time.monotonic() if now_mono is None else float(now_mono)
+        zone = self._zone_manager.zone_for(dossier.piece_uuid)
+        source_angle_deg = (
+            float(zone.center_deg)
+            if zone is not None
+            else self._dossier_last_angle_deg(dossier)
+        )
         registry.begin(
             source_runtime=self.runtime_id,
             source_feed=self.feed_id,
@@ -464,6 +473,7 @@ class RuntimeC4(BaseRuntime):
             now_mono=now,
             ttl_s=DEFAULT_TRACKLET_TRANSIT_TTL_S,
             piece_uuid=dossier.piece_uuid,
+            source_angle_deg=source_angle_deg,
             relation="track_split",
             payload={
                 "previous_tracked_global_id": dossier.global_id,
@@ -719,15 +729,17 @@ class RuntimeC4(BaseRuntime):
             if piece_uuid is None:
                 continue
             dossier = self._pieces.get(piece_uuid)
+            angle_deg = math.degrees(track.angle_rad or 0.0)
             if dossier is not None:
                 dossier.last_seen_mono = now_mono
+                dossier.extras["last_angle_deg"] = angle_deg
                 if track.appearance_embedding is not None:
                     dossier.appearance_embedding = track.appearance_embedding
             extents.append(
                 TrackAngularExtent(
                     piece_uuid=piece_uuid,
                     global_id=track.global_id,
-                    center_deg=math.degrees(track.angle_rad or 0.0),
+                    center_deg=angle_deg,
                     half_width_deg=self._intake_half_width_deg,
                     last_seen_mono=now_mono,
                 )
@@ -972,6 +984,12 @@ class RuntimeC4(BaseRuntime):
             payload["current_tracklet_id"] = dossier.tracklet_id
         return payload
 
+    def _dossier_last_angle_deg(self, dossier: _PieceDossier) -> float:
+        value = dossier.extras.get("last_angle_deg")
+        if isinstance(value, (int, float)) and math.isfinite(float(value)):
+            return float(value)
+        return float(dossier.angle_at_intake_deg)
+
     def _claim_transit_for_track(
         self,
         track: Track,
@@ -989,6 +1007,9 @@ class RuntimeC4(BaseRuntime):
             now_mono=now_mono,
             max_age_s=8.0,
             allowed_relations=allowed_relations,
+            relation_angle_limits_deg={
+                "track_split": DEFAULT_TRACKLET_TRANSIT_MAX_ANGLE_DELTA_DEG,
+            },
         )
         if transit is not None:
             self._transit_link_count += 1

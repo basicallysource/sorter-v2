@@ -122,6 +122,14 @@ def _handle() -> SimpleNamespace:
         c2=c2,
         c3=c3,
         c4=c4,
+        distributor=SimpleNamespace(
+            _simulate_chute=False,
+            _simulated_chute_move_s=0.8,
+            _chute_settle_s=0.4,
+            _fall_time_s=1.5,
+            _position_timeout_s=6.0,
+            _ready_timeout_s=60.0,
+        ),
         orchestrator=SimpleNamespace(_slots=slots),
     )
 
@@ -139,6 +147,8 @@ def test_snapshot_reports_live_values() -> None:
     assert payload["channels"]["c1"]["pulse_cooldown_s"] == 0.25
     assert payload["channels"]["c1"]["jam_timeout_s"] == 4.0
     assert payload["channels"]["c2"]["normal"]["steps_per_pulse"] == 1000
+    assert payload["channels"]["distributor"]["simulate_chute"] is False
+    assert payload["channels"]["distributor"]["simulated_chute_move_s"] == 0.8
     assert payload["slots"]["c3_to_c4"] == 4
 
 
@@ -239,6 +249,35 @@ def test_update_c4_rejects_gear_ratio_live_patch() -> None:
             handle,
             {"channels": {"c4": {"stepper_degrees_per_tray_degree": 42.0}}},
         )
+
+
+def test_update_distributor_simulated_chute_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "channels": {
+                "distributor": {
+                    "simulate_chute": True,
+                    "simulated_chute_move_ms": 1200,
+                    "chute_settle_ms": 250,
+                    "fall_time_ms": 1600,
+                    "position_timeout_s": 10.0,
+                    "ready_timeout_s": 45.0,
+                }
+            }
+        },
+    )
+
+    assert handle.distributor._simulate_chute is True
+    assert handle.distributor._simulated_chute_move_s == pytest.approx(1.2)
+    assert handle.distributor._chute_settle_s == pytest.approx(0.25)
+    assert handle.distributor._fall_time_s == pytest.approx(1.6)
+    assert handle.distributor._position_timeout_s == pytest.approx(10.0)
+    assert handle.distributor._ready_timeout_s == pytest.approx(45.0)
+    assert payload["channels"]["distributor"]["simulate_chute"] is True
+    assert payload["channels"]["distributor"]["simulated_chute_move_s"] == pytest.approx(1.2)
 
 
 def test_update_c2_flow_and_profile_live() -> None:

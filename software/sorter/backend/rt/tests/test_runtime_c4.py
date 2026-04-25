@@ -434,7 +434,33 @@ def test_c4_reuses_lost_piece_uuid_when_track_reappears_via_transit() -> None:
     assert rt.debug_snapshot()["transit_link_count"] == 1
 
 
-def test_c4_reuses_lost_piece_uuid_when_same_track_id_reappears() -> None:
+def test_c4_does_not_stitch_far_track_split_to_lost_piece() -> None:
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=1, angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    old_piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=2.0)
+    assert rt.dossier_count() == 0
+    assert registry.snapshot(2.0)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=2, angle_deg=120.0)), capacity_downstream=1),
+        now_mono=2.1,
+    )
+
+    assert rt.dossier_for(old_piece_uuid) is None
+    assert rt.dossier_count() == 1
+    new_piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
+    assert new_piece_uuid != old_piece_uuid
+    assert rt.debug_snapshot()["transit_link_count"] == 0
+
+
+def test_c4_reuses_lost_piece_uuid_when_same_track_id_reappears_promptly() -> None:
     registry = TrackTransitRegistry()
     rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
 
@@ -453,7 +479,7 @@ def test_c4_reuses_lost_piece_uuid_when_same_track_id_reappears() -> None:
             tracks=_batch(_track(global_id=17, angle_deg=0.0)),
             capacity_downstream=1,
         ),
-        now_mono=7.5,
+        now_mono=2.4,
     )
 
     dossier = rt.dossier_for(piece_uuid)
@@ -461,6 +487,32 @@ def test_c4_reuses_lost_piece_uuid_when_same_track_id_reappears() -> None:
     assert dossier.global_id == 17
     assert dossier.extras["track_stitched"] is True
     assert dossier.extras["previous_tracked_global_id"] == 17
+
+
+def test_c4_does_not_reuse_track_split_after_holdover_window() -> None:
+    registry = TrackTransitRegistry()
+    rt, _up, _down, _clf, _log = _make(max_zones=1, track_transit=registry)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=17, angle_deg=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=0.0,
+    )
+    piece_uuid = next(iter(rt._pieces))  # noqa: SLF001 - test-only inspection
+
+    rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=2.0)
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=17, angle_deg=0.0)),
+            capacity_downstream=1,
+        ),
+        now_mono=3.6,
+    )
+
+    assert rt.dossier_for(piece_uuid) is None
+    assert rt.dossier_count() == 1
 
 
 def test_c4_consumes_c3_to_c4_transit_metadata() -> None:

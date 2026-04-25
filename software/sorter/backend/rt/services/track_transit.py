@@ -131,6 +131,7 @@ class TrackTransitRegistry:
         allowed_relations: tuple[str, ...] | set[str] | None = None,
         exclude_same_global_id: bool = False,
         appearance_threshold: float | None = None,
+        relation_angle_limits_deg: dict[str, float] | None = None,
     ) -> TransitCandidate | None:
         now = float(now_mono)
         target = str(target_runtime)
@@ -158,6 +159,7 @@ class TrackTransitRegistry:
                     or (now - c.created_at_mono) <= max(0.0, float(max_age_s))
                 )
                 and _appearance_allows(c.source_embedding, track_emb, threshold)
+                and _angle_allows(c, track, relation_angle_limits_deg)
             ]
             if not candidates:
                 return None
@@ -257,6 +259,27 @@ def _appearance_allows(
     if sim is None:
         return True
     return sim >= threshold
+
+
+def _angle_allows(
+    candidate: TransitCandidate,
+    track: Track,
+    relation_angle_limits_deg: dict[str, float] | None,
+) -> bool:
+    """Optional hard gate for fragile same-channel track-split stitching."""
+
+    if not relation_angle_limits_deg:
+        return True
+    limit = relation_angle_limits_deg.get(candidate.relation)
+    if limit is None:
+        return True
+    if candidate.source_angle_deg is None or track.angle_rad is None:
+        return False
+    angle_deg = math.degrees(float(track.angle_rad))
+    delta = abs(
+        ((angle_deg - float(candidate.source_angle_deg) + 180.0) % 360.0) - 180.0
+    )
+    return delta <= max(0.0, float(limit))
 
 
 __all__ = [

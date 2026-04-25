@@ -20,6 +20,8 @@ _CHANNEL_ALIASES = {
     "third_channel": "c3",
     "carousel": "c4",
     "classification_channel": "c4",
+    "dist": "distributor",
+    "chute": "distributor",
 }
 
 _SLOT_ALIASES = {
@@ -48,6 +50,7 @@ def snapshot(handle: Any) -> dict[str, Any]:
     c2 = getattr(handle, "c2", None)
     c3 = getattr(handle, "c3", None)
     c4 = getattr(handle, "c4", None)
+    distributor = getattr(handle, "distributor", None)
     return {
         "version": 1,
         "channels": {
@@ -55,6 +58,7 @@ def snapshot(handle: Any) -> dict[str, Any]:
             "c2": _c2_snapshot(c2, feeder_cfg),
             "c3": _c3_snapshot(c3, feeder_cfg),
             "c4": _c4_snapshot(c4, class_cfg, feeder_cfg),
+            "distributor": _distributor_snapshot(distributor),
         },
         "slots": _slot_snapshot(handle),
     }
@@ -74,7 +78,7 @@ def apply_patch(handle: Any, patch: dict[str, Any]) -> dict[str, Any]:
         channels_patch.update(raw_channels)
 
     # Convenience for scripts: allow {"c4": {...}} as shorthand.
-    for key in ("c1", "c2", "c3", "c4", *_CHANNEL_ALIASES.keys()):
+    for key in ("c1", "c2", "c3", "c4", "distributor", *_CHANNEL_ALIASES.keys()):
         if key in patch:
             channels_patch[key] = patch[key]
 
@@ -90,6 +94,8 @@ def apply_patch(handle: Any, patch: dict[str, Any]) -> dict[str, Any]:
             _apply_c3(handle, values)
         elif key == "c4":
             _apply_c4(handle, values)
+        elif key == "distributor":
+            _apply_distributor(handle, values)
         else:
             raise ValueError(f"unsupported channel {raw_key!r}")
 
@@ -212,6 +218,17 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
         "eject": _rotor_snapshot(
             getattr(feeder_cfg, "classification_channel_eject", None)
         ),
+    }
+
+
+def _distributor_snapshot(runtime: Any) -> dict[str, Any]:
+    return {
+        "simulate_chute": _runtime_attr(runtime, "_simulate_chute"),
+        "simulated_chute_move_s": _runtime_attr(runtime, "_simulated_chute_move_s"),
+        "chute_settle_s": _runtime_attr(runtime, "_chute_settle_s"),
+        "fall_time_s": _runtime_attr(runtime, "_fall_time_s"),
+        "position_timeout_s": _runtime_attr(runtime, "_position_timeout_s"),
+        "ready_timeout_s": _runtime_attr(runtime, "_ready_timeout_s"),
     }
 
 
@@ -458,6 +475,70 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         )
     if "eject" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "classification_channel_eject", None), values["eject"], "c4.eject")
+
+
+def _apply_distributor(handle: Any, values: dict[str, Any]) -> None:
+    runtime = getattr(handle, "distributor", None)
+    allowed = {
+        "simulate_chute",
+        "simulated_chute_move_s",
+        "simulated_chute_move_ms",
+        "chute_settle_s",
+        "chute_settle_ms",
+        "fall_time_s",
+        "fall_time_ms",
+        "position_timeout_s",
+        "position_timeout_ms",
+        "ready_timeout_s",
+        "ready_timeout_ms",
+    }
+    _reject_unknown("distributor", values, allowed)
+    _set_runtime_bool(runtime, "_simulate_chute", values, "simulate_chute")
+    _set_runtime_seconds(
+        runtime,
+        "_simulated_chute_move_s",
+        values,
+        "simulated_chute_move_s",
+        "simulated_chute_move_ms",
+        0.0,
+        30.0,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_chute_settle_s",
+        values,
+        "chute_settle_s",
+        "chute_settle_ms",
+        0.0,
+        30.0,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_fall_time_s",
+        values,
+        "fall_time_s",
+        "fall_time_ms",
+        0.0,
+        30.0,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_position_timeout_s",
+        values,
+        "position_timeout_s",
+        "position_timeout_ms",
+        0.0,
+        300.0,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_ready_timeout_s",
+        values,
+        "ready_timeout_s",
+        "ready_timeout_ms",
+        0.0,
+        600.0,
+    )
 
 
 def _apply_slots(handle: Any, values: dict[str, Any]) -> None:

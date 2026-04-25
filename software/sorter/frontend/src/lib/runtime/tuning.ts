@@ -51,6 +51,12 @@ export type RuntimeTuningChannel = {
 	reconcile_min_hit_count?: number | null;
 	reconcile_min_score?: number | null;
 	reconcile_min_age_s?: number | null;
+	simulate_chute?: boolean | null;
+	simulated_chute_move_s?: number | null;
+	chute_settle_s?: number | null;
+	fall_time_s?: number | null;
+	position_timeout_s?: number | null;
+	ready_timeout_s?: number | null;
 	normal?: RotorTuning | null;
 	precision?: RotorTuning | null;
 	transport?: RotorTuning | null;

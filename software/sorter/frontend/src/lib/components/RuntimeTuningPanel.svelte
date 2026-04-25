@@ -26,6 +26,7 @@
 	const c2 = $derived(tuning.channels?.c2 ?? {});
 	const c3 = $derived(tuning.channels?.c3 ?? {});
 	const c4 = $derived(tuning.channels?.c4 ?? {});
+	const distributor = $derived(tuning.channels?.distributor ?? {});
 	const slots = $derived(tuning.slots ?? {});
 	const savedRecently = $derived(savedAt !== null && Date.now() - savedAt < 2500);
 
@@ -122,7 +123,10 @@
 		}
 	}
 
-	function updateChannel(channel: 'c1' | 'c2' | 'c3' | 'c4', values: Record<string, unknown>) {
+	function updateChannel(
+		channel: 'c1' | 'c2' | 'c3' | 'c4' | 'distributor',
+		values: Record<string, unknown>
+	) {
 		queuePatch({ channels: { [channel]: values } });
 	}
 
@@ -560,6 +564,75 @@
 				class="h-4 w-4"
 			/>
 			<div></div>
+		</div>
+	</div>
+
+	<div class="border-t border-border pt-3">
+		<div class="mb-2 text-xs font-semibold uppercase text-text-muted">Distributor</div>
+		<div class="grid grid-cols-[92px_minmax(0,1fr)_76px] items-center gap-2 text-xs">
+			{@render tuningLabel(
+				'tune-dist-sim',
+				'Sim Chute',
+				'Bypasses the physical Waveshare chute move, but keeps distributor positioning time and the one-piece C4 handoff.'
+			)}
+			<input
+				id="tune-dist-sim"
+				type="checkbox"
+				checked={boolValue(distributor.simulate_chute, false)}
+				onchange={(e) => updateChannel('distributor', { simulate_chute: inputChecked(e) })}
+				class="h-4 w-4"
+			/>
+			<div></div>
+
+			{@render tuningLabel(
+				'tune-dist-move-wait',
+				'Move Wait',
+				'Simulated chute travel time in milliseconds. Higher values slow C4 ejection as if the bin selector still had to move.'
+			)}
+			<input
+				id="tune-dist-move-wait"
+				type="range"
+				min="0"
+				max="5000"
+				step="100"
+				value={msValue(distributor.simulated_chute_move_s, 800)}
+				oninput={(e) =>
+					updateChannel('distributor', { simulated_chute_move_ms: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="5000"
+				step="100"
+				value={msValue(distributor.simulated_chute_move_s, 800)}
+				onchange={(e) =>
+					updateChannel('distributor', { simulated_chute_move_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
+
+			{@render tuningLabel(
+				'tune-dist-settle',
+				'Settle',
+				'Extra wait after the chute reports ready. Raise this when parts reach the exit before the bin path would be mechanically stable.'
+			)}
+			<input
+				id="tune-dist-settle"
+				type="range"
+				min="0"
+				max="3000"
+				step="50"
+				value={msValue(distributor.chute_settle_s, 400)}
+				oninput={(e) => updateChannel('distributor', { chute_settle_ms: inputNumber(e) })}
+			/>
+			<input
+				type="number"
+				min="0"
+				max="3000"
+				step="50"
+				value={msValue(distributor.chute_settle_s, 400)}
+				onchange={(e) => updateChannel('distributor', { chute_settle_ms: inputNumber(e) })}
+				class="w-full border border-border bg-bg px-1.5 py-1 text-right font-mono text-xs text-text"
+			/>
 		</div>
 	</div>
 

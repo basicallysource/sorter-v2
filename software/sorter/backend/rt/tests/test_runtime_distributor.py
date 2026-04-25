@@ -193,6 +193,33 @@ def test_debug_snapshot_reports_chute_move_and_position_health() -> None:
     assert snap["chute"]["last_position_error"] is None
 
 
+def test_simulated_chute_waits_without_hardware_move() -> None:
+    dist, _upstream, rec, *_ = _make()
+    dist._simulate_chute = True  # noqa: SLF001 - live-tuning equivalent
+    dist._simulated_chute_move_s = 0.8  # noqa: SLF001 - live-tuning equivalent
+    accepted = dist.handoff_request(
+        piece_uuid="p1",
+        classification=_classification(),
+        now_mono=1.0,
+    )
+
+    assert accepted is True
+    assert rec.moves == []
+    snap = dist.debug_snapshot()
+    assert snap["chute"]["simulated"] is True
+    assert snap["chute"]["last_move_bin"] == "L0-S0-B0"
+    assert snap["chute"]["last_move_ok"] is True
+
+    dist.tick(_inbox(), now_mono=1.7)
+    assert dist.fsm_state() == "positioning"
+    assert rec.ready == []
+
+    dist.tick(_inbox(), now_mono=1.8)
+    assert dist.fsm_state() == "ready"
+    assert rec.ready == ["p1"]
+    assert dist.debug_snapshot()["chute"]["last_position"] == "L0-S0-B0"
+
+
 def test_busy_distributor_rejects_second_handoff() -> None:
     dist, *_ = _make()
     ok1 = dist.handoff_request(piece_uuid="p1", classification=_classification())

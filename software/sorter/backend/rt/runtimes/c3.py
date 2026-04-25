@@ -190,16 +190,18 @@ class RuntimeC3(BaseRuntime):
     def available_slots(self) -> int:
         """Whether C2 may push another piece downstream.
 
-        ``max_piece_count`` used to gate this hard, but the live debugger
-        showed C3 routinely carries more visible action tracks than the
-        cap when C2 advance pulses or rotation drag pieces in past the
-        soft gate. The cap is a lab-tuning hint for the *operator*, not
-        a contract the runtime can enforce against the carousel's
-        physics. Returning 1 outside purge keeps the flow open and lets
-        the next physical singulation gate (C4 admission) be the real
-        backpressure point.
+        Mirrors ``RuntimeC2.available_slots``: the cap is the only
+        backpressure surface that tells C2 to stop pushing into a C3
+        ring that the tracker can no longer keep up with. Removing this
+        gate caused live overflow — C3 visibly carried 25+ pieces in
+        clumps that the perception tracker could not separate, which
+        made every downstream singulation worse, not better. Keep the
+        gate; the actual fix for the false 'downstream_full' symptom is
+        further downstream in C4's admission strategy.
         """
         if self._purge_mode:
+            return 0
+        if self._admission_piece_count >= self._max_piece_count:
             return 0
         return 1
 

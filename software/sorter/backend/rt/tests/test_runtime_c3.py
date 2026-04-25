@@ -472,10 +472,7 @@ def test_c3_pending_piece_does_not_release_or_fill_capacity() -> None:
     assert snap["pending_track_count"] == 1
 
 
-def test_c3_admission_piece_count_tracks_visible_action_tracks() -> None:
-    """Piece count bookkeeping still reflects visible action tracks even
-    though ``available_slots`` no longer gates on it. The cap remains
-    visible to operators via the snapshot for tuning purposes."""
+def test_c3_stable_pending_tracks_reserve_ring_capacity() -> None:
     rt, _up, _down, _log = _make(max_piece_count=1)
     rt.tick(
         RuntimeInbox(
@@ -492,17 +489,16 @@ def test_c3_admission_piece_count_tracks_visible_action_tracks() -> None:
         now_mono=0.0,
     )
     snap = rt.debug_snapshot()
+    assert rt.available_slots() == 0
     assert snap["piece_count"] == 1
     assert snap["admission_piece_count"] == 1
     assert snap["pending_track_count"] == 0
 
 
-def test_c3_available_slots_stays_open_when_ring_full() -> None:
-    """C3 used to refuse upstream when piece_count >= max_piece_count, but
-    that gate fought the carousel's physics: pieces still arrived via
-    advance pulses and rotation drag, leaving C3 visibly above the cap
-    while telling C2 'downstream_full'. The runtime now keeps reporting
-    capacity 1 and lets C4 admission be the actual physical gate."""
+def test_c3_available_slots_blocks_when_ring_full() -> None:
+    """The C3 cap is the upstream brake — without it C2 keeps pushing
+    pieces into a C3 ring the tracker can no longer separate. Live
+    overflow on 2026-04-25 confirmed why this gate must stay in place."""
     rt, _up, _down, _log = _make(max_piece_count=1)
     rt.tick(
         RuntimeInbox(
@@ -511,7 +507,7 @@ def test_c3_available_slots_stays_open_when_ring_full() -> None:
         ),
         now_mono=0.0,
     )
-    assert rt.available_slots() == 1
+    assert rt.available_slots() == 0
 
 
 def test_c3_downstream_full_blocks_precise_pulse() -> None:

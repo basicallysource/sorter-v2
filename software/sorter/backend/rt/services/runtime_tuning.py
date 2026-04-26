@@ -267,6 +267,7 @@ def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
             "drop_tolerance_deg",
             "sector_count",
             "sector_offset_deg",
+            "wall_angles_deg",
         }
         _reject_unknown(
             "orchestrator.carousel_c4_handler.geometry",
@@ -301,6 +302,32 @@ def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
                 max_value=64,
             )
         update_fn(**kwargs)
+        # ``wall_angles_deg`` is a *derived* geometry input — when set,
+        # the handler infers ``sector_offset_deg`` from it and ignores
+        # any ``sector_offset_deg`` passed in the same patch (walls
+        # are the more authoritative signal).
+        if "wall_angles_deg" in geometry:
+            walls = geometry["wall_angles_deg"]
+            if not isinstance(walls, list):
+                raise ValueError(
+                    "orchestrator.carousel_c4_handler.geometry.wall_angles_deg must be a list"
+                )
+            cleaned: list[float] = []
+            for i, raw in enumerate(walls):
+                cleaned.append(
+                    _float(
+                        raw,
+                        f"orchestrator.carousel_c4_handler.geometry.wall_angles_deg[{i}]",
+                        min_value=-360.0,
+                        max_value=360.0,
+                    )
+                )
+            walls_fn = getattr(handler, "update_walls", None)
+            if not callable(walls_fn):
+                raise RuntimeError(
+                    "carousel C4 handler missing update_walls"
+                )
+            walls_fn(cleaned)
     timing = values.get("timing")
     if timing is not None:
         if not isinstance(timing, dict):

@@ -414,6 +414,10 @@ class CarouselC4Handler:
         Falls back to ``"centers"`` (clustering-based) if the
         operator wants the older heuristic for comparison.
 
+        For wall positions detected directly (e.g. from a YOLO
+        wall-detector), use :meth:`update_walls` instead — it skips
+        the indirect inference entirely.
+
         Returns the inferred offset (and applies it in place) or
         ``None`` when the input is empty / sector mode is off.
         """
@@ -425,6 +429,25 @@ class CarouselC4Handler:
             offset = calibrate_sector_offset_from_gaps(
                 angles_deg, self._sector_count
             )
+        if offset is None:
+            return None
+        self.update_geometry(sector_offset_deg=offset)
+        return offset
+
+    def update_walls(self, wall_angles_deg: list[float]) -> float | None:
+        """Update ``sector_offset_deg`` from directly detected walls.
+
+        Most robust path: a YOLO (or other CV) detector publishes the
+        absolute angular positions of the visible walls and we use
+        those directly. No need to wait for pieces to populate the
+        platter or for a rotation cycle to expose gaps.
+
+        Returns the new offset and applies it in place, or ``None``
+        if input is empty / sector mode is off.
+        """
+        offset = calibrate_sector_offset_from_walls(
+            wall_angles_deg, self._sector_count
+        )
         if offset is None:
             return None
         self.update_geometry(sector_offset_deg=offset)
@@ -678,6 +701,58 @@ def calibrate_sector_offset_from_angles(
     return float(offset)
 
 
+def calibrate_sector_offset_from_walls(
+    wall_angles_deg: list[float],
+    sector_count: int,
+) -> float | None:
+    """Infer ``sector_offset_deg`` from directly detected wall positions.
+
+    Most robust calibration path: a separate detector (e.g. a YOLO
+    model trained on the wall-divider geometry) publishes the
+    angular positions of the visible walls. Each wall's angle modulo
+    ``sector_size`` approximates the offset (since walls are
+    ``sector_size`` degrees apart), and the circular mean of those
+    moduli minimises detector noise.
+
+    Inputs:
+
+    * ``wall_angles_deg``: any subset of the ``sector_count`` walls
+      (typically all of them; partial detections still work as long
+      as the moduli are reproducible).
+    * ``sector_count``: hardware constant (5 for the 2026-04-27
+      install).
+
+    Returns the inferred offset or ``None`` for empty input /
+    ``sector_count <= 0``.
+    """
+    if sector_count <= 0:
+        return None
+    if not wall_angles_deg:
+        return None
+    sector_size = 360.0 / float(sector_count)
+    sin_sum = 0.0
+    cos_sum = 0.0
+    n = 0
+    for raw in wall_angles_deg:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        rel = value % sector_size
+        theta = (rel / sector_size) * 2.0 * math.pi
+        sin_sum += math.sin(theta)
+        cos_sum += math.cos(theta)
+        n += 1
+    if n == 0:
+        return None
+    if sin_sum == 0.0 and cos_sum == 0.0:
+        return None
+    mean_rad = math.atan2(sin_sum, cos_sum)
+    if mean_rad < 0:
+        mean_rad += 2.0 * math.pi
+    return float((mean_rad / (2.0 * math.pi)) * sector_size % sector_size)
+
+
 def calibrate_sector_offset_from_gaps(
     angles_deg: list[float],
     sector_count: int,
@@ -754,4 +829,5 @@ __all__ = [
     "CarouselTickInput",
     "calibrate_sector_offset_from_angles",
     "calibrate_sector_offset_from_gaps",
+    "calibrate_sector_offset_from_walls",
 ]

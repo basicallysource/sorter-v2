@@ -11,6 +11,7 @@ from rt.services.carousel_c4_handler import (
     CarouselTickInput,
     calibrate_sector_offset_from_angles,
     calibrate_sector_offset_from_gaps,
+    calibrate_sector_offset_from_walls,
 )
 
 
@@ -524,6 +525,77 @@ def test_calibrate_gaps_handles_unequal_sector_population() -> None:
 def test_calibrate_gaps_returns_none_for_empty_input() -> None:
     assert calibrate_sector_offset_from_gaps([], 5) is None
     assert calibrate_sector_offset_from_gaps([0.0, 90.0], 0) is None
+
+
+def test_calibrate_walls_recovers_offset_from_perfect_walls() -> None:
+    """5 walls 72° apart starting at 30° → offset = 30."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 30.0
+    walls = [expected_offset + k * sector_size for k in range(sector_count)]
+    offset = calibrate_sector_offset_from_walls(walls, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(expected_offset, abs=0.5)
+
+
+def test_calibrate_walls_recovers_offset_from_partial_detection() -> None:
+    """Only 3 of 5 walls visible — still works."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 18.0
+    walls = [expected_offset, expected_offset + 2 * sector_size,
+             expected_offset + 4 * sector_size]
+    offset = calibrate_sector_offset_from_walls(walls, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(expected_offset, abs=0.5)
+
+
+def test_calibrate_walls_tolerates_detection_noise() -> None:
+    """Walls with ±2° detection jitter still recover the offset."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 24.0
+    walls = [
+        expected_offset + k * sector_size + jitter
+        for k, jitter in enumerate([1.5, -1.8, 0.5, 2.0, -1.2])
+    ]
+    offset = calibrate_sector_offset_from_walls(walls, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(expected_offset, abs=2.0)
+
+
+def test_calibrate_walls_returns_none_for_empty_input() -> None:
+    assert calibrate_sector_offset_from_walls([], 5) is None
+    assert calibrate_sector_offset_from_walls([10.0, 20.0], 0) is None
+
+
+def test_handler_update_walls_applies_offset_in_place() -> None:
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        sector_count=5,
+        sector_offset_deg=0.0,
+    )
+    sector_size = 72.0
+    expected_offset = 42.0
+    walls = [expected_offset + k * sector_size for k in range(5)]
+    inferred = h.update_walls(walls)
+    assert inferred == pytest.approx(expected_offset, abs=0.5)
+    snap = h.snapshot()["geometry"]
+    assert snap["sector_offset_deg"] == pytest.approx(expected_offset, abs=0.5)
+    # classify/drop also re-snapped to new sector centers
+    assert snap["classify_deg"] != 36.0  # changed from previous default
+
+
+def test_handler_update_walls_returns_none_when_not_in_sector_mode() -> None:
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        # sector_count default 0 → continuous mode
+    )
+    assert h.update_walls([10.0, 82.0, 154.0, 226.0, 298.0]) is None
 
 
 def test_handler_auto_calibrate_returns_none_when_not_in_sector_mode() -> None:

@@ -564,6 +564,45 @@ def test_orchestrator_carousel_handler_sector_geometry_round_trip() -> None:
     assert snap["classify_tolerance_deg"] > 20.0
 
 
+def test_orchestrator_carousel_handler_wall_angles_round_trip() -> None:
+    """YOLO-detected wall angles route through tuning API to handler.update_walls."""
+    from rt.services.carousel_c4_handler import CarouselC4Handler
+
+    handle = _handle()
+    handler = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=type(
+            "_D",
+            (),
+            {
+                "handoff_request": lambda self, **kw: True,
+                "handoff_commit": lambda self, *a, **kw: True,
+                "pending_ready": lambda self, *a, **kw: False,
+            },
+        )(),
+        sector_count=5,
+        sector_offset_deg=0.0,
+    )
+    handle.orchestrator._carousel_c4_handler = handler
+
+    # 5 walls at 24°, 96°, 168°, 240°, 312° → offset = 24°
+    runtime_tuning.apply_patch(
+        handle,
+        {
+            "orchestrator": {
+                "carousel_c4_handler": {
+                    "geometry": {
+                        "wall_angles_deg": [24.0, 96.0, 168.0, 240.0, 312.0]
+                    }
+                }
+            }
+        },
+    )
+    snap = handler.snapshot()["geometry"]
+    assert snap["sector_offset_deg"] == pytest.approx(24.0, abs=0.5)
+
+
 def test_orchestrator_carousel_geometry_rejects_invalid_sector_count() -> None:
     from rt.services.carousel_c4_handler import CarouselC4Handler
 

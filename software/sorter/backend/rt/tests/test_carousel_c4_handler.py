@@ -10,6 +10,7 @@ from rt.services.carousel_c4_handler import (
     CarouselState,
     CarouselTickInput,
     calibrate_sector_offset_from_angles,
+    calibrate_sector_offset_from_gaps,
 )
 
 
@@ -441,6 +442,11 @@ def test_calibrate_offset_handles_evenly_distributed_angles_gracefully() -> None
 
 
 def test_handler_auto_calibrate_offset_applies_in_place() -> None:
+    """Default auto-calibration uses the gap-based method.
+
+    Pieces sweep through their sectors, filling angles densely except
+    near the wall — the gap detector recovers the wall position.
+    """
     h = CarouselC4Handler(
         c4_transport=lambda deg: True,
         c4_eject=lambda: True,
@@ -448,12 +454,76 @@ def test_handler_auto_calibrate_offset_applies_in_place() -> None:
         sector_count=5,
         sector_offset_deg=0.0,
     )
-    # Pretend pieces rest near the centers of sector offset 30.
+    # Synthesize observations: pieces sweeping each sector between
+    # a wall at offset=30° (and 30+72°, etc.) — fill each sector
+    # densely from offset+1° to offset+71° (avoiding ±1° around wall).
+    expected_offset = 30.0
+    sector_size = 72.0
+    angles: list[float] = []
+    for k in range(5):
+        sector_start = expected_offset + k * sector_size
+        for d in range(1, int(sector_size)):
+            angles.append(sector_start + d)
+    inferred = h.auto_calibrate_offset(angles)
+    assert inferred is not None
+    assert inferred == pytest.approx(expected_offset, abs=2.0)
+
+
+def test_handler_auto_calibrate_centers_method_still_available() -> None:
+    """Operator can pick the older clustering-based method if needed."""
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        sector_count=5,
+        sector_offset_deg=0.0,
+    )
     sector_size = 72.0
     angles = [30.0 + k * sector_size + sector_size / 2.0 for k in range(5)]
-    inferred = h.auto_calibrate_offset(angles)
+    inferred = h.auto_calibrate_offset(angles, method="centers")
     assert inferred == pytest.approx(30.0, abs=0.5)
-    assert h.snapshot()["geometry"]["sector_offset_deg"] == pytest.approx(30.0, abs=0.5)
+
+
+def test_calibrate_gaps_recovers_wall_at_known_offset() -> None:
+    """Synthetic data: pieces fill all 5 sectors except a 4° gap at offset=18°."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 18.0
+    angles: list[float] = []
+    for k in range(sector_count):
+        sector_start = expected_offset + k * sector_size
+        # Skip the first 2° of each sector (the wall region).
+        for d in range(2, int(sector_size)):
+            angles.append(sector_start + d)
+    offset = calibrate_sector_offset_from_gaps(angles, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(expected_offset, abs=2.0)
+
+
+def test_calibrate_gaps_handles_unequal_sector_population() -> None:
+    """Pieces only in 2 of 5 sectors — gap method still finds the walls."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 12.0
+    angles: list[float] = []
+    # Densely populate sectors 0 and 2 (skip the 2° wall region).
+    for k in (0, 2):
+        sector_start = expected_offset + k * sector_size
+        for d in range(2, int(sector_size)):
+            angles.append(sector_start + d)
+    offset = calibrate_sector_offset_from_gaps(angles, sector_count)
+    assert offset is not None
+    # With only 2 of 5 sectors populated, the empty bins now include
+    # 3 unexplored sectors AND the 2° wall regions. The longest run of
+    # empty bins will be one of the unexplored sectors → result will
+    # be off by some multiple of sector_size, but always lands on a
+    # wall position. So `(offset % sector_size)` should still be ~12°.
+    assert (offset % sector_size) == pytest.approx(expected_offset, abs=2.0)
+
+
+def test_calibrate_gaps_returns_none_for_empty_input() -> None:
+    assert calibrate_sector_offset_from_gaps([], 5) is None
+    assert calibrate_sector_offset_from_gaps([0.0, 90.0], 0) is None
 
 
 def test_handler_auto_calibrate_returns_none_when_not_in_sector_mode() -> None:

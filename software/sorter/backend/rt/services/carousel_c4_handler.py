@@ -396,24 +396,35 @@ class CarouselC4Handler:
         self._drop_tolerance_deg = max(0.5, sector_size / 2.0 - margin)
         self._advance_step_deg = sector_size
 
-    def auto_calibrate_offset(self, angles_deg: list[float]) -> float | None:
+    def auto_calibrate_offset(
+        self,
+        angles_deg: list[float],
+        *,
+        method: str = "gaps",
+    ) -> float | None:
         """Estimate ``sector_offset_deg`` from observed track angles.
 
-        Without an encoder/homing on C4 the wall positions are
-        unknown after every restart. With the 5-wall hardware design,
-        pieces are mechanically forced into sector "rest positions" —
-        usually near the center of each sector. Histogramming a few
-        observed track angles and finding the circular mean modulo
-        the sector size recovers the platter phase reliably from
-        as few as 2–3 visible pieces.
+        Without an encoder/homing on C4 the wall positions shift
+        after every restart. The 5-wall geometry leaves narrow
+        angular gaps where no piece can ever sit (the walls
+        themselves) — the ``"gaps"`` method (default) histograms
+        observations modulo the sector size and finds the lowest-
+        density bin to locate one wall, then derives the offset.
 
-        Returns the inferred offset (and applies it in place if the
-        sample is non-degenerate) or ``None`` when the input is empty
-        / not in sector mode / circular mean is undefined.
+        Falls back to ``"centers"`` (clustering-based) if the
+        operator wants the older heuristic for comparison.
+
+        Returns the inferred offset (and applies it in place) or
+        ``None`` when the input is empty / sector mode is off.
         """
-        offset = calibrate_sector_offset_from_angles(
-            angles_deg, self._sector_count
-        )
+        if method == "centers":
+            offset = calibrate_sector_offset_from_angles(
+                angles_deg, self._sector_count
+            )
+        else:
+            offset = calibrate_sector_offset_from_gaps(
+                angles_deg, self._sector_count
+            )
         if offset is None:
             return None
         self.update_geometry(sector_offset_deg=offset)
@@ -626,15 +637,13 @@ def calibrate_sector_offset_from_angles(
     angles_deg: list[float],
     sector_count: int,
 ) -> float | None:
-    """Infer ``sector_offset_deg`` from a list of observed track angles.
+    """Infer ``sector_offset_deg`` by clustering — assumes pieces rest
+    near a consistent point within each sector (centers by default).
 
-    Pieces on the 5-wall platter rest at sector "preferred positions"
-    (typically near the center of each sector, but the exact rest
-    point is set by the wall geometry — could also be the trailing
-    wall). For any consistent rest position, all observed angles
-    modulo ``sector_size`` cluster around one value. The circular
-    mean of those modular angles, minus ``sector_size / 2`` so
-    sector 0's center lands at the cluster, gives the offset.
+    Less robust than ``calibrate_sector_offset_from_gaps`` because the
+    "rest near centers" assumption is an operator-verifiable guess,
+    not a physical guarantee. Useful as a sanity-check / fallback
+    when there isn't enough data for the gap method.
 
     Returns ``None`` if ``sector_count <= 0`` or the input is empty
     or the circular mean is undefined (vectors cancel exactly).
@@ -669,9 +678,80 @@ def calibrate_sector_offset_from_angles(
     return float(offset)
 
 
+def calibrate_sector_offset_from_gaps(
+    angles_deg: list[float],
+    sector_count: int,
+    bin_width_deg: float = 2.0,
+) -> float | None:
+    """Infer ``sector_offset_deg`` by detecting the empty wall gap.
+
+    Physically grounded: walls are narrow physical structures that
+    pieces *can never sit on*. Histogramming all observed track
+    angles modulo ``sector_size`` and finding the lowest-density bin
+    locates the wall — no assumption about where within a sector
+    pieces tend to rest.
+
+    Robust to:
+    * arbitrary rest positions (leading wall, trailing wall, center,
+      anywhere within a sector)
+    * pieces drifting through their sector during platter motion
+    * unequal piece distributions across sectors
+
+    Less robust to:
+    * very sparse data (few pieces, short observation window) — the
+      "deepest gap" might be an unexplored region rather than a wall.
+      Mitigation: feed angles collected over several seconds while
+      the platter is rotating so each piece sweeps through its sector.
+
+    Returns ``None`` if ``sector_count <= 0`` or the input is empty.
+    """
+    if sector_count <= 0:
+        return None
+    if not angles_deg:
+        return None
+    sector_size = 360.0 / float(sector_count)
+    n_bins = max(8, int(round(sector_size / max(0.5, float(bin_width_deg)))))
+    bins = [0] * n_bins
+    sample_count = 0
+    for raw in angles_deg:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        rel = value % sector_size
+        idx = int(rel / sector_size * n_bins) % n_bins
+        bins[idx] += 1
+        sample_count += 1
+    if sample_count == 0:
+        return None
+    # Find the deepest gap. Doubling the array handles wraparound
+    # in run-length detection so a gap that straddles index 0 is
+    # treated correctly.
+    min_count = min(bins)
+    extended = bins + bins
+    best_start, best_len = 0, 0
+    cur_start, cur_len = -1, 0
+    for i, c in enumerate(extended):
+        if c == min_count:
+            if cur_start < 0:
+                cur_start = i
+            cur_len += 1
+            if cur_len > best_len:
+                best_len = cur_len
+                best_start = cur_start
+        else:
+            cur_start = -1
+            cur_len = 0
+    # Sector 0's leading wall sits at the gap center.
+    gap_center_idx = (best_start + best_len / 2.0) % n_bins
+    gap_center_rel_deg = gap_center_idx / n_bins * sector_size
+    return float(gap_center_rel_deg % sector_size)
+
+
 __all__ = [
     "CarouselC4Handler",
     "CarouselState",
     "CarouselTickInput",
     "calibrate_sector_offset_from_angles",
+    "calibrate_sector_offset_from_gaps",
 ]

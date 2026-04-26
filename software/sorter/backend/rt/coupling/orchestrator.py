@@ -116,6 +116,7 @@ class Orchestrator:
             dossier_resume=c1_c4_backpressure_dossier_resume,
         )
         self._c1_pulse_observer: Any | None = None
+        self._sector_shadow_observer: Any | None = None
         self._last_c1_recovery_decision: dict[str, Any] | None = None
         self._c1_recovery_admission_enabled = True
         self._c1_recovery_c2_safe_capacity_eq = 14
@@ -305,6 +306,86 @@ class Orchestrator:
         self._last_c1_recovery_decision = dict(info)
         return allowed, info
 
+    def attach_sector_shadow_observer(self, observer: Any) -> None:
+        """Install the optional Main-style sector shadow observer.
+
+        Non-invasive: the observer just *reads* runtime state and logs
+        what Main's sector-based feeder logic would have decided. It
+        does not alter any pulse or backpressure decision.
+        """
+        self._sector_shadow_observer = observer
+
+    def sector_shadow_snapshot_payload(self) -> dict[str, Any]:
+        """Compact view of inputs the sector shadow observer needs.
+
+        Pulled in one shot so the observer doesn't need to call back
+        into multiple orchestrator methods at tick time. Track angles
+        come straight from each channel's perception source — same data
+        that drives the actual runtime gates, so divergence is purely
+        about decision logic, not about input freshness.
+        """
+        import math
+
+        out: dict[str, Any] = {
+            "c2_tracks": [],
+            "c3_tracks": [],
+            "c4_intake_blocked": False,
+            "sorthive_c1_blocked_reason": None,
+            "sorthive_c2_blocked_reason": None,
+            "sorthive_c3_blocked_reason": None,
+        }
+        for ch_id, feed_id in (("c2", "c2_feed"), ("c3", "c3_feed")):
+            source = self._perception.get(feed_id)
+            if source is None:
+                continue
+            try:
+                batch = source.latest_tracks()
+            except Exception:
+                batch = None
+            if batch is None:
+                continue
+            tracks_iter = getattr(batch, "tracks", None) or ()
+            extracted: list[dict[str, Any]] = []
+            for track in tracks_iter:
+                angle_rad = getattr(track, "angle_rad", None)
+                if not isinstance(angle_rad, (int, float)):
+                    continue
+                extracted.append(
+                    {
+                        "angle_deg": math.degrees(float(angle_rad)),
+                        "global_id": getattr(track, "global_id", None),
+                        "piece_uuid": getattr(track, "piece_uuid", None),
+                        "confirmed_real": bool(
+                            getattr(track, "confirmed_real", False)
+                        ),
+                    }
+                )
+            out[f"{ch_id}_tracks"] = extracted
+
+        c4 = self._runtime_by_id.get("c4")
+        if c4 is not None:
+            try:
+                c4_dbg = dict(c4.debug_snapshot() or {})
+            except Exception:
+                c4_dbg = {}
+            admission = c4_dbg.get("admission_debug")
+            if isinstance(admission, dict):
+                out["c4_intake_blocked"] = not bool(admission.get("allowed", False))
+
+        capacity = self._capacity_debug
+        c1_dbg = capacity.get("c1") or {}
+        c2_dbg = capacity.get("c2") or {}
+        c3_dbg = capacity.get("c3") or {}
+        for src, key in (
+            (c1_dbg, "sorthive_c1_blocked_reason"),
+            (c2_dbg, "sorthive_c2_blocked_reason"),
+            (c3_dbg, "sorthive_c3_blocked_reason"),
+        ):
+            reason = src.get("reason")
+            if isinstance(reason, str) and reason and reason not in {"ok"}:
+                out[key] = reason
+        return out
+
     def attach_c1_pulse_observer(self, observer: Any) -> None:
         """Install the C1 pulse-response observer.
 
@@ -426,7 +507,13 @@ class Orchestrator:
                 clump_block_threshold,
                 "clump_block_threshold",
                 min_value=0.0,
-                max_value=1.0,
+                # Upper bound > 1.0 leaves headroom to *disable* the
+                # clump gate without removing the field — set 1.5+ to
+                # effectively skip the check, since clump_score is in
+                # [0, 1]. Live evidence (sector shadow observer) showed
+                # the gate creating a deadlock when 3 pieces stick in
+                # a single C2 sector.
+                max_value=2.0,
             )
             if clump_block_threshold is not None
             else float(
@@ -599,6 +686,15 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: C1 pulse observer summary raised"
                 )
+        shadow = self._sector_shadow_observer
+        sector_shadow_summary: dict[str, Any] | None = None
+        if shadow is not None:
+            try:
+                sector_shadow_summary = dict(shadow.summary() or {})
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: sector shadow observer summary raised"
+                )
         return {
             "runtime_health": self.health(),
             "runtime_debug": runtime_debug,
@@ -606,6 +702,7 @@ class Orchestrator:
             "capacity_debug": dict(self._capacity_debug),
             "flow_gate_accounting": self._flow_gate_snapshot(),
             "c1_pulse_observer": c1_pulse_summary,
+            "sector_shadow_observer": sector_shadow_summary,
         }
 
     def inspect_snapshot(self) -> dict[str, Any]:
@@ -681,6 +778,19 @@ class Orchestrator:
                     "Orchestrator: C1 pulse observer inspect raised"
                 )
                 c1_pulse_inspect = {"_error": "inspect_failed"}
+        shadow = self._sector_shadow_observer
+        sector_shadow_inspect: dict[str, Any] | None = None
+        if shadow is not None:
+            try:
+                sector_shadow_inspect = {
+                    "summary": dict(shadow.summary() or {}),
+                    "recent": list(shadow.recent(limit=20)),
+                }
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: sector shadow observer inspect raised"
+                )
+                sector_shadow_inspect = {"_error": "inspect_failed"}
         base.update(
             {
                 "tick_count": int(self._tick_count),
@@ -690,6 +800,7 @@ class Orchestrator:
                 "slot_inspect": slot_inspect,
                 "now_mono": float(now),
                 "c1_pulse_observer": c1_pulse_inspect,
+                "sector_shadow_observer": sector_shadow_inspect,
             }
         )
         return base
@@ -1173,6 +1284,14 @@ class Orchestrator:
             except Exception:
                 self._logger.exception(
                     "Orchestrator: C1 pulse observer tick raised"
+                )
+        shadow = self._sector_shadow_observer
+        if shadow is not None:
+            try:
+                shadow.tick(now_mono)
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: sector shadow observer tick raised"
                 )
 
     def _run(self) -> None:

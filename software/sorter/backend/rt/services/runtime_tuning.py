@@ -468,7 +468,9 @@ def _apply_c1_vision_burst(handle: Any, values: Any) -> None:
             values["clump_block_threshold"],
             "c1.vision_burst.clump_block_threshold",
             min_value=0.0,
-            max_value=1.0,
+            # Cap at 2.0 so the operator can disable the gate by
+            # setting any value > 1.0 (clump_score is in [0, 1]).
+            max_value=2.0,
         )
     if "exit_queue_limit" in values:
         kwargs["exit_queue_limit"] = _int(

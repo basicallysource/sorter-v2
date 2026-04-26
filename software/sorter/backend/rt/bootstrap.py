@@ -75,6 +75,10 @@ from rt.runtimes.distributor import RuntimeDistributor
 from rt.services.c1_pulse_observation import C1PulseObserver
 from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.services.sample_transport import C1234SampleTransportCoordinator
+from rt.services.sector_shadow_observer import (
+    ChannelGeometry as _ShadowChannelGeometry,
+    SectorShadowObserver,
+)
 from rt.services.track_transit import TrackTransitRegistry
 
 
@@ -320,6 +324,7 @@ class RtRuntimeHandle:
         capacity_debug: dict[str, Any] = {}
         flow_gate_accounting: dict[str, Any] = {}
         c1_pulse_observer: dict[str, Any] | None = None
+        sector_shadow_observer: dict[str, Any] | None = None
         orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
         if callable(orchestrator_status):
             try:
@@ -334,6 +339,9 @@ class RtRuntimeHandle:
             obs = snapshot.get("c1_pulse_observer")
             if isinstance(obs, dict):
                 c1_pulse_observer = dict(obs)
+            shadow = snapshot.get("sector_shadow_observer")
+            if isinstance(shadow, dict):
+                sector_shadow_observer = dict(shadow)
 
         return {
             "perception_started": bool(self.perception_started),
@@ -352,6 +360,7 @@ class RtRuntimeHandle:
             "capacity_debug": capacity_debug,
             "flow_gate_accounting": flow_gate_accounting,
             "c1_pulse_observer": c1_pulse_observer,
+            "sector_shadow_observer": sector_shadow_observer,
             "maintenance": {
                 "c234_purge": self.c234_purge_status(),
                 "sample_transport": self.sample_transport_status(),
@@ -1333,6 +1342,47 @@ def build_rt_runtime(
     )
     _orchestrator_ref.append(orch)
     orch.attach_c1_pulse_observer(c1_pulse_observer)
+
+    # Sector-based shadow observer: parallel evaluation of Main's pre-rt
+    # feeder logic on top of the live track angles. Read-only; never
+    # changes pulse/backpressure decisions.
+    sector_shadow_log_path = (
+        Path(__file__).resolve().parents[4] / "logs" / "sector_shadow.jsonl"
+    )
+
+    def _shadow_snapshot_provider() -> dict[str, Any]:
+        if not _orchestrator_ref:
+            return {}
+        try:
+            return _orchestrator_ref[0].sector_shadow_snapshot_payload()
+        except Exception:
+            log.exception(
+                "rt.bootstrap: sector_shadow_snapshot_payload raised"
+            )
+            return {}
+
+    sector_shadow_observer = SectorShadowObserver(
+        snapshot_provider=_shadow_snapshot_provider,
+        # Initial geometry seeds: angle convention is angle_deg ∈ [-180, 180]
+        # with 0° = exit. Intake is opposite the exit. Tune later from
+        # observed track-angle distributions.
+        c2_geometry=_ShadowChannelGeometry(
+            name="c2",
+            exit_arc_deg=30.0,
+            intake_center_deg=180.0,
+            intake_arc_deg=30.0,
+        ),
+        c3_geometry=_ShadowChannelGeometry(
+            name="c3",
+            exit_arc_deg=20.0,
+            intake_center_deg=180.0,
+            intake_arc_deg=30.0,
+        ),
+        log_path=sector_shadow_log_path,
+        sample_period_s=0.5,
+        logger=log,
+    )
+    orch.attach_sector_shadow_observer(sector_shadow_observer)
     log.info(
         "rt.bootstrap: orchestrator ready "
         "(runtimes=c1,c2,c3,c4,distributor; perception_feeds=%s; slots=%s)",

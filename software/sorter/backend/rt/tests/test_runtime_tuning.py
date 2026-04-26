@@ -63,6 +63,15 @@ class _FakeOrchestrator:
         self._feeder_mode = mode
         return mode
 
+    def c4_mode(self) -> str:
+        return getattr(self, "_c4_mode", "runtime")
+
+    def set_c4_mode(self, mode: str) -> str:
+        if mode not in {"runtime", "carousel"}:
+            raise ValueError(f"bad c4_mode: {mode}")
+        self._c4_mode = mode
+        return mode
+
     @property
     def section_handler(self):
         return getattr(self, "_section_feeder_handler", None)
@@ -453,6 +462,59 @@ def test_orchestrator_section_handler_geometry_round_trip() -> None:
     assert snap["cooldowns_s"]["c2"] == 0.4
     section = payload["orchestrator"]["section_feeder_handler"]
     assert section["geometry"]["c2"]["intake_center_deg"] == -60.0
+
+
+def test_orchestrator_c4_mode_round_trip() -> None:
+    from rt.services.carousel_c4_handler import CarouselC4Handler
+
+    handle = _handle()
+    handler = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=type(
+            "_D",
+            (),
+            {
+                "handoff_request": lambda self, **kw: True,
+                "handoff_commit": lambda self, *a, **kw: True,
+                "pending_ready": lambda self, *a, **kw: False,
+            },
+        )(),
+    )
+    handle.orchestrator._carousel_c4_handler = handler
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {"orchestrator": {"c4_mode": "carousel"}},
+    )
+    assert handle.orchestrator._c4_mode == "carousel"
+    assert payload["orchestrator"]["c4_mode"] == "carousel"
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "orchestrator": {
+                "carousel_c4_handler": {
+                    "geometry": {"classify_deg": 22.0, "classify_tolerance_deg": 8.0},
+                    "timing": {"settle_s": 1.0, "advance_step_deg": 6.0},
+                }
+            }
+        },
+    )
+    snap = handler.snapshot()
+    assert snap["geometry"]["classify_deg"] == 22.0
+    assert snap["geometry"]["classify_tolerance_deg"] == 8.0
+    assert snap["timing"]["settle_s"] == 1.0
+    assert snap["timing"]["advance_step_deg"] == 6.0
+
+
+def test_orchestrator_c4_mode_rejects_unknown_value() -> None:
+    handle = _handle()
+    with pytest.raises(ValueError, match="c4_mode"):
+        runtime_tuning.apply_patch(
+            handle,
+            {"orchestrator": {"c4_mode": "magic"}},
+        )
 
 
 def test_orchestrator_section_handler_geometry_rejects_unknown_channel() -> None:

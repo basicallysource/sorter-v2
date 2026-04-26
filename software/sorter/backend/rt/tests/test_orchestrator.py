@@ -406,6 +406,58 @@ def test_orchestrator_section_mode_skips_c1_c2_c3_runtimes() -> None:
     assert handler.tick_calls == 1  # not ticked again
 
 
+def test_orchestrator_c4_mode_defaults_to_runtime() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    assert orch.c4_mode() == "runtime"
+
+
+def test_orchestrator_rejects_carousel_mode_without_handler() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    with pytest.raises(RuntimeError, match="carousel"):
+        orch.set_c4_mode("carousel")
+
+
+def test_orchestrator_c4_mode_switch_toggles_handler() -> None:
+    class _StubCarousel:
+        def __init__(self) -> None:
+            self.enabled = False
+
+        def enable(self) -> None:
+            self.enabled = True
+
+        def disable(self) -> None:
+            self.enabled = False
+
+        def snapshot(self) -> dict[str, Any]:
+            return {"enabled": self.enabled}
+
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    handler = _StubCarousel()
+    orch.attach_carousel_c4_handler(handler)
+
+    orch.set_c4_mode("carousel")
+    assert handler.enabled is True
+    snap = orch.status_snapshot()
+    assert snap["c4_mode"] == "carousel"
+    assert snap["carousel_c4_handler"] == {"enabled": True}
+
+    orch.set_c4_mode("runtime")
+    assert handler.enabled is False
+    assert orch.c4_mode() == "runtime"
+
+
 def test_orchestrator_status_snapshot_exposes_feeder_mode() -> None:
     class _StubHandler:
         def enable(self) -> None: ...

@@ -185,6 +185,23 @@ def _orchestrator_snapshot(orchestrator: Any) -> dict[str, Any]:
                 "piece_caps": handler_snap.get("piece_caps"),
                 "inhibit_reason": handler_snap.get("inhibit_reason"),
             }
+    c4_mode_fn = getattr(orchestrator, "c4_mode", None)
+    c4_mode_val = (
+        c4_mode_fn() if callable(c4_mode_fn) else getattr(orchestrator, "_c4_mode", "runtime")
+    )
+    out["c4_mode"] = str(c4_mode_val)
+    c4_handler = getattr(orchestrator, "_carousel_c4_handler", None)
+    if c4_handler is not None:
+        snap_fn = getattr(c4_handler, "snapshot", None)
+        if callable(snap_fn):
+            try:
+                c4_snap = dict(snap_fn() or {})
+            except Exception:
+                c4_snap = {}
+            out["carousel_c4_handler"] = {
+                "geometry": c4_snap.get("geometry"),
+                "timing": c4_snap.get("timing"),
+            }
     return out
 
 
@@ -192,8 +209,25 @@ def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
     orchestrator = getattr(handle, "orchestrator", None)
     if orchestrator is None:
         raise RuntimeError("orchestrator not available for tuning")
-    allowed = {"feeder_mode", "section_feeder_handler"}
+    allowed = {
+        "feeder_mode",
+        "section_feeder_handler",
+        "c4_mode",
+        "carousel_c4_handler",
+    }
     _reject_unknown("orchestrator", values, allowed)
+    if "c4_mode" in values:
+        c4_mode = values["c4_mode"]
+        if not isinstance(c4_mode, str) or c4_mode not in {"runtime", "carousel"}:
+            raise ValueError(
+                "orchestrator.c4_mode must be 'runtime' or 'carousel'"
+            )
+        setter = getattr(orchestrator, "set_c4_mode", None)
+        if not callable(setter):
+            raise RuntimeError("orchestrator does not support set_c4_mode")
+        setter(c4_mode)
+    if "carousel_c4_handler" in values:
+        _apply_carousel_c4_handler(orchestrator, values["carousel_c4_handler"])
     if "feeder_mode" in values:
         mode = values["feeder_mode"]
         if not isinstance(mode, str) or mode not in {"lease", "section"}:
@@ -208,6 +242,92 @@ def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
         _apply_section_feeder_handler(
             orchestrator, values["section_feeder_handler"]
         )
+
+
+def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
+    if not isinstance(values, dict):
+        raise ValueError("orchestrator.carousel_c4_handler must be an object")
+    handler = getattr(orchestrator, "_carousel_c4_handler", None)
+    if handler is None:
+        raise RuntimeError(
+            "carousel C4 handler is not attached; cannot tune it"
+        )
+    allowed = {"geometry", "timing"}
+    _reject_unknown("orchestrator.carousel_c4_handler", values, allowed)
+    geometry = values.get("geometry")
+    if geometry is not None:
+        if not isinstance(geometry, dict):
+            raise ValueError(
+                "orchestrator.carousel_c4_handler.geometry must be an object"
+            )
+        geom_allowed = {
+            "classify_deg",
+            "drop_deg",
+            "classify_tolerance_deg",
+            "drop_tolerance_deg",
+        }
+        _reject_unknown(
+            "orchestrator.carousel_c4_handler.geometry",
+            geometry,
+            geom_allowed,
+        )
+        update_fn = getattr(handler, "update_geometry", None)
+        if not callable(update_fn):
+            raise RuntimeError(
+                "carousel C4 handler missing update_geometry"
+            )
+        kwargs: dict[str, float] = {}
+        for key, low, high in (
+            ("classify_deg", -360.0, 360.0),
+            ("drop_deg", -360.0, 360.0),
+            ("classify_tolerance_deg", 0.5, 90.0),
+            ("drop_tolerance_deg", 0.5, 90.0),
+        ):
+            if key in geometry:
+                kwargs[key] = _float(
+                    geometry[key],
+                    f"orchestrator.carousel_c4_handler.geometry.{key}",
+                    min_value=low,
+                    max_value=high,
+                )
+        update_fn(**kwargs)
+    timing = values.get("timing")
+    if timing is not None:
+        if not isinstance(timing, dict):
+            raise ValueError(
+                "orchestrator.carousel_c4_handler.timing must be an object"
+            )
+        timing_allowed = {
+            "settle_s",
+            "advance_step_deg",
+            "advance_cooldown_s",
+            "distributor_timeout_s",
+        }
+        _reject_unknown(
+            "orchestrator.carousel_c4_handler.timing",
+            timing,
+            timing_allowed,
+        )
+        update_fn = getattr(handler, "update_timing", None)
+        if not callable(update_fn):
+            raise RuntimeError(
+                "carousel C4 handler missing update_timing"
+            )
+        kwargs: dict[str, float] = {}
+        for key, low, high in (
+            ("settle_s", 0.0, 30.0),
+            ("advance_step_deg", 0.5, 90.0),
+            ("advance_cooldown_s", 0.0, 10.0),
+            ("distributor_timeout_s", 0.5, 60.0),
+        ):
+            if key in timing:
+                kwargs[key] = _float(
+                    timing[key],
+                    f"orchestrator.carousel_c4_handler.timing.{key}",
+                    min_value=low,
+                    max_value=high,
+                )
+        update_fn(**kwargs)
 
 
 def _apply_section_feeder_handler(orchestrator: Any, values: Any) -> None:

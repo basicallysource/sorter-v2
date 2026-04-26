@@ -124,6 +124,14 @@ class Orchestrator:
         # orchestrator does not invent the handler — bootstrap attaches
         # it; the toggle just controls which path is active each tick.
         self._feeder_mode: str = "lease"
+        # Same idea for C4: default ``"runtime"`` is the legacy
+        # RuntimeC4 transport/handoff/eject scheduling. Carousel mode
+        # delegates those decisions to a Main-style sequential handler;
+        # RuntimeC4 still does perception + classification + dossier
+        # bookkeeping in both modes so BoxMot piece UUIDs and image
+        # crops stay intact.
+        self._carousel_c4_handler: Any | None = None
+        self._c4_mode: str = "runtime"
         self._last_c1_recovery_decision: dict[str, Any] | None = None
         self._c1_recovery_admission_enabled = True
         self._c1_recovery_c2_safe_capacity_eq = 14
@@ -312,6 +320,46 @@ class Orchestrator:
         )
         self._last_c1_recovery_decision = dict(info)
         return allowed, info
+
+    def attach_carousel_c4_handler(self, handler: Any) -> None:
+        """Install the alternative Main-style C4 carousel handler.
+
+        Inert until ``c4_mode`` flips to ``"carousel"``. Bootstrap
+        attaches one handler at startup; live tuning toggles whether
+        it runs.
+        """
+        self._carousel_c4_handler = handler
+
+    def c4_mode(self) -> str:
+        return str(self._c4_mode)
+
+    def set_c4_mode(self, mode: str) -> str:
+        """``"runtime"`` (default) or ``"carousel"``."""
+        normalized = str(mode or "").strip().lower()
+        if normalized not in {"runtime", "carousel"}:
+            raise ValueError(
+                f"c4_mode must be 'runtime' or 'carousel', got {mode!r}"
+            )
+        if normalized == "carousel" and self._carousel_c4_handler is None:
+            raise RuntimeError(
+                "carousel C4 handler is not attached; cannot switch to carousel mode"
+            )
+        previous = self._c4_mode
+        if previous == normalized:
+            return normalized
+        self._c4_mode = normalized
+        handler = self._carousel_c4_handler
+        if handler is not None:
+            try:
+                if normalized == "carousel":
+                    handler.enable()
+                else:
+                    handler.disable()
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: carousel C4 handler enable/disable raised"
+                )
+        return normalized
 
     def attach_section_feeder_handler(self, handler: Any) -> None:
         """Install the alternative section-based feeder handler.
@@ -754,6 +802,15 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: section feeder handler snapshot raised"
                 )
+        carousel_handler_snap: dict[str, Any] | None = None
+        c4_handler = self._carousel_c4_handler
+        if c4_handler is not None:
+            try:
+                carousel_handler_snap = dict(c4_handler.snapshot() or {})
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: carousel C4 handler snapshot raised"
+                )
         return {
             "runtime_health": self.health(),
             "runtime_debug": runtime_debug,
@@ -764,6 +821,8 @@ class Orchestrator:
             "sector_shadow_observer": sector_shadow_summary,
             "feeder_mode": str(self._feeder_mode),
             "section_feeder_handler": section_handler_snap,
+            "c4_mode": str(self._c4_mode),
+            "carousel_c4_handler": carousel_handler_snap,
         }
 
     def inspect_snapshot(self) -> dict[str, Any]:

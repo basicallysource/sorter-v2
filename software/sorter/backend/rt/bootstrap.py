@@ -79,6 +79,7 @@ from rt.services.sector_shadow_observer import (
     ChannelGeometry as _ShadowChannelGeometry,
     SectorShadowObserver,
 )
+from rt.services.carousel_c4_handler import CarouselC4Handler
 from rt.services.section_feeder_handler import SectionFeederHandler
 from rt.services.track_transit import TrackTransitRegistry
 
@@ -327,7 +328,9 @@ class RtRuntimeHandle:
         c1_pulse_observer: dict[str, Any] | None = None
         sector_shadow_observer: dict[str, Any] | None = None
         section_feeder_handler: dict[str, Any] | None = None
+        carousel_c4_handler_snap: dict[str, Any] | None = None
         feeder_mode: str = "lease"
+        c4_mode: str = "runtime"
         orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
         if callable(orchestrator_status):
             try:
@@ -351,6 +354,13 @@ class RtRuntimeHandle:
             mode_val = snapshot.get("feeder_mode")
             if isinstance(mode_val, str):
                 feeder_mode = mode_val
+            carousel = snapshot.get("carousel_c4_handler")
+            if isinstance(carousel, dict):
+                carousel_c4_handler_snap = dict(carousel)
+            else:
+                carousel_c4_handler_snap = None
+            c4_mode_val = snapshot.get("c4_mode")
+            c4_mode = c4_mode_val if isinstance(c4_mode_val, str) else "runtime"
 
         return {
             "perception_started": bool(self.perception_started),
@@ -372,6 +382,8 @@ class RtRuntimeHandle:
             "sector_shadow_observer": sector_shadow_observer,
             "feeder_mode": feeder_mode,
             "section_feeder_handler": section_feeder_handler,
+            "c4_mode": c4_mode,
+            "carousel_c4_handler": carousel_c4_handler_snap,
             "maintenance": {
                 "c234_purge": self.c234_purge_status(),
                 "sample_transport": self.sample_transport_status(),
@@ -1411,6 +1423,25 @@ def build_rt_runtime(
         logger=log,
     )
     orch.attach_section_feeder_handler(section_feeder_handler)
+
+    # CarouselC4Handler: alternative Main-style sequential scheduling
+    # for the C4 classification chamber. Inert until ``c4_mode`` flips
+    # to ``"carousel"``. Live integration (skipping RuntimeC4's internal
+    # transport/eject decisions when active) is a follow-up step;
+    # bootstrap wires the handler so the contract is in place and tests
+    # exercise the state machine end-to-end.
+    classify_deg = float(getattr(classification_cfg, "classify_angle_deg", 18.0))
+    drop_deg = float(getattr(classification_cfg, "exit_angle_deg", 30.0))
+    carousel_c4_handler = CarouselC4Handler(
+        c4_transport=c4_transport_move,
+        c4_eject=c4_eject,
+        distributor_port=distributor,
+        c4_hw_busy=lambda: bool(getattr(c4, "_hw", None) and c4._hw.busy()),
+        classify_deg=classify_deg,
+        drop_deg=drop_deg,
+        logger=log,
+    )
+    orch.attach_carousel_c4_handler(carousel_c4_handler)
     log.info(
         "rt.bootstrap: orchestrator ready "
         "(runtimes=c1,c2,c3,c4,distributor; perception_feeds=%s; slots=%s)",

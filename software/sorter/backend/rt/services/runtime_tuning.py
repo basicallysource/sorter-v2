@@ -51,19 +51,17 @@ def snapshot(handle: Any) -> dict[str, Any]:
     c3 = getattr(handle, "c3", None)
     c4 = getattr(handle, "c4", None)
     distributor = getattr(handle, "distributor", None)
+    orchestrator = getattr(handle, "orchestrator", None)
     return {
         "version": 1,
         "channels": {
-            "c1": _c1_snapshot(
-                c1,
-                feeder_cfg,
-                getattr(handle, "orchestrator", None),
-            ),
+            "c1": _c1_snapshot(c1, feeder_cfg, orchestrator),
             "c2": _c2_snapshot(c2, feeder_cfg),
             "c3": _c3_snapshot(c3, feeder_cfg),
             "c4": _c4_snapshot(c4, class_cfg, feeder_cfg),
             "distributor": _distributor_snapshot(distributor),
         },
+        "orchestrator": _orchestrator_snapshot(orchestrator),
         "slots": _slot_snapshot(handle),
     }
 
@@ -108,6 +106,12 @@ def apply_patch(handle: Any, patch: dict[str, Any]) -> dict[str, Any]:
         if not isinstance(slots_patch, dict):
             raise ValueError("slots must be an object")
         _apply_slots(handle, slots_patch)
+
+    orchestrator_patch = patch.get("orchestrator")
+    if orchestrator_patch is not None:
+        if not isinstance(orchestrator_patch, dict):
+            raise ValueError("orchestrator must be an object")
+        _apply_orchestrator(handle, orchestrator_patch)
 
     return snapshot(handle)
 
@@ -154,6 +158,34 @@ def _c1_recovery_admission_snapshot(orchestrator: Any) -> dict[str, Any] | None:
     if callable(snapshot_fn):
         return dict(snapshot_fn() or {})
     return None
+
+
+def _orchestrator_snapshot(orchestrator: Any) -> dict[str, Any]:
+    if orchestrator is None:
+        return {}
+    mode_fn = getattr(orchestrator, "feeder_mode", None)
+    feeder_mode = (
+        mode_fn() if callable(mode_fn) else getattr(orchestrator, "_feeder_mode", "lease")
+    )
+    return {"feeder_mode": str(feeder_mode)}
+
+
+def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
+    orchestrator = getattr(handle, "orchestrator", None)
+    if orchestrator is None:
+        raise RuntimeError("orchestrator not available for tuning")
+    allowed = {"feeder_mode"}
+    _reject_unknown("orchestrator", values, allowed)
+    if "feeder_mode" in values:
+        mode = values["feeder_mode"]
+        if not isinstance(mode, str) or mode not in {"lease", "section"}:
+            raise ValueError(
+                "orchestrator.feeder_mode must be 'lease' or 'section'"
+            )
+        setter = getattr(orchestrator, "set_feeder_mode", None)
+        if not callable(setter):
+            raise RuntimeError("orchestrator does not support set_feeder_mode")
+        setter(mode)
 
 
 def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:

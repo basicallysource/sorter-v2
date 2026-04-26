@@ -64,6 +64,7 @@ class ReplayCaptureStartPayload(BaseModel):
 class RuntimeTuningPayload(BaseModel):
     channels: dict[str, dict[str, Any]] | None = None
     slots: dict[str, int] | None = None
+    orchestrator: dict[str, Any] | None = None
 
 
 def _publish_runtime_state(state: str) -> None:
@@ -326,6 +327,8 @@ def update_runtime_tuning(payload: RuntimeTuningPayload) -> Dict[str, Any]:
         patch["channels"] = payload.channels
     if payload.slots is not None:
         patch["slots"] = payload.slots
+    if payload.orchestrator is not None:
+        patch["orchestrator"] = payload.orchestrator
     try:
         tuning = dict(update_fn(patch) or {})
     except ValueError as exc:

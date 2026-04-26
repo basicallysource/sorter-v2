@@ -324,6 +324,107 @@ def test_c1_c4_backpressure_hysteresis_holds_in_band() -> None:
     assert orch.c1_c4_backpressure_snapshot()["blocked"] is False
 
 
+def test_orchestrator_feeder_mode_defaults_to_lease() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    assert orch.feeder_mode() == "lease"
+
+
+def test_orchestrator_rejects_section_mode_without_handler() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    with pytest.raises(RuntimeError, match="section feeder handler"):
+        orch.set_feeder_mode("section")
+
+
+def test_orchestrator_section_mode_skips_c1_c2_c3_runtimes() -> None:
+    """In section mode the orchestrator must not tick c1/c2/c3 — the
+    section handler owns those decisions. C4 still ticks normally so
+    classification + distribution keep running."""
+
+    class _StubHandler:
+        def __init__(self) -> None:
+            self.tick_calls = 0
+            self._enabled = False
+
+        def enable(self) -> None:
+            self._enabled = True
+
+        def disable(self) -> None:
+            self._enabled = False
+
+        def tick(self, **kwargs) -> None:
+            self.tick_calls += 1
+
+        def snapshot(self) -> dict[str, Any]:
+            return {"enabled": self._enabled, "tick_calls": self.tick_calls}
+
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+    handler = _StubHandler()
+    orch.attach_section_feeder_handler(handler)
+
+    # Lease mode: all runtimes tick, handler does not.
+    orch.tick_once(now_mono=0.0)
+    assert len(c1.ticks) == 1
+    assert len(c4.ticks) == 1
+    assert handler.tick_calls == 0
+
+    # Switch to section mode.
+    orch.set_feeder_mode("section")
+    assert handler._enabled is True
+
+    orch.tick_once(now_mono=0.020)
+    # c1/c2/c3 must NOT have ticked again; c4 must have.
+    assert len(c1.ticks) == 1
+    assert len(c2.ticks) == 1
+    assert len(c3.ticks) == 1
+    assert len(c4.ticks) == 2
+    assert handler.tick_calls == 1
+
+    # Switch back to lease.
+    orch.set_feeder_mode("lease")
+    assert handler._enabled is False
+    orch.tick_once(now_mono=0.040)
+    assert len(c1.ticks) == 2
+    assert handler.tick_calls == 1  # not ticked again
+
+
+def test_orchestrator_status_snapshot_exposes_feeder_mode() -> None:
+    class _StubHandler:
+        def enable(self) -> None: ...
+        def disable(self) -> None: ...
+        def tick(self, **kwargs) -> None: ...
+        def snapshot(self) -> dict[str, Any]:
+            return {"enabled": False}
+
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    orch.attach_section_feeder_handler(_StubHandler())
+    snap = orch.status_snapshot()
+    assert snap["feeder_mode"] == "lease"
+    assert snap["section_feeder_handler"] == {"enabled": False}
+
+
 def test_orchestrator_advances_attached_pulse_observer_each_tick() -> None:
     """The orchestrator must call ``observer.tick`` so deadlines advance."""
 

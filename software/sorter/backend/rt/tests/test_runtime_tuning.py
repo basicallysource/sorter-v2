@@ -54,6 +54,15 @@ class _FakeOrchestrator:
         self._recovery_admission.update(kwargs)
         return self.c1_recovery_admission_snapshot()
 
+    def feeder_mode(self) -> str:
+        return getattr(self, "_feeder_mode", "lease")
+
+    def set_feeder_mode(self, mode: str) -> str:
+        if mode not in {"lease", "section"}:
+            raise ValueError(f"bad mode: {mode}")
+        self._feeder_mode = mode
+        return mode
+
 
 def _rotor(steps: int, speed: int, delay: int, accel: int | None = None) -> SimpleNamespace:
     return SimpleNamespace(
@@ -367,6 +376,32 @@ def test_update_c1_recovery_admission_rejects_invalid_estimates() -> None:
                     }
                 }
             },
+        )
+
+
+def test_orchestrator_feeder_mode_round_trip() -> None:
+    handle = _handle()
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {"orchestrator": {"feeder_mode": "section"}},
+    )
+    assert handle.orchestrator._feeder_mode == "section"
+    assert payload["orchestrator"]["feeder_mode"] == "section"
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {"orchestrator": {"feeder_mode": "lease"}},
+    )
+    assert handle.orchestrator._feeder_mode == "lease"
+    assert payload["orchestrator"]["feeder_mode"] == "lease"
+
+
+def test_orchestrator_feeder_mode_rejects_unknown_value() -> None:
+    handle = _handle()
+    with pytest.raises(ValueError, match="feeder_mode"):
+        runtime_tuning.apply_patch(
+            handle,
+            {"orchestrator": {"feeder_mode": "magic"}},
         )
 
 

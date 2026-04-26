@@ -117,6 +117,13 @@ class Orchestrator:
         )
         self._c1_pulse_observer: Any | None = None
         self._sector_shadow_observer: Any | None = None
+        self._section_feeder_handler: Any | None = None
+        # Default mode is "lease" (legacy RuntimeC1/C2/C3 path). The
+        # alternative "section" mode skips ticking those runtimes and
+        # delegates pulse decisions to the section handler instead. The
+        # orchestrator does not invent the handler — bootstrap attaches
+        # it; the toggle just controls which path is active each tick.
+        self._feeder_mode: str = "lease"
         self._last_c1_recovery_decision: dict[str, Any] | None = None
         self._c1_recovery_admission_enabled = True
         self._c1_recovery_c2_safe_capacity_eq = 14
@@ -305,6 +312,49 @@ class Orchestrator:
         )
         self._last_c1_recovery_decision = dict(info)
         return allowed, info
+
+    def attach_section_feeder_handler(self, handler: Any) -> None:
+        """Install the alternative section-based feeder handler.
+
+        Inert until ``feeder_mode`` is flipped to ``"section"``. The
+        orchestrator owns the toggle so the handler can be wired in
+        bootstrap once and switched on/off live without restarting.
+        """
+        self._section_feeder_handler = handler
+
+    def feeder_mode(self) -> str:
+        return str(self._feeder_mode)
+
+    def set_feeder_mode(self, mode: str) -> str:
+        """Switch the active feeder path. ``"lease"`` (default) or
+        ``"section"``. Section mode requires a handler to be attached;
+        otherwise the call is rejected to avoid a silent dead pipeline.
+        """
+        normalized = str(mode or "").strip().lower()
+        if normalized not in {"lease", "section"}:
+            raise ValueError(
+                f"feeder_mode must be 'lease' or 'section', got {mode!r}"
+            )
+        if normalized == "section" and self._section_feeder_handler is None:
+            raise RuntimeError(
+                "section feeder handler is not attached; cannot switch to section mode"
+            )
+        previous = self._feeder_mode
+        if previous == normalized:
+            return normalized
+        self._feeder_mode = normalized
+        handler = self._section_feeder_handler
+        if handler is not None:
+            try:
+                if normalized == "section":
+                    handler.enable()
+                else:
+                    handler.disable()
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: section feeder handler enable/disable raised"
+                )
+        return normalized
 
     def attach_sector_shadow_observer(self, observer: Any) -> None:
         """Install the optional Main-style sector shadow observer.
@@ -695,6 +745,15 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: sector shadow observer summary raised"
                 )
+        section_handler_snap: dict[str, Any] | None = None
+        handler = self._section_feeder_handler
+        if handler is not None:
+            try:
+                section_handler_snap = dict(handler.snapshot() or {})
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: section feeder handler snapshot raised"
+                )
         return {
             "runtime_health": self.health(),
             "runtime_debug": runtime_debug,
@@ -703,6 +762,8 @@ class Orchestrator:
             "flow_gate_accounting": self._flow_gate_snapshot(),
             "c1_pulse_observer": c1_pulse_summary,
             "sector_shadow_observer": sector_shadow_summary,
+            "feeder_mode": str(self._feeder_mode),
+            "section_feeder_handler": section_handler_snap,
         }
 
     def inspect_snapshot(self) -> dict[str, Any]:
@@ -1234,8 +1295,20 @@ class Orchestrator:
         return parsed
 
     def _tick(self, now_mono: float) -> None:
+        section_active = (
+            self._feeder_mode == "section"
+            and self._section_feeder_handler is not None
+        )
+        # Channels skipped in section mode: the section handler owns
+        # their pulse decisions. C4 + distributor still tick because
+        # classification + distribution rely on per-piece state.
+        skipped_runtime_ids = (
+            frozenset({"c1", "c2", "c3"}) if section_active else frozenset()
+        )
         # Downstream-first so upstream runtimes see fresh capacity.
         for rt in reversed(self._runtimes):
+            if rt.runtime_id in skipped_runtime_ids:
+                continue
             tracks: TrackBatch | None = None
             feed_id = getattr(rt, "feed_id", None)
             source = self._perception.get(feed_id) if feed_id is not None else None
@@ -1274,6 +1347,8 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: runtime %r tick raised", rt.runtime_id
                 )
+        if section_active:
+            self._tick_section_handler(now_mono)
         self._tick_count += 1
         self._last_tick_mono = now_mono
         self._observe_flow_gates(now_mono)
@@ -1293,6 +1368,66 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: sector shadow observer tick raised"
                 )
+
+    def _tick_section_handler(self, now_mono: float) -> None:
+        """Drive the alternative section-based feeder handler.
+
+        Pulls C2/C3 track angles from the perception sources (same
+        place every other gate consumes) and asks C4's runtime whether
+        admission is currently allowed. Wraps the call in a try/except
+        because the handler must never crash the main loop.
+        """
+        handler = self._section_feeder_handler
+        if handler is None:
+            return
+        import math
+
+        c2_tracks: list[Any] = []
+        c3_tracks: list[Any] = []
+        for ch_id, feed_id in (("c2", "c2_feed"), ("c3", "c3_feed")):
+            source = self._perception.get(feed_id)
+            if source is None:
+                continue
+            try:
+                batch = source.latest_tracks()
+            except Exception:
+                batch = None
+            if batch is None:
+                continue
+            tracks_iter = getattr(batch, "tracks", None) or ()
+            extracted: list[dict[str, Any]] = []
+            for track in tracks_iter:
+                angle_rad = getattr(track, "angle_rad", None)
+                if not isinstance(angle_rad, (int, float)):
+                    continue
+                extracted.append({"angle_deg": math.degrees(float(angle_rad))})
+            if ch_id == "c2":
+                c2_tracks = extracted
+            else:
+                c3_tracks = extracted
+
+        c4_admission_allowed = False
+        c4 = self._runtime_by_id.get("c4")
+        if c4 is not None:
+            try:
+                c4_dbg = dict(c4.debug_snapshot() or {})
+            except Exception:
+                c4_dbg = {}
+            admission = c4_dbg.get("admission_debug")
+            if isinstance(admission, dict):
+                c4_admission_allowed = bool(admission.get("allowed", False))
+
+        try:
+            handler.tick(
+                c2_tracks=c2_tracks,
+                c3_tracks=c3_tracks,
+                c4_admission_allowed=c4_admission_allowed,
+                now_mono=now_mono,
+            )
+        except Exception:
+            self._logger.exception(
+                "Orchestrator: section feeder handler tick raised"
+            )
 
     def _run(self) -> None:
         period = self._tick_period_s

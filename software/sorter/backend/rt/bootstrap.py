@@ -79,6 +79,7 @@ from rt.services.sector_shadow_observer import (
     ChannelGeometry as _ShadowChannelGeometry,
     SectorShadowObserver,
 )
+from rt.services.section_feeder_handler import SectionFeederHandler
 from rt.services.track_transit import TrackTransitRegistry
 
 
@@ -325,6 +326,8 @@ class RtRuntimeHandle:
         flow_gate_accounting: dict[str, Any] = {}
         c1_pulse_observer: dict[str, Any] | None = None
         sector_shadow_observer: dict[str, Any] | None = None
+        section_feeder_handler: dict[str, Any] | None = None
+        feeder_mode: str = "lease"
         orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
         if callable(orchestrator_status):
             try:
@@ -342,6 +345,12 @@ class RtRuntimeHandle:
             shadow = snapshot.get("sector_shadow_observer")
             if isinstance(shadow, dict):
                 sector_shadow_observer = dict(shadow)
+            section = snapshot.get("section_feeder_handler")
+            if isinstance(section, dict):
+                section_feeder_handler = dict(section)
+            mode_val = snapshot.get("feeder_mode")
+            if isinstance(mode_val, str):
+                feeder_mode = mode_val
 
         return {
             "perception_started": bool(self.perception_started),
@@ -361,6 +370,8 @@ class RtRuntimeHandle:
             "flow_gate_accounting": flow_gate_accounting,
             "c1_pulse_observer": c1_pulse_observer,
             "sector_shadow_observer": sector_shadow_observer,
+            "feeder_mode": feeder_mode,
+            "section_feeder_handler": section_feeder_handler,
             "maintenance": {
                 "c234_purge": self.c234_purge_status(),
                 "sample_transport": self.sample_transport_status(),
@@ -1361,28 +1372,45 @@ def build_rt_runtime(
             )
             return {}
 
+    # Initial geometry seeds match the shadow observer so both layers
+    # see the same sector definitions. Tune later from observed track
+    # distributions.
+    _c2_section_geom = _ShadowChannelGeometry(
+        name="c2",
+        exit_arc_deg=30.0,
+        intake_center_deg=180.0,
+        intake_arc_deg=30.0,
+    )
+    _c3_section_geom = _ShadowChannelGeometry(
+        name="c3",
+        exit_arc_deg=20.0,
+        intake_center_deg=180.0,
+        intake_arc_deg=30.0,
+    )
     sector_shadow_observer = SectorShadowObserver(
         snapshot_provider=_shadow_snapshot_provider,
-        # Initial geometry seeds: angle convention is angle_deg ∈ [-180, 180]
-        # with 0° = exit. Intake is opposite the exit. Tune later from
-        # observed track-angle distributions.
-        c2_geometry=_ShadowChannelGeometry(
-            name="c2",
-            exit_arc_deg=30.0,
-            intake_center_deg=180.0,
-            intake_arc_deg=30.0,
-        ),
-        c3_geometry=_ShadowChannelGeometry(
-            name="c3",
-            exit_arc_deg=20.0,
-            intake_center_deg=180.0,
-            intake_arc_deg=30.0,
-        ),
+        c2_geometry=_c2_section_geom,
+        c3_geometry=_c3_section_geom,
         log_path=sector_shadow_log_path,
         sample_period_s=0.5,
         logger=log,
     )
     orch.attach_sector_shadow_observer(sector_shadow_observer)
+
+    # Alternative section-based feeder handler (Main-style, simple).
+    # Inert until ``orchestrator.feeder_mode`` is flipped to "section".
+    section_feeder_handler = SectionFeederHandler(
+        c1_pulse=c1_pulse,
+        c2_pulse=c2_pulse,
+        c3_pulse=c3_pulse,
+        c1_hw=getattr(c1, "_hw", None),
+        c2_hw=getattr(c2, "_hw", None),
+        c3_hw=getattr(c3, "_hw", None),
+        c2_geometry=_c2_section_geom,
+        c3_geometry=_c3_section_geom,
+        logger=log,
+    )
+    orch.attach_section_feeder_handler(section_feeder_handler)
     log.info(
         "rt.bootstrap: orchestrator ready "
         "(runtimes=c1,c2,c3,c4,distributor; perception_feeds=%s; slots=%s)",

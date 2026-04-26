@@ -1,8 +1,15 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { api, type PaginatedSamples, type Machine, type SampleFilterOptions, type StatsOverview } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import {
+		readSampleListContext,
+		sampleListContextQuery,
+		SAMPLE_LIST_DEFAULT_PAGE_SIZE
+	} from '$lib/sampleListContext';
 
 	let data = $state<PaginatedSamples | null>(null);
 	let machines = $state<Machine[]>([]);
@@ -10,13 +17,16 @@
 	let stats = $state<StatsOverview | null>(null);
 	let loading = $state(true);
 
-	// Filters
-	let filterMachine = $state<string>('');
-	let filterStatus = $state<string>('');
-	let filterSourceRole = $state<string>('');
-	let filterCaptureReason = $state<string>('');
-	let currentPage = $state(1);
-	let pageSize = $state(30);
+	// Filters are derived from the URL so reload / share preserves them.
+	const listContext = $derived(readSampleListContext(page.url.searchParams));
+	const filterMachine = $derived(listContext.machine_id ?? '');
+	const filterStatus = $derived(listContext.review_status ?? '');
+	const filterSourceRole = $derived(listContext.source_role ?? '');
+	const filterCaptureReason = $derived(listContext.capture_reason ?? '');
+	const currentPage = $derived(listContext.page);
+	const pageSize = $derived(listContext.page_size);
+
+	const filterContextQuery = $derived(sampleListContextQuery(page.url.searchParams));
 
 	const sourceRoleLabels: Record<string, string> = {
 		classification_chamber: 'Classification Chamber',
@@ -52,6 +62,25 @@
 		void pageSize;
 		loadSamples();
 	});
+
+	function pushFilterUrl(mutate: (sp: URLSearchParams) => void) {
+		const url = new URL(page.url);
+		mutate(url.searchParams);
+		const search = url.searchParams.toString();
+		void goto(`${url.pathname}${search ? `?${search}` : ''}`, {
+			replaceState: false,
+			noScroll: true,
+			keepFocus: true
+		});
+	}
+
+	function setFilterValue(key: string, value: string, resetPage = true) {
+		pushFilterUrl((sp) => {
+			if (value) sp.set(key, value);
+			else sp.delete(key);
+			if (resetPage) sp.delete('page');
+		});
+	}
 
 	async function loadFilters() {
 		try {
@@ -102,36 +131,46 @@
 		return prettifyToken(value);
 	}
 
-	function goToPage(page: number) {
-		currentPage = page;
+	function goToPage(target: number) {
+		pushFilterUrl((sp) => {
+			if (target <= 1) sp.delete('page');
+			else sp.set('page', String(target));
+		});
+	}
+
+	function changePageSize(size: number) {
+		pushFilterUrl((sp) => {
+			if (size === SAMPLE_LIST_DEFAULT_PAGE_SIZE) sp.delete('page_size');
+			else sp.set('page_size', String(size));
+			sp.delete('page');
+		});
 	}
 
 	function setStatusFilter(status: string) {
-		filterStatus = filterStatus === status ? '' : status;
-		currentPage = 1;
+		const next = filterStatus === status ? '' : status;
+		setFilterValue('review_status', next);
 	}
 
 	function updateMachineFilter(value: string) {
-		filterMachine = value;
-		currentPage = 1;
+		setFilterValue('machine_id', value);
 	}
 
 	function updateSourceRoleFilter(value: string) {
-		filterSourceRole = value;
-		currentPage = 1;
+		setFilterValue('source_role', value);
 	}
 
 	function updateCaptureReasonFilter(value: string) {
-		filterCaptureReason = value;
-		currentPage = 1;
+		setFilterValue('capture_reason', value);
 	}
 
 	function clearFilters() {
-		filterMachine = '';
-		filterStatus = '';
-		filterSourceRole = '';
-		filterCaptureReason = '';
-		currentPage = 1;
+		pushFilterUrl((sp) => {
+			sp.delete('machine_id');
+			sp.delete('review_status');
+			sp.delete('source_role');
+			sp.delete('capture_reason');
+			sp.delete('page');
+		});
 	}
 </script>
 
@@ -229,7 +268,7 @@
 					] as item}
 						<li>
 							<button
-								onclick={() => { filterStatus = item.key; currentPage = 1; }}
+								onclick={() => setFilterValue('review_status', item.key)}
 								class="w-full px-2 py-1 text-left text-xs {filterStatus === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								{item.label}
@@ -345,7 +384,7 @@
 		{:else}
 			<div class="grid grid-cols-2 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
 				{#each data.items as sample (sample.id)}
-					<SampleCard {sample} href={`/samples/${sample.id}`} />
+					<SampleCard {sample} href={`/samples/${sample.id}${filterContextQuery}`} />
 				{/each}
 			</div>
 
@@ -356,7 +395,7 @@
 						<span class="text-xs text-text-muted">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
 						<select
 							value={pageSize}
-							onchange={(e) => { pageSize = Number((e.currentTarget as HTMLSelectElement).value); currentPage = 1; }}
+							onchange={(e) => changePageSize(Number((e.currentTarget as HTMLSelectElement).value))}
 							class="border border-border bg-white px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
 						>
 							<option value={10}>10 / page</option>

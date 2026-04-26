@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
+	import { SvelteMap } from 'svelte/reactivity';
 	import {
 		api,
 		type SampleClassificationPayload,
@@ -21,6 +22,12 @@
 	import SampleDetailsSidebar from '$lib/components/sample/SampleDetailsSidebar.svelte';
 	import { Button } from '$lib/components/primitives';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
+	import {
+		readSampleListContext,
+		sampleListContextKey,
+		sampleListContextQuery,
+		sampleListFilterParams
+	} from '$lib/sampleListContext';
 
 	const annotatorApi = new AnnotatorApi();
 
@@ -62,6 +69,129 @@
 	let lastLoadedSampleId = $state<string | null>(null);
 
 	const sampleId = $derived(page.params.id);
+
+	// List context (filters + page size) carried in the URL so reload preserves the
+	// browsing context. Lets us walk to prev/next neighbours without losing filters.
+	const listContext = $derived(readSampleListContext(page.url.searchParams));
+	const listContextKey = $derived(sampleListContextKey(listContext));
+	const listBackHref = $derived(`/samples${sampleListContextQuery(page.url.searchParams)}`);
+
+	let neighborPages = $state(new SvelteMap<number, string[]>());
+	let neighborMeta = $state<{ pages: number; total: number } | null>(null);
+	let lastNeighborKey = $state('');
+
+	const sampleLocation = $derived.by(() => {
+		if (!sampleId) return null;
+		for (const [pageNum, ids] of neighborPages.entries()) {
+			const idx = ids.indexOf(sampleId);
+			if (idx >= 0) return { pageNum, idx, ids };
+		}
+		return null;
+	});
+
+	const prevSampleId = $derived.by(() => {
+		const loc = sampleLocation;
+		if (!loc) return null;
+		if (loc.idx > 0) return loc.ids[loc.idx - 1];
+		const prevIds = neighborPages.get(loc.pageNum - 1);
+		if (prevIds && prevIds.length > 0) return prevIds[prevIds.length - 1];
+		return null;
+	});
+
+	const nextSampleId = $derived.by(() => {
+		const loc = sampleLocation;
+		if (!loc) return null;
+		if (loc.idx < loc.ids.length - 1) return loc.ids[loc.idx + 1];
+		const nextIds = neighborPages.get(loc.pageNum + 1);
+		if (nextIds && nextIds.length > 0) return nextIds[0];
+		return null;
+	});
+
+	const positionLabel = $derived.by(() => {
+		const loc = sampleLocation;
+		if (!loc || !neighborMeta) return null;
+		const absoluteIndex = (loc.pageNum - 1) * listContext.page_size + loc.idx + 1;
+		return `${absoluteIndex} / ${neighborMeta.total}`;
+	});
+
+	$effect(() => {
+		if (listContextKey !== lastNeighborKey) {
+			lastNeighborKey = listContextKey;
+			neighborPages = new SvelteMap();
+			neighborMeta = null;
+		}
+	});
+
+	$effect(() => {
+		if (!sampleId) return;
+		void ensureNeighborPage(listContext.page);
+	});
+
+	$effect(() => {
+		const loc = sampleLocation;
+		if (!loc) return;
+		if (loc.idx === 0 && loc.pageNum > 1) {
+			void ensureNeighborPage(loc.pageNum - 1);
+		}
+		if (loc.idx === loc.ids.length - 1) {
+			const totalPages = neighborMeta?.pages ?? Number.POSITIVE_INFINITY;
+			if (loc.pageNum < totalPages) void ensureNeighborPage(loc.pageNum + 1);
+		}
+	});
+
+	async function ensureNeighborPage(pageNum: number) {
+		if (pageNum < 1) return;
+		if (neighborPages.has(pageNum)) return;
+		try {
+			const result = await api.getSamples({
+				...sampleListFilterParams(listContext),
+				page: pageNum,
+				page_size: listContext.page_size
+			});
+			// Bail if context changed under us mid-flight.
+			if (sampleListContextKey(listContext) !== listContextKey) return;
+			neighborPages.set(pageNum, result.items.map((s) => s.id));
+			neighborMeta = { pages: result.pages, total: result.total };
+		} catch {
+			// ignore — neighbor info is best-effort
+		}
+	}
+
+	function navigateToNeighbor(targetId: string | null) {
+		if (!targetId) return;
+		let targetPage = listContext.page;
+		for (const [pageNum, ids] of neighborPages.entries()) {
+			if (ids.includes(targetId)) {
+				targetPage = pageNum;
+				break;
+			}
+		}
+		const sp = new URLSearchParams(page.url.searchParams);
+		if (targetPage <= 1) sp.delete('page');
+		else sp.set('page', String(targetPage));
+		const search = sp.toString();
+		void goto(`/samples/${targetId}${search ? `?${search}` : ''}`, {
+			noScroll: true,
+			keepFocus: true
+		});
+	}
+
+	function onWindowKeyDown(e: KeyboardEvent) {
+		if (e.metaKey || e.ctrlKey || e.altKey) return;
+		if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+		if (showDeleteModal) return;
+		if (activeView === 'annotate') return;
+		const target = e.target as HTMLElement | null;
+		if (target) {
+			const tag = target.tagName;
+			if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+			if (target.isContentEditable) return;
+		}
+		const targetId = e.key === 'ArrowLeft' ? prevSampleId : nextSampleId;
+		if (!targetId) return;
+		e.preventDefault();
+		navigateToNeighbor(targetId);
+	}
 
 	const statusVariant: Record<string, 'success' | 'warning' | 'danger' | 'info' | 'neutral'> = {
 		unreviewed: 'neutral',
@@ -201,7 +331,7 @@
 		if (!sample) return;
 		try {
 			await api.deleteSample(sample.id);
-			goto('/samples');
+			goto(listBackHref);
 		} catch {
 			// ignore
 		}
@@ -272,15 +402,17 @@
 	<title>Sample Detail - Hive</title>
 </svelte:head>
 
+<svelte:window onkeydown={onWindowKeyDown} />
+
 {#if loading}
 	<Spinner />
 {:else if !sample}
 	<p class="text-text-muted">Sample not found.</p>
 {:else}
 	<!-- Header bar -->
-	<div class="mb-5 flex items-center justify-between">
+	<div class="mb-5 flex items-center justify-between gap-3">
 		<div class="flex items-center gap-3">
-			<a href="/samples" class="flex items-center gap-1 text-sm text-text-muted hover:text-text transition-colors">
+			<a href={listBackHref} class="flex items-center gap-1 text-sm text-text-muted hover:text-text transition-colors">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 				Samples
 			</a>
@@ -288,6 +420,29 @@
 			<span class="text-sm font-medium text-text" title={sample.local_sample_id}>{shortId(sample.local_sample_id)}</span>
 		</div>
 		<div class="flex items-center gap-2">
+			<div class="flex items-center gap-1" title="Use ← / → to navigate samples">
+				<button
+					type="button"
+					onclick={() => navigateToNeighbor(prevSampleId)}
+					disabled={!prevSampleId}
+					aria-label="Previous sample (←)"
+					class="border border-border bg-white p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
+				>
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+				</button>
+				{#if positionLabel}
+					<span class="px-1 text-[11px] text-text-muted tabular-nums">{positionLabel}</span>
+				{/if}
+				<button
+					type="button"
+					onclick={() => navigateToNeighbor(nextSampleId)}
+					disabled={!nextSampleId}
+					aria-label="Next sample (→)"
+					class="border border-border bg-white p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
+				>
+					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+				</button>
+			</div>
 			<Badge text={statusLabel[sample.review_status] ?? sample.review_status} variant={statusVariant[sample.review_status] ?? 'neutral'} />
 			{#if sample.review_count > 0}
 				<span class="text-xs text-text-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>

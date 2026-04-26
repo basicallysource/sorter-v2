@@ -319,6 +319,7 @@ class RtRuntimeHandle:
         slot_debug: dict[str, Any] = {}
         capacity_debug: dict[str, Any] = {}
         flow_gate_accounting: dict[str, Any] = {}
+        c1_pulse_observer: dict[str, Any] | None = None
         orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
         if callable(orchestrator_status):
             try:
@@ -330,6 +331,9 @@ class RtRuntimeHandle:
             slot_debug = dict(snapshot.get("slot_debug") or {})
             capacity_debug = dict(snapshot.get("capacity_debug") or {})
             flow_gate_accounting = dict(snapshot.get("flow_gate_accounting") or {})
+            obs = snapshot.get("c1_pulse_observer")
+            if isinstance(obs, dict):
+                c1_pulse_observer = dict(obs)
 
         return {
             "perception_started": bool(self.perception_started),
@@ -347,6 +351,7 @@ class RtRuntimeHandle:
             "slot_debug": slot_debug,
             "capacity_debug": capacity_debug,
             "flow_gate_accounting": flow_gate_accounting,
+            "c1_pulse_observer": c1_pulse_observer,
             "maintenance": {
                 "c234_purge": self.c234_purge_status(),
                 "sample_transport": self.sample_transport_status(),
@@ -985,7 +990,12 @@ def build_rt_runtime(
             return {}
         return _orchestrator_ref[0].cross_runtime_snapshot()
 
-    c1_pulse_log_path = Path(getattr(gc, "repo_root", os.getcwd())) / "logs" / "c1_pulse_observations.jsonl"
+    # Repo root convention: software/sorter/backend/rt/bootstrap.py is 4
+    # parents below the repo root. Match scripts/run_observer.py so all
+    # run artifacts share one logs/ tree.
+    c1_pulse_log_path = (
+        Path(__file__).resolve().parents[4] / "logs" / "c1_pulse_observations.jsonl"
+    )
     c1_pulse_observer = C1PulseObserver(
         snapshot_provider=_pulse_snapshot_provider,
         log_path=c1_pulse_log_path,

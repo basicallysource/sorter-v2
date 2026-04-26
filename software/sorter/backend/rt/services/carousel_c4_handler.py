@@ -46,6 +46,7 @@ work, mirrored on the SectionFeederHandler progression.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from dataclasses import dataclass, field
 from enum import Enum
@@ -395,6 +396,29 @@ class CarouselC4Handler:
         self._drop_tolerance_deg = max(0.5, sector_size / 2.0 - margin)
         self._advance_step_deg = sector_size
 
+    def auto_calibrate_offset(self, angles_deg: list[float]) -> float | None:
+        """Estimate ``sector_offset_deg`` from observed track angles.
+
+        Without an encoder/homing on C4 the wall positions are
+        unknown after every restart. With the 5-wall hardware design,
+        pieces are mechanically forced into sector "rest positions" —
+        usually near the center of each sector. Histogramming a few
+        observed track angles and finding the circular mean modulo
+        the sector size recovers the platter phase reliably from
+        as few as 2–3 visible pieces.
+
+        Returns the inferred offset (and applies it in place if the
+        sample is non-degenerate) or ``None`` when the input is empty
+        / not in sector mode / circular mean is undefined.
+        """
+        offset = calibrate_sector_offset_from_angles(
+            angles_deg, self._sector_count
+        )
+        if offset is None:
+            return None
+        self.update_geometry(sector_offset_deg=offset)
+        return offset
+
     def sector_index_for(self, angle_deg: float) -> int | None:
         """Return the sector index that contains ``angle_deg``.
 
@@ -598,8 +622,56 @@ def _wrap_deg(angle: float) -> float:
     return a
 
 
+def calibrate_sector_offset_from_angles(
+    angles_deg: list[float],
+    sector_count: int,
+) -> float | None:
+    """Infer ``sector_offset_deg`` from a list of observed track angles.
+
+    Pieces on the 5-wall platter rest at sector "preferred positions"
+    (typically near the center of each sector, but the exact rest
+    point is set by the wall geometry — could also be the trailing
+    wall). For any consistent rest position, all observed angles
+    modulo ``sector_size`` cluster around one value. The circular
+    mean of those modular angles, minus ``sector_size / 2`` so
+    sector 0's center lands at the cluster, gives the offset.
+
+    Returns ``None`` if ``sector_count <= 0`` or the input is empty
+    or the circular mean is undefined (vectors cancel exactly).
+    """
+    if sector_count <= 0:
+        return None
+    if not angles_deg:
+        return None
+    sector_size = 360.0 / float(sector_count)
+    sin_sum = 0.0
+    cos_sum = 0.0
+    for raw in angles_deg:
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            continue
+        rel = value % sector_size
+        # Map rel ∈ [0, sector_size) onto a unit circle so we can take
+        # a vector mean that respects the wraparound at sector_size.
+        theta = (rel / sector_size) * 2.0 * math.pi
+        sin_sum += math.sin(theta)
+        cos_sum += math.cos(theta)
+    if sin_sum == 0.0 and cos_sum == 0.0:
+        return None
+    mean_rad = math.atan2(sin_sum, cos_sum)
+    if mean_rad < 0:
+        mean_rad += 2.0 * math.pi
+    mean_rel = (mean_rad / (2.0 * math.pi)) * sector_size
+    # Pieces cluster at sector_size/2 if rest position is the center;
+    # the offset that puts that cluster exactly there is:
+    offset = (mean_rel - sector_size / 2.0) % sector_size
+    return float(offset)
+
+
 __all__ = [
     "CarouselC4Handler",
     "CarouselState",
     "CarouselTickInput",
+    "calibrate_sector_offset_from_angles",
 ]

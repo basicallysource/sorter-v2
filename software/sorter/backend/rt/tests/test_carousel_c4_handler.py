@@ -9,6 +9,7 @@ from rt.services.carousel_c4_handler import (
     CarouselC4Handler,
     CarouselState,
     CarouselTickInput,
+    calibrate_sector_offset_from_angles,
 )
 
 
@@ -373,6 +374,96 @@ def test_sector_mode_offset_shifts_centers() -> None:
     assert h.sector_index_for(50.0) == 0
     # An angle of 17 should fall in sector 4 (wraps backward).
     assert h.sector_index_for(17.0) == 4
+
+
+def test_calibrate_offset_from_centered_angles() -> None:
+    """Pieces resting at sector centers → offset 0."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count   # 72°
+    angles = [
+        sector_size / 2.0,                # 36 — sector 0 center
+        sector_size + sector_size / 2.0,  # 108 — sector 1 center
+        2 * sector_size + sector_size / 2.0,  # 180 — sector 2 center
+    ]
+    offset = calibrate_sector_offset_from_angles(angles, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(0.0, abs=0.01)
+
+
+def test_calibrate_offset_recovers_known_phase() -> None:
+    """Generated cluster at offset=18° → calibrator returns 18°."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 18.0
+    angles = [
+        expected_offset + sector_size / 2.0,                 # sector 0 center
+        expected_offset + 1 * sector_size + sector_size / 2.0,
+        expected_offset + 2 * sector_size + sector_size / 2.0,
+        expected_offset + 4 * sector_size + sector_size / 2.0,
+    ]
+    offset = calibrate_sector_offset_from_angles(angles, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(expected_offset, abs=0.5)
+
+
+def test_calibrate_offset_tolerates_jitter() -> None:
+    """Small per-piece jitter around centers still recovers the offset."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    expected_offset = 24.0
+    # Centers + small jitter (within ±5°).
+    base = [expected_offset + k * sector_size + sector_size / 2.0 for k in range(5)]
+    jittered = [a + j for a, j in zip(base, [3.1, -2.4, 1.0, -3.0, 2.3])]
+    offset = calibrate_sector_offset_from_angles(jittered, sector_count)
+    assert offset is not None
+    assert offset == pytest.approx(expected_offset, abs=2.0)
+
+
+def test_calibrate_offset_returns_none_for_empty_input() -> None:
+    assert calibrate_sector_offset_from_angles([], 5) is None
+    assert calibrate_sector_offset_from_angles([10.0, 20.0], 0) is None
+
+
+def test_calibrate_offset_handles_evenly_distributed_angles_gracefully() -> None:
+    """5 angles 72° apart already wrap to identical mod-72 values; the
+    circular mean is well-defined, just maximally informative or
+    not — but the function must return *something* numeric for any
+    non-empty input."""
+    sector_count = 5
+    sector_size = 360.0 / sector_count
+    # Pieces at exact sector boundaries → mod-72 = 0 for all.
+    offset = calibrate_sector_offset_from_angles(
+        [0.0, sector_size, 2 * sector_size, 3 * sector_size], sector_count
+    )
+    assert offset is not None
+    # All at boundary → mean_rel = 0 → offset = -36 % 72 = 36.
+    assert offset == pytest.approx(36.0, abs=0.5)
+
+
+def test_handler_auto_calibrate_offset_applies_in_place() -> None:
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        sector_count=5,
+        sector_offset_deg=0.0,
+    )
+    # Pretend pieces rest near the centers of sector offset 30.
+    sector_size = 72.0
+    angles = [30.0 + k * sector_size + sector_size / 2.0 for k in range(5)]
+    inferred = h.auto_calibrate_offset(angles)
+    assert inferred == pytest.approx(30.0, abs=0.5)
+    assert h.snapshot()["geometry"]["sector_offset_deg"] == pytest.approx(30.0, abs=0.5)
+
+
+def test_handler_auto_calibrate_returns_none_when_not_in_sector_mode() -> None:
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        # sector_count default 0 → continuous mode
+    )
+    assert h.auto_calibrate_offset([0.0, 90.0, 180.0]) is None
 
 
 def test_disable_aborts_inflight_cycle() -> None:

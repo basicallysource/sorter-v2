@@ -4,6 +4,7 @@ import pytest
 
 from server.wall_detector_teacher import (
     EXPECTED_WALL_COUNT,
+    MIN_EXPECTED_WALL_COUNT,
     WALL_DETECTOR_CLASS_ID,
     WallDetection,
     WallTeacherResult,
@@ -34,16 +35,51 @@ def test_user_prompt_excludes_output_guide_and_other_machine_geometry() -> None:
         assert phrase in text, f"prompt should warn against {phrase!r}"
 
 
-def test_user_prompt_acknowledges_partial_detection_is_normal() -> None:
-    """A wall can hide under the output guide → 4-of-5 visible is normal,
-    not a labeling error. The prompt must say so explicitly so the model
-    doesn't invent the missing wall."""
+def test_user_prompt_constrains_wall_count_to_4_or_5() -> None:
+    """At most one wall hidden by the output guide → answer is always 4 or 5.
+    The prompt must encode this hard constraint so the model doesn't
+    hallucinate fewer walls."""
     text = wall_detector_prompt(image_width=1280, image_height=720).lower()
-    assert "partial" in text
-    # Must specifically tell the model not to guess.
-    assert "do not" in text or "do not invent" in text or "do not guess" in text
+    # Must mention "4 or 5" explicitly.
+    assert "4 or 5" in text or "4 walls" in text
+    # Must specifically tell the model not to invent walls.
+    assert "do not invent" in text or "do not guess" in text
     # Must mention the underneath/occlusion case.
-    assert "underneath" in text or "occluded" in text or "hidden" in text
+    assert "underneath" in text or "hidden" in text
+
+
+def test_metadata_flags_low_quality_labels() -> None:
+    """Frames with <4 walls are flagged so the operator can drop them
+    from the training set."""
+    from pathlib import Path
+
+    low = WallTeacherResult(
+        image_path=Path("/tmp/c4.jpg"),
+        image_width=1280,
+        image_height=720,
+        walls=[
+            WallDetection(bbox_xyxy=(10.0, 20.0, 50.0, 200.0), confidence=0.8),
+            WallDetection(bbox_xyxy=(100.0, 20.0, 140.0, 200.0), confidence=0.7),
+        ],
+        model="m",
+    )
+    high = WallTeacherResult(
+        image_path=Path("/tmp/c4_full.jpg"),
+        image_width=1280,
+        image_height=720,
+        walls=[
+            WallDetection(
+                bbox_xyxy=(i * 100.0, 20.0, i * 100.0 + 40.0, 200.0),
+                confidence=0.8,
+            )
+            for i in range(MIN_EXPECTED_WALL_COUNT)
+        ],
+        model="m",
+    )
+    assert low.to_metadata()["low_quality_label"] is True
+    assert low.to_metadata()["wall_count"] == 2
+    assert high.to_metadata()["low_quality_label"] is False
+    assert high.to_metadata()["min_expected_wall_count"] == MIN_EXPECTED_WALL_COUNT
 
 
 def test_parse_wall_response_extracts_typed_walls() -> None:

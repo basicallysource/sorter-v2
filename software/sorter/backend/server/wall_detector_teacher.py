@@ -46,6 +46,11 @@ WALL_TEACHER_TIMEOUT_S = 25.0
 WALL_TEACHER_MAX_TOKENS = 1600
 
 EXPECTED_WALL_COUNT = 5
+# At most one wall can be hidden behind the output guide, so any
+# correctly labeled frame returns either 4 or 5 walls. Anything
+# below this floor is treated as a low-quality label and flagged
+# in the metadata so the operator can spot it during review.
+MIN_EXPECTED_WALL_COUNT = 4
 
 
 @dataclass(frozen=True, slots=True)
@@ -111,6 +116,7 @@ class WallTeacherResult:
         )
 
     def to_metadata(self) -> dict[str, Any]:
+        wall_count = len(self.walls)
         return {
             "schema_version": WALL_DETECTOR_SCHEMA_VERSION,
             "source": WALL_DETECTOR_SOURCE,
@@ -122,8 +128,10 @@ class WallTeacherResult:
                 "width": self.image_width,
                 "height": self.image_height,
             },
-            "wall_count": len(self.walls),
+            "wall_count": wall_count,
             "expected_wall_count": EXPECTED_WALL_COUNT,
+            "min_expected_wall_count": MIN_EXPECTED_WALL_COUNT,
+            "low_quality_label": wall_count < MIN_EXPECTED_WALL_COUNT,
             "walls": [wall.to_record() for wall in self.walls],
             "raw_response": self.raw_response,
             "notes": self.notes,
@@ -158,13 +166,14 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         "angles are unknown.\n"
         "\n"
         "Return one JSON object describing every wall you can see. "
-        "Partial detections are EXPECTED and correct: at most one "
-        "wall can be hidden behind the output guide at any time, "
-        "so frames with only 3-4 visible walls are normal — return "
-        "what you can see, do NOT invent or guess walls that are "
-        "occluded. Other occluders (a hand, a LEGO piece, deep "
-        "shadow) similarly drop walls from the count; only label "
-        "walls you are confident about.\n"
+        "EXPECTED COUNT IS 4 OR 5. At most ONE wall can be hidden "
+        "behind the output guide at any time — a frame with 4 walls "
+        "is normal, a frame with 5 walls is normal, anything else "
+        "means you missed visible walls or invented hidden ones. "
+        "Do NOT guess at occluded walls; do NOT skip walls you can "
+        "actually see. If a hand or LEGO piece briefly hides another "
+        "wall in a single frame, return only what is genuinely "
+        "visible right now.\n"
         "\n"
         "Coordinates are image pixels with the origin at the top-left, "
         "x increasing to the right, and y increasing downward. The "
@@ -188,11 +197,11 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         "  distributor. It is part of the machine frame, not part "
         "  of the rotating disc, and it does NOT move with the "
         "  platter. Even if it looks bar-shaped or wall-like, "
-        "  ignore it. Note that one of the rotating walls can pass "
-        "  underneath the output guide and become invisible from "
-        "  this angle — when that happens, just return the 3-4 "
-        "  walls you CAN see; do not draw a bbox where you only "
-        "  guess a wall might be.\n"
+        "  ignore it. Note: one rotating wall can pass underneath "
+        "  the output guide and become invisible — when that "
+        "  happens, return the 4 walls you CAN see; never draw a "
+        "  bbox at the guide location to substitute for the hidden "
+        "  wall.\n"
         "* lines, cables, ArUco markers, or stickers\n"
         "\n"
         "Output JSON schema:\n"
@@ -210,7 +219,9 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         "}\n"
         "\n"
         "Rules:\n"
-        f"- ``walls`` is a list with at most {EXPECTED_WALL_COUNT} entries.\n"
+        f"- ``walls`` should contain {EXPECTED_WALL_COUNT - 1} or "
+        f"{EXPECTED_WALL_COUNT} entries (4 or 5). The output guide "
+        "  hides at most one wall.\n"
         "- ``bbox_xyxy`` are integer pixel coordinates inside the image.\n"
         "- ``confidence`` is 0..1. Use lower values when the wall is "
         "  partially occluded or far from the camera.\n"
@@ -220,8 +231,8 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         "  otherwise leave null.\n"
         "- Use ``note`` only to call out occlusion or ambiguity for "
         "  the operator.\n"
-        "- Return an empty ``walls`` list if no wall is visible. Do "
-        "  not invent walls."
+        "- Returning fewer than 4 walls means you missed visible "
+        "  ones — re-look. Do not invent walls."
     )
 
 
@@ -427,6 +438,7 @@ __all__ = [
     "DEFAULT_WALL_TEACHER_OPENROUTER_MODEL",
     "EXPECTED_WALL_COUNT",
     "GeminiWallTeacher",
+    "MIN_EXPECTED_WALL_COUNT",
     "WALL_DETECTOR_CLASS_ID",
     "WALL_DETECTOR_CLASS_NAME",
     "WALL_DETECTOR_PROVIDER",

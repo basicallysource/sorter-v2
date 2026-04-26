@@ -54,6 +54,7 @@ from server.wall_detector_teacher import (  # noqa: E402
     DEFAULT_WALL_TEACHER_OPENROUTER_MODEL,
     EXPECTED_WALL_COUNT,
     GeminiWallTeacher,
+    MIN_EXPECTED_WALL_COUNT,
     WALL_DETECTOR_CLASS_NAME,
     WallTeacherResult,
 )
@@ -116,10 +117,13 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--min-walls",
         type=int,
-        default=0,
+        default=MIN_EXPECTED_WALL_COUNT,
         help=(
             "Skip writing labels for images where Gemini found fewer "
-            "than this many walls. Default 0 (write every result)."
+            f"than this many walls. Default {MIN_EXPECTED_WALL_COUNT} "
+            "(at most one wall is hidden by the output guide, so any "
+            "lower count means the labeler missed visible walls). Set "
+            "to 0 to keep every result."
         ),
     )
     return parser.parse_args()

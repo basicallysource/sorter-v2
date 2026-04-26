@@ -100,6 +100,14 @@ class SectionFeederHandler:
     DEFAULT_C1_COOLDOWN_S = 1.5
     DEFAULT_C2_COOLDOWN_S = 0.5
     DEFAULT_C3_COOLDOWN_S = 0.3
+    # Hard piece-count caps. Main's discrete carousel had only 4 slots so
+    # this gate was implicit. Our platters can hold many more pieces, so
+    # without an explicit cap the section feeder will pile up C3 (live
+    # measurement saw 29 tracks queued before the gate finally tripped on
+    # intake-arc occupancy). Cap upstream pulses on the *downstream* piece
+    # count so the chain self-regulates without leases.
+    DEFAULT_C2_PIECE_CAP = 8
+    DEFAULT_C3_PIECE_CAP = 8
 
     def __init__(
         self,
@@ -115,6 +123,8 @@ class SectionFeederHandler:
         c1_cooldown_s: float = DEFAULT_C1_COOLDOWN_S,
         c2_cooldown_s: float = DEFAULT_C2_COOLDOWN_S,
         c3_cooldown_s: float = DEFAULT_C3_COOLDOWN_S,
+        c2_piece_cap: int = DEFAULT_C2_PIECE_CAP,
+        c3_piece_cap: int = DEFAULT_C3_PIECE_CAP,
         logger: logging.Logger | None = None,
     ) -> None:
         self._c1_pulse = c1_pulse
@@ -128,6 +138,8 @@ class SectionFeederHandler:
         self._c1_cooldown_s = max(0.0, float(c1_cooldown_s))
         self._c2_cooldown_s = max(0.0, float(c2_cooldown_s))
         self._c3_cooldown_s = max(0.0, float(c3_cooldown_s))
+        self._c2_piece_cap = max(1, int(c2_piece_cap))
+        self._c3_piece_cap = max(1, int(c3_piece_cap))
         self._logger = logger or logging.getLogger("rt.section_feeder")
         self._enabled = False
         self._inhibit_reason: str | None = None
@@ -171,6 +183,62 @@ class SectionFeederHandler:
         if c3_s is not None:
             self._c3_cooldown_s = max(0.0, float(c3_s))
 
+    def update_piece_caps(
+        self,
+        *,
+        c2: int | None = None,
+        c3: int | None = None,
+    ) -> None:
+        if c2 is not None:
+            self._c2_piece_cap = max(1, int(c2))
+        if c3 is not None:
+            self._c3_piece_cap = max(1, int(c3))
+
+    def update_geometry(
+        self,
+        *,
+        channel: str,
+        exit_arc_deg: float | None = None,
+        intake_center_deg: float | None = None,
+        intake_arc_deg: float | None = None,
+    ) -> ChannelGeometry:
+        """Replace one channel's sector geometry live.
+
+        Useful for calibrating ``intake_center_deg`` from a track-angle
+        histogram without rebuilding the handler. Returns the new
+        geometry so callers can echo it back.
+        """
+        ch = str(channel).strip().lower()
+        if ch == "c2":
+            current = self._c2_geom
+        elif ch == "c3":
+            current = self._c3_geom
+        else:
+            raise ValueError("channel must be 'c2' or 'c3'")
+        new = ChannelGeometry(
+            name=current.name,
+            exit_arc_deg=(
+                float(exit_arc_deg)
+                if exit_arc_deg is not None
+                else current.exit_arc_deg
+            ),
+            intake_center_deg=(
+                float(intake_center_deg)
+                if intake_center_deg is not None
+                else current.intake_center_deg
+            ),
+            intake_arc_deg=(
+                float(intake_arc_deg)
+                if intake_arc_deg is not None
+                else current.intake_arc_deg
+            ),
+        )
+        if ch == "c2":
+            self._c2_geom = new
+        else:
+            self._c3_geom = new
+        return new
+
     # ------------------------------------------------------------------
     # Tick
 
@@ -200,6 +268,12 @@ class SectionFeederHandler:
             self._last_decision = decision
             return decision
 
+        # Hard piece-count caps on the *downstream* channel (Main's
+        # discrete carousel had this implicitly via the 4-slot geometry;
+        # we add it explicitly so a continuous platter can self-regulate).
+        c2_full = c2_obs.piece_count >= self._c2_piece_cap
+        c3_full = c3_obs.piece_count >= self._c3_piece_cap
+
         # C3 first: pulse if C4 will admit. Section choice from track
         # distribution. Run downstream-first to mirror the orchestrator
         # tick order — C3's pulse can clear C2's intake-block this tick.
@@ -217,14 +291,14 @@ class SectionFeederHandler:
             label="c2",
             state=self._c2,
             action=c2_obs.action,
-            allowed=not c3_obs.intake_occupied,
+            allowed=(not c3_obs.intake_occupied) and (not c3_full),
             cooldown_s=self._c2_cooldown_s,
             now=ts,
             hw=self._c2_hw,
             pulse=lambda mode: self._c2_pulse(mode, 0.0, None),
         )
         decision.c1_can_pulse = self._tick_c1(
-            allowed=not c2_obs.intake_occupied,
+            allowed=(not c2_obs.intake_occupied) and (not c2_full),
             now=ts,
         )
         self._last_decision = decision
@@ -242,6 +316,10 @@ class SectionFeederHandler:
                 "c1": self._c1_cooldown_s,
                 "c2": self._c2_cooldown_s,
                 "c3": self._c3_cooldown_s,
+            },
+            "piece_caps": {
+                "c2": int(self._c2_piece_cap),
+                "c3": int(self._c3_piece_cap),
             },
             "geometry": {
                 "c2": {

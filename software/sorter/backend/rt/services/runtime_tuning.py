@@ -167,14 +167,32 @@ def _orchestrator_snapshot(orchestrator: Any) -> dict[str, Any]:
     feeder_mode = (
         mode_fn() if callable(mode_fn) else getattr(orchestrator, "_feeder_mode", "lease")
     )
-    return {"feeder_mode": str(feeder_mode)}
+    out: dict[str, Any] = {"feeder_mode": str(feeder_mode)}
+    handler = getattr(orchestrator, "_section_feeder_handler", None)
+    if handler is not None:
+        snap_fn = getattr(handler, "snapshot", None)
+        if callable(snap_fn):
+            try:
+                handler_snap = dict(snap_fn() or {})
+            except Exception:
+                handler_snap = {}
+            # Surface only the live-tunable surface so the tuning
+            # snapshot stays reasonable. Counters / last_decision live
+            # on /api/rt/status.
+            out["section_feeder_handler"] = {
+                "geometry": handler_snap.get("geometry"),
+                "cooldowns_s": handler_snap.get("cooldowns_s"),
+                "piece_caps": handler_snap.get("piece_caps"),
+                "inhibit_reason": handler_snap.get("inhibit_reason"),
+            }
+    return out
 
 
 def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
     orchestrator = getattr(handle, "orchestrator", None)
     if orchestrator is None:
         raise RuntimeError("orchestrator not available for tuning")
-    allowed = {"feeder_mode"}
+    allowed = {"feeder_mode", "section_feeder_handler"}
     _reject_unknown("orchestrator", values, allowed)
     if "feeder_mode" in values:
         mode = values["feeder_mode"]
@@ -186,6 +204,120 @@ def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
         if not callable(setter):
             raise RuntimeError("orchestrator does not support set_feeder_mode")
         setter(mode)
+    if "section_feeder_handler" in values:
+        _apply_section_feeder_handler(
+            orchestrator, values["section_feeder_handler"]
+        )
+
+
+def _apply_section_feeder_handler(orchestrator: Any, values: Any) -> None:
+    if not isinstance(values, dict):
+        raise ValueError("orchestrator.section_feeder_handler must be an object")
+    handler = getattr(orchestrator, "_section_feeder_handler", None)
+    if handler is None:
+        raise RuntimeError(
+            "section feeder handler is not attached; cannot tune it"
+        )
+    allowed = {"geometry", "cooldowns_s", "cooldowns", "piece_caps"}
+    _reject_unknown("orchestrator.section_feeder_handler", values, allowed)
+    geometry = values.get("geometry")
+    if geometry is not None:
+        if not isinstance(geometry, dict):
+            raise ValueError(
+                "orchestrator.section_feeder_handler.geometry must be an object"
+            )
+        update_fn = getattr(handler, "update_geometry", None)
+        if not callable(update_fn):
+            raise RuntimeError("section feeder handler missing update_geometry")
+        for ch_key, ch_values in geometry.items():
+            if ch_key not in {"c2", "c3"}:
+                raise ValueError(
+                    f"orchestrator.section_feeder_handler.geometry: unknown channel {ch_key!r}"
+                )
+            if not isinstance(ch_values, dict):
+                raise ValueError(
+                    f"orchestrator.section_feeder_handler.geometry.{ch_key} must be an object"
+                )
+            ch_allowed = {"exit_arc_deg", "intake_center_deg", "intake_arc_deg"}
+            _reject_unknown(
+                f"orchestrator.section_feeder_handler.geometry.{ch_key}",
+                ch_values,
+                ch_allowed,
+            )
+            kwargs: dict[str, float] = {}
+            if "exit_arc_deg" in ch_values:
+                kwargs["exit_arc_deg"] = _float(
+                    ch_values["exit_arc_deg"],
+                    f"orchestrator.section_feeder_handler.geometry.{ch_key}.exit_arc_deg",
+                    min_value=1.0,
+                    max_value=180.0,
+                )
+            if "intake_arc_deg" in ch_values:
+                kwargs["intake_arc_deg"] = _float(
+                    ch_values["intake_arc_deg"],
+                    f"orchestrator.section_feeder_handler.geometry.{ch_key}.intake_arc_deg",
+                    min_value=1.0,
+                    max_value=180.0,
+                )
+            if "intake_center_deg" in ch_values:
+                kwargs["intake_center_deg"] = _float(
+                    ch_values["intake_center_deg"],
+                    f"orchestrator.section_feeder_handler.geometry.{ch_key}.intake_center_deg",
+                    min_value=-360.0,
+                    max_value=360.0,
+                )
+            update_fn(channel=ch_key, **kwargs)
+    cooldowns = values.get("cooldowns_s") or values.get("cooldowns")
+    if cooldowns is not None:
+        if not isinstance(cooldowns, dict):
+            raise ValueError(
+                "orchestrator.section_feeder_handler.cooldowns_s must be an object"
+            )
+        cd_allowed = {"c1", "c2", "c3"}
+        _reject_unknown(
+            "orchestrator.section_feeder_handler.cooldowns_s",
+            cooldowns,
+            cd_allowed,
+        )
+        update_fn = getattr(handler, "update_cooldowns", None)
+        if not callable(update_fn):
+            raise RuntimeError("section feeder handler missing update_cooldowns")
+        kwargs: dict[str, float] = {}
+        for ch_key in ("c1", "c2", "c3"):
+            if ch_key in cooldowns:
+                kwargs[f"{ch_key}_s"] = _float(
+                    cooldowns[ch_key],
+                    f"orchestrator.section_feeder_handler.cooldowns_s.{ch_key}",
+                    min_value=0.0,
+                    max_value=60.0,
+                )
+        update_fn(**kwargs)
+
+    piece_caps = values.get("piece_caps")
+    if piece_caps is not None:
+        if not isinstance(piece_caps, dict):
+            raise ValueError(
+                "orchestrator.section_feeder_handler.piece_caps must be an object"
+            )
+        cap_allowed = {"c2", "c3"}
+        _reject_unknown(
+            "orchestrator.section_feeder_handler.piece_caps",
+            piece_caps,
+            cap_allowed,
+        )
+        update_fn = getattr(handler, "update_piece_caps", None)
+        if not callable(update_fn):
+            raise RuntimeError("section feeder handler missing update_piece_caps")
+        kwargs: dict[str, int] = {}
+        for ch_key in ("c2", "c3"):
+            if ch_key in piece_caps:
+                kwargs[ch_key] = _int(
+                    piece_caps[ch_key],
+                    f"orchestrator.section_feeder_handler.piece_caps.{ch_key}",
+                    min_value=1,
+                    max_value=200,
+                )
+        update_fn(**kwargs)
 
 
 def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:

@@ -63,6 +63,10 @@ class _FakeOrchestrator:
         self._feeder_mode = mode
         return mode
 
+    @property
+    def section_handler(self):
+        return getattr(self, "_section_feeder_handler", None)
+
 
 def _rotor(steps: int, speed: int, delay: int, accel: int | None = None) -> SimpleNamespace:
     return SimpleNamespace(
@@ -402,6 +406,84 @@ def test_orchestrator_feeder_mode_rejects_unknown_value() -> None:
         runtime_tuning.apply_patch(
             handle,
             {"orchestrator": {"feeder_mode": "magic"}},
+        )
+
+
+def test_orchestrator_section_handler_geometry_round_trip() -> None:
+    from rt.services.section_feeder_handler import SectionFeederHandler
+    from rt.services.sector_shadow_observer import ChannelGeometry
+
+    handle = _handle()
+    handler = SectionFeederHandler(
+        c1_pulse=lambda: True,
+        c2_pulse=lambda *a, **k: True,
+        c3_pulse=lambda *a, **k: True,
+        c1_hw=None,
+        c2_hw=None,
+        c3_hw=None,
+        c2_geometry=ChannelGeometry(
+            name="c2", exit_arc_deg=30.0, intake_center_deg=180.0, intake_arc_deg=30.0
+        ),
+        c3_geometry=ChannelGeometry(
+            name="c3", exit_arc_deg=20.0, intake_center_deg=180.0, intake_arc_deg=30.0
+        ),
+    )
+    handle.orchestrator._section_feeder_handler = handler
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "orchestrator": {
+                "section_feeder_handler": {
+                    "geometry": {
+                        "c2": {"intake_center_deg": -60.0, "intake_arc_deg": 25.0},
+                    },
+                    "cooldowns_s": {"c1": 1.0, "c2": 0.4, "c3": 0.2},
+                }
+            }
+        },
+    )
+
+    snap = handler.snapshot()
+    assert snap["geometry"]["c2"]["intake_center_deg"] == -60.0
+    assert snap["geometry"]["c2"]["intake_arc_deg"] == 25.0
+    # c2 exit_arc unchanged (we did not patch it)
+    assert snap["geometry"]["c2"]["exit_arc_deg"] == 30.0
+    assert snap["cooldowns_s"]["c1"] == 1.0
+    assert snap["cooldowns_s"]["c2"] == 0.4
+    section = payload["orchestrator"]["section_feeder_handler"]
+    assert section["geometry"]["c2"]["intake_center_deg"] == -60.0
+
+
+def test_orchestrator_section_handler_geometry_rejects_unknown_channel() -> None:
+    from rt.services.section_feeder_handler import SectionFeederHandler
+    from rt.services.sector_shadow_observer import ChannelGeometry
+
+    handle = _handle()
+    handle.orchestrator._section_feeder_handler = SectionFeederHandler(
+        c1_pulse=lambda: True,
+        c2_pulse=lambda *a, **k: True,
+        c3_pulse=lambda *a, **k: True,
+        c1_hw=None,
+        c2_hw=None,
+        c3_hw=None,
+        c2_geometry=ChannelGeometry(
+            name="c2", exit_arc_deg=30.0, intake_center_deg=180.0, intake_arc_deg=30.0
+        ),
+        c3_geometry=ChannelGeometry(
+            name="c3", exit_arc_deg=20.0, intake_center_deg=180.0, intake_arc_deg=30.0
+        ),
+    )
+    with pytest.raises(ValueError, match="unknown channel"):
+        runtime_tuning.apply_patch(
+            handle,
+            {
+                "orchestrator": {
+                    "section_feeder_handler": {
+                        "geometry": {"c4": {"intake_center_deg": 0.0}}
+                    }
+                }
+            },
         )
 
 

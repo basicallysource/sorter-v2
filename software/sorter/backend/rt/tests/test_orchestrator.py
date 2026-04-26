@@ -205,12 +205,25 @@ def test_c1_capacity_obeys_c4_backlog_backpressure() -> None:
     assert c1_capacity["reason"] == "backlog_dossiers"
     assert c1_capacity["controller"]["name"] == "c1_c4_backpressure"
 
+    # Hysteresis: dropping just below the high water mark must NOT
+    # unblock C1. Both counters need to relax to/below the resume
+    # thresholds first (default raw_resume=4, dossier_resume=1).
     c4._debug_snapshot = {
         "raw_detection_count": 6,
         "dossier_count": 2,
     }
     orch.tick_once(now_mono=0.1)
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert (
+        orch.status_snapshot()["capacity_debug"]["c1"]["reason"]
+        == "backlog_dossiers_holding"
+    )
 
+    c4._debug_snapshot = {
+        "raw_detection_count": 4,
+        "dossier_count": 1,
+    }
+    orch.tick_once(now_mono=0.2)
     assert c1.ticks[-1].capacity_downstream == 2
 
 
@@ -241,6 +254,251 @@ def test_c1_c4_backpressure_can_be_tuned_live() -> None:
     assert c1.ticks[-1].capacity_downstream == 0
     assert orch.status_snapshot()["capacity_debug"]["c1"]["reason"] == "backlog_raw"
     assert orch.c1_c4_backpressure_snapshot()["raw_high"] == 6
+
+
+def test_c1_c4_backpressure_hysteresis_holds_in_band() -> None:
+    """Once the gate trips at high water it stays blocked through the band.
+
+    Reproduces the documented oscillation failure mode: with a single
+    threshold the gate would re-open as soon as dossiers dipped below
+    ``dossier_high``, letting C1 fire another bulk pulse before the line
+    had actually drained. Hysteresis keeps the block sticky until both
+    counters relax to/below the resume thresholds.
+    """
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c4._available_slots = 2
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+    orch.update_c1_c4_backpressure(
+        raw_high=7,
+        dossier_high=3,
+        raw_resume=3,
+        dossier_resume=0,
+    )
+
+    # Initially clear — C1 may feed.
+    c4._debug_snapshot = {"raw_detection_count": 0, "dossier_count": 0}
+    orch.tick_once(now_mono=0.0)
+    assert c1.ticks[-1].capacity_downstream == 2
+
+    # Cross high-water on dossiers — block engages.
+    c4._debug_snapshot = {"raw_detection_count": 5, "dossier_count": 3}
+    orch.tick_once(now_mono=0.1)
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert orch.status_snapshot()["capacity_debug"]["c1"]["reason"] == "backlog_dossiers"
+
+    # Drop just below high-water — without hysteresis this used to
+    # unblock immediately. The sticky block must hold.
+    c4._debug_snapshot = {"raw_detection_count": 5, "dossier_count": 2}
+    orch.tick_once(now_mono=0.2)
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert (
+        orch.status_snapshot()["capacity_debug"]["c1"]["reason"]
+        == "backlog_dossiers_holding"
+    )
+
+    # Dossier reaches resume but raw still above raw_resume — still blocked.
+    c4._debug_snapshot = {"raw_detection_count": 5, "dossier_count": 0}
+    orch.tick_once(now_mono=0.3)
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert (
+        orch.status_snapshot()["capacity_debug"]["c1"]["reason"]
+        == "backlog_raw_holding"
+    )
+
+    # Both counters at/below resume — gate releases.
+    c4._debug_snapshot = {"raw_detection_count": 3, "dossier_count": 0}
+    orch.tick_once(now_mono=0.4)
+    assert c1.ticks[-1].capacity_downstream == 2
+    assert orch.c1_c4_backpressure_snapshot()["blocked"] is False
+
+
+def test_orchestrator_advances_attached_pulse_observer_each_tick() -> None:
+    """The orchestrator must call ``observer.tick`` so deadlines advance."""
+
+    class _StubObserver:
+        def __init__(self) -> None:
+            self.tick_count = 0
+
+        def tick(self, now_mono: float) -> None:
+            self.tick_count += 1
+
+        def summary(self) -> dict[str, Any]:
+            return {"completed_count": 0}
+
+        def in_flight(self) -> list[dict[str, Any]]:
+            return []
+
+        def recent(self, limit: int = 20) -> list[dict[str, Any]]:
+            return []
+
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2],
+        {("c1", "c2"): CapacitySlot("c1_to_c2", 1)},
+    )
+    obs = _StubObserver()
+    orch.attach_c1_pulse_observer(obs)
+
+    orch.tick_once(now_mono=0.0)
+    orch.tick_once(now_mono=0.020)
+    orch.tick_once(now_mono=0.040)
+
+    assert obs.tick_count == 3
+    snapshot = orch.status_snapshot()
+    assert snapshot["c1_pulse_observer"] == {"completed_count": 0}
+
+
+def test_orchestrator_cross_runtime_snapshot_pulls_c2_density_and_c4_counts() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    c2._capacity_debug_snapshot = {
+        "density": {
+            "piece_count_estimate": 4,
+            "occupancy_area_px": 1234,
+            "clump_score": 0.42,
+            "free_arc_fraction": 0.61,
+            "exit_queue_length": 1,
+        },
+        "visible_track_count": 5,
+    }
+    c4._debug_snapshot = {
+        "raw_detection_count": 6,
+        "raw_track_count": 7,
+        "dossier_count": 2,
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+
+    snap = orch.cross_runtime_snapshot()
+    assert snap["c2_piece_count_estimate"] == 4.0
+    assert snap["c2_occupancy_area_px"] == 1234.0
+    assert snap["c2_clump_score"] == pytest.approx(0.42)
+    assert snap["c2_free_arc_fraction"] == pytest.approx(0.61)
+    assert snap["c2_exit_queue_length"] == 1.0
+    assert snap["c2_visible_track_count"] == 5.0
+    assert snap["c4_raw_detection_count"] == 6.0
+    assert snap["c4_raw_track_count"] == 7.0
+    assert snap["c4_dossier_count"] == 2.0
+
+
+def test_c1_recovery_admission_blocks_high_levels_without_headroom() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    # C2 currently holds 11 equivalent pieces; default safe capacity is 14
+    # so headroom is 3. Default level estimates are (3, 6, 12, 25, 40),
+    # so only level 0 (3) should be admitted.
+    c2._capacity_debug_snapshot = {
+        "density": {
+            "piece_count_estimate": 11,
+            "occupancy_area_px": 0,
+            "clump_score": 0.0,
+            "free_arc_fraction": 0.0,
+            "exit_queue_length": 0,
+        },
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+
+    allowed_l0, info_l0 = orch.c1_recovery_admission_decision(0)
+    assert allowed_l0 is True
+    assert info_l0["headroom_eq"] == 3
+    assert info_l0["level_estimate_eq"] == 3
+    assert info_l0["reason"] == "ok"
+
+    allowed_l1, info_l1 = orch.c1_recovery_admission_decision(1)
+    assert allowed_l1 is False
+    assert info_l1["level_estimate_eq"] == 6
+    assert info_l1["reason"] == "insufficient_c2_headroom"
+
+
+def test_c1_recovery_admission_clamps_level_to_estimates_length() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c2._capacity_debug_snapshot = {
+        "density": {"piece_count_estimate": 0},
+    }
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    orch.update_c1_recovery_admission(level_estimates_eq=[2, 4])
+    # Level 7 clamps to last entry (4). Headroom is 14 (default capacity).
+    allowed, info = orch.c1_recovery_admission_decision(7)
+    assert allowed is True
+    assert info["level_estimate_eq"] == 4
+
+
+def test_c1_recovery_admission_disable_short_circuits_to_allowed() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c2._capacity_debug_snapshot = {
+        "density": {"piece_count_estimate": 100},  # well over capacity
+    }
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    orch.update_c1_recovery_admission(enabled=False)
+    allowed, info = orch.c1_recovery_admission_decision(4)
+    assert allowed is True
+    assert info["enabled"] is False
+    assert info["reason"] == "admission_disabled"
+
+
+def test_c1_recovery_admission_rejects_decreasing_estimates() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    orch = _make_orchestrator(
+        [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
+    )
+    with pytest.raises(ValueError, match="non-decreasing"):
+        orch.update_c1_recovery_admission(level_estimates_eq=[10, 5, 3])
+
+
+def test_c1_c4_backpressure_rejects_resume_at_or_above_high() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+    with pytest.raises(ValueError, match="raw_resume"):
+        orch.update_c1_c4_backpressure(raw_high=5, raw_resume=5)
+    with pytest.raises(ValueError, match="dossier_resume"):
+        orch.update_c1_c4_backpressure(dossier_high=2, dossier_resume=3)
 
 
 def test_c1_capacity_obeys_c2_vision_density_controller() -> None:

@@ -31,6 +31,21 @@ _C1_C2_VISION_CLUMP_BLOCK_THRESHOLD = 0.65
 _C1_C2_VISION_EXIT_QUEUE_LIMIT = 1
 _C1_C4_BACKPRESSURE_RAW_HIGH = 7
 _C1_C4_BACKPRESSURE_DOSSIER_HIGH = 3
+# Hysteresis: once the C4 backlog gate has fired, C1 stays inhibited until
+# both backlog signals drop to/below the resume thresholds. Picking
+# resume = high - 3 / high - 2 leaves a real dwell window so C1 cannot
+# unblock between two distributor cycles.
+_C1_C4_BACKPRESSURE_RAW_RESUME = 4
+_C1_C4_BACKPRESSURE_DOSSIER_RESUME = 1
+# Headroom-gated C1 jam-recovery defaults. Level estimates are q95 piece
+# counts that the corresponding recovery push is expected to deliver onto
+# C2 in the worst case. Initial values are conservative seed numbers
+# until the pulse-response observer collects enough live samples to
+# replace them. ``c2_safe_capacity_eq`` is the maximum equivalent piece
+# count C2 can absorb without entering an unsafe load state.
+_C1_RECOVERY_ADMISSION_ENABLED = True
+_C1_RECOVERY_C2_SAFE_CAPACITY_EQ = 14
+_C1_RECOVERY_LEVEL_ESTIMATES_EQ: tuple[int, ...] = (3, 6, 12, 25, 40)
 
 
 class TrackSource(Protocol):
@@ -61,6 +76,11 @@ class Orchestrator:
         c1_c2_vision_exit_queue_limit: int = _C1_C2_VISION_EXIT_QUEUE_LIMIT,
         c1_c4_backpressure_raw_high: int = _C1_C4_BACKPRESSURE_RAW_HIGH,
         c1_c4_backpressure_dossier_high: int = _C1_C4_BACKPRESSURE_DOSSIER_HIGH,
+        c1_c4_backpressure_raw_resume: int = _C1_C4_BACKPRESSURE_RAW_RESUME,
+        c1_c4_backpressure_dossier_resume: int = _C1_C4_BACKPRESSURE_DOSSIER_RESUME,
+        c1_recovery_admission_enabled: bool = _C1_RECOVERY_ADMISSION_ENABLED,
+        c1_recovery_c2_safe_capacity_eq: int = _C1_RECOVERY_C2_SAFE_CAPACITY_EQ,
+        c1_recovery_level_estimates_eq: tuple[int, ...] = _C1_RECOVERY_LEVEL_ESTIMATES_EQ,
     ) -> None:
         if tick_period_s <= 0.0:
             raise ValueError("tick_period_s must be > 0")
@@ -88,9 +108,22 @@ class Orchestrator:
             clump_block_threshold=c1_c2_vision_clump_block_threshold,
             exit_queue_limit=c1_c2_vision_exit_queue_limit,
         )
+        self._c1_c4_backpressure_blocked = False
         self.update_c1_c4_backpressure(
             raw_high=c1_c4_backpressure_raw_high,
             dossier_high=c1_c4_backpressure_dossier_high,
+            raw_resume=c1_c4_backpressure_raw_resume,
+            dossier_resume=c1_c4_backpressure_dossier_resume,
+        )
+        self._c1_pulse_observer: Any | None = None
+        self._last_c1_recovery_decision: dict[str, Any] | None = None
+        self._c1_recovery_admission_enabled = True
+        self._c1_recovery_c2_safe_capacity_eq = 14
+        self._c1_recovery_level_estimates_eq: tuple[int, ...] = (3, 6, 12, 25, 40)
+        self.update_c1_recovery_admission(
+            enabled=c1_recovery_admission_enabled,
+            c2_safe_capacity_eq=c1_recovery_c2_safe_capacity_eq,
+            level_estimates_eq=c1_recovery_level_estimates_eq,
         )
 
     # ------------------------------------------------------------------
@@ -176,6 +209,161 @@ class Orchestrator:
 
     def tick_count(self) -> int:
         return self._tick_count
+
+    def c1_recovery_admission_snapshot(self) -> dict[str, Any]:
+        """Live tunables for the headroom-gated C1 jam-recovery escalation."""
+        return {
+            "name": "c1_recovery_admission",
+            "enabled": bool(self._c1_recovery_admission_enabled),
+            "c2_safe_capacity_eq": int(self._c1_recovery_c2_safe_capacity_eq),
+            "level_estimates_eq": list(self._c1_recovery_level_estimates_eq),
+            "last_decision": (
+                dict(self._last_c1_recovery_decision)
+                if self._last_c1_recovery_decision
+                else None
+            ),
+        }
+
+    def update_c1_recovery_admission(
+        self,
+        *,
+        enabled: bool | None = None,
+        c2_safe_capacity_eq: int | None = None,
+        level_estimates_eq: tuple[int, ...] | list[int] | None = None,
+    ) -> dict[str, Any]:
+        if enabled is not None:
+            self._c1_recovery_admission_enabled = bool(enabled)
+        if c2_safe_capacity_eq is not None:
+            self._c1_recovery_c2_safe_capacity_eq = self._bounded_int(
+                c2_safe_capacity_eq,
+                "c2_safe_capacity_eq",
+                min_value=1,
+                max_value=200,
+            )
+        if level_estimates_eq is not None:
+            try:
+                values = [int(v) for v in level_estimates_eq]
+            except (TypeError, ValueError) as exc:
+                raise ValueError(
+                    "level_estimates_eq must be a list of ints"
+                ) from exc
+            if not values:
+                raise ValueError("level_estimates_eq must not be empty")
+            for n in values:
+                if n < 0 or n > 500:
+                    raise ValueError(
+                        "level_estimates_eq entries must be between 0 and 500"
+                    )
+            # Estimates must be monotonically non-decreasing — escalation
+            # without a non-decreasing q95 makes no physical sense and
+            # would let a higher level pass admission while a lower one
+            # is blocked.
+            for prev, cur in zip(values, values[1:]):
+                if cur < prev:
+                    raise ValueError(
+                        "level_estimates_eq must be non-decreasing"
+                    )
+            self._c1_recovery_level_estimates_eq = tuple(values)
+        return self.c1_recovery_admission_snapshot()
+
+    def c1_recovery_admission_decision(self, level: int) -> tuple[bool, dict[str, Any]]:
+        """Decide whether C1 may run recovery level ``level`` right now.
+
+        Returns ``(allowed, info)``. ``info`` is always populated with
+        the inputs to the decision (current C2 load, headroom, level
+        estimate, admission state) so it can be surfaced in the runtime
+        snapshot or the pulse-response log.
+        """
+        info: dict[str, Any] = {"level": int(level)}
+        if not self._c1_recovery_admission_enabled:
+            info.update({"enabled": False, "reason": "admission_disabled"})
+            self._last_c1_recovery_decision = dict(info)
+            return True, info
+
+        snapshot = self.cross_runtime_snapshot()
+        c2_load_eq = self._safe_int(snapshot.get("c2_piece_count_estimate"))
+        c2_safe_capacity = int(self._c1_recovery_c2_safe_capacity_eq)
+        headroom_eq = max(0, c2_safe_capacity - c2_load_eq)
+        estimates = self._c1_recovery_level_estimates_eq
+        idx = max(0, min(int(level), len(estimates) - 1))
+        level_estimate_eq = int(estimates[idx])
+
+        allowed = level_estimate_eq <= headroom_eq
+        info.update(
+            {
+                "enabled": True,
+                "c2_load_eq": int(c2_load_eq),
+                "c2_safe_capacity_eq": c2_safe_capacity,
+                "headroom_eq": int(headroom_eq),
+                "level_estimate_eq": level_estimate_eq,
+                "allowed": bool(allowed),
+                "reason": (
+                    "ok" if allowed else "insufficient_c2_headroom"
+                ),
+            }
+        )
+        self._last_c1_recovery_decision = dict(info)
+        return allowed, info
+
+    def attach_c1_pulse_observer(self, observer: Any) -> None:
+        """Install the C1 pulse-response observer.
+
+        The observer is ticked from inside the main loop so its t1/t3
+        deadlines advance at the same cadence as the runtime gates. The
+        observer is responsible for pulling C2/C4 snapshots via the
+        ``cross_runtime_snapshot`` callable below; we hand it a closure
+        rather than a back-reference to keep the API surface small.
+        """
+        self._c1_pulse_observer = observer
+
+    def cross_runtime_snapshot(self) -> dict[str, Any]:
+        """Compact dict of C2/C4 fields the C1 pulse observer cares about.
+
+        Kept tight on purpose: only the metrics that influence whether a
+        C1 dispatch was the right call. Adding fields here is cheap, but
+        every additional field shows up in every persisted JSONL row.
+        """
+        out: dict[str, Any] = {}
+        c2 = self._runtime_by_id.get("c2")
+        if c2 is not None:
+            try:
+                c2_dbg = dict(c2.capacity_debug_snapshot() or {})
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: c2.capacity_debug_snapshot() raised"
+                )
+                c2_dbg = {}
+            density = c2_dbg.get("density")
+            if isinstance(density, dict):
+                for key in (
+                    "piece_count_estimate",
+                    "occupancy_area_px",
+                    "clump_score",
+                    "free_arc_fraction",
+                    "exit_queue_length",
+                ):
+                    value = density.get(key)
+                    if isinstance(value, (int, float)):
+                        out[f"c2_{key}"] = float(value)
+            visible = c2_dbg.get("visible_track_count")
+            if isinstance(visible, (int, float)):
+                out["c2_visible_track_count"] = float(visible)
+        c4 = self._runtime_by_id.get("c4")
+        if c4 is not None:
+            try:
+                c4_dbg = dict(c4.debug_snapshot() or {})
+            except Exception:
+                self._logger.exception("Orchestrator: c4.debug_snapshot() raised")
+                c4_dbg = {}
+            for src_key, dst_key in (
+                ("raw_detection_count", "c4_raw_detection_count"),
+                ("raw_track_count", "c4_raw_track_count"),
+                ("dossier_count", "c4_dossier_count"),
+            ):
+                value = c4_dbg.get(src_key)
+                if isinstance(value, (int, float)):
+                    out[dst_key] = float(value)
+        return out
 
     def register_perception_source(self, feed_id: str, source: TrackSource) -> None:
         """Install (or replace) a perception source after construction.
@@ -265,6 +453,9 @@ class Orchestrator:
             "name": "c1_c4_backpressure",
             "raw_high": int(self._c1_c4_backpressure_raw_high),
             "dossier_high": int(self._c1_c4_backpressure_dossier_high),
+            "raw_resume": int(self._c1_c4_backpressure_raw_resume),
+            "dossier_resume": int(self._c1_c4_backpressure_dossier_resume),
+            "blocked": bool(self._c1_c4_backpressure_blocked),
         }
 
     def update_c1_c4_backpressure(
@@ -272,6 +463,8 @@ class Orchestrator:
         *,
         raw_high: int | None = None,
         dossier_high: int | None = None,
+        raw_resume: int | None = None,
+        dossier_resume: int | None = None,
     ) -> dict[str, Any]:
         """Tune the C1 bulk-feed stop line for downstream C4 backlog."""
 
@@ -297,8 +490,50 @@ class Orchestrator:
                 )
             )
         )
+        next_raw_resume = (
+            self._bounded_int(raw_resume, "raw_resume", min_value=0, max_value=50)
+            if raw_resume is not None
+            else int(
+                getattr(
+                    self,
+                    "_c1_c4_backpressure_raw_resume",
+                    _C1_C4_BACKPRESSURE_RAW_RESUME,
+                )
+            )
+        )
+        next_dossier_resume = (
+            self._bounded_int(
+                dossier_resume,
+                "dossier_resume",
+                min_value=0,
+                max_value=50,
+            )
+            if dossier_resume is not None
+            else int(
+                getattr(
+                    self,
+                    "_c1_c4_backpressure_dossier_resume",
+                    _C1_C4_BACKPRESSURE_DOSSIER_RESUME,
+                )
+            )
+        )
+        if next_raw_resume >= next_raw_high:
+            raise ValueError("raw_resume must be < raw_high")
+        if next_dossier_resume >= next_dossier_high:
+            raise ValueError("dossier_resume must be < dossier_high")
         self._c1_c4_backpressure_raw_high = next_raw_high
         self._c1_c4_backpressure_dossier_high = next_dossier_high
+        self._c1_c4_backpressure_raw_resume = next_raw_resume
+        self._c1_c4_backpressure_dossier_resume = next_dossier_resume
+        # If the new low-water marks already place us below resume, drop
+        # the sticky-blocked state so a tightening tune does not silently
+        # leave C1 inhibited.
+        if (
+            self._c1_c4_backpressure_blocked
+            and next_raw_resume == 0
+            and next_dossier_resume == 0
+        ):
+            self._c1_c4_backpressure_blocked = False
         return self.c1_c4_backpressure_snapshot()
 
     def health(self) -> dict[str, dict[str, object]]:
@@ -355,12 +590,22 @@ class Orchestrator:
                 )
                 slot_debug[key] = {}
 
+        observer = self._c1_pulse_observer
+        c1_pulse_summary: dict[str, Any] | None = None
+        if observer is not None:
+            try:
+                c1_pulse_summary = dict(observer.summary() or {})
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: C1 pulse observer summary raised"
+                )
         return {
             "runtime_health": self.health(),
             "runtime_debug": runtime_debug,
             "slot_debug": slot_debug,
             "capacity_debug": dict(self._capacity_debug),
             "flow_gate_accounting": self._flow_gate_snapshot(),
+            "c1_pulse_observer": c1_pulse_summary,
         }
 
     def inspect_snapshot(self) -> dict[str, Any]:
@@ -422,6 +667,20 @@ class Orchestrator:
                 )
                 slot_inspect[key] = {"_error": "inspect_failed"}
 
+        observer = self._c1_pulse_observer
+        c1_pulse_inspect: dict[str, Any] | None = None
+        if observer is not None:
+            try:
+                c1_pulse_inspect = {
+                    "summary": dict(observer.summary() or {}),
+                    "in_flight": list(observer.in_flight()),
+                    "recent": list(observer.recent(limit=20)),
+                }
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: C1 pulse observer inspect raised"
+                )
+                c1_pulse_inspect = {"_error": "inspect_failed"}
         base.update(
             {
                 "tick_count": int(self._tick_count),
@@ -430,6 +689,7 @@ class Orchestrator:
                 "runtime_inspect": runtime_inspect,
                 "slot_inspect": slot_inspect,
                 "now_mono": float(now),
+                "c1_pulse_observer": c1_pulse_inspect,
             }
         )
         return base
@@ -585,7 +845,14 @@ class Orchestrator:
         return debug
 
     def _c1_c4_backpressure_debug(self) -> dict[str, Any] | None:
-        """Keep C1 from feeding while C4 is already carrying downstream WIP."""
+        """Keep C1 from feeding while C4 is already carrying downstream WIP.
+
+        Stateful with hysteresis: once we cross the high-water mark we stay
+        blocked until both raw and dossier counts drop to/below the resume
+        thresholds. Without that the gate flips bang-bang at the high-water
+        line and the line oscillates between starvation and C4 overfill — a
+        failure mode documented in operation-target-10ppm.
+        """
         c4 = self._runtime_by_id.get("c4")
         if c4 is None:
             return None
@@ -613,11 +880,27 @@ class Orchestrator:
         )
         raw_high = int(self._c1_c4_backpressure_raw_high)
         dossier_high = int(self._c1_c4_backpressure_dossier_high)
+        raw_resume = int(self._c1_c4_backpressure_raw_resume)
+        dossier_resume = int(self._c1_c4_backpressure_dossier_resume)
+
+        was_blocked = bool(self._c1_c4_backpressure_blocked)
         reason: str | None = None
-        if dossier_count >= dossier_high:
-            reason = "backlog_dossiers"
-        elif raw_count >= raw_high:
-            reason = "backlog_raw"
+        if was_blocked:
+            # Sticky block: stay inhibited until *both* counters relax.
+            if raw_count <= raw_resume and dossier_count <= dossier_resume:
+                self._c1_c4_backpressure_blocked = False
+            else:
+                if dossier_count > dossier_resume:
+                    reason = "backlog_dossiers_holding"
+                else:
+                    reason = "backlog_raw_holding"
+        else:
+            if dossier_count >= dossier_high:
+                reason = "backlog_dossiers"
+                self._c1_c4_backpressure_blocked = True
+            elif raw_count >= raw_high:
+                reason = "backlog_raw"
+                self._c1_c4_backpressure_blocked = True
         if reason is None:
             return None
 
@@ -632,6 +915,9 @@ class Orchestrator:
                 "name": "c1_c4_backpressure",
                 "raw_high": int(raw_high),
                 "dossier_high": int(dossier_high),
+                "raw_resume": int(raw_resume),
+                "dossier_resume": int(dossier_resume),
+                "state": "blocked",
             },
         }
 
@@ -880,6 +1166,14 @@ class Orchestrator:
         self._tick_count += 1
         self._last_tick_mono = now_mono
         self._observe_flow_gates(now_mono)
+        observer = self._c1_pulse_observer
+        if observer is not None:
+            try:
+                observer.tick(now_mono)
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: C1 pulse observer tick raised"
+                )
 
     def _run(self) -> None:
         period = self._tick_period_s

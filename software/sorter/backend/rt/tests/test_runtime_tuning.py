@@ -25,6 +25,13 @@ class _FakeOrchestrator:
             "raw_high": 7,
             "dossier_high": 3,
         }
+        self._recovery_admission = {
+            "name": "c1_recovery_admission",
+            "enabled": True,
+            "c2_safe_capacity_eq": 14,
+            "level_estimates_eq": [3, 6, 12, 25, 40],
+            "last_decision": None,
+        }
 
     def c1_c2_vision_controller_snapshot(self) -> dict:
         return dict(self._vision_burst)
@@ -39,6 +46,13 @@ class _FakeOrchestrator:
     def update_c1_c4_backpressure(self, **kwargs) -> dict:
         self._c4_backpressure.update(kwargs)
         return self.c1_c4_backpressure_snapshot()
+
+    def c1_recovery_admission_snapshot(self) -> dict:
+        return dict(self._recovery_admission)
+
+    def update_c1_recovery_admission(self, **kwargs) -> dict:
+        self._recovery_admission.update(kwargs)
+        return self.c1_recovery_admission_snapshot()
 
 
 def _rotor(steps: int, speed: int, delay: int, accel: int | None = None) -> SimpleNamespace:
@@ -208,6 +222,8 @@ def test_snapshot_reports_live_values() -> None:
     assert payload["channels"]["c1"]["vision_burst"]["exit_queue_limit"] == 1
     assert payload["channels"]["c1"]["c4_backpressure"]["raw_high"] == 7
     assert payload["channels"]["c1"]["c4_backpressure"]["dossier_high"] == 3
+    assert payload["channels"]["c1"]["recovery_admission"]["enabled"] is True
+    assert payload["channels"]["c1"]["recovery_admission"]["c2_safe_capacity_eq"] == 14
     assert payload["channels"]["c1"]["feed_inhibit"] is False
     assert payload["channels"]["c2"]["normal"]["steps_per_pulse"] == 1000
     assert payload["channels"]["c2"]["exit_handoff_min_interval_s"] == 0.85
@@ -292,6 +308,8 @@ def test_update_c1_c4_backpressure_live() -> None:
                     "c4_backpressure": {
                         "raw_high": 6,
                         "dossier_high": 4,
+                        "raw_resume": 3,
+                        "dossier_resume": 1,
                     }
                 }
             }
@@ -300,8 +318,56 @@ def test_update_c1_c4_backpressure_live() -> None:
 
     assert handle.orchestrator._c4_backpressure["raw_high"] == 6
     assert handle.orchestrator._c4_backpressure["dossier_high"] == 4
+    assert handle.orchestrator._c4_backpressure["raw_resume"] == 3
+    assert handle.orchestrator._c4_backpressure["dossier_resume"] == 1
     assert payload["channels"]["c1"]["c4_backpressure"]["raw_high"] == 6
     assert payload["channels"]["c1"]["c4_backpressure"]["dossier_high"] == 4
+    assert payload["channels"]["c1"]["c4_backpressure"]["raw_resume"] == 3
+    assert payload["channels"]["c1"]["c4_backpressure"]["dossier_resume"] == 1
+
+
+def test_update_c1_recovery_admission_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "channels": {
+                "c1": {
+                    "recovery_admission": {
+                        "enabled": False,
+                        "c2_safe_capacity_eq": 18,
+                        "level_estimates_eq": [2, 4, 9, 20, 35],
+                    }
+                }
+            }
+        },
+    )
+
+    snap = handle.orchestrator._recovery_admission
+    assert snap["enabled"] is False
+    assert snap["c2_safe_capacity_eq"] == 18
+    assert snap["level_estimates_eq"] == [2, 4, 9, 20, 35]
+    payload_admission = payload["channels"]["c1"]["recovery_admission"]
+    assert payload_admission["enabled"] is False
+    assert payload_admission["c2_safe_capacity_eq"] == 18
+
+
+def test_update_c1_recovery_admission_rejects_invalid_estimates() -> None:
+    handle = _handle()
+    with pytest.raises(ValueError, match="level_estimates_eq"):
+        runtime_tuning.apply_patch(
+            handle,
+            {
+                "channels": {
+                    "c1": {
+                        "recovery_admission": {
+                            "level_estimates_eq": [],
+                        }
+                    }
+                }
+            },
+        )
 
 
 def test_update_c1_feed_inhibit_live() -> None:

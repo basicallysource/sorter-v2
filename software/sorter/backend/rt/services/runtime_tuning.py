@@ -117,6 +117,7 @@ def _c1_snapshot(runtime: Any, feeder_cfg: Any, orchestrator: Any = None) -> dic
         "transport": _rotor_snapshot(getattr(feeder_cfg, "first_rotor", None)),
         "vision_burst": _c1_vision_burst_snapshot(orchestrator),
         "c4_backpressure": _c1_c4_backpressure_snapshot(orchestrator),
+        "recovery_admission": _c1_recovery_admission_snapshot(orchestrator),
         "feed_inhibit": bool(_runtime_attr(runtime, "_maintenance_pause_reason")),
         "feed_inhibit_reason": _runtime_attr(runtime, "_maintenance_pause_reason"),
         "sample_transport_step_deg": _runtime_attr(runtime, "_sample_transport_step_deg"),
@@ -143,6 +144,13 @@ def _c1_vision_burst_snapshot(orchestrator: Any) -> dict[str, Any] | None:
 
 def _c1_c4_backpressure_snapshot(orchestrator: Any) -> dict[str, Any] | None:
     snapshot_fn = getattr(orchestrator, "c1_c4_backpressure_snapshot", None)
+    if callable(snapshot_fn):
+        return dict(snapshot_fn() or {})
+    return None
+
+
+def _c1_recovery_admission_snapshot(orchestrator: Any) -> dict[str, Any] | None:
+    snapshot_fn = getattr(orchestrator, "c1_recovery_admission_snapshot", None)
     if callable(snapshot_fn):
         return dict(snapshot_fn() or {})
     return None
@@ -333,6 +341,7 @@ def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
         "transport",
         "vision_burst",
         "c4_backpressure",
+        "recovery_admission",
         "feed_inhibit",
         "pulse_cooldown_s",
         "pulse_cooldown_ms",
@@ -404,6 +413,8 @@ def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
         _apply_c1_vision_burst(handle, values["vision_burst"])
     if "c4_backpressure" in values:
         _apply_c1_c4_backpressure(handle, values["c4_backpressure"])
+    if "recovery_admission" in values:
+        _apply_c1_recovery_admission(handle, values["recovery_admission"])
     if "feed_inhibit" in values:
         _apply_c1_feed_inhibit(runtime, values["feed_inhibit"])
 
@@ -475,6 +486,8 @@ def _apply_c1_c4_backpressure(handle: Any, values: Any) -> None:
     allowed = {
         "raw_high",
         "dossier_high",
+        "raw_resume",
+        "dossier_resume",
     }
     _reject_unknown("c1.c4_backpressure", values, allowed)
     orchestrator = getattr(handle, "orchestrator", None)
@@ -496,6 +509,65 @@ def _apply_c1_c4_backpressure(handle: Any, values: Any) -> None:
             min_value=1,
             max_value=50,
         )
+    if "raw_resume" in values:
+        kwargs["raw_resume"] = _int(
+            values["raw_resume"],
+            "c1.c4_backpressure.raw_resume",
+            min_value=0,
+            max_value=50,
+        )
+    if "dossier_resume" in values:
+        kwargs["dossier_resume"] = _int(
+            values["dossier_resume"],
+            "c1.c4_backpressure.dossier_resume",
+            min_value=0,
+            max_value=50,
+        )
+    update_fn(**kwargs)
+
+
+def _apply_c1_recovery_admission(handle: Any, values: Any) -> None:
+    if not isinstance(values, dict):
+        raise ValueError("c1.recovery_admission must be an object")
+    allowed = {
+        "enabled",
+        "c2_safe_capacity_eq",
+        "level_estimates_eq",
+    }
+    _reject_unknown("c1.recovery_admission", values, allowed)
+    orchestrator = getattr(handle, "orchestrator", None)
+    update_fn = getattr(orchestrator, "update_c1_recovery_admission", None)
+    if not callable(update_fn):
+        raise RuntimeError(
+            "c1 recovery admission tuning requires the runtime orchestrator"
+        )
+    kwargs: dict[str, Any] = {}
+    if "enabled" in values:
+        if not isinstance(values["enabled"], bool):
+            raise ValueError("c1.recovery_admission.enabled must be a boolean")
+        kwargs["enabled"] = values["enabled"]
+    if "c2_safe_capacity_eq" in values:
+        kwargs["c2_safe_capacity_eq"] = _int(
+            values["c2_safe_capacity_eq"],
+            "c1.recovery_admission.c2_safe_capacity_eq",
+            min_value=1,
+            max_value=200,
+        )
+    if "level_estimates_eq" in values:
+        raw = values["level_estimates_eq"]
+        if not isinstance(raw, list) or not raw:
+            raise ValueError(
+                "c1.recovery_admission.level_estimates_eq must be a non-empty list"
+            )
+        kwargs["level_estimates_eq"] = [
+            _int(
+                v,
+                "c1.recovery_admission.level_estimates_eq",
+                min_value=0,
+                max_value=500,
+            )
+            for v in raw
+        ]
     update_fn(**kwargs)
 
 

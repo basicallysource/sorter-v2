@@ -75,6 +75,10 @@ class RuntimeC1(BaseRuntime):
         unconfirmed_pulse_limit: int = DEFAULT_UNCONFIRMED_PULSE_LIMIT,
         observation_hold_s: float = DEFAULT_OBSERVATION_HOLD_S,
         state_observer: Callable[[str, str, str], None] | None = None,
+        pulse_observer: Callable[[str], None] | None = None,
+        recovery_admission_check: (
+            Callable[[int], tuple[bool, dict[str, object]]] | None
+        ) = None,
     ) -> None:
         super().__init__(
             "c1", feed_id=None, logger=logger, hw_worker=hw_worker,
@@ -106,6 +110,9 @@ class RuntimeC1(BaseRuntime):
         self._sample_transport_acceleration: int | None = None
         self._paused_reason: str | None = None
         self._maintenance_pause_reason: str | None = None
+        self._pulse_observer = pulse_observer
+        self._recovery_admission_check = recovery_admission_check
+        self._last_recovery_admission: dict[str, object] | None = None
 
     # ------------------------------------------------------------------
     # Runtime ABC
@@ -236,6 +243,11 @@ class RuntimeC1(BaseRuntime):
                     "in_flight": bool(self._jam.in_flight),
                     "exhausted": bool(self._jam.exhausted),
                 },
+                "last_recovery_admission": (
+                    dict(self._last_recovery_admission)
+                    if self._last_recovery_admission is not None
+                    else None
+                ),
             }
         )
         return snap
@@ -327,6 +339,7 @@ class RuntimeC1(BaseRuntime):
             self._downstream_slot.release()
             self._set_state("idle", blocked_reason="hw_queue_full")
             return
+        self._notify_pulse_observer("pulse")
         self._set_state("pulsing")
 
     def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
@@ -379,6 +392,17 @@ class RuntimeC1(BaseRuntime):
         target_degrees_per_second = max(0.0, float(target_rpm)) * 6.0
         self._sample_transport_step_deg = max(1.0, target_degrees_per_second * 0.75)
 
+    def _notify_pulse_observer(self, action_id: str) -> None:
+        observer = self._pulse_observer
+        if observer is None:
+            return
+        try:
+            observer(action_id)
+        except Exception:
+            self._logger.exception(
+                "RuntimeC1: pulse_observer raised for %s", action_id
+            )
+
     def _launch_recovery(self, now_mono: float) -> None:
         if self._jam.attempts >= self._max_recovery_cycles:
             self._jam.exhausted = True
@@ -391,6 +415,31 @@ class RuntimeC1(BaseRuntime):
             return
 
         level = self._jam.level
+        if self._recovery_admission_check is not None:
+            try:
+                allowed, info = self._recovery_admission_check(level)
+            except Exception:
+                self._logger.exception(
+                    "RuntimeC1: recovery admission check raised; allowing as fail-open"
+                )
+                allowed, info = True, {"error": "admission_check_failed"}
+            self._last_recovery_admission = dict(info)
+            if not allowed:
+                # Hold off without burning a recovery attempt — the
+                # safety win is sitting in this state until C2 has
+                # drained enough to absorb the worst-case push. Bump
+                # the cooldown so we revisit later instead of spinning.
+                self._jam.cooldown_until = now_mono + self._jam_cooldown_s
+                self._logger.info(
+                    "RuntimeC1: recovery level %d blocked by C2 headroom (info=%s)",
+                    level,
+                    info,
+                )
+                self._set_state(
+                    "idle", blocked_reason="recovery_headroom_insufficient"
+                )
+                return
+
         self._jam.in_flight = True
         self._jam.cooldown_until = now_mono + self._jam_cooldown_s
 
@@ -413,6 +462,7 @@ class RuntimeC1(BaseRuntime):
             self._jam.in_flight = False
             self._set_state("recovering", blocked_reason="hw_queue_full")
             return
+        self._notify_pulse_observer(f"recover_level_{level}")
         self._set_state("recovering")
 
 

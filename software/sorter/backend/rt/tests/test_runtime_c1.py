@@ -52,6 +52,10 @@ def _make_runtime(
     recovery_success: bool = True,
     downstream_cap: int = 1,
     hw_worker=None,
+    pulse_observer: Callable[[str], None] | None = None,
+    recovery_admission_check: (
+        Callable[[int], "tuple[bool, dict]"] | None
+    ) = None,
     **kwargs,
 ) -> tuple[RuntimeC1, CapacitySlot, list[str], _InlineHwWorker]:
     slot = CapacitySlot("c1_to_c2", capacity=downstream_cap)
@@ -79,6 +83,8 @@ def _make_runtime(
         startup_hold_s=kwargs.get("startup_hold_s", 0.0),
         unconfirmed_pulse_limit=kwargs.get("unconfirmed_pulse_limit", 2),
         observation_hold_s=kwargs.get("observation_hold_s", 0.0),
+        pulse_observer=pulse_observer,
+        recovery_admission_check=recovery_admission_check,
     )
     return rt, slot, log, worker
 
@@ -109,6 +115,117 @@ def test_c1_pulses_when_downstream_has_room() -> None:
     assert log == ["pulse"]
     # Slot claimed and held by the pulse (piece presumed in-flight downstream).
     assert slot.available() == 0
+    assert rt.health().state == "pulsing"
+
+
+def test_c1_pulse_observer_fires_on_dispatch_and_recovery() -> None:
+    events: list[str] = []
+    rt, _slot, log, _ = _make_runtime(
+        jam_timeout_s=0.5,
+        jam_min_pulses=2,
+        pulse_cooldown_s=0.0,
+        downstream_cap=10,
+        pulse_observer=lambda action_id: events.append(action_id),
+    )
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=9), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=8), now_mono=5.0)
+
+    assert events[:2] == ["pulse", "pulse"]
+    # The third tick triggers recovery, level 0.
+    assert "recover_level_0" in events
+    # Sanity: pulse_command and recovery_command both ran.
+    assert log[:2] == ["pulse", "pulse"]
+    assert "recover_l0" in log
+
+
+def test_c1_recovery_blocked_when_admission_denies() -> None:
+    """Headroom-gated recovery skips the dispatch and bumps cooldown."""
+    decisions: list[int] = []
+
+    def _admission(level: int) -> tuple[bool, dict[str, object]]:
+        decisions.append(level)
+        return False, {
+            "level": level,
+            "headroom_eq": 0,
+            "level_estimate_eq": 12,
+            "reason": "insufficient_c2_headroom",
+        }
+
+    rt, _slot, log, _ = _make_runtime(
+        jam_timeout_s=0.5,
+        jam_min_pulses=2,
+        pulse_cooldown_s=0.0,
+        jam_cooldown_s=2.0,
+        downstream_cap=10,
+        recovery_admission_check=_admission,
+    )
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=9), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=8), now_mono=5.0)
+
+    # Recovery was attempted but admission denied — pulse log has the
+    # earlier two pulses but no recovery dispatch.
+    assert log[:2] == ["pulse", "pulse"]
+    assert "recover_l0" not in log
+    assert decisions == [0]
+    assert rt.health().blocked_reason == "recovery_headroom_insufficient"
+
+    info = rt.debug_snapshot()["last_recovery_admission"]
+    assert info["reason"] == "insufficient_c2_headroom"
+    assert info["headroom_eq"] == 0
+    # No attempt was burned — the cycle counter stays at 0 so we can
+    # try again once C2 has drained.
+    assert rt.debug_snapshot()["jam"]["attempts"] == 0
+
+
+def test_c1_recovery_proceeds_when_admission_allows() -> None:
+    def _admission(level: int) -> tuple[bool, dict[str, object]]:
+        return True, {"level": level, "headroom_eq": 14, "level_estimate_eq": 3}
+
+    rt, _slot, log, _ = _make_runtime(
+        jam_timeout_s=0.5,
+        jam_min_pulses=2,
+        pulse_cooldown_s=0.0,
+        downstream_cap=10,
+        recovery_admission_check=_admission,
+    )
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=9), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=8), now_mono=5.0)
+
+    assert "recover_l0" in log
+
+
+def test_c1_recovery_admission_failures_fail_open() -> None:
+    def _admission(level: int) -> tuple[bool, dict[str, object]]:
+        raise RuntimeError("admission probe down")
+
+    rt, _slot, log, _ = _make_runtime(
+        jam_timeout_s=0.5,
+        jam_min_pulses=2,
+        pulse_cooldown_s=0.0,
+        downstream_cap=10,
+        recovery_admission_check=_admission,
+    )
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=9), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=8), now_mono=5.0)
+
+    # Fail-open: if the admission probe crashes we still recover.
+    assert "recover_l0" in log
+    info = rt.debug_snapshot()["last_recovery_admission"]
+    assert info["error"] == "admission_check_failed"
+
+
+def test_c1_pulse_observer_failures_do_not_crash_runtime() -> None:
+    def _broken(action_id: str) -> None:
+        raise RuntimeError("observer down")
+
+    rt, _slot, log, _ = _make_runtime(pulse_observer=_broken)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=0.0)
+    # The pulse must still fire even when the observer raises.
+    assert log == ["pulse"]
     assert rt.health().state == "pulsing"
 
 

@@ -72,6 +72,7 @@ from rt.runtimes.c2 import RuntimeC2
 from rt.runtimes.c3 import RuntimeC3
 from rt.runtimes.c4 import RuntimeC4
 from rt.runtimes.distributor import RuntimeDistributor
+from rt.services.c1_pulse_observation import C1PulseObserver
 from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.services.sample_transport import C1234SampleTransportCoordinator
 from rt.services.track_transit import TrackTransitRegistry
@@ -972,6 +973,42 @@ def build_rt_runtime(
                 runtime_id, from_state, to_state,
             )
 
+    # Pulse-response observer wires C1 dispatch events to a deferred
+    # cross-runtime snapshot taken from the orchestrator. The orchestrator
+    # is constructed below, so the snapshot provider closes over a
+    # one-element list and resolves at call time. This avoids a circular
+    # construction: C1 -> observer -> orchestrator -> C1.
+    _orchestrator_ref: list[Orchestrator] = []
+
+    def _pulse_snapshot_provider() -> dict[str, Any]:
+        if not _orchestrator_ref:
+            return {}
+        return _orchestrator_ref[0].cross_runtime_snapshot()
+
+    c1_pulse_log_path = Path(getattr(gc, "repo_root", os.getcwd())) / "logs" / "c1_pulse_observations.jsonl"
+    c1_pulse_observer = C1PulseObserver(
+        snapshot_provider=_pulse_snapshot_provider,
+        log_path=c1_pulse_log_path,
+        logger=log,
+    )
+
+    def _record_c1_dispatch(action_id: str) -> None:
+        try:
+            c1_pulse_observer.record_dispatch(action_id)
+        except Exception:
+            log.exception("rt.bootstrap: c1 pulse_observer.record_dispatch raised")
+
+    def _c1_recovery_admission_check(level: int) -> tuple[bool, dict[str, Any]]:
+        if not _orchestrator_ref:
+            return True, {"reason": "orchestrator_not_ready"}
+        try:
+            return _orchestrator_ref[0].c1_recovery_admission_decision(int(level))
+        except Exception:
+            log.exception(
+                "rt.bootstrap: c1_recovery_admission_decision raised"
+            )
+            return True, {"reason": "admission_check_failed"}
+
     c1 = RuntimeC1(
         downstream_slot=slots[("c1", "c2")],
         pulse_command=c1_pulse,
@@ -1015,6 +1052,8 @@ def build_rt_runtime(
             )
         ),
         state_observer=_state_observer,
+        pulse_observer=_record_c1_dispatch,
+        recovery_admission_check=_c1_recovery_admission_check,
     )
     c2 = RuntimeC2(
         upstream_slot=slots[("c1", "c2")],
@@ -1282,6 +1321,8 @@ def build_rt_runtime(
         logger=log,
         tick_period_s=0.020,
     )
+    _orchestrator_ref.append(orch)
+    orch.attach_c1_pulse_observer(c1_pulse_observer)
     log.info(
         "rt.bootstrap: orchestrator ready "
         "(runtimes=c1,c2,c3,c4,distributor; perception_feeds=%s; slots=%s)",

@@ -157,6 +157,7 @@ def _make(
     startup_purge_detection_count_provider: Callable[[], int] | None = None,
     **runtime_kwargs: Any,
 ) -> tuple[RuntimeC4, CapacitySlot, CapacitySlot, _StubClassifier, list[str]]:
+    runtime_kwargs.setdefault("handoff_request_horizon_deg", 120.0)
     upstream = CapacitySlot("c3_to_c4", capacity=max_zones)
     downstream = CapacitySlot("c4_to_dist", capacity=max_zones)
     clf = classifier or _StubClassifier()
@@ -646,6 +647,7 @@ def test_c4_prepositions_distributor_after_early_classification() -> None:
     rt, _up, down, _clf, log = _make(
         max_zones=1,
         classify_pretrigger_exit_lead_deg=120.0,
+        handoff_request_horizon_deg=120.0,
     )
     handoffs: list[dict[str, Any]] = []
     commits: list[str] = []
@@ -687,6 +689,53 @@ def test_c4_prepositions_distributor_after_early_classification() -> None:
 
     assert "eject" in log
     assert commits == [piece_uuid]
+
+
+def test_c4_waits_to_request_handoff_until_piece_is_near_exit() -> None:
+    rt, _up, _down, _clf, _log = _make(
+        max_zones=1,
+        classify_pretrigger_exit_lead_deg=120.0,
+        handoff_request_horizon_deg=60.0,
+    )
+    handoffs: list[dict[str, Any]] = []
+
+    class _Port:
+        def available_slots(self) -> int:
+            return 1
+
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=70.0)), capacity_downstream=1),
+        now_mono=0.2,
+    )
+
+    assert handoffs == []
+    assert (
+        rt.debug_snapshot()["handoff_debug"]["last_skip"]
+        == "front_outside_handoff_horizon"
+    )
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=125.0)), capacity_downstream=1),
+        now_mono=0.4,
+    )
+
+    assert len(handoffs) == 1
 
 
 def test_c4_prepositions_only_next_exit_order_candidate() -> None:
@@ -928,7 +977,63 @@ def test_c4_waits_for_distributor_ready_before_ejecting() -> None:
         now_mono=0.3,
     )
     assert "eject" in log
-    assert commits == [piece_uuid]
+
+
+def test_c4_syncs_existing_distributor_pending_before_ejecting() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=1)
+    commits: list[str] = []
+
+    rt._register_piece_for_track(  # noqa: SLF001
+        _track(global_id=7, angle_deg=180.0),
+        now_mono=1.0,
+        release_upstream=True,
+        recovered=False,
+    )
+    dossier = next(iter(rt._pieces.values()))  # noqa: SLF001
+    dossier.result = ClassifierResult(
+        part_id="3001",
+        color_id="red",
+        category="part",
+        confidence=0.9,
+        algorithm="stub",
+        latency_ms=5.0,
+        meta={},
+    )
+    dossier.handoff_requested = False
+    dossier.distributor_ready = False
+
+    class _Port:
+        def available_slots(self) -> int:
+            return 0
+
+        def pending_piece_uuid(self) -> str:
+            return dossier.piece_uuid
+
+        def pending_ready(self, piece_uuid: str | None = None) -> bool:
+            return piece_uuid in (None, dossier.piece_uuid)
+
+        def handoff_request(self, **_kwargs: Any) -> bool:
+            raise AssertionError("existing pending handoff should be reused")
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            commits.append(piece_uuid)
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=7, angle_deg=180.0)),
+            capacity_downstream=0,
+        ),
+        now_mono=1.2,
+    )
+
+    assert "eject" in log
+    assert commits == [dossier.piece_uuid]
 
 
 def test_c4_ejects_only_once_per_distributor_ready_until_delivery() -> None:
@@ -1040,6 +1145,7 @@ def test_c4_defers_eject_when_trailing_piece_in_chute() -> None:
         shimmy_stall_ms=100,
         shimmy_cooldown_ms=200,
         exit_trailing_safety_deg=20.0,
+        handoff_request_horizon_deg=120.0,
     )
     rt.set_latest_frame(_frame())
 
@@ -1577,6 +1683,165 @@ def test_c4_holds_transport_when_exit_piece_is_not_ready() -> None:
 
     rt.tick(
         RuntimeInbox(tracks=_batch(_track(angle_deg=180.0)), capacity_downstream=1),
+        now_mono=0.3,
+    )
+
+    assert "eject" not in log
+    assert not any(entry.startswith(("move:", "transport:")) for entry in log)
+
+
+def test_c4_holds_before_exit_while_waiting_for_distributor_ready() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=1)
+    handoffs: list[dict[str, Any]] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert handoffs
+    log.clear()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=150.0)), capacity_downstream=0),
+        now_mono=0.3,
+    )
+
+    assert "eject" not in log
+    assert not any(entry.startswith(("move:", "transport:")) for entry in log)
+
+
+def test_c4_holds_far_before_exit_after_distributor_handoff_request() -> None:
+    rt, _up, _down, _clf, log = _make(
+        max_zones=1,
+        handoff_request_horizon_deg=120.0,
+    )
+    handoffs: list[dict[str, Any]] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    assert handoffs
+    log.clear()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=115.0)), capacity_downstream=0),
+        now_mono=0.3,
+    )
+
+    assert "eject" not in log
+    assert not any(entry.startswith(("move:", "transport:")) for entry in log)
+
+
+def test_c4_uses_gentle_approach_after_distributor_ready_far_from_exit() -> None:
+    rt, _up, _down, _clf, log = _make(
+        max_zones=1,
+        transport_step_deg=3.0,
+        transport_max_step_deg=10.0,
+        exit_approach_angle_deg=24.0,
+        exit_approach_step_deg=2.0,
+        handoff_request_horizon_deg=120.0,
+    )
+    handoffs: list[dict[str, Any]] = []
+
+    class _Port:
+        def handoff_request(self, **kwargs: Any) -> bool:
+            handoffs.append(dict(kwargs))
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    piece_uuid = handoffs[0]["piece_uuid"]
+    rt.on_distributor_ready(piece_uuid)
+    log.clear()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=120.0)), capacity_downstream=0),
+        now_mono=0.4,
+    )
+
+    assert "move:2.0" in log
+    assert not any(entry.startswith("transport:") for entry in log)
+
+
+def test_c4_exit_hold_uses_zone_when_exit_track_drops_out() -> None:
+    rt, _up, _down, _clf, log = _make(max_zones=1)
+
+    class _Port:
+        def handoff_request(self, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_commit(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+        def handoff_abort(self, piece_uuid: str, **_kwargs: Any) -> bool:
+            return True
+
+    rt.set_handoff_port(_Port())
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=0.0)), capacity_downstream=1),
+        now_mono=0.0,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=90.0)), capacity_downstream=1),
+        now_mono=0.1,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_deg=150.0)), capacity_downstream=0),
+        now_mono=0.2,
+    )
+    log.clear()
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(global_id=99, angle_deg=80.0)),
+            capacity_downstream=0,
+        ),
         now_mono=0.3,
     )
 

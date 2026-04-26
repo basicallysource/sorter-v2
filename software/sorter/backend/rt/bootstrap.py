@@ -57,7 +57,17 @@ from rt.runtimes._strategies import (
     ConstantPulseEjection,
 )
 from rt.runtimes._zones import ZoneManager
-from rt.runtimes.c1 import RuntimeC1
+from rt.runtimes.c1 import (
+    DEFAULT_JAM_COOLDOWN_S,
+    DEFAULT_JAM_MIN_PULSES,
+    DEFAULT_JAM_TIMEOUT_S,
+    DEFAULT_MAX_RECOVERY_CYCLES,
+    DEFAULT_OBSERVATION_HOLD_S,
+    DEFAULT_PULSE_COOLDOWN_S,
+    DEFAULT_STARTUP_HOLD_S,
+    DEFAULT_UNCONFIRMED_PULSE_LIMIT,
+    RuntimeC1,
+)
 from rt.runtimes.c2 import RuntimeC2
 from rt.runtimes.c3 import RuntimeC3
 from rt.runtimes.c4 import RuntimeC4
@@ -247,6 +257,15 @@ class RtRuntimeHandle:
         self.paused = True
 
     def resume(self) -> None:
+        c1 = getattr(self, "c1", None)
+        arm_startup_hold = getattr(c1, "arm_startup_hold", None)
+        if callable(arm_startup_hold):
+            try:
+                arm_startup_hold()
+            except Exception:
+                logging.getLogger("rt.bootstrap").exception(
+                    "RtRuntimeHandle: c1.arm_startup_hold raised"
+                )
         fn = getattr(self.orchestrator, "resume", None)
         if callable(fn):
             try:
@@ -297,6 +316,8 @@ class RtRuntimeHandle:
         runtime_health: dict[str, Any] = {}
         runtime_debug: dict[str, Any] = {}
         slot_debug: dict[str, Any] = {}
+        capacity_debug: dict[str, Any] = {}
+        flow_gate_accounting: dict[str, Any] = {}
         orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
         if callable(orchestrator_status):
             try:
@@ -306,6 +327,8 @@ class RtRuntimeHandle:
             runtime_health = dict(snapshot.get("runtime_health") or {})
             runtime_debug = dict(snapshot.get("runtime_debug") or {})
             slot_debug = dict(snapshot.get("slot_debug") or {})
+            capacity_debug = dict(snapshot.get("capacity_debug") or {})
+            flow_gate_accounting = dict(snapshot.get("flow_gate_accounting") or {})
 
         return {
             "perception_started": bool(self.perception_started),
@@ -321,6 +344,8 @@ class RtRuntimeHandle:
             "runtime_health": runtime_health,
             "runtime_debug": runtime_debug,
             "slot_debug": slot_debug,
+            "capacity_debug": capacity_debug,
+            "flow_gate_accounting": flow_gate_accounting,
             "maintenance": {
                 "c234_purge": self.c234_purge_status(),
                 "sample_transport": self.sample_transport_status(),
@@ -752,6 +777,9 @@ def build_rt_runtime(
     classification_cfg = getattr(
         getattr(irl, "irl_config", None), "classification_channel_config", None
     ) or getattr(irl, "classification_channel_config", None)
+    feeder_cfg = getattr(
+        getattr(irl, "irl_config", None), "feeder_config", None
+    ) or getattr(irl, "feeder_config", None)
     max_zones = int(
         getattr(classification_cfg, "max_zones", 4) if classification_cfg else 4
     )
@@ -950,6 +978,42 @@ def build_rt_runtime(
         recovery_command=c1_recovery,
         sample_transport_command=c1_direct_move,
         logger=log,
+        jam_timeout_s=float(
+            getattr(feeder_cfg, "first_rotor_jam_timeout_s", DEFAULT_JAM_TIMEOUT_S)
+        ),
+        jam_min_pulses=int(
+            getattr(feeder_cfg, "first_rotor_jam_min_pulses", DEFAULT_JAM_MIN_PULSES)
+        ),
+        jam_cooldown_s=float(
+            getattr(
+                feeder_cfg,
+                "first_rotor_jam_retry_cooldown_s",
+                DEFAULT_JAM_COOLDOWN_S,
+            )
+        ),
+        max_recovery_cycles=int(
+            getattr(feeder_cfg, "first_rotor_jam_max_cycles", DEFAULT_MAX_RECOVERY_CYCLES)
+        ),
+        pulse_cooldown_s=float(
+            getattr(feeder_cfg, "first_rotor_pulse_cooldown_s", DEFAULT_PULSE_COOLDOWN_S)
+        ),
+        startup_hold_s=float(
+            getattr(feeder_cfg, "first_rotor_startup_hold_s", DEFAULT_STARTUP_HOLD_S)
+        ),
+        unconfirmed_pulse_limit=int(
+            getattr(
+                feeder_cfg,
+                "first_rotor_unconfirmed_pulse_limit",
+                DEFAULT_UNCONFIRMED_PULSE_LIMIT,
+            )
+        ),
+        observation_hold_s=float(
+            getattr(
+                feeder_cfg,
+                "first_rotor_observation_hold_s",
+                DEFAULT_OBSERVATION_HOLD_S,
+            )
+        ),
         state_observer=_state_observer,
     )
     c2 = RuntimeC2(
@@ -958,6 +1022,7 @@ def build_rt_runtime(
         pulse_command=c2_pulse,
         wiggle_command=c2_wiggle,
         sample_transport_command=c2_direct_move,
+        upstream_progress_callback=c1.notify_downstream_progress,
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),
         logger=log,
@@ -986,6 +1051,11 @@ def build_rt_runtime(
         )
         if classification_cfg
         else None,
+        require_dropzone_clear=bool(
+            getattr(classification_cfg, "require_dropzone_clear_for_admission", True)
+            if classification_cfg
+            else True
+        ),
     )
     c4_ejection = C4EjectionTiming(
         pulse_ms=150.0,

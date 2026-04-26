@@ -49,7 +49,8 @@ class HwWorker:
         self._busy_lock = threading.Lock()
 
     def start(self) -> None:
-        if self._running:
+        thread = self._thread
+        if self._running and thread is not None and thread.is_alive():
             return
         self._running = True
         self._thread = threading.Thread(
@@ -58,6 +59,15 @@ class HwWorker:
             daemon=True,
         )
         self._thread.start()
+
+    def status_snapshot(self) -> dict[str, Any]:
+        thread = self._thread
+        return {
+            "running": bool(self._running),
+            "thread_alive": bool(thread is not None and thread.is_alive()),
+            "pending": int(self.pending()),
+            "busy": bool(self.busy()),
+        }
 
     def stop(self, timeout_s: float = 2.0) -> None:
         if not self._running:
@@ -88,6 +98,7 @@ class HwWorker:
         label: str = "hw_cmd",
     ) -> bool:
         """Enqueue a command. Returns False if the queue is full (caller may retry)."""
+        self._ensure_thread_alive(reason=f"enqueue:{label}")
         self._seq += 1
         cmd = _Command(priority=int(priority), seq=self._seq, fn=command, label=str(label))
         try:
@@ -108,7 +119,21 @@ class HwWorker:
 
     def pending(self) -> int:
         """Approximate queue depth (excluding the in-flight command)."""
-        return self._queue.qsize()
+        pending = self._queue.qsize()
+        if pending > 0 and self._running:
+            self._ensure_thread_alive(reason="pending_backlog")
+        return pending
+
+    def _ensure_thread_alive(self, *, reason: str) -> None:
+        thread = self._thread
+        if self._running and thread is not None and thread.is_alive():
+            return
+        self._logger.warning(
+            "HwWorker[%s] thread was not alive (%s); restarting",
+            self.runtime_id,
+            reason,
+        )
+        self.start()
 
     def _run(self) -> None:
         while self._running:
@@ -117,7 +142,11 @@ class HwWorker:
             except queue.Empty:
                 continue
             if cmd is None:
-                break
+                if not self._running:
+                    break
+                # A sentinel can be left behind if stop() raced with a restart
+                # while commands were already queued. In a live worker it is stale.
+                continue
             with self._busy_lock:
                 self._busy = True
             try:
@@ -200,6 +229,25 @@ class BaseRuntime(Runtime):
             "last_tick_ms": self._last_tick_ms,
             "hw_busy": bool(self._hw.busy()),
             "hw_pending": int(self._hw.pending()),
+            "hw_worker": self._hw_status_snapshot(),
+        }
+
+    def _hw_status_snapshot(self) -> dict[str, Any]:
+        snapshot_fn = getattr(self._hw, "status_snapshot", None)
+        if callable(snapshot_fn):
+            try:
+                snapshot = snapshot_fn()
+                if isinstance(snapshot, dict):
+                    return dict(snapshot)
+            except Exception:
+                self._logger.exception(
+                    "BaseRuntime[%s]: hw status_snapshot raised", self.runtime_id
+                )
+        return {
+            "running": None,
+            "thread_alive": None,
+            "pending": int(self._hw.pending()),
+            "busy": bool(self._hw.busy()),
         }
 
     # -- Tick helpers ------------------------------------------------

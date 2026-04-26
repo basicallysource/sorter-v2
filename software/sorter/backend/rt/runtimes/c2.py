@@ -83,6 +83,8 @@ DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
 DEFAULT_HANDOFF_RETRY_ESCALATE_AFTER = 2
 DEFAULT_HANDOFF_RETRY_MAX_PULSES = 2
+_DENSITY_CLUSTER_WINDOW_RAD = math.radians(60.0)
+_DENSITY_CLOSE_SPACING_RAD = math.radians(30.0)
 
 
 class _PulseMode(Enum):
@@ -113,6 +115,7 @@ class RuntimeC2(BaseRuntime):
         pulse_command: Callable[..., bool],
         wiggle_command: Callable[[], bool],
         sample_transport_command: Callable[[float, int | None, int | None], bool] | None = None,
+        upstream_progress_callback: Callable[[float], None] | None = None,
         admission: AdmissionStrategy | None = None,
         ejection_timing: EjectionTimingStrategy | None = None,
         logger: logging.Logger | None = None,
@@ -142,6 +145,7 @@ class RuntimeC2(BaseRuntime):
         self._pulse_command = pulse_command
         self._wiggle_command = wiggle_command
         self._sample_transport_command = sample_transport_command
+        self._upstream_progress_callback = upstream_progress_callback
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
         self._bus = event_bus
@@ -177,6 +181,7 @@ class RuntimeC2(BaseRuntime):
         self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
         self._pending_track_count: int = 0
+        self._density_snapshot: dict[str, Any] = self._empty_density_snapshot()
         self._pending_downstream_claims: dict[int, float] = {}
         self._pending_downstream_claim_retries: dict[int, int] = {}
         # Software escapement to C3, same pattern as C3 -> C4.
@@ -222,6 +227,27 @@ class RuntimeC2(BaseRuntime):
             return 0
         return 1
 
+    def capacity_debug_snapshot(self) -> dict[str, Any]:
+        if self._purge_mode:
+            reason = "purge"
+            available = 0
+        elif self._admission_piece_count >= self._max_piece_count:
+            reason = "piece_cap"
+            available = 0
+        else:
+            reason = "ok"
+            available = 1
+        return {
+            "available": int(available),
+            "reason": reason,
+            "piece_count": int(self._piece_count),
+            "admission_piece_count": int(self._admission_piece_count),
+            "visible_track_count": int(self._visible_track_count),
+            "max_piece_count": int(self._max_piece_count),
+            "purge_mode": bool(self._purge_mode),
+            "density": dict(self._density_snapshot),
+        }
+
     def debug_snapshot(self) -> dict[str, Any]:
         snap = super().debug_snapshot()
         snap.update({
@@ -248,6 +274,7 @@ class RuntimeC2(BaseRuntime):
             "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
             "handoff_burst_diagnostics": self._handoff_diagnostics.snapshot(),
+            "density": dict(self._density_snapshot),
         })
         return snap
 
@@ -291,6 +318,10 @@ class RuntimeC2(BaseRuntime):
             self._pending_track_count = max(0, self._visible_track_count - len(action_tracks))
             self._piece_count = len(action_tracks)
             self._admission_piece_count = len(action_tracks)
+            self._density_snapshot = self._compute_density_snapshot(
+                visible_tracks=visible_tracks,
+                action_tracks=action_tracks,
+            )
             self._transport_velocity.update(action_tracks, now_mono=now_mono)
             if not self._purge_mode:
                 self._credit_new_arrivals(action_tracks, now_mono)
@@ -382,6 +413,135 @@ class RuntimeC2(BaseRuntime):
             return True
         return (batch_ts - last_seen_ts) <= self._track_stale_s
 
+    def _empty_density_snapshot(self) -> dict[str, Any]:
+        return {
+            "c2_occupancy_area_px": 0.0,
+            "c2_piece_count_estimate": 0,
+            "c2_clump_score": 0.0,
+            "c2_free_arc_fraction": 1.0,
+            "c2_exit_queue_length": 0,
+            "occupancy_area_px": 0.0,
+            "piece_count_estimate": 0,
+            "clump_score": 0.0,
+            "free_arc_fraction": 1.0,
+            "exit_queue_length": 0,
+            "action_piece_count": 0,
+            "visible_track_count": 0,
+            "pending_track_count": 0,
+            "min_spacing_deg": None,
+            "largest_gap_deg": 360.0,
+            "max_cluster_count_60deg": 0,
+            "max_bbox_area_px": 0.0,
+        }
+
+    def _compute_density_snapshot(
+        self,
+        *,
+        visible_tracks: list[Track],
+        action_tracks: list[Track],
+    ) -> dict[str, Any]:
+        visible_count = len(visible_tracks)
+        action_count = len(action_tracks)
+        angles = sorted(
+            float(t.angle_rad) % (2.0 * math.pi)
+            for t in visible_tracks
+            if t.angle_rad is not None
+        )
+        bbox_areas = [self._bbox_area_px(t) for t in visible_tracks]
+        occupancy_area_px = float(sum(bbox_areas))
+        max_bbox_area_px = float(max(bbox_areas, default=0.0))
+        exit_queue_length = sum(
+            1
+            for t in action_tracks
+            if t.angle_rad is not None
+            and abs(_wrap_rad(float(t.angle_rad))) <= self._approach_near_arc
+        )
+
+        min_spacing_rad: float | None = None
+        largest_gap_rad = 2.0 * math.pi
+        max_cluster_count = len(angles)
+        if len(angles) >= 2:
+            gaps = [
+                angles[idx + 1] - angles[idx]
+                for idx in range(len(angles) - 1)
+            ]
+            gaps.append((angles[0] + 2.0 * math.pi) - angles[-1])
+            min_spacing_rad = min(gaps)
+            largest_gap_rad = max(gaps)
+            max_cluster_count = self._max_cluster_count(
+                angles,
+                window_rad=_DENSITY_CLUSTER_WINDOW_RAD,
+            )
+        elif len(angles) == 1:
+            max_cluster_count = 1
+
+        spacing_pressure = 0.0
+        if min_spacing_rad is not None:
+            spacing_pressure = max(
+                0.0,
+                min(1.0, 1.0 - (min_spacing_rad / _DENSITY_CLOSE_SPACING_RAD)),
+            )
+        cluster_pressure = 0.0
+        if len(angles) >= 3:
+            cluster_pressure = max(
+                0.0,
+                min(1.0, (max_cluster_count - 1) / max(1, len(angles) - 1)),
+            )
+        clump_score = max(spacing_pressure, cluster_pressure)
+        free_arc_fraction = max(
+            0.0,
+            min(1.0, largest_gap_rad / (2.0 * math.pi)),
+        )
+        piece_count_estimate = max(visible_count, action_count)
+
+        min_spacing_deg = (
+            None if min_spacing_rad is None else math.degrees(min_spacing_rad)
+        )
+        largest_gap_deg = math.degrees(largest_gap_rad)
+        snap = {
+            "c2_occupancy_area_px": occupancy_area_px,
+            "c2_piece_count_estimate": int(piece_count_estimate),
+            "c2_clump_score": float(clump_score),
+            "c2_free_arc_fraction": float(free_arc_fraction),
+            "c2_exit_queue_length": int(exit_queue_length),
+            "occupancy_area_px": occupancy_area_px,
+            "piece_count_estimate": int(piece_count_estimate),
+            "clump_score": float(clump_score),
+            "free_arc_fraction": float(free_arc_fraction),
+            "exit_queue_length": int(exit_queue_length),
+            "action_piece_count": int(action_count),
+            "visible_track_count": int(visible_count),
+            "pending_track_count": int(max(0, visible_count - action_count)),
+            "min_spacing_deg": min_spacing_deg,
+            "largest_gap_deg": float(largest_gap_deg),
+            "max_cluster_count_60deg": int(max_cluster_count),
+            "max_bbox_area_px": max_bbox_area_px,
+        }
+        return snap
+
+    def _max_cluster_count(self, angles: list[float], *, window_rad: float) -> int:
+        if not angles:
+            return 0
+        extended = angles + [a + 2.0 * math.pi for a in angles]
+        best = 1
+        end = 0
+        for start in range(len(angles)):
+            end = max(end, start)
+            while (
+                end + 1 < start + len(angles)
+                and extended[end + 1] - extended[start] <= window_rad
+            ):
+                end += 1
+            best = max(best, end - start + 1)
+        return best
+
+    def _bbox_area_px(self, track: Track) -> float:
+        try:
+            x1, y1, x2, y2 = (float(v) for v in track.bbox_xyxy)
+        except Exception:
+            return 0.0
+        return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
     def _credit_new_arrivals(self, tracks: list[Track], now_mono: float) -> None:
         seen = self._bookkeeping.seen_global_ids
         arrivals: list[dict[str, Any]] = []
@@ -399,6 +559,13 @@ class RuntimeC2(BaseRuntime):
             self._record_arrival_burst(arrivals, now_mono)
         elif arrivals:
             self._arrival_diagnostics_armed = True
+        if arrivals and self._upstream_progress_callback is not None:
+            try:
+                self._upstream_progress_callback(now_mono)
+            except Exception:
+                self._logger.exception(
+                    "RuntimeC2: upstream progress callback raised"
+                )
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
         # Commit zone: stable tracks within ``exit_near_arc``. The detector
@@ -460,7 +627,7 @@ class RuntimeC2(BaseRuntime):
                 track_global_id=claim_key,
             )
             if lease_id is None:
-                self._set_state("idle", blocked_reason="downstream_full")
+                self._set_state("idle", blocked_reason="lease_denied")
                 return
             self._active_lease_by_track[claim_key] = lease_id
         claimed = self._downstream_slot.try_claim(
@@ -797,6 +964,7 @@ class RuntimeC2(BaseRuntime):
         self._admission_piece_count = 0
         self._visible_track_count = 0
         self._pending_track_count = 0
+        self._density_snapshot = self._empty_density_snapshot()
         self._pending_downstream_claims.clear()
         self._pending_downstream_claim_retries.clear()
         self._arrival_diagnostics_armed = False

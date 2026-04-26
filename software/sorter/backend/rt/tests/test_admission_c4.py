@@ -55,6 +55,17 @@ def test_c4_blocks_when_dropzone_not_clear() -> None:
     assert decision.reason == "dropzone_clear"
 
 
+def test_c4_can_ignore_dropzone_for_admission_ab_run() -> None:
+    strategy = C4Admission(
+        max_zones=2,
+        max_raw_detections=3,
+        require_dropzone_clear=False,
+    )
+    decision = strategy.can_admit({}, _state(dropzone_clear=False))
+    assert decision.allowed is True
+    assert decision.reason == "ok"
+
+
 def test_c4_blocks_on_zone_cap() -> None:
     strategy = C4Admission(max_zones=2)
     decision = strategy.can_admit({}, _state(zone_count=2))

@@ -54,7 +54,11 @@ def snapshot(handle: Any) -> dict[str, Any]:
     return {
         "version": 1,
         "channels": {
-            "c1": _c1_snapshot(c1, feeder_cfg),
+            "c1": _c1_snapshot(
+                c1,
+                feeder_cfg,
+                getattr(handle, "orchestrator", None),
+            ),
             "c2": _c2_snapshot(c2, feeder_cfg),
             "c3": _c3_snapshot(c3, feeder_cfg),
             "c4": _c4_snapshot(c4, class_cfg, feeder_cfg),
@@ -108,16 +112,40 @@ def apply_patch(handle: Any, patch: dict[str, Any]) -> dict[str, Any]:
     return snapshot(handle)
 
 
-def _c1_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
+def _c1_snapshot(runtime: Any, feeder_cfg: Any, orchestrator: Any = None) -> dict[str, Any]:
     return {
         "transport": _rotor_snapshot(getattr(feeder_cfg, "first_rotor", None)),
+        "vision_burst": _c1_vision_burst_snapshot(orchestrator),
+        "c4_backpressure": _c1_c4_backpressure_snapshot(orchestrator),
+        "feed_inhibit": bool(_runtime_attr(runtime, "_maintenance_pause_reason")),
+        "feed_inhibit_reason": _runtime_attr(runtime, "_maintenance_pause_reason"),
         "sample_transport_step_deg": _runtime_attr(runtime, "_sample_transport_step_deg"),
         "pulse_cooldown_s": _runtime_attr(runtime, "_pulse_cooldown_s"),
+        "startup_hold_s": _runtime_attr(runtime, "_startup_hold_s"),
+        "unconfirmed_pulse_limit": _runtime_attr(
+            runtime,
+            "_unconfirmed_pulse_limit",
+        ),
+        "observation_hold_s": _runtime_attr(runtime, "_observation_hold_s"),
         "jam_timeout_s": _runtime_attr(runtime, "_jam_timeout_s"),
         "jam_min_pulses": _runtime_attr(runtime, "_jam_min_pulses"),
         "jam_cooldown_s": _runtime_attr(runtime, "_jam_cooldown_s"),
         "max_recovery_cycles": _runtime_attr(runtime, "_max_recovery_cycles"),
     }
+
+
+def _c1_vision_burst_snapshot(orchestrator: Any) -> dict[str, Any] | None:
+    snapshot_fn = getattr(orchestrator, "c1_c2_vision_controller_snapshot", None)
+    if callable(snapshot_fn):
+        return dict(snapshot_fn() or {})
+    return None
+
+
+def _c1_c4_backpressure_snapshot(orchestrator: Any) -> dict[str, Any] | None:
+    snapshot_fn = getattr(orchestrator, "c1_c4_backpressure_snapshot", None)
+    if callable(snapshot_fn):
+        return dict(snapshot_fn() or {})
+    return None
 
 
 def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
@@ -205,6 +233,13 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
     return {
         "max_zones": _safe_int(getattr(zone_mgr, "max_zones", None)),
         "max_raw_detections": _safe_int(getattr(admission, "max_raw_detections", None)),
+        "require_dropzone_clear_for_admission": bool(
+            getattr(
+                admission,
+                "_require_dropzone_clear",
+                getattr(admission, "require_dropzone_clear", True),
+            )
+        ),
         "intake_body_half_width_deg": _safe_float(
             getattr(zone_mgr, "_default_half_width", None)
         ),
@@ -220,6 +255,10 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
         "classify_pretrigger_exit_lead_deg": _runtime_attr(
             runtime,
             "_classify_pretrigger_exit_lead_deg",
+        ),
+        "handoff_request_horizon_deg": _runtime_attr(
+            runtime,
+            "_handoff_request_horizon_deg",
         ),
         "exit_approach_angle_deg": _runtime_attr(runtime, "_exit_approach_angle_deg"),
         "exit_approach_step_deg": _runtime_attr(runtime, "_exit_approach_step_deg"),
@@ -292,8 +331,16 @@ def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
     feeder_cfg = _feeder_cfg(getattr(handle, "irl", None))
     allowed = {
         "transport",
+        "vision_burst",
+        "c4_backpressure",
+        "feed_inhibit",
         "pulse_cooldown_s",
         "pulse_cooldown_ms",
+        "startup_hold_s",
+        "startup_hold_ms",
+        "unconfirmed_pulse_limit",
+        "observation_hold_s",
+        "observation_hold_ms",
         "jam_timeout_s",
         "jam_timeout_ms",
         "jam_min_pulses",
@@ -303,6 +350,28 @@ def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
     }
     _reject_unknown("c1", values, allowed)
     _set_runtime_seconds(runtime, "_pulse_cooldown_s", values, "pulse_cooldown_s", "pulse_cooldown_ms", 0.0, 30.0)
+    _set_runtime_seconds(runtime, "_startup_hold_s", values, "startup_hold_s", "startup_hold_ms", 0.0, 30.0)
+    if "startup_hold_s" in values or "startup_hold_ms" in values:
+        arm = getattr(runtime, "arm_startup_hold", None)
+        if callable(arm):
+            arm()
+    _set_runtime_int(
+        runtime,
+        "_unconfirmed_pulse_limit",
+        values,
+        "unconfirmed_pulse_limit",
+        min_value=1,
+        max_value=20,
+    )
+    _set_runtime_seconds(
+        runtime,
+        "_observation_hold_s",
+        values,
+        "observation_hold_s",
+        "observation_hold_ms",
+        0.0,
+        120.0,
+    )
     _set_runtime_seconds(runtime, "_jam_timeout_s", values, "jam_timeout_s", "jam_timeout_ms", 0.25, 120.0)
     _set_runtime_int(
         runtime,
@@ -331,6 +400,103 @@ def _apply_c1(handle: Any, values: dict[str, Any]) -> None:
     )
     if "transport" in values:
         _apply_rotor_patch(getattr(feeder_cfg, "first_rotor", None), values["transport"], "c1.transport")
+    if "vision_burst" in values:
+        _apply_c1_vision_burst(handle, values["vision_burst"])
+    if "c4_backpressure" in values:
+        _apply_c1_c4_backpressure(handle, values["c4_backpressure"])
+    if "feed_inhibit" in values:
+        _apply_c1_feed_inhibit(runtime, values["feed_inhibit"])
+
+
+def _apply_c1_feed_inhibit(runtime: Any, raw: Any) -> None:
+    if not isinstance(raw, bool):
+        raise ValueError("c1.feed_inhibit must be a boolean")
+    if runtime is None:
+        return
+    if raw:
+        pause = getattr(runtime, "pause_for_maintenance", None)
+        if callable(pause):
+            pause("feed_inhibit")
+        return
+    resume = getattr(runtime, "resume_from_maintenance", None)
+    if callable(resume):
+        resume()
+
+
+def _apply_c1_vision_burst(handle: Any, values: Any) -> None:
+    if not isinstance(values, dict):
+        raise ValueError("c1.vision_burst must be an object")
+    allowed = {
+        "target_low",
+        "target_high",
+        "clump_block_threshold",
+        "exit_queue_limit",
+    }
+    _reject_unknown("c1.vision_burst", values, allowed)
+    orchestrator = getattr(handle, "orchestrator", None)
+    update_fn = getattr(orchestrator, "update_c1_c2_vision_controller", None)
+    if not callable(update_fn):
+        raise RuntimeError("c1 vision burst tuning requires the runtime orchestrator")
+    kwargs: dict[str, Any] = {}
+    if "target_low" in values:
+        kwargs["target_low"] = _int(
+            values["target_low"],
+            "c1.vision_burst.target_low",
+            min_value=0,
+            max_value=30,
+        )
+    if "target_high" in values:
+        kwargs["target_high"] = _int(
+            values["target_high"],
+            "c1.vision_burst.target_high",
+            min_value=1,
+            max_value=30,
+        )
+    if "clump_block_threshold" in values:
+        kwargs["clump_block_threshold"] = _float(
+            values["clump_block_threshold"],
+            "c1.vision_burst.clump_block_threshold",
+            min_value=0.0,
+            max_value=1.0,
+        )
+    if "exit_queue_limit" in values:
+        kwargs["exit_queue_limit"] = _int(
+            values["exit_queue_limit"],
+            "c1.vision_burst.exit_queue_limit",
+            min_value=0,
+            max_value=30,
+        )
+    update_fn(**kwargs)
+
+
+def _apply_c1_c4_backpressure(handle: Any, values: Any) -> None:
+    if not isinstance(values, dict):
+        raise ValueError("c1.c4_backpressure must be an object")
+    allowed = {
+        "raw_high",
+        "dossier_high",
+    }
+    _reject_unknown("c1.c4_backpressure", values, allowed)
+    orchestrator = getattr(handle, "orchestrator", None)
+    update_fn = getattr(orchestrator, "update_c1_c4_backpressure", None)
+    if not callable(update_fn):
+        raise RuntimeError("c1 C4 backpressure tuning requires the runtime orchestrator")
+    kwargs: dict[str, Any] = {}
+    if "raw_high" in values:
+        kwargs["raw_high"] = _int(
+            values["raw_high"],
+            "c1.c4_backpressure.raw_high",
+            min_value=1,
+            max_value=50,
+        )
+    if "dossier_high" in values:
+        kwargs["dossier_high"] = _int(
+            values["dossier_high"],
+            "c1.c4_backpressure.dossier_high",
+            min_value=1,
+            max_value=50,
+        )
+    update_fn(**kwargs)
 
 
 def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
@@ -622,6 +788,7 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
     allowed = {
         "max_zones",
         "max_raw_detections",
+        "require_dropzone_clear_for_admission",
         "intake_body_half_width_deg",
         "intake_guard_deg",
         "zone_sigma_k",
@@ -632,6 +799,7 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "transport_cooldown_ms",
         "transport_target_rpm",
         "classify_pretrigger_exit_lead_deg",
+        "handoff_request_horizon_deg",
         "exit_approach_angle_deg",
         "exit_approach_step_deg",
         "transport_speed_scale",
@@ -683,6 +851,17 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             setattr(admission, "_max_raw_detections", max_raw)
         if class_cfg is not None:
             setattr(class_cfg, "max_raw_detections", max_raw)
+    if "require_dropzone_clear_for_admission" in values:
+        require_dropzone = bool(values["require_dropzone_clear_for_admission"])
+        admission = getattr(runtime, "_admission", None)
+        if admission is not None:
+            setattr(admission, "_require_dropzone_clear", require_dropzone)
+        if class_cfg is not None:
+            setattr(
+                class_cfg,
+                "require_dropzone_clear_for_admission",
+                require_dropzone,
+            )
     if "intake_body_half_width_deg" in values:
         half_width = _float(
             values["intake_body_half_width_deg"],
@@ -742,6 +921,14 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "_classify_pretrigger_exit_lead_deg",
         values,
         "classify_pretrigger_exit_lead_deg",
+        min_value=0.0,
+        max_value=180.0,
+    )
+    _set_runtime_float(
+        runtime,
+        "_handoff_request_horizon_deg",
+        values,
+        "handoff_request_horizon_deg",
         min_value=0.0,
         max_value=180.0,
     )

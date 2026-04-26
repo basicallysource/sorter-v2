@@ -163,7 +163,7 @@ def test_sample_transport_uses_per_channel_rpm_targets() -> None:
     assert status["channels"]["c1"]["target_rpm"] == 1.0
     assert status["channels"]["c2"]["target_rpm"] == 2.0
     assert status["channels"]["c1"]["direct_max_speed_usteps_per_s"] == 2400
-    assert status["channels"]["c1"]["direct_acceleration_usteps_per_s2"] == 100000
+    assert status["channels"]["c1"]["direct_acceleration_usteps_per_s2"] == 60000
 
 
 def test_sample_transport_can_limit_selected_channels() -> None:
@@ -212,7 +212,7 @@ def test_sample_transport_rejects_unknown_selected_channel() -> None:
         raise AssertionError("expected ValueError")
 
 
-def test_sample_transport_allows_rpm_targets_up_to_64() -> None:
+def test_sample_transport_caps_rpm_targets_to_safe_maintenance_limit() -> None:
     coordinator = C1234SampleTransportCoordinator()
     control = MagicMock()
     control.paused = False
@@ -231,8 +231,9 @@ def test_sample_transport_allows_rpm_targets_up_to_64() -> None:
         time.sleep(0.01)
 
     status = coordinator.status()
-    assert runtime.port.configured_rpm == 64.0
-    assert status["channels"]["c2"]["target_rpm"] == 64.0
+    assert runtime.port.configured_rpm == 8.0
+    assert status["config"]["channel_rpm"] == {"c2": 8.0}
+    assert status["channels"]["c2"]["target_rpm"] == 8.0
 
 
 def test_sample_transport_recomputes_nominal_degrees_after_port_configure() -> None:
@@ -254,8 +255,8 @@ def test_sample_transport_recomputes_nominal_degrees_after_port_configure() -> N
         time.sleep(0.01)
 
     status = coordinator.status()
-    assert runtime.port.configured_rpm == 30.0
-    assert status["channels"]["c4"]["nominal_degrees_per_step"] == 45.0
+    assert runtime.port.configured_rpm == 8.0
+    assert status["channels"]["c4"]["nominal_degrees_per_step"] == 12.0
     assert status["channels"]["c4"]["interval_s"] == 0.25
 
 
@@ -290,3 +291,32 @@ def test_sample_transport_updates_running_rpm_targets() -> None:
         assert status["channels"]["c2"]["direct_max_speed_usteps_per_s"] == 2400
     finally:
         coordinator.cancel()
+
+
+def test_sample_transport_caps_direct_motion_profile() -> None:
+    coordinator = C1234SampleTransportCoordinator()
+    control = MagicMock()
+    control.paused = False
+    runtime = _FakeRuntime("c3")
+
+    assert coordinator.start(
+        runtimes=[runtime],
+        control=control,
+        channel_rpm={"c3": 4.0},
+        direct_max_speed_usteps_per_s=50_000,
+        direct_acceleration_usteps_per_s2=500_000,
+        duration_s=0.12,
+        poll_s=0.01,
+    )
+
+    deadline = time.time() + 2.0
+    while coordinator.status()["active"] and time.time() < deadline:
+        time.sleep(0.01)
+
+    status = coordinator.status()
+    assert runtime.port.direct_max_speed == 12_000
+    assert runtime.port.direct_acceleration == 80_000
+    assert status["config"]["direct_max_speed_usteps_per_s"] == 12_000
+    assert status["config"]["direct_acceleration_usteps_per_s2"] == 80_000
+    assert status["channels"]["c3"]["direct_max_speed_usteps_per_s"] == 12_000
+    assert status["channels"]["c3"]["direct_acceleration_usteps_per_s2"] == 80_000

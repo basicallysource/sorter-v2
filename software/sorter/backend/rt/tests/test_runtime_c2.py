@@ -36,6 +36,14 @@ class _InlineHw:
         return 0
 
 
+class _DenyLandingLease:
+    def request_lease(self, **_kwargs) -> str | None:
+        return None
+
+    def consume_lease(self, _lease_id: str) -> None:
+        return None
+
+
 def _track(
     track_id: int = 1,
     global_id: int | None = 1,
@@ -76,6 +84,7 @@ def _make(
     pulse_success: bool = True,
     wiggle_success: bool = True,
     exit_handoff_min_interval_s: float = 0.85,
+    upstream_progress_callback: Callable[[float], None] | None = None,
 ) -> tuple[RuntimeC2, CapacitySlot, CapacitySlot, list[str]]:
     upstream = CapacitySlot("c1_to_c2", capacity=upstream_cap)
     downstream = CapacitySlot("c2_to_c3", capacity=downstream_cap)
@@ -107,6 +116,7 @@ def _make(
         pulse_command=pulse,
         wiggle_command=wiggle,
         sample_transport_command=sample_transport,
+        upstream_progress_callback=upstream_progress_callback,
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
         pulse_cooldown_s=0.0,
         wiggle_stall_ms=200,
@@ -207,6 +217,18 @@ def test_c2_does_not_pulse_when_downstream_full() -> None:
     assert rt.health().blocked_reason == "downstream_full"
 
 
+def test_c2_reports_lease_denial_separately_from_capacity() -> None:
+    rt, _up, down, log = _make()
+    rt.set_landing_lease_port(_DenyLandingLease())
+    inbox = RuntimeInbox(tracks=_batch(_track(angle_rad=0.0)), capacity_downstream=1)
+
+    rt.tick(inbox, now_mono=0.0)
+
+    assert log == []
+    assert down.available() == 1
+    assert rt.health().blocked_reason == "lease_denied"
+
+
 def test_c2_does_not_wiggle_when_downstream_is_closed() -> None:
     rt, _up, _down, log = _make()
     stuck = _batch(_track(angle_rad=0.0))
@@ -232,6 +254,24 @@ def test_c2_new_visible_piece_releases_upstream_slot() -> None:
     # Second tick with same piece must not release again.
     rt.tick(inbox, now_mono=0.1)
     assert up.available() == 1
+
+
+def test_c2_new_visible_piece_notifies_upstream_progress() -> None:
+    callbacks: list[float] = []
+    rt, _up, _down, _log = _make(
+        upstream_progress_callback=lambda now_mono: callbacks.append(now_mono)
+    )
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=42, angle_rad=math.pi)), capacity_downstream=1),
+        now_mono=12.5,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=42, angle_rad=math.pi)), capacity_downstream=1),
+        now_mono=13.5,
+    )
+
+    assert callbacks == [12.5]
 
 
 def test_c2_new_pending_tracks_do_not_fill_ring_capacity() -> None:
@@ -282,6 +322,39 @@ def test_c2_new_pending_tracks_do_not_fill_ring_capacity() -> None:
     assert snap["admission_piece_count"] == 0
     assert snap["visible_track_count"] == 5
     assert snap["pending_track_count"] == 5
+
+
+def test_c2_density_snapshot_reports_clustered_burst() -> None:
+    rt, _up, _down, _log = _make()
+    tracks = _batch(
+        _track(track_id=1, global_id=1, angle_rad=math.radians(90.0)),
+        _track(track_id=2, global_id=2, angle_rad=math.radians(96.0)),
+        _track(track_id=3, global_id=3, angle_rad=math.radians(104.0)),
+    )
+
+    rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
+
+    density = rt.capacity_debug_snapshot()["density"]
+    assert density["c2_piece_count_estimate"] == 3
+    assert density["c2_clump_score"] >= 0.65
+    assert density["c2_free_arc_fraction"] > 0.5
+    assert density["max_cluster_count_60deg"] == 3
+    assert math.isclose(density["min_spacing_deg"], 6.0, abs_tol=1e-6)
+
+
+def test_c2_density_snapshot_reports_exit_queue() -> None:
+    rt, _up, _down, _log = _make()
+    tracks = _batch(
+        _track(track_id=1, global_id=1, angle_rad=math.radians(5.0)),
+        _track(track_id=2, global_id=2, angle_rad=math.radians(35.0)),
+        _track(track_id=3, global_id=3, angle_rad=math.radians(120.0)),
+    )
+
+    rt.tick(RuntimeInbox(tracks=tracks, capacity_downstream=1), now_mono=0.0)
+
+    density = rt.debug_snapshot()["density"]
+    assert density["c2_exit_queue_length"] == 2
+    assert density["exit_queue_length"] == 2
 
 
 def test_c2_stable_pending_tracks_reserve_ring_capacity() -> None:

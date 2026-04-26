@@ -2,11 +2,43 @@ from __future__ import annotations
 
 import math
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 
 from rt.coupling.slots import CapacitySlot
 from rt.services import runtime_tuning
+
+
+class _FakeOrchestrator:
+    def __init__(self, slots: dict) -> None:
+        self._slots = slots
+        self._vision_burst = {
+            "name": "c1_c2_vision_burst",
+            "target_low": 1,
+            "target_high": 3,
+            "clump_block_threshold": 0.65,
+            "exit_queue_limit": 1,
+        }
+        self._c4_backpressure = {
+            "name": "c1_c4_backpressure",
+            "raw_high": 7,
+            "dossier_high": 3,
+        }
+
+    def c1_c2_vision_controller_snapshot(self) -> dict:
+        return dict(self._vision_burst)
+
+    def update_c1_c2_vision_controller(self, **kwargs) -> dict:
+        self._vision_burst.update(kwargs)
+        return self.c1_c2_vision_controller_snapshot()
+
+    def c1_c4_backpressure_snapshot(self) -> dict:
+        return dict(self._c4_backpressure)
+
+    def update_c1_c4_backpressure(self, **kwargs) -> dict:
+        self._c4_backpressure.update(kwargs)
+        return self.c1_c4_backpressure_snapshot()
 
 
 def _rotor(steps: int, speed: int, delay: int, accel: int | None = None) -> SimpleNamespace:
@@ -31,6 +63,7 @@ def _handle() -> SimpleNamespace:
         max_zones=4,
         intake_body_half_width_deg=10.0,
         intake_guard_deg=28.0,
+        require_dropzone_clear_for_admission=True,
         transport_speed_scale=4.0,
         stepper_degrees_per_tray_degree=36.0,
         transport_acceleration_microsteps_per_second_sq=4000,
@@ -77,6 +110,7 @@ def _handle() -> SimpleNamespace:
             _max_zones=4,
             max_raw_detections=None,
             _guard_angle_deg=28.0,
+            require_dropzone_clear=True,
         ),
         _intake_half_width_deg=10.0,
         _transport_step_deg=3.0,
@@ -107,6 +141,29 @@ def _handle() -> SimpleNamespace:
         ("c3", "c4"): CapacitySlot("c3_to_c4", 4),
         ("c4", "distributor"): CapacitySlot("c4_to_dist", 1),
     }
+    c1 = SimpleNamespace(
+        _sample_transport_step_deg=None,
+        _pulse_cooldown_s=0.25,
+        _startup_hold_s=2.0,
+        _unconfirmed_pulse_limit=2,
+        _observation_hold_s=12.0,
+        _jam_timeout_s=4.0,
+        _jam_min_pulses=3,
+        _jam_cooldown_s=1.5,
+        _max_recovery_cycles=5,
+        _maintenance_pause_reason=None,
+        arm_startup_hold=Mock(),
+    )
+
+    def pause_for_maintenance(reason: str = "maintenance") -> None:
+        c1._maintenance_pause_reason = reason
+
+    def resume_from_maintenance() -> None:
+        c1._maintenance_pause_reason = None
+
+    c1.pause_for_maintenance = pause_for_maintenance
+    c1.resume_from_maintenance = resume_from_maintenance
+
     return SimpleNamespace(
         irl=SimpleNamespace(
             irl_config=SimpleNamespace(
@@ -114,14 +171,7 @@ def _handle() -> SimpleNamespace:
                 classification_channel_config=classification,
             )
         ),
-        c1=SimpleNamespace(
-            _sample_transport_step_deg=None,
-            _pulse_cooldown_s=0.25,
-            _jam_timeout_s=4.0,
-            _jam_min_pulses=3,
-            _jam_cooldown_s=1.5,
-            _max_recovery_cycles=5,
-        ),
+        c1=c1,
         c2=c2,
         c3=c3,
         c4=c4,
@@ -133,7 +183,7 @@ def _handle() -> SimpleNamespace:
             _position_timeout_s=6.0,
             _ready_timeout_s=60.0,
         ),
-        orchestrator=SimpleNamespace(_slots=slots),
+        orchestrator=_FakeOrchestrator(slots),
     )
 
 
@@ -143,12 +193,22 @@ def test_snapshot_reports_live_values() -> None:
     payload = runtime_tuning.snapshot(handle)
 
     assert payload["channels"]["c4"]["transport_acceleration_usteps_per_s2"] == 4000
+    assert payload["channels"]["c4"]["require_dropzone_clear_for_admission"] is True
     assert payload["channels"]["c4"]["intake_body_half_width_deg"] == 10.0
     assert payload["channels"]["c4"]["intake_guard_deg"] == 28.0
     assert payload["channels"]["c4"]["exit_release_shimmy_amplitude_deg"] == 1.5
     assert payload["channels"]["c4"]["exit_release_shimmy_cycles"] == 2
     assert payload["channels"]["c1"]["pulse_cooldown_s"] == 0.25
+    assert payload["channels"]["c1"]["startup_hold_s"] == 2.0
+    assert payload["channels"]["c1"]["unconfirmed_pulse_limit"] == 2
+    assert payload["channels"]["c1"]["observation_hold_s"] == 12.0
     assert payload["channels"]["c1"]["jam_timeout_s"] == 4.0
+    assert payload["channels"]["c1"]["vision_burst"]["target_low"] == 1
+    assert payload["channels"]["c1"]["vision_burst"]["target_high"] == 3
+    assert payload["channels"]["c1"]["vision_burst"]["exit_queue_limit"] == 1
+    assert payload["channels"]["c1"]["c4_backpressure"]["raw_high"] == 7
+    assert payload["channels"]["c1"]["c4_backpressure"]["dossier_high"] == 3
+    assert payload["channels"]["c1"]["feed_inhibit"] is False
     assert payload["channels"]["c2"]["normal"]["steps_per_pulse"] == 1000
     assert payload["channels"]["c2"]["exit_handoff_min_interval_s"] == 0.85
     assert payload["channels"]["c3"]["exit_handoff_min_interval_s"] == 0.85
@@ -166,6 +226,9 @@ def test_update_c1_feed_and_jam_tuning_live() -> None:
             "channels": {
                 "c1": {
                     "pulse_cooldown_ms": 750,
+                    "startup_hold_s": 3.0,
+                    "unconfirmed_pulse_limit": 3,
+                    "observation_hold_s": 15.0,
                     "jam_timeout_s": 8.0,
                     "jam_min_pulses": 6,
                     "jam_cooldown_ms": 2500,
@@ -176,12 +239,90 @@ def test_update_c1_feed_and_jam_tuning_live() -> None:
     )
 
     assert handle.c1._pulse_cooldown_s == pytest.approx(0.75)
+    assert handle.c1._startup_hold_s == pytest.approx(3.0)
+    handle.c1.arm_startup_hold.assert_called_once_with()
+    assert handle.c1._unconfirmed_pulse_limit == 3
+    assert handle.c1._observation_hold_s == pytest.approx(15.0)
     assert handle.c1._jam_timeout_s == pytest.approx(8.0)
     assert handle.c1._jam_min_pulses == 6
     assert handle.c1._jam_cooldown_s == pytest.approx(2.5)
     assert handle.c1._max_recovery_cycles == 8
     assert payload["channels"]["c1"]["pulse_cooldown_s"] == pytest.approx(0.75)
+    assert payload["channels"]["c1"]["startup_hold_s"] == pytest.approx(3.0)
+    assert payload["channels"]["c1"]["unconfirmed_pulse_limit"] == 3
+    assert payload["channels"]["c1"]["observation_hold_s"] == pytest.approx(15.0)
     assert payload["channels"]["c1"]["jam_timeout_s"] == pytest.approx(8.0)
+
+
+def test_update_c1_vision_burst_tuning_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "channels": {
+                "c1": {
+                    "vision_burst": {
+                        "target_low": 2,
+                        "target_high": 5,
+                        "clump_block_threshold": 0.55,
+                        "exit_queue_limit": 2,
+                    }
+                }
+            }
+        },
+    )
+
+    assert handle.orchestrator._vision_burst["target_low"] == 2
+    assert handle.orchestrator._vision_burst["target_high"] == 5
+    assert handle.orchestrator._vision_burst["clump_block_threshold"] == pytest.approx(0.55)
+    assert handle.orchestrator._vision_burst["exit_queue_limit"] == 2
+    assert payload["channels"]["c1"]["vision_burst"]["target_low"] == 2
+    assert payload["channels"]["c1"]["vision_burst"]["target_high"] == 5
+
+
+def test_update_c1_c4_backpressure_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {
+            "channels": {
+                "c1": {
+                    "c4_backpressure": {
+                        "raw_high": 6,
+                        "dossier_high": 4,
+                    }
+                }
+            }
+        },
+    )
+
+    assert handle.orchestrator._c4_backpressure["raw_high"] == 6
+    assert handle.orchestrator._c4_backpressure["dossier_high"] == 4
+    assert payload["channels"]["c1"]["c4_backpressure"]["raw_high"] == 6
+    assert payload["channels"]["c1"]["c4_backpressure"]["dossier_high"] == 4
+
+
+def test_update_c1_feed_inhibit_live() -> None:
+    handle = _handle()
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {"channels": {"c1": {"feed_inhibit": True}}},
+    )
+
+    assert handle.c1._maintenance_pause_reason == "feed_inhibit"
+    assert payload["channels"]["c1"]["feed_inhibit"] is True
+    assert payload["channels"]["c1"]["feed_inhibit_reason"] == "feed_inhibit"
+
+    payload = runtime_tuning.apply_patch(
+        handle,
+        {"channels": {"c1": {"feed_inhibit": False}}},
+    )
+
+    assert handle.c1._maintenance_pause_reason is None
+    assert payload["channels"]["c1"]["feed_inhibit"] is False
 
 
 def test_update_c4_motion_and_backpressure_live() -> None:
@@ -193,6 +334,7 @@ def test_update_c4_motion_and_backpressure_live() -> None:
             "channels": {
                 "c4": {
                     "max_zones": 3,
+                    "require_dropzone_clear_for_admission": False,
                     "intake_body_half_width_deg": 8.0,
                     "intake_guard_deg": 8.0,
                     "transport_step_deg": 4.0,
@@ -212,6 +354,11 @@ def test_update_c4_motion_and_backpressure_live() -> None:
 
     assert handle.c4._zone_manager._max_zones == 3
     assert handle.c4._admission._max_zones == 3
+    assert handle.c4._admission._require_dropzone_clear is False
+    assert (
+        handle.irl.irl_config.classification_channel_config.require_dropzone_clear_for_admission
+        is False
+    )
     assert handle.c4._zone_manager._default_half_width == 8.0
     assert handle.c4._intake_half_width_deg == 8.0
     assert handle.c4._zone_manager._guard_deg == 8.0
@@ -240,6 +387,7 @@ def test_update_c4_motion_and_backpressure_live() -> None:
     )
     assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 36.0
     assert payload["channels"]["c4"]["transport_target_rpm"] == 0.9
+    assert payload["channels"]["c4"]["require_dropzone_clear_for_admission"] is False
     assert payload["channels"]["c4"]["classify_pretrigger_exit_lead_deg"] == 80.0
     assert payload["channels"]["c4"]["exit_approach_angle_deg"] == 24.0
     assert payload["channels"]["c4"]["exit_approach_step_deg"] == 4.5

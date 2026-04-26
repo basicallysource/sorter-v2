@@ -282,6 +282,7 @@ class ClassificationChannelConfig:
     intake_angle_deg: float
     intake_body_half_width_deg: float
     intake_guard_deg: float
+    require_dropzone_clear_for_admission: bool
     drop_angle_deg: float
     drop_tolerance_deg: float
     point_of_no_return_deg: float
@@ -325,6 +326,10 @@ class ClassificationChannelConfig:
         self.intake_angle_deg = 305.0
         self.intake_body_half_width_deg = 7.0
         self.intake_guard_deg = 6.0
+        # Keep the historical conservative C4 admission behavior by default.
+        # Live tuning can disable this for A/B runs; eject singleton safety is
+        # enforced separately at the distributor handoff.
+        self.require_dropzone_clear_for_admission = True
         # Live calibration on the dedicated classification channel shows the
         # real guide / point-of-no-return on the lower-right quadrant, not on
         # the legacy left-side position from the old chamber model.
@@ -446,6 +451,10 @@ class FeederConfig:
     first_rotor_jam_backtrack_output_degrees: float
     first_rotor_jam_max_output_degrees: float
     first_rotor_jam_max_cycles: int
+    first_rotor_startup_hold_s: float
+    first_rotor_pulse_cooldown_s: float
+    first_rotor_unconfirmed_pulse_limit: int
+    first_rotor_observation_hold_s: float
 
     def __init__(self):
         # C1 bulk feeder: each pulse drops a chunk of pieces from the
@@ -453,9 +462,11 @@ class FeederConfig:
         # to steps=50, delay=1500ms after live observation showed C1
         # routinely dumping 30-50 pieces into C2 in one short burst,
         # which then fed C3 a clump and stalled the rest of the pipeline.
-        # Halving the per-pulse advance plus extending the delay reduces
-        # the worst-case batch size to ~half and the pulse rate to ~2/3,
-        # giving the downstream rings room to drain between drops.
+        # Keep the physical dose small. The real 2026-04-26 failure was not
+        # this 50-step dose by itself, but RuntimeC1 queue-stacking multiple
+        # C1 commands before the worker reported busy. With hw_pending gated
+        # and a 4 s observation cooldown, a single 50-step pulse is the first
+        # local setting that reliably produces a small C2 dose.
         self.first_rotor = RotorPulseConfig(
             steps=50,
             microsteps_per_second=2000,
@@ -497,6 +508,19 @@ class FeederConfig:
         self.first_rotor_jam_backtrack_output_degrees = 18.0
         self.first_rotor_jam_max_output_degrees = 30.0
         self.first_rotor_jam_max_cycles = 5
+        # C1 is blind. Hold its first feed briefly after runtime start/resume
+        # so C2 perception can publish a fresh occupancy before C1 adds more
+        # bulk material.
+        self.first_rotor_startup_hold_s = 2.0
+        # Runtime-level observation gap after a C1 pulse. This is separate
+        # from the stepper's physical delay_between_ms and gives C2 time to
+        # detect the dose before C1 is allowed to feed again.
+        self.first_rotor_pulse_cooldown_s = 4.0
+        # C1 is blind and the hopper can release material with a long delay:
+        # after a couple of unconfirmed pulses, hold until C2 has had time to
+        # report a real arrival before probing again.
+        self.first_rotor_unconfirmed_pulse_limit = 2
+        self.first_rotor_observation_hold_s = 12.0
 
 
 class IRLConfig:

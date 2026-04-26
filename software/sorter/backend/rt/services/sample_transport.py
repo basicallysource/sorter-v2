@@ -25,13 +25,13 @@ DEFAULT_POLL_S = 0.02
 MIN_INTERVAL_S = 0.08
 MAX_DURATION_S = 3600.0
 MIN_RPM = 0.01
-MAX_RPM = 64.0
+MAX_RPM = 8.0
 DEFAULT_DIRECT_MAX_SPEED_USTEPS_PER_S = 2400
-DEFAULT_DIRECT_ACCELERATION_USTEPS_PER_S2 = 100000
+DEFAULT_DIRECT_ACCELERATION_USTEPS_PER_S2 = 60000
 MIN_DIRECT_MAX_SPEED_USTEPS_PER_S = 1
-MAX_DIRECT_MAX_SPEED_USTEPS_PER_S = 50000
+MAX_DIRECT_MAX_SPEED_USTEPS_PER_S = 12000
 MIN_DIRECT_ACCELERATION_USTEPS_PER_S2 = 1
-MAX_DIRECT_ACCELERATION_USTEPS_PER_S2 = 500000
+MAX_DIRECT_ACCELERATION_USTEPS_PER_S2 = 80000
 
 CHANNEL_ALIASES = {
     "classification_channel": "c4",
@@ -209,10 +209,7 @@ class C1234SampleTransportCoordinator:
                 "config": {
                     "base_interval_s": float(base_interval_s),
                     "ratio": float(ratio),
-                    "channel_rpm": {
-                        str(key): float(value)
-                        for key, value in (channel_rpm or {}).items()
-                    },
+                    "channel_rpm": _bounded_channel_rpm_map(channel_rpm),
                     "channels": [state.key for state in channel_states],
                     "direct_max_speed_usteps_per_s": _bounded_int(
                         direct_max_speed_usteps_per_s,
@@ -269,10 +266,7 @@ class C1234SampleTransportCoordinator:
                 raise ValueError("ratio must be > 1")
             update["ratio"] = float(ratio)
         if channel_rpm is not None:
-            update["channel_rpm"] = {
-                str(key): float(value)
-                for key, value in channel_rpm.items()
-            }
+            update["channel_rpm"] = _bounded_channel_rpm_map(channel_rpm)
         if direct_max_speed_usteps_per_s is not None:
             update["direct_max_speed_usteps_per_s"] = _bounded_int(
                 direct_max_speed_usteps_per_s,
@@ -617,6 +611,19 @@ def _target_rpm_for_channel(
     if not isinstance(value, (int, float)):
         return None
     return max(MIN_RPM, min(MAX_RPM, float(value)))
+
+
+def _bounded_channel_rpm_map(
+    channel_rpm: dict[str, float] | None,
+) -> dict[str, float]:
+    if not channel_rpm:
+        return {}
+    bounded: dict[str, float] = {}
+    for key, value in channel_rpm.items():
+        if not isinstance(value, (int, float)):
+            continue
+        bounded[str(key)] = max(MIN_RPM, min(MAX_RPM, float(value)))
+    return bounded
 
 
 def _normalize_channels(channels: Iterable[str] | None) -> set[str] | None:

@@ -35,6 +35,7 @@ class C4Admission:
         max_raw_detections: int | None = None,
         intake_angle_deg: float = 0.0,
         guard_angle_deg: float = 30.0,
+        require_dropzone_clear: bool = True,
     ) -> None:
         if max_zones < 1:
             raise ValueError(f"max_zones must be >= 1, got {max_zones}")
@@ -45,6 +46,7 @@ class C4Admission:
             self._max_raw_detections = int(max_raw_detections)
         self._intake_angle_deg = float(intake_angle_deg)
         self._guard_angle_deg = float(guard_angle_deg)
+        self._require_dropzone_clear = bool(require_dropzone_clear)
 
     @property
     def max_zones(self) -> int:
@@ -62,13 +64,17 @@ class C4Admission:
     def guard_angle_deg(self) -> float:
         return self._guard_angle_deg
 
+    @property
+    def require_dropzone_clear(self) -> bool:
+        return self._require_dropzone_clear
+
     def can_admit(
         self,
         inbound_piece_hint: dict[str, Any],  # noqa: ARG002 — interface conformance
         runtime_state: dict[str, Any],
     ) -> AdmissionDecision:
         dropzone_clear = runtime_state.get("dropzone_clear", True)
-        if dropzone_clear is False:
+        if self._require_dropzone_clear and dropzone_clear is False:
             return AdmissionDecision(allowed=False, reason="dropzone_clear")
 
         arc_clear = runtime_state.get("arc_clear", True)

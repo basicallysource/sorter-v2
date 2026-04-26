@@ -269,6 +269,14 @@ class RuntimeDistributor(BaseRuntime):
     def pending_piece_uuid(self) -> str | None:
         return self._pending.piece_uuid if self._pending else None
 
+    def pending_ready(self, piece_uuid: str | None = None) -> bool:
+        pending = self._pending
+        if pending is None:
+            return False
+        if piece_uuid is not None and pending.piece_uuid != piece_uuid:
+            return False
+        return self._fsm is _DistState.READY and pending.ready_at is not None
+
     def pending_target_bin(self) -> str | None:
         return self._pending.target_bin_id if self._pending else None
 

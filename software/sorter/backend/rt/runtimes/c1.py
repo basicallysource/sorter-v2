@@ -33,8 +33,11 @@ from .base import BaseRuntime, HwWorker
 DEFAULT_JAM_TIMEOUT_S = 4.0
 DEFAULT_JAM_MIN_PULSES = 3
 DEFAULT_JAM_COOLDOWN_S = 1.5
-DEFAULT_PULSE_COOLDOWN_S = 0.25
+DEFAULT_PULSE_COOLDOWN_S = 4.0
 DEFAULT_MAX_RECOVERY_CYCLES = 5
+DEFAULT_STARTUP_HOLD_S = 2.0
+DEFAULT_UNCONFIRMED_PULSE_LIMIT = 2
+DEFAULT_OBSERVATION_HOLD_S = 12.0
 
 
 @dataclass(slots=True)
@@ -68,6 +71,9 @@ class RuntimeC1(BaseRuntime):
         jam_cooldown_s: float = DEFAULT_JAM_COOLDOWN_S,
         max_recovery_cycles: int = DEFAULT_MAX_RECOVERY_CYCLES,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
+        startup_hold_s: float = DEFAULT_STARTUP_HOLD_S,
+        unconfirmed_pulse_limit: int = DEFAULT_UNCONFIRMED_PULSE_LIMIT,
+        observation_hold_s: float = DEFAULT_OBSERVATION_HOLD_S,
         state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
         super().__init__(
@@ -83,6 +89,16 @@ class RuntimeC1(BaseRuntime):
         self._jam_cooldown_s = float(jam_cooldown_s)
         self._max_recovery_cycles = max(1, int(max_recovery_cycles))
         self._pulse_cooldown_s = float(pulse_cooldown_s)
+        self._startup_hold_s = max(0.0, float(startup_hold_s))
+        self._unconfirmed_pulse_limit = max(1, int(unconfirmed_pulse_limit))
+        self._observation_hold_s = max(0.0, float(observation_hold_s))
+        self._observation_hold_until: float = 0.0
+        self._observation_hold_remaining_s: float = 0.0
+        self._startup_hold_armed = self._startup_hold_s > 0.0
+        self._startup_hold_until: float | None = None
+        self._startup_hold_remaining_s: float = (
+            self._startup_hold_s if self._startup_hold_armed else 0.0
+        )
         self._jam = _JamState()
         self._next_pulse_at: float = 0.0
         self._sample_transport_step_deg: float | None = None
@@ -93,6 +109,10 @@ class RuntimeC1(BaseRuntime):
 
     # ------------------------------------------------------------------
     # Runtime ABC
+
+    def start(self) -> None:
+        self.arm_startup_hold()
+        super().start()
 
     def available_slots(self) -> int:
         # C1 is the source of parts; its only backpressure signal upstream
@@ -108,7 +128,10 @@ class RuntimeC1(BaseRuntime):
             if self._paused_reason:
                 self._set_state("paused", blocked_reason=self._paused_reason)
                 return
-            if self._hw.busy() or self._jam.in_flight:
+            if self._startup_hold_active(now_mono):
+                self._set_state("idle", blocked_reason="startup_hold")
+                return
+            if self._hw.busy() or self._hw.pending() > 0 or self._jam.in_flight:
                 self._set_state("pulsing", blocked_reason="hw_busy")
                 return
             if now_mono < self._next_pulse_at:
@@ -129,6 +152,9 @@ class RuntimeC1(BaseRuntime):
                 and now_mono >= self._jam.cooldown_until
             ):
                 self._launch_recovery(now_mono)
+                return
+            if self._observation_hold_active(now_mono):
+                self._set_state("idle", blocked_reason="observing_downstream")
                 return
             self._dispatch_pulse(now_mono)
         finally:
@@ -152,6 +178,7 @@ class RuntimeC1(BaseRuntime):
     def clear_pause(self) -> None:
         self._paused_reason = None
         self._jam = _JamState()
+        self.arm_startup_hold()
         self._set_state("idle")
 
     def sample_transport_port(self) -> "_C1SampleTransportPort":
@@ -164,16 +191,106 @@ class RuntimeC1(BaseRuntime):
     def resume_from_maintenance(self) -> None:
         self._maintenance_pause_reason = None
         if self._paused_reason is None:
+            self.arm_startup_hold()
             self._set_state("idle")
+
+    def arm_startup_hold(self) -> None:
+        """Delay blind C1 feed briefly after start/resume.
+
+        C1 has no camera; without a warm-up hold it can pulse before C2's
+        first fresh capacity observation has caught up with real parts already
+        lying in the ring.
+        """
+        if self._startup_hold_s <= 0.0:
+            self._startup_hold_armed = False
+            self._startup_hold_until = None
+            self._startup_hold_remaining_s = 0.0
+            return
+        self._startup_hold_armed = True
+        self._startup_hold_until = None
+        self._startup_hold_remaining_s = self._startup_hold_s
+
+    def debug_snapshot(self) -> dict[str, object]:
+        snap = super().debug_snapshot()
+        snap.update(
+            {
+                "pulse_cooldown_s": float(self._pulse_cooldown_s),
+                "next_pulse_at_mono": float(self._next_pulse_at),
+                "startup_hold_s": float(self._startup_hold_s),
+                "startup_hold_armed": bool(self._startup_hold_armed),
+                "startup_hold_until_mono": self._startup_hold_until,
+                "startup_hold_remaining_s": float(self._startup_hold_remaining_s),
+                "unconfirmed_pulse_limit": int(self._unconfirmed_pulse_limit),
+                "observation_hold_s": float(self._observation_hold_s),
+                "observation_hold_until_mono": float(self._observation_hold_until),
+                "observation_hold_remaining_s": float(
+                    self._observation_hold_remaining_s
+                ),
+                "maintenance_pause_reason": self._maintenance_pause_reason,
+                "jam": {
+                    "pulses_since_progress": int(self._jam.pulses_since_progress),
+                    "last_progress_mono": self._jam.last_progress_mono,
+                    "level": int(self._jam.level),
+                    "attempts": int(self._jam.attempts),
+                    "cooldown_until_mono": float(self._jam.cooldown_until),
+                    "in_flight": bool(self._jam.in_flight),
+                    "exhausted": bool(self._jam.exhausted),
+                },
+            }
+        )
+        return snap
 
     # ------------------------------------------------------------------
     # Internals
+
+    def _startup_hold_active(self, now_mono: float) -> bool:
+        if self._startup_hold_s <= 0.0 or not self._startup_hold_armed:
+            self._startup_hold_remaining_s = 0.0
+            return False
+        if self._startup_hold_until is None:
+            self._startup_hold_until = now_mono + self._startup_hold_s
+        remaining = self._startup_hold_until - now_mono
+        if remaining > 0.0:
+            self._startup_hold_remaining_s = remaining
+            return True
+        self._startup_hold_armed = False
+        self._startup_hold_until = None
+        self._startup_hold_remaining_s = 0.0
+        # Do not let the warm-up interval count as a stall for jam recovery.
+        self._jam.last_progress_mono = now_mono
+        return False
 
     def _mark_progress(self, now_mono: float) -> None:
         self._jam.pulses_since_progress = 0
         self._jam.last_progress_mono = float(now_mono)
         self._jam.level = 0
         self._jam.attempts = 0
+        if self._observation_hold_s > 0.0:
+            self._observation_hold_until = max(
+                self._observation_hold_until,
+                now_mono + self._observation_hold_s,
+            )
+            self._observation_hold_remaining_s = max(
+                0.0,
+                self._observation_hold_until - now_mono,
+            )
+        else:
+            self._observation_hold_until = 0.0
+            self._observation_hold_remaining_s = 0.0
+
+    def _observation_hold_active(self, now_mono: float) -> bool:
+        if self._observation_hold_s <= 0.0:
+            self._observation_hold_remaining_s = 0.0
+            return False
+        remaining = self._observation_hold_until - now_mono
+        if remaining > 0.0:
+            self._observation_hold_remaining_s = remaining
+            return True
+        if self._jam.pulses_since_progress < self._unconfirmed_pulse_limit:
+            self._observation_hold_remaining_s = 0.0
+            return False
+        self._observation_hold_remaining_s = 0.0
+        return False
 
     def _dispatch_pulse(self, now_mono: float) -> None:
         # 3 s handoff budget: if the announced piece never arrives at C2,
@@ -197,6 +314,12 @@ class RuntimeC1(BaseRuntime):
                 self._downstream_slot.release()
 
         self._jam.pulses_since_progress += 1
+        if (
+            self._observation_hold_s > 0.0
+            and self._jam.pulses_since_progress >= self._unconfirmed_pulse_limit
+        ):
+            self._observation_hold_until = now_mono + self._observation_hold_s
+            self._observation_hold_remaining_s = self._observation_hold_s
         self._next_pulse_at = now_mono + self._pulse_cooldown_s
         enqueued = self._hw.enqueue(_run_pulse, label="c1_pulse")
         if not enqueued:
@@ -325,4 +448,14 @@ class _C1SampleTransportPort:
         return None
 
 
-__all__ = ["RuntimeC1", "DEFAULT_JAM_TIMEOUT_S", "DEFAULT_JAM_MIN_PULSES"]
+__all__ = [
+    "RuntimeC1",
+    "DEFAULT_JAM_TIMEOUT_S",
+    "DEFAULT_JAM_MIN_PULSES",
+    "DEFAULT_JAM_COOLDOWN_S",
+    "DEFAULT_PULSE_COOLDOWN_S",
+    "DEFAULT_MAX_RECOVERY_CYCLES",
+    "DEFAULT_STARTUP_HOLD_S",
+    "DEFAULT_UNCONFIRMED_PULSE_LIMIT",
+    "DEFAULT_OBSERVATION_HOLD_S",
+]

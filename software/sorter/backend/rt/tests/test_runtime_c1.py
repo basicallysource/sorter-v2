@@ -4,10 +4,12 @@ import threading
 import time
 from typing import Callable
 
+import pytest
+
 
 from rt.contracts.runtime import RuntimeInbox
 from rt.coupling.slots import CapacitySlot
-from rt.runtimes.base import HwWorker
+from rt.runtimes.base import HwWorker, _Command
 from rt.runtimes.c1 import RuntimeC1
 
 
@@ -74,8 +76,31 @@ def _make_runtime(
         jam_cooldown_s=kwargs.get("jam_cooldown_s", 0.0),
         max_recovery_cycles=kwargs.get("max_recovery_cycles", 3),
         pulse_cooldown_s=kwargs.get("pulse_cooldown_s", 0.0),
+        startup_hold_s=kwargs.get("startup_hold_s", 0.0),
+        unconfirmed_pulse_limit=kwargs.get("unconfirmed_pulse_limit", 2),
+        observation_hold_s=kwargs.get("observation_hold_s", 0.0),
     )
     return rt, slot, log, worker
+
+
+def test_c1_startup_hold_blocks_initial_feed_until_elapsed() -> None:
+    rt, slot, log, _ = _make_runtime(startup_hold_s=2.0)
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=10.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=11.0)
+
+    assert log == []
+    assert slot.taken(now_mono=11.0) == 0
+    assert rt.health().blocked_reason == "startup_hold"
+    snap = rt.debug_snapshot()
+    assert snap["startup_hold_armed"] is True
+    assert snap["startup_hold_remaining_s"] == pytest.approx(1.0)
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=12.1)
+
+    assert log == ["pulse"]
+    assert rt.health().state == "pulsing"
+    assert rt.debug_snapshot()["startup_hold_armed"] is False
 
 
 def test_c1_pulses_when_downstream_has_room() -> None:
@@ -174,6 +199,61 @@ def test_c1_downstream_progress_resets_jam_counter() -> None:
     assert log == ["pulse"]
 
 
+def test_c1_observes_after_unconfirmed_pulse_limit() -> None:
+    rt, slot, log, _ = _make_runtime(
+        downstream_cap=10,
+        pulse_cooldown_s=0.0,
+        jam_timeout_s=100.0,
+        unconfirmed_pulse_limit=2,
+        observation_hold_s=10.0,
+    )
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=1.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=2.0)
+
+    assert log == ["pulse", "pulse"]
+    assert slot.taken(now_mono=2.0) == 2
+    assert rt.health().blocked_reason == "observing_downstream"
+    snap = rt.debug_snapshot()
+    assert snap["observation_hold_remaining_s"] == pytest.approx(9.0)
+
+    rt.notify_downstream_progress(now_mono=3.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=3.1)
+
+    assert log == ["pulse", "pulse"]
+    assert rt.health().blocked_reason == "observing_downstream"
+    assert rt.debug_snapshot()["observation_hold_remaining_s"] == pytest.approx(9.9)
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=13.1)
+
+    assert log == ["pulse", "pulse", "pulse"]
+    assert rt.health().state == "pulsing"
+
+
+def test_c1_observes_after_downstream_progress_before_next_blind_pulse() -> None:
+    rt, slot, log, _ = _make_runtime(
+        downstream_cap=10,
+        pulse_cooldown_s=0.0,
+        jam_timeout_s=100.0,
+        unconfirmed_pulse_limit=4,
+        observation_hold_s=8.0,
+    )
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.notify_downstream_progress(now_mono=0.5)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=1.0)
+
+    assert log == ["pulse"]
+    assert slot.taken(now_mono=1.0) == 1
+    assert rt.health().blocked_reason == "observing_downstream"
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=8.6)
+
+    assert log == ["pulse", "pulse"]
+    assert rt.health().state == "pulsing"
+
+
 def test_c1_hw_worker_queue_rollback_releases_slot() -> None:
     """If the hardware worker queue is saturated the slot reservation must
     not leak — otherwise downstream would block forever."""
@@ -186,6 +266,38 @@ def test_c1_hw_worker_queue_rollback_releases_slot() -> None:
     rt.tick(RuntimeInbox(tracks=None, capacity_downstream=1), now_mono=0.0)
     assert log == []  # pulse never reached the worker
     assert slot.available() == 1
+
+
+def test_c1_does_not_stack_pulses_while_hw_command_is_queued() -> None:
+    class QueuedHw(_InlineHwWorker):
+        def __init__(self) -> None:
+            super().__init__()
+            self.queued_command = None
+            self.queued_label = None
+
+        def enqueue(self, command, *, priority=0, label="hw_cmd"):
+            self.commands.append(label)
+            self.queued_command = command
+            self.queued_label = label
+            return True
+
+        def pending(self) -> int:
+            return 1 if self.queued_command is not None else 0
+
+    worker = QueuedHw()
+    rt, slot, log, _ = _make_runtime(
+        hw_worker=worker,
+        pulse_cooldown_s=0.0,
+        downstream_cap=10,
+    )
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.1)
+
+    assert worker.commands == ["c1_pulse"]
+    assert log == []
+    assert slot.taken(now_mono=0.1) == 1
+    assert rt.health().blocked_reason == "hw_busy"
 
 
 def test_c1_available_slots_is_zero_while_paused() -> None:
@@ -211,6 +323,23 @@ def test_c1_maintenance_pause_blocks_source_pulses() -> None:
     assert rt.available_slots() == 1
 
 
+def test_c1_resume_from_maintenance_rearms_startup_hold() -> None:
+    rt, _slot, log, _ = _make_runtime(startup_hold_s=1.0, downstream_cap=10)
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=0.0)
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=1.1)
+    assert log == ["pulse"]
+
+    rt.pause_for_maintenance("c234_purge")
+    rt.resume_from_maintenance()
+    log.clear()
+
+    rt.tick(RuntimeInbox(tracks=None, capacity_downstream=10), now_mono=2.0)
+
+    assert log == []
+    assert rt.health().blocked_reason == "startup_hold"
+
+
 def test_real_hw_worker_runs_command_on_thread() -> None:
     """Covers the HwWorker start/stop lifecycle and async execution."""
     worker = HwWorker("c1_test")
@@ -223,6 +352,51 @@ def test_real_hw_worker_runs_command_on_thread() -> None:
 
     assert worker.enqueue(cmd, label="smoke") is True
     assert done.wait(timeout=1.0)
+    assert worker.status_snapshot()["thread_alive"] is True
+    worker.stop(timeout_s=1.0)
+
+
+def test_real_hw_worker_enqueue_restarts_missing_thread() -> None:
+    worker = HwWorker("c1_restart")
+    done = threading.Event()
+
+    assert worker.status_snapshot()["thread_alive"] is False
+    assert worker.enqueue(done.set, label="restart_smoke") is True
+    assert done.wait(timeout=1.0)
+    status = worker.status_snapshot()
+    assert status["running"] is True
+    assert status["thread_alive"] is True
+    worker.stop(timeout_s=1.0)
+
+
+def test_real_hw_worker_ignores_stale_stop_sentinel_on_restart() -> None:
+    worker = HwWorker("c1_stale_sentinel")
+    done = threading.Event()
+    worker._queue.put_nowait(None)  # noqa: SLF001 - simulate stale stop sentinel
+    worker._queue.put_nowait(  # noqa: SLF001
+        _Command(priority=0, seq=1, fn=done.set, label="after_stale_sentinel")
+    )
+
+    worker.start()
+
+    assert done.wait(timeout=1.0)
+    assert worker.status_snapshot()["thread_alive"] is True
+    worker.stop(timeout_s=1.0)
+
+
+def test_real_hw_worker_pending_restarts_dead_thread_with_backlog() -> None:
+    worker = HwWorker("c1_pending_restart")
+    done = threading.Event()
+    worker._running = True  # noqa: SLF001 - simulate a crashed worker with backlog
+    worker._thread = None  # noqa: SLF001
+    worker._queue.put_nowait(  # noqa: SLF001
+        _Command(priority=0, seq=1, fn=done.set, label="backlog")
+    )
+
+    assert worker.pending() >= 1
+
+    assert done.wait(timeout=1.0)
+    assert worker.status_snapshot()["thread_alive"] is True
     worker.stop(timeout_s=1.0)
 
 

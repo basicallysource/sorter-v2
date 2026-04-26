@@ -64,6 +64,10 @@ DEFAULT_ANGLE_TOLERANCE_DEG = 12.0
 # C4 can classify before the final point-of-no-return so the distributor
 # can preposition while the piece is still travelling toward the exit.
 DEFAULT_CLASSIFY_PRETRIGGER_EXIT_LEAD_DEG = 72.0
+# Distributor pre-positioning should not start for pieces that are still far
+# around the carousel. Early requests thrash when dense C4 WIP reorders near
+# the exit; classification may happen early, handoff should stay near-exit.
+DEFAULT_HANDOFF_REQUEST_HORIZON_DEG = 60.0
 DEFAULT_SHIMMY_STEP_DEG = 4.0
 DEFAULT_SHIMMY_STALL_MS = 800
 DEFAULT_SHIMMY_COOLDOWN_MS = 1200
@@ -183,6 +187,7 @@ class RuntimeC4(BaseRuntime):
         tracker_epoch: str | None = None,
         classify_angle_deg: float = DEFAULT_CLASSIFY_ANGLE_DEG,
         classify_pretrigger_exit_lead_deg: float = DEFAULT_CLASSIFY_PRETRIGGER_EXIT_LEAD_DEG,
+        handoff_request_horizon_deg: float = DEFAULT_HANDOFF_REQUEST_HORIZON_DEG,
         exit_angle_deg: float = DEFAULT_EXIT_ANGLE_DEG,
         angle_tolerance_deg: float = DEFAULT_ANGLE_TOLERANCE_DEG,
         intake_half_width_deg: float = DEFAULT_INTAKE_HALF_WIDTH_DEG,
@@ -268,6 +273,10 @@ class RuntimeC4(BaseRuntime):
         self._classify_pretrigger_exit_lead_deg = max(
             0.0,
             float(classify_pretrigger_exit_lead_deg),
+        )
+        self._handoff_request_horizon_deg = max(
+            0.0,
+            float(handoff_request_horizon_deg),
         )
         self._exit_angle_deg = float(exit_angle_deg)
         self._angle_tol_deg = float(angle_tolerance_deg)
@@ -386,13 +395,25 @@ class RuntimeC4(BaseRuntime):
         )
 
     def available_slots(self) -> int:
+        return int(self.capacity_debug_snapshot()["available"])
+
+    def capacity_debug_snapshot(self) -> dict[str, Any]:
         if self._startup_purge_pending():
-            return 0
+            return {
+                "available": 0,
+                "reason": "startup_purge",
+                "state": self._admission_state_snapshot(),
+            }
+        admission_state = self._admission_state_snapshot()
         decision = self._admission.can_admit(
             inbound_piece_hint={},
-            runtime_state=self._admission_state_snapshot(),
+            runtime_state=admission_state,
         )
-        return 1 if decision.allowed else 0
+        return {
+            "available": 1 if decision.allowed else 0,
+            "reason": decision.reason,
+            "state": admission_state,
+        }
 
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         start = self._tick_begin()
@@ -437,6 +458,35 @@ class RuntimeC4(BaseRuntime):
         bank_track = self._bank.track(piece_uuid)
         if bank_track is not None:
             bank_track.distributor_ready = True
+
+    def _sync_handoff_from_port(self, dossier: _PieceDossier) -> bool:
+        """Mirror an already-pending distributor handoff back into C4 state."""
+        port = self._handoff
+        if port is None:
+            return False
+        pending_piece_uuid_fn = getattr(port, "pending_piece_uuid", None)
+        if not callable(pending_piece_uuid_fn):
+            return False
+        try:
+            pending_piece_uuid = pending_piece_uuid_fn()
+        except Exception:
+            return False
+        if pending_piece_uuid != dossier.piece_uuid:
+            return False
+        ready = False
+        pending_ready_fn = getattr(port, "pending_ready", None)
+        if callable(pending_ready_fn):
+            try:
+                ready = bool(pending_ready_fn(dossier.piece_uuid))
+            except Exception:
+                ready = False
+        dossier.handoff_requested = True
+        dossier.distributor_ready = ready
+        bank_track = self._bank.track(dossier.piece_uuid)
+        if bank_track is not None:
+            bank_track.handoff_requested = True
+            bank_track.distributor_ready = ready
+        return True
 
     def on_piece_rejected(self, piece_uuid: str, reason: str) -> None:
         """Phase-5 stub: distributor signals the piece cannot be sorted."""
@@ -650,11 +700,14 @@ class RuntimeC4(BaseRuntime):
             },
             "hw_busy": bool(self._hw.busy()),
             "hw_pending": int(self._hw.pending()),
+            "hw_worker": self._hw_status_snapshot(),
             "angles": {
                 "intake_deg": self._zone_manager.intake_angle_deg,
                 "classify_deg": self._classify_angle_deg,
                 "classify_pretrigger_exit_lead_deg": self._classify_pretrigger_exit_lead_deg,
+                "handoff_request_horizon_deg": self._handoff_request_horizon_deg,
                 "exit_deg": self._exit_angle_deg,
+                "exit_approach_angle_deg": self._exit_approach_angle_deg,
                 "drop_deg": self._zone_manager.drop_angle_deg,
                 "tolerance_deg": self._angle_tol_deg,
             },
@@ -817,6 +870,7 @@ class RuntimeC4(BaseRuntime):
                 "intake_deg": self._zone_manager.intake_angle_deg,
                 "classify_deg": self._classify_angle_deg,
                 "exit_deg": self._exit_angle_deg,
+                "exit_approach_angle_deg": self._exit_approach_angle_deg,
                 "drop_deg": self._zone_manager.drop_angle_deg,
             },
         }
@@ -1648,6 +1702,13 @@ class RuntimeC4(BaseRuntime):
             if dossier.result is None:
                 self._mark_handoff("front_not_classified")
                 return None
+            distance = self._dossier_exit_distance(dossier)
+            if (
+                self._handoff_request_horizon_deg > 0.0
+                and distance > self._handoff_request_horizon_deg
+            ):
+                self._mark_handoff("front_outside_handoff_horizon")
+                return None
             return dossier
         return None
 
@@ -1672,6 +1733,9 @@ class RuntimeC4(BaseRuntime):
         if port is None or result is None:
             self._mark_handoff("request_not_ready")
             return False
+        if self._sync_handoff_from_port(dossier):
+            self._mark_handoff("synced_pending")
+            return True
         if dossier.handoff_requested:
             self._mark_handoff("already_requested")
             return True
@@ -1849,6 +1913,8 @@ class RuntimeC4(BaseRuntime):
         if piece_uuid is None:
             return
         dossier = self._pieces.get(piece_uuid)
+        if dossier is not None:
+            self._sync_handoff_from_port(dossier)
         self._abort_non_front_handoffs(piece_uuid, now_mono)
         if dossier is None or dossier.result is None:
             if inbox.capacity_downstream <= 0:
@@ -1973,6 +2039,11 @@ class RuntimeC4(BaseRuntime):
                 "front_piece_uuid": front.piece_uuid,
                 "front_global_id": front.global_id,
                 "front_exit_distance_deg": self._dossier_exit_distance(front),
+                "front_has_result": front.result is not None,
+                "front_handoff_requested": bool(front.handoff_requested),
+                "front_distributor_ready": bool(front.distributor_ready),
+                "front_eject_enqueued": bool(front.eject_enqueued),
+                "front_eject_committed": bool(front.eject_committed),
             })
         if dossier is not None:
             payload.update({
@@ -2317,12 +2388,41 @@ class RuntimeC4(BaseRuntime):
         return bool(self._hw.busy() or self._hw.pending() > 0)
 
     def _transport_waiting_on_ready_exit(self, tracks: list[Track]) -> bool:
+        return self._transport_exit_hold_reason(tracks) is not None
+
+    def _transport_exit_hold_reason(self, tracks: list[Track]) -> str | None:
         exit_track = self._pick_exit_track(tracks)
         if exit_track is None or exit_track.global_id is None:
-            return False
-        piece_uuid = self._piece_uuid_for_track(exit_track)
-        dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
-        return dossier is not None
+            exit_track = None
+        if exit_track is not None:
+            piece_uuid = self._piece_uuid_for_track(exit_track)
+            dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
+            if dossier is not None:
+                return "exit_piece_not_ready"
+        for dossier in self._dossiers_by_exit_distance():
+            if dossier.result is None or not dossier.handoff_requested:
+                continue
+            if self._handoff is not None:
+                self._sync_handoff_from_port(dossier)
+            if not dossier.distributor_ready:
+                return "waiting_distributor"
+        hold_deg = max(float(self._angle_tol_deg), float(self._exit_approach_angle_deg))
+        for dossier in self._dossiers_by_exit_distance():
+            distance = self._dossier_exit_distance(dossier)
+            if distance > hold_deg:
+                continue
+            if dossier.eject_enqueued:
+                return "eject_in_flight"
+            if dossier.result is None:
+                return "exit_piece_unclassified"
+            if self._handoff is not None:
+                self._sync_handoff_from_port(dossier)
+                if not dossier.handoff_requested:
+                    return "waiting_distributor_request"
+                if not dossier.distributor_ready:
+                    return "waiting_distributor"
+            return None
+        return None
 
     def _maybe_unjam_transport(self, tracks: list[Track], now_mono: float) -> bool:
         if not self._unjam_enabled:
@@ -2419,11 +2519,14 @@ class RuntimeC4(BaseRuntime):
             return False
         if self._hw_busy_or_backlogged() or now_mono < self._next_transport_at:
             return False
-        if self._transport_waiting_on_ready_exit(tracks):
+        hold_reason = self._transport_exit_hold_reason(tracks)
+        if hold_reason is not None:
+            self._set_state("drop_commit", blocked_reason=hold_reason)
             return False
 
-        use_exit_approach = move_command is None and any(
-            self._track_in_exit_approach(track) for track in tracks
+        use_exit_approach = move_command is None and (
+            any(self._track_in_exit_approach(track) for track in tracks)
+            or self._has_ready_handoff_track(tracks)
         )
         recommended_step = self._transport_velocity.snapshot.recommended_step_deg
         step = (
@@ -2613,6 +2716,21 @@ class RuntimeC4(BaseRuntime):
             return True
         overlap = self._exit_zone_bbox_overlap_ratio(track)
         return bool(overlap is not None and overlap > 0.0)
+
+    def _has_ready_handoff_track(self, tracks: list[Track]) -> bool:
+        for track in tracks:
+            piece_uuid = self._piece_uuid_for_track(track)
+            if piece_uuid is None:
+                continue
+            dossier = self._pieces.get(piece_uuid)
+            if (
+                dossier is not None
+                and dossier.handoff_requested
+                and dossier.distributor_ready
+                and not dossier.eject_enqueued
+            ):
+                return True
+        return False
 
     def _exit_zone_bbox_overlap_ratio(self, track: Track) -> float | None:
         if track.angle_rad is None:

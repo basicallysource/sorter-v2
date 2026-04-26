@@ -27,7 +27,7 @@ except Exception:  # pragma: no cover - optional runtime dependency guard
 
 BASE = "http://localhost:8000"
 REPO_ROOT = Path(__file__).resolve().parents[4]
-OUT_ROOT = REPO_ROOT / "docs" / "lab" / "runs"
+OUT_ROOT = REPO_ROOT / "logs" / "runs"
 DEFAULT_FEEDS = ("c2_feed", "c3_feed", "c4_feed")
 DEFAULT_WS_TAGS = {
     "frame",
@@ -456,12 +456,112 @@ def _counts_delta(start: dict[str, Any], end: dict[str, Any]) -> dict[str, int]:
     return out
 
 
+def _flow_gate_delta(start: dict[str, Any], end: dict[str, Any]) -> dict[str, float]:
+    def _totals(payload: dict[str, Any]) -> dict[str, Any]:
+        flow = payload.get("flow_gate_accounting")
+        if not isinstance(flow, dict):
+            return {}
+        totals = flow.get("totals_s")
+        return totals if isinstance(totals, dict) else {}
+
+    start_totals = _totals(start)
+    end_totals = _totals(end)
+    keys = sorted(set(start_totals.keys()) | set(end_totals.keys()))
+    out: dict[str, float] = {}
+    for key in keys:
+        a = start_totals.get(key, 0.0)
+        b = end_totals.get(key, 0.0)
+        if not isinstance(a, (int, float)) or not isinstance(b, (int, float)):
+            continue
+        delta = float(b) - float(a)
+        if delta > 0.05:
+            out[str(key)] = delta
+    return dict(sorted(out.items(), key=lambda item: item[1], reverse=True))
+
+
 def _distributor_idle(rt_status: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     runtime_debug = rt_status.get("runtime_debug")
     distributor = runtime_debug.get("distributor") if isinstance(runtime_debug, dict) else None
     distributor = distributor if isinstance(distributor, dict) else {}
     pending = distributor.get("pending")
     return distributor.get("fsm_state") == "idle" and pending is None, distributor
+
+
+def _runtime_int(value: Any) -> int:
+    return int(value) if isinstance(value, (int, float)) else 0
+
+
+def _runner_counts(rt_status: dict[str, Any], feed_id: str) -> dict[str, int]:
+    runner = _runner_by_feed(rt_status, feed_id)
+    return {
+        "detection_count": _runtime_int(runner.get("detection_count")),
+        "raw_track_count": _runtime_int(runner.get("raw_track_count")),
+        "confirmed_track_count": _runtime_int(runner.get("confirmed_track_count")),
+        "confirmed_real_track_count": _runtime_int(
+            runner.get("confirmed_real_track_count")
+        ),
+    }
+
+
+def _line_idle(rt_status: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
+    distributor_idle, distributor = _distributor_idle(rt_status)
+    runtime_debug = rt_status.get("runtime_debug")
+    runtime_debug = runtime_debug if isinstance(runtime_debug, dict) else {}
+
+    c2 = runtime_debug.get("c2") if isinstance(runtime_debug.get("c2"), dict) else {}
+    c3 = runtime_debug.get("c3") if isinstance(runtime_debug.get("c3"), dict) else {}
+    c4 = runtime_debug.get("c4") if isinstance(runtime_debug.get("c4"), dict) else {}
+
+    state = {
+        "distributor_idle": distributor_idle,
+        "distributor": {
+            "fsm_state": distributor.get("fsm_state"),
+            "pending": distributor.get("pending"),
+            "chute": distributor.get("chute"),
+        },
+        "c2": {
+            "piece_count": _runtime_int(c2.get("piece_count")),
+            "visible_track_count": _runtime_int(c2.get("visible_track_count")),
+            "pending_track_count": _runtime_int(c2.get("pending_track_count")),
+            "runner": _runner_counts(rt_status, "c2_feed"),
+        },
+        "c3": {
+            "piece_count": _runtime_int(c3.get("piece_count")),
+            "visible_track_count": _runtime_int(c3.get("visible_track_count")),
+            "active_visible_track_count": _runtime_int(
+                c3.get("active_visible_track_count")
+            ),
+            "pending_track_count": _runtime_int(c3.get("pending_track_count")),
+            "ignored_transport_bad_actor_count": _runtime_int(
+                (
+                    c3.get("transport_bad_actor_suppression")
+                    if isinstance(c3.get("transport_bad_actor_suppression"), dict)
+                    else {}
+                ).get("ignored_count")
+            ),
+            "runner": _runner_counts(rt_status, "c3_feed"),
+        },
+        "c4": {
+            "raw_detection_count": _runtime_int(c4.get("raw_detection_count")),
+            "dossier_count": _runtime_int(c4.get("dossier_count")),
+            "zone_count": _runtime_int(c4.get("zone_count")),
+            "runner": _runner_counts(rt_status, "c4_feed"),
+        },
+    }
+    busy_total = 0
+    busy_total += state["c2"]["piece_count"] + state["c2"]["visible_track_count"]
+    busy_total += state["c2"]["pending_track_count"]
+    busy_total += state["c3"]["piece_count"] + state["c3"]["visible_track_count"]
+    busy_total += state["c3"]["pending_track_count"]
+    busy_total += state["c4"]["raw_detection_count"] + state["c4"]["dossier_count"]
+    busy_total += state["c4"]["zone_count"]
+    for feed in ("c2", "c3", "c4"):
+        runner = state[feed]["runner"]
+        busy_total += runner["detection_count"]
+        busy_total += runner["raw_track_count"]
+        busy_total += runner["confirmed_track_count"]
+    state["busy_total"] = int(busy_total)
+    return distributor_idle and busy_total == 0, state
 
 
 def _derive_sample(
@@ -532,8 +632,26 @@ def _derive_sample(
     runtime_debug = rt_status.get("runtime_debug")
     c4_debug = runtime_debug.get("c4") if isinstance(runtime_debug, dict) else None
     c4_debug = c4_debug if isinstance(c4_debug, dict) else {}
+    c3_debug = runtime_debug.get("c3") if isinstance(runtime_debug, dict) else None
+    c3_debug = c3_debug if isinstance(c3_debug, dict) else {}
+    c3_transport_bad_actors = _bad_actor_suppression_snapshot(
+        c3_debug.get("transport_bad_actor_suppression")
+    )
+    c3_upstream_bad_actors = _bad_actor_suppression_snapshot(
+        c3_debug.get("upstream_bad_actor_suppression")
+    )
 
     anomalies: list[dict[str, Any]] = []
+    if c3_transport_bad_actors.get("ignored_count", 0) > 0:
+        anomalies.append({
+            "kind": "c3_transport_bad_actor_visible",
+            **c3_transport_bad_actors,
+        })
+    if c3_upstream_bad_actors.get("ignored_count", 0) > 0:
+        anomalies.append({
+            "kind": "c3_upstream_bad_actor_visible",
+            **c3_upstream_bad_actors,
+        })
     duplicate_active_gids = {
         str(gid): [_compact_piece(piece, drop_angle=drop_angle) for piece in group]
         for gid, group in active_zone_by_gid.items()
@@ -559,6 +677,42 @@ def _derive_sample(
             "confirmed_real_track_count": c4_confirmed_count,
             "active_c4_dossier_count": len(active_zone),
         })
+    c4_diag = c4_debug.get("handoff_burst_diagnostics")
+    if isinstance(c4_diag, dict):
+        recent_moves = c4_diag.get("recent_moves")
+        angles = c4_debug.get("angles")
+        angles = angles if isinstance(angles, dict) else {}
+        hold_deg = angles.get("exit_approach_angle_deg")
+        if not isinstance(hold_deg, (int, float)):
+            hold_deg = angles.get("tolerance_deg")
+        hold_deg = float(hold_deg) if isinstance(hold_deg, (int, float)) else 30.0
+        unsafe_exit_moves = []
+        if isinstance(recent_moves, list):
+            for move in recent_moves:
+                if not isinstance(move, dict):
+                    continue
+                if move.get("source") != "c4_transport":
+                    continue
+                if move.get("front_handoff_requested") is not True:
+                    continue
+                if move.get("front_distributor_ready") is not False:
+                    continue
+                distance = move.get("front_exit_distance_deg")
+                if not isinstance(distance, (int, float)) or float(distance) > hold_deg:
+                    continue
+                if not _runtime_anomaly_is_fresh(
+                    move,
+                    now_mono=now_mono,
+                    window_s=runtime_anomaly_window_s,
+                ):
+                    continue
+                unsafe_exit_moves.append(move)
+        if unsafe_exit_moves:
+            anomalies.append({
+                "kind": "c4_transport_near_exit_without_distributor_ready",
+                "count": len(unsafe_exit_moves),
+                "last": unsafe_exit_moves[-1],
+            })
     if isinstance(runtime_debug, dict):
         for runtime_id in ("c2", "c3", "c4"):
             runtime_diag = runtime_debug.get(runtime_id)
@@ -604,6 +758,12 @@ def _derive_sample(
             "full_track_count": len(c4_track_items),
             "full_confirmed_real_track_count": len(c4_confirmed_real_tracks),
         },
+        "c3": {
+            "visible_track_count": c3_debug.get("visible_track_count"),
+            "active_visible_track_count": c3_debug.get("active_visible_track_count"),
+            "transport_bad_actor_suppression": c3_transport_bad_actors,
+            "upstream_bad_actor_suppression": c3_upstream_bad_actors,
+        },
         "tracked_pieces": {
             "total": len(pieces),
             "active": len(active),
@@ -634,6 +794,23 @@ def _runtime_anomaly_is_fresh(
     return (float(now_mono) - float(ts_mono)) <= max(0.5, float(window_s))
 
 
+def _bad_actor_suppression_snapshot(value: Any) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        return {"ignored_count": 0, "ignored": []}
+    ignored = value.get("ignored")
+    ignored_items = ignored if isinstance(ignored, list) else []
+    ignored_count = value.get("ignored_count")
+    if not isinstance(ignored_count, int):
+        ignored_count = len(ignored_items)
+    return {
+        "name": value.get("name"),
+        "ignored_count": max(0, int(ignored_count)),
+        "ignored": [item for item in ignored_items[:10] if isinstance(item, dict)],
+        "observing": bool(value.get("observing", False)),
+        "observe_for_s": value.get("observe_for_s"),
+    }
+
+
 def _write_summary(
     *,
     run_dir: Path,
@@ -641,6 +818,8 @@ def _write_summary(
     samples: list[dict[str, Any]],
     start_runtime_stats: dict[str, Any],
     end_runtime_stats: dict[str, Any],
+    start_rt_status: dict[str, Any],
+    end_rt_status: dict[str, Any],
     ws_snapshot: dict[str, Any],
 ) -> None:
     anomaly_counts: Counter[str] = Counter()
@@ -656,6 +835,7 @@ def _write_summary(
         **run_meta,
         "sample_count": len(samples),
         "counts_delta": _counts_delta(start_runtime_stats, end_runtime_stats),
+        "flow_gate_delta_s": _flow_gate_delta(start_rt_status, end_rt_status),
         "ws": ws_snapshot,
         "anomaly_counts": dict(anomaly_counts),
         "last_sample_derived": samples[-1].get("derived") if samples else {},
@@ -679,9 +859,16 @@ def _write_summary(
     ]
     drain_result = run_meta.get("post_run_drain_result")
     if isinstance(drain_result, dict):
+        line_state = drain_result.get("line_state")
+        busy_total = (
+            line_state.get("busy_total")
+            if isinstance(line_state, dict)
+            else None
+        )
         lines.append(
             "- Drain result: "
             f"`drained={bool(drain_result.get('drained'))}` "
+            f"`line_busy={busy_total}` "
             f"`actual={float(drain_result.get('actual_s') or 0.0):.1f}s` "
             f"`last={drain_result.get('last_distributor_state', {}).get('fsm_state')}`"
         )
@@ -692,6 +879,19 @@ def _write_summary(
             lines.append(f"- `{key}`: `{value}`")
     else:
         lines.append("- No numeric runtime count deltas recorded.")
+    lines.extend(["", "## Flow Gate Pareto", ""])
+    flow_gate_delta = summary.get("flow_gate_delta_s")
+    if isinstance(flow_gate_delta, dict) and flow_gate_delta:
+        total_gate_s = sum(
+            float(v)
+            for v in flow_gate_delta.values()
+            if isinstance(v, (int, float))
+        )
+        for key, seconds in list(flow_gate_delta.items())[:15]:
+            pct = (float(seconds) / total_gate_s * 100.0) if total_gate_s > 0 else 0.0
+            lines.append(f"- `{key}`: `{float(seconds):.1f}s` ({pct:.1f}%)")
+    else:
+        lines.append("- No flow-gate accounting delta recorded.")
     lines.extend(["", "## Anomalies", ""])
     if anomaly_counts:
         for key, value in anomaly_counts.items():
@@ -839,12 +1039,14 @@ def main() -> int:
             drain_s = max(0.0, float(args.post_run_drain_s))
             drain_started = time.time()
             drain_last: dict[str, Any] = {}
+            line_last: dict[str, Any] = {}
             drained = False
             if drain_s > 0.0:
                 drain_deadline = time.monotonic() + drain_s
                 while time.monotonic() < drain_deadline:
                     rt_status = _safe_get(session, backend_base, "/api/rt/status")
-                    drained, drain_last = _distributor_idle(rt_status)
+                    _dist_idle, drain_last = _distributor_idle(rt_status)
+                    drained, line_last = _line_idle(rt_status)
                     if drained:
                         break
                     time.sleep(min(0.25, max(0.0, drain_deadline - time.monotonic())))
@@ -853,7 +1055,8 @@ def main() -> int:
                     grace_deadline = time.monotonic() + grace_s
                     while time.monotonic() < grace_deadline:
                         rt_status = _safe_get(session, backend_base, "/api/rt/status")
-                        drained, drain_last = _distributor_idle(rt_status)
+                        _dist_idle, drain_last = _distributor_idle(rt_status)
+                        drained, line_last = _line_idle(rt_status)
                         if drained:
                             break
                         time.sleep(min(0.25, max(0.0, grace_deadline - time.monotonic())))
@@ -861,6 +1064,8 @@ def main() -> int:
                     "requested_s": drain_s,
                     "actual_s": time.time() - drain_started,
                     "drained": drained,
+                    "line_idle": drained,
+                    "line_state": line_last,
                     "last_distributor_state": {
                         "fsm_state": drain_last.get("fsm_state"),
                         "pending": drain_last.get("pending"),
@@ -934,6 +1139,8 @@ def main() -> int:
         samples=samples,
         start_runtime_stats=start_runtime_stats,
         end_runtime_stats=end_runtime_stats,
+        start_rt_status=start_rt_status,
+        end_rt_status=end_rt_status,
         ws_snapshot=recorder.snapshot() if recorder is not None else {},
     )
 

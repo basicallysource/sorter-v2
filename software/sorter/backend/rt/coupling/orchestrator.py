@@ -25,6 +25,14 @@ from rt.contracts.tracking import TrackBatch
 from .slots import CapacitySlot
 
 
+_C1_C2_VISION_TARGET_LOW = 1
+_C1_C2_VISION_TARGET_HIGH = 3
+_C1_C2_VISION_CLUMP_BLOCK_THRESHOLD = 0.65
+_C1_C2_VISION_EXIT_QUEUE_LIMIT = 1
+_C1_C4_BACKPRESSURE_RAW_HIGH = 7
+_C1_C4_BACKPRESSURE_DOSSIER_HIGH = 3
+
+
 class TrackSource(Protocol):
     """Anything that can return the latest TrackBatch for a feed id.
 
@@ -47,6 +55,12 @@ class Orchestrator:
         event_bus: EventBus | None = None,
         logger: logging.Logger | None = None,
         tick_period_s: float = 0.020,
+        c1_c2_vision_target_low: int = _C1_C2_VISION_TARGET_LOW,
+        c1_c2_vision_target_high: int = _C1_C2_VISION_TARGET_HIGH,
+        c1_c2_vision_clump_block_threshold: float = _C1_C2_VISION_CLUMP_BLOCK_THRESHOLD,
+        c1_c2_vision_exit_queue_limit: int = _C1_C2_VISION_EXIT_QUEUE_LIMIT,
+        c1_c4_backpressure_raw_high: int = _C1_C4_BACKPRESSURE_RAW_HIGH,
+        c1_c4_backpressure_dossier_high: int = _C1_C4_BACKPRESSURE_DOSSIER_HIGH,
     ) -> None:
         if tick_period_s <= 0.0:
             raise ValueError("tick_period_s must be > 0")
@@ -64,6 +78,20 @@ class Orchestrator:
         self._last_tick_mono: float = 0.0
         self._downstream_of = self._build_downstream_map()
         self._runtime_by_id = {rt.runtime_id: rt for rt in self._runtimes}
+        self._capacity_debug: dict[str, dict[str, Any]] = {}
+        self._flow_gate_totals_s: dict[str, float] = {}
+        self._flow_gate_current: dict[str, str] = {}
+        self._flow_gate_last_observed_at: float | None = None
+        self.update_c1_c2_vision_controller(
+            target_low=c1_c2_vision_target_low,
+            target_high=c1_c2_vision_target_high,
+            clump_block_threshold=c1_c2_vision_clump_block_threshold,
+            exit_queue_limit=c1_c2_vision_exit_queue_limit,
+        )
+        self.update_c1_c4_backpressure(
+            raw_high=c1_c4_backpressure_raw_high,
+            dossier_high=c1_c4_backpressure_dossier_high,
+        )
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -158,6 +186,121 @@ class Orchestrator:
         """
         self._perception[str(feed_id)] = source
 
+    def c1_c2_vision_controller_snapshot(self) -> dict[str, Any]:
+        """Return the live C1 bulk-feed backpressure thresholds."""
+
+        return {
+            "name": "c1_c2_vision_burst",
+            "target_low": int(self._c1_c2_vision_target_low),
+            "target_high": int(self._c1_c2_vision_target_high),
+            "clump_block_threshold": float(self._c1_c2_vision_clump_block_threshold),
+            "exit_queue_limit": int(self._c1_c2_vision_exit_queue_limit),
+        }
+
+    def update_c1_c2_vision_controller(
+        self,
+        *,
+        target_low: int | None = None,
+        target_high: int | None = None,
+        clump_block_threshold: float | None = None,
+        exit_queue_limit: int | None = None,
+    ) -> dict[str, Any]:
+        """Tune the C1 stochastic-dose gate used against C2 density."""
+
+        next_low = (
+            self._bounded_int(target_low, "target_low", min_value=0, max_value=30)
+            if target_low is not None
+            else int(getattr(self, "_c1_c2_vision_target_low", _C1_C2_VISION_TARGET_LOW))
+        )
+        next_high = (
+            self._bounded_int(target_high, "target_high", min_value=1, max_value=30)
+            if target_high is not None
+            else int(getattr(self, "_c1_c2_vision_target_high", _C1_C2_VISION_TARGET_HIGH))
+        )
+        next_exit_queue = (
+            self._bounded_int(
+                exit_queue_limit,
+                "exit_queue_limit",
+                min_value=0,
+                max_value=30,
+            )
+            if exit_queue_limit is not None
+            else int(
+                getattr(
+                    self,
+                    "_c1_c2_vision_exit_queue_limit",
+                    _C1_C2_VISION_EXIT_QUEUE_LIMIT,
+                )
+            )
+        )
+        next_clump = (
+            self._bounded_float(
+                clump_block_threshold,
+                "clump_block_threshold",
+                min_value=0.0,
+                max_value=1.0,
+            )
+            if clump_block_threshold is not None
+            else float(
+                getattr(
+                    self,
+                    "_c1_c2_vision_clump_block_threshold",
+                    _C1_C2_VISION_CLUMP_BLOCK_THRESHOLD,
+                )
+            )
+        )
+        if next_high < max(1, next_low):
+            raise ValueError("target_high must be >= target_low")
+
+        self._c1_c2_vision_target_low = next_low
+        self._c1_c2_vision_target_high = next_high
+        self._c1_c2_vision_clump_block_threshold = next_clump
+        self._c1_c2_vision_exit_queue_limit = next_exit_queue
+        return self.c1_c2_vision_controller_snapshot()
+
+    def c1_c4_backpressure_snapshot(self) -> dict[str, Any]:
+        """Return the live C1 backpressure thresholds derived from C4 backlog."""
+
+        return {
+            "name": "c1_c4_backpressure",
+            "raw_high": int(self._c1_c4_backpressure_raw_high),
+            "dossier_high": int(self._c1_c4_backpressure_dossier_high),
+        }
+
+    def update_c1_c4_backpressure(
+        self,
+        *,
+        raw_high: int | None = None,
+        dossier_high: int | None = None,
+    ) -> dict[str, Any]:
+        """Tune the C1 bulk-feed stop line for downstream C4 backlog."""
+
+        next_raw_high = (
+            self._bounded_int(raw_high, "raw_high", min_value=1, max_value=50)
+            if raw_high is not None
+            else int(
+                getattr(
+                    self,
+                    "_c1_c4_backpressure_raw_high",
+                    _C1_C4_BACKPRESSURE_RAW_HIGH,
+                )
+            )
+        )
+        next_dossier_high = (
+            self._bounded_int(dossier_high, "dossier_high", min_value=1, max_value=50)
+            if dossier_high is not None
+            else int(
+                getattr(
+                    self,
+                    "_c1_c4_backpressure_dossier_high",
+                    _C1_C4_BACKPRESSURE_DOSSIER_HIGH,
+                )
+            )
+        )
+        self._c1_c4_backpressure_raw_high = next_raw_high
+        self._c1_c4_backpressure_dossier_high = next_dossier_high
+        return self.c1_c4_backpressure_snapshot()
+
     def health(self) -> dict[str, dict[str, object]]:
         """Aggregate per-runtime health into a flat dict."""
         out: dict[str, dict[str, object]] = {}
@@ -216,6 +359,8 @@ class Orchestrator:
             "runtime_health": self.health(),
             "runtime_debug": runtime_debug,
             "slot_debug": slot_debug,
+            "capacity_debug": dict(self._capacity_debug),
+            "flow_gate_accounting": self._flow_gate_snapshot(),
         }
 
     def inspect_snapshot(self) -> dict[str, Any]:
@@ -316,14 +461,380 @@ class Orchestrator:
             return 0
         downstream = self._runtime_by_id.get(downstream_id)
         if downstream is None:
+            self._capacity_debug[runtime_id] = {
+                "downstream": downstream_id,
+                "available": 0,
+                "reason": "missing_downstream_runtime",
+            }
             return 0
         try:
-            return max(0, int(downstream.available_slots()))
+            available = max(0, int(downstream.available_slots()))
         except Exception:
             self._logger.exception(
                 "Orchestrator: available_slots() raised for %r", downstream_id
             )
+            self._capacity_debug[runtime_id] = {
+                "downstream": downstream_id,
+                "available": 0,
+                "reason": "available_slots_failed",
+            }
             return 0
+        debug = self._downstream_capacity_debug(
+            downstream,
+            downstream_id=downstream_id,
+            available=available,
+        )
+        if runtime_id == "c1" and available > 0:
+            vision_debug = self._c1_c2_vision_backpressure_debug(debug)
+            if vision_debug is not None:
+                self._capacity_debug[runtime_id] = vision_debug
+                return 0
+            transitive_debug = self._c1_transitive_backpressure_debug()
+            if transitive_debug is not None:
+                self._capacity_debug[runtime_id] = transitive_debug
+                return 0
+            c4_backlog_debug = self._c1_c4_backpressure_debug()
+            if c4_backlog_debug is not None:
+                self._capacity_debug[runtime_id] = c4_backlog_debug
+                return 0
+        self._capacity_debug[runtime_id] = debug
+        return available
+
+    def _c1_c2_vision_backpressure_debug(
+        self,
+        c2_debug: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Treat C1 as a stochastic dose source and C2 as the measured buffer."""
+        if str(c2_debug.get("downstream") or "") != "c2":
+            return None
+        density = c2_debug.get("density")
+        if not isinstance(density, dict):
+            return None
+        piece_count = self._safe_int(
+            density.get("piece_count_estimate"),
+            fallback=c2_debug.get("visible_track_count"),
+        )
+        clump_score = self._safe_float(density.get("clump_score"))
+        exit_queue_length = self._safe_int(density.get("exit_queue_length"))
+        target_low = int(self._c1_c2_vision_target_low)
+        target_high = int(self._c1_c2_vision_target_high)
+        clump_block_threshold = float(self._c1_c2_vision_clump_block_threshold)
+        exit_queue_limit = int(self._c1_c2_vision_exit_queue_limit)
+
+        reason: str | None = None
+        if piece_count >= target_high:
+            reason = "vision_target_high"
+        elif exit_queue_limit > 0 and exit_queue_length >= exit_queue_limit:
+            reason = "vision_exit_queue"
+        elif (
+            piece_count >= 2
+            and clump_score >= clump_block_threshold
+        ):
+            reason = "vision_density_clump"
+        elif target_low > 0 and piece_count >= target_low:
+            reason = "vision_target_band"
+        if reason is None:
+            return None
+
+        blocked = dict(c2_debug)
+        blocked.update({
+            "downstream": "c2",
+            "available": 0,
+            "reason": reason,
+            "controller": {
+                "name": "c1_c2_vision_burst",
+                "target_low": target_low,
+                "target_high": target_high,
+                "clump_block_threshold": clump_block_threshold,
+                "exit_queue_limit": exit_queue_limit,
+                "piece_count_estimate": int(piece_count),
+                "clump_score": float(clump_score),
+                "exit_queue_length": int(exit_queue_length),
+            },
+        })
+        return blocked
+
+    def _c1_transitive_backpressure_debug(self) -> dict[str, Any] | None:
+        """Stop blind bulk feed when the C2->C3 side is already backed up.
+
+        C1 has no camera of its own. If it only listens to C2's local headroom,
+        it can keep adding pieces while C2 is below its cap but C3 is already
+        saturated by a downstream C4 admission bottleneck. That pattern showed
+        up live as C2/C3 overflow after C1's first delayed release.
+        """
+        c3 = self._runtime_by_id.get("c3")
+        if c3 is None:
+            return None
+        try:
+            c3_available = max(0, int(c3.available_slots()))
+        except Exception:
+            self._logger.exception("Orchestrator: c3.available_slots() raised")
+            return {
+                "downstream": "c3",
+                "available": 0,
+                "reason": "available_slots_failed",
+            }
+        if c3_available > 0:
+            return None
+        debug = self._downstream_capacity_debug(
+            c3,
+            downstream_id="c3",
+            available=0,
+        )
+        debug["immediate_downstream"] = "c2"
+        return debug
+
+    def _c1_c4_backpressure_debug(self) -> dict[str, Any] | None:
+        """Keep C1 from feeding while C4 is already carrying downstream WIP."""
+        c4 = self._runtime_by_id.get("c4")
+        if c4 is None:
+            return None
+        snapshot_fn = getattr(c4, "debug_snapshot", None)
+        if not callable(snapshot_fn):
+            return None
+        try:
+            snapshot = dict(snapshot_fn() or {})
+        except Exception:
+            self._logger.exception("Orchestrator: c4.debug_snapshot() raised")
+            return {
+                "downstream": "c4",
+                "immediate_downstream": "c2",
+                "available": 0,
+                "reason": "debug_snapshot_failed",
+            }
+
+        raw_count = self._safe_int(
+            snapshot.get("raw_detection_count"),
+            fallback=snapshot.get("raw_track_count"),
+        )
+        dossier_count = self._safe_int(
+            snapshot.get("dossier_count"),
+            fallback=len(snapshot.get("dossiers") or ()),
+        )
+        raw_high = int(self._c1_c4_backpressure_raw_high)
+        dossier_high = int(self._c1_c4_backpressure_dossier_high)
+        reason: str | None = None
+        if dossier_count >= dossier_high:
+            reason = "backlog_dossiers"
+        elif raw_count >= raw_high:
+            reason = "backlog_raw"
+        if reason is None:
+            return None
+
+        return {
+            "downstream": "c4",
+            "immediate_downstream": "c2",
+            "available": 0,
+            "reason": reason,
+            "raw_detection_count": int(raw_count),
+            "dossier_count": int(dossier_count),
+            "controller": {
+                "name": "c1_c4_backpressure",
+                "raw_high": int(raw_high),
+                "dossier_high": int(dossier_high),
+            },
+        }
+
+    def _downstream_capacity_debug(
+        self,
+        downstream: Runtime,
+        *,
+        downstream_id: str,
+        available: int,
+    ) -> dict[str, Any]:
+        debug: dict[str, Any] = {
+            "downstream": downstream_id,
+            "available": int(available),
+            "reason": "ok" if available > 0 else "no_capacity",
+        }
+        snapshot_fn = getattr(downstream, "capacity_debug_snapshot", None)
+        if not callable(snapshot_fn):
+            return debug
+        try:
+            snapshot = dict(snapshot_fn() or {})
+        except Exception:
+            self._logger.exception(
+                "Orchestrator: capacity_debug_snapshot() raised for %r",
+                downstream_id,
+            )
+            return {
+                "downstream": downstream_id,
+                "available": int(available),
+                "reason": "capacity_debug_failed",
+            }
+        debug.update(snapshot)
+        debug["downstream"] = downstream_id
+        debug["available"] = int(available)
+        if not isinstance(debug.get("reason"), str) or not debug["reason"]:
+            debug["reason"] = "ok" if available > 0 else "no_capacity"
+        return debug
+
+    def _flow_gate_snapshot(self) -> dict[str, Any]:
+        totals = dict(sorted(self._flow_gate_totals_s.items()))
+        pareto = [
+            {"gate": key, "seconds": seconds}
+            for key, seconds in sorted(
+                totals.items(),
+                key=lambda item: item[1],
+                reverse=True,
+            )
+            if seconds > 0.0
+        ]
+        return {
+            "current": dict(sorted(self._flow_gate_current.items())),
+            "totals_s": totals,
+            "pareto": pareto[:20],
+            "observed_at_mono": self._flow_gate_last_observed_at,
+        }
+
+    def _observe_flow_gates(self, now_mono: float) -> None:
+        last = self._flow_gate_last_observed_at
+        self._flow_gate_last_observed_at = float(now_mono)
+        current: dict[str, str] = {}
+        health = self.health()
+        for runtime_id, entry in health.items():
+            state = str(entry.get("state") or "unknown")
+            reason = entry.get("blocked_reason")
+            reason_str = str(reason) if isinstance(reason, str) and reason else None
+            current[runtime_id] = self._flow_gate_key(
+                runtime_id=runtime_id,
+                state=state,
+                blocked_reason=reason_str,
+            )
+        self._flow_gate_current = current
+        if last is None:
+            return
+        elapsed = max(0.0, min(1.0, float(now_mono) - float(last)))
+        if elapsed <= 0.0:
+            return
+        for runtime_id, gate in current.items():
+            key = f"{runtime_id}:{gate}"
+            self._flow_gate_totals_s[key] = self._flow_gate_totals_s.get(key, 0.0) + elapsed
+
+    def _flow_gate_key(
+        self,
+        *,
+        runtime_id: str,
+        state: str,
+        blocked_reason: str | None,
+    ) -> str:
+        if blocked_reason == "downstream_full":
+            capacity = self._capacity_debug.get(runtime_id)
+            gate = self._capacity_gate_key(capacity)
+            if gate is not None:
+                return gate
+            return "BLOCKED_DOWNSTREAM_FULL"
+        if blocked_reason == "lease_denied":
+            return "BLOCKED_LEASE_DENIED"
+        if blocked_reason == "awaiting_downstream_arrival":
+            return "BLOCKED_AWAITING_DOWNSTREAM_ARRIVAL"
+        if blocked_reason == "exit_spacing":
+            return "BLOCKED_EXIT_SPACING"
+        if blocked_reason in {"distributor_busy", "waiting_distributor"}:
+            return "BLOCKED_DISTRIBUTOR_NOT_READY"
+        if blocked_reason == "waiting_distributor_request":
+            return "BLOCKED_DISTRIBUTOR_NOT_READY"
+        if blocked_reason in {"exit_piece_not_ready", "exit_piece_unclassified"}:
+            return "BLOCKED_C4_EXIT_HOLD"
+        if blocked_reason == "trailing_piece_in_chute":
+            return "BLOCKED_CHUTE_NOT_SINGLETON"
+        if blocked_reason == "eject_in_flight":
+            return "PULSE_SENT_OR_ACTIVE"
+        if blocked_reason == "cooldown":
+            return "PULSE_SUPPRESSED_COOLDOWN"
+        if blocked_reason == "startup_hold":
+            return "PULSE_SUPPRESSED_STARTUP_HOLD"
+        if blocked_reason == "observing_downstream":
+            return "PULSE_SUPPRESSED_OBSERVING_DOWNSTREAM"
+        if blocked_reason == "hw_busy":
+            return "PULSE_SUPPRESSED_HW_BUSY"
+        if blocked_reason == "hw_queue_full":
+            return "PULSE_SUPPRESSED_HW_QUEUE_FULL"
+        if blocked_reason:
+            return f"BLOCKED_{blocked_reason.upper()}"
+        if state in {"idle", "running"}:
+            return "READY_OR_ACTIVE"
+        if state.startswith("pulsing") or state in {
+            "rotate_pipeline",
+            "drop_commit",
+            "classify_pending",
+            "sending",
+            "positioning",
+        }:
+            return "PULSE_SENT_OR_ACTIVE"
+        return f"STATE_{state.upper()}"
+
+    @staticmethod
+    def _capacity_gate_key(capacity: dict[str, Any] | None) -> str | None:
+        if not isinstance(capacity, dict):
+            return None
+        if int(capacity.get("available") or 0) > 0:
+            return None
+        downstream = str(capacity.get("downstream") or "downstream").upper()
+        reason = str(capacity.get("reason") or "no_capacity")
+        if downstream == "C4" and reason in {
+            "dropzone_clear",
+            "arc_clear",
+            "zone_cap",
+            "transport_cap",
+            "raw_cap",
+            "startup_purge",
+        }:
+            return f"BLOCKED_C4_ADMISSION_{reason.upper()}"
+        if reason == "piece_cap":
+            return f"BLOCKED_{downstream}_DENSITY_CAP"
+        if reason == "purge":
+            return f"BLOCKED_{downstream}_PURGE"
+        return f"BLOCKED_{downstream}_{reason.upper()}"
+
+    @staticmethod
+    def _safe_int(value: Any, fallback: Any = 0) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            try:
+                return int(fallback)
+            except (TypeError, ValueError):
+                return 0
+
+    @staticmethod
+    def _safe_float(value: Any, fallback: float = 0.0) -> float:
+        try:
+            return float(value)
+        except (TypeError, ValueError):
+            return float(fallback)
+
+    @staticmethod
+    def _bounded_int(
+        value: Any,
+        name: str,
+        *,
+        min_value: int,
+        max_value: int,
+    ) -> int:
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be an integer") from exc
+        if parsed < min_value or parsed > max_value:
+            raise ValueError(f"{name} must be between {min_value} and {max_value}")
+        return parsed
+
+    @staticmethod
+    def _bounded_float(
+        value: Any,
+        name: str,
+        *,
+        min_value: float,
+        max_value: float,
+    ) -> float:
+        try:
+            parsed = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be a number") from exc
+        if parsed < min_value or parsed > max_value:
+            raise ValueError(f"{name} must be between {min_value} and {max_value}")
+        return parsed
 
     def _tick(self, now_mono: float) -> None:
         # Downstream-first so upstream runtimes see fresh capacity.
@@ -368,6 +879,7 @@ class Orchestrator:
                 )
         self._tick_count += 1
         self._last_tick_mono = now_mono
+        self._observe_flow_gates(now_mono)
 
     def _run(self) -> None:
         period = self._tick_period_s

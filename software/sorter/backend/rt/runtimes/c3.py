@@ -42,6 +42,7 @@ from rt.perception.track_policy import action_track, is_visible_track
 from rt.services.track_transit import TrackTransitRegistry
 from rt.services.transport_velocity import TransportVelocityObserver
 
+from ._bad_actor_suppression import StationaryBadActorSuppressor, track_key
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
@@ -74,6 +75,9 @@ DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
 DEFAULT_HANDOFF_RETRY_ESCALATE_AFTER = 2
 DEFAULT_HANDOFF_RETRY_MAX_PULSES = 2
+DEFAULT_TRANSPORT_BAD_ACTOR_STATIONARY_AFTER_S = 6.0
+DEFAULT_TRANSPORT_BAD_ACTOR_OBSERVE_S = 10.0
+DEFAULT_TRANSPORT_BAD_ACTOR_CAPACITY_BLOCK_COUNT = 8
 ACTION_TRACK_MIN_HITS = 2
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
@@ -168,6 +172,7 @@ class RuntimeC3(BaseRuntime):
         self._piece_count: int = 0
         self._admission_piece_count: int = 0
         self._visible_track_count: int = 0
+        self._active_visible_track_count: int = 0
         self._pending_track_count: int = 0
         self._pending_downstream_claims: dict[int, float] = {}
         self._pending_downstream_claim_retries: dict[int, int] = {}
@@ -182,6 +187,18 @@ class RuntimeC3(BaseRuntime):
         self._upstream_pending_leases: dict[str, float] = {}
         self._upstream_lease_arc_center_rad: float = math.radians(180.0)
         self._upstream_lease_min_spacing_rad: float = math.radians(60.0)
+        self._upstream_bad_actor_suppressor = StationaryBadActorSuppressor(
+            name="c3_upstream_landing",
+        )
+        self._ignored_upstream_bad_actor_keys: set[int] = set()
+        self._transport_bad_actor_suppressor = StationaryBadActorSuppressor(
+            name="c3_transport_non_carrying",
+            stationary_after_s=DEFAULT_TRANSPORT_BAD_ACTOR_STATIONARY_AFTER_S,
+            stationary_span_deg=4.0,
+            release_move_deg=18.0,
+        )
+        self._ignored_transport_bad_actor_keys: set[int] = set()
+        self._transport_bad_actor_observe_until: float = 0.0
         # Software escapement to C4. Set at bootstrap via
         # ``set_landing_lease_port``. When present, every C3 exit pulse
         # is gated through ``request_lease`` — no lease, no pulse. Live
@@ -233,16 +250,55 @@ class RuntimeC3(BaseRuntime):
         """
         if self._purge_mode:
             return 0
+        if (
+            len(self._ignored_transport_bad_actor_keys)
+            >= DEFAULT_TRANSPORT_BAD_ACTOR_CAPACITY_BLOCK_COUNT
+        ):
+            return 0
         if self._admission_piece_count >= self._max_piece_count:
             return 0
         return 1
 
+    def capacity_debug_snapshot(self) -> dict[str, Any]:
+        if self._purge_mode:
+            reason = "purge"
+            available = 0
+        elif (
+            len(self._ignored_transport_bad_actor_keys)
+            >= DEFAULT_TRANSPORT_BAD_ACTOR_CAPACITY_BLOCK_COUNT
+        ):
+            reason = "transport_bad_actor_cluster"
+            available = 0
+        elif self._admission_piece_count >= self._max_piece_count:
+            reason = "piece_cap"
+            available = 0
+        else:
+            reason = "ok"
+            available = 1
+        return {
+            "available": int(available),
+            "reason": reason,
+            "piece_count": int(self._piece_count),
+            "admission_piece_count": int(self._admission_piece_count),
+            "visible_track_count": int(self._visible_track_count),
+            "max_piece_count": int(self._max_piece_count),
+            "purge_mode": bool(self._purge_mode),
+            "transport_bad_actor_ignored_count": int(
+                len(self._ignored_transport_bad_actor_keys)
+            ),
+            "transport_bad_actor_capacity_block_count": int(
+                DEFAULT_TRANSPORT_BAD_ACTOR_CAPACITY_BLOCK_COUNT
+            ),
+        }
+
     def debug_snapshot(self) -> dict[str, Any]:
         snap = super().debug_snapshot()
+        ts = time.monotonic()
         snap.update({
             "piece_count": int(self._piece_count),
             "admission_piece_count": int(self._admission_piece_count),
             "visible_track_count": int(self._visible_track_count),
+            "active_visible_track_count": int(self._active_visible_track_count),
             "pending_track_count": int(self._pending_track_count),
             "max_piece_count": int(self._max_piece_count),
             "available_slots": int(self.available_slots()),
@@ -259,10 +315,21 @@ class RuntimeC3(BaseRuntime):
             "handoff_retry_max_pulses": int(self._handoff_retry_max_pulses),
             "seen_global_ids": len(self._book.seen_global_ids),
             "exit_stall_active": self._book.exit_stall_since is not None,
-            "holdover_active": self.in_holdover(time.monotonic()),
-            "exit_handoff_spacing_s": max(0.0, self._next_exit_handoff_at - time.monotonic()),
+            "holdover_active": self.in_holdover(ts),
+            "exit_handoff_spacing_s": max(0.0, self._next_exit_handoff_at - ts),
             "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
+            "upstream_bad_actor_suppression": self._upstream_bad_actor_suppressor.snapshot(
+                now_mono=ts,
+            ),
+            "transport_bad_actor_suppression": {
+                **self._transport_bad_actor_suppressor.snapshot(now_mono=ts),
+                "observing": ts < self._transport_bad_actor_observe_until,
+                "observe_for_s": max(
+                    0.0,
+                    self._transport_bad_actor_observe_until - ts,
+                ),
+            },
             "handoff_burst_diagnostics": self._handoff_diagnostics.snapshot(),
         })
         return snap
@@ -301,15 +368,46 @@ class RuntimeC3(BaseRuntime):
             self._sweep_pending_downstream_claims(now_mono)
             tracks = self._fresh_tracks(inbox.tracks)
             visible_tracks = [t for t in tracks if is_visible_track(t)]
-            action_tracks = [
-                t for t in visible_tracks if action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
-            ]
             self._visible_track_count = len(visible_tracks)
-            self._pending_track_count = max(0, self._visible_track_count - len(action_tracks))
             # Snapshot for the upstream landing-lease port.
+            self._ignored_upstream_bad_actor_keys = self._upstream_bad_actor_suppressor.update(
+                visible_tracks,
+                now_mono=now_mono,
+                arc_center_rad=self._upstream_lease_arc_center_rad,
+                arc_half_width_rad=self._upstream_lease_min_spacing_rad,
+            )
+            if (
+                now_mono < self._transport_bad_actor_observe_until
+                or self._transport_bad_actor_suppressor.ignored_keys()
+            ):
+                self._ignored_transport_bad_actor_keys = (
+                    self._transport_bad_actor_suppressor.update(
+                        visible_tracks,
+                        now_mono=now_mono,
+                        arc_center_rad=0.0,
+                        arc_half_width_rad=math.pi,
+                    )
+                )
+            else:
+                self._ignored_transport_bad_actor_keys.clear()
+                self._transport_bad_actor_suppressor.reset()
+            ignored_bad_actor_keys = (
+                self._ignored_upstream_bad_actor_keys
+                | self._ignored_transport_bad_actor_keys
+            )
+            active_visible_tracks = [
+                t
+                for t in visible_tracks
+                if track_key(t) not in ignored_bad_actor_keys
+            ]
+            self._active_visible_track_count = len(active_visible_tracks)
+            action_tracks = [
+                t for t in active_visible_tracks if action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
+            ]
+            self._pending_track_count = max(0, self._active_visible_track_count - len(action_tracks))
             self._latest_visible_angles_rad = [
                 float(t.angle_rad)
-                for t in visible_tracks
+                for t in active_visible_tracks
                 if t.angle_rad is not None
             ]
             self._piece_count = len(action_tracks)
@@ -317,7 +415,7 @@ class RuntimeC3(BaseRuntime):
             self._transport_velocity.update(action_tracks, now_mono=now_mono)
             if not self._purge_mode:
                 self._credit_new_arrivals(action_tracks, now_mono)
-            exit_track = self._pick_exit_track(visible_tracks)
+            exit_track = self._pick_exit_track(active_visible_tracks)
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
                 return
@@ -327,7 +425,7 @@ class RuntimeC3(BaseRuntime):
             if self._purge_mode:
                 self._dispatch_purge_pulse(now_mono)
                 return
-            approach_track = self._pick_approach_track(visible_tracks)
+            approach_track = self._pick_approach_track(active_visible_tracks)
             if exit_track is not None and self._has_pending_downstream_claim(
                 exit_track, now_mono
             ):
@@ -347,16 +445,16 @@ class RuntimeC3(BaseRuntime):
                 self._book.exit_stall_since = None
                 self._set_state("handoff_spacing", blocked_reason="exit_spacing")
                 return
-            if inbox.capacity_downstream <= 0:
+            if inbox.capacity_downstream <= 0 and exit_track is not None:
                 self._book.exit_stall_since = None
                 self._set_state("idle", blocked_reason="downstream_full")
                 return
-            if not visible_tracks:
+            if not active_visible_tracks:
                 self._book.exit_stall_since = None
                 self._set_state("idle")
                 return
             mode = self._resolve_mode(exit_track, approach_track, now_mono)
-            target_track = exit_track or approach_track or visible_tracks[0]
+            target_track = exit_track or approach_track or active_visible_tracks[0]
             # Only pieces inside the commit zone (exit_near_arc) are
             # allowed to claim a downstream slot. Tracks in the wider
             # approach zone get slow pulses too, but don't grab c3_to_c4
@@ -574,7 +672,7 @@ class RuntimeC3(BaseRuntime):
                     )
                     if lease_id is None:
                         self._set_state(
-                            "pulsing", blocked_reason="downstream_full"
+                            "pulsing", blocked_reason="lease_denied"
                         )
                         return
                     self._active_lease_by_track[claim_key] = lease_id
@@ -668,6 +766,10 @@ class RuntimeC3(BaseRuntime):
                     self._pending_downstream_claim_retries.pop(claim_key, None)
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
+        self._mark_transport_attempt(
+            now_mono,
+            duration_s=(timing.pulse_ms * repeat_count) / 1000.0,
+        )
         self._publish_rotation_window(
             (timing.pulse_ms * repeat_count) / 1000.0,
             now_mono,
@@ -761,6 +863,7 @@ class RuntimeC3(BaseRuntime):
         if not enqueued:
             self._set_state("sample_transport", blocked_reason="hw_queue_full")
             return False
+        self._mark_transport_attempt(now_mono, duration_s=timing.pulse_ms / 1000.0)
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("sample_transport")
         return True
@@ -822,8 +925,17 @@ class RuntimeC3(BaseRuntime):
         if not enqueued:
             self._set_state("pulsing", blocked_reason="hw_queue_full")
             return
+        self._mark_transport_attempt(now_mono, duration_s=timing.pulse_ms / 1000.0)
         self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
         self._set_state("pulsing", blocked_reason="purge")
+
+    def _mark_transport_attempt(self, now_mono: float, *, duration_s: float) -> None:
+        self._transport_bad_actor_observe_until = max(
+            self._transport_bad_actor_observe_until,
+            float(now_mono)
+            + max(0.0, float(duration_s))
+            + DEFAULT_TRANSPORT_BAD_ACTOR_OBSERVE_S,
+        )
 
     def _publish_rotation_window(self, duration_s: float, now_mono: float) -> None:
         # Mirror of RuntimeC2._publish_rotation_window — tells the perception
@@ -888,9 +1000,15 @@ class RuntimeC3(BaseRuntime):
         self._piece_count = 0
         self._admission_piece_count = 0
         self._visible_track_count = 0
+        self._active_visible_track_count = 0
         self._pending_track_count = 0
         self._pending_downstream_claims.clear()
         self._pending_downstream_claim_retries.clear()
+        self._ignored_upstream_bad_actor_keys.clear()
+        self._upstream_bad_actor_suppressor.reset()
+        self._ignored_transport_bad_actor_keys.clear()
+        self._transport_bad_actor_suppressor.reset()
+        self._transport_bad_actor_observe_until = 0.0
         self._arrival_diagnostics_armed = False
         self._next_pulse_at = 0.0
         self._next_exit_handoff_at = 0.0
@@ -1085,7 +1203,7 @@ class _C3PurgePort:
 
     def counts(self) -> PurgeCounts:
         return PurgeCounts(
-            piece_count=int(self._runtime._visible_track_count),
+            piece_count=int(self._runtime._active_visible_track_count),
             owned_count=0,
             pending_detections=0,
         )

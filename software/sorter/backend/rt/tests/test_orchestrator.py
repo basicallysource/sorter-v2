@@ -4,6 +4,8 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
+import pytest
+
 from rt.contracts.runtime import Runtime, RuntimeHealth, RuntimeInbox
 from rt.contracts.tracking import TrackBatch
 from rt.coupling.orchestrator import Orchestrator
@@ -33,6 +35,8 @@ class _FakeRuntime(Runtime):
         self._raises = raises
         self._available_slots = 1
         self._debug_snapshot: dict[str, Any] = {}
+        self._capacity_debug_snapshot: dict[str, Any] = {}
+        self._health = RuntimeHealth(state="idle", blocked_reason=None, last_tick_ms=0.5)
 
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
         if self._raises:
@@ -52,10 +56,13 @@ class _FakeRuntime(Runtime):
         return None
 
     def health(self) -> RuntimeHealth:
-        return RuntimeHealth(state="idle", blocked_reason=None, last_tick_ms=0.5)
+        return self._health
 
     def debug_snapshot(self) -> dict[str, Any]:
         return dict(self._debug_snapshot)
+
+    def capacity_debug_snapshot(self) -> dict[str, Any]:
+        return dict(self._capacity_debug_snapshot)
 
     def start(self) -> None:
         self.started = True
@@ -138,6 +145,253 @@ def test_capacity_downstream_is_limited_by_downstream_runtime_headroom() -> None
     assert c1.ticks[-1].capacity_downstream == 2
 
 
+def test_c1_capacity_obeys_c3_transitive_backpressure() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c2._available_slots = 2
+    c3._available_slots = 0
+    c3._capacity_debug_snapshot = {"reason": "piece_cap", "piece_count": 8}
+    orch = _make_orchestrator(
+        [c1, c2, c3],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+        },
+    )
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c2.ticks[-1].capacity_downstream == 0
+    assert c1.ticks[-1].capacity_downstream == 0
+    c1_capacity = orch.status_snapshot()["capacity_debug"]["c1"]
+    assert c1_capacity["downstream"] == "c3"
+    assert c1_capacity["immediate_downstream"] == "c2"
+    assert c1_capacity["reason"] == "piece_cap"
+
+    c3._available_slots = 1
+    orch.tick_once(now_mono=0.1)
+
+    assert c1.ticks[-1].capacity_downstream == 2
+
+
+def test_c1_capacity_obeys_c4_backlog_backpressure() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c4._available_slots = 2
+    c4._debug_snapshot = {
+        "raw_detection_count": 6,
+        "dossier_count": 3,
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 0
+    c1_capacity = orch.status_snapshot()["capacity_debug"]["c1"]
+    assert c1_capacity["downstream"] == "c4"
+    assert c1_capacity["immediate_downstream"] == "c2"
+    assert c1_capacity["reason"] == "backlog_dossiers"
+    assert c1_capacity["controller"]["name"] == "c1_c4_backpressure"
+
+    c4._debug_snapshot = {
+        "raw_detection_count": 6,
+        "dossier_count": 2,
+    }
+    orch.tick_once(now_mono=0.1)
+
+    assert c1.ticks[-1].capacity_downstream == 2
+
+
+def test_c1_c4_backpressure_can_be_tuned_live() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c4 = _FakeRuntime("c4")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c4._available_slots = 2
+    c4._debug_snapshot = {
+        "raw_detection_count": 6,
+        "dossier_count": 2,
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3, c4],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+            ("c3", "c4"): CapacitySlot("c3_to_c4", 1),
+        },
+    )
+
+    orch.update_c1_c4_backpressure(raw_high=6, dossier_high=4)
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert orch.status_snapshot()["capacity_debug"]["c1"]["reason"] == "backlog_raw"
+    assert orch.c1_c4_backpressure_snapshot()["raw_high"] == 6
+
+
+def test_c1_capacity_obeys_c2_vision_density_controller() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c2._capacity_debug_snapshot = {
+        "reason": "ok",
+            "density": {
+                "piece_count_estimate": 2,
+                "clump_score": 0.8,
+                "exit_queue_length": 0,
+            },
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+        },
+    )
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 0
+    c1_capacity = orch.status_snapshot()["capacity_debug"]["c1"]
+    assert c1_capacity["downstream"] == "c2"
+    assert c1_capacity["reason"] == "vision_density_clump"
+    assert c1_capacity["controller"]["name"] == "c1_c2_vision_burst"
+
+
+def test_c1_capacity_allows_low_clean_c2_buffer() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c2._capacity_debug_snapshot = {
+        "reason": "ok",
+            "density": {
+                "piece_count_estimate": 0,
+                "clump_score": 0.0,
+                "exit_queue_length": 0,
+            },
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+        },
+    )
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 2
+
+
+def test_c1_capacity_holds_single_visible_c2_piece_by_default() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c2._capacity_debug_snapshot = {
+        "reason": "ok",
+        "density": {
+            "piece_count_estimate": 1,
+            "clump_score": 0.0,
+            "exit_queue_length": 0,
+        },
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+        },
+    )
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert (
+        orch.status_snapshot()["capacity_debug"]["c1"]["reason"]
+        == "vision_target_band"
+    )
+
+
+def test_c1_capacity_holds_middle_c2_target_band() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c2._capacity_debug_snapshot = {
+        "reason": "ok",
+        "density": {
+            "piece_count_estimate": 2,
+            "clump_score": 0.0,
+            "exit_queue_length": 0,
+        },
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+        },
+    )
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 0
+    assert (
+        orch.status_snapshot()["capacity_debug"]["c1"]["reason"]
+        == "vision_target_band"
+    )
+
+
+def test_c1_vision_controller_can_be_tuned_live() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c3 = _FakeRuntime("c3")
+    c2._available_slots = 2
+    c3._available_slots = 1
+    c2._capacity_debug_snapshot = {
+        "reason": "ok",
+        "density": {
+            "piece_count_estimate": 1,
+            "clump_score": 0.0,
+            "exit_queue_length": 0,
+        },
+    }
+    orch = _make_orchestrator(
+        [c1, c2, c3],
+        {
+            ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
+            ("c2", "c3"): CapacitySlot("c2_to_c3", 1),
+        },
+    )
+    orch.update_c1_c2_vision_controller(target_low=2, target_high=4)
+
+    orch.tick_once(now_mono=0.0)
+
+    assert c1.ticks[-1].capacity_downstream == 2
+    assert orch.c1_c2_vision_controller_snapshot()["target_low"] == 2
+
+
 def test_perception_source_forwarded_to_feed_runtime() -> None:
     c2 = _FakeRuntime("c2", feed_id="c2_feed")
     slots: dict = {}
@@ -186,6 +440,29 @@ def test_status_snapshot_surfaces_runtime_and_slot_debug() -> None:
         "taken": 1,
         "available": 1,
     }
+
+
+def test_flow_gate_accounting_refines_downstream_capacity_reason() -> None:
+    c1 = _FakeRuntime("c1")
+    c2 = _FakeRuntime("c2")
+    c1._health = RuntimeHealth(
+        state="idle",
+        blocked_reason="downstream_full",
+        last_tick_ms=0.5,
+    )
+    c2._available_slots = 0
+    c2._capacity_debug_snapshot = {"reason": "piece_cap"}
+    orch = _make_orchestrator(
+        [c1, c2],
+        {("c1", "c2"): CapacitySlot("c1_to_c2", 1)},
+    )
+
+    orch.tick_once(now_mono=10.0)
+    orch.tick_once(now_mono=10.5)
+    flow = orch.status_snapshot()["flow_gate_accounting"]
+
+    assert flow["current"]["c1"] == "BLOCKED_C2_DENSITY_CAP"
+    assert flow["totals_s"]["c1:BLOCKED_C2_DENSITY_CAP"] == pytest.approx(0.5)
 
 
 def test_start_stop_lifecycle_propagates_to_runtimes() -> None:

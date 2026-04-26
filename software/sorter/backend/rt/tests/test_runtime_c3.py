@@ -37,6 +37,14 @@ class _InlineHw:
         return 0
 
 
+class _DenyLandingLease:
+    def request_lease(self, **_kwargs) -> str | None:
+        return None
+
+    def consume_lease(self, _lease_id: str) -> None:
+        return None
+
+
 def _track(
     track_id: int = 1,
     global_id: int | None = 1,
@@ -120,6 +128,155 @@ def test_c3_precise_pulse_when_track_at_exit() -> None:
     rt.tick(inbox, now_mono=0.0)
     assert log and log[0].startswith("precise:")
     assert down.available() == 0
+
+
+def test_c3_reports_lease_denial_separately_from_capacity() -> None:
+    rt, _up, down, log = _make()
+    rt.set_landing_lease_port(_DenyLandingLease())
+    inbox = RuntimeInbox(tracks=_batch(_track(angle_rad=0.0)), capacity_downstream=1)
+
+    rt.tick(inbox, now_mono=0.0)
+
+    assert log == []
+    assert down.available() == 1
+    assert rt.health().blocked_reason == "lease_denied"
+
+
+def test_c3_ignores_stationary_round_part_in_upstream_landing_arc() -> None:
+    rt, _up, _down, _log = _make()
+    landing_track = _track(global_id=44, angle_rad=math.pi, hit_count=12)
+
+    for ts in (0.0, 1.0, 2.0, 3.0, 4.1):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(landing_track), capacity_downstream=1),
+            now_mono=ts,
+        )
+
+    debug = rt.debug_snapshot()
+    assert debug["visible_track_count"] == 1
+    assert debug["active_visible_track_count"] == 0
+    assert debug["upstream_bad_actor_suppression"]["ignored_count"] == 1
+    assert rt.purge_port().counts().piece_count == 0
+
+    lease = rt.landing_lease_port().request_lease(
+        predicted_arrival_in_s=0.5,
+        min_spacing_deg=60.0,
+        now_mono=4.2,
+        track_global_id=101,
+    )
+    assert lease is not None
+
+
+def test_c3_reactivates_ignored_landing_part_after_clear_motion() -> None:
+    rt, _up, _down, _log = _make()
+    landing_track = _track(global_id=44, angle_rad=math.pi, hit_count=12)
+
+    for ts in (0.0, 1.0, 2.0, 3.0, 4.1):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(landing_track), capacity_downstream=1),
+            now_mono=ts,
+        )
+    assert rt.debug_snapshot()["upstream_bad_actor_suppression"]["ignored_count"] == 1
+
+    moved_track = _track(
+        global_id=44,
+        angle_rad=math.pi - math.radians(25.0),
+        hit_count=14,
+    )
+    rt.tick(
+        RuntimeInbox(tracks=_batch(moved_track), capacity_downstream=1),
+        now_mono=5.0,
+    )
+
+    debug = rt.debug_snapshot()
+    assert debug["upstream_bad_actor_suppression"]["ignored_count"] == 0
+    assert debug["active_visible_track_count"] == 1
+    assert rt.landing_lease_port().request_lease(
+        predicted_arrival_in_s=0.5,
+        min_spacing_deg=60.0,
+        now_mono=5.1,
+        track_global_id=101,
+    ) is None
+
+
+def test_c3_ignores_stationary_transport_bad_actor_after_motion_attempts() -> None:
+    rt, _up, _down, log = _make()
+    stuck = _track(global_id=55, angle_rad=math.radians(-25.0), hit_count=12)
+
+    for ts in (0.0, 1.0, 2.0, 4.0, 7.2):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(stuck), capacity_downstream=1),
+            now_mono=ts,
+        )
+
+    debug = rt.debug_snapshot()
+    assert log
+    assert debug["visible_track_count"] == 1
+    assert debug["active_visible_track_count"] == 0
+    assert debug["transport_bad_actor_suppression"]["ignored_count"] == 1
+    assert rt.purge_port().counts().piece_count == 0
+    assert rt.available_slots() == 1
+
+
+def test_c3_transport_bad_actor_cluster_blocks_upstream_capacity() -> None:
+    rt, _up, _down, _log = _make()
+    rt._ignored_transport_bad_actor_keys.update({11, 12, 13, 14, 15, 16, 17})
+
+    capacity = rt.capacity_debug_snapshot()
+
+    assert rt.available_slots() == 1
+    assert capacity["available"] == 1
+    assert capacity["reason"] == "ok"
+    assert capacity["transport_bad_actor_ignored_count"] == 7
+    assert capacity["transport_bad_actor_capacity_block_count"] == 8
+
+    rt._ignored_transport_bad_actor_keys.add(18)
+
+    capacity = rt.capacity_debug_snapshot()
+
+    assert rt.available_slots() == 0
+    assert capacity["available"] == 0
+    assert capacity["reason"] == "transport_bad_actor_cluster"
+    assert capacity["transport_bad_actor_ignored_count"] == 8
+    assert capacity["transport_bad_actor_capacity_block_count"] == 8
+
+
+def test_c3_transport_bad_actor_reactivates_after_clear_motion() -> None:
+    rt, _up, _down, _log = _make()
+    stuck = _track(global_id=55, angle_rad=math.radians(-25.0), hit_count=12)
+
+    for ts in (0.0, 1.0, 2.0, 4.0, 7.2):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(stuck), capacity_downstream=1),
+            now_mono=ts,
+        )
+    assert rt.debug_snapshot()["transport_bad_actor_suppression"]["ignored_count"] == 1
+
+    moved = _track(global_id=55, angle_rad=math.radians(-55.0), hit_count=13)
+    rt.tick(
+        RuntimeInbox(tracks=_batch(moved), capacity_downstream=1),
+        now_mono=8.0,
+    )
+
+    debug = rt.debug_snapshot()
+    assert debug["transport_bad_actor_suppression"]["ignored_count"] == 0
+    assert debug["active_visible_track_count"] == 1
+
+
+def test_c3_does_not_transport_ignore_piece_waiting_for_downstream_capacity() -> None:
+    rt, _up, _down, log = _make()
+    waiting = _track(global_id=56, angle_rad=0.0, hit_count=12)
+
+    for ts in (0.0, 1.0, 2.0, 4.0, 7.2):
+        rt.tick(
+            RuntimeInbox(tracks=_batch(waiting), capacity_downstream=0),
+            now_mono=ts,
+        )
+
+    debug = rt.debug_snapshot()
+    assert log == []
+    assert debug["active_visible_track_count"] == 1
+    assert debug["transport_bad_actor_suppression"]["ignored_count"] == 0
 
 
 def test_c3_exit_pulse_publishes_c4_transit_candidate() -> None:
@@ -518,6 +675,33 @@ def test_c3_downstream_full_blocks_precise_pulse() -> None:
     )
     # No pulse dispatched because capacity_downstream == 0.
     assert not any(entry.startswith("precise:") for entry in log)
+
+
+def test_c3_downstream_full_still_allows_non_commit_approach_pulse() -> None:
+    rt, _up, down, log = _make()
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(_track(angle_rad=math.radians(35.0))),
+            capacity_downstream=0,
+        ),
+        now_mono=0.0,
+    )
+
+    assert log and log[0].startswith("precise:")
+    assert down.available() == 1
+
+
+def test_c3_downstream_full_still_allows_non_commit_normal_pulse() -> None:
+    rt, _up, down, log = _make()
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(angle_rad=math.pi)), capacity_downstream=0),
+        now_mono=0.0,
+    )
+
+    assert log and log[0].startswith("normal:")
+    assert down.available() == 1
 
 
 def test_c3_ignores_stale_coasted_track() -> None:

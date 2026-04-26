@@ -517,6 +517,83 @@ def test_orchestrator_c4_mode_rejects_unknown_value() -> None:
         )
 
 
+def test_orchestrator_carousel_handler_sector_geometry_round_trip() -> None:
+    """5-wall hardware: sector_count + offset routed through tuning API."""
+    from rt.services.carousel_c4_handler import CarouselC4Handler
+
+    handle = _handle()
+    handler = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=type(
+            "_D",
+            (),
+            {
+                "handoff_request": lambda self, **kw: True,
+                "handoff_commit": lambda self, *a, **kw: True,
+                "pending_ready": lambda self, *a, **kw: False,
+            },
+        )(),
+    )
+    handle.orchestrator._carousel_c4_handler = handler
+
+    runtime_tuning.apply_patch(
+        handle,
+        {
+            "orchestrator": {
+                "carousel_c4_handler": {
+                    "geometry": {
+                        "sector_count": 5,
+                        "sector_offset_deg": 18.0,
+                        "classify_deg": 50.0,
+                        "drop_deg": 200.0,
+                    }
+                }
+            }
+        },
+    )
+    snap = handler.snapshot()["geometry"]
+    assert snap["sector_count"] == 5
+    assert snap["sector_offset_deg"] == pytest.approx(18.0)
+    # 50° with offset 18° → sector 0 (18..90), center 54°.
+    assert snap["classify_deg"] == pytest.approx(54.0)
+    # 200° with offset 18° → sector 2 (162..234), center 198° → wrapped to -162°.
+    assert snap["drop_deg"] == pytest.approx(-162.0)
+    assert snap["sector_size_deg"] == pytest.approx(72.0)
+    # Tolerances widened automatically.
+    assert snap["classify_tolerance_deg"] > 20.0
+
+
+def test_orchestrator_carousel_geometry_rejects_invalid_sector_count() -> None:
+    from rt.services.carousel_c4_handler import CarouselC4Handler
+
+    handle = _handle()
+    handle.orchestrator._carousel_c4_handler = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=type(
+            "_D",
+            (),
+            {
+                "handoff_request": lambda self, **kw: True,
+                "handoff_commit": lambda self, *a, **kw: True,
+                "pending_ready": lambda self, *a, **kw: False,
+            },
+        )(),
+    )
+    with pytest.raises(ValueError, match="sector_count"):
+        runtime_tuning.apply_patch(
+            handle,
+            {
+                "orchestrator": {
+                    "carousel_c4_handler": {
+                        "geometry": {"sector_count": 100},   # >64 cap
+                    }
+                }
+            },
+        )
+
+
 def test_orchestrator_section_handler_geometry_rejects_unknown_channel() -> None:
     from rt.services.section_feeder_handler import SectionFeederHandler
     from rt.services.sector_shadow_observer import ChannelGeometry

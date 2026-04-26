@@ -349,6 +349,16 @@ class Orchestrator:
             return normalized
         self._c4_mode = normalized
         handler = self._carousel_c4_handler
+        c4 = self._runtime_by_id.get("c4")
+        if c4 is not None:
+            set_carousel_mode = getattr(c4, "set_carousel_mode_active", None)
+            if callable(set_carousel_mode):
+                try:
+                    set_carousel_mode(normalized == "carousel")
+                except Exception:
+                    self._logger.exception(
+                        "Orchestrator: c4.set_carousel_mode_active raised"
+                    )
         if handler is not None:
             try:
                 if normalized == "carousel":
@@ -1408,6 +1418,11 @@ class Orchestrator:
                 )
         if section_active:
             self._tick_section_handler(now_mono)
+        if (
+            self._c4_mode == "carousel"
+            and self._carousel_c4_handler is not None
+        ):
+            self._tick_carousel_c4_handler(now_mono)
         self._tick_count += 1
         self._last_tick_mono = now_mono
         self._observe_flow_gates(now_mono)
@@ -1486,6 +1501,75 @@ class Orchestrator:
         except Exception:
             self._logger.exception(
                 "Orchestrator: section feeder handler tick raised"
+            )
+
+    def _tick_carousel_c4_handler(self, now_mono: float) -> None:
+        """Bridge RuntimeC4 state into the carousel handler.
+
+        RuntimeC4 still does perception + admission + classification
+        in carousel mode (so dossier results flow into ``front``);
+        we just translate the front-piece view into the handler's
+        ``CarouselTickInput`` and feed it once per orchestrator tick.
+        """
+        from rt.services.carousel_c4_handler import CarouselTickInput
+
+        handler = self._carousel_c4_handler
+        if handler is None:
+            return
+        c4 = self._runtime_by_id.get("c4")
+        front = None
+        if c4 is not None:
+            front_fn = getattr(c4, "carousel_front_snapshot", None)
+            if callable(front_fn):
+                try:
+                    front = front_fn()
+                except Exception:
+                    self._logger.exception(
+                        "Orchestrator: c4.carousel_front_snapshot raised"
+                    )
+
+        distributor = self._runtime_by_id.get("distributor")
+        pending_uuid: str | None = None
+        pending_ready = False
+        if distributor is not None:
+            try:
+                pending_uuid = distributor.pending_piece_uuid()
+            except Exception:
+                pending_uuid = None
+            try:
+                pending_ready = bool(distributor.pending_ready())
+            except Exception:
+                pending_ready = False
+
+        if front is None:
+            payload = CarouselTickInput(
+                front_piece_uuid=None,
+                front_track_angle_deg=None,
+                front_classification_present=False,
+                front_classification=None,
+                front_dossier={},
+                front_track_count=0,
+                distributor_pending_piece_uuid=pending_uuid,
+                distributor_pending_ready=pending_ready,
+            )
+        else:
+            payload = CarouselTickInput(
+                front_piece_uuid=front.get("piece_uuid"),
+                front_track_angle_deg=front.get("angle_deg"),
+                front_classification_present=bool(
+                    front.get("classification_present", False)
+                ),
+                front_classification=front.get("classification"),
+                front_dossier=dict(front.get("dossier") or {}),
+                front_track_count=1,
+                distributor_pending_piece_uuid=pending_uuid,
+                distributor_pending_ready=pending_ready,
+            )
+        try:
+            handler.tick(payload, now_mono=now_mono)
+        except Exception:
+            self._logger.exception(
+                "Orchestrator: carousel C4 handler tick raised"
             )
 
     def _run(self) -> None:

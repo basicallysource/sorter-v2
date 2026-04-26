@@ -287,6 +287,94 @@ def test_update_geometry_and_timing_live() -> None:
     assert snap["timing"]["advance_step_deg"] == 6.0
 
 
+def test_sector_mode_snaps_classify_drop_to_sector_centers() -> None:
+    """5-wall hardware: ``sector_count=5`` snaps classify/drop to centers."""
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        # sector_offset = 0, so sectors are 0-72, 72-144, 144-216, ...
+        # Centers: 36, 108, 180, -108 (252), -36 (324)
+        sector_count=5,
+        sector_offset_deg=0.0,
+        classify_deg=18.0,   # sector 0 → snaps to 36
+        drop_deg=30.0,       # sector 0 → also snaps to 36 (same sector)
+    )
+    snap = h.snapshot()
+    geom = snap["geometry"]
+    assert geom["sector_count"] == 5
+    assert geom["sector_size_deg"] == pytest.approx(72.0)
+    assert geom["classify_deg"] == pytest.approx(36.0)
+    # advance_step_deg auto-defaults to one sector when sector mode is on.
+    assert snap["timing"]["advance_step_deg"] == pytest.approx(72.0)
+
+
+def test_sector_index_for_known_angles() -> None:
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        sector_count=5,
+        sector_offset_deg=0.0,
+    )
+    assert h.sector_index_for(0.0) == 0
+    assert h.sector_index_for(35.9) == 0
+    assert h.sector_index_for(36.1) == 0
+    assert h.sector_index_for(72.1) == 1
+    assert h.sector_index_for(180.0) == 2
+    # -36° = 324° → sector 4 (last).
+    assert h.sector_index_for(-36.0) == 4
+    assert h.sector_index_for(360.0) == 0  # wrap
+
+
+def test_sector_mode_widens_default_tolerances() -> None:
+    """Default tolerances become sector-half-width minus a small margin."""
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        sector_count=5,
+    )
+    geom = h.snapshot()["geometry"]
+    # 5 sectors → 72° size → half = 36° → margin 7.2 (10% of size) → ≈28.8°
+    assert geom["classify_tolerance_deg"] == pytest.approx(28.8, abs=0.5)
+    assert geom["drop_tolerance_deg"] == pytest.approx(28.8, abs=0.5)
+
+
+def test_update_geometry_to_sector_mode_resnaps_targets() -> None:
+    """Switching to sector mode mid-flight re-snaps classify/drop angles."""
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        classify_deg=18.0,
+        drop_deg=30.0,
+    )
+    # Continuous mode: angles unchanged.
+    assert h.snapshot()["geometry"]["classify_deg"] == pytest.approx(18.0)
+    h.update_geometry(sector_count=5, sector_offset_deg=0.0)
+    geom = h.snapshot()["geometry"]
+    assert geom["classify_deg"] == pytest.approx(36.0)   # snapped
+    assert geom["drop_deg"] == pytest.approx(36.0)        # snapped
+    assert geom["sector_count"] == 5
+
+
+def test_sector_mode_offset_shifts_centers() -> None:
+    h = CarouselC4Handler(
+        c4_transport=lambda deg: True,
+        c4_eject=lambda: True,
+        distributor_port=_FakeDistributor(),
+        sector_count=5,
+        sector_offset_deg=18.0,    # shift sector 0 to span 18..90
+    )
+    # Sector 0 center now = 18 + 36 = 54
+    assert h.sector_center_deg(0) == pytest.approx(54.0)
+    # An angle of 50 should fall in sector 0.
+    assert h.sector_index_for(50.0) == 0
+    # An angle of 17 should fall in sector 4 (wraps backward).
+    assert h.sector_index_for(17.0) == 4
+
+
 def test_disable_aborts_inflight_cycle() -> None:
     h, _, _, _ = _make()
     h.enable()

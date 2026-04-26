@@ -231,6 +231,12 @@ class RuntimeC4(BaseRuntime):
         self._downstream_slot = downstream_slot
         self._zone_manager = zone_manager
         self._classifier = classifier
+        # Mode flag: when True, RuntimeC4 keeps doing perception +
+        # admission + classifier submission + dossier bookkeeping but
+        # *skips* its internal transport/handoff/eject decisions so an
+        # external scheduler (CarouselC4Handler) can own them without
+        # both paths fighting for the C4 stepper. Off by default.
+        self._carousel_mode_active = False
         self._admission = admission or C4Admission(max_zones=zone_manager.max_zones)
         self._ejection = ejection or C4EjectionTiming()
         self._startup_purge = startup_purge
@@ -413,6 +419,60 @@ class RuntimeC4(BaseRuntime):
             "available": 1 if decision.allowed else 0,
             "reason": decision.reason,
             "state": admission_state,
+        }
+
+    def set_carousel_mode_active(self, active: bool) -> None:
+        """Toggle the external-scheduler bypass.
+
+        When ``True`` the runtime keeps perception + admission +
+        classifier submission + dossier bookkeeping live (so BoxMot
+        piece UUIDs and image crops still flow), but skips its own
+        ``_request_pending_handoffs`` / ``_handle_exit`` /
+        ``_maybe_advance_transport`` / ``_maybe_idle_jog`` so an
+        external handler (CarouselC4Handler) can drive C4's hardware
+        without a parallel writer.
+        """
+        self._carousel_mode_active = bool(active)
+
+    def carousel_mode_active(self) -> bool:
+        return bool(self._carousel_mode_active)
+
+    def carousel_front_snapshot(self) -> dict[str, Any] | None:
+        """One-shot view of the front-most piece for the carousel handler.
+
+        Returns ``None`` when no dossiers exist. Angle is the live
+        track angle (from the bank) when available — the zone center
+        is a stale snapshot that doesn't reflect rotation between
+        zone refreshes. Callers receive a plain dict — no internal
+        references leak.
+        """
+        if not self._pieces:
+            return None
+        front = self._dossiers_by_exit_distance()[0]
+        bank_track = self._bank.track(front.piece_uuid)
+        angle_deg: float | None = None
+        if bank_track is not None and bank_track.angle_rad is not None:
+            angle_deg = math.degrees(float(bank_track.angle_rad))
+        if angle_deg is None:
+            zone = self._zone_manager.zone_for(front.piece_uuid)
+            if zone is not None:
+                angle_deg = float(zone.center_deg)
+        result = front.result
+        return {
+            "piece_uuid": front.piece_uuid,
+            "global_id": front.global_id,
+            "angle_deg": angle_deg,
+            "exit_distance_deg": self._dossier_exit_distance(front),
+            "classification_present": result is not None,
+            "classification": result,
+            "dossier": {
+                "piece_uuid": front.piece_uuid,
+                "global_id": front.global_id,
+                "handoff_requested": bool(front.handoff_requested),
+                "distributor_ready": bool(front.distributor_ready),
+                "eject_enqueued": bool(front.eject_enqueued),
+                "eject_committed": bool(front.eject_committed),
+            },
         }
 
     def tick(self, inbox: RuntimeInbox, now_mono: float) -> None:
@@ -929,14 +989,22 @@ class RuntimeC4(BaseRuntime):
         )
         self._submit_classifications(owned_tracks, now_mono)
         self._poll_classifier_futures(now_mono)
-        self._request_pending_handoffs(now_mono)
-        self._handle_exit(owned_tracks, inbox, now_mono)
+        if not self._carousel_mode_active:
+            # Carousel mode delegates these to an external scheduler
+            # (CarouselC4Handler). Perception + admission +
+            # classification still run above so dossiers stay live.
+            self._request_pending_handoffs(now_mono)
+            self._handle_exit(owned_tracks, inbox, now_mono)
         unjam_active = self._maybe_unjam_transport(owned_tracks, now_mono)
         transport_active = False
-        if not unjam_active:
+        if not unjam_active and not self._carousel_mode_active:
             transport_active = self._maybe_advance_transport(owned_tracks, now_mono)
         idle_jog_active = False
-        if not transport_active and not unjam_active:
+        if (
+            not transport_active
+            and not unjam_active
+            and not self._carousel_mode_active
+        ):
             idle_jog_active = self._maybe_idle_jog(now_mono)
         self._refresh_fsm_label(
             transport_active=transport_active,

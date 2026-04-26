@@ -265,6 +265,8 @@ def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
             "drop_deg",
             "classify_tolerance_deg",
             "drop_tolerance_deg",
+            "sector_count",
+            "sector_offset_deg",
         }
         _reject_unknown(
             "orchestrator.carousel_c4_handler.geometry",
@@ -276,12 +278,13 @@ def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
             raise RuntimeError(
                 "carousel C4 handler missing update_geometry"
             )
-        kwargs: dict[str, float] = {}
+        kwargs: dict[str, Any] = {}
         for key, low, high in (
             ("classify_deg", -360.0, 360.0),
             ("drop_deg", -360.0, 360.0),
             ("classify_tolerance_deg", 0.5, 90.0),
             ("drop_tolerance_deg", 0.5, 90.0),
+            ("sector_offset_deg", -360.0, 360.0),
         ):
             if key in geometry:
                 kwargs[key] = _float(
@@ -290,6 +293,13 @@ def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
                     min_value=low,
                     max_value=high,
                 )
+        if "sector_count" in geometry:
+            kwargs["sector_count"] = _int(
+                geometry["sector_count"],
+                "orchestrator.carousel_c4_handler.geometry.sector_count",
+                min_value=0,
+                max_value=64,
+            )
         update_fn(**kwargs)
     timing = values.get("timing")
     if timing is not None:

@@ -425,6 +425,129 @@ def test_orchestrator_rejects_carousel_mode_without_handler() -> None:
         orch.set_c4_mode("carousel")
 
 
+def test_orchestrator_c4_mode_switch_toggles_runtime_carousel_flag() -> None:
+    """Switching to carousel must also flip the RuntimeC4 bypass flag."""
+
+    class _StubC4(_FakeRuntime):
+        def __init__(self) -> None:
+            super().__init__("c4")
+            self.carousel_active = False
+
+        def set_carousel_mode_active(self, active: bool) -> None:
+            self.carousel_active = bool(active)
+
+    class _StubCarousel:
+        def __init__(self) -> None:
+            self.enabled = False
+
+        def enable(self) -> None:
+            self.enabled = True
+
+        def disable(self) -> None:
+            self.enabled = False
+
+        def snapshot(self) -> dict[str, Any]:
+            return {}
+
+        def tick(self, payload: Any, *, now_mono: float | None = None) -> None:
+            return None
+
+    c1 = _FakeRuntime("c1")
+    c4 = _StubC4()
+    orch = _make_orchestrator(
+        [c1, c4], {("c1", "c4"): CapacitySlot("c1_to_c4", 1)}
+    )
+    handler = _StubCarousel()
+    orch.attach_carousel_c4_handler(handler)
+
+    orch.set_c4_mode("carousel")
+    assert handler.enabled is True
+    assert c4.carousel_active is True
+
+    orch.set_c4_mode("runtime")
+    assert handler.enabled is False
+    assert c4.carousel_active is False
+
+
+def test_orchestrator_carousel_handler_ticks_when_active() -> None:
+    """In carousel mode, the orchestrator tick passes a CarouselTickInput
+    to the handler with the front-piece state pulled from RuntimeC4."""
+
+    class _StubC4(_FakeRuntime):
+        def __init__(self) -> None:
+            super().__init__("c4")
+            self.carousel_active = False
+
+        def set_carousel_mode_active(self, active: bool) -> None:
+            self.carousel_active = bool(active)
+
+        def carousel_front_snapshot(self) -> dict[str, Any] | None:
+            return {
+                "piece_uuid": "p1",
+                "global_id": 7,
+                "angle_deg": 12.0,
+                "exit_distance_deg": 18.0,
+                "classification_present": True,
+                "classification": "brick",
+                "dossier": {"piece_uuid": "p1"},
+            }
+
+    class _StubDistributor(_FakeRuntime):
+        def __init__(self) -> None:
+            super().__init__("distributor")
+
+        def pending_piece_uuid(self) -> str | None:
+            return None
+
+        def pending_ready(self) -> bool:
+            return False
+
+    class _StubCarousel:
+        def __init__(self) -> None:
+            self.tick_calls: list[Any] = []
+            self.enabled = False
+
+        def enable(self) -> None:
+            self.enabled = True
+
+        def disable(self) -> None:
+            self.enabled = False
+
+        def snapshot(self) -> dict[str, Any]:
+            return {"enabled": self.enabled}
+
+        def tick(self, payload: Any, *, now_mono: float | None = None) -> None:
+            self.tick_calls.append(payload)
+
+    c1 = _FakeRuntime("c1")
+    c4 = _StubC4()
+    distributor = _StubDistributor()
+    orch = _make_orchestrator(
+        [c1, c4, distributor],
+        {
+            ("c1", "c4"): CapacitySlot("c1_to_c4", 1),
+            ("c4", "distributor"): CapacitySlot("c4_to_distributor", 1),
+        },
+    )
+    handler = _StubCarousel()
+    orch.attach_carousel_c4_handler(handler)
+
+    # Runtime mode: handler not ticked.
+    orch.tick_once(now_mono=0.0)
+    assert handler.tick_calls == []
+
+    orch.set_c4_mode("carousel")
+    orch.tick_once(now_mono=0.020)
+    assert len(handler.tick_calls) == 1
+    payload = handler.tick_calls[0]
+    assert payload.front_piece_uuid == "p1"
+    assert payload.front_track_angle_deg == 12.0
+    assert payload.front_classification_present is True
+    assert payload.front_classification == "brick"
+    assert payload.distributor_pending_piece_uuid is None
+    assert payload.distributor_pending_ready is False
+
+
 def test_orchestrator_c4_mode_switch_toggles_handler() -> None:
     class _StubCarousel:
         def __init__(self) -> None:

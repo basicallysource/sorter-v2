@@ -138,6 +138,14 @@ class CarouselC4Handler:
     DEFAULT_ADVANCE_STEP_DEG = 4.0
     DEFAULT_ADVANCE_COOLDOWN_S = 0.18
     DEFAULT_DISTRIBUTOR_TIMEOUT_S = 8.0
+    # Sector mode: when ``sector_count > 0`` the platter is treated as
+    # ``sector_count`` discrete bins of equal width. Pieces inside a
+    # sector are forced to travel with the platter (5-wall hardware
+    # design 2026-04-27). The handler then snaps target angles to the
+    # nearest sector center, derives sensible default tolerances, and
+    # exposes the current front-piece sector index in the snapshot.
+    DEFAULT_SECTOR_COUNT = 0
+    DEFAULT_SECTOR_OFFSET_DEG = 0.0
 
     def __init__(
         self,
@@ -154,6 +162,8 @@ class CarouselC4Handler:
         advance_step_deg: float = DEFAULT_ADVANCE_STEP_DEG,
         advance_cooldown_s: float = DEFAULT_ADVANCE_COOLDOWN_S,
         distributor_timeout_s: float = DEFAULT_DISTRIBUTOR_TIMEOUT_S,
+        sector_count: int = DEFAULT_SECTOR_COUNT,
+        sector_offset_deg: float = DEFAULT_SECTOR_OFFSET_DEG,
         logger: logging.Logger | None = None,
     ) -> None:
         self._c4_transport = c4_transport
@@ -168,6 +178,10 @@ class CarouselC4Handler:
         self._advance_step_deg = max(0.5, float(advance_step_deg))
         self._advance_cooldown_s = max(0.0, float(advance_cooldown_s))
         self._distributor_timeout_s = max(0.5, float(distributor_timeout_s))
+        self._sector_count = max(0, int(sector_count))
+        self._sector_offset_deg = float(sector_offset_deg)
+        if self._sector_count > 0:
+            self._apply_sector_defaults()
         self._logger = logger or logging.getLogger("rt.carousel_c4")
         self._enabled = False
         self._state: CarouselState = CarouselState.IDLE
@@ -196,6 +210,8 @@ class CarouselC4Handler:
         drop_deg: float | None = None,
         classify_tolerance_deg: float | None = None,
         drop_tolerance_deg: float | None = None,
+        sector_count: int | None = None,
+        sector_offset_deg: float | None = None,
     ) -> None:
         if classify_deg is not None:
             self._classify_deg = float(classify_deg)
@@ -205,6 +221,20 @@ class CarouselC4Handler:
             self._classify_tolerance_deg = max(0.5, float(classify_tolerance_deg))
         if drop_tolerance_deg is not None:
             self._drop_tolerance_deg = max(0.5, float(drop_tolerance_deg))
+        sector_changed = False
+        if sector_count is not None:
+            self._sector_count = max(0, int(sector_count))
+            sector_changed = True
+        if sector_offset_deg is not None:
+            self._sector_offset_deg = float(sector_offset_deg)
+            sector_changed = True
+        if sector_changed and self._sector_count > 0:
+            # Snap classify/drop to nearest sector centers and recompute
+            # the default advance step + tolerances. The operator can
+            # override these afterwards via update_geometry/update_timing
+            # if they want fractional-sector advances or tighter
+            # tolerances than the sector-half-width default.
+            self._apply_sector_defaults()
 
     def update_timing(
         self,
@@ -282,6 +312,9 @@ class CarouselC4Handler:
 
     def snapshot(self) -> dict[str, Any]:
         cycle = self._cycle
+        sector_size = (
+            360.0 / float(self._sector_count) if self._sector_count > 0 else None
+        )
         return {
             "enabled": self._enabled,
             "state": self._state.value,
@@ -291,6 +324,19 @@ class CarouselC4Handler:
                 "drop_deg": self._drop_deg,
                 "classify_tolerance_deg": self._classify_tolerance_deg,
                 "drop_tolerance_deg": self._drop_tolerance_deg,
+                "sector_count": int(self._sector_count),
+                "sector_offset_deg": float(self._sector_offset_deg),
+                "sector_size_deg": sector_size,
+                "classify_sector_idx": (
+                    self.sector_index_for(self._classify_deg)
+                    if self._sector_count > 0
+                    else None
+                ),
+                "drop_sector_idx": (
+                    self.sector_index_for(self._drop_deg)
+                    if self._sector_count > 0
+                    else None
+                ),
             },
             "timing": {
                 "settle_s": self._settle_s,
@@ -322,6 +368,61 @@ class CarouselC4Handler:
                 "state_transitions": dict(self._counters.state_transitions),
             },
         }
+
+    # ------------------------------------------------------------------
+    # Sector helpers
+
+    def _apply_sector_defaults(self) -> None:
+        """Re-derive defaults that depend on the sector geometry.
+
+        Idempotent: called from ``__init__`` and ``update_geometry``
+        whenever ``sector_count`` / ``sector_offset_deg`` change. Always
+        snaps ``classify_deg`` / ``drop_deg`` to the nearest sector
+        centers and sets ``advance_step_deg`` to one full sector. If
+        the operator has a tighter tolerance preference they call
+        ``update_geometry`` after switching to sector mode.
+        """
+        if self._sector_count <= 0:
+            return
+        sector_size = 360.0 / float(self._sector_count)
+        self._classify_deg = self._snap_to_sector_center(self._classify_deg)
+        self._drop_deg = self._snap_to_sector_center(self._drop_deg)
+        # Sector half-width minus a small margin so a piece sitting
+        # near a wall still registers in the *correct* sector even
+        # with a few degrees of detection jitter.
+        margin = max(2.0, sector_size * 0.1)
+        self._classify_tolerance_deg = max(0.5, sector_size / 2.0 - margin)
+        self._drop_tolerance_deg = max(0.5, sector_size / 2.0 - margin)
+        self._advance_step_deg = sector_size
+
+    def sector_index_for(self, angle_deg: float) -> int | None:
+        """Return the sector index that contains ``angle_deg``.
+
+        Returns ``None`` in continuous mode (``sector_count == 0``).
+        Index 0 starts at ``sector_offset_deg`` and runs counter-
+        clockwise (with the platter rotation direction).
+        """
+        if self._sector_count <= 0:
+            return None
+        sector_size = 360.0 / float(self._sector_count)
+        rel = (float(angle_deg) - self._sector_offset_deg) % 360.0
+        return int(rel // sector_size)
+
+    def sector_center_deg(self, sector_idx: int) -> float | None:
+        if self._sector_count <= 0:
+            return None
+        sector_size = 360.0 / float(self._sector_count)
+        center = self._sector_offset_deg + (float(sector_idx) + 0.5) * sector_size
+        return _wrap_deg(center)
+
+    def _snap_to_sector_center(self, angle_deg: float) -> float:
+        if self._sector_count <= 0:
+            return float(angle_deg)
+        idx = self.sector_index_for(angle_deg)
+        if idx is None:
+            return float(angle_deg)
+        center = self.sector_center_deg(idx)
+        return float(angle_deg) if center is None else float(center)
 
     # ------------------------------------------------------------------
     # Internals

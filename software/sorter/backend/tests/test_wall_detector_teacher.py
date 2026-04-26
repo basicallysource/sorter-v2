@@ -26,6 +26,14 @@ def test_user_prompt_describes_5_walls_and_image_size() -> None:
     assert "bbox_xyxy" in text
 
 
+def test_user_prompt_excludes_output_guide_and_other_machine_geometry() -> None:
+    """The fixed output guide / chute / hub must be in the negative list
+    so Gemini doesn't confuse them with rotating walls."""
+    text = wall_detector_prompt(image_width=1280, image_height=720).lower()
+    for phrase in ("output guide", "hub", "rim", "chute", "shadow"):
+        assert phrase in text, f"prompt should warn against {phrase!r}"
+
+
 def test_parse_wall_response_extracts_typed_walls() -> None:
     payload = {
         "walls": [

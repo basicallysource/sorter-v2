@@ -30,5 +30,8 @@
 /software/sorter/backend/local_state.sqlite
 /software/sorter/backend/local_state.sqlite.backup-*
 
+# Runtime logs and observed sorter run artifacts
+/logs/
+
 .DS_Store
 software/sorter/backend/local_state.sqlite.bak-*

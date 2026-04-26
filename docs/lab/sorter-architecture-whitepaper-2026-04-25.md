@@ -112,7 +112,7 @@ OSNet (Torchreid-Architektur) läuft als ReID-Shadow auf jeder Detektion. Embedd
 
 ## 9 Step-Debugger und Observability
 
-`/api/rt/debug/*` + `/dashboard/debug` UI: pause / step / step n / inspect orchestrator + einzelne Runtimes. Bank-Tracks, pending Leases, Slot-Capacities sind live einsehbar. Run-Logs landen in `docs/lab/runs/<timestamp>_<label>/` mit JSON-Snapshots, CSV-Exports und Klassifikations-Logs.
+`/api/rt/debug/*` + `/dashboard/debug` UI: pause / step / step n / inspect orchestrator + einzelne Runtimes. Bank-Tracks, pending Leases, Slot-Capacities sind live einsehbar. Run-Logs landen in `logs/runs/<timestamp>_<label>/` mit JSON-Snapshots, CSV-Exports und Klassifikations-Logs.
 
 ---
 
@@ -202,7 +202,7 @@ Diese Punkte halten wir für architektur-stabil und brauchen kein weiteres Bohre
 
 ## 13 Run-Daten
 
-Im Ordner `docs/lab/runs/` liegen ca. 30 Runs der letzten Tage als JSON+CSV-Logs. Wenn ein Reviewer konkrete Beispiele für ein Phänomen sehen möchte, können wir gezielt Runs vor/nach einer Änderung ziehen. Aktuelle Baseline ist `2026-04-25_18-30-05_opus-baseline-60s/`.
+Im Ordner `logs/runs/` liegen ca. 30 Runs der letzten Tage als JSON+CSV-Logs. Wenn ein Reviewer konkrete Beispiele für ein Phänomen sehen möchte, können wir gezielt Runs vor/nach einer Änderung ziehen. Aktuelle Baseline ist `2026-04-25_18-30-05_opus-baseline-60s/`.
 
 ---
 

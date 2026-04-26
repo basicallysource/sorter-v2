@@ -200,6 +200,50 @@ def _driver_mode_warning(*, stealthchop: bool | None, coolstep: bool | None) -> 
     return None
 
 
+MANUAL_MOVE_MAX_ABS_DEGREES = 720.0
+MANUAL_MOVE_MAX_SPEED = 12_000
+MANUAL_MOVE_MAX_MIN_SPEED = 6_000
+MANUAL_MOVE_MAX_ACCELERATION = 80_000
+
+
+def _validate_manual_move_safety(
+    *,
+    degrees: float,
+    speed: int,
+    min_speed: int | None,
+    acceleration: int | None,
+) -> None:
+    if abs(float(degrees)) > MANUAL_MOVE_MAX_ABS_DEGREES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "degrees exceeds safe debug-move limit "
+                f"({MANUAL_MOVE_MAX_ABS_DEGREES:g})"
+            ),
+        )
+    if int(speed) > MANUAL_MOVE_MAX_SPEED:
+        raise HTTPException(
+            status_code=400,
+            detail=f"speed exceeds safe debug-move limit ({MANUAL_MOVE_MAX_SPEED})",
+        )
+    if min_speed is not None and int(min_speed) > MANUAL_MOVE_MAX_MIN_SPEED:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "min_speed exceeds safe debug-move limit "
+                f"({MANUAL_MOVE_MAX_MIN_SPEED})"
+            ),
+        )
+    if acceleration is not None and int(acceleration) > MANUAL_MOVE_MAX_ACCELERATION:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "acceleration exceeds safe debug-move limit "
+                f"({MANUAL_MOVE_MAX_ACCELERATION})"
+            ),
+        )
+
+
 def _legacy_driver_mode_from_request(body: TmcSettingsRequest) -> str | None:
     if body.driver_mode is not None:
         mode = body.driver_mode.strip().lower()
@@ -561,6 +605,12 @@ def move_stepper_degrees(
             status_code=400,
             detail="min_speed and acceleration must be supplied together for ramped motion",
         )
+    _validate_manual_move_safety(
+        degrees=degrees,
+        speed=speed,
+        min_speed=min_speed,
+        acceleration=acceleration,
+    )
 
     target = _resolve_stepper(stepper)
 

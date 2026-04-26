@@ -34,6 +34,18 @@ def test_user_prompt_excludes_output_guide_and_other_machine_geometry() -> None:
         assert phrase in text, f"prompt should warn against {phrase!r}"
 
 
+def test_user_prompt_acknowledges_partial_detection_is_normal() -> None:
+    """A wall can hide under the output guide → 4-of-5 visible is normal,
+    not a labeling error. The prompt must say so explicitly so the model
+    doesn't invent the missing wall."""
+    text = wall_detector_prompt(image_width=1280, image_height=720).lower()
+    assert "partial" in text
+    # Must specifically tell the model not to guess.
+    assert "do not" in text or "do not invent" in text or "do not guess" in text
+    # Must mention the underneath/occlusion case.
+    assert "underneath" in text or "occluded" in text or "hidden" in text
+
+
 def test_parse_wall_response_extracts_typed_walls() -> None:
     payload = {
         "walls": [

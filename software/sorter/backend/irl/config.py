@@ -402,10 +402,10 @@ class ClassificationChannelConfig:
         self.transport_acceleration_microsteps_per_second_sq = 1800
         # Dedicated C4 is gear-driven from the former carousel motor port.
         # Runtime geometry works in tray/object degrees, while the low-level
-        # stepper API works in motor degrees. Live tests on this machine show
-        # roughly 35-45 motor degrees per visible tray degree; 36 is a
-        # hardware calibration constant, not an operator flow-control knob.
-        self.stepper_degrees_per_tray_degree = 36.0
+        # stepper API works in motor degrees. The 2026-04-27 five-wall platter
+        # smoke test measured a 3° tray command at roughly 9° optical wall
+        # motion with the old 36.0 scale, so the active calibration is 12.0.
+        self.stepper_degrees_per_tray_degree = 12.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",

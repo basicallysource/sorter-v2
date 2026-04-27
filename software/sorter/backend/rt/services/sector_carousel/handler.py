@@ -35,18 +35,33 @@ class SectorCarouselCounters:
     injected: int = 0
     duplicate_injections: int = 0
     rejected_injections: int = 0
+    landing_lease_requests: int = 0
+    landing_lease_grants: int = 0
+    landing_lease_rejects: int = 0
+    landing_lease_timeouts: int = 0
+    handoff_events_rejected: int = 0
     rotations: int = 0
     blocked_rotations: int = 0
     capture_starts: int = 0
     capture_completions: int = 0
     classifier_submits: int = 0
     classifier_completions: int = 0
+    stale_classifier_results: int = 0
     distributor_requests: int = 0
     distributor_rejects: int = 0
+    stale_distributor_results: int = 0
     ejects: int = 0
     drops_completed: int = 0
     events_received: int = 0
     errors: dict[str, int] = field(default_factory=dict)
+
+
+@dataclass(slots=True)
+class _LandingLease:
+    lease_id: str
+    expires_at: float
+    granted_at: float
+    track_global_id: int | None = None
 
 
 class SectorCarouselHandler:
@@ -86,7 +101,11 @@ class SectorCarouselHandler:
         logger: logging.Logger | None = None,
     ) -> None:
         self._slots = [
-            SectorSlot(slot_index=i + 1, entered_phase_at=0.0)
+            SectorSlot(
+                slot_index=i + 1,
+                physical_sector_id=i,
+                entered_phase_at=0.0,
+            )
             for i in range(self.SLOT_COUNT)
         ]
         self._c4_transport = c4_transport or (lambda _deg: True)
@@ -107,7 +126,8 @@ class SectorCarouselHandler:
         self._last_rotate_at = -float("inf")
         self._last_tick_at = 0.0
         self._subscription: Subscription | None = None
-        self._pending_landing_leases: dict[str, float] = {}
+        self._pending_landing_leases: dict[str, _LandingLease] = {}
+        self._rotation_in_progress = False
         self._counters = SectorCarouselCounters()
 
     @property
@@ -159,13 +179,25 @@ class SectorCarouselHandler:
         piece_uuid = payload.get("piece_uuid")
         if not isinstance(piece_uuid, str) or not piece_uuid.strip():
             piece_uuid = f"c3-{int(float(event.ts_mono) * 1000)}"
+        lease_id = payload.get("landing_lease_id")
         self._counters.events_received += 1
-        self._pending_landing_leases.clear()
+        if not isinstance(lease_id, str) or not lease_id.strip():
+            self._counters.handoff_events_rejected += 1
+            self._count_error("handoff_missing_landing_lease")
+            self._slots[0].blocked_reason = "handoff_missing_landing_lease"
+            return
+        if not self._consume_lease_for_handoff(lease_id.strip(), float(event.ts_mono)):
+            self._counters.handoff_events_rejected += 1
+            self._count_error("handoff_without_valid_lease")
+            self._slots[0].blocked_reason = "handoff_without_valid_lease"
+            return
         self.inject_at_slot1(
             piece_uuid.strip(),
             now_mono=float(event.ts_mono),
             extras={
+                "landing_lease_id": lease_id.strip(),
                 "c3_eject_ts": payload.get("c3_eject_ts"),
+                "c3_eject_started_ts": payload.get("c3_eject_started_ts"),
                 "expected_arrival_window_s": payload.get(
                     "expected_arrival_window_s"
                 ),
@@ -213,15 +245,34 @@ class SectorCarouselHandler:
         now_mono: float,
         track_global_id: int | None = None,
     ) -> str | None:
+        self._counters.landing_lease_requests += 1
         self._expire_landing_leases(now_mono)
         slot1 = self._slots[0]
+        if not self._enabled:
+            slot1.blocked_reason = "sector_carousel_disabled"
+            self._counters.landing_lease_rejects += 1
+            return None
+        if self._rotation_in_progress or self._c4_hw_busy():
+            slot1.blocked_reason = "landing_hw_busy"
+            self._counters.landing_lease_rejects += 1
+            return None
         if slot1.occupied or self._pending_landing_leases:
             if slot1.occupied:
                 slot1.blocked_reason = "landing_slot_reserved"
+            else:
+                slot1.blocked_reason = "landing_lease_pending"
+            self._counters.landing_lease_rejects += 1
             return None
         lease_id = uuid.uuid4().hex[:12]
         ttl_s = max(0.5, float(predicted_arrival_in_s) + 1.0)
-        self._pending_landing_leases[lease_id] = float(now_mono) + ttl_s
+        self._pending_landing_leases[lease_id] = _LandingLease(
+            lease_id=lease_id,
+            expires_at=float(now_mono) + ttl_s,
+            granted_at=float(now_mono),
+            track_global_id=track_global_id,
+        )
+        slot1.blocked_reason = None
+        self._counters.landing_lease_grants += 1
         return lease_id
 
     def consume_lease(self, lease_id: str) -> None:
@@ -229,18 +280,30 @@ class SectorCarouselHandler:
 
     def rotate_one_sector(self, *, now_mono: float | None = None) -> bool:
         ts = time.monotonic() if now_mono is None else float(now_mono)
+        if self._rotation_in_progress:
+            self._slots[-1].blocked_reason = "rotation_in_progress"
+            self._counters.blocked_rotations += 1
+            return False
         if self._c4_hw_busy():
             self._slots[-1].blocked_reason = "hw_busy"
             self._counters.blocked_rotations += 1
             return False
-        if self._slots[-1].occupied and not self._slots[-1].ejected:
+        if (
+            self._slots[-1].occupied
+            and self._slots[-1].phase is not SlotPhase.DROPPED_PENDING_CLEAR
+            and not self._slots[-1].ejected
+        ):
             self._slots[-1].blocked_reason = "drop_slot_occupied"
             self._counters.blocked_rotations += 1
             return False
-        if not self._transport_in_chunks(float(self._sector_step_deg)):
-            self._counters.blocked_rotations += 1
-            return False
-        moved_at = time.monotonic()
+        self._rotation_in_progress = True
+        try:
+            if not self._transport_in_chunks(float(self._sector_step_deg)):
+                self._counters.blocked_rotations += 1
+                return False
+            moved_at = time.monotonic()
+        finally:
+            self._rotation_in_progress = False
         self._slots[-1].clear(now_mono=moved_at)
         self._slots.insert(0, self._slots.pop())
         for index, slot in enumerate(self._slots, start=1):
@@ -299,11 +362,15 @@ class SectorCarouselHandler:
         piece_uuid: str,
         classification: Any,
         *,
+        request_id: str | None = None,
         dossier: dict[str, Any] | None = None,
         now_mono: float | None = None,
     ) -> bool:
         slot = self._slot_for_piece(piece_uuid)
         if slot is None:
+            return False
+        if request_id is not None and slot.classifier_request_id != request_id:
+            self._counters.stale_classifier_results += 1
             return False
         slot.classification = classification
         if dossier:
@@ -334,6 +401,7 @@ class SectorCarouselHandler:
                 and slot.phase in {SlotPhase.CLASSIFYING, SlotPhase.AWAITING_DIST}
             ):
                 slot.classification = classification
+                slot.extras["classification_source"] = "legacy_front_state"
                 slot.extras["c4_piece_uuid"] = c4_piece_uuid
                 if dossier:
                     slot.extras["dossier"] = dict(dossier)
@@ -376,7 +444,17 @@ class SectorCarouselHandler:
                 "errors": dict(self._counters.errors),
             },
             "blocked": self._blocked_reason(),
+            "rotation_in_progress": bool(self._rotation_in_progress),
             "pending_landing_leases": len(self._pending_landing_leases),
+            "pending_landing_lease_details": [
+                {
+                    "lease_id": lease.lease_id,
+                    "expires_at": lease.expires_at,
+                    "granted_at": lease.granted_at,
+                    "track_global_id": lease.track_global_id,
+                }
+                for lease in self._pending_landing_leases.values()
+            ],
         }
 
     def _transport_in_chunks(self, degrees: float) -> bool:
@@ -400,11 +478,17 @@ class SectorCarouselHandler:
     def _expire_landing_leases(self, now_mono: float) -> None:
         expired = [
             lease_id
-            for lease_id, expires_at in self._pending_landing_leases.items()
-            if expires_at <= now_mono
+            for lease_id, lease in self._pending_landing_leases.items()
+            if lease.expires_at <= now_mono
         ]
         for lease_id in expired:
             self._pending_landing_leases.pop(lease_id, None)
+            self._counters.landing_lease_timeouts += 1
+
+    def _consume_lease_for_handoff(self, lease_id: str, now_mono: float) -> bool:
+        self._expire_landing_leases(now_mono)
+        lease = self._pending_landing_leases.pop(lease_id, None)
+        return lease is not None
 
     def _ready_for_rotation(self, now_mono: float) -> bool:
         for slot in self._slots:
@@ -442,9 +526,14 @@ class SectorCarouselHandler:
             return
         future = slot.classifier_future
         if future is None and self._classifier_submit is not None:
+            request_id = uuid.uuid4().hex[:12]
+            piece_uuid = slot.piece_uuid
+            slot.classifier_request_id = request_id
+            slot.extras["classifier_request_id"] = request_id
             try:
                 future = self._classifier_submit(slot)
             except Exception:
+                slot.classifier_request_id = None
                 slot.blocked_reason = "classifier_submit_raised"
                 self._count_error("classifier_submit_raised")
                 self._logger.exception("SectorCarouselHandler: classifier_submit raised")
@@ -452,16 +541,28 @@ class SectorCarouselHandler:
             self._counters.classifier_submits += 1
             if isinstance(future, Future):
                 slot.classifier_future = future
+                slot.extras["classifier_piece_uuid"] = piece_uuid
             else:
+                if slot.piece_uuid != piece_uuid or slot.classifier_request_id != request_id:
+                    self._counters.stale_classifier_results += 1
+                    return
                 slot.classification = future
+                slot.extras["classified_at"] = now_mono
                 self._counters.classifier_completions += 1
                 return
         if isinstance(future, Future) and future.done():
+            request_id = slot.classifier_request_id
+            piece_uuid = slot.piece_uuid
             try:
-                slot.classification = future.result(timeout=0.0)
+                result = future.result(timeout=0.0)
             except Exception as exc:
-                slot.classification = {"error": str(exc)}
+                result = {"error": str(exc)}
                 self._count_error("classifier_future_raised")
+            if slot.piece_uuid != piece_uuid or slot.classifier_request_id != request_id:
+                self._counters.stale_classifier_results += 1
+                slot.classifier_future = None
+                return
+            slot.classification = result
             slot.classifier_future = None
             slot.extras["classified_at"] = now_mono
             self._counters.classifier_completions += 1
@@ -473,8 +574,14 @@ class SectorCarouselHandler:
         port = self._distributor
         if port is None:
             slot.distributor_ready = True
+            slot.extras["distributor_mode"] = "simulated"
+            slot.extras["distributor_ready_source"] = "no_port"
             return
         if not slot.distributor_requested:
+            request_id = uuid.uuid4().hex[:12]
+            slot.distributor_request_id = request_id
+            slot.extras["distributor_state"] = "requested"
+            slot.extras["distributor_request_created_at"] = now_mono
             try:
                 accepted = bool(
                     port.handoff_request(
@@ -489,14 +596,20 @@ class SectorCarouselHandler:
                 self._count_error("distributor_request_raised")
                 self._logger.exception("SectorCarouselHandler: handoff_request raised")
             if not accepted:
+                slot.distributor_request_id = None
+                slot.extras["distributor_state"] = "rejected"
                 slot.blocked_reason = "distributor_busy"
                 self._counters.distributor_rejects += 1
                 return
             slot.distributor_requested = True
-            slot.distributor_request_id = str(slot.piece_uuid)
+            slot.extras["distributor_state"] = "accepted"
             self._counters.distributor_requests += 1
         try:
             slot.distributor_ready = bool(port.pending_ready(slot.piece_uuid))
+            if slot.distributor_ready:
+                slot.extras["distributor_state"] = "ready"
+                slot.extras["distributor_ready_at"] = now_mono
+                slot.extras.setdefault("distributor_ready_source", "port")
         except Exception:
             slot.blocked_reason = "distributor_ready_raised"
             self._count_error("distributor_ready_raised")
@@ -522,10 +635,13 @@ class SectorCarouselHandler:
         if port is not None and slot.distributor_requested:
             try:
                 port.handoff_commit(str(slot.piece_uuid), now_mono=now_mono)
+                slot.extras["distributor_state"] = "committed"
+                slot.extras["distributor_committed_at"] = now_mono
             except Exception:
                 self._count_error("handoff_commit_raised")
                 self._logger.exception("SectorCarouselHandler: handoff_commit raised")
         slot.ejected = True
+        slot.set_phase(SlotPhase.DROPPED_PENDING_CLEAR, now_mono=now_mono)
         self._counters.drops_completed += 1
 
     def _slot_for_piece(self, piece_uuid: str) -> SectorSlot | None:

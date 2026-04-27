@@ -58,7 +58,14 @@ _ROLE_TO_FEEDER_ROLE_KEY: dict[str, str] = {
 
 
 _FIRST_TOUCH_POLYGON_APRON_PX = 0
-_DETECTOR_CONF_THRESHOLD = 0.35
+_DEFAULT_DETECTOR_CONF_THRESHOLD = 0.35
+_ROLE_DETECTOR_CONF_THRESHOLDS = {
+    # C4 sees stable tray geometry, especially the center hole and chute
+    # cutout. On the 2026-04-27 empty-tray check the center hole scored
+    # ~0.54, while real visible pieces were comfortably higher. Keep C2/C3
+    # sensitive, but reject that stable C4 false positive by default.
+    "c4": 0.60,
+}
 _PERCEPTION_PERIOD_MS = 100
 # BoxMot ByteTrack owns primary tracklets. BoTSORT+OSNet remains attached as a
 # shadow tracker whose embeddings are merged into the primary tracks above the
@@ -130,6 +137,41 @@ def shadow_tracker_key(primary_key: str | None = None) -> str | None:
     if primary_key and key == primary_key:
         return None
     return key
+
+
+def _bounded_env_float(name: str, fallback: float, *, low: float, high: float) -> float:
+    raw = os.environ.get(name)
+    if raw is None or str(raw).strip() == "":
+        return float(fallback)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return float(fallback)
+    return max(float(low), min(float(high), value))
+
+
+def detector_conf_threshold_for_role(role: str) -> float:
+    """Return the detector confidence threshold for an rt role.
+
+    Defaults are role-aware because C4 has stable platter features that can
+    be confidently misdetected as pieces. Operators can tune without code
+    changes via ``RT_DETECTOR_CONF_THRESHOLD_C4`` or global
+    ``RT_DETECTOR_CONF_THRESHOLD``.
+    """
+    normalized = str(role or "").strip().lower()
+    role_default = _ROLE_DETECTOR_CONF_THRESHOLDS.get(
+        normalized,
+        _DEFAULT_DETECTOR_CONF_THRESHOLD,
+    )
+    role_env = f"RT_DETECTOR_CONF_THRESHOLD_{normalized.upper()}"
+    if os.environ.get(role_env) is not None:
+        return _bounded_env_float(role_env, role_default, low=0.01, high=0.99)
+    return _bounded_env_float(
+        "RT_DETECTOR_CONF_THRESHOLD",
+        role_default,
+        low=0.01,
+        high=0.99,
+    )
 
 
 def tracker_params_for_role(
@@ -306,7 +348,7 @@ def build_perception_runner_for_role(
         detector={
             "key": detector_slug,
             "params": {
-                "conf_threshold": _DETECTOR_CONF_THRESHOLD,
+                "conf_threshold": detector_conf_threshold_for_role(role),
                 "iou_threshold": 0.45,
                 "polygon_apron_px": _FIRST_TOUCH_POLYGON_APRON_PX,
             },

@@ -87,7 +87,7 @@ As of 2026-04-25, the intended C4 baseline is:
 | transport_acceleration_usteps_per_s2 | 4000 |
 | startup_purge_speed_scale | 4.0 |
 | startup_purge_acceleration_usteps_per_s2 | 20000 |
-| stepper_degrees_per_tray_degree | 36.0 read-only hardware calibration |
+| stepper_degrees_per_tray_degree | 12.0 live-calibrated on 2026-04-27 five-wall C4 platter |
 
 ## Current measured candidate
 

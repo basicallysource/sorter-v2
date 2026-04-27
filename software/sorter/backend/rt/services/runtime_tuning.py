@@ -1133,6 +1133,7 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "exit_approach_angle_deg",
         "exit_approach_step_deg",
         "transport_speed_scale",
+        "stepper_degrees_per_tray_degree",
         "transport_acceleration_usteps_per_s2",
         "startup_purge_speed_scale",
         "startup_purge_acceleration_usteps_per_s2",
@@ -1279,6 +1280,14 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
     _set_runtime_float(runtime, "_reconcile_min_age_s", values, "reconcile_min_age_s", min_value=0.0, max_value=30.0)
     if class_cfg is not None:
         _set_cfg_float(class_cfg, "transport_speed_scale", values, "transport_speed_scale", 0.1, 2.0)
+        _set_cfg_float(
+            class_cfg,
+            "stepper_degrees_per_tray_degree",
+            values,
+            "stepper_degrees_per_tray_degree",
+            1.0,
+            90.0,
+        )
         _set_cfg_optional_int(class_cfg, "transport_acceleration_microsteps_per_second_sq", values, "transport_acceleration_usteps_per_s2", 1, 1_000_000)
         _set_cfg_float(class_cfg, "positioning_window_deg", values, "exit_approach_angle_deg", 0.0, 90.0)
         _set_cfg_float(class_cfg, "exit_approach_step_deg", values, "exit_approach_step_deg", 0.1, 24.0)

@@ -1328,15 +1328,6 @@ def build_rt_runtime(
     except Exception:
         log.exception("rt.bootstrap: distributor handshake wiring failed")
 
-    # Stage 3: software escapement. C3 asks C4's PieceTrackBank for a
-    # landing lease before every exit pulse. No lease, no pulse — the
-    # spacing C4 needs is enforced upstream rather than reactively at
-    # the chute by the trailing-safety guard.
-    try:
-        c3.set_landing_lease_port(c4.landing_lease_port())
-    except Exception:
-        log.exception("rt.bootstrap: c3 landing-lease wiring failed")
-
     # Same software escapement on the C2 -> C3 transfer. Operator
     # observation 2026-04-25 confirmed C2 was pushing pieces onto C3
     # even when C3's drop zone was already occupied; this gates each
@@ -1536,6 +1527,14 @@ def build_rt_runtime(
         logger=log,
     )
     sector_handler_ref.append(sector_carousel_handler)
+    # Sector mode owns the physical C3 -> C4 landing gate. C3 must obtain
+    # this lease before firing its eject pulse; the later C3_HANDOFF_TRIGGER
+    # is only accepted if it carries the same lease id.
+    c3.set_downstream_landing_lease_required(True)
+    try:
+        c3.set_landing_lease_port(sector_carousel_handler.landing_lease_port())
+    except Exception:
+        log.exception("rt.bootstrap: c3 sector landing-lease wiring failed")
     orch.attach_sector_carousel_handler(sector_carousel_handler)
     orch.set_c4_mode("sector_carousel")
     log.info(

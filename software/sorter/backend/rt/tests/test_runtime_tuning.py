@@ -617,6 +617,7 @@ def test_update_c4_motion_and_backpressure_live() -> None:
                     "transport_cooldown_ms": 140,
                     "transport_acceleration_usteps_per_s2": 60000,
                     "transport_target_rpm": 0.9,
+                    "stepper_degrees_per_tray_degree": 12.0,
                     "classify_pretrigger_exit_lead_deg": 80.0,
                     "exit_approach_angle_deg": 24.0,
                     "exit_approach_step_deg": 4.5,
@@ -658,9 +659,9 @@ def test_update_c4_motion_and_backpressure_live() -> None:
     assert handle.irl.irl_config.classification_channel_config.exit_release_shimmy_cycles == 3
     assert (
         handle.irl.irl_config.classification_channel_config.stepper_degrees_per_tray_degree
-        == 36.0
+        == 12.0
     )
-    assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 36.0
+    assert payload["channels"]["c4"]["stepper_degrees_per_tray_degree"] == 12.0
     assert payload["channels"]["c4"]["transport_target_rpm"] == 0.9
     assert payload["channels"]["c4"]["require_dropzone_clear_for_admission"] is False
     assert payload["channels"]["c4"]["classify_pretrigger_exit_lead_deg"] == 80.0
@@ -672,13 +673,13 @@ def test_update_c4_motion_and_backpressure_live() -> None:
     assert payload["channels"]["c4"]["exit_release_shimmy_cycles"] == 3
 
 
-def test_update_c4_rejects_gear_ratio_live_patch() -> None:
+def test_update_c4_rejects_unsafe_gear_ratio_live_patch() -> None:
     handle = _handle()
 
-    with pytest.raises(ValueError, match="unsupported tuning field"):
+    with pytest.raises(ValueError, match="stepper_degrees_per_tray_degree"):
         runtime_tuning.apply_patch(
             handle,
-            {"channels": {"c4": {"stepper_degrees_per_tray_degree": 42.0}}},
+            {"channels": {"c4": {"stepper_degrees_per_tray_degree": 0.2}}},
         )
 
 

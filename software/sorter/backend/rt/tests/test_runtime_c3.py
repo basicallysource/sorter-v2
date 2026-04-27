@@ -6,6 +6,8 @@ from typing import Callable
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
+from rt.events.bus import InProcessEventBus
+from rt.events.topics import C3_HANDOFF_TRIGGER
 from rt.runtimes.c3 import RuntimeC3
 from rt.services.track_transit import TrackTransitRegistry
 
@@ -43,6 +45,20 @@ class _DenyLandingLease:
 
     def consume_lease(self, _lease_id: str) -> None:
         return None
+
+
+class _GrantLandingLease:
+    def __init__(self, lease_id: str = "lease-ok") -> None:
+        self.lease_id = lease_id
+        self.requests: list[dict[str, object]] = []
+        self.consumed: list[str] = []
+
+    def request_lease(self, **kwargs) -> str | None:
+        self.requests.append(dict(kwargs))
+        return self.lease_id
+
+    def consume_lease(self, lease_id: str) -> None:
+        self.consumed.append(str(lease_id))
 
 
 def _track(
@@ -111,6 +127,7 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         wiggle_command=wiggle,
         sample_transport_command=sample_transport,
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
+        event_bus=kwargs.get("event_bus"),
         pulse_cooldown_s=0.0,
         wiggle_stall_ms=200,
         wiggle_cooldown_ms=500,
@@ -140,6 +157,60 @@ def test_c3_reports_lease_denial_separately_from_capacity() -> None:
     assert log == []
     assert down.available() == 1
     assert rt.health().blocked_reason == "lease_denied"
+
+
+def test_c3_sector_mode_requires_landing_lease_port() -> None:
+    rt, _up, down, log = _make()
+    rt.set_downstream_landing_lease_required(True)
+    inbox = RuntimeInbox(tracks=_batch(_track(angle_rad=0.0)), capacity_downstream=1)
+
+    rt.tick(inbox, now_mono=0.0)
+
+    assert log == []
+    assert down.available() == 1
+    assert rt.health().blocked_reason == "landing_lease_port_missing"
+    snap = rt.debug_snapshot()
+    assert snap["downstream_landing_lease_required"] is True
+    assert snap["downstream_landing_lease_port_wired"] is False
+
+
+def test_c3_sector_mode_requires_track_id_for_landing_lease() -> None:
+    rt, _up, down, log = _make()
+    rt.set_landing_lease_port(_GrantLandingLease())
+    rt.set_downstream_landing_lease_required(True)
+    inbox = RuntimeInbox(
+        tracks=_batch(_track(global_id=None, angle_rad=0.0)),
+        capacity_downstream=1,
+    )
+
+    rt.tick(inbox, now_mono=0.0)
+
+    assert log == []
+    assert down.available() == 1
+    assert rt.health().blocked_reason == "landing_lease_track_id_missing"
+
+
+def test_c3_handoff_trigger_carries_landing_lease_id() -> None:
+    bus = InProcessEventBus()
+    events = []
+    bus.subscribe(C3_HANDOFF_TRIGGER, events.append)
+    rt, _up, down, log = _make(event_bus=bus)
+    port = _GrantLandingLease("lease-123")
+    rt.set_landing_lease_port(port)
+    rt.set_downstream_landing_lease_required(True)
+
+    rt.tick(
+        RuntimeInbox(tracks=_batch(_track(global_id=17, angle_rad=0.0)), capacity_downstream=1),
+        now_mono=10.0,
+    )
+    bus.drain()
+
+    assert log and log[0].startswith("precise:")
+    assert down.available() == 0
+    assert port.requests and port.consumed == []
+    assert len(events) == 1
+    assert events[0].payload["landing_lease_id"] == "lease-123"
+    assert events[0].payload["track_global_id"] == 17
 
 
 def test_c3_ignores_stationary_round_part_in_upstream_landing_arc() -> None:

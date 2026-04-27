@@ -125,6 +125,7 @@ class RuntimeC3(BaseRuntime):
         exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
         handoff_retry_escalate_after: int = DEFAULT_HANDOFF_RETRY_ESCALATE_AFTER,
         handoff_retry_max_pulses: int = DEFAULT_HANDOFF_RETRY_MAX_PULSES,
+        require_downstream_landing_lease: bool = False,
         feed_id: str = "c3_feed",
         state_observer: Callable[[str, str, str], None] | None = None,
     ) -> None:
@@ -200,12 +201,11 @@ class RuntimeC3(BaseRuntime):
         self._ignored_transport_bad_actor_keys: set[int] = set()
         self._transport_bad_actor_observe_until: float = 0.0
         # Software escapement to C4. Set at bootstrap via
-        # ``set_landing_lease_port``. When present, every C3 exit pulse
-        # is gated through ``request_lease`` — no lease, no pulse. Live
-        # lease ids by track global_id so a retry pulse for the same
-        # track does not request a second lease while the first is
-        # still in flight.
+        # ``set_landing_lease_port``. In sector-carousel mode this is
+        # required: no landing lease, no C3 eject. Legacy/unit setups may
+        # leave it optional.
         self._landing_lease_port: "LandingLeasePort | None" = None
+        self._require_downstream_landing_lease = bool(require_downstream_landing_lease)
         self._active_lease_by_track: dict[int, str] = {}
         # Configurable knobs for the escapement. ``min_spacing_deg`` is
         # what the doc calls S_min — distance the new piece must be from
@@ -309,6 +309,10 @@ class RuntimeC3(BaseRuntime):
                 self._pending_downstream_claim_retries.values(),
                 default=0,
             ),
+            "downstream_landing_lease_required": bool(
+                self._require_downstream_landing_lease
+            ),
+            "downstream_landing_lease_port_wired": self._landing_lease_port is not None,
             "handoff_retry_escalate_after": int(
                 self._handoff_retry_escalate_after
             ),
@@ -515,6 +519,9 @@ class RuntimeC3(BaseRuntime):
         port path)."""
         self._landing_lease_port = port
 
+    def set_downstream_landing_lease_required(self, required: bool) -> None:
+        self._require_downstream_landing_lease = bool(required)
+
     def on_piece_delivered(self, piece_uuid: str, now_mono: float) -> None:
         # C4 confirms it accepted the piece — release C3 slot upstream.
         self._upstream_slot.release()
@@ -638,11 +645,7 @@ class RuntimeC3(BaseRuntime):
         # approach pulses and normal pulses just rotate the ring.
         claim = None
         if commit_to_downstream:
-            claim_key = (
-                int(track.global_id)
-                if isinstance(track.global_id, int)
-                else None
-            )
+            claim_key = _track_global_id_key(track)
             if (
                 claim_key is not None
                 and self._pending_downstream_claims.get(claim_key, 0.0) > now_mono
@@ -660,10 +663,19 @@ class RuntimeC3(BaseRuntime):
                 # the old time-based slot.try_claim gate, which fired on
                 # an empty arc just because nothing else had claimed it
                 # in the last 3 s.
-                if (
-                    self._landing_lease_port is not None
-                    and claim_key is not None
-                ):
+                if claim_key is None and self._require_downstream_landing_lease:
+                    self._set_state(
+                        "pulsing",
+                        blocked_reason="landing_lease_track_id_missing",
+                    )
+                    return
+                if self._landing_lease_port is None and self._require_downstream_landing_lease:
+                    self._set_state(
+                        "pulsing",
+                        blocked_reason="landing_lease_port_missing",
+                    )
+                    return
+                if self._landing_lease_port is not None and claim_key is not None:
                     lease_id = self._landing_lease_port.request_lease(
                         predicted_arrival_in_s=self._lease_transit_estimate_s,
                         min_spacing_deg=self._lease_min_spacing_deg,
@@ -681,6 +693,8 @@ class RuntimeC3(BaseRuntime):
                     hold_time_s=DEFAULT_DOWNSTREAM_CLAIM_HOLD_S,
                 )
                 if not claim:
+                    if claim_key is not None:
+                        self._release_active_downstream_lease(claim_key)
                     self._set_state("pulsing", blocked_reason="downstream_full")
                     return
                 if claim_key is not None:
@@ -748,11 +762,16 @@ class RuntimeC3(BaseRuntime):
                     },
                 )
                 if ok and commits_slot:
-                    self._publish_c4_handoff_trigger(track, now_mono)
+                    self._publish_c4_handoff_trigger(
+                        track,
+                        now_mono,
+                        completed_at_mono=time.monotonic(),
+                    )
                     self._publish_transit_candidate(track, now_mono)
             if not ok and commits_slot:
                 self._downstream_slot.release()
                 if claim_key is not None:
+                    self._release_active_downstream_lease(claim_key)
                     self._pending_downstream_claims.pop(claim_key, None)
                     self._pending_downstream_claim_retries.pop(claim_key, None)
 
@@ -763,6 +782,7 @@ class RuntimeC3(BaseRuntime):
             if commits_slot:
                 self._downstream_slot.release()
                 if claim_key is not None:
+                    self._release_active_downstream_lease(claim_key)
                     self._pending_downstream_claims.pop(claim_key, None)
                     self._pending_downstream_claim_retries.pop(claim_key, None)
             self._set_state("pulsing", blocked_reason="hw_queue_full")
@@ -964,22 +984,39 @@ class RuntimeC3(BaseRuntime):
         except Exception:
             self._logger.exception("RuntimeC3: rotation-window publish failed")
 
-    def _publish_c4_handoff_trigger(self, track: Track, now_mono: float) -> None:
+    def _publish_c4_handoff_trigger(
+        self,
+        track: Track,
+        now_mono: float,
+        *,
+        completed_at_mono: float | None = None,
+    ) -> None:
         if self._bus is None:
             return
         piece_uuid = getattr(track, "piece_uuid", None)
         if not isinstance(piece_uuid, str) or not piece_uuid:
             gid = getattr(track, "global_id", None)
             piece_uuid = f"c3-global-{gid}" if gid is not None else None
+        gid = getattr(track, "global_id", None)
+        claim_key = _track_global_id_key(track)
+        landing_lease_id = (
+            self._active_lease_by_track.get(claim_key)
+            if claim_key is not None
+            else None
+        )
         try:
             self._bus.publish(
                 Event(
                     topic=C3_HANDOFF_TRIGGER,
                     payload={
                         "piece_uuid": piece_uuid,
-                        "track_global_id": getattr(track, "global_id", None),
+                        "track_global_id": gid,
                         "track_id": getattr(track, "track_id", None),
-                        "c3_eject_ts": float(now_mono),
+                        "landing_lease_id": landing_lease_id,
+                        "c3_eject_started_ts": float(now_mono),
+                        "c3_eject_ts": float(
+                            completed_at_mono if completed_at_mono is not None else now_mono
+                        ),
                         "expected_arrival_window_s": [
                             float(self._lease_transit_estimate_s) - 0.2,
                             float(self._lease_transit_estimate_s) + 0.4,
@@ -989,6 +1026,8 @@ class RuntimeC3(BaseRuntime):
                     ts_mono=float(now_mono),
                 )
             )
+            if claim_key is not None:
+                self._active_lease_by_track.pop(claim_key, None)
         except Exception:
             self._logger.exception("RuntimeC3: c4 handoff trigger publish failed")
 
@@ -1063,8 +1102,19 @@ class RuntimeC3(BaseRuntime):
             if deadline <= now_mono
         ]
         for global_id in expired:
+            self._release_active_downstream_lease(global_id)
             self._pending_downstream_claims.pop(global_id, None)
             self._pending_downstream_claim_retries.pop(global_id, None)
+
+    def _release_active_downstream_lease(self, claim_key: int) -> None:
+        lease_id = self._active_lease_by_track.pop(int(claim_key), None)
+        port = self._landing_lease_port
+        if lease_id is None or port is None:
+            return
+        try:
+            port.consume_lease(lease_id)
+        except Exception:
+            self._logger.exception("RuntimeC3: downstream lease release failed")
 
     def _bump_downstream_retry_count(self, track: Track) -> int:
         key = self._downstream_claim_key(track)
@@ -1208,6 +1258,16 @@ class RuntimeC3(BaseRuntime):
 def _wrap_rad(angle: float) -> float:
     a = (angle + math.pi) % (2.0 * math.pi) - math.pi
     return a
+
+
+def _track_global_id_key(track: Track) -> int | None:
+    gid = getattr(track, "global_id", None)
+    if gid is None or isinstance(gid, bool):
+        return None
+    try:
+        return int(gid)
+    except (TypeError, ValueError):
+        return None
 
 
 class _C3PurgePort:

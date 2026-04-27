@@ -20,6 +20,7 @@ from rt.config.channels import (
 )
 from rt.perception.runner_builder import (
     build_perception_runner_for_role,
+    detector_conf_threshold_for_role,
     detector_slug_for_role,
     load_zone_for_role,
     primary_tracker_key,
@@ -273,6 +274,23 @@ def test_detector_slug_ignores_invalid_saved_slug():
     ):
         slug = detector_slug_for_role("c2", LOG)
     assert slug == "hive:c-channel-yolo11n-416"
+
+
+def test_detector_conf_threshold_is_role_specific(monkeypatch):
+    monkeypatch.delenv("RT_DETECTOR_CONF_THRESHOLD", raising=False)
+    monkeypatch.delenv("RT_DETECTOR_CONF_THRESHOLD_C4", raising=False)
+
+    assert detector_conf_threshold_for_role("c2") == 0.35
+    assert detector_conf_threshold_for_role("c3") == 0.35
+    assert detector_conf_threshold_for_role("c4") == 0.60
+
+
+def test_detector_conf_threshold_can_be_env_overridden(monkeypatch):
+    monkeypatch.setenv("RT_DETECTOR_CONF_THRESHOLD_C4", "0.52")
+    monkeypatch.setenv("RT_DETECTOR_CONF_THRESHOLD", "0.44")
+
+    assert detector_conf_threshold_for_role("c4") == 0.52
+    assert detector_conf_threshold_for_role("c2") == 0.44
 
 
 def test_tracker_keys_default_to_boxmot_bytetrack_primary_and_reid_shadow(monkeypatch):

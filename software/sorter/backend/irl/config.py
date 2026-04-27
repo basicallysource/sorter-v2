@@ -341,8 +341,8 @@ class ClassificationChannelConfig:
         self.exit_release_overlap_ratio = 0.5
         self.exit_release_shimmy_amplitude_deg = 1.5
         self.exit_release_shimmy_cycles = 2
-        self.exit_release_shimmy_microsteps_per_second = 4200
-        self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
+        self.exit_release_shimmy_microsteps_per_second = 1200
+        self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 1800
         self.stale_zone_timeout_s = 3.0
         self.hood_dwell_ms = 300
         # Minimum number of carousel-source crops required before the
@@ -392,14 +392,14 @@ class ClassificationChannelConfig:
         self.startup_purge_prime_cooldown_ms = 120
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
-        self.startup_purge_speed_scale = 4.0
-        self.startup_purge_acceleration_microsteps_per_second_sq = 20000
+        self.startup_purge_speed_scale = 1.0
+        self.startup_purge_acceleration_microsteps_per_second_sq = 1800
         # Scale for the normal pipeline-advance carousel move. C4 is
         # gear-driven, so the default profile favors smooth 3-8 degree tray
         # advances over aggressive acceleration. Operators can still push
         # throughput live via runtime tuning once transport looks clean.
-        self.transport_speed_scale = 4.0
-        self.transport_acceleration_microsteps_per_second_sq = 4000
+        self.transport_speed_scale = 1.0
+        self.transport_acceleration_microsteps_per_second_sq = 1800
         # Dedicated C4 is gear-driven from the former carousel motor port.
         # Runtime geometry works in tray/object degrees, while the low-level
         # stepper API works in motor degrees. Live tests on this machine show
@@ -497,10 +497,10 @@ class FeederConfig:
             delay_between_ms=1000,
         )
         self.classification_channel_eject = RotorPulseConfig(
-            steps=1000,
-            microsteps_per_second=3400,
-            delay_between_ms=400,
-            acceleration_microsteps_per_second_sq=2500,
+            steps=600,
+            microsteps_per_second=1000,
+            delay_between_ms=500,
+            acceleration_microsteps_per_second_sq=1000,
         )
         self.first_rotor_jam_timeout_s = 10.0
         self.first_rotor_jam_min_pulses = 6
@@ -1153,7 +1153,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     
     carousel_microsteps = 8 if machine_setup.key == "classification_channel" else 16
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=1000, microsteps=carousel_microsteps)
-    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000, microsteps=8)
+    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=1200, microsteps=8)
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

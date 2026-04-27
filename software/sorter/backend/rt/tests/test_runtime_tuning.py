@@ -67,7 +67,7 @@ class _FakeOrchestrator:
         return getattr(self, "_c4_mode", "runtime")
 
     def set_c4_mode(self, mode: str) -> str:
-        if mode not in {"runtime", "carousel"}:
+        if mode not in {"runtime", "sector_carousel"}:
             raise ValueError(f"bad c4_mode: {mode}")
         self._c4_mode = mode
         return mode
@@ -465,10 +465,10 @@ def test_orchestrator_section_handler_geometry_round_trip() -> None:
 
 
 def test_orchestrator_c4_mode_round_trip() -> None:
-    from rt.services.carousel_c4_handler import CarouselC4Handler
+    from rt.services.sector_carousel import SectorCarouselHandler
 
     handle = _handle()
-    handler = CarouselC4Handler(
+    handler = SectorCarouselHandler(
         c4_transport=lambda deg: True,
         c4_eject=lambda: True,
         distributor_port=type(
@@ -480,153 +480,67 @@ def test_orchestrator_c4_mode_round_trip() -> None:
                 "pending_ready": lambda self, *a, **kw: False,
             },
         )(),
+        rotation_chunk_settle_s=0.0,
     )
-    handle.orchestrator._carousel_c4_handler = handler
+    handle.orchestrator._sector_carousel_handler = handler
 
     payload = runtime_tuning.apply_patch(
         handle,
-        {"orchestrator": {"c4_mode": "carousel"}},
+        {"orchestrator": {"c4_mode": "sector_carousel"}},
     )
-    assert handle.orchestrator._c4_mode == "carousel"
-    assert payload["orchestrator"]["c4_mode"] == "carousel"
+    assert handle.orchestrator._c4_mode == "sector_carousel"
+    assert payload["orchestrator"]["c4_mode"] == "sector_carousel"
 
     payload = runtime_tuning.apply_patch(
         handle,
         {
             "orchestrator": {
-                "carousel_c4_handler": {
-                    "geometry": {"classify_deg": 22.0, "classify_tolerance_deg": 8.0},
-                    "timing": {"settle_s": 1.0, "advance_step_deg": 6.0},
+                "sector_carousel_handler": {
+                    "timing": {
+                        "settle_s": 0.5,
+                        "rotate_cooldown_s": 8.0,
+                        "sector_step_deg": 72.0,
+                        "rotation_chunk_deg": 2.0,
+                        "rotation_chunk_settle_s": 0.15,
+                        "auto_rotate": True,
+                    },
                 }
             }
         },
     )
     snap = handler.snapshot()
-    assert snap["geometry"]["classify_deg"] == 22.0
-    assert snap["geometry"]["classify_tolerance_deg"] == 8.0
-    assert snap["timing"]["settle_s"] == 1.0
-    assert snap["timing"]["advance_step_deg"] == 6.0
+    assert snap["timing"]["settle_s"] == pytest.approx(0.5)
+    assert snap["timing"]["rotate_cooldown_s"] == pytest.approx(8.0)
+    assert snap["sector_step_deg"] == pytest.approx(72.0)
+    assert snap["timing"]["rotation_chunk_deg"] == pytest.approx(2.0)
+    assert snap["timing"]["rotation_chunk_settle_s"] == pytest.approx(0.15)
+    assert snap["auto_rotate"] is True
+    sector = payload["orchestrator"]["sector_carousel_handler"]
+    assert sector["timing"]["rotation_chunk_deg"] == pytest.approx(2.0)
 
 
 def test_orchestrator_c4_mode_rejects_unknown_value() -> None:
     handle = _handle()
-    with pytest.raises(ValueError, match="c4_mode"):
-        runtime_tuning.apply_patch(
-            handle,
-            {"orchestrator": {"c4_mode": "magic"}},
-        )
+    for mode in ("magic", "carousel"):
+        with pytest.raises(ValueError, match="c4_mode"):
+            runtime_tuning.apply_patch(
+                handle,
+                {"orchestrator": {"c4_mode": mode}},
+            )
 
 
-def test_orchestrator_carousel_handler_sector_geometry_round_trip() -> None:
-    """5-wall hardware: sector_count + offset routed through tuning API."""
-    from rt.services.carousel_c4_handler import CarouselC4Handler
-
-    handle = _handle()
-    handler = CarouselC4Handler(
-        c4_transport=lambda deg: True,
-        c4_eject=lambda: True,
-        distributor_port=type(
-            "_D",
-            (),
-            {
-                "handoff_request": lambda self, **kw: True,
-                "handoff_commit": lambda self, *a, **kw: True,
-                "pending_ready": lambda self, *a, **kw: False,
-            },
-        )(),
-    )
-    handle.orchestrator._carousel_c4_handler = handler
-
-    runtime_tuning.apply_patch(
-        handle,
-        {
-            "orchestrator": {
-                "carousel_c4_handler": {
-                    "geometry": {
-                        "sector_count": 5,
-                        "sector_offset_deg": 18.0,
-                        "classify_deg": 50.0,
-                        "drop_deg": 200.0,
-                    }
-                }
-            }
-        },
-    )
-    snap = handler.snapshot()["geometry"]
-    assert snap["sector_count"] == 5
-    assert snap["sector_offset_deg"] == pytest.approx(18.0)
-    # 50° with offset 18° → sector 0 (18..90), center 54°.
-    assert snap["classify_deg"] == pytest.approx(54.0)
-    # 200° with offset 18° → sector 2 (162..234), center 198° → wrapped to -162°.
-    assert snap["drop_deg"] == pytest.approx(-162.0)
-    assert snap["sector_size_deg"] == pytest.approx(72.0)
-    # Tolerances widened automatically.
-    assert snap["classify_tolerance_deg"] > 20.0
-
-
-def test_orchestrator_carousel_handler_wall_angles_round_trip() -> None:
-    """YOLO-detected wall angles route through tuning API to handler.update_walls."""
-    from rt.services.carousel_c4_handler import CarouselC4Handler
+def test_orchestrator_sector_carousel_tuning_rejects_unsafe_chunk() -> None:
+    from rt.services.sector_carousel import SectorCarouselHandler
 
     handle = _handle()
-    handler = CarouselC4Handler(
-        c4_transport=lambda deg: True,
-        c4_eject=lambda: True,
-        distributor_port=type(
-            "_D",
-            (),
-            {
-                "handoff_request": lambda self, **kw: True,
-                "handoff_commit": lambda self, *a, **kw: True,
-                "pending_ready": lambda self, *a, **kw: False,
-            },
-        )(),
-        sector_count=5,
-        sector_offset_deg=0.0,
-    )
-    handle.orchestrator._carousel_c4_handler = handler
-
-    # 5 walls at 24°, 96°, 168°, 240°, 312° → offset = 24°
-    runtime_tuning.apply_patch(
-        handle,
-        {
-            "orchestrator": {
-                "carousel_c4_handler": {
-                    "geometry": {
-                        "wall_angles_deg": [24.0, 96.0, 168.0, 240.0, 312.0]
-                    }
-                }
-            }
-        },
-    )
-    snap = handler.snapshot()["geometry"]
-    assert snap["sector_offset_deg"] == pytest.approx(24.0, abs=0.5)
-
-
-def test_orchestrator_carousel_geometry_rejects_invalid_sector_count() -> None:
-    from rt.services.carousel_c4_handler import CarouselC4Handler
-
-    handle = _handle()
-    handle.orchestrator._carousel_c4_handler = CarouselC4Handler(
-        c4_transport=lambda deg: True,
-        c4_eject=lambda: True,
-        distributor_port=type(
-            "_D",
-            (),
-            {
-                "handoff_request": lambda self, **kw: True,
-                "handoff_commit": lambda self, *a, **kw: True,
-                "pending_ready": lambda self, *a, **kw: False,
-            },
-        )(),
-    )
-    with pytest.raises(ValueError, match="sector_count"):
+    handle.orchestrator._sector_carousel_handler = SectorCarouselHandler()
+    with pytest.raises(ValueError, match="rotation_chunk_deg"):
         runtime_tuning.apply_patch(
             handle,
             {
                 "orchestrator": {
-                    "carousel_c4_handler": {
-                        "geometry": {"sector_count": 100},   # >64 cap
+                    "sector_carousel_handler": {
+                        "timing": {"rotation_chunk_deg": 6.0}
                     }
                 }
             },

@@ -62,8 +62,18 @@ def _build() -> tuple[Any, _FakeStepper]:
     return transport, irl.carousel_stepper
 
 
-def test_default_transport_profile_is_single_shot(monkeypatch) -> None:
+def test_default_transport_profile_is_pulsed(monkeypatch) -> None:
     monkeypatch.delenv(C4_TRANSPORT_PROFILE_ENV, raising=False)
+    monkeypatch.setenv(C4_TRANSPORT_SUB_PULSE_DEG_ENV, "2.0")
+    monkeypatch.setenv(C4_TRANSPORT_SETTLE_MS_ENV, "0")
+    transport, stepper = _build()
+
+    assert transport(6.0) is True
+    assert stepper.moves == [2.0, 2.0, 2.0]
+
+
+def test_single_transport_profile_can_be_forced(monkeypatch) -> None:
+    monkeypatch.setenv(C4_TRANSPORT_PROFILE_ENV, "single")
     transport, stepper = _build()
 
     assert transport(6.0) is True

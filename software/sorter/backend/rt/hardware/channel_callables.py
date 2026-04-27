@@ -48,11 +48,13 @@ from rt.hardware.motion_profiles import (
 # settle pause between them lets friction re-engage between each kick —
 # the pattern Marc observed working better in manual tuning.
 #
-# Defaults are conservative; both knobs are env-tunable so Marc can A/B
-# without a rebuild.
+# Defaults are conservative; knobs are env-tunable so Marc can A/B without a
+# rebuild. The pulsed profile is the default for C4 transport because the
+# gear-driven carousel has shown step-loss / harsh-motion failure modes on
+# larger single-shot moves.
 C4_TRANSPORT_SUB_PULSE_DEG_ENV = "RT_C4_TRANSPORT_SUB_PULSE_DEG"
 C4_TRANSPORT_SETTLE_MS_ENV = "RT_C4_TRANSPORT_SETTLE_MS"
-C4_TRANSPORT_PROFILE_ENV = "RT_C4_TRANSPORT_PROFILE"  # "transport" | "transport_pulsed"
+C4_TRANSPORT_PROFILE_ENV = "RT_C4_TRANSPORT_PROFILE"  # "single" | "transport_pulsed"
 
 _DEFAULT_C4_SUB_PULSE_DEG = 2.0
 _DEFAULT_C4_SETTLE_MS = 120.0
@@ -742,9 +744,9 @@ def build_c4_callables(
 
     def _transport_profile_key() -> str:
         raw = os.environ.get(C4_TRANSPORT_PROFILE_ENV, "").strip().lower()
-        if raw in {"pulsed", "pulse", PROFILE_TRANSPORT_PULSED}:
-            return PROFILE_TRANSPORT_PULSED
-        return PROFILE_TRANSPORT
+        if raw in {"single", "transport", PROFILE_TRANSPORT}:
+            return PROFILE_TRANSPORT
+        return PROFILE_TRANSPORT_PULSED
 
     def transport_move(deg: float) -> bool:
         if _transport_profile_key() == PROFILE_TRANSPORT_PULSED:

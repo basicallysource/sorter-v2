@@ -286,7 +286,7 @@ def test_c4_available_slots_blocks_on_raw_cap() -> None:
 
 
 def test_c4_idle_jog_when_it_believes_tray_is_empty() -> None:
-    rt, _up, _down, _clf, log = _make()
+    rt, _up, _down, _clf, log = _make(idle_jog_enabled=True)
 
     rt.tick(RuntimeInbox(tracks=_batch(), capacity_downstream=1), now_mono=1.0)
 
@@ -316,6 +316,7 @@ def test_c4_idle_jog_does_not_compete_with_owned_transport() -> None:
 
 def test_c4_transport_unjam_when_owned_track_does_not_progress() -> None:
     rt, _up, _down, _clf, log = _make(
+        unjam_enabled=True,
         unjam_stall_ms=500,
         unjam_cooldown_ms=1000,
         unjam_min_progress_deg=2.0,
@@ -335,6 +336,7 @@ def test_c4_transport_unjam_when_owned_track_does_not_progress() -> None:
 
 def test_c4_transport_unjam_watch_resets_on_progress() -> None:
     rt, _up, _down, _clf, _log = _make(
+        unjam_enabled=True,
         unjam_stall_ms=500,
         unjam_cooldown_ms=1000,
         unjam_min_progress_deg=2.0,

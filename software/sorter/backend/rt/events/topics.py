@@ -17,9 +17,11 @@ HARDWARE_ERROR = "hardware.error"
 RUNTIME_STATS = "runtime.stats"
 RUNTIME_MOVE_COMPLETED = "runtime.move_completed"
 RUNTIME_HANDOFF_BURST = "runtime.handoff_burst"
+C3_HANDOFF_TRIGGER = "c3.handoff_trigger"
 
 
 __all__ = [
+    "C3_HANDOFF_TRIGGER",
     "HARDWARE_ERROR",
     "PERCEPTION_FRAME",
     "PERCEPTION_ROTATION",

@@ -31,7 +31,7 @@ from rt.contracts.purge import PurgeCounts, PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import PERCEPTION_ROTATION, RUNTIME_HANDOFF_BURST
+from rt.events.topics import C3_HANDOFF_TRIGGER, PERCEPTION_ROTATION, RUNTIME_HANDOFF_BURST
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
@@ -748,6 +748,7 @@ class RuntimeC3(BaseRuntime):
                     },
                 )
                 if ok and commits_slot:
+                    self._publish_c4_handoff_trigger(track, now_mono)
                     self._publish_transit_candidate(track, now_mono)
             if not ok and commits_slot:
                 self._downstream_slot.release()
@@ -962,6 +963,34 @@ class RuntimeC3(BaseRuntime):
             )
         except Exception:
             self._logger.exception("RuntimeC3: rotation-window publish failed")
+
+    def _publish_c4_handoff_trigger(self, track: Track, now_mono: float) -> None:
+        if self._bus is None:
+            return
+        piece_uuid = getattr(track, "piece_uuid", None)
+        if not isinstance(piece_uuid, str) or not piece_uuid:
+            gid = getattr(track, "global_id", None)
+            piece_uuid = f"c3-global-{gid}" if gid is not None else None
+        try:
+            self._bus.publish(
+                Event(
+                    topic=C3_HANDOFF_TRIGGER,
+                    payload={
+                        "piece_uuid": piece_uuid,
+                        "track_global_id": getattr(track, "global_id", None),
+                        "track_id": getattr(track, "track_id", None),
+                        "c3_eject_ts": float(now_mono),
+                        "expected_arrival_window_s": [
+                            float(self._lease_transit_estimate_s) - 0.2,
+                            float(self._lease_transit_estimate_s) + 0.4,
+                        ],
+                    },
+                    source=self.runtime_id,
+                    ts_mono=float(now_mono),
+                )
+            )
+        except Exception:
+            self._logger.exception("RuntimeC3: c4 handoff trigger publish failed")
 
     def _publish_transit_candidate(self, track: Track, now_mono: float) -> None:
         registry = self._track_transit

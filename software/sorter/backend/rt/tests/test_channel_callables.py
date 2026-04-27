@@ -295,7 +295,8 @@ def test_c3_direct_move_accepts_small_degree_steps() -> None:
     assert irl.c_channel_3_rotor_stepper.moves == [15.0]
 
 
-def test_c4_callables_restore_default_speed_for_slow_moves() -> None:
+def test_c4_callables_restore_default_speed_for_slow_moves(monkeypatch) -> None:
+    monkeypatch.setenv("RT_C4_TRANSPORT_PROFILE", "single")
     irl = type("Irl", (), {})()
     irl.carousel_stepper = _CarouselStepper()
     irl.irl_config = type("Config", (), {"carousel_stepper": _CarouselConfig()})()
@@ -314,7 +315,8 @@ def test_c4_callables_restore_default_speed_for_slow_moves() -> None:
     assert irl.carousel_stepper.moves == [6.0, 3.0]
 
 
-def test_c4_callables_convert_tray_degrees_to_stepper_degrees_live() -> None:
+def test_c4_callables_convert_tray_degrees_to_stepper_degrees_live(monkeypatch) -> None:
+    monkeypatch.setenv("RT_C4_TRANSPORT_PROFILE", "single")
     irl = type("Irl", (), {})()
     irl.carousel_stepper = _CarouselStepper()
     irl.irl_config = type(
@@ -417,7 +419,8 @@ def test_c4_continuous_move_uses_named_continuous_profile() -> None:
     assert irl.carousel_stepper.speed_limits == [(16, 240)]
 
 
-def test_c4_motion_diagnostics_records_named_profile_warning() -> None:
+def test_c4_motion_diagnostics_records_named_profile_warning(monkeypatch) -> None:
+    monkeypatch.setenv("RT_C4_TRANSPORT_PROFILE", "single")
     irl = type("Irl", (), {})()
     irl.carousel_stepper = _CarouselStepper()
     irl.irl_config = type("Config", (), {"carousel_stepper": _CarouselConfig()})()

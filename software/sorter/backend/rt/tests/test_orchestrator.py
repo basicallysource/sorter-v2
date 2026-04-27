@@ -103,6 +103,45 @@ def test_tick_order_is_downstream_first() -> None:
     assert [t.runtime_id for t in ordered_ticks] == ["c3", "c2", "c1"]
 
 
+def test_sector_carousel_mode_enables_handler_and_bypasses_c4_scheduler() -> None:
+    c4 = _FakeRuntime("c4", feed_id="c4_feed")
+    active_flags: list[bool] = []
+    c4.set_carousel_mode_active = active_flags.append  # type: ignore[attr-defined]
+    slots = {("c4", "distributor"): CapacitySlot("c4_to_dist", 1)}
+    orch = _make_orchestrator([c4], slots)
+
+    class _Handler:
+        def __init__(self) -> None:
+            self.enabled = False
+            self.ticks: list[float] = []
+
+        def enable(self) -> None:
+            self.enabled = True
+
+        def disable(self) -> None:
+            self.enabled = False
+
+        def tick(self, now_mono: float) -> None:
+            self.ticks.append(now_mono)
+
+        def snapshot(self) -> dict[str, Any]:
+            return {"enabled": self.enabled}
+
+    handler = _Handler()
+    orch.attach_sector_carousel_handler(handler)
+
+    assert orch.set_c4_mode("sector_carousel") == "sector_carousel"
+    orch.tick_once(now_mono=12.0)
+
+    assert active_flags == [True]
+    assert handler.enabled is True
+    assert handler.ticks == [12.0]
+
+    assert orch.set_c4_mode("runtime") == "runtime"
+    assert active_flags == [True, False]
+    assert handler.enabled is False
+
+
 def test_capacity_downstream_pulled_from_downstream_runtime() -> None:
     """Capacity is sourced from the downstream runtime's own headroom.
 
@@ -415,18 +454,18 @@ def test_orchestrator_c4_mode_defaults_to_runtime() -> None:
     assert orch.c4_mode() == "runtime"
 
 
-def test_orchestrator_rejects_carousel_mode_without_handler() -> None:
+def test_orchestrator_rejects_legacy_carousel_mode() -> None:
     c1 = _FakeRuntime("c1")
     c2 = _FakeRuntime("c2")
     orch = _make_orchestrator(
         [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
     )
-    with pytest.raises(RuntimeError, match="carousel"):
+    with pytest.raises(ValueError, match="c4_mode"):
         orch.set_c4_mode("carousel")
 
 
-def test_orchestrator_c4_mode_switch_toggles_runtime_carousel_flag() -> None:
-    """Switching to carousel must also flip the RuntimeC4 bypass flag."""
+def test_orchestrator_c4_mode_switch_toggles_runtime_sector_flag() -> None:
+    """Switching to sector carousel flips RuntimeC4 into external-scheduler mode."""
 
     class _StubC4(_FakeRuntime):
         def __init__(self) -> None:
@@ -436,7 +475,7 @@ def test_orchestrator_c4_mode_switch_toggles_runtime_carousel_flag() -> None:
         def set_carousel_mode_active(self, active: bool) -> None:
             self.carousel_active = bool(active)
 
-    class _StubCarousel:
+    class _StubSectorCarousel:
         def __init__(self) -> None:
             self.enabled = False
 
@@ -449,18 +488,21 @@ def test_orchestrator_c4_mode_switch_toggles_runtime_carousel_flag() -> None:
         def snapshot(self) -> dict[str, Any]:
             return {}
 
-        def tick(self, payload: Any, *, now_mono: float | None = None) -> None:
+        def tick(self, now_mono: float | None = None) -> None:
             return None
+
+        def bind_front_classification(self, **kwargs: Any) -> bool:
+            return False
 
     c1 = _FakeRuntime("c1")
     c4 = _StubC4()
     orch = _make_orchestrator(
         [c1, c4], {("c1", "c4"): CapacitySlot("c1_to_c4", 1)}
     )
-    handler = _StubCarousel()
-    orch.attach_carousel_c4_handler(handler)
+    handler = _StubSectorCarousel()
+    orch.attach_sector_carousel_handler(handler)
 
-    orch.set_c4_mode("carousel")
+    orch.set_c4_mode("sector_carousel")
     assert handler.enabled is True
     assert c4.carousel_active is True
 
@@ -469,9 +511,8 @@ def test_orchestrator_c4_mode_switch_toggles_runtime_carousel_flag() -> None:
     assert c4.carousel_active is False
 
 
-def test_orchestrator_carousel_handler_ticks_when_active() -> None:
-    """In carousel mode, the orchestrator tick passes a CarouselTickInput
-    to the handler with the front-piece state pulled from RuntimeC4."""
+def test_orchestrator_sector_handler_binds_front_classification_when_active() -> None:
+    """Sector mode mirrors RuntimeC4's front classification into the slot scheduler."""
 
     class _StubC4(_FakeRuntime):
         def __init__(self) -> None:
@@ -492,19 +533,10 @@ def test_orchestrator_carousel_handler_ticks_when_active() -> None:
                 "dossier": {"piece_uuid": "p1"},
             }
 
-    class _StubDistributor(_FakeRuntime):
+    class _StubSectorCarousel:
         def __init__(self) -> None:
-            super().__init__("distributor")
-
-        def pending_piece_uuid(self) -> str | None:
-            return None
-
-        def pending_ready(self) -> bool:
-            return False
-
-    class _StubCarousel:
-        def __init__(self) -> None:
-            self.tick_calls: list[Any] = []
+            self.tick_calls: list[float | None] = []
+            self.bound: list[dict[str, Any]] = []
             self.enabled = False
 
         def enable(self) -> None:
@@ -516,40 +548,43 @@ def test_orchestrator_carousel_handler_ticks_when_active() -> None:
         def snapshot(self) -> dict[str, Any]:
             return {"enabled": self.enabled}
 
-        def tick(self, payload: Any, *, now_mono: float | None = None) -> None:
-            self.tick_calls.append(payload)
+        def tick(self, now_mono: float | None = None) -> None:
+            self.tick_calls.append(now_mono)
+
+        def bind_front_classification(self, **kwargs: Any) -> bool:
+            self.bound.append(kwargs)
+            return True
 
     c1 = _FakeRuntime("c1")
     c4 = _StubC4()
-    distributor = _StubDistributor()
     orch = _make_orchestrator(
-        [c1, c4, distributor],
+        [c1, c4],
         {
             ("c1", "c4"): CapacitySlot("c1_to_c4", 1),
-            ("c4", "distributor"): CapacitySlot("c4_to_distributor", 1),
         },
     )
-    handler = _StubCarousel()
-    orch.attach_carousel_c4_handler(handler)
+    handler = _StubSectorCarousel()
+    orch.attach_sector_carousel_handler(handler)
 
     # Runtime mode: handler not ticked.
     orch.tick_once(now_mono=0.0)
     assert handler.tick_calls == []
 
-    orch.set_c4_mode("carousel")
+    orch.set_c4_mode("sector_carousel")
     orch.tick_once(now_mono=0.020)
-    assert len(handler.tick_calls) == 1
-    payload = handler.tick_calls[0]
-    assert payload.front_piece_uuid == "p1"
-    assert payload.front_track_angle_deg == 12.0
-    assert payload.front_classification_present is True
-    assert payload.front_classification == "brick"
-    assert payload.distributor_pending_piece_uuid is None
-    assert payload.distributor_pending_ready is False
+    assert handler.tick_calls == [0.020]
+    assert handler.bound == [
+        {
+            "c4_piece_uuid": "p1",
+            "classification": "brick",
+            "dossier": {"piece_uuid": "p1"},
+            "now_mono": 0.020,
+        }
+    ]
 
 
-def test_orchestrator_c4_mode_switch_toggles_handler() -> None:
-    class _StubCarousel:
+def test_orchestrator_c4_mode_switch_toggles_sector_handler() -> None:
+    class _StubSectorCarousel:
         def __init__(self) -> None:
             self.enabled = False
 
@@ -561,20 +596,23 @@ def test_orchestrator_c4_mode_switch_toggles_handler() -> None:
 
         def snapshot(self) -> dict[str, Any]:
             return {"enabled": self.enabled}
+
+        def tick(self, now_mono: float | None = None) -> None:
+            return None
 
     c1 = _FakeRuntime("c1")
     c2 = _FakeRuntime("c2")
     orch = _make_orchestrator(
         [c1, c2], {("c1", "c2"): CapacitySlot("c1_to_c2", 1)}
     )
-    handler = _StubCarousel()
-    orch.attach_carousel_c4_handler(handler)
+    handler = _StubSectorCarousel()
+    orch.attach_sector_carousel_handler(handler)
 
-    orch.set_c4_mode("carousel")
+    orch.set_c4_mode("sector_carousel")
     assert handler.enabled is True
     snap = orch.status_snapshot()
-    assert snap["c4_mode"] == "carousel"
-    assert snap["carousel_c4_handler"] == {"enabled": True}
+    assert snap["c4_mode"] == "sector_carousel"
+    assert snap["sector_carousel_handler"] == {"enabled": True}
 
     orch.set_c4_mode("runtime")
     assert handler.enabled is False

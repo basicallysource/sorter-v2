@@ -209,10 +209,10 @@ class RuntimeC4(BaseRuntime):
         reconcile_min_hit_count: int = DEFAULT_RECOVER_MIN_HIT_COUNT,
         reconcile_min_score: float = DEFAULT_RECOVER_MIN_SCORE,
         reconcile_min_age_s: float = DEFAULT_RECOVER_MIN_AGE_S,
-        idle_jog_enabled: bool = True,
+        idle_jog_enabled: bool = False,
         idle_jog_step_deg: float = DEFAULT_IDLE_JOG_STEP_DEG,
         idle_jog_cooldown_ms: int = DEFAULT_IDLE_JOG_COOLDOWN_MS,
-        unjam_enabled: bool = True,
+        unjam_enabled: bool = False,
         unjam_stall_ms: int = DEFAULT_UNJAM_STALL_MS,
         unjam_min_progress_deg: float = DEFAULT_UNJAM_MIN_PROGRESS_DEG,
         unjam_cooldown_ms: int = DEFAULT_UNJAM_COOLDOWN_MS,
@@ -234,7 +234,7 @@ class RuntimeC4(BaseRuntime):
         # Mode flag: when True, RuntimeC4 keeps doing perception +
         # admission + classifier submission + dossier bookkeeping but
         # *skips* its internal transport/handoff/eject decisions so an
-        # external scheduler (CarouselC4Handler) can own them without
+        # external sector-carousel scheduler can own them without
         # both paths fighting for the C4 stepper. Off by default.
         self._carousel_mode_active = False
         self._admission = admission or C4Admission(max_zones=zone_manager.max_zones)
@@ -429,7 +429,7 @@ class RuntimeC4(BaseRuntime):
         piece UUIDs and image crops still flow), but skips its own
         ``_request_pending_handoffs`` / ``_handle_exit`` /
         ``_maybe_advance_transport`` / ``_maybe_idle_jog`` so an
-        external handler (CarouselC4Handler) can drive C4's hardware
+        external sector-carousel handler can drive C4's hardware
         without a parallel writer.
         """
         self._carousel_mode_active = bool(active)
@@ -991,7 +991,7 @@ class RuntimeC4(BaseRuntime):
         self._poll_classifier_futures(now_mono)
         if not self._carousel_mode_active:
             # Carousel mode delegates these to an external scheduler
-            # (CarouselC4Handler). Perception + admission +
+            # (SectorCarouselHandler). Perception + admission +
             # classification still run above so dossiers stay live.
             self._request_pending_handoffs(now_mono)
             self._handle_exit(owned_tracks, inbox, now_mono)

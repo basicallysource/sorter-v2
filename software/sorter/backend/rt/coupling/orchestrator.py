@@ -124,13 +124,12 @@ class Orchestrator:
         # orchestrator does not invent the handler — bootstrap attaches
         # it; the toggle just controls which path is active each tick.
         self._feeder_mode: str = "lease"
-        # Same idea for C4: default ``"runtime"`` is the legacy
-        # RuntimeC4 transport/handoff/eject scheduling. Carousel mode
-        # delegates those decisions to a Main-style sequential handler;
-        # RuntimeC4 still does perception + classification + dossier
-        # bookkeeping in both modes so BoxMot piece UUIDs and image
-        # crops stay intact.
-        self._carousel_c4_handler: Any | None = None
+        # Same idea for C4: default ``"runtime"`` keeps RuntimeC4 as a
+        # maintenance fallback. Production bootstrap switches this to
+        # ``"sector_carousel"`` and delegates C4 motion/eject ownership to
+        # the five-sector scheduler while RuntimeC4 continues perception,
+        # classification, and dossier bookkeeping.
+        self._sector_carousel_handler: Any | None = None
         self._c4_mode: str = "runtime"
         self._last_c1_recovery_decision: dict[str, Any] | None = None
         self._c1_recovery_admission_enabled = True
@@ -321,55 +320,78 @@ class Orchestrator:
         self._last_c1_recovery_decision = dict(info)
         return allowed, info
 
-    def attach_carousel_c4_handler(self, handler: Any) -> None:
-        """Install the alternative Main-style C4 carousel handler.
-
-        Inert until ``c4_mode`` flips to ``"carousel"``. Bootstrap
-        attaches one handler at startup; live tuning toggles whether
-        it runs.
-        """
-        self._carousel_c4_handler = handler
+    def attach_sector_carousel_handler(self, handler: Any) -> None:
+        """Install the five-slot C4 sector carousel handler."""
+        self._sector_carousel_handler = handler
+        if self._c4_mode == "sector_carousel":
+            self._apply_c4_mode_side_effects()
 
     def c4_mode(self) -> str:
         return str(self._c4_mode)
 
     def set_c4_mode(self, mode: str) -> str:
-        """``"runtime"`` (default) or ``"carousel"``."""
+        """``"runtime"`` maintenance fallback or ``"sector_carousel"``."""
         normalized = str(mode or "").strip().lower()
-        if normalized not in {"runtime", "carousel"}:
+        if normalized not in {"runtime", "sector_carousel"}:
             raise ValueError(
-                f"c4_mode must be 'runtime' or 'carousel', got {mode!r}"
+                f"c4_mode must be 'runtime' or 'sector_carousel', got {mode!r}"
             )
-        if normalized == "carousel" and self._carousel_c4_handler is None:
+        if normalized == "sector_carousel" and self._sector_carousel_handler is None:
             raise RuntimeError(
-                "carousel C4 handler is not attached; cannot switch to carousel mode"
+                "sector carousel handler is not attached; cannot switch to sector_carousel mode"
             )
         previous = self._c4_mode
         if previous == normalized:
+            self._apply_c4_mode_side_effects()
             return normalized
         self._c4_mode = normalized
-        handler = self._carousel_c4_handler
+        self._apply_c4_mode_side_effects()
+        return normalized
+
+    def _apply_c4_mode_side_effects(self) -> None:
+        normalized = str(self._c4_mode)
         c4 = self._runtime_by_id.get("c4")
         if c4 is not None:
             set_carousel_mode = getattr(c4, "set_carousel_mode_active", None)
             if callable(set_carousel_mode):
                 try:
-                    set_carousel_mode(normalized == "carousel")
+                    set_carousel_mode(normalized == "sector_carousel")
                 except Exception:
                     self._logger.exception(
                         "Orchestrator: c4.set_carousel_mode_active raised"
                     )
-        if handler is not None:
+        c3 = self._runtime_by_id.get("c3")
+        if c3 is not None:
+            set_lease = getattr(c3, "set_landing_lease_port", None)
+            if callable(set_lease):
+                try:
+                    if normalized == "sector_carousel" and self._sector_carousel_handler is not None:
+                        port_fn = getattr(
+                            self._sector_carousel_handler,
+                            "landing_lease_port",
+                            None,
+                        )
+                        set_lease(port_fn() if callable(port_fn) else None)
+                    elif c4 is not None:
+                        port_fn = getattr(c4, "landing_lease_port", None)
+                        set_lease(port_fn() if callable(port_fn) else None)
+                    else:
+                        set_lease(None)
+                except Exception:
+                    self._logger.exception(
+                        "Orchestrator: c3.set_landing_lease_port raised"
+                    )
+        sector_handler = self._sector_carousel_handler
+        if sector_handler is not None:
             try:
-                if normalized == "carousel":
-                    handler.enable()
+                if normalized == "sector_carousel":
+                    sector_handler.enable()
                 else:
-                    handler.disable()
+                    sector_handler.disable()
             except Exception:
                 self._logger.exception(
-                    "Orchestrator: carousel C4 handler enable/disable raised"
+                    "Orchestrator: sector carousel handler enable/disable raised"
                 )
-        return normalized
 
     def attach_section_feeder_handler(self, handler: Any) -> None:
         """Install the alternative section-based feeder handler.
@@ -812,14 +834,14 @@ class Orchestrator:
                 self._logger.exception(
                     "Orchestrator: section feeder handler snapshot raised"
                 )
-        carousel_handler_snap: dict[str, Any] | None = None
-        c4_handler = self._carousel_c4_handler
-        if c4_handler is not None:
+        sector_carousel_snap: dict[str, Any] | None = None
+        sector_handler = self._sector_carousel_handler
+        if sector_handler is not None:
             try:
-                carousel_handler_snap = dict(c4_handler.snapshot() or {})
+                sector_carousel_snap = dict(sector_handler.snapshot() or {})
             except Exception:
                 self._logger.exception(
-                    "Orchestrator: carousel C4 handler snapshot raised"
+                    "Orchestrator: sector carousel handler snapshot raised"
                 )
         return {
             "runtime_health": self.health(),
@@ -832,7 +854,7 @@ class Orchestrator:
             "feeder_mode": str(self._feeder_mode),
             "section_feeder_handler": section_handler_snap,
             "c4_mode": str(self._c4_mode),
-            "carousel_c4_handler": carousel_handler_snap,
+            "sector_carousel_handler": sector_carousel_snap,
         }
 
     def inspect_snapshot(self) -> dict[str, Any]:
@@ -1419,10 +1441,16 @@ class Orchestrator:
         if section_active:
             self._tick_section_handler(now_mono)
         if (
-            self._c4_mode == "carousel"
-            and self._carousel_c4_handler is not None
+            self._c4_mode == "sector_carousel"
+            and self._sector_carousel_handler is not None
         ):
-            self._tick_carousel_c4_handler(now_mono)
+            try:
+                self._sync_sector_carousel_from_c4(now_mono)
+                self._sector_carousel_handler.tick(now_mono)
+            except Exception:
+                self._logger.exception(
+                    "Orchestrator: sector carousel handler tick raised"
+                )
         self._tick_count += 1
         self._last_tick_mono = now_mono
         self._observe_flow_gates(now_mono)
@@ -1503,73 +1531,43 @@ class Orchestrator:
                 "Orchestrator: section feeder handler tick raised"
             )
 
-    def _tick_carousel_c4_handler(self, now_mono: float) -> None:
-        """Bridge RuntimeC4 state into the carousel handler.
-
-        RuntimeC4 still does perception + admission + classification
-        in carousel mode (so dossier results flow into ``front``);
-        we just translate the front-piece view into the handler's
-        ``CarouselTickInput`` and feed it once per orchestrator tick.
-        """
-        from rt.services.carousel_c4_handler import CarouselTickInput
-
-        handler = self._carousel_c4_handler
+    def _sync_sector_carousel_from_c4(self, now_mono: float) -> None:
+        handler = self._sector_carousel_handler
         if handler is None:
             return
         c4 = self._runtime_by_id.get("c4")
-        front = None
-        if c4 is not None:
-            front_fn = getattr(c4, "carousel_front_snapshot", None)
-            if callable(front_fn):
-                try:
-                    front = front_fn()
-                except Exception:
-                    self._logger.exception(
-                        "Orchestrator: c4.carousel_front_snapshot raised"
-                    )
-
-        distributor = self._runtime_by_id.get("distributor")
-        pending_uuid: str | None = None
-        pending_ready = False
-        if distributor is not None:
-            try:
-                pending_uuid = distributor.pending_piece_uuid()
-            except Exception:
-                pending_uuid = None
-            try:
-                pending_ready = bool(distributor.pending_ready())
-            except Exception:
-                pending_ready = False
-
-        if front is None:
-            payload = CarouselTickInput(
-                front_piece_uuid=None,
-                front_track_angle_deg=None,
-                front_classification_present=False,
-                front_classification=None,
-                front_dossier={},
-                front_track_count=0,
-                distributor_pending_piece_uuid=pending_uuid,
-                distributor_pending_ready=pending_ready,
-            )
-        else:
-            payload = CarouselTickInput(
-                front_piece_uuid=front.get("piece_uuid"),
-                front_track_angle_deg=front.get("angle_deg"),
-                front_classification_present=bool(
-                    front.get("classification_present", False)
-                ),
-                front_classification=front.get("classification"),
-                front_dossier=dict(front.get("dossier") or {}),
-                front_track_count=1,
-                distributor_pending_piece_uuid=pending_uuid,
-                distributor_pending_ready=pending_ready,
-            )
+        if c4 is None:
+            return
+        front_fn = getattr(c4, "carousel_front_snapshot", None)
+        if not callable(front_fn):
+            return
         try:
-            handler.tick(payload, now_mono=now_mono)
+            front = front_fn()
         except Exception:
             self._logger.exception(
-                "Orchestrator: carousel C4 handler tick raised"
+                "Orchestrator: c4.carousel_front_snapshot raised for sector carousel"
+            )
+            return
+        if not isinstance(front, dict):
+            return
+        piece_uuid = front.get("piece_uuid")
+        if not isinstance(piece_uuid, str) or not piece_uuid:
+            return
+        if not bool(front.get("classification_present", False)):
+            return
+        bind = getattr(handler, "bind_front_classification", None)
+        if not callable(bind):
+            return
+        try:
+            bind(
+                c4_piece_uuid=piece_uuid,
+                classification=front.get("classification"),
+                dossier=dict(front.get("dossier") or {}),
+                now_mono=now_mono,
+            )
+        except Exception:
+            self._logger.exception(
+                "Orchestrator: sector carousel bind_classification raised"
             )
 
     def _run(self) -> None:

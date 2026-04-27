@@ -190,17 +190,18 @@ def _orchestrator_snapshot(orchestrator: Any) -> dict[str, Any]:
         c4_mode_fn() if callable(c4_mode_fn) else getattr(orchestrator, "_c4_mode", "runtime")
     )
     out["c4_mode"] = str(c4_mode_val)
-    c4_handler = getattr(orchestrator, "_carousel_c4_handler", None)
-    if c4_handler is not None:
-        snap_fn = getattr(c4_handler, "snapshot", None)
+    sector_handler = getattr(orchestrator, "_sector_carousel_handler", None)
+    if sector_handler is not None:
+        snap_fn = getattr(sector_handler, "snapshot", None)
         if callable(snap_fn):
             try:
-                c4_snap = dict(snap_fn() or {})
+                sector_snap = dict(snap_fn() or {})
             except Exception:
-                c4_snap = {}
-            out["carousel_c4_handler"] = {
-                "geometry": c4_snap.get("geometry"),
-                "timing": c4_snap.get("timing"),
+                sector_snap = {}
+            out["sector_carousel_handler"] = {
+                "timing": sector_snap.get("timing"),
+                "sector_step_deg": sector_snap.get("sector_step_deg"),
+                "auto_rotate": sector_snap.get("auto_rotate"),
             }
     return out
 
@@ -213,21 +214,26 @@ def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
         "feeder_mode",
         "section_feeder_handler",
         "c4_mode",
-        "carousel_c4_handler",
+        "sector_carousel_handler",
     }
     _reject_unknown("orchestrator", values, allowed)
     if "c4_mode" in values:
         c4_mode = values["c4_mode"]
-        if not isinstance(c4_mode, str) or c4_mode not in {"runtime", "carousel"}:
+        if not isinstance(c4_mode, str) or c4_mode not in {
+            "runtime",
+            "sector_carousel",
+        }:
             raise ValueError(
-                "orchestrator.c4_mode must be 'runtime' or 'carousel'"
+                "orchestrator.c4_mode must be 'runtime' or 'sector_carousel'"
             )
         setter = getattr(orchestrator, "set_c4_mode", None)
         if not callable(setter):
             raise RuntimeError("orchestrator does not support set_c4_mode")
         setter(c4_mode)
-    if "carousel_c4_handler" in values:
-        _apply_carousel_c4_handler(orchestrator, values["carousel_c4_handler"])
+    if "sector_carousel_handler" in values:
+        _apply_sector_carousel_handler(
+            orchestrator, values["sector_carousel_handler"]
+        )
     if "feeder_mode" in values:
         mode = values["feeder_mode"]
         if not isinstance(mode, str) or mode not in {"lease", "section"}:
@@ -243,128 +249,57 @@ def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
             orchestrator, values["section_feeder_handler"]
         )
 
-
-def _apply_carousel_c4_handler(orchestrator: Any, values: Any) -> None:
+def _apply_sector_carousel_handler(orchestrator: Any, values: Any) -> None:
     if not isinstance(values, dict):
-        raise ValueError("orchestrator.carousel_c4_handler must be an object")
-    handler = getattr(orchestrator, "_carousel_c4_handler", None)
+        raise ValueError("orchestrator.sector_carousel_handler must be an object")
+    handler = getattr(orchestrator, "_sector_carousel_handler", None)
     if handler is None:
         raise RuntimeError(
-            "carousel C4 handler is not attached; cannot tune it"
+            "sector carousel handler is not attached; cannot tune it"
         )
-    allowed = {"geometry", "timing"}
-    _reject_unknown("orchestrator.carousel_c4_handler", values, allowed)
-    geometry = values.get("geometry")
-    if geometry is not None:
-        if not isinstance(geometry, dict):
-            raise ValueError(
-                "orchestrator.carousel_c4_handler.geometry must be an object"
-            )
-        geom_allowed = {
-            "classify_deg",
-            "drop_deg",
-            "classify_tolerance_deg",
-            "drop_tolerance_deg",
-            "sector_count",
-            "sector_offset_deg",
-            "wall_angles_deg",
-        }
-        _reject_unknown(
-            "orchestrator.carousel_c4_handler.geometry",
-            geometry,
-            geom_allowed,
-        )
-        update_fn = getattr(handler, "update_geometry", None)
-        if not callable(update_fn):
-            raise RuntimeError(
-                "carousel C4 handler missing update_geometry"
-            )
-        kwargs: dict[str, Any] = {}
-        for key, low, high in (
-            ("classify_deg", -360.0, 360.0),
-            ("drop_deg", -360.0, 360.0),
-            ("classify_tolerance_deg", 0.5, 90.0),
-            ("drop_tolerance_deg", 0.5, 90.0),
-            ("sector_offset_deg", -360.0, 360.0),
-        ):
-            if key in geometry:
-                kwargs[key] = _float(
-                    geometry[key],
-                    f"orchestrator.carousel_c4_handler.geometry.{key}",
-                    min_value=low,
-                    max_value=high,
-                )
-        if "sector_count" in geometry:
-            kwargs["sector_count"] = _int(
-                geometry["sector_count"],
-                "orchestrator.carousel_c4_handler.geometry.sector_count",
-                min_value=0,
-                max_value=64,
-            )
-        update_fn(**kwargs)
-        # ``wall_angles_deg`` is a *derived* geometry input — when set,
-        # the handler infers ``sector_offset_deg`` from it and ignores
-        # any ``sector_offset_deg`` passed in the same patch (walls
-        # are the more authoritative signal).
-        if "wall_angles_deg" in geometry:
-            walls = geometry["wall_angles_deg"]
-            if not isinstance(walls, list):
-                raise ValueError(
-                    "orchestrator.carousel_c4_handler.geometry.wall_angles_deg must be a list"
-                )
-            cleaned: list[float] = []
-            for i, raw in enumerate(walls):
-                cleaned.append(
-                    _float(
-                        raw,
-                        f"orchestrator.carousel_c4_handler.geometry.wall_angles_deg[{i}]",
-                        min_value=-360.0,
-                        max_value=360.0,
-                    )
-                )
-            walls_fn = getattr(handler, "update_walls", None)
-            if not callable(walls_fn):
-                raise RuntimeError(
-                    "carousel C4 handler missing update_walls"
-                )
-            walls_fn(cleaned)
+    allowed = {"timing"}
+    _reject_unknown("orchestrator.sector_carousel_handler", values, allowed)
     timing = values.get("timing")
-    if timing is not None:
-        if not isinstance(timing, dict):
-            raise ValueError(
-                "orchestrator.carousel_c4_handler.timing must be an object"
-            )
-        timing_allowed = {
-            "settle_s",
-            "advance_step_deg",
-            "advance_cooldown_s",
-            "distributor_timeout_s",
-        }
-        _reject_unknown(
-            "orchestrator.carousel_c4_handler.timing",
-            timing,
-            timing_allowed,
+    if timing is None:
+        return
+    if not isinstance(timing, dict):
+        raise ValueError(
+            "orchestrator.sector_carousel_handler.timing must be an object"
         )
-        update_fn = getattr(handler, "update_timing", None)
-        if not callable(update_fn):
-            raise RuntimeError(
-                "carousel C4 handler missing update_timing"
+    timing_allowed = {
+        "settle_s",
+        "rotate_cooldown_s",
+        "sector_step_deg",
+        "rotation_chunk_deg",
+        "rotation_chunk_settle_s",
+        "auto_rotate",
+    }
+    _reject_unknown(
+        "orchestrator.sector_carousel_handler.timing",
+        timing,
+        timing_allowed,
+    )
+    update_fn = getattr(handler, "update_timing", None)
+    if not callable(update_fn):
+        raise RuntimeError("sector carousel handler missing update_timing")
+    kwargs: dict[str, Any] = {}
+    for key, low, high in (
+        ("settle_s", 0.0, 30.0),
+        ("rotate_cooldown_s", 5.0, 60.0),
+        ("sector_step_deg", 0.5, 72.0),
+        ("rotation_chunk_deg", 0.5, 3.0),
+        ("rotation_chunk_settle_s", 0.0, 2.0),
+    ):
+        if key in timing:
+            kwargs[key] = _float(
+                timing[key],
+                f"orchestrator.sector_carousel_handler.timing.{key}",
+                min_value=low,
+                max_value=high,
             )
-        kwargs: dict[str, float] = {}
-        for key, low, high in (
-            ("settle_s", 0.0, 30.0),
-            ("advance_step_deg", 0.5, 90.0),
-            ("advance_cooldown_s", 0.0, 10.0),
-            ("distributor_timeout_s", 0.5, 60.0),
-        ):
-            if key in timing:
-                kwargs[key] = _float(
-                    timing[key],
-                    f"orchestrator.carousel_c4_handler.timing.{key}",
-                    min_value=low,
-                    max_value=high,
-                )
-        update_fn(**kwargs)
+    if "auto_rotate" in timing:
+        kwargs["auto_rotate"] = bool(timing["auto_rotate"])
+    update_fn(**kwargs)
 
 
 def _apply_section_feeder_handler(orchestrator: Any, values: Any) -> None:
@@ -1343,11 +1278,11 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
     _set_runtime_float(runtime, "_reconcile_min_score", values, "reconcile_min_score", min_value=0.0, max_value=1.0)
     _set_runtime_float(runtime, "_reconcile_min_age_s", values, "reconcile_min_age_s", min_value=0.0, max_value=30.0)
     if class_cfg is not None:
-        _set_cfg_float(class_cfg, "transport_speed_scale", values, "transport_speed_scale", 0.1, 64.0)
+        _set_cfg_float(class_cfg, "transport_speed_scale", values, "transport_speed_scale", 0.1, 2.0)
         _set_cfg_optional_int(class_cfg, "transport_acceleration_microsteps_per_second_sq", values, "transport_acceleration_usteps_per_s2", 1, 1_000_000)
         _set_cfg_float(class_cfg, "positioning_window_deg", values, "exit_approach_angle_deg", 0.0, 90.0)
         _set_cfg_float(class_cfg, "exit_approach_step_deg", values, "exit_approach_step_deg", 0.1, 24.0)
-        _set_cfg_float(class_cfg, "startup_purge_speed_scale", values, "startup_purge_speed_scale", 0.1, 64.0)
+        _set_cfg_float(class_cfg, "startup_purge_speed_scale", values, "startup_purge_speed_scale", 0.1, 2.0)
         _set_cfg_optional_int(class_cfg, "startup_purge_acceleration_microsteps_per_second_sq", values, "startup_purge_acceleration_usteps_per_s2", 1, 1_000_000)
         _set_cfg_float(class_cfg, "exit_release_shimmy_amplitude_deg", values, "exit_release_shimmy_amplitude_deg", 0.1, 12.0)
         _set_cfg_optional_int(class_cfg, "exit_release_shimmy_cycles", values, "exit_release_shimmy_cycles", 1, 8)

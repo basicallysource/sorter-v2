@@ -121,11 +121,22 @@ def _resolve_stepper(stepper_name: str) -> Any:
     return stepper
 
 
-def _halt_stepper(stepper: Any) -> None:
+def _halt_stepper(stepper: Any, *, stepper_name: str | None = None) -> None:
     errors: list[str] = []
     stopped = False
 
-    if hasattr(stepper, "move_at_speed"):
+    # On the geared C4 carousel, the firmware/API path for move_at_speed(0)
+    # has shown unsafe behavior after runtime motion: the command ACKs, but
+    # the motor can continue as an uncontrolled negative speed move. For that
+    # axis, prefer disabling the driver directly.
+    if stepper_name == "carousel" and hasattr(stepper, "enabled"):
+        try:
+            stepper.enabled = False
+            stopped = True
+        except Exception as e:
+            errors.append(f"disable failed: {e}")
+
+    if stepper_name != "carousel" and hasattr(stepper, "move_at_speed"):
         try:
             result = stepper.move_at_speed(0)
             stopped = stopped or bool(result)
@@ -204,6 +215,10 @@ MANUAL_MOVE_MAX_ABS_DEGREES = 720.0
 MANUAL_MOVE_MAX_SPEED = 12_000
 MANUAL_MOVE_MAX_MIN_SPEED = 6_000
 MANUAL_MOVE_MAX_ACCELERATION = 80_000
+CAROUSEL_MANUAL_MOVE_MAX_ABS_DEGREES = 36.0
+CAROUSEL_MANUAL_MOVE_MAX_SPEED = 250
+CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED = 250
+CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION = 600
 
 
 def _validate_manual_move_safety(
@@ -212,34 +227,52 @@ def _validate_manual_move_safety(
     speed: int,
     min_speed: int | None,
     acceleration: int | None,
+    stepper_name: str | None = None,
 ) -> None:
-    if abs(float(degrees)) > MANUAL_MOVE_MAX_ABS_DEGREES:
+    is_carousel = stepper_name == "carousel"
+    max_abs_degrees = (
+        CAROUSEL_MANUAL_MOVE_MAX_ABS_DEGREES
+        if is_carousel
+        else MANUAL_MOVE_MAX_ABS_DEGREES
+    )
+    max_speed = CAROUSEL_MANUAL_MOVE_MAX_SPEED if is_carousel else MANUAL_MOVE_MAX_SPEED
+    max_min_speed = (
+        CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED
+        if is_carousel
+        else MANUAL_MOVE_MAX_MIN_SPEED
+    )
+    max_acceleration = (
+        CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION
+        if is_carousel
+        else MANUAL_MOVE_MAX_ACCELERATION
+    )
+    if abs(float(degrees)) > max_abs_degrees:
         raise HTTPException(
             status_code=400,
             detail=(
                 "degrees exceeds safe debug-move limit "
-                f"({MANUAL_MOVE_MAX_ABS_DEGREES:g})"
+                f"({max_abs_degrees:g})"
             ),
         )
-    if int(speed) > MANUAL_MOVE_MAX_SPEED:
+    if int(speed) > max_speed:
         raise HTTPException(
             status_code=400,
-            detail=f"speed exceeds safe debug-move limit ({MANUAL_MOVE_MAX_SPEED})",
+            detail=f"speed exceeds safe debug-move limit ({max_speed})",
         )
-    if min_speed is not None and int(min_speed) > MANUAL_MOVE_MAX_MIN_SPEED:
+    if min_speed is not None and int(min_speed) > max_min_speed:
         raise HTTPException(
             status_code=400,
             detail=(
                 "min_speed exceeds safe debug-move limit "
-                f"({MANUAL_MOVE_MAX_MIN_SPEED})"
+                f"({max_min_speed})"
             ),
         )
-    if acceleration is not None and int(acceleration) > MANUAL_MOVE_MAX_ACCELERATION:
+    if acceleration is not None and int(acceleration) > max_acceleration:
         raise HTTPException(
             status_code=400,
             detail=(
                 "acceleration exceeds safe debug-move limit "
-                f"({MANUAL_MOVE_MAX_ACCELERATION})"
+                f"({max_acceleration})"
             ),
         )
 
@@ -610,6 +643,7 @@ def move_stepper_degrees(
         speed=speed,
         min_speed=min_speed,
         acceleration=acceleration,
+        stepper_name=stepper,
     )
 
     target = _resolve_stepper(stepper)
@@ -653,7 +687,7 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
     target = _resolve_stepper(stepper)
 
     try:
-        _halt_stepper(target)
+        _halt_stepper(target, stepper_name=stepper)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stop failed: {e}")
 
@@ -669,7 +703,7 @@ def stop_all_steppers() -> StepperStopAllResponse:
         if stepper is None:
             continue
         try:
-            _halt_stepper(stepper)
+            _halt_stepper(stepper, stepper_name=name)
             halted.append(name)
         except Exception as e:
             errors[name] = str(e)

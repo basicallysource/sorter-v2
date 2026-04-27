@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from rt.perception.c4_wall_phase import detect_c4_wall_phase, phase_delta_deg
+from rt.services.sector_carousel import run_sector_carousel_ladder_selftest
 from server import shared_state
 
 router = APIRouter()
@@ -398,6 +399,11 @@ def c4_carousel_events(limit: int = 50) -> Dict[str, Any]:
             detail="sector carousel event log is not supported",
         )
     return {"ok": True, "events": list(recent(limit=limit) or [])}
+
+
+@router.post("/api/c4/carousel/selftest")
+def c4_carousel_selftest() -> Dict[str, Any]:
+    return {"ok": True, "selftest": run_sector_carousel_ladder_selftest()}
 
 
 @router.post("/api/c4/carousel/phase/verify")

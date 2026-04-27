@@ -15,11 +15,27 @@ class SlotPhase(str, Enum):
     DROPPED_PENDING_CLEAR = "dropped_pending_clear"
 
 
+class SlotContaminationState(str, Enum):
+    CLEAN = "clean"
+    SUSPECT_MULTI = "suspect_multi"
+    CONFIRMED_MULTI = "confirmed_multi"
+    SPILL_SUSPECTED = "spill_suspected"
+
+
+DISCARD_ROUTE = "discard"
+
+
 @dataclass(slots=True)
 class SectorSlot:
     slot_index: int
     physical_sector_id: int | None = None
     piece_uuid: str | None = None
+    expected_count: int = 1
+    observed_count_estimate: int | None = None
+    contamination_state: SlotContaminationState = SlotContaminationState.CLEAN
+    reject_reason: str | None = None
+    final_route: str | None = None
+    normal_classification: Any | None = None
     phase: SlotPhase = SlotPhase.EMPTY
     entered_phase_at: float = 0.0
     frame_pool: list[Any] = field(default_factory=list)
@@ -42,6 +58,12 @@ class SectorSlot:
 
     def clear(self, *, now_mono: float = 0.0) -> None:
         self.piece_uuid = None
+        self.expected_count = 1
+        self.observed_count_estimate = None
+        self.contamination_state = SlotContaminationState.CLEAN
+        self.reject_reason = None
+        self.final_route = None
+        self.normal_classification = None
         self.phase = SlotPhase.EMPTY
         self.entered_phase_at = float(now_mono)
         self.frame_pool.clear()
@@ -65,9 +87,51 @@ class SectorSlot:
         self.entered_phase_at = float(now_mono)
         self.blocked_reason = None
 
+    @property
+    def contaminated(self) -> bool:
+        return self.contamination_state is not SlotContaminationState.CLEAN
+
+    @property
+    def discard_route(self) -> bool:
+        return self.final_route == DISCARD_ROUTE
+
+    @property
+    def routing_decision_present(self) -> bool:
+        return self.classification is not None or self.final_route is not None
+
+    def mark_contaminated(
+        self,
+        *,
+        state: SlotContaminationState,
+        reject_reason: str,
+        observed_count_estimate: int | None = None,
+        now_mono: float | None = None,
+    ) -> None:
+        self.contamination_state = state
+        self.reject_reason = str(reject_reason)
+        if observed_count_estimate is not None:
+            self.observed_count_estimate = max(1, int(observed_count_estimate))
+        if state is SlotContaminationState.SPILL_SUSPECTED:
+            self.blocked_reason = "spillover_suspected"
+            self.final_route = None
+            return
+        self.final_route = DISCARD_ROUTE
+        if self.classification is not None and self.normal_classification is None:
+            self.normal_classification = self.classification
+        self.classification = {
+            "final_label": "DISCARD",
+            "final_route": DISCARD_ROUTE,
+            "reject_reason": self.reject_reason,
+            "contamination_state": state.value,
+            "observed_count_estimate": self.observed_count_estimate,
+            "classified_at": float(now_mono) if now_mono is not None else None,
+        }
+
     def ready_to_leave(self, *, now_mono: float, settle_s: float) -> tuple[bool, str | None]:
         if not self.occupied:
             return True, None
+        if self.contamination_state is SlotContaminationState.SPILL_SUSPECTED:
+            return False, "spillover_suspected"
         if self.phase is SlotPhase.CAPTURING:
             return (True, None) if self.capture_done else (False, "capture_pending")
         if self.phase is SlotPhase.SETTLING:
@@ -77,7 +141,7 @@ class SectorSlot:
         if self.phase is SlotPhase.CLASSIFYING:
             return (
                 (True, None)
-                if self.classification is not None
+                if self.routing_decision_present
                 else (False, "classification_pending")
             )
         if self.phase is SlotPhase.AWAITING_DIST:
@@ -105,11 +169,19 @@ class SectorSlot:
                 else None
             ),
             "piece_uuid": self.piece_uuid,
+            "expected_count": int(self.expected_count),
+            "observed_count_estimate": self.observed_count_estimate,
+            "contamination_state": self.contamination_state.value,
+            "contaminated": self.contaminated,
+            "reject_reason": self.reject_reason,
+            "final_route": self.final_route,
+            "normal_classification_present": self.normal_classification is not None,
             "phase": self.phase.value,
             "entered_phase_at": float(self.entered_phase_at),
             "phase_age_s": age_s,
             "frame_count": len(self.frame_pool),
             "classification_present": self.classification is not None,
+            "routing_decision_present": self.routing_decision_present,
             "classifier_request_id": self.classifier_request_id,
             "distributor_request_id": self.distributor_request_id,
             "clear_pending_next_rotate": self.phase is SlotPhase.DROPPED_PENDING_CLEAR,

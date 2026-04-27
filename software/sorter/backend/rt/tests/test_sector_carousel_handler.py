@@ -4,7 +4,12 @@ from concurrent.futures import Future
 
 from rt.contracts.events import Event
 from rt.events.topics import C3_HANDOFF_TRIGGER
-from rt.services.sector_carousel import SectorCarouselHandler, SlotPhase
+from rt.services.sector_carousel import (
+    DISCARD_ROUTE,
+    SectorCarouselHandler,
+    SlotContaminationState,
+    SlotPhase,
+)
 
 
 class _Distributor:
@@ -132,6 +137,32 @@ def test_classify_and_distributor_lifecycle() -> None:
     dist.ready = True
     handler.tick(4.2)
     assert handler.snapshot(now_mono=4.2)["slots"][3]["distributor_ready"]
+
+
+def test_distributor_gate_blocks_until_ready() -> None:
+    dist = _Distributor()
+    handler = SectorCarouselHandler(
+        distributor_port=dist,
+        rotation_chunk_settle_s=0.0,
+        settle_s=0.0,
+    )
+    handler.enable()
+    handler.inject_at_slot1("piece-1", now_mono=1.0)
+    _rotate_ready(handler, now_mono=2.0)
+    _rotate_ready(handler, now_mono=3.0)
+    handler.bind_classification("piece-1", "brick", now_mono=3.1)
+    handler.rotate_one_sector(now_mono=4.0)
+    handler.tick(4.1)
+
+    assert dist.requests[0]["piece_uuid"] == "piece-1"
+    assert not handler.rotate_one_sector(now_mono=4.2)
+    gates = handler.gate_status(now_mono=4.2, include_cooldown=False)
+    assert gates["slots"][3]["reason"] == "distributor_pending"
+
+    dist.ready = True
+    handler.tick(4.3)
+
+    assert handler.rotate_one_sector(now_mono=4.4)
 
 
 def test_bind_classification_rejects_stale_request_id() -> None:
@@ -301,6 +332,144 @@ def test_invariant_status_detects_duplicate_piece_uuid() -> None:
 
     assert status["ok"] is False
     assert any(item["code"] == "duplicate_piece_uuid" for item in status["violations"])
+
+
+def test_double_drop_routes_to_discard_and_bypasses_distributor() -> None:
+    ejects: list[bool] = []
+    dist = _Distributor()
+    handler = SectorCarouselHandler(
+        c4_eject=lambda: ejects.append(True) or True,
+        distributor_port=dist,
+        settle_s=0.0,
+        rotation_chunk_settle_s=0.0,
+    )
+    handler.enable()
+    handler.inject_at_slot1("piece-1", now_mono=1.0)
+
+    assert handler.mark_double_drop(
+        "piece-1",
+        observed_count_estimate=2,
+        now_mono=1.1,
+    )
+    slot1 = handler.snapshot(now_mono=1.1)["slots"][0]
+    assert slot1["contamination_state"] == SlotContaminationState.CONFIRMED_MULTI.value
+    assert slot1["final_route"] == DISCARD_ROUTE
+    assert slot1["reject_reason"] == "c3_double_drop"
+
+    handler.slots[0].capture_done = True
+    assert handler.rotate_one_sector(now_mono=2.0)
+    assert handler.rotate_one_sector(now_mono=3.0)
+    assert handler.rotate_one_sector(now_mono=4.0)
+    handler.tick(4.1)
+
+    slot4 = handler.snapshot(now_mono=4.1)["slots"][3]
+    assert slot4["distributor_ready"] is True
+    assert slot4["extras"]["distributor_mode"] == "bypass_for_discard"
+    assert dist.requests == []
+
+    assert handler.rotate_one_sector(now_mono=5.0)
+    handler.tick(5.1)
+
+    snap = handler.snapshot(now_mono=5.1)
+    assert ejects == [True]
+    assert snap["slots"][4]["ejected"] is True
+    assert snap["counters"]["discarded_slots"] == 1
+    assert snap["counters"]["c3_double_drop_count"] == 1
+    assert snap["counters"]["estimated_extra_parts"] == 1
+
+
+def test_late_double_drop_overrides_normal_classification() -> None:
+    handler = SectorCarouselHandler(settle_s=0.0, rotation_chunk_settle_s=0.0)
+    handler.enable()
+    handler.inject_at_slot1("piece-1", now_mono=1.0)
+    _rotate_ready(handler, now_mono=2.0)
+    _rotate_ready(handler, now_mono=3.0)
+
+    assert handler.bind_classification("piece-1", "brick", now_mono=3.1)
+    assert handler.mark_double_drop(
+        "piece-1",
+        observed_count_estimate=2,
+        now_mono=3.2,
+    )
+
+    slot = handler.snapshot(now_mono=3.2)["slots"][2]
+    assert slot["classification_present"] is True
+    assert slot["normal_classification_present"] is True
+    assert slot["final_route"] == DISCARD_ROUTE
+    assert slot["reject_reason"] == "c3_double_drop"
+    assert handler.rotate_one_sector(now_mono=4.0)
+
+
+def test_classifier_multi_object_result_routes_to_discard() -> None:
+    handler = SectorCarouselHandler(settle_s=0.0, rotation_chunk_settle_s=0.0)
+    handler.enable()
+    handler.inject_at_slot1("piece-1", now_mono=1.0)
+    _rotate_ready(handler, now_mono=2.0)
+    _rotate_ready(handler, now_mono=3.0)
+
+    assert handler.bind_classification(
+        "piece-1",
+        {"label": "brick", "object_count_estimate": 2},
+        now_mono=3.1,
+    )
+
+    slot = handler.snapshot(now_mono=3.1)["slots"][2]
+    assert slot["contamination_state"] == SlotContaminationState.CONFIRMED_MULTI.value
+    assert slot["final_route"] == DISCARD_ROUTE
+    assert slot["reject_reason"] == "multi_object"
+    assert slot["observed_count_estimate"] == 2
+
+
+def test_spillover_suspected_blocks_rotation() -> None:
+    handler = SectorCarouselHandler(settle_s=0.0, rotation_chunk_settle_s=0.0)
+    handler.enable()
+    handler.inject_at_slot1("piece-1", now_mono=1.0)
+    handler.slots[0].capture_done = True
+
+    assert handler.mark_slot_contaminated(
+        "piece-1",
+        state=SlotContaminationState.SPILL_SUSPECTED,
+        reject_reason="spillover",
+        observed_count_estimate=None,
+        now_mono=1.1,
+    )
+
+    assert not handler.rotate_one_sector(now_mono=2.0)
+    snap = handler.status_snapshot(now_mono=2.0)
+    assert snap["blocked"] == "spillover_suspected"
+    assert any(reason["reason"] == "spillover_suspected" for reason in snap["gates"]["reasons"])
+    assert snap["invariants"]["ok"] is True
+
+
+def test_distributor_ready_callback_rejects_stale_result() -> None:
+    dist = _Distributor()
+    handler = SectorCarouselHandler(
+        distributor_port=dist,
+        settle_s=0.0,
+        rotation_chunk_settle_s=0.0,
+    )
+    handler.enable()
+    handler.inject_at_slot1("piece-1", now_mono=1.0)
+    _rotate_ready(handler, now_mono=2.0)
+    _rotate_ready(handler, now_mono=3.0)
+    handler.bind_classification("piece-1", "brick", now_mono=3.1)
+    handler.rotate_one_sector(now_mono=4.0)
+    handler.tick(4.1)
+    request_id = handler.slots[3].distributor_request_id
+
+    assert not handler.bind_distributor_ready(
+        "piece-1",
+        request_id="old-request",
+        now_mono=4.2,
+    )
+    assert handler.snapshot(now_mono=4.2)["counters"]["stale_distributor_results"] == 1
+
+    assert handler.bind_distributor_ready(
+        "piece-1",
+        request_id=request_id,
+        now_mono=4.3,
+    )
+    assert handler.snapshot(now_mono=4.3)["slots"][3]["distributor_ready"] is True
 
 
 def test_five_token_ring_preserves_piece_classifications() -> None:

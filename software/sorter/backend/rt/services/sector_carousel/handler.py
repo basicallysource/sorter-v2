@@ -10,7 +10,7 @@ from typing import Any, Callable, Protocol
 from rt.contracts.events import Event, EventBus, Subscription
 from rt.events.topics import C3_HANDOFF_TRIGGER
 
-from .slot import SectorSlot, SlotPhase
+from .slot import DISCARD_ROUTE, SectorSlot, SlotContaminationState, SlotPhase
 
 
 class _DistributorPort(Protocol):
@@ -52,6 +52,13 @@ class SectorCarouselCounters:
     stale_distributor_results: int = 0
     ejects: int = 0
     drops_completed: int = 0
+    c3_double_drop_count: int = 0
+    multi_object_detected_count: int = 0
+    discard_due_to_double_drop_count: int = 0
+    discard_due_to_ambiguous_capture_count: int = 0
+    spillover_suspected_count: int = 0
+    discarded_slots: int = 0
+    estimated_extra_parts: int = 0
     events_received: int = 0
     errors: dict[str, int] = field(default_factory=dict)
 
@@ -99,6 +106,7 @@ class SectorCarouselHandler:
         rotation_chunk_deg: float = 2.0,
         rotation_chunk_settle_s: float = 0.12,
         require_phase_verification: bool = False,
+        discard_route_mode: str = "bypass",
         event_log_limit: int = 200,
         logger: logging.Logger | None = None,
     ) -> None:
@@ -135,6 +143,12 @@ class SectorCarouselHandler:
         self._phase_verified_at: float | None = None
         self._phase_verification_source: str | None = None
         self._phase_verification: dict[str, Any] | None = None
+        normalized_discard_mode = str(discard_route_mode or "bypass").strip().lower()
+        self._discard_route_mode = (
+            normalized_discard_mode
+            if normalized_discard_mode in {"bypass", "distributor"}
+            else "bypass"
+        )
         self._last_step_started_at: float | None = None
         self._last_step_done_at: float | None = None
         self._last_step_duration_ms: float | None = None
@@ -559,7 +573,77 @@ class SectorCarouselHandler:
                 active_request_id=slot.classifier_request_id,
             )
             return False
+        if slot.final_route == DISCARD_ROUTE and not _classification_is_discard(classification):
+            slot.normal_classification = classification
+            if dossier:
+                slot.extras["normal_dossier"] = dict(dossier)
+            self._record_event(
+                "classifier_result_preserved_under_discard",
+                now_mono=now_mono,
+                piece_uuid=piece_uuid,
+                request_id=request_id,
+                final_route=slot.final_route,
+            )
+            return True
+        self._apply_classification_to_slot(
+            slot,
+            classification,
+            request_id=request_id,
+            dossier=dossier,
+            now_mono=now_mono,
+        )
+        return True
+
+    def _apply_classification_to_slot(
+        self,
+        slot: SectorSlot,
+        classification: Any,
+        *,
+        request_id: str | None = None,
+        dossier: dict[str, Any] | None = None,
+        now_mono: float | None = None,
+    ) -> None:
         slot.classification = classification
+        if _classification_is_discard(classification):
+            slot.final_route = DISCARD_ROUTE
+            if slot.reject_reason is None:
+                slot.reject_reason = _discard_reason_from_classification(classification)
+            observed_count = _observed_count_from_classification(classification)
+            if observed_count is not None:
+                slot.observed_count_estimate = observed_count
+            if slot.contamination_state is SlotContaminationState.CLEAN:
+                reason = slot.reject_reason or "classification_discard"
+                if observed_count is not None and observed_count > slot.expected_count:
+                    previous_state = slot.contamination_state
+                    slot.contamination_state = SlotContaminationState.CONFIRMED_MULTI
+                    self._count_contamination(
+                        slot=slot,
+                        previous_state=previous_state,
+                        state=slot.contamination_state,
+                        reject_reason=reason,
+                    )
+                elif reason in {"multi_object", "c3_double_drop"}:
+                    previous_state = slot.contamination_state
+                    slot.contamination_state = SlotContaminationState.CONFIRMED_MULTI
+                    if slot.observed_count_estimate is None:
+                        slot.observed_count_estimate = 2
+                    self._count_contamination(
+                        slot=slot,
+                        previous_state=previous_state,
+                        state=slot.contamination_state,
+                        reject_reason=reason,
+                    )
+                elif reason in {"capture_ambiguous", "ambiguous_capture"}:
+                    previous_state = slot.contamination_state
+                    slot.contamination_state = SlotContaminationState.SUSPECT_MULTI
+                    self._count_contamination(
+                        slot=slot,
+                        previous_state=previous_state,
+                        state=slot.contamination_state,
+                        reject_reason=reason,
+                    )
+        elif slot.final_route is None:
+            slot.final_route = _route_from_classification(classification)
         if dossier:
             slot.extras["dossier"] = dict(dossier)
         if now_mono is not None:
@@ -567,8 +651,122 @@ class SectorCarouselHandler:
         self._record_event(
             "classifier_result_applied",
             now_mono=now_mono,
-            piece_uuid=piece_uuid,
+            piece_uuid=slot.piece_uuid,
             request_id=request_id,
+        )
+
+    def mark_slot_contaminated(
+        self,
+        piece_uuid: str,
+        *,
+        state: SlotContaminationState,
+        reject_reason: str,
+        observed_count_estimate: int | None = None,
+        now_mono: float | None = None,
+    ) -> bool:
+        ts = time.monotonic() if now_mono is None else float(now_mono)
+        slot = self._slot_for_piece(piece_uuid)
+        if slot is None:
+            return False
+        previous_state = slot.contamination_state
+        slot.mark_contaminated(
+            state=state,
+            reject_reason=reject_reason,
+            observed_count_estimate=observed_count_estimate,
+            now_mono=ts,
+        )
+        self._count_contamination(
+            slot=slot,
+            previous_state=previous_state,
+            state=state,
+            reject_reason=reject_reason,
+        )
+        self._record_event(
+            "slot_contaminated",
+            now_mono=ts,
+            piece_uuid=piece_uuid,
+            contamination_state=state.value,
+            reject_reason=reject_reason,
+            observed_count_estimate=slot.observed_count_estimate,
+            final_route=slot.final_route,
+        )
+        return True
+
+    def mark_double_drop(
+        self,
+        piece_uuid: str,
+        *,
+        observed_count_estimate: int = 2,
+        now_mono: float | None = None,
+    ) -> bool:
+        return self.mark_slot_contaminated(
+            piece_uuid,
+            state=SlotContaminationState.CONFIRMED_MULTI,
+            reject_reason="c3_double_drop",
+            observed_count_estimate=observed_count_estimate,
+            now_mono=now_mono,
+        )
+
+    def bind_distributor_ready(
+        self,
+        piece_uuid: str,
+        *,
+        request_id: str | None = None,
+        now_mono: float | None = None,
+    ) -> bool:
+        slot = self._slot_for_piece(piece_uuid)
+        if slot is None:
+            self._counters.stale_distributor_results += 1
+            self._record_event(
+                "distributor_result_stale",
+                now_mono=now_mono,
+                piece_uuid=piece_uuid,
+                request_id=request_id,
+                reason="piece_not_active",
+            )
+            return False
+        if request_id is not None and slot.distributor_request_id != request_id:
+            self._counters.stale_distributor_results += 1
+            self._record_event(
+                "distributor_result_stale",
+                now_mono=now_mono,
+                piece_uuid=piece_uuid,
+                request_id=request_id,
+                active_request_id=slot.distributor_request_id,
+                reason="request_mismatch",
+            )
+            return False
+        if not slot.distributor_requested and slot.final_route != DISCARD_ROUTE:
+            self._counters.stale_distributor_results += 1
+            self._record_event(
+                "distributor_result_stale",
+                now_mono=now_mono,
+                piece_uuid=piece_uuid,
+                request_id=request_id,
+                reason="request_not_active",
+            )
+            return False
+        if slot.ejected:
+            self._counters.stale_distributor_results += 1
+            self._record_event(
+                "distributor_result_stale",
+                now_mono=now_mono,
+                piece_uuid=piece_uuid,
+                request_id=request_id,
+                reason="already_ejected",
+            )
+            return False
+        slot.distributor_ready = True
+        slot.extras["distributor_state"] = "ready"
+        slot.extras["distributor_ready_at"] = (
+            time.monotonic() if now_mono is None else float(now_mono)
+        )
+        slot.extras.setdefault("distributor_ready_source", "callback")
+        self._record_event(
+            "distributor_ready",
+            now_mono=now_mono,
+            piece_uuid=piece_uuid,
+            request_id=request_id or slot.distributor_request_id,
         )
         return True
 
@@ -611,6 +809,11 @@ class SectorCarouselHandler:
                 "physical_sector_id": slot.physical_sector_id,
                 "piece_uuid": slot.piece_uuid,
                 "phase": slot.phase.value,
+                "contamination_state": slot.contamination_state.value,
+                "contaminated": slot.contaminated,
+                "reject_reason": slot.reject_reason,
+                "final_route": slot.final_route,
+                "routing_decision_present": slot.routing_decision_present,
                 "ready_to_leave": bool(ready),
                 "gate": None if ready else _gate_for_slot_phase(slot.phase),
                 "reason": reason,
@@ -625,6 +828,9 @@ class SectorCarouselHandler:
                     "physical_sector_id": slot.physical_sector_id,
                     "gate": item["gate"],
                     "reason": reason,
+                    "contamination_state": slot.contamination_state.value,
+                    "reject_reason": slot.reject_reason,
+                    "final_route": slot.final_route,
                     "blocking": True,
                     "age_ms": item["age_ms"],
                 })
@@ -656,6 +862,24 @@ class SectorCarouselHandler:
                 violations.append({"code": "occupied_phase_missing_piece", "slot_index": slot.slot_index, "phase": slot.phase.value})
             if slot.phase is SlotPhase.DROPPED_PENDING_CLEAR and not slot.ejected:
                 violations.append({"code": "dropped_pending_clear_without_eject", "slot_index": slot.slot_index})
+            if (
+                slot.contamination_state is SlotContaminationState.SPILL_SUSPECTED
+                and slot.final_route is not None
+            ):
+                violations.append({"code": "spillover_has_route", "slot_index": slot.slot_index, "final_route": slot.final_route})
+            if (
+                slot.contamination_state
+                not in {SlotContaminationState.CLEAN, SlotContaminationState.SPILL_SUSPECTED}
+                and slot.final_route != DISCARD_ROUTE
+            ):
+                violations.append({"code": "contaminated_slot_without_discard_route", "slot_index": slot.slot_index, "contamination_state": slot.contamination_state.value})
+            if slot.contamination_state is not SlotContaminationState.CLEAN and not slot.reject_reason:
+                violations.append({"code": "contaminated_slot_missing_reject_reason", "slot_index": slot.slot_index, "contamination_state": slot.contamination_state.value})
+            if (
+                slot.observed_count_estimate is not None
+                and slot.observed_count_estimate < slot.expected_count
+            ):
+                violations.append({"code": "observed_count_below_expected", "slot_index": slot.slot_index, "expected_count": slot.expected_count, "observed_count_estimate": slot.observed_count_estimate})
         if self._pending_landing_leases and self._slots[0].occupied:
             violations.append({"code": "landing_lease_while_slot1_occupied", "pending_count": len(self._pending_landing_leases)})
         if len(self._pending_landing_leases) > 1:
@@ -695,19 +919,14 @@ class SectorCarouselHandler:
                 and slot.classification is None
                 and slot.phase in {SlotPhase.CLASSIFYING, SlotPhase.AWAITING_DIST}
             ):
-                slot.classification = classification
+                self._apply_classification_to_slot(
+                    slot,
+                    classification,
+                    dossier=dossier,
+                    now_mono=now_mono,
+                )
                 slot.extras["classification_source"] = "legacy_front_state"
                 slot.extras["c4_piece_uuid"] = c4_piece_uuid
-                if dossier:
-                    slot.extras["dossier"] = dict(dossier)
-                if now_mono is not None:
-                    slot.extras["classified_at"] = float(now_mono)
-                self._record_event(
-                    "classifier_result_applied",
-                    now_mono=now_mono,
-                    piece_uuid=slot.piece_uuid,
-                    source="legacy_front_state",
-                )
                 return True
         return False
 
@@ -720,6 +939,7 @@ class SectorCarouselHandler:
             "sector_step_deg": float(self._sector_step_deg),
             "auto_rotate": bool(self._auto_rotate),
             "auto_rotate_allowed": self.auto_rotate_allowed(),
+            "discard_route_mode": self._discard_route_mode,
             "requires_phase_verification": bool(self._require_phase_verification),
             "phase_verified": bool(self._phase_verified),
             "phase_verification": (
@@ -809,18 +1029,11 @@ class SectorCarouselHandler:
 
     def _ready_for_rotation(self, now_mono: float) -> bool:
         for slot in self._slots:
-            if not slot.occupied:
-                continue
-            if slot.phase is SlotPhase.CAPTURING and not slot.capture_done:
-                return False
-            if slot.phase is SlotPhase.SETTLING:
-                if now_mono - slot.entered_phase_at < self._settle_s:
-                    return False
-            if slot.phase is SlotPhase.CLASSIFYING and slot.classification is None:
-                return False
-            if slot.phase is SlotPhase.AWAITING_DIST and not slot.distributor_ready:
-                return False
-            if slot.phase is SlotPhase.DROPPING and not slot.ejected:
+            ready, _reason = slot.ready_to_leave(
+                now_mono=now_mono,
+                settle_s=self._settle_s,
+            )
+            if not ready:
                 return False
         return True
 
@@ -881,15 +1094,14 @@ class SectorCarouselHandler:
                         request_id=request_id,
                     )
                     return
-                slot.classification = future
+                self._apply_classification_to_slot(
+                    slot,
+                    future,
+                    request_id=request_id,
+                    now_mono=now_mono,
+                )
                 slot.extras["classified_at"] = now_mono
                 self._counters.classifier_completions += 1
-                self._record_event(
-                    "classifier_result_applied",
-                    now_mono=now_mono,
-                    piece_uuid=piece_uuid,
-                    request_id=request_id,
-                )
                 return
         if isinstance(future, Future) and future.done():
             request_id = slot.classifier_request_id
@@ -911,20 +1123,34 @@ class SectorCarouselHandler:
                     active_request_id=slot.classifier_request_id,
                 )
                 return
-            slot.classification = result
+            self._apply_classification_to_slot(
+                slot,
+                result,
+                request_id=request_id,
+                now_mono=now_mono,
+            )
             slot.classifier_future = None
             slot.extras["classified_at"] = now_mono
             self._counters.classifier_completions += 1
-            self._record_event(
-                "classifier_result_applied",
-                now_mono=now_mono,
-                piece_uuid=piece_uuid,
-                request_id=request_id,
-            )
 
     def _request_or_poll_distributor(self, slot: SectorSlot, now_mono: float) -> None:
         if slot.classification is None:
             slot.blocked_reason = "missing_classification"
+            return
+        if slot.final_route == DISCARD_ROUTE and self._discard_route_mode == "bypass":
+            if not slot.distributor_ready:
+                slot.distributor_ready = True
+                slot.extras["distributor_state"] = "bypassed"
+                slot.extras["distributor_mode"] = "bypass_for_discard"
+                slot.extras["distributor_bypass_reason"] = "discard_default_exit"
+                slot.extras["distributor_ready_source"] = "discard_bypass"
+                slot.extras["distributor_ready_at"] = now_mono
+                self._record_event(
+                    "distributor_bypassed_for_discard",
+                    now_mono=now_mono,
+                    piece_uuid=slot.piece_uuid,
+                    reject_reason=slot.reject_reason,
+                )
             return
         port = self._distributor
         if port is None:
@@ -1027,7 +1253,21 @@ class SectorCarouselHandler:
         slot.ejected = True
         slot.set_phase(SlotPhase.DROPPED_PENDING_CLEAR, now_mono=now_mono)
         self._counters.drops_completed += 1
-        self._record_event("eject_done", now_mono=now_mono, piece_uuid=slot.piece_uuid)
+        if slot.final_route == DISCARD_ROUTE:
+            self._counters.discarded_slots += 1
+            slot.extras["discard_ejected_at"] = now_mono
+            self._record_event(
+                "discard_eject_done",
+                now_mono=now_mono,
+                piece_uuid=slot.piece_uuid,
+                reject_reason=slot.reject_reason,
+            )
+        self._record_event(
+            "eject_done",
+            now_mono=now_mono,
+            piece_uuid=slot.piece_uuid,
+            final_route=slot.final_route,
+        )
 
     def _slot_for_piece(self, piece_uuid: str) -> SectorSlot | None:
         for slot in self._slots:
@@ -1043,6 +1283,30 @@ class SectorCarouselHandler:
 
     def _count_error(self, reason: str) -> None:
         self._counters.errors[reason] = self._counters.errors.get(reason, 0) + 1
+
+    def _count_contamination(
+        self,
+        *,
+        slot: SectorSlot,
+        previous_state: SlotContaminationState,
+        state: SlotContaminationState,
+        reject_reason: str,
+    ) -> None:
+        if state is SlotContaminationState.SPILL_SUSPECTED:
+            if previous_state is not SlotContaminationState.SPILL_SUSPECTED:
+                self._counters.spillover_suspected_count += 1
+            return
+        if previous_state is not SlotContaminationState.CLEAN:
+            return
+        self._counters.multi_object_detected_count += 1
+        if reject_reason == "c3_double_drop":
+            self._counters.c3_double_drop_count += 1
+            self._counters.discard_due_to_double_drop_count += 1
+        elif reject_reason in {"capture_ambiguous", "ambiguous_capture"}:
+            self._counters.discard_due_to_ambiguous_capture_count += 1
+        estimate = slot.observed_count_estimate
+        if isinstance(estimate, int) and estimate > slot.expected_count:
+            self._counters.estimated_extra_parts += estimate - slot.expected_count
 
     def _record_event(
         self,
@@ -1072,6 +1336,9 @@ class SectorCarouselHandler:
                 "physical_sector_id": slot.physical_sector_id,
                 "piece_uuid": slot.piece_uuid,
                 "phase": slot.phase.value,
+                "contamination_state": slot.contamination_state.value,
+                "reject_reason": slot.reject_reason,
+                "final_route": slot.final_route,
                 "blocked_reason": slot.blocked_reason,
             }
             for slot in self._slots
@@ -1090,3 +1357,125 @@ def _gate_for_slot_phase(phase: SlotPhase) -> str:
     if phase in {SlotPhase.DROPPING, SlotPhase.DROPPED_PENDING_CLEAR}:
         return "eject"
     return "unknown"
+
+
+_DISCARD_LABELS = {
+    DISCARD_ROUTE,
+    "discard_bin",
+    "reject",
+    "reject_bin",
+    "rejected",
+    "trash",
+    "unknown",
+    "multi_object",
+}
+
+
+def _classification_is_discard(classification: Any) -> bool:
+    if isinstance(classification, dict):
+        observed_count = _observed_count_from_classification(classification)
+        if observed_count is not None and observed_count > 1:
+            return True
+        if _truthy(classification.get("multi_object")):
+            return True
+        for key in (
+            "final_route",
+            "route",
+            "target_route",
+            "target_bin",
+            "final_label",
+            "label",
+            "class_label",
+            "classification",
+        ):
+            value = _normalized_token(classification.get(key))
+            if value in _DISCARD_LABELS:
+                return True
+        reason = _normalized_token(classification.get("reject_reason"))
+        return reason in {
+            "c3_double_drop",
+            "multi_object",
+            "capture_ambiguous",
+            "ambiguous_capture",
+        }
+    value = _normalized_token(classification)
+    return value in _DISCARD_LABELS
+
+
+def _discard_reason_from_classification(classification: Any) -> str:
+    if isinstance(classification, dict):
+        for key in ("reject_reason", "reason"):
+            reason = _normalized_token(classification.get(key))
+            if reason:
+                return reason
+        observed_count = _observed_count_from_classification(classification)
+        if observed_count is not None and observed_count > 1:
+            return "multi_object"
+        if _truthy(classification.get("multi_object")):
+            return "multi_object"
+    value = _normalized_token(classification)
+    if value == "reject":
+        return "classifier_reject"
+    if value == "unknown":
+        return "ambiguous_capture"
+    return "classification_discard"
+
+
+def _route_from_classification(classification: Any) -> str | None:
+    if isinstance(classification, dict):
+        for key in (
+            "final_route",
+            "route",
+            "target_route",
+            "target_bin",
+            "final_label",
+            "label",
+            "class_label",
+            "classification",
+        ):
+            value = classification.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+        return None
+    if isinstance(classification, str) and classification.strip():
+        return classification.strip()
+    return None
+
+
+def _observed_count_from_classification(classification: Any) -> int | None:
+    if not isinstance(classification, dict):
+        return None
+    for key in (
+        "observed_count_estimate",
+        "object_count_estimate",
+        "object_count",
+        "count",
+    ):
+        value = classification.get(key)
+        if isinstance(value, bool):
+            continue
+        if isinstance(value, int):
+            return max(1, value)
+        if isinstance(value, float):
+            return max(1, int(round(value)))
+        if isinstance(value, str):
+            try:
+                return max(1, int(round(float(value))))
+            except ValueError:
+                continue
+    return None
+
+
+def _normalized_token(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    token = value.strip().lower().replace("-", "_").replace(" ", "_")
+    return token or None
+
+
+def _truthy(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .handler import SectorCarouselHandler
-from .slot import SlotPhase
+from .slot import DISCARD_ROUTE, SlotContaminationState, SlotPhase
 
 
 @dataclass(slots=True)
@@ -41,6 +41,8 @@ def run_sector_carousel_ladder_selftest() -> dict[str, Any]:
         _scenario_five_token_ring(),
         _scenario_fault_injection(),
         _scenario_slow_classifier_stale_result(),
+        _scenario_double_drop_discard_path(),
+        _scenario_spillover_safety_block(),
     ]
     failures = [
         failure
@@ -273,6 +275,98 @@ def _scenario_slow_classifier_stale_result() -> _ScenarioResult:
     result.metrics["stale_classifier_results"] = handler.snapshot(now_mono=3.6)[
         "counters"
     ]["stale_classifier_results"]
+    return _finish(result)
+
+
+def _scenario_double_drop_discard_path() -> _ScenarioResult:
+    result = _result("double_drop_discard_path")
+    dropped: list[str] = []
+    handler = SectorCarouselHandler(
+        c4_eject=lambda: dropped.append("piece-double") or True,
+        settle_s=0.0,
+        rotation_chunk_settle_s=0.0,
+    )
+    handler.enable()
+    handler.inject_at_slot1("piece-double", now_mono=1.0)
+
+    _expect(
+        result,
+        "double-drop marker accepted",
+        handler.mark_double_drop(
+            "piece-double",
+            observed_count_estimate=2,
+            now_mono=1.1,
+        ),
+    )
+    _expect(
+        result,
+        "double-drop becomes discard route",
+        handler.slots[0].final_route == DISCARD_ROUTE
+        and handler.slots[0].contamination_state
+        is SlotContaminationState.CONFIRMED_MULTI,
+    )
+    handler.slots[0].capture_done = True
+    _advance_ready(handler, 2.0)
+    _advance_ready(handler, 3.0)
+    _advance_ready(handler, 4.0)
+    handler.tick(4.1)
+    _expect(
+        result,
+        "discard route bypasses distributor",
+        handler.slots[3].distributor_ready
+        and handler.slots[3].extras.get("distributor_mode") == "bypass_for_discard",
+    )
+    _advance_ready(handler, 5.0)
+    handler.tick(5.1)
+    _expect(
+        result,
+        "discard slot ejects",
+        dropped == ["piece-double"]
+        and handler.slots[4].phase is SlotPhase.DROPPED_PENDING_CLEAR,
+    )
+    snap = handler.snapshot(now_mono=5.1)
+    _expect(result, "discard counter increments", snap["counters"]["discarded_slots"] == 1)
+    _expect(
+        result,
+        "extra physical part accounted",
+        snap["counters"]["estimated_extra_parts"] == 1,
+    )
+    _expect_invariants_ok(result, handler, now_mono=5.1)
+    result.metrics["counters"] = snap["counters"]
+    return _finish(result)
+
+
+def _scenario_spillover_safety_block() -> _ScenarioResult:
+    result = _result("spillover_safety_block")
+    handler = SectorCarouselHandler(settle_s=0.0, rotation_chunk_settle_s=0.0)
+    handler.enable()
+    handler.inject_at_slot1("piece-spill", now_mono=1.0)
+    handler.slots[0].capture_done = True
+
+    _expect(
+        result,
+        "spillover marker accepted",
+        handler.mark_slot_contaminated(
+            "piece-spill",
+            state=SlotContaminationState.SPILL_SUSPECTED,
+            reject_reason="spillover",
+            now_mono=1.1,
+        ),
+    )
+    _expect(
+        result,
+        "spillover blocks rotation",
+        handler.rotate_one_sector(now_mono=2.0) is False
+        and handler.snapshot(now_mono=2.0)["blocked"] == "spillover_suspected",
+    )
+    gates = handler.gate_status(now_mono=2.0, include_cooldown=False)
+    _expect(
+        result,
+        "spillover reason visible in gates",
+        any(reason["reason"] == "spillover_suspected" for reason in gates["reasons"]),
+    )
+    _expect_invariants_ok(result, handler, now_mono=2.0)
+    result.metrics["gates"] = gates
     return _finish(result)
 
 

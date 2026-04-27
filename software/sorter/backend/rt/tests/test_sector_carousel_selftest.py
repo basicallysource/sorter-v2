@@ -7,7 +7,7 @@ def test_sector_carousel_ladder_selftest_passes() -> None:
     payload = run_sector_carousel_ladder_selftest()
 
     assert payload["ok"] is True
-    assert payload["scenario_count"] == 5
+    assert payload["scenario_count"] == 7
     assert payload["failed_count"] == 0
     names = {item["name"] for item in payload["scenarios"]}
     assert names == {
@@ -16,4 +16,6 @@ def test_sector_carousel_ladder_selftest_passes() -> None:
         "five_token_ring",
         "fault_injection",
         "slow_classifier_stale_result",
+        "double_drop_discard_path",
+        "spillover_safety_block",
     }

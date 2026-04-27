@@ -33,6 +33,16 @@ class C4RotorOpticalHomePayload(C4RotorPhaseDetectPayload):
     settle_s: float = Field(default=0.20, ge=0.0, le=3.0)
 
 
+class C4CarouselPhaseVerifyPayload(BaseModel):
+    source: str = "operator"
+    measured_offset_deg: float | None = None
+    details: dict[str, Any] | None = None
+
+
+class C4CarouselPhaseInvalidatePayload(BaseModel):
+    reason: str = "operator_invalidated"
+
+
 def _runtime_handle() -> Any:
     handle = shared_state.rt_handle
     if handle is None:
@@ -89,7 +99,30 @@ def _apply_phase_to_runtime(result: Dict[str, Any]) -> bool:
     if not callable(update_timing) or not isinstance(sector_count, int) or sector_count <= 0:
         return False
     update_timing(sector_step_deg=360.0 / float(sector_count))
+    verify = getattr(handler, "verify_phase", None)
+    if callable(verify):
+        verify(
+            source="optical_wall_phase",
+            measured_offset_deg=(
+                float(result["sector_offset_deg"])
+                if isinstance(result.get("sector_offset_deg"), (int, float))
+                else None
+            ),
+            details=result,
+        )
     return True
+
+
+def _sector_handler() -> Any:
+    handle = _runtime_handle()
+    orchestrator = getattr(handle, "orchestrator", None)
+    handler = getattr(orchestrator, "_sector_carousel_handler", None)
+    if handler is None:
+        raise HTTPException(
+            status_code=409,
+            detail="sector carousel handler is not attached",
+        )
+    return handler
 
 
 def _detect(payload: C4RotorPhaseDetectPayload) -> Dict[str, Any]:
@@ -331,3 +364,71 @@ def optical_home_c4_rotor(payload: C4RotorOpticalHomePayload) -> Dict[str, Any]:
         "iterations": iterations,
         "final_detection": final,
     }
+
+
+@router.get("/api/c4/carousel/status")
+def c4_carousel_status() -> Dict[str, Any]:
+    handler = _sector_handler()
+    status = getattr(handler, "status_snapshot", None)
+    if callable(status):
+        return {"ok": True, "carousel": dict(status() or {})}
+    snapshot = getattr(handler, "snapshot", None)
+    return {"ok": True, "carousel": dict(snapshot() or {}) if callable(snapshot) else {}}
+
+
+@router.get("/api/c4/carousel/gates")
+def c4_carousel_gates() -> Dict[str, Any]:
+    handler = _sector_handler()
+    gate_status = getattr(handler, "gate_status", None)
+    if not callable(gate_status):
+        raise HTTPException(
+            status_code=501,
+            detail="sector carousel gate status is not supported",
+        )
+    return {"ok": True, "gates": dict(gate_status() or {})}
+
+
+@router.get("/api/c4/carousel/events")
+def c4_carousel_events(limit: int = 50) -> Dict[str, Any]:
+    handler = _sector_handler()
+    recent = getattr(handler, "recent_events", None)
+    if not callable(recent):
+        raise HTTPException(
+            status_code=501,
+            detail="sector carousel event log is not supported",
+        )
+    return {"ok": True, "events": list(recent(limit=limit) or [])}
+
+
+@router.post("/api/c4/carousel/phase/verify")
+def verify_c4_carousel_phase(payload: C4CarouselPhaseVerifyPayload) -> Dict[str, Any]:
+    handler = _sector_handler()
+    verify = getattr(handler, "verify_phase", None)
+    if not callable(verify):
+        raise HTTPException(
+            status_code=501,
+            detail="sector carousel phase verification is not supported",
+        )
+    verify(
+        source=payload.source,
+        measured_offset_deg=payload.measured_offset_deg,
+        details=payload.details,
+    )
+    snapshot = getattr(handler, "snapshot", None)
+    return {"ok": True, "carousel": dict(snapshot() or {}) if callable(snapshot) else {}}
+
+
+@router.post("/api/c4/carousel/phase/invalidate")
+def invalidate_c4_carousel_phase(
+    payload: C4CarouselPhaseInvalidatePayload,
+) -> Dict[str, Any]:
+    handler = _sector_handler()
+    invalidate = getattr(handler, "invalidate_phase", None)
+    if not callable(invalidate):
+        raise HTTPException(
+            status_code=501,
+            detail="sector carousel phase invalidation is not supported",
+        )
+    invalidate(reason=payload.reason)
+    snapshot = getattr(handler, "snapshot", None)
+    return {"ok": True, "carousel": dict(snapshot() or {}) if callable(snapshot) else {}}

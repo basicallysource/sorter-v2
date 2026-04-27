@@ -20,9 +20,11 @@ if str(_BACKEND_ROOT) not in sys.path:
 
 from server import shared_state  # noqa: E402
 from server import api as api_module  # noqa: E402
+from server.routers import c4_rotor as c4_rotor_router  # noqa: E402
 from server.routers import detection as detection_router  # noqa: E402
 from server.routers import rt_runtime as rt_runtime_router  # noqa: E402
 from rt.contracts.tracking import Track  # noqa: E402
+from rt.services.sector_carousel import SectorCarouselHandler  # noqa: E402
 
 
 class _FakeHandle:
@@ -437,6 +439,46 @@ def test_update_runtime_tuning_endpoint_forwards_patch(
             "slots": {"c3_to_c4": 3},
         }
     )
+
+
+def test_c4_carousel_status_and_gates_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    handler = SectorCarouselHandler(require_phase_verification=True)
+    handler.enable()
+    handle = SimpleNamespace(
+        orchestrator=SimpleNamespace(_sector_carousel_handler=handler)
+    )
+    monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
+
+    status = c4_rotor_router.c4_carousel_status()
+    gates = c4_rotor_router.c4_carousel_gates()
+
+    assert status["ok"] is True
+    assert status["carousel"]["requires_phase_verification"] is True
+    assert gates["ok"] is True
+    assert any(
+        reason["reason"] == "phase_verification_required"
+        for reason in gates["gates"]["reasons"]
+    )
+
+
+def test_c4_carousel_phase_verify_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    handler = SectorCarouselHandler(require_phase_verification=True, auto_rotate=True)
+    handler.enable()
+    handle = SimpleNamespace(
+        orchestrator=SimpleNamespace(_sector_carousel_handler=handler)
+    )
+    monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
+
+    payload = c4_rotor_router.verify_c4_carousel_phase(
+        c4_rotor_router.C4CarouselPhaseVerifyPayload(
+            source="test",
+            measured_offset_deg=42.0,
+        )
+    )
+
+    assert payload["ok"] is True
+    assert payload["carousel"]["phase_verified"] is True
+    assert payload["carousel"]["auto_rotate_allowed"] is True
 
 
 def test_start_c234_purge_endpoint_starts_handle_job(

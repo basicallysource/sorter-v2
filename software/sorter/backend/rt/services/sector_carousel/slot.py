@@ -65,6 +65,33 @@ class SectorSlot:
         self.entered_phase_at = float(now_mono)
         self.blocked_reason = None
 
+    def ready_to_leave(self, *, now_mono: float, settle_s: float) -> tuple[bool, str | None]:
+        if not self.occupied:
+            return True, None
+        if self.phase is SlotPhase.CAPTURING:
+            return (True, None) if self.capture_done else (False, "capture_pending")
+        if self.phase is SlotPhase.SETTLING:
+            if float(now_mono) - float(self.entered_phase_at) >= float(settle_s):
+                return True, None
+            return False, "settle_pending"
+        if self.phase is SlotPhase.CLASSIFYING:
+            return (
+                (True, None)
+                if self.classification is not None
+                else (False, "classification_pending")
+            )
+        if self.phase is SlotPhase.AWAITING_DIST:
+            return (
+                (True, None)
+                if self.distributor_ready
+                else (False, "distributor_pending")
+            )
+        if self.phase is SlotPhase.DROPPING:
+            return (True, None) if self.ejected else (False, "eject_pending")
+        if self.phase is SlotPhase.DROPPED_PENDING_CLEAR:
+            return True, None
+        return False, "unknown_phase"
+
     def snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
         age_s = None
         if now_mono is not None:

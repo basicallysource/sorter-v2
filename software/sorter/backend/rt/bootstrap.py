@@ -1524,6 +1524,7 @@ def build_rt_runtime(
         rotate_cooldown_s=8.0,
         rotation_chunk_deg=2.0,
         rotation_chunk_settle_s=0.12,
+        require_phase_verification=True,
         logger=log,
     )
     sector_handler_ref.append(sector_carousel_handler)

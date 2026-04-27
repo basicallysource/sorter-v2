@@ -63,6 +63,7 @@ class AuxiliaryDetectionSaveRequest:
     algorithm: str
     openrouter_model: str | None = None
     sample_collection_enabled: bool | None = None
+    wall_detector_mode_enabled: bool | None = None
 
 
 _FEEDER_ROLE_KEY_TO_RT_ROLE: dict[str, str] = {
@@ -144,6 +145,11 @@ class DetectionConfigService:
             else get_carousel_detection_config()
         )
         sample_collection_supported = aux_scope == CLASSIFICATION_CHANNEL_ROLE
+        wall_detector_mode_enabled = (
+            bool(saved.get("wall_detector_mode_enabled"))
+            if sample_collection_supported
+            else False
+        )
         return {
             "ok": True,
             "algorithm": normalize_detection_algorithm(algorithm_scope, saved.get("algorithm")),
@@ -154,6 +160,8 @@ class DetectionConfigService:
                 else False
             ),
             "sample_collection_supported": sample_collection_supported,
+            "wall_detector_mode_enabled": wall_detector_mode_enabled,
+            "wall_detector_mode_supported": sample_collection_supported,
             "available_algorithms": detection_algorithm_options(algorithm_scope),
             "available_openrouter_models": _openrouter_model_options(),
             "scope": aux_scope,
@@ -294,10 +302,19 @@ class DetectionConfigService:
         if not sample_collection_supported:
             sample_collection_enabled = False
 
+        wall_detector_mode_enabled = (
+            bool(request.wall_detector_mode_enabled)
+            if isinstance(request.wall_detector_mode_enabled, bool)
+            else bool(saved.get("wall_detector_mode_enabled"))
+        )
+        if not sample_collection_supported:
+            wall_detector_mode_enabled = False
+
         target_config = {
             "algorithm": algorithm,
             "openrouter_model": openrouter_model,
             "sample_collection_enabled": sample_collection_enabled,
+            "wall_detector_mode_enabled": wall_detector_mode_enabled,
         }
         if aux_scope == CLASSIFICATION_CHANNEL_ROLE:
             set_classification_channel_detection_config(target_config)
@@ -323,12 +340,19 @@ class DetectionConfigService:
             message += (
                 " Periodic positive sample collection is only available on C-channel feeds."
             )
+        if wall_detector_mode_enabled:
+            message += (
+                " Gemini wall-detector teacher mode is on — sampled C4 frames "
+                "will be labeled with platter walls instead of LEGO pieces."
+            )
         return {
             "ok": True,
             "algorithm": algorithm,
             "openrouter_model": openrouter_model,
             "sample_collection_enabled": sample_collection_enabled,
             "sample_collection_supported": sample_collection_supported,
+            "wall_detector_mode_enabled": wall_detector_mode_enabled,
+            "wall_detector_mode_supported": sample_collection_supported,
             "uses_baseline": uses_baseline,
             "scope": aux_scope,
             "message": message,

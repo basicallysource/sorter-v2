@@ -422,6 +422,42 @@ class HiveUploaderPurgeTests(unittest.TestCase):
         self.assertEqual("teacher_ready", state["state"])
         self.assertEqual("Gemini negative", state["label"])
 
+    def test_wall_detector_sample_with_walls_is_ready(self) -> None:
+        """Without this branch the C4 wall samples land in 'needs_gemini' and
+        get blocked from the Hive upload queue."""
+        metadata = {
+            "source": "live_aux_teacher_capture",
+            "source_role": "classification_channel",
+            "detection_algorithm": "gemini_wall_detector",
+            "detection_found": True,
+            "detection_bbox_count": 5,
+            "teacher_capture_crop_mode": "polygon_masked_zone",
+            "teacher_capture_crop_signal": {"mean_gray": 50.0, "nonblack_ratio": 0.25},
+        }
+
+        state = teacher_state_from_metadata(metadata)
+
+        self.assertEqual("teacher_ready", state["state"])
+        self.assertEqual("Gemini wall ready", state["label"])
+        self.assertIn("5", state["reason"])
+
+    def test_wall_detector_negative_sample_is_ready(self) -> None:
+        metadata = {
+            "source": "live_aux_teacher_capture",
+            "source_role": "classification_channel",
+            "detection_algorithm": "gemini_wall_detector",
+            "detection_found": False,
+            "detection_bbox_count": 0,
+            "teacher_capture_negative": True,
+            "teacher_capture_crop_mode": "polygon_masked_zone",
+            "teacher_capture_crop_signal": {"mean_gray": 50.0, "nonblack_ratio": 0.25},
+        }
+
+        state = teacher_state_from_metadata(metadata)
+
+        self.assertEqual("teacher_ready", state["state"])
+        self.assertEqual("Gemini wall negative", state["label"])
+
     def test_gemini_detection_sample_type_is_teacher_detection(self) -> None:
         metadata = {
             "source_role": "classification_channel",

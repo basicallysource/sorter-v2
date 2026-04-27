@@ -251,6 +251,8 @@ def _collector(
     *,
     enabled_by_role: dict[str, bool] | None = None,
     teacher: _Teacher | None = None,
+    wall_teacher: _Teacher | None = None,
+    wall_detector_mode_enabled: bool = False,
     openrouter_model_by_role: dict[str, str] | None = None,
     event_bus: Any | None = None,
     move_trigger_settle_s: float = 0.0,
@@ -269,13 +271,18 @@ def _collector(
         min_capture_interval_s=min_capture_interval_s,
         openrouter_model_by_role=openrouter_model_by_role
         or {"c_channel_2": "google/gemini-3.1-flash-lite-preview"},
+        wall_detector_mode_enabled=wall_detector_mode_enabled,
     )
     teacher = teacher or _Teacher()
+    wall_teacher_value = wall_teacher
     return AuxiliaryTeacherSampleCollector(
         runner_provider=lambda: runners,
         config_provider=lambda: config,
         training_manager_provider=lambda: manager,
         teacher_annotator_provider=lambda: teacher,
+        wall_teacher_annotator_provider=(
+            (lambda: wall_teacher_value) if wall_teacher_value is not None else None
+        ),
         event_bus=event_bus,
         move_trigger_settle_s=move_trigger_settle_s,
         logger=logger,
@@ -517,6 +524,68 @@ def test_collect_once_maps_c4_to_classification_channel_scope() -> None:
     assert saved["source_role"] == "classification_channel"
     assert saved["detection_scope"] == "classification_channel"
     assert saved["extra_metadata"]["teacher_capture_feed_id"] == "c4_feed"
+
+
+def test_collect_once_routes_classification_channel_to_wall_teacher_when_enabled() -> None:
+    """In wall-detector mode, C4 samples must hit the wall annotator (not the
+    loose-piece one) and the saved capture must carry the wall algorithm id."""
+    manager = _TrainingManager()
+    runner = _Runner("c4_feed", _state(feed_id="c4_feed"))
+    piece_teacher = _Teacher()
+    wall_teacher = _Teacher(
+        detections=(
+            TeacherDetection(
+                bbox_xyxy=(10, 20, 30, 200),
+                confidence=0.85,
+                kind="wall",
+                description="wall",
+            ),
+        ),
+    )
+    collector = _collector(
+        [runner],
+        manager,
+        enabled_by_role={"classification_channel": True},
+        teacher=piece_teacher,
+        wall_teacher=wall_teacher,
+        wall_detector_mode_enabled=True,
+    )
+
+    assert collector.collect_once() == 1
+    assert piece_teacher.calls == []
+    assert len(wall_teacher.calls) == 1
+    assert wall_teacher.calls[0]["source_role"] == "classification_channel"
+
+    saved = manager.saved[0]
+    assert saved["detection_algorithm"] == "gemini_wall_detector"
+    assert saved["detection_bbox"] == [10, 20, 30, 200]
+    assert saved["extra_metadata"]["teacher_capture_source"] == "gemini_wall_teacher"
+    detections = saved["extra_metadata"]["teacher_capture_gemini_detections"]
+    assert detections[0]["kind"] == "wall"
+
+
+def test_collect_once_skips_wall_dispatch_for_feeder_roles() -> None:
+    """Wall mode only applies to classification_channel; C2/C3 still use the
+    loose-piece annotator even when the flag is on."""
+    manager = _TrainingManager()
+    runner = _Runner("c2_feed", _state(feed_id="c2_feed"))
+    piece_teacher = _Teacher()
+    wall_teacher = _Teacher()
+    collector = _collector(
+        [runner],
+        manager,
+        enabled_by_role={"c_channel_2": True},
+        teacher=piece_teacher,
+        wall_teacher=wall_teacher,
+        wall_detector_mode_enabled=True,
+    )
+
+    assert collector.collect_once() == 1
+    assert len(piece_teacher.calls) == 1
+    assert wall_teacher.calls == []
+
+    saved = manager.saved[0]
+    assert saved["detection_algorithm"] == "gemini_sam"
 
 
 def test_rotation_event_collects_only_the_changed_feed_after_move() -> None:

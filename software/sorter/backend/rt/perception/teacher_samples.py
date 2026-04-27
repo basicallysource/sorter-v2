@@ -77,6 +77,10 @@ class TeacherSampleCollectionConfig:
     max_queue_size: int = DEFAULT_SAMPLE_COLLECTION_QUEUE_SIZE
     max_pending_per_role: int = DEFAULT_SAMPLE_COLLECTION_MAX_PENDING_PER_ROLE
     openrouter_model_by_role: dict[str, str] | None = None
+    # When True the classification_channel teacher uses the wall-detector
+    # prompt (5 radial walls) instead of the loose-piece detector. Used to
+    # bootstrap the wall-detector training set during rotor calibration.
+    wall_detector_mode_enabled: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -275,6 +279,12 @@ def _default_collection_config() -> TeacherSampleCollectionConfig:
     def _model(value: Any) -> str | None:
         return value.strip() if isinstance(value, str) and value.strip() else None
 
+    wall_mode = bool(
+        _coerce_bool(classification_channel.get("wall_detector_mode_enabled"))
+        or _coerce_bool(feeder.get("wall_detector_mode_enabled"))
+        or False
+    )
+
     return TeacherSampleCollectionConfig(
         enabled_by_role={
             "c_channel_2": _role_enabled("c_channel_2"),
@@ -293,6 +303,7 @@ def _default_collection_config() -> TeacherSampleCollectionConfig:
             "c_channel_3": _model(feeder_model) or "",
             "classification_channel": _model(c4_model) or _model(feeder_model) or "",
         },
+        wall_detector_mode_enabled=wall_mode,
     )
 
 
@@ -332,6 +343,9 @@ def _normalize_collection_config(config: Any) -> TeacherSampleCollectionConfig:
         ),
         openrouter_model_by_role=dict(
             getattr(config, "openrouter_model_by_role", {}) or {}
+        ),
+        wall_detector_mode_enabled=bool(
+            getattr(config, "wall_detector_mode_enabled", False)
         ),
     )
 
@@ -684,6 +698,119 @@ def _default_teacher_annotator() -> GeminiSamTeacherAnnotator:
     return GeminiSamTeacherAnnotator()
 
 
+_WALL_DETECTOR_ALGORITHM = "gemini_wall_detector"
+
+
+class GeminiWallTeacherAnnotator:
+    """Wall-detection annotator that adapts ``GeminiWallTeacher``.
+
+    Each wall comes in as a hub→rim line segment; we forward the
+    derived OBB polygon and endpoints in the raw payload so the Hive
+    overlay (and downstream YOLO-OBB training) can use the tight
+    rotated geometry. The ``TeacherDetection.bbox_xyxy`` carries the
+    AABB enclosing the OBB so existing AABB consumers keep working.
+    """
+
+    def annotate(
+        self,
+        image: "np.ndarray",
+        *,
+        source_role: str,
+        feed_id: str,
+        model: str | None,
+    ) -> TeacherAnnotation:
+        from server.wall_detector_teacher import (
+            DEFAULT_WALL_TEACHER_OPENROUTER_MODEL,
+            GeminiWallTeacher,
+        )
+
+        teacher = GeminiWallTeacher()
+        call = teacher.label_array(
+            image,
+            model=model or DEFAULT_WALL_TEACHER_OPENROUTER_MODEL,
+        )
+
+        detections: list[TeacherDetection] = []
+        wall_records: list[dict[str, Any]] = []
+        for idx, wall in enumerate(call.walls, start=1):
+            full = _bbox_tuple(
+                (
+                    int(wall.wall_full_xyxy[0]),
+                    int(wall.wall_full_xyxy[1]),
+                    int(wall.wall_full_xyxy[2]),
+                    int(wall.wall_full_xyxy[3]),
+                )
+            )
+            if full is None:
+                continue
+            inner = _bbox_tuple(
+                (
+                    int(wall.wall_start_inner_xyxy[0]),
+                    int(wall.wall_start_inner_xyxy[1]),
+                    int(wall.wall_start_inner_xyxy[2]),
+                    int(wall.wall_start_inner_xyxy[3]),
+                )
+            )
+            outer = _bbox_tuple(
+                (
+                    int(wall.wall_end_outer_xyxy[0]),
+                    int(wall.wall_end_outer_xyxy[1]),
+                    int(wall.wall_end_outer_xyxy[2]),
+                    int(wall.wall_end_outer_xyxy[3]),
+                )
+            )
+            confidence = float(wall.confidence)
+            # Send three TeacherDetections per wall so Hive renders all
+            # three landmarks (full body + inner endpoint + outer endpoint).
+            # The wall_full carries the highest confidence score so it
+            # remains the primary box for the legacy "best detection" path.
+            detections.append(
+                TeacherDetection(
+                    bbox_xyxy=full,
+                    confidence=confidence,
+                    kind="wall",
+                    description=f"wall {idx} full",
+                )
+            )
+            if inner is not None:
+                detections.append(
+                    TeacherDetection(
+                        bbox_xyxy=inner,
+                        # Slightly lower so the full bbox stays primary in
+                        # the existing "highest confidence" sort.
+                        confidence=max(0.0, confidence - 0.001),
+                        kind="wall",
+                        description=f"wall {idx} inner endpoint",
+                    )
+                )
+            if outer is not None:
+                detections.append(
+                    TeacherDetection(
+                        bbox_xyxy=outer,
+                        confidence=max(0.0, confidence - 0.002),
+                        kind="wall",
+                        description=f"wall {idx} outer endpoint",
+                    )
+                )
+            wall_records.append(wall.to_record())
+
+        raw_payload = dict(call.raw_response or {})
+        # Surface the geometry next to the raw model response so
+        # downstream consumers (Hive overlay, YOLO-OBB exporter) can
+        # pick it up without having to re-parse the prompt response.
+        raw_payload["walls_parsed"] = wall_records
+
+        return TeacherAnnotation(
+            model=call.model,
+            detections=tuple(detections),
+            raw_payload=raw_payload,
+        )
+
+
+def _default_wall_teacher_annotator() -> GeminiWallTeacherAnnotator:
+    return GeminiWallTeacherAnnotator()
+
+
 def _teacher_input_crop(
     raw: np.ndarray,
     runner: Any,
@@ -754,6 +881,7 @@ class AuxiliaryTeacherSampleCollector:
         config_provider: Callable[[], TeacherSampleCollectionConfig] | None = None,
         training_manager_provider: Callable[[], Any] | None = None,
         teacher_annotator_provider: Callable[[], Any] | None = None,
+        wall_teacher_annotator_provider: Callable[[], Any] | None = None,
         event_bus: Any | None = None,
         move_trigger_settle_s: float = _MOVE_TRIGGER_SETTLE_S,
         logger: logging.Logger | None = None,
@@ -765,6 +893,9 @@ class AuxiliaryTeacherSampleCollector:
         )
         self._teacher_annotator_provider = (
             teacher_annotator_provider or _default_teacher_annotator
+        )
+        self._wall_teacher_annotator_provider = (
+            wall_teacher_annotator_provider or _default_wall_teacher_annotator
         )
         self._event_bus = event_bus
         self._move_trigger_settle_s = max(0.0, float(move_trigger_settle_s))
@@ -787,6 +918,7 @@ class AuxiliaryTeacherSampleCollector:
         self._last_trigger_reason_by_role: dict[str, str] = {}
         self._last_trigger_feed_by_role: dict[str, str] = {}
         self._enabled_by_role: dict[str, bool] = {}
+        self._wall_detector_mode_enabled: bool = False
         self._interval_s = DEFAULT_SAMPLE_COLLECTION_INTERVAL_S
         self._worker_count = DEFAULT_SAMPLE_COLLECTION_WORKER_COUNT
         self._gemini_worker_count = DEFAULT_SAMPLE_COLLECTION_GEMINI_WORKER_COUNT
@@ -893,6 +1025,9 @@ class AuxiliaryTeacherSampleCollector:
             return None
         with self._lock:
             self._enabled_by_role = dict(config.enabled_by_role)
+            self._wall_detector_mode_enabled = bool(
+                getattr(config, "wall_detector_mode_enabled", False)
+            )
             self._interval_s = max(
                 _MIN_INTERVAL_S,
                 min(_MAX_INTERVAL_S, float(config.interval_s)),
@@ -1439,7 +1574,15 @@ class AuxiliaryTeacherSampleCollector:
             self._teacher_call_count += 1
             self._bump_role(self._teacher_call_count_by_role, source_role)
 
-        teacher = self._teacher_annotator_provider()
+        wall_mode = (
+            source_role == "classification_channel"
+            and bool(self._wall_detector_mode_enabled)
+        )
+        teacher = (
+            self._wall_teacher_annotator_provider()
+            if wall_mode
+            else self._teacher_annotator_provider()
+        )
         annotation = teacher.annotate(
             crop,
             source_role=source_role,
@@ -1463,16 +1606,26 @@ class AuxiliaryTeacherSampleCollector:
                         source_role,
                     )
                 return False
+            algorithm_id = (
+                _WALL_DETECTOR_ALGORITHM if wall_mode else _GEMINI_SAM_ALGORITHM
+            )
+            negative_message = (
+                f"Gemini wall detector saw no walls in {feed_id}."
+                if wall_mode
+                else f"Gemini-SAM teacher confirmed no loose items in {feed_id}."
+            )
             extra_metadata = {
                 "teacher_capture": True,
                 "teacher_capture_negative": True,
                 "teacher_capture_trigger": sample.trigger_reason,
-                "teacher_capture_source": "gemini_sam_teacher",
+                "teacher_capture_source": (
+                    "gemini_wall_teacher" if wall_mode else "gemini_sam_teacher"
+                ),
                 "teacher_capture_feed_id": feed_id,
                 "teacher_capture_frame_seq": int(sample.frame_seq),
                 "teacher_capture_crop_mode": sample.crop_mode,
                 "teacher_capture_crop_signal": sample.signal_stats,
-                "teacher_capture_label_source": _GEMINI_SAM_ALGORITHM,
+                "teacher_capture_label_source": algorithm_id,
                 "teacher_capture_gemini_model": teacher_model or None,
                 "teacher_capture_crop_bbox_full_frame": list(bounds),
                 "teacher_capture_primary_bbox_full_frame": None,
@@ -1494,16 +1647,14 @@ class AuxiliaryTeacherSampleCollector:
                 source_role=source_role,
                 detection_scope=_SOURCE_ROLE_TO_SCOPE[source_role],
                 capture_reason=sample.trigger_reason,
-                detection_algorithm=_GEMINI_SAM_ALGORITHM,
+                detection_algorithm=algorithm_id,
                 detection_openrouter_model=teacher_model or None,
                 detection_found=False,
                 detection_bbox=None,
                 detection_candidate_bboxes=[],
                 detection_bbox_count=0,
                 detection_score=None,
-                detection_message=(
-                    f"Gemini-SAM teacher confirmed no loose items in {feed_id}."
-                ),
+                detection_message=negative_message,
                 input_image=crop,
                 source_frame=raw,
                 extra_metadata=extra_metadata,
@@ -1552,15 +1703,25 @@ class AuxiliaryTeacherSampleCollector:
             if _bbox_tuple(det.bbox_xyxy) is not None
         ]
         score = _median_confidence(detections)
+        algorithm_id = (
+            _WALL_DETECTOR_ALGORITHM if wall_mode else _GEMINI_SAM_ALGORITHM
+        )
+        positive_message = (
+            f"{len(local_bboxes)} Gemini wall detection(s) captured from {feed_id}."
+            if wall_mode
+            else f"{len(local_bboxes)} Gemini-SAM teacher detection(s) captured from {feed_id}."
+        )
         extra_metadata = {
             "teacher_capture": True,
             "teacher_capture_trigger": sample.trigger_reason,
-            "teacher_capture_source": "gemini_sam_teacher",
+            "teacher_capture_source": (
+                "gemini_wall_teacher" if wall_mode else "gemini_sam_teacher"
+            ),
             "teacher_capture_feed_id": feed_id,
             "teacher_capture_frame_seq": int(sample.frame_seq),
             "teacher_capture_crop_mode": sample.crop_mode,
             "teacher_capture_crop_signal": sample.signal_stats,
-            "teacher_capture_label_source": _GEMINI_SAM_ALGORITHM,
+            "teacher_capture_label_source": algorithm_id,
             "teacher_capture_gemini_model": teacher_model or None,
             "teacher_capture_crop_bbox_full_frame": list(bounds),
             "teacher_capture_primary_bbox_full_frame": _full_frame_bbox(
@@ -1586,16 +1747,14 @@ class AuxiliaryTeacherSampleCollector:
             source_role=source_role,
             detection_scope=_SOURCE_ROLE_TO_SCOPE[source_role],
             capture_reason=sample.trigger_reason,
-            detection_algorithm=_GEMINI_SAM_ALGORITHM,
+            detection_algorithm=algorithm_id,
             detection_openrouter_model=teacher_model or None,
             detection_found=True,
             detection_bbox=local_best_bbox,
             detection_candidate_bboxes=local_bboxes,
             detection_bbox_count=len(local_bboxes),
             detection_score=score,
-            detection_message=(
-                f"{len(local_bboxes)} Gemini-SAM teacher detection(s) captured from {feed_id}."
-            ),
+            detection_message=positive_message,
             input_image=crop,
             source_frame=raw,
             extra_metadata=extra_metadata,

@@ -2211,3 +2211,5 @@ def get_calibration_gallery_image(role: str, task_id: str, filename: str) -> Str
         media_type="image/jpeg",
         headers={"Cache-Control": "public, max-age=3600"},
     )
+
+

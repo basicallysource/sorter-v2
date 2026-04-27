@@ -90,6 +90,26 @@ def teacher_state_from_metadata(metadata: dict[str, Any]) -> dict[str, str]:
             "reason": "Sample has Gemini-SAM teacher labels.",
         }
 
+    if algorithm == "gemini_wall_detector":
+        bbox_count = _safe_int(metadata.get("detection_bbox_count"))
+        if metadata.get("detection_found") is False or bbox_count == 0:
+            if metadata.get("teacher_capture_negative") is True:
+                return {
+                    "state": "teacher_ready",
+                    "label": "Gemini wall negative",
+                    "reason": "Gemini wall teacher confirmed no walls visible in this frame.",
+                }
+            return {
+                "state": "no_teacher_detection",
+                "label": "No Gemini wall",
+                "reason": "Gemini wall teacher returned no usable wall box for this sample.",
+            }
+        return {
+            "state": "teacher_ready",
+            "label": "Gemini wall ready",
+            "reason": f"Sample has {bbox_count} Gemini wall-detector label(s).",
+        }
+
     if is_teacher_capture:
         return {
             "state": "needs_gemini",

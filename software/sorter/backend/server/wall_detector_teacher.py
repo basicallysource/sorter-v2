@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any
 
 import cv2
+import numpy as np
 
 WALL_DETECTOR_SCHEMA_VERSION = "wall_detector_v1"
 WALL_DETECTOR_SOURCE = "wall_detector_teacher_capture"
@@ -58,13 +59,41 @@ class WallDetection:
     """One wall instance as labeled by the teacher.
 
     Coordinates are in *image pixels* — origin top-left, x to the
-    right, y down. The bounding box is always axis-aligned (YOLO's
-    native format); the teacher still records ``angular_hint_deg``
-    when it can be derived from the platter geometry, but the
-    bounding box is the authoritative training signal.
+    right, y down. The wall is described by **three grouped bboxes**
+    (the format Gemini produces most reliably):
+
+    * ``wall_full_xyxy`` — tight AABB enclosing the entire wall.
+    * ``wall_start_inner_xyxy`` — small AABB at the inner end of the
+      wall, where it meets the central black hub circle.
+    * ``wall_end_outer_xyxy`` — small AABB at the outer end of the
+      wall, where it meets the white outer rim.
+
+    From these we derive:
+
+    * ``hub_xy`` / ``rim_xy`` — segment endpoints, taken as the
+      centers of the inner and outer marker bboxes.
+    * ``thickness_px`` — wall thickness, taken as the smaller side of
+      the inner marker bbox (clamped to a sane minimum).
+    * ``bbox_xyxy`` — alias of ``wall_full_xyxy`` for backwards
+      compatibility with the YOLO-AABB loader.
+    * ``polygon_xy`` — 4-corner OBB rectangle inflated around the
+      hub→rim segment; used for tight visualization and YOLO-OBB
+      training.
     """
 
+    wall_full_xyxy: tuple[float, float, float, float]
+    wall_start_inner_xyxy: tuple[float, float, float, float]
+    wall_end_outer_xyxy: tuple[float, float, float, float]
+    hub_xy: tuple[float, float]
+    rim_xy: tuple[float, float]
+    thickness_px: float
     bbox_xyxy: tuple[float, float, float, float]
+    polygon_xy: tuple[
+        tuple[float, float],
+        tuple[float, float],
+        tuple[float, float],
+        tuple[float, float],
+    ]
     confidence: float
     angular_hint_deg: float | None = None
     note: str | None = None
@@ -84,9 +113,26 @@ class WallDetection:
             f"{cx:.6f} {cy:.6f} {w:.6f} {h:.6f}"
         )
 
+    def to_yolo_obb_line(self, *, image_width: int, image_height: int) -> str:
+        """YOLO-OBB format: ``class x1 y1 x2 y2 x3 y3 x4 y4`` (normalized)."""
+        parts: list[str] = [str(WALL_DETECTOR_CLASS_ID)]
+        for x, y in self.polygon_xy:
+            nx = max(0.0, min(1.0, float(x) / float(image_width)))
+            ny = max(0.0, min(1.0, float(y) / float(image_height)))
+            parts.append(f"{nx:.6f}")
+            parts.append(f"{ny:.6f}")
+        return " ".join(parts)
+
     def to_record(self) -> dict[str, Any]:
         return {
+            "wall_full_xyxy": list(self.wall_full_xyxy),
+            "wall_start_inner_xyxy": list(self.wall_start_inner_xyxy),
+            "wall_end_outer_xyxy": list(self.wall_end_outer_xyxy),
+            "hub_xy": list(self.hub_xy),
+            "rim_xy": list(self.rim_xy),
+            "thickness_px": self.thickness_px,
             "bbox_xyxy": list(self.bbox_xyxy),
+            "polygon_xy": [list(p) for p in self.polygon_xy],
             "confidence": self.confidence,
             "angular_hint_deg": self.angular_hint_deg,
             "note": self.note,
@@ -145,92 +191,98 @@ class WallTeacherResult:
 
 def wall_detector_system_prompt() -> str:
     return (
-        "You are an annotation assistant for a LEGO sorting machine. "
-        "Your only task is to locate the visible walls on the C4 "
-        "rotating disc. Return only one valid JSON object — no "
-        "markdown, no commentary, no code fences."
+        "You are a high-precision visual annotator for industrial "
+        "machine parts. Your job is to find specific features on a "
+        "round, gray rotating turntable and return their exact "
+        "positions as bounding boxes. Return one valid JSON object "
+        "only — no markdown, no commentary, no code fences."
     )
 
 
 def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
     return (
-        "The image is a top-down view of one rotating disc (the C4 "
-        "platter) in a LEGO sorting machine. The disc has exactly "
-        f"{EXPECTED_WALL_COUNT} radial walls — short rigid dividers "
-        "rising from the disc surface — that split the disc into "
-        f"{EXPECTED_WALL_COUNT} sectors. Each wall runs from somewhere "
-        "near the center of the disc outward toward the rim, like a "
-        "spoke. The walls' angular spacing is roughly equal "
-        f"(360 / {EXPECTED_WALL_COUNT} = 72 degrees apart) but the "
-        "platter sits at an arbitrary rotation, so the absolute "
-        "angles are unknown.\n"
+        "Task: identify thin straight radial dividers (walls) on a "
+        "round gray rotating turntable and return their precise "
+        "positions as grouped bounding boxes.\n"
         "\n"
-        "Return one JSON object describing every wall you can see. "
-        "EXPECTED COUNT IS 4 OR 5. At most ONE wall can be hidden "
-        "behind the output guide at any time — a frame with 4 walls "
-        "is normal, a frame with 5 walls is normal, anything else "
-        "means you missed visible walls or invented hidden ones. "
-        "Do NOT guess at occluded walls; do NOT skip walls you can "
-        "actually see. If a hand or LEGO piece briefly hides another "
-        "wall in a single frame, return only what is genuinely "
-        "visible right now.\n"
+        "Scene description:\n"
+        "* The image is a top-down view of the C4 turntable in a "
+        "  LEGO sorting machine, already cropped to the disc zone.\n"
+        "* The disc surface is a flat MEDIUM-GRAY ring around a "
+        "  central BLACK hub circle.\n"
+        "* On the surface there are exactly "
+        f"{EXPECTED_WALL_COUNT} physical radial walls — short rigid "
+        "  dividers rising a few mm from the disc, running from "
+        "  the central hub outward to the disc edge like the spokes "
+        "  of a wheel. Each wall appears as a THIN GRAY LINE with a "
+        "  bright highlight on one edge and a slight shadow on the "
+        "  other (small but reliable visual cue).\n"
+        "* The walls are evenly spaced around the disc center "
+        f"(360 / {EXPECTED_WALL_COUNT} = 72° apart) but the turntable "
+        "  rotates, so absolute angles vary frame to frame. Because "
+        "  it rotates, **4 OR 5 walls** can be visible at any given "
+        "  moment — at most one wall may be hidden under a black "
+        "  drop-chute mask. Find every visible wall, do NOT invent "
+        "  hidden ones, do NOT skip visible ones.\n"
+        "* Solid BLACK regions are out-of-frame machine geometry "
+        "  (outside the active polygon, the drop hole, the drop "
+        "  chute, the central hub circle) — they are NOT walls.\n"
+        "* The WHITE outer ring around the disc is the physical "
+        "  outer rim of the platter, NOT a wall.\n"
         "\n"
-        "Coordinates are image pixels with the origin at the top-left, "
-        "x increasing to the right, and y increasing downward. The "
-        f"image is {image_width}x{image_height}px.\n"
+        "For each visible wall, return THREE grouped bounding boxes:\n"
+        "1. ``wall_full`` — a tight bbox enclosing the entire wall "
+        "   along its full radial length.\n"
+        "2. ``wall_start_inner`` — a SMALL bbox marking only the "
+        "   inner end of the wall, where it meets the central black "
+        "   hub circle.\n"
+        "3. ``wall_end_outer`` — a SMALL bbox marking only the "
+        "   outer end of the wall, where it meets the white outer "
+        "   rim.\n"
+        "Grouping the three boxes per wall is mandatory — they all "
+        "describe the SAME physical wall and must share the same "
+        "``wall_id``.\n"
         "\n"
-        "Each wall must be returned as an axis-aligned bounding box "
-        "that tightly contains the visible portion of the wall. Use "
-        "the smallest box that still covers the wall on both sides. "
-        "Do not include the disc surface, the central hub, the rim, "
-        "the LEGO pieces, or any structural geometry outside the wall "
-        "itself.\n"
-        "\n"
-        "Do NOT label:\n"
-        "* the central hub or the disc rim\n"
-        "* LEGO pieces sitting between walls\n"
-        "* shadows, glare, or reflections\n"
-        "* the chute, distributor, or other machine geometry that "
-        "  happens to enter the frame\n"
-        "* the output guide — a fixed rail/ramp/chute structure that "
-        "  sits near the disc edge to direct pieces toward the "
-        "  distributor. It is part of the machine frame, not part "
-        "  of the rotating disc, and it does NOT move with the "
-        "  platter. Even if it looks bar-shaped or wall-like, "
-        "  ignore it. Note: one rotating wall can pass underneath "
-        "  the output guide and become invisible — when that "
-        "  happens, return the 4 walls you CAN see; never draw a "
-        "  bbox at the guide location to substitute for the hidden "
-        "  wall.\n"
-        "* lines, cables, ArUco markers, or stickers\n"
+        "Coordinates: use Gemini's standard 0..1000 normalized scale "
+        "with order [y_min, x_min, y_max, x_max] (y first, x second). "
+        f"We will rescale to the {image_width}x{image_height} pixel "
+        "image ourselves.\n"
         "\n"
         "Output JSON schema:\n"
         "{\n"
+        '  "detected_walls_count": 0,\n'
         '  "walls": [\n'
-        '    {\n'
-        '      "bbox_xyxy": [x1, y1, x2, y2],\n'
+        "    {\n"
+        '      "wall_id": 1,\n'
+        '      "wall_full": [y_min, x_min, y_max, x_max],\n'
+        '      "wall_start_inner": [y_min, x_min, y_max, x_max],\n'
+        '      "wall_end_outer": [y_min, x_min, y_max, x_max],\n'
         '      "confidence": 0.0,\n'
         '      "angular_hint_deg": null,\n'
         '      "note": null\n'
         "    }\n"
         "  ],\n"
-        '  "visible_evidence": "one short sentence",\n'
         '  "notes": null\n'
         "}\n"
         "\n"
         "Rules:\n"
-        f"- ``walls`` should contain {EXPECTED_WALL_COUNT - 1} or "
-        f"{EXPECTED_WALL_COUNT} entries (4 or 5). The output guide "
-        "  hides at most one wall.\n"
-        "- ``bbox_xyxy`` are integer pixel coordinates inside the image.\n"
-        "- ``confidence`` is 0..1. Use lower values when the wall is "
-        "  partially occluded or far from the camera.\n"
-        "- ``angular_hint_deg`` is optional. Fill it with the wall's "
-        "  approximate angle around the disc center (0° = right, 90° = "
-        "  up, counter-clockwise) only if you can estimate it; "
-        "  otherwise leave null.\n"
-        "- Use ``note`` only to call out occlusion or ambiguity for "
-        "  the operator.\n"
+        f"- ``walls`` MUST contain {EXPECTED_WALL_COUNT - 1} or "
+        f"{EXPECTED_WALL_COUNT} entries (4 or 5).\n"
+        "- All three bboxes per wall use the same 0..1000 normalized "
+        "  [y_min, x_min, y_max, x_max] format.\n"
+        "- ``wall_full`` covers the WHOLE wall (long axis is the "
+        "  radial length).\n"
+        "- ``wall_start_inner`` and ``wall_end_outer`` are SMALL — "
+        "  ideally under 30 normalized units in each dimension. They "
+        "  mark the two endpoints, not the wall body.\n"
+        "- ``confidence`` is 0..1 for the whole wall annotation.\n"
+        "- ``angular_hint_deg`` is optional: the wall's angle around "
+        "  the disc center (0° = +x / right, 90° = up, CCW positive) "
+        "  measured from inner→outer.\n"
+        "- ``note`` is only for occlusion or ambiguity callouts.\n"
+        "- Do NOT label: the central hub, the white outer rim, the "
+        "  gray sector area between walls, LEGO pieces, shadows, "
+        "  reflections, or any solid black region.\n"
         "- Returning fewer than 4 walls means you missed visible "
         "  ones — re-look. Do not invent walls."
     )
@@ -241,30 +293,97 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
 # ---------------------------------------------------------------------------
 
 
-def _coerce_bbox(
+_GEMINI_NORMALIZED_SCALE = 1000.0
+_MIN_WALL_THICKNESS_PX = 4.0
+
+
+def _coerce_yxyx_bbox(
     raw: Any,
     *,
     image_width: int,
     image_height: int,
 ) -> tuple[float, float, float, float] | None:
+    """Convert a Gemini ``[y_min, x_min, y_max, x_max]`` 0..1000 bbox to
+    pixel ``(x_min, y_min, x_max, y_max)``. Returns ``None`` for invalid or
+    degenerate boxes after clamping."""
     if not isinstance(raw, (list, tuple)) or len(raw) != 4:
         return None
     try:
-        x1, y1, x2, y2 = (float(v) for v in raw)
+        y_min, x_min, y_max, x_max = (float(v) for v in raw)
     except (TypeError, ValueError):
         return None
-    # Order-normalize — Gemini sometimes emits (x_min, y_min, x_max, y_max),
-    # sometimes (x_min, y_max, x_max, y_min), depending on prompt phrasing.
-    x_lo, x_hi = (x1, x2) if x1 <= x2 else (x2, x1)
-    y_lo, y_hi = (y1, y2) if y1 <= y2 else (y2, y1)
-    # Clamp to image extents so YOLO normalisation lands in [0, 1].
-    x_lo = max(0.0, min(float(image_width), x_lo))
-    x_hi = max(0.0, min(float(image_width), x_hi))
-    y_lo = max(0.0, min(float(image_height), y_lo))
-    y_hi = max(0.0, min(float(image_height), y_hi))
-    if x_hi <= x_lo or y_hi <= y_lo:
+    for v in (y_min, x_min, y_max, x_max):
+        if math.isnan(v) or math.isinf(v):
+            return None
+    # Order-normalize — Gemini occasionally swaps min/max.
+    y_lo, y_hi = (y_min, y_max) if y_min <= y_max else (y_max, y_min)
+    x_lo, x_hi = (x_min, x_max) if x_min <= x_max else (x_max, x_min)
+    sx = float(image_width) / _GEMINI_NORMALIZED_SCALE
+    sy = float(image_height) / _GEMINI_NORMALIZED_SCALE
+    px_x_lo = max(0.0, min(float(image_width), x_lo * sx))
+    px_x_hi = max(0.0, min(float(image_width), x_hi * sx))
+    px_y_lo = max(0.0, min(float(image_height), y_lo * sy))
+    px_y_hi = max(0.0, min(float(image_height), y_hi * sy))
+    if px_x_hi <= px_x_lo or px_y_hi <= px_y_lo:
         return None
-    return (x_lo, y_lo, x_hi, y_hi)
+    return (px_x_lo, px_y_lo, px_x_hi, px_y_hi)
+
+
+def _bbox_center(bbox: tuple[float, float, float, float]) -> tuple[float, float]:
+    x1, y1, x2, y2 = bbox
+    return ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
+
+
+def _bbox_short_side(bbox: tuple[float, float, float, float]) -> float:
+    x1, y1, x2, y2 = bbox
+    return min(x2 - x1, y2 - y1)
+
+
+def _segment_to_obb_polygon(
+    hub_xy: tuple[float, float],
+    rim_xy: tuple[float, float],
+    thickness_px: float,
+    *,
+    image_width: int,
+    image_height: int,
+) -> tuple[
+    tuple[tuple[float, float], tuple[float, float], tuple[float, float], tuple[float, float]],
+    tuple[float, float, float, float],
+] | None:
+    """Inflate a hub→rim segment to an OBB polygon (4 corners, CCW from hub-left).
+
+    Returns ``(polygon, aabb)`` where ``polygon`` is a 4-tuple of
+    ``(x, y)`` corners and ``aabb`` is ``(x1, y1, x2, y2)`` enclosing
+    the polygon, both in pixel coordinates clipped to the image.
+    """
+    hx, hy = hub_xy
+    rx, ry = rim_xy
+    dx = rx - hx
+    dy = ry - hy
+    length = math.hypot(dx, dy)
+    if length <= 1.0:
+        return None
+    nx = -dy / length
+    ny = dx / length
+    half = max(_MIN_WALL_THICKNESS_PX, thickness_px) / 2.0
+    corners = (
+        (hx + nx * half, hy + ny * half),
+        (hx - nx * half, hy - ny * half),
+        (rx - nx * half, ry - ny * half),
+        (rx + nx * half, ry + ny * half),
+    )
+    clamped: list[tuple[float, float]] = []
+    for cx, cy in corners:
+        cx = max(0.0, min(float(image_width), cx))
+        cy = max(0.0, min(float(image_height), cy))
+        clamped.append((cx, cy))
+    xs = [c[0] for c in clamped]
+    ys = [c[1] for c in clamped]
+    aabb = (min(xs), min(ys), max(xs), max(ys))
+    if aabb[2] - aabb[0] <= 0 or aabb[3] - aabb[1] <= 0:
+        return None
+    polygon = (clamped[0], clamped[1], clamped[2], clamped[3])
+    return polygon, aabb
 
 
 def _coerce_confidence(raw: Any) -> float:
@@ -304,7 +423,14 @@ def parse_wall_response(
     image_width: int,
     image_height: int,
 ) -> tuple[list[WallDetection], str | None]:
-    """Convert a raw Gemini wall-detector response into typed walls."""
+    """Convert a raw Gemini wall-detector response into typed walls.
+
+    Each entry must carry ``wall_full``, ``wall_start_inner`` and
+    ``wall_end_outer`` 0..1000 normalized [y_min, x_min, y_max, x_max]
+    bboxes. Endpoints are derived from the centers of the inner /
+    outer marker boxes, and the OBB polygon is inflated from that
+    segment using a thickness implied by the inner marker bbox.
+    """
     walls_raw = payload.get("walls")
     if not isinstance(walls_raw, list):
         return [], _coerce_optional_str(payload.get("notes"))
@@ -313,16 +439,55 @@ def parse_wall_response(
     for entry in walls_raw[: EXPECTED_WALL_COUNT]:
         if not isinstance(entry, dict):
             continue
-        bbox = _coerce_bbox(
-            entry.get("bbox_xyxy"),
+        full = _coerce_yxyx_bbox(
+            entry.get("wall_full"),
             image_width=image_width,
             image_height=image_height,
         )
-        if bbox is None:
+        inner = _coerce_yxyx_bbox(
+            entry.get("wall_start_inner"),
+            image_width=image_width,
+            image_height=image_height,
+        )
+        outer = _coerce_yxyx_bbox(
+            entry.get("wall_end_outer"),
+            image_width=image_width,
+            image_height=image_height,
+        )
+        if full is None or inner is None or outer is None:
             continue
+        hub = _bbox_center(inner)
+        rim = _bbox_center(outer)
+        # Thickness: prefer the smaller side of the inner marker bbox; fall
+        # back to the smaller side of the full-wall bbox when the marker is
+        # square-ish (i.e. doesn't reveal the wall's perpendicular size).
+        thickness_px = max(
+            _MIN_WALL_THICKNESS_PX,
+            min(
+                _bbox_short_side(inner) or 0.0,
+                _bbox_short_side(full) or 0.0,
+            ) or _MIN_WALL_THICKNESS_PX,
+        )
+        obb = _segment_to_obb_polygon(
+            hub,
+            rim,
+            thickness_px,
+            image_width=image_width,
+            image_height=image_height,
+        )
+        if obb is None:
+            continue
+        polygon, _aabb_unused = obb
         walls.append(
             WallDetection(
-                bbox_xyxy=bbox,
+                wall_full_xyxy=full,
+                wall_start_inner_xyxy=inner,
+                wall_end_outer_xyxy=outer,
+                hub_xy=hub,
+                rim_xy=rim,
+                thickness_px=thickness_px,
+                bbox_xyxy=full,
+                polygon_xy=polygon,
                 confidence=_coerce_confidence(entry.get("confidence")),
                 angular_hint_deg=_coerce_optional_float(
                     entry.get("angular_hint_deg")
@@ -338,15 +503,21 @@ def parse_wall_response(
 # ---------------------------------------------------------------------------
 
 
+def _encode_array_for_llm(image: np.ndarray) -> tuple[str, int, int]:
+    if image is None or getattr(image, "size", 0) <= 0:
+        raise ValueError("Wall-teacher image array is empty")
+    height, width = image.shape[:2]
+    ok, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 92])
+    if not ok:
+        raise RuntimeError("Wall-teacher image array could not be encoded")
+    return base64.b64encode(encoded.tobytes()).decode("ascii"), int(width), int(height)
+
+
 def _encode_image_for_llm(path: Path) -> tuple[str, int, int]:
     image = cv2.imread(str(path), cv2.IMREAD_COLOR)
     if image is None or getattr(image, "size", 0) <= 0:
         raise ValueError(f"Wall-teacher image could not be decoded: {path}")
-    height, width = image.shape[:2]
-    ok, encoded = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 92])
-    if not ok:
-        raise RuntimeError(f"Wall-teacher image could not be encoded: {path}")
-    return base64.b64encode(encoded.tobytes()).decode("ascii"), int(width), int(height)
+    return _encode_array_for_llm(image)
 
 
 # ---------------------------------------------------------------------------
@@ -354,15 +525,32 @@ def _encode_image_for_llm(path: Path) -> tuple[str, int, int]:
 # ---------------------------------------------------------------------------
 
 
+@dataclass(frozen=True, slots=True)
+class WallTeacherCall:
+    """In-memory result of one Gemini wall-detection call.
+
+    Used by callers (e.g. the live teacher_samples pipeline) that hold
+    the image as ``np.ndarray`` and don't need the file-on-disk
+    framing of :class:`WallTeacherResult`.
+    """
+
+    walls: list[WallDetection]
+    image_width: int
+    image_height: int
+    model: str
+    raw_response: dict[str, Any]
+    notes: str | None = None
+
+
 class GeminiWallTeacher:
     """OpenRouter/Gemini wall-detection annotator for one C4 frame."""
 
-    def label_image(
+    def label_array(
         self,
-        image_path: Path,
+        image: np.ndarray,
         *,
         model: str | None = None,
-    ) -> WallTeacherResult:
+    ) -> WallTeacherCall:
         from server.services.llm_client import (
             chat_completion,
             extract_json_object,
@@ -373,7 +561,7 @@ class GeminiWallTeacher:
         normalized_model = normalize_openrouter_model(
             model or DEFAULT_WALL_TEACHER_OPENROUTER_MODEL
         )
-        image_b64, width, height = _encode_image_for_llm(image_path)
+        image_b64, width, height = _encode_array_for_llm(image)
         messages = [
             {"role": "system", "content": wall_detector_system_prompt()},
             {
@@ -423,14 +611,35 @@ class GeminiWallTeacher:
         walls, notes = parse_wall_response(
             payload, image_width=width, image_height=height
         )
-        return WallTeacherResult(
-            image_path=image_path,
+        return WallTeacherCall(
+            walls=walls,
             image_width=width,
             image_height=height,
-            walls=walls,
             model=normalized_model,
             raw_response=payload,
             notes=notes,
+        )
+
+    def label_image(
+        self,
+        image_path: Path,
+        *,
+        model: str | None = None,
+    ) -> WallTeacherResult:
+        image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+        if image is None or getattr(image, "size", 0) <= 0:
+            raise ValueError(
+                f"Wall-teacher image could not be decoded: {image_path}"
+            )
+        call = self.label_array(image, model=model)
+        return WallTeacherResult(
+            image_path=image_path,
+            image_width=call.image_width,
+            image_height=call.image_height,
+            walls=call.walls,
+            model=call.model,
+            raw_response=call.raw_response,
+            notes=call.notes,
         )
 
 
@@ -448,6 +657,7 @@ __all__ = [
     "WALL_TEACHER_MAX_TOKENS",
     "WALL_TEACHER_TIMEOUT_S",
     "WallDetection",
+    "WallTeacherCall",
     "WallTeacherResult",
     "parse_wall_response",
     "wall_detector_prompt",

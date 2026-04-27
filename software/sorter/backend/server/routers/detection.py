@@ -109,6 +109,7 @@ class AuxiliaryDetectionConfigPayload(BaseModel):
     algorithm: str
     openrouter_model: Optional[str] = None
     sample_collection_enabled: Optional[bool] = None
+    wall_detector_mode_enabled: Optional[bool] = None
 
 
 class ApiKeySavePayload(BaseModel):
@@ -569,6 +570,7 @@ def save_carousel_detection_config(
                 algorithm=payload.algorithm,
                 openrouter_model=payload.openrouter_model,
                 sample_collection_enabled=payload.sample_collection_enabled,
+                wall_detector_mode_enabled=payload.wall_detector_mode_enabled,
             ),
             aux_scope=aux_scope,
         )

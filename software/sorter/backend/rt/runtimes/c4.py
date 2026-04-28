@@ -36,7 +36,6 @@ from rt.events.topics import (
 )
 from rt.perception.piece_track_bank import (
     CameraTrayCalibration,
-    Measurement,
     PieceLifecycleState,
     PieceTrackBank,
     PieceTrackBankConfig,
@@ -46,6 +45,7 @@ from rt.pieces.identity import new_piece_uuid, new_tracker_epoch, tracklet_paylo
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
+from ._c4_bank_mirror import C4BankMirror
 from ._c4_exit_dispatch import C4ExitDispatcher
 from ._c4_ports import (
     C4LandingLeasePort,
@@ -377,6 +377,7 @@ class RuntimeC4(BaseRuntime):
                 calibration=CameraTrayCalibration(cx=0.0, cy=0.0),
             )
         )
+        self._bank_mirror = C4BankMirror(self)
         self._recently_delivered_piece_until: dict[str, float] = {}
         self._recently_delivered_track_until: dict[int, float] = {}
         self._fsm: _C4State = _C4State.RUNNING
@@ -1922,89 +1923,30 @@ class RuntimeC4(BaseRuntime):
         angle_deg: float,
         now_mono: float,
     ) -> None:
-        encoder = self._carousel_angle_rad
-        # Convert camera-frame angle to tray-frame: a = world - encoder.
-        # A piece glued to the tray has constant a; pieces that slide /
-        # tumble produce a non-zero adot.
-        a_tray = self._tray_frame_rad(math.radians(angle_deg), encoder)
-        meas = Measurement(
-            a_meas=a_tray,
-            r_meas=float(track.radius_px or 100.0),
-            score=float(track.score),
-            raw_track_id=int(track.global_id) if track.global_id is not None else None,
-            appearance_embedding=track.appearance_embedding,
-            bbox_xyxy=track.bbox_xyxy,
-            confirmed_real=bool(track.confirmed_real),
-            timestamp=float(now_mono),
-        )
-        self._bank.admit_with_uuid(
+        self._bank_mirror.admit_track(
             piece_uuid=piece_uuid,
-            measurement=meas,
-            now_t=now_mono,
-            encoder_rad=encoder,
+            track=track,
+            angle_deg=angle_deg,
+            now_mono=now_mono,
         )
 
     @staticmethod
     def _tray_frame_rad(world_angle_rad: float, encoder_rad: float) -> float:
         """Convert a camera-frame angle to tray frame, wrapped to [-pi, pi]."""
-        delta = float(world_angle_rad) - float(encoder_rad)
-        return math.atan2(math.sin(delta), math.cos(delta))
+        return C4BankMirror.tray_frame_rad(world_angle_rad, encoder_rad)
 
     def _bank_predict(self, now_mono: float) -> None:
-        self._bank.predict_all(t=now_mono, encoder_rad=self._carousel_angle_rad)
+        self._bank_mirror.predict(now_mono)
 
     def _bank_observe_tracks(
         self, tracks: list[Track], now_mono: float
     ) -> None:
-        """Update the bank from the current frame's owned tracks.
-
-        Each track that already owns a piece_uuid mirrors into the bank
-        as a measurement on the existing PieceTrack. Tracks without
-        piece_uuid are skipped — admission is the only path that creates
-        a bank entry, so tentative ghosts never poison the bank.
-        """
-        if not tracks:
-            return
-        encoder = self._carousel_angle_rad
-        measurements: list[tuple[str, Measurement]] = []
-        for t in tracks:
-            piece_uuid = t.piece_uuid or self._piece_uuid_for_track(t)
-            if not isinstance(piece_uuid, str) or piece_uuid not in self._pieces:
-                continue
-            if t.angle_rad is None:
-                continue
-            measurements.append(
-                (
-                    piece_uuid,
-                    Measurement(
-                        a_meas=self._tray_frame_rad(float(t.angle_rad), encoder),
-                        r_meas=float(t.radius_px or 100.0),
-                        score=float(t.score),
-                        raw_track_id=int(t.global_id) if t.global_id is not None else None,
-                        appearance_embedding=t.appearance_embedding,
-                        bbox_xyxy=t.bbox_xyxy,
-                        confirmed_real=bool(t.confirmed_real),
-                        timestamp=float(now_mono),
-                    ),
-                )
-            )
-        for piece_uuid, meas in measurements:
-            self._bank.update_with_measurement(
-                piece_uuid, meas, now_t=now_mono, encoder_rad=encoder
-            )
+        self._bank_mirror.observe_tracks(tracks, now_mono)
 
     def _bank_bind_classification(
         self, piece_uuid: str, dossier: "_PieceDossier"
     ) -> None:
-        result = dossier.result
-        if result is None:
-            return
-        self._bank.bind_classification(
-            piece_uuid,
-            class_label=result.part_id,
-            class_confidence=getattr(result, "confidence", None),
-            identity_uncertain=False,
-        )
+        self._bank_mirror.bind_classification(piece_uuid, dossier)
 
     def _bank_finalize(
         self,
@@ -2012,9 +1954,7 @@ class RuntimeC4(BaseRuntime):
         *,
         ejected: bool,
     ) -> None:
-        if ejected:
-            self._bank.mark_ejected(piece_uuid)
-        self._bank.finalize(piece_uuid)
+        self._bank_mirror.finalize(piece_uuid, ejected=ejected)
 
     def _bank_singleton_for_eject(
         self,
@@ -2029,19 +1969,7 @@ class RuntimeC4(BaseRuntime):
         now both gates are checked and the eject only fires when both
         agree.
         """
-        # Use the runtime's configured exit_angle as the chute center —
-        # in production this equals the zone manager's drop_angle_deg
-        # (both are read from the same classification config), but
-        # tests sometimes wire them apart and the eject is what the
-        # runtime is actually committing to.
-        chute_center = math.radians(self._exit_angle_deg)
-        chute_half = math.radians(self._exit_trailing_safety_deg)
-        return self._bank.is_singleton_in_chute(
-            piece_uuid,
-            chute_center_rad=chute_center,
-            chute_half_width_rad=chute_half,
-            encoder_rad=self._carousel_angle_rad,
-        )
+        return self._bank_mirror.singleton_for_eject(piece_uuid)
 
     def _has_trailing_piece_within_safety(
         self, matched_track: Track, tracks: list[Track]

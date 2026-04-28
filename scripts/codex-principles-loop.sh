@@ -46,7 +46,7 @@ fi
 if "$CODEX_BIN" exec --help 2>/dev/null | grep -q -- "--yolo"; then
   codex_base_args+=(--yolo)
 else
-  codex_base_args+=(--dangerously-bypass-approvals-and-sandbox --ask-for-approval never --sandbox danger-full-access)
+  codex_base_args+=(--dangerously-bypass-approvals-and-sandbox --sandbox danger-full-access)
 fi
 
 require_clean_tree() {

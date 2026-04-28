@@ -76,9 +76,6 @@ ACTION_TRACK_MIN_HITS = 2
 # Extra seconds on either side of a pulse window so the next few frames
 # (hardware latency, frame-capture jitter) still count as "during rotation".
 _ROTATION_WINDOW_PAD_S = 0.15
-DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
-DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
-DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
@@ -393,7 +390,12 @@ class RuntimeC2(BaseRuntime):
         self._upstream_slot.release()
 
     def sample_transport_port(self) -> "RingSampleTransportPort":
-        return RingSampleTransportPort(self, key="c2")
+        return RingSampleTransportPort(
+            self,
+            key="c2",
+            mode=_PulseMode.NORMAL,
+            pulse_method="_pulse_command",
+        )
 
     # ------------------------------------------------------------------
     # Internals
@@ -819,80 +821,6 @@ class RuntimeC2(BaseRuntime):
             now_mono,
         )
         self._set_state(state)
-
-    def _dispatch_sample_transport_pulse(self, now_mono: float) -> bool:
-        """Rotate C2 without admission or downstream slot gating."""
-        if self._hw.busy() or self._hw.pending() > 0:
-            self._set_state("sample_transport", blocked_reason="hw_busy")
-            return False
-        mode = _PulseMode.NORMAL
-        timing = self._ejection.timing_for(
-            {"sample_transport": True, "mode": mode.value}
-        )
-
-        def _run_pulse() -> None:
-            ok = False
-            try:
-                if (
-                    self._sample_transport_command is not None
-                    and self._sample_transport_step_deg
-                ):
-                    ok = bool(
-                        self._sample_transport_command(
-                            self._sample_transport_step_deg,
-                            self._sample_transport_max_speed,
-                            self._sample_transport_acceleration,
-                        )
-                    )
-                else:
-                    ok = bool(
-                        self._pulse_command(
-                            mode,
-                            timing.pulse_ms,
-                            PROFILE_CONTINUOUS,
-                        )
-                    )
-            except Exception:
-                self._logger.exception("RuntimeC2: sample transport pulse raised")
-            finally:
-                publish_move_completed(
-                    self._bus,
-                    self._logger,
-                    runtime_id=self.runtime_id,
-                    feed_id=self.feed_id,
-                    source="c2_sample_transport",
-                    ok=bool(ok),
-                    duration_ms=timing.pulse_ms,
-                    extra={"sample_transport": True},
-                )
-
-        self._next_pulse_at = now_mono + self._pulse_cooldown_s
-        enqueued = self._hw.enqueue(_run_pulse, label="c2_sample_transport")
-        if not enqueued:
-            self._set_state("sample_transport", blocked_reason="hw_queue_full")
-            return False
-        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
-        self._set_state("sample_transport")
-        return True
-
-    def _configure_sample_transport(
-        self,
-        *,
-        target_rpm: float | None,
-        direct_max_speed_usteps_per_s: int | None = None,
-        direct_acceleration_usteps_per_s2: int | None = None,
-    ) -> None:
-        self._sample_transport_max_speed = direct_max_speed_usteps_per_s
-        self._sample_transport_acceleration = direct_acceleration_usteps_per_s2
-        if target_rpm is None:
-            self._sample_transport_step_deg = None
-            return
-        target_degrees_per_second = max(0.0, float(target_rpm)) * 6.0
-        step = target_degrees_per_second * DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S
-        self._sample_transport_step_deg = max(
-            DEFAULT_SAMPLE_TRANSPORT_MIN_STEP_DEG,
-            min(DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG, step),
-        )
 
     def _dispatch_purge_pulse(self, now_mono: float) -> None:
         """Pulse the ring without gating on downstream capacity or exit_track.

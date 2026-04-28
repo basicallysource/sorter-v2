@@ -689,41 +689,83 @@ class RuntimeC4(BaseRuntime):
     def fsm_state(self) -> str:
         return self._fsm.value
 
+    def _dossier_debug_payload(
+        self,
+        dossier: _PieceDossier,
+        *,
+        detail_ts_mono: float | None = None,
+    ) -> dict[str, Any]:
+        zone = self._zone_manager.zone_for(dossier.piece_uuid)
+        angle = float(zone.center_deg) if zone is not None else None
+        payload: dict[str, Any] = {
+            "piece_uuid": dossier.piece_uuid,
+            "global_id": dossier.global_id,
+            "tracklet_id": dossier.tracklet_id,
+            "tracker_key": dossier.tracker_key,
+            "tracker_epoch": dossier.tracker_epoch,
+            "angle_deg": angle,
+            "classify_delta_deg": (
+                _wrap_deg(angle - self._classify_angle_deg)
+                if angle is not None
+                else None
+            ),
+            "exit_delta_deg": (
+                _wrap_deg(angle - self._exit_angle_deg)
+                if angle is not None
+                else None
+            ),
+            "handoff_requested": bool(dossier.handoff_requested),
+            "distributor_ready": bool(dossier.distributor_ready),
+            "eject_enqueued": bool(dossier.eject_enqueued),
+            "eject_committed": bool(dossier.eject_committed),
+        }
+        if detail_ts_mono is None:
+            payload.update(
+                {
+                    "has_result": dossier.result is not None,
+                    "future_pending": dossier.classify_future is not None,
+                    "recovered": bool(dossier.extras.get("recovered")),
+                }
+            )
+            return payload
+
+        ts = float(detail_ts_mono)
+        result = dossier.result
+        payload.update(
+            {
+                "raw_track_id": dossier.raw_track_id,
+                "intake_age_s": ts - dossier.intake_ts,
+                "angle_at_intake_deg": dossier.angle_at_intake_deg,
+                "last_seen_age_s": ts - dossier.last_seen_mono,
+                "classified_age_s": (
+                    ts - dossier.classified_ts
+                    if dossier.classified_ts is not None
+                    else None
+                ),
+                "classify_future_pending": dossier.classify_future is not None,
+                "result_part_id": getattr(result, "part_id", None) if result else None,
+                "result_category": (
+                    getattr(result, "category", None) if result else None
+                ),
+                "reject_reason": dossier.reject_reason,
+                "last_handoff_attempt_age_s": (
+                    ts - dossier.last_handoff_attempt_at
+                    if dossier.last_handoff_attempt_at
+                    else None
+                ),
+                "extras": dict(dossier.extras),
+            }
+        )
+        return payload
+
     def debug_snapshot(self) -> dict[str, Any]:
         """Compact live snapshot for operator diagnostics and API status."""
         frame_raw = getattr(self._latest_frame, "raw", None)
         frame_shape = list(frame_raw.shape[:2]) if hasattr(frame_raw, "shape") else None
-        dossier_preview: list[dict[str, Any]] = []
-        for dossier in list(self._pieces.values())[:5]:
-            zone = self._zone_manager.zone_for(dossier.piece_uuid)
-            angle = float(zone.center_deg) if zone is not None else None
-            dossier_preview.append(
-                {
-                    "piece_uuid": dossier.piece_uuid,
-                    "global_id": dossier.global_id,
-                    "tracklet_id": dossier.tracklet_id,
-                    "tracker_key": dossier.tracker_key,
-                    "tracker_epoch": dossier.tracker_epoch,
-                    "angle_deg": angle,
-                    "classify_delta_deg": (
-                        _wrap_deg(angle - self._classify_angle_deg)
-                        if angle is not None
-                        else None
-                    ),
-                    "exit_delta_deg": (
-                        _wrap_deg(angle - self._exit_angle_deg)
-                        if angle is not None
-                        else None
-                    ),
-                    "has_result": dossier.result is not None,
-                    "future_pending": dossier.classify_future is not None,
-                    "handoff_requested": dossier.handoff_requested,
-                    "distributor_ready": dossier.distributor_ready,
-                    "eject_enqueued": dossier.eject_enqueued,
-                    "eject_committed": dossier.eject_committed,
-                    "recovered": bool(dossier.extras.get("recovered")),
-                }
-            )
+        dossier_preview = [
+            self._dossier_debug_payload(dossier)
+            for dossier in list(self._pieces.values())[:5]
+        ]
         admission_state = self._admission_state_snapshot()
         admission_decision = self._admission.can_admit(
             inbound_piece_hint={},
@@ -820,56 +862,10 @@ class RuntimeC4(BaseRuntime):
         spelunking private fields.
         """
         ts = time.monotonic() if now_mono is None else float(now_mono)
-        dossiers: list[dict[str, Any]] = []
-        for dossier in self._pieces.values():
-            zone = self._zone_manager.zone_for(dossier.piece_uuid)
-            angle = float(zone.center_deg) if zone is not None else None
-            result = dossier.result
-            dossiers.append(
-                {
-                    "piece_uuid": dossier.piece_uuid,
-                    "global_id": dossier.global_id,
-                    "tracklet_id": dossier.tracklet_id,
-                    "tracker_key": dossier.tracker_key,
-                    "tracker_epoch": dossier.tracker_epoch,
-                    "raw_track_id": dossier.raw_track_id,
-                    "intake_age_s": ts - dossier.intake_ts,
-                    "angle_at_intake_deg": dossier.angle_at_intake_deg,
-                    "angle_deg": angle,
-                    "classify_delta_deg": (
-                        _wrap_deg(angle - self._classify_angle_deg)
-                        if angle is not None
-                        else None
-                    ),
-                    "exit_delta_deg": (
-                        _wrap_deg(angle - self._exit_angle_deg)
-                        if angle is not None
-                        else None
-                    ),
-                    "last_seen_age_s": ts - dossier.last_seen_mono,
-                    "classified_age_s": (
-                        ts - dossier.classified_ts
-                        if dossier.classified_ts is not None
-                        else None
-                    ),
-                    "classify_future_pending": dossier.classify_future is not None,
-                    "result_part_id": getattr(result, "part_id", None) if result else None,
-                    "result_category": (
-                        getattr(result, "category", None) if result else None
-                    ),
-                    "reject_reason": dossier.reject_reason,
-                    "handoff_requested": bool(dossier.handoff_requested),
-                    "distributor_ready": bool(dossier.distributor_ready),
-                    "eject_enqueued": bool(dossier.eject_enqueued),
-                    "eject_committed": bool(dossier.eject_committed),
-                    "last_handoff_attempt_age_s": (
-                        ts - dossier.last_handoff_attempt_at
-                        if dossier.last_handoff_attempt_at
-                        else None
-                    ),
-                    "extras": dict(dossier.extras),
-                }
-            )
+        dossiers = [
+            self._dossier_debug_payload(dossier, detail_ts_mono=ts)
+            for dossier in self._pieces.values()
+        ]
         # Sort by exit_delta closest-to-exit first so the operator reads the
         # next-to-eject candidate at the top.
         dossiers.sort(
@@ -1723,7 +1719,7 @@ class RuntimeC4(BaseRuntime):
             # rather than reaching into ``_pieces`` private state.
             self._bank_bind_classification(dossier.piece_uuid, dossier)
             result = dossier.result
-            result_meta = result.meta if result and isinstance(result.meta, dict) else {}
+            result_payload = self._classification_payload(result)
             payload: dict[str, Any] = {
                 "piece_uuid": dossier.piece_uuid,
                 "tracked_global_id": dossier.global_id,
@@ -1740,17 +1736,7 @@ class RuntimeC4(BaseRuntime):
                     "tracked_global_id": dossier.global_id,
                     **self._dossier_tracklet_payload(dossier),
                     "classification_channel_zone_state": "active",
-                    "part_id": result.part_id if result else None,
-                    "part_name": result_meta.get("name"),
-                    "color_id": result.color_id if result else None,
-                    "color_name": result_meta.get("color_name"),
-                    "part_category": result.category if result else None,
-                    "category": result.category if result else None,
-                    "confidence": result.confidence if result else None,
-                    "algorithm": result.algorithm if result else None,
-                    "latency_ms": result.latency_ms if result else None,
-                    "brickognize_preview_url": result_meta.get("preview_url")
-                    or result_meta.get("img_url"),
+                    **result_payload,
                     "classified_at": now_mono,
                 },
             }

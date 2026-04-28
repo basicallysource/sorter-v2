@@ -46,6 +46,7 @@ from rt.pieces.identity import new_piece_uuid, new_tracker_epoch, tracklet_paylo
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
+from ._c4_exit_dispatch import C4ExitDispatcher
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
 from ._strategies import (
@@ -399,6 +400,7 @@ class RuntimeC4(BaseRuntime):
             feed_id=self.feed_id,
             logger=self._logger,
         )
+        self._exit_dispatcher = C4ExitDispatcher(self)
 
     def available_slots(self) -> int:
         return int(self.capacity_debug_snapshot()["available"])
@@ -1755,31 +1757,10 @@ class RuntimeC4(BaseRuntime):
             self._publish(PIECE_CLASSIFIED, payload, now_mono)
 
     def _request_pending_handoffs(self, now_mono: float) -> None:
-        if self._handoff is None:
-            self._mark_handoff("request_not_wired")
-            return
-        dossier = self._next_handoff_candidate()
-        if dossier is None:
-            return
-        self._request_distributor_handoff(dossier, now_mono)
+        self._exit_dispatcher.request_pending_handoffs(now_mono)
 
     def _next_handoff_candidate(self) -> _PieceDossier | None:
-        for dossier in self._dossiers_by_exit_distance():
-            if dossier.handoff_requested:
-                self._mark_handoff("front_already_requested")
-                return None
-            if dossier.result is None:
-                self._mark_handoff("front_not_classified")
-                return None
-            distance = self._dossier_exit_distance(dossier)
-            if (
-                self._handoff_request_horizon_deg > 0.0
-                and distance > self._handoff_request_horizon_deg
-            ):
-                self._mark_handoff("front_outside_handoff_horizon")
-                return None
-            return dossier
-        return None
+        return self._exit_dispatcher.next_handoff_candidate()
 
     def _dossiers_by_exit_distance(self) -> list[_PieceDossier]:
         dossiers = list(self._pieces.values())
@@ -1797,99 +1778,14 @@ class RuntimeC4(BaseRuntime):
         dossier: _PieceDossier,
         now_mono: float,
     ) -> bool:
-        port = self._handoff
-        result = dossier.result
-        if port is None or result is None:
-            self._mark_handoff("request_not_ready")
-            return False
-        if self._sync_handoff_from_port(dossier):
-            self._mark_handoff("synced_pending")
-            return True
-        if dossier.handoff_requested:
-            self._mark_handoff("already_requested")
-            return True
-        # Backoff: after a distributor_busy rejection, wait before hitting
-        # the port again so the distributor has time to complete its
-        # chute-move → ready → eject cycle. Without this, C4 spams
-        # handoff_request at tick rate and the busy counter explodes.
-        if (
-            dossier.last_handoff_attempt_at > 0.0
-            and now_mono - dossier.last_handoff_attempt_at < self._handoff_retry_cooldown_s
-        ):
-            self._mark_handoff("retry_cooldown")
-            return False
-        # Cheap, non-blocking probe: if the distributor has no free slot
-        # there's no point reserving the c4_to_distributor slot either.
-        try:
-            port_slots = int(port.available_slots())
-        except Exception:
-            port_slots = 1  # assume capacity; the full request path will reject if busy
-        if port_slots <= 0:
-            dossier.last_handoff_attempt_at = now_mono
-            self._mark_handoff("distributor_busy")
-            return False
-        if not self._downstream_slot.try_claim(now_mono=now_mono, hold_time_s=15.0):
-            self._set_state("drop_commit", blocked_reason="downstream_full")
-            self._mark_handoff("downstream_full")
-            return False
-        try:
-            accepted = bool(
-                port.handoff_request(
-                    piece_uuid=dossier.piece_uuid,
-                    classification=result,
-                    dossier=self._handoff_dossier_payload(dossier),
-                    now_mono=now_mono,
-                )
-            )
-        except Exception:
-            self._downstream_slot.release()
-            self._logger.exception(
-                "RuntimeC4: distributor handoff_request raised for piece=%s",
-                dossier.piece_uuid,
-            )
-            self._mark_handoff("callback_raised")
-            return False
-        if not accepted:
-            self._downstream_slot.release()
-            self._set_state("drop_commit", blocked_reason="distributor_busy")
-            self._mark_handoff("distributor_busy")
-            dossier.last_handoff_attempt_at = now_mono
-            bank_track = self._bank.track(dossier.piece_uuid)
-            if bank_track is not None:
-                bank_track.last_handoff_attempt_at = now_mono
-            return False
-        dossier.handoff_requested = True
-        bank_track = self._bank.track(dossier.piece_uuid)
-        if bank_track is not None:
-            bank_track.handoff_requested = True
-            bank_track.last_handoff_attempt_at = now_mono
-        self._record_handoff_move(
-            now_mono=now_mono,
-            source="c4_distributor_handoff_request",
-            step_deg=None,
-            use_exit_approach=None,
-            track_count=len(self._pieces),
-            dossier=dossier,
-        )
-        self._mark_handoff("accepted")
-        return True
+        return self._exit_dispatcher.request_distributor_handoff(dossier, now_mono)
 
     def _abort_non_front_handoffs(
         self,
         front_piece_uuid: str,
         now_mono: float,
     ) -> None:
-        for dossier in list(self._pieces.values()):
-            if dossier.piece_uuid == front_piece_uuid:
-                continue
-            if not dossier.handoff_requested:
-                continue
-            self._abort_handoff_only(
-                dossier,
-                now_mono=now_mono,
-                reason="out_of_order_exit",
-                front_piece_uuid=front_piece_uuid,
-            )
+        self._exit_dispatcher.abort_non_front_handoffs(front_piece_uuid, now_mono)
 
     def _abort_handoff_only(
         self,
@@ -1899,44 +1795,12 @@ class RuntimeC4(BaseRuntime):
         reason: str,
         front_piece_uuid: str | None = None,
     ) -> bool:
-        if not dossier.handoff_requested:
-            return False
-        port = self._handoff
-        if port is not None:
-            try:
-                port.handoff_abort(
-                    dossier.piece_uuid,
-                    reason=reason,
-                    now_mono=now_mono,
-                )
-            except Exception:
-                self._logger.exception(
-                    "RuntimeC4: distributor handoff_abort raised for piece=%s",
-                    dossier.piece_uuid,
-                )
-        self._downstream_slot.release()
-        dossier.handoff_requested = False
-        dossier.distributor_ready = False
-        dossier.eject_enqueued = False
-        dossier.eject_committed = False
-        dossier.last_handoff_attempt_at = now_mono
-        self._mark_handoff(f"aborted_{reason}")
-        self._record_handoff_move(
+        return self._exit_dispatcher.abort_handoff_only(
+            dossier,
             now_mono=now_mono,
-            source=f"c4_handoff_abort_{reason}",
-            step_deg=None,
-            use_exit_approach=None,
-            track_count=len(self._pieces),
-            dossier=dossier,
-            extra={"front_piece_uuid": front_piece_uuid},
+            reason=reason,
+            front_piece_uuid=front_piece_uuid,
         )
-        self._logger.warning(
-            "RuntimeC4: aborted distributor handoff for piece=%s reason=%s front=%s",
-            dossier.piece_uuid,
-            reason,
-            front_piece_uuid,
-        )
-        return True
 
     def _handoff_dossier_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
         result = dossier.result
@@ -1957,74 +1821,7 @@ class RuntimeC4(BaseRuntime):
         inbox: RuntimeInbox,
         now_mono: float,
     ) -> None:
-        exit_track = self._pick_exit_track(tracks)
-        if exit_track is None:
-            self._exit_stall_since = None
-            if self._fsm is _C4State.EXIT_SHIMMY:
-                self._fsm = _C4State.RUNNING
-            return
-
-        piece_uuid = self._piece_uuid_for_track(exit_track)
-        if piece_uuid is None:
-            return
-        dossier = self._pieces.get(piece_uuid)
-        if dossier is not None:
-            self._sync_handoff_from_port(dossier)
-        self._abort_non_front_handoffs(piece_uuid, now_mono)
-        if dossier is None or dossier.result is None:
-            if inbox.capacity_downstream <= 0:
-                self._maybe_shimmy(now_mono)
-            return
-        if dossier.eject_enqueued:
-            self._set_state("drop_commit", blocked_reason="eject_in_flight")
-            return
-
-        if self._handoff is not None:
-            if not dossier.handoff_requested:
-                self._request_distributor_handoff(dossier, now_mono)
-                return
-            if not dossier.distributor_ready:
-                self._set_state("drop_commit", blocked_reason="waiting_distributor")
-                return
-            if self._hw.busy():
-                self._set_state("drop_commit", blocked_reason="hw_busy")
-                return
-            # Dispatch gate: posterior-singleton check via the
-            # PieceTrackBank. The bank knows every chute-blocking
-            # PieceTrack's 2-sigma angular interval and refuses the
-            # eject unless this piece is the *only* one whose interval
-            # overlaps the chute window. Falls back to the deterministic
-            # trailing-safety guard if the bank does not know the piece
-            # (admission/sync race, or a recovered track that hasn't
-            # been mirrored yet).
-            bank_track = self._bank.track(piece_uuid)
-            if bank_track is not None:
-                if not self._bank_singleton_for_eject(piece_uuid):
-                    self._set_state(
-                        "drop_commit", blocked_reason="trailing_piece_in_chute"
-                    )
-                    return
-            elif self._has_trailing_piece_within_safety(exit_track, tracks):
-                self._set_state(
-                    "drop_commit", blocked_reason="trailing_piece_in_chute"
-                )
-                return
-            self._enqueue_eject(piece_uuid, claim_downstream=False)
-            return
-
-        if inbox.capacity_downstream <= 0:
-            self._maybe_shimmy(now_mono)
-            return
-        if self._hw.busy():
-            self._set_state("drop_commit", blocked_reason="hw_busy")
-            return
-        if not self._downstream_slot.try_claim(
-            now_mono=now_mono, hold_time_s=5.0
-        ):
-            self._set_state("drop_commit", blocked_reason="downstream_full")
-            return
-
-        self._enqueue_eject(piece_uuid, claim_downstream=True)
+        self._exit_dispatcher.handle_exit(tracks, inbox, now_mono)
 
     def _record_dropzone_arrival(
         self,
@@ -2129,100 +1926,13 @@ class RuntimeC4(BaseRuntime):
         return math.degrees(float(track.angle_rad))
 
     def _enqueue_eject(self, piece_uuid: str, *, claim_downstream: bool) -> bool:
-        dossier = self._pieces.get(piece_uuid)
-        if dossier is not None:
-            if dossier.eject_enqueued:
-                self._set_state("drop_commit", blocked_reason="eject_in_flight")
-                return False
-            dossier.eject_enqueued = True
-        bank_track = self._bank.track(piece_uuid)
-        if bank_track is not None:
-            bank_track.eject_enqueued = True
-
-        def _do_eject() -> None:
-            try:
-                ok = bool(self._eject())
-            except Exception:
-                self._logger.exception("RuntimeC4: eject_command raised")
-                ok = False
-            if not ok:
-                live_dossier = self._pieces.get(piece_uuid)
-                if live_dossier is not None:
-                    live_dossier.eject_enqueued = False
-                live_bank = self._bank.track(piece_uuid)
-                if live_bank is not None:
-                    live_bank.eject_enqueued = False
-                self._downstream_slot.release()
-                return
-            port = self._handoff
-            if port is not None:
-                try:
-                    committed = bool(port.handoff_commit(piece_uuid, now_mono=time.monotonic()))
-                except Exception:
-                    self._logger.exception(
-                        "RuntimeC4: distributor handoff_commit raised for piece=%s",
-                        piece_uuid,
-                    )
-                    committed = False
-                live_dossier = self._pieces.get(piece_uuid)
-                if live_dossier is not None:
-                    live_dossier.eject_committed = committed
-                live_bank = self._bank.track(piece_uuid)
-                if live_bank is not None:
-                    live_bank.eject_committed = bool(committed)
-                if not committed:
-                    self._logger.warning(
-                        "RuntimeC4: distributor handoff_commit rejected for piece=%s",
-                        piece_uuid,
-                    )
-
-        if not self._hw.enqueue(_do_eject, label="c4_eject"):
-            if dossier is not None:
-                dossier.eject_enqueued = False
-            if claim_downstream:
-                self._downstream_slot.release()
-            self._set_state("drop_commit", blocked_reason="hw_queue_full")
-            return False
-        self._record_handoff_move(
-            now_mono=time.monotonic(),
-            source="c4_eject",
-            step_deg=None,
-            use_exit_approach=None,
-            track_count=len(self._pieces),
-            dossier=dossier,
-            extra={"claim_downstream": bool(claim_downstream)},
+        return self._exit_dispatcher.enqueue_eject(
+            piece_uuid,
+            claim_downstream=claim_downstream,
         )
-        self._fsm = _C4State.DROP_COMMIT
-        self._set_state(self._fsm.value)
-        self._exit_stall_since = None
-        return True
 
     def _maybe_shimmy(self, now_mono: float) -> bool:
-        if self._exit_stall_since is None:
-            self._exit_stall_since = now_mono
-            return False
-        stall = now_mono - self._exit_stall_since
-        if stall < self._shimmy_stall_s:
-            return False
-        if now_mono < self._next_shimmy_at:
-            return False
-        if self._hw_busy_or_backlogged():
-            return False
-        step = self._shimmy_step_deg
-
-        def _do_shimmy() -> None:
-            try:
-                self._wiggle_move(step)
-                self._wiggle_move(-step)
-            except Exception:
-                self._logger.exception("RuntimeC4: shimmy move raised")
-
-        if self._hw.enqueue(_do_shimmy, label="c4_exit_shimmy"):
-            self._next_shimmy_at = now_mono + self._shimmy_cooldown_s
-            self._fsm = _C4State.EXIT_SHIMMY
-            self._set_state(self._fsm.value)
-            return True
-        return False
+        return self._exit_dispatcher.maybe_shimmy(now_mono)
 
     def landing_lease_port(self) -> LandingLeasePort:
         """Expose this C4's landing-lease gate to the upstream C3.

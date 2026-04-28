@@ -30,7 +30,7 @@ from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import C3_HANDOFF_TRIGGER, RUNTIME_HANDOFF_BURST
+from rt.events.topics import C3_HANDOFF_TRIGGER
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
@@ -41,7 +41,11 @@ from rt.services.track_transit import TrackTransitRegistry
 from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._bad_actor_suppression import StationaryBadActorSuppressor, track_key
-from ._handoff_diagnostics import HandoffDiagnostics
+from ._handoff_diagnostics import (
+    HandoffDiagnostics,
+    record_ring_arrival_burst,
+    record_ring_handoff_move,
+)
 from ._move_events import publish_move_completed
 from ._ring_ports import (
     RingPurgePort,
@@ -51,7 +55,6 @@ from ._ring_ports import (
 from ._ring_tracks import (
     closest_actionable_within,
     fresh_ring_tracks,
-    track_angle_deg,
     track_diagnostics,
     wrap_rad as _wrap_rad,
 )
@@ -577,7 +580,7 @@ class RuntimeC3(BaseRuntime):
             # A new confirmed piece entered C3's ring — release upstream slot.
             self._upstream_slot.release()
         if arrivals and self._arrival_diagnostics_armed:
-            self._record_arrival_burst(arrivals, now_mono)
+            record_ring_arrival_burst(self, arrivals, now_mono)
         elif arrivals:
             self._arrival_diagnostics_armed = True
 
@@ -827,7 +830,8 @@ class RuntimeC3(BaseRuntime):
         commits_slot = claim is True
         profile_name = PROFILE_GENTLE if mode is _PulseMode.PRECISE else PROFILE_TRANSPORT
         move_source = source or f"c3_pulse_{mode_for_worker.value}"
-        move_context = self._record_handoff_move(
+        move_context = record_ring_handoff_move(
+            self,
             now_mono=now_mono,
             source=move_source,
             mode=mode_for_worker.value,
@@ -1176,76 +1180,6 @@ class RuntimeC3(BaseRuntime):
         if retry_count >= self._handoff_retry_escalate_after:
             return self._handoff_retry_max_pulses
         return 1
-
-    def _record_handoff_move(
-        self,
-        *,
-        now_mono: float,
-        source: str,
-        mode: str,
-        repeat_count: int,
-        commit_to_downstream: bool,
-        track: Track | None,
-    ) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "source": source,
-            "mode": mode,
-            "repeat_count": int(repeat_count),
-            "commit_to_downstream": bool(commit_to_downstream),
-            "piece_count": int(self._piece_count),
-            "visible_track_count": int(self._visible_track_count),
-            "pending_downstream_claims": len(self._pending_downstream_claims),
-            "upstream_taken": int(self._upstream_slot.taken()),
-            "downstream_taken": int(self._downstream_slot.taken()),
-        }
-        if track is not None:
-            payload.update({
-                "track_global_id": track.global_id,
-                "track_angle_deg": track_angle_deg(track),
-            })
-        return self._handoff_diagnostics.record_move(
-            now_mono=now_mono,
-            **payload,
-        )
-
-    def _record_arrival_burst(
-        self,
-        arrivals: list[dict[str, Any]],
-        now_mono: float,
-    ) -> None:
-        anomaly = self._handoff_diagnostics.record_arrivals(
-            now_mono=now_mono,
-            arrivals=arrivals,
-            context={
-                "piece_count": self._piece_count,
-                "visible_track_count": self._visible_track_count,
-                "pending_track_count": self._pending_track_count,
-                "upstream_taken": self._upstream_slot.taken(),
-                "downstream_taken": self._downstream_slot.taken(),
-                "pending_downstream_claims": len(self._pending_downstream_claims),
-            },
-        )
-        if anomaly is not None:
-            self._publish_handoff_burst(anomaly, now_mono)
-
-    def _publish_handoff_burst(
-        self,
-        anomaly: dict[str, Any],
-        now_mono: float,
-    ) -> None:
-        if self._bus is None:
-            return
-        try:
-            self._bus.publish(
-                Event(
-                    topic=RUNTIME_HANDOFF_BURST,
-                    payload=anomaly,
-                    source=self.runtime_id,
-                    ts_mono=float(now_mono),
-                )
-            )
-        except Exception:
-            self._logger.exception("RuntimeC3: handoff-burst publish failed")
 
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:

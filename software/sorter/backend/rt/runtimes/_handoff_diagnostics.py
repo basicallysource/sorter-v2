@@ -3,6 +3,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from rt.contracts.events import Event
+from rt.contracts.tracking import Track
+from rt.events.topics import RUNTIME_HANDOFF_BURST
+
+from ._ring_tracks import track_angle_deg
+
 
 class HandoffDiagnostics:
     """Small rolling diagnostics buffer for C-channel burst investigations."""
@@ -117,6 +123,79 @@ class HandoffDiagnostics:
         ][-self.max_arrivals :]
 
 
+def record_ring_handoff_move(
+    runtime: Any,
+    *,
+    now_mono: float,
+    source: str,
+    mode: str,
+    repeat_count: int,
+    commit_to_downstream: bool,
+    track: Track | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "source": source,
+        "mode": mode,
+        "repeat_count": int(repeat_count),
+        "commit_to_downstream": bool(commit_to_downstream),
+        "piece_count": int(runtime._piece_count),
+        "visible_track_count": int(runtime._visible_track_count),
+        "pending_downstream_claims": len(runtime._pending_downstream_claims),
+        "upstream_taken": int(runtime._upstream_slot.taken()),
+        "downstream_taken": int(runtime._downstream_slot.taken()),
+    }
+    if track is not None:
+        payload.update({
+            "track_global_id": track.global_id,
+            "track_angle_deg": track_angle_deg(track),
+        })
+    return runtime._handoff_diagnostics.record_move(now_mono=now_mono, **payload)
+
+
+def record_ring_arrival_burst(
+    runtime: Any,
+    arrivals: list[dict[str, Any]],
+    now_mono: float,
+) -> None:
+    anomaly = runtime._handoff_diagnostics.record_arrivals(
+        now_mono=now_mono,
+        arrivals=arrivals,
+        context={
+            "piece_count": runtime._piece_count,
+            "visible_track_count": runtime._visible_track_count,
+            "pending_track_count": runtime._pending_track_count,
+            "upstream_taken": runtime._upstream_slot.taken(),
+            "downstream_taken": runtime._downstream_slot.taken(),
+            "pending_downstream_claims": len(runtime._pending_downstream_claims),
+        },
+    )
+    if anomaly is not None:
+        publish_ring_handoff_burst(runtime, anomaly, now_mono)
+
+
+def publish_ring_handoff_burst(
+    runtime: Any,
+    anomaly: dict[str, Any],
+    now_mono: float,
+) -> None:
+    if runtime._bus is None:
+        return
+    try:
+        runtime._bus.publish(
+            Event(
+                topic=RUNTIME_HANDOFF_BURST,
+                payload=anomaly,
+                source=runtime.runtime_id,
+                ts_mono=float(now_mono),
+            )
+        )
+    except Exception:
+        runtime._logger.exception(
+            "Runtime%s: handoff-burst publish failed",
+            str(runtime.runtime_id).upper(),
+        )
+
+
 def _compact_mapping(payload: dict[str, Any]) -> dict[str, Any]:
     compact: dict[str, Any] = {}
     for key, value in payload.items():
@@ -147,4 +226,9 @@ def _compact_value(value: Any) -> Any:
     return str(value)
 
 
-__all__ = ["HandoffDiagnostics"]
+__all__ = [
+    "HandoffDiagnostics",
+    "publish_ring_handoff_burst",
+    "record_ring_arrival_burst",
+    "record_ring_handoff_move",
+]

@@ -60,17 +60,11 @@ class _PurgeHost(Protocol):
     _eject: Callable[[], bool]
     _startup_purge_controller: Any
     _piece_lifecycle: Any
+    _transport_controller: Any
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]: ...
     def _reconcile_visible_tracks(self, tracks: list[Track], now_mono: float) -> None: ...
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None: ...
-    def _maybe_advance_transport(
-        self,
-        tracks: list[Track],
-        now_mono: float,
-        *,
-        move_command: Callable[[float], bool] | None = None,
-    ) -> bool: ...
     def _set_state(self, state: str, *, blocked_reason: str | None = None) -> None: ...
 
 class C4StartupPurgeStrategy:
@@ -327,7 +321,7 @@ class C4StartupPurgeStrategy:
             host._set_state("startup_purge", blocked_reason="ejecting")
             return True
 
-        transport_active = host._maybe_advance_transport(
+        transport_active = host._transport_controller.maybe_advance_transport(
             owned_tracks,
             now_mono,
             move_command=host._startup_purge_move,

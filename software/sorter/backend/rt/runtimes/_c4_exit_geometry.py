@@ -46,7 +46,7 @@ class C4ExitGeometry:
             if rt._piece_uuid_for_track(track) is None:
                 continue
             delta = abs(_wrap_deg(math.degrees(track.angle_rad) - rt._exit_angle_deg))
-            overlap = rt._exit_zone_bbox_overlap_ratio(track)
+            overlap = rt._transport_controller.exit_zone_bbox_overlap_ratio(track)
             ready = (
                 delta <= rt._angle_tol_deg
                 if overlap is None

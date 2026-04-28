@@ -2148,7 +2148,7 @@ def test_c4_startup_purge_recovers_rotates_and_ejects_without_classifier() -> No
 
 def test_c4_startup_purge_owned_sweeps_when_no_exit_track() -> None:
     # Regression: when owned tracks exist, none is at the exit angle, and
-    # _maybe_advance_transport declines to move (e.g. transport cooldown),
+    # the transport controller declines to move (e.g. transport cooldown),
     # the FSM previously stalled in awaiting_exit because the prime branch
     # only runs while owned_count == 0. The owned-sweep fallback must now
     # rotate the tray itself.
@@ -2175,12 +2175,12 @@ def test_c4_startup_purge_owned_sweeps_when_no_exit_track() -> None:
         RuntimeInbox(tracks=_batch(stable, timestamp=1.0), capacity_downstream=1),
         now_mono=1.0,
     )
-    # First tick: _maybe_advance_transport enqueues a transport-step move
+    # First tick: the transport controller enqueues a transport-step move
     # (default transport_step_deg=3.0) and sets _next_transport_at.
     assert rt.dossier_count() == 1
     assert "purge:3.0" in log
 
-    # Second tick inside the transport cooldown window — _maybe_advance_transport
+    # Second tick inside the transport cooldown window: the transport controller
     # returns False (transport blocked). Without the fallback the FSM would land
     # in awaiting_exit with no motion. With the fallback it must enqueue a
     # prime_step_deg=4.0 sweep instead.

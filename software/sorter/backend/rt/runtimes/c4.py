@@ -658,17 +658,23 @@ class RuntimeC4(BaseRuntime):
             # classification still run above so dossiers stay live.
             self._exit_dispatcher.request_pending_handoffs(now_mono)
             self._exit_dispatcher.handle_exit(owned_tracks, inbox, now_mono)
-        unjam_active = self._maybe_unjam_transport(owned_tracks, now_mono)
+        unjam_active = self._transport_controller.maybe_unjam_transport(
+            owned_tracks,
+            now_mono,
+        )
         transport_active = False
         if not unjam_active and not self._carousel_mode_active:
-            transport_active = self._maybe_advance_transport(owned_tracks, now_mono)
+            transport_active = self._transport_controller.maybe_advance_transport(
+                owned_tracks,
+                now_mono,
+            )
         idle_jog_active = False
         if (
             not transport_active
             and not unjam_active
             and not self._carousel_mode_active
         ):
-            idle_jog_active = self._maybe_idle_jog(now_mono)
+            idle_jog_active = self._transport_controller.maybe_idle_jog(now_mono)
         self._refresh_fsm_label(
             transport_active=transport_active,
             idle_jog_active=idle_jog_active,
@@ -1140,79 +1146,8 @@ class RuntimeC4(BaseRuntime):
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
         return self._exit_geometry.pick_exit_track(tracks)
 
-    def _owned_track_angles(self, tracks: list[Track]) -> dict[int, float]:
-        return self._transport_controller.owned_track_angles(tracks)
-
-    def _reset_transport_progress_watch(self) -> None:
-        self._transport_controller.reset_progress_watch()
-
     def _hw_busy_or_backlogged(self) -> bool:
         return bool(self._hw.busy() or self._hw.pending() > 0)
-
-    def _transport_waiting_on_ready_exit(self, tracks: list[Track]) -> bool:
-        return self._transport_controller.waiting_on_ready_exit(tracks)
-
-    def _transport_exit_hold_reason(self, tracks: list[Track]) -> str | None:
-        return self._transport_controller.exit_hold_reason(tracks)
-
-    def _maybe_unjam_transport(self, tracks: list[Track], now_mono: float) -> bool:
-        return self._transport_controller.maybe_unjam_transport(tracks, now_mono)
-
-    def _maybe_advance_transport(
-        self,
-        tracks: list[Track],
-        now_mono: float,
-        *,
-        move_command: Callable[[float], bool] | None = None,
-    ) -> bool:
-        return self._transport_controller.maybe_advance_transport(
-            tracks=tracks,
-            now_mono=now_mono,
-            move_command=move_command,
-        )
-
-    def _scheduled_transport_step(
-        self,
-        *,
-        tracks: list[Track],
-        now_mono: float,
-        base_step: float,
-        use_exit_approach: bool,
-    ) -> float | None:
-        return self._transport_controller.scheduled_transport_step(
-            tracks=tracks,
-            now_mono=now_mono,
-            base_step=base_step,
-            use_exit_approach=use_exit_approach,
-        )
-
-    def _dispatch_sample_transport_step(self, now_mono: float) -> bool:
-        return self._transport_controller.dispatch_sample_transport_step(now_mono)
-
-    def _configure_sample_transport(
-        self,
-        *,
-        target_rpm: float | None,
-        direct_max_speed_usteps_per_s: int | None = None,
-        direct_acceleration_usteps_per_s2: int | None = None,
-    ) -> None:
-        self._transport_controller.configure_sample_transport(
-            target_rpm=target_rpm,
-            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
-            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
-        )
-
-    def _maybe_idle_jog(self, now_mono: float) -> bool:
-        return self._transport_controller.maybe_idle_jog(now_mono)
-
-    def _track_in_exit_approach(self, track: Track) -> bool:
-        return self._transport_controller.track_in_exit_approach(track)
-
-    def _has_ready_handoff_track(self, tracks: list[Track]) -> bool:
-        return self._transport_controller.has_ready_handoff_track(tracks)
-
-    def _exit_zone_bbox_overlap_ratio(self, track: Track) -> float | None:
-        return self._transport_controller.exit_zone_bbox_overlap_ratio(track)
 
     def _refresh_fsm_label(
         self,

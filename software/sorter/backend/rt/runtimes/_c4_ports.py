@@ -77,7 +77,9 @@ class C4SampleTransportPort:
         self._runtime = runtime
 
     def step(self, now_mono: float) -> bool:
-        return self._runtime._dispatch_sample_transport_step(now_mono)
+        return self._runtime._transport_controller.dispatch_sample_transport_step(
+            now_mono
+        )
 
     def configure_sample_transport(
         self,
@@ -86,7 +88,7 @@ class C4SampleTransportPort:
         direct_max_speed_usteps_per_s: int | None = None,
         direct_acceleration_usteps_per_s2: int | None = None,
     ) -> None:
-        self._runtime._configure_sample_transport(
+        self._runtime._transport_controller.configure_sample_transport(
             target_rpm=target_rpm,
             direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
             direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,

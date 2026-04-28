@@ -89,7 +89,7 @@ class C4ExitDispatcher:
                 port.handoff_request(
                     piece_uuid=dossier.piece_uuid,
                     classification=result,
-                    dossier=rt._handoff_dossier_payload(dossier),
+                    dossier=rt._payloads.handoff_dossier_payload(dossier),
                     now_mono=now_mono,
                 )
             )

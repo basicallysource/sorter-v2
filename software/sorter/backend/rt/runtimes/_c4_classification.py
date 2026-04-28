@@ -119,14 +119,17 @@ class C4ClassificationController:
             dossier.classified_ts = now_mono
             rt._bank_bind_classification(dossier.piece_uuid, dossier)
             result = dossier.result
-            result_payload = rt._classification_payload(result)
-            zone_payload = rt._dossier_event_payload(dossier, zone_state="active")
+            result_payload = rt._payloads.classification_payload(result)
+            zone_payload = rt._payloads.dossier_event_payload(
+                dossier,
+                zone_state="active",
+            )
             payload: dict[str, Any] = {
                 **zone_payload,
                 "classified_ts_mono": now_mono,
                 "confirmed_real": True,
                 "stage": "classified",
-                "classification_status": rt._classification_status(
+                "classification_status": rt._payloads.classification_status(
                     result,
                     missing="unknown",
                 ),

@@ -866,7 +866,7 @@ class RuntimeC4(BaseRuntime):
         if self._piece_uuid_for_track(track) is not None:
             return False
         angle_deg = math.degrees(track.angle_rad)
-        tracklet = self._tracklet_payload_for_gid(gid)
+        tracklet = self._payloads.tracklet_payload_for_gid(gid)
         transit = self._claim_transit_for_track(
             track,
             now_mono=now_mono,
@@ -894,14 +894,14 @@ class RuntimeC4(BaseRuntime):
             now_mono=now_mono,
         ):
             return False
-        extras = self._extras_for_registration(
+        extras = self._payloads.extras_for_registration(
             track,
             recovered=recovered,
             transit=transit,
         )
-        result = self._result_from_transit(transit)
-        classified_ts = self._classified_ts_from_transit(transit)
-        reject_reason = self._reject_reason_from_transit(transit)
+        result = self._payloads.result_from_transit(transit)
+        classified_ts = self._payloads.classified_ts_from_transit(transit)
+        reject_reason = self._payloads.reject_reason_from_transit(transit)
         dossier = _PieceDossier(
             piece_uuid=piece_uuid,
             global_id=gid,
@@ -974,15 +974,18 @@ class RuntimeC4(BaseRuntime):
             release_upstream=release_upstream_now,
             recovered=recovered,
         )
-        result_payload = self._classification_payload(result)
-        event_payload = self._dossier_event_payload(dossier, zone_state="active")
-        dossier_payload = self._dossier_event_payload(
+        result_payload = self._payloads.classification_payload(result)
+        event_payload = self._payloads.dossier_event_payload(
+            dossier,
+            zone_state="active",
+        )
+        dossier_payload = self._payloads.dossier_event_payload(
             dossier,
             zone_state="active",
             center_deg=angle_deg,
             include_exit=True,
         )
-        transit_payload = self._transit_payload(transit)
+        transit_payload = self._payloads.transit_payload(transit)
         self._publish(
             PIECE_REGISTERED,
             {
@@ -991,7 +994,7 @@ class RuntimeC4(BaseRuntime):
                 "intake_ts_mono": now_mono,
                 "confirmed_real": True,
                 "stage": "registered",
-                "classification_status": self._classification_status(result),
+                "classification_status": self._payloads.classification_status(result),
                 "recovered": recovered,
                 "admission_basis": dossier.extras.get("admission_basis"),
                 **transit_payload,
@@ -1022,32 +1025,6 @@ class RuntimeC4(BaseRuntime):
 
     def _sweep_recently_delivered(self, now_mono: float) -> None:
         self._piece_lifecycle.sweep_recently_delivered(now_mono)
-
-    def _tracklet_payload_for_gid(self, gid: int) -> dict[str, Any]:
-        return self._payloads.tracklet_payload_for_gid(gid)
-
-    def _dossier_tracklet_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
-        return self._payloads.dossier_tracklet_payload(dossier)
-
-    def _dossier_event_payload(
-        self,
-        dossier: _PieceDossier,
-        *,
-        zone_state: str | None = None,
-        center_deg: float | None = None,
-        lost_at: float | None = None,
-        include_exit: bool = False,
-    ) -> dict[str, Any]:
-        return self._payloads.dossier_event_payload(
-            dossier,
-            zone_state=zone_state,
-            center_deg=center_deg,
-            lost_at=lost_at,
-            include_exit=include_exit,
-        )
-
-    def _dossier_last_angle_deg(self, dossier: _PieceDossier) -> float:
-        return self._payloads.dossier_last_angle_deg(dossier)
 
     def _claim_transit_for_track(
         self,
@@ -1095,48 +1072,6 @@ class RuntimeC4(BaseRuntime):
                     pass
             return track.piece_uuid
         return None
-
-    def _extras_for_registration(
-        self,
-        track: Track,
-        *,
-        recovered: bool,
-        transit: TransitCandidate | None,
-    ) -> dict[str, Any]:
-        return self._payloads.extras_for_registration(
-            track,
-            recovered=recovered,
-            transit=transit,
-        )
-
-    def _result_from_transit(
-        self,
-        transit: TransitCandidate | None,
-    ) -> ClassifierResult | None:
-        return self._payloads.result_from_transit(transit)
-
-    def _classified_ts_from_transit(self, transit: TransitCandidate | None) -> float | None:
-        return self._payloads.classified_ts_from_transit(transit)
-
-    def _reject_reason_from_transit(self, transit: TransitCandidate | None) -> str | None:
-        return self._payloads.reject_reason_from_transit(transit)
-
-    def _transit_payload(self, transit: TransitCandidate | None) -> dict[str, Any]:
-        return self._payloads.transit_payload(transit)
-
-    def _classification_payload(
-        self,
-        result: ClassifierResult | None,
-    ) -> dict[str, Any]:
-        return self._payloads.classification_payload(result)
-
-    def _classification_status(
-        self,
-        result: ClassifierResult | None,
-        *,
-        missing: str = "pending",
-    ) -> str:
-        return self._payloads.classification_status(result, missing=missing)
 
     def _publish_transit_link(
         self,
@@ -1214,9 +1149,6 @@ class RuntimeC4(BaseRuntime):
             reason=reason,
             front_piece_uuid=front_piece_uuid,
         )
-
-    def _handoff_dossier_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
-        return self._payloads.handoff_dossier_payload(dossier)
 
     def _handle_exit(
         self,

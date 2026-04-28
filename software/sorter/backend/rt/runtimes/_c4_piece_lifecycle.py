@@ -83,8 +83,8 @@ class C4PieceLifecycle:
     ) -> None:
         rt = self._rt
         now_wall = time.time()
-        last_angle_deg = rt._dossier_last_angle_deg(dossier)
-        zone_payload = rt._dossier_event_payload(
+        last_angle_deg = rt._payloads.dossier_last_angle_deg(dossier)
+        zone_payload = rt._payloads.dossier_event_payload(
             dossier,
             zone_state="lost",
             center_deg=last_angle_deg,
@@ -95,7 +95,9 @@ class C4PieceLifecycle:
             {
                 **zone_payload,
                 "stage": "registered",
-                "classification_status": rt._classification_status(dossier.result),
+                "classification_status": rt._payloads.classification_status(
+                    dossier.result
+                ),
                 "updated_at": now_wall,
                 "dossier": {
                     **zone_payload,
@@ -120,7 +122,7 @@ class C4PieceLifecycle:
         source_angle_deg = (
             float(zone.center_deg)
             if zone is not None
-            else rt._dossier_last_angle_deg(dossier)
+            else rt._payloads.dossier_last_angle_deg(dossier)
         )
         registry.begin(
             source_runtime=rt.runtime_id,
@@ -135,7 +137,7 @@ class C4PieceLifecycle:
             payload={
                 "previous_tracked_global_id": dossier.global_id,
                 "previous_tracklet_id": dossier.tracklet_id,
-                **rt._dossier_tracklet_payload(dossier),
+                **rt._payloads.dossier_tracklet_payload(dossier),
                 "dossier_result": dossier.result,
                 "classified_ts": dossier.classified_ts,
                 "reject_reason": dossier.reject_reason,

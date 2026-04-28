@@ -446,10 +446,9 @@ class RuntimeC4(BaseRuntime):
         When ``True`` the runtime keeps perception + admission +
         classifier submission + dossier bookkeeping live (so BoxMot
         piece UUIDs and image crops still flow), but skips its own
-        ``_request_pending_handoffs`` / ``_handle_exit`` /
-        ``_maybe_advance_transport`` / ``_maybe_idle_jog`` so an
-        external sector-carousel handler can drive C4's hardware
-        without a parallel writer.
+        handoff, exit-dispatch, transport-advance, and idle-jog hardware
+        actions so an external sector-carousel handler can drive C4's
+        hardware without a parallel writer.
         """
         self._carousel_mode_active = bool(active)
 
@@ -648,14 +647,17 @@ class RuntimeC4(BaseRuntime):
             max_step_deg=self._transport_max_step_deg,
             exit_slow_zone_deg=self._exit_approach_angle_deg,
         )
-        self._submit_classifications(owned_tracks, now_mono)
-        self._poll_classifier_futures(now_mono)
+        self._classification_controller.submit_classifications(
+            owned_tracks,
+            now_mono,
+        )
+        self._classification_controller.poll_futures(now_mono)
         if not self._carousel_mode_active:
             # Carousel mode delegates these to an external scheduler
             # (SectorCarouselHandler). Perception + admission +
             # classification still run above so dossiers stay live.
-            self._request_pending_handoffs(now_mono)
-            self._handle_exit(owned_tracks, inbox, now_mono)
+            self._exit_dispatcher.request_pending_handoffs(now_mono)
+            self._exit_dispatcher.handle_exit(owned_tracks, inbox, now_mono)
         unjam_active = self._maybe_unjam_transport(owned_tracks, now_mono)
         transport_active = False
         if not unjam_active and not self._carousel_mode_active:
@@ -1042,27 +1044,9 @@ class RuntimeC4(BaseRuntime):
             now_mono=now_mono,
         )
 
-    def _submit_classifications(self, tracks: list[Track], now_mono: float) -> None:
-        self._classification_controller.submit_classifications(tracks, now_mono)
-
-    def _in_classify_pretrigger(self, angle_deg: float) -> bool:
-        return self._classification_controller.in_classify_pretrigger(angle_deg)
-
-    def _mark_classify_skip(self, reason: str) -> None:
-        self._classification_controller.mark_skip(reason)
-
     def _mark_handoff(self, reason: str) -> None:
         self._last_handoff_skip = reason
         self._handoff_debug_counts[reason] = self._handoff_debug_counts.get(reason, 0) + 1
-
-    def _poll_classifier_futures(self, now_mono: float) -> None:
-        self._classification_controller.poll_futures(now_mono)
-
-    def _request_pending_handoffs(self, now_mono: float) -> None:
-        self._exit_dispatcher.request_pending_handoffs(now_mono)
-
-    def _next_handoff_candidate(self) -> _PieceDossier | None:
-        return self._exit_dispatcher.next_handoff_candidate()
 
     def _dossiers_by_exit_distance(self) -> list[_PieceDossier]:
         dossiers = list(self._pieces.values())
@@ -1074,43 +1058,6 @@ class RuntimeC4(BaseRuntime):
         if zone is None:
             return 9999.0
         return abs(_wrap_deg(float(zone.center_deg) - self._exit_angle_deg))
-
-    def _request_distributor_handoff(
-        self,
-        dossier: _PieceDossier,
-        now_mono: float,
-    ) -> bool:
-        return self._exit_dispatcher.request_distributor_handoff(dossier, now_mono)
-
-    def _abort_non_front_handoffs(
-        self,
-        front_piece_uuid: str,
-        now_mono: float,
-    ) -> None:
-        self._exit_dispatcher.abort_non_front_handoffs(front_piece_uuid, now_mono)
-
-    def _abort_handoff_only(
-        self,
-        dossier: _PieceDossier,
-        *,
-        now_mono: float,
-        reason: str,
-        front_piece_uuid: str | None = None,
-    ) -> bool:
-        return self._exit_dispatcher.abort_handoff_only(
-            dossier,
-            now_mono=now_mono,
-            reason=reason,
-            front_piece_uuid=front_piece_uuid,
-        )
-
-    def _handle_exit(
-        self,
-        tracks: list[Track],
-        inbox: RuntimeInbox,
-        now_mono: float,
-    ) -> None:
-        self._exit_dispatcher.handle_exit(tracks, inbox, now_mono)
 
     def _record_dropzone_arrival(
         self,
@@ -1159,15 +1106,6 @@ class RuntimeC4(BaseRuntime):
 
     def _track_angle_deg(self, track: Track) -> float | None:
         return self._handoff_debug.track_angle_deg(track)
-
-    def _enqueue_eject(self, piece_uuid: str, *, claim_downstream: bool) -> bool:
-        return self._exit_dispatcher.enqueue_eject(
-            piece_uuid,
-            claim_downstream=claim_downstream,
-        )
-
-    def _maybe_shimmy(self, now_mono: float) -> bool:
-        return self._exit_dispatcher.maybe_shimmy(now_mono)
 
     def landing_lease_port(self) -> LandingLeasePort:
         """Expose this C4's landing-lease gate to the upstream C3.

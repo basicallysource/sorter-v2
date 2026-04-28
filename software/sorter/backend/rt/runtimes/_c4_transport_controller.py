@@ -235,7 +235,7 @@ class C4TransportController:
         port = rt._handoff
         if port is None:
             return None
-        candidate = rt._next_handoff_candidate()
+        candidate = rt._exit_dispatcher.next_handoff_candidate()
         if candidate is None:
             return None
         next_ready_fn = getattr(port, "next_ready_time", None)

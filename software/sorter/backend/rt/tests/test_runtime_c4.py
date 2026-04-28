@@ -786,7 +786,7 @@ def test_c4_prepositions_only_next_exit_order_candidate() -> None:
             meta={},
         )
 
-    rt._request_pending_handoffs(now_mono=1.2)  # noqa: SLF001
+    rt._exit_dispatcher.request_pending_handoffs(now_mono=1.2)  # noqa: SLF001
 
     assert len(handoffs) == 1
     assert handoffs[0]["piece_uuid"] == pieces_by_gid[2].piece_uuid
@@ -844,7 +844,7 @@ def test_c4_aborts_out_of_order_ready_handoff_for_front_exit_piece() -> None:
     stale.distributor_ready = True
     assert down.try_claim(now_mono=1.2, hold_time_s=15.0)
 
-    rt._handle_exit(  # noqa: SLF001
+    rt._exit_dispatcher.handle_exit(  # noqa: SLF001
         [_track(global_id=2, angle_deg=180.0)],
         RuntimeInbox(tracks=_batch(), capacity_downstream=0),
         now_mono=1.3,

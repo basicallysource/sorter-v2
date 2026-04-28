@@ -25,7 +25,7 @@ from rt.contracts.handoff import HandoffPort
 from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.purge import PurgePort
 from rt.contracts.runtime import RuntimeInbox
-from rt.contracts.tracking import Track, TrackBatch
+from rt.contracts.tracking import Track
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import (
     PERCEPTION_ROTATION,
@@ -60,6 +60,7 @@ from ._c4_startup_purge import C4StartupPurgeController
 from ._c4_transport_controller import C4TransportController
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
+from ._ring_tracks import fresh_ring_tracks
 from ._strategies import (
     C4Admission,
     C4EjectionTiming,
@@ -653,7 +654,7 @@ class RuntimeC4(BaseRuntime):
         # are aligned to ``now_mono`` and the posterior-singleton query
         # answers correctly.
         self._bank_predict(now_mono)
-        raw_tracks = self._fresh_tracks(inbox.tracks)
+        raw_tracks = fresh_ring_tracks(inbox.tracks, track_stale_s=self._track_stale_s)
         visible_tracks = [t for t in raw_tracks if is_visible_track(t)]
         self._raw_detection_count = len(visible_tracks)
         owned_tracks = self._sync_owned_tracks(visible_tracks, now_mono)
@@ -706,22 +707,6 @@ class RuntimeC4(BaseRuntime):
         )
 
     # -- Helpers ------------------------------------------------------
-
-    def _fresh_tracks(self, batch: TrackBatch | None) -> list[Track]:
-        if batch is None:
-            return []
-        batch_ts = float(batch.timestamp)
-        return [
-            t
-            for t in batch.tracks
-            if self._is_track_fresh(t, batch_ts)
-        ]
-
-    def _is_track_fresh(self, track: Track, batch_ts: float) -> bool:
-        last_seen_ts = float(track.last_seen_ts)
-        if batch_ts <= 0.0 or last_seen_ts <= 0.0:
-            return True
-        return (batch_ts - last_seen_ts) <= self._track_stale_s
 
     def _admission_state_snapshot(self) -> dict[str, Any]:
         arc_clear = self._zone_manager.is_arc_clear(

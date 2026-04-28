@@ -46,6 +46,7 @@ from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._c4_bank_mirror import C4BankMirror
+from ._c4_debug_snapshots import C4DebugSnapshots
 from ._c4_exit_dispatch import C4ExitDispatcher
 from ._c4_ports import (
     C4LandingLeasePort,
@@ -408,6 +409,7 @@ class RuntimeC4(BaseRuntime):
             feed_id=self.feed_id,
             logger=self._logger,
         )
+        self._debug_snapshots = C4DebugSnapshots(self)
         self._exit_dispatcher = C4ExitDispatcher(self)
         self._transport_controller = C4TransportController(self)
 
@@ -699,241 +701,16 @@ class RuntimeC4(BaseRuntime):
         *,
         detail_ts_mono: float | None = None,
     ) -> dict[str, Any]:
-        zone = self._zone_manager.zone_for(dossier.piece_uuid)
-        angle = float(zone.center_deg) if zone is not None else None
-        payload: dict[str, Any] = {
-            "piece_uuid": dossier.piece_uuid,
-            "global_id": dossier.global_id,
-            "tracklet_id": dossier.tracklet_id,
-            "tracker_key": dossier.tracker_key,
-            "tracker_epoch": dossier.tracker_epoch,
-            "angle_deg": angle,
-            "classify_delta_deg": (
-                _wrap_deg(angle - self._classify_angle_deg)
-                if angle is not None
-                else None
-            ),
-            "exit_delta_deg": (
-                _wrap_deg(angle - self._exit_angle_deg)
-                if angle is not None
-                else None
-            ),
-            "handoff_requested": bool(dossier.handoff_requested),
-            "distributor_ready": bool(dossier.distributor_ready),
-            "eject_enqueued": bool(dossier.eject_enqueued),
-            "eject_committed": bool(dossier.eject_committed),
-        }
-        if detail_ts_mono is None:
-            payload.update(
-                {
-                    "has_result": dossier.result is not None,
-                    "future_pending": dossier.classify_future is not None,
-                    "recovered": bool(dossier.extras.get("recovered")),
-                }
-            )
-            return payload
-
-        ts = float(detail_ts_mono)
-        result = dossier.result
-        payload.update(
-            {
-                "raw_track_id": dossier.raw_track_id,
-                "intake_age_s": ts - dossier.intake_ts,
-                "angle_at_intake_deg": dossier.angle_at_intake_deg,
-                "last_seen_age_s": ts - dossier.last_seen_mono,
-                "classified_age_s": (
-                    ts - dossier.classified_ts
-                    if dossier.classified_ts is not None
-                    else None
-                ),
-                "classify_future_pending": dossier.classify_future is not None,
-                "result_part_id": getattr(result, "part_id", None) if result else None,
-                "result_category": (
-                    getattr(result, "category", None) if result else None
-                ),
-                "reject_reason": dossier.reject_reason,
-                "last_handoff_attempt_age_s": (
-                    ts - dossier.last_handoff_attempt_at
-                    if dossier.last_handoff_attempt_at
-                    else None
-                ),
-                "extras": dict(dossier.extras),
-            }
+        return self._debug_snapshots.dossier_debug_payload(
+            dossier,
+            detail_ts_mono=detail_ts_mono,
         )
-        return payload
 
     def debug_snapshot(self) -> dict[str, Any]:
-        """Compact live snapshot for operator diagnostics and API status."""
-        frame_raw = getattr(self._latest_frame, "raw", None)
-        frame_shape = list(frame_raw.shape[:2]) if hasattr(frame_raw, "shape") else None
-        dossier_preview = [
-            self._dossier_debug_payload(dossier)
-            for dossier in list(self._pieces.values())[:5]
-        ]
-        admission_state = self._admission_state_snapshot()
-        admission_decision = self._admission.can_admit(
-            inbound_piece_hint={},
-            runtime_state=admission_state,
-        )
-        return {
-            "fsm_state": self._fsm.value,
-            "startup_purge_armed": bool(self._startup_purge_state.armed),
-            "startup_purge_prime_moves": int(self._startup_purge_state.prime_moves),
-            "startup_purge_commit_piece_uuid": self._startup_purge_state.commit_piece_uuid,
-            "raw_detection_count": int(self._raw_detection_count),
-            "transit_link_count": int(self._transit_link_count),
-            "tracker_identity": {
-                "feed_id": self.feed_id,
-                "tracker_key": self._tracker_key,
-                "tracker_epoch": self._tracker_epoch,
-            },
-            "transit_candidates": (
-                self._track_transit.snapshot(time.monotonic())
-                if self._track_transit is not None
-                else []
-            ),
-            "dossier_count": len(self._pieces),
-            "track_to_piece_count": len(self._track_to_piece),
-            "zone_count": self._zone_manager.zone_count(),
-            "recently_delivered_suppressed": {
-                "pieces": len(self._recently_delivered_piece_until),
-                "tracks": len(self._recently_delivered_track_until),
-            },
-            "admission_debug": {
-                "allowed": bool(admission_decision.allowed),
-                "reason": admission_decision.reason,
-                "state": admission_state,
-            },
-            "hw_busy": bool(self._hw.busy()),
-            "hw_pending": int(self._hw.pending()),
-            "hw_worker": self._hw_status_snapshot(),
-            "angles": {
-                "intake_deg": self._zone_manager.intake_angle_deg,
-                "classify_deg": self._classify_angle_deg,
-                "classify_pretrigger_exit_lead_deg": self._classify_pretrigger_exit_lead_deg,
-                "handoff_request_horizon_deg": self._handoff_request_horizon_deg,
-                "exit_deg": self._exit_angle_deg,
-                "exit_approach_angle_deg": self._exit_approach_angle_deg,
-                "drop_deg": self._zone_manager.drop_angle_deg,
-                "tolerance_deg": self._angle_tol_deg,
-            },
-            "latest_frame": {
-                "present": self._latest_frame is not None,
-                "raw_shape_hw": frame_shape,
-                "frame_seq": getattr(self._latest_frame, "frame_seq", None),
-            },
-            "classify_debug": {
-                "counts": dict(sorted(self._classify_debug_counts.items())),
-                "last_skip": self._last_classify_skip,
-            },
-            "handoff_debug": {
-                "port_wired": self._handoff is not None,
-                "counts": dict(sorted(self._handoff_debug_counts.items())),
-                "last_skip": self._last_handoff_skip,
-            },
-            "idle_jog": {
-                "enabled": bool(self._idle_jog_enabled),
-                "step_deg": float(self._idle_jog_step_deg),
-                "cooldown_s": float(self._idle_jog_cooldown_s),
-                "next_at_mono": float(self._next_idle_jog_at),
-                "last_at_mono": self._last_idle_jog_at,
-                "count": int(self._idle_jog_count),
-            },
-            "transport_velocity": self._transport_velocity.snapshot.as_dict(),
-            "handoff_burst_diagnostics": self._handoff_diagnostics.snapshot(),
-            "transport_unjam": {
-                "enabled": bool(self._unjam_enabled),
-                "stall_s": float(self._unjam_stall_s),
-                "min_progress_deg": float(self._unjam_min_progress_deg),
-                "cooldown_s": float(self._unjam_cooldown_s),
-                "reverse_deg": float(self._unjam_reverse_deg),
-                "forward_deg": float(self._unjam_forward_deg),
-                "watch_started_at_mono": self._transport_progress_started_at,
-                "last_progress_deg": self._last_transport_progress_deg,
-                "next_at_mono": float(self._next_unjam_at),
-                "last_at_mono": self._last_unjam_at,
-                "count": int(self._unjam_count),
-            },
-            "dossier_preview": dossier_preview,
-        }
+        return self._debug_snapshots.debug_snapshot()
 
     def inspect_snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
-        """Step-debugger view: full dossier list with every per-piece field.
-
-        ``debug_snapshot`` caps at five dossiers because the live dashboard
-        polls it. The step debugger needs the complete picture so an
-        operator can see exactly which piece is stuck where without
-        spelunking private fields.
-        """
-        ts = time.monotonic() if now_mono is None else float(now_mono)
-        dossiers = [
-            self._dossier_debug_payload(dossier, detail_ts_mono=ts)
-            for dossier in self._pieces.values()
-        ]
-        # Sort by exit_delta closest-to-exit first so the operator reads the
-        # next-to-eject candidate at the top.
-        dossiers.sort(
-            key=lambda d: (
-                d.get("exit_delta_deg") is None,
-                abs(d.get("exit_delta_deg") or 1e9),
-            )
-        )
-        bank_view: list[dict[str, Any]] = []
-        for tr in self._bank.tracks():
-            bank_view.append(
-                {
-                    "piece_uuid": tr.piece_uuid,
-                    "lifecycle_state": tr.lifecycle_state.value,
-                    "motion_mode": tr.motion_mode.value,
-                    "angle_deg": tr.angle_deg,
-                    "angle_sigma_deg": tr.angle_sigma_deg,
-                    "class_label": tr.class_label,
-                    "class_confidence": tr.class_confidence,
-                    "raw_track_aliases": sorted(tr.raw_track_aliases),
-                    "detection_observations": tr.detection_observations,
-                    "confirmed_real_observations": tr.confirmed_real_observations,
-                    "last_observed_age_s": ts - tr.last_observed_t,
-                    "handoff_requested": bool(tr.handoff_requested),
-                    "distributor_ready": bool(tr.distributor_ready),
-                    "eject_enqueued": bool(tr.eject_enqueued),
-                    "eject_committed": bool(tr.eject_committed),
-                    "reject_reason": tr.reject_reason,
-                    "extent_deg": math.degrees(float(tr.extent_rad)),
-                }
-            )
-        pending_landings_view: list[dict[str, Any]] = []
-        for pending in self._bank.pending_landings():
-            pending_landings_view.append(
-                {
-                    "lease_id": pending.lease_id,
-                    "predicted_arrival_in_s": max(
-                        0.0, pending.predicted_arrival_t - ts
-                    ),
-                    "predicted_landing_deg": math.degrees(
-                        pending.predicted_landing_a
-                    ),
-                    "expires_in_s": max(0.0, pending.expires_at - ts),
-                    "requested_by": pending.requested_by,
-                }
-            )
-        return {
-            "fsm_state": self._fsm.value,
-            "dossier_count": len(self._pieces),
-            "dossiers": dossiers,
-            "bank_track_count": len(self._bank),
-            "bank_tracks": bank_view,
-            "bank_pending_landings": pending_landings_view,
-            "carousel_angle_deg": math.degrees(self._carousel_angle_rad),
-            "track_to_piece": dict(self._track_to_piece),
-            "next_accept_in_s": max(0.0, self._next_accept_at - ts),
-            "angles": {
-                "intake_deg": self._zone_manager.intake_angle_deg,
-                "classify_deg": self._classify_angle_deg,
-                "exit_deg": self._exit_angle_deg,
-                "exit_approach_angle_deg": self._exit_approach_angle_deg,
-                "drop_deg": self._zone_manager.drop_angle_deg,
-            },
-        }
+        return self._debug_snapshots.inspect_snapshot(now_mono=now_mono)
 
     def arm_startup_purge(self) -> None:
         self._startup_purge_controller.arm()

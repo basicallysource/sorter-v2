@@ -53,6 +53,7 @@ from ._c4_ports import (
     C4SampleTransportPort,
     C4SectorCarouselPort,
 )
+from ._c4_startup_purge import C4StartupPurgeController
 from ._c4_transport_controller import C4TransportController
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
@@ -400,6 +401,7 @@ class RuntimeC4(BaseRuntime):
         self._last_unjam_at: float | None = None
         self._unjam_count: int = 0
         self._startup_purge_state = C4StartupPurgeState()
+        self._startup_purge_controller = C4StartupPurgeController(self)
         self._handoff_diagnostics = HandoffDiagnostics(
             runtime_id=self.runtime_id,
             feed_id=self.feed_id,
@@ -933,16 +935,12 @@ class RuntimeC4(BaseRuntime):
         }
 
     def arm_startup_purge(self) -> None:
-        strategy = self._startup_purge
-        if strategy is None or not strategy.enabled:
-            self._startup_purge_state.armed = False
-            return
-        self._startup_purge_state.arm()
+        self._startup_purge_controller.arm()
 
     @property
     def startup_purge_armed(self) -> bool:
         """Public read of the startup-purge arm flag (introspection hook)."""
-        return self._startup_purge_state.armed
+        return self._startup_purge_controller.armed
 
     def purge_port(self) -> PurgePort:
         return C4PurgePort(self)
@@ -1046,31 +1044,13 @@ class RuntimeC4(BaseRuntime):
         }
 
     def _startup_purge_pending(self) -> bool:
-        strategy = self._startup_purge
-        return bool(
-            strategy is not None
-            and strategy.enabled
-            and self._startup_purge_state.armed
-        )
+        return self._startup_purge_controller.pending()
 
     def _enter_startup_purge(self) -> None:
-        state = self._startup_purge_state
-        if not state.mode_active:
-            try:
-                state.mode_active = bool(self._startup_purge_mode(True))
-            except Exception:
-                self._logger.exception("RuntimeC4: enabling startup purge mode raised")
-        self._fsm = _C4State.STARTUP_PURGE
+        self._startup_purge_controller.enter()
 
     def _exit_startup_purge(self) -> None:
-        state = self._startup_purge_state
-        if state.mode_active:
-            try:
-                self._startup_purge_mode(False)
-            except Exception:
-                self._logger.exception("RuntimeC4: disabling startup purge mode raised")
-            state.mode_active = False
-        self._fsm = _C4State.RUNNING
+        self._startup_purge_controller.exit()
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]:
         return [t for t in tracks if self._piece_uuid_for_track(t) is not None]
@@ -1144,30 +1124,10 @@ class RuntimeC4(BaseRuntime):
         owned_tracks: list[Track],
         now_mono: float,
     ) -> bool:
-        strategy = self._startup_purge
-        if strategy is None:
-            return False
-        return strategy.run(
-            self,
-            self._startup_purge_state,
-            raw_tracks,
-            owned_tracks,
-            self._startup_purge_visible_detection_count(raw_tracks),
-            now_mono,
-        )
+        return self._startup_purge_controller.run(raw_tracks, owned_tracks, now_mono)
 
     def _startup_purge_visible_detection_count(self, raw_tracks: list[Track]) -> int:
-        provider = self._startup_purge_detection_count_provider
-        if callable(provider):
-            try:
-                value = int(provider())
-            except Exception:
-                self._logger.exception(
-                    "RuntimeC4: startup purge detection-count provider raised"
-                )
-            else:
-                return max(0, value)
-        return len(raw_tracks)
+        return self._startup_purge_controller.visible_detection_count(raw_tracks)
 
     def _admit_new_tracks(self, tracks: list[Track], now_mono: float) -> None:
         if now_mono < self._next_accept_at:

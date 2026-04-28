@@ -59,17 +59,11 @@ class _PurgeHost(Protocol):
     _startup_purge_move: Callable[[float], bool]
     _eject: Callable[[], bool]
     _startup_purge_controller: Any
+    _piece_lifecycle: Any
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]: ...
     def _reconcile_visible_tracks(self, tracks: list[Track], now_mono: float) -> None: ...
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None: ...
-    def _finalize_piece(
-        self,
-        piece_uuid: str,
-        *,
-        now_mono: float | None,
-        arm_cooldown: bool,
-    ) -> None: ...
     def _maybe_advance_transport(
         self,
         tracks: list[Track],
@@ -206,7 +200,11 @@ class C4StartupPurgeStrategy:
                 return True
             piece_uuid = state.commit_piece_uuid
             state.clear_commit()
-            host._finalize_piece(piece_uuid, now_mono=None, arm_cooldown=False)
+            host._piece_lifecycle.finalize_piece(
+                piece_uuid,
+                now_mono=None,
+                arm_cooldown=False,
+            )
             owned_tracks = host._owned_tracks(raw_tracks)
 
         if not host._pieces:

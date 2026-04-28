@@ -571,39 +571,6 @@ class RuntimeC4(BaseRuntime):
         """Phase-5 stub: distributor signals the piece cannot be sorted."""
         self._piece_lifecycle.on_piece_rejected(piece_uuid, reason)
 
-    def _finalize_piece(
-        self,
-        piece_uuid: str,
-        *,
-        now_mono: float | None,
-        arm_cooldown: bool,
-        abort_handoff: bool = False,
-        abort_reason: str = "handoff_aborted",
-    ) -> None:
-        self._piece_lifecycle.finalize_piece(
-            piece_uuid,
-            now_mono=now_mono,
-            arm_cooldown=arm_cooldown,
-            abort_handoff=abort_handoff,
-            abort_reason=abort_reason,
-        )
-
-    def _publish_piece_lost(
-        self,
-        dossier: _PieceDossier,
-        *,
-        now_mono: float | None,
-    ) -> None:
-        self._piece_lifecycle.publish_piece_lost(dossier, now_mono=now_mono)
-
-    def _park_lost_piece_transit(
-        self,
-        dossier: _PieceDossier,
-        *,
-        now_mono: float | None,
-    ) -> None:
-        self._piece_lifecycle.park_lost_piece_transit(dossier, now_mono=now_mono)
-
     def dossier_count(self) -> int:
         return len(self._pieces)
 
@@ -648,7 +615,7 @@ class RuntimeC4(BaseRuntime):
         return C4SectorCarouselPort(self)
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
-        self._sweep_recently_delivered(now_mono)
+        self._piece_lifecycle.sweep_recently_delivered(now_mono)
         # Propagate the bank's Kalman state forward — every tick, before
         # we touch new measurements. After this call the bank's tracks
         # are aligned to ``now_mono`` and the posterior-singleton query
@@ -780,7 +747,7 @@ class RuntimeC4(BaseRuntime):
                     "RuntimeC4: pruning dossier piece=%s (zone evicted, track_lost)",
                     piece_uuid,
                 )
-                self._finalize_piece(
+                self._piece_lifecycle.finalize_piece(
                     piece_uuid,
                     now_mono=now_mono,
                     arm_cooldown=False,
@@ -860,7 +827,7 @@ class RuntimeC4(BaseRuntime):
     ) -> bool:
         if track.global_id is None or track.angle_rad is None:
             return False
-        if self._is_recently_delivered_track(track, now_mono):
+        if self._piece_lifecycle.is_recently_delivered_track(track, now_mono):
             return False
         gid = int(track.global_id)
         if self._piece_uuid_for_track(track) is not None:
@@ -1012,19 +979,6 @@ class RuntimeC4(BaseRuntime):
         if transit is not None:
             self._publish_transit_link(piece_uuid, gid, transit, now_mono=now_mono)
         return True
-
-    def _remember_delivered_piece(
-        self,
-        dossier: _PieceDossier,
-        now_mono: float,
-    ) -> None:
-        self._piece_lifecycle.remember_delivered_piece(dossier, now_mono)
-
-    def _is_recently_delivered_track(self, track: Track, now_mono: float) -> bool:
-        return self._piece_lifecycle.is_recently_delivered_track(track, now_mono)
-
-    def _sweep_recently_delivered(self, now_mono: float) -> None:
-        self._piece_lifecycle.sweep_recently_delivered(now_mono)
 
     def _claim_transit_for_track(
         self,

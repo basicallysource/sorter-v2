@@ -880,14 +880,15 @@ def test_c4_carousel_angle_accumulates_from_successful_moves() -> None:
     """Software encoder tracks every successful rotation the runtime
     commands. A failed move (returning False) must NOT contribute."""
     rt, _up, _down, _clf, _log = _make(max_zones=1)
+    sector_port = rt.sector_carousel_port()
     assert math.isclose(rt._carousel_angle_rad, 0.0)
-    rt._transport_move(15.0)
+    sector_port.transport_move(15.0)
     assert math.isclose(math.degrees(rt._carousel_angle_rad), 15.0, abs_tol=1e-9)
     rt._wiggle_move(2.0)
     assert math.isclose(math.degrees(rt._carousel_angle_rad), 17.0, abs_tol=1e-9)
     # Wrap-around still works on the cumulative angle (we keep it
     # unwrapped — the caller uses tray-frame conversion to wrap).
-    rt._transport_move(-5.0)
+    sector_port.transport_move(-5.0)
     assert math.isclose(math.degrees(rt._carousel_angle_rad), 12.0, abs_tol=1e-9)
 
 
@@ -904,7 +905,7 @@ def test_c4_bank_state_is_in_tray_frame() -> None:
         RuntimeInbox(tracks=_batch(_track(global_id=7, angle_deg=0.0)), capacity_downstream=1),
         now_mono=0.0,
     )
-    rt._transport_move(60.0)  # 60 deg of carousel rotation
+    rt.sector_carousel_port().transport_move(60.0)  # 60 deg of carousel rotation
     rt.tick(
         RuntimeInbox(tracks=_batch(_track(global_id=7, angle_deg=60.0)), capacity_downstream=1),
         now_mono=0.1,

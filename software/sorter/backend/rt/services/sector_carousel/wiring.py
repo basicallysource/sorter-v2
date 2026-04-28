@@ -21,11 +21,11 @@ def install_sector_carousel_handler(
     irl: Any,
     event_bus: Any,
     c4_eject: Callable[[], bool],
-    fallback_transport: Callable[[float], bool],
     logger: logging.Logger,
 ) -> SectorCarouselHandler:
     """Build and attach the C3 -> C4 sector-carousel production bridge."""
     handler_ref: list[SectorCarouselHandler] = []
+    c4_port = c4.sector_carousel_port()
 
     def _latest_state(runner: Any) -> Any | None:
         latest_state = getattr(runner, "latest_state", None)
@@ -114,16 +114,14 @@ def install_sector_carousel_handler(
         return classifier.classify_async(track, frame, crop)
 
     def _c4_hw_busy() -> bool:
-        hw = getattr(c4, "_hw", None)
-        busy_fn = getattr(hw, "busy", None)
-        if callable(busy_fn) and bool(busy_fn()):
+        if bool(c4_port.hardware_busy()):
             return True
         stepper = getattr(irl, "carousel_stepper", None)
         stopped = getattr(stepper, "stopped", True)
         return stopped is False
 
     handler = SectorCarouselHandler(
-        c4_transport=getattr(c4, "_transport_move", fallback_transport),
+        c4_transport=c4_port.transport_move,
         c4_eject=c4_eject,
         distributor_port=distributor,
         classifier_submit=_classifier_submit,

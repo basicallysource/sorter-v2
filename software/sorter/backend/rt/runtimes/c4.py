@@ -953,6 +953,9 @@ class RuntimeC4(BaseRuntime):
     def sample_transport_port(self) -> "_C4SampleTransportPort":
         return _C4SampleTransportPort(self)
 
+    def sector_carousel_port(self) -> "_C4SectorCarouselPort":
+        return _C4SectorCarouselPort(self)
+
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
         self._sweep_recently_delivered(now_mono)
         # Propagate the bank's Kalman state forward — every tick, before
@@ -3108,6 +3111,19 @@ class _C4SampleTransportPort:
 
     def nominal_degrees_per_step(self) -> float | None:
         return float(self._runtime._sample_transport_step_deg)
+
+
+class _C4SectorCarouselPort:
+    key = "c4"
+
+    def __init__(self, runtime: RuntimeC4) -> None:
+        self._runtime = runtime
+
+    def transport_move(self, degrees: float) -> bool:
+        return self._runtime._transport_move(degrees)
+
+    def hardware_busy(self) -> bool:
+        return bool(self._runtime._hw.busy())
 
 
 __all__ = ["RuntimeC4"]

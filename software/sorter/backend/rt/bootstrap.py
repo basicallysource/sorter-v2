@@ -1343,7 +1343,6 @@ def build_rt_runtime(
         irl=irl,
         event_bus=bus,
         c4_eject=c4_eject,
-        fallback_transport=c4_transport_move,
         logger=log,
     )
     log.info(

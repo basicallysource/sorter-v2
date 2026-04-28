@@ -30,7 +30,6 @@ from rt.coupling.slots import CapacitySlot
 from rt.events.topics import (
     PERCEPTION_ROTATION,
     PIECE_REGISTERED,
-    RUNTIME_HANDOFF_BURST,
 )
 from rt.perception.piece_track_bank import (
     CameraTrayCalibration,
@@ -47,6 +46,7 @@ from ._c4_bank_mirror import C4BankMirror
 from ._c4_classification import C4ClassificationController
 from ._c4_debug_snapshots import C4DebugSnapshots
 from ._c4_exit_dispatch import C4ExitDispatcher
+from ._c4_handoff_debug import C4HandoffDebug
 from ._c4_payloads import C4Payloads
 from ._c4_ports import (
     C4LandingLeasePort,
@@ -412,6 +412,7 @@ class RuntimeC4(BaseRuntime):
         self._debug_snapshots = C4DebugSnapshots(self)
         self._payloads = C4Payloads(self)
         self._classification_controller = C4ClassificationController(self)
+        self._handoff_debug = C4HandoffDebug(self)
         self._exit_dispatcher = C4ExitDispatcher(self)
         self._transport_controller = C4TransportController(self)
 
@@ -1382,37 +1383,13 @@ class RuntimeC4(BaseRuntime):
         release_upstream: bool,
         recovered: bool,
     ) -> None:
-        if not release_upstream:
-            return
-        anomaly = self._handoff_diagnostics.record_arrivals(
+        self._handoff_debug.record_dropzone_arrival(
+            track=track,
+            dossier=dossier,
             now_mono=now_mono,
-            arrivals=[
-                {
-                    "piece_uuid": dossier.piece_uuid,
-                    "global_id": dossier.global_id,
-                    "track_id": track.track_id,
-                    "angle_deg": self._track_angle_deg(track),
-                    "release_upstream": bool(release_upstream),
-                    "recovered": bool(recovered),
-                    "transit_relation": dossier.extras.get("transit_relation"),
-                    "transit_source_runtime": dossier.extras.get(
-                        "transit_source_runtime"
-                    ),
-                    "score": float(track.score),
-                    "hit_count": int(track.hit_count),
-                    "confirmed_real": bool(track.confirmed_real),
-                }
-            ],
-            context={
-                "dossier_count": len(self._pieces),
-                "zone_count": self._zone_manager.zone_count(),
-                "raw_detection_count": self._raw_detection_count,
-                "upstream_taken": self._upstream_slot.taken(),
-                "downstream_taken": self._downstream_slot.taken(),
-            },
+            release_upstream=release_upstream,
+            recovered=recovered,
         )
-        if anomaly is not None:
-            self._publish_handoff_burst(anomaly, now_mono)
 
     def _record_handoff_move(
         self,
@@ -1425,42 +1402,14 @@ class RuntimeC4(BaseRuntime):
         dossier: _PieceDossier | None = None,
         extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        front = self._dossiers_by_exit_distance()[0] if self._pieces else None
-        payload: dict[str, Any] = {
-            "source": source,
-            "step_deg": step_deg,
-            "use_exit_approach": use_exit_approach,
-            "track_count": int(track_count),
-            "dossier_count": len(self._pieces),
-            "zone_count": self._zone_manager.zone_count(),
-            "upstream_taken": int(self._upstream_slot.taken()),
-            "downstream_taken": int(self._downstream_slot.taken()),
-        }
-        if front is not None:
-            payload.update({
-                "front_piece_uuid": front.piece_uuid,
-                "front_global_id": front.global_id,
-                "front_exit_distance_deg": self._dossier_exit_distance(front),
-                "front_has_result": front.result is not None,
-                "front_handoff_requested": bool(front.handoff_requested),
-                "front_distributor_ready": bool(front.distributor_ready),
-                "front_eject_enqueued": bool(front.eject_enqueued),
-                "front_eject_committed": bool(front.eject_committed),
-            })
-        if dossier is not None:
-            payload.update({
-                "piece_uuid": dossier.piece_uuid,
-                "global_id": dossier.global_id,
-                "exit_distance_deg": self._dossier_exit_distance(dossier),
-                "handoff_requested": dossier.handoff_requested,
-                "distributor_ready": dossier.distributor_ready,
-                "has_result": dossier.result is not None,
-            })
-        if extra:
-            payload.update(extra)
-        return self._handoff_diagnostics.record_move(
+        return self._handoff_debug.record_handoff_move(
             now_mono=now_mono,
-            **payload,
+            source=source,
+            step_deg=step_deg,
+            use_exit_approach=use_exit_approach,
+            track_count=track_count,
+            dossier=dossier,
+            extra=extra,
         )
 
     def _publish_handoff_burst(
@@ -1468,12 +1417,10 @@ class RuntimeC4(BaseRuntime):
         anomaly: dict[str, Any],
         now_mono: float,
     ) -> None:
-        self._publish(RUNTIME_HANDOFF_BURST, anomaly, now_mono)
+        self._handoff_debug.publish_handoff_burst(anomaly, now_mono)
 
     def _track_angle_deg(self, track: Track) -> float | None:
-        if track.angle_rad is None:
-            return None
-        return math.degrees(float(track.angle_rad))
+        return self._handoff_debug.track_angle_deg(track)
 
     def _enqueue_eject(self, piece_uuid: str, *, claim_downstream: bool) -> bool:
         return self._exit_dispatcher.enqueue_eject(

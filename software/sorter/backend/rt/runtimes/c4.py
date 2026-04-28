@@ -46,6 +46,7 @@ from ._c4_bank_mirror import C4BankMirror
 from ._c4_classification import C4ClassificationController
 from ._c4_debug_snapshots import C4DebugSnapshots
 from ._c4_exit_dispatch import C4ExitDispatcher
+from ._c4_exit_geometry import C4ExitGeometry
 from ._c4_handoff_debug import C4HandoffDebug
 from ._c4_payloads import C4Payloads
 from ._c4_piece_lifecycle import C4PieceLifecycle
@@ -413,6 +414,7 @@ class RuntimeC4(BaseRuntime):
         self._classification_controller = C4ClassificationController(self)
         self._piece_lifecycle = C4PieceLifecycle(self)
         self._handoff_debug = C4HandoffDebug(self)
+        self._exit_geometry = C4ExitGeometry(self)
         self._exit_dispatcher = C4ExitDispatcher(self)
         self._transport_controller = C4TransportController(self)
 
@@ -1389,58 +1391,13 @@ class RuntimeC4(BaseRuntime):
     def _has_trailing_piece_within_safety(
         self, matched_track: Track, tracks: list[Track]
     ) -> bool:
-        """True if a second owned track sits inside the chute opening at the
-        same instant as the matched piece.
-
-        Anchored on the chute geometry, not on raw angular distance: only a
-        piece whose angle is within ``exit_trailing_safety_deg`` of the
-        drop angle (chute mouth) at the same time as the matched piece is
-        a real double-drop risk. Pieces 90 deg away on the carousel
-        cannot be scooped off by the exit-release shimmy and must not
-        defer the eject.
-        """
-        if self._exit_trailing_safety_deg <= 0.0:
-            return False
-        matched_uuid = self._piece_uuid_for_track(matched_track)
-        if matched_uuid is None:
-            return False
-        drop_deg = float(self._zone_manager.drop_angle_deg)
-        for t in tracks:
-            if t.angle_rad is None or t.global_id is None:
-                continue
-            if t is matched_track:
-                continue
-            other_uuid = self._piece_uuid_for_track(t)
-            if other_uuid is None or other_uuid == matched_uuid:
-                continue
-            other_angle = math.degrees(t.angle_rad)
-            distance_to_chute = abs(_wrap_deg(other_angle - drop_deg))
-            if distance_to_chute <= self._exit_trailing_safety_deg:
-                return True
-        return False
+        return self._exit_geometry.has_trailing_piece_within_safety(
+            matched_track,
+            tracks,
+        )
 
     def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        best: Track | None = None
-        best_score: tuple[float, float] | None = None
-        for t in tracks:
-            if t.angle_rad is None or t.global_id is None:
-                continue
-            if self._piece_uuid_for_track(t) is None:
-                continue
-            delta = abs(_wrap_deg(math.degrees(t.angle_rad) - self._exit_angle_deg))
-            overlap = self._exit_zone_bbox_overlap_ratio(t)
-            ready = (
-                delta <= self._angle_tol_deg
-                if overlap is None
-                else overlap >= self._exit_bbox_overlap_ratio
-            )
-            if not ready:
-                continue
-            score = (overlap if overlap is not None else 1.0, -delta)
-            if best_score is None or score > best_score:
-                best = t
-                best_score = score
-        return best
+        return self._exit_geometry.pick_exit_track(tracks)
 
     def _owned_track_angles(self, tracks: list[Track]) -> dict[int, float]:
         return self._transport_controller.owned_track_angles(tracks)

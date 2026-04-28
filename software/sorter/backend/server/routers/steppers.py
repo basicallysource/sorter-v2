@@ -191,10 +191,6 @@ MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 
 MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
 
 
-def _parse_drv_status(raw: int) -> Dict[str, Any]:
-    return parse_drv_status(raw)
-
-
 def _effective_driver_mode(*, stealthchop: bool | None, coolstep: bool | None) -> str | None:
     if coolstep and not stealthchop:
         return "coolstep"
@@ -818,7 +814,7 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     }
 
     if drv_status_raw is not None:
-        drv_status = _parse_drv_status(drv_status_raw)
+        drv_status = parse_drv_status(drv_status_raw)
         result["drv_status"] = drv_status
         result["temperature_flags"] = active_temperature_flags(drv_status)
         result["thermal_fault_flags"] = overtemperature_fault_flags(drv_status)

@@ -33,6 +33,14 @@
 
 # Runtime logs and observed sorter run artifacts
 /logs/
+/docs/lab/assets/tracking-benchmark-*/
+/docs/lab/tracking-benchmark-report-*.html
+/docs/lab/tracking-benchmark-summary-*.csv
+/docs/lab/tracking-dataflow-report-*.html
+/docs/lab/tracking-decision-dossier-*.html
+/docs/lab/operation-target-*.md
+/docs/lab/handoff-*.md
+/docs/*current-behavior-review*.md
 
 .DS_Store
 software/sorter/backend/local_state.sqlite.bak-*

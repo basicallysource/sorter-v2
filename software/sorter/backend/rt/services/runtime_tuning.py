@@ -1037,62 +1037,40 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         if not callable(configure_admission):
             raise RuntimeError("c4 runtime does not support configure_admission")
         configure_admission(**admission_patch)
-    _set_runtime_float(
-        runtime,
-        "_zone_sigma_k",
-        values,
-        "zone_sigma_k",
-        min_value=0.0,
-        max_value=10.0,
-    )
-    _set_runtime_float(
-        runtime,
-        "_zone_max_half_width_deg",
-        values,
-        "zone_max_half_width_deg",
-        min_value=1.0,
-        max_value=90.0,
-    )
-    _set_runtime_float(runtime, "_transport_step_deg", values, "transport_step_deg", min_value=0.1, max_value=90.0)
-    _set_runtime_float(runtime, "_transport_max_step_deg", values, "transport_max_step_deg", min_value=0.1, max_value=180.0)
+    for attr, key, low, high in (
+        ("_zone_sigma_k", "zone_sigma_k", 0.0, 10.0),
+        ("_zone_max_half_width_deg", "zone_max_half_width_deg", 1.0, 90.0),
+        ("_transport_step_deg", "transport_step_deg", 0.1, 90.0),
+        ("_transport_max_step_deg", "transport_max_step_deg", 0.1, 180.0),
+        ("_classify_pretrigger_exit_lead_deg", "classify_pretrigger_exit_lead_deg", 0.0, 180.0),
+        ("_handoff_request_horizon_deg", "handoff_request_horizon_deg", 0.0, 180.0),
+        ("_exit_approach_angle_deg", "exit_approach_angle_deg", 0.0, 90.0),
+        ("_exit_approach_step_deg", "exit_approach_step_deg", 0.1, 24.0),
+        ("_idle_jog_step_deg", "idle_jog_step_deg", 0.1, 45.0),
+        ("_unjam_min_progress_deg", "unjam_min_progress_deg", 0.1, 45.0),
+        ("_unjam_reverse_deg", "unjam_reverse_deg", 0.1, 90.0),
+        ("_unjam_forward_deg", "unjam_forward_deg", 0.1, 180.0),
+        ("_track_stale_s", "track_stale_s", 0.0, 30.0),
+        ("_reconcile_min_score", "reconcile_min_score", 0.0, 1.0),
+        ("_reconcile_min_age_s", "reconcile_min_age_s", 0.0, 30.0),
+    ):
+        _set_runtime_float(runtime, attr, values, key, min_value=low, max_value=high)
     if runtime is not None:
         step = getattr(runtime, "_transport_step_deg", None)
         max_step = getattr(runtime, "_transport_max_step_deg", None)
         if isinstance(step, (int, float)) and isinstance(max_step, (int, float)):
             setattr(runtime, "_transport_max_step_deg", max(float(step), float(max_step)))
-    _set_runtime_seconds(runtime, "_transport_cooldown_s", values, "transport_cooldown_s", "transport_cooldown_ms", 0.0, 10.0)
+    for attr, seconds_key, ms_key, low, high in (
+        ("_transport_cooldown_s", "transport_cooldown_s", "transport_cooldown_ms", 0.0, 10.0),
+        ("_idle_jog_cooldown_s", "idle_jog_cooldown_s", "idle_jog_cooldown_ms", 0.0, 30.0),
+        ("_unjam_stall_s", "unjam_stall_s", "unjam_stall_ms", 0.25, 60.0),
+        ("_unjam_cooldown_s", "unjam_cooldown_s", "unjam_cooldown_ms", 0.5, 60.0),
+    ):
+        _set_runtime_seconds(runtime, attr, values, seconds_key, ms_key, low, high)
     _set_transport_target_rpm(runtime, values)
-    _set_runtime_float(
-        runtime,
-        "_classify_pretrigger_exit_lead_deg",
-        values,
-        "classify_pretrigger_exit_lead_deg",
-        min_value=0.0,
-        max_value=180.0,
-    )
-    _set_runtime_float(
-        runtime,
-        "_handoff_request_horizon_deg",
-        values,
-        "handoff_request_horizon_deg",
-        min_value=0.0,
-        max_value=180.0,
-    )
-    _set_runtime_float(runtime, "_exit_approach_angle_deg", values, "exit_approach_angle_deg", min_value=0.0, max_value=90.0)
-    _set_runtime_float(runtime, "_exit_approach_step_deg", values, "exit_approach_step_deg", min_value=0.1, max_value=24.0)
     _set_runtime_bool(runtime, "_idle_jog_enabled", values, "idle_jog_enabled")
-    _set_runtime_float(runtime, "_idle_jog_step_deg", values, "idle_jog_step_deg", min_value=0.1, max_value=45.0)
-    _set_runtime_seconds(runtime, "_idle_jog_cooldown_s", values, "idle_jog_cooldown_s", "idle_jog_cooldown_ms", 0.0, 30.0)
     _set_runtime_bool(runtime, "_unjam_enabled", values, "unjam_enabled")
-    _set_runtime_seconds(runtime, "_unjam_stall_s", values, "unjam_stall_s", "unjam_stall_ms", 0.25, 60.0)
-    _set_runtime_float(runtime, "_unjam_min_progress_deg", values, "unjam_min_progress_deg", min_value=0.1, max_value=45.0)
-    _set_runtime_seconds(runtime, "_unjam_cooldown_s", values, "unjam_cooldown_s", "unjam_cooldown_ms", 0.5, 60.0)
-    _set_runtime_float(runtime, "_unjam_reverse_deg", values, "unjam_reverse_deg", min_value=0.1, max_value=90.0)
-    _set_runtime_float(runtime, "_unjam_forward_deg", values, "unjam_forward_deg", min_value=0.1, max_value=180.0)
-    _set_runtime_float(runtime, "_track_stale_s", values, "track_stale_s", min_value=0.0, max_value=30.0)
     _set_runtime_int(runtime, "_reconcile_min_hit_count", values, "reconcile_min_hit_count", min_value=1, max_value=50)
-    _set_runtime_float(runtime, "_reconcile_min_score", values, "reconcile_min_score", min_value=0.0, max_value=1.0)
-    _set_runtime_float(runtime, "_reconcile_min_age_s", values, "reconcile_min_age_s", min_value=0.0, max_value=30.0)
     if class_cfg is not None:
         _set_cfg_float(class_cfg, "transport_speed_scale", values, "transport_speed_scale", 0.1, 2.0)
         _set_cfg_float(

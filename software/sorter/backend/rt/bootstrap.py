@@ -997,8 +997,7 @@ def build_rt_runtime(
         return _orchestrator_ref[0].cross_runtime_snapshot()
 
     # Repo root convention: software/sorter/backend/rt/bootstrap.py is 4
-    # parents below the repo root. Match scripts/run_observer.py so all
-    # run artifacts share one logs/ tree.
+    # parents below the repo root. Keep pulse observations with runtime logs.
     c1_pulse_log_path = (
         Path(__file__).resolve().parents[4] / "logs" / "c1_pulse_observations.jsonl"
     )

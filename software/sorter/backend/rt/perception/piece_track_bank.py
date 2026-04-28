@@ -3,10 +3,7 @@
 Owns the physical-piece UUID, a tray-frame polar Kalman state with
 explicit covariance, and the lifecycle / dispatch eligibility flags. Raw
 tracker IDs (BoxMot / ByteTrack global_id) become aliases inside a
-PieceTrack — they are sensor hints, not durable identities.
-
-Per the architecture recommendation in
-``docs/lab/sorter-tracking-architecture-recommendation.md``: the runtime
+PieceTrack — they are sensor hints, not durable identities. The runtime
 predicts every track to the current encoder angle, associates incoming
 vision measurements via Mahalanobis-gated Hungarian matching, and only
 admits a new piece when no existing track explains the measurement.

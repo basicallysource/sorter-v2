@@ -1,10 +1,4 @@
-"""Foundation tests for the PieceTrackBank.
-
-Stage 1 of the vision-corrected virtual-pocket architecture rollout
-(see ``docs/lab/sorter-tracking-architecture-recommendation.md``). The
-bank is exercised here in isolation — no runtime, no perception
-runner, no orchestrator. That comes in stage 2.
-"""
+"""Foundation tests for the PieceTrackBank."""
 
 from __future__ import annotations
 

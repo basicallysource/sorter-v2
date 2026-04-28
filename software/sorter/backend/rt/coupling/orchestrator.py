@@ -947,8 +947,7 @@ class Orchestrator:
         Stateful with hysteresis: once we cross the high-water mark we stay
         blocked until both raw and dossier counts drop to/below the resume
         thresholds. Without that the gate flips bang-bang at the high-water
-        line and the line oscillates between starvation and C4 overfill — a
-        failure mode documented in operation-target-10ppm.
+        line and the line oscillates between starvation and C4 overfill.
         """
         c4 = self._runtime_by_id.get("c4")
         if c4 is None:

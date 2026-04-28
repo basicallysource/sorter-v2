@@ -303,13 +303,13 @@ def test_tracker_keys_default_to_boxmot_bytetrack_primary_and_reid_shadow(monkey
     assert shadow_tracker_key(primary) == "botsort_reid"
 
 
-def test_tracker_keys_compare_against_reid_shadow_when_legacy_primary_is_forced(monkeypatch):
-    monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "polar")
+def test_tracker_keys_compare_against_reid_shadow_when_custom_primary_is_forced(monkeypatch):
+    monkeypatch.setenv("RT_PRIMARY_TRACKER_KEY", "custom_primary")
     monkeypatch.delenv("RT_SHADOW_TRACKER_KEY", raising=False)
 
     primary = primary_tracker_key()
 
-    assert primary == "polar"
+    assert primary == "custom_primary"
     assert shadow_tracker_key(primary) == "botsort_reid"
 
 
@@ -329,7 +329,7 @@ def test_tracker_params_are_channel_specific_without_leaking_to_reid_shadow():
 def test_shadow_tracker_can_be_disabled(monkeypatch):
     monkeypatch.setenv("RT_SHADOW_TRACKER_KEY", "off")
 
-    assert shadow_tracker_key("polar") is None
+    assert shadow_tracker_key("custom_primary") is None
 
 
 # ---------------------------------------------------------------------------

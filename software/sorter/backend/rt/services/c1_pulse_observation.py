@@ -13,9 +13,8 @@ The observer is intentionally side-effect light:
 * It only stores recent observations in memory and (optionally) writes
   completed records to a JSONL file for offline analysis.
 
-The plan in operation-target-10ppm calls these records out as the
-empirical input we currently lack — every C1 controller decision is
-guessed instead of measured.
+These records provide empirical input for C1 controller tuning instead of
+guessing how many pieces each C1 action actually puts on C2.
 """
 
 from __future__ import annotations

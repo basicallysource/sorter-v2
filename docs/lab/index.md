@@ -33,18 +33,6 @@ permalink: /lab/
     <p>Why the project uses a dumb-firmware / smart-host split, what alternatives were evaluated, and the design principles behind the stack.</p>
   </div>
   <div class="callout">
-    <strong><a href="{{ '/lab/sorter-architecture-principles/' | relative_url }}">Sorter Architecture Principles</a></strong>
-    <p>A durable set of architectural principles and audit questions for iteratively improving the runtime and backend without losing direction.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/sorter-frontend-principles/' | relative_url }}">Sorter Frontend Principles</a></strong>
-    <p>The Svelte/SvelteKit companion to the backend principles: where fetching, state, flows, and persistence live so the UI keeps clean component boundaries as it grows.</p>
-  </div>
-  <div class="callout">
-    <strong><a href="{{ '/lab/operation-target-10ppm-2026-04-25/' | relative_url }}">Operation Target 10 PPM</a></strong>
-    <p>The current live runtime tuning target: ten cleanly classified and distributed pieces per minute without relying on harsh C4 acceleration.</p>
-  </div>
-  <div class="callout">
     <strong><a href="{{ '/lab/styleguide/' | relative_url }}">Styleguide</a></strong>
     <p>The shared visual language used by the Sorter UI, Hive, and this documentation site. Contributor reference only — not useful for end users.</p>
   </div>

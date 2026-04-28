@@ -1,6 +1,6 @@
 """RuntimeC2 — separation seed shuttle.
 
-Reads ``TrackBatch`` from ``c2_feed`` (PolarTracker output), gates forward
+Reads ``TrackBatch`` from ``c2_feed``, gates forward
 pulses on the C2->C3 capacity slot, and triggers an exit-zone wiggle when a
 piece is stuck at the exit but downstream is closed. Port of:
 

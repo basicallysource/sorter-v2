@@ -7,7 +7,7 @@ applies_to: Sorter V2 local software
 owner: sorter
 slug: sorter-architecture
 kicker: Sorter — Under the hood
-lede: The current high-level architecture view for contributors. Intentionally short: the durable architectural guidance lives in the lab principles document.
+lede: The current high-level architecture view for contributors.
 permalink: /sorter/architecture/
 ---
 
@@ -28,19 +28,6 @@ Within the backend, the current architectural direction is:
 - declarative configuration in TOML;
 - persisted state and durable debug data in SQLite;
 - reusable introspection surfaces instead of repeated one-off debug archaeology.
-
-## The active guide
-
-The active architectural guide is:
-
-- [Sorter Architecture Principles]({{ '/lab/sorter-architecture-principles/' | relative_url }})
-
-That document is the place to go for:
-
-- ownership boundaries;
-- what belongs where;
-- anti-patterns to watch for;
-- and the audit questions we use while iterating on the codebase.
 
 ## Related references
 

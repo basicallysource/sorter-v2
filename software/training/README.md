@@ -89,22 +89,6 @@ underfilling a role that needs more samples:
 uv run train build --zone c_channel --name v3_balanced --target-size 1500 --balance-source-role --strict-balance
 ```
 
-During collection, run an incremental local Hive progress check from the Hive
-backend environment. It keeps a per-sample cache and appends a history row each
-time:
-
-```bash
-cd software/hive/backend
-DATABASE_URL="postgresql://hive:hive_dev@127.0.0.1:5432/hive" ./.venv/bin/python scripts/sample_progress_check.py
-```
-
-The progress report includes a per-role bucket coverage score from 0-100. By
-default, each role+piece-count bucket counts as complete once it has 50 accepted
-samples; override with `--bucket-target`.
-It also caches lightweight image metrics for QA (brightness, contrast, and
-saturation buckets). Those image metrics are diagnostic only and are not used as
-hard dataset-balancing criteria.
-
 ## Status
 
 Scaffold only — CLI subcommands are stubs until each module is filled in.

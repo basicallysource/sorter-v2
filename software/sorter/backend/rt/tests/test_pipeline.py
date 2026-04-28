@@ -9,12 +9,63 @@ from rt.config.schema import FilterConfig, PipelineConfig, ZoneConfig
 from rt.contracts.detection import Detection
 from rt.contracts.feed import FeedFrame, RectZone, Zone
 from rt.contracts.filters import FilterChain
+from rt.contracts.registry import TRACKERS
+from rt.contracts.tracking import Track, TrackBatch
 from rt.perception.detectors._testing import FakeDetector, temporary_detector
 from rt.perception.filters.ghost import GhostFilter
 from rt.perception.filters.size import SizeFilter
 from rt.perception.pipeline import PerceptionPipeline, build_pipeline_from_config
-from rt.perception.trackers.polar import PolarTracker
 from rt.perception.zones import build_zone
+
+
+class _PipelineTestTracker:
+    key = "pipeline_test_tracker"
+
+    def __init__(
+        self,
+        polar_center=None,
+        polar_radius_range=None,
+        **kwargs,
+    ) -> None:
+        self._polar_center = polar_center
+        self._polar_radius_range = polar_radius_range
+        self._live_ids: set[int] = set()
+
+    def update(self, detections, frame: FeedFrame) -> TrackBatch:
+        tracks: list[Track] = []
+        for idx, detection in enumerate(detections.detections, start=1):
+            track = Track(
+                track_id=idx,
+                global_id=idx,
+                piece_uuid=f"test-{idx}",
+                bbox_xyxy=detection.bbox_xyxy,
+                score=detection.score,
+                confirmed_real=False,
+                angle_rad=None,
+                radius_px=None,
+                hit_count=1,
+                first_seen_ts=frame.timestamp,
+                last_seen_ts=frame.timestamp,
+            )
+            tracks.append(track)
+        self._live_ids = {track.track_id for track in tracks}
+        return TrackBatch(
+            feed_id=frame.feed_id,
+            frame_seq=frame.frame_seq,
+            timestamp=frame.timestamp,
+            tracks=tuple(tracks),
+            lost_track_ids=(),
+        )
+
+    def live_global_ids(self) -> set[int]:
+        return set(self._live_ids)
+
+    def reset(self) -> None:
+        self._live_ids.clear()
+
+
+if _PipelineTestTracker.key not in TRACKERS.keys():
+    TRACKERS.register(_PipelineTestTracker.key, _PipelineTestTracker)
 
 
 class _StubFeed:
@@ -69,7 +120,7 @@ def test_pipeline_end_to_end_produces_confirmed_track() -> None:
         return [Detection(bbox_xyxy=(x, 80, x + 30, 130), score=0.9)]
 
     detector = FakeDetector(detections_for=_script)
-    tracker = PolarTracker(polar_center=None, pixel_fallback_distance_px=200.0)
+    tracker = _PipelineTestTracker()
     # No rotation windows registered on the tracker → tracks stay pending
     # (confirmed_real=False, ghost=False), so the ghost filter is a pass-through.
     filters = FilterChain(
@@ -97,7 +148,7 @@ def test_build_pipeline_from_config_wires_strategies() -> None:
     pipeline_cfg = PipelineConfig(
         feed_id="test",
         detector={"key": "fake", "params": {}},
-        tracker={"key": "polar", "params": {}},
+        tracker={"key": _PipelineTestTracker.key, "params": {}},
         filters=[
             FilterConfig(key="size", params={"min_area_px": 10}),
             FilterConfig(key="ghost", params={}),
@@ -111,7 +162,7 @@ def test_build_pipeline_from_config_wires_strategies() -> None:
 
     assert isinstance(pipe, PerceptionPipeline)
     assert pipe.detector.key == "fake"
-    assert pipe.tracker.key == "polar"
+    assert pipe.tracker.key == _PipelineTestTracker.key
     assert len(pipe.filters.filters) == 2
     assert pipe.filters.filters[0].key == "size"
     assert pipe.filters.filters[1].key == "ghost"
@@ -131,7 +182,7 @@ def test_build_pipeline_with_polar_zone_propagates_geometry() -> None:
     pipeline_cfg = PipelineConfig(
         feed_id="test",
         detector={"key": "fake", "params": {}},
-        tracker={"key": "polar", "params": {}},
+        tracker={"key": _PipelineTestTracker.key, "params": {}},
         filters=[],
     )
     feed = _StubFeed()

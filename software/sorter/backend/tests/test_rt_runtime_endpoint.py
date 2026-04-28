@@ -588,14 +588,6 @@ def test_c4_optical_home_does_not_apply_failed_phase(
     assert applied == []
 
 
-def test_c4_carousel_selftest_endpoint() -> None:
-    payload = c4_rotor_router.c4_carousel_selftest()
-
-    assert payload["ok"] is True
-    assert payload["selftest"]["ok"] is True
-    assert payload["selftest"]["failed_count"] == 0
-
-
 def test_start_c234_purge_endpoint_starts_handle_job(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

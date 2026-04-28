@@ -895,6 +895,25 @@ def test_c4_carousel_angle_accumulates_from_successful_moves() -> None:
     assert math.isclose(math.degrees(rt._carousel_angle_rad), 14.0, abs_tol=1e-9)
 
 
+def test_c4_configure_admission_updates_owned_gate_state() -> None:
+    rt, _up, _down, _clf, _log = _make(max_zones=1)
+
+    rt.configure_admission(
+        max_zones=3,
+        max_raw_detections=2,
+        require_dropzone_clear=False,
+        intake_body_half_width_deg=8.0,
+        intake_guard_deg=7.0,
+    )
+
+    assert rt._zone_manager.max_zones == 3
+    assert rt._zone_manager.default_half_width_deg == 8.0
+    assert rt._zone_manager.guard_angle_deg == 7.0
+    assert rt._admission.max_zones == 3
+    assert rt._admission.max_raw_detections == 2
+    assert rt._admission.require_dropzone_clear is False
+
+
 def test_c4_bank_state_is_in_tray_frame() -> None:
     """A piece carried by the tray has constant tray-frame angle even
     while the carousel rotates the camera-frame angle. The bank's

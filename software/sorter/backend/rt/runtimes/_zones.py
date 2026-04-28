@@ -119,6 +119,10 @@ class ZoneManager:
         return self._guard_deg
 
     @property
+    def default_half_width_deg(self) -> float:
+        return self._default_half_width
+
+    @property
     def drop_angle_deg(self) -> float | None:
         return self._drop_angle_deg
 
@@ -137,6 +141,22 @@ class ZoneManager:
 
     def zone_for(self, piece_uuid: str) -> ExclusionZone | None:
         return self._zones.get(piece_uuid)
+
+    def configure(
+        self,
+        *,
+        max_zones: int | None = None,
+        default_half_width_deg: float | None = None,
+        guard_angle_deg: float | None = None,
+    ) -> None:
+        if max_zones is not None:
+            if int(max_zones) < 1:
+                raise ValueError(f"max_zones must be >= 1, got {max_zones}")
+            self._max_zones = int(max_zones)
+        if default_half_width_deg is not None:
+            self._default_half_width = float(default_half_width_deg)
+        if guard_angle_deg is not None:
+            self._guard_deg = float(guard_angle_deg)
 
     # -- Intake ------------------------------------------------------
 

@@ -353,17 +353,17 @@ def _c4_snapshot(runtime: Any, class_cfg: Any, feeder_cfg: Any) -> dict[str, Any
         "max_zones": _safe_int(getattr(zone_mgr, "max_zones", None)),
         "max_raw_detections": _safe_int(getattr(admission, "max_raw_detections", None)),
         "require_dropzone_clear_for_admission": bool(
-            getattr(
-                admission,
-                "_require_dropzone_clear",
-                getattr(admission, "require_dropzone_clear", True),
-            )
+            getattr(admission, "require_dropzone_clear", True)
         ),
         "intake_body_half_width_deg": _safe_float(
-            getattr(zone_mgr, "_default_half_width", None)
+            getattr(
+                zone_mgr,
+                "default_half_width_deg",
+                getattr(zone_mgr, "_default_half_width", None),
+            )
         ),
         "intake_guard_deg": _safe_float(
-            getattr(zone_mgr, "_guard_deg", getattr(zone_mgr, "guard_angle_deg", None))
+            getattr(zone_mgr, "guard_angle_deg", None)
         ),
         "zone_sigma_k": _runtime_attr(runtime, "_zone_sigma_k"),
         "zone_max_half_width_deg": _runtime_attr(runtime, "_zone_max_half_width_deg"),
@@ -988,14 +988,10 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         "eject",
     }
     _reject_unknown("c4", values, allowed)
+    admission_patch: dict[str, Any] = {}
     if "max_zones" in values:
         max_zones = _int(values["max_zones"], "c4.max_zones", min_value=1, max_value=30)
-        zone_mgr = getattr(runtime, "_zone_manager", None)
-        if zone_mgr is not None:
-            setattr(zone_mgr, "_max_zones", max_zones)
-        admission = getattr(runtime, "_admission", None)
-        if admission is not None:
-            setattr(admission, "_max_zones", max_zones)
+        admission_patch["max_zones"] = max_zones
         if class_cfg is not None:
             setattr(class_cfg, "max_zones", max_zones)
         _set_slot_capacity(handle, "c3_to_c4", max_zones)
@@ -1004,16 +1000,12 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
         max_raw = None if raw_value is None else _int(raw_value, "c4.max_raw_detections", min_value=0, max_value=200)
         if max_raw is not None and max_raw <= 0:
             max_raw = None
-        admission = getattr(runtime, "_admission", None)
-        if admission is not None:
-            setattr(admission, "_max_raw_detections", max_raw)
+        admission_patch["max_raw_detections"] = max_raw
         if class_cfg is not None:
             setattr(class_cfg, "max_raw_detections", max_raw)
     if "require_dropzone_clear_for_admission" in values:
         require_dropzone = bool(values["require_dropzone_clear_for_admission"])
-        admission = getattr(runtime, "_admission", None)
-        if admission is not None:
-            setattr(admission, "_require_dropzone_clear", require_dropzone)
+        admission_patch["require_dropzone_clear"] = require_dropzone
         if class_cfg is not None:
             setattr(
                 class_cfg,
@@ -1027,11 +1019,7 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             min_value=1.0,
             max_value=60.0,
         )
-        zone_mgr = getattr(runtime, "_zone_manager", None)
-        if zone_mgr is not None:
-            setattr(zone_mgr, "_default_half_width", half_width)
-        if runtime is not None:
-            setattr(runtime, "_intake_half_width_deg", half_width)
+        admission_patch["intake_body_half_width_deg"] = half_width
         if class_cfg is not None:
             setattr(class_cfg, "intake_body_half_width_deg", half_width)
     if "intake_guard_deg" in values:
@@ -1041,14 +1029,14 @@ def _apply_c4(handle: Any, values: dict[str, Any]) -> None:
             min_value=0.0,
             max_value=90.0,
         )
-        zone_mgr = getattr(runtime, "_zone_manager", None)
-        if zone_mgr is not None:
-            setattr(zone_mgr, "_guard_deg", guard)
-        admission = getattr(runtime, "_admission", None)
-        if admission is not None:
-            setattr(admission, "_guard_angle_deg", guard)
+        admission_patch["intake_guard_deg"] = guard
         if class_cfg is not None:
             setattr(class_cfg, "intake_guard_deg", guard)
+    if admission_patch:
+        configure_admission = getattr(runtime, "configure_admission", None)
+        if not callable(configure_admission):
+            raise RuntimeError("c4 runtime does not support configure_admission")
+        configure_admission(**admission_patch)
     _set_runtime_float(
         runtime,
         "_zone_sigma_k",

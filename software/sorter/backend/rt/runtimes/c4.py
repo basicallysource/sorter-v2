@@ -123,6 +123,7 @@ DEFAULT_UNJAM_COOLDOWN_MS = 3000
 DEFAULT_UNJAM_REVERSE_DEG = 3.0
 DEFAULT_UNJAM_FORWARD_DEG = 9.0
 DEFAULT_TRACKLET_TRANSIT_MAX_ANGLE_DELTA_DEG = 45.0
+_UNSET = object()
 
 
 class _C4State(str, Enum):
@@ -587,6 +588,32 @@ class RuntimeC4(BaseRuntime):
     def move_tray_degrees(self, degrees: float) -> bool:
         """Move the C4 tray by camera-frame degrees for calibration tools."""
         return bool(self._transport_move(float(degrees)))
+
+    def configure_admission(
+        self,
+        *,
+        max_zones: int | None = None,
+        max_raw_detections: int | None | object = _UNSET,
+        require_dropzone_clear: bool | None = None,
+        intake_body_half_width_deg: float | None = None,
+        intake_guard_deg: float | None = None,
+    ) -> None:
+        """Apply live C4 admission/zone tuning through the runtime boundary."""
+        self._zone_manager.configure(
+            max_zones=max_zones,
+            default_half_width_deg=intake_body_half_width_deg,
+            guard_angle_deg=intake_guard_deg,
+        )
+        admission_kwargs: dict[str, Any] = {
+            "max_zones": max_zones,
+            "guard_angle_deg": intake_guard_deg,
+            "require_dropzone_clear": require_dropzone_clear,
+        }
+        if max_raw_detections is not _UNSET:
+            admission_kwargs["max_raw_detections"] = max_raw_detections
+        self._admission.configure(**admission_kwargs)
+        if intake_body_half_width_deg is not None:
+            self._intake_half_width_deg = float(intake_body_half_width_deg)
 
     def _dossier_debug_payload(
         self,

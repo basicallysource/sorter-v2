@@ -159,6 +159,33 @@ def _handle() -> SimpleNamespace:
         _reconcile_min_score=0.35,
         _reconcile_min_age_s=0.2,
     )
+
+    def configure_c4_admission(**kwargs: object) -> None:
+        if "max_zones" in kwargs:
+            max_zones = int(kwargs["max_zones"])
+            c4._zone_manager._max_zones = max_zones
+            c4._zone_manager.max_zones = max_zones
+            c4._admission._max_zones = max_zones
+        if "max_raw_detections" in kwargs:
+            c4._admission.max_raw_detections = kwargs["max_raw_detections"]
+        if "require_dropzone_clear" in kwargs:
+            c4._admission._require_dropzone_clear = bool(
+                kwargs["require_dropzone_clear"]
+            )
+            c4._admission.require_dropzone_clear = bool(
+                kwargs["require_dropzone_clear"]
+            )
+        if "intake_body_half_width_deg" in kwargs:
+            half_width = float(kwargs["intake_body_half_width_deg"])
+            c4._zone_manager._default_half_width = half_width
+            c4._intake_half_width_deg = half_width
+        if "intake_guard_deg" in kwargs:
+            guard = float(kwargs["intake_guard_deg"])
+            c4._zone_manager._guard_deg = guard
+            c4._zone_manager.guard_angle_deg = guard
+            c4._admission._guard_angle_deg = guard
+
+    c4.configure_admission = configure_c4_admission
     slots = {
         ("c1", "c2"): CapacitySlot("c1_to_c2", 1),
         ("c2", "c3"): CapacitySlot("c2_to_c3", 1),

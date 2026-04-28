@@ -14,6 +14,9 @@ from rt.contracts.admission import AdmissionDecision
 from rt.contracts.registry import register_admission
 
 
+_UNSET = object()
+
+
 @register_admission("c4")
 class C4Admission:
     """Admission gate for the classification channel.
@@ -67,6 +70,28 @@ class C4Admission:
     @property
     def require_dropzone_clear(self) -> bool:
         return self._require_dropzone_clear
+
+    def configure(
+        self,
+        *,
+        max_zones: int | None = None,
+        max_raw_detections: int | None | object = _UNSET,
+        guard_angle_deg: float | None = None,
+        require_dropzone_clear: bool | None = None,
+    ) -> None:
+        if max_zones is not None:
+            if int(max_zones) < 1:
+                raise ValueError(f"max_zones must be >= 1, got {max_zones}")
+            self._max_zones = int(max_zones)
+        if max_raw_detections is not _UNSET:
+            if max_raw_detections is None or int(max_raw_detections) <= 0:
+                self._max_raw_detections = None
+            else:
+                self._max_raw_detections = int(max_raw_detections)
+        if guard_angle_deg is not None:
+            self._guard_angle_deg = float(guard_angle_deg)
+        if require_dropzone_clear is not None:
+            self._require_dropzone_clear = bool(require_dropzone_clear)
 
     def can_admit(
         self,

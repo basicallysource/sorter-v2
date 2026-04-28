@@ -23,8 +23,10 @@ from local_state import (
     get_recent_known_objects,
     get_active_sorting_session,
     get_set_progress_state,
+    get_servo_positions,
     get_servo_states,
     get_sorting_profile_sync_state,
+    get_stepper_positions,
     get_hive_config,
     get_piece_dossier,
     get_piece_dossier_by_tracked_global_id,
@@ -146,6 +148,8 @@ class LocalStateMigrationTests(unittest.TestCase):
         initialize_local_state()
 
         self.assertEqual("machine-from-data-json", get_machine_id())
+        self.assertEqual({"carousel": 12}, get_stepper_positions())
+        self.assertEqual({"layer_0": 90}, get_servo_positions())
         self.assertEqual([[[["misc"]]]], get_bin_categories())
         self.assertEqual("polygons-json", get_channel_polygons()["source"])
         self.assertEqual("polygons-json", get_classification_polygons()["source"])

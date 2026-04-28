@@ -612,14 +612,7 @@ def ensure_machine_id() -> str:
 
 
 def get_stepper_positions() -> dict[str, int]:
-    value = _read_state(_STATE_KEY_STEPPER_POSITIONS)
-    if not isinstance(value, dict):
-        return {}
-    result: dict[str, int] = {}
-    for name, position in value.items():
-        if isinstance(name, str) and isinstance(position, int) and not isinstance(position, bool):
-            result[name] = position
-    return result
+    return get_sanitized_int_mapping(_read_state(_STATE_KEY_STEPPER_POSITIONS))
 
 
 def set_stepper_positions(positions: dict[str, int]) -> None:
@@ -627,14 +620,7 @@ def set_stepper_positions(positions: dict[str, int]) -> None:
 
 
 def get_servo_positions() -> dict[str, int]:
-    value = _read_state(_STATE_KEY_SERVO_POSITIONS)
-    if not isinstance(value, dict):
-        return {}
-    result: dict[str, int] = {}
-    for name, angle in value.items():
-        if isinstance(name, str) and isinstance(angle, int) and not isinstance(angle, bool):
-            result[name] = angle
-    return result
+    return get_sanitized_int_mapping(_read_state(_STATE_KEY_SERVO_POSITIONS))
 
 
 def set_servo_positions(positions: dict[str, int]) -> None:

@@ -10,6 +10,7 @@
 		homing,
 		canceling,
 		stopping,
+		disabled = false,
 		pulseMode = $bindable(),
 		pulseDuration = $bindable(),
 		pulseSpeed = $bindable(),
@@ -24,6 +25,7 @@
 		homing: boolean;
 		canceling: boolean;
 		stopping: boolean;
+		disabled?: boolean;
 		pulseMode: PulseMode;
 		pulseDuration: number;
 		pulseSpeed: number;
@@ -46,7 +48,7 @@
 <div class="grid grid-cols-3 gap-2">
 	<button
 		onclick={() => onPulse('ccw')}
-		disabled={Boolean(pulsing[`${stepperKey}:ccw`]) || homing || canceling}
+		disabled={disabled || Boolean(pulsing[`${stepperKey}:ccw`]) || homing || canceling}
 		class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		<ChevronLeft size={16} />
@@ -62,7 +64,7 @@
 	</button>
 	<button
 		onclick={() => onPulse('cw')}
-		disabled={Boolean(pulsing[`${stepperKey}:cw`]) || homing || canceling}
+		disabled={disabled || Boolean(pulsing[`${stepperKey}:cw`]) || homing || canceling}
 		class="inline-flex h-10 cursor-pointer items-center justify-center gap-1.5 border border-border bg-bg px-3 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 	>
 		CW

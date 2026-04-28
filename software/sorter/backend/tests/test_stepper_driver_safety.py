@@ -174,6 +174,19 @@ class StepperThermalGuardTests(unittest.TestCase):
         self.assertEqual([0], stepper.speeds)
         self.assertFalse(stepper.enabled)
 
+    def test_halt_all_disables_carousel_without_move_at_speed_zero(self) -> None:
+        stepper = _Stepper()
+        guard = StepperThermalGuard(
+            steppers={"carousel": stepper},
+            on_fault=lambda _fault: None,
+            logger=_Logger(),
+        )
+
+        guard._halt_all()
+
+        self.assertEqual([], stepper.speeds)
+        self.assertFalse(stepper.enabled)
+
 
 if __name__ == "__main__":
     unittest.main()

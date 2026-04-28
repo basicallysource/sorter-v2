@@ -53,6 +53,7 @@ class SectorCarouselCounters:
     ejects: int = 0
     drops_completed: int = 0
     c3_double_drop_count: int = 0
+    c3_suspect_multi_count: int = 0
     multi_object_detected_count: int = 0
     discard_due_to_double_drop_count: int = 0
     discard_due_to_ambiguous_capture_count: int = 0
@@ -69,6 +70,9 @@ class _LandingLease:
     expires_at: float
     granted_at: float
     track_global_id: int | None = None
+    handoff_quality: str | None = None
+    handoff_multi_risk: bool | None = None
+    handoff_context: dict[str, Any] = field(default_factory=dict)
 
 
 class SectorCarouselHandler:
@@ -294,9 +298,27 @@ class SectorCarouselHandler:
                 "expected_arrival_window_s": payload.get(
                     "expected_arrival_window_s"
                 ),
+                "handoff_quality": payload.get("handoff_quality"),
+                "handoff_multi_risk": payload.get("handoff_multi_risk"),
+                "multi_risk_score": payload.get("multi_risk_score"),
+                "candidate_track_ids": payload.get("candidate_track_ids"),
+                "candidate_global_ids": payload.get("candidate_global_ids"),
+                "c3_handoff_quality_details": payload.get(
+                    "c3_handoff_quality_details"
+                ),
                 "event_source": event.source,
             },
         )
+        if _payload_indicates_c3_suspect_multi(payload):
+            self.mark_slot_contaminated(
+                piece_uuid.strip(),
+                state=SlotContaminationState.SUSPECT_MULTI,
+                reject_reason="c3_suspect_multi",
+                observed_count_estimate=_optional_int(
+                    payload.get("observed_count_estimate")
+                ),
+                now_mono=float(event.ts_mono),
+            )
 
     def inject_at_slot1(
         self,
@@ -350,6 +372,9 @@ class SectorCarouselHandler:
         min_spacing_deg: float,
         now_mono: float,
         track_global_id: int | None = None,
+        handoff_quality: str | None = None,
+        handoff_multi_risk: bool | None = None,
+        handoff_context: dict | None = None,
     ) -> str | None:
         self._counters.landing_lease_requests += 1
         self._expire_landing_leases(now_mono)
@@ -362,6 +387,18 @@ class SectorCarouselHandler:
                 now_mono=now_mono,
                 reason="sector_carousel_disabled",
                 track_global_id=track_global_id,
+            )
+            return None
+        if self._require_phase_verification and not self._phase_verified:
+            slot1.blocked_reason = "phase_verification_required"
+            self._counters.landing_lease_rejects += 1
+            self._record_event(
+                "landing_lease_rejected",
+                now_mono=now_mono,
+                reason="phase_verification_required",
+                track_global_id=track_global_id,
+                handoff_quality=handoff_quality,
+                handoff_multi_risk=handoff_multi_risk,
             )
             return None
         if self._rotation_in_progress or self._c4_hw_busy():
@@ -394,6 +431,15 @@ class SectorCarouselHandler:
             expires_at=float(now_mono) + ttl_s,
             granted_at=float(now_mono),
             track_global_id=track_global_id,
+            handoff_quality=(
+                str(handoff_quality) if handoff_quality is not None else None
+            ),
+            handoff_multi_risk=(
+                bool(handoff_multi_risk)
+                if handoff_multi_risk is not None
+                else None
+            ),
+            handoff_context=dict(handoff_context or {}),
         )
         slot1.blocked_reason = None
         self._counters.landing_lease_grants += 1
@@ -403,6 +449,8 @@ class SectorCarouselHandler:
             landing_lease_id=lease_id,
             track_global_id=track_global_id,
             expires_at=float(now_mono) + ttl_s,
+            handoff_quality=handoff_quality,
+            handoff_multi_risk=handoff_multi_risk,
         )
         return lease_id
 
@@ -989,6 +1037,9 @@ class SectorCarouselHandler:
                     "expires_at": lease.expires_at,
                     "granted_at": lease.granted_at,
                     "track_global_id": lease.track_global_id,
+                    "handoff_quality": lease.handoff_quality,
+                    "handoff_multi_risk": lease.handoff_multi_risk,
+                    "handoff_context": dict(lease.handoff_context or {}),
                 }
                 for lease in self._pending_landing_leases.values()
             ],
@@ -1302,6 +1353,8 @@ class SectorCarouselHandler:
         if reject_reason == "c3_double_drop":
             self._counters.c3_double_drop_count += 1
             self._counters.discard_due_to_double_drop_count += 1
+        elif reject_reason == "c3_suspect_multi":
+            self._counters.c3_suspect_multi_count += 1
         elif reject_reason in {"capture_ambiguous", "ambiguous_capture"}:
             self._counters.discard_due_to_ambiguous_capture_count += 1
         estimate = slot.observed_count_estimate
@@ -1357,6 +1410,34 @@ def _gate_for_slot_phase(phase: SlotPhase) -> str:
     if phase in {SlotPhase.DROPPING, SlotPhase.DROPPED_PENDING_CLEAR}:
         return "eject"
     return "unknown"
+
+
+def _payload_indicates_c3_suspect_multi(payload: dict[str, Any]) -> bool:
+    quality = _normalized_token(payload.get("handoff_quality"))
+    if quality in {"suspect_multi", "confirmed_multi_risk", "confirmed_multi"}:
+        return True
+    if _truthy(payload.get("handoff_multi_risk")):
+        return True
+    details = payload.get("c3_handoff_quality_details")
+    if isinstance(details, dict):
+        if _truthy(details.get("handoff_multi_risk")):
+            return True
+        detail_quality = _normalized_token(details.get("handoff_quality"))
+        return detail_quality in {
+            "suspect_multi",
+            "confirmed_multi_risk",
+            "confirmed_multi",
+        }
+    return False
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
 _DISCARD_LABELS = {

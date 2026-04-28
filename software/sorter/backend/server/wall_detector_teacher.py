@@ -1,10 +1,10 @@
 """Gemini-backed sample collector for the C4 5-wall platter.
 
 The 2026-04-27 C4 platter has **five physical walls** rising from the
-disc surface that divide it into five fixed angular sectors. To
-calibrate ``CarouselC4Handler.sector_offset_deg`` reliably (and to
-keep the offset live as the platter rotates) we want a YOLO model
-that detects those walls in every C4 camera frame.
+disc surface that divide it into five fixed angular sectors. The
+runtime SectorCarousel uses those walls as the physical slot
+boundaries, so we want a YOLO model that detects them in every C4
+camera frame.
 
 This module bootstraps the YOLO training set: it takes a captured C4
 frame, asks Gemini (via the project's ``llm_client`` facade) to
@@ -59,8 +59,9 @@ class WallDetection:
     """One wall instance as labeled by the teacher.
 
     Coordinates are in *image pixels* — origin top-left, x to the
-    right, y down. The wall is described by **three grouped bboxes**
-    (the format Gemini produces most reliably):
+    right, y down. The wall is described by a centerline from the
+    visible inner wall end to the visible outer wall end. Older raw
+    responses may still include three grouped bboxes:
 
     * ``wall_full_xyxy`` — tight AABB enclosing the entire wall.
     * ``wall_start_inner_xyxy`` — small AABB at the inner end of the
@@ -74,8 +75,8 @@ class WallDetection:
       centers of the inner and outer marker bboxes.
     * ``thickness_px`` — wall thickness, taken as the smaller side of
       the inner marker bbox (clamped to a sane minimum).
-    * ``bbox_xyxy`` — alias of ``wall_full_xyxy`` for backwards
-      compatibility with the YOLO-AABB loader.
+    * ``bbox_xyxy`` — the AABB enclosing the derived thin wall OBB;
+      this is what the YOLO-AABB loader and Hive review overlay use.
     * ``polygon_xy`` — 4-corner OBB rectangle inflated around the
       hub→rim segment; used for tight visualization and YOLO-OBB
       training.
@@ -203,7 +204,7 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
     return (
         "Task: identify thin straight radial dividers (walls) on a "
         "round gray rotating turntable and return their precise "
-        "positions as grouped bounding boxes.\n"
+        "visible centerline geometry.\n"
         "\n"
         "Scene description:\n"
         "* The image is a top-down view of the C4 turntable in a "
@@ -230,23 +231,23 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         "* The WHITE outer ring around the disc is the physical "
         "  outer rim of the platter, NOT a wall.\n"
         "\n"
-        "For each visible wall, return THREE grouped bounding boxes:\n"
-        "1. ``wall_full`` — a tight bbox enclosing the entire wall "
-        "   along its full radial length.\n"
-        "2. ``wall_start_inner`` — a SMALL bbox marking only the "
-        "   inner end of the wall, where it meets the central black "
-        "   hub circle.\n"
-        "3. ``wall_end_outer`` — a SMALL bbox marking only the "
-        "   outer end of the wall, where it meets the white outer "
-        "   rim.\n"
-        "Grouping the three boxes per wall is mandatory — they all "
-        "describe the SAME physical wall and must share the same "
-        "``wall_id``.\n"
+        "For each visible wall, return ONE wall object with:\n"
+        "1. ``inner_point`` — the center of the visible inner end of "
+        "   the wall body, just outside the central black hub. Do NOT "
+        "   place this point inside the black hub circle.\n"
+        "2. ``outer_point`` — the center of the visible outer end of "
+        "   the wall body, just inside the white outer rim. Do NOT "
+        "   place this point on the white rim itself.\n"
+        "3. ``thickness`` — the apparent wall thickness in normalized "
+        "   pixels on the 0..1000 coordinate scale.\n"
+        "4. ``wall_bbox`` — an optional tight axis-aligned bbox around "
+        "   the visible wall body only. It is used for debugging; the "
+        "   centerline is the source of truth.\n"
         "\n"
-        "Coordinates: use Gemini's standard 0..1000 normalized scale "
-        "with order [y_min, x_min, y_max, x_max] (y first, x second). "
-        f"We will rescale to the {image_width}x{image_height} pixel "
-        "image ourselves.\n"
+        "Coordinates: use Gemini's standard 0..1000 normalized scale. "
+        "Points use [y, x] order. Bboxes use [y_min, x_min, y_max, x_max] "
+        f"order. We will rescale to the {image_width}x{image_height} "
+        "pixel image ourselves.\n"
         "\n"
         "Output JSON schema:\n"
         "{\n"
@@ -254,9 +255,10 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         '  "walls": [\n'
         "    {\n"
         '      "wall_id": 1,\n'
-        '      "wall_full": [y_min, x_min, y_max, x_max],\n'
-        '      "wall_start_inner": [y_min, x_min, y_max, x_max],\n'
-        '      "wall_end_outer": [y_min, x_min, y_max, x_max],\n'
+        '      "inner_point": [y, x],\n'
+        '      "outer_point": [y, x],\n'
+        '      "thickness": 12,\n'
+        '      "wall_bbox": [y_min, x_min, y_max, x_max],\n'
         '      "confidence": 0.0,\n'
         '      "angular_hint_deg": null,\n'
         '      "note": null\n'
@@ -268,13 +270,12 @@ def wall_detector_prompt(*, image_width: int, image_height: int) -> str:
         "Rules:\n"
         f"- ``walls`` MUST contain {EXPECTED_WALL_COUNT - 1} or "
         f"{EXPECTED_WALL_COUNT} entries (4 or 5).\n"
-        "- All three bboxes per wall use the same 0..1000 normalized "
-        "  [y_min, x_min, y_max, x_max] format.\n"
-        "- ``wall_full`` covers the WHOLE wall (long axis is the "
-        "  radial length).\n"
-        "- ``wall_start_inner`` and ``wall_end_outer`` are SMALL — "
-        "  ideally under 30 normalized units in each dimension. They "
-        "  mark the two endpoints, not the wall body.\n"
+        "- ``inner_point`` and ``outer_point`` must lie on the visible "
+        "  gray wall ridge, centered across the wall thickness.\n"
+        "- ``thickness`` should normally be 8..30 normalized units. "
+        "  Use the visible ridge thickness, not the sector width.\n"
+        "- ``wall_bbox`` covers the WHOLE visible wall body, but not "
+        "  the gray sector area between walls.\n"
         "- ``confidence`` is 0..1 for the whole wall annotation.\n"
         "- ``angular_hint_deg`` is optional: the wall's angle around "
         "  the disc center (0° = +x / right, 90° = up, CCW positive) "
@@ -327,6 +328,41 @@ def _coerce_yxyx_bbox(
     if px_x_hi <= px_x_lo or px_y_hi <= px_y_lo:
         return None
     return (px_x_lo, px_y_lo, px_x_hi, px_y_hi)
+
+
+def _coerce_yx_point(
+    raw: Any,
+    *,
+    image_width: int,
+    image_height: int,
+) -> tuple[float, float] | None:
+    """Convert a Gemini ``[y, x]`` 0..1000 point to pixel ``(x, y)``."""
+    if not isinstance(raw, (list, tuple)) or len(raw) < 2:
+        return None
+    try:
+        y, x = float(raw[0]), float(raw[1])
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(x) or math.isnan(y) or math.isinf(x) or math.isinf(y):
+        return None
+    sx = float(image_width) / _GEMINI_NORMALIZED_SCALE
+    sy = float(image_height) / _GEMINI_NORMALIZED_SCALE
+    px = max(0.0, min(float(image_width), x * sx))
+    py = max(0.0, min(float(image_height), y * sy))
+    return (px, py)
+
+
+def _coerce_normalized_thickness(raw: Any, *, image_width: int, image_height: int) -> float | None:
+    try:
+        v = float(raw)
+    except (TypeError, ValueError):
+        return None
+    if math.isnan(v) or math.isinf(v) or v <= 0:
+        return None
+    # A normalized wall thickness is not tied to a single axis; use the
+    # smaller pixel scale so diagonal walls do not become over-inflated.
+    scale = min(float(image_width), float(image_height)) / _GEMINI_NORMALIZED_SCALE
+    return max(_MIN_WALL_THICKNESS_PX, v * scale)
 
 
 def _bbox_center(bbox: tuple[float, float, float, float]) -> tuple[float, float]:
@@ -425,11 +461,12 @@ def parse_wall_response(
 ) -> tuple[list[WallDetection], str | None]:
     """Convert a raw Gemini wall-detector response into typed walls.
 
-    Each entry must carry ``wall_full``, ``wall_start_inner`` and
-    ``wall_end_outer`` 0..1000 normalized [y_min, x_min, y_max, x_max]
-    bboxes. Endpoints are derived from the centers of the inner /
-    outer marker boxes, and the OBB polygon is inflated from that
-    segment using a thickness implied by the inner marker bbox.
+    Preferred entries carry ``inner_point`` and ``outer_point`` 0..1000
+    normalized ``[y, x]`` coordinates plus an optional ``thickness`` and
+    ``wall_bbox``. Legacy entries with ``wall_start_inner`` /
+    ``wall_end_outer`` marker bboxes are still accepted; endpoints are
+    derived from marker centers. The OBB polygon is inflated from the
+    centerline, and ``bbox_xyxy`` is the AABB around that OBB.
     """
     walls_raw = payload.get("walls")
     if not isinstance(walls_raw, list):
@@ -439,8 +476,19 @@ def parse_wall_response(
     for entry in walls_raw[: EXPECTED_WALL_COUNT]:
         if not isinstance(entry, dict):
             continue
+        raw_full = entry.get("wall_bbox", entry.get("wall_full"))
         full = _coerce_yxyx_bbox(
-            entry.get("wall_full"),
+            raw_full,
+            image_width=image_width,
+            image_height=image_height,
+        )
+        inner_point = _coerce_yx_point(
+            entry.get("inner_point"),
+            image_width=image_width,
+            image_height=image_height,
+        )
+        outer_point = _coerce_yx_point(
+            entry.get("outer_point"),
             image_width=image_width,
             image_height=image_height,
         )
@@ -454,19 +502,29 @@ def parse_wall_response(
             image_width=image_width,
             image_height=image_height,
         )
-        if full is None or inner is None or outer is None:
+        if inner_point is None and inner is not None:
+            inner_point = _bbox_center(inner)
+        if outer_point is None and outer is not None:
+            outer_point = _bbox_center(outer)
+        if inner_point is None or outer_point is None:
             continue
-        hub = _bbox_center(inner)
-        rim = _bbox_center(outer)
-        # Thickness: prefer the smaller side of the inner marker bbox; fall
-        # back to the smaller side of the full-wall bbox when the marker is
-        # square-ish (i.e. doesn't reveal the wall's perpendicular size).
+        hub = inner_point
+        rim = outer_point
+        # Thickness: prefer the explicit point-schema value. Fall back to the
+        # legacy marker/full bboxes when reading older 3-bbox samples.
+        explicit_thickness = _coerce_normalized_thickness(
+            entry.get("thickness"),
+            image_width=image_width,
+            image_height=image_height,
+        )
         thickness_px = max(
             _MIN_WALL_THICKNESS_PX,
-            min(
-                _bbox_short_side(inner) or 0.0,
-                _bbox_short_side(full) or 0.0,
-            ) or _MIN_WALL_THICKNESS_PX,
+            explicit_thickness
+            or min(
+                _bbox_short_side(inner) if inner is not None else 0.0,
+                _bbox_short_side(full) if full is not None else 0.0,
+            )
+            or _MIN_WALL_THICKNESS_PX,
         )
         obb = _segment_to_obb_polygon(
             hub,
@@ -477,7 +535,24 @@ def parse_wall_response(
         )
         if obb is None:
             continue
-        polygon, _aabb_unused = obb
+        polygon, aabb = obb
+        if full is None:
+            full = aabb
+        marker_half = max(_MIN_WALL_THICKNESS_PX * 1.5, thickness_px * 1.5)
+        if inner is None:
+            inner = (
+                max(0.0, hub[0] - marker_half),
+                max(0.0, hub[1] - marker_half),
+                min(float(image_width), hub[0] + marker_half),
+                min(float(image_height), hub[1] + marker_half),
+            )
+        if outer is None:
+            outer = (
+                max(0.0, rim[0] - marker_half),
+                max(0.0, rim[1] - marker_half),
+                min(float(image_width), rim[0] + marker_half),
+                min(float(image_height), rim[1] + marker_half),
+            )
         walls.append(
             WallDetection(
                 wall_full_xyxy=full,
@@ -486,7 +561,7 @@ def parse_wall_response(
                 hub_xy=hub,
                 rim_xy=rim,
                 thickness_px=thickness_px,
-                bbox_xyxy=full,
+                bbox_xyxy=aabb,
                 polygon_xy=polygon,
                 confidence=_coerce_confidence(entry.get("confidence")),
                 angular_hint_deg=_coerce_optional_float(

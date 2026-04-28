@@ -677,12 +677,17 @@ class DownloadJobManager:
         if variant_runtime and "runtime" not in base:
             base["runtime"] = variant_runtime
 
+        version = detail.get("version") if isinstance(detail, dict) else None
+        published_at = detail.get("published_at") if isinstance(detail, dict) else None
+
         base[HIVE_SENTINEL_KEY] = {
             "target_id": target_id,
             "model_id": model_id,
             "variant_runtime": variant_runtime,
             "sha256": sha256,
             "downloaded_at": _now_iso(),
+            "version": version if isinstance(version, int) else None,
+            "published_at": published_at if isinstance(published_at, str) else None,
         }
 
         dest_dir.mkdir(parents=True, exist_ok=True)

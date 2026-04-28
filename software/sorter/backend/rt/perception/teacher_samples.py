@@ -62,6 +62,11 @@ _GEMINI_SAM_ALGORITHM = "gemini_sam"
 _GEMINI_TIMEOUT_S = 25.0
 _GEMINI_MAX_TOKENS = 2048
 _GEMINI_MIN_CONFIDENCE = 0.5
+_MOVE_COMPLETED_TRIGGER_REASON = "rt_move_completed"
+_C_CHANNEL_OBJECT_DETECTION_CAPTURE_REASON = "C-Channel Object Detection"
+_C_CHANNEL_OBJECT_DETECTION_ROLES = frozenset(
+    {"c_channel_2", "c_channel_3", "classification_channel"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -134,6 +139,15 @@ def _coerce_bool(value: Any) -> bool | None:
     if isinstance(value, bool):
         return value
     return None
+
+
+def _capture_reason_for_trigger(trigger_reason: str, source_role: str) -> str:
+    if (
+        trigger_reason == _MOVE_COMPLETED_TRIGGER_REASON
+        and source_role in _C_CHANNEL_OBJECT_DETECTION_ROLES
+    ):
+        return _C_CHANNEL_OBJECT_DETECTION_CAPTURE_REASON
+    return trigger_reason
 
 
 def _coerce_interval(value: Any) -> float | None:
@@ -493,9 +507,12 @@ _GEMINI_ZONE_PROMPTS: dict[str, tuple[str, str]] = {
         "area while parts move toward classification and ejection.",
         "Ignore the turntable surface, fixed dark center/opening, exit chute, "
         "outlet slot, rails, screws, lips, fixed black wedges/openings, LED "
-        "glare, specular reflections, and shadows. These are machine geometry, "
-        "not pieces. Only label loose physical items sitting on or moving over "
-        "that geometry.",
+        "glare, specular reflections, and shadows. The C4 rotor may show four "
+        "or five evenly spaced radial divider walls/fins running from the dark "
+        "center toward the outer rim; ignore those divider walls, their raised "
+        "edges, and their linear shadows even when they look like long grey "
+        "objects. These are machine geometry, not pieces. Only label loose "
+        "physical items sitting on, beside, or moving over that geometry.",
     ),
     "c_channel": (
         "The image comes from a C-shaped feed channel. A top-down camera watches "
@@ -546,7 +563,9 @@ def _gemini_prompt(width: int, height: int, zone: str) -> str:
         "- Do not detect fixed machine geometry, even if it is dark, high "
         "contrast, or shaped like a part. In particular, ignore outlet slots, "
         "exit chutes, turntable holes, fixed black shadows/openings, rails, and "
-        "walls.\n"
+        "walls. For the C4 turntable specifically, ignore the evenly spaced "
+        "radial divider walls/fins and their long straight shadows; do not draw "
+        "boxes around them.\n"
         "- Return a tight bounding box covering each loose item's full extent, "
         "including glare on the item itself.\n"
         "- Ignore dust, scratches, lighting gradients, and shadows unless there "
@@ -733,65 +752,28 @@ class GeminiWallTeacherAnnotator:
         detections: list[TeacherDetection] = []
         wall_records: list[dict[str, Any]] = []
         for idx, wall in enumerate(call.walls, start=1):
-            full = _bbox_tuple(
+            bbox = _bbox_tuple(
                 (
-                    int(wall.wall_full_xyxy[0]),
-                    int(wall.wall_full_xyxy[1]),
-                    int(wall.wall_full_xyxy[2]),
-                    int(wall.wall_full_xyxy[3]),
+                    int(wall.bbox_xyxy[0]),
+                    int(wall.bbox_xyxy[1]),
+                    int(wall.bbox_xyxy[2]),
+                    int(wall.bbox_xyxy[3]),
                 )
             )
-            if full is None:
+            if bbox is None:
                 continue
-            inner = _bbox_tuple(
-                (
-                    int(wall.wall_start_inner_xyxy[0]),
-                    int(wall.wall_start_inner_xyxy[1]),
-                    int(wall.wall_start_inner_xyxy[2]),
-                    int(wall.wall_start_inner_xyxy[3]),
-                )
-            )
-            outer = _bbox_tuple(
-                (
-                    int(wall.wall_end_outer_xyxy[0]),
-                    int(wall.wall_end_outer_xyxy[1]),
-                    int(wall.wall_end_outer_xyxy[2]),
-                    int(wall.wall_end_outer_xyxy[3]),
-                )
-            )
             confidence = float(wall.confidence)
-            # Send three TeacherDetections per wall so Hive renders all
-            # three landmarks (full body + inner endpoint + outer endpoint).
-            # The wall_full carries the highest confidence score so it
-            # remains the primary box for the legacy "best detection" path.
+            # Hive's review UI and the YOLO-AABB exporter both consume a flat
+            # list of boxes. Keep that list at one training box per physical
+            # wall; endpoint/OBB details remain in raw_payload["walls_parsed"].
             detections.append(
                 TeacherDetection(
-                    bbox_xyxy=full,
+                    bbox_xyxy=bbox,
                     confidence=confidence,
                     kind="wall",
-                    description=f"wall {idx} full",
+                    description=f"wall {idx}",
                 )
             )
-            if inner is not None:
-                detections.append(
-                    TeacherDetection(
-                        bbox_xyxy=inner,
-                        # Slightly lower so the full bbox stays primary in
-                        # the existing "highest confidence" sort.
-                        confidence=max(0.0, confidence - 0.001),
-                        kind="wall",
-                        description=f"wall {idx} inner endpoint",
-                    )
-                )
-            if outer is not None:
-                detections.append(
-                    TeacherDetection(
-                        bbox_xyxy=outer,
-                        confidence=max(0.0, confidence - 0.002),
-                        kind="wall",
-                        description=f"wall {idx} outer endpoint",
-                    )
-                )
             wall_records.append(wall.to_record())
 
         raw_payload = dict(call.raw_response or {})
@@ -1320,7 +1302,7 @@ class AuxiliaryTeacherSampleCollector:
         not_before_wall_ts = min(target_wall_ts, now_wall + _MOVE_TRIGGER_MAX_DELAY_S)
         for index in range(trigger_count):
             trigger = _CollectionTrigger(
-                reason="rt_move_completed",
+                reason=_MOVE_COMPLETED_TRIGGER_REASON,
                 source_role=source_role,
                 feed_id=feed_id,
                 metadata={
@@ -1570,6 +1552,10 @@ class AuxiliaryTeacherSampleCollector:
         raw = sample.raw
         bounds = sample.bounds
         model = sample.model
+        capture_reason = _capture_reason_for_trigger(
+            sample.trigger_reason,
+            source_role,
+        )
         with self._lock:
             self._teacher_call_count += 1
             self._bump_role(self._teacher_call_count_by_role, source_role)
@@ -1646,7 +1632,7 @@ class AuxiliaryTeacherSampleCollector:
                 source="live_aux_teacher_capture",
                 source_role=source_role,
                 detection_scope=_SOURCE_ROLE_TO_SCOPE[source_role],
-                capture_reason=sample.trigger_reason,
+                capture_reason=capture_reason,
                 detection_algorithm=algorithm_id,
                 detection_openrouter_model=teacher_model or None,
                 detection_found=False,
@@ -1746,7 +1732,7 @@ class AuxiliaryTeacherSampleCollector:
             source="live_aux_teacher_capture",
             source_role=source_role,
             detection_scope=_SOURCE_ROLE_TO_SCOPE[source_role],
-            capture_reason=sample.trigger_reason,
+            capture_reason=capture_reason,
             detection_algorithm=algorithm_id,
             detection_openrouter_model=teacher_model or None,
             detection_found=True,

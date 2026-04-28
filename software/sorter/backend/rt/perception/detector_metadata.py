@@ -169,6 +169,9 @@ def _index_hive_run_metadata() -> dict[str, dict[str, Any]]:
             or _coerce_int((meta.get("inference") or {}).get("imgsz"))
             or _coerce_int((meta.get("dataset") or {}).get("imgsz"))
         )
+        version = hive_info.get("version") if isinstance(hive_info, dict) else None
+        published_at = hive_info.get("published_at") if isinstance(hive_info, dict) else None
+
         out[key] = {
             "slug": slug,
             "model_id": str(hive_info.get("model_id") or entry.name),
@@ -183,6 +186,8 @@ def _index_hive_run_metadata() -> dict[str, dict[str, Any]]:
             "run_name": str(meta.get("run_name") or ""),
             "display_name": name,
             "map50": _coerce_float(((meta.get("best_metrics") or {}).get("mAP50"))),
+            "version": version if isinstance(version, int) else None,
+            "published_at": published_at if isinstance(published_at, str) else None,
         }
     return out
 
@@ -217,6 +222,22 @@ def _build_definition(
         label = display_name
     else:
         label = _prettify_slug(str(slug))
+
+    version = disk_meta.get("version")
+    published_at = disk_meta.get("published_at")
+    suffix_bits: list[str] = []
+    if isinstance(version, int) and version > 0:
+        suffix_bits.append(f"v{version}")
+    if isinstance(published_at, str) and published_at:
+        try:
+            from datetime import datetime
+
+            ts = datetime.fromisoformat(published_at.replace("Z", "+00:00"))
+            suffix_bits.append(ts.strftime("%d.%m.%y"))
+        except (ValueError, TypeError):
+            pass
+    if suffix_bits:
+        label = f"{label} · {' · '.join(suffix_bits)}"
     family_label = {"yolo": "YOLO", "nanodet": "NanoDet"}.get(
         (model_family or "").lower(), (model_family or "detector").upper()
     )

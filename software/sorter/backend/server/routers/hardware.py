@@ -659,6 +659,8 @@ def _live_carousel_status() -> Dict[str, Any]:
             "stepper_direction_inverted": stepper_direction_inverted,
             "current_position_degrees": None,
             "stepper_microsteps": None,
+            "stepper_enabled": None,
+            "stepper_current": None,
             "stepper_stopped": None,
             "bound_stepper_name": None,
             "bound_stepper_channel": None,
@@ -678,6 +680,8 @@ def _live_carousel_status() -> Dict[str, Any]:
             "stepper_direction_inverted": stepper_direction_inverted,
             "current_position_degrees": None,
             "stepper_microsteps": None,
+            "stepper_enabled": None,
+            "stepper_current": None,
             "stepper_stopped": None,
             "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper else None,
             "bound_stepper_channel": getattr(stepper, "channel", None) if stepper else None,
@@ -692,6 +696,8 @@ def _live_carousel_status() -> Dict[str, Any]:
         "stepper_direction_inverted": stepper_direction_inverted,
         "current_position_degrees": None,
         "stepper_microsteps": None,
+        "stepper_enabled": None,
+        "stepper_current": None,
         "stepper_stopped": None,
         "bound_stepper_name": getattr(stepper, "hardware_name", None),
         "bound_stepper_channel": getattr(stepper, "channel", None),
@@ -711,6 +717,17 @@ def _live_carousel_status() -> Dict[str, Any]:
         status["stepper_position_error"] = str(e)
 
     try:
+        status["stepper_enabled"] = bool(stepper.enabled)
+    except Exception as e:
+        status["stepper_enabled_error"] = str(e)
+
+    try:
+        last_current = getattr(stepper, "last_set_current", None)
+        status["stepper_current"] = last_current() if callable(last_current) else last_current
+    except Exception as e:
+        status["stepper_current_error"] = str(e)
+
+    try:
         status["stepper_stopped"] = bool(stepper.stopped)
     except Exception as e:
         status["stepper_stopped_error"] = str(e)
@@ -727,7 +744,7 @@ def _stop_all_steppers() -> None:
         if stepper is None:
             continue
         try:
-            _halt_stepper(stepper)
+            _halt_stepper(stepper, stepper_name=name)
             halted.append(name)
         except Exception as e:
             errors[name] = str(e)

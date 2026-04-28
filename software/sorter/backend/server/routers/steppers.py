@@ -211,14 +211,61 @@ def _driver_mode_warning(*, stealthchop: bool | None, coolstep: bool | None) -> 
     return None
 
 
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw not in {"0", "false", "no", "off"}
+
+
 MANUAL_MOVE_MAX_ABS_DEGREES = 720.0
 MANUAL_MOVE_MAX_SPEED = 12_000
 MANUAL_MOVE_MAX_MIN_SPEED = 6_000
 MANUAL_MOVE_MAX_ACCELERATION = 80_000
-CAROUSEL_MANUAL_MOVE_MAX_ABS_DEGREES = 36.0
-CAROUSEL_MANUAL_MOVE_MAX_SPEED = 250
-CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED = 250
-CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION = 600
+CAROUSEL_MANUAL_MOVE_SAFETY_DISABLED = _env_bool(
+    "SORTER_CAROUSEL_MANUAL_MOVE_SAFETY_DISABLED",
+    False,
+)
+CAROUSEL_MANUAL_MOVE_MAX_SPEED = _env_int(
+    "SORTER_CAROUSEL_MANUAL_MOVE_MAX_SPEED",
+    4_000,
+)
+CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED = _env_int(
+    "SORTER_CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED",
+    4_000,
+)
+CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION = _env_int(
+    "SORTER_CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION",
+    4_000,
+)
+CAROUSEL_MANUAL_DEFAULT_MIN_SPEED = _env_int(
+    "SORTER_CAROUSEL_MANUAL_DEFAULT_MIN_SPEED",
+    120,
+)
+CAROUSEL_MANUAL_DEFAULT_ACCELERATION = _env_int(
+    "SORTER_CAROUSEL_MANUAL_DEFAULT_ACCELERATION",
+    4_000,
+)
 
 
 def _validate_manual_move_safety(
@@ -230,11 +277,8 @@ def _validate_manual_move_safety(
     stepper_name: str | None = None,
 ) -> None:
     is_carousel = stepper_name == "carousel"
-    max_abs_degrees = (
-        CAROUSEL_MANUAL_MOVE_MAX_ABS_DEGREES
-        if is_carousel
-        else MANUAL_MOVE_MAX_ABS_DEGREES
-    )
+    if is_carousel and CAROUSEL_MANUAL_MOVE_SAFETY_DISABLED:
+        return
     max_speed = CAROUSEL_MANUAL_MOVE_MAX_SPEED if is_carousel else MANUAL_MOVE_MAX_SPEED
     max_min_speed = (
         CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED
@@ -246,12 +290,12 @@ def _validate_manual_move_safety(
         if is_carousel
         else MANUAL_MOVE_MAX_ACCELERATION
     )
-    if abs(float(degrees)) > max_abs_degrees:
+    if not is_carousel and abs(float(degrees)) > MANUAL_MOVE_MAX_ABS_DEGREES:
         raise HTTPException(
             status_code=400,
             detail=(
                 "degrees exceeds safe debug-move limit "
-                f"({max_abs_degrees:g})"
+                f"({MANUAL_MOVE_MAX_ABS_DEGREES:g})"
             ),
         )
     if int(speed) > max_speed:
@@ -620,7 +664,8 @@ def move_stepper_degrees(
     When ``min_speed`` and ``acceleration`` are both supplied, the firmware
     ramps from ``min_speed`` up to ``speed`` (and back down) using the
     supplied acceleration (µsteps/s²). Leave them unset for a hard-stop
-    constant-velocity move.
+    constant-velocity move, except for the geared C4/carousel axis where the
+    endpoint applies a conservative default ramp to avoid instant stall.
     """
     if degrees == 0:
         raise HTTPException(status_code=400, detail="degrees must be non-zero")
@@ -632,6 +677,9 @@ def move_stepper_degrees(
         raise HTTPException(status_code=400, detail="min_speed must be <= speed")
     if acceleration is not None and acceleration <= 0:
         raise HTTPException(status_code=400, detail="acceleration must be > 0 when supplied")
+    if stepper == "carousel" and min_speed is None and acceleration is None:
+        min_speed = max(1, min(int(speed), int(CAROUSEL_MANUAL_DEFAULT_MIN_SPEED)))
+        acceleration = max(1, int(CAROUSEL_MANUAL_DEFAULT_ACCELERATION))
     want_ramp = min_speed is not None and acceleration is not None
     if (min_speed is None) ^ (acceleration is None):
         raise HTTPException(

@@ -139,7 +139,50 @@ export interface PaginatedSamples {
 
 export interface SampleFilterOptions {
 	source_roles: string[];
+	source_role_counts?: Record<string, number>;
 	capture_reasons: string[];
+}
+
+export type SampleDiversityBuckets = Record<string, number>;
+
+export type SampleDiversityBucketFills = Record<string, number | null>;
+export type SampleDiversityBucketTargets = Record<string, number>;
+
+export interface SampleDiversitySourceRole {
+	source_role: string;
+	total: number;
+	unknown: number;
+	avg_score: number | null;
+	coverage: number;
+	coverage_trend: number[];
+	eta_seconds: number | null;
+	last_uploaded_at: string | null;
+	buckets: SampleDiversityBuckets;
+	bucket_fills: SampleDiversityBucketFills;
+	bucket_targets: SampleDiversityBucketTargets;
+}
+
+export interface SampleDiversityGroup {
+	capture_reason: string;
+	total: number;
+	unknown: number;
+	avg_score: number | null;
+	coverage: number;
+	coverage_trend: number[];
+	eta_seconds: number | null;
+	last_uploaded_at: string | null;
+	buckets: SampleDiversityBuckets;
+	bucket_fills: SampleDiversityBucketFills;
+	bucket_targets: SampleDiversityBucketTargets;
+	by_source_role: SampleDiversitySourceRole[];
+}
+
+export interface SampleDiversityResponse {
+	generated_at: string;
+	total: number;
+	default_target_per_bucket: number;
+	bucket_keys: string[];
+	groups: SampleDiversityGroup[];
 }
 
 export interface StatsOverview {
@@ -587,6 +630,10 @@ export const api = {
 	},
 	getSampleFilterOptions() {
 		return request<SampleFilterOptions>('GET', '/api/samples/filter-options');
+	},
+	getSampleDiversity(captureReason?: string) {
+		const qs = captureReason ? `?capture_reason=${encodeURIComponent(captureReason)}` : '';
+		return request<SampleDiversityResponse>('GET', `/api/samples/diversity${qs}`);
 	},
 	getSample(id: string) {
 		return request<SampleDetail>('GET', `/api/samples/${id}`);

@@ -77,6 +77,7 @@ class _CarouselStepper:
         self.accelerations: list[int] = []
         self.speed_limits: list[tuple[int, int]] = []
         self.moves: list[float] = []
+        self.enabled_values: list[bool] = []
 
     def set_acceleration(self, acceleration: int) -> None:
         self.accelerations.append(acceleration)
@@ -93,6 +94,14 @@ class _CarouselStepper:
     def move_degrees(self, degrees: float) -> bool:
         self.moves.append(degrees)
         return True
+
+    @property
+    def enabled(self) -> bool:
+        return self.enabled_values[-1] if self.enabled_values else False
+
+    @enabled.setter
+    def enabled(self, value: bool) -> None:
+        self.enabled_values.append(bool(value))
 
 
 class _CarouselConfig:
@@ -313,6 +322,7 @@ def test_c4_callables_restore_default_speed_for_slow_moves(monkeypatch) -> None:
     assert irl.carousel_stepper.accelerations == [10000, 9000]
     assert irl.carousel_stepper.speed_limits == [(16, 240), (16, 100)]
     assert irl.carousel_stepper.moves == [6.0, 3.0]
+    assert irl.carousel_stepper.enabled_values == [True, True]
 
 
 def test_c4_callables_convert_tray_degrees_to_stepper_degrees_live(monkeypatch) -> None:
@@ -340,10 +350,12 @@ def test_c4_callables_convert_tray_degrees_to_stepper_degrees_live(monkeypatch) 
 
     assert transport_move(6.0) is True
     assert irl.carousel_stepper.moves == [216.0]
+    assert irl.carousel_stepper.enabled_values == [True]
 
     irl.irl_config.classification_channel_config.stepper_degrees_per_tray_degree = 42.0
     assert transport_move(2.0) is True
     assert irl.carousel_stepper.moves[-1] == 84.0
+    assert irl.carousel_stepper.enabled_values[-1] is True
 
 
 def test_c4_eject_uses_narrow_exit_release_shimmy() -> None:

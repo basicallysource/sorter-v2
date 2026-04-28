@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import time
 from typing import Any, Dict
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from rt.perception.c4_wall_phase import detect_c4_wall_phase, phase_delta_deg
+from rt.perception.c4_wall_phase import detect_c4_wall_phase
+from rt.services.c4_optical_home import run_c4_optical_home
 from rt.services.sector_carousel import run_sector_carousel_ladder_selftest
 from server import shared_state
 
@@ -19,17 +19,19 @@ class C4RotorPhaseDetectPayload(BaseModel):
     feed_id: str = "c4_feed"
     sector_count: int = Field(default=5, ge=1, le=16)
     downscale: float = Field(default=0.4, gt=0.05, le=1.0)
-    apply_to_runtime: bool = True
+    apply_to_runtime: bool = False
 
 
 class C4RotorOpticalHomePayload(C4RotorPhaseDetectPayload):
+    apply_to_runtime: bool = True
     target_wall_angle_deg: float | None = None
     tolerance_deg: float = Field(default=2.5, gt=0.1, le=20.0)
-    max_iterations: int = Field(default=2, ge=0, le=5)
+    max_iterations: int = Field(default=5, ge=0, le=8)
     min_move_deg: float = Field(default=0.25, ge=0.0, le=5.0)
+    max_move_deg: float | None = Field(default=12.0, gt=0.0, le=36.0)
     motion_sign: float = Field(default=1.0, ge=-1.0, le=1.0)
-    probe_move_deg: float = Field(default=2.0, ge=0.0, le=10.0)
-    motion_response_gain: float | None = Field(default=None, ge=-20.0, le=20.0)
+    probe_move_deg: float = Field(default=0.0, ge=0.0, le=10.0)
+    motion_response_gain: float | None = Field(default=1.0, ge=-20.0, le=20.0)
     execute_move: bool = True
     settle_s: float = Field(default=0.20, ge=0.0, le=3.0)
 
@@ -142,6 +144,17 @@ def _detect(payload: C4RotorPhaseDetectPayload) -> Dict[str, Any]:
     return out
 
 
+def _detect_without_runtime_apply(payload: C4RotorPhaseDetectPayload) -> Dict[str, Any]:
+    return _detect(
+        C4RotorPhaseDetectPayload(
+            feed_id=payload.feed_id,
+            sector_count=payload.sector_count,
+            downscale=payload.downscale,
+            apply_to_runtime=False,
+        )
+    )
+
+
 def _move_c4_tray_degrees(degrees: float) -> bool:
     handle = _runtime_handle()
     c4 = getattr(handle, "c4", None)
@@ -158,97 +171,6 @@ def _move_c4_tray_degrees(degrees: float) -> bool:
         raise HTTPException(status_code=500, detail=f"C4 move failed: {exc}") from exc
 
 
-def _phase_error_for_detection(
-    detection: dict[str, Any],
-    *,
-    target_wall_angle_deg: float,
-    sector_count: int,
-) -> float | None:
-    offset = detection.get("sector_offset_deg")
-    if not detection.get("ok") or not isinstance(offset, (int, float)):
-        return None
-    return phase_delta_deg(
-        current_offset_deg=float(offset),
-        target_wall_angle_deg=float(target_wall_angle_deg),
-        sector_count=int(sector_count),
-    )
-
-
-def _estimate_motion_response_gain(
-    payload: C4RotorOpticalHomePayload,
-    *,
-    target_wall_angle_deg: float,
-    move_sign: float,
-) -> tuple[float | None, dict[str, Any] | None]:
-    if payload.motion_response_gain is not None:
-        return float(payload.motion_response_gain), {
-            "source": "payload",
-            "motion_response_gain": float(payload.motion_response_gain),
-        }
-    if not payload.execute_move or payload.probe_move_deg <= 0.0:
-        return None, None
-
-    before = _detect(payload)
-    before_error = _phase_error_for_detection(
-        before,
-        target_wall_angle_deg=target_wall_angle_deg,
-        sector_count=payload.sector_count,
-    )
-    if before_error is None:
-        return None, {
-            "source": "probe",
-            "ok": False,
-            "message": "probe skipped: initial phase detection failed",
-            "before": before,
-        }
-    probe_command = float(payload.probe_move_deg) * move_sign
-    moved = _move_c4_tray_degrees(probe_command)
-    if payload.settle_s > 0.0:
-        time.sleep(float(payload.settle_s))
-    after = _detect(payload)
-    after_error = _phase_error_for_detection(
-        after,
-        target_wall_angle_deg=target_wall_angle_deg,
-        sector_count=payload.sector_count,
-    )
-    if not moved or after_error is None:
-        return None, {
-            "source": "probe",
-            "ok": False,
-            "message": "probe failed",
-            "probe_command_deg": probe_command,
-            "moved": moved,
-            "before": before,
-            "after": after,
-        }
-
-    # Errors are target-current. If the commanded move increases the measured
-    # phase, the error shrinks by that amount.
-    observed_phase_delta = before_error - after_error
-    if abs(probe_command) < 1e-6 or abs(observed_phase_delta) < 1e-6:
-        return None, {
-            "source": "probe",
-            "ok": False,
-            "message": "probe produced no measurable phase change",
-            "probe_command_deg": probe_command,
-            "observed_phase_delta_deg": observed_phase_delta,
-            "before": before,
-            "after": after,
-        }
-    gain = float(observed_phase_delta / probe_command)
-    return gain, {
-        "source": "probe",
-        "ok": True,
-        "probe_command_deg": probe_command,
-        "observed_phase_delta_deg": observed_phase_delta,
-        "motion_response_gain": gain,
-        "before_error_deg": before_error,
-        "after_error_deg": after_error,
-        "before": before,
-        "after": after,
-    }
-
-
 @router.post("/api/c4/rotor-phase/detect")
 def detect_c4_rotor_phase(payload: C4RotorPhaseDetectPayload) -> Dict[str, Any]:
     """Detect current 5-wall rotor phase from the latest C4 frame."""
@@ -259,112 +181,23 @@ def detect_c4_rotor_phase(payload: C4RotorPhaseDetectPayload) -> Dict[str, Any]:
 def optical_home_c4_rotor(payload: C4RotorOpticalHomePayload) -> Dict[str, Any]:
     """Closed-loop optical homing: detect wall phase, move to target, verify."""
     target = _target_wall_angle(payload)
-    iterations: list[dict[str, Any]] = []
-    final: dict[str, Any] | None = None
-    success = False
-    move_sign = -1.0 if payload.motion_sign < 0.0 else 1.0
-    response_gain, probe = _estimate_motion_response_gain(
-        payload,
+    return run_c4_optical_home(
+        detect_phase=lambda: _detect_without_runtime_apply(payload),
+        move_tray_degrees=_move_c4_tray_degrees,
+        apply_phase=_apply_phase_to_runtime,
         target_wall_angle_deg=target,
-        move_sign=move_sign,
+        sector_count=payload.sector_count,
+        tolerance_deg=payload.tolerance_deg,
+        max_iterations=payload.max_iterations,
+        min_move_deg=payload.min_move_deg,
+        max_move_deg=payload.max_move_deg,
+        motion_sign=payload.motion_sign,
+        probe_move_deg=payload.probe_move_deg,
+        motion_response_gain=payload.motion_response_gain,
+        execute_move=payload.execute_move,
+        settle_s=payload.settle_s,
+        apply_to_runtime=payload.apply_to_runtime,
     )
-    response_gain_valid = response_gain is not None and 0.2 <= abs(response_gain) <= 8.0
-    if response_gain is not None and not response_gain_valid:
-        return {
-            "ok": False,
-            "execute_move": bool(payload.execute_move),
-            "target_wall_angle_deg": target,
-            "tolerance_deg": float(payload.tolerance_deg),
-            "motion_sign": move_sign,
-            "motion_response_gain": response_gain,
-            "probe": probe,
-            "iterations": [],
-            "final_detection": probe.get("after") if isinstance(probe, dict) else None,
-            "message": "motion response probe was implausible; optical homing correction skipped",
-        }
-
-    for index in range(payload.max_iterations + 1):
-        detection = _detect(payload)
-        final = detection
-        offset = detection.get("sector_offset_deg")
-        if not detection.get("ok") or not isinstance(offset, (int, float)):
-            iterations.append(
-                {
-                    "iteration": index,
-                    "detection": detection,
-                    "move_deg": 0.0,
-                    "message": "phase detection failed",
-                }
-            )
-            break
-
-        delta = phase_delta_deg(
-            current_offset_deg=float(offset),
-            target_wall_angle_deg=target,
-            sector_count=payload.sector_count,
-        )
-        aligned = abs(delta) <= float(payload.tolerance_deg)
-        if aligned:
-            success = True
-            iterations.append(
-                {
-                    "iteration": index,
-                    "detection": detection,
-                    "target_wall_angle_deg": target,
-                    "phase_error_deg": delta,
-                    "move_deg": 0.0,
-                    "message": "target phase reached",
-                }
-            )
-            break
-
-        if index >= payload.max_iterations or abs(delta) < payload.min_move_deg:
-            iterations.append(
-                {
-                    "iteration": index,
-                    "detection": detection,
-                    "target_wall_angle_deg": target,
-                    "phase_error_deg": delta,
-                    "move_deg": 0.0,
-                    "message": "no further correction attempted",
-                }
-            )
-            break
-
-        move_deg = delta * move_sign
-        if response_gain is not None:
-            move_deg = delta / response_gain
-        moved = bool(payload.execute_move and _move_c4_tray_degrees(move_deg))
-        iterations.append(
-            {
-                "iteration": index,
-                "detection": detection,
-                "target_wall_angle_deg": target,
-                "phase_error_deg": delta,
-                "move_deg": move_deg if payload.execute_move else 0.0,
-                "planned_move_deg": move_deg,
-                "moved": moved,
-                "message": "correction move issued" if moved else "dry run correction planned",
-            }
-        )
-        if not payload.execute_move:
-            break
-        if not moved:
-            break
-        if payload.settle_s > 0.0:
-            time.sleep(float(payload.settle_s))
-
-    return {
-        "ok": success,
-        "execute_move": bool(payload.execute_move),
-        "target_wall_angle_deg": target,
-        "tolerance_deg": float(payload.tolerance_deg),
-        "motion_sign": move_sign,
-        "motion_response_gain": response_gain,
-        "probe": probe,
-        "iterations": iterations,
-        "final_detection": final,
-    }
 
 
 @router.get("/api/c4/carousel/status")

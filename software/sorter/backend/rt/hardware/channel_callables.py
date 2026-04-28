@@ -669,6 +669,8 @@ def build_c4_callables(
         target_speed = speed_limit or default_speed
         stepper_deg = _to_stepper_degrees(float(deg))
         try:
+            if hasattr(stepper, "enabled"):
+                stepper.enabled = True
             profile = profile_from_values(
                 channel="c4",
                 name=profile_name,

@@ -32,6 +32,9 @@ class LandingLeasePort(Protocol):
         min_spacing_deg: float,
         now_mono: float,
         track_global_id: int | None = None,
+        handoff_quality: str | None = None,
+        handoff_multi_risk: bool | None = None,
+        handoff_context: dict | None = None,
     ) -> str | None:
         """Reserve a future landing slot.
 

@@ -185,6 +185,7 @@ def test_bind_classification_rejects_stale_request_id() -> None:
 def test_c3_handoff_event_injects_slot1() -> None:
     handler = SectorCarouselHandler()
     handler.enable()
+    handler.verify_phase(source="test", now_mono=9.0)
     lease_id = handler.request_lease(
         predicted_arrival_in_s=0.6,
         min_spacing_deg=30.0,
@@ -211,6 +212,68 @@ def test_c3_handoff_event_injects_slot1() -> None:
     assert slot1["phase"] == SlotPhase.CAPTURING.value
     assert slot1["extras"]["c3_eject_ts"] == 11.0
     assert slot1["extras"]["landing_lease_id"] == lease_id
+
+
+def test_landing_lease_requires_verified_phase() -> None:
+    handler = SectorCarouselHandler(require_phase_verification=True)
+    handler.enable()
+
+    assert handler.request_lease(
+        predicted_arrival_in_s=0.6,
+        min_spacing_deg=30.0,
+        now_mono=9.5,
+        track_global_id=7,
+    ) is None
+
+    snap = handler.snapshot(now_mono=9.5)
+    assert snap["slots"][0]["blocked_reason"] == "phase_verification_required"
+    assert snap["counters"]["landing_lease_rejects"] == 1
+
+
+def test_c3_suspect_multi_handoff_routes_slot_to_discard() -> None:
+    handler = SectorCarouselHandler()
+    handler.enable()
+    handler.verify_phase(source="test", now_mono=9.0)
+    lease_id = handler.request_lease(
+        predicted_arrival_in_s=0.6,
+        min_spacing_deg=30.0,
+        now_mono=9.5,
+        track_global_id=7,
+        handoff_quality="suspect_multi",
+        handoff_multi_risk=True,
+        handoff_context={"candidate_global_ids": [7, 8]},
+    )
+    assert lease_id is not None
+
+    handler.on_c3_handoff_trigger(
+        Event(
+            topic=C3_HANDOFF_TRIGGER,
+            payload={
+                "piece_uuid": "piece-multi",
+                "landing_lease_id": lease_id,
+                "handoff_quality": "suspect_multi",
+                "handoff_multi_risk": True,
+                "multi_risk_score": 0.85,
+                "candidate_global_ids": [7, 8],
+                "c3_handoff_quality_details": {
+                    "handoff_quality": "suspect_multi",
+                    "handoff_multi_risk": True,
+                    "candidate_global_ids": [7, 8],
+                },
+            },
+            source="test",
+            ts_mono=10.0,
+        )
+    )
+
+    snap = handler.snapshot(now_mono=10.0)
+    slot1 = snap["slots"][0]
+    assert slot1["piece_uuid"] == "piece-multi"
+    assert slot1["contamination_state"] == SlotContaminationState.SUSPECT_MULTI.value
+    assert slot1["final_route"] == DISCARD_ROUTE
+    assert slot1["reject_reason"] == "c3_suspect_multi"
+    assert slot1["extras"]["handoff_quality"] == "suspect_multi"
+    assert snap["counters"]["c3_suspect_multi_count"] == 1
 
 
 def test_c3_handoff_event_without_lease_is_rejected() -> None:

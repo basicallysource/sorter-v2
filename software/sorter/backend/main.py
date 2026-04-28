@@ -332,7 +332,7 @@ def main() -> None:
         gc.runtime_stats.setLifecycleState("initializing")
         publishSorterState("initializing", layout)
 
-    def _build_rt_handle(*, start: bool, paused: bool = False, reason: str) -> None:
+    def _build_rt_handle(*, start: bool, paused: bool = False, reason: str):
         mode = "live" if start else "idle"
         gc.logger.info(f"Building rt runtime ({mode}; reason={reason})")
         from rt.bootstrap import build_rt_runtime
@@ -360,6 +360,201 @@ def main() -> None:
             publishSorterState("paused" if paused else "running", layout)
         else:
             publishSorterState("initializing", layout)
+        return rt_handle
+
+    def _env_bool(name: str, default: bool) -> bool:
+        raw = os.getenv(name, "").strip().lower()
+        if not raw:
+            return default
+        return raw not in {"0", "false", "no", "off"}
+
+    def _env_float(name: str, default: float) -> float:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+
+    def _env_optional_float(name: str, default: float | None) -> float | None:
+        raw = os.getenv(name)
+        if raw is None or not raw.strip():
+            return default
+        value = raw.strip().lower()
+        if value in {"auto", "none", "null", "probe"}:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            return default
+
+    def _env_int(name: str, default: int) -> int:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+
+    def _latest_rt_feed_frame_bgr(
+        rt_handle,
+        *,
+        feed_id: str,
+        timeout_s: float,
+    ):
+        deadline = time.monotonic() + max(0.1, float(timeout_s))
+        runner = None
+        while time.monotonic() < deadline:
+            runner_for_feed = getattr(rt_handle, "runner_for_feed", None)
+            runner = runner_for_feed(feed_id) if callable(runner_for_feed) else None
+            if runner is None:
+                time.sleep(0.05)
+                continue
+
+            pipeline = getattr(runner, "_pipeline", None)
+            feed = getattr(pipeline, "feed", None)
+            latest = getattr(feed, "latest", None)
+            if callable(latest):
+                frame = latest()
+                raw = getattr(frame, "raw", None)
+                if raw is not None:
+                    return raw
+
+            latest_state = getattr(runner, "latest_state", None)
+            state = latest_state() if callable(latest_state) else None
+            state_frame = getattr(state, "frame", None)
+            raw = getattr(state_frame, "raw", None)
+            if raw is not None:
+                return raw
+            time.sleep(0.05)
+
+        if runner is None:
+            raise RuntimeError(f"perception runner '{feed_id}' not found")
+        raise RuntimeError(f"no latest frame available for '{feed_id}'")
+
+    def _optically_home_c4_sector_carousel(rt_handle) -> dict[str, object] | None:
+        orchestrator = getattr(rt_handle, "orchestrator", None)
+        handler = getattr(orchestrator, "_sector_carousel_handler", None)
+        if handler is None:
+            return None
+
+        from rt.perception.c4_wall_phase import detect_c4_wall_phase
+        from rt.services.c4_optical_home import run_c4_optical_home
+
+        feed_id = os.getenv("SORTER_C4_OPTICAL_HOME_FEED", "c4_feed") or "c4_feed"
+        c4 = getattr(rt_handle, "c4", None)
+        target = getattr(c4, "_exit_angle_deg", None)
+        if not isinstance(target, (int, float)):
+            classification_cfg = getattr(irl_config, "classification_channel_config", None)
+            target = getattr(classification_cfg, "drop_angle_deg", 30.0)
+        target = float(target)
+        sector_count = _env_int("SORTER_C4_OPTICAL_HOME_SECTOR_COUNT", 5)
+        downscale = _env_float("SORTER_C4_OPTICAL_HOME_DOWNSCALE", 0.4)
+
+        def detect_phase() -> dict[str, object]:
+            image = _latest_rt_feed_frame_bgr(
+                rt_handle,
+                feed_id=feed_id,
+                timeout_s=_env_float("SORTER_C4_OPTICAL_HOME_FRAME_TIMEOUT_S", 5.0),
+            )
+            result = detect_c4_wall_phase(
+                image,
+                sector_count=sector_count,
+                downscale=downscale,
+            )
+            payload = result.as_dict(include_lines=False)
+            payload["feed_id"] = feed_id
+            return payload
+
+        def move_tray_degrees(degrees: float) -> bool:
+            runtime_c4 = getattr(rt_handle, "c4", None)
+            move = getattr(runtime_c4, "_transport_move", None)
+            if not callable(move):
+                move = getattr(runtime_c4, "_carousel_move", None)
+            if not callable(move):
+                raise RuntimeError("C4 runtime does not expose a tray move command")
+            return bool(move(float(degrees)))
+
+        def apply_phase(detection: dict[str, object]) -> bool:
+            update_timing = getattr(handler, "update_timing", None)
+            if callable(update_timing) and sector_count > 0:
+                update_timing(sector_step_deg=360.0 / float(sector_count))
+            verify = getattr(handler, "verify_phase", None)
+            if not callable(verify):
+                return False
+            offset = detection.get("sector_offset_deg")
+            verify(
+                source="system_home_optical_wall_phase",
+                measured_offset_deg=(
+                    float(offset) if isinstance(offset, (int, float)) else None
+                ),
+                details={
+                    **detection,
+                    "target_wall_angle_deg": target,
+                    "sector_count": sector_count,
+                    "homing_source": "system_home",
+                },
+            )
+            return True
+
+        result = run_c4_optical_home(
+            detect_phase=detect_phase,
+            move_tray_degrees=move_tray_degrees,
+            apply_phase=apply_phase,
+            target_wall_angle_deg=target,
+            sector_count=sector_count,
+            tolerance_deg=_env_float("SORTER_C4_OPTICAL_HOME_TOLERANCE_DEG", 2.5),
+            max_iterations=_env_int("SORTER_C4_OPTICAL_HOME_MAX_ITERATIONS", 5),
+            min_move_deg=_env_float("SORTER_C4_OPTICAL_HOME_MIN_MOVE_DEG", 0.25),
+            max_move_deg=_env_optional_float("SORTER_C4_OPTICAL_HOME_MAX_MOVE_DEG", 12.0),
+            motion_sign=_env_float("SORTER_C4_OPTICAL_HOME_MOTION_SIGN", 1.0),
+            probe_move_deg=_env_float("SORTER_C4_OPTICAL_HOME_PROBE_MOVE_DEG", 0.0),
+            motion_response_gain=_env_optional_float(
+                "SORTER_C4_OPTICAL_HOME_RESPONSE_GAIN",
+                1.0,
+            ),
+            execute_move=_env_bool("SORTER_C4_OPTICAL_HOME_EXECUTE_MOVE", True),
+            settle_s=_env_float("SORTER_C4_OPTICAL_HOME_SETTLE_S", 0.20),
+            apply_to_runtime=True,
+        )
+        if result.get("ok") and result.get("applied_to_runtime"):
+            gc.logger.info("C4 optical home verified: %s", result)
+            return result
+
+        invalidate = getattr(handler, "invalidate_phase", None)
+        if callable(invalidate):
+            invalidate(
+                reason=(
+                    "system_home_optical_home_apply_failed"
+                    if result.get("ok")
+                    else "system_home_optical_home_failed"
+                )
+            )
+        iterations = result.get("iterations")
+        last = iterations[-1] if isinstance(iterations, list) and iterations else {}
+        phase_error = last.get("phase_error_deg") if isinstance(last, dict) else None
+        message = (
+            result.get("message")
+            if isinstance(result.get("message"), str)
+            else (last.get("message") if isinstance(last, dict) else None)
+        )
+        raise RuntimeError(
+            (
+                "C4 optical home apply failed"
+                if result.get("ok")
+                else "C4 optical home failed"
+            )
+            + (f": {message}" if message else "")
+            + f" (target_wall_angle_deg={target:.2f}"
+            + (
+                f", phase_error_deg={float(phase_error):.2f}"
+                if isinstance(phase_error, (int, float))
+                else ""
+            )
+            + ")"
+        )
 
     def _cleanup_runtime_hardware(reason: str) -> None:
         nonlocal irl
@@ -399,6 +594,18 @@ def main() -> None:
         _replace_irl(standby_irl)
         setHardwareRuntimeIRL(irl)
 
+    def _enable_runtime_steppers(reason: str) -> None:
+        enable = getattr(irl, "enableSteppers", None)
+        if not callable(enable):
+            return
+        try:
+            enable()
+            gc.logger.info("Runtime steppers enabled for %s.", reason)
+        except Exception as exc:
+            message = f"failed to enable runtime steppers for {reason}: {exc}"
+            gc.logger.error(message)
+            raise RuntimeError(message) from exc
+
     def _home_hardware() -> None:
         """Discover hardware, home carousel + chute, then spin up rt-runtime."""
         nonlocal irl
@@ -417,6 +624,7 @@ def main() -> None:
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
         _start_stepper_thermal_guard("hardware home")
+        _enable_runtime_steppers("hardware home")
 
         machine_setup = getattr(irl_config, "machine_setup", None)
         if machine_setup is not None:
@@ -471,12 +679,16 @@ def main() -> None:
         # Build and start the rt runtime.
         shared_state.setHardwareStatus(homing_step="Starting rt runtime...")
         try:
-            _build_rt_handle(start=True, paused=True, reason="hardware home")
+            rt_handle = _build_rt_handle(start=True, paused=True, reason="hardware home")
         except Exception as exc:
+            message = f"rt runtime failed: {exc}"
             gc.logger.error(f"rt runtime build/start failed: {exc}")
-            shared_state.setHardwareStatus(error=f"rt runtime failed: {exc}")
+            shared_state.setHardwareStatus(error=message)
             shared_state.setHardwareStatus(clear_homing_step=True)
-            return
+            raise RuntimeError(message) from exc
+
+        shared_state.setHardwareStatus(homing_step="Optically homing C4 rotor...")
+        _optically_home_c4_sector_carousel(rt_handle)
 
         try:
             get_waveshare_inventory_manager().trigger_refresh()
@@ -487,9 +699,12 @@ def main() -> None:
         gc.logger.info("Hardware initialization + rt runtime online.")
 
     def _initialize_hardware() -> None:
-        """Bring up IRL + enable steppers without homing carousel/chute.
+        """Bring up stepper hardware for manual jogging.
 
-        Used by the setup wizard's Motion Direction Check step.
+        Used by the setup wizard and settings pages for manual direction
+        checks. This deliberately avoids runtime startup, homing, servo
+        opening, and global stepper-enable side effects; individual jog/move
+        routes enable only the selected axis.
         """
         nonlocal irl
 
@@ -497,35 +712,21 @@ def main() -> None:
             _cleanup_runtime_hardware("preparing for stepper jog")
 
         shared_state.setHardwareStatus(homing_step="Discovering hardware...")
-        gc.logger.info("Initializing hardware (no homing)...")
-        real_irl = mkIRLInterface(irl_config, gc)
+        gc.logger.info("Initializing stepper hardware for manual control...")
+        real_irl = mkIRLInterface(
+            irl_config,
+            gc,
+            required_stepper_names=(),
+            initialize_servos=False,
+            require_homing_hardware=False,
+        )
         real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
         _start_stepper_thermal_guard("hardware initialize")
 
-        if gc.disable_servos:
-            gc.logger.info("Servo control disabled via --disable servos")
-        else:
-            shared_state.setHardwareStatus(homing_step="Opening servos...")
-            for servo in irl.servos:
-                try:
-                    servo.open()
-                except Exception as e:
-                    gc.logger.warning(
-                        f"Failed to open servo: {e}. Continuing without initialization."
-                    )
-            _checkServoBusHealth(gc, irl)
-
-        shared_state.setHardwareStatus(homing_step="Preparing rt runtime...")
-        try:
-            _build_rt_handle(start=True, paused=True, reason="hardware initialize")
-        except Exception as exc:
-            gc.logger.error(f"rt runtime build failed during initialize: {exc}")
-            raise
-
         shared_state.setHardwareStatus(clear_homing_step=True)
-        gc.logger.info("Hardware initialized (steppers ready, no homing performed).")
+        gc.logger.info("Stepper hardware initialized for manual control.")
 
     setSorterLifecycle(
         SorterLifecyclePort(

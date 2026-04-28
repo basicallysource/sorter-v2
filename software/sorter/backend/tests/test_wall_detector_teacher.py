@@ -24,11 +24,9 @@ def test_user_prompt_describes_5_walls_and_image_size() -> None:
     text = wall_detector_prompt(image_width=1280, image_height=720)
     assert "5" in text  # five walls
     assert "1280" in text and "720" in text
-    # The 3-bbox schema asks for grouped wall_full / wall_start_inner /
-    # wall_end_outer per wall.
-    assert "wall_full" in text
-    assert "wall_start_inner" in text
-    assert "wall_end_outer" in text
+    assert "inner_point" in text
+    assert "outer_point" in text
+    assert "thickness" in text
 
 
 def test_user_prompt_describes_actual_mask_colors() -> None:
@@ -79,14 +77,13 @@ def test_user_prompt_uses_gemini_normalized_scale() -> None:
     assert "y_min" in text and "x_min" in text
 
 
-def test_user_prompt_groups_three_bboxes_per_wall() -> None:
-    """Each wall must be returned as a group of three bboxes sharing a
-    wall_id, so we can derive endpoints from the small marker bboxes
-    instead of asking Gemini for raw points."""
+def test_user_prompt_groups_one_geometry_record_per_wall() -> None:
+    """Each wall must be returned as one grouped geometry record sharing a
+    wall_id, so Hive receives one review/training box per physical wall."""
     text = wall_detector_prompt(image_width=1280, image_height=720)
     assert "wall_id" in text
-    assert "three" in text.lower() or "3 " in text
-    assert "wall_full" in text and "wall_start_inner" in text and "wall_end_outer" in text
+    assert "inner_point" in text and "outer_point" in text
+    assert "wall_bbox" in text
 
 
 def _make_wall(
@@ -195,7 +192,7 @@ def _wall_entry(
 
 
 def test_parse_wall_response_scales_3bbox_into_pixels() -> None:
-    """Gemini emits the three bboxes in 0..1000 normalized space; the
+    """Gemini may emit legacy three-bbox records in 0..1000 normalized space; the
     parser rescales them to actual image pixels."""
     payload = {
         "walls": [
@@ -220,9 +217,34 @@ def test_parse_wall_response_scales_3bbox_into_pixels() -> None:
     assert ((ix1 + ix2) / 2, (iy1 + iy2) / 2) == pytest.approx((1000.0, 500.0))
     # Polygon is 4 corners.
     assert len(w.polygon_xy) == 4
-    # bbox_xyxy aliases wall_full (same content).
-    assert w.bbox_xyxy == w.wall_full_xyxy
+    # bbox_xyxy is the tighter AABB around the derived thin OBB, not the
+    # possibly wasteful raw wall_full AABB.
+    assert w.bbox_xyxy != w.wall_full_xyxy
     assert notes == "one wall pointing right"
+
+
+def test_parse_wall_response_scales_point_schema_into_pixels() -> None:
+    """Preferred wall labels are centerline endpoints plus thickness."""
+    payload = {
+        "walls": [
+            {
+                "wall_id": 1,
+                "inner_point": [500, 500],
+                "outer_point": [500, 950],
+                "thickness": 20,
+                "wall_bbox": [490, 490, 510, 960],
+                "confidence": 0.9,
+            }
+        ]
+    }
+    walls, _ = parse_wall_response(payload, image_width=2000, image_height=1000)
+    assert len(walls) == 1
+    w = walls[0]
+    assert w.hub_xy == pytest.approx((1000.0, 500.0))
+    assert w.rim_xy == pytest.approx((1900.0, 500.0))
+    assert w.thickness_px == pytest.approx(20.0)
+    assert len(w.polygon_xy) == 4
+    assert w.bbox_xyxy == pytest.approx((1000.0, 490.0, 1900.0, 510.0))
 
 
 def test_parse_wall_response_handles_diagonal_walls_with_obb() -> None:
@@ -327,10 +349,9 @@ def test_parse_wall_response_clamps_invalid_confidence() -> None:
     assert walls[1].confidence == 0.0
 
 
-def test_parse_wall_response_skips_entries_missing_one_of_three_bboxes() -> None:
-    """All three of wall_full, wall_start_inner, wall_end_outer must be
-    present — partial entries are dropped so YOLO never sees half-labelled
-    walls."""
+def test_parse_wall_response_skips_entries_missing_an_endpoint() -> None:
+    """Both endpoints must be present, either as point-schema points or
+    legacy marker bboxes."""
     payload = {
         "walls": [
             {

@@ -59,6 +59,22 @@ class MachineSetupPayload(BaseModel):
 
 
 def _board_summary(board: Any) -> dict[str, Any]:
+    stepper_details: list[dict[str, Any]] = []
+    iter_steppers = getattr(board, "iter_steppers", None)
+    if callable(iter_steppers):
+        try:
+            for discovered in iter_steppers():
+                stepper = getattr(discovered, "stepper", None)
+                stepper_details.append(
+                    {
+                        "canonical_name": getattr(discovered, "canonical_name", None),
+                        "physical_name": getattr(discovered, "physical_name", None),
+                        "channel": getattr(stepper, "channel", None),
+                    }
+                )
+        except Exception:
+            stepper_details = []
+
     return {
         "family": getattr(board.identity, "family", "unknown"),
         "role": getattr(board.identity, "role", "unknown"),
@@ -66,6 +82,7 @@ def _board_summary(board: Any) -> dict[str, Any]:
         "port": getattr(board.identity, "port", ""),
         "address": getattr(board.identity, "address", 0),
         "logical_steppers": list(getattr(board, "logical_stepper_names", tuple())),
+        "steppers": stepper_details,
         "servo_count": len(getattr(board, "servos", [])),
         "input_aliases": dict(getattr(board, "input_aliases", {})),
     }
@@ -355,6 +372,16 @@ def _enumerate_usb_devices(
     #    did not expose a VID for that port (common for CDC-ACM on some hosts).
     for device_path, board in boards_by_port.items():
         meta = comports_by_device.get(device_path)
+        stepper_details = list(board.get("steppers", []))
+        stepper_detail_text = ", ".join(
+            (
+                f"{item.get('canonical_name')}@ch{item.get('channel')}"
+                if item.get("channel") is not None
+                else str(item.get("canonical_name"))
+            )
+            for item in stepper_details
+            if item.get("canonical_name")
+        )
         devices.append(
             {
                 "device": device_path,
@@ -372,8 +399,9 @@ def _enumerate_usb_devices(
                 "role": board.get("role"),
                 "device_name": board.get("device_name"),
                 "logical_steppers": list(board.get("logical_steppers", [])),
+                "steppers": stepper_details,
                 "servo_count": int(board.get("servo_count", 0)),
-                "detail": ", ".join(board.get("logical_steppers", []) or [])
+                "detail": stepper_detail_text
                 or "No logical steppers",
             }
         )

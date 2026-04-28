@@ -79,6 +79,11 @@ DEFAULT_TRANSPORT_BAD_ACTOR_STATIONARY_AFTER_S = 6.0
 DEFAULT_TRANSPORT_BAD_ACTOR_OBSERVE_S = 10.0
 DEFAULT_TRANSPORT_BAD_ACTOR_CAPACITY_BLOCK_COUNT = 8
 ACTION_TRACK_MIN_HITS = 2
+HANDOFF_QUALITY_SINGLE_CONFIDENT = "single_confident"
+HANDOFF_QUALITY_SUSPECT_MULTI = "suspect_multi"
+HANDOFF_QUALITY_UNKNOWN = "unknown"
+DEFAULT_HANDOFF_MULTI_RISK_ARC_RAD = math.radians(45.0)
+DEFAULT_HANDOFF_MULTI_RISK_SPACING_RAD = math.radians(35.0)
 # Padding on either side of a pulse window so frame-capture jitter still
 # lands inside the rotation window for the ghost-gating tracker.
 _ROTATION_WINDOW_PAD_S = 0.15
@@ -214,6 +219,7 @@ class RuntimeC3(BaseRuntime):
         self._lease_min_spacing_deg: float = 30.0
         self._lease_transit_estimate_s: float = 0.6
         self._lease_ttl_s: float = 1.5
+        self._last_handoff_quality: dict[str, Any] | None = None
         self._arrival_diagnostics_armed: bool = False
         self._purge_mode: bool = False
         self._sample_transport_step_deg: float | None = None
@@ -323,6 +329,7 @@ class RuntimeC3(BaseRuntime):
             "exit_handoff_spacing_s": max(0.0, self._next_exit_handoff_at - ts),
             "exit_handoff_min_interval_s": float(self._exit_handoff_min_interval_s),
             "transport_velocity": self._transport_velocity.snapshot.as_dict(),
+            "last_handoff_quality": dict(self._last_handoff_quality or {}),
             "upstream_bad_actor_suppression": self._upstream_bad_actor_suppressor.snapshot(
                 now_mono=ts,
             ),
@@ -420,6 +427,13 @@ class RuntimeC3(BaseRuntime):
             if not self._purge_mode:
                 self._credit_new_arrivals(action_tracks, now_mono)
             exit_track = self._pick_exit_track(active_visible_tracks)
+            handoff_quality = self._estimate_handoff_quality(
+                exit_track=exit_track,
+                visible_tracks=visible_tracks,
+                action_tracks=action_tracks,
+                ignored_bad_actor_keys=ignored_bad_actor_keys,
+                now_mono=now_mono,
+            )
             if self._hw.busy():
                 self._set_state("pulsing", blocked_reason="hw_busy")
                 return
@@ -468,6 +482,7 @@ class RuntimeC3(BaseRuntime):
                 mode,
                 now_mono,
                 commit_to_downstream=exit_track is not None,
+                handoff_quality=handoff_quality if exit_track is not None else None,
             )
         finally:
             self._tick_end(start)
@@ -592,6 +607,115 @@ class RuntimeC3(BaseRuntime):
             return None
         return approach
 
+    def _estimate_handoff_quality(
+        self,
+        *,
+        exit_track: Track | None,
+        visible_tracks: list[Track],
+        action_tracks: list[Track],
+        ignored_bad_actor_keys: set[int],
+        now_mono: float,
+    ) -> dict[str, Any]:
+        if exit_track is None or exit_track.angle_rad is None:
+            return {
+                "handoff_quality": HANDOFF_QUALITY_UNKNOWN,
+                "handoff_multi_risk": False,
+                "multi_risk_score": 0.0,
+                "risk_reasons": [],
+                "candidate_track_ids": [],
+                "candidate_global_ids": [],
+                "c3_exit_visible_count": 0,
+                "c3_exit_actionable_count": 0,
+                "c3_nearby_track_count": 0,
+                "c3_ignored_near_exit_count": 0,
+                "c3_min_spacing_deg": None,
+                "c3_cluster_score": 0.0,
+                "c3_holdover_active": self.in_holdover(now_mono),
+            }
+
+        risk_arc = max(self._approach_near_arc, DEFAULT_HANDOFF_MULTI_RISK_ARC_RAD)
+        spacing_arc = DEFAULT_HANDOFF_MULTI_RISK_SPACING_RAD
+        exit_angle = float(exit_track.angle_rad)
+        exit_key = track_key(exit_track)
+
+        def _angle(track: Track) -> float | None:
+            return float(track.angle_rad) if track.angle_rad is not None else None
+
+        def _near_exit(track: Track) -> bool:
+            ang = _angle(track)
+            return ang is not None and abs(_wrap_rad(ang)) <= risk_arc
+
+        exit_visible_tracks = [t for t in visible_tracks if _near_exit(t)]
+        exit_action_tracks = [t for t in action_tracks if _near_exit(t)]
+        ignored_near_exit_count = sum(
+            1
+            for t in visible_tracks
+            if track_key(t) in ignored_bad_actor_keys and _near_exit(t)
+        )
+
+        spacings: list[float] = []
+        nearby_count = 0
+        for t in visible_tracks:
+            if track_key(t) == exit_key:
+                continue
+            ang = _angle(t)
+            if ang is None:
+                continue
+            diff = abs(_wrap_rad(ang - exit_angle))
+            spacings.append(diff)
+            if diff <= spacing_arc:
+                nearby_count += 1
+
+        min_spacing_deg = (
+            math.degrees(min(spacings)) if spacings else None
+        )
+        cluster_score = 0.0
+        if len(exit_visible_tracks) > 1:
+            cluster_score = min(1.0, (len(exit_visible_tracks) - 1) / 2.0)
+
+        score = 0.0
+        reasons: list[str] = []
+        if len(exit_action_tracks) > 1:
+            score = max(score, 0.85)
+            reasons.append("multiple_actionable_exit_tracks")
+        if nearby_count > 0:
+            score = max(score, 0.70)
+            reasons.append("nearby_track_spacing")
+        if ignored_near_exit_count > 0:
+            score = max(score, 0.60)
+            reasons.append("ignored_bad_actor_near_exit")
+        if self.in_holdover(now_mono) and len(action_tracks) >= 2:
+            score = max(score, 0.50)
+            reasons.append("holdover_with_multiple_tracks")
+
+        multi_risk = score >= 0.50
+        quality = (
+            HANDOFF_QUALITY_SUSPECT_MULTI
+            if multi_risk
+            else HANDOFF_QUALITY_SINGLE_CONFIDENT
+        )
+        return {
+            "handoff_quality": quality,
+            "handoff_multi_risk": bool(multi_risk),
+            "multi_risk_score": float(score),
+            "risk_reasons": reasons,
+            "selected_track_id": getattr(exit_track, "track_id", None),
+            "selected_global_id": getattr(exit_track, "global_id", None),
+            "candidate_track_ids": [
+                getattr(t, "track_id", None) for t in exit_action_tracks
+            ],
+            "candidate_global_ids": [
+                getattr(t, "global_id", None) for t in exit_action_tracks
+            ],
+            "c3_exit_visible_count": int(len(exit_visible_tracks)),
+            "c3_exit_actionable_count": int(len(exit_action_tracks)),
+            "c3_nearby_track_count": int(nearby_count),
+            "c3_ignored_near_exit_count": int(ignored_near_exit_count),
+            "c3_min_spacing_deg": min_spacing_deg,
+            "c3_cluster_score": float(cluster_score),
+            "c3_holdover_active": self.in_holdover(now_mono),
+        }
+
     def _closest_actionable_within(
         self, tracks: list[Track], arc: float
     ) -> Track | None:
@@ -638,6 +762,7 @@ class RuntimeC3(BaseRuntime):
         commit_to_downstream: bool,
         repeat_count: int = 1,
         source: str | None = None,
+        handoff_quality: dict[str, Any] | None = None,
     ) -> None:
         repeat_count = max(1, int(repeat_count))
         # Only pieces inside the commit zone (passed in as
@@ -676,11 +801,12 @@ class RuntimeC3(BaseRuntime):
                     )
                     return
                 if self._landing_lease_port is not None and claim_key is not None:
-                    lease_id = self._landing_lease_port.request_lease(
+                    lease_id = self._request_downstream_landing_lease(
                         predicted_arrival_in_s=self._lease_transit_estimate_s,
                         min_spacing_deg=self._lease_min_spacing_deg,
                         now_mono=now_mono,
                         track_global_id=claim_key,
+                        handoff_quality=handoff_quality,
                     )
                     if lease_id is None:
                         self._set_state(
@@ -766,8 +892,13 @@ class RuntimeC3(BaseRuntime):
                         track,
                         now_mono,
                         completed_at_mono=time.monotonic(),
+                        handoff_quality=handoff_quality,
                     )
-                    self._publish_transit_candidate(track, now_mono)
+                    self._publish_transit_candidate(
+                        track,
+                        now_mono,
+                        handoff_quality=handoff_quality,
+                    )
             if not ok and commits_slot:
                 self._downstream_slot.release()
                 if claim_key is not None:
@@ -984,12 +1115,46 @@ class RuntimeC3(BaseRuntime):
         except Exception:
             self._logger.exception("RuntimeC3: rotation-window publish failed")
 
+    def _request_downstream_landing_lease(
+        self,
+        *,
+        predicted_arrival_in_s: float,
+        min_spacing_deg: float,
+        now_mono: float,
+        track_global_id: int,
+        handoff_quality: dict[str, Any] | None,
+    ) -> str | None:
+        port = self._landing_lease_port
+        if port is None:
+            return None
+        base_kwargs = {
+            "predicted_arrival_in_s": predicted_arrival_in_s,
+            "min_spacing_deg": min_spacing_deg,
+            "now_mono": now_mono,
+            "track_global_id": track_global_id,
+        }
+        quality = dict(handoff_quality or {})
+        kwargs = dict(base_kwargs)
+        kwargs.update({
+            "handoff_quality": quality.get("handoff_quality"),
+            "handoff_multi_risk": quality.get("handoff_multi_risk"),
+            "handoff_context": quality,
+        })
+        try:
+            return port.request_lease(**kwargs)
+        except TypeError as exc:
+            # Backward-compatible with older strict LandingLeasePort fakes.
+            if "unexpected keyword" not in str(exc):
+                raise
+            return port.request_lease(**base_kwargs)
+
     def _publish_c4_handoff_trigger(
         self,
         track: Track,
         now_mono: float,
         *,
         completed_at_mono: float | None = None,
+        handoff_quality: dict[str, Any] | None = None,
     ) -> None:
         if self._bus is None:
             return
@@ -1004,6 +1169,12 @@ class RuntimeC3(BaseRuntime):
             if claim_key is not None
             else None
         )
+        quality = dict(handoff_quality or {})
+        self._last_handoff_quality = dict(quality)
+        quality_value = str(
+            quality.get("handoff_quality") or HANDOFF_QUALITY_UNKNOWN
+        )
+        multi_risk = bool(quality.get("handoff_multi_risk"))
         try:
             self._bus.publish(
                 Event(
@@ -1021,6 +1192,20 @@ class RuntimeC3(BaseRuntime):
                             float(self._lease_transit_estimate_s) - 0.2,
                             float(self._lease_transit_estimate_s) + 0.4,
                         ],
+                        "handoff_quality": quality_value,
+                        "handoff_multi_risk": multi_risk,
+                        "multi_risk_score": quality.get("multi_risk_score"),
+                        "candidate_track_ids": quality.get("candidate_track_ids") or [],
+                        "candidate_global_ids": quality.get("candidate_global_ids") or [],
+                        "c3_exit_visible_count": quality.get("c3_exit_visible_count"),
+                        "c3_exit_actionable_count": quality.get("c3_exit_actionable_count"),
+                        "c3_nearby_track_count": quality.get("c3_nearby_track_count"),
+                        "c3_min_spacing_deg": quality.get("c3_min_spacing_deg"),
+                        "c3_cluster_score": quality.get("c3_cluster_score"),
+                        "c3_ignored_near_exit_count": quality.get(
+                            "c3_ignored_near_exit_count"
+                        ),
+                        "c3_handoff_quality_details": quality,
                     },
                     source=self.runtime_id,
                     ts_mono=float(now_mono),
@@ -1031,7 +1216,13 @@ class RuntimeC3(BaseRuntime):
         except Exception:
             self._logger.exception("RuntimeC3: c4 handoff trigger publish failed")
 
-    def _publish_transit_candidate(self, track: Track, now_mono: float) -> None:
+    def _publish_transit_candidate(
+        self,
+        track: Track,
+        now_mono: float,
+        *,
+        handoff_quality: dict[str, Any] | None = None,
+    ) -> None:
         registry = self._track_transit
         if registry is None or track.global_id is None:
             return
@@ -1056,6 +1247,10 @@ class RuntimeC3(BaseRuntime):
                 "source_track_id": track.track_id,
                 "source_piece_uuid": track.piece_uuid,
                 "source_score": float(track.score),
+                "handoff_quality": (handoff_quality or {}).get("handoff_quality"),
+                "handoff_multi_risk": bool(
+                    (handoff_quality or {}).get("handoff_multi_risk")
+                ),
             },
             source_embedding=track.appearance_embedding,
         )
@@ -1355,6 +1550,9 @@ class _C3LandingLeasePort:
         min_spacing_deg: float,
         now_mono: float,
         track_global_id: int | None = None,
+        handoff_quality: str | None = None,
+        handoff_multi_risk: bool | None = None,
+        handoff_context: dict | None = None,
     ) -> str | None:
         spacing = math.radians(max(0.0, float(min_spacing_deg)))
         if not self._runtime._upstream_lease_drop_zone_clear(

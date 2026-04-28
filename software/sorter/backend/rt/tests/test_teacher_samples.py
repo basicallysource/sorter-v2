@@ -15,11 +15,13 @@ from rt.events.topics import RUNTIME_MOVE_COMPLETED
 from rt.perception.pipeline import PerceptionFrameState
 from rt.perception.teacher_samples import (
     AuxiliaryTeacherSampleCollector,
+    GeminiWallTeacherAnnotator,
     TeacherAnnotation,
     TeacherDetection,
     TeacherSampleCollectionConfig,
     _gemini_prompt,
 )
+from server.wall_detector_teacher import WallDetection, WallTeacherResult
 from utils.polygon_crop import apply_polygon_crop
 
 
@@ -33,6 +35,8 @@ def test_gemini_prompt_emphasizes_individual_parts_and_transparent_pieces() -> N
     assert "Do not draw one large box around a pile" in prompt
     assert "transparent, translucent, clear, smoky, or tinted LEGO pieces" in prompt
     assert "avoid labeling pure glare" in prompt
+    assert "four or five evenly spaced radial divider walls/fins" in prompt
+    assert "do not draw boxes around them" in prompt
 
 
 @dataclass
@@ -564,6 +568,56 @@ def test_collect_once_routes_classification_channel_to_wall_teacher_when_enabled
     assert detections[0]["kind"] == "wall"
 
 
+def test_wall_teacher_adapter_emits_one_detection_per_wall(monkeypatch: Any) -> None:
+    """Endpoint/OBB geometry stays in raw_payload; Hive/training gets one
+    flat bbox per physical wall."""
+
+    class _FakeWallTeacher:
+        def label_array(self, image: np.ndarray, *, model: str) -> WallTeacherResult:
+            wall = WallDetection(
+                wall_full_xyxy=(90.0, 90.0, 410.0, 130.0),
+                wall_start_inner_xyxy=(95.0, 95.0, 105.0, 105.0),
+                wall_end_outer_xyxy=(395.0, 115.0, 405.0, 125.0),
+                hub_xy=(100.0, 100.0),
+                rim_xy=(400.0, 120.0),
+                thickness_px=12.0,
+                bbox_xyxy=(99.0, 94.0, 401.0, 126.0),
+                polygon_xy=(
+                    (99.0, 94.0),
+                    (101.0, 106.0),
+                    (401.0, 126.0),
+                    (399.0, 114.0),
+                ),
+                confidence=0.93,
+            )
+            return WallTeacherResult(
+                image_path=__file__,
+                image_width=int(image.shape[1]),
+                image_height=int(image.shape[0]),
+                walls=[wall],
+                model=model,
+                raw_response={"walls": [{"wall_id": 1}]},
+            )
+
+    monkeypatch.setattr(
+        "server.wall_detector_teacher.GeminiWallTeacher",
+        _FakeWallTeacher,
+    )
+
+    annotator = GeminiWallTeacherAnnotator()
+    annotation = annotator.annotate(
+        np.zeros((480, 640, 3), dtype=np.uint8),
+        source_role="classification_channel",
+        feed_id="c4_feed",
+        model="test-model",
+    )
+
+    assert len(annotation.detections) == 1
+    assert annotation.detections[0].bbox_xyxy == (99, 94, 401, 126)
+    assert annotation.detections[0].description == "wall 1"
+    assert len(annotation.raw_payload["walls_parsed"]) == 1
+
+
 def test_collect_once_skips_wall_dispatch_for_feeder_roles() -> None:
     """Wall mode only applies to classification_channel; C2/C3 still use the
     loose-piece annotator even when the flag is on."""
@@ -634,7 +688,7 @@ def test_rotation_event_collects_only_the_changed_feed_after_move() -> None:
     assert len(manager.saved) == 1
     saved = manager.saved[0]
     assert saved["source_role"] == "c_channel_3"
-    assert saved["capture_reason"] == "rt_move_completed"
+    assert saved["capture_reason"] == "C-Channel Object Detection"
     assert saved["extra_metadata"]["teacher_capture_trigger"] == "rt_move_completed"
     assert saved["extra_metadata"]["teacher_capture_trigger_metadata"] == {
         "move_source": "test_move",

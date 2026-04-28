@@ -21,7 +21,7 @@ from role_aliases import (
     public_aux_camera_role,
     stored_camera_role_key,
 )
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Sequence, cast
 
 if TYPE_CHECKING:
     from machine_platform.control_board import ControlBoard
@@ -342,7 +342,7 @@ class ClassificationChannelConfig:
         self.exit_release_shimmy_amplitude_deg = 1.5
         self.exit_release_shimmy_cycles = 2
         self.exit_release_shimmy_microsteps_per_second = 1200
-        self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 1800
+        self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 4000
         self.stale_zone_timeout_s = 3.0
         self.hood_dwell_ms = 300
         # Minimum number of carousel-source crops required before the
@@ -393,19 +393,17 @@ class ClassificationChannelConfig:
         self.startup_purge_max_prime_moves = 3
         self.startup_purge_clear_hold_ms = 600
         self.startup_purge_speed_scale = 1.0
-        self.startup_purge_acceleration_microsteps_per_second_sq = 1800
+        self.startup_purge_acceleration_microsteps_per_second_sq = 4000
         # Scale for the normal pipeline-advance carousel move. C4 is
         # gear-driven, so the default profile favors smooth 3-8 degree tray
         # advances over aggressive acceleration. Operators can still push
         # throughput live via runtime tuning once transport looks clean.
         self.transport_speed_scale = 1.0
-        self.transport_acceleration_microsteps_per_second_sq = 1800
-        # Dedicated C4 is gear-driven from the former carousel motor port.
-        # Runtime geometry works in tray/object degrees, while the low-level
-        # stepper API works in motor degrees. The 2026-04-27 five-wall platter
-        # smoke test measured a 3° tray command at roughly 9° optical wall
-        # motion with the old 36.0 scale, so the active calibration is 12.0.
-        self.stepper_degrees_per_tray_degree = 12.0
+        self.transport_acceleration_microsteps_per_second_sq = 4000
+        # C4 uses the same C-channel gearbox as C1-C3. Runtime geometry works
+        # in tray/object degrees, while the low-level stepper API works in
+        # motor degrees.
+        self.stepper_degrees_per_tray_degree = 130.0 / 12.0
         self.size_classes = (
             ClassificationChannelSizeClassConfig(
                 name="S",
@@ -1174,7 +1172,14 @@ HARDWARE_DISCOVERY_ATTEMPTS = 8
 HARDWARE_DISCOVERY_RETRY_DELAY_S = 0.75
 
 
-def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
+def mkIRLInterface(
+    config: IRLConfig,
+    gc: GlobalConfig,
+    *,
+    required_stepper_names: Sequence[str] | None = None,
+    initialize_servos: bool = True,
+    require_homing_hardware: bool = True,
+) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.
 
@@ -1192,9 +1197,14 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     servo_closed_angle = machine_config.servo_closed_angle
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
     mcu_ports = MCUBus.enumerate_buses()
+    required_names = (
+        tuple(REQUIRED_STEPPER_NAMES)
+        if required_stepper_names is None
+        else tuple(required_stepper_names)
+    )
     control_boards = discover_control_boards(
         gc,
-        REQUIRED_STEPPER_NAMES,
+        required_names,
         attempts=HARDWARE_DISCOVERY_ATTEMPTS,
         retry_delay_s=HARDWARE_DISCOVERY_RETRY_DELAY_S,
     )
@@ -1322,7 +1332,11 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
-    if gc.disable_servos:
+    if not initialize_servos:
+        gc.logger.info("Servo init skipped for stepper-only hardware initialization")
+        irl_interface.servo_controller = None
+        irl_interface.servos = []
+    elif gc.disable_servos:
         gc.logger.info("Servo init skipped (--disable servos)")
         irl_interface.servo_controller = None
         irl_interface.servos = []
@@ -1370,39 +1384,77 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     carousel_calibration = loadCarouselCalibrationConfig(gc, machine_specific_params)
 
     if feeder_board is None:
+        if not require_homing_hardware:
+            gc.logger.warning("Feeder board not found — carousel homing support unavailable in stepper-only mode")
+        else:
+            raise RuntimeError("Feeder board not found — cannot initialize carousel homing")
+    elif not hasattr(irl_interface, "carousel_stepper"):
+        if not require_homing_hardware:
+            gc.logger.warning("Carousel stepper not bound — carousel homing support unavailable in stepper-only mode")
+        else:
+            raise RuntimeError("Carousel stepper not bound — cannot initialize carousel homing")
+    else:
+        carousel_home_pin = feeder_board.get_input(carousel_calibration.home_pin_channel)
+        if carousel_home_pin is None:
+            if not require_homing_hardware:
+                gc.logger.warning(
+                    f"Feeder board carousel home input channel {carousel_calibration.home_pin_channel} "
+                    "is unavailable in stepper-only mode"
+                )
+            else:
+                raise RuntimeError(
+                    f"Feeder board carousel home input channel {carousel_calibration.home_pin_channel} is unavailable."
+                )
+        else:
+            irl_interface.carousel_home_pin = carousel_home_pin
+            irl_interface.carousel_hw = CarouselHardware(
+                gc,
+                irl_interface.carousel_stepper,
+                carousel_home_pin,
+                endstop_active_high=carousel_calibration.endstop_active_high,
+            )
+
+    if require_homing_hardware and not hasattr(irl_interface, "carousel_hw"):
         raise RuntimeError("Feeder board not found — cannot initialize carousel homing")
-    carousel_home_pin = feeder_board.get_input(carousel_calibration.home_pin_channel)
-    if carousel_home_pin is None:
-        raise RuntimeError(
-            f"Feeder board carousel home input channel {carousel_calibration.home_pin_channel} is unavailable."
-        )
-    irl_interface.carousel_home_pin = carousel_home_pin
-    irl_interface.carousel_hw = CarouselHardware(
-        gc,
-        irl_interface.carousel_stepper,
-        carousel_home_pin,
-        endstop_active_high=carousel_calibration.endstop_active_high,
-    )
 
     from irl.chute import Chute
     chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
 
     if distribution_board is None:
+        if not require_homing_hardware:
+            gc.logger.warning("Distribution board not found — chute homing support unavailable in stepper-only mode")
+        else:
+            raise RuntimeError("Distribution board not found — cannot initialize chute homing")
+    elif not hasattr(irl_interface, "chute_stepper"):
+        if not require_homing_hardware:
+            gc.logger.warning("Chute stepper not bound — chute homing support unavailable in stepper-only mode")
+        else:
+            raise RuntimeError("Chute stepper not bound — cannot initialize chute homing")
+    else:
+        chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
+        if chute_home_pin is None:
+            if not require_homing_hardware:
+                gc.logger.warning(
+                    f"Distribution board chute home input channel {chute_calibration.home_pin_channel} "
+                    "is unavailable in stepper-only mode"
+                )
+            else:
+                raise RuntimeError(
+                    f"Distribution board chute home input channel {chute_calibration.home_pin_channel} is unavailable."
+                )
+        else:
+            irl_interface.chute = Chute(
+                gc,
+                irl_interface.chute_stepper,
+                chute_home_pin,
+                irl_interface.distribution_layout,
+                first_bin_center=chute_calibration.first_bin_center,
+                pillar_width_deg=chute_calibration.pillar_width_deg,
+                endstop_active_high=chute_calibration.endstop_active_high,
+                operating_speed_microsteps_per_second=chute_calibration.operating_speed_microsteps_per_second,
+            )
+
+    if require_homing_hardware and not hasattr(irl_interface, "chute"):
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
-    chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
-    if chute_home_pin is None:
-        raise RuntimeError(
-            f"Distribution board chute home input channel {chute_calibration.home_pin_channel} is unavailable."
-        )
-    irl_interface.chute = Chute(
-        gc,
-        irl_interface.chute_stepper,
-        chute_home_pin,
-        irl_interface.distribution_layout,
-        first_bin_center=chute_calibration.first_bin_center,
-        pillar_width_deg=chute_calibration.pillar_width_deg,
-        endstop_active_high=chute_calibration.endstop_active_high,
-        operating_speed_microsteps_per_second=chute_calibration.operating_speed_microsteps_per_second,
-    )
 
     return irl_interface

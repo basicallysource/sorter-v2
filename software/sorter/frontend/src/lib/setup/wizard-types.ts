@@ -5,6 +5,11 @@ export type DiscoveredBoard = {
 	port: string;
 	address: number;
 	logical_steppers: string[];
+	steppers?: Array<{
+		canonical_name: string | null;
+		physical_name: string | null;
+		channel: number | null;
+	}>;
 	servo_count: number;
 	input_aliases: Record<string, number>;
 };
@@ -29,6 +34,11 @@ export type UsbDevice = {
 	role?: string | null;
 	device_name?: string | null;
 	logical_steppers?: string[];
+	steppers?: Array<{
+		canonical_name: string | null;
+		physical_name: string | null;
+		channel: number | null;
+	}>;
 	servo_count?: number;
 };
 
@@ -60,6 +70,11 @@ export type WizardSummary = {
 				port: string;
 				address: number;
 				logical_steppers: string[];
+				steppers?: Array<{
+					canonical_name: string | null;
+					physical_name: string | null;
+					channel: number | null;
+				}>;
 				input_aliases: Record<string, number>;
 			}>;
 		} | null;

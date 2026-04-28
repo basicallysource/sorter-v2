@@ -211,6 +211,42 @@ def test_c3_handoff_trigger_carries_landing_lease_id() -> None:
     assert len(events) == 1
     assert events[0].payload["landing_lease_id"] == "lease-123"
     assert events[0].payload["track_global_id"] == 17
+    assert events[0].payload["handoff_quality"] == "single_confident"
+    assert events[0].payload["handoff_multi_risk"] is False
+
+
+def test_c3_handoff_trigger_marks_suspect_multi_when_second_track_near_exit() -> None:
+    bus = InProcessEventBus()
+    events = []
+    bus.subscribe(C3_HANDOFF_TRIGGER, events.append)
+    rt, _up, _down, log = _make(event_bus=bus, max_piece_count=5)
+    port = _GrantLandingLease("lease-456")
+    rt.set_landing_lease_port(port)
+    rt.set_downstream_landing_lease_required(True)
+
+    rt.tick(
+        RuntimeInbox(
+            tracks=_batch(
+                _track(track_id=1, global_id=17, angle_rad=0.0),
+                _track(track_id=2, global_id=18, angle_rad=math.radians(12.0)),
+            ),
+            capacity_downstream=1,
+        ),
+        now_mono=10.0,
+    )
+    bus.drain()
+
+    assert log and log[0].startswith("precise:")
+    assert len(events) == 1
+    payload = events[0].payload
+    assert payload["landing_lease_id"] == "lease-456"
+    assert payload["handoff_quality"] == "suspect_multi"
+    assert payload["handoff_multi_risk"] is True
+    assert payload["c3_exit_actionable_count"] == 2
+    assert payload["c3_nearby_track_count"] == 1
+    assert payload["candidate_global_ids"] == [17, 18]
+    assert port.requests[0]["handoff_quality"] == "suspect_multi"
+    assert port.requests[0]["handoff_multi_risk"] is True
 
 
 def test_c3_ignores_stationary_round_part_in_upstream_landing_arc() -> None:

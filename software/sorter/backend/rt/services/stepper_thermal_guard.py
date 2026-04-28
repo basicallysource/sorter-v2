@@ -118,7 +118,12 @@ class StepperThermalGuard:
     def _halt_all(self) -> None:
         for name, stepper in self._steppers.items():
             errors: list[str] = []
-            if hasattr(stepper, "move_at_speed"):
+            if name == "carousel" and hasattr(stepper, "enabled"):
+                try:
+                    stepper.enabled = False
+                except Exception as exc:
+                    errors.append(f"disable: {exc}")
+            elif hasattr(stepper, "move_at_speed"):
                 try:
                     stepper.move_at_speed(0)
                 except Exception as exc:

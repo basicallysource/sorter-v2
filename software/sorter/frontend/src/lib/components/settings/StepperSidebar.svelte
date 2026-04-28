@@ -16,6 +16,7 @@
 		moveStepperDegrees,
 		postStepperEndpoint,
 		pulseStepper,
+		readStepperErrorMessage,
 		saveStepperDirection as saveStepperDirectionRequest,
 		saveStepperTmcSettings,
 		stopStepperMotion,
@@ -59,6 +60,7 @@
 	let calibrating = $state(false);
 	let pulsing = $state<Record<string, boolean>>({});
 	let stopping = $state(false);
+	let initializingManualControl = $state(false);
 
 	// --- Messages ---
 	let errorMsg = $state<string | null>(null);
@@ -149,8 +151,18 @@
 	const hardwareState = $derived(
 		manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby'
 	);
+	const manualControlReady = $derived(hardwareState === 'initialized' || hardwareState === 'ready');
+	const manualControlStarting = $derived(
+		initializingManualControl || hardwareState === 'initializing' || hardwareState === 'homing'
+	);
 
 	function humanizeStepperError(message: string): string {
+		if (message.includes('Hardware not initialized')) {
+			return 'Hardware not initialized. Enable manual control first.';
+		}
+		if (message.includes("Stepper '") && message.includes('unavailable')) {
+			return `${displayLabel} is not bound to a live stepper. Enable manual control, then check board discovery if this persists.`;
+		}
 		if (message.includes('Controller not initialized')) {
 			return 'Hardware not started. Press Start in the dashboard first.';
 		}
@@ -279,7 +291,33 @@
 
 	// --- Stepper pulse/stop ---
 
+	async function initializeManualControl() {
+		if (manualControlStarting) return;
+		initializingManualControl = true;
+		statusMsg = '';
+		errorMsg = null;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/system/initialize`, {
+				method: 'POST'
+			});
+			if (!res.ok) throw new Error(await readStepperErrorMessage(res));
+			const payload = await res.json().catch(() => null);
+			if (payload?.ok === false) {
+				throw new Error(payload?.message ?? 'Manual control could not be started.');
+			}
+			statusMsg = payload?.message ?? 'Manual control starting.';
+		} catch (e: any) {
+			errorMsg = humanizeStepperError(e.message ?? 'Manual control could not be started.');
+		} finally {
+			initializingManualControl = false;
+		}
+	}
+
 	async function pulse(direction: 'cw' | 'ccw') {
+		if (!manualControlReady) {
+			errorMsg = 'Enable manual control first.';
+			return;
+		}
 		if (pulseMode === 'degrees') {
 			return moveDegrees(direction);
 		}
@@ -302,6 +340,10 @@
 	}
 
 	async function moveDegrees(direction: 'cw' | 'ccw') {
+		if (!manualControlReady) {
+			errorMsg = 'Enable manual control first.';
+			return;
+		}
 		const key = `${stepperKey}:${direction}`;
 		if (pulsing[key]) return;
 		pulsing = { ...pulsing, [key]: true };
@@ -483,6 +525,10 @@
 	}
 
 	async function saveTmcSettings() {
+		if (!manualControlReady) {
+			errorMsg = 'Enable manual control first.';
+			return;
+		}
 		tmcSaving = true;
 		errorMsg = null;
 		statusMsg = '';
@@ -542,6 +588,10 @@
 		}
 	});
 
+	$effect(() => {
+		if (manualControlReady && driverSettingsOpen && !tmcLoaded) void loadTmcSettings();
+	});
+
 	onMount(() => {
 		void loadSettings();
 		const interval = setInterval(() => {
@@ -592,6 +642,7 @@
 			{homing}
 			{canceling}
 			{stopping}
+			disabled={!manualControlReady}
 			bind:pulseMode
 			bind:pulseDuration
 			bind:pulseSpeed
@@ -600,6 +651,16 @@
 			onPulse={pulse}
 			onStop={stopStepper}
 		/>
+
+		{#if !manualControlReady}
+			<button
+				onclick={initializeManualControl}
+				disabled={manualControlStarting}
+				class="inline-flex h-10 cursor-pointer items-center justify-center border border-border bg-surface px-3 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+			>
+				{manualControlStarting ? 'Starting manual control...' : 'Enable manual control'}
+			</button>
+		{/if}
 
 		{#if isChute}
 			<StepperChuteOperation

@@ -37,6 +37,7 @@ def run_sector_carousel_ladder_selftest() -> dict[str, Any]:
     started = time.perf_counter()
     scenarios = [
         _scenario_phase_gate(),
+        _scenario_landing_lease_phase_gate(),
         _scenario_single_piece_lifecycle(),
         _scenario_five_token_ring(),
         _scenario_fault_injection(),
@@ -95,6 +96,48 @@ def _scenario_phase_gate() -> _ScenarioResult:
     )
     _expect_invariants_ok(result, handler, now_mono=2.2)
     result.metrics["move_count"] = len(moves)
+    return _finish(result)
+
+
+def _scenario_landing_lease_phase_gate() -> _ScenarioResult:
+    result = _result("landing_lease_phase_gate")
+    handler = SectorCarouselHandler(
+        require_phase_verification=True,
+        rotation_chunk_settle_s=0.0,
+    )
+    handler.enable()
+
+    denied = handler.request_lease(
+        predicted_arrival_in_s=0.6,
+        min_spacing_deg=30.0,
+        now_mono=1.0,
+        track_global_id=7,
+    )
+    snap = handler.snapshot(now_mono=1.0)
+    _expect(result, "landing lease denied before phase verification", denied is None)
+    _expect(
+        result,
+        "phase verification reason visible on slot 1",
+        snap["slots"][0]["blocked_reason"] == "phase_verification_required",
+    )
+    _expect(
+        result,
+        "no pending landing lease while phase is unverified",
+        snap["pending_landing_leases"] == 0,
+    )
+
+    handler.verify_phase(source="selftest", measured_offset_deg=0.0, now_mono=1.1)
+    granted = handler.request_lease(
+        predicted_arrival_in_s=0.6,
+        min_spacing_deg=30.0,
+        now_mono=1.2,
+        track_global_id=7,
+    )
+    _expect(result, "landing lease granted after phase verification", isinstance(granted, str))
+    _expect_invariants_ok(result, handler, now_mono=1.2)
+    result.metrics["landing_lease_rejects"] = handler.snapshot(now_mono=1.2)["counters"][
+        "landing_lease_rejects"
+    ]
     return _finish(result)
 
 

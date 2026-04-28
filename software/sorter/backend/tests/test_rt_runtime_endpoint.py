@@ -481,6 +481,113 @@ def test_c4_carousel_phase_verify_endpoint(monkeypatch: pytest.MonkeyPatch) -> N
     assert payload["carousel"]["auto_rotate_allowed"] is True
 
 
+def test_c4_rotor_phase_detect_is_passive_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    applied: list[dict[str, Any]] = []
+
+    class _Result:
+        ok = True
+
+        def as_dict(self, *, include_lines: bool = True) -> dict[str, Any]:
+            return {
+                "ok": True,
+                "sector_count": 5,
+                "sector_offset_deg": 30.0,
+                "lines": [] if include_lines else None,
+            }
+
+    monkeypatch.setattr(c4_rotor_router, "_latest_frame_bgr", lambda _feed_id: object())
+    monkeypatch.setattr(
+        c4_rotor_router,
+        "detect_c4_wall_phase",
+        lambda *_args, **_kwargs: _Result(),
+    )
+    monkeypatch.setattr(
+        c4_rotor_router,
+        "_apply_phase_to_runtime",
+        lambda result: applied.append(dict(result)) or True,
+    )
+
+    payload = c4_rotor_router.detect_c4_rotor_phase(
+        c4_rotor_router.C4RotorPhaseDetectPayload()
+    )
+
+    assert payload["ok"] is True
+    assert payload["applied_to_runtime"] is False
+    assert applied == []
+
+
+def test_c4_optical_home_applies_phase_only_after_success(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    applied: list[dict[str, Any]] = []
+
+    monkeypatch.setattr(
+        c4_rotor_router,
+        "_detect_without_runtime_apply",
+        lambda _payload: {
+            "ok": True,
+            "sector_count": 5,
+            "sector_offset_deg": 30.0,
+            "applied_to_runtime": False,
+        },
+    )
+    monkeypatch.setattr(
+        c4_rotor_router,
+        "_apply_phase_to_runtime",
+        lambda result: applied.append(dict(result)) or True,
+    )
+
+    payload = c4_rotor_router.optical_home_c4_rotor(
+        c4_rotor_router.C4RotorOpticalHomePayload(
+            target_wall_angle_deg=30.0,
+            execute_move=False,
+            apply_to_runtime=True,
+            max_iterations=0,
+        )
+    )
+
+    assert payload["ok"] is True
+    assert payload["applied_to_runtime"] is True
+    assert len(applied) == 1
+
+
+def test_c4_optical_home_does_not_apply_failed_phase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    applied: list[dict[str, Any]] = []
+
+    monkeypatch.setattr(
+        c4_rotor_router,
+        "_detect_without_runtime_apply",
+        lambda _payload: {
+            "ok": True,
+            "sector_count": 5,
+            "sector_offset_deg": 0.0,
+            "applied_to_runtime": False,
+        },
+    )
+    monkeypatch.setattr(
+        c4_rotor_router,
+        "_apply_phase_to_runtime",
+        lambda result: applied.append(dict(result)) or True,
+    )
+
+    payload = c4_rotor_router.optical_home_c4_rotor(
+        c4_rotor_router.C4RotorOpticalHomePayload(
+            target_wall_angle_deg=30.0,
+            execute_move=False,
+            apply_to_runtime=True,
+            max_iterations=0,
+        )
+    )
+
+    assert payload["ok"] is False
+    assert payload["applied_to_runtime"] is False
+    assert applied == []
+
+
 def test_c4_carousel_selftest_endpoint() -> None:
     payload = c4_rotor_router.c4_carousel_selftest()
 

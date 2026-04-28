@@ -579,6 +579,15 @@ class RuntimeC4(BaseRuntime):
     def fsm_state(self) -> str:
         return self._fsm.value
 
+    @property
+    def exit_angle_deg(self) -> float:
+        """Operator-facing C4 chute/exit angle in camera-frame degrees."""
+        return float(self._exit_angle_deg)
+
+    def move_tray_degrees(self, degrees: float) -> bool:
+        """Move the C4 tray by camera-frame degrees for calibration tools."""
+        return bool(self._transport_move(float(degrees)))
+
     def _dossier_debug_payload(
         self,
         dossier: _PieceDossier,

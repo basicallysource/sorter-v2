@@ -881,15 +881,18 @@ def test_c4_carousel_angle_accumulates_from_successful_moves() -> None:
     commands. A failed move (returning False) must NOT contribute."""
     rt, _up, _down, _clf, _log = _make(max_zones=1)
     sector_port = rt.sector_carousel_port()
+    assert math.isclose(rt.exit_angle_deg, 180.0, abs_tol=1e-9)
     assert math.isclose(rt._carousel_angle_rad, 0.0)
     sector_port.transport_move(15.0)
     assert math.isclose(math.degrees(rt._carousel_angle_rad), 15.0, abs_tol=1e-9)
-    rt._wiggle_move(2.0)
+    rt.move_tray_degrees(2.0)
     assert math.isclose(math.degrees(rt._carousel_angle_rad), 17.0, abs_tol=1e-9)
+    rt._wiggle_move(2.0)
+    assert math.isclose(math.degrees(rt._carousel_angle_rad), 19.0, abs_tol=1e-9)
     # Wrap-around still works on the cumulative angle (we keep it
     # unwrapped — the caller uses tray-frame conversion to wrap).
     sector_port.transport_move(-5.0)
-    assert math.isclose(math.degrees(rt._carousel_angle_rad), 12.0, abs_tol=1e-9)
+    assert math.isclose(math.degrees(rt._carousel_angle_rad), 14.0, abs_tol=1e-9)
 
 
 def test_c4_bank_state_is_in_tray_frame() -> None:

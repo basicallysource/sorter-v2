@@ -318,6 +318,10 @@ class Orchestrator:
         if self._c4_mode == "sector_carousel":
             self._apply_c4_mode_side_effects()
 
+    def sector_carousel_handler(self) -> Any | None:
+        """Return the installed five-slot C4 sector carousel handler, if any."""
+        return self._sector_carousel_handler
+
     def c4_mode(self) -> str:
         return str(self._c4_mode)
 

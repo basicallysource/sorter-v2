@@ -443,9 +443,7 @@ def test_update_runtime_tuning_endpoint_forwards_patch(
 def test_c4_carousel_status_and_gates_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     handler = SectorCarouselHandler(require_phase_verification=True)
     handler.enable()
-    handle = SimpleNamespace(
-        orchestrator=SimpleNamespace(_sector_carousel_handler=handler)
-    )
+    handle = SimpleNamespace(sector_carousel_handler=lambda: handler)
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
 
     status = c4_rotor_router.c4_carousel_status()
@@ -463,9 +461,7 @@ def test_c4_carousel_status_and_gates_endpoint(monkeypatch: pytest.MonkeyPatch) 
 def test_c4_carousel_phase_verify_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
     handler = SectorCarouselHandler(require_phase_verification=True, auto_rotate=True)
     handler.enable()
-    handle = SimpleNamespace(
-        orchestrator=SimpleNamespace(_sector_carousel_handler=handler)
-    )
+    handle = SimpleNamespace(sector_carousel_handler=lambda: handler)
     monkeypatch.setattr(shared_state, "rt_handle", handle, raising=False)
 
     payload = c4_rotor_router.verify_c4_carousel_phase(

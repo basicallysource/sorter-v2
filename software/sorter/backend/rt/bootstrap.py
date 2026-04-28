@@ -28,7 +28,7 @@ from typing import Any, Callable
 import rt.perception  # noqa: F401 - register detectors/trackers/filters
 import rt.rules  # noqa: F401 - register rules engines
 from rt.classification.brickognize import BrickognizeClient
-from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
+from rt.contracts.feed import FeedFrame, PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import (
     CLASSIFIERS,
     RULES_ENGINES,
@@ -593,11 +593,31 @@ class RtRuntimeHandle:
         for runner in self.perception_runners:
             pipeline = getattr(runner, "_pipeline", None)
             if pipeline is None:
+                pipeline = getattr(runner, "pipeline", None)
+            if pipeline is None:
                 continue
             feed = getattr(pipeline, "feed", None)
             if feed is not None and getattr(feed, "feed_id", None) == feed_id:
                 return runner
         return None
+
+    def latest_frame_for_feed(self, feed_id: str) -> FeedFrame | None:
+        """Return the latest raw feed frame without exposing runner internals."""
+        runner = self.runner_for_feed(feed_id)
+        if runner is None:
+            return None
+        latest_frame = getattr(runner, "latest_frame", None)
+        if callable(latest_frame):
+            return latest_frame()
+        pipeline = getattr(runner, "pipeline", None)
+        feed = getattr(pipeline, "feed", None) if pipeline is not None else None
+        latest = getattr(feed, "latest", None)
+        return latest() if callable(latest) else None
+
+    def sector_carousel_handler(self) -> Any | None:
+        """Return the C4 sector-carousel handler through the orchestration boundary."""
+        accessor = getattr(self.orchestrator, "sector_carousel_handler", None)
+        return accessor() if callable(accessor) else None
 
     def rebuild_runner_for_role(
         self,

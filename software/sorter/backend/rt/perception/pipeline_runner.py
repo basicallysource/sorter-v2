@@ -18,6 +18,7 @@ from dataclasses import replace
 from typing import Any
 
 from rt.contracts.events import Event, EventBus, Subscription
+from rt.contracts.feed import FeedFrame
 from rt.contracts.tracking import Track, TrackBatch, Tracker
 from rt.events.topics import HARDWARE_ERROR, PERCEPTION_ROTATION, PERCEPTION_TRACKS
 from rt.pieces.identity import new_tracker_epoch
@@ -311,6 +312,17 @@ class PerceptionRunner:
     def pipeline(self) -> PerceptionPipeline:
         """Public read-only view of the configured perception pipeline."""
         return self._pipeline
+
+    def latest_frame(self) -> FeedFrame | None:
+        """Return the latest source frame for calibration/introspection callers."""
+        try:
+            return self._pipeline.feed.latest()
+        except Exception:
+            _LOG.exception(
+                "latest frame read failed for feed=%s",
+                self._pipeline.feed.feed_id,
+            )
+            return None
 
     def latest_tracks(self) -> TrackBatch | None:
         with self._latest_lock:

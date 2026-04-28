@@ -130,6 +130,7 @@ def test_sector_carousel_mode_enables_handler_and_bypasses_c4_scheduler() -> Non
     handler = _Handler()
     orch.attach_sector_carousel_handler(handler)
 
+    assert orch.sector_carousel_handler() is handler
     assert orch.set_c4_mode("sector_carousel") == "sector_carousel"
     orch.tick_once(now_mono=12.0)
 

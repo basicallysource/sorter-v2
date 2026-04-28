@@ -52,27 +52,15 @@ def _runtime_handle() -> Any:
     return handle
 
 
-def _runner_for_feed(feed_id: str) -> Any:
-    handle = _runtime_handle()
-    accessor = getattr(handle, "runner_for_feed", None)
-    runner = accessor(feed_id) if callable(accessor) else None
-    if runner is None:
-        for item in getattr(handle, "perception_runners", []) or []:
-            pipeline = getattr(item, "_pipeline", None)
-            feed = getattr(pipeline, "feed", None)
-            if getattr(feed, "feed_id", None) == feed_id:
-                runner = item
-                break
-    if runner is None:
-        raise HTTPException(status_code=404, detail=f"perception runner '{feed_id}' not found")
-    return runner
-
-
 def _latest_frame_bgr(feed_id: str) -> Any:
-    runner = _runner_for_feed(feed_id)
-    pipeline = getattr(runner, "_pipeline", None)
-    feed = getattr(pipeline, "feed", None)
-    frame = feed.latest() if feed is not None and hasattr(feed, "latest") else None
+    handle = _runtime_handle()
+    latest_frame = getattr(handle, "latest_frame_for_feed", None)
+    if not callable(latest_frame):
+        raise HTTPException(
+            status_code=501,
+            detail="rt runtime does not expose feed frame access",
+        )
+    frame = latest_frame(feed_id)
     raw = getattr(frame, "raw", None)
     if raw is None:
         raise HTTPException(status_code=409, detail=f"no latest frame available for '{feed_id}'")
@@ -84,16 +72,24 @@ def _target_wall_angle(payload: C4RotorOpticalHomePayload) -> float:
         return float(payload.target_wall_angle_deg)
     handle = _runtime_handle()
     c4 = getattr(handle, "c4", None)
-    value = getattr(c4, "_exit_angle_deg", None)
+    value = getattr(c4, "exit_angle_deg", None)
     if isinstance(value, (int, float)):
         return float(value)
     return 270.0
 
 
-def _apply_phase_to_runtime(result: Dict[str, Any]) -> bool:
+def _sector_handler_or_none() -> Any | None:
     handle = _runtime_handle()
+    accessor = getattr(handle, "sector_carousel_handler", None)
+    if callable(accessor):
+        return accessor()
     orchestrator = getattr(handle, "orchestrator", None)
-    handler = getattr(orchestrator, "_sector_carousel_handler", None)
+    accessor = getattr(orchestrator, "sector_carousel_handler", None)
+    return accessor() if callable(accessor) else None
+
+
+def _apply_phase_to_runtime(result: Dict[str, Any]) -> bool:
+    handler = _sector_handler_or_none()
     if handler is None:
         return False
     sector_count = result.get("sector_count")
@@ -116,9 +112,7 @@ def _apply_phase_to_runtime(result: Dict[str, Any]) -> bool:
 
 
 def _sector_handler() -> Any:
-    handle = _runtime_handle()
-    orchestrator = getattr(handle, "orchestrator", None)
-    handler = getattr(orchestrator, "_sector_carousel_handler", None)
+    handler = _sector_handler_or_none()
     if handler is None:
         raise HTTPException(
             status_code=409,
@@ -159,9 +153,7 @@ def _move_c4_tray_degrees(degrees: float) -> bool:
     c4 = getattr(handle, "c4", None)
     if c4 is None:
         raise HTTPException(status_code=409, detail="C4 runtime is not available")
-    move = getattr(c4, "_transport_move", None)
-    if not callable(move):
-        move = getattr(c4, "_carousel_move", None)
+    move = getattr(c4, "move_tray_degrees", None)
     if not callable(move):
         raise HTTPException(status_code=501, detail="C4 runtime does not expose a move command")
     try:

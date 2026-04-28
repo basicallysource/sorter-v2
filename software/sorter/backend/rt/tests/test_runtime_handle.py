@@ -233,6 +233,19 @@ def test_handle_runner_for_feed_returns_none_when_empty():
     assert handle.runner_for_feed("c4_feed") is None
 
 
+def test_latest_frame_for_feed_uses_runner_accessor() -> None:
+    camera_service = _FakeCameraService(devices={})
+    handle = _empty_handle(camera_service)
+    batch = _track_batch("c4_feed")
+    runner = _runner_for_feed("c4_feed", batch=batch, with_raw_tracks=True)
+    frame = type("_Frame", (), {"raw": object()})()
+    runner.latest_frame.return_value = frame
+    handle.perception_runners = [runner]
+
+    assert handle.latest_frame_for_feed("c4_feed") is frame
+    assert handle.latest_frame_for_feed("missing") is None
+
+
 def test_annotation_snapshot_uses_zone_and_raw_tracks() -> None:
     camera_service = _FakeCameraService(devices={})
     handle = _empty_handle(camera_service)

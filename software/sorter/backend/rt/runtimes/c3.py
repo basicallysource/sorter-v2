@@ -28,7 +28,7 @@ from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.runtime import RuntimeInbox
-from rt.contracts.tracking import Track, TrackBatch
+from rt.contracts.tracking import Track
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import C3_HANDOFF_TRIGGER, RUNTIME_HANDOFF_BURST
 from rt.hardware.motion_profiles import (
@@ -47,6 +47,13 @@ from ._ring_ports import (
     RingPurgePort,
     RingSampleTransportPort,
     publish_ring_rotation_window,
+)
+from ._ring_tracks import (
+    closest_actionable_within,
+    fresh_ring_tracks,
+    track_angle_deg,
+    track_diagnostics,
+    wrap_rad as _wrap_rad,
 )
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
@@ -372,7 +379,7 @@ class RuntimeC3(BaseRuntime):
         start = self._tick_begin()
         try:
             self._sweep_pending_downstream_claims(now_mono)
-            tracks = self._fresh_tracks(inbox.tracks)
+            tracks = fresh_ring_tracks(inbox.tracks, track_stale_s=self._track_stale_s)
             visible_tracks = [t for t in tracks if is_visible_track(t)]
             self._visible_track_count = len(visible_tracks)
             # Snapshot for the upstream landing-lease port.
@@ -557,22 +564,6 @@ class RuntimeC3(BaseRuntime):
     # ------------------------------------------------------------------
     # Internals
 
-    def _fresh_tracks(self, batch: TrackBatch | None) -> list[Track]:
-        if batch is None:
-            return []
-        batch_ts = float(batch.timestamp)
-        return [
-            t
-            for t in batch.tracks
-            if self._is_track_fresh(t, batch_ts)
-        ]
-
-    def _is_track_fresh(self, track: Track, batch_ts: float) -> bool:
-        last_seen_ts = float(track.last_seen_ts)
-        if batch_ts <= 0.0 or last_seen_ts <= 0.0:
-            return True
-        return (batch_ts - last_seen_ts) <= self._track_stale_s
-
     def _credit_new_arrivals(self, tracks: list[Track], now_mono: float) -> None:
         seen = self._book.seen_global_ids
         arrivals: list[dict[str, Any]] = []
@@ -582,7 +573,7 @@ class RuntimeC3(BaseRuntime):
             if t.global_id in seen:
                 continue
             seen.add(t.global_id)
-            arrivals.append(self._track_diagnostics(t))
+            arrivals.append(track_diagnostics(t))
             # A new confirmed piece entered C3's ring — release upstream slot.
             self._upstream_slot.release()
         if arrivals and self._arrival_diagnostics_armed:
@@ -594,7 +585,11 @@ class RuntimeC3(BaseRuntime):
         # Commit zone: stable non-ghost tracks within exit_near_arc (~20°).
         # ``confirmed_real`` is still preferred evidence, but no longer the
         # only way a reliable detector track can move downstream.
-        return self._closest_actionable_within(tracks, self._exit_near_arc)
+        return closest_actionable_within(
+            tracks,
+            self._exit_near_arc,
+            min_hits=ACTION_TRACK_MIN_HITS,
+        )
 
     def _pick_approach_track(self, tracks: list[Track]) -> Track | None:
         # Deceleration zone: stable non-ghost tracks within approach_near_arc
@@ -602,7 +597,11 @@ class RuntimeC3(BaseRuntime):
         # without grabbing a downstream slot — gives a piece a gentle
         # approach instead of slamming it off the ring at normal-pulse
         # velocity.
-        approach = self._closest_actionable_within(tracks, self._approach_near_arc)
+        approach = closest_actionable_within(
+            tracks,
+            self._approach_near_arc,
+            min_hits=ACTION_TRACK_MIN_HITS,
+        )
         if approach is None:
             return None
         if abs(_wrap_rad(approach.angle_rad or 0.0)) <= self._exit_near_arc:
@@ -717,21 +716,6 @@ class RuntimeC3(BaseRuntime):
             "c3_cluster_score": float(cluster_score),
             "c3_holdover_active": self.in_holdover(now_mono),
         }
-
-    def _closest_actionable_within(
-        self, tracks: list[Track], arc: float
-    ) -> Track | None:
-        candidates = [
-            t for t in tracks
-            if t.angle_rad is not None and action_track(t, min_hits=ACTION_TRACK_MIN_HITS)
-        ]
-        if not candidates:
-            return None
-        candidates.sort(key=lambda t: abs(_wrap_rad(t.angle_rad or 0.0)))
-        head = candidates[0]
-        if abs(_wrap_rad(head.angle_rad or 0.0)) > arc:
-            return None
-        return head
 
     def _resolve_mode(
         self,
@@ -1217,7 +1201,7 @@ class RuntimeC3(BaseRuntime):
         if track is not None:
             payload.update({
                 "track_global_id": track.global_id,
-                "track_angle_deg": self._track_angle_deg(track),
+                "track_angle_deg": track_angle_deg(track),
             })
         return self._handoff_diagnostics.record_move(
             now_mono=now_mono,
@@ -1263,22 +1247,6 @@ class RuntimeC3(BaseRuntime):
         except Exception:
             self._logger.exception("RuntimeC3: handoff-burst publish failed")
 
-    def _track_diagnostics(self, track: Track) -> dict[str, Any]:
-        return {
-            "track_id": track.track_id,
-            "global_id": track.global_id,
-            "piece_uuid": track.piece_uuid,
-            "angle_deg": self._track_angle_deg(track),
-            "score": float(track.score),
-            "hit_count": int(track.hit_count),
-            "confirmed_real": bool(track.confirmed_real),
-        }
-
-    def _track_angle_deg(self, track: Track) -> float | None:
-        if track.angle_rad is None:
-            return None
-        return math.degrees(float(track.angle_rad))
-
     def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
         if exit_track is None:
             self._book.exit_stall_since = None
@@ -1317,11 +1285,6 @@ class RuntimeC3(BaseRuntime):
             return bool(self._pulse_command(mode, pulse_ms, profile_name))
         except TypeError:
             return bool(self._pulse_command(mode, pulse_ms))
-
-
-def _wrap_rad(angle: float) -> float:
-    a = (angle + math.pi) % (2.0 * math.pi) - math.pi
-    return a
 
 
 def _track_global_id_key(track: Track) -> int | None:

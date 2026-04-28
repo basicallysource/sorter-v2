@@ -5,11 +5,15 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
+	import ContinuousMotionPanel from '$lib/components/ContinuousMotionPanel.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
-	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
+	import RuntimeStats from '$lib/components/RuntimeStats.svelte';
+	import RuntimeTuningPanel from '$lib/components/RuntimeTuningPanel.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
+	import { loadPolygons } from '$lib/settings/polygons-service';
+	import { settings } from '$lib/stores/settings';
 	import { Eye, EyeOff } from 'lucide-svelte';
 
 	const SIDEBAR_MIN = 300;
@@ -20,6 +24,13 @@
 
 	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
 	let cropBaseUrl = $state<string | null>(null);
+	// Live runtime health per channel id (c1/c2/c3/c4/distributor). Polled
+	// from /api/rt/status ~1/s and surfaced as a state badge in each
+	// stream header so operators can tell at a glance whether a channel
+	// is busy / idle / blocked without opening a side panel.
+	let runtimeHealth = $state<Record<string, { state: string; blocked_reason: string | null }>>({});
+	// Observed ring RPM per feed_id, pulled from the same status poll.
+	let feedRpm = $state<Record<string, number | null>>({});
 	let sidebar_width = $state(SIDEBAR_DEFAULT);
 	let startSystemError = $state<string | null>(null);
 	let classification_view = $state<'top' | 'bottom'>('top');
@@ -70,6 +81,10 @@
 		return dashboardCrops[role] ?? null;
 	}
 
+	function auxiliaryCameraRole(): 'carousel' | 'classification_channel' {
+		return machineSetup === 'classification_channel' ? 'classification_channel' : 'carousel';
+	}
+
 	function preferredClassificationCamera(hasTop: boolean, hasBottom: boolean): 'classification_top' | 'classification_bottom' | null {
 		if (classification_view === 'bottom' && hasBottom) return 'classification_bottom';
 		if (hasTop) return 'classification_top';
@@ -84,16 +99,8 @@
 	}
 
 	async function fetchDashboardCrops(baseUrl: string) {
-		try {
-			const res = await fetch(`${baseUrl}/api/polygons`);
-			if (!res.ok) {
-				dashboardCrops = {};
-				return;
-			}
-			dashboardCrops = buildDashboardFeedCrops(await res.json());
-		} catch {
-			dashboardCrops = {};
-		}
+		const payload = await loadPolygons(baseUrl);
+		dashboardCrops = payload ? buildDashboardFeedCrops(payload) : {};
 	}
 
 	async function loadMachineSetup(baseUrl: string) {
@@ -111,6 +118,105 @@
 		} catch {
 			// ignore transient shell fetch issues
 		}
+	}
+
+	async function fetchRuntimeHealth(baseUrl: string): Promise<void> {
+		try {
+			const res = await fetch(`${baseUrl}/api/rt/status`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			const health = payload?.runtime_health;
+			if (health && typeof health === 'object') {
+				runtimeHealth = health as Record<
+					string,
+					{ state: string; blocked_reason: string | null }
+				>;
+			}
+			const runners = payload?.runners;
+			if (Array.isArray(runners)) {
+				const rpm: Record<string, number | null> = {};
+				for (const runner of runners as Array<Record<string, unknown>>) {
+					const feedId = typeof runner.feed_id === 'string' ? runner.feed_id : null;
+					if (!feedId) continue;
+					const observed = runner.observed_rpm;
+					rpm[feedId] =
+						typeof observed === 'number' && Number.isFinite(observed) ? observed : null;
+				}
+				feedRpm = rpm;
+			}
+		} catch {
+			// stream hiccups are fine — next tick will retry
+		}
+	}
+
+	const ROLE_TO_FEED_ID: Record<string, string> = {
+		c_channel_2: 'c2_feed',
+		c_channel_3: 'c3_feed',
+		carousel: 'c4_feed',
+		classification_channel: 'c4_feed'
+	};
+
+	function feedRpmForRole(role: string): number | null {
+		const feedId = ROLE_TO_FEED_ID[role];
+		if (!feedId) return null;
+		return feedRpm[feedId] ?? null;
+	}
+
+	// Labels that match what operators expect to see on the dashboard
+	// header ("Busy" / "Waiting" / "Rotating" …) rather than the raw
+	// runtime state identifiers.
+	const STATE_LABELS: Record<string, string> = {
+		idle: 'Waiting',
+		pulsing: 'Busy',
+		pulsing_normal: 'Busy',
+		pulsing_precise: 'Dropping',
+		advancing: 'Advancing',
+		exit_wiggle: 'Shaking',
+		running: 'Running',
+		startup_purge: 'Purging',
+		classify_pending: 'Classifying',
+		drop_commit: 'Dropping',
+		exit_shimmy: 'Shaking'
+	};
+
+	const ROLE_TO_RUNTIME_ID: Record<string, string> = {
+		c_channel_2: 'c2',
+		c_channel_3: 'c3',
+		carousel: 'c4',
+		classification_channel: 'c4',
+		feeder: 'c1'
+	};
+
+	const RUNTIME_DOWNSTREAM_LABEL: Record<string, string> = {
+		c1: 'C2',
+		c2: 'C3',
+		c3: 'C4',
+		c4: 'Distributor'
+	};
+
+	function runtimeStateBadge(role: string): { label: string; tone: string } | null {
+		const runtimeId = ROLE_TO_RUNTIME_ID[role] ?? null;
+		if (!runtimeId) return null;
+		const entry = runtimeHealth[runtimeId];
+		if (!entry) return null;
+		const blocked = entry.blocked_reason ?? null;
+		if (blocked === 'downstream_full') {
+			const downstream = RUNTIME_DOWNSTREAM_LABEL[runtimeId] ?? 'downstream';
+			return { label: `Waiting for ${downstream}`, tone: 'amber' };
+		}
+		if (blocked === 'hw_busy') return { label: 'Motor busy', tone: 'blue' };
+		if (blocked === 'cooldown') return { label: 'Cooldown', tone: 'neutral' };
+		if (blocked === 'hw_queue_full') return { label: 'Queue full', tone: 'red' };
+		if (blocked === 'sweeping_unowned') return { label: 'Sweeping', tone: 'amber' };
+		if (blocked === 'purge') return { label: 'Purging', tone: 'amber' };
+		const label = STATE_LABELS[entry.state] ?? entry.state;
+		const tone =
+			entry.state === 'idle'
+				? 'neutral'
+				: entry.state === 'running' || entry.state === 'advancing'
+					? 'green'
+					: 'blue';
+		return { label, tone };
 	}
 
 	$effect(() => {
@@ -132,14 +238,12 @@
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
 		carousel: 'Carousel',
+		classification_channel: 'Classification C-Channel (C4)',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
 	};
 
 	function cameraLabel(role: string): string {
-		if (role === 'carousel' && machineSetup === 'classification_channel') {
-			return 'Classification Channel';
-		}
 		return CAMERA_LABELS[role] ?? role;
 	}
 
@@ -148,7 +252,13 @@
 			const baseUrl = currentBackendBaseUrl();
 			void fetchDashboardCrops(baseUrl);
 			void loadMachineSetup(baseUrl);
+			void fetchRuntimeHealth(baseUrl);
 		}
+		const interval = setInterval(() => {
+			if (!machine.machine) return;
+			void fetchRuntimeHealth(currentBackendBaseUrl());
+		}, 1000);
+		return () => clearInterval(interval);
 	});
 </script>
 
@@ -169,8 +279,9 @@
 									camera="c_channel_2"
 									label={cameraLabel('c_channel_2')}
 									crop={cropFor('c_channel_2')}
-									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
+									stateBadge={runtimeStateBadge('c_channel_2')}
+									rpm={feedRpmForRole('c_channel_2')}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -178,19 +289,21 @@
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
 									crop={cropFor('c_channel_3')}
-									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
+									stateBadge={runtimeStateBadge('c_channel_3')}
+									rpm={feedRpmForRole('c_channel_3')}
 								/>
 							</div>
 						</div>
 						<div class="flex min-h-0 flex-1 gap-3">
 							<div class="flex-1 min-w-0">
 								<CameraFeed
-									camera="carousel"
-									label={cameraLabel('carousel')}
-									crop={cropFor('carousel')}
-									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									camera={auxiliaryCameraRole()}
+									label={cameraLabel(auxiliaryCameraRole())}
+									crop={cropFor(auxiliaryCameraRole())}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
+									stateBadge={runtimeStateBadge(auxiliaryCameraRole())}
+									rpm={feedRpmForRole(auxiliaryCameraRole())}
 								/>
 							</div>
 							{#if classification_camera}
@@ -237,8 +350,7 @@
 												label={cameraLabel(classification_camera)}
 												crop={cropFor(classification_camera)}
 												showHeader={false}
-												source="ws"
-												controls={[]}
+												controls={["ghosts"]}
 												bind:layer={classification_layer}
 											/>
 										</div>
@@ -258,8 +370,9 @@
 									camera="feeder"
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
-									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
+									stateBadge={runtimeStateBadge('feeder')}
+									rpm={feedRpmForRole('feeder')}
 								/>
 							</div>
 							<div class="flex-1 min-w-0">
@@ -267,8 +380,9 @@
 									camera={classification_camera}
 									label={cameraLabel(classification_camera)}
 									crop={cropFor(classification_camera)}
-									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
+									stateBadge={runtimeStateBadge(classification_camera)}
+									rpm={feedRpmForRole(classification_camera)}
 								/>
 							</div>
 						</div>
@@ -279,8 +393,9 @@
 									camera="feeder"
 									label={cameraLabel('feeder')}
 									crop={cropFor('feeder')}
-									source="ws"
-									controls={["annotations", "crop", "fullscreen"]}
+									controls={["annotations", "ghosts", "slots", "crop", "fullscreen"]}
+									stateBadge={runtimeStateBadge('feeder')}
+									rpm={feedRpmForRole('feeder')}
 								/>
 							</div>
 							{#if classification_camera}
@@ -326,8 +441,7 @@
 											label={cameraLabel(classification_camera)}
 											crop={cropFor(classification_camera)}
 											showHeader={false}
-											controls={[]}
-											source="ws"
+											controls={["ghosts"]}
 											bind:layer={classification_layer}
 										/>
 									</div>
@@ -381,6 +495,15 @@
 						{/if}
 					</div>
 				{/if}
+				{#if $settings.continuousMotionPanelEnabled}
+					<ContinuousMotionPanel
+						baseUrl={currentBackendBaseUrl()}
+						hardwareReady={hardwareState === 'ready'}
+					/>
+				{/if}
+				<CollapsibleSection title="Runtime Tuning" storageKey="runtimeTuning">
+					<RuntimeTuningPanel baseUrl={currentBackendBaseUrl()} />
+				</CollapsibleSection>
 				<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
 					<RecentObjects />
 				</CollapsibleSection>
@@ -392,7 +515,7 @@
 					<SortingStatusCard />
 				</CollapsibleSection>
 				<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
-					<SidebarBottomTabs />
+					<RuntimeStats />
 				</CollapsibleSection>
 			</div>
 		</div>

@@ -10,10 +10,13 @@ class CameraName(str, Enum):
     c_channel_2 = "c_channel_2"
     c_channel_3 = "c_channel_3"
     carousel = "carousel"
+    classification_channel = "classification_channel"
 
 
 class PieceStage(str, Enum):
     created = "created"
+    registered = "registered"
+    classified = "classified"
     distributing = "distributing"
     distributed = "distributed"
 
@@ -43,12 +46,42 @@ class FrameResultData(BaseModel):
     bbox: Optional[Tuple[int, int, int, int]]
 
 
+class RingGeom(BaseModel):
+    """Per-camera ring geometry in source-frame pixel coords.
+
+    Attached to every FrameData when the camera is an arc channel so the
+    client can render wedge overlays without re-reading the saved polygon
+    blob.
+    """
+    center_x: float
+    center_y: float
+    inner_radius: float
+    outer_radius: float
+
+
+class SlotWedge(BaseModel):
+    """Occupied angular slot on the camera's ring — dossier zone for C4,
+    confirmed-real piece position for C2/C3."""
+    start_angle_deg: float
+    end_angle_deg: float
+    label: Optional[str] = None
+    color: Optional[str] = None
+
+
 class FrameData(BaseModel):
     camera: CameraName
     timestamp: float
     raw: str
     annotated: Optional[str]
     results: List[FrameResultData]
+    # Ghost-marked track bboxes (x1, y1, x2, y2) in source-frame coords.
+    # Rendered client-side as a separate toggleable SVG overlay so operators
+    # can flip their visibility without a server round-trip.
+    ghost_boxes: List[Tuple[int, int, int, int]] = []
+    # Ring geometry + per-piece slot wedges for the runtime "slots" overlay.
+    # ``ring_geom`` is None for cameras that don't live on an arc channel.
+    ring_geom: Optional[RingGeom] = None
+    slot_wedges: List[SlotWedge] = []
 
 
 class FrameEvent(BaseModel):
@@ -66,6 +99,15 @@ class IdentityEvent(BaseModel):
     data: MachineIdentityData
 
 
+class CarouselMotionSampleData(BaseModel):
+    observed_at: float
+    piece_angle_deg: float
+    carousel_angle_deg: float
+    piece_speed_deg_per_s: float
+    carousel_speed_deg_per_s: float
+    sync_ratio: float
+
+
 class KnownObjectData(BaseModel):
     uuid: str
     created_at: float
@@ -81,17 +123,44 @@ class KnownObjectData(BaseModel):
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
     tracked_global_id: Optional[int] = None
+    current_tracklet_id: Optional[str] = None
+    tracklet_id: Optional[str] = None
+    feed_id: Optional[str] = None
+    tracker_key: Optional[str] = None
+    tracker_epoch: Optional[str] = None
+    raw_track_id: Optional[int] = None
     thumbnail: Optional[str] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
+    preview_jpeg_path: Optional[str] = None
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    bin_id: Optional[str] = None
+    distribution_reason: Optional[str] = None
     # Captured timestamps of crops shipped to Brickognize for this piece.
     recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None
     carousel_detected_confirmed_at: Optional[float] = None
     first_carousel_seen_ts: Optional[float] = None
+    first_carousel_seen_angle_deg: Optional[float] = None
+    classification_channel_size_class: Optional[str] = None
+    classification_channel_zone_state: Optional[str] = None
+    classification_channel_zone_center_deg: Optional[float] = None
+    classification_channel_exit_deg: Optional[float] = None
+    classification_channel_zone_half_width_deg: Optional[float] = None
+    classification_channel_soft_guard_deg: Optional[float] = None
+    classification_channel_hard_guard_deg: Optional[float] = None
+    carousel_motion_sync_ratio: Optional[float] = None
+    carousel_motion_sync_ratio_avg: Optional[float] = None
+    carousel_motion_sync_ratio_min: Optional[float] = None
+    carousel_motion_sync_ratio_max: Optional[float] = None
+    carousel_motion_piece_speed_deg_per_s: Optional[float] = None
+    carousel_motion_platter_speed_deg_per_s: Optional[float] = None
+    carousel_motion_sample_count: int = 0
+    carousel_motion_under_sync_sample_count: int = 0
+    carousel_motion_over_sync_sample_count: int = 0
+    carousel_motion_samples: List[CarouselMotionSampleData] = Field(default_factory=list)
     carousel_rotate_started_at: Optional[float] = None
     carousel_rotated_at: Optional[float] = None
     carousel_snapping_started_at: Optional[float] = None

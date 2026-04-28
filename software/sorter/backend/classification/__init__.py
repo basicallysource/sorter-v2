@@ -1,3 +1,1 @@
-from .brickognize import classify
-
-__all__ = ["classify"]
+__all__: list[str] = []

@@ -7,7 +7,11 @@ from typing import Any
 
 import requests
 
-from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
+from local_state import (
+    get_hive_config,
+    get_sorting_profile_sync_state,
+    set_sorting_profile_sync_state,
+)
 from server import shared_state
 
 log = logging.getLogger(__name__)
@@ -16,7 +20,7 @@ SYNC_INTERVAL_S = 5.0
 
 
 def _load_targets() -> list[dict[str, Any]]:
-    config = getHiveConfig() or {}
+    config = get_hive_config() or {}
     targets = config.get("targets")
     if not isinstance(targets, list):
         return []
@@ -24,14 +28,14 @@ def _load_targets() -> list[dict[str, Any]]:
 
 
 def _merge_sync_state(updates: dict[str, Any]) -> None:
-    current = getSortingProfileSyncState() or {}
+    current = get_sorting_profile_sync_state() or {}
     next_state = dict(current)
     for key, value in updates.items():
         if value is None:
             next_state.pop(key, None)
         else:
             next_state[key] = value
-    setSortingProfileSyncState(next_state)
+    set_sorting_profile_sync_state(next_state)
     try:
         from server.routers.sorting_profiles import _current_local_profile_status
 
@@ -101,7 +105,7 @@ class SetProgressSyncWorker:
         self._record_success()
 
     def _build_report(self) -> dict[str, Any] | None:
-        sync_state = getSortingProfileSyncState() or {}
+        sync_state = get_sorting_profile_sync_state() or {}
         target_id = sync_state.get("target_id")
         version_id = sync_state.get("version_id")
         if not isinstance(target_id, str) or not target_id:
@@ -125,28 +129,17 @@ class SetProgressSyncWorker:
         if target is None:
             return None
 
-        controller = shared_state.controller_ref
-        sorting_profile = getattr(getattr(controller, "coordinator", None), "sorting_profile", None)
         tracker = getattr(shared_state.gc_ref, "set_progress_tracker", None) if shared_state.gc_ref else None
-
-        artifact_hash: str | None = None
-        items: list[dict[str, Any]] | None = None
-        if tracker is not None and hasattr(tracker, "get_sync_payload"):
-            tracker_payload = tracker.get_sync_payload()
-            artifact_hash = str(tracker_payload.get("artifact_hash") or "")
-            if not artifact_hash:
-                raise RuntimeError("Set progress sync missing artifact hash for local tracker")
-            items = tracker_payload.get("items") if isinstance(tracker_payload.get("items"), list) else []
-            state_token = int(tracker_payload.get("state_token") or 0)
-            signature = f"{target_id}:{version_id}:{artifact_hash}:set:{state_token}"
-        elif sorting_profile is not None and not sorting_profile.is_set_based:
-            artifact_hash = str(getattr(sorting_profile, "artifact_hash", "") or sync_state.get("artifact_hash") or "")
-            if not artifact_hash:
-                raise RuntimeError("Set progress sync missing artifact hash for local sorting profile")
-            items = []
-            signature = f"{target_id}:{version_id}:{artifact_hash}:clear"
-        else:
+        if tracker is None or not hasattr(tracker, "get_sync_payload"):
             return None
+
+        tracker_payload = tracker.get_sync_payload()
+        artifact_hash = str(tracker_payload.get("artifact_hash") or "")
+        if not artifact_hash:
+            raise RuntimeError("Set progress sync missing artifact hash for local tracker")
+        items = tracker_payload.get("items") if isinstance(tracker_payload.get("items"), list) else []
+        state_token = int(tracker_payload.get("state_token") or 0)
+        signature = f"{target_id}:{version_id}:{artifact_hash}:set:{state_token}"
 
         return {
             "url": f"{str(target['url']).rstrip('/')}/api/machine/set-progress",

@@ -30,7 +30,7 @@ class CameraFeed:
         self.role = role
         self._device = device
         self._overlays: list[FrameOverlay] = []
-        self._cached_annotated: tuple[float, CameraFrame] | None = None
+        self._cached_annotated: dict[tuple[float, tuple[str, ...]], CameraFrame] = {}
         self._lock = threading.Lock()
 
     @property
@@ -44,12 +44,17 @@ class CameraFeed:
     def add_overlay(self, overlay: FrameOverlay) -> None:
         with self._lock:
             self._overlays.append(overlay)
-            self._cached_annotated = None
+            self._cached_annotated.clear()
+
+    def set_overlays(self, overlays: list[FrameOverlay]) -> None:
+        with self._lock:
+            self._overlays = list(overlays)
+            self._cached_annotated.clear()
 
     def clear_overlays(self) -> None:
         with self._lock:
             self._overlays.clear()
-            self._cached_annotated = None
+            self._cached_annotated.clear()
 
     def get_frame(
         self,
@@ -71,15 +76,20 @@ class CameraFeed:
             if not active_overlays:
                 return frame
 
-            # Cache only the default (unfiltered) path — keeps the hot loop fast
-            # without per-filter cache bookkeeping.
-            cache_eligible = not exclude_categories
-            if (
-                cache_eligible
-                and self._cached_annotated is not None
-                and self._cached_annotated[0] == frame.timestamp
-            ):
-                return self._cached_annotated[1]
+            exclude_key = tuple(sorted(exclude_categories or ()))
+            cache_key = (float(frame.timestamp), exclude_key)
+            cached = self._cached_annotated.get(cache_key)
+            if cached is not None:
+                return cached
+            # New frame timestamp: older rendered variants can be discarded.
+            if self._cached_annotated:
+                stale_keys = [
+                    key
+                    for key in self._cached_annotated.keys()
+                    if key[0] != float(frame.timestamp)
+                ]
+                for key in stale_keys:
+                    self._cached_annotated.pop(key, None)
 
             result_img = frame.annotated if frame.annotated is not None else frame.raw.copy()
             for overlay in active_overlays:
@@ -91,6 +101,5 @@ class CameraFeed:
                 results=[],
                 timestamp=frame.timestamp,
             )
-            if cache_eligible:
-                self._cached_annotated = (frame.timestamp, result)
+            self._cached_annotated[cache_key] = result
             return result

@@ -295,7 +295,7 @@
                 Show live non-smoothed ArUco values
             </label>
             <div id="camera-feed">
-                <img id="camera-stream" src="/api/cameras/feed/feeder" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: none;">
+                <img id="camera-stream" style="width: 100%; height: 100%; object-fit: cover; border-radius: 6px; display: none;">
                 <span id="camera-status">Loading camera feed...</span>
             </div>
             <div id="status-message"></div>
@@ -344,28 +344,54 @@
     <script>
         let selectedTag = null;
         let showLiveArucoValues = false;
+        let cameraSocket = null;
+        let cameraBlobUrl = null;
 
-        function feederVideoUrl() {
-            const show = showLiveArucoValues ? '&show_live_aruco_values=true' : '';
-            return '/api/cameras/feed/feeder?t=' + Date.now() + show;
-        }
-        
-        // Initialize camera feed
-        function initCameraFeed() {
+        // Initialize camera feed via the per-device-index WebSocket preview.
+        // The device index is resolved from ``/api/cameras/config`` (feeder role).
+        async function initCameraFeed() {
             const img = document.getElementById('camera-stream');
-            img.src = feederVideoUrl();
-            img.onerror = () => {
-                document.getElementById('camera-status').textContent = 'Camera not available';
-            };
-            img.onload = () => {
-                document.getElementById('camera-status').style.display = 'none';
-                img.style.display = 'block';
-            };
-            
-            // Refresh feed every 500ms
-            setInterval(() => {
-                img.src = feederVideoUrl();
-            }, 500);
+            const status = document.getElementById('camera-status');
+
+            let deviceIndex = null;
+            try {
+                const cfg = await fetch('/api/cameras/config').then((r) => r.json());
+                if (typeof cfg.feeder === 'number') deviceIndex = cfg.feeder;
+            } catch (_) { /* fall through */ }
+
+            if (deviceIndex === null) {
+                status.textContent = 'Feeder camera not assigned';
+                return;
+            }
+
+            const wsScheme = location.protocol === 'https:' ? 'wss' : 'ws';
+            const wsUrl = `${wsScheme}://${location.host}/ws/camera-preview/${deviceIndex}`;
+
+            function connect() {
+                const socket = new WebSocket(wsUrl);
+                socket.binaryType = 'arraybuffer';
+                cameraSocket = socket;
+                socket.onmessage = (event) => {
+                    if (!(event.data instanceof ArrayBuffer)) return;
+                    if (cameraBlobUrl) URL.revokeObjectURL(cameraBlobUrl);
+                    cameraBlobUrl = URL.createObjectURL(
+                        new Blob([event.data], { type: 'image/jpeg' })
+                    );
+                    img.src = cameraBlobUrl;
+                    status.style.display = 'none';
+                    img.style.display = 'block';
+                };
+                socket.onerror = () => {
+                    status.textContent = 'Camera not available';
+                };
+                socket.onclose = () => {
+                    // Reconnect with a small backoff so the page keeps working
+                    // across brief backend restarts.
+                    setTimeout(connect, 750);
+                };
+            }
+
+            connect();
         }
         
         // Load configuration

@@ -1,3 +1,4 @@
+import logging
 import threading
 import time
 from collections import deque
@@ -5,6 +6,8 @@ from typing import Any, Optional
 import platform
 import cv2
 import numpy as np
+
+log = logging.getLogger(__name__)
 
 from irl.config import (
     CameraConfig,
@@ -675,6 +678,7 @@ class CaptureThread:
         self._cap = None
         open_failures = 0
         read_failures = 0
+        mode_mismatch_frames = 0
         next_open_attempt_at = 0.0
         previous_source: int | str | None = None
 
@@ -745,6 +749,36 @@ class CaptureThread:
                         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                         cap.set(cv2.CAP_PROP_FPS, fps)
+                        # AVFoundation on macOS occasionally ignores the
+                        # capture-mode props on the FIRST open after the
+                        # process starts — the VideoCapture returns a
+                        # default low-res stream (e.g. 1920x1080@25 instead
+                        # of 2592x1944@30) without error. A second open
+                        # against the same source honours the requested
+                        # mode. Verify the apply by reading the props back;
+                        # on mismatch, schedule a reopen and keep looping
+                        # without emitting frames.
+                        try:
+                            actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH) or 0)
+                            actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT) or 0)
+                        except Exception:
+                            actual_w = 0
+                            actual_h = 0
+                        if (
+                            isinstance(width, int) and width > 0
+                            and isinstance(height, int) and height > 0
+                            and (actual_w != width or actual_h != height)
+                        ):
+                            log.warning(
+                                "Camera %s: capture-mode mismatch after open "
+                                "(requested %dx%d, got %dx%d) — reopening.",
+                                self.name, width, height, actual_w, actual_h,
+                            )
+                            self._reopen_event.set()
+                            cap.release()
+                            cap = None
+                            self._cap = None
+                            continue
                         applied_device_settings = apply_camera_device_settings(
                             cap,
                             self.getDeviceSettings(),
@@ -758,6 +792,40 @@ class CaptureThread:
                 ret, frame = cap.read()
             if ret:
                 read_failures = 0
+                # Frame shape is ground truth — cv2 cap.get() can lie about
+                # FRAME_WIDTH/HEIGHT while the driver silently streams at a
+                # lower default. If the actual delivered frame does not
+                # match the requested mode, release + schedule a reopen so
+                # the verify path at the top of the next open cycle gets
+                # another chance to apply it. Guard against pathological
+                # flap by tracking consecutive mismatches.
+                frame_h = int(frame.shape[0])
+                frame_w = int(frame.shape[1])
+                config_snapshot = self._get_config_snapshot()
+                expected_w = config_snapshot[2]
+                expected_h = config_snapshot[3]
+                if (
+                    isinstance(expected_w, int) and expected_w > 0
+                    and isinstance(expected_h, int) and expected_h > 0
+                    and (frame_w != expected_w or frame_h != expected_h)
+                ):
+                    mode_mismatch_frames += 1
+                    if mode_mismatch_frames >= 3:
+                        log.warning(
+                            "Camera %s: frame shape %dx%d drifted from "
+                            "requested %dx%d after %d frames — reopening.",
+                            self.name, frame_w, frame_h,
+                            expected_w, expected_h, mode_mismatch_frames,
+                        )
+                        self._reopen_event.set()
+                        cap.release()
+                        cap = None
+                        self._cap = None
+                        self.latest_frame = None
+                        mode_mismatch_frames = 0
+                        continue
+                else:
+                    mode_mismatch_frames = 0
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
                 frame = apply_picture_settings(frame, self.getPictureSettings())
                 camera_frame = CameraFrame(

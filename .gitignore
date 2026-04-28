@@ -1,15 +1,22 @@
 .claude/
 .tmp-*
+/tmp/
 
 # Local debug captures and ad-hoc review artifacts
 /c-channel-3-zone-editor.png
 /c2-debug.png
 /classification-*.png
 /classification-*.md
-/.playwright-mcp/
+.playwright-mcp/
 /detail-requests.txt
 /samples-nav-requests.txt
 /sample-detail-blank.png
+/tmp-*.png
+/dashboard-*.png
+/live-dashboard-*.png
+/machine-dashboard-*.png
+/sorter-dashboard-*.png
+/tracked-now.png
 /software/sorter/backend/calibration_image_sample_data_20x128x128x3_float32.npy
 /docs/_site/
 /docs/.jekyll-cache/
@@ -19,5 +26,21 @@
 /data/
 /test.db
 /test-profile-parts.db
+/local_state.sqlite
+/software/sorter/local_state.sqlite
+/software/sorter/backend/local_state.sqlite
+/software/sorter/backend/local_state.sqlite.backup-*
+
+# Runtime logs and observed sorter run artifacts
+/logs/
+/docs/lab/assets/tracking-benchmark-*/
+/docs/lab/tracking-benchmark-report-*.html
+/docs/lab/tracking-benchmark-summary-*.csv
+/docs/lab/tracking-dataflow-report-*.html
+/docs/lab/tracking-decision-dossier-*.html
+/docs/lab/operation-target-*.md
+/docs/lab/handoff-*.md
+/docs/*current-behavior-review*.md
 
 .DS_Store
+software/sorter/backend/local_state.sqlite.bak-*

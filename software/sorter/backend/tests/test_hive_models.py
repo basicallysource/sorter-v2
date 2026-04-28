@@ -8,11 +8,8 @@ from __future__ import annotations
 
 import io
 import json
-import os
-import sys
 import tarfile
 import threading
-import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -152,8 +149,10 @@ def _make_detail(model_id: str = "model-1") -> dict:
     return {
         "id": model_id,
         "name": "Test Detector",
+        "slug": "test-detector",
         "model_family": "yolo",
-        "training_metadata": {"imgsz": 320, "epochs": 200},
+        "scopes": ["c_channel"],
+        "training_metadata": {"model": {"imgsz": 320}, "epochs": 200},
         "variants": [
             {
                 "id": "variant-onnx",
@@ -218,7 +217,9 @@ class TestDownloadJobManager:
         assert sentinel["sha256"] == "expected-sha"
         # Training metadata + name/family carry over for installed-model UI.
         assert run_json.get("name") == "Test Detector"
+        assert run_json.get("run_name") == "test-detector"
         assert run_json.get("model_family") == "yolo"
+        assert run_json.get("scopes") == ["c_channel"]
         assert run_json.get("imgsz") == 320
 
         # And it should show up under list_installed_models().

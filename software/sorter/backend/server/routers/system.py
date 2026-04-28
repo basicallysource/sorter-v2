@@ -35,7 +35,7 @@ def reset_system() -> Dict[str, Any]:
         if shared_state.hardware_state == "homing":
             return {"ok": False, "hardware_state": "homing", "message": "Cannot reset while homing."}
 
-        reset_fn = shared_state._hardware_reset_fn
+        reset_fn = shared_state.sorter_lifecycle.reset_hardware
         shared_state.setHardwareStatus(homing_step="Resetting...")
 
         try:
@@ -51,6 +51,23 @@ def reset_system() -> Dict[str, Any]:
                 "ok": False,
                 "hardware_state": "error",
                 "message": f"Hardware reset failed: {exc}",
+            }
+
+        prepare_rt_fn = shared_state.sorter_lifecycle.prepare_rt_handle
+        try:
+            if prepare_rt_fn is not None:
+                shared_state.setHardwareStatus(homing_step="Preparing rt runtime...")
+                prepare_rt_fn()
+        except Exception as exc:
+            shared_state.setHardwareStatus(
+                state="error",
+                error=f"RT runtime prepare failed: {exc}",
+                clear_homing_step=True,
+            )
+            return {
+                "ok": False,
+                "hardware_state": "error",
+                "message": f"RT runtime prepare failed: {exc}",
             }
 
         shared_state.setHardwareStatus(
@@ -75,7 +92,7 @@ def home_system() -> Dict[str, Any]:
                 "message": "Another hardware operation is already in progress.",
             }
 
-        fn = shared_state._hardware_start_fn
+        fn = shared_state.sorter_lifecycle.home_hardware
         if fn is None:
             return {
                 "ok": False,
@@ -133,7 +150,7 @@ def initialize_system() -> Dict[str, Any]:
                 "message": "Another hardware operation is already in progress.",
             }
 
-        fn = shared_state._hardware_initialize_fn
+        fn = shared_state.sorter_lifecycle.initialize_hardware
         if fn is None:
             return {
                 "ok": False,

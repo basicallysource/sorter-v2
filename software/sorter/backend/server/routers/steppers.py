@@ -24,6 +24,12 @@ from irl.parse_user_toml import (
     DEFAULT_STEPPER_IHOLD_DELAY,
     DEFAULT_STEPPER_IRUN,
 )
+from hardware.tmc2209_status import (
+    TMC_REG_DRV_STATUS,
+    active_temperature_flags,
+    overtemperature_fault_flags,
+    parse_drv_status,
+)
 from server import shared_state
 
 router = APIRouter()
@@ -74,6 +80,7 @@ class TmcSettingsRequest(BaseModel):
     microsteps: Optional[int] = None
     stealthchop: Optional[bool] = None
     coolstep: Optional[bool] = None
+    driver_mode: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -82,9 +89,6 @@ class TmcSettingsRequest(BaseModel):
 
 
 def _getCameraLayout() -> str:
-    if shared_state.vision_manager is not None:
-        return getattr(shared_state.vision_manager, "_camera_layout", "default")
-    # Fallback: read directly from TOML
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
         raw = loadTomlFile(params_path)
@@ -117,11 +121,22 @@ def _resolve_stepper(stepper_name: str) -> Any:
     return stepper
 
 
-def _halt_stepper(stepper: Any) -> None:
+def _halt_stepper(stepper: Any, *, stepper_name: str | None = None) -> None:
     errors: list[str] = []
     stopped = False
 
-    if hasattr(stepper, "move_at_speed"):
+    # On the geared C4 carousel, the firmware/API path for move_at_speed(0)
+    # has shown unsafe behavior after runtime motion: the command ACKs, but
+    # the motor can continue as an uncontrolled negative speed move. For that
+    # axis, prefer disabling the driver directly.
+    if stepper_name == "carousel" and hasattr(stepper, "enabled"):
+        try:
+            stepper.enabled = False
+            stopped = True
+        except Exception as e:
+            errors.append(f"disable failed: {e}")
+
+    if stepper_name != "carousel" and hasattr(stepper, "move_at_speed"):
         try:
             result = stepper.move_at_speed(0)
             stopped = stopped or bool(result)
@@ -167,33 +182,226 @@ def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock
 # ---------------------------------------------------------------------------
 
 TMC_REG_GCONF = 0x00
+TMC_REG_IFCNT = 0x02
 TMC_REG_IHOLD_IRUN = 0x10
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_COOLCONF = 0x42
 TMC_REG_CHOPCONF = 0x6C
-TMC_REG_DRV_STATUS = 0x6F
-
 MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
 MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
 
 
-def _parse_drv_status(raw: int) -> Dict[str, Any]:
-    return {
-        "ot": bool(raw & (1 << 1)),
-        "otpw": bool(raw & (1 << 0)),
-        "s2ga": bool(raw & (1 << 2)),
-        "s2gb": bool(raw & (1 << 3)),
-        "ola": bool(raw & (1 << 4)),
-        "olb": bool(raw & (1 << 5)),
-        "stst": bool(raw & (1 << 31)),
-        "stealth": bool(raw & (1 << 30)),
-        "cs_actual": (raw >> 16) & 0x1F,
-        "sg_result": (raw >> 10) & 0x3FF,
-        "t120": bool(raw & (1 << 8)),
-        "t143": bool(raw & (1 << 7)),
-        "t150": bool(raw & (1 << 6)),
-        "t157": bool(raw & (1 << 11)),
-    }
+def _effective_driver_mode(*, stealthchop: bool | None, coolstep: bool | None) -> str | None:
+    if coolstep and not stealthchop:
+        return "coolstep"
+    if stealthchop:
+        return "stealthchop"
+    if coolstep is not None or stealthchop is not None:
+        return "off"
+    return None
+
+
+def _driver_mode_warning(*, stealthchop: bool | None, coolstep: bool | None) -> str | None:
+    if stealthchop and coolstep:
+        return "CoolStep is configured but ineffective while StealthChop is active."
+    return None
+
+
+def _env_float(name: str, default: float) -> float:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.getenv(name, "").strip().lower()
+    if not raw:
+        return default
+    return raw not in {"0", "false", "no", "off"}
+
+
+MANUAL_MOVE_MAX_ABS_DEGREES = 720.0
+MANUAL_MOVE_MAX_SPEED = 12_000
+MANUAL_MOVE_MAX_MIN_SPEED = 6_000
+MANUAL_MOVE_MAX_ACCELERATION = 80_000
+CAROUSEL_MANUAL_MOVE_SAFETY_DISABLED = _env_bool(
+    "SORTER_CAROUSEL_MANUAL_MOVE_SAFETY_DISABLED",
+    False,
+)
+CAROUSEL_MANUAL_MOVE_MAX_SPEED = _env_int(
+    "SORTER_CAROUSEL_MANUAL_MOVE_MAX_SPEED",
+    4_000,
+)
+CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED = _env_int(
+    "SORTER_CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED",
+    4_000,
+)
+CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION = _env_int(
+    "SORTER_CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION",
+    4_000,
+)
+CAROUSEL_MANUAL_DEFAULT_MIN_SPEED = _env_int(
+    "SORTER_CAROUSEL_MANUAL_DEFAULT_MIN_SPEED",
+    120,
+)
+CAROUSEL_MANUAL_DEFAULT_ACCELERATION = _env_int(
+    "SORTER_CAROUSEL_MANUAL_DEFAULT_ACCELERATION",
+    4_000,
+)
+
+
+def _validate_manual_move_safety(
+    *,
+    degrees: float,
+    speed: int,
+    min_speed: int | None,
+    acceleration: int | None,
+    stepper_name: str | None = None,
+) -> None:
+    is_carousel = stepper_name == "carousel"
+    if is_carousel and CAROUSEL_MANUAL_MOVE_SAFETY_DISABLED:
+        return
+    max_speed = CAROUSEL_MANUAL_MOVE_MAX_SPEED if is_carousel else MANUAL_MOVE_MAX_SPEED
+    max_min_speed = (
+        CAROUSEL_MANUAL_MOVE_MAX_MIN_SPEED
+        if is_carousel
+        else MANUAL_MOVE_MAX_MIN_SPEED
+    )
+    max_acceleration = (
+        CAROUSEL_MANUAL_MOVE_MAX_ACCELERATION
+        if is_carousel
+        else MANUAL_MOVE_MAX_ACCELERATION
+    )
+    if not is_carousel and abs(float(degrees)) > MANUAL_MOVE_MAX_ABS_DEGREES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "degrees exceeds safe debug-move limit "
+                f"({MANUAL_MOVE_MAX_ABS_DEGREES:g})"
+            ),
+        )
+    if int(speed) > max_speed:
+        raise HTTPException(
+            status_code=400,
+            detail=f"speed exceeds safe debug-move limit ({max_speed})",
+        )
+    if min_speed is not None and int(min_speed) > max_min_speed:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "min_speed exceeds safe debug-move limit "
+                f"({max_min_speed})"
+            ),
+        )
+    if acceleration is not None and int(acceleration) > max_acceleration:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "acceleration exceeds safe debug-move limit "
+                f"({max_acceleration})"
+            ),
+        )
+
+
+def _legacy_driver_mode_from_request(body: TmcSettingsRequest) -> str | None:
+    if body.driver_mode is not None:
+        mode = body.driver_mode.strip().lower()
+        if mode not in {"off", "stealthchop", "coolstep"}:
+            raise HTTPException(
+                status_code=400,
+                detail="driver_mode must be one of: off, stealthchop, coolstep",
+            )
+        return mode
+    if body.coolstep is True:
+        return "coolstep"
+    if body.stealthchop is True:
+        return "stealthchop"
+    if body.coolstep is False or body.stealthchop is False:
+        return "off"
+    return None
+
+
+def _apply_driver_mode(stepper: Any, mode: str) -> tuple[bool, bool]:
+    gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    if gconf_raw is None:
+        raise HTTPException(status_code=502, detail="Could not read TMC GCONF register")
+
+    if mode == "stealthchop":
+        stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+        stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+        gconf_raw &= ~(1 << 2)  # clear EN_SPREADCYCLE
+        stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+        return True, False
+    if mode == "coolstep":
+        gconf_raw |= (1 << 2)  # CoolStep needs SpreadCycle, not StealthChop.
+        stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+        ifcnt_before = _safe_read_register(stepper, TMC_REG_IFCNT)
+        coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
+        stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
+        stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
+        ifcnt_after = _safe_read_register(stepper, TMC_REG_IFCNT)
+        _verify_driver_mode(
+            stepper,
+            mode,
+            ifcnt_before=ifcnt_before,
+            ifcnt_after=ifcnt_after,
+        )
+        return False, True
+
+    stepper.write_driver_register(TMC_REG_COOLCONF, 0)
+    stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+    gconf_raw |= (1 << 2)  # plain SpreadCycle
+    stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
+    return False, False
+
+
+def _verify_driver_mode(
+    stepper: Any,
+    mode: str,
+    *,
+    ifcnt_before: int | None = None,
+    ifcnt_after: int | None = None,
+) -> None:
+    if mode != "coolstep":
+        return
+    gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
+    tcoolthrs_raw = _safe_read_register(stepper, TMC_REG_TCOOLTHRS)
+
+    failures: list[str] = []
+    if gconf_raw is None or not bool(gconf_raw & (1 << 2)):
+        failures.append("SpreadCycle bit did not stay enabled")
+    if coolconf_raw is None or (coolconf_raw & 0x0F) == 0:
+        failures.append("COOLCONF.semin stayed 0")
+    if tcoolthrs_raw is None or tcoolthrs_raw == 0:
+        failures.append("TCOOLTHRS stayed 0")
+    if failures:
+        details = "; ".join(failures)
+        raw = {
+            "gconf": gconf_raw,
+            "coolconf": coolconf_raw,
+            "tcoolthrs": tcoolthrs_raw,
+            "ifcnt_before": ifcnt_before,
+            "ifcnt_after": ifcnt_after,
+        }
+        raise HTTPException(
+            status_code=502,
+            detail=f"CoolStep did not stick on the TMC driver ({details}; raw={raw})",
+        )
 
 
 # Cache for last-written IRUN/IHOLD since TMC2209 IHOLD_IRUN register is write-only via UART
@@ -328,6 +536,35 @@ def _persist_stepper_current(api_name: str, irun: int, ihold: int) -> None:
         pass  # best-effort persistence
 
 
+def _persist_stepper_driver_setting(
+    api_name: str,
+    *,
+    microsteps: Optional[int] = None,
+    coolstep: Optional[bool] = None,
+    stealthchop: Optional[bool] = None,
+) -> None:
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(api_name, api_name)
+    try:
+        params_path, config = _read_machine_params_config()
+        overrides = config.get("stepper_driver_overrides", {})
+        if not isinstance(overrides, dict):
+            overrides = {}
+        entry = overrides.get(toml_name, {})
+        if not isinstance(entry, dict):
+            entry = {}
+        if microsteps is not None:
+            entry["microsteps"] = int(microsteps)
+        if coolstep is not None:
+            entry["coolstep"] = bool(coolstep)
+        if stealthchop is not None:
+            entry["stealthchop"] = bool(stealthchop)
+        overrides[toml_name] = entry
+        config["stepper_driver_overrides"] = overrides
+        _write_machine_params_config(params_path, config)
+    except Exception:
+        pass  # best-effort persistence
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -336,9 +573,16 @@ def _persist_stepper_current(api_name: str, irun: int, ihold: int) -> None:
 @router.get("/state", response_model=StateResponse)
 def getState() -> StateResponse:
     layout = _getCameraLayout()
-    if shared_state.controller_ref is None:
+    rt = shared_state.rt_handle
+    if rt is None:
         return StateResponse(state=SorterLifecycle.INITIALIZING.value, camera_layout=layout)
-    return StateResponse(state=shared_state.controller_ref.state.value, camera_layout=layout)
+    if getattr(rt, "paused", False):
+        state = "paused"
+    elif getattr(rt, "started", False):
+        state = "running"
+    else:
+        state = SorterLifecycle.INITIALIZING.value
+    return StateResponse(state=state, camera_layout=layout)
 
 
 @router.post("/pause", response_model=CommandResponse)
@@ -416,7 +660,8 @@ def move_stepper_degrees(
     When ``min_speed`` and ``acceleration`` are both supplied, the firmware
     ramps from ``min_speed`` up to ``speed`` (and back down) using the
     supplied acceleration (µsteps/s²). Leave them unset for a hard-stop
-    constant-velocity move.
+    constant-velocity move, except for the geared C4/carousel axis where the
+    endpoint applies a conservative default ramp to avoid instant stall.
     """
     if degrees == 0:
         raise HTTPException(status_code=400, detail="degrees must be non-zero")
@@ -428,12 +673,22 @@ def move_stepper_degrees(
         raise HTTPException(status_code=400, detail="min_speed must be <= speed")
     if acceleration is not None and acceleration <= 0:
         raise HTTPException(status_code=400, detail="acceleration must be > 0 when supplied")
+    if stepper == "carousel" and min_speed is None and acceleration is None:
+        min_speed = max(1, min(int(speed), int(CAROUSEL_MANUAL_DEFAULT_MIN_SPEED)))
+        acceleration = max(1, int(CAROUSEL_MANUAL_DEFAULT_ACCELERATION))
     want_ramp = min_speed is not None and acceleration is not None
     if (min_speed is None) ^ (acceleration is None):
         raise HTTPException(
             status_code=400,
             detail="min_speed and acceleration must be supplied together for ramped motion",
         )
+    _validate_manual_move_safety(
+        degrees=degrees,
+        speed=speed,
+        min_speed=min_speed,
+        acceleration=acceleration,
+        stepper_name=stepper,
+    )
 
     target = _resolve_stepper(stepper)
 
@@ -476,7 +731,7 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
     target = _resolve_stepper(stepper)
 
     try:
-        _halt_stepper(target)
+        _halt_stepper(target, stepper_name=stepper)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stop failed: {e}")
 
@@ -492,7 +747,7 @@ def stop_all_steppers() -> StepperStopAllResponse:
         if stepper is None:
             continue
         try:
-            _halt_stepper(stepper)
+            _halt_stepper(stepper, stepper_name=name)
             halted.append(name)
         except Exception as e:
             errors[name] = str(e)
@@ -515,6 +770,8 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     stepper = _resolve_stepper(name)
 
     gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
+    ifcnt_raw = _safe_read_register(stepper, TMC_REG_IFCNT)
+    tcoolthrs_raw = _safe_read_register(stepper, TMC_REG_TCOOLTHRS)
     chopconf_raw = _safe_read_register(stepper, TMC_REG_CHOPCONF)
     coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
     drv_status_raw = _safe_read_register(stepper, TMC_REG_DRV_STATUS)
@@ -539,10 +796,32 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     else:
         result["coolstep"] = None
 
+    result["driver_mode"] = _effective_driver_mode(
+        stealthchop=result.get("stealthchop"),
+        coolstep=result.get("coolstep"),
+    )
+    result["driver_mode_warning"] = _driver_mode_warning(
+        stealthchop=result.get("stealthchop"),
+        coolstep=result.get("coolstep"),
+    )
+    result["registers"] = {
+        "gconf": gconf_raw,
+        "ifcnt": ifcnt_raw,
+        "tcoolthrs": tcoolthrs_raw,
+        "chopconf": chopconf_raw,
+        "coolconf": coolconf_raw,
+        "drv_status": drv_status_raw,
+    }
+
     if drv_status_raw is not None:
-        result["drv_status"] = _parse_drv_status(drv_status_raw)
+        drv_status = parse_drv_status(drv_status_raw)
+        result["drv_status"] = drv_status
+        result["temperature_flags"] = active_temperature_flags(drv_status)
+        result["thermal_fault_flags"] = overtemperature_fault_flags(drv_status)
     else:
         result["drv_status"] = None
+        result["temperature_flags"] = []
+        result["thermal_fault_flags"] = []
 
     return result
 
@@ -571,24 +850,15 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
         if body.microsteps not in MICROSTEPS_TO_MRES:
             raise HTTPException(status_code=400, detail=f"microsteps must be one of {sorted(MICROSTEPS_TO_MRES.keys())}")
         stepper.set_microsteps(body.microsteps)
+        _persist_stepper_driver_setting(name, microsteps=body.microsteps)
 
-    if body.stealthchop is not None:
-        gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
-        if gconf_raw is not None:
-            if body.stealthchop:
-                gconf_raw &= ~(1 << 2)  # clear EN_SPREADCYCLE
-            else:
-                gconf_raw |= (1 << 2)   # set EN_SPREADCYCLE
-            stepper.write_driver_register(TMC_REG_GCONF, gconf_raw)
-
-    if body.coolstep is not None:
-        if body.coolstep:
-            # semin=5, semax=2, seup=1(=2 increments), sedn=0(=32 steps)
-            coolconf = (5 & 0x0F) | ((2 & 0x0F) << 8) | ((1 & 0x03) << 5) | ((0 & 0x03) << 13)
-            stepper.write_driver_register(TMC_REG_COOLCONF, coolconf)
-            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0xFFFFF)
-        else:
-            stepper.write_driver_register(TMC_REG_COOLCONF, 0)
-            stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+    driver_mode = _legacy_driver_mode_from_request(body)
+    if driver_mode is not None:
+        stealthchop, coolstep = _apply_driver_mode(stepper, driver_mode)
+        _persist_stepper_driver_setting(
+            name,
+            stealthchop=stealthchop,
+            coolstep=coolstep,
+        )
 
     return get_tmc_settings(name)

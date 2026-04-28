@@ -13,8 +13,12 @@ import requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
-from local_state import start_new_sorting_session
+from local_state import (
+    get_hive_config,
+    get_sorting_profile_sync_state,
+    set_sorting_profile_sync_state,
+    start_new_sorting_session,
+)
 from server import shared_state
 from server.routers.hardware import (
     clear_bin_category_assignments,
@@ -43,7 +47,7 @@ class ApplySortingProfilePayload(BaseModel):
 
 
 def _load_targets() -> list[dict[str, Any]]:
-    config = getHiveConfig() or {}
+    config = get_hive_config() or {}
     targets = config.get("targets")
     if not isinstance(targets, list):
         return []
@@ -147,12 +151,8 @@ def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
 
 
 def _current_local_profile_status() -> dict[str, Any]:
-    sync_state = getSortingProfileSyncState() or {}
-    path = (
-        shared_state.gc_ref.sorting_profile_path
-        if shared_state.gc_ref is not None
-        else os.environ.get("SORTING_PROFILE_PATH")
-    )
+    sync_state = get_sorting_profile_sync_state() or {}
+    path = os.environ.get("SORTING_PROFILE_PATH")
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
         try:
@@ -174,20 +174,6 @@ def _current_local_profile_status() -> dict[str, Any]:
         "sync_state": sync_state,
         "local_profile": metadata,
     }
-
-
-def _reload_runtime_profile() -> bool:
-    controller = shared_state.controller_ref
-    if controller is None or not hasattr(controller, "reloadSortingProfile"):
-        return False
-    controller.reloadSortingProfile()
-    try:
-        from server.set_progress_sync import getSetProgressSyncWorker
-
-        getSetProgressSyncWorker().notify()
-    except Exception:
-        pass
-    return True
 
 
 @router.get("/api/sorting-profiles/status")
@@ -255,9 +241,12 @@ def get_sorting_profile_detail(
 
 @router.post("/api/sorting-profiles/reload")
 def reload_sorting_profile() -> dict[str, Any]:
+    # Runtime profile reload is a no-op post-cutover — the rt graph picks
+    # up the new artifact on its next natural read. The endpoint stays so
+    # the UI can still refresh the local_profile status envelope.
     return {
         "ok": True,
-        "reloaded": _reload_runtime_profile(),
+        "reloaded": False,
         **_current_local_profile_status(),
     }
 
@@ -308,8 +297,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         raise HTTPException(status_code=502, detail="Hive returned an invalid artifact payload.")
 
     artifact_hash = str(artifact.get("artifact_hash") or "")
-    _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
-    reloaded = _reload_runtime_profile()
+    _atomic_write_json(os.environ["SORTING_PROFILE_PATH"], artifact)
 
     preassigned_count = 0
     if mode == "rules":
@@ -353,7 +341,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     if activation_error:
         sync_state["last_error"] = activation_error
 
-    setSortingProfileSyncState(sync_state)
+    set_sorting_profile_sync_state(sync_state)
     start_new_sorting_session(reason="profile_activated")
     try:
         from server.set_progress_sync import getSetProgressSyncWorker
@@ -366,7 +354,7 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
     shared_state.publishSortingProfileStatus(status)
     return {
         "ok": True,
-        "reloaded": reloaded,
+        "reloaded": False,
         "bin_categories_reset": bool(reset_result),
         "bin_categories_reset_message": reset_result.get("message") if isinstance(reset_result, dict) else None,
         "preassigned_count": preassigned_count,

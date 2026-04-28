@@ -1,9 +1,11 @@
 <script lang="ts">
-	import { onDestroy, onMount } from 'svelte';
+	import { onMount } from 'svelte';
 	import { page } from '$app/state';
-	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
+	import { ArrowLeft, Camera, ExternalLink, Image as ImageIcon, Route } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
+	import { capturedCropUrl, dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
+	import { formatTrackLabel } from '$lib/trackLabel';
 	import { getMachineContext } from '$lib/machines/context';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
@@ -36,14 +38,16 @@
 	// To fix the flicker we cache the last known piece for this UUID in state.
 	// It survives transient null lookups and only gets cleared when the UUID
 	// itself changes (the user navigates to a different piece).
-	let _stickyPiece = $state<KnownObjectData | null>(null);
+	type TrackedPieceDetailData = KnownObjectData & { track_detail?: TrackDetail | null };
+
+	let _stickyPiece = $state<TrackedPieceDetailData | null>(null);
 
 	// Fallback hydration for pieces that have already aged out of the WS
 	// `recentObjects` ring. We fetch from the backend's persistent-lookup
 	// endpoint (`/api/known-objects/<uuid>`) exactly once per route UUID,
 	// and `piece` prefers the live ring if the WS ever re-surfaces it (the
 	// live payload keeps updating; the fetched snapshot is frozen).
-	let _fetchedPiece = $state<KnownObjectData | null>(null);
+	let _fetchedPiece = $state<TrackedPieceDetailData | null>(null);
 	let _fetchStatus = $state<'idle' | 'loading' | 'ok' | 'not_found' | 'error'>('idle');
 
 	$effect(() => {
@@ -54,6 +58,7 @@
 		_stickyPiece = null;
 		_fetchedPiece = null;
 		_fetchStatus = 'idle';
+		showAllEvidence = false;
 	});
 
 	$effect(() => {
@@ -62,15 +67,15 @@
 		if (found !== null) _stickyPiece = found;
 	});
 
-	// Kick off the persistent-lookup fetch when the piece isn't in the live
-	// buffer. We avoid refetching by gating on `_fetchStatus === 'idle'` —
-	// the UUID-change effect resets it back to 'idle'.
+	// Fetch the DB-backed detail once per route UUID. We run this even when
+	// the live WS ring already has the piece, because `track_detail`
+	// (segments + sector snapshots) is only on the fetched payload — the
+	// sticky piece only carries the KnownObjectData surface.
 	$effect(() => {
-		if (_stickyPiece !== null) return;
 		if (_fetchStatus !== 'idle') return;
 		const targetUuid = uuid;
 		_fetchStatus = 'loading';
-		void fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(targetUuid)}`)
+		void fetch(`${effectiveBase()}/api/tracked/pieces/${encodeURIComponent(targetUuid)}`)
 			.then(async (res) => {
 				// Ignore stale responses — the user may have navigated away.
 				if (targetUuid !== uuid) return;
@@ -82,7 +87,7 @@
 					_fetchStatus = 'error';
 					return;
 				}
-				_fetchedPiece = (await res.json()) as KnownObjectData;
+				_fetchedPiece = (await res.json()) as TrackedPieceDetailData;
 				_fetchStatus = 'ok';
 			})
 			.catch(() => {
@@ -91,11 +96,21 @@
 			});
 	});
 
-	let piece = $derived(_stickyPiece ?? _fetchedPiece);
+	// Live WS updates win for the piece fields that tick every frame (stage,
+	// classification_status, ...), but `track_detail` only lives on the
+	// DB-backed fetch response — merge it in so the composite doesn't see
+	// `null` while the piece is still in the live ring.
+	let piece = $derived<TrackedPieceDetailData | null>(
+		_stickyPiece
+			? {
+					..._stickyPiece,
+					track_detail: _stickyPiece.track_detail ?? _fetchedPiece?.track_detail ?? null
+				}
+			: _fetchedPiece
+	);
 
 	let bricklink = $state<BricklinkPartResponse | null>(null);
 
-	let showRawJson = $state(false);
 	let zoomImage = $state<{ src: string; label: string } | null>(null);
 
 	// Refetch Bricklink only when the part_id actually changes — otherwise every
@@ -117,18 +132,21 @@
 			.catch(() => {});
 	});
 
-	// Tick so relative timestamps refresh.
-	let now_tick = $state(0);
-	let timerId: ReturnType<typeof setInterval> | null = null;
-	onMount(() => {
-		timerId = setInterval(() => (now_tick += 1), 1000);
-	});
-	onDestroy(() => {
-		if (timerId !== null) clearInterval(timerId);
-	});
-
-	function dataImageUrl(payload: string | null | undefined): string | null {
-		return payload ? `data:image/jpeg;base64,${payload}` : null;
+	function snapshotImageSrc(snap: SectorSnapshot, prefer: 'piece' | 'wedge'): string | null {
+		// Prefer the disk-backed URL (long-cached), fall back to any b64 the
+		// live tracker still has in memory. For the "piece" crop we additionally
+		// fall back to the wedge path/b64 because older data may only have the
+		// wedge variant.
+		const base = effectiveBase();
+		if (prefer === 'piece') {
+			return (
+				pieceCropUrl(snap.piece_jpeg_path, base) ??
+				pieceCropUrl(snap.jpeg_path, base) ??
+				dataImageUrl(snap.piece_jpeg_b64) ??
+				dataImageUrl(snap.jpeg_b64)
+			);
+		}
+		return pieceCropUrl(snap.jpeg_path, base) ?? dataImageUrl(snap.jpeg_b64);
 	}
 
 	type CropEntry = { src: string; role: string; ts: number | null; used: boolean };
@@ -142,87 +160,108 @@
 	// `piece.recognition_used_crop_ts`.
 	type PathPoint = [number, number, number];
 	type SectorSnapshot = {
+		sector_index?: number;
 		captured_ts: number;
 		start_angle_deg?: number;
 		end_angle_deg?: number;
-		jpeg_b64: string;
+		bbox_x?: number;
+		bbox_y?: number;
+		width?: number;
+		height?: number;
+		// Phase 3+: crops live on disk and are referenced by relative path
+		// (e.g. "piece_crops/<uuid>/seg<seq>/wedge_000.jpg"). The legacy
+		// b64 payload is still populated for the live-tracker path where the
+		// snapshot hasn't been flushed yet.
+		jpeg_path?: string | null;
+		piece_jpeg_path?: string | null;
+		jpeg_b64?: string;
 		piece_jpeg_b64?: string;
+		r_inner?: number;
+		r_outer?: number;
 	};
 	type Segment = {
-		source_role: string;
+		// Live tracker uses `source_role`; DB-backed segments use `role`.
+		// Accept either and fall back to `role` in the consumers.
+		source_role?: string;
+		role?: string;
+		handoff_from: string | null;
+		first_seen_ts: number;
+		last_seen_ts: number;
+		duration_s: number;
+		hit_count: number;
+		path_points: number;
+		snapshot_width: number;
+		snapshot_height: number;
+		snapshot_jpeg_b64?: string;
+		snapshot_path?: string | null;
+		path: PathPoint[];
+		channel_center_x: number | null;
+		channel_center_y: number | null;
+		channel_radius_inner: number | null;
+		channel_radius_outer: number | null;
+		sector_count: number;
 		sector_snapshots?: SectorSnapshot[];
 	};
 	type BurstFrame = {
 		role: string;
 		captured_ts: number;
-		jpeg_b64: string;
+		relative_ms?: number;
+		jpeg_b64?: string;
+		jpeg_path?: string | null;
+		piece_jpeg_path?: string | null;
+		crop_jpeg_path?: string | null;
+		width?: number;
+		height?: number;
+	};
+	type MatrixShot = {
+		name?: string;
+		status?: string;
+		triggered_at?: number;
+		pre_window_s?: number;
+		post_window_s?: number;
+		frame_count?: number;
+		frames?: BurstFrame[];
 	};
 	type TrackDetail = {
 		global_id: number;
+		created_at?: number;
+		finished_at?: number;
+		duration_s?: number;
+		roles?: string[];
+		handoff_count?: number;
+		segment_count?: number;
+		total_hit_count?: number;
 		segments: Segment[];
 		live?: boolean;
 		burst_frames?: BurstFrame[];
+		matrix_shot?: MatrixShot;
 	};
 
 	let trackDetail = $state<TrackDetail | null>(null);
-	let _loadedGlobalId: number | null = null;
-	let trackPollTimer: ReturnType<typeof setInterval> | null = null;
 
-	// Signature of the fetched track: "live|seg0_snaps,seg1_snaps,..." — used
-	// to gate `trackDetail` reassignment so polls that return identical data
-	// don't trigger a re-render of the crops `$effect` or the composite SVG.
+	// Signature of the embedded track detail: "live|seg0_snaps,seg1_snaps,..."
+	// — gates `trackDetail` reassignment so identical payloads don't trigger
+	// re-renders of the crops `$effect` or the composite SVG.
 	function trackSignature(d: TrackDetail | null): string {
 		if (!d) return '';
 		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
-		const burstCount = d.burst_frames?.length ?? 0;
+		const burstCount = d.matrix_shot?.frames?.length ?? d.burst_frames?.length ?? 0;
 		return `${d.live ? 1 : 0}|${counts}|b${burstCount}`;
 	}
 	let _trackSig = '';
 
-	async function loadTrack(gid: number | null | undefined): Promise<void> {
-		if (gid == null || !Number.isFinite(gid)) {
-			trackDetail = null;
-			_trackSig = '';
-			return;
-		}
-		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${gid}`);
-			if (!res.ok) return;
-			const next = (await res.json()) as TrackDetail;
-			const nextSig = trackSignature(next);
-			if (nextSig !== _trackSig) {
-				_trackSig = nextSig;
-				trackDetail = next;
-			}
-		} catch {
-			// Silent — the page still renders without the tracker-crop gallery.
-		}
-	}
-
-	// Only refetch when the *global id* actually changes. `piece` is reassigned
-	// on every WS event so a naive dependency would clear+refetch the track on
-	// every tick, re-rendering the whole crops gallery and composite.
+	// rt/ publishes every piece_registered/classified/distributed event
+	// straight into the DB-backed dossier, so `piece.track_detail` embedded
+	// in the `/api/tracked/pieces/{uuid}` response is the single source of
+	// truth — no separate live-tracker fetch needed.
 	$effect(() => {
-		const gid = piece?.tracked_global_id ?? null;
-		if (gid === _loadedGlobalId) return;
-		_loadedGlobalId = gid;
-		trackDetail = null;
-		_trackSig = '';
-		void loadTrack(gid);
-	});
-
-	onMount(() => {
-		// While the piece is still live on the tracker, sector snapshots keep
-		// arriving. Poll at the same cadence the track page uses.
-		trackPollTimer = setInterval(() => {
-			if (trackDetail?.live && piece?.tracked_global_id != null) {
-				void loadTrack(piece.tracked_global_id);
-			}
-		}, 1500);
-	});
-
-	onDestroy(() => {
-		if (trackPollTimer !== null) clearInterval(trackPollTimer);
+		const embedded = piece?.track_detail ?? null;
+		if (!embedded) return;
+		const nextSig = trackSignature(embedded);
+		if (nextSig !== _trackSig) {
+			_trackSig = nextSig;
+			trackDetail = embedded;
+		}
 	});
 
 	const TS_TOLERANCE_S = 0.005;
@@ -277,11 +316,11 @@
 		if (trackDetail) {
 			for (const seg of trackDetail.segments ?? []) {
 				for (const snap of seg.sector_snapshots ?? []) {
-					const src = dataImageUrl(snap.piece_jpeg_b64 ?? snap.jpeg_b64);
+					const src = snapshotImageSrc(snap, 'piece');
 					if (!src) continue;
 					entries.push({
 						src,
-						role: seg.source_role,
+						role: seg.source_role ?? seg.role ?? 'unknown',
 						ts: snap.captured_ts ?? null,
 						used: snap.captured_ts != null ? tsWasUsed(snap.captured_ts, usedList) : false
 					});
@@ -311,6 +350,19 @@
 			});
 		}
 
+		if (entries.length === 0) {
+			const thumb = capturedCropUrl(piece, effectiveBase());
+			if (thumb) {
+				entries.push({
+					src: thumb,
+					role: 'classification_preview',
+					ts:
+						piece.carousel_detected_confirmed_at ?? piece.classified_at ?? piece.updated_at ?? null,
+					used: false
+				});
+			}
+		}
+
 		// Sort by timestamp so the gallery reads chronologically.
 		entries.sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
 
@@ -319,9 +371,7 @@
 		// on tracker crops (identified by ts) — the b64 payload for a given
 		// captured_ts never changes mid-track and hashing it would defeat the
 		// stabilization.
-		const sig = entries
-			.map((c) => `${cropKey(c)}|${c.used ? 1 : 0}`)
-			.join(';');
+		const sig = entries.map((c) => `${cropKey(c)}|${c.used ? 1 : 0}`).join(';');
 		if (sig !== _cachedCropsSig) {
 			_cachedCropsSig = sig;
 			_cachedCrops = entries;
@@ -331,17 +381,21 @@
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
 	const usedCropCount = $derived(crops.reduce((n, c) => n + (c.used ? 1 : 0), 0));
+	let showAllEvidence = $state(false);
+	const evidenceCrops = $derived(
+		usedCropCount > 0 && !showAllEvidence ? crops.filter((crop) => crop.used) : crops
+	);
 
-	// --- Drop-zone burst --------------------------------------------------
-	// Pre+post-event frames from C3 + carousel captured when the piece fell
-	// into the classification chamber. Rendered as a filmstrip + enlarged
-	// preview. Chronologically pre-sorted on the backend.
-	const burstFrames = $derived<BurstFrame[]>(trackDetail?.burst_frames ?? []);
+	// --- Matrix-shot ------------------------------------------------------
+	// Reverse-buffered C4 frames captured at first C4 registration.
+	// Older payloads used `burst_frames`; keep them as a compatibility source.
+	const matrixShot = $derived<MatrixShot | null>(trackDetail?.matrix_shot ?? null);
+	const burstFrames = $derived<BurstFrame[]>(matrixShot?.frames ?? trackDetail?.burst_frames ?? []);
 	let selectedBurstIdx = $state(0);
 	// Reset the selection whenever the underlying global_id changes so we
 	// don't index past the end of a different piece's burst.
 	$effect(() => {
-		void _loadedGlobalId;
+		void piece?.tracked_global_id;
 		selectedBurstIdx = 0;
 	});
 	// Clamp if the frame list shrank (shouldn't happen — entries only grow —
@@ -351,9 +405,7 @@
 			selectedBurstIdx = Math.max(0, burstFrames.length - 1);
 		}
 	});
-	const selectedBurstFrame = $derived<BurstFrame | null>(
-		burstFrames[selectedBurstIdx] ?? null
-	);
+	const selectedBurstFrame = $derived<BurstFrame | null>(burstFrames[selectedBurstIdx] ?? null);
 	const burstDurationLabel = $derived.by<string>(() => {
 		if (burstFrames.length < 2) return '';
 		const first = burstFrames[0].captured_ts;
@@ -363,41 +415,41 @@
 		return `${span.toFixed(2)}s`;
 	});
 
-	function burstRoleClass(role: string): string {
-		return role === 'carousel' ? 'text-primary' : 'text-text-muted';
-	}
-
 	function burstRoleLabel(role: string): string {
 		if (role === 'carousel') return 'C4';
 		if (role === 'c_channel_3') return 'C3';
 		return role.toUpperCase();
 	}
 
+	function burstFrameSrc(frame: BurstFrame | null): string | null {
+		if (!frame) return null;
+		return pieceCropUrl(frame.jpeg_path, effectiveBase()) ?? dataImageUrl(frame.jpeg_b64);
+	}
+
+	function burstFrameCropSrc(frame: BurstFrame | null): string | null {
+		if (!frame) return null;
+		return (
+			pieceCropUrl(frame.piece_jpeg_path, effectiveBase()) ??
+			pieceCropUrl(frame.crop_jpeg_path, effectiveBase())
+		);
+	}
+
+	function burstFrameDisplaySrc(frame: BurstFrame | null): string | null {
+		return burstFrameCropSrc(frame) ?? burstFrameSrc(frame);
+	}
+
 	function formatAbsTs(ts: number | null | undefined): string {
 		if (!ts) return '—';
 		try {
 			const d = new Date(ts * 1000);
-			return d.toLocaleTimeString(undefined, { hour12: false }) + '.' +
-				String(d.getMilliseconds()).padStart(3, '0');
+			return (
+				d.toLocaleTimeString(undefined, { hour12: false }) +
+				'.' +
+				String(d.getMilliseconds()).padStart(3, '0')
+			);
 		} catch {
 			return String(ts);
 		}
-	}
-
-	function formatRelSec(ts: number | null | undefined, anchor: number | null | undefined): string {
-		if (!ts || !anchor) return '';
-		const d = ts - anchor;
-		if (Math.abs(d) < 1) return `+${(d * 1000).toFixed(0)}ms`;
-		return `+${d.toFixed(2)}s`;
-	}
-
-	function formatRelativeTime(ts: number | null | undefined): string {
-		void now_tick;
-		if (!ts) return '';
-		const diff = Math.max(0, Date.now() / 1000 - ts);
-		if (diff < 60) return `${Math.round(diff)}s ago`;
-		if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
-		return `${Math.round(diff / 3600)}h ago`;
 	}
 
 	function formatBin(bin: [unknown, unknown, unknown] | null | undefined): string {
@@ -406,6 +458,7 @@
 	}
 
 	function formatRole(role: string): string {
+		if (role === 'classification_preview') return 'C4 preview';
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
@@ -423,41 +476,37 @@
 		return 'text-danger';
 	}
 
-	// Timeline: piece lifecycle events with absolute timestamps. We only show
-	// events that actually happened.
-	type TimelineEvent = { label: string; ts: number };
-	const timeline = $derived.by<TimelineEvent[]>(() => {
-		if (!piece) return [];
-		const events: TimelineEvent[] = [];
-		const push = (label: string, ts: number | null | undefined) => {
-			if (typeof ts === 'number' && ts > 0) events.push({ label, ts });
-		};
-		push('Created / first seen', piece.created_at);
-		push('Feeding started', piece.feeding_started_at);
-		push('First carousel sighting', piece.first_carousel_seen_ts);
-		push('Carousel confirmed', piece.carousel_detected_confirmed_at);
-		push('Carousel rotate started', piece.carousel_rotate_started_at);
-		push('Carousel rotated', piece.carousel_rotated_at);
-		push('Snapping started', piece.carousel_snapping_started_at);
-		push('Snapping completed', piece.carousel_snapping_completed_at);
-		push('Classified', piece.classified_at);
-		push('Distributing', piece.distributing_at);
-		push('Target bin selected', piece.distribution_target_selected_at);
-		push('Distribution motion', piece.distribution_motion_started_at);
-		push('Positioned over bin', piece.distribution_positioned_at);
-		push('Distributed', piece.distributed_at);
-		// Monotonic sort (floats); preserve original ordering when equal.
-		events.sort((a, b) => a.ts - b.ts);
-		return events;
-	});
+	function confidenceBarClass(conf: number | null | undefined): string {
+		if (conf == null) return 'bg-text-muted/40';
+		const pct = conf * 100;
+		if (pct >= 90) return 'bg-success';
+		if (pct >= 80) return 'bg-warning';
+		if (pct >= 60) return 'bg-warning/70';
+		return 'bg-danger';
+	}
+
+	function formatSyncPercent(ratio: number | null | undefined): string {
+		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return '—';
+		return `${(ratio * 100).toFixed(0)}%`;
+	}
+
+	function motionSyncClass(ratio: number | null | undefined): string {
+		if (typeof ratio !== 'number' || !Number.isFinite(ratio)) return 'text-text-muted';
+		if (ratio < 0.5) return 'text-danger';
+		if (ratio < 0.85 || ratio > 1.15) return 'text-warning-dark';
+		return 'text-success';
+	}
 
 	const cat_name = $derived(
 		piece?.category_id ? sortingProfileStore.getCategoryName(piece.category_id) : null
 	);
+	const category_label = $derived(cat_name ?? piece?.part_category ?? piece?.category_id ?? null);
+	const bin_label = $derived(
+		piece?.destination_bin ? formatBin(piece.destination_bin) : (piece?.bin_id ?? null)
+	);
 
 	const is_unknown = $derived(
-		piece?.classification_status === 'unknown' ||
-			piece?.classification_status === 'not_found'
+		piece?.classification_status === 'unknown' || piece?.classification_status === 'not_found'
 	);
 	const is_multi_drop = $derived(piece?.classification_status === 'multi_drop_fail');
 
@@ -474,422 +523,490 @@
 	}
 
 	function statusChipClass(obj: KnownObjectData): string {
-		if (obj.classification_status === 'multi_drop_fail') return 'border-danger text-danger';
+		if (obj.classification_status === 'multi_drop_fail')
+			return 'border-danger bg-danger/10 text-danger';
 		if (obj.classification_status === 'unknown' || obj.classification_status === 'not_found') {
-			return 'border-warning text-warning-dark';
+			return 'border-warning bg-warning/10 text-warning-dark';
 		}
-		if (obj.stage === 'distributed') return 'border-text-muted text-text-muted';
-		if (obj.stage === 'distributing') return 'border-primary text-primary';
-		if (obj.classification_status === 'classified') return 'border-success text-success';
-		return 'border-border text-text-muted';
+		if (obj.stage === 'distributed') return 'border-text-muted bg-text-muted/10 text-text-muted';
+		if (obj.stage === 'distributing') return 'border-primary bg-primary/10 text-primary';
+		if (obj.classification_status === 'classified')
+			return 'border-success bg-success/10 text-success';
+		return 'border-border bg-bg text-text-muted';
 	}
+
+	const primaryTitle = $derived.by<string>(() => {
+		if (!piece) return `Piece ${uuid.slice(0, 8)}`;
+		if (piece.part_name) return piece.part_name;
+		if (bricklink?.name) return bricklink.name;
+		if (piece.part_id) return piece.part_id;
+		if (piece.classification_status === 'pending') return 'Unclassified C4 piece';
+		return 'Tracked piece';
+	});
+
+	const latestCrop = $derived<CropEntry | null>(crops[crops.length - 1] ?? null);
+	const latestCropSrc = $derived.by<string | null>(() => {
+		if (latestCrop?.src) return latestCrop.src;
+		return piece ? capturedCropUrl(piece, effectiveBase()) : null;
+	});
+
+	const recognizerImageSrc = $derived.by<string | null>(() => {
+		if (bricklink?.thumbnail_url) return `https:${bricklink.thumbnail_url}`;
+		return piece?.brickognize_preview_url ?? null;
+	});
 </script>
 
 <svelte:head>
 	<title>Piece {uuid.slice(0, 8)} · Sorter</title>
 </svelte:head>
 
-<div class="min-h-screen bg-bg">
+<div class="detail-shell min-h-screen bg-bg">
 	<AppHeader />
-	<div class="flex flex-col gap-4 p-4 sm:p-6">
-		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
-			<div class="flex flex-wrap items-center gap-3">
-				<a
-					href="/tracked"
-					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
-				>
-					<ArrowLeft size={14} />
-					Back
-				</a>
-				<span class="font-mono text-lg font-semibold text-text">
-					{uuid.slice(0, 8)}
-				</span>
-				{#if piece}
-					<span class={`inline-flex items-center border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${statusChipClass(piece)}`}>
-						{statusLabel(piece)}
-					</span>
-					{#if is_multi_drop}
-						<span class="inline-flex items-center border border-danger bg-danger/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger">
-							Multi-drop
-						</span>
-					{/if}
-				{/if}
-			</div>
-			{#if piece?.tracked_global_id != null}
-				<a
-					href={`/tracked/${piece.tracked_global_id}`}
-					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
-					title="Open tracker-level record (all angular crops)"
-				>
-					<ExternalLink size={14} />
-					Track #{piece.tracked_global_id}
-				</a>
-			{/if}
-		</header>
-
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-3 p-4 sm:p-6">
 		{#if !piece}
 			{#if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					Loading piece…
+					Loading piece detail…
 				</div>
 			{:else if _fetchStatus === 'not_found'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					This piece is no longer cached. The backend keeps the last ~1000
-					pieces in memory per session — once a piece ages out, its per-piece
-					data is gone. Go back to the
+					This piece is not in our records. Go back to the
 					<a href="/tracked" class="text-primary underline">tracker list</a>
-					for persistent track records.
+					to pick another.
 				</div>
 			{:else}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					Could not load this piece. Check the backend connection and try again.
+					Could not load this piece — check backend connection.
 				</div>
 			{/if}
 		{:else}
-			<!-- Identity & classification summary -->
-			<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-				<div class="flex flex-col border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Classification
-					</div>
-					<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-						<span class="text-text-muted">Part ID</span>
-						<span class="font-mono text-text">{piece.part_id ?? '—'}</span>
+			<!-- Crumb: a single terse bar so the actual content can breathe. -->
+			<div class="flex items-center gap-3 text-xs text-text-muted">
+				<a href="/tracked" class="inline-flex items-center gap-1 hover:text-text">
+					<ArrowLeft size={13} />
+					Tracked pieces
+				</a>
+				<span class="text-border">/</span>
+				<span class="font-mono tabular-nums">{uuid.slice(0, 12)}</span>
+			</div>
 
-						<span class="text-text-muted">Name</span>
-						<span class="text-text">
-							{#if piece.part_name}
-								{piece.part_name}
-							{:else if bricklink?.name}
-								{bricklink.name}
-							{:else}
-								—
-							{/if}
+			<!-- Verdict: observation ↔ identity+bin ↔ reference, answered on a glance. -->
+			<section class="verdict border border-border bg-surface">
+				<!-- Observation -->
+				<div class="flex flex-col border-b border-border lg:border-r lg:border-b-0">
+					<div
+						class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5 text-xs font-medium text-text-muted"
+					>
+						<span class="inline-flex items-center gap-1.5 tracking-wider uppercase">
+							<ImageIcon size={12} />
+							Observed
 						</span>
-
-						<span class="text-text-muted">Color</span>
-						<span class="text-text">
-							{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
-						</span>
-
-						<span class="text-text-muted">Category</span>
-						<span class="text-text">{cat_name ?? '—'}</span>
-
-						<span class="text-text-muted">Confidence</span>
-						<span class={`font-semibold tabular-nums ${confidenceClass(piece.confidence)}`}>
-							{typeof piece.confidence === 'number'
-								? `${(piece.confidence * 100).toFixed(0)}%`
-								: '—'}
-						</span>
-
-						<span class="text-text-muted">Source view</span>
-						<span class="text-text">{piece.brickognize_source_view ?? '—'}</span>
-					</div>
-				</div>
-
-				<div class="flex flex-col border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Routing
-					</div>
-					<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-						<span class="text-text-muted">Stage</span>
-						<span class="text-text">{piece.stage}</span>
-
-						<span class="text-text-muted">Destination bin</span>
-						<span class="font-mono tabular-nums text-text">
-							{#if piece.destination_bin}
-								{formatBin(piece.destination_bin)}
-							{:else if is_unknown || is_multi_drop}
-								<span class="text-text-muted">discard bin</span>
-							{:else}
-								—
-							{/if}
-						</span>
-
-						<span class="text-text-muted">Tracker</span>
-						<span class="font-mono tabular-nums text-text">
-							{piece.tracked_global_id ?? '—'}
-						</span>
-
-						<span class="text-text-muted">Last update</span>
-						<span class="text-text">
-							{formatAbsTs(piece.updated_at)}
-							<span class="ml-1 text-text-muted">({formatRelativeTime(piece.updated_at)})</span>
-						</span>
-					</div>
-				</div>
-			</section>
-
-			<!-- Arrival snapshot: full carousel frame at the instant the piece
-			     first appeared on C4 (dropping in from C3), side-by-side with
-			     the Brickognize reference so the operator can eyeball whether
-			     the classification was right. -->
-			{#if piece.drop_snapshot || piece.brickognize_preview_url || bricklink?.thumbnail_url}
-				{@const ref_drop_src = bricklink?.thumbnail_url
-					? `https:${bricklink.thumbnail_url}`
-					: (piece.brickognize_preview_url ?? null)}
-				<section class="border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Arrival snapshot
-					</div>
-					<div class="flex flex-wrap gap-3 p-3">
-						{#if piece.drop_snapshot}
-							{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
-							<button
-								type="button"
-								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-								onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
-							>
-								<div class="relative flex h-64 w-64 items-center justify-center bg-white">
-									<img src={drop_src} alt="arrival snapshot" class="h-full w-full object-contain" loading="lazy" />
-								</div>
-								<div class="px-2 py-1.5 text-sm text-text-muted">At arrival</div>
-							</button>
-						{:else}
-							<div class="flex h-64 w-64 items-center justify-center border border-border bg-bg text-sm text-text-muted">
-								No snapshot captured
-							</div>
-						{/if}
-						{#if ref_drop_src}
-							<button
-								type="button"
-								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-								onclick={() => (zoomImage = { src: ref_drop_src, label: 'Brickognize says' })}
-							>
-								<div class="relative flex h-64 w-64 items-center justify-center bg-white">
-									<img src={ref_drop_src} alt="brickognize reference" class="h-full w-full object-contain" loading="lazy" />
-								</div>
-								<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-sm text-text-muted">
-									<span>Brickognize says</span>
-									<span class="tabular-nums">{piece.part_id ?? ''}</span>
-								</div>
-							</button>
+						{#if latestCrop?.role}
+							<span class="truncate">{formatRole(latestCrop.role)}</span>
 						{/if}
 					</div>
-				</section>
-			{/if}
-
-			<!-- Image gallery + Brickognize reference -->
-			<section class="border border-border bg-surface">
-				<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
-					<div class="font-medium text-text">
-						Captured crops
-						<span class="ml-2 text-text-muted">{crops.length}</span>
-					</div>
-					{#if usedCropCount > 0}
-						<div class="flex items-center gap-2 text-text-muted">
-							<span class="inline-block h-3 w-3 border-2 border-primary"></span>
-							<span>{usedCropCount} shipped to Brickognize</span>
-						</div>
-					{/if}
-				</div>
-				<div class="p-3">
-					{#if crops.length === 0}
-						<div class="text-sm text-text-muted">No crops available for this piece.</div>
-					{:else}
-						<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
-							{#each crops as crop (cropKey(crop))}
-								<button
-									type="button"
-									class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
-										crop.used ? 'border-2 border-primary' : 'border border-border'
-									}`}
-									title={crop.used ? 'Shipped to Brickognize for classification' : formatRole(crop.role)}
-									onclick={() => (zoomImage = { src: crop.src, label: formatRole(crop.role) })}
-								>
-									<div class="relative aspect-square w-full bg-white">
-										<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
-									</div>
-									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-										<span>{formatRole(crop.role)}</span>
-										<span class="tabular-nums">{formatAbsTs(crop.ts)}</span>
-									</div>
-								</button>
-							{/each}
-							{#if piece.brickognize_preview_url || bricklink?.thumbnail_url}
-								{@const ref_src = bricklink?.thumbnail_url
-									? `https:${bricklink.thumbnail_url}`
-									: (piece.brickognize_preview_url as string)}
-								<button
-									type="button"
-									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-									onclick={() => (zoomImage = { src: ref_src, label: 'Brickognize reference' })}
-								>
-									<div class="relative aspect-square w-full bg-white">
-										<img src={ref_src} alt="reference" class="h-full w-full object-contain" loading="lazy" />
-									</div>
-									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-										<span>Brickognize ref.</span>
-										<span class="tabular-nums">{piece.part_id ?? ''}</span>
-									</div>
-								</button>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			</section>
-
-			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
-			{#if burstFrames.length > 0}
-				<section class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
-						<span class="font-medium text-text">Drop Burst</span>
-						<span class="text-text-muted">
-							<span class="tabular-nums">{burstFrames.length}</span>
-							<span class="mx-1">frames</span>
-							{#if burstDurationLabel}
-								<span class="mx-1">·</span>
-								<span class="tabular-nums">{burstDurationLabel}</span>
-							{/if}
-						</span>
-					</div>
-					{#if selectedBurstFrame}
-						<div class="flex flex-col items-center gap-1 border-b border-border bg-bg p-3">
+					{#if latestCropSrc}
+						<button
+							type="button"
+							class="group flex min-h-[240px] flex-1 items-center justify-center bg-white p-2 transition-[transform] active:scale-[0.98]"
+							onclick={() =>
+								(zoomImage = {
+									src: latestCropSrc,
+									label: latestCrop ? formatRole(latestCrop.role) : 'Latest crop'
+								})}
+						>
 							<img
-								src={`data:image/jpeg;base64,${selectedBurstFrame.jpeg_b64}`}
-								alt="burst frame {selectedBurstIdx + 1} of {burstFrames.length}"
-								class="max-h-[480px] max-w-full object-contain"
+								src={latestCropSrc}
+								alt="latest crop"
+								class="image-outline max-h-[260px] w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
 								loading="lazy"
 							/>
-							<div class="flex items-center gap-2 text-sm text-text-muted">
-								<span class={`font-semibold uppercase tracking-wider ${burstRoleClass(selectedBurstFrame.role)}`}>
-									{burstRoleLabel(selectedBurstFrame.role)}
-								</span>
-								<span class="tabular-nums">{formatAbsTs(selectedBurstFrame.captured_ts)}</span>
-								<span class="text-text-muted">· frame {selectedBurstIdx + 1} / {burstFrames.length}</span>
-							</div>
+						</button>
+					{:else}
+						<div
+							class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted"
+						>
+							No crop yet
 						</div>
 					{/if}
-					<div class="flex flex-row gap-1 overflow-x-auto px-3 py-2">
-						{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
-							<button
-								type="button"
-								class={`flex h-32 flex-col flex-shrink-0 bg-bg text-left hover:border-primary/70 ${
-									idx === selectedBurstIdx ? 'border-2 border-primary' : 'border border-border'
-								}`}
-								onclick={() => (selectedBurstIdx = idx)}
-								title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
+				</div>
+
+				<!-- Identity + destination -->
+				<div class="flex flex-col justify-between gap-4 px-5 py-4">
+					<div class="flex flex-col gap-2">
+						<div class="flex flex-wrap items-start gap-2">
+							<span
+								class={`inline-flex items-center border px-2 py-0.5 text-[10px] font-semibold tracking-wider uppercase ${statusChipClass(piece)}`}
 							>
-								<img
-									src={`data:image/jpeg;base64,${frame.jpeg_b64}`}
-									alt="burst frame {idx + 1}"
-									class="h-full w-auto flex-shrink-0 object-contain"
-									loading="lazy"
-								/>
+								{statusLabel(piece)}
+							</span>
+							{#if piece.tracked_global_id != null}
+								<a
+									href={`/tracked/${piece.uuid}`}
+									class="inline-flex items-center gap-1 border border-border bg-bg px-2 py-0.5 font-mono text-[10px] text-text-muted hover:border-primary/60 hover:text-text"
+									title="Open piece record"
+								>
+									<Route size={11} />
+									Track #{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
+								</a>
+							{/if}
+						</div>
+						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+							<span
+								class="font-mono text-3xl font-semibold tracking-[-0.02em] text-text tabular-nums"
+							>
+								{piece.part_id ?? '—'}
+							</span>
+							<span class="detail-title text-lg text-text-muted">
+								{piece.part_name ?? bricklink?.name ?? 'Unclassified'}
+							</span>
+						</div>
+						<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+							<span>
+								<span class="tracking-wider uppercase">Color</span>
+								<strong class="ml-1 font-normal text-text">
+									{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
+								</strong>
+							</span>
+							<span>
+								<span class="tracking-wider uppercase">Category</span>
+								<strong class="ml-1 font-normal text-text">{category_label ?? '—'}</strong>
+							</span>
+							{#if piece.brickognize_source_view}
+								<span>
+									<span class="tracking-wider uppercase">View</span>
+									<strong class="ml-1 font-normal text-text">{piece.brickognize_source_view}</strong
+									>
+								</span>
+							{/if}
+						</div>
+					</div>
+
+					<div class="grid gap-3 sm:grid-cols-2">
+						<div class="flex flex-col gap-1">
+							<span class="text-[10px] tracking-wider text-text-muted uppercase">Confidence</span>
+							{#if typeof piece.confidence === 'number'}
+								<div class="flex items-center gap-2">
+									<div class="confidence-track h-1.5 flex-1 bg-bg">
+										<div
+											class={`confidence-fill h-full ${confidenceBarClass(piece.confidence)}`}
+											style="width: {Math.max(0, Math.min(100, piece.confidence * 100))}%"
+										></div>
+									</div>
+									<span
+										class={`font-mono text-sm tabular-nums ${confidenceClass(piece.confidence)}`}
+									>
+										{(piece.confidence * 100).toFixed(0)}%
+									</span>
+								</div>
+							{:else}
+								<span class="font-mono text-sm text-text-muted">—</span>
+							{/if}
+						</div>
+						<div class="flex flex-col gap-1">
+							<span class="text-[10px] tracking-wider text-text-muted uppercase">Destination</span>
+							{#if bin_label}
+								<span class="font-mono text-lg font-semibold text-text tabular-nums"
+									>{bin_label}</span
+								>
+							{:else if is_unknown || is_multi_drop}
+								<span class="font-mono text-lg font-semibold text-warning-dark">discard</span>
+							{:else}
+								<span class="font-mono text-lg text-text-muted">—</span>
+							{/if}
+						</div>
+					</div>
+				</div>
+
+				<!-- Reference -->
+				<div class="flex flex-col border-t border-border lg:border-t-0 lg:border-l">
+					<div
+						class="border-b border-border bg-bg px-3 py-1.5 text-xs font-medium tracking-wider text-text-muted uppercase"
+					>
+						Reference
+					</div>
+					{#if recognizerImageSrc}
+						<button
+							type="button"
+							class="group flex min-h-[240px] flex-1 items-center justify-center bg-white p-2 transition-[transform] active:scale-[0.98]"
+							onclick={() => (zoomImage = { src: recognizerImageSrc, label: 'Recognized image' })}
+						>
+							<img
+								src={recognizerImageSrc}
+								alt="recognizer reference"
+								class="image-outline max-h-[260px] w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+								loading="lazy"
+							/>
+						</button>
+					{:else}
+						<div
+							class="flex min-h-[240px] flex-1 items-center justify-center bg-bg text-sm text-text-muted"
+						>
+							No reference
+						</div>
+					{/if}
+				</div>
+			</section>
+
+			<!-- Evidence: all the crops the system saw, chronological, full-width. -->
+				<section class="border border-border bg-surface">
+					<div
+						class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5"
+					>
+						<div class="flex items-baseline gap-2">
+							<span class="text-xs font-semibold tracking-wider text-text uppercase">Evidence</span>
+							<span class="font-mono text-xs text-text-muted tabular-nums">
+								{evidenceCrops.length} crop{evidenceCrops.length === 1 ? '' : 's'}
+								{#if evidenceCrops.length !== crops.length}
+									· {crops.length} total
+								{/if}
+								{#if usedCropCount > 0}
+									· {usedCropCount} shipped{/if}
+							</span>
+						</div>
+						<div class="flex flex-wrap items-center gap-2">
+							{#if crops.length > 0}
+								<div class="inline-flex border border-border bg-surface text-[11px]">
+									<button
+										type="button"
+										class={`min-h-9 px-3 transition-colors active:scale-[0.96] ${
+											!showAllEvidence
+												? 'bg-text text-bg'
+												: 'text-text-muted hover:bg-bg hover:text-text'
+										}`}
+										onclick={() => (showAllEvidence = false)}
+									>
+										Recognizer {#if usedCropCount >= 0}({usedCropCount}){/if}
+									</button>
+									<button
+										type="button"
+										class={`min-h-9 border-l border-border px-3 transition-colors active:scale-[0.96] ${
+											showAllEvidence
+												? 'bg-text text-bg'
+												: 'text-text-muted hover:bg-bg hover:text-text'
+										}`}
+										onclick={() => (showAllEvidence = true)}
+									>
+										Alle ({crops.length})
+									</button>
+								</div>
+							{/if}
+							{#if usedCropCount > 0}
+								<span class="inline-flex items-center gap-1.5 text-[11px] text-text-muted">
+									<span class="inline-block h-3 w-3 border-2 border-primary"></span>
+									<span>sent to recognizer</span>
+								</span>
+							{/if}
+						</div>
+					</div>
+					<div class="crop-strip flex gap-2 overflow-x-auto p-2">
+						{#if evidenceCrops.length === 0}
+							<div
+								class="flex h-40 min-w-full flex-col items-center justify-center gap-3 border border-dashed border-border bg-bg px-4 text-center text-sm text-text-muted"
+							>
+								{#if usedCropCount > 0}
+									No recognizer crops in the current filter.
+								{:else}
+									{#if crops.length > 0}
+										No crops were explicitly marked as sent to Recognizer for this piece.
+									{:else}
+										No crops available.
+									{/if}
+								{/if}
+								{#if crops.length > 0 && !showAllEvidence}
+									<button
+										type="button"
+										class="min-h-9 border border-border bg-surface px-3 text-[11px] text-text transition-colors hover:bg-bg active:scale-[0.96]"
+										onclick={() => (showAllEvidence = true)}
+									>
+										Show all evidence images
+									</button>
+								{/if}
+							</div>
+						{:else}
+							{#each evidenceCrops as crop (cropKey(crop))}
+								<button
+								type="button"
+								class={`group flex w-32 flex-shrink-0 flex-col overflow-hidden bg-bg text-left transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
+									crop.used ? 'border-2 border-primary' : 'border border-border'
+								}`}
+								title={crop.used
+									? 'Shipped to Brickognize for classification'
+									: formatRole(crop.role)}
+								onclick={() => (zoomImage = { src: crop.src, label: formatRole(crop.role) })}
+							>
+								<div class="flex h-32 w-full items-center justify-center bg-white p-1">
+									<img
+										src={crop.src}
+										alt={crop.role}
+										class="image-outline h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
+										loading="lazy"
+									/>
+								</div>
+								<div class="grid gap-0.5 border-t border-border px-2 py-1 text-[10px]">
+									<span class="truncate font-medium text-text">{formatRole(crop.role)}</span>
+									<span class="font-mono text-text-muted tabular-nums">{formatAbsTs(crop.ts)}</span>
+								</div>
 							</button>
 						{/each}
-					</div>
-				</section>
-			{/if}
-
-			<!-- Track path (pie-chart composite) -->
-			{#if piece.tracked_global_id != null}
-				<section class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
-						<span class="font-medium text-text">Track path</span>
-						<a
-							href={`/tracked/${piece.tracked_global_id}`}
-							class="inline-flex items-center gap-1.5 text-text-muted hover:text-text"
-							title="Open the full tracker record"
-						>
-							<ExternalLink size={14} />
-							Track #{piece.tracked_global_id}
-						</a>
-					</div>
-					<div class="p-3">
-						<TrackPathComposite
-							globalId={piece.tracked_global_id}
-							usedCropTs={usedCropTs}
-						/>
-					</div>
-				</section>
-			{/if}
-
-			<!-- Lifecycle timeline -->
-			<section class="border border-border bg-surface">
-				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-					Lifecycle timeline
-				</div>
-				<div class="p-3">
-					{#if timeline.length === 0}
-						<div class="text-sm text-text-muted">No lifecycle events recorded yet.</div>
-					{:else}
-						{@const anchor = timeline[0].ts}
-						<ol class="flex flex-col">
-							{#each timeline as ev, idx (idx)}
-								<li class="relative flex items-baseline gap-3 border-l border-border pl-4">
-									<span class="absolute -left-[5px] top-1.5 h-2 w-2 bg-primary"></span>
-									<span class="min-w-[12rem] text-sm text-text">{ev.label}</span>
-									<span class="font-mono text-sm tabular-nums text-text-muted">
-										{formatAbsTs(ev.ts)}
-									</span>
-									{#if idx > 0}
-										<span class="font-mono text-xs tabular-nums text-text-muted">
-											{formatRelSec(ev.ts, anchor)}
-										</span>
-									{/if}
-									<span class="flex-1"></span>
-								</li>
-							{/each}
-						</ol>
 					{/if}
 				</div>
 			</section>
 
-			<!-- Brickognize response / part reference -->
-			{#if bricklink}
-				<section class="border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Brickognize match
-					</div>
-					<div class="flex flex-wrap items-start gap-3 p-3">
-						{#if bricklink.thumbnail_url}
-							<img
-								src={`https:${bricklink.thumbnail_url}`}
-								alt={bricklink.name ?? piece.part_id ?? ''}
-								class="h-20 w-20 flex-shrink-0 border border-border bg-white object-contain"
-								loading="lazy"
-							/>
-						{/if}
-						<div class="flex min-w-0 flex-1 flex-col gap-1 text-sm">
-							<div class="font-mono text-base font-semibold text-text">
-								{piece.part_id ?? '—'}
+			<!-- Matrix-Shot + Track path side by side (when both exist). -->
+			{#if burstFrames.length > 0 || piece.tracked_global_id != null}
+				<!-- 3-col grid: Matrix-Shot (1 col) + Track path (2 cols) so the
+				     composite has room for C3 + C4 side-by-side once continuous
+				     multi-channel tracking is wired up. -->
+				<section class="grid gap-3 md:grid-cols-3">
+					{#if burstFrames.length > 0}
+						<div class="overflow-hidden border border-border bg-surface">
+							<div
+								class="flex items-center justify-between gap-3 border-b border-border bg-bg px-3 py-1.5"
+							>
+								<div class="flex items-baseline gap-2">
+									<span
+										class="inline-flex items-center gap-1.5 text-xs font-semibold tracking-wider text-text uppercase"
+									>
+										<Camera size={12} />
+										Matrix-Shot
+									</span>
+									<span class="font-mono text-xs text-text-muted tabular-nums">
+										{burstFrames.length} frame{burstFrames.length === 1
+											? ''
+											: 's'}{#if burstDurationLabel}
+											· {burstDurationLabel}{/if}
+									</span>
+								</div>
+								{#if selectedBurstFrame && !burstFrameCropSrc(selectedBurstFrame)}
+									<span
+										class="border border-warning/40 bg-warning/10 px-2 py-0.5 text-[10px] tracking-wider text-warning-dark uppercase"
+									>
+										full frame
+									</span>
+								{/if}
 							</div>
-							<div class="text-text">{piece.part_name ?? bricklink.name ?? '—'}</div>
-							{#if bricklink.type}
-								<div class="text-text-muted">{bricklink.type}</div>
-							{/if}
-							{#if typeof piece.confidence === 'number'}
-								<div class={`tabular-nums ${confidenceClass(piece.confidence)}`}>
-									Confidence {(piece.confidence * 100).toFixed(0)}%
+							{#if selectedBurstFrame}
+								{@const selectedBurstSrc = burstFrameDisplaySrc(selectedBurstFrame)}
+								<div class="matrix-stage-bg flex min-h-[260px] items-center justify-center p-2">
+									{#if selectedBurstSrc}
+										<button
+											type="button"
+											class="group flex w-full items-center justify-center transition-[transform] active:scale-[0.98]"
+											onclick={() =>
+												(zoomImage = {
+													src: selectedBurstSrc,
+													label: `Matrix-Shot frame ${selectedBurstIdx + 1}`
+												})}
+										>
+											<img
+												src={selectedBurstSrc}
+												alt="matrix-shot frame {selectedBurstIdx + 1} of {burstFrames.length}"
+												class="image-outline max-h-[310px] max-w-full object-contain transition-transform duration-200 group-hover:scale-[1.005]"
+												loading="lazy"
+											/>
+										</button>
+									{/if}
+								</div>
+								<div
+									class="flex items-center justify-between border-t border-border px-3 py-1 text-[11px]"
+								>
+									<span class="font-mono text-text-muted tabular-nums">
+										{formatAbsTs(selectedBurstFrame.captured_ts)} · {selectedBurstIdx +
+											1}/{burstFrames.length}
+									</span>
+									<span class="text-text-muted">
+										{#if burstFrameCropSrc(selectedBurstFrame)}cropped piece{:else}crop pending{/if}
+									</span>
+								</div>
+								<div
+									class="filmstrip flex gap-1 overflow-x-auto border-t border-border bg-surface px-2 py-1.5"
+								>
+									{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
+										{@const frameSrc = burstFrameDisplaySrc(frame)}
+										<button
+											type="button"
+											class={`group flex h-14 w-20 flex-shrink-0 items-center justify-center bg-bg transition-[transform,border-color] hover:border-primary/70 active:scale-[0.96] ${
+												idx === selectedBurstIdx
+													? 'border-2 border-primary'
+													: 'border border-border'
+											}`}
+											onclick={() => (selectedBurstIdx = idx)}
+											title={`${burstRoleLabel(frame.role)} · ${formatAbsTs(frame.captured_ts)}`}
+										>
+											{#if frameSrc}
+												<img
+													src={frameSrc}
+													alt="matrix-shot frame {idx + 1}"
+													class="image-outline h-full w-full object-cover transition-transform duration-200 group-hover:scale-[1.02]"
+													loading="lazy"
+												/>
+											{/if}
+										</button>
+									{/each}
 								</div>
 							{/if}
 						</div>
-					</div>
+					{/if}
+
+					{#if piece.tracked_global_id != null}
+						<div class="overflow-hidden border border-border bg-surface md:col-span-2">
+							<div
+								class="flex items-center justify-between gap-2 border-b border-border bg-bg px-3 py-1.5"
+							>
+								<span class="text-xs font-semibold tracking-wider text-text uppercase"
+									>Track path</span
+								>
+								<a
+									href={`/tracked/${piece.uuid}`}
+									class="inline-flex items-center gap-1 text-[11px] text-text-muted hover:text-text"
+									title="Open the piece record"
+								>
+									<ExternalLink size={12} />
+									#{formatTrackLabel(piece.tracked_global_id) ?? piece.tracked_global_id}
+								</a>
+							</div>
+							<div class="track-path-compact max-h-[520px] overflow-auto p-2">
+								<TrackPathComposite {usedCropTs} detailSnapshot={trackDetail} />
+							</div>
+						</div>
+					{/if}
 				</section>
 			{/if}
 
-			<!-- Raw JSON toggle -->
-			<section class="border border-border bg-surface">
-				<button
-					type="button"
-					class="flex w-full items-center gap-2 border-b border-border bg-bg px-3 py-2 text-sm text-text-muted hover:text-text"
-					onclick={() => (showRawJson = !showRawJson)}
-				>
-					{#if showRawJson}
-						<ChevronDown size={14} />
-					{:else}
-						<ChevronRight size={14} />
-					{/if}
-					<span>View raw JSON</span>
-				</button>
-				{#if showRawJson}
-					<pre class="max-h-96 overflow-auto bg-bg p-3 text-xs text-text-muted">{JSON.stringify(
-							piece,
-							null,
-							2
-						)}</pre>
+			<!-- Diagnostics: dense key-value bar for debugging; low visual priority. -->
+			<section
+				class="flex flex-wrap gap-x-5 gap-y-1 border border-border bg-surface px-3 py-2 text-xs"
+			>
+				<span class="flex items-baseline gap-1.5">
+					<span class="tracking-wider text-text-muted uppercase">Stage</span>
+					<strong class="font-mono font-normal text-text">{piece.stage}</strong>
+				</span>
+				<span class="flex items-baseline gap-1.5">
+					<span class="tracking-wider text-text-muted uppercase">Motion sync</span>
+					<strong
+						class={`font-mono font-normal tabular-nums ${motionSyncClass(piece.carousel_motion_sync_ratio)}`}
+					>
+						{formatSyncPercent(piece.carousel_motion_sync_ratio)}
+					</strong>
+					<span class="text-text-muted">
+						(avg <span class={motionSyncClass(piece.carousel_motion_sync_ratio_avg)}>
+							{formatSyncPercent(piece.carousel_motion_sync_ratio_avg)}
+						</span>, {piece.carousel_motion_sample_count ?? 0} samples)
+					</span>
+				</span>
+				{#if typeof piece.first_carousel_seen_angle_deg === 'number'}
+					<span class="flex items-baseline gap-1.5">
+						<span class="tracking-wider text-text-muted uppercase">First angle</span>
+						<strong class="font-mono font-normal text-text tabular-nums">
+							{piece.first_carousel_seen_angle_deg.toFixed(1)}°
+						</strong>
+					</span>
 				{/if}
+				<span class="flex items-baseline gap-1.5">
+					<span class="tracking-wider text-text-muted uppercase">UUID</span>
+					<strong class="font-mono font-normal text-text tabular-nums">{uuid}</strong>
+				</span>
 			</section>
 		{/if}
 	</div>
@@ -906,9 +1023,78 @@
 			<img
 				src={zoomImage.src}
 				alt={zoomImage.label}
-				class="max-h-[80vh] max-w-[80vw] object-contain"
+				class="image-outline max-h-[80vh] max-w-[80vw] object-contain"
 			/>
 			<div class="text-sm text-text-muted">{zoomImage.label}</div>
 		</div>
 	</button>
 {/if}
+
+<style>
+	:global(html) {
+		-webkit-font-smoothing: antialiased;
+	}
+
+	.verdict {
+		display: grid;
+		grid-template-columns: 1fr;
+		box-shadow:
+			0 18px 50px -42px rgba(20, 20, 18, 0.45),
+			0 1px 0 rgba(255, 255, 255, 0.72) inset;
+	}
+
+	@media (min-width: 900px) {
+		.verdict {
+			grid-template-columns: minmax(260px, 0.8fr) minmax(0, 1.4fr) minmax(260px, 0.8fr);
+		}
+	}
+
+	.detail-title {
+		text-wrap: balance;
+	}
+
+	.confidence-track {
+		box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--color-border, #d8d5ce) 70%, transparent);
+	}
+
+	.confidence-fill {
+		transition: width 200ms ease-out;
+	}
+
+	.matrix-stage-bg {
+		background:
+			radial-gradient(
+				circle at 50% 35%,
+				rgba(255, 255, 255, 0.92),
+				rgba(250, 249, 246, 0.65) 42%,
+				rgba(232, 229, 221, 0.72) 100%
+			),
+			linear-gradient(135deg, rgba(255, 255, 255, 0.7), rgba(230, 227, 219, 0.7));
+	}
+
+	.image-outline {
+		box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1);
+	}
+
+	:global(.dark) .image-outline {
+		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
+	}
+
+	.filmstrip {
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--color-primary, #2f9cb3) 55%, transparent) transparent;
+	}
+
+	.crop-strip {
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--color-primary, #2f9cb3) 45%, transparent) transparent;
+	}
+
+	.track-path-compact :global(.flex.flex-col.gap-3) {
+		gap: 0.5rem;
+	}
+
+	.track-path-compact :global(svg) {
+		max-height: 360px;
+	}
+</style>

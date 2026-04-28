@@ -4,6 +4,11 @@ import copy
 from datetime import datetime, timezone
 from typing import Any
 
+from server.condition_teacher import (
+    CONDITION_ANALYSIS_ID,
+    CONDITION_PROVIDER,
+    CONDITION_STAGE,
+)
 
 SAMPLE_PAYLOAD_SCHEMA_VERSION = "hive_sample_v1"
 PRIMARY_IMAGE_ASSET_ID = "img_primary"
@@ -61,11 +66,15 @@ def _capture_scope(metadata: dict[str, Any]) -> str | None:
     scope = metadata.get("detection_scope")
     if isinstance(scope, str) and scope:
         return scope
+    if metadata.get("condition_sample") is True or isinstance(metadata.get("condition_assessment"), dict):
+        return "condition"
     source_role = metadata.get("source_role")
     if source_role == "classification_chamber":
         return "classification"
     if source_role in {"c_channel_2", "c_channel_3"}:
         return "feeder"
+    if source_role == "classification_channel":
+        return "classification_channel"
     if source_role == "carousel":
         return "carousel"
     return None
@@ -80,6 +89,8 @@ def _capture_mode(metadata: dict[str, Any]) -> str:
         return "settings_test"
     if metadata.get("archive_mode") == "backfill":
         return "backfill"
+    if metadata.get("condition_sample") is True:
+        return "condition_teacher"
     if metadata.get("teacher_capture") or source == "live_aux_teacher_capture":
         return "background_teacher"
     return "runtime"
@@ -214,6 +225,60 @@ def _build_classification_analysis(metadata: dict[str, Any]) -> dict[str, Any] |
     }
 
 
+def _build_condition_analysis(metadata: dict[str, Any]) -> dict[str, Any] | None:
+    assessment = metadata.get("condition_assessment")
+    if not isinstance(assessment, dict):
+        return None
+
+    flags = assessment.get("flags")
+    flags = copy.deepcopy(flags) if isinstance(flags, dict) else {}
+    outputs = {
+        "composition": assessment.get("composition"),
+        "condition": assessment.get("condition"),
+        "part_count_estimate": assessment.get("part_count_estimate"),
+        "flags": flags,
+        "issues": copy.deepcopy(assessment.get("issues")) if isinstance(assessment.get("issues"), list) else [],
+        "visible_evidence": assessment.get("visible_evidence"),
+        "confidence": _safe_float(assessment.get("confidence")),
+    }
+
+    metadata_block: dict[str, Any] = {}
+    for key in ("schema_version", "raw_payload"):
+        value = assessment.get(key)
+        if value is not None:
+            metadata_block[key] = copy.deepcopy(value)
+
+    return {
+        "analysis_id": (
+            assessment.get("analysis_id")
+            if isinstance(assessment.get("analysis_id"), str) and assessment.get("analysis_id")
+            else CONDITION_ANALYSIS_ID
+        ),
+        "kind": "condition",
+        "stage": (
+            assessment.get("stage")
+            if isinstance(assessment.get("stage"), str) and assessment.get("stage")
+            else CONDITION_STAGE
+        ),
+        "provider": (
+            assessment.get("provider")
+            if isinstance(assessment.get("provider"), str) and assessment.get("provider")
+            else CONDITION_PROVIDER
+        ),
+        "model": assessment.get("model") if isinstance(assessment.get("model"), str) else None,
+        "status": (
+            assessment.get("status")
+            if isinstance(assessment.get("status"), str) and assessment.get("status")
+            else "completed"
+        ),
+        "input_asset_ids": [PRIMARY_IMAGE_ASSET_ID],
+        "artifact_asset_ids": [],
+        "outputs": outputs,
+        "error": assessment.get("error") if isinstance(assessment.get("error"), str) else None,
+        "metadata": metadata_block,
+    }
+
+
 def build_sample_payload(
     *,
     session_id: str,
@@ -264,6 +329,10 @@ def build_sample_payload(
     if classification_analysis is not None:
         payload["analyses"].append(classification_analysis)
 
+    condition_analysis = _build_condition_analysis(metadata)
+    if condition_analysis is not None:
+        payload["analyses"].append(condition_analysis)
+
     manual_annotations = metadata.get("manual_annotations")
     if isinstance(manual_annotations, dict):
         payload["annotations"]["manual_regions"] = copy.deepcopy(manual_annotations)
@@ -294,6 +363,22 @@ def build_sample_payload(
             **teacher_capture_metadata,
         }
 
+    condition_source_metadata = {
+        key: copy.deepcopy(value)
+        for key, value in metadata.items()
+        if (
+            isinstance(key, str)
+            and key.startswith("condition_source_")
+            and value is not None
+        )
+    }
+    if condition_source_metadata or metadata.get("condition_sample") is True:
+        payload["provenance"]["condition_sample"] = {
+            "enabled": bool(metadata.get("condition_sample")),
+            "source": metadata.get("condition_source"),
+            **condition_source_metadata,
+        }
+
     consumed_keys = {
         "sample_payload",
         "source_role",
@@ -318,6 +403,9 @@ def build_sample_payload(
         "top_detection_bbox_count",
         "bottom_detection_bbox_count",
         "classification_result",
+        "condition_assessment",
+        "condition_sample",
+        "condition_source",
         "manual_annotations",
         "manual_classification",
         "teacher_capture",
@@ -337,6 +425,7 @@ def build_sample_payload(
         if key not in consumed_keys
         and not (isinstance(key, str) and key.startswith("trigger_"))
         and not (isinstance(key, str) and key.startswith("teacher_capture_"))
+        and not (isinstance(key, str) and key.startswith("condition_source_"))
         and value is not None
     }
     if extra_metadata:

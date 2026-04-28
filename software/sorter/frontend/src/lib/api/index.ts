@@ -50,6 +50,7 @@ export type HiveInstalledModel = {
 	target_id: string;
 	model_id: string;
 	variant_runtime: string;
+	available_variant_runtimes?: string[];
 	sha256: string;
 	name: string;
 	model_family: string;

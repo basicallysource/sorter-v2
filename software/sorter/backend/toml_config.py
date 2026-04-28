@@ -17,6 +17,13 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+from role_aliases import (
+    auxiliary_detection_scope,
+    lookup_auxiliary_detection_scopes,
+    lookup_camera_role_keys,
+    public_aux_camera_role,
+    stored_camera_role_key,
+)
 from server.config_helpers import write_machine_params_config
 
 
@@ -120,7 +127,17 @@ def getDetectionConfig(scope: str) -> dict[str, Any] | None:
     detection = config.get("detection")
     if not isinstance(detection, dict):
         return None
-    section = detection.get(scope)
+    lookup_scopes = (
+        lookup_auxiliary_detection_scopes(config)
+        if scope in {"carousel", "classification_channel"}
+        else (scope,)
+    )
+    section = None
+    for lookup_scope in lookup_scopes:
+        candidate = detection.get(lookup_scope)
+        if isinstance(candidate, dict):
+            section = candidate
+            break
     if not isinstance(section, dict):
         return None
     # Flatten role-specific sub-tables into the dict.
@@ -139,15 +156,20 @@ def setDetectionConfig(scope: str, cfg: dict[str, Any]) -> None:
     def updater(config: dict[str, Any]) -> None:
         if "detection" not in config:
             config["detection"] = {}
+        is_auxiliary_scope = scope in {"carousel", "classification_channel"}
+        target_scope = auxiliary_detection_scope(config) if is_auxiliary_scope else scope
         section = dict(cfg)
         # Separate role-specific keys into sub-tables.
         algorithm_by_role = section.pop("algorithm_by_role", None)
         by_role = section.pop("sample_collection_enabled_by_role", None)
-        config["detection"][scope] = section
+        if is_auxiliary_scope:
+            config["detection"].pop("classification_channel", None)
+            config["detection"].pop("carousel", None)
+        config["detection"][target_scope] = section
         if isinstance(algorithm_by_role, dict):
-            config["detection"][scope]["algorithm_by_role"] = algorithm_by_role
+            config["detection"][target_scope]["algorithm_by_role"] = algorithm_by_role
         if isinstance(by_role, dict):
-            config["detection"][scope]["sample_collection_enabled_by_role"] = by_role
+            config["detection"][target_scope]["sample_collection_enabled_by_role"] = by_role
 
     _update_toml(updater)
 
@@ -326,11 +348,20 @@ def getCameraSetup() -> dict[str, Any] | None:
         return None
     # Return the roles that have device indices assigned
     result: dict[str, Any] = {}
-    for role in ("feeder", "classification_top", "classification_bottom",
-                 "c_channel_2", "c_channel_3", "carousel"):
-        val = cameras.get(role)
-        if val is not None:
-            result[role] = val
+    aux_role = public_aux_camera_role(config)
+    for role in (
+        "feeder",
+        "classification_top",
+        "classification_bottom",
+        "c_channel_2",
+        "c_channel_3",
+        aux_role,
+    ):
+        for lookup_role in lookup_camera_role_keys(role, config):
+            val = cameras.get(lookup_role)
+            if val is not None:
+                result[role] = val
+                break
     return result if result else None
 
 
@@ -340,7 +371,12 @@ def setCameraSetup(setup: dict[str, Any]) -> None:
         if "cameras" not in config:
             config["cameras"] = {}
         for role, val in setup.items():
-            config["cameras"][role] = val
+            target_role = stored_camera_role_key(role, config)
+            if target_role == "classification_channel":
+                config["cameras"].pop("carousel", None)
+            elif target_role == "carousel":
+                config["cameras"].pop("classification_channel", None)
+            config["cameras"][target_role] = val
 
     _update_toml(updater)
 

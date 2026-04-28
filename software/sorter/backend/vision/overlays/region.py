@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 
 if TYPE_CHECKING:
-    from vision.handdrawn_region_provider import HanddrawnRegionProvider
+    pass
 
 
 class RegionOverlay:

@@ -1,9 +1,16 @@
+import sys
 import threading
 import time
 import unittest
+from pathlib import Path
+
+_BACKEND_ROOT = Path(__file__).resolve().parents[1]
+if str(_BACKEND_ROOT) not in sys.path:
+    sys.path.insert(0, str(_BACKEND_ROOT))
 
 import server.shared_state as shared_state
 from server.routers import system
+from server.sorter_lifecycle import SorterLifecyclePort
 
 
 class SystemLifecycleTests(unittest.TestCase):
@@ -12,16 +19,14 @@ class SystemLifecycleTests(unittest.TestCase):
             "hardware_state": shared_state.hardware_state,
             "hardware_error": shared_state.hardware_error,
             "hardware_homing_step": shared_state.hardware_homing_step,
-            "_hardware_start_fn": shared_state._hardware_start_fn,
-            "_hardware_reset_fn": shared_state._hardware_reset_fn,
+            "sorter_lifecycle": shared_state.sorter_lifecycle,
             "hardware_runtime_irl": shared_state.hardware_runtime_irl,
             "hardware_worker_thread": shared_state.hardware_worker_thread,
         }
         shared_state.hardware_state = "standby"
         shared_state.hardware_error = None
         shared_state.hardware_homing_step = None
-        shared_state._hardware_start_fn = None
-        shared_state._hardware_reset_fn = None
+        shared_state.sorter_lifecycle = SorterLifecyclePort()
         shared_state.hardware_runtime_irl = None
         shared_state.hardware_worker_thread = None
 
@@ -33,8 +38,7 @@ class SystemLifecycleTests(unittest.TestCase):
         shared_state.hardware_state = self._saved["hardware_state"]
         shared_state.hardware_error = self._saved["hardware_error"]
         shared_state.hardware_homing_step = self._saved["hardware_homing_step"]
-        shared_state._hardware_start_fn = self._saved["_hardware_start_fn"]
-        shared_state._hardware_reset_fn = self._saved["_hardware_reset_fn"]
+        shared_state.sorter_lifecycle = self._saved["sorter_lifecycle"]
         shared_state.hardware_runtime_irl = self._saved["hardware_runtime_irl"]
         shared_state.hardware_worker_thread = self._saved["hardware_worker_thread"]
 
@@ -46,7 +50,7 @@ class SystemLifecycleTests(unittest.TestCase):
             started.set()
             release.wait(timeout=1.0)
 
-        shared_state._hardware_start_fn = start_fn
+        shared_state.sorter_lifecycle.home_hardware = start_fn
 
         response = system.home_system()
         self.assertTrue(response["ok"])
@@ -69,7 +73,7 @@ class SystemLifecycleTests(unittest.TestCase):
         def start_fn() -> None:
             raise RuntimeError("boom")
 
-        shared_state._hardware_start_fn = start_fn
+        shared_state.sorter_lifecycle.home_hardware = start_fn
 
         response = system.home_system()
         self.assertTrue(response["ok"])
@@ -90,7 +94,7 @@ class SystemLifecycleTests(unittest.TestCase):
             started.set()
             release.wait(timeout=1.0)
 
-        shared_state._hardware_start_fn = start_fn
+        shared_state.sorter_lifecycle.home_hardware = start_fn
 
         first = system.home_system()
         self.assertTrue(first["ok"])
@@ -112,18 +116,36 @@ class SystemLifecycleTests(unittest.TestCase):
         def reset_fn() -> None:
             calls.append("reset")
 
+        def prepare_rt_fn() -> None:
+            calls.append("prepare_rt")
+
         shared_state.hardware_state = "ready"
         shared_state.hardware_homing_step = "Old step"
         shared_state.hardware_error = "old"
-        shared_state._hardware_reset_fn = reset_fn
+        shared_state.sorter_lifecycle.reset_hardware = reset_fn
+        shared_state.sorter_lifecycle.prepare_rt_handle = prepare_rt_fn
 
         response = system.reset_system()
 
         self.assertTrue(response["ok"])
-        self.assertEqual(["reset"], calls)
+        self.assertEqual(["reset", "prepare_rt"], calls)
         self.assertEqual("standby", shared_state.hardware_state)
         self.assertIsNone(shared_state.hardware_error)
         self.assertIsNone(shared_state.hardware_homing_step)
+
+    def test_reset_sets_error_when_rt_prepare_fails(self) -> None:
+        def prepare_rt_fn() -> None:
+            raise RuntimeError("rt boom")
+
+        shared_state.hardware_state = "ready"
+        shared_state.sorter_lifecycle.prepare_rt_handle = prepare_rt_fn
+
+        response = system.reset_system()
+
+        self.assertFalse(response["ok"])
+        self.assertEqual("error", response["hardware_state"])
+        self.assertEqual("error", shared_state.hardware_state)
+        self.assertEqual("RT runtime prepare failed: rt boom", shared_state.hardware_error)
 
     def test_reset_is_blocked_while_homing(self) -> None:
         shared_state.hardware_state = "homing"
@@ -133,7 +155,7 @@ class SystemLifecycleTests(unittest.TestCase):
             nonlocal called
             called = True
 
-        shared_state._hardware_reset_fn = reset_fn
+        shared_state.sorter_lifecycle.reset_hardware = reset_fn
 
         response = system.reset_system()
 

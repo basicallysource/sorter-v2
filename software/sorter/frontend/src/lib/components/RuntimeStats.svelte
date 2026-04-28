@@ -11,9 +11,21 @@
 		outcomes?: Record<string, { count?: number; active_ppm?: number }>;
 	};
 
+	type ValueSummary = {
+		n?: number;
+		avg?: number;
+		med?: number;
+		p90?: number;
+		min?: number;
+		max?: number;
+	};
+
 	const runtime_stats = $derived((ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const counts = $derived((runtime_stats.counts ?? {}) as Record<string, number>);
 	const throughput = $derived((runtime_stats.throughput ?? {}) as Record<string, unknown>);
+	const inter_piece_ppm = $derived(
+		(throughput.inter_piece_ppm ?? {}) as ValueSummary
+	);
 	const channel_throughput = $derived(
 		(runtime_stats.channel_throughput ?? {}) as Record<string, ChannelThroughputEntry>
 	);
@@ -25,43 +37,66 @@
 		>
 	);
 
-	// Derived metrics
-	const pieces_seen = $derived(counts.pieces_seen ?? 0);
+	// Derived metrics. We read both the dossier-based counts
+	// (``pieces_seen`` etc. — one bump per admission, so a piece rotating
+	// multiple times on C4 is double-counted) and the gid-based
+	// ``unique_*`` counters. The widget prefers the unique counters
+	// because a physical piece circling the carousel should not show up
+	// as "5 new pieces per minute" when it's actually one piece looping.
+	const pieces_seen_raw = $derived(counts.pieces_seen ?? 0);
+	const unique_pieces_seen = $derived(
+		counts.unique_pieces_seen ?? pieces_seen_raw
+	);
+	const unique_pieces_distributed = $derived(
+		counts.unique_pieces_distributed ?? counts.distributed ?? 0
+	);
 	const classified_n = $derived(counts.classified ?? 0);
 	const distributed_n = $derived(counts.distributed ?? 0);
 	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
 	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
 
-	// Distribution rate (target 10/min). Prefer the C4 classification channel's
-	// active_ppm for a "current rate" signal; fall back to overall.
+	// Distribution rate — pieces/min observed in a rolling 5-minute window
+	// of ``distributed_at`` timestamps. Computed by the backend from the
+	// actual span of the recent events so the rate is session-independent
+	// (it doesn't divide cumulative counts by current running_time_s, the
+	// formula that inflates wildly right after a restart when the counter
+	// carries historical pieces but the time denominator starts at zero).
 	const dist_rate_ppm = $derived.by(() => {
-		const outcomes = c4.outcomes ?? {};
-		const classified = outcomes.classified?.active_ppm;
-		if (typeof classified === 'number' && classified > 0) return classified;
+		const recent = throughput.recent_ppm;
+		if (typeof recent === 'number' && recent >= 0) return recent;
 		const overall = throughput.overall_ppm;
 		return typeof overall === 'number' ? overall : 0;
 	});
 
-	// Classification success rate (classified vs. total finished classifications).
+	// Classification success rate — share of finished classifications that
+	// produced a valid part id. Denominator excludes pieces still on C4.
 	const classification_success_pct = $derived.by(() => {
 		const finished = classified_n + unknown_n + multi_drop_n;
 		if (finished === 0) return null;
 		return (classified_n / finished) * 100;
 	});
 
-	// Multi-drop rate: multi_drop_fail / pieces_seen.
+	// Multi-drop rate: share of classifications that were rejected because
+	// more than one part ended up in the drop region simultaneously.
+	// Denominator is finished classifications (not ``pieces_seen`` — that
+	// counts *admissions* including pieces still circulating on C4).
 	const multi_drop_pct = $derived.by(() => {
-		if (pieces_seen === 0) return null;
-		return (multi_drop_n / pieces_seen) * 100;
+		const finished = classified_n + unknown_n + multi_drop_n;
+		if (finished === 0) return null;
+		return (multi_drop_n / finished) * 100;
 	});
 
-	const c4_active_ppm = $derived(typeof c4.active_ppm === 'number' ? c4.active_ppm : 0);
-
-	// Feed rate: pieces_seen / running_time_s.
+	// Feed rate — new physical pieces entering C4 per minute, computed
+	// from the actual wall-clock span of the most recent 5 min of
+	// ``first_carousel_seen_ts`` events. Same rationale as dist_rate_ppm:
+	// anchored on real event times, not on cumulative_count /
+	// current_running_time_s.
 	const feed_rate_ppm = $derived.by(() => {
+		const recent = throughput.feed_recent_ppm;
+		if (typeof recent === 'number' && recent >= 0) return recent;
 		const running_s = throughput.running_time_s;
 		if (typeof running_s !== 'number' || running_s <= 0) return 0;
-		return (pieces_seen * 60) / running_s;
+		return (unique_pieces_seen * 60) / running_s;
 	});
 
 	// Active pieces in C4 (pieces past feeding, pre-distributed).
@@ -168,7 +203,7 @@
 							{fmtPct(multi_drop_pct, 1)}
 						</span>
 						<span class="text-xs text-text-muted tabular-nums">
-							{multi_drop_n}/{pieces_seen}
+							{multi_drop_n}/{classified_n + unknown_n + multi_drop_n}
 						</span>
 					</div>
 				</div>
@@ -180,17 +215,20 @@
 						<span class="text-2xl font-semibold tabular-nums text-text">
 							{fmtPpm(feed_rate_ppm)}
 						</span>
-						<span class="text-xs text-text-muted">ppm seen</span>
+						<span class="text-xs text-text-muted">pieces/min</span>
 					</div>
 				</div>
 
 				<div class="border border-border bg-bg p-2">
 					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						C4 active ppm
+						Unique pieces
 					</div>
 					<div class="flex items-baseline gap-1">
 						<span class="text-2xl font-semibold tabular-nums text-text">
-							{fmtPpm(c4_active_ppm)}
+							{fmtInt(unique_pieces_distributed)}
+						</span>
+						<span class="text-xs text-text-muted tabular-nums">
+							of {fmtInt(unique_pieces_seen)} seen
 						</span>
 					</div>
 				</div>
@@ -232,7 +270,7 @@
 			<div class="mt-2 flex items-baseline justify-between border border-border bg-bg px-2 py-1.5 text-sm">
 				<span class="text-text-muted">Totals</span>
 				<div class="flex items-baseline gap-3 tabular-nums">
-					<span class="text-text-muted">seen <span class="text-text">{fmtInt(pieces_seen)}</span></span>
+					<span class="text-text-muted">seen <span class="text-text">{fmtInt(pieces_seen_raw)}</span></span>
 					<span class="text-text-muted">cls <span class="text-text">{fmtInt(classified_n)}</span></span>
 					<span class="text-text-muted">dist <span class="text-text">{fmtInt(distributed_n)}</span></span>
 				</div>

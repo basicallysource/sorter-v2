@@ -12,8 +12,14 @@
 		error?: string;
 	};
 
-	type DetectionScope = 'classification' | 'feeder' | 'carousel';
-	type DetectionCamera = 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel';
+	type DetectionScope = 'classification' | 'feeder' | 'carousel' | 'classification_channel';
+	type DetectionCamera =
+		| 'top'
+		| 'bottom'
+		| 'c_channel_2'
+		| 'c_channel_3'
+		| 'carousel'
+		| 'classification_channel';
 	type DetectionAlgorithm = string;
 	type DetectionAlgorithmOption = {
 		id: DetectionAlgorithm;
@@ -35,6 +41,8 @@
 		candidate_bboxes?: [number, number, number, number][];
 		candidate_previews?: (string | null)[];
 		normalized_candidate_bboxes?: [number, number, number, number][];
+		normalized_full_frame_bbox?: [number, number, number, number] | null;
+		normalized_full_frame_candidate_bboxes?: [number, number, number, number][];
 		zone_bbox?: [number, number, number, number] | null;
 		frame_resolution?: [number, number];
 		bbox_count?: number;
@@ -98,46 +106,54 @@
 
 	function configPath(): string {
 		if (scope === 'feeder') return `/api/feeder/detection-config?role=${encodeURIComponent(camera)}`;
+		if (scope === 'classification_channel') return '/api/classification-channel/detection-config';
 		if (scope === 'carousel') return '/api/carousel/detection-config';
 		return '/api/classification/detection-config';
 	}
 
 	function defaultAlgorithmForScope(currentScope: DetectionScope): DetectionAlgorithm {
 		if (currentScope === 'feeder') return 'mog2';
-		if (currentScope === 'carousel') return 'heatmap_diff';
+		if (currentScope === 'carousel' || currentScope === 'classification_channel') return 'heatmap_diff';
 		return 'baseline_diff';
 	}
 
 	function testPath(): string {
 		if (scope === 'feeder') return `/api/feeder/detect/${camera}`;
+		if (scope === 'classification_channel') return '/api/classification-channel/detect/current';
 		if (scope === 'carousel') return '/api/carousel/detect/current';
 		return `/api/classification/detect/${camera}`;
 	}
 
 	function baselineCapturePath(): string | null {
 		if (scope === 'classification') return '/api/classification/baseline/capture';
+		if (scope === 'classification_channel')
+			return '/api/classification-channel/detection/baseline/capture';
 		if (scope === 'carousel') return '/api/carousel/detection/baseline/capture';
 		return null;
 	}
 
 	function scopeTitle(): string {
 		if (scope === 'feeder') return 'C-Channel Tools';
+		if (scope === 'classification_channel') return 'Classification C-Channel (C4) Tools';
 		if (scope === 'carousel') return 'Carousel Tools';
 		return 'Chamber Tools';
 	}
 
 	function scopeDescription(): string {
 		if (scope === 'feeder') {
-			return `Compare detection methods on the live ${label} frame and optionally archive Gemini teacher captures after completed ${label} moves.`;
+			return `Compare detection methods on the live ${label} frame and optionally archive periodic positive samples from rt perception.`;
+		}
+		if (scope === 'classification_channel') {
+			return 'Compare C4 trigger methods on the live classification-channel frame and optionally archive periodic positive samples from rt perception.';
 		}
 		if (scope === 'carousel') {
-			return 'Compare carousel trigger methods on the live drop frame and optionally archive Gemini teacher captures when the classic trigger fires.';
+			return 'Compare carousel trigger methods on the live handoff frame and optionally archive positive samples for later training.';
 		}
 		return `Compare detection methods on the live ${label} frame and save chamber samples for later review and retesting.`;
 	}
 
 	function baselineButtonLabel(): string {
-		if (scope === 'carousel') return 'Capture Current Baseline';
+		if (scope === 'carousel' || scope === 'classification_channel') return 'Capture Current Baseline';
 		return 'Capture Empty Baseline';
 	}
 
@@ -156,10 +172,14 @@
 	function applyDebugResult(payload: DetectionDebugResult | null) {
 		debugResult = payload;
 		onDetectionHighlightChange?.(
-			payload?.normalized_candidate_bboxes?.length
-				? payload.normalized_candidate_bboxes
-				: payload?.normalized_bbox
-					? [payload.normalized_bbox]
+			payload?.normalized_full_frame_candidate_bboxes?.length
+				? payload.normalized_full_frame_candidate_bboxes
+				: payload?.normalized_full_frame_bbox
+					? [payload.normalized_full_frame_bbox]
+					: payload?.normalized_candidate_bboxes?.length
+						? payload.normalized_candidate_bboxes
+						: payload?.normalized_bbox
+							? [payload.normalized_bbox]
 					: []
 		);
 	}
@@ -294,8 +314,8 @@
 			openrouterModel,
 			value,
 			value
-				? 'Event-driven Gemini teacher sample collection enabled.'
-				: 'Event-driven Gemini teacher sample collection disabled.',
+				? 'Periodic positive sample collection enabled.'
+				: 'Periodic positive sample collection disabled.',
 			true
 		);
 	}
@@ -391,18 +411,18 @@
 
 	function sampleCollectionDescription(): string {
 		if (!sampleCollectionSupported) {
-			return 'Event-driven Gemini teacher sample collection is unavailable for the current camera setup.';
+			return 'Periodic positive sample collection is unavailable for the current camera setup.';
 		}
 		if (scope === 'feeder') {
-			return `After each completed ${label} move, capture the scoped image, run Gemini on it, and save the result as a sample.`;
+			return `Every few seconds, archive detected ${label} candidates as cropped local training samples with the full frame attached as context.`;
+		}
+		if (scope === 'classification_channel') {
+			return 'Every few seconds, archive detected C4 candidates as cropped local training samples with the full frame attached as context.';
 		}
 		if (scope === 'carousel') {
-			if (algorithm === 'gemini_sam') {
-				return 'Store the toggle now, then switch back to Heatmap Diff when you want Gemini teacher captures on classical carousel triggers.';
-			}
-			return 'When the classic carousel trigger fires, capture the drop-point image, run Gemini on it, and save the result as a sample.';
+			return 'Archive positive carousel samples for later filtering, retesting, and model-training backfill.';
 		}
-		return 'Save live Gemini teacher captures from this scope for later filtering and retesting.';
+		return 'Save live positive samples from this scope for later filtering and retesting.';
 	}
 
 	function canCaptureBaseline(): boolean {

@@ -146,7 +146,9 @@
 			<div class="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
 				{#each visibleSettingsNavItems as entry, i (i)}
 					{#if 'href' in entry}
-						{@const active = page.url.pathname === entry.href}
+						{@const active =
+							page.url.pathname === entry.href ||
+							(entry.href !== '/settings' && page.url.pathname.startsWith(`${entry.href}/`))}
 						<a
 							href={entry.href}
 							aria-current={active ? 'page' : undefined}

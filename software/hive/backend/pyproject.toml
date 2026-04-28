@@ -17,4 +17,5 @@ dependencies = [
     "slowapi>=0.1.9",
     "cryptography>=45.0",
     "requests>=2.32",
+    "Pillow>=10.0",
 ]

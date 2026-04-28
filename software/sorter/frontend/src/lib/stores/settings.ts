@@ -1,14 +1,5 @@
 import { writable } from 'svelte/store';
-
-type Theme = 'light' | 'dark';
-
-interface Settings {
-	theme: Theme;
-}
-
-const DEFAULT_SETTINGS: Settings = {
-	theme: 'light'
-};
+import { DEFAULT_SETTINGS, type Settings, type Theme } from '$lib/preferences/settings-storage';
 
 function createSettings() {
 	const { subscribe, set, update } = writable<Settings>(DEFAULT_SETTINGS);
@@ -16,7 +7,9 @@ function createSettings() {
 	return {
 		subscribe,
 		set,
-		setTheme: (theme: Theme) => update((s) => ({ ...s, theme }))
+		setTheme: (theme: Theme) => update((s) => ({ ...s, theme })),
+		setContinuousMotionPanelEnabled: (enabled: boolean) =>
+			update((s) => ({ ...s, continuousMotionPanelEnabled: Boolean(enabled) }))
 	};
 }
 

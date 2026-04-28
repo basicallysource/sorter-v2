@@ -1,8 +1,6 @@
 from datetime import datetime
-import threading
 import atexit
 from typing import Optional
-import time
 
 
 class Logger:

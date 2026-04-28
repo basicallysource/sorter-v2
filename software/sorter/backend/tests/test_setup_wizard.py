@@ -10,6 +10,41 @@ from server.api import app
 from server.routers import cameras, setup
 
 
+class _FakeStepper:
+    def __init__(self, channel: int) -> None:
+        self.channel = channel
+
+
+class _FakeDiscoveredStepper:
+    def __init__(self, canonical_name: str, physical_name: str, channel: int) -> None:
+        self.canonical_name = canonical_name
+        self.physical_name = physical_name
+        self.stepper = _FakeStepper(channel)
+
+
+class _FakeBoardIdentity:
+    family = "skr_pico"
+    role = "feeder"
+    device_name = "Feeder Board"
+    port = "/dev/tty.usbmodem101"
+    address = 1
+
+
+class _FakeBoard:
+    identity = _FakeBoardIdentity()
+    logical_stepper_names = ("c_channel_3_rotor", "carousel")
+    servos = []
+    input_aliases = {"carousel_home": 2}
+
+    def iter_steppers(self):
+        return iter(
+            [
+                _FakeDiscoveredStepper("c_channel_3_rotor", "c_channel_3_rotor", 2),
+                _FakeDiscoveredStepper("carousel", "carousel", 3),
+            ]
+        )
+
+
 class SetupWizardConfigTests(unittest.TestCase):
     def setUp(self) -> None:
         self._old_machine_params = os.environ.get("MACHINE_SPECIFIC_PARAMS_PATH")
@@ -77,6 +112,25 @@ class SetupWizardConfigTests(unittest.TestCase):
         }
         self.assertIn("carousel", by_name)
         self.assertTrue(by_name["carousel"]["inverted"])
+
+    def test_board_summary_includes_stepper_channels_for_wiring_debug(self) -> None:
+        summary = setup._board_summary(_FakeBoard())
+
+        self.assertEqual(
+            [
+                {
+                    "canonical_name": "c_channel_3_rotor",
+                    "physical_name": "c_channel_3_rotor",
+                    "channel": 2,
+                },
+                {
+                    "canonical_name": "carousel",
+                    "physical_name": "carousel",
+                    "channel": 3,
+                },
+            ],
+            summary["steppers"],
+        )
 
     def test_feeding_mode_defaults_to_auto_channels(self) -> None:
         response = setup.get_feeding_mode()

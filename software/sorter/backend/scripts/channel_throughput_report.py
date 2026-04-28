@@ -7,7 +7,7 @@ import json
 import math
 import time
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Sequence
 
 import requests
 
@@ -412,14 +412,12 @@ def _svg_grouped_bar(
     slot_w = inner_w / max(1, n_runs)
     bar_w = (slot_w * 0.7) / n_g
 
-    # Each group has its own y-scale (normalise 0..max per group).
+    # Each group has its own y-scale — each bar height is (value / group_max)
+    # with the raw value rendered as the bar's title attribute.
     maxes = []
     for g in groups:
         vals = [v for v in g["values"] if isinstance(v, (int, float))]
         maxes.append(max(vals) if vals else 0)
-    y_max = max(maxes) if maxes else 1
-    # use per-group max normalisation: each bar height is (value / group_max)
-    # then display value as title.
 
     parts: list[str] = []
     parts.append(f'<svg class="chart" viewBox="0 0 {width} {height}" role="img" aria-label="{html.escape(title)}">')

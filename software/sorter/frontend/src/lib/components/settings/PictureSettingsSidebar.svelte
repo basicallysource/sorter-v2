@@ -15,14 +15,9 @@
 	import {
 		type CameraCalibrationAnalysis,
 		type CameraCalibrationGalleryEntry,
-		type CameraCalibrationGalleryResponse,
 		type CameraCalibrationAdvisorIteration,
 		type CameraCalibrationMethod,
-		type CameraCalibrationTaskStartResponse,
-		type CameraCalibrationTaskStatusResponse,
 		cloneUsbCameraSettings,
-		normalizeCameraCalibrationAdvisorTrace,
-		normalizeCameraCalibrationGalleryEntries,
 		normalizeUsbCameraControls,
 		normalizeUsbCameraSettings,
 		usbCameraSaneDefaults,
@@ -53,6 +48,24 @@
 	import OrientationPanel from './picture/OrientationPanel.svelte';
 	import LLMCalibrationTrace from '$lib/components/calibration/LLMCalibrationTrace.svelte';
 	import Modal from '$lib/components/Modal.svelte';
+	import {
+		loadCameraColorProfile,
+		loadCameraDeviceSettings,
+		loadPictureSettings,
+		previewCameraDeviceSettings,
+		removeCameraColorProfile,
+		saveCameraDeviceSettings,
+		savePictureSettings
+	} from '$lib/settings/camera-settings-service';
+	import {
+		loadStoredCalibrationApplyColorProfile,
+		loadStoredCalibrationMethod,
+		loadStoredCalibrationOpenrouterModel,
+		persistCalibrationApplyColorProfile,
+		persistCalibrationMethod,
+		persistCalibrationOpenrouterModel
+	} from '$lib/settings/camera-calibration-storage';
+	import { runCameraCalibrationFlow } from '$lib/settings/camera-calibration-flow.svelte';
 
 	let {
 		role,
@@ -120,45 +133,6 @@
 	let calibrationProgress = $state(0);
 	let calibrationMessage = $state('');
 	let calibrationNeedsSave = $state(false);
-	const CALIBRATION_METHOD_STORAGE_KEY = 'camera-calibration-method';
-	const CALIBRATION_OPENROUTER_MODEL_STORAGE_KEY = 'camera-calibration-openrouter-model';
-	const CALIBRATION_APPLY_COLOR_PROFILE_STORAGE_KEY = 'camera-calibration-apply-color-profile';
-	const DEFAULT_CALIBRATION_OPENROUTER_MODEL = 'anthropic/claude-sonnet-4.6';
-
-	function loadStoredCalibrationMethod(): CameraCalibrationMethod {
-		if (typeof window === 'undefined') return 'target_plate';
-		try {
-			const raw = window.localStorage.getItem(CALIBRATION_METHOD_STORAGE_KEY);
-			if (raw === 'llm_guided' || raw === 'target_plate') return raw;
-		} catch {
-			// ignore — storage may be disabled
-		}
-		return 'target_plate';
-	}
-
-	function loadStoredCalibrationOpenrouterModel(): string {
-		if (typeof window === 'undefined') return DEFAULT_CALIBRATION_OPENROUTER_MODEL;
-		try {
-			const raw = window.localStorage.getItem(CALIBRATION_OPENROUTER_MODEL_STORAGE_KEY);
-			if (typeof raw === 'string' && raw.trim()) return raw.trim();
-		} catch {
-			// ignore — storage may be disabled
-		}
-		return DEFAULT_CALIBRATION_OPENROUTER_MODEL;
-	}
-
-	function loadStoredCalibrationApplyColorProfile(): boolean {
-		if (typeof window === 'undefined') return true;
-		try {
-			const raw = window.localStorage.getItem(CALIBRATION_APPLY_COLOR_PROFILE_STORAGE_KEY);
-			if (raw === 'false') return false;
-			if (raw === 'true') return true;
-		} catch {
-			// ignore — storage may be disabled
-		}
-		return true;
-	}
-
 	let calibrationMethod = $state<CameraCalibrationMethod>(loadStoredCalibrationMethod());
 	let calibrationOpenrouterModel = $state(loadStoredCalibrationOpenrouterModel());
 	let calibrationApplyColorProfile = $state(loadStoredCalibrationApplyColorProfile());
@@ -213,52 +187,9 @@
 		}, DEVICE_PREVIEW_DEBOUNCE_MS);
 	}
 
-	$effect(() => {
-		if (typeof window === 'undefined') return;
-		try {
-			window.localStorage.setItem(CALIBRATION_METHOD_STORAGE_KEY, calibrationMethod);
-		} catch {
-			// ignore — storage may be disabled
-		}
-	});
-
-	$effect(() => {
-		if (typeof window === 'undefined') return;
-		try {
-			window.localStorage.setItem(
-				CALIBRATION_OPENROUTER_MODEL_STORAGE_KEY,
-				calibrationOpenrouterModel
-			);
-		} catch {
-			// ignore — storage may be disabled
-		}
-	});
-
-	$effect(() => {
-		if (typeof window === 'undefined') return;
-		try {
-			window.localStorage.setItem(
-				CALIBRATION_APPLY_COLOR_PROFILE_STORAGE_KEY,
-				calibrationApplyColorProfile ? 'true' : 'false'
-			);
-		} catch {
-			// ignore — storage may be disabled
-		}
-	});
-
-	async function loadCalibrationGallery(taskId: string): Promise<void> {
-		try {
-			const res = await fetch(
-				`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/calibrate-target/${taskId}/gallery`,
-				{ cache: 'no-store' }
-			);
-			if (!res.ok) throw new Error(await res.text());
-			const data = (await res.json()) as CameraCalibrationGalleryResponse;
-			calibrationGalleryEntries = normalizeCameraCalibrationGalleryEntries(data.entries);
-		} catch {
-			calibrationGalleryEntries = [];
-		}
-	}
+	$effect(() => persistCalibrationMethod(calibrationMethod));
+	$effect(() => persistCalibrationOpenrouterModel(calibrationOpenrouterModel));
+	$effect(() => persistCalibrationApplyColorProfile(calibrationApplyColorProfile));
 
 	function updateRotation(value: number) {
 		const nextDraftSettings = normalizePictureSettings({
@@ -409,30 +340,19 @@
 	}
 
 	async function loadLocalSettings() {
-		const res = await fetch(`${backendHttpBaseUrl}/api/cameras/picture-settings/${role}`);
-		if (!res.ok) throw new Error(await res.text());
-		const data = await res.json();
-		const normalized = normalizePictureSettings(data.settings ?? DEFAULT_PICTURE_SETTINGS);
+		const normalized = await loadPictureSettings(role);
 		savedSettings = normalized;
 		draftSettings = clonePictureSettings(normalized);
 	}
 
 	async function loadDeviceSettings() {
-		const res = await fetch(`${backendHttpBaseUrl}/api/cameras/device-settings/${role}`);
-		if (!res.ok) throw new Error(await res.text());
-		const data = (await res.json()) as CameraDeviceSettingsResponse;
-		applyDeviceResponse(data);
+		applyDeviceResponse(await loadCameraDeviceSettings(role));
 	}
 
 	async function loadColorProfile() {
 		colorProfileLoading = true;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/color-profile/${role}`, {
-				cache: 'no-store'
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
-			colorProfile = normalizeCameraColorProfile(data.profile);
+			colorProfile = normalizeCameraColorProfile(await loadCameraColorProfile(role));
 		} catch {
 			colorProfile = null;
 		} finally {
@@ -445,11 +365,7 @@
 		colorProfileRemoving = true;
 		error = null;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/color-profile/${role}`, {
-				method: 'DELETE'
-			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = await res.json();
+			const data = await removeCameraColorProfile(role);
 			colorProfile = normalizeCameraColorProfile(data.profile);
 			status = data.message ?? 'Color correction removed.';
 		} catch (e: any) {
@@ -483,92 +399,6 @@
 		}
 	}
 
-	function normalizeCalibrationAnalysis(value: unknown): CameraCalibrationAnalysis | null {
-		if (!value || typeof value !== 'object') return null;
-		const record = value as Record<string, unknown>;
-		const pattern = Array.isArray(record.pattern_size)
-			? record.pattern_size.filter((item): item is number => typeof item === 'number')
-			: [];
-		const bbox = Array.isArray(record.board_bbox)
-			? record.board_bbox.filter((item): item is number => typeof item === 'number')
-			: [];
-		const normalizedBbox = Array.isArray(record.normalized_board_bbox)
-			? record.normalized_board_bbox.filter((item): item is number => typeof item === 'number')
-			: [];
-		if (pattern.length !== 2 || bbox.length !== 4 || normalizedBbox.length !== 4) return null;
-		const numbers = [
-			'total_cells',
-			'bright_cell_count',
-			'dark_cell_count',
-			'color_cell_count',
-			'score',
-			'white_luma_mean',
-			'black_luma_mean',
-			'neutral_contrast',
-			'clipped_white_fraction',
-			'shadow_black_fraction',
-			'white_balance_cast',
-			'color_separation',
-			'colorfulness',
-			'reference_color_error_mean'
-		] as const;
-		for (const key of numbers) {
-			if (typeof record[key] !== 'number') return null;
-		}
-		const tileSamples: CameraCalibrationAnalysis['tile_samples'] = {};
-		if (record.tile_samples && typeof record.tile_samples === 'object') {
-			for (const [key, rawValue] of Object.entries(
-				record.tile_samples as Record<string, unknown>
-			)) {
-				if (!rawValue || typeof rawValue !== 'object') continue;
-				const sample = rawValue as Record<string, unknown>;
-				if (
-					typeof sample.luma !== 'number' ||
-					typeof sample.saturation !== 'number' ||
-					typeof sample.clip_fraction !== 'number' ||
-					typeof sample.shadow_fraction !== 'number' ||
-					typeof sample.reference_error !== 'number' ||
-					typeof sample.reference_match_percent !== 'number'
-				) {
-					continue;
-				}
-				tileSamples[key] = {
-					luma: sample.luma,
-					saturation: sample.saturation,
-					clip_fraction: sample.clip_fraction,
-					shadow_fraction: sample.shadow_fraction,
-					reference_error: sample.reference_error,
-					reference_match_percent: sample.reference_match_percent
-				};
-			}
-		}
-		return {
-			pattern_size: [pattern[0], pattern[1]],
-			board_bbox: [bbox[0], bbox[1], bbox[2], bbox[3]],
-			normalized_board_bbox: [
-				normalizedBbox[0],
-				normalizedBbox[1],
-				normalizedBbox[2],
-				normalizedBbox[3]
-			],
-			total_cells: record.total_cells as number,
-			bright_cell_count: record.bright_cell_count as number,
-			dark_cell_count: record.dark_cell_count as number,
-			color_cell_count: record.color_cell_count as number,
-			score: record.score as number,
-			white_luma_mean: record.white_luma_mean as number,
-			black_luma_mean: record.black_luma_mean as number,
-			neutral_contrast: record.neutral_contrast as number,
-			clipped_white_fraction: record.clipped_white_fraction as number,
-			shadow_black_fraction: record.shadow_black_fraction as number,
-			white_balance_cast: record.white_balance_cast as number,
-			color_separation: record.color_separation as number,
-			colorfulness: record.colorfulness as number,
-			reference_color_error_mean: record.reference_color_error_mean as number,
-			tile_samples: tileSamples
-		};
-	}
-
 	async function sendDevicePreview() {
 		clearScheduledDevicePreview();
 		const payload = currentDevicePayload();
@@ -578,14 +408,9 @@
 		devicePreviewAbortController = abortController;
 		const requestId = ++devicePreviewRequest;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/preview`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload),
+			const data = await previewCameraDeviceSettings(role, payload, {
 				signal: abortController.signal
 			});
-			if (!res.ok) throw new Error(await res.text());
-			const data = (await res.json()) as CameraDeviceSettingsResponse;
 			if (requestId !== devicePreviewRequest) return;
 
 			if (deviceProvider === 'android-camera-app') {
@@ -606,26 +431,13 @@
 	}
 
 	async function saveLocalSettingsPayload(payload: PictureSettings) {
-		const res = await fetch(`${backendHttpBaseUrl}/api/cameras/picture-settings/${role}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
-		});
-		if (!res.ok) throw new Error(await res.text());
-		const data = await res.json();
-		return normalizePictureSettings(data.settings ?? payload);
+		return savePictureSettings(role, payload);
 	}
 
 	async function saveDeviceSettings() {
 		const payload = currentDevicePayload();
 		if (!payload) return;
-		const res = await fetch(`${backendHttpBaseUrl}/api/cameras/device-settings/${role}`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify(payload)
-		});
-		if (!res.ok) throw new Error(await res.text());
-		const data = (await res.json()) as CameraDeviceSettingsResponse;
+		const data = await saveCameraDeviceSettings(role, payload);
 
 		if (deviceProvider === 'android-camera-app') {
 			const normalized = normalizeAndroidCameraSettings(data.settings, androidCapabilities);
@@ -692,91 +504,42 @@
 				: 'Starting camera calibration.';
 		emitCalibrationHighlight(null);
 		try {
-			const calibrationPayload =
-				calibrationMethod === 'llm_guided'
-					? {
-							method: calibrationMethod,
-							openrouter_model: calibrationOpenrouterModel,
-							apply_color_profile: calibrationApplyColorProfile
-						}
-					: {
-							method: calibrationMethod
-						};
-			const res = await fetch(
-				`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/calibrate-target`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(calibrationPayload)
-				}
-			);
-			if (!res.ok) throw new Error(await res.text());
-			const start = (await res.json()) as CameraCalibrationTaskStartResponse;
-			calibrationTaskId = start.task_id;
-			if (typeof start.openrouter_model === 'string' && start.openrouter_model) {
-				calibrationOpenrouterModel = start.openrouter_model;
-			}
-			let taskDone = false;
-			while (!taskDone) {
-				await new Promise((resolve) => setTimeout(resolve, 450));
-				const poll = await fetch(
-					`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/calibrate-target/${start.task_id}`
-				);
-				if (!poll.ok) throw new Error(await poll.text());
-				const task = (await poll.json()) as CameraCalibrationTaskStatusResponse;
-				calibrationStage = task.stage ?? '';
-				calibrationProgress =
-					typeof task.progress === 'number' ? task.progress : calibrationProgress;
-				calibrationMessage = task.message ?? calibrationMessage;
-				calibrationAdvisorTrace = normalizeCameraCalibrationAdvisorTrace(
-					task.advisor_trace ?? task.result?.advisor_trace
-				);
-				if (calibrationMethod === 'llm_guided') {
-					await loadCalibrationGallery(start.task_id);
-				}
-				if (
-					calibrationMethod === 'llm_guided' &&
-					!task.message &&
-					calibrationAdvisorTrace.length > 0
-				) {
-					calibrationMessage = calibrationTraceLatestSummary(calibrationAdvisorTrace);
-				}
+			const task = await runCameraCalibrationFlow({
+				role,
+				method: calibrationMethod,
+				openrouterModel: calibrationOpenrouterModel,
+				applyColorProfile: calibrationApplyColorProfile,
+				onUpdate: async (update) => {
+					if (update.taskId) calibrationTaskId = update.taskId;
+					if (update.openrouterModel) calibrationOpenrouterModel = update.openrouterModel;
+					if (typeof update.stage === 'string') calibrationStage = update.stage;
+					if (typeof update.progress === 'number') calibrationProgress = update.progress;
+					if (typeof update.message === 'string') calibrationMessage = update.message;
+					if (update.advisorTrace) calibrationAdvisorTrace = update.advisorTrace;
+					if (update.galleryEntries) calibrationGalleryEntries = update.galleryEntries;
 
-				const normalizedTaskPreview = normalizeCalibrationAnalysis(task.analysis_preview);
-				if (normalizedTaskPreview) {
-					calibrationResult = normalizedTaskPreview;
-					emitCalibrationHighlight(normalizedTaskPreview);
-				}
+					if (update.analysisPreview) {
+						calibrationResult = update.analysisPreview;
+						emitCalibrationHighlight(update.analysisPreview);
+					}
 
-				const normalizedTaskResult = normalizeCalibrationAnalysis(task.result?.analysis);
-				if (
-					normalizedTaskResult &&
-					(hasTileDetails(normalizedTaskResult) || !hasTileDetails(calibrationResult))
-				) {
-					calibrationResult = normalizedTaskResult;
-					emitCalibrationHighlight(normalizedTaskResult);
+					if (
+						update.analysisResult &&
+						(hasTileDetails(update.analysisResult) || !hasTileDetails(calibrationResult))
+					) {
+						calibrationResult = update.analysisResult;
+						emitCalibrationHighlight(update.analysisResult);
+					}
 				}
-
-				if (task.status === 'completed') {
-					taskDone = true;
-					await Promise.all([loadDeviceSettings(), loadColorProfile()]);
-					calibrationNeedsSave = true;
-					status =
-						task.result?.message ??
-						task.message ??
-						(calibrationMethod === 'llm_guided'
-							? 'Camera calibrated with the LLM advisor.'
-							: 'Camera calibrated from target plate.');
-				} else if (task.status === 'failed') {
-					throw new Error(
-						task.error ??
-							task.message ??
-							(calibrationMethod === 'llm_guided'
-								? 'Failed to calibrate camera with the LLM advisor'
-								: 'Failed to calibrate camera from target plate')
-					);
-				}
-			}
+			});
+			await Promise.all([loadDeviceSettings(), loadColorProfile()]);
+			calibrationNeedsSave = true;
+			status =
+				task.result?.message ??
+				task.message ??
+				(calibrationMethod === 'llm_guided'
+					? 'Camera calibrated with the LLM advisor.'
+					: 'Camera calibrated from target plate.');
 		} catch (e: any) {
 			error =
 				e.message ??
@@ -866,14 +629,6 @@
 		return hasUnsavedChanges() || calibrationNeedsSave || allowPrimaryActionWithoutChanges;
 	}
 
-	function calibrationTraceLatestSummary(trace: CameraCalibrationAdvisorIteration[]): string {
-		for (let index = trace.length - 1; index >= 0; index -= 1) {
-			const summary = trace[index]?.summary?.trim();
-			if (summary) return summary;
-		}
-		return '';
-	}
-
 	onDestroy(() => {
 		clearScheduledDevicePreview();
 		devicePreviewRequest += 1;
@@ -926,7 +681,9 @@
 
 		{#if error}
 			<Alert variant="danger">
-				<div class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300">
+				<div
+					class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300"
+				>
 					Error
 				</div>
 				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>

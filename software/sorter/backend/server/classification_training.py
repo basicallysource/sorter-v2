@@ -5,25 +5,50 @@ import re
 import shutil
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from uuid import uuid4
 
 import cv2
 import numpy as np
 
-from blob_manager import BLOB_DIR, getClassificationTrainingConfig, setClassificationTrainingConfig
-from server.hive_uploader import HiveUploader
+from blob_manager import BLOB_DIR
+from local_state import (
+    get_classification_training_state,
+    set_classification_training_state,
+)
+from server.hive_uploader import (
+    HiveUploader,
+    sample_type_from_metadata,
+    sample_type_label,
+    teacher_state_from_metadata,
+)
 from server.sample_payloads import build_sample_payload
-
-if TYPE_CHECKING:
-    from vision import VisionManager
+from server.condition_teacher import (
+    CONDITION_CAPTURE_REASON,
+    CONDITION_SOURCE,
+    ConditionAssessment,
+    ConditionCropCandidate,
+    GeminiConditionTeacher,
+    condition_source_key,
+    select_condition_crop_candidates,
+)
 
 
 TRAINING_ROOT = BLOB_DIR / "classification_training"
 DEFAULT_PROCESSOR = "local_archive"
 LEGACY_PROCESSORS = {"gemini_sam"}
 SUPPORTED_PROCESSORS = {DEFAULT_PROCESSOR, *LEGACY_PROCESSORS}
+HIVE_AUTO_BACKFILL_INTERVAL_S = 15.0
+HIVE_AUTO_BACKFILL_BATCH_SIZE = 75
+HIVE_AUTO_BACKFILL_QUEUE_HIGH_WATERMARK = 150
+CONDITION_AUTO_BACKFILL_INTERVAL_S = 2.0
+CONDITION_AUTO_BACKFILL_BATCH_SIZE = 1
+CONDITION_AUTO_LOOKBACK_MINUTES = 30
+CONDITION_AUTO_MAX_CROPS_PER_PIECE = 1
+CONDITION_AUTO_HIVE_QUEUE_HIGH_WATERMARK = 250
+CONDITION_AUTO_ERROR_BACKOFF_S = 60.0
 
 
 def _slugify(value: str) -> str:
@@ -35,6 +60,58 @@ def _safe_float(value: Any) -> float | None:
     if isinstance(value, (int, float)) and not isinstance(value, bool):
         return float(value)
     return None
+
+
+def _coerce_epoch_seconds(value: Any) -> float | None:
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        timestamp = float(value)
+        return timestamp / 1000.0 if timestamp > 10_000_000_000 else timestamp
+    if isinstance(value, str) and value.strip():
+        raw = value.strip()
+        try:
+            timestamp = float(raw)
+            return timestamp / 1000.0 if timestamp > 10_000_000_000 else timestamp
+        except ValueError:
+            pass
+        try:
+            normalized = raw.replace("Z", "+00:00")
+            return datetime.fromisoformat(normalized).timestamp()
+        except ValueError:
+            return None
+    return None
+
+
+def _resolve_backfill_window(
+    *,
+    selection: str | None = None,
+    minutes: int | None = None,
+    from_ts: Any = None,
+    to_ts: Any = None,
+) -> tuple[str, float | None, float | None]:
+    mode = (
+        selection.strip().lower().replace("-", "_")
+        if isinstance(selection, str) and selection.strip()
+        else "latest"
+    )
+    now = time.time()
+    since = _coerce_epoch_seconds(from_ts)
+    until = _coerce_epoch_seconds(to_ts)
+
+    if mode == "today":
+        since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0).timestamp()
+        until = None
+    elif mode == "last_minutes":
+        window_minutes = max(1, min(24 * 60, int(minutes or 30)))
+        since = now - (window_minutes * 60)
+        until = None
+    elif mode == "time_range":
+        pass
+    elif mode != "random":
+        mode = "latest"
+
+    if since is not None and until is not None and since > until:
+        since, until = until, since
+    return mode, since, until
 
 
 def _coerce_bbox(value: Any) -> list[int] | None:
@@ -58,17 +135,42 @@ class ClassificationTrainingManager:
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._vision_manager: VisionManager | None = None
         self._processor = DEFAULT_PROCESSOR
         self._session_id: str | None = None
         self._session_name: str | None = None
         self._session_dir: Path | None = None
         self._created_at: float | None = None
         self._hive = HiveUploader()
+        self._condition_auto_lock = threading.Lock()
+        self._condition_auto_state: dict[str, Any] = {
+            "enabled": True,
+            "running": False,
+            "last_run_at": None,
+            "last_selected": 0,
+            "last_archived": 0,
+            "last_errors": 0,
+            "last_error": None,
+            "total_archived": 0,
+            "total_errors": 0,
+            "total_runs": 0,
+            "next_run_after": None,
+        }
         self._loadPersistedConfig()
+        self._hive_auto_backfill_thread = threading.Thread(
+            target=self._hiveAutoBackfillLoop,
+            daemon=True,
+            name="hive-auto-backfill",
+        )
+        self._hive_auto_backfill_thread.start()
+        self._condition_auto_backfill_thread = threading.Thread(
+            target=self._conditionAutoBackfillLoop,
+            daemon=True,
+            name="condition-teacher-auto-backfill",
+        )
+        self._condition_auto_backfill_thread.start()
 
     def _loadPersistedConfig(self) -> None:
-        saved = getClassificationTrainingConfig()
+        saved = get_classification_training_state()
         if not isinstance(saved, dict):
             return
 
@@ -97,7 +199,7 @@ class ClassificationTrainingManager:
         self._writeSessionManifest(path)
 
     def _persistConfig(self) -> None:
-        setClassificationTrainingConfig(
+        set_classification_training_state(
             {
                 "processor": self._processor,
                 "session_id": self._session_id,
@@ -106,10 +208,6 @@ class ClassificationTrainingManager:
                 "created_at": self._created_at,
             }
         )
-
-    def setVisionManager(self, manager: VisionManager | None) -> None:
-        with self._lock:
-            self._vision_manager = manager
 
     def startSession(self, session_name: str | None = None) -> dict[str, Any]:
         with self._lock:
@@ -136,42 +234,6 @@ class ClassificationTrainingManager:
                 "session_id": self._session_id,
                 "session_name": self._session_name,
             }
-
-    def captureCurrentFrame(self, camera: str) -> dict[str, Any]:
-        with self._lock:
-            vision = self._vision_manager
-            if self._ensureSessionLocked():
-                self._persistConfig()
-            session_dir = self._requireSessionDirLocked()
-            processor = self._processor
-
-        if vision is None:
-            raise ValueError("Vision manager is not initialized.")
-
-        capture = vision.captureClassificationSample(camera)
-        zone_key = f"{camera}_zone"
-        zone = capture.get(zone_key)
-        if not isinstance(zone, np.ndarray) or zone.size == 0:
-            raise ValueError("No live classification tray crop is available for this view.")
-
-        metadata = {
-            "source": "manual_capture",
-            "source_role": "classification_chamber",
-            "capture_reason": "manual_capture",
-            "detection_scope": "classification",
-            "camera": camera,
-            "captured_at": time.time(),
-        }
-        return self._archiveSample(
-            session_dir=session_dir,
-            processor=processor,
-            preferred_camera=camera,
-            top_zone=capture.get("top_zone"),
-            bottom_zone=capture.get("bottom_zone"),
-            top_frame=capture.get("top_frame"),
-            bottom_frame=capture.get("bottom_frame"),
-            metadata=metadata,
-        )
 
     def saveDetectionDebugCapture(
         self,
@@ -456,6 +518,7 @@ class ClassificationTrainingManager:
             session_name=session_name,
             sample_id=sample_id,
             metadata=metadata,
+            metadata_path=str(metadata_path),
         )
 
         return {
@@ -546,14 +609,485 @@ class ClassificationTrainingManager:
         self,
         session_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
+        sample_type: str | None = None,
+        limit: int | None = None,
+        selection: str | None = None,
+        minutes: int | None = None,
+        from_ts: Any = None,
+        to_ts: Any = None,
     ) -> dict[str, Any]:
-        return self._hive.backfill(TRAINING_ROOT, session_ids=session_ids, target_ids=target_ids)
+        selection_mode, since_ts, until_ts = _resolve_backfill_window(
+            selection=selection,
+            minutes=minutes,
+            from_ts=from_ts,
+            to_ts=to_ts,
+        )
+        bounded_limit = max(0, min(500, int(limit))) if limit is not None else None
+        return self._hive.backfill(
+            TRAINING_ROOT,
+            session_ids=session_ids,
+            target_ids=target_ids,
+            max_samples=bounded_limit,
+            sample_type=sample_type,
+            selection=selection_mode,
+            since_ts=since_ts,
+            until_ts=until_ts,
+        )
 
     def purgeHiveQueue(
         self,
         target_ids: list[str] | None = None,
     ) -> dict[str, Any]:
         return self._hive.purge(target_ids=target_ids)
+
+    def backfillPieceConditionSamples(
+        self,
+        *,
+        limit: int = 10,
+        max_crops_per_piece: int = 1,
+        model: str | None = None,
+        force: bool = False,
+        dry_run: bool = False,
+        selection: str | None = None,
+        minutes: int | None = None,
+        from_ts: Any = None,
+        to_ts: Any = None,
+        max_existing_crops_per_piece: int | None = None,
+    ) -> dict[str, Any]:
+        """Assess existing piece-crop JPEGs and archive condition samples.
+
+        This intentionally runs as an explicit side-effect action instead of a
+        runtime loop: it may call a paid/slow Gemini model, and it should never
+        sit on the sorter hot path.
+        """
+
+        bounded_limit = max(0, min(50, int(limit)))
+        selection_mode, since_ts, until_ts = _resolve_backfill_window(
+            selection=selection,
+            minutes=minutes,
+            from_ts=from_ts,
+            to_ts=to_ts,
+        )
+        existing_source_keys = set() if force else self._conditionSourceKeys()
+        existing_piece_counts = (
+            {}
+            if force or max_existing_crops_per_piece is None
+            else self._conditionProcessedPieceCounts()
+        )
+        candidates = select_condition_crop_candidates(
+            limit=bounded_limit,
+            max_crops_per_piece=max_crops_per_piece,
+            existing_source_keys=existing_source_keys,
+            existing_piece_counts=existing_piece_counts,
+            max_existing_crops_per_piece=max_existing_crops_per_piece,
+            force=force,
+            randomize=selection_mode == "random",
+            since_ts=since_ts,
+            until_ts=until_ts,
+        )
+
+        if dry_run:
+            return {
+                "ok": True,
+                "dry_run": True,
+                "selected": len(candidates),
+                "archived": 0,
+                "errors": 0,
+                "selection": selection_mode,
+                "existing_condition_sources": len(existing_source_keys),
+                "existing_condition_pieces": len(existing_piece_counts),
+                "candidates": [
+                    {
+                        "piece_uuid": candidate.piece_uuid,
+                        "source_crop_path": candidate.relative_path,
+                        "segment_sequence": candidate.segment_sequence,
+                        "kind": candidate.kind,
+                        "crop_index": candidate.crop_index,
+                        "stats": candidate.stats,
+                    }
+                    for candidate in candidates
+                ],
+            }
+
+        teacher = GeminiConditionTeacher()
+        archived = 0
+        errors: list[dict[str, Any]] = []
+        samples: list[dict[str, Any]] = []
+        for candidate in candidates:
+            try:
+                assessment = teacher.assess_image(candidate.path, model=model)
+                archived_sample = self.saveConditionAssessmentCapture(
+                    candidate=candidate,
+                    assessment=assessment,
+                )
+                archived += 1
+                samples.append(
+                    {
+                        "sample_id": archived_sample.get("sample_id"),
+                        "session_id": archived_sample.get("session_id"),
+                        "piece_uuid": candidate.piece_uuid,
+                        "source_crop_path": candidate.relative_path,
+                        "composition": assessment.composition,
+                        "condition": assessment.condition,
+                        "confidence": assessment.confidence,
+                    }
+                )
+            except Exception as exc:
+                errors.append(
+                    {
+                        "piece_uuid": candidate.piece_uuid,
+                        "source_crop_path": candidate.relative_path,
+                        "error": str(exc),
+                    }
+                )
+
+        return {
+            "ok": not errors,
+            "dry_run": False,
+            "selected": len(candidates),
+            "archived": archived,
+            "errors": len(errors),
+            "selection": selection_mode,
+            "existing_condition_sources": len(existing_source_keys),
+            "existing_condition_pieces": len(existing_piece_counts),
+            "samples": samples,
+            "error_details": errors[:10],
+        }
+
+    def saveConditionAssessmentCapture(
+        self,
+        *,
+        candidate: ConditionCropCandidate,
+        assessment: ConditionAssessment,
+    ) -> dict[str, Any]:
+        """Archive a crop-only condition sample from an existing piece crop."""
+
+        image = cv2.imread(str(candidate.path), cv2.IMREAD_COLOR)
+        if image is None or getattr(image, "size", 0) <= 0:
+            raise ValueError("Condition source crop could not be decoded.")
+
+        with self._lock:
+            if self._ensureSessionLocked():
+                self._persistConfig()
+            session_dir = self._requireSessionDirLocked()
+            processor = self._processor
+
+        metadata = {
+            "source": CONDITION_SOURCE,
+            "source_role": "piece_crop",
+            "camera": "piece_crop",
+            "capture_reason": CONDITION_CAPTURE_REASON,
+            "detection_scope": "condition",
+            "piece_uuid": candidate.piece_uuid,
+            "captured_at": time.time(),
+            "condition_sample": True,
+            "condition_source": "piece_crop_archive",
+            "condition_source_piece_uuid": candidate.piece_uuid,
+            "condition_source_crop_path": candidate.relative_path,
+            "condition_source_segment_sequence": candidate.segment_sequence,
+            "condition_source_kind": candidate.kind,
+            "condition_source_crop_index": candidate.crop_index,
+            "condition_source_crop_stats": candidate.stats,
+            "condition_assessment": assessment.to_metadata(),
+        }
+
+        return self._archiveSample(
+            session_dir=session_dir,
+            processor=processor,
+            preferred_camera="top",
+            top_zone=image,
+            bottom_zone=None,
+            top_frame=None,
+            bottom_frame=None,
+            metadata=metadata,
+        )
+
+    def _hiveAutoBackfillLoop(self) -> None:
+        """Keep local ready samples draining to Hive after restarts or relinks."""
+
+        while True:
+            time.sleep(HIVE_AUTO_BACKFILL_INTERVAL_S)
+            try:
+                status = self._hive.status()
+                targets = status.get("targets") if isinstance(status, dict) else []
+                enabled_targets = [
+                    target
+                    for target in targets
+                    if isinstance(target, dict) and target.get("enabled")
+                ]
+                if not enabled_targets:
+                    continue
+                queued = sum(
+                    int(target.get("queue_size", 0) or 0)
+                    for target in enabled_targets
+                    if isinstance(target.get("queue_size", 0), (int, float))
+                )
+                if queued >= HIVE_AUTO_BACKFILL_QUEUE_HIGH_WATERMARK:
+                    continue
+                self._hive.backfill(
+                    TRAINING_ROOT,
+                    max_samples=HIVE_AUTO_BACKFILL_BATCH_SIZE,
+                )
+            except Exception:
+                # The uploader remains opportunistic; fresh captures still enqueue
+                # directly even if one archive scan fails.
+                pass
+
+    def _conditionAutoBackfillLoop(self) -> None:
+        """Continuously turn fresh piece crops into condition samples.
+
+        The segment recorder already writes crop JPEGs off the perception hot
+        path. This worker intentionally stays on a separate, slow sidecar
+        thread because Gemini calls may block, cost money, and occasionally
+        fail. Successful archives go through ``saveConditionAssessmentCapture``
+        and therefore reuse the normal Hive uploader path.
+        """
+
+        next_after = 0.0
+        while True:
+            time.sleep(CONDITION_AUTO_BACKFILL_INTERVAL_S)
+            now = time.time()
+            if now < next_after:
+                continue
+            try:
+                if not self._conditionAutoCanRun():
+                    self._recordConditionAutoIdle()
+                    continue
+                self._setConditionAutoRunning(True)
+                result = self.backfillPieceConditionSamples(
+                    limit=CONDITION_AUTO_BACKFILL_BATCH_SIZE,
+                    max_crops_per_piece=1,
+                    selection="last_minutes",
+                    minutes=CONDITION_AUTO_LOOKBACK_MINUTES,
+                    max_existing_crops_per_piece=CONDITION_AUTO_MAX_CROPS_PER_PIECE,
+                )
+                self._recordConditionAutoResult(result)
+                if int(result.get("errors", 0) or 0) > 0:
+                    next_after = time.time() + CONDITION_AUTO_ERROR_BACKOFF_S
+            except Exception as exc:
+                next_after = time.time() + CONDITION_AUTO_ERROR_BACKOFF_S
+                self._recordConditionAutoError(exc)
+            finally:
+                self._setConditionAutoRunning(False)
+
+    def _conditionAutoCanRun(self) -> bool:
+        try:
+            status = self._hive.status()
+        except Exception:
+            return False
+        targets = status.get("targets") if isinstance(status, dict) else []
+        enabled_targets = [
+            target
+            for target in targets
+            if isinstance(target, dict) and target.get("enabled")
+        ]
+        if not enabled_targets:
+            return False
+        queued = sum(
+            int(target.get("queue_size", 0) or 0)
+            for target in enabled_targets
+            if isinstance(target.get("queue_size", 0), (int, float))
+        )
+        return queued < CONDITION_AUTO_HIVE_QUEUE_HIGH_WATERMARK
+
+    def _setConditionAutoRunning(self, running: bool) -> None:
+        with self._condition_auto_lock:
+            self._condition_auto_state["running"] = running
+
+    def _recordConditionAutoIdle(self) -> None:
+        with self._condition_auto_lock:
+            self._condition_auto_state["last_error"] = None
+
+    def _recordConditionAutoResult(self, result: dict[str, Any]) -> None:
+        archived = int(result.get("archived", 0) or 0)
+        errors = int(result.get("errors", 0) or 0)
+        with self._condition_auto_lock:
+            self._condition_auto_state.update(
+                {
+                    "last_run_at": time.time(),
+                    "last_selected": int(result.get("selected", 0) or 0),
+                    "last_archived": archived,
+                    "last_errors": errors,
+                    "last_error": (
+                        result.get("error_details", [{}])[0].get("error")
+                        if errors and isinstance(result.get("error_details"), list)
+                        and result.get("error_details")
+                        and isinstance(result.get("error_details", [None])[0], dict)
+                        else None
+                    ),
+                    "total_archived": int(self._condition_auto_state.get("total_archived", 0)) + archived,
+                    "total_errors": int(self._condition_auto_state.get("total_errors", 0)) + errors,
+                    "total_runs": int(self._condition_auto_state.get("total_runs", 0)) + 1,
+                    "next_run_after": (
+                        time.time() + CONDITION_AUTO_ERROR_BACKOFF_S if errors else None
+                    ),
+                }
+            )
+
+    def _recordConditionAutoError(self, exc: Exception) -> None:
+        with self._condition_auto_lock:
+            self._condition_auto_state.update(
+                {
+                    "last_run_at": time.time(),
+                    "last_selected": 0,
+                    "last_archived": 0,
+                    "last_errors": 1,
+                    "last_error": str(exc),
+                    "total_errors": int(self._condition_auto_state.get("total_errors", 0)) + 1,
+                    "total_runs": int(self._condition_auto_state.get("total_runs", 0)) + 1,
+                    "next_run_after": time.time() + CONDITION_AUTO_ERROR_BACKOFF_S,
+                }
+            )
+
+    def getConditionTeacherStatus(self) -> dict[str, Any]:
+        with self._condition_auto_lock:
+            state = dict(self._condition_auto_state)
+        return {
+            "enabled": True,
+            "interval_s": CONDITION_AUTO_BACKFILL_INTERVAL_S,
+            "batch_size": CONDITION_AUTO_BACKFILL_BATCH_SIZE,
+            "lookback_minutes": CONDITION_AUTO_LOOKBACK_MINUTES,
+            "max_crops_per_piece": CONDITION_AUTO_MAX_CROPS_PER_PIECE,
+            **state,
+        }
+
+    def getHiveQueueDetails(
+        self,
+        *,
+        target_id: str | None = None,
+        limit: int = 100,
+    ) -> dict[str, Any]:
+        target_ids = [target_id] if isinstance(target_id, str) and target_id else None
+        details = self._hive.queue_details(target_ids=target_ids, limit=limit)
+        teacher = self._teacherReadinessSummary(limit=limit)
+        targets = details.get("targets") if isinstance(details.get("targets"), list) else []
+        queued = sum(int(target.get("queue_size", 0)) for target in targets if isinstance(target, dict))
+        uploading = sum(
+            len(target.get("active_jobs", []))
+            for target in targets
+            if isinstance(target, dict) and isinstance(target.get("active_jobs"), list)
+        )
+        recent_uploaded = sum(
+            1
+            for target in targets
+            if isinstance(target, dict)
+            for job in target.get("recent_jobs", [])
+            if isinstance(job, dict) and job.get("status") == "uploaded"
+        )
+        recent_failed = sum(
+            1
+            for target in targets
+            if isinstance(target, dict)
+            for job in target.get("recent_jobs", [])
+            if isinstance(job, dict) and job.get("status") == "failed"
+        )
+        recent_retrying = sum(
+            1
+            for target in targets
+            if isinstance(target, dict)
+            for job in target.get("recent_jobs", [])
+            if isinstance(job, dict) and job.get("status") == "retrying"
+        )
+        return {
+            "ok": True,
+            **details,
+            "teacher": teacher,
+            "condition_teacher": self.getConditionTeacherStatus(),
+            "totals": {
+                "queued": queued,
+                "uploading": uploading,
+                "recent_uploaded": recent_uploaded,
+                "recent_failed": recent_failed,
+                "recent_retrying": recent_retrying,
+                "needs_gemini": teacher["counts"]["needs_gemini"],
+                "no_teacher_detection": teacher["counts"]["no_teacher_detection"],
+                "bad_teacher_sample": teacher["counts"]["bad_teacher_sample"],
+                "teacher_ready": teacher["counts"]["teacher_ready"],
+                "other_samples": teacher["counts"]["not_teacher_sample"],
+            },
+        }
+
+    def purgeSamplesByTeacherState(self, states: list[str]) -> dict[str, Any]:
+        requested = {
+            state
+            for state in states
+            if state
+            in {
+                "needs_gemini",
+                "no_teacher_detection",
+                "bad_teacher_sample",
+                "teacher_ready",
+                "not_teacher_sample",
+            }
+        }
+        if not requested:
+            return {"ok": False, "error": "No supported sample state was selected."}
+
+        purged_samples = 0
+        deleted_files = 0
+        freed_bytes = 0
+
+        if not TRAINING_ROOT.exists():
+            return {
+                "ok": True,
+                "states": sorted(requested),
+                "purged_samples": 0,
+                "deleted_files": 0,
+                "freed_bytes": 0,
+            }
+
+        root = TRAINING_ROOT.resolve()
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name):
+            if not session_dir.is_dir():
+                continue
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            for metadata_path in sorted(metadata_dir.glob("*.json")):
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    continue
+                teacher_state = teacher_state_from_metadata(metadata)["state"]
+                if teacher_state not in requested:
+                    continue
+
+                sample_id = (
+                    metadata.get("sample_id")
+                    if isinstance(metadata.get("sample_id"), str) and metadata.get("sample_id")
+                    else metadata_path.stem
+                )
+                paths = self._sampleFilesForDeletion(
+                    metadata,
+                    session_dir=session_dir,
+                    metadata_path=metadata_path,
+                    sample_id=sample_id,
+                )
+                for path in paths:
+                    try:
+                        resolved = path.resolve()
+                    except Exception:
+                        continue
+                    try:
+                        resolved.relative_to(root)
+                    except ValueError:
+                        continue
+                    if not resolved.is_file():
+                        continue
+                    try:
+                        freed_bytes += resolved.stat().st_size
+                        resolved.unlink()
+                        deleted_files += 1
+                    except Exception:
+                        continue
+                purged_samples += 1
+
+        return {
+            "ok": True,
+            "states": sorted(requested),
+            "purged_samples": purged_samples,
+            "deleted_files": deleted_files,
+            "freed_bytes": freed_bytes,
+        }
 
     def resolveSessionDir(self, session_id: str) -> Path:
         session_dir = (TRAINING_ROOT / session_id).resolve()
@@ -565,6 +1099,208 @@ class ClassificationTrainingManager:
         if not session_dir.exists() or not session_dir.is_dir():
             raise ValueError("Unknown sample session.")
         return session_dir
+
+    def _teacherReadinessSummary(self, *, limit: int = 100) -> dict[str, Any]:
+        counts = {
+            "teacher_ready": 0,
+            "needs_gemini": 0,
+            "no_teacher_detection": 0,
+            "bad_teacher_sample": 0,
+            "not_teacher_sample": 0,
+            "invalid": 0,
+        }
+        recent_needs_gemini: list[dict[str, Any]] = []
+        recent_ready: list[dict[str, Any]] = []
+        max_items = max(1, min(500, int(limit)))
+
+        if not TRAINING_ROOT.exists():
+            return {
+                "counts": counts,
+                "recent_needs_gemini": [],
+                "recent_ready": [],
+            }
+
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name, reverse=True):
+            if not session_dir.is_dir():
+                continue
+            session_id = session_dir.name
+            manifest = self._readJsonFile(session_dir / "manifest.json") or {}
+            session_name = (
+                manifest.get("session_name")
+                if isinstance(manifest.get("session_name"), str) and manifest.get("session_name")
+                else session_id
+            )
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            metadata_paths = sorted(
+                metadata_dir.glob("*.json"),
+                key=lambda path: path.stat().st_mtime,
+                reverse=True,
+            )
+            for metadata_path in metadata_paths:
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    counts["invalid"] += 1
+                    continue
+                teacher_state = teacher_state_from_metadata(metadata)
+                state = teacher_state["state"]
+                if state not in counts:
+                    counts["invalid"] += 1
+                    continue
+                counts[state] += 1
+                if state not in {
+                    "needs_gemini",
+                    "teacher_ready",
+                    "no_teacher_detection",
+                    "bad_teacher_sample",
+                }:
+                    continue
+                if state == "needs_gemini" and len(recent_needs_gemini) >= max_items:
+                    continue
+                if state == "no_teacher_detection" and len(recent_needs_gemini) >= max_items:
+                    continue
+                if state == "bad_teacher_sample" and len(recent_needs_gemini) >= max_items:
+                    continue
+                if state == "teacher_ready" and len(recent_ready) >= max_items:
+                    continue
+                item = self._sampleQueueSummary(
+                    metadata,
+                    session_id=session_id,
+                    session_name=session_name,
+                    fallback_sample_id=metadata_path.stem,
+                    teacher_state=teacher_state,
+                )
+                if state in {"needs_gemini", "no_teacher_detection", "bad_teacher_sample"}:
+                    recent_needs_gemini.append(item)
+                else:
+                    recent_ready.append(item)
+
+        return {
+            "counts": counts,
+            "recent_needs_gemini": recent_needs_gemini,
+            "recent_ready": recent_ready,
+        }
+
+    def _conditionSourceKeys(self) -> set[str]:
+        if not TRAINING_ROOT.exists():
+            return set()
+
+        keys: set[str] = set()
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name, reverse=True):
+            if not session_dir.is_dir():
+                continue
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            for metadata_path in metadata_dir.glob("*.json"):
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    continue
+                if metadata.get("condition_sample") is not True and not isinstance(
+                    metadata.get("condition_assessment"),
+                    dict,
+                ):
+                    continue
+                key = condition_source_key(metadata.get("condition_source_crop_path"))
+                if key is not None:
+                    keys.add(key)
+        return keys
+
+    def _conditionProcessedPieceCounts(self) -> dict[str, int]:
+        if not TRAINING_ROOT.exists():
+            return {}
+
+        counts: dict[str, int] = {}
+        for session_dir in sorted(TRAINING_ROOT.iterdir(), key=lambda path: path.name, reverse=True):
+            if not session_dir.is_dir():
+                continue
+            metadata_dir = session_dir / "metadata"
+            if not metadata_dir.exists():
+                continue
+            for metadata_path in metadata_dir.glob("*.json"):
+                metadata = self._readJsonFile(metadata_path)
+                if not isinstance(metadata, dict):
+                    continue
+                if metadata.get("condition_sample") is not True and not isinstance(
+                    metadata.get("condition_assessment"),
+                    dict,
+                ):
+                    continue
+                piece_uuid = metadata.get("condition_source_piece_uuid") or metadata.get("piece_uuid")
+                if isinstance(piece_uuid, str) and piece_uuid:
+                    counts[piece_uuid] = counts.get(piece_uuid, 0) + 1
+        return counts
+
+    @staticmethod
+    def _sampleQueueSummary(
+        metadata: dict[str, Any],
+        *,
+        session_id: str,
+        session_name: str,
+        fallback_sample_id: str,
+        teacher_state: dict[str, str],
+    ) -> dict[str, Any]:
+        sample_id = (
+            metadata.get("sample_id")
+            if isinstance(metadata.get("sample_id"), str) and metadata.get("sample_id")
+            else fallback_sample_id
+        )
+        sample_type = sample_type_from_metadata(metadata)
+        return {
+            "session_id": session_id,
+            "session_name": session_name,
+            "sample_id": sample_id,
+            "source_role": metadata.get("source_role"),
+            "capture_reason": metadata.get("capture_reason") or metadata.get("source"),
+            "captured_at": _safe_float(metadata.get("captured_at")),
+            "detection_algorithm": metadata.get("detection_algorithm"),
+            "detection_bbox_count": (
+                int(metadata.get("detection_bbox_count"))
+                if isinstance(metadata.get("detection_bbox_count"), int)
+                and not isinstance(metadata.get("detection_bbox_count"), bool)
+                else None
+            ),
+            "teacher_state": teacher_state["state"],
+            "teacher_label": teacher_state["label"],
+            "teacher_reason": teacher_state["reason"],
+            "sample_type": sample_type,
+            "sample_type_label": sample_type_label(sample_type),
+            "hive_uploads": (
+                metadata.get("hive_uploads")
+                if isinstance(metadata.get("hive_uploads"), dict)
+                else None
+            ),
+        }
+
+    @staticmethod
+    def _sampleFilesForDeletion(
+        metadata: dict[str, Any],
+        *,
+        session_dir: Path,
+        metadata_path: Path,
+        sample_id: str,
+    ) -> set[Path]:
+        paths = {metadata_path}
+        for key in (
+            "input_image",
+            "top_zone_path",
+            "bottom_zone_path",
+            "top_frame_path",
+            "bottom_frame_path",
+        ):
+            value = metadata.get(key)
+            if isinstance(value, str) and value.strip():
+                paths.add(Path(value.strip()))
+
+        for directory in (
+            session_dir / "captures",
+            session_dir / "dataset" / "images",
+            session_dir / "classification" / "json",
+        ):
+            if directory.exists():
+                paths.update(directory.glob(f"{sample_id}*"))
+        return paths
 
     def _ensureSessionLocked(self) -> bool:
         if self._session_dir is None:
@@ -706,6 +1442,7 @@ class ClassificationTrainingManager:
             image_path=str(dataset_image_path),
             full_frame_path=full_frame_path,
             overlay_path=None,
+            metadata_path=str(metadata_path),
         )
 
         return {

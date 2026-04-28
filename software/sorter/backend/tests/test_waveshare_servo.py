@@ -7,7 +7,7 @@ serial_stub = types.ModuleType("serial")
 serial_stub.Serial = object
 sys.modules.setdefault("serial", serial_stub)
 
-from hardware.waveshare_servo import ScServoBus, _checksum
+from hardware.waveshare_servo import ScServoBus, WaveshareServoMotor, _checksum
 
 
 class _FakeSerial:
@@ -78,6 +78,26 @@ class WaveshareServoBusTests(unittest.TestCase):
         with patch("hardware.waveshare_servo.serial.Serial", return_value=_FakeSerial([request, header, invalid_body])):
             bus = ScServoBus("/dev/null")
             self.assertIsNone(bus.read_word(3, 56))
+
+
+class WaveshareServoMotorTests(unittest.TestCase):
+    def test_recalibrate_returns_measured_limits_tuple(self) -> None:
+        bus = types.SimpleNamespace(
+            set_torque=lambda *_args, **_kwargs: None,
+            read_position=lambda _servo_id: 512,
+        )
+        servo = WaveshareServoMotor(bus, servo_id=3)
+
+        with patch("hardware.waveshare_servo.calibrate_servo", return_value=(123, 876)) as cal:
+            result = servo.recalibrate()
+
+        cal.assert_called_once_with(bus, 3)
+        self.assertEqual(result, (123, 876))
+        # And the endpoint-style unpack must succeed (this is what the router does).
+        min_limit, max_limit = result
+        self.assertEqual((min_limit, max_limit), (123, 876))
+        self.assertEqual(servo._min_limit, 123)
+        self.assertEqual(servo._max_limit, 876)
 
 
 if __name__ == "__main__":

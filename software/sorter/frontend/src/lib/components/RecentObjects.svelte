@@ -1,97 +1,192 @@
 <script lang="ts">
+	import { onDestroy, onMount } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
-
-	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
+	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import {
+		capturedCropUrl,
+		recentPhysicalKeyOrNull,
+		lifecyclePhase,
+		shouldShowInRecentPieces,
+		type LifecyclePhase
+	} from '$lib/recent-pieces';
 
 	const ctx = getMachineContext();
-	sortingProfileStore.load();
+	type LiveC4Track = {
+		global_id: number | null;
+		raw_track_id?: number | null;
+		tracklet_id?: string | null;
+		current_tracklet_id?: string | null;
+		feed_id?: string | null;
+		tracker_key?: string | null;
+		tracker_epoch?: string | null;
+		angle_deg: number | null;
+		score?: number | null;
+		hit_count?: number | null;
+		last_seen_ts?: number | null;
+		confirmed_real?: boolean;
+		ghost?: boolean;
+	};
+	type RecentPieceDisplay = KnownObjectData;
 
-	function hasLocalPreview(obj: KnownObjectData): boolean {
-		return Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
-	}
+	let liveC4Tracks = $state<Map<number, LiveC4Track>>(new Map());
+	let liveC4TrackPollAvailable = $state(false);
+	let rtTrackPollTimer: ReturnType<typeof setInterval> | null = null;
 
-	function hasCapturingEvidence(obj: KnownObjectData): boolean {
-		// Anything proving the capture/classify pipeline has engaged: a snap
-		// timestamp, a locally-stored crop or thumbnail, or any part data.
-		return Boolean(
-			obj.carousel_snapping_started_at ||
-				obj.classified_at ||
-				obj.part_id ||
-				hasLocalPreview(obj)
-		);
-	}
+	onMount(() => {
+		void sortingProfileStore.load().catch(() => {});
+		void refreshLiveC4Tracks();
+		rtTrackPollTimer = setInterval(() => void refreshLiveC4Tracks(), 500);
+	});
 
-	function lifecyclePhase(obj: KnownObjectData): LifecyclePhase {
-		// "Distributing" (in motion) still renders as Classified. Only fully-
-		// delivered pieces flip to 'distributed'.
-		if (obj.stage === 'distributed' || obj.distributed_at) return 'distributed';
-		if (
-			obj.classification_status === 'classified' ||
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail' ||
-			obj.classified_at
-		) {
-			return 'classified';
-		}
-		if (hasCapturingEvidence(obj)) return 'capturing';
-		// Reliably tracked by the carousel tracker but no capture has started
-		// yet — show the piece as soon as we have an identity for it.
-		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) {
-			return 'tracking';
-		}
-		return 'capturing';
-	}
+	onDestroy(() => {
+		if (rtTrackPollTimer !== null) clearInterval(rtTrackPollTimer);
+	});
 
-	function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
-		if (obj.stage !== 'created') return true;
-		// Reliable tracking on the classification channel → surface
-		// immediately, before any capture/classify evidence exists.
-		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) return true;
-		if (obj.classified_at || obj.carousel_snapping_started_at || obj.part_id) return true;
-		if (obj.first_carousel_seen_ts || hasLocalPreview(obj)) return true;
-		return false;
-	}
-
-	const upcoming = $derived.by(() => {
-		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
-		// Dedupe by tracked_global_id (the tracker's identity key). Same
-		// global_id = same physical piece, even if re-classified as a new
-		// KnownObject. Different global_ids = distinct physical pieces, even
-		// if they happen to be the same LEGO part.
-		const recent_delivered_global_ids = new Set<number | string>();
-		const now_s = Date.now() / 1000;
-		for (const o of all) {
-			if (lifecyclePhase(o) !== 'distributed') continue;
-			const gid = o.tracked_global_id;
-			if (gid === null || gid === undefined) continue;
-			const ts = o.distributed_at ?? o.updated_at ?? 0;
-			if (now_s - ts > 15) continue;
-			recent_delivered_global_ids.add(gid);
-		}
-		const list = all
-			.filter((o) => lifecyclePhase(o) !== 'distributed')
-			.filter((o) => {
-				const gid = o.tracked_global_id;
-				if (gid === null || gid === undefined) return true;
-				return !recent_delivered_global_ids.has(gid);
-			});
-		list.sort((a, b) => (b.first_carousel_seen_ts ?? b.created_at ?? 0) - (a.first_carousel_seen_ts ?? a.created_at ?? 0));
-		// Dedupe identity splits within upcoming: same tracked_global_id seen
-		// more than once means the tracker re-spawned a KnownObject for the
-		// same physical piece — keep only the newest entry.
-		const seen_gids = new Set<number | string>();
-		const deduped: typeof list = [];
-		for (const o of list) {
-			const gid = o.tracked_global_id;
-			if (gid !== null && gid !== undefined) {
-				if (seen_gids.has(gid)) continue;
-				seen_gids.add(gid);
+	async function refreshLiveC4Tracks() {
+		try {
+			const res = await fetch(`${effectiveBase()}/api/rt/tracks/c4_feed`);
+			if (!res.ok) {
+				liveC4TrackPollAvailable = false;
+				liveC4Tracks = new Map();
+				return;
 			}
+			const payload = await res.json();
+			const tracks = Array.isArray(payload?.tracks) ? payload.tracks : [];
+			const next = new Map<number, LiveC4Track>();
+			for (const track of tracks) {
+				const gid = track?.global_id;
+				if (typeof gid !== 'number') continue;
+				if (track?.ghost === true) continue;
+				if (track?.confirmed_real === false) continue;
+				next.set(gid, {
+					global_id: gid,
+					raw_track_id: typeof track?.raw_track_id === 'number' ? track.raw_track_id : gid,
+					tracklet_id: typeof track?.tracklet_id === 'string' ? track.tracklet_id : null,
+					current_tracklet_id:
+						typeof track?.current_tracklet_id === 'string' ? track.current_tracklet_id : null,
+					feed_id: typeof track?.feed_id === 'string' ? track.feed_id : null,
+					tracker_key: typeof track?.tracker_key === 'string' ? track.tracker_key : null,
+					tracker_epoch: typeof track?.tracker_epoch === 'string' ? track.tracker_epoch : null,
+					angle_deg: typeof track?.angle_deg === 'number' ? track.angle_deg : null,
+					score: typeof track?.score === 'number' ? track.score : null,
+					hit_count: typeof track?.hit_count === 'number' ? track.hit_count : null,
+					last_seen_ts: typeof track?.last_seen_ts === 'number' ? track.last_seen_ts : null,
+					confirmed_real: Boolean(track?.confirmed_real),
+					ghost: Boolean(track?.ghost)
+				});
+			}
+			liveC4Tracks = next;
+			liveC4TrackPollAvailable = true;
+		} catch {
+			liveC4TrackPollAvailable = false;
+			liveC4Tracks = new Map();
+		}
+	}
+
+	function isDisplayableLiveTrack(track: LiveC4Track): boolean {
+		if (track.ghost === true) return false;
+		if (track.confirmed_real === true) return true;
+		const hits = typeof track.hit_count === 'number' ? track.hit_count : 0;
+		const score = typeof track.score === 'number' ? track.score : 0;
+		return hits >= 2 && score >= 0.35;
+	}
+
+	function wrapDeg(value: number): number {
+		let wrapped = ((((value + 180) % 360) + 360) % 360) - 180;
+		if (wrapped === -180) wrapped = 180;
+		return wrapped;
+	}
+
+	function liveTrackFor(obj: KnownObjectData): LiveC4Track | null {
+		const tracklet = obj.current_tracklet_id ?? obj.tracklet_id;
+		if (typeof tracklet === 'string') {
+			for (const live of liveC4Tracks.values()) {
+				if (live.tracklet_id === tracklet || live.current_tracklet_id === tracklet) return live;
+			}
+		}
+		const gid = obj.tracked_global_id;
+		if (typeof gid !== 'number') return null;
+		return liveC4Tracks.get(gid) ?? null;
+	}
+
+	function c4AngleDeg(obj: KnownObjectData): number | null {
+		const live = liveTrackFor(obj);
+		if (typeof live?.angle_deg === 'number') return live.angle_deg;
+		return typeof obj.classification_channel_zone_center_deg === 'number'
+			? obj.classification_channel_zone_center_deg
+			: null;
+	}
+
+	function exitDistanceDeg(obj: KnownObjectData): number | null {
+		const angle = c4AngleDeg(obj);
+		const exit = obj.classification_channel_exit_deg;
+		if (typeof angle !== 'number' || typeof exit !== 'number') return null;
+		return Math.abs(wrapDeg(angle - exit));
+	}
+
+	function objectForLiveTrack(
+		track: LiveC4Track,
+		objectsByTracklet: Map<string, KnownObjectData>,
+		objectsByGid: Map<number, KnownObjectData>
+	): RecentPieceDisplay | null {
+		const tracklet = track.current_tracklet_id ?? track.tracklet_id;
+		if (typeof tracklet === 'string') {
+			const existingByTracklet = objectsByTracklet.get(tracklet);
+			if (existingByTracklet && lifecyclePhase(existingByTracklet) !== 'distributed') {
+				return existingByTracklet;
+			}
+		}
+		const gid = track.global_id;
+		if (typeof gid !== 'number') return null;
+		const existing = objectsByGid.get(gid);
+		if (existing && lifecyclePhase(existing) !== 'distributed') return existing;
+		return null;
+	}
+
+	// "Upcoming" = pieces currently tracked on C4, ordered along the polar
+	// path toward the exit: top = farthest from exit, bottom = next to drop.
+	const upcoming = $derived.by(() => {
+		const all = ctx.machine?.recentObjects ?? [];
+		const objectsByTracklet = new Map<string, KnownObjectData>();
+		const objectsByGid = new Map<number, KnownObjectData>();
+		for (const obj of all) {
+			const tracklet = obj.current_tracklet_id ?? obj.tracklet_id;
+			if (typeof tracklet === 'string' && lifecyclePhase(obj) !== 'distributed') {
+				objectsByTracklet.set(tracklet, obj);
+			}
+			const gid = obj.tracked_global_id;
+			if (typeof gid !== 'number') continue;
+			if (lifecyclePhase(obj) === 'distributed') continue;
+			objectsByGid.set(gid, obj);
+		}
+		const list = Array.from(liveC4Tracks.values())
+			.filter(isDisplayableLiveTrack)
+			.map((track) => objectForLiveTrack(track, objectsByTracklet, objectsByGid))
+			.filter((obj): obj is RecentPieceDisplay => obj !== null);
+		list.sort((a, b) => {
+			const da = exitDistanceDeg(a);
+			const db = exitDistanceDeg(b);
+			if (da !== null && db !== null && da !== db) return db - da;
+			if (da !== null && db === null) return -1;
+			if (da === null && db !== null) return 1;
+			return (
+				(a.first_carousel_seen_ts ?? a.created_at ?? 0) -
+				(b.first_carousel_seen_ts ?? b.created_at ?? 0)
+			);
+		});
+		// Collapse by the canonical piece UUID. Live track polling only
+		// enriches already-projected pieces; it no longer creates synthetic cards.
+		const seen_keys = new Set<string>();
+		const deduped: RecentPieceDisplay[] = [];
+		for (const o of list) {
+			const key = recentPhysicalKeyOrNull(o);
+			if (key === null) continue;
+			if (seen_keys.has(key)) continue;
+			seen_keys.add(key);
 			deduped.push(o);
 		}
 		return deduped.slice(0, 5);
@@ -102,26 +197,18 @@
 			.filter(shouldShowInRecentPieces)
 			.filter((o) => lifecyclePhase(o) === 'distributed');
 		// Newest-first (most recently delivered directly under the exit line).
-		list.sort((a, b) => (b.distributed_at ?? b.updated_at ?? 0) - (a.distributed_at ?? a.updated_at ?? 0));
+		list.sort(
+			(a, b) => (b.distributed_at ?? b.updated_at ?? 0) - (a.distributed_at ?? a.updated_at ?? 0)
+		);
 		return list.slice(0, 5);
 	});
 
-	function dataImageUrl(payload: string | null | undefined): string | null {
-		return payload ? `data:image/jpeg;base64,${payload}` : null;
-	}
-
-	function capturedCropUrl(obj: KnownObjectData): string | null {
-		// Prefer the most recent sharp crop; top/bottom beat thumbnail which is
-		// often the earliest C4-detection thumb.
-		return (
-			dataImageUrl(obj.top_image) ??
-			dataImageUrl(obj.bottom_image) ??
-			dataImageUrl(obj.thumbnail)
-		);
-	}
-
 	function formatBin(bin: [unknown, unknown, unknown]): string {
 		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
+	}
+
+	function effectiveBase(): string {
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
 	}
 
 	function formatRelativeTime(ts: number | null | undefined): string {
@@ -191,15 +278,14 @@
 
 {#snippet pieceCard(obj: KnownObjectData)}
 	{@const phase = lifecyclePhase(obj)}
-	{@const captured = capturedCropUrl(obj)}
+	{@const captured = capturedCropUrl(obj, effectiveBase())}
 	{@const preview = obj.brickognize_preview_url ?? null}
 	{@const reference_src = preview}
-	{@const cat_name = obj.category_id
-		? sortingProfileStore.getCategoryName(obj.category_id)
-		: null}
+	{@const cat_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
+	{@const category_label = cat_name ?? obj.part_category ?? obj.category_id ?? null}
+	{@const bin_label = obj.destination_bin ? formatBin(obj.destination_bin) : obj.bin_id}
 	{@const is_unknown =
-		obj.classification_status === 'unknown' ||
-		obj.classification_status === 'not_found'}
+		obj.classification_status === 'unknown' || obj.classification_status === 'not_found'}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
 	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference_src)}
 	{@const ts =
@@ -238,7 +324,7 @@
 	>
 		<div class="flex items-start gap-3 p-2">
 			<!-- Primary image well (hover-swap only on classified+recognized) -->
-			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white group">
+			<div class="group relative h-20 w-20 flex-shrink-0 border border-border bg-white">
 				{#if is_classified_ok && captured}
 					<!-- Brickognize reference is primary; captured crop on hover -->
 					<img
@@ -261,7 +347,7 @@
 					</div>
 				{/if}
 				{#if phase === 'capturing' || phase === 'tracking'}
-					<div class="absolute -right-1 -top-1">
+					<div class="absolute -top-1 -right-1">
 						<Spinner />
 					</div>
 				{/if}
@@ -273,7 +359,11 @@
 						{primary_text}
 					</span>
 					{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-						<span class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
+						<span
+							class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(
+								obj.confidence
+							)}"
+						>
 							{(obj.confidence * 100).toFixed(0)}%
 						</span>
 					{/if}
@@ -282,7 +372,7 @@
 				{#if has_name && obj.part_id}
 					<div class="truncate font-mono text-xs text-text-muted">{obj.part_id}</div>
 				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
-					<div class="text-xs text-text-muted">Tracked on carousel…</div>
+					<div class="text-xs text-text-muted">Tracked on C4…</div>
 				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
 					<div class="text-xs text-text-muted">Capturing on C4…</div>
 				{/if}
@@ -290,7 +380,7 @@
 				<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
 					<!-- Phase chip -->
 					<span
-						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(
+						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold tracking-wider uppercase {phaseChipClass(
 							phase
 						)}"
 					>
@@ -307,25 +397,29 @@
 							{lego_color.name}
 						</span>
 					{:else if obj.color_name && obj.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-						<span class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
+						<span
+							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+						>
 							{obj.color_name}
 						</span>
 					{/if}
 
 					<!-- Category (plain, de-emphasized) -->
-					{#if cat_name && !is_unknown && !is_multi_drop}
-						<span class="text-xs text-text-muted">{cat_name}</span>
+					{#if category_label && !is_unknown && !is_multi_drop}
+						<span class="text-xs text-text-muted">{category_label}</span>
 					{/if}
 
 					<!-- Bin chip — monospace, neutral surface -->
-					{#if obj.destination_bin && phase === 'distributed'}
+					{#if bin_label}
 						<span
-							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs tabular-nums text-text"
+							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums"
 						>
-							{is_unknown || is_multi_drop ? 'discard ' : ''}{formatBin(obj.destination_bin)}
+							{is_unknown || is_multi_drop ? 'discard ' : ''}{bin_label}
 						</span>
 					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
-						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
+						<span
+							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted"
+						>
 							discard bin
 						</span>
 					{/if}
@@ -342,7 +436,7 @@
 			<div class="p-3 text-center text-sm text-text-muted">No pieces yet</div>
 		{:else}
 			<div class="flex flex-col gap-1 p-1">
-				<!-- Upcoming (approaching exit, oldest-to-newest) -->
+				<!-- Upcoming queue: farthest-to-nearest, with next-to-distribute at the divider. -->
 				{#each upcoming as obj (obj.uuid)}
 					{@render pieceCard(obj)}
 				{/each}
@@ -350,7 +444,9 @@
 				<!-- Exit divider -->
 				<div class="flex items-center gap-2 py-1 select-none">
 					<div class="h-px flex-1 bg-border"></div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">distributed</span>
+					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase"
+						>distributed</span
+					>
 					<div class="h-px flex-1 bg-border"></div>
 				</div>
 

@@ -15,6 +15,11 @@
 		role?: string | null;
 		device_name?: string | null;
 		logical_steppers?: string[];
+		steppers?: Array<{
+			canonical_name: string | null;
+			physical_name: string | null;
+			channel: number | null;
+		}>;
 		servo_count?: number;
 	};
 

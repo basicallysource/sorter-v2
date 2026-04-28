@@ -11,7 +11,6 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
-from urllib import error as urllib_error
 from urllib import request as urllib_request
 
 from dotenv import load_dotenv

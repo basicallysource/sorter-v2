@@ -25,6 +25,8 @@ import numpy as np
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from runtime_preferences import PREFS_PATH as _PREFS_PATH, read_runtime_preferences
+
 
 router = APIRouter(prefix="/api/runtimes", tags=["runtimes"])
 
@@ -32,26 +34,16 @@ router = APIRouter(prefix="/api/runtimes", tags=["runtimes"])
 # ---------------------------------------------------------------------------
 # Runtime preferences — which option_id is the chosen inference backend for
 # each model format on this machine. Persisted to a JSON file so the choice
-# survives restarts.
+# survives restarts. The shared reader lives in ``runtime_preferences`` at the
+# backend root so the production ML factory can import it too.
 # ---------------------------------------------------------------------------
 
 
-_PREFS_PATH = (
-    Path(__file__).resolve().parent.parent.parent / "blob" / "runtime_preferences.json"
-)
 _PREFS_LOCK = threading.Lock()
 
 
 def _load_prefs() -> dict[str, str]:
-    try:
-        raw = json.loads(_PREFS_PATH.read_text())
-    except FileNotFoundError:
-        return {}
-    except Exception:
-        return {}
-    if not isinstance(raw, dict):
-        return {}
-    return {str(k): str(v) for k, v in raw.items() if isinstance(v, str)}
+    return read_runtime_preferences()
 
 
 def _save_prefs(prefs: dict[str, str]) -> None:

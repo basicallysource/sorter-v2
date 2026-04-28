@@ -1,13 +1,12 @@
 from __future__ import annotations
 import os
-import sys
 import argparse
 import uuid
 from enum import Enum
 from typing import TYPE_CHECKING
 from logger import Logger
 from profiler import Profiler
-from blob_manager import getMachineId
+from local_state import ensure_machine_id
 
 if TYPE_CHECKING:
     from run_recorder import RunRecorder
@@ -78,7 +77,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.debug_level = int(os.getenv("DEBUG_LEVEL", "0"))
     gc.timeouts = mkTimeouts()
     gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
-    gc.machine_id = getMachineId()
+    gc.machine_id = ensure_machine_id()
     gc.run_id = str(uuid.uuid4())
     gc.disable_chute = "chute" in args.disable
     gc.disable_servos = "servos" in args.disable

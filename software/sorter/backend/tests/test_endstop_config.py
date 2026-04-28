@@ -89,8 +89,7 @@ class ChuteConfigPersistenceTests(unittest.TestCase):
             operating_speed_microsteps_per_second=1200,
         )
 
-        with patch("server.routers.hardware.shared_state.controller_ref", None):
-            response = hardware.save_chute_hardware_config(payload)
+        response = hardware.save_chute_hardware_config(payload)
 
         self.assertTrue(response["ok"])
         self.assertEqual(

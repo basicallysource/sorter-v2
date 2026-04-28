@@ -75,6 +75,12 @@ sections:
             url: /lab/object-detection/device-benchmarking/
           - title: Hailo HEF Workflow
             url: /lab/object-detection/hailo-hef-workflow/
+      - title: Architecture
+        pages:
+          - title: Sorter Architecture Principles
+            url: /lab/sorter-architecture-principles/
+          - title: Software Architecture Decisions
+            url: /lab/software-architecture-decisions/
       - title: Styleguide
         pages:
           - title: Overview

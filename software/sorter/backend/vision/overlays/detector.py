@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Callable, Optional
 import cv2
 import numpy as np
 
+from .scaling import overlay_scale_for_frame, scaled_px
+
 if TYPE_CHECKING:
     from vision.classification_detection import ClassificationDetectionResult
     from vision.mog2_channel_detector import Mog2ChannelDetector
@@ -32,13 +34,26 @@ class DetectorOverlay:
         frame = self._detector.annotateFrame(frame)
         from subsystems.feeder.analysis import getBboxSections
 
+        scale = overlay_scale_for_frame(frame)
+        font_scale = 0.35 * scale
+        font_thickness = scaled_px(1, scale)
+        y_offset = scaled_px(6, scale)
         for det in self._get_detections():
             x1, y1, x2, y2 = det.bbox
             secs = getBboxSections(det.bbox, det.channel)
             exit_zone = bool(secs & det.channel.exit_sections)
             drop = bool(secs & det.channel.dropzone_sections)
             label = f"ch{det.channel_id} {sorted(secs)} e={exit_zone} d={drop}"
-            cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
+            cv2.putText(
+                frame,
+                label,
+                (x1, max(scaled_px(18, scale), y1 - y_offset)),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                font_scale,
+                (255, 255, 0),
+                font_thickness,
+                cv2.LINE_AA,
+            )
         return frame
 
 
@@ -60,17 +75,23 @@ class DynamicDetectionOverlay:
         detection = self._get_detection()
         if detection is None:
             return frame
+        scale = overlay_scale_for_frame(frame)
+        box_thickness = scaled_px(2, scale)
+        font_scale = 0.55 * scale
+        font_thickness = scaled_px(2, scale)
+        x_pad = scaled_px(6, scale)
+        y_pad = scaled_px(18, scale)
         for index, bbox in enumerate(detection.bboxes, start=1):
             x1, y1, x2, y2 = [int(value) for value in bbox]
-            cv2.rectangle(frame, (x1, y1), (x2, y2), (168, 85, 247), 2, cv2.LINE_AA)
+            cv2.rectangle(frame, (x1, y1), (x2, y2), (168, 85, 247), box_thickness, cv2.LINE_AA)
             cv2.putText(
                 frame,
                 str(index),
-                (x1 + 6, max(18, y1 + 18)),
+                (x1 + x_pad, max(y_pad, y1 + y_pad)),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.55,
+                font_scale,
                 (168, 85, 247),
-                2,
+                font_thickness,
                 cv2.LINE_AA,
             )
         return frame

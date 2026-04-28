@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import SetupHomingSection from '$lib/components/setup/SetupHomingSection.svelte';
 	import SetupPictureSettingsModal from '$lib/components/setup/SetupPictureSettingsModal.svelte';
@@ -21,6 +21,12 @@
 	import HiveStep from '$lib/components/setup/steps/HiveStep.svelte';
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
 	import { RefreshCcw } from 'lucide-svelte';
+	import {
+		beginHiveLink,
+		completeReturnedHiveLink,
+		DEFAULT_HIVE_URL,
+		normalizeHiveBaseUrl
+	} from '$lib/hive/link-flow';
 	import {
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
 		persistConfirmations as persistConfirmationsToStorage,
@@ -71,6 +77,7 @@
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
 		carousel: 'Carousel',
+		classification_channel: 'Classification C-Channel (C4)',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
 	};
@@ -78,6 +85,8 @@
 		c_channel_2: 'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
 		c_channel_3: 'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
 		carousel: 'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
+		classification_channel:
+			'Fourth C-channel path (C4). This can share a camera with the upstream feeder paths if the view covers it.',
 		classification_top: 'Required top-down classification view.',
 		classification_bottom: 'Optional crop for underside or second-pass classification.'
 	};
@@ -196,12 +205,9 @@
 	let verifiedSteppers = $state<Record<string, boolean>>({});
 	let showStepperWiringHelp = $state(false);
 
-	const DEFAULT_HIVE_URL = 'https://hive.neuhaus.nrw';
-
 	let hiveLoading = $state(false);
 	let hiveTargets = $state<HiveSetupTarget[]>([]);
-	let hiveEmail = $state('');
-	let hivePassword = $state('');
+	let hiveUrl = $state(DEFAULT_HIVE_URL);
 	let hiveConnecting = $state(false);
 	let hiveError = $state<string | null>(null);
 	let hiveStatus = $state<string | null>(null);
@@ -224,6 +230,22 @@
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
+	}
+
+	function currentBackendWsBaseUrl(): string {
+		// Prefer the machine's own WS URL origin (strip path) so picker tiles
+		// hit the machine we're currently connected to; fall back to the
+		// globally configured WS base.
+		const url = machine.machine?.url;
+		if (url) {
+			try {
+				const parsed = new URL(url);
+				return `${parsed.protocol}//${parsed.host}`;
+			} catch {
+				// fall through
+			}
+		}
+		return backendWsBaseUrl;
 	}
 
 	function currentMachineId(): string {
@@ -284,10 +306,14 @@
 	}
 
 	function cameraRolesForLayout(): string[] {
+		const auxiliaryRole =
+			wizard?.config.machine_setup?.key === 'classification_channel'
+				? 'classification_channel'
+				: 'carousel';
 		return [
 			'c_channel_2',
 			'c_channel_3',
-			'carousel',
+			auxiliaryRole,
 			'classification_top',
 			'classification_bottom'
 		];
@@ -316,7 +342,7 @@
 	}
 
 	function cameraChoices(): CameraChoice[] {
-		return buildCameraChoices(usbCameras, networkCameras, roleSelections, currentBackendBaseUrl());
+		return buildCameraChoices(usbCameras, networkCameras, roleSelections, currentBackendWsBaseUrl());
 	}
 
 	function selectedCameraLabel(key: string | undefined): string {
@@ -616,8 +642,8 @@
 		}
 	}
 
-	async function connectToSorthive() {
-		if (!hiveEmail.trim() || !hivePassword.trim()) return;
+	function connectToSorthive() {
+		if (!hiveUrl.trim()) return;
 		hiveConnecting = true;
 		hiveError = null;
 		hiveStatus = null;
@@ -626,29 +652,23 @@
 			nicknameDraft.trim() ||
 			(wizard?.machine.machine_id ?? '');
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/register`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					target_name: 'Hive Community',
-					url: DEFAULT_HIVE_URL,
-					email: hiveEmail.trim(),
-					password: hivePassword.trim(),
-					machine_name: machineName,
-					machine_description: ''
-				})
+			hiveUrl = normalizeHiveBaseUrl(hiveUrl);
+			beginHiveLink({
+				hiveUrl,
+				targetName: 'Hive Community',
+				machineName,
+				returnPath: '/setup?step=hive'
 			});
-			if (!res.ok) {
-				let message = await res.text();
-				try {
-					const body = JSON.parse(message);
-					message = body.detail ?? body.error ?? message;
-				} catch {
-					// use raw text
-				}
-				throw new Error(message || 'Failed to connect to Hive.');
-			}
-			hivePassword = '';
+		} catch (e: any) {
+			hiveError = e.message ?? 'Failed to start Hive linking.';
+			hiveConnecting = false;
+		}
+	}
+
+	async function completeSorthiveLinkIfReturned() {
+		try {
+			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
+			if (!result.completed) return;
 			hiveStatus = 'Connected to Hive. Your sorter will start syncing samples in the background.';
 			stepConfirmations = { ...stepConfirmations, hive: true };
 			const machineId = currentMachineId();
@@ -657,9 +677,7 @@
 			}
 			await loadSorthiveConfig();
 		} catch (e: any) {
-			hiveError = e.message ?? 'Failed to connect to Hive.';
-		} finally {
-			hiveConnecting = false;
+			hiveError = e.message ?? 'Failed to complete Hive linking.';
 		}
 	}
 
@@ -904,6 +922,7 @@
 			loadStoredConfirmations(machineId);
 			loadStoredVerificationState(machineId);
 		}
+		void completeSorthiveLinkIfReturned();
 		void loadWizard();
 		void loadCameraInventory();
 	});
@@ -1035,8 +1054,7 @@
 							{hiveLoading}
 							officialHiveTarget={officialSorthiveTarget}
 							defaultHiveUrl={DEFAULT_HIVE_URL}
-							bind:hiveEmail
-							bind:hivePassword
+							bind:hiveUrl
 							{hiveConnecting}
 							{hiveError}
 							{hiveStatus}
@@ -1090,7 +1108,6 @@
 					label={ROLE_LABELS[pictureSettingsRole] ?? pictureSettingsRole}
 					hasCamera={roleHasCamera(pictureSettingsRole)}
 					source={parseCameraSource(roleSelections[pictureSettingsRole] ?? '__none__')}
-					backendBaseUrl={currentBackendBaseUrl()}
 					on:saved={() => {
 						const role = pictureSettingsRole;
 						if (!role) return;

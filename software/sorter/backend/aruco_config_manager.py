@@ -6,7 +6,7 @@ Handles loading, saving, and assigning ArUco tags to different regions.
 import json
 import shutil
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Any
 from dataclasses import dataclass
 
 

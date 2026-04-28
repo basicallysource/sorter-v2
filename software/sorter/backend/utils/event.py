@@ -1,5 +1,6 @@
 from defs.known_object import KnownObject
 from defs.events import (
+    CarouselMotionSampleData,
     KnownObjectEvent,
     KnownObjectData,
     PieceStage,
@@ -35,6 +36,38 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             feeding_started_at=obj.feeding_started_at,
             carousel_detected_confirmed_at=obj.carousel_detected_confirmed_at,
             first_carousel_seen_ts=obj.first_carousel_seen_ts,
+            first_carousel_seen_angle_deg=obj.first_carousel_seen_angle_deg,
+            classification_channel_size_class=obj.classification_channel_size_class,
+            classification_channel_zone_state=obj.classification_channel_zone_state,
+            classification_channel_zone_center_deg=obj.classification_channel_zone_center_deg,
+            classification_channel_exit_deg=obj.classification_channel_exit_deg,
+            classification_channel_zone_half_width_deg=obj.classification_channel_zone_half_width_deg,
+            classification_channel_soft_guard_deg=obj.classification_channel_soft_guard_deg,
+            classification_channel_hard_guard_deg=obj.classification_channel_hard_guard_deg,
+            carousel_motion_sync_ratio=obj.carousel_motion_sync_ratio,
+            carousel_motion_sync_ratio_avg=obj.carousel_motion_sync_ratio_avg,
+            carousel_motion_sync_ratio_min=obj.carousel_motion_sync_ratio_min,
+            carousel_motion_sync_ratio_max=obj.carousel_motion_sync_ratio_max,
+            carousel_motion_piece_speed_deg_per_s=obj.carousel_motion_piece_speed_deg_per_s,
+            carousel_motion_platter_speed_deg_per_s=obj.carousel_motion_platter_speed_deg_per_s,
+            carousel_motion_sample_count=int(obj.carousel_motion_sample_count or 0),
+            carousel_motion_under_sync_sample_count=int(
+                obj.carousel_motion_under_sync_sample_count or 0
+            ),
+            carousel_motion_over_sync_sample_count=int(
+                obj.carousel_motion_over_sync_sample_count or 0
+            ),
+            carousel_motion_samples=[
+                CarouselMotionSampleData(
+                    observed_at=float(sample.observed_at),
+                    piece_angle_deg=float(sample.piece_angle_deg),
+                    carousel_angle_deg=float(sample.carousel_angle_deg),
+                    piece_speed_deg_per_s=float(sample.piece_speed_deg_per_s),
+                    carousel_speed_deg_per_s=float(sample.carousel_speed_deg_per_s),
+                    sync_ratio=float(sample.sync_ratio),
+                )
+                for sample in list(obj.carousel_motion_samples or [])
+            ],
             carousel_rotate_started_at=obj.carousel_rotate_started_at,
             carousel_rotated_at=obj.carousel_rotated_at,
             carousel_snapping_started_at=obj.carousel_snapping_started_at,

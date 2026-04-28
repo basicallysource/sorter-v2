@@ -36,10 +36,8 @@ DEFAULT_BASE = "http://127.0.0.1:8000"
 OUT_ROOT = Path("/tmp/c4_motion_sweep")
 STEPPER = "carousel"
 BASE = DEFAULT_BASE
-CAROUSEL_FEED_URL = (
-    f"{BASE}/api/cameras/feed/carousel?dashboard=false&layer=annotated"
-)
-CAROUSEL_DETECT_URL = f"{BASE}/api/feeder/detect/carousel"
+CAMERA_CONFIG_URL = f"{BASE}/api/cameras/config"
+C4_DETECT_URL = f"{BASE}/api/classification-channel/detect/current"
 CAROUSEL_LIVE_URL = f"{BASE}/api/hardware-config/carousel/live"
 PAUSE_URL = f"{BASE}/pause"
 RESUME_URL = f"{BASE}/resume"
@@ -109,18 +107,31 @@ def _move_blocking(
 
 
 def _fetch_single_jpeg() -> bytes:
-    with request.urlopen(CAROUSEL_FEED_URL, timeout=20) as response:
-        chunk = b""
-        while True:
-            data = response.read(4096)
-            if not data:
-                break
-            chunk += data
-            start = chunk.find(b"\xff\xd8")
-            end = chunk.find(b"\xff\xd9", start + 2 if start != -1 else 0)
-            if start != -1 and end != -1:
-                return chunk[start : end + 2]
-    raise RuntimeError("could not capture a complete JPEG from carousel feed")
+    try:
+        from websockets.sync.client import connect  # type: ignore
+    except Exception as exc:  # pragma: no cover — dev script only
+        raise RuntimeError(
+            "websockets package required — install via `uv add websockets`"
+        ) from exc
+
+    import json
+    with request.urlopen(CAMERA_CONFIG_URL, timeout=10) as response:
+        cfg = json.loads(response.read().decode("utf-8"))
+    source = cfg.get("classification_channel")
+    if not isinstance(source, int):
+        raise RuntimeError(
+            f"classification_channel camera is not a USB device (got {source!r}); cannot WS-fetch"
+        )
+
+    ws_url = BASE.replace("http://", "ws://").replace("https://", "wss://")
+    ws_url = f"{ws_url}/ws/camera-preview/{source}"
+    deadline = time.time() + 15.0
+    with connect(ws_url, open_timeout=5.0) as ws:
+        while time.time() < deadline:
+            msg = ws.recv(timeout=5.0)
+            if isinstance(msg, (bytes, bytearray)) and len(msg) > 0:
+                return bytes(msg)
+    raise RuntimeError(f"could not capture a JPEG from {ws_url}")
 
 
 def _capture_snapshot(dest: Path) -> None:
@@ -128,7 +139,7 @@ def _capture_snapshot(dest: Path) -> None:
 
 
 def _detect_current() -> dict[str, Any]:
-    return _post_json(CAROUSEL_DETECT_URL)
+    return _post_json(C4_DETECT_URL)
 
 
 def _normalize_angle_deg(value: float) -> float:
@@ -430,12 +441,10 @@ def main() -> int:
     parser.add_argument("--out-root", default=str(OUT_ROOT))
     args = parser.parse_args()
 
-    global BASE, CAROUSEL_FEED_URL, CAROUSEL_DETECT_URL, CAROUSEL_LIVE_URL, PAUSE_URL, RESUME_URL, MOVE_URL
+    global BASE, CAMERA_CONFIG_URL, C4_DETECT_URL, CAROUSEL_LIVE_URL, PAUSE_URL, RESUME_URL, MOVE_URL
     BASE = args.base_url.rstrip("/")
-    CAROUSEL_FEED_URL = (
-        f"{BASE}/api/cameras/feed/carousel?dashboard=false&layer=annotated"
-    )
-    CAROUSEL_DETECT_URL = f"{BASE}/api/feeder/detect/carousel"
+    CAMERA_CONFIG_URL = f"{BASE}/api/cameras/config"
+    C4_DETECT_URL = f"{BASE}/api/classification-channel/detect/current"
     CAROUSEL_LIVE_URL = f"{BASE}/api/hardware-config/carousel/live"
     PAUSE_URL = f"{BASE}/pause"
     RESUME_URL = f"{BASE}/resume"

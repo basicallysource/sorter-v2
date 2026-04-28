@@ -142,7 +142,7 @@
 				{/each}
 			</select>
 			<div class="mt-1 text-sm text-text-muted">
-				FPS auto = max supported. MJPEG fourcc for max throughput.
+				FPS auto = max supported. JPEG-compressed FourCC (e.g. MJPG) for max throughput.
 			</div>
 		</div>
 		{#if status}

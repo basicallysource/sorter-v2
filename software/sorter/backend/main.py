@@ -1,3 +1,19 @@
+"""Sorter backend entry point — rt-runtime only.
+
+Post-cutover (2026-04-22): the legacy SorterController / coordinator /
+subsystems runtime is gone. The live sorting loop is now the rt/ graph
+(C1 -> C2 -> C3 -> C4 -> Distributor) assembled by
+:func:`rt.bootstrap.build_rt_runtime`. Main.py wires up:
+
+1. Process guard + GlobalConfig + RunRecorder
+2. IRL config + ArucoConfigManager
+3. CameraService
+4. FastAPI + WS server thread + broadcaster thread
+5. Hardware home/init/reset callbacks for the ``/api/system/*`` routes
+6. rt_handle lifecycle (full runtime starts with backend/reset; homing is separate)
+7. server_to_main_queue lifecycle command drain (pause/resume)
+"""
+
 from dotenv import load_dotenv
 import os
 from pathlib import Path
@@ -7,37 +23,30 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import get_api_keys, remember_recent_known_object
+from local_state import get_api_keys
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
 
 from global_config import mkGlobalConfig, GlobalConfig
-from runtime_variables import mkRuntimeVariables
 from server.api import app
 from server.shared_state import (
     broadcastEvent,
+    publishSorterState,
     setGlobalConfig,
-    setRuntimeVariables,
     setCommandQueue,
-    setController,
     setArucoManager,
     setCameraService,
-    setVisionManager,
-    setHardwareInitializeFn,
-    setHardwareResetFn,
     setHardwareRuntimeIRL,
-    setHardwareStartFn,
+    setRtHandle,
+    setSorterLifecycle,
 )
+from server.sorter_lifecycle import SorterLifecyclePort
 from aruco_config_manager import ArucoConfigManager
-from sorter_controller import SorterController
 from run_recorder import RunRecorder
-from message_queue.handler import handleServerToMainEvent
-from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
+from defs.events import HeartbeatEvent, HeartbeatData
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import mkIRLConfig, mkIRLInterface
-from subsystems.feeder.calibration import calibrateFeederChannels
-from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
 from hardware.waveshare_bus_service import close_all_waveshare_bus_services
 from server.waveshare_inventory import get_waveshare_inventory_manager
@@ -48,14 +57,18 @@ import time
 import asyncio
 import sys
 
+
 def _mkIRLInterfaceStandby(config, gc):
     """Create a minimal IRLInterface without hardware discovery (standby mode)."""
-    from irl.config import IRLInterface, BinLayoutConfig, mkLayoutFromConfig
-    from irl.bin_layout import getBinLayout
+    from irl.config import IRLInterface, mkLayoutFromConfig
     irl = IRLInterface()
     irl.servos = []
     irl.distribution_layout = mkLayoutFromConfig(config.bin_layout_config)
     irl.machine_profile = None
+    # Keep the irl_config reachable off the handle so routers that go
+    # through ``shared_state.getActiveIRL()`` can still read machine_setup /
+    # classification_channel_config etc.
+    irl.irl_config = config
     return irl
 
 
@@ -70,14 +83,8 @@ main_to_server_queue = queue.Queue()
 
 def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
     """After ``servo.open()``, surface a fatal hardware banner if every
-    configured layer servo reports ``available=False``. This flips the
-    boot path from "warn once and silently pass pieces through" to a
-    red-banner paused state that forces an operator check (USB, power,
-    cabling) before the controller is allowed to accept pieces.
-
-    The banner clears automatically the next time ``Positioning`` finds
-    any layer's servo back online, so a subsequent Resume after
-    reconnecting the bus recovers without a full restart.
+    configured layer servo reports ``available=False``. Mirrors the
+    pre-cutover behavior so operator still gets the red banner.
     """
     import server.shared_state as shared_state
 
@@ -106,10 +113,7 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
 
 def runServer() -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a
-    # specific IP) exposes the API to the LAN — every endpoint (system reset,
-    # supervisor restart, calibration, camera control) becomes reachable from
-    # any host that can route to this machine, so only do that on a trusted
-    # network. CORS is widened to match in server/api.py.
+    # specific IP) exposes the API to the LAN.
     host = os.getenv("SORTER_API_HOST", "127.0.0.1") or "127.0.0.1"
     uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
 
@@ -138,10 +142,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         pending_commands.extend(latest_frame_commands.values())
 
         for command in pending_commands:
-            if command.tag == "known_object":
-                obj_payload = command.data.model_dump()
-                gc.runtime_stats.observeKnownObject(obj_payload)
-                remember_recent_known_object(obj_payload)
             if (
                 command.tag != "frame"
                 and command.tag != "heartbeat"
@@ -157,7 +157,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 pass
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
-
 
 
 def main() -> None:
@@ -178,8 +177,6 @@ def main() -> None:
     gc = mkGlobalConfig()
     gc.run_recorder = RunRecorder(gc)
     setGlobalConfig(gc)
-    rv = mkRuntimeVariables(gc)
-    setRuntimeVariables(rv)
     setCommandQueue(server_to_main_queue)
     startup_total_start = time.time()
 
@@ -194,6 +191,10 @@ def main() -> None:
 
     # Create a minimal IRL interface (no hardware discovery yet)
     irl = _mkIRLInterfaceStandby(irl_config, gc)
+    # Expose to routers immediately — even in standby, getActiveIRL() should
+    # return a readable shape so routers can fetch machine_setup metadata.
+    setHardwareRuntimeIRL(irl)
+    stepper_thermal_guard = None
 
     with gc.profiler.timer("startup.camera_service_init_ms"):
         from vision.camera_service import CameraService
@@ -209,17 +210,10 @@ def main() -> None:
             main_to_server_queue.put(event)
 
         camera_service.set_health_event_callback(_on_camera_health_change)
-    with gc.profiler.timer("startup.vision_init_ms"):
-        vision = VisionManager(irl_config, gc, irl, camera_service)
-        setVisionManager(vision)
-    # Controller is deferred until hardware is started
-    controller = None
-    controller_lock = threading.RLock()
-    gc.logger.info("client starting in standby mode (hardware not initialized)...")
 
-    # Bring up the API/broadcast threads before the heavier camera + vision
-    # startup steps. That way the backend stays reachable even if a camera or
-    # inventory subsystem stalls during initialization.
+    gc.logger.info("backend starting in standby (hardware not initialized)...")
+
+    # Bring up the API/broadcast threads before the heavier camera startup.
     server_thread = threading.Thread(target=runServer, daemon=True)
     server_thread.start()
 
@@ -230,8 +224,10 @@ def main() -> None:
 
     with gc.profiler.timer("startup.camera_service_start_ms"):
         camera_service.start()
-    with gc.profiler.timer("startup.vision_start_ms"):
-        vision.start()
+    with gc.profiler.timer("startup.camera_overlays_ms"):
+        from server.camera_annotations import attach_camera_annotations
+
+        attach_camera_annotations(camera_service)
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
         waveshare_inventory = get_waveshare_inventory_manager()
         waveshare_inventory.start()
@@ -245,25 +241,328 @@ def main() -> None:
 
     def _replace_irl(next_irl) -> None:
         nonlocal irl
-        with controller_lock:
-            irl.__dict__.clear()
-            irl.__dict__.update(next_irl.__dict__)
+        # Keep the IRLInterface identity stable for any refs already held;
+        # only swap the attributes.
+        irl.__dict__.clear()
+        irl.__dict__.update(next_irl.__dict__)
+
+    def _thermal_guard_steppers() -> dict[str, object]:
+        return {
+            name: stepper
+            for name, stepper in {
+                "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
+                "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
+                "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
+                "carousel": getattr(irl, "carousel_stepper", None),
+                "chute": getattr(irl, "chute_stepper", None),
+            }.items()
+            if stepper is not None
+        }
+
+    def _handle_stepper_thermal_fault(fault) -> None:
+        message = f"{fault.message}. Motors stopped and runtime paused."
+        gc.logger.error(message)
+        rt = shared_state.rt_handle
+        if rt is not None:
+            try:
+                rt.pause()
+                gc.runtime_stats.setLifecycleState("paused")
+                layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+                publishSorterState("paused", layout)
+            except Exception:
+                gc.logger.exception("Failed to pause rt runtime after stepper thermal fault")
+        with shared_state.hardware_lifecycle_lock:
+            shared_state.setHardwareStatus(
+                state="error",
+                error=message,
+                clear_homing_step=True,
+            )
+
+    def _start_stepper_thermal_guard(reason: str) -> None:
+        nonlocal stepper_thermal_guard
+        _stop_stepper_thermal_guard(f"restart for {reason}")
+        steppers = _thermal_guard_steppers()
+        if not steppers:
+            return
+        from rt.services.stepper_thermal_guard import StepperThermalGuard
+
+        interval_s = float(os.getenv("SORTER_STEPPER_THERMAL_GUARD_INTERVAL_S", "2.0"))
+        stop_on_prewarn = (
+            os.getenv("SORTER_STEPPER_THERMAL_STOP_ON_PREWARN", "1").strip().lower()
+            not in {"0", "false", "no", "off"}
+        )
+        stepper_thermal_guard = StepperThermalGuard(
+            steppers=steppers,
+            on_fault=_handle_stepper_thermal_fault,
+            logger=gc.logger,
+            interval_s=interval_s,
+            stop_on_prewarn=stop_on_prewarn,
+        )
+        stepper_thermal_guard.start()
+        gc.logger.info(
+            "Stepper thermal guard started for %s (%s)",
+            ", ".join(sorted(steppers)),
+            reason,
+        )
+
+    def _stop_stepper_thermal_guard(reason: str) -> None:
+        nonlocal stepper_thermal_guard
+        guard = stepper_thermal_guard
+        if guard is None:
+            return
+        gc.logger.info(f"Stopping stepper thermal guard ({reason})")
+        try:
+            guard.stop()
+        except Exception as exc:
+            gc.logger.warning(f"Stepper thermal guard stop raised: {exc}")
+        stepper_thermal_guard = None
+
+    def _stop_rt_handle(reason: str) -> None:
+        """Tear down the rt/ runtime graph, if running."""
+        rt = shared_state.rt_handle
+        if rt is None:
+            return
+        gc.logger.info(f"Stopping rt runtime ({reason})")
+        try:
+            rt.stop()
+        except Exception as exc:
+            gc.logger.warning(f"rt runtime stop raised: {exc}")
+        setRtHandle(None)
+        layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+        gc.runtime_stats.setLifecycleState("initializing")
+        publishSorterState("initializing", layout)
+
+    def _build_rt_handle(*, start: bool, paused: bool = False, reason: str):
+        mode = "live" if start else "idle"
+        gc.logger.info(f"Building rt runtime ({mode}; reason={reason})")
+        from rt.bootstrap import build_rt_runtime
+
+        rt_handle = build_rt_runtime(
+            camera_service=camera_service,
+            gc=gc,
+            irl=irl,
+            logger=gc.logger,
+        )
+        if start:
+            rt_handle.start(paused=paused)
+            gc.logger.info(
+                "rt runtime started%s.",
+                " (paused)" if paused else "",
+            )
+            gc.runtime_stats.setLifecycleState("paused" if paused else "running")
+        else:
+            rt_handle.start_perception()
+            gc.logger.info("rt runtime perception primed.")
+            gc.runtime_stats.setLifecycleState("initializing")
+        setRtHandle(rt_handle)
+        layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+        if start:
+            publishSorterState("paused" if paused else "running", layout)
+        else:
+            publishSorterState("initializing", layout)
+        return rt_handle
+
+    def _env_bool(name: str, default: bool) -> bool:
+        raw = os.getenv(name, "").strip().lower()
+        if not raw:
+            return default
+        return raw not in {"0", "false", "no", "off"}
+
+    def _env_float(name: str, default: float) -> float:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return float(raw)
+        except ValueError:
+            return default
+
+    def _env_optional_float(name: str, default: float | None) -> float | None:
+        raw = os.getenv(name)
+        if raw is None or not raw.strip():
+            return default
+        value = raw.strip().lower()
+        if value in {"auto", "none", "null", "probe"}:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            return default
+
+    def _env_int(name: str, default: int) -> int:
+        raw = os.getenv(name, "").strip()
+        if not raw:
+            return default
+        try:
+            return int(raw)
+        except ValueError:
+            return default
+
+    def _latest_rt_feed_frame_bgr(
+        rt_handle,
+        *,
+        feed_id: str,
+        timeout_s: float,
+    ):
+        deadline = time.monotonic() + max(0.1, float(timeout_s))
+        runner = None
+        while time.monotonic() < deadline:
+            runner_for_feed = getattr(rt_handle, "runner_for_feed", None)
+            runner = runner_for_feed(feed_id) if callable(runner_for_feed) else None
+            if runner is None:
+                time.sleep(0.05)
+                continue
+
+            pipeline = getattr(runner, "_pipeline", None)
+            feed = getattr(pipeline, "feed", None)
+            latest = getattr(feed, "latest", None)
+            if callable(latest):
+                frame = latest()
+                raw = getattr(frame, "raw", None)
+                if raw is not None:
+                    return raw
+
+            latest_state = getattr(runner, "latest_state", None)
+            state = latest_state() if callable(latest_state) else None
+            state_frame = getattr(state, "frame", None)
+            raw = getattr(state_frame, "raw", None)
+            if raw is not None:
+                return raw
+            time.sleep(0.05)
+
+        if runner is None:
+            raise RuntimeError(f"perception runner '{feed_id}' not found")
+        raise RuntimeError(f"no latest frame available for '{feed_id}'")
+
+    def _optically_home_c4_sector_carousel(rt_handle) -> dict[str, object] | None:
+        orchestrator = getattr(rt_handle, "orchestrator", None)
+        handler = getattr(orchestrator, "_sector_carousel_handler", None)
+        if handler is None:
+            return None
+
+        from rt.perception.c4_wall_phase import detect_c4_wall_phase
+        from rt.services.c4_optical_home import run_c4_optical_home
+
+        feed_id = os.getenv("SORTER_C4_OPTICAL_HOME_FEED", "c4_feed") or "c4_feed"
+        c4 = getattr(rt_handle, "c4", None)
+        target = getattr(c4, "_exit_angle_deg", None)
+        if not isinstance(target, (int, float)):
+            classification_cfg = getattr(irl_config, "classification_channel_config", None)
+            target = getattr(classification_cfg, "drop_angle_deg", 30.0)
+        target = float(target)
+        sector_count = _env_int("SORTER_C4_OPTICAL_HOME_SECTOR_COUNT", 5)
+        downscale = _env_float("SORTER_C4_OPTICAL_HOME_DOWNSCALE", 0.4)
+
+        def detect_phase() -> dict[str, object]:
+            image = _latest_rt_feed_frame_bgr(
+                rt_handle,
+                feed_id=feed_id,
+                timeout_s=_env_float("SORTER_C4_OPTICAL_HOME_FRAME_TIMEOUT_S", 5.0),
+            )
+            result = detect_c4_wall_phase(
+                image,
+                sector_count=sector_count,
+                downscale=downscale,
+            )
+            payload = result.as_dict(include_lines=False)
+            payload["feed_id"] = feed_id
+            return payload
+
+        def move_tray_degrees(degrees: float) -> bool:
+            runtime_c4 = getattr(rt_handle, "c4", None)
+            move = getattr(runtime_c4, "_transport_move", None)
+            if not callable(move):
+                move = getattr(runtime_c4, "_carousel_move", None)
+            if not callable(move):
+                raise RuntimeError("C4 runtime does not expose a tray move command")
+            return bool(move(float(degrees)))
+
+        def apply_phase(detection: dict[str, object]) -> bool:
+            update_timing = getattr(handler, "update_timing", None)
+            if callable(update_timing) and sector_count > 0:
+                update_timing(sector_step_deg=360.0 / float(sector_count))
+            verify = getattr(handler, "verify_phase", None)
+            if not callable(verify):
+                return False
+            offset = detection.get("sector_offset_deg")
+            verify(
+                source="system_home_optical_wall_phase",
+                measured_offset_deg=(
+                    float(offset) if isinstance(offset, (int, float)) else None
+                ),
+                details={
+                    **detection,
+                    "target_wall_angle_deg": target,
+                    "sector_count": sector_count,
+                    "homing_source": "system_home",
+                },
+            )
+            return True
+
+        result = run_c4_optical_home(
+            detect_phase=detect_phase,
+            move_tray_degrees=move_tray_degrees,
+            apply_phase=apply_phase,
+            target_wall_angle_deg=target,
+            sector_count=sector_count,
+            tolerance_deg=_env_float("SORTER_C4_OPTICAL_HOME_TOLERANCE_DEG", 2.5),
+            max_iterations=_env_int("SORTER_C4_OPTICAL_HOME_MAX_ITERATIONS", 5),
+            min_move_deg=_env_float("SORTER_C4_OPTICAL_HOME_MIN_MOVE_DEG", 0.25),
+            max_move_deg=_env_optional_float("SORTER_C4_OPTICAL_HOME_MAX_MOVE_DEG", 12.0),
+            motion_sign=_env_float("SORTER_C4_OPTICAL_HOME_MOTION_SIGN", 1.0),
+            probe_move_deg=_env_float("SORTER_C4_OPTICAL_HOME_PROBE_MOVE_DEG", 0.0),
+            motion_response_gain=_env_optional_float(
+                "SORTER_C4_OPTICAL_HOME_RESPONSE_GAIN",
+                1.0,
+            ),
+            execute_move=_env_bool("SORTER_C4_OPTICAL_HOME_EXECUTE_MOVE", True),
+            settle_s=_env_float("SORTER_C4_OPTICAL_HOME_SETTLE_S", 0.20),
+            apply_to_runtime=True,
+        )
+        if result.get("ok") and result.get("applied_to_runtime"):
+            gc.logger.info("C4 optical home verified: %s", result)
+            return result
+
+        invalidate = getattr(handler, "invalidate_phase", None)
+        if callable(invalidate):
+            invalidate(
+                reason=(
+                    "system_home_optical_home_apply_failed"
+                    if result.get("ok")
+                    else "system_home_optical_home_failed"
+                )
+            )
+        iterations = result.get("iterations")
+        last = iterations[-1] if isinstance(iterations, list) and iterations else {}
+        phase_error = last.get("phase_error_deg") if isinstance(last, dict) else None
+        message = (
+            result.get("message")
+            if isinstance(result.get("message"), str)
+            else (last.get("message") if isinstance(last, dict) else None)
+        )
+        raise RuntimeError(
+            (
+                "C4 optical home apply failed"
+                if result.get("ok")
+                else "C4 optical home failed"
+            )
+            + (f": {message}" if message else "")
+            + f" (target_wall_angle_deg={target:.2f}"
+            + (
+                f", phase_error_deg={float(phase_error):.2f}"
+                if isinstance(phase_error, (int, float))
+                else ""
+            )
+            + ")"
+        )
 
     def _cleanup_runtime_hardware(reason: str) -> None:
-        nonlocal irl, controller
+        nonlocal irl
 
         gc.logger.info(f"Cleaning up hardware runtime: {reason}")
-        setHardwareRuntimeIRL(None)
 
-        with controller_lock:
-            old_controller = controller
-            controller = None
-            setController(None)
-            if old_controller is not None:
-                try:
-                    old_controller.stop()
-                except Exception as exc:
-                    gc.logger.warning(f"Failed to stop controller cleanly: {exc}")
+        _stop_stepper_thermal_guard(reason)
+        _stop_rt_handle(reason)
 
         for servo in list(getattr(irl, "servos", [])):
             try:
@@ -293,45 +592,46 @@ def main() -> None:
 
         standby_irl = _mkIRLInterfaceStandby(irl_config, gc)
         _replace_irl(standby_irl)
-        setHardwareRuntimeIRL(None)
+        setHardwareRuntimeIRL(irl)
 
-    # Register the hardware start function for the /api/system/home endpoint
+    def _enable_runtime_steppers(reason: str) -> None:
+        enable = getattr(irl, "enableSteppers", None)
+        if not callable(enable):
+            return
+        try:
+            enable()
+            gc.logger.info("Runtime steppers enabled for %s.", reason)
+        except Exception as exc:
+            message = f"failed to enable runtime steppers for {reason}: {exc}"
+            gc.logger.error(message)
+            raise RuntimeError(message) from exc
+
     def _home_hardware() -> None:
-        nonlocal irl, controller
+        """Discover hardware, home carousel + chute, then spin up rt-runtime."""
+        nonlocal irl
 
-        with controller_lock:
-            current_controller = controller
-        active_irl = shared_state.getActiveIRL()
-        if current_controller is not None or active_irl is not None and getattr(active_irl, "interfaces", {}):
+        if shared_state.rt_handle is not None:
+            _cleanup_runtime_hardware("preparing for homing")
+        elif getattr(irl, "interfaces", {}):
             _cleanup_runtime_hardware("preparing for homing")
 
         shared_state.setHardwareStatus(homing_step="Discovering hardware...")
         gc.logger.info("Starting hardware initialization...")
         real_irl = mkIRLInterface(irl_config, gc)
+        # Preserve irl_config reference so routers going through getActiveIRL
+        # can reach it without holding a direct ref to main.py's closure.
+        real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
-        machine_setup = getattr(irl_config, "machine_setup", None)
-        manual_feed_mode = bool(
-            getattr(machine_setup, "manual_feed_mode", False)
-            if machine_setup is not None
-            else getattr(irl_config, "feeding_mode", "auto_channels") == "manual_carousel"
-        )
+        _start_stepper_thermal_guard("hardware home")
+        _enable_runtime_steppers("hardware home")
 
+        machine_setup = getattr(irl_config, "machine_setup", None)
         if machine_setup is not None:
             gc.logger.info(
-                f"Machine setup selected: {machine_setup.key} "
+                f"Machine setup: {machine_setup.key} "
                 f"(auto_feeder={machine_setup.automatic_feeder}, "
                 f"carousel_transport={machine_setup.uses_carousel_transport})"
-            )
-        if manual_feed_mode:
-            gc.logger.info(
-                "Manual carousel feed mode enabled: automatic C-channel feeding and feeder calibration are disabled."
-            )
-        elif machine_setup is not None and not machine_setup.runtime_supported:
-            gc.logger.warning(
-                "Machine setup %r is experimental. Homing rules are applied, but the "
-                "runtime is not implemented yet."
-                % machine_setup.key
             )
 
         if gc.disable_servos:
@@ -343,70 +643,10 @@ def main() -> None:
                 try:
                     servo.open()
                 except Exception as e:
-                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
+                    gc.logger.warning(
+                        f"Failed to open servo: {e}. Continuing without initialization."
+                    )
             _checkServoBusHealth(gc, irl)
-
-        feeder_detection_ready = vision.initFeederDetection(manual_feed_mode=manual_feed_mode)
-        if manual_feed_mode:
-            if not feeder_detection_ready:
-                gc.logger.warning(
-                    "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
-                )
-        elif feeder_detection_ready and bool(
-            getattr(machine_setup, "runs_reverse_pulse_calibration", True)
-        ):
-            # Reverse-pulse calibration seeds background-subtraction models
-            # (MOG2 / heatmap) with an empty-ring view. The feeder may have
-            # moved to Hive/Gemini and no longer need it, but the CAROUSEL
-            # heatmap still relies on this warm-up window unless it's also
-            # been switched to gemini_sam. Run the pulses whenever either
-            # subsystem still uses a baseline.
-            feeder_algorithms = (
-                vision.getFeederDetectionAlgorithms()
-                if hasattr(vision, "getFeederDetectionAlgorithms")
-                else {"feeder": vision.getFeederDetectionAlgorithm()}
-            )
-            feeder_mog2_roles = sorted(
-                role for role, algorithm in feeder_algorithms.items() if algorithm == "mog2"
-            )
-            feeder_needs_baseline = bool(feeder_mog2_roles)
-            carousel_needs_baseline = bool(
-                getattr(machine_setup, "uses_carousel_transport", True)
-            ) and vision.usesCarouselBaseline()
-            if feeder_needs_baseline or carousel_needs_baseline:
-                reason = []
-                if feeder_needs_baseline:
-                    reason.append(f"feeder(mog2)={','.join(feeder_mog2_roles)}")
-                if carousel_needs_baseline:
-                    reason.append("carousel=baseline")
-                shared_state.setHardwareStatus(homing_step="Calibrating feeder channels...")
-                gc.logger.info(
-                    f"Running feeder reverse-pulse calibration ({', '.join(reason)})"
-                )
-                calibrateFeederChannels(gc, irl, irl_config)
-            else:
-                gc.logger.info(
-                    f"Skipping feeder reverse-pulse calibration — "
-                    f"feeder_roles={feeder_algorithms!r}, carousel uses dynamic detection"
-                )
-        elif feeder_detection_ready:
-            gc.logger.info(
-                "Skipping feeder reverse-pulse calibration for machine setup %r."
-                % getattr(machine_setup, "key", "unknown")
-            )
-        else:
-            gc.logger.warning("Feeder channel polygons not found — continuing without feeder detection")
-
-        if irl_config.camera_layout == "split_feeder":
-            has_classification = (
-                vision._classification_top_capture is not None
-                or vision._classification_bottom_capture is not None
-            )
-            if has_classification and vision.usesClassificationBaseline():
-                if not vision.loadClassificationBaseline():
-                    gc.logger.warning("Classification baseline not found — continuing without classification")
-        elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
-            gc.logger.warning("Classification baseline not found — continuing without classification")
 
         if bool(getattr(machine_setup, "homes_carousel", True)):
             shared_state.setHardwareStatus(homing_step="Homing carousel...")
@@ -423,24 +663,10 @@ def main() -> None:
                 % getattr(machine_setup, "key", "unknown")
             )
 
-        # Home chute/distributor if available
+        # Home chute/distributor if available.
         shared_state.setHardwareStatus(homing_step="Homing distributor...")
-
-        next_controller = SorterController(
-            irl, irl_config, gc, vision, main_to_server_queue, rv
-        )
-        with controller_lock:
-            controller = next_controller
-        setController(next_controller)
-        next_controller.start()
-        try:
-            get_waveshare_inventory_manager().trigger_refresh()
-        except Exception:
-            pass
-
-        # Home the chute through the distribution state machine
-        chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None:
+        chute = getattr(irl, "chute", None)
+        if chute is not None and hasattr(chute, "home"):
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():
@@ -450,46 +676,75 @@ def main() -> None:
             except Exception as e:
                 gc.logger.warning(f"Chute homing failed: {e}. Continuing without homing.")
 
+        # Build and start the rt runtime.
+        shared_state.setHardwareStatus(homing_step="Starting rt runtime...")
+        try:
+            rt_handle = _build_rt_handle(start=True, paused=True, reason="hardware home")
+        except Exception as exc:
+            message = f"rt runtime failed: {exc}"
+            gc.logger.error(f"rt runtime build/start failed: {exc}")
+            shared_state.setHardwareStatus(error=message)
+            shared_state.setHardwareStatus(clear_homing_step=True)
+            raise RuntimeError(message) from exc
+
+        shared_state.setHardwareStatus(homing_step="Optically homing C4 rotor...")
+        _optically_home_c4_sector_carousel(rt_handle)
+
+        try:
+            get_waveshare_inventory_manager().trigger_refresh()
+        except Exception:
+            pass
+
         shared_state.setHardwareStatus(clear_homing_step=True)
-        gc.logger.info("Hardware initialization and homing complete.")
+        gc.logger.info("Hardware initialization + rt runtime online.")
 
     def _initialize_hardware() -> None:
-        """Bring up the IRL and enable steppers without homing carousel/chute.
+        """Bring up stepper hardware for manual jogging.
 
-        Used by the setup wizard's Motion Direction Check step so the operator
-        can jog each stepper before endstops have been verified.
+        Used by the setup wizard and settings pages for manual direction
+        checks. This deliberately avoids runtime startup, homing, servo
+        opening, and global stepper-enable side effects; individual jog/move
+        routes enable only the selected axis.
         """
-        nonlocal irl, controller
+        nonlocal irl
 
-        with controller_lock:
-            current_controller = controller
-        active_irl = shared_state.getActiveIRL()
-        if current_controller is not None or active_irl is not None and getattr(active_irl, "interfaces", {}):
+        if shared_state.rt_handle is not None or getattr(irl, "interfaces", {}):
             _cleanup_runtime_hardware("preparing for stepper jog")
 
         shared_state.setHardwareStatus(homing_step="Discovering hardware...")
-        gc.logger.info("Initializing hardware (no homing)...")
-        real_irl = mkIRLInterface(irl_config, gc)
+        gc.logger.info("Initializing stepper hardware for manual control...")
+        real_irl = mkIRLInterface(
+            irl_config,
+            gc,
+            required_stepper_names=(),
+            initialize_servos=False,
+            require_homing_hardware=False,
+        )
+        real_irl.irl_config = irl_config
         _replace_irl(real_irl)
         setHardwareRuntimeIRL(irl)
-
-        if gc.disable_servos:
-            gc.logger.info("Servo control disabled via --disable servos")
-        else:
-            shared_state.setHardwareStatus(homing_step="Opening servos...")
-            for servo in irl.servos:
-                try:
-                    servo.open()
-                except Exception as e:
-                    gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
-            _checkServoBusHealth(gc, irl)
+        _start_stepper_thermal_guard("hardware initialize")
 
         shared_state.setHardwareStatus(clear_homing_step=True)
-        gc.logger.info("Hardware initialized (steppers ready, no homing performed).")
+        gc.logger.info("Stepper hardware initialized for manual control.")
 
-    setHardwareStartFn(_home_hardware)
-    setHardwareInitializeFn(_initialize_hardware)
-    setHardwareResetFn(lambda: _cleanup_runtime_hardware("system reset"))
+    setSorterLifecycle(
+        SorterLifecyclePort(
+            home_hardware=_home_hardware,
+            initialize_hardware=_initialize_hardware,
+            reset_hardware=lambda: _cleanup_runtime_hardware("system reset"),
+            prepare_rt_handle=lambda: _build_rt_handle(
+                start=True, paused=True, reason="standby prepare"
+            ),
+        )
+    )
+
+    try:
+        with gc.profiler.timer("startup.rt_handle_prepare_ms"):
+            _build_rt_handle(start=True, paused=True, reason="startup standby")
+    except Exception as exc:
+        gc.logger.error(f"rt runtime build/start failed during standby startup: {exc}")
+        shared_state.setHardwareStatus(error=f"rt runtime failed: {exc}")
 
     last_heartbeat = time.time()
     last_frame_broadcast = time.time()
@@ -499,19 +754,45 @@ def main() -> None:
         while True:
             gc.profiler.hit("main.loop.calls")
             gc.profiler.mark("main.loop.interval_ms")
+
+            # Drain server->main command queue. Post-cutover the only
+            # meaningful commands are pause/resume which we forward straight
+            # to the rt_handle.
             try:
                 event = server_to_main_queue.get(block=False)
-                with controller_lock:
-                    current_controller = controller
-                if current_controller is not None:
-                    handleServerToMainEvent(gc, current_controller, event)
+                rt = shared_state.rt_handle
+                if event.tag == "pause":
+                    gc.logger.info("received pause command")
+                    if rt is not None:
+                        try:
+                            rt.pause()
+                            gc.runtime_stats.setLifecycleState("paused")
+                            layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+                            publishSorterState("paused", layout)
+                        except Exception:
+                            gc.logger.exception("rt.pause raised")
+                elif event.tag == "resume":
+                    gc.logger.info("received resume command")
+                    if rt is not None:
+                        try:
+                            rt.resume()
+                            gc.runtime_stats.setLifecycleState("running")
+                            layout = getattr(getattr(irl, "irl_config", None), "camera_layout", None)
+                            publishSorterState("running", layout)
+                        except Exception:
+                            gc.logger.exception("rt.resume raised")
+                elif event.tag == "heartbeat":
+                    gc.logger.info(
+                        f"received heartbeat from server at {event.data.timestamp}"
+                    )
+                else:
+                    gc.logger.warn(f"unknown event tag: {event.tag}")
             except queue.Empty:
                 pass
 
             current_time = time.time()
 
-            # send periodic heartbeat
-            # can probably remove this later, just helps debug web sockets from time to time
+            # Heartbeat (keeps the WS channel from idle-disconnecting).
             if (
                 current_time - last_heartbeat
                 >= gc.timeouts.heartbeat_interval_ms / 1000.0
@@ -522,7 +803,7 @@ def main() -> None:
                 main_to_server_queue.put(heartbeat)
                 last_heartbeat = current_time
 
-            # broadcast cached camera frames and record to disk
+            # Frame broadcast: pump camera_service's ring into the WS channel.
             if (
                 current_time - last_frame_broadcast
                 >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
@@ -533,8 +814,6 @@ def main() -> None:
                 )
                 for frame_event in frame_events:
                     main_to_server_queue.put(frame_event)
-                with gc.profiler.timer("main.loop.record_frames_ms"):
-                    vision.recordFrames()
                 last_frame_broadcast = current_time
 
             if (
@@ -548,20 +827,19 @@ def main() -> None:
                 main_to_server_queue.put(runtime_stats)
                 last_runtime_stats_broadcast = current_time
 
-            with controller_lock:
-                current_controller = controller
-            if current_controller is not None:
-                with gc.profiler.timer("main.loop.controller_step_ms"):
-                    current_controller.step()
-
+            # rt orchestrator ticks itself on its own thread — main loop
+            # only pumps frames + commands now.
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:
         gc.logger.info("Shutting down...")
 
         gc.run_recorder.save()
 
-        vision.stop()
-        camera_service.stop()
+        _stop_rt_handle("process shutdown")
+        try:
+            camera_service.stop()
+        except Exception as exc:
+            gc.logger.warning(f"camera_service.stop raised: {exc}")
 
         gc.logger.info("Stopping all motors...")
         _cleanup_runtime_hardware("process shutdown")

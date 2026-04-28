@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { mjpegStream } from '$lib/actions/mjpegStream';
+	import { wsJpegStream } from '$lib/actions/wsJpegStream';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
@@ -10,7 +10,7 @@
 		label: string;
 		source: number | string | null;
 		previewSrc: string | null;
-		previewKind: 'mjpeg' | 'image';
+		previewKind: 'stream' | 'image';
 	};
 
 	let {
@@ -51,8 +51,8 @@
 		return choice.previewSrc;
 	}
 
-	function previewIsMjpeg(choice: CameraChoice) {
-		return choice.previewKind === 'mjpeg';
+	function previewIsStream(choice: CameraChoice) {
+		return choice.previewKind === 'stream';
 	}
 </script>
 
@@ -120,12 +120,11 @@
 							<div class="min-h-0 flex-1">
 								<div class="relative h-full border border-border bg-bg">
 									{#if previewForChoice(choice)}
-										{#if previewIsMjpeg(choice)}
+										{#if previewIsStream(choice)}
 											<img
-												use:mjpegStream={{
+												use:wsJpegStream={{
 													url: previewForChoice(choice) ?? '',
-													firstFrameTimeoutMs: 6000,
-													stallTimeoutMs: 4000
+													firstFrameTimeoutMs: 6000
 												}}
 												alt={choice.label}
 												class="absolute inset-0 h-full w-full object-contain"
@@ -192,12 +191,11 @@
 							<div class="aspect-[4/3] min-h-0 bg-surface">
 								<div class="relative h-full border border-border bg-bg">
 									{#if previewForChoice(choice)}
-										{#if previewIsMjpeg(choice)}
+										{#if previewIsStream(choice)}
 											<img
-												use:mjpegStream={{
+												use:wsJpegStream={{
 													url: previewForChoice(choice) ?? '',
-													firstFrameTimeoutMs: 6000,
-													stallTimeoutMs: 4000
+													firstFrameTimeoutMs: 6000
 												}}
 												alt={choice.label}
 												class="absolute inset-0 h-full w-full object-contain"

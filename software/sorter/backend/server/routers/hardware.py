@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getBinCategories, setBinCategories
+from local_state import get_bin_categories, set_bin_categories
 from irl.bin_layout import (
     getBinLayout,
     saveBinLayout,
@@ -19,7 +19,7 @@ from irl.bin_layout import (
     layoutMatchesCategories,
     mkLayoutFromConfig,
 )
-from subsystems.distribution.chute import BinAddress
+from irl.chute import BinAddress
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
@@ -32,7 +32,11 @@ from irl.parse_user_toml import (
 from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
 from server import shared_state
 from server.routers.steppers import _stepper_mapping, _halt_stepper
-from server.waveshare_inventory import get_waveshare_inventory_manager
+from server.services import runtime_stats as runtime_stats_service
+from server.services.waveshare_bus_access import (
+    waveshare_inventory_status as _waveshare_inventory_status,
+    waveshare_service as _get_waveshare_service,
+)
 
 router = APIRouter()
 
@@ -47,57 +51,6 @@ def _ensure_not_homing(action: str) -> None:
     if shared_state.hardware_state == "homing":
         raise HTTPException(status_code=409, detail=f"Cannot {action} while hardware is homing.")
 
-
-def _active_waveshare_service() -> Any | None:
-    active_irl = _active_irl()
-    if active_irl is None:
-        return None
-    servo_controller = getattr(active_irl, "servo_controller", None)
-    return getattr(servo_controller, "bus_service", None)
-
-
-def _configured_waveshare_service(config: Dict[str, Any], *, timeout: float = 0.02) -> Any | None:
-    servo = config.get("servo", {})
-    port = servo.get("port") if isinstance(servo, dict) else None
-    if not isinstance(port, str) or not port.strip():
-        return None
-    from hardware.waveshare_bus_service import get_waveshare_bus_service
-
-    return get_waveshare_bus_service(port.strip(), timeout=timeout)
-
-
-def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
-    service = _active_waveshare_service()
-    if service is not None:
-        return service
-
-    _, config = _read_machine_params_config()
-    return _configured_waveshare_service(config, timeout=timeout)
-
-
-def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = False) -> Dict[str, Any]:
-    manager = get_waveshare_inventory_manager()
-    if refresh:
-        return manager.refresh(port=port)
-    return manager.get_status(port=port)
-
-
-def _clear_runtime_bin_contents(
-    *,
-    scope: str,
-    layer_index: int | None = None,
-    section_index: int | None = None,
-    bin_index: int | None = None,
-) -> None:
-    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
-    if collector is None or not hasattr(collector, "clearBinContents"):
-        return
-    collector.clearBinContents(
-        scope=scope,
-        layer_index=layer_index,
-        section_index=section_index,
-        bin_index=bin_index,
-    )
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -190,9 +143,7 @@ DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
 CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000
 
 from server.config_helpers import (
-    machine_params_path as _camera_params_path,
     read_machine_params_config as _read_machine_params_config,
-    toml_value as _toml_value,
     write_machine_params_config as _write_machine_params_config,
 )
 
@@ -557,12 +508,10 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
         return False
 
     for runtime_layer, layer in zip(runtime_layers, layers):
-        setattr(runtime_layer, "enabled", bool(layer.get("enabled", True)))
+        runtime_layer.enabled = bool(layer.get("enabled", True))
         max_per_bin = layer.get("max_pieces_per_bin")
-        setattr(
-            runtime_layer,
-            "max_pieces_per_bin",
-            max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
+        runtime_layer.max_pieces_per_bin = (
+            max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         )
     return True
 
@@ -679,6 +628,8 @@ def _live_carousel_status() -> Dict[str, Any]:
             "stepper_direction_inverted": stepper_direction_inverted,
             "current_position_degrees": None,
             "stepper_microsteps": None,
+            "stepper_enabled": None,
+            "stepper_current": None,
             "stepper_stopped": None,
             "bound_stepper_name": None,
             "bound_stepper_channel": None,
@@ -698,6 +649,8 @@ def _live_carousel_status() -> Dict[str, Any]:
             "stepper_direction_inverted": stepper_direction_inverted,
             "current_position_degrees": None,
             "stepper_microsteps": None,
+            "stepper_enabled": None,
+            "stepper_current": None,
             "stepper_stopped": None,
             "bound_stepper_name": getattr(stepper, "hardware_name", None) if stepper else None,
             "bound_stepper_channel": getattr(stepper, "channel", None) if stepper else None,
@@ -712,6 +665,8 @@ def _live_carousel_status() -> Dict[str, Any]:
         "stepper_direction_inverted": stepper_direction_inverted,
         "current_position_degrees": None,
         "stepper_microsteps": None,
+        "stepper_enabled": None,
+        "stepper_current": None,
         "stepper_stopped": None,
         "bound_stepper_name": getattr(stepper, "hardware_name", None),
         "bound_stepper_channel": getattr(stepper, "channel", None),
@@ -731,6 +686,17 @@ def _live_carousel_status() -> Dict[str, Any]:
         status["stepper_position_error"] = str(e)
 
     try:
+        status["stepper_enabled"] = bool(stepper.enabled)
+    except Exception as e:
+        status["stepper_enabled_error"] = str(e)
+
+    try:
+        last_current = getattr(stepper, "last_set_current", None)
+        status["stepper_current"] = last_current() if callable(last_current) else last_current
+    except Exception as e:
+        status["stepper_current_error"] = str(e)
+
+    try:
         status["stepper_stopped"] = bool(stepper.stopped)
     except Exception as e:
         status["stepper_stopped_error"] = str(e)
@@ -747,7 +713,7 @@ def _stop_all_steppers() -> None:
         if stepper is None:
             continue
         try:
-            _halt_stepper(stepper)
+            _halt_stepper(stepper, stepper_name=name)
             halted.append(name)
         except Exception as e:
             errors[name] = str(e)
@@ -883,7 +849,6 @@ def save_servo_hardware_config(
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
     previous_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in previous["channels"]]
-    previous_inverts = [bool(channel["invert"]) for channel in previous["channels"]]
     channel_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in channels]
     channel_inverts = [bool(channel["invert"]) for channel in channels]
 
@@ -950,9 +915,10 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
     # Persist servo states so they survive restarts
     try:
         from irl.config import save_servo_states
-        if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-            servos = getattr(shared_state.controller_ref.irl, "servos", [])
-            save_servo_states(servos, shared_state.controller_ref.gc)
+        active_irl = shared_state.getActiveIRL()
+        if active_irl is not None and shared_state.gc_ref is not None:
+            servos = getattr(active_irl, "servos", [])
+            save_servo_states(servos, shared_state.gc_ref)
     except Exception:
         pass
 
@@ -1112,19 +1078,11 @@ def get_servo_status() -> Dict[str, Any]:
                     "name": getattr(servo, "_name", f"layer_{index}_servo"),
                 }
             )
-    stats = None
-    try:
-        if shared_state.gc_ref is not None:
-            stats = getattr(
-                shared_state.gc_ref.runtime_stats, "servo_bus_offline_since_ts", None
-            )
-    except Exception:
-        stats = None
     return {
         "ok": True,
         "bus_online": any_online,
         "layers": layers,
-        "offline_since_ts": stats,
+        "offline_since_ts": runtime_stats_service.servo_bus_offline_since_ts(),
     }
 
 
@@ -1399,14 +1357,15 @@ def save_chute_hardware_config(
         raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
 
     applied_live = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    active_irl = shared_state.getActiveIRL()
+    if active_irl is not None:
+        chute = getattr(active_irl, "chute", None)
         if chute is not None and hasattr(chute, "setCalibration"):
             try:
                 chute.setCalibration(first_bin_center, pillar_width_deg, endstop_active_high)
                 if hasattr(chute, "setOperatingSpeed"):
                     chute.setOperatingSpeed(operating_speed_microsteps_per_second)
-                stepper = getattr(shared_state.controller_ref.irl, "chute_stepper", None)
+                stepper = getattr(active_irl, "chute_stepper", None)
                 if stepper is not None:
                     stepper.set_speed_limits(16, operating_speed_microsteps_per_second)
                 applied_live = True
@@ -1577,7 +1536,11 @@ def calibrate_carousel() -> Dict[str, Any]:
             detail="Carousel must be homed first (endstop not currently triggered).",
         )
 
-    from subsystems.classification.carousel_hardware import BACKOFF_STEPS, HOME_SPEED_MICROSTEPS_PER_SEC
+    # Defaults mirror the pre-cutover ``subsystems.classification.carousel_hardware``
+    # values — 200 microsteps backoff before re-homing, 1500 microsteps/s
+    # home approach. Live wiring on the machine should be verified.
+    BACKOFF_STEPS = 200
+    HOME_SPEED_MICROSTEPS_PER_SEC = 1500
 
     stepper = carousel_hw.stepper
     home_pin = carousel_hw.home_pin
@@ -1683,7 +1646,7 @@ def save_storage_layer_hardware_config(
     new_layer_configs: List[LayerConfig] = []
     layout_changed = len(layer_updates) != len(current["layers"])
     enabled_changed = False
-    default_section_count = int(current["layers"][0]["section_count"]) if current["layers"] else DEFAULT_SECTION_COUNT
+    default_section_count = int(current["layers"][0]["section_count"]) if current["layers"] else DEFAULT_STORAGE_LAYER_SECTION_COUNT
     default_bin_size = current["layers"][0]["bin_size"] if current["layers"] else "medium"
 
     for i, layer_update in enumerate(layer_updates):
@@ -1793,7 +1756,7 @@ def _current_bin_categories() -> list[list[list[list[str]]]]:
     if runtime_layout is not None:
         return extractCategories(runtime_layout)
 
-    saved = getBinCategories()
+    saved = get_bin_categories()
     if saved is not None:
         layout_config = getBinLayout()
         reference_layout = mkLayoutFromConfig(layout_config)
@@ -1807,29 +1770,29 @@ def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -
     runtime_layout = _runtime_distribution_layout()
     if runtime_layout is not None and layoutMatchesCategories(runtime_layout, categories):
         applyCategories(runtime_layout, categories)
-        setBinCategories(extractCategories(runtime_layout))
+        set_bin_categories(extractCategories(runtime_layout))
         return
 
-    setBinCategories(categories)
+    set_bin_categories(categories)
 
 
 def _clear_passthrough_alert_if_owned() -> None:
     """Clear the bins-full / misc-passthrough banner when the operator
     explicitly resets or empties bins. Otherwise the alert sticks around
-    (it only auto-clears on the next successful bin assignment)."""
-    try:
-        from subsystems.distribution.positioning import (
-            BINS_FULL_ALERT_PREFIX,
-            MISC_PASSTHROUGH_ALERT_PREFIX,
-        )
-    except Exception:
-        return
+    (it only auto-clears on the next successful bin assignment).
+
+    Post-cutover: the legacy positioning subsystem no longer emits these
+    specific banners, but we still scrub any lingering hardware_error
+    matching the historical prefixes so stale UI state clears.
+    """
+    _LEGACY_BINS_FULL_PREFIX = "All bins are full"
+    _LEGACY_MISC_PASSTHROUGH_PREFIX = "Misc category is passing through"
     try:
         with shared_state.hardware_lifecycle_lock:
             err = shared_state.hardware_error
             if isinstance(err, str) and (
-                err.startswith(BINS_FULL_ALERT_PREFIX)
-                or err.startswith(MISC_PASSTHROUGH_ALERT_PREFIX)
+                err.startswith(_LEGACY_BINS_FULL_PREFIX)
+                or err.startswith(_LEGACY_MISC_PASSTHROUGH_PREFIX)
             ):
                 shared_state.setHardwareStatus(clear_error=True)
     except Exception:
@@ -1854,7 +1817,7 @@ def clear_bin_category_assignments(
                         cleared_bins += 1
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope)
+        runtime_stats_service.clear_bin_contents(scope=scope)
         clear_current_session_bins(scope=scope)
         return {
             "ok": True,
@@ -1874,7 +1837,7 @@ def clear_bin_category_assignments(
                     cleared_bins += 1
                 category_ids.clear()
         _apply_and_persist_bin_categories(categories)
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
+        runtime_stats_service.clear_bin_contents(scope=scope, layer_index=layer_index)
         clear_current_session_bins(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
@@ -1895,7 +1858,7 @@ def clear_bin_category_assignments(
     had_categories = bool(categories[layer_index][section_index][bin_index])
     categories[layer_index][section_index][bin_index] = []
     _apply_and_persist_bin_categories(categories)
-    _clear_runtime_bin_contents(
+    runtime_stats_service.clear_bin_contents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
@@ -1926,7 +1889,7 @@ def clear_bin_contents(
     bin_index: int | None = None,
 ) -> dict[str, Any]:
     if scope == "all":
-        _clear_runtime_bin_contents(scope=scope)
+        runtime_stats_service.clear_bin_contents(scope=scope)
         cleared = clear_current_session_bins(scope=scope)
         return {
             "ok": True,
@@ -1940,7 +1903,7 @@ def clear_bin_contents(
         raise HTTPException(status_code=400, detail="Invalid layer index.")
 
     if scope == "layer":
-        _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
+        runtime_stats_service.clear_bin_contents(scope=scope, layer_index=layer_index)
         cleared = clear_current_session_bins(scope=scope, layer_index=layer_index)
         return {
             "ok": True,
@@ -1964,7 +1927,7 @@ def clear_bin_contents(
         section_index=section_index,
         bin_index=bin_index,
     )
-    _clear_runtime_bin_contents(
+    runtime_stats_service.clear_bin_contents(
         scope=scope,
         layer_index=layer_index,
         section_index=section_index,
@@ -2023,14 +1986,15 @@ def get_bins_layout() -> Dict[str, Any]:
     current_angle = None
     active_layer = None
     runtime_overlay_applied = False
-    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
-        chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    active_irl = shared_state.getActiveIRL()
+    if active_irl is not None:
+        chute = getattr(active_irl, "chute", None)
         if chute is not None:
             try:
                 current_angle = round(float(chute.current_angle), 2)
             except Exception:
                 pass
-        servos = list(getattr(shared_state.controller_ref.irl, "servos", []))
+        servos = list(getattr(active_irl, "servos", []))
         for i, servo in enumerate(servos):
             try:
                 if hasattr(servo, "isOpen") and servo.isOpen():
@@ -2040,7 +2004,7 @@ def get_bins_layout() -> Dict[str, Any]:
                 pass
 
         # Read category assignments from the live distribution layout
-        dist_layout = getattr(shared_state.controller_ref.irl, "distribution_layout", None)
+        dist_layout = getattr(active_irl, "distribution_layout", None)
         if dist_layout is not None:
             runtime_layers = list(getattr(dist_layout, "layers", []))
             for layer_out in layers_out:
@@ -2056,7 +2020,7 @@ def get_bins_layout() -> Dict[str, Any]:
                             bin_out["category_ids"] = list(rt_sections[si].bins[bi].category_ids)
 
     if not runtime_overlay_applied:
-        saved_categories = getBinCategories()
+        saved_categories = get_bin_categories()
         reference_layout = mkLayoutFromConfig(layout_config)
         if saved_categories is not None and layoutMatchesCategories(reference_layout, saved_categories):
             for layer_out in layers_out:
@@ -2082,10 +2046,9 @@ def get_bins_layout() -> Dict[str, Any]:
 @router.post("/api/bins/move-to")
 def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     """Move chute to a specific bin and open the correct layer servo."""
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
-
-    irl = shared_state.controller_ref.irl
+    irl = shared_state.getActiveIRL()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized.")
     chute = getattr(irl, "chute", None)
     if chute is None:
         raise HTTPException(status_code=503, detail="Chute subsystem not available.")
@@ -2161,13 +2124,8 @@ def get_bin_contents() -> Dict[str, Any]:
     if persisted.get("bins"):
         return persisted
 
-    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
-    if collector is None or not hasattr(collector, "binContentsSnapshot"):
-        return persisted
     try:
-        snapshot = collector.binContentsSnapshot()
-        if isinstance(snapshot, dict):
-            return snapshot
-        return persisted
+        snapshot = runtime_stats_service.bin_contents_snapshot()
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to build bin contents: {exc}")
+    return snapshot if snapshot is not None else persisted

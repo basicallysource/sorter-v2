@@ -86,6 +86,7 @@ class _NcnnMixin:
         iou_threshold: float = 0.45,
         input_blob: str | None = None,
         output_blob: str | None = None,
+        use_vulkan: bool = False,
         **extra: Any,
     ) -> None:
         super().__init__(
@@ -97,6 +98,7 @@ class _NcnnMixin:
         )
         self._input_blob_override = input_blob
         self._output_blob_override = output_blob
+        self._use_vulkan = bool(use_vulkan)
 
     def _ensure_net(self) -> Any:
         with self._lock:
@@ -118,16 +120,32 @@ class _NcnnMixin:
             detected_input, detected_output = _parse_param_blobs(param_path)
             self._input_blob = self._input_blob_override or detected_input
             self._output_blob = self._output_blob_override or detected_output
+            gpu_count = 0
+            if self._use_vulkan:
+                try:
+                    gpu_count = int(ncnn.get_gpu_count())
+                except Exception as exc:
+                    log.warning(
+                        "ncnn.get_gpu_count() failed (%s) — falling back to CPU", exc
+                    )
+                    gpu_count = 0
+            vulkan_enabled = bool(self._use_vulkan) and gpu_count > 0
+            if self._use_vulkan and not vulkan_enabled:
+                log.warning(
+                    "Vulkan requested for %s but no Vulkan device available — falling back to CPU",
+                    param_path,
+                )
             net = ncnn.Net()
-            net.opt.use_vulkan_compute = False
+            net.opt.use_vulkan_compute = vulkan_enabled
             net.load_param(str(param_path))
             net.load_model(str(bin_path))
             self._net = net
             log.info(
-                "Loaded NCNN net %s (input=%s output=%s)",
+                "Loaded NCNN net %s (input=%s output=%s vulkan=%s)",
                 param_path,
                 self._input_blob,
                 self._output_blob,
+                vulkan_enabled,
             )
             return net
 
@@ -188,6 +206,7 @@ class NcnnNanodetProcessor(_NcnnMixin, BaseProcessor):
         strides: tuple[int, ...] = (8, 16, 32, 64),
         input_blob: str | None = None,
         output_blob: str | None = None,
+        use_vulkan: bool = False,
     ) -> None:
         super().__init__(
             model_path,
@@ -196,6 +215,7 @@ class NcnnNanodetProcessor(_NcnnMixin, BaseProcessor):
             iou_threshold=iou_threshold,
             input_blob=input_blob,
             output_blob=output_blob,
+            use_vulkan=use_vulkan,
         )
         self.reg_max = int(reg_max)
         self.strides = tuple(int(s) for s in strides)

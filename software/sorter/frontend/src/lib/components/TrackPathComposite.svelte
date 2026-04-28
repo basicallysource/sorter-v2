@@ -1,27 +1,27 @@
 <script lang="ts">
 	// TrackPathComposite — renders the pie-chart-style composite visualization
-	// for a single feeder-tracker global id. Fetches
-	// /api/feeder/tracking/history/<id> and draws one SVG per segment, with the
-	// piece's sector snapshots clipped into their original angular wedges on
-	// top of a dimmed snapshot of the channel.
-	//
-	// Extracted from routes/tracked/[globalId=integer]/+page.svelte so the
-	// per-piece detail page (`/tracked/[uuid]`) can reuse it. The integer page
-	// retains its full classroom interface (manual recognize, per-segment
-	// reclassification); this component is intentionally "render-only".
-	import { onDestroy, onMount } from 'svelte';
+	// for a single tracked piece. Render-only: the parent passes
+	// `detailSnapshot` (the embedded `track_detail` from /api/tracked/pieces/{uuid}),
+	// and this component draws one SVG per segment with the piece's sector
+	// snapshots clipped into their original angular wedges on top of a dimmed
+	// snapshot of the channel.
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
+	import { dataImageUrl, pieceCropUrl } from '$lib/recent-pieces';
 
 	type Props = {
-		globalId: number;
 		/** Captured-ts subset (seconds) of crops that were shipped to Brickognize.
 		 *  Any sector snapshot whose captured_ts is within a ~5ms tolerance of
 		 *  any entry gets a primary-color outline. */
 		usedCropTs?: number[];
+		detailSnapshot?: unknown | null;
 	};
 
-	let { globalId, usedCropTs = [] }: Props = $props();
+	let { usedCropTs = [], detailSnapshot = null }: Props = $props();
+
+	// Per-instance id for SVG clipPath scoping — ensures multiple composites
+	// on the same page don't collide on clipPath IDs.
+	const instanceId = Math.random().toString(36).slice(2, 10);
 
 	type PathPoint = [number, number, number];
 
@@ -34,14 +34,21 @@
 		bbox_y: number;
 		width: number;
 		height: number;
-		jpeg_b64: string;
+		// Phase 3+: disk-backed paths. Either `*_path` or `*_b64` is present
+		// — live tracker still ships b64 payloads, DB-flushed segments only
+		// carry paths.
+		jpeg_path?: string | null;
+		piece_jpeg_path?: string | null;
+		jpeg_b64?: string;
+		piece_jpeg_b64?: string;
 		r_inner?: number;
 		r_outer?: number;
-		piece_jpeg_b64?: string;
 	};
 
 	type Segment = {
-		source_role: string;
+		// Live tracker uses `source_role`; DB uses `role`.
+		source_role?: string;
+		role?: string;
 		handoff_from: string | null;
 		first_seen_ts: number;
 		last_seen_ts: number;
@@ -50,7 +57,8 @@
 		path_points: number;
 		snapshot_width: number;
 		snapshot_height: number;
-		snapshot_jpeg_b64: string;
+		snapshot_jpeg_b64?: string;
+		snapshot_path?: string | null;
 		path: PathPoint[];
 		channel_center_x: number | null;
 		channel_center_y: number | null;
@@ -72,12 +80,31 @@
 		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
 	}
 
-	let detail = $state<Detail | null>(null);
-	let error = $state<string | null>(null);
-	let loading = $state(false);
-	let pollTimer: ReturnType<typeof setInterval> | null = null;
+	function wedgeSrc(snap: SectorSnapshot): string | null {
+		return pieceCropUrl(snap.jpeg_path, effectiveBase()) ?? dataImageUrl(snap.jpeg_b64);
+	}
+
+	function segmentSnapshotSrc(seg: Segment): string | null {
+		return (
+			pieceCropUrl(seg.snapshot_path, effectiveBase()) ?? dataImageUrl(seg.snapshot_jpeg_b64)
+		);
+	}
+
+	function segmentRole(seg: Segment): string {
+		return seg.source_role ?? seg.role ?? 'unknown';
+	}
+
+	const detail = $derived(detailSnapshot as Detail | null);
 
 	const TS_TOLERANCE_S = 0.005;
+	const MAX_REPRESENTATIVE_SNAPSHOTS = 8;
+	const MIN_PROGRESS_GAP_RATIO = 0.09;
+
+	type SnapshotCandidate = {
+		snapshot: SectorSnapshot;
+		progress: number;
+		used: boolean;
+	};
 
 	function isUsedCrop(captured_ts: number): boolean {
 		if (!usedCropTs || usedCropTs.length === 0) return false;
@@ -88,7 +115,11 @@
 	}
 
 	function formatRoleLabel(role: string): string {
-		if (role === 'carousel') return 'Classification Channel';
+		// The backend still calls the classification channel "carousel" —
+		// normalize both spellings to the user-facing domain label.
+		if (role === 'classification_channel' || role === 'carousel') {
+			return 'Classification Channel (C4)';
+		}
 		if (role === 'c_channel_2') return 'C-Channel 2';
 		if (role === 'c_channel_3') return 'C-Channel 3';
 		return role.replace('c_channel_', 'C-Channel ');
@@ -110,8 +141,10 @@
 		a0Deg: number,
 		a1Deg: number
 	): string {
+		const deltaDeg = ((((a1Deg - a0Deg) % 360) + 360) % 360) || 360;
+		const endDeg = a0Deg + deltaDeg;
 		const a0 = (a0Deg * Math.PI) / 180;
-		const a1 = (a1Deg * Math.PI) / 180;
+		const a1 = (endDeg * Math.PI) / 180;
 		const x0o = cx + rOut * Math.cos(a0);
 		const y0o = cy + rOut * Math.sin(a0);
 		const x1o = cx + rOut * Math.cos(a1);
@@ -120,7 +153,7 @@
 		const y0i = cy + rIn * Math.sin(a0);
 		const x1i = cx + rIn * Math.cos(a1);
 		const y1i = cy + rIn * Math.sin(a1);
-		const largeArc = Math.abs(a1 - a0) > Math.PI ? 1 : 0;
+		const largeArc = deltaDeg > 180 ? 1 : 0;
 		return `M ${x0i} ${y0i} L ${x0o} ${y0o} A ${rOut} ${rOut} 0 ${largeArc} 1 ${x1o} ${y1o} L ${x1i} ${y1i} A ${rIn} ${rIn} 0 ${largeArc} 0 ${x0i} ${y0i} Z`;
 	}
 
@@ -152,66 +185,114 @@
 		return best;
 	}
 
-	// Signature of the current detail: "live|seg0_snaps,seg1_snaps,...". When
-	// a poll returns the same signature we keep the existing `detail` object
-	// so Svelte doesn't re-diff the SVG (which would reload every <image>
-	// href even though the b64 payload hasn't changed).
-	function detailSignature(d: Detail | null): string {
-		if (!d) return '';
-		const counts = d.segments.map((s) => s.sector_snapshots?.length ?? 0).join(',');
-		return `${d.live ? 1 : 0}|${counts}`;
-	}
-
-	async function load() {
-		if (!Number.isFinite(globalId)) return;
-		loading = true;
-		try {
-			const res = await fetch(`${effectiveBase()}/api/feeder/tracking/history/${globalId}`);
-			if (!res.ok) {
-				error = res.status === 404 ? 'Track not found' : `HTTP ${res.status}`;
-				return;
-			}
-			const next = (await res.json()) as Detail;
-			if (detailSignature(next) !== detailSignature(detail)) {
-				detail = next;
-			} else if (detail && next.live !== detail.live) {
-				// Snapshot count unchanged but live flag flipped — update in place
-				// without replacing the object so the SVG doesn't re-mount.
-				detail.live = next.live;
-			}
-			error = null;
-		} catch (e: any) {
-			error = e?.message ?? 'Failed to load';
-		} finally {
-			loading = false;
+	function pathProgressByTimestamp(path: PathPoint[]): Array<{ ts: number; progress: number }> {
+		if (!path || path.length === 0) return [];
+		if (path.length === 1) return [{ ts: path[0][0], progress: 0 }];
+		const out: Array<{ ts: number; progress: number }> = [{ ts: path[0][0], progress: 0 }];
+		let progress = 0;
+		for (let i = 1; i < path.length; i++) {
+			const prev = path[i - 1];
+			const cur = path[i];
+			progress += Math.hypot(cur[1] - prev[1], cur[2] - prev[2]);
+			out.push({ ts: cur[0], progress });
 		}
+		return out;
 	}
 
-	onMount(() => {
-		void load();
-		// LIVE tracks keep extending while the piece is still moving — poll
-		// until the backend flips detail.live to false.
-		pollTimer = setInterval(() => {
-			if (detail?.live) void load();
-		}, 1500);
-	});
+	function progressAtTimestamp(path: PathPoint[], ts: number): number {
+		const progressPoints = pathProgressByTimestamp(path);
+		if (progressPoints.length === 0) return 0;
+		let best = progressPoints[0];
+		let bestDiff = Math.abs(progressPoints[0].ts - ts);
+		for (let i = 1; i < progressPoints.length; i++) {
+			const d = Math.abs(progressPoints[i].ts - ts);
+			if (d < bestDiff) {
+				bestDiff = d;
+				best = progressPoints[i];
+			}
+		}
+		return best.progress;
+	}
 
-	onDestroy(() => {
-		if (pollTimer !== null) clearInterval(pollTimer);
-	});
+	function representativeSectorSnapshots(seg: Segment): SectorSnapshot[] {
+		const snapshots = [...(seg.sector_snapshots ?? [])].sort((a, b) => a.captured_ts - b.captured_ts);
+		if (snapshots.length <= MAX_REPRESENTATIVE_SNAPSHOTS) return snapshots;
+
+		const candidates: SnapshotCandidate[] = snapshots.map((snapshot) => ({
+			snapshot,
+			progress: progressAtTimestamp(seg.path, snapshot.captured_ts),
+			used: isUsedCrop(snapshot.captured_ts)
+		}));
+		const totalProgress = candidates[candidates.length - 1]?.progress ?? 0;
+		const minGap = totalProgress > 0 ? totalProgress * MIN_PROGRESS_GAP_RATIO : 0;
+		const selected = new Map<number, SnapshotCandidate>();
+
+		function canAdd(candidate: SnapshotCandidate, force = false): boolean {
+			if (selected.has(candidate.snapshot.captured_ts)) return false;
+			if (force || minGap <= 0) return true;
+			for (const existing of selected.values()) {
+				if (Math.abs(existing.progress - candidate.progress) < minGap) return false;
+			}
+			return true;
+		}
+
+		function addCandidate(candidate: SnapshotCandidate | undefined, force = false): boolean {
+			if (!candidate) return false;
+			if (!canAdd(candidate, force)) return false;
+			selected.set(candidate.snapshot.captured_ts, candidate);
+			return true;
+		}
+
+		addCandidate(candidates[0], true);
+		addCandidate(candidates[candidates.length - 1], true);
+
+		for (const candidate of candidates) {
+			if (candidate.used) addCandidate(candidate, true);
+		}
+
+		const targetCount = Math.max(MAX_REPRESENTATIVE_SNAPSHOTS, selected.size);
+		if (totalProgress > 0) {
+			for (let i = 1; i < targetCount - 1; i++) {
+				const targetProgress = (totalProgress * i) / (targetCount - 1);
+				const candidate = candidates
+					.filter((entry) => !selected.has(entry.snapshot.captured_ts))
+					.sort(
+						(a, b) =>
+							Math.abs(a.progress - targetProgress) - Math.abs(b.progress - targetProgress)
+					)
+					.find((entry) => canAdd(entry));
+				addCandidate(candidate);
+			}
+		}
+
+		if (selected.size < Math.min(candidates.length, MAX_REPRESENTATIVE_SNAPSHOTS)) {
+			for (const candidate of candidates) {
+				if (selected.size >= Math.min(candidates.length, MAX_REPRESENTATIVE_SNAPSHOTS)) break;
+				addCandidate(candidate);
+			}
+		}
+
+		return [...selected.values()]
+			.sort((a, b) => a.progress - b.progress)
+			.map((entry) => entry.snapshot);
+	}
+
 </script>
 
-{#if error}
-	<div class="border border-danger bg-danger/10 p-3 text-sm text-danger">{error}</div>
-{:else if !detail}
-	<div class="text-sm text-text-muted">{loading ? 'Loading track…' : 'No track data.'}</div>
+{#if !detail}
+	<div class="text-sm text-text-muted">No track data.</div>
 {:else}
-	<div class="flex flex-col gap-3">
+	<!-- flex-wrap: a single segment fills the row; two (C3 + C4 once
+	     multi-channel tracking is wired up) sit side-by-side when there's
+	     room, and fall back to stacked when the container is narrow. -->
+	<div class="flex flex-wrap gap-3">
 		{#each detail.segments as segment, idx (idx)}
-			<div class="border border-border bg-bg">
+			{@const displayedSnapshots = representativeSectorSnapshots(segment)}
+			{@const seg_snapshot_src = segmentSnapshotSrc(segment)}
+			<div class="flex min-w-0 flex-1 flex-col border border-border bg-bg md:min-w-[320px]">
 				<div class="flex items-center justify-between border-b border-border bg-surface px-3 py-2 text-sm">
 					<span class="font-medium text-text">
-						{formatRoleLabel(segment.source_role)}
+						{formatRoleLabel(segmentRole(segment))}
 						{#if segment.handoff_from}
 							<span class="ml-2 text-primary">
 								← handoff from {formatRoleLabel(segment.handoff_from)}
@@ -219,8 +300,9 @@
 						{/if}
 					</span>
 					<span class="text-text-muted">
-						{segment.hit_count} frames · {segment.duration_s.toFixed(2)}s
+						{segment.hit_count} frames · {(segment.duration_s ?? 0).toFixed(2)}s
 						{#if segment.sector_snapshots && segment.sector_snapshots.length > 0}
+							· {displayedSnapshots.length} shown
 							· {segment.sector_snapshots.length}/{segment.sector_count ?? 0} sectors
 						{/if}
 					</span>
@@ -232,8 +314,8 @@
 						preserveAspectRatio="xMidYMid meet"
 					>
 						<defs>
-							{#each segment.sector_snapshots as s (s.captured_ts)}
-								<clipPath id={`detail-sec-${globalId}-${idx}-${s.captured_ts}`}>
+							{#each displayedSnapshots as s (s.captured_ts)}
+								<clipPath id={`detail-sec-${instanceId}-${idx}-${s.captured_ts}`}>
 									<path
 										d={wedgePath(
 											segment.channel_center_x as number,
@@ -251,23 +333,28 @@
 								</clipPath>
 							{/each}
 						</defs>
-						<image
-							href={`data:image/jpeg;base64,${segment.snapshot_jpeg_b64}`}
-							x="0"
-							y="0"
-							width={segment.snapshot_width}
-							height={segment.snapshot_height}
-							opacity="0.22"
-						/>
-						{#each segment.sector_snapshots as s (s.captured_ts)}
+						{#if seg_snapshot_src}
 							<image
-								href={`data:image/jpeg;base64,${s.jpeg_b64}`}
-								x={s.bbox_x}
-								y={s.bbox_y}
-								width={s.width}
-								height={s.height}
-								clip-path={`url(#detail-sec-${globalId}-${idx}-${s.captured_ts})`}
+								href={seg_snapshot_src}
+								x="0"
+								y="0"
+								width={segment.snapshot_width}
+								height={segment.snapshot_height}
+								opacity="0.22"
 							/>
+						{/if}
+							{#each displayedSnapshots as s (s.captured_ts)}
+								{@const wedge_src = wedgeSrc(s)}
+							{#if wedge_src}
+								<image
+									href={wedge_src}
+									x={s.bbox_x}
+									y={s.bbox_y}
+									width={s.width}
+									height={s.height}
+									clip-path={`url(#detail-sec-${instanceId}-${idx}-${s.captured_ts})`}
+								/>
+							{/if}
 						{/each}
 						<circle
 							cx={segment.channel_center_x as number}
@@ -294,8 +381,8 @@
 								stroke-linejoin="round"
 							/>
 						{/if}
-						{#each segment.sector_snapshots as s (s.captured_ts)}
-							{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
+							{#each displayedSnapshots as s (s.captured_ts)}
+								{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
 							{#if hit}
 								{@const used = isUsedCrop(s.captured_ts)}
 								<circle

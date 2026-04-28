@@ -75,5 +75,5 @@ Communication: USB serial. The firmware sends a JSON config on startup describin
 ## Where to go next
 
 - [Sorter architecture]({{ '/sorter/architecture/' | relative_url }}) — the detailed component map of coordinator, state machines, vision manager, and UI
-- [Classification research]({{ '/lab/classification-research/' | relative_url }}) — the ML strategy behind the classification layer
-- [C-channel singulation]({{ '/lab/c-channel-singulation/' | relative_url }}) — the mechanical system the firmware drives
+- [Classification research]({{ '/lab/classification-research/' | relative_url }}) - the ML strategy behind the classification layer
+- [C-channel singulation]({{ '/lab/c-channel-singulation/' | relative_url }}) - the mechanical system the firmware drives

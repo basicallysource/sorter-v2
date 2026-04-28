@@ -20,6 +20,17 @@
 		}
 	});
 
+	function safeNextPath(): string {
+		const next = page.url.searchParams.get('next');
+		if (next && next.startsWith('/') && !next.startsWith('//')) return next;
+		return '/';
+	}
+
+	function nextQueryString(): string {
+		const next = safeNextPath();
+		return next === '/' ? '' : `?${new URLSearchParams({ next }).toString()}`;
+	}
+
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
 		error = null;
@@ -29,7 +40,7 @@
 		if (result) {
 			error = result;
 		} else {
-			goto('/');
+			goto(safeNextPath());
 		}
 	}
 
@@ -88,7 +99,7 @@
 			</div>
 
 			<a
-				href={api.githubLoginUrl()}
+				href={api.githubLoginUrl(safeNextPath())}
 				class="flex w-full items-center justify-center gap-3 border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 			>
 				<svg viewBox="0 0 24 24" class="h-5 w-5 fill-current" aria-hidden="true">
@@ -100,7 +111,7 @@
 
 		<p class="mt-4 text-center text-sm text-text-muted">
 			Don't have an account?
-			<a href="/register" class="text-primary hover:underline">Register</a>
+			<a href={`/register${nextQueryString()}`} class="text-primary hover:underline">Register</a>
 		</p>
 	</div>
 </div>

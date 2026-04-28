@@ -24,9 +24,9 @@ import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path, PurePosixPath
-from typing import Any, Callable
+from typing import Any
 
-from blob_manager import getHiveConfig
+from local_state import get_hive_config
 
 # ---------------------------------------------------------------------------
 # Locate the Hive sorter-client package (hive_client.py)
@@ -85,7 +85,7 @@ def resolve_targets() -> list[dict]:
     should ever call this directly; the HTTP layer must hand out redacted
     copies without ``api_token``.
     """
-    raw = getHiveConfig()
+    raw = get_hive_config()
     if not isinstance(raw, dict):
         return []
     targets = raw.get("targets")
@@ -207,6 +207,24 @@ def _read_run_json(path: Path) -> dict | None:
     return raw
 
 
+def _installed_variant_runtimes(model_dir: Path) -> list[str]:
+    """Return artifact runtimes that are present in an installed model dir."""
+    exports = model_dir / "exports"
+    if not exports.exists():
+        return []
+
+    runtimes: list[str] = []
+    if any(exports.rglob("*.onnx")):
+        runtimes.append("onnx")
+    if any(exports.rglob("*.param")) and any(exports.rglob("*.bin")):
+        runtimes.append("ncnn")
+    if any(exports.rglob("*.hef")):
+        runtimes.append("hailo")
+    if any(exports.rglob("*.pt")):
+        runtimes.append("pytorch")
+    return runtimes
+
+
 def list_installed_models() -> list[dict]:
     """Scan ``LOCAL_MODELS_DIR`` for previously-downloaded Hive models.
 
@@ -232,6 +250,11 @@ def list_installed_models() -> list[dict]:
         if not isinstance(hive_meta, dict):
             continue
 
+        active_runtime = hive_meta.get("variant_runtime")
+        available_runtimes = _installed_variant_runtimes(child)
+        if isinstance(active_runtime, str) and active_runtime not in available_runtimes:
+            available_runtimes.insert(0, active_runtime)
+
         size_bytes = 0
         for path in child.rglob("*"):
             if path.is_file():
@@ -245,7 +268,8 @@ def list_installed_models() -> list[dict]:
                 "local_id": child.name,
                 "target_id": hive_meta.get("target_id"),
                 "model_id": hive_meta.get("model_id"),
-                "variant_runtime": hive_meta.get("variant_runtime"),
+                "variant_runtime": active_runtime,
+                "available_variant_runtimes": available_runtimes,
                 "sha256": hive_meta.get("sha256"),
                 "downloaded_at": hive_meta.get("downloaded_at"),
                 "name": payload.get("name"),
@@ -318,10 +342,10 @@ def remove_installed_model(local_id: str) -> None:
         raise ValueError("local_id resolves outside LOCAL_MODELS_DIR")
     shutil.rmtree(target)
     try:
-        from vision.detection_registry import invalidate_registry
-        invalidate_registry()
+        from rt.perception.detector_metadata import invalidate_cache
+        invalidate_cache()
     except Exception:
-        log.debug("registry invalidation after remove failed", exc_info=True)
+        log.debug("detector metadata invalidation after remove failed", exc_info=True)
 
 
 # ---------------------------------------------------------------------------
@@ -574,10 +598,13 @@ class DownloadJobManager:
             progress_bytes=int(dest_path.stat().st_size) if dest_path.exists() else snapshot.get("progress_bytes", 0),
         )
         try:
-            from vision.detection_registry import invalidate_registry
-            invalidate_registry()
+            from rt.perception.detectors.hive_onnx import discover_and_register_hive_detectors
+            from rt.perception.detector_metadata import invalidate_cache
+
+            discover_and_register_hive_detectors()
+            invalidate_cache()
         except Exception:
-            log.debug("registry invalidation after download failed", exc_info=True)
+            log.debug("detector metadata invalidation after download failed", exc_info=True)
 
     @staticmethod
     def _looks_like_tarball(path: Path) -> bool:
@@ -630,11 +657,28 @@ class DownloadJobManager:
         name = detail.get("name") if isinstance(detail, dict) else None
         if isinstance(name, str) and name:
             base["name"] = name
+        slug = detail.get("slug") if isinstance(detail, dict) else None
+        if isinstance(slug, str) and slug:
+            base.setdefault("run_name", slug)
         model_family = detail.get("model_family") if isinstance(detail, dict) else None
         if isinstance(model_family, str) and model_family:
             base["model_family"] = model_family
+        scopes = detail.get("scopes") if isinstance(detail, dict) else None
+        if isinstance(scopes, list):
+            normalized_scopes = [s for s in scopes if isinstance(s, str) and s]
+            if normalized_scopes:
+                base["scopes"] = normalized_scopes
+        if isinstance(training_metadata, dict):
+            model_meta = training_metadata.get("model")
+            if isinstance(model_meta, dict):
+                imgsz = model_meta.get("imgsz")
+                if isinstance(imgsz, int) and imgsz > 0:
+                    base.setdefault("imgsz", imgsz)
         if variant_runtime and "runtime" not in base:
             base["runtime"] = variant_runtime
+
+        version = detail.get("version") if isinstance(detail, dict) else None
+        published_at = detail.get("published_at") if isinstance(detail, dict) else None
 
         base[HIVE_SENTINEL_KEY] = {
             "target_id": target_id,
@@ -642,6 +686,8 @@ class DownloadJobManager:
             "variant_runtime": variant_runtime,
             "sha256": sha256,
             "downloaded_at": _now_iso(),
+            "version": version if isinstance(version, int) else None,
+            "published_at": published_at if isinstance(published_at, str) else None,
         }
 
         dest_dir.mkdir(parents=True, exist_ok=True)

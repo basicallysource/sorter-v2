@@ -3,6 +3,7 @@ from __future__ import annotations
 from contextlib import contextmanager
 import json
 import os
+import re
 import sqlite3
 import threading
 import time
@@ -15,7 +16,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 6
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -32,10 +33,12 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
+_LEGACY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX = "persistent_tracker_ignored_regions:"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
-_RECENT_KNOWN_OBJECTS_LIMIT = 10
+_RECENT_KNOWN_OBJECTS_LIMIT = 50
+_BIN_ID_RE = re.compile(r"^L(\d+)-S(\d+)-B(\d+)$")
 
 
 def local_state_db_path() -> Path:
@@ -134,6 +137,17 @@ def _set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
     )
 
 
+def _table_columns(conn: sqlite3.Connection, table: str) -> set[str]:
+    rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+    return {str(row["name"]) for row in rows}
+
+
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+    if column in _table_columns(conn, table):
+        return
+    conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
+
 def _get_json(conn: sqlite3.Connection, key: str) -> Any | None:
     row = conn.execute(
         "SELECT json_value FROM state_entries WHERE key = ?",
@@ -162,6 +176,16 @@ def _normalize_string_dict(raw: Any) -> dict[str, str]:
         return {}
     return {
         str(key): str(value)
+        for key, value in raw.items()
+        if isinstance(key, str) and value is not None
+    }
+
+
+def _normalize_state_dict(raw: Any) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    return {
+        key: value
         for key, value in raw.items()
         if isinstance(key, str) and value is not None
     }
@@ -404,6 +428,121 @@ def initialize_local_state() -> None:
                 ")"
             )
             conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_dossiers ("
+                "piece_uuid TEXT PRIMARY KEY, "
+                "session_id TEXT NOT NULL, "
+                "tracked_global_id INTEGER, "
+                "created_at REAL NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "last_event_at REAL NOT NULL, "
+                "stage TEXT NOT NULL, "
+                "classification_status TEXT NOT NULL, "
+                "first_carousel_seen_ts REAL, "
+                "classification_channel_zone_center_deg REAL, "
+                "distributed_at REAL, "
+                "payload_json TEXT NOT NULL, "
+                "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_dossiers_session_last_event_idx "
+                "ON piece_dossiers(session_id, last_event_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_dossiers_session_stage_idx "
+                "ON piece_dossiers(session_id, stage, distributed_at DESC)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_dossiers_tracked_gid_idx "
+                "ON piece_dossiers(tracked_global_id)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_segments ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "piece_uuid TEXT NOT NULL, "
+                "session_id TEXT NOT NULL, "
+                "role TEXT NOT NULL, "
+                "tracked_global_id INTEGER, "
+                "tracklet_id TEXT, "
+                "feed_id TEXT, "
+                "tracker_key TEXT, "
+                "tracker_epoch TEXT, "
+                "raw_track_id INTEGER, "
+                "sequence INTEGER NOT NULL, "
+                "first_seen_ts REAL NOT NULL, "
+                "last_seen_ts REAL NOT NULL, "
+                "hit_count INTEGER NOT NULL DEFAULT 0, "
+                "channel_center_x REAL, "
+                "channel_center_y REAL, "
+                "channel_radius_inner REAL, "
+                "channel_radius_outer REAL, "
+                "snapshot_width INTEGER, "
+                "snapshot_height INTEGER, "
+                "snapshot_path TEXT, "
+                "path_json TEXT NOT NULL, "
+                "sector_snapshots_json TEXT NOT NULL, "
+                "recognize_result_json TEXT, "
+                "created_at REAL NOT NULL, "
+                "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE, "
+                "FOREIGN KEY(piece_uuid) REFERENCES piece_dossiers(piece_uuid) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_segments_piece_seq_idx "
+                "ON piece_segments(piece_uuid, sequence)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_segments_session_role_idx "
+                "ON piece_segments(session_id, role, first_seen_ts DESC)"
+            )
+            for column, definition in (
+                ("tracklet_id", "TEXT"),
+                ("feed_id", "TEXT"),
+                ("tracker_key", "TEXT"),
+                ("tracker_epoch", "TEXT"),
+                ("raw_track_id", "INTEGER"),
+            ):
+                _ensure_column(conn, "piece_segments", column, definition)
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_segments_tracklet_idx "
+                "ON piece_segments(tracklet_id)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_tracklets ("
+                "tracklet_id TEXT PRIMARY KEY, "
+                "piece_uuid TEXT NOT NULL, "
+                "session_id TEXT NOT NULL, "
+                "feed_id TEXT NOT NULL, "
+                "tracker_key TEXT, "
+                "tracker_epoch TEXT, "
+                "raw_track_id INTEGER, "
+                "relation TEXT, "
+                "first_seen_ts REAL, "
+                "last_seen_ts REAL, "
+                "first_seen_wall REAL, "
+                "last_seen_wall REAL, "
+                "hit_count INTEGER NOT NULL DEFAULT 0, "
+                "score REAL, "
+                "confirmed_real INTEGER, "
+                "ghost INTEGER, "
+                "start_angle_deg REAL, "
+                "last_angle_deg REAL, "
+                "payload_json TEXT NOT NULL, "
+                "created_at REAL NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE, "
+                "FOREIGN KEY(piece_uuid) REFERENCES piece_dossiers(piece_uuid) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_tracklets_piece_idx "
+                "ON piece_tracklets(piece_uuid, first_seen_ts)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS piece_tracklets_source_idx "
+                "ON piece_tracklets(feed_id, tracker_key, tracker_epoch, raw_track_id)"
+            )
+            conn.execute(
                 "CREATE TABLE IF NOT EXISTS bin_events ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 "session_id TEXT NOT NULL, "
@@ -438,6 +577,7 @@ def initialize_local_state() -> None:
             _migrate_misc_state_files(conn)
             _cleanup_machine_params_runtime_sections(conn)
             _migrate_renamed_state_keys(conn)
+            _drop_legacy_persistent_tracker_ignored_regions(conn)
             conn.commit()
 
 
@@ -469,15 +609,20 @@ def set_machine_id(machine_id: str) -> None:
     _write_state(_STATE_KEY_MACHINE_ID, normalized)
 
 
+def ensure_machine_id() -> str:
+    """Return the persistent machine_id, minting a fresh UUID on first call."""
+    import uuid
+
+    existing = get_machine_id()
+    if existing is not None:
+        return existing
+    new_id = str(uuid.uuid4())
+    set_machine_id(new_id)
+    return new_id
+
+
 def get_stepper_positions() -> dict[str, int]:
-    value = _read_state(_STATE_KEY_STEPPER_POSITIONS)
-    if not isinstance(value, dict):
-        return {}
-    result: dict[str, int] = {}
-    for name, position in value.items():
-        if isinstance(name, str) and isinstance(position, int) and not isinstance(position, bool):
-            result[name] = position
-    return result
+    return get_sanitized_int_mapping(_read_state(_STATE_KEY_STEPPER_POSITIONS))
 
 
 def set_stepper_positions(positions: dict[str, int]) -> None:
@@ -485,14 +630,7 @@ def set_stepper_positions(positions: dict[str, int]) -> None:
 
 
 def get_servo_positions() -> dict[str, int]:
-    value = _read_state(_STATE_KEY_SERVO_POSITIONS)
-    if not isinstance(value, dict):
-        return {}
-    result: dict[str, int] = {}
-    for name, angle in value.items():
-        if isinstance(name, str) and isinstance(angle, int) and not isinstance(angle, bool):
-            result[name] = angle
-    return result
+    return get_sanitized_int_mapping(_read_state(_STATE_KEY_SERVO_POSITIONS))
 
 
 def set_servo_positions(positions: dict[str, int]) -> None:
@@ -542,14 +680,7 @@ def get_classification_training_state() -> dict[str, Any] | None:
 
 
 def set_classification_training_state(state: dict[str, Any] | None) -> None:
-    normalized = None
-    if isinstance(state, dict):
-        normalized = {
-            key: value
-            for key, value in state.items()
-            if isinstance(key, str) and value is not None
-        }
-    _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, normalized)
+    _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, _normalize_state_dict(state))
 
 
 def get_hive_config() -> dict[str, Any] | None:
@@ -592,14 +723,7 @@ def get_sorting_profile_sync_state() -> dict[str, Any] | None:
 
 
 def set_sorting_profile_sync_state(state: dict[str, Any] | None) -> None:
-    normalized = None
-    if isinstance(state, dict):
-        normalized = {
-            key: value
-            for key, value in state.items()
-            if isinstance(key, str) and value is not None
-        }
-    _write_state(_STATE_KEY_SORTING_PROFILE_SYNC, normalized)
+    _write_state(_STATE_KEY_SORTING_PROFILE_SYNC, _normalize_state_dict(state))
 
 
 def get_api_keys() -> dict[str, str]:
@@ -768,6 +892,21 @@ def set_checklist_part_state(
     }
 
 
+def _drop_legacy_persistent_tracker_ignored_regions(
+    conn: sqlite3.Connection,
+) -> None:
+    """Drop rows from the whitelist refactor's removal of learned ghost
+    regions. These ``persistent_tracker_ignored_regions:<role>`` entries
+    were populated by the old blacklist tracker; the new tracker uses
+    ``confirmed_real`` and never looks at them, so leaving them in the
+    DB is just dead storage that users can't see or manage.
+    """
+    conn.execute(
+        "DELETE FROM state_entries WHERE key LIKE ?",
+        (f"{_LEGACY_PERSISTENT_TRACKER_IGNORED_REGIONS_PREFIX}%",),
+    )
+
+
 def _current_sync_state_from_conn(conn: sqlite3.Connection) -> dict[str, Any]:
     value = _get_json(conn, _STATE_KEY_SORTING_PROFILE_SYNC)
     return value if isinstance(value, dict) else {}
@@ -780,6 +919,28 @@ def _session_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
         key: row[key]
         for key in row.keys()
     }
+
+
+def _latest_sorting_session_conn(conn: sqlite3.Connection) -> dict[str, Any] | None:
+    row = conn.execute(
+        "SELECT * FROM sorting_sessions ORDER BY started_at DESC LIMIT 1"
+    ).fetchone()
+    return _session_row_to_dict(row)
+
+
+def _piece_dossier_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        payload = json.loads(str(row["payload_json"]))
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        payload = {}
+    payload["uuid"] = str(payload.get("uuid") or row["piece_uuid"])
+    payload["session_id"] = row["session_id"]
+    payload["last_event_at"] = float(row["last_event_at"])
+    return payload
 
 
 def _close_active_sorting_session_conn(conn: sqlite3.Connection, *, reason: str | None = None) -> None:
@@ -858,6 +1019,396 @@ def _ensure_active_sorting_session_conn(
     return _create_sorting_session_conn(conn, sync_state=sync_state, reason=reason)
 
 
+def _payload_value(payload: dict[str, Any], key: str) -> Any:
+    value = payload.get(key)
+    if value is None:
+        return None
+    if isinstance(value, str) and not value.strip():
+        return None
+    if isinstance(value, list) and len(value) == 0:
+        return None
+    return value
+
+
+def _destination_bin_from_id(value: Any) -> list[int] | None:
+    if not isinstance(value, str):
+        return None
+    match = _BIN_ID_RE.match(value.strip())
+    if match is None:
+        return None
+    return [int(match.group(1)), int(match.group(2)), int(match.group(3))]
+
+
+def _normalize_piece_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    obj = dict(payload)
+    meta = obj.get("meta")
+    if not isinstance(meta, dict):
+        meta = {}
+
+    if _payload_value(obj, "part_name") is None:
+        name = meta.get("name") or meta.get("part_name")
+        if isinstance(name, str) and name.strip():
+            obj["part_name"] = name
+    if _payload_value(obj, "color_name") is None:
+        color_name = meta.get("color_name")
+        if isinstance(color_name, str) and color_name.strip():
+            obj["color_name"] = color_name
+    if _payload_value(obj, "brickognize_preview_url") is None:
+        preview = meta.get("preview_url") or meta.get("img_url")
+        if isinstance(preview, str) and preview.strip():
+            obj["brickognize_preview_url"] = preview
+    if _payload_value(obj, "part_category") is None:
+        part_category = meta.get("part_category") or meta.get("item_category")
+        if isinstance(part_category, str) and part_category.strip():
+            obj["part_category"] = part_category
+    if _payload_value(obj, "destination_bin") is None:
+        destination_bin = _destination_bin_from_id(obj.get("bin_id"))
+        if destination_bin is not None:
+            obj["destination_bin"] = destination_bin
+    return obj
+
+
+def _min_positive_timestamp(*values: Any) -> float | None:
+    candidates = [
+        float(value)
+        for value in values
+        if isinstance(value, (int, float)) and float(value) > 0.0
+    ]
+    if not candidates:
+        return None
+    return min(candidates)
+
+
+def _max_positive_timestamp(*values: Any) -> float | None:
+    candidates = [
+        float(value)
+        for value in values
+        if isinstance(value, (int, float)) and float(value) > 0.0
+    ]
+    if not candidates:
+        return None
+    return max(candidates)
+
+
+def _merge_piece_payload(
+    existing: dict[str, Any] | None,
+    incoming: dict[str, Any],
+) -> dict[str, Any]:
+    merged = dict(existing or {})
+    for key, value in incoming.items():
+        if not isinstance(key, str):
+            continue
+        normalized = value
+        if isinstance(value, str) and not value.strip():
+            normalized = None
+        if isinstance(value, list) and len(value) == 0:
+            normalized = None
+        if normalized is None and key in merged:
+            continue
+        merged[key] = value
+
+    created_at = _min_positive_timestamp(
+        _payload_value(existing or {}, "created_at"),
+        _payload_value(incoming, "created_at"),
+    )
+    if created_at is not None:
+        merged["created_at"] = created_at
+
+    updated_at = _max_positive_timestamp(
+        _payload_value(existing or {}, "updated_at"),
+        _payload_value(incoming, "updated_at"),
+        _payload_value(existing or {}, "distributed_at"),
+        _payload_value(incoming, "distributed_at"),
+    )
+    if updated_at is not None:
+        merged["updated_at"] = updated_at
+
+    first_seen_ts = _min_positive_timestamp(
+        _payload_value(existing or {}, "first_carousel_seen_ts"),
+        _payload_value(incoming, "first_carousel_seen_ts"),
+    )
+    if first_seen_ts is not None:
+        merged["first_carousel_seen_ts"] = first_seen_ts
+
+    distributed_at = _max_positive_timestamp(
+        _payload_value(existing or {}, "distributed_at"),
+        _payload_value(incoming, "distributed_at"),
+    )
+    if distributed_at is not None:
+        merged["distributed_at"] = distributed_at
+
+    return merged
+
+
+def _classification_zone_state(payload: dict[str, Any]) -> str | None:
+    value = payload.get("classification_channel_zone_state")
+    if isinstance(value, str) and value.strip():
+        return value.strip().lower()
+    return None
+
+
+def piece_dossier_is_active(payload: dict[str, Any]) -> bool:
+    """Return whether a persisted piece dossier still represents live C4 state."""
+    if not isinstance(payload, dict):
+        return False
+    stage = str(payload.get("stage") or "").strip().lower()
+    if stage == "distributed":
+        return False
+    if _max_positive_timestamp(payload.get("distributed_at")) is not None:
+        return False
+
+    zone_state = _classification_zone_state(payload)
+    if zone_state is not None:
+        return zone_state == "active"
+
+    # Legacy rt rows before explicit C4 zone states may still be truly live
+    # while the tracker is confirmed and the row is in a runtime stage.
+    return bool(
+        payload.get("confirmed_real") is True
+        and stage in {"registered", "classified", "confirmed_real"}
+    )
+
+
+def _coerce_optional_str(value: Any) -> str | None:
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _tracklet_id_from_payload(payload: dict[str, Any]) -> str | None:
+    explicit = _coerce_optional_str(payload.get("tracklet_id"))
+    if explicit is not None:
+        return explicit
+    explicit = _coerce_optional_str(payload.get("current_tracklet_id"))
+    if explicit is not None:
+        return explicit
+    raw_track_id = _coerce_optional_int(payload.get("raw_track_id"))
+    if raw_track_id is None:
+        raw_track_id = _coerce_optional_int(payload.get("tracked_global_id"))
+    feed_id = _coerce_optional_str(payload.get("feed_id"))
+    tracker_epoch = _coerce_optional_str(payload.get("tracker_epoch"))
+    if raw_track_id is None or feed_id is None or tracker_epoch is None:
+        return None
+    tracker_key = _coerce_optional_str(payload.get("tracker_key")) or "unknown"
+    return f"{feed_id}:{tracker_key}:{tracker_epoch}:{raw_track_id}"
+
+
+def _tracklet_fields_from_payload(payload: dict[str, Any]) -> dict[str, Any] | None:
+    tracklet_id = _tracklet_id_from_payload(payload)
+    if tracklet_id is None:
+        return None
+    raw_track_id = _coerce_optional_int(payload.get("raw_track_id"))
+    if raw_track_id is None:
+        raw_track_id = _coerce_optional_int(payload.get("tracked_global_id"))
+    return {
+        "tracklet_id": tracklet_id,
+        "feed_id": _coerce_optional_str(payload.get("feed_id")) or "unknown_feed",
+        "tracker_key": _coerce_optional_str(payload.get("tracker_key")) or "unknown",
+        "tracker_epoch": _coerce_optional_str(payload.get("tracker_epoch")),
+        "raw_track_id": raw_track_id,
+    }
+
+
+def _remember_piece_tracklet_conn(
+    conn: sqlite3.Connection,
+    *,
+    piece_uuid: str,
+    session_id: str,
+    payload: dict[str, Any],
+) -> None:
+    fields = _tracklet_fields_from_payload(payload)
+    if fields is None:
+        return
+    now = time.time()
+    first_seen_ts = _min_positive_timestamp(
+        payload.get("first_seen_ts"),
+        payload.get("first_carousel_seen_ts"),
+        payload.get("intake_ts_mono"),
+        payload.get("created_at"),
+        payload.get("updated_at"),
+    )
+    last_seen_ts = _max_positive_timestamp(
+        payload.get("last_seen_ts"),
+        payload.get("classified_ts_mono"),
+        payload.get("updated_at"),
+        payload.get("classified_at"),
+        first_seen_ts,
+    )
+    angle = _coerce_optional_float(
+        payload.get("classification_channel_zone_center_deg")
+    )
+    if angle is None:
+        angle = _coerce_optional_float(payload.get("angle_at_intake_deg"))
+    hit_count = _coerce_optional_int(payload.get("hit_count")) or 0
+    confirmed = payload.get("confirmed_real")
+    ghost = payload.get("ghost")
+    relation = (
+        _coerce_optional_str(payload.get("tracklet_relation"))
+        or _coerce_optional_str(payload.get("transit_relation"))
+        or ("stitched" if payload.get("track_stitched") is True else "observed")
+    )
+    tracklet_payload = dict(payload)
+    tracklet_payload.update(fields)
+    tracklet_payload["current_tracklet_id"] = fields["tracklet_id"]
+    conn.execute(
+        "INSERT INTO piece_tracklets("
+        "tracklet_id, piece_uuid, session_id, feed_id, tracker_key, tracker_epoch, raw_track_id, "
+        "relation, first_seen_ts, last_seen_ts, first_seen_wall, last_seen_wall, "
+        "hit_count, score, confirmed_real, ghost, start_angle_deg, last_angle_deg, "
+        "payload_json, created_at, updated_at) "
+        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+        "ON CONFLICT(tracklet_id) DO UPDATE SET "
+        "piece_uuid = excluded.piece_uuid, "
+        "session_id = excluded.session_id, "
+        "feed_id = excluded.feed_id, "
+        "tracker_key = excluded.tracker_key, "
+        "tracker_epoch = excluded.tracker_epoch, "
+        "raw_track_id = excluded.raw_track_id, "
+        "relation = excluded.relation, "
+        "first_seen_ts = CASE "
+        "  WHEN piece_tracklets.first_seen_ts IS NULL THEN excluded.first_seen_ts "
+        "  WHEN excluded.first_seen_ts IS NULL THEN piece_tracklets.first_seen_ts "
+        "  WHEN excluded.first_seen_ts < piece_tracklets.first_seen_ts THEN excluded.first_seen_ts "
+        "  ELSE piece_tracklets.first_seen_ts END, "
+        "last_seen_ts = CASE "
+        "  WHEN piece_tracklets.last_seen_ts IS NULL THEN excluded.last_seen_ts "
+        "  WHEN excluded.last_seen_ts IS NULL THEN piece_tracklets.last_seen_ts "
+        "  WHEN excluded.last_seen_ts > piece_tracklets.last_seen_ts THEN excluded.last_seen_ts "
+        "  ELSE piece_tracklets.last_seen_ts END, "
+        "last_seen_wall = excluded.last_seen_wall, "
+        "hit_count = MAX(piece_tracklets.hit_count, excluded.hit_count), "
+        "score = COALESCE(excluded.score, piece_tracklets.score), "
+        "confirmed_real = COALESCE(excluded.confirmed_real, piece_tracklets.confirmed_real), "
+        "ghost = COALESCE(excluded.ghost, piece_tracklets.ghost), "
+        "last_angle_deg = COALESCE(excluded.last_angle_deg, piece_tracklets.last_angle_deg), "
+        "payload_json = excluded.payload_json, "
+        "updated_at = excluded.updated_at",
+        (
+            fields["tracklet_id"],
+            piece_uuid,
+            session_id,
+            fields["feed_id"],
+            fields["tracker_key"],
+            fields["tracker_epoch"],
+            fields["raw_track_id"],
+            relation,
+            first_seen_ts,
+            last_seen_ts,
+            now,
+            now,
+            hit_count,
+            _coerce_optional_float(payload.get("score")),
+            int(bool(confirmed)) if isinstance(confirmed, bool) else None,
+            int(bool(ghost)) if isinstance(ghost, bool) else None,
+            angle,
+            angle,
+            json.dumps(tracklet_payload, sort_keys=True),
+            now,
+            now,
+        ),
+    )
+
+
+def _supersede_active_sibling_dossiers(
+    conn: sqlite3.Connection,
+    *,
+    piece_uuid: str,
+    session_id: str,
+    tracklet_id: str,
+    now: float,
+) -> None:
+    rows = conn.execute(
+        "SELECT * FROM piece_dossiers "
+        "WHERE session_id = ? "
+        "AND piece_uuid != ? "
+        "AND distributed_at IS NULL "
+        "AND ("
+        "  json_extract(payload_json, '$.current_tracklet_id') = ? "
+        "  OR json_extract(payload_json, '$.tracklet_id') = ?"
+        ")",
+        (session_id, piece_uuid, tracklet_id, tracklet_id),
+    ).fetchall()
+    for row in rows:
+        payload = _piece_dossier_row_to_dict(row)
+        if not isinstance(payload, dict) or not piece_dossier_is_active(payload):
+            continue
+        payload["classification_channel_zone_state"] = "superseded"
+        payload["classification_channel_superseded_at"] = now
+        payload["superseded_by_piece_uuid"] = piece_uuid
+        payload["updated_at"] = now
+        payload["last_event_at"] = now
+        stage = str(payload.get("stage") or row["stage"] or "registered")
+        classification_status = str(
+            payload.get("classification_status")
+            or row["classification_status"]
+            or "pending"
+        )
+        conn.execute(
+            "UPDATE piece_dossiers SET "
+            "updated_at = ?, "
+            "last_event_at = ?, "
+            "stage = ?, "
+            "classification_status = ?, "
+            "payload_json = ? "
+            "WHERE piece_uuid = ?",
+            (
+                now,
+                now,
+                stage,
+                classification_status,
+                json.dumps(payload, sort_keys=True),
+                str(row["piece_uuid"]),
+            ),
+        )
+
+
+def mark_active_piece_dossiers_stale(
+    *,
+    reason: str = "runtime_restarted",
+    session_id: str | None = None,
+) -> int:
+    """Mark persisted live C4 dossier rows as stale for a fresh runtime epoch.
+
+    Tracker raw IDs are intentionally scoped by tracker epoch, but the UI list
+    is backed by persisted piece dossiers. If the backend/runtime restarts
+    before old pieces emitted a lost/distributed event, those rows would keep
+    ``classification_channel_zone_state=active`` forever and collide with new
+    tracker IDs. Staling them at RT start keeps history intact while making the
+    active read model reflect the current runtime epoch only.
+    """
+    initialize_local_state()
+    now = time.time()
+    updated = 0
+    with _connection() as conn:
+        resolved_session_id = session_id
+        if not resolved_session_id:
+            active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+            if active_session_id:
+                resolved_session_id = str(active_session_id)
+        if not resolved_session_id:
+            return 0
+        rows = conn.execute(
+            "SELECT * FROM piece_dossiers "
+            "WHERE session_id = ? "
+            "AND distributed_at IS NULL",
+            (resolved_session_id,),
+        ).fetchall()
+        for row in rows:
+            payload = _piece_dossier_row_to_dict(row)
+            if not isinstance(payload, dict) or not piece_dossier_is_active(payload):
+                continue
+            payload["classification_channel_zone_state"] = "stale"
+            payload["classification_channel_stale_reason"] = str(reason)
+            payload["classification_channel_stale_at"] = now
+            conn.execute(
+                "UPDATE piece_dossiers SET payload_json = ? WHERE piece_uuid = ?",
+                (json.dumps(payload, sort_keys=True), str(row["piece_uuid"])),
+            )
+            updated += 1
+        conn.commit()
+    return updated
+
+
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
     initialize_local_state()
     with _connection() as conn:
@@ -877,6 +1428,892 @@ def get_active_sorting_session() -> dict[str, Any] | None:
             (active_session_id,),
         ).fetchone()
         return _session_row_to_dict(row)
+
+
+def remember_piece_dossier(
+    piece_uuid: str,
+    dossier: dict[str, Any] | None = None,
+    *,
+    status: str | None = None,
+) -> None:
+    """Upsert a piece dossier row keyed by ``piece_uuid``.
+
+    The canonical id field is ``piece_uuid``. For backward compat the
+    merged payload also carries ``uuid`` so readers that still look for
+    ``piece.get("uuid")`` continue to work. ``status`` maps to the
+    dossier-level ``stage`` field ("pending", "classified",
+    "distributed") when provided by the rt event subscriber.
+    """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return
+    obj = dict(dossier) if isinstance(dossier, dict) else {}
+    obj = _normalize_piece_payload(obj)
+    # Honor explicit piece_uuid in payload, but always force canonical.
+    obj["piece_uuid"] = piece_uuid
+    obj.setdefault("uuid", piece_uuid)
+    if isinstance(status, str) and status.strip():
+        obj["stage"] = status
+
+    initialize_local_state()
+    with _connection() as conn:
+        existing_row = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        existing_payload = _piece_dossier_row_to_dict(existing_row)
+        merged = _merge_piece_payload(existing_payload, obj)
+        merged["piece_uuid"] = piece_uuid
+        merged["uuid"] = piece_uuid
+        tracklet_fields = _tracklet_fields_from_payload(merged)
+        if tracklet_fields is not None:
+            merged["current_tracklet_id"] = tracklet_fields["tracklet_id"]
+            merged.setdefault("tracklet_id", tracklet_fields["tracklet_id"])
+            for key in ("feed_id", "tracker_key", "tracker_epoch", "raw_track_id"):
+                value = tracklet_fields.get(key)
+                if value is not None:
+                    merged[key] = value
+        if existing_row is not None:
+            session_id = str(existing_row["session_id"])
+        else:
+            session = _ensure_active_sorting_session_conn(conn, force_new=False)
+            session_id = str(session["id"])
+
+        created_at = _min_positive_timestamp(
+            _payload_value(merged, "created_at"),
+            _payload_value(merged, "feeding_started_at"),
+            _payload_value(merged, "first_carousel_seen_ts"),
+            _payload_value(merged, "updated_at"),
+        ) or time.time()
+        updated_at = _max_positive_timestamp(
+            _payload_value(merged, "updated_at"),
+            _payload_value(merged, "distributed_at"),
+            _payload_value(merged, "distribution_positioned_at"),
+            _payload_value(merged, "classified_at"),
+            _payload_value(merged, "first_carousel_seen_ts"),
+            created_at,
+        ) or created_at
+        merged["created_at"] = created_at
+        merged["updated_at"] = updated_at
+
+        stage = str(
+            _payload_value(merged, "stage")
+            or (existing_row["stage"] if existing_row is not None else "created")
+        )
+        classification_status = str(
+            _payload_value(merged, "classification_status")
+            or (
+                existing_row["classification_status"]
+                if existing_row is not None
+                else "pending"
+            )
+        )
+        tracked_global_id = _payload_value(merged, "tracked_global_id")
+        tracked_global_id = (
+            int(tracked_global_id)
+            if isinstance(tracked_global_id, int)
+            or (
+                isinstance(tracked_global_id, float)
+                and float(tracked_global_id).is_integer()
+            )
+            else None
+        )
+        first_carousel_seen_ts = _min_positive_timestamp(
+            _payload_value(merged, "first_carousel_seen_ts")
+        )
+        zone_center_deg = _payload_value(merged, "classification_channel_zone_center_deg")
+        zone_center_deg = (
+            float(zone_center_deg)
+            if isinstance(zone_center_deg, (int, float))
+            else None
+        )
+        distributed_at = _max_positive_timestamp(_payload_value(merged, "distributed_at"))
+
+        conn.execute(
+            "INSERT INTO piece_dossiers(piece_uuid, session_id, tracked_global_id, created_at, updated_at, last_event_at, stage, classification_status, first_carousel_seen_ts, classification_channel_zone_center_deg, distributed_at, payload_json) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(piece_uuid) DO UPDATE SET "
+            "session_id = excluded.session_id, "
+            "tracked_global_id = excluded.tracked_global_id, "
+            "created_at = excluded.created_at, "
+            "updated_at = excluded.updated_at, "
+            "last_event_at = excluded.last_event_at, "
+            "stage = excluded.stage, "
+            "classification_status = excluded.classification_status, "
+            "first_carousel_seen_ts = excluded.first_carousel_seen_ts, "
+            "classification_channel_zone_center_deg = excluded.classification_channel_zone_center_deg, "
+            "distributed_at = excluded.distributed_at, "
+            "payload_json = excluded.payload_json",
+            (
+                piece_uuid,
+                session_id,
+                tracked_global_id,
+                created_at,
+                updated_at,
+                updated_at,
+                stage,
+                classification_status,
+                first_carousel_seen_ts,
+                zone_center_deg,
+                distributed_at,
+                json.dumps(merged, sort_keys=True),
+            ),
+        )
+        if (
+            tracklet_fields is not None
+            and _classification_zone_state(merged) == "active"
+        ):
+            _supersede_active_sibling_dossiers(
+                conn,
+                piece_uuid=piece_uuid,
+                session_id=session_id,
+                tracklet_id=str(tracklet_fields["tracklet_id"]),
+                now=updated_at,
+            )
+        if tracklet_fields is not None:
+            _remember_piece_tracklet_conn(
+                conn,
+                piece_uuid=piece_uuid,
+                session_id=session_id,
+                payload=merged,
+            )
+        conn.commit()
+
+
+def get_piece_dossier(piece_uuid: str) -> dict[str, Any] | None:
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return None
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        return _piece_dossier_row_to_dict(row)
+
+
+def get_piece_dossier_by_tracked_global_id(tracked_global_id: int) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM piece_dossiers WHERE tracked_global_id = ? ORDER BY last_event_at DESC LIMIT 1",
+            (int(tracked_global_id),),
+        ).fetchone()
+        return _piece_dossier_row_to_dict(row)
+
+
+def _piece_tracklet_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        payload = json.loads(str(row["payload_json"]))
+    except Exception:
+        payload = None
+    if not isinstance(payload, dict):
+        payload = {}
+    payload.update(
+        {
+            "tracklet_id": str(row["tracklet_id"]),
+            "piece_uuid": str(row["piece_uuid"]),
+            "session_id": str(row["session_id"]),
+            "feed_id": str(row["feed_id"]),
+            "tracker_key": (
+                str(row["tracker_key"]) if row["tracker_key"] is not None else None
+            ),
+            "tracker_epoch": (
+                str(row["tracker_epoch"]) if row["tracker_epoch"] is not None else None
+            ),
+            "raw_track_id": (
+                int(row["raw_track_id"]) if row["raw_track_id"] is not None else None
+            ),
+            "relation": str(row["relation"]) if row["relation"] is not None else None,
+            "first_seen_ts": (
+                float(row["first_seen_ts"]) if row["first_seen_ts"] is not None else None
+            ),
+            "last_seen_ts": (
+                float(row["last_seen_ts"]) if row["last_seen_ts"] is not None else None
+            ),
+            "hit_count": int(row["hit_count"]),
+            "score": float(row["score"]) if row["score"] is not None else None,
+            "confirmed_real": (
+                bool(row["confirmed_real"]) if row["confirmed_real"] is not None else None
+            ),
+            "ghost": bool(row["ghost"]) if row["ghost"] is not None else None,
+            "start_angle_deg": (
+                float(row["start_angle_deg"])
+                if row["start_angle_deg"] is not None
+                else None
+            ),
+            "last_angle_deg": (
+                float(row["last_angle_deg"])
+                if row["last_angle_deg"] is not None
+                else None
+            ),
+            "created_at": float(row["created_at"]),
+            "updated_at": float(row["updated_at"]),
+        }
+    )
+    return payload
+
+
+def remember_piece_tracklet(piece_uuid: str, payload: dict[str, Any]) -> None:
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return
+    if not isinstance(payload, dict):
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        dossier_row = conn.execute(
+            "SELECT session_id FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        if dossier_row is None:
+            return
+        session_id = str(dossier_row["session_id"])
+        _remember_piece_tracklet_conn(
+            conn,
+            piece_uuid=piece_uuid,
+            session_id=session_id,
+            payload=payload,
+        )
+        conn.commit()
+
+
+def list_piece_tracklets(piece_uuid: str) -> list[dict[str, Any]]:
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return []
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM piece_tracklets "
+            "WHERE piece_uuid = ? ORDER BY first_seen_ts ASC, created_at ASC",
+            (piece_uuid,),
+        ).fetchall()
+        return [
+            entry
+            for entry in (_piece_tracklet_row_to_dict(row) for row in rows)
+            if entry is not None
+        ]
+
+
+def list_piece_dossiers(
+    *,
+    limit: int = 200,
+    session_id: str | None = None,
+    include_stubs: bool = False,
+) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        resolved_session_id = session_id
+        if not resolved_session_id:
+            active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+            if active_session_id:
+                resolved_session_id = active_session_id
+            else:
+                latest = _latest_sorting_session_conn(conn)
+                resolved_session_id = str(latest["id"]) if latest is not None else None
+        if not resolved_session_id:
+            return []
+        if include_stubs:
+            rows = conn.execute(
+                "SELECT * FROM piece_dossiers WHERE session_id = ? "
+                "ORDER BY last_event_at DESC LIMIT ?",
+                (resolved_session_id, max(1, int(limit))),
+            ).fetchall()
+        else:
+            # H2 post-fix include/exclude predicates. The rt runtime
+            # publishes three piece events — PIECE_REGISTERED (the
+            # subscriber writes ``confirmed_real=True`` + stage
+            # "registered"), PIECE_CLASSIFIED (part_id filled,
+            # stage "classified"), PIECE_DISTRIBUTED (distributed_at
+            # filled, stage "distributed"). The pre-fix gate required
+            # a ``piece_segments`` row and so hid every confirmed
+            # pending row until C4 finished classifying.
+            #
+            # Include predicates (OR-joined):
+            #   1. distributed_at present          → terminal row.
+            #   2. classification_status NOT LIKE  → classifier wrote a
+            #      '%pending%'                       non-pending status.
+            #   3. stage IN ('registered',         → any rt event promoted
+            #      'classified', 'distributed',     the row past stub.
+            #      'confirmed_real')
+            #   4. payload_json.confirmed_real is  → tracker confirmed the
+            #      true                              piece is real (rt
+            #                                        PIECE_REGISTERED).
+            #   5. EXISTS piece_segments row       → legacy segment path.
+            #
+            # Exclude predicate (grace window):
+            #   * NOT (still pending AND no segments AND older than 5 min
+            #     AND not confirmed_real) — keeps a narrow escape hatch
+            #     for legacy zombie stubs that never got promoted. The
+            #     rt-registered pieces always carry confirmed_real=True
+            #     so they survive the grace cutoff indefinitely.
+            grace_cutoff = time.time() - 300.0
+            rows = conn.execute(
+                "SELECT d.* FROM piece_dossiers d "
+                "WHERE d.session_id = ? "
+                "  AND ("
+                "    d.distributed_at IS NOT NULL"
+                "    OR d.classification_status NOT LIKE '%pending%'"
+                "    OR d.stage IN ('registered', 'classified', 'distributed', 'confirmed_real')"
+                "    OR json_extract(d.payload_json, '$.confirmed_real') = 1"
+                "    OR EXISTS ("
+                "      SELECT 1 FROM piece_segments s "
+                "      WHERE s.piece_uuid = d.piece_uuid"
+                "    )"
+                "  ) "
+                "  AND NOT ("
+                "    d.classification_status LIKE '%pending%'"
+                "    AND d.distributed_at IS NULL"
+                "    AND d.last_event_at < ?"
+                "    AND (json_extract(d.payload_json, '$.confirmed_real') IS NOT 1)"
+                "    AND NOT EXISTS ("
+                "      SELECT 1 FROM piece_segments s "
+                "      WHERE s.piece_uuid = d.piece_uuid"
+                "    )"
+                "  ) "
+                "ORDER BY d.last_event_at DESC LIMIT ?",
+                (resolved_session_id, grace_cutoff, max(1, int(limit))),
+            ).fetchall()
+        return [
+            entry
+            for entry in (_piece_dossier_row_to_dict(row) for row in rows)
+            if entry is not None
+        ]
+
+
+def clear_piece_dossiers(*, clear_recent_known_objects: bool = True) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute("DELETE FROM piece_dossiers")
+        if clear_recent_known_objects:
+            _set_json(conn, _STATE_KEY_RECENT_KNOWN_OBJECTS, [])
+        conn.commit()
+
+
+def _coerce_optional_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float):
+        if value != value:  # NaN
+            return None
+        return int(value)
+    return None
+
+
+def _coerce_optional_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)):
+        float_value = float(value)
+        if float_value != float_value:  # NaN
+            return None
+        return float_value
+    return None
+
+
+def _piece_segment_row_to_dict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    try:
+        path = json.loads(str(row["path_json"]))
+    except Exception:
+        path = None
+    if not isinstance(path, list):
+        path = []
+    try:
+        sector_snapshots = json.loads(str(row["sector_snapshots_json"]))
+    except Exception:
+        sector_snapshots = None
+    if not isinstance(sector_snapshots, list):
+        sector_snapshots = []
+    recognize_result: Any | None = None
+    raw_recognize = row["recognize_result_json"]
+    if raw_recognize is not None:
+        try:
+            recognize_result = json.loads(str(raw_recognize))
+        except Exception:
+            recognize_result = None
+    return {
+        "id": int(row["id"]),
+        "piece_uuid": str(row["piece_uuid"]),
+        "session_id": str(row["session_id"]),
+        "role": str(row["role"]),
+        "tracked_global_id": (
+            int(row["tracked_global_id"])
+            if row["tracked_global_id"] is not None
+            else None
+        ),
+        "tracklet_id": (
+            str(row["tracklet_id"]) if row["tracklet_id"] is not None else None
+        ),
+        "feed_id": str(row["feed_id"]) if row["feed_id"] is not None else None,
+        "tracker_key": (
+            str(row["tracker_key"]) if row["tracker_key"] is not None else None
+        ),
+        "tracker_epoch": (
+            str(row["tracker_epoch"]) if row["tracker_epoch"] is not None else None
+        ),
+        "raw_track_id": (
+            int(row["raw_track_id"]) if row["raw_track_id"] is not None else None
+        ),
+        "sequence": int(row["sequence"]),
+        "first_seen_ts": float(row["first_seen_ts"]),
+        "last_seen_ts": float(row["last_seen_ts"]),
+        "duration_s": max(0.0, float(row["last_seen_ts"]) - float(row["first_seen_ts"])),
+        "hit_count": int(row["hit_count"]),
+        "channel_center_x": (
+            float(row["channel_center_x"])
+            if row["channel_center_x"] is not None
+            else None
+        ),
+        "channel_center_y": (
+            float(row["channel_center_y"])
+            if row["channel_center_y"] is not None
+            else None
+        ),
+        "channel_radius_inner": (
+            float(row["channel_radius_inner"])
+            if row["channel_radius_inner"] is not None
+            else None
+        ),
+        "channel_radius_outer": (
+            float(row["channel_radius_outer"])
+            if row["channel_radius_outer"] is not None
+            else None
+        ),
+        "snapshot_width": (
+            int(row["snapshot_width"])
+            if row["snapshot_width"] is not None
+            else None
+        ),
+        "snapshot_height": (
+            int(row["snapshot_height"])
+            if row["snapshot_height"] is not None
+            else None
+        ),
+        "snapshot_path": (
+            str(row["snapshot_path"])
+            if row["snapshot_path"] is not None
+            else None
+        ),
+        "path": path,
+        "sector_snapshots": sector_snapshots,
+        "recognize_result": recognize_result,
+        "created_at": float(row["created_at"]),
+    }
+
+
+def remember_piece_segment(
+    piece_uuid: str,
+    role: str,
+    sequence: int,
+    payload: dict[str, Any],
+) -> None:
+    """Persist (or upsert) a per-segment tracking record for a piece.
+
+    ``payload`` carries the segment fields — see the ``piece_segments``
+    schema for the accepted keys. List-valued keys (``path``,
+    ``sector_snapshots``) and ``recognize_result`` are serialized into their
+    respective ``*_json`` columns. On upsert over an existing
+    ``(piece_uuid, sequence)`` row, ``created_at`` is preserved.
+    """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return
+    if not isinstance(role, str) or not role.strip():
+        return
+    if not isinstance(payload, dict):
+        payload = {}
+    try:
+        sequence_int = int(sequence)
+    except (TypeError, ValueError):
+        return
+
+    initialize_local_state()
+    with _connection() as conn:
+        existing = conn.execute(
+            "SELECT id, created_at FROM piece_segments "
+            "WHERE piece_uuid = ? AND sequence = ?",
+            (piece_uuid, sequence_int),
+        ).fetchone()
+
+        tracked_global_id = _coerce_optional_int(payload.get("tracked_global_id"))
+        tracklet_fields = _tracklet_fields_from_payload(payload)
+        tracklet_id = (
+            str(tracklet_fields["tracklet_id"]) if tracklet_fields is not None else None
+        )
+        feed_id = (
+            str(tracklet_fields["feed_id"]) if tracklet_fields is not None else None
+        )
+        tracker_key = (
+            str(tracklet_fields["tracker_key"]) if tracklet_fields is not None else None
+        )
+        tracker_epoch = (
+            str(tracklet_fields["tracker_epoch"])
+            if tracklet_fields is not None and tracklet_fields.get("tracker_epoch") is not None
+            else None
+        )
+        raw_track_id = (
+            _coerce_optional_int(tracklet_fields.get("raw_track_id"))
+            if tracklet_fields is not None
+            else None
+        )
+        first_seen_ts = _coerce_optional_float(payload.get("first_seen_ts")) or 0.0
+        last_seen_ts = _coerce_optional_float(payload.get("last_seen_ts")) or first_seen_ts
+        hit_count = _coerce_optional_int(payload.get("hit_count")) or 0
+        channel_center_x = _coerce_optional_float(payload.get("channel_center_x"))
+        channel_center_y = _coerce_optional_float(payload.get("channel_center_y"))
+        channel_radius_inner = _coerce_optional_float(payload.get("channel_radius_inner"))
+        channel_radius_outer = _coerce_optional_float(payload.get("channel_radius_outer"))
+        snapshot_width = _coerce_optional_int(payload.get("snapshot_width"))
+        snapshot_height = _coerce_optional_int(payload.get("snapshot_height"))
+        snapshot_path_raw = payload.get("snapshot_path")
+        snapshot_path = (
+            str(snapshot_path_raw)
+            if isinstance(snapshot_path_raw, str) and snapshot_path_raw
+            else None
+        )
+
+        path_value = payload.get("path")
+        if not isinstance(path_value, list):
+            path_value = []
+        sector_snapshots_value = payload.get("sector_snapshots")
+        if not isinstance(sector_snapshots_value, list):
+            sector_snapshots_value = []
+        recognize_result_value = payload.get("recognize_result")
+
+        path_json = json.dumps(path_value, sort_keys=True)
+        sector_snapshots_json = json.dumps(sector_snapshots_value, sort_keys=True)
+        recognize_result_json = (
+            json.dumps(recognize_result_value, sort_keys=True)
+            if recognize_result_value is not None
+            else None
+        )
+
+        if existing is not None:
+            # Preserve original created_at on upsert.
+            session_row = conn.execute(
+                "SELECT session_id FROM piece_segments WHERE id = ?",
+                (int(existing["id"]),),
+            ).fetchone()
+            session_id = str(session_row["session_id"]) if session_row is not None else ""
+            if not session_id:
+                dossier_row = conn.execute(
+                    "SELECT session_id FROM piece_dossiers WHERE piece_uuid = ?",
+                    (piece_uuid,),
+                ).fetchone()
+                if dossier_row is not None:
+                    session_id = str(dossier_row["session_id"])
+                else:
+                    session = _ensure_active_sorting_session_conn(conn, force_new=False)
+                    session_id = str(session["id"])
+            created_at = float(existing["created_at"])
+            conn.execute(
+                "UPDATE piece_segments SET "
+                "session_id = ?, "
+                "role = ?, "
+                "tracked_global_id = ?, "
+                "tracklet_id = ?, "
+                "feed_id = ?, "
+                "tracker_key = ?, "
+                "tracker_epoch = ?, "
+                "raw_track_id = ?, "
+                "first_seen_ts = ?, "
+                "last_seen_ts = ?, "
+                "hit_count = ?, "
+                "channel_center_x = ?, "
+                "channel_center_y = ?, "
+                "channel_radius_inner = ?, "
+                "channel_radius_outer = ?, "
+                "snapshot_width = ?, "
+                "snapshot_height = ?, "
+                "snapshot_path = ?, "
+                "path_json = ?, "
+                "sector_snapshots_json = ?, "
+                "recognize_result_json = ? "
+                "WHERE id = ?",
+                (
+                    session_id,
+                    role,
+                    tracked_global_id,
+                    tracklet_id,
+                    feed_id,
+                    tracker_key,
+                    tracker_epoch,
+                    raw_track_id,
+                    first_seen_ts,
+                    last_seen_ts,
+                    hit_count,
+                    channel_center_x,
+                    channel_center_y,
+                    channel_radius_inner,
+                    channel_radius_outer,
+                    snapshot_width,
+                    snapshot_height,
+                    snapshot_path,
+                    path_json,
+                    sector_snapshots_json,
+                    recognize_result_json,
+                    int(existing["id"]),
+                ),
+            )
+            if tracklet_fields is not None:
+                tracklet_payload = dict(payload)
+                tracklet_payload.setdefault("role", role)
+                tracklet_payload.setdefault("hit_count", hit_count)
+                _remember_piece_tracklet_conn(
+                    conn,
+                    piece_uuid=piece_uuid,
+                    session_id=session_id,
+                    payload=tracklet_payload,
+                )
+            conn.commit()
+            return
+
+        # New row: bind to the dossier's session if available, else the
+        # active session (creating one if needed).
+        dossier_row = conn.execute(
+            "SELECT session_id FROM piece_dossiers WHERE piece_uuid = ?",
+            (piece_uuid,),
+        ).fetchone()
+        if dossier_row is not None:
+            session_id = str(dossier_row["session_id"])
+        else:
+            session = _ensure_active_sorting_session_conn(conn, force_new=False)
+            session_id = str(session["id"])
+
+        created_at = _coerce_optional_float(payload.get("created_at")) or time.time()
+        conn.execute(
+            "INSERT INTO piece_segments("
+            "piece_uuid, session_id, role, tracked_global_id, "
+            "tracklet_id, feed_id, tracker_key, tracker_epoch, raw_track_id, "
+            "sequence, "
+            "first_seen_ts, last_seen_ts, hit_count, "
+            "channel_center_x, channel_center_y, "
+            "channel_radius_inner, channel_radius_outer, "
+            "snapshot_width, snapshot_height, snapshot_path, "
+            "path_json, sector_snapshots_json, recognize_result_json, "
+            "created_at) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                piece_uuid,
+                session_id,
+                role,
+                tracked_global_id,
+                tracklet_id,
+                feed_id,
+                tracker_key,
+                tracker_epoch,
+                raw_track_id,
+                sequence_int,
+                first_seen_ts,
+                last_seen_ts,
+                hit_count,
+                channel_center_x,
+                channel_center_y,
+                channel_radius_inner,
+                channel_radius_outer,
+                snapshot_width,
+                snapshot_height,
+                snapshot_path,
+                path_json,
+                sector_snapshots_json,
+                recognize_result_json,
+                created_at,
+            ),
+        )
+        if tracklet_fields is not None:
+            tracklet_payload = dict(payload)
+            tracklet_payload.setdefault("role", role)
+            tracklet_payload.setdefault("hit_count", hit_count)
+            _remember_piece_tracklet_conn(
+                conn,
+                piece_uuid=piece_uuid,
+                session_id=session_id,
+                payload=tracklet_payload,
+            )
+        conn.commit()
+
+
+def list_piece_segments(piece_uuid: str) -> list[dict[str, Any]]:
+    """Return all segments for ``piece_uuid`` ordered by ``sequence`` asc."""
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return []
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT * FROM piece_segments "
+            "WHERE piece_uuid = ? ORDER BY sequence ASC",
+            (piece_uuid,),
+        ).fetchall()
+        return [
+            entry
+            for entry in (_piece_segment_row_to_dict(row) for row in rows)
+            if entry is not None
+        ]
+
+
+def clear_piece_segments_for_session(session_id: str) -> int:
+    """Delete all segments belonging to ``session_id``. Returns rowcount."""
+    if not isinstance(session_id, str) or not session_id.strip():
+        return 0
+    initialize_local_state()
+    with _connection() as conn:
+        cursor = conn.execute(
+            "DELETE FROM piece_segments WHERE session_id = ?",
+            (session_id,),
+        )
+        conn.commit()
+        return int(cursor.rowcount or 0)
+
+
+def get_piece_segment_counts(
+    piece_uuids: list[str] | tuple[str, ...] | None = None,
+    *,
+    session_id: str | None = None,
+) -> dict[str, int]:
+    """Return ``{piece_uuid: segment_count}`` in one SELECT.
+
+    Used by the tracked-pieces list endpoint to populate ``has_track_segments``
+    without issuing N+1 segment queries. Either pass an explicit list of
+    ``piece_uuids`` (preferred when the caller already fetched the dossiers) or
+    a ``session_id`` to scope to every piece in that session. Missing pieces
+    return 0 implicitly by omission.
+    """
+    if piece_uuids is not None:
+        uuids = [u for u in piece_uuids if isinstance(u, str) and u.strip()]
+        if not uuids:
+            return {}
+        initialize_local_state()
+        out: dict[str, int] = {}
+        with _connection() as conn:
+            # SQLite has a default host-parameter limit of 999. Chunk to be
+            # safe; in practice the list endpoint caps at 500 pieces.
+            chunk_size = 500
+            for start in range(0, len(uuids), chunk_size):
+                chunk = uuids[start : start + chunk_size]
+                placeholders = ",".join("?" * len(chunk))
+                rows = conn.execute(
+                    "SELECT piece_uuid, COUNT(*) AS c FROM piece_segments "
+                    f"WHERE piece_uuid IN ({placeholders}) GROUP BY piece_uuid",
+                    tuple(chunk),
+                ).fetchall()
+                for row in rows:
+                    out[str(row["piece_uuid"])] = int(row["c"])
+        return out
+
+    if isinstance(session_id, str) and session_id.strip():
+        initialize_local_state()
+        with _connection() as conn:
+            rows = conn.execute(
+                "SELECT piece_uuid, COUNT(*) AS c FROM piece_segments "
+                "WHERE session_id = ? GROUP BY piece_uuid",
+                (session_id,),
+            ).fetchall()
+            return {str(row["piece_uuid"]): int(row["c"]) for row in rows}
+
+    return {}
+
+
+def get_piece_preview_paths(
+    piece_uuids: list[str] | tuple[str, ...],
+) -> dict[str, str]:
+    """Return ``{piece_uuid: preview_jpeg_path}`` for each piece's latest wedge.
+
+    Preferred preview is the most recent wedge crop (highest captured_ts in
+    ``sector_snapshots_json``) — that's the best snapshot of the piece from
+    its time on the carousel. Falls back to the first segment's snapshot_path
+    (the full-frame grab taken at intake) when the piece has no wedges yet.
+    Pieces without any segment are absent.
+    """
+    uuids = [u for u in piece_uuids if isinstance(u, str) and u.strip()]
+    if not uuids:
+        return {}
+    initialize_local_state()
+    out: dict[str, str] = {}
+    with _connection() as conn:
+        chunk_size = 500
+        for start in range(0, len(uuids), chunk_size):
+            chunk = uuids[start : start + chunk_size]
+            placeholders = ",".join("?" * len(chunk))
+            rows = conn.execute(
+                "SELECT piece_uuid, snapshot_path, sector_snapshots_json FROM piece_segments "
+                f"WHERE piece_uuid IN ({placeholders}) "
+                "AND sequence = (SELECT MIN(sequence) FROM piece_segments s2 WHERE s2.piece_uuid = piece_segments.piece_uuid)",
+                tuple(chunk),
+            ).fetchall()
+            for row in rows:
+                uuid = str(row["piece_uuid"])
+                latest_wedge: str | None = None
+                try:
+                    sectors = json.loads(str(row["sector_snapshots_json"] or "[]"))
+                except (TypeError, ValueError):
+                    sectors = []
+                if isinstance(sectors, list) and sectors:
+                    # Pick the entry with the highest captured_ts that has a jpeg_path.
+                    best: dict[str, Any] | None = None
+                    for entry in sectors:
+                        if not isinstance(entry, dict):
+                            continue
+                        path = entry.get("jpeg_path")
+                        if not isinstance(path, str) or not path.strip():
+                            continue
+                        ts = entry.get("captured_ts")
+                        if best is None or (
+                            isinstance(ts, (int, float))
+                            and isinstance(best.get("captured_ts"), (int, float))
+                            and ts > best["captured_ts"]
+                        ):
+                            best = entry
+                    if best is not None and isinstance(best.get("jpeg_path"), str):
+                        latest_wedge = best["jpeg_path"]
+                if latest_wedge:
+                    out[uuid] = latest_wedge
+                    continue
+                snap = row["snapshot_path"]
+                if isinstance(snap, str) and snap.strip():
+                    out[uuid] = snap
+    return out
+
+
+def build_piece_detail_payload(piece_uuid: str) -> dict[str, Any] | None:
+    """Return merged dossier + segments payload for the detail endpoint.
+
+    Reads the dossier from :func:`get_piece_dossier` and its segments from
+    :func:`list_piece_segments` and merges them into a single response dict
+    shaped as ``{**dossier, "track_detail": {"segments": [...], "live": False}}``.
+    ``live`` is always ``False`` here (DB source); the API layer flips it to
+    ``True`` when live-tracker data is merged on top. Returns ``None`` when no
+    dossier row exists — segments without a dossier row are ignored (cannot
+    occur thanks to FK cascade but handled defensively).
+    """
+    if not isinstance(piece_uuid, str) or not piece_uuid.strip():
+        return None
+    dossier = get_piece_dossier(piece_uuid)
+    if dossier is None:
+        return None
+    segments = list_piece_segments(piece_uuid)
+    tracklets = list_piece_tracklets(piece_uuid)
+    payload: dict[str, Any] = dict(dossier)
+    track_detail: dict[str, Any] = {
+        "segments": segments,
+        "tracklets": tracklets,
+        "live": False,
+    }
+    matrix_shot = dossier.get("matrix_shot")
+    if isinstance(matrix_shot, dict):
+        track_detail["matrix_shot"] = matrix_shot
+        frames = matrix_shot.get("frames")
+        if isinstance(frames, list):
+            # Legacy UI field name while the feature graduates to
+            # matrix_shot.frames.
+            track_detail["burst_frames"] = frames
+    legacy_burst_frames = dossier.get("burst_frames")
+    if "burst_frames" not in track_detail and isinstance(legacy_burst_frames, list):
+        track_detail["burst_frames"] = legacy_burst_frames
+    payload["track_detail"] = track_detail
+    return payload
 
 
 def _ensure_bin_state_row_conn(
@@ -1299,7 +2736,11 @@ def import_bin_contents_snapshot(snapshot: dict[str, Any], *, reason: str = "sna
         return {"imported_bins": imported_bins, "session_id": session_id}
 
 
-def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KNOWN_OBJECTS_LIMIT) -> None:
+def remember_recent_known_object(
+    obj: dict[str, Any],
+    *,
+    limit: int = _RECENT_KNOWN_OBJECTS_LIMIT,
+) -> None:
     if not isinstance(obj, dict):
         return
     uuid = obj.get("uuid")
@@ -1307,7 +2748,11 @@ def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KN
         return
 
     normalized = {key: value for key, value in obj.items() if isinstance(key, str)}
-    existing = [entry for entry in get_recent_known_objects() if entry.get("uuid") != uuid]
+    existing = [
+        entry
+        for entry in get_recent_known_objects()
+        if entry.get("uuid") != uuid
+    ]
     next_entries = [normalized, *existing][: max(1, int(limit))]
     _write_state(_STATE_KEY_RECENT_KNOWN_OBJECTS, next_entries)
 

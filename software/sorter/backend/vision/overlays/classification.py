@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Callable, Optional
 import cv2
 import numpy as np
 
+from .scaling import overlay_scale_for_frame, scaled_px
+
 if TYPE_CHECKING:
     from vision.classification_detection import ClassificationDetectionResult
     from vision.heatmap_diff import HeatmapDiff
@@ -43,6 +45,10 @@ class ClassificationOverlay:
     def annotate(self, frame: np.ndarray) -> np.ndarray:
         uses_baseline = self._uses_baseline()
         heatmap = self._get_heatmap()
+        scale = overlay_scale_for_frame(frame)
+        box_thickness = scaled_px(2, scale)
+        label_thickness = scaled_px(1, scale)
+        label_y_pad = scaled_px(6, scale)
 
         if uses_baseline and heatmap is not None and heatmap.has_baseline:
             frame = heatmap.annotateFrame(
@@ -56,17 +62,17 @@ class ClassificationOverlay:
             if detection is not None:
                 for candidate in detection.bboxes:
                     x1, y1, x2, y2 = [int(value) for value in candidate]
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), (168, 85, 247), 2, cv2.LINE_AA)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (168, 85, 247), box_thickness, cv2.LINE_AA)
                 if detection.bbox is not None:
                     x1, y1, x2, y2 = [int(value) for value in detection.bbox]
                     cv2.putText(
                         frame,
                         "cloud",
-                        (x1, max(16, y1 - 6)),
+                        (x1, max(scaled_px(16, scale), y1 - label_y_pad)),
                         cv2.FONT_HERSHEY_SIMPLEX,
-                        0.45,
+                        0.45 * scale,
                         (168, 85, 247),
-                        1,
+                        label_thickness,
                         cv2.LINE_AA,
                     )
 
@@ -79,7 +85,7 @@ class ClassificationOverlay:
             my1 = max(0, bbox[1] - margins[1])
             mx2 = min(fw, bbox[2] + margins[2])
             my2 = min(fh, bbox[3] + margins[3])
-            cv2.rectangle(frame, (mx1, my1), (mx2, my2), (0, 200, 255), 2, cv2.LINE_AA)
+            cv2.rectangle(frame, (mx1, my1), (mx2, my2), (0, 200, 255), box_thickness, cv2.LINE_AA)
             bias_parts = []
             base = diff_config.crop_margin_px
             for side, val in zip(["L", "T", "R", "B"], margins):
@@ -94,11 +100,12 @@ class ClassificationOverlay:
             cv2.putText(
                 frame,
                 f"{method_label} crop +{base}px{bias_label}",
-                (mx1, my1 - 6),
+                (mx1, max(scaled_px(16, scale), my1 - label_y_pad)),
                 cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
+                0.5 * scale,
                 (0, 200, 255),
-                1,
+                label_thickness,
+                cv2.LINE_AA,
             )
 
         return frame

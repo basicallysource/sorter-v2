@@ -22,30 +22,14 @@ import {
 	isCamerasConfigEvent,
 	isSortingProfileStatusEvent
 } from './types';
+import { recentPhysicalKeyOrNull, shouldShowInRecentPieces } from '$lib/recent-pieces';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
+const RECENT_OBJECT_LIMIT = 50;
 
 function shouldKeepRecentObject(obj: KnownObjectData): boolean {
-	const hasLocalPreview = Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
-	if (obj.stage !== 'created') return true;
-	if (obj.classification_status !== 'pending') {
-		if (
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail'
-		) {
-			return hasLocalPreview || Boolean(obj.carousel_snapping_started_at);
-		}
-		return true;
-	}
-	return Boolean(
-		obj.carousel_snapping_started_at ||
-			obj.carousel_snapping_completed_at ||
-			obj.classified_at ||
-			obj.part_id ||
-			hasLocalPreview
-	);
+	return shouldShowInRecentPieces(obj);
 }
 
 export class MachineManager {
@@ -263,19 +247,25 @@ export class MachineManager {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
 
-		const existing_idx = machine.recentObjects.findIndex((o) => o.uuid === obj.uuid);
-		const keep = shouldKeepRecentObject(obj);
+		const incoming_key = recentPhysicalKeyOrNull(obj);
+		const existing_idx = machine.recentObjects.findIndex((o) => {
+			const key = recentPhysicalKeyOrNull(o);
+			if (incoming_key !== null && key !== null) return key === incoming_key;
+			return o.uuid === obj.uuid;
+		});
 		let updated_objects: KnownObjectData[];
 
 		if (existing_idx >= 0) {
+			// Always update an existing entry in place — never remove it based
+			// on the display filter. The storage layer is append-only history;
+			// components decide what to render. Removing on every transient
+			// state flip (active → superseded → active as a piece rotates past
+			// the drop zone, or registered → classified) was the main source
+			// of Recent-Pieces churn during live sorting.
 			updated_objects = [...machine.recentObjects];
-			if (keep) {
-				updated_objects[existing_idx] = obj;
-			} else {
-				updated_objects.splice(existing_idx, 1);
-			}
-		} else if (keep) {
-			updated_objects = [obj, ...machine.recentObjects].slice(0, 10);
+			updated_objects[existing_idx] = obj;
+		} else if (shouldKeepRecentObject(obj)) {
+			updated_objects = [obj, ...machine.recentObjects].slice(0, RECENT_OBJECT_LIMIT);
 		} else {
 			return;
 		}
@@ -307,8 +297,7 @@ export class MachineManager {
 		if (!machine) return;
 		const shouldClearRecentObjects =
 			data.hardware_state === 'homing' ||
-			(data.hardware_state === 'standby' &&
-				machine.systemStatus?.hardware_state !== 'standby');
+			(data.hardware_state === 'standby' && machine.systemStatus?.hardware_state !== 'standby');
 		const updated = new Map(this.machines);
 		updated.set(machineId, {
 			...machine,

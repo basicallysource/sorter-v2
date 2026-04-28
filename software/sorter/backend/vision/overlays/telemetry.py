@@ -16,11 +16,12 @@ from typing import Any, Callable, Mapping
 import cv2
 import numpy as np
 
+from .scaling import overlay_scale_for_frame, scaled_px
+
 
 # Bottom-right layout — baseline values calibrated for 1280x720 frames.
 # Scale up proportionally at higher resolutions so the overlay stays legible
 # on a 4K feed without blowing up on the 1280x720 feeds.
-_BASELINE_WIDTH = 1280
 _PAD_PX = 8
 _LINE_HEIGHT_PX = 18
 _FONT = cv2.FONT_HERSHEY_SIMPLEX
@@ -136,11 +137,11 @@ class TelemetryOverlay:
     def _draw(frame: np.ndarray, lines: list[tuple[str, str]]) -> None:
         h, w = frame.shape[:2]
 
-        scale = max(1.0, float(w) / float(_BASELINE_WIDTH))
-        pad_px = max(1, int(round(_PAD_PX * scale)))
-        line_height_px = max(1, int(round(_LINE_HEIGHT_PX * scale)))
+        scale = overlay_scale_for_frame(frame)
+        pad_px = scaled_px(_PAD_PX, scale)
+        line_height_px = scaled_px(_LINE_HEIGHT_PX, scale)
         font_scale = _FONT_SCALE * scale
-        font_thickness = max(1, int(round(_FONT_THICKNESS * scale)))
+        font_thickness = scaled_px(_FONT_THICKNESS, scale)
 
         # Measure widest line first to size the background plate.
         widths: list[int] = []
@@ -164,7 +165,7 @@ class TelemetryOverlay:
         cv2.addWeighted(overlay, _BG_ALPHA, frame, 1.0 - _BG_ALPHA, 0, frame)
 
         # Lines, drawn bottom-up from baseline.
-        baseline_drop = max(2, int(round(5 * scale)))
+        baseline_drop = scaled_px(5, scale, minimum=2)
         for i, (key, val) in enumerate(lines):
             y = box_y1 + pad_px // 2 + (i + 1) * line_height_px - baseline_drop
             x = box_x1 + pad_px

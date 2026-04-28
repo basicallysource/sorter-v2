@@ -1,0 +1,104 @@
+from __future__ import annotations
+
+import numpy as np
+
+import rt.perception  # noqa: F401 - trigger filter registration
+from rt.contracts.feed import FeedFrame
+from rt.contracts.registry import FILTERS
+from rt.contracts.tracking import Track, TrackBatch
+from rt.perception.filters.ghost import GhostFilter
+from rt.perception.filters.size import SizeFilter
+
+
+def _frame() -> FeedFrame:
+    return FeedFrame(
+        feed_id="f",
+        camera_id="c",
+        raw=np.zeros((4, 4, 3), dtype=np.uint8),
+        gray=None,
+        timestamp=1.0,
+        monotonic_ts=1.0,
+        frame_seq=1,
+    )
+
+
+def _track(
+    tid: int,
+    bbox: tuple[int, int, int, int],
+    confirmed_real: bool = True,
+    ghost: bool = False,
+) -> Track:
+    return Track(
+        track_id=tid,
+        global_id=tid,
+        piece_uuid=None,
+        bbox_xyxy=bbox,
+        score=0.9,
+        confirmed_real=confirmed_real,
+        angle_rad=None,
+        radius_px=None,
+        hit_count=5,
+        first_seen_ts=1.0,
+        last_seen_ts=1.0,
+        ghost=ghost,
+    )
+
+
+def _batch(tracks: tuple[Track, ...]) -> TrackBatch:
+    return TrackBatch(
+        feed_id="f",
+        frame_seq=1,
+        timestamp=1.0,
+        tracks=tracks,
+        lost_track_ids=(),
+    )
+
+
+def test_filters_registered_in_registry() -> None:
+    assert "size" in FILTERS.keys()
+    assert "ghost" in FILTERS.keys()
+
+
+def test_size_filter_drops_too_small() -> None:
+    f = SizeFilter(min_area_px=100)
+    tracks = (
+        _track(1, (0, 0, 5, 5)),       # 25 px < 100
+        _track(2, (0, 0, 20, 20)),     # 400 px >= 100
+    )
+    out = f.apply(_batch(tracks), _frame())
+    assert [t.track_id for t in out.tracks] == [2]
+
+
+def test_size_filter_drops_too_large() -> None:
+    f = SizeFilter(min_area_px=10, max_area_px=200)
+    tracks = (
+        _track(1, (0, 0, 10, 10)),    # 100 px: in band
+        _track(2, (0, 0, 30, 30)),    # 900 px: too large
+        _track(3, (0, 0, 2, 2)),      # 4 px: too small
+    )
+    out = f.apply(_batch(tracks), _frame())
+    assert [t.track_id for t in out.tracks] == [1]
+
+
+def test_size_filter_max_area_zero() -> None:
+    # max_area_px=0 is a legitimate upper bound (no track has area <= 0),
+    # NOT a sentinel for "unlimited". Verify coercion is `is not None`-based.
+    f = SizeFilter(min_area_px=0, max_area_px=0)
+    tracks = (
+        _track(1, (0, 0, 10, 10)),   # 100 px: exceeds max=0
+        _track(2, (0, 0, 1, 1)),     # 1 px: exceeds max=0
+    )
+    out = f.apply(_batch(tracks), _frame())
+    assert out.tracks == ()
+
+
+def test_ghost_filter_drops_declared_ghosts() -> None:
+    f = GhostFilter()
+    tracks = (
+        _track(1, (0, 0, 10, 10), confirmed_real=True, ghost=False),
+        _track(2, (0, 0, 10, 10), confirmed_real=False, ghost=False),  # pending
+        _track(3, (0, 0, 10, 10), confirmed_real=False, ghost=True),
+    )
+    out = f.apply(_batch(tracks), _frame())
+    # Pending (2) and confirmed (1) pass through; only the declared ghost drops.
+    assert [t.track_id for t in out.tracks] == [1, 2]

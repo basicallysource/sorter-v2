@@ -1,10 +1,12 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
+import re
 from pathlib import Path
 
 from defs.events import (
@@ -14,30 +16,37 @@ from defs.events import (
     KnownObjectEvent,
 )
 from blob_manager import (
-    getApiKeys,
-    getMachineId,
-    getMachineNickname,
-    getRecentKnownObjects,
-    getSortingProfileSyncState,
-    setMachineNickname,
+    BLOB_DIR,
+    PIECE_CROPS_DIR_NAME,
+    PIECE_CROP_KINDS,
 )
-from runtime_variables import VARIABLE_DEFS
+from local_state import (
+    build_piece_detail_payload,
+    clear_piece_dossiers,
+    ensure_machine_id,
+    get_api_keys,
+    get_piece_dossier,
+    get_piece_dossier_by_tracked_global_id,
+    get_piece_preview_paths,
+    get_piece_segment_counts,
+    get_recent_known_objects,
+    get_sorting_profile_sync_state,
+    list_piece_dossiers,
+    piece_dossier_is_active,
+)
+from sorting_profile import load_sorting_profile_dict
+from toml_config import getMachineNickname, setMachineNickname
 from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
+from server.services.polygon_config import PolygonConfigService
+from server.services import runtime_stats as runtime_stats_service
 from server.waveshare_inventory import get_waveshare_inventory_manager
 from server.security import compute_allowed_ui_origins, websocket_connection_allowed
 
 from server.shared_state import (
     active_connections,
     broadcastEvent,
-    setGlobalConfig,
-    setRuntimeVariables,
-    setCommandQueue,
-    setController,
-    setArucoManager,
-    setVisionManager,
-    _getRuntimeVariables,
 )
 import server.shared_state as shared_state
 
@@ -84,7 +93,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 app.add_middleware(RequestLoggingMiddleware)
 
 def _load_saved_api_keys_into_environment() -> None:
-    saved_api_keys = getApiKeys()
+    saved_api_keys = get_api_keys()
     if saved_api_keys.get("openrouter"):
         os.environ["OPENROUTER_API_KEY"] = saved_api_keys["openrouter"]
 
@@ -103,6 +112,8 @@ from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
+from server.routers.rt_runtime import router as rt_runtime_router
+from server.routers.c4_rotor import router as c4_rotor_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -115,6 +126,8 @@ app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(runtimes_router)
+app.include_router(rt_runtime_router)
+app.include_router(c4_rotor_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -160,7 +173,7 @@ class MachineIdentityUpdateRequest(BaseModel):
 
 
 def _getMachineIdentityData() -> MachineIdentityData:
-    machine_id = shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else getMachineId()
+    machine_id = shared_state.gc_ref.machine_id if shared_state.gc_ref is not None else ensure_machine_id()
     return MachineIdentityData(
         machine_id=machine_id,
         nickname=getMachineNickname(),
@@ -300,8 +313,7 @@ class SortingProfileSetViewPartStateResponse(BaseModel):
 def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        data = json.load(f)
+    data = load_sorting_profile_dict(shared_state.gc_ref.sorting_profile_path)
     return SortingProfileMetadataResponse(
         id=data.get("id", ""),
         name=data.get("name", os.path.basename(shared_state.gc_ref.sorting_profile_path)),
@@ -320,7 +332,7 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
                 {"rebrickable_categories": False, "bricklink_categories": False, "by_color": False},
             )
         ),
-        sync_state=getSortingProfileSyncState(),
+        sync_state=get_sorting_profile_sync_state(),
     )
 
 
@@ -329,9 +341,8 @@ def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
 
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        raw_profile = json.load(f)
-    set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
+    raw_profile = load_sorting_profile_dict(shared_state.gc_ref.sorting_profile_path)
+    set_inventories = raw_profile.get("set_inventories")
     if not isinstance(set_inventories, dict):
         raise HTTPException(status_code=404, detail="No set inventory data available")
 
@@ -340,7 +351,7 @@ def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
         raise HTTPException(status_code=404, detail="Set category not found")
 
     parts = inventory.get("parts") if isinstance(inventory.get("parts"), list) else []
-    artifact_hash = str(raw_profile.get("artifact_hash") or "") if isinstance(raw_profile, dict) else ""
+    artifact_hash = str(raw_profile.get("artifact_hash") or "")
     found_lookup: dict[tuple[str, str], int] = {}
     total_found = 0
 
@@ -415,9 +426,8 @@ def updateSortingProfileSetViewPartState(
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
 
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        raw_profile = json.load(f)
-    set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
+    raw_profile = load_sorting_profile_dict(shared_state.gc_ref.sorting_profile_path)
+    set_inventories = raw_profile.get("set_inventories")
     if not isinstance(set_inventories, dict):
         raise HTTPException(status_code=404, detail="No set inventory data available")
 
@@ -455,22 +465,376 @@ def updateSortingProfileSetViewPartState(
 # The WS recent-objects ring and frontend `recentObjects` buffer are both
 # intentionally tiny (10 entries) — they're for the gallery, not for
 # persistence. The detail page at ``/tracked/<uuid>`` needs to render a
-# piece even after it's aged out of that ring, so this endpoint surfaces
-# the last observed KnownObject payload from the runtime-stats collector's
-# bounded in-memory LRU (~1000 entries) as the fallback source.
+# piece even after it's aged out of that ring, so this endpoint resolves
+# from the persistent local SQLite dossier first and only falls back to the
+# in-process runtime-stats LRU if needed.
+
+
+def _normalize_deg(value: float) -> float:
+    normalized = float(value) % 360.0
+    if normalized < 0.0:
+        normalized += 360.0
+    return normalized
+
+
+def _circular_diff_deg(a: float, b: float) -> float:
+    return (_normalize_deg(a) - _normalize_deg(b) + 540.0) % 360.0 - 180.0
+
+
+def _current_classification_drop_angle_deg() -> float | None:
+    # Read the drop angle from the live IRL config (bootstrap plumbs it into
+    # hardware_runtime_irl once homing has run). No legacy coordinator needed.
+    irl = shared_state.getActiveIRL()
+    irl_config = getattr(irl, "irl_config", None) if irl is not None else None
+    cc_cfg = getattr(irl_config, "classification_channel_config", None)
+    value = getattr(cc_cfg, "drop_angle_deg", None)
+    return float(value) if isinstance(value, (int, float)) else None
+
+
+def _tracked_history_summary_map(limit: int) -> dict[int, dict[str, Any]]:
+    # Post-cutover: the legacy VisionManager-based track history is gone.
+    # rt/ persists piece dossiers directly via local_state, so the gallery
+    # already has what it needs from the DB dossier payload. Return empty
+    # to preserve the call shape.
+    return {}
+
+
+def _piece_dossier_with_track_detail(payload: dict[str, Any] | None) -> dict[str, Any] | None:
+    """DB-first detail enrichment for ``GET /api/tracked/pieces/{uuid}``.
+
+    Post-cutover the "live tracker" layer is gone: rt/ publishes every
+    piece_registered/classified/distributed event straight into the local
+    dossier table, so the DB payload IS the detail payload. Returning it
+    unchanged (with ``track_detail`` left as whatever the caller produced)
+    keeps the endpoint shape stable.
+    """
+    if not isinstance(payload, dict):
+        return None
+    return dict(payload)
+
+
+@app.get("/api/tracked/pieces")
+def get_tracked_pieces(
+    limit: int = 120,
+    include_stubs: bool = False,
+) -> Dict[str, Any]:
+    limit = max(10, min(int(limit), 500))
+    load_limit = max(limit * 4, 500)
+    dossiers = list_piece_dossiers(limit=load_limit, include_stubs=include_stubs)
+    history_by_gid = _tracked_history_summary_map(load_limit)
+    drop_angle_deg = _current_classification_drop_angle_deg()
+
+    # Bulk segment-count lookup: one SELECT instead of N+1 calls to
+    # list_piece_segments per row. Key'd by piece_uuid, default 0.
+    dossier_uuids = [
+        str(piece.get("uuid"))
+        for piece in dossiers
+        if isinstance(piece, dict) and isinstance(piece.get("uuid"), str)
+    ]
+    segment_counts = get_piece_segment_counts(piece_uuids=dossier_uuids)
+    preview_paths = get_piece_preview_paths(dossier_uuids)
+
+    rows: list[dict[str, Any]] = []
+    for piece in dossiers:
+        if not isinstance(piece, dict):
+            continue
+        tracked_global_id = piece.get("tracked_global_id")
+        if not isinstance(tracked_global_id, int):
+            tracked_global_id = None
+        history = history_by_gid.get(tracked_global_id) if tracked_global_id is not None else None
+        live = bool(history.get("live")) if isinstance(history, dict) else False
+        is_active = bool(live or piece_dossier_is_active(piece))
+        zone_center_deg = piece.get("classification_channel_zone_center_deg")
+        zone_center_deg = float(zone_center_deg) if isinstance(zone_center_deg, (int, float)) else None
+        polar_offset_deg = (
+            _circular_diff_deg(zone_center_deg, drop_angle_deg)
+            if zone_center_deg is not None and drop_angle_deg is not None
+            else None
+        )
+        sort_ts = piece.get("distributed_at")
+        if not isinstance(sort_ts, (int, float)):
+            sort_ts = piece.get("updated_at")
+        if not isinstance(sort_ts, (int, float)) and isinstance(history, dict):
+            sort_ts = history.get("finished_at")
+        if not isinstance(sort_ts, (int, float)):
+            sort_ts = piece.get("created_at")
+        piece_uuid = piece.get("uuid")
+        has_track_segments = bool(
+            isinstance(piece_uuid, str)
+            and segment_counts.get(piece_uuid, 0) > 0
+        )
+        rows.append(
+            {
+                "uuid": piece_uuid,
+                "piece": piece,
+                "tracked_global_id": tracked_global_id,
+                "global_id": tracked_global_id,
+                "current_tracklet_id": piece.get("current_tracklet_id")
+                or piece.get("tracklet_id"),
+                "feed_id": piece.get("feed_id"),
+                "tracker_key": piece.get("tracker_key"),
+                "tracker_epoch": piece.get("tracker_epoch"),
+                "raw_track_id": piece.get("raw_track_id"),
+                "live": live or is_active,
+                "active": is_active,
+                "polar_angle_deg": zone_center_deg,
+                "polar_offset_deg": polar_offset_deg,
+                "created_at": piece.get("created_at"),
+                "updated_at": piece.get("updated_at"),
+                "stage": piece.get("stage"),
+                "classification_status": piece.get("classification_status"),
+                "track_summary": history,
+                "has_track_segments": has_track_segments,
+                "preview_jpeg_path": preview_paths.get(piece_uuid) if isinstance(piece_uuid, str) else None,
+                "sort_ts": float(sort_ts) if isinstance(sort_ts, (int, float)) else 0.0,
+                "history_finished_at": history.get("finished_at") if isinstance(history, dict) else None,
+            }
+        )
+
+    rows = _dedupe_tracked_piece_rows(rows)
+    active_rows = [row for row in rows if row["active"]]
+    historical_rows = [row for row in rows if not row["active"]]
+
+    active_rows.sort(
+        key=lambda row: (
+            row["polar_offset_deg"] is None,
+            -(float(row["polar_offset_deg"]) if isinstance(row["polar_offset_deg"], (int, float)) else -9999.0),
+            -float(row["sort_ts"]),
+        )
+    )
+    historical_rows.sort(key=lambda row: -float(row["sort_ts"]))
+    ordered = active_rows + historical_rows
+    return {"items": ordered[:limit], "drop_angle_deg": drop_angle_deg}
+
+
+def _dedupe_tracked_piece_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Collapse rows by canonical piece UUID only."""
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    out: list[dict[str, Any]] = []
+    for row in rows:
+        key = _tracked_piece_row_identity(row)
+        if key is None:
+            out.append(row)
+            continue
+        grouped.setdefault(key, []).append(row)
+    out.extend(_merge_tracked_piece_group(group) for group in grouped.values())
+    return out
+
+
+def _tracked_piece_row_identity(row: dict[str, Any]) -> str | None:
+    uuid = row.get("uuid")
+    if isinstance(uuid, str) and uuid.strip():
+        return f"uuid:{uuid}"
+    return None
+
+
+def _merge_tracked_piece_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+    if len(group) == 1:
+        return group[0]
+
+    best = max(group, key=_tracked_piece_row_quality)
+    newest = max(group, key=_tracked_piece_row_sort_ts)
+    merged = dict(best)
+    merged["active"] = any(bool(row.get("active")) for row in group)
+    merged["live"] = any(bool(row.get("live")) for row in group)
+    merged["has_track_segments"] = any(
+        bool(row.get("has_track_segments")) for row in group
+    )
+    merged["sort_ts"] = max(_tracked_piece_row_sort_ts(row) for row in group)
+
+    for field in (
+        "polar_angle_deg",
+        "polar_offset_deg",
+        "track_summary",
+        "history_finished_at",
+    ):
+        if newest.get(field) is not None:
+            merged[field] = newest.get(field)
+
+    preview_row = max(
+        (row for row in group if row.get("preview_jpeg_path")),
+        key=_tracked_piece_row_quality,
+        default=None,
+    )
+    if preview_row is not None:
+        merged["preview_jpeg_path"] = preview_row.get("preview_jpeg_path")
+
+    merged["piece"] = _merge_tracked_piece_payloads(group, best)
+    return merged
+
+
+def _merge_tracked_piece_payloads(
+    group: list[dict[str, Any]],
+    best: dict[str, Any],
+) -> dict[str, Any]:
+    best_piece = best.get("piece") if isinstance(best.get("piece"), dict) else {}
+    merged = dict(best_piece)
+    for row in sorted(group, key=_tracked_piece_row_quality, reverse=True):
+        piece = row.get("piece")
+        if not isinstance(piece, dict):
+            continue
+        for key, value in piece.items():
+            if _has_display_value(merged.get(key)):
+                continue
+            if _has_display_value(value):
+                merged[key] = value
+    return merged
+
+
+def _tracked_piece_row_quality(row: dict[str, Any]) -> tuple[int, int, int, int, float]:
+    piece = row.get("piece") if isinstance(row.get("piece"), dict) else {}
+    status = str(
+        row.get("classification_status")
+        or piece.get("classification_status")
+        or ""
+    )
+    has_part = _has_display_value(piece.get("part_id")) or _has_display_value(
+        piece.get("part_name")
+    )
+    if status == "classified" and has_part:
+        classification_rank = 4
+    elif status == "classified":
+        classification_rank = 3
+    elif status == "unknown":
+        classification_rank = 2
+    elif status and status != "pending":
+        classification_rank = 1
+    else:
+        classification_rank = 0
+    return (
+        classification_rank,
+        1 if row.get("preview_jpeg_path") else 0,
+        1 if row.get("has_track_segments") else 0,
+        1 if row.get("live") else 0,
+        _tracked_piece_row_sort_ts(row),
+    )
+
+
+def _tracked_piece_row_sort_ts(row: dict[str, Any]) -> float:
+    value = row.get("sort_ts")
+    return float(value) if isinstance(value, (int, float)) else 0.0
+
+
+def _has_display_value(value: Any) -> bool:
+    return value is not None and value != "" and value != []
 
 
 @app.get("/api/known-objects/{uuid}", response_model=KnownObjectData)
 def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
-    if shared_state.gc_ref is None or shared_state.gc_ref.runtime_stats is None:
-        raise HTTPException(status_code=404, detail="not found")
-    payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
+    payload = get_piece_dossier(uuid)
+    if payload is None:
+        try:
+            payload = get_piece_dossier_by_tracked_global_id(int(uuid))
+        except Exception:
+            payload = None
+    if payload is None:
+        payload = runtime_stats_service.lookup_known_object(uuid)
     if payload is None:
         raise HTTPException(status_code=404, detail="not found")
     try:
         return KnownObjectData.model_validate(payload)
     except Exception:
         raise HTTPException(status_code=404, detail="not found")
+
+
+@app.get("/api/tracked/pieces/{uuid}")
+def get_tracked_piece_detail(uuid: str) -> Dict[str, Any]:
+    # Phase 5: DB-first. Build the merged dossier+segments payload from
+    # SQLite so detail pages survive restarts, then fold live-tracker detail
+    # on top when the piece is still active. 404 is reserved for pieces
+    # that are unknown to BOTH the DB and the runtime LRU — otherwise the
+    # frontend used to see a spurious "Track Not Found" for pieces that
+    # had simply aged out of the live buffer.
+    payload = build_piece_detail_payload(uuid)
+    if payload is None:
+        # Legacy-compat: if ``uuid`` is numeric, it was likely a raw
+        # ``tracked_global_id``. Resolve via the DB before giving up.
+        try:
+            legacy = get_piece_dossier_by_tracked_global_id(int(uuid))
+        except Exception:
+            legacy = None
+        if legacy is not None:
+            payload = build_piece_detail_payload(str(legacy.get("uuid") or ""))
+            if payload is None:
+                payload = legacy
+    if payload is None:
+        # Last resort: the in-process runtime-stats LRU. No segments here —
+        # just the bare dossier dict kept for the gallery ring.
+        payload = runtime_stats_service.lookup_known_object(uuid)
+    enriched = _piece_dossier_with_track_detail(payload)
+    if enriched is None:
+        raise HTTPException(status_code=404, detail="not found")
+    return enriched
+
+
+@app.delete("/api/tracked/pieces")
+def clear_tracked_pieces() -> Dict[str, Any]:
+    """Wipe all persisted piece dossiers and their segment records."""
+    try:
+        clear_piece_dossiers()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to clear dossiers: {exc}")
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Piece crop archive — Phase 3
+# ---------------------------------------------------------------------------
+
+# UUIDs (proper + stub) use [-A-Za-z0-9_]; be liberal but reject any path
+# separator so ``piece_uuid`` can never escape the blob root.
+_PIECE_UUID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$")
+
+
+@app.get("/api/piece-crops/{piece_uuid}/seg{sequence}/{kind}/{idx}.jpg")
+def get_piece_crop_jpeg(
+    piece_uuid: str,
+    sequence: int,
+    kind: str,
+    idx: int,
+) -> FileResponse:
+    """Serve a piece-segment crop JPEG written by ``blob_manager.write_piece_crop``.
+
+    Path-traversal guard: ``piece_uuid`` must match ``_PIECE_UUID_RE`` and
+    ``kind`` must be one of :data:`PIECE_CROP_KINDS`. The resolved path is
+    additionally forced to live under ``BLOB_DIR/piece_crops`` — anything
+    outside yields 404. Content-addressed, so the long ``immutable``
+    cache header is safe.
+    """
+    if not _PIECE_UUID_RE.match(piece_uuid or ""):
+        raise HTTPException(status_code=404, detail="not found")
+    if kind not in PIECE_CROP_KINDS:
+        raise HTTPException(status_code=404, detail="not found")
+    try:
+        sequence_int = int(sequence)
+        idx_int = int(idx)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=404, detail="not found")
+    if sequence_int < 0 or idx_int < 0:
+        raise HTTPException(status_code=404, detail="not found")
+
+    filename = f"{kind}_{idx_int:03d}.jpg"
+    candidate = (
+        BLOB_DIR
+        / PIECE_CROPS_DIR_NAME
+        / piece_uuid
+        / f"seg{sequence_int}"
+        / filename
+    )
+    try:
+        resolved = candidate.resolve()
+        allowed_root = (BLOB_DIR / PIECE_CROPS_DIR_NAME).resolve()
+    except Exception:
+        raise HTTPException(status_code=404, detail="not found")
+    if not str(resolved).startswith(str(allowed_root)):
+        raise HTTPException(status_code=404, detail="not found")
+    if not resolved.is_file():
+        raise HTTPException(status_code=404, detail="not found")
+    return FileResponse(
+        path=str(resolved),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -497,7 +861,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
-    for item in reversed(getRecentKnownObjects()):
+    for item in reversed(get_recent_known_objects()):
         try:
             event = KnownObjectEvent(
                 tag="known_object",
@@ -525,16 +889,21 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             },
         }
     )
-    # Populate sorter_state snapshot on-demand if missing — broadcasts are only
-    # fired at FSM transitions, so a freshly-connected client would otherwise
-    # default to 'default' camera_layout even when the config says split_feeder.
+    # Populate sorter_state snapshot on-demand if missing. Post-cutover the
+    # legacy FSM is gone; the rt_handle reports its own lifecycle directly.
     if shared_state.sorter_state_snapshot is None:
-        layout = None
-        if shared_state.vision_manager is not None:
-            layout = getattr(shared_state.vision_manager, "_camera_layout", None)
-        fsm_state = "initializing"
-        if shared_state.controller_ref is not None:
-            fsm_state = getattr(shared_state.controller_ref.state, "value", "initializing")
+        rt = shared_state.rt_handle
+        if rt is None:
+            fsm_state = "initializing"
+        elif getattr(rt, "paused", False):
+            fsm_state = "paused"
+        elif getattr(rt, "started", False):
+            fsm_state = "running"
+        else:
+            fsm_state = "initializing"
+        irl = shared_state.getActiveIRL()
+        irl_config = getattr(irl, "irl_config", None) if irl is not None else None
+        layout = getattr(irl_config, "camera_layout", None) if irl_config is not None else None
         shared_state.sorter_state_snapshot = {
             "state": fsm_state,
             "camera_layout": layout,
@@ -591,6 +960,53 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Camera preview WebSocket
+# ---------------------------------------------------------------------------
+#
+# WebSocket fan-out for the settings-modal camera picker. Each tile in the
+# grid opens one WS connection against a single shared broadcaster thread
+# per device, and we never open a duplicate ``cv2.VideoCapture`` for devices
+# that vision manager already owns.
+#
+# Not to be confused with the main ``/ws`` control websocket above.
+
+
+@app.websocket("/ws/camera-preview/{index}")
+async def camera_preview_ws(websocket: WebSocket, index: int) -> None:
+    client_host = websocket.client.host if websocket.client is not None else None
+    if not websocket_connection_allowed(
+        websocket.headers.get("Origin"),
+        client_host,
+        compute_allowed_ui_origins(),
+    ):
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="WebSocket origin not allowed.",
+        )
+        return
+
+    await websocket.accept()
+
+    from server.camera_preview_hub import get_camera_preview_hub
+
+    loop = asyncio.get_running_loop()
+    hub = get_camera_preview_hub()
+    queue = hub.subscribe(index, loop=loop)
+
+    try:
+        while True:
+            frame = await queue.get()
+            await websocket.send_bytes(frame)
+    except WebSocketDisconnect:
+        pass
+    except Exception:
+        # Keep cleanup deterministic even on unexpected errors.
+        pass
+    finally:
+        hub.unsubscribe(index, queue)
+
+
+# ---------------------------------------------------------------------------
 # Runtime stats
 # ---------------------------------------------------------------------------
 
@@ -613,6 +1029,10 @@ class RuntimeStatsRecordsResponse(BaseModel):
 
 @app.get("/runtime-stats", response_model=RuntimeStatsResponse)
 def getRuntimeStats() -> RuntimeStatsResponse:
+    live_snapshot = runtime_stats_service.snapshot()
+    if live_snapshot is not None:
+        shared_state.runtime_stats_snapshot = live_snapshot
+        return RuntimeStatsResponse(payload=live_snapshot)
     if shared_state.runtime_stats_snapshot is None:
         return RuntimeStatsResponse(payload={})
     return RuntimeStatsResponse(payload=shared_state.runtime_stats_snapshot)
@@ -695,43 +1115,6 @@ def getSetProgress() -> SetProgressResponse:
 
 
 # ---------------------------------------------------------------------------
-# Runtime variables
-# ---------------------------------------------------------------------------
-
-
-class RuntimeVariableDef(BaseModel):
-    type: str
-    min: float
-    max: float
-    unit: str
-
-
-class RuntimeVariablesResponse(BaseModel):
-    definitions: Dict[str, RuntimeVariableDef]
-    values: Dict[str, Any]
-
-
-class RuntimeVariablesUpdateRequest(BaseModel):
-    values: Dict[str, Any]
-
-
-@app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
-def getRuntimeVariables() -> RuntimeVariablesResponse:
-    defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=_getRuntimeVariables().getAll())
-
-
-@app.post("/runtime-variables", response_model=RuntimeVariablesResponse)
-def updateRuntimeVariables(
-    req: RuntimeVariablesUpdateRequest,
-) -> RuntimeVariablesResponse:
-    rv = _getRuntimeVariables()
-    rv.setAll(req.values)
-    defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=rv.getAll())
-
-
-# ---------------------------------------------------------------------------
 # Polygon editor
 # ---------------------------------------------------------------------------
 
@@ -739,12 +1122,12 @@ def updateRuntimeVariables(
 @app.get("/api/polygons")
 def get_polygons() -> Dict[str, Any]:
     """Load saved channel and classification polygons."""
-    from blob_manager import getChannelPolygons, getClassificationPolygons
+    from local_state import get_channel_polygons, get_classification_polygons
     result: Dict[str, Any] = {}
-    channel = getChannelPolygons()
+    channel = get_channel_polygons()
     if channel:
         result["channel"] = channel
-    classification = getClassificationPolygons()
+    classification = get_classification_polygons()
     if classification:
         result["classification"] = classification
     return result
@@ -752,12 +1135,7 @@ def get_polygons() -> Dict[str, Any]:
 
 @app.post("/api/polygons")
 def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
-    """Save channel and classification polygons."""
-    from blob_manager import setChannelPolygons, setClassificationPolygons
-    if "channel" in body:
-        setChannelPolygons(body["channel"])
-    if "classification" in body:
-        setClassificationPolygons(body["classification"])
-    if "channel" in body and shared_state.vision_manager is not None:
-        shared_state.vision_manager.reloadPolygons()
-    return {"ok": True}
+    """Save channel and classification polygons and refresh rt perception."""
+    return PolygonConfigService(
+        rt_handle=shared_state.rt_handle,
+    ).save(body)

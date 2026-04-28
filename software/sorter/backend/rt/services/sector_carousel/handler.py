@@ -904,30 +904,7 @@ class SectorCarouselHandler:
         if duplicates:
             violations.append({"code": "duplicate_piece_uuid", "piece_uuids": duplicates})
         for slot in self._slots:
-            if slot.phase is SlotPhase.EMPTY and slot.piece_uuid is not None:
-                violations.append({"code": "empty_phase_has_piece", "slot_index": slot.slot_index, "piece_uuid": slot.piece_uuid})
-            if slot.phase is not SlotPhase.EMPTY and slot.piece_uuid is None:
-                violations.append({"code": "occupied_phase_missing_piece", "slot_index": slot.slot_index, "phase": slot.phase.value})
-            if slot.phase is SlotPhase.DROPPED_PENDING_CLEAR and not slot.ejected:
-                violations.append({"code": "dropped_pending_clear_without_eject", "slot_index": slot.slot_index})
-            if (
-                slot.contamination_state is SlotContaminationState.SPILL_SUSPECTED
-                and slot.final_route is not None
-            ):
-                violations.append({"code": "spillover_has_route", "slot_index": slot.slot_index, "final_route": slot.final_route})
-            if (
-                slot.contamination_state
-                not in {SlotContaminationState.CLEAN, SlotContaminationState.SPILL_SUSPECTED}
-                and slot.final_route != DISCARD_ROUTE
-            ):
-                violations.append({"code": "contaminated_slot_without_discard_route", "slot_index": slot.slot_index, "contamination_state": slot.contamination_state.value})
-            if slot.contamination_state is not SlotContaminationState.CLEAN and not slot.reject_reason:
-                violations.append({"code": "contaminated_slot_missing_reject_reason", "slot_index": slot.slot_index, "contamination_state": slot.contamination_state.value})
-            if (
-                slot.observed_count_estimate is not None
-                and slot.observed_count_estimate < slot.expected_count
-            ):
-                violations.append({"code": "observed_count_below_expected", "slot_index": slot.slot_index, "expected_count": slot.expected_count, "observed_count_estimate": slot.observed_count_estimate})
+            violations.extend(slot.invariant_violations())
         if self._pending_landing_leases and self._slots[0].occupied:
             violations.append({"code": "landing_lease_while_slot1_occupied", "pending_count": len(self._pending_landing_leases)})
         if len(self._pending_landing_leases) > 1:
@@ -1412,9 +1389,14 @@ def _gate_for_slot_phase(phase: SlotPhase) -> str:
     return "unknown"
 
 
+_C3_MULTI_RISK_QUALITIES = frozenset(
+    {"suspect_multi", "confirmed_multi_risk", "confirmed_multi"}
+)
+
+
 def _payload_indicates_c3_suspect_multi(payload: dict[str, Any]) -> bool:
     quality = _normalized_token(payload.get("handoff_quality"))
-    if quality in {"suspect_multi", "confirmed_multi_risk", "confirmed_multi"}:
+    if quality in _C3_MULTI_RISK_QUALITIES:
         return True
     if _truthy(payload.get("handoff_multi_risk")):
         return True
@@ -1423,11 +1405,7 @@ def _payload_indicates_c3_suspect_multi(payload: dict[str, Any]) -> bool:
         if _truthy(details.get("handoff_multi_risk")):
             return True
         detail_quality = _normalized_token(details.get("handoff_quality"))
-        return detail_quality in {
-            "suspect_multi",
-            "confirmed_multi_risk",
-            "confirmed_multi",
-        }
+        return detail_quality in _C3_MULTI_RISK_QUALITIES
     return False
 
 
@@ -1451,6 +1429,17 @@ _DISCARD_LABELS = {
     "multi_object",
 }
 
+_CLASSIFICATION_ROUTE_KEYS = (
+    "final_route",
+    "route",
+    "target_route",
+    "target_bin",
+    "final_label",
+    "label",
+    "class_label",
+    "classification",
+)
+
 
 def _classification_is_discard(classification: Any) -> bool:
     if isinstance(classification, dict):
@@ -1459,16 +1448,7 @@ def _classification_is_discard(classification: Any) -> bool:
             return True
         if _truthy(classification.get("multi_object")):
             return True
-        for key in (
-            "final_route",
-            "route",
-            "target_route",
-            "target_bin",
-            "final_label",
-            "label",
-            "class_label",
-            "classification",
-        ):
+        for key in _CLASSIFICATION_ROUTE_KEYS:
             value = _normalized_token(classification.get(key))
             if value in _DISCARD_LABELS:
                 return True
@@ -1504,16 +1484,7 @@ def _discard_reason_from_classification(classification: Any) -> str:
 
 def _route_from_classification(classification: Any) -> str | None:
     if isinstance(classification, dict):
-        for key in (
-            "final_route",
-            "route",
-            "target_route",
-            "target_bin",
-            "final_label",
-            "label",
-            "class_label",
-            "classification",
-        ):
+        for key in _CLASSIFICATION_ROUTE_KEYS:
             value = classification.get(key)
             if isinstance(value, str) and value.strip():
                 return value.strip()

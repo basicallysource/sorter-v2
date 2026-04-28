@@ -194,3 +194,42 @@ class SectorSlot:
             "blocked_reason": self.blocked_reason,
             "extras": dict(self.extras),
         }
+
+    def invariant_violations(self) -> list[dict[str, Any]]:
+        violations: list[dict[str, Any]] = []
+
+        def add(code: str, **payload: Any) -> None:
+            violations.append({"code": code, "slot_index": self.slot_index, **payload})
+
+        if self.phase is SlotPhase.EMPTY and self.piece_uuid is not None:
+            add("empty_phase_has_piece", piece_uuid=self.piece_uuid)
+        if self.phase is not SlotPhase.EMPTY and self.piece_uuid is None:
+            add("occupied_phase_missing_piece", phase=self.phase.value)
+        if self.phase is SlotPhase.DROPPED_PENDING_CLEAR and not self.ejected:
+            add("dropped_pending_clear_without_eject")
+        if self.contamination_state is SlotContaminationState.SPILL_SUSPECTED:
+            if self.final_route is not None:
+                add("spillover_has_route", final_route=self.final_route)
+        elif (
+            self.contamination_state is not SlotContaminationState.CLEAN
+            and self.final_route != DISCARD_ROUTE
+        ):
+            add(
+                "contaminated_slot_without_discard_route",
+                contamination_state=self.contamination_state.value,
+            )
+        if self.contamination_state is not SlotContaminationState.CLEAN and not self.reject_reason:
+            add(
+                "contaminated_slot_missing_reject_reason",
+                contamination_state=self.contamination_state.value,
+            )
+        if (
+            self.observed_count_estimate is not None
+            and self.observed_count_estimate < self.expected_count
+        ):
+            add(
+                "observed_count_below_expected",
+                expected_count=self.expected_count,
+                observed_count_estimate=self.observed_count_estimate,
+            )
+        return violations

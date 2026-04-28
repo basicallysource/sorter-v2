@@ -58,6 +58,7 @@ class _PurgeHost(Protocol):
     _carousel_move: Callable[[float], bool]
     _startup_purge_move: Callable[[float], bool]
     _eject: Callable[[], bool]
+    _startup_purge_controller: Any
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]: ...
     def _reconcile_visible_tracks(self, tracks: list[Track], now_mono: float) -> None: ...
@@ -77,9 +78,6 @@ class _PurgeHost(Protocol):
         move_command: Callable[[float], bool] | None = None,
     ) -> bool: ...
     def _set_state(self, state: str, *, blocked_reason: str | None = None) -> None: ...
-    def _enter_startup_purge(self) -> None: ...
-    def _exit_startup_purge(self) -> None: ...
-
 
 class C4StartupPurgeStrategy:
     """Policy knobs for the classification-channel startup purge."""
@@ -192,7 +190,7 @@ class C4StartupPurgeStrategy:
         if not state.armed:
             return False
 
-        host._enter_startup_purge()
+        host._startup_purge_controller.enter()
 
         if state.commit_piece_uuid is not None:
             if host._hw.busy() or state.eject_ok is None:
@@ -232,7 +230,7 @@ class C4StartupPurgeStrategy:
             ):
                 state.armed = False
                 state.clear_since = None
-                host._exit_startup_purge()
+                host._startup_purge_controller.exit()
                 return False
             host._set_state("startup_purge", blocked_reason="verifying_clear")
             return True
@@ -285,7 +283,7 @@ class C4StartupPurgeStrategy:
                     raw_count,
                 )
                 state.armed = False
-                host._exit_startup_purge()
+                host._startup_purge_controller.exit()
                 return False
             host._set_state("startup_purge", blocked_reason="awaiting_track_lock")
             return True

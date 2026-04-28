@@ -423,7 +423,7 @@ class RuntimeC4(BaseRuntime):
         return int(self.capacity_debug_snapshot()["available"])
 
     def capacity_debug_snapshot(self) -> dict[str, Any]:
-        if self._startup_purge_pending():
+        if self._startup_purge_controller.pending():
             return {
                 "available": 0,
                 "reason": "startup_purge",
@@ -658,7 +658,7 @@ class RuntimeC4(BaseRuntime):
         visible_tracks = [t for t in raw_tracks if is_visible_track(t)]
         self._raw_detection_count = len(visible_tracks)
         owned_tracks = self._sync_owned_tracks(visible_tracks, now_mono)
-        if self._run_startup_purge(visible_tracks, owned_tracks, now_mono):
+        if self._startup_purge_controller.run(visible_tracks, owned_tracks, now_mono):
             return
         intake_candidates = [
             t
@@ -720,17 +720,8 @@ class RuntimeC4(BaseRuntime):
             "arc_clear": arc_clear,
             "transport_count": len(self._pieces),
             "cooldown_active": time.monotonic() < self._next_accept_at,
-            "startup_purge_active": self._startup_purge_pending(),
+            "startup_purge_active": self._startup_purge_controller.pending(),
         }
-
-    def _startup_purge_pending(self) -> bool:
-        return self._startup_purge_controller.pending()
-
-    def _enter_startup_purge(self) -> None:
-        self._startup_purge_controller.enter()
-
-    def _exit_startup_purge(self) -> None:
-        self._startup_purge_controller.exit()
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]:
         return [t for t in tracks if self._piece_uuid_for_track(t) is not None]
@@ -797,17 +788,6 @@ class RuntimeC4(BaseRuntime):
                     abort_reason="track_lost",
                 )
         return self._owned_tracks(tracks)
-
-    def _run_startup_purge(
-        self,
-        raw_tracks: list[Track],
-        owned_tracks: list[Track],
-        now_mono: float,
-    ) -> bool:
-        return self._startup_purge_controller.run(raw_tracks, owned_tracks, now_mono)
-
-    def _startup_purge_visible_detection_count(self, raw_tracks: list[Track]) -> int:
-        return self._startup_purge_controller.visible_detection_count(raw_tracks)
 
     def _admit_new_tracks(self, tracks: list[Track], now_mono: float) -> None:
         if now_mono < self._next_accept_at:

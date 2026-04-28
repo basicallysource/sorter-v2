@@ -81,7 +81,10 @@ class C4TransportController:
         if not rt._pieces or not tracks:
             self.reset_progress_watch()
             return False
-        if rt._startup_purge_pending() or rt._startup_purge_state.mode_active:
+        if (
+            rt._startup_purge_controller.pending()
+            or rt._startup_purge_state.mode_active
+        ):
             self.reset_progress_watch()
             return False
         if rt._fsm in (
@@ -313,7 +316,10 @@ class C4TransportController:
             return False
         if rt._pieces:
             return False
-        if rt._startup_purge_pending() or rt._startup_purge_state.mode_active:
+        if (
+            rt._startup_purge_controller.pending()
+            or rt._startup_purge_state.mode_active
+        ):
             return False
         if rt._fsm in (
             state.STARTUP_PURGE,

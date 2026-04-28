@@ -56,7 +56,7 @@ class C4PurgePort:
 
     def disarm(self) -> None:
         self._runtime._startup_purge_state.armed = False
-        self._runtime._exit_startup_purge()
+        self._runtime._startup_purge_controller.exit()
 
     def counts(self) -> PurgeCounts:
         return PurgeCounts(

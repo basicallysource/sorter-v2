@@ -371,7 +371,7 @@ def _default_training_manager() -> Any:
 
 
 def _feed_id_for_runner(runner: Any) -> str | None:
-    pipeline = getattr(runner, "_pipeline", None)
+    pipeline = _pipeline_from_runner(runner)
     feed = getattr(pipeline, "feed", None)
     feed_id = getattr(feed, "feed_id", None)
     return feed_id if isinstance(feed_id, str) and feed_id else None
@@ -385,7 +385,7 @@ def _state_from_runner(runner: Any) -> Any | None:
 
 
 def _pipeline_from_runner(runner: Any) -> Any | None:
-    pipeline = getattr(runner, "_pipeline", None)
+    pipeline = getattr(runner, "pipeline", None)
     return pipeline
 
 

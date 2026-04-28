@@ -102,7 +102,7 @@ class _FakePipeline:
 
 class _FakeRunner:
     def __init__(self, pipeline: _FakePipeline) -> None:
-        self._pipeline = pipeline
+        self.pipeline = pipeline
 
 
 class _FakeRtHandle:

@@ -111,7 +111,7 @@ class _Runner:
         zone: Any | None = None,
         detector: Any | None = None,
     ) -> None:
-        self._pipeline = _Pipeline(feed_id, zone=zone, detector=detector)
+        self.pipeline = _Pipeline(feed_id, zone=zone, detector=detector)
         self._state = state
 
     def latest_state(self) -> Any | None:

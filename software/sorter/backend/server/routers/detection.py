@@ -617,7 +617,7 @@ def _find_rt_perception_runner(feed_id: str):
         if runner is not None:
             return runner
     for runner in getattr(handle, "perception_runners", []) or []:
-        pipeline = getattr(runner, "_pipeline", None)
+        pipeline = getattr(runner, "pipeline", None)
         if pipeline is None:
             continue
         feed = getattr(pipeline, "feed", None)
@@ -805,7 +805,12 @@ def _detect_from_rt_pipeline(
             message=f"rt perception runner for {scope_label} is not available.",
         )
 
-    pipeline = runner._pipeline  # type: ignore[attr-defined]
+    pipeline = getattr(runner, "pipeline", None)
+    if pipeline is None:
+        return _empty_detect_payload(
+            algorithm=normalize_detection_algorithm(scope, None),
+            message=f"rt perception runner for {scope_label} has no pipeline.",
+        )
     feed = pipeline.feed
     zone = pipeline.zone
     detector = pipeline.detector

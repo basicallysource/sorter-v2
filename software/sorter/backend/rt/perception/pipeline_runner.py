@@ -307,6 +307,11 @@ class PerceptionRunner:
 
     # ---- Reader API ----------------------------------------------------
 
+    @property
+    def pipeline(self) -> PerceptionPipeline:
+        """Public read-only view of the configured perception pipeline."""
+        return self._pipeline
+
     def latest_tracks(self) -> TrackBatch | None:
         with self._latest_lock:
             return self._latest

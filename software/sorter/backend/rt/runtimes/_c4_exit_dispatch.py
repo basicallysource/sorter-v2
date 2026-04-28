@@ -115,7 +115,7 @@ class C4ExitDispatcher:
         if bank_track is not None:
             bank_track.handoff_requested = True
             bank_track.last_handoff_attempt_at = now_mono
-        rt._record_handoff_move(
+        rt._handoff_debug.record_handoff_move(
             now_mono=now_mono,
             source="c4_distributor_handoff_request",
             step_deg=None,
@@ -175,7 +175,7 @@ class C4ExitDispatcher:
         dossier.eject_committed = False
         dossier.last_handoff_attempt_at = now_mono
         rt._mark_handoff(f"aborted_{reason}")
-        rt._record_handoff_move(
+        rt._handoff_debug.record_handoff_move(
             now_mono=now_mono,
             source=f"c4_handoff_abort_{reason}",
             step_deg=None,
@@ -326,7 +326,7 @@ class C4ExitDispatcher:
                 rt._downstream_slot.release()
             rt._set_state("drop_commit", blocked_reason="hw_queue_full")
             return False
-        rt._record_handoff_move(
+        rt._handoff_debug.record_handoff_move(
             now_mono=time.monotonic(),
             source="c4_eject",
             step_deg=None,

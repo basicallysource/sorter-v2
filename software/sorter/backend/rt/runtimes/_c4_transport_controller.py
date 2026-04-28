@@ -211,7 +211,7 @@ class C4TransportController:
                 rt._logger.exception("RuntimeC4: transport move raised")
 
         if rt._hw.enqueue(_do_move, label="c4_transport"):
-            rt._record_handoff_move(
+            rt._handoff_debug.record_handoff_move(
                 now_mono=now_mono,
                 source="c4_transport",
                 step_deg=step,

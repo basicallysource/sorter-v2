@@ -936,7 +936,7 @@ class RuntimeC4(BaseRuntime):
             release_upstream_now = True
         if release_upstream_now:
             self._upstream_slot.release()
-        self._record_dropzone_arrival(
+        self._handoff_debug.record_dropzone_arrival(
             track=track,
             dossier=dossier,
             now_mono=now_mono,
@@ -1058,54 +1058,6 @@ class RuntimeC4(BaseRuntime):
         if zone is None:
             return 9999.0
         return abs(_wrap_deg(float(zone.center_deg) - self._exit_angle_deg))
-
-    def _record_dropzone_arrival(
-        self,
-        *,
-        track: Track,
-        dossier: _PieceDossier,
-        now_mono: float,
-        release_upstream: bool,
-        recovered: bool,
-    ) -> None:
-        self._handoff_debug.record_dropzone_arrival(
-            track=track,
-            dossier=dossier,
-            now_mono=now_mono,
-            release_upstream=release_upstream,
-            recovered=recovered,
-        )
-
-    def _record_handoff_move(
-        self,
-        *,
-        now_mono: float,
-        source: str,
-        step_deg: float | None,
-        use_exit_approach: bool | None,
-        track_count: int,
-        dossier: _PieceDossier | None = None,
-        extra: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return self._handoff_debug.record_handoff_move(
-            now_mono=now_mono,
-            source=source,
-            step_deg=step_deg,
-            use_exit_approach=use_exit_approach,
-            track_count=track_count,
-            dossier=dossier,
-            extra=extra,
-        )
-
-    def _publish_handoff_burst(
-        self,
-        anomaly: dict[str, Any],
-        now_mono: float,
-    ) -> None:
-        self._handoff_debug.publish_handoff_burst(anomaly, now_mono)
-
-    def _track_angle_deg(self, track: Track) -> float | None:
-        return self._handoff_debug.track_angle_deg(track)
 
     def landing_lease_port(self) -> LandingLeasePort:
         """Expose this C4's landing-lease gate to the upstream C3.

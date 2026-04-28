@@ -47,6 +47,7 @@ from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._c4_exit_dispatch import C4ExitDispatcher
+from ._c4_transport_controller import C4TransportController
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
 from ._strategies import (
@@ -110,8 +111,6 @@ DEFAULT_UNJAM_MIN_PROGRESS_DEG = 2.0
 DEFAULT_UNJAM_COOLDOWN_MS = 3000
 DEFAULT_UNJAM_REVERSE_DEG = 3.0
 DEFAULT_UNJAM_FORWARD_DEG = 9.0
-DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.25
-DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG = 45.0
 DEFAULT_TRACKLET_TRANSIT_TTL_S = 1.25
 DEFAULT_TRACKLET_TRANSIT_MAX_ANGLE_DELTA_DEG = 45.0
 DEFAULT_DELIVERED_TRACK_SUPPRESS_S = 15.0
@@ -401,6 +400,7 @@ class RuntimeC4(BaseRuntime):
             logger=self._logger,
         )
         self._exit_dispatcher = C4ExitDispatcher(self)
+        self._transport_controller = C4TransportController(self)
 
     def available_slots(self) -> int:
         return int(self.capacity_debug_snapshot()["available"])
@@ -2134,138 +2134,22 @@ class RuntimeC4(BaseRuntime):
         return best
 
     def _owned_track_angles(self, tracks: list[Track]) -> dict[int, float]:
-        angles: dict[int, float] = {}
-        for track in tracks:
-            if track.angle_rad is None or track.global_id is None:
-                continue
-            gid = int(track.global_id)
-            if self._piece_uuid_for_track(track) is None:
-                continue
-            angles[gid] = math.degrees(float(track.angle_rad))
-        return angles
+        return self._transport_controller.owned_track_angles(tracks)
 
     def _reset_transport_progress_watch(self) -> None:
-        self._transport_progress_started_at = None
-        self._transport_progress_baseline = {}
-        self._last_transport_progress_deg = None
+        self._transport_controller.reset_progress_watch()
 
     def _hw_busy_or_backlogged(self) -> bool:
         return bool(self._hw.busy() or self._hw.pending() > 0)
 
     def _transport_waiting_on_ready_exit(self, tracks: list[Track]) -> bool:
-        return self._transport_exit_hold_reason(tracks) is not None
+        return self._transport_controller.waiting_on_ready_exit(tracks)
 
     def _transport_exit_hold_reason(self, tracks: list[Track]) -> str | None:
-        exit_track = self._pick_exit_track(tracks)
-        if exit_track is None or exit_track.global_id is None:
-            exit_track = None
-        if exit_track is not None:
-            piece_uuid = self._piece_uuid_for_track(exit_track)
-            dossier = self._pieces.get(piece_uuid) if piece_uuid is not None else None
-            if dossier is not None:
-                return "exit_piece_not_ready"
-        for dossier in self._dossiers_by_exit_distance():
-            if dossier.result is None or not dossier.handoff_requested:
-                continue
-            if self._handoff is not None:
-                self._sync_handoff_from_port(dossier)
-            if not dossier.distributor_ready:
-                return "waiting_distributor"
-        hold_deg = max(float(self._angle_tol_deg), float(self._exit_approach_angle_deg))
-        for dossier in self._dossiers_by_exit_distance():
-            distance = self._dossier_exit_distance(dossier)
-            if distance > hold_deg:
-                continue
-            if dossier.eject_enqueued:
-                return "eject_in_flight"
-            if dossier.result is None:
-                return "exit_piece_unclassified"
-            if self._handoff is not None:
-                self._sync_handoff_from_port(dossier)
-                if not dossier.handoff_requested:
-                    return "waiting_distributor_request"
-                if not dossier.distributor_ready:
-                    return "waiting_distributor"
-            return None
-        return None
+        return self._transport_controller.exit_hold_reason(tracks)
 
     def _maybe_unjam_transport(self, tracks: list[Track], now_mono: float) -> bool:
-        if not self._unjam_enabled:
-            self._reset_transport_progress_watch()
-            return False
-        if not self._pieces or not tracks:
-            self._reset_transport_progress_watch()
-            return False
-        if self._startup_purge_pending() or self._startup_purge_state.mode_active:
-            self._reset_transport_progress_watch()
-            return False
-        if self._fsm in (
-            _C4State.STARTUP_PURGE,
-            _C4State.DROP_COMMIT,
-            _C4State.EXIT_SHIMMY,
-            _C4State.TRANSPORT_UNJAM,
-        ):
-            return False
-        if self._transport_waiting_on_ready_exit(tracks):
-            self._reset_transport_progress_watch()
-            return False
-
-        angles = self._owned_track_angles(tracks)
-        if not angles:
-            self._reset_transport_progress_watch()
-            return False
-        if not self._transport_progress_baseline:
-            self._transport_progress_baseline = dict(angles)
-            self._transport_progress_started_at = now_mono
-            self._last_transport_progress_deg = 0.0
-            return False
-
-        common_ids = set(angles).intersection(self._transport_progress_baseline)
-        if not common_ids:
-            self._transport_progress_baseline = dict(angles)
-            self._transport_progress_started_at = now_mono
-            self._last_transport_progress_deg = 0.0
-            return False
-
-        progress = max(
-            abs(_wrap_deg(angles[gid] - self._transport_progress_baseline[gid]))
-            for gid in common_ids
-        )
-        self._last_transport_progress_deg = progress
-        if progress >= self._unjam_min_progress_deg:
-            self._transport_progress_baseline = dict(angles)
-            self._transport_progress_started_at = now_mono
-            return False
-
-        started_at = self._transport_progress_started_at
-        if started_at is None:
-            self._transport_progress_started_at = now_mono
-            return False
-        if (now_mono - started_at) < self._unjam_stall_s:
-            return False
-        if now_mono < self._next_unjam_at or self._hw_busy_or_backlogged():
-            return False
-
-        reverse_deg = self._unjam_reverse_deg
-        forward_deg = self._unjam_forward_deg
-
-        def _do_unjam() -> None:
-            try:
-                self._unjam_move(-reverse_deg)
-                self._unjam_move(forward_deg)
-            except Exception:
-                self._logger.exception("RuntimeC4: transport unjam move raised")
-
-        if self._hw.enqueue(_do_unjam, label="c4_transport_unjam"):
-            self._next_unjam_at = now_mono + self._unjam_cooldown_s
-            self._last_unjam_at = now_mono
-            self._unjam_count += 1
-            self._transport_progress_baseline = dict(angles)
-            self._transport_progress_started_at = now_mono
-            self._fsm = _C4State.TRANSPORT_UNJAM
-            self._set_state(self._fsm.value)
-            return True
-        return False
+        return self._transport_controller.maybe_unjam_transport(tracks, now_mono)
 
     def _maybe_advance_transport(
         self,
@@ -2274,71 +2158,11 @@ class RuntimeC4(BaseRuntime):
         *,
         move_command: Callable[[float], bool] | None = None,
     ) -> bool:
-        if not self._pieces or not tracks:
-            return False
-        if self._fsm in (
-            _C4State.DROP_COMMIT,
-            _C4State.EXIT_SHIMMY,
-            _C4State.TRANSPORT_UNJAM,
-        ):
-            return False
-        if self._hw_busy_or_backlogged() or now_mono < self._next_transport_at:
-            return False
-        hold_reason = self._transport_exit_hold_reason(tracks)
-        if hold_reason is not None:
-            self._set_state("drop_commit", blocked_reason=hold_reason)
-            return False
-
-        use_exit_approach = move_command is None and (
-            any(self._track_in_exit_approach(track) for track in tracks)
-            or self._has_ready_handoff_track(tracks)
-        )
-        recommended_step = self._transport_velocity.snapshot.recommended_step_deg
-        step = (
-            min(self._transport_step_deg, self._exit_approach_step_deg)
-            if use_exit_approach
-            else float(recommended_step or self._transport_step_deg)
-        )
-        if not use_exit_approach:
-            step = max(self._transport_step_deg, min(self._transport_max_step_deg, step))
-
-        # Stage 4: C4 as a clocked buffer. If we have a classified
-        # candidate and the distributor is busy until t_free, scale
-        # the step so the front classified piece arrives at the exit
-        # near t_free — the chute should not sit ready while the next
-        # piece is still 50 deg away. ``schedule_step`` overrides the
-        # velocity-observer recommendation when it would over-step
-        # (i.e. arrive too early and stall) or under-step (arrive
-        # late, distributor idle).
-        scheduled = self._scheduled_transport_step(
+        return self._transport_controller.maybe_advance_transport(
             tracks=tracks,
             now_mono=now_mono,
-            base_step=step,
-            use_exit_approach=use_exit_approach,
+            move_command=move_command,
         )
-        if scheduled is not None:
-            step = scheduled
-        move = move_command or (
-            self._carousel_move if use_exit_approach else self._transport_move
-        )
-
-        def _do_move() -> None:
-            try:
-                move(step)
-            except Exception:
-                self._logger.exception("RuntimeC4: transport move raised")
-
-        if self._hw.enqueue(_do_move, label="c4_transport"):
-            self._record_handoff_move(
-                now_mono=now_mono,
-                source="c4_transport",
-                step_deg=step,
-                use_exit_approach=use_exit_approach,
-                track_count=len(tracks),
-            )
-            self._next_transport_at = now_mono + self._transport_cooldown_s
-            return True
-        return False
 
     def _scheduled_transport_step(
         self,
@@ -2348,77 +2172,15 @@ class RuntimeC4(BaseRuntime):
         base_step: float,
         use_exit_approach: bool,
     ) -> float | None:
-        """Return a step size that aligns the front classified piece's
-        exit-arrival with the distributor's next ready time.
-
-        Returns ``None`` when no scheduling improvement is available
-        (no classified candidate, distributor not busy, no handoff port).
-        Otherwise returns a step in [transport_step_deg,
-        transport_max_step_deg]. Honours the exit-approach cap when the
-        front piece is already in the slow zone.
-        """
-        port = self._handoff
-        if port is None:
-            return None
-        candidate = self._next_handoff_candidate()
-        if candidate is None:
-            return None
-        # Predicted free time of the chute. Probed via duck-typing so
-        # the scheduler also works when the wired ``HandoffPort`` is a
-        # test stub without ``next_ready_time``.
-        next_ready_fn = getattr(port, "next_ready_time", None)
-        if not callable(next_ready_fn):
-            return None
-        try:
-            t_free = float(next_ready_fn(now_mono))
-        except Exception:
-            return None
-        time_until_ready = max(0.0, t_free - float(now_mono))
-        if time_until_ready <= 0.05:
-            # Distributor is essentially free — defer to the existing
-            # velocity controller. Stage 4 is about avoiding the
-            # opposite case (chute idle while piece crawls).
-            return None
-        zone = self._zone_manager.zone_for(candidate.piece_uuid)
-        if zone is None:
-            return None
-        exit_distance_deg = abs(_wrap_deg(zone.center_deg - self._exit_angle_deg))
-        if exit_distance_deg <= 0.5:
-            return None
-        cooldown = max(self._transport_cooldown_s, 0.001)
-        steps_remaining = max(1.0, time_until_ready / cooldown)
-        desired_step = exit_distance_deg / steps_remaining
-        cap = (
-            min(self._transport_step_deg, self._exit_approach_step_deg)
-            if use_exit_approach
-            else self._transport_max_step_deg
+        return self._transport_controller.scheduled_transport_step(
+            tracks=tracks,
+            now_mono=now_mono,
+            base_step=base_step,
+            use_exit_approach=use_exit_approach,
         )
-        floor = self._transport_step_deg
-        return max(floor, min(cap, desired_step))
 
     def _dispatch_sample_transport_step(self, now_mono: float) -> bool:
-        """Rotate C4 without classification, admission, or distributor handoff."""
-        if self._hw_busy_or_backlogged():
-            self._set_state("sample_transport", blocked_reason="hw_busy")
-            return False
-        step = self._sample_transport_step_deg
-
-        def _do_move() -> None:
-            try:
-                self._sample_transport_move(
-                    step,
-                    self._sample_transport_max_speed,
-                    self._sample_transport_acceleration,
-                )
-            except Exception:
-                self._logger.exception("RuntimeC4: sample transport move raised")
-
-        if not self._hw.enqueue(_do_move, label="c4_sample_transport"):
-            self._set_state("sample_transport", blocked_reason="hw_queue_full")
-            return False
-        self._next_transport_at = now_mono + self._transport_cooldown_s
-        self._set_state("sample_transport")
-        return True
+        return self._transport_controller.dispatch_sample_transport_step(now_mono)
 
     def _configure_sample_transport(
         self,
@@ -2427,113 +2189,23 @@ class RuntimeC4(BaseRuntime):
         direct_max_speed_usteps_per_s: int | None = None,
         direct_acceleration_usteps_per_s2: int | None = None,
     ) -> None:
-        self._sample_transport_max_speed = direct_max_speed_usteps_per_s
-        self._sample_transport_acceleration = direct_acceleration_usteps_per_s2
-        if target_rpm is None:
-            self._sample_transport_step_deg = self._transport_step_deg
-            return
-        target_degrees_per_second = max(0.0, float(target_rpm)) * 6.0
-        step = target_degrees_per_second * DEFAULT_SAMPLE_TRANSPORT_TARGET_INTERVAL_S
-        self._sample_transport_step_deg = max(
-            self._transport_step_deg,
-            min(DEFAULT_SAMPLE_TRANSPORT_MAX_STEP_DEG, step),
+        self._transport_controller.configure_sample_transport(
+            target_rpm=target_rpm,
+            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
+            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
         )
 
     def _maybe_idle_jog(self, now_mono: float) -> bool:
-        if not self._idle_jog_enabled:
-            return False
-        if self._pieces:
-            return False
-        if self._startup_purge_pending() or self._startup_purge_state.mode_active:
-            return False
-        if self._fsm in (
-            _C4State.STARTUP_PURGE,
-            _C4State.DROP_COMMIT,
-            _C4State.EXIT_SHIMMY,
-            _C4State.TRANSPORT_UNJAM,
-        ):
-            return False
-        if self._hw_busy_or_backlogged() or now_mono < self._next_idle_jog_at:
-            return False
-        if now_mono < self._next_accept_at:
-            return False
-
-        def _do_idle_jog() -> None:
-            try:
-                self._carousel_move(self._idle_jog_step_deg)
-            except Exception:
-                self._logger.exception("RuntimeC4: idle jog move raised")
-
-        if self._hw.enqueue(_do_idle_jog, label="c4_idle_jog"):
-            self._next_idle_jog_at = now_mono + self._idle_jog_cooldown_s
-            self._last_idle_jog_at = now_mono
-            self._idle_jog_count += 1
-            return True
-        return False
+        return self._transport_controller.maybe_idle_jog(now_mono)
 
     def _track_in_exit_approach(self, track: Track) -> bool:
-        if track.angle_rad is None or track.global_id is None:
-            return False
-        if self._piece_uuid_for_track(track) is None:
-            return False
-        center_delta = abs(_wrap_deg(math.degrees(track.angle_rad) - self._exit_angle_deg))
-        if center_delta <= self._exit_approach_angle_deg:
-            return True
-        overlap = self._exit_zone_bbox_overlap_ratio(track)
-        return bool(overlap is not None and overlap > 0.0)
+        return self._transport_controller.track_in_exit_approach(track)
 
     def _has_ready_handoff_track(self, tracks: list[Track]) -> bool:
-        for track in tracks:
-            piece_uuid = self._piece_uuid_for_track(track)
-            if piece_uuid is None:
-                continue
-            dossier = self._pieces.get(piece_uuid)
-            if (
-                dossier is not None
-                and dossier.handoff_requested
-                and dossier.distributor_ready
-                and not dossier.eject_enqueued
-            ):
-                return True
-        return False
+        return self._transport_controller.has_ready_handoff_track(tracks)
 
     def _exit_zone_bbox_overlap_ratio(self, track: Track) -> float | None:
-        if track.angle_rad is None:
-            return None
-        bbox = getattr(track, "bbox_xyxy", None)
-        radius = getattr(track, "radius_px", None)
-        if bbox is None or radius is None:
-            return None
-        try:
-            x1, y1, x2, y2 = (float(v) for v in bbox)
-            radius_f = float(radius)
-        except (TypeError, ValueError):
-            return None
-        if x2 <= x1 or y2 <= y1 or radius_f <= 0.0:
-            return None
-
-        center_angle = float(track.angle_rad)
-        center_x = (x1 + x2) / 2.0
-        center_y = (y1 + y2) / 2.0
-        origin_x = center_x - radius_f * math.cos(center_angle)
-        origin_y = center_y - radius_f * math.sin(center_angle)
-        deltas: list[float] = []
-        for x, y in ((x1, y1), (x1, y2), (x2, y1), (x2, y2)):
-            corner_angle = math.degrees(math.atan2(y - origin_y, x - origin_x))
-            deltas.append(_wrap_deg(corner_angle - math.degrees(center_angle)))
-        if not deltas:
-            return None
-
-        start = min(deltas)
-        end = max(deltas)
-        width = max(0.0, end - start)
-        exit_delta = _wrap_deg(self._exit_angle_deg - math.degrees(center_angle))
-        window_start = exit_delta - self._angle_tol_deg
-        window_end = exit_delta + self._angle_tol_deg
-        if width <= 1e-6:
-            return 1.0 if window_start <= 0.0 <= window_end else 0.0
-        overlap = max(0.0, min(end, window_end) - max(start, window_start))
-        return max(0.0, min(1.0, overlap / width))
+        return self._transport_controller.exit_zone_bbox_overlap_ratio(track)
 
     def _refresh_fsm_label(
         self,

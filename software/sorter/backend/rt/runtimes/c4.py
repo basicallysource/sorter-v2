@@ -48,6 +48,7 @@ from ._c4_debug_snapshots import C4DebugSnapshots
 from ._c4_exit_dispatch import C4ExitDispatcher
 from ._c4_handoff_debug import C4HandoffDebug
 from ._c4_payloads import C4Payloads
+from ._c4_piece_lifecycle import C4PieceLifecycle
 from ._c4_ports import (
     C4LandingLeasePort,
     C4PurgePort,
@@ -119,9 +120,7 @@ DEFAULT_UNJAM_MIN_PROGRESS_DEG = 2.0
 DEFAULT_UNJAM_COOLDOWN_MS = 3000
 DEFAULT_UNJAM_REVERSE_DEG = 3.0
 DEFAULT_UNJAM_FORWARD_DEG = 9.0
-DEFAULT_TRACKLET_TRANSIT_TTL_S = 1.25
 DEFAULT_TRACKLET_TRANSIT_MAX_ANGLE_DELTA_DEG = 45.0
-DEFAULT_DELIVERED_TRACK_SUPPRESS_S = 15.0
 
 
 class _C4State(str, Enum):
@@ -412,6 +411,7 @@ class RuntimeC4(BaseRuntime):
         self._debug_snapshots = C4DebugSnapshots(self)
         self._payloads = C4Payloads(self)
         self._classification_controller = C4ClassificationController(self)
+        self._piece_lifecycle = C4PieceLifecycle(self)
         self._handoff_debug = C4HandoffDebug(self)
         self._exit_dispatcher = C4ExitDispatcher(self)
         self._transport_controller = C4TransportController(self)
@@ -502,7 +502,7 @@ class RuntimeC4(BaseRuntime):
 
     def on_piece_delivered(self, piece_uuid: str, now_mono: float) -> None:
         """Distributor accepted the piece — free slot, remove zone, pop dossier."""
-        self._finalize_piece(piece_uuid, now_mono=now_mono, arm_cooldown=True)
+        self._piece_lifecycle.on_piece_delivered(piece_uuid, now_mono)
 
     def set_handoff_port(self, port: HandoffPort | None) -> None:
         """Bind the downstream handoff surface (typically the distributor)."""
@@ -566,11 +566,7 @@ class RuntimeC4(BaseRuntime):
 
     def on_piece_rejected(self, piece_uuid: str, reason: str) -> None:
         """Phase-5 stub: distributor signals the piece cannot be sorted."""
-        self._logger.info("RuntimeC4: piece %s rejected (reason=%s)", piece_uuid, reason)
-        dossier = self._pieces.get(piece_uuid)
-        if dossier is not None:
-            dossier.reject_reason = reason
-        self._finalize_piece(piece_uuid, now_mono=None, arm_cooldown=False)
+        self._piece_lifecycle.on_piece_rejected(piece_uuid, reason)
 
     def _finalize_piece(
         self,
@@ -581,46 +577,13 @@ class RuntimeC4(BaseRuntime):
         abort_handoff: bool = False,
         abort_reason: str = "handoff_aborted",
     ) -> None:
-        dossier = self._pieces.pop(piece_uuid, None)
-        # Mirror finalize into the bank. arm_cooldown=True is the
-        # ``delivered to distributor`` path; mark it ejected so the
-        # bank can suppress accidental re-admission of a lingering
-        # raw track (the existing tombstone covers it on the dossier
-        # side, this keeps the bank in sync).
-        self._bank_finalize(piece_uuid, ejected=bool(arm_cooldown))
-        if dossier is not None and arm_cooldown and now_mono is not None:
-            self._remember_delivered_piece(dossier, now_mono)
-        if dossier is not None and abort_reason == "track_lost":
-            self._park_lost_piece_transit(dossier, now_mono=now_mono)
-            self._publish_piece_lost(dossier, now_mono=now_mono)
-        if dossier is not None:
-            self._track_to_piece = {
-                gid: mapped_piece_uuid
-                for gid, mapped_piece_uuid in self._track_to_piece.items()
-                if mapped_piece_uuid != dossier.piece_uuid
-            }
-        self._zone_manager.remove_zone(piece_uuid)
-        if abort_handoff and dossier is not None and dossier.handoff_requested:
-            port = self._handoff
-            if port is not None:
-                ts = time.monotonic() if now_mono is None else now_mono
-                try:
-                    port.handoff_abort(
-                        piece_uuid,
-                        reason=abort_reason,
-                        now_mono=ts,
-                    )
-                except Exception:
-                    self._logger.exception(
-                        "RuntimeC4: distributor handoff_abort raised for piece=%s",
-                        piece_uuid,
-                    )
-        self._downstream_slot.release()
-        if arm_cooldown and now_mono is not None:
-            self._next_accept_at = now_mono + self._post_commit_cooldown_s
-        if self._fsm is _C4State.DROP_COMMIT:
-            self._fsm = _C4State.RUNNING
-            self._set_state(self._fsm.value)
+        self._piece_lifecycle.finalize_piece(
+            piece_uuid,
+            now_mono=now_mono,
+            arm_cooldown=arm_cooldown,
+            abort_handoff=abort_handoff,
+            abort_reason=abort_reason,
+        )
 
     def _publish_piece_lost(
         self,
@@ -628,28 +591,7 @@ class RuntimeC4(BaseRuntime):
         *,
         now_mono: float | None,
     ) -> None:
-        now_wall = time.time()
-        last_angle_deg = self._dossier_last_angle_deg(dossier)
-        zone_payload = self._dossier_event_payload(
-            dossier,
-            zone_state="lost",
-            center_deg=last_angle_deg,
-            lost_at=now_wall,
-        )
-        self._publish(
-            PIECE_REGISTERED,
-            {
-                **zone_payload,
-                "stage": "registered",
-                "classification_status": self._classification_status(dossier.result),
-                "updated_at": now_wall,
-                "dossier": {
-                    **zone_payload,
-                    "classification_channel_exit_deg": self._exit_angle_deg,
-                },
-            },
-            now_mono if now_mono is not None else time.monotonic(),
-        )
+        self._piece_lifecycle.publish_piece_lost(dossier, now_mono=now_mono)
 
     def _park_lost_piece_transit(
         self,
@@ -657,37 +599,7 @@ class RuntimeC4(BaseRuntime):
         *,
         now_mono: float | None,
     ) -> None:
-        registry = self._track_transit
-        if registry is None:
-            return
-        now = time.monotonic() if now_mono is None else float(now_mono)
-        zone = self._zone_manager.zone_for(dossier.piece_uuid)
-        source_angle_deg = (
-            float(zone.center_deg)
-            if zone is not None
-            else self._dossier_last_angle_deg(dossier)
-        )
-        registry.begin(
-            source_runtime=self.runtime_id,
-            source_feed=self.feed_id,
-            source_global_id=dossier.global_id,
-            target_runtime=self.runtime_id,
-            now_mono=now,
-            ttl_s=DEFAULT_TRACKLET_TRANSIT_TTL_S,
-            piece_uuid=dossier.piece_uuid,
-            source_angle_deg=source_angle_deg,
-            relation="track_split",
-            payload={
-                "previous_tracked_global_id": dossier.global_id,
-                "previous_tracklet_id": dossier.tracklet_id,
-                **self._dossier_tracklet_payload(dossier),
-                "dossier_result": dossier.result,
-                "classified_ts": dossier.classified_ts,
-                "reject_reason": dossier.reject_reason,
-                "extras": dict(dossier.extras),
-            },
-            source_embedding=dossier.appearance_embedding,
-        )
+        self._piece_lifecycle.park_lost_piece_transit(dossier, now_mono=now_mono)
 
     def dossier_count(self) -> int:
         return len(self._pieces)
@@ -1136,40 +1048,13 @@ class RuntimeC4(BaseRuntime):
         dossier: _PieceDossier,
         now_mono: float,
     ) -> None:
-        until = float(now_mono) + DEFAULT_DELIVERED_TRACK_SUPPRESS_S
-        self._recently_delivered_piece_until[dossier.piece_uuid] = until
-        if dossier.raw_track_id is not None:
-            self._recently_delivered_track_until[int(dossier.raw_track_id)] = until
-        elif dossier.global_id is not None:
-            self._recently_delivered_track_until[int(dossier.global_id)] = until
+        self._piece_lifecycle.remember_delivered_piece(dossier, now_mono)
 
     def _is_recently_delivered_track(self, track: Track, now_mono: float) -> bool:
-        piece_uuid = track.piece_uuid
-        if (
-            isinstance(piece_uuid, str)
-            and self._recently_delivered_piece_until.get(piece_uuid, 0.0)
-            > now_mono
-        ):
-            return True
-        if track.global_id is None:
-            return False
-        try:
-            gid = int(track.global_id)
-        except (TypeError, ValueError):
-            return False
-        return self._recently_delivered_track_until.get(gid, 0.0) > now_mono
+        return self._piece_lifecycle.is_recently_delivered_track(track, now_mono)
 
     def _sweep_recently_delivered(self, now_mono: float) -> None:
-        self._recently_delivered_piece_until = {
-            piece_uuid: until
-            for piece_uuid, until in self._recently_delivered_piece_until.items()
-            if until > now_mono
-        }
-        self._recently_delivered_track_until = {
-            global_id: until
-            for global_id, until in self._recently_delivered_track_until.items()
-            if until > now_mono
-        }
+        self._piece_lifecycle.sweep_recently_delivered(now_mono)
 
     def _tracklet_payload_for_gid(self, gid: int) -> dict[str, Any]:
         return self._payloads.tracklet_payload_for_gid(gid)

@@ -32,7 +32,6 @@ from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.landing_lease import LandingLeasePort
-from rt.contracts.purge import PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -40,7 +39,6 @@ from rt.events.topics import PERCEPTION_ROTATION, RUNTIME_HANDOFF_BURST
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
-    PROFILE_PURGE,
     PROFILE_TRANSPORT,
 )
 from rt.perception.track_policy import action_track, is_visible_track
@@ -332,7 +330,7 @@ class RuntimeC2(BaseRuntime):
                 self._set_state("pulsing", blocked_reason="cooldown")
                 return
             if self._purge_mode:
-                self._dispatch_purge_pulse(now_mono)
+                self.purge_port().dispatch_pulse(now_mono)
                 return
             if exit_track is not None and self._has_pending_downstream_claim(
                 exit_track, now_mono
@@ -822,41 +820,6 @@ class RuntimeC2(BaseRuntime):
         )
         self._set_state(state)
 
-    def _dispatch_purge_pulse(self, now_mono: float) -> None:
-        """Pulse the ring without gating on downstream capacity or exit_track.
-
-        Used during C2 purge: rotate the platter so pieces fall through the
-        C2->C3 transition regardless of whether C3 is full. Does not claim a
-        downstream slot.
-        """
-        mode = _PulseMode.NORMAL
-        timing = self._ejection.timing_for({"purge": True, "mode": mode.value})
-
-        def _run_pulse() -> None:
-            ok = False
-            try:
-                ok = bool(self._pulse_command(mode, timing.pulse_ms, PROFILE_PURGE))
-            except Exception:
-                self._logger.exception("RuntimeC2: purge pulse command raised")
-            finally:
-                publish_move_completed(
-                    self._bus,
-                    self._logger,
-                    runtime_id=self.runtime_id,
-                    feed_id=self.feed_id,
-                    source="c2_purge_pulse",
-                    ok=bool(ok),
-                    duration_ms=timing.pulse_ms,
-                )
-
-        self._next_pulse_at = now_mono + self._pulse_cooldown_s
-        enqueued = self._hw.enqueue(_run_pulse, label="c2_purge_pulse")
-        if not enqueued:
-            self._set_state("pulsing", blocked_reason="hw_queue_full")
-            return
-        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
-        self._set_state("pulsing", blocked_reason="purge")
-
     def _publish_rotation_window(self, duration_s: float, now_mono: float) -> None:
         # Tell the perception tracker that the ring is rotating around *now*
         # for ``duration_s`` seconds — a padded window so the following few
@@ -884,8 +847,14 @@ class RuntimeC2(BaseRuntime):
         except Exception:
             self._logger.exception("RuntimeC2: rotation-window publish failed")
 
-    def purge_port(self) -> PurgePort:
-        return RingPurgePort(self, key="c2", visible_count_attr="_visible_track_count")
+    def purge_port(self) -> RingPurgePort:
+        return RingPurgePort(
+            self,
+            key="c2",
+            visible_count_attr="_visible_track_count",
+            mode=_PulseMode.NORMAL,
+            pulse_method="_pulse_command",
+        )
 
     def _reset_bookkeeping(self) -> None:
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())

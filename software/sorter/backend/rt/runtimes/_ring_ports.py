@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from rt.contracts.purge import PurgeCounts
-from rt.hardware.motion_profiles import PROFILE_CONTINUOUS
+from rt.hardware.motion_profiles import PROFILE_CONTINUOUS, PROFILE_PURGE
 
 from ._move_events import publish_move_completed
 
@@ -14,12 +14,26 @@ RING_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
 
 
 class RingPurgePort:
-    """Shared purge binding for C2/C3 ring runtimes."""
+    """Shared purge binding and pulse path for C2/C3 ring runtimes."""
 
-    def __init__(self, runtime: Any, *, key: str, visible_count_attr: str) -> None:
+    def __init__(
+        self,
+        runtime: Any,
+        *,
+        key: str,
+        visible_count_attr: str,
+        mode: Any,
+        pulse_method: str,
+        include_mode_in_event: bool = False,
+        mark_transport_attempt: bool = False,
+    ) -> None:
         self._runtime = runtime
         self.key = key
         self._visible_count_attr = visible_count_attr
+        self._mode = mode
+        self._pulse_method = pulse_method
+        self._include_mode_in_event = bool(include_mode_in_event)
+        self._mark_transport_attempt = bool(mark_transport_attempt)
 
     def arm(self) -> None:
         self._runtime._purge_mode = True
@@ -38,6 +52,50 @@ class RingPurgePort:
     def drain_step(self, now_mono: float) -> bool:
         del now_mono
         return bool(self._runtime._purge_mode)
+
+    def dispatch_pulse(self, now_mono: float) -> None:
+        runtime = self._runtime
+        mode = self._mode
+        timing = runtime._ejection.timing_for({"purge": True, "mode": mode.value})
+
+        def _run_pulse() -> None:
+            ok = False
+            try:
+                ok = bool(
+                    getattr(runtime, self._pulse_method)(
+                        mode,
+                        timing.pulse_ms,
+                        PROFILE_PURGE,
+                    )
+                )
+            except Exception:
+                runtime._logger.exception(
+                    "Runtime%s: purge pulse command raised",
+                    self.key.upper(),
+                )
+            finally:
+                extra = {"mode": mode.value} if self._include_mode_in_event else None
+                publish_move_completed(
+                    runtime._bus,
+                    runtime._logger,
+                    runtime_id=runtime.runtime_id,
+                    feed_id=runtime.feed_id,
+                    source=f"{self.key}_purge_pulse",
+                    ok=bool(ok),
+                    duration_ms=timing.pulse_ms,
+                    extra=extra,
+                )
+
+        runtime._next_pulse_at = now_mono + runtime._pulse_cooldown_s
+        enqueued = runtime._hw.enqueue(_run_pulse, label=f"{self.key}_purge_pulse")
+        if not enqueued:
+            runtime._set_state("pulsing", blocked_reason="hw_queue_full")
+            return
+        duration_s = timing.pulse_ms / 1000.0
+        if self._mark_transport_attempt:
+            runtime._mark_transport_attempt(now_mono, duration_s=duration_s)
+        runtime._publish_rotation_window(duration_s, now_mono)
+        runtime._set_state("pulsing", blocked_reason="purge")
 
 
 class RingSampleTransportPort:

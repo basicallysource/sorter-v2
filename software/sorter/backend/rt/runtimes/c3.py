@@ -27,7 +27,6 @@ from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.landing_lease import LandingLeasePort
-from rt.contracts.purge import PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -35,7 +34,6 @@ from rt.events.topics import C3_HANDOFF_TRIGGER, PERCEPTION_ROTATION, RUNTIME_HA
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
-    PROFILE_PURGE,
     PROFILE_TRANSPORT,
 )
 from rt.perception.track_policy import action_track, is_visible_track
@@ -439,7 +437,7 @@ class RuntimeC3(BaseRuntime):
                 self._set_state("pulsing", blocked_reason="cooldown")
                 return
             if self._purge_mode:
-                self._dispatch_purge_pulse(now_mono)
+                self.purge_port().dispatch_pulse(now_mono)
                 return
             approach_track = self._pick_approach_track(active_visible_tracks)
             if exit_track is not None and self._has_pending_downstream_claim(
@@ -969,48 +967,6 @@ class RuntimeC3(BaseRuntime):
             source="c3_handoff_retry_pulse",
         )
 
-    def _dispatch_purge_pulse(self, now_mono: float) -> None:
-        """Pulse the ring without gating on downstream capacity.
-
-        Used during C3 purge: rotate so pieces fall through the C3->C4
-        transition even if C4 is still draining. Uses PRECISE pulse so
-        pieces commit off the ring cleanly; does not claim a downstream
-        slot since we're not handing pieces to C4 for tracking.
-        """
-        mode = _PulseMode.PRECISE
-        timing = self._ejection.timing_for({"purge": True, "mode": mode.value})
-
-        def _run_pulse() -> None:
-            ok = False
-            try:
-                ok = self._call_pulse_command(
-                    mode,
-                    timing.pulse_ms,
-                    PROFILE_PURGE,
-                )
-            except Exception:
-                self._logger.exception("RuntimeC3: purge pulse command raised")
-            finally:
-                publish_move_completed(
-                    self._bus,
-                    self._logger,
-                    runtime_id=self.runtime_id,
-                    feed_id=self.feed_id,
-                    source="c3_purge_pulse",
-                    ok=bool(ok),
-                    duration_ms=timing.pulse_ms,
-                    extra={"mode": mode.value},
-                )
-
-        self._next_pulse_at = now_mono + self._pulse_cooldown_s
-        enqueued = self._hw.enqueue(_run_pulse, label="c3_purge_pulse")
-        if not enqueued:
-            self._set_state("pulsing", blocked_reason="hw_queue_full")
-            return
-        self._mark_transport_attempt(now_mono, duration_s=timing.pulse_ms / 1000.0)
-        self._publish_rotation_window(timing.pulse_ms / 1000.0, now_mono)
-        self._set_state("pulsing", blocked_reason="purge")
-
     def _mark_transport_attempt(self, now_mono: float, *, duration_s: float) -> None:
         self._transport_bad_actor_observe_until = max(
             self._transport_bad_actor_observe_until,
@@ -1185,8 +1141,16 @@ class RuntimeC3(BaseRuntime):
             source_embedding=track.appearance_embedding,
         )
 
-    def purge_port(self) -> PurgePort:
-        return RingPurgePort(self, key="c3", visible_count_attr="_active_visible_track_count")
+    def purge_port(self) -> RingPurgePort:
+        return RingPurgePort(
+            self,
+            key="c3",
+            visible_count_attr="_active_visible_track_count",
+            mode=_PulseMode.PRECISE,
+            pulse_method="_call_pulse_command",
+            include_mode_in_event=True,
+            mark_transport_attempt=True,
+        )
 
     def _reset_bookkeeping(self) -> None:
         self._book = _PieceBookkeeping(seen_global_ids=set())

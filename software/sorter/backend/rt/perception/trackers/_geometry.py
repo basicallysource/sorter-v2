@@ -1,6 +1,6 @@
 """Pure geometry helpers shared by tracker adapters.
 
-Factored out of `polar.py`, `roboflow.py`, and `turntable_groundplane.py` so
+Factored out of `polar.py` and `roboflow.py` so
 three copies of the same angle/bbox math don't drift apart.
 
 No state, no imports from rt — safe to reuse anywhere in the perception layer.

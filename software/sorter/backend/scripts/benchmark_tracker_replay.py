@@ -446,8 +446,6 @@ def _import_legacy_tracker_if_requested(tracker_key: str) -> None:
         import rt.perception.trackers.roboflow  # noqa: F401
     elif tracker_key == "polar":
         import rt.perception.trackers.polar  # noqa: F401
-    elif tracker_key == "turntable_groundplane":
-        import rt.perception.trackers.turntable_groundplane  # noqa: F401
 
 
 def _benchmark_tracker(

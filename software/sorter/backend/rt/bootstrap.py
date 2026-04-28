@@ -76,12 +76,7 @@ from rt.runtimes.distributor import RuntimeDistributor
 from rt.services.c1_pulse_observation import C1PulseObserver
 from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.services.sample_transport import C1234SampleTransportCoordinator
-from rt.services.sector_shadow_observer import (
-    ChannelGeometry as _ShadowChannelGeometry,
-    SectorShadowObserver,
-)
 from rt.services.sector_carousel import SectorCarouselHandler
-from rt.services.section_feeder_handler import SectionFeederHandler
 from rt.services.track_transit import TrackTransitRegistry
 
 
@@ -327,10 +322,7 @@ class RtRuntimeHandle:
         capacity_debug: dict[str, Any] = {}
         flow_gate_accounting: dict[str, Any] = {}
         c1_pulse_observer: dict[str, Any] | None = None
-        sector_shadow_observer: dict[str, Any] | None = None
-        section_feeder_handler: dict[str, Any] | None = None
         sector_carousel_handler_snap: dict[str, Any] | None = None
-        feeder_mode: str = "lease"
         c4_mode: str = "runtime"
         orchestrator_status = getattr(self.orchestrator, "status_snapshot", None)
         if callable(orchestrator_status):
@@ -346,15 +338,6 @@ class RtRuntimeHandle:
             obs = snapshot.get("c1_pulse_observer")
             if isinstance(obs, dict):
                 c1_pulse_observer = dict(obs)
-            shadow = snapshot.get("sector_shadow_observer")
-            if isinstance(shadow, dict):
-                sector_shadow_observer = dict(shadow)
-            section = snapshot.get("section_feeder_handler")
-            if isinstance(section, dict):
-                section_feeder_handler = dict(section)
-            mode_val = snapshot.get("feeder_mode")
-            if isinstance(mode_val, str):
-                feeder_mode = mode_val
             sector_carousel = snapshot.get("sector_carousel_handler")
             if isinstance(sector_carousel, dict):
                 sector_carousel_handler_snap = dict(sector_carousel)
@@ -380,9 +363,6 @@ class RtRuntimeHandle:
             "capacity_debug": capacity_debug,
             "flow_gate_accounting": flow_gate_accounting,
             "c1_pulse_observer": c1_pulse_observer,
-            "sector_shadow_observer": sector_shadow_observer,
-            "feeder_mode": feeder_mode,
-            "section_feeder_handler": section_feeder_handler,
             "c4_mode": c4_mode,
             "sector_carousel_handler": sector_carousel_handler_snap,
             "maintenance": {
@@ -1350,64 +1330,6 @@ def build_rt_runtime(
     )
     _orchestrator_ref.append(orch)
     orch.attach_c1_pulse_observer(c1_pulse_observer)
-
-    # Sector-based shadow observer: parallel evaluation of Main's pre-rt
-    # feeder logic on top of the live track angles. Read-only; never
-    # changes pulse/backpressure decisions.
-    sector_shadow_log_path = (
-        Path(__file__).resolve().parents[4] / "logs" / "sector_shadow.jsonl"
-    )
-
-    def _shadow_snapshot_provider() -> dict[str, Any]:
-        if not _orchestrator_ref:
-            return {}
-        try:
-            return _orchestrator_ref[0].sector_shadow_snapshot_payload()
-        except Exception:
-            log.exception(
-                "rt.bootstrap: sector_shadow_snapshot_payload raised"
-            )
-            return {}
-
-    # Initial geometry seeds match the shadow observer so both layers
-    # see the same sector definitions. Tune later from observed track
-    # distributions.
-    _c2_section_geom = _ShadowChannelGeometry(
-        name="c2",
-        exit_arc_deg=30.0,
-        intake_center_deg=180.0,
-        intake_arc_deg=30.0,
-    )
-    _c3_section_geom = _ShadowChannelGeometry(
-        name="c3",
-        exit_arc_deg=20.0,
-        intake_center_deg=180.0,
-        intake_arc_deg=30.0,
-    )
-    sector_shadow_observer = SectorShadowObserver(
-        snapshot_provider=_shadow_snapshot_provider,
-        c2_geometry=_c2_section_geom,
-        c3_geometry=_c3_section_geom,
-        log_path=sector_shadow_log_path,
-        sample_period_s=0.5,
-        logger=log,
-    )
-    orch.attach_sector_shadow_observer(sector_shadow_observer)
-
-    # Alternative section-based feeder handler (Main-style, simple).
-    # Inert until ``orchestrator.feeder_mode`` is flipped to "section".
-    section_feeder_handler = SectionFeederHandler(
-        c1_pulse=c1_pulse,
-        c2_pulse=c2_pulse,
-        c3_pulse=c3_pulse,
-        c1_hw=getattr(c1, "_hw", None),
-        c2_hw=getattr(c2, "_hw", None),
-        c3_hw=getattr(c3, "_hw", None),
-        c2_geometry=_c2_section_geom,
-        c3_geometry=_c3_section_geom,
-        logger=log,
-    )
-    orch.attach_section_feeder_handler(section_feeder_handler)
 
     # SectorCarouselHandler owns C4 transport/eject sequencing in
     # production. RuntimeC4 stays alive underneath for BoxMot tracking,

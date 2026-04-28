@@ -1,6 +1,6 @@
 # C1-C3 Current Behavior Review Notes
 
-Stand: `sorter-v2` Backend, HEAD `6ed5de5`, nach SectorCarousel-Integration.
+Stand: `sorter-v2` Backend, nach C1-C3-Section-Prune vom 2026-04-28.
 Scope: nur C1, C2, C3 und deren Orchestrator-/Handoff-Verhalten. C4 wird nur dort
 erwaehnt, wo C1-C3 direkt davon gegatet werden.
 
@@ -12,35 +12,26 @@ Quellen im Code:
 - `software/sorter/backend/rt/runtimes/c2.py`
 - `software/sorter/backend/rt/runtimes/c3.py`
 - `software/sorter/backend/rt/coupling/slots.py`
-- `software/sorter/backend/rt/services/section_feeder_handler.py`
-- `software/sorter/backend/rt/services/sector_shadow_observer.py`
 - `software/sorter/backend/rt/tests/test_runtime_c1.py`
 - `software/sorter/backend/rt/tests/test_runtime_c2.py`
 - `software/sorter/backend/rt/tests/test_runtime_c3.py`
 
 ## Kurzantwort
 
-Eine erste software-only Ladder-Simulation fuer C1/C2/C3 existiert jetzt:
-
-```text
-software/sorter/backend/rt/services/feeder_ladder/selftest.py
-```
-
-Sie ist noch nicht so breit wie der SectorCarousel-Selftest, deckt aber die
-wichtigsten Feed-Chain-Gates ab.
+Die vorherige software-only Ladder-Simulation fuer C1/C2/C3 wurde beim
+Pruning entfernt: sie war nicht in API, CLI, Bootstrap oder Runtime verdrahtet
+und damit nur ein isolierter Prototyp.
 
 Was es gibt:
 
 - isolierte Unit-Tests fuer `RuntimeC1`, `RuntimeC2`, `RuntimeC3`
-- Unit-Tests fuer `SectionFeederHandler`
-- Unit-Tests fuer `SectorShadowObserver`
 - Orchestrator-/Runtime-Tuning-Tests
 - C1-Pulse-Observation als Messinstrument
-- `run_feeder_ladder_selftest()` fuer C1->C2->C3 mit fake hardware/tracks/leases
 
 Was fehlt:
 
-- ein API-/CLI-Einstieg fuer die Feeder-Ladder analog zu den C4-Diagnosen
+- ein API-/CLI-Einstieg fuer eine Feeder-Ladder-Diagnose analog zu den
+  C4-Diagnosen
 - noch breitere Fault-Cases wie C2/C3 pending retry ueber mehrere Ticks,
   Bad-Actor-Risk-Gating und vollstaendige C2->C3 Arrival-Fenster-Metriken
 
@@ -50,23 +41,10 @@ Der Orchestrator tickt mit 20 ms Periodendauer, also 50 Hz. Er tickt
 downstream-first, damit upstream-Runtimes die frischeren downstream
 `available_slots()`-Werte sehen.
 
-Aktiv ist standardmaessig:
+Aktiv ist nur noch der Runtime-/Lease-Pfad. `RuntimeC1`, `RuntimeC2` und
+`RuntimeC3` werden in jedem Orchestrator-Tick downstream-first getickt.
 
-```text
-feeder_mode = "lease"
-```
-
-In diesem Modus laufen `RuntimeC1`, `RuntimeC2` und `RuntimeC3`.
-
-Es gibt zusaetzlich:
-
-```text
-feeder_mode = "section"
-```
-
-Dann werden `RuntimeC1/2/3` im Orchestrator-Tick uebersprungen und der
-`SectionFeederHandler` entscheidet direkt anhand von Sektor-/Winkelregeln.
-Dieser Pfad ist verdrahtet, aber nicht der primaere aktuelle Produktionspfad.
+Der alte Main-inspirierte `feeder_mode = "section"` A/B-Pfad wurde entfernt.
 
 C4 laeuft aktuell in:
 
@@ -745,67 +723,13 @@ payload:
   expected_arrival_window_s
 ```
 
-## Alternative: SectionFeederHandler
+## Entfernte A/B-Pfade
 
-Der `SectionFeederHandler` ist eine Main-inspirierte Alternative fuer C1-C3.
-Er ist nur aktiv, wenn:
-
-```text
-feeder_mode = "section"
-```
-
-Dann werden `RuntimeC1/2/3` nicht getickt. Stattdessen entscheidet der Handler
-direkt:
-
-```text
-if track in exit arc:
-    pulse_precise
-elif any track:
-    pulse_normal
-else:
-    idle
-```
-
-Backpressure:
-
-```text
-C1 darf pulsen, wenn C2 intake clear und C2 piece cap nicht voll
-C2 darf pulsen, wenn C3 intake clear und C3 piece cap nicht voll
-C3 darf pulsen, wenn C4 admission allowed
-```
-
-Defaults:
-
-```text
-C1 cooldown = 1.5 s
-C2 cooldown = 0.5 s
-C3 cooldown = 0.3 s
-C2 piece cap = 8
-C3 piece cap = 8
-C2 exit arc = 30°, intake center = 180°, intake arc = 30°
-C3 exit arc = 20°, intake center = 180°, intake arc = 30°
-```
-
-Dieser Pfad ist deutlich einfacher, aber verzichtet auf die lease-basierte
-Handoff-Transaktionslogik, Pending-Claims, C3->C4 Pflicht-Lease,
-Handoff-Retry-Semantik und C1-Jam-Recovery.
-
-## SectorShadowObserver
-
-Der `SectorShadowObserver` ist read-only. Er vergleicht alle 0.5 s:
-
-```text
-Was wuerde Mains sektorbasierte Logik tun?
-Was blockiert sorter-v2 gerade tatsaechlich?
-```
-
-Er schreibt optional JSONL nach:
-
-```text
-logs/sector_shadow.jsonl
-```
-
-Er beeinflusst keine Bewegung.
+`SectionFeederHandler` und `SectorShadowObserver` wurden entfernt. Beide waren
+Main-inspirierte Vergleichs-/Alternativpfade fuer C1-C3, aber nicht der aktive
+Produktionspfad. Damit gibt es im laufenden Orchestrator keinen Umschalter mehr,
+der C1/C2/C3-Runtimes ueberspringt oder parallel eine zweite Feeder-Logik
+auswertet.
 
 ## Bestehende Tests
 
@@ -844,20 +768,6 @@ Vorhanden:
   - handoff retry/escalation
   - purge port
 
-- `test_section_feeder_handler.py`
-  - section decisions and cooldowns
-
-- `test_sector_shadow_observer.py`
-  - Main-style sector inference and divergence logging
-
-- `test_feeder_ladder_selftest.py`
-  - C1 pulse -> C2 arrival/progress -> C2 exit -> C3 arrival -> C3 C4 event
-  - C2 landing lease denied
-  - C3 C4 landing lease denied
-  - C3 suspect_multi payload
-  - stale C2 tracks
-  - C1 recovery admission denied without burning attempt
-
 Noch nicht vorhanden:
 
 - ein Ladder-CLI/API wie `sector_carousel_ladder_selftest`
@@ -881,26 +791,22 @@ Noch nicht vorhanden:
 5. Sollte Double-Drop-/Multi-Object-Logik auch fuer C2/C3 als normale
    Reject-/Recovery-Klasse modelliert werden, oder ist das nur auf C4 relevant?
 
-6. Welche zusaetzlichen Szenarien soll der neue `FeederLadderSelftest` noch
-   abdecken?
+6. Falls wieder eine Feeder-Ladder-Diagnose gebaut wird: Welche Szenarien
+   soll sie abdecken?
    - pending handoff retry ueber mehrere Ticks
    - bad actor suppression zaehlt weiter fuer Multi-Risk
    - C2->C3 Arrival-Window und erwartete Ankunftszeit
    - mehrere Teile in kontrollierter Pipeline-Sequenz
 
-7. Soll der Main-artige `SectionFeederHandler` als primärer C1-C3-Pfad
-   reaktiviert und die `lease`-Runtimes reduziert werden, oder bleibt er nur
-   ein Debug-/Fallback-Modus?
+7. Falls der Main-artige Section-Ansatz spaeter wiederkommt, sollte er als
+   neuer, bewusst gebauter Pfad entstehen und nicht als halb verdrahteter
+   A/B-Umschalter neben dem aktiven Runtime-Pfad liegen.
 
 ## Empfohlener naechster Schritt
 
-Die vorhandene C1-C3 Phase-0-Simulation verbreitern und per API/CLI ausfuehrbar
-machen:
+Bei Bedarf eine neue C1-C3-Diagnose direkt per API/CLI ausfuehrbar bauen:
 
-```text
-scripts/feeder_ladder_selftest.py
-POST /api/rt/feeder/selftest
-```
+Zum Beispiel als kleines CLI-Script plus `POST /api/rt/feeder/selftest`.
 
 Szenarien:
 

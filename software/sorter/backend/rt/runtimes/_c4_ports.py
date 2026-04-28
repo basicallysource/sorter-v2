@@ -5,6 +5,8 @@ from typing import Any
 
 from rt.contracts.purge import PurgeCounts
 
+from ._c4_bank_mirror import C4BankMirror
+
 
 class C4LandingLeasePort:
     """C4's implementation of the downstream landing-lease gate."""
@@ -29,7 +31,7 @@ class C4LandingLeasePort:
         bank = self._runtime._bank
         encoder = self._runtime._carousel_angle_rad
         intake_world = math.radians(self._runtime._zone_manager.intake_angle_deg)
-        intake_tray = self._runtime._tray_frame_rad(intake_world, encoder)
+        intake_tray = C4BankMirror.tray_frame_rad(intake_world, encoder)
         return bank.request_landing_lease(
             predicted_arrival_t=float(now_mono)
             + max(0.0, float(predicted_arrival_in_s)),

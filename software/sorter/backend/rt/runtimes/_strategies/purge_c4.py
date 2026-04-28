@@ -61,10 +61,10 @@ class _PurgeHost(Protocol):
     _startup_purge_controller: Any
     _piece_lifecycle: Any
     _transport_controller: Any
+    _exit_geometry: Any
 
     def _owned_tracks(self, tracks: list[Track]) -> list[Track]: ...
     def _reconcile_visible_tracks(self, tracks: list[Track], now_mono: float) -> None: ...
-    def _pick_exit_track(self, tracks: list[Track]) -> Track | None: ...
     def _set_state(self, state: str, *, blocked_reason: str | None = None) -> None: ...
 
 class C4StartupPurgeStrategy:
@@ -280,7 +280,7 @@ class C4StartupPurgeStrategy:
             host._set_state("startup_purge", blocked_reason="awaiting_track_lock")
             return True
 
-        exit_track = host._pick_exit_track(owned_tracks)
+        exit_track = host._exit_geometry.pick_exit_track(owned_tracks)
         if exit_track is not None and exit_track.global_id is not None:
             if host._hw.busy():
                 host._set_state("startup_purge", blocked_reason="hw_busy")

@@ -117,7 +117,7 @@ class C4ClassificationController:
                     meta={"error": "future_raised"},
                 )
             dossier.classified_ts = now_mono
-            rt._bank_bind_classification(dossier.piece_uuid, dossier)
+            rt._bank_mirror.bind_classification(dossier.piece_uuid, dossier)
             result = dossier.result
             result_payload = rt._payloads.classification_payload(result)
             zone_payload = rt._payloads.dossier_event_payload(

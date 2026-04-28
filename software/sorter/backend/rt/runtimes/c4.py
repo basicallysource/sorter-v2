@@ -619,7 +619,7 @@ class RuntimeC4(BaseRuntime):
         # we touch new measurements. After this call the bank's tracks
         # are aligned to ``now_mono`` and the posterior-singleton query
         # answers correctly.
-        self._bank_predict(now_mono)
+        self._bank_mirror.predict(now_mono)
         raw_tracks = fresh_ring_tracks(inbox.tracks, track_stale_s=self._track_stale_s)
         visible_tracks = [t for t in raw_tracks if is_visible_track(t)]
         self._raw_detection_count = len(visible_tracks)
@@ -636,10 +636,10 @@ class RuntimeC4(BaseRuntime):
             self._reconcile_visible_tracks(visible_tracks, now_mono)
         owned_tracks = self._owned_tracks(visible_tracks)
         # Mirror this frame's owned tracks into the bank as Kalman
-        # measurement updates. Births happen via ``_bank_admit_track``
+        # measurement updates. Births happen via ``_bank_mirror.admit_track``
         # in the admission/reconcile paths above; this step only updates
         # already-admitted pieces.
-        self._bank_observe_tracks(owned_tracks, now_mono)
+        self._bank_mirror.observe_tracks(owned_tracks, now_mono)
         self._transport_velocity.update(
             owned_tracks,
             now_mono=now_mono,
@@ -907,7 +907,7 @@ class RuntimeC4(BaseRuntime):
         # (a stage-3 follow-up). The Kalman learns the carousel rotation
         # rate from successive observations, which is good enough for
         # the posterior-singleton dispatch check the bank exists for.
-        self._bank_admit_track(
+        self._bank_mirror.admit_track(
             piece_uuid=piece_uuid,
             track=track,
             angle_deg=angle_deg,
@@ -1071,80 +1071,6 @@ class RuntimeC4(BaseRuntime):
         Wired at bootstrap: ``c3.set_landing_lease_port(c4.landing_lease_port())``.
         """
         return C4LandingLeasePort(self)
-
-    # ------------------------------------------------------------------
-    # PieceTrackBank mirror — stage 2 of the architecture rollout. The
-    # bank lives in parallel with ``self._pieces`` and shares piece_uuids
-    # with it. The dispatch path queries the bank for posterior-singleton
-    # decisions; the bank predicts every piece forward each tick so the
-    # Mahalanobis association stays sharp even when YOLO drops a frame.
-
-    def _bank_admit_track(
-        self,
-        *,
-        piece_uuid: str,
-        track: Track,
-        angle_deg: float,
-        now_mono: float,
-    ) -> None:
-        self._bank_mirror.admit_track(
-            piece_uuid=piece_uuid,
-            track=track,
-            angle_deg=angle_deg,
-            now_mono=now_mono,
-        )
-
-    @staticmethod
-    def _tray_frame_rad(world_angle_rad: float, encoder_rad: float) -> float:
-        """Convert a camera-frame angle to tray frame, wrapped to [-pi, pi]."""
-        return C4BankMirror.tray_frame_rad(world_angle_rad, encoder_rad)
-
-    def _bank_predict(self, now_mono: float) -> None:
-        self._bank_mirror.predict(now_mono)
-
-    def _bank_observe_tracks(
-        self, tracks: list[Track], now_mono: float
-    ) -> None:
-        self._bank_mirror.observe_tracks(tracks, now_mono)
-
-    def _bank_bind_classification(
-        self, piece_uuid: str, dossier: "_PieceDossier"
-    ) -> None:
-        self._bank_mirror.bind_classification(piece_uuid, dossier)
-
-    def _bank_finalize(
-        self,
-        piece_uuid: str,
-        *,
-        ejected: bool,
-    ) -> None:
-        self._bank_mirror.finalize(piece_uuid, ejected=ejected)
-
-    def _bank_singleton_for_eject(
-        self,
-        piece_uuid: str,
-    ) -> bool:
-        """Posterior-singleton dispatch gate.
-
-        True iff the named piece is the only chute-blocking PieceTrack
-        whose 2-sigma angular interval overlaps the chute window at the
-        current tray angle. Replaces the old deterministic
-        ``_has_trailing_piece_within_safety`` once stage 3 lands; for
-        now both gates are checked and the eject only fires when both
-        agree.
-        """
-        return self._bank_mirror.singleton_for_eject(piece_uuid)
-
-    def _has_trailing_piece_within_safety(
-        self, matched_track: Track, tracks: list[Track]
-    ) -> bool:
-        return self._exit_geometry.has_trailing_piece_within_safety(
-            matched_track,
-            tracks,
-        )
-
-    def _pick_exit_track(self, tracks: list[Track]) -> Track | None:
-        return self._exit_geometry.pick_exit_track(tracks)
 
     def _hw_busy_or_backlogged(self) -> bool:
         return bool(self._hw.busy() or self._hw.pending() > 0)

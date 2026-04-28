@@ -200,7 +200,7 @@ class C4ExitDispatcher:
     ) -> None:
         rt = self._rt
         state = type(rt._fsm)
-        exit_track = rt._pick_exit_track(tracks)
+        exit_track = rt._exit_geometry.pick_exit_track(tracks)
         if exit_track is None:
             rt._exit_stall_since = None
             if rt._fsm is state.EXIT_SHIMMY:
@@ -240,12 +240,15 @@ class C4ExitDispatcher:
             # trailing-safety guard if the bank does not know the piece.
             bank_track = rt._bank.track(piece_uuid)
             if bank_track is not None:
-                if not rt._bank_singleton_for_eject(piece_uuid):
+                if not rt._bank_mirror.singleton_for_eject(piece_uuid):
                     rt._set_state(
                         "drop_commit", blocked_reason="trailing_piece_in_chute"
                     )
                     return
-            elif rt._has_trailing_piece_within_safety(exit_track, tracks):
+            elif rt._exit_geometry.has_trailing_piece_within_safety(
+                exit_track,
+                tracks,
+            ):
                 rt._set_state(
                     "drop_commit", blocked_reason="trailing_piece_in_chute"
                 )

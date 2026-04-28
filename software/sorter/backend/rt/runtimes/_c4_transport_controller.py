@@ -39,7 +39,7 @@ class C4TransportController:
 
     def exit_hold_reason(self, tracks: list[Track]) -> str | None:
         rt = self._rt
-        exit_track = rt._pick_exit_track(tracks)
+        exit_track = rt._exit_geometry.pick_exit_track(tracks)
         if exit_track is None or exit_track.global_id is None:
             exit_track = None
         if exit_track is not None:

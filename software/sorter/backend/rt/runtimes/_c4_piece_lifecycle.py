@@ -40,7 +40,7 @@ class C4PieceLifecycle:
         rt = self._rt
         state = type(rt._fsm)
         dossier = rt._pieces.pop(piece_uuid, None)
-        rt._bank_finalize(piece_uuid, ejected=bool(arm_cooldown))
+        rt._bank_mirror.finalize(piece_uuid, ejected=bool(arm_cooldown))
         if dossier is not None and arm_cooldown and now_mono is not None:
             self.remember_delivered_piece(dossier, now_mono)
         if dossier is not None and abort_reason == "track_lost":

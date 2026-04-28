@@ -32,7 +32,7 @@ from rt.contracts.admission import AdmissionStrategy
 from rt.contracts.ejection import EjectionTimingStrategy
 from rt.contracts.events import Event, EventBus
 from rt.contracts.landing_lease import LandingLeasePort
-from rt.contracts.purge import PurgeCounts, PurgePort
+from rt.contracts.purge import PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -48,6 +48,7 @@ from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
+from ._ring_ports import RingPurgePort, RingSampleTransportPort
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
 
@@ -391,8 +392,8 @@ class RuntimeC2(BaseRuntime):
         # slot so C1 sees headroom.
         self._upstream_slot.release()
 
-    def sample_transport_port(self) -> "_C2SampleTransportPort":
-        return _C2SampleTransportPort(self)
+    def sample_transport_port(self) -> "RingSampleTransportPort":
+        return RingSampleTransportPort(self, key="c2")
 
     # ------------------------------------------------------------------
     # Internals
@@ -956,7 +957,7 @@ class RuntimeC2(BaseRuntime):
             self._logger.exception("RuntimeC2: rotation-window publish failed")
 
     def purge_port(self) -> PurgePort:
-        return _C2PurgePort(self)
+        return RingPurgePort(self, key="c2", visible_count_attr="_visible_track_count")
 
     def _reset_bookkeeping(self) -> None:
         self._bookkeeping = _PieceBookkeeping(seen_global_ids=set())
@@ -1126,69 +1127,6 @@ def _wrap_rad(angle: float) -> float:
     """Wrap to [-pi, pi]."""
     a = (angle + math.pi) % (2.0 * math.pi) - math.pi
     return a
-
-
-class _C2PurgePort:
-    """PurgePort binding for RuntimeC2.
-
-    Arm flips ``_purge_mode`` so the normal tick path pulses regardless of
-    downstream capacity and stops accepting new admission. Disarm clears
-    state and flushes in-memory bookkeeping so the next run starts fresh.
-    """
-
-    key = "c2"
-
-    def __init__(self, runtime: RuntimeC2) -> None:
-        self._runtime = runtime
-
-    def arm(self) -> None:
-        self._runtime._purge_mode = True
-
-    def disarm(self) -> None:
-        self._runtime._purge_mode = False
-        self._runtime._reset_bookkeeping()
-
-    def counts(self) -> PurgeCounts:
-        return PurgeCounts(
-            piece_count=int(self._runtime._visible_track_count),
-            owned_count=0,
-            pending_detections=0,
-        )
-
-    def drain_step(self, now_mono: float) -> bool:
-        return bool(self._runtime._purge_mode)
-
-
-class _C2SampleTransportPort:
-    key = "c2"
-
-    def __init__(self, runtime: RuntimeC2) -> None:
-        self._runtime = runtime
-
-    def step(self, now_mono: float) -> bool:
-        return self._runtime._dispatch_sample_transport_pulse(now_mono)
-
-    def configure_sample_transport(
-        self,
-        *,
-        target_rpm: float | None,
-        direct_max_speed_usteps_per_s: int | None = None,
-        direct_acceleration_usteps_per_s2: int | None = None,
-    ) -> None:
-        self._runtime._configure_sample_transport(
-            target_rpm=target_rpm,
-            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
-            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
-        )
-
-    def nominal_degrees_per_step(self) -> float | None:
-        if self._runtime._sample_transport_step_deg is not None:
-            return float(self._runtime._sample_transport_step_deg)
-        fn = getattr(self._runtime._pulse_command, "nominal_degrees_per_step", None)
-        if callable(fn):
-            value = fn()
-            return float(value) if isinstance(value, (int, float)) and value > 0 else None
-        return None
 
 
 __all__ = ["RuntimeC2"]

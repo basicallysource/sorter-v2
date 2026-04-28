@@ -319,7 +319,6 @@ def build_c2_callables(
     motion_diagnostics: MotionDiagnostics | None = None,
 ) -> tuple[
     Callable[[Any, float, str | None], bool],
-    Callable[[], bool],
     Callable[[float, int | None, int | None], bool],
 ]:
     # ``_pulse_ms`` is accepted for signature parity with RuntimeC2 /
@@ -384,12 +383,6 @@ def build_c2_callables(
 
     pulse.nominal_degrees_per_step = _pulse_degrees  # type: ignore[attr-defined]
 
-    def wiggle() -> bool:
-        logger.warning(
-            "TODO_PHASE5_WIRING: c2 wiggle — live verification needed"
-        )
-        return False
-
     def direct_move(
         deg: float,
         max_speed: int | None = None,
@@ -426,7 +419,7 @@ def build_c2_callables(
             logger.exception("RuntimeC2: direct move raised")
             return False
 
-    return pulse, wiggle, direct_move
+    return pulse, direct_move
 
 
 def build_c3_callables(
@@ -434,7 +427,10 @@ def build_c3_callables(
     logger: logging.Logger,
     *,
     motion_diagnostics: MotionDiagnostics | None = None,
-) -> tuple[Callable[[Any, float, str | None], bool], Callable[[], bool], Callable[[float, int | None, int | None], bool]]:
+) -> tuple[
+    Callable[[Any, float, str | None], bool],
+    Callable[[float, int | None, int | None], bool],
+]:
     def _pulse_degrees() -> float | None:
         stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
         feeder_cfg = getattr(irl, "feeder_config", None) or getattr(
@@ -495,12 +491,6 @@ def build_c3_callables(
 
     pulse.nominal_degrees_per_step = _pulse_degrees  # type: ignore[attr-defined]
 
-    def wiggle() -> bool:
-        logger.warning(
-            "TODO_PHASE5_WIRING: c3 wiggle — live verification needed"
-        )
-        return False
-
     def direct_move(
         deg: float,
         max_speed: int | None = None,
@@ -537,7 +527,7 @@ def build_c3_callables(
             logger.exception("RuntimeC3: direct move raised")
             return False
 
-    return pulse, wiggle, direct_move
+    return pulse, direct_move
 
 
 def build_c4_callables(

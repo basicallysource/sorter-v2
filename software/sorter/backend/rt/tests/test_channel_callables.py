@@ -171,7 +171,7 @@ def test_c2_callable_uses_normal_and_precise_profiles() -> None:
         },
     )()
 
-    pulse, _wiggle, _continuous = build_c2_callables(irl, logging.getLogger("test"))
+    pulse, _continuous = build_c2_callables(irl, logging.getLogger("test"))
 
     assert pulse("normal", 250.0) is True
     assert pulse("precise", 1000.0) is True
@@ -197,7 +197,7 @@ def test_c2_direct_move_accepts_small_degree_steps() -> None:
     )()
     diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
 
-    _pulse, _wiggle, direct = build_c2_callables(
+    _pulse, direct = build_c2_callables(
         irl,
         logging.getLogger("test"),
         motion_diagnostics=diagnostics,
@@ -232,7 +232,7 @@ def test_c3_callable_uses_normal_and_precise_profiles() -> None:
         },
     )()
 
-    pulse, _wiggle, _continuous = build_c3_callables(irl, logging.getLogger("test"))
+    pulse, _continuous = build_c3_callables(irl, logging.getLogger("test"))
 
     assert pulse("normal", 120.0) is True
     assert pulse("precise", 1000.0) is True
@@ -260,7 +260,7 @@ def test_c3_callable_waits_for_stepper_to_stop_before_returning() -> None:
         },
     )()
 
-    pulse, _wiggle, _continuous = build_c3_callables(irl, logging.getLogger("test"))
+    pulse, _continuous = build_c3_callables(irl, logging.getLogger("test"))
 
     assert pulse("normal", 120.0) is True
 
@@ -287,7 +287,7 @@ def test_c3_direct_move_accepts_small_degree_steps() -> None:
     )()
     diagnostics = MotionDiagnostics(warn_throttle_s=0.0)
 
-    _pulse, _wiggle, direct = build_c3_callables(
+    _pulse, direct = build_c3_callables(
         irl,
         logging.getLogger("test"),
         motion_diagnostics=diagnostics,

@@ -275,8 +275,6 @@ def _c2_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
         "exit_near_arc_deg": _rad_attr_deg(runtime, "_exit_near_arc"),
         "approach_near_arc_deg": _rad_attr_deg(runtime, "_approach_near_arc"),
         "intake_near_arc_deg": _rad_attr_deg(runtime, "_intake_near_arc"),
-        "wiggle_stall_ms": _seconds_attr_ms(runtime, "_wiggle_stall_s"),
-        "wiggle_cooldown_ms": _seconds_attr_ms(runtime, "_wiggle_cooldown_s"),
         "exit_handoff_min_interval_s": _runtime_attr(
             runtime,
             "_exit_handoff_min_interval_s",
@@ -310,8 +308,6 @@ def _c3_snapshot(runtime: Any, feeder_cfg: Any) -> dict[str, Any]:
         "track_stale_s": _runtime_attr(runtime, "_track_stale_s"),
         "exit_near_arc_deg": _rad_attr_deg(runtime, "_exit_near_arc"),
         "approach_near_arc_deg": _rad_attr_deg(runtime, "_approach_near_arc"),
-        "wiggle_stall_ms": _seconds_attr_ms(runtime, "_wiggle_stall_s"),
-        "wiggle_cooldown_ms": _seconds_attr_ms(runtime, "_wiggle_cooldown_s"),
         "holdover_ms": _seconds_attr_ms(runtime, "_holdover_s"),
         "exit_handoff_min_interval_s": _runtime_attr(
             runtime,
@@ -695,8 +691,6 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
         "exit_near_arc_deg",
         "approach_near_arc_deg",
         "intake_near_arc_deg",
-        "wiggle_stall_ms",
-        "wiggle_cooldown_ms",
         "exit_handoff_min_interval_s",
         "exit_handoff_min_interval_ms",
         "handoff_retry_escalate_after",
@@ -741,18 +735,6 @@ def _apply_c2(handle: Any, values: dict[str, Any]) -> None:
     )
     _set_runtime_radians(
         runtime, "_intake_near_arc", values, "intake_near_arc_deg", 0.1, 180.0
-    )
-    _set_runtime_seconds(
-        runtime, "_wiggle_stall_s", values, None, "wiggle_stall_ms", 0.0, 30.0
-    )
-    _set_runtime_seconds(
-        runtime,
-        "_wiggle_cooldown_s",
-        values,
-        None,
-        "wiggle_cooldown_ms",
-        0.0,
-        30.0,
     )
     _set_runtime_seconds(
         runtime,
@@ -829,8 +811,6 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
         "track_stale_s",
         "exit_near_arc_deg",
         "approach_near_arc_deg",
-        "wiggle_stall_ms",
-        "wiggle_cooldown_ms",
         "holdover_ms",
         "exit_handoff_min_interval_s",
         "exit_handoff_min_interval_ms",
@@ -867,18 +847,6 @@ def _apply_c3(handle: Any, values: dict[str, Any]) -> None:
     )
     _set_runtime_radians(
         runtime, "_approach_near_arc", values, "approach_near_arc_deg", 0.1, 180.0
-    )
-    _set_runtime_seconds(
-        runtime, "_wiggle_stall_s", values, None, "wiggle_stall_ms", 0.0, 30.0
-    )
-    _set_runtime_seconds(
-        runtime,
-        "_wiggle_cooldown_s",
-        values,
-        None,
-        "wiggle_cooldown_ms",
-        0.0,
-        30.0,
     )
     _set_runtime_seconds(
         runtime, "_holdover_s", values, None, "holdover_ms", 0.0, 30.0

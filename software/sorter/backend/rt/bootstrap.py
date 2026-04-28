@@ -887,12 +887,12 @@ def build_rt_runtime(
         log,
         motion_diagnostics=motion_diagnostics,
     )
-    c2_pulse, c2_wiggle, c2_direct_move = build_c2_callables(
+    c2_pulse, c2_direct_move = build_c2_callables(
         irl,
         log,
         motion_diagnostics=motion_diagnostics,
     )
-    c3_pulse, c3_wiggle, c3_direct_move = build_c3_callables(
+    c3_pulse, c3_direct_move = build_c3_callables(
         irl,
         log,
         motion_diagnostics=motion_diagnostics,
@@ -1073,7 +1073,6 @@ def build_rt_runtime(
         upstream_slot=slots[("c1", "c2")],
         downstream_slot=slots[("c2", "c3")],
         pulse_command=c2_pulse,
-        wiggle_command=c2_wiggle,
         sample_transport_command=c2_direct_move,
         upstream_progress_callback=c1.notify_downstream_progress,
         admission=AlwaysAdmit(),
@@ -1086,7 +1085,6 @@ def build_rt_runtime(
         upstream_slot=slots[("c2", "c3")],
         downstream_slot=slots[("c3", "c4")],
         pulse_command=c3_pulse,
-        wiggle_command=c3_wiggle,
         sample_transport_command=c3_direct_move,
         admission=AlwaysAdmit(),
         ejection_timing=ConstantPulseEjection(),

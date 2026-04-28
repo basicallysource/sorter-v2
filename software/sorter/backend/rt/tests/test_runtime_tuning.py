@@ -104,8 +104,6 @@ def _handle() -> SimpleNamespace:
         _exit_near_arc=math.radians(30.0),
         _approach_near_arc=math.radians(45.0),
         _intake_near_arc=math.radians(30.0),
-        _wiggle_stall_s=0.6,
-        _wiggle_cooldown_s=1.2,
         _exit_handoff_min_interval_s=0.85,
         _transport_velocity=SimpleNamespace(target_rpm=1.2),
     )
@@ -115,8 +113,6 @@ def _handle() -> SimpleNamespace:
         _track_stale_s=0.5,
         _exit_near_arc=math.radians(20.0),
         _approach_near_arc=math.radians(45.0),
-        _wiggle_stall_s=0.6,
-        _wiggle_cooldown_s=1.2,
         _holdover_s=2.0,
         _exit_handoff_min_interval_s=0.85,
         _transport_velocity=SimpleNamespace(target_rpm=1.2),

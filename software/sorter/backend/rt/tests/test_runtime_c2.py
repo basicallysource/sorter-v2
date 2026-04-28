@@ -82,7 +82,6 @@ def _make(
     upstream_cap: int = 1,
     downstream_cap: int = 1,
     pulse_success: bool = True,
-    wiggle_success: bool = True,
     exit_handoff_min_interval_s: float = 0.85,
     upstream_progress_callback: Callable[[float], None] | None = None,
 ) -> tuple[RuntimeC2, CapacitySlot, CapacitySlot, list[str]]:
@@ -98,10 +97,6 @@ def _make(
         log.append(f"{mode.value}:{pulse_ms:.0f}")
         return pulse_success
 
-    def wiggle() -> bool:
-        log.append("wiggle")
-        return wiggle_success
-
     def sample_transport(
         deg: float,
         max_speed: int | None = None,
@@ -114,13 +109,10 @@ def _make(
         upstream_slot=upstream,
         downstream_slot=downstream,
         pulse_command=pulse,
-        wiggle_command=wiggle,
         sample_transport_command=sample_transport,
         upstream_progress_callback=upstream_progress_callback,
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
         pulse_cooldown_s=0.0,
-        wiggle_stall_ms=200,
-        wiggle_cooldown_ms=500,
         exit_handoff_min_interval_s=exit_handoff_min_interval_s,
     )
     return rt, upstream, downstream, log

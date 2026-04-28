@@ -112,7 +112,6 @@ class RuntimeC3(BaseRuntime):
         upstream_slot: CapacitySlot,
         downstream_slot: CapacitySlot,
         pulse_command: Callable[..., bool],
-        wiggle_command: Callable[[], bool],
         sample_transport_command: Callable[[float, int | None, int | None], bool] | None = None,
         admission: AdmissionStrategy | None = None,
         ejection_timing: EjectionTimingStrategy | None = None,
@@ -124,8 +123,6 @@ class RuntimeC3(BaseRuntime):
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
         approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
-        wiggle_stall_ms: int = 600,
-        wiggle_cooldown_ms: int = 1200,
         holdover_ms: int = DEFAULT_HOLDOVER_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
@@ -142,7 +139,6 @@ class RuntimeC3(BaseRuntime):
         self._upstream_slot = upstream_slot
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command
-        del wiggle_command, wiggle_stall_ms, wiggle_cooldown_ms
         self._sample_transport_command = sample_transport_command
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()

@@ -108,10 +108,6 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         log.append(f"{mode.value}:{pulse_ms:.0f}")
         return pulse_success
 
-    def wiggle() -> bool:
-        log.append("wiggle")
-        return True
-
     def sample_transport(
         deg: float,
         max_speed: int | None = None,
@@ -124,13 +120,10 @@ def _make(**kwargs) -> tuple[RuntimeC3, CapacitySlot, CapacitySlot, list[str]]:
         upstream_slot=upstream,
         downstream_slot=downstream,
         pulse_command=pulse,
-        wiggle_command=wiggle,
         sample_transport_command=sample_transport,
         hw_worker=_InlineHw(),  # type: ignore[arg-type]
         event_bus=kwargs.get("event_bus"),
         pulse_cooldown_s=0.0,
-        wiggle_stall_ms=200,
-        wiggle_cooldown_ms=500,
         holdover_ms=kwargs.get("holdover_ms", 2000),
         max_piece_count=kwargs.get("max_piece_count", 3),
         track_transit=kwargs.get("track_transit"),

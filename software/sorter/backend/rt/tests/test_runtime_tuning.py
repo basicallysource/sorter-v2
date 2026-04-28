@@ -183,8 +183,23 @@ def _handle() -> SimpleNamespace:
     def resume_from_maintenance() -> None:
         c1._maintenance_pause_reason = None
 
+    def c1_debug_snapshot() -> dict:
+        return {
+            "maintenance_pause_reason": c1._maintenance_pause_reason,
+            "sample_transport_step_deg": c1._sample_transport_step_deg,
+            "pulse_cooldown_s": c1._pulse_cooldown_s,
+            "startup_hold_s": c1._startup_hold_s,
+            "unconfirmed_pulse_limit": c1._unconfirmed_pulse_limit,
+            "observation_hold_s": c1._observation_hold_s,
+            "jam_timeout_s": c1._jam_timeout_s,
+            "jam_min_pulses": c1._jam_min_pulses,
+            "jam_cooldown_s": c1._jam_cooldown_s,
+            "max_recovery_cycles": c1._max_recovery_cycles,
+        }
+
     c1.pause_for_maintenance = pause_for_maintenance
     c1.resume_from_maintenance = resume_from_maintenance
+    c1.debug_snapshot = c1_debug_snapshot
 
     return SimpleNamespace(
         irl=SimpleNamespace(

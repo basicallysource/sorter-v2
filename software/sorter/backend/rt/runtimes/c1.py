@@ -221,6 +221,7 @@ class RuntimeC1(BaseRuntime):
         snap = super().debug_snapshot()
         snap.update(
             {
+                "sample_transport_step_deg": self._sample_transport_step_deg,
                 "pulse_cooldown_s": float(self._pulse_cooldown_s),
                 "next_pulse_at_mono": float(self._next_pulse_at),
                 "startup_hold_s": float(self._startup_hold_s),
@@ -234,6 +235,10 @@ class RuntimeC1(BaseRuntime):
                     self._observation_hold_remaining_s
                 ),
                 "maintenance_pause_reason": self._maintenance_pause_reason,
+                "jam_timeout_s": float(self._jam_timeout_s),
+                "jam_min_pulses": int(self._jam_min_pulses),
+                "jam_cooldown_s": float(self._jam_cooldown_s),
+                "max_recovery_cycles": int(self._max_recovery_cycles),
                 "jam": {
                     "pulses_since_progress": int(self._jam.pulses_since_progress),
                     "last_progress_mono": self._jam.last_progress_mono,

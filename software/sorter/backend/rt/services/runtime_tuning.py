@@ -117,25 +117,26 @@ def apply_patch(handle: Any, patch: dict[str, Any]) -> dict[str, Any]:
 
 
 def _c1_snapshot(runtime: Any, feeder_cfg: Any, orchestrator: Any = None) -> dict[str, Any]:
+    snapshot_fn = getattr(runtime, "debug_snapshot", None)
+    raw_runtime_snap = snapshot_fn() if callable(snapshot_fn) else None
+    runtime_snap = dict(raw_runtime_snap) if isinstance(raw_runtime_snap, dict) else {}
+    maintenance_pause_reason = runtime_snap.get("maintenance_pause_reason")
     return {
         "transport": _rotor_snapshot(getattr(feeder_cfg, "first_rotor", None)),
         "vision_burst": _c1_vision_burst_snapshot(orchestrator),
         "c4_backpressure": _c1_c4_backpressure_snapshot(orchestrator),
         "recovery_admission": _c1_recovery_admission_snapshot(orchestrator),
-        "feed_inhibit": bool(_runtime_attr(runtime, "_maintenance_pause_reason")),
-        "feed_inhibit_reason": _runtime_attr(runtime, "_maintenance_pause_reason"),
-        "sample_transport_step_deg": _runtime_attr(runtime, "_sample_transport_step_deg"),
-        "pulse_cooldown_s": _runtime_attr(runtime, "_pulse_cooldown_s"),
-        "startup_hold_s": _runtime_attr(runtime, "_startup_hold_s"),
-        "unconfirmed_pulse_limit": _runtime_attr(
-            runtime,
-            "_unconfirmed_pulse_limit",
-        ),
-        "observation_hold_s": _runtime_attr(runtime, "_observation_hold_s"),
-        "jam_timeout_s": _runtime_attr(runtime, "_jam_timeout_s"),
-        "jam_min_pulses": _runtime_attr(runtime, "_jam_min_pulses"),
-        "jam_cooldown_s": _runtime_attr(runtime, "_jam_cooldown_s"),
-        "max_recovery_cycles": _runtime_attr(runtime, "_max_recovery_cycles"),
+        "feed_inhibit": bool(maintenance_pause_reason),
+        "feed_inhibit_reason": maintenance_pause_reason,
+        "sample_transport_step_deg": runtime_snap.get("sample_transport_step_deg"),
+        "pulse_cooldown_s": runtime_snap.get("pulse_cooldown_s"),
+        "startup_hold_s": runtime_snap.get("startup_hold_s"),
+        "unconfirmed_pulse_limit": runtime_snap.get("unconfirmed_pulse_limit"),
+        "observation_hold_s": runtime_snap.get("observation_hold_s"),
+        "jam_timeout_s": runtime_snap.get("jam_timeout_s"),
+        "jam_min_pulses": runtime_snap.get("jam_min_pulses"),
+        "jam_cooldown_s": runtime_snap.get("jam_cooldown_s"),
+        "max_recovery_cycles": runtime_snap.get("max_recovery_cycles"),
     }
 
 

@@ -612,30 +612,23 @@ class RuntimeC4(BaseRuntime):
         *,
         now_mono: float | None,
     ) -> None:
-        status = "pending"
-        if dossier.result is not None:
-            status = "classified" if dossier.result.part_id else "unknown"
         now_wall = time.time()
         last_angle_deg = self._dossier_last_angle_deg(dossier)
+        zone_payload = self._dossier_event_payload(
+            dossier,
+            zone_state="lost",
+            center_deg=last_angle_deg,
+            lost_at=now_wall,
+        )
         self._publish(
             PIECE_REGISTERED,
             {
-                "piece_uuid": dossier.piece_uuid,
-                "tracked_global_id": dossier.global_id,
-                **self._dossier_tracklet_payload(dossier),
+                **zone_payload,
                 "stage": "registered",
-                "classification_status": status,
-                "classification_channel_zone_state": "lost",
-                "classification_channel_zone_center_deg": last_angle_deg,
-                "classification_channel_lost_at": now_wall,
+                "classification_status": self._classification_status(dossier.result),
                 "updated_at": now_wall,
                 "dossier": {
-                    "piece_uuid": dossier.piece_uuid,
-                    "tracked_global_id": dossier.global_id,
-                    **self._dossier_tracklet_payload(dossier),
-                    "classification_channel_zone_state": "lost",
-                    "classification_channel_lost_at": now_wall,
-                    "classification_channel_zone_center_deg": last_angle_deg,
+                    **zone_payload,
                     "classification_channel_exit_deg": self._exit_angle_deg,
                 },
             },
@@ -1354,34 +1347,28 @@ class RuntimeC4(BaseRuntime):
             recovered=recovered,
         )
         result_payload = self._classification_payload(result)
-        classification_status = (
-            "classified" if result is not None and result.part_id else "pending"
+        event_payload = self._dossier_event_payload(dossier, zone_state="active")
+        dossier_payload = self._dossier_event_payload(
+            dossier,
+            zone_state="active",
+            center_deg=angle_deg,
+            include_exit=True,
         )
         transit_payload = self._transit_payload(transit)
         self._publish(
             PIECE_REGISTERED,
             {
-                "piece_uuid": piece_uuid,
-                "tracked_global_id": gid,
-                "current_tracklet_id": tracklet.get("tracklet_id"),
-                **tracklet,
+                **event_payload,
                 "angle_at_intake_deg": angle_deg,
                 "intake_ts_mono": now_mono,
                 "confirmed_real": True,
                 "stage": "registered",
-                "classification_status": classification_status,
-                "classification_channel_zone_state": "active",
+                "classification_status": self._classification_status(result),
                 "recovered": recovered,
                 "admission_basis": dossier.extras.get("admission_basis"),
                 **transit_payload,
                 "dossier": {
-                    "piece_uuid": piece_uuid,
-                    "tracked_global_id": gid,
-                    "current_tracklet_id": tracklet.get("tracklet_id"),
-                    **tracklet,
-                    "classification_channel_zone_state": "active",
-                    "classification_channel_zone_center_deg": angle_deg,
-                    "classification_channel_exit_deg": self._exit_angle_deg,
+                    **dossier_payload,
                     "first_carousel_seen_ts": now_mono,
                     "recovered": recovered,
                     "admission_basis": dossier.extras.get("admission_basis"),
@@ -1453,6 +1440,30 @@ class RuntimeC4(BaseRuntime):
         if dossier.tracklet_id:
             payload["tracklet_id"] = dossier.tracklet_id
             payload["current_tracklet_id"] = dossier.tracklet_id
+        return payload
+
+    def _dossier_event_payload(
+        self,
+        dossier: _PieceDossier,
+        *,
+        zone_state: str | None = None,
+        center_deg: float | None = None,
+        lost_at: float | None = None,
+        include_exit: bool = False,
+    ) -> dict[str, Any]:
+        payload = {
+            "piece_uuid": dossier.piece_uuid,
+            "tracked_global_id": dossier.global_id,
+            **self._dossier_tracklet_payload(dossier),
+        }
+        if zone_state is not None:
+            payload["classification_channel_zone_state"] = zone_state
+        if center_deg is not None:
+            payload["classification_channel_zone_center_deg"] = center_deg
+        if lost_at is not None:
+            payload["classification_channel_lost_at"] = lost_at
+        if include_exit:
+            payload["classification_channel_exit_deg"] = self._exit_angle_deg
         return payload
 
     def _dossier_last_angle_deg(self, dossier: _PieceDossier) -> float:
@@ -1593,6 +1604,14 @@ class RuntimeC4(BaseRuntime):
             "brickognize_preview_url": meta.get("preview_url") or meta.get("img_url"),
         }
 
+    @staticmethod
+    def _classification_status(
+        result: ClassifierResult | None,
+        *,
+        missing: str = "pending",
+    ) -> str:
+        return missing if result is None else ("classified" if result.part_id else "unknown")
+
     def _publish_transit_link(
         self,
         piece_uuid: str,
@@ -1720,22 +1739,15 @@ class RuntimeC4(BaseRuntime):
             self._bank_bind_classification(dossier.piece_uuid, dossier)
             result = dossier.result
             result_payload = self._classification_payload(result)
+            zone_payload = self._dossier_event_payload(dossier, zone_state="active")
             payload: dict[str, Any] = {
-                "piece_uuid": dossier.piece_uuid,
-                "tracked_global_id": dossier.global_id,
-                **self._dossier_tracklet_payload(dossier),
+                **zone_payload,
                 "classified_ts_mono": now_mono,
                 "confirmed_real": True,
                 "stage": "classified",
-                "classification_status": "classified"
-                if result and result.part_id
-                else "unknown",
-                "classification_channel_zone_state": "active",
+                "classification_status": self._classification_status(result, missing="unknown"),
                 "dossier": {
-                    "piece_uuid": dossier.piece_uuid,
-                    "tracked_global_id": dossier.global_id,
-                    **self._dossier_tracklet_payload(dossier),
-                    "classification_channel_zone_state": "active",
+                    **zone_payload,
                     **result_payload,
                     "classified_at": now_mono,
                 },
@@ -1928,28 +1940,14 @@ class RuntimeC4(BaseRuntime):
 
     def _handoff_dossier_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
         result = dossier.result
-        result_meta = result.meta if result and isinstance(result.meta, dict) else {}
         return {
-            "piece_uuid": dossier.piece_uuid,
-            "tracked_global_id": dossier.global_id,
-            **self._dossier_tracklet_payload(dossier),
+            **self._dossier_event_payload(dossier),
             "angle_at_intake_deg": dossier.angle_at_intake_deg,
             "intake_ts_mono": dossier.intake_ts,
             "classified_ts_mono": dossier.classified_ts,
-            "part_id": result.part_id if result else None,
-            "part_name": result_meta.get("name"),
-            "color_id": result.color_id if result else None,
-            "color_name": result_meta.get("color_name"),
-            "part_category": result.category if result else None,
-            "category": result.category if result else None,
-            "confidence": result.confidence if result else None,
+            **self._classification_payload(result),
             "classification_channel_exit_deg": self._exit_angle_deg,
-            "algorithm": result.algorithm if result else None,
-            "brickognize_preview_url": result_meta.get("preview_url")
-            or result_meta.get("img_url"),
-            "classification_status": "classified"
-            if result and result.part_id
-            else "unknown",
+            "classification_status": self._classification_status(result, missing="unknown"),
             **dossier.extras,
         }
 

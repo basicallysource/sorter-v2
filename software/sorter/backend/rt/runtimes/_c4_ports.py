@@ -107,7 +107,7 @@ class C4SectorCarouselPort:
         self._runtime = runtime
 
     def transport_move(self, degrees: float) -> bool:
-        return self._runtime._transport_move(degrees)
+        return self._runtime.move_tray_degrees(degrees)
 
     def hardware_busy(self) -> bool:
         return bool(self._runtime._hw.busy())

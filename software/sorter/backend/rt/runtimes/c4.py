@@ -615,17 +615,6 @@ class RuntimeC4(BaseRuntime):
         if intake_body_half_width_deg is not None:
             self._intake_half_width_deg = float(intake_body_half_width_deg)
 
-    def _dossier_debug_payload(
-        self,
-        dossier: _PieceDossier,
-        *,
-        detail_ts_mono: float | None = None,
-    ) -> dict[str, Any]:
-        return self._debug_snapshots.dossier_debug_payload(
-            dossier,
-            detail_ts_mono=detail_ts_mono,
-        )
-
     def debug_snapshot(self) -> dict[str, Any]:
         return self._debug_snapshots.debug_snapshot()
 

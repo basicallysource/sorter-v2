@@ -3,8 +3,7 @@
 Reads ``TrackBatch`` from ``c3_feed``, gates forward pulses on the C3->C4
 capacity slot, and runs a 2 s holdover window where normal pulses are
 promoted to precise pulses after a precise detection (port of
-``subsystems/feeder/strategies/c3_holdover.py``). The exit-zone wiggle is
-the same shape as C2 but fires when C3->C4 is closed and a piece is stuck.
+``subsystems/feeder/strategies/c3_holdover.py``).
 
 Two pulse types:
 * precise — piece is within the exit-zone near arc
@@ -76,8 +75,6 @@ DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(45.0)
 # which it routinely does after a C1 burst.
 DEFAULT_MAX_PIECE_COUNT = 8
 DEFAULT_PULSE_COOLDOWN_S = 0.12
-DEFAULT_WIGGLE_STALL_MS = 600
-DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_HOLDOVER_MS = 2000  # Mirror legacy CH3_PRECISE_HOLDOVER_MS.
 DEFAULT_TRACK_STALE_S = 0.5
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
@@ -103,7 +100,6 @@ class _PulseMode(Enum):
 class _PieceBookkeeping:
     seen_global_ids: set[int]
     exit_stall_since: float | None = None
-    next_wiggle_at: float = 0.0
     last_precise_at: float | None = None
 
 
@@ -128,8 +124,8 @@ class RuntimeC3(BaseRuntime):
         exit_zone_near_arc_rad: float = DEFAULT_EXIT_ZONE_NEAR_ARC_RAD,
         approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
-        wiggle_stall_ms: int = DEFAULT_WIGGLE_STALL_MS,
-        wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
+        wiggle_stall_ms: int = 600,
+        wiggle_cooldown_ms: int = 1200,
         holdover_ms: int = DEFAULT_HOLDOVER_MS,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
@@ -146,7 +142,7 @@ class RuntimeC3(BaseRuntime):
         self._upstream_slot = upstream_slot
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command
-        self._wiggle_command = wiggle_command
+        del wiggle_command, wiggle_stall_ms, wiggle_cooldown_ms
         self._sample_transport_command = sample_transport_command
         self._admission = admission or AlwaysAdmit()
         self._ejection = ejection_timing or ConstantPulseEjection()
@@ -159,8 +155,6 @@ class RuntimeC3(BaseRuntime):
             float(approach_zone_near_arc_rad),
         )
         self._pulse_cooldown_s = float(pulse_cooldown_s)
-        self._wiggle_stall_s = float(wiggle_stall_ms) / 1000.0
-        self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
         self._holdover_s = float(holdover_ms) / 1000.0
         self._track_stale_s = max(0.0, float(track_stale_s))
         self._exit_handoff_min_interval_s = max(
@@ -1180,34 +1174,6 @@ class RuntimeC3(BaseRuntime):
         if retry_count >= self._handoff_retry_escalate_after:
             return self._handoff_retry_max_pulses
         return 1
-
-    def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
-        if exit_track is None:
-            self._book.exit_stall_since = None
-            return False
-        if self._book.exit_stall_since is None:
-            self._book.exit_stall_since = now_mono
-            return False
-        stall = now_mono - self._book.exit_stall_since
-        if stall < self._wiggle_stall_s:
-            return False
-        if now_mono < self._book.next_wiggle_at:
-            return False
-        if self._hw.busy():
-            return False
-
-        def _run_wiggle() -> None:
-            try:
-                self._wiggle_command()
-            except Exception:
-                self._logger.exception("RuntimeC3: wiggle command raised")
-
-        enqueued = self._hw.enqueue(_run_wiggle, label="c3_exit_wiggle")
-        if enqueued:
-            self._book.next_wiggle_at = now_mono + self._wiggle_cooldown_s
-            self._set_state("exit_wiggle")
-            return True
-        return False
 
     def _call_pulse_command(
         self,

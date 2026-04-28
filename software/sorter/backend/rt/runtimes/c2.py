@@ -1,10 +1,9 @@
 """RuntimeC2 — separation seed shuttle.
 
-Reads ``TrackBatch`` from ``c2_feed``, gates forward
-pulses on the C2->C3 capacity slot, and triggers an exit-zone wiggle when a
-piece is stuck at the exit but downstream is closed. Port of:
+Reads ``TrackBatch`` from ``c2_feed`` and gates forward pulses on the C2->C3
+capacity slot. Port of:
 
-* ``subsystems/channels/c2_separation.py`` — pulse dispatch + exit-wiggle
+* ``subsystems/channels/c2_separation.py`` — pulse dispatch
 * ``subsystems/feeder/analysis.py``        — track-to-action mapping
 
 Pulse modes mirror C3:
@@ -64,8 +63,6 @@ from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
 
 
-# Exit-zone wiggle defaults (output-shaft degrees). Mirror legacy
-# ``base.EXIT_WIGGLE_*`` constants.
 DEFAULT_EXIT_ZONE_NEAR_ARC_RAD = math.radians(30.0)
 # Deceleration zone in front of the exit. Once a confirmed-real track is
 # inside this arc but not yet in the commit zone, C2 switches to small
@@ -75,8 +72,6 @@ DEFAULT_APPROACH_NEAR_ARC_RAD = math.radians(45.0)
 DEFAULT_INTAKE_ZONE_NEAR_ARC_RAD = math.radians(30.0)
 DEFAULT_MAX_PIECE_COUNT = 5
 DEFAULT_PULSE_COOLDOWN_S = 0.12
-DEFAULT_WIGGLE_STALL_MS = 600
-DEFAULT_WIGGLE_COOLDOWN_MS = 1200
 DEFAULT_TRACK_STALE_S = 0.5
 # Idle cadence for the advance pulse: when the ring carries tracks but none
 # is in the exit near-arc, pulse periodically to (a) bring real pieces
@@ -104,7 +99,6 @@ class _PieceBookkeeping:
     # upstream slot exactly once per piece).
     seen_global_ids: set[int]
     exit_stall_since: float | None = None
-    next_wiggle_at: float = 0.0
     next_advance_at: float = 0.0
 
 
@@ -132,8 +126,8 @@ class RuntimeC2(BaseRuntime):
         approach_zone_near_arc_rad: float = DEFAULT_APPROACH_NEAR_ARC_RAD,
         intake_zone_near_arc_rad: float = DEFAULT_INTAKE_ZONE_NEAR_ARC_RAD,
         pulse_cooldown_s: float = DEFAULT_PULSE_COOLDOWN_S,
-        wiggle_stall_ms: int = DEFAULT_WIGGLE_STALL_MS,
-        wiggle_cooldown_ms: int = DEFAULT_WIGGLE_COOLDOWN_MS,
+        wiggle_stall_ms: int = 600,
+        wiggle_cooldown_ms: int = 1200,
         track_stale_s: float = DEFAULT_TRACK_STALE_S,
         advance_interval_s: float = DEFAULT_ADVANCE_INTERVAL_S,
         exit_handoff_min_interval_s: float = DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S,
@@ -149,7 +143,7 @@ class RuntimeC2(BaseRuntime):
         self._upstream_slot = upstream_slot
         self._downstream_slot = downstream_slot
         self._pulse_command = pulse_command
-        self._wiggle_command = wiggle_command
+        del wiggle_command, wiggle_stall_ms, wiggle_cooldown_ms
         self._sample_transport_command = sample_transport_command
         self._upstream_progress_callback = upstream_progress_callback
         self._admission = admission or AlwaysAdmit()
@@ -163,8 +157,6 @@ class RuntimeC2(BaseRuntime):
         )
         self._intake_near_arc = float(intake_zone_near_arc_rad)
         self._pulse_cooldown_s = float(pulse_cooldown_s)
-        self._wiggle_stall_s = float(wiggle_stall_ms) / 1000.0
-        self._wiggle_cooldown_s = float(wiggle_cooldown_ms) / 1000.0
         self._track_stale_s = max(0.0, float(track_stale_s))
         self._advance_interval_s = max(0.0, float(advance_interval_s))
         self._exit_handoff_min_interval_s = max(
@@ -868,33 +860,5 @@ class RuntimeC2(BaseRuntime):
         if retry_count >= self._handoff_retry_escalate_after:
             return self._handoff_retry_max_pulses
         return 1
-
-    def _maybe_wiggle(self, exit_track: Track | None, now_mono: float) -> bool:
-        if exit_track is None:
-            self._bookkeeping.exit_stall_since = None
-            return False
-        if self._bookkeeping.exit_stall_since is None:
-            self._bookkeeping.exit_stall_since = now_mono
-            return False
-        stall = now_mono - self._bookkeeping.exit_stall_since
-        if stall < self._wiggle_stall_s:
-            return False
-        if now_mono < self._bookkeeping.next_wiggle_at:
-            return False
-        if self._hw.busy():
-            return False
-
-        def _run_wiggle() -> None:
-            try:
-                self._wiggle_command()
-            except Exception:
-                self._logger.exception("RuntimeC2: wiggle command raised")
-
-        enqueued = self._hw.enqueue(_run_wiggle, label="c2_exit_wiggle")
-        if enqueued:
-            self._bookkeeping.next_wiggle_at = now_mono + self._wiggle_cooldown_s
-            self._set_state("exit_wiggle")
-            return True
-        return False
 
 __all__ = ["RuntimeC2"]

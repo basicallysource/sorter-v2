@@ -28,7 +28,6 @@ from typing import Any, Callable
 import rt.perception  # noqa: F401 - register detectors/trackers/filters
 import rt.rules  # noqa: F401 - register rules engines
 from rt.classification.brickognize import BrickognizeClient
-from rt.contracts.classification import ClassifierResult
 from rt.contracts.feed import PolarZone, PolygonZone, RectZone, Zone
 from rt.contracts.registry import (
     CLASSIFIERS,
@@ -76,7 +75,7 @@ from rt.runtimes.distributor import RuntimeDistributor
 from rt.services.c1_pulse_observation import C1PulseObserver
 from rt.services.maintenance_purge import C234PurgeCoordinator
 from rt.services.sample_transport import C1234SampleTransportCoordinator
-from rt.services.sector_carousel import SectorCarouselHandler
+from rt.services.sector_carousel.wiring import install_sector_carousel_handler
 from rt.services.track_transit import TrackTransitRegistry
 
 
@@ -1330,135 +1329,23 @@ def build_rt_runtime(
     _orchestrator_ref.append(orch)
     orch.attach_c1_pulse_observer(c1_pulse_observer)
 
-    # SectorCarouselHandler owns C4 transport/eject sequencing in
-    # production. RuntimeC4 stays alive underneath for BoxMot tracking,
-    # classification, crop/dossier updates, and the wrapped transport
-    # command that maintains the software encoder.
-    sector_handler_ref: list[SectorCarouselHandler] = []
-
-    def _sector_capture_start(piece_uuid: str, _slot: Any) -> None:
-        runner = perception_sources.get("c4_feed")
-        handler = sector_handler_ref[0] if sector_handler_ref else None
-        if runner is None or handler is None:
-            return
-
-        def _capture_window() -> None:
-            frame_pool: list[Any] = []
-            seen_seq: set[int] = set()
-            deadline = time.monotonic() + 0.8
-            first_detection_at: float | None = None
-            while time.monotonic() < deadline:
-                latest_state = getattr(runner, "latest_state", None)
-                state = latest_state() if callable(latest_state) else None
-                frame = getattr(state, "frame", None) if state is not None else None
-                seq = getattr(frame, "frame_seq", None)
-                if isinstance(seq, int) and seq not in seen_seq:
-                    seen_seq.add(seq)
-                    frame_pool.append(state)
-                    detections = getattr(state, "detections", None)
-                    entries = (
-                        getattr(detections, "detections", None)
-                        if detections is not None
-                        else None
-                    )
-                    if entries and first_detection_at is None:
-                        first_detection_at = time.monotonic()
-                if first_detection_at is not None and time.monotonic() - first_detection_at > 0.25:
-                    break
-                time.sleep(0.02)
-            handler.attach_frame_pool(piece_uuid, frame_pool, now_mono=time.monotonic())
-
-        threading.Thread(
-            target=_capture_window,
-            name=f"SectorCarouselCapture[{piece_uuid}]",
-            daemon=True,
-        ).start()
-
-    def _sector_classifier_submit(slot: Any) -> Any:
-        runner = perception_sources.get("c4_feed")
-        latest_state = None
-        if runner is not None:
-            latest_state_fn = getattr(runner, "latest_state", None)
-            latest_state = latest_state_fn() if callable(latest_state_fn) else None
-        frame = getattr(latest_state, "frame", None) if latest_state is not None else None
-        batch = (
-            getattr(latest_state, "filtered_tracks", None)
-            if latest_state is not None
-            else None
-        )
-        tracks = list(getattr(batch, "tracks", ()) or ())
-        if not tracks:
-            batch = (
-                getattr(latest_state, "raw_tracks", None)
-                if latest_state is not None
-                else None
-            )
-            tracks = list(getattr(batch, "tracks", ()) or ())
-        if frame is None or not tracks:
-            return ClassifierResult(
-                part_id=None,
-                color_id=None,
-                category=None,
-                confidence=0.0,
-                algorithm="sector_carousel",
-                latency_ms=0.0,
-                meta={"reason": "no_static_track", "slot_index": slot.slot_index},
-            )
-        track = max(
-            tracks,
-            key=lambda tr: (
-                float(getattr(tr, "score", 0.0) or 0.0),
-                int(getattr(tr, "hit_count", 0) or 0),
-            ),
-        )
-        crop = _crop_provider(frame, track)
-        if crop is None:
-            return ClassifierResult(
-                part_id=None,
-                color_id=None,
-                category=None,
-                confidence=0.0,
-                algorithm="sector_carousel",
-                latency_ms=0.0,
-                meta={"reason": "no_crop", "slot_index": slot.slot_index},
-            )
-        return classifier.classify_async(track, frame, crop)
-
-    def _sector_c4_busy() -> bool:
-        if bool(getattr(c4, "_hw", None) and c4._hw.busy()):
-            return True
-        stepper = getattr(irl, "carousel_stepper", None)
-        stopped = getattr(stepper, "stopped", True)
-        return stopped is False
-
-    sector_carousel_handler = SectorCarouselHandler(
-        c4_transport=getattr(c4, "_transport_move", c4_transport_move),
-        c4_eject=c4_eject,
-        distributor_port=distributor,
-        classifier_submit=_sector_classifier_submit,
-        capture_start=_sector_capture_start,
-        c4_hw_busy=_sector_c4_busy,
+    # SectorCarouselHandler owns C4 transport/eject sequencing in production.
+    # RuntimeC4 stays alive underneath for BoxMot tracking, classification,
+    # crop/dossier updates, and software encoder updates.
+    install_sector_carousel_handler(
+        orchestrator=orch,
+        c3=c3,
+        c4=c4,
+        distributor=distributor,
+        perception_sources=perception_sources,
+        classifier=classifier,
+        crop_provider=_crop_provider,
+        irl=irl,
         event_bus=bus,
-        sector_step_deg=72.0,
-        settle_s=0.35,
-        auto_rotate=True,
-        rotate_cooldown_s=8.0,
-        rotation_chunk_deg=2.0,
-        rotation_chunk_settle_s=0.12,
-        require_phase_verification=True,
+        c4_eject=c4_eject,
+        fallback_transport=c4_transport_move,
         logger=log,
     )
-    sector_handler_ref.append(sector_carousel_handler)
-    # Sector mode owns the physical C3 -> C4 landing gate. C3 must obtain
-    # this lease before firing its eject pulse; the later C3_HANDOFF_TRIGGER
-    # is only accepted if it carries the same lease id.
-    c3.set_downstream_landing_lease_required(True)
-    try:
-        c3.set_landing_lease_port(sector_carousel_handler.landing_lease_port())
-    except Exception:
-        log.exception("rt.bootstrap: c3 sector landing-lease wiring failed")
-    orch.attach_sector_carousel_handler(sector_carousel_handler)
-    orch.set_c4_mode("sector_carousel")
     log.info(
         "rt.bootstrap: orchestrator ready "
         "(runtimes=c1,c2,c3,c4,distributor; perception_feeds=%s; slots=%s)",

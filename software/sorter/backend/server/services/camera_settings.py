@@ -53,9 +53,31 @@ def get_role_config_value(
     return None
 
 
-def _get_camera_color_profile_table(config: Dict[str, Any]) -> Dict[str, Any]:
-    profiles = config.get("camera_color_profiles", {})
-    return profiles if isinstance(profiles, dict) else {}
+def role_config_table(config: Dict[str, Any], table_name: str) -> Dict[str, Any]:
+    """Return a mutable per-role config table, normalizing invalid tables."""
+    table = config.get(table_name, {})
+    return table if isinstance(table, dict) else {}
+
+
+def set_role_config_value(
+    config: Dict[str, Any],
+    table_name: str,
+    role: str,
+    value: Dict[str, Any] | None,
+) -> Dict[str, Any]:
+    """Set or clear a role-keyed config value, resolving C4 role aliases."""
+    table = role_config_table(config, table_name)
+    config_role = stored_camera_role_key(role, config)
+    if value is None:
+        table.pop(config_role, None)
+    else:
+        if config_role == "classification_channel":
+            table.pop("carousel", None)
+        elif config_role == "carousel":
+            table.pop("classification_channel", None)
+        table[config_role] = value
+    config[table_name] = table
+    return table
 
 
 def picture_settings_for_role(
@@ -93,19 +115,10 @@ def save_camera_color_profile(
     params_path, config = read_machine_params_config()
     parsed = parseCameraColorProfile(payload)
     profile_dict = cameraColorProfileToDict(parsed)
-    profiles = _get_camera_color_profile_table(config)
-    config_role = stored_camera_role_key(role, config)
     if parsed.enabled:
-        # Carousel and classification_channel are two names for the same
-        # physical camera role — keep only one entry when enabling either.
-        if config_role == "classification_channel":
-            profiles.pop("carousel", None)
-        elif config_role == "carousel":
-            profiles.pop("classification_channel", None)
-        profiles[config_role] = profile_dict
+        set_role_config_value(config, "camera_color_profiles", role, profile_dict)
     else:
-        profiles.pop(config_role, None)
-    config["camera_color_profiles"] = profiles
+        set_role_config_value(config, "camera_color_profiles", role, None)
 
     try:
         write_machine_params_config(params_path, config)
@@ -134,6 +147,8 @@ __all__ = [
     "camera_color_profile_for_role",
     "get_role_config_value",
     "picture_settings_for_role",
+    "role_config_table",
     "restore_camera_color_profile",
     "save_camera_color_profile",
+    "set_role_config_value",
 ]

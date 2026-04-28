@@ -99,6 +99,7 @@ from server.services.camera_settings import (
     camera_color_profile_for_role as _camera_color_profile_for_role,
     get_role_config_value as _camera_config_value,
     picture_settings_for_role as _picture_settings_for_role,
+    set_role_config_value as _set_role_config_value,
     restore_camera_color_profile as _restore_camera_color_profile,
     save_camera_color_profile as _save_camera_color_profile,
 )
@@ -107,16 +108,6 @@ from server.services.camera_settings import (
 # ---------------------------------------------------------------------------
 # Camera helper functions
 # ---------------------------------------------------------------------------
-
-
-def _get_picture_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
-    picture_settings = config.get("camera_picture_settings", {})
-    return picture_settings if isinstance(picture_settings, dict) else {}
-
-
-def _get_camera_device_settings_table(config: Dict[str, Any]) -> Dict[str, Any]:
-    device_settings = config.get("camera_device_settings", {})
-    return device_settings if isinstance(device_settings, dict) else {}
 
 
 def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | None:
@@ -1197,15 +1188,13 @@ def save_camera_picture_settings(
         raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
 
     params_path, config = _read_machine_params_config()
-    picture_settings = _get_picture_settings_table(config)
     parsed = parseCameraPictureSettings(payload.model_dump())
-    config_role = stored_camera_role_key(role, config)
-    if config_role == "classification_channel":
-        picture_settings.pop("carousel", None)
-    elif config_role == "carousel":
-        picture_settings.pop("classification_channel", None)
-    picture_settings[config_role] = cameraPictureSettingsToDict(parsed)
-    config["camera_picture_settings"] = picture_settings
+    _set_role_config_value(
+        config,
+        "camera_picture_settings",
+        role,
+        cameraPictureSettingsToDict(parsed),
+    )
 
     try:
         _write_machine_params_config(params_path, config)
@@ -1423,17 +1412,10 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
         }
 
     parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(payload))
-    device_settings = _get_camera_device_settings_table(config)
-    config_role = stored_camera_role_key(role, config)
     if parsed:
-        if config_role == "classification_channel":
-            device_settings.pop("carousel", None)
-        elif config_role == "carousel":
-            device_settings.pop("classification_channel", None)
-        device_settings[config_role] = dict(parsed)
+        _set_role_config_value(config, "camera_device_settings", role, dict(parsed))
     else:
-        device_settings.pop(config_role, None)
-    config["camera_device_settings"] = device_settings
+        _set_role_config_value(config, "camera_device_settings", role, None)
 
     try:
         _write_machine_params_config(params_path, config)

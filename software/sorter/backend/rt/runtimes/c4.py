@@ -23,7 +23,7 @@ from rt.contracts.events import Event, EventBus
 from rt.contracts.feed import FeedFrame
 from rt.contracts.handoff import HandoffPort
 from rt.contracts.landing_lease import LandingLeasePort
-from rt.contracts.purge import PurgeCounts, PurgePort
+from rt.contracts.purge import PurgePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
@@ -47,6 +47,12 @@ from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._c4_exit_dispatch import C4ExitDispatcher
+from ._c4_ports import (
+    C4LandingLeasePort,
+    C4PurgePort,
+    C4SampleTransportPort,
+    C4SectorCarouselPort,
+)
 from ._c4_transport_controller import C4TransportController
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
@@ -939,13 +945,13 @@ class RuntimeC4(BaseRuntime):
         return self._startup_purge_state.armed
 
     def purge_port(self) -> PurgePort:
-        return _C4PurgePort(self)
+        return C4PurgePort(self)
 
-    def sample_transport_port(self) -> "_C4SampleTransportPort":
-        return _C4SampleTransportPort(self)
+    def sample_transport_port(self) -> "C4SampleTransportPort":
+        return C4SampleTransportPort(self)
 
-    def sector_carousel_port(self) -> "_C4SectorCarouselPort":
-        return _C4SectorCarouselPort(self)
+    def sector_carousel_port(self) -> "C4SectorCarouselPort":
+        return C4SectorCarouselPort(self)
 
     def _tick_inner(self, inbox: RuntimeInbox, now_mono: float) -> None:
         self._sweep_recently_delivered(now_mono)
@@ -1939,7 +1945,7 @@ class RuntimeC4(BaseRuntime):
 
         Wired at bootstrap: ``c3.set_landing_lease_port(c4.landing_lease_port())``.
         """
-        return _C4LandingLeasePort(self)
+        return C4LandingLeasePort(self)
 
     # ------------------------------------------------------------------
     # PieceTrackBank mirror — stage 2 of the architecture rollout. The
@@ -2374,122 +2380,6 @@ def _synthetic_frame(*, feed_id: str, now_mono: float) -> FeedFrame:
 
 def _wrap_deg(angle: float) -> float:
     return (float(angle) + 180.0) % 360.0 - 180.0
-
-
-class _C4LandingLeasePort:
-    """C4's implementation of LandingLeasePort.
-
-    Wraps the runtime's PieceTrackBank: a request grants iff the
-    predicted landing arc is clear of every existing piece's predicted
-    angle and of every other pending landing. ``predicted_landing_a``
-    is fixed to C4's intake angle — that is where C3 hands off.
-    """
-
-    key = "c4"
-
-    def __init__(self, runtime: "RuntimeC4") -> None:
-        self._runtime = runtime
-
-    def request_lease(
-        self,
-        *,
-        predicted_arrival_in_s: float,
-        min_spacing_deg: float,
-        now_mono: float,
-        track_global_id: int | None = None,
-        handoff_quality: str | None = None,
-        handoff_multi_risk: bool | None = None,
-        handoff_context: dict | None = None,
-    ) -> str | None:
-        bank = self._runtime._bank
-        encoder = self._runtime._carousel_angle_rad
-        # Bank state lives in tray frame: a_tray = world_intake - encoder.
-        # The intake position rotates with the tray, so the tray-frame
-        # landing angle is identical for every lease — the bank's
-        # spacing check then compares predicted tray-frame angles.
-        intake_world = math.radians(self._runtime._zone_manager.intake_angle_deg)
-        intake_tray = self._runtime._tray_frame_rad(intake_world, encoder)
-        return bank.request_landing_lease(
-            predicted_arrival_t=float(now_mono) + max(0.0, float(predicted_arrival_in_s)),
-            predicted_landing_a=intake_tray,
-            min_spacing_rad=math.radians(max(0.0, float(min_spacing_deg))),
-            now_t=float(now_mono),
-            requested_by=track_global_id,
-        )
-
-    def consume_lease(self, lease_id: str) -> None:
-        self._runtime._bank.consume_landing_lease(lease_id)
-
-
-class _C4PurgePort:
-    """PurgePort binding for RuntimeC4.
-
-    C4 already drives its own drain loop inside the normal tick path
-    (``_run_startup_purge``). The port just arms/disarms the flag and
-    exposes counts; ``drain_step`` is a no-op that reports whether the
-    runtime is still working.
-    """
-
-    key = "c4"
-
-    def __init__(self, runtime: RuntimeC4) -> None:
-        self._runtime = runtime
-
-    def arm(self) -> None:
-        self._runtime.arm_startup_purge()
-
-    def disarm(self) -> None:
-        self._runtime._startup_purge_state.armed = False
-        self._runtime._exit_startup_purge()
-
-    def counts(self) -> PurgeCounts:
-        return PurgeCounts(
-            piece_count=int(self._runtime._raw_detection_count),
-            owned_count=len(self._runtime._pieces),
-            pending_detections=0,
-        )
-
-    def drain_step(self, now_mono: float) -> bool:
-        return bool(self._runtime._startup_purge_state.armed)
-
-
-class _C4SampleTransportPort:
-    key = "c4"
-
-    def __init__(self, runtime: RuntimeC4) -> None:
-        self._runtime = runtime
-
-    def step(self, now_mono: float) -> bool:
-        return self._runtime._dispatch_sample_transport_step(now_mono)
-
-    def configure_sample_transport(
-        self,
-        *,
-        target_rpm: float | None,
-        direct_max_speed_usteps_per_s: int | None = None,
-        direct_acceleration_usteps_per_s2: int | None = None,
-    ) -> None:
-        self._runtime._configure_sample_transport(
-            target_rpm=target_rpm,
-            direct_max_speed_usteps_per_s=direct_max_speed_usteps_per_s,
-            direct_acceleration_usteps_per_s2=direct_acceleration_usteps_per_s2,
-        )
-
-    def nominal_degrees_per_step(self) -> float | None:
-        return float(self._runtime._sample_transport_step_deg)
-
-
-class _C4SectorCarouselPort:
-    key = "c4"
-
-    def __init__(self, runtime: RuntimeC4) -> None:
-        self._runtime = runtime
-
-    def transport_move(self, degrees: float) -> bool:
-        return self._runtime._transport_move(degrees)
-
-    def hardware_busy(self) -> bool:
-        return bool(self._runtime._hw.busy())
 
 
 __all__ = ["RuntimeC4"]

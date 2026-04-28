@@ -35,7 +35,7 @@ from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import PERCEPTION_ROTATION, RUNTIME_HANDOFF_BURST
+from rt.events.topics import RUNTIME_HANDOFF_BURST
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
@@ -46,7 +46,11 @@ from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
-from ._ring_ports import RingPurgePort, RingSampleTransportPort
+from ._ring_ports import (
+    RingPurgePort,
+    RingSampleTransportPort,
+    publish_ring_rotation_window,
+)
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
 
@@ -71,9 +75,6 @@ DEFAULT_TRACK_STALE_S = 0.5
 # windows to declare stationary phantoms.
 DEFAULT_ADVANCE_INTERVAL_S = 1.2
 ACTION_TRACK_MIN_HITS = 2
-# Extra seconds on either side of a pulse window so the next few frames
-# (hardware latency, frame-capture jitter) still count as "during rotation".
-_ROTATION_WINDOW_PAD_S = 0.15
 DEFAULT_TRANSPORT_TARGET_RPM = 1.2
 DEFAULT_DOWNSTREAM_CLAIM_HOLD_S = 3.0
 DEFAULT_EXIT_HANDOFF_MIN_INTERVAL_S = 0.85
@@ -814,38 +815,13 @@ class RuntimeC2(BaseRuntime):
                     )
             self._set_state(state, blocked_reason="hw_queue_full")
             return
-        self._publish_rotation_window(
+        publish_ring_rotation_window(
+            self,
             (timing.pulse_ms * repeat_count) / 1000.0,
             now_mono,
+            "c2_pulse",
         )
         self._set_state(state)
-
-    def _publish_rotation_window(self, duration_s: float, now_mono: float) -> None:
-        # Tell the perception tracker that the ring is rotating around *now*
-        # for ``duration_s`` seconds — a padded window so the following few
-        # frames count as during-rotation. Timestamps are wall-clock so they
-        # match FeedFrame.timestamp in the tracker.
-        if self._bus is None:
-            return
-        now_wall = time.time()
-        start = now_wall - _ROTATION_WINDOW_PAD_S
-        end = now_wall + float(duration_s) + _ROTATION_WINDOW_PAD_S
-        try:
-            self._bus.publish(
-                Event(
-                    topic=PERCEPTION_ROTATION,
-                    payload={
-                        "feed_id": self.feed_id,
-                        "start_ts": float(start),
-                        "end_ts": float(end),
-                        "source": "c2_pulse",
-                    },
-                    source=self.runtime_id,
-                    ts_mono=float(now_mono),
-                )
-            )
-        except Exception:
-            self._logger.exception("RuntimeC2: rotation-window publish failed")
 
     def purge_port(self) -> RingPurgePort:
         return RingPurgePort(

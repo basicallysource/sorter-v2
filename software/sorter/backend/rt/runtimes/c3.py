@@ -30,7 +30,7 @@ from rt.contracts.landing_lease import LandingLeasePort
 from rt.contracts.runtime import RuntimeInbox
 from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
-from rt.events.topics import C3_HANDOFF_TRIGGER, PERCEPTION_ROTATION, RUNTIME_HANDOFF_BURST
+from rt.events.topics import C3_HANDOFF_TRIGGER, RUNTIME_HANDOFF_BURST
 from rt.hardware.motion_profiles import (
     PROFILE_CONTINUOUS,
     PROFILE_GENTLE,
@@ -43,7 +43,11 @@ from rt.services.transport_velocity import TransportVelocityObserver
 from ._bad_actor_suppression import StationaryBadActorSuppressor, track_key
 from ._handoff_diagnostics import HandoffDiagnostics
 from ._move_events import publish_move_completed
-from ._ring_ports import RingPurgePort, RingSampleTransportPort
+from ._ring_ports import (
+    RingPurgePort,
+    RingSampleTransportPort,
+    publish_ring_rotation_window,
+)
 from ._strategies import AlwaysAdmit, ConstantPulseEjection
 from .base import BaseRuntime, HwWorker
 
@@ -80,11 +84,6 @@ HANDOFF_QUALITY_SUSPECT_MULTI = "suspect_multi"
 HANDOFF_QUALITY_UNKNOWN = "unknown"
 DEFAULT_HANDOFF_MULTI_RISK_ARC_RAD = math.radians(45.0)
 DEFAULT_HANDOFF_MULTI_RISK_SPACING_RAD = math.radians(35.0)
-# Padding on either side of a pulse window so frame-capture jitter still
-# lands inside the rotation window for the ghost-gating tracker.
-_ROTATION_WINDOW_PAD_S = 0.15
-
-
 class _PulseMode(Enum):
     NORMAL = "normal"
     PRECISE = "precise"
@@ -925,9 +924,11 @@ class RuntimeC3(BaseRuntime):
             now_mono,
             duration_s=(timing.pulse_ms * repeat_count) / 1000.0,
         )
-        self._publish_rotation_window(
+        publish_ring_rotation_window(
+            self,
             (timing.pulse_ms * repeat_count) / 1000.0,
             now_mono,
+            "c3_pulse",
         )
         self._set_state(f"pulsing_{mode.value}")
 
@@ -974,32 +975,6 @@ class RuntimeC3(BaseRuntime):
             + max(0.0, float(duration_s))
             + DEFAULT_TRANSPORT_BAD_ACTOR_OBSERVE_S,
         )
-
-    def _publish_rotation_window(self, duration_s: float, now_mono: float) -> None:
-        # Mirror of RuntimeC2._publish_rotation_window — tells the perception
-        # tracker the C3 ring is rotating around now, so the ghost-gating
-        # tracker counts the next frames as during-rotation evidence.
-        if self._bus is None:
-            return
-        now_wall = time.time()
-        start = now_wall - _ROTATION_WINDOW_PAD_S
-        end = now_wall + float(duration_s) + _ROTATION_WINDOW_PAD_S
-        try:
-            self._bus.publish(
-                Event(
-                    topic=PERCEPTION_ROTATION,
-                    payload={
-                        "feed_id": self.feed_id,
-                        "start_ts": float(start),
-                        "end_ts": float(end),
-                        "source": "c3_pulse",
-                    },
-                    source=self.runtime_id,
-                    ts_mono=float(now_mono),
-                )
-            )
-        except Exception:
-            self._logger.exception("RuntimeC3: rotation-window publish failed")
 
     def _request_downstream_landing_lease(
         self,

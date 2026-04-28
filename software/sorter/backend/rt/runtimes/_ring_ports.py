@@ -1,16 +1,53 @@
 from __future__ import annotations
 
+import time
 from typing import Any
 
+from rt.contracts.events import Event
 from rt.contracts.purge import PurgeCounts
+from rt.events.topics import PERCEPTION_ROTATION
 from rt.hardware.motion_profiles import PROFILE_CONTINUOUS, PROFILE_PURGE
 
 from ._move_events import publish_move_completed
 
 
+RING_ROTATION_WINDOW_PAD_S = 0.15
 RING_SAMPLE_TRANSPORT_TARGET_INTERVAL_S = 0.75
 RING_SAMPLE_TRANSPORT_MIN_STEP_DEG = 15.0
 RING_SAMPLE_TRANSPORT_MAX_STEP_DEG = 90.0
+
+
+def publish_ring_rotation_window(
+    runtime: Any,
+    duration_s: float,
+    now_mono: float,
+    source: str,
+) -> None:
+    if runtime._bus is None:
+        return
+
+    now_wall = time.time()
+    start = now_wall - RING_ROTATION_WINDOW_PAD_S
+    end = now_wall + float(duration_s) + RING_ROTATION_WINDOW_PAD_S
+    try:
+        runtime._bus.publish(
+            Event(
+                topic=PERCEPTION_ROTATION,
+                payload={
+                    "feed_id": runtime.feed_id,
+                    "start_ts": float(start),
+                    "end_ts": float(end),
+                    "source": source,
+                },
+                source=runtime.runtime_id,
+                ts_mono=float(now_mono),
+            )
+        )
+    except Exception:
+        runtime._logger.exception(
+            "Runtime%s: rotation-window publish failed",
+            str(runtime.runtime_id).upper(),
+        )
 
 
 class RingPurgePort:
@@ -94,7 +131,12 @@ class RingPurgePort:
         duration_s = timing.pulse_ms / 1000.0
         if self._mark_transport_attempt:
             runtime._mark_transport_attempt(now_mono, duration_s=duration_s)
-        runtime._publish_rotation_window(duration_s, now_mono)
+        publish_ring_rotation_window(
+            runtime,
+            duration_s,
+            now_mono,
+            f"{self.key}_pulse",
+        )
         runtime._set_state("pulsing", blocked_reason="purge")
 
 
@@ -180,7 +222,12 @@ class RingSampleTransportPort:
         duration_s = timing.pulse_ms / 1000.0
         if self._mark_transport_attempt:
             runtime._mark_transport_attempt(now_mono, duration_s=duration_s)
-        runtime._publish_rotation_window(duration_s, now_mono)
+        publish_ring_rotation_window(
+            runtime,
+            duration_s,
+            now_mono,
+            f"{self.key}_pulse",
+        )
         runtime._set_state("sample_transport")
         return True
 
@@ -217,4 +264,4 @@ class RingSampleTransportPort:
         return None
 
 
-__all__ = ["RingPurgePort", "RingSampleTransportPort"]
+__all__ = ["RingPurgePort", "RingSampleTransportPort", "publish_ring_rotation_window"]

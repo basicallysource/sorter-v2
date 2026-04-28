@@ -31,7 +31,6 @@ from rt.events.topics import (
     PERCEPTION_ROTATION,
     PIECE_CLASSIFIED,
     PIECE_REGISTERED,
-    PIECE_TRANSIT_LINKED,
     RUNTIME_HANDOFF_BURST,
 )
 from rt.perception.piece_track_bank import (
@@ -40,14 +39,15 @@ from rt.perception.piece_track_bank import (
     PieceTrackBank,
     PieceTrackBankConfig,
 )
-from rt.perception.track_policy import action_track, admission_basis, is_visible_track
-from rt.pieces.identity import new_piece_uuid, new_tracker_epoch, tracklet_payload
+from rt.perception.track_policy import action_track, is_visible_track
+from rt.pieces.identity import new_piece_uuid, new_tracker_epoch
 from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._c4_bank_mirror import C4BankMirror
 from ._c4_debug_snapshots import C4DebugSnapshots
 from ._c4_exit_dispatch import C4ExitDispatcher
+from ._c4_payloads import C4Payloads
 from ._c4_ports import (
     C4LandingLeasePort,
     C4PurgePort,
@@ -410,6 +410,7 @@ class RuntimeC4(BaseRuntime):
             logger=self._logger,
         )
         self._debug_snapshots = C4DebugSnapshots(self)
+        self._payloads = C4Payloads(self)
         self._exit_dispatcher = C4ExitDispatcher(self)
         self._transport_controller = C4TransportController(self)
 
@@ -1169,24 +1170,10 @@ class RuntimeC4(BaseRuntime):
         }
 
     def _tracklet_payload_for_gid(self, gid: int) -> dict[str, Any]:
-        return tracklet_payload(
-            feed_id=self.feed_id or "c4_feed",
-            tracker_key=self._tracker_key,
-            tracker_epoch=self._tracker_epoch,
-            raw_track_id=int(gid),
-        )
+        return self._payloads.tracklet_payload_for_gid(gid)
 
     def _dossier_tracklet_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
-        payload: dict[str, Any] = {
-            "feed_id": dossier.feed_id,
-            "tracker_key": dossier.tracker_key,
-            "tracker_epoch": dossier.tracker_epoch,
-            "raw_track_id": dossier.raw_track_id,
-        }
-        if dossier.tracklet_id:
-            payload["tracklet_id"] = dossier.tracklet_id
-            payload["current_tracklet_id"] = dossier.tracklet_id
-        return payload
+        return self._payloads.dossier_tracklet_payload(dossier)
 
     def _dossier_event_payload(
         self,
@@ -1197,26 +1184,16 @@ class RuntimeC4(BaseRuntime):
         lost_at: float | None = None,
         include_exit: bool = False,
     ) -> dict[str, Any]:
-        payload = {
-            "piece_uuid": dossier.piece_uuid,
-            "tracked_global_id": dossier.global_id,
-            **self._dossier_tracklet_payload(dossier),
-        }
-        if zone_state is not None:
-            payload["classification_channel_zone_state"] = zone_state
-        if center_deg is not None:
-            payload["classification_channel_zone_center_deg"] = center_deg
-        if lost_at is not None:
-            payload["classification_channel_lost_at"] = lost_at
-        if include_exit:
-            payload["classification_channel_exit_deg"] = self._exit_angle_deg
-        return payload
+        return self._payloads.dossier_event_payload(
+            dossier,
+            zone_state=zone_state,
+            center_deg=center_deg,
+            lost_at=lost_at,
+            include_exit=include_exit,
+        )
 
     def _dossier_last_angle_deg(self, dossier: _PieceDossier) -> float:
-        value = dossier.extras.get("last_angle_deg")
-        if isinstance(value, (int, float)) and math.isfinite(float(value)):
-            return float(value)
-        return float(dossier.angle_at_intake_deg)
+        return self._payloads.dossier_last_angle_deg(dossier)
 
     def _claim_transit_for_track(
         self,
@@ -1272,91 +1249,40 @@ class RuntimeC4(BaseRuntime):
         recovered: bool,
         transit: TransitCandidate | None,
     ) -> dict[str, Any]:
-        extras: dict[str, Any] = {}
-        if transit is not None and isinstance(transit.payload.get("extras"), dict):
-            extras.update(transit.payload["extras"])
-        extras.update(
-            {
-                "recovered": recovered,
-                "admission_basis": admission_basis(
-                    track,
-                    min_hits=self._reconcile_min_hit_count,
-                    min_score=self._reconcile_min_score,
-                    min_age_s=self._reconcile_min_age_s if recovered else 0.0,
-                ),
-            }
+        return self._payloads.extras_for_registration(
+            track,
+            recovered=recovered,
+            transit=transit,
         )
-        if transit is not None:
-            extras.update(self._transit_payload(transit))
-        return extras
 
     def _result_from_transit(
         self,
         transit: TransitCandidate | None,
     ) -> ClassifierResult | None:
-        if transit is None:
-            return None
-        result = transit.payload.get("dossier_result")
-        return result if isinstance(result, ClassifierResult) else None
+        return self._payloads.result_from_transit(transit)
 
     def _classified_ts_from_transit(self, transit: TransitCandidate | None) -> float | None:
-        if transit is None:
-            return None
-        value = transit.payload.get("classified_ts")
-        if isinstance(value, (int, float)) and math.isfinite(float(value)):
-            return float(value)
-        return None
+        return self._payloads.classified_ts_from_transit(transit)
 
     def _reject_reason_from_transit(self, transit: TransitCandidate | None) -> str | None:
-        if transit is None:
-            return None
-        value = transit.payload.get("reject_reason")
-        return value if isinstance(value, str) and value.strip() else None
+        return self._payloads.reject_reason_from_transit(transit)
 
     def _transit_payload(self, transit: TransitCandidate | None) -> dict[str, Any]:
-        if transit is None:
-            return {}
-        return {
-            "track_stitched": True,
-            "transit_id": transit.transit_id,
-            "transit_relation": transit.relation,
-            "transit_source_runtime": transit.source_runtime,
-            "transit_source_feed": transit.source_feed,
-            "transit_source_global_id": transit.source_global_id,
-            "previous_tracked_global_id": transit.payload.get(
-                "previous_tracked_global_id",
-                transit.source_global_id,
-            ),
-            "previous_tracklet_id": transit.payload.get("previous_tracklet_id"),
-        }
+        return self._payloads.transit_payload(transit)
 
     def _classification_payload(
         self,
         result: ClassifierResult | None,
     ) -> dict[str, Any]:
-        if result is None:
-            return {}
-        meta = result.meta if isinstance(result.meta, dict) else {}
-        return {
-            "part_id": result.part_id,
-            "part_name": meta.get("name"),
-            "color_id": result.color_id,
-            "color_name": meta.get("color_name"),
-            "part_category": result.category,
-            "category": result.category,
-            "confidence": result.confidence,
-            "algorithm": result.algorithm,
-            "latency_ms": result.latency_ms,
-            "brickognize_preview_url": meta.get("preview_url") or meta.get("img_url"),
-        }
+        return self._payloads.classification_payload(result)
 
-    @staticmethod
     def _classification_status(
+        self,
         result: ClassifierResult | None,
         *,
         missing: str = "pending",
     ) -> str:
-        return missing if result is None else ("classified" if result.part_id else "unknown")
+        return self._payloads.classification_status(result, missing=missing)
 
     def _publish_transit_link(
         self,
@@ -1366,16 +1292,11 @@ class RuntimeC4(BaseRuntime):
         *,
         now_mono: float,
     ) -> None:
-        self._publish(
-            PIECE_TRANSIT_LINKED,
-            {
-                "piece_uuid": piece_uuid,
-                "tracked_global_id": tracked_global_id,
-                **self._tracklet_payload_for_gid(tracked_global_id),
-                "stage": "registered",
-                **self._transit_payload(transit),
-            },
-            now_mono,
+        self._payloads.publish_transit_link(
+            piece_uuid,
+            tracked_global_id,
+            transit,
+            now_mono=now_mono,
         )
 
     def _submit_classifications(self, tracks: list[Track], now_mono: float) -> None:
@@ -1547,17 +1468,7 @@ class RuntimeC4(BaseRuntime):
         )
 
     def _handoff_dossier_payload(self, dossier: _PieceDossier) -> dict[str, Any]:
-        result = dossier.result
-        return {
-            **self._dossier_event_payload(dossier),
-            "angle_at_intake_deg": dossier.angle_at_intake_deg,
-            "intake_ts_mono": dossier.intake_ts,
-            "classified_ts_mono": dossier.classified_ts,
-            **self._classification_payload(result),
-            "classification_channel_exit_deg": self._exit_angle_deg,
-            "classification_status": self._classification_status(result, missing="unknown"),
-            **dossier.extras,
-        }
+        return self._payloads.handoff_dossier_payload(dossier)
 
     def _handle_exit(
         self,

@@ -238,11 +238,6 @@ def test_replay_capture_start_stop_routes_to_feed_runner(
     calls: list[tuple[str, dict[str, Any]]] = []
 
     class _Runner:
-        def __init__(self) -> None:
-            self._pipeline = SimpleNamespace(
-                feed=SimpleNamespace(feed_id="c4_feed"),
-            )
-
         def start_detector_input_capture(self, **kwargs) -> dict[str, Any]:
             calls.append(("start", kwargs))
             return {"capture_id": "cap-1", "active": True, **kwargs}
@@ -254,10 +249,14 @@ def test_replay_capture_start_stop_routes_to_feed_runner(
         def detector_input_capture_status(self) -> dict[str, Any]:
             return {"capture_id": "cap-1", "active": True}
 
+    runner = _Runner()
     monkeypatch.setattr(
         shared_state,
         "rt_handle",
-        SimpleNamespace(perception_runners=[_Runner()]),
+        SimpleNamespace(
+            perception_runners=[runner],
+            runner_for_feed=lambda feed_id: runner if feed_id == "c4_feed" else None,
+        ),
         raising=False,
     )
 

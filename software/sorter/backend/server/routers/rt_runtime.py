@@ -78,15 +78,10 @@ def _runner_for_feed(feed_id: str) -> Any | None:
     if handle is None:
         return None
     resolved = _TRACK_FEED_ALIASES.get(feed_id, feed_id)
-    runners = getattr(handle, "perception_runners", None)
-    if not isinstance(runners, list):
+    runner_for_feed = getattr(handle, "runner_for_feed", None)
+    if not callable(runner_for_feed):
         return None
-    for runner in runners:
-        pipeline = getattr(runner, "_pipeline", None)
-        feed = getattr(pipeline, "feed", None)
-        if getattr(feed, "feed_id", None) == resolved:
-            return runner
-    return None
+    return runner_for_feed(resolved)
 
 
 def _empty_status(*, ready: bool) -> Dict[str, Any]:

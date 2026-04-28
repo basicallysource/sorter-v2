@@ -349,6 +349,13 @@ class CameraPreviewHub:
         with self._lock:
             return len(self._broadcasters)
 
+    def stop_all(self) -> None:
+        with self._lock:
+            broadcasters = list(self._broadcasters.values())
+            self._broadcasters.clear()
+        for broadcaster in broadcasters:
+            broadcaster.stop()
+
 
 def _default_camera_service_getter() -> Optional["CameraService"]:
     """Resolve the live ``camera_service`` from shared_state.
@@ -381,9 +388,5 @@ def reset_camera_preview_hub_for_tests() -> None:
     global _HUB
     with _HUB_LOCK:
         if _HUB is not None:
-            with _HUB._lock:  # type: ignore[attr-defined]
-                broadcasters = list(_HUB._broadcasters.values())  # type: ignore[attr-defined]
-                _HUB._broadcasters.clear()  # type: ignore[attr-defined]
-            for broadcaster in broadcasters:
-                broadcaster.stop()
+            _HUB.stop_all()
         _HUB = None

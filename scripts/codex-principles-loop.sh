@@ -74,6 +74,11 @@ Pflichtlektüre zuerst:
 Auswahlregeln:
 - Arbeite nicht an mehreren Hotspots gleichzeitig.
 - Bevorzuge kleine, lokale Verbesserungen mit neutraler oder negativer Netto-LOC.
+- Netto-positive Änderungen sind nur erlaubt, wenn sie einen klaren privaten Zugriff,
+  eine klare Duplikation oder eine klare Ownership-Grenze beseitigen und im
+  Commit-Body begründet wird, warum eine kleinere oder zeilensparende Lösung
+  nicht sinnvoll war. Wenn der beste sichere Fix netto Code addiert und der
+  Gewinn nicht eindeutig ist, mache NOOP.
 - Bevorzuge Verstöße gegen: helpful mega-file, private-field archaeology, duplicated policy, hidden wiring behavior, empty wrappers, startup/maintenance branches in steady-state loops.
 - Keine großen Architekturwürfe.
 - Keine neue Dependency, außer der einzelne Verstoß ist ohne sie klar schlechter lösbar.
@@ -88,7 +93,8 @@ Arbeitsweise:
 3. Miss kurz den Ausgangspunkt, soweit passend: Datei/LOC/Duplizierung/Private-Field-Zugriffe.
 4. Ändere die kleinste sinnvolle Einheit.
 5. Führe fokussierte Tests oder statische Checks aus. Wenn kein Test sinnvoll ist, erkläre im Commit-Body warum.
-6. Prüfe `git diff --stat` und stelle sicher, dass der Scope klein geblieben ist.
+6. Prüfe `git diff --stat` und `git diff --numstat`. Stelle sicher, dass der
+   Scope klein geblieben ist und der Netto-LOC-Effekt bewusst ist.
 7. Committe genau einen Commit mit einer präzisen Message.
 8. Hinterlasse keinen dreckigen Working Tree.
 
@@ -99,7 +105,9 @@ Commit-Regeln:
   - Principle-Verstoß
   - Was geändert wurde
   - Verifikation
-  - LOC/Scope-Hinweis, falls relevant
+  - LOC/Scope-Hinweis
+  - Bei Netto-Plus: kurze Begründung, warum das Plus die kleinste sinnvolle
+    Verbesserung war
 
 Wenn du keinen sicheren kleinen Punkt findest:
 - Mache keine Änderung.

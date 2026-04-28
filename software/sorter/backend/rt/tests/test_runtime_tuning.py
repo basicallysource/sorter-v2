@@ -63,6 +63,12 @@ class _FakeOrchestrator:
         self._c4_mode = mode
         return mode
 
+    def attach_sector_carousel_handler(self, handler: object) -> None:
+        self._sector_carousel_handler = handler
+
+    def sector_carousel_handler(self) -> object | None:
+        return getattr(self, "_sector_carousel_handler", None)
+
 def _rotor(steps: int, speed: int, delay: int, accel: int | None = None) -> SimpleNamespace:
     return SimpleNamespace(
         steps_per_pulse=steps,
@@ -407,7 +413,7 @@ def test_orchestrator_c4_mode_round_trip() -> None:
         )(),
         rotation_chunk_settle_s=0.0,
     )
-    handle.orchestrator._sector_carousel_handler = handler
+    handle.orchestrator.attach_sector_carousel_handler(handler)
 
     payload = runtime_tuning.apply_patch(
         handle,
@@ -458,7 +464,7 @@ def test_orchestrator_sector_carousel_tuning_rejects_unsafe_chunk() -> None:
     from rt.services.sector_carousel import SectorCarouselHandler
 
     handle = _handle()
-    handle.orchestrator._sector_carousel_handler = SectorCarouselHandler()
+    handle.orchestrator.attach_sector_carousel_handler(SectorCarouselHandler())
     with pytest.raises(ValueError, match="rotation_chunk_deg"):
         runtime_tuning.apply_patch(
             handle,

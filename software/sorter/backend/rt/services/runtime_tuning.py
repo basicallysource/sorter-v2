@@ -161,6 +161,11 @@ def _c1_recovery_admission_snapshot(orchestrator: Any) -> dict[str, Any] | None:
     return None
 
 
+def _sector_carousel_handler(orchestrator: Any) -> Any | None:
+    accessor = getattr(orchestrator, "sector_carousel_handler", None)
+    return accessor() if callable(accessor) else None
+
+
 def _orchestrator_snapshot(orchestrator: Any) -> dict[str, Any]:
     if orchestrator is None:
         return {}
@@ -170,7 +175,7 @@ def _orchestrator_snapshot(orchestrator: Any) -> dict[str, Any]:
         c4_mode_fn() if callable(c4_mode_fn) else getattr(orchestrator, "_c4_mode", "runtime")
     )
     out["c4_mode"] = str(c4_mode_val)
-    sector_handler = getattr(orchestrator, "_sector_carousel_handler", None)
+    sector_handler = _sector_carousel_handler(orchestrator)
     if sector_handler is not None:
         snap_fn = getattr(sector_handler, "snapshot", None)
         if callable(snap_fn):
@@ -216,7 +221,7 @@ def _apply_orchestrator(handle: Any, values: dict[str, Any]) -> None:
 def _apply_sector_carousel_handler(orchestrator: Any, values: Any) -> None:
     if not isinstance(values, dict):
         raise ValueError("orchestrator.sector_carousel_handler must be an object")
-    handler = getattr(orchestrator, "_sector_carousel_handler", None)
+    handler = _sector_carousel_handler(orchestrator)
     if handler is None:
         raise RuntimeError(
             "sector carousel handler is not attached; cannot tune it"

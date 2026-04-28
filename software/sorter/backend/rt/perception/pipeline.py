@@ -61,10 +61,6 @@ class PerceptionPipeline:
             filtered_tracks=filtered_tracks,
         )
 
-    def process_frame(self, frame: FeedFrame) -> TrackBatch:
-        return self.process_frame_state(frame).filtered_tracks
-
-
 def build_pipeline_from_config(
     pipeline_config: PipelineConfig,
     feed: Feed,

@@ -132,11 +132,11 @@ def test_pipeline_end_to_end_produces_confirmed_track() -> None:
 
     bg = np.zeros((200, 200, 3), dtype=np.uint8)
     for i in range(30):
-        pipe.process_frame(_make_frame(bg, seq=i))
+        pipe.process_frame_state(_make_frame(bg, seq=i))
 
     saw_any_track = False
     for i in range(30, 50):
-        out = pipe.process_frame(_make_frame(bg, seq=i))
+        out = pipe.process_frame_state(_make_frame(bg, seq=i)).filtered_tracks
         if out.tracks:
             saw_any_track = True
 

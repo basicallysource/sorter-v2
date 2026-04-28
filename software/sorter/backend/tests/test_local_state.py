@@ -40,6 +40,8 @@ from local_state import (
     remember_piece_dossier,
     remember_piece_segment,
     remember_recent_known_object,
+    set_classification_training_state,
+    set_sorting_profile_sync_state,
     start_new_sorting_session,
 )
 
@@ -179,6 +181,19 @@ class LocalStateMigrationTests(unittest.TestCase):
         recent = get_recent_known_objects()
         self.assertEqual(["piece-1", "piece-2"], [entry["uuid"] for entry in recent])
         self.assertEqual(3.0, recent[0]["updated_at"])
+
+    def test_state_dict_setters_filter_invalid_entries(self) -> None:
+        initialize_local_state()
+
+        set_classification_training_state(
+            {"processor": "local", "empty": None, 12: "ignored"}
+        )
+        set_sorting_profile_sync_state(
+            {"version_id": "version-1", "empty": None, 12: "ignored"}
+        )
+
+        self.assertEqual({"processor": "local"}, get_classification_training_state())
+        self.assertEqual({"version_id": "version-1"}, get_sorting_profile_sync_state())
 
     def test_recent_known_objects_keep_distinct_uuids_with_reused_track_id(self) -> None:
         initialize_local_state()

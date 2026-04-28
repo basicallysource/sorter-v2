@@ -181,6 +181,16 @@ def _normalize_string_dict(raw: Any) -> dict[str, str]:
     }
 
 
+def _normalize_state_dict(raw: Any) -> dict[str, Any] | None:
+    if not isinstance(raw, dict):
+        return None
+    return {
+        key: value
+        for key, value in raw.items()
+        if isinstance(key, str) and value is not None
+    }
+
+
 def _normalize_hive_target(raw: Any, index: int) -> dict[str, Any] | None:
     if not isinstance(raw, dict):
         return None
@@ -670,14 +680,7 @@ def get_classification_training_state() -> dict[str, Any] | None:
 
 
 def set_classification_training_state(state: dict[str, Any] | None) -> None:
-    normalized = None
-    if isinstance(state, dict):
-        normalized = {
-            key: value
-            for key, value in state.items()
-            if isinstance(key, str) and value is not None
-        }
-    _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, normalized)
+    _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, _normalize_state_dict(state))
 
 
 def get_hive_config() -> dict[str, Any] | None:
@@ -720,14 +723,7 @@ def get_sorting_profile_sync_state() -> dict[str, Any] | None:
 
 
 def set_sorting_profile_sync_state(state: dict[str, Any] | None) -> None:
-    normalized = None
-    if isinstance(state, dict):
-        normalized = {
-            key: value
-            for key, value in state.items()
-            if isinstance(key, str) and value is not None
-        }
-    _write_state(_STATE_KEY_SORTING_PROFILE_SYNC, normalized)
+    _write_state(_STATE_KEY_SORTING_PROFILE_SYNC, _normalize_state_dict(state))
 
 
 def get_api_keys() -> dict[str, str]:

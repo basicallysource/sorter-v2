@@ -156,6 +156,26 @@ class SectorSlot:
             return True, None
         return False, "unknown_phase"
 
+    def gate_snapshot(self, *, now_mono: float, settle_s: float) -> dict[str, Any]:
+        ready, reason = self.ready_to_leave(now_mono=now_mono, settle_s=settle_s)
+        return {
+            "slot_index": int(self.slot_index),
+            "station_index": int(self.slot_index),
+            "physical_sector_id": self.physical_sector_id,
+            "piece_uuid": self.piece_uuid,
+            "phase": self.phase.value,
+            "contamination_state": self.contamination_state.value,
+            "contaminated": self.contaminated,
+            "reject_reason": self.reject_reason,
+            "final_route": self.final_route,
+            "routing_decision_present": self.routing_decision_present,
+            "ready_to_leave": bool(ready),
+            "gate": None if ready else _gate_for_phase(self.phase),
+            "reason": reason,
+            "blocked_reason": self.blocked_reason,
+            "age_ms": max(0.0, (float(now_mono) - self.entered_phase_at) * 1000.0),
+        }
+
     def snapshot(self, *, now_mono: float | None = None) -> dict[str, Any]:
         age_s = None
         if now_mono is not None:
@@ -233,3 +253,17 @@ class SectorSlot:
                 observed_count_estimate=self.observed_count_estimate,
             )
         return violations
+
+
+def _gate_for_phase(phase: SlotPhase) -> str:
+    if phase is SlotPhase.CAPTURING:
+        return "capture"
+    if phase is SlotPhase.SETTLING:
+        return "settle"
+    if phase is SlotPhase.CLASSIFYING:
+        return "classification"
+    if phase is SlotPhase.AWAITING_DIST:
+        return "distributor"
+    if phase in {SlotPhase.DROPPING, SlotPhase.DROPPED_PENDING_CLEAR}:
+        return "eject"
+    return "unknown"

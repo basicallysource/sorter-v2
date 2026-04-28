@@ -850,35 +850,18 @@ class SectorCarouselHandler:
 
         slot_gates: list[dict[str, Any]] = []
         for slot in self._slots:
-            ready, reason = slot.ready_to_leave(now_mono=ts, settle_s=self._settle_s)
-            item = {
-                "slot_index": int(slot.slot_index),
-                "station_index": int(slot.slot_index),
-                "physical_sector_id": slot.physical_sector_id,
-                "piece_uuid": slot.piece_uuid,
-                "phase": slot.phase.value,
-                "contamination_state": slot.contamination_state.value,
-                "contaminated": slot.contaminated,
-                "reject_reason": slot.reject_reason,
-                "final_route": slot.final_route,
-                "routing_decision_present": slot.routing_decision_present,
-                "ready_to_leave": bool(ready),
-                "gate": None if ready else _gate_for_slot_phase(slot.phase),
-                "reason": reason,
-                "blocked_reason": slot.blocked_reason,
-                "age_ms": max(0.0, (ts - slot.entered_phase_at) * 1000.0),
-            }
+            item = slot.gate_snapshot(now_mono=ts, settle_s=self._settle_s)
             slot_gates.append(item)
-            if not ready:
+            if not item["ready_to_leave"]:
                 reasons.append({
                     "scope": "slot",
-                    "slot_index": int(slot.slot_index),
-                    "physical_sector_id": slot.physical_sector_id,
+                    "slot_index": item["slot_index"],
+                    "physical_sector_id": item["physical_sector_id"],
                     "gate": item["gate"],
-                    "reason": reason,
-                    "contamination_state": slot.contamination_state.value,
-                    "reject_reason": slot.reject_reason,
-                    "final_route": slot.final_route,
+                    "reason": item["reason"],
+                    "contamination_state": item["contamination_state"],
+                    "reject_reason": item["reject_reason"],
+                    "final_route": item["final_route"],
                     "blocking": True,
                     "age_ms": item["age_ms"],
                 })
@@ -1373,20 +1356,6 @@ class SectorCarouselHandler:
             }
             for slot in self._slots
         ]
-
-
-def _gate_for_slot_phase(phase: SlotPhase) -> str:
-    if phase is SlotPhase.CAPTURING:
-        return "capture"
-    if phase is SlotPhase.SETTLING:
-        return "settle"
-    if phase is SlotPhase.CLASSIFYING:
-        return "classification"
-    if phase is SlotPhase.AWAITING_DIST:
-        return "distributor"
-    if phase in {SlotPhase.DROPPING, SlotPhase.DROPPED_PENDING_CLEAR}:
-        return "eject"
-    return "unknown"
 
 
 _C3_MULTI_RISK_QUALITIES = frozenset(

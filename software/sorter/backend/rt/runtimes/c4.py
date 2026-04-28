@@ -29,7 +29,6 @@ from rt.contracts.tracking import Track, TrackBatch
 from rt.coupling.slots import CapacitySlot
 from rt.events.topics import (
     PERCEPTION_ROTATION,
-    PIECE_CLASSIFIED,
     PIECE_REGISTERED,
     RUNTIME_HANDOFF_BURST,
 )
@@ -45,6 +44,7 @@ from rt.services.track_transit import TrackTransitRegistry, TransitCandidate
 from rt.services.transport_velocity import TransportVelocityObserver
 
 from ._c4_bank_mirror import C4BankMirror
+from ._c4_classification import C4ClassificationController
 from ._c4_debug_snapshots import C4DebugSnapshots
 from ._c4_exit_dispatch import C4ExitDispatcher
 from ._c4_payloads import C4Payloads
@@ -411,6 +411,7 @@ class RuntimeC4(BaseRuntime):
         )
         self._debug_snapshots = C4DebugSnapshots(self)
         self._payloads = C4Payloads(self)
+        self._classification_controller = C4ClassificationController(self)
         self._exit_dispatcher = C4ExitDispatcher(self)
         self._transport_controller = C4TransportController(self)
 
@@ -1300,126 +1301,20 @@ class RuntimeC4(BaseRuntime):
         )
 
     def _submit_classifications(self, tracks: list[Track], now_mono: float) -> None:
-        if self._latest_frame is None and self._crop_provider is None:
-            # No crop source wired yet (Phase-5 wiring).
-            self._mark_classify_skip("no_frame_or_crop_provider")
-            return
-        for track in tracks:
-            if track.global_id is None:
-                self._mark_classify_skip("track_without_global_id")
-                continue
-            piece_uuid = self._piece_uuid_for_track(track)
-            if piece_uuid is None:
-                self._mark_classify_skip("unowned_track")
-                continue
-            dossier = self._pieces.get(piece_uuid)
-            if dossier is None:
-                self._mark_classify_skip("missing_dossier")
-                continue
-            if dossier.result is not None or dossier.classify_future is not None:
-                self._mark_classify_skip("already_classifying_or_classified")
-                continue
-            angle_deg = math.degrees(track.angle_rad or 0.0)
-            at_classify = self._near_angle(angle_deg, self._classify_angle_deg)
-            at_pretrigger = self._in_classify_pretrigger(angle_deg)
-            at_exit = self._near_angle(angle_deg, self._exit_angle_deg)
-            if not at_classify and not at_pretrigger and not at_exit:
-                self._mark_classify_skip("not_at_classify_angle")
-                continue
-            crop = self._build_crop(track)
-            if crop is None:
-                self._mark_classify_skip("no_crop")
-                continue
-            frame = self._latest_frame or _synthetic_frame(
-                feed_id=self.feed_id or "c4_feed",
-                now_mono=now_mono,
-            )
-            try:
-                future = self._classifier.classify_async(track, frame, crop)
-            except Exception:
-                self._logger.exception(
-                    "RuntimeC4: classifier.classify_async raised for piece=%s",
-                    piece_uuid,
-                )
-                self._mark_classify_skip("classify_async_raised")
-                continue
-            dossier.classify_future = future
-            dossier.last_seen_mono = now_mono
-            self._mark_classify_skip(
-                "submitted"
-                if at_classify
-                else "submitted_early"
-                if at_pretrigger
-                else "submitted_late_exit"
-            )
+        self._classification_controller.submit_classifications(tracks, now_mono)
 
     def _in_classify_pretrigger(self, angle_deg: float) -> bool:
-        lead_deg = float(self._classify_pretrigger_exit_lead_deg)
-        if lead_deg <= 0.0:
-            return False
-        if self._near_angle(angle_deg, self._zone_manager.intake_angle_deg):
-            return False
-        intake_guard = (
-            self._intake_half_width_deg
-            + float(getattr(self._zone_manager, "guard_angle_deg", 0.0))
-        )
-        if abs(_wrap_deg(angle_deg - self._zone_manager.intake_angle_deg)) <= intake_guard:
-            return False
-        if self._near_angle(angle_deg, self._exit_angle_deg):
-            return False
-        return abs(_wrap_deg(angle_deg - self._exit_angle_deg)) <= lead_deg
+        return self._classification_controller.in_classify_pretrigger(angle_deg)
 
     def _mark_classify_skip(self, reason: str) -> None:
-        self._last_classify_skip = reason
-        self._classify_debug_counts[reason] = self._classify_debug_counts.get(reason, 0) + 1
+        self._classification_controller.mark_skip(reason)
 
     def _mark_handoff(self, reason: str) -> None:
         self._last_handoff_skip = reason
         self._handoff_debug_counts[reason] = self._handoff_debug_counts.get(reason, 0) + 1
 
     def _poll_classifier_futures(self, now_mono: float) -> None:
-        for dossier in self._pieces.values():
-            future = dossier.classify_future
-            if future is None or not future.done():
-                continue
-            dossier.classify_future = None
-            try:
-                dossier.result = future.result(timeout=0.0)
-            except Exception:
-                self._logger.exception(
-                    "RuntimeC4: classifier future raised for piece=%s",
-                    dossier.piece_uuid,
-                )
-                dossier.result = ClassifierResult(
-                    part_id=None,
-                    color_id=None,
-                    category=None,
-                    confidence=0.0,
-                    algorithm=getattr(self._classifier, "key", "unknown"),
-                    latency_ms=0.0,
-                    meta={"error": "future_raised"},
-                )
-            dossier.classified_ts = now_mono
-            # Bind the classification onto the bank's PieceTrack so the
-            # dispatch path can ask the bank "is this piece classified?"
-            # rather than reaching into ``_pieces`` private state.
-            self._bank_bind_classification(dossier.piece_uuid, dossier)
-            result = dossier.result
-            result_payload = self._classification_payload(result)
-            zone_payload = self._dossier_event_payload(dossier, zone_state="active")
-            payload: dict[str, Any] = {
-                **zone_payload,
-                "classified_ts_mono": now_mono,
-                "confirmed_real": True,
-                "stage": "classified",
-                "classification_status": self._classification_status(result, missing="unknown"),
-                "dossier": {
-                    **zone_payload,
-                    **result_payload,
-                    "classified_at": now_mono,
-                },
-            }
-            self._publish(PIECE_CLASSIFIED, payload, now_mono)
+        self._classification_controller.poll_futures(now_mono)
 
     def _request_pending_handoffs(self, now_mono: float) -> None:
         self._exit_dispatcher.request_pending_handoffs(now_mono)
@@ -1944,14 +1839,6 @@ class RuntimeC4(BaseRuntime):
 # samples that alter ghost verdicts, only stationary ones do.
 _C4_ROTATION_WINDOW_PAD_S = 0.15
 _C4_MOVE_ESTIMATED_DURATION_S = 0.6
-
-
-def _synthetic_frame(*, feed_id: str, now_mono: float) -> FeedFrame:
-    """Placeholder FeedFrame for pre-Phase-5 unit tests."""
-    return FeedFrame(
-        feed_id=feed_id, camera_id="synthetic", raw=None, gray=None,
-        timestamp=now_mono, monotonic_ts=now_mono, frame_seq=0,
-    )
 
 
 def _wrap_deg(angle: float) -> float:

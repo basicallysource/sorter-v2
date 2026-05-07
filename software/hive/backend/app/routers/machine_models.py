@@ -2,7 +2,6 @@ import math
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -16,7 +15,7 @@ from app.schemas.model import (
     DetectionModelSummary,
     DetectionModelVariantDetail,
 )
-from app.services.storage import get_model_variant_file
+from app.services.storage import serve_model_variant
 
 router = APIRouter(prefix="/api/machine/models", tags=["machine-models"])
 
@@ -113,13 +112,9 @@ def download_model_variant_machine(
     )
     if variant is None:
         raise APIError(404, "Variant not found", "VARIANT_NOT_FOUND")
-    path = get_model_variant_file(variant.file_path)
-    return FileResponse(
-        path,
+    return serve_model_variant(
+        variant.file_path,
         filename=variant.file_name,
-        headers={
-            "X-Model-SHA256": variant.sha256,
-            "Content-Length": str(variant.file_size),
-        },
-        media_type="application/octet-stream",
+        sha256=variant.sha256,
+        file_size=variant.file_size,
     )

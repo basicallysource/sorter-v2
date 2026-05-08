@@ -33,6 +33,14 @@ _SCOPE_BY_HIVE_SCOPE: dict[str, DetectionScope] = {
     "c-channel": "feeder",
     "feeder": "feeder",
     "carousel": "carousel",
+    "classification_channel": "carousel",
+    "classification-channel": "carousel",
+    "c4": "carousel",
+    "c4_sector": "carousel",
+    "c4-sector": "carousel",
+    "sector": "carousel",
+    "sector_yolo": "carousel",
+    "sector-yolo": "carousel",
 }
 
 

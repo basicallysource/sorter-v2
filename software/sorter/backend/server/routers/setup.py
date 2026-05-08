@@ -35,9 +35,13 @@ STEPPER_LABELS: dict[str, str] = {
     "c_channel_1": "C-Channel 1",
     "c_channel_2": "C-Channel 2",
     "c_channel_3": "C-Channel 3",
+    "c_channel_4": "C-Channel 4",
     "carousel": "Carousel",
     "chute": "Chute",
 }
+
+C4_LOGICAL_STEPPER = "c_channel_4"
+C4_BACKING_STEPPER = "carousel"
 
 
 class StepperDirectionPayload(BaseModel):
@@ -95,6 +99,7 @@ def _camera_assignments_from_config(config: Dict[str, Any]) -> dict[str, Any]:
         "feeder": cameras.get("feeder"),
         "c_channel_2": cameras.get("c_channel_2"),
         "c_channel_3": cameras.get("c_channel_3"),
+        "classification_channel": cameras.get("classification_channel", cameras.get("carousel")),
         "carousel": cameras.get("carousel"),
         "classification_top": cameras.get("classification_top"),
         "classification_bottom": cameras.get("classification_bottom"),
@@ -106,9 +111,11 @@ def _camera_assignments_complete(camera_assignments: dict[str, Any]) -> bool:
     if layout not in {"default", "split_feeder"}:
         return False
     if layout == "split_feeder":
-        required_roles = ("c_channel_2", "c_channel_3", "carousel")
-    else:
-        required_roles = ("feeder",)
+        return all(camera_assignments.get(role) is not None for role in ("c_channel_2", "c_channel_3")) and (
+            camera_assignments.get("classification_channel") is not None
+            or camera_assignments.get("carousel") is not None
+        )
+    required_roles = ("feeder",)
     return all(camera_assignments.get(role) is not None for role in required_roles)
 
 
@@ -168,9 +175,18 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
 
     active_irl = shared_state.getActiveIRL()
     entries: list[dict[str, Any]] = []
-    for logical_name, attr_base in LOGICAL_STEPPER_BINDING_BASES.items():
+    logical_names = list(LOGICAL_STEPPER_BINDING_BASES.keys())
+    if _machine_setup_key_from_config(config) == CLASSIFICATION_CHANNEL_SETUP:
+        logical_names = [
+            C4_LOGICAL_STEPPER if name == C4_BACKING_STEPPER else name
+            for name in logical_names
+        ]
+
+    for logical_name in logical_names:
+        attr_base = _stepper_attr_base(logical_name)
         attr_name = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
         stepper = getattr(active_irl, attr_name, None) if active_irl is not None else None
+        config_key = _stepper_config_key(logical_name)
         live_inverted = (
             bool(getattr(stepper, "direction_inverted"))
             if stepper is not None and hasattr(stepper, "direction_inverted")
@@ -180,12 +196,21 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
             {
                 "name": logical_name,
                 "label": STEPPER_LABELS.get(logical_name, logical_name),
-                "inverted": bool(inverts.get(logical_name, False)),
+                "inverted": bool(inverts.get(config_key, False)),
                 "live_inverted": live_inverted,
                 "available": stepper is not None,
             }
         )
     return entries
+
+
+def _stepper_config_key(stepper_name: str) -> str:
+    return C4_BACKING_STEPPER if stepper_name == C4_LOGICAL_STEPPER else stepper_name
+
+
+def _stepper_attr_base(stepper_name: str) -> str:
+    config_key = _stepper_config_key(stepper_name)
+    return LOGICAL_STEPPER_BINDING_BASES[config_key]
 
 
 def _recommended_layout(config: Dict[str, Any], board_summaries: list[dict[str, Any]]) -> str:
@@ -195,7 +220,7 @@ def _recommended_layout(config: Dict[str, Any], board_summaries: list[dict[str, 
         return configured
     if any(
         camera_assignments.get(role) is not None
-        for role in ("c_channel_2", "c_channel_3", "carousel")
+        for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel")
     ):
         return "split_feeder"
     if camera_assignments.get("feeder") is not None:
@@ -676,17 +701,18 @@ def get_stepper_directions() -> Dict[str, Any]:
 
 @router.post("/api/setup-wizard/stepper-directions/{stepper_name}")
 def set_stepper_direction(stepper_name: str, payload: StepperDirectionPayload) -> Dict[str, Any]:
-    if stepper_name not in LOGICAL_STEPPER_BINDING_BASES:
+    if stepper_name not in LOGICAL_STEPPER_BINDING_BASES and stepper_name != C4_LOGICAL_STEPPER:
         raise HTTPException(
             status_code=404,
             detail=f"Unknown logical stepper '{stepper_name}'.",
         )
+    config_key = _stepper_config_key(stepper_name)
 
     params_path, config = _read_machine_params_config()
     inverts = config.get("stepper_direction_inverts", {})
     if not isinstance(inverts, dict):
         inverts = {}
-    inverts = {**inverts, stepper_name: bool(payload.inverted)}
+    inverts = {**inverts, config_key: bool(payload.inverted)}
     config["stepper_direction_inverts"] = inverts
 
     try:
@@ -696,7 +722,7 @@ def set_stepper_direction(stepper_name: str, payload: StepperDirectionPayload) -
 
     applied_live = False
     active_irl = shared_state.getActiveIRL()
-    attr_base = LOGICAL_STEPPER_BINDING_BASES[stepper_name]
+    attr_base = _stepper_attr_base(stepper_name)
     attr_name = attr_base if attr_base.endswith("_stepper") else f"{attr_base}_stepper"
     stepper = getattr(active_irl, attr_name, None) if active_irl is not None else None
     if stepper is not None and hasattr(stepper, "set_direction_inverted"):

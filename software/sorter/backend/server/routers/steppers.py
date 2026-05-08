@@ -96,10 +96,14 @@ def _stepper_mapping() -> Dict[str, Any]:
     irl = shared_state.getActiveIRL()
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Start or home the system first.")
+    c4_stepper = getattr(irl, "c_channel_4_rotor_stepper", None) or getattr(
+        irl, "carousel_stepper", None
+    )
     return {
         "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
         "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
         "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
+        "c_channel_4": c4_stepper,
         "carousel": getattr(irl, "carousel_stepper", None),
         "chute": getattr(irl, "chute_stepper", None),
     }
@@ -298,6 +302,7 @@ _STEPPER_API_TO_TOML_NAME: Dict[str, str] = {
     "c_channel_1": "c_channel_1_rotor",
     "c_channel_2": "c_channel_2_rotor",
     "c_channel_3": "c_channel_3_rotor",
+    "c_channel_4": "carousel",
     "carousel": "carousel",
     "chute": "chute_stepper",
 }

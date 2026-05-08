@@ -35,6 +35,7 @@ _ROLE_TO_CONFIG_ATTR: dict[str, str] = {
     "classification_top": "classification_camera_top",
     "c_channel_2": "c_channel_2_camera",
     "c_channel_3": "c_channel_3_camera",
+    "classification_channel": "carousel_camera",
     "carousel": "carousel_camera",
 }
 
@@ -79,7 +80,15 @@ class CameraService:
             if irl.c_channel_3_camera is not None:
                 self._add_device_feed("c_channel_3", irl.c_channel_3_camera)
             if irl.carousel_camera is not None:
-                self._add_device_feed("carousel", irl.carousel_camera)
+                uses_c4 = bool(
+                    getattr(getattr(irl, "machine_setup", None), "uses_classification_channel", False)
+                )
+                aux_role = "classification_channel" if uses_c4 else "carousel"
+                self._add_device_feed(aux_role, irl.carousel_camera)
+                if uses_c4:
+                    device = self._devices[aux_role]
+                    self._devices["carousel"] = device
+                    self._feeds["carousel"] = CameraFeed("carousel", device)
             # feeder alias → c_channel_2 device (fallback for code that expects "feeder")
             c2 = self._devices.get("c_channel_2")
             if c2 is not None:
@@ -238,6 +247,9 @@ class CameraService:
         # feeder alias in split_feeder mode
         if self._camera_layout == "split_feeder" and role == "c_channel_2":
             self._feeds["feeder"] = CameraFeed("feeder", device)
+        if self._camera_layout == "split_feeder" and role == "classification_channel":
+            self._devices["carousel"] = device
+            self._feeds["carousel"] = CameraFeed("carousel", device)
 
         return True
 

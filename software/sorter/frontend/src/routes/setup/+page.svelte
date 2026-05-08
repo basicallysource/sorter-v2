@@ -66,10 +66,11 @@
 	type WizardStepConfirmation = Partial<Record<WizardStepId, boolean>>;
 
 	const machine = getMachineContext();
-	const STEP_ORDER = ['c_channel_1', 'c_channel_2', 'c_channel_3', 'carousel', 'chute'];
+	const STEP_ORDER = ['c_channel_1', 'c_channel_2', 'c_channel_3', 'c_channel_4', 'carousel', 'chute'];
 	const ROLE_LABELS: Record<string, string> = {
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
+		classification_channel: 'Classification C-Channel (C4)',
 		carousel: 'Carousel',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
@@ -77,6 +78,8 @@
 	const ROLE_DESCRIPTIONS: Record<string, string> = {
 		c_channel_2: 'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
 		c_channel_3: 'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
+		classification_channel:
+			'Classification C-channel platter. Use the dedicated C4 view when this machine runs the classification-channel setup.',
 		carousel: 'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
 		classification_top: 'Required top-down classification view.',
 		classification_bottom: 'Optional crop for underside or second-pass classification.'
@@ -284,10 +287,14 @@
 	}
 
 	function cameraRolesForLayout(): string[] {
+		const auxiliaryRole =
+			wizard?.config.machine_setup?.key === 'classification_channel'
+				? 'classification_channel'
+				: 'carousel';
 		return [
 			'c_channel_2',
 			'c_channel_3',
-			'carousel',
+			auxiliaryRole,
 			'classification_top',
 			'classification_bottom'
 		];

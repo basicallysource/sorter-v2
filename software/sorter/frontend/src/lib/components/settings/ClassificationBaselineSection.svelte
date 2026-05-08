@@ -13,7 +13,13 @@
 	};
 
 	type DetectionScope = 'classification' | 'feeder' | 'carousel';
-	type DetectionCamera = 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel';
+	type DetectionCamera =
+		| 'top'
+		| 'bottom'
+		| 'c_channel_2'
+		| 'c_channel_3'
+		| 'carousel'
+		| 'classification_channel';
 	type DetectionAlgorithm = string;
 	type DetectionAlgorithmOption = {
 		id: DetectionAlgorithm;

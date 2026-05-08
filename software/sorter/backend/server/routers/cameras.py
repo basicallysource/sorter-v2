@@ -59,6 +59,7 @@ CAMERA_SETUP_ROLES = {
     "feeder",
     "c_channel_2",
     "c_channel_3",
+    "classification_channel",
     "carousel",
     "classification_top",
     "classification_bottom",
@@ -129,6 +130,10 @@ def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | No
         source = _normalized_source(cameras.get(role))
         if source is not None:
             return source
+        if role == "classification_channel":
+            source = _normalized_source(cameras.get("carousel"))
+            if source is not None:
+                return source
 
     if role in {"feeder", "classification_top", "classification_bottom"}:
         camera_setup = getCameraSetup()
@@ -3184,6 +3189,7 @@ class CameraAssignment(BaseModel):
     feeder: Optional[int | str] = None
     c_channel_2: Optional[int | str] = None
     c_channel_3: Optional[int | str] = None
+    classification_channel: Optional[int | str] = None
     carousel: Optional[int | str] = None
     classification_top: Optional[int | str] = None
     classification_bottom: Optional[int | str] = None
@@ -3244,6 +3250,7 @@ def get_camera_config() -> Dict[str, Any]:
             "feeder": _camera_source_for_role(raw, "feeder"),
             "c_channel_2": _camera_source_for_role(raw, "c_channel_2"),
             "c_channel_3": _camera_source_for_role(raw, "c_channel_3"),
+            "classification_channel": _camera_source_for_role(raw, "classification_channel"),
             "carousel": _camera_source_for_role(raw, "carousel"),
             "classification_top": _camera_source_for_role(raw, "classification_top"),
             "classification_bottom": _camera_source_for_role(raw, "classification_bottom"),
@@ -3254,6 +3261,7 @@ def get_camera_config() -> Dict[str, Any]:
             "feeder": None,
             "c_channel_2": None,
             "c_channel_3": None,
+            "classification_channel": None,
             "carousel": None,
             "classification_top": None,
             "classification_bottom": None,
@@ -3457,7 +3465,7 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
 
 
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
-    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel"}:
+    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
         saved = getChannelPolygons() or {}
         source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
@@ -3495,6 +3503,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             "c_channel_2": ["second_channel"],
             "c_channel_3": ["third_channel"],
             "carousel": [carousel_polygon_key],
+            "classification_channel": ["classification_channel"],
         }.get(role, [])
         scaled_polygons = [
             scaled
@@ -3733,7 +3742,7 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     elif "layout" not in cameras:
         if "feeder" in updates:
             cameras["layout"] = "default"
-        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel")):
+        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel")):
             cameras["layout"] = "split_feeder"
     for key, value in updates.items():
         if value is None:
@@ -3760,6 +3769,7 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
         "feeder": cameras.get("feeder"),
         "c_channel_2": cameras.get("c_channel_2"),
         "c_channel_3": cameras.get("c_channel_3"),
+        "classification_channel": cameras.get("classification_channel"),
         "carousel": cameras.get("carousel"),
         "classification_top": cameras.get("classification_top"),
         "classification_bottom": cameras.get("classification_bottom"),

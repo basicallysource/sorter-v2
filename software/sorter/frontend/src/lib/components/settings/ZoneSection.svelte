@@ -185,6 +185,7 @@
 		'c_channel_2',
 		'c_channel_3',
 		'carousel',
+		'classification_channel',
 		'classification_top',
 		'classification_bottom'
 	];
@@ -193,7 +194,7 @@
 		second: 'C-Channel 2',
 		third: 'C-Channel 3',
 		carousel: 'Carousel',
-		classification_channel: 'Classification Channel',
+		classification_channel: 'Classification C-Channel (C4)',
 		class_top: 'Class. Top',
 		class_bottom: 'Class. Bottom'
 	};
@@ -211,7 +212,7 @@
 		second: 'c_channel_2',
 		third: 'c_channel_3',
 		carousel: 'carousel',
-		classification_channel: 'carousel',
+		classification_channel: 'classification_channel',
 		class_top: 'classification_top',
 		class_bottom: 'classification_bottom'
 	};
@@ -220,6 +221,7 @@
 		c_channel_2: 'C Channel 2',
 		c_channel_3: 'C Channel 3',
 		carousel: 'Carousel',
+		classification_channel: 'Classification C-Channel (C4)',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
 	};
@@ -228,6 +230,7 @@
 		c_channel_2: false,
 		c_channel_3: false,
 		carousel: true,
+		classification_channel: true,
 		classification_top: true,
 		classification_bottom: true
 	};
@@ -320,6 +323,7 @@
 		c_channel_2: null,
 		c_channel_3: null,
 		carousel: null,
+		classification_channel: null,
 		classification_top: null,
 		classification_bottom: null
 	});
@@ -427,10 +431,11 @@
 
 	function detectionCameraForChannel(
 		channel: Channel
-	): 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel' {
+	): 'top' | 'bottom' | 'c_channel_2' | 'c_channel_3' | 'carousel' | 'classification_channel' {
 		if (channel === 'second') return 'c_channel_2';
 		if (channel === 'third') return 'c_channel_3';
-		if (channel === 'carousel' || channel === 'classification_channel') return 'carousel';
+		if (channel === 'classification_channel') return 'classification_channel';
+		if (channel === 'carousel') return 'carousel';
 		return channel === 'class_top' ? 'top' : 'bottom';
 	}
 

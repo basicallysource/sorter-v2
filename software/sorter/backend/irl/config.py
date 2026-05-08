@@ -462,6 +462,7 @@ class IRLConfig:
     c_channel_3_camera: CameraConfig | None
     carousel_camera: CameraConfig | None
     carousel_stepper: StepperConfig
+    c_channel_4_rotor_stepper: StepperConfig
     chute_stepper: StepperConfig
     c_channel_1_rotor_stepper: StepperConfig
     c_channel_2_rotor_stepper: StepperConfig
@@ -486,6 +487,7 @@ class IRLConfig:
 
 class IRLInterface:
     carousel_stepper: "StepperMotor"
+    c_channel_4_rotor_stepper: "StepperMotor"
     carousel_home_pin: "DigitalInputPin"
     carousel_hw: "CarouselHardware"
     chute_stepper: "StepperMotor"
@@ -511,6 +513,7 @@ class IRLInterface:
             "c_channel_1_rotor",
             "c_channel_2_rotor",
             "c_channel_3_rotor",
+            "c_channel_4_rotor",
             "carousel",
             "chute",
         ]:
@@ -914,7 +917,18 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
 
         c_ch2_idx = cameras_section.get("c_channel_2")
         c_ch3_idx = cameras_section.get("c_channel_3")
-        carousel_source = cameras_section.get("carousel")
+        classification_channel_source = cameras_section.get("classification_channel")
+        carousel_source = (
+            classification_channel_source
+            if machine_setup.key == "classification_channel"
+            and classification_channel_source is not None
+            else cameras_section.get("carousel")
+        )
+        aux_camera_role = (
+            "classification_channel"
+            if machine_setup.key == "classification_channel"
+            else "carousel"
+        )
 
         if isinstance(c_ch2_idx, int):
             irl_config.c_channel_2_camera = _mkCameraConfigForRole(
@@ -934,19 +948,19 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             )
         if isinstance(carousel_source, str):
             irl_config.carousel_camera = _mkCameraConfigForRole(
-                "carousel",
+                aux_camera_role,
                 url=carousel_source,
-                picture_settings=_picture_settings("carousel"),
-                device_settings=_device_settings("carousel"),
-                color_profile=_color_profile("carousel"),
+                picture_settings=_picture_settings(aux_camera_role),
+                device_settings=_device_settings(aux_camera_role),
+                color_profile=_color_profile(aux_camera_role),
             )
         elif isinstance(carousel_source, int):
             irl_config.carousel_camera = _mkCameraConfigForRole(
-                "carousel",
+                aux_camera_role,
                 device_index=carousel_source,
-                picture_settings=_picture_settings("carousel"),
-                device_settings=_device_settings("carousel"),
-                color_profile=_color_profile("carousel"),
+                picture_settings=_picture_settings(aux_camera_role),
+                device_settings=_device_settings(aux_camera_role),
+                color_profile=_color_profile(aux_camera_role),
             )
 
         # Classification cameras (optional in split_feeder mode) — int or URL string
@@ -1063,7 +1077,14 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=1000, microsteps=16)
+    classification_channel_setup = machine_setup.key == "classification_channel"
+    carousel_microsteps = 8 if classification_channel_setup else 16
+    carousel_speed = 4000 if classification_channel_setup else 1000
+    irl_config.carousel_stepper = mkStepperConfig(
+        default_steps_per_second=carousel_speed,
+        microsteps=carousel_microsteps,
+    )
+    irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000, microsteps=8)
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
@@ -1226,6 +1247,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             gc.logger.warning(
                 f"Logical stepper '{logical_name}' (attr '{attr}') is unbound after applying stepper_bindings."
             )
+
+    if hasattr(irl_interface, "carousel_stepper"):
+        irl_interface.c_channel_4_rotor_stepper = irl_interface.carousel_stepper
 
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)

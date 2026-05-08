@@ -20,18 +20,22 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 	c_channel_1: 130 / 12,
 	c_channel_2: 130 / 12,
 	c_channel_3: 130 / 12,
+	c_channel_4: 130 / 12,
 	carousel: 1,
 	chute: 120 / 25
 };
 
-export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification Channel';
-export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_3;
+export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-Channel (C4)';
+export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
 
 export function stepperGearRatioForSetup(
 	stepperKey: StepperKey,
 	machineSetup?: MachineSetupKey
 ): number {
-	if (stepperKey === 'carousel' && machineSetup === 'classification_channel') {
+	if (
+		stepperKey === 'c_channel_4' ||
+		(stepperKey === 'carousel' && machineSetup === 'classification_channel')
+	) {
 		return CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO;
 	}
 	return STEPPER_GEAR_RATIOS[stepperKey] ?? 1;

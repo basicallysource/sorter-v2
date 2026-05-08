@@ -69,6 +69,21 @@ export type WizardSummary = {
 		feeding: {
 			mode: 'auto_channels' | 'manual_carousel';
 		};
+		machine_setup: {
+			key: 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+			label: string;
+			description: string;
+			feeding_mode: 'auto_channels' | 'manual_carousel';
+			automatic_feeder: boolean;
+			uses_carousel_transport: boolean;
+			uses_classification_chamber: boolean;
+			uses_classification_channel: boolean;
+			runs_reverse_pulse_calibration: boolean;
+			homes_carousel: boolean;
+			homes_chute: boolean;
+			requires_carousel_endstop: boolean;
+			runtime_supported: boolean;
+		};
 		servo: {
 			backend: string;
 			layer_count: number;

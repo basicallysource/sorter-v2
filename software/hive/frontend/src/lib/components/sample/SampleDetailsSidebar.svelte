@@ -34,7 +34,7 @@
 	}: Props = $props();
 </script>
 
-<div class="border border-border bg-white">
+<div class="border border-border bg-surface">
 	<div class="border-b border-border px-4 py-2.5">
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Details</h2>
 	</div>
@@ -83,7 +83,7 @@
 </div>
 
 {#if pieceUuid || runId}
-	<div class="border border-border bg-white">
+	<div class="border border-border bg-surface">
 		<div class="border-b border-border px-4 py-2.5">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">IDs</h2>
 		</div>
@@ -109,7 +109,7 @@
 {/if}
 
 {#if extraKeys.length > 0}
-	<div class="border border-border bg-white">
+	<div class="border border-border bg-surface">
 		<button
 			onclick={onToggleExpandedMeta}
 			class="flex w-full items-center justify-between px-4 py-2.5"
@@ -132,7 +132,7 @@
 	</div>
 {/if}
 
-<div class="border border-border bg-white">
+<div class="border border-border bg-surface">
 	<div class="border-b border-border px-4 py-2.5">
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Reviews</h2>
 	</div>

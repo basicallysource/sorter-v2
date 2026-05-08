@@ -35,31 +35,31 @@
 	<Spinner />
 {:else if stats}
 	<div class="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-text-muted"><span class="inline-block h-2.5 w-2.5 bg-text-muted"></span>Total Samples</p>
 			<p class="text-2xl font-bold font-mono text-text">{stats.total_samples}</p>
 		</div>
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-text-muted"><span class="inline-block h-2.5 w-2.5 bg-text-muted"></span>Unreviewed</p>
 			<p class="text-2xl font-bold font-mono text-text">{stats.unreviewed_samples}</p>
 		</div>
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-info"><span class="inline-block h-2.5 w-2.5 bg-info"></span>In Review</p>
 			<p class="text-2xl font-bold font-mono text-info">{stats.in_review_samples}</p>
 		</div>
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-success"><span class="inline-block h-2.5 w-2.5 bg-success"></span>Accepted</p>
 			<p class="text-2xl font-bold font-mono text-success">{stats.accepted_samples}</p>
 		</div>
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-primary"><span class="inline-block h-2.5 w-2.5 bg-primary"></span>Rejected</p>
 			<p class="text-2xl font-bold font-mono text-primary">{stats.rejected_samples}</p>
 		</div>
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-[#B8960C]"><span class="inline-block h-2.5 w-2.5 bg-warning"></span>Conflict</p>
 			<p class="text-2xl font-bold font-mono text-[#B8960C]">{stats.conflict_samples}</p>
 		</div>
-		<div class="border border-border bg-white p-4">
+		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-text-muted"><span class="inline-block h-2.5 w-2.5 bg-text-muted"></span>Total Machines</p>
 			<p class="text-2xl font-bold font-mono text-text">{stats.total_machines}</p>
 		</div>

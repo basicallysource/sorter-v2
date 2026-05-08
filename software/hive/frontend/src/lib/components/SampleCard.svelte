@@ -59,7 +59,7 @@
 </script>
 
 <a
-	class="group block overflow-hidden border border-border bg-white transition hover:border-text-muted"
+	class="group block overflow-hidden border border-border bg-surface transition hover:border-text-muted"
 	{href}
 >
 	<!-- Image with overlays -->

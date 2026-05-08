@@ -396,7 +396,7 @@
 {#if loading}
 	<Spinner />
 {:else if empty}
-	<div class="border border-border bg-white p-10 text-center">
+	<div class="border border-border bg-surface p-10 text-center">
 		<p class="text-lg font-medium text-text">No more samples to review.</p>
 		<p class="mt-2 text-sm text-text-muted">Come back later when the queue has fresh uploads again.</p>
 	</div>
@@ -417,14 +417,14 @@
 					onclick={() => {
 						annotateMode = false;
 					}}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-text-muted hover:text-text' : 'bg-white text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'text-text-muted hover:text-text' : 'bg-surface text-text'}"
 				>
 					Review
 				</button>
 				<button
 					type="button"
 					onclick={toggleAnnotateMode}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {annotateMode ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 				>
 					Annotate
 				</button>
@@ -473,7 +473,7 @@
 		</div>
 
 		<div class="space-y-4">
-			<div class="border border-border bg-white p-4">
+			<div class="border border-border bg-surface p-4">
 				<div class="flex flex-wrap items-center gap-2">
 					<Badge text={sample.review_status} variant="info" />
 					{#if currentDecision}

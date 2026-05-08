@@ -39,7 +39,7 @@
 </svelte:head>
 
 <div class="flex min-h-[80vh] items-center justify-center">
-	<div class="w-full max-w-sm border border-border bg-white p-8">
+	<div class="w-full max-w-sm border border-border bg-surface p-8">
 		<h1 class="mb-6 text-center text-2xl font-bold text-text">Create an account</h1>
 
 		{#if error}

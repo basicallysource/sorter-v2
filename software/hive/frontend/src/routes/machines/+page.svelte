@@ -388,7 +388,7 @@ async function loadAssignmentProfile(profileId: string) {
 			{@const stats = machineStats[machine.id]}
 			{@const isOnline = machine.last_seen_at && (Date.now() - new Date(machine.last_seen_at).getTime()) < 5 * 60 * 1000}
 			{@const acceptRate = stats && stats.total_samples > 0 ? Math.round((stats.accepted_samples / stats.total_samples) * 100) : null}
-			<div class="flex flex-col border border-border bg-white transition-colors hover:border-text-muted">
+			<div class="flex flex-col border border-border bg-surface transition-colors hover:border-text-muted">
 				<!-- Header -->
 				<div class="flex items-start gap-3 px-4 pt-4 pb-3">
 					<div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center {isOnline ? 'bg-success/10 text-success' : 'bg-border/60 text-text-muted'}">
@@ -426,7 +426,7 @@ async function loadAssignmentProfile(profileId: string) {
 							</svg>
 						</button>
 						{#if openMenuId === machine.id}
-							<div class="absolute right-0 z-10 mt-1 w-48 border border-border bg-white py-1 shadow-sm">
+							<div class="absolute right-0 z-10 mt-1 w-48 border border-border bg-surface py-1 shadow-sm">
 								<button onclick={() => openEdit(machine)} class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">Edit</button>
 								<button onclick={() => { void handleRotateToken(machine); openMenuId = null; }}
 									class="flex w-full items-center gap-2 px-4 py-2 text-sm text-text hover:bg-bg">
@@ -449,17 +449,17 @@ async function loadAssignmentProfile(profileId: string) {
 
 				<!-- Stats grid -->
 				<div class="grid grid-cols-3 gap-px border-t border-border bg-border">
-					<div class="flex flex-col items-center bg-white py-3">
+					<div class="flex flex-col items-center bg-surface py-3">
 						<span class="text-lg font-bold text-text">{stats ? formatNumber(stats.total_samples) : '—'}</span>
 						<span class="text-[10px] uppercase tracking-wider text-text-muted">Samples</span>
 					</div>
-					<div class="flex flex-col items-center bg-white py-3">
+					<div class="flex flex-col items-center bg-surface py-3">
 						<span class="text-lg font-bold {acceptRate !== null && acceptRate >= 80 ? 'text-success' : acceptRate !== null ? 'text-text' : 'text-text'}">
 							{acceptRate !== null ? `${acceptRate}%` : '—'}
 						</span>
 						<span class="text-[10px] uppercase tracking-wider text-text-muted">Accepted</span>
 					</div>
-					<div class="flex flex-col items-center bg-white py-3">
+					<div class="flex flex-col items-center bg-surface py-3">
 						<span class="text-lg font-bold text-text">{stats ? formatNumber(stats.total_sessions) : '—'}</span>
 						<span class="text-[10px] uppercase tracking-wider text-text-muted">Sessions</span>
 					</div>

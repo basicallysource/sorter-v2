@@ -8,7 +8,7 @@
 	let { annotatorApi }: Props = $props();
 </script>
 
-<div class="border border-border bg-white">
+<div class="border border-border bg-surface">
 	<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Annotator</h2>
 		<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-success' : 'text-text-muted'}">

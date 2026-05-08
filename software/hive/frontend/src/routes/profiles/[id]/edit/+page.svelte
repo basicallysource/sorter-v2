@@ -1112,7 +1112,7 @@
 			{#if showSavePopover}
 				<!-- svelte-ignore a11y_no_static_element_interactions -->
 				<div class="fixed inset-0 z-40" onclick={closeSavePopover} onkeydown={(e) => { if (e.key === 'Escape') closeSavePopover(); }}></div>
-				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-border bg-white p-4">
+				<div class="absolute right-0 top-full z-50 mt-2 w-72 border border-border bg-surface p-4">
 					<h3 class="mb-2 text-sm font-semibold text-text">Save New Version</h3>
 					<label class="mb-1 block text-xs text-text-muted" for="save-note">What changed? (optional)</label>
 					<div class="relative mb-3">
@@ -1154,21 +1154,21 @@
 	<div class="grid min-h-0 grid-cols-1 gap-4 overflow-hidden xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]" style="height: calc(100vh - 200px);">
 
 		<!-- LEFT: Rules (accordion) -->
-		<div class="flex min-h-0 min-w-0 flex-col border border-border bg-white">
+		<div class="flex min-h-0 min-w-0 flex-col border border-border bg-surface">
 			<div class="flex items-center justify-between border-b border-border px-4 py-2">
 				<h2 class="text-sm font-semibold text-text">Rules</h2>
 				{#if !isPreview}
 					<div class="flex items-center gap-1.5">
 						<button onclick={() => addRule()}
-							class="border border-border bg-white px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
+							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
 							+ Rule
 						</button>
 						<button onclick={() => { showSetSearch = true; }}
-							class="border border-border bg-white px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
+							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
 							+ Set
 						</button>
 						<button onclick={addCustomSetRule}
-							class="border border-border bg-white px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
+							class="border border-border bg-surface px-2.5 py-1 text-[11px] font-medium text-text-muted hover:bg-bg hover:text-text">
 							+ Custom Set
 						</button>
 					</div>
@@ -1308,7 +1308,7 @@
 
 	<!-- Sticky bottom bar -->
 	{#if hasUnsavedChanges}
-		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-white px-4 py-3">
+		<div class="fixed bottom-0 left-0 right-0 z-30 border-t border-border bg-surface px-4 py-3">
 			<div class="mx-auto flex max-w-7xl items-center justify-between">
 				<div class="flex items-center gap-2 text-sm text-text-muted">
 					<span class="inline-block h-2 w-2 bg-warning"></span>

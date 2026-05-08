@@ -167,7 +167,7 @@
 		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: '#FFD500' },
 		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: '#E2E0DB' },
 	]}
-	<div class="mb-5 border border-border bg-white">
+	<div class="mb-5 border border-border bg-surface">
 		<!-- Stacked bar -->
 		<div class="flex h-2">
 			{#each segments as seg}
@@ -326,7 +326,7 @@
 		{#if loading}
 			<Spinner />
 		{:else if !data || data.items.length === 0}
-			<div class="border border-border bg-white px-6 py-12 text-center">
+			<div class="border border-border bg-surface px-6 py-12 text-center">
 				<svg class="mx-auto mb-3 h-10 w-10 text-border" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="square" stroke-linejoin="miter" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909M3.75 21h16.5a1.5 1.5 0 0 0 1.5-1.5V4.5a1.5 1.5 0 0 0-1.5-1.5H3.75a1.5 1.5 0 0 0-1.5 1.5v15a1.5 1.5 0 0 0 1.5 1.5z" />
 				</svg>
@@ -350,13 +350,13 @@
 
 			<!-- Pagination -->
 			{#if data.pages > 1}
-				<div class="mt-6 flex items-center justify-between border border-border bg-white px-4 py-2.5">
+				<div class="mt-6 flex items-center justify-between border border-border bg-surface px-4 py-2.5">
 					<div class="flex items-center gap-3">
 						<span class="text-xs text-text-muted">{(data.page - 1) * pageSize + 1}–{Math.min(data.page * pageSize, data.total)} of {data.total.toLocaleString()}</span>
 						<select
 							value={pageSize}
 							onchange={(e) => { pageSize = Number((e.currentTarget as HTMLSelectElement).value); currentPage = 1; }}
-							class="border border-border bg-white px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
+							class="border border-border bg-surface px-2 py-1 text-xs text-text focus:border-primary focus:outline-none"
 						>
 							<option value={10}>10 / page</option>
 							<option value={20}>20 / page</option>

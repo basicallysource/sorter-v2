@@ -114,6 +114,19 @@ c_channel_3 = 4
 # carousel = "http://127.0.0.1:18081/carousel.mjpg"
 # classification_top = "http://localhost:8080/video"
 
+# Per-role capture mode. STRONGLY RECOMMENDED on Linux. If omitted, OpenCV's V4L2
+# backend negotiates YUYV by default, which on USB 2.0 webcams either falls back
+# to a tiny resolution / single-digit fps OR exhausts the bus's iso bandwidth
+# (~480 Mbps shared) and STREAMON returns "No space left on device". MJPG is
+# compressed by the camera and uses ~10x less bandwidth, so multi-cam setups on
+# a single USB 2.0 bus only fit if you force MJPG here. macOS / AVFoundation
+# usually picks MJPG on its own; Linux does not.
+# [camera_capture_modes.feeder]
+# fourcc = "MJPG"
+# width = 1280
+# height = 720
+# fps = 30
+
 # [camera_picture_settings.c_channel_2]
 # rotation = 0
 # flip_horizontal = false

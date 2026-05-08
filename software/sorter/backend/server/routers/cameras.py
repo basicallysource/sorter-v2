@@ -3337,13 +3337,57 @@ def camera_stream(index: int):
 def _dashboard_polygon_resolution(saved: Dict[str, Any] | None) -> tuple[float, float]:
     if not isinstance(saved, dict):
         return (1920.0, 1080.0)
-    resolution = saved.get("resolution")
+    return _dashboard_saved_resolution(saved.get("resolution"), (1920.0, 1080.0))
+
+
+def _dashboard_saved_resolution(
+    resolution: Any,
+    fallback: tuple[float, float],
+) -> tuple[float, float]:
     if isinstance(resolution, (list, tuple)) and len(resolution) >= 2:
         width = _as_number(resolution[0])
         height = _as_number(resolution[1])
         if width and width > 0 and height and height > 0:
             return (width, height)
-    return (1920.0, 1080.0)
+    return fallback
+
+
+def _dashboard_channel_angle_key(polygon_key: str) -> str | None:
+    return {
+        "second_channel": "second",
+        "third_channel": "third",
+        "classification_channel": "classification_channel",
+    }.get(polygon_key)
+
+
+def _dashboard_channel_resolution(
+    saved: Dict[str, Any],
+    polygon_key: str,
+) -> tuple[float, float]:
+    fallback = _dashboard_polygon_resolution(saved)
+    angle_key = _dashboard_channel_angle_key(polygon_key)
+    arc_params = saved.get("arc_params") if isinstance(saved.get("arc_params"), dict) else {}
+    if angle_key is not None:
+        raw_arc = arc_params.get(angle_key)
+        if isinstance(raw_arc, dict):
+            return _dashboard_saved_resolution(raw_arc.get("resolution"), fallback)
+    quad_params = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+    raw_quad = quad_params.get(polygon_key)
+    if isinstance(raw_quad, dict):
+        return _dashboard_saved_resolution(raw_quad.get("resolution"), fallback)
+    return fallback
+
+
+def _dashboard_classification_resolution(
+    saved: Dict[str, Any],
+    quad_key: str,
+) -> tuple[float, float]:
+    fallback = _dashboard_polygon_resolution(saved)
+    quad_params = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+    raw_quad = quad_params.get(quad_key)
+    if isinstance(raw_quad, dict):
+        return _dashboard_saved_resolution(raw_quad.get("resolution"), fallback)
+    return fallback
 
 
 def _dashboard_points(raw: Any) -> list[tuple[float, float]]:
@@ -3467,7 +3511,6 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
     if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
         saved = getChannelPolygons() or {}
-        source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         classification_channel_setup = bool(
@@ -3482,7 +3525,12 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             if len(quad_points) != 4:
                 quad_points = _dashboard_points(polygons_table.get(carousel_polygon_key))
             scaled_quad = (
-                _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+                _scale_dashboard_points(
+                    quad_points,
+                    _dashboard_channel_resolution(saved, carousel_polygon_key),
+                    frame_w,
+                    frame_h,
+                )
                 if len(quad_points) == 4 else None
             )
             if scaled_quad is not None and len(scaled_quad) == 4:
@@ -3511,7 +3559,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             for scaled in [
                 _scale_dashboard_points(
                     _dashboard_points(polygons_table.get(key)),
-                    source_resolution,
+                    _dashboard_channel_resolution(saved, key),
                     frame_w,
                     frame_h,
                 )
@@ -3523,7 +3571,6 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
 
     if role in {"classification_top", "classification_bottom"}:
         saved = getClassificationPolygons() or {}
-        source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         quad_key = "class_top" if role == "classification_top" else "class_bottom"
@@ -3532,7 +3579,12 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         if len(quad_points) != 4:
             quad_points = _dashboard_points(polygons_table.get(polygon_key))
         scaled_quad = (
-            _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+            _scale_dashboard_points(
+                quad_points,
+                _dashboard_classification_resolution(saved, quad_key),
+                frame_w,
+                frame_h,
+            )
             if len(quad_points) == 4 else None
         )
         if scaled_quad is not None and len(scaled_quad) == 4:
@@ -3551,7 +3603,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
 
         scaled_polygon = _scale_dashboard_points(
             _dashboard_points(polygons_table.get(polygon_key)),
-            source_resolution,
+            _dashboard_classification_resolution(saved, quad_key),
             frame_w,
             frame_h,
         )

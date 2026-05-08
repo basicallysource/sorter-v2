@@ -1349,8 +1349,20 @@ def classification_channel_debug() -> Dict[str, Any]:
 
 @router.post("/api/classification-channel/wall-phase")
 def classification_channel_wall_phase(
-    include_lines: bool = Query(False),
+    include_lines: bool = False,
 ) -> Dict[str, Any]:
+    frame = _classification_channel_live_frame()
+
+    from vision.c4_wall_phase import detect_c4_wall_phase
+
+    result = detect_c4_wall_phase(frame.raw)
+    return {
+        "ok": True,
+        **result.as_dict(include_lines=include_lines),
+    }
+
+
+def _classification_channel_live_frame() -> Any:
     vm = shared_state.vision_manager
     if vm is None or not hasattr(vm, "getCaptureThreadForRole"):
         raise HTTPException(status_code=503, detail="Vision manager not available.")
@@ -1363,14 +1375,141 @@ def classification_channel_wall_phase(
     frame = capture.latest_frame
     if frame is None:
         raise HTTPException(status_code=503, detail="No live classification-channel frame available.")
+    return frame
 
+
+@router.post("/api/classification-channel/sector-occupancy")
+def classification_channel_sector_occupancy(
+    include_lines: bool = False,
+    force_detection: bool = False,
+) -> Dict[str, Any]:
+    vm = shared_state.vision_manager
+    if vm is None:
+        raise HTTPException(status_code=503, detail="Vision manager not available.")
+    if not hasattr(vm, "getClassificationChannelDetectionCandidates"):
+        raise HTTPException(status_code=503, detail="Classification-channel detection is unavailable.")
+
+    frame = _classification_channel_live_frame()
     from vision.c4_wall_phase import detect_c4_wall_phase
+    from subsystems.classification_channel.five_sector_platter import (
+        C4FiveSectorPlatter,
+        C4SectorDetection,
+    )
 
-    result = detect_c4_wall_phase(frame.raw)
+    phase = detect_c4_wall_phase(frame.raw)
+    irl_config = _active_irl_config()
+    platter = C4FiveSectorPlatter.from_irl_config(irl_config)
+    phase_offset = phase.sector_offset_deg if phase.sector_offset_deg is not None else 0.0
+
+    if phase.center_x is None or phase.center_y is None:
+        return {
+            "ok": False,
+            "message": phase.message,
+            "wall_phase": phase.as_dict(include_lines=include_lines),
+            "sectors": [],
+            "candidate_bboxes": [],
+            "detections": [],
+        }
+
+    try:
+        candidate_bboxes = vm.getClassificationChannelDetectionCandidates(
+            force=force_detection,
+            frame=frame,
+        )
+    except TypeError:
+        candidate_bboxes = vm.getClassificationChannelDetectionCandidates(
+            force=force_detection,
+        )
+
+    detections: list[C4SectorDetection] = []
+    detection_payloads: list[dict[str, Any]] = []
+    center_xy = (float(phase.center_x), float(phase.center_y))
+    for index, candidate in enumerate(candidate_bboxes):
+        if not isinstance(candidate, (list, tuple)) or len(candidate) < 4:
+            continue
+        bbox = tuple(float(value) for value in candidate[:4])
+        detection = C4SectorDetection.from_bbox(
+            bbox,
+            center_xy=center_xy,
+            confidence=1.0,
+            track_id=index,
+        )
+        detections.append(detection)
+        detection_payloads.append(
+            {
+                "bbox": [int(round(value)) for value in bbox],
+                "angle_deg": detection.angle_deg,
+                "sector_index": platter.sector_for_angle(
+                    detection.angle_deg,
+                    wall_offset_deg=phase_offset,
+                ),
+            }
+        )
+
+    handoff_sector, exit_sector = _classification_channel_role_sectors(
+        platter,
+        phase_offset,
+        irl_config,
+    )
+    sectors = platter.occupancy_from_detections(
+        detections,
+        wall_offset_deg=phase_offset,
+        handoff_sector=handoff_sector,
+        exit_sector=exit_sector,
+    )
     return {
         "ok": True,
-        **result.as_dict(include_lines=include_lines),
+        "frame_resolution": [int(frame.raw.shape[1]), int(frame.raw.shape[0])],
+        "sector_count": platter.sector_count,
+        "sector_size_deg": platter.sector_size_deg,
+        "sector_offset_deg": phase.sector_offset_deg,
+        "phase_ok": phase.ok,
+        "wall_phase": phase.as_dict(include_lines=include_lines),
+        "handoff_sector": handoff_sector,
+        "exit_sector": exit_sector,
+        "candidate_bboxes": [
+            [int(round(value)) for value in candidate[:4]]
+            for candidate in candidate_bboxes
+            if isinstance(candidate, (list, tuple)) and len(candidate) >= 4
+        ],
+        "detections": detection_payloads,
+        "sectors": [sector.as_dict() for sector in sectors],
     }
+
+
+def _active_irl_config() -> Any:
+    controller = shared_state.controller_ref
+    if controller is not None and hasattr(controller, "coordinator"):
+        coordinator = controller.coordinator
+        config = getattr(coordinator, "irl_config", None)
+        if config is not None:
+            return config
+    return None
+
+
+def _classification_channel_role_sectors(
+    platter: Any,
+    phase_offset_deg: float,
+    irl_config: Any,
+) -> tuple[int | None, int | None]:
+    cfg = getattr(irl_config, "classification_channel_config", None)
+    if cfg is None:
+        return None, None
+    handoff_sector = None
+    exit_sector = None
+    intake_angle = getattr(cfg, "intake_angle_deg", None)
+    if isinstance(intake_angle, (int, float)):
+        handoff_sector = platter.sector_for_angle(
+            float(intake_angle),
+            wall_offset_deg=phase_offset_deg,
+        )
+    drop_angle = getattr(cfg, "drop_angle_deg", None)
+    if isinstance(drop_angle, (int, float)):
+        exit_sector = platter.sector_for_angle(
+            float(drop_angle),
+            wall_offset_deg=phase_offset_deg,
+        )
+    return handoff_sector, exit_sector
 
 
 @router.post("/api/carousel/detect/current")

@@ -75,6 +75,48 @@ def _status_summary(payload: dict[str, Any]) -> dict[str, Any]:
     return {key: payload.get(key) for key in keys if key in payload}
 
 
+def _auto_move_params_from_occupancy(
+    occupancy: dict[str, Any],
+    *,
+    direction: str,
+    execute: bool,
+) -> dict[str, Any]:
+    sectors = occupancy.get("sectors")
+    if not isinstance(sectors, list):
+        raise ProbeError("occupancy response has no sectors list")
+    exit_sector = occupancy.get("exit_sector")
+    if not isinstance(exit_sector, int):
+        raise ProbeError("occupancy response has no exit_sector")
+
+    occupied: list[dict[str, Any]] = []
+    for sector in sectors:
+        if not isinstance(sector, dict) or not sector.get("occupied"):
+            continue
+        sector_index = sector.get("sector_index")
+        if not isinstance(sector_index, int):
+            continue
+        occupied.append(sector)
+
+    if not occupied:
+        raise ProbeError("occupancy response has no occupied sector to plan from")
+
+    selected = next(
+        (
+            sector
+            for sector in occupied
+            if sector.get("sector_index") != exit_sector
+        ),
+        occupied[0],
+    )
+    from_sector = int(selected["sector_index"])
+    return {
+        "from_sector": from_sector,
+        "to_sector": int(exit_sector),
+        "direction": direction,
+        "execute": "true" if execute else "false",
+    }
+
+
 def run_probe(args: argparse.Namespace) -> int:
     base_url = str(args.base_url)
     timeout = float(args.timeout)
@@ -102,12 +144,20 @@ def run_probe(args: argparse.Namespace) -> int:
     )
     _print_section("c4_sector_occupancy", occupancy)
 
-    move_params = {
-        "from_sector": int(args.from_sector),
-        "to_sector": int(args.to_sector),
-        "direction": str(args.direction),
-        "execute": "true" if args.execute else "false",
-    }
+    if args.auto_plan:
+        move_params = _auto_move_params_from_occupancy(
+            occupancy,
+            direction=str(args.direction),
+            execute=bool(args.execute),
+        )
+        _print_section("c4_suggested_sector_move", move_params)
+    else:
+        move_params = {
+            "from_sector": int(args.from_sector),
+            "to_sector": int(args.to_sector),
+            "direction": str(args.direction),
+            "execute": "true" if args.execute else "false",
+        }
 
     move_plan = _request_json(
         base_url,
@@ -127,6 +177,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--from-sector", type=int, default=0)
     parser.add_argument("--to-sector", type=int, default=1)
     parser.add_argument("--direction", choices=("shortest", "cw", "ccw"), default="shortest")
+    parser.add_argument("--auto-plan", action="store_true")
     parser.add_argument("--force-detection", action="store_true")
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm-execute", default="")

@@ -164,10 +164,14 @@ const MasterCommandTable command_tables = {
 char DEVICE_NAME[16] = INIT_DEVICE_NAME;
 uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 
-#ifdef HARDWARE_SKR_PICO
+#if defined(HARDWARE_SKR_PICO)
 #include "hwcfg_skr_pico.h"
+#elif defined(HW_BASICALLY_V1_1)
+#include "hwcfg_basically_v1_1.h"
+#elif defined(HW_BASICALLY_V1_2)
+#include "hwcfg_basically_v1_2.h"
 #else
-#include "hwcfg_basically.h"
+#error "No hardware config selected. Define HARDWARE_SKR_PICO, HW_BASICALLY_V1_1, or HW_BASICALLY_V1_2."
 #endif
 
 // End board configuration

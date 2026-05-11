@@ -21,42 +21,26 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from flask import Flask, jsonify, request
 from global_config import GlobalConfig, Timeouts
-from irl.config import IRLInterface, mkIRLConfig, mkIRLInterface
 from logger import Logger
-from hardware.sorter_interface import StepperMotor, ServoMotor
+from hardware.sorter_interface import StepperMotor, ServoMotor, DigitalOutputPin
+import irl.config as _irl_bootstrap  # must precede machine_platform import to resolve circular dep
+from machine_platform.control_board import discover_control_boards
 
 # ── global state ──────────────────────────────────────────────────────────────
 
 app = Flask(__name__)
-irl: IRLInterface | None = None
+_steppers: dict[str, StepperMotor] = {}
+_servos: list[ServoMotor] = []
+_digital_outputs: list[dict[str, Any]] = []
 _lock = threading.Lock()
-
-STEPPER_ATTR_BASES = [
-    "carousel",
-    "chute_stepper",
-    "c_channel_1_rotor",
-    "c_channel_2_rotor",
-    "c_channel_3_rotor",
-    "fifth_stepper",
-    "distribution_aux_1_stepper",
-    "distribution_aux_2_stepper",
-    "distribution_aux_3_stepper",
-]
 
 
 def _get_steppers() -> dict[str, StepperMotor]:
-    assert irl is not None
-    result: dict[str, StepperMotor] = {}
-    for base in STEPPER_ATTR_BASES:
-        motor = getattr(irl, base, None)
-        if motor is not None and isinstance(motor, StepperMotor):
-            result[base] = motor
-    return result
+    return _steppers
 
 
 def _get_servos() -> list[ServoMotor]:
-    assert irl is not None
-    return list(irl.servos) if hasattr(irl, "servos") and irl.servos else []
+    return _servos
 
 
 # ── API routes ────────────────────────────────────────────────────────────────
@@ -65,7 +49,8 @@ def _get_servos() -> list[ServoMotor]:
 def api_status():
     steppers = {name: {"enabled": m.enabled} for name, m in _get_steppers().items()}
     servos = [{"index": i, "enabled": s.enabled} for i, s in enumerate(_get_servos())]
-    return jsonify({"steppers": steppers, "servos": servos})
+    digital_outputs = [{"index": d["index"], "label": d["label"], "value": d["value"]} for d in _digital_outputs]
+    return jsonify({"steppers": steppers, "servos": servos, "digital_outputs": digital_outputs})
 
 
 @app.post("/api/stepper/enable")
@@ -174,6 +159,19 @@ def api_servo_disable():
     return jsonify({"ok": True})
 
 
+@app.post("/api/digital_output/set")
+def api_digital_output_set():
+    body = request.json
+    idx = int(body.get("index", 0))
+    value = bool(body.get("value", False))
+    if idx >= len(_digital_outputs):
+        return jsonify({"error": f"digital output index {idx} out of range"}), 404
+    with _lock:
+        _digital_outputs[idx]["pin"].value = value
+        _digital_outputs[idx]["value"] = value
+    return jsonify({"ok": True, "index": idx, "value": value})
+
+
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
 PAGE = """<!DOCTYPE html>
@@ -230,6 +228,9 @@ PAGE = """<!DOCTYPE html>
 
 <h2>servos</h2>
 <div id="servo-cards" class="cards"></div>
+
+<h2>24V rails</h2>
+<div id="dout-cards" class="cards"></div>
 
 <script>
 const post = (url, body) =>
@@ -310,15 +311,21 @@ function mkStepperCard(name, info) {
 function mkServoCard(idx, info) {
   const card = document.createElement('div');
   card.className = 'card';
+  let currentAngle = 90;
 
   card.innerHTML = `
     <div class="row">
       <div class="status-dot ${info.enabled ? 'on' : ''}"></div>
       <span class="card-title">servo ${idx}</span>
+      <span class="current-angle" style="margin-left:auto;font-size:.75rem;color:var(--muted)">@ ${currentAngle}°</span>
     </div>
     <div class="row">
       <label>angle</label>
-      <input type="number" class="angle-input" value="90" min="0" max="180" step="1">
+      <input type="number" class="angle-input" value="10" min="0" max="180" step="1">
+    </div>
+    <div class="btn-row">
+      <button class="btn-accent nudge-left-btn">◀ nudge</button>
+      <button class="btn-accent nudge-right-btn">nudge ▶</button>
     </div>
     <div class="btn-row">
       <button class="btn-accent move-btn">move to</button>
@@ -332,9 +339,31 @@ function mkServoCard(idx, info) {
   const dot = card.querySelector('.status-dot');
   const fb = card.querySelector('.feedback');
   const angleInput = card.querySelector('.angle-input');
+  const currentAngleEl = card.querySelector('.current-angle');
 
-  card.querySelector('.move-btn').onclick = () =>
-    post('/api/servo/move', {index: idx, angle: +angleInput.value}).then(r => feedback(fb, r));
+  function updateCurrentAngle(a) {
+    currentAngle = Math.max(0, Math.min(180, a));
+    currentAngleEl.textContent = `@ ${currentAngle}°`;
+  }
+
+  async function enableAndMove(angle) {
+    await post('/api/servo/enable', {index: idx});
+    dot.classList.add('on');
+    const r = await post('/api/servo/move', {index: idx, angle});
+    updateCurrentAngle(angle);
+    feedback(fb, r);
+  }
+
+  card.querySelector('.nudge-left-btn').onclick = () =>
+    enableAndMove(currentAngle - +angleInput.value);
+
+  card.querySelector('.nudge-right-btn').onclick = () =>
+    enableAndMove(currentAngle + +angleInput.value);
+
+  card.querySelector('.move-btn').onclick = () => {
+    const a = +angleInput.value;
+    post('/api/servo/move', {index: idx, angle: a}).then(r => { updateCurrentAngle(a); feedback(fb, r); });
+  };
 
   card.querySelector('.release-btn').onclick = () =>
     post('/api/servo/move', {index: idx, angle: +angleInput.value, release: true}).then(r => feedback(fb, r));
@@ -348,8 +377,45 @@ function mkServoCard(idx, info) {
   return card;
 }
 
+function mkDoutCard(info) {
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  card.innerHTML = `
+    <div class="row">
+      <div class="status-dot ${info.value ? 'on' : ''}"></div>
+      <span class="card-title">${info.label}</span>
+      <span style="margin-left:auto;font-size:.75rem;color:var(--muted)">${info.value ? 'ON' : 'OFF'}</span>
+    </div>
+    <div class="btn-row">
+      <button class="btn-green on-btn">on</button>
+      <button class="btn-red off-btn">off</button>
+    </div>
+    <div class="feedback"></div>
+  `;
+
+  const dot = card.querySelector('.status-dot');
+  const fb = card.querySelector('.feedback');
+  const stateLabel = card.querySelector('.status-dot + .card-title + span');
+
+  function setState(v) {
+    if (v) { dot.classList.add('on'); } else { dot.classList.remove('on'); }
+    stateLabel.textContent = v ? 'ON' : 'OFF';
+  }
+
+  card.querySelector('.on-btn').onclick = () =>
+    post('/api/digital_output/set', {index: info.index, value: true})
+      .then(r => { if(r.ok) setState(true); feedback(fb, r); });
+
+  card.querySelector('.off-btn').onclick = () =>
+    post('/api/digital_output/set', {index: info.index, value: false})
+      .then(r => { if(r.ok) setState(false); feedback(fb, r); });
+
+  return card;
+}
+
 async function init() {
-  const {steppers, servos} = await fetch('/api/status').then(r => r.json());
+  const {steppers, servos, digital_outputs} = await fetch('/api/status').then(r => r.json());
 
   const sc = document.getElementById('stepper-cards');
   for (const [name, info] of Object.entries(steppers))
@@ -362,6 +428,12 @@ async function init() {
     vc.appendChild(mkServoCard(i, info));
   if (!servos.length)
     vc.innerHTML = '<p style="color:var(--muted);font-size:.8rem">no servos detected</p>';
+
+  const dc = document.getElementById('dout-cards');
+  for (const d of (digital_outputs || []))
+    dc.appendChild(mkDoutCard(d));
+  if (!(digital_outputs && digital_outputs.length))
+    dc.innerHTML = '<p style="color:var(--muted);font-size:.8rem">no digital outputs detected</p>';
 }
 
 init();
@@ -387,7 +459,7 @@ def buildGc(debug: bool) -> GlobalConfig:
 
 
 def main() -> None:
-    global irl
+    global _steppers, _servos
 
     parser = argparse.ArgumentParser(description="Motor test web UI")
     parser.add_argument("--port", type=int, default=8765)
@@ -395,17 +467,29 @@ def main() -> None:
     args = parser.parse_args()
 
     gc = buildGc(args.debug)
-    gc.logger.info("motor_test: loading IRL config")
-    irl_config = mkIRLConfig()
+    gc.logger.info("motor_test: discovering control boards (no required steppers)")
+    boards = discover_control_boards(gc, required_stepper_names=[])
 
-    gc.logger.info("motor_test: initialising hardware")
-    irl = mkIRLInterface(irl_config, gc)
-    irl.enableSteppers()
+    for board in boards:
+        identity = board.identity
+        gc.logger.info(
+            f"Found board: {identity.family}:{identity.role} on {identity.port} — "
+            f"steppers={list(board.logical_stepper_names)}"
+        )
+        for ds in board.iter_steppers():
+            name = ds.canonical_name
+            if name in _steppers:
+                name = f"{name}__{identity.port}"
+            _steppers[name] = ds.stepper
+            ds.stepper.enabled = True
+        _servos.extend(board.servos)
+        for i, dout in enumerate(board.interface.digital_outputs):
+            label = f"24V rail {i}" if len(board.interface.digital_outputs) <= 2 else f"output {i}"
+            _digital_outputs.append({"index": i, "label": label, "pin": dout, "value": dout.value})
 
-    steppers = _get_steppers()
-    servos = _get_servos()
-    print(f"\nDetected {len(steppers)} stepper(s): {', '.join(steppers) or 'none'}")
-    print(f"Detected {len(servos)} servo(s)")
+    print(f"\nDetected {len(_steppers)} stepper(s): {', '.join(_steppers) or 'none'}")
+    print(f"Detected {len(_servos)} servo(s)")
+    print(f"Detected {len(_digital_outputs)} digital output(s)")
     import socket
     hostname = socket.gethostname()
     print(f"\nOpen http://{hostname}:{args.port}  (or http://<pi-ip>:{args.port})\n")

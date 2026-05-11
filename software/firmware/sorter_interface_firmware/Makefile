@@ -27,12 +27,12 @@ build: build-feeder-v1-1 build-distribution-v1-1
 
 build-feeder-v1-1: setup
 	@mkdir -p build-feeder-v1-1
-	@cd build-feeder-v1-1 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@cd build-feeder-v1-1 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_BASICALLY_V1_1=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
 	@echo "Feeder v1-1 firmware built: build-feeder-v1-1/sorter_interface_firmware.uf2"
 
 build-distribution-v1-1: setup
 	@mkdir -p build-distribution-v1-1
-	@cd build-distribution-v1-1 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@cd build-distribution-v1-1 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_BASICALLY_V1_1=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
 	@echo "Distribution v1-1 firmware built: build-distribution-v1-1/sorter_interface_firmware.uf2"
 
 flash-feeder-v1-1: build-feeder-v1-1
@@ -43,12 +43,12 @@ flash-distribution-v1-1: build-distribution-v1-1
 
 build-feeder-v1-2: setup
 	@mkdir -p build-feeder-v1-2
-	@cd build-feeder-v1-2 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_BASICALLY_V1=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@cd build-feeder-v1-2 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_BASICALLY_V1_2=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
 	@echo "Feeder v1-2 firmware built: build-feeder-v1-2/sorter_interface_firmware.uf2"
 
 build-distribution-v1-2: setup
 	@mkdir -p build-distribution-v1-2
-	@cd build-distribution-v1-2 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_BASICALLY_V1=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@cd build-distribution-v1-2 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_BASICALLY_V1_2=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
 	@echo "Distribution v1-2 firmware built: build-distribution-v1-2/sorter_interface_firmware.uf2"
 
 flash-feeder-v1-2: build-feeder-v1-2

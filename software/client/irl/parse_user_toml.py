@@ -20,16 +20,6 @@ DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 16
 DEFAULT_STEPPER_IHOLD_DELAY = 8
 
-VALID_BIN_SIZES = {"small", "medium", "big"}
-
-DEFAULT_LAYER_SECTIONS: list[list[str]] = [
-    ["medium", "medium"],
-    ["medium", "medium"],
-    ["medium", "medium"],
-    ["medium", "medium"],
-    ["medium", "medium"],
-    ["medium", "medium"],
-]
 
 
 @dataclass
@@ -179,15 +169,17 @@ def _validateLayerSections(gc: GlobalConfig, raw_sections: object, layer_idx: in
     sections: list[list[str]] = []
     for section in raw_sections:
         if not isinstance(section, list):
-            gc.logger.warning(f"Layer {layer_idx} section must be a list of bin sizes. Skipping layer.")
+            gc.logger.warning(f"Layer {layer_idx} section must be a list of bins. Skipping layer.")
             return None
-        for bin_size in section:
-            if bin_size not in VALID_BIN_SIZES:
+        bin_categories: list[str] = []
+        for bin_def in section:
+            if not isinstance(bin_def, list) or len(bin_def) < 1:
                 gc.logger.warning(
-                    f"Invalid bin size '{bin_size}' in layer {layer_idx}. Must be one of: {VALID_BIN_SIZES}"
+                    f"Layer {layer_idx} bin must be a non-empty list with a category name. Skipping layer."
                 )
                 return None
-        sections.append(section)
+            bin_categories.append(str(bin_def[0]))
+        sections.append(bin_categories)
     return sections
 
 

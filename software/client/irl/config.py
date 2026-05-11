@@ -15,14 +15,12 @@ from .bin_layout import (
     DEFAULT_BIN_LAYOUT,
     DistributionLayout,
     mkLayoutFromConfig,
-    layoutMatchesCategories,
-    applyCategories,
 )
 from .parse_user_toml import (
     loadMachineConfig,
     applyStepperCurrentOverride,
 )
-from blob_manager import getBinCategories, getCameraSetup
+from blob_manager import getCameraSetup
 
 
 class CameraConfig:
@@ -444,13 +442,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.servos.append(servo)
         gc.logger.info(f"Initialized Servo 'layer_{i}_servo' on channel {i}, open={open_angle}° closed={closed_angle}°")
 
-    saved_categories = getBinCategories()
-    if saved_categories is not None:
-        if layoutMatchesCategories(irl_interface.distribution_layout, saved_categories):
-            applyCategories(irl_interface.distribution_layout, saved_categories)
-            gc.logger.info("Loaded bin categories from storage")
-        else:
-            gc.logger.warn("Saved bin categories don't match layout, ignoring")
 
     from subsystems.distribution.chute import Chute
 

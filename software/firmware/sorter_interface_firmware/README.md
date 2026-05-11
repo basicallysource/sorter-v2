@@ -54,7 +54,7 @@ Use separate build directories so each Pico can run the same firmware codebase w
 mkdir -p build-feeder
 cd build-feeder
 cmake -DFIRMWARE_ROLE=feeder -DINIT_DEVICE_NAME="FEEDER MB" ..
-ninja
+make -j$(nproc)
 ```
 
 ### Distribution firmware
@@ -62,7 +62,7 @@ ninja
 mkdir -p build-distribution
 cd build-distribution
 cmake -DFIRMWARE_ROLE=distribution -DINIT_DEVICE_NAME="DISTRIBUTION MB" ..
-ninja
+make -j$(nproc)
 ```
 
 Both variants keep the same physical channel wiring but advertise different `stepper_names` in detect JSON, letting the client bind actuators by role-specific names.

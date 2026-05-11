@@ -5,11 +5,10 @@ from states.base_state import BaseState
 from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
 from .chute import Chute, BinAddress
-from irl.bin_layout import DistributionLayout, Bin, extractCategories
+from irl.bin_layout import DistributionLayout
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from sorting_profile import SortingProfile, MISC_CATEGORY
-from blob_manager import setBinCategories
+from sorting_profile import SortingProfile
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
 
@@ -47,26 +46,30 @@ class Positioning(BaseState):
                 self.logger.warn("Positioning: no piece at intermediate")
                 return DistributionState.IDLE
 
-            if piece.part_id is not None:
-                category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
-            else:
-                category_id = MISC_CATEGORY
-            address, _ = self._findOrAssignBinForCategory(category_id)
-            if address is None:
-                self.logger.warn(
-                    f"Positioning: no available bins for category {category_id}"
-                )
-                return DistributionState.IDLE
+            category_id = (
+                self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
+                if piece.part_id is not None
+                else None
+            )
+            address = self._findBinForCategory(category_id) if category_id is not None else None
 
             piece.stage = PieceStage.distributing
             piece.distributing_at = time.time()
-            piece.category_id = category_id
-            piece.destination_bin = (
-                address.layer_index,
-                address.section_index,
-                address.bin_index,
-            )
             piece.updated_at = time.time()
+
+            if address is None:
+                self.logger.info(
+                    f"Positioning: no bin for category '{category_id}', dropping piece"
+                )
+                piece.category_id = None
+                piece.destination_bin = None
+                self.event_queue.put(knownObjectToEvent(piece))
+                self._openAllServos()
+                self._phase = "dropping"
+                return None
+
+            piece.category_id = category_id
+            piece.destination_bin = (address.layer_index, address.section_index, address.bin_index)
             self.event_queue.put(knownObjectToEvent(piece))
 
             self.logger.info(
@@ -80,6 +83,13 @@ class Positioning(BaseState):
             init_ms = (now - self._state_entered_at) * 1000
             self.logger.info(f"Positioning: init phase took {init_ms:.0f}ms, now waiting for servo+chute")
             return None
+
+        if self._phase == "dropping":
+            if not all(s.stopped for s in self.irl.servos):
+                return None
+            total_ms = (now - self._state_entered_at) * 1000
+            self.logger.info(f"Positioning: drop ready (total={total_ms:.0f}ms)")
+            return DistributionState.READY
 
         if self._phase == "moving":
             chute_stopped = self.chute.stepper.stopped
@@ -98,9 +108,7 @@ class Positioning(BaseState):
         assert self._target_address is not None
         self.shared.chute_move_in_progress = True
         estimated_ms = self.chute.moveToBin(self._target_address)
-        self.logger.info(
-            f"Positioning: chute move started (est_ms={estimated_ms})"
-        )
+        self.logger.info(f"Positioning: chute move started (est_ms={estimated_ms})")
         self._phase = "moving"
 
     def cleanup(self) -> None:
@@ -112,38 +120,21 @@ class Positioning(BaseState):
         self._moving_started_at = 0.0
         self.shared.chute_move_in_progress = False
 
+    def _openAllServos(self) -> None:
+        for servo in self.irl.servos:
+            servo.open()
+
     def _selectDoor(self, target_layer_index: int) -> None:
         for i, servo in enumerate(self.irl.servos):
             if i != target_layer_index:
                 servo.open()
         self.irl.servos[target_layer_index].close()
 
-    def _findOrAssignBinForCategory(
-        self, category_id: str
-    ) -> tuple[Optional[BinAddress], bool]:
-        first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
-
+    def _findBinForCategory(self, category_id: str) -> Optional[BinAddress]:
         for layer_idx, layer in enumerate(self.layout.layers):
             for section_idx, section in enumerate(layer.sections):
                 for bin_idx, b in enumerate(section.bins):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
-                    if not self.chute.isBinReachable(address):
-                        continue
-                    if b.category_id == category_id:
-                        return address, False
-                    if b.category_id is None and first_unassigned is None:
-                        first_unassigned = (address, b)
-
-        if first_unassigned is not None:
-            address, b = first_unassigned
-            b.category_id = category_id
-            setBinCategories(extractCategories(self.layout))
-            self.logger.info(
-                f"Positioning: assigned category {category_id} to bin at layer={address.layer_index}, section={address.section_index}, bin={address.bin_index}"
-            )
-            return address, True
-
-        if category_id != MISC_CATEGORY:
-            return self._findOrAssignBinForCategory(MISC_CATEGORY)
-
-        return None, False
+                    if self.chute.isBinReachable(address) and b.category_id == category_id:
+                        return address
+        return None

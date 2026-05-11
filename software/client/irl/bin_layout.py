@@ -72,13 +72,23 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     # bottom most is bottom in real life
     # but the top most layers are "first" for the rest of the code
     reversedLayers = list(reversed(config.layers))
-    for layer_config in reversedLayers:
+    for layer_idx, layer_config in enumerate(reversedLayers):
+        total_bins = sum(len(s) for s in layer_config.sections)
+        if total_bins == 6:
+            bin_size = BinSize.BIG
+        elif total_bins == 12:
+            bin_size = BinSize.MEDIUM
+        elif total_bins == 18:
+            bin_size = BinSize.SMALL
+        else:
+            raise ValueError(
+                f"Layer {layer_idx} has {total_bins} bins; expected 6 (big), 12 (medium), or 18 (small)."
+            )
         sections = []
         for section_config in layer_config.sections:
             bins = []
-            for bin_size_str in section_config:
-                bin_size = BinSize(bin_size_str)
-                bins.append(Bin(size=bin_size))
+            for category_id in section_config:
+                bins.append(Bin(size=bin_size, category_id=category_id))
             sections.append(BinSection(bins=bins))
         layers.append(Layer(sections=sections))
     return DistributionLayout(layers=layers)

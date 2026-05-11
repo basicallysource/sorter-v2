@@ -492,6 +492,7 @@ class IRLInterface:
     c_channel_1_rotor_stepper: "StepperMotor"
     c_channel_2_rotor_stepper: "StepperMotor"
     c_channel_3_rotor_stepper: "StepperMotor"
+    fifth_stepper: "StepperMotor"
     servos: "list[ServoMotor]"
     chute: "Chute"
     distribution_layout: DistributionLayout
@@ -513,6 +514,7 @@ class IRLInterface:
             "c_channel_3_rotor",
             "carousel",
             "chute",
+            "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):
@@ -525,6 +527,7 @@ class IRLInterface:
             "c_channel_3_rotor",
             "carousel",
             "chute",
+            "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):

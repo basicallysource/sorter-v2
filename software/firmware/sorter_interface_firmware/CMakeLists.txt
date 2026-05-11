@@ -34,6 +34,7 @@ project(sorter_interface_firmware C CXX ASM)
 pico_sdk_init()
 
 option(HW_SKR_PICO "Compile for SKR Pico hardware" OFF)
+option(HW_BASICALLY_V1 "Compile for Basically V1 distribution/feeder board (5 steppers)" OFF)
 set(FIRMWARE_ROLE "feeder" CACHE STRING "Firmware role profile: feeder or distribution")
 set_property(CACHE FIRMWARE_ROLE PROPERTY STRINGS feeder distribution)
 
@@ -84,6 +85,9 @@ target_include_directories(sorter_interface_firmware PRIVATE
 target_compile_definitions(sorter_interface_firmware PRIVATE INIT_DEVICE_NAME="${INIT_DEVICE_NAME}" INIT_DEVICE_ADDRESS=${INIT_DEVICE_ADDRESS})
 if (HW_SKR_PICO)
     target_compile_definitions(sorter_interface_firmware PRIVATE HARDWARE_SKR_PICO)
+endif()
+if (HW_BASICALLY_V1)
+    target_compile_definitions(sorter_interface_firmware PRIVATE HW_BASICALLY_V1)
 endif()
 if (FIRMWARE_ROLE_NORMALIZED STREQUAL "distribution")
     target_compile_definitions(sorter_interface_firmware PRIVATE FIRMWARE_ROLE_DISTRIBUTION)

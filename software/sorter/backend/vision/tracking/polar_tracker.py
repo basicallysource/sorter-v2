@@ -67,13 +67,16 @@ DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
 
 # How long after a track first appears on the carousel we keep the angular
 # capture gate disabled so we can grab multi-perspective frames of the piece
-# while it is still falling / tumbling onto the platter. Tuned to comfortably
-# cover the ~300-500 ms free-fall + bounce window from C3 to C4.
-CAROUSEL_FREE_FALL_BURST_S = 0.7
-# Minimum wall-clock gap between burst captures so we don't push two snapshots
-# from the same camera frame (or two near-duplicate frames from a fast loop).
-# ~40 ms → effectively one capture per camera frame at 25 FPS.
-CAROUSEL_BURST_MIN_GAP_S = 0.04
+# while it is still falling / tumbling onto the platter. Extended to 1.2 s so
+# at our ~15 Hz detection rate we comfortably clear the "≥10 frames per
+# fall" target — covers free-fall, bounce, and the first half-rotation
+# after the piece lands.
+CAROUSEL_FREE_FALL_BURST_S = 1.2
+# Minimum wall-clock gap between burst captures so we don't push two
+# snapshots from the same camera frame. Dropped to 20 ms so we never
+# bottleneck on the gap if the detection thread momentarily runs hotter
+# than 25 FPS.
+CAROUSEL_BURST_MIN_GAP_S = 0.02
 
 
 # ---------------------------------------------------------------------------

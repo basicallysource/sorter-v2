@@ -332,8 +332,13 @@ class ClassificationChannelConfig:
         self.recognition_window_deg = 170.0
         self.positioning_window_deg = 48.0
         self.exit_release_overlap_ratio = 0.5
-        self.exit_release_shimmy_amplitude_deg = 1.5
-        self.exit_release_shimmy_cycles = 2
+        # Wobble dislodges sticky pieces. 1.5° × 2 cycles was too gentle —
+        # white / smooth-bottomed parts would ride past exit without ever
+        # falling. Increased to 3° amplitude × 3 cycles for a stronger
+        # back-forward-back jerk; speed / acceleration unchanged so the
+        # neighbour-piece does not get flung forward into its own drop.
+        self.exit_release_shimmy_amplitude_deg = 3.0
+        self.exit_release_shimmy_cycles = 3
         self.exit_release_shimmy_microsteps_per_second = 4200
         self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
         self.stale_zone_timeout_s = 3.0
@@ -367,16 +372,15 @@ class ClassificationChannelConfig:
         # carousel rotates fast; this ensures the piece has physically
         # rotated enough to present multiple sides to the C4 camera, so the
         # accumulated crops cover meaningfully different viewpoints.
-        # Reverted to 15° after a controlled 10×60s A/B campaign
-        # (docs/lab/flow_runs/README.md → trav5 campaign): lowering to 5°
-        # increased recognize_fired_per_min by ~75% but classified
-        # per-minute median stayed identical at 2.0. All extra fires
-        # returned empty from Brickognize because the pieces hadn't yet
-        # accumulated enough carousel-view diversity. The traversal gate
-        # is *correctly* filtering low-quality fires; the real bottleneck
-        # is dwell time on C4 (pieces traverse too fast for enough crops
-        # to land), not gate strictness.
-        self.min_carousel_traversal_deg = 15.0
+        # Lowered back to 5° as part of experiment T2b (see flow_runs
+        # README). The earlier trav5 reversion happened because firing
+        # on a single early crop produced ~48 % empty Brickognize
+        # results — but T2's min_carousel_crops_for_recognize=5 floor
+        # plus the free-fall burst window in polar_tracker eliminate
+        # those empties (live: brickognize_empty=0 across ~5 min). With
+        # the quality floor in place, the traversal gate is the next
+        # binding constraint on fire rate.
+        self.min_carousel_traversal_deg = 5.0
         self.size_downgrade_confirmations = 3
         # Leader-wins drop policy: when the drop candidate has an interferer
         # inside the clearance window, only flip the *leader* to

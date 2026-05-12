@@ -21,7 +21,11 @@ def calibrateFeederChannels(gc: GlobalConfig, irl: IRLInterface, irl_config: IRL
     for i in range(CALIBRATION_REVERSE_PULSES):
         ch2_stepper.move_degrees(-ch2_degrees)
         ch3_stepper.move_degrees(-ch3_degrees)
-        time.sleep(fc.second_rotor_normal.delay_between_pulse_ms / 1000.0)
+        deadline = time.monotonic() + 5.0
+        while time.monotonic() < deadline:
+            if ch2_stepper.stopped and ch3_stepper.stopped:
+                break
+            time.sleep(0.05)
         gc.logger.info(f"  reverse pulse {i + 1}/{CALIBRATION_REVERSE_PULSES}")
 
     ch2_stepper.set_speed_limits(16, fc.second_rotor_normal.microsteps_per_second)

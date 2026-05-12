@@ -11,6 +11,7 @@ from global_config import GlobalConfig
 from sorting_profile import SortingProfile
 from defs.known_object import PieceStage
 from utils.event import knownObjectToEvent
+from blob_manager import addUnmappedPartId
 
 class Positioning(BaseState):
     def __init__(
@@ -51,6 +52,11 @@ class Positioning(BaseState):
                 if piece.part_id is not None
                 else None
             )
+            if (
+                piece.part_id is not None
+                and category_id == self.sorting_profile.default_category_id
+            ):
+                addUnmappedPartId(piece.part_id)
             address = self._findBinForCategory(category_id) if category_id is not None else None
 
             piece.stage = PieceStage.distributing

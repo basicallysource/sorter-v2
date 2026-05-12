@@ -51,6 +51,12 @@ class Feeding(BaseState):
         if self._isStepperBusy(stepper):
             self.gc.profiler.hit(f"feeder.skip.busy.{label}")
             return False
+        if not stepper.stopped:
+            # Time estimate expired but motor still running (accel/decel longer than estimate).
+            # Skip without sending — avoids firmware rejection. Retry next tick.
+            self._busy_until[stepper._name] = time.monotonic() + 0.025
+            self.gc.profiler.hit(f"feeder.skip.hardware_busy.{label}")
+            return False
         prof = self.gc.profiler
         with prof.timer(f"feeder.move_cmd.{label}_ms"):
             pulse_degrees = stepper.degrees_for_microsteps(cfg.steps_per_pulse)

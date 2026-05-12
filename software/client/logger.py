@@ -79,14 +79,20 @@ class Logger:
     def warning(self, msg: str) -> None:
         self.warn(msg)
 
-    def info(self, msg: str) -> None:
+    def notice(self, msg: str) -> None:
         if self.debug_level > 1:
+            entry = LogEntry("NOTICE", msg)
+            self._addToBuffer(entry)
+            self._log("NOTICE", msg)
+
+    def info(self, msg: str) -> None:
+        if self.debug_level > 2:
             entry = LogEntry("INFO", msg)
             self._addToBuffer(entry)
             self._log("INFO", msg)
 
     def debug(self, msg: str) -> None:
-        if self.debug_level > 2:
+        if self.debug_level > 3:
             entry = LogEntry("DEBUG", msg)
             self._addToBuffer(entry)
             self._log("DEBUG", msg)

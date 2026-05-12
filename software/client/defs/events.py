@@ -5,6 +5,8 @@ from enum import Enum
 
 class CameraName(str, Enum):
     feeder = "feeder"
+    c_channel_2 = "c_channel_2"
+    c_channel_3 = "c_channel_3"
     classification_bottom = "classification_bottom"
     classification_top = "classification_top"
 

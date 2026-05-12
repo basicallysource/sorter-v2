@@ -16,15 +16,21 @@ ROLES = {
     ord("B"): "classification_bottom",
     ord("t"): "classification_top",
     ord("T"): "classification_top",
+    ord("2"): "c_channel_2",
+    ord("3"): "c_channel_3",
 }
 
 MENU_LINES = [
     "F - feeder",
     "B - classification bottom",
     "T - classification top",
+    "2 - c_channel_2 (split feeder)",
+    "3 - c_channel_3 (split feeder)",
     "N - next camera",
     "Q - quit & save",
 ]
+
+REQUIRED_ROLES = ["feeder", "classification_bottom", "classification_top"]
 
 
 def main():
@@ -135,11 +141,7 @@ def printSummary(setup):
     print("\nsaved:")
     for role, index in setup.items():
         print(f"  {role}: {index}")
-    missing = [
-        r
-        for r in ["feeder", "classification_bottom", "classification_top"]
-        if r not in setup
-    ]
+    missing = [r for r in REQUIRED_ROLES if r not in setup]
     if missing:
         print(f"not assigned: {', '.join(missing)}")
 

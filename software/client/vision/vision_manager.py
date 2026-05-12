@@ -29,6 +29,8 @@ FRAME_ENCODE_INTERVAL_MS = 100
 class VisionManager:
     _irl_config: IRLConfig
     _feeder_capture: CaptureThread
+    _c_channel_2_capture: Optional[CaptureThread]
+    _c_channel_3_capture: Optional[CaptureThread]
     _classification_bottom_capture: Optional[CaptureThread]
     _classification_top_capture: Optional[CaptureThread]
     _video_recorder: Optional[VideoRecorder]
@@ -45,6 +47,19 @@ class VisionManager:
             raise RuntimeError("Cannot disable feeder camera — it is required for operation")
 
         self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
+
+        self._is_split_feeder = (
+            getattr(irl_config, "c_channel_2_camera", None) is not None
+            and getattr(irl_config, "c_channel_3_camera", None) is not None
+        )
+        self._c_channel_2_capture = (
+            CaptureThread("c_channel_2", irl_config.c_channel_2_camera)
+            if self._is_split_feeder else None
+        )
+        self._c_channel_3_capture = (
+            CaptureThread("c_channel_3", irl_config.c_channel_3_camera)
+            if self._is_split_feeder else None
+        )
 
         if "classification_bottom" in self._disabled_cameras and "classification_top" in self._disabled_cameras:
             raise RuntimeError("Cannot disable both classification cameras — at least one is required")
@@ -75,6 +90,7 @@ class VisionManager:
         self._carousel_polygon: List[Tuple[float, float]] | None = None
 
         self._feeder_analysis: FeederAnalysisThread | None = None
+        self._feeder_analysis_ch3: FeederAnalysisThread | None = None
         self._cached_feeder_frame: CameraFrame | None = None
         self._cached_feeder_frame_ts: float = 0.0
 
@@ -105,6 +121,10 @@ class VisionManager:
 
     def start(self) -> None:
         self._feeder_capture.start()
+        if self._c_channel_2_capture:
+            self._c_channel_2_capture.start()
+        if self._c_channel_3_capture:
+            self._c_channel_3_capture.start()
         if self._classification_bottom_capture:
             self._classification_bottom_capture.start()
         if self._classification_top_capture:
@@ -122,12 +142,18 @@ class VisionManager:
             self._frame_encode_thread.join(timeout=2.0)
         if self._feeder_analysis:
             self._feeder_analysis.stop()
+        if self._feeder_analysis_ch3:
+            self._feeder_analysis_ch3.stop()
         if self._classification_top_analysis:
             self._classification_top_analysis.stop()
         if self._classification_bottom_analysis:
             self._classification_bottom_analysis.stop()
         self._region_provider.stop()
         self._feeder_capture.stop()
+        if self._c_channel_2_capture:
+            self._c_channel_2_capture.stop()
+        if self._c_channel_3_capture:
+            self._c_channel_3_capture.stop()
         if self._classification_bottom_capture:
             self._classification_bottom_capture.stop()
         if self._classification_top_capture:
@@ -144,32 +170,27 @@ class VisionManager:
             return False
 
         polygon_data = saved.get("polygons", {})
-        polys: Dict[str, np.ndarray] = {}
-        for key in ("second_channel", "third_channel"):
-            pts = polygon_data.get(key)
-            if pts:
-                polys[key] = np.array(pts, dtype=np.int32)
-
-        if not polys:
+        if not any(polygon_data.get(k) for k in ("second_channel", "third_channel")):
             self.gc.logger.warn("Channel polygons empty. Run: scripts/polygon_editor.py")
             return False
 
-        self._channel_polygons = polys
         self._channel_angles = saved.get("channel_angles", {})
 
-        carousel_pts = polygon_data.get("carousel")
-        if carousel_pts and len(carousel_pts) >= 3:
-            self._carousel_polygon = [(float(p[0]), float(p[1])) for p in carousel_pts]
+        # polygon_editor.py always uses a 1920x1080 canvas regardless of camera resolution.
+        # Scale saved points to actual camera pixel coordinates before building masks.
+        CANVAS_W, CANVAS_H = 1920, 1080
 
-        gray = self.getLatestFeederGray()
-        mask_shape = gray.shape[:2] if gray is not None else (1080, 1920)
+        def _scale_pts(raw_pts, cam_w: int, cam_h: int) -> np.ndarray:
+            sx, sy = cam_w / CANVAS_W, cam_h / CANVAS_H
+            return np.array([[int(x * sx), int(y * sy)] for x, y in raw_pts], dtype=np.int32)
 
-        channel_masks: Dict[str, np.ndarray] = {}
-        for key, pts in polys.items():
-            ch_mask = np.zeros(mask_shape, dtype=np.uint8)
-            cv2.fillPoly(ch_mask, [pts], 255)
-            channel_masks[key] = ch_mask
-        self._channel_masks = channel_masks
+        # Use the resolutions recorded by polygon_editor at save time — the capture
+        # threads may not have a frame yet when initFeederDetection is called.
+        def _saved_size(key: str) -> tuple[int, int]:
+            res = saved.get(key)
+            if isinstance(res, (list, tuple)) and len(res) == 2:
+                return int(res[0]), int(res[1])
+            return CANVAS_W, CANVAS_H
 
         channel_steppers = {
             "second_channel": self._irl.second_c_channel_rotor_stepper,
@@ -178,23 +199,92 @@ class VisionManager:
 
         def is_channel_rotating(name: str) -> bool:
             stepper = channel_steppers.get(name)
-            if stepper is None:
-                return False
-            return not stepper.stopped
+            return stepper is not None and not stepper.stopped
 
-        self._feeder_detector = Mog2ChannelDetector(
-            channel_polygons=polys,
-            channel_masks=channel_masks,
-            channel_angles=self._channel_angles,
-            is_channel_rotating=is_channel_rotating,
-        )
+        if self._is_split_feeder:
+            def _make_get_gray(capture: CaptureThread):
+                def get_gray() -> np.ndarray | None:
+                    frame = capture.latest_frame
+                    return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY) if frame is not None else None
+                return get_gray
 
-        self._feeder_analysis = FeederAnalysisThread(
-            detector=self._feeder_detector,
-            get_gray=self.getLatestFeederGray,
-            profiler=self.gc.profiler,
-        )
-        self._feeder_analysis.start()
+            # Set carousel polygon scaled to c_channel_3 camera space (carousel is
+            # visible in that camera view and the polygon was drawn there).
+            carousel_raw = polygon_data.get("carousel")
+            if carousel_raw and len(carousel_raw) >= 3:
+                carousel_w, carousel_h = _saved_size("carousel_resolution")
+                sx, sy = carousel_w / CANVAS_W, carousel_h / CANVAS_H
+                self._carousel_polygon = [(float(x) * sx, float(y) * sy) for x, y in carousel_raw]
+
+            res_key_map = {
+                "second_channel": "resolution",
+                "third_channel": "third_resolution",
+            }
+            for channel_name, capture, analysis_attr in [
+                ("second_channel", self._c_channel_2_capture, "_feeder_analysis"),
+                ("third_channel", self._c_channel_3_capture, "_feeder_analysis_ch3"),
+            ]:
+                raw_pts = polygon_data.get(channel_name)
+                if capture is None or not raw_pts:
+                    continue
+                cam_w, cam_h = _saved_size(res_key_map[channel_name])
+                scaled = _scale_pts(raw_pts, cam_w, cam_h)
+                ch_mask = np.zeros((cam_h, cam_w), dtype=np.uint8)
+                cv2.fillPoly(ch_mask, [scaled], 255)
+                detector = Mog2ChannelDetector(
+                    channel_polygons={channel_name: scaled},
+                    channel_masks={channel_name: ch_mask},
+                    channel_angles=self._channel_angles,
+                    is_channel_rotating=is_channel_rotating,
+                )
+                analysis = FeederAnalysisThread(
+                    detector=detector,
+                    get_gray=_make_get_gray(capture),
+                    profiler=self.gc.profiler,
+                )
+                setattr(self, analysis_attr, analysis)
+                analysis.start()
+                self.gc.logger.info(
+                    f"Feeder split: {channel_name} mask={cam_w}x{cam_h}, "
+                    f"polygon scaled by ({cam_w/CANVAS_W:.3f}, {cam_h/CANVAS_H:.3f})"
+                )
+        else:
+            cam_w, cam_h = _saved_size("resolution")
+
+            polys: Dict[str, np.ndarray] = {}
+            channel_masks: Dict[str, np.ndarray] = {}
+            for key in ("second_channel", "third_channel"):
+                raw_pts = polygon_data.get(key)
+                if not raw_pts:
+                    continue
+                scaled = _scale_pts(raw_pts, cam_w, cam_h)
+                polys[key] = scaled
+                ch_mask = np.zeros((cam_h, cam_w), dtype=np.uint8)
+                cv2.fillPoly(ch_mask, [scaled], 255)
+                channel_masks[key] = ch_mask
+
+            self._channel_polygons = polys
+            self._channel_masks = channel_masks
+
+            carousel_pts = polygon_data.get("carousel")
+            if carousel_pts and len(carousel_pts) >= 3:
+                sx, sy = cam_w / CANVAS_W, cam_h / CANVAS_H
+                self._carousel_polygon = [(float(x) * sx, float(y) * sy) for x, y in carousel_pts]
+
+            self._feeder_detector = Mog2ChannelDetector(
+                channel_polygons=polys,
+                channel_masks=channel_masks,
+                channel_angles=self._channel_angles,
+                is_channel_rotating=is_channel_rotating,
+            )
+            self._feeder_analysis = FeederAnalysisThread(
+                detector=self._feeder_detector,
+                get_gray=self.getLatestFeederGray,
+                profiler=self.gc.profiler,
+            )
+            self._feeder_analysis.start()
+            self.gc.logger.info(f"Feeder single: mask={cam_w}x{cam_h}, polygon scaled by ({cam_w/CANVAS_W:.3f}, {cam_h/CANVAS_H:.3f})")
+
         self.gc.logger.info("Feeder MOG2 detection initialized")
         return True
 
@@ -359,6 +449,16 @@ class VisionManager:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
 
+    def getLatestCarouselGray(self) -> np.ndarray | None:
+        """In split mode, carousel is visible in c_channel_3; otherwise use feeder."""
+        if self._is_split_feeder and self._c_channel_3_capture is not None:
+            frame = self._c_channel_3_capture.latest_frame
+        else:
+            frame = self._feeder_capture.latest_frame
+        if frame is None:
+            return None
+        return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+
     def getRegions(self) -> dict[RegionName, Region]:
         prof = self.gc.profiler
         prof.hit("vision.get_regions.calls")
@@ -369,14 +469,17 @@ class VisionManager:
             return self._region_provider.getRegions(frame.raw)
 
     def getFeederHeatmapDetections(self) -> list[ChannelDetection]:
-        if self._feeder_analysis is None:
-            return []
-        return self._feeder_analysis.getDetections()
+        detections = []
+        if self._feeder_analysis is not None:
+            detections.extend(self._feeder_analysis.getDetections())
+        if self._feeder_analysis_ch3 is not None:
+            detections.extend(self._feeder_analysis_ch3.getDetections())
+        return detections
 
     def captureCarouselBaseline(self) -> bool:
         if self._carousel_polygon is None:
             return False
-        gray = self.getLatestFeederGray()
+        gray = self.getLatestCarouselGray()
         if gray is None:
             return False
         return self._carousel_heatmap.captureBaseline(self._carousel_polygon, gray.shape)
@@ -393,7 +496,7 @@ class VisionManager:
         prof = self.gc.profiler
         prof.hit("vision.record_frames.calls")
         with prof.timer("vision.record_frames.total_ms"):
-            gray = self.getLatestFeederGray()
+            gray = self.getLatestCarouselGray()
             if gray is not None:
                 self._carousel_heatmap.pushFrame(gray)
 
@@ -530,9 +633,24 @@ class VisionManager:
             timestamp=frame.timestamp,
         )
 
+    def _makeChannelFrame(
+        self, capture: "CaptureThread", analysis: "FeederAnalysisThread | None"
+    ) -> Optional[CameraFrame]:
+        frame = capture.latest_frame
+        if frame is None:
+            return None
+        annotated = frame.annotated if frame.annotated is not None else frame.raw.copy()
+        if analysis is not None and analysis._detector is not None:
+            annotated = analysis._detector.annotateFrame(annotated)
+        return CameraFrame(raw=frame.raw, annotated=annotated, results=[], timestamp=frame.timestamp)
+
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         if camera_name == "feeder":
             return self.feeder_frame
+        elif camera_name == "c_channel_2" and self._c_channel_2_capture is not None:
+            return self._makeChannelFrame(self._c_channel_2_capture, self._feeder_analysis)
+        elif camera_name == "c_channel_3" and self._c_channel_3_capture is not None:
+            return self._makeChannelFrame(self._c_channel_3_capture, self._feeder_analysis_ch3)
         elif camera_name == "classification_bottom":
             return self.classification_bottom_frame
         elif camera_name == "classification_top":

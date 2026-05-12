@@ -115,7 +115,7 @@
 					{@const minimized = isMinimized(obj)}
 					{@const bl_data = obj.part_id ? bricklink_cache.get(obj.part_id) : null}
 					{@const bl_thumb = bl_data?.thumbnail_url ? `https:${bl_data.thumbnail_url}` : null}
-					{@const category_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
+					{@const category_name = obj.category_id ? (sortingProfileStore.getCategoryName(obj.category_id) ?? obj.category_id) : null}
 					{#if minimized}
 						<button
 							type="button"

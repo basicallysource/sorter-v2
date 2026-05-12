@@ -144,7 +144,10 @@ class Snapping(BaseState):
             part_id: Optional[str], color_id: str, color_name: str, confidence: Optional[float] = None
         ) -> None:
             self.carousel.resolveClassification(piece.uuid, part_id, color_id, color_name, confidence)
-            self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id} color={color_name}")
+            if part_id is None:
+                self.logger.notice(f"Snapping: classified {piece.uuid[:8]} -> None color={color_name}")
+            else:
+                self.logger.info(f"Snapping: classified {piece.uuid[:8]} -> {part_id} color={color_name}")
 
         classify(self.gc, top_crop, bottom_crop, onResult)
 

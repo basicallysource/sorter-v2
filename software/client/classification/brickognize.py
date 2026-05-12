@@ -51,7 +51,7 @@ def _doClassify(
         color_id = best_color["id"] if best_color else ANY_COLOR
         color_name = best_color["name"] if best_color else ANY_COLOR_NAME
         if best_item:
-            gc.logger.info(
+            gc.logger.notice(
                 f"Brickognize: {best_item['id']} ({best_item['name']}) "
                 f"score={best_item['score']:.2f} color={color_name}"
             )

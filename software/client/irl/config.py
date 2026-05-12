@@ -135,6 +135,8 @@ class IRLConfig:
     feeder_camera: CameraConfig
     classification_camera_bottom: CameraConfig
     classification_camera_top: CameraConfig
+    c_channel_2_camera: "CameraConfig | None"
+    c_channel_3_camera: "CameraConfig | None"
     carousel_stepper: StepperConfig
     chute_stepper: StepperConfig
     first_c_channel_rotor_stepper: StepperConfig
@@ -145,6 +147,8 @@ class IRLConfig:
 
     def __init__(self):
         self.feeder_config = FeederConfig()
+        self.c_channel_2_camera = None
+        self.c_channel_3_camera = None
 
 
 class IRLInterface:
@@ -277,6 +281,11 @@ def mkIRLConfig() -> IRLConfig:
     irl_config.classification_camera_top = mkCameraConfig(
         device_index=classification_camera_top_index, width=9999, height=9999
     )
+
+    if "c_channel_2" in camera_setup:
+        irl_config.c_channel_2_camera = mkCameraConfig(device_index=camera_setup["c_channel_2"])
+    if "c_channel_3" in camera_setup:
+        irl_config.c_channel_3_camera = mkCameraConfig(device_index=camera_setup["c_channel_3"])
     
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
@@ -298,6 +307,11 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface = IRLInterface()
     machine_config = loadMachineConfig(gc)
     stepper_current_overrides = machine_config.stepper_current_overrides
+
+    if config.c_channel_2_camera is not None:
+        gc.logger.info(f"Split-feeder mode: c_channel_2 camera index={config.c_channel_2_camera.device_index}")
+    if config.c_channel_3_camera is not None:
+        gc.logger.info(f"Split-feeder mode: c_channel_3 camera index={config.c_channel_3_camera.device_index}")
 
     ports = MCUBus.enumerate_buses()
     if not ports:

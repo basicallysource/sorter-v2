@@ -73,6 +73,13 @@ class Mog2ChannelDetector:
         blurred = cv2.GaussianBlur(gray, (blur_k, blur_k), 0)
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (morph_k, morph_k))
 
+        frame_h, frame_w = gray.shape[:2]
+        for ch in self._channels.values():
+            if ch.mask.shape != (frame_h, frame_w):
+                ch.mask = cv2.resize(ch.mask, (frame_w, frame_h), interpolation=cv2.INTER_NEAREST)
+                ch.polygon_channel.mask = ch.mask
+                self._combined_mask = None
+
         detections: List[ChannelDetection] = []
         fg_combined = np.zeros(gray.shape[:2], dtype=np.uint8)
 
@@ -102,11 +109,18 @@ class Mog2ChannelDetector:
     def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
         out = frame.copy()
 
+        frame_h, frame_w = frame.shape[:2]
+        if self._combined_mask is not None and self._combined_mask.shape != (frame_h, frame_w):
+            self._combined_mask = None
+
         if self._combined_mask is None and self._channels:
-            first = next(iter(self._channels.values()))
-            self._combined_mask = np.zeros(first.mask.shape[:2], dtype=np.uint8)
+            combined = np.zeros((frame_h, frame_w), dtype=np.uint8)
             for ch in self._channels.values():
-                self._combined_mask = cv2.bitwise_or(self._combined_mask, ch.mask)
+                mask = ch.mask
+                if mask.shape != (frame_h, frame_w):
+                    mask = cv2.resize(mask, (frame_w, frame_h), interpolation=cv2.INTER_NEAREST)
+                combined = cv2.bitwise_or(combined, mask)
+            self._combined_mask = combined
 
         if self._combined_mask is not None:
             mask_bool = self._combined_mask > 0

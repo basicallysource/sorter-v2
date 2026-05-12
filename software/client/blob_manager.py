@@ -159,6 +159,42 @@ def setClassificationPolygons(polygons: dict) -> None:
         saveData(data)
 
 
+UNMAPPED_PARTS_FILE = Path(__file__).parent / "unmapped_parts.json"
+_UNMAPPED_LOCK = threading.Lock()
+
+
+def getUnmappedPartIds() -> set[str]:
+    if not UNMAPPED_PARTS_FILE.exists():
+        return set()
+    try:
+        with open(UNMAPPED_PARTS_FILE, "r") as f:
+            return set(json.load(f))
+    except Exception:
+        return set()
+
+
+def addUnmappedPartId(part_id: str) -> None:
+    with _UNMAPPED_LOCK:
+        ids = getUnmappedPartIds()
+        if part_id in ids:
+            return
+        ids.add(part_id)
+        sorted_ids = sorted(ids)
+        fd, tmp_path = tempfile.mkstemp(dir=UNMAPPED_PARTS_FILE.parent, suffix=".json.tmp")
+        try:
+            with os.fdopen(fd, "w") as f:
+                json.dump(sorted_ids, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.rename(tmp_path, UNMAPPED_PARTS_FILE)
+        except BaseException:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+            raise
+
+
 CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]
 
 

@@ -250,15 +250,16 @@ def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     with open(gc_ref.sorting_profile_path, "r") as f:
         data = json.load(f)
     return SortingProfileMetadataResponse(
-        id=data["id"],
-        name=data["name"],
+        id=data.get("id", ""),
+        name=data.get("name", ""),
         description=data.get("description", ""),
-        created_at=data["created_at"],
-        updated_at=data["updated_at"],
+        created_at=data.get("created_at", ""),
+        updated_at=data.get("updated_at", ""),
         default_category_id=data.get("default_category_id", "misc"),
         categories={
             k: SortingProfileCategoryMeta(**v)
             for k, v in data.get("categories", {}).items()
+            if isinstance(v, dict)
         },
         rules=data.get("rules", []),
         fallback_mode=SortingProfileFallbackMode(

@@ -77,9 +77,11 @@ class Carousel:
             obj.classified_at = time.time()
             obj.updated_at = time.time()
             del self.pending_classifications[uuid]
-            self._log(
-                f"resolved {uuid[:8]} -> {part_id or 'unknown'} color={color_id}, {len(self.pending_classifications)} in flight"
-            )
+            msg = f"Carousel: resolved {uuid[:8]} -> {part_id or 'unknown'} color={color_id}, {len(self.pending_classifications)} in flight"
+            if part_id is None:
+                self.logger.notice(msg)
+            else:
+                self.logger.info(msg)
             self.event_queue.put(knownObjectToEvent(obj))
 
     def hasPieceAtFeeder(self) -> bool:

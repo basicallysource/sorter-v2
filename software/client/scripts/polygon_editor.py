@@ -34,6 +34,13 @@ ALL_CHANNELS = FEEDER_CHANNELS + CLASSIFICATION_CHANNELS
 
 app = Flask(__name__)
 captures: dict[str, CaptureThread] = {}
+channel_camera_map: dict[str, str] = {
+    "second":       "feeder",
+    "third":        "feeder",
+    "carousel":     "feeder",
+    "class_top":    "classification_top",
+    "class_bottom": "classification_bottom",
+}
 
 HTML = """<!DOCTYPE html>
 <html>
@@ -124,11 +131,13 @@ HTML = """<!DOCTYPE html>
 
     let frameImg = new Image();
 
+    let channelCameraMap = {
+      second: 'feeder', third: 'feeder', carousel: 'feeder',
+      class_top: 'classification_top', class_bottom: 'classification_bottom',
+    };
+
     function cameraForChannel(ch) {
-      if (CLASSIFICATION_CHANNELS.includes(ch)) {
-        return ch === 'class_top' ? 'classification_top' : 'classification_bottom';
-      }
-      return 'feeder';
+      return channelCameraMap[ch] || 'feeder';
     }
 
     function setChannel(ch) {
@@ -423,6 +432,9 @@ HTML = """<!DOCTYPE html>
       try {
         const res = await fetch('/init');
         const data = await res.json();
+        if (data.channel_camera_map) {
+          channelCameraMap = { ...channelCameraMap, ...data.channel_camera_map };
+        }
         if (data.user_pts) {
           if (data.user_pts.second)   userPoints.second   = data.user_pts.second;
           if (data.user_pts.third)    userPoints.third    = data.user_pts.third;
@@ -467,7 +479,7 @@ def frame():
 
 @app.route("/init")
 def init():
-    result = {}
+    result = {"channel_camera_map": channel_camera_map}
     saved = getChannelPolygons()
     if saved:
         result["user_pts"] = saved.get("user_pts", {})
@@ -489,16 +501,20 @@ def _getCaptureResolution(cam: str) -> list[int]:
 @app.route("/save", methods=["POST"])
 def save():
     body = request.get_json()
-    feeder_res = _getCaptureResolution("feeder")
+    second_res = _getCaptureResolution(channel_camera_map["second"])
+    third_res = _getCaptureResolution(channel_camera_map["third"])
+    carousel_res = _getCaptureResolution(channel_camera_map["carousel"])
     class_top_res = _getCaptureResolution("classification_top")
     class_bottom_res = _getCaptureResolution("classification_bottom")
-    # save channel polygons (feeder camera)
+    # save channel polygons with per-channel camera resolutions
     setChannelPolygons({
         "polygons": body["polygons"],
         "user_pts": body["user_pts"],
         "channel_angles": body["channel_angles"],
         "section_zero_pts": body["section_zero_pts"],
-        "resolution": feeder_res,
+        "resolution": second_res,
+        "third_resolution": third_res,
+        "carousel_resolution": carousel_res,
     })
     # save classification polygons — use top cam resolution (both should match)
     setClassificationPolygons({
@@ -530,6 +546,22 @@ if __name__ == "__main__":
         )
         captures["classification_bottom"].start()
 
+    if "c_channel_2" in camera_setup:
+        captures["c_channel_2"] = CaptureThread(
+            "c_channel_2", mkCameraConfig(camera_setup["c_channel_2"])
+        )
+        captures["c_channel_2"].start()
+        channel_camera_map["second"] = "c_channel_2"
+
+    if "c_channel_3" in camera_setup:
+        captures["c_channel_3"] = CaptureThread(
+            "c_channel_3", mkCameraConfig(camera_setup["c_channel_3"])
+        )
+        captures["c_channel_3"].start()
+        channel_camera_map["third"] = "c_channel_3"
+        channel_camera_map["carousel"] = "c_channel_3"
+
     print(f"Server starting on http://localhost:{PORT}")
     print(f"Cameras: {list(captures.keys())}")
+    print(f"Channel→camera: {channel_camera_map}")
     app.run(host="0.0.0.0", port=PORT, threaded=True)

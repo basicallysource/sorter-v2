@@ -86,11 +86,19 @@
 		{@const has_top = machine.frames.has('classification_top')}
 		{@const has_bottom = machine.frames.has('classification_bottom')}
 		{@const single_classification = (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
+		{@const is_split_feeder = machine.frames.has('c_channel_2') || machine.frames.has('c_channel_3')}
 		<div class="flex h-[60vh] gap-3">
 			{#if single_classification}
 				<div class="flex min-w-0 flex-1 flex-col gap-3">
 					<div class="flex-1">
-						<CameraFeed camera="feeder" />
+						{#if is_split_feeder}
+							<div class="flex h-full gap-3">
+								<div class="flex-1"><CameraFeed camera="c_channel_2" /></div>
+								<div class="flex-1"><CameraFeed camera="c_channel_3" /></div>
+							</div>
+						{:else}
+							<CameraFeed camera="feeder" />
+						{/if}
 					</div>
 					<div class="flex-1">
 						{#if has_top}
@@ -103,7 +111,14 @@
 			{:else}
 				<div class="flex min-w-0 flex-1 gap-3">
 					<div class="flex-1">
-						<CameraFeed camera="feeder" />
+						{#if is_split_feeder}
+							<div class="flex h-full gap-3">
+								<div class="flex-1"><CameraFeed camera="c_channel_2" /></div>
+								<div class="flex-1"><CameraFeed camera="c_channel_3" /></div>
+							</div>
+						{:else}
+							<CameraFeed camera="feeder" />
+						{/if}
 					</div>
 					<div class="flex flex-1 flex-col gap-3">
 						<div class="flex-1">

@@ -2319,7 +2319,19 @@ class VisionManager:
 
         def detect_fn(frame_bgr: "np.ndarray") -> "tuple[tuple[int,int,int,int] | None, float | None]":
             try:
-                result = self._runHiveDetection(algorithm, frame_bgr, scope="carousel", role="carousel")
+                # Bypass the carousel polygon AND lower the YOLO confidence
+                # floor for the retroactive scan: pre-trigger frames have the
+                # piece mid-air, partially occluded by C3, motion-blurred or
+                # tumbling at an awkward angle — every one of those drops the
+                # detection below the default 0.25 threshold. 0.10 brings them
+                # in. False positives in the retro-buffer are harmless because
+                # downstream only consumes detected==True crops from the
+                # piece's own track window.
+                result = self._runHiveDetection(
+                    algorithm, frame_bgr, scope="carousel", role="carousel",
+                    bypass_polygon=True,
+                    conf_threshold=0.10,
+                )
                 if result is None or not result.found or result.bbox is None:
                     return None, None
                 bb = result.bbox
@@ -2821,11 +2833,13 @@ class VisionManager:
         *,
         scope: DetectionScope,
         role: str,
+        bypass_polygon: bool = False,
+        conf_threshold: float | None = None,
     ) -> ClassificationDetectionResult | None:
         processor = self._getOrBuildHiveProcessor(algorithm_id)
         if processor is None or frame_bgr is None:
             return None
-        polygon = self._resolveZonePolygon(scope, role, frame_bgr.shape)
+        polygon = None if bypass_polygon else self._resolveZonePolygon(scope, role, frame_bgr.shape)
         crop = frame_bgr
         off_x, off_y = 0, 0
         if polygon is not None:
@@ -2833,7 +2847,10 @@ class VisionManager:
             if result is not None:
                 crop, (off_x, off_y) = result
         try:
-            detections = processor.infer(crop)
+            if conf_threshold is not None:
+                detections = processor.infer(crop, conf_threshold=conf_threshold)
+            else:
+                detections = processor.infer(crop)
         except Exception as exc:
             self.gc.logger.warning("Hive inference %s failed: %s", algorithm_id, exc)
             return None

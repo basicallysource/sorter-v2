@@ -476,6 +476,13 @@ class FeederConfig:
         self.classification_channel_eject = RotorPulseConfig(
             steps=1000,
             microsteps_per_second=3400,
+            # 400 ms inter-pulse is the keeper. T2d tested 800 ms and
+            # cls/min DROPPED to ~1 instead of rising — upstream blocking
+            # (``classification_channel_occupied`` reasons exploded) dragged
+            # supply faster than the extra C4 dwell improved conversion.
+            # The real lever for 8 cls/min is not slowing the platter; it
+            # is widening the recognition window through earlier captures
+            # and fewer gate skips, not more dwell-per-piece on C4.
             delay_between_ms=400,
             acceleration_microsteps_per_second_sq=2500,
         )

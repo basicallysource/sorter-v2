@@ -57,14 +57,23 @@ class OnnxYoloProcessor(_OnnxMixin, BaseProcessor):
     family = "yolo"
     runtime = "onnx"
 
-    def infer(self, image_bgr: np.ndarray) -> list[Detection]:
+    def infer(
+        self,
+        image_bgr: np.ndarray,
+        *,
+        conf_threshold: float | None = None,
+    ) -> list[Detection]:
         session = self._ensure_session()
         blob, pre = preprocess_yolo(image_bgr, self.imgsz)
         outputs = session.run(None, {self._input_name: blob})
         return decode_yolo(
             outputs[0],
             pre=pre,
-            conf_threshold=self.conf_threshold,
+            conf_threshold=(
+                float(conf_threshold)
+                if conf_threshold is not None
+                else self.conf_threshold
+            ),
             iou_threshold=self.iou_threshold,
         )
 

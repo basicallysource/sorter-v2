@@ -165,7 +165,13 @@ class ClassificationChannelRecognizer:
 
         Brickognize is fed exclusively carousel (C4) crops — upstream c2/c3
         views are intentionally dropped so the identity Brickognize commits
-        is always a post-landing view of the piece.
+        is always a post-landing view of the piece. We additionally pull
+        detected pre-trigger frames from ``drop_zone_burst`` (the rolling
+        buffer that captures ~2 s before the piece is first registered on
+        C4); the YOLO pass already ran on those frames so a ``detected``
+        flag tells us which of them contain the piece. This extends the
+        effective capture window backwards into the free-fall phase and
+        increases the orientation diversity Brickognize sees.
         """
         track_id = getattr(piece, "tracked_global_id", None)
         if not isinstance(track_id, int) or self.vision is None:
@@ -195,8 +201,27 @@ class ClassificationChannelRecognizer:
                         "carousel",
                     )
                 )
+        for burst_frame in detail.get("drop_zone_burst", []):
+            if not isinstance(burst_frame, dict):
+                continue
+            if not burst_frame.get("detected"):
+                continue
+            crop_b64 = burst_frame.get("crop_jpeg_b64")
+            if not crop_b64:
+                continue
+            image = self._decodeImageBase64(crop_b64)
+            if image is None:
+                continue
+            ts = burst_frame.get("timestamp")
+            images.append(
+                (
+                    float(ts) if isinstance(ts, (int, float)) else 0.0,
+                    image,
+                    "carousel",
+                )
+            )
         images.sort(key=lambda item: item[0])
-        return [(image, role, ts) for ts, image, role in images[:12]]
+        return [(image, role, ts) for ts, image, role in images[:18]]
 
     def _classifyImagesAsync(self, piece, images: list[CropEntry]) -> None:
         piece_uuid = piece.uuid

@@ -2733,37 +2733,6 @@ class VisionManager:
     def getBurstFrames(self, global_id: int) -> list[dict] | None:
         return self._burst_store.get(global_id)
 
-    def findRecentFeederTrackHistoryDetailByRole(
-        self,
-        *,
-        source_role: str,
-        before_ts: float,
-        max_age_s: float = 6.0,
-        limit: int = 40,
-        required_global_id: int | None = None,
-    ) -> dict | None:
-        summaries = self._piece_history.list_summaries(limit=limit, min_sectors=1)
-        best_global_id: int | None = None
-        best_age_s = float("inf")
-        for entry in summaries:
-            roles = entry.get("roles") or []
-            if source_role not in roles:
-                continue
-            finished_at = entry.get("finished_at")
-            if not isinstance(finished_at, (int, float)):
-                continue
-            age_s = float(before_ts) - float(finished_at)
-            if age_s < -0.25 or age_s > max_age_s or age_s >= best_age_s:
-                continue
-            candidate_id = int(entry.get("global_id"))
-            if required_global_id is not None and candidate_id != int(required_global_id):
-                continue
-            best_global_id = candidate_id
-            best_age_s = age_s
-        if best_global_id is None:
-            return None
-        return self.getFeederTrackHistoryDetail(best_global_id)
-
     def _configureFeederHandoffZones(self, polys: Dict[str, np.ndarray]) -> None:
         """Derive exit/entry polygons from the loaded channel polygons.
 

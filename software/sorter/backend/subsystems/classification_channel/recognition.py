@@ -27,7 +27,7 @@ SINGLE_CROP_FALLBACK_COUNT = 3
 # the selection isn't dominated by the (more numerous) c2 / carousel views. With
 # MAX_MULTI_RECOGNIZE_CROPS=8 and 0.25 this reserves 2 slots for the sharpest c3
 # crops. Shortfall is filled from the general (sharpness-ranked) pool.
-C3_CROP_QUOTA_RATIO = 0.25
+C3_CROP_QUOTA_RATIO = 0.0
 
 # Laplacian-variance floor applied to the sharpest crop in the pool. If every
 # tracker crop we collected is below this threshold the piece is likely still
@@ -146,9 +146,7 @@ class ClassificationChannelRecognizer:
         same crop-collection path as ``fire()`` itself.
         """
         crops = self._collectTrackedImages(piece)
-        return sum(
-            1 for _image, role, _ts in crops if role in ("carousel", "c_channel_3")
-        )
+        return sum(1 for _image, role, _ts in crops if role == "carousel")
 
     def _bumpRecognizerCounter(self, name: str) -> None:
         runtime_stats = getattr(self.gc, "runtime_stats", None)
@@ -163,157 +161,42 @@ class ClassificationChannelRecognizer:
             pass
 
     def _collectTrackedImages(self, piece) -> list[CropEntry]:
+        """Collect sector snapshots from the piece's direct track history.
+
+        Brickognize is fed exclusively carousel (C4) crops — upstream c2/c3
+        views are intentionally dropped so the identity Brickognize commits
+        is always a post-landing view of the piece.
+        """
         track_id = getattr(piece, "tracked_global_id", None)
         if not isinstance(track_id, int) or self.vision is None:
             return []
-        details: list[dict] = []
-        seen_global_ids: set[int] = set()
         detail = self.vision.getFeederTrackHistoryDetail(track_id)
-        if isinstance(detail, dict):
-            details.append(detail)
-            global_id = detail.get("global_id")
-            if isinstance(global_id, int):
-                seen_global_ids.add(global_id)
-        if not details:
+        if not isinstance(detail, dict):
             return []
-        reference_ts = self._reference_ts(piece, details)
-        if not any(self._detailHasRole(d, "c_channel_3") for d in details):
-            fallback_detail = self._findFallbackUpstreamDetail(
-                source_role="c_channel_3",
-                before_ts=reference_ts,
-                max_age_s=20.0,
-                limit=80,
-                seen_global_ids=seen_global_ids,
-                required_global_id=track_id,
-            )
-            if isinstance(fallback_detail, dict):
-                details.append(fallback_detail)
-                global_id = fallback_detail.get("global_id")
-                if isinstance(global_id, int):
-                    seen_global_ids.add(global_id)
-        c3_reference_ts = (
-            self._earliest_role_timestamp(details, "c_channel_3") or reference_ts
-        )
-        if not any(self._detailHasRole(d, "c_channel_2") for d in details):
-            fallback_detail = self._findFallbackUpstreamDetail(
-                source_role="c_channel_2",
-                before_ts=c3_reference_ts,
-                max_age_s=30.0,
-                limit=120,
-                seen_global_ids=seen_global_ids,
-                required_global_id=track_id,
-            )
-            if isinstance(fallback_detail, dict):
-                details.append(fallback_detail)
-                global_id = fallback_detail.get("global_id")
-                if isinstance(global_id, int):
-                    seen_global_ids.add(global_id)
         images: list[tuple[float, np.ndarray, str]] = []
-        for detail in details:
-            for segment in detail.get("segments", []):
-                if not isinstance(segment, dict):
+        for segment in detail.get("segments", []):
+            if not isinstance(segment, dict):
+                continue
+            if segment.get("source_role") != "carousel":
+                continue
+            for snap in segment.get("sector_snapshots", []):
+                if not isinstance(snap, dict):
                     continue
-                source_role = segment.get("source_role")
-                if source_role not in {
-                    "c_channel_2",
-                    "c_channel_3",
-                    "carousel",
-                }:
+                image = self._decodeImageBase64(snap.get("piece_jpeg_b64"))
+                if image is None:
                     continue
-                for snap in segment.get("sector_snapshots", []):
-                    if not isinstance(snap, dict):
-                        continue
-                    image = self._decodeImageBase64(snap.get("piece_jpeg_b64"))
-                    if image is None:
-                        continue
-                    captured_ts = snap.get("captured_ts")
-                    images.append(
-                        (
-                            float(captured_ts)
-                            if isinstance(captured_ts, (int, float))
-                            else 0.0,
-                            image,
-                            str(source_role),
-                        )
+                captured_ts = snap.get("captured_ts")
+                images.append(
+                    (
+                        float(captured_ts)
+                        if isinstance(captured_ts, (int, float))
+                        else 0.0,
+                        image,
+                        "carousel",
                     )
+                )
         images.sort(key=lambda item: item[0])
         return [(image, role, ts) for ts, image, role in images[:12]]
-
-    def _findFallbackUpstreamDetail(
-        self,
-        *,
-        source_role: str,
-        before_ts: float,
-        max_age_s: float,
-        limit: int,
-        seen_global_ids: set[int],
-        required_global_id: int | None = None,
-    ) -> dict | None:
-        if self.vision is None or not hasattr(
-            self.vision, "findRecentFeederTrackHistoryDetailByRole"
-        ):
-            return None
-        try:
-            detail = self.vision.findRecentFeederTrackHistoryDetailByRole(
-                source_role=source_role,
-                before_ts=float(before_ts),
-                max_age_s=float(max_age_s),
-                limit=int(limit),
-                required_global_id=required_global_id,
-            )
-        except Exception as exc:
-            self.logger.debug(
-                "ClassificationChannel: could not load fallback %s history: %s"
-                % (source_role, exc)
-            )
-            return None
-        if not isinstance(detail, dict):
-            return None
-        global_id = detail.get("global_id")
-        if isinstance(global_id, int) and global_id in seen_global_ids:
-            return None
-        return detail
-
-    @staticmethod
-    def _reference_ts(piece, details: list[dict]) -> float:
-        detail_ts = ClassificationChannelRecognizer._earliest_role_timestamp(
-            details,
-            "carousel",
-        )
-        if detail_ts is not None:
-            return detail_ts
-        return float(
-            getattr(piece, "carousel_detected_confirmed_at", None)
-            or getattr(piece, "feeding_started_at", None)
-            or time.time()
-        )
-
-    @staticmethod
-    def _earliest_role_timestamp(
-        details: list[dict],
-        source_role: str,
-    ) -> float | None:
-        earliest: float | None = None
-        for detail in details:
-            for segment in detail.get("segments", []):
-                if not isinstance(segment, dict):
-                    continue
-                if segment.get("source_role") != source_role:
-                    continue
-                first_seen_ts = segment.get("first_seen_ts")
-                if not isinstance(first_seen_ts, (int, float)):
-                    continue
-                ts = float(first_seen_ts)
-                if earliest is None or ts < earliest:
-                    earliest = ts
-        return earliest
-
-    @staticmethod
-    def _detailHasRole(detail: dict, source_role: str) -> bool:
-        return any(
-            isinstance(segment, dict) and segment.get("source_role") == source_role
-            for segment in detail.get("segments", [])
-        )
 
     def _classifyImagesAsync(self, piece, images: list[CropEntry]) -> None:
         piece_uuid = piece.uuid

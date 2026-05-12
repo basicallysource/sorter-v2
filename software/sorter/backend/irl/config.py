@@ -302,16 +302,27 @@ class ClassificationChannelConfig:
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
-        # Raised from 2 -> 4 after pipeline stabilization (OSNet fix,
-        # liveness probe, leader-wins). Physical safety (arc-clear check,
-        # hard-collision guards, leader-wins) still prevents double-drops;
-        # this cap only governs how many pieces C4 accepts before throttling
-        # C3. Upstream gates (admission.py, running.py) pick this up
-        # automatically — no other call sites hardcode the old value.
-        self.max_zones = 4
+        # 2 pieces simultaneously: one in the hood/classification, one
+        # queued at intake. With drop-to-intake = 85° and max compartment
+        # width = 79° the pure-angular intake_guard can prevent
+        # same-compartment loading OR allow parallel-with-drop admission
+        # but not both (constraints don't overlap). max_zones=2 + a
+        # generous intake_guard keeps the platter clean: at most two
+        # pieces, each in its own compartment, and the drop window only
+        # ever sees one piece at a time (the leader).
+        self.max_zones = 2
         self.intake_angle_deg = 305.0
         self.intake_body_half_width_deg = 10.0
-        self.intake_guard_deg = 28.0
+        # Compartments on this platter measure 65°-79° wide. To guarantee
+        # the new piece lands in the *next* compartment (not the same one
+        # the previous piece is still in), the intake exclusion window
+        # must be at least one full compartment wide plus margin. body
+        # (10°) + guard (80°) = 90° on each side of intake — comfortably
+        # above the widest observed compartment. Drop-committed pieces are
+        # explicitly excluded from this check in running._updateIntakeGate
+        # so a piece waiting at drop doesn't artificially block intake
+        # (drop-to-intake distance is only 85°, less than the guard alone).
+        self.intake_guard_deg = 80.0
         # Live calibration on the dedicated classification channel shows the
         # real guide / point-of-no-return on the lower-right quadrant, not on
         # the legacy left-side position from the old chamber model.
@@ -326,16 +337,29 @@ class ClassificationChannelConfig:
         self.exit_release_shimmy_microsteps_per_second = 4200
         self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
         self.stale_zone_timeout_s = 3.0
+        # 300 ms hood dwell lets the piece settle before recognition fires.
+        # Lower values (150 ms) made recognition fire too early with poor
+        # crops (more "empty" Brickognize responses) — net cls rate dropped.
+        # The right path for higher cls rate is the deadline-defer fix in
+        # running._resolveDeadlines, not shorter dwell.
         self.hood_dwell_ms = 300
         # Minimum number of carousel-source crops required before the
         # recognizer may fire for a piece. Prevents recognition from
         # committing using only c_channel_2/c_channel_3 history (which, if
         # misbound, can belong to a different piece still upstream).
-        self.min_carousel_crops_for_recognize = 2
+        # Raised 1 → 5 per operator directive: trav5 A/B campaign showed
+        # firing on a single early crop produced empty Brickognize results
+        # (~48% of extra fires). 5 carousel-source crops gives Brickognize
+        # multiple viewing angles per piece — the higher fire-quality trade
+        # is preferred over more low-quality fires.
+        self.min_carousel_crops_for_recognize = 5
         # Minimum elapsed time since the piece's first carousel-source
         # observation before recognition may fire. Guards against a
         # freshly-spawned carousel track that briefly stacks 2+ crops in
         # quick succession but hasn't yet stabilized on the physical C4 tray.
+        # Reverted 150 → 300: shorter values made the recognizer fire on
+        # poor early crops; net cls rate dropped. The dwell budget is not
+        # the bottleneck for the throughput target — the deadline arc was.
         self.min_carousel_dwell_ms = 300
         # Minimum angular traversal on the carousel (degrees) since the
         # piece was first observed there before recognition may fire.
@@ -343,7 +367,16 @@ class ClassificationChannelConfig:
         # carousel rotates fast; this ensures the piece has physically
         # rotated enough to present multiple sides to the C4 camera, so the
         # accumulated crops cover meaningfully different viewpoints.
-        self.min_carousel_traversal_deg = 30.0
+        # Reverted to 15° after a controlled 10×60s A/B campaign
+        # (docs/lab/flow_runs/README.md → trav5 campaign): lowering to 5°
+        # increased recognize_fired_per_min by ~75% but classified
+        # per-minute median stayed identical at 2.0. All extra fires
+        # returned empty from Brickognize because the pieces hadn't yet
+        # accumulated enough carousel-view diversity. The traversal gate
+        # is *correctly* filtering low-quality fires; the real bottleneck
+        # is dwell time on C4 (pieces traverse too fast for enough crops
+        # to land), not gate strictness.
+        self.min_carousel_traversal_deg = 15.0
         self.size_downgrade_confirmations = 3
         # Leader-wins drop policy: when the drop candidate has an interferer
         # inside the clearance window, only flip the *leader* to

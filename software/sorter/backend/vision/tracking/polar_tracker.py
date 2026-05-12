@@ -65,6 +65,16 @@ DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX = 2.5
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX = 48.0
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
 
+# How long after a track first appears on the carousel we keep the angular
+# capture gate disabled so we can grab multi-perspective frames of the piece
+# while it is still falling / tumbling onto the platter. Tuned to comfortably
+# cover the ~300-500 ms free-fall + bounce window from C3 to C4.
+CAROUSEL_FREE_FALL_BURST_S = 0.7
+# Minimum wall-clock gap between burst captures so we don't push two snapshots
+# from the same camera frame (or two near-duplicate frames from a fast loop).
+# ~40 ms → effectively one capture per camera frame at 25 FPS.
+CAROUSEL_BURST_MIN_GAP_S = 0.04
+
 
 # ---------------------------------------------------------------------------
 # Geometry helpers
@@ -210,6 +220,7 @@ class _LiveTrack:
     last_capture_angle_rad: float | None = None
     last_capture_span_rad: float = 0.0
     sector_snapshots: list[SectorSnapshot] = field(default_factory=list)
+    last_capture_ts: float = 0.0
     thumb_jpeg_b64: str = ""
     thumb_sector_count_at_build: int = -1
     kalman: _PolarKalman | None = None
@@ -282,8 +293,9 @@ class PolarFeederTracker(Tracker):
         min_appearance_similarity: float = 0.55,
         # Appearance term weight in the match cost. Set to 0.0 to disable.
         appearance_cost_weight: float = 0.8,
-        # Toggle to hard-disable ReID (falls back to position-only matching).
-        enable_appearance: bool = True,
+        # ReID is opt-in: loading OSNet/BoxMOT on every backend start makes
+        # the reset branch heavier than intended.
+        enable_appearance: bool = False,
         history: PieceHistoryBuffer | None = None,
         enable_stagnant_false_track_filter: bool | None = None,
         stagnant_false_track_max_age_s: float = DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S,
@@ -940,7 +952,22 @@ class PolarFeederTracker(Tracker):
 
         new_span_rad = a1 - a0
         min_gap_rad = math.radians(3.0)
-        if track.last_capture_angle_rad is not None:
+        # Free-fall burst window: when a piece first appears on the carousel
+        # (C4) it is still mid-fall / mid-tumble — different orientations every
+        # frame. Angular displacement is tiny (the piece is moving vertically,
+        # not around the ring) so the normal angular gate suppresses almost
+        # every snapshot during this window. Bypass it for the first
+        # CAROUSEL_FREE_FALL_BURST_S of a track's life so we get one snapshot
+        # per camera frame, gated only by a small time-gap so back-to-back
+        # identical frames are still skipped.
+        age_s = timestamp - track.first_seen_ts
+        in_free_fall_burst = (
+            self.role == "carousel" and age_s < CAROUSEL_FREE_FALL_BURST_S
+        )
+        if in_free_fall_burst:
+            if timestamp - track.last_capture_ts < CAROUSEL_BURST_MIN_GAP_S:
+                return
+        elif track.last_capture_angle_rad is not None:
             raw_diff = _circular_diff(center_angle_rad, track.last_capture_angle_rad)
             required = (track.last_capture_span_rad + new_span_rad) / 2.0 + min_gap_rad
             if abs(raw_diff) < required:
@@ -1003,6 +1030,7 @@ class PolarFeederTracker(Tracker):
         )
         track.last_capture_angle_rad = center_angle_rad
         track.last_capture_span_rad = new_span_rad
+        track.last_capture_ts = float(timestamp)
 
         # Exit trigger: once the piece has covered enough of the annulus to
         # confidently say "this track represents one complete journey across

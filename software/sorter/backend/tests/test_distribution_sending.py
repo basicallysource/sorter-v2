@@ -92,6 +92,7 @@ class _GlobalConfig:
         self.runtime_stats = RuntimeStatsCollector()
         self.run_recorder = _RunRecorder()
         self.set_progress_tracker = None
+        self.disable_servos = False
 
 
 def _mkSending(

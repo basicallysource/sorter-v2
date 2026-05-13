@@ -28,6 +28,15 @@ SINGLE_CROP_FALLBACK_COUNT = 3
 # MAX_MULTI_RECOGNIZE_CROPS=8 and 0.25 this reserves 2 slots for the sharpest c3
 # crops. Shortfall is filled from the general (sharpness-ranked) pool.
 C3_CROP_QUOTA_RATIO = 0.0
+# Free-fall priority experiment T4 was falsified at n=2: with this >0,
+# Brickognize bk_empty hit 100 % (vs 0 % in T3). Free-fall frames have
+# the orientation variance Marc intuited but they are too motion-blurred
+# / partially-occluded to identify on their own. Carousel sector_snapshots
+# remain the preferred Brickognize input. Kept at 0 so the
+# carousel_freefall role tag is harmless (it still contributes to the
+# crop pool and counts toward min_carousel_crops_for_recognize) but isn't
+# reserved a slot.
+FREEFALL_QUOTA_RATIO = 0.0
 
 # Laplacian-variance floor applied to the sharpest crop in the pool. If every
 # tracker crop we collected is below this threshold the piece is likely still
@@ -139,14 +148,19 @@ class ClassificationChannelRecognizer:
         return True
 
     def countCarouselCrops(self, piece) -> int:
-        """Return the number of carousel-source crops currently available.
+        """Return the number of stable-on-platter (``carousel``) crops.
 
         Exposed for the Running state's pre-fire gate so it can require a
-        minimum carousel crop count before calling ``fire()``. Uses the
-        same crop-collection path as ``fire()`` itself.
+        minimum on-platter crop count before calling ``fire()``. Pre-trigger
+        free-fall (``carousel_freefall``) crops are intentionally excluded
+        from the gate count — they're motion-blurred and can't ID a piece
+        on their own, but they may still ship to Brickognize as extra
+        context once the stable-crop floor is met.
         """
         crops = self._collectTrackedImages(piece)
-        return sum(1 for _image, role, _ts in crops if role == "carousel")
+        return sum(
+            1 for _image, role, _ts in crops if role == "carousel"
+        )
 
     def _bumpRecognizerCounter(self, name: str) -> None:
         runtime_stats = getattr(self.gc, "runtime_stats", None)
@@ -213,11 +227,20 @@ class ClassificationChannelRecognizer:
             if image is None:
                 continue
             ts = burst_frame.get("timestamp")
+            # Pre-trigger frames have the piece airborne / tumbling — they
+            # carry real orientation variance, unlike the on-platter sector
+            # snapshots which mostly show the same orientation rotated to
+            # different platter angles. Tag them so the selector can prefer
+            # them. Both still count as "carousel" for the upstream
+            # countCarouselCrops gate, which uses a startswith("carousel")
+            # check.
+            phase = "pre" if burst_frame.get("phase") == "pre" else "post"
+            role_tag = "carousel_freefall" if phase == "pre" else "carousel"
             images.append(
                 (
                     float(ts) if isinstance(ts, (int, float)) else 0.0,
                     image,
-                    "carousel",
+                    role_tag,
                 )
             )
         images.sort(key=lambda item: item[0])
@@ -421,15 +444,22 @@ class ClassificationChannelRecognizer:
         *,
         max_count: int = MAX_MULTI_RECOGNIZE_CROPS,
         c3_quota_ratio: float = C3_CROP_QUOTA_RATIO,
+        freefall_quota_ratio: float = FREEFALL_QUOTA_RATIO,
     ) -> list[CropEntry]:
-        """Pick up to ``max_count`` crops, ranked by Laplacian sharpness,
-        while reserving ``ceil(max_count * c3_quota_ratio)`` slots for
-        ``c_channel_3`` crops when available.
+        """Pick up to ``max_count`` crops, sharpness-ranked, with two quotas
+        layered on top:
 
-        Opinionated ordering: the sharpest c3 crop is placed at index 0 so the
-        single-crop fallback (``selected[:SINGLE_CROP_FALLBACK_COUNT]``) picks
-        up a c3 view first. Any shortfall in the c3 quota falls back to the
-        sharpest remaining crops regardless of source.
+        - ``freefall_quota_ratio`` × ``max_count`` slots reserved for
+          ``carousel_freefall`` crops (pre-trigger frames from the rolling
+          buffer where the piece was airborne / tumbling). These carry real
+          orientation variance.
+        - ``c3_quota_ratio`` × ``max_count`` slots reserved for
+          ``c_channel_3`` crops — currently disabled (ratio=0), kept in the
+          API for future re-enable.
+
+        The sharpest freefall crop is placed at index 0 so the single-crop
+        fallback (``selected[:SINGLE_CROP_FALLBACK_COUNT]``) starts from a
+        tumbling-orientation view rather than a near-duplicate platter view.
         """
         if not crops:
             return []
@@ -441,13 +471,18 @@ class ClassificationChannelRecognizer:
         if len(ranked) <= max_count:
             return ranked
 
-        c3_quota = max(0, math.ceil(max_count * max(0.0, c3_quota_ratio)))
-        c3_quota = min(c3_quota, max_count)
-        c3_ranked = [entry for entry in ranked if entry[1] == "c_channel_3"]
-        reserved_c3 = c3_ranked[:c3_quota]
-        reserved_ids = {id(entry) for entry in reserved_c3}
+        ff_quota = max(0, math.ceil(max_count * max(0.0, freefall_quota_ratio)))
+        ff_quota = min(ff_quota, max_count)
+        ff_ranked = [e for e in ranked if e[1] == "carousel_freefall"]
+        reserved_ff = ff_ranked[:ff_quota]
 
-        remaining_slots = max_count - len(reserved_c3)
+        c3_quota = max(0, math.ceil(max_count * max(0.0, c3_quota_ratio)))
+        c3_quota = min(c3_quota, max_count - len(reserved_ff))
+        c3_ranked = [e for e in ranked if e[1] == "c_channel_3"]
+        reserved_c3 = c3_ranked[:c3_quota]
+
+        reserved_ids = {id(e) for e in reserved_ff} | {id(e) for e in reserved_c3}
+        remaining_slots = max_count - len(reserved_ff) - len(reserved_c3)
         filler: list[CropEntry] = []
         for entry in ranked:
             if id(entry) in reserved_ids:
@@ -456,21 +491,25 @@ class ClassificationChannelRecognizer:
             if len(filler) >= remaining_slots:
                 break
 
-        # Assemble: put sharpest c3 at position 0 so the single-crop fallback
-        # starts from a c3 view; remainder interleaves / appends sharpness-first.
-        if not reserved_c3:
+        # Sharpest freefall view goes first so single-crop fallback hits a
+        # tumbling-orientation view, not a platter near-duplicate. Remainder
+        # interleaves remaining freefall, then c3 (if any), then filler.
+        if not reserved_ff and not reserved_c3:
             return filler[:max_count]
 
-        result: list[CropEntry] = [reserved_c3[0]]
-        extra_c3 = reserved_c3[1:]
-        # Alternate: best filler, next reserved c3, then rest of filler.
+        result: list[CropEntry] = []
+        if reserved_ff:
+            result.append(reserved_ff[0])
+        elif reserved_c3:
+            result.append(reserved_c3[0])
         filler_iter = iter(filler)
         next_filler = next(filler_iter, None)
-        if next_filler is not None:
+        if next_filler is not None and len(result) < max_count:
             result.append(next_filler)
             next_filler = next(filler_iter, None)
-        for c3_entry in extra_c3:
-            result.append(c3_entry)
+        for entry in reserved_ff[1:] + reserved_c3[(1 if not reserved_ff else 0):]:
+            if len(result) < max_count:
+                result.append(entry)
         while next_filler is not None and len(result) < max_count:
             result.append(next_filler)
             next_filler = next(filler_iter, None)

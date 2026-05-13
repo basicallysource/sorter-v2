@@ -342,12 +342,17 @@ class ClassificationChannelConfig:
         self.exit_release_shimmy_microsteps_per_second = 4200
         self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
         self.stale_zone_timeout_s = 3.0
-        # 300 ms hood dwell lets the piece settle before recognition fires.
-        # Lower values (150 ms) made recognition fire too early with poor
-        # crops (more "empty" Brickognize responses) — net cls rate dropped.
-        # The right path for higher cls rate is the deadline-defer fix in
-        # running._resolveDeadlines, not shorter dwell.
-        self.hood_dwell_ms = 300
+        # Dropped to 0 in T4: with the pipeline running at ~11 pieces/min
+        # (post-supervisor-restart, no backpressure deadlock) individual
+        # pieces transit C4 fast enough that the 300 ms hood dwell timer
+        # never clears before point_of_no_return — every step() returns
+        # early at _shouldHoldForHoodDwell and _fireRecognition is never
+        # reached, even for the non-hood piece. With min_carousel_crops=5
+        # + the free-fall burst + the retro low-conf scan already enforcing
+        # quality, the hood-dwell timer is redundant defence. Old comment
+        # about "poor crops" no longer applies because the new gates filter
+        # quality differently.
+        self.hood_dwell_ms = 0
         # Minimum number of carousel-source crops required before the
         # recognizer may fire for a piece. Prevents recognition from
         # committing using only c_channel_2/c_channel_3 history (which, if

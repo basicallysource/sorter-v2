@@ -135,6 +135,15 @@ class Running(BaseState):
         self._refreshPositioningPiece()
         self._updateIntakeGate(now_mono)
 
+        # Recognition fires Brickognize async (no stepper conflict), so
+        # always attempt it before the drop-pulse path. Otherwise, when
+        # pieces flow fast (post-T3 retry-budget unlock), a piece is
+        # constantly in the drop window and step() returns early at
+        # _sendPulse(drop_uuid) — the *other* piece in the hood never gets
+        # a chance to fire recognition. Calling it here lets the hood piece
+        # accumulate fires while the drop piece is still being committed.
+        self._fireRecognition(now_wall)
+
         drop_uuid = self._pickDropCandidate()
         if drop_uuid is not None:
             if not self.shared.distribution_ready:
@@ -157,7 +166,8 @@ class Running(BaseState):
             self._setOccupancyState("classification_channel.hood_dwell")
             return None
 
-        self._fireRecognition(now_wall)
+        # Recognition was already attempted at the top of step() — no need
+        # to repeat here.
 
         active_pieces = self.transport.activePieces()
         if not active_pieces:

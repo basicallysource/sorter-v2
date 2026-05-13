@@ -362,25 +362,23 @@ class ClassificationChannelConfig:
         # observation before recognition may fire. Guards against a
         # freshly-spawned carousel track that briefly stacks 2+ crops in
         # quick succession but hasn't yet stabilized on the physical C4 tray.
-        # Reverted 150 → 300: shorter values made the recognizer fire on
-        # poor early crops; net cls rate dropped. The dwell budget is not
-        # the bottleneck for the throughput target — the deadline arc was.
-        self.min_carousel_dwell_ms = 300
+        # Dropped to 0 in T3: the T2 family established that
+        # min_carousel_crops_for_recognize=5 + carousel-only filter +
+        # free-fall burst already guarantees the piece is post-landing
+        # before recognition fires. The dwell gate is now redundant
+        # defence and was costing us retry windows.
+        self.min_carousel_dwell_ms = 0
         # Minimum angular traversal on the carousel (degrees) since the
         # piece was first observed there before recognition may fire.
         # Time-based gates don't guarantee viewing-angle diversity when the
         # carousel rotates fast; this ensures the piece has physically
         # rotated enough to present multiple sides to the C4 camera, so the
         # accumulated crops cover meaningfully different viewpoints.
-        # Lowered back to 5° as part of experiment T2b (see flow_runs
-        # README). The earlier trav5 reversion happened because firing
-        # on a single early crop produced ~48 % empty Brickognize
-        # results — but T2's min_carousel_crops_for_recognize=5 floor
-        # plus the free-fall burst window in polar_tracker eliminate
-        # those empties (live: brickognize_empty=0 across ~5 min). With
-        # the quality floor in place, the traversal gate is the next
-        # binding constraint on fire rate.
-        self.min_carousel_traversal_deg = 5.0
+        # Dropped to 0 in T3: like min_carousel_dwell_ms above, the
+        # traversal gate was a defence against ghost upstream crops.
+        # Carousel-only filter + min_crops=5 + free-fall burst already
+        # ensure the accumulated crops cover multiple orientations.
+        self.min_carousel_traversal_deg = 0.0
         self.size_downgrade_confirmations = 3
         # Leader-wins drop policy: when the drop candidate has an interferer
         # inside the clearance window, only flip the *leader* to

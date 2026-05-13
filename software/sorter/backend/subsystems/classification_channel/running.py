@@ -26,6 +26,12 @@ from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
 
 INTAKE_REQUEST_TIMEOUT_S = 2.0
+# Max time to defer a piece's drop-deadline fallback while a Brickognize
+# response is still outstanding. The 10×60 s baseline campaign on the 5-wall
+# platter showed Brickognize commonly answers in <1 s when it answers at all,
+# so 2 s is comfortable headroom without permanently parking a piece in the
+# hood if the request never returns.
+PENDING_CLASSIFICATION_GRACE_S = 2.0
 # Drop-moment snapshot: max longest edge of the encoded JPEG. Keeps the event
 # payload bounded (~80-120 kB per frame) while still being legible on the
 # piece detail page next to the Brickognize reference thumbnail.
@@ -34,7 +40,7 @@ DROP_SNAPSHOT_JPEG_QUALITY = 78
 MIN_INTAKE_TRACK_HITS = 2
 RECOVERY_MIN_TRACK_HITS = 4
 RECOVERY_MIN_TRACK_AGE_S = 0.35
-RECOGNITION_RETRY_INTERVAL_S = 0.75
+RECOGNITION_RETRY_INTERVAL_S = 0.10
 INTAKE_FRESHNESS_GRACE_S = 0.35
 
 
@@ -71,6 +77,10 @@ class Running(BaseState):
         self._intake_requested_at_wall: float | None = None
         self._occupancy_state: str | None = None
         self._recognition_retry_not_before_by_uuid: dict[str, float] = {}
+        # Track when we first deferred a piece's deadline because Brickognize
+        # was still in flight, so we can time it out instead of waiting
+        # forever if the response never arrives.
+        self._deadline_defer_started_at_by_uuid: dict[str, float] = {}
 
     @property
     def _config(self):
@@ -459,8 +469,13 @@ class Running(BaseState):
         return (now_wall - start_ts) * 1000.0 < float(self._config.hood_dwell_ms)
 
     def _fireRecognition(self, now_wall: float) -> None:
-        if self.transport.hasPendingClassifications():
-            return
+        # Removed the global hasPendingClassifications() short-circuit: with
+        # max_zones≥2 it serialised recognition (one in flight at a time)
+        # so the second piece on C4 typically rotated past its
+        # point_of_no_return before Brickognize was even attempted. The
+        # per-piece isPendingClassification check below still prevents the
+        # *same* piece from being fired twice. Brickognize is async via
+        # background workers and tolerates concurrent calls.
 
         # Fire as soon as hood_dwell_ms elapsed AND the piece has enough
         # carousel-source crops AND has dwelled on the carousel for at least

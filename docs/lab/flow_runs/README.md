@@ -127,23 +127,75 @@ enough crops) plus ~7 `recognize_skipped_carousel_traversal` (not
 enough angular sweep). The latter is recoverable now that empties
 are no longer a risk.
 
-### Next experiment T2b (queued)
+### T2 final (n=6) — partial-run table above stands
 
-Hold T2's quality machinery and **lower
-`min_carousel_traversal_deg` 15° → 5°**. The trav5 A/B falsified
-this in isolation because firing on a single early crop produced 48 %
-empty Brickognize results. With T2's min_crops=5 floor we expect the
-extra fires to convert into clean classifications instead of empties.
+T2 final distribution (after stopping at n=6 to pivot): median 2.04,
+mean 2.36, p90 3.04 vs baseline 2.01 / 1.75 / 2.22. Mean lifted
+~35 %, p90 ~37 %, but median pinned to the noise floor. Distribution
+shifted right, ceiling did not.
 
-Other candidates (in rough order of expected impact):
+### Experiment T2b → T2c → T2d → T2e → T2f (compressed iteration log)
 
-1. **Throttle C3 → C4 admission** when T4 is OVERLOADED. Closed-loop
-   pattern from strategy doc §14. Less crowding on T4 means more dwell
-   per piece. Should raise classified/min toward seen/min without
-   needing faster Brickognize.
-2. **Lengthen the inter-pulse delay on C4** (slow platter). Direct
-   trade-off of throughput vs. dwell. Measure how much dwell per piece
-   actually helps the classified rate.
-3. **Increase the test window from 60 s to 120 s and 180 s** to confirm
-   any apparent win is not a fast-effect fluke (per user note: longer
-   windows expose drift, batch effects, warm-up).
+Each successive label folded in one or two changes and kept the rest
+of T2. The sequence converged on a clear answer: **crop quality and
+quantity are no longer the binding constraint**. T4 OVERLOAD share
+climbs (38 % → 44 % in T2f) and `brickognize_empty=0` is sticky, but
+classified/min stays at the same 3-piece-per-minute ceiling. The bench
+runs out of *time per piece*, not out of *evidence for a piece*.
+
+| Label | Changes layered on T2 baseline                                                   | n | cls/min median | Status |
+|-------|----------------------------------------------------------------------------------|---|----------------|--------|
+| T2b   | + `min_carousel_traversal_deg` 15° → 5°                                          | 5 | 2.52           | killed; bottleneck moved off traversal |
+| T2c   | + carousel hive inference 5 Hz → 20 Hz (per-role override)                       | 4 | 2.3 (live)     | killed; quota skips dropped to 0 but cls/min didn't move |
+| T2d   | + `delay_between_ms` 400 → 800 (slow platter), burst frames feed Brickognize     | 1 | 1.01           | failed; slow platter triggered upstream blocking — reverted |
+| T2e   | + `BURST_PRE_FRAMES` 30 → 60, `BURST_FPS` 15 → 20, polygon bypass for retro scan | 6 | 2.03           | gallery jumped to ~18 crops/piece including free-fall — operator-visible win |
+| T2f   | + retroactive YOLO conf 0.25 → 0.10                                              | 10 | **2.04**       | full distribution; mean 2.32 (+33 %), p90 3.03 (+37 %), max 3.04 |
+
+The T2f → baseline distribution comparison:
+
+| KPI                                | baseline (n=10) | T2f (n=10) | Δ       |
+|------------------------------------|----------------:|-----------:|---------|
+| good_parts_per_min median          |            2.01 |       2.04 | +0.03   |
+| good_parts_per_min mean            |            1.75 |       2.32 | +0.57   |
+| good_parts_per_min p90             |            2.22 |       3.03 | +0.81   |
+| good_parts_per_min max             |            3.0  |       3.04 | +0.04   |
+| seen_per_min median                |            9.04 |       8.60 | -0.44   |
+| recognize_fired_per_min median     |            2.02 |       2.52 | +0.50   |
+| brickognize_empty (cumulative)     |              ~5 |          0 | -5      |
+| T4_OVERLOADED share median         |            38 % |       47 % | +9 pp   |
+| multi_drop_fail_per_min median     |            1.01 |       0.51 | -0.50   |
+
+### Where the data points next
+
+The **per-individual-run ceiling of 3 cls/min has not moved** across
+T2-T2f. That is the dominant signal — every change we've made to crop
+quality / quantity / window / threshold has shifted the distribution
+*right* but not lifted the cap. A piece on C4 has ~1.5 s and needs to
+clear hood_dwell (300 ms) + min_carousel_dwell (300 ms) + traversal
+(5°) + the actual Brickognize round-trip (~500 ms-1 s) + the drop
+deadline. At a `RECOGNITION_RETRY_INTERVAL_S = 0.75 s`, a piece gets
+1-2 retry windows during its life on C4; that explains why ~70 % of
+pieces still hit the deadline unclassified.
+
+**Next experiment T3 (queued)**: address the *retry budget* and the
+*defensive gates* simultaneously.
+
+- `RECOGNITION_RETRY_INTERVAL_S` 0.75 s → 0.10 s — pieces get ~10
+  retry windows per pass on C4 instead of 2.
+- `min_carousel_dwell_ms` 300 → 0 and `min_carousel_traversal_deg` 5 →
+  0 — these gates were defensive against ghost crops from upstream
+  channels, but T2's min_crops=5 + carousel-only filter already makes
+  them redundant. Removing them lets recognition fire as soon as the
+  crop quota is satisfied.
+
+Other candidates left on the table (will revisit only if T3 also
+stalls):
+
+1. **Closed-loop C3→C4 admission throttle** (strategy doc §14): only
+   admit a new C4 piece when T4 is GOOD_SINGLE or EMPTY. Trades
+   throughput for guaranteed dwell.
+2. **Increase the test window 60 s → 120 s / 180 s** to confirm any
+   median shift is not a 60-s fluke (per user note).
+3. **Parallelise Brickognize per piece** with different crop subsets
+   so the in-flight call doesn't block a second recognition attempt
+   on the same piece.

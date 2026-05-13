@@ -207,6 +207,32 @@ classifications that the first attempt missed.
 **Hypothesis validated** that the binding constraint was the per-piece
 retry budget, not crop quality.
 
+### Experiments T4–T7 (compressed iteration log)
+
+After T3 broke the 3 cls/min ceiling, the next iterations chased two
+goals: (a) push the median further, (b) clean up UI artefacts the
+operator flagged on the piece detail page.
+
+| Label | Changes layered on T3                                                                                                                                                                                              | n  | cls/min median | Status |
+|-------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----|----------------|--------|
+| T4    | + `FREEFALL_QUOTA_RATIO=0.5` so half of the Brickognize batch is reserved for pre-trigger free-fall crops (per operator insight that platter-rotation sector_snapshots are near-duplicates)                          | 2  | 0.00           | falsified; 100 % bk_empty — free-fall crops too motion-blurred for Brickognize. Reverted to 0.0. Role-tag plumbing kept (harmless). |
+| T5    | + recognition fired before drop-pulse in step() (recognition is async, no stepper conflict), + `hood_dwell_ms` 300 → 0, + free-fall crops count toward the 5-crop gate                                              | 2  | 0.51 (mean)    | falsified; gate cleared on 5 free-fall crops before any stable platter view existed → 100 % bk_empty again. Counting reverted to stable-only. |
+| T6    | T5 minus the free-fall-counts-in-gate bit. Stable carousel sector_snapshots required for the 5-crop floor; free-fall stays in the pool but doesn't trip the gate                                                    | 14 | 3.04           | Architectural fixes proved out at scale. **max=7.07** for the first time. Mean 3.25 (+12 % over T3). Bimodal distribution — high-supply windows hit 5-7, low-supply windows drop to 0-2. |
+| T7    | + disable C3 → carousel identity handoff. Every carousel track gets a fresh `global_id`. Detail-page paths now contain only the carousel segment per operator request                                                | 10 | **3.54**       | Highest median across the whole campaign. recognize_fired 4.05/min (vs T3 3.04, T2f 2.52). UI fix achieved without throughput regression. multi_drop_fail per min 1.52 — collision rate up under higher pipeline throughput. |
+
+The T7 distribution vs prior milestones:
+
+| KPI                            | baseline (n=10) | T2f (n=10) | T3 (n=6) | T7 (n=10) |
+|--------------------------------|----------------:|-----------:|---------:|----------:|
+| good_parts_per_min median      |            2.01 |       2.04 |     3.04 |  **3.54** |
+| good_parts_per_min mean        |            1.75 |       2.32 |     2.87 |      2.83 |
+| good_parts_per_min p90         |            2.22 |       3.03 |     4.55 |      5.06 |
+| good_parts_per_min max         |            3.0  |       3.04 |     5.06 |      5.06 |
+| seen_per_min median            |            9.04 |       8.60 |     8.11 |      8.10 |
+| recognize_fired_per_min median |            2.02 |       2.52 |     3.04 |  **4.05** |
+| multi_drop_fail_per_min median |            1.01 |       0.51 |     1.01 |      1.52 |
+| T4_OVERLOADED share median     |            38 % |       47 % |     47 % |    **63 %** |
+
 ### Where the data points next
 
 The **per-individual-run ceiling of 3 cls/min has just moved** across

@@ -79,7 +79,14 @@ def _feed_until_dead(
 # ---------------------------------------------------------------------------
 
 
-def test_c3_to_c4_single_piece_inherits_global_id():
+def test_c3_to_c4_handoff_is_disabled_by_default():
+    """Per operator decision, the C3→carousel identity handoff is no
+    longer wired by ``build_feeder_tracker_system``. The classification
+    pipeline consumes carousel-only track history, so a stitched C3
+    segment had no consumer left but still occasionally polluted the
+    detail page with a wrong-piece path. Every carousel track now gets a
+    fresh global_id.
+    """
     manager, trackers = _make_three_camera_system()
     c3 = trackers["c_channel_3"]
     carousel = trackers["carousel"]
@@ -89,30 +96,24 @@ def test_c3_to_c4_single_piece_inherits_global_id():
     assert len(t1) == 1
     c3_id = t1[0].global_id
 
-    # Let the C3 track expire (piece falls off the C3 camera view).
+    # Let the C3 track expire.
     death_ts = _feed_until_dead(c3, start_ts=0.0)
 
-    pending = manager.pending_snapshot()
-    assert len(pending) == 1, pending
-    assert pending[0]["from_role"] == "c_channel_3"
-    assert pending[0]["global_id"] == c3_id
+    # No pending handoff was queued — c_channel_3 is not registered as a
+    # handoff source in the default chain.
+    assert manager.pending_snapshot() == []
 
-    # Within the handoff window, carousel sees a new detection — at an
-    # arbitrary plausible position on the platter, NOT at the same pixel
-    # where it died on C3 (different camera, different frame).
+    # Within the (former) handoff window, carousel sees a new detection.
     carousel_tracks = carousel.update(
         [_bbox_around(400.0, 300.0, size=60)],
         [0.9],
         death_ts + 0.2,
     )
     assert len(carousel_tracks) == 1
-    assert carousel_tracks[0].global_id == c3_id, (
-        "carousel should inherit the C3 global_id via the handoff manager"
+    assert carousel_tracks[0].global_id != c3_id, (
+        "carousel should NOT inherit the C3 global_id — handoff disabled"
     )
-    assert carousel_tracks[0].handoff_from == "c_channel_3"
-
-    # Pending queue is drained after the successful claim.
-    assert manager.pending_snapshot() == []
+    assert carousel_tracks[0].handoff_from is None
 
 
 # ---------------------------------------------------------------------------

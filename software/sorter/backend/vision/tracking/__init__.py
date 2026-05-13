@@ -8,6 +8,7 @@ channel geometry isn't available.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Callable, Any
 
@@ -36,6 +37,7 @@ def build_feeder_tracker_system(
     detection_score_threshold: float = 0.1,
     history: PieceHistoryBuffer | None = None,
     frame_rate: int = 5,  # kept for signature compat with older callers
+    enable_appearance: bool | None = None,
     exit_observer: Callable[..., Any] | None = None,
     ghost_reject_observer: Callable[..., Any] | None = None,
     embedding_rebind_observer: Callable[..., Any] | None = None,
@@ -58,12 +60,25 @@ def build_feeder_tracker_system(
     appended to the same history entry.
     """
     _ = frame_rate  # unused by the polar tracker, accepted for compat
+    if enable_appearance is None:
+        raw = os.getenv("SORTER_ENABLE_REID", "").strip().lower()
+        enable_appearance = raw in {"1", "true", "yes", "on"}
+
     # Drop the c_channel_2 → c_channel_3 edge: see docstring above. Every
     # other adjacent pair in ``roles`` is wired as usual.
+    # ALSO drop c_channel_3 → carousel as of T7: per operator decision, the
+    # carousel-side classification pipeline only consumes its own track
+    # history, never an upstream C3 stitch. With the recognition path
+    # locked to source_role=="carousel" since T2, and free-fall capture
+    # already covering the pre-landing window via drop_zone_burst, the
+    # C3→C4 handoff has no consumer left but still occasionally pulls a
+    # wrong-piece c3 segment into the detail page. Severing it here gives
+    # every carousel track a fresh global_id.
+    _NO_HANDOFF_FROM = {"c_channel_2", "c_channel_3"}
     chain = {
         roles[i]: roles[i + 1]
         for i in range(len(roles) - 1)
-        if roles[i] != "c_channel_2"
+        if roles[i] not in _NO_HANDOFF_FROM
     }
     # Late-bound probe — trackers dict is populated below, but the manager
     # is needed to construct them. The closure references the dict by name
@@ -103,6 +118,7 @@ def build_feeder_tracker_system(
             "handoff_manager": manager,
             "detection_score_threshold": detection_score_threshold,
             "history": history,
+            "enable_appearance": bool(enable_appearance),
             "id_switch_suspect_observer": id_switch_suspect_observer,
         }
         if role == "carousel":

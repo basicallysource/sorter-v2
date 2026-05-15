@@ -21,7 +21,6 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_GET_POSITION = 0x15
     STEPPER_SET_POSITION = 0x16
     STEPPER_HOME = 0x17
-    STEPPER_CANCEL = 0x18
     # Stepper driver commands
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
@@ -93,8 +92,6 @@ class StepperMotor:
         self._direction_inverted = False
         self._current_position_steps = 0
         self._last_set_current: dict[str, int] | None = None
-        self._enable_abort_timeout_s = 8.0
-        self._halt_timeout_s = 8.0
         self._gc = gc
 
     def _logical_to_physical_steps(self, value: int) -> int:
@@ -145,52 +142,6 @@ class StepperMotor:
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) FAILED")
         return success
-
-    def cancel_motion(self) -> bool:
-        """Immediately clear the firmware motion state if supported."""
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: cancel_motion")
-        self._dev.send_command(InterfaceCommandCode.STEPPER_CANCEL, self._channel, b"")
-        return True
-
-    def wait_until_stopped(self, timeout_s: float = 2.0, poll_interval_s: float = 0.02) -> bool:
-        """Wait until firmware reports this stepper as stopped."""
-        deadline = time.monotonic() + max(0.0, float(timeout_s))
-        while True:
-            if self.stopped:
-                return True
-            if time.monotonic() >= deadline:
-                return False
-            time.sleep(max(0.001, float(poll_interval_s)))
-
-    def halt(self, timeout_s: float | None = None, *, disable_driver: bool = True) -> bool:
-        """Cancel firmware motion and optionally leave the driver disabled.
-
-        Disabling the TMC driver alone removes torque, but it does not reset the
-        firmware stepper state. If the driver is re-enabled while that state is
-        still moving, the old move resumes. Prefer the firmware CANCEL command
-        and fall back to a zero-speed command for older firmware.
-        """
-        if disable_driver:
-            self._set_driver_enabled(False)
-            self._enabled = False
-        ok = True
-        try:
-            self.cancel_motion()
-        except Exception as exc:
-            ok = False
-            self._gc.logger.warning(
-                f"Stepper '{self._name}' ch{self._channel}: cancel_motion failed, falling back to move_at_speed(0): {exc}"
-            )
-        if not ok:
-            ok = self.move_at_speed(0)
-        stopped = self.wait_until_stopped(
-            self._halt_timeout_s if timeout_s is None else timeout_s
-        )
-        if not stopped:
-            self._gc.logger.warning(
-                f"Stepper '{self._name}' ch{self._channel}: halt timed out; firmware still reports moving"
-            )
-        return bool(ok and stopped)
     
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
@@ -265,42 +216,14 @@ class StepperMotor:
     @property
     def enabled(self) -> bool:
         return self._enabled
-
-    def _set_driver_enabled(self, value: bool) -> None:
-        bool_value = bool(value)
-        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_enabled={bool_value}")
-        payload = struct.pack("<?", bool_value) # 1 byte, boolean
-        self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
     
     @enabled.setter
     def enabled(self, value: bool):
         """Enable or disable the stepper."""
-        next_enabled = bool(value)
-        if next_enabled:
-            try:
-                if not self.stopped:
-                    self._gc.logger.warning(
-                        f"Stepper '{self._name}' ch{self._channel}: refusing to enable while firmware is moving; aborting motion first"
-                    )
-                    self._set_driver_enabled(False)
-                    self._enabled = False
-                    try:
-                        self.cancel_motion()
-                    except Exception as exc:
-                        self._gc.logger.warning(
-                            f"Stepper '{self._name}' ch{self._channel}: cancel_motion before enable failed, falling back to move_at_speed(0): {exc}"
-                        )
-                        self.move_at_speed(0)
-                    if not self.wait_until_stopped(self._enable_abort_timeout_s):
-                        raise RuntimeError(
-                            f"Stepper '{self._name}' firmware still moving; not enabling driver"
-                        )
-            except Exception:
-                self._enabled = False
-                raise
-
-        self._enabled = next_enabled
-        self._set_driver_enabled(self._enabled)
+        self._enabled = bool(value)
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_enabled={self._enabled}")
+        payload = struct.pack("<?", self._enabled) # 1 byte, boolean
+        self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
     
     def set_microsteps(self, microsteps: int):
         """Set the microsteps for the stepper."""
@@ -624,10 +547,6 @@ class SorterInterface(MCUDevice):
     @property
     def name(self):
         return self._name
-
-    @property
-    def supports_stepper_cancel(self) -> bool:
-        return bool(self._board_info.get("stepper_cancel"))
 
 if __name__ == "__main__":
     import logging as _logging

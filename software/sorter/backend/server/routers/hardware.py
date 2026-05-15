@@ -56,10 +56,6 @@ def _ensure_not_homing(action: str) -> None:
 
 
 def _control_board_summary(board: Any) -> Dict[str, Any]:
-    interface = getattr(board, "interface", None)
-    board_info = getattr(interface, "_board_info", {})
-    if not isinstance(board_info, dict):
-        board_info = {}
     return {
         "family": getattr(board.identity, "family", "unknown"),
         "role": getattr(board.identity, "role", "unknown"),
@@ -67,8 +63,6 @@ def _control_board_summary(board: Any) -> Dict[str, Any]:
         "port": getattr(board.identity, "port", ""),
         "address": getattr(board.identity, "address", 0),
         "logical_steppers": list(getattr(board, "logical_stepper_names", tuple())),
-        "supports_stepper_cancel": bool(getattr(interface, "supports_stepper_cancel", False)),
-        "firmware_protocol": board_info.get("firmware_protocol"),
     }
 
 

@@ -55,7 +55,6 @@ void CMDH_stepper_is_stopped(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_get_position(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_set_position(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp);
-void CMDH_stepper_cancel(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_enabled(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_microsteps(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_current(const BusMessage *msg, BusMessage *resp);
@@ -74,7 +73,6 @@ const struct CommandTable stepperCmdTable = {
         {"GET_POSITION", "", "i", 0, VAL_stepper_channel, CMDH_stepper_get_position},
         {"SET_POSITION", "i", "", 4, VAL_stepper_channel, CMDH_stepper_set_position},
         {"HOME", "iB?", "", 6, VAL_stepper_channel, CMDH_stepper_home},
-        {"CANCEL", "", "", 0, VAL_stepper_channel, CMDH_stepper_cancel},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
@@ -214,8 +212,7 @@ int dump_configuration(char *buf, size_t buf_size) {
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"device_name\":\"%s\",\"firmware_protocol\":2,\"stepper_cancel\":true,"
-        "\"stepper_count\":%d,"
+        "{\"device_name\":\"%s\",\"stepper_count\":%d,"
         "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
         "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
         DEVICE_NAME,
@@ -235,7 +232,7 @@ int dump_configuration(char *buf, size_t buf_size) {
     n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"firmware_protocol\":2,\"stepper_cancel\":true,\"stepper_count\":%d,"
+        "{\"stepper_count\":%d,"
         "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
         "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
         STEPPER_COUNT,
@@ -254,8 +251,7 @@ int dump_configuration(char *buf, size_t buf_size) {
     n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"firmware_protocol\":2,\"stepper_cancel\":true,"
-        "\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        "{\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
         STEPPER_COUNT,
         DIGITAL_INPUT_COUNT,
         DIGITAL_OUTPUT_COUNT,
@@ -289,11 +285,6 @@ void initialize_hardware() {
     tmc_bus.setupComm(TMC_UART_BAUDRATE, TMC_UART_TX_PIN, TMC_UART_RX_PIN);
     // Initialize TMC2209 drivers and steppers
     for (int i = 0; i < STEPPER_COUNT; i++) {
-        // INIT can be sent while the Pico still has an old distance/speed move
-        // in memory after a host restart. Clear that state before enabling the
-        // driver again, otherwise the old move can resume as soon as torque
-        // returns.
-        steppers[i].cancel();
         steppers[i].initialize();
         steppers[i].setAcceleration(20000);
         steppers[i].setSpeedLimits(16, 4000);
@@ -444,11 +435,6 @@ void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp) {
     }
     int home_pin = digital_input_pins[home_pin_channel];
     steppers[msg->channel].home(home_speed, home_pin, home_pin_polarity);
-    resp->payload_length = 0;
-}
-
-void CMDH_stepper_cancel(const BusMessage *msg, BusMessage *resp) {
-    steppers[msg->channel].cancel();
     resp->payload_length = 0;
 }
 

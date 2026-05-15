@@ -85,74 +85,6 @@ def _run_stepper_init_command_with_retry(
     return False
 
 
-def _require_stepper_halted_for_init(
-    gc: GlobalConfig,
-    stepper_name: str,
-    stepper,
-    *,
-    attempts: int = HARDWARE_INIT_COMMAND_ATTEMPTS,
-    retry_delay_s: float = HARDWARE_INIT_RETRY_DELAY_S,
-) -> None:
-    """Fail hardware init unless the stepper is left disabled and stopped.
-
-    A backend restart can create fresh Python stepper objects while the MCU
-    still remembers an old motion command. The first operation on every bound
-    stepper must therefore be a hard halt/cancel, before speed/current setup or
-    any later enable can re-arm stale firmware motion.
-    """
-    last_exc: Exception | None = None
-    for attempt in range(1, attempts + 1):
-        try:
-            halt = getattr(stepper, "halt", None)
-            if callable(halt):
-                if not bool(halt(disable_driver=True)):
-                    raise RuntimeError("halt() timed out or was not acknowledged")
-            else:
-                stepper.enabled = False
-            return
-        except (MCUBusError, OSError, DecodeError, RuntimeError) as exc:
-            last_exc = exc
-            if attempt < attempts:
-                gc.logger.warning(
-                    f"Failed to halt stepper '{stepper_name}' during hardware init "
-                    f"on attempt {attempt}/{attempts}: {exc}. Retrying in {retry_delay_s:.2f}s..."
-                )
-                time.sleep(retry_delay_s)
-                continue
-            break
-
-    raise RuntimeError(
-        f"Refusing hardware init: stepper '{stepper_name}' could not be halted safely"
-    ) from last_exc
-
-
-def _require_stepper_cancel_firmware(gc: GlobalConfig, control_boards) -> None:
-    unsafe_boards: list[str] = []
-    for board in control_boards:
-        interface = getattr(board, "interface", None)
-        supports_cancel = bool(getattr(interface, "supports_stepper_cancel", False))
-        if supports_cancel:
-            continue
-        identity = getattr(board, "identity", None)
-        if identity is None:
-            unsafe_boards.append("<unknown board>")
-            continue
-        unsafe_boards.append(
-            f"{identity.device_name} ({identity.port}:{identity.address}, role={identity.role})"
-        )
-
-    if not unsafe_boards:
-        return
-
-    boards = "; ".join(unsafe_boards)
-    message = (
-        "Unsafe SorterInterface firmware: missing stepper_cancel capability on "
-        f"{boards}. Flash the updated firmware before starting real hardware."
-    )
-    gc.logger.error(message)
-    raise RuntimeError(message)
-
-
 def save_servo_states(servos: list, gc: GlobalConfig) -> None:
     states = {}
     for i, servo in enumerate(servos):
@@ -659,11 +591,7 @@ class IRLInterface:
                 if identity in seen:
                     continue
                 seen.add(identity)
-                halt = getattr(stepper, "halt", None)
-                if callable(halt):
-                    halt(disable_driver=True)
-                else:
-                    stepper.enabled = False
+                stepper.enabled = False
 
     def shutdown(self) -> None:
         if self.servo_controller is not None and hasattr(self.servo_controller, "shutdown"):
@@ -1261,7 +1189,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         attempts=HARDWARE_DISCOVERY_ATTEMPTS,
         retry_delay_s=HARDWARE_DISCOVERY_RETRY_DELAY_S,
     )
-    _require_stepper_cancel_firmware(gc, control_boards)
     irl_interface.interfaces = {
         board.interface.name: board.interface for board in control_boards
     }
@@ -1336,7 +1263,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         stepper_config: StepperConfig | None = getattr(config, attr, None)
         stepper.set_hardware_name(physical_name)
         stepper.set_name(attr_base)
-        _require_stepper_halted_for_init(gc, attr_base, stepper)
         if stepper_config is not None:
             microsteps = stepper_config.microsteps
             default_steps_per_second = stepper_config.default_steps_per_second

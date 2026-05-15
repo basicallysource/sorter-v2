@@ -26,6 +26,13 @@ CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
 CH1_STALL_ALERT_PREFIX = "Feeder transport blocked"
 FEEDER_DETECTION_ALERT_PREFIX = "Feeder camera detection unavailable"
 FEEDER_DETECTION_UNAVAILABLE_GRACE_S = 3.0
+# Grace window after a C3 pulse during which classification-channel
+# admission stays blocked regardless of what the vision/transport state
+# reports. Covers the race between the C3 stepper cooldown ending and the
+# new piece being registered into C4's zone manager — without it, the
+# next feeder tick can see "C4 empty", fire a second pulse, and double-
+# drop both pieces into the same C4 sector.
+CLASSIFICATION_CHANNEL_PENDING_ADMISSION_MS = 1500
 # Cap pieces on c_channel_2 before c_channel_1 may feed more in. Keeps the
 # bulk feeder from piling up the transport channel — c_channel_3 can only
 # swallow one piece at a time so anything beyond this number is dead weight.
@@ -80,6 +87,17 @@ class Feeding(BaseState):
         self._last_ch2_action = ChannelAction.IDLE
         self._last_ch3_action = ChannelAction.IDLE
         self._busy_until: dict[str, float] = {}
+        # Block follow-up C3 pulses for this long after a delivery to the
+        # classification channel, even if the vision/transport state still
+        # looks "empty" because the piece hasn't been registered yet. The
+        # race: piece A is in flight (~80 ms to land + ~100 ms for 2 tracker
+        # hits + 1 running tick to register), but C3's precise cooldown is
+        # also 1000 ms — if vision lags the cooldown end by more than a
+        # frame, admission_blocked returns False and C3 happily fires
+        # another pulse, double-dropping into the same sector. 1500 ms is
+        # generous enough to cover the slowest registration path while
+        # still allowing back-to-back deliveries once C4 has acknowledged.
+        self._classification_channel_pending_admission_until: float = 0.0
         self._last_ch2_activity_at: float = time.monotonic()
         self._ch1_pulses_since_ch2_activity: int = 0
         self._last_ch1_pulse_at: float = 0.0
@@ -216,6 +234,21 @@ class Feeding(BaseState):
     def _isStepperBusy(self, stepper: "StepperMotor") -> bool:
         return time.monotonic() < self._busy_until.get(stepper._name, 0.0)
 
+    def _classificationChannelHasPendingAdmission(self) -> bool:
+        """True while the post-C3-pulse grace window is still active.
+
+        Set by ``_sendPulse`` on every successful ch3 pulse; consulted by
+        ``_tick_once`` to keep ``classification_channel_block`` True until
+        either the timer expires or the structural admission check picks
+        the new piece up (whichever comes first). The grace covers the
+        race between the C3 stepper cooldown ending and the new piece
+        being registered into C4's zone manager.
+        """
+        return (
+            time.monotonic()
+            < self._classification_channel_pending_admission_until
+        )
+
     def _sampleCollectionRoleForPulseLabel(self, label: str) -> str | None:
         if label.startswith("ch1"):
             return "c_channel_1"
@@ -319,6 +352,18 @@ class Feeding(BaseState):
                     delay_s=max(0.0, exec_ms) / 1000.0,
                     move_label=label,
                     pulse_degrees=float(pulse_degrees),
+                )
+                # A C3 pulse that targets the classification channel is a
+                # piece-in-flight commitment. Hold admission until C4 has
+                # had time to register the new piece in its zone manager
+                # — otherwise the next feeder tick reads "C4 empty" and
+                # fires a second pulse, double-dropping into the same
+                # sector. We pin the timer here unconditionally for any
+                # successful ch3 pulse; non-classification_channel setups
+                # ignore it via _classificationChannelPendingAdmission().
+                self._classification_channel_pending_admission_until = (
+                    time.monotonic()
+                    + (CLASSIFICATION_CHANNEL_PENDING_ADMISSION_MS / 1000.0)
                 )
         else:
             # Back off briefly after a rejected hardware move to avoid a hot retry loop.
@@ -452,6 +497,19 @@ class Feeding(BaseState):
                     zone_manager=zone_manager,
                     config=classification_channel_config,
                 )
+                # Additional grace: even when the structural checks above
+                # say "intake clear", any C3 pulse fired in the last
+                # CLASSIFICATION_CHANNEL_PENDING_ADMISSION_MS still has a
+                # piece in flight that hasn't been registered yet. Hold
+                # admission until either the timer expires or the piece
+                # gets registered (which makes the structural check fail
+                # naturally on the next tick).
+                if (
+                    not classification_channel_block
+                    and self._classificationChannelHasPendingAdmission()
+                ):
+                    classification_channel_block = True
+                    prof.hit("feeder.skip.classification_channel_pending_admission")
             ch3_held = (
                 classification_ready_block or classification_channel_block
             )

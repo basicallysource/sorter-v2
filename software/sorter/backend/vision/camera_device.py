@@ -45,6 +45,17 @@ class CameraDevice:
     def latest_frame(self) -> Optional[CameraFrame]:
         return self._capture.latest_frame
 
+    def frame_at_or_before(
+        self,
+        timestamp: float,
+        *,
+        tolerance_s: float = 0.5,
+    ) -> Optional[CameraFrame]:
+        """Return the most recent ring-buffer frame at or before ``timestamp``,
+        or ``None`` if nothing within ``tolerance_s`` seconds is buffered.
+        """
+        return self._capture.frame_at_or_before(timestamp, tolerance_s=tolerance_s)
+
     @property
     def last_frame_at(self) -> Optional[float]:
         frame = self._capture.latest_frame

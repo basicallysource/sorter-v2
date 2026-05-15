@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Optional, Protocol
+from typing import TYPE_CHECKING, Callable, Optional, Protocol
 import numpy as np
 
 from .camera_device import CameraDevice, DeviceHealth
@@ -24,14 +24,37 @@ class CameraFeed:
 
     Each feed produces frames by reading from its device and composing
     overlays in registration order.
+
+    When ``pinned_ts_provider`` is set, ``get_frame(annotated=True)`` pulls
+    the ring-buffer frame whose timestamp matches the provider's value
+    instead of the device's ``latest_frame``. This is how the encode path
+    keeps overlay positions in sync with the frame the detector actually
+    ran on — without it, the bbox lags behind the moving piece by one
+    detection cadence.
     """
 
-    def __init__(self, role: str, device: CameraDevice) -> None:
+    def __init__(
+        self,
+        role: str,
+        device: CameraDevice,
+        *,
+        pinned_ts_provider: Optional[Callable[[], Optional[float]]] = None,
+    ) -> None:
         self.role = role
         self._device = device
         self._overlays: list[FrameOverlay] = []
         self._cached_annotated: tuple[float, CameraFrame] | None = None
+        self._pinned_ts_provider = pinned_ts_provider
         self._lock = threading.Lock()
+
+    def set_pinned_ts_provider(
+        self,
+        provider: Optional[Callable[[], Optional[float]]],
+    ) -> None:
+        """Install (or remove) the detection-frame-timestamp provider."""
+        with self._lock:
+            self._pinned_ts_provider = provider
+            self._cached_annotated = None
 
     @property
     def device(self) -> CameraDevice:
@@ -56,9 +79,23 @@ class CameraFeed:
         annotated: bool = True,
         exclude_categories: Optional[frozenset[str]] = None,
     ) -> Optional[CameraFrame]:
-        frame = self._device.latest_frame
-        if frame is None:
+        latest = self._device.latest_frame
+        if latest is None:
             return None
+
+        # Default to the latest frame; switch to a pinned ring-buffer frame
+        # only when we know overlays will run AND a pinned timestamp is
+        # available. Raw (annotated=False) reads always use latest_frame.
+        frame = latest
+        if annotated and self._overlays and self._pinned_ts_provider is not None:
+            try:
+                pinned_ts = self._pinned_ts_provider()
+            except Exception:
+                pinned_ts = None
+            if pinned_ts is not None and pinned_ts != latest.timestamp:
+                pinned_frame = self._device.frame_at_or_before(float(pinned_ts))
+                if pinned_frame is not None:
+                    frame = pinned_frame
 
         with self._lock:
             if not annotated or not self._overlays:

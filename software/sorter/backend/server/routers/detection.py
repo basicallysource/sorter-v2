@@ -221,6 +221,27 @@ class HiveRegisterPayload(BaseModel):
     machine_description: str = ""
 
 
+class HiveLinkPayload(BaseModel):
+    """Payload from the OAuth-style Hive linking flow.
+
+    The browser walks the user from the Sorter to the Hive ``/link-machine``
+    page, where the machine is registered against the user's already-
+    authenticated Hive session. Hive then redirects back to the Sorter with
+    the machine's freshly-minted api_token in the URL hash. The Sorter
+    frontend reads the hash and POSTs the contents here so the token can be
+    persisted next to the other configured Hive targets — no email/password
+    ever crosses the wire.
+    """
+
+    target_name: str = ""
+    url: str
+    api_token: str
+    machine_id: str = ""
+    machine_name: str = ""
+    token_prefix: str = ""
+    enabled: bool = True
+
+
 class HiveBackfillPayload(BaseModel):
     session_ids: list[str] | None = None
     target_ids: list[str] | None = None
@@ -501,6 +522,49 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
         "machine_id": str(machine_id),
         "machine_name": data.get("name", payload.machine_name),
         "token_prefix": data.get("token_prefix", raw_token[:8]),
+    }
+
+
+@router.post("/api/settings/hive/link")
+def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
+    """Persist a Hive target produced by the OAuth-style linking flow.
+
+    Counterpart to ``hive_register`` for the case where the machine was
+    created on the Hive side (the user clicked "Pair this Sorter" on
+    Hive while logged in). The Sorter never sees the user's credentials;
+    Hive hands the Sorter an ``api_token`` via the return-URL hash and
+    the frontend POSTs the bundle here so it can be stored next to any
+    existing targets.
+    """
+    base_url = payload.url.strip().rstrip("/")
+    if not base_url:
+        raise HTTPException(400, "Hive URL is required.")
+    api_token = payload.api_token.strip()
+    if not api_token:
+        raise HTTPException(400, "api_token is required.")
+
+    target_name = payload.target_name.strip() or base_url
+    targets = _load_hive_targets()
+    target_id = uuid4().hex[:12]
+    targets.append(
+        {
+            "id": target_id,
+            "name": target_name,
+            "url": base_url,
+            "api_token": api_token,
+            "enabled": bool(payload.enabled),
+            "machine_id": str(payload.machine_id) if payload.machine_id else "",
+        }
+    )
+    _save_hive_targets(targets)
+    getClassificationTrainingManager().reloadHiveUploader()
+    return {
+        "ok": True,
+        "target_id": target_id,
+        "target_name": target_name,
+        "machine_id": str(payload.machine_id),
+        "machine_name": payload.machine_name,
+        "token_prefix": payload.token_prefix or api_token[:8],
     }
 
 

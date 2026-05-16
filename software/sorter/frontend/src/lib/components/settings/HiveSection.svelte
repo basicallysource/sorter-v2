@@ -2,7 +2,13 @@
 	import { onMount } from 'svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Cloud, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-svelte';
+	import {
+		beginHiveLink,
+		completeReturnedHiveLink,
+		DEFAULT_HIVE_URL,
+		defaultHiveTargetName
+	} from '$lib/hive/link-flow';
+	import { Cloud, Link2, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-svelte';
 
 	const machine = getMachineContext();
 
@@ -69,6 +75,12 @@
 	let regPassword = $state('');
 	let regMachineName = $state('');
 	let regMachineDescription = $state('');
+
+	let showPairForm = $state(false);
+	let pairing = $state(false);
+	let pairUrl = $state(DEFAULT_HIVE_URL);
+	let pairTargetName = $state('');
+	let pairMachineName = $state('');
 
 	const targets = $derived(config?.targets ?? []);
 
@@ -224,14 +236,48 @@
 		clearMessages();
 		editingTargetId = null;
 		showRegisterForm = true;
+		showPairForm = false;
 		resetRegisterForm();
+	}
+
+	function resetPairForm() {
+		pairUrl = DEFAULT_HIVE_URL;
+		pairTargetName = '';
+		pairMachineName = '';
+	}
+
+	function openPairForm() {
+		clearMessages();
+		editingTargetId = null;
+		showRegisterForm = false;
+		showPairForm = true;
+		resetPairForm();
 	}
 
 	function closeForms() {
 		editingTargetId = null;
 		showRegisterForm = false;
+		showPairForm = false;
 		resetTargetForm();
 		resetRegisterForm();
+		resetPairForm();
+	}
+
+	function handlePair() {
+		if (!pairUrl.trim()) return;
+		pairing = true;
+		clearMessages();
+		try {
+			beginHiveLink({
+				hiveUrl: pairUrl.trim(),
+				targetName: pairTargetName.trim() || undefined,
+				machineName: pairMachineName.trim() || undefined,
+				returnPath: window.location.pathname + window.location.search
+			});
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Could not start the Hive link flow.';
+			pairing = false;
+		}
 	}
 
 	async function handleSaveTarget() {
@@ -418,8 +464,21 @@
 		return 'text-amber-600 dark:text-amber-400';
 	}
 
+	async function handleReturnedLink() {
+		try {
+			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
+			if (result.completed) {
+				statusMsg = result.message ?? 'Hive link saved.';
+				await loadConfig();
+			}
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Hive link could not be completed.';
+		}
+	}
+
 	onMount(() => {
 		void loadConfig();
+		void handleReturnedLink();
 	});
 </script>
 
@@ -438,16 +497,25 @@
 			<div class="flex flex-wrap gap-2">
 				<button
 					type="button"
+					onclick={openPairForm}
+					class="inline-flex items-center gap-1.5 border border-primary bg-primary/10 px-3 py-1.5 text-xs text-text transition-colors hover:bg-primary/20"
+				>
+					<Link2 size={12} />
+					Pair with Hive
+				</button>
+				<button
+					type="button"
 					onclick={openRegisterForm}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
+					title="Email + password registration (use Pair with Hive instead when possible)"
 				>
 					<Plus size={12} />
-					Register Machine
+					Register (legacy)
 				</button>
 				<button
 					type="button"
 					onclick={() => openTargetEditor(null)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
 				>
 					<Cloud size={12} />
 					Add Existing Token
@@ -624,6 +692,63 @@
 						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{savingTarget ? 'Saving...' : 'Save'}
+					</button>
+				</div>
+			</div>
+		{/if}
+
+		{#if showPairForm}
+			<div class="grid gap-3 border border-primary bg-primary/[0.05] px-3 py-3">
+				<div class="text-sm font-medium text-text">Pair with a Hive</div>
+				<div class="text-sm text-text-muted">
+					Enter the Hive URL, then continue on Hive to pick a machine name.
+					Hive sends you back here once the link is saved — no email or
+					password leaves this Sorter.
+				</div>
+				<label class="flex flex-col gap-1 text-sm text-text">
+					Hive URL
+					<input
+						bind:value={pairUrl}
+						type="url"
+						placeholder={DEFAULT_HIVE_URL}
+						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 text-sm text-text">
+					Target name (optional)
+					<input
+						bind:value={pairTargetName}
+						type="text"
+						placeholder={pairUrl.trim()
+							? defaultHiveTargetName(pairUrl)
+							: 'e.g. Hive Community'}
+						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 text-sm text-text">
+					Suggested machine name (optional)
+					<input
+						bind:value={pairMachineName}
+						type="text"
+						placeholder="Lego Sorter"
+						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<div class="flex justify-end gap-2">
+					<button
+						type="button"
+						onclick={closeForms}
+						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handlePair}
+						disabled={pairing || !pairUrl.trim()}
+						class="border border-primary bg-primary px-3 py-1.5 text-xs text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{pairing ? 'Opening Hive…' : 'Continue on Hive →'}
 					</button>
 				</div>
 			</div>

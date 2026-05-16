@@ -29,10 +29,11 @@ Anything that requires recovery motion, operator judgement, hardware repair, or 
 | `classification_intake_request_timeout` | C4 | C4 requested a piece from C3, but no intake track arrived before timeout. | Operator checks the C3→C4 handoff and clears the incident to retry. |
 | `classification_track_lost` | C4 | A meaningful C4 track expires from stale-zone cleanup before the expected drop flow completed. | Operator checks C4 tracking/occlusion and clears the incident. Empty ghost tracks remain diagnostics only. |
 
-## Remaining Candidates
+## Explicit Non-Incident Modes
 
-These are still worth discussing before turning them into hard incidents:
+These paths are intentionally separate from normal sorting, but they are not
+operator incidents:
 
-| Candidate | Current behavior | Why it may be an incident |
+| Mode | Current behavior | Why it is not an incident |
 | --- | --- | --- |
 | `camera_sample_collection_bypass` | Sample collection bypasses some gates and speed limits. | This is an explicit operating mode, not an incident, but it should stay visibly separate from normal sorting. |

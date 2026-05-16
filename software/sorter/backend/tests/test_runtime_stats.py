@@ -151,6 +151,34 @@ class RuntimeStatsCollectorBinClearTests(unittest.TestCase):
         self.assertEqual(1, c4["outcomes"]["unknown"]["count"])
         self.assertEqual(0, c4["outcomes"]["multi_drop_fail"]["count"])
 
+    def test_snapshot_exposes_and_clears_active_incident(self) -> None:
+        collector = RuntimeStatsCollector()
+
+        collector.setActiveIncident(
+            {
+                "kind": "exit_stuck",
+                "source_kind": "classification_exit_release",
+                "piece_uuid": "piece-stuck",
+                "status": "waiting_for_operator",
+            }
+        )
+
+        snapshot = collector.snapshot()
+        self.assertEqual("exit_stuck", snapshot["active_incident"]["kind"])
+        self.assertEqual("classification_exit_release", snapshot["active_incident"]["source_kind"])
+        self.assertEqual("piece-stuck", snapshot["active_incident"]["piece_uuid"])
+        active = collector.activeIncident()
+        self.assertIsNotNone(active)
+        active["piece_uuid"] = "mutated"
+        self.assertEqual("piece-stuck", collector.activeIncident()["piece_uuid"])
+
+        collector.clearActiveIncident(
+            kind="exit_stuck",
+            piece_uuid="piece-stuck",
+        )
+
+        self.assertIsNone(collector.snapshot()["active_incident"])
+
 
 class RuntimeStatsRecognizerCountersTests(unittest.TestCase):
     def test_snapshot_exposes_recognizer_counters_under_counts(self) -> None:

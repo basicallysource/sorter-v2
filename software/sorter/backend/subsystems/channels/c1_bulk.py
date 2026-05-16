@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from subsystems.channels.base import BaseStation, FeederTickContext
-from subsystems.feeder.admission import estimate_piece_count_for_channel
 
 
 class C1Station(BaseStation):
@@ -38,24 +37,6 @@ class C1Station(BaseStation):
 
     def step(self, ctx: FeederTickContext) -> None:
         prof = self.gc.profiler
-
-        try:
-            ch2_track_count = len(self._vision.getFeederTracks("c_channel_2"))
-        except Exception:
-            ch2_track_count = 0
-        ch2_piece_count = estimate_piece_count_for_channel(
-            ctx.detections,
-            channel_id=2,
-            track_count=ch2_track_count,
-        )
-        ch2_saturated = ch2_piece_count >= self._max_ch2_pieces_for_feed
-        if not ctx.analysis.ch2_dropzone_occupied and ch2_saturated:
-            prof.hit("feeder.skip.ch2_saturated")
-            self.gc.runtime_stats.observeBlockedReason(
-                "feeder", "ch2_saturated_pause_ch1"
-            )
-            self.set_state(f"feeding.ch2_saturated_{ch2_piece_count}_pieces")
-            return
 
         if ctx.analysis.ch2_dropzone_occupied:
             prof.hit("feeder.skip.ch1_dropzone_occupied")

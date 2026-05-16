@@ -24,6 +24,12 @@ class RegionOverlay:
     def annotate(self, frame: np.ndarray) -> np.ndarray:
         return self._region_provider.annotateFrame(frame)
 
+    def metadata(self) -> dict[str, object]:
+        return {
+            "type": "regions",
+            "category": self.category,
+        }
+
 
 class ChannelRegionOverlay:
     """Draws channel-specific region annotations.
@@ -44,3 +50,10 @@ class ChannelRegionOverlay:
         if isinstance(self._region_provider, HanddrawnRegionProvider):
             return self._region_provider.annotateFrameForChannel(frame, self._poly_key)
         return frame
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "type": "channel_regions",
+            "category": self.category,
+            "poly_key": self._poly_key,
+        }

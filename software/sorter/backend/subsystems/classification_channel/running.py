@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import base64
 import time
-from typing import Optional
+from dataclasses import dataclass
+from typing import Any, Optional
 
 import cv2
 import numpy as np
@@ -48,6 +49,47 @@ RECOGNITION_RETRY_INTERVAL_S = 0.10
 INTAKE_FRESHNESS_GRACE_S = 0.35
 SAMPLE_MODE_TEACHER_CAPTURE_MIN_INTERVAL_S = 0.8
 SAMPLE_MODE_EMPTY_STATE_CAPTURE_INTERVAL_S = 5.0
+DEFAULT_EXIT_RELEASE_STEPPER_PER_OUTPUT_DEG = 130.0 / 12.0
+
+
+@dataclass(frozen=True)
+class _ExitReleaseStage:
+    name: str
+    amplitude_output_deg: float
+    cycles: int
+    speed: int
+    acceleration: int
+    settle_ms: int
+
+
+@dataclass(frozen=True)
+class _ExitReleaseStroke:
+    label: str
+    move_deg: float
+    speed: int | None
+    acceleration: int | None
+    settle_s: float
+
+
+@dataclass
+class _ExitReleaseReview:
+    piece_uuid: str
+    stage_index: int
+    stage_count: int
+    stage: _ExitReleaseStage
+    plan: list[_ExitReleaseStroke]
+    trigger: dict[str, float | bool]
+    triggered_at_wall: float
+    approved: bool = False
+
+
+DEFAULT_EXIT_RELEASE_STAGES: tuple[_ExitReleaseStage, ...] = (
+    _ExitReleaseStage("contact-break-micro", 0.25, 2, 700, 1800, 300),
+    _ExitReleaseStage("low-rock", 0.50, 2, 950, 2600, 300),
+    _ExitReleaseStage("medium-rock", 0.85, 3, 1250, 3600, 350),
+    _ExitReleaseStage("firm-rock", 1.25, 3, 1600, 4800, 400),
+    _ExitReleaseStage("last-resort-small-kick", 1.75, 2, 1900, 6000, 450),
+)
 
 
 class Running(BaseState):
@@ -77,7 +119,11 @@ class Running(BaseState):
         self._pulse_in_flight = False
         self._pending_drop_uuid: str | None = None
         self._exit_release_drop_uuid: str | None = None
-        self._exit_release_plan_deg: list[float] = []
+        self._exit_release_plan: list[_ExitReleaseStroke] = []
+        self._exit_release_next_move_not_before_mono = 0.0
+        self._exit_release_attempt_by_uuid: dict[str, int] = {}
+        self._exit_release_review: _ExitReleaseReview | None = None
+        self._exit_release_manual_test = False
         self._awaiting_intake_piece = False
         self._intake_requested_at_mono: float | None = None
         self._intake_requested_at_wall: float | None = None
@@ -123,14 +169,28 @@ class Running(BaseState):
             if not self.irl.carousel_stepper.stopped:
                 self._setOccupancyState("classification_channel.exit_release_shimmy")
                 return None
-            if self._advanceExitReleaseShimmy():
+            if now_mono < self._exit_release_next_move_not_before_mono:
+                self._setOccupancyState("classification_channel.exit_release_shimmy")
+                return None
+            if self._advanceExitReleaseShimmy(now_mono):
                 self._setOccupancyState("classification_channel.exit_release_shimmy")
                 return None
             drop_uuid = self._exit_release_drop_uuid
             self._exit_release_drop_uuid = None
+            if self._exit_release_manual_test:
+                self._exit_release_manual_test = False
+                review = self._exit_release_review
+                if review is not None:
+                    review.approved = False
+                    self._publishExitReleaseIncident(review, status="waiting_for_operator")
+                self._setOccupancyState("classification_channel.exit_incident_review")
+                return None
             if drop_uuid is not None:
                 if self._sendPulse(drop_uuid):
                     self._setOccupancyState("classification_channel.drop_commit")
+            return None
+
+        if self._holdForExitReleaseIncidentReview():
             return None
 
         track_extents = self._getTrackExtents()
@@ -166,8 +226,14 @@ class Running(BaseState):
                     "classification", "waiting_distribution_ready"
                 )
                 return None
-            if not sample_mode and self._startExitReleaseShimmyIfNeeded(drop_uuid):
-                self._setOccupancyState("classification_channel.exit_release_shimmy")
+            if not sample_mode and self._startExitReleaseShimmyIfNeeded(
+                drop_uuid,
+                review_allowed=False,
+            ):
+                if self._exit_release_review is not None and not self._exit_release_review.approved:
+                    self._setOccupancyState("classification_channel.exit_incident_review")
+                else:
+                    self._setOccupancyState("classification_channel.exit_release_shimmy")
                 return None
             if self._sendPulse(drop_uuid):
                 self._setOccupancyState("classification_channel.drop_commit")
@@ -184,7 +250,10 @@ class Running(BaseState):
                 )
                 return None
             if self._startExitReleaseShimmyIfNeeded(release_uuid):
-                self._setOccupancyState("classification_channel.exit_release_shimmy")
+                if self._exit_release_review is not None and not self._exit_release_review.approved:
+                    self._setOccupancyState("classification_channel.exit_incident_review")
+                else:
+                    self._setOccupancyState("classification_channel.exit_release_shimmy")
                 return None
 
         hood_piece = self.transport.getPieceAtClassification()
@@ -214,7 +283,11 @@ class Running(BaseState):
         self._pulse_in_flight = False
         self._pending_drop_uuid = None
         self._exit_release_drop_uuid = None
-        self._exit_release_plan_deg = []
+        self._exit_release_plan = []
+        self._exit_release_next_move_not_before_mono = 0.0
+        self._exit_release_attempt_by_uuid = {}
+        self._exit_release_manual_test = False
+        self._clearExitReleaseIncident()
         self._awaiting_intake_piece = False
         self._intake_requested_at_mono = None
         self._intake_requested_at_wall = None
@@ -1141,7 +1214,375 @@ class Running(BaseState):
         overlap = max(0.0, min(body_end, window_end) - max(body_start, window_start))
         return overlap / max(body_half * 2.0, 1e-6)
 
-    def _startExitReleaseShimmyIfNeeded(self, piece_uuid: str) -> bool:
+    def _exitReleaseStages(self) -> tuple[_ExitReleaseStage, ...]:
+        raw_stages = getattr(self._config, "exit_release_shimmy_stages", None)
+        stages: list[_ExitReleaseStage] = []
+        if isinstance(raw_stages, (list, tuple)):
+            for index, stage in enumerate(raw_stages):
+                name = str(getattr(stage, "name", f"stage-{index + 1}"))
+                amplitude = getattr(stage, "amplitude_output_deg", None)
+                cycles = getattr(stage, "cycles", None)
+                speed = getattr(stage, "microsteps_per_second", None)
+                acceleration = getattr(
+                    stage,
+                    "acceleration_microsteps_per_second_sq",
+                    None,
+                )
+                settle_ms = getattr(stage, "settle_ms", None)
+                if not isinstance(amplitude, (int, float)) or float(amplitude) <= 0.0:
+                    continue
+                if not isinstance(cycles, int) or cycles <= 0:
+                    continue
+                if not isinstance(speed, int) or speed <= 0:
+                    continue
+                if not isinstance(acceleration, int) or acceleration <= 0:
+                    continue
+                if not isinstance(settle_ms, int) or settle_ms < 0:
+                    continue
+                stages.append(
+                    _ExitReleaseStage(
+                        name=name,
+                        amplitude_output_deg=float(amplitude),
+                        cycles=int(cycles),
+                        speed=int(speed),
+                        acceleration=int(acceleration),
+                        settle_ms=int(settle_ms),
+                    )
+                )
+        return tuple(stages) or DEFAULT_EXIT_RELEASE_STAGES
+
+    def _buildExitReleasePlan(
+        self,
+        piece_uuid: str,
+    ) -> tuple[int, _ExitReleaseStage, list[_ExitReleaseStroke]]:
+        stages = self._exitReleaseStages()
+        attempt = max(0, int(self._exit_release_attempt_by_uuid.get(piece_uuid, 0)))
+        stage_index = min(attempt, len(stages) - 1)
+        stage = stages[stage_index]
+        stepper_per_output = getattr(
+            self._config,
+            "exit_release_shimmy_stepper_per_output_deg",
+            DEFAULT_EXIT_RELEASE_STEPPER_PER_OUTPUT_DEG,
+        )
+        if not isinstance(stepper_per_output, (int, float)) or float(stepper_per_output) <= 0.0:
+            stepper_per_output = DEFAULT_EXIT_RELEASE_STEPPER_PER_OUTPUT_DEG
+        amplitude_deg = float(stage.amplitude_output_deg) * float(stepper_per_output)
+        strokes: list[_ExitReleaseStroke] = []
+        for cycle in range(1, int(stage.cycles) + 1):
+            for suffix, move_deg in (
+                ("cw", amplitude_deg),
+                ("ccw-cross", -2.0 * amplitude_deg),
+                ("cw-return", amplitude_deg),
+            ):
+                strokes.append(
+                    _ExitReleaseStroke(
+                        label=f"{stage.name}.{cycle}.{suffix}",
+                        move_deg=float(move_deg),
+                        speed=int(stage.speed),
+                        acceleration=int(stage.acceleration),
+                        settle_s=max(0.0, float(stage.settle_ms) / 1000.0),
+                    )
+                )
+        return stage_index, stage, strokes
+
+    def _exitReleaseReviewEnabled(self) -> bool:
+        return bool(getattr(self._config, "exit_release_review_pause_enabled", False)) and not self._exitReleaseIncidentOff()
+
+    def _exitReleaseIncidentOff(self) -> bool:
+        try:
+            from toml_config import incidentHandlingOff
+
+            return bool(incidentHandlingOff("classification_exit_release"))
+        except Exception:
+            return False
+
+    def _exitReleaseIncidentAutomatic(self) -> bool:
+        try:
+            from toml_config import incidentHandlingAutomatic
+
+            return bool(incidentHandlingAutomatic("classification_exit_release"))
+        except Exception:
+            return False
+
+    def _exitReleaseIncidentPayload(
+        self,
+        review: _ExitReleaseReview,
+        *,
+        status: str,
+    ) -> dict[str, Any]:
+        stage = review.stage
+        first_stroke = review.plan[0] if review.plan else None
+        drop_angle = float(getattr(self._config, "drop_angle_deg", 0.0))
+        drop_tolerance = max(0.0, float(getattr(self._config, "drop_tolerance_deg", 0.0)))
+        return {
+            "kind": "exit_stuck",
+            "source_kind": "classification_exit_release",
+            "severity": "critical",
+            "status": status,
+            "awaiting_operator": status == "waiting_for_operator",
+            "scope": "classification",
+            "channel": "c4",
+            "role": "classification_channel",
+            "channel_label": "C4",
+            "piece_uuid": review.piece_uuid,
+            "piece_short_uuid": review.piece_uuid[:8],
+            "triggered_at": review.triggered_at_wall,
+            "exit_midpoint_deg": drop_angle % 360.0,
+            "exit_window_start_deg": (drop_angle - drop_tolerance) % 360.0,
+            "exit_window_end_deg": (drop_angle + drop_tolerance) % 360.0,
+            "center_offset_deg": float(review.trigger.get("center_offset_deg", 0.0)),
+            "overlap_ratio": float(review.trigger.get("overlap_ratio", 0.0)),
+            "center_crossed": bool(review.trigger.get("center_crossed", False)),
+            "stage_index": int(review.stage_index),
+            "stage_count": int(review.stage_count),
+            "stage_number": int(review.stage_index) + 1,
+            "stage_name": stage.name,
+            "amplitude_output_deg": float(stage.amplitude_output_deg),
+            "cycles": int(stage.cycles),
+            "microsteps_per_second": int(stage.speed),
+            "acceleration_microsteps_per_second_sq": int(stage.acceleration),
+            "settle_ms": int(stage.settle_ms),
+            "first_stroke_stepper_deg": float(first_stroke.move_deg) if first_stroke else None,
+            "plan_preview_stepper_deg": [
+                float(stroke.move_deg)
+                for stroke in review.plan[: min(6, len(review.plan))]
+            ],
+            "plan_stroke_count": len(review.plan),
+        }
+
+    def _publishExitReleaseIncident(
+        self,
+        review: _ExitReleaseReview,
+        *,
+        status: str,
+    ) -> None:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+            return
+        runtime_stats.setActiveIncident(
+            self._exitReleaseIncidentPayload(review, status=status)
+        )
+
+    def _beginExitReleaseIncidentReview(
+        self,
+        piece_uuid: str,
+        trigger: dict[str, float | bool],
+        stage_index: int,
+        stage: _ExitReleaseStage,
+        plan: list[_ExitReleaseStroke],
+    ) -> bool:
+        existing = self._exit_release_review
+        automatic = self._exitReleaseIncidentAutomatic()
+        if (
+            existing is not None
+            and existing.piece_uuid == piece_uuid
+            and existing.stage_index == stage_index
+        ):
+            existing.trigger = dict(trigger)
+            if automatic:
+                existing.approved = True
+            self._publishExitReleaseIncident(
+                existing,
+                status="approved" if existing.approved else "waiting_for_operator",
+            )
+        else:
+            review = _ExitReleaseReview(
+                piece_uuid=piece_uuid,
+                stage_index=stage_index,
+                stage_count=len(self._exitReleaseStages()),
+                stage=stage,
+                plan=list(plan),
+                trigger=dict(trigger),
+                triggered_at_wall=time.time(),
+                approved=automatic,
+            )
+            self._exit_release_review = review
+            self.logger.warning(
+                "ClassificationChannel: exit incident for %s; %s release "
+                "stage %d/%d %s (offset %.1f deg, overlap %.2f)"
+                % (
+                    piece_uuid[:8],
+                    "auto-approving" if automatic else "waiting before",
+                    stage_index + 1,
+                    review.stage_count,
+                    stage.name,
+                    float(trigger["center_offset_deg"]),
+                    float(trigger["overlap_ratio"]),
+                )
+            )
+            self._publishExitReleaseIncident(
+                review,
+                status="approved" if automatic else "waiting_for_operator",
+            )
+        self.shared.set_classification_gate(False, reason="exit_incident_review")
+        return True
+
+    def _holdForExitReleaseIncidentReview(self) -> bool:
+        review = self._exit_release_review
+        if review is None:
+            return False
+
+        self.shared.set_classification_gate(False, reason="exit_incident_review")
+        self.gc.runtime_stats.observeBlockedReason(
+            "classification",
+            "exit_incident_review",
+        )
+        if review.approved:
+            if self._startExitReleaseShimmyIfNeeded(review.piece_uuid):
+                if self._exit_release_review is None:
+                    self._setOccupancyState("classification_channel.exit_release_shimmy")
+                else:
+                    self._setOccupancyState("classification_channel.exit_incident_review")
+                return True
+
+            review.approved = False
+
+        self._publishExitReleaseIncident(review, status="waiting_for_operator")
+        self._setOccupancyState("classification_channel.exit_incident_review")
+        return True
+
+    def _clearExitReleaseIncident(self, piece_uuid: str | None = None) -> None:
+        review = self._exit_release_review
+        active_piece_uuid = piece_uuid or (review.piece_uuid if review is not None else None)
+        self._exit_release_review = None
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+            runtime_stats.clearActiveIncident(
+                kind="exit_stuck",
+                piece_uuid=active_piece_uuid,
+            )
+
+    def exitReleaseIncidentSnapshot(self) -> dict[str, Any] | None:
+        review = self._exit_release_review
+        if review is None:
+            return None
+        return self._exitReleaseIncidentPayload(
+            review,
+            status="approved" if review.approved else "waiting_for_operator",
+        )
+
+    def approveExitReleaseIncident(self, piece_uuid: str | None = None) -> dict[str, Any]:
+        review = self._exit_release_review
+        if review is None:
+            raise RuntimeError("No classification-channel exit incident is waiting.")
+        if piece_uuid is not None and piece_uuid != review.piece_uuid:
+            raise ValueError("The active exit incident belongs to a different piece.")
+        review.approved = True
+        self._publishExitReleaseIncident(review, status="approved")
+        return self._exitReleaseIncidentPayload(review, status="approved")
+
+    def testExitReleaseIncident(
+        self,
+        *,
+        piece_uuid: str | None = None,
+        amplitude_output_deg: float,
+        microsteps_per_second: int,
+        cycles: int = 1,
+        acceleration_microsteps_per_second_sq: int | None = None,
+    ) -> dict[str, Any]:
+        review = self._exit_release_review
+        if review is None:
+            raise RuntimeError("No classification-channel exit incident is waiting.")
+        if piece_uuid is not None and piece_uuid != review.piece_uuid:
+            raise ValueError("The active exit incident belongs to a different piece.")
+        if self._exit_release_drop_uuid is not None or self._exit_release_plan:
+            raise RuntimeError("An exit-release motion is already running.")
+        if not self.irl.carousel_stepper.stopped:
+            raise RuntimeError("The classification-channel stepper is still moving.")
+
+        amplitude_output = float(amplitude_output_deg)
+        if amplitude_output < 0.1 or amplitude_output > 12.0:
+            raise ValueError("amplitude_output_deg must be between 0.1 and 12.0.")
+        speed = int(microsteps_per_second)
+        if speed < 100 or speed > 16000:
+            raise ValueError("microsteps_per_second must be between 100 and 16000.")
+        cycle_count = int(cycles)
+        if cycle_count < 1 or cycle_count > 20:
+            raise ValueError("cycles must be between 1 and 20.")
+        if acceleration_microsteps_per_second_sq is None:
+            acceleration = max(1000, min(48000, int(round(speed * 3.0))))
+        else:
+            acceleration = int(acceleration_microsteps_per_second_sq)
+            if acceleration < 1000 or acceleration > 48000:
+                raise ValueError(
+                    "acceleration_microsteps_per_second_sq must be between 1000 and 48000."
+                )
+
+        stepper_per_output = getattr(
+            self._config,
+            "exit_release_shimmy_stepper_per_output_deg",
+            DEFAULT_EXIT_RELEASE_STEPPER_PER_OUTPUT_DEG,
+        )
+        if not isinstance(stepper_per_output, (int, float)) or float(stepper_per_output) <= 0.0:
+            stepper_per_output = DEFAULT_EXIT_RELEASE_STEPPER_PER_OUTPUT_DEG
+        amplitude_stepper = amplitude_output * float(stepper_per_output)
+        plan: list[_ExitReleaseStroke] = []
+        for cycle in range(1, cycle_count + 1):
+            is_last_cycle = cycle == cycle_count
+            plan.extend(
+                [
+                    _ExitReleaseStroke(
+                        f"manual-test.{cycle}.cw",
+                        amplitude_stepper,
+                        speed,
+                        acceleration,
+                        0.12,
+                    ),
+                    _ExitReleaseStroke(
+                        f"manual-test.{cycle}.ccw-cross",
+                        -2.0 * amplitude_stepper,
+                        speed,
+                        acceleration,
+                        0.12,
+                    ),
+                    _ExitReleaseStroke(
+                        f"manual-test.{cycle}.cw-return",
+                        amplitude_stepper,
+                        speed,
+                        acceleration,
+                        0.0 if is_last_cycle else 0.12,
+                    ),
+                ]
+            )
+        self._exit_release_plan = plan
+        self._exit_release_drop_uuid = review.piece_uuid
+        self._exit_release_manual_test = True
+        self._exit_release_next_move_not_before_mono = 0.0
+        self._publishExitReleaseIncident(review, status="manual_test_running")
+        self.logger.info(
+            "ClassificationChannel: manual exit-release test for %s output_amp %.2f deg "
+            "cycles %d speed %d usteps/s"
+            % (review.piece_uuid[:8], amplitude_output, cycle_count, speed)
+        )
+        return {
+            "piece_uuid": review.piece_uuid,
+            "amplitude_output_deg": amplitude_output,
+            "cycles": cycle_count,
+            "first_stroke_stepper_deg": amplitude_stepper,
+            "microsteps_per_second": speed,
+            "acceleration_microsteps_per_second_sq": acceleration,
+            "stroke_count": len(self._exit_release_plan),
+        }
+
+    def clearExitReleaseIncident(self, piece_uuid: str | None = None) -> dict[str, Any]:
+        review = self._exit_release_review
+        if review is None:
+            runtime_stats = getattr(self.gc, "runtime_stats", None)
+            if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+                runtime_stats.clearActiveIncident(kind="exit_stuck")
+            return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+        if piece_uuid is not None and piece_uuid != review.piece_uuid:
+            raise ValueError("The active exit incident belongs to a different piece.")
+        cleared_uuid = review.piece_uuid
+        self._clearExitReleaseIncident(cleared_uuid)
+        return {"ok": True, "cleared": True, "piece_uuid": cleared_uuid}
+
+    def _startExitReleaseShimmyIfNeeded(
+        self,
+        piece_uuid: str,
+        *,
+        review_allowed: bool = True,
+    ) -> bool:
         if self._sampleCollectionMode():
             return False
         piece = self._pieceForUUID(piece_uuid)
@@ -1150,23 +1591,41 @@ class Running(BaseState):
         trigger = self._exitReleaseTriggerMeta(piece)
         if trigger is None:
             return False
-        amplitude_deg = float(self._config.exit_release_shimmy_amplitude_deg)
-        cycles = int(self._config.exit_release_shimmy_cycles)
-        if amplitude_deg <= 0.0 or cycles <= 0:
-            return False
-        if self._exit_release_drop_uuid == piece_uuid or self._exit_release_plan_deg:
+        if self._exit_release_drop_uuid == piece_uuid or self._exit_release_plan:
             return True
+        stage_index, stage, plan = self._buildExitReleasePlan(piece_uuid)
+        if not plan:
+            return False
+        review = self._exit_release_review
+        if review_allowed and self._exitReleaseReviewEnabled():
+            if review is not None and review.piece_uuid == piece_uuid and review.approved:
+                stage_index = review.stage_index
+                stage = review.stage
+                plan = list(review.plan)
+                self._publishExitReleaseIncident(review, status="running")
+                self._exit_release_review = None
+            else:
+                return self._beginExitReleaseIncidentReview(
+                    piece_uuid,
+                    trigger,
+                    stage_index,
+                    stage,
+                    plan,
+                )
         self._exit_release_drop_uuid = piece_uuid
-        self._exit_release_plan_deg = []
-        for _ in range(cycles):
-            self._exit_release_plan_deg.extend(
-                [amplitude_deg, -amplitude_deg * 2.0, amplitude_deg]
-            )
+        self._exit_release_plan = plan
+        self._exit_release_next_move_not_before_mono = 0.0
+        self._exit_release_attempt_by_uuid[piece_uuid] = stage_index + 1
         self.logger.info(
-            "ClassificationChannel: exit-release shimmy for %s "
-            "(offset %.1f deg, overlap %.2f, center_crossed=%s)"
+            "ClassificationChannel: exit-release shimmy stage %d/%d %s for %s "
+            "(output_amp %.2f deg, cycles %d, offset %.1f deg, overlap %.2f, center_crossed=%s)"
             % (
+                stage_index + 1,
+                len(self._exitReleaseStages()),
+                stage.name,
                 piece_uuid[:8],
+                float(stage.amplitude_output_deg),
+                int(stage.cycles),
                 float(trigger["center_offset_deg"]),
                 float(trigger["overlap_ratio"]),
                 bool(trigger["center_crossed"]),
@@ -1174,15 +1633,14 @@ class Running(BaseState):
         )
         return self._advanceExitReleaseShimmy()
 
-    def _advanceExitReleaseShimmy(self) -> bool:
+    def _advanceExitReleaseShimmy(self, now_mono: float | None = None) -> bool:
         if self._sampleCollectionMode():
-            self._exit_release_plan_deg = []
+            self._exit_release_plan = []
             return False
-        if not self._exit_release_plan_deg:
+        if not self._exit_release_plan:
             return False
-        move_deg = float(self._exit_release_plan_deg.pop(0))
-        cfg = self._config
-        speed = getattr(cfg, "exit_release_shimmy_microsteps_per_second", None)
+        stroke = self._exit_release_plan.pop(0)
+        speed = stroke.speed
         if isinstance(speed, int) and speed > 0:
             try:
                 self.irl.carousel_stepper.set_speed_limits(16, int(speed))
@@ -1190,11 +1648,7 @@ class Running(BaseState):
                 self.logger.warning(
                     f"ClassificationChannel: could not apply exit-release speed: {exc}"
                 )
-        acceleration = getattr(
-            cfg,
-            "exit_release_shimmy_acceleration_microsteps_per_second_sq",
-            None,
-        )
+        acceleration = stroke.acceleration
         if isinstance(acceleration, int) and acceleration > 0 and hasattr(
             self.irl.carousel_stepper, "set_acceleration"
         ):
@@ -1204,16 +1658,22 @@ class Running(BaseState):
                 self.logger.warning(
                     f"ClassificationChannel: could not apply exit-release acceleration: {exc}"
                 )
-        if not self.irl.carousel_stepper.move_degrees(move_deg):
+        if not self.irl.carousel_stepper.move_degrees(stroke.move_deg):
             self.gc.runtime_stats.observeBlockedReason(
                 "classification", "classification_channel_exit_release_rejected"
             )
-            self._exit_release_plan_deg = []
+            self._exit_release_plan = []
             self._exit_release_drop_uuid = None
+            self._exit_release_manual_test = False
+            review = self._exit_release_review
+            if review is not None:
+                self._publishExitReleaseIncident(review, status="waiting_for_operator")
             return False
+        now = time.monotonic() if now_mono is None else now_mono
+        self._exit_release_next_move_not_before_mono = now + stroke.settle_s
         self.logger.info(
-            "ClassificationChannel: exit-release move %.2f deg"
-            % move_deg
+            "ClassificationChannel: exit-release move %s %.2f deg"
+            % (stroke.label, stroke.move_deg)
         )
         return True
 
@@ -1292,8 +1752,6 @@ class Running(BaseState):
             )
 
     def _scheduleSampleModeTeacherCapture(self, pulse_degrees: float) -> None:
-        if not self._sampleCollectionMode():
-            return
         if self.vision is None or not hasattr(
             self.vision, "scheduleClassificationChannelTeacherCaptureAfterMove"
         ):
@@ -1388,6 +1846,7 @@ class Running(BaseState):
         dropped_piece = result.piece_for_distribution_drop
         if dropped_piece is not None:
             self._recognition_retry_not_before_by_uuid.pop(dropped_piece.uuid, None)
+            self._exit_release_attempt_by_uuid.pop(dropped_piece.uuid, None)
             runtime_stats = getattr(self.gc, "runtime_stats", None)
             global_id = getattr(dropped_piece, "tracked_global_id", None)
             if runtime_stats is not None and hasattr(runtime_stats, "observeChannelExit"):

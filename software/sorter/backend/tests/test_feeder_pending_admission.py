@@ -90,6 +90,7 @@ def _make_feeding_stub() -> Feeding:
     feeding.vision = _Vision()
     feeding.shared = SimpleNamespace(sample_collection_mode=False)
     feeding._busy_until = {}
+    feeding._motion_until = {}
     feeding._classification_channel_pending_admission_until = 0.0
     feeding._sample_speed_limit_cache = {}
     return feeding

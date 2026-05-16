@@ -63,9 +63,7 @@
 		label: string;
 		hasCamera?: boolean;
 		onClose?: (() => void) | undefined;
-		onDetectionHighlightChange?:
-			| ((bboxes: [number, number, number, number][]) => void)
-			| undefined;
+		onDetectionHighlightChange?: ((bboxes: [number, number, number, number][]) => void) | undefined;
 	} = $props();
 
 	let loadedMachineKey = $state('');
@@ -104,7 +102,8 @@
 	}
 
 	function configPath(): string {
-		if (scope === 'feeder') return `/api/feeder/detection-config?role=${encodeURIComponent(camera)}`;
+		if (scope === 'feeder')
+			return `/api/feeder/detection-config?role=${encodeURIComponent(camera)}`;
 		if (scope === 'carousel') return '/api/carousel/detection-config';
 		return '/api/classification/detection-config';
 	}
@@ -210,7 +209,7 @@
 				? payload.available_openrouter_models.filter(
 						(value: any): value is OpenRouterModelOption =>
 							typeof value?.id === 'string' && typeof value?.label === 'string'
-				 )
+					)
 				: [];
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to load detection settings.';
@@ -219,14 +218,11 @@
 		}
 	}
 
-	function configBody(nextAlgorithm = algorithm, nextModel = openrouterModel, nextSampleCollection = sampleCollectionEnabled) {
+	function configBody(nextAlgorithm = algorithm, nextModel = openrouterModel) {
 		const body: Record<string, unknown> = {
 			algorithm: nextAlgorithm,
 			openrouter_model: nextModel
 		};
-		if (scope !== 'classification') {
-			body.sample_collection_enabled = nextSampleCollection;
-		}
 		return body;
 	}
 
@@ -244,7 +240,7 @@
 			const res = await fetch(`${currentBackendBaseUrl()}${configPath()}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(configBody(nextAlgorithm, nextModel, nextSampleCollection))
+				body: JSON.stringify(configBody(nextAlgorithm, nextModel))
 			});
 			if (!res.ok) throw new Error(await extractErrorMessage(res));
 			const payload = await res.json();
@@ -265,12 +261,11 @@
 			captureResult = null;
 			const backendMessage =
 				typeof payload?.message === 'string' && payload.message ? payload.message : null;
-			const sampleCollectionSupportNote =
-				backendMessage?.includes(
-					'Periodic sample collection is only available with split feeder cameras.'
-				)
-					? 'Periodic sample collection is only available with split feeder cameras.'
-					: null;
+			const sampleCollectionSupportNote = backendMessage?.includes(
+				'Periodic sample collection is only available with split feeder cameras.'
+			)
+				? 'Periodic sample collection is only available with split feeder cameras.'
+				: null;
 			statusMsg = preferFallbackMessage
 				? `${fallbackMessage}${sampleCollectionSupportNote ? ` ${sampleCollectionSupportNote}` : ''}`
 				: (backendMessage ?? fallbackMessage);
@@ -395,23 +390,17 @@
 	}
 
 	function showSampleCollectionToggle(): boolean {
-		return scope !== 'classification' && sampleCollectionSupported;
+		return false;
 	}
 
 	function sampleCollectionDescription(): string {
 		if (!sampleCollectionSupported) {
 			return 'Event-driven Gemini teacher sample collection is unavailable for the current camera setup.';
 		}
-		if (scope === 'feeder') {
-			return `After each completed ${label} move, capture the scoped image, run Gemini on it, and save the result as a sample.`;
+		if (!sampleCollectionEnabled) {
+			return 'Enable a Hive target under Settings > Hive to collect teacher samples from active C-channels.';
 		}
-		if (scope === 'carousel') {
-			if (algorithm === 'gemini_sam') {
-				return 'Store the toggle now, then switch back to Heatmap Diff when you want Gemini teacher captures on classical carousel triggers.';
-			}
-			return 'When the classic carousel trigger fires, capture the drop-point image, run Gemini on it, and save the result as a sample.';
-		}
-		return 'Save live Gemini teacher captures from this scope for later filtering and retesting.';
+		return 'Enabled Hive targets receive Gemini teacher samples from active C2, C3, and C4 flows.';
 	}
 
 	function canCaptureBaseline(): boolean {
@@ -443,17 +432,11 @@
 	});
 </script>
 
-<aside
-	class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
->
-	<div
-		class="border-b border-border bg-surface px-4 py-3"
-	>
+<aside class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]">
+	<div class="border-b border-border bg-surface px-4 py-3">
 		<div class="flex items-start justify-between gap-3">
 			<div class="flex items-start gap-3">
-				<div
-					class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
-				>
+				<div class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text">
 					<Bug size={16} />
 				</div>
 				<div class="min-w-0">
@@ -477,15 +460,15 @@
 
 	<div class="flex flex-1 flex-col gap-3 px-4 py-4">
 		{#if !hasCamera}
-			<div
-				class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted"
-			>
+			<div class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted">
 				Assign a camera to {label} before testing detection on the live feed.
 			</div>
 		{/if}
 
 		{#if errorMsg}
-			<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400">
+			<div
+				class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400"
+			>
 				{errorMsg}
 			</div>
 		{/if}
@@ -507,31 +490,31 @@
 				</label>
 
 				{#if !loadingConfig && algorithm && !selectedAlgorithmOption()}
-					<div class="border border-warning bg-warning/10 px-3 py-2 text-sm text-warning-dark dark:text-amber-200">
-						Currently using <span class="font-mono">{algorithm}</span> (legacy). Pick a Hive
-						or bundled model above to switch this station to the new pipeline.
+					<div
+						class="border border-warning bg-warning/10 px-3 py-2 text-sm text-warning-dark dark:text-amber-200"
+					>
+						Currently using <span class="font-mono">{algorithm}</span> (legacy). Pick a Hive or bundled
+						model above to switch this station to the new pipeline.
 					</div>
 				{/if}
 
 				{#if showSampleCollectionToggle()}
-					<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-xs text-text">
+					<label
+						class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-xs text-text"
+					>
 						<input
 							type="checkbox"
 							checked={sampleCollectionEnabled}
 							onchange={(event) => void saveSampleCollection(event.currentTarget.checked)}
-							disabled={
-								loadingConfig ||
+							disabled={loadingConfig ||
 								savingConfig ||
 								capturing ||
 								testing ||
-								!sampleCollectionSupported
-							}
+								!sampleCollectionSupported}
 							class="mt-0.5 h-4 w-4 accent-sky-500"
 						/>
 						<span class="min-w-0">
-							<span class="block text-sm font-medium text-text">
-								Collect Positive Samples
-							</span>
+							<span class="block text-sm font-medium text-text"> Collect Positive Samples </span>
 							<span class="mt-0.5 block text-xs text-text-muted">
 								{sampleCollectionDescription()}
 							</span>
@@ -593,7 +576,9 @@
 						</div>
 						<div class="border border-border bg-bg px-2.5 py-2">
 							<div class="text-text-muted">
-								{debugResult.score === undefined || debugResult.score === null ? 'Zone Pts' : 'Score'}
+								{debugResult.score === undefined || debugResult.score === null
+									? 'Zone Pts'
+									: 'Score'}
 							</div>
 							<div class="font-mono text-sm text-text">
 								{#if debugResult.score !== undefined && debugResult.score !== null}
@@ -629,14 +614,14 @@
 
 					{#if debugResult.candidate_bboxes && debugResult.candidate_bboxes.length > 0}
 						<div class="grid gap-2 border border-border bg-bg px-3 py-3">
-							<div class="text-xs uppercase tracking-[0.14em] text-text-muted">
-								Candidate Boxes
-							</div>
+							<div class="text-xs tracking-[0.14em] text-text-muted uppercase">Candidate Boxes</div>
 							<div class="grid grid-cols-2 gap-1.5 text-xs">
 								{#each debugResult.candidate_bboxes.slice(0, 6) as bbox, index}
 									<div class="grid gap-2 border border-border px-2.5 py-2">
 										{#if debugResult.candidate_previews?.[index]}
-											<div class="flex aspect-square items-center justify-center overflow-hidden border border-border bg-surface">
+											<div
+												class="flex aspect-square items-center justify-center overflow-hidden border border-border bg-surface"
+											>
 												<img
 													src={`data:image/jpeg;base64,${debugResult.candidate_previews[index]}`}
 													alt={`Candidate ${index + 1}`}
@@ -657,13 +642,11 @@
 
 				{#if captureResult}
 					<div class="grid grid-cols-1 gap-2 border border-border bg-bg px-3 py-3">
-						<div class="text-xs uppercase tracking-[0.14em] text-text-muted">
-							Baseline Capture
-						</div>
+						<div class="text-xs tracking-[0.14em] text-text-muted uppercase">Baseline Capture</div>
 						<div class="grid grid-cols-2 gap-2 text-xs">
 							{#each Object.entries(captureResult) as [name, cameraResult]}
 								<div class="border border-border px-2.5 py-2">
-									<div class="font-medium capitalize text-text">{name}</div>
+									<div class="font-medium text-text capitalize">{name}</div>
 									<div class="mt-1 text-text-muted">
 										{#if !cameraResult.available}
 											Not configured

@@ -8,6 +8,7 @@ from subsystems.channels.base import (
     EXIT_WIGGLE_REVERSE_DEG,
     EXIT_WIGGLE_FORWARD_DEG,
     EXIT_WIGGLE_COOLDOWN_MS,
+    publish_channel_exit_stuck_incident,
 )
 from subsystems.feeder.analysis import ChannelAction
 
@@ -80,19 +81,24 @@ class C3Station(BaseStation):
         self.set_state("feeding.idle_no_piece_in_ch3")
 
     def run_exit_wiggle(self, ctx: FeederTickContext) -> None:
-        """Jog the C3 rotor a little when a piece is stuck at the exit.
+        """Publish a C3 exit-stuck incident instead of silently jogging.
 
-        Fires only when: (a) the analyzer reports that some detection has
-        >=exit_wiggle_overlap_threshold of its bbox sections inside C3's
-        exit sections, (b) it has been in that state for at least
-        exit_wiggle_stall_ms, (c) the downstream gate is closed (ch3_held —
-        carousel not ready or classification channel full) so the normal
-        pulse would be skipped, and (d) we haven't wiggled within the
-        cooldown window.
+        Fires only when a bbox has been at least two-thirds inside C3's exit
+        zone for the configured stall duration while C3 is held by the
+        downstream classification channel.
         """
         prof = self.gc.profiler
         now = ctx.now_mono
         overlap = float(getattr(ctx.analysis, "ch3_exit_overlap_max", 0.0))
+
+        if ctx.sample_collection_mode:
+            self._exit_overlap_since_mono = None
+            return
+
+        downstream_blocked = bool(ctx.ch3_held)
+        if not downstream_blocked:
+            self._exit_overlap_since_mono = None
+            return
 
         if overlap >= self._exit_wiggle_overlap_threshold:
             if self._exit_overlap_since_mono is None:
@@ -103,30 +109,29 @@ class C3Station(BaseStation):
 
         if ctx.pulse_sent or ctx.ch3_stepper_busy:
             return
-        if not ctx.ch3_held:
-            return
-        if self._irl is None:
-            return
         stall_s = (now - self._exit_overlap_since_mono)
         if stall_s * 1000.0 < self._exit_wiggle_stall_ms:
             return
         if now < self._next_exit_wiggle_at:
             return
 
-        try:
-            rev_deg = self._exit_wiggle_reverse_deg * self._gear_ratio
-            fwd_deg = self._exit_wiggle_forward_deg * self._gear_ratio
-            self._irl.c_channel_3_rotor_stepper.move_degrees(-rev_deg)
-            self._irl.c_channel_3_rotor_stepper.move_degrees(fwd_deg)
-            prof.hit("feeder.ch3.exit_wiggle")
-            self.gc.runtime_stats.observeExitWiggleTriggered("c3")
-            self.gc.logger.info(
-                f"Feeder: ch3 exit-zone wiggle "
-                f"(rev={self._exit_wiggle_reverse_deg:.1f}° out / "
-                f"fwd={self._exit_wiggle_forward_deg:.1f}° out, stall={stall_s*1000.0:.0f} ms)"
+        published = publish_channel_exit_stuck_incident(
+            self.gc,
+            channel="c3",
+            role="c_channel_3",
+            channel_label="C-Channel 3",
+            overlap_ratio=overlap,
+            overlap_threshold=self._exit_wiggle_overlap_threshold,
+            stall_ms=int(round(stall_s * 1000.0)),
+            downstream_blocked=downstream_blocked,
+        )
+        if published:
+            prof.hit("feeder.ch3.exit_incident")
+            self.gc.runtime_stats.observeBlockedReason("feeder", "ch3_exit_stuck")
+            self.gc.logger.warning(
+                f"Feeder: C3 exit incident; bbox overlap={overlap:.2f}, "
+                f"stall={stall_s*1000.0:.0f} ms, downstream blocked"
             )
-        except Exception as exc:
-            self.gc.logger.warning(f"Feeder: ch3 exit wiggle failed: {exc}")
         self._next_exit_wiggle_at = now + self._exit_wiggle_cooldown_ms / 1000.0
 
 

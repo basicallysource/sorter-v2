@@ -91,6 +91,24 @@ class DetectorOverlay:
             cv2.putText(frame, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
         return frame
 
+    def metadata(self) -> list[dict[str, object]]:
+        from subsystems.feeder.analysis import getBboxSections
+
+        items: list[dict[str, object]] = []
+        for det in self._get_detections():
+            sections = getBboxSections(det.bbox, det.channel)
+            items.append({
+                "type": "detector_bbox",
+                "category": self.category,
+                "bbox": [int(round(value)) for value in det.bbox],
+                "center": list(_bbox_center(det.bbox)),
+                "channel_id": int(det.channel_id),
+                "sections": sorted(int(section) for section in sections),
+                "in_exit_zone": bool(sections & det.channel.exit_sections),
+                "in_drop_zone": bool(sections & det.channel.dropzone_sections),
+            })
+        return items
+
 
 class DynamicDetectionOverlay:
     """Draws GeminiSam bounding boxes (purple rectangles + index labels).
@@ -125,3 +143,18 @@ class DynamicDetectionOverlay:
                 cv2.LINE_AA,
             )
         return frame
+
+    def metadata(self) -> list[dict[str, object]]:
+        detection = self._get_detection()
+        if detection is None:
+            return []
+        return [
+            {
+                "type": "dynamic_detection_bbox",
+                "category": self.category,
+                "index": index,
+                "bbox": [int(value) for value in bbox],
+                "center": list(_bbox_center(bbox)),
+            }
+            for index, bbox in enumerate(detection.bboxes, start=1)
+        ]

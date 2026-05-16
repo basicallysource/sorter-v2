@@ -167,3 +167,25 @@ class TrackOverlay:
                 )
 
         return frame
+
+    def metadata(self) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        for track in self._get_tracks() or []:
+            bbox = getattr(track, "bbox", None)
+            if bbox is None:
+                continue
+            center = getattr(track, "center", None)
+            velocity = getattr(track, "velocity_px_per_s", (0.0, 0.0))
+            global_id = int(getattr(track, "global_id", 0))
+            items.append({
+                "type": "track_bbox",
+                "category": self.category,
+                "global_id": global_id,
+                "label": format_track_label(global_id),
+                "bbox": [int(round(value)) for value in bbox],
+                "center": [float(center[0]), float(center[1])] if center is not None else None,
+                "velocity_px_per_s": [float(velocity[0]), float(velocity[1])],
+                "coasting": bool(getattr(track, "coasting", False)),
+                "handoff_from": getattr(track, "handoff_from", None),
+            })
+        return items

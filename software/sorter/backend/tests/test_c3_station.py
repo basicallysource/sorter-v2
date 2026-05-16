@@ -21,6 +21,7 @@ class _Profiler:
 class _RuntimeStats:
     def __init__(self) -> None:
         self.exit_wiggle_c3 = 0
+        self.active_incident = None
 
     def observeStateTransition(self, *args, **kwargs) -> None:
         pass
@@ -31,6 +32,12 @@ class _RuntimeStats:
     def observeExitWiggleTriggered(self, channel: str, **_kwargs) -> None:
         if channel == "c3":
             self.exit_wiggle_c3 += 1
+
+    def setActiveIncident(self, incident: dict) -> None:
+        self.active_incident = dict(incident)
+
+    def activeIncident(self):
+        return dict(self.active_incident) if self.active_incident else None
 
 
 class _Stepper:
@@ -132,7 +139,7 @@ class C3StationTests(unittest.TestCase):
 
         self.assertEqual("feeding.pulse_ch3_precise", station.current_state)
 
-    def test_exit_wiggle_fires_when_stalled_and_ch3_held(self) -> None:
+    def test_exit_incident_published_when_stalled_and_ch3_held(self) -> None:
         stats = _RuntimeStats()
         stepper = _Stepper()
         station = _make_c3_station(stats, stepper)
@@ -143,19 +150,20 @@ class C3StationTests(unittest.TestCase):
             ch3_held=True,
         )
         station.run_exit_wiggle(ctx1)
-        self.assertEqual(0, stats.exit_wiggle_c3)
+        self.assertIsNone(stats.active_incident)
         self.assertEqual([], stepper.moves)
 
         ctx2 = _make_c3_wiggle_ctx(
-            now_mono=0.7,
+            now_mono=1.1,
             ch3_exit_overlap=0.8,
             ch3_held=True,
         )
         station.run_exit_wiggle(ctx2)
-        self.assertEqual(1, stats.exit_wiggle_c3)
-        self.assertEqual(2, len(stepper.moves))
-        self.assertLess(stepper.moves[0], 0.0)
-        self.assertGreater(stepper.moves[1], 0.0)
+        self.assertEqual("exit_stuck", stats.active_incident["kind"])
+        self.assertEqual("channel_exit_stuck", stats.active_incident["source_kind"])
+        self.assertEqual("c3", stats.active_incident["channel"])
+        self.assertGreaterEqual(stats.active_incident["overlap_ratio"], 2.0 / 3.0)
+        self.assertEqual([], stepper.moves)
 
     def test_exit_wiggle_skipped_before_stall_elapses(self) -> None:
         stats = _RuntimeStats()
@@ -168,7 +176,7 @@ class C3StationTests(unittest.TestCase):
         station.run_exit_wiggle(
             _make_c3_wiggle_ctx(now_mono=0.1, ch3_exit_overlap=0.8, ch3_held=True)
         )
-        self.assertEqual(0, stats.exit_wiggle_c3)
+        self.assertIsNone(stats.active_incident)
         self.assertEqual([], stepper.moves)
 
     def test_exit_wiggle_skipped_when_ch3_not_held(self) -> None:
@@ -182,7 +190,7 @@ class C3StationTests(unittest.TestCase):
         station.run_exit_wiggle(
             _make_c3_wiggle_ctx(now_mono=1.0, ch3_exit_overlap=0.8, ch3_held=False)
         )
-        self.assertEqual(0, stats.exit_wiggle_c3)
+        self.assertIsNone(stats.active_incident)
         self.assertEqual([], stepper.moves)
 
 

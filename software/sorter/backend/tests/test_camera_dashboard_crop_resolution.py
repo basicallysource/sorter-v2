@@ -85,7 +85,7 @@ def test_dashboard_crop_uses_c4_classification_channel_resolution_metadata() -> 
     )
 
 
-def test_dashboard_masked_crop_hides_pixels_outside_polygon() -> None:
+def test_dashboard_masked_crop_paints_pixels_outside_polygon_light_gray() -> None:
     frame = np.full((8, 8, 3), 100, dtype=np.uint8)
     spec = {
         "kind": "bbox_masked",
@@ -98,7 +98,7 @@ def test_dashboard_masked_crop_hides_pixels_outside_polygon() -> None:
 
     assert cropped.shape == (4, 4, 3)
     assert cropped[0, 0].tolist() == [100, 100, 100]
-    assert cropped[3, 3].tolist() == [0, 0, 0]
+    assert cropped[3, 3].tolist() == [230, 230, 230]
 
 
 def test_dashboard_classification_crop_uses_per_camera_quad_resolution() -> None:

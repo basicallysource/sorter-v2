@@ -790,10 +790,16 @@ class CaptureThread:
                 ret, frame = cap.read()
             if ret:
                 read_failures = 0
+                picture_settings = self.getPictureSettings()
+                uncorrected_frame = apply_picture_settings(frame, picture_settings)
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
-                frame = apply_picture_settings(frame, self.getPictureSettings())
+                frame = apply_picture_settings(frame, picture_settings)
                 camera_frame = CameraFrame(
-                    raw=frame, annotated=None, results=[], timestamp=time.time()
+                    raw=frame,
+                    annotated=None,
+                    results=[],
+                    timestamp=time.time(),
+                    uncorrected_raw=uncorrected_frame,
                 )
                 self.latest_frame = camera_frame
                 # deque.append is atomic under the GIL — no lock needed.

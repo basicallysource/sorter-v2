@@ -362,12 +362,142 @@ def get_dashboard_config() -> Dict[str, Any]:
     return {"ok": True, **getDashboardConfig()}
 
 
+def _active_runtime_incident() -> dict[str, Any] | None:
+    runtime_stats = (
+        getattr(shared_state.gc_ref, "runtime_stats", None)
+        if shared_state.gc_ref is not None
+        else None
+    )
+    if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+        return None
+    try:
+        active = runtime_stats.activeIncident()
+    except Exception:
+        return None
+    return active if isinstance(active, dict) else None
+
+
+def _feeding_runtime_state() -> Any | None:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    feeder = getattr(coordinator, "feeder", None)
+    states_map = getattr(feeder, "states_map", None)
+    if isinstance(states_map, dict):
+        for state in states_map.values():
+            if hasattr(state, "acknowledgeDropzoneStuckIncident"):
+                return state
+    return None
+
+
+def _classification_exit_runtime_state() -> Any | None:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
+    states_map = getattr(classification, "states_map", None)
+    if isinstance(states_map, dict):
+        for state in states_map.values():
+            if hasattr(state, "approveExitReleaseIncident"):
+                return state
+    return None
+
+
+def _apply_dashboard_incident_policy(config: dict[str, Any]) -> dict[str, Any] | None:
+    handling = config.get("incident_handling")
+    if not isinstance(handling, dict):
+        return None
+    active = _active_runtime_incident()
+    if not isinstance(active, dict):
+        return None
+
+    kind = str(active.get("kind") or "")
+    try:
+        from toml_config import incidentHandlingMode
+
+        mode = incidentHandlingMode(kind)
+    except Exception:
+        mode = handling.get(kind)
+    if mode == "off":
+        runtime_stats = (
+            getattr(shared_state.gc_ref, "runtime_stats", None)
+            if shared_state.gc_ref is not None
+            else None
+        )
+        if kind == "channel_dropzone_stuck":
+            feeding = _feeding_runtime_state()
+            try:
+                if feeding is not None:
+                    return feeding.clearDropzoneStuckIncident(
+                        str(active.get("channel") or ""),
+                        int(active.get("global_id", active.get("track_id"))),
+                    )
+            except Exception:
+                pass
+        source_kind = str(active.get("source_kind") or "")
+        classification_exit = kind == "classification_exit_release" or (
+            kind == "exit_stuck"
+            and (source_kind == "classification_exit_release" or active.get("piece_uuid") is not None)
+        )
+        channel_exit = kind == "channel_exit_stuck" or (
+            kind == "exit_stuck"
+            and (source_kind == "channel_exit_stuck" or active.get("channel") in {"c2", "c3"})
+        )
+        if classification_exit:
+            running = _classification_exit_runtime_state()
+            try:
+                if running is not None:
+                    return running.clearExitReleaseIncident(active.get("piece_uuid"))
+            except Exception:
+                pass
+        if channel_exit:
+            if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+                runtime_stats.clearActiveIncident(kind=kind)
+                return {"ok": True, "cleared": True, "kind": kind}
+        if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+            runtime_stats.clearActiveIncident(kind=kind)
+            return {"ok": True, "cleared": True, "kind": kind}
+        return None
+    if mode != "automatic":
+        return None
+
+    if kind == "channel_dropzone_stuck":
+        feeding = _feeding_runtime_state()
+        if feeding is None:
+            return None
+        try:
+            return feeding.acknowledgeDropzoneStuckIncident(
+                str(active.get("channel") or ""),
+                int(active.get("global_id", active.get("track_id"))),
+            )
+        except Exception:
+            return None
+
+    source_kind = str(active.get("source_kind") or "")
+    if kind == "classification_exit_release" or (
+        kind == "exit_stuck"
+        and (source_kind == "classification_exit_release" or active.get("piece_uuid") is not None)
+    ):
+        running = _classification_exit_runtime_state()
+        if running is None:
+            return None
+        try:
+            incident = running.approveExitReleaseIncident(active.get("piece_uuid"))
+            return {"ok": True, "approved": True, "incident": incident}
+        except Exception:
+            return None
+
+    return None
+
+
 @router.post("/api/system/dashboard-config")
 def set_dashboard_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     from toml_config import setDashboardConfig
 
     merged = setDashboardConfig(payload or {})
-    return {"ok": True, **merged}
+    applied = _apply_dashboard_incident_policy(merged)
+    response = {"ok": True, **merged}
+    if applied is not None:
+        response["active_incident_policy_applied"] = applied
+    return response
 
 
 @router.get("/api/system/sample-collection-mode")

@@ -5,6 +5,7 @@ from defs.known_object import ClassificationStatus
 from irl.config import ClassificationChannelConfig
 from subsystems.feeder.feeding import (
     _classification_channel_admission_blocked,
+    _classification_channel_structural_admission_blocked,
     _estimate_piece_count_for_channel,
 )
 from subsystems.classification_channel.zone_manager import ZoneManager
@@ -101,6 +102,62 @@ class FeederPieceCountTests(unittest.TestCase):
         )
 
         self.assertFalse(blocked)
+
+    def test_dynamic_classification_gate_is_source_of_truth_for_feeder_block(self) -> None:
+        config = ClassificationChannelConfig()
+        config.max_zones = 2
+        config.use_dynamic_zones = True
+        zone_manager = ZoneManager(config)
+        zone_manager.register_provisional_piece(
+            piece_uuid="piece-1",
+            track_global_id=3,
+            classification_status=ClassificationStatus.pending,
+            now_mono=0.0,
+        )
+        zone_manager.register_provisional_piece(
+            piece_uuid="piece-2",
+            track_global_id=4,
+            classification_status=ClassificationStatus.pending,
+            now_mono=0.0,
+        )
+
+        blocked = _classification_channel_structural_admission_blocked(
+            [],
+            track_count=2,
+            transport_piece_count=2,
+            zone_manager=zone_manager,
+            config=config,
+        )
+
+        self.assertFalse(blocked)
+
+    def test_legacy_classification_admission_still_blocks_when_full(self) -> None:
+        config = ClassificationChannelConfig()
+        config.max_zones = 2
+        config.use_dynamic_zones = False
+        zone_manager = ZoneManager(config)
+        zone_manager.register_provisional_piece(
+            piece_uuid="piece-1",
+            track_global_id=3,
+            classification_status=ClassificationStatus.pending,
+            now_mono=0.0,
+        )
+        zone_manager.register_provisional_piece(
+            piece_uuid="piece-2",
+            track_global_id=4,
+            classification_status=ClassificationStatus.pending,
+            now_mono=0.0,
+        )
+
+        blocked = _classification_channel_structural_admission_blocked(
+            [],
+            track_count=2,
+            transport_piece_count=2,
+            zone_manager=zone_manager,
+            config=config,
+        )
+
+        self.assertTrue(blocked)
 
 
 if __name__ == "__main__":

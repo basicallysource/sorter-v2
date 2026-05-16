@@ -67,7 +67,14 @@
 	type WizardStepConfirmation = Partial<Record<WizardStepId, boolean>>;
 
 	const machine = getMachineContext();
-	const STEP_ORDER = ['c_channel_1', 'c_channel_2', 'c_channel_3', 'c_channel_4', 'carousel', 'chute'];
+	const STEP_ORDER = [
+		'c_channel_1',
+		'c_channel_2',
+		'c_channel_3',
+		'c_channel_4',
+		'carousel',
+		'chute'
+	];
 	const ROLE_LABELS: Record<string, string> = {
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
@@ -77,11 +84,14 @@
 		classification_bottom: 'Classification Bottom'
 	};
 	const ROLE_DESCRIPTIONS: Record<string, string> = {
-		c_channel_2: 'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
-		c_channel_3: 'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
+		c_channel_2:
+			'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
+		c_channel_3:
+			'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
 		classification_channel:
 			'Classification C-channel platter. Use the dedicated C4 view when this machine runs the classification-channel setup.',
-		carousel: 'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
+		carousel:
+			'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
 		classification_top: 'Required top-down classification view.',
 		classification_bottom: 'Optional crop for underside or second-pass classification.'
 	};
@@ -123,7 +133,8 @@
 			id: 'homing',
 			title: 'Endstops and Homing',
 			kicker: 'Step 5',
-			description: 'Verify the carousel and chute endstops, then run the guided home procedures safely.',
+			description:
+				'Verify the carousel and chute endstops, then run the guided home procedures safely.',
 			requiresManualConfirm: true
 		},
 		{
@@ -502,8 +513,7 @@
 			return null;
 		},
 		discovery: () => {
-			if (!wizard?.readiness.boards_detected)
-				return 'Waiting for controller boards to be detected';
+			if (!wizard?.readiness.boards_detected) return 'Waiting for controller boards to be detected';
 			return null;
 		},
 		motion: () => {
@@ -686,7 +696,9 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/list`);
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
-			usbCameras = Array.isArray(payload?.usb) ? payload.usb : [];
+			usbCameras = Array.isArray(payload?.usb)
+				? payload.usb.filter((camera: UsbCamera) => camera.index >= 0)
+				: [];
 			networkCameras = Array.isArray(payload?.network) ? payload.network : [];
 		} catch (e: any) {
 			cameraError = e.message ?? 'Failed to load camera inventory';
@@ -924,8 +936,8 @@
 			<section class="setup-card-shell border border-border bg-surface p-6">
 				<h1 class="text-2xl font-semibold text-text">Setup Wizard</h1>
 				<p class="mt-2 max-w-2xl text-sm text-text-muted">
-					Select or connect a machine first. After that, this wizard will walk through the setup
-					one step at a time instead of dropping the whole config surface on one page.
+					Select or connect a machine first. After that, this wizard will walk through the setup one
+					step at a time instead of dropping the whole config surface on one page.
 				</p>
 			</section>
 		{:else}
@@ -976,14 +988,12 @@
 					{:else if currentStepLocked()}
 						<div class="setup-panel px-4 py-4 text-sm text-text-muted">
 							This step keeps its own URL at
-							<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but it stays
-							locked until the previous steps are complete.
+							<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but it stays locked
+							until the previous steps are complete.
 						</div>
 					{:else if activeStepId === 'identity'}
 						<IdentityStep
-							machineId={wizard?.machine.machine_id ??
-								machine.machine.identity?.machine_id ??
-								''}
+							machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
@@ -1069,9 +1079,7 @@
 					<SetupNavFooter
 						blockerReason={stepBlockerReason()}
 						showBack={currentStepNumber() > 1}
-						showFinish={isAdvanced &&
-							currentStep().requiresManualConfirm &&
-							!currentStepLocked()}
+						showFinish={isAdvanced && currentStep().requiresManualConfirm && !currentStepLocked()}
 						showContinue={!isAdvanced}
 						{continueDisabled}
 						{continueLabel}

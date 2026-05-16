@@ -273,6 +273,16 @@ class ClassificationChannelSizeClassConfig:
     hard_guard_deg: float
 
 
+@dataclass(frozen=True)
+class ClassificationChannelExitReleaseStage:
+    name: str
+    amplitude_output_deg: float
+    cycles: int
+    microsteps_per_second: int
+    acceleration_microsteps_per_second_sq: int
+    settle_ms: int
+
+
 class ClassificationChannelConfig:
     use_dynamic_zones: bool
     max_zones: int
@@ -289,6 +299,9 @@ class ClassificationChannelConfig:
     exit_release_shimmy_cycles: int
     exit_release_shimmy_microsteps_per_second: int | None
     exit_release_shimmy_acceleration_microsteps_per_second_sq: int | None
+    exit_release_shimmy_stepper_per_output_deg: float
+    exit_release_shimmy_stages: tuple[ClassificationChannelExitReleaseStage, ...]
+    exit_release_review_pause_enabled: bool
     stale_zone_timeout_s: float
     hood_dwell_ms: int
     min_carousel_crops_for_recognize: int
@@ -332,14 +345,60 @@ class ClassificationChannelConfig:
         self.recognition_window_deg = 170.0
         self.positioning_window_deg = 48.0
         self.exit_release_overlap_ratio = 0.5
-        # T18 reverted: 5°×5 at 5200 µsteps/s collapsed fire rate
-        # (~2 fires/min vs T17's 4.7) — the long shimmy locked the
-        # step() loop and pieces in the chamber never reached
-        # _fireRecognition. Back to the T17 baseline.
+        # Stuck wheel release uses the old gated C4 release probe pattern:
+        # per attempt, rock +A / -2A / +A so the net position returns to
+        # zero, with slow speeds and settle pauses. Repeated release attempts
+        # on the same piece walk this ladder from calm to firmer motion.
+        # Amplitudes are output/platter degrees and are converted to stepper
+        # degrees at runtime via the measured C4 gear ratio.
         self.exit_release_shimmy_amplitude_deg = 3.0
         self.exit_release_shimmy_cycles = 3
         self.exit_release_shimmy_microsteps_per_second = 4200
         self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
+        self.exit_release_shimmy_stepper_per_output_deg = 130.0 / 12.0
+        self.exit_release_shimmy_stages = (
+            ClassificationChannelExitReleaseStage(
+                "contact-break-micro",
+                amplitude_output_deg=0.25,
+                cycles=2,
+                microsteps_per_second=700,
+                acceleration_microsteps_per_second_sq=1800,
+                settle_ms=300,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "low-rock",
+                amplitude_output_deg=0.50,
+                cycles=2,
+                microsteps_per_second=950,
+                acceleration_microsteps_per_second_sq=2600,
+                settle_ms=300,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "medium-rock",
+                amplitude_output_deg=0.85,
+                cycles=3,
+                microsteps_per_second=1250,
+                acceleration_microsteps_per_second_sq=3600,
+                settle_ms=350,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "firm-rock",
+                amplitude_output_deg=1.25,
+                cycles=3,
+                microsteps_per_second=1600,
+                acceleration_microsteps_per_second_sq=4800,
+                settle_ms=400,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "last-resort-small-kick",
+                amplitude_output_deg=1.75,
+                cycles=2,
+                microsteps_per_second=1900,
+                acceleration_microsteps_per_second_sq=6000,
+                settle_ms=450,
+            ),
+        )
+        self.exit_release_review_pause_enabled = True
         self.stale_zone_timeout_s = 3.0
         # Dropped to 0 in T4: with the pipeline running at ~11 pieces/min
         # (post-supervisor-restart, no backpressure deadlock) individual

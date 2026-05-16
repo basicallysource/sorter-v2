@@ -728,11 +728,17 @@ class VisionManager:
             for channel_role in self._feederTrackerRoles()
         )
 
+    def _hiveSampleCollectionEnabled(self) -> bool:
+        try:
+            from server.classification_training import getClassificationTrainingManager
+
+            return bool(getClassificationTrainingManager().hasEnabledHiveTargets())
+        except Exception:
+            return False
+
     def isFeederSampleCollectionEnabled(self, role: str | None = None) -> bool:
         if role in self._feederTrackerRoles():
-            return self.supportsFeederSampleCollection(role) and bool(
-                self._feeder_sample_collection_enabled_by_role.get(role)
-            )
+            return self.supportsFeederSampleCollection(role) and self._hiveSampleCollectionEnabled()
         if not self.supportsFeederSampleCollection():
             return False
         return any(
@@ -750,7 +756,7 @@ class VisionManager:
         return self._carousel_capture is not None
 
     def isCarouselSampleCollectionEnabled(self) -> bool:
-        return self.supportsCarouselSampleCollection() and self._carousel_sample_collection_enabled
+        return self.supportsCarouselSampleCollection() and self._hiveSampleCollectionEnabled()
 
     def usesCarouselBaseline(self) -> bool:
         return self.usesDetectionBaseline("carousel")
@@ -809,23 +815,10 @@ class VisionManager:
         feeder_roles = self._feederTrackerRoles()
         if role is not None and role not in feeder_roles:
             raise ValueError(f"Unsupported feeder role '{role}'")
-        if role in feeder_roles:
-            self._feeder_sample_collection_enabled_by_role[role] = (
-                bool(enabled) if self.supportsFeederSampleCollection(role) else False
-            )
-            self._feeder_sample_collection_enabled = any(
-                self._feeder_sample_collection_enabled_by_role.values()
-            )
-            return self._feeder_sample_collection_enabled_by_role[role]
-        resolved_enabled = bool(enabled) if self.supportsFeederSampleCollection() else False
-        for channel_role in feeder_roles:
-            self._feeder_sample_collection_enabled_by_role[channel_role] = (
-                resolved_enabled if self.supportsFeederSampleCollection(channel_role) else False
-            )
-        self._feeder_sample_collection_enabled = any(
-            self._feeder_sample_collection_enabled_by_role.values()
-        )
-        return self._feeder_sample_collection_enabled
+        # Live sample collection is controlled by enabled Hive targets. Keep
+        # this method for old API clients, but do not let station settings
+        # become a second source of truth.
+        return self.isFeederSampleCollectionEnabled(role)
 
     def setCarouselDetectionAlgorithm(self, algorithm: CarouselDetectionAlgorithm) -> None:
         if not scope_supports_detection_algorithm("carousel", algorithm):
@@ -844,20 +837,35 @@ class VisionManager:
         return normalized
 
     def setCarouselSampleCollectionEnabled(self, enabled: bool) -> bool:
-        self._carousel_sample_collection_enabled = (
-            bool(enabled) if self.supportsCarouselSampleCollection() else False
-        )
-        return self._carousel_sample_collection_enabled
+        # Live sample collection is controlled by enabled Hive targets. Keep
+        # this method for old API clients, but do not let station settings
+        # become a second source of truth.
+        return self.isCarouselSampleCollectionEnabled()
 
     def _loadCarouselPolygon(
         self,
         polygon_data: Dict[str, Any],
         *,
         source_resolution: tuple[int, int],
+        saved: dict[str, Any] | None = None,
     ) -> bool:
         self._carousel_polygon = None
         polygon_key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
         carousel_pts = polygon_data.get(polygon_key)
+        if self._usesClassificationChannelSetup():
+            try:
+                from subsystems.feeder.analysis import channelArcCropPolygon, parseSavedChannelArcZones
+
+                saved_data = saved if isinstance(saved, dict) else {}
+                arc = parseSavedChannelArcZones(
+                    "classification_channel",
+                    saved_data.get("channel_angles", {}),
+                    saved_data.get("arc_params", {}),
+                )
+                if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+                    carousel_pts = channelArcCropPolygon(arc).tolist()
+            except Exception:
+                pass
         if not carousel_pts or len(carousel_pts) < 3:
             return False
 
@@ -889,7 +897,7 @@ class VisionManager:
             polygon_data = saved.get("polygons", {})
             polygon_key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
             src_w, src_h = self._channelSavedResolution(saved, polygon_key)
-            self._loadCarouselPolygon(polygon_data, source_resolution=(src_w, src_h))
+            self._loadCarouselPolygon(polygon_data, source_resolution=(src_w, src_h), saved=saved)
             # Configure handoff zones right away so the tracker works even
             # before the user runs System Home.
             self._configureHandoffZonesFromSaved(polygon_data, saved)
@@ -1018,7 +1026,12 @@ class VisionManager:
 
     def initFeederDetection(self, *, manual_feed_mode: bool = False) -> bool:
         from blob_manager import getChannelPolygons
-        from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
+        from subsystems.feeder.analysis import (
+            channelArcCropPolygon,
+            channelArcInnerPolygon,
+            parseSavedChannelArcZones,
+            zoneSectionsForChannel,
+        )
 
         self._stopFeederDetection()
         self._channel_polygons = {}
@@ -1045,21 +1058,8 @@ class VisionManager:
                 continue
             arc = parseSavedChannelArcZones(channel_key, saved.get("channel_angles", {}), raw_arc_params)
             if arc is not None and arc.outer_radius > arc.inner_radius > 0:
-                segment_count = 96
-                outer_pts = np.array([
-                    [
-                        int(round(arc.center[0] + arc.outer_radius * np.cos((2 * np.pi * i) / segment_count))),
-                        int(round(arc.center[1] + arc.outer_radius * np.sin((2 * np.pi * i) / segment_count))),
-                    ]
-                    for i in range(segment_count)
-                ], dtype=np.int32)
-                inner_pts = np.array([
-                    [
-                        int(round(arc.center[0] + arc.inner_radius * np.cos((2 * np.pi * i) / segment_count))),
-                        int(round(arc.center[1] + arc.inner_radius * np.sin((2 * np.pi * i) / segment_count))),
-                    ]
-                    for i in range(segment_count)
-                ], dtype=np.int32)
+                outer_pts = channelArcCropPolygon(arc)
+                inner_pts = channelArcInnerPolygon(arc)
                 polys[key] = outer_pts
                 inner_polys[key] = inner_pts
             elif pts:
@@ -1070,6 +1070,7 @@ class VisionManager:
         carousel_ready = self._loadCarouselPolygon(
             polygon_data,
             source_resolution=(src_w, src_h),
+            saved=saved,
         )
 
         if manual_feed_mode:
@@ -1234,6 +1235,17 @@ class VisionManager:
                     scaled_arc["inner_radius"] = scaled_arc["inner_radius"] * r_scale
                 if "outer_radius" in scaled_arc:
                     scaled_arc["outer_radius"] = scaled_arc["outer_radius"] * r_scale
+                if "exit_outer_radius" in scaled_arc:
+                    exit_outer_radius = scaled_arc["exit_outer_radius"]
+                    if isinstance(exit_outer_radius, (int, float)):
+                        scaled_arc["exit_outer_radius"] = exit_outer_radius * r_scale
+                exit_zone = scaled_arc.get("exit_zone")
+                if isinstance(exit_zone, dict) and "outer_radius" in exit_zone:
+                    scaled_exit_zone = dict(exit_zone)
+                    exit_outer_radius = scaled_exit_zone.get("outer_radius")
+                    if isinstance(exit_outer_radius, (int, float)):
+                        scaled_exit_zone["outer_radius"] = exit_outer_radius * r_scale
+                    scaled_arc["exit_zone"] = scaled_exit_zone
                 scaled_arc_params = dict(raw_arc_params)
                 scaled_arc_params[channel_key] = scaled_arc
 
@@ -1747,16 +1759,17 @@ class VisionManager:
         # Clamp to frame bounds. Arc-derived channel polygons (e.g. third_channel)
         # can extend above y=0; numpy slicing with negative start would wrap
         # from the end of the array and collapse the crop to 1-2 rows.
-        x = max(0, x)
-        y = max(0, y)
+        x1 = max(0, x)
+        y1 = max(0, y)
         x2 = min(w, x + bw)
         y2 = min(h, y + bh)
-        if x2 <= x or y2 <= y:
+        if x2 <= x1 or y2 <= y1:
             return None
         mask = np.zeros((h, w), dtype=np.uint8)
         cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
-        masked = np.where(mask[:, :, np.newaxis] == 255, frame, 255)
-        return masked[y:y2, x:x2].copy(), (int(x), int(y))
+        background = np.full_like(frame, 230)
+        masked = np.where(mask[:, :, np.newaxis] == 255, frame, background)
+        return masked[y1:y2, x1:x2].copy(), (int(x1), int(y1))
 
     def _channelInfoForRole(self, role: str) -> PolygonChannel | None:
         detector = getattr(self, "_per_channel_detectors", {}).get(role)
@@ -2145,7 +2158,8 @@ class VisionManager:
         if scope == "carousel":
             if self._carousel_polygon is not None and len(self._carousel_polygon) >= 3:
                 return np.asarray(self._carousel_polygon, dtype=np.int32)
-            return self._loadSavedPolygon("carousel", w, h)
+            key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
+            return self._loadSavedPolygon(key, w, h)
 
         return None
 
@@ -2165,6 +2179,20 @@ class VisionManager:
             return None
         polygon_data = saved.get("polygons") or {}
         pts = polygon_data.get(key)
+        angle_key = self._channelAngleKeyForPolygonKey(key)
+        if angle_key is not None:
+            try:
+                from subsystems.feeder.analysis import channelArcCropPolygon, parseSavedChannelArcZones
+
+                arc = parseSavedChannelArcZones(
+                    angle_key,
+                    saved.get("channel_angles", {}),
+                    saved.get("arc_params", {}),
+                )
+                if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+                    pts = channelArcCropPolygon(arc).tolist()
+            except Exception:
+                pass
         if not isinstance(pts, list) or len(pts) < 3:
             return None
         src_w, src_h = self._channelSavedResolution(saved, key)
@@ -2564,6 +2592,12 @@ class VisionManager:
                     bbox=cast(Tuple[int, int, int, int], tuple(int(value) for value in bbox[:4])),
                     channel_id=channel.channel_id,
                     channel=channel,
+                    global_id=(
+                        int(track.global_id)
+                        if isinstance(getattr(track, "global_id", None), int)
+                        else None
+                    ),
+                    source_role=role,
                 )
             )
         return detections
@@ -3292,7 +3326,7 @@ class VisionManager:
         frame_snapshot: np.ndarray | None = None,
     ) -> bool:
         if not self._sampleCollectionEnabledForRole(role):
-            self.gc.logger.info(
+            self.gc.logger.debug(
                 "Auxiliary teacher capture skipped for %s: sample collection disabled",
                 role,
             )

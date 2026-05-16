@@ -189,30 +189,140 @@ def setMachineNickname(nickname: str | None) -> None:
 # ---------------------------------------------------------------------------
 
 
+_INCIDENT_MODE_OFF = "off"
+_INCIDENT_MODE_MANUAL = "manual"
+_INCIDENT_MODE_AUTOMATIC = "automatic"
+_INCIDENT_EXIT_STUCK = "exit_stuck"
+_INCIDENT_KIND_ALIASES: dict[str, str] = {
+    "classification_exit_release": _INCIDENT_EXIT_STUCK,
+    "channel_exit_stuck": _INCIDENT_EXIT_STUCK,
+}
+_INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
+    _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_MANUAL,
+    "channel_dropzone_stuck": _INCIDENT_MODE_MANUAL,
+    "c2_separation_needed": _INCIDENT_MODE_MANUAL,
+}
+_INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
+    {
+        "kind": _INCIDENT_EXIT_STUCK,
+        "label": "Exit Stuck",
+        "scope": "C2/C3/C4",
+        "description": "A piece is not falling off the channel.",
+        "off_label": "Do not raise exit-stuck incidents",
+        "manual_label": "Operator tunes release wiggle",
+        "automatic_label": "Run release wiggle automatically",
+        "automatic_supported": True,
+    },
+    {
+        "kind": "channel_dropzone_stuck",
+        "label": "Dropzone Stuck",
+        "scope": "C2/C3",
+        "description": "A piece is not moving as expected.",
+        "off_label": "Leave normal backpressure unchanged",
+        "manual_label": "Operator acknowledges ignore",
+        "automatic_label": "Ignore stuck track automatically",
+        "automatic_supported": True,
+    },
+    {
+        "kind": "c2_separation_needed",
+        "label": "Slip-Stick Separation",
+        "scope": "C2",
+        "description": "Pieces are not spreading out as expected.",
+        "off_label": "Do not raise separation incident",
+        "manual_label": "Operator reviews separation",
+        "automatic_label": "Automatic slip-stick separation",
+        "automatic_supported": False,
+    },
+)
+
 _DASHBOARD_DEFAULTS: dict[str, Any] = {
     "show_sample_capture": False,
+    "incident_handling": dict(_INCIDENT_HANDLING_DEFAULTS),
 }
+
+
+def _canonicalIncidentKind(kind: Any) -> str | None:
+    if not isinstance(kind, str):
+        return None
+    normalized = kind.strip()
+    if not normalized:
+        return None
+    return _INCIDENT_KIND_ALIASES.get(normalized, normalized)
+
+
+def _sanitizeIncidentHandling(value: Any) -> dict[str, str]:
+    if not isinstance(value, dict):
+        return {}
+    sanitized: dict[str, str] = {}
+    supported_kinds = set(_INCIDENT_HANDLING_DEFAULTS.keys())
+    for kind, mode in value.items():
+        canonical_kind = _canonicalIncidentKind(kind)
+        if canonical_kind not in supported_kinds:
+            continue
+        if mode in {_INCIDENT_MODE_OFF, _INCIDENT_MODE_MANUAL, _INCIDENT_MODE_AUTOMATIC}:
+            sanitized[canonical_kind] = str(mode)
+    return sanitized
+
+
+def incidentDefinitions() -> list[dict[str, Any]]:
+    return [dict(entry) for entry in _INCIDENT_DEFINITIONS]
+
+
+def incidentHandlingMode(kind: str) -> str:
+    canonical_kind = _canonicalIncidentKind(kind) or kind
+    handling = getDashboardConfig().get("incident_handling")
+    if isinstance(handling, dict):
+        mode = handling.get(canonical_kind)
+        if mode in {_INCIDENT_MODE_OFF, _INCIDENT_MODE_MANUAL, _INCIDENT_MODE_AUTOMATIC}:
+            return str(mode)
+    return _INCIDENT_HANDLING_DEFAULTS.get(canonical_kind, _INCIDENT_MODE_MANUAL)
+
+
+def incidentHandlingAutomatic(kind: str) -> bool:
+    return incidentHandlingMode(kind) == _INCIDENT_MODE_AUTOMATIC
+
+
+def incidentHandlingOff(kind: str) -> bool:
+    return incidentHandlingMode(kind) == _INCIDENT_MODE_OFF
 
 
 def getDashboardConfig() -> dict[str, Any]:
     """Return dashboard preferences merged on top of defaults."""
     config = _read_toml()
     section = config.get("dashboard")
-    merged = dict(_DASHBOARD_DEFAULTS)
+    merged = {
+        "show_sample_capture": bool(_DASHBOARD_DEFAULTS["show_sample_capture"]),
+        "incident_handling": dict(_INCIDENT_HANDLING_DEFAULTS),
+        "incident_definitions": incidentDefinitions(),
+    }
     if isinstance(section, dict):
-        for key, default in _DASHBOARD_DEFAULTS.items():
-            value = section.get(key)
-            if isinstance(value, type(default)):
-                merged[key] = value
+        value = section.get("show_sample_capture")
+        if isinstance(value, bool):
+            merged["show_sample_capture"] = value
+        handling = dict(_INCIDENT_HANDLING_DEFAULTS)
+        handling.update(_sanitizeIncidentHandling(section.get("incident_handling")))
+        merged["incident_handling"] = handling
     return merged
 
 
 def setDashboardConfig(updates: dict[str, Any]) -> dict[str, Any]:
     """Persist dashboard preferences; unknown keys are ignored. Returns merged state."""
     sanitized: dict[str, Any] = {}
-    for key, default in _DASHBOARD_DEFAULTS.items():
-        if key in updates and isinstance(updates[key], type(default)):
-            sanitized[key] = updates[key]
+    if "show_sample_capture" in updates and isinstance(updates["show_sample_capture"], bool):
+        sanitized["show_sample_capture"] = updates["show_sample_capture"]
+    if "incident_handling" in updates:
+        handling = _sanitizeIncidentHandling(updates["incident_handling"])
+        if handling:
+            existing_config = getDashboardConfig()
+            existing = (
+                existing_config.get("incident_handling")
+                if isinstance(existing_config.get("incident_handling"), dict)
+                else {}
+            )
+            merged_handling = dict(_INCIDENT_HANDLING_DEFAULTS)
+            merged_handling.update(_sanitizeIncidentHandling(existing))
+            merged_handling.update(handling)
+            sanitized["incident_handling"] = merged_handling
 
     def updater(config: dict[str, Any]) -> None:
         existing = config.get("dashboard") if isinstance(config.get("dashboard"), dict) else {}

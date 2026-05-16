@@ -141,6 +141,7 @@ class RuntimeStatsCollector:
         self._bin_cleared_after_s: dict[tuple[int, int, int], float] = {}
         self._servo_bus_offline_since_ts: float | None = None
         self._bus_provider: Any | None = None
+        self._active_incident: dict[str, Any] | None = None
         self._last_updated_at = time.time()
 
     def setBusProvider(self, bus_provider: Any | None) -> None:
@@ -286,6 +287,32 @@ class RuntimeStatsCollector:
         if len(self._channel_exit_events) > MAX_CHANNEL_EXIT_EVENTS:
             del self._channel_exit_events[0]
         self._last_updated_at = event["exited_at"]
+
+    def setActiveIncident(self, incident: dict[str, Any]) -> None:
+        """Publish the single operator-facing incident currently blocking flow."""
+        payload = dict(incident)
+        payload["updated_at"] = float(time.time())
+        self._active_incident = payload
+        self._last_updated_at = payload["updated_at"]
+
+    def activeIncident(self) -> dict[str, Any] | None:
+        """Return the currently active blocking incident, if any."""
+        return dict(self._active_incident) if self._active_incident else None
+
+    def clearActiveIncident(
+        self,
+        *,
+        kind: str | None = None,
+        piece_uuid: str | None = None,
+    ) -> None:
+        if self._active_incident is None:
+            return
+        if kind is not None and self._active_incident.get("kind") != kind:
+            return
+        if piece_uuid is not None and self._active_incident.get("piece_uuid") != piece_uuid:
+            return
+        self._active_incident = None
+        self._last_updated_at = time.time()
 
     def observeHandoffGhostReject(self, **_meta: Any) -> None:
         """Increment the cumulative cross-camera ghost-reject counter.
@@ -1135,6 +1162,7 @@ class RuntimeStatsCollector:
             ),
             "blocked_reason_counts": dict(sorted(self._blocked_reason_counts.items())),
             "pieces_cached": len(self._piece_by_uuid),
+            "active_incident": dict(self._active_incident) if self._active_incident else None,
             "servo_bus_offline_since_ts": self._servo_bus_offline_since_ts,
             "last_update_age_s": max(0.0, now - self._last_updated_at),
         }

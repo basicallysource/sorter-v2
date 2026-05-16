@@ -7,6 +7,7 @@ device settings, calibration, and baseline capture.
 from __future__ import annotations
 
 import base64
+import asyncio
 import json
 import logging
 import os
@@ -24,6 +25,9 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc.rtcconfiguration import RTCConfiguration
+from av import VideoFrame
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -67,6 +71,7 @@ CAMERA_SETUP_ROLES = {
 
 _DASHBOARD_CROP_PADDING_FACTOR = 0.14
 _DASHBOARD_CROP_MIN_PADDING_PX = 48.0
+_DASHBOARD_MASK_BACKGROUND_BGR = (230, 230, 230)
 _DASHBOARD_QUAD_PADDING_FACTOR = 0.1
 CALIBRATION_METHOD_TARGET_PLATE = "target_plate"
 CALIBRATION_METHOD_LLM_GUIDED = "llm_guided"
@@ -3447,6 +3452,38 @@ def _scale_dashboard_points(
     return scaled
 
 
+def _dashboard_channel_crop_polygon(
+    saved: Dict[str, Any],
+    polygon_key: str,
+    polygons_table: Dict[str, Any],
+    frame_w: int,
+    frame_h: int,
+) -> np.ndarray | None:
+    angle_key = _dashboard_channel_angle_key(polygon_key)
+    points: list[tuple[float, float]] = []
+    if angle_key is not None:
+        try:
+            from subsystems.feeder.analysis import channelArcCropPolygon, parseSavedChannelArcZones
+
+            arc = parseSavedChannelArcZones(
+                angle_key,
+                saved.get("channel_angles") if isinstance(saved.get("channel_angles"), dict) else {},
+                saved.get("arc_params") if isinstance(saved.get("arc_params"), dict) else {},
+            )
+            if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+                points = [(float(x), float(y)) for x, y in channelArcCropPolygon(arc).tolist()]
+        except Exception:
+            points = []
+    if not points:
+        points = _dashboard_points(polygons_table.get(polygon_key))
+    return _scale_dashboard_points(
+        points,
+        _dashboard_channel_resolution(saved, polygon_key),
+        frame_w,
+        frame_h,
+    )
+
+
 def _dashboard_padded_bbox(
     polygons: list[np.ndarray],
     frame_w: int,
@@ -3496,7 +3533,9 @@ def _dashboard_masked_polygons_crop(
         points[:, 0] -= x1
         points[:, 1] -= y1
         cv2.fillPoly(mask, [points], 255)
-    return np.ascontiguousarray(cv2.bitwise_and(crop, crop, mask=mask))
+    masked = np.full_like(crop, _DASHBOARD_MASK_BACKGROUND_BGR)
+    masked[mask == 255] = crop[mask == 255]
+    return np.ascontiguousarray(masked)
 
 
 def _dashboard_expand_quad(quad: np.ndarray) -> np.ndarray:
@@ -3603,12 +3642,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             scaled
             for key in polygon_keys
             for scaled in [
-                _scale_dashboard_points(
-                    _dashboard_points(polygons_table.get(key)),
-                    _dashboard_channel_resolution(saved, key),
-                    frame_w,
-                    frame_h,
-                )
+                _dashboard_channel_crop_polygon(saved, key, polygons_table, frame_w, frame_h)
             ]
             if scaled is not None
         ]
@@ -3711,6 +3745,195 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
     return processed
 
 
+class CameraWebRtcOffer(BaseModel):
+    sdp: str
+    type: str
+    annotated: bool = True
+    layer: str = "annotated"
+    dashboard: bool = False
+    color_correct: bool = True
+    show_regions: bool = True
+
+
+class CameraWebRtcAnswer(BaseModel):
+    sdp: str
+    type: str
+
+
+_camera_webrtc_peer_connections: set[RTCPeerConnection] = set()
+
+
+class _CameraRoleVideoTrack(VideoStreamTrack):
+    def __init__(
+        self,
+        role: str,
+        *,
+        annotated: bool,
+        dashboard: bool,
+        color_correct: bool,
+        show_regions: bool,
+    ) -> None:
+        super().__init__()
+        self._role = role
+        self._annotated = annotated
+        self._dashboard = dashboard
+        self._color_correct = color_correct
+        self._exclude_categories = frozenset({"regions"}) if not show_regions else None
+        self._cached_dashboard_shape: tuple[int, int] | None = None
+        self._cached_dashboard_spec: Dict[str, Any] | None = None
+        self._last_shape: tuple[int, int] = (640, 360)
+        self._last_frame_timestamp: float | None = None
+
+    def _dashboard_frame(self, frame: np.ndarray) -> np.ndarray:
+        if not self._dashboard:
+            return frame
+        frame_h, frame_w = frame.shape[:2]
+        shape = (frame_w, frame_h)
+        if self._cached_dashboard_shape != shape:
+            self._cached_dashboard_spec = _dashboard_crop_spec(self._role, frame_w, frame_h)
+            self._cached_dashboard_shape = shape
+        return _apply_dashboard_crop(frame, self._cached_dashboard_spec)
+
+    def _read_frame(self) -> np.ndarray | None:
+        service = shared_state.camera_service
+        if service is None:
+            return None
+        feed = service.get_feed(self._role)
+        if feed is None:
+            return None
+        frame_obj = feed.get_frame(
+            annotated=self._annotated,
+            exclude_categories=self._exclude_categories,
+            color_correct=self._color_correct,
+        )
+        if frame_obj is None:
+            return None
+        frame = (
+            frame_obj.annotated
+            if self._annotated and frame_obj.annotated is not None
+            else frame_obj.raw
+        )
+        frame = self._dashboard_frame(frame)
+        self._last_shape = (int(frame.shape[1]), int(frame.shape[0]))
+        self._last_frame_timestamp = float(frame_obj.timestamp)
+        return frame
+
+    def _blank_frame(self) -> np.ndarray:
+        width, height = self._last_shape
+        return np.full((height, width, 3), 230, dtype=np.uint8)
+
+    async def recv(self):
+        pts, time_base = await self.next_timestamp()
+        frame = await asyncio.to_thread(self._read_frame)
+        if frame is None:
+            frame = self._blank_frame()
+        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+        video_frame.pts = pts
+        video_frame.time_base = time_base
+        return video_frame
+
+    def metadata(self) -> Dict[str, Any]:
+        feed = None
+        service = shared_state.camera_service
+        if service is not None:
+            feed = service.get_feed(self._role)
+        health = None
+        if feed is not None:
+            try:
+                health = feed.device.health.value
+            except Exception:
+                health = None
+        width, height = self._last_shape
+        return {
+            "role": self._role,
+            "timestamp": self._last_frame_timestamp,
+            "width": width,
+            "height": height,
+            "status": health,
+            "annotated": self._annotated,
+            "dashboard": self._dashboard,
+            "color_correct": self._color_correct,
+            "overlays": feed.describe_overlays(self._exclude_categories) if feed is not None else [],
+        }
+
+
+async def shutdownCameraWebRtcConnections() -> None:
+    peers = list(_camera_webrtc_peer_connections)
+    if not peers:
+        return
+    await asyncio.gather(*(peer.close() for peer in peers), return_exceptions=True)
+    _camera_webrtc_peer_connections.clear()
+
+
+@router.post("/api/cameras/webrtc/offer/{role}", response_model=CameraWebRtcAnswer)
+async def camera_webrtc_offer(role: str, offer: CameraWebRtcOffer) -> CameraWebRtcAnswer:
+    """Answer a browser WebRTC offer for a live camera role.
+
+    Video still comes from the central CameraService/CaptureThread. This keeps
+    WebRTC as a transport layer and avoids opening extra camera devices per
+    dashboard widget.
+    """
+    service = shared_state.camera_service
+    if service is None:
+        raise HTTPException(503, "Camera service is not running")
+    if service.get_feed(role) is None:
+        raise HTTPException(404, f"Camera role '{role}' not configured")
+
+    want_annotated = offer.layer == "annotated" and offer.annotated
+    pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=[]))
+    _camera_webrtc_peer_connections.add(pc)
+    metadata_task: asyncio.Task | None = None
+
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange() -> None:
+        nonlocal metadata_task
+        if pc.connectionState in {"failed", "closed", "disconnected"}:
+            if metadata_task is not None:
+                metadata_task.cancel()
+                metadata_task = None
+            await pc.close()
+            _camera_webrtc_peer_connections.discard(pc)
+
+    track = _CameraRoleVideoTrack(
+        role,
+        annotated=want_annotated,
+        dashboard=offer.dashboard,
+        color_correct=offer.color_correct,
+        show_regions=offer.show_regions,
+    )
+    pc.addTrack(track)
+
+    async def send_metadata(channel: Any) -> None:
+        try:
+            while pc.connectionState != "closed":
+                if getattr(channel, "readyState", None) == "open":
+                    channel.send(json.dumps({"tag": "camera_metadata", "data": track.metadata()}))
+                await asyncio.sleep(0.2)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+
+    @pc.on("datachannel")
+    def on_datachannel(channel: Any) -> None:
+        nonlocal metadata_task
+        if getattr(channel, "label", "") != "camera-metadata":
+            return
+        if metadata_task is not None:
+            metadata_task.cancel()
+        metadata_task = asyncio.create_task(send_metadata(channel))
+
+    await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+    local_description = pc.localDescription
+    if local_description is None:
+        await pc.close()
+        _camera_webrtc_peer_connections.discard(pc)
+        raise HTTPException(500, "Failed to create WebRTC answer")
+    return CameraWebRtcAnswer(sdp=local_description.sdp, type=local_description.type)
+
+
 @router.get("/api/cameras/feed/{role}")
 def camera_feed_by_role(
     role: str,
@@ -3739,11 +3962,6 @@ def camera_feed_by_role(
     # Resolve layer — legacy `annotated` param maps into `layer`
     want_annotated = layer == "annotated" and annotated
     exclude_categories = frozenset({"regions"}) if not show_regions else None
-    # Color correction toggle requires bypassing the live service (raw frames
-    # in the service are already color-corrected at capture time).
-    if not color_correct:
-        direct = True
-
     _, raw = _read_machine_params_config(require_exists=True)
     cameras_section = raw.get("cameras", {}) if isinstance(raw.get("cameras"), dict) else {}
     config_role = role
@@ -3801,6 +4019,7 @@ def camera_feed_by_role(
                     frame_obj = feed.get_frame(
                         annotated=want_annotated,
                         exclude_categories=exclude_categories,
+                        color_correct=color_correct,
                     )
                     if frame_obj is None:
                         time.sleep(0.05)

@@ -21,13 +21,17 @@ export type NetworkCamera = {
 
 export function sourceKey(source: number | string | null | undefined): string {
 	if (source === null || source === undefined) return '__none__';
+	if (typeof source === 'number' && source < 0) return '__none__';
 	if (typeof source === 'number') return `usb:${source}`;
 	return `net:${source}`;
 }
 
 export function parseCameraSource(key: string): number | string | null {
 	if (!key || key === '__none__') return null;
-	if (key.startsWith('usb:')) return Number(key.slice(4));
+	if (key.startsWith('usb:')) {
+		const source = Number(key.slice(4));
+		return source >= 0 ? source : null;
+	}
 	if (key.startsWith('net:')) return key.slice(4);
 	return null;
 }
@@ -47,7 +51,7 @@ export function buildCameraChoices(
 			previewKind: 'image'
 		}
 	];
-	for (const camera of usbCameras) {
+	for (const camera of usbCameras.filter((candidate) => candidate.index >= 0)) {
 		base.push({
 			key: sourceKey(camera.index),
 			source: camera.index,
@@ -71,13 +75,13 @@ export function buildCameraChoices(
 		const key = roleSelections[role];
 		if (!key || seen.has(key) || key === '__none__') continue;
 		const source = parseCameraSource(key);
+		if (typeof source === 'number' && source < 0) continue;
+		if (source === null) continue;
 		base.push({
 			key,
 			source,
 			label:
-				typeof source === 'number'
-					? `Configured camera ${source}`
-					: `Configured stream ${source}`,
+				typeof source === 'number' ? `Configured camera ${source}` : `Configured stream ${source}`,
 			previewSrc:
 				typeof source === 'number' ? `${backendBaseUrl}/api/cameras/stream/${source}` : source,
 			previewKind: 'mjpeg'

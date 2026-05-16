@@ -12,6 +12,7 @@ from .admission import (
     estimate_piece_count_for_channel as _estimate_piece_count_for_channel,
 )
 from .ch2_separation import Ch2SeparationDriver
+from .dropzone_incidents import DropzoneStuckIncidentManager
 from .strategies import C1JamRecoveryStrategy, C3HoldoverStrategy
 from irl.config import IRLInterface, IRLConfig
 from global_config import GlobalConfig
@@ -48,6 +49,10 @@ MAX_CH2_PIECES_FOR_CH1_FEED = 5
 # exit yet. Flip back to True to restore the old jog-back-then-forward
 # behavior in an emergency.
 CH2_AGITATION_ENABLED = False
+# C2 slip-stick is now represented as an incident candidate, but disabled
+# because uncontrolled move_at_speed phases can make the rotor accelerate
+# unexpectedly during tuning.
+CH2_SEPARATION_INCIDENT_ENABLED = False
 # Output-shaft (LEGO wheel) degrees for the reverse / forward jog. A slight
 # net-forward bias (forward > reverse) keeps pieces drifting toward the
 # exit so agitation doesn't undo real progress.
@@ -71,6 +76,39 @@ if TYPE_CHECKING:
     from irl.config import RotorPulseConfig
 
 
+def _classification_channel_structural_admission_blocked(
+    detections: list,
+    *,
+    track_count: int,
+    transport_piece_count: int,
+    zone_manager,
+    config,
+) -> bool:
+    """Return extra feeder-side C4 admission blocking.
+
+    In dynamic C4 mode the classification-channel runner owns the real intake
+    gate and publishes it through ``shared.classification_ready``. Repeating a
+    second, coarser count/zone check here serializes the platter again because
+    it cannot apply the runner's context such as drop-committed exclusions.
+    Keep this fallback only for non-dynamic / legacy setups; the post-C3-pulse
+    grace window below still protects against double-drops while a newly fired
+    piece is in flight.
+    """
+    if (
+        zone_manager is not None
+        and config is not None
+        and bool(getattr(config, "use_dynamic_zones", False))
+    ):
+        return False
+    return _classification_channel_admission_blocked(
+        detections,
+        track_count=track_count,
+        transport_piece_count=transport_piece_count,
+        zone_manager=zone_manager,
+        config=config,
+    )
+
+
 class Feeding(BaseState):
     def __init__(
         self,
@@ -87,6 +125,7 @@ class Feeding(BaseState):
         self._last_ch2_action = ChannelAction.IDLE
         self._last_ch3_action = ChannelAction.IDLE
         self._busy_until: dict[str, float] = {}
+        self._motion_until: dict[str, float] = {}
         # Block follow-up C3 pulses for this long after a delivery to the
         # classification channel, even if the vision/transport state still
         # looks "empty" because the piece hasn't been registered yet. The
@@ -105,6 +144,7 @@ class Feeding(BaseState):
         self._feeder_detection_unavailable_since: float | None = None
         self._feeder_detection_pause_enqueued: bool = False
         self._sample_speed_limit_cache: dict[str, int] = {}
+        self._dropzone_incidents = DropzoneStuckIncidentManager(gc=self.gc)
         self._c1_jam_recovery = C1JamRecoveryStrategy(
             stepper=self.irl.c_channel_1_rotor_stepper,
             logger=self.gc.logger,
@@ -117,9 +157,8 @@ class Feeding(BaseState):
         )
         self._c3_holdover = C3HoldoverStrategy()
         # Slip-stick separation driver for idle-time c_channel_2 agitation.
-        # Owns the ch2 rotor in short windows where a piece is on the ring
-        # but not yet at the exit; hard-cancels the instant anything else
-        # needs the rotor or a piece reaches the exit zone.
+        # Kept wired so active motion can be cancelled, but automatic starts
+        # are disabled and routed through a dormant incident path for now.
         self._ch2_separation = Ch2SeparationDriver(
             self.irl.c_channel_2_rotor_stepper, self.gc.logger
         )
@@ -144,6 +183,7 @@ class Feeding(BaseState):
             agitation_forward_deg_output=CH2_AGITATION_FORWARD_DEG_OUTPUT,
             agitation_min_interval_s=CH2_AGITATION_MIN_INTERVAL_S,
             agitation_recent_ch1_window_s=CH2_AGITATION_RECENT_CH1_WINDOW_S,
+            separation_incident_enabled=CH2_SEPARATION_INCIDENT_ENABLED,
         )
         self._c2_station.bind_last_ch1_pulse_at(lambda: self._last_ch1_pulse_at)
         self._c1_station = C1Station(
@@ -233,6 +273,50 @@ class Feeding(BaseState):
 
     def _isStepperBusy(self, stepper: "StepperMotor") -> bool:
         return time.monotonic() < self._busy_until.get(stepper._name, 0.0)
+
+    def _isStepperMotionActive(self, stepper: "StepperMotor", now_mono: float) -> bool:
+        return float(now_mono) < self._motion_until.get(stepper._name, 0.0)
+
+    def _rotatingChannelIds(self, now_mono: float) -> set[int]:
+        rotating: set[int] = set()
+        if self._isStepperMotionActive(self.irl.c_channel_2_rotor_stepper, now_mono):
+            rotating.add(2)
+        if self._isStepperMotionActive(self.irl.c_channel_3_rotor_stepper, now_mono):
+            rotating.add(3)
+        return rotating
+
+    def _activeDropzoneIncident(
+        self,
+        channel: str | None = None,
+        global_id: int | None = None,
+    ) -> dict:
+        active = self.gc.runtime_stats.activeIncident()
+        if not isinstance(active, dict) or active.get("kind") != "channel_dropzone_stuck":
+            raise RuntimeError("No C2/C3 dropzone incident is waiting.")
+        if channel is not None and active.get("channel") != channel:
+            raise ValueError("The active dropzone incident belongs to another channel.")
+        if global_id is not None and int(active.get("global_id") or -1) != int(global_id):
+            raise ValueError("The active dropzone incident belongs to another tracker id.")
+        return active
+
+    def acknowledgeDropzoneStuckIncident(
+        self,
+        channel: str | None = None,
+        global_id: int | None = None,
+    ) -> dict:
+        active = self._activeDropzoneIncident(channel, global_id)
+        return self._dropzone_incidents.acknowledge_active_incident(
+            active,
+            time.monotonic(),
+        )
+
+    def clearDropzoneStuckIncident(
+        self,
+        channel: str | None = None,
+        global_id: int | None = None,
+    ) -> dict:
+        active = self._activeDropzoneIncident(channel, global_id)
+        return self._dropzone_incidents.clear_active_incident(active)
 
     def _classificationChannelHasPendingAdmission(self) -> bool:
         """True while the post-C3-pulse grace window is still active.
@@ -339,6 +423,7 @@ class Feeding(BaseState):
         )
         if success:
             cooldown_ms = max(exec_ms, cfg.delay_between_pulse_ms)
+            self._motion_until[stepper._name] = time.monotonic() + max(0.0, exec_ms) / 1000.0
             if label.startswith("ch2"):
                 self.vision.scheduleFeederTeacherCaptureAfterMove(
                     "c_channel_2",
@@ -425,8 +510,42 @@ class Feeding(BaseState):
                 self._c3_station.set_state("feeding.wait_detection_available")
                 return
 
+            dropzone_incident_published = self._dropzone_incidents.update(
+                detections,
+                now,
+                rotating_channel_ids=self._rotatingChannelIds(now),
+            )
+            if dropzone_incident_published:
+                self.gc.runtime_stats.observeBlockedReason("feeder", "dropzone_stuck_incident")
+                self.gc.runtime_stats.observeFeederSignals(
+                    {
+                        "wait_chute": False,
+                        "wait_classification_ready": False,
+                        "wait_ch2_dropzone_clear": False,
+                        "wait_ch3_dropzone_clear": False,
+                        "wait_stepper_busy": False,
+                        "pulse_intent_ch1": False,
+                        "pulse_intent_ch2": False,
+                        "pulse_intent_ch3": False,
+                        "stepper_busy_ch1": False,
+                        "stepper_busy_ch2": False,
+                        "stepper_busy_ch3": False,
+                        "pulse_sent_any": False,
+                        "stable": False,
+                    },
+                    now_monotonic=now,
+                )
+                self._c1_station.set_state("feeding.wait_dropzone_incident_review")
+                self._c2_station.set_state("feeding.wait_dropzone_incident_review")
+                self._c3_station.set_state("feeding.wait_dropzone_incident_review")
+                return
+
             with prof.timer("feeder.analyze_state_ms"):
-                analysis = analyzeFeederChannels(self.gc, detections)
+                analysis = analyzeFeederChannels(
+                    self.gc,
+                    detections,
+                    ignored_dropzone_detection_ids=self._dropzone_incidents.ignored_detection_ids(),
+                )
 
             ch2_action = analysis.ch2_action
             ch3_action = analysis.ch3_action
@@ -490,7 +609,7 @@ class Feeding(BaseState):
                     int(zone_manager.zone_count()) if zone_manager is not None else 0,
                     transport_piece_count,
                 )
-                classification_channel_block = _classification_channel_admission_blocked(
+                classification_channel_block = _classification_channel_structural_admission_blocked(
                     detections,
                     track_count=classification_channel_track_count,
                     transport_piece_count=transport_piece_count,

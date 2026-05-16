@@ -1,6 +1,7 @@
 <script lang="ts">
-	import { mjpegStream as resilientMjpegStream } from '$lib/actions/mjpegStream';
+	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
 	import { backendHttpBaseUrl } from '$lib/backend';
+	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
@@ -66,6 +67,7 @@
 		center: Point;
 		innerRadius: number;
 		outerRadius: number;
+		exitOuterRadius: number;
 		dropZone: ChordZone;
 		exitZone: ChordZone;
 		ringHandleAngleDeg: number | null;
@@ -80,6 +82,7 @@
 		| 'center'
 		| 'inner'
 		| 'outer'
+		| 'exitOuter'
 		| 'dropStartInner'
 		| 'dropStartOuter'
 		| 'dropEndInner'
@@ -92,6 +95,7 @@
 		center: number[];
 		inner_radius: number;
 		outer_radius: number;
+		exit_outer_radius?: number;
 		drop_zone?: ChordZonePayload;
 		exit_zone?: ChordZonePayload;
 		ring_handle_angle_deg?: number | null;
@@ -102,6 +106,7 @@
 		start_outer_angle?: number;
 		end_inner_angle?: number;
 		end_outer_angle?: number;
+		outer_radius?: number;
 		start_angle?: number;
 		end_angle?: number;
 	};
@@ -129,21 +134,21 @@
 				start: Point;
 				origPts: number[][];
 				origSec0: Point | null;
-		 }
+		  }
 		| {
 				kind: 'arc-shape' | 'arc-center';
 				channel: ArcChannel;
 				start: Point;
 				orig: ArcParams;
 				origSec0: Point | null;
-		 }
+		  }
 		| {
-				kind: 'arc-inner' | 'arc-outer';
+				kind: 'arc-inner' | 'arc-outer' | 'arc-exit-outer';
 				channel: ArcChannel;
 				start: Point;
 				startAngleDeg: number;
 				orig: ArcParams;
-		 }
+		  }
 		| {
 				kind:
 					| 'arc-drop-start-inner'
@@ -156,22 +161,22 @@
 					| 'arc-exit-end-outer';
 				channel: ArcChannel;
 				orig: ArcParams;
-			}
+		  }
 		| {
 				kind: 'section-zero';
 				channel: ArcChannel;
-		 }
+		  }
 		| {
 				kind: 'quad-shape';
 				channel: RectChannel;
 				start: Point;
 				origCorners: [Point, Point, Point, Point];
-		 }
+		  }
 		| {
 				kind: 'quad-corner';
 				channel: RectChannel;
 				cornerIdx: QuadHandle;
-		 };
+		  };
 
 	const ARC_CHANNELS: ArcChannel[] = ['second', 'third', 'classification_channel'];
 	const RECT_CHANNELS: RectChannel[] = ['carousel', 'class_top', 'class_bottom'];
@@ -271,7 +276,7 @@
 	const DROP_ZONE_COLOR = '#22c55e';
 	const EXIT_ZONE_COLOR = '#ef4444';
 
-	type ZoneHandle = Exclude<ArcHandle, 'center' | 'inner' | 'outer'>;
+	type ZoneHandle = Exclude<ArcHandle, 'center' | 'inner' | 'outer' | 'exitOuter'>;
 	type ZoneDragKind =
 		| 'arc-drop-start-inner'
 		| 'arc-drop-start-outer'
@@ -293,11 +298,7 @@
 		exitEndOuter: 'arc-exit-end-outer'
 	};
 
-	type ChordZoneField =
-		| 'startInnerAngle'
-		| 'startOuterAngle'
-		| 'endInnerAngle'
-		| 'endOuterAngle';
+	type ChordZoneField = 'startInnerAngle' | 'startOuterAngle' | 'endInnerAngle' | 'endOuterAngle';
 
 	const DRAG_KIND_TO_ZONE_FIELD: Record<
 		ZoneDragKind,
@@ -422,6 +423,7 @@
 	const handleHitRadius = $derived(HANDLE_HIT_RADIUS * editorScale);
 	const vertexHitRadius = $derived(VERTEX_HIT_RADIUS * editorScale);
 	const handleCanvasPadding = $derived(HANDLE_CANVAS_PADDING * editorScale);
+	const exitOuterHandlePadding = $derived(Math.max(handleCanvasPadding, 58 * editorScale));
 	const labelEdgePadding = $derived(LABEL_EDGE_PADDING * editorScale);
 	const RING_HANDLE_CLEARANCE_DEG = 8;
 	const RING_HANDLE_SNAP_DEG = 10;
@@ -530,7 +532,10 @@
 		return Math.min(delta, 360 - delta);
 	}
 
-	function clampSpan(startAngle: number, endAngle: number): { startAngle: number; endAngle: number } {
+	function clampSpan(
+		startAngle: number,
+		endAngle: number
+	): { startAngle: number; endAngle: number } {
 		const next = {
 			startAngle: normalizeAngle(startAngle),
 			endAngle: normalizeAngle(endAngle)
@@ -580,6 +585,7 @@
 			center: [params.center[0], params.center[1]],
 			innerRadius: params.innerRadius,
 			outerRadius: params.outerRadius,
+			exitOuterRadius: params.exitOuterRadius,
 			dropZone: copyChordZone(params.dropZone),
 			exitZone: copyChordZone(params.exitZone),
 			ringHandleAngleDeg: params.ringHandleAngleDeg
@@ -587,10 +593,18 @@
 	}
 
 	function normalizeArcParamsForChannel(_channel: ArcChannel, params: ArcParams): ArcParams {
+		const innerRadius = Math.max(10, params.innerRadius);
+		const outerRadius = Math.max(innerRadius + MIN_ARC_THICKNESS, params.outerRadius);
+		const rawExitOuterRadius =
+			typeof params.exitOuterRadius === 'number' && Number.isFinite(params.exitOuterRadius)
+				? params.exitOuterRadius
+				: outerRadius;
+		const exitOuterRadius = clamp(rawExitOuterRadius, innerRadius + MIN_ARC_THICKNESS, outerRadius);
 		return {
 			center: [params.center[0], params.center[1]],
-			innerRadius: params.innerRadius,
-			outerRadius: params.outerRadius,
+			innerRadius,
+			outerRadius,
+			exitOuterRadius,
 			dropZone: clampZone(params.dropZone),
 			exitZone: clampZone(params.exitZone),
 			ringHandleAngleDeg:
@@ -711,8 +725,12 @@
 		};
 		quadParams = {
 			carousel: snapshot.quadParams.carousel ? copyQuadParams(snapshot.quadParams.carousel) : null,
-			class_top: snapshot.quadParams.class_top ? copyQuadParams(snapshot.quadParams.class_top) : null,
-			class_bottom: snapshot.quadParams.class_bottom ? copyQuadParams(snapshot.quadParams.class_bottom) : null
+			class_top: snapshot.quadParams.class_top
+				? copyQuadParams(snapshot.quadParams.class_top)
+				: null,
+			class_bottom: snapshot.quadParams.class_bottom
+				? copyQuadParams(snapshot.quadParams.class_bottom)
+				: null
 		};
 	}
 
@@ -778,9 +796,9 @@
 	}
 
 	function rememberPreviewImageSize(role: CameraRole, target: EventTarget | null) {
-		if (!(target instanceof HTMLImageElement)) return;
-		const width = target.naturalWidth;
-		const height = target.naturalHeight;
+		if (!(target instanceof HTMLImageElement) && !(target instanceof HTMLVideoElement)) return;
+		const width = target instanceof HTMLVideoElement ? target.videoWidth : target.naturalWidth;
+		const height = target instanceof HTMLVideoElement ? target.videoHeight : target.naturalHeight;
 		if (width <= 0 || height <= 0) return;
 		const current = previewImageSizeByRole[role];
 		if (current?.width === width && current.height === height) return;
@@ -1003,10 +1021,13 @@
 				: channel === 'third'
 					? [CANVAS_W * 0.54, CANVAS_H * 0.55]
 					: [CANVAS_W * 0.52, CANVAS_H * 0.54];
+		const innerRadius = channel === 'classification_channel' ? 210 : 180;
+		const outerRadius = channel === 'classification_channel' ? 390 : 360;
 		return normalizeArcParamsForChannel(channel, {
 			center,
-			innerRadius: channel === 'classification_channel' ? 210 : 180,
-			outerRadius: channel === 'classification_channel' ? 390 : 360,
+			innerRadius,
+			outerRadius,
+			exitOuterRadius: outerRadius,
 			...defaultZoneLayout(channel),
 			ringHandleAngleDeg: null
 		});
@@ -1024,12 +1045,15 @@
 	}
 
 	function serializeArcParams(params: ArcParams, resolution: [number, number]): ArcParamsPayload {
+		const exitZone = serializeChordZone(params.exitZone);
+		exitZone.outer_radius = Math.round(params.exitOuterRadius);
 		return {
 			center: [Math.round(params.center[0]), Math.round(params.center[1])],
 			inner_radius: Math.round(params.innerRadius),
 			outer_radius: Math.round(params.outerRadius),
+			exit_outer_radius: Math.round(params.exitOuterRadius),
 			drop_zone: serializeChordZone(params.dropZone),
-			exit_zone: serializeChordZone(params.exitZone),
+			exit_zone: exitZone,
 			ring_handle_angle_deg:
 				typeof params.ringHandleAngleDeg === 'number' ? params.ringHandleAngleDeg : null,
 			resolution
@@ -1081,19 +1105,30 @@
 			parseChordZone((raw as ArcParamsPayload).drop_zone) ??
 			sectionRangeToZone(channel, 'drop', sectionZeroAngle) ??
 			radialChordZone(40, 120);
+		const exitZonePayload = (raw as ArcParamsPayload).exit_zone;
 		const exitZone =
-			parseChordZone((raw as ArcParamsPayload).exit_zone) ??
+			parseChordZone(exitZonePayload) ??
 			sectionRangeToZone(channel, 'exit', sectionZeroAngle) ??
 			radialChordZone(300, 340);
+		const exitOuterRaw = (raw as ArcParamsPayload).exit_outer_radius;
+		const nestedExitOuterRaw =
+			exitZonePayload && typeof exitZonePayload === 'object'
+				? (exitZonePayload as ChordZonePayload).outer_radius
+				: undefined;
+		const exitOuterRadius =
+			typeof exitOuterRaw === 'number' && Number.isFinite(exitOuterRaw)
+				? exitOuterRaw
+				: typeof nestedExitOuterRaw === 'number' && Number.isFinite(nestedExitOuterRaw)
+					? nestedExitOuterRaw
+					: outerRadius;
 		const ringHandleRaw = (raw as ArcParamsPayload).ring_handle_angle_deg;
 		const ringHandleAngleDeg =
-			typeof ringHandleRaw === 'number' && Number.isFinite(ringHandleRaw)
-				? ringHandleRaw
-				: null;
+			typeof ringHandleRaw === 'number' && Number.isFinite(ringHandleRaw) ? ringHandleRaw : null;
 		return normalizeArcParamsForChannel(channel, {
 			center: [center[0], center[1]],
 			innerRadius: Math.max(10, innerRadius),
 			outerRadius: Math.max(innerRadius + MIN_ARC_THICKNESS, outerRadius),
+			exitOuterRadius,
 			dropZone,
 			exitZone,
 			ringHandleAngleDeg
@@ -1116,6 +1151,7 @@
 			center: [center[0], center[1]],
 			innerRadius,
 			outerRadius,
+			exitOuterRadius: outerRadius,
 			...defaultZoneLayout(channel, sectionZeroAngle),
 			ringHandleAngleDeg: null
 		});
@@ -1127,7 +1163,118 @@
 		);
 	}
 
-	function buildZonePolygon(params: ArcParams, zone: ChordZone): Point[] {
+	function angleWithinZone(angleDeg: number, zone: ChordZone): boolean {
+		const span = positiveAngleSpan(zone.startOuterAngle, zone.endOuterAngle);
+		const rel = (normalizeAngle(angleDeg) - normalizeAngle(zone.startOuterAngle) + 360) % 360;
+		return rel <= span;
+	}
+
+	function outerRadiusForAngle(params: ArcParams, angleDeg: number): number {
+		return params.exitOuterRadius < params.outerRadius && angleWithinZone(angleDeg, params.exitZone)
+			? params.exitOuterRadius
+			: params.outerRadius;
+	}
+
+	function angleMatches(a: number, b: number): boolean {
+		return angularDistance(a, b) < 0.0001;
+	}
+
+	function normalizeAngleAtOrAfter(angleDeg: number, floorAngle: number): number {
+		let angle = normalizeAngle(angleDeg);
+		while (angle < floorAngle - 0.0001) {
+			angle += 360;
+		}
+		return angle;
+	}
+
+	function addBoundaryAngleWithin(
+		angles: Set<number>,
+		boundaryAngle: number,
+		startAngle: number,
+		endAngle: number
+	) {
+		let angle = normalizeAngleAtOrAfter(boundaryAngle, startAngle);
+		while (angle <= endAngle + 0.0001) {
+			angles.add(angle);
+			angle += 360;
+		}
+	}
+
+	function addOuterBoundaryPoint(points: Point[], params: ArcParams, angleDeg: number) {
+		const normalizedAngle = normalizeAngle(angleDeg);
+		const hasExitCut = params.exitOuterRadius < params.outerRadius - 0.5;
+		if (hasExitCut && angleMatches(normalizedAngle, params.exitZone.startOuterAngle)) {
+			points.push(polarPoint(params.center, params.outerRadius, normalizedAngle));
+			points.push(polarPoint(params.center, params.exitOuterRadius, normalizedAngle));
+			return;
+		}
+		if (hasExitCut && angleMatches(normalizedAngle, params.exitZone.endOuterAngle)) {
+			points.push(polarPoint(params.center, params.exitOuterRadius, normalizedAngle));
+			points.push(polarPoint(params.center, params.outerRadius, normalizedAngle));
+			return;
+		}
+		points.push(
+			polarPoint(params.center, outerRadiusForAngle(params, normalizedAngle), normalizedAngle)
+		);
+	}
+
+	function addCropBoundaryPoint(points: Point[], params: ArcParams, angleDeg: number) {
+		const normalizedAngle = normalizeAngle(angleDeg);
+		const hasExitCut = params.exitOuterRadius < params.outerRadius - 0.5;
+		if (hasExitCut && angleMatches(normalizedAngle, params.exitZone.startOuterAngle)) {
+			points.push(polarPoint(params.center, params.outerRadius, normalizedAngle));
+			points.push(polarPoint(params.center, params.exitOuterRadius, normalizedAngle));
+			return;
+		}
+		if (hasExitCut && angleMatches(normalizedAngle, params.exitZone.endOuterAngle)) {
+			points.push(polarPoint(params.center, params.exitOuterRadius, normalizedAngle));
+			return;
+		}
+		points.push(
+			polarPoint(params.center, outerRadiusForAngle(params, normalizedAngle), normalizedAngle)
+		);
+	}
+
+	function buildOuterBoundaryPoints(params: ArcParams, segments = ARC_SEGMENTS): Point[] {
+		const angles = new Set<number>();
+		for (let i = 0; i < segments; i++) {
+			angles.add(normalizeAngle((i / segments) * 360));
+		}
+		angles.add(normalizeAngle(params.exitZone.startOuterAngle));
+		angles.add(normalizeAngle(params.exitZone.endOuterAngle));
+		const pts: Point[] = [];
+		for (const angle of [...angles].sort((a, b) => a - b)) {
+			addOuterBoundaryPoint(pts, params, angle);
+		}
+		return pts;
+	}
+
+	function buildOuterArcPoints(
+		params: ArcParams,
+		startAngle: number,
+		span: number,
+		segments: number
+	): Point[] {
+		const start = startAngle;
+		const end = startAngle + span;
+		const angles = new Set<number>();
+		for (let i = 0; i <= segments; i++) {
+			angles.add(start + (span * i) / segments);
+		}
+		addBoundaryAngleWithin(angles, params.exitZone.startOuterAngle, start, end);
+		addBoundaryAngleWithin(angles, params.exitZone.endOuterAngle, start, end);
+		const pts: Point[] = [];
+		for (const angle of [...angles].sort((a, b) => a - b)) {
+			addCropBoundaryPoint(pts, params, angle);
+		}
+		return pts;
+	}
+
+	function buildZonePolygon(
+		params: ArcParams,
+		zone: ChordZone,
+		outerRadius = params.outerRadius
+	): Point[] {
 		const outerSpan = positiveAngleSpan(zone.startOuterAngle, zone.endOuterAngle);
 		const innerSpan = positiveAngleSpan(zone.startInnerAngle, zone.endInnerAngle);
 		const outerSegments = Math.max(8, Math.round((outerSpan / 360) * ARC_SEGMENTS));
@@ -1136,7 +1283,7 @@
 
 		for (let i = 0; i <= outerSegments; i++) {
 			const angle = zone.startOuterAngle + (outerSpan * i) / outerSegments;
-			pts.push(polarPoint(params.center, params.outerRadius, angle));
+			pts.push(polarPoint(params.center, outerRadius, angle));
 		}
 		for (let i = innerSegments; i >= 0; i--) {
 			const angle = zone.startInnerAngle + (innerSpan * i) / innerSegments;
@@ -1155,32 +1302,29 @@
 		return pts;
 	}
 
-	function constrainHandlePoint(point: Point): Point {
-		const pad = handleCanvasPadding;
-		return [
-			clamp(point[0], pad, CANVAS_W - pad),
-			clamp(point[1], pad, CANVAS_H - pad)
-		];
+	function constrainHandlePoint(point: Point, pad = handleCanvasPadding): Point {
+		return [clamp(point[0], pad, CANVAS_W - pad), clamp(point[1], pad, CANVAS_H - pad)];
 	}
 
 	function buildRingStoragePoints(params: ArcParams): Point[] {
 		return [
-			...buildCirclePoints(params.center, params.outerRadius),
+			...buildOuterBoundaryPoints(params),
 			...buildCirclePoints(params.center, params.innerRadius).reverse()
 		];
 	}
 
 	function buildCropPolygon(params: ArcParams): Point[] {
-		const { center, innerRadius, outerRadius, dropZone, exitZone } = params;
+		const { center, innerRadius, dropZone, exitZone } = params;
 		const outerSpan = positiveAngleSpan(dropZone.startOuterAngle, exitZone.endOuterAngle);
 		const innerSpan = positiveAngleSpan(dropZone.startInnerAngle, exitZone.endInnerAngle);
 		const outerSegments = Math.max(16, Math.round((outerSpan / 360) * ARC_SEGMENTS));
 		const innerSegments = Math.max(16, Math.round((innerSpan / 360) * ARC_SEGMENTS));
-		const pts: Point[] = [];
-		for (let i = 0; i <= outerSegments; i++) {
-			const angle = dropZone.startOuterAngle + (outerSpan * i) / outerSegments;
-			pts.push(polarPoint(center, outerRadius, angle));
-		}
+		const pts: Point[] = buildOuterArcPoints(
+			params,
+			dropZone.startOuterAngle,
+			outerSpan,
+			outerSegments
+		);
 		for (let i = innerSegments; i >= 0; i--) {
 			const angle = dropZone.startInnerAngle + (innerSpan * i) / innerSegments;
 			pts.push(polarPoint(center, innerRadius, angle));
@@ -1220,9 +1364,14 @@
 		const pts = q.corners;
 		let inside = false;
 		for (let i = 0, j = 3; i < 4; j = i++) {
-			const xi = pts[i][0], yi = pts[i][1];
-			const xj = pts[j][0], yj = pts[j][1];
-			if (yi > point[1] !== yj > point[1] && point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi) {
+			const xi = pts[i][0],
+				yi = pts[i][1];
+			const xj = pts[j][0],
+				yj = pts[j][1];
+			if (
+				yi > point[1] !== yj > point[1] &&
+				point[0] < ((xj - xi) * (point[1] - yi)) / (yj - yi) + xi
+			) {
 				inside = !inside;
 			}
 		}
@@ -1321,8 +1470,13 @@
 		return constrainHandlePoint(polarPoint(params.center, params.innerRadius, angleDeg));
 	}
 
-	function outerHandlePoint(params: ArcParams, angleDeg: number): Point {
-		return constrainHandlePoint(polarPoint(params.center, params.outerRadius, angleDeg));
+	function outerHandlePoint(
+		params: ArcParams,
+		angleDeg: number,
+		radius = params.outerRadius,
+		pad = handleCanvasPadding
+	): Point {
+		return constrainHandlePoint(polarPoint(params.center, radius, angleDeg), pad);
 	}
 
 	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
@@ -1333,14 +1487,24 @@
 			center: [params.center[0], params.center[1]],
 			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
 			outer: polarPoint(params.center, params.outerRadius, ringHandleAngle),
+			exitOuter: outerHandlePoint(
+				params,
+				zoneMidAngle(params.exitZone),
+				params.exitOuterRadius,
+				exitOuterHandlePadding
+			),
 			dropStartInner: innerHandlePoint(params, params.dropZone.startInnerAngle),
 			dropStartOuter: outerHandlePoint(params, params.dropZone.startOuterAngle),
 			dropEndInner: innerHandlePoint(params, params.dropZone.endInnerAngle),
 			dropEndOuter: outerHandlePoint(params, params.dropZone.endOuterAngle),
 			exitStartInner: innerHandlePoint(params, params.exitZone.startInnerAngle),
-			exitStartOuter: outerHandlePoint(params, params.exitZone.startOuterAngle),
+			exitStartOuter: outerHandlePoint(
+				params,
+				params.exitZone.startOuterAngle,
+				params.exitOuterRadius
+			),
 			exitEndInner: innerHandlePoint(params, params.exitZone.endInnerAngle),
-			exitEndOuter: outerHandlePoint(params, params.exitZone.endOuterAngle)
+			exitEndOuter: outerHandlePoint(params, params.exitZone.endOuterAngle, params.exitOuterRadius)
 		};
 	}
 
@@ -1354,6 +1518,7 @@
 			'exitStartOuter',
 			'exitEndInner',
 			'exitEndOuter',
+			'exitOuter',
 			'outer',
 			'inner',
 			'center'
@@ -1361,23 +1526,46 @@
 	}
 
 	function setArc(channel: ArcChannel, next: ArcParams) {
+		const innerRadius = Math.max(
+			10,
+			Math.min(next.innerRadius, next.outerRadius - MIN_ARC_THICKNESS)
+		);
+		const outerRadius = Math.max(innerRadius + MIN_ARC_THICKNESS, next.outerRadius);
+		const exitOuterRadius = clamp(
+			next.exitOuterRadius,
+			innerRadius + MIN_ARC_THICKNESS,
+			outerRadius
+		);
 		const clamped = normalizeArcParamsForChannel(channel, {
 			...next,
-			innerRadius: Math.max(10, Math.min(next.innerRadius, next.outerRadius - MIN_ARC_THICKNESS)),
-			outerRadius: Math.max(next.innerRadius + MIN_ARC_THICKNESS, next.outerRadius)
+			innerRadius,
+			outerRadius,
+			exitOuterRadius
 		});
 		arcParams[channel] = clamped;
 	}
 
-	function streamUrl(channel: Channel): string {
+	function streamOptions(channel: Channel) {
 		if (editingZone) {
-			return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=false&color_correct=true&dashboard=false&show_regions=false&v=${feedRevision}`;
+			return {
+				baseUrl: backendHttpBaseUrl,
+				role: CAMERA_FOR_CHANNEL[channel],
+				annotated: false,
+				layer: 'raw' as const,
+				dashboard: false,
+				colorCorrect: true,
+				showRegions: false
+			};
 		}
-		const backendRegionsParam = previewCropped && previewZones ? 'true' : 'false';
-		const annotatedParam = previewAnnotated ? 'true' : 'false';
-		const colorParam = previewColorCorrect ? 'true' : 'false';
-		const dashboardParam = previewCropped ? 'true' : 'false';
-		return `${backendHttpBaseUrl}/api/cameras/feed/${CAMERA_FOR_CHANNEL[channel]}?annotated=${annotatedParam}&color_correct=${colorParam}&dashboard=${dashboardParam}&show_regions=${backendRegionsParam}&v=${feedRevision}`;
+		return {
+			baseUrl: backendHttpBaseUrl,
+			role: CAMERA_FOR_CHANNEL[channel],
+			annotated: previewAnnotated,
+			layer: previewAnnotated ? ('annotated' as const) : ('raw' as const),
+			dashboard: previewCropped,
+			colorCorrect: previewColorCorrect,
+			showRegions: previewCropped && previewZones
+		};
 	}
 
 	function feedInstanceKey(channel: Channel): string {
@@ -1502,6 +1690,7 @@
 			center: [params.center[0] * sx, params.center[1] * sy],
 			innerRadius: params.innerRadius * rs,
 			outerRadius: params.outerRadius * rs,
+			exitOuterRadius: params.exitOuterRadius * rs,
 			dropZone: copyChordZone(params.dropZone),
 			exitZone: copyChordZone(params.exitZone),
 			ringHandleAngleDeg: params.ringHandleAngleDeg
@@ -1557,11 +1746,13 @@
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			if (Array.isArray(payload)) {
-				usbCameras = payload;
+				usbCameras = payload.filter((camera: UsbCameraInfo) => camera.index >= 0);
 				networkCameras = [];
 				return;
 			}
-			usbCameras = Array.isArray(payload.usb) ? payload.usb : [];
+			usbCameras = Array.isArray(payload.usb)
+				? payload.usb.filter((camera: UsbCameraInfo) => camera.index >= 0)
+				: [];
 			networkCameras = Array.isArray(payload.network) ? payload.network : [];
 		} catch (e: any) {
 			if (e.name === 'AbortError') return;
@@ -1658,7 +1849,7 @@
 		if (isArcChannel(channel)) {
 			const params = arcParams[channel];
 			if (!params) return [];
-			return buildCirclePoints(params.center, params.outerRadius);
+			return buildOuterBoundaryPoints(params);
 		}
 		if (isRectChannel(channel)) {
 			const q = quadParams[channel];
@@ -1696,10 +1887,7 @@
 		const contentH = CANVAS_H / scale;
 		const padX = (rect.width - contentW) / 2;
 		const padY = (rect.height - contentH) / 2;
-		return [
-			(e.clientX - rect.left - padX) * scale,
-			(e.clientY - rect.top - padY) * scale
-		];
+		return [(e.clientX - rect.left - padX) * scale, (e.clientY - rect.top - padY) * scale];
 	}
 
 	function pointInPolygon(x: number, y: number, pts: Point[]): boolean {
@@ -1719,7 +1907,8 @@
 
 	function pointInAnnulus(point: Point, params: ArcParams): boolean {
 		const distance = pointDistance(point, params.center);
-		return distance >= params.innerRadius && distance <= params.outerRadius;
+		const angle = angleFromCenter(point, params.center);
+		return distance >= params.innerRadius && distance <= outerRadiusForAngle(params, angle);
 	}
 
 	function hitArcHandle(channel: ArcChannel, point: Point): ArcHandle | null {
@@ -1822,10 +2011,15 @@
 					canvasCursor = 'grabbing';
 					return;
 				}
-				if (handle === 'inner' || handle === 'outer') {
+				if (handle === 'inner' || handle === 'outer' || handle === 'exitOuter') {
 					const origParams = copyArcParams(params);
 					dragState = {
-						kind: handle === 'inner' ? 'arc-inner' : 'arc-outer',
+						kind:
+							handle === 'inner'
+								? 'arc-inner'
+								: handle === 'outer'
+									? 'arc-outer'
+									: 'arc-exit-outer',
 						channel: currentChannel,
 						start: point,
 						startAngleDeg: effectiveRingHandleAngle(origParams),
@@ -1867,7 +2061,12 @@
 				const dx = point[0] - dc[0];
 				const dy = point[1] - dc[1];
 				quadParams[currentChannel] = {
-					corners: def.corners.map((c) => [c[0] + dx, c[1] + dy] as Point) as [Point, Point, Point, Point]
+					corners: def.corners.map((c) => [c[0] + dx, c[1] + dy] as Point) as [
+						Point,
+						Point,
+						Point,
+						Point
+					]
 				};
 				return;
 			}
@@ -1943,7 +2142,8 @@
 				break;
 			}
 			case 'arc-inner':
-			case 'arc-outer': {
+			case 'arc-outer':
+			case 'arc-exit-outer': {
 				didDrag = true;
 				const center = dragState.orig.center;
 				const radius = pointDistance(point, center);
@@ -1961,11 +2161,20 @@
 						),
 						ringHandleAngleDeg: nextRingHandleAngle
 					});
-				} else {
+				} else if (dragState.kind === 'arc-outer') {
 					setArc(dragState.channel, {
 						...dragState.orig,
 						outerRadius: Math.max(dragState.orig.innerRadius + MIN_ARC_THICKNESS, radius),
 						ringHandleAngleDeg: nextRingHandleAngle
+					});
+				} else {
+					setArc(dragState.channel, {
+						...dragState.orig,
+						exitOuterRadius: clamp(
+							radius,
+							dragState.orig.innerRadius + MIN_ARC_THICKNESS,
+							dragState.orig.outerRadius
+						)
 					});
 				}
 				break;
@@ -2000,7 +2209,12 @@
 				const dy = point[1] - dragState.start[1];
 				if (Math.hypot(dx, dy) > 5) didDrag = true;
 				quadParams[dragState.channel] = {
-					corners: dragState.origCorners.map((c) => [c[0] + dx, c[1] + dy] as Point) as [Point, Point, Point, Point]
+					corners: dragState.origCorners.map((c) => [c[0] + dx, c[1] + dy] as Point) as [
+						Point,
+						Point,
+						Point,
+						Point
+					]
 				};
 				break;
 			}
@@ -2087,10 +2301,16 @@
 			if (!params) return;
 			const nextInner = Math.max(10, params.innerRadius * scale);
 			const nextOuter = Math.max(nextInner + MIN_ARC_THICKNESS, params.outerRadius * scale);
+			const nextExitOuter = clamp(
+				params.exitOuterRadius * scale,
+				nextInner + MIN_ARC_THICKNESS,
+				nextOuter
+			);
 			setArc(currentChannel, {
 				...params,
 				innerRadius: nextInner,
-				outerRadius: nextOuter
+				outerRadius: nextOuter,
+				exitOuterRadius: nextExitOuter
 			});
 			return;
 		}
@@ -2100,10 +2320,13 @@
 			if (!q) return;
 			const center = quadCenter(q);
 			quadParams[currentChannel] = {
-				corners: q.corners.map((c) => [
-					center[0] + (c[0] - center[0]) * scale,
-					center[1] + (c[1] - center[1]) * scale
-				] as Point) as [Point, Point, Point, Point]
+				corners: q.corners.map(
+					(c) =>
+						[
+							center[0] + (c[0] - center[0]) * scale,
+							center[1] + (c[1] - center[1]) * scale
+						] as Point
+				) as [Point, Point, Point, Point]
 			};
 			return;
 		}
@@ -2128,6 +2351,43 @@
 		offset: Point = [0, -20]
 	) {
 		const s = editorScale;
+		if (label) {
+			ctx.font = `bold ${Math.round(13 * s)}px sans-serif`;
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			const metrics = ctx.measureText(label);
+			const textWidth = metrics.width;
+			const paddingX = 9 * s;
+			const boxWidth = textWidth + paddingX * 2;
+			const boxHeight = 24 * s;
+			const edgePad = labelEdgePadding;
+			const minLabelX = edgePad + boxWidth / 2;
+			const maxLabelX = CANVAS_W - edgePad - boxWidth / 2;
+			const minLabelY = edgePad + boxHeight / 2;
+			const maxLabelY = CANVAS_H - edgePad - boxHeight / 2;
+			const labelX = clamp(point[0] + offset[0] * s, minLabelX, Math.max(minLabelX, maxLabelX));
+			const labelY = clamp(point[1] + offset[1] * s, minLabelY, Math.max(minLabelY, maxLabelY));
+			const boxX = labelX - boxWidth / 2;
+			const boxY = labelY - boxHeight / 2;
+			ctx.save();
+			ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+			ctx.shadowBlur = 12 * s;
+			ctx.shadowOffsetX = 0;
+			ctx.shadowOffsetY = 4 * s;
+			ctx.beginPath();
+			ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
+			ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+			ctx.fill();
+			ctx.restore();
+			ctx.beginPath();
+			ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
+			ctx.strokeStyle = 'rgba(17, 17, 17, 0.12)';
+			ctx.lineWidth = 1 * s;
+			ctx.stroke();
+			ctx.fillStyle = '#111';
+			ctx.fillText(label, labelX, labelY);
+		}
+
 		ctx.beginPath();
 		ctx.arc(point[0], point[1], HANDLE_DRAW_RADIUS * s, 0, Math.PI * 2);
 		ctx.fillStyle = fill;
@@ -2135,43 +2395,10 @@
 		ctx.lineWidth = 2 * s;
 		ctx.strokeStyle = stroke;
 		ctx.stroke();
+	}
 
-		if (!label) return;
-
-		ctx.font = `bold ${Math.round(13 * s)}px sans-serif`;
-		ctx.textAlign = 'center';
-		ctx.textBaseline = 'middle';
-		const metrics = ctx.measureText(label);
-		const textWidth = metrics.width;
-		const paddingX = 9 * s;
-		const boxWidth = textWidth + paddingX * 2;
-		const boxHeight = 24 * s;
-		const edgePad = labelEdgePadding;
-		const minLabelX = edgePad + boxWidth / 2;
-		const maxLabelX = CANVAS_W - edgePad - boxWidth / 2;
-		const minLabelY = edgePad + boxHeight / 2;
-		const maxLabelY = CANVAS_H - edgePad - boxHeight / 2;
-		const labelX = clamp(point[0] + offset[0] * s, minLabelX, Math.max(minLabelX, maxLabelX));
-		const labelY = clamp(point[1] + offset[1] * s, minLabelY, Math.max(minLabelY, maxLabelY));
-		const boxX = labelX - boxWidth / 2;
-		const boxY = labelY - boxHeight / 2;
-		ctx.save();
-		ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
-		ctx.shadowBlur = 12 * s;
-		ctx.shadowOffsetX = 0;
-		ctx.shadowOffsetY = 4 * s;
-		ctx.beginPath();
-		ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
-		ctx.fillStyle = 'rgba(255, 255, 255, 0.96)';
-		ctx.fill();
-		ctx.restore();
-		ctx.beginPath();
-		ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 4 * s);
-		ctx.strokeStyle = 'rgba(17, 17, 17, 0.12)';
-		ctx.lineWidth = 1 * s;
-		ctx.stroke();
-		ctx.fillStyle = '#111';
-		ctx.fillText(label, labelX, labelY);
+	function exitOuterLabelOffset(point: Point): Point {
+		return point[1] > CANVAS_H - 90 * editorScale ? [0, -26] : [0, 24];
 	}
 
 	function drawSectionZero(ctx: CanvasRenderingContext2D, channel: ArcChannel, active: boolean) {
@@ -2200,15 +2427,15 @@
 		const s = editorScale;
 		const color = CHANNEL_COLORS[channel];
 		const alpha = active ? 1 : 0.35;
-		const outerCircle = buildCirclePoints(params.center, params.outerRadius);
+		const outerBoundary = buildOuterBoundaryPoints(params);
 		const innerCircle = buildCirclePoints(params.center, params.innerRadius);
-		const dropPolygon = buildZonePolygon(params, params.dropZone);
-		const exitPolygon = buildZonePolygon(params, params.exitZone);
+		const dropPolygon = buildZonePolygon(params, params.dropZone, params.outerRadius);
+		const exitPolygon = buildZonePolygon(params, params.exitZone, params.exitOuterRadius);
 
 		ctx.beginPath();
-		ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
-		for (let i = 1; i < outerCircle.length; i++) {
-			ctx.lineTo(outerCircle[i][0], outerCircle[i][1]);
+		ctx.moveTo(outerBoundary[0][0], outerBoundary[0][1]);
+		for (let i = 1; i < outerBoundary.length; i++) {
+			ctx.lineTo(outerBoundary[i][0], outerBoundary[i][1]);
 		}
 		ctx.closePath();
 		ctx.moveTo(innerCircle[0][0], innerCircle[0][1]);
@@ -2238,9 +2465,9 @@
 		}
 
 		ctx.beginPath();
-		ctx.moveTo(outerCircle[0][0], outerCircle[0][1]);
-		for (let i = 1; i < outerCircle.length; i++) {
-			ctx.lineTo(outerCircle[i][0], outerCircle[i][1]);
+		ctx.moveTo(outerBoundary[0][0], outerBoundary[0][1]);
+		for (let i = 1; i < outerBoundary.length; i++) {
+			ctx.lineTo(outerBoundary[i][0], outerBoundary[i][1]);
 		}
 		ctx.closePath();
 		ctx.strokeStyle = color;
@@ -2286,9 +2513,23 @@
 			ctx.lineTo(handles.outer[0], handles.outer[1]);
 			ctx.stroke();
 
+			ctx.strokeStyle = `${EXIT_ZONE_COLOR}99`;
+			ctx.beginPath();
+			ctx.moveTo(params.center[0], params.center[1]);
+			ctx.lineTo(handles.exitOuter[0], handles.exitOuter[1]);
+			ctx.stroke();
+
 			drawHandle(ctx, handles.center, color, '#111', 'Center');
 			drawHandle(ctx, handles.inner, color, '#111', 'Inner');
 			drawHandle(ctx, handles.outer, color, '#111', 'Outer');
+			drawHandle(
+				ctx,
+				handles.exitOuter,
+				EXIT_ZONE_COLOR,
+				'#111',
+				'Exit Outer',
+				exitOuterLabelOffset(handles.exitOuter)
+			);
 			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', 'Drop Start', [-42, -18]);
 			drawHandle(ctx, handles.dropStartInner, DROP_ZONE_COLOR, '#111');
 			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', 'Drop End', [42, -18]);
@@ -2527,7 +2768,12 @@
 			function loadQuad(saved: any, fallbackPts: any): QuadParams | null {
 				if (saved && Array.isArray(saved.corners) && saved.corners.length === 4) {
 					return {
-						corners: saved.corners.map((c: number[]) => [c[0], c[1]] as Point) as [Point, Point, Point, Point]
+						corners: saved.corners.map((c: number[]) => [c[0], c[1]] as Point) as [
+							Point,
+							Point,
+							Point,
+							Point
+						]
 					};
 				}
 				if (Array.isArray(fallbackPts) && fallbackPts.length >= 3) {
@@ -2547,13 +2793,7 @@
 				if (src.width === dst.width && src.height === dst.height) return;
 				const pts = userPoints[channel];
 				if (Array.isArray(pts) && pts.length > 0) {
-					userPoints[channel] = rescalePoints(
-						pts,
-						src.width,
-						src.height,
-						dst.width,
-						dst.height
-					);
+					userPoints[channel] = rescalePoints(pts, src.width, src.height, dst.width, dst.height);
 				}
 				const params = quadParams[channel];
 				if (params) {
@@ -2568,19 +2808,32 @@
 			}
 
 			// Carousel
-			const carouselQuad = loadQuad(channelQuadParams.carousel, channelUserPts.carousel ?? channelPolygons.carousel);
+			const carouselQuad = loadQuad(
+				channelQuadParams.carousel,
+				channelUserPts.carousel ?? channelPolygons.carousel
+			);
 			if (carouselQuad) quadParams.carousel = carouselQuad;
 			rescaleRectChannel('carousel', channelQuadParams.carousel, channelSavedResolution);
 
 			// Classification top
-			const topQuad = loadQuad(classQuadParams.class_top, classUserPts.class_top ?? classPolygons.top);
+			const topQuad = loadQuad(
+				classQuadParams.class_top,
+				classUserPts.class_top ?? classPolygons.top
+			);
 			if (topQuad) quadParams.class_top = topQuad;
 			rescaleRectChannel('class_top', classQuadParams.class_top, classificationSavedResolution);
 
 			// Classification bottom
-			const bottomQuad = loadQuad(classQuadParams.class_bottom, classUserPts.class_bottom ?? classPolygons.bottom);
+			const bottomQuad = loadQuad(
+				classQuadParams.class_bottom,
+				classUserPts.class_bottom ?? classPolygons.bottom
+			);
 			if (bottomQuad) quadParams.class_bottom = bottomQuad;
-			rescaleRectChannel('class_bottom', classQuadParams.class_bottom, classificationSavedResolution);
+			rescaleRectChannel(
+				'class_bottom',
+				classQuadParams.class_bottom,
+				classificationSavedResolution
+			);
 		} catch {
 			// ignore
 		}
@@ -2612,7 +2865,9 @@
 
 			const polygons: Record<string, number[][]> = { ...(existingChannel.polygons ?? {}) };
 			const user_pts: Record<string, number[][]> = { ...(existingChannel.user_pts ?? {}) };
-			const arc_params: Record<string, ArcParamsPayload> = { ...(existingChannel.arc_params ?? {}) };
+			const arc_params: Record<string, ArcParamsPayload> = {
+				...(existingChannel.arc_params ?? {})
+			};
 			const quad_params_channel: Record<string, Record<string, any>> = {
 				...(existingChannel.quad_params ?? {})
 			};
@@ -2627,9 +2882,10 @@
 			if (TRANSPORT_CHANNELS.includes(current)) {
 				const key = channelStorageKey(current);
 				if (isArcChannel(current) && arcParams[current]) {
-					const cropPts = buildCropPolygon(arcParams[current]!).map(
-						(pt) => [Math.round(pt[0]), Math.round(pt[1])]
-					);
+					const cropPts = buildCropPolygon(arcParams[current]!).map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
 					polygons[key] = cropPts;
 					user_pts[current] = cropPts;
 					arc_params[current] = serializeArcParams(arcParams[current]!, currentResolution);
@@ -2642,7 +2898,10 @@
 					quad_params_channel[current] = serializeQuadParams(q, currentResolution);
 					delete arc_params[current];
 				} else {
-					const points = getShapePoints(current).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
+					const points = getShapePoints(current).map((pt) => [
+						Math.round(pt[0]),
+						Math.round(pt[1])
+					]);
 					polygons[key] = points;
 					user_pts[current] = points;
 					delete arc_params[current];
@@ -2841,17 +3100,24 @@
 			{/if}
 
 			<div
-				class="min-w-0 rounded-full bg-bg px-3 py-1 text-xs text-text-muted flex items-center gap-1"
+				class="flex min-w-0 items-center gap-1 rounded-full bg-bg px-3 py-1 text-xs text-text-muted"
 			>
 				<span class="font-medium text-text">Source:</span>
 				<span class="ml-1 truncate">{formatSource(currentAssignment())}</span>
 				{#if currentAssignment() === null && cameraConfigLoaded}
 					<button
 						onclick={openCameraPicker}
-						class="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-text-muted/20 text-text hover:bg-text-muted/40 transition-colors cursor-pointer"
+						class="ml-1 inline-flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-text-muted/20 text-text transition-colors hover:bg-text-muted/40"
 						title="Select camera"
 					>
-						<svg class="h-2.5 w-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+						<svg
+							class="h-2.5 w-2.5"
+							viewBox="0 0 12 12"
+							fill="none"
+							stroke="currentColor"
+							stroke-width="2"
+							stroke-linecap="round"
+						>
 							<line x1="6" y1="2" x2="6" y2="10" />
 							<line x1="2" y1="6" x2="10" y2="6" />
 						</svg>
@@ -2989,14 +3255,14 @@
 									</div>
 								</div>
 							{:else if currentAssignment() !== null}
-								<img
-									use:resilientMjpegStream={streamUrl(currentChannel)}
-									alt={CHANNEL_LABELS[currentChannel]}
+								<video
+									use:webrtcCameraStream={streamOptions(currentChannel)}
+									aria-label={CHANNEL_LABELS[currentChannel]}
 									class="absolute inset-0 h-full w-full object-contain"
 									style={feedImageStyle(currentChannel)}
-									onload={(event) =>
+									onloadedmetadata={(event) =>
 										rememberPreviewImageSize(currentRole(currentChannel), event.currentTarget)}
-								/>
+								></video>
 								<div
 									class="pointer-events-none absolute"
 									style={previewOverlayStyle(currentChannel)}
@@ -3014,23 +3280,23 @@
 											</div>
 										</div>
 									{/if}
-								{#each getDetectionHighlights(currentRole()) as highlight, index}
-									<div
-										class={`absolute border-2 shadow-[0_0_0_1px_rgba(255,255,255,0.35)] ${
-											index === 0
-												? 'border-violet-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(167,139,250,0.35)]'
+									{#each getDetectionHighlights(currentRole()) as highlight, index}
+										<div
+											class={`absolute border-2 shadow-[0_0_0_1px_rgba(255,255,255,0.35)] ${
+												index === 0
+													? 'border-violet-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(167,139,250,0.35)]'
 													: 'border-violet-300/80'
 											}`}
-										style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
-									>
-										<div
-											class="absolute right-1 top-1 rounded border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-xs font-semibold leading-none text-white shadow-md backdrop-blur-sm"
+											style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
 										>
-											{index + 1}
+											<div
+												class="absolute top-1 right-1 rounded border border-white/20 bg-violet-500/60 px-1.5 py-0.5 text-xs leading-none font-semibold text-white shadow-md backdrop-blur-sm"
+											>
+												{index + 1}
+											</div>
 										</div>
-									</div>
-								{/each}
-							</div>
+									{/each}
+								</div>
 							{:else}
 								<div
 									class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
@@ -3076,7 +3342,7 @@
 					</div>
 				</div>
 
-{#if wizardMode && editingZone}
+				{#if wizardMode && editingZone}
 					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
 						{#if isArcChannel(currentChannel)}
 							<div class="grid gap-4 lg:grid-cols-[12rem_minmax(0,1fr)] lg:items-start">
@@ -3090,16 +3356,21 @@
 
 								<div>
 									<div class="font-medium text-text">Placement reference</div>
-									<div class="mt-2 rounded border border-success/20 bg-success/8 px-3 py-2 leading-6 text-text-muted">
+									<div
+										class="mt-2 rounded border border-success/20 bg-success/8 px-3 py-2 leading-6 text-text-muted"
+									>
 										<span class="font-medium text-success">Green Drop Zone:</span>
 										position this where parts arrive from the previous stage and land on the ring.
 									</div>
-									<div class="mt-2 rounded border border-danger/20 bg-danger/8 px-3 py-2 leading-6 text-text-muted">
+									<div
+										class="mt-2 rounded border border-danger/20 bg-danger/8 px-3 py-2 leading-6 text-text-muted"
+									>
 										<span class="font-medium text-danger">Red Exit Zone:</span>
 										position this where parts should leave the ring into the next path or mechanism.
 									</div>
 									<div class="mt-2 text-xs leading-5 text-text-muted">
-										Use this as an orientation guide. The exact angles depend on your camera position and the real machine geometry.
+										Use this as an orientation guide. The exact angles depend on your camera
+										position and the real machine geometry.
 									</div>
 								</div>
 							</div>
@@ -3112,10 +3383,13 @@
 									<span class="font-medium text-text">Exit</span>,
 									<span class="font-medium text-text">Center</span>,
 									<span class="font-medium text-text">Inner</span> and
-									<span class="font-medium text-text">Outer</span> directly on the image.
+									<span class="font-medium text-text">Outer</span> directly on the image. Use
+									<span class="font-medium text-text">Exit Outer</span> to pull the exit crop inward when
+									the opening shows the next plate.
 								</div>
 								<div class="mt-1 leading-6">
-									Drag inside the ring to move the whole zone. Use the mouse wheel for fine radius scaling and
+									Drag inside the ring to move the whole zone. Use the mouse wheel for fine radius
+									scaling and
 									<span class="font-medium text-text"> Shift+Click</span> to set section 0.
 								</div>
 							</div>
@@ -3213,7 +3487,7 @@
 				{/if}
 
 				{#if cameraLoading}
-					<div class="py-8 text-center text-sm text-text-muted animate-pulse">
+					<div class="animate-pulse py-8 text-center text-sm text-text-muted">
 						Scanning cameras...
 					</div>
 				{:else}
@@ -3246,14 +3520,11 @@
 											No preview
 										</div>
 									{:else}
-										<img
-											use:resilientMjpegStream={{
-												url: cameraIndexPreviewUrl(cam.index),
-												firstFrameTimeoutMs: 6000,
-												stallTimeoutMs: 4000
-											}}
-											alt={cam.name ?? `Camera ${cam.index}`}
-											class="block aspect-video w-full object-cover"
+										<CameraSourcePreview
+											src={cameraIndexPreviewUrl(cam.index)}
+											label={cam.name ?? `Camera ${cam.index}`}
+											fit="cover"
+											block
 										/>
 									{/if}
 									<div
@@ -3317,10 +3588,11 @@
 												? 'opacity-60 hover:opacity-100 hover:ring-2 hover:ring-[#FFD500] dark:hover:ring-[#FFD500]'
 												: 'hover:ring-2 hover:ring-primary/50'}"
 									>
-										<img
+										<CameraSourcePreview
 											src={discoveredPreviewUrl(cam)}
-											alt={cam.name}
-											class="block aspect-video w-full object-cover"
+											label={cam.name}
+											fit="cover"
+											block
 										/>
 										<div
 											class="absolute right-0 bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent px-2 pt-4 pb-1.5 text-xs text-white"
@@ -3358,9 +3630,7 @@
 					{/if}
 				{/if}
 
-				<div
-					class="flex items-center justify-between border-t border-border pt-3"
-				>
+				<div class="flex items-center justify-between border-t border-border pt-3">
 					{#if cameraLoading}
 						<button
 							onclick={cancelCameraScan}
@@ -3391,19 +3661,19 @@
 		</Modal>
 
 		{#if reassignConfirm}
-			<Modal
-				bind:open={reassignModalOpen}
-				title="Reassign Camera"
-			>
+			<Modal bind:open={reassignModalOpen} title="Reassign Camera">
 				<div class="flex flex-col gap-4">
 					<p class="text-sm text-text">
 						<span class="font-medium">{reassignConfirm.cameraLabel}</span> is currently assigned to
-						<span class="font-medium">{ROLE_LABELS[reassignConfirm.currentRole]}</span>.
-						It will be unassigned from that role.
+						<span class="font-medium">{ROLE_LABELS[reassignConfirm.currentRole]}</span>. It will be
+						unassigned from that role.
 					</p>
 					<div class="flex items-center justify-end gap-2">
 						<button
-							onclick={() => { reassignConfirm = null; reassignModalOpen = false; }}
+							onclick={() => {
+								reassignConfirm = null;
+								reassignModalOpen = false;
+							}}
 							class="cursor-pointer border border-border bg-bg px-3 py-1.5 text-sm text-text hover:bg-surface"
 						>
 							Cancel

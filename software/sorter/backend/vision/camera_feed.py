@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from typing import TYPE_CHECKING, Callable, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Callable, Optional, Protocol
 import numpy as np
 
 from .camera_device import CameraDevice, DeviceHealth
@@ -43,7 +43,7 @@ class CameraFeed:
         self.role = role
         self._device = device
         self._overlays: list[FrameOverlay] = []
-        self._cached_annotated: tuple[float, CameraFrame] | None = None
+        self._cached_annotated: tuple[tuple[float, bool], CameraFrame] | None = None
         self._pinned_ts_provider = pinned_ts_provider
         self._lock = threading.Lock()
 
@@ -74,10 +74,41 @@ class CameraFeed:
             self._overlays.clear()
             self._cached_annotated = None
 
+    def describe_overlays(
+        self,
+        exclude_categories: Optional[frozenset[str]] = None,
+    ) -> list[dict[str, Any]]:
+        with self._lock:
+            active_overlays = [
+                ov for ov in self._overlays
+                if not exclude_categories or getattr(ov, "category", "") not in exclude_categories
+            ]
+            descriptions: list[dict[str, Any]] = []
+            for overlay in active_overlays:
+                category = str(getattr(overlay, "category", ""))
+                metadata_fn = getattr(overlay, "metadata", None)
+                if callable(metadata_fn):
+                    try:
+                        metadata = metadata_fn()
+                    except Exception:
+                        metadata = None
+                    if isinstance(metadata, list):
+                        descriptions.extend(item for item in metadata if isinstance(item, dict))
+                        continue
+                    if isinstance(metadata, dict):
+                        descriptions.append(metadata)
+                        continue
+                descriptions.append({
+                    "type": type(overlay).__name__,
+                    "category": category,
+                })
+            return descriptions
+
     def get_frame(
         self,
         annotated: bool = True,
         exclude_categories: Optional[frozenset[str]] = None,
+        color_correct: bool = True,
     ) -> Optional[CameraFrame]:
         latest = self._device.latest_frame
         if latest is None:
@@ -98,36 +129,58 @@ class CameraFeed:
                     frame = pinned_frame
 
         with self._lock:
+            raw = frame.raw if color_correct or frame.uncorrected_raw is None else frame.uncorrected_raw
             if not annotated or not self._overlays:
-                return frame
+                if raw is frame.raw:
+                    return frame
+                return CameraFrame(
+                    raw=raw,
+                    annotated=None,
+                    results=frame.results,
+                    timestamp=frame.timestamp,
+                    segmentation_map=frame.segmentation_map,
+                    uncorrected_raw=frame.uncorrected_raw,
+                )
 
             active_overlays = [
                 ov for ov in self._overlays
                 if not exclude_categories or getattr(ov, "category", "") not in exclude_categories
             ]
             if not active_overlays:
-                return frame
+                if raw is frame.raw:
+                    return frame
+                return CameraFrame(
+                    raw=raw,
+                    annotated=None,
+                    results=frame.results,
+                    timestamp=frame.timestamp,
+                    segmentation_map=frame.segmentation_map,
+                    uncorrected_raw=frame.uncorrected_raw,
+                )
 
             # Cache only the default (unfiltered) path — keeps the hot loop fast
             # without per-filter cache bookkeeping.
             cache_eligible = not exclude_categories
+            cache_key = (frame.timestamp, bool(color_correct))
             if (
                 cache_eligible
                 and self._cached_annotated is not None
-                and self._cached_annotated[0] == frame.timestamp
+                and self._cached_annotated[0] == cache_key
             ):
                 return self._cached_annotated[1]
 
-            result_img = frame.annotated if frame.annotated is not None else frame.raw.copy()
+            result_img = raw.copy()
             for overlay in active_overlays:
                 result_img = overlay.annotate(result_img)
 
             result = CameraFrame(
-                raw=frame.raw,
+                raw=raw,
                 annotated=result_img,
-                results=[],
+                results=frame.results,
                 timestamp=frame.timestamp,
+                segmentation_map=frame.segmentation_map,
+                uncorrected_raw=frame.uncorrected_raw,
             )
             if cache_eligible:
-                self._cached_annotated = (frame.timestamp, result)
+                self._cached_annotated = (cache_key, result)
             return result

@@ -25,6 +25,7 @@ class _RuntimeStats:
     def __init__(self) -> None:
         self.leader_wins_events: list[dict[str, object]] = []
         self.recognizer_counts: dict[str, int] = {}
+        self.active_incident: dict[str, object] | None = None
 
     def observeStateTransition(self, *args, **kwargs) -> None:
         pass
@@ -37,6 +38,12 @@ class _RuntimeStats:
 
     def observeRecognizerCounter(self, name: str) -> None:
         self.recognizer_counts[name] = self.recognizer_counts.get(name, 0) + 1
+
+    def setActiveIncident(self, incident: dict[str, object]) -> None:
+        self.active_incident = dict(incident)
+
+    def clearActiveIncident(self, **kwargs) -> None:
+        self.active_incident = None
 
 
 class _Stepper:
@@ -360,7 +367,7 @@ def test_exit_release_candidate_includes_piece_after_center_crosses_exit_line() 
 
     assert running._pickExitReleaseCandidate() == "piece-stuck"
     assert running._startExitReleaseShimmyIfNeeded("piece-stuck") is True
-    assert running.irl.carousel_stepper.moves == [1.5]
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708]
 
 
 def _make_running_with_carousel_gate(
@@ -613,7 +620,7 @@ def test_drop_body_overlap_ratio_is_high_when_piece_is_mostly_in_drop_window() -
     assert ratio > 0.5
 
 
-def test_start_exit_release_shimmy_builds_small_returning_motion_plan() -> None:
+def test_start_exit_release_shimmy_builds_escalating_release_stage() -> None:
     running, transport, _shared, _events = _make_running()
     piece = KnownObject(
         uuid="piece-drop",
@@ -627,9 +634,170 @@ def test_start_exit_release_shimmy_builds_small_returning_motion_plan() -> None:
     started = running._startExitReleaseShimmyIfNeeded(piece.uuid)
 
     assert started is True
-    assert running.irl.carousel_stepper.moves[:1] == [1.5]
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves[:1]] == [2.708]
+    assert running.irl.carousel_stepper.speed_limits[:1] == [(16, 700)]
+    assert running.irl.carousel_stepper.accelerations[:1] == [1800]
     assert running._exit_release_drop_uuid == piece.uuid
-    assert running._exit_release_plan_deg == [-3.0, 1.5, 1.5, -3.0, 1.5]
+    assert [round(stroke.move_deg, 3) for stroke in running._exit_release_plan] == [
+        -5.417,
+        2.708,
+        2.708,
+        -5.417,
+        2.708,
+    ]
+    assert {stroke.speed for stroke in running._exit_release_plan} == {700}
+    assert {stroke.acceleration for stroke in running._exit_release_plan} == {1800}
+
+
+def test_exit_release_repeated_attempts_escalate_stages() -> None:
+    running, transport, _shared, _events = _make_running()
+    piece = KnownObject(
+        uuid="piece-drop",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    piece.classification_channel_zone_half_width_deg = 12.0
+    transport._pieces_by_track = {99: piece}
+
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+    running._exit_release_drop_uuid = None
+    running._exit_release_plan = []
+
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708, 5.417]
+    assert running.irl.carousel_stepper.speed_limits[-1] == (16, 950)
+    assert running.irl.carousel_stepper.accelerations[-1] == 2600
+
+
+def test_exit_release_review_pause_waits_for_operator_before_release() -> None:
+    running, transport, shared, _events = _make_running()
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {99: piece}
+
+    started = running._startExitReleaseShimmyIfNeeded(piece.uuid)
+
+    assert started is True
+    assert running.irl.carousel_stepper.moves == []
+    assert running._exit_release_drop_uuid is None
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["kind"] == "exit_stuck"
+    assert running.gc.runtime_stats.active_incident["source_kind"] == "classification_exit_release"
+    assert running.gc.runtime_stats.active_incident["status"] == "waiting_for_operator"
+    assert running.gc.runtime_stats.active_incident["piece_uuid"] == piece.uuid
+    assert shared.classification_gate_calls[-1] == (False, "exit_incident_review")
+
+    approved = running.approveExitReleaseIncident(piece.uuid)
+    assert approved["status"] == "approved"
+
+    started_after_approval = running._startExitReleaseShimmyIfNeeded(piece.uuid)
+
+    assert started_after_approval is True
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708]
+    assert running._exit_release_drop_uuid == piece.uuid
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["status"] == "running"
+
+
+def test_exit_release_review_blocks_normal_c4_tracking_until_operator_action() -> None:
+    running, transport, shared, _events = _make_running()
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {99: piece}
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+
+    class _VisionThatMustNotPoll:
+        def getFeederTrackAngularExtents(self, *args, **kwargs):
+            raise AssertionError("normal C4 tracking should be paused during exit incident")
+
+    running.vision = _VisionThatMustNotPoll()
+
+    running.step()
+
+    assert running.irl.carousel_stepper.moves == []
+    assert running._exit_release_review is not None
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["status"] == "waiting_for_operator"
+    assert shared.classification_gate_calls[-1] == (False, "exit_incident_review")
+
+
+def test_manual_exit_release_test_uses_slider_values_without_clearing_incident() -> None:
+    running, transport, _shared, _events = _make_running()
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {99: piece}
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+
+    result = running.testExitReleaseIncident(
+        piece_uuid=piece.uuid,
+        amplitude_output_deg=3.0,
+        microsteps_per_second=16000,
+        cycles=3,
+        acceleration_microsteps_per_second_sq=32000,
+    )
+
+    assert result["amplitude_output_deg"] == 3.0
+    assert result["cycles"] == 3
+    assert round(result["first_stroke_stepper_deg"], 3) == 32.5
+    assert result["microsteps_per_second"] == 16000
+    assert result["stroke_count"] == 9
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["status"] == "manual_test_running"
+    assert [round(stroke.move_deg, 3) for stroke in running._exit_release_plan[:3]] == [
+        32.5,
+        -65.0,
+        32.5,
+    ]
+
+    assert running._advanceExitReleaseShimmy() is True
+
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [32.5]
+    assert running.irl.carousel_stepper.speed_limits[-1] == (16, 16000)
+    assert result["acceleration_microsteps_per_second_sq"] == 32000
+    assert running.irl.carousel_stepper.accelerations[-1] == 32000
+    assert running._exit_release_review is not None
+
+
+def test_normal_drop_path_can_start_release_without_operator_review() -> None:
+    running, transport, _shared, _events = _make_running()
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-drop",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    piece.classification_channel_zone_half_width_deg = 12.0
+    transport._pieces_by_track = {99: piece}
+
+    started = running._startExitReleaseShimmyIfNeeded(
+        piece.uuid,
+        review_allowed=False,
+    )
+
+    assert started is True
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708]
+    assert running.gc.runtime_stats.active_incident is None
 
 
 def test_sample_collection_mode_skips_exit_release_shimmy() -> None:
@@ -649,24 +817,24 @@ def test_sample_collection_mode_skips_exit_release_shimmy() -> None:
     assert started is False
     assert running.irl.carousel_stepper.moves == []
     assert running._exit_release_drop_uuid is None
-    assert running._exit_release_plan_deg == []
+    assert running._exit_release_plan == []
 
 
 def test_sample_collection_mode_aborts_existing_exit_release_plan() -> None:
     running, _transport, shared, _events = _make_running()
     shared.sample_collection_mode = True
     running._exit_release_drop_uuid = "piece-drop"
-    running._exit_release_plan_deg = [-1.5, 3.0, -1.5]
+    running._exit_release_plan = [object()]
 
     advanced = running._advanceExitReleaseShimmy()
 
     assert advanced is False
     assert running.irl.carousel_stepper.moves == []
     assert running._exit_release_drop_uuid == "piece-drop"
-    assert running._exit_release_plan_deg == []
+    assert running._exit_release_plan == []
 
 
-def test_sample_collection_mode_queues_c4_teacher_capture_after_pulse() -> None:
+def test_c4_teacher_capture_is_queued_after_pulse_when_sample_mode_is_enabled() -> None:
     running, _transport, shared, _events = _make_running()
     vision = _Vision()
     running.vision = vision
@@ -681,7 +849,7 @@ def test_sample_collection_mode_queues_c4_teacher_capture_after_pulse() -> None:
     assert vision.teacher_capture_calls[0]["delay_s"] == 0.123
 
 
-def test_normal_mode_does_not_queue_c4_teacher_capture_after_pulse() -> None:
+def test_c4_teacher_capture_is_queued_after_pulse_in_normal_mode() -> None:
     running, _transport, _shared, _events = _make_running()
     vision = _Vision()
     running.vision = vision
@@ -689,7 +857,8 @@ def test_normal_mode_does_not_queue_c4_teacher_capture_after_pulse() -> None:
     sent = running._sendPulse(None)
 
     assert sent is True
-    assert vision.teacher_capture_calls == []
+    assert len(vision.teacher_capture_calls) == 1
+    assert vision.teacher_capture_calls[0]["move_label"] == "sample_c4_pulse"
 
 
 def test_sample_collection_mode_archives_empty_state_when_c4_is_empty() -> None:

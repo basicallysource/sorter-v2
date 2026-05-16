@@ -367,6 +367,13 @@ class HiveUploader:
                 ]
             }
 
+    def has_enabled_targets(self) -> bool:
+        with self._lock:
+            return any(
+                target.get("enabled") and target.get("client") is not None
+                for target in self._targets.values()
+            )
+
     def _resolve_target_ids_locked(self, requested_target_ids: list[str] | None = None) -> list[str]:
         enabled_target_ids = [
             target_id

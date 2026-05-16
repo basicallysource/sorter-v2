@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PencilRuler } from 'lucide-svelte';
 
-let {
+	let {
 		label,
 		isArc = false,
 		statusMessage = ''
@@ -12,16 +12,10 @@ let {
 	} = $props();
 </script>
 
-<aside
-	class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]"
->
-	<div
-		class="border-b border-border bg-surface px-4 py-3"
-	>
+<aside class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]">
+	<div class="border-b border-border bg-surface px-4 py-3">
 		<div class="flex items-start gap-3">
-			<div
-				class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text"
-			>
+			<div class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text">
 				<PencilRuler size={16} />
 			</div>
 			<div class="min-w-0">
@@ -57,16 +51,19 @@ let {
 					<span class="font-medium text-text">Exit End</span>,
 					<span class="font-medium text-text">Center</span>,
 					<span class="font-medium text-text">Inner</span>, and
-					<span class="font-medium text-text">Outer</span> handles to shape the full
-					ring and its angular zones.
+					<span class="font-medium text-text">Outer</span> handles to shape the full ring and its angular
+					zones.
+				</div>
+				<div class="text-sm leading-6 text-text-muted">
+					Use <span class="font-medium text-text">Exit Outer</span> to pull only the exit edge inward
+					when the opening exposes the next plate.
 				</div>
 				<div class="text-sm leading-6 text-text-muted">
 					Drag anywhere inside the ring to move the whole C-channel zone as one piece.
 				</div>
 				<div class="text-sm leading-6 text-text-muted">
 					Use the mouse wheel for fine radius scaling, and
-					<span class="font-medium text-text"> Shift+Click</span> to set the section-0
-					reference.
+					<span class="font-medium text-text"> Shift+Click</span> to set the section-0 reference.
 				</div>
 			{:else}
 				<div class="text-sm leading-6 text-text-muted">
@@ -79,9 +76,7 @@ let {
 			{/if}
 		</div>
 
-		<div
-			class="mt-auto border-t border-border pt-4 text-xs text-text-muted"
-		>
+		<div class="mt-auto border-t border-border pt-4 text-xs text-text-muted">
 			Use the toolbar above the feed to
 			<span class="font-medium text-text">Save Zone</span>,
 			<span class="font-medium text-text">Cancel</span>, or

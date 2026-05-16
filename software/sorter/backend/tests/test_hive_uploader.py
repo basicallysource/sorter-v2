@@ -30,6 +30,19 @@ class HiveUploaderPurgeTests(unittest.TestCase):
         }
         return uploader
 
+    def test_has_enabled_targets_requires_enabled_client(self) -> None:
+        uploader = self._make_uploader()
+        uploader._targets = {
+            "disabled": {"enabled": False, "client": object()},
+            "missing-client": {"enabled": True, "client": None},
+        }
+
+        self.assertFalse(uploader.has_enabled_targets())
+
+        uploader._targets["live"] = {"enabled": True, "client": object()}
+
+        self.assertTrue(uploader.has_enabled_targets())
+
     def test_purge_removes_only_requested_target_jobs(self) -> None:
         uploader = self._make_uploader()
         uploader._queue.put({"target_id": "target-a", "sample_id": "sample-1"})

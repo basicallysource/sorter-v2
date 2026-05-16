@@ -539,6 +539,9 @@ class ClassificationTrainingManager:
     def getHiveUploaderStatus(self) -> dict[str, Any]:
         return self._hive.status()
 
+    def hasEnabledHiveTargets(self) -> bool:
+        return self._hive.has_enabled_targets()
+
     def reloadHiveUploader(self) -> dict[str, Any]:
         return self._hive.reload()
 

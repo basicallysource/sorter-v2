@@ -16,6 +16,7 @@ discard bucket. These tests verify the new fail-fast path:
 from __future__ import annotations
 
 import queue
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -174,6 +175,11 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNotNone(self.runtime_stats.servo_bus_offline_since_ts)
         snap = self.runtime_stats.snapshot()
         self.assertIsNotNone(snap.get("servo_bus_offline_since_ts"))
+        self.assertIsNotNone(snap.get("active_incident"))
+        self.assertEqual(
+            "distribution_servo_bus_offline",
+            snap["active_incident"]["kind"],
+        )
 
     def test_single_offline_layer_does_not_trip_fatal(self) -> None:
         # Layer 0 is offline but layer 1's servo is healthy — Positioning
@@ -233,6 +239,25 @@ class ServoBusFatalTests(unittest.TestCase):
 
         self.assertIsNone(shared_state.hardware_error)
         self.assertIsNone(self.runtime_stats.servo_bus_offline_since_ts)
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+
+    def test_chute_timeout_publishes_distribution_incident(self) -> None:
+        positioning = self._mk_positioning(servos=[_mk_healthy_servo()])
+        positioning._phase = "moving"
+        positioning._target_address = BinAddress(0, 0, 0)
+        positioning._moving_started_at = time.monotonic() - 10.0
+        positioning._chute_move_estimated_ms = 100
+        positioning.chute.stepper.stopped = False
+
+        positioning.step()
+
+        self.assertIsNotNone(shared_state.hardware_error)
+        assert shared_state.hardware_error is not None
+        self.assertTrue(shared_state.hardware_error.startswith(CHUTE_JAM_ALERT_PREFIX))
+        snap = self.runtime_stats.snapshot()
+        self.assertIsNotNone(snap.get("active_incident"))
+        self.assertEqual("distribution_chute_jam", snap["active_incident"]["kind"])
+        self.assertGreaterEqual(snap["active_incident"]["elapsed_ms"], 10000)
 
 
 class MainBootServoHealthCheckTests(unittest.TestCase):

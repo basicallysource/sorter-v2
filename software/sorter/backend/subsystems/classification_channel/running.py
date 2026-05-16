@@ -17,6 +17,9 @@ from subsystems.bus import StationId
 from subsystems.classification_channel.recognition import (
     ClassificationChannelRecognizer,
 )
+from subsystems.classification_channel.incidents import (
+    publish_classification_fallback_incident,
+)
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.classification_channel.zone_manager import (
     ExclusionZone,
@@ -1024,6 +1027,12 @@ class Running(BaseState):
                         pass
         piece.updated_at = now_wall
         self.gc.runtime_stats.observeBlockedReason("classification", reason)
+        publish_classification_fallback_incident(
+            self.gc,
+            piece=piece,
+            status=status,
+            reason=reason,
+        )
         if self.event_queue is not None:
             self.event_queue.put(knownObjectToEvent(piece))
         self.logger.warning(

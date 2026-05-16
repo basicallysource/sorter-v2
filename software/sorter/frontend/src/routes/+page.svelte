@@ -74,6 +74,66 @@
 			manual_label: 'Operator reviews separation',
 			automatic_label: 'Automatic slip-stick separation',
 			automatic_supported: false
+		},
+		{
+			kind: 'bulk_feeder_stalled',
+			label: 'Bulk Feed Stalled',
+			scope: 'C1',
+			description: 'No pieces are reaching the next channel.',
+			off_label: 'Keep legacy bulk-feeder recovery hidden',
+			manual_label: 'Operator checks the bulk feeder',
+			automatic_label: 'Automatic bulk-feeder recovery',
+			automatic_supported: false
+		},
+		{
+			kind: 'feeder_detection_unavailable',
+			label: 'Detection Unavailable',
+			scope: 'C2/C3/C4',
+			description: 'Feeder camera detection is not reliable.',
+			off_label: 'Use hardware alert only',
+			manual_label: 'Operator restores detection',
+			automatic_label: 'Automatic camera recovery',
+			automatic_supported: false
+		},
+		{
+			kind: 'distribution_chute_jam',
+			label: 'Chute Jam',
+			scope: 'Distribution',
+			description: 'The distribution chute did not finish moving.',
+			off_label: 'Use hardware alert only',
+			manual_label: 'Operator clears the chute',
+			automatic_label: 'Automatic chute recovery',
+			automatic_supported: false
+		},
+		{
+			kind: 'distribution_servo_bus_offline',
+			label: 'Servo Bus Offline',
+			scope: 'Distribution',
+			description: 'The distribution servo bus is not responding.',
+			off_label: 'Use hardware alert only',
+			manual_label: 'Operator restores the servo bus',
+			automatic_label: 'Automatic servo bus recovery',
+			automatic_supported: false
+		},
+		{
+			kind: 'classification_unresolved',
+			label: 'Classification Unresolved',
+			scope: 'C4',
+			description: 'A piece reached the drop point without a resolved classification.',
+			off_label: 'Keep unknown fallback hidden',
+			manual_label: 'Operator reviews unresolved classifications',
+			automatic_label: 'Automatic unresolved-classification handling',
+			automatic_supported: false
+		},
+		{
+			kind: 'classification_multi_drop_collision',
+			label: 'Multi-Drop Collision',
+			scope: 'C4',
+			description: 'Multiple pieces reached the drop point together.',
+			off_label: 'Keep multi-drop fallback hidden',
+			manual_label: 'Operator reviews multi-drop collisions',
+			automatic_label: 'Automatic multi-drop handling',
+			automatic_supported: false
 		}
 	];
 
@@ -198,7 +258,13 @@
 			incident.kind === EXIT_STUCK_INCIDENT_KIND ||
 			incident.kind === 'channel_exit_stuck' ||
 			incident.kind === 'channel_dropzone_stuck' ||
-			incident.kind === 'c2_separation_needed'
+			incident.kind === 'c2_separation_needed' ||
+			incident.kind === 'bulk_feeder_stalled' ||
+			incident.kind === 'feeder_detection_unavailable' ||
+			incident.kind === 'distribution_chute_jam' ||
+			incident.kind === 'distribution_servo_bus_offline' ||
+			incident.kind === 'classification_unresolved' ||
+			incident.kind === 'classification_multi_drop_collision'
 			? incident
 			: null;
 	}
@@ -384,6 +450,24 @@
 		if (incident.kind === 'c2_separation_needed') {
 			return `${currentBackendBaseUrl()}/api/feeder/ch2-separation-incident`;
 		}
+		if (incident.kind === 'bulk_feeder_stalled') {
+			return `${currentBackendBaseUrl()}/api/feeder/bulk-feed-incident`;
+		}
+		if (incident.kind === 'feeder_detection_unavailable') {
+			return `${currentBackendBaseUrl()}/api/feeder/detection-incident`;
+		}
+		if (
+			incident.kind === 'distribution_chute_jam' ||
+			incident.kind === 'distribution_servo_bus_offline'
+		) {
+			return `${currentBackendBaseUrl()}/api/distribution/incident`;
+		}
+		if (
+			incident.kind === 'classification_unresolved' ||
+			incident.kind === 'classification_multi_drop_collision'
+		) {
+			return `${currentBackendBaseUrl()}/api/classification-channel/fallback-incident`;
+		}
 		return `${currentBackendBaseUrl()}/api/classification-channel/exit-incident`;
 	}
 
@@ -393,7 +477,11 @@
 		if (
 			isChannelExitStuckIncident(incident) ||
 			incident.kind === 'channel_dropzone_stuck' ||
-			incident.kind === 'c2_separation_needed'
+			incident.kind === 'c2_separation_needed' ||
+			incident.kind === 'bulk_feeder_stalled' ||
+			incident.kind === 'feeder_detection_unavailable' ||
+			incident.kind === 'distribution_chute_jam' ||
+			incident.kind === 'distribution_servo_bus_offline'
 		) {
 			const body: Record<string, string | number> = {
 				channel: incidentString(incident, 'channel')
@@ -416,6 +504,24 @@
 		if (incident?.kind === 'c2_separation_needed') {
 			return 'Slip-Stick Separation';
 		}
+		if (incident?.kind === 'bulk_feeder_stalled') {
+			return 'Bulk Feed Stalled';
+		}
+		if (incident?.kind === 'feeder_detection_unavailable') {
+			return 'Detection Unavailable';
+		}
+		if (incident?.kind === 'distribution_chute_jam') {
+			return 'Chute Jam';
+		}
+		if (incident?.kind === 'distribution_servo_bus_offline') {
+			return 'Servo Bus Offline';
+		}
+		if (incident?.kind === 'classification_unresolved') {
+			return 'Classification Unresolved';
+		}
+		if (incident?.kind === 'classification_multi_drop_collision') {
+			return 'Multi-Drop Collision';
+		}
 		return 'Exit Stuck';
 	}
 
@@ -424,6 +530,9 @@
 		const channel = incidentString(incident, 'channel');
 		if (role === 'c_channel_2' || channel === 'c2') return 'C2';
 		if (role === 'c_channel_3' || channel === 'c3') return 'C3';
+		if (role === 'bulk_feeder' || channel === 'c1') return 'C1';
+		if (role === 'feeder_detection' || channel === 'feeder') return 'Feeder';
+		if (channel === 'distribution' || role.startsWith('distribution_')) return 'Distribution';
 		if (isClassificationExitStuckIncident(incident) || role === 'carousel' || channel === 'c4')
 			return 'C4';
 		return '';
@@ -439,11 +548,38 @@
 		if (incident?.kind === 'c2_separation_needed') {
 			return 'Pieces are not spreading out as expected.';
 		}
+		if (incident?.kind === 'bulk_feeder_stalled') {
+			return 'No pieces are reaching the next channel.';
+		}
+		if (incident?.kind === 'feeder_detection_unavailable') {
+			return 'Feeder camera detection is not reliable.';
+		}
+		if (incident?.kind === 'distribution_chute_jam') {
+			return 'The distribution chute did not finish moving.';
+		}
+		if (incident?.kind === 'distribution_servo_bus_offline') {
+			return 'The distribution servo bus is not responding.';
+		}
+		if (incident?.kind === 'classification_unresolved') {
+			return 'A piece reached the drop point without a resolved classification.';
+		}
+		if (incident?.kind === 'classification_multi_drop_collision') {
+			return 'Multiple pieces reached the drop point together.';
+		}
 		return 'A piece is not falling off the channel.';
 	}
 
 	function exitIncidentPrimaryMetricLabel(incident: Record<string, unknown> | null): string {
+		if (
+			incident?.kind === 'classification_unresolved' ||
+			incident?.kind === 'classification_multi_drop_collision'
+		)
+			return 'Status';
 		if (incident?.kind === 'c2_separation_needed') return 'Tracks';
+		if (incident?.kind === 'bulk_feeder_stalled') return 'Stall';
+		if (incident?.kind === 'feeder_detection_unavailable') return 'Unavailable';
+		if (incident?.kind === 'distribution_chute_jam') return 'Elapsed';
+		if (incident?.kind === 'distribution_servo_bus_offline') return 'Offline';
 		if (incident?.kind === 'channel_dropzone_stuck') return 'Motion';
 		return isChannelExitStuckIncident(incident) ? 'Stall' : 'Offset';
 	}
@@ -462,16 +598,71 @@
 				incidentNumber(incident, 'accumulated_motion_ms') ?? incidentNumber(incident, 'stall_ms');
 			return motion === null ? '-' : `${motion.toFixed(0)} ms`;
 		}
+		if (incident?.kind === 'bulk_feeder_stalled') {
+			const stalled = incidentNumber(incident, 'stalled_ms');
+			return stalled === null ? '-' : `${stalled.toFixed(0)} ms`;
+		}
+		if (incident?.kind === 'feeder_detection_unavailable') {
+			const unavailable = incidentNumber(incident, 'unavailable_ms');
+			return unavailable === null ? '-' : `${unavailable.toFixed(0)} ms`;
+		}
+		if (incident?.kind === 'distribution_chute_jam') {
+			const elapsed = incidentNumber(incident, 'elapsed_ms');
+			return elapsed === null ? '-' : `${elapsed.toFixed(0)} ms`;
+		}
+		if (incident?.kind === 'distribution_servo_bus_offline') {
+			const layers = incident.offline_layers;
+			return Array.isArray(layers) && layers.length > 0 ? layers.join(', ') : 'Bus';
+		}
+		if (
+			incident?.kind === 'classification_unresolved' ||
+			incident?.kind === 'classification_multi_drop_collision'
+		) {
+			return incidentString(incident, 'classification_status', '-');
+		}
 		return fmtIncidentNumber(incidentNumber(incident, 'center_offset_deg'), ' deg');
 	}
 
 	function exitIncidentSecondaryMetricLabel(incident: Record<string, unknown> | null): string {
+		if (
+			incident?.kind === 'classification_unresolved' ||
+			incident?.kind === 'classification_multi_drop_collision'
+		)
+			return 'Reason';
+		if (incident?.kind === 'bulk_feeder_stalled') return 'Pulses';
+		if (incident?.kind === 'feeder_detection_unavailable') return 'Detail';
+		if (
+			incident?.kind === 'distribution_chute_jam' ||
+			incident?.kind === 'distribution_servo_bus_offline'
+		)
+			return 'Detail';
 		return incident?.kind === 'c2_separation_needed' ? 'Motion' : 'Overlap';
 	}
 
 	function exitIncidentSecondaryMetricValue(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'c2_separation_needed') {
 			return incident.automated_motion_enabled === true ? 'Enabled' : 'Disabled';
+		}
+		if (incident?.kind === 'bulk_feeder_stalled') {
+			const pulses = incidentNumber(incident, 'pulses_since_activity');
+			const minPulses = incidentNumber(incident, 'min_pulses');
+			if (pulses === null) return '-';
+			return minPulses === null ? pulses.toFixed(0) : `${pulses.toFixed(0)} / ${minPulses.toFixed(0)}`;
+		}
+		if (incident?.kind === 'feeder_detection_unavailable') {
+			return incidentString(incident, 'detail', '-');
+		}
+		if (
+			incident?.kind === 'distribution_chute_jam' ||
+			incident?.kind === 'distribution_servo_bus_offline'
+		) {
+			return incidentString(incident, 'detail', '-');
+		}
+		if (
+			incident?.kind === 'classification_unresolved' ||
+			incident?.kind === 'classification_multi_drop_collision'
+		) {
+			return incidentString(incident, 'reason', '-');
 		}
 		return fmtIncidentNumber((incidentNumber(incident, 'overlap_ratio') ?? 0) * 100, '%', 0);
 	}
@@ -573,7 +764,12 @@
 		)
 			return;
 		if (
-			(isChannelExitStuckIncident(incident) || incident.kind === 'c2_separation_needed') &&
+			(isChannelExitStuckIncident(incident) ||
+				incident.kind === 'c2_separation_needed' ||
+				incident.kind === 'bulk_feeder_stalled' ||
+				incident.kind === 'feeder_detection_unavailable' ||
+				incident.kind === 'distribution_chute_jam' ||
+				incident.kind === 'distribution_servo_bus_offline') &&
 			action !== 'clear'
 		)
 			return;

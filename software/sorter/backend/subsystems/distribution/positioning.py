@@ -20,6 +20,8 @@ BINS_FULL_ALERT_PREFIX = "No bin available"
 MISC_PASSTHROUGH_ALERT_PREFIX = "Misc passthrough"
 CHUTE_JAM_ALERT_PREFIX = "Chute jam"
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
+DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
+DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
 # Beyond how many ms after the estimated move time do we conclude the
 # chute / servo is stuck? 3× the expected move is generous but catches
 # a real jam reliably.
@@ -346,6 +348,14 @@ class Positioning(BaseState):
         runtime_stats, and pauses the controller. Cleared only when a
         servo comes back online via ``_isLayerUsable``.
         """
+        self._publishDistributionIncident(
+            DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND,
+            detail=detail,
+            severity="critical",
+            role="distribution_servo_bus",
+            channel_label="Servo Bus",
+            offline_layers=sorted(self._servo_offline_layers),
+        )
         if self._servo_bus_pause_enqueued:
             return
         self._servo_bus_pause_enqueued = True
@@ -375,6 +385,68 @@ class Positioning(BaseState):
         except Exception:
             pass
 
+    def _targetAddressPayload(self) -> dict | None:
+        if self._target_address is None:
+            return None
+        return {
+            "layer_index": int(self._target_address.layer_index),
+            "section_index": int(self._target_address.section_index),
+            "bin_index": int(self._target_address.bin_index),
+        }
+
+    def _publishDistributionIncident(
+        self,
+        kind: str,
+        *,
+        detail: str,
+        severity: str,
+        role: str,
+        channel_label: str,
+        **extra,
+    ) -> None:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+            return
+        active = None
+        if hasattr(runtime_stats, "activeIncident"):
+            try:
+                active = runtime_stats.activeIncident()
+            except Exception:
+                active = None
+        if isinstance(active, dict):
+            if active.get("kind") == kind:
+                return
+            return
+        incident = {
+            "kind": kind,
+            "severity": severity,
+            "status": "waiting_for_operator",
+            "awaiting_operator": True,
+            "scope": "distribution",
+            "channel": "distribution",
+            "role": role,
+            "channel_label": channel_label,
+            "triggered_at": time.time(),
+            "detail": detail,
+        }
+        incident.update(extra)
+        runtime_stats.setActiveIncident(incident)
+
+    def _clearDistributionIncident(self, kind: str) -> None:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+            return
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+        if (
+            isinstance(active, dict)
+            and active.get("kind") == kind
+            and hasattr(runtime_stats, "clearActiveIncident")
+        ):
+            runtime_stats.clearActiveIncident(kind=kind)
+
     def _clearServoBusOfflineAlertIfOwned(self) -> None:
         try:
             with shared_state.hardware_lifecycle_lock:
@@ -384,6 +456,7 @@ class Positioning(BaseState):
         except Exception:
             pass
         self._servo_bus_pause_enqueued = False
+        self._clearDistributionIncident(DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND)
         try:
             self.gc.runtime_stats.clearServoBusOffline()
         except Exception:
@@ -393,6 +466,17 @@ class Positioning(BaseState):
         """Hard alert: chute / servo can't physically move. Raises the red
         banner *and* enqueues a pause so the operator has to intervene.
         """
+        elapsed_ms = int(max(0.0, time.monotonic() - self._moving_started_at) * 1000.0)
+        self._publishDistributionIncident(
+            DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
+            detail=detail,
+            severity="critical",
+            role="distribution_chute",
+            channel_label="Distribution Chute",
+            elapsed_ms=elapsed_ms,
+            estimated_ms=int(self._chute_move_estimated_ms),
+            target_address=self._targetAddressPayload(),
+        )
         if self._jam_pause_enqueued:
             return
         self._jam_pause_enqueued = True
@@ -429,6 +513,7 @@ class Positioning(BaseState):
         except Exception:
             pass
         self._jam_pause_enqueued = False
+        self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
 
     def _clearBinsFullAlertIfOwned(self) -> None:
         try:

@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from subsystems.channels.base import BaseStation, FeederTickContext
+from subsystems.channels.base import (
+    BaseStation,
+    FeederTickContext,
+    publish_bulk_feeder_stalled_incident,
+)
 
 
 class C1Station(BaseStation):
@@ -60,6 +64,25 @@ class C1Station(BaseStation):
             and recovery_ready
             and not ctx.analysis.ch3_dropzone_occupied
         ):
+            stalled_ms = int(
+                max(0.0, ctx.now_mono - self._last_ch2_activity_at_ref()) * 1000.0
+            )
+            published = publish_bulk_feeder_stalled_incident(
+                self.gc,
+                stalled_ms=stalled_ms,
+                pulses_since_activity=self._ch1_pulses_since_ch2_activity_ref(),
+                min_pulses=fc.first_rotor_jam_min_pulses,
+                recovery_levels=max_recovery_levels,
+            )
+            if published:
+                prof.hit("feeder.ch1.bulk_feeder_stalled_incident")
+                self.gc.runtime_stats.observeBlockedReason(
+                    "feeder",
+                    "bulk_feeder_stalled_incident",
+                )
+                self.set_state("feeding.wait_bulk_feeder_stalled_incident")
+                ctx.abort_tick = True
+                return
             if self._jam_recovery.exhausted(max_recovery_levels):
                 self._pause_for_ch1_stall(max_recovery_levels)
                 self.set_state("feeding.stalled_before_ch2_dropzone")

@@ -51,6 +51,12 @@ CLASSIFICATION_EXIT_RELEASE_SOURCE_KIND = "classification_exit_release"
 CHANNEL_EXIT_STUCK_INCIDENT_KIND = EXIT_STUCK_INCIDENT_KIND
 CHANNEL_DROPZONE_STUCK_INCIDENT_KIND = "channel_dropzone_stuck"
 C2_SEPARATION_INCIDENT_KIND = "c2_separation_needed"
+BULK_FEEDER_STALLED_INCIDENT_KIND = "bulk_feeder_stalled"
+FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND = "feeder_detection_unavailable"
+DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
+DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
+CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
+CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
 CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
@@ -1589,6 +1595,46 @@ def classification_channel_exit_incident_clear(
     return result
 
 
+@router.post("/api/classification-channel/fallback-incident/clear")
+def classification_channel_fallback_incident_clear(
+    payload: ClassificationExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    fallback_kinds = {
+        CLASSIFICATION_UNRESOLVED_INCIDENT_KIND,
+        CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
+    }
+    if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
+        for kind in fallback_kinds:
+            runtime_stats.clearActiveIncident(kind=kind)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested_piece_uuid = None if payload is None else payload.piece_uuid
+    if (
+        isinstance(requested_piece_uuid, str)
+        and requested_piece_uuid.strip()
+        and requested_piece_uuid.strip() != active.get("piece_uuid")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="The active classification incident belongs to another piece.",
+        )
+
+    kind = str(active.get("kind"))
+    runtime_stats.clearActiveIncident(
+        kind=kind,
+        piece_uuid=str(active.get("piece_uuid") or ""),
+    )
+    return {
+        "ok": True,
+        "cleared": True,
+        "kind": kind,
+        "piece_uuid": active.get("piece_uuid"),
+        "channel": "c4",
+    }
+
+
 def _runtime_stats_or_503() -> Any:
     runtime_stats = (
         getattr(shared_state.gc_ref, "runtime_stats", None)
@@ -1985,6 +2031,54 @@ def feeder_ch2_separation_incident_clear(
 
     runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND)
     return {"ok": True, "cleared": True, "channel": "c2"}
+
+
+@router.post("/api/feeder/bulk-feed-incident/clear")
+def feeder_bulk_feed_incident_clear(
+    payload: Ch2SeparationIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != BULK_FEEDER_STALLED_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested_channel = None if payload is None else payload.channel
+    if requested_channel is not None and requested_channel not in {"c1", "ch1", "bulk_feeder"}:
+        raise HTTPException(status_code=400, detail="The active bulk-feed incident belongs to C1.")
+
+    runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND)
+    return {"ok": True, "cleared": True, "channel": "c1"}
+
+
+@router.post("/api/feeder/detection-incident/clear")
+def feeder_detection_incident_clear() -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
+    return {"ok": True, "cleared": True, "channel": "feeder"}
+
+
+@router.post("/api/distribution/incident/clear")
+def distribution_incident_clear() -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    distribution_kinds = {
+        DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
+        DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND,
+    }
+    if not isinstance(active, dict) or active.get("kind") not in distribution_kinds:
+        for kind in distribution_kinds:
+            runtime_stats.clearActiveIncident(kind=kind)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    kind = str(active.get("kind"))
+    runtime_stats.clearActiveIncident(kind=kind)
+    return {"ok": True, "cleared": True, "kind": kind, "channel": "distribution"}
 
 
 @router.post("/api/classification-channel/wall-phase")

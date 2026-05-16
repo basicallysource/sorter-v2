@@ -17,6 +17,9 @@ from classification.brickognize import (
     _pickBestItem,
 )
 from defs.known_object import ClassificationStatus
+from subsystems.classification_channel.incidents import (
+    publish_classification_fallback_incident,
+)
 from utils.event import knownObjectToEvent
 
 MIN_RECOGNIZE_CROPS = 1
@@ -323,6 +326,12 @@ class ClassificationChannelRecognizer:
                 event_queue.put(knownObjectToEvent(piece))
             gc.runtime_stats.observeBlockedReason(
                 "classification", "brickognize_timeout"
+            )
+            publish_classification_fallback_incident(
+                gc,
+                piece=piece,
+                status=ClassificationStatus.unknown,
+                reason="brickognize_timeout",
             )
             bump_counter("brickognize_timeout_total")
             logger.warning(

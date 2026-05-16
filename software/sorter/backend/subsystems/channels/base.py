@@ -17,6 +17,7 @@ CHANNEL_EXIT_STUCK_SOURCE_KIND = "channel_exit_stuck"
 CHANNEL_EXIT_STUCK_INCIDENT_KIND = EXIT_STUCK_INCIDENT_KIND
 CHANNEL_DROPZONE_STUCK_INCIDENT_KIND = "channel_dropzone_stuck"
 C2_SEPARATION_INCIDENT_KIND = "c2_separation_needed"
+BULK_FEEDER_STALLED_INCIDENT_KIND = "bulk_feeder_stalled"
 EXIT_WIGGLE_OVERLAP_THRESHOLD: float = 0.80
 EXIT_WIGGLE_STALL_MS: int = 1000
 EXIT_WIGGLE_REVERSE_DEG: float = 1.5
@@ -235,6 +236,51 @@ def publish_c2_separation_incident(
             "ch2_action": str(ch2_action),
             "downstream_busy": bool(downstream_busy),
             "reason": "c2_distribution_would_have_started_slip_stick",
+        }
+    )
+    return True
+
+
+def publish_bulk_feeder_stalled_incident(
+    gc: Any,
+    *,
+    stalled_ms: int,
+    pulses_since_activity: int,
+    min_pulses: int,
+    recovery_levels: int,
+) -> bool:
+    if _incident_handling_off(BULK_FEEDER_STALLED_INCIDENT_KIND):
+        return False
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+        return False
+
+    active = None
+    if hasattr(runtime_stats, "activeIncident"):
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+    if isinstance(active, dict):
+        return active.get("kind") == BULK_FEEDER_STALLED_INCIDENT_KIND
+
+    runtime_stats.setActiveIncident(
+        {
+            "kind": BULK_FEEDER_STALLED_INCIDENT_KIND,
+            "severity": "warning",
+            "status": "waiting_for_operator",
+            "awaiting_operator": True,
+            "scope": "feeder",
+            "channel": "c1",
+            "role": "bulk_feeder",
+            "channel_label": "Bulk Feeder",
+            "triggered_at": time.time(),
+            "stalled_ms": int(stalled_ms),
+            "pulses_since_activity": int(pulses_since_activity),
+            "min_pulses": int(min_pulses),
+            "recovery_levels": int(recovery_levels),
+            "rule": "c1_pulsed_without_ch2_activity_for_timeout",
+            "resolution": "operator_check_bulk_bucket_or_clear_incident",
         }
     )
     return True

@@ -28,6 +28,7 @@ CHANNEL_OUTPUT_GEAR_RATIO = 130.0 / 12.0
 CH1_STALL_ALERT_PREFIX = "Feeder transport blocked"
 FEEDER_DETECTION_ALERT_PREFIX = "Feeder camera detection unavailable"
 FEEDER_DETECTION_UNAVAILABLE_GRACE_S = 3.0
+FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND = "feeder_detection_unavailable"
 # Grace window after a C3 pulse during which classification-channel
 # admission stays blocked regardless of what the vision/transport state
 # reports. Covers the race between the C3 stepper cooldown ending and the
@@ -226,6 +227,20 @@ class Feeding(BaseState):
                 and shared_state.hardware_error.startswith(FEEDER_DETECTION_ALERT_PREFIX)
             ):
                 shared_state.setHardwareStatus(clear_error=True)
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is not None and hasattr(runtime_stats, "activeIncident"):
+            try:
+                active = runtime_stats.activeIncident()
+            except Exception:
+                active = None
+            if (
+                isinstance(active, dict)
+                and active.get("kind") == FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND
+                and hasattr(runtime_stats, "clearActiveIncident")
+            ):
+                runtime_stats.clearActiveIncident(
+                    kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND
+                )
 
     def _pauseMachineForCh1Stall(self, max_levels: int) -> None:
         if self._ch1_pause_enqueued:
@@ -246,7 +261,48 @@ class Feeding(BaseState):
 
         self._ch1_pause_enqueued = True
 
-    def _pauseMachineForDetectionUnavailable(self, detail: str | None) -> None:
+    def _publishFeederDetectionUnavailableIncident(
+        self,
+        detail: str | None,
+        unavailable_for_s: float,
+    ) -> None:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+            return
+        active = None
+        if hasattr(runtime_stats, "activeIncident"):
+            try:
+                active = runtime_stats.activeIncident()
+            except Exception:
+                active = None
+        if isinstance(active, dict):
+            if active.get("kind") == FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND:
+                return
+            return
+        runtime_stats.setActiveIncident(
+            {
+                "kind": FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND,
+                "severity": "critical",
+                "status": "waiting_for_operator",
+                "awaiting_operator": True,
+                "scope": "feeder",
+                "channel": "feeder",
+                "role": "feeder_detection",
+                "channel_label": "Feeder Cameras",
+                "triggered_at": time.time(),
+                "unavailable_ms": int(max(0.0, unavailable_for_s) * 1000.0),
+                "detail": detail or "",
+                "rule": "feeder_detection_unavailable_after_grace",
+                "resolution": "operator_restore_camera_detection_or_clear_incident",
+            }
+        )
+
+    def _pauseMachineForDetectionUnavailable(
+        self,
+        detail: str | None,
+        unavailable_for_s: float,
+    ) -> None:
+        self._publishFeederDetectionUnavailableIncident(detail, unavailable_for_s)
         if self._feeder_detection_pause_enqueued:
             return
 
@@ -509,7 +565,10 @@ class Feeding(BaseState):
                     self._feeder_detection_unavailable_since = now
                 unavailable_for = now - self._feeder_detection_unavailable_since
                 if unavailable_for >= FEEDER_DETECTION_UNAVAILABLE_GRACE_S:
-                    self._pauseMachineForDetectionUnavailable(detection_reason)
+                    self._pauseMachineForDetectionUnavailable(
+                        detection_reason,
+                        unavailable_for,
+                    )
 
                 self.gc.runtime_stats.observeBlockedReason("feeder", "detection_unavailable")
                 self.gc.runtime_stats.observeFeederSignals(

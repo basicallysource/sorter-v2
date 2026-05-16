@@ -104,6 +104,22 @@ class _Transport:
     def hasPendingClassifications(self) -> bool:
         return self._pending
 
+    def resolveFallbackClassification(
+        self,
+        uuid: str,
+        *,
+        status: ClassificationStatus,
+    ) -> bool:
+        for piece in self._pieces_by_track.values():
+            if getattr(piece, "uuid", None) != uuid:
+                continue
+            piece.part_id = None
+            piece.destination_bin = None
+            piece.confidence = None
+            piece.classification_status = status
+            return True
+        return False
+
 
 class _Shared:
     def __init__(self) -> None:
@@ -200,6 +216,57 @@ def _make_running() -> tuple[Running, _Transport, _Shared, _EventQueue]:
 def _force_manual_exit_incident(running: Running) -> None:
     running._exitReleaseIncidentAutomatic = lambda: False
     running._exitReleaseIncidentOff = lambda: False
+
+
+def test_unknown_fallback_publishes_classification_unresolved_incident() -> None:
+    running, transport, _shared, _events = _make_running()
+    piece = KnownObject(
+        uuid="piece-deadline",
+        tracked_global_id=81,
+        classification_status=ClassificationStatus.pending,
+    )
+    piece.classification_channel_zone_center_deg = 29.5
+    piece.classification_channel_exit_offset_deg = -0.5
+    transport._pieces_by_track = {81: piece}
+
+    running._applyFallback(
+        piece,
+        ClassificationStatus.unknown,
+        now_wall=100.0,
+        reason="drop_deadline_unclassified",
+    )
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_unresolved"
+    assert incident["piece_uuid"] == "piece-deadline"
+    assert incident["channel"] == "c4"
+    assert incident["reason"] == "drop_deadline_unclassified"
+
+
+def test_multi_drop_fallback_publishes_collision_incident() -> None:
+    running, transport, _shared, _events = _make_running()
+    piece = KnownObject(
+        uuid="piece-collision",
+        tracked_global_id=82,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    transport._pieces_by_track = {82: piece}
+
+    running._applyFallback(
+        piece,
+        ClassificationStatus.multi_drop_fail,
+        now_wall=101.0,
+        reason="drop_window_collision",
+    )
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_multi_drop_collision"
+    assert incident["piece_uuid"] == "piece-collision"
+    assert incident["severity"] == "critical"
+    assert incident["reason"] == "drop_window_collision"
 
 
 def test_running_registers_new_intake_piece_only_while_awaiting_handoff() -> None:

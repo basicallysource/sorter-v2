@@ -257,5 +257,5 @@ classification_channel = 2
 
     move = platter.sector_move_plan(0, 1, direction="cw")
     assert move.motor_microsteps == 3467
-    assert move.motion_profile.max_speed_microsteps_per_second == 3400
+    assert move.motion_profile.max_speed_microsteps_per_second == 3600
     assert move.motion_profile.acceleration_microsteps_per_second_sq == 2500

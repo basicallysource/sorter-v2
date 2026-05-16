@@ -44,6 +44,27 @@
 		);
 	}
 
+	function keepSystemStatusFresh(baseUrl: string) {
+		const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? currentBackendWsUrl();
+		manager.ensureConnected(wsUrl);
+		manager.queueSystemStatusRefreshes(baseUrl);
+	}
+
+	function applySystemActionResponse(
+		payload: Record<string, unknown> | null,
+		fallbackState: string,
+		fallbackStep: string | null
+	) {
+		const state =
+			typeof payload?.hardware_state === 'string' ? payload.hardware_state : fallbackState;
+		const step = typeof payload?.message === 'string' ? payload.message : fallbackStep;
+		manager.applySystemStatusToSelected({
+			hardware_state: state,
+			hardware_error: null,
+			homing_step: state === 'homing' || state === 'initializing' ? step : null
+		});
+	}
+
 	const machineState = $derived(manager.selectedMachine?.sorterState?.state ?? 'initializing');
 	const hardwareState = $derived(
 		manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby'
@@ -88,18 +109,26 @@
 	);
 
 	async function homeSystem() {
+		const baseUrl = currentBackendBaseUrl();
 		try {
-			await fetch(`${currentBackendBaseUrl()}/api/system/recover`, { method: 'POST' });
+			const response = await fetch(`${baseUrl}/api/system/recover`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			applySystemActionResponse(payload, 'homing', 'Starting safe recovery...');
+			keepSystemStatusFresh(baseUrl);
 		} catch {
-			// ignore
+			keepSystemStatusFresh(baseUrl);
 		}
 	}
 
 	async function resetHardwareSystem() {
+		const baseUrl = currentBackendBaseUrl();
 		try {
-			await fetch(`${currentBackendBaseUrl()}/api/system/reset`, { method: 'POST' });
+			const response = await fetch(`${baseUrl}/api/system/reset`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			applySystemActionResponse(payload, 'standby', null);
+			keepSystemStatusFresh(baseUrl);
 		} catch {
-			// ignore
+			keepSystemStatusFresh(baseUrl);
 		}
 	}
 

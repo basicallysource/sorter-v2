@@ -1,7 +1,12 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getMachineContext, getMachinesContext } from '$lib/machines/context';
+	import {
+		backendHttpBaseUrl,
+		backendWsBaseUrl,
+		machineHttpBaseUrlFromWsUrl,
+		machineWsUrlFromHttpBaseUrl
+	} from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
@@ -18,11 +23,13 @@
 	const SIDEBAR_DEFAULT = 420;
 
 	const machine = getMachineContext();
+	const manager = getMachinesContext();
 
 	let dashboardCrops = $state<Record<string, DashboardFeedCrop | null>>({});
 	let cropBaseUrl = $state<string | null>(null);
 	let sidebar_width = $state(SIDEBAR_DEFAULT);
 	let startSystemError = $state<string | null>(null);
+	let startSystemPending = $state(false);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
 	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
@@ -52,14 +59,35 @@
 		startSystemError ?? machine.machine?.systemStatus?.hardware_error ?? null
 	);
 	const homingStep = $derived(machine.machine?.systemStatus?.homing_step ?? null);
-	const startingSystem = $derived(hardwareState === 'homing');
+	const startingSystem = $derived(hardwareState === 'homing' || startSystemPending);
 
 	async function startSystem() {
+		const baseUrl = currentBackendBaseUrl();
 		startSystemError = null;
+		startSystemPending = true;
 		try {
-			await fetch(`${currentBackendBaseUrl()}/api/system/recover`, { method: 'POST' });
+			const response = await fetch(`${baseUrl}/api/system/recover`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			if (!response.ok || payload?.ok === false) {
+				throw new Error(
+					typeof payload?.message === 'string' ? payload.message : 'Failed to recover system'
+				);
+			}
+			manager.applySystemStatusToSelected({
+				hardware_state:
+					typeof payload?.hardware_state === 'string' ? payload.hardware_state : 'homing',
+				hardware_error: null,
+				homing_step:
+					typeof payload?.message === 'string' ? payload.message : 'Starting safe recovery...'
+			});
+			const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? `${backendWsBaseUrl}/ws`;
+			manager.ensureConnected(wsUrl);
+			manager.queueSystemStatusRefreshes(baseUrl);
 		} catch (e: any) {
 			startSystemError = e?.message ?? 'Failed to recover system';
+			manager.queueSystemStatusRefreshes(baseUrl);
+		} finally {
+			startSystemPending = false;
 		}
 	}
 
@@ -363,6 +391,9 @@
 								<div>
 									<div class="text-sm font-medium text-text">System Standby</div>
 									<div class="text-xs text-text-muted">Press Home to initialize hardware and home all axes.</div>
+									{#if startSystemError}
+										<div class="mt-1 text-xs text-danger">{startSystemError}</div>
+									{/if}
 								</div>
 								<button
 									onclick={startSystem}

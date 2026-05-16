@@ -522,6 +522,29 @@ export class MachineManager {
 		this.machines = updated;
 	}
 
+	applySystemStatusToSelected(data: SystemStatusData): void {
+		const machineId = this.selectedMachineId;
+		if (!machineId) return;
+		this.handleSystemStatus(machineId, data);
+	}
+
+	async refreshSelectedSystemStatus(baseUrl: string): Promise<boolean> {
+		try {
+			const response = await fetch(`${baseUrl}/api/system/status`);
+			if (!response.ok) return false;
+			this.applySystemStatusToSelected((await response.json()) as SystemStatusData);
+			return true;
+		} catch {
+			return false;
+		}
+	}
+
+	queueSystemStatusRefreshes(baseUrl: string, delaysMs: number[] = [0, 500, 1500]): void {
+		for (const delayMs of delaysMs) {
+			window.setTimeout(() => void this.refreshSelectedSystemStatus(baseUrl), delayMs);
+		}
+	}
+
 	private findMachineIdBySocket(ws: WebSocket): string | null {
 		for (const [id, machine] of this.machines) {
 			if (machine.connection === ws) {

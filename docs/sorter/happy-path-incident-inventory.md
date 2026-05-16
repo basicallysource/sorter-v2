@@ -27,6 +27,7 @@ Anything that requires recovery motion, operator judgement, hardware repair, or 
 | `classification_unresolved` | C4 | C4 reaches the drop deadline or Brickognize timeout before the piece is resolved. | Operator reviews the fallback-to-unknown and clears the incident. |
 | `classification_multi_drop_collision` | C4 | Multiple pieces reach the C4 drop window together. | Operator inspects the collision/fallback and clears the incident. |
 | `classification_intake_request_timeout` | C4 | C4 requested a piece from C3, but no intake track arrived before timeout. | Operator checks the C3→C4 handoff and clears the incident to retry. |
+| `classification_track_lost` | C4 | A meaningful C4 track expires from stale-zone cleanup before the expected drop flow completed. | Operator checks C4 tracking/occlusion and clears the incident. Empty ghost tracks remain diagnostics only. |
 
 ## Remaining Candidates
 
@@ -34,5 +35,4 @@ These are still worth discussing before turning them into hard incidents:
 
 | Candidate | Current behavior | Why it may be an incident |
 | --- | --- | --- |
-| `classification_stale_zone_or_ghost_track` | Stale zones expire and ghost-like tracks are silently filtered/recovered. | Often useful cleanup, but persistent ghosts are a tuning/hardware incident. |
 | `camera_sample_collection_bypass` | Sample collection bypasses some gates and speed limits. | This is an explicit operating mode, not an incident, but it should stay visibly separate from normal sorting. |

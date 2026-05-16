@@ -59,6 +59,7 @@ DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
 CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
+CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
 CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
 CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
@@ -1607,6 +1608,7 @@ def classification_channel_fallback_incident_clear(
         CLASSIFICATION_UNRESOLVED_INCIDENT_KIND,
         CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
         CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
+        CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
     }
     if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
         for kind in fallback_kinds:

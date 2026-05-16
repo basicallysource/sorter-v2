@@ -39,6 +39,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual("manual", config["incident_handling"]["classification_unresolved"])
         self.assertEqual("manual", config["incident_handling"]["classification_multi_drop_collision"])
         self.assertEqual("manual", config["incident_handling"]["classification_intake_request_timeout"])
+        self.assertEqual("manual", config["incident_handling"]["classification_track_lost"])
         self.assertTrue(any(item["kind"] == "channel_dropzone_stuck" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "exit_stuck" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "bulk_feeder_stalled" for item in config["incident_definitions"]))
@@ -53,6 +54,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertTrue(
             any(item["kind"] == "classification_intake_request_timeout" for item in config["incident_definitions"])
         )
+        self.assertTrue(any(item["kind"] == "classification_track_lost" for item in config["incident_definitions"]))
         self.assertFalse(
             any(item["kind"] == "classification_exit_release" for item in config["incident_definitions"])
         )
@@ -72,6 +74,7 @@ class DashboardConfigTests(unittest.TestCase):
                     "classification_unresolved": "off",
                     "classification_multi_drop_collision": "manual",
                     "classification_intake_request_timeout": "off",
+                    "classification_track_lost": "off",
                     "c2_separation_needed": "bogus",
                     "unknown_incident": "automatic",
                 }
@@ -88,6 +91,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual("off", config["incident_handling"]["classification_unresolved"])
         self.assertEqual("manual", config["incident_handling"]["classification_multi_drop_collision"])
         self.assertEqual("off", config["incident_handling"]["classification_intake_request_timeout"])
+        self.assertEqual("off", config["incident_handling"]["classification_track_lost"])
         self.assertEqual("manual", config["incident_handling"]["c2_separation_needed"])
         self.assertNotIn("unknown_incident", config["incident_handling"])
         self.assertNotIn("classification_exit_release", config["incident_handling"])
@@ -99,6 +103,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertTrue(incidentHandlingOff("classification_unresolved"))
         self.assertTrue(incidentHandlingOff("distribution_no_bin_available"))
         self.assertTrue(incidentHandlingOff("classification_intake_request_timeout"))
+        self.assertTrue(incidentHandlingOff("classification_track_lost"))
 
         config = setDashboardConfig({"incident_handling": {"channel_exit_stuck": "off"}})
 

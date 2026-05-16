@@ -370,6 +370,40 @@ def test_intake_request_timeout_publishes_incident_and_keeps_gate_closed() -> No
     )
 
 
+def test_meaningful_stale_track_expiry_publishes_track_lost_incident() -> None:
+    running, _transport, _shared, events = _make_running()
+    piece = KnownObject(
+        uuid="piece-lost",
+        tracked_global_id=91,
+        classification_status=ClassificationStatus.pending,
+    )
+    piece.latest_captured_crop = "crop-b64"
+
+    running._emitExpiredPieceEvents([piece])
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_track_lost"
+    assert incident["piece_uuid"] == "piece-lost"
+    assert incident["tracked_global_id"] == 91
+    assert incident["reason"] == "stale_zone_expired"
+    assert len(events.items) == 1
+
+
+def test_empty_stale_track_expiry_stays_diagnostic_only() -> None:
+    running, _transport, _shared, events = _make_running()
+    piece = KnownObject(
+        uuid="piece-ghost",
+        tracked_global_id=92,
+        classification_status=ClassificationStatus.pending,
+    )
+
+    running._emitExpiredPieceEvents([piece])
+
+    assert running.gc.runtime_stats.active_incident is None
+    assert events.items == []
+
+
 def test_running_recovers_existing_tracks_without_waiting_for_new_handoff() -> None:
     running, transport, shared, events = _make_running()
     old_track = TrackAngularExtent(

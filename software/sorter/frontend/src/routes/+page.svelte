@@ -154,6 +154,16 @@
 			manual_label: 'Operator checks C3 to C4 handoff',
 			automatic_label: 'Automatic C4 handoff recovery',
 			automatic_supported: false
+		},
+		{
+			kind: 'classification_track_lost',
+			label: 'Track Lost',
+			scope: 'C4',
+			description: 'A tracked piece disappeared before the expected drop flow completed.',
+			off_label: 'Treat stale C4 tracks as diagnostics',
+			manual_label: 'Operator reviews lost C4 tracks',
+			automatic_label: 'Automatic track-loss handling',
+			automatic_supported: false
 		}
 	];
 
@@ -286,7 +296,8 @@
 			incident.kind === 'distribution_no_bin_available' ||
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
-			incident.kind === 'classification_intake_request_timeout'
+			incident.kind === 'classification_intake_request_timeout' ||
+			incident.kind === 'classification_track_lost'
 			? incident
 			: null;
 	}
@@ -488,7 +499,8 @@
 		if (
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
-			incident.kind === 'classification_intake_request_timeout'
+			incident.kind === 'classification_intake_request_timeout' ||
+			incident.kind === 'classification_track_lost'
 		) {
 			return `${currentBackendBaseUrl()}/api/classification-channel/fallback-incident`;
 		}
@@ -553,6 +565,9 @@
 		if (incident?.kind === 'classification_intake_request_timeout') {
 			return 'Intake Request Timeout';
 		}
+		if (incident?.kind === 'classification_track_lost') {
+			return 'Track Lost';
+		}
 		return 'Exit Stuck';
 	}
 
@@ -603,12 +618,16 @@
 		if (incident?.kind === 'classification_intake_request_timeout') {
 			return 'C4 requested a piece, but no handoff arrived.';
 		}
+		if (incident?.kind === 'classification_track_lost') {
+			return 'A tracked piece disappeared before the expected drop flow completed.';
+		}
 		return 'A piece is not falling off the channel.';
 	}
 
 	function exitIncidentPrimaryMetricLabel(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'distribution_no_bin_available') return 'Category';
 		if (incident?.kind === 'classification_intake_request_timeout') return 'Timeout';
+		if (incident?.kind === 'classification_track_lost') return 'Track';
 		if (
 			incident?.kind === 'classification_unresolved' ||
 			incident?.kind === 'classification_multi_drop_collision'
@@ -660,6 +679,11 @@
 			const timeout = incidentNumber(incident, 'timeout_ms');
 			return timeout === null ? '-' : `${timeout.toFixed(0)} ms`;
 		}
+		if (incident?.kind === 'classification_track_lost') {
+			const trackId =
+				incidentNumber(incident, 'tracked_global_id') ?? incidentNumber(incident, 'track_id');
+			return trackId === null ? '-' : `#${trackId.toFixed(0)}`;
+		}
 		if (
 			incident?.kind === 'classification_unresolved' ||
 			incident?.kind === 'classification_multi_drop_collision'
@@ -672,6 +696,7 @@
 	function exitIncidentSecondaryMetricLabel(incident: Record<string, unknown> | null): string {
 		if (incident?.kind === 'distribution_no_bin_available') return 'Piece';
 		if (incident?.kind === 'classification_intake_request_timeout') return 'Detail';
+		if (incident?.kind === 'classification_track_lost') return 'Piece';
 		if (
 			incident?.kind === 'classification_unresolved' ||
 			incident?.kind === 'classification_multi_drop_collision'
@@ -711,6 +736,9 @@
 		}
 		if (incident?.kind === 'classification_intake_request_timeout') {
 			return incidentString(incident, 'detail', incidentString(incident, 'rule', '-'));
+		}
+		if (incident?.kind === 'classification_track_lost') {
+			return incidentString(incident, 'piece_short', incidentString(incident, 'reason', '-'));
 		}
 		if (
 			incident?.kind === 'classification_unresolved' ||

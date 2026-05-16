@@ -20,6 +20,7 @@ from subsystems.classification_channel.recognition import (
 from subsystems.classification_channel.incidents import (
     publish_classification_intake_timeout_incident,
     publish_classification_fallback_incident,
+    publish_classification_track_lost_incident,
 )
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.classification_channel.zone_manager import (
@@ -565,6 +566,11 @@ class Running(BaseState):
                 or getattr(piece, "drop_snapshot", None)
             )
             if self.event_queue is not None and was_meaningful:
+                publish_classification_track_lost_incident(
+                    self.gc,
+                    piece=piece,
+                    reason="stale_zone_expired",
+                )
                 self.event_queue.put(knownObjectToEvent(piece))
             self.logger.info(
                 "ClassificationChannel: expired stale-zone piece %s (track=%s, emitted=%s)"

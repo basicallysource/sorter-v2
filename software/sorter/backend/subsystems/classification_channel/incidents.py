@@ -8,6 +8,7 @@ from defs.known_object import ClassificationStatus
 CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
+CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
 
 
 def classification_fallback_incident_kind(
@@ -133,6 +134,59 @@ def publish_classification_intake_timeout_incident(
             ),
         }
     )
+    return True
+
+
+def publish_classification_track_lost_incident(
+    gc: Any,
+    *,
+    piece: Any,
+    reason: str,
+) -> bool:
+    kind = CLASSIFICATION_TRACK_LOST_INCIDENT_KIND
+    if _incident_handling_off(kind):
+        return False
+
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+        return False
+
+    active = None
+    if hasattr(runtime_stats, "activeIncident"):
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+    piece_uuid = str(getattr(piece, "uuid", "") or "")
+    if isinstance(active, dict):
+        return active.get("kind") == kind and active.get("piece_uuid") == piece_uuid
+
+    status = getattr(getattr(piece, "classification_status", None), "value", None)
+    tracked_global_id = getattr(piece, "tracked_global_id", None)
+    payload: dict[str, Any] = {
+        "kind": kind,
+        "severity": "warning",
+        "status": "waiting_for_operator",
+        "awaiting_operator": True,
+        "scope": "classification",
+        "channel": "c4",
+        "role": "classification_channel",
+        "channel_label": "C4",
+        "piece_uuid": piece_uuid,
+        "piece_short": piece_uuid[:8],
+        "classification_status": str(status or ""),
+        "reason": str(reason),
+        "triggered_at": time.time(),
+        "rule": "meaningful_c4_track_expired_from_stale_zone",
+        "resolution": "operator_check_c4_tracking_or_clear_if_expected",
+        "operator_message": (
+            "A C4 track with captured evidence expired before the normal drop flow completed."
+        ),
+    }
+    if isinstance(tracked_global_id, int):
+        payload["tracked_global_id"] = int(tracked_global_id)
+        payload["track_id"] = int(tracked_global_id)
+    runtime_stats.setActiveIncident(payload)
     return True
 
 

@@ -209,6 +209,7 @@ _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     "classification_unresolved": _INCIDENT_MODE_MANUAL,
     "classification_multi_drop_collision": _INCIDENT_MODE_MANUAL,
     "classification_intake_request_timeout": _INCIDENT_MODE_MANUAL,
+    "classification_track_lost": _INCIDENT_MODE_MANUAL,
 }
 _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
@@ -319,6 +320,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "off_label": "Retry C4 intake requests silently",
         "manual_label": "Operator checks C3 to C4 handoff",
         "automatic_label": "Automatic C4 handoff recovery",
+        "automatic_supported": False,
+    },
+    {
+        "kind": "classification_track_lost",
+        "label": "Track Lost",
+        "scope": "C4",
+        "description": "A tracked piece disappeared before the expected drop flow completed.",
+        "off_label": "Treat stale C4 tracks as diagnostics",
+        "manual_label": "Operator reviews lost C4 tracks",
+        "automatic_label": "Automatic track-loss handling",
         "automatic_supported": False,
     },
 )

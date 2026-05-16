@@ -24,6 +24,7 @@ __pycache__/
 backend/.venv/
 backend/.pytest_cache/
 backend/test.db
+backend/test-profile-parts.db
 backend/hive.db
 backend/sorthive.db
 
@@ -38,3 +39,4 @@ frontend/build/
 
 # Logs
 *.log
+logs/

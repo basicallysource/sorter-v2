@@ -14,8 +14,8 @@ make install
 # Run migrations
 make migrate
 
-# Seed first admin user
-make seed-admin
+# Bootstrap first admin user (uses ADMIN_EMAIL / ADMIN_PASSWORD from .env)
+make bootstrap-admin
 
 # Start dev servers (backend :8002 + frontend :5174)
 make dev

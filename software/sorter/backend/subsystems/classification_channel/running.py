@@ -18,6 +18,7 @@ from subsystems.classification_channel.recognition import (
     ClassificationChannelRecognizer,
 )
 from subsystems.classification_channel.incidents import (
+    publish_classification_intake_timeout_incident,
     publish_classification_fallback_incident,
 )
 from subsystems.classification_channel.states import ClassificationChannelState
@@ -581,9 +582,27 @@ class Running(BaseState):
                 self._intake_requested_at_mono is not None
                 and now_mono - self._intake_requested_at_mono > INTAKE_REQUEST_TIMEOUT_S
             ):
+                elapsed_s = now_mono - self._intake_requested_at_mono
+                if publish_classification_intake_timeout_incident(
+                    self.gc,
+                    elapsed_s=elapsed_s,
+                ):
+                    self.logger.warning(
+                        "ClassificationChannel: intake request timed out after %.1fs; "
+                        "publishing incident"
+                        % elapsed_s
+                    )
+                    self._awaiting_intake_piece = False
+                    self._intake_requested_at_mono = None
+                    self._intake_requested_at_wall = None
+                    self.shared.set_classification_gate(
+                        False,
+                        reason="intake_request_timeout_incident",
+                    )
+                    return
                 self.logger.warning(
                     "ClassificationChannel: intake request timed out after %.1fs; reopening gate"
-                    % (now_mono - self._intake_requested_at_mono)
+                    % elapsed_s
                 )
                 self._awaiting_intake_piece = False
                 self._intake_requested_at_mono = None

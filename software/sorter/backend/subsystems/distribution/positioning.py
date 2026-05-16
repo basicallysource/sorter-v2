@@ -22,11 +22,22 @@ CHUTE_JAM_ALERT_PREFIX = "Chute jam"
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
+DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
 # Beyond how many ms after the estimated move time do we conclude the
 # chute / servo is stuck? 3× the expected move is generous but catches
 # a real jam reliably.
 CHUTE_MOVE_TIMEOUT_MS = 6000
 CHUTE_MOVE_TIMEOUT_MULTIPLIER = 3.0
+
+
+def _incidentHandlingOff(kind: str) -> bool:
+    try:
+        from toml_config import incidentHandlingOff
+
+        return bool(incidentHandlingOff(kind))
+    except Exception:
+        return False
+
 
 class Positioning(BaseState):
     def __init__(
@@ -120,6 +131,9 @@ class Positioning(BaseState):
                 # send this piece to the discard bucket.
                 return DistributionState.IDLE
             if address is None:
+                if self._raiseNoBinAvailableIncident(piece, category_id):
+                    self._setOccupancyState("positioning.no_bin_incident")
+                    return DistributionState.IDLE
                 # Pass-through: no bin available for this category. Open
                 # every usable layer door so the piece falls straight
                 # through to the bottom tray. Finalize the piece record
@@ -319,6 +333,30 @@ class Positioning(BaseState):
     def _raiseBinsFullAlert(self, category_id: str) -> None:
         return
 
+    def _raiseNoBinAvailableIncident(self, piece, category_id: str) -> bool:
+        """Publish no-bin as an explicit operator incident.
+
+        When this incident kind is disabled, the legacy passthrough path below
+        remains available as an intentional operating choice.
+        """
+        piece_uuid = str(getattr(piece, "uuid", "") or "")
+        return self._publishDistributionIncident(
+            DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
+            detail=f"No bin is available for category {category_id}.",
+            severity="warning",
+            role="distribution_no_bin",
+            channel_label="Distribution",
+            category_id=str(category_id),
+            piece_uuid=piece_uuid,
+            piece_short=piece_uuid[:8],
+            part_id=getattr(piece, "part_id", None),
+            color_id=getattr(piece, "color_id", None),
+            resolution="operator_assign_bin_or_disable_no_bin_incident",
+            operator_message=(
+                "No matching bin is available. Assign a bin, free capacity, or switch this incident off to allow passthrough."
+            ),
+        )
+
     def _allEnabledLayersServoOffline(self) -> bool:
         """True iff every enabled layer's servo is currently flagged as
         offline. Used to separate the fatal servo-bus case from a soft
@@ -403,10 +441,12 @@ class Positioning(BaseState):
         role: str,
         channel_label: str,
         **extra,
-    ) -> None:
+    ) -> bool:
+        if _incidentHandlingOff(kind):
+            return False
         runtime_stats = getattr(self.gc, "runtime_stats", None)
         if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
-            return
+            return False
         active = None
         if hasattr(runtime_stats, "activeIncident"):
             try:
@@ -415,8 +455,8 @@ class Positioning(BaseState):
                 active = None
         if isinstance(active, dict):
             if active.get("kind") == kind:
-                return
-            return
+                return True
+            return True
         incident = {
             "kind": kind,
             "severity": severity,
@@ -431,6 +471,7 @@ class Positioning(BaseState):
         }
         incident.update(extra)
         runtime_stats.setActiveIncident(incident)
+        return True
 
     def _clearDistributionIncident(self, kind: str) -> None:
         runtime_stats = getattr(self.gc, "runtime_stats", None)

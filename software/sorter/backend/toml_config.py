@@ -205,8 +205,10 @@ _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     "feeder_detection_unavailable": _INCIDENT_MODE_MANUAL,
     "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
+    "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
     "classification_unresolved": _INCIDENT_MODE_MANUAL,
     "classification_multi_drop_collision": _INCIDENT_MODE_MANUAL,
+    "classification_intake_request_timeout": _INCIDENT_MODE_MANUAL,
 }
 _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
@@ -280,6 +282,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "automatic_supported": False,
     },
     {
+        "kind": "distribution_no_bin_available",
+        "label": "No Bin Available",
+        "scope": "Distribution",
+        "description": "No matching bin is available for the piece.",
+        "off_label": "Allow bottom-tray passthrough",
+        "manual_label": "Operator assigns capacity",
+        "automatic_label": "Automatic no-bin passthrough",
+        "automatic_supported": False,
+    },
+    {
         "kind": "classification_unresolved",
         "label": "Classification Unresolved",
         "scope": "C4",
@@ -297,6 +309,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "off_label": "Keep multi-drop fallback hidden",
         "manual_label": "Operator reviews multi-drop collisions",
         "automatic_label": "Automatic multi-drop handling",
+        "automatic_supported": False,
+    },
+    {
+        "kind": "classification_intake_request_timeout",
+        "label": "Intake Request Timeout",
+        "scope": "C4",
+        "description": "C4 requested a piece, but no handoff arrived.",
+        "off_label": "Retry C4 intake requests silently",
+        "manual_label": "Operator checks C3 to C4 handoff",
+        "automatic_label": "Automatic C4 handoff recovery",
         "automatic_supported": False,
     },
 )

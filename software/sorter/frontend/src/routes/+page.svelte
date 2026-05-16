@@ -116,6 +116,16 @@
 			automatic_supported: false
 		},
 		{
+			kind: 'distribution_no_bin_available',
+			label: 'No Bin Available',
+			scope: 'Distribution',
+			description: 'No matching bin is available for the piece.',
+			off_label: 'Allow bottom-tray passthrough',
+			manual_label: 'Operator assigns capacity',
+			automatic_label: 'Automatic no-bin passthrough',
+			automatic_supported: false
+		},
+		{
 			kind: 'classification_unresolved',
 			label: 'Classification Unresolved',
 			scope: 'C4',
@@ -133,6 +143,16 @@
 			off_label: 'Keep multi-drop fallback hidden',
 			manual_label: 'Operator reviews multi-drop collisions',
 			automatic_label: 'Automatic multi-drop handling',
+			automatic_supported: false
+		},
+		{
+			kind: 'classification_intake_request_timeout',
+			label: 'Intake Request Timeout',
+			scope: 'C4',
+			description: 'C4 requested a piece, but no handoff arrived.',
+			off_label: 'Retry C4 intake requests silently',
+			manual_label: 'Operator checks C3 to C4 handoff',
+			automatic_label: 'Automatic C4 handoff recovery',
 			automatic_supported: false
 		}
 	];
@@ -263,8 +283,10 @@
 			incident.kind === 'feeder_detection_unavailable' ||
 			incident.kind === 'distribution_chute_jam' ||
 			incident.kind === 'distribution_servo_bus_offline' ||
+			incident.kind === 'distribution_no_bin_available' ||
 			incident.kind === 'classification_unresolved' ||
-			incident.kind === 'classification_multi_drop_collision'
+			incident.kind === 'classification_multi_drop_collision' ||
+			incident.kind === 'classification_intake_request_timeout'
 			? incident
 			: null;
 	}
@@ -458,13 +480,15 @@
 		}
 		if (
 			incident.kind === 'distribution_chute_jam' ||
-			incident.kind === 'distribution_servo_bus_offline'
+			incident.kind === 'distribution_servo_bus_offline' ||
+			incident.kind === 'distribution_no_bin_available'
 		) {
 			return `${currentBackendBaseUrl()}/api/distribution/incident`;
 		}
 		if (
 			incident.kind === 'classification_unresolved' ||
-			incident.kind === 'classification_multi_drop_collision'
+			incident.kind === 'classification_multi_drop_collision' ||
+			incident.kind === 'classification_intake_request_timeout'
 		) {
 			return `${currentBackendBaseUrl()}/api/classification-channel/fallback-incident`;
 		}
@@ -481,7 +505,8 @@
 			incident.kind === 'bulk_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
 			incident.kind === 'distribution_chute_jam' ||
-			incident.kind === 'distribution_servo_bus_offline'
+			incident.kind === 'distribution_servo_bus_offline' ||
+			incident.kind === 'distribution_no_bin_available'
 		) {
 			const body: Record<string, string | number> = {
 				channel: incidentString(incident, 'channel')
@@ -516,11 +541,17 @@
 		if (incident?.kind === 'distribution_servo_bus_offline') {
 			return 'Servo Bus Offline';
 		}
+		if (incident?.kind === 'distribution_no_bin_available') {
+			return 'No Bin Available';
+		}
 		if (incident?.kind === 'classification_unresolved') {
 			return 'Classification Unresolved';
 		}
 		if (incident?.kind === 'classification_multi_drop_collision') {
 			return 'Multi-Drop Collision';
+		}
+		if (incident?.kind === 'classification_intake_request_timeout') {
+			return 'Intake Request Timeout';
 		}
 		return 'Exit Stuck';
 	}
@@ -560,16 +591,24 @@
 		if (incident?.kind === 'distribution_servo_bus_offline') {
 			return 'The distribution servo bus is not responding.';
 		}
+		if (incident?.kind === 'distribution_no_bin_available') {
+			return 'No matching bin is available for the piece.';
+		}
 		if (incident?.kind === 'classification_unresolved') {
 			return 'A piece reached the drop point without a resolved classification.';
 		}
 		if (incident?.kind === 'classification_multi_drop_collision') {
 			return 'Multiple pieces reached the drop point together.';
 		}
+		if (incident?.kind === 'classification_intake_request_timeout') {
+			return 'C4 requested a piece, but no handoff arrived.';
+		}
 		return 'A piece is not falling off the channel.';
 	}
 
 	function exitIncidentPrimaryMetricLabel(incident: Record<string, unknown> | null): string {
+		if (incident?.kind === 'distribution_no_bin_available') return 'Category';
+		if (incident?.kind === 'classification_intake_request_timeout') return 'Timeout';
 		if (
 			incident?.kind === 'classification_unresolved' ||
 			incident?.kind === 'classification_multi_drop_collision'
@@ -614,6 +653,13 @@
 			const layers = incident.offline_layers;
 			return Array.isArray(layers) && layers.length > 0 ? layers.join(', ') : 'Bus';
 		}
+		if (incident?.kind === 'distribution_no_bin_available') {
+			return incidentString(incident, 'category_id', '-');
+		}
+		if (incident?.kind === 'classification_intake_request_timeout') {
+			const timeout = incidentNumber(incident, 'timeout_ms');
+			return timeout === null ? '-' : `${timeout.toFixed(0)} ms`;
+		}
 		if (
 			incident?.kind === 'classification_unresolved' ||
 			incident?.kind === 'classification_multi_drop_collision'
@@ -624,6 +670,8 @@
 	}
 
 	function exitIncidentSecondaryMetricLabel(incident: Record<string, unknown> | null): string {
+		if (incident?.kind === 'distribution_no_bin_available') return 'Piece';
+		if (incident?.kind === 'classification_intake_request_timeout') return 'Detail';
 		if (
 			incident?.kind === 'classification_unresolved' ||
 			incident?.kind === 'classification_multi_drop_collision'
@@ -657,6 +705,12 @@
 			incident?.kind === 'distribution_servo_bus_offline'
 		) {
 			return incidentString(incident, 'detail', '-');
+		}
+		if (incident?.kind === 'distribution_no_bin_available') {
+			return incidentString(incident, 'piece_short', '-');
+		}
+		if (incident?.kind === 'classification_intake_request_timeout') {
+			return incidentString(incident, 'detail', incidentString(incident, 'rule', '-'));
 		}
 		if (
 			incident?.kind === 'classification_unresolved' ||

@@ -350,6 +350,26 @@ def test_running_ignores_stale_track_that_predates_handoff_request() -> None:
     assert shared.classification_gate_calls == []
 
 
+def test_intake_request_timeout_publishes_incident_and_keeps_gate_closed() -> None:
+    running, _transport, shared, _events = _make_running()
+    running._awaiting_intake_piece = True
+    running._intake_requested_at_mono = 10.0
+    running._intake_requested_at_wall = 100.0
+
+    running._updateIntakeGate(now_mono=13.0)
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_intake_request_timeout"
+    assert incident["channel"] == "c4"
+    assert incident["timeout_ms"] == 3000
+    assert running._awaiting_intake_piece is False
+    assert shared.classification_gate_calls[-1] == (
+        False,
+        "intake_request_timeout_incident",
+    )
+
+
 def test_running_recovers_existing_tracks_without_waiting_for_new_handoff() -> None:
     running, transport, shared, events = _make_running()
     old_track = TrackAngularExtent(

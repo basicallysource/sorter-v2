@@ -7,6 +7,7 @@ from defs.known_object import ClassificationStatus
 
 CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
+CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 
 
 def classification_fallback_incident_kind(
@@ -88,6 +89,50 @@ def publish_classification_fallback_incident(
         )
 
     runtime_stats.setActiveIncident(payload)
+    return True
+
+
+def publish_classification_intake_timeout_incident(
+    gc: Any,
+    *,
+    elapsed_s: float,
+) -> bool:
+    kind = CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND
+    if _incident_handling_off(kind):
+        return False
+
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+        return False
+
+    active = None
+    if hasattr(runtime_stats, "activeIncident"):
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+    if isinstance(active, dict):
+        return active.get("kind") == kind
+
+    runtime_stats.setActiveIncident(
+        {
+            "kind": kind,
+            "severity": "warning",
+            "status": "waiting_for_operator",
+            "awaiting_operator": True,
+            "scope": "classification",
+            "channel": "c4",
+            "role": "classification_channel",
+            "channel_label": "C4",
+            "triggered_at": time.time(),
+            "timeout_ms": int(max(0.0, float(elapsed_s)) * 1000.0),
+            "rule": "c4_requested_piece_but_no_intake_track_arrived",
+            "resolution": "operator_check_c3_to_c4_handoff_then_clear",
+            "operator_message": (
+                "C4 requested a piece from C3, but no intake track arrived before the timeout."
+            ),
+        }
+    )
     return True
 
 

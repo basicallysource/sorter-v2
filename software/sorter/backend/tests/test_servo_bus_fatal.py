@@ -30,9 +30,11 @@ from sorting_profile import MISC_CATEGORY, SortingProfile
 from subsystems.distribution.chute import BinAddress, Chute
 from subsystems.distribution.positioning import (
     CHUTE_JAM_ALERT_PREFIX,
+    DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
     Positioning,
     SERVO_BUS_ALERT_PREFIX,
 )
+from subsystems.distribution.states import DistributionState
 from subsystems.shared_variables import SharedVariables
 
 
@@ -130,6 +132,7 @@ class ServoBusFatalTests(unittest.TestCase):
         servos: list[SimpleNamespace],
         *,
         layout: DistributionLayout | None = None,
+        sorting_profile: SortingProfile | None = None,
     ) -> Positioning:
         layout = layout or _mk_layout(num_layers=len(servos))
         irl = SimpleNamespace(servos=servos)
@@ -149,7 +152,7 @@ class ServoBusFatalTests(unittest.TestCase):
             shared=shared,
             chute=chute,
             layout=layout,
-            sorting_profile=_AllCategoriesProfile(),
+            sorting_profile=sorting_profile or _AllCategoriesProfile(),
             event_queue=queue.Queue(),
         )
         return positioning
@@ -193,6 +196,24 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNone(shared_state.hardware_error)
         self.assertTrue(self.cmd_queue.empty())
         self.assertIsNone(self.runtime_stats.servo_bus_offline_since_ts)
+
+    def test_no_bin_available_publishes_distribution_incident_before_passthrough(self) -> None:
+        positioning = self._mk_positioning(
+            servos=[_mk_healthy_servo()],
+            sorting_profile=_AllCategoriesProfile("cat_missing"),
+        )
+
+        next_state = positioning.step()
+
+        self.assertEqual(DistributionState.IDLE, next_state)
+        snap = self.runtime_stats.snapshot()
+        self.assertIsNotNone(snap.get("active_incident"))
+        self.assertEqual(
+            DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
+            snap["active_incident"]["kind"],
+        )
+        self.assertEqual("cat_missing", snap["active_incident"]["category_id"])
+        self.assertEqual("positioning.no_bin_incident", positioning._occupancy_state)
 
     def test_repeat_detection_does_not_spam_error_or_queue(self) -> None:
         # Re-entering Positioning while the bus is still offline must not

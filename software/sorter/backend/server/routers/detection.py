@@ -55,8 +55,10 @@ BULK_FEEDER_STALLED_INCIDENT_KIND = "bulk_feeder_stalled"
 FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND = "feeder_detection_unavailable"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
+DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
 CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
+CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
 CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
@@ -1604,6 +1606,7 @@ def classification_channel_fallback_incident_clear(
     fallback_kinds = {
         CLASSIFICATION_UNRESOLVED_INCIDENT_KIND,
         CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
+        CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
     }
     if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
         for kind in fallback_kinds:
@@ -1624,7 +1627,11 @@ def classification_channel_fallback_incident_clear(
     kind = str(active.get("kind"))
     runtime_stats.clearActiveIncident(
         kind=kind,
-        piece_uuid=str(active.get("piece_uuid") or ""),
+        piece_uuid=(
+            str(active.get("piece_uuid"))
+            if isinstance(active.get("piece_uuid"), str)
+            else None
+        ),
     )
     return {
         "ok": True,
@@ -2070,6 +2077,7 @@ def distribution_incident_clear() -> Dict[str, Any]:
     distribution_kinds = {
         DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
         DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND,
+        DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
     }
     if not isinstance(active, dict) or active.get("kind") not in distribution_kinds:
         for kind in distribution_kinds:

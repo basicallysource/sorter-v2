@@ -35,17 +35,23 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual("manual", config["incident_handling"]["feeder_detection_unavailable"])
         self.assertEqual("manual", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
+        self.assertEqual("manual", config["incident_handling"]["distribution_no_bin_available"])
         self.assertEqual("manual", config["incident_handling"]["classification_unresolved"])
         self.assertEqual("manual", config["incident_handling"]["classification_multi_drop_collision"])
+        self.assertEqual("manual", config["incident_handling"]["classification_intake_request_timeout"])
         self.assertTrue(any(item["kind"] == "channel_dropzone_stuck" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "exit_stuck" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "bulk_feeder_stalled" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "feeder_detection_unavailable" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "distribution_chute_jam" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "distribution_servo_bus_offline" for item in config["incident_definitions"]))
+        self.assertTrue(any(item["kind"] == "distribution_no_bin_available" for item in config["incident_definitions"]))
         self.assertTrue(any(item["kind"] == "classification_unresolved" for item in config["incident_definitions"]))
         self.assertTrue(
             any(item["kind"] == "classification_multi_drop_collision" for item in config["incident_definitions"])
+        )
+        self.assertTrue(
+            any(item["kind"] == "classification_intake_request_timeout" for item in config["incident_definitions"])
         )
         self.assertFalse(
             any(item["kind"] == "classification_exit_release" for item in config["incident_definitions"])
@@ -62,8 +68,10 @@ class DashboardConfigTests(unittest.TestCase):
                     "feeder_detection_unavailable": "manual",
                     "distribution_chute_jam": "off",
                     "distribution_servo_bus_offline": "manual",
+                    "distribution_no_bin_available": "off",
                     "classification_unresolved": "off",
                     "classification_multi_drop_collision": "manual",
+                    "classification_intake_request_timeout": "off",
                     "c2_separation_needed": "bogus",
                     "unknown_incident": "automatic",
                 }
@@ -76,8 +84,10 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual("manual", config["incident_handling"]["feeder_detection_unavailable"])
         self.assertEqual("off", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
+        self.assertEqual("off", config["incident_handling"]["distribution_no_bin_available"])
         self.assertEqual("off", config["incident_handling"]["classification_unresolved"])
         self.assertEqual("manual", config["incident_handling"]["classification_multi_drop_collision"])
+        self.assertEqual("off", config["incident_handling"]["classification_intake_request_timeout"])
         self.assertEqual("manual", config["incident_handling"]["c2_separation_needed"])
         self.assertNotIn("unknown_incident", config["incident_handling"])
         self.assertNotIn("classification_exit_release", config["incident_handling"])
@@ -87,6 +97,8 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertTrue(incidentHandlingAutomatic("channel_exit_stuck"))
         self.assertTrue(incidentHandlingOff("bulk_feeder_stalled"))
         self.assertTrue(incidentHandlingOff("classification_unresolved"))
+        self.assertTrue(incidentHandlingOff("distribution_no_bin_available"))
+        self.assertTrue(incidentHandlingOff("classification_intake_request_timeout"))
 
         config = setDashboardConfig({"incident_handling": {"channel_exit_stuck": "off"}})
 

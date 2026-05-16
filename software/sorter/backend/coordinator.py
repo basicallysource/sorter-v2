@@ -154,6 +154,24 @@ class Coordinator:
         if hasattr(self.gc, "runtime_stats"):
             self.gc.runtime_stats.observeBlockedReason("coordinator", "active_incident")
 
+    def _classification_should_step_during_incident(self, incident: dict) -> bool:
+        """C4 exit-release incidents own C4 motion, so they must keep ticking.
+
+        Other incidents are process-level holds: classification must not reopen
+        the C3->C4 gate after the coordinator deliberately closed it.
+        """
+        source_kind = incident.get("source_kind")
+        kind = incident.get("kind")
+        if kind == "classification_exit_release":
+            return True
+        if source_kind == "classification_exit_release":
+            return True
+        return (
+            kind == "exit_stuck"
+            and incident.get("channel") in {"c4", "carousel", None}
+            and isinstance(incident.get("piece_uuid"), str)
+        )
+
     def _is_channel_exit_incident(self, incident: dict | None) -> bool:
         if not isinstance(incident, dict):
             return False
@@ -398,8 +416,11 @@ class Coordinator:
                 self._hold_process_for_incident(active_incident)
                 prof.hit("coordinator.step.distribution_skipped.active_incident")
                 prof.hit("coordinator.step.feeder_skipped.active_incident")
-                with prof.timer("coordinator.step.classification_ms"):
-                    self.classification.step()
+                if self._classification_should_step_during_incident(active_incident):
+                    with prof.timer("coordinator.step.classification_ms"):
+                        self.classification.step()
+                else:
+                    prof.hit("coordinator.step.classification_skipped.active_incident")
                 return
             with prof.timer("coordinator.step.distribution_ms"):
                 self.distribution.step()

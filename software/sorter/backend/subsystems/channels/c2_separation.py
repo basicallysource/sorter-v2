@@ -217,7 +217,7 @@ class C2Station(BaseStation):
         """Publish a C2 exit-stuck incident instead of silently jogging.
 
         Fires only when the analyzer reports that a bbox has been at least
-        two-thirds inside C2's exit zone for the configured stall duration
+        three-quarters inside C2's exit zone for the configured stall duration
         while the downstream C3 dropzone is blocked.
         """
         prof = self.gc.profiler

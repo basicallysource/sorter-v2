@@ -17,8 +17,11 @@ from types import SimpleNamespace
 
 from subsystems.feeder.feeding import (
     CLASSIFICATION_CHANNEL_PENDING_ADMISSION_MS,
+    CLASSIFICATION_INTAKE_REQUEST_LEASE_S,
     Feeding,
 )
+from subsystems.bus import PieceRequest, StationId, TickBus
+from subsystems.shared_variables import SharedVariables
 
 
 class _Stepper:
@@ -159,6 +162,56 @@ def test_failed_ch3_pulse_does_not_arm_pending_admission() -> None:
     sent = feeding._sendPulse("ch3_precise", stepper, cfg)
     assert sent is False
     assert feeding._classification_channel_pending_admission_until == 0.0
+
+
+def test_classification_intake_request_allows_ch3_after_gate_closes() -> None:
+    feeding = _make_feeding_stub()
+    bus = TickBus()
+    feeding.shared = SharedVariables(
+        gc=SimpleNamespace(use_channel_bus=True),
+        bus=bus,
+    )
+    feeding.shared.set_classification_gate(False, reason="awaiting_piece")
+    bus.publish(
+        PieceRequest(
+            source=StationId.CLASSIFICATION,
+            target=StationId.C3,
+            sent_at_mono=20.0,
+        )
+    )
+
+    assert feeding._classificationIntakeRequestPending(20.5) is True
+    assert (
+        feeding._classificationIntakeRequestPending(
+            20.0 + CLASSIFICATION_INTAKE_REQUEST_LEASE_S + 0.1
+        )
+        is False
+    )
+
+
+def test_successful_ch3_precise_pulse_consumes_classification_request() -> None:
+    feeding = _make_feeding_stub()
+    bus = TickBus()
+    feeding.shared = SharedVariables(
+        gc=SimpleNamespace(use_channel_bus=True),
+        bus=bus,
+    )
+    now = time.monotonic()
+    feeding.shared.publish_piece_request(
+        source=StationId.CLASSIFICATION,
+        target=StationId.C3,
+        sent_at_mono=now,
+    )
+    cfg = SimpleNamespace(
+        steps_per_pulse=300, microsteps_per_second=1600, delay_between_pulse_ms=1000
+    )
+
+    assert feeding._classificationIntakeRequestPending(now + 0.1) is True
+    sent = feeding._sendPulse("ch3_precise", _Stepper("c_channel_3_rotor"), cfg)
+
+    assert sent is True
+    assert bus.piece_delivered(StationId.C3, StationId.CLASSIFICATION) is not None
+    assert feeding._classificationIntakeRequestPending(time.monotonic()) is False
 
 
 if __name__ == "__main__":

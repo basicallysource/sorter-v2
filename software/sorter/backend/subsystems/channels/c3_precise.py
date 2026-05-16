@@ -83,7 +83,7 @@ class C3Station(BaseStation):
     def run_exit_wiggle(self, ctx: FeederTickContext) -> None:
         """Publish a C3 exit-stuck incident instead of silently jogging.
 
-        Fires only when a bbox has been at least two-thirds inside C3's exit
+        Fires only when a bbox has been at least three-quarters inside C3's exit
         zone for the configured stall duration while C3 is held by the
         downstream classification channel.
         """

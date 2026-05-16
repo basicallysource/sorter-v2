@@ -17,7 +17,7 @@ CHANNEL_EXIT_STUCK_SOURCE_KIND = "channel_exit_stuck"
 CHANNEL_EXIT_STUCK_INCIDENT_KIND = EXIT_STUCK_INCIDENT_KIND
 CHANNEL_DROPZONE_STUCK_INCIDENT_KIND = "channel_dropzone_stuck"
 C2_SEPARATION_INCIDENT_KIND = "c2_separation_needed"
-EXIT_WIGGLE_OVERLAP_THRESHOLD: float = 2.0 / 3.0
+EXIT_WIGGLE_OVERLAP_THRESHOLD: float = 0.75
 EXIT_WIGGLE_STALL_MS: int = 1000
 EXIT_WIGGLE_REVERSE_DEG: float = 1.5
 EXIT_WIGGLE_FORWARD_DEG: float = 2.0
@@ -126,7 +126,7 @@ def publish_channel_exit_stuck_incident(
             "overlap_threshold": float(overlap_threshold),
             "stall_ms": int(stall_ms),
             "downstream_blocked": bool(downstream_blocked),
-            "rule": "bbox_exit_overlap_ge_two_thirds_for_stall",
+            "rule": "bbox_exit_overlap_ge_three_quarters_for_stall",
             "amplitude_output_deg": EXIT_RELEASE_DEFAULT_OUTPUT_DEG,
             "cycles": EXIT_RELEASE_DEFAULT_CYCLES,
             "microsteps_per_second": EXIT_RELEASE_DEFAULT_SPEED_MICROSTEPS_PER_SECOND,

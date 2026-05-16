@@ -1,7 +1,7 @@
 import unittest
 from types import SimpleNamespace
 
-from subsystems.bus import ChuteMotion, StationGate, StationId, TickBus
+from subsystems.bus import ChuteMotion, PieceRequest, StationGate, StationId, TickBus
 from subsystems.shared_variables import SharedVariables
 
 
@@ -46,6 +46,29 @@ class SharedVariablesBusShimTests(unittest.TestCase):
         shared.chute_move_in_progress = True
 
         self.assertEqual(tuple(), bus.events())
+
+    def test_pending_piece_request_is_exposed_when_bus_is_enabled(self) -> None:
+        bus = TickBus()
+        shared = SharedVariables(
+            gc=SimpleNamespace(use_channel_bus=True),
+            bus=bus,
+        )
+        bus.publish(
+            PieceRequest(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                sent_at_mono=10.0,
+            )
+        )
+
+        self.assertTrue(
+            shared.has_pending_piece_request(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                now_mono=10.5,
+                timeout_s=2.0,
+            )
+        )
 
 
 if __name__ == "__main__":

@@ -163,6 +163,27 @@ class SharedVariables:
             )
         )
 
+    def has_pending_piece_request(
+        self,
+        *,
+        source: StationId,
+        target: StationId,
+        now_mono: float | None = None,
+        timeout_s: float | None = None,
+    ) -> bool:
+        if not self._bus_enabled() or self._bus is None:
+            return False
+        if not hasattr(self._bus, "has_pending_piece_request"):
+            return False
+        return bool(
+            self._bus.has_pending_piece_request(
+                source=source,
+                target=target,
+                now_mono=now_mono,
+                timeout_s=timeout_s,
+            )
+        )
+
     def get_classification_ready(self) -> bool:
         if self._bus_enabled() and self._bus is not None:
             gate = self._bus.station_gate(StationId.CLASSIFICATION)

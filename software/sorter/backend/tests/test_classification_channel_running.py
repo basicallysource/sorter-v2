@@ -197,6 +197,11 @@ def _make_running() -> tuple[Running, _Transport, _Shared, _EventQueue]:
     return running, transport, shared, event_queue
 
 
+def _force_manual_exit_incident(running: Running) -> None:
+    running._exitReleaseIncidentAutomatic = lambda: False
+    running._exitReleaseIncidentOff = lambda: False
+
+
 def test_running_registers_new_intake_piece_only_while_awaiting_handoff() -> None:
     running, transport, shared, _events = _make_running()
     track = TrackAngularExtent(
@@ -673,6 +678,7 @@ def test_exit_release_repeated_attempts_escalate_stages() -> None:
 
 def test_exit_release_review_pause_waits_for_operator_before_release() -> None:
     running, transport, shared, _events = _make_running()
+    _force_manual_exit_incident(running)
     running._config.exit_release_review_pause_enabled = True
     piece = KnownObject(
         uuid="piece-stuck",
@@ -709,6 +715,7 @@ def test_exit_release_review_pause_waits_for_operator_before_release() -> None:
 
 def test_exit_release_review_blocks_normal_c4_tracking_until_operator_action() -> None:
     running, transport, shared, _events = _make_running()
+    _force_manual_exit_incident(running)
     running._config.exit_release_review_pause_enabled = True
     piece = KnownObject(
         uuid="piece-stuck",
@@ -737,6 +744,7 @@ def test_exit_release_review_blocks_normal_c4_tracking_until_operator_action() -
 
 def test_manual_exit_release_test_uses_slider_values_without_clearing_incident() -> None:
     running, transport, _shared, _events = _make_running()
+    _force_manual_exit_incident(running)
     running._config.exit_release_review_pause_enabled = True
     piece = KnownObject(
         uuid="piece-stuck",

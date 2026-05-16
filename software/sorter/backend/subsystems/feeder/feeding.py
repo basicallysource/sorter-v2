@@ -4,6 +4,7 @@ import server.shared_state as shared_state
 from states.base_state import BaseState
 from subsystems.channels import C1Station, C2Station, C3Station, FeederTickContext
 from subsystems.shared_variables import SharedVariables
+from subsystems.bus import StationId
 from .states import FeederState
 from .analysis import ChannelAction, analyzeFeederChannels
 from .admission import (
@@ -34,6 +35,10 @@ FEEDER_DETECTION_UNAVAILABLE_GRACE_S = 3.0
 # next feeder tick can see "C4 empty", fire a second pulse, and double-
 # drop both pieces into the same C4 sector.
 CLASSIFICATION_CHANNEL_PENDING_ADMISSION_MS = 1500
+# C4 publishes a request, then switches the gate to "awaiting_piece" while it
+# waits for C3 to actually drop. Treat that request as the feeder admission
+# lease; otherwise C3 can miss the one-tick open gate and stall until timeout.
+CLASSIFICATION_INTAKE_REQUEST_LEASE_S = 2.0
 # Cap pieces on c_channel_2 before c_channel_1 may feed more in. Keeps the
 # bulk feeder from piling up the transport channel — c_channel_3 can only
 # swallow one piece at a time so anything beyond this number is dead weight.
@@ -333,6 +338,18 @@ class Feeding(BaseState):
             < self._classification_channel_pending_admission_until
         )
 
+    def _classificationIntakeRequestPending(self, now_mono: float) -> bool:
+        if not hasattr(self.shared, "has_pending_piece_request"):
+            return False
+        return bool(
+            self.shared.has_pending_piece_request(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                now_mono=now_mono,
+                timeout_s=CLASSIFICATION_INTAKE_REQUEST_LEASE_S,
+            )
+        )
+
     def _sampleCollectionRoleForPulseLabel(self, label: str) -> str | None:
         if label.startswith("ch1"):
             return "c_channel_1"
@@ -438,6 +455,14 @@ class Feeding(BaseState):
                     move_label=label,
                     pulse_degrees=float(pulse_degrees),
                 )
+                if label == "ch3_precise" and hasattr(
+                    self.shared, "publish_piece_delivered"
+                ):
+                    self.shared.publish_piece_delivered(
+                        source=StationId.C3,
+                        target=StationId.CLASSIFICATION,
+                        delivered_at_mono=now_mono,
+                    )
                 # A C3 pulse that targets the classification channel is a
                 # piece-in-flight commitment. Hold admission until C4 has
                 # had time to register the new piece in its zone manager
@@ -568,8 +593,15 @@ class Feeding(BaseState):
             can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                 not self.shared.chute_move_in_progress
             )
+            classification_gate_open = bool(self.shared.classification_ready)
+            classification_intake_request_pending = (
+                self._classificationIntakeRequestPending(now)
+            )
+            classification_ready_for_ch3 = (
+                classification_gate_open or classification_intake_request_pending
+            )
             classification_ready_block = (
-                not self.shared.classification_ready
+                not classification_ready_for_ch3
                 and ch3_action == ChannelAction.PULSE_PRECISE
             )
             classification_channel_block = False
@@ -666,7 +698,7 @@ class Feeding(BaseState):
                 ch2_dropzone_occupied=analysis.ch2_dropzone_occupied,
                 ch3_dropzone_occupied=analysis.ch3_dropzone_occupied,
                 can_run=can_run,
-                classification_ready=self.shared.classification_ready,
+                classification_ready=classification_ready_for_ch3,
                 ch2_action=ch2_action.value,
                 ch3_action=ch3_action.value,
             )
@@ -676,6 +708,7 @@ class Feeding(BaseState):
                     {
                         "wait_chute": True,
                         "wait_classification_ready": ch3_held,
+                        "classification_intake_request_pending": classification_intake_request_pending,
                         "wait_ch2_dropzone_clear": analysis.ch2_dropzone_occupied,
                         "wait_ch3_dropzone_clear": analysis.ch3_dropzone_occupied,
                         "wait_stepper_busy": wait_stepper_busy,
@@ -730,6 +763,7 @@ class Feeding(BaseState):
                 {
                     "wait_chute": False,
                     "wait_classification_ready": ch3_held,
+                    "classification_intake_request_pending": classification_intake_request_pending,
                     "wait_ch2_dropzone_clear": analysis.ch2_dropzone_occupied,
                     "wait_ch3_dropzone_clear": analysis.ch3_dropzone_occupied,
                     "wait_stepper_busy": wait_stepper_busy and ctx.pulse_intent and (not ctx.pulse_sent),

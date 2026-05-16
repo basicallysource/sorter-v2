@@ -3,6 +3,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 from subsystems.channels import C2Station, FeederTickContext
+from subsystems.channels.base import EXIT_WIGGLE_OVERLAP_THRESHOLD
 from subsystems.feeder.analysis import ChannelAction
 
 
@@ -261,7 +262,33 @@ class C2StationTests(unittest.TestCase):
         self.assertEqual("exit_stuck", stats.active_incident["kind"])
         self.assertEqual("channel_exit_stuck", stats.active_incident["source_kind"])
         self.assertEqual("c2", stats.active_incident["channel"])
-        self.assertGreaterEqual(stats.active_incident["overlap_ratio"], 2.0 / 3.0)
+        self.assertGreaterEqual(
+            stats.active_incident["overlap_ratio"],
+            EXIT_WIGGLE_OVERLAP_THRESHOLD,
+        )
+        self.assertEqual([], stepper.moves)
+
+    def test_exit_incident_waits_until_bbox_is_three_quarters_inside_exit(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        station = _make_station(stats, stepper)
+
+        station.run_exit_wiggle(
+            _make_wiggle_ctx(
+                now_mono=0.0,
+                ch2_exit_overlap=0.70,
+                ch3_dropzone_occupied=True,
+            )
+        )
+        station.run_exit_wiggle(
+            _make_wiggle_ctx(
+                now_mono=1.2,
+                ch2_exit_overlap=0.70,
+                ch3_dropzone_occupied=True,
+            )
+        )
+
+        self.assertIsNone(stats.active_incident)
         self.assertEqual([], stepper.moves)
 
     def test_exit_wiggle_skipped_before_stall_elapses(self) -> None:

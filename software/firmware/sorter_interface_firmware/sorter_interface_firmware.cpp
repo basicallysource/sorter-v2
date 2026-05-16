@@ -317,7 +317,6 @@ void initialize_hardware() {
 #endif
     // Initialize TMC2209 drivers and steppers
     for (int i = 0; i < STEPPER_COUNT; i++) {
-        // tmc_drivers[i].enableDriver(true);
         steppers[i].initialize();
         steppers[i].setAcceleration(20000);
         steppers[i].setSpeedLimits(16, 4000);

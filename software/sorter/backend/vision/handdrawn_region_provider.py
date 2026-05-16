@@ -3,7 +3,6 @@ import cv2
 
 from blob_manager import getChannelPolygons
 from defs.consts import CHANNEL_SECTION_COUNT, CHANNEL_SECTION_DEG
-from subsystems.feeder.analysis import parseSavedChannelArcZones, zoneSectionsForChannel
 from .regions import RegionName, Region
 
 CHANNEL_COLORS: dict[RegionName, tuple[int, int, int]] = {
@@ -18,6 +17,30 @@ CHANNEL_COLORS: dict[RegionName, tuple[int, int, int]] = {
 
 DROPZONE_COLOR = (0, 200, 0)
 PRECISE_COLOR = (0, 100, 255)
+
+
+def parseSavedChannelArcZones(*args, **kwargs):
+    from subsystems.feeder.analysis import parseSavedChannelArcZones as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def channelArcCropPolygon(*args, **kwargs):
+    from subsystems.feeder.analysis import channelArcCropPolygon as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def channelArcInnerPolygon(*args, **kwargs):
+    from subsystems.feeder.analysis import channelArcInnerPolygon as _impl
+
+    return _impl(*args, **kwargs)
+
+
+def zoneSectionsForChannel(*args, **kwargs):
+    from subsystems.feeder.analysis import zoneSectionsForChannel as _impl
+
+    return _impl(*args, **kwargs)
 
 
 def _sectionsToAngularMask(
@@ -37,6 +60,23 @@ def _sectionsToAngularMask(
     for s in sections:
         mask |= pixel_sections == s
     return mask
+
+
+def _normalizeAngle(angle: float) -> float:
+    return (float(angle) % 360.0 + 360.0) % 360.0
+
+
+def _positiveAngleSpan(start_angle: float, end_angle: float) -> float:
+    span = (_normalizeAngle(end_angle) - _normalizeAngle(start_angle) + 360.0) % 360.0
+    return span if span > 0.0 else 360.0
+
+
+def _zoneNumber(raw_zone: object, key: str, fallback: float) -> float:
+    if isinstance(raw_zone, dict):
+        value = raw_zone.get(key)
+        if isinstance(value, (int, float)):
+            return float(value)
+    return float(fallback)
 
 
 class HanddrawnRegionProvider:
@@ -98,21 +138,8 @@ class HanddrawnRegionProvider:
         )
         arc = parseSavedChannelArcZones(channel_key, self._channel_angles, self._arc_params)
         if arc is not None and arc.outer_radius > arc.inner_radius > 0:
-            segment_count = 96
-            outer = np.array([
-                [
-                    int(round(arc.center[0] + arc.outer_radius * np.cos((2 * np.pi * i) / segment_count))),
-                    int(round(arc.center[1] + arc.outer_radius * np.sin((2 * np.pi * i) / segment_count))),
-                ]
-                for i in range(segment_count)
-            ], dtype=np.int32)
-            inner = np.array([
-                [
-                    int(round(arc.center[0] + arc.inner_radius * np.cos((2 * np.pi * i) / segment_count))),
-                    int(round(arc.center[1] + arc.inner_radius * np.sin((2 * np.pi * i) / segment_count))),
-                ]
-                for i in range(segment_count)
-            ], dtype=np.int32)
+            outer = channelArcCropPolygon(arc)
+            inner = channelArcInnerPolygon(arc)
             mask = np.zeros((h, w), dtype=np.uint8)
             cv2.fillPoly(mask, [outer], 255)
             cv2.fillPoly(mask, [inner], 0)
@@ -217,6 +244,92 @@ class HanddrawnRegionProvider:
         )
         regions[precise_name] = Region(precise_name, channel_bool & pr_angular)
 
+    def _arcZonePolygon(
+        self,
+        channel_key: str,
+        zone_key: str,
+        center: tuple[float, float],
+        inner_radius: float,
+        outer_radius: float,
+        fallback_start_angle: float,
+        fallback_end_angle: float,
+    ) -> np.ndarray | None:
+        raw_arc = self._arc_params.get(channel_key) if isinstance(self._arc_params, dict) else None
+        if not isinstance(raw_arc, dict):
+            return None
+        raw_zone = raw_arc.get(zone_key)
+        if not isinstance(raw_zone, dict):
+            return None
+
+        start_angle = _zoneNumber(raw_zone, "start_angle", fallback_start_angle)
+        end_angle = _zoneNumber(raw_zone, "end_angle", fallback_end_angle)
+        start_outer = _zoneNumber(raw_zone, "start_outer_angle", start_angle)
+        end_outer = _zoneNumber(raw_zone, "end_outer_angle", end_angle)
+        start_inner = _zoneNumber(raw_zone, "start_inner_angle", start_outer)
+        end_inner = _zoneNumber(raw_zone, "end_inner_angle", end_outer)
+
+        outer_span = _positiveAngleSpan(start_outer, end_outer)
+        inner_span = _positiveAngleSpan(start_inner, end_inner)
+        outer_segments = max(8, int(round((outer_span / 360.0) * 64.0)))
+        inner_segments = max(8, int(round((inner_span / 360.0) * 64.0)))
+        cx, cy = center
+
+        points: list[tuple[int, int]] = []
+        for i in range(outer_segments + 1):
+            angle = np.deg2rad(start_outer + (outer_span * i) / outer_segments)
+            points.append((
+                int(round(cx + outer_radius * np.cos(angle))),
+                int(round(cy + outer_radius * np.sin(angle))),
+            ))
+        for i in range(inner_segments, -1, -1):
+            angle = np.deg2rad(start_inner + (inner_span * i) / inner_segments)
+            points.append((
+                int(round(cx + inner_radius * np.cos(angle))),
+                int(round(cy + inner_radius * np.sin(angle))),
+            ))
+        return np.array(points, dtype=np.int32)
+
+    def _fillArcZoneOverlay(
+        self,
+        overlay: np.ndarray,
+        channel_key: str,
+        center: tuple[float, float],
+        radius_scale: float,
+    ) -> bool:
+        arc = parseSavedChannelArcZones(channel_key, self._channel_angles, self._arc_params)
+        if arc is None or arc.outer_radius <= arc.inner_radius or arc.inner_radius <= 0:
+            return False
+
+        inner_radius = float(arc.inner_radius) * radius_scale
+        drop_outer_radius = float(arc.outer_radius) * radius_scale
+        exit_outer_radius = float(arc.exit_outer_radius) * radius_scale
+
+        drop_poly = self._arcZonePolygon(
+            channel_key,
+            "drop_zone",
+            center,
+            inner_radius,
+            drop_outer_radius,
+            arc.drop_start_angle,
+            arc.drop_end_angle,
+        )
+        exit_poly = self._arcZonePolygon(
+            channel_key,
+            "exit_zone",
+            center,
+            inner_radius,
+            exit_outer_radius,
+            arc.exit_start_angle,
+            arc.exit_end_angle,
+        )
+        if drop_poly is None and exit_poly is None:
+            return False
+        if drop_poly is not None:
+            cv2.fillPoly(overlay, [drop_poly], DROPZONE_COLOR)
+        if exit_poly is not None:
+            cv2.fillPoly(overlay, [exit_poly], PRECISE_COLOR)
+        return True
+
     def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
         annotated = frame.copy()
 
@@ -251,24 +364,25 @@ class HanddrawnRegionProvider:
 
             # low-opacity fill for dropzone and precise sections
             overlay = annotated.copy()
-            for q in range(CHANNEL_SECTION_COUNT):
-                if q in ex_sections:
-                    fill = (0, 80, 255)
-                elif q in dz_sections:
-                    fill = (0, 200, 80)
-                else:
-                    continue
-                arc_pts = [(cx, cy)]
-                for a in np.linspace(
-                    r1_angle + q * CHANNEL_SECTION_DEG,
-                    r1_angle + (q + 1) * CHANNEL_SECTION_DEG,
-                    8,
-                ):
-                    arc_pts.append((
-                        int(cx + disp_r * np.cos(np.radians(a))),
-                        int(cy + disp_r * np.sin(np.radians(a))),
-                    ))
-                cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
+            if not self._fillArcZoneOverlay(overlay, angle_key, (float(center[0]), float(center[1])), 1.0):
+                for q in range(CHANNEL_SECTION_COUNT):
+                    if q in ex_sections:
+                        fill = PRECISE_COLOR
+                    elif q in dz_sections:
+                        fill = DROPZONE_COLOR
+                    else:
+                        continue
+                    arc_pts = [(cx, cy)]
+                    for a in np.linspace(
+                        r1_angle + q * CHANNEL_SECTION_DEG,
+                        r1_angle + (q + 1) * CHANNEL_SECTION_DEG,
+                        8,
+                    ):
+                        arc_pts.append((
+                            int(cx + disp_r * np.cos(np.radians(a))),
+                            int(cy + disp_r * np.sin(np.radians(a))),
+                        ))
+                    cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
             overlay[ch_mask == 0] = annotated[ch_mask == 0]
             annotated = cv2.addWeighted(overlay, 0.18, annotated, 0.82, 0)
 
@@ -290,10 +404,32 @@ class HanddrawnRegionProvider:
 
         return annotated
 
-    def _scaleForFrame(self, frame: np.ndarray):
-        """Compute scale factors from saved polygon resolution to actual frame size."""
+    def _savedResolutionForPolygonKey(self, poly_key: str) -> tuple[int, int]:
+        """Return the editor resolution for a specific channel polygon."""
+        channel_key = (
+            "second"
+            if poly_key == "second_channel"
+            else "third"
+            if poly_key == "third_channel"
+            else "classification_channel"
+            if poly_key == "classification_channel"
+            else None
+        )
+        if channel_key is not None:
+            raw_arc = self._arc_params.get(channel_key) if isinstance(self._arc_params, dict) else None
+            if isinstance(raw_arc, dict):
+                resolution = raw_arc.get("resolution")
+                if isinstance(resolution, (list, tuple)) and len(resolution) >= 2:
+                    width, height = resolution[0], resolution[1]
+                    if isinstance(width, (int, float)) and isinstance(height, (int, float)):
+                        if width > 0 and height > 0:
+                            return int(width), int(height)
+        return self._saved_resolution
+
+    def _scaleForFrame(self, frame: np.ndarray, poly_key: str):
+        """Compute scale factors from this polygon's editor resolution to frame size."""
         h, w = frame.shape[:2]
-        src_w, src_h = self._saved_resolution
+        src_w, src_h = self._savedResolutionForPolygonKey(poly_key)
         return w / src_w, h / src_h
 
     def _scaledChannelMask(self, h, w, poly_key, pts_list, sx, sy):
@@ -310,23 +446,12 @@ class HanddrawnRegionProvider:
             cx = arc.center[0] * sx
             cy = arc.center[1] * sy
             r_scale = (sx + sy) / 2.0
-            outer_r = arc.outer_radius * r_scale
-            inner_r = arc.inner_radius * r_scale
-            segment_count = 96
-            outer = np.array([
-                [int(round(cx + outer_r * np.cos((2 * np.pi * i) / segment_count))),
-                 int(round(cy + outer_r * np.sin((2 * np.pi * i) / segment_count)))]
-                for i in range(segment_count)
-            ], dtype=np.int32)
-            inner = np.array([
-                [int(round(cx + inner_r * np.cos((2 * np.pi * i) / segment_count))),
-                 int(round(cy + inner_r * np.sin((2 * np.pi * i) / segment_count)))]
-                for i in range(segment_count)
-            ], dtype=np.int32)
+            outer = channelArcCropPolygon(arc, center=(cx, cy), radius_scale=r_scale)
+            inner = channelArcInnerPolygon(arc, center=(cx, cy), radius_scale=r_scale)
             mask = np.zeros((h, w), dtype=np.uint8)
             cv2.fillPoly(mask, [outer], 255)
             cv2.fillPoly(mask, [inner], 0)
-            return mask, outer, inner, (cx, cy), outer_r
+            return mask, outer, inner, (cx, cy), arc.outer_radius * r_scale
 
         pts = np.array(pts_list, dtype=np.float64)
         pts[:, 0] *= sx
@@ -343,7 +468,7 @@ class HanddrawnRegionProvider:
 
         poly_key: 'second_channel', 'third_channel', 'classification_channel', or 'carousel'
         """
-        sx, sy = self._scaleForFrame(frame)
+        sx, sy = self._scaleForFrame(frame, poly_key)
 
         if poly_key == "carousel":
             annotated = frame.copy()
@@ -401,26 +526,28 @@ class HanddrawnRegionProvider:
         cx, cy = int(center[0]), int(center[1])
         disp_r = int(disp_r)
         r1_angle = self._channel_angles.get(angle_key, 0.0)
+        r_scale = (sx + sy) / 2.0
 
         overlay = annotated.copy()
-        for q in range(CHANNEL_SECTION_COUNT):
-            if q in ex_sections:
-                fill = (0, 80, 255)
-            elif q in dz_sections:
-                fill = (0, 200, 80)
-            else:
-                continue
-            arc_pts = [(cx, cy)]
-            for a in np.linspace(
-                r1_angle + q * CHANNEL_SECTION_DEG,
-                r1_angle + (q + 1) * CHANNEL_SECTION_DEG,
-                8,
-            ):
-                arc_pts.append((
-                    int(cx + disp_r * np.cos(np.radians(a))),
-                    int(cy + disp_r * np.sin(np.radians(a))),
-                ))
-            cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
+        if not self._fillArcZoneOverlay(overlay, angle_key, (float(center[0]), float(center[1])), r_scale):
+            for q in range(CHANNEL_SECTION_COUNT):
+                if q in ex_sections:
+                    fill = PRECISE_COLOR
+                elif q in dz_sections:
+                    fill = DROPZONE_COLOR
+                else:
+                    continue
+                arc_pts = [(cx, cy)]
+                for a in np.linspace(
+                    r1_angle + q * CHANNEL_SECTION_DEG,
+                    r1_angle + (q + 1) * CHANNEL_SECTION_DEG,
+                    8,
+                ):
+                    arc_pts.append((
+                        int(cx + disp_r * np.cos(np.radians(a))),
+                        int(cy + disp_r * np.sin(np.radians(a))),
+                    ))
+                cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
         overlay[ch_mask == 0] = annotated[ch_mask == 0]
         annotated = cv2.addWeighted(overlay, 0.18, annotated, 0.82, 0)
 

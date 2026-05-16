@@ -1,6 +1,4 @@
 import type {
-	CameraName,
-	FrameData,
 	MachineIdentityData,
 	SocketEvent,
 	KnownObjectData,
@@ -26,7 +24,6 @@ export interface MachineState {
 	connection: WebSocket;
 	url: string | null;
 	status: ConnectionStatus;
-	frames: Map<CameraName, FrameData>;
 	cameraHealth: Map<string, string>;
 	lastHeartbeat: number | null;
 	recentObjects: KnownObjectData[];
@@ -48,7 +45,6 @@ export interface MachinesContext {
 
 export interface MachineContext {
 	readonly machine: MachineState | null;
-	readonly frames: Map<CameraName, FrameData>;
 	readonly cameraHealth: Map<string, string>;
 	sendCommand(command: unknown): void;
 }
@@ -57,10 +53,6 @@ export function isIdentityEvent(
 	event: SocketEvent
 ): event is { tag: 'identity'; data: MachineIdentity } {
 	return event.tag === 'identity';
-}
-
-export function isFrameEvent(event: SocketEvent): event is { tag: 'frame'; data: FrameData } {
-	return event.tag === 'frame';
 }
 
 export function isHeartbeatEvent(

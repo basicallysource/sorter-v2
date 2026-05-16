@@ -18,6 +18,12 @@ class Idle(BaseState):
             return None
         piece = transport.getPieceForDistributionPositioning()
         if piece is None:
+            # No piece waiting → ensure the gate is open so C4 sees us as
+            # ready to accept the next drop. Recovers from a stale gate=False
+            # left behind when a Sending cycle was interrupted (pause/resume,
+            # supervisor restart, etc.) before it could reopen the gate.
+            if not self.shared.distribution_ready:
+                self.shared.set_distribution_gate(True, reason=None)
             return None
 
         can_distribute = piece.part_id is not None or piece.classification_status in (

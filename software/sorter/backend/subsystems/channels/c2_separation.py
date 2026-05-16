@@ -10,6 +10,8 @@ from subsystems.channels.base import (
     EXIT_WIGGLE_REVERSE_DEG,
     EXIT_WIGGLE_FORWARD_DEG,
     EXIT_WIGGLE_COOLDOWN_MS,
+    publish_c2_separation_incident,
+    publish_channel_exit_stuck_incident,
 )
 from subsystems.feeder.analysis import ChannelAction
 
@@ -37,6 +39,7 @@ class C2Station(BaseStation):
         agitation_forward_deg_output: float,
         agitation_min_interval_s: float,
         agitation_recent_ch1_window_s: float,
+        separation_incident_enabled: bool = False,
         exit_wiggle_overlap_threshold: float = EXIT_WIGGLE_OVERLAP_THRESHOLD,
         exit_wiggle_stall_ms: int = EXIT_WIGGLE_STALL_MS,
         exit_wiggle_reverse_deg: float = EXIT_WIGGLE_REVERSE_DEG,
@@ -55,6 +58,7 @@ class C2Station(BaseStation):
         self._agitation_forward_deg_output = float(agitation_forward_deg_output)
         self._agitation_min_interval_s = float(agitation_min_interval_s)
         self._agitation_recent_ch1_window_s = float(agitation_recent_ch1_window_s)
+        self._separation_incident_enabled = bool(separation_incident_enabled)
         self._next_agitation_at: float = 0.0
         self._last_ch1_pulse_at_ref = lambda: 0.0
         # Exit-zone wiggle state.
@@ -141,6 +145,10 @@ class C2Station(BaseStation):
         prof = self.gc.profiler
         now = ctx.now_mono
 
+        if ctx.sample_collection_mode:
+            self._separation_driver.cancel("sample collection mode")
+            return
+
         if (
             self._agitation_enabled
             and not ctx.pulse_sent
@@ -179,22 +187,51 @@ class C2Station(BaseStation):
             and not ctx.analysis.ch2_dropzone_occupied
             and (self._separation_driver.active or not ctx.ch2_stepper_busy)
         )
-        self._separation_driver.step(now, separation_allowed)
+        if not self._separation_incident_enabled:
+            self._separation_driver.cancel("c2 separation incident disabled")
+            return
+
+        self._separation_driver.cancel("c2 separation replaced by incident")
+        if not separation_allowed:
+            return
+
+        published = publish_c2_separation_incident(
+            self.gc,
+            detection_count=sum(
+                1 for det in ctx.detections if getattr(det, "channel_id", None) == 2
+            ),
+            ch2_action=ctx.ch2_action.value,
+            downstream_busy=bool(
+                ctx.ch3_held or ctx.ch3_action != ChannelAction.IDLE or ctx.ch3_stepper_busy
+            ),
+        )
+        if published:
+            prof.hit("feeder.ch2.separation_incident")
+            self.gc.runtime_stats.observeBlockedReason("feeder", "c2_separation_incident")
+            self.gc.logger.warning(
+                "Feeder: C2 slip-stick separation would have started; "
+                "published disabled separation incident instead"
+            )
 
     def run_exit_wiggle(self, ctx: FeederTickContext) -> None:
-        """Jog the C2 rotor a little when a piece is stuck at the exit.
+        """Publish a C2 exit-stuck incident instead of silently jogging.
 
-        Fires only when: (a) the analyzer reports that some detection has
-        >=exit_wiggle_overlap_threshold of its bbox sections inside C2's
-        exit sections, (b) it has been in that state for at least
-        exit_wiggle_stall_ms, (c) the downstream gate (ch3 dropzone
-        occupied) is closed so a normal pulse would be rejected anyway,
-        and (d) we haven't wiggled within the cooldown window. Runs after
-        stations have already passed; if pulse was sent we skip.
+        Fires only when the analyzer reports that a bbox has been at least
+        four-fifths inside C2's exit zone for the configured stall duration
+        while the downstream C3 dropzone is blocked.
         """
         prof = self.gc.profiler
         now = ctx.now_mono
         overlap = float(getattr(ctx.analysis, "ch2_exit_overlap_max", 0.0))
+
+        if ctx.sample_collection_mode:
+            self._exit_overlap_since_mono = None
+            return
+
+        downstream_blocked = bool(ctx.analysis.ch3_dropzone_occupied)
+        if not downstream_blocked:
+            self._exit_overlap_since_mono = None
+            return
 
         if overlap >= self._exit_wiggle_overlap_threshold:
             if self._exit_overlap_since_mono is None:
@@ -205,29 +242,29 @@ class C2Station(BaseStation):
 
         if ctx.pulse_sent or ctx.ch2_stepper_busy:
             return
-        # Only run wiggle when the normal pulse path is blocked downstream.
-        if not ctx.analysis.ch3_dropzone_occupied:
-            return
         stall_s = (now - self._exit_overlap_since_mono)
         if stall_s * 1000.0 < self._exit_wiggle_stall_ms:
             return
         if now < self._next_exit_wiggle_at:
             return
 
-        try:
-            rev_deg = self._exit_wiggle_reverse_deg * self._gear_ratio
-            fwd_deg = self._exit_wiggle_forward_deg * self._gear_ratio
-            self._irl.c_channel_2_rotor_stepper.move_degrees(-rev_deg)
-            self._irl.c_channel_2_rotor_stepper.move_degrees(fwd_deg)
-            prof.hit("feeder.ch2.exit_wiggle")
-            self.gc.runtime_stats.observeExitWiggleTriggered("c2")
-            self.gc.logger.info(
-                f"Feeder: ch2 exit-zone wiggle "
-                f"(rev={self._exit_wiggle_reverse_deg:.1f}° out / "
-                f"fwd={self._exit_wiggle_forward_deg:.1f}° out, stall={stall_s*1000.0:.0f} ms)"
+        published = publish_channel_exit_stuck_incident(
+            self.gc,
+            channel="c2",
+            role="c_channel_2",
+            channel_label="C-Channel 2",
+            overlap_ratio=overlap,
+            overlap_threshold=self._exit_wiggle_overlap_threshold,
+            stall_ms=int(round(stall_s * 1000.0)),
+            downstream_blocked=downstream_blocked,
+        )
+        if published:
+            prof.hit("feeder.ch2.exit_incident")
+            self.gc.runtime_stats.observeBlockedReason("feeder", "ch2_exit_stuck")
+            self.gc.logger.warning(
+                f"Feeder: C2 exit incident; bbox overlap={overlap:.2f}, "
+                f"stall={stall_s*1000.0:.0f} ms, downstream blocked"
             )
-        except Exception as exc:
-            self.gc.logger.warning(f"Feeder: ch2 exit wiggle failed: {exc}")
         self._next_exit_wiggle_at = now + self._exit_wiggle_cooldown_ms / 1000.0
 
     def cleanup(self) -> None:

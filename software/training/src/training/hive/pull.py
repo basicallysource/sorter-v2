@@ -36,7 +36,8 @@ ZONE_SOURCE_ROLES: dict[str, tuple[str, ...]] = {
     "c_channel": ("c_channel_2", "c_channel_3"),
     "c_channel_2": ("c_channel_2",),
     "c_channel_3": ("c_channel_3",),
-    "carousel": ("carousel",),
+    "carousel": ("carousel", "classification_channel"),
+    "c_channel_full": ("c_channel_2", "c_channel_3", "classification_channel"),
 }
 
 

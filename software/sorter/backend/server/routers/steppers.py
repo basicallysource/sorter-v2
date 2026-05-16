@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 from toml_config import loadTomlFile
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from defs.events import (
     PauseCommandData,
@@ -68,6 +68,29 @@ class StepperStopAllResponse(BaseModel):
     steppers: List[str]
 
 
+class C4SectorMoveResponse(BaseModel):
+    success: bool
+    executed: bool
+    stepper: str
+    from_sector: int
+    to_sector: int
+    sector_delta: int
+    output_delta_deg: float
+    motor_delta_deg: float
+    motor_microsteps: int
+    direction: str
+    gear_ratio: float
+    microsteps: int
+    motor_steps_per_revolution: int
+    min_speed_microsteps_per_second: int
+    max_speed_microsteps_per_second: int
+    acceleration_microsteps_per_second_sq: int | None = None
+    requested_max_speed_microsteps_per_second: int | None = None
+    requested_acceleration_microsteps_per_second_sq: int | None = None
+    configured_stepper_default_speed_microsteps_per_second: int | None = None
+    warnings: List[str] = Field(default_factory=list)
+
+
 class TmcSettingsRequest(BaseModel):
     irun: Optional[int] = None
     ihold: Optional[int] = None
@@ -96,10 +119,14 @@ def _stepper_mapping() -> Dict[str, Any]:
     irl = shared_state.getActiveIRL()
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Start or home the system first.")
+    c4_stepper = getattr(irl, "c_channel_4_rotor_stepper", None) or getattr(
+        irl, "carousel_stepper", None
+    )
     return {
         "c_channel_1": getattr(irl, "c_channel_1_rotor_stepper", None),
         "c_channel_2": getattr(irl, "c_channel_2_rotor_stepper", None),
         "c_channel_3": getattr(irl, "c_channel_3_rotor_stepper", None),
+        "c_channel_4": c4_stepper,
         "carousel": getattr(irl, "carousel_stepper", None),
         "chute": getattr(irl, "chute_stepper", None),
     }
@@ -117,9 +144,60 @@ def _resolve_stepper(stepper_name: str) -> Any:
     return stepper
 
 
+def _hardware_worker_alive() -> bool:
+    worker = shared_state.hardware_worker_thread
+    return bool(worker is not None and worker.is_alive())
+
+
+def _ensure_runtime_ready(action: str) -> None:
+    state = shared_state.hardware_state
+    if _hardware_worker_alive() or state in {"homing", "initializing"}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action} while hardware is {state}.",
+        )
+    if state != "ready":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action} while hardware is {state}; run Safe Home first.",
+        )
+
+
+def _ensure_manual_motion_allowed(action: str) -> None:
+    state = shared_state.hardware_state
+    if _hardware_worker_alive() or state in {"homing", "initializing"}:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action} while hardware is {state}.",
+        )
+
+
+def _active_irl_config() -> Any | None:
+    controller = shared_state.controller_ref
+    if controller is not None and hasattr(controller, "coordinator"):
+        coordinator = controller.coordinator
+        config = getattr(coordinator, "irl_config", None)
+        if config is not None:
+            return config
+    return None
+
+
 def _halt_stepper(stepper: Any) -> None:
+    halt = getattr(stepper, "halt", None)
+    if callable(halt):
+        if not bool(halt(disable_driver=True)):
+            raise RuntimeError("halt() timed out or was not acknowledged")
+        return
+
     errors: list[str] = []
     stopped = False
+
+    if hasattr(stepper, "enabled"):
+        try:
+            stepper.enabled = False
+            stopped = True
+        except Exception as e:
+            errors.append(f"disable failed: {e}")
 
     if hasattr(stepper, "move_at_speed"):
         try:
@@ -136,13 +214,6 @@ def _halt_stepper(stepper: Any) -> None:
             stopped = True
         except Exception as e:
             errors.append(f"stop() failed: {e}")
-
-    if hasattr(stepper, "enabled"):
-        try:
-            stepper.enabled = False
-            stopped = True
-        except Exception as e:
-            errors.append(f"disable failed: {e}")
 
     if not stopped:
         detail = "; ".join(errors) if errors else "No supported stop method found"
@@ -298,6 +369,7 @@ _STEPPER_API_TO_TOML_NAME: Dict[str, str] = {
     "c_channel_1": "c_channel_1_rotor",
     "c_channel_2": "c_channel_2_rotor",
     "c_channel_3": "c_channel_3_rotor",
+    "c_channel_4": "carousel",
     "carousel": "carousel",
     "chute": "chute_stepper",
 }
@@ -352,6 +424,7 @@ def pause() -> CommandResponse:
 
 @router.post("/resume", response_model=CommandResponse)
 def resume() -> CommandResponse:
+    _ensure_runtime_ready("resume the sorter")
     if shared_state.command_queue is None:
         raise HTTPException(status_code=500, detail="Command queue not initialized")
     event = ResumeCommandEvent(tag="resume", data=ResumeCommandData())
@@ -366,6 +439,7 @@ def pulse_stepper(
     duration_s: float = 0.25,
     speed: int = 800,
 ) -> StepperPulseResponse:
+    _ensure_manual_motion_allowed("pulse a stepper")
     if duration_s <= 0 or duration_s > 5.0:
         raise HTTPException(status_code=400, detail="duration_s must be in (0, 5]")
     if speed <= 0:
@@ -383,7 +457,8 @@ def pulse_stepper(
 
     try:
         target.enabled = True
-        target.move_at_speed(signed_speed)
+        if not bool(target.move_at_speed(signed_speed)):
+            raise RuntimeError("move_at_speed was not acknowledged")
     except Exception as e:
         lock.release()
         raise HTTPException(status_code=500, detail=f"Pulse start failed: {e}")
@@ -411,6 +486,7 @@ def move_stepper_degrees(
     min_speed: int | None = None,
     acceleration: int | None = None,
 ) -> StepperMoveDegreesResponse:
+    _ensure_manual_motion_allowed("move a stepper")
     """Blocking-style move to a relative position.
 
     When ``min_speed`` and ``acceleration`` are both supplied, the firmware
@@ -448,7 +524,8 @@ def move_stepper_degrees(
             target.set_speed_limits(min_speed=int(min_speed), max_speed=int(speed))
         else:
             target.set_speed_limits(min_speed=int(speed), max_speed=int(speed))
-        target.move_degrees(degrees)
+        if not bool(target.move_degrees(degrees)):
+            raise RuntimeError("move_degrees was not acknowledged")
     except Exception as e:
         lock.release()
         raise HTTPException(status_code=500, detail=f"Move failed: {e}")
@@ -456,8 +533,20 @@ def move_stepper_degrees(
     def _release_after_move():
         try:
             start = time.monotonic()
-            while not target.stopped and (time.monotonic() - start) < 30:
+            timed_out = False
+            while True:
+                try:
+                    if target.stopped:
+                        break
+                except Exception:
+                    _halt_stepper(target)
+                    break
+                if (time.monotonic() - start) >= 30:
+                    timed_out = True
+                    break
                 time.sleep(0.02)
+            if timed_out:
+                _halt_stepper(target)
         finally:
             lock.release()
 
@@ -468,6 +557,97 @@ def move_stepper_degrees(
         stepper=stepper,
         degrees=degrees,
         speed=speed,
+    )
+
+
+@router.post(
+    "/api/classification-channel/sector-move",
+    response_model=C4SectorMoveResponse,
+)
+def classification_channel_sector_move(
+    from_sector: int,
+    to_sector: int,
+    direction: str = "shortest",
+    execute: bool = False,
+) -> C4SectorMoveResponse:
+    """Plan or execute one discrete C4 sector move on the C-channel axis."""
+    if execute:
+        _ensure_manual_motion_allowed("move the classification channel")
+    if direction not in ("shortest", "cw", "ccw"):
+        raise HTTPException(status_code=400, detail="direction must be one of: shortest, cw, ccw")
+
+    from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
+
+    platter = C4FiveSectorPlatter.from_irl_config(_active_irl_config())
+    try:
+        plan = platter.sector_move_plan(
+            from_sector,
+            to_sector,
+            direction=direction,  # type: ignore[arg-type]
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if execute:
+        target = _resolve_stepper("c_channel_4")
+        lock = shared_state.pulse_locks.setdefault("c_channel_4", threading.Lock())
+        if not lock.acquire(blocking=False):
+            raise HTTPException(status_code=409, detail="Stepper 'c_channel_4' is already moving")
+        try:
+            target.enabled = True
+            accepted = plan.apply_to_stepper(target)
+            if not accepted:
+                raise HTTPException(status_code=500, detail="C4 sector move was rejected by the stepper")
+        except HTTPException:
+            lock.release()
+            raise
+        except Exception as exc:
+            lock.release()
+            raise HTTPException(status_code=500, detail=f"C4 sector move failed: {exc}") from exc
+
+        def _release_after_move() -> None:
+            try:
+                start = time.monotonic()
+                while not target.stopped and (time.monotonic() - start) < 30:
+                    time.sleep(0.02)
+            finally:
+                lock.release()
+
+        threading.Thread(target=_release_after_move, daemon=True).start()
+
+    return C4SectorMoveResponse(
+        success=True,
+        executed=bool(execute),
+        stepper="c_channel_4",
+        from_sector=plan.from_sector,
+        to_sector=plan.to_sector,
+        sector_delta=plan.sector_delta,
+        output_delta_deg=plan.output_delta_deg,
+        motor_delta_deg=plan.motor_delta_deg,
+        motor_microsteps=plan.motor_microsteps,
+        direction=plan.direction,
+        gear_ratio=platter.gear_ratio,
+        microsteps=platter.microsteps,
+        motor_steps_per_revolution=platter.motor_steps_per_revolution,
+        min_speed_microsteps_per_second=(
+            plan.motion_profile.min_speed_microsteps_per_second
+        ),
+        max_speed_microsteps_per_second=(
+            plan.motion_profile.max_speed_microsteps_per_second
+        ),
+        acceleration_microsteps_per_second_sq=(
+            plan.motion_profile.acceleration_microsteps_per_second_sq
+        ),
+        requested_max_speed_microsteps_per_second=(
+            plan.motion_profile.requested_max_speed_microsteps_per_second
+        ),
+        requested_acceleration_microsteps_per_second_sq=(
+            plan.motion_profile.requested_acceleration_microsteps_per_second_sq
+        ),
+        configured_stepper_default_speed_microsteps_per_second=(
+            plan.motion_profile.configured_stepper_default_speed_microsteps_per_second
+        ),
+        warnings=list(plan.motion_profile.warnings),
     )
 
 

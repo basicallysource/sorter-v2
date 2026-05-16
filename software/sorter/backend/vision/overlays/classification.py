@@ -102,3 +102,37 @@ class ClassificationOverlay:
             )
 
         return frame
+
+    def metadata(self) -> list[dict[str, object]]:
+        uses_baseline = self._uses_baseline()
+        diff_config = self._get_diff_config()
+        items: list[dict[str, object]] = []
+
+        if uses_baseline:
+            bbox = self._get_combined_bbox(self._cam)
+            if bbox is not None:
+                margins = self._get_edge_biased_margins(bbox, self._cam)
+                items.append({
+                    "type": "classification_baseline_bbox",
+                    "category": self.category,
+                    "camera": self._cam,
+                    "bbox": [int(value) for value in bbox],
+                    "margins": [int(value) for value in margins],
+                    "algorithm": "baseline",
+                    "crop_margin_px": int(getattr(diff_config, "crop_margin_px", 0)),
+                })
+            return items
+
+        detection = self._get_dynamic_detection(self._cam, force=False)
+        if detection is None:
+            return items
+        for index, bbox in enumerate(detection.bboxes, start=1):
+            items.append({
+                "type": "classification_dynamic_bbox",
+                "category": self.category,
+                "camera": self._cam,
+                "index": index,
+                "bbox": [int(value) for value in bbox],
+                "algorithm": str(getattr(diff_config, "algorithm", "dynamic")),
+            })
+        return items

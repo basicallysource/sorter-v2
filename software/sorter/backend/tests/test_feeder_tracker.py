@@ -112,6 +112,173 @@ def test_score_threshold_filters_low():
     assert tracks == []
 
 
+def test_force_kill_track_releases_global_id():
+    """force_kill_track must remove the track immediately so a subsequent
+    detection at the same position gets a fresh global_id — modelling the
+    'piece dropped through the chute → next piece in this sector must NOT
+    inherit the dropped piece's identity' guarantee.
+    """
+    tracker, _ = _make_single_tracker()
+    tracks = tracker.update([_bbox_around(100.0, 200.0, size=60)], [0.9], 0.0)
+    assert len(tracks) == 1
+    dropped_id = tracks[0].global_id
+
+    killed = tracker.force_kill_track(dropped_id)
+    assert killed is True
+
+    # Same sector position one tick later — must NOT inherit dropped_id.
+    after = tracker.update([_bbox_around(100.0, 200.0, size=60)], [0.9], 0.2)
+    assert len(after) == 1
+    assert after[0].global_id != dropped_id, (
+        "force-killed track must not be re-acquired by a fresh detection"
+    )
+
+
+def test_force_kill_track_returns_false_for_unknown_global_id():
+    tracker, _ = _make_single_tracker()
+    tracker.update([_bbox_around(100.0, 200.0, size=60)], [0.9], 0.0)
+    assert tracker.force_kill_track(global_id=999999) is False
+
+
+# ---------------------------------------------------------------------------
+# Phase 2: sector-anchored identity on the C4 platter
+# ---------------------------------------------------------------------------
+
+
+def _make_carousel_tracker() -> PolarFeederTracker:
+    """Carousel tracker with 5-sector geometry and sector-anchoring on,
+    mirroring the production wiring."""
+    manager = PieceHandoffManager(handoff_chain={})
+    tracker = PolarFeederTracker(
+        role="carousel",
+        handoff_manager=manager,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=20,
+        enable_stagnant_false_track_filter=False,
+        enable_sector_anchoring=True,
+    )
+    # 5 physical sectors of 72° each, centered at (500, 500).
+    tracker.set_channel_geometry((500.0, 500.0), 80.0, 300.0, sector_count=5)
+    return tracker
+
+
+def _point_on_circle(cx: float, cy: float, r: float, angle_deg: float) -> tuple[float, float]:
+    import math as _math
+    a = _math.radians(angle_deg)
+    return (cx + r * _math.cos(a), cy + r * _math.sin(a))
+
+
+def test_sector_anchoring_rejects_jump_more_than_one_sector():
+    """A new detection more than one sector away from the only existing
+    track must not be picked up as that track's continuation. Without
+    sector anchoring the polar tracker could bridge the gap and silently
+    swap identities; sector anchoring is the structural defense that
+    keeps the identity tied to the physical wall geometry.
+
+    The polar angular gate (default 45°) already catches large jumps in
+    this isolated setup, so the sector-jump counter may not fire; what
+    matters here is the behavioural guarantee: id is not transferred.
+    """
+    tracker = _make_carousel_tracker()
+    # Born in sector 0 (angle ≈ 0°).
+    cx0, cy0 = _point_on_circle(500.0, 500.0, 200.0, 0.0)
+    first = tracker.update([_bbox_around(cx0, cy0, size=60)], [0.9], 0.0)
+    assert len(first) == 1
+    gid = first[0].global_id
+
+    # 144° away → that's 2 sectors at 72° each.
+    cx2, cy2 = _point_on_circle(500.0, 500.0, 200.0, 144.0)
+    second = tracker.update([_bbox_around(cx2, cy2, size=60)], [0.9], 0.2)
+    new_ids = [t.global_id for t in second if not t.coasting]
+    assert gid not in new_ids, "two-sector jump must not inherit identity"
+
+
+def test_sector_anchoring_rejects_new_track_in_occupied_sector():
+    """A second detection in the same sector as an existing track must
+    not spawn a duplicate ID — the physical walls forbid two pieces in
+    one sector."""
+    tracker = _make_carousel_tracker()
+    cx0, cy0 = _point_on_circle(500.0, 500.0, 200.0, 0.0)
+    tracker.update([_bbox_around(cx0, cy0, size=60)], [0.9], 0.0)
+
+    # A second piece 10° away — clearly still in sector 0 (sector width 72°)
+    # but far enough that the polar match cost would otherwise allow a
+    # separate detection.
+    cx1, cy1 = _point_on_circle(500.0, 500.0, 200.0, 10.0)
+    second = tracker.update(
+        [_bbox_around(cx0, cy0, size=60), _bbox_around(cx1, cy1, size=60)],
+        [0.9, 0.9],
+        0.2,
+    )
+    # Only one track survives — the duplicate detection was rejected.
+    live = [t for t in second if not t.coasting]
+    assert len(live) == 1
+    assert tracker._sector_anchoring_rejected_occupied >= 1
+
+
+def test_sector_anchoring_rejects_multi_sector_bbox():
+    """A YOLO bbox whose angular span exceeds one sector is treated as a
+    multi-piece merge artifact and dropped before tracking."""
+    tracker = _make_carousel_tracker()
+    # Bbox spanning roughly 130° angular — that's well over one 72° sector.
+    # Construct it as a tangent-spanning rectangle around the rim.
+    # Center is (500, 500); rim at r=200. A bbox from (-200, -200)..(200, 50)
+    # covers angles from roughly -135° to +135°.
+    big_bbox = (300, 300, 700, 550)
+    tracks = tracker.update([big_bbox], [0.9], 0.0)
+    assert tracks == [], "multi-sector bbox must be rejected"
+    assert tracker._sector_anchoring_rejected_multipiece >= 1
+
+
+def test_sector_anchoring_counter_fires_when_polar_gate_would_allow_jump():
+    """Direct test that the sector-jump rejection is what kills the
+    cross-sector match, not just the polar gate. Build a tracker with a
+    wide polar gate (135°) so the polar cost alone would not reject a
+    two-sector hop, and verify the sector rule does the work.
+    """
+    manager = PieceHandoffManager(handoff_chain={})
+    tracker = PolarFeederTracker(
+        role="carousel",
+        handoff_manager=manager,
+        max_angular_step_deg=135.0,
+        max_radial_step_px=200.0,
+        detection_score_threshold=0.1,
+        coast_limit_ticks=20,
+        enable_stagnant_false_track_filter=False,
+        enable_sector_anchoring=True,
+    )
+    tracker.set_channel_geometry((500.0, 500.0), 80.0, 300.0, sector_count=5)
+
+    cx0, cy0 = _point_on_circle(500.0, 500.0, 200.0, 0.0)
+    first = tracker.update([_bbox_around(cx0, cy0, size=60)], [0.9], 0.0)
+    gid = first[0].global_id
+
+    # 130° away → still within the 135° polar gate, but more than one
+    # 72° sector away. Sector rule must reject the bind.
+    cx2, cy2 = _point_on_circle(500.0, 500.0, 200.0, 130.0)
+    second = tracker.update([_bbox_around(cx2, cy2, size=60)], [0.9], 0.2)
+    new_ids = [t.global_id for t in second if not t.coasting]
+    assert gid not in new_ids
+    assert tracker._sector_anchoring_rejected_jump >= 1
+
+
+def test_sector_anchoring_allows_normal_motion_within_one_sector():
+    """Sanity: a piece moving slightly within its sector must still bind
+    to the same track. The sector constraint is ±1, not ==0."""
+    tracker = _make_carousel_tracker()
+    cx0, cy0 = _point_on_circle(500.0, 500.0, 200.0, 0.0)
+    first = tracker.update([_bbox_around(cx0, cy0, size=60)], [0.9], 0.0)
+    gid = first[0].global_id
+
+    # Move 20° (still in sector 0 — sector boundary at 36°/-36° given
+    # 72° width centered on world angle origin).
+    cx1, cy1 = _point_on_circle(500.0, 500.0, 200.0, 20.0)
+    second = tracker.update([_bbox_around(cx1, cy1, size=60)], [0.9], 0.2)
+    live = [t for t in second if not t.coasting]
+    assert len(live) == 1
+    assert live[0].global_id == gid
+
+
 def test_stagnant_false_track_is_ignored_after_grace_period():
     tracker, _ = _make_single_tracker(
         role="carousel",
@@ -477,152 +644,3 @@ def test_handoff_accepts_moving_track_even_at_similar_pixel():
     assert handoff_from == "c_channel_2"
     assert new_id == real_id
     assert manager.ghost_rejected_total == 0
-
-
-# ---------------------------------------------------------------------------
-# Appearance-gate safety (id-switch regression guard)
-# ---------------------------------------------------------------------------
-
-
-def _unit_vec(seed: int) -> np.ndarray:
-    rng = np.random.default_rng(seed)
-    v = rng.standard_normal(32).astype(np.float32)
-    return v / float(np.linalg.norm(v))
-
-
-def _seed_track_with_embedding(
-    tracker: PolarFeederTracker,
-    *,
-    start: tuple[float, float],
-    embedding: np.ndarray,
-) -> int:
-    """Place a track at ``start`` and manually stamp its embedding."""
-    tracks = tracker.update([_bbox_around(*start, size=40)], [0.9], 0.0)
-    assert tracks, "seed frame should produce a track"
-    gid = tracks[0].global_id
-    live = next(t for t in tracker._tracks.values() if t.global_id == gid)
-    live.embedding = embedding.copy()
-    return gid
-
-
-class _FixedEmbedder:
-    """Stub BoxMOT embedder that returns a caller-supplied matrix.
-
-    Used in tracker tests so we can precisely control what the tracker
-    sees on each tick without touching the real BoxMOT model.
-    """
-
-    def __init__(self, vec: np.ndarray | None) -> None:
-        self._vec = vec
-
-    def extract(self, _frame, bboxes):
-        if self._vec is None or not bboxes:
-            return None
-        return np.stack([self._vec for _ in bboxes]).astype(np.float32)
-
-
-def test_missing_detection_embedding_allows_tight_geometric_match():
-    """Track has an embedding, detection yields no embedding this tick, and
-    the two are geometrically very close — should still match."""
-    tracker, _ = _make_single_tracker()
-    # Embedder is running, but returns "no row" (as if bbox was degenerate).
-    tracker._embedder = _FixedEmbedder(None)  # type: ignore[attr-defined]
-    emb = _unit_vec(1)
-    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb)
-    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-
-    # Detection 6 px away -> geom_cost = 0.03, well under 0.25.
-    tracks = tracker.update(
-        [_bbox_around(206.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
-    )
-    assert len(tracks) == 1
-    assert tracks[0].global_id == gid
-
-
-def test_missing_detection_embedding_rejects_loose_geometric_match():
-    """Track has an embedding, detection yields no embedding this tick, and
-    the two are far apart — must NOT inherit the id."""
-    tracker, _ = _make_single_tracker(pixel_fallback_distance_px=200.0)
-    tracker._embedder = _FixedEmbedder(None)  # type: ignore[attr-defined]
-    emb = _unit_vec(2)
-    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb)
-    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-
-    # Detection 120 px away -> geom_cost = 0.6 > 0.25 strict threshold.
-    tracks = tracker.update(
-        [_bbox_around(320.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
-    )
-    assert len(tracks) == 2, "expect old track coasting + new track"
-    new_track = next(t for t in tracks if not t.coasting)
-    assert new_track.global_id != gid
-
-
-def test_low_cosine_similarity_rejects_even_with_close_geometry():
-    tracker, _ = _make_single_tracker()
-    emb_a = _unit_vec(10)
-    emb_b = -emb_a  # cosine similarity = -1, well below the 0.55 gate.
-    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb_a)
-    tracker._embedder = _FixedEmbedder(emb_b)  # type: ignore[attr-defined]
-    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-    tracks = tracker.update(
-        [_bbox_around(206.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
-    )
-    assert len(tracks) == 2, "gate must reject; both tracks alive this tick"
-    new_track = next(t for t in tracks if not t.coasting)
-    assert new_track.global_id != gid
-
-
-def test_high_cosine_similarity_matches_without_bumping_suspect_counter():
-    events: list[dict] = []
-    manager = PieceHandoffManager(handoff_chain={})
-    tracker = PolarFeederTracker(
-        role="c_channel_2",
-        handoff_manager=manager,
-        pixel_fallback_distance_px=200.0,
-        detection_score_threshold=0.1,
-        coast_limit_ticks=5,
-        id_switch_suspect_observer=lambda **kw: events.append(kw),
-    )
-    emb = _unit_vec(20)
-    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb)
-    tracker._embedder = _FixedEmbedder(emb)  # type: ignore[attr-defined]
-    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-    tracks = tracker.update(
-        [_bbox_around(206.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame,
-    )
-    assert len(tracks) == 1
-    assert tracks[0].global_id == gid
-    assert events == [], "high-similarity match must not flag id switch"
-
-
-def test_hungarian_suspect_pair_increments_counter():
-    events: list[dict] = []
-    manager = PieceHandoffManager(handoff_chain={})
-    tracker = PolarFeederTracker(
-        role="c_channel_2",
-        handoff_manager=manager,
-        pixel_fallback_distance_px=200.0,
-        detection_score_threshold=0.1,
-        coast_limit_ticks=5,
-        # Drop the hard appearance gate so Hungarian actually gets to
-        # accept the suspect pair we construct. Keep a non-1.0 value so
-        # float-precision wobble doesn't re-enable it accidentally.
-        min_appearance_similarity=-10.0,
-        id_switch_suspect_observer=lambda **kw: events.append(kw),
-    )
-    emb_a = _unit_vec(30)
-    emb_b = -emb_a  # sim ≈ -1, far below ID_SWITCH_SIM_SUSPECT (0.3)
-
-    gid = _seed_track_with_embedding(tracker, start=(200.0, 200.0), embedding=emb_a)
-    tracker._embedder = _FixedEmbedder(emb_b)  # type: ignore[attr-defined]
-    fake_frame = np.zeros((480, 640, 3), dtype=np.uint8)
-    # Geometry cost ~120/200 = 0.6 which exceeds the 0.5 suspect threshold.
-    tracks = tracker.update(
-        [_bbox_around(320.0, 200.0, size=40)], [0.9], 0.2, frame_bgr=fake_frame
-    )
-    # Match should happen (gate is disabled) and the suspect observer fires.
-    assert len(tracks) == 1
-    assert tracks[0].global_id == gid
-    assert len(events) == 1, f"expected one suspect event, got {events}"
-    assert events[0]["similarity"] < 0.3
-    assert events[0]["geom_cost"] > 0.5

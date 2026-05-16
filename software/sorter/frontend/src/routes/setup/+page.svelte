@@ -20,6 +20,7 @@
 	import MotionStep from '$lib/components/setup/steps/MotionStep.svelte';
 	import HiveStep from '$lib/components/setup/steps/HiveStep.svelte';
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
+	import { beginHiveLink, completeReturnedHiveLink } from '$lib/hive/link-flow';
 	import { RefreshCcw } from 'lucide-svelte';
 	import {
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
@@ -66,18 +67,31 @@
 	type WizardStepConfirmation = Partial<Record<WizardStepId, boolean>>;
 
 	const machine = getMachineContext();
-	const STEP_ORDER = ['c_channel_1', 'c_channel_2', 'c_channel_3', 'carousel', 'chute'];
+	const STEP_ORDER = [
+		'c_channel_1',
+		'c_channel_2',
+		'c_channel_3',
+		'c_channel_4',
+		'carousel',
+		'chute'
+	];
 	const ROLE_LABELS: Record<string, string> = {
 		c_channel_2: 'C-Channel 2',
 		c_channel_3: 'C-Channel 3',
+		classification_channel: 'Classification C-Channel (C4)',
 		carousel: 'Carousel',
 		classification_top: 'Classification Top',
 		classification_bottom: 'Classification Bottom'
 	};
 	const ROLE_DESCRIPTIONS: Record<string, string> = {
-		c_channel_2: 'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
-		c_channel_3: 'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
-		carousel: 'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
+		c_channel_2:
+			'Feeder path for the second C-channel. You can reuse the same camera for multiple areas.',
+		c_channel_3:
+			'Feeder path for the third C-channel. You can reuse the same camera for multiple areas.',
+		classification_channel:
+			'Classification C-channel platter. Use the dedicated C4 view when this machine runs the classification-channel setup.',
+		carousel:
+			'Carousel handoff area. This can share a camera with the feeder paths if the view covers it.',
 		classification_top: 'Required top-down classification view.',
 		classification_bottom: 'Optional crop for underside or second-pass classification.'
 	};
@@ -119,7 +133,8 @@
 			id: 'homing',
 			title: 'Endstops and Homing',
 			kicker: 'Step 5',
-			description: 'Verify the carousel and chute endstops, then run the guided home procedures safely.',
+			description:
+				'Verify the carousel and chute endstops, then run the guided home procedures safely.',
 			requiresManualConfirm: true
 		},
 		{
@@ -200,8 +215,7 @@
 
 	let hiveLoading = $state(false);
 	let hiveTargets = $state<HiveSetupTarget[]>([]);
-	let hiveEmail = $state('');
-	let hivePassword = $state('');
+	let hiveUrl = $state('');
 	let hiveConnecting = $state(false);
 	let hiveError = $state<string | null>(null);
 	let hiveStatus = $state<string | null>(null);
@@ -284,10 +298,14 @@
 	}
 
 	function cameraRolesForLayout(): string[] {
+		const auxiliaryRole =
+			wizard?.config.machine_setup?.key === 'classification_channel'
+				? 'classification_channel'
+				: 'carousel';
 		return [
 			'c_channel_2',
 			'c_channel_3',
-			'carousel',
+			auxiliaryRole,
 			'classification_top',
 			'classification_bottom'
 		];
@@ -495,8 +513,7 @@
 			return null;
 		},
 		discovery: () => {
-			if (!wizard?.readiness.boards_detected)
-				return 'Waiting for controller boards to be detected';
+			if (!wizard?.readiness.boards_detected) return 'Waiting for controller boards to be detected';
 			return null;
 		},
 		motion: () => {
@@ -616,8 +633,9 @@
 		}
 	}
 
-	async function connectToSorthive() {
-		if (!hiveEmail.trim() || !hivePassword.trim()) return;
+	function connectToSorthive() {
+		const url = (hiveUrl.trim() || DEFAULT_HIVE_URL).trim();
+		if (!url) return;
 		hiveConnecting = true;
 		hiveError = null;
 		hiveStatus = null;
@@ -626,30 +644,27 @@
 			nicknameDraft.trim() ||
 			(wizard?.machine.machine_id ?? '');
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/register`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					target_name: 'Hive Community',
-					url: DEFAULT_HIVE_URL,
-					email: hiveEmail.trim(),
-					password: hivePassword.trim(),
-					machine_name: machineName,
-					machine_description: ''
-				})
+			beginHiveLink({
+				hiveUrl: url,
+				targetName: undefined,
+				machineName: machineName || undefined,
+				// Bring the user back to the same setup step so the
+				// returned-link handler at mount can finish the pairing.
+				returnPath: window.location.pathname + window.location.search
 			});
-			if (!res.ok) {
-				let message = await res.text();
-				try {
-					const body = JSON.parse(message);
-					message = body.detail ?? body.error ?? message;
-				} catch {
-					// use raw text
-				}
-				throw new Error(message || 'Failed to connect to Hive.');
-			}
-			hivePassword = '';
-			hiveStatus = 'Connected to Hive. Your sorter will start syncing samples in the background.';
+			// beginHiveLink redirects; if it returns we never got there.
+		} catch (e: any) {
+			hiveError = e?.message ?? 'Could not start the Hive link flow.';
+			hiveConnecting = false;
+		}
+	}
+
+	async function handleReturnedSorthiveLink() {
+		try {
+			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
+			if (!result.completed) return;
+			hiveStatus =
+				result.message ?? 'Connected to Hive. Sample sync will resume in the background.';
 			stepConfirmations = { ...stepConfirmations, hive: true };
 			const machineId = currentMachineId();
 			if (machineId && progressLoadedMachineId === machineId) {
@@ -657,7 +672,7 @@
 			}
 			await loadSorthiveConfig();
 		} catch (e: any) {
-			hiveError = e.message ?? 'Failed to connect to Hive.';
+			hiveError = e?.message ?? 'Hive link could not be completed.';
 		} finally {
 			hiveConnecting = false;
 		}
@@ -681,7 +696,9 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/cameras/list`);
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
-			usbCameras = Array.isArray(payload?.usb) ? payload.usb : [];
+			usbCameras = Array.isArray(payload?.usb)
+				? payload.usb.filter((camera: UsbCamera) => camera.index >= 0)
+				: [];
 			networkCameras = Array.isArray(payload?.network) ? payload.network : [];
 		} catch (e: any) {
 			cameraError = e.message ?? 'Failed to load camera inventory';
@@ -906,6 +923,9 @@
 		}
 		void loadWizard();
 		void loadCameraInventory();
+		// If the user just came back from Hive with a pairing token in
+		// the URL hash, finish the link before they touch anything else.
+		void handleReturnedSorthiveLink();
 	});
 </script>
 
@@ -916,8 +936,8 @@
 			<section class="setup-card-shell border border-border bg-surface p-6">
 				<h1 class="text-2xl font-semibold text-text">Setup Wizard</h1>
 				<p class="mt-2 max-w-2xl text-sm text-text-muted">
-					Select or connect a machine first. After that, this wizard will walk through the setup
-					one step at a time instead of dropping the whole config surface on one page.
+					Select or connect a machine first. After that, this wizard will walk through the setup one
+					step at a time instead of dropping the whole config surface on one page.
 				</p>
 			</section>
 		{:else}
@@ -968,14 +988,12 @@
 					{:else if currentStepLocked()}
 						<div class="setup-panel px-4 py-4 text-sm text-text-muted">
 							This step keeps its own URL at
-							<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but it stays
-							locked until the previous steps are complete.
+							<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but it stays locked
+							until the previous steps are complete.
 						</div>
 					{:else if activeStepId === 'identity'}
 						<IdentityStep
-							machineId={wizard?.machine.machine_id ??
-								machine.machine.identity?.machine_id ??
-								''}
+							machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
@@ -1035,8 +1053,7 @@
 							{hiveLoading}
 							officialHiveTarget={officialSorthiveTarget}
 							defaultHiveUrl={DEFAULT_HIVE_URL}
-							bind:hiveEmail
-							bind:hivePassword
+							bind:hiveUrl
 							{hiveConnecting}
 							{hiveError}
 							{hiveStatus}
@@ -1062,9 +1079,7 @@
 					<SetupNavFooter
 						blockerReason={stepBlockerReason()}
 						showBack={currentStepNumber() > 1}
-						showFinish={isAdvanced &&
-							currentStep().requiresManualConfirm &&
-							!currentStepLocked()}
+						showFinish={isAdvanced && currentStep().requiresManualConfirm && !currentStepLocked()}
 						showContinue={!isAdvanced}
 						{continueDisabled}
 						{continueLabel}

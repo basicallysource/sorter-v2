@@ -65,6 +65,7 @@ class BackendSupervisor:
         self._lock = threading.RLock()
         self._shutdown = threading.Event()
         self._restart_requested = False
+        self._manual_stop_requested = False
         self._process: subprocess.Popen[bytes] | None = None
         self._process_group_pid: int | None = None
         self._process_started_at: float | None = None
@@ -92,6 +93,8 @@ class BackendSupervisor:
             running = process is not None and process.poll() is None
             return {
                 "ok": True,
+                "supervisor_protocol": 2,
+                "manual_stop_safe": True,
                 "supervisor_state": self._state,
                 "backend_running": running,
                 "backend_pid": process.pid if running and process is not None else None,
@@ -113,6 +116,7 @@ class BackendSupervisor:
             if self._restart_requested:
                 return False
             self._restart_requested = True
+            self._manual_stop_requested = False
             self._state = "restarting"
 
         threading.Thread(
@@ -121,6 +125,13 @@ class BackendSupervisor:
             daemon=True,
         ).start()
         return True
+
+    def request_stop(self, *, reason: str) -> None:
+        with self._lock:
+            self._manual_stop_requested = True
+            self._restart_requested = False
+            self._state = "stopping"
+        self._stop_backend(reason=reason)
 
     def _restart_worker(self, *, reason: str) -> None:
         try:
@@ -162,6 +173,7 @@ class BackendSupervisor:
             process = self._process
             if process is not None and process.poll() is None:
                 return
+            self._manual_stop_requested = False
 
             child = subprocess.Popen(
                 self._command,
@@ -199,6 +211,11 @@ class BackendSupervisor:
                 if self._last_exit_reason is None:
                     self._last_exit_reason = "supervisor shutdown"
                 return
+            if self._manual_stop_requested:
+                self._state = "stopped"
+                if self._last_exit_reason is None:
+                    self._last_exit_reason = "manual stop requested"
+                return
             if self._restart_requested:
                 self._state = "restarting"
                 return
@@ -217,7 +234,11 @@ class BackendSupervisor:
                 self._process = None
                 self._process_group_pid = None
                 self._last_exit_reason = reason
-                self._state = "stopped" if self._shutdown.is_set() else "restarting"
+                self._state = (
+                    "stopped"
+                    if self._shutdown.is_set() or self._manual_stop_requested
+                    else "restarting"
+                )
                 return
             self._last_exit_reason = reason
 
@@ -249,7 +270,11 @@ class BackendSupervisor:
                 self._process_group_pid = None
                 self._last_exit_code = process.returncode
                 self._last_exit_at = _timestamp()
-                self._state = "stopped" if self._shutdown.is_set() else "restarting"
+                self._state = (
+                    "stopped"
+                    if self._shutdown.is_set() or self._manual_stop_requested
+                    else "restarting"
+                )
 
 
 def _handler_factory(supervisor: BackendSupervisor):
@@ -306,7 +331,7 @@ def _handler_factory(supervisor: BackendSupervisor):
                 authorized, origin = self._authorize_request(require_origin=True)
                 if not authorized:
                     return
-                supervisor._stop_backend(reason="manual stop requested")
+                supervisor.request_stop(reason="manual stop requested")
                 self._send_json(
                     200,
                     {"ok": True, "message": "Backend stop requested."},

@@ -1,4 +1,4 @@
-import { Camera, Cloud, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
+import { Camera, Cloud, Cpu, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -13,6 +13,7 @@ export type CameraRole =
 	| 'c_channel_2'
 	| 'c_channel_3'
 	| 'carousel'
+	| 'classification_channel'
 	| 'classification_top'
 	| 'classification_bottom';
 
@@ -24,7 +25,13 @@ export type ZoneChannel =
 	| 'class_top'
 	| 'class_bottom';
 
-export type StepperKey = 'c_channel_1' | 'c_channel_2' | 'c_channel_3' | 'carousel' | 'chute';
+export type StepperKey =
+	| 'c_channel_1'
+	| 'c_channel_2'
+	| 'c_channel_3'
+	| 'c_channel_4'
+	| 'carousel'
+	| 'chute';
 
 export type EndstopConfig = {
 	configEndpoint: string;
@@ -74,6 +81,12 @@ export const hiveNavItem: SettingsNavItem = {
 	href: '/settings/hive',
 	label: 'Hive',
 	icon: Cloud
+};
+
+export const hiveModelsNavItem: SettingsNavItem = {
+	href: '/settings/hive/models',
+	label: 'Models',
+	icon: Cpu
 };
 
 export const chuteNavItem: SettingsNavItem = {
@@ -135,15 +148,15 @@ export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'classification-channel',
 		href: '/settings/classification-channel',
-		label: 'Classification Channel',
+		label: 'Classification C-Channel (C4)',
 		icon: Camera,
 		description:
-			'Configure the fourth C-channel camera, arc zones, and the shared stepper on the former carousel port.',
-		cameraRoles: ['carousel'],
+			'Configure the fourth C-channel camera, arc zones, and classification-channel stepper.',
+		cameraRoles: ['classification_channel'],
 		zoneChannels: ['classification_channel'],
-		stepperKeys: ['carousel'],
+		stepperKeys: ['c_channel_4'],
 		stepperDisplay: {
-			carousel: {
+			c_channel_4: {
 				label: CLASSIFICATION_CHANNEL_STEPPER_LABEL,
 				gearRatio: CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO
 			}
@@ -172,6 +185,7 @@ export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
 const baseSettingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
 	hiveNavItem,
+	hiveModelsNavItem,
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
@@ -202,6 +216,7 @@ export const stepperLabels: Record<StepperKey, string> = {
 	c_channel_1: 'C Channel 1',
 	c_channel_2: 'C Channel 2',
 	c_channel_3: 'C Channel 3',
+	c_channel_4: 'C Channel 4',
 	carousel: 'Carousel',
 	chute: 'Chute'
 };

@@ -44,8 +44,44 @@ def _active_irl() -> Any | None:
 
 
 def _ensure_not_homing(action: str) -> None:
-    if shared_state.hardware_state == "homing":
-        raise HTTPException(status_code=409, detail=f"Cannot {action} while hardware is homing.")
+    worker = shared_state.hardware_worker_thread
+    if (
+        (worker is not None and worker.is_alive())
+        or shared_state.hardware_state in {"homing", "initializing"}
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action} while hardware is {shared_state.hardware_state}.",
+        )
+
+
+def _control_board_summary(board: Any) -> Dict[str, Any]:
+    return {
+        "family": getattr(board.identity, "family", "unknown"),
+        "role": getattr(board.identity, "role", "unknown"),
+        "device_name": getattr(board.identity, "device_name", "Unknown"),
+        "port": getattr(board.identity, "port", ""),
+        "address": getattr(board.identity, "address", 0),
+        "logical_steppers": list(getattr(board, "logical_stepper_names", tuple())),
+    }
+
+
+@router.get("/api/hardware-config/control-boards/live")
+def get_live_control_boards() -> Dict[str, Any]:
+    active_irl = _active_irl()
+    if active_irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized.")
+    control_boards = getattr(active_irl, "control_boards", {})
+    if not isinstance(control_boards, dict):
+        control_boards = {}
+    return {
+        "ok": True,
+        "hardware_state": shared_state.hardware_state,
+        "boards": [
+            _control_board_summary(board)
+            for board in control_boards.values()
+        ],
+    }
 
 
 def _active_waveshare_service() -> Any | None:
@@ -1432,6 +1468,7 @@ def get_live_chute_status() -> Dict[str, Any]:
 
 @router.post("/api/hardware-config/chute/calibrate/find-endstop")
 def calibrate_chute_find_endstop() -> Dict[str, Any]:
+    _ensure_not_homing("home the chute")
     irl = _active_irl()
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
@@ -1541,6 +1578,7 @@ def save_carousel_hardware_config(
 
 @router.post("/api/hardware-config/carousel/home")
 def home_carousel_to_endstop() -> Dict[str, Any]:
+    _ensure_not_homing("home the carousel")
     irl = _active_irl()
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")
@@ -1563,6 +1601,7 @@ def home_carousel_to_endstop() -> Dict[str, Any]:
 @router.post("/api/hardware-config/carousel/calibrate")
 def calibrate_carousel() -> Dict[str, Any]:
     """Calibrate carousel by measuring steps for one full revolution."""
+    _ensure_not_homing("calibrate the carousel")
     irl = _active_irl()
     if irl is None:
         raise HTTPException(status_code=503, detail="Hardware not initialized. Open the Motion or Endstops step to power on the steppers first.")

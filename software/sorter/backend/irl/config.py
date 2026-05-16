@@ -273,6 +273,16 @@ class ClassificationChannelSizeClassConfig:
     hard_guard_deg: float
 
 
+@dataclass(frozen=True)
+class ClassificationChannelExitReleaseStage:
+    name: str
+    amplitude_output_deg: float
+    cycles: int
+    microsteps_per_second: int
+    acceleration_microsteps_per_second_sq: int
+    settle_ms: int
+
+
 class ClassificationChannelConfig:
     use_dynamic_zones: bool
     max_zones: int
@@ -289,6 +299,9 @@ class ClassificationChannelConfig:
     exit_release_shimmy_cycles: int
     exit_release_shimmy_microsteps_per_second: int | None
     exit_release_shimmy_acceleration_microsteps_per_second_sq: int | None
+    exit_release_shimmy_stepper_per_output_deg: float
+    exit_release_shimmy_stages: tuple[ClassificationChannelExitReleaseStage, ...]
+    exit_release_review_pause_enabled: bool
     stale_zone_timeout_s: float
     hood_dwell_ms: int
     min_carousel_crops_for_recognize: int
@@ -302,16 +315,27 @@ class ClassificationChannelConfig:
 
     def __init__(self) -> None:
         self.use_dynamic_zones = True
-        # Raised from 2 -> 4 after pipeline stabilization (OSNet fix,
-        # liveness probe, leader-wins). Physical safety (arc-clear check,
-        # hard-collision guards, leader-wins) still prevents double-drops;
-        # this cap only governs how many pieces C4 accepts before throttling
-        # C3. Upstream gates (admission.py, running.py) pick this up
-        # automatically — no other call sites hardcode the old value.
-        self.max_zones = 4
+        # 2 pieces simultaneously: one in the hood/classification, one
+        # queued at intake. With drop-to-intake = 85° and max compartment
+        # width = 79° the pure-angular intake_guard can prevent
+        # same-compartment loading OR allow parallel-with-drop admission
+        # but not both (constraints don't overlap). max_zones=2 + a
+        # generous intake_guard keeps the platter clean: at most two
+        # pieces, each in its own compartment, and the drop window only
+        # ever sees one piece at a time (the leader).
+        self.max_zones = 2
         self.intake_angle_deg = 305.0
         self.intake_body_half_width_deg = 10.0
-        self.intake_guard_deg = 28.0
+        # Compartments on this platter measure 65°-79° wide. To guarantee
+        # the new piece lands in the *next* compartment (not the same one
+        # the previous piece is still in), the intake exclusion window
+        # must be at least one full compartment wide plus margin. body
+        # (10°) + guard (80°) = 90° on each side of intake — comfortably
+        # above the widest observed compartment. Drop-committed pieces are
+        # explicitly excluded from this check in running._updateIntakeGate
+        # so a piece waiting at drop doesn't artificially block intake
+        # (drop-to-intake distance is only 85°, less than the guard alone).
+        self.intake_guard_deg = 80.0
         # Live calibration on the dedicated classification channel shows the
         # real guide / point-of-no-return on the lower-right quadrant, not on
         # the legacy left-side position from the old chamber model.
@@ -321,36 +345,113 @@ class ClassificationChannelConfig:
         self.recognition_window_deg = 170.0
         self.positioning_window_deg = 48.0
         self.exit_release_overlap_ratio = 0.5
-        self.exit_release_shimmy_amplitude_deg = 1.5
-        self.exit_release_shimmy_cycles = 2
+        # Stuck wheel release uses the old gated C4 release probe pattern:
+        # per attempt, rock +A / -2A / +A so the net position returns to
+        # zero, with slow speeds and settle pauses. Repeated release attempts
+        # on the same piece walk this ladder from calm to firmer motion.
+        # Amplitudes are output/platter degrees and are converted to stepper
+        # degrees at runtime via the measured C4 gear ratio.
+        self.exit_release_shimmy_amplitude_deg = 3.0
+        self.exit_release_shimmy_cycles = 3
         self.exit_release_shimmy_microsteps_per_second = 4200
         self.exit_release_shimmy_acceleration_microsteps_per_second_sq = 9000
+        self.exit_release_shimmy_stepper_per_output_deg = 130.0 / 12.0
+        self.exit_release_shimmy_stages = (
+            ClassificationChannelExitReleaseStage(
+                "contact-break-micro",
+                amplitude_output_deg=0.25,
+                cycles=2,
+                microsteps_per_second=700,
+                acceleration_microsteps_per_second_sq=1800,
+                settle_ms=300,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "low-rock",
+                amplitude_output_deg=0.50,
+                cycles=2,
+                microsteps_per_second=950,
+                acceleration_microsteps_per_second_sq=2600,
+                settle_ms=300,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "medium-rock",
+                amplitude_output_deg=0.85,
+                cycles=3,
+                microsteps_per_second=1250,
+                acceleration_microsteps_per_second_sq=3600,
+                settle_ms=350,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "firm-rock",
+                amplitude_output_deg=1.25,
+                cycles=3,
+                microsteps_per_second=1600,
+                acceleration_microsteps_per_second_sq=4800,
+                settle_ms=400,
+            ),
+            ClassificationChannelExitReleaseStage(
+                "last-resort-small-kick",
+                amplitude_output_deg=1.75,
+                cycles=2,
+                microsteps_per_second=1900,
+                acceleration_microsteps_per_second_sq=6000,
+                settle_ms=450,
+            ),
+        )
+        self.exit_release_review_pause_enabled = True
         self.stale_zone_timeout_s = 3.0
-        self.hood_dwell_ms = 300
+        # Dropped to 0 in T4: with the pipeline running at ~11 pieces/min
+        # (post-supervisor-restart, no backpressure deadlock) individual
+        # pieces transit C4 fast enough that the 300 ms hood dwell timer
+        # never clears before point_of_no_return — every step() returns
+        # early at _shouldHoldForHoodDwell and _fireRecognition is never
+        # reached, even for the non-hood piece. With min_carousel_crops=5
+        # + the free-fall burst + the retro low-conf scan already enforcing
+        # quality, the hood-dwell timer is redundant defence. Old comment
+        # about "poor crops" no longer applies because the new gates filter
+        # quality differently.
+        self.hood_dwell_ms = 0
         # Minimum number of carousel-source crops required before the
         # recognizer may fire for a piece. Prevents recognition from
         # committing using only c_channel_2/c_channel_3 history (which, if
         # misbound, can belong to a different piece still upstream).
-        self.min_carousel_crops_for_recognize = 2
+        # Reverted to 5 in T11: T8 / T10 with min_crops=3 catastrophically
+        # increased ghost fires (a static platter feature at angle ~44°
+        # gets re-detected each frame and trivially clears 3 crops within
+        # the 1.2 s free-fall burst window where every sector_snapshot is
+        # captured). Net result: 5-6 fires/min of which 80 % returned
+        # bk_empty. Sticking with 5 keeps T7 throughput (median 3.54).
+        self.min_carousel_crops_for_recognize = 5
         # Minimum elapsed time since the piece's first carousel-source
         # observation before recognition may fire. Guards against a
         # freshly-spawned carousel track that briefly stacks 2+ crops in
         # quick succession but hasn't yet stabilized on the physical C4 tray.
-        self.min_carousel_dwell_ms = 300
+        # Dropped to 0 in T3: the T2 family established that
+        # min_carousel_crops_for_recognize=5 + carousel-only filter +
+        # free-fall burst already guarantees the piece is post-landing
+        # before recognition fires. The dwell gate is now redundant
+        # defence and was costing us retry windows.
+        self.min_carousel_dwell_ms = 0
         # Minimum angular traversal on the carousel (degrees) since the
         # piece was first observed there before recognition may fire.
         # Time-based gates don't guarantee viewing-angle diversity when the
         # carousel rotates fast; this ensures the piece has physically
         # rotated enough to present multiple sides to the C4 camera, so the
         # accumulated crops cover meaningfully different viewpoints.
-        self.min_carousel_traversal_deg = 30.0
+        # Reverted to 0.0 after T14 (8° killed all fires) and T15 (4°
+        # killed all fires). Real pieces apparently don't accumulate
+        # enough angular displacement BEFORE recognition needs to fire,
+        # at least not measured at zone.center_deg granularity. The
+        # ghost-fire-blocking benefit doesn't materialize; T7's 0°
+        # setting still produces the best median (3.54).
+        self.min_carousel_traversal_deg = 0.0
         self.size_downgrade_confirmations = 3
         # Leader-wins drop policy: when the drop candidate has an interferer
         # inside the clearance window, only flip the *leader* to
         # ``multi_drop_fail`` if the interferer is strictly trailing (hasn't
         # reached drop yet). Spares the trailer so it can take its own drop
         # cycle next rotation instead of being discarded with the leader.
-        self.leader_wins_policy = True
+        self.leader_wins_policy = False
         # When True, the spare-the-trailer path only activates if the leader
         # already has a part_id (i.e. status == classified). Keeps the old
         # "both fail" behavior for pending/classifying leaders where the
@@ -426,19 +527,30 @@ class FeederConfig:
             microsteps_per_second=2500,
             delay_between_ms=1000,
         )
+        # C3→C4 speed ratio: C4 ~40-50% faster than C3 so pieces don't
+        # accumulate on the carousel. Both kept slow overall — fast C4
+        # confused the upstream coupling (C2 backspin observed at 5000+).
+        # C3=2500, C4=3600 → C4 is ~44% faster than C3.
         self.third_rotor_normal = RotorPulseConfig(
             steps=1000,
-            microsteps_per_second=5000,
+            microsteps_per_second=2500,
             delay_between_ms=250,
         )
         self.third_rotor_precision = RotorPulseConfig(
             steps=300,
-            microsteps_per_second=3000,
+            microsteps_per_second=1600,
             delay_between_ms=1000,
         )
         self.classification_channel_eject = RotorPulseConfig(
             steps=1000,
-            microsteps_per_second=3400,
+            microsteps_per_second=3600,
+            # 400 ms inter-pulse is the keeper. T2d tested 800 ms and
+            # cls/min DROPPED to ~1 instead of rising — upstream blocking
+            # (``classification_channel_occupied`` reasons exploded) dragged
+            # supply faster than the extra C4 dwell improved conversion.
+            # The real lever for 8 cls/min is not slowing the platter; it
+            # is widening the recognition window through earlier captures
+            # and fewer gate skips, not more dwell-per-piece on C4.
             delay_between_ms=400,
             acceleration_microsteps_per_second_sq=2500,
         )
@@ -462,6 +574,7 @@ class IRLConfig:
     c_channel_3_camera: CameraConfig | None
     carousel_camera: CameraConfig | None
     carousel_stepper: StepperConfig
+    c_channel_4_rotor_stepper: StepperConfig
     chute_stepper: StepperConfig
     c_channel_1_rotor_stepper: StepperConfig
     c_channel_2_rotor_stepper: StepperConfig
@@ -486,6 +599,7 @@ class IRLConfig:
 
 class IRLInterface:
     carousel_stepper: "StepperMotor"
+    c_channel_4_rotor_stepper: "StepperMotor"
     carousel_home_pin: "DigitalInputPin"
     carousel_hw: "CarouselHardware"
     chute_stepper: "StepperMotor"
@@ -512,6 +626,7 @@ class IRLInterface:
             "c_channel_1_rotor",
             "c_channel_2_rotor",
             "c_channel_3_rotor",
+            "c_channel_4_rotor",
             "carousel",
             "chute",
             "fifth",
@@ -521,17 +636,24 @@ class IRLInterface:
                 getattr(self, attr).enabled = True
 
     def disableSteppers(self) -> None:
+        seen: set[int] = set()
         for stepper_name in [
             "c_channel_1_rotor",
             "c_channel_2_rotor",
             "c_channel_3_rotor",
+            "c_channel_4_rotor",
             "carousel",
             "chute",
             "fifth",
         ]:
             attr = f"{stepper_name}_stepper"
             if hasattr(self, attr):
-                getattr(self, attr).enabled = False
+                stepper = getattr(self, attr)
+                identity = id(stepper)
+                if identity in seen:
+                    continue
+                seen.add(identity)
+                stepper.enabled = False
 
     def shutdown(self) -> None:
         if self.servo_controller is not None and hasattr(self.servo_controller, "shutdown"):
@@ -935,7 +1057,18 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
 
         c_ch2_idx = cameras_section.get("c_channel_2")
         c_ch3_idx = cameras_section.get("c_channel_3")
-        carousel_source = cameras_section.get("carousel")
+        classification_channel_source = cameras_section.get("classification_channel")
+        carousel_source = (
+            classification_channel_source
+            if machine_setup.key == "classification_channel"
+            and classification_channel_source is not None
+            else cameras_section.get("carousel")
+        )
+        aux_camera_role = (
+            "classification_channel"
+            if machine_setup.key == "classification_channel"
+            else "carousel"
+        )
 
         if isinstance(c_ch2_idx, int):
             irl_config.c_channel_2_camera = _mkCameraConfigForRole(
@@ -955,19 +1088,19 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             )
         if isinstance(carousel_source, str):
             irl_config.carousel_camera = _mkCameraConfigForRole(
-                "carousel",
+                aux_camera_role,
                 url=carousel_source,
-                picture_settings=_picture_settings("carousel"),
-                device_settings=_device_settings("carousel"),
-                color_profile=_color_profile("carousel"),
+                picture_settings=_picture_settings(aux_camera_role),
+                device_settings=_device_settings(aux_camera_role),
+                color_profile=_color_profile(aux_camera_role),
             )
         elif isinstance(carousel_source, int):
             irl_config.carousel_camera = _mkCameraConfigForRole(
-                "carousel",
+                aux_camera_role,
                 device_index=carousel_source,
-                picture_settings=_picture_settings("carousel"),
-                device_settings=_device_settings("carousel"),
-                color_profile=_color_profile("carousel"),
+                picture_settings=_picture_settings(aux_camera_role),
+                device_settings=_device_settings(aux_camera_role),
+                color_profile=_color_profile(aux_camera_role),
             )
 
         # Classification cameras (optional in split_feeder mode) — int or URL string
@@ -1084,7 +1217,14 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=1000, microsteps=16)
+    classification_channel_setup = machine_setup.key == "classification_channel"
+    carousel_microsteps = 8 if classification_channel_setup else 16
+    carousel_speed = 4000 if classification_channel_setup else 1000
+    irl_config.carousel_stepper = mkStepperConfig(
+        default_steps_per_second=carousel_speed,
+        microsteps=carousel_microsteps,
+    )
+    irl_config.c_channel_4_rotor_stepper = irl_config.carousel_stepper
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=3000, microsteps=8)
     irl_config.c_channel_1_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
@@ -1247,6 +1387,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             gc.logger.warning(
                 f"Logical stepper '{logical_name}' (attr '{attr}') is unbound after applying stepper_bindings."
             )
+
+    if hasattr(irl_interface, "carousel_stepper"):
+        irl_interface.c_channel_4_rotor_stepper = irl_interface.carousel_stepper
 
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)

@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
 from app.deps import get_db, require_role, verify_csrf
@@ -28,9 +29,9 @@ def get_next_review(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("reviewer", "admin")),
 ):
-    already_reviewed = db.query(SampleReview.sample_id).filter(
+    already_reviewed = select(SampleReview.sample_id).where(
         SampleReview.reviewer_id == current_user.id
-    ).subquery()
+    )
 
     sample = (
         db.query(Sample)

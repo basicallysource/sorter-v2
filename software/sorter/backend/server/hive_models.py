@@ -56,10 +56,22 @@ LOCAL_MODELS_DIR: Path = (
     Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
 )
 
+# Models that ship with the repo (committed via git LFS) live here. They look
+# the same as downloaded models but cannot be removed via the API.
+BUNDLED_MODELS_DIR: Path = (
+    Path(__file__).resolve().parent.parent / "bundled_models"
+)
+
 # Key embedded in a synthesized ``run.json`` to mark a directory as
 # originating from Hive. Presence of this key means the model was downloaded
 # via this module and can be safely listed/removed.
 HIVE_SENTINEL_KEY = "hive"
+
+# Variant runtimes the sorter can actually load via the detection registry.
+# Anything else (notably ``pytorch``) shows up in the catalog but cannot be
+# activated — we filter those out of the auto-download and mark them
+# ``compatible: False`` in the installed list so the UI can disable Activate.
+DEPLOYABLE_RUNTIMES: frozenset[str] = frozenset({"onnx", "ncnn", "hailo"})
 
 
 def set_local_models_dir(path: Path) -> None:
@@ -207,19 +219,12 @@ def _read_run_json(path: Path) -> dict | None:
     return raw
 
 
-def list_installed_models() -> list[dict]:
-    """Scan ``LOCAL_MODELS_DIR`` for previously-downloaded Hive models.
-
-    Directories are considered "installed from Hive" when their ``run.json``
-    contains the ``HIVE_SENTINEL_KEY`` key. Directories without ``run.json``,
-    with a corrupt ``run.json``, or without the sentinel are silently skipped
-    so we don't clobber locally-trained model directories.
-    """
+def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
     results: list[dict] = []
-    if not LOCAL_MODELS_DIR.exists():
+    if not root.exists():
         return results
 
-    for child in sorted(LOCAL_MODELS_DIR.iterdir()):
+    for child in sorted(root.iterdir()):
         if not child.is_dir():
             continue
         run_json = child / "run.json"
@@ -240,21 +245,51 @@ def list_installed_models() -> list[dict]:
                 except OSError:
                     pass
 
+        # Surface ``trained_at`` (preferred), falling back to ``created_at`` or
+        # ``hive.published_at`` so the UI can show how fresh the model itself
+        # is — distinct from when the operator pulled it.
+        trained_at = (
+            payload.get("trained_at")
+            or payload.get("created_at")
+            or hive_meta.get("published_at")
+        )
+
+        variant_runtime = hive_meta.get("variant_runtime")
+        compatible = (
+            isinstance(variant_runtime, str)
+            and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
+        )
+
         results.append(
             {
                 "local_id": child.name,
                 "target_id": hive_meta.get("target_id"),
                 "model_id": hive_meta.get("model_id"),
-                "variant_runtime": hive_meta.get("variant_runtime"),
+                "variant_runtime": variant_runtime,
                 "sha256": hive_meta.get("sha256"),
                 "downloaded_at": hive_meta.get("downloaded_at"),
+                "trained_at": trained_at if isinstance(trained_at, str) else None,
                 "name": payload.get("name"),
                 "model_family": payload.get("model_family"),
                 "size_bytes": size_bytes,
                 "path": str(child),
+                "bundled": bundled,
+                "compatible": compatible,
             }
         )
     return results
+
+
+def list_installed_models() -> list[dict]:
+    """All locally-available Hive-format models — both downloaded and bundled.
+
+    Bundled entries (shipped with the repo via git LFS) carry ``bundled: True``
+    so the UI can show a badge and disable Remove. Downloaded entries from
+    ``LOCAL_MODELS_DIR`` carry ``bundled: False``.
+    """
+    return _scan_models_dir(BUNDLED_MODELS_DIR, bundled=True) + _scan_models_dir(
+        LOCAL_MODELS_DIR, bundled=False
+    )
 
 
 def _installed_index() -> set[tuple[str, str]]:
@@ -300,12 +335,15 @@ def remove_installed_model(local_id: str) -> None:
 
     ``local_id`` must be a single path component (no traversal). Raises
     ``ValueError`` on invalid ids and ``FileNotFoundError`` when the directory
-    does not exist.
+    does not exist. Bundled (repo-shipped) models cannot be removed.
     """
     if not isinstance(local_id, str) or not local_id:
         raise ValueError("local_id must be a non-empty string")
     if Path(local_id).name != local_id or local_id in (".", ".."):
         raise ValueError("local_id must be a single path component")
+
+    if (BUNDLED_MODELS_DIR / local_id).exists():
+        raise ValueError("bundled models cannot be removed")
 
     target = LOCAL_MODELS_DIR / local_id
     if not target.exists() or not target.is_dir():
@@ -348,7 +386,10 @@ def _pick_variant(detail: dict, requested_runtime: str | None) -> dict | None:
         return None
 
     runtimes = [
-        v.get("runtime") for v in normalized if isinstance(v.get("runtime"), str)
+        v.get("runtime")
+        for v in normalized
+        if isinstance(v.get("runtime"), str)
+        and v.get("runtime").lower() in DEPLOYABLE_RUNTIMES
     ]
     chosen = pick_runtime_for_this_machine(runtimes)
     if chosen is None:
@@ -451,6 +492,68 @@ class DownloadJobManager:
         self._queue.put(job_id)
         return job_id
 
+    def enqueue_all_deployable_variants(
+        self, target_id: str, model_id: str
+    ) -> list[str]:
+        """Enqueue one job per *deployable* variant runtime in parallel.
+
+        Each variant lands in its own ``hive-<model_id>-<runtime>`` directory
+        so the operator can later activate any of them independently. Pytorch
+        and any other non-deployable runtime is skipped — the sorter cannot
+        load them anyway.
+        """
+        try:
+            client, _target = _get_client_for_target(target_id)
+            detail = client.get_model(model_id)
+        except Exception as exc:
+            return [self._record_failure(target_id, model_id, None, str(exc))]
+
+        variants = detail.get("variants") if isinstance(detail, dict) else None
+        runtimes: list[str] = []
+        if isinstance(variants, list):
+            for variant in variants:
+                if isinstance(variant, dict) and isinstance(variant.get("runtime"), str):
+                    runtimes.append(variant["runtime"])
+
+        deployable = [r for r in runtimes if r.lower() in DEPLOYABLE_RUNTIMES]
+        if not deployable:
+            offered = ", ".join(runtimes) if runtimes else "none"
+            return [
+                self._record_failure(
+                    target_id,
+                    model_id,
+                    None,
+                    f"no deployable variants for this sorter (offered: {offered})",
+                )
+            ]
+        return [self.enqueue(target_id, model_id, runtime) for runtime in deployable]
+
+    def _record_failure(
+        self,
+        target_id: str,
+        model_id: str,
+        variant_runtime: str | None,
+        error: str,
+    ) -> str:
+        job_id = uuid.uuid4().hex
+        now = _now_iso()
+        with self._lock:
+            self._jobs[job_id] = {
+                "job_id": job_id,
+                "status": "failed",
+                "target_id": target_id,
+                "model_id": model_id,
+                "variant_runtime": variant_runtime,
+                "variant_id": None,
+                "file_name": None,
+                "total_bytes": 0,
+                "progress_bytes": 0,
+                "error": error,
+                "created_at": now,
+                "updated_at": now,
+            }
+        return job_id
+
     def snapshot(self) -> list[dict]:
         with self._lock:
             jobs = [dict(job) for job in self._jobs.values()]
@@ -516,7 +619,11 @@ class DownloadJobManager:
             self._update(job_id, status="failed", error=str(exc))
             return
 
-        dest_dir = LOCAL_MODELS_DIR / f"hive-{model_id}"
+        # One directory per (model_id, variant_runtime) so simultaneous
+        # downloads of multiple deployable formats coexist instead of
+        # clobbering each other's run.json. The variant_runtime is the
+        # actual format the worker is downloading right now.
+        dest_dir = LOCAL_MODELS_DIR / f"hive-{model_id}-{runtime}"
         exports_dir = dest_dir / "exports"
         exports_dir.mkdir(parents=True, exist_ok=True)
         dest_path = exports_dir / file_name
@@ -675,6 +782,8 @@ def _reset_job_manager_for_tests() -> None:
 
 
 __all__ = [
+    "BUNDLED_MODELS_DIR",
+    "DEPLOYABLE_RUNTIMES",
     "HIVE_SENTINEL_KEY",
     "LOCAL_MODELS_DIR",
     "DownloadJobManager",

@@ -36,6 +36,7 @@ from . import cobs
 import serial
 
 import struct
+import time
 from zlib import crc32
 from dataclasses import dataclass
 from threading import Lock
@@ -89,7 +90,13 @@ class MCUBus:
         self._lock = Lock()
 
     def send_command(
-        self, address: int, command: int, channel: int, payload: bytes
+        self,
+        address: int,
+        command: int,
+        channel: int,
+        payload: bytes,
+        *,
+        retries: int = 2,
     ) -> Message:
         """Send a command to the MCU and return the response from it.
 
@@ -98,6 +105,9 @@ class MCUBus:
             command: The command code (0-255)
             channel: The channel number (0-255)
             payload: The command payload (0-246 bytes)
+            retries: Extra attempts on transient framing/CRC errors before
+                giving up (default 2 → 3 attempts total). Pass 0 for paths
+                where a missing device is expected (e.g. bus discovery).
 
         Returns:
             A Message object containing the response from the MCU.
@@ -131,50 +141,84 @@ class MCUBus:
         encoded_message = cobs.encode(message) + b"\x00"
         logging.debug(f"Sending: {encoded_message.hex(b' ', 1)}")
 
-        with self._lock:  # Ensure that this transaction is atomic with respect to other threads
-            # Before writing, resynchronize by clearing the read buffer of any stale data
-            self._serial.reset_input_buffer()
-            self._serial.write(encoded_message)
-            # Read response, will block until data received or timeout occurs
-            resp_buf = bytearray(self._serial.read_until(b"\x00", 254))
-            if not resp_buf:
-                raise MCUBusError("Timeout waiting for response terminator (0x00)")
-            if resp_buf[-1] != 0:
-                if len(resp_buf) >= 254:
-                    raise MCUBusError("Response exceeded max frame size before terminator")
-                raise MCUBusError(f"Partial response (missing terminator), got {len(resp_buf)} bytes")
+        # Transient framing/CRC errors (USB-serial hiccup, EMI from steppers,
+        # MCU arbitration) used to crash the entire backend. Retry the whole
+        # send+read cycle a few times before propagating so a single dropped
+        # byte doesn't take the runtime down. The lock spans each attempt so
+        # parallel callers can't interleave half-frames on the wire.
+        attempts = max(1, retries + 1)
+        last_exc: MCUBusError | None = None
+        for attempt in range(attempts):
+            try:
+                with self._lock:
+                    # Resync before writing; flush any stale bytes left by a
+                    # previous partial response so the next read starts clean.
+                    self._serial.reset_input_buffer()
+                    self._serial.write(encoded_message)
+                    resp_buf = bytearray(self._serial.read_until(b"\x00", 254))
+                if not resp_buf:
+                    raise MCUBusError("Timeout waiting for response terminator (0x00)")
+                if resp_buf[-1] != 0:
+                    if len(resp_buf) >= 254:
+                        raise MCUBusError("Response exceeded max frame size before terminator")
+                    raise MCUBusError(
+                        f"Partial response (missing terminator), got {len(resp_buf)} bytes"
+                    )
 
-        logging.debug(f"Received: {resp_buf.hex(b' ', 1)}")
+                logging.debug(f"Received: {resp_buf.hex(b' ', 1)}")
+                decoded_resp = cobs.decode(resp_buf[:-1])  # Exclude terminator
 
-        decoded_resp = cobs.decode(resp_buf[:-1])  # Exclude terminator
+                if crc32(decoded_resp[:-4]) != struct.unpack("<I", decoded_resp[-4:])[0]:
+                    raise MCUBusError("CRC check failed")
 
-        if crc32(decoded_resp[:-4]) != struct.unpack("<I", decoded_resp[-4:])[0]:
-            raise MCUBusError("CRC check failed")
+                response_header = MessageHeader(*struct.unpack("<BBBB", decoded_resp[:4]))
+                message = Message(
+                    dev_address=response_header.address,
+                    command=response_header.command,
+                    channel=response_header.channel,
+                    payload=bytes(decoded_resp[4:-4][: response_header.payload_length]),
+                )
 
-        response_header = MessageHeader(*struct.unpack("<BBBB", decoded_resp[:4]))
-        message = Message(
-            dev_address=response_header.address,
-            command=response_header.command,
-            channel=response_header.channel,
-            payload=bytes(decoded_resp[4:-4][: response_header.payload_length]),
-        )
+                if response_header.payload_length != len(message.payload):
+                    raise MCUBusError(
+                        f"Payload length mismatch: expected {response_header.payload_length}, got {len(message.payload)}"
+                    )
 
-        if response_header.payload_length != len(message.payload):
-            raise MCUBusError(
-                f"Payload length mismatch: expected {response_header.payload_length}, got {len(message.payload)}"
-            )
+                if message.dev_address != address:
+                    raise MCUBusError(
+                        f"Response address mismatch: expected {address}, got {message.dev_address}"
+                    )
 
-        if message.dev_address != address:
-            raise MCUBusError(
-                f"Response address mismatch: expected {address}, got {message.dev_address}"
-            )
+                if message.command & 0x80:
+                    # Application-level NACK from MCU: not a transient framing
+                    # glitch, no retry will rescue it. Raise out of the loop.
+                    raise MCUBusError(
+                        f"Error response received, command: {message.command:#04x}, payload: {message.payload}"
+                    ) from None
 
-        if message.command & 0x80:
-            raise MCUBusError(
-                f"Error response received, command: {message.command:#04x}, payload: {message.payload}"
-            )
-
-        return message
+                return message
+            except MCUBusError as exc:
+                last_exc = exc
+                if "Error response received" in str(exc):
+                    # MCU-side NACK: don't retry, surface immediately.
+                    raise
+                if attempt + 1 < attempts:
+                    logging.warning(
+                        "MCU bus transient error (attempt %d/%d) addr=%d cmd=%#04x ch=%d: %s",
+                        attempt + 1,
+                        attempts,
+                        address,
+                        command,
+                        channel,
+                        exc,
+                    )
+                    # Short backoff lets the bus settle and any stale bytes
+                    # drain past the next reset_input_buffer.
+                    time.sleep(0.005 * (attempt + 1))
+                    continue
+                raise
+        # Loop must exit via return or raise — defensive fallthrough
+        raise last_exc if last_exc is not None else MCUBusError("send_command exhausted retries with no error")
 
     @classmethod
     def enumerate_buses(cls, vid=0x2E8A, pid=0x000A) -> list[str]:
@@ -208,7 +252,7 @@ class MCUBus:
         found_devices = []
         for addr in range(min_address, max_address + 1):
             try:
-                self.send_command(addr, BaseCommandCode.PING, 0, b"")
+                self.send_command(addr, BaseCommandCode.PING, 0, b"", retries=0)
                 found_devices.append(addr)
                 logging.debug(f"Device found at address {addr}")
             except Exception as e:

@@ -28,6 +28,7 @@ from app.schemas.model import (
     DetectionModelVariantUploadResponse,
 )
 from app.services.storage import (
+    build_download_filename,
     delete_model_files,
     delete_stored_file,
     save_model_variant,
@@ -129,7 +130,7 @@ def download_model_variant(
         raise APIError(404, "Variant not found", "VARIANT_NOT_FOUND")
     return serve_model_variant(
         variant.file_path,
-        filename=variant.file_name,
+        filename=build_download_filename(model, variant),
         sha256=variant.sha256,
         file_size=variant.file_size,
     )

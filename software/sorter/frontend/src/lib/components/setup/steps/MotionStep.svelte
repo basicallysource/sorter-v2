@@ -53,6 +53,7 @@
 		c_channel_1: 'c_channel_1_rotor',
 		c_channel_2: 'c_channel_2_rotor',
 		c_channel_3: 'c_channel_3_rotor',
+		c_channel_4: 'carousel',
 		carousel: 'carousel',
 		chute: 'chute_stepper'
 	};
@@ -62,6 +63,7 @@
 			c_channel_1: 'E0',
 			c_channel_2: 'X',
 			c_channel_3: 'Y',
+			c_channel_4: 'Z1',
 			carousel: 'Z1',
 			chute: 'E0'
 		}

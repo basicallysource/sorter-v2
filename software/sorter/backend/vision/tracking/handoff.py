@@ -18,8 +18,6 @@ import threading
 from collections import deque
 from typing import Callable, Iterable
 
-import numpy as np
-
 from .base import PendingHandoff
 
 
@@ -30,24 +28,6 @@ from .base import PendingHandoff
 # of the ghost's last known pixel position.
 DEFAULT_GHOST_REJECT_RADIUS_PX: float = 25.0
 DEFAULT_GHOST_STATIONARY_THRESHOLD_PX: float = 8.0
-
-# Cosine-similarity floor for the embedding-based rebind. A candidate pending
-# is only preferred over the FIFO head if its similarity with the claim
-# exceeds this threshold — otherwise we fall back to strict FIFO, same as
-# before the rebind logic existed. 0.35 is loose enough to survive one-sided
-# lighting drift between cameras while still separating two distinct LEGO
-# parts reliably (same-part cross-camera similarity is typically 0.5–0.8).
-DEFAULT_SIMILARITY_THRESHOLD: float = 0.35
-
-
-def _cosine_similarity(a: "np.ndarray | None", b: "np.ndarray | None") -> float:
-    if a is None or b is None:
-        return 0.0
-    na = float(np.linalg.norm(a))
-    nb = float(np.linalg.norm(b))
-    if na <= 0.0 or nb <= 0.0:
-        return 0.0
-    return float(np.dot(a, b) / (na * nb + 1e-9))
 
 
 def _point_in_polygon(point: tuple[float, float], polygon: Iterable[tuple[float, float]]) -> bool:
@@ -83,8 +63,6 @@ class PieceHandoffManager:
         ghost_reject_radius_px: float = DEFAULT_GHOST_REJECT_RADIUS_PX,
         ghost_stationary_threshold_px: float = DEFAULT_GHOST_STATIONARY_THRESHOLD_PX,
         ghost_reject_observer: Callable[..., None] | None = None,
-        similarity_threshold: float = DEFAULT_SIMILARITY_THRESHOLD,
-        embedding_rebind_observer: Callable[..., None] | None = None,
         upstream_live_ids_probe: Callable[[str], set[int]] | None = None,
         stale_pending_observer: Callable[..., None] | None = None,
     ) -> None:
@@ -108,9 +86,6 @@ class PieceHandoffManager:
         self._ghost_stationary_threshold_px = max(0.0, float(ghost_stationary_threshold_px))
         self._ghost_reject_observer = ghost_reject_observer
         self._ghost_rejected_total = 0
-        self._similarity_threshold = max(0.0, float(similarity_threshold))
-        self._embedding_rebind_observer = embedding_rebind_observer
-        self._embedding_rebind_total = 0
         self._upstream_live_ids_probe = upstream_live_ids_probe
         self._stale_pending_observer = stale_pending_observer
         self._stale_pending_dropped_total = 0
@@ -145,18 +120,14 @@ class PieceHandoffManager:
         role: str,
         center: tuple[float, float],
         timestamp: float,
-        embedding: "np.ndarray | None" = None,
     ) -> tuple[int, str | None]:
         """Called on new-track birth. Returns ``(global_id, handoff_from)``.
 
-        When multiple pendings are queued on the same upstream bucket and
-        the claim carries an OSNet embedding, the manager picks the pending
-        whose embedding has the highest cosine similarity to the claim
-        (provided it clears ``similarity_threshold``). Otherwise the old
-        FIFO behaviour stands — safe even when the embedder is disabled.
+        Pickup follows strict FIFO order on the upstream bucket. Ghost
+        rejection and upstream-liveness filtering still apply; any
+        non-stale, non-ghost pending head claims the new track.
         """
         ghost_reject_payload: dict[str, object] | None = None
-        rebind_payload: dict[str, object] | None = None
         stale_payloads: list[dict[str, object]] = []
         claimed_result: tuple[int, str] | None = None
         new_id: int | None = None
@@ -214,22 +185,14 @@ class PieceHandoffManager:
                             "timestamp": float(timestamp),
                         }
                     else:
-                        pick_idx = self._pick_pending_idx(
-                            bucket, embedding, live_ids
-                        )
-                        if pick_idx is not None:
+                        non_stale_indices = [
+                            idx for idx, p in enumerate(bucket)
+                            if int(p.global_id) not in live_ids
+                        ]
+                        if non_stale_indices:
+                            pick_idx = non_stale_indices[0]
                             claimed = bucket[pick_idx]
                             del bucket[pick_idx]
-                            if pick_idx != 0:
-                                self._embedding_rebind_total += 1
-                                rebind_payload = {
-                                    "from_role": upstream,
-                                    "to_role": role,
-                                    "claimed_global_id": int(claimed.global_id),
-                                    "fifo_head_global_id": int(head.global_id),
-                                    "claim_center": (float(center[0]), float(center[1])),
-                                    "timestamp": float(timestamp),
-                                }
                             claimed_result = (int(claimed.global_id), upstream)
             if claimed_result is None:
                 self._id_counter += 1
@@ -238,11 +201,6 @@ class PieceHandoffManager:
         if ghost_reject_payload is not None and self._ghost_reject_observer is not None:
             try:
                 self._ghost_reject_observer(**ghost_reject_payload)
-            except Exception:
-                pass
-        if rebind_payload is not None and self._embedding_rebind_observer is not None:
-            try:
-                self._embedding_rebind_observer(**rebind_payload)
             except Exception:
                 pass
         if stale_payloads and self._stale_pending_observer is not None:
@@ -254,42 +212,6 @@ class PieceHandoffManager:
         if claimed_result is not None:
             return claimed_result
         return int(new_id), None  # type: ignore[arg-type]
-
-    def _pick_pending_idx(
-        self,
-        bucket: "deque[PendingHandoff]",
-        claim_embedding: "np.ndarray | None",
-        live_ids: set[int] | None = None,
-    ) -> int | None:
-        """Choose which pending to hand the claim to.
-
-        Returns ``None`` when every pending is stale (still alive upstream),
-        signalling that the claim should get a fresh global id instead.
-
-        Falls back to FIFO head (first non-stale pending) whenever:
-          - the bucket has a single non-stale pending, OR
-          - the claim carries no embedding, OR
-          - no non-stale pending clears ``similarity_threshold``.
-        """
-        live = live_ids or set()
-        non_stale_indices = [
-            idx for idx, p in enumerate(bucket) if int(p.global_id) not in live
-        ]
-        if not non_stale_indices:
-            return None
-        if len(non_stale_indices) == 1 or claim_embedding is None:
-            return non_stale_indices[0]
-        best_idx = non_stale_indices[0]
-        best_sim = -1.0
-        for idx in non_stale_indices:
-            pending = bucket[idx]
-            sim = _cosine_similarity(claim_embedding, pending.embedding)
-            if sim > best_sim:
-                best_sim = sim
-                best_idx = idx
-        if best_sim < self._similarity_threshold:
-            return non_stale_indices[0]
-        return best_idx
 
     def _is_ghost_claim(
         self,
@@ -318,7 +240,6 @@ class PieceHandoffManager:
         last_seen_ts: float,
         death_ts: float | None = None,
         last_displacement_px: float = 0.0,
-        embedding: "np.ndarray | None" = None,
     ) -> None:
         """Called when a tracker loses a track. Queue it for downstream pickup if in exit zone.
 
@@ -342,7 +263,6 @@ class PieceHandoffManager:
                 last_seen_ts=last_seen_ts,
                 expires_at=anchor + self._window_s,
                 last_displacement_px=max(0.0, float(last_displacement_px)),
-                embedding=embedding,
             )
             self._pending.setdefault(role, deque()).append(pending)
             callback = self._exit_observer
@@ -408,12 +328,6 @@ class PieceHandoffManager:
         """Cumulative count of handoff claims rejected as cross-camera ghosts."""
         with self._lock:
             return int(self._ghost_rejected_total)
-
-    @property
-    def embedding_rebind_total(self) -> int:
-        """Cumulative count of claims where embedding similarity beat FIFO."""
-        with self._lock:
-            return int(self._embedding_rebind_total)
 
     @property
     def stale_pending_dropped_total(self) -> int:

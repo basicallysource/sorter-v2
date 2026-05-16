@@ -94,6 +94,50 @@ class TickBusTests(unittest.TestCase):
         self.assertEqual("PieceRequest", snapshot["bus_recent"][0]["type"])
         self.assertEqual(1, snapshot["bus_publish_counts"]["PieceRequest"])
 
+    def test_pending_piece_request_expires_or_is_consumed_by_reverse_delivery(self) -> None:
+        bus = TickBus(recent_limit=5)
+        bus.publish(
+            PieceRequest(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                sent_at_mono=100.0,
+            )
+        )
+
+        self.assertTrue(
+            bus.has_pending_piece_request(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                now_mono=100.5,
+                timeout_s=2.0,
+            )
+        )
+        self.assertFalse(
+            bus.has_pending_piece_request(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                now_mono=102.5,
+                timeout_s=2.0,
+            )
+        )
+
+        bus.publish(
+            PieceDelivered(
+                source=StationId.C3,
+                target=StationId.CLASSIFICATION,
+                delivered_at_mono=100.8,
+            )
+        )
+
+        self.assertFalse(
+            bus.has_pending_piece_request(
+                source=StationId.CLASSIFICATION,
+                target=StationId.C3,
+                now_mono=100.9,
+                timeout_s=2.0,
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

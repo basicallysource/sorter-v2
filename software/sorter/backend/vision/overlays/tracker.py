@@ -25,6 +25,9 @@ LABEL_THICKNESS = 1
 BOX_THICKNESS = 1
 LABEL_PAD_PX = 3
 
+CENTER_MARKER_RADIUS = 4
+CENTER_MARKER_ARM_PX = 9
+
 VELOCITY_MIN_MAGNITUDE_PX_S = 40.0
 VELOCITY_VECTOR_SCALE_S = 0.25
 
@@ -58,6 +61,50 @@ def _label_color_for(track) -> tuple[int, int, int]:
     return COLOR_ACTIVE
 
 
+def _draw_center_marker(
+    frame: np.ndarray,
+    center: tuple[float, float],
+    color: tuple[int, int, int],
+) -> tuple[int, int]:
+    cx = int(round(center[0]))
+    cy = int(round(center[1]))
+    cv2.circle(frame, (cx, cy), CENTER_MARKER_RADIUS + 2, COLOR_LABEL_BG, 2, cv2.LINE_AA)
+    cv2.circle(frame, (cx, cy), CENTER_MARKER_RADIUS, color, -1, cv2.LINE_AA)
+    cv2.line(
+        frame,
+        (cx - CENTER_MARKER_ARM_PX, cy),
+        (cx + CENTER_MARKER_ARM_PX, cy),
+        COLOR_LABEL_BG,
+        3,
+        cv2.LINE_AA,
+    )
+    cv2.line(
+        frame,
+        (cx, cy - CENTER_MARKER_ARM_PX),
+        (cx, cy + CENTER_MARKER_ARM_PX),
+        COLOR_LABEL_BG,
+        3,
+        cv2.LINE_AA,
+    )
+    cv2.line(
+        frame,
+        (cx - CENTER_MARKER_ARM_PX, cy),
+        (cx + CENTER_MARKER_ARM_PX, cy),
+        color,
+        1,
+        cv2.LINE_AA,
+    )
+    cv2.line(
+        frame,
+        (cx, cy - CENTER_MARKER_ARM_PX),
+        (cx, cy + CENTER_MARKER_ARM_PX),
+        color,
+        1,
+        cv2.LINE_AA,
+    )
+    return cx, cy
+
+
 class TrackOverlay:
     """Thin green bbox + compact #id pill + optional velocity arrow."""
 
@@ -76,6 +123,9 @@ class TrackOverlay:
             color = _label_color_for(track)
 
             cv2.rectangle(frame, (x1, y1), (x2, y2), color, BOX_THICKNESS, cv2.LINE_AA)
+            center = getattr(track, "center", None)
+            if center is not None:
+                _draw_center_marker(frame, center, color)
 
             label = f"#{format_track_label(track.global_id)}"
             (tw, th), baseline = cv2.getTextSize(label, LABEL_FONT, LABEL_SCALE, LABEL_THICKNESS)
@@ -117,3 +167,25 @@ class TrackOverlay:
                 )
 
         return frame
+
+    def metadata(self) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        for track in self._get_tracks() or []:
+            bbox = getattr(track, "bbox", None)
+            if bbox is None:
+                continue
+            center = getattr(track, "center", None)
+            velocity = getattr(track, "velocity_px_per_s", (0.0, 0.0))
+            global_id = int(getattr(track, "global_id", 0))
+            items.append({
+                "type": "track_bbox",
+                "category": self.category,
+                "global_id": global_id,
+                "label": format_track_label(global_id),
+                "bbox": [int(round(value)) for value in bbox],
+                "center": [float(center[0]), float(center[1])] if center is not None else None,
+                "velocity_px_per_s": [float(velocity[0]), float(velocity[1])],
+                "coasting": bool(getattr(track, "coasting", False)),
+                "handoff_from": getattr(track, "handoff_from", None),
+            })
+        return items

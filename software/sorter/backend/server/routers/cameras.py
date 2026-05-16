@@ -7,6 +7,7 @@ device settings, calibration, and baseline capture.
 from __future__ import annotations
 
 import base64
+import asyncio
 import json
 import logging
 import os
@@ -24,6 +25,9 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
+from aiortc import RTCPeerConnection, RTCSessionDescription, VideoStreamTrack
+from aiortc.rtcconfiguration import RTCConfiguration
+from av import VideoFrame
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -59,6 +63,7 @@ CAMERA_SETUP_ROLES = {
     "feeder",
     "c_channel_2",
     "c_channel_3",
+    "classification_channel",
     "carousel",
     "classification_top",
     "classification_bottom",
@@ -66,6 +71,7 @@ CAMERA_SETUP_ROLES = {
 
 _DASHBOARD_CROP_PADDING_FACTOR = 0.14
 _DASHBOARD_CROP_MIN_PADDING_PX = 48.0
+_DASHBOARD_MASK_BACKGROUND_BGR = (230, 230, 230)
 _DASHBOARD_QUAD_PADDING_FACTOR = 0.1
 CALIBRATION_METHOD_TARGET_PLATE = "target_plate"
 CALIBRATION_METHOD_LLM_GUIDED = "llm_guided"
@@ -129,6 +135,14 @@ def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | No
         source = _normalized_source(cameras.get(role))
         if source is not None:
             return source
+        if role == "classification_channel":
+            source = _normalized_source(cameras.get("carousel"))
+            if source is not None:
+                return source
+        if role == "carousel":
+            source = _normalized_source(cameras.get("classification_channel"))
+            if source is not None:
+                return source
 
     if role in {"feeder", "classification_top", "classification_bottom"}:
         camera_setup = getCameraSetup()
@@ -595,13 +609,28 @@ def _active_camera_indices() -> dict[int, tuple[int, int]]:
     return result
 
 
+def _is_ignored_camera_name(name: str) -> bool:
+    normalized = " ".join(str(name or "").replace("\u00a0", " ").casefold().split())
+    if not normalized:
+        return False
+    if "macbook" in normalized and ("camera" in normalized or "kamera" in normalized):
+        return True
+    if normalized in {"facetime hd camera", "built-in retina camera"}:
+        return True
+    return False
+
+
 def _list_usb_cameras() -> List[Dict[str, Any]]:
     from concurrent.futures import ThreadPoolExecutor, as_completed
 
     active = _active_camera_indices()
 
     if platform.system() == "Darwin":
-        enumerated = list(refresh_macos_cameras())
+        enumerated = [
+            camera
+            for camera in refresh_macos_cameras()
+            if not _is_ignored_camera_name(str(camera.name))
+        ]
         if enumerated:
             indices_to_probe = [
                 int(c.index) for c in enumerated if int(c.index) not in active
@@ -3196,6 +3225,7 @@ class CameraAssignment(BaseModel):
     feeder: Optional[int | str] = None
     c_channel_2: Optional[int | str] = None
     c_channel_3: Optional[int | str] = None
+    classification_channel: Optional[int | str] = None
     carousel: Optional[int | str] = None
     classification_top: Optional[int | str] = None
     classification_bottom: Optional[int | str] = None
@@ -3256,6 +3286,7 @@ def get_camera_config() -> Dict[str, Any]:
             "feeder": _camera_source_for_role(raw, "feeder"),
             "c_channel_2": _camera_source_for_role(raw, "c_channel_2"),
             "c_channel_3": _camera_source_for_role(raw, "c_channel_3"),
+            "classification_channel": _camera_source_for_role(raw, "classification_channel"),
             "carousel": _camera_source_for_role(raw, "carousel"),
             "classification_top": _camera_source_for_role(raw, "classification_top"),
             "classification_bottom": _camera_source_for_role(raw, "classification_bottom"),
@@ -3266,6 +3297,7 @@ def get_camera_config() -> Dict[str, Any]:
             "feeder": None,
             "c_channel_2": None,
             "c_channel_3": None,
+            "classification_channel": None,
             "carousel": None,
             "classification_top": None,
             "classification_bottom": None,
@@ -3341,13 +3373,57 @@ def camera_stream(index: int):
 def _dashboard_polygon_resolution(saved: Dict[str, Any] | None) -> tuple[float, float]:
     if not isinstance(saved, dict):
         return (1920.0, 1080.0)
-    resolution = saved.get("resolution")
+    return _dashboard_saved_resolution(saved.get("resolution"), (1920.0, 1080.0))
+
+
+def _dashboard_saved_resolution(
+    resolution: Any,
+    fallback: tuple[float, float],
+) -> tuple[float, float]:
     if isinstance(resolution, (list, tuple)) and len(resolution) >= 2:
         width = _as_number(resolution[0])
         height = _as_number(resolution[1])
         if width and width > 0 and height and height > 0:
             return (width, height)
-    return (1920.0, 1080.0)
+    return fallback
+
+
+def _dashboard_channel_angle_key(polygon_key: str) -> str | None:
+    return {
+        "second_channel": "second",
+        "third_channel": "third",
+        "classification_channel": "classification_channel",
+    }.get(polygon_key)
+
+
+def _dashboard_channel_resolution(
+    saved: Dict[str, Any],
+    polygon_key: str,
+) -> tuple[float, float]:
+    fallback = _dashboard_polygon_resolution(saved)
+    angle_key = _dashboard_channel_angle_key(polygon_key)
+    arc_params = saved.get("arc_params") if isinstance(saved.get("arc_params"), dict) else {}
+    if angle_key is not None:
+        raw_arc = arc_params.get(angle_key)
+        if isinstance(raw_arc, dict):
+            return _dashboard_saved_resolution(raw_arc.get("resolution"), fallback)
+    quad_params = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+    raw_quad = quad_params.get(polygon_key)
+    if isinstance(raw_quad, dict):
+        return _dashboard_saved_resolution(raw_quad.get("resolution"), fallback)
+    return fallback
+
+
+def _dashboard_classification_resolution(
+    saved: Dict[str, Any],
+    quad_key: str,
+) -> tuple[float, float]:
+    fallback = _dashboard_polygon_resolution(saved)
+    quad_params = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
+    raw_quad = quad_params.get(quad_key)
+    if isinstance(raw_quad, dict):
+        return _dashboard_saved_resolution(raw_quad.get("resolution"), fallback)
+    return fallback
 
 
 def _dashboard_points(raw: Any) -> list[tuple[float, float]]:
@@ -3388,6 +3464,38 @@ def _scale_dashboard_points(
     return scaled
 
 
+def _dashboard_channel_crop_polygon(
+    saved: Dict[str, Any],
+    polygon_key: str,
+    polygons_table: Dict[str, Any],
+    frame_w: int,
+    frame_h: int,
+) -> np.ndarray | None:
+    angle_key = _dashboard_channel_angle_key(polygon_key)
+    points: list[tuple[float, float]] = []
+    if angle_key is not None:
+        try:
+            from subsystems.feeder.analysis import channelArcCropPolygon, parseSavedChannelArcZones
+
+            arc = parseSavedChannelArcZones(
+                angle_key,
+                saved.get("channel_angles") if isinstance(saved.get("channel_angles"), dict) else {},
+                saved.get("arc_params") if isinstance(saved.get("arc_params"), dict) else {},
+            )
+            if arc is not None and arc.outer_radius > arc.inner_radius > 0:
+                points = [(float(x), float(y)) for x, y in channelArcCropPolygon(arc).tolist()]
+        except Exception:
+            points = []
+    if not points:
+        points = _dashboard_points(polygons_table.get(polygon_key))
+    return _scale_dashboard_points(
+        points,
+        _dashboard_channel_resolution(saved, polygon_key),
+        frame_w,
+        frame_h,
+    )
+
+
 def _dashboard_padded_bbox(
     polygons: list[np.ndarray],
     frame_w: int,
@@ -3411,6 +3519,35 @@ def _dashboard_padded_bbox(
     if x2 <= x1 or y2 <= y1:
         return None
     return (x1, y1, x2, y2)
+
+
+def _dashboard_masked_polygons_crop(
+    frame: np.ndarray,
+    polygons: list[np.ndarray],
+) -> np.ndarray | None:
+    valid = [polygon for polygon in polygons if len(polygon) >= 3]
+    if not valid:
+        return None
+
+    frame_h, frame_w = frame.shape[:2]
+    merged = np.concatenate(valid, axis=0)
+    x1 = max(0, int(np.floor(float(np.min(merged[:, 0])))))
+    y1 = max(0, int(np.floor(float(np.min(merged[:, 1])))))
+    x2 = min(frame_w, int(np.ceil(float(np.max(merged[:, 0])))))
+    y2 = min(frame_h, int(np.ceil(float(np.max(merged[:, 1])))))
+    if x2 <= x1 or y2 <= y1:
+        return None
+
+    crop = np.ascontiguousarray(frame[y1:y2, x1:x2])
+    mask = np.zeros(crop.shape[:2], dtype=np.uint8)
+    for polygon in valid:
+        points = np.round(polygon).astype(np.int32).copy()
+        points[:, 0] -= x1
+        points[:, 1] -= y1
+        cv2.fillPoly(mask, [points], 255)
+    masked = np.full_like(crop, _DASHBOARD_MASK_BACKGROUND_BGR)
+    masked[mask == 255] = crop[mask == 255]
+    return np.ascontiguousarray(masked)
 
 
 def _dashboard_expand_quad(quad: np.ndarray) -> np.ndarray:
@@ -3469,9 +3606,8 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
 
 
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
-    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel"}:
+    if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
         saved = getChannelPolygons() or {}
-        source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         classification_channel_setup = bool(
@@ -3486,7 +3622,12 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             if len(quad_points) != 4:
                 quad_points = _dashboard_points(polygons_table.get(carousel_polygon_key))
             scaled_quad = (
-                _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+                _scale_dashboard_points(
+                    quad_points,
+                    _dashboard_channel_resolution(saved, carousel_polygon_key),
+                    frame_w,
+                    frame_h,
+                )
                 if len(quad_points) == 4 else None
             )
             if scaled_quad is not None and len(scaled_quad) == 4:
@@ -3507,26 +3648,22 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
             "c_channel_2": ["second_channel"],
             "c_channel_3": ["third_channel"],
             "carousel": [carousel_polygon_key],
+            "classification_channel": ["classification_channel"],
         }.get(role, [])
         scaled_polygons = [
             scaled
             for key in polygon_keys
             for scaled in [
-                _scale_dashboard_points(
-                    _dashboard_points(polygons_table.get(key)),
-                    source_resolution,
-                    frame_w,
-                    frame_h,
-                )
+                _dashboard_channel_crop_polygon(saved, key, polygons_table, frame_w, frame_h)
             ]
             if scaled is not None
         ]
-        bbox = _dashboard_padded_bbox(scaled_polygons, frame_w, frame_h)
-        return {"kind": "bbox", "bbox": bbox} if bbox is not None else None
+        if not scaled_polygons:
+            return None
+        return {"kind": "bbox_masked", "polygons": scaled_polygons}
 
     if role in {"classification_top", "classification_bottom"}:
         saved = getClassificationPolygons() or {}
-        source_resolution = _dashboard_polygon_resolution(saved)
         polygons_table = saved.get("polygons") if isinstance(saved.get("polygons"), dict) else {}
         quad_table = saved.get("quad_params") if isinstance(saved.get("quad_params"), dict) else {}
         quad_key = "class_top" if role == "classification_top" else "class_bottom"
@@ -3535,7 +3672,12 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         if len(quad_points) != 4:
             quad_points = _dashboard_points(polygons_table.get(polygon_key))
         scaled_quad = (
-            _scale_dashboard_points(quad_points, source_resolution, frame_w, frame_h)
+            _scale_dashboard_points(
+                quad_points,
+                _dashboard_classification_resolution(saved, quad_key),
+                frame_w,
+                frame_h,
+            )
             if len(quad_points) == 4 else None
         )
         if scaled_quad is not None and len(scaled_quad) == 4:
@@ -3554,7 +3696,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
 
         scaled_polygon = _scale_dashboard_points(
             _dashboard_points(polygons_table.get(polygon_key)),
-            source_resolution,
+            _dashboard_classification_resolution(saved, quad_key),
             frame_w,
             frame_h,
         )
@@ -3594,6 +3736,13 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
             flags=cv2.INTER_LINEAR,
             borderMode=cv2.BORDER_REPLICATE,
         )
+    elif spec.get("kind") == "bbox_masked":
+        polygons = spec.get("polygons")
+        if not isinstance(polygons, list):
+            return frame
+        processed = _dashboard_masked_polygons_crop(frame, polygons)
+        if processed is None:
+            return frame
     else:
         bbox = spec.get("bbox")
         if not isinstance(bbox, tuple) or len(bbox) != 4:
@@ -3606,6 +3755,195 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
     if spec.get("square"):
         processed = _dashboard_pad_square(processed)
     return processed
+
+
+class CameraWebRtcOffer(BaseModel):
+    sdp: str
+    type: str
+    annotated: bool = True
+    layer: str = "annotated"
+    dashboard: bool = False
+    color_correct: bool = True
+    show_regions: bool = True
+
+
+class CameraWebRtcAnswer(BaseModel):
+    sdp: str
+    type: str
+
+
+_camera_webrtc_peer_connections: set[RTCPeerConnection] = set()
+
+
+class _CameraRoleVideoTrack(VideoStreamTrack):
+    def __init__(
+        self,
+        role: str,
+        *,
+        annotated: bool,
+        dashboard: bool,
+        color_correct: bool,
+        show_regions: bool,
+    ) -> None:
+        super().__init__()
+        self._role = role
+        self._annotated = annotated
+        self._dashboard = dashboard
+        self._color_correct = color_correct
+        self._exclude_categories = frozenset({"regions"}) if not show_regions else None
+        self._cached_dashboard_shape: tuple[int, int] | None = None
+        self._cached_dashboard_spec: Dict[str, Any] | None = None
+        self._last_shape: tuple[int, int] = (640, 360)
+        self._last_frame_timestamp: float | None = None
+
+    def _dashboard_frame(self, frame: np.ndarray) -> np.ndarray:
+        if not self._dashboard:
+            return frame
+        frame_h, frame_w = frame.shape[:2]
+        shape = (frame_w, frame_h)
+        if self._cached_dashboard_shape != shape:
+            self._cached_dashboard_spec = _dashboard_crop_spec(self._role, frame_w, frame_h)
+            self._cached_dashboard_shape = shape
+        return _apply_dashboard_crop(frame, self._cached_dashboard_spec)
+
+    def _read_frame(self) -> np.ndarray | None:
+        service = shared_state.camera_service
+        if service is None:
+            return None
+        feed = service.get_feed(self._role)
+        if feed is None:
+            return None
+        frame_obj = feed.get_frame(
+            annotated=self._annotated,
+            exclude_categories=self._exclude_categories,
+            color_correct=self._color_correct,
+        )
+        if frame_obj is None:
+            return None
+        frame = (
+            frame_obj.annotated
+            if self._annotated and frame_obj.annotated is not None
+            else frame_obj.raw
+        )
+        frame = self._dashboard_frame(frame)
+        self._last_shape = (int(frame.shape[1]), int(frame.shape[0]))
+        self._last_frame_timestamp = float(frame_obj.timestamp)
+        return frame
+
+    def _blank_frame(self) -> np.ndarray:
+        width, height = self._last_shape
+        return np.full((height, width, 3), 230, dtype=np.uint8)
+
+    async def recv(self):
+        pts, time_base = await self.next_timestamp()
+        frame = await asyncio.to_thread(self._read_frame)
+        if frame is None:
+            frame = self._blank_frame()
+        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
+        video_frame.pts = pts
+        video_frame.time_base = time_base
+        return video_frame
+
+    def metadata(self) -> Dict[str, Any]:
+        feed = None
+        service = shared_state.camera_service
+        if service is not None:
+            feed = service.get_feed(self._role)
+        health = None
+        if feed is not None:
+            try:
+                health = feed.device.health.value
+            except Exception:
+                health = None
+        width, height = self._last_shape
+        return {
+            "role": self._role,
+            "timestamp": self._last_frame_timestamp,
+            "width": width,
+            "height": height,
+            "status": health,
+            "annotated": self._annotated,
+            "dashboard": self._dashboard,
+            "color_correct": self._color_correct,
+            "overlays": feed.describe_overlays(self._exclude_categories) if feed is not None else [],
+        }
+
+
+async def shutdownCameraWebRtcConnections() -> None:
+    peers = list(_camera_webrtc_peer_connections)
+    if not peers:
+        return
+    await asyncio.gather(*(peer.close() for peer in peers), return_exceptions=True)
+    _camera_webrtc_peer_connections.clear()
+
+
+@router.post("/api/cameras/webrtc/offer/{role}", response_model=CameraWebRtcAnswer)
+async def camera_webrtc_offer(role: str, offer: CameraWebRtcOffer) -> CameraWebRtcAnswer:
+    """Answer a browser WebRTC offer for a live camera role.
+
+    Video still comes from the central CameraService/CaptureThread. This keeps
+    WebRTC as a transport layer and avoids opening extra camera devices per
+    dashboard widget.
+    """
+    service = shared_state.camera_service
+    if service is None:
+        raise HTTPException(503, "Camera service is not running")
+    if service.get_feed(role) is None:
+        raise HTTPException(404, f"Camera role '{role}' not configured")
+
+    want_annotated = offer.layer == "annotated" and offer.annotated
+    pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=[]))
+    _camera_webrtc_peer_connections.add(pc)
+    metadata_task: asyncio.Task | None = None
+
+    @pc.on("connectionstatechange")
+    async def on_connectionstatechange() -> None:
+        nonlocal metadata_task
+        if pc.connectionState in {"failed", "closed", "disconnected"}:
+            if metadata_task is not None:
+                metadata_task.cancel()
+                metadata_task = None
+            await pc.close()
+            _camera_webrtc_peer_connections.discard(pc)
+
+    track = _CameraRoleVideoTrack(
+        role,
+        annotated=want_annotated,
+        dashboard=offer.dashboard,
+        color_correct=offer.color_correct,
+        show_regions=offer.show_regions,
+    )
+    pc.addTrack(track)
+
+    async def send_metadata(channel: Any) -> None:
+        try:
+            while pc.connectionState != "closed":
+                if getattr(channel, "readyState", None) == "open":
+                    channel.send(json.dumps({"tag": "camera_metadata", "data": track.metadata()}))
+                await asyncio.sleep(0.2)
+        except asyncio.CancelledError:
+            raise
+        except Exception:
+            pass
+
+    @pc.on("datachannel")
+    def on_datachannel(channel: Any) -> None:
+        nonlocal metadata_task
+        if getattr(channel, "label", "") != "camera-metadata":
+            return
+        if metadata_task is not None:
+            metadata_task.cancel()
+        metadata_task = asyncio.create_task(send_metadata(channel))
+
+    await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
+    answer = await pc.createAnswer()
+    await pc.setLocalDescription(answer)
+    local_description = pc.localDescription
+    if local_description is None:
+        await pc.close()
+        _camera_webrtc_peer_connections.discard(pc)
+        raise HTTPException(500, "Failed to create WebRTC answer")
+    return CameraWebRtcAnswer(sdp=local_description.sdp, type=local_description.type)
 
 
 @router.get("/api/cameras/feed/{role}")
@@ -3636,24 +3974,36 @@ def camera_feed_by_role(
     # Resolve layer — legacy `annotated` param maps into `layer`
     want_annotated = layer == "annotated" and annotated
     exclude_categories = frozenset({"regions"}) if not show_regions else None
-    # Color correction toggle requires bypassing the live service (raw frames
-    # in the service are already color-corrected at capture time).
-    if not color_correct:
-        direct = True
-
     _, raw = _read_machine_params_config(require_exists=True)
-    cameras_section = raw.get("cameras", {})
-    picture_settings = parseCameraPictureSettings(_get_picture_settings_table(raw).get(role))
-    color_profile = parseCameraColorProfile(_get_camera_color_profile_table(raw).get(role))
+    cameras_section = raw.get("cameras", {}) if isinstance(raw.get("cameras"), dict) else {}
+    config_role = role
+    if (
+        role == "carousel"
+        and cameras_section.get("carousel") is None
+        and cameras_section.get("classification_channel") is not None
+    ):
+        config_role = "classification_channel"
+    elif (
+        role == "classification_channel"
+        and cameras_section.get("classification_channel") is None
+        and cameras_section.get("carousel") is not None
+    ):
+        config_role = "carousel"
+
+    picture_settings = parseCameraPictureSettings(_get_picture_settings_table(raw).get(config_role))
+    color_profile = parseCameraColorProfile(_get_camera_color_profile_table(raw).get(config_role))
     saved_device_settings = parseCameraDeviceSettings(
-        _get_camera_device_settings_table(raw).get(role)
+        _get_camera_device_settings_table(raw).get(config_role)
     )
-    preview_device_settings = shared_state.camera_device_preview_overrides.get(role)
+    preview_device_settings = (
+        shared_state.camera_device_preview_overrides.get(role)
+        or shared_state.camera_device_preview_overrides.get(config_role)
+    )
     device_settings = cameraDeviceSettingsToDict(
         preview_device_settings if preview_device_settings is not None else saved_device_settings
     )
-    source = cameras_section.get(role)
-    if source is None or not isinstance(source, (int, str)):
+    source = _camera_source_for_role(raw, role)
+    if source is None:
         raise HTTPException(404, f"Camera role '{role}' not configured")
 
     encoder = MjpegOutput()
@@ -3681,6 +4031,7 @@ def camera_feed_by_role(
                     frame_obj = feed.get_frame(
                         annotated=want_annotated,
                         exclude_categories=exclude_categories,
+                        color_correct=color_correct,
                     )
                     if frame_obj is None:
                         time.sleep(0.05)
@@ -3745,7 +4096,7 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
     elif "layout" not in cameras:
         if "feeder" in updates:
             cameras["layout"] = "default"
-        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel")):
+        elif any(role in updates for role in ("c_channel_2", "c_channel_3", "carousel", "classification_channel")):
             cameras["layout"] = "split_feeder"
     for key, value in updates.items():
         if value is None:
@@ -3772,6 +4123,7 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
         "feeder": cameras.get("feeder"),
         "c_channel_2": cameras.get("c_channel_2"),
         "c_channel_3": cameras.get("c_channel_3"),
+        "classification_channel": cameras.get("classification_channel"),
         "carousel": cameras.get("carousel"),
         "classification_top": cameras.get("classification_top"),
         "classification_bottom": cameras.get("classification_bottom"),
@@ -4285,32 +4637,6 @@ def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, 
     if not isinstance(source, int):
         return [], "none"
 
-    if platform.system() == "Darwin":
-        try:
-            from hardware.macos_camera_modes import list_modes_for_unique_id
-            from hardware.macos_camera_registry import refresh_macos_cameras as _refresh
-
-            cam = next((c for c in _refresh() if c.index == source), None)
-            unique_id = cam.path if (cam is not None and isinstance(cam.path, str)) else None
-            if unique_id:
-                modes = list_modes_for_unique_id(unique_id)
-                return (
-                    [
-                        {
-                            "width": m.width,
-                            "height": m.height,
-                            "fps": int(round(m.max_fps)),
-                            "fourcc": _avf_to_opencv_fourcc(m.fourcc),
-                            "native_fourcc": m.fourcc,
-                        }
-                        for m in modes
-                    ],
-                    "avfoundation",
-                )
-        except Exception:
-            pass
-
-    # Fallback: probe common modes
     common = [
         (640, 480),
         (800, 600),
@@ -4324,22 +4650,57 @@ def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, 
         (2592, 1944),
         (3840, 2160),
     ]
-    return (
-        [
-            {"width": w, "height": h, "fps": 30, "fourcc": "MJPG", "native_fourcc": "MJPG"}
-            for (w, h) in common
-        ],
-        "probe-fallback",
-    )
+    fallback_modes = [
+        {"width": w, "height": h, "fps": 30, "fourcc": "MJPG", "native_fourcc": "MJPG"}
+        for (w, h) in common
+    ]
+
+    if platform.system() == "Darwin":
+        try:
+            from hardware.macos_camera_modes import list_modes_for_unique_id
+            from hardware.macos_camera_registry import refresh_macos_cameras as _refresh
+
+            cam = next((c for c in _refresh() if c.index == source), None)
+            unique_id = cam.path if (cam is not None and isinstance(cam.path, str)) else None
+            if unique_id:
+                modes = list_modes_for_unique_id(unique_id)
+                if modes:
+                    return (
+                        [
+                            {
+                                "width": m.width,
+                                "height": m.height,
+                                "fps": int(round(m.max_fps)),
+                                "fourcc": _avf_to_opencv_fourcc(m.fourcc),
+                                "native_fourcc": m.fourcc,
+                            }
+                            for m in modes
+                        ],
+                        "avfoundation",
+                    )
+        except Exception:
+            pass
+
+    # Fallback: allow common USB modes when AVFoundation can't enumerate this
+    # camera's formats. Some UVC devices still stream fine even when the mode
+    # discovery API returns an empty format list.
+    return (fallback_modes, "probe-fallback")
 
 
-def _avf_to_opencv_fourcc(native: str) -> str:
-    """AVFoundation subtype → OpenCV fourcc hint. 420v/420f/yuvs → MJPG (USB cams compress)."""
-    native = (native or "").strip()
-    if native in {"420v", "420f", "yuvs", "YUY2", "YUYV", "MJPG"}:
-        # Prefer MJPG for maximum FPS at high res on USB UVC cams
+def _avf_to_opencv_fourcc(native: str) -> str | None:
+    """AVFoundation subtype -> optional OpenCV fourcc hint.
+
+    AVFoundation often reports uncompressed pixel formats such as ``420v``.
+    Forcing those to ``MJPG`` can make OpenCV open the device but never
+    deliver frames on cameras like the Logitech StreamCam, so only return a
+    hint for real compressed/native OpenCV-style formats.
+    """
+    normalized = (native or "").strip().upper()
+    if normalized in {"MJPG", "MJPEG"}:
         return "MJPG"
-    return "MJPG"
+    if normalized in {"YUY2", "YUYV"}:
+        return "YUYV"
+    return None
 
 
 class CaptureModePayload(BaseModel):
@@ -4444,9 +4805,12 @@ def save_camera_capture_mode(role: str, payload: CaptureModePayload) -> Dict[str
         )
 
     fps = int(payload.fps) if payload.fps else int(mode_match["fps"])
-    fourcc = (payload.fourcc or mode_match["fourcc"] or "MJPG").upper()[:4]
+    raw_fourcc = payload.fourcc if payload.fourcc is not None else mode_match.get("fourcc")
+    fourcc = raw_fourcc.strip().upper()[:4] if isinstance(raw_fourcc, str) and raw_fourcc.strip() else None
 
-    entry = {"width": int(payload.width), "height": int(payload.height), "fps": fps, "fourcc": fourcc}
+    entry: Dict[str, Any] = {"width": int(payload.width), "height": int(payload.height), "fps": fps}
+    if fourcc:
+        entry["fourcc"] = fourcc
     capture_modes = config.get("camera_capture_modes", {})
     if not isinstance(capture_modes, dict):
         capture_modes = {}

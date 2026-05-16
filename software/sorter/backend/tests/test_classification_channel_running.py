@@ -25,6 +25,7 @@ class _RuntimeStats:
     def __init__(self) -> None:
         self.leader_wins_events: list[dict[str, object]] = []
         self.recognizer_counts: dict[str, int] = {}
+        self.active_incident: dict[str, object] | None = None
 
     def observeStateTransition(self, *args, **kwargs) -> None:
         pass
@@ -37,6 +38,12 @@ class _RuntimeStats:
 
     def observeRecognizerCounter(self, name: str) -> None:
         self.recognizer_counts[name] = self.recognizer_counts.get(name, 0) + 1
+
+    def setActiveIncident(self, incident: dict[str, object]) -> None:
+        self.active_incident = dict(incident)
+
+    def clearActiveIncident(self, **kwargs) -> None:
+        self.active_incident = None
 
 
 class _Stepper:
@@ -59,6 +66,9 @@ class _Stepper:
 
     def set_acceleration(self, acceleration: int) -> None:
         self.accelerations.append(int(acceleration))
+
+    def estimateMoveDegreesMs(self, degrees: float) -> float:
+        return 123.0
 
 
 class _Transport:
@@ -94,11 +104,28 @@ class _Transport:
     def hasPendingClassifications(self) -> bool:
         return self._pending
 
+    def resolveFallbackClassification(
+        self,
+        uuid: str,
+        *,
+        status: ClassificationStatus,
+    ) -> bool:
+        for piece in self._pieces_by_track.values():
+            if getattr(piece, "uuid", None) != uuid:
+                continue
+            piece.part_id = None
+            piece.destination_bin = None
+            piece.confidence = None
+            piece.classification_status = status
+            return True
+        return False
+
 
 class _Shared:
     def __init__(self) -> None:
         self.classification_gate_calls: list[tuple[bool, str | None]] = []
         self.distribution_ready = True
+        self.sample_collection_mode = False
 
     def set_classification_gate(self, open: bool, reason: str | None = None) -> None:
         self.classification_gate_calls.append((bool(open), reason))
@@ -109,6 +136,9 @@ class _Shared:
     def publish_piece_delivered(self, *args, **kwargs) -> None:
         pass
 
+    def publish_piece_request(self, *args, **kwargs) -> None:
+        pass
+
 
 class _EventQueue:
     def __init__(self) -> None:
@@ -116,6 +146,23 @@ class _EventQueue:
 
     def put(self, item) -> None:
         self.items.append(item)
+
+
+class _Vision:
+    def __init__(self) -> None:
+        self.teacher_capture_calls: list[dict[str, object]] = []
+        self.empty_state_calls = 0
+        self.latest_crop_by_id: dict[int, dict[str, object]] = {}
+
+    def scheduleClassificationChannelTeacherCaptureAfterMove(self, **kwargs) -> None:
+        self.teacher_capture_calls.append(dict(kwargs))
+
+    def saveClassificationChannelEmptyStateCapture(self) -> bool:
+        self.empty_state_calls += 1
+        return True
+
+    def getLatestFeederTrackPieceCrop(self, global_id: int):
+        return self.latest_crop_by_id.get(int(global_id))
 
 
 def _make_running() -> tuple[Running, _Transport, _Shared, _EventQueue]:
@@ -164,6 +211,62 @@ def _make_running() -> tuple[Running, _Transport, _Shared, _EventQueue]:
         event_queue=event_queue,
     )
     return running, transport, shared, event_queue
+
+
+def _force_manual_exit_incident(running: Running) -> None:
+    running._exitReleaseIncidentAutomatic = lambda: False
+    running._exitReleaseIncidentOff = lambda: False
+
+
+def test_unknown_fallback_publishes_classification_unresolved_incident() -> None:
+    running, transport, _shared, _events = _make_running()
+    piece = KnownObject(
+        uuid="piece-deadline",
+        tracked_global_id=81,
+        classification_status=ClassificationStatus.pending,
+    )
+    piece.classification_channel_zone_center_deg = 29.5
+    piece.classification_channel_exit_offset_deg = -0.5
+    transport._pieces_by_track = {81: piece}
+
+    running._applyFallback(
+        piece,
+        ClassificationStatus.unknown,
+        now_wall=100.0,
+        reason="drop_deadline_unclassified",
+    )
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_unresolved"
+    assert incident["piece_uuid"] == "piece-deadline"
+    assert incident["channel"] == "c4"
+    assert incident["reason"] == "drop_deadline_unclassified"
+
+
+def test_multi_drop_fallback_publishes_collision_incident() -> None:
+    running, transport, _shared, _events = _make_running()
+    piece = KnownObject(
+        uuid="piece-collision",
+        tracked_global_id=82,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    transport._pieces_by_track = {82: piece}
+
+    running._applyFallback(
+        piece,
+        ClassificationStatus.multi_drop_fail,
+        now_wall=101.0,
+        reason="drop_window_collision",
+    )
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_multi_drop_collision"
+    assert incident["piece_uuid"] == "piece-collision"
+    assert incident["severity"] == "critical"
+    assert incident["reason"] == "drop_window_collision"
 
 
 def test_running_registers_new_intake_piece_only_while_awaiting_handoff() -> None:
@@ -247,6 +350,60 @@ def test_running_ignores_stale_track_that_predates_handoff_request() -> None:
     assert shared.classification_gate_calls == []
 
 
+def test_intake_request_timeout_publishes_incident_and_keeps_gate_closed() -> None:
+    running, _transport, shared, _events = _make_running()
+    running._awaiting_intake_piece = True
+    running._intake_requested_at_mono = 10.0
+    running._intake_requested_at_wall = 100.0
+
+    running._updateIntakeGate(now_mono=13.0)
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_intake_request_timeout"
+    assert incident["channel"] == "c4"
+    assert incident["timeout_ms"] == 3000
+    assert running._awaiting_intake_piece is False
+    assert shared.classification_gate_calls[-1] == (
+        False,
+        "intake_request_timeout_incident",
+    )
+
+
+def test_meaningful_stale_track_expiry_publishes_track_lost_incident() -> None:
+    running, _transport, _shared, events = _make_running()
+    piece = KnownObject(
+        uuid="piece-lost",
+        tracked_global_id=91,
+        classification_status=ClassificationStatus.pending,
+    )
+    piece.latest_captured_crop = "crop-b64"
+
+    running._emitExpiredPieceEvents([piece])
+
+    incident = running.gc.runtime_stats.active_incident
+    assert incident is not None
+    assert incident["kind"] == "classification_track_lost"
+    assert incident["piece_uuid"] == "piece-lost"
+    assert incident["tracked_global_id"] == 91
+    assert incident["reason"] == "stale_zone_expired"
+    assert len(events.items) == 1
+
+
+def test_empty_stale_track_expiry_stays_diagnostic_only() -> None:
+    running, _transport, _shared, events = _make_running()
+    piece = KnownObject(
+        uuid="piece-ghost",
+        tracked_global_id=92,
+        classification_status=ClassificationStatus.pending,
+    )
+
+    running._emitExpiredPieceEvents([piece])
+
+    assert running.gc.runtime_stats.active_incident is None
+    assert events.items == []
+
+
 def test_running_recovers_existing_tracks_without_waiting_for_new_handoff() -> None:
     running, transport, shared, events = _make_running()
     old_track = TrackAngularExtent(
@@ -296,6 +453,47 @@ def test_running_fires_recognition_for_oldest_pending_piece() -> None:
     assert older_piece.carousel_snapping_started_at == 10.0
     assert older_piece.carousel_snapping_completed_at == 10.0
     assert younger_piece.carousel_snapping_started_at is None
+
+
+def test_running_refreshes_latest_captured_crop_from_tracker() -> None:
+    running, transport, _shared, events = _make_running()
+    vision = _Vision()
+    vision.latest_crop_by_id[41] = {
+        "jpeg_b64": "crop-b64",
+        "captured_ts": 12.5,
+        "source_role": "carousel",
+    }
+    running.vision = vision
+    piece = KnownObject(
+        uuid="piece-crop",
+        tracked_global_id=41,
+        classification_status=ClassificationStatus.pending,
+    )
+    transport._pieces_by_track = {41: piece}
+
+    changed = running._refreshLatestCapturedCrop(piece, now_wall=13.0, emit=True)
+
+    assert changed is True
+    assert piece.latest_captured_crop == "crop-b64"
+    assert piece.latest_captured_crop_ts == 12.5
+    assert events.items[-1].data.latest_captured_crop == "crop-b64"
+
+
+def test_exit_release_candidate_includes_piece_after_center_crosses_exit_line() -> None:
+    running, transport, _shared, _events = _make_running()
+    running._config.exit_release_overlap_ratio = 0.95
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=55,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {55: piece}
+
+    assert running._pickExitReleaseCandidate() == "piece-stuck"
+    assert running._startExitReleaseShimmyIfNeeded("piece-stuck") is True
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708]
 
 
 def _make_running_with_carousel_gate(
@@ -548,7 +746,7 @@ def test_drop_body_overlap_ratio_is_high_when_piece_is_mostly_in_drop_window() -
     assert ratio > 0.5
 
 
-def test_start_exit_release_shimmy_builds_small_returning_motion_plan() -> None:
+def test_start_exit_release_shimmy_builds_escalating_release_stage() -> None:
     running, transport, _shared, _events = _make_running()
     piece = KnownObject(
         uuid="piece-drop",
@@ -562,6 +760,429 @@ def test_start_exit_release_shimmy_builds_small_returning_motion_plan() -> None:
     started = running._startExitReleaseShimmyIfNeeded(piece.uuid)
 
     assert started is True
-    assert running.irl.carousel_stepper.moves[:1] == [-1.5]
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves[:1]] == [2.708]
+    assert running.irl.carousel_stepper.speed_limits[:1] == [(16, 700)]
+    assert running.irl.carousel_stepper.accelerations[:1] == [1800]
     assert running._exit_release_drop_uuid == piece.uuid
-    assert running._exit_release_plan_deg == [3.0, -1.5, -1.5, 3.0, -1.5]
+    assert [round(stroke.move_deg, 3) for stroke in running._exit_release_plan] == [
+        -5.417,
+        2.708,
+        2.708,
+        -5.417,
+        2.708,
+    ]
+    assert {stroke.speed for stroke in running._exit_release_plan} == {700}
+    assert {stroke.acceleration for stroke in running._exit_release_plan} == {1800}
+
+
+def test_exit_release_repeated_attempts_escalate_stages() -> None:
+    running, transport, _shared, _events = _make_running()
+    piece = KnownObject(
+        uuid="piece-drop",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    piece.classification_channel_zone_half_width_deg = 12.0
+    transport._pieces_by_track = {99: piece}
+
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+    running._exit_release_drop_uuid = None
+    running._exit_release_plan = []
+
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708, 5.417]
+    assert running.irl.carousel_stepper.speed_limits[-1] == (16, 950)
+    assert running.irl.carousel_stepper.accelerations[-1] == 2600
+
+
+def test_exit_release_review_pause_waits_for_operator_before_release() -> None:
+    running, transport, shared, _events = _make_running()
+    _force_manual_exit_incident(running)
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {99: piece}
+
+    started = running._startExitReleaseShimmyIfNeeded(piece.uuid)
+
+    assert started is True
+    assert running.irl.carousel_stepper.moves == []
+    assert running._exit_release_drop_uuid is None
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["kind"] == "exit_stuck"
+    assert running.gc.runtime_stats.active_incident["source_kind"] == "classification_exit_release"
+    assert running.gc.runtime_stats.active_incident["status"] == "waiting_for_operator"
+    assert running.gc.runtime_stats.active_incident["piece_uuid"] == piece.uuid
+    assert shared.classification_gate_calls[-1] == (False, "exit_incident_review")
+
+    approved = running.approveExitReleaseIncident(piece.uuid)
+    assert approved["status"] == "approved"
+
+    started_after_approval = running._startExitReleaseShimmyIfNeeded(piece.uuid)
+
+    assert started_after_approval is True
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708]
+    assert running._exit_release_drop_uuid == piece.uuid
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["status"] == "running"
+
+
+def test_exit_release_review_blocks_normal_c4_tracking_until_operator_action() -> None:
+    running, transport, shared, _events = _make_running()
+    _force_manual_exit_incident(running)
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {99: piece}
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+
+    class _VisionThatMustNotPoll:
+        def getFeederTrackAngularExtents(self, *args, **kwargs):
+            raise AssertionError("normal C4 tracking should be paused during exit incident")
+
+    running.vision = _VisionThatMustNotPoll()
+
+    running.step()
+
+    assert running.irl.carousel_stepper.moves == []
+    assert running._exit_release_review is not None
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["status"] == "waiting_for_operator"
+    assert shared.classification_gate_calls[-1] == (False, "exit_incident_review")
+
+
+def test_manual_exit_release_test_uses_slider_values_without_clearing_incident() -> None:
+    running, transport, _shared, _events = _make_running()
+    _force_manual_exit_incident(running)
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-stuck",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.unknown,
+    )
+    piece.classification_channel_zone_center_deg = 51.5
+    piece.classification_channel_zone_half_width_deg = 4.0
+    transport._pieces_by_track = {99: piece}
+    assert running._startExitReleaseShimmyIfNeeded(piece.uuid) is True
+
+    result = running.testExitReleaseIncident(
+        piece_uuid=piece.uuid,
+        amplitude_output_deg=3.0,
+        microsteps_per_second=16000,
+        cycles=3,
+        acceleration_microsteps_per_second_sq=32000,
+    )
+
+    assert result["amplitude_output_deg"] == 3.0
+    assert result["cycles"] == 3
+    assert round(result["first_stroke_stepper_deg"], 3) == 32.5
+    assert result["microsteps_per_second"] == 16000
+    assert result["stroke_count"] == 9
+    assert running.gc.runtime_stats.active_incident is not None
+    assert running.gc.runtime_stats.active_incident["status"] == "manual_test_running"
+    assert [round(stroke.move_deg, 3) for stroke in running._exit_release_plan[:3]] == [
+        32.5,
+        -65.0,
+        32.5,
+    ]
+
+    assert running._advanceExitReleaseShimmy() is True
+
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [32.5]
+    assert running.irl.carousel_stepper.speed_limits[-1] == (16, 16000)
+    assert result["acceleration_microsteps_per_second_sq"] == 32000
+    assert running.irl.carousel_stepper.accelerations[-1] == 32000
+    assert running._exit_release_review is not None
+
+
+def test_normal_drop_path_can_start_release_without_operator_review() -> None:
+    running, transport, _shared, _events = _make_running()
+    running._config.exit_release_review_pause_enabled = True
+    piece = KnownObject(
+        uuid="piece-drop",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    piece.classification_channel_zone_half_width_deg = 12.0
+    transport._pieces_by_track = {99: piece}
+
+    started = running._startExitReleaseShimmyIfNeeded(
+        piece.uuid,
+        review_allowed=False,
+    )
+
+    assert started is True
+    assert [round(move, 3) for move in running.irl.carousel_stepper.moves] == [2.708]
+    assert running.gc.runtime_stats.active_incident is None
+
+
+def test_sample_collection_mode_skips_exit_release_shimmy() -> None:
+    running, transport, shared, _events = _make_running()
+    shared.sample_collection_mode = True
+    piece = KnownObject(
+        uuid="piece-drop",
+        tracked_global_id=99,
+        classification_status=ClassificationStatus.classified,
+    )
+    piece.classification_channel_zone_center_deg = 30.0
+    piece.classification_channel_zone_half_width_deg = 12.0
+    transport._pieces_by_track = {99: piece}
+
+    started = running._startExitReleaseShimmyIfNeeded(piece.uuid)
+
+    assert started is False
+    assert running.irl.carousel_stepper.moves == []
+    assert running._exit_release_drop_uuid is None
+    assert running._exit_release_plan == []
+
+
+def test_sample_collection_mode_aborts_existing_exit_release_plan() -> None:
+    running, _transport, shared, _events = _make_running()
+    shared.sample_collection_mode = True
+    running._exit_release_drop_uuid = "piece-drop"
+    running._exit_release_plan = [object()]
+
+    advanced = running._advanceExitReleaseShimmy()
+
+    assert advanced is False
+    assert running.irl.carousel_stepper.moves == []
+    assert running._exit_release_drop_uuid == "piece-drop"
+    assert running._exit_release_plan == []
+
+
+def test_c4_teacher_capture_is_queued_after_pulse_when_sample_mode_is_enabled() -> None:
+    running, _transport, shared, _events = _make_running()
+    vision = _Vision()
+    running.vision = vision
+    shared.sample_collection_mode = True
+
+    sent = running._sendPulse(None)
+
+    assert sent is True
+    assert len(vision.teacher_capture_calls) == 1
+    assert vision.teacher_capture_calls[0]["move_label"] == "sample_c4_pulse"
+    assert vision.teacher_capture_calls[0]["pulse_degrees"] == 9.0
+    assert vision.teacher_capture_calls[0]["delay_s"] == 0.123
+
+
+def test_c4_teacher_capture_is_queued_after_pulse_in_normal_mode() -> None:
+    running, _transport, _shared, _events = _make_running()
+    vision = _Vision()
+    running.vision = vision
+
+    sent = running._sendPulse(None)
+
+    assert sent is True
+    assert len(vision.teacher_capture_calls) == 1
+    assert vision.teacher_capture_calls[0]["move_label"] == "sample_c4_pulse"
+
+
+def test_sample_collection_mode_archives_empty_state_when_c4_is_empty() -> None:
+    running, _transport, shared, _events = _make_running()
+    vision = _Vision()
+    running.vision = vision
+    shared.sample_collection_mode = True
+
+    running._maybeCaptureSampleModeEmptyState([], [], now_mono=10.0)
+    running._maybeCaptureSampleModeEmptyState([], [], now_mono=11.0)
+    running._maybeCaptureSampleModeEmptyState([], [], now_mono=16.0)
+
+    assert vision.empty_state_calls == 2
+
+
+def test_sample_collection_mode_does_not_archive_empty_state_with_tracks() -> None:
+    running, _transport, shared, _events = _make_running()
+    vision = _Vision()
+    running.vision = vision
+    shared.sample_collection_mode = True
+    track = TrackAngularExtent(
+        global_id=41,
+        center_deg=2.0,
+        half_width_deg=6.0,
+        last_seen_ts=1.0,
+        hit_count=3,
+    )
+
+    running._maybeCaptureSampleModeEmptyState([track], [], now_mono=10.0)
+
+    assert vision.empty_state_calls == 0
+
+
+# ---------------------------------------------------------------------------
+# _updateIntakeGate / _isDropCommitted — production-geometry intake-flow tests
+# ---------------------------------------------------------------------------
+
+
+class _RecordingZoneManager:
+    """Minimal stub: records the ignore_piece_uuids the call site passes
+    in. Reports clear/blocked per a caller-set flag. Mirrors
+    ``ExclusionZoneManager.is_arc_clear`` shape without doing real
+    polygon math.
+    """
+
+    def __init__(self, *, clear: bool = True) -> None:
+        self._clear = clear
+        self.calls: list[dict] = []
+
+    def is_arc_clear(
+        self,
+        *,
+        center_deg: float,
+        body_half_width_deg: float,
+        hard_guard_deg: float,
+        ignore_piece_uuid: str | None = None,
+        ignore_piece_uuids: set | None = None,
+    ) -> bool:
+        self.calls.append(
+            {
+                "center_deg": center_deg,
+                "body_half_width_deg": body_half_width_deg,
+                "hard_guard_deg": hard_guard_deg,
+                "ignore_piece_uuids": set(ignore_piece_uuids or set()),
+            }
+        )
+        return self._clear
+
+
+def _make_production_geometry_running() -> tuple[Running, _Transport, _Shared]:
+    """Mirror the real C4 geometry so the intake-gate tests exercise the
+    actual conflict: drop-to-intake (85°) < intake_guard (90°)."""
+    transport = _Transport()
+    shared = _Shared()
+    running = Running(
+        irl=SimpleNamespace(carousel_stepper=_Stepper()),
+        irl_config=SimpleNamespace(
+            classification_channel_config=SimpleNamespace(
+                intake_angle_deg=305.0,
+                intake_body_half_width_deg=10.0,
+                intake_guard_deg=80.0,
+                drop_angle_deg=30.0,
+                drop_tolerance_deg=14.0,
+                point_of_no_return_deg=18.0,
+                recognition_window_deg=60.0,
+                positioning_window_deg=48.0,
+                max_zones=2,
+                hood_dwell_ms=1200,
+                min_carousel_crops_for_recognize=0,
+                min_carousel_dwell_ms=0,
+                min_carousel_traversal_deg=0.0,
+                exit_release_overlap_ratio=0.5,
+                exit_release_shimmy_amplitude_deg=1.5,
+                exit_release_shimmy_cycles=2,
+                exit_release_shimmy_microsteps_per_second=4200,
+                exit_release_shimmy_acceleration_microsteps_per_second_sq=9000,
+            ),
+            feeder_config=SimpleNamespace(
+                classification_channel_eject=SimpleNamespace(
+                    steps_per_pulse=90,
+                    microsteps_per_second=3400,
+                    acceleration_microsteps_per_second_sq=2500,
+                )
+            ),
+        ),
+        gc=SimpleNamespace(logger=_Logger(), runtime_stats=_RuntimeStats()),
+        shared=shared,
+        transport=transport,
+        vision=None,
+        event_queue=_EventQueue(),
+    )
+    return running, transport, shared
+
+
+def test_is_drop_committed_true_when_piece_past_point_of_no_return() -> None:
+    running, _t, _s = _make_production_geometry_running()
+    piece = KnownObject(uuid="committed", tracked_global_id=1)
+    # drop_angle = 30°, PoNR = 18°. center=20° → diff=-10°, within PoNR.
+    piece.classification_channel_zone_center_deg = 20.0
+
+    assert running._isDropCommitted(piece) is True
+
+
+def test_is_drop_committed_false_when_piece_still_approaching() -> None:
+    running, _t, _s = _make_production_geometry_running()
+    piece = KnownObject(uuid="approaching", tracked_global_id=2)
+    # 30° drop − 30° = 0° (in absolute). Diff = -30°, well outside PoNR=18°.
+    piece.classification_channel_zone_center_deg = 0.0
+
+    assert running._isDropCommitted(piece) is False
+
+
+def test_intake_gate_opens_when_only_piece_is_drop_committed() -> None:
+    """The original bug: a piece sitting at drop (about to fall) blocked
+    intake because its 90°-guard exclusion overlapped the intake angle.
+    Drop-committed pieces are now skipped in the clearance check.
+    """
+    running, transport, shared = _make_production_geometry_running()
+    zone_manager = _RecordingZoneManager(clear=True)
+    transport.zone_manager = zone_manager
+
+    piece = KnownObject(uuid="committed", tracked_global_id=1)
+    piece.classification_channel_zone_center_deg = 30.0  # exactly at drop
+    transport._pieces_by_track[1] = piece
+
+    running._updateIntakeGate(now_mono=100.0)
+
+    # Gate opened (True) — the committed piece did NOT block intake.
+    last_call = shared.classification_gate_calls[-1]
+    assert last_call == (True, None), f"expected gate open, got {last_call}"
+    # Zone-manager call carries the committed uuid in ignore_piece_uuids.
+    assert zone_manager.calls
+    assert "committed" in zone_manager.calls[-1]["ignore_piece_uuids"]
+
+
+def test_intake_gate_stays_closed_when_approaching_piece_is_not_yet_committed() -> None:
+    """A piece in the approach window but BEFORE PoNR still holds intake
+    — the platter is mid-maneuver toward drop and we don't want a new
+    piece arriving in that window."""
+    running, transport, shared = _make_production_geometry_running()
+    transport.zone_manager = _RecordingZoneManager(clear=True)
+
+    piece = KnownObject(uuid="approaching", tracked_global_id=1)
+    # 30° drop − 25° approaching → center=5°. Inside approach window
+    # (33.6°) but outside PoNR (18°).
+    piece.classification_channel_zone_center_deg = 5.0
+    transport._pieces_by_track[1] = piece
+
+    running._updateIntakeGate(now_mono=100.0)
+
+    last_call = shared.classification_gate_calls[-1]
+    assert last_call == (False, "drop_approach_busy")
+
+
+def test_intake_gate_max_zones_excludes_drop_committed_pieces() -> None:
+    """max_zones=2 must count resident pieces only — counting a drop-
+    committed piece against the cap defeats the "one in classification +
+    one at intake" design (the cap fires while the leaving piece is
+    still on the platter).
+    """
+    running, transport, shared = _make_production_geometry_running()
+    transport.zone_manager = _RecordingZoneManager(clear=True)
+
+    committed = KnownObject(uuid="committed", tracked_global_id=1)
+    committed.classification_channel_zone_center_deg = 30.0  # drop-committed
+    transport._pieces_by_track[1] = committed
+
+    resident = KnownObject(uuid="resident", tracked_global_id=2)
+    # Far from drop and from intake — solidly mid-platter.
+    resident.classification_channel_zone_center_deg = 150.0
+    transport._pieces_by_track[2] = resident
+
+    # 2 active pieces, max_zones=2. Without the resident-count fix this
+    # would block intake forever.
+    running._updateIntakeGate(now_mono=100.0)
+
+    last_call = shared.classification_gate_calls[-1]
+    assert last_call == (True, None)

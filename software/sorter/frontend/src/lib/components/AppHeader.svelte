@@ -4,13 +4,23 @@
 		backendHttpBaseUrl,
 		backendWsBaseUrl,
 		machineHttpBaseUrlFromWsUrl,
+		machineWsUrlFromHttpBaseUrl,
 		requestBackendRestart,
 		waitForBackend
 	} from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
-	import { AlertTriangle, ChevronDown, Home, Pause, Play, RefreshCw, RotateCcw, X } from 'lucide-svelte';
+	import {
+		AlertTriangle,
+		ChevronDown,
+		Home,
+		Pause,
+		Play,
+		RefreshCw,
+		RotateCcw,
+		X
+	} from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -26,8 +36,39 @@
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
 	}
 
+	function currentBackendWsUrl(): string {
+		return (
+			manager.selectedMachine?.url ??
+			machineWsUrlFromHttpBaseUrl(currentBackendBaseUrl()) ??
+			`${backendWsBaseUrl}/ws`
+		);
+	}
+
+	function keepSystemStatusFresh(baseUrl: string) {
+		const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? currentBackendWsUrl();
+		manager.ensureConnected(wsUrl);
+		manager.queueSystemStatusRefreshes(baseUrl);
+	}
+
+	function applySystemActionResponse(
+		payload: Record<string, unknown> | null,
+		fallbackState: string,
+		fallbackStep: string | null
+	) {
+		const state =
+			typeof payload?.hardware_state === 'string' ? payload.hardware_state : fallbackState;
+		const step = typeof payload?.message === 'string' ? payload.message : fallbackStep;
+		manager.applySystemStatusToSelected({
+			hardware_state: state,
+			hardware_error: null,
+			homing_step: state === 'homing' || state === 'initializing' ? step : null
+		});
+	}
+
 	const machineState = $derived(manager.selectedMachine?.sorterState?.state ?? 'initializing');
-	const hardwareState = $derived(manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby');
+	const hardwareState = $derived(
+		manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby'
+	);
 	const homingStep = $derived(manager.selectedMachine?.systemStatus?.homing_step ?? null);
 	const hardwareError = $derived(manager.selectedMachine?.systemStatus?.hardware_error ?? null);
 
@@ -38,20 +79,29 @@
 	);
 
 	const powerDotColor = $derived(
-		hardwareState === 'ready' ? 'var(--color-success)'
-		: hardwareState === 'error' ? 'var(--color-danger)'
-		: hardwareState === 'homing' || hardwareState === 'initializing' ? 'var(--color-info)'
-		: '#FFD500'
+		hardwareState === 'ready'
+			? 'var(--color-success)'
+			: hardwareState === 'error'
+				? 'var(--color-danger)'
+				: hardwareState === 'homing' || hardwareState === 'initializing'
+					? 'var(--color-info)'
+					: '#FFD500'
 	);
 
 	const hardwareStateLabel = $derived(
-		hardwareState === 'ready' ? 'Ready'
-		: hardwareState === 'standby' ? 'Standby'
-		: hardwareState === 'homing' ? 'Homing'
-		: hardwareState === 'initializing' ? 'Initializing'
-		: hardwareState === 'initialized' ? 'Initialized'
-		: hardwareState === 'error' ? 'Error'
-		: 'Unknown'
+		hardwareState === 'ready'
+			? 'Ready'
+			: hardwareState === 'standby'
+				? 'Standby'
+				: hardwareState === 'homing'
+					? 'Homing'
+					: hardwareState === 'initializing'
+						? 'Initializing'
+						: hardwareState === 'initialized'
+							? 'Initialized'
+							: hardwareState === 'error'
+								? 'Error'
+								: 'Unknown'
 	);
 
 	const needsHoming = $derived(
@@ -59,18 +109,26 @@
 	);
 
 	async function homeSystem() {
+		const baseUrl = currentBackendBaseUrl();
 		try {
-			await fetch(`${currentBackendBaseUrl()}/api/system/home`, { method: 'POST' });
+			const response = await fetch(`${baseUrl}/api/system/recover`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			applySystemActionResponse(payload, 'homing', 'Starting safe recovery...');
+			keepSystemStatusFresh(baseUrl);
 		} catch {
-			// ignore
+			keepSystemStatusFresh(baseUrl);
 		}
 	}
 
 	async function resetHardwareSystem() {
+		const baseUrl = currentBackendBaseUrl();
 		try {
-			await fetch(`${currentBackendBaseUrl()}/api/system/reset`, { method: 'POST' });
+			const response = await fetch(`${baseUrl}/api/system/reset`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			applySystemActionResponse(payload, 'standby', null);
+			keepSystemStatusFresh(baseUrl);
 		} catch {
-			// ignore
+			keepSystemStatusFresh(baseUrl);
 		}
 	}
 
@@ -98,6 +156,9 @@
 			return;
 		}
 		await waitForBackend(baseUrl, { maxAttempts: 60 });
+		const wsUrl = currentBackendWsUrl();
+		manager.reconnectStaleConnections({ fallbackUrl: wsUrl });
+		manager.ensureConnected(wsUrl);
 		restartingBackend = false;
 		// Ws will reconnect and push fresh snapshots automatically.
 	}
@@ -132,8 +193,8 @@
 	function isFeederTransportBlocked(message: string | null): boolean {
 		return Boolean(
 			message &&
-				(message.startsWith('Feeder transport blocked') ||
-					message.startsWith('Feeder stalled before C-Channel 2'))
+			(message.startsWith('Feeder transport blocked') ||
+				message.startsWith('Feeder stalled before C-Channel 2'))
 		);
 	}
 
@@ -186,10 +247,10 @@
 		isFeederDetectionUnavailable(hardwareError)
 			? 'Reset Hardware'
 			: isFeederTransportBlocked(hardwareError)
-			? 'Refresh Status'
-			: hardwareState === 'standby' || hardwareState === 'error'
-				? 'Retry Home'
-				: 'Refresh Status'
+				? 'Refresh Status'
+				: hardwareState === 'standby' || hardwareState === 'error'
+					? 'Retry Home'
+					: 'Refresh Status'
 	);
 	const homingHeadline = $derived(homingStep ?? 'Homing all hardware...');
 	const hardwareAlertTitle = $derived(
@@ -197,11 +258,11 @@
 			? 'Feeder Check Required'
 			: isFeederDetectionUnavailable(hardwareError)
 				? 'Feeder Cameras Not Ready'
-			: isControlBoardConnectionError(hardwareError)
-				? 'Control Boards Not Reachable'
-			: isChuteJam(hardwareError)
-				? 'Chute Jammed'
-				: 'Machine Alert'
+				: isControlBoardConnectionError(hardwareError)
+					? 'Control Boards Not Reachable'
+					: isChuteJam(hardwareError)
+						? 'Chute Jammed'
+						: 'Machine Alert'
 	);
 	const blockingHardwareAlert = $derived(
 		Boolean(hardwareState === 'error' && hardwareError && hardwareError !== dismissedHardwareError)
@@ -234,44 +295,66 @@
 <nav class="border-b border-border bg-surface">
 	<div class="flex items-center justify-between px-4 py-3 sm:px-6">
 		<div class="flex items-center gap-6">
-			<a href="/" class="flex items-center gap-2.5 text-xl font-bold font-mono uppercase tracking-tight text-text">
+			<a
+				href="/"
+				class="flex items-center gap-2.5 font-mono text-xl font-bold tracking-tight text-text uppercase"
+			>
 				<span class="h-5 w-5 shrink-0 bg-primary" aria-hidden="true"></span>
 				Sorter
 			</a>
 			<div class="flex gap-1">
 				<a
 					href="/"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/'
+						? 'border-b-2 border-primary text-primary'
+						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
 					Dashboard
 				</a>
 				<a
 					href="/bins"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/bins' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/bins'
+						? 'border-b-2 border-primary text-primary'
+						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
 					Bins
 				</a>
 				<a
 					href="/profiles"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/profiles' ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname ===
+					'/profiles'
+						? 'border-b-2 border-primary text-primary'
+						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
 					Profiles
 				</a>
 				<a
 					href="/tracked"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/tracked') ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
+						'/tracked'
+					)
+						? 'border-b-2 border-primary text-primary'
+						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
 					Tracked
 				</a>
 				<a
 					href="/logs"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/logs') ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
+						'/logs'
+					)
+						? 'border-b-2 border-primary text-primary'
+						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
 					Logs
 				</a>
 				<a
 					href="/settings"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith('/settings') ? 'border-b-2 border-primary text-primary' : 'text-text-muted hover:text-text hover:bg-bg'}"
+					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
+						'/settings'
+					)
+						? 'border-b-2 border-primary text-primary'
+						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
 					Settings
 				</a>
@@ -297,26 +380,36 @@
 			<div class="relative" data-power-menu>
 				<button
 					onclick={() => (powerMenuOpen = !powerMenuOpen)}
-					class="flex items-center gap-1.5 p-2 text-text-muted transition-colors hover:text-text hover:bg-bg"
+					class="flex items-center gap-1.5 p-2 text-text-muted transition-colors hover:bg-bg hover:text-text"
 					title="System controls"
 				>
 					<span
 						class="inline-block h-4 w-4 shrink-0"
 						style="background-color: {powerDotColor}; border-radius: 50%;"
 					></span>
-					<ChevronDown size={12} class={`transition-transform duration-150 ${powerMenuOpen ? 'rotate-180' : ''}`} />
+					<ChevronDown
+						size={12}
+						class={`transition-transform duration-150 ${powerMenuOpen ? 'rotate-180' : ''}`}
+					/>
 				</button>
 
 				{#if powerMenuOpen}
-					<div class="absolute right-0 top-full z-50 mt-1 w-[260px] border border-border bg-surface shadow-lg">
-						<div class="px-3 pt-2.5 pb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+					<div
+						class="absolute top-full right-0 z-50 mt-1 w-[260px] border border-border bg-surface shadow-lg"
+					>
+						<div
+							class="px-3 pt-2.5 pb-1.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
+						>
 							System Status
 						</div>
 						<div class="flex flex-col gap-0.5 px-3 pb-2.5">
 							<div class="flex items-center justify-between py-1">
 								<span class="text-xs text-text-muted">Hardware</span>
 								<span class="flex items-center gap-1.5 text-xs font-medium text-text">
-									<span class="inline-block h-1.5 w-1.5" style="background-color: {powerDotColor}; border-radius: 50%;"></span>
+									<span
+										class="inline-block h-1.5 w-1.5"
+										style="background-color: {powerDotColor}; border-radius: 50%;"
+									></span>
 									{hardwareStateLabel}
 								</span>
 							</div>
@@ -326,7 +419,11 @@
 									<span class="flex items-center gap-1.5 text-xs font-medium text-text">
 										<span
 											class="inline-block h-1.5 w-1.5"
-											style="background-color: {cameraActive === cameraTotal ? 'var(--color-success)' : cameraActive > 0 ? '#FFD500' : 'var(--color-danger)'}; border-radius: 50%;"
+											style="background-color: {cameraActive === cameraTotal
+												? 'var(--color-success)'
+												: cameraActive > 0
+													? '#FFD500'
+													: 'var(--color-danger)'}; border-radius: 50%;"
 										></span>
 										{cameraActive}/{cameraTotal} active
 									</span>
@@ -334,11 +431,16 @@
 							{/if}
 						</div>
 						<div class="border-t border-border">
-							<div class="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+							<div
+								class="px-3 pt-2 pb-1 text-xs font-semibold tracking-wider text-text-muted uppercase"
+							>
 								Actions
 							</div>
 							<button
-								onclick={() => { homeSystem(); powerMenuOpen = false; }}
+								onclick={() => {
+									homeSystem();
+									powerMenuOpen = false;
+								}}
 								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
 							>
 								<Home size={14} class="text-text-muted" />
@@ -349,7 +451,10 @@
 								{/if}
 							</button>
 							<button
-								onclick={() => { resetHardwareSystem(); powerMenuOpen = false; }}
+								onclick={() => {
+									resetHardwareSystem();
+									powerMenuOpen = false;
+								}}
 								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
 							>
 								<RefreshCw size={14} class="text-text-muted" />
@@ -370,23 +475,34 @@
 	</div>
 
 	{#if hardwareState === 'homing'}
-		<div class="pointer-events-none fixed top-[4.7rem] right-4 z-40 w-[min(360px,calc(100vw-2rem))] sm:right-6">
+		<div
+			class="pointer-events-none fixed top-[4.7rem] right-4 z-40 w-[min(360px,calc(100vw-2rem))] sm:right-6"
+		>
 			<button
 				type="button"
 				onclick={() => (homingDetailsOpen = true)}
-				class="pointer-events-auto flex w-full items-start gap-3 border border-border bg-surface px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-colors hover:bg-surface hover:border-[#C9C7C0]"
+				class="pointer-events-auto flex w-full items-start gap-3 border border-border bg-surface px-3 py-3 text-left shadow-[0_12px_28px_rgba(15,23,42,0.12)] transition-colors hover:border-[#C9C7C0] hover:bg-surface"
 				title="Show hardware homing details"
 			>
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info">
-					<div class="h-4 w-4 animate-spin border-2 border-current border-t-transparent" style="border-radius: 50%;"></div>
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info"
+				>
+					<div
+						class="h-4 w-4 animate-spin border-2 border-current border-t-transparent"
+						style="border-radius: 50%;"
+					></div>
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-3">
-						<div class="text-xs font-semibold uppercase tracking-wider text-info">Hardware Homing</div>
+						<div class="text-xs font-semibold tracking-wider text-info uppercase">
+							Hardware Homing
+						</div>
 						<div class="text-xs text-text-muted">View details</div>
 					</div>
 					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
-					<div class="mt-2 text-sm text-text-muted">The machine is currently initializing and referencing its hardware.</div>
+					<div class="mt-2 text-sm text-text-muted">
+						The machine is currently initializing and referencing its hardware.
+					</div>
 				</div>
 			</button>
 		</div>
@@ -396,11 +512,13 @@
 		<div class="border-t border-danger/30 bg-danger/[0.06] px-4 py-3 sm:px-6">
 			<div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
 				<div class="flex min-w-0 gap-3">
-					<div class="flex h-8 w-8 shrink-0 items-center justify-center border border-danger/30 bg-danger/10 text-[#B11618]">
+					<div
+						class="flex h-8 w-8 shrink-0 items-center justify-center border border-danger/30 bg-danger/10 text-[#B11618]"
+					>
 						<AlertTriangle size={16} />
 					</div>
 					<div class="min-w-0">
-						<div class="text-xs font-semibold uppercase tracking-wider text-[#B11618]">
+						<div class="text-xs font-semibold tracking-wider text-[#B11618] uppercase">
 							Machine Alert
 						</div>
 						<div class="mt-1 text-sm text-text">{hardwareAlertBody(hardwareError)}</div>
@@ -436,7 +554,9 @@
 	<Modal bind:open={hardwareAlertOpen} title={hardwareAlertTitle}>
 		<div class="flex flex-col gap-4">
 			<div class="flex items-start gap-3">
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
 					<AlertTriangle size={18} />
 				</div>
 				<div>
@@ -446,9 +566,11 @@
 							{hardwareAlertHelp(hardwareError)}
 						</div>
 					{/if}
-					{#if hardwareError && ((isControlBoardConnectionError(hardwareError) || isFeederDetectionUnavailable(hardwareError)) || (!isFeederTransportBlocked(hardwareError) && hardwareAlertBody(hardwareError) !== hardwareError))}
+					{#if hardwareError && (isControlBoardConnectionError(hardwareError) || isFeederDetectionUnavailable(hardwareError) || (!isFeederTransportBlocked(hardwareError) && hardwareAlertBody(hardwareError) !== hardwareError))}
 						<details class="mt-3 border border-border bg-bg px-3 py-2 text-xs text-text-muted">
-							<summary class="cursor-pointer select-none font-medium text-text">Technical details</summary>
+							<summary class="cursor-pointer font-medium text-text select-none"
+								>Technical details</summary
+							>
 							<div class="mt-2 break-words">{hardwareError}</div>
 						</details>
 					{/if}
@@ -493,7 +615,9 @@
 	<Modal bind:open={restartConfirmOpen} title="Hard Restart Backend?">
 		<div class="flex flex-col gap-4">
 			<div class="flex items-start gap-3">
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
 					<AlertTriangle size={18} />
 				</div>
 				<div>
@@ -501,8 +625,8 @@
 						This will forcibly restart the sorter backend service.
 					</div>
 					<div class="mt-2 text-sm text-text-muted">
-						Any running sort or homing operation will be interrupted. Cameras and hardware
-						state will be re-initialized. The UI will be unavailable for a few seconds.
+						Any running sort or homing operation will be interrupted. Cameras and hardware state
+						will be re-initialized. The UI will be unavailable for a few seconds.
 					</div>
 				</div>
 			</div>
@@ -528,9 +652,16 @@
 	</Modal>
 
 	{#if restartingBackend}
-		<div class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-			<div class="flex flex-col items-center gap-4 border border-border bg-surface px-10 py-8 shadow-lg">
-				<div class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent" style="border-radius: 50%;"></div>
+		<div
+			class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+		>
+			<div
+				class="flex flex-col items-center gap-4 border border-border bg-surface px-10 py-8 shadow-lg"
+			>
+				<div
+					class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent"
+					style="border-radius: 50%;"
+				></div>
 				<div class="text-sm font-medium text-text">Restarting backend...</div>
 				<div class="text-xs text-text-muted">Waiting for the service to come back online.</div>
 			</div>
@@ -540,14 +671,20 @@
 	<Modal bind:open={homingDetailsOpen} title="Hardware Homing">
 		<div class="flex flex-col gap-4">
 			<div class="flex items-start gap-3">
-				<div class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info">
-					<div class="h-4 w-4 animate-spin border-2 border-current border-t-transparent" style="border-radius: 50%;"></div>
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info"
+				>
+					<div
+						class="h-4 w-4 animate-spin border-2 border-current border-t-transparent"
+						style="border-radius: 50%;"
+					></div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-info">Current step</div>
+					<div class="text-xs font-semibold tracking-wider text-info uppercase">Current step</div>
 					<div class="mt-1 text-sm text-text">{homingHeadline}</div>
 					<div class="mt-2 text-sm text-text-muted">
-						The machine is currently initializing and referencing its hardware. Let the process finish before starting a run.
+						The machine is currently initializing and referencing its hardware. Let the process
+						finish before starting a run.
 					</div>
 				</div>
 			</div>

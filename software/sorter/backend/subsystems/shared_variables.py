@@ -31,6 +31,13 @@ class SharedVariables:
         self.transport: Optional["PieceTransport"] = None
         self.carousel: Optional["Carousel"] = None
         self._chute_move_in_progress: bool = False
+        # Sample-collection maintenance mode. When True, the feeder ignores
+        # downstream gates (ch3_held / classification_channel_block) so C2/C3
+        # keep advancing pieces past the cameras regardless of whether the
+        # classification channel is ready. Use during training-sample drives
+        # so the pipeline doesn't stall on ghost detections in C4. Toggled
+        # via the /api/sample-collection-mode endpoint.
+        self._sample_collection_mode: bool = False
 
     @property
     def classification_ready(self) -> bool:
@@ -61,6 +68,14 @@ class SharedVariables:
     @chute_move_in_progress.setter
     def chute_move_in_progress(self, value: bool) -> None:
         self.set_chute_motion(bool(value), target_bin=None)
+
+    @property
+    def sample_collection_mode(self) -> bool:
+        return self._sample_collection_mode
+
+    @sample_collection_mode.setter
+    def sample_collection_mode(self, value: bool) -> None:
+        self._sample_collection_mode = bool(value)
 
     def set_classification_gate(
         self,
@@ -145,6 +160,27 @@ class SharedVariables:
                 source=source,
                 target=target,
                 delivered_at_mono=time.monotonic() if delivered_at_mono is None else float(delivered_at_mono),
+            )
+        )
+
+    def has_pending_piece_request(
+        self,
+        *,
+        source: StationId,
+        target: StationId,
+        now_mono: float | None = None,
+        timeout_s: float | None = None,
+    ) -> bool:
+        if not self._bus_enabled() or self._bus is None:
+            return False
+        if not hasattr(self._bus, "has_pending_piece_request"):
+            return False
+        return bool(
+            self._bus.has_pending_piece_request(
+                source=source,
+                target=target,
+                now_mono=now_mono,
+                timeout_s=timeout_s,
             )
         )
 

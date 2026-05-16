@@ -52,7 +52,14 @@ class GlobalConfig:
         self.debug_level = 0
         self.should_write_camera_feeds = False
         self.disable_chute = False
-        self.disable_servos = False
+        # On the restart branch we explicitly simulate the distributor: the
+        # Waveshare layer-servo bus isn't reliably available, but C1-C4 must
+        # still run continuously. ``disable_servos=True`` makes the
+        # Positioning state machine fall through without waiting on real
+        # layer-servo motion. Override with ``--disable servos`` (still
+        # honored) or LEGOSORTER_DISABLE env, or flip back here once the
+        # layer-servo bus is reattached.
+        self.disable_servos = True
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.use_channel_bus = False
         self.disable_video_streams = ["classification_bottom"]
@@ -80,8 +87,17 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
-    gc.disable_chute = "chute" in args.disable
-    gc.disable_servos = "servos" in args.disable
+    # Allow env-var fallback so the launching supervisor can flip these
+    # without needing to thread CLI args through to a child main.py — useful
+    # in distributor-simulated configurations where the layer-servo Waveshare
+    # bus isn't fully wired yet but C1-C4 should still run continuously.
+    env_disable = {
+        token.strip()
+        for token in os.getenv("LEGOSORTER_DISABLE", "").split(",")
+        if token.strip()
+    }
+    gc.disable_chute = "chute" in args.disable or "chute" in env_disable
+    gc.disable_servos = "servos" in args.disable or "servos" in env_disable
     gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
     gc.region_provider = RegionProviderType.HANDDRAWN
 

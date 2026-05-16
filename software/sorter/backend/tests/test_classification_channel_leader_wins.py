@@ -10,6 +10,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from defs.known_object import ClassificationStatus, KnownObject
+from irl.config import ClassificationChannelConfig
 from subsystems.classification_channel.running import Running
 from subsystems.classification_channel.zone_manager import ZoneManager
 
@@ -83,11 +84,21 @@ class _Transport:
         piece = self._pieces.get(uuid)
         if piece is None:
             return False
-        if piece.classification_status not in {
-            ClassificationStatus.pending,
-            ClassificationStatus.classifying,
-        }:
+        is_multi_drop = status == ClassificationStatus.multi_drop_fail
+        if (
+            not is_multi_drop
+            and piece.classification_status
+            not in {
+                ClassificationStatus.pending,
+                ClassificationStatus.classifying,
+            }
+        ):
             return False
+        if is_multi_drop and piece.classification_status == ClassificationStatus.multi_drop_fail:
+            return False
+        piece.part_id = None
+        piece.destination_bin = None
+        piece.confidence = None
         piece.classification_status = status
         self.fallbacks.append((uuid, status))
         return True
@@ -139,6 +150,10 @@ def _make_config(
             ),
         ),
     )
+
+
+def test_config_disables_leader_wins_by_default() -> None:
+    assert ClassificationChannelConfig().leader_wins_policy is False
 
 
 def _register_zone(
@@ -300,11 +315,10 @@ def test_c_classified_leader_with_two_interferers_marks_all_fail() -> None:
     running._pickDropCandidate()
 
     fallback_statuses = {uuid: status for uuid, status in transport.fallbacks}
-    # Leader is classified so resolveFallbackClassification won't flip it,
-    # but the two trailers must flip.
+    assert fallback_statuses.get("leader") == ClassificationStatus.multi_drop_fail
     assert fallback_statuses.get("trailer_one") == ClassificationStatus.multi_drop_fail
     assert fallback_statuses.get("trailer_two") == ClassificationStatus.multi_drop_fail
-    assert leader.classification_status == ClassificationStatus.classified
+    assert leader.classification_status == ClassificationStatus.multi_drop_fail
     assert stats.leader_wins_events == []
 
 
@@ -332,7 +346,9 @@ def test_d_interferer_ahead_of_leader_marks_both_fail() -> None:
     running._pickDropCandidate()
 
     fallback_statuses = {uuid: status for uuid, status in transport.fallbacks}
+    assert fallback_statuses.get("leader") == ClassificationStatus.multi_drop_fail
     assert fallback_statuses.get("ahead") == ClassificationStatus.multi_drop_fail
+    assert leader.classification_status == ClassificationStatus.multi_drop_fail
     assert stats.leader_wins_events == []
 
 
@@ -359,5 +375,7 @@ def test_e_leader_wins_policy_disabled_falls_back_to_old_behavior() -> None:
     running._pickDropCandidate()
 
     fallback_statuses = {uuid: status for uuid, status in transport.fallbacks}
+    assert fallback_statuses.get("leader") == ClassificationStatus.multi_drop_fail
     assert fallback_statuses.get("trailer") == ClassificationStatus.multi_drop_fail
+    assert leader.classification_status == ClassificationStatus.multi_drop_fail
     assert stats.leader_wins_events == []

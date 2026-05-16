@@ -30,6 +30,22 @@ export function machineHttpBaseUrlFromWsUrl(wsUrl: string | null | undefined): s
 	}
 }
 
+export function machineWsUrlFromHttpBaseUrl(
+	backendBaseUrl: string | null | undefined
+): string | null {
+	if (!backendBaseUrl) return null;
+	try {
+		const parsed = new URL(backendBaseUrl);
+		parsed.protocol = parsed.protocol === 'https:' ? 'wss:' : 'ws:';
+		parsed.pathname = '/ws';
+		parsed.search = '';
+		parsed.hash = '';
+		return parsed.toString();
+	} catch {
+		return null;
+	}
+}
+
 export function supervisorHttpBaseUrlFromBackendHttpBaseUrl(
 	backendBaseUrl: string | null | undefined
 ): string | null {

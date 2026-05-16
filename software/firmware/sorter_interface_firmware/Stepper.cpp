@@ -55,6 +55,18 @@ void Stepper::setAcceleration(uint32_t acceleration) {
     _accel = acceleration;
 }
 
+void Stepper::cancel() {
+    _state = STEPPER_STOPPED;
+    _mc_distance.store(0);
+    _mc_speed.store(0);
+    _mc_home_pin.store(-1);
+    _steps_moved.store(0);
+    _steps_frac.store(0);
+    _brake_distance.store(0);
+    _current_speed.store(0);
+    _current_speed_frac.store(0);
+}
+
 bool Stepper::moveSteps(int32_t distance) {
     if (_state != STEPPER_STOPPED) return false; // Only allow new move when stopped
     // From this point we assume we start from a standstill

@@ -70,12 +70,30 @@ ZONE_PROMPTS: dict[str, tuple[str, str]] = {
         "reflections on the turntable, and shadows that are not part of a "
         "piece. Do NOT treat the black disc as a piece.",
     ),
+    "classification_channel": (
+        "The image comes from the machine's classification C-channel / C4 "
+        "turntable. A top-down camera watches a rotating turntable and its "
+        "transfer/drop area while parts move toward classification and ejection.",
+        "Ignore the turntable surface, fixed dark center/opening, exit chute, "
+        "outlet slot, rails, screws, lips, fixed black wedges/openings, LED "
+        "glare, specular reflections, and shadows. In this camera view there "
+        "is a fixed lower-right opening/notch/cut-out where the exit path "
+        "begins; ignore that opening, its rim, dark interior, straight edges, "
+        "and shadows even if it looks like a rectangular or wedge-shaped "
+        "object. The C4 rotor may show four or five evenly spaced radial "
+        "divider walls/fins running from the dark center toward the outer rim; "
+        "ignore those divider walls, their raised edges, and their linear "
+        "shadows even when they look like long grey objects. These are machine "
+        "geometry, not pieces. Only label loose physical items sitting on, "
+        "beside, or moving over that geometry.",
+    ),
     "c_channel": (
         "The image comes from one of the machine's feed channels. A top-down "
         "camera looks at a narrow C-shaped channel along which pieces slide "
         "toward the classification chamber.",
-        "Ignore the channel surface, specular reflections, and shadows that "
-        "are not part of a piece.",
+        "Ignore the channel surface, fixed side walls, rails, screws, slots, "
+        "dark fixed openings, specular reflections, and shadows. These are "
+        "machine geometry, not pieces. Only label loose physical items.",
     ),
 }
 
@@ -93,6 +111,23 @@ def _gemini_prompt(width: int, height: int, zone: str = "classification_chamber"
         "any foreign object (screws, coins, pebbles, plastic fragments, tape, "
         "hair, wrappers, tools, etc.). Non-LEGO matters — it is how the "
         "machine catches contamination.\n"
+        "- Strive for exhaustive recall: do not omit any real loose part that "
+        "is visible enough to localize, including small, partly occluded, "
+        "edge-cropped, low-contrast, dark, shiny, transparent, or translucent "
+        "pieces. Scan the entire active crop before returning.\n"
+        "- Prefer splitting over grouping: if multiple loose parts touch, "
+        "overlap, stack, or partially cover each other but their visible "
+        "bodies, edges, color/material changes, studs, holes, or silhouettes "
+        "allow separation, return one tight box per part. Do not draw one "
+        "large box around a pile of separable parts.\n"
+        "- Do not detect fixed machine geometry, even if it is dark, high "
+        "contrast, or shaped like a part. In particular, ignore outlet slots, "
+        "exit chutes, turntable holes, fixed black shadows/openings, rails, "
+        "and walls. For the C4 turntable specifically, ignore the lower-right "
+        "exit opening/notch/cut-out and its rim, dark interior, straight edges, "
+        "and shadows; also ignore the evenly spaced radial divider walls/fins "
+        "and their long straight shadows. Do not draw boxes around these fixed "
+        "features.\n"
         "- Return a tight bounding box covering each item's full extent, "
         "including any glare on the item itself.\n"
         "- Ignore objects whose bounding box is smaller than ~1% of the image "
@@ -133,7 +168,68 @@ def _extract_json(text: str) -> dict[str, Any]:
     except json.JSONDecodeError:
         # Try fixing common issues: trailing commas before ] or }
         cleaned = re.sub(r",\s*([}\]])", r"\1", raw)
-        return json.loads(cleaned)
+        try:
+            return json.loads(cleaned)
+        except json.JSONDecodeError:
+            salvaged = _salvage_detection_payload(raw)
+            if salvaged is not None:
+                logger.warning(
+                    "Gemini response contained malformed JSON; salvaged %s detection objects.",
+                    len(salvaged["detections"]),
+                )
+                return salvaged
+            raise
+
+
+def _iter_balanced_json_objects(text: str):
+    """Yield balanced object substrings from a possibly malformed JSON response."""
+    for start, char in enumerate(text):
+        if char != "{":
+            continue
+        depth = 0
+        in_string = False
+        escaped = False
+        for end in range(start, len(text)):
+            current = text[end]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+            if current == '"':
+                in_string = True
+            elif current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    yield text[start : end + 1]
+                    break
+
+
+def _salvage_detection_payload(raw: str) -> dict[str, Any] | None:
+    detections: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for candidate in _iter_balanced_json_objects(raw):
+        try:
+            parsed = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(parsed, dict) or "bbox" not in parsed:
+            continue
+        if _parse_normalized_bbox(parsed.get("bbox")) is None:
+            continue
+        key = json.dumps(parsed, sort_keys=True, default=str)
+        if key in seen:
+            continue
+        seen.add(key)
+        detections.append(parsed)
+    if not detections:
+        return None
+    return {"detections": detections}
 
 
 def _call_openrouter(prompt: str, image_b64: str, *, model: str) -> dict[str, Any]:
@@ -158,9 +254,10 @@ def _call_openrouter(prompt: str, image_b64: str, *, model: str) -> dict[str, An
             },
         ],
         temperature=0.1,
-        # Detection JSON is ~30-80 tokens per piece. 512 covers ~40 pieces —
-        # well above any realistic tray — and surfaces truncation bugs fast.
-        max_tokens=512,
+        # Dense C-channel frames can contain many parts plus short descriptions.
+        # Keep enough headroom so the teacher returns valid JSON instead of a
+        # truncated object that later becomes a false "no detections" sample.
+        max_tokens=2048,
         timeout=OPENROUTER_API_TIMEOUT_S,
     )
     return _extract_json(response.choices[0].message.content.strip())
@@ -280,6 +377,13 @@ class GeminiSamDetector:
         self._last_error: str | None = None
         self._openrouter_model: str = normalize_openrouter_model(openrouter_model)
         self._zone: str = zone
+
+    def setZone(self, zone: str) -> None:
+        if zone == self._zone:
+            return
+        self._zone = zone
+        self._last_result = None
+        self._last_call_time = 0.0
 
     def setOpenRouterModel(self, model: str) -> None:
         normalized = normalize_openrouter_model(model)

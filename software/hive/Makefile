@@ -1,4 +1,4 @@
-.PHONY: install dev migrate reset-db backend frontend
+.PHONY: install dev migrate reset-db backend frontend bootstrap-admin
 
 install:
 	cd backend && uv sync
@@ -25,5 +25,5 @@ reset-db:
 	sleep 2
 	$(MAKE) migrate
 
-seed-admin:
-	cd backend && uv run python -m app.seed_admin
+bootstrap-admin:
+	cd backend && uv run python -m app.bootstrap_admin

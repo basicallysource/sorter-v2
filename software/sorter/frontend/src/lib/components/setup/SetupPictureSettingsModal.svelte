@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { mjpegStream } from '$lib/actions/mjpegStream';
+	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -72,10 +72,10 @@
 		return () => observer.disconnect();
 	});
 
-	function rememberPreviewImageSize(image: HTMLImageElement | null) {
-		if (!image) return;
-		const width = image.naturalWidth;
-		const height = image.naturalHeight;
+	function rememberPreviewImageSize(media: HTMLImageElement | HTMLVideoElement | null) {
+		if (!media) return;
+		const width = media instanceof HTMLVideoElement ? media.videoWidth : media.naturalWidth;
+		const height = media instanceof HTMLVideoElement ? media.videoHeight : media.naturalHeight;
 		if (width <= 0 || height <= 0) return;
 		if (width === previewImageSize.width && height === previewImageSize.height) return;
 		previewImageSize = { width, height };
@@ -99,7 +99,10 @@
 			};
 		}
 
-		const scale = Math.min(container.width / sourceSize.width, container.height / sourceSize.height);
+		const scale = Math.min(
+			container.width / sourceSize.width,
+			container.height / sourceSize.height
+		);
 		const width = sourceSize.width * scale;
 		const height = sourceSize.height * scale;
 		return {
@@ -136,7 +139,10 @@
 			270: [0, 1, -1, 0]
 		};
 
-		matrix = multiplyTransformMatrices(rotationMatrix[settings.rotation] ?? rotationMatrix[0], matrix);
+		matrix = multiplyTransformMatrices(
+			rotationMatrix[settings.rotation] ?? rotationMatrix[0],
+			matrix
+		);
 		if (settings.flip_horizontal) {
 			matrix = multiplyTransformMatrices([-1, 0, 0, 1], matrix);
 		}
@@ -147,7 +153,8 @@
 	}
 
 	function previewTransformStyle(): string {
-		if (!picturePreview || pictureSettingsEqual(picturePreview.saved, picturePreview.draft)) return '';
+		if (!picturePreview || pictureSettingsEqual(picturePreview.saved, picturePreview.draft))
+			return '';
 
 		const relativeMatrix = multiplyTransformMatrices(
 			pictureTransformMatrix(picturePreview.draft),
@@ -173,16 +180,21 @@
 		return `left:${fitted.left}px;top:${fitted.top}px;width:${fitted.width}px;height:${fitted.height}px;${transformStyle}`;
 	}
 
-	function streamUrl(): string {
-		return `${backendBaseUrl}/api/cameras/feed/${role}?annotated=false&v=${feedRevision}`;
-	}
+	const webrtcOptions = $derived({
+		baseUrl: backendBaseUrl,
+		role,
+		annotated: false,
+		layer: 'raw' as const,
+		dashboard: false,
+		colorCorrect: true,
+		showRegions: false
+	});
 
 	function handleSidebarSaved() {
 		picturePreview = null;
 		feedRevision += 1;
 		dispatch('saved');
 	}
-
 </script>
 
 <div class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start">
@@ -194,25 +206,23 @@
 			>
 				{#if hasCamera}
 					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
-						<img
-							use:mjpegStream={{
-								url: streamUrl(),
-								firstFrameTimeoutMs: 6000,
-								stallTimeoutMs: 4000
-							}}
-							alt={label}
+						<video
+							use:webrtcCameraStream={webrtcOptions}
+							aria-label={label}
 							class="absolute inset-0 h-full w-full object-contain"
 							style={previewTransformStyle()}
-							onload={(event) =>
-								rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
-						/>
+							onloadedmetadata={(event) =>
+								rememberPreviewImageSize(event.currentTarget as HTMLVideoElement)}
+						></video>
 						<div class="pointer-events-none absolute" style={previewOverlayStyle()}>
 							{#if calibrationHighlight}
 								<div
 									class="absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
 									style={`left:${calibrationHighlight[0] * 100}%;top:${calibrationHighlight[1] * 100}%;width:${(calibrationHighlight[2] - calibrationHighlight[0]) * 100}%;height:${(calibrationHighlight[3] - calibrationHighlight[1]) * 100}%;`}
 								>
-									<div class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md">
+									<div
+										class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
+									>
 										Color Check
 									</div>
 								</div>
@@ -220,15 +230,17 @@
 						</div>
 					{/key}
 				{:else}
-					<div class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80">
+					<div
+						class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
+					>
 						<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
-							Assign a camera first so you can preview picture settings and place the Color Check target.
+							Assign a camera first so you can preview picture settings and place the Color Check
+							target.
 						</div>
 					</div>
 				{/if}
 			</div>
 		</div>
-
 	</div>
 
 	<PictureSettingsSidebar

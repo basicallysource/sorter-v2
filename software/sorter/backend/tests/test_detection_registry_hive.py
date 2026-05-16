@@ -81,6 +81,31 @@ def test_scope_mapping_feeder(tmp_path, monkeypatch):
     assert all(a.kind == "builtin" for a in classification)
 
 
+@pytest.mark.parametrize(
+    "scope",
+    [
+        "classification_channel",
+        "classification-channel",
+        "c4",
+        "c4_sector",
+        "c4-sector",
+        "sector_yolo",
+    ],
+)
+def test_scope_mapping_c4_sector_model_to_carousel(tmp_path, monkeypatch, scope):
+    monkeypatch.setattr(registry, "HIVE_MODELS_DIR", tmp_path)
+    _seed_hive_model(tmp_path, name=f"{scope}-model", model_family="yolo", scopes=[scope])
+    registry.invalidate_registry()
+
+    carousel = registry.detection_algorithms_for_scope("carousel")
+    hive_entries = [a for a in carousel if a.kind == "hive"]
+    assert len(hive_entries) == 1
+    assert hive_entries[0].model_family == "yolo"
+
+    feeder = registry.detection_algorithms_for_scope("feeder")
+    assert all(a.kind == "builtin" for a in feeder)
+
+
 def test_invalidate_after_adding(tmp_path, monkeypatch):
     monkeypatch.setattr(registry, "HIVE_MODELS_DIR", tmp_path)
     registry.invalidate_registry()

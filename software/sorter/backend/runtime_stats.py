@@ -124,24 +124,24 @@ class RuntimeStatsCollector:
             "recognize_skipped_carousel_quota": 0,
             "recognize_skipped_carousel_dwell": 0,
             "recognize_skipped_carousel_traversal": 0,
+            "recognize_skipped_low_sharpness": 0,
             "recognize_c3_slots_used": 0,
             "brickognize_empty_result": 0,
             "brickognize_timeout_total": 0,
         }
         self._handoff_ghost_rejected_total: int = 0
-        self._handoff_embedding_rebind_total: int = 0
         self._handoff_stale_pending_dropped_total: int = 0
         self._multi_drop_leader_wins_total: int = 0
         self._classification_zone_lost_total: int = 0
         self._exit_wiggle_triggered_c2_total: int = 0
         self._exit_wiggle_triggered_c3_total: int = 0
         self._c2_idle_skipped_no_cluster_total: int = 0
-        self._tracker_id_switch_suspect_total: int = 0
         self._all_bins_cleared_after_s: float | None = None
         self._layer_bins_cleared_after_s: dict[int, float] = {}
         self._bin_cleared_after_s: dict[tuple[int, int, int], float] = {}
         self._servo_bus_offline_since_ts: float | None = None
         self._bus_provider: Any | None = None
+        self._active_incident: dict[str, Any] | None = None
         self._last_updated_at = time.time()
 
     def setBusProvider(self, bus_provider: Any | None) -> None:
@@ -288,6 +288,32 @@ class RuntimeStatsCollector:
             del self._channel_exit_events[0]
         self._last_updated_at = event["exited_at"]
 
+    def setActiveIncident(self, incident: dict[str, Any]) -> None:
+        """Publish the single operator-facing incident currently blocking flow."""
+        payload = dict(incident)
+        payload["updated_at"] = float(time.time())
+        self._active_incident = payload
+        self._last_updated_at = payload["updated_at"]
+
+    def activeIncident(self) -> dict[str, Any] | None:
+        """Return the currently active blocking incident, if any."""
+        return dict(self._active_incident) if self._active_incident else None
+
+    def clearActiveIncident(
+        self,
+        *,
+        kind: str | None = None,
+        piece_uuid: str | None = None,
+    ) -> None:
+        if self._active_incident is None:
+            return
+        if kind is not None and self._active_incident.get("kind") != kind:
+            return
+        if piece_uuid is not None and self._active_incident.get("piece_uuid") != piece_uuid:
+            return
+        self._active_incident = None
+        self._last_updated_at = time.time()
+
     def observeHandoffGhostReject(self, **_meta: Any) -> None:
         """Increment the cumulative cross-camera ghost-reject counter.
 
@@ -298,17 +324,6 @@ class RuntimeStatsCollector:
         of lifecycle state so pre-run ghosts show up too.
         """
         self._handoff_ghost_rejected_total += 1
-        self._last_updated_at = time.time()
-
-    def observeHandoffEmbeddingRebind(self, **_meta: Any) -> None:
-        """Increment cross-camera embedding-rebind counter.
-
-        Called by the handoff manager when an OSNet cosine-similarity pick
-        beat the FIFO head for a pending-bucket claim — i.e. two pieces
-        in flight and the physical order swapped vs. FIFO order. Counted
-        regardless of lifecycle state to mirror the ghost-reject counter.
-        """
-        self._handoff_embedding_rebind_total += 1
         self._last_updated_at = time.time()
 
     def observeHandoffStalePendingDropped(self, **_meta: Any) -> None:
@@ -351,19 +366,6 @@ class RuntimeStatsCollector:
         feeder diagnostic counters.
         """
         self._c2_idle_skipped_no_cluster_total += 1
-        self._last_updated_at = time.time()
-
-    def observeTrackerIdSwitchSuspect(self, **_meta: Any) -> None:
-        """Increment the tracker id-switch-suspect counter.
-
-        Called by the polar tracker when the Hungarian solver accepts a pair
-        whose cosine similarity is very low *and* whose geometric cost is
-        high — i.e. the match was made only because there was no better
-        pairing available, which is the usual fingerprint of an intra-
-        tracker id switch ("piece suddenly becomes another piece"). Counted
-        regardless of lifecycle state so warm-up glitches show up too.
-        """
-        self._tracker_id_switch_suspect_total += 1
         self._last_updated_at = time.time()
 
     def observeMultiDropLeaderWins(self, **_meta: Any) -> None:
@@ -883,10 +885,12 @@ class RuntimeStatsCollector:
             "recognize_skipped_carousel_traversal": int(
                 self._recognizer_counts.get("recognize_skipped_carousel_traversal", 0)
             ),
+            "recognize_skipped_low_sharpness": int(
+                self._recognizer_counts.get("recognize_skipped_low_sharpness", 0)
+            ),
             "recognize_c3_slots_used": int(self._recognizer_counts.get("recognize_c3_slots_used", 0)),
             "brickognize_empty_result": int(self._recognizer_counts.get("brickognize_empty_result", 0)),
             "brickognize_timeout_total": int(self._recognizer_counts.get("brickognize_timeout_total", 0)),
-            "tracker_id_switch_suspect_total": int(self._tracker_id_switch_suspect_total),
         }
         timing_samples: dict[str, list[float]] = {
             "feed_ready_to_landed_s": [],
@@ -1131,7 +1135,6 @@ class RuntimeStatsCollector:
                 "pulse_counts": pulse_counts,
                 "skip_counts": dict(sorted(self._skip_counts.items())),
                 "handoff_ghost_rejected_total": int(self._handoff_ghost_rejected_total),
-                "handoff_embedding_rebind_total": int(self._handoff_embedding_rebind_total),
                 "handoff_stale_pending_dropped_total": int(self._handoff_stale_pending_dropped_total),
                 "multi_drop_leader_wins_total": int(self._multi_drop_leader_wins_total),
                 "classification_zone_lost_total": int(self._classification_zone_lost_total),
@@ -1159,6 +1162,7 @@ class RuntimeStatsCollector:
             ),
             "blocked_reason_counts": dict(sorted(self._blocked_reason_counts.items())),
             "pieces_cached": len(self._piece_by_uuid),
+            "active_incident": dict(self._active_incident) if self._active_incident else None,
             "servo_bus_offline_since_ts": self._servo_bus_offline_since_ts,
             "last_update_age_s": max(0.0, now - self._last_updated_at),
         }

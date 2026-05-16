@@ -1,5 +1,6 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import C4SectorOccupancyPanel from '$lib/components/settings/C4SectorOccupancyPanel.svelte';
 	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
 	import type { PageData } from './$types';
@@ -27,6 +28,11 @@
 				/>
 			{/key}
 		</SectionCard>
+		{#if data.station.slug === 'classification-channel'}
+			<SectionCard title="C4 Sectors">
+				<C4SectorOccupancyPanel />
+			</SectionCard>
+		{/if}
 	{:else if data.station.stepperKeys.length > 0}
 		<!-- Stations without cameras (e.g. c-channel-1): show stepper standalone -->
 		<div class="lg:max-w-[20rem]">

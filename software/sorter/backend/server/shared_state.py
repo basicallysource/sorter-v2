@@ -7,6 +7,7 @@ import this single module without circular dependencies.
 from __future__ import annotations
 
 import asyncio
+import math
 import queue
 import threading
 from typing import Any, Dict, List, Optional
@@ -41,7 +42,12 @@ sorter_state_snapshot: Optional[dict[str, Any]] = None
 cameras_config_snapshot: Optional[dict[str, Any]] = None
 sorting_profile_status_snapshot: Optional[dict[str, Any]] = None
 
-# Hardware lifecycle state: "standby" | "initializing" | "initialized" | "homing" | "ready" | "error"
+# Hardware lifecycle state:
+# "standby" | "initializing" | "initialized" | "homing" | "ready" | "error"
+#
+# While state is "initializing" or "homing" the hardware worker owns every
+# motor. Manual jogs and runtime resume must stay blocked until the worker
+# reaches "initialized" or "ready".
 hardware_state: str = "standby"
 hardware_error: Optional[str] = None
 hardware_homing_step: Optional[str] = None  # Current homing phase description
@@ -55,6 +61,30 @@ hardware_lifecycle_lock = threading.RLock()
 CLASSIFICATION_BASELINE_SAMPLES = 12
 CLASSIFICATION_BASELINE_CAPTURE_TIMEOUT_S = 4.0
 CLASSIFICATION_BASELINE_CAPTURE_INTERVAL_S = 0.1
+
+SAMPLE_COLLECTION_SPEED_ROLES = (
+    "c_channel_1",
+    "c_channel_2",
+    "c_channel_3",
+    "classification_channel",
+)
+SAMPLE_COLLECTION_SPEED_ROLE_ALIASES = {
+    "c1": "c_channel_1",
+    "bulk": "c_channel_1",
+    "carousel": "classification_channel",
+    "c_channel_4": "classification_channel",
+    "c4": "classification_channel",
+}
+SAMPLE_COLLECTION_SPEED_MIN_RPM = 0.01
+SAMPLE_COLLECTION_SPEED_MAX_RPM = 25.0
+SAMPLE_COLLECTION_SPEED_MAX_RPM_BY_ROLE = {
+    role: SAMPLE_COLLECTION_SPEED_MAX_RPM for role in SAMPLE_COLLECTION_SPEED_ROLES
+}
+SAMPLE_COLLECTION_SPEED_MAX_RPM_BY_ROLE["classification_channel"] = 50.0
+sample_collection_speed_rpm_by_role: Dict[str, Optional[float]] = {
+    role: None for role in SAMPLE_COLLECTION_SPEED_ROLES
+}
+sample_collection_speed_lock = threading.RLock()
 
 # ---------------------------------------------------------------------------
 # Setter functions (called from main.py at startup)
@@ -249,6 +279,86 @@ def setHardwareStatus(
         changed = True
     if changed:
         publishSystemStatus()
+
+
+def normalizeSampleCollectionSpeedRole(role: object) -> str | None:
+    normalized = str(role or "").strip().lower()
+    if not normalized:
+        return None
+    normalized = SAMPLE_COLLECTION_SPEED_ROLE_ALIASES.get(normalized, normalized)
+    if normalized in SAMPLE_COLLECTION_SPEED_ROLES:
+        return normalized
+    return None
+
+
+def getSampleCollectionSpeedRpm(role: object) -> Optional[float]:
+    normalized = normalizeSampleCollectionSpeedRole(role)
+    if normalized is None:
+        return None
+    with sample_collection_speed_lock:
+        return sample_collection_speed_rpm_by_role.get(normalized)
+
+
+def getSampleCollectionSpeedsRpmByRole() -> Dict[str, Optional[float]]:
+    with sample_collection_speed_lock:
+        return {
+            role: sample_collection_speed_rpm_by_role.get(role)
+            for role in SAMPLE_COLLECTION_SPEED_ROLES
+        }
+
+
+def getSampleCollectionSpeedMaxRpm(role: object) -> float:
+    normalized = normalizeSampleCollectionSpeedRole(role)
+    if normalized is None:
+        return SAMPLE_COLLECTION_SPEED_MAX_RPM
+    return float(
+        SAMPLE_COLLECTION_SPEED_MAX_RPM_BY_ROLE.get(
+            normalized,
+            SAMPLE_COLLECTION_SPEED_MAX_RPM,
+        )
+    )
+
+
+def getSampleCollectionSpeedMaxRpmByRole() -> Dict[str, float]:
+    return {
+        role: getSampleCollectionSpeedMaxRpm(role)
+        for role in SAMPLE_COLLECTION_SPEED_ROLES
+    }
+
+
+def setSampleCollectionSpeedRpm(role: object, rpm: object) -> Optional[float]:
+    normalized = normalizeSampleCollectionSpeedRole(role)
+    if normalized is None:
+        raise ValueError(f"invalid sample collection speed role: {role!r}")
+
+    if rpm is None or rpm == "":
+        value = None
+    else:
+        try:
+            value = float(rpm)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"invalid rpm for {normalized}: {rpm!r}") from exc
+        if not math.isfinite(value):
+            raise ValueError(f"invalid rpm for {normalized}: {rpm!r}")
+        max_rpm = getSampleCollectionSpeedMaxRpm(normalized)
+        if value < SAMPLE_COLLECTION_SPEED_MIN_RPM or value > max_rpm:
+            raise ValueError(
+                f"rpm for {normalized} must be between "
+                f"{SAMPLE_COLLECTION_SPEED_MIN_RPM:g} and {max_rpm:g}"
+            )
+        value = round(value, 3)
+
+    with sample_collection_speed_lock:
+        sample_collection_speed_rpm_by_role[normalized] = value
+    return value
+
+
+def setSampleCollectionSpeedsRpm(values: Dict[str, Any]) -> Dict[str, Optional[float]]:
+    if not isinstance(values, dict):
+        raise ValueError("speeds must be an object keyed by channel role")
+    for role, rpm in values.items():
+        setSampleCollectionSpeedRpm(role, rpm)
+    return getSampleCollectionSpeedsRpmByRole()
 
 
 def publishSorterState(state: str, camera_layout: Optional[str] = None) -> None:

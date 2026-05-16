@@ -134,6 +134,7 @@ def _run_publish(
 ) -> int:
     run_dir = run_dir.resolve()
     meta = _load_run_metadata(run_dir)
+    training_metadata = meta.get("training_metadata") if isinstance(meta.get("training_metadata"), dict) else meta
     model_family = family or meta.get("model_family") or "unknown"
     display_name = name or meta.get("run_name") or slug
 
@@ -155,7 +156,7 @@ def _run_publish(
         "description": description,
         "model_family": model_family,
         "scopes": scopes,
-        "training_metadata": meta,
+        "training_metadata": training_metadata,
         "is_public": is_public,
     }
     print(f"Creating model slug={slug}", file=sys.stderr)

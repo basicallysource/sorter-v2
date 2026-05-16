@@ -7,11 +7,21 @@
 
 	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
 
+	const MAX_DELIVERED_PIECES = 8;
+	const RECENT_TERMINAL_DEDUPE_WINDOW_S = 15;
+	const C4_DROP_ANGLE_DEG = 30;
+
 	const ctx = getMachineContext();
 	sortingProfileStore.load();
 
 	function hasLocalPreview(obj: KnownObjectData): boolean {
-		return Boolean(obj.thumbnail || obj.top_image || obj.bottom_image);
+		return Boolean(
+			obj.latest_captured_crop ||
+				obj.thumbnail ||
+				obj.top_image ||
+				obj.bottom_image ||
+				obj.drop_snapshot
+		);
 	}
 
 	function hasCapturingEvidence(obj: KnownObjectData): boolean {
@@ -28,7 +38,7 @@
 	function lifecyclePhase(obj: KnownObjectData): LifecyclePhase {
 		// "Distributing" (in motion) still renders as Classified. Only fully-
 		// delivered pieces flip to 'distributed'.
-		if (obj.stage === 'distributed' || obj.distributed_at) return 'distributed';
+		if (isTerminalPiece(obj)) return 'distributed';
 		if (
 			obj.classification_status === 'classified' ||
 			obj.classification_status === 'unknown' ||
@@ -48,75 +58,143 @@
 	}
 
 	function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
-		if (obj.stage !== 'created') return true;
-		// Reliable tracking on the classification channel → surface
-		// immediately, before any capture/classify evidence exists.
-		if (obj.tracked_global_id !== null && obj.tracked_global_id !== undefined) return true;
-		if (obj.classified_at || obj.carousel_snapping_started_at || obj.part_id) return true;
-		if (obj.first_carousel_seen_ts || hasLocalPreview(obj)) return true;
-		return false;
+		// Recent Pieces is the C4 timeline: only show pieces that have
+		// actually been observed on the classification channel. Anything
+		// still upstream (C2/C3) is hidden until it lands on C4. The
+		// machine-manager buffer applies the same gate, so this is a
+		// belt-and-braces check for any stale entries.
+		return obj.first_carousel_seen_ts != null;
 	}
 
-	const upcoming = $derived.by(() => {
+	function isTerminalPiece(obj: KnownObjectData): boolean {
+		return obj.stage === 'distributed' || obj.distributed_at != null;
+	}
+
+	function isUnresolvedTerminal(obj: KnownObjectData): boolean {
+		return (
+			obj.classification_status === 'unknown' ||
+			obj.classification_status === 'not_found' ||
+			obj.classification_status === 'multi_drop_fail'
+		);
+	}
+
+	function hasTerminalEvidence(obj: KnownObjectData): boolean {
+		if (!isTerminalPiece(obj)) return true;
+		if (!isUnresolvedTerminal(obj)) return true;
+		return Boolean(
+			obj.latest_captured_crop ||
+				obj.top_image ||
+				obj.bottom_image ||
+				(obj.thumbnail && obj.classified_at)
+		);
+	}
+
+	function physicalPieceKey(obj: KnownObjectData): string {
+		const gid = obj.tracked_global_id;
+		return gid !== null && gid !== undefined ? `track:${gid}` : `uuid:${obj.uuid}`;
+	}
+
+	function lastEventTs(obj: KnownObjectData): number {
+		return obj.updated_at ?? obj.created_at ?? 0;
+	}
+
+	function terminalTs(obj: KnownObjectData): number {
+		return obj.distributed_at ?? obj.updated_at ?? obj.classified_at ?? obj.created_at ?? 0;
+	}
+
+	function c4ArrivalTs(obj: KnownObjectData): number {
+		return obj.first_carousel_seen_ts ?? obj.carousel_detected_confirmed_at ?? obj.created_at ?? 0;
+	}
+
+	function normalizeDeg(value: number): number {
+		const normalized = value % 360;
+		return normalized < 0 ? normalized + 360 : normalized;
+	}
+
+	function circularDiffDeg(a: number, b: number): number {
+		return ((normalizeDeg(a) - normalizeDeg(b) + 540) % 360) - 180;
+	}
+
+	function c4ExitApproachOffset(obj: KnownObjectData): number | null {
+		const exit_offset = obj.classification_channel_exit_offset_deg;
+		if (typeof exit_offset === 'number' && Number.isFinite(exit_offset)) return exit_offset;
+		const center = obj.classification_channel_zone_center_deg;
+		if (typeof center !== 'number' || !Number.isFinite(center)) return null;
+		// Negative means still approaching the configured drop/exit line;
+		// values closer to zero are physically closer to being distributed.
+		return circularDiffDeg(center, C4_DROP_ANGLE_DEG);
+	}
+
+	function dedupeByPhysicalPiece(objects: KnownObjectData[]): KnownObjectData[] {
+		const seen = new Set<string>();
+		const deduped: KnownObjectData[] = [];
+		for (const obj of objects) {
+			const key = physicalPieceKey(obj);
+			if (seen.has(key)) continue;
+			seen.add(key);
+			deduped.push(obj);
+		}
+		return deduped;
+	}
+
+	function sortActiveC4Pieces(a: KnownObjectData, b: KnownObjectData): number {
+		const aOffset = c4ExitApproachOffset(a);
+		const bOffset = c4ExitApproachOffset(b);
+		if (aOffset !== null && bOffset !== null && aOffset !== bOffset) {
+			return aOffset - bOffset;
+		}
+		const arrivalDiff = c4ArrivalTs(b) - c4ArrivalTs(a);
+		if (arrivalDiff !== 0) return arrivalDiff;
+		return lastEventTs(b) - lastEventTs(a);
+	}
+
+	const activeOnC4 = $derived.by(() => {
 		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
-		// Dedupe by tracked_global_id (the tracker's identity key). Same
-		// global_id = same physical piece, even if re-classified as a new
-		// KnownObject. Different global_ids = distinct physical pieces, even
-		// if they happen to be the same LEGO part.
-		const recent_delivered_global_ids = new Set<number | string>();
+		// If a terminal event and a stale active split briefly coexist, keep
+		// the terminal row and suppress the old active identity.
+		const recent_terminal_keys = new Set<string>();
 		const now_s = Date.now() / 1000;
 		for (const o of all) {
-			if (lifecyclePhase(o) !== 'distributed') continue;
-			const gid = o.tracked_global_id;
-			if (gid === null || gid === undefined) continue;
-			const ts = o.distributed_at ?? o.updated_at ?? 0;
-			if (now_s - ts > 15) continue;
-			recent_delivered_global_ids.add(gid);
+			if (!isTerminalPiece(o)) continue;
+			const ts = terminalTs(o);
+			if (now_s - ts > RECENT_TERMINAL_DEDUPE_WINDOW_S) continue;
+			recent_terminal_keys.add(physicalPieceKey(o));
 		}
-		const list = all
-			.filter((o) => lifecyclePhase(o) !== 'distributed')
-			.filter((o) => {
-				const gid = o.tracked_global_id;
-				if (gid === null || gid === undefined) return true;
-				return !recent_delivered_global_ids.has(gid);
-			});
-		list.sort((a, b) => (b.first_carousel_seen_ts ?? b.created_at ?? 0) - (a.first_carousel_seen_ts ?? a.created_at ?? 0));
-		// Dedupe identity splits within upcoming: same tracked_global_id seen
-		// more than once means the tracker re-spawned a KnownObject for the
-		// same physical piece — keep only the newest entry.
-		const seen_gids = new Set<number | string>();
-		const deduped: typeof list = [];
-		for (const o of list) {
-			const gid = o.tracked_global_id;
-			if (gid !== null && gid !== undefined) {
-				if (seen_gids.has(gid)) continue;
-				seen_gids.add(gid);
-			}
-			deduped.push(o);
-		}
-		return deduped.slice(0, 5);
+
+		const freshest_first = all
+			.filter((o) => !isTerminalPiece(o))
+			.filter((o) => !recent_terminal_keys.has(physicalPieceKey(o)))
+			.sort((a, b) => lastEventTs(b) - lastEventTs(a));
+
+		return dedupeByPhysicalPiece(freshest_first).sort(sortActiveC4Pieces);
 	});
 
-	const delivered = $derived.by(() => {
-		const list = (ctx.machine?.recentObjects ?? [])
+	const deliveredHistory = $derived.by(() => {
+		const freshest_first = (ctx.machine?.recentObjects ?? [])
 			.filter(shouldShowInRecentPieces)
-			.filter((o) => lifecyclePhase(o) === 'distributed');
-		// Newest-first (most recently delivered directly under the exit line).
-		list.sort((a, b) => (b.distributed_at ?? b.updated_at ?? 0) - (a.distributed_at ?? a.updated_at ?? 0));
-		return list.slice(0, 5);
+			.filter(isTerminalPiece)
+			.filter(hasTerminalEvidence)
+			.sort((a, b) => terminalTs(b) - terminalTs(a));
+		// Newest terminal piece sits directly under the distributed line.
+		return dedupeByPhysicalPiece(freshest_first).slice(0, MAX_DELIVERED_PIECES);
 	});
 
 	function dataImageUrl(payload: string | null | undefined): string | null {
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	function capturedCropUrl(obj: KnownObjectData): string | null {
-		// Prefer the most recent sharp crop; top/bottom beat thumbnail which is
-		// often the earliest C4-detection thumb.
-		return (
+	function capturedCropUrl(obj: KnownObjectData, phase: LifecyclePhase): string | null {
+		// Prefer the newest object crop; full-frame/drop snapshots are only a
+		// final fallback once no crop-like evidence exists.
+		const crop_like =
+			dataImageUrl(obj.latest_captured_crop) ??
 			dataImageUrl(obj.top_image) ??
-			dataImageUrl(obj.bottom_image) ??
-			dataImageUrl(obj.thumbnail)
+			dataImageUrl(obj.bottom_image);
+		if (crop_like) return crop_like;
+		if (phase === 'tracking' || phase === 'capturing') return null;
+		return (
+			dataImageUrl(obj.thumbnail) ??
+			dataImageUrl(obj.drop_snapshot)
 		);
 	}
 
@@ -191,7 +269,7 @@
 
 {#snippet pieceCard(obj: KnownObjectData)}
 	{@const phase = lifecyclePhase(obj)}
-	{@const captured = capturedCropUrl(obj)}
+	{@const captured = capturedCropUrl(obj, phase)}
 	{@const preview = obj.brickognize_preview_url ?? null}
 	{@const reference_src = preview}
 	{@const cat_name = obj.category_id
@@ -338,12 +416,12 @@
 <div class="setup-card-shell flex h-full flex-col border">
 	<div class="setup-card-header px-3 py-2 text-sm font-medium text-text">Recent Pieces</div>
 	<div class="flex-1 overflow-y-auto">
-		{#if upcoming.length === 0 && delivered.length === 0}
+		{#if activeOnC4.length === 0 && deliveredHistory.length === 0}
 			<div class="p-3 text-center text-sm text-text-muted">No pieces yet</div>
 		{:else}
 			<div class="flex flex-col gap-1 p-1">
-				<!-- Upcoming (approaching exit, oldest-to-newest) -->
-				{#each upcoming as obj (obj.uuid)}
+				<!-- Active C4 pieces: farthest from exit at top, nearest exit above line. -->
+				{#each activeOnC4 as obj (obj.uuid)}
 					{@render pieceCard(obj)}
 				{/each}
 
@@ -354,8 +432,8 @@
 					<div class="h-px flex-1 bg-border"></div>
 				</div>
 
-				<!-- Delivered (newest-first directly under the line) -->
-				{#each delivered as obj (obj.uuid)}
+				<!-- Delivered/rejected history: newest-first directly under the line. -->
+				{#each deliveredHistory as obj (obj.uuid)}
 					{@render pieceCard(obj)}
 				{/each}
 			</div>

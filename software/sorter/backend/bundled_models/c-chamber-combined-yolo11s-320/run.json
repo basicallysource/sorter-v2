@@ -1,0 +1,33 @@
+{
+  "best_metrics": {
+    "epoch": 198,
+    "mAP50": 0.96182,
+    "mAP50_95": 0.83665,
+    "precision": 0.92723,
+    "recall": 0.90498
+  },
+  "dataset_source": "datasets/c_channel_full/v_combined_20260513 (900 balanced samples: C2=221, C3=343, C4=336 \u2014 confidence>=0.85, unreviewed included)",
+  "hive": {
+    "downloaded_at": "2026-05-14T07:29:47.340476+00:00",
+    "model_id": "e20ea89c-0b60-4b35-9fa9-5fafd09ae36f",
+    "sha256": "9a02a8eb69bb0edff6784f48e78a99b799f4c4e51d325547afb82fde4e72038a",
+    "target_id": "456faddd0062",
+    "variant_runtime": "onnx"
+  },
+  "imgsz": 320,
+  "model_family": "yolo",
+  "name": "C+Chamber Combined YOLO11s 320",
+  "run_name": "A5-yolo11s-320",
+  "runtime": "onnx",
+  "scopes": [
+    "c_channel",
+    "classification_channel"
+  ],
+  "source_provider": "vastai",
+  "train_elapsed_min": 25.1,
+  "trained_at": "2026-05-14T01:14:00+00:00",
+  "vastai_gpu": "RTX 3090",
+  "vastai_instance_id": "36712083",
+  "vastai_offer_id": "34058278",
+  "zone": "c_channel_full"
+}

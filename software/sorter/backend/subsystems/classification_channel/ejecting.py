@@ -20,6 +20,10 @@ from piece_transport import ClassificationChannelTransport
 from states.base_state import BaseState
 from subsystems.bus import StationId
 from subsystems.classification_channel.states import ClassificationChannelState
+from subsystems.sample_collection_speed import (
+    microsteps_from_stepper_config,
+    sample_collection_effective_speed_microsteps_per_second,
+)
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
 
@@ -105,8 +109,18 @@ class Ejecting(BaseState):
             # expected to raise it to its pulse-specific value (feeder
             # channels do the same via set_speed_limits before move).
             try:
+                speed = sample_collection_effective_speed_microsteps_per_second(
+                    "classification_channel",
+                    default_microsteps_per_second=int(cfg.microsteps_per_second),
+                    microsteps=microsteps_from_stepper_config(
+                        getattr(self.irl_config, "c_channel_4_rotor_stepper", None)
+                        or getattr(self.irl_config, "carousel_stepper", None),
+                        fallback=getattr(self.irl.carousel_stepper, "_microsteps", 8),
+                    ),
+                    enabled=bool(getattr(self.shared, "sample_collection_mode", False)),
+                )
                 self.irl.carousel_stepper.set_speed_limits(
-                    16, int(cfg.microsteps_per_second)
+                    16, int(speed or cfg.microsteps_per_second)
                 )
             except Exception as exc:
                 self.logger.warning(

@@ -203,11 +203,11 @@ class TestDownloadJobManager:
         assert final.get("error") is None
         assert final.get("progress_bytes") == len(payload)
 
-        dest_file = tmp_path / "hive-model-1" / "exports" / "detector.onnx"
+        dest_file = tmp_path / "hive-model-1-onnx" / "exports" / "detector.onnx"
         assert dest_file.exists()
         assert dest_file.read_bytes() == payload
 
-        run_json_path = tmp_path / "hive-model-1" / "run.json"
+        run_json_path = tmp_path / "hive-model-1-onnx" / "run.json"
         assert run_json_path.exists()
         run_json = json.loads(run_json_path.read_text())
         assert hive_models.HIVE_SENTINEL_KEY in run_json
@@ -224,7 +224,7 @@ class TestDownloadJobManager:
         # And it should show up under list_installed_models().
         installed = hive_models.list_installed_models()
         assert len(installed) == 1
-        assert installed[0]["local_id"] == "hive-model-1"
+        assert installed[0]["local_id"] == "hive-model-1-onnx"
         assert installed[0]["target_id"] == "hive-a"
 
     def test_sha_mismatch_is_captured_as_failure(
@@ -247,7 +247,7 @@ class TestDownloadJobManager:
         assert "SHA256 mismatch" in (final.get("error") or "")
 
         # No run.json should have been written on mismatch.
-        assert not (tmp_path / "hive-model-1" / "run.json").exists()
+        assert not (tmp_path / "hive-model-1-onnx" / "run.json").exists()
 
     def test_ncnn_tarball_is_extracted_in_place(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -295,7 +295,7 @@ class TestDownloadJobManager:
 
         final = manager.wait_for_terminal(job_id, timeout=5.0)
         assert final.get("status") == "done", final
-        assert (tmp_path / "hive-model-1" / "exports" / "best_ncnn_model" / "model.bin").exists()
+        assert (tmp_path / "hive-model-1-ncnn" / "exports" / "best_ncnn_model" / "model.bin").exists()
 
     def test_ncnn_tarball_rejects_path_traversal(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

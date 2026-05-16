@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import threading
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -44,6 +45,23 @@ router = APIRouter()
 
 SUPPORTED_API_KEY_PROVIDERS = ("openrouter",)
 FEEDER_DETECTION_ROLES = ("c_channel_2", "c_channel_3", "carousel")
+EXIT_STUCK_INCIDENT_KIND = "exit_stuck"
+CHANNEL_EXIT_STUCK_SOURCE_KIND = "channel_exit_stuck"
+CLASSIFICATION_EXIT_RELEASE_SOURCE_KIND = "classification_exit_release"
+CHANNEL_EXIT_STUCK_INCIDENT_KIND = EXIT_STUCK_INCIDENT_KIND
+CHANNEL_DROPZONE_STUCK_INCIDENT_KIND = "channel_dropzone_stuck"
+C2_SEPARATION_INCIDENT_KIND = "c2_separation_needed"
+BULK_FEEDER_STALLED_INCIDENT_KIND = "bulk_feeder_stalled"
+FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND = "feeder_detection_unavailable"
+DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
+DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
+DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
+CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
+CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
+CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
+CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
+CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
+CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
 # ---------------------------------------------------------------------------
 # Detection algorithm helper functions
@@ -102,6 +120,13 @@ def _feeder_sample_collection_supported(role: str | None = None) -> bool:
         except Exception:
             return False
     return True
+
+
+def _hive_sample_collection_enabled() -> bool:
+    try:
+        return bool(getClassificationTrainingManager().hasEnabledHiveTargets())
+    except Exception:
+        return False
 
 
 def _normalize_feeder_role(value: str | None) -> str | None:
@@ -219,6 +244,61 @@ class HiveRegisterPayload(BaseModel):
     password: str
     machine_name: str
     machine_description: str = ""
+
+
+class ClassificationExitIncidentActionPayload(BaseModel):
+    piece_uuid: Optional[str] = None
+
+
+class ClassificationExitIncidentTestReleasePayload(BaseModel):
+    piece_uuid: Optional[str] = None
+    amplitude_output_deg: float
+    microsteps_per_second: int
+    cycles: int = 1
+    acceleration_microsteps_per_second_sq: Optional[int] = None
+
+
+class ChannelExitIncidentActionPayload(BaseModel):
+    channel: Optional[str] = None
+
+
+class ChannelDropzoneIncidentActionPayload(BaseModel):
+    channel: Optional[str] = None
+    global_id: Optional[int] = None
+    track_id: Optional[int] = None
+
+
+class Ch2SeparationIncidentActionPayload(BaseModel):
+    channel: Optional[str] = None
+
+
+class ChannelExitIncidentTestReleasePayload(BaseModel):
+    channel: Optional[str] = None
+    amplitude_output_deg: float
+    microsteps_per_second: int
+    cycles: int = 1
+    acceleration_microsteps_per_second_sq: Optional[int] = None
+
+
+class HiveLinkPayload(BaseModel):
+    """Payload from the OAuth-style Hive linking flow.
+
+    The browser walks the user from the Sorter to the Hive ``/link-machine``
+    page, where the machine is registered against the user's already-
+    authenticated Hive session. Hive then redirects back to the Sorter with
+    the machine's freshly-minted api_token in the URL hash. The Sorter
+    frontend reads the hash and POSTs the contents here so the token can be
+    persisted next to the other configured Hive targets — no email/password
+    ever crosses the wire.
+    """
+
+    target_name: str = ""
+    url: str
+    api_token: str
+    machine_id: str = ""
+    machine_name: str = ""
+    token_prefix: str = ""
+    enabled: bool = True
 
 
 class HiveBackfillPayload(BaseModel):
@@ -504,6 +584,49 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
     }
 
 
+@router.post("/api/settings/hive/link")
+def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
+    """Persist a Hive target produced by the OAuth-style linking flow.
+
+    Counterpart to ``hive_register`` for the case where the machine was
+    created on the Hive side (the user clicked "Pair this Sorter" on
+    Hive while logged in). The Sorter never sees the user's credentials;
+    Hive hands the Sorter an ``api_token`` via the return-URL hash and
+    the frontend POSTs the bundle here so it can be stored next to any
+    existing targets.
+    """
+    base_url = payload.url.strip().rstrip("/")
+    if not base_url:
+        raise HTTPException(400, "Hive URL is required.")
+    api_token = payload.api_token.strip()
+    if not api_token:
+        raise HTTPException(400, "api_token is required.")
+
+    target_name = payload.target_name.strip() or base_url
+    targets = _load_hive_targets()
+    target_id = uuid4().hex[:12]
+    targets.append(
+        {
+            "id": target_id,
+            "name": target_name,
+            "url": base_url,
+            "api_token": api_token,
+            "enabled": bool(payload.enabled),
+            "machine_id": str(payload.machine_id) if payload.machine_id else "",
+        }
+    )
+    _save_hive_targets(targets)
+    getClassificationTrainingManager().reloadHiveUploader()
+    return {
+        "ok": True,
+        "target_id": target_id,
+        "target_name": target_name,
+        "machine_id": str(payload.machine_id),
+        "machine_name": payload.machine_name,
+        "token_prefix": payload.token_prefix or api_token[:8],
+    }
+
+
 @router.post("/api/settings/hive/backfill")
 def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[str, Any]:
     return getClassificationTrainingManager().backfillToHive(
@@ -620,15 +743,9 @@ def get_feeder_detection_config(role: str | None = Query(default=None)) -> Dict[
     openrouter_model = _normalize_openrouter_model(
         saved.get("openrouter_model") if isinstance(saved, dict) else None
     )
-    saved_by_role = (
-        saved.get("sample_collection_enabled_by_role")
-        if isinstance(saved, dict) and isinstance(saved.get("sample_collection_enabled_by_role"), dict)
-        else {}
-    )
+    hive_sample_collection_enabled = _hive_sample_collection_enabled()
     sample_collection_enabled_by_role = {
-        channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
-        if isinstance(saved, dict)
-        else False
+        channel_role: hive_sample_collection_enabled and _feeder_sample_collection_supported(channel_role)
         for channel_role in FEEDER_DETECTION_ROLES
     }
     sample_collection_enabled = (
@@ -704,28 +821,11 @@ def save_feeder_detection_config(
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
     saved = getFeederDetectionConfig()
     algorithm_by_role = _feeder_algorithm_by_role_from_config(saved if isinstance(saved, dict) else None)
-    saved_by_role = (
-        saved.get("sample_collection_enabled_by_role")
-        if isinstance(saved, dict) and isinstance(saved.get("sample_collection_enabled_by_role"), dict)
-        else {}
-    )
-    sample_collection_enabled_by_role = {
-        channel_role: bool(saved_by_role.get(channel_role, saved.get("sample_collection_enabled")))
-        if isinstance(saved, dict)
-        else False
-        for channel_role in FEEDER_DETECTION_ROLES
-    }
     if role is not None:
         algorithm_by_role[role] = algorithm
     else:
         for channel_role in FEEDER_DETECTION_ROLES:
             algorithm_by_role[channel_role] = algorithm
-    if isinstance(payload.sample_collection_enabled, bool):
-        if role is not None:
-            sample_collection_enabled_by_role[role] = bool(payload.sample_collection_enabled)
-        else:
-            for channel_role in FEEDER_DETECTION_ROLES:
-                sample_collection_enabled_by_role[channel_role] = bool(payload.sample_collection_enabled)
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setFeederDetectionAlgorithm"):
         try:
             if role is not None:
@@ -734,25 +834,21 @@ def save_feeder_detection_config(
                 shared_state.vision_manager.setFeederDetectionAlgorithm(algorithm)
             if hasattr(shared_state.vision_manager, "setFeederOpenRouterModel"):
                 shared_state.vision_manager.setFeederOpenRouterModel(openrouter_model)
-            if hasattr(shared_state.vision_manager, "setFeederSampleCollectionEnabled"):
-                if role is not None:
-                    sample_collection_enabled_by_role[role] = bool(
-                        shared_state.vision_manager.setFeederSampleCollectionEnabled(
-                            sample_collection_enabled_by_role[role], role
-                        )
-                    )
-                else:
-                    for channel_role in FEEDER_DETECTION_ROLES:
-                        sample_collection_enabled_by_role[channel_role] = bool(
-                            shared_state.vision_manager.setFeederSampleCollectionEnabled(
-                                sample_collection_enabled_by_role[channel_role],
-                                channel_role,
-                            )
-                        )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to apply feeder detection config: {exc}")
+    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "isFeederSampleCollectionEnabled"):
+        sample_collection_enabled_by_role = {
+            channel_role: bool(shared_state.vision_manager.isFeederSampleCollectionEnabled(channel_role))
+            for channel_role in FEEDER_DETECTION_ROLES
+        }
+    else:
+        hive_sample_collection_enabled = _hive_sample_collection_enabled()
+        sample_collection_enabled_by_role = {
+            channel_role: hive_sample_collection_enabled and _feeder_sample_collection_supported(channel_role)
+            for channel_role in FEEDER_DETECTION_ROLES
+        }
     sample_collection_enabled = (
         bool(sample_collection_enabled_by_role.get(role))
         if role is not None
@@ -769,8 +865,6 @@ def save_feeder_detection_config(
             ),
             "algorithm_by_role": algorithm_by_role,
             "openrouter_model": openrouter_model,
-            "sample_collection_enabled": sample_collection_enabled,
-            "sample_collection_enabled_by_role": sample_collection_enabled_by_role,
         }
     )
     role_label = _feeder_role_label(role)
@@ -778,9 +872,9 @@ def save_feeder_detection_config(
     sample_collection_supported = _feeder_sample_collection_supported(role)
     if sample_collection_supported:
         if sample_collection_enabled:
-            message += f" Event-driven Gemini teacher sample collection is enabled for {role_label.lower()} moves."
+            message += f" Enabled Hive targets will receive Gemini teacher samples for {role_label.lower()} moves."
         elif role is not None:
-            message += f" Event-driven Gemini teacher sample collection is disabled for {role_label.lower()} moves."
+            message += f" No enabled Hive target is currently receiving {role_label.lower()} samples."
     else:
         message += f" Event-driven Gemini teacher sample collection is unavailable for {role_label.lower()} in the current camera setup."
     return {
@@ -810,7 +904,7 @@ def get_carousel_detection_config() -> Dict[str, Any]:
     openrouter_model = _normalize_openrouter_model(
         saved.get("openrouter_model") if isinstance(saved, dict) else None
     )
-    sample_collection_enabled = bool(saved.get("sample_collection_enabled")) if isinstance(saved, dict) else False
+    sample_collection_enabled = _hive_sample_collection_enabled()
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "getCarouselDetectionAlgorithm"):
         try:
             algorithm = _normalize_carousel_detection_algorithm(shared_state.vision_manager.getCarouselDetectionAlgorithm())
@@ -845,30 +939,23 @@ def save_carousel_detection_config(
         raise HTTPException(status_code=400, detail="Unsupported carousel detection algorithm.")
     algorithm = _normalize_carousel_detection_algorithm(payload.algorithm)
     openrouter_model = _normalize_openrouter_model(payload.openrouter_model)
-    saved = getCarouselDetectionConfig()
-    sample_collection_enabled = (
-        bool(payload.sample_collection_enabled)
-        if isinstance(payload.sample_collection_enabled, bool)
-        else bool(saved.get("sample_collection_enabled")) if isinstance(saved, dict) else False
-    )
     if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "setCarouselDetectionAlgorithm"):
         try:
             shared_state.vision_manager.setCarouselDetectionAlgorithm(algorithm)
             if hasattr(shared_state.vision_manager, "setCarouselOpenRouterModel"):
                 shared_state.vision_manager.setCarouselOpenRouterModel(openrouter_model)
-            if hasattr(shared_state.vision_manager, "setCarouselSampleCollectionEnabled"):
-                sample_collection_enabled = bool(
-                    shared_state.vision_manager.setCarouselSampleCollectionEnabled(sample_collection_enabled)
-                )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc))
         except Exception as exc:
             raise HTTPException(status_code=500, detail=f"Failed to apply carousel detection config: {exc}")
+    if shared_state.vision_manager is not None and hasattr(shared_state.vision_manager, "isCarouselSampleCollectionEnabled"):
+        sample_collection_enabled = bool(shared_state.vision_manager.isCarouselSampleCollectionEnabled())
+    else:
+        sample_collection_enabled = _hive_sample_collection_enabled()
     setCarouselDetectionConfig(
         {
             "algorithm": algorithm,
             "openrouter_model": openrouter_model,
-            "sample_collection_enabled": sample_collection_enabled,
         }
     )
     algorithm_label = _detection_algorithm_label("carousel", algorithm)
@@ -881,10 +968,10 @@ def save_carousel_detection_config(
         "sample_collection_supported": _auxiliary_sample_collection_supported(),
         "uses_baseline": uses_baseline,
         "message": (
-            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is enabled for classical carousel triggers."
+            f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Enabled Hive targets will receive Gemini teacher samples for classical carousel triggers."
             if uses_baseline and sample_collection_enabled and _auxiliary_sample_collection_supported()
             else (
-                f"Carousel detection switched to {algorithm_label}. Event-driven Gemini teacher sample collection is enabled and will take effect when Heatmap Diff is active."
+                f"Carousel detection switched to {algorithm_label}. Enabled Hive targets will receive Gemini teacher samples when Heatmap Diff is active."
                 if sample_collection_enabled and _auxiliary_sample_collection_supported()
                 else (
                     f"Carousel detection switched to {algorithm_label}. Capture a fresh baseline if detection stays unavailable. Event-driven Gemini teacher sample collection is unavailable for the current camera setup."
@@ -979,18 +1066,45 @@ def debug_classification_detection(camera: str) -> Dict[str, Any]:
         _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
     )
     if isinstance(sample_capture, dict):
+        from subsystems.classification.bbox_projection import (
+            translate_bbox_to_crop,
+            translate_bboxes_to_crop,
+        )
         save_model = None
         if payload.get("algorithm") == "gemini_sam" and hasattr(shared_state.vision_manager, "getClassificationOpenRouterModel"):
             try:
                 save_model = shared_state.vision_manager.getClassificationOpenRouterModel()
             except Exception:
                 save_model = None
+        # Translate full-frame bboxes into zone-crop coords so Hive's
+        # overlay aligns with the saved zone image.
+        zone_bbox_tuple = (
+            tuple(int(v) for v in zone_bbox)
+            if isinstance(zone_bbox, (list, tuple)) and len(zone_bbox) >= 4
+            else None
+        )
+        bbox_crop = (
+            list(translate_bbox_to_crop(tuple(int(v) for v in bbox), zone_bbox_tuple))
+            if isinstance(bbox, (list, tuple)) and len(bbox) >= 4
+            and translate_bbox_to_crop(tuple(int(v) for v in bbox), zone_bbox_tuple) is not None
+            else None
+        )
+        candidate_bboxes_crop = (
+            [list(c) for c in translate_bboxes_to_crop(
+                [tuple(int(v) for v in c) for c in candidate_bboxes if isinstance(c, (list, tuple)) and len(c) >= 4],
+                zone_bbox_tuple,
+            )]
+            if isinstance(candidate_bboxes, list) else []
+        )
+        debug_result_for_save = dict(payload)
+        debug_result_for_save["bbox"] = bbox_crop
+        debug_result_for_save["candidate_bboxes"] = candidate_bboxes_crop
         try:
             saved = getClassificationTrainingManager().saveDetectionDebugCapture(
                 camera=camera,
                 algorithm=str(payload.get("algorithm") or ""),
                 openrouter_model=save_model,
-                debug_result=payload,
+                debug_result=debug_result_for_save,
                 top_zone=sample_capture.get("top_zone"),
                 bottom_zone=sample_capture.get("bottom_zone"),
                 top_frame=sample_capture.get("top_frame"),
@@ -1011,6 +1125,33 @@ def _finalize_aux_detection_debug_payload(
     sample_capture: dict[str, Any] | None,
     openrouter_model: str | None,
 ) -> Dict[str, Any]:
+    from subsystems.classification.bbox_projection import (
+        translate_bbox_to_crop,
+        translate_bboxes_to_crop,
+    )
+
+    def _sample_crop_bbox() -> tuple[int, int, int, int] | None:
+        if not isinstance(sample_capture, dict):
+            return None
+        image = sample_capture.get("input_image")
+        offset = sample_capture.get("crop_offset")
+        if not (
+            hasattr(image, "shape")
+            and isinstance(offset, (list, tuple))
+            and len(offset) >= 2
+        ):
+            return None
+        try:
+            crop_h = int(image.shape[0])
+            crop_w = int(image.shape[1])
+            crop_x = int(offset[0])
+            crop_y = int(offset[1])
+        except Exception:
+            return None
+        if crop_w <= 0 or crop_h <= 0:
+            return None
+        return (crop_x, crop_y, crop_x + crop_w, crop_y + crop_h)
+
     frame_resolution = payload.get("frame_resolution")
     bbox = payload.get("bbox")
     zone_bbox = payload.get("zone_bbox")
@@ -1030,11 +1171,41 @@ def _finalize_aux_detection_debug_payload(
     payload["normalized_zone_bbox"] = (
         _normalize_bbox(zone_bbox, frame_resolution) if isinstance(zone_bbox, (list, tuple)) else None
     )
+    # ``bbox`` / ``candidate_bboxes`` are in full-frame coordinates (the hive
+    # detector shifts crop-space results back via ``_offsetDetectionResult``).
+    # The sample image we archive is the polygon zone-crop (input_image from
+    # ``_captureAuxiliarySampleFromFrame``). Translate the bboxes into
+    # crop-space before persisting so Hive's overlay lands on the piece.
+    zone_bbox_tuple = _sample_crop_bbox() or (
+        tuple(int(v) for v in zone_bbox)
+        if isinstance(zone_bbox, (list, tuple)) and len(zone_bbox) >= 4
+        else None
+    )
+    bbox_crop = (
+        translate_bbox_to_crop(tuple(int(v) for v in bbox), zone_bbox_tuple)
+        if isinstance(bbox, (list, tuple)) and len(bbox) >= 4
+        else None
+    )
+    candidate_bboxes_crop = (
+        translate_bboxes_to_crop(
+            [tuple(int(v) for v in c) for c in candidate_bboxes if isinstance(c, (list, tuple)) and len(c) >= 4],
+            zone_bbox_tuple,
+        )
+        if isinstance(candidate_bboxes, list)
+        else []
+    )
+    source_role = role
+    vm = shared_state.vision_manager
+    if vm is not None and hasattr(vm, "sampleSourceRoleForRole"):
+        try:
+            source_role = str(vm.sampleSourceRoleForRole(role))
+        except Exception:
+            source_role = role
     if isinstance(sample_capture, dict) and _auxiliary_sample_collection_supported():
         try:
             saved = getClassificationTrainingManager().saveAuxiliaryDetectionCapture(
                 source="settings_detection_test",
-                source_role=role,
+                source_role=source_role,
                 detection_scope=(
                     "feeder" if role in {"c_channel_2", "c_channel_3"} else "carousel"
                 ),
@@ -1042,8 +1213,8 @@ def _finalize_aux_detection_debug_payload(
                 detection_algorithm=str(payload.get("algorithm") or ""),
                 detection_openrouter_model=openrouter_model,
                 detection_found=bool(payload.get("found")),
-                detection_bbox=bbox if isinstance(bbox, (list, tuple)) else None,
-                detection_candidate_bboxes=candidate_bboxes if isinstance(candidate_bboxes, list) else [],
+                detection_bbox=list(bbox_crop) if bbox_crop is not None else None,
+                detection_candidate_bboxes=[list(c) for c in candidate_bboxes_crop],
                 detection_bbox_count=int(payload.get("bbox_count") or 0),
                 detection_score=float(payload.get("score")) if isinstance(payload.get("score"), (int, float)) else None,
                 detection_message=payload.get("message") if isinstance(payload.get("message"), str) else None,
@@ -1338,13 +1509,774 @@ def classification_channel_debug() -> Dict[str, Any]:
         "hard_collisions": list(zone_manager.hard_collisions()) if zone_manager is not None else [],
         "active_pieces": [_piece_payload(piece) for piece in active_pieces],
         "zones": [zone.to_overlay_payload() for zone in zones],
-        "overlay": (
-            shared_state.vision_manager.getClassificationChannelZoneOverlayData()
-            if shared_state.vision_manager is not None
-            and hasattr(shared_state.vision_manager, "getClassificationChannelZoneOverlayData")
+        "exit_release_incident": _classification_channel_exit_incident_snapshot_or_none(),
+    }
+
+
+def _classification_channel_running_state() -> Any:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
+    states_map = getattr(classification, "states_map", None)
+    if isinstance(states_map, dict):
+        for state in states_map.values():
+            if hasattr(state, "approveExitReleaseIncident"):
+                return state
+    current_state = getattr(classification, "current_state", None)
+    state_obj = None
+    if isinstance(states_map, dict) and current_state is not None:
+        state_obj = states_map.get(current_state)
+    if state_obj is not None and hasattr(state_obj, "approveExitReleaseIncident"):
+        return state_obj
+    raise HTTPException(status_code=503, detail="Classification-channel runtime not available.")
+
+
+def _classification_channel_exit_incident_snapshot_or_none() -> Dict[str, Any] | None:
+    try:
+        running = _classification_channel_running_state()
+    except HTTPException:
+        return None
+    snapshot = running.exitReleaseIncidentSnapshot()
+    return snapshot if isinstance(snapshot, dict) else None
+
+
+@router.get("/api/classification-channel/exit-incident")
+def classification_channel_exit_incident() -> Dict[str, Any]:
+    return {
+        "ok": True,
+        "incident": _classification_channel_exit_incident_snapshot_or_none(),
+    }
+
+
+@router.post("/api/classification-channel/exit-incident/continue")
+def classification_channel_exit_incident_continue(
+    payload: ClassificationExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    running = _classification_channel_running_state()
+    try:
+        incident = running.approveExitReleaseIncident(
+            None if payload is None else payload.piece_uuid
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "incident": incident}
+
+
+@router.post("/api/classification-channel/exit-incident/test-release")
+def classification_channel_exit_incident_test_release(
+    payload: ClassificationExitIncidentTestReleasePayload,
+) -> Dict[str, Any]:
+    running = _classification_channel_running_state()
+    try:
+        result = running.testExitReleaseIncident(
+            piece_uuid=payload.piece_uuid,
+            amplitude_output_deg=payload.amplitude_output_deg,
+            microsteps_per_second=payload.microsteps_per_second,
+            cycles=payload.cycles,
+            acceleration_microsteps_per_second_sq=payload.acceleration_microsteps_per_second_sq,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "release": result}
+
+
+@router.post("/api/classification-channel/exit-incident/clear")
+def classification_channel_exit_incident_clear(
+    payload: ClassificationExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    running = _classification_channel_running_state()
+    try:
+        result = running.clearExitReleaseIncident(
+            None if payload is None else payload.piece_uuid
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return result
+
+
+@router.post("/api/classification-channel/fallback-incident/clear")
+def classification_channel_fallback_incident_clear(
+    payload: ClassificationExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    fallback_kinds = {
+        CLASSIFICATION_UNRESOLVED_INCIDENT_KIND,
+        CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
+        CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
+        CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
+    }
+    if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
+        for kind in fallback_kinds:
+            runtime_stats.clearActiveIncident(kind=kind)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested_piece_uuid = None if payload is None else payload.piece_uuid
+    if (
+        isinstance(requested_piece_uuid, str)
+        and requested_piece_uuid.strip()
+        and requested_piece_uuid.strip() != active.get("piece_uuid")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="The active classification incident belongs to another piece.",
+        )
+
+    kind = str(active.get("kind"))
+    runtime_stats.clearActiveIncident(
+        kind=kind,
+        piece_uuid=(
+            str(active.get("piece_uuid"))
+            if isinstance(active.get("piece_uuid"), str)
             else None
         ),
+    )
+    return {
+        "ok": True,
+        "cleared": True,
+        "kind": kind,
+        "piece_uuid": active.get("piece_uuid"),
+        "channel": "c4",
     }
+
+
+def _runtime_stats_or_503() -> Any:
+    runtime_stats = (
+        getattr(shared_state.gc_ref, "runtime_stats", None)
+        if shared_state.gc_ref is not None
+        else None
+    )
+    if runtime_stats is None:
+        raise HTTPException(status_code=503, detail="Runtime stats are not available.")
+    return runtime_stats
+
+
+def _normalize_channel_exit_channel(value: str | None) -> str | None:
+    if value is None:
+        return None
+    candidate = value.strip().lower().replace("-", "_")
+    if candidate in ("c2", "ch2", "c_channel_2", "channel_2"):
+        return "c2"
+    if candidate in ("c3", "ch3", "c_channel_3", "channel_3"):
+        return "c3"
+    raise HTTPException(status_code=400, detail="Unsupported channel exit incident channel.")
+
+
+def _active_channel_exit_incident(
+    requested_channel: str | None = None,
+) -> tuple[Any, Dict[str, Any]]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or not _is_channel_exit_incident(active):
+        raise HTTPException(status_code=409, detail="No C2/C3 exit incident is waiting.")
+
+    active_channel = _normalize_channel_exit_channel(str(active.get("channel") or ""))
+    wanted_channel = _normalize_channel_exit_channel(requested_channel)
+    if wanted_channel is not None and wanted_channel != active_channel:
+        raise HTTPException(status_code=400, detail="The active exit incident belongs to another channel.")
+
+    active["channel"] = active_channel
+    return runtime_stats, active
+
+
+def _is_channel_exit_incident(active: Dict[str, Any]) -> bool:
+    kind = active.get("kind")
+    source_kind = active.get("source_kind")
+    if kind == "channel_exit_stuck":
+        return True
+    if kind != CHANNEL_EXIT_STUCK_INCIDENT_KIND:
+        return False
+    if source_kind not in (None, CHANNEL_EXIT_STUCK_SOURCE_KIND):
+        return False
+    try:
+        _normalize_channel_exit_channel(str(active.get("channel") or ""))
+    except HTTPException:
+        return False
+    return True
+
+
+def _payload_global_id(payload: ChannelDropzoneIncidentActionPayload | None) -> int | None:
+    if payload is None:
+        return None
+    value = payload.global_id if payload.global_id is not None else payload.track_id
+    return int(value) if value is not None else None
+
+
+def _active_channel_dropzone_incident(
+    requested_channel: str | None = None,
+    requested_global_id: int | None = None,
+) -> tuple[Any, Dict[str, Any]]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != CHANNEL_DROPZONE_STUCK_INCIDENT_KIND:
+        raise HTTPException(status_code=409, detail="No C2/C3 dropzone incident is waiting.")
+
+    active_channel = _normalize_channel_exit_channel(str(active.get("channel") or ""))
+    wanted_channel = _normalize_channel_exit_channel(requested_channel)
+    if wanted_channel is not None and wanted_channel != active_channel:
+        raise HTTPException(status_code=400, detail="The active dropzone incident belongs to another channel.")
+
+    active_global_id = active.get("global_id", active.get("track_id"))
+    if not isinstance(active_global_id, int):
+        raise HTTPException(status_code=409, detail="The active dropzone incident has no tracker id.")
+    if requested_global_id is not None and int(requested_global_id) != int(active_global_id):
+        raise HTTPException(status_code=400, detail="The active dropzone incident belongs to another tracker id.")
+
+    active["channel"] = active_channel
+    active["global_id"] = int(active_global_id)
+    active["track_id"] = int(active_global_id)
+    return runtime_stats, active
+
+
+def _feeding_runtime_state_or_503() -> Any:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    feeder = getattr(coordinator, "feeder", None)
+    states_map = getattr(feeder, "states_map", None)
+    if isinstance(states_map, dict):
+        for state in states_map.values():
+            if hasattr(state, "acknowledgeDropzoneStuckIncident"):
+                return state
+    raise HTTPException(status_code=503, detail="Feeder runtime not available.")
+
+
+def _active_irl_or_503() -> Any:
+    irl = shared_state.getActiveIRL() or shared_state.hardware_runtime_irl
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Start or home the system first.")
+    return irl
+
+
+def _channel_exit_stepper(channel: str) -> tuple[str, Any]:
+    irl = _active_irl_or_503()
+    if channel == "c2":
+        stepper_key = "c_channel_2"
+        stepper = getattr(irl, "c_channel_2_rotor_stepper", None)
+    elif channel == "c3":
+        stepper_key = "c_channel_3"
+        stepper = getattr(irl, "c_channel_3_rotor_stepper", None)
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported channel exit incident channel.")
+    if stepper is None:
+        raise HTTPException(status_code=500, detail=f"Stepper '{stepper_key}' unavailable.")
+    return stepper_key, stepper
+
+
+def _validate_channel_exit_release_payload(
+    payload: ChannelExitIncidentTestReleasePayload,
+) -> dict[str, Any]:
+    amplitude_output = float(payload.amplitude_output_deg)
+    if amplitude_output < 0.1 or amplitude_output > 12.0:
+        raise HTTPException(status_code=400, detail="amplitude_output_deg must be between 0.1 and 12.0.")
+    speed = int(payload.microsteps_per_second)
+    if speed < 100 or speed > 16000:
+        raise HTTPException(status_code=400, detail="microsteps_per_second must be between 100 and 16000.")
+    cycles = int(payload.cycles)
+    if cycles < 1 or cycles > 20:
+        raise HTTPException(status_code=400, detail="cycles must be between 1 and 20.")
+    if payload.acceleration_microsteps_per_second_sq is None:
+        acceleration = max(1000, min(48000, int(round(speed * 3.0))))
+    else:
+        acceleration = int(payload.acceleration_microsteps_per_second_sq)
+        if acceleration < 1000 or acceleration > 48000:
+            raise HTTPException(
+                status_code=400,
+                detail="acceleration_microsteps_per_second_sq must be between 1000 and 48000.",
+            )
+    return {
+        "amplitude_output_deg": amplitude_output,
+        "microsteps_per_second": speed,
+        "acceleration_microsteps_per_second_sq": acceleration,
+        "cycles": cycles,
+    }
+
+
+def _channel_exit_release_plan(
+    *,
+    amplitude_output_deg: float,
+    cycles: int,
+) -> list[tuple[str, float, float]]:
+    amplitude_stepper = float(amplitude_output_deg) * CHANNEL_EXIT_RELEASE_GEAR_RATIO
+    plan: list[tuple[str, float, float]] = []
+    for cycle in range(1, cycles + 1):
+        is_last_cycle = cycle == cycles
+        plan.extend(
+            [
+                (f"manual-test.{cycle}.cw", amplitude_stepper, CHANNEL_EXIT_RELEASE_SETTLE_S),
+                (f"manual-test.{cycle}.ccw-cross", -2.0 * amplitude_stepper, CHANNEL_EXIT_RELEASE_SETTLE_S),
+                (f"manual-test.{cycle}.cw-return", amplitude_stepper, 0.0 if is_last_cycle else CHANNEL_EXIT_RELEASE_SETTLE_S),
+            ]
+        )
+    return plan
+
+
+def _publish_channel_exit_incident_status(
+    runtime_stats: Any,
+    incident: Dict[str, Any],
+    *,
+    status: str,
+    **extra: Any,
+) -> None:
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict):
+        return
+    if not _is_channel_exit_incident(active):
+        return
+    if active.get("channel") != incident.get("channel"):
+        return
+    updated = dict(active)
+    updated.update(extra)
+    updated["status"] = status
+    updated["awaiting_operator"] = status == "waiting_for_operator"
+    runtime_stats.setActiveIncident(updated)
+
+
+def _estimate_channel_exit_move_timeout_ms(stepper: Any, move_deg: float, speed: int) -> int:
+    estimate_fn = getattr(stepper, "estimateMoveDegreesMs", None)
+    if callable(estimate_fn):
+        try:
+            estimate = int(estimate_fn(abs(float(move_deg)), max_speed=max(1, int(speed))))
+            return max(1500, estimate + 1500)
+        except Exception:
+            pass
+    return 5000
+
+
+def _run_channel_exit_release_motion(
+    *,
+    runtime_stats: Any,
+    incident: Dict[str, Any],
+    stepper: Any,
+    lock: threading.Lock,
+    plan: list[tuple[str, float, float]],
+    speed: int,
+    acceleration: int,
+) -> None:
+    ok = True
+    error: str | None = None
+    strokes_completed = 0
+    try:
+        try:
+            stepper.enabled = True
+        except Exception:
+            pass
+        for label, move_deg, settle_s in plan:
+            try:
+                stepper.set_speed_limits(16, int(speed))
+            except Exception as exc:
+                raise RuntimeError(f"Could not apply exit-release speed: {exc}") from exc
+            set_acceleration = getattr(stepper, "set_acceleration", None)
+            if callable(set_acceleration):
+                try:
+                    set_acceleration(int(acceleration))
+                except Exception as exc:
+                    raise RuntimeError(f"Could not apply exit-release acceleration: {exc}") from exc
+
+            move_blocking = getattr(stepper, "move_degrees_blocking", None)
+            if callable(move_blocking):
+                moved = bool(
+                    move_blocking(
+                        float(move_deg),
+                        timeout_ms=_estimate_channel_exit_move_timeout_ms(stepper, move_deg, speed),
+                    )
+                )
+            else:
+                move = getattr(stepper, "move_degrees", None)
+                if not callable(move):
+                    raise RuntimeError("Stepper does not support degree moves.")
+                moved = bool(move(float(move_deg)))
+                time.sleep(max(0.0, _estimate_channel_exit_move_timeout_ms(stepper, move_deg, speed) / 1000.0))
+            if not moved:
+                raise RuntimeError(f"Exit-release move {label} was not acknowledged.")
+            strokes_completed += 1
+            if settle_s > 0.0:
+                time.sleep(float(settle_s))
+    except Exception as exc:
+        ok = False
+        error = str(exc)
+    finally:
+        _publish_channel_exit_incident_status(
+            runtime_stats,
+            incident,
+            status="waiting_for_operator",
+            last_test_ok=ok,
+            last_test_error=error,
+            last_test_completed_at=time.time(),
+            last_test_strokes_completed=strokes_completed,
+        )
+        lock.release()
+
+
+@router.post("/api/feeder/channel-exit-incident/test-release")
+def feeder_channel_exit_incident_test_release(
+    payload: ChannelExitIncidentTestReleasePayload,
+) -> Dict[str, Any]:
+    runtime_stats, incident = _active_channel_exit_incident(payload.channel)
+    stepper_key, stepper = _channel_exit_stepper(str(incident["channel"]))
+    release = _validate_channel_exit_release_payload(payload)
+    plan = _channel_exit_release_plan(
+        amplitude_output_deg=float(release["amplitude_output_deg"]),
+        cycles=int(release["cycles"]),
+    )
+
+    stopped = getattr(stepper, "stopped", True)
+    if stopped is False:
+        raise HTTPException(status_code=409, detail=f"Stepper '{stepper_key}' is still moving.")
+
+    lock = shared_state.pulse_locks.setdefault(stepper_key, threading.Lock())
+    if not lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail=f"Stepper '{stepper_key}' is already moving.")
+
+    result = {
+        "channel": incident["channel"],
+        **release,
+        "first_stroke_stepper_deg": plan[0][1] if plan else 0.0,
+        "stroke_count": len(plan),
+    }
+    _publish_channel_exit_incident_status(
+        runtime_stats,
+        incident,
+        status="manual_test_running",
+        **result,
+    )
+    threading.Thread(
+        target=_run_channel_exit_release_motion,
+        kwargs={
+            "runtime_stats": runtime_stats,
+            "incident": incident,
+            "stepper": stepper,
+            "lock": lock,
+            "plan": plan,
+            "speed": int(release["microsteps_per_second"]),
+            "acceleration": int(release["acceleration_microsteps_per_second_sq"]),
+        },
+        daemon=True,
+    ).start()
+    return {"ok": True, "release": result}
+
+
+@router.post("/api/feeder/channel-exit-incident/clear")
+def feeder_channel_exit_incident_clear(
+    payload: ChannelExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or not _is_channel_exit_incident(active):
+        runtime_stats.clearActiveIncident(kind=CHANNEL_EXIT_STUCK_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    active_channel = _normalize_channel_exit_channel(str(active.get("channel") or ""))
+    requested_channel = _normalize_channel_exit_channel(None if payload is None else payload.channel)
+    if requested_channel is not None and requested_channel != active_channel:
+        raise HTTPException(status_code=400, detail="The active exit incident belongs to another channel.")
+
+    runtime_stats.clearActiveIncident(kind=str(active.get("kind") or CHANNEL_EXIT_STUCK_INCIDENT_KIND))
+    return {"ok": True, "cleared": True, "channel": active_channel}
+
+
+@router.post("/api/feeder/channel-dropzone-incident/acknowledge")
+def feeder_channel_dropzone_incident_acknowledge(
+    payload: ChannelDropzoneIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    _runtime_stats, active = _active_channel_dropzone_incident(
+        None if payload is None else payload.channel,
+        _payload_global_id(payload),
+    )
+    feeding = _feeding_runtime_state_or_503()
+    try:
+        return feeding.acknowledgeDropzoneStuckIncident(
+            active["channel"],
+            int(active["global_id"]),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/feeder/channel-dropzone-incident/clear")
+def feeder_channel_dropzone_incident_clear(
+    payload: ChannelDropzoneIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != CHANNEL_DROPZONE_STUCK_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=CHANNEL_DROPZONE_STUCK_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    _runtime_stats, active = _active_channel_dropzone_incident(
+        None if payload is None else payload.channel,
+        _payload_global_id(payload),
+    )
+    feeding = _feeding_runtime_state_or_503()
+    try:
+        return feeding.clearDropzoneStuckIncident(
+            active["channel"],
+            int(active["global_id"]),
+        )
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/api/feeder/ch2-separation-incident/clear")
+def feeder_ch2_separation_incident_clear(
+    payload: Ch2SeparationIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != C2_SEPARATION_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested_channel = _normalize_channel_exit_channel(None if payload is None else payload.channel)
+    if requested_channel is not None and requested_channel != "c2":
+        raise HTTPException(status_code=400, detail="The active separation incident belongs to C2.")
+
+    runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND)
+    return {"ok": True, "cleared": True, "channel": "c2"}
+
+
+@router.post("/api/feeder/bulk-feed-incident/clear")
+def feeder_bulk_feed_incident_clear(
+    payload: Ch2SeparationIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != BULK_FEEDER_STALLED_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested_channel = None if payload is None else payload.channel
+    if requested_channel is not None and requested_channel not in {"c1", "ch1", "bulk_feeder"}:
+        raise HTTPException(status_code=400, detail="The active bulk-feed incident belongs to C1.")
+
+    runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND)
+    return {"ok": True, "cleared": True, "channel": "c1"}
+
+
+@router.post("/api/feeder/detection-incident/clear")
+def feeder_detection_incident_clear() -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
+    return {"ok": True, "cleared": True, "channel": "feeder"}
+
+
+@router.post("/api/distribution/incident/clear")
+def distribution_incident_clear() -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    distribution_kinds = {
+        DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
+        DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND,
+        DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
+    }
+    if not isinstance(active, dict) or active.get("kind") not in distribution_kinds:
+        for kind in distribution_kinds:
+            runtime_stats.clearActiveIncident(kind=kind)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    kind = str(active.get("kind"))
+    runtime_stats.clearActiveIncident(kind=kind)
+    return {"ok": True, "cleared": True, "kind": kind, "channel": "distribution"}
+
+
+@router.post("/api/classification-channel/wall-phase")
+def classification_channel_wall_phase(
+    include_lines: bool = False,
+) -> Dict[str, Any]:
+    frame = _classification_channel_live_frame()
+
+    from vision.c4_wall_phase import detect_c4_wall_phase
+
+    result = detect_c4_wall_phase(frame.raw)
+    return {
+        "ok": True,
+        "frame_luma": _frame_luma_payload(frame.raw),
+        **result.as_dict(include_lines=include_lines),
+    }
+
+
+def _frame_luma_payload(frame_bgr: Any) -> Dict[str, Any]:
+    if frame_bgr is None or not hasattr(frame_bgr, "shape"):
+        return {}
+    try:
+        if len(frame_bgr.shape) == 3:
+            gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = frame_bgr
+        if gray.size == 0:
+            return {}
+        return {
+            "mean": float(np.mean(gray)),
+            "p95": float(np.percentile(gray, 95)),
+            "max": int(np.max(gray)),
+            "nonblack_gt25_ratio": float(np.mean(gray > 25)),
+        }
+    except Exception:
+        return {}
+
+
+def _classification_channel_live_frame() -> Any:
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "getCaptureThreadForRole"):
+        raise HTTPException(status_code=503, detail="Vision manager not available.")
+
+    capture = vm.getCaptureThreadForRole("carousel")
+    if capture is None:
+        capture = vm.getCaptureThreadForRole("classification_channel")
+    if capture is None:
+        raise HTTPException(status_code=503, detail="Classification-channel camera not available.")
+    frame = capture.latest_frame
+    if frame is None:
+        raise HTTPException(status_code=503, detail="No live classification-channel frame available.")
+    return frame
+
+
+@router.post("/api/classification-channel/sector-occupancy")
+def classification_channel_sector_occupancy(
+    include_lines: bool = False,
+    force_detection: bool = False,
+) -> Dict[str, Any]:
+    vm = shared_state.vision_manager
+    if vm is None:
+        raise HTTPException(status_code=503, detail="Vision manager not available.")
+    if not hasattr(vm, "getClassificationChannelDetectionCandidates"):
+        raise HTTPException(status_code=503, detail="Classification-channel detection is unavailable.")
+
+    frame = _classification_channel_live_frame()
+    from vision.c4_wall_phase import detect_c4_wall_phase
+    from subsystems.classification_channel.five_sector_platter import (
+        C4FiveSectorPlatter,
+        C4SectorDetection,
+    )
+
+    phase = detect_c4_wall_phase(frame.raw)
+    irl_config = _active_irl_config()
+    platter = C4FiveSectorPlatter.from_irl_config(irl_config)
+    phase_offset = phase.sector_offset_deg if phase.sector_offset_deg is not None else 0.0
+
+    if phase.center_x is None or phase.center_y is None:
+        return {
+            "ok": False,
+            "message": phase.message,
+            "frame_luma": _frame_luma_payload(frame.raw),
+            "wall_phase": phase.as_dict(include_lines=include_lines),
+            "sectors": [],
+            "candidate_bboxes": [],
+            "detections": [],
+        }
+
+    try:
+        candidate_bboxes = vm.getClassificationChannelDetectionCandidates(
+            force=force_detection,
+            frame=frame,
+        )
+    except TypeError:
+        candidate_bboxes = vm.getClassificationChannelDetectionCandidates(
+            force=force_detection,
+        )
+
+    detections: list[C4SectorDetection] = []
+    detection_payloads: list[dict[str, Any]] = []
+    center_xy = (float(phase.center_x), float(phase.center_y))
+    for index, candidate in enumerate(candidate_bboxes):
+        if not isinstance(candidate, (list, tuple)) or len(candidate) < 4:
+            continue
+        bbox = tuple(float(value) for value in candidate[:4])
+        detection = C4SectorDetection.from_bbox(
+            bbox,
+            center_xy=center_xy,
+            confidence=1.0,
+            track_id=index,
+        )
+        detections.append(detection)
+        detection_payloads.append(
+            {
+                "bbox": [int(round(value)) for value in bbox],
+                "angle_deg": detection.angle_deg,
+                "sector_index": platter.sector_for_angle(
+                    detection.angle_deg,
+                    wall_offset_deg=phase_offset,
+                ),
+            }
+        )
+
+    handoff_sector, exit_sector = _classification_channel_role_sectors(
+        platter,
+        phase_offset,
+        irl_config,
+    )
+    sectors = platter.occupancy_from_detections(
+        detections,
+        wall_offset_deg=phase_offset,
+        handoff_sector=handoff_sector,
+        exit_sector=exit_sector,
+    )
+    return {
+        "ok": True,
+        "frame_resolution": [int(frame.raw.shape[1]), int(frame.raw.shape[0])],
+        "frame_luma": _frame_luma_payload(frame.raw),
+        "sector_count": platter.sector_count,
+        "sector_size_deg": platter.sector_size_deg,
+        "sector_offset_deg": phase.sector_offset_deg,
+        "phase_ok": phase.ok,
+        "wall_phase": phase.as_dict(include_lines=include_lines),
+        "handoff_sector": handoff_sector,
+        "exit_sector": exit_sector,
+        "candidate_bboxes": [
+            [int(round(value)) for value in candidate[:4]]
+            for candidate in candidate_bboxes
+            if isinstance(candidate, (list, tuple)) and len(candidate) >= 4
+        ],
+        "detections": detection_payloads,
+        "sectors": [sector.as_dict() for sector in sectors],
+    }
+
+
+def _active_irl_config() -> Any:
+    controller = shared_state.controller_ref
+    if controller is not None and hasattr(controller, "coordinator"):
+        coordinator = controller.coordinator
+        config = getattr(coordinator, "irl_config", None)
+        if config is not None:
+            return config
+    return None
+
+
+def _classification_channel_role_sectors(
+    platter: Any,
+    phase_offset_deg: float,
+    irl_config: Any,
+) -> tuple[int | None, int | None]:
+    cfg = getattr(irl_config, "classification_channel_config", None)
+    if cfg is None:
+        return None, None
+    handoff_sector = None
+    exit_sector = None
+    intake_angle = getattr(cfg, "intake_angle_deg", None)
+    if isinstance(intake_angle, (int, float)):
+        handoff_sector = platter.sector_for_angle(
+            float(intake_angle),
+            wall_offset_deg=phase_offset_deg,
+        )
+    drop_angle = getattr(cfg, "drop_angle_deg", None)
+    if isinstance(drop_angle, (int, float)):
+        exit_sector = platter.sector_for_angle(
+            float(drop_angle),
+            wall_offset_deg=phase_offset_deg,
+        )
+    return handoff_sector, exit_sector
 
 
 @router.post("/api/carousel/detect/current")

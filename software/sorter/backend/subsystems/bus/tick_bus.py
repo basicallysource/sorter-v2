@@ -6,7 +6,14 @@ from dataclasses import asdict, is_dataclass
 from enum import Enum
 from typing import Any, TypeVar
 
-from subsystems.bus.messages import ChuteMotion, Message, StationGate, StationId
+from subsystems.bus.messages import (
+    ChuteMotion,
+    Message,
+    PieceDelivered,
+    PieceRequest,
+    StationGate,
+    StationId,
+)
 
 
 TMessage = TypeVar("TMessage", bound=Message)
@@ -19,6 +26,8 @@ class TickBus:
         self._recent: deque[dict[str, Any]] = deque(maxlen=self._recent_limit)
         self._publish_counts: dict[str, int] = {}
         self._station_gates: dict[StationId, StationGate] = {}
+        self._piece_requests: dict[tuple[StationId, StationId], PieceRequest] = {}
+        self._piece_deliveries: dict[tuple[StationId, StationId], PieceDelivered] = {}
         self._chute_motion: ChuteMotion | None = None
         self._tick_started_at_mono: float = 0.0
 
@@ -34,6 +43,10 @@ class TickBus:
         self._publish_counts[message_name] = self._publish_counts.get(message_name, 0) + 1
         if isinstance(msg, StationGate):
             self._station_gates[msg.station] = msg
+        elif isinstance(msg, PieceRequest):
+            self._piece_requests[(msg.source, msg.target)] = msg
+        elif isinstance(msg, PieceDelivered):
+            self._piece_deliveries[(msg.source, msg.target)] = msg
         elif isinstance(msg, ChuteMotion):
             self._chute_motion = msg
         self._recent.append(self._serialize_message(msg))
@@ -47,6 +60,40 @@ class TickBus:
 
     def station_gate(self, station: StationId) -> StationGate | None:
         return self._station_gates.get(station)
+
+    def piece_request(
+        self,
+        source: StationId,
+        target: StationId,
+    ) -> PieceRequest | None:
+        return self._piece_requests.get((source, target))
+
+    def piece_delivered(
+        self,
+        source: StationId,
+        target: StationId,
+    ) -> PieceDelivered | None:
+        return self._piece_deliveries.get((source, target))
+
+    def has_pending_piece_request(
+        self,
+        *,
+        source: StationId,
+        target: StationId,
+        now_mono: float | None = None,
+        timeout_s: float | None = None,
+    ) -> bool:
+        request = self.piece_request(source, target)
+        if request is None:
+            return False
+        if timeout_s is not None:
+            now = time.monotonic() if now_mono is None else float(now_mono)
+            if now - float(request.sent_at_mono) > float(timeout_s):
+                return False
+        delivery = self.piece_delivered(target, source)
+        if delivery is None:
+            return True
+        return float(delivery.delivered_at_mono) < float(request.sent_at_mono)
 
     def is_station_open(self, station: StationId, default: bool = False) -> bool:
         gate = self.station_gate(station)

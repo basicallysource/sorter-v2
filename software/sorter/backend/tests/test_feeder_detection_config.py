@@ -48,6 +48,8 @@ class FeederDetectionConfigTests(unittest.TestCase):
         self.assertEqual("gemini_sam", saved["algorithm_by_role"]["carousel"])
         self.assertEqual("mog2", saved["algorithm_by_role"]["c_channel_2"])
         self.assertEqual("mog2", saved["algorithm_by_role"]["c_channel_3"])
+        self.assertNotIn("sample_collection_enabled", saved)
+        self.assertNotIn("sample_collection_enabled_by_role", saved)
 
         carousel_config = detection.get_feeder_detection_config(role="carousel")
         channel_config = detection.get_feeder_detection_config(role="c_channel_2")

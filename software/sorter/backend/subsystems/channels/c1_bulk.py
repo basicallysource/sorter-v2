@@ -1,7 +1,10 @@
 from __future__ import annotations
 
-from subsystems.channels.base import BaseStation, FeederTickContext
-from subsystems.feeder.admission import estimate_piece_count_for_channel
+from subsystems.channels.base import (
+    BaseStation,
+    FeederTickContext,
+    publish_bulk_feeder_stalled_incident,
+)
 
 
 class C1Station(BaseStation):
@@ -39,24 +42,6 @@ class C1Station(BaseStation):
     def step(self, ctx: FeederTickContext) -> None:
         prof = self.gc.profiler
 
-        try:
-            ch2_track_count = len(self._vision.getFeederTracks("c_channel_2"))
-        except Exception:
-            ch2_track_count = 0
-        ch2_piece_count = estimate_piece_count_for_channel(
-            ctx.detections,
-            channel_id=2,
-            track_count=ch2_track_count,
-        )
-        ch2_saturated = ch2_piece_count >= self._max_ch2_pieces_for_feed
-        if not ctx.analysis.ch2_dropzone_occupied and ch2_saturated:
-            prof.hit("feeder.skip.ch2_saturated")
-            self.gc.runtime_stats.observeBlockedReason(
-                "feeder", "ch2_saturated_pause_ch1"
-            )
-            self.set_state(f"feeding.ch2_saturated_{ch2_piece_count}_pieces")
-            return
-
         if ctx.analysis.ch2_dropzone_occupied:
             prof.hit("feeder.skip.ch1_dropzone_occupied")
             self.gc.runtime_stats.observeBlockedReason("feeder", "ch1_blocked_by_ch2_dropzone")
@@ -79,6 +64,25 @@ class C1Station(BaseStation):
             and recovery_ready
             and not ctx.analysis.ch3_dropzone_occupied
         ):
+            stalled_ms = int(
+                max(0.0, ctx.now_mono - self._last_ch2_activity_at_ref()) * 1000.0
+            )
+            published = publish_bulk_feeder_stalled_incident(
+                self.gc,
+                stalled_ms=stalled_ms,
+                pulses_since_activity=self._ch1_pulses_since_ch2_activity_ref(),
+                min_pulses=fc.first_rotor_jam_min_pulses,
+                recovery_levels=max_recovery_levels,
+            )
+            if published:
+                prof.hit("feeder.ch1.bulk_feeder_stalled_incident")
+                self.gc.runtime_stats.observeBlockedReason(
+                    "feeder",
+                    "bulk_feeder_stalled_incident",
+                )
+                self.set_state("feeding.wait_bulk_feeder_stalled_incident")
+                ctx.abort_tick = True
+                return
             if self._jam_recovery.exhausted(max_recovery_levels):
                 self._pause_for_ch1_stall(max_recovery_levels)
                 self.set_state("feeding.stalled_before_ch2_dropzone")

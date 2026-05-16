@@ -59,7 +59,7 @@ def _mkIRLInterfaceStandby(config, gc):
     return irl
 
 
-FRAME_BROADCAST_INTERVAL_MS = 100
+FRAME_RECORD_INTERVAL_MS = 100
 RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
@@ -249,10 +249,22 @@ def main() -> None:
             irl.__dict__.clear()
             irl.__dict__.update(next_irl.__dict__)
 
+    def _drain_runtime_commands(reason: str) -> None:
+        dropped = 0
+        while True:
+            try:
+                server_to_main_queue.get(block=False)
+                dropped += 1
+            except queue.Empty:
+                break
+        if dropped:
+            gc.logger.info(f"Dropped {dropped} queued runtime command(s) during {reason}")
+
     def _cleanup_runtime_hardware(reason: str) -> None:
         nonlocal irl, controller
 
         gc.logger.info(f"Cleaning up hardware runtime: {reason}")
+        _drain_runtime_commands(reason)
         setHardwareRuntimeIRL(None)
 
         with controller_lock:
@@ -295,10 +307,14 @@ def main() -> None:
         _replace_irl(standby_irl)
         setHardwareRuntimeIRL(None)
 
-    # Register the hardware start function for the /api/system/home endpoint
+    # Register the safe recovery function for /api/system/recover and its
+    # backwards-compatible /api/system/home alias. This path owns the motors
+    # exclusively until all homing is done and the runtime is published in a
+    # paused state.
     def _home_hardware() -> None:
         nonlocal irl, controller
 
+        _drain_runtime_commands("safe recovery start")
         with controller_lock:
             current_controller = controller
         active_irl = shared_state.getActiveIRL()
@@ -416,19 +432,38 @@ def main() -> None:
                 if carousel_hw.home():
                     gc.logger.info("Carousel homed successfully.")
                 else:
-                    gc.logger.warning("Carousel homing failed. Continuing without homing.")
+                    raise RuntimeError("Carousel homing failed.")
+            else:
+                raise RuntimeError("Carousel hardware not initialized.")
         else:
             gc.logger.info(
                 "Skipping carousel homing for machine setup %r."
                 % getattr(machine_setup, "key", "unknown")
             )
 
-        # Home chute/distributor if available
+        # Build the coordinator while it is still private. The controller is
+        # not published and not started until all homing is finished, so a
+        # queued/resubmitted Resume cannot make the runtime fight the homing
+        # sequence.
         shared_state.setHardwareStatus(homing_step="Homing distributor...")
 
         next_controller = SorterController(
             irl, irl_config, gc, vision, main_to_server_queue, rv
         )
+
+        chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
+        if chute is not None:
+            gc.logger.info("Homing chute...")
+            try:
+                if chute.home():
+                    gc.logger.info("Chute homed successfully.")
+                else:
+                    raise RuntimeError("Chute homing failed.")
+            except Exception as e:
+                next_controller.coordinator.cleanup()
+                raise RuntimeError(f"Chute homing failed: {e}") from e
+
+        _drain_runtime_commands("safe recovery finish")
         with controller_lock:
             controller = next_controller
         setController(next_controller)
@@ -438,20 +473,8 @@ def main() -> None:
         except Exception:
             pass
 
-        # Home the chute through the distribution state machine
-        chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None:
-            gc.logger.info("Homing chute...")
-            try:
-                if chute.home():
-                    gc.logger.info("Chute homed successfully.")
-                else:
-                    gc.logger.warning("Chute homing failed. Continuing without homing.")
-            except Exception as e:
-                gc.logger.warning(f"Chute homing failed: {e}. Continuing without homing.")
-
         shared_state.setHardwareStatus(clear_homing_step=True)
-        gc.logger.info("Hardware initialization and homing complete.")
+        gc.logger.info("Safe hardware recovery complete; runtime is paused.")
 
     def _initialize_hardware() -> None:
         """Bring up the IRL and enable steppers without homing carousel/chute.
@@ -492,7 +515,7 @@ def main() -> None:
     setHardwareResetFn(lambda: _cleanup_runtime_hardware("system reset"))
 
     last_heartbeat = time.time()
-    last_frame_broadcast = time.time()
+    last_frame_record = time.time()
     last_runtime_stats_broadcast = time.time()
 
     try:
@@ -522,20 +545,16 @@ def main() -> None:
                 main_to_server_queue.put(heartbeat)
                 last_heartbeat = current_time
 
-            # broadcast cached camera frames and record to disk
+            # Video reaches the frontend only through MJPEG camera feeds. Keep
+            # this loop for heatmap/video-recorder frame capture, without
+            # broadcasting Base64 image payloads over the control WebSocket.
             if (
-                current_time - last_frame_broadcast
-                >= FRAME_BROADCAST_INTERVAL_MS / 1000.0
+                current_time - last_frame_record
+                >= FRAME_RECORD_INTERVAL_MS / 1000.0
             ):
-                frame_events = camera_service.get_all_frame_events()
-                gc.profiler.observeValue(
-                    "main.loop.frame_events_count", float(len(frame_events))
-                )
-                for frame_event in frame_events:
-                    main_to_server_queue.put(frame_event)
                 with gc.profiler.timer("main.loop.record_frames_ms"):
                     vision.recordFrames()
-                last_frame_broadcast = current_time
+                last_frame_record = current_time
 
             if (
                 current_time - last_runtime_stats_broadcast

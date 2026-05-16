@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
 	import {
+		backendWsBaseUrl,
 		backendHttpBaseUrl,
 		machineHttpBaseUrlFromWsUrl,
+		machineWsUrlFromHttpBaseUrl,
 		probeBackendConnection,
 		requestBackendRestart,
 		waitForBackend
@@ -25,6 +28,7 @@
 	let restarting = $state(false);
 	let consecutiveFailures = $state(0);
 	let firstFailureAt = $state<number | null>(null);
+	let lastRecoveryRefreshAt = $state(0);
 
 	type HealthCheckResult = {
 		backendOk: boolean;
@@ -33,6 +37,25 @@
 
 	function baseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
+	}
+
+	function wsUrl(): string {
+		return machineWsUrlFromHttpBaseUrl(baseUrl()) ?? `${backendWsBaseUrl}/ws`;
+	}
+
+	async function refreshFrontendAfterRecovery() {
+		const url = wsUrl();
+		manager.reconnectStaleConnections({ fallbackUrl: url, heartbeatStaleMs: HEARTBEAT_STALE_MS });
+		manager.ensureConnected(url);
+
+		const now = Date.now();
+		if (now - lastRecoveryRefreshAt < 1500) return;
+		lastRecoveryRefreshAt = now;
+		try {
+			await invalidateAll();
+		} catch {
+			// SvelteKit invalidation is best-effort; the WebSocket snapshot is the main recovery path.
+		}
 	}
 
 	function selectedMachineLooksAlive(): boolean {
@@ -45,7 +68,15 @@
 
 	async function checkHealth(): Promise<HealthCheckResult> {
 		const status = await probeBackendConnection(baseUrl());
-		if (status.backendOk || selectedMachineLooksAlive()) {
+		if (status.backendOk) {
+			const url = wsUrl();
+			manager.reconnectStaleConnections({ fallbackUrl: url, heartbeatStaleMs: HEARTBEAT_STALE_MS });
+			manager.ensureConnected(url);
+			firstFailureAt = null;
+			restarting = false;
+			return { backendOk: true, showUnavailable: false };
+		}
+		if (selectedMachineLooksAlive()) {
 			firstFailureAt = null;
 			restarting = false;
 			return { backendOk: true, showUnavailable: false };
@@ -78,10 +109,14 @@
 	async function poll() {
 		const result = await checkHealth();
 		if (result.backendOk) {
+			const recovered = !healthy || consecutiveFailures > 0 || firstFailureAt !== null;
 			consecutiveFailures = 0;
 			if (!healthy) {
 				healthy = true;
 				restarting = false;
+			}
+			if (recovered) {
+				await refreshFrontendAfterRecovery();
 			}
 		} else if (result.showUnavailable) {
 			healthy = false;
@@ -97,6 +132,7 @@
 			consecutiveFailures = 0;
 			firstFailureAt = null;
 			restarting = false;
+			await refreshFrontendAfterRecovery();
 		}
 	}
 
@@ -114,13 +150,7 @@
 			intervalMs: RECOVERY_POLL_MS
 		});
 		if (recovered) {
-			// Full page reload once health is back — some subsystems (WS
-			// reconnection, camera layout, Machine context) only fully
-			// re-initialize on fresh page load after a hard restart.
-			if (typeof window !== 'undefined') {
-				window.location.reload();
-				return;
-			}
+			await refreshFrontendAfterRecovery();
 			healthy = true;
 			consecutiveFailures = 0;
 			firstFailureAt = null;
@@ -157,8 +187,8 @@
 					</div>
 				{:else}
 					<div class="text-sm text-text">
-						The sorter backend is not responding. This could mean the service has
-						crashed, is still starting up, or the network connection was lost.
+						The sorter backend is not responding. This could mean the service has crashed, is still
+						starting up, or the network connection was lost.
 					</div>
 					<div class="mt-2 text-sm text-text-muted">
 						Check that the machine is powered on and the backend service is running.

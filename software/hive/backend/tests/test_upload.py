@@ -142,6 +142,85 @@ class TestUploadSample:
         assert data["detection_algorithm"] == "gemini_sam"
         assert data["detection_count"] == 1
 
+    def test_upload_preserves_condition_sample_payload(
+        self, client: TestClient, machine_token: str, upload_dir: str
+    ) -> None:
+        metadata = json.dumps(
+            {
+                "source_session_id": "sess-condition",
+                "local_sample_id": "sample-condition",
+                "source_role": "piece_crop",
+                "capture_reason": "piece_condition_teacher",
+                "sample_payload": {
+                    "schema_version": "hive_sample_v1",
+                    "sample": {
+                        "source_session_id": "sess-condition",
+                        "local_sample_id": "sample-condition",
+                        "source_role": "piece_crop",
+                        "capture_reason": "piece_condition_teacher",
+                        "capture_scope": "condition",
+                    },
+                    "assets": {},
+                    "analyses": [
+                        {
+                            "analysis_id": "cond_primary",
+                            "kind": "condition",
+                            "stage": "part_condition_quality",
+                            "provider": "gemini_condition",
+                            "model": "google/gemini-3.1-flash-lite-preview",
+                            "status": "completed",
+                            "input_asset_ids": ["img_primary"],
+                            "artifact_asset_ids": [],
+                            "outputs": {
+                                "composition": "multi_part",
+                                "condition": "dirty",
+                                "part_count_estimate": 2,
+                                "flags": {
+                                    "single_part": False,
+                                    "compound_part": False,
+                                    "multiple_parts": True,
+                                    "clean": False,
+                                    "dirty": True,
+                                    "damaged": False,
+                                    "trash_candidate": False,
+                                },
+                                "issues": ["visible residue"],
+                                "visible_evidence": "Two separable pieces and residue are visible.",
+                                "confidence": 0.84,
+                            },
+                            "metadata": {"schema_version": "piece_condition_v1"},
+                        }
+                    ],
+                    "annotations": {},
+                    "provenance": {
+                        "condition_sample": {
+                            "enabled": True,
+                            "source": "piece_crop_archive",
+                            "condition_source_crop_path": "piece_crops/abc123def456/seg0/wedge_000.jpg",
+                        }
+                    },
+                },
+            }
+        )
+        resp = client.post(
+            "/api/machine/upload",
+            headers={"Authorization": f"Bearer {machine_token}"},
+            data={"metadata": metadata},
+            files={"image": ("test.png", make_test_image(), "image/png")},
+        )
+
+        assert resp.status_code in (200, 201), resp.text
+        data = resp.json()
+        assert data["sample_payload"]["sample"]["capture_scope"] == "condition"
+        condition = data["sample_payload"]["analyses"][0]
+        assert condition["kind"] == "condition"
+        assert condition["outputs"]["composition"] == "multi_part"
+        assert condition["outputs"]["condition"] == "dirty"
+        assert (
+            data["sample_payload"]["provenance"]["condition_sample"]["condition_source_crop_path"]
+            == "piece_crops/abc123def456/seg0/wedge_000.jpg"
+        )
+
     def test_patch_sample_merges_payload_and_extra_metadata(
         self, client: TestClient, machine_token: str, upload_dir: str
     ) -> None:

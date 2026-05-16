@@ -18,8 +18,9 @@
 	import ReviewActionPad from '$lib/components/review/ReviewActionPad.svelte';
 	import ReviewAnnotatorPanel from '$lib/components/review/ReviewAnnotatorPanel.svelte';
 	import ReviewHeuristics from '$lib/components/review/ReviewHeuristics.svelte';
+	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
 	import { Alert } from '$lib/components/primitives';
-	import { extractLegacyReviewBboxes, extractPrimaryBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
+	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
 	type ReviewDecision = 'accept' | 'reject';
 	type ReviewImageAsset = 'image' | 'full_frame';
@@ -67,7 +68,7 @@
 	const legacyReviewBboxes = $derived(extractLegacyReviewBboxes(extra.review));
 
 	const proposalBoxes = $derived.by(() => {
-		const proposals = [...primaryBboxes, ...candidateBboxes];
+		const proposals = mergeUniqueBboxes(primaryBboxes, candidateBboxes);
 		return proposals.length > 0 ? proposals : legacyReviewBboxes;
 	});
 
@@ -552,6 +553,8 @@
 				externalApi={classificationApi}
 				onSaved={handleClassificationSaved}
 			/>
+
+			<SampleConditionCard samplePayload={sample.sample_payload} />
 
 			<ReviewActionPad
 				{annotateMode}

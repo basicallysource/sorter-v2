@@ -36,6 +36,8 @@ class KnownObject:
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
     thumbnail: Optional[str] = None
+    latest_captured_crop: Optional[str] = None
+    latest_captured_crop_ts: Optional[float] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
     # Full classification chamber (carousel) frame captured at the instant
@@ -54,6 +56,7 @@ class KnownObject:
     classification_channel_zone_state: Optional[str] = None
     classification_channel_zone_center_deg: Optional[float] = None
     classification_channel_zone_half_width_deg: Optional[float] = None
+    classification_channel_exit_offset_deg: Optional[float] = None
     classification_channel_soft_guard_deg: Optional[float] = None
     classification_channel_hard_guard_deg: Optional[float] = None
     feeding_started_at: Optional[float] = None

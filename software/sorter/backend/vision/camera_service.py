@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import base64
 import threading
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Optional
+from typing import TYPE_CHECKING, Dict, List, Optional
 
-import cv2
-import numpy as np
-
-from defs.events import CameraName, FrameData, FrameEvent, FrameResultData
+from defs.events import CameraName
 from irl.config import (
     CameraColorProfile,
     CameraPictureSettings,
@@ -18,15 +14,12 @@ from irl.config import (
     mkCameraConfig,
 )
 from .camera import CaptureThread, probe_camera_device_controls
-from .camera_device import CameraDevice, DeviceHealth
+from .camera_device import CameraDevice
 from .camera_feed import CameraFeed
-from .types import CameraFrame
 
 if TYPE_CHECKING:
     from global_config import GlobalConfig
     from irl.config import IRLConfig
-
-FRAME_ENCODE_INTERVAL_MS = 100
 
 # Maps role → IRLConfig attribute name
 _ROLE_TO_CONFIG_ATTR: dict[str, str] = {
@@ -35,15 +28,17 @@ _ROLE_TO_CONFIG_ATTR: dict[str, str] = {
     "classification_top": "classification_camera_top",
     "c_channel_2": "c_channel_2_camera",
     "c_channel_3": "c_channel_3_camera",
+    "classification_channel": "carousel_camera",
     "carousel": "carousel_camera",
 }
 
-# Health poll interval
-_HEALTH_POLL_INTERVAL_S = 2.0
+# Health poll interval. Video is streamed through the MJPEG endpoint only; this
+# lightweight loop just surfaces camera status changes over the control socket.
+_HEALTH_POLL_INTERVAL_S = 0.5
 
 
 class CameraService:
-    """Owns camera devices and feeds, frame encoding, and health tracking."""
+    """Owns camera devices, live feeds, and health tracking."""
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig) -> None:
         self._irl_config = irl_config
@@ -56,11 +51,8 @@ class CameraService:
 
         self._build_devices_and_feeds()
 
-        # Frame encode loop state
-        self._cached_frame_events: List[FrameEvent] = []
-        self._cached_frame_events_lock = threading.Lock()
-        self._frame_encode_thread: threading.Thread | None = None
-        self._frame_encode_stop = threading.Event()
+        self._health_thread: threading.Thread | None = None
+        self._health_stop = threading.Event()
 
         # Health tracking
         self._last_health: dict[str, str] = {}
@@ -79,7 +71,15 @@ class CameraService:
             if irl.c_channel_3_camera is not None:
                 self._add_device_feed("c_channel_3", irl.c_channel_3_camera)
             if irl.carousel_camera is not None:
-                self._add_device_feed("carousel", irl.carousel_camera)
+                uses_c4 = bool(
+                    getattr(getattr(irl, "machine_setup", None), "uses_classification_channel", False)
+                )
+                aux_role = "classification_channel" if uses_c4 else "carousel"
+                self._add_device_feed(aux_role, irl.carousel_camera)
+                if uses_c4:
+                    device = self._devices[aux_role]
+                    self._devices["carousel"] = device
+                    self._feeds["carousel"] = CameraFeed("carousel", device)
             # feeder alias → c_channel_2 device (fallback for code that expects "feeder")
             c2 = self._devices.get("c_channel_2")
             if c2 is not None:
@@ -238,6 +238,9 @@ class CameraService:
         # feeder alias in split_feeder mode
         if self._camera_layout == "split_feeder" and role == "c_channel_2":
             self._feeds["feeder"] = CameraFeed("feeder", device)
+        if self._camera_layout == "split_feeder" and role == "classification_channel":
+            self._devices["carousel"] = device
+            self._feeds["carousel"] = CameraFeed("carousel", device)
 
         return True
 
@@ -322,7 +325,7 @@ class CameraService:
         device.set_color_profile(profile)
         return True
 
-    # ---- Frame encode loop ----
+    # ---- Health polling ----
 
     @property
     def active_cameras(self) -> List[CameraName]:
@@ -335,77 +338,16 @@ class CameraService:
             return cams
         return [CameraName.feeder, CameraName.classification_bottom, CameraName.classification_top]
 
-    def _encode_frame(self, frame: np.ndarray) -> str:
-        prof = self._gc.profiler
-        with prof.timer("camera_service.encode_frame.imencode_ms"):
-            _, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
-        with prof.timer("camera_service.encode_frame.base64_ms"):
-            return base64.b64encode(buffer).decode("utf-8")
-
-    def get_frame_event(self, camera_name: CameraName) -> Optional[FrameEvent]:
-        prof = self._gc.profiler
-        prof.hit(f"camera_service.get_frame_event.calls.{camera_name.value}")
-        prof.startTimer("camera_service.get_frame_event.total_ms")
-
-        feed = self._feeds.get(camera_name.value)
-        if feed is None:
-            prof.endTimer("camera_service.get_frame_event.total_ms")
-            return None
-
-        frame = feed.get_frame(annotated=True)
-        if frame is None:
-            prof.endTimer("camera_service.get_frame_event.total_ms")
-            return None
-
-        results_data = [
-            FrameResultData(
-                class_id=r.class_id,
-                class_name=r.class_name,
-                confidence=r.confidence,
-                bbox=r.bbox,
-            )
-            for r in frame.results
-        ]
-
-        raw_b64 = self._encode_frame(frame.raw)
-        annotated_b64 = (
-            self._encode_frame(frame.annotated) if frame.annotated is not None else None
-        )
-
-        event = FrameEvent(
-            tag="frame",
-            data=FrameData(
-                camera=camera_name,
-                timestamp=frame.timestamp,
-                raw=raw_b64,
-                annotated=annotated_b64,
-                results=results_data,
-            ),
-        )
-        prof.endTimer("camera_service.get_frame_event.total_ms")
-        return event
-
-    def get_all_frame_events(self) -> List[FrameEvent]:
-        with self._cached_frame_events_lock:
-            return list(self._cached_frame_events)
-
-    def _frame_encode_loop(self) -> None:
-        while not self._frame_encode_stop.is_set():
+    def _health_poll_loop(self) -> None:
+        while not self._health_stop.is_set():
             prof = self._gc.profiler
-            prof.hit("camera_service.frame_encode_thread.calls")
-            with prof.timer("camera_service.frame_encode_thread.total_ms"):
-                events: List[FrameEvent] = []
-                for camera in self.active_cameras:
-                    event = self.get_frame_event(camera)
-                    if event:
-                        events.append(event)
-                with self._cached_frame_events_lock:
-                    self._cached_frame_events = events
+            prof.hit("camera_service.health_thread.calls")
+            with prof.timer("camera_service.health_thread.total_ms"):
+                # Health is derived from the capture thread's latest frame age.
+                # No JPEG encoding happens on this thread.
+                self._check_health_changes()
 
-            # Check health on each encode cycle (~100ms)
-            self._check_health_changes()
-
-            self._frame_encode_stop.wait(FRAME_ENCODE_INTERVAL_MS / 1000.0)
+            self._health_stop.wait(_HEALTH_POLL_INTERVAL_S)
 
     # ---- Lifecycle ----
 
@@ -416,16 +358,16 @@ class CameraService:
         for device in self._devices.values():
             device.start()
 
-        self._frame_encode_stop.clear()
-        self._frame_encode_thread = threading.Thread(
-            target=self._frame_encode_loop, daemon=True, name="camera-service-encode"
+        self._health_stop.clear()
+        self._health_thread = threading.Thread(
+            target=self._health_poll_loop, daemon=True, name="camera-service-health"
         )
-        self._frame_encode_thread.start()
+        self._health_thread.start()
 
     def stop(self) -> None:
         self._started = False
-        self._frame_encode_stop.set()
-        if self._frame_encode_thread:
-            self._frame_encode_thread.join(timeout=2.0)
+        self._health_stop.set()
+        if self._health_thread:
+            self._health_thread.join(timeout=2.0)
         for device in self._devices.values():
             device.stop()

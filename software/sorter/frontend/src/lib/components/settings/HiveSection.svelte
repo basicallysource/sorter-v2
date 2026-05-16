@@ -2,7 +2,13 @@
 	import { onMount } from 'svelte';
 	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Cloud, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-svelte';
+	import {
+		beginHiveLink,
+		completeReturnedHiveLink,
+		DEFAULT_HIVE_URL,
+		defaultHiveTargetName
+	} from '$lib/hive/link-flow';
+	import { Cloud, Link2, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-svelte';
 
 	const machine = getMachineContext();
 
@@ -70,6 +76,12 @@
 	let regMachineName = $state('');
 	let regMachineDescription = $state('');
 
+	let showPairForm = $state(false);
+	let pairing = $state(false);
+	let pairUrl = $state(DEFAULT_HIVE_URL);
+	let pairTargetName = $state('');
+	let pairMachineName = $state('');
+
 	const targets = $derived(config?.targets ?? []);
 
 	function emptyUploaderStatus(enabled: boolean): UploaderStatus {
@@ -102,9 +114,7 @@
 				return [
 					{
 						id:
-							typeof target.id === 'string' && target.id.trim()
-								? target.id
-								: `target-${index + 1}`,
+							typeof target.id === 'string' && target.id.trim() ? target.id : `target-${index + 1}`,
 						name:
 							typeof target.name === 'string' && target.name.trim()
 								? target.name
@@ -224,19 +234,54 @@
 		clearMessages();
 		editingTargetId = null;
 		showRegisterForm = true;
+		showPairForm = false;
 		resetRegisterForm();
+	}
+
+	function resetPairForm() {
+		pairUrl = DEFAULT_HIVE_URL;
+		pairTargetName = '';
+		pairMachineName = '';
+	}
+
+	function openPairForm() {
+		clearMessages();
+		editingTargetId = null;
+		showRegisterForm = false;
+		showPairForm = true;
+		resetPairForm();
 	}
 
 	function closeForms() {
 		editingTargetId = null;
 		showRegisterForm = false;
+		showPairForm = false;
 		resetTargetForm();
 		resetRegisterForm();
+		resetPairForm();
+	}
+
+	function handlePair() {
+		if (!pairUrl.trim()) return;
+		pairing = true;
+		clearMessages();
+		try {
+			beginHiveLink({
+				hiveUrl: pairUrl.trim(),
+				targetName: pairTargetName.trim() || undefined,
+				machineName: pairMachineName.trim() || undefined,
+				returnPath: window.location.pathname + window.location.search
+			});
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Could not start the Hive link flow.';
+			pairing = false;
+		}
 	}
 
 	async function handleSaveTarget() {
 		if (!targetUrl.trim()) return;
-		const existing = editingTargetId && editingTargetId !== 'new' ? getTarget(editingTargetId) : null;
+		const existing =
+			editingTargetId && editingTargetId !== 'new' ? getTarget(editingTargetId) : null;
 		if (!existing && !targetToken.trim()) return;
 
 		savingTarget = true;
@@ -335,11 +380,11 @@
 			});
 			if (!res.ok) throw new Error(await res.text());
 			statusMsg = !target.enabled
-				? `Enabled uploads to "${target.name}".`
-				: `Disabled uploads to "${target.name}".`;
+				? `Enabled live samples to "${target.name}".`
+				: `Stopped live samples to "${target.name}".`;
 			await loadConfig();
 		} catch (e: any) {
-			errorMsg = e.message ?? 'Failed to update uploader state.';
+			errorMsg = e.message ?? 'Failed to update sample target state.';
 		}
 	}
 
@@ -372,11 +417,7 @@
 			target.uploader.queue_size > 0
 				? `This will remove ${target.uploader.queue_size} queued sync job${target.uploader.queue_size === 1 ? '' : 's'} for "${target.name}".`
 				: `This will clear any queued or retrying sync jobs for "${target.name}".`;
-		if (
-			!confirm(
-				`${queueHint} An upload that is already in flight may still finish.`
-			)
-		) {
+		if (!confirm(`${queueHint} An upload that is already in flight may still finish.`)) {
 			return;
 		}
 
@@ -407,8 +448,8 @@
 	}
 
 	function statusLabel(target: HiveTarget): string {
-		if (!target.enabled) return 'Connected, uploads disabled';
-		if (target.uploader.server_reachable) return 'Connected and ready';
+		if (!target.enabled) return 'Connected, live samples off';
+		if (target.uploader.server_reachable) return 'Receiving live samples';
 		return 'Connected, waiting for server';
 	}
 
@@ -418,8 +459,21 @@
 		return 'text-amber-600 dark:text-amber-400';
 	}
 
+	async function handleReturnedLink() {
+		try {
+			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
+			if (result.completed) {
+				statusMsg = result.message ?? 'Hive link saved.';
+				await loadConfig();
+			}
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Hive link could not be completed.';
+		}
+	}
+
 	onMount(() => {
 		void loadConfig();
+		void handleReturnedLink();
 	});
 </script>
 
@@ -430,7 +484,10 @@
 		<div class="flex flex-wrap items-center justify-between gap-3">
 			<div class="text-sm text-text-muted">
 				{#if targets.length > 0}
-					{config.enabled_count} of {config.configured_count} Hive target{config.configured_count === 1 ? '' : 's'} enabled.
+					{config.enabled_count} of {config.configured_count} Hive target{config.configured_count ===
+					1
+						? ''
+						: 's'} receiving live samples.
 				{:else}
 					No Hive targets configured yet.
 				{/if}
@@ -438,16 +495,25 @@
 			<div class="flex flex-wrap gap-2">
 				<button
 					type="button"
+					onclick={openPairForm}
+					class="inline-flex items-center gap-1.5 border border-primary bg-primary/10 px-3 py-1.5 text-xs text-text transition-colors hover:bg-primary/20"
+				>
+					<Link2 size={12} />
+					Pair with Hive
+				</button>
+				<button
+					type="button"
 					onclick={openRegisterForm}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
+					title="Email + password registration (use Pair with Hive instead when possible)"
 				>
 					<Plus size={12} />
-					Register Machine
+					Register (legacy)
 				</button>
 				<button
 					type="button"
 					onclick={() => openTargetEditor(null)}
-					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text-muted transition-colors hover:bg-surface"
 				>
 					<Cloud size={12} />
 					Add Existing Token
@@ -467,7 +533,8 @@
 		{#if targets.length === 0}
 			<div class="border border-border bg-surface px-3 py-3">
 				<div class="text-sm text-text-muted">
-					Add one Hive target for local testing, production, or both. Each target keeps its own token, status, and backfill queue.
+					Add one Hive target for local testing, production, or both. Enable the targets that should
+					receive live samples from C2, C3, and C4.
 				</div>
 			</div>
 		{:else}
@@ -515,7 +582,7 @@
 									onclick={() => void handleToggleEnabled(target)}
 									class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
 								>
-									{target.enabled ? 'Disable Upload' : 'Enable Upload'}
+									{target.enabled ? 'Stop Samples' : 'Send Samples'}
 								</button>
 								<button
 									type="button"
@@ -539,13 +606,17 @@
 						</div>
 
 						{#if backfillTargetId === target.id && backfillResult}
-							<div class="mt-3 border border-success bg-success/10 px-3 py-2 text-sm font-medium text-success dark:border-success dark:bg-success/10 dark:text-emerald-200">
+							<div
+								class="mt-3 border border-success bg-success/10 px-3 py-2 text-sm font-medium text-success dark:border-success dark:bg-success/10 dark:text-emerald-200"
+							>
 								{backfillResult}
 							</div>
 						{/if}
 
 						{#if purgeTargetId === target.id && purgeResult}
-							<div class="mt-3 border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-200">
+							<div
+								class="mt-3 border border-amber-500 bg-amber-500/10 px-3 py-2 text-sm font-medium text-amber-700 dark:border-amber-400 dark:bg-amber-400/10 dark:text-amber-200"
+							>
 								{purgeResult}
 							</div>
 						{/if}
@@ -565,16 +636,30 @@
 									<div class="text-text-muted">Queued</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold {target.uploader.requeued > 0 ? 'text-amber-500' : 'text-text'}">{target.uploader.requeued}</div>
+									<div
+										class="text-lg font-semibold {target.uploader.requeued > 0
+											? 'text-amber-500'
+											: 'text-text'}"
+									>
+										{target.uploader.requeued}
+									</div>
 									<div class="text-text-muted">Requeued</div>
 								</div>
 								<div>
-									<div class="text-lg font-semibold {target.uploader.failed > 0 ? 'text-danger' : 'text-text'}">{target.uploader.failed}</div>
+									<div
+										class="text-lg font-semibold {target.uploader.failed > 0
+											? 'text-danger'
+											: 'text-text'}"
+									>
+										{target.uploader.failed}
+									</div>
 									<div class="text-text-muted">Failed</div>
 								</div>
 							</div>
 							{#if target.uploader.last_error}
-								<div class="mt-3 text-xs text-amber-600 dark:text-amber-400">{target.uploader.last_error}</div>
+								<div class="mt-3 text-xs text-amber-600 dark:text-amber-400">
+									{target.uploader.last_error}
+								</div>
 							{/if}
 						</div>
 					</div>
@@ -585,7 +670,9 @@
 		{#if editingTargetId}
 			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
 				<div class="text-sm font-medium text-text">
-					{editingTargetId === 'new' ? 'Add Hive Target' : `Edit ${getTarget(editingTargetId)?.name ?? 'Hive Target'}`}
+					{editingTargetId === 'new'
+						? 'Add Hive Target'
+						: `Edit ${getTarget(editingTargetId)?.name ?? 'Hive Target'}`}
 				</div>
 				<input
 					bind:value={targetName}
@@ -602,12 +689,18 @@
 				<input
 					bind:value={targetToken}
 					type="password"
-					placeholder={editingTargetId === 'new' ? 'Machine API token' : 'Leave empty to keep current token'}
+					placeholder={editingTargetId === 'new'
+						? 'Machine API token'
+						: 'Leave empty to keep current token'}
 					class="border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
 				/>
 				<label class="flex items-center gap-2 text-xs text-text-muted">
-					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 rounded border-border" />
-					Enable uploads for this target immediately
+					<input
+						bind:checked={targetEnabled}
+						type="checkbox"
+						class="h-4 w-4 rounded border-border"
+					/>
+					Send live samples to this target immediately
 				</label>
 				<div class="flex justify-end gap-2">
 					<button
@@ -620,10 +713,66 @@
 					<button
 						type="button"
 						onclick={() => void handleSaveTarget()}
-						disabled={savingTarget || !targetUrl.trim() || (editingTargetId === 'new' && !targetToken.trim())}
+						disabled={savingTarget ||
+							!targetUrl.trim() ||
+							(editingTargetId === 'new' && !targetToken.trim())}
 						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{savingTarget ? 'Saving...' : 'Save'}
+					</button>
+				</div>
+			</div>
+		{/if}
+
+		{#if showPairForm}
+			<div class="grid gap-3 border border-primary bg-primary/[0.05] px-3 py-3">
+				<div class="text-sm font-medium text-text">Pair with a Hive</div>
+				<div class="text-sm text-text-muted">
+					Enter the Hive URL, then continue on Hive to pick a machine name. Hive sends you back here
+					once the link is saved — no email or password leaves this Sorter.
+				</div>
+				<label class="flex flex-col gap-1 text-sm text-text">
+					Hive URL
+					<input
+						bind:value={pairUrl}
+						type="url"
+						placeholder={DEFAULT_HIVE_URL}
+						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 text-sm text-text">
+					Target name (optional)
+					<input
+						bind:value={pairTargetName}
+						type="text"
+						placeholder={pairUrl.trim() ? defaultHiveTargetName(pairUrl) : 'e.g. Hive Community'}
+						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<label class="flex flex-col gap-1 text-sm text-text">
+					Suggested machine name (optional)
+					<input
+						bind:value={pairMachineName}
+						type="text"
+						placeholder="Lego Sorter"
+						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+					/>
+				</label>
+				<div class="flex justify-end gap-2">
+					<button
+						type="button"
+						onclick={closeForms}
+						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={handlePair}
+						disabled={pairing || !pairUrl.trim()}
+						class="border border-primary bg-primary px-3 py-1.5 text-xs text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{pairing ? 'Opening Hive…' : 'Continue on Hive →'}
 					</button>
 				</div>
 			</div>
@@ -679,7 +828,11 @@
 					<button
 						type="button"
 						onclick={() => void handleRegister()}
-						disabled={registering || !regUrl.trim() || !regEmail.trim() || !regPassword.trim() || !regMachineName.trim()}
+						disabled={registering ||
+							!regUrl.trim() ||
+							!regEmail.trim() ||
+							!regPassword.trim() ||
+							!regMachineName.trim()}
 						class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{registering ? 'Registering...' : 'Register'}
@@ -690,7 +843,9 @@
 	{/if}
 
 	{#if errorMsg}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400">
+		<div
+			class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400"
+		>
 			{errorMsg}
 		</div>
 	{/if}

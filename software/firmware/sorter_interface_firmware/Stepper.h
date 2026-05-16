@@ -49,6 +49,7 @@ public:
     void setAcceleration(uint32_t acceleration);
     bool moveSteps(int32_t distance);
     bool moveAtSpeed(int32_t speed);
+    void cancel();
     bool isStopped() { return _state == STEPPER_STOPPED; }
     int32_t getPosition() { return _absolute_position; }
     void setPosition(int32_t position) { _absolute_position = position; }

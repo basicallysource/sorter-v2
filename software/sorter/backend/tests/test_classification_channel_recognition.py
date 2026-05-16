@@ -102,26 +102,11 @@ class _Recognizer(ClassificationChannelRecognizer):
 
 
 class _Vision:
-    def __init__(
-        self,
-        details_by_id: dict[int, dict],
-        fallback_by_role: dict[str, dict | None],
-    ) -> None:
+    def __init__(self, details_by_id: dict[int, dict]) -> None:
         self._details_by_id = details_by_id
-        self._fallback_by_role = fallback_by_role
 
     def getFeederTrackHistoryDetail(self, global_id: int):
         return self._details_by_id.get(int(global_id))
-
-    def findRecentFeederTrackHistoryDetailByRole(
-        self,
-        *,
-        source_role: str,
-        before_ts: float,
-        max_age_s: float = 6.0,
-        limit: int = 40,
-    ):
-        return self._fallback_by_role.get(source_role)
 
 
 def _piece() -> SimpleNamespace:
@@ -234,7 +219,11 @@ def test_recognizer_bumps_empty_and_timeout_counters() -> None:
     assert runtime_stats.recognizer_counts.get("brickognize_timeout_total") == 1
 
 
-def test_collect_tracked_images_adds_c2_fallback_when_direct_detail_lacks_it() -> None:
+def test_collect_tracked_images_keeps_only_carousel_role() -> None:
+    """Upstream c2 / c3 snapshots are filtered out — Brickognize is fed
+    exclusively carousel (C4) crops so the identity it commits is always
+    a post-landing view of the piece.
+    """
     crop = np.zeros((10, 10, 3), dtype=np.uint8)
     payload = ClassificationChannelRecognizer._encodeImageBase64(crop)
     assert payload is not None
@@ -258,22 +247,10 @@ def test_collect_tracked_images_adds_c2_fallback_when_direct_detail_lacks_it() -
             },
         ],
     }
-    c2_detail = {
-        "global_id": 7,
-        "segments": [
-            {
-                "source_role": "c_channel_2",
-                "first_seen_ts": 94.0,
-                "sector_snapshots": [
-                    {"captured_ts": 94.0, "piece_jpeg_b64": payload},
-                ],
-            }
-        ],
-    }
     recognizer = ClassificationChannelRecognizer(
         gc=SimpleNamespace(runtime_stats=SimpleNamespace(observeBlockedReason=lambda *a, **k: None)),
         logger=_Logger(),
-        vision=_Vision({17: direct_detail}, {"c_channel_2": c2_detail, "c_channel_3": None}),
+        vision=_Vision({17: direct_detail}),
         transport=_Transport(),
         event_queue=None,
     )
@@ -281,13 +258,10 @@ def test_collect_tracked_images_adds_c2_fallback_when_direct_detail_lacks_it() -
 
     images = recognizer._collectTrackedImages(piece)
 
-    assert len(images) == 3
-    for entry in images:
-        assert isinstance(entry, tuple)
-        assert len(entry) == 3
-        assert entry[1] in {"c_channel_2", "c_channel_3", "carousel"}
-        # captured_ts is carried through verbatim.
-        assert isinstance(entry[2], float)
+    assert len(images) == 1
+    image, role, ts = images[0]
+    assert role == "carousel"
+    assert ts == 112.0
 
 
 def _make_crop(sharpness_seed: int) -> np.ndarray:

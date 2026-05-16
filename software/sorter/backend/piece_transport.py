@@ -22,6 +22,17 @@ class TransportAdvanceResult:
     piece_for_distribution_drop: KnownObject | None
 
 
+def _normalize_deg(value: float) -> float:
+    normalized = float(value) % 360.0
+    if normalized < 0.0:
+        normalized += 360.0
+    return normalized
+
+
+def _circular_diff_deg(a: float, b: float) -> float:
+    return (_normalize_deg(a) - _normalize_deg(b) + 540.0) % 360.0 - 180.0
+
+
 class PieceTransport(ABC):
     @abstractmethod
     def registerIncomingPiece(
@@ -269,10 +280,17 @@ class ClassificationChannelTransport(PieceTransport):
             obj = self._active_pieces.get(uuid)
         if obj is None:
             return False
-        if obj.classification_status not in {
-            ClassificationStatus.pending,
-            ClassificationStatus.classifying,
-        }:
+        is_multi_drop = status == ClassificationStatus.multi_drop_fail
+        if (
+            not is_multi_drop
+            and obj.classification_status
+            not in {
+                ClassificationStatus.pending,
+                ClassificationStatus.classifying,
+            }
+        ):
+            return False
+        if is_multi_drop and obj.classification_status == ClassificationStatus.multi_drop_fail:
             return False
         obj.part_id = None
         obj.part_name = None
@@ -367,6 +385,16 @@ class ClassificationChannelTransport(PieceTransport):
             )
             piece.classification_channel_zone_center_deg = zone.center_deg
             piece.classification_channel_zone_half_width_deg = zone.body_half_width_deg
+            drop_angle_deg = (
+                getattr(self._dynamic_config, "drop_angle_deg", None)
+                if self._dynamic_config is not None
+                else None
+            )
+            piece.classification_channel_exit_offset_deg = (
+                _circular_diff_deg(zone.center_deg, float(drop_angle_deg))
+                if isinstance(drop_angle_deg, (int, float))
+                else None
+            )
             piece.classification_channel_soft_guard_deg = zone.soft_guard_deg
             piece.classification_channel_hard_guard_deg = zone.hard_guard_deg
         return zones, expired_pieces

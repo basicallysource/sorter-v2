@@ -5,11 +5,15 @@ from __future__ import annotations
 import os
 import signal
 import threading
-from typing import Dict, Any
+from typing import Callable, Dict, Any
 
 from fastapi import APIRouter
 
 import server.shared_state as shared_state
+from subsystems.sample_collection_speed import (
+    default_speed_rpm,
+    microsteps_from_stepper_config,
+)
 
 router = APIRouter()
 
@@ -32,8 +36,14 @@ def get_system_status() -> Dict[str, Any]:
 def reset_system() -> Dict[str, Any]:
     """Return hardware to standby state and tear down active runtime resources."""
     with shared_state.hardware_lifecycle_lock:
-        if shared_state.hardware_state == "homing":
-            return {"ok": False, "hardware_state": "homing", "message": "Cannot reset while homing."}
+        worker = shared_state.hardware_worker_thread
+        worker_alive = worker is not None and worker.is_alive()
+        if worker_alive or shared_state.hardware_state in {"homing", "initializing"}:
+            return {
+                "ok": False,
+                "hardware_state": shared_state.hardware_state,
+                "message": "Cannot reset while hardware recovery is active.",
+            }
 
         reset_fn = shared_state._hardware_reset_fn
         shared_state.setHardwareStatus(homing_step="Resetting...")
@@ -64,31 +74,26 @@ def reset_system() -> Dict[str, Any]:
 
 @router.post("/api/system/home")
 def home_system() -> Dict[str, Any]:
-    with shared_state.hardware_lifecycle_lock:
-        worker = shared_state.hardware_worker_thread
-        if worker is not None and worker.is_alive():
-            if shared_state.hardware_state == "homing":
-                return {"ok": True, "hardware_state": "homing", "message": "Already homing."}
-            return {
-                "ok": False,
-                "hardware_state": shared_state.hardware_state,
-                "message": "Another hardware operation is already in progress.",
-            }
+    """Safely recover the machine to a homed, paused runtime.
 
-        fn = shared_state._hardware_start_fn
-        if fn is None:
-            return {
-                "ok": False,
-                "hardware_state": shared_state.hardware_state,
-                "message": "No hardware start function registered.",
-            }
+    Historically this endpoint was the broad "start hardware" button. Keep
+    the URL stable for existing frontends, but route it through the same
+    exclusive recovery path as ``/api/system/recover`` so there is only one
+    global way back from standby/error/restart to ready.
+    """
+    return recover_system()
 
-        shared_state.setHardwareStatus(
-            state="homing",
-            clear_error=True,
-            homing_step="Starting...",
-        )
 
+def _start_hardware_worker(
+    *,
+    state: str,
+    step: str,
+    success_state: str,
+    fn: Callable[[], None] | None,
+    busy_message: str,
+    missing_fn_message: str,
+    started_message: str,
+) -> Dict[str, Any]:
     def _run() -> None:
         try:
             fn()
@@ -102,7 +107,7 @@ def home_system() -> Dict[str, Any]:
         else:
             with shared_state.hardware_lifecycle_lock:
                 shared_state.setHardwareStatus(
-                    state="ready",
+                    state=success_state,
                     clear_error=True,
                     clear_homing_step=True,
                 )
@@ -111,10 +116,53 @@ def home_system() -> Dict[str, Any]:
                 shared_state.hardware_worker_thread = None
 
     thread = threading.Thread(target=_run, daemon=True)
+
     with shared_state.hardware_lifecycle_lock:
+        worker = shared_state.hardware_worker_thread
+        worker_busy = worker is not None and worker.is_alive()
+        state_busy = shared_state.hardware_state in {"homing", "initializing"}
+        if worker_busy or state_busy:
+            if shared_state.hardware_state == state:
+                return {
+                    "ok": True,
+                    "hardware_state": state,
+                    "message": busy_message,
+                }
+            return {
+                "ok": False,
+                "hardware_state": shared_state.hardware_state,
+                "message": "Another hardware operation is already in progress.",
+            }
+
+        if fn is None:
+            return {
+                "ok": False,
+                "hardware_state": shared_state.hardware_state,
+                "message": missing_fn_message,
+            }
+
+        shared_state.setHardwareStatus(
+            state=state,
+            clear_error=True,
+            homing_step=step,
+        )
         shared_state.hardware_worker_thread = thread
+
     thread.start()
-    return {"ok": True, "hardware_state": "homing", "message": "Hardware homing started."}
+    return {"ok": True, "hardware_state": state, "message": started_message}
+
+
+@router.post("/api/system/recover")
+def recover_system() -> Dict[str, Any]:
+    return _start_hardware_worker(
+        state="homing",
+        step="Starting safe recovery...",
+        success_state="ready",
+        fn=shared_state._hardware_start_fn,
+        busy_message="Already recovering hardware.",
+        missing_fn_message="No hardware recovery function registered.",
+        started_message="Safe hardware recovery started.",
+    )
 
 
 @router.post("/api/system/initialize")
@@ -124,55 +172,15 @@ def initialize_system() -> Dict[str, Any]:
     Used by the setup wizard's Motion Direction Check step so the operator can
     jog each stepper before endstops have been verified.
     """
-    with shared_state.hardware_lifecycle_lock:
-        worker = shared_state.hardware_worker_thread
-        if worker is not None and worker.is_alive():
-            return {
-                "ok": False,
-                "hardware_state": shared_state.hardware_state,
-                "message": "Another hardware operation is already in progress.",
-            }
-
-        fn = shared_state._hardware_initialize_fn
-        if fn is None:
-            return {
-                "ok": False,
-                "hardware_state": shared_state.hardware_state,
-                "message": "No hardware initialize function registered.",
-            }
-
-        shared_state.setHardwareStatus(
-            state="initializing",
-            clear_error=True,
-            homing_step="Starting...",
-        )
-
-    def _run() -> None:
-        try:
-            fn()
-        except Exception as exc:
-            with shared_state.hardware_lifecycle_lock:
-                shared_state.setHardwareStatus(
-                    state="error",
-                    error=str(exc),
-                    clear_homing_step=True,
-                )
-        else:
-            with shared_state.hardware_lifecycle_lock:
-                shared_state.setHardwareStatus(
-                    state="initialized",
-                    clear_error=True,
-                    clear_homing_step=True,
-                )
-        finally:
-            with shared_state.hardware_lifecycle_lock:
-                shared_state.hardware_worker_thread = None
-
-    thread = threading.Thread(target=_run, daemon=True)
-    with shared_state.hardware_lifecycle_lock:
-        shared_state.hardware_worker_thread = thread
-    thread.start()
-    return {"ok": True, "hardware_state": "initializing", "message": "Hardware initialization started."}
+    return _start_hardware_worker(
+        state="initializing",
+        step="Starting...",
+        success_state="initialized",
+        fn=shared_state._hardware_initialize_fn,
+        busy_message="Already initializing hardware.",
+        missing_fn_message="No hardware initialize function registered.",
+        started_message="Hardware initialization started.",
+    )
 
 
 # Keep the old endpoint as alias for backwards compatibility
@@ -197,3 +205,386 @@ def restart_system() -> Dict[str, Any]:
 
     threading.Thread(target=_deferred_exit, daemon=True).start()
     return {"ok": True, "message": "Backend is restarting..."}
+
+
+def _shared_variables():
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    return getattr(coordinator, "shared", None)
+
+
+def _open_all_layer_doors_for_sample_collection() -> Dict[str, Any]:
+    controller = shared_state.controller_ref
+    irl = getattr(controller, "irl", None) if controller is not None else shared_state.getActiveIRL()
+    gc = getattr(controller, "gc", None) if controller is not None else shared_state.gc_ref
+    if irl is None:
+        return {"ok": False, "reason": "hardware_not_initialized", "opened": 0, "errors": []}
+    if bool(getattr(gc, "disable_servos", False)):
+        return {"ok": True, "reason": "servos_disabled", "opened": 0, "errors": []}
+
+    servos = list(getattr(irl, "servos", []) or [])
+    errors: list[dict[str, Any]] = []
+    opened = 0
+    for index, servo in enumerate(servos):
+        if not bool(getattr(servo, "available", True)):
+            errors.append(
+                {
+                    "layer_index": index,
+                    "reason": "servo_unavailable",
+                }
+            )
+            continue
+        try:
+            open_fn = getattr(servo, "open", None)
+            if not callable(open_fn):
+                errors.append(
+                    {
+                        "layer_index": index,
+                        "reason": "open_not_supported",
+                    }
+                )
+                continue
+            open_fn()
+            opened += 1
+        except Exception as exc:
+            errors.append(
+                {
+                    "layer_index": index,
+                    "reason": str(exc),
+                }
+            )
+
+    logger = getattr(gc, "logger", None)
+    if logger is not None:
+        if errors and hasattr(logger, "warning"):
+            logger.warning(
+                "Sample collection mode: opened %d/%d layer doors; errors=%r"
+                % (opened, len(servos), errors)
+            )
+        elif hasattr(logger, "info"):
+            logger.info(
+                "Sample collection mode: opened %d/%d layer doors for discard passthrough"
+                % (opened, len(servos))
+            )
+
+    return {"ok": len(errors) == 0, "opened": opened, "errors": errors}
+
+
+def _irl_config_for_speed_defaults():
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    config = getattr(coordinator, "irl_config", None)
+    if config is not None:
+        return config
+    config = getattr(shared_state.vision_manager, "_irl_config", None)
+    if config is not None:
+        return config
+    try:
+        from irl.config import mkIRLConfig
+
+        return mkIRLConfig()
+    except Exception:
+        return None
+
+
+def _sample_collection_default_speeds_rpm() -> Dict[str, float | None]:
+    config = _irl_config_for_speed_defaults()
+    if config is None:
+        return {role: None for role in shared_state.SAMPLE_COLLECTION_SPEED_ROLES}
+    feeder_config = getattr(config, "feeder_config", None)
+    if feeder_config is None:
+        return {role: None for role in shared_state.SAMPLE_COLLECTION_SPEED_ROLES}
+
+    specs = {
+        "c_channel_1": (
+            getattr(feeder_config, "first_rotor", None),
+            getattr(config, "c_channel_1_rotor_stepper", None),
+        ),
+        "c_channel_2": (
+            getattr(feeder_config, "second_rotor_normal", None),
+            getattr(config, "c_channel_2_rotor_stepper", None),
+        ),
+        "c_channel_3": (
+            getattr(feeder_config, "third_rotor_normal", None),
+            getattr(config, "c_channel_3_rotor_stepper", None),
+        ),
+        "classification_channel": (
+            getattr(feeder_config, "classification_channel_eject", None),
+            getattr(config, "c_channel_4_rotor_stepper", None)
+            or getattr(config, "carousel_stepper", None),
+        ),
+    }
+
+    defaults: Dict[str, float | None] = {}
+    for role, (pulse_config, stepper_config) in specs.items():
+        speed = getattr(pulse_config, "microsteps_per_second", None)
+        if not isinstance(speed, int) or isinstance(speed, bool) or speed <= 0:
+            defaults[role] = None
+            continue
+        defaults[role] = default_speed_rpm(
+            speed,
+            microsteps=microsteps_from_stepper_config(stepper_config),
+        )
+    return defaults
+
+
+def _sample_collection_speeds_payload() -> Dict[str, Any]:
+    overrides = shared_state.getSampleCollectionSpeedsRpmByRole()
+    defaults = _sample_collection_default_speeds_rpm()
+    effective = {
+        role: overrides.get(role) if overrides.get(role) is not None else defaults.get(role)
+        for role in shared_state.SAMPLE_COLLECTION_SPEED_ROLES
+    }
+    shared = _shared_variables()
+    return {
+        "ok": True,
+        "roles": list(shared_state.SAMPLE_COLLECTION_SPEED_ROLES),
+        "aliases": dict(shared_state.SAMPLE_COLLECTION_SPEED_ROLE_ALIASES),
+        "min_rpm": shared_state.SAMPLE_COLLECTION_SPEED_MIN_RPM,
+        "max_rpm": shared_state.SAMPLE_COLLECTION_SPEED_MAX_RPM,
+        "max_rpm_by_role": shared_state.getSampleCollectionSpeedMaxRpmByRole(),
+        "speeds_rpm_by_role": overrides,
+        "default_speeds_rpm_by_role": defaults,
+        "effective_speeds_rpm_by_role": effective,
+        "sample_collection_mode": (
+            bool(getattr(shared, "sample_collection_mode", False))
+            if shared is not None
+            else False
+        ),
+        "sample_collection_mode_available": shared is not None,
+    }
+
+
+@router.get("/api/system/dashboard-config")
+def get_dashboard_config() -> Dict[str, Any]:
+    from toml_config import getDashboardConfig
+
+    return {"ok": True, **getDashboardConfig()}
+
+
+def _active_runtime_incident() -> dict[str, Any] | None:
+    runtime_stats = (
+        getattr(shared_state.gc_ref, "runtime_stats", None)
+        if shared_state.gc_ref is not None
+        else None
+    )
+    if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+        return None
+    try:
+        active = runtime_stats.activeIncident()
+    except Exception:
+        return None
+    return active if isinstance(active, dict) else None
+
+
+def _feeding_runtime_state() -> Any | None:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    feeder = getattr(coordinator, "feeder", None)
+    states_map = getattr(feeder, "states_map", None)
+    if isinstance(states_map, dict):
+        for state in states_map.values():
+            if hasattr(state, "acknowledgeDropzoneStuckIncident"):
+                return state
+    return None
+
+
+def _classification_exit_runtime_state() -> Any | None:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
+    states_map = getattr(classification, "states_map", None)
+    if isinstance(states_map, dict):
+        for state in states_map.values():
+            if hasattr(state, "approveExitReleaseIncident"):
+                return state
+    return None
+
+
+def _apply_dashboard_incident_policy(config: dict[str, Any]) -> dict[str, Any] | None:
+    handling = config.get("incident_handling")
+    if not isinstance(handling, dict):
+        return None
+    active = _active_runtime_incident()
+    if not isinstance(active, dict):
+        return None
+
+    kind = str(active.get("kind") or "")
+    try:
+        from toml_config import incidentHandlingMode
+
+        mode = incidentHandlingMode(kind)
+    except Exception:
+        mode = handling.get(kind)
+    if mode == "off":
+        runtime_stats = (
+            getattr(shared_state.gc_ref, "runtime_stats", None)
+            if shared_state.gc_ref is not None
+            else None
+        )
+        if kind == "channel_dropzone_stuck":
+            feeding = _feeding_runtime_state()
+            try:
+                if feeding is not None:
+                    return feeding.clearDropzoneStuckIncident(
+                        str(active.get("channel") or ""),
+                        int(active.get("global_id", active.get("track_id"))),
+                    )
+            except Exception:
+                pass
+        source_kind = str(active.get("source_kind") or "")
+        classification_exit = kind == "classification_exit_release" or (
+            kind == "exit_stuck"
+            and (source_kind == "classification_exit_release" or active.get("piece_uuid") is not None)
+        )
+        channel_exit = kind == "channel_exit_stuck" or (
+            kind == "exit_stuck"
+            and (source_kind == "channel_exit_stuck" or active.get("channel") in {"c2", "c3"})
+        )
+        if classification_exit:
+            running = _classification_exit_runtime_state()
+            try:
+                if running is not None:
+                    return running.clearExitReleaseIncident(active.get("piece_uuid"))
+            except Exception:
+                pass
+        if channel_exit:
+            if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+                runtime_stats.clearActiveIncident(kind=kind)
+                return {"ok": True, "cleared": True, "kind": kind}
+        if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+            runtime_stats.clearActiveIncident(kind=kind)
+            return {"ok": True, "cleared": True, "kind": kind}
+        return None
+    if mode != "automatic":
+        return None
+
+    if kind == "channel_dropzone_stuck":
+        feeding = _feeding_runtime_state()
+        if feeding is None:
+            return None
+        try:
+            return feeding.acknowledgeDropzoneStuckIncident(
+                str(active.get("channel") or ""),
+                int(active.get("global_id", active.get("track_id"))),
+            )
+        except Exception:
+            return None
+
+    source_kind = str(active.get("source_kind") or "")
+    if kind == "classification_exit_release" or (
+        kind == "exit_stuck"
+        and (source_kind == "classification_exit_release" or active.get("piece_uuid") is not None)
+    ):
+        running = _classification_exit_runtime_state()
+        if running is None:
+            return None
+        try:
+            incident = running.approveExitReleaseIncident(active.get("piece_uuid"))
+            return {"ok": True, "approved": True, "incident": incident}
+        except Exception:
+            return None
+
+    return None
+
+
+@router.post("/api/system/dashboard-config")
+def set_dashboard_config(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from toml_config import setDashboardConfig
+
+    merged = setDashboardConfig(payload or {})
+    applied = _apply_dashboard_incident_policy(merged)
+    response = {"ok": True, **merged}
+    if applied is not None:
+        response["active_incident_policy_applied"] = applied
+    return response
+
+
+@router.get("/api/system/sample-collection-mode")
+def get_sample_collection_mode() -> Dict[str, Any]:
+    shared = _shared_variables()
+    if shared is None:
+        return {"ok": False, "enabled": False, "reason": "controller_not_initialized"}
+    return {"ok": True, "enabled": bool(getattr(shared, "sample_collection_mode", False))}
+
+
+@router.post("/api/system/sample-collection-mode")
+def set_sample_collection_mode(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Toggle the feeder's sample-collection bypass.
+
+    When enabled, C3 advances pieces past the cameras regardless of the
+    classification-channel downstream gate. Use during training-sample
+    drives where the classification pipeline may be clogged by ghost
+    detections we are explicitly trying to record samples to retrain
+    against.
+    """
+    shared = _shared_variables()
+    if shared is None:
+        return {"ok": False, "reason": "controller_not_initialized"}
+    enabled = bool(payload.get("enabled", False))
+    shared.sample_collection_mode = enabled
+    doors = (
+        _open_all_layer_doors_for_sample_collection()
+        if enabled
+        else {"ok": True, "opened": 0, "errors": []}
+    )
+    return {
+        "ok": True,
+        "enabled": shared.sample_collection_mode,
+        "doors": doors,
+    }
+
+
+@router.get("/api/system/sample-collection-speeds")
+def get_sample_collection_speeds() -> Dict[str, Any]:
+    return _sample_collection_speeds_payload()
+
+
+@router.post("/api/system/sample-collection-speeds")
+def set_sample_collection_speeds(payload: Dict[str, Any]) -> Dict[str, Any]:
+    speeds = payload.get("speeds_rpm_by_role")
+    if speeds is None:
+        speeds = payload.get("speeds_rpm")
+    if speeds is None:
+        speeds = payload
+    try:
+        shared_state.setSampleCollectionSpeedsRpm(speeds)
+    except ValueError as exc:
+        result = _sample_collection_speeds_payload()
+        result.update({"ok": False, "reason": "invalid_speed", "message": str(exc)})
+        return result
+    return _sample_collection_speeds_payload()
+
+
+@router.post("/api/system/force-teacher-capture")
+def force_teacher_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Queue a Gemini-labeled teacher capture for a given role on demand.
+
+    Bypasses the YOLO-driven classic trigger so we can still collect
+    Gemini-labeled samples from a channel whose live detector is missing
+    real pieces (typical for C4 carousel until a carousel-trained model
+    exists). Accepts C4 aliases plus C2/C3.
+    """
+    role = str(payload.get("role") or "").strip()
+    role = {
+        "c4": "carousel",
+        "c_channel_4": "carousel",
+        "classification_channel": "carousel",
+    }.get(role, role)
+    if role not in {"carousel", "c_channel_2", "c_channel_3"}:
+        return {
+            "ok": False,
+            "reason": "invalid_role",
+            "valid": [
+                "carousel",
+                "classification_channel",
+                "c4",
+                "c_channel_2",
+                "c_channel_3",
+            ],
+        }
+    vm = shared_state.vision_manager
+    if vm is None or not hasattr(vm, "forceQueueAuxiliaryTeacherCapture"):
+        return {"ok": False, "reason": "vision_not_initialized"}
+    queued = bool(vm.forceQueueAuxiliaryTeacherCapture(role))
+    return {"ok": True, "role": role, "queued": queued}

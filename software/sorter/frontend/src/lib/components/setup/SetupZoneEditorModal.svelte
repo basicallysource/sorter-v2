@@ -2,12 +2,24 @@
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
 	import { createEventDispatcher } from 'svelte';
 
-	type Channel = 'second' | 'third' | 'carousel' | 'class_top' | 'class_bottom';
+	type Channel =
+		| 'second'
+		| 'third'
+		| 'carousel'
+		| 'classification_channel'
+		| 'class_top'
+		| 'class_bottom';
 
 	let {
 		role
 	}: {
-		role: 'c_channel_2' | 'c_channel_3' | 'carousel' | 'classification_top' | 'classification_bottom';
+		role:
+			| 'c_channel_2'
+			| 'c_channel_3'
+			| 'carousel'
+			| 'classification_channel'
+			| 'classification_top'
+			| 'classification_bottom';
 	} = $props();
 
 	const dispatch = createEventDispatcher<{ saved: void }>();
@@ -25,6 +37,10 @@
 			case 'carousel':
 				return {
 					channels: ['carousel']
+				};
+			case 'classification_channel':
+				return {
+					channels: ['classification_channel']
 				};
 			case 'classification_top':
 				return {

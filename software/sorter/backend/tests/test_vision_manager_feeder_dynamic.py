@@ -1,7 +1,9 @@
 import unittest
 import sys
 import types
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import numpy as np
 
@@ -21,7 +23,73 @@ from vision.detection_registry import DetectionResult
 from vision.tracking.history import PieceHistoryBuffer, SectorSnapshot, TrackSegment
 
 
+class _OverlayFeed:
+    def __init__(self) -> None:
+        self.overlays: list[object] = []
+        self.pinned_ts_provider = None
+
+    def clear_overlays(self) -> None:
+        self.overlays.clear()
+
+    def add_overlay(self, overlay: object) -> None:
+        self.overlays.append(overlay)
+
+    def set_pinned_ts_provider(self, provider) -> None:
+        self.pinned_ts_provider = provider
+
+
 class VisionManagerFeederDynamicTests(unittest.TestCase):
+    def test_init_overlays_registers_classification_channel_feed_alias(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        carousel_feed = _OverlayFeed()
+        classification_feed = _OverlayFeed()
+        camera_service = SimpleNamespace(
+            feeds={
+                "carousel": carousel_feed,
+                "classification_channel": classification_feed,
+            },
+            get_feed=lambda role: {
+                "carousel": carousel_feed,
+                "classification_channel": classification_feed,
+            }.get(role),
+        )
+
+        vm._camera_service = camera_service
+        vm._camera_layout = "split_feeder"
+        vm._region_provider = object()
+        vm._usesClassificationChannelSetup = lambda: True
+        vm._feederTrackerRoles = lambda: ("carousel",)
+        vm.getFeederDetectionAlgorithm = lambda role=None: "gemini_sam"
+        vm._isDynamicDetectionAlgorithm = lambda algorithm: True
+        vm.getCaptureThreadForRole = lambda role: None
+        vm._getFeederDynamicDetection = lambda role, force=False: None
+        vm.getFeederTracks = lambda role: []
+        vm.getFeederIgnoredDetectionOverlayData = lambda role: []
+        vm._feeder_dynamic_detection_cache = {}
+        vm._per_channel_detectors = {}
+        vm._per_channel_analysis = {}
+
+        VisionManager._initOverlays(vm)
+
+        carousel_overlay_names = [type(overlay).__name__ for overlay in carousel_feed.overlays]
+        classification_overlay_names = [
+            type(overlay).__name__ for overlay in classification_feed.overlays
+        ]
+        # The raw-YOLO DynamicDetectionOverlay was removed from the carousel
+        # feed (it doubled up with TrackOverlay). The tracker layer is the
+        # source of truth for piece identity / state on the carousel feed.
+        self.assertIn("ChannelRegionOverlay", carousel_overlay_names)
+        self.assertIn("TrackOverlay", carousel_overlay_names)
+        self.assertNotIn("DynamicDetectionOverlay", carousel_overlay_names)
+        self.assertIn("ChannelRegionOverlay", classification_overlay_names)
+        self.assertIn("TrackOverlay", classification_overlay_names)
+        self.assertNotIn("DynamicDetectionOverlay", classification_overlay_names)
+        # The encode path must be pinned to the latest detection's frame_ts
+        # so overlay bboxes match the frame the detector ran on. Wiring the
+        # provider is what gives feed.get_frame() access to the timestamp.
+        self.assertIsNotNone(carousel_feed.pinned_ts_provider)
+        self.assertIsNotNone(classification_feed.pinned_ts_provider)
+
     def test_get_feeder_dynamic_detection_does_not_force_gemini_from_live_render(self) -> None:
         vm = VisionManager.__new__(VisionManager)
         frame = SimpleNamespace(timestamp=123.0, raw=np.zeros((8, 8, 3), dtype=np.uint8))
@@ -72,51 +140,101 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         self.assertEqual((1, 1, 4, 4), result.bbox)
         self.assertEqual([("c_channel_2", result, 123.0)], updates)
 
-    def test_refresh_auxiliary_detections_ticks_cached_trackers_and_refreshes_one_role_per_cycle(self) -> None:
+    def test_bundled_feeder_model_runs_local_model_detection_path(self) -> None:
         vm = VisionManager.__new__(VisionManager)
-        raw = np.zeros((6, 6, 3), dtype=np.uint8)
-        captures = {
-            "c_channel_2": SimpleNamespace(latest_frame=SimpleNamespace(timestamp=10.0, raw=raw)),
-            "c_channel_3": SimpleNamespace(latest_frame=SimpleNamespace(timestamp=11.0, raw=raw)),
-            "carousel": SimpleNamespace(latest_frame=SimpleNamespace(timestamp=12.0, raw=raw)),
-        }
-        detections = {
-            "c_channel_2": SimpleNamespace(bboxes=[(0, 0, 1, 1)], score=0.8),
-            "carousel": SimpleNamespace(bboxes=[(1, 1, 2, 2)], score=0.7),
-        }
-        updates: list[tuple[str, float]] = []
-        compute_calls: list[str] = []
+        frame = SimpleNamespace(timestamp=123.0, raw=np.zeros((8, 8, 3), dtype=np.uint8))
+        detection = DetectionResult(
+            bbox=(1, 1, 4, 4),
+            bboxes=((1, 1, 4, 4),),
+            score=0.9,
+            algorithm="bundled:c-channel",
+            found=True,
+        )
+        infer_calls: list[tuple[str, str, str]] = []
+        updates: list[tuple[str, object, float]] = []
+
+        vm.getCaptureThreadForRole = lambda role: SimpleNamespace(latest_frame=frame)
+        vm.getFeederDetectionAlgorithm = lambda role=None: "bundled:c-channel"
+        vm._feeder_dynamic_detection_cache = {}
+        vm._filterFeederDetectionResultToChannel = lambda role, current_detection: current_detection
+        vm._runHiveDetection = (
+            lambda algorithm, raw, scope, role: infer_calls.append((algorithm, scope, role))
+            or detection
+        )
+        vm._updateFeederTracker = (
+            lambda role, current_detection, timestamp, frame_bgr=None: updates.append(
+                (role, current_detection, float(timestamp))
+            )
+        )
+
+        result = VisionManager._getFeederDynamicDetection(vm, "c_channel_2", force=False)
+
+        self.assertIs(result, detection)
+        self.assertEqual([("bundled:c-channel", "feeder", "c_channel_2")], infer_calls)
+        self.assertEqual([("c_channel_2", detection, 123.0)], updates)
+
+    def test_get_or_build_hive_processor_accepts_bundled_registry_entries(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        vm._hive_ml_processors = {}
+        vm.gc = SimpleNamespace(logger=SimpleNamespace(warning=lambda *_a, **_k: None))
+        definition = SimpleNamespace(
+            kind="bundled",
+            model_path=Path("/tmp/bundled.onnx"),
+            model_family="yolo",
+            runtime="onnx",
+            imgsz=320,
+        )
+        processor = object()
+
+        with (
+            patch("vision.detection_registry.detection_algorithm_definition", return_value=definition),
+            patch("vision.ml.create_processor", return_value=processor) as create_processor,
+        ):
+            result = VisionManager._getOrBuildHiveProcessor(vm, "bundled:c-channel")
+
+        self.assertIs(result, processor)
+        self.assertIs(vm._hive_ml_processors["bundled:c-channel"], processor)
+        create_processor.assert_called_once()
+
+    def test_refresh_auxiliary_detections_runs_all_dynamic_roles_per_tick(self) -> None:
+        """The aux loop is the dedicated detection-cache warmer. Each tick
+        it must call the per-role detection entry for every dynamic-detection
+        role (gemini_sam / local-model ids) and skip non-dynamic roles. The actual
+        inference dedup happens inside the detection functions via their
+        per-role throttle, so we just verify the cache-warmer fan-out here.
+        """
+        vm = VisionManager.__new__(VisionManager)
+        feeder_calls: list[str] = []
+        carousel_calls: list[int] = []
 
         vm._feederTrackerRoles = lambda: ("c_channel_2", "c_channel_3", "carousel")
         vm.getFeederDetectionAlgorithm = lambda role=None: {
             "c_channel_2": "gemini_sam",
             "c_channel_3": "mog2",
-            "carousel": "gemini_sam",
+            "carousel": "hive:carousel_v1",
         }.get(role, "mog2")
-        vm.getCaptureThreadForRole = lambda role: captures.get(role)
-        vm._computeFeederGeminiDetection = (
-            lambda role, frame, force_call=False: compute_calls.append(role) or detections[role]
+        vm._feederRoleUsesDynamicDetection = lambda role: VisionManager._isDynamicDetectionAlgorithm(
+            vm.getFeederDetectionAlgorithm(role)
         )
-        vm._feeder_dynamic_detection_cache = {
-            "c_channel_2": (10.0, detections["c_channel_2"]),
-        }
-        vm._feeder_track_cache = {}
-        vm._aux_feeder_refresh_cursor = 0
-        vm._updateFeederTracker = (
-            lambda role, detection, timestamp, frame_bgr=None: updates.append(
-                (role, float(timestamp))
-            )
+        vm._getFeederDynamicDetection = (
+            lambda role, force=False: feeder_calls.append(role) or None
         )
-        vm.getCarouselDetectionAlgorithm = lambda: "heatmap_diff"
-        vm._carousel_capture = None
+        vm.getCarouselDetectionAlgorithm = lambda: "hive:carousel_v1"
+        vm._isDynamicDetectionAlgorithm = VisionManager._isDynamicDetectionAlgorithm
+        vm._camera_service = SimpleNamespace(
+            get_capture_thread_for_role=lambda _role: SimpleNamespace(latest_frame=None)
+        )
+        vm._getCarouselDynamicDetection = (
+            lambda force=False: carousel_calls.append(1) or None
+        )
+        vm.gc = SimpleNamespace(logger=SimpleNamespace(warning=lambda *_a, **_k: None))
 
         VisionManager._refreshAuxiliaryDetections(vm)
 
-        self.assertEqual(
-            [("c_channel_2", 10.0), ("carousel", 12.0)],
-            updates,
-        )
-        self.assertEqual(["carousel"], compute_calls)
+        # Dynamic roles fan out; mog2 role is skipped.
+        self.assertEqual(["c_channel_2", "carousel"], feeder_calls)
+        # Carousel hive driven independently of the feeder fan-out.
+        self.assertEqual([1], carousel_calls)
 
     def test_filter_feeder_detection_result_discards_bboxes_outside_channel_mask(self) -> None:
         vm = VisionManager.__new__(VisionManager)

@@ -54,6 +54,20 @@ export function parseBboxCollection(raw: unknown): Bbox[] {
 	return [];
 }
 
+export function mergeUniqueBboxes(...groups: Bbox[][]): Bbox[] {
+	const merged: Bbox[] = [];
+	const seen = new Set<string>();
+	for (const group of groups) {
+		for (const bbox of group) {
+			const key = [bbox.x, bbox.y, bbox.w, bbox.h].map((value) => Math.round(value)).join(':');
+			if (seen.has(key)) continue;
+			seen.add(key);
+			merged.push(bbox);
+		}
+	}
+	return merged;
+}
+
 export function extractPrimaryBboxes(
 	detectionBboxes: unknown,
 	extraDetectionBbox: unknown
@@ -73,4 +87,3 @@ export function extractLegacyReviewBboxes(extraReview: unknown): Bbox[] {
 		})
 		.filter((bbox): bbox is Bbox => bbox !== null);
 }
-

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel
 
 from server import hive_models as hive_models_service
 
@@ -17,6 +18,206 @@ HiveError = hive_models_service.HiveError
 
 
 router = APIRouter(prefix="/api/hive", tags=["hive-models"])
+
+
+# ---------------------------------------------------------------------------
+# Active per-scope detection assignments
+# ---------------------------------------------------------------------------
+
+# Each slot: (toml_section, role_key_or_None, human_label, registry_scope, group)
+#
+# ``toml_section`` — what gets passed to ``getDetectionConfig`` /
+# ``setDetectionConfig``.
+# ``registry_scope`` — the ``vision.detection_registry.DetectionScope`` value
+# used to check whether a model can serve this slot.
+# ``group`` — coarse logical grouping (``c_channels`` | ``chamber`` |
+# ``carousel``) the UI can collapse into a single line when every slot in the
+# group runs the same model.
+# NOTE: ``toml_section`` here is what the *live VisionManager* reads, not
+# whatever the operator-facing label suggests. The C4 station in the
+# ``classification_channel`` setup is wired pipeline-side as the carousel
+# detection — so its persisted algorithm lives in ``[detection.carousel]``,
+# never in a ``[detection.classification_channel]`` section (which would be
+# dead config nobody picks up).
+_ACTIVE_ASSIGNMENT_SLOTS: tuple[tuple[str, str | None, str, str, str], ...] = (
+    ("classification", None, "Chamber", "classification", "chamber"),
+    ("feeder", "c_channel_2", "C-Channel 2", "feeder", "c_channels"),
+    ("feeder", "c_channel_3", "C-Channel 3", "feeder", "c_channels"),
+    ("feeder", "carousel", "Carousel feed", "feeder", "carousel"),
+    ("carousel", None, "Classification C-Channel (C4)", "carousel", "c_channels"),
+    ("carousel", None, "Carousel detect", "carousel", "carousel"),
+)
+
+
+def _push_to_live_vision_manager(
+    scope: str, role: str | None, algorithm_id: str
+) -> None:
+    """Update the running VisionManager so the next frame uses the new model.
+
+    Without this, ``/activate`` only writes to ``machine_params.toml`` and the
+    live pipeline keeps running with whatever was loaded at process start —
+    which silently falls back to MOG2/heatmap_diff if the persisted algorithm
+    couldn't be resolved at startup time.
+    """
+    from server import shared_state
+
+    vision_manager = getattr(shared_state, "vision_manager", None)
+    if vision_manager is None:
+        return
+    try:
+        if scope == "feeder":
+            setter = getattr(vision_manager, "setFeederDetectionAlgorithm", None)
+            if setter is not None:
+                if role is not None:
+                    setter(algorithm_id, role)
+                else:
+                    setter(algorithm_id)
+        elif scope == "carousel":
+            setter = getattr(vision_manager, "setCarouselDetectionAlgorithm", None)
+            if setter is not None:
+                setter(algorithm_id)
+        elif scope == "classification":
+            setter = getattr(vision_manager, "setClassificationDetectionAlgorithm", None)
+            if setter is not None:
+                setter(algorithm_id)
+    except Exception:  # pragma: no cover - defensive: TOML still got written
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to push %s/%s → %s to live VisionManager", scope, role, algorithm_id
+        )
+
+
+def _slots_for_setup(setup_key: str | None) -> tuple[tuple[str, str | None, str, str, str], ...]:
+    """Filter the slot list to those that exist in the current machine setup.
+
+    A ``classification_channel`` machine has no carousel and no chamber, so
+    surfacing those rows would be misleading. A ``standard_carousel`` machine
+    has no C4. ``manual_carousel`` keeps the same slot set as the standard
+    setup minus the operator-managed feeder.
+    """
+    from machine_setup import get_machine_setup_definition
+
+    setup = get_machine_setup_definition(setup_key)
+    keep_chamber = setup.uses_classification_chamber
+    keep_carousel = setup.uses_carousel_transport
+    keep_c4 = setup.uses_classification_channel
+
+    visible: list[tuple[str, str | None, str, str, str]] = []
+    for slot in _ACTIVE_ASSIGNMENT_SLOTS:
+        toml_section, role, _label, _scope, group = slot
+        if toml_section == "classification" and not keep_chamber:
+            continue
+        if group == "carousel" and not keep_carousel:
+            continue
+        if toml_section == "classification_channel" and not keep_c4:
+            continue
+        # Drop the ``feeder.carousel`` role when carousel transport is gone:
+        # in classification_channel mode no piece ever lands in that slot.
+        if (
+            toml_section == "feeder"
+            and role == "carousel"
+            and not keep_carousel
+        ):
+            continue
+        visible.append(slot)
+    return tuple(visible)
+
+
+def _current_setup_key() -> str | None:
+    try:
+        from toml_config import _read_toml  # type: ignore[attr-defined]
+    except Exception:
+        return None
+    try:
+        cfg = _read_toml()
+    except Exception:
+        return None
+    raw = cfg.get("machine_setup") if isinstance(cfg, dict) else None
+    if isinstance(raw, dict):
+        candidate = raw.get("type")
+        if isinstance(candidate, str) and candidate.strip():
+            return candidate.strip()
+    return None
+
+
+def _collect_active_assignments() -> list[dict[str, str | None]]:
+    from toml_config import getDetectionConfig
+
+    setup_key = _current_setup_key()
+    items: list[dict[str, str | None]] = []
+    for scope, role, label, registry_scope, group in _slots_for_setup(setup_key):
+        cfg = getDetectionConfig(scope)
+        if not isinstance(cfg, dict):
+            algorithm = None
+        elif role is not None:
+            by_role = cfg.get("algorithm_by_role")
+            algorithm = (
+                by_role.get(role)
+                if isinstance(by_role, dict) and isinstance(by_role.get(role), str)
+                else cfg.get("algorithm")
+            )
+        else:
+            algorithm = cfg.get("algorithm")
+        items.append(
+            {
+                "scope": scope,
+                "role": role,
+                "label": label,
+                "registry_scope": registry_scope,
+                "group": group,
+                "algorithm_id": algorithm if isinstance(algorithm, str) else None,
+            }
+        )
+    return items
+
+
+def _apply_active_assignments(algorithm_id: str, registry_scopes: set[str]) -> dict:
+    """Write ``algorithm_id`` to every TOML slot whose registry_scope matches.
+
+    Returns a summary describing which slots were touched and which were left
+    alone (the model couldn't serve them).
+    """
+    from toml_config import getDetectionConfig, setDetectionConfig
+
+    applied: list[str] = []
+    skipped: list[str] = []
+    by_scope_changes: dict[str, dict[str, dict]] = {}
+    live_pushes: list[tuple[str, str | None, str]] = []
+
+    for scope, role, label, registry_scope, _group in _slots_for_setup(_current_setup_key()):
+        if registry_scope not in registry_scopes:
+            skipped.append(label)
+            continue
+        scope_changes = by_scope_changes.setdefault(scope, {"set": {}})
+        if role is None:
+            scope_changes["set"]["algorithm"] = algorithm_id
+        else:
+            roles_map = scope_changes["set"].setdefault("algorithm_by_role", {})
+            roles_map[role] = algorithm_id
+        live_pushes.append((scope, role, algorithm_id))
+        applied.append(label)
+
+    for scope, changes in by_scope_changes.items():
+        existing = getDetectionConfig(scope) or {}
+        merged = dict(existing)
+        for key, value in changes["set"].items():
+            if key == "algorithm_by_role":
+                current = (
+                    merged.get("algorithm_by_role")
+                    if isinstance(merged.get("algorithm_by_role"), dict)
+                    else {}
+                )
+                merged["algorithm_by_role"] = {**current, **value}
+            else:
+                merged[key] = value
+        setDetectionConfig(scope, merged)
+
+    # Push to the live VisionManager *after* persistence so a crash here
+    # still leaves the next process restart with the right config.
+    for scope, role, algo in live_pushes:
+        _push_to_live_vision_manager(scope, role, algo)
+
+    return {"applied": applied, "skipped": skipped}
 
 
 def _public_target(target: dict) -> dict:
@@ -96,6 +297,53 @@ def list_installed() -> dict:
     return {"items": hive_models_service.list_installed_models()}
 
 
+@router.get("/models/active-assignments")
+def list_active_assignments() -> dict:
+    """Which detection algorithm is currently bound to which scope/role.
+
+    Reads from ``machine_params.toml`` and returns a flat list of
+    ``{algorithm_id, scope, role, label}`` so the Models UI can show
+    "this model is currently active for: ..." next to each installed entry.
+    """
+    return {"items": _collect_active_assignments()}
+
+
+class ActivatePayload(BaseModel):
+    algorithm_id: str
+
+
+@router.post("/models/activate")
+def activate_algorithm(payload: ActivatePayload) -> dict:
+    """Set ``algorithm_id`` as the active detector for every slot it can serve.
+
+    Returns the post-activation assignment list plus a summary of which slots
+    were updated and which were left untouched (model didn't claim that
+    scope).
+    """
+    from vision.detection_registry import detection_algorithm_definition, invalidate_registry
+
+    # Defensive rescan: a model that was just downloaded won't be in the
+    # cached registry until invalidation runs. The download worker also
+    # invalidates, but if the activation request races ahead of that we'd
+    # otherwise hand the user a confusing "unknown algorithm" error.
+    invalidate_registry()
+
+    definition = detection_algorithm_definition(payload.algorithm_id)
+    if definition is None:
+        raise HTTPException(
+            status_code=404, detail=f"unknown algorithm: {payload.algorithm_id}"
+        )
+    summary = _apply_active_assignments(
+        payload.algorithm_id, set(definition.supported_scopes)
+    )
+    return {
+        "algorithm_id": payload.algorithm_id,
+        "label": definition.label,
+        **summary,
+        "items": _collect_active_assignments(),
+    }
+
+
 @router.get("/models/{model_id}")
 def get_model(
     model_id: str,
@@ -137,10 +385,25 @@ def download_model(
     target_id: str | None = Query(default=None),
     variant_runtime: str | None = Query(default=None),
 ) -> dict:
+    """Queue downloads for this model.
+
+    Without ``variant_runtime`` we enqueue **every deployable variant**
+    (ONNX, NCNN, Hailo) in parallel — each into its own
+    ``hive-<model_id>-<runtime>`` directory. Operators on a Mac get both the
+    ONNX and NCNN exports so they can later choose between e.g. CoreML and
+    Vulkan execution by activating the right variant. Pytorch is filtered
+    out because the sorter cannot load it.
+
+    Pass an explicit ``variant_runtime`` (``onnx``/``ncnn``/``hailo``) to
+    queue exactly one variant.
+    """
     resolved_target = _resolve_target_id(target_id)
     manager = hive_models_service.get_job_manager()
-    job_id = manager.enqueue(resolved_target, model_id, variant_runtime)
-    return {"job_id": job_id}
+    if variant_runtime:
+        job_id = manager.enqueue(resolved_target, model_id, variant_runtime)
+        return {"job_id": job_id, "job_ids": [job_id]}
+    job_ids = manager.enqueue_all_deployable_variants(resolved_target, model_id)
+    return {"job_ids": job_ids, "job_id": job_ids[0] if job_ids else None}
 
 
 @router.get("/downloads")

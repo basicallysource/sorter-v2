@@ -60,3 +60,21 @@ class IgnoredRegionOverlay:
             )
 
         return annotated
+
+    def metadata(self) -> list[dict[str, object]]:
+        items: list[dict[str, object]] = []
+        for region in self._get_regions() or []:
+            bbox = region.get("bbox")
+            if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
+                continue
+            try:
+                normalized_bbox = [int(round(float(v))) for v in bbox[:4]]
+            except Exception:
+                continue
+            items.append({
+                "type": "ignored_region",
+                "category": self.category,
+                "label": str(region.get("label") or "ignored"),
+                "bbox": normalized_bbox,
+            })
+        return items

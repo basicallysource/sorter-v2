@@ -2,6 +2,7 @@ import hashlib
 import os
 import tempfile
 import uuid
+from pathlib import Path
 
 from fastapi import HTTPException, Response, UploadFile
 
@@ -148,6 +149,23 @@ def serve_model_variant(
         filename=filename,
         media_type="application/octet-stream",
     )
+
+
+_RUNTIME_DEFAULT_EXTENSIONS = {
+    "onnx": ".onnx",
+    "ncnn": ".bin",
+    "hailo": ".hef",
+    "pytorch": ".pt",
+}
+
+
+def build_download_filename(model, variant) -> str:
+    """Build a self-describing filename: {slug}_v{version}_{YYYY-MM-DD}_{runtime}{.ext}."""
+    suffix = Path(variant.file_name or "").suffix
+    if not suffix:
+        suffix = _RUNTIME_DEFAULT_EXTENSIONS.get(variant.runtime, "")
+    date_part = model.published_at.strftime("%Y-%m-%d")
+    return f"{model.slug}_v{model.version}_{date_part}_{variant.runtime}{suffix}"
 
 
 def delete_model_files(model_id) -> None:

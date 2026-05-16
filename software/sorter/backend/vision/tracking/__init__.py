@@ -38,9 +38,7 @@ def build_feeder_tracker_system(
     frame_rate: int = 5,  # kept for signature compat with older callers
     exit_observer: Callable[..., Any] | None = None,
     ghost_reject_observer: Callable[..., Any] | None = None,
-    embedding_rebind_observer: Callable[..., Any] | None = None,
     stale_pending_observer: Callable[..., Any] | None = None,
-    id_switch_suspect_observer: Callable[..., Any] | None = None,
 ) -> tuple[PieceHandoffManager, dict[str, PolarFeederTracker], PieceHistoryBuffer]:
     """Create a handoff manager + per-role polar trackers wired together.
 
@@ -58,12 +56,22 @@ def build_feeder_tracker_system(
     appended to the same history entry.
     """
     _ = frame_rate  # unused by the polar tracker, accepted for compat
+
     # Drop the c_channel_2 → c_channel_3 edge: see docstring above. Every
     # other adjacent pair in ``roles`` is wired as usual.
+    # ALSO drop c_channel_3 → carousel as of T7: per operator decision, the
+    # carousel-side classification pipeline only consumes its own track
+    # history, never an upstream C3 stitch. With the recognition path
+    # locked to source_role=="carousel" since T2, and free-fall capture
+    # already covering the pre-landing window via drop_zone_burst, the
+    # C3→C4 handoff has no consumer left but still occasionally pulls a
+    # wrong-piece c3 segment into the detail page. Severing it here gives
+    # every carousel track a fresh global_id.
+    _NO_HANDOFF_FROM = {"c_channel_2", "c_channel_3"}
     chain = {
         roles[i]: roles[i + 1]
         for i in range(len(roles) - 1)
-        if roles[i] != "c_channel_2"
+        if roles[i] not in _NO_HANDOFF_FROM
     }
     # Late-bound probe — trackers dict is populated below, but the manager
     # is needed to construct them. The closure references the dict by name
@@ -84,7 +92,6 @@ def build_feeder_tracker_system(
         handoff_window_s=handoff_window_s,
         exit_observer=exit_observer,
         ghost_reject_observer=ghost_reject_observer,
-        embedding_rebind_observer=embedding_rebind_observer,
         upstream_live_ids_probe=_live_ids_probe,
         stale_pending_observer=stale_pending_observer,
     )
@@ -103,12 +110,17 @@ def build_feeder_tracker_system(
             "handoff_manager": manager,
             "detection_score_threshold": detection_score_threshold,
             "history": history,
-            "id_switch_suspect_observer": id_switch_suspect_observer,
         }
         if role == "carousel":
             # The dedicated classification channel is especially sensitive to
             # static ghost boxes when the plate is empty. Be more aggressive
             # there, while leaving c_channel_2 / c_channel_3 unchanged.
+            # T12 tried max_age=0.5s to kill ghosts faster but the
+            # tighter window also killed legitimate freshly-born pieces
+            # before they accumulated enough crops, dropping cls/min below
+            # baseline. Reverted to 1.5 s. The persistent ghost is
+            # physical (something visible at ~43° on the platter); the
+            # right fix is at the operator end, not in the filter timing.
             tracker_kwargs.update(
                 enable_stagnant_false_track_filter=True,
                 stagnant_false_track_max_age_s=1.5,
@@ -122,6 +134,12 @@ def build_feeder_tracker_system(
                 # The classification channel state machine pins them via
                 # mark_pending_drop() until the chute actually fires.
                 stagnant_false_track_pending_drop_protect_s=4.0,
+                # Phase 2 — physical walls between sectors on the 5-wall
+                # C4 platter mean identity is naturally sector-anchored.
+                # Enable the constraint set: reject ±>1-sector matches,
+                # multi-sector bbox detections, and new-track births into
+                # already-occupied sectors.
+                enable_sector_anchoring=True,
             )
         elif role == "c_channel_2":
             # The upstream singulation channel can briefly park real pieces,

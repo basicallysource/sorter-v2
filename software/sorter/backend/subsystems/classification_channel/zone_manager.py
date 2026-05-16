@@ -221,11 +221,15 @@ class ZoneManager:
         body_half_width_deg: float,
         hard_guard_deg: float,
         ignore_piece_uuid: str | None = None,
+        ignore_piece_uuids: set[str] | None = None,
     ) -> bool:
         start = center_deg - (body_half_width_deg + hard_guard_deg)
         end = center_deg + (body_half_width_deg + hard_guard_deg)
+        skip = set(ignore_piece_uuids) if ignore_piece_uuids else set()
+        if ignore_piece_uuid is not None:
+            skip.add(ignore_piece_uuid)
         for zone in self._zones_by_piece_uuid.values():
-            if zone.piece_uuid == ignore_piece_uuid:
+            if zone.piece_uuid in skip:
                 continue
             if _arcs_overlap(start, end, zone.hard_start_deg, zone.hard_end_deg):
                 return False

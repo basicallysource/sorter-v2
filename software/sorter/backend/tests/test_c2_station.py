@@ -1,7 +1,9 @@
 import unittest
+from unittest.mock import patch
 from types import SimpleNamespace
 
 from subsystems.channels import C2Station, FeederTickContext
+from subsystems.channels.base import EXIT_WIGGLE_OVERLAP_THRESHOLD
 from subsystems.feeder.analysis import ChannelAction
 
 
@@ -23,6 +25,7 @@ class _RuntimeStats:
         self.exit_wiggle_c2 = 0
         self.exit_wiggle_c3 = 0
         self.c2_idle_skipped_no_cluster = 0
+        self.active_incident = None
 
     def observeStateTransition(self, *args, **kwargs) -> None:
         pass
@@ -39,6 +42,12 @@ class _RuntimeStats:
     def observeC2IdleSkippedNoCluster(self, **_kwargs) -> None:
         self.c2_idle_skipped_no_cluster += 1
 
+    def setActiveIncident(self, incident: dict) -> None:
+        self.active_incident = dict(incident)
+
+    def activeIncident(self):
+        return dict(self.active_incident) if self.active_incident else None
+
 
 class _Stepper:
     def __init__(self) -> None:
@@ -49,11 +58,29 @@ class _Stepper:
         return True
 
 
+class _SeparationDriver:
+    def __init__(self, *, active: bool = False) -> None:
+        self.active = active
+        self.step_calls: list[tuple[float, bool]] = []
+        self.cancel_reasons: list[str] = []
+
+    def step(self, now_mono: float, allowed: bool) -> None:
+        self.step_calls.append((float(now_mono), bool(allowed)))
+
+    def cancel(self, reason: str) -> None:
+        if not self.active:
+            return
+        self.cancel_reasons.append(str(reason))
+        self.active = False
+
+
 def _make_station(
     stats: _RuntimeStats,
     stepper: _Stepper,
     *,
     agitation_enabled: bool = False,
+    separation_driver: _SeparationDriver | None = None,
+    separation_incident_enabled: bool = False,
 ) -> C2Station:
     return C2Station(
         gc=SimpleNamespace(
@@ -68,13 +95,14 @@ def _make_station(
             second_rotor_precision=SimpleNamespace(),
             second_rotor_normal=SimpleNamespace(),
         ),
-        separation_driver=SimpleNamespace(active=False, step=lambda *_args: None, cancel=lambda *_args: None),
+        separation_driver=separation_driver or _SeparationDriver(),
         gear_ratio=1.0,
         agitation_enabled=agitation_enabled,
         agitation_reverse_deg_output=45.0,
         agitation_forward_deg_output=30.0,
         agitation_min_interval_s=2.0,
         agitation_recent_ch1_window_s=10.0,
+        separation_incident_enabled=separation_incident_enabled,
     )
 
 
@@ -209,7 +237,7 @@ class C2StationTests(unittest.TestCase):
 
         self.assertEqual("feeding.wait_ch3_dropzone_clear", station.current_state)
 
-    def test_exit_wiggle_fires_when_stalled_and_downstream_blocked(self) -> None:
+    def test_exit_incident_published_when_stalled_and_downstream_blocked(self) -> None:
         stats = _RuntimeStats()
         stepper = _Stepper()
         station = _make_station(stats, stepper)
@@ -221,20 +249,47 @@ class C2StationTests(unittest.TestCase):
             ch3_dropzone_occupied=True,
         )
         station.run_exit_wiggle(ctx1)
-        self.assertEqual(0, stats.exit_wiggle_c2, "should not fire on first tick")
+        self.assertIsNone(stats.active_incident, "should not fire on first tick")
         self.assertEqual([], stepper.moves)
 
-        # Later tick: still stuck, 700 ms later (>=600 ms stall), wiggle fires.
+        # Later tick: still stuck, 1100 ms later (>=1000 ms stall), incident publishes.
         ctx2 = _make_wiggle_ctx(
-            now_mono=0.7,
+            now_mono=1.1,
             ch2_exit_overlap=0.8,
             ch3_dropzone_occupied=True,
         )
         station.run_exit_wiggle(ctx2)
-        self.assertEqual(1, stats.exit_wiggle_c2)
-        self.assertEqual(2, len(stepper.moves), "reverse then forward jog")
-        self.assertLess(stepper.moves[0], 0.0)
-        self.assertGreater(stepper.moves[1], 0.0)
+        self.assertEqual("exit_stuck", stats.active_incident["kind"])
+        self.assertEqual("channel_exit_stuck", stats.active_incident["source_kind"])
+        self.assertEqual("c2", stats.active_incident["channel"])
+        self.assertGreaterEqual(
+            stats.active_incident["overlap_ratio"],
+            EXIT_WIGGLE_OVERLAP_THRESHOLD,
+        )
+        self.assertEqual([], stepper.moves)
+
+    def test_exit_incident_waits_until_bbox_is_four_fifths_inside_exit(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        station = _make_station(stats, stepper)
+
+        station.run_exit_wiggle(
+            _make_wiggle_ctx(
+                now_mono=0.0,
+                ch2_exit_overlap=0.75,
+                ch3_dropzone_occupied=True,
+            )
+        )
+        station.run_exit_wiggle(
+            _make_wiggle_ctx(
+                now_mono=1.2,
+                ch2_exit_overlap=0.75,
+                ch3_dropzone_occupied=True,
+            )
+        )
+
+        self.assertIsNone(stats.active_incident)
+        self.assertEqual([], stepper.moves)
 
     def test_exit_wiggle_skipped_before_stall_elapses(self) -> None:
         stats = _RuntimeStats()
@@ -254,7 +309,7 @@ class C2StationTests(unittest.TestCase):
             ch3_dropzone_occupied=True,
         )
         station.run_exit_wiggle(ctx2)
-        self.assertEqual(0, stats.exit_wiggle_c2)
+        self.assertIsNone(stats.active_incident)
         self.assertEqual([], stepper.moves)
 
     def test_exit_wiggle_skipped_when_downstream_open(self) -> None:
@@ -274,8 +329,97 @@ class C2StationTests(unittest.TestCase):
             ch3_dropzone_occupied=False,
         )
         station.run_exit_wiggle(ctx2)
-        self.assertEqual(0, stats.exit_wiggle_c2)
+        self.assertIsNone(stats.active_incident)
         self.assertEqual([], stepper.moves)
+
+    def test_sample_collection_mode_skips_exit_wiggle(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        station = _make_station(stats, stepper)
+
+        ctx1 = _make_wiggle_ctx(
+            now_mono=0.0,
+            ch2_exit_overlap=0.8,
+            ch3_dropzone_occupied=True,
+        )
+        ctx1.sample_collection_mode = True
+        station.run_exit_wiggle(ctx1)
+        ctx2 = _make_wiggle_ctx(
+            now_mono=1.0,
+            ch2_exit_overlap=0.8,
+            ch3_dropzone_occupied=True,
+        )
+        ctx2.sample_collection_mode = True
+        station.run_exit_wiggle(ctx2)
+
+        self.assertIsNone(stats.active_incident)
+        self.assertEqual([], stepper.moves)
+
+    def test_sample_collection_mode_cancels_idle_separation(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        separation = _SeparationDriver(active=True)
+        station = _make_station(stats, stepper, separation_driver=separation)
+        ctx = _make_idle_ctx(
+            detections=[_c2_detection(angle_deg=40.0), _c2_detection(angle_deg=45.0)],
+            now_mono=1.0,
+        )
+        ctx.ch2_action = ChannelAction.PULSE_NORMAL
+        ctx.sample_collection_mode = True
+
+        station.run_idle_strategies(ctx)
+
+        self.assertEqual(["sample collection mode"], separation.cancel_reasons)
+        self.assertEqual([], separation.step_calls)
+
+    def test_c2_slipstick_separation_is_disabled_by_default(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        separation = _SeparationDriver(active=False)
+        station = _make_station(stats, stepper, separation_driver=separation)
+        ctx = _make_idle_ctx(detections=[_c2_detection(angle_deg=90.0)], now_mono=1.0)
+        ctx.ch2_action = ChannelAction.PULSE_NORMAL
+
+        station.run_idle_strategies(ctx)
+
+        self.assertEqual([], separation.step_calls)
+        self.assertEqual([], separation.cancel_reasons)
+        self.assertIsNone(stats.active_incident)
+
+    def test_disabled_c2_slipstick_cancels_active_driver(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        separation = _SeparationDriver(active=True)
+        station = _make_station(stats, stepper, separation_driver=separation)
+        ctx = _make_idle_ctx(detections=[_c2_detection(angle_deg=90.0)], now_mono=1.0)
+        ctx.ch2_action = ChannelAction.PULSE_NORMAL
+
+        station.run_idle_strategies(ctx)
+
+        self.assertEqual(["c2 separation incident disabled"], separation.cancel_reasons)
+        self.assertEqual([], separation.step_calls)
+        self.assertFalse(separation.active)
+
+    def test_enabled_c2_slipstick_publishes_incident_instead_of_running_driver(self) -> None:
+        stats = _RuntimeStats()
+        stepper = _Stepper()
+        separation = _SeparationDriver(active=False)
+        station = _make_station(
+            stats,
+            stepper,
+            separation_driver=separation,
+            separation_incident_enabled=True,
+        )
+        ctx = _make_idle_ctx(detections=[_c2_detection(angle_deg=90.0)], now_mono=1.0)
+        ctx.ch2_action = ChannelAction.PULSE_NORMAL
+
+        with patch("subsystems.channels.base._incident_handling_off", return_value=False):
+            station.run_idle_strategies(ctx)
+
+        self.assertEqual([], separation.step_calls)
+        self.assertEqual("c2_separation_needed", stats.active_incident["kind"])
+        self.assertEqual("c2", stats.active_incident["channel"])
+        self.assertFalse(stats.active_incident["automated_motion_enabled"])
 
 
 class C2IdleClusterGateTests(unittest.TestCase):

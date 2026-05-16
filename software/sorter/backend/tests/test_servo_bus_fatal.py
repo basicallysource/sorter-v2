@@ -16,6 +16,7 @@ discard bucket. These tests verify the new fail-fast path:
 from __future__ import annotations
 
 import queue
+import time
 import unittest
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -29,9 +30,11 @@ from sorting_profile import MISC_CATEGORY, SortingProfile
 from subsystems.distribution.chute import BinAddress, Chute
 from subsystems.distribution.positioning import (
     CHUTE_JAM_ALERT_PREFIX,
+    DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
     Positioning,
     SERVO_BUS_ALERT_PREFIX,
 )
+from subsystems.distribution.states import DistributionState
 from subsystems.shared_variables import SharedVariables
 
 
@@ -129,6 +132,7 @@ class ServoBusFatalTests(unittest.TestCase):
         servos: list[SimpleNamespace],
         *,
         layout: DistributionLayout | None = None,
+        sorting_profile: SortingProfile | None = None,
     ) -> Positioning:
         layout = layout or _mk_layout(num_layers=len(servos))
         irl = SimpleNamespace(servos=servos)
@@ -148,7 +152,7 @@ class ServoBusFatalTests(unittest.TestCase):
             shared=shared,
             chute=chute,
             layout=layout,
-            sorting_profile=_AllCategoriesProfile(),
+            sorting_profile=sorting_profile or _AllCategoriesProfile(),
             event_queue=queue.Queue(),
         )
         return positioning
@@ -174,6 +178,11 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNotNone(self.runtime_stats.servo_bus_offline_since_ts)
         snap = self.runtime_stats.snapshot()
         self.assertIsNotNone(snap.get("servo_bus_offline_since_ts"))
+        self.assertIsNotNone(snap.get("active_incident"))
+        self.assertEqual(
+            "distribution_servo_bus_offline",
+            snap["active_incident"]["kind"],
+        )
 
     def test_single_offline_layer_does_not_trip_fatal(self) -> None:
         # Layer 0 is offline but layer 1's servo is healthy — Positioning
@@ -187,6 +196,24 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertIsNone(shared_state.hardware_error)
         self.assertTrue(self.cmd_queue.empty())
         self.assertIsNone(self.runtime_stats.servo_bus_offline_since_ts)
+
+    def test_no_bin_available_publishes_distribution_incident_before_passthrough(self) -> None:
+        positioning = self._mk_positioning(
+            servos=[_mk_healthy_servo()],
+            sorting_profile=_AllCategoriesProfile("cat_missing"),
+        )
+
+        next_state = positioning.step()
+
+        self.assertEqual(DistributionState.IDLE, next_state)
+        snap = self.runtime_stats.snapshot()
+        self.assertIsNotNone(snap.get("active_incident"))
+        self.assertEqual(
+            DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
+            snap["active_incident"]["kind"],
+        )
+        self.assertEqual("cat_missing", snap["active_incident"]["category_id"])
+        self.assertEqual("positioning.no_bin_incident", positioning._occupancy_state)
 
     def test_repeat_detection_does_not_spam_error_or_queue(self) -> None:
         # Re-entering Positioning while the bus is still offline must not
@@ -233,6 +260,25 @@ class ServoBusFatalTests(unittest.TestCase):
 
         self.assertIsNone(shared_state.hardware_error)
         self.assertIsNone(self.runtime_stats.servo_bus_offline_since_ts)
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+
+    def test_chute_timeout_publishes_distribution_incident(self) -> None:
+        positioning = self._mk_positioning(servos=[_mk_healthy_servo()])
+        positioning._phase = "moving"
+        positioning._target_address = BinAddress(0, 0, 0)
+        positioning._moving_started_at = time.monotonic() - 10.0
+        positioning._chute_move_estimated_ms = 100
+        positioning.chute.stepper.stopped = False
+
+        positioning.step()
+
+        self.assertIsNotNone(shared_state.hardware_error)
+        assert shared_state.hardware_error is not None
+        self.assertTrue(shared_state.hardware_error.startswith(CHUTE_JAM_ALERT_PREFIX))
+        snap = self.runtime_stats.snapshot()
+        self.assertIsNotNone(snap.get("active_incident"))
+        self.assertEqual("distribution_chute_jam", snap["active_incident"]["kind"])
+        self.assertGreaterEqual(snap["active_incident"]["elapsed_ms"], 10000)
 
 
 class MainBootServoHealthCheckTests(unittest.TestCase):

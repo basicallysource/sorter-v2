@@ -1,15 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { backendHttpBaseUrl } from '$lib/backend';
+	import { Alert, Button, Tooltip } from '$lib/components/primitives';
 	import {
 		Download,
 		RefreshCw,
 		Trash2,
 		Search,
 		CheckCircle2,
-		XCircle,
-		Loader2,
-		Clock
+		ChevronDown,
+		ChevronRight
 	} from 'lucide-svelte';
 
 	type HiveTarget = { id: string; name: string; url: string };
@@ -43,15 +43,18 @@
 	};
 	type Installed = {
 		local_id: string;
-		target_id: string;
+		target_id: string | null;
 		model_id: string;
 		variant_runtime: string;
 		sha256: string;
 		name: string;
 		model_family: string;
 		size_bytes: number;
-		downloaded_at: string;
+		downloaded_at: string | null;
+		trained_at: string | null;
 		path: string;
+		bundled?: boolean;
+		compatible?: boolean;
 	};
 	type Job = {
 		job_id: string;
@@ -85,7 +88,8 @@
 	let targetsError = $state<string | null>(null);
 	let targetsMissing = $state(false);
 
-	let tab = $state<'available' | 'installed' | 'downloads'>('available');
+	let tab = $state<'available' | 'installed'>('installed');
+	let expandedDetailsId = $state<string | null>(null);
 
 	let query = $state('');
 	let scopeFilter = $state('');
@@ -103,14 +107,23 @@
 	let loadingInstalled = $state(false);
 	let installedError = $state<string | null>(null);
 
+	type ActiveAssignment = {
+		scope: string;
+		role: string | null;
+		label: string;
+		algorithm_id: string | null;
+		group?: string;
+	};
+	let activeAssignments = $state<ActiveAssignment[]>([]);
+
 	let jobs = $state<Job[]>([]);
-	let jobsError = $state<string | null>(null);
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 
 	let downloadingModelId = $state<string | null>(null);
 	let deletingLocalId = $state<string | null>(null);
+	let activatingAlgorithmId = $state<string | null>(null);
+	let cleaningUp = $state(false);
 	let actionError = $state<string | null>(null);
-	let actionStatus = $state<string | null>(null);
 
 	const detailCache = new Map<string, ModelDetail>();
 
@@ -126,10 +139,6 @@
 				.filter((job) => job.status === 'queued' || job.status === 'downloading')
 				.map((job) => job.model_id)
 		)
-	);
-
-	const sortedJobs = $derived(
-		[...jobs].sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
 	);
 
 	function formatSize(bytes: number | null | undefined): string {
@@ -156,15 +165,27 @@
 		});
 	}
 
-	function progressPct(job: Job): number {
-		if (!Number.isFinite(job.total_bytes) || job.total_bytes <= 0) {
-			if (job.status === 'done') return 100;
-			return 0;
-		}
-		const pct = (job.progress_bytes / job.total_bytes) * 100;
-		if (!Number.isFinite(pct)) return 0;
-		return Math.max(0, Math.min(100, pct));
+	function formatRelativeAge(iso: string | null | undefined): string | null {
+		if (!iso) return null;
+		const then = new Date(iso).getTime();
+		if (!Number.isFinite(then)) return null;
+		const seconds = Math.max(0, Math.round((Date.now() - then) / 1000));
+		if (seconds < 60) return 'just now';
+		const minutes = Math.round(seconds / 60);
+		if (minutes < 60) return `${minutes} min ago`;
+		const hours = Math.round(minutes / 60);
+		if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+		const days = Math.round(hours / 24);
+		if (days < 14) return `${days} day${days === 1 ? '' : 's'} ago`;
+		const weeks = Math.round(days / 7);
+		if (weeks < 9) return `${weeks} week${weeks === 1 ? '' : 's'} ago`;
+		const months = Math.round(days / 30);
+		if (months < 18) return `${months} month${months === 1 ? '' : 's'} ago`;
+		const years = (days / 365).toFixed(1).replace(/\.0$/, '');
+		return `${years} year${years === '1' ? '' : 's'} ago`;
 	}
+
+
 
 	async function loadTargets() {
 		targetsLoading = true;
@@ -255,13 +276,54 @@
 			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/installed`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
-			installed = Array.isArray(data) ? (data as Installed[]) : [];
+			const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
+			installed = items as Installed[];
 		} catch (e: any) {
 			installedError = e?.message ?? 'Failed to load installed models.';
 			installed = [];
 		} finally {
 			loadingInstalled = false;
 		}
+	}
+
+	async function loadActiveAssignments() {
+		try {
+			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/active-assignments`);
+			if (!res.ok) return;
+			const data = await res.json();
+			const items = Array.isArray(data?.items) ? data.items : [];
+			activeAssignments = items as ActiveAssignment[];
+		} catch {
+			// Active assignments are decorative — keep the page functional on failure.
+		}
+	}
+
+	function entryAlgorithmId(entry: Installed): string {
+		return `${entry.bundled ? 'bundled:' : 'hive:'}${entry.local_id}`;
+	}
+
+	async function readApiError(res: Response, fallback: string): Promise<string> {
+		const text = await res.text().catch(() => '');
+		if (!text) return fallback;
+		try {
+			const parsed = JSON.parse(text);
+			if (typeof parsed?.detail === 'string') return parsed.detail;
+			if (typeof parsed?.message === 'string') return parsed.message;
+		} catch {
+			// Not JSON — fall through and return the raw text.
+		}
+		return text;
+	}
+
+	function activeLabelsFor(entry: Installed): string[] {
+		const id = entryAlgorithmId(entry);
+		return activeAssignments
+			.filter((assignment) => assignment.algorithm_id === id)
+			.map((assignment) => assignment.label);
+	}
+
+	function toggleDetails(localId: string) {
+		expandedDetailsId = expandedDetailsId === localId ? null : localId;
 	}
 
 	async function loadDownloads() {
@@ -288,16 +350,18 @@
 			}
 
 			jobs = next;
-			jobsError = null;
 
 			if (anyFinished) {
 				void loadInstalled();
+				void loadActiveAssignments();
 				if (tab === 'available') {
 					void loadModels();
 				}
 			}
-		} catch (e: any) {
-			jobsError = e?.message ?? 'Failed to load downloads.';
+		} catch {
+			// Silent — the download poll runs in the background and any
+			// surfaced error already comes via actionError on enqueue. Job
+			// failures are surfaced through the failed-job alert.
 		}
 	}
 
@@ -329,34 +393,24 @@
 		}
 	}
 
-	async function handleDownload(model: ModelSummary, runtimeOverride?: string) {
+	async function handleDownload(model: ModelSummary) {
 		if (!selectedTargetId) return;
 		actionError = null;
-		actionStatus = null;
 		downloadingModelId = model.id;
 		try {
-			let variantRuntime: string | null = runtimeOverride ?? null;
-			if (!variantRuntime) {
-				const detail = await ensureDetail(model.id);
-				variantRuntime = detail?.recommended_runtime ?? null;
-			}
 			const params = new URLSearchParams();
 			params.set('target_id', selectedTargetId);
-			if (variantRuntime) params.set('variant_runtime', variantRuntime);
+			params.set('all', 'true');
 			const res = await fetch(
 				`${backendHttpBaseUrl}/api/hive/models/${encodeURIComponent(model.id)}/download?${params.toString()}`,
 				{ method: 'POST' }
 			);
 			if (!res.ok) {
-				let body = '';
-				try {
-					body = await res.text();
-				} catch {
-					body = '';
-				}
-				throw new Error(body || `HTTP ${res.status}`);
+				throw new Error(await readApiError(res, `HTTP ${res.status}`));
 			}
-			actionStatus = `Queued download for ${model.name}.`;
+			// Quiet flow: kick off the silent poll loop and let the Installed
+			// list refresh itself when the download finishes. No toast, no
+			// tab — keep the operator's attention on the model list.
 			await loadDownloads();
 		} catch (e: any) {
 			actionError = e?.message ?? 'Failed to enqueue download.';
@@ -365,10 +419,91 @@
 		}
 	}
 
+	async function handleActivate(entry: Installed) {
+		const id = entryAlgorithmId(entry);
+		actionError = null;
+		activatingAlgorithmId = id;
+		try {
+			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/activate`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ algorithm_id: id })
+			});
+			if (!res.ok) {
+				throw new Error(await readApiError(res, `HTTP ${res.status}`));
+			}
+			const payload = await res.json().catch(() => ({}));
+			const applied = Array.isArray(payload?.applied) ? payload.applied : [];
+			// Backend silently writes to all scopes that match — and the
+			// Installed list will show the new Active badge as soon as we
+			// reload assignments. Surface a banner only when *nothing* could
+			// be applied, since that case has no other visible signal.
+			if (applied.length === 0) {
+				actionError = `${entry.name} doesn't claim any scope on this machine setup — nothing changed.`;
+			}
+			await loadActiveAssignments();
+		} catch (e: any) {
+			actionError = e?.message ?? 'Failed to activate model.';
+		} finally {
+			activatingAlgorithmId = null;
+		}
+	}
+
+	async function handleCleanupUnused() {
+		// Sweep up: entries that aren't bundled, aren't currently active,
+		// and either are flagged as not-deployable on this sorter or just
+		// nobody uses them.
+		const candidates = installed.filter(
+			(entry) =>
+				!entry.bundled &&
+				(entry.compatible === false || activeLabelsFor(entry).length === 0)
+		);
+		if (candidates.length === 0) {
+			// No-op — the unused-count badge in the header already tells
+			// the operator there's nothing to do.
+			return;
+		}
+		const summary = candidates.map((entry) => entry.name).join('\n  • ');
+		if (!confirm(`Remove ${candidates.length} unused downloaded model${candidates.length === 1 ? '' : 's'}?\n\n  • ${summary}`)) {
+			return;
+		}
+		actionError = null;
+		cleaningUp = true;
+		try {
+			let removed = 0;
+			const failures: string[] = [];
+			for (const entry of candidates) {
+				try {
+					const res = await fetch(
+						`${backendHttpBaseUrl}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
+						{ method: 'DELETE' }
+					);
+					if (!res.ok) {
+						failures.push(
+							`${entry.name}: ${await readApiError(res, `HTTP ${res.status}`)}`
+						);
+						continue;
+					}
+					removed += 1;
+				} catch (e: any) {
+					failures.push(`${entry.name}: ${e?.message ?? 'request failed'}`);
+				}
+			}
+			await loadInstalled();
+			if (tab === 'available') {
+				await loadModels();
+			}
+			if (failures.length > 0) {
+				actionError = `Removed ${removed}, ${failures.length} failed:\n${failures.join('\n')}`;
+			}
+		} finally {
+			cleaningUp = false;
+		}
+	}
+
 	async function handleDelete(entry: Installed) {
 		if (!confirm(`Remove the installed model "${entry.name}" from this sorter?`)) return;
 		actionError = null;
-		actionStatus = null;
 		deletingLocalId = entry.local_id;
 		try {
 			const res = await fetch(
@@ -376,15 +511,8 @@
 				{ method: 'DELETE' }
 			);
 			if (!res.ok) {
-				let body = '';
-				try {
-					body = await res.text();
-				} catch {
-					body = '';
-				}
-				throw new Error(body || `HTTP ${res.status}`);
+				throw new Error(await readApiError(res, `HTTP ${res.status}`));
 			}
-			actionStatus = `Removed ${entry.name}.`;
 			await loadInstalled();
 			if (tab === 'available') {
 				await loadModels();
@@ -425,12 +553,15 @@
 	$effect(() => {
 		if (tab === 'installed') {
 			void loadInstalled();
+			void loadActiveAssignments();
 		}
 	});
 
 	$effect(() => {
-		const shouldPoll = tab === 'downloads' || hasActiveJob;
-		if (shouldPoll) {
+		// Keep polling silently while a download is in flight so the
+		// Installed list refreshes the moment it lands. No tab to render — the
+		// poll just drives the auto-refresh in loadDownloads().
+		if (hasActiveJob) {
 			startPolling();
 		} else {
 			stopPolling();
@@ -443,18 +574,15 @@
 	onMount(() => {
 		void (async () => {
 			await loadTargets();
-			await Promise.all([loadInstalled(), loadDownloads()]);
+			await Promise.all([loadInstalled(), loadDownloads(), loadActiveAssignments()]);
 		})();
 		return () => {
 			stopPolling();
 		};
 	});
 
-	function setTab(next: 'available' | 'installed' | 'downloads') {
+	function setTab(next: 'available' | 'installed') {
 		tab = next;
-		if (next === 'downloads') {
-			void loadDownloads();
-		}
 	}
 
 	function onFilterChange() {
@@ -469,34 +597,6 @@
 		if (page < modelsPages) page += 1;
 	}
 
-	function statusLabel(status: Job['status']): string {
-		switch (status) {
-			case 'queued':
-				return 'Queued';
-			case 'downloading':
-				return 'Downloading';
-			case 'done':
-				return 'Done';
-			case 'failed':
-				return 'Failed';
-			default:
-				return status;
-		}
-	}
-
-	function statusToneClass(status: Job['status']): string {
-		switch (status) {
-			case 'done':
-				return 'text-success dark:text-emerald-400';
-			case 'failed':
-				return 'text-danger';
-			case 'downloading':
-				return 'text-primary';
-			default:
-				return 'text-text-muted';
-		}
-	}
-
 	function targetName(id: string): string {
 		return targets.find((t) => t.id === id)?.name ?? id;
 	}
@@ -507,379 +607,457 @@
 	}
 </script>
 
-<div class="grid gap-4">
+<div class="grid gap-5">
+	<!-- ───────────────────── Action feedback ─────────────────────
+	     Errors only — success states are conveyed by the Installed list
+	     itself (Active pill, model appearing/disappearing). -->
+	{#if actionError}
+		<Alert variant="danger">
+			<div class="whitespace-pre-line">{actionError}</div>
+		</Alert>
+	{/if}
+
+	<!-- ───────────────────── Catalog manager ───────────────────── -->
 	{#if targetsLoading}
-		<div class="text-sm text-text-muted">Loading Hive targets…</div>
-	{:else if targetsMissing}
-		<div class="border border-border bg-surface px-3 py-3 text-sm text-text-muted">
-			Configure a Hive target in the Hive card above to browse and download detection models.
-		</div>
+		<Alert variant="info">Loading Hive targets…</Alert>
+	{:else if targetsMissing && installed.length === 0}
+		<Alert variant="info">
+			No Hive target configured and no models installed. Configure a target in the Hive
+			card to browse the catalog.
+		</Alert>
 	{:else if targetsError}
-		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400">
-			{targetsError}
-		</div>
-	{:else}
-		<div class="flex flex-wrap items-center justify-between gap-3">
-			<div class="flex items-center gap-2">
-				{#if targets.length > 1}
-					<label class="text-xs text-text-muted" for="hive-target-select">Target</label>
-					<select
-						id="hive-target-select"
-						bind:value={selectedTargetId}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+		<Alert variant="danger">{targetsError}</Alert>
+	{/if}
+
+	{#if !targetsLoading && !targetsError}
+		<div class="border border-border bg-surface">
+			<!-- Section header: tabs + target picker + refresh -->
+			<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-2">
+				<nav class="-mb-px flex items-stretch" aria-label="Models view">
+					<button
+						type="button"
+						onclick={() => setTab('installed')}
+						class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'installed' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
 					>
-						{#each targets as t (t.id)}
-							<option value={t.id}>{t.name}</option>
-						{/each}
-					</select>
-				{:else if targets.length === 1}
-					<span class="text-xs text-text-muted">Target: {targets[0].name}</span>
-				{/if}
-			</div>
-			<button
-				type="button"
-				onclick={() => {
-					if (tab === 'available') void loadModels();
-					if (tab === 'installed') void loadInstalled();
-					if (tab === 'downloads') void loadDownloads();
-				}}
-				class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
-				title="Refresh"
-			>
-				<RefreshCw size={12} />
-				Refresh
-			</button>
-		</div>
+						Installed
+						{#if installed.length > 0}
+							<span class="ml-1 text-xs font-normal text-text-muted">
+								{installed.length}
+							</span>
+						{/if}
+					</button>
+					{#if !targetsMissing}
+						<button
+							type="button"
+							onclick={() => setTab('available')}
+							class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'available' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+						>
+							Browse Hive
+						</button>
+					{/if}
+				</nav>
 
-		<div class="flex items-center gap-4 border-b border-border">
-			<button
-				type="button"
-				onclick={() => setTab('available')}
-				class={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${tab === 'available' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
-			>
-				Available
-			</button>
-			<button
-				type="button"
-				onclick={() => setTab('installed')}
-				class={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${tab === 'installed' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
-			>
-				Installed
-				{#if installed.length > 0}
-					<span class="ml-1 text-xs text-text-muted">({installed.length})</span>
-				{/if}
-			</button>
-			<button
-				type="button"
-				onclick={() => setTab('downloads')}
-				class={`-mb-px border-b-2 px-3 py-2 text-sm transition-colors ${tab === 'downloads' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
-			>
-				Downloads
-				{#if hasActiveJob}
-					<span class="ml-1 text-xs text-primary">(active)</span>
-				{/if}
-			</button>
-		</div>
+				<div class="flex items-center gap-2 px-2 py-2">
+					{#if targets.length > 1}
+						<label class="text-xs uppercase tracking-wider text-text-muted" for="hive-target-select">
+							Target
+						</label>
+						<select
+							id="hive-target-select"
+							bind:value={selectedTargetId}
+							class="border border-border bg-surface px-2 py-1 text-sm text-text"
+						>
+							{#each targets as t (t.id)}
+								<option value={t.id}>{t.name}</option>
+							{/each}
+						</select>
+					{:else if targets.length === 1}
+						<span class="text-xs text-text-muted">
+							Target <span class="font-mono">{targets[0].name}</span>
+						</span>
+					{/if}
+					<Tooltip text="Refresh current view">
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => {
+								if (tab === 'available') void loadModels();
+								if (tab === 'installed') {
+									void loadInstalled();
+									void loadActiveAssignments();
+								}
+							}}
+						>
+							<RefreshCw size={14} />
+						</Button>
+					</Tooltip>
+				</div>
+			</header>
 
-		{#if actionError}
-			<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400">
-				{actionError}
-			</div>
-		{/if}
-		{#if actionStatus}
-			<div class="text-sm text-text-muted">{actionStatus}</div>
-		{/if}
+			<div class="p-4">
 
 		{#if tab === 'available'}
-			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-					<div class="relative">
+			<div class="flex flex-col gap-4">
+				<div class="flex flex-wrap items-center gap-2">
+					<div class="relative flex-1 min-w-[16rem]">
 						<Search
-							size={12}
-							class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-text-muted"
+							size={14}
+							class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
 						/>
 						<input
 							bind:value={query}
 							oninput={onFilterChange}
 							type="text"
 							placeholder="Search name or slug"
-							class="w-full border border-border bg-bg py-1.5 pl-7 pr-2 text-sm text-text"
+							class="w-full border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text focus:border-primary focus:outline-none"
 						/>
 					</div>
-					<input
-						bind:value={scopeFilter}
-						oninput={onFilterChange}
-						type="text"
-						placeholder="Scope (e.g. brick, minifig)"
-						class="w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-					<select
-						bind:value={runtimeFilter}
-						onchange={onFilterChange}
-						class="w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					>
-						{#each RUNTIME_OPTIONS as opt}
-							<option value={opt}>{opt === '' ? 'Any runtime' : opt}</option>
-						{/each}
-					</select>
-					<input
-						bind:value={familyFilter}
-						oninput={onFilterChange}
-						type="text"
-						placeholder="Model family"
-						class="w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
+					<details class="group">
+						<summary class="cursor-pointer list-none border border-border bg-surface px-3 py-2 text-sm text-text-muted transition-colors hover:bg-bg">
+							<span class="inline-flex items-center gap-1.5">
+								<ChevronRight
+									size={14}
+									class="transition-transform group-open:rotate-90"
+								/>
+								Advanced filters
+							</span>
+						</summary>
+						<div class="mt-2 grid gap-2 sm:grid-cols-3">
+							<input
+								bind:value={scopeFilter}
+								oninput={onFilterChange}
+								type="text"
+								placeholder="Scope (e.g. brick, minifig)"
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+							/>
+							<select
+								bind:value={runtimeFilter}
+								onchange={onFilterChange}
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+							>
+								{#each RUNTIME_OPTIONS as opt}
+									<option value={opt}>{opt === '' ? 'Any runtime' : opt}</option>
+								{/each}
+							</select>
+							<input
+								bind:value={familyFilter}
+								oninput={onFilterChange}
+								type="text"
+								placeholder="Model family"
+								class="border border-border bg-surface px-3 py-2 text-sm text-text"
+							/>
+						</div>
+					</details>
 				</div>
-				<div class="flex items-center justify-between gap-2 text-xs text-text-muted">
+
+				<div class="flex items-center justify-between text-xs text-text-muted">
 					<span>
 						{#if loadingModels}
 							Loading models…
 						{:else}
-							{modelsTotal} model{modelsTotal === 1 ? '' : 's'} — page {page} of {modelsPages}
+							{modelsTotal} model{modelsTotal === 1 ? '' : 's'}{modelsPages > 1
+								? ` · page ${page} of ${modelsPages}`
+								: ''}
 						{/if}
 					</span>
-					<button
-						type="button"
-						onclick={resetFilters}
-						class="border border-border bg-bg px-2 py-1 text-xs text-text transition-colors hover:bg-surface"
-					>
-						Reset filters
-					</button>
+					{#if query || scopeFilter || runtimeFilter || familyFilter}
+						<button
+							type="button"
+							onclick={resetFilters}
+							class="text-text-muted underline-offset-2 hover:text-text hover:underline"
+						>
+							Clear filters
+						</button>
+					{/if}
 				</div>
-			</div>
 
-			{#if modelsError}
-				<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400">
-					{modelsError}
-				</div>
-			{/if}
+				{#if modelsError}
+					<Alert variant="danger">{modelsError}</Alert>
+				{/if}
 
-			{#if !loadingModels && models.length === 0 && !modelsError}
-				<div class="border border-border bg-surface px-3 py-3 text-sm text-text-muted">
-					No models found.
-				</div>
-			{/if}
-
-			<div class="grid gap-3">
-				{#each models as model (model.id)}
-					{@const detail = detailCache.get(model.id) ?? null}
-					{@const recommended = detail?.recommended_runtime ?? null}
-					{@const jobActive = activeJobModelIds.has(model.id)}
-					<div class="border border-border bg-surface px-3 py-3">
-						<div class="flex flex-wrap items-start justify-between gap-3">
-							<div class="min-w-0">
-								<div class="flex flex-wrap items-center gap-2">
-									<span class="text-sm font-medium text-text">{model.name}</span>
-									{#if model.installed}
-										<span class="inline-flex items-center gap-1 border border-success bg-success/10 px-1.5 py-0.5 text-xs font-medium text-success dark:border-emerald-400 dark:text-emerald-300">
-											<CheckCircle2 size={10} />
-											Installed
-										</span>
-									{/if}
-								</div>
-								<div class="mt-0.5 text-xs text-text-muted">
-									<span class="font-mono">{model.slug}</span>
-									· v{model.version}
-									· {model.model_family}
-									· published {formatDate(model.published_at)}
-								</div>
-								{#if model.description}
-									<div class="mt-2 text-sm text-text-muted">{model.description}</div>
-								{/if}
-								{#if (model.scopes ?? []).length > 0}
-									<div class="mt-2 flex flex-wrap gap-1">
-										{#each model.scopes ?? [] as scope}
-											<span class="border border-border bg-bg px-1.5 py-0.5 text-xs text-text-muted">
-												{scope}
-											</span>
-										{/each}
-									</div>
-								{/if}
-								{#if model.variant_runtimes.length > 0}
-									<div class="mt-2 flex flex-wrap gap-1">
-										{#each model.variant_runtimes as runtime}
-											{@const isRecommended = recommended === runtime}
-											<span
-												class={`border px-1.5 py-0.5 text-xs ${isRecommended ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-bg text-text-muted'}`}
-											>
-												{runtime}{isRecommended ? ' · recommended' : ''}
-											</span>
-										{/each}
-									</div>
-								{/if}
-							</div>
-
-							<div class="flex flex-col items-end gap-2">
-								<button
-									type="button"
-									onclick={() => void handleDownload(model)}
-									disabled={jobActive || downloadingModelId === model.id || !selectedTargetId}
-									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<Download size={12} />
-									{jobActive
-										? 'In progress'
-										: downloadingModelId === model.id
-											? 'Queueing…'
-											: model.installed
-												? 'Download again'
-												: 'Download'}
-								</button>
-								{#if availableRuntimes.length > 1 && model.variant_runtimes.length > 0}
-									<details class="text-right">
-										<summary class="cursor-pointer text-xs text-text-muted hover:text-text">
-											Override runtime
-										</summary>
-										<div class="mt-1 flex flex-wrap justify-end gap-1">
-											{#each model.variant_runtimes as runtime}
-												<button
-													type="button"
-													onclick={() => void handleDownload(model, runtime)}
-													disabled={jobActive || downloadingModelId === model.id}
-													class="border border-border bg-bg px-2 py-0.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-												>
-													{runtime}
-												</button>
-											{/each}
-										</div>
-									</details>
-								{/if}
-							</div>
-						</div>
+				{#if !loadingModels && models.length === 0 && !modelsError}
+					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
+						No models found.
 					</div>
-				{/each}
-			</div>
-
-			{#if modelsPages > 1}
-				<div class="flex items-center justify-end gap-2 text-xs">
-					<button
-						type="button"
-						onclick={prevPage}
-						disabled={page <= 1}
-						class="border border-border bg-bg px-2 py-1 text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						Previous
-					</button>
-					<span class="text-text-muted">Page {page} of {modelsPages}</span>
-					<button
-						type="button"
-						onclick={nextPage}
-						disabled={page >= modelsPages}
-						class="border border-border bg-bg px-2 py-1 text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-					>
-						Next
-					</button>
-				</div>
-			{/if}
-		{:else if tab === 'installed'}
-			{#if installedError}
-				<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400">
-					{installedError}
-				</div>
-			{/if}
-			{#if loadingInstalled}
-				<div class="text-sm text-text-muted">Loading installed models…</div>
-			{:else if installed.length === 0}
-				<div class="border border-border bg-surface px-3 py-3 text-sm text-text-muted">
-					No models installed yet. Download one from the Available tab.
-				</div>
-			{:else}
-				<div class="grid gap-3">
-					{#each installed as entry (entry.local_id)}
-						<div class="border border-border bg-surface px-3 py-3">
-							<div class="flex flex-wrap items-start justify-between gap-3">
-								<div class="min-w-0">
+				{:else}
+					<ul class="flex flex-col">
+						{#each models as model, idx (model.id)}
+							{@const jobActive = activeJobModelIds.has(model.id)}
+							<li
+								class={`flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-4 py-3 ${idx > 0 ? '-mt-px' : ''}`}
+							>
+								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-2">
-										<span class="text-sm font-medium text-text">{entry.name}</span>
-										<span class="border border-primary bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
-											{entry.variant_runtime}
-										</span>
-										<span class="border border-border bg-bg px-1.5 py-0.5 text-xs text-text-muted">
-											{entry.model_family}
-										</span>
-									</div>
-									<div class="mt-2 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
-										<span class="text-text-muted">SHA-256</span>
-										<span class="font-mono text-text">{shortSha(entry.sha256)}</span>
-										<span class="text-text-muted">Size</span>
-										<span class="text-text">{formatSize(entry.size_bytes)}</span>
-										<span class="text-text-muted">Downloaded</span>
-										<span class="text-text">{formatDate(entry.downloaded_at)}</span>
-										<span class="text-text-muted">Target</span>
-										<span class="text-text">{targetName(entry.target_id)}</span>
-										<span class="text-text-muted">Path</span>
-										<span class="truncate font-mono text-text" title={entry.path}>{entry.path}</span>
-									</div>
-								</div>
-								<button
-									type="button"
-									onclick={() => void handleDelete(entry)}
-									disabled={deletingLocalId === entry.local_id}
-									class="inline-flex items-center gap-1.5 border border-danger bg-danger px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-danger/80 disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<Trash2 size={12} />
-									{deletingLocalId === entry.local_id ? 'Removing…' : 'Remove'}
-								</button>
-							</div>
-						</div>
-					{/each}
-				</div>
-			{/if}
-		{:else if tab === 'downloads'}
-			{#if jobsError}
-				<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger dark:text-red-400">
-					{jobsError}
-				</div>
-			{/if}
-			{#if sortedJobs.length === 0}
-				<div class="border border-border bg-surface px-3 py-3 text-sm text-text-muted">
-					No download jobs yet.
-				</div>
-			{:else}
-				<div class="grid gap-3">
-					{#each sortedJobs as job (job.job_id)}
-						{@const pct = progressPct(job)}
-						<div class="border border-border bg-surface px-3 py-3">
-							<div class="flex flex-wrap items-start justify-between gap-3">
-								<div class="min-w-0">
-									<div class="flex flex-wrap items-center gap-2">
-										{#if job.status === 'done'}
-											<CheckCircle2 size={12} class="text-success dark:text-emerald-400" />
-										{:else if job.status === 'failed'}
-											<XCircle size={12} class="text-danger" />
-										{:else if job.status === 'downloading'}
-											<Loader2 size={12} class="animate-spin text-primary" />
-										{:else}
-											<Clock size={12} class="text-text-muted" />
+										<span class="font-mono text-sm font-medium text-text">{model.name}</span>
+										{#if model.installed}
+											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
+												<CheckCircle2 size={10} />
+												Installed
+											</span>
 										{/if}
-										<span class="text-sm font-medium text-text">{job.file_name || job.variant_id}</span>
-										<span class={`text-xs ${statusToneClass(job.status)}`}>
-											{statusLabel(job.status)}
-										</span>
 									</div>
-									<div class="mt-0.5 text-xs text-text-muted">
-										Target {targetName(job.target_id)}
-										· runtime {job.variant_runtime}
-										· {formatSize(job.progress_bytes)} / {formatSize(job.total_bytes)}
+									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+										<span>{model.model_family}</span>
+										<span aria-hidden="true">·</span>
+										<span>v{model.version}</span>
+										{#if model.variant_runtimes.length > 0}
+											<span aria-hidden="true">·</span>
+											<span>
+												{model.variant_runtimes.length} format{model.variant_runtimes.length === 1 ? '' : 's'}
+												<span class="text-text-muted/70">
+													({model.variant_runtimes.join(', ')})
+												</span>
+											</span>
+										{/if}
+										<span aria-hidden="true">·</span>
+										<Tooltip text={`Published ${formatDate(model.published_at)}`}>
+											<span class="text-text">
+												published {formatRelativeAge(model.published_at) ?? formatDate(model.published_at)}
+											</span>
+										</Tooltip>
 									</div>
 								</div>
-								<div class="text-xs text-text-muted">
-									{formatDate(job.updated_at || job.created_at)}
-								</div>
-							</div>
-							<div class="mt-3 h-1 w-full bg-bg">
-								<div
-									class={`h-full ${job.status === 'failed' ? 'bg-danger' : 'bg-primary'}`}
-									style={`width: ${pct}%`}
-								></div>
-							</div>
-							{#if job.error}
-								<div class="mt-2 text-xs text-danger">{job.error}</div>
+								<Button
+									variant={model.installed ? 'secondary' : 'primary'}
+									size="sm"
+									disabled={jobActive || downloadingModelId === model.id || !selectedTargetId}
+									loading={downloadingModelId === model.id || jobActive}
+									onclick={() => void handleDownload(model)}
+								>
+									{#if !(downloadingModelId === model.id || jobActive)}
+										<Download size={12} />
+									{/if}
+									<span>
+										{jobActive
+											? 'Downloading…'
+											: downloadingModelId === model.id
+												? 'Starting…'
+												: model.installed
+													? 'Download again'
+													: 'Download'}
+									</span>
+								</Button>
+							</li>
+						{/each}
+					</ul>
+				{/if}
+
+				{#if modelsPages > 1}
+					<div class="flex items-center justify-end gap-2 text-xs">
+						<Button variant="secondary" size="sm" onclick={prevPage} disabled={page <= 1}>
+							Previous
+						</Button>
+						<span class="text-text-muted">Page {page} of {modelsPages}</span>
+						<Button
+							variant="secondary"
+							size="sm"
+							onclick={nextPage}
+							disabled={page >= modelsPages}
+						>
+							Next
+						</Button>
+					</div>
+				{/if}
+			</div>
+		{:else if tab === 'installed'}
+			{@const unusedCount = installed.filter(
+				(entry) =>
+					!entry.bundled &&
+					(entry.compatible === false || activeLabelsFor(entry).length === 0)
+			).length}
+			<div class="flex flex-col gap-4">
+				{#if installedError}
+					<Alert variant="danger">{installedError}</Alert>
+				{/if}
+
+				{#if installed.length > 0}
+					<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
+						<span>
+							{installed.length} installed
+							{#if unusedCount > 0}
+								· <span class="text-warning-dark dark:text-warning">{unusedCount} unused</span>
 							{/if}
-						</div>
-					{/each}
-				</div>
-			{/if}
+						</span>
+						{#if unusedCount > 0}
+							<Button
+								variant="ghost"
+								size="sm"
+								onclick={() => void handleCleanupUnused()}
+								disabled={cleaningUp}
+								loading={cleaningUp}
+							>
+								<Trash2 size={12} />
+								<span>
+									{cleaningUp ? 'Cleaning up' : `Cleanup ${unusedCount} unused`}
+								</span>
+							</Button>
+						{/if}
+					</div>
+				{/if}
+
+				{#if loadingInstalled}
+					<div class="text-sm text-text-muted">Loading installed models…</div>
+				{:else if installed.length === 0}
+					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
+						No models installed yet. Open <span class="font-medium text-text">Browse Hive</span> to download one.
+					</div>
+				{:else}
+					<ul class="flex flex-col">
+						{#each installed as entry, idx (entry.local_id)}
+							{@const activeLabels = activeLabelsFor(entry)}
+							{@const isActive = activeLabels.length > 0}
+							{@const isExpanded = expandedDetailsId === entry.local_id}
+							{@const algorithmId = entryAlgorithmId(entry)}
+							{@const ageIso = entry.trained_at ?? entry.downloaded_at}
+							{@const ageRelative = formatRelativeAge(ageIso)}
+							{@const isCompatible = entry.compatible !== false}
+							<li
+								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
+							>
+								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-2">
+											<span class="font-mono text-sm font-medium text-text">
+												{entry.name}
+											</span>
+											{#if entry.bundled}
+												<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
+													Bundled
+												</span>
+											{/if}
+											{#if !isCompatible}
+												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN and Hailo are deployable.`}>
+													<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
+														Not supported
+													</span>
+												</Tooltip>
+											{/if}
+										</div>
+										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+											<span>{entry.model_family}</span>
+											<span aria-hidden="true">·</span>
+											<span>{entry.variant_runtime}</span>
+											<span aria-hidden="true">·</span>
+											<span>{formatSize(entry.size_bytes)}</span>
+											{#if ageIso}
+												<span aria-hidden="true">·</span>
+												<Tooltip text={`${entry.trained_at ? 'Trained' : 'Downloaded'} ${formatDate(ageIso)}`}>
+													<span class="text-text">
+														{entry.trained_at ? 'trained' : 'downloaded'}
+														{ageRelative}
+													</span>
+												</Tooltip>
+											{/if}
+										</div>
+									</div>
+
+									<div class="flex flex-wrap items-center gap-2">
+										{#if !isCompatible}
+											<span class="px-3 py-1.5 text-xs text-text-muted">
+												Cannot activate
+											</span>
+										{:else if !isActive}
+											<Button
+												variant="primary"
+												size="sm"
+												disabled={activatingAlgorithmId === algorithmId}
+												loading={activatingAlgorithmId === algorithmId}
+												onclick={() => void handleActivate(entry)}
+											>
+												{activatingAlgorithmId === algorithmId
+													? 'Activating'
+													: 'Activate'}
+											</Button>
+										{/if}
+										{#if !entry.bundled}
+											<Tooltip text="Remove this downloaded model">
+												<Button
+													variant="ghost"
+													size="sm"
+													disabled={deletingLocalId === entry.local_id}
+													onclick={() => void handleDelete(entry)}
+												>
+													<Trash2 size={14} class="text-danger" />
+												</Button>
+											</Tooltip>
+										{/if}
+										<button
+											type="button"
+											aria-expanded={isExpanded}
+											aria-controls={`installed-details-${entry.local_id}`}
+											onclick={() => toggleDetails(entry.local_id)}
+											class="inline-flex items-center gap-1 px-1.5 py-1 text-xs text-text-muted transition-colors hover:text-text"
+										>
+											{#if isExpanded}
+												<ChevronDown size={14} />
+											{:else}
+												<ChevronRight size={14} />
+											{/if}
+											<span>Details</span>
+										</button>
+									</div>
+								</div>
+
+								{#if isExpanded}
+									<div
+										id={`installed-details-${entry.local_id}`}
+										class="border-t border-border bg-bg px-4 py-3"
+									>
+										<dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 text-xs">
+											{#if entry.trained_at}
+												<dt class="text-text-muted">Trained</dt>
+												<dd class="text-text">
+													{formatDate(entry.trained_at)}
+													<span class="ml-1 text-text-muted">
+														({formatRelativeAge(entry.trained_at)})
+													</span>
+												</dd>
+											{/if}
+											<dt class="text-text-muted">SHA-256</dt>
+											<dd class="font-mono text-text" title={entry.sha256 ?? ''}>
+												{shortSha(entry.sha256)}
+											</dd>
+											<dt class="text-text-muted">Size</dt>
+											<dd class="text-text">{formatSize(entry.size_bytes)}</dd>
+											<dt class="text-text-muted">
+												{entry.bundled ? 'Source' : 'Downloaded'}
+											</dt>
+											<dd class="text-text">
+												{entry.bundled
+													? 'Shipped with sorter'
+													: `${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
+											</dd>
+											{#if !entry.bundled}
+												<dt class="text-text-muted">Target</dt>
+												<dd class="text-text">{targetName(entry.target_id ?? '')}</dd>
+											{/if}
+											<dt class="text-text-muted">Algorithm ID</dt>
+											<dd class="break-all font-mono text-text">{algorithmId}</dd>
+											<dt class="text-text-muted">Path</dt>
+											<dd
+												class="break-all font-mono text-text"
+												title={entry.path}
+											>
+												{entry.path}
+											</dd>
+										</dl>
+									</div>
+								{/if}
+							</li>
+						{/each}
+					</ul>
+				{/if}
+			</div>
 		{/if}
+
+		{#if jobs.some((job) => job.status === 'failed')}
+			{@const failure = jobs.find((job) => job.status === 'failed')}
+			<Alert variant="danger" class="mt-3">
+				Download failed: {failure?.error ?? failure?.file_name ?? 'unknown error'}
+			</Alert>
+		{/if}
+
+			</div>
+		</div>
 	{/if}
 </div>

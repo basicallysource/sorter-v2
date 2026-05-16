@@ -27,7 +27,6 @@ from dataclasses import dataclass, field
 
 import numpy as np
 
-from .appearance import cosine_similarity, get_embedder
 from .base import TrackedPiece, Tracker
 from .handoff import PieceHandoffManager
 from .history import (
@@ -43,19 +42,6 @@ from .history import (
 
 DEFAULT_SECTOR_COUNT = 18
 
-# When either the track or detection has no embedding, the cosine term is
-# undefined and the match cost degenerates to position-only. Require a much
-# tighter geometric fit than the normal 1.0 step thresholds in that case so
-# an OSNet hiccup on a busy tick cannot cross-bind nearby pieces.
-GEOM_STRICT_THRESHOLD = 0.25
-
-# If the Hungarian solver accepts a pair whose cosine similarity is below
-# this and whose geometric cost is above this, flag it as a likely
-# intra-tracker id switch. Both thresholds are permissive — the signal fires
-# only on clearly-suspect matches so operators notice real trouble.
-ID_SWITCH_SIM_SUSPECT = 0.3
-ID_SWITCH_GEOM_SUSPECT = 0.5
-
 DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S = 3.0
 DEFAULT_STAGNANT_FALSE_TRACK_MIN_DISPLACEMENT_PX = 18.0
 DEFAULT_STAGNANT_FALSE_TRACK_MIN_PATH_LENGTH_PX = 28.0
@@ -64,6 +50,19 @@ DEFAULT_STAGNANT_FALSE_TRACK_MIN_RADIAL_DISPLACEMENT_PX = 10.0
 DEFAULT_STAGNANT_FALSE_TRACK_STEP_JITTER_PX = 2.5
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX = 48.0
 DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S = 4.0
+
+# How long after a track first appears on the carousel we keep the angular
+# capture gate disabled so we can grab multi-perspective frames of the piece
+# while it is still falling / tumbling onto the platter. Extended to 1.2 s so
+# at our ~15 Hz detection rate we comfortably clear the "≥10 frames per
+# fall" target — covers free-fall, bounce, and the first half-rotation
+# after the piece lands.
+CAROUSEL_FREE_FALL_BURST_S = 1.2
+# Minimum wall-clock gap between burst captures so we don't push two
+# snapshots from the same camera frame. Dropped to 20 ms so we never
+# bottleneck on the gap if the detection thread momentarily runs hotter
+# than 25 FPS.
+CAROUSEL_BURST_MIN_GAP_S = 0.02
 
 
 # ---------------------------------------------------------------------------
@@ -92,6 +91,25 @@ def _wrap_angle(a: float) -> float:
 def _circular_diff(a: float, b: float) -> float:
     """Signed ``a - b`` wrapped to ``[-π, π]``."""
     return _wrap_angle(a - b)
+
+
+def _sector_index(angle_rad: float, sector_count: int) -> int:
+    """Discrete sector bucket for a world-angle. Maps the standard atan2
+    range ``[-π, π]`` to integers in ``[0, sector_count)``.
+    """
+    if sector_count <= 0:
+        return 0
+    sector_size = 2 * math.pi / sector_count
+    normalized = (float(angle_rad) + math.pi) % (2 * math.pi)
+    return int(normalized // sector_size) % sector_count
+
+
+def _circular_sector_diff(a: int, b: int, sector_count: int) -> int:
+    """Smallest absolute sector-index distance, modulo ``sector_count``."""
+    if sector_count <= 0:
+        return 0
+    raw = abs(int(a) - int(b)) % sector_count
+    return min(raw, sector_count - raw)
 
 
 def _wedge_bbox(
@@ -210,10 +228,10 @@ class _LiveTrack:
     last_capture_angle_rad: float | None = None
     last_capture_span_rad: float = 0.0
     sector_snapshots: list[SectorSnapshot] = field(default_factory=list)
+    last_capture_ts: float = 0.0
     thumb_jpeg_b64: str = ""
     thumb_sector_count_at_build: int = -1
     kalman: _PolarKalman | None = None
-    embedding: "np.ndarray | None" = None
     # Filled asynchronously once the exit-trigger fires on this track.
     # Shared-by-reference with the eventual TrackSegment so browser reloads
     # after the background thread completes still see the classifier result.
@@ -244,11 +262,6 @@ def _bbox_center(bbox: tuple[int, int, int, int]) -> tuple[float, float]:
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
-# Appearance matching lives in ``.appearance`` — a thin wrapper around
-# BoxMOT's OSNet_x0_25 ReID model. The embedder loads lazily on first use
-# and is a no-op fallback if BoxMOT / its weights aren't available.
-
-
 # ---------------------------------------------------------------------------
 # Main tracker
 # ---------------------------------------------------------------------------
@@ -275,15 +288,6 @@ class PolarFeederTracker(Tracker):
         coast_limit_ticks: int = 20,
         detection_score_threshold: float = 0.1,
         min_hits_for_history: int = 3,
-        # OSNet embedding similarity gate — reject matches where the
-        # candidate piece doesn't look like the tracked piece. 0.55 is
-        # lenient enough for lighting/angle drift on the same LEGO part
-        # but tight enough to reject different parts.
-        min_appearance_similarity: float = 0.55,
-        # Appearance term weight in the match cost. Set to 0.0 to disable.
-        appearance_cost_weight: float = 0.8,
-        # Toggle to hard-disable ReID (falls back to position-only matching).
-        enable_appearance: bool = True,
         history: PieceHistoryBuffer | None = None,
         enable_stagnant_false_track_filter: bool | None = None,
         stagnant_false_track_max_age_s: float = DEFAULT_STAGNANT_FALSE_TRACK_MAX_AGE_S,
@@ -295,7 +299,13 @@ class PolarFeederTracker(Tracker):
         stagnant_false_track_suppression_radius_px: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_RADIUS_PX,
         stagnant_false_track_suppression_ttl_s: float = DEFAULT_STAGNANT_FALSE_TRACK_SUPPRESSION_TTL_S,
         stagnant_false_track_pending_drop_protect_s: float = 4.0,
-        id_switch_suspect_observer: "callable | None" = None,
+        # Phase 2 — sector-anchored identity for the C4 platter. When
+        # enabled, the cost matrix rejects matches that would jump a track
+        # more than ±1 sector, single detections whose angular bbox span
+        # exceeds one sector are filtered as multi-piece artifacts, and new
+        # tracks cannot be born into an already-occupied sector. Off for
+        # the C-channels because pieces there genuinely traverse sectors.
+        enable_sector_anchoring: bool = False,
     ) -> None:
         self.role = role
         self._handoff = handoff_manager
@@ -306,9 +316,10 @@ class PolarFeederTracker(Tracker):
         self._coast_limit = int(coast_limit_ticks)
         self._score_threshold = float(detection_score_threshold)
         self._min_hits_for_history = max(1, int(min_hits_for_history))
-        self._min_appearance_sim = float(min_appearance_similarity)
-        self._appearance_cost_weight = float(appearance_cost_weight)
-        self._embedder = get_embedder() if enable_appearance else None
+        self._enable_sector_anchoring = bool(enable_sector_anchoring)
+        self._sector_anchoring_rejected_multipiece = 0
+        self._sector_anchoring_rejected_jump = 0
+        self._sector_anchoring_rejected_occupied = 0
         self._enable_stagnant_false_track_filter = (
             bool(enable_stagnant_false_track_filter)
             if enable_stagnant_false_track_filter is not None
@@ -340,7 +351,6 @@ class PolarFeederTracker(Tracker):
             0.0, float(stagnant_false_track_pending_drop_protect_s)
         )
         self._pending_drop_ids: dict[int, float] = {}
-        self._id_switch_suspect_observer = id_switch_suspect_observer
         self._tracks: dict[int, _LiveTrack] = {}
         self._next_internal_id = 0
         self._last_ts: float | None = None
@@ -410,6 +420,90 @@ class PolarFeederTracker(Tracker):
         with self._lock:
             self._pending_drop_ids[int(global_id)] = now + duration
 
+    def unmark_pending_drop(self, global_id: int) -> None:
+        """Release a previously-set pending-drop protection. Called when a
+        piece backed by this track flips to a non-pending terminal state
+        (``unknown`` / ``multi_drop_fail``); if the underlying track was
+        actually a ghost (static feature on the platter), removing the
+        protection lets the stagnant-false-track filter purge it instead
+        of letting it survive each drop pulse and re-spawn.
+        """
+        with self._lock:
+            self._pending_drop_ids.pop(int(global_id), None)
+
+    def _bbox_spans_multiple_sectors(
+        self,
+        bbox: tuple[int, int, int, int],
+        geom: "_ChannelGeometry",
+    ) -> bool:
+        """True when ``bbox`` covers more than one platter sector
+        angularly. Used as a multi-piece-merge guard: with physical walls
+        between sectors, any single piece's projection can only fit inside
+        one sector. A bbox spanning two is YOLO merging two pieces into
+        one detection.
+        """
+        if geom.sector_count <= 0:
+            return False
+        sector_size = 2 * math.pi / geom.sector_count
+        x1, y1, x2, y2 = bbox
+        corners = ((x1, y1), (x2, y1), (x2, y2), (x1, y2))
+        corner_angles = [
+            math.atan2(cy - geom.center_y, cx - geom.center_x)
+            for cx, cy in corners
+        ]
+        anchor = corner_angles[0]
+        unwrapped = [anchor]
+        for a in corner_angles[1:]:
+            d = a - anchor
+            while d > math.pi:
+                d -= 2 * math.pi
+            while d < -math.pi:
+                d += 2 * math.pi
+            unwrapped.append(anchor + d)
+        span = max(unwrapped) - min(unwrapped)
+        return span > sector_size
+
+    def force_kill_track(self, global_id: int) -> bool:
+        """Remove the track carrying ``global_id`` immediately.
+
+        Called by the classification-channel state machine right after a
+        successful drop pulse: the piece is physically gone from the platter,
+        so any further detections at that sector belong to a NEW piece and
+        must not be allowed to accumulate crops under the dropped piece's
+        global_id. Without this hook, a long-coast-limit track can survive
+        across multiple physical pieces and pollute the captured-crop set
+        (see the white-tube → yellow-piece → white-tube symptom on track
+        #22359, where one track aggregated 27 crops from two distinct
+        physical pieces over ~19 s).
+
+        The track's segment history is recorded if it cleared the
+        ``min_hits_for_history`` bar, so the detail page still has the
+        dropped piece's crops. No handoff death is queued — the piece left
+        via the drop chute, not into a downstream camera. Returns True iff
+        a track was found and removed.
+        """
+        with self._lock:
+            target_internal: int | None = None
+            for internal_id, track in self._tracks.items():
+                if int(track.global_id) == int(global_id):
+                    target_internal = internal_id
+                    break
+            if target_internal is None:
+                self._pending_drop_ids.pop(int(global_id), None)
+                return False
+            track = self._tracks.pop(target_internal)
+            self._pending_drop_ids.pop(int(global_id), None)
+            if (
+                self._history is not None
+                and track.snapshot_jpeg_b64
+                and track.hit_count >= self._min_hits_for_history
+            ):
+                self._history.record_segment(
+                    self._build_segment(track),
+                    global_id=track.global_id,
+                )
+            return True
+
     def update(
         self,
         bboxes: list[tuple[int, int, int, int]],
@@ -427,13 +521,29 @@ class PolarFeederTracker(Tracker):
         timestamp: float,
         frame_bgr: "np.ndarray | None" = None,
     ) -> list[TrackedPiece]:
-        # Score filter
+        geom = self._channel_geom
+        # Score filter + (sector-anchored only) multi-piece-bbox guard.
+        # A single YOLO bbox whose angular span exceeds one full sector is
+        # almost always a multi-piece merge artifact — physical walls between
+        # sectors mean a real piece can never span more than one. Drop the
+        # detection so it cannot pollute a track with mixed crops. The C-
+        # channels keep the bbox because pieces there genuinely traverse
+        # multiple snapshot sectors.
         filtered: list[tuple[tuple[int, int, int, int], float]] = []
         for bbox, score in zip(bboxes, scores):
             s = float(score) if score is not None else 0.0
             if s < self._score_threshold:
                 continue
-            filtered.append((tuple(int(v) for v in bbox), s))
+            ibbox = tuple(int(v) for v in bbox)
+            if (
+                self._enable_sector_anchoring
+                and geom is not None
+                and geom.sector_count > 0
+                and self._bbox_spans_multiple_sectors(ibbox, geom)
+            ):
+                self._sector_anchoring_rejected_multipiece += 1
+                continue
+            filtered.append((ibbox, s))
 
         dt = 0.2 if self._last_ts is None else max(0.0, timestamp - self._last_ts)
         self._last_ts = timestamp
@@ -446,22 +556,14 @@ class PolarFeederTracker(Tracker):
 
         # Build cost matrix
         track_ids = list(self._tracks.keys())
-        geom = self._channel_geom
         matched_track_ids: set[int] = set()
         matched_det_indices: set[int] = set()
 
-        # Pre-compute OSNet embeddings for each detection in one batched
-        # pass (if the embedder + frame are available). ``None`` for rows
-        # with degenerate bboxes.
-        det_embeddings: list["np.ndarray | None"] = [None] * len(filtered)
-        if self._embedder is not None and frame_bgr is not None and filtered:
-            det_bboxes_only = [bb for bb, _ in filtered]
-            matrix = self._embedder.extract(frame_bgr, det_bboxes_only)
-            if matrix is not None:
-                for i in range(len(filtered)):
-                    vec = matrix[i]
-                    if float(np.linalg.norm(vec)) > 0.0:
-                        det_embeddings[i] = vec
+        sector_anchored = (
+            self._enable_sector_anchoring
+            and geom is not None
+            and geom.sector_count > 0
+        )
 
         if track_ids and filtered:
             from scipy.optimize import linear_sum_assignment
@@ -473,27 +575,13 @@ class PolarFeederTracker(Tracker):
 
             det_centers = [_bbox_center(bb) for bb, _ in filtered]
 
-            # Record per-pair appearance evidence so we can split the final
-            # cost back into geometric/appearance parts when flagging id
-            # switches after the Hungarian assignment runs.
-            sim_grid: list[list["float | None"]] = [
-                [None] * cols for _ in range(rows)
-            ]
-
-            # If the embedder isn't running this tick (disabled by config,
-            # BoxMOT unavailable, or caller didn't pass a frame), fall back
-            # to the pre-fix contract — we have no reid evidence on any
-            # tick and tightening geometry would just break position-only
-            # tracking. The strict threshold is only useful for the
-            # transient-null case: embedder running + frame present, but a
-            # specific detection row came back empty (e.g. degenerate bbox
-            # or zero-norm OSNet output).
-            appearance_active = (
-                self._embedder is not None and frame_bgr is not None
-            )
-
             if geom is not None:
                 det_polar = [self._to_polar(c) for c in det_centers]
+                det_sectors = (
+                    [_sector_index(da, geom.sector_count) for da, _ in det_polar]
+                    if sector_anchored
+                    else None
+                )
                 for ri, tid in enumerate(track_ids):
                     track = self._tracks[tid]
                     if track.kalman is None:
@@ -502,33 +590,27 @@ class PolarFeederTracker(Tracker):
                         track.kalman = _PolarKalman(ang, rad)
                     pa = track.kalman.angle
                     pr = track.kalman.radius
+                    track_sector = (
+                        _sector_index(pa, geom.sector_count)
+                        if sector_anchored
+                        else None
+                    )
                     for ci, (da, dr) in enumerate(det_polar):
                         ang_cost = abs(_circular_diff(da, pa)) / self._max_angular_step
                         rad_cost = abs(dr - pr) / self._max_radial_step
                         if ang_cost >= 1.0 or rad_cost >= 1.0:
                             continue
-                        sim = cosine_similarity(track.embedding, det_embeddings[ci])
-                        if sim is not None:
-                            if sim < self._min_appearance_sim:
-                                continue
-                            app_cost = self._appearance_cost_weight * (1.0 - sim)
-                        elif appearance_active:
-                            # No appearance evidence on at least one side
-                            # even though the embedder is running — require
-                            # a tight geometric fit instead of the normal
-                            # 1.0 step tolerance, otherwise a nearby piece
-                            # can silently steal this track's id when OSNet
-                            # hiccups.
-                            if (
-                                ang_cost > GEOM_STRICT_THRESHOLD
-                                or rad_cost > GEOM_STRICT_THRESHOLD
-                            ):
-                                continue
-                            app_cost = 0.0
-                        else:
-                            app_cost = 0.0
-                        sim_grid[ri][ci] = sim
-                        cost[ri, ci] = ang_cost + 0.5 * rad_cost + app_cost
+                        if (
+                            sector_anchored
+                            and track_sector is not None
+                            and det_sectors is not None
+                            and _circular_sector_diff(
+                                track_sector, det_sectors[ci], geom.sector_count
+                            ) > 1
+                        ):
+                            self._sector_anchoring_rejected_jump += 1
+                            continue
+                        cost[ri, ci] = ang_cost + 0.5 * rad_cost
             else:
                 # Cartesian fallback
                 for ri, tid in enumerate(track_ids):
@@ -538,20 +620,7 @@ class PolarFeederTracker(Tracker):
                         d = math.hypot(dx - tx, dy - ty)
                         if d >= self._pixel_fallback_distance:
                             continue
-                        geom_cost = d / self._pixel_fallback_distance
-                        sim = cosine_similarity(track.embedding, det_embeddings[ci])
-                        if sim is not None:
-                            if sim < self._min_appearance_sim:
-                                continue
-                            app_cost = self._appearance_cost_weight * (1.0 - sim)
-                        elif appearance_active:
-                            if geom_cost > GEOM_STRICT_THRESHOLD:
-                                continue
-                            app_cost = 0.0
-                        else:
-                            app_cost = 0.0
-                        sim_grid[ri][ci] = sim
-                        cost[ri, ci] = geom_cost + app_cost
+                        cost[ri, ci] = d / self._pixel_fallback_distance
 
             row_ind, col_ind = linear_sum_assignment(cost)
             for r, c in zip(row_ind, col_ind):
@@ -562,27 +631,6 @@ class PolarFeederTracker(Tracker):
                 matched_det_indices.add(int(c))
                 bbox, score = filtered[c]
                 track = self._tracks[tid]
-                # Flag matches that Hungarian accepted only because there
-                # was no better pairing available — low appearance support
-                # combined with loose geometry is the classic intra-tracker
-                # id-switch signature.
-                pair_sim = sim_grid[r][c]
-                if pair_sim is not None and pair_sim < ID_SWITCH_SIM_SUSPECT:
-                    geom_cost = float(
-                        cost[r, c] - self._appearance_cost_weight * (1.0 - pair_sim)
-                    )
-                    if geom_cost > ID_SWITCH_GEOM_SUSPECT:
-                        observer = self._id_switch_suspect_observer
-                        if observer is not None:
-                            try:
-                                observer(
-                                    role=self.role,
-                                    global_id=int(track.global_id),
-                                    similarity=float(pair_sim),
-                                    geom_cost=float(geom_cost),
-                                )
-                            except Exception:
-                                pass
                 cx, cy = _bbox_center(bbox)
                 prev_cx, prev_cy = track.center_px
                 vdt = max(1e-3, float(timestamp) - float(track.last_seen_ts))
@@ -630,19 +678,6 @@ class PolarFeederTracker(Tracker):
                     or track.max_radial_displacement_px >= self._stagnant_false_track_min_radial_displacement_px
                 ):
                     track.motion_confirmed = True
-                # EMA-update the reference embedding so tracks adapt to
-                # slow lighting/angle drift without being dominated by one
-                # noisy frame. Renormalize so cosine similarity stays well-
-                # defined.
-                det_vec = det_embeddings[c]
-                if det_vec is not None:
-                    if track.embedding is None:
-                        track.embedding = det_vec
-                    else:
-                        blended = 0.8 * track.embedding + 0.2 * det_vec
-                        norm = float(np.linalg.norm(blended))
-                        if norm > 0.0:
-                            track.embedding = (blended / norm).astype(np.float32)
                 self._maybe_capture_sector(track, frame_bgr, timestamp)
 
         stagnant_ids: list[int] = []
@@ -671,7 +706,6 @@ class PolarFeederTracker(Tracker):
                 track.last_seen_ts,
                 death_ts=timestamp,
                 last_displacement_px=float(track.max_displacement_px),
-                embedding=track.embedding,
             )
             if (
                 self._history is not None
@@ -683,15 +717,40 @@ class PolarFeederTracker(Tracker):
                     global_id=track.global_id,
                 )
 
-        # Unmatched detections → new tracks
+        # Unmatched detections → new tracks. When sector-anchored, an
+        # unmatched detection in an already-occupied sector is rejected:
+        # the physical walls between sectors mean that at most one piece
+        # can be in a sector at a time, so a "new" detection there is
+        # almost always a YOLO false positive on the same piece (e.g. a
+        # split bbox or a duplicate hit from a noisy frame).
+        occupied_sectors: set[int] = set()
+        if sector_anchored and geom is not None:
+            for track in self._tracks.values():
+                ang_for_sector: float | None = None
+                if track.kalman is not None:
+                    ang_for_sector = track.kalman.angle
+                elif geom is not None:
+                    ang_for_sector, _ = self._to_polar(track.center_px)
+                if ang_for_sector is not None:
+                    occupied_sectors.add(
+                        _sector_index(ang_for_sector, geom.sector_count)
+                    )
+
         for idx, (bbox, score) in enumerate(filtered):
             if idx in matched_det_indices:
                 continue
             cx, cy = _bbox_center(bbox)
             if self._is_inside_ignored_static_region((cx, cy), timestamp):
                 continue
+            if sector_anchored and geom is not None:
+                det_ang, _det_rad = self._to_polar((cx, cy))
+                det_sector = _sector_index(det_ang, geom.sector_count)
+                if det_sector in occupied_sectors:
+                    self._sector_anchoring_rejected_occupied += 1
+                    continue
+                occupied_sectors.add(det_sector)
             global_id, handoff_from = self._handoff.register_track(
-                self.role, (cx, cy), timestamp, embedding=det_embeddings[idx]
+                self.role, (cx, cy), timestamp
             )
             self._next_internal_id += 1
             internal = self._next_internal_id
@@ -722,7 +781,6 @@ class PolarFeederTracker(Tracker):
                 snapshot_height=snap_h,
                 path=[(float(timestamp), float(cx), float(cy))],
                 kalman=kalman,
-                embedding=det_embeddings[idx],
                 birth_center_px=(float(cx), float(cy)),
                 birth_angle_rad=birth_angle_rad,
                 birth_radius_px=birth_radius_px,
@@ -940,7 +998,22 @@ class PolarFeederTracker(Tracker):
 
         new_span_rad = a1 - a0
         min_gap_rad = math.radians(3.0)
-        if track.last_capture_angle_rad is not None:
+        # Free-fall burst window: when a piece first appears on the carousel
+        # (C4) it is still mid-fall / mid-tumble — different orientations every
+        # frame. Angular displacement is tiny (the piece is moving vertically,
+        # not around the ring) so the normal angular gate suppresses almost
+        # every snapshot during this window. Bypass it for the first
+        # CAROUSEL_FREE_FALL_BURST_S of a track's life so we get one snapshot
+        # per camera frame, gated only by a small time-gap so back-to-back
+        # identical frames are still skipped.
+        age_s = timestamp - track.first_seen_ts
+        in_free_fall_burst = (
+            self.role == "carousel" and age_s < CAROUSEL_FREE_FALL_BURST_S
+        )
+        if in_free_fall_burst:
+            if timestamp - track.last_capture_ts < CAROUSEL_BURST_MIN_GAP_S:
+                return
+        elif track.last_capture_angle_rad is not None:
             raw_diff = _circular_diff(center_angle_rad, track.last_capture_angle_rad)
             required = (track.last_capture_span_rad + new_span_rad) / 2.0 + min_gap_rad
             if abs(raw_diff) < required:
@@ -1003,6 +1076,7 @@ class PolarFeederTracker(Tracker):
         )
         track.last_capture_angle_rad = center_angle_rad
         track.last_capture_span_rad = new_span_rad
+        track.last_capture_ts = float(timestamp)
 
         # Exit trigger: once the piece has covered enough of the annulus to
         # confidently say "this track represents one complete journey across

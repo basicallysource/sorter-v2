@@ -105,6 +105,14 @@ class ClassificationChannelTransportTests(unittest.TestCase):
         self.assertIs(piece, transport.pieceForTrack(41))
         self.assertEqual("S", piece.classification_channel_size_class)
         self.assertAlmostEqual(24.0, piece.classification_channel_zone_center_deg)
+        self.assertAlmostEqual(-6.0, piece.classification_channel_exit_offset_deg)
+        self.assertAlmostEqual(24.0, piece.first_carousel_seen_angle_deg)
+        event = knownObjectToEvent(piece)
+        self.assertEqual("tracked", event.data.classification_channel_zone_state)
+        self.assertAlmostEqual(24.0, event.data.classification_channel_zone_center_deg)
+        self.assertAlmostEqual(7.0, event.data.classification_channel_zone_half_width_deg)
+        self.assertAlmostEqual(-6.0, event.data.classification_channel_exit_offset_deg)
+        self.assertAlmostEqual(24.0, event.data.first_carousel_seen_angle_deg)
 
     def test_dynamic_mode_drop_removes_piece_and_sets_exit_buffer(self) -> None:
         transport = ClassificationChannelTransport()
@@ -296,6 +304,51 @@ class KnownObjectDropSnapshotTests(unittest.TestCase):
         piece = KnownObject()
         event = knownObjectToEvent(piece)
         self.assertIsNone(event.data.drop_snapshot)
+
+
+class ClassificationChannelFallbackTests(unittest.TestCase):
+    def test_multi_drop_fallback_overrides_classified_piece(self) -> None:
+        transport = ClassificationChannelTransport()
+        config = ClassificationChannelConfig()
+        transport.configureDynamicMode(config)
+
+        piece = transport.registerIncomingPiece(tracked_global_id=91)
+        piece.classification_status = ClassificationStatus.classified
+        piece.part_id = "4599b"
+        piece.part_name = "Tap 1 x 1 without Hole in Nozzle End"
+        piece.part_category = "Minifigs and Accessories"
+        piece.color_id = "7"
+        piece.color_name = "Blue"
+        piece.destination_bin = (0, 2, 1)
+        piece.confidence = 0.65
+
+        resolved = transport.resolveFallbackClassification(
+            piece.uuid,
+            status=ClassificationStatus.multi_drop_fail,
+        )
+
+        self.assertTrue(resolved)
+        self.assertEqual(ClassificationStatus.multi_drop_fail, piece.classification_status)
+        self.assertIsNone(piece.part_id)
+        self.assertIsNone(piece.destination_bin)
+
+    def test_unknown_fallback_does_not_override_classified_piece(self) -> None:
+        transport = ClassificationChannelTransport()
+        config = ClassificationChannelConfig()
+        transport.configureDynamicMode(config)
+
+        piece = transport.registerIncomingPiece(tracked_global_id=92)
+        piece.classification_status = ClassificationStatus.classified
+        piece.part_id = "3001"
+
+        resolved = transport.resolveFallbackClassification(
+            piece.uuid,
+            status=ClassificationStatus.unknown,
+        )
+
+        self.assertFalse(resolved)
+        self.assertEqual(ClassificationStatus.classified, piece.classification_status)
+        self.assertEqual("3001", piece.part_id)
 
 
 if __name__ == "__main__":

@@ -601,6 +601,36 @@ class CaptureThread:
             return frames
         return frames[-max_frames:]
 
+    def frame_at_or_before(
+        self,
+        timestamp: float,
+        *,
+        tolerance_s: float = 0.5,
+    ) -> Optional[CameraFrame]:
+        """Look up the most recent ring-buffer frame at or before ``timestamp``.
+
+        Used by the overlay timestamp-pinning path: the dynamic-detection
+        cache stores ``(frame_ts, detection)``; the encode needs the frame
+        from THAT capture tick so the bbox sits on the piece position the
+        detector actually saw. Returns ``None`` if no buffered frame falls
+        within ``tolerance_s`` seconds before ``timestamp`` — the encode
+        path then falls back to ``latest_frame``.
+
+        ``list(deque)`` is atomic under the GIL, so this is lock-free even
+        while the capture thread keeps appending.
+        """
+        frames = list(self._ring_buffer)
+        if not frames:
+            return None
+        best: Optional[CameraFrame] = None
+        for frame in reversed(frames):
+            ts = float(frame.timestamp)
+            if ts <= float(timestamp) + 1e-6:
+                if float(timestamp) - ts <= tolerance_s:
+                    best = frame
+                break
+        return best
+
     def setPictureSettings(self, settings: CameraPictureSettings) -> None:
         clamped = clampCameraPictureSettings(settings)
         with self._picture_settings_lock:
@@ -761,7 +791,9 @@ class CaptureThread:
                 self._config.height = height
             if isinstance(fps, int) and fps > 0:
                 self._config.fps = fps
-            if isinstance(fourcc, str) and fourcc.strip():
+            if fourcc is None:
+                self._config.fourcc = None
+            elif isinstance(fourcc, str) and fourcc.strip():
                 self._config.fourcc = fourcc.strip()
         self._reopen_event.set()
 
@@ -906,10 +938,16 @@ class CaptureThread:
                                     self._device_settings = dict(applied)
                     post_stream_settings = None
                     post_stream_source = None
+                picture_settings = self.getPictureSettings()
+                uncorrected_frame = apply_picture_settings(frame, picture_settings)
                 frame = apply_camera_color_profile(frame, self.getColorProfile())
-                frame = apply_picture_settings(frame, self.getPictureSettings())
+                frame = apply_picture_settings(frame, picture_settings)
                 camera_frame = CameraFrame(
-                    raw=frame, annotated=None, results=[], timestamp=time.time()
+                    raw=frame,
+                    annotated=None,
+                    results=[],
+                    timestamp=time.time(),
+                    uncorrected_raw=uncorrected_frame,
                 )
                 self.latest_frame = camera_frame
                 # deque.append is atomic under the GIL — no lock needed.

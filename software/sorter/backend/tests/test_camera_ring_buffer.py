@@ -53,6 +53,38 @@ class CameraRingBufferTests(unittest.TestCase):
         self.assertEqual([], capture.drain_ring_buffer(0))
         self.assertEqual([], capture.drain_ring_buffer(-5))
 
+    def test_frame_at_or_before_returns_exact_match(self) -> None:
+        capture = CaptureThread("test_cam", mkCameraConfig(device_index=-1))
+        frames = [_make_frame(i) for i in range(5)]
+        for frame in frames:
+            capture._ring_buffer.append(frame)
+
+        target = frames[2]
+        result = capture.frame_at_or_before(target.timestamp)
+        self.assertIs(result, target)
+
+    def test_frame_at_or_before_returns_closest_earlier(self) -> None:
+        capture = CaptureThread("test_cam", mkCameraConfig(device_index=-1))
+        frames = [_make_frame(i) for i in range(5)]
+        for frame in frames:
+            capture._ring_buffer.append(frame)
+
+        # Query a timestamp between frame[2] and frame[3] — should return frame[2].
+        between_ts = (frames[2].timestamp + frames[3].timestamp) / 2.0
+        result = capture.frame_at_or_before(between_ts)
+        self.assertIs(result, frames[2])
+
+    def test_frame_at_or_before_returns_none_outside_tolerance(self) -> None:
+        capture = CaptureThread("test_cam", mkCameraConfig(device_index=-1))
+        capture._ring_buffer.append(_make_frame(0))
+        # 10 s in the past — way beyond the 0.5 s default tolerance.
+        result = capture.frame_at_or_before(time.time() + 10.0, tolerance_s=0.05)
+        self.assertIsNone(result)
+
+    def test_frame_at_or_before_returns_none_when_empty(self) -> None:
+        capture = CaptureThread("test_cam", mkCameraConfig(device_index=-1))
+        self.assertIsNone(capture.frame_at_or_before(time.time()))
+
 
 if __name__ == "__main__":
     unittest.main()

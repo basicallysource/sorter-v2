@@ -11,9 +11,6 @@
 		get machine() {
 			return manager.selectedMachine;
 		},
-		get frames() {
-			return manager.selectedMachine?.frames ?? new Map();
-		},
 		get cameraHealth() {
 			return manager.selectedMachine?.cameraHealth ?? new Map();
 		},

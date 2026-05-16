@@ -26,3 +26,5 @@ class ChannelDetection:
     bbox: Tuple[int, int, int, int]
     channel_id: int
     channel: PolygonChannel
+    global_id: int | None = None
+    source_role: str | None = None

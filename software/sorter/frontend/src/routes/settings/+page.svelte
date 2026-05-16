@@ -1,6 +1,7 @@
 <script lang="ts">
 import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
 import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
+import DashboardSection from '$lib/components/settings/DashboardSection.svelte';
 import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
@@ -39,6 +40,13 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 				</a>
 			</div>
 		</div>
+	</SectionCard>
+
+	<SectionCard
+		title="Dashboard"
+		description="Choose which panels appear on the main dashboard."
+	>
+		<DashboardSection />
 	</SectionCard>
 
 	<SectionCard

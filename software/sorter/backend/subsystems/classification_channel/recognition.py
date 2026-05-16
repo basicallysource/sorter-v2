@@ -17,6 +17,9 @@ from classification.brickognize import (
     _pickBestItem,
 )
 from defs.known_object import ClassificationStatus
+from subsystems.classification_channel.incidents import (
+    publish_classification_fallback_incident,
+)
 from utils.event import knownObjectToEvent
 
 MIN_RECOGNIZE_CROPS = 1
@@ -27,7 +30,16 @@ SINGLE_CROP_FALLBACK_COUNT = 3
 # the selection isn't dominated by the (more numerous) c2 / carousel views. With
 # MAX_MULTI_RECOGNIZE_CROPS=8 and 0.25 this reserves 2 slots for the sharpest c3
 # crops. Shortfall is filled from the general (sharpness-ranked) pool.
-C3_CROP_QUOTA_RATIO = 0.25
+C3_CROP_QUOTA_RATIO = 0.0
+# Free-fall priority experiment T4 was falsified at n=2: with this >0,
+# Brickognize bk_empty hit 100 % (vs 0 % in T3). Free-fall frames have
+# the orientation variance Marc intuited but they are too motion-blurred
+# / partially-occluded to identify on their own. Carousel sector_snapshots
+# remain the preferred Brickognize input. Kept at 0 so the
+# carousel_freefall role tag is harmless (it still contributes to the
+# crop pool and counts toward min_carousel_crops_for_recognize) but isn't
+# reserved a slot.
+FREEFALL_QUOTA_RATIO = 0.0
 
 # Laplacian-variance floor applied to the sharpest crop in the pool. If every
 # tracker crop we collected is below this threshold the piece is likely still
@@ -139,15 +151,18 @@ class ClassificationChannelRecognizer:
         return True
 
     def countCarouselCrops(self, piece) -> int:
-        """Return the number of carousel-source crops currently available.
+        """Return the number of stable-on-platter (``carousel``) crops.
 
         Exposed for the Running state's pre-fire gate so it can require a
-        minimum carousel crop count before calling ``fire()``. Uses the
-        same crop-collection path as ``fire()`` itself.
+        minimum on-platter crop count before calling ``fire()``. Pre-trigger
+        free-fall (``carousel_freefall``) crops are intentionally excluded
+        from the gate count — they're motion-blurred and can't ID a piece
+        on their own, but they may still ship to Brickognize as extra
+        context once the stable-crop floor is met.
         """
         crops = self._collectTrackedImages(piece)
         return sum(
-            1 for _image, role, _ts in crops if role in ("carousel", "c_channel_3")
+            1 for _image, role, _ts in crops if role == "carousel"
         )
 
     def _bumpRecognizerCounter(self, name: str) -> None:
@@ -163,157 +178,76 @@ class ClassificationChannelRecognizer:
             pass
 
     def _collectTrackedImages(self, piece) -> list[CropEntry]:
+        """Collect sector snapshots from the piece's direct track history.
+
+        Brickognize is fed exclusively carousel (C4) crops — upstream c2/c3
+        views are intentionally dropped so the identity Brickognize commits
+        is always a post-landing view of the piece. We additionally pull
+        detected pre-trigger frames from ``drop_zone_burst`` (the rolling
+        buffer that captures ~2 s before the piece is first registered on
+        C4); the YOLO pass already ran on those frames so a ``detected``
+        flag tells us which of them contain the piece. This extends the
+        effective capture window backwards into the free-fall phase and
+        increases the orientation diversity Brickognize sees.
+        """
         track_id = getattr(piece, "tracked_global_id", None)
         if not isinstance(track_id, int) or self.vision is None:
             return []
-        details: list[dict] = []
-        seen_global_ids: set[int] = set()
         detail = self.vision.getFeederTrackHistoryDetail(track_id)
-        if isinstance(detail, dict):
-            details.append(detail)
-            global_id = detail.get("global_id")
-            if isinstance(global_id, int):
-                seen_global_ids.add(global_id)
-        if not details:
-            return []
-        reference_ts = self._reference_ts(piece, details)
-        if not any(self._detailHasRole(d, "c_channel_3") for d in details):
-            fallback_detail = self._findFallbackUpstreamDetail(
-                source_role="c_channel_3",
-                before_ts=reference_ts,
-                max_age_s=20.0,
-                limit=80,
-                seen_global_ids=seen_global_ids,
-                required_global_id=track_id,
-            )
-            if isinstance(fallback_detail, dict):
-                details.append(fallback_detail)
-                global_id = fallback_detail.get("global_id")
-                if isinstance(global_id, int):
-                    seen_global_ids.add(global_id)
-        c3_reference_ts = (
-            self._earliest_role_timestamp(details, "c_channel_3") or reference_ts
-        )
-        if not any(self._detailHasRole(d, "c_channel_2") for d in details):
-            fallback_detail = self._findFallbackUpstreamDetail(
-                source_role="c_channel_2",
-                before_ts=c3_reference_ts,
-                max_age_s=30.0,
-                limit=120,
-                seen_global_ids=seen_global_ids,
-                required_global_id=track_id,
-            )
-            if isinstance(fallback_detail, dict):
-                details.append(fallback_detail)
-                global_id = fallback_detail.get("global_id")
-                if isinstance(global_id, int):
-                    seen_global_ids.add(global_id)
-        images: list[tuple[float, np.ndarray, str]] = []
-        for detail in details:
-            for segment in detail.get("segments", []):
-                if not isinstance(segment, dict):
-                    continue
-                source_role = segment.get("source_role")
-                if source_role not in {
-                    "c_channel_2",
-                    "c_channel_3",
-                    "carousel",
-                }:
-                    continue
-                for snap in segment.get("sector_snapshots", []):
-                    if not isinstance(snap, dict):
-                        continue
-                    image = self._decodeImageBase64(snap.get("piece_jpeg_b64"))
-                    if image is None:
-                        continue
-                    captured_ts = snap.get("captured_ts")
-                    images.append(
-                        (
-                            float(captured_ts)
-                            if isinstance(captured_ts, (int, float))
-                            else 0.0,
-                            image,
-                            str(source_role),
-                        )
-                    )
-        images.sort(key=lambda item: item[0])
-        return [(image, role, ts) for ts, image, role in images[:12]]
-
-    def _findFallbackUpstreamDetail(
-        self,
-        *,
-        source_role: str,
-        before_ts: float,
-        max_age_s: float,
-        limit: int,
-        seen_global_ids: set[int],
-        required_global_id: int | None = None,
-    ) -> dict | None:
-        if self.vision is None or not hasattr(
-            self.vision, "findRecentFeederTrackHistoryDetailByRole"
-        ):
-            return None
-        try:
-            detail = self.vision.findRecentFeederTrackHistoryDetailByRole(
-                source_role=source_role,
-                before_ts=float(before_ts),
-                max_age_s=float(max_age_s),
-                limit=int(limit),
-                required_global_id=required_global_id,
-            )
-        except Exception as exc:
-            self.logger.debug(
-                "ClassificationChannel: could not load fallback %s history: %s"
-                % (source_role, exc)
-            )
-            return None
         if not isinstance(detail, dict):
-            return None
-        global_id = detail.get("global_id")
-        if isinstance(global_id, int) and global_id in seen_global_ids:
-            return None
-        return detail
-
-    @staticmethod
-    def _reference_ts(piece, details: list[dict]) -> float:
-        detail_ts = ClassificationChannelRecognizer._earliest_role_timestamp(
-            details,
-            "carousel",
-        )
-        if detail_ts is not None:
-            return detail_ts
-        return float(
-            getattr(piece, "carousel_detected_confirmed_at", None)
-            or getattr(piece, "feeding_started_at", None)
-            or time.time()
-        )
-
-    @staticmethod
-    def _earliest_role_timestamp(
-        details: list[dict],
-        source_role: str,
-    ) -> float | None:
-        earliest: float | None = None
-        for detail in details:
-            for segment in detail.get("segments", []):
-                if not isinstance(segment, dict):
+            return []
+        images: list[tuple[float, np.ndarray, str]] = []
+        for segment in detail.get("segments", []):
+            if not isinstance(segment, dict):
+                continue
+            if segment.get("source_role") != "carousel":
+                continue
+            for snap in segment.get("sector_snapshots", []):
+                if not isinstance(snap, dict):
                     continue
-                if segment.get("source_role") != source_role:
+                image = self._decodeImageBase64(snap.get("piece_jpeg_b64"))
+                if image is None:
                     continue
-                first_seen_ts = segment.get("first_seen_ts")
-                if not isinstance(first_seen_ts, (int, float)):
-                    continue
-                ts = float(first_seen_ts)
-                if earliest is None or ts < earliest:
-                    earliest = ts
-        return earliest
-
-    @staticmethod
-    def _detailHasRole(detail: dict, source_role: str) -> bool:
-        return any(
-            isinstance(segment, dict) and segment.get("source_role") == source_role
-            for segment in detail.get("segments", [])
-        )
+                captured_ts = snap.get("captured_ts")
+                images.append(
+                    (
+                        float(captured_ts)
+                        if isinstance(captured_ts, (int, float))
+                        else 0.0,
+                        image,
+                        "carousel",
+                    )
+                )
+        for burst_frame in detail.get("drop_zone_burst", []):
+            if not isinstance(burst_frame, dict):
+                continue
+            if not burst_frame.get("detected"):
+                continue
+            crop_b64 = burst_frame.get("crop_jpeg_b64")
+            if not crop_b64:
+                continue
+            image = self._decodeImageBase64(crop_b64)
+            if image is None:
+                continue
+            ts = burst_frame.get("timestamp")
+            # Pre-trigger frames have the piece airborne / tumbling — they
+            # carry real orientation variance, unlike the on-platter sector
+            # snapshots which mostly show the same orientation rotated to
+            # different platter angles. Tag them so the selector can prefer
+            # them. Both still count as "carousel" for the upstream
+            # countCarouselCrops gate, which uses a startswith("carousel")
+            # check.
+            phase = "pre" if burst_frame.get("phase") == "pre" else "post"
+            role_tag = "carousel_freefall" if phase == "pre" else "carousel"
+            images.append(
+                (
+                    float(ts) if isinstance(ts, (int, float)) else 0.0,
+                    image,
+                    role_tag,
+                )
+            )
+        images.sort(key=lambda item: item[0])
+        return [(image, role, ts) for ts, image, role in images[:18]]
 
     def _classifyImagesAsync(self, piece, images: list[CropEntry]) -> None:
         piece_uuid = piece.uuid
@@ -392,6 +326,12 @@ class ClassificationChannelRecognizer:
                 event_queue.put(knownObjectToEvent(piece))
             gc.runtime_stats.observeBlockedReason(
                 "classification", "brickognize_timeout"
+            )
+            publish_classification_fallback_incident(
+                gc,
+                piece=piece,
+                status=ClassificationStatus.unknown,
+                reason="brickognize_timeout",
             )
             bump_counter("brickognize_timeout_total")
             logger.warning(
@@ -513,15 +453,22 @@ class ClassificationChannelRecognizer:
         *,
         max_count: int = MAX_MULTI_RECOGNIZE_CROPS,
         c3_quota_ratio: float = C3_CROP_QUOTA_RATIO,
+        freefall_quota_ratio: float = FREEFALL_QUOTA_RATIO,
     ) -> list[CropEntry]:
-        """Pick up to ``max_count`` crops, ranked by Laplacian sharpness,
-        while reserving ``ceil(max_count * c3_quota_ratio)`` slots for
-        ``c_channel_3`` crops when available.
+        """Pick up to ``max_count`` crops, sharpness-ranked, with two quotas
+        layered on top:
 
-        Opinionated ordering: the sharpest c3 crop is placed at index 0 so the
-        single-crop fallback (``selected[:SINGLE_CROP_FALLBACK_COUNT]``) picks
-        up a c3 view first. Any shortfall in the c3 quota falls back to the
-        sharpest remaining crops regardless of source.
+        - ``freefall_quota_ratio`` × ``max_count`` slots reserved for
+          ``carousel_freefall`` crops (pre-trigger frames from the rolling
+          buffer where the piece was airborne / tumbling). These carry real
+          orientation variance.
+        - ``c3_quota_ratio`` × ``max_count`` slots reserved for
+          ``c_channel_3`` crops — currently disabled (ratio=0), kept in the
+          API for future re-enable.
+
+        The sharpest freefall crop is placed at index 0 so the single-crop
+        fallback (``selected[:SINGLE_CROP_FALLBACK_COUNT]``) starts from a
+        tumbling-orientation view rather than a near-duplicate platter view.
         """
         if not crops:
             return []
@@ -533,13 +480,18 @@ class ClassificationChannelRecognizer:
         if len(ranked) <= max_count:
             return ranked
 
-        c3_quota = max(0, math.ceil(max_count * max(0.0, c3_quota_ratio)))
-        c3_quota = min(c3_quota, max_count)
-        c3_ranked = [entry for entry in ranked if entry[1] == "c_channel_3"]
-        reserved_c3 = c3_ranked[:c3_quota]
-        reserved_ids = {id(entry) for entry in reserved_c3}
+        ff_quota = max(0, math.ceil(max_count * max(0.0, freefall_quota_ratio)))
+        ff_quota = min(ff_quota, max_count)
+        ff_ranked = [e for e in ranked if e[1] == "carousel_freefall"]
+        reserved_ff = ff_ranked[:ff_quota]
 
-        remaining_slots = max_count - len(reserved_c3)
+        c3_quota = max(0, math.ceil(max_count * max(0.0, c3_quota_ratio)))
+        c3_quota = min(c3_quota, max_count - len(reserved_ff))
+        c3_ranked = [e for e in ranked if e[1] == "c_channel_3"]
+        reserved_c3 = c3_ranked[:c3_quota]
+
+        reserved_ids = {id(e) for e in reserved_ff} | {id(e) for e in reserved_c3}
+        remaining_slots = max_count - len(reserved_ff) - len(reserved_c3)
         filler: list[CropEntry] = []
         for entry in ranked:
             if id(entry) in reserved_ids:
@@ -548,21 +500,25 @@ class ClassificationChannelRecognizer:
             if len(filler) >= remaining_slots:
                 break
 
-        # Assemble: put sharpest c3 at position 0 so the single-crop fallback
-        # starts from a c3 view; remainder interleaves / appends sharpness-first.
-        if not reserved_c3:
+        # Sharpest freefall view goes first so single-crop fallback hits a
+        # tumbling-orientation view, not a platter near-duplicate. Remainder
+        # interleaves remaining freefall, then c3 (if any), then filler.
+        if not reserved_ff and not reserved_c3:
             return filler[:max_count]
 
-        result: list[CropEntry] = [reserved_c3[0]]
-        extra_c3 = reserved_c3[1:]
-        # Alternate: best filler, next reserved c3, then rest of filler.
+        result: list[CropEntry] = []
+        if reserved_ff:
+            result.append(reserved_ff[0])
+        elif reserved_c3:
+            result.append(reserved_c3[0])
         filler_iter = iter(filler)
         next_filler = next(filler_iter, None)
-        if next_filler is not None:
+        if next_filler is not None and len(result) < max_count:
             result.append(next_filler)
             next_filler = next(filler_iter, None)
-        for c3_entry in extra_c3:
-            result.append(c3_entry)
+        for entry in reserved_ff[1:] + reserved_c3[(1 if not reserved_ff else 0):]:
+            if len(result) < max_count:
+                result.append(entry)
         while next_filler is not None and len(result) < max_count:
             result.append(next_filler)
             next_filler = next(filler_iter, None)

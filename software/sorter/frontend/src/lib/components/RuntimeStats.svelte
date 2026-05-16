@@ -4,11 +4,16 @@
 
 	const ctx = getMachineContext();
 
+	type OutcomeEntry = {
+		count?: number;
+		overall_ppm?: number;
+		active_ppm?: number;
+	};
 	type ChannelThroughputEntry = {
 		exit_count?: number;
 		overall_ppm?: number;
 		active_ppm?: number;
-		outcomes?: Record<string, { count?: number; active_ppm?: number }>;
+		outcomes?: Record<string, OutcomeEntry>;
 	};
 
 	const runtime_stats = $derived((ctx.machine?.runtimeStats ?? {}) as Record<string, unknown>);
@@ -32,14 +37,16 @@
 	const multi_drop_n = $derived(counts.multi_drop_fail ?? 0);
 	const unknown_n = $derived((counts.unknown ?? 0) + (counts.not_found ?? 0));
 
-	// Distribution rate (target 10/min). Prefer the C4 classification channel's
-	// active_ppm for a "current rate" signal; fall back to overall.
-	const dist_rate_ppm = $derived.by(() => {
+	// Classified-and-distributed rate — the goal-line KPI: pieces that
+	// passed Brickognize as Single (not Unknown / Not-Found / Multi-Drop
+	// Reject) AND were physically distributed. Backend publishes this as
+	// `distributed_success.overall_ppm` on the classification_channel
+	// throughput. `overall_ppm` divides by total running_time_s so it
+	// reflects steady-state throughput rather than peak active periods.
+	const goal_rate_ppm = $derived.by(() => {
 		const outcomes = c4.outcomes ?? {};
-		const classified = outcomes.classified?.active_ppm;
-		if (typeof classified === 'number' && classified > 0) return classified;
-		const overall = throughput.overall_ppm;
-		return typeof overall === 'number' ? overall : 0;
+		const v = outcomes.distributed_success?.overall_ppm;
+		return typeof v === 'number' && Number.isFinite(v) ? v : 0;
 	});
 
 	// Classification success rate (classified vs. total finished classifications).
@@ -132,17 +139,17 @@
 		{#if !ctx.machine || !ctx.machine.runtimeStats}
 			<div class="text-sm text-text-muted">No runtime stats yet</div>
 		{:else}
-			<!-- Primary tile: distribution rate (neutral, no target indicator) -->
+			<!-- Primary tile: goal KPI — classified single + distributed -->
 			<div class="grid grid-cols-2 gap-2">
 				<div class="border border-border bg-bg p-2">
 					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Distributed / min
+						Classified / min
 					</div>
 					<div class="flex items-baseline gap-1">
 						<span class="text-3xl font-semibold tabular-nums text-text">
-							{fmtPpm(dist_rate_ppm)}
+							{fmtPpm(goal_rate_ppm)}
 						</span>
-						<span class="text-xs text-text-muted">ppm</span>
+						<span class="text-xs text-text-muted">ppm · goal 8</span>
 					</div>
 				</div>
 				<div class="border border-border bg-bg p-2">

@@ -94,6 +94,101 @@ class CoordinatorOrderTests(unittest.TestCase):
 
         self.assertEqual(["distribution", "classification", "feeder"], calls)
 
+    def test_classification_exit_incident_holds_feeder_and_distribution(self) -> None:
+        calls: list[str] = []
+        fake_runtime = _FakeRuntime(calls)
+        runtime_stats = RuntimeStatsCollector()
+        runtime_stats.setActiveIncident(
+            {
+                "kind": "classification_exit_release",
+                "piece_uuid": "piece-stuck",
+                "status": "waiting_for_operator",
+            }
+        )
+        gc = SimpleNamespace(
+            logger=_Logger(),
+            profiler=_Profiler(),
+            runtime_stats=runtime_stats,
+            set_progress_tracker=None,
+        )
+        sorting_profile = SimpleNamespace(
+            is_set_based=False,
+            set_inventories=None,
+            reload=lambda: None,
+        )
+        machine_setup = SimpleNamespace(
+            key="classification_channel",
+            manual_feed_mode=False,
+            runtime_supported=True,
+        )
+
+        with patch("coordinator.build_machine_runtime", return_value=fake_runtime), patch(
+            "coordinator.mkSortingProfile", return_value=sorting_profile
+        ), patch(
+            "coordinator.get_machine_setup_definition", return_value=machine_setup
+        ):
+            coordinator = Coordinator(
+                irl=SimpleNamespace(distribution_layout=SimpleNamespace()),
+                irl_config=SimpleNamespace(machine_setup=machine_setup, feeding_mode="auto_channels"),
+                gc=gc,
+                vision=SimpleNamespace(),
+                event_queue=queue.Queue(),
+                rv=SimpleNamespace(),
+            )
+
+        coordinator.step()
+
+        self.assertEqual(["classification"], calls)
+        self.assertFalse(coordinator.shared.classification_ready)
+        self.assertFalse(coordinator.shared.distribution_ready)
+
+    def test_non_exit_incident_holds_all_subsystems(self) -> None:
+        calls: list[str] = []
+        fake_runtime = _FakeRuntime(calls)
+        runtime_stats = RuntimeStatsCollector()
+        runtime_stats.setActiveIncident(
+            {
+                "kind": "distribution_no_bin_available",
+                "status": "waiting_for_operator",
+            }
+        )
+        gc = SimpleNamespace(
+            logger=_Logger(),
+            profiler=_Profiler(),
+            runtime_stats=runtime_stats,
+            set_progress_tracker=None,
+        )
+        sorting_profile = SimpleNamespace(
+            is_set_based=False,
+            set_inventories=None,
+            reload=lambda: None,
+        )
+        machine_setup = SimpleNamespace(
+            key="classification_channel",
+            manual_feed_mode=False,
+            runtime_supported=True,
+        )
+
+        with patch("coordinator.build_machine_runtime", return_value=fake_runtime), patch(
+            "coordinator.mkSortingProfile", return_value=sorting_profile
+        ), patch(
+            "coordinator.get_machine_setup_definition", return_value=machine_setup
+        ):
+            coordinator = Coordinator(
+                irl=SimpleNamespace(distribution_layout=SimpleNamespace()),
+                irl_config=SimpleNamespace(machine_setup=machine_setup, feeding_mode="auto_channels"),
+                gc=gc,
+                vision=SimpleNamespace(),
+                event_queue=queue.Queue(),
+                rv=SimpleNamespace(),
+            )
+
+        coordinator.step()
+
+        self.assertEqual([], calls)
+        self.assertFalse(coordinator.shared.classification_ready)
+        self.assertFalse(coordinator.shared.distribution_ready)
+
 
 if __name__ == "__main__":
     unittest.main()

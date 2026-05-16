@@ -20,11 +20,24 @@ BINS_FULL_ALERT_PREFIX = "No bin available"
 MISC_PASSTHROUGH_ALERT_PREFIX = "Misc passthrough"
 CHUTE_JAM_ALERT_PREFIX = "Chute jam"
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
+DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
+DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
+DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
 # Beyond how many ms after the estimated move time do we conclude the
 # chute / servo is stuck? 3× the expected move is generous but catches
 # a real jam reliably.
 CHUTE_MOVE_TIMEOUT_MS = 6000
 CHUTE_MOVE_TIMEOUT_MULTIPLIER = 3.0
+
+
+def _incidentHandlingOff(kind: str) -> bool:
+    try:
+        from toml_config import incidentHandlingOff
+
+        return bool(incidentHandlingOff(kind))
+    except Exception:
+        return False
+
 
 class Positioning(BaseState):
     def __init__(
@@ -88,6 +101,23 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.wait_piece_for_distribution")
                 return DistributionState.IDLE
 
+            if getattr(self.shared, "sample_collection_mode", False):
+                self.logger.info(
+                    "Positioning: sample collection mode — opening all layer doors for discard passthrough"
+                )
+                self._clearBinsFullAlertIfOwned()
+                self._clearChuteJamAlertIfOwned()
+                self._openAllDoorsForPassthrough()
+                piece.stage = PieceStage.distributing
+                piece.distributing_at = time.time()
+                piece.distribution_target_selected_at = piece.distributing_at
+                piece.destination_bin = None
+                piece.updated_at = time.time()
+                self._piece = piece
+                self.event_queue.put(knownObjectToEvent(piece))
+                self._setOccupancyState("positioning.sample_collection_passthrough")
+                return DistributionState.READY
+
             if piece.part_id is not None:
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
@@ -101,6 +131,9 @@ class Positioning(BaseState):
                 # send this piece to the discard bucket.
                 return DistributionState.IDLE
             if address is None:
+                if self._raiseNoBinAvailableIncident(piece, category_id):
+                    self._setOccupancyState("positioning.no_bin_incident")
+                    return DistributionState.IDLE
                 # Pass-through: no bin available for this category. Open
                 # every usable layer door so the piece falls straight
                 # through to the bottom tray. Finalize the piece record
@@ -300,6 +333,30 @@ class Positioning(BaseState):
     def _raiseBinsFullAlert(self, category_id: str) -> None:
         return
 
+    def _raiseNoBinAvailableIncident(self, piece, category_id: str) -> bool:
+        """Publish no-bin as an explicit operator incident.
+
+        When this incident kind is disabled, the legacy passthrough path below
+        remains available as an intentional operating choice.
+        """
+        piece_uuid = str(getattr(piece, "uuid", "") or "")
+        return self._publishDistributionIncident(
+            DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND,
+            detail=f"No bin is available for category {category_id}.",
+            severity="warning",
+            role="distribution_no_bin",
+            channel_label="Distribution",
+            category_id=str(category_id),
+            piece_uuid=piece_uuid,
+            piece_short=piece_uuid[:8],
+            part_id=getattr(piece, "part_id", None),
+            color_id=getattr(piece, "color_id", None),
+            resolution="operator_assign_bin_or_disable_no_bin_incident",
+            operator_message=(
+                "No matching bin is available. Assign a bin, free capacity, or switch this incident off to allow passthrough."
+            ),
+        )
+
     def _allEnabledLayersServoOffline(self) -> bool:
         """True iff every enabled layer's servo is currently flagged as
         offline. Used to separate the fatal servo-bus case from a soft
@@ -329,6 +386,14 @@ class Positioning(BaseState):
         runtime_stats, and pauses the controller. Cleared only when a
         servo comes back online via ``_isLayerUsable``.
         """
+        self._publishDistributionIncident(
+            DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND,
+            detail=detail,
+            severity="critical",
+            role="distribution_servo_bus",
+            channel_label="Servo Bus",
+            offline_layers=sorted(self._servo_offline_layers),
+        )
         if self._servo_bus_pause_enqueued:
             return
         self._servo_bus_pause_enqueued = True
@@ -358,6 +423,71 @@ class Positioning(BaseState):
         except Exception:
             pass
 
+    def _targetAddressPayload(self) -> dict | None:
+        if self._target_address is None:
+            return None
+        return {
+            "layer_index": int(self._target_address.layer_index),
+            "section_index": int(self._target_address.section_index),
+            "bin_index": int(self._target_address.bin_index),
+        }
+
+    def _publishDistributionIncident(
+        self,
+        kind: str,
+        *,
+        detail: str,
+        severity: str,
+        role: str,
+        channel_label: str,
+        **extra,
+    ) -> bool:
+        if _incidentHandlingOff(kind):
+            return False
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+            return False
+        active = None
+        if hasattr(runtime_stats, "activeIncident"):
+            try:
+                active = runtime_stats.activeIncident()
+            except Exception:
+                active = None
+        if isinstance(active, dict):
+            if active.get("kind") == kind:
+                return True
+            return True
+        incident = {
+            "kind": kind,
+            "severity": severity,
+            "status": "waiting_for_operator",
+            "awaiting_operator": True,
+            "scope": "distribution",
+            "channel": "distribution",
+            "role": role,
+            "channel_label": channel_label,
+            "triggered_at": time.time(),
+            "detail": detail,
+        }
+        incident.update(extra)
+        runtime_stats.setActiveIncident(incident)
+        return True
+
+    def _clearDistributionIncident(self, kind: str) -> None:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+            return
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+        if (
+            isinstance(active, dict)
+            and active.get("kind") == kind
+            and hasattr(runtime_stats, "clearActiveIncident")
+        ):
+            runtime_stats.clearActiveIncident(kind=kind)
+
     def _clearServoBusOfflineAlertIfOwned(self) -> None:
         try:
             with shared_state.hardware_lifecycle_lock:
@@ -367,6 +497,7 @@ class Positioning(BaseState):
         except Exception:
             pass
         self._servo_bus_pause_enqueued = False
+        self._clearDistributionIncident(DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND)
         try:
             self.gc.runtime_stats.clearServoBusOffline()
         except Exception:
@@ -376,6 +507,17 @@ class Positioning(BaseState):
         """Hard alert: chute / servo can't physically move. Raises the red
         banner *and* enqueues a pause so the operator has to intervene.
         """
+        elapsed_ms = int(max(0.0, time.monotonic() - self._moving_started_at) * 1000.0)
+        self._publishDistributionIncident(
+            DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND,
+            detail=detail,
+            severity="critical",
+            role="distribution_chute",
+            channel_label="Distribution Chute",
+            elapsed_ms=elapsed_ms,
+            estimated_ms=int(self._chute_move_estimated_ms),
+            target_address=self._targetAddressPayload(),
+        )
         if self._jam_pause_enqueued:
             return
         self._jam_pause_enqueued = True
@@ -412,6 +554,7 @@ class Positioning(BaseState):
         except Exception:
             pass
         self._jam_pause_enqueued = False
+        self._clearDistributionIncident(DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND)
 
     def _clearBinsFullAlertIfOwned(self) -> None:
         try:

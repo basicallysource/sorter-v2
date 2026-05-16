@@ -84,7 +84,12 @@ class BaseProcessor:
         self.iou_threshold = float(iou_threshold)
         self._lock = threading.Lock()
 
-    def infer(self, image_bgr: np.ndarray) -> list[Detection]:  # pragma: no cover - abstract
+    def infer(
+        self,
+        image_bgr: np.ndarray,
+        *,
+        conf_threshold: float | None = None,
+    ) -> list[Detection]:  # pragma: no cover - abstract
         raise NotImplementedError
 
 

@@ -23,9 +23,9 @@ import numpy as np
 
 from .history import DropZoneBurstFrame, PieceHistoryBuffer, BURST_JPEG_QUALITY, BURST_MAX_EDGE_PX
 
-BURST_PRE_FRAMES = 30
+BURST_PRE_FRAMES = 60
 BURST_POST_FRAMES = 30
-BURST_FPS = 15
+BURST_FPS = 20
 BURST_PRE_BUFFER_MAXLEN = BURST_PRE_FRAMES + 10
 
 

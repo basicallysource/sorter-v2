@@ -32,3 +32,11 @@ class HeatmapOverlay:
         if self._heatmap.has_baseline:
             return self._heatmap.annotateFrame(frame, label=self._label, text_y=self._text_y)
         return frame
+
+    def metadata(self) -> dict[str, object]:
+        return {
+            "type": "heatmap",
+            "category": self.category,
+            "label": self._label,
+            "has_baseline": bool(self._heatmap.has_baseline),
+        }

@@ -451,6 +451,9 @@ def setup_nanodet():
          "imagesize",
          "termcolor",
          "matplotlib",
+         "tabulate",
+         "future",
+         "tensorboard",
          "pytorch-lightning==1.9.5",
          "onnx", "onnxsim", "onnxruntime", "pycocotools"],
         check=True,
@@ -687,20 +690,23 @@ def main():
             json.dump(results, f, indent=2)
         return
 
-    # Setup frameworks
-    try:
-        setup_nanodet()
-    except Exception as exc:
-        print(f"NanoDet setup failed: {exc}")
-        for v in nanodet_variants:
-            results[v["id"]] = {"name": v["name"], "error": f"Setup failed: {exc}"}
+    # Setup only the frameworks selected for this run. This keeps a NanoDet-only
+    # run independent from YOLOX dependency drift.
+    if nanodet_variants:
+        try:
+            setup_nanodet()
+        except Exception as exc:
+            print(f"NanoDet setup failed: {exc}")
+            for v in nanodet_variants:
+                results[v["id"]] = {"name": v["name"], "error": f"Setup failed: {exc}"}
 
-    try:
-        setup_yolox()
-    except Exception as exc:
-        print(f"YOLOX setup failed: {exc}")
-        for v in yolox_variants:
-            results[v["id"]] = {"name": v["name"], "error": f"Setup failed: {exc}"}
+    if yolox_variants:
+        try:
+            setup_yolox()
+        except Exception as exc:
+            print(f"YOLOX setup failed: {exc}")
+            for v in yolox_variants:
+                results[v["id"]] = {"name": v["name"], "error": f"Setup failed: {exc}"}
 
     # Train NanoDet variants
     for v in nanodet_variants:

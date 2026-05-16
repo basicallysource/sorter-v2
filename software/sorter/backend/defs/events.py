@@ -81,7 +81,14 @@ class KnownObjectData(BaseModel):
     confidence: Optional[float] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
     tracked_global_id: Optional[int] = None
+    classification_channel_zone_state: Optional[str] = None
+    classification_channel_zone_center_deg: Optional[float] = None
+    classification_channel_zone_half_width_deg: Optional[float] = None
+    classification_channel_exit_offset_deg: Optional[float] = None
+    first_carousel_seen_angle_deg: Optional[float] = None
     thumbnail: Optional[str] = None
+    latest_captured_crop: Optional[str] = None
+    latest_captured_crop_ts: Optional[float] = None
     top_image: Optional[str] = None
     bottom_image: Optional[str] = None
     drop_snapshot: Optional[str] = None

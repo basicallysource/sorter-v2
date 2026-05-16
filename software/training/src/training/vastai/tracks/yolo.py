@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Track A: Train 6 Ultralytics YOLO models on GPU.
+"""Track A: Train Ultralytics YOLO models on GPU.
 
 Models:
   A1: YOLOv26n @ 320  (newest architecture)
@@ -8,6 +8,8 @@ Models:
   A4: YOLOv11n @ 416
   A5: YOLOv11s @ 320  (small variant, higher accuracy)
   A6: YOLOv8n  @ 320  (baseline)
+  A7: YOLOv26s @ 320  (newest arch, small)
+  A8: YOLOv26s @ 416
 
 Runs on Vast.ai with: pip install ultralytics
 Expects dataset at /workspace/dataset/ with dataset.yaml + images/ + labels_yolo/
@@ -36,6 +38,8 @@ MODELS = [
     {"id": "A4", "name": "yolo11n-416",  "model": "yolo11n.pt",  "imgsz": 416, "batch": 48},
     {"id": "A5", "name": "yolo11s-320",  "model": "yolo11s.pt",  "imgsz": 320, "batch": 32},
     {"id": "A6", "name": "yolov8n-320",  "model": "yolov8n.pt",  "imgsz": 320, "batch": 64},
+    {"id": "A7", "name": "yolo26s-320",  "model": "yolo26s.pt",  "imgsz": 320, "batch": 32},
+    {"id": "A8", "name": "yolo26s-416",  "model": "yolo26s.pt",  "imgsz": 416, "batch": 24},
 ]
 
 

@@ -23,7 +23,9 @@ FeederDetectionAlgorithm = str
 CarouselDetectionAlgorithm = str
 
 HIVE_ID_PREFIX = "hive:"
+BUNDLED_ID_PREFIX = "bundled:"
 HIVE_MODELS_DIR = Path(__file__).resolve().parent.parent / "blob" / "hive_detection_models"
+BUNDLED_MODELS_DIR = Path(__file__).resolve().parent.parent / "bundled_models"
 
 _SCOPE_BY_HIVE_SCOPE: dict[str, DetectionScope] = {
     "classification_chamber": "classification",
@@ -33,6 +35,14 @@ _SCOPE_BY_HIVE_SCOPE: dict[str, DetectionScope] = {
     "c-channel": "feeder",
     "feeder": "feeder",
     "carousel": "carousel",
+    "classification_channel": "carousel",
+    "classification-channel": "carousel",
+    "c4": "carousel",
+    "c4_sector": "carousel",
+    "c4-sector": "carousel",
+    "sector": "carousel",
+    "sector_yolo": "carousel",
+    "sector-yolo": "carousel",
 }
 
 
@@ -69,7 +79,7 @@ class DetectionAlgorithmDefinition:
     required_inputs: frozenset[str]
     default_for_scopes: frozenset[DetectionScope] = frozenset()
     needs_baseline: bool = False
-    kind: str = "builtin"  # "builtin" | "hive"
+    kind: str = "builtin"  # "builtin" | "hive" | "bundled"
     model_path: Path | None = None
     model_family: str | None = None
     imgsz: int | None = None
@@ -124,13 +134,15 @@ _BUILTIN_ALGORITHMS: tuple[DetectionAlgorithmDefinition, ...] = (
 
 _cache_lock = threading.Lock()
 _cached_hive_algorithms: tuple[DetectionAlgorithmDefinition, ...] | None = None
+_cached_bundled_algorithms: tuple[DetectionAlgorithmDefinition, ...] | None = None
 
 
 def invalidate_registry() -> None:
-    """Drop the cache so the next registry read rescans the Hive models dir."""
-    global _cached_hive_algorithms
+    """Drop the cache so the next registry read rescans the model dirs."""
+    global _cached_hive_algorithms, _cached_bundled_algorithms
     with _cache_lock:
         _cached_hive_algorithms = None
+        _cached_bundled_algorithms = None
 
 
 def _map_hive_scopes(scopes: Any) -> frozenset[DetectionScope]:
@@ -146,14 +158,20 @@ def _map_hive_scopes(scopes: Any) -> frozenset[DetectionScope]:
     return frozenset(mapped)
 
 
-def _discover_hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    if not HIVE_MODELS_DIR.exists():
+def _discover_model_algorithms(
+    root: Path,
+    *,
+    id_prefix: str,
+    kind: str,
+    default_for_scopes: frozenset[DetectionScope] = frozenset(),
+) -> tuple[DetectionAlgorithmDefinition, ...]:
+    if not root.exists():
         return ()
 
     from vision.ml import imgsz_from_run_metadata, resolve_variant_artifact
 
     entries: list[DetectionAlgorithmDefinition] = []
-    for entry in sorted(HIVE_MODELS_DIR.iterdir()):
+    for entry in sorted(root.iterdir()):
         if not entry.is_dir():
             continue
         run_json = entry / "run.json"
@@ -162,7 +180,7 @@ def _discover_hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
         try:
             meta = json.loads(run_json.read_text())
         except (OSError, json.JSONDecodeError):
-            log.warning("Skipping Hive model %s — unreadable run.json", entry.name)
+            log.warning("Skipping %s model %s — unreadable run.json", kind, entry.name)
             continue
         if not isinstance(meta, dict) or "hive" not in meta:
             continue
@@ -170,13 +188,14 @@ def _discover_hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
         hive_info = meta.get("hive") or {}
         model_family = str(meta.get("model_family") or "").lower()
         if model_family not in {"yolo", "nanodet"}:
-            log.info("Skipping Hive model %s — unsupported family %r", entry.name, model_family)
+            log.info("Skipping %s model %s — unsupported family %r", kind, entry.name, model_family)
             continue
 
         variant_runtime = str(hive_info.get("variant_runtime") or "onnx").lower()
         if variant_runtime not in {"onnx", "ncnn", "hailo"}:
             log.info(
-                "Skipping Hive model %s — unsupported runtime %r",
+                "Skipping %s model %s — unsupported runtime %r",
+                kind,
                 entry.name,
                 variant_runtime,
             )
@@ -185,7 +204,8 @@ def _discover_hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
         model_path = resolve_variant_artifact(entry, variant_runtime)
         if model_path is None:
             log.info(
-                "Skipping Hive model %s — no %s artifact found under exports/",
+                "Skipping %s model %s — no %s artifact found under exports/",
+                kind,
                 entry.name,
                 variant_runtime,
             )
@@ -193,15 +213,24 @@ def _discover_hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
 
         supported = _map_hive_scopes(meta.get("scopes"))
         if not supported:
-            supported = frozenset({"classification"})
+            # When the catalog entry has no scope metadata we can't tell what
+            # this model is good for — but the operator just downloaded it
+            # deliberately, so refuse-everywhere is worse UX than allow-
+            # everywhere. They get to decide; if it's a bad fit they'll see
+            # it on the live feed and switch back.
+            supported = frozenset({"classification", "feeder", "carousel"})
+
+        defaults = supported & default_for_scopes if default_for_scopes else frozenset()
 
         slug = str(meta.get("name") or hive_info.get("model_id") or entry.name)
-        algorithm_id = f"{HIVE_ID_PREFIX}{entry.name}"
-        label = f"Hive · {slug}"
+        algorithm_id = f"{id_prefix}{entry.name}"
+        label_prefix = "Bundled" if kind == "bundled" else "Hive"
+        label = f"{label_prefix} · {slug}"
         family_label = model_family.upper()
         description = (
-            f"Downloaded {family_label} model from Hive. "
-            f"Runtime variant: {variant_runtime}."
+            f"Bundled {family_label} model shipped with the sorter."
+            if kind == "bundled"
+            else f"Downloaded {family_label} model from Hive. Runtime variant: {variant_runtime}."
         )
         imgsz = imgsz_from_run_metadata(meta)
 
@@ -212,9 +241,9 @@ def _discover_hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
                 description=description,
                 supported_scopes=supported,
                 required_inputs=frozenset({"frame"}),
-                default_for_scopes=frozenset(),
+                default_for_scopes=defaults,
                 needs_baseline=False,
-                kind="hive",
+                kind=kind,
                 model_path=model_path,
                 model_family=model_family,
                 imgsz=imgsz,
@@ -229,12 +258,28 @@ def _hive_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
     global _cached_hive_algorithms
     with _cache_lock:
         if _cached_hive_algorithms is None:
-            _cached_hive_algorithms = _discover_hive_algorithms()
+            _cached_hive_algorithms = _discover_model_algorithms(
+                HIVE_MODELS_DIR, id_prefix=HIVE_ID_PREFIX, kind="hive"
+            )
         return _cached_hive_algorithms
 
 
+def _bundled_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
+    global _cached_bundled_algorithms
+    with _cache_lock:
+        if _cached_bundled_algorithms is None:
+            _cached_bundled_algorithms = _discover_model_algorithms(
+                BUNDLED_MODELS_DIR,
+                id_prefix=BUNDLED_ID_PREFIX,
+                kind="bundled",
+                default_for_scopes=frozenset({"classification", "feeder", "carousel"}),
+            )
+        return _cached_bundled_algorithms
+
+
 def _all_algorithms() -> tuple[DetectionAlgorithmDefinition, ...]:
-    return _BUILTIN_ALGORITHMS + _hive_algorithms()
+    # Bundled before built-ins so a bundled default beats the legacy built-in default.
+    return _bundled_algorithms() + _hive_algorithms() + _BUILTIN_ALGORITHMS
 
 
 # ---------------------------------------------------------------------------

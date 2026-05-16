@@ -18,4 +18,5 @@ dependencies = [
     "cryptography>=45.0",
     "requests>=2.32",
     "boto3>=1.35",
+    "Pillow>=10.0",
 ]

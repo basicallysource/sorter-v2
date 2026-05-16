@@ -33,6 +33,7 @@ from training import DATASETS_DIR, RUNS_DIR
 TRACK_SCRIPTS: dict[str, Path] = {
     "yolo": Path(__file__).resolve().parent / "tracks" / "yolo.py",
     "nanodet": Path(__file__).resolve().parent / "tracks" / "nanodet.py",
+    "rfdetr": Path(__file__).resolve().parent / "tracks" / "rfdetr.py",
 }
 
 DEFAULT_IMAGE_YOLO = "pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime"

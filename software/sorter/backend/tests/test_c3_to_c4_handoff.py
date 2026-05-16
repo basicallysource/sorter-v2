@@ -11,9 +11,6 @@ real PolarFeederTracker + PieceHandoffManager with synthetic bboxes.
 
 from __future__ import annotations
 
-import numpy as np
-import pytest
-
 from vision.tracking import (
     PolarFeederTracker,
     PieceHandoffManager,
@@ -79,7 +76,14 @@ def _feed_until_dead(
 # ---------------------------------------------------------------------------
 
 
-def test_c3_to_c4_single_piece_inherits_global_id():
+def test_c3_to_c4_handoff_is_disabled_by_default():
+    """Per operator decision, the C3→carousel identity handoff is no
+    longer wired by ``build_feeder_tracker_system``. The classification
+    pipeline consumes carousel-only track history, so a stitched C3
+    segment had no consumer left but still occasionally polluted the
+    detail page with a wrong-piece path. Every carousel track now gets a
+    fresh global_id.
+    """
     manager, trackers = _make_three_camera_system()
     c3 = trackers["c_channel_3"]
     carousel = trackers["carousel"]
@@ -89,30 +93,24 @@ def test_c3_to_c4_single_piece_inherits_global_id():
     assert len(t1) == 1
     c3_id = t1[0].global_id
 
-    # Let the C3 track expire (piece falls off the C3 camera view).
+    # Let the C3 track expire.
     death_ts = _feed_until_dead(c3, start_ts=0.0)
 
-    pending = manager.pending_snapshot()
-    assert len(pending) == 1, pending
-    assert pending[0]["from_role"] == "c_channel_3"
-    assert pending[0]["global_id"] == c3_id
+    # No pending handoff was queued — c_channel_3 is not registered as a
+    # handoff source in the default chain.
+    assert manager.pending_snapshot() == []
 
-    # Within the handoff window, carousel sees a new detection — at an
-    # arbitrary plausible position on the platter, NOT at the same pixel
-    # where it died on C3 (different camera, different frame).
+    # Within the (former) handoff window, carousel sees a new detection.
     carousel_tracks = carousel.update(
         [_bbox_around(400.0, 300.0, size=60)],
         [0.9],
         death_ts + 0.2,
     )
     assert len(carousel_tracks) == 1
-    assert carousel_tracks[0].global_id == c3_id, (
-        "carousel should inherit the C3 global_id via the handoff manager"
+    assert carousel_tracks[0].global_id != c3_id, (
+        "carousel should NOT inherit the C3 global_id — handoff disabled"
     )
-    assert carousel_tracks[0].handoff_from == "c_channel_3"
-
-    # Pending queue is drained after the successful claim.
-    assert manager.pending_snapshot() == []
+    assert carousel_tracks[0].handoff_from is None
 
 
 # ---------------------------------------------------------------------------
@@ -139,130 +137,28 @@ def _make_manager_with_entry_zone() -> PieceHandoffManager:
     return manager
 
 
-def _unit_vector(seed: int, dim: int = 8) -> np.ndarray:
-    """Return a deterministic unit vector. Uses a one-hot axis so tests
-    can rely on pairs of vectors with cosine similarity exactly 0 or 1.
-    """
-    vec = np.zeros(dim, dtype=np.float32)
-    vec[int(seed) % dim] = 1.0
-    return vec
-
-
-def test_c3_to_c4_order_swap_rebinds_by_embedding_similarity():
-    """Two pieces die on C3 in order A then B (FIFO pending = [A, B]).
-    On C4 the *first* detection that lands carries B's embedding — the
-    physical order swapped mid-air.
-
-    With embedding-based rebind the first claim must pop the pending
-    whose embedding matches (B), not the FIFO head (A). Otherwise
-    downstream classification writes B's result under A's global_id.
-    """
+def test_handoff_strict_fifo_when_multiple_pendings():
+    """Two pieces die on C3 in order A then B. With ReID gone, the first
+    carousel claim takes the FIFO head (A); the second takes B."""
     manager = _make_manager_with_entry_zone()
-    emb_A = _unit_vector(1)
-    emb_B = _unit_vector(2)
-    # Embeddings are well-separated.
-    assert float(np.dot(emb_A, emb_B)) < 0.5
 
     manager.notify_track_death(
         "c_channel_3", 101, (700.0, 200.0), 1.0, death_ts=1.0,
-        last_displacement_px=200.0, embedding=emb_A,
+        last_displacement_px=200.0,
     )
     manager.notify_track_death(
         "c_channel_3", 202, (700.0, 500.0), 1.1, death_ts=1.1,
-        last_displacement_px=200.0, embedding=emb_B,
+        last_displacement_px=200.0,
     )
     assert [p["global_id"] for p in manager.pending_snapshot()] == [101, 202]
 
-    # First claim: carries B's embedding. Should pop B (id=202), NOT
-    # the FIFO head A.
-    gid1, src1 = manager.register_track("carousel", (400.0, 300.0), 2.0, embedding=emb_B)
-    assert gid1 == 202
+    gid1, src1 = manager.register_track("carousel", (400.0, 300.0), 2.0)
+    assert gid1 == 101
     assert src1 == "c_channel_3"
-    assert manager.embedding_rebind_total == 1
 
-    # Second claim: carries A's embedding — only one pending left, FIFO
-    # fall-through, no further rebind.
-    gid2, src2 = manager.register_track("carousel", (500.0, 400.0), 2.1, embedding=emb_A)
-    assert gid2 == 101
+    gid2, src2 = manager.register_track("carousel", (500.0, 400.0), 2.1)
+    assert gid2 == 202
     assert src2 == "c_channel_3"
-    assert manager.embedding_rebind_total == 1
-
-
-def test_handoff_falls_back_to_fifo_when_no_embedding():
-    """When the claim carries no embedding (e.g. BoxMOT weights missing,
-    or no frame passed into the tracker) the manager must preserve the
-    original FIFO behaviour — head wins."""
-    manager = _make_manager_with_entry_zone()
-    manager.notify_track_death(
-        "c_channel_3", 11, (700.0, 200.0), 1.0, death_ts=1.0,
-        last_displacement_px=200.0, embedding=_unit_vector(1),
-    )
-    manager.notify_track_death(
-        "c_channel_3", 22, (700.0, 500.0), 1.1, death_ts=1.1,
-        last_displacement_px=200.0, embedding=_unit_vector(2),
-    )
-
-    gid, src = manager.register_track("carousel", (400.0, 300.0), 2.0)
-    assert gid == 11
-    assert src == "c_channel_3"
-    assert manager.embedding_rebind_total == 0
-
-
-def test_handoff_falls_back_to_fifo_when_below_similarity_threshold():
-    """If every pending has a very low similarity to the claim (below
-    ``similarity_threshold``) we trust FIFO rather than pick the
-    'least-worst' candidate — same as the no-embedding path."""
-    # Claim embedding is nearly orthogonal to both pendings.
-    manager = PieceHandoffManager(
-        handoff_chain={"c_channel_3": "carousel"},
-        handoff_window_s=5.0,
-        similarity_threshold=0.95,  # artificially high floor
-    )
-    manager.set_zones(
-        "c_channel_3",
-        exit_polygon=[(600, 0), (1280, 0), (1280, 720), (600, 720)],
-    )
-    manager.set_zones(
-        "carousel",
-        entry_polygon=[(0, 0), (1280, 0), (1280, 720), (0, 720)],
-    )
-
-    emb_pending_A = _unit_vector(1)
-    emb_pending_B = _unit_vector(2)
-    emb_claim = _unit_vector(3)
-
-    manager.notify_track_death(
-        "c_channel_3", 33, (700.0, 200.0), 1.0, death_ts=1.0,
-        last_displacement_px=200.0, embedding=emb_pending_A,
-    )
-    manager.notify_track_death(
-        "c_channel_3", 44, (700.0, 500.0), 1.1, death_ts=1.1,
-        last_displacement_px=200.0, embedding=emb_pending_B,
-    )
-
-    gid, _src = manager.register_track(
-        "carousel", (400.0, 300.0), 2.0, embedding=emb_claim,
-    )
-    # Similarity below threshold → FIFO head wins.
-    assert gid == 33
-    assert manager.embedding_rebind_total == 0
-
-
-# ---------------------------------------------------------------------------
-# Meta: register_track now accepts an appearance input.
-# ---------------------------------------------------------------------------
-
-
-def test_handoff_manager_register_track_signature_accepts_embedding():
-    """register_track takes an optional ``embedding`` kwarg. Any future
-    refactor that moves it into a separate rebind call needs to update
-    this test."""
-    import inspect
-
-    sig = inspect.signature(PieceHandoffManager.register_track)
-    params = list(sig.parameters.keys())
-    assert params == ["self", "role", "center", "timestamp", "embedding"], params
-    assert sig.parameters["embedding"].default is None
 
 
 # ---------------------------------------------------------------------------
@@ -313,13 +209,11 @@ def test_handoff_rejects_claim_when_upstream_still_alive():
 
     manager.notify_track_death(
         "c_channel_3", 42, (700.0, 300.0), 1.0, death_ts=1.0,
-        last_displacement_px=200.0, embedding=_unit_vector(1),
+        last_displacement_px=200.0,
     )
     assert [p["global_id"] for p in manager.pending_snapshot()] == [42]
 
-    gid, src = manager.register_track(
-        "carousel", (400.0, 300.0), 2.0, embedding=_unit_vector(1),
-    )
+    gid, src = manager.register_track("carousel", (400.0, 300.0), 2.0)
     # Fresh id — NOT the stale 42.
     assert gid != 42
     assert src is None
@@ -338,11 +232,9 @@ def test_handoff_happy_path_when_upstream_not_alive():
 
     manager.notify_track_death(
         "c_channel_3", 42, (700.0, 300.0), 1.0, death_ts=1.0,
-        last_displacement_px=200.0, embedding=_unit_vector(1),
+        last_displacement_px=200.0,
     )
-    gid, src = manager.register_track(
-        "carousel", (400.0, 300.0), 2.0, embedding=_unit_vector(1),
-    )
+    gid, src = manager.register_track("carousel", (400.0, 300.0), 2.0)
     assert gid == 42
     assert src == "c_channel_3"
     assert manager.stale_pending_dropped_total == 0
@@ -358,17 +250,15 @@ def test_handoff_picks_non_stale_among_multiple_pendings():
 
     manager.notify_track_death(
         "c_channel_3", 42, (700.0, 200.0), 1.0, death_ts=1.0,
-        last_displacement_px=200.0, embedding=_unit_vector(1),
+        last_displacement_px=200.0,
     )
     manager.notify_track_death(
         "c_channel_3", 43, (700.0, 500.0), 1.1, death_ts=1.1,
-        last_displacement_px=200.0, embedding=_unit_vector(2),
+        last_displacement_px=200.0,
     )
     assert [p["global_id"] for p in manager.pending_snapshot()] == [42, 43]
 
-    gid, src = manager.register_track(
-        "carousel", (400.0, 300.0), 2.0, embedding=_unit_vector(2),
-    )
+    gid, src = manager.register_track("carousel", (400.0, 300.0), 2.0)
     assert gid == 43
     assert src == "c_channel_3"
     assert manager.stale_pending_dropped_total == 1

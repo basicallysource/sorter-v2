@@ -539,6 +539,9 @@ class ClassificationTrainingManager:
     def getHiveUploaderStatus(self) -> dict[str, Any]:
         return self._hive.status()
 
+    def hasEnabledHiveTargets(self) -> bool:
+        return self._hive.has_enabled_targets()
+
     def reloadHiveUploader(self) -> dict[str, Any]:
         return self._hive.reload()
 
@@ -567,7 +570,16 @@ class ClassificationTrainingManager:
         return session_dir
 
     def _ensureSessionLocked(self) -> bool:
-        if self._session_dir is None:
+        if self._session_dir is None or not self._session_dir.is_dir():
+            self._createSessionLocked(None)
+            return True
+        required_dirs = (
+            self._session_dir / "captures",
+            self._session_dir / "metadata",
+            self._session_dir / "dataset" / "images",
+            self._session_dir / "classification" / "json",
+        )
+        if any(not path.is_dir() for path in required_dirs):
             self._createSessionLocked(None)
             return True
         return False
@@ -639,6 +651,9 @@ class ClassificationTrainingManager:
         captures_dir = session_dir / "captures"
         metadata_dir = session_dir / "metadata"
         dataset_images_dir = session_dir / "dataset" / "images"
+        captures_dir.mkdir(parents=True, exist_ok=True)
+        metadata_dir.mkdir(parents=True, exist_ok=True)
+        dataset_images_dir.mkdir(parents=True, exist_ok=True)
 
         top_zone_path = captures_dir / f"{sample_id}_top_zone.jpg"
         bottom_zone_path = captures_dir / f"{sample_id}_bottom_zone.jpg"

@@ -56,7 +56,14 @@ export interface KnownObjectData {
   confidence?: number | null;
   destination_bin?: [unknown, unknown, unknown] | null;
   tracked_global_id?: number | null;
+  classification_channel_zone_state?: string | null;
+  classification_channel_zone_center_deg?: number | null;
+  classification_channel_zone_half_width_deg?: number | null;
+  classification_channel_exit_offset_deg?: number | null;
+  first_carousel_seen_angle_deg?: number | null;
   thumbnail?: string | null;
+  latest_captured_crop?: string | null;
+  latest_captured_crop_ts?: number | null;
   top_image?: string | null;
   bottom_image?: string | null;
   drop_snapshot?: string | null;

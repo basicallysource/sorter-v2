@@ -10,6 +10,7 @@ from utils.event import knownObjectToEvent
 from defs.known_object import PieceStage
 
 CHUTE_SETTLE_MS = 1500
+SAMPLE_COLLECTION_CHUTE_SETTLE_MS = 400
 
 
 class Sending(BaseState):
@@ -55,8 +56,9 @@ class Sending(BaseState):
             self.start_time = time.time()
 
         elapsed_ms = (time.time() - self.start_time) * 1000
+        settle_ms = self._settleMs()
         self._setOccupancyState("sending.wait_chute_settle")
-        if elapsed_ms < CHUTE_SETTLE_MS:
+        if elapsed_ms < settle_ms:
             return None
 
         # Commit the piece once (stats, event, recorder) — must not repeat
@@ -102,9 +104,18 @@ class Sending(BaseState):
         return DistributionState.IDLE
 
     def _shouldReopenGate(self) -> bool:
+        if bool(getattr(self.shared, "sample_collection_mode", False)):
+            return True
+
         piece = self.piece
+        # When layer servos are disabled (simulated distributor) the chute
+        # door never opens, so a piece that physically reaches the chute
+        # stays parked there inside the carousel camera view. The tracker
+        # then keeps reporting its global_id alive and the gate would never
+        # reopen — pipeline deadlock after 1-2 pieces. Fall back to the
+        # cooldown-only gate in that mode so distribution still ticks.
         track_id = getattr(piece, "tracked_global_id", None) if piece is not None else None
-        if isinstance(track_id, int):
+        if isinstance(track_id, int) and not self.gc.disable_servos:
             vision = self.vision
             if vision is not None and hasattr(vision, "getFeederTrackerLiveGlobalIds"):
                 try:
@@ -117,10 +128,15 @@ class Sending(BaseState):
                     return False
 
         elapsed_since_drop = time.time() - self.start_time
-        required_s = (CHUTE_SETTLE_MS / 1000.0) + self._cooldown_s
+        required_s = (self._settleMs() / 1000.0) + self._cooldown_s
         if elapsed_since_drop < required_s:
             return False
         return True
+
+    def _settleMs(self) -> int:
+        if bool(getattr(self.shared, "sample_collection_mode", False)):
+            return SAMPLE_COLLECTION_CHUTE_SETTLE_MS
+        return CHUTE_SETTLE_MS
 
     def cleanup(self) -> None:
         super().cleanup()

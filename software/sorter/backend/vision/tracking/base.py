@@ -3,10 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Protocol, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import numpy as np
+from typing import Protocol
 
 
 @dataclass(frozen=True)
@@ -58,11 +55,6 @@ class PendingHandoff:
     # basically the same pixel position — that's almost certainly the same
     # static detector artefact leaking between cameras.
     last_displacement_px: float = 0.0
-    # Last-known OSNet appearance embedding at the time of death. Used by
-    # the similarity-based rebind in ``PieceHandoffManager.register_track``
-    # when multiple pendings are competing for the same downstream claim
-    # (e.g. two pieces in flight C3→C4 whose physical order swapped).
-    embedding: "np.ndarray | None" = None
 
 
 class Tracker(Protocol):

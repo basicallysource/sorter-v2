@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { mjpegStream } from '$lib/actions/mjpegStream';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
+	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import type { CameraRole } from '$lib/settings/stations';
 
 	let changingCamera = $state(false);
@@ -44,15 +44,11 @@
 	const selectedSource = $derived(
 		selectedKey === '__none__'
 			? null
-			: choices.find((choice) => choice.key === selectedKey)?.source ?? null
+			: (choices.find((choice) => choice.key === selectedKey)?.source ?? null)
 	);
 
 	function previewForChoice(choice: CameraChoice) {
 		return choice.previewSrc;
-	}
-
-	function previewIsMjpeg(choice: CameraChoice) {
-		return choice.previewKind === 'mjpeg';
 	}
 </script>
 
@@ -76,9 +72,13 @@
 				disabled={selectedSource === null}
 				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
 			>
-				<span class="whitespace-nowrap">{selectedSource === null ? 'Choose camera' : 'Camera selected'}</span>
+				<span class="whitespace-nowrap"
+					>{selectedSource === null ? 'Choose camera' : 'Camera selected'}</span
+				>
 			</button>
-			<div class={`h-px w-8 shrink-0 ${selectedSource === null ? 'bg-border' : 'bg-success/25'}`}></div>
+			<div
+				class={`h-px w-8 shrink-0 ${selectedSource === null ? 'bg-border' : 'bg-success/25'}`}
+			></div>
 		</div>
 		<div class="flex min-w-0 flex-[1.05] basis-0 items-center gap-2">
 			<button
@@ -94,7 +94,7 @@
 			<button
 				onclick={() => onOpenPictureSettings?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 w-full items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex w-full min-w-0 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{pictureTuned ? 'Picture tuned' : 'Picture tuning'}</span>
 			</button>
@@ -105,7 +105,9 @@
 		{#if selectedSource !== null}
 			<div class="relative aspect-video overflow-hidden bg-surface">
 				<CameraFeed camera={role} label={selectedLabel} showHeader={false} framed={false} />
-				<div class="pointer-events-none absolute bottom-1.5 right-1.5 rounded-full border border-white/20 bg-black/65 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm">
+				<div
+					class="pointer-events-none absolute right-1.5 bottom-1.5 rounded-full border border-white/20 bg-black/65 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm"
+				>
 					{selectedLabel}
 				</div>
 			</div>
@@ -120,23 +122,7 @@
 							<div class="min-h-0 flex-1">
 								<div class="relative h-full border border-border bg-bg">
 									{#if previewForChoice(choice)}
-										{#if previewIsMjpeg(choice)}
-											<img
-												use:mjpegStream={{
-													url: previewForChoice(choice) ?? '',
-													firstFrameTimeoutMs: 6000,
-													stallTimeoutMs: 4000
-												}}
-												alt={choice.label}
-												class="absolute inset-0 h-full w-full object-contain"
-											/>
-										{:else}
-											<img
-												src={previewForChoice(choice) ?? undefined}
-												alt={choice.label}
-												class="absolute inset-0 h-full w-full object-contain"
-											/>
-										{/if}
+										<CameraSourcePreview src={previewForChoice(choice)} label={choice.label} />
 									{:else}
 										<div class="flex h-full items-center justify-center text-sm text-text-muted">
 											No preview
@@ -149,14 +135,16 @@
 					{/each}
 				</div>
 			</div>
-			{:else}
+		{:else}
 			<div class="aspect-[4/3] bg-surface">
-				<div class="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-text-muted">
+				<div
+					class="flex h-full flex-col items-center justify-center px-6 text-center text-sm text-text-muted"
+				>
 					<div class="font-medium text-text">No camera selected yet</div>
 					<div class="mt-2">Refresh sources to discover cameras, then choose one here.</div>
 				</div>
 			</div>
-			{/if}
+		{/if}
 	</div>
 
 	{#if changingCamera && selectedSource !== null}
@@ -168,10 +156,14 @@
 			tabindex="0"
 		>
 			<div class="max-h-[85vh] w-full max-w-5xl overflow-auto border border-border bg-bg shadow-lg">
-				<div class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3">
+				<div
+					class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
+				>
 					<div>
 						<div class="text-sm font-semibold text-text">Change camera</div>
-						<div class="mt-1 text-sm text-text-muted">Pick a different live source for {label}.</div>
+						<div class="mt-1 text-sm text-text-muted">
+							Pick a different live source for {label}.
+						</div>
 					</div>
 					<button
 						onclick={() => (changingCamera = false)}
@@ -192,23 +184,7 @@
 							<div class="aspect-[4/3] min-h-0 bg-surface">
 								<div class="relative h-full border border-border bg-bg">
 									{#if previewForChoice(choice)}
-										{#if previewIsMjpeg(choice)}
-											<img
-												use:mjpegStream={{
-													url: previewForChoice(choice) ?? '',
-													firstFrameTimeoutMs: 6000,
-													stallTimeoutMs: 4000
-												}}
-												alt={choice.label}
-												class="absolute inset-0 h-full w-full object-contain"
-											/>
-										{:else}
-											<img
-												src={previewForChoice(choice) ?? undefined}
-												alt={choice.label}
-												class="absolute inset-0 h-full w-full object-contain"
-											/>
-										{/if}
+										<CameraSourcePreview src={previewForChoice(choice)} label={choice.label} />
 									{:else}
 										<div class="flex h-full items-center justify-center text-sm text-text-muted">
 											No preview
@@ -216,7 +192,9 @@
 									{/if}
 								</div>
 							</div>
-							<div class="border-t border-border px-3 py-2 text-sm font-medium text-text">{choice.label}</div>
+							<div class="border-t border-border px-3 py-2 text-sm font-medium text-text">
+								{choice.label}
+							</div>
 						</button>
 					{/each}
 				</div>
@@ -234,5 +212,4 @@
 			</div>
 		</div>
 	{/if}
-
 </div>

@@ -102,25 +102,78 @@ fi
 ORIG_BYTES=$(stat -c %s "$OUT")
 log "original size: $(numfmt --to=iec --suffix=B "$ORIG_BYTES")"
 
-# v2.5: NO FAT partition. v2.4 put FAT immediately after ext4, which
-# blocked growpart from extending the rootfs on first boot — cloud-init
-# then died with disk-full on a >8GB SD card. Single-partition layout
-# means growpart works without games and ext4 fills the actual card.
-# Wi-Fi customization no longer goes through cloud-init/Imager; a baked
-# fallback NM connection covers the dev/bring-up case (see below).
+# ─── v2.5 partition restructure: move ext4 to p2, put FAT at p1 ───
+# v2.4 put FAT after ext4. Two problems on hardware:
+#   (a) RPi Imager only writes customization into p1 — our p1 was
+#       ext4, so user-data/network-config never landed in our FAT.
+#       cloud-init then died with FileNotFoundError /boot/firmware/user-data.
+#   (b) growpart can't extend p1 into p2's space; rootfs stuck at 8 GiB.
+# Fix: FAT at p1, ext4 at p2. Then Imager finds the FAT (it's p1),
+# and growpart on p2 can extend it into all the SD card's tail space.
+#
+# Layout target:
+#   bytes 0..30 MiB         : bootloader (untouched — copied verbatim)
+#   bytes 30..286 MiB       : FAT32 partition 1 (label `system-boot`)
+#   bytes 286 MiB..end      : ext4 partition 2 (the rootfs we already have)
 
-# ─── 2. Loop-mount the existing image ───
+FAT_SIZE_MIB=256
+P1_START_MIB=30           # where the original ext4 starts (orange pi base)
+P2_START_MIB=$(( P1_START_MIB + FAT_SIZE_MIB ))
+
+# Get the original ext4 partition extent (sectors → MiB). We trust that
+# the input image has exactly one ext4 partition at p1.
+LOOP_TMP=$(losetup --show -fP "$OUT")
+ORIG_P1_END_S=$(parted -ms "$LOOP_TMP" unit s print | awk -F: '/^1:/ {gsub("s","",$3); print $3}')
+losetup -d "$LOOP_TMP"
+ORIG_EXT4_LEN_MIB=$(( (ORIG_P1_END_S - (P1_START_MIB*2048) + 1) * 512 / 1024 / 1024 ))
+log "original ext4: ${ORIG_EXT4_LEN_MIB} MiB at offset ${P1_START_MIB} MiB"
+
+# Grow the image to make room for the FAT partition.
+log "growing image by ${FAT_SIZE_MIB} MiB for the new FAT at p1"
+truncate -s +"${FAT_SIZE_MIB}M" "$OUT"
+
+# Move ext4 forward by FAT_SIZE_MIB. Going via a temp file avoids
+# overlapping read/write hazards.
+TMP_EXT4="${OUT}.ext4.bin"
+log "extracting ext4 partition data → $TMP_EXT4"
+dd if="$OUT" of="$TMP_EXT4" bs=1M skip="$P1_START_MIB" count="$ORIG_EXT4_LEN_MIB" \
+    conv=fsync status=progress
+log "writing ext4 partition data back at offset ${P2_START_MIB} MiB"
+dd if="$TMP_EXT4" of="$OUT" bs=1M seek="$P2_START_MIB" \
+    conv=notrunc,fsync status=progress
+rm -f "$TMP_EXT4"
+
+# Wipe the old partition table and write the new one.
+log "rewriting MBR partition table (FAT@p1, ext4@p2)"
 LOOP=$(losetup --show -fP "$OUT")
-log "loop: $LOOP"
-parted -s "$LOOP" unit s print || true
+# Zero-out the partition entries region only (preserve bootloader code 0..445)
+dd if=/dev/zero of="$LOOP" bs=1 seek=446 count=64 conv=notrunc status=none
+# Now write fresh entries with parted. Using MiB units throughout.
+parted -s "$LOOP" mklabel msdos
+parted -s "$LOOP" mkpart primary fat32 "${P1_START_MIB}MiB" "${P2_START_MIB}MiB"
+parted -s "$LOOP" set 1 lba on
+# `100%` = end of disk minus alignment slack; safer than computing MiB
+parted -s "$LOOP" mkpart primary ext4 "${P2_START_MIB}MiB" 100%
+partprobe "$LOOP" || true
+sleep 1
+losetup -d "$LOOP"
+LOOP=$(losetup --show -fP "$OUT")
+log "re-attached loop: $LOOP"
 
-# Identify the existing rootfs partition (assume p1, ext4).
-ROOT_PART="${LOOP}p1"
-[[ -b $ROOT_PART ]] || { echo "expected $ROOT_PART"; lsblk "$LOOP"; exit 1; }
+FAT_PART="${LOOP}p1"
+ROOT_PART="${LOOP}p2"
+[[ -b $FAT_PART  ]] || { echo "FAT partition missing"; lsblk "$LOOP"; exit 1; }
+[[ -b $ROOT_PART ]] || { echo "ext4 partition missing"; lsblk "$LOOP"; exit 1; }
+
+log "formatting $FAT_PART as FAT32 (label: system-boot)"
+mkfs.vfat -F 32 -n system-boot "$FAT_PART"
+
+log "fsck of moved ext4 partition (should be clean — byte-for-byte move)"
+e2fsck -fy "$ROOT_PART" || true
 
 # ─── 3. Chroot into the rootfs ───
 log "mounting rootfs + bind mounts for chroot"
-mount_chroot "${LOOP}p1"
+mount_chroot "$ROOT_PART"
 
 # Drop in a small provisioner that runs inside the chroot
 cat >"$MNT/tmp/extend-provision.sh" <<'CHROOT_EOF'
@@ -141,23 +194,106 @@ if [[ ! -s /etc/resolv.conf ]]; then
     echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 fi
 
-# v2.5: cloud-init / FAT seed flow removed. Imager's customization
-# doesn't reliably find a non-partition-1 FAT, and the FAT-after-ext4
-# layout blocked rootfs growth (cloud-init then OOMed on disk on the
-# first boot of a >8 GB card). Wi-Fi for dev/bring-up comes from the
-# baked-in NM connection (sorteros-fallback-wifi) below.
+log "apt update"
+apt-get update -y
 
-# Purge cloud-init (left over from v2.4 inheritance) so it doesn't
-# spend time probing data sources we no longer plumb anything to.
-if dpkg -l cloud-init 2>/dev/null | grep -q '^ii'; then
-    log "removing cloud-init (no longer used)"
-    apt-get purge -y cloud-init || true
-    rm -rf /etc/cloud /var/lib/cloud
-    # Strip the /boot/firmware fstab entry the v2.4 build wrote
-    sed -i '/^LABEL=system-boot/d' /etc/fstab
-    # Disable any lingering symlinks
-    rm -f /etc/systemd/system/multi-user.target.wants/sorteros-apply-network-config.service
+log "installing cloud-init"
+apt-get install "${APT_OPTS[@]}" --no-install-recommends cloud-init
+
+log "writing /etc/cloud/cloud.cfg.d/99-sorteros.cfg"
+mkdir -p /etc/cloud/cloud.cfg.d
+cat >/etc/cloud/cloud.cfg.d/99-sorteros.cfg <<'EOF'
+# SorterOS — restrict cloud-init to the NoCloud datasource and read
+# seed files from the FAT partition mounted at /boot/firmware. Anything
+# else (EC2, Azure, GCE probes) wastes 30+s on first boot.
+datasource_list: [ NoCloud, None ]
+datasource:
+  NoCloud:
+    seedfrom: /boot/firmware/
+# Don't let cloud-init's network module overwrite NetworkManager.
+# `sorteros-apply-network-config.service` translates Imager's seed.
+network:
+  config: disabled
+EOF
+
+log "creating /boot/firmware mountpoint + fstab entry"
+mkdir -p /boot/firmware
+if ! grep -q "^LABEL=system-boot" /etc/fstab; then
+    echo "LABEL=system-boot  /boot/firmware  vfat  defaults,noatime,nofail  0  2" >> /etc/fstab
 fi
+
+# ─── apply-network-config: parse Imager's network-config and hand to nmcli ───
+install -m 0755 /dev/stdin /usr/local/sbin/sorteros-apply-network-config.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+SEED=/boot/firmware/network-config
+STAMP=/var/lib/sorteros/network-config-applied
+mkdir -p "$(dirname "$STAMP")"
+[[ -f $STAMP ]] && exit 0
+[[ -f $SEED ]] || exit 0
+SSID=$(awk '/^[[:space:]]+[A-Za-z0-9_-]+:[[:space:]]*$/{gsub(":",""); name=$1} /password:/{print name; exit}' "$SEED" || true)
+PSK=$(awk -F'"' '/password:/{print $2; exit}' "$SEED" || true)
+if [[ -z $SSID || -z $PSK ]]; then
+    SSID=$(awk '/^[[:space:]]+[A-Za-z0-9_-]+:[[:space:]]*$/{gsub(":",""); name=$1} /psk:/{print name; exit}' "$SEED" || true)
+    PSK=$(awk -F'"' '/psk:/{print $2; exit}' "$SEED" || true)
+fi
+if [[ -n $SSID && -n $PSK ]] && command -v nmcli >/dev/null 2>&1; then
+    nmcli device wifi connect "$SSID" password "$PSK" || true
+fi
+touch "$STAMP"
+EOF
+install -m 0644 /dev/stdin /etc/systemd/system/sorteros-apply-network-config.service <<'EOF'
+[Unit]
+Description=SorterOS — apply RPi Imager Wi-Fi customization on first boot
+After=local-fs.target NetworkManager.service
+Before=network-online.target
+ConditionPathExists=/boot/firmware/network-config
+ConditionPathExists=!/var/lib/sorteros/network-config-applied
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sorteros-apply-network-config.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable sorteros-apply-network-config.service
+
+# ─── growfs: extend ext4 (p2) into the SD card's unallocated tail ───
+# Runs BEFORE cloud-init so cloud-init has full disk space.
+install -m 0755 /dev/stdin /usr/local/sbin/sorteros-growfs.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+STAMP=/var/lib/sorteros/growfs-done
+mkdir -p "$(dirname "$STAMP")"
+[[ -f $STAMP ]] && exit 0
+ROOT_DEV=$(findmnt -no SOURCE /)
+ROOT_DISK=$(lsblk -no PKNAME "$ROOT_DEV" | head -1)
+PART_NUM=$(echo "$ROOT_DEV" | grep -oE '[0-9]+$')
+if [[ -n $ROOT_DISK && -n $PART_NUM ]]; then
+    growpart "/dev/$ROOT_DISK" "$PART_NUM" || true
+    resize2fs "$ROOT_DEV" || true
+fi
+touch "$STAMP"
+EOF
+install -m 0644 /dev/stdin /etc/systemd/system/sorteros-growfs.service <<'EOF'
+[Unit]
+Description=SorterOS — grow the root ext4 to fill the card (first boot only)
+DefaultDependencies=no
+After=local-fs.target
+Before=cloud-init-local.service cloud-init.service sysinit.target
+ConditionPathExists=!/var/lib/sorteros/growfs-done
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sorteros-growfs.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+systemctl enable sorteros-growfs.service
 
 # ─── AP6275P Wi-Fi overlay (Orange Pi 5 official M.2 Wi-Fi module) ───
 # Without this line in /boot/orangepiEnv.txt, U-Boot never loads the
@@ -209,17 +345,19 @@ EOF
 # itself as <hostname>.local on whatever IP it ends up with.
 systemctl enable avahi-daemon 2>/dev/null || true
 
-# ─── dev/bring-up fallback Wi-Fi: Spencer's iPhone hotspot ───
-# Until the cloud-init/Imager Wi-Fi customization path is reworked
-# (FAT-first partitioning, v2.6 territory), bake a known NM connection
-# so a freshly flashed card has *something* to associate with for
-# initial Tailscale registration. NEVER ship in a customer image; it
-# carries Spencer's PSK in plaintext.
-# Important: the SSID uses U+2019 (right single quotation mark), not
-# an ASCII apostrophe — phones with smart-quote names get this from
-# iOS. NM matches SSID byte-for-byte, so the file must contain the
-# UTF-8 bytes E2 80 99.
-log "installing fallback Wi-Fi connection (Spencer's iPhone)"
+# ─── Spencer's iPhone hotspot: ALWAYS-ON fallback Wi-Fi ───
+# "100% accessible" requirement — if Imager's customization is missing
+# or wrong, or the user-picked SSID isn't in range, NM must still find
+# *something* that gets the Pi onto the internet so Tailscale can
+# register. The iPhone hotspot covers that. autoconnect-priority=200
+# is high enough to beat NM's defaults but Imager-injected SSIDs (which
+# nmcli writes with no priority specified, default 0) won't outrank it
+# unless they happen to be in range. The expectation: iPhone in pocket
+# at all times during dev → Pi associates with it, Tailscale comes up.
+# NEVER ship in a customer image; this carries the PSK in plaintext.
+# SSID uses U+2019 (right single quote), not ASCII apostrophe — NM
+# matches the SSID byte-for-byte against what iOS broadcasts.
+log "installing fallback Wi-Fi (Spencer's iPhone, autoconnect-priority=200)"
 python3 - <<'PYEOF'
 import os, pathlib
 ssid = "Spencer’s iPhone"
@@ -227,11 +365,13 @@ content = f"""[connection]
 id=spencer-hotspot
 type=wifi
 autoconnect=true
-autoconnect-priority=-200
+autoconnect-priority=200
+autoconnect-retries=0
 
 [wifi]
 ssid={ssid}
 mode=infrastructure
+hidden=false
 
 [wifi-security]
 key-mgmt=wpa-psk
@@ -345,16 +485,8 @@ if ! ls /etc/ssh/ssh_host_*_key >/dev/null 2>&1; then
     ssh-keygen -A
 fi
 
-# Grow rootfs to fill the card (safety net; cloud-init's growpart
-# module also does this, but it runs later).
-ROOT_DEV=$(findmnt -no SOURCE /)
-ROOT_DISK=$(lsblk -no PKNAME "$ROOT_DEV" | head -1)
-PART_NUM=$(echo "$ROOT_DEV" | grep -oE '[0-9]+$')
-if command -v growpart >/dev/null 2>&1 && [[ -n $ROOT_DISK && -n $PART_NUM ]]; then
-    log "growing /dev/$ROOT_DISK partition $PART_NUM"
-    growpart "/dev/$ROOT_DISK" "$PART_NUM" || true
-    resize2fs "$ROOT_DEV" || true
-fi
+# Note: growpart + resize2fs are handled by sorteros-growfs.service
+# (runs Before=cloud-init-local.service so cloud-init has full disk).
 
 touch "$STAMP"
 log "done"
@@ -461,7 +593,35 @@ chroot "$MNT" /usr/bin/env \
     /tmp/extend-provision.sh
 rm -f "$MNT/tmp/extend-provision.sh"
 
-# v2.5: no FAT partition to populate.
+# ─── Populate the FAT partition with cloud-init seed scaffolding ───
+log "populating FAT partition with seed scaffolding"
+FAT_MNT=$(mktemp -d)
+mount "$FAT_PART" "$FAT_MNT"
+: > "$FAT_MNT/meta-data"
+cat >"$FAT_MNT/README.txt" <<'EOF'
+SorterOS boot partition.
+RPi Imager writes user-data / network-config here for first-boot setup.
+EOF
+cat >"$FAT_MNT/user-data.example" <<'EOF'
+#cloud-config
+# Rename to `user-data` to apply on next boot.
+hostname: sorter
+manage_etc_hosts: true
+ssh_pwauth: true
+EOF
+cat >"$FAT_MNT/network-config.example" <<'EOF'
+# Rename to `network-config` to apply on next boot.
+version: 2
+wifis:
+  wlan0:
+    dhcp4: true
+    access-points:
+      "your-wifi-ssid":
+        password: "your-wifi-password"
+EOF
+sync
+umount "$FAT_MNT"
+rmdir "$FAT_MNT"
 
 # ─── 7. Tear down chroot ───
 log "syncing + unmounting"

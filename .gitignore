@@ -1,4 +1,5 @@
 .claude/
+AGENTS.md
 .tmp-*
 
 # Local debug captures and ad-hoc review artifacts

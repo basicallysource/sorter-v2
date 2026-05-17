@@ -34,11 +34,22 @@ SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/chroot-helpers.sh"
 
+# Auto-source a co-located .env (gitignored). Lets you keep build-time
+# config (auth keys, default branch, etc.) on the Hive build host
+# without putting them on the command line.
+if [[ -f "$SCRIPT_DIR/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "$SCRIPT_DIR/.env"
+    set +a
+fi
+
 IN_DEFAULT="/basically/sorteros/out/sorteros-nogit-2026-05-17.img.zst"
 OUT_DIR_DEFAULT="/basically/sorteros/out"
 ADD_MB=384
 COMPRESS=0
-SORTER_BRANCH=""
+# Preserve any value sourced from .env above. --branch overrides if passed.
+SORTER_BRANCH="${SORTER_BRANCH:-}"
 
 IN="$IN_DEFAULT"
 OUT=""
@@ -71,7 +82,7 @@ BASE_NAME=$(basename "$IN")
 # strip .zst / .img.zst / .img → bare stem
 STEM="${BASE_NAME%.zst}"; STEM="${STEM%.img}"
 if [[ -z $OUT ]]; then
-    OUT="$OUT_DIR_DEFAULT/sorteros-v2.2-${TS}.img"
+    OUT="$OUT_DIR_DEFAULT/sorteros-v2.5-${TS}.img"
 fi
 mkdir -p "$(dirname "$OUT")"
 
@@ -91,11 +102,14 @@ fi
 ORIG_BYTES=$(stat -c %s "$OUT")
 log "original size: $(numfmt --to=iec --suffix=B "$ORIG_BYTES")"
 
-# ─── 2. Grow image by ADD_MB to make room for FAT at the end ───
-log "growing image by ${ADD_MB} MiB"
-truncate -s +"${ADD_MB}M" "$OUT"
+# v2.5: NO FAT partition. v2.4 put FAT immediately after ext4, which
+# blocked growpart from extending the rootfs on first boot — cloud-init
+# then died with disk-full on a >8GB SD card. Single-partition layout
+# means growpart works without games and ext4 fills the actual card.
+# Wi-Fi customization no longer goes through cloud-init/Imager; a baked
+# fallback NM connection covers the dev/bring-up case (see below).
 
-# ─── 3. Loop-mount + inspect current partition table ───
+# ─── 2. Loop-mount the existing image ───
 LOOP=$(losetup --show -fP "$OUT")
 log "loop: $LOOP"
 parted -s "$LOOP" unit s print || true
@@ -104,38 +118,7 @@ parted -s "$LOOP" unit s print || true
 ROOT_PART="${LOOP}p1"
 [[ -b $ROOT_PART ]] || { echo "expected $ROOT_PART"; lsblk "$LOOP"; exit 1; }
 
-# ─── 4. Add a FAT32 partition in the freed tail space ───
-# Find the end sector of partition 1, start FAT one sector after that.
-P1_END=$(parted -ms "$LOOP" unit s print | awk -F: '/^1:/ {gsub("s","",$3); print $3}')
-TOTAL_END=$(parted -ms "$LOOP" unit s print | awk -F: '/^Disk/ && NR>1 {gsub("s","",$2); print $2}' | head -1)
-# fallback for older parted format:
-if [[ -z $TOTAL_END ]]; then
-    TOTAL_END=$(blockdev --getsz "$LOOP")
-    TOTAL_END=$((TOTAL_END - 1))
-fi
-
-# Leave 1 MiB alignment gap (2048 sectors)
-P2_START=$(( ((P1_END / 2048) + 1) * 2048 ))
-P2_END=$(( TOTAL_END - 1 ))
-
-log "adding partition 2: ${P2_START}s..${P2_END}s"
-parted -s "$LOOP" mkpart primary fat32 "${P2_START}s" "${P2_END}s"
-parted -s "$LOOP" set 2 lba on || true
-
-# Force kernel to re-read partition table
-partprobe "$LOOP" || true
-sleep 1
-losetup -d "$LOOP"
-LOOP=$(losetup --show -fP "$OUT")
-log "re-attached loop: $LOOP"
-
-FAT_PART="${LOOP}p2"
-[[ -b $FAT_PART ]] || { echo "FAT partition $FAT_PART missing"; lsblk "$LOOP"; exit 1; }
-
-log "formatting $FAT_PART as FAT32 (label: system-boot)"
-mkfs.vfat -F 32 -n system-boot "$FAT_PART"
-
-# ─── 5. Chroot into the rootfs to install cloud-init + configure ───
+# ─── 3. Chroot into the rootfs ───
 log "mounting rootfs + bind mounts for chroot"
 mount_chroot "${LOOP}p1"
 
@@ -158,101 +141,113 @@ if [[ ! -s /etc/resolv.conf ]]; then
     echo "nameserver 8.8.8.8" >> /etc/resolv.conf
 fi
 
-log "apt update"
-apt-get update -y
+# v2.5: cloud-init / FAT seed flow removed. Imager's customization
+# doesn't reliably find a non-partition-1 FAT, and the FAT-after-ext4
+# layout blocked rootfs growth (cloud-init then OOMed on disk on the
+# first boot of a >8 GB card). Wi-Fi for dev/bring-up comes from the
+# baked-in NM connection (sorteros-fallback-wifi) below.
 
-log "installing cloud-init"
-apt-get install "${APT_OPTS[@]}" --no-install-recommends cloud-init
-
-log "writing /etc/cloud/cloud.cfg.d/99-sorteros.cfg"
-mkdir -p /etc/cloud/cloud.cfg.d
-cat >/etc/cloud/cloud.cfg.d/99-sorteros.cfg <<'EOF'
-# SorterOS — restrict cloud-init to the NoCloud datasource and read
-# the seed files from the FAT partition mounted at /boot/firmware.
-# Anything else (EC2, Azure, GCE probes) wastes 30+s on first boot.
-datasource_list: [ NoCloud, None ]
-datasource:
-  NoCloud:
-    seedfrom: /boot/firmware/
-# Don't let cloud-init's network module overwrite NetworkManager
-# config. We consume `network-config` ourselves via a hook below if
-# it's present; if it isn't, NetworkManager wins.
-network:
-  config: disabled
-EOF
-
-log "creating /boot/firmware mountpoint"
-mkdir -p /boot/firmware
-
-log "adding /boot/firmware to /etc/fstab"
-if ! grep -q "^LABEL=system-boot" /etc/fstab; then
-    cat >>/etc/fstab <<'EOF'
-LABEL=system-boot  /boot/firmware  vfat  defaults,noatime  0  2
-EOF
+# Purge cloud-init (left over from v2.4 inheritance) so it doesn't
+# spend time probing data sources we no longer plumb anything to.
+if dpkg -l cloud-init 2>/dev/null | grep -q '^ii'; then
+    log "removing cloud-init (no longer used)"
+    apt-get purge -y cloud-init || true
+    rm -rf /etc/cloud /var/lib/cloud
+    # Strip the /boot/firmware fstab entry the v2.4 build wrote
+    sed -i '/^LABEL=system-boot/d' /etc/fstab
+    # Disable any lingering symlinks
+    rm -f /etc/systemd/system/multi-user.target.wants/sorteros-apply-network-config.service
 fi
 
-# ─── network-config consumer hook ───
-# cloud-init's network module is disabled above (so it doesn't fight
-# NetworkManager). But we still want to honor what RPi Imager dropped
-# in /boot/firmware/network-config. Lightweight oneshot: on first
-# boot, if the FAT partition has Wi-Fi credentials, hand them to
-# nmcli.
-install -m 0755 /dev/stdin /usr/local/sbin/sorteros-apply-network-config.sh <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-SEED=/boot/firmware/network-config
-STAMP=/var/lib/sorteros/network-config-applied
-mkdir -p "$(dirname "$STAMP")"
-[[ -f $STAMP ]] && exit 0
-[[ -f $SEED ]] || exit 0
-# Parse a minimal subset of RPi Imager's network-config: it produces a
-# netplan-style YAML with one Wi-Fi network and a password (or PSK).
-SSID=$(awk '/^[[:space:]]+[A-Za-z0-9_-]+:[[:space:]]*$/{gsub(":",""); name=$1} /password:/{print name; exit}' "$SEED" || true)
-PSK=$(awk -F'"' '/password:/{print $2; exit}' "$SEED" || true)
-if [[ -z $SSID || -z $PSK ]]; then
-    # Try `psk:` form
-    SSID=$(awk '/^[[:space:]]+[A-Za-z0-9_-]+:[[:space:]]*$/{gsub(":",""); name=$1} /psk:/{print name; exit}' "$SEED" || true)
-    PSK=$(awk -F'"' '/psk:/{print $2; exit}' "$SEED" || true)
-fi
-if [[ -n $SSID && -n $PSK ]]; then
-    if command -v nmcli >/dev/null 2>&1; then
-        nmcli device wifi connect "$SSID" password "$PSK" || true
-    else
-        # Fallback: wpa_supplicant + dhclient via netplan if NM absent
-        mkdir -p /etc/netplan
-        cat >/etc/netplan/60-sorteros-wifi.yaml <<NETPLAN
-network:
-  version: 2
-  wifis:
-    wlan0:
-      dhcp4: true
-      access-points:
-        "$SSID":
-          password: "$PSK"
-NETPLAN
-        chmod 600 /etc/netplan/60-sorteros-wifi.yaml
-        netplan apply || true
+# ─── AP6275P Wi-Fi overlay (Orange Pi 5 official M.2 Wi-Fi module) ───
+# Without this line in /boot/orangepiEnv.txt, U-Boot never loads the
+# DTB overlay for the AP6275P chip and the kernel doesn't see wlan0.
+# Confirmed missing on the Jammy server base.
+ENV_FILE=/boot/orangepiEnv.txt
+if [[ -f "$ENV_FILE" ]]; then
+    log "ensuring AP6275P Wi-Fi overlay is enabled in $ENV_FILE"
+    if ! grep -q '^overlays=' "$ENV_FILE"; then
+        echo 'overlays=wifi-ap6275p' >> "$ENV_FILE"
+    elif ! grep -q 'wifi-ap6275p' "$ENV_FILE"; then
+        sed -i 's/^overlays=\(.*\)$/overlays=\1 wifi-ap6275p/' "$ENV_FILE"
     fi
+else
+    log "WARN: $ENV_FILE not found; AP6275P overlay NOT applied"
 fi
-touch "$STAMP"
+
+# ─── ethernet: link-local IPv4 fallback so Mac↔Pi direct cable works ───
+# Without this, an ethernet interface that can't reach a DHCP server
+# stays IPv4-less. NetworkManager (the default network manager on
+# Ubuntu Jammy server with our packages) honours connection.autoconnect
+# = ipv4.method=auto by default. Add a fallback: link-local.
+log "installing ethernet link-local fallback connection"
+install -m 0600 /dev/stdin /etc/NetworkManager/system-connections/sorteros-eth-fallback.nmconnection <<'EOF'
+[connection]
+id=sorteros-eth-fallback
+type=ethernet
+autoconnect=true
+autoconnect-priority=-100
+interface-name=
+
+[ethernet]
+
+[ipv4]
+method=auto
+# If DHCP fails, NM falls back to IPv4LL (169.254/16) thanks to
+# may-fail=true on this connection's ipv4 block.
+may-fail=true
+dhcp-timeout=15
+
+[ipv6]
+method=auto
+may-fail=true
+
+[proxy]
 EOF
 
-install -m 0644 /dev/stdin /etc/systemd/system/sorteros-apply-network-config.service <<'EOF'
-[Unit]
-Description=SorterOS — apply RPi Imager Wi-Fi customization on first boot
-After=local-fs.target network-pre.target
-Before=network-online.target
-ConditionPathExists=/boot/firmware/network-config
-ConditionPathExists=!/var/lib/sorteros/network-config-applied
+# Also make sure avahi-daemon is enabled so the Pi advertises
+# itself as <hostname>.local on whatever IP it ends up with.
+systemctl enable avahi-daemon 2>/dev/null || true
 
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/sorteros-apply-network-config.sh
-RemainAfterExit=yes
+# ─── dev/bring-up fallback Wi-Fi: Spencer's iPhone hotspot ───
+# Until the cloud-init/Imager Wi-Fi customization path is reworked
+# (FAT-first partitioning, v2.6 territory), bake a known NM connection
+# so a freshly flashed card has *something* to associate with for
+# initial Tailscale registration. NEVER ship in a customer image; it
+# carries Spencer's PSK in plaintext.
+# Important: the SSID uses U+2019 (right single quotation mark), not
+# an ASCII apostrophe — phones with smart-quote names get this from
+# iOS. NM matches SSID byte-for-byte, so the file must contain the
+# UTF-8 bytes E2 80 99.
+log "installing fallback Wi-Fi connection (Spencer's iPhone)"
+python3 - <<'PYEOF'
+import os, pathlib
+ssid = "Spencer’s iPhone"
+content = f"""[connection]
+id=spencer-hotspot
+type=wifi
+autoconnect=true
+autoconnect-priority=-200
 
-[Install]
-WantedBy=multi-user.target
-EOF
+[wifi]
+ssid={ssid}
+mode=infrastructure
+
+[wifi-security]
+key-mgmt=wpa-psk
+psk=hhhhhhhh
+
+[ipv4]
+method=auto
+
+[ipv6]
+method=ignore
+"""
+p = pathlib.Path("/etc/NetworkManager/system-connections/spencer-hotspot.nmconnection")
+p.parent.mkdir(parents=True, exist_ok=True)
+p.write_text(content, encoding="utf-8")
+os.chmod(p, 0o600)
+PYEOF
 
 # ─── optional: bake in a Tailscale auth-key for auto-join on first boot ───
 # Reads TS_AUTH_KEY / TS_TAGS / TS_HOSTNAME from the chroot environment
@@ -326,13 +321,6 @@ if [[ -n "${EXTEND_BRANCH:-}" && -d /home/orangepi/sorter-v2/.git ]]; then
     su - orangepi -c "cd ~/sorter-v2 && git fetch --depth=1 origin '$EXTEND_BRANCH' && git checkout -B '$EXTEND_BRANCH' FETCH_HEAD" || \
         log "WARN: branch switch to $EXTEND_BRANCH failed; image keeps the inherited checkout"
 fi
-
-systemctl enable sorteros-apply-network-config.service
-
-# cloud-init itself handles hostname, user, ssh enable, etc. from
-# user-data. Enable its services explicitly (apt should do this but
-# making sure under qemu chroot).
-systemctl enable cloud-init-local.service cloud-init.service cloud-config.service cloud-final.service 2>/dev/null || true
 
 # ─── split firstboot: fast (blocks SSH) + deps (background, slow) ───
 # Original sorteros-firstboot.service blocked SSH for 10–15 min while
@@ -473,60 +461,7 @@ chroot "$MNT" /usr/bin/env \
     /tmp/extend-provision.sh
 rm -f "$MNT/tmp/extend-provision.sh"
 
-# ─── 6. Drop a README + a *commented* example user-data into FAT ───
-log "populating FAT partition"
-FAT_MNT=$(mktemp -d)
-mount "$FAT_PART" "$FAT_MNT"
-cat >"$FAT_MNT/README.txt" <<'EOF'
-SorterOS boot partition.
-
-Files on this partition are read by cloud-init on first boot:
-
-  user-data       Cloud-init NoCloud config (hostname, user, ssh, etc.)
-  meta-data       NoCloud datasource metadata (can be empty)
-  network-config  Wi-Fi credentials (netplan format). Optional.
-
-Raspberry Pi Imager writes these for you when you use "Customise" in
-the flash dialog. If you flash by hand, drop your own files here.
-
-After first boot completes you can ignore this partition; cloud-init
-leaves a marker in /var/lib/cloud/ and won't re-apply.
-EOF
-
-# Empty meta-data — required by NoCloud spec even if blank
-: > "$FAT_MNT/meta-data"
-
-# Commented example so a hand-flashed image still boots without Imager.
-cat >"$FAT_MNT/user-data.example" <<'EOF'
-#cloud-config
-# Rename this file to `user-data` to apply on next boot.
-hostname: sorter
-manage_etc_hosts: true
-users:
-  - name: orangepi
-    sudo: ALL=(ALL) NOPASSWD:ALL
-    groups: [adm, dialout, plugdev, video, audio, sudo, netdev]
-    shell: /bin/bash
-    lock_passwd: false
-    # Replace with your own hashed password (mkpasswd --method=SHA-512).
-    # passwd: $6$...
-ssh_pwauth: true
-EOF
-
-cat >"$FAT_MNT/network-config.example" <<'EOF'
-# Rename to `network-config` to apply on next boot.
-version: 2
-wifis:
-  wlan0:
-    dhcp4: true
-    access-points:
-      "your-wifi-ssid":
-        password: "your-wifi-password"
-EOF
-
-sync
-umount "$FAT_MNT"
-rmdir "$FAT_MNT"
+# v2.5: no FAT partition to populate.
 
 # ─── 7. Tear down chroot ───
 log "syncing + unmounting"

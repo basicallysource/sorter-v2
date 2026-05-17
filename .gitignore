@@ -2,6 +2,9 @@
 AGENTS.md
 .tmp-*
 
+software/sorteros/build/.env
+software/sorteros/build/*.authkey
+
 # Local debug captures and ad-hoc review artifacts
 /c-channel-3-zone-editor.png
 /c2-debug.png

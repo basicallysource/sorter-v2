@@ -42,9 +42,17 @@ def list_models_machine(
     family: str | None = None,
     q: str | None = None,
     db: Session = Depends(get_db),
-    _machine: Machine = Depends(get_current_machine),
+    machine: Machine = Depends(get_current_machine),
 ):
-    query = db.query(DetectionModel).filter(DetectionModel.is_public.is_(True))
+    # Machines see all public models plus the private models owned by the same
+    # account they were registered under. Keeps a user's private work usable
+    # from their own sorter without making it visible to other tenants.
+    query = db.query(DetectionModel).filter(
+        or_(
+            DetectionModel.is_public.is_(True),
+            DetectionModel.owner_id == machine.owner_id,
+        )
+    )
     if family:
         query = query.filter(DetectionModel.model_family == family)
     if q:
@@ -75,15 +83,25 @@ def list_models_machine(
     )
 
 
+def _visible_to_machine(query, machine: Machine):
+    """Visibility filter shared by the list/detail/download routes."""
+    return query.filter(
+        or_(
+            DetectionModel.is_public.is_(True),
+            DetectionModel.owner_id == machine.owner_id,
+        )
+    )
+
+
 @router.get("/{model_id}", response_model=DetectionModelDetail)
 def get_model_machine(
     model_id: UUID,
     db: Session = Depends(get_db),
-    _machine: Machine = Depends(get_current_machine),
+    machine: Machine = Depends(get_current_machine),
 ):
     model = (
-        db.query(DetectionModel)
-        .filter(DetectionModel.id == model_id, DetectionModel.is_public.is_(True))
+        _visible_to_machine(db.query(DetectionModel), machine)
+        .filter(DetectionModel.id == model_id)
         .first()
     )
     if model is None:
@@ -96,11 +114,11 @@ def download_model_variant_machine(
     model_id: UUID,
     variant_id: UUID,
     db: Session = Depends(get_db),
-    _machine: Machine = Depends(get_current_machine),
+    machine: Machine = Depends(get_current_machine),
 ):
     model = (
-        db.query(DetectionModel)
-        .filter(DetectionModel.id == model_id, DetectionModel.is_public.is_(True))
+        _visible_to_machine(db.query(DetectionModel), machine)
+        .filter(DetectionModel.id == model_id)
         .first()
     )
     if model is None:

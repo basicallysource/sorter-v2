@@ -660,7 +660,7 @@
 				<div class="flex items-center gap-2 px-2 py-2">
 					{#if targets.length > 1}
 						<label class="text-xs uppercase tracking-wider text-text-muted" for="hive-target-select">
-							Target
+							Hive
 						</label>
 						<select
 							id="hive-target-select"
@@ -668,12 +668,12 @@
 							class="border border-border bg-surface px-2 py-1 text-sm text-text"
 						>
 							{#each targets as t (t.id)}
-								<option value={t.id}>{t.name}</option>
+								<option value={t.id}>{t.url}</option>
 							{/each}
 						</select>
 					{:else if targets.length === 1}
 						<span class="text-xs text-text-muted">
-							Target <span class="font-mono">{targets[0].name}</span>
+							Hive <span class="font-mono">{targets[0].url}</span>
 						</span>
 					{/if}
 					<Tooltip text="Refresh current view">

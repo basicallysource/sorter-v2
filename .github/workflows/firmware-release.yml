@@ -47,12 +47,12 @@ jobs:
       - name: Rename artifacts
         working-directory: software/firmware/sorter_interface_firmware
         run: |
-          TAG=${GITHUB_REF_NAME//\//-}
-          cp build-feeder-v1-1/sorter_interface_firmware.uf2        feeder-v1-1_${TAG}.uf2
-          cp build-distribution-v1-1/sorter_interface_firmware.uf2   distribution-v1-1_${TAG}.uf2
-          cp build-distribution-v1-2/sorter_interface_firmware.uf2   distribution-v1-2_${TAG}.uf2
-          cp build-feeder-skr/sorter_interface_firmware.uf2          feeder-skr_${TAG}.uf2
-          cp build-distribution-skr/sorter_interface_firmware.uf2    distribution-skr_${TAG}.uf2
+          VER=${GITHUB_REF_NAME#firmware/}
+          cp build-feeder-v1-1/sorter_interface_firmware.uf2        basically-v1-1-feeder-${VER}.uf2
+          cp build-distribution-v1-1/sorter_interface_firmware.uf2   basically-v1-1-distribution-${VER}.uf2
+          cp build-distribution-v1-2/sorter_interface_firmware.uf2   basically-v1-2-distribution-${VER}.uf2
+          cp build-feeder-skr/sorter_interface_firmware.uf2          feeder-skr-${VER}.uf2
+          cp build-distribution-skr/sorter_interface_firmware.uf2    distribution-skr-${VER}.uf2
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -77,15 +77,15 @@ jobs:
 
             | File | Board | Role |
             |------|-------|------|
-            | `feeder-v1-1_*.uf2` | basically v1-1 | Feeder MB |
-            | `distribution-v1-1_*.uf2` | basically v1-1 | Distribution MB |
-            | `distribution-v1-2_*.uf2` | basically v1-2 | Distribution MB (all-in-one) |
-            | `feeder-skr_*.uf2` | SKR Pico | Feeder MB |
-            | `distribution-skr_*.uf2` | SKR Pico | Distribution MB |
+            | `basically-v1-1-feeder-*.uf2` | basically v1-1 | Feeder MB |
+            | `basically-v1-1-distribution-*.uf2` | basically v1-1 | Distribution MB |
+            | `basically-v1-2-distribution-*.uf2` | basically v1-2 | Distribution MB (all-in-one) |
+            | `feeder-skr-*.uf2` | SKR Pico | Feeder MB |
+            | `distribution-skr-*.uf2` | SKR Pico | Distribution MB |
 
           files: |
-            software/firmware/sorter_interface_firmware/feeder-v1-1_*.uf2
-            software/firmware/sorter_interface_firmware/distribution-v1-1_*.uf2
-            software/firmware/sorter_interface_firmware/distribution-v1-2_*.uf2
-            software/firmware/sorter_interface_firmware/feeder-skr_*.uf2
-            software/firmware/sorter_interface_firmware/distribution-skr_*.uf2
+            software/firmware/sorter_interface_firmware/basically-v1-1-feeder-*.uf2
+            software/firmware/sorter_interface_firmware/basically-v1-1-distribution-*.uf2
+            software/firmware/sorter_interface_firmware/basically-v1-2-distribution-*.uf2
+            software/firmware/sorter_interface_firmware/feeder-skr-*.uf2
+            software/firmware/sorter_interface_firmware/distribution-skr-*.uf2

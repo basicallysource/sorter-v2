@@ -37,6 +37,27 @@ else:
     _refresh_macos_cameras = None
 
 
+def _try_v4l2ctl_set_format(source: int, fourcc: str, width: int | None, height: int | None) -> bool:
+    # Some cameras (e.g. Innomaker U30CAM) ignore OpenCV's CAP_V4L2 FOURCC
+    # param and stay at their firmware default (often YUYV full-res), saturating
+    # shared USB 2.0 bandwidth. Force the format at the kernel level while the
+    # device is still closed so OpenCV inherits it on open.
+    fmt_arg = f"pixelformat={fourcc}"
+    if isinstance(width, int) and width > 0:
+        fmt_arg += f",width={width}"
+    if isinstance(height, int) and height > 0:
+        fmt_arg += f",height={height}"
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", f"--set-fmt-video={fmt_arg}"],
+            capture_output=True,
+            timeout=3,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
 def _open_capture_source(
     source: int | str,
     *,
@@ -48,6 +69,8 @@ def _open_capture_source(
     if isinstance(source, int) and platform.system() == "Darwin":
         return cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
     if isinstance(source, int) and platform.system() == "Linux":
+        if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
+            _try_v4l2ctl_set_format(source, fourcc.strip()[:4].upper(), width, height)
         params: list[int] = []
         if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
             params.extend(
@@ -807,6 +830,8 @@ class CaptureThread:
             }
 
     def start(self) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._captureLoop, daemon=True)
         self._thread.start()

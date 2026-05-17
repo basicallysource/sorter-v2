@@ -353,9 +353,24 @@ class CameraService:
 
     _started: bool = False
 
+    def _unique_devices(self) -> list[CameraDevice]:
+        # A single CameraDevice can be registered under multiple role keys
+        # (e.g. classification_channel + carousel alias). Dedupe by identity
+        # so we don't start/stop the same CaptureThread twice — double-start
+        # races two threads on the same /dev/videoN, and the loser spams
+        # failed-open retries that stall the device's UVC control endpoint.
+        seen: set[int] = set()
+        out: list[CameraDevice] = []
+        for device in self._devices.values():
+            if id(device) in seen:
+                continue
+            seen.add(id(device))
+            out.append(device)
+        return out
+
     def start(self) -> None:
         self._started = True
-        for device in self._devices.values():
+        for device in self._unique_devices():
             device.start()
 
         self._health_stop.clear()
@@ -369,5 +384,5 @@ class CameraService:
         self._health_stop.set()
         if self._health_thread:
             self._health_thread.join(timeout=2.0)
-        for device in self._devices.values():
+        for device in self._unique_devices():
             device.stop()

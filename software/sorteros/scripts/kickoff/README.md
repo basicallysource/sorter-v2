@@ -8,15 +8,33 @@ Hive under `nohup` regardless of whether the UI is open.
 
 ## Launch (manual)
 
+Two ways. Pick whichever fits the situation.
+
+### Foreground (terminal stays attached, Ctrl+C stops it)
+
 ```bash
 cd software/sorteros/scripts/kickoff
 ./serve.sh
 ```
 
-First run takes ~10 s while `uv` materialises the venv. Subsequent
-runs are instant. Open <http://127.0.0.1:8765/> in a browser.
+### Background (manage.sh — start/stop/status/logs)
 
-No launchd, no `at boot`. Ctrl+C in the terminal stops it.
+```bash
+./manage.sh start     # launch in background, writes pid → .pid, log → .serve.log
+./manage.sh status    # is it up? on what URL?
+./manage.sh logs      # tail -f the server log
+./manage.sh stop      # graceful shutdown (SIGTERM, falls back to SIGKILL)
+./manage.sh restart
+```
+
+`manage.sh` is what Claude uses to start/stop the service on your
+behalf without holding a terminal. The pid file and log are
+gitignored.
+
+First run of either form takes ~10 s while `uv` materialises the venv.
+Subsequent runs are instant. Open <http://127.0.0.1:8780/> in a browser.
+
+No launchd, no plist, no auto-start at login. Manual only.
 
 ## What it does
 

@@ -4,4 +4,4 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 uv sync
-exec uv run uvicorn server:app --host 127.0.0.1 --port 8765 --log-level info
+exec uv run uvicorn server:app --host 127.0.0.1 --port 8780 --log-level info

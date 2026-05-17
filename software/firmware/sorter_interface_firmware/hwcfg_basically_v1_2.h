@@ -6,13 +6,18 @@ const uint8_t STEPPER_COUNT = 5;
 const uint8_t STEPPER_STEP_PINS[] = {28, 26, 21, 19, 8};
 const uint8_t STEPPER_DIR_PINS[]  = {27, 22, 20, 18, 7};
 
+// V1-2 is a 5-stepper single-board layout that replaces the dual V1-1
+// (feeder + distribution) setup, so the "distribution" role here is the
+// all-in-one naming for a single-board machine: chute + 3 c-channel
+// rotors + a 4th channel (carousel / classification-channel). Override
+// in machine.toml [stepper_bindings] if physical wiring differs.
 #ifdef FIRMWARE_ROLE_DISTRIBUTION
 const char* const STEPPER_NAMES[] = {
     "chute_stepper",
-    "distribution_aux_1",
-    "distribution_aux_2",
-    "distribution_aux_3",
-    "fifth_stepper"
+    "c_channel_1_rotor",
+    "c_channel_2_rotor",
+    "c_channel_3_rotor",
+    "carousel"
 };
 #else
 const char* const STEPPER_NAMES[] = {

@@ -1506,20 +1506,25 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     from subsystems.classification.carousel_hardware import CarouselHardware
     carousel_calibration = loadCarouselCalibrationConfig(gc, machine_specific_params)
 
-    if feeder_board is None:
-        raise RuntimeError("Feeder board not found — cannot initialize carousel homing")
-    carousel_home_pin = feeder_board.get_input(carousel_calibration.home_pin_channel)
-    if carousel_home_pin is None:
-        raise RuntimeError(
-            f"Feeder board carousel home input channel {carousel_calibration.home_pin_channel} is unavailable."
+    if config.machine_setup.uses_carousel_transport:
+        carousel_input_board = feeder_board or distribution_board
+        if carousel_input_board is None:
+            raise RuntimeError("No control board available for carousel homing")
+        carousel_home_pin = carousel_input_board.get_input(carousel_calibration.home_pin_channel)
+        if carousel_home_pin is None:
+            raise RuntimeError(
+                f"Carousel home input channel {carousel_calibration.home_pin_channel} is unavailable."
+            )
+        irl_interface.carousel_home_pin = carousel_home_pin
+        irl_interface.carousel_hw = CarouselHardware(
+            gc,
+            irl_interface.carousel_stepper,
+            carousel_home_pin,
+            endstop_active_high=carousel_calibration.endstop_active_high,
         )
-    irl_interface.carousel_home_pin = carousel_home_pin
-    irl_interface.carousel_hw = CarouselHardware(
-        gc,
-        irl_interface.carousel_stepper,
-        carousel_home_pin,
-        endstop_active_high=carousel_calibration.endstop_active_high,
-    )
+    else:
+        irl_interface.carousel_home_pin = None
+        irl_interface.carousel_hw = None
 
     from subsystems.distribution.chute import Chute
     chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)

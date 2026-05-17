@@ -496,6 +496,7 @@ def run(
     piece_count_bins: str = DEFAULT_PIECE_COUNT_BINS,
     strict_source_role_balance: bool = False,
     min_detection_score: float | None = None,
+    max_empty_fraction: float | None = None,
     raw_dir: Path | None = None,
     output_dir: Path | None = None,
 ) -> int:
@@ -540,10 +541,19 @@ def run(
         )
 
     diversity_info: dict[str, Any] = {"applied": False}
-    if target_size is not None and target_size < len(samples):
+    empty_cap_info: dict[str, Any] = {"applied": False}
+
+    if max_empty_fraction is not None:
+        positives = [s for s in samples if s.boxes]
+        empties = [s for s in samples if not s.boxes]
+        diversity_pool = positives
+    else:
+        diversity_pool = samples
+
+    if target_size is not None and target_size < len(diversity_pool):
         if balance_source_role or balance_piece_count:
-            samples, diversity_info = _apply_balanced_diversity_sampling(
-                samples,
+            diversity_pool, diversity_info = _apply_balanced_diversity_sampling(
+                diversity_pool,
                 target_size=target_size,
                 model_weights=embed_model,
                 seed=seed,
@@ -553,16 +563,38 @@ def run(
                 piece_count_bins=piece_count_bins,
             )
         else:
-            samples, diversity_info = _apply_diversity_sampling(
-                samples,
+            diversity_pool, diversity_info = _apply_diversity_sampling(
+                diversity_pool,
                 target_size=target_size,
                 model_weights=embed_model,
             )
-    elif target_size is not None and target_size >= len(samples):
+    elif target_size is not None and target_size >= len(diversity_pool):
         diversity_info = {
             "applied": False,
-            "reason": f"target_size={target_size} >= available samples ({len(samples)})",
+            "reason": f"target_size={target_size} >= available samples ({len(diversity_pool)})",
         }
+
+    if max_empty_fraction is not None:
+        n_pos = len(diversity_pool)
+        if max_empty_fraction <= 0.0:
+            target_empties = 0
+        else:
+            target_empties = int(round(n_pos * max_empty_fraction / (1.0 - max_empty_fraction)))
+        kept_empties = empties
+        if len(empties) > target_empties:
+            rng = random.Random(seed)
+            kept_empties = rng.sample(empties, target_empties)
+        empty_cap_info = {
+            "applied": True,
+            "max_empty_fraction": max_empty_fraction,
+            "positives": n_pos,
+            "empties_available": len(empties),
+            "empties_kept": len(kept_empties),
+            "target_empties": target_empties,
+        }
+        samples = diversity_pool + kept_empties
+    else:
+        samples = diversity_pool
 
     train_samples, val_samples = _split_samples(
         samples,
@@ -608,6 +640,8 @@ def run(
         "skipped_low_score": skipped_low_score,
         "skipped_missing_score": skipped_missing_score,
         "min_detection_score": min_detection_score,
+        "max_empty_fraction": max_empty_fraction,
+        "empty_cap": empty_cap_info,
         "classes": ["piece"],
         "balance_source_role": balance_source_role,
         "balance_piece_count": balance_piece_count,

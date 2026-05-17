@@ -254,6 +254,68 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
+# ─── optional: bake in a Tailscale auth-key for auto-join on first boot ───
+# Reads TS_AUTH_KEY / TS_TAGS / TS_HOSTNAME from the chroot environment
+# (extend.sh forwards them). If TS_AUTH_KEY is unset, this block no-ops.
+if [[ -n "${TS_AUTH_KEY:-}" ]]; then
+    log "TAILSCALE_AUTH_KEY present — wiring auto-join on first boot"
+    mkdir -p /etc/sorteros /var/lib/sorteros
+    install -m 0600 /dev/null /etc/sorteros/tailscale.env
+    {
+        echo "TAILSCALE_AUTH_KEY=${TS_AUTH_KEY}"
+        echo "TAILSCALE_TAGS=${TS_TAGS:-tag:sorter}"
+        [[ -n "${TS_HOSTNAME:-}" ]] && echo "TAILSCALE_HOSTNAME=${TS_HOSTNAME}"
+    } >> /etc/sorteros/tailscale.env
+
+    install -m 0755 /dev/stdin /usr/local/sbin/sorteros-tailscale-up.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+STAMP=/var/lib/sorteros/tailscale-up-done
+[[ -f $STAMP ]] && exit 0
+[[ -n "${TAILSCALE_AUTH_KEY:-}" ]] || { echo "no TAILSCALE_AUTH_KEY in env"; exit 0; }
+HOST="${TAILSCALE_HOSTNAME:-sorter-$(cat /etc/hostname 2>/dev/null || echo unknown)}"
+TAGS="${TAILSCALE_TAGS:-tag:sorter}"
+systemctl enable --now tailscaled
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [[ -S /var/run/tailscale/tailscaled.sock ]] && break
+    sleep 1
+done
+tailscale up \
+    --auth-key="$TAILSCALE_AUTH_KEY" \
+    --hostname="$HOST" \
+    --advertise-tags="$TAGS" \
+    --ssh \
+    --reset \
+    --accept-dns=false
+mkdir -p "$(dirname "$STAMP")"
+touch "$STAMP"
+sed -i '/^TAILSCALE_AUTH_KEY=/d' /etc/sorteros/tailscale.env
+EOF
+
+    install -m 0644 /dev/stdin /etc/systemd/system/sorteros-tailscale-up.service <<'EOF'
+[Unit]
+Description=SorterOS — register this node on Tailscale (first boot only)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+ConditionPathExists=/etc/sorteros/tailscale.env
+ConditionPathExists=!/var/lib/sorteros/tailscale-up-done
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sorteros/tailscale.env
+ExecStart=/usr/local/sbin/sorteros-tailscale-up.sh
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=10s
+StartLimitBurst=5
+StartLimitIntervalSec=120s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable sorteros-tailscale-up.service
+fi
+
 # ─── optional: swap the baked-in repo checkout to a different branch ───
 # extend.sh passes its --branch arg into the chroot as $EXTEND_BRANCH.
 # If set, we `git fetch + checkout + pull` inside the orangepi user's
@@ -402,8 +464,13 @@ log "extend-provision done"
 CHROOT_EOF
 chmod +x "$MNT/tmp/extend-provision.sh"
 
-log "running extend-provision inside chroot (branch swap: ${SORTER_BRANCH:-none})"
-chroot "$MNT" /usr/bin/env "EXTEND_BRANCH=$SORTER_BRANCH" /tmp/extend-provision.sh
+log "running extend-provision inside chroot (branch swap: ${SORTER_BRANCH:-none}, TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:+<set>})"
+chroot "$MNT" /usr/bin/env \
+    "EXTEND_BRANCH=$SORTER_BRANCH" \
+    "TS_AUTH_KEY=${TAILSCALE_AUTH_KEY:-}" \
+    "TS_TAGS=${TAILSCALE_TAGS:-}" \
+    "TS_HOSTNAME=${TAILSCALE_HOSTNAME:-}" \
+    /tmp/extend-provision.sh
 rm -f "$MNT/tmp/extend-provision.sh"
 
 # ─── 6. Drop a README + a *commented* example user-data into FAT ───

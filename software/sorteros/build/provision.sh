@@ -61,10 +61,95 @@ log "apt -f install (post-install cleanup)"
 apt-get "${APT_OPTS[@]}" -f install || true
 dpkg --configure -a || true
 
-# ─── tailscale (installed but NOT enabled; user opts in post-flash) ───
-log "installing tailscale (disabled at boot)"
+# ─── tailscale ───
+# Always install the binary. Boot-time behaviour depends on whether the
+# build was invoked with TAILSCALE_AUTH_KEY:
+#   - unset: tailscaled stays disabled at boot; user runs `tailscale up`
+#            on their own account post-flash (customer-facing image).
+#   - set:   the key is written to /etc/sorteros/tailscale.env (mode 0600,
+#            root only) and sorteros-tailscale-up.service runs once on
+#            first boot to register the node. Intended for *your* dev/
+#            field images, NOT customer-facing — the image bundle then
+#            contains an auth secret.
+log "installing tailscale"
 curl -fsSL https://tailscale.com/install.sh | sh
 systemctl disable tailscaled 2>/dev/null || true
+
+if [[ -n "${TAILSCALE_AUTH_KEY:-}" ]]; then
+    log "TAILSCALE_AUTH_KEY present — wiring auto-join on first boot"
+    mkdir -p /etc/sorteros /var/lib/sorteros
+    # Write the env file with strict perms BEFORE writing the key
+    install -m 0600 /dev/null /etc/sorteros/tailscale.env
+    {
+        echo "TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY}"
+        echo "TAILSCALE_TAGS=${TAILSCALE_TAGS:-tag:sorter}"
+        # TAILSCALE_HOSTNAME left unset → script derives from /etc/hostname
+        [[ -n "${TAILSCALE_HOSTNAME:-}" ]] && echo "TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME}"
+    } >> /etc/sorteros/tailscale.env
+
+    install -m 0755 /dev/stdin /usr/local/sbin/sorteros-tailscale-up.sh <<'EOF'
+#!/usr/bin/env bash
+# First-boot Tailscale registration. Runs once after network is up.
+# Reads TAILSCALE_AUTH_KEY / TAILSCALE_TAGS / TAILSCALE_HOSTNAME from
+# /etc/sorteros/tailscale.env via the service's EnvironmentFile.
+set -euo pipefail
+STAMP=/var/lib/sorteros/tailscale-up-done
+[[ -f $STAMP ]] && exit 0
+[[ -n "${TAILSCALE_AUTH_KEY:-}" ]] || { echo "no TAILSCALE_AUTH_KEY in env"; exit 0; }
+
+HOST="${TAILSCALE_HOSTNAME:-sorter-$(cat /etc/hostname 2>/dev/null || echo unknown)}"
+TAGS="${TAILSCALE_TAGS:-tag:sorter}"
+
+systemctl enable --now tailscaled
+# Wait briefly for tailscaled's socket
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+    [[ -S /var/run/tailscale/tailscaled.sock ]] && break
+    sleep 1
+done
+
+# --ssh         : enable Tailscale SSH so we don't manage authorized_keys
+# --reset       : forget any prior state (image was built somewhere else)
+# --accept-dns=false : don't override the Pi's DNS with magicDNS
+tailscale up \
+    --auth-key="$TAILSCALE_AUTH_KEY" \
+    --hostname="$HOST" \
+    --advertise-tags="$TAGS" \
+    --ssh \
+    --reset \
+    --accept-dns=false
+
+mkdir -p "$(dirname "$STAMP")"
+touch "$STAMP"
+
+# Clear the auth-key from disk now that the node is registered.
+# Leaves the rest of the env file (tags, hostname) for reference.
+sed -i '/^TAILSCALE_AUTH_KEY=/d' /etc/sorteros/tailscale.env
+EOF
+
+    install -m 0644 /dev/stdin /etc/systemd/system/sorteros-tailscale-up.service <<'EOF'
+[Unit]
+Description=SorterOS — register this node on Tailscale (first boot only)
+After=network-online.target tailscaled.service
+Wants=network-online.target
+ConditionPathExists=/etc/sorteros/tailscale.env
+ConditionPathExists=!/var/lib/sorteros/tailscale-up-done
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/sorteros/tailscale.env
+ExecStart=/usr/local/sbin/sorteros-tailscale-up.sh
+RemainAfterExit=yes
+# Network might not actually be online on the first try; retry a few times.
+Restart=on-failure
+RestartSec=10s
+StartLimitBurst=5
+StartLimitIntervalSec=120s
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable sorteros-tailscale-up.service
+fi
 
 # ─── node 20 + pnpm ───
 log "installing node 20"

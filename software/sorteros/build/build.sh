@@ -96,8 +96,13 @@ if [[ $SKIP_PROVISION == 0 ]]; then
     log "copying provisioner into chroot"
     install -m 0755 "$SCRIPT_DIR/provision.sh" "$MNT/tmp/provision.sh"
 
-    log "running provisioner inside chroot (SORTER_BRANCH=$SORTER_BRANCH)"
-    chroot "$MNT" /usr/bin/env "SORTER_BRANCH=$SORTER_BRANCH" /tmp/provision.sh
+    log "running provisioner inside chroot (SORTER_BRANCH=$SORTER_BRANCH, TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:+<set>})"
+    chroot "$MNT" /usr/bin/env \
+        "SORTER_BRANCH=$SORTER_BRANCH" \
+        "TAILSCALE_AUTH_KEY=${TAILSCALE_AUTH_KEY:-}" \
+        "TAILSCALE_TAGS=${TAILSCALE_TAGS:-}" \
+        "TAILSCALE_HOSTNAME=${TAILSCALE_HOSTNAME:-}" \
+        /tmp/provision.sh
 
     rm -f "$MNT/tmp/provision.sh"
     rm -rf "$MNT/tmp/sorteros-src"

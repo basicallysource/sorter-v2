@@ -93,9 +93,14 @@ su - orangepi -c 'curl -fsSL https://astral.sh/uv/install.sh | sh -s -- --no-mod
 # also symlink to /usr/local/bin so root and non-interactive shells find it
 ln -sf /home/orangepi/.local/bin/uv /usr/local/bin/uv
 
-# ─── sorter-v2 checkout (shallow, HEAD of main for now) ───
-log "cloning sorter-v2"
-su - orangepi -c 'if [[ ! -d ~/sorter-v2 ]]; then git clone --depth=1 https://github.com/basicallysource/sorter-v2.git ~/sorter-v2; fi'
+# ─── sorter-v2 checkout ───
+# Branch is controlled by SORTER_BRANCH env var (default: main). build.sh
+# forwards its --branch flag here. Set to a feature branch to bake
+# in-progress work into a test image, e.g.
+#   SORTER_BRANCH=spencer/rev-02-distribution-board-03
+SORTER_BRANCH="${SORTER_BRANCH:-main}"
+log "cloning sorter-v2 (branch: $SORTER_BRANCH)"
+su - orangepi -c "if [[ ! -d ~/sorter-v2 ]]; then git clone --depth=1 -b '$SORTER_BRANCH' https://github.com/basicallysource/sorter-v2.git ~/sorter-v2; fi"
 
 # ─── overlay local sorteros/ source on top of the clone ───
 # build.sh copies the host's software/sorteros/ tree (minus build/) into

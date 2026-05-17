@@ -23,6 +23,7 @@ OUT_DIR="/basically/sorteros/out"
 SIZE_GB=8
 KEEP_WORK=0
 SKIP_PROVISION=0
+SORTER_BRANCH="${SORTER_BRANCH:-main}"
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -31,9 +32,11 @@ while [[ $# -gt 0 ]]; do
         --size) SIZE_GB=$2; shift 2 ;;
         --keep-work) KEEP_WORK=1; shift ;;
         --skip-provision) SKIP_PROVISION=1; shift ;;
+        --branch) SORTER_BRANCH=$2; shift 2 ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
+export SORTER_BRANCH
 
 if [[ ! -f $BASE ]]; then
     echo "base image not found: $BASE" >&2
@@ -93,8 +96,8 @@ if [[ $SKIP_PROVISION == 0 ]]; then
     log "copying provisioner into chroot"
     install -m 0755 "$SCRIPT_DIR/provision.sh" "$MNT/tmp/provision.sh"
 
-    log "running provisioner inside chroot"
-    chroot "$MNT" /tmp/provision.sh
+    log "running provisioner inside chroot (SORTER_BRANCH=$SORTER_BRANCH)"
+    chroot "$MNT" /usr/bin/env "SORTER_BRANCH=$SORTER_BRANCH" /tmp/provision.sh
 
     rm -f "$MNT/tmp/provision.sh"
     rm -rf "$MNT/tmp/sorteros-src"

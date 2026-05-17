@@ -38,6 +38,7 @@ IN_DEFAULT="/basically/sorteros/out/sorteros-nogit-2026-05-17.img.zst"
 OUT_DIR_DEFAULT="/basically/sorteros/out"
 ADD_MB=384
 COMPRESS=0
+SORTER_BRANCH=""
 
 IN="$IN_DEFAULT"
 OUT=""
@@ -48,6 +49,7 @@ while [[ $# -gt 0 ]]; do
         --add-mb)     ADD_MB=$2; shift 2 ;;
         --compress)   COMPRESS=1; shift ;;
         --no-compress) COMPRESS=0; shift ;;
+        --branch)     SORTER_BRANCH=$2; shift 2 ;;
         *) echo "unknown arg: $1" >&2; exit 1 ;;
     esac
 done
@@ -252,6 +254,17 @@ RemainAfterExit=yes
 WantedBy=multi-user.target
 EOF
 
+# ─── optional: swap the baked-in repo checkout to a different branch ───
+# extend.sh passes its --branch arg into the chroot as $EXTEND_BRANCH.
+# If set, we `git fetch + checkout + pull` inside the orangepi user's
+# clone. Useful for shipping in-flight feature-branch work without a
+# full rebuild from base.
+if [[ -n "${EXTEND_BRANCH:-}" && -d /home/orangepi/sorter-v2/.git ]]; then
+    log "switching sorter-v2 checkout to branch: $EXTEND_BRANCH"
+    su - orangepi -c "cd ~/sorter-v2 && git fetch --depth=1 origin '$EXTEND_BRANCH' && git checkout -B '$EXTEND_BRANCH' FETCH_HEAD" || \
+        log "WARN: branch switch to $EXTEND_BRANCH failed; image keeps the inherited checkout"
+fi
+
 systemctl enable sorteros-apply-network-config.service
 
 # cloud-init itself handles hostname, user, ssh enable, etc. from
@@ -389,8 +402,8 @@ log "extend-provision done"
 CHROOT_EOF
 chmod +x "$MNT/tmp/extend-provision.sh"
 
-log "running extend-provision inside chroot"
-chroot "$MNT" /tmp/extend-provision.sh
+log "running extend-provision inside chroot (branch swap: ${SORTER_BRANCH:-none})"
+chroot "$MNT" /usr/bin/env "EXTEND_BRANCH=$SORTER_BRANCH" /tmp/extend-provision.sh
 rm -f "$MNT/tmp/extend-provision.sh"
 
 # ─── 6. Drop a README + a *commented* example user-data into FAT ───

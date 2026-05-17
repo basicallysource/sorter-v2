@@ -773,12 +773,25 @@
 					<ul class="flex flex-col">
 						{#each models as model, idx (model.id)}
 							{@const jobActive = activeJobModelIds.has(model.id)}
+							{@const browseHref = model.target_url ? `${model.target_url.replace(/\/+$/, '')}/models/${model.id}` : null}
 							<li
 								class={`flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-4 py-3 ${idx > 0 ? '-mt-px' : ''}`}
 							>
 								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-2">
-										<span class="font-mono text-sm font-medium text-text">{model.name}</span>
+										{#if browseHref}
+											<a
+												href={browseHref}
+												target="_blank"
+												rel="noopener noreferrer"
+												class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
+												title={`Open in source Hive: ${browseHref}`}
+											>
+												{model.name}
+											</a>
+										{:else}
+											<span class="font-mono text-sm font-medium text-text">{model.name}</span>
+										{/if}
 										{#if model.installed}
 											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
 												<CheckCircle2 size={10} />
@@ -907,15 +920,29 @@
 							{@const ageIso = entry.trained_at ?? entry.downloaded_at}
 							{@const ageRelative = formatRelativeAge(ageIso)}
 							{@const isCompatible = entry.compatible !== false}
+							{@const hiveBase = targetUrl(entry.target_id)}
+							{@const detailHref = !entry.bundled && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
 							<li
 								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
 							>
 								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 									<div class="min-w-0 flex-1">
 										<div class="flex flex-wrap items-center gap-2">
-											<span class="font-mono text-sm font-medium text-text">
-												{entry.name}
-											</span>
+											{#if detailHref}
+												<a
+													href={detailHref}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
+													title={`Open in source Hive: ${detailHref}`}
+												>
+													{entry.name}
+												</a>
+											{:else}
+												<span class="font-mono text-sm font-medium text-text">
+													{entry.name}
+												</span>
+											{/if}
 											{#if entry.bundled}
 												<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
 													Bundled

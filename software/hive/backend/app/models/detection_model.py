@@ -84,7 +84,7 @@ class DetectionModelVariant(Base):
 
     __table_args__ = (
         CheckConstraint(
-            "runtime IN ('onnx', 'ncnn', 'hailo', 'pytorch')",
+            "runtime IN ('onnx', 'ncnn', 'hailo', 'pytorch', 'rknn')",
             name="ck_detection_model_variants_runtime",
         ),
         UniqueConstraint("model_id", "runtime", name="uq_detection_model_variants_model_runtime"),

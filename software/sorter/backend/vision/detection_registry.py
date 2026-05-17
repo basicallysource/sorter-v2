@@ -192,7 +192,7 @@ def _discover_model_algorithms(
             continue
 
         variant_runtime = str(hive_info.get("variant_runtime") or "onnx").lower()
-        if variant_runtime not in {"onnx", "ncnn", "hailo"}:
+        if variant_runtime not in {"onnx", "ncnn", "hailo", "rknn"}:
             log.info(
                 "Skipping %s model %s — unsupported runtime %r",
                 kind,

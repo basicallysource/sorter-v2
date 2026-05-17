@@ -137,6 +137,63 @@ def _probe_hailo() -> dict:
     }
 
 
+def _probe_rknn() -> dict:
+    """Detect rknn-toolkit-lite2 + RK3588-class NPU.
+
+    Two distinct checks: the Python bindings (``from rknnlite.api import RKNNLite``)
+    must be importable, AND ``/sys/kernel/debug/rknpu/version`` (or fall back to
+    ``/usr/lib/librknnrt.so`` existence) must indicate a real NPU. We don't
+    actually instantiate ``RKNNLite()`` here — that pulls the runtime into the
+    process even on a smoke probe — but we surface the librknnrt version when
+    available because the driver/runtime/toolkit triple must match.
+    """
+    try:
+        import rknnlite.api  # type: ignore  # noqa: F401
+    except Exception as exc:
+        return {"available": False, "reason": f"rknn-toolkit-lite2 not installed: {exc}"}
+
+    npu_present = False
+    driver_version: str | None = None
+    runtime_version: str | None = None
+    try:
+        ver_path = Path("/sys/kernel/debug/rknpu/version")
+        if ver_path.exists():
+            txt = ver_path.read_text(errors="replace").strip()
+            driver_version = txt or None
+            npu_present = True
+    except Exception:
+        pass
+    if not npu_present and Path("/usr/lib/librknnrt.so").exists():
+        npu_present = True
+    if Path("/usr/lib/librknnrt.so").exists():
+        try:
+            # librknnrt embeds a version string; surface it for the UI.
+            import subprocess
+
+            out = subprocess.run(
+                ["strings", "/usr/lib/librknnrt.so"],
+                capture_output=True,
+                text=True,
+                timeout=2,
+            )
+            for line in out.stdout.splitlines():
+                if "librknnrt version" in line:
+                    runtime_version = line.strip()
+                    break
+        except Exception:
+            pass
+
+    # RK3588 has 3 cores. We don't probe live; just hard-report the topology.
+    cores = 3 if npu_present else 0
+    return {
+        "available": npu_present,
+        "reason": None if npu_present else "no /sys/kernel/debug/rknpu/version or librknnrt.so",
+        "npu_cores": cores,
+        "driver_version": driver_version,
+        "runtime_version": runtime_version,
+    }
+
+
 def _probe_torch() -> dict:
     try:
         import torch  # type: ignore
@@ -171,6 +228,7 @@ def _cached_capabilities() -> dict:
         "cuda": _probe_cuda(),
         "ncnn": _probe_ncnn(),
         "hailo": _probe_hailo(),
+        "rknn": _probe_rknn(),
         "torch": _probe_torch(),
     }
 
@@ -328,6 +386,42 @@ def _format_hailo(caps: dict) -> dict:
     }
 
 
+def _format_rknn(caps: dict) -> dict:
+    rknn = caps.get("rknn") or {}
+    has_rknn = bool(rknn.get("available"))
+    cores = int(rknn.get("npu_cores", 0) or 0)
+    runtime_version = rknn.get("runtime_version") or ""
+    options = [
+        {
+            "id": "rknn-npu-auto",
+            "label": "NPU (auto core)",
+            "available": has_rknn,
+            "reason": None if has_rknn else rknn.get("reason") or "no NPU detected",
+            "rank": 1,
+            "detail": f"{cores} core(s); {runtime_version}" if has_rknn else "",
+        },
+    ]
+    # Per-core options are useful for multi-stream pinning (one camera per core).
+    for core_index in range(cores):
+        options.append(
+            {
+                "id": f"rknn-npu-core{core_index}",
+                "label": f"NPU core {core_index}",
+                "available": has_rknn,
+                "reason": None,
+                "rank": 1,
+                "detail": "pinned",
+            }
+        )
+    return {
+        "id": "rknn",
+        "label": "Rockchip RKNN",
+        "extensions": [".rknn"],
+        "description": "RK3588 NPU. INT8-native, 3 independent cores for free multi-stream parallelism.",
+        "options": options,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Benchmark runner — Phase 2
 # ---------------------------------------------------------------------------
@@ -472,6 +566,54 @@ def _bench_ncnn(model_dir: Path, use_vulkan: bool, threads: int, warmup: int, it
             pass
 
 
+def _bench_rknn(model_dir: Path, core_mask_name: str, warmup: int, iterations: int) -> dict:
+    rknn_path = _pick_first(["*.rknn"], model_dir)
+    if rknn_path is None:
+        raise HTTPException(status_code=400, detail="No .rknn file in model directory")
+    try:
+        from rknnlite.api import RKNNLite  # type: ignore
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"rknn-toolkit-lite2 unavailable: {exc}")
+
+    masks = {
+        "auto": getattr(RKNNLite, "NPU_CORE_AUTO", 0),
+        "core0": getattr(RKNNLite, "NPU_CORE_0", 1),
+        "core1": getattr(RKNNLite, "NPU_CORE_1", 2),
+        "core2": getattr(RKNNLite, "NPU_CORE_2", 4),
+        "all": getattr(RKNNLite, "NPU_CORE_0_1_2", 7),
+    }
+    mask = masks.get(core_mask_name, masks["auto"])
+
+    rknn = RKNNLite()
+    try:
+        if rknn.load_rknn(str(rknn_path)) != 0:
+            raise HTTPException(status_code=500, detail="load_rknn failed")
+        if rknn.init_runtime(core_mask=mask) != 0:
+            # Fall through to default (no core pinning) — older lite builds
+            # vary in which mask constants they accept.
+            if rknn.init_runtime() != 0:
+                raise HTTPException(status_code=500, detail="init_runtime failed")
+        # Probe input shape from the model — RKNN INT8 wants HWC uint8.
+        # We can't easily introspect post-quantization shape, so default to
+        # 320x320 (matches our bundled YOLO export).
+        size = 320
+        # RKNN graph expects NHWC — wrap in a batch axis or rknn-toolkit-lite2
+        # raises "The input[0] need 4dims input, but 3dims input buffer feed."
+        dummy = np.random.randint(0, 255, (1, size, size, 3), dtype=np.uint8)
+
+        def fn():
+            outs = rknn.inference(inputs=[dummy])
+            if outs is None:
+                raise HTTPException(status_code=500, detail="inference returned None")
+
+        return _time_loop(fn, warmup=warmup, iterations=iterations)
+    finally:
+        try:
+            rknn.release()
+        except Exception:
+            pass
+
+
 _OPTION_DISPATCH: dict[str, dict] = {
     "onnx-cpu": {"backend": "onnx", "providers": ["CPUExecutionProvider"]},
     "onnx-coreml": {"backend": "onnx", "providers": ["CoreMLExecutionProvider", "CPUExecutionProvider"]},
@@ -479,6 +621,10 @@ _OPTION_DISPATCH: dict[str, dict] = {
     "onnx-dml": {"backend": "onnx", "providers": ["DmlExecutionProvider", "CPUExecutionProvider"]},
     "ncnn-cpu": {"backend": "ncnn", "use_vulkan": False},
     "ncnn-vulkan": {"backend": "ncnn", "use_vulkan": True},
+    "rknn-npu-auto": {"backend": "rknn", "core_mask_name": "auto"},
+    "rknn-npu-core0": {"backend": "rknn", "core_mask_name": "core0"},
+    "rknn-npu-core1": {"backend": "rknn", "core_mask_name": "core1"},
+    "rknn-npu-core2": {"backend": "rknn", "core_mask_name": "core2"},
 }
 
 
@@ -518,6 +664,13 @@ def run_benchmark(req: BenchmarkRequest) -> dict:
                 warmup=warmup,
                 iterations=iterations,
             )
+        elif spec["backend"] == "rknn":
+            result = _bench_rknn(
+                model_dir,
+                core_mask_name=spec["core_mask_name"],
+                warmup=warmup,
+                iterations=iterations,
+            )
         else:  # pragma: no cover
             raise HTTPException(status_code=400, detail="Unsupported backend")
     except HTTPException:
@@ -549,6 +702,7 @@ def get_formats() -> dict:
     # ReID etc.) can still see it.
     formats = [
         _format_hailo(caps),
+        _format_rknn(caps),
         _format_onnx(caps),
         _format_ncnn(caps),
     ]

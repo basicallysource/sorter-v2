@@ -66,7 +66,11 @@
 		'onnx-cuda',
 		'onnx-dml',
 		'ncnn-cpu',
-		'ncnn-vulkan'
+		'ncnn-vulkan',
+		'rknn-npu-auto',
+		'rknn-npu-core0',
+		'rknn-npu-core1',
+		'rknn-npu-core2'
 	]);
 
 	// Map the installed model's `variant_runtime` (from Hive) to the format
@@ -77,6 +81,7 @@
 		const v = (variant ?? '').toLowerCase();
 		if (v.includes('onnx')) return new Set(['onnx']);
 		if (v.includes('ncnn')) return new Set(['ncnn']);
+		if (v.includes('rknn')) return new Set(['rknn']);
 		if (v.includes('hef') || v.includes('hailo')) return new Set(['hailo']);
 		if (v.includes('pt') || v.includes('torch')) return new Set(['pytorch']);
 		return new Set();

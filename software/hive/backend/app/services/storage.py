@@ -156,6 +156,7 @@ _RUNTIME_DEFAULT_EXTENSIONS = {
     "ncnn": ".bin",
     "hailo": ".hef",
     "pytorch": ".pt",
+    "rknn": ".rknn",
 }
 
 

@@ -71,7 +71,7 @@ HIVE_SENTINEL_KEY = "hive"
 # Anything else (notably ``pytorch``) shows up in the catalog but cannot be
 # activated — we filter those out of the auto-download and mark them
 # ``compatible: False`` in the installed list so the UI can disable Activate.
-DEPLOYABLE_RUNTIMES: frozenset[str] = frozenset({"onnx", "ncnn", "hailo"})
+DEPLOYABLE_RUNTIMES: frozenset[str] = frozenset({"onnx", "ncnn", "hailo", "rknn"})
 
 
 def set_local_models_dir(path: Path) -> None:
@@ -148,6 +148,7 @@ def _get_client_for_target(target_id: str) -> tuple[HiveClient, dict]:
 # ---------------------------------------------------------------------------
 
 _HAS_HAILO_CACHE: bool | None = None
+_HAS_RKNN_NPU_CACHE: bool | None = None
 
 
 def _has_hailo() -> bool:
@@ -162,6 +163,22 @@ def _has_hailo() -> bool:
             Path("/dev/hailo0").exists() or Path("/sys/class/misc/hailo0").exists()
         )
     return _HAS_HAILO_CACHE
+
+
+def _has_rknn_npu() -> bool:
+    """True when the RK3588-class NPU + librknnrt are present.
+
+    Checked once per process — the kernel driver doesn't appear at runtime.
+    Does NOT verify the Python bindings (``rknn-toolkit-lite2``); that gets
+    surfaced separately by the runtimes/capabilities probe.
+    """
+    global _HAS_RKNN_NPU_CACHE
+    if _HAS_RKNN_NPU_CACHE is None:
+        _HAS_RKNN_NPU_CACHE = (
+            Path("/sys/kernel/debug/rknpu/version").exists()
+            or Path("/usr/lib/librknnrt.so").exists()
+        )
+    return _HAS_RKNN_NPU_CACHE
 
 
 def _reset_hailo_cache_for_tests() -> None:
@@ -186,6 +203,9 @@ def pick_runtime_for_this_machine(variant_runtimes: list[str]) -> str | None:
 
     if "hailo" in runtimes and _has_hailo():
         return "hailo"
+
+    if "rknn" in runtimes and _has_rknn_npu():
+        return "rknn"
 
     machine = platform.machine().lower()
     on_arm = machine in {"aarch64", "armv7l", "arm64"}
@@ -670,6 +690,7 @@ class DownloadJobManager:
                 variant_runtime=runtime,
                 sha256=digest,
                 detail=detail,
+                variant=variant,
             )
         except Exception as exc:
             self._update(job_id, status="failed", error=f"run.json write failed: {exc}")
@@ -721,6 +742,7 @@ class DownloadJobManager:
         variant_runtime: str | None,
         sha256: str,
         detail: dict,
+        variant: dict | None = None,
     ) -> None:
         run_path = dest_dir / "run.json"
         # Merge with existing run.json if one was included inside a tarball.
@@ -735,8 +757,18 @@ class DownloadJobManager:
                 base.setdefault(key, value)
 
         name = detail.get("name") if isinstance(detail, dict) else None
+        # Variant-level format_meta.label appends to the model name so the UI
+        # surfaces operator-flagged caveats (e.g. "_MEDIOCRE_CONVERSION") in
+        # the algorithm picker dropdown.
+        variant_label: str | None = None
+        if isinstance(variant, dict):
+            meta = variant.get("format_meta")
+            if isinstance(meta, dict):
+                candidate = meta.get("label")
+                if isinstance(candidate, str) and candidate.strip():
+                    variant_label = candidate.strip()
         if isinstance(name, str) and name:
-            base["name"] = name
+            base["name"] = f"{name} · {variant_label}" if variant_label else name
         model_family = detail.get("model_family") if isinstance(detail, dict) else None
         if isinstance(model_family, str) and model_family:
             base["model_family"] = model_family

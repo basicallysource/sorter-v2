@@ -599,6 +599,16 @@
 		return targets.find((t) => t.id === id)?.name ?? id;
 	}
 
+	function targetUrl(id: string | null | undefined): string | null {
+		if (!id) return null;
+		return targets.find((t) => t.id === id)?.url ?? null;
+	}
+
+	function hostFromUrl(url: string | null | undefined): string | null {
+		if (!url) return null;
+		return url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+	}
+
 	function shortSha(sha: string | null | undefined): string {
 		if (!sha) return '—';
 		return `${sha.slice(0, 12)}…`;
@@ -934,6 +944,15 @@
 													</span>
 												</Tooltip>
 											{/if}
+											{#if entry.bundled}
+												<span aria-hidden="true">·</span>
+												<span>bundled</span>
+											{:else if hostFromUrl(targetUrl(entry.target_id)) }
+												<span aria-hidden="true">·</span>
+												<span class="font-mono text-text-muted/80" title={`From Hive: ${targetUrl(entry.target_id)}`}>
+													{hostFromUrl(targetUrl(entry.target_id))}
+												</span>
+											{/if}
 										</div>
 									</div>
 
@@ -1014,8 +1033,10 @@
 													: `${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
 											</dd>
 											{#if !entry.bundled}
-												<dt class="text-text-muted">Target</dt>
-												<dd class="text-text">{targetName(entry.target_id ?? '')}</dd>
+												<dt class="text-text-muted">Hive</dt>
+												<dd class="break-all font-mono text-text">
+													{targetUrl(entry.target_id) ?? targetName(entry.target_id ?? '')}
+												</dd>
 											{/if}
 											<dt class="text-text-muted">Algorithm ID</dt>
 											<dd class="break-all font-mono text-text">{algorithmId}</dd>

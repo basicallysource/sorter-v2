@@ -14,7 +14,8 @@ endif
 
 .PHONY: setup build \
         build-feeder-v1-1 build-distribution-v1-1 flash-feeder-v1-1 flash-distribution-v1-1 \
-        build-feeder-v1-2 build-distribution-v1-2 flash-feeder-v1-2 flash-distribution-v1-2
+        build-feeder-v1-2 build-distribution-v1-2 flash-feeder-v1-2 flash-distribution-v1-2 \
+        build-distribution-skr
 
 setup: $(PICO_SDK_PATH)/pico_sdk_init.cmake
 
@@ -56,3 +57,8 @@ flash-feeder-v1-2: build-feeder-v1-2
 
 flash-distribution-v1-2: build-distribution-v1-2
 	python3 flash.py --board distribution --uf2 build-distribution-v1-2/sorter_interface_firmware.uf2
+
+build-distribution-skr: setup
+	@mkdir -p build-distribution-skr
+	@cd build-distribution-skr && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_SKR_PICO=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Distribution SKR Pico firmware built: build-distribution-skr/sorter_interface_firmware.uf2"

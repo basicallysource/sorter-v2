@@ -81,6 +81,7 @@ class BuildConfig:
     branch: Optional[str] = None
     in_path: Optional[str] = None
     out_name: Optional[str] = None  # stem only; extend.sh appends date + .img
+    updated_at: Optional[float] = None  # file mtime, unix timestamp
 
 
 @dataclass
@@ -119,6 +120,7 @@ def load_build_configs() -> list[BuildConfig]:
                 branch=data.get("branch"),
                 in_path=data.get("in_path"),
                 out_name=data.get("out_name"),
+                updated_at=p.stat().st_mtime,
             ))
         except Exception:
             pass
@@ -468,7 +470,12 @@ function renderConfigs() {
     card.className = 'build-card' + (selectedSlug === c.slug ? ' selected' : '');
     card.dataset.slug = c.slug;
     const meta = [c.branch && ('branch: ' + c.branch), c.in_path && ('in: ' + c.in_path.split('/').pop())].filter(Boolean).join(' · ');
-    card.innerHTML = '<div class="card-name">' + c.name + '</div>' + (meta ? '<div class="card-meta">' + meta + '</div>' : '');
+    const ts = c.updated_at ? new Date(c.updated_at * 1000).toLocaleString() : '';
+    card.innerHTML = '<div class="card-name">' + c.name + '</div>'
+      + '<div class="card-meta">'
+      + (meta ? meta + (ts ? ' · ' : '') : '')
+      + (ts ? 'updated ' + ts : '')
+      + '</div>';
     card.onclick = () => {
       selectedSlug = c.slug;
       renderConfigs();

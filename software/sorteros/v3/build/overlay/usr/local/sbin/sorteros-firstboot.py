@@ -29,6 +29,8 @@ except ImportError:
 
 STAMP_DIR = Path("/var/lib/sorteros")
 CONFIG_PATH = Path("/etc/sorteros-config.toml")
+CFG_START_MARKER = "__SORTEROS_CFG_START__"
+CFG_END_MARKER = "__SORTEROS_CFG_END__"
 SOFTWARE_DIR = Path("/home/orangepi/sorter-v2/software")
 POLL_INTERVAL = 60
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
@@ -54,9 +56,11 @@ def internet_up() -> bool:
     return False
 
 
-def sh(cmd: list[str], **kw) -> int:
+def sh(cmd: list[str], **kw) -> None:
     log.info("$ %s", " ".join(cmd))
-    return subprocess.run(cmd, **kw).returncode
+    r = subprocess.run(cmd, **kw)
+    if r.returncode != 0:
+        raise RuntimeError(f"{cmd[0]} exited {r.returncode}")
 
 
 def stage_ssh_host_keys() -> None:
@@ -89,9 +93,13 @@ def stage_apply_config_toml() -> None:
     if not CONFIG_PATH.exists():
         return
 
-    raw = CONFIG_PATH.read_bytes()
+    raw = CONFIG_PATH.read_text("utf-8", errors="replace")
+    # Strip everything from the bare end marker onward — the patcher leaves
+    # __SORTEROS_CFG_END__ without a leading '#' so TOML would choke on it.
+    if CFG_END_MARKER in raw:
+        raw = raw[:raw.index(CFG_END_MARKER)]
     try:
-        cfg = tomllib.loads(raw.decode("utf-8", "replace"))
+        cfg = tomllib.loads(raw)
     except Exception as e:
         log.warning("config toml unreadable: %s", e)
         return
@@ -200,6 +208,20 @@ def stage_pnpm_install() -> None:
     sh(["su", "-", "orangepi", "-c", f"cd {frontend} && pnpm install --frozen-lockfile"])
 
 
+def _ensure_clock_synced() -> None:
+    """Force an NTP sync before any SSL-dependent network operation.
+
+    Without this, the Pi boots with a stale RTC/no-RTC clock (often years
+    behind), curl rejects TLS certs as 'not yet valid', and installs fail.
+    chronyc makestep forces an immediate step adjustment; falls back to
+    timedatectl if chrony isn't available.
+    """
+    r = subprocess.run(["chronyc", "makestep"], capture_output=True)
+    if r.returncode != 0:
+        subprocess.run(["timedatectl", "set-ntp", "true"])
+        time.sleep(5)
+
+
 def stage_install_tailscale() -> None:
     """Install Tailscale via the upstream install script. Deferred from
     image build because the base ext4 doesn't have space for it pre-growfs."""
@@ -243,6 +265,8 @@ def main() -> int:
             return 0
 
         net = internet_up()
+        if net:
+            _ensure_clock_synced()
         for s in remaining:
             if s.needs_internet and not net:
                 continue

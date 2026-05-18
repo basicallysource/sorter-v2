@@ -236,6 +236,19 @@ def phase_overlay(ctx: BuildCtx) -> None:
     (sorteros_etc / "branch").write_text(ctx.branch + "\n")
     log(f"branch baked into image: {ctx.branch}")
 
+    # Without this overlay the AP6275P wifi chip is invisible to the kernel.
+    env_txt = ctx.mnt / "boot" / "orangepiEnv.txt"
+    if env_txt.exists():
+        content = env_txt.read_text()
+        if "wifi-ap6275p" not in content:
+            with env_txt.open("a") as f:
+                f.write("\noverlays=wifi-ap6275p\n")
+            log("appended overlays=wifi-ap6275p to /boot/orangepiEnv.txt")
+        else:
+            log("overlays=wifi-ap6275p already present in /boot/orangepiEnv.txt")
+    else:
+        log("WARN: /boot/orangepiEnv.txt not found; wifi overlay not set")
+
     # Install the on-device AP captive portal at /opt/sorter/ap-site/.
     # Lives outside the overlay/ tree (it's a sibling component) so it
     # can be `pnpm dev`'d / pytest'd directly without bind-mounting.

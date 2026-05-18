@@ -54,6 +54,12 @@ log "enabling sorteros-firstboot + sorteros-ap"
 systemctl enable sorteros-firstboot.service || true
 systemctl enable sorteros-ap.service || true
 
-# Disable NM-managed wifi at boot — sorteros-ap decides whether to be in
-# AP mode or client mode based on /etc/sorteros-config.toml.
+# NM pulls in dnsmasq as a dependency for hotspot mode, but systemd-resolved
+# already owns port 53. Mask it so it never starts and pollutes the boot log.
+systemctl mask dnsmasq.service || true
+
+# Ensure /root/.ssh exists so root SSH key auth works out of the box.
+mkdir -p /root/.ssh
+chmod 700 /root/.ssh
+
 log "done"

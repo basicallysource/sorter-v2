@@ -112,6 +112,11 @@ html.light {
     background: #ebe8e1;
 }
 
+.setup-button-full {
+    padding: 0.75rem 1rem;
+    width: 100%;
+}
+
 .dark .setup-panel {
     border-color: var(--color-border);
     background: var(--color-surface);

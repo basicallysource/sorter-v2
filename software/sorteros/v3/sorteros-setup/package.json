@@ -11,7 +11,8 @@
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "make:test-image": "node ./scripts/make_test_image.mjs",
-    "inspect:test-image": "node ./scripts/inspect_test_image.mjs"
+    "inspect:test-image": "node ./scripts/inspect_test_image.mjs",
+    "test:real-image": "node --experimental-strip-types ./scripts/test_real_image.ts"
   },
   "devDependencies": {
     "@sveltejs/adapter-vercel": "^5.10.2",

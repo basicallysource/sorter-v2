@@ -47,11 +47,9 @@ export function patchImage(buf: ArrayBuffer, cfg: SorterosConfig): ArrayBuffer {
     return bytes.buffer;
 }
 
-export async function patchImageFile(file: File, cfg: SorterosConfig): Promise<Blob> {
+export async function patchImageFile(file: Blob, cfg: SorterosConfig): Promise<Blob> {
     const enc = new TextEncoder();
-    const startBytes = enc.encode(START_MARKER);
-    const endBytes = enc.encode(END_MARKER);
-    const region = await findMarkerRegionInFile(file, startBytes, endBytes);
+    const region = await locateMarkerRegionInFile(file);
     const paddedToml = buildPaddedToml(region.end - region.start, cfg, enc);
 
     // Slice paddedToml to a fresh ArrayBuffer to satisfy BlobPart's
@@ -66,6 +64,29 @@ export async function patchImageFile(file: File, cfg: SorterosConfig): Promise<B
         tomlBuffer,
         file.slice(region.end)
     ], { type: 'application/octet-stream' });
+}
+
+export async function locateMarkerRegionInFile(file: Blob): Promise<MarkerRegion> {
+    const enc = new TextEncoder();
+    return findMarkerRegionInFile(file, enc.encode(START_MARKER), enc.encode(END_MARKER));
+}
+
+export async function patchImageFileHandleInPlace(
+    handle: FileSystemFileHandle,
+    cfg: SorterosConfig
+): Promise<void> {
+    const file = await handle.getFile();
+    const enc = new TextEncoder();
+    const region = await locateMarkerRegionInFile(file);
+    const paddedToml = buildPaddedToml(region.end - region.start, cfg, enc);
+    const writable = await handle.createWritable({ keepExistingData: true });
+
+    try {
+        await writable.seek(region.start);
+        await writable.write(paddedToml);
+    } finally {
+        await writable.close();
+    }
 }
 
 function findMarkerRegion(

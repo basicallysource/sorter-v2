@@ -1,5 +1,9 @@
 <script lang="ts">
-    import { patchImageFile, type SorterosConfig } from '$lib/img-patch';
+    import {
+        patchImageFile,
+        patchImageFileHandleInPlace,
+        type SorterosConfig
+    } from '$lib/img-patch';
 
     let file: File | null = $state(null);
     let hostname = $state('sorter');
@@ -11,7 +15,15 @@
     let busy = $state(false);
     let file_input: HTMLInputElement | null = $state(null);
 
-    async function handlePatch() {
+    function buildConfig(): SorterosConfig {
+        return {
+            hostname,
+            wifi: ssid ? { ssid, password } : undefined,
+            ssh_authorized_key: sshKey || undefined
+        };
+    }
+
+    async function handleDownloadPatch() {
         if (!file) {
             statusKind = 'danger';
             status = 'Pick an image file first.';
@@ -19,20 +31,74 @@
         }
         busy = true;
         statusKind = 'info';
-        status = 'Patching image...';
+        status = 'Building customized image...';
         try {
-            const cfg: SorterosConfig = {
-                hostname,
-                wifi: ssid ? { ssid, password } : undefined,
-                ssh_authorized_key: sshKey || undefined
-            };
-            const blob = await patchImageFile(file, cfg);
+            const blob = await patchImageFile(file, buildConfig());
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = file.name.replace(/\.img$/, '') + '-customized.img';
             a.click();
             statusKind = 'success';
-            status = 'Done. Flash with balenaEtcher.';
+            status = 'Customized copy downloaded. Flash that new file with balenaEtcher.';
+        } catch (e: unknown) {
+            statusKind = 'danger';
+            status =
+                e instanceof Error
+                    ? `Error: ${e.message}`
+                    : `Error: ${String(e)}`;
+        } finally {
+            busy = false;
+        }
+    }
+
+    async function handlePatchInPlace() {
+        const picker = (window as Window & {
+            showOpenFilePicker?: (options?: {
+                multiple?: boolean;
+                types?: Array<{
+                    description?: string;
+                    accept: Record<string, string[]>;
+                }>;
+            }) => Promise<FileSystemFileHandle[]>;
+        }).showOpenFilePicker;
+
+        if (!picker) {
+            statusKind = 'danger';
+            status = 'Patch in place requires a Chromium browser with File System Access support.';
+            return;
+        }
+
+        busy = true;
+        statusKind = 'info';
+        status = 'Opening image for in-place patch...';
+
+        try {
+            const [handle] = await picker({
+                multiple: false,
+                types: [
+                    {
+                        description: 'SorterOS image',
+                        accept: {
+                            'application/octet-stream': ['.img']
+                        }
+                    }
+                ]
+            });
+
+            if (!handle) {
+                throw new Error('No file selected.');
+            }
+
+            const permission = await handle.requestPermission({ mode: 'readwrite' });
+            if (permission !== 'granted') {
+                throw new Error('Write access was not granted.');
+            }
+
+            status = 'Patching selected image in place...';
+            await patchImageFileHandleInPlace(handle, buildConfig());
+            file = await handle.getFile();
+            statusKind = 'success';
+            status = 'Original image patched in place.';
         } catch (e: unknown) {
             statusKind = 'danger';
             status =
@@ -147,13 +213,25 @@
             ></textarea>
         </div>
 
-        <button
-            onclick={handlePatch}
-            disabled={busy}
-            class="setup-button-primary text-sm"
-        >
-            Customize &amp; download
-        </button>
+        <div class="space-y-2">
+            <button
+                onclick={handleDownloadPatch}
+                disabled={busy}
+                class="setup-button-primary text-sm"
+            >
+                Customize and download copy
+            </button>
+            <button
+                onclick={handlePatchInPlace}
+                disabled={busy}
+                class="setup-button-secondary setup-button-full text-sm font-semibold"
+            >
+                Patch original file in place
+            </button>
+            <p class="text-text-muted text-xs">
+                The second button uses the browser file system API and will ask for write access.
+            </p>
+        </div>
 
         {#if status}
             {@const kindToBorder = {

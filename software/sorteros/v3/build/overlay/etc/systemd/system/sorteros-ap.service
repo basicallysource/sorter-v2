@@ -1,0 +1,17 @@
+[Unit]
+Description=SorterOS AP captive portal (when no Wi-Fi is configured)
+After=multi-user.target
+# Only run when we don't have a Wi-Fi connection profile yet.
+ConditionPathExists=!/var/lib/sorteros/wifi-configured
+
+[Service]
+Type=simple
+# TODO: wraps hostapd + dnsmasq startup + uvicorn for the ap-site app.
+# For now a placeholder — fill in when ap-site is real.
+ExecStart=/usr/local/sbin/sorteros-ap-up.sh
+ExecStop=/usr/local/sbin/sorteros-ap-down.sh
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

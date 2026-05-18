@@ -1,0 +1,38 @@
+# v3 build config
+
+[base]
+# Orange Pi 5 Ubuntu Jammy server image — kernel 6.1.99
+url = "https://drive.google.com/file/d/1A-XwhSnRb_TaDfDxF6tNzfNyvHy8tn7w/view"
+# Override: drop a local file at cache/base.img to skip download entirely.
+filename = "Orangepi5_1.2.2_ubuntu_jammy_server_linux6.1.99.img"
+sha256 = ""  # fill in when known
+
+[output]
+dir = "out"
+name = "sorteros-v3-{date}.img"
+
+[chroot]
+# apt packages to install on top of the base. Keep this list short —
+# every entry is build time and image bytes.
+packages = [
+    "hostapd",
+    "dnsmasq",
+    "network-manager",
+    "python3-pip",
+    "nodejs",
+    "tailscale",
+]
+
+# Whether to upgrade to Node 22 via NodeSource. pnpm@latest requires >= 22.13.
+node22 = true
+
+[branch]
+# Git branch to encode in /etc/sorteros/branch so the firstboot daemon
+# clones the right thing. Can be overridden with --branch on CLI.
+default = "main"
+
+[firstboot]
+# Placeholder size for /etc/sorteros-config.toml (the file the browser
+# customizer overwrites in-place). Must be big enough for the largest
+# config we'd ever write: Wi-Fi SSID + PSK + hostname + SSH key.
+placeholder_kb = 4

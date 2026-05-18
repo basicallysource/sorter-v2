@@ -10,6 +10,7 @@ __pycache__/
 .Python
 build/
 !sorteros/build/
+!sorteros/v3/build/
 develop-eggs/
 dist/
 downloads/

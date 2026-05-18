@@ -34,15 +34,15 @@ Output: `out/sorteros-v3-<date>.img` in the repo dir.
 
 ## Target wall-time
 
-| phase | target |
-| --- | --- |
-| `prep` (copy base img) | ~5 s |
-| `mount` | ~1 s |
-| `overlay` (rsync) | ~2 s |
-| `chroot` (apt update + ~10 packages) | ~60 s |
-| `firstboot-config` | < 1 s |
-| `finalize` | ~5 s |
-| **total** | **< 90 s** |
+| phase | target | what it does |
+| --- | --- | --- |
+| `prep` | ~5 s | `cp` base image from `cache/` → `out/work.img` |
+| `mount` | ~5 s | `losetup -fP`, `e2fsck -fy`, `mount` p1 at `/mnt/sorteros-build` |
+| `overlay` | ~2 s | `rsync -aH` `overlay/` → rootfs; bake `/etc/sorteros/branch` |
+| `chroot` | ~60 s | bind `/dev /proc /sys /dev/pts`, run `chroot_apt.sh`, unbind |
+| `firstboot-config` | < 1 s | write `/etc/sorteros-config.toml` placeholder (4 KB, magic markers) |
+| `finalize` | ~5 s | `umount`, `losetup -d`, rename `work.img` → `sorteros-v3-<date>.img` |
+| **total** | **< 90 s** | (assumes base img is cached and arm64-native; under qemu add ~3 min) |
 
 The base image is downloaded once and cached under `cache/`. Subsequent
 builds skip the download entirely.

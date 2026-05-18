@@ -263,8 +263,9 @@ def run_build(cfg: BuildConfig) -> None:
         idle_loops = 0
         while True:
             time.sleep(2)
+            # [e]xtend.sh — bracket trick prevents pgrep matching its own cmdline
             still_running = subprocess.run(
-                ssh_cmd('pgrep -f "bash extend.sh" >/dev/null && echo yes || echo no'),
+                ssh_cmd('pgrep -f "[e]xtend.sh" >/dev/null && echo yes || echo no'),
                 capture_output=True, text=True, timeout=15,
             ).stdout.strip()
 
@@ -422,6 +423,13 @@ button#go-btn {
   cursor: pointer;
 }
 button#go-btn:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
+button#cancel-btn {
+  margin-top: 6px; width: 100%; padding: 7px;
+  background: transparent; color: var(--bad);
+  border: 1px solid var(--bad); border-radius: 6px; font-weight: 600; font-size: 13px;
+  cursor: pointer; display: none;
+}
+button#cancel-btn:hover { background: rgba(248,81,73,0.1); }
 .error { color: var(--bad); font-size: 12px; margin-top: 8px; word-break: break-word; }
 .stages { display: flex; flex-direction: column; gap: 3px; }
 .stage { display: flex; justify-content: space-between; padding: 3px 8px; border-radius: 4px; font-size: 11px; }
@@ -454,6 +462,7 @@ button#go-btn:disabled { background: var(--border); color: var(--muted); cursor:
         <div class="empty-builds">Loading…</div>
       </div>
       <button id="go-btn" disabled>Start build</button>
+      <button id="cancel-btn">Cancel / reset</button>
       <div class="error" id="error-msg"></div>
     </div>
     <div class="panel" style="margin-top:14px;">
@@ -479,8 +488,9 @@ const targetEl  = document.getElementById('target-name');
 const dlText    = document.getElementById('dl-text');
 const dlBar     = document.getElementById('dl-bar');
 const errorEl   = document.getElementById('error-msg');
-const goBtn     = document.getElementById('go-btn');
-const listEl    = document.getElementById('build-list');
+const goBtn       = document.getElementById('go-btn');
+const cancelBtn   = document.getElementById('cancel-btn');
+const listEl      = document.getElementById('build-list');
 
 let configs     = [];
 let selectedSlug = null;
@@ -528,6 +538,7 @@ function render(state) {
 
   const busy = state.status === 'building' || state.status === 'downloading';
   goBtn.disabled = busy || !selectedSlug;
+  cancelBtn.style.display = (busy || state.status === 'failed') ? 'block' : 'none';
 
   stagesEl.innerHTML = '';
   const order = {{STAGE_ORDER}};
@@ -555,6 +566,10 @@ function appendLog(line) {
   logEl.textContent += line + '\n';
   if (atBottom) logEl.scrollTop = logEl.scrollHeight;
 }
+
+cancelBtn.onclick = async () => {
+  await fetch('/api/cancel', {method: 'POST'});
+};
 
 goBtn.onclick = async () => {
   if (!selectedSlug) return;
@@ -630,6 +645,24 @@ async def post_build(payload: dict):
 
     thread = threading.Thread(target=run_build, args=(cfg,), daemon=True)
     thread.start()
+    return {"ok": True}
+
+
+@app.post("/api/cancel")
+async def post_cancel():
+    with STATE_LOCK:
+        if STATE.status not in ("building", "downloading", "failed"):
+            raise HTTPException(400, "nothing to cancel")
+        STATE.status = "idle"
+        STATE.error = None
+        STATE.finished_at = time.time()
+    persist_state()
+    broadcast({"type": "state", "state": serializable_state()})
+    # Kill any running extend.sh on Hive
+    subprocess.run(
+        ssh_cmd("pkill -f '[e]xtend.sh' 2>/dev/null || true"),
+        capture_output=True, timeout=15,
+    )
     return {"ok": True}
 
 

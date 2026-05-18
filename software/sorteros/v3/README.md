@@ -59,6 +59,23 @@ v3/
     └── README.md            # deploys to setup.basically.website
 ```
 
+## Versioning
+
+Version lives in `build/config.toml` under `[output] version`. It flows into
+the output filename (`sorteros-v{version}-{date}.img`). Bump it before every
+build that will be flashed to hardware.
+
+Rules (pick the right level automatically):
+
+| Change type | Bump | Examples |
+|---|---|---|
+| New feature, new firstboot stage, new overlay file | **minor** (3.2 → 3.3) | adding `stage_clone_repo`, new AP site feature |
+| Bug fix, config tweak, comment-only change | **patch** (3.2 → 3.2.1) | fixing `sh()` error swallowing, marker split fix |
+| Incompatible firstboot protocol change, partition layout change | **major** (3.x → 4.0) | changing marker contract, switching base image |
+
+Always bump before starting a build — never retroactively rename a build that
+was already flashed to hardware.
+
 ## When v3 graduates
 
 If hardware testing confirms the strategy works:

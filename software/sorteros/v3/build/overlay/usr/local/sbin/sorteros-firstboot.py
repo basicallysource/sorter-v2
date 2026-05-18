@@ -29,8 +29,10 @@ except ImportError:
 
 STAMP_DIR = Path("/var/lib/sorteros")
 CONFIG_PATH = Path("/etc/sorteros-config.toml")
-CFG_START_MARKER = "__SORTEROS_CFG_START__"
-CFG_END_MARKER = "__SORTEROS_CFG_END__"
+# Split so the patcher (which scans the raw .img) doesn't find these
+# occurrences instead of the real placeholder in /etc/sorteros-config.toml.
+CFG_START_MARKER = "__SORTEROS_CFG" + "_START__"
+CFG_END_MARKER = "__SORTEROS_CFG" + "_END__"
 SOFTWARE_DIR = Path("/home/orangepi/sorter-v2/software")
 POLL_INTERVAL = 60
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")

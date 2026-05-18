@@ -11,6 +11,7 @@
 
 const START_MARKER = '__SORTEROS_CFG_START__';
 const END_MARKER = '__SORTEROS_CFG_END__';
+const SEARCH_CHUNK_BYTES = 8 * 1024 * 1024;
 
 export interface SorterosConfig {
     hostname?: string;
@@ -28,24 +29,122 @@ function indexOfBytes(haystack: Uint8Array, needle: Uint8Array, from = 0): numbe
     return -1;
 }
 
+interface MarkerRegion {
+    start: number;
+    end: number;
+}
+
 export function patchImage(buf: ArrayBuffer, cfg: SorterosConfig): ArrayBuffer {
     const bytes = new Uint8Array(buf);
     const enc = new TextEncoder();
     const startBytes = enc.encode(START_MARKER);
     const endBytes = enc.encode(END_MARKER);
 
+    const region = findMarkerRegion(bytes, startBytes, endBytes);
+    const paddedToml = buildPaddedToml(region.end - region.start, cfg, enc);
+    bytes.set(paddedToml, region.start);
+
+    return bytes.buffer;
+}
+
+export async function patchImageFile(file: File, cfg: SorterosConfig): Promise<Blob> {
+    const enc = new TextEncoder();
+    const startBytes = enc.encode(START_MARKER);
+    const endBytes = enc.encode(END_MARKER);
+    const region = await findMarkerRegionInFile(file, startBytes, endBytes);
+    const paddedToml = buildPaddedToml(region.end - region.start, cfg, enc);
+
+    // Slice paddedToml to a fresh ArrayBuffer to satisfy BlobPart's
+    // strict ArrayBuffer (not ArrayBufferLike) typing under SvelteKit's
+    // tsconfig.
+    const tomlBuffer = paddedToml.buffer.slice(
+        paddedToml.byteOffset,
+        paddedToml.byteOffset + paddedToml.byteLength
+    ) as ArrayBuffer;
+    return new Blob([
+        file.slice(0, region.start),
+        tomlBuffer,
+        file.slice(region.end)
+    ], { type: 'application/octet-stream' });
+}
+
+function findMarkerRegion(
+    bytes: Uint8Array,
+    startBytes: Uint8Array,
+    endBytes: Uint8Array
+): MarkerRegion {
     const start = indexOfBytes(bytes, startBytes);
-    if (start < 0) throw new Error('start marker not found — wrong .img?');
+    if (start < 0) throw new Error('start marker not found. This is not a supported SorterOS image.');
+
     const end = indexOfBytes(bytes, endBytes, start + startBytes.length);
-    if (end < 0) throw new Error('end marker not found');
+    if (end < 0) throw new Error('end marker not found. This image looks incomplete.');
 
-    // The region between (and including) the markers is the placeholder.
-    // We keep both markers intact so the file stays detectable / patchable
-    // multiple times.
-    const regionStart = start + startBytes.length;
-    const regionEnd = end;
-    const capacity = regionEnd - regionStart;
+    return {
+        start: start + startBytes.length,
+        end
+    };
+}
 
+async function findMarkerRegionInFile(
+    file: Blob,
+    startBytes: Uint8Array,
+    endBytes: Uint8Array
+): Promise<MarkerRegion> {
+    const overlap = Math.max(startBytes.length, endBytes.length) - 1;
+    let start = -1;
+    let offset = 0;
+
+    while (offset < file.size) {
+        const slice = file.slice(offset, Math.min(file.size, offset + SEARCH_CHUNK_BYTES));
+        const bytes = new Uint8Array(await slice.arrayBuffer());
+        const localStart = indexOfBytes(bytes, startBytes);
+
+        if (localStart >= 0) {
+            start = offset + localStart;
+            break;
+        }
+
+        if (offset + SEARCH_CHUNK_BYTES >= file.size) {
+            break;
+        }
+
+        offset += SEARCH_CHUNK_BYTES - overlap;
+    }
+
+    if (start < 0) {
+        throw new Error('start marker not found. This is not a supported SorterOS image.');
+    }
+
+    const end_search_offset = start + startBytes.length;
+    let end_offset = end_search_offset;
+
+    while (end_offset < file.size) {
+        const slice = file.slice(end_offset, Math.min(file.size, end_offset + SEARCH_CHUNK_BYTES));
+        const bytes = new Uint8Array(await slice.arrayBuffer());
+        const localEnd = indexOfBytes(bytes, endBytes);
+
+        if (localEnd >= 0) {
+            return {
+                start: start + startBytes.length,
+                end: end_offset + localEnd
+            };
+        }
+
+        if (end_offset + SEARCH_CHUNK_BYTES >= file.size) {
+            break;
+        }
+
+        end_offset += SEARCH_CHUNK_BYTES - overlap;
+    }
+
+    throw new Error('end marker not found. This image looks incomplete.');
+}
+
+function buildPaddedToml(
+    capacity: number,
+    cfg: SorterosConfig,
+    enc: TextEncoder
+): Uint8Array {
     const toml = buildToml(cfg);
     const tomlBytes = enc.encode(toml);
     if (tomlBytes.length > capacity) {
@@ -54,12 +153,10 @@ export function patchImage(buf: ArrayBuffer, cfg: SorterosConfig): ArrayBuffer {
         );
     }
 
-    // Overwrite with TOML, then pad the rest with newlines so it stays
-    // valid TOML and the file size doesn't change.
-    bytes.fill(0x0a, regionStart, regionEnd); // 0x0a = '\n'
-    bytes.set(tomlBytes, regionStart);
-
-    return bytes.buffer;
+    const padded = new Uint8Array(capacity);
+    padded.fill(0x0a);
+    padded.set(tomlBytes);
+    return padded;
 }
 
 function buildToml(cfg: SorterosConfig): string {

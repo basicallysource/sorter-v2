@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { patchImage, type SorterosConfig } from '$lib/img-patch';
+    import { patchImageFile, type SorterosConfig } from '$lib/img-patch';
 
     let file: File | null = $state(null);
     let hostname = $state('sorter');
@@ -21,14 +21,12 @@
         statusKind = 'info';
         status = 'Patching image...';
         try {
-            const buf = await file.arrayBuffer();
             const cfg: SorterosConfig = {
                 hostname,
                 wifi: ssid ? { ssid, password } : undefined,
                 ssh_authorized_key: sshKey || undefined
             };
-            const out = patchImage(buf, cfg);
-            const blob = new Blob([out], { type: 'application/octet-stream' });
+            const blob = await patchImageFile(file, cfg);
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
             a.download = file.name.replace(/\.img$/, '') + '-customized.img';
@@ -37,7 +35,10 @@
             status = 'Done. Flash with balenaEtcher.';
         } catch (e: unknown) {
             statusKind = 'danger';
-            status = `Error: ${e instanceof Error ? e.message : String(e)}`;
+            status =
+                e instanceof Error
+                    ? `Error: ${e.message}`
+                    : `Error: ${String(e)}`;
         } finally {
             busy = false;
         }

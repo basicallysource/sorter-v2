@@ -472,7 +472,7 @@ fi
 # full rebuild from base.
 if [[ -n "${EXTEND_BRANCH:-}" && -d /home/orangepi/sorter-v2/.git ]]; then
     log "switching sorter-v2 checkout to branch: $EXTEND_BRANCH"
-    su - orangepi -c "cd ~/sorter-v2 && git fetch --depth=1 origin '$EXTEND_BRANCH' && git checkout -B '$EXTEND_BRANCH' FETCH_HEAD" || \
+    su - orangepi -c "cd ~/sorter-v2 && git clean -fd && git fetch --depth=1 origin '$EXTEND_BRANCH' && git checkout -B '$EXTEND_BRANCH' FETCH_HEAD" || \
         log "WARN: branch switch to $EXTEND_BRANCH failed; image keeps the inherited checkout"
 fi
 

@@ -53,12 +53,12 @@ STAGES = [
 
 STAGE_PATTERNS: list[tuple[str, str]] = [
     ("decompress",          r"decompressing|copying .* →"),
-    ("node22_upgrade",      r"upgrading to node 22"),
-    ("apt_cloud_init",      r"installing cloud-init"),
+    ("node22_upgrade",      r"upgrading to node 22|skipping apt \(fast path\)"),
+    ("apt_cloud_init",      r"installing cloud-init|skipping apt \(fast path\)"),
     ("extract_ext4",        r"extracting ext4 partition data"),
     ("place_ext4",          r"writing ext4 partition data back at offset"),
     ("partition_table",     r"rewriting MBR partition table"),
-    ("format_fat",          r"formatting .* as FAT32"),
+    ("format_fat",          r"formatting .* as FAT32|skipping partition surgery and FAT format"),
     ("fsck_ext4",           r"fsck of moved ext4 partition"),
     ("chroot_mount",        r"mounting rootfs \+ bind mounts for chroot"),
     ("ap6275p",             r"AP6275P Wi-Fi overlay"),
@@ -186,6 +186,19 @@ def ssh_cmd(remote_cmd: str) -> list[str]:
     ]
 
 
+def resolve_in_path(in_path: Optional[str]) -> Optional[str]:
+    if in_path is None:
+        return None
+    if in_path != "latest":
+        return in_path
+    result = subprocess.run(
+        ssh_cmd(f"ls -t {OUT_DIR_REMOTE}/sorteros-v*.img 2>/dev/null | head -1"),
+        capture_output=True, text=True, timeout=15,
+    )
+    path = result.stdout.strip()
+    return path or None
+
+
 def run_build(cfg: BuildConfig) -> None:
     with STATE_LOCK:
         STATE.status = "building"
@@ -206,9 +219,13 @@ def run_build(cfg: BuildConfig) -> None:
     broadcast({"type": "state", "state": serializable_state()})
 
     try:
+        resolved_in = resolve_in_path(cfg.in_path)
+        if cfg.in_path == "latest":
+            push_log(f"[kickoff] resolved 'latest' → {resolved_in or '(none found — extend.sh will use its default)'}")
+
         flags: list[str] = []
-        if cfg.in_path:
-            flags += ["--in", cfg.in_path]
+        if resolved_in:
+            flags += ["--in", resolved_in]
         if cfg.out_name:
             flags += ["--out", f"{OUT_DIR_REMOTE}/{cfg.out_name}.img"]
         if cfg.branch:
@@ -218,12 +235,16 @@ def run_build(cfg: BuildConfig) -> None:
         remote_log = f"{OUT_DIR_REMOTE}/extend.log"
 
         # Kill any stuck previous build and clean up disk before launching.
+        # If the config points to a specific .img as input, exclude it from
+        # the delete so it survives as the base for the next fast build.
         push_log("[kickoff] killing any prior extend.sh and cleaning disk")
+        in_basename = pathlib.PurePosixPath(resolved_in).name if resolved_in and resolved_in.endswith(".img") else None
+        exclude_clause = f" ! -name {shlex.quote(in_basename)}" if in_basename else ""
         subprocess.run(
             ssh_cmd(
                 "pkill -f 'bash extend.sh' 2>/dev/null || true; "
                 f"find {OUT_DIR_REMOTE} -maxdepth 1 "
-                r"\( -name 'sorteros-v*.img' -o -name '*.ext4.bin' \) -delete 2>/dev/null || true"
+                f"\\( -name 'sorteros-v*.img' -o -name '*.ext4.bin' \\){exclude_clause} -delete 2>/dev/null || true"
             ),
             capture_output=True, text=True, timeout=30,
         )

@@ -111,61 +111,73 @@ fi
 ORIG_BYTES=$(stat -c %s "$OUT")
 log "original size: $(numfmt --to=iec --suffix=B "$ORIG_BYTES")"
 
-# ─── v2.5 partition restructure: move ext4 to p2, put FAT at p1 ───
-# v2.4 put FAT after ext4. Two problems on hardware:
-#   (a) RPi Imager only writes customization into p1 — our p1 was
-#       ext4, so user-data/network-config never landed in our FAT.
-#       cloud-init then died with FileNotFoundError /boot/firmware/user-data.
-#   (b) growpart can't extend p1 into p2's space; rootfs stuck at 8 GiB.
-# Fix: FAT at p1, ext4 at p2. Then Imager finds the FAT (it's p1),
-# and growpart on p2 can extend it into all the SD card's tail space.
-#
-# Layout target:
-#   bytes 0..30 MiB         : bootloader (untouched — copied verbatim)
-#   bytes 30..286 MiB       : FAT32 partition 1 (label `system-boot`)
-#   bytes 286 MiB..end      : ext4 partition 2 (the rootfs we already have)
+# ─── Detect input partition layout ───
+# If the input is itself an extend.sh output (FAT@p1 + ext4@p2 already),
+# skip the partition surgery — copy is enough, then chroot directly.
+# Single-partition inputs (original base image) still go through full surgery.
+DETECT_LOOP=$(losetup --show -fP "$OUT")
+PART_COUNT=$(parted -ms "$DETECT_LOOP" unit s print 2>/dev/null | grep -c '^[0-9]:' || echo 0)
+losetup -d "$DETECT_LOOP"
+log "input partition count: $PART_COUNT"
 
-FAT_SIZE_MIB=256
-P1_START_MIB=30           # where the original ext4 starts (orange pi base)
-P2_START_MIB=$(( P1_START_MIB + FAT_SIZE_MIB ))
+if [[ $PART_COUNT -lt 2 ]]; then
+    # ─── v2.5 partition restructure: move ext4 to p2, put FAT at p1 ───
+    # v2.4 put FAT after ext4. Two problems on hardware:
+    #   (a) RPi Imager only writes customization into p1 — our p1 was
+    #       ext4, so user-data/network-config never landed in our FAT.
+    #       cloud-init then died with FileNotFoundError /boot/firmware/user-data.
+    #   (b) growpart can't extend p1 into p2's space; rootfs stuck at 8 GiB.
+    # Fix: FAT at p1, ext4 at p2. Then Imager finds the FAT (it's p1),
+    # and growpart on p2 can extend it into all the SD card's tail space.
+    #
+    # Layout target:
+    #   bytes 0..30 MiB         : bootloader (untouched — copied verbatim)
+    #   bytes 30..286 MiB       : FAT32 partition 1 (label `system-boot`)
+    #   bytes 286 MiB..end      : ext4 partition 2 (the rootfs we already have)
 
-# Get the original ext4 partition extent (sectors → MiB). We trust that
-# the input image has exactly one ext4 partition at p1.
-LOOP_TMP=$(losetup --show -fP "$OUT")
-ORIG_P1_END_S=$(parted -ms "$LOOP_TMP" unit s print | awk -F: '/^1:/ {gsub("s","",$3); print $3}')
-losetup -d "$LOOP_TMP"
-ORIG_EXT4_LEN_MIB=$(( (ORIG_P1_END_S - (P1_START_MIB*2048) + 1) * 512 / 1024 / 1024 ))
-log "original ext4: ${ORIG_EXT4_LEN_MIB} MiB at offset ${P1_START_MIB} MiB"
+    FAT_SIZE_MIB=256
+    P1_START_MIB=30           # where the original ext4 starts (orange pi base)
+    P2_START_MIB=$(( P1_START_MIB + FAT_SIZE_MIB ))
 
-# Grow the image to make room for the FAT partition.
-log "growing image by ${FAT_SIZE_MIB} MiB for the new FAT at p1"
-truncate -s +"${FAT_SIZE_MIB}M" "$OUT"
+    # Get the original ext4 partition extent (sectors → MiB). We trust that
+    # the input image has exactly one ext4 partition at p1.
+    LOOP_TMP=$(losetup --show -fP "$OUT")
+    ORIG_P1_END_S=$(parted -ms "$LOOP_TMP" unit s print | awk -F: '/^1:/ {gsub("s","",$3); print $3}')
+    losetup -d "$LOOP_TMP"
+    ORIG_EXT4_LEN_MIB=$(( (ORIG_P1_END_S - (P1_START_MIB*2048) + 1) * 512 / 1024 / 1024 ))
+    log "original ext4: ${ORIG_EXT4_LEN_MIB} MiB at offset ${P1_START_MIB} MiB"
 
-# Move ext4 forward by FAT_SIZE_MIB. Going via a temp file avoids
-# overlapping read/write hazards.
-TMP_EXT4="${OUT}.ext4.bin"
-log "extracting ext4 partition data → $TMP_EXT4"
-dd if="$OUT" of="$TMP_EXT4" bs=1M skip="$P1_START_MIB" count="$ORIG_EXT4_LEN_MIB" \
-    conv=fsync status=progress
-log "writing ext4 partition data back at offset ${P2_START_MIB} MiB"
-dd if="$TMP_EXT4" of="$OUT" bs=1M seek="$P2_START_MIB" \
-    conv=notrunc,fsync status=progress
-rm -f "$TMP_EXT4"
+    # Grow the image to make room for the FAT partition.
+    log "growing image by ${FAT_SIZE_MIB} MiB for the new FAT at p1"
+    truncate -s +"${FAT_SIZE_MIB}M" "$OUT"
 
-# Wipe the old partition table and write the new one.
-log "rewriting MBR partition table (FAT@p1, ext4@p2)"
-LOOP=$(losetup --show -fP "$OUT")
-# Zero-out the partition entries region only (preserve bootloader code 0..445)
-dd if=/dev/zero of="$LOOP" bs=1 seek=446 count=64 conv=notrunc status=none
-# Now write fresh entries with parted. Using MiB units throughout.
-parted -s "$LOOP" mklabel msdos
-parted -s "$LOOP" mkpart primary fat32 "${P1_START_MIB}MiB" "${P2_START_MIB}MiB"
-parted -s "$LOOP" set 1 lba on
-# `100%` = end of disk minus alignment slack; safer than computing MiB
-parted -s "$LOOP" mkpart primary ext4 "${P2_START_MIB}MiB" 100%
-partprobe "$LOOP" || true
-sleep 1
-losetup -d "$LOOP"
+    # Move ext4 forward by FAT_SIZE_MIB. Going via a temp file avoids
+    # overlapping read/write hazards.
+    TMP_EXT4="${OUT}.ext4.bin"
+    log "extracting ext4 partition data → $TMP_EXT4"
+    dd if="$OUT" of="$TMP_EXT4" bs=1M skip="$P1_START_MIB" count="$ORIG_EXT4_LEN_MIB" \
+        conv=fsync status=progress
+    log "writing ext4 partition data back at offset ${P2_START_MIB} MiB"
+    dd if="$TMP_EXT4" of="$OUT" bs=1M seek="$P2_START_MIB" \
+        conv=notrunc,fsync status=progress
+    rm -f "$TMP_EXT4"
+
+    # Wipe the old partition table and write the new one.
+    log "rewriting MBR partition table (FAT@p1, ext4@p2)"
+    LOOP=$(losetup --show -fP "$OUT")
+    # Zero-out the partition entries region only (preserve bootloader code 0..445)
+    dd if=/dev/zero of="$LOOP" bs=1 seek=446 count=64 conv=notrunc status=none
+    # Now write fresh entries with parted. Using MiB units throughout.
+    parted -s "$LOOP" mklabel msdos
+    parted -s "$LOOP" mkpart primary fat32 "${P1_START_MIB}MiB" "${P2_START_MIB}MiB"
+    parted -s "$LOOP" set 1 lba on
+    # `100%` = end of disk minus alignment slack; safer than computing MiB
+    parted -s "$LOOP" mkpart primary ext4 "${P2_START_MIB}MiB" 100%
+    partprobe "$LOOP" || true
+    sleep 1
+    losetup -d "$LOOP"
+fi
+
 LOOP=$(losetup --show -fP "$OUT")
 log "re-attached loop: $LOOP"
 
@@ -174,8 +186,12 @@ ROOT_PART="${LOOP}p2"
 [[ -b $FAT_PART  ]] || { echo "FAT partition missing"; lsblk "$LOOP"; exit 1; }
 [[ -b $ROOT_PART ]] || { echo "ext4 partition missing"; lsblk "$LOOP"; exit 1; }
 
-log "formatting $FAT_PART as FAT32 (label: system-boot)"
-mkfs.vfat -F 32 -n system-boot "$FAT_PART"
+if [[ $PART_COUNT -lt 2 ]]; then
+    log "formatting $FAT_PART as FAT32 (label: system-boot)"
+    mkfs.vfat -F 32 -n system-boot "$FAT_PART"
+else
+    log "skipping partition surgery and FAT format (input already restructured)"
+fi
 
 log "fsck of moved ext4 partition (should be clean — byte-for-byte move)"
 e2fsck -fy "$ROOT_PART" || true

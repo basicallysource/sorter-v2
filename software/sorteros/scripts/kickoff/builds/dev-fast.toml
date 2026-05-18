@@ -1,0 +1,3 @@
+name = "Dev build — fast (from latest output)"
+branch = "spencer/rev-02-distribution-board-03"
+in_path = "latest"

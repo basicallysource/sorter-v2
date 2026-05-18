@@ -90,6 +90,15 @@ log() { echo "[extend $(date +%H:%M:%S)] $*"; }
 
 trap cleanup_chroot EXIT
 
+# ─── 0. Clean out stale build artifacts before we need the disk ───
+# Previous failed/succeeded builds leave behind large files. Delete any
+# prior sorteros-v*.img and leftover *.ext4.bin temp files so we don't
+# run out of disk mid-build. The .zst base image and named input are kept.
+log "cleaning stale artifacts from $OUT_DIR_DEFAULT"
+find "$OUT_DIR_DEFAULT" -maxdepth 1 \( -name 'sorteros-v*.img' -o -name '*.ext4.bin' \) \
+    ! -name "$(basename "$IN")" -delete 2>/dev/null || true
+log "disk free: $(df -h "$OUT_DIR_DEFAULT" | awk 'NR==2{print $4}') available"
+
 # ─── 1. Materialize raw .img ───
 if [[ $IN == *.zst ]]; then
     log "decompressing $IN → $OUT"

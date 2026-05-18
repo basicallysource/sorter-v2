@@ -88,16 +88,39 @@ def is_mounted(path: Path) -> bool:
 
 # ─── prep ──────────────────────────────────────────────────────────────────
 
+def _find_base_image(ctx: BuildCtx) -> Path:
+    """Look for the base .img in order of preference:
+        1. $SORTEROS_BASE_IMG env var (explicit override)
+        2. cache/<filename> in this build dir
+        3. ~/Downloads/<filename> (Spencer's usual landing zone)
+        4. /Users/spencer/Downloads/<filename> (same, from inside colima)
+        5. /Volumes/macHome/Downloads/<filename> (some colima setups)
+    """
+    filename = ctx.config["base"]["filename"]
+    candidates: list[Path] = []
+    env = os.environ.get("SORTEROS_BASE_IMG")
+    if env:
+        candidates.append(Path(env))
+    candidates.append(ctx.cache_dir / filename)
+    home = Path(os.environ.get("HOME", "/root"))
+    candidates.append(home / "Downloads" / filename)
+    candidates.append(Path("/Users/spencer/Downloads") / filename)
+    candidates.append(Path("/Volumes/macHome/Downloads") / filename)
+    for c in candidates:
+        if c.exists():
+            return c
+    sys.exit(
+        "base image not found. Looked at:\n  "
+        + "\n  ".join(str(c) for c in candidates)
+        + f"\nSet SORTEROS_BASE_IMG=<path> or drop it in {ctx.cache_dir}/."
+    )
+
+
 def phase_prep(ctx: BuildCtx) -> None:
     ctx.cache_dir.mkdir(parents=True, exist_ok=True)
     ctx.out_dir.mkdir(parents=True, exist_ok=True)
-    base = ctx.cache_dir / ctx.config["base"]["filename"]
-    if not base.exists():
-        sys.exit(
-            f"base image not at {base}.\n"
-            f"Download manually from {ctx.config['base']['url']}\n"
-            f"and place it at the path above. (TODO: automate when URL is stable.)"
-        )
+    base = _find_base_image(ctx)
+    log(f"base image: {base}")
     log(f"copying base → {ctx.work_img}")
     shutil.copy2(base, ctx.work_img)
 

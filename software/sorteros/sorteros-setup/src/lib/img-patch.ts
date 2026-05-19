@@ -66,18 +66,22 @@ export async function patchImageFile(file: Blob, cfg: SorterosConfig): Promise<B
     ], { type: 'application/octet-stream' });
 }
 
-export async function locateMarkerRegionInFile(file: Blob): Promise<MarkerRegion> {
+export async function locateMarkerRegionInFile(
+    file: Blob,
+    onProgress?: (fraction: number) => void
+): Promise<MarkerRegion> {
     const enc = new TextEncoder();
-    return findMarkerRegionInFile(file, enc.encode(START_MARKER), enc.encode(END_MARKER));
+    return findMarkerRegionInFile(file, enc.encode(START_MARKER), enc.encode(END_MARKER), onProgress);
 }
 
 export async function patchImageFileHandleInPlace(
     handle: FileSystemFileHandle,
-    cfg: SorterosConfig
+    cfg: SorterosConfig,
+    onProgress?: (fraction: number) => void
 ): Promise<void> {
     const file = await handle.getFile();
     const enc = new TextEncoder();
-    const region = await locateMarkerRegionInFile(file);
+    const region = await locateMarkerRegionInFile(file, onProgress);
     const paddedToml = buildPaddedToml(region.end - region.start, cfg, enc);
     const writable = await handle.createWritable({ keepExistingData: true });
 
@@ -109,13 +113,15 @@ function findMarkerRegion(
 async function findMarkerRegionInFile(
     file: Blob,
     startBytes: Uint8Array,
-    endBytes: Uint8Array
+    endBytes: Uint8Array,
+    onProgress?: (fraction: number) => void
 ): Promise<MarkerRegion> {
     const overlap = Math.max(startBytes.length, endBytes.length) - 1;
     let start = -1;
     let offset = 0;
 
     while (offset < file.size) {
+        onProgress?.(offset / file.size);
         const slice = file.slice(offset, Math.min(file.size, offset + SEARCH_CHUNK_BYTES));
         const bytes = new Uint8Array(await slice.arrayBuffer());
         const localStart = indexOfBytes(bytes, startBytes);

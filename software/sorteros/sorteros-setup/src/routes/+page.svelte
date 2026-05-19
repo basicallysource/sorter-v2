@@ -21,6 +21,7 @@
     let status = $state('');
     let statusKind: 'info' | 'success' | 'danger' = $state('info');
     let busy = $state(false);
+    let progress = $state<number | null>(null); // null = indeterminate, 0–1 = determinate
     let file_input: HTMLInputElement | null = $state(null);
 
     onMount(() => {
@@ -91,6 +92,7 @@
             return;
         }
         busy = true;
+        progress = null;
         statusKind = 'info';
         status = 'Building customized image...';
         try {
@@ -109,6 +111,7 @@
                     : `Error: ${String(e)}`;
         } finally {
             busy = false;
+            progress = null;
         }
     }
 
@@ -130,6 +133,7 @@
         }
 
         busy = true;
+        progress = null;
         statusKind = 'info';
         status = 'Opening image for in-place patch...';
 
@@ -155,8 +159,10 @@
                 throw new Error('Write access was not granted.');
             }
 
-            status = 'Patching selected image in place...';
-            await patchImageFileHandleInPlace(handle, buildConfig());
+            status = 'Scanning image for config region...';
+            progress = 0;
+            await patchImageFileHandleInPlace(handle, buildConfig(), (f) => { progress = f; });
+            progress = 1;
             file = await handle.getFile();
             statusKind = 'success';
             status = 'Original image patched in place.';
@@ -168,6 +174,7 @@
                     : `Error: ${String(e)}`;
         } finally {
             busy = false;
+            progress = null;
         }
     }
 
@@ -178,6 +185,24 @@
 
     function openFilePicker() {
         file_input?.click();
+    }
+
+    let dragging = $state(false);
+
+    function onDragOver(e: DragEvent) {
+        e.preventDefault();
+        dragging = true;
+    }
+
+    function onDragLeave() {
+        dragging = false;
+    }
+
+    function onDrop(e: DragEvent) {
+        e.preventDefault();
+        dragging = false;
+        const dropped = e.dataTransfer?.files?.[0];
+        if (dropped) file = dropped;
     }
 </script>
 
@@ -209,13 +234,25 @@
                 onchange={pickFile}
                 class="sr-only"
             />
-            <div class="setup-control flex items-center gap-3 px-3 text-sm">
-                <button type="button" class="setup-button-secondary h-9 px-3 text-sm font-medium" onclick={openFilePicker}>
-                    Choose file
-                </button>
-                <span class:text-text-muted={!file} class="min-w-0 truncate">
-                    {file ? file.name : 'No file chosen'}
-                </span>
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+                class="flex w-full cursor-default flex-col items-center justify-center gap-2 px-4 py-6 text-center text-sm transition-colors"
+                style="border: 2px dashed {dragging ? 'var(--color-primary)' : '#d6d3cb'}; background: {dragging ? 'color-mix(in oklab, var(--color-primary) 6%, var(--color-surface))' : 'var(--color-surface)'};"
+                ondragover={onDragOver}
+                ondragleave={onDragLeave}
+                ondrop={onDrop}
+            >
+                {#if file}
+                    <span class="font-medium">{file.name}</span>
+                    <button type="button" class="setup-button-secondary h-8 px-3 text-xs font-medium" onclick={openFilePicker}>
+                        Change file
+                    </button>
+                {:else}
+                    <span class="text-text-muted">Drop a <code>.img</code> file here, or</span>
+                    <button type="button" class="setup-button-secondary h-8 px-3 text-xs font-medium" onclick={openFilePicker}>
+                        Browse…
+                    </button>
+                {/if}
             </div>
         </div>
 
@@ -309,6 +346,15 @@
                 The second button uses the browser file system API and will ask for write access.
             </p>
         </div>
+
+        {#if busy && progress !== null}
+            <div class="w-full overflow-hidden" style="height:4px; background: #e2e0db;">
+                <div
+                    class="h-full transition-all duration-200"
+                    style="width: {Math.round(progress * 100)}%; background: var(--color-primary);"
+                ></div>
+            </div>
+        {/if}
 
         {#if status}
             {@const kindToBorder = {

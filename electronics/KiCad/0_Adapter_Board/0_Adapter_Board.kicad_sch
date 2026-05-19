@@ -4232,7 +4232,7 @@
 				)
 				(uuid "64444809-fe40-48ca-bdab-98b4c1f117eb")
 			)
-			(table_cell ""
+			(table_cell "1.0"
 				(exclude_from_sim no)
 				(at 203.72 17.13 0)
 				(size 10.16 2.54)
@@ -4249,7 +4249,7 @@
 				)
 				(uuid "d32e1085-6ded-4d1e-9cfc-bcef2995c2b9")
 			)
-			(table_cell ""
+			(table_cell "02APR26"
 				(exclude_from_sim no)
 				(at 213.88 17.13 0)
 				(size 23.495 2.54)
@@ -4266,7 +4266,7 @@
 				)
 				(uuid "1861e94d-a1db-464b-bc0f-ff406ec59f51")
 			)
-			(table_cell ""
+			(table_cell "Add J3, J4. Adjust P/DNP"
 				(exclude_from_sim no)
 				(at 237.375 17.13 0)
 				(size 23.495 2.54)
@@ -4283,7 +4283,7 @@
 				)
 				(uuid "fd1ee45b-c554-42b6-89fc-216fed19d915")
 			)
-			(table_cell ""
+			(table_cell "Jonathan Webster"
 				(exclude_from_sim no)
 				(at 260.87 17.13 0)
 				(size 24.13 2.54)

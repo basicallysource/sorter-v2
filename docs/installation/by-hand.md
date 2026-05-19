@@ -1,22 +1,26 @@
 ---
 layout: default
-title: Install the Sorter by hand
+title: Install by hand
 type: how-to
-slug: sorter-install-by-hand
-kicker: Sorter — Setup
-lede: The manual install sequence — for when `install.sh` does not yet support your platform, or when you want to know exactly what the installer is doing on yours.
-permalink: /sorter/install-by-hand/
+section: installation
+slug: installation-by-hand
+kicker: Installation — Manual
+lede: The manual install sequence — for when the one-command installer does not yet support your platform, or when you want to know exactly what it does.
+permalink: /installation/by-hand/
+audience: self-hosting operator
+applies_to: sorter 2.x
+last_verified: 2026-04-08
 ---
 
 ## When to use this
 
 Use this guide when:
 
-- you are installing on a system the [one-command installer]({{ '/sorter/installation/' | relative_url }}) does not yet support;
+- you are installing on a system the [one-command installer]({{ '/sorter/installation/linux-generic/' | relative_url }}) does not yet support;
 - you want to walk every step yourself to understand what the installer is doing;
 - you are debugging a failing `install.sh` and want to isolate which step is going wrong.
 
-If neither of those applies, use the [one-command installer]({{ '/sorter/installation/' | relative_url }}) instead — it is the maintained path and the one we test against in CI.
+If neither of those applies, use the [one-command installer]({{ '/sorter/installation/linux-generic/' | relative_url }}) instead — it is the maintained path and the one we test against in CI.
 
 ## Prerequisites
 
@@ -123,5 +127,5 @@ See [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) fo
 
 ## Related
 
-- [Install the Sorter on a Linux machine]({{ '/sorter/installation/' | relative_url }}) — the maintained one-command path.
+- [Install on a Linux machine (generic)]({{ '/sorter/installation/linux-generic/' | relative_url }}) — the maintained one-command path.
 - [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }})

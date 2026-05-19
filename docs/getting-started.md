@@ -60,7 +60,7 @@ Python 3.12+, Node.js 20+, pnpm. The install script handles dependencies on Debi
 
 - **Mechanical / CAD** — The project uses [Onshape](https://www.onshape.com/) (free, web-based, collaborative). DM Spencer your email for document access. Start by browsing the V2 CAD and checking open bounties for mechanical tasks.
 - **Electronics** — PCB schematics are in KiCad. Active work on feeder and distribution board reviews. Background in EE or PCB layout is valuable.
-- **Software** — Python backend + SvelteKit frontend. See the [Sorter install guide]({{ '/sorter/installation/' | relative_url }}) and [architecture overview]({{ '/sorter/architecture/' | relative_url }}).
+- **Software** — Python backend + SvelteKit frontend. See the [Sorter install guide]({{ '/installation/' | relative_url }}) and [architecture overview]({{ '/sorter/architecture/' | relative_url }}).
 - **ML / Vision** — Classification research, training data collection, model optimization. See [Classification research]({{ '/lab/classification-research/' | relative_url }}) and [Object detection research]({{ '/lab/object-detection/' | relative_url }}).
 
 ## Key resources

@@ -11,8 +11,8 @@ permalink: /sorter/
 
 ## Install
 
-- **[Install the Sorter on a Linux machine]({{ '/sorter/installation/' | relative_url }})** — the one-command install path for Debian 12 / Ubuntu 24.04 / Pi OS Bookworm. The path you walk once per machine.
-- **[Install the Sorter by hand]({{ '/sorter/install-by-hand/' | relative_url }})** — the manual sequence, for when the installer does not yet support your platform.
+- **[Install on Linux (generic)]({{ '/sorter/installation/linux-generic/' | relative_url }})** — the one-command install path for Debian 12 / Ubuntu 24.04 / Pi OS Bookworm. The path you walk once per machine.
+- **[Install by hand]({{ '/installation/by-hand/' | relative_url }})** — the manual sequence, for when the installer does not yet support your platform.
 
 ## Operate
 

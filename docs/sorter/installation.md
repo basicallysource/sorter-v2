@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Install the Sorter on a Linux machine
+title: Install on a Linux machine (generic)
 type: installation
-slug: sorter-installation
+slug: sorter-installation-linux-generic
 kicker: Sorter — Setup
 lede: How to take a fresh Linux box from clean install to a running Sorter UI in your browser. One script, two flags, then the in-app Setup Wizard takes over.
-permalink: /sorter/installation/
+permalink: /sorter/installation/linux-generic/
 ---
 
 ## What you get at the end
@@ -117,7 +117,7 @@ What the Docker test deliberately does **not** cover: USB serial discovery of Pi
 Once the UI is up, the real work moves into the in-app **Setup Wizard**. The dedicated wizard walkthrough is still being written; until then the wizard is self-explanatory and will not let you skip a required step.
 
 - [Sorter troubleshooting]({{ '/sorter/troubleshooting/' | relative_url }}) — common first-run problems and how to recognize them.
-- [Install the Sorter by hand]({{ '/sorter/install-by-hand/' | relative_url }}) — the manual sequence, for when `install.sh` does not yet support your platform.
+- [Install by hand]({{ '/installation/by-hand/' | relative_url }}) — the manual sequence, for when `install.sh` does not yet support your platform.
 - [Benchmark a new device]({{ '/lab/object-detection/device-benchmarking/' | relative_url }}) — validate your install against the published detector numbers.
 
 If you intend to flash custom firmware on your Picos, the build instructions live in `software/firmware/sorter_interface_firmware/README.md` in the repository.

@@ -19,6 +19,20 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
+      - title: Orange Pi 5
+        url: /hardware/orange-pi-5/
+
+  - id: installation
+    title: Installation
+    url: /installation/
+    description: How to get Sorter running — SorterOS image, generic Linux installer, or manual setup.
+    pages:
+      - title: Overview
+        url: /installation/
+      - title: SorterOS
+        url: /installation/sorter-os/
+      - title: By hand
+        url: /installation/by-hand/
 
   - id: sorter
     title: Sorter
@@ -30,10 +44,8 @@ sections:
     groups:
       - title: Install
         pages:
-          - title: Install on a Linux machine
-            url: /sorter/installation/
-          - title: Install by hand
-            url: /sorter/install-by-hand/
+          - title: Install on Linux (generic)
+            url: /sorter/installation/linux-generic/
       - title: Operate
         pages:
           - title: Your first sort run

@@ -96,6 +96,16 @@ def is_mounted(path: Path) -> bool:
 
 # ─── prep ──────────────────────────────────────────────────────────────────
 
+def _teardown_mnt(ctx: BuildCtx) -> None:
+    """Unmount everything under ctx.mnt and detach the loop device."""
+    _bind_mounts_down(ctx)
+    if is_mounted(ctx.mnt):
+        subprocess.run(["umount", str(ctx.mnt)])
+    s = state_read(ctx)
+    loop = s.get("loop")
+    if loop and Path(loop).exists():
+        subprocess.run(["losetup", "-d", loop])
+
 def _find_base_image(ctx: BuildCtx) -> Path:
     """Look for the base .img in order of preference:
         1. $SORTEROS_BASE_IMG env var (explicit override)
@@ -127,6 +137,15 @@ def _find_base_image(ctx: BuildCtx) -> Path:
 def phase_prep(ctx: BuildCtx) -> None:
     ctx.cache_dir.mkdir(parents=True, exist_ok=True)
     ctx.out_dir.mkdir(parents=True, exist_ok=True)
+
+    # Clean up any leftover state from a previous failed build so grow/mount
+    # don't refuse to run because the mountpoint is still active.
+    _teardown_mnt(ctx)
+    if ctx.work_img.exists():
+        log(f"removing stale {ctx.work_img.name}")
+        ctx.work_img.unlink()
+    ctx.state_file.unlink(missing_ok=True)
+
     base = _find_base_image(ctx)
     log(f"base image: {base}")
     log(f"copying base → {ctx.work_img}")

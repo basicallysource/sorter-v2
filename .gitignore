@@ -4,6 +4,8 @@ AGENTS.md
 
 software/sorteros/build/.env
 software/sorteros/build/*.authkey
+software/sorteros/build/out/
+software/sorteros/build/cache/
 software/sorteros/v3/build/.env
 
 # Local debug captures and ad-hoc review artifacts

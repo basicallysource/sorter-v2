@@ -10,9 +10,11 @@ APT_OPTS=(-o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold 
 
 log() { echo "[chroot_apt $(date -u +%H:%M:%S)] $*"; }
 
-if [[ ! -s /etc/resolv.conf ]]; then
-    echo "nameserver 1.1.1.1" > /etc/resolv.conf
-fi
+# /etc/resolv.conf is typically a symlink to systemd-resolved's stub
+# (nameserver 127.0.0.53) which only works with systemd-resolved running.
+# In a chroot there's no systemd-resolved, so getaddrinfo fails for any
+# process that uses the OS resolver (including node/npm). Always override.
+echo "nameserver 1.1.1.1" > /etc/resolv.conf
 
 log "apt update"
 apt-get update -y

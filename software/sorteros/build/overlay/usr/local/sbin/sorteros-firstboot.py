@@ -140,7 +140,6 @@ def stage_apply_config_toml() -> None:
     if isinstance(ssid, str) and ssid.strip():
         log.info("applying wifi config for ssid: %s", ssid)
         _write_nm_wifi(ssid, str(psk))
-        subprocess.run(["systemctl", "stop", "sorteros-ap.service"])  # may not exist; ignore
         sh(["nmcli", "connection", "up", ssid])
 
     ssh_block = cfg.get("ssh") or {}

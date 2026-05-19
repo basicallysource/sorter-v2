@@ -32,7 +32,8 @@ apt-get install "${APT_OPTS[@]}" \
     python3-tomli \
     libgl1 libglib2.0-0 \
     v4l-utils \
-    git-lfs
+    git-lfs \
+    cloud-guest-utils
 
 # Tailscale install is deferred to firstboot (sorteros-firstboot.py
 # stage_install_tailscale): the base image's ext4 is sized for an 8 GB

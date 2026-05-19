@@ -9,7 +9,7 @@ sha256 = ""  # fill in when known
 
 [output]
 dir = "out"
-version = "3.3"
+version = "3.3.1"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]
@@ -24,6 +24,7 @@ packages = [
     "libglib2.0-0",       # OpenCV runtime dep
     "v4l-utils",          # camera inspection / V4L2 tools
     "git-lfs",            # pull LFS model artifacts on first boot
+    "cloud-guest-utils",  # provides growpart for stage_grow_rootfs
 ]
 
 # Installed via curl scripts in chroot_apt.sh (NOT apt):

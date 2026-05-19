@@ -13,6 +13,7 @@ restarting it (RestartPreventExitStatus=0 in the unit).
 from __future__ import annotations
 
 import logging
+import re
 import socket
 import subprocess
 import time
@@ -78,8 +79,33 @@ def stage_ssh_host_keys() -> None:
 
 
 def stage_grow_rootfs() -> None:
-    # TODO: detect rootfs partition + run growpart + resize2fs.
-    pass
+    # Find the block device mounted at /.
+    root_dev = None
+    for line in Path("/proc/mounts").read_text().splitlines():
+        cols = line.split()
+        if len(cols) >= 2 and cols[1] == "/":
+            root_dev = cols[0]
+            break
+    if not root_dev or not root_dev.startswith("/dev/"):
+        raise RuntimeError(f"unexpected root device: {root_dev}")
+
+    # Split device + partition number.
+    # mmcblk/nvme:  /dev/mmcblk1p1  → disk=/dev/mmcblk1, part=1
+    # sd*:          /dev/sda1        → disk=/dev/sda,     part=1
+    m = re.match(r"^(/dev/(?:mmcblk|nvme)\w+?)p(\d+)$", root_dev)
+    if not m:
+        m = re.match(r"^(/dev/[a-z]+)(\d+)$", root_dev)
+    if not m:
+        raise RuntimeError(f"cannot parse root device: {root_dev}")
+    disk, part_num = m.group(1), m.group(2)
+
+    # growpart expands the partition to fill the disk. Exit 1 = already full (OK).
+    r = subprocess.run(["growpart", disk, part_num], capture_output=True, text=True)
+    if r.returncode not in (0, 1):
+        raise RuntimeError(f"growpart failed ({r.returncode}): {r.stderr.strip()}")
+
+    # resize2fs can resize a mounted ext4 filesystem online on modern kernels.
+    sh(["resize2fs", root_dev])
 
 
 def stage_apply_config_toml() -> None:
@@ -114,7 +140,7 @@ def stage_apply_config_toml() -> None:
     if isinstance(ssid, str) and ssid.strip():
         log.info("applying wifi config for ssid: %s", ssid)
         _write_nm_wifi(ssid, str(psk))
-        sh(["systemctl", "stop", "sorteros-ap.service"])
+        subprocess.run(["systemctl", "stop", "sorteros-ap.service"])  # may not exist; ignore
         sh(["nmcli", "connection", "up", ssid])
 
     ssh_block = cfg.get("ssh") or {}
@@ -174,6 +200,14 @@ def stage_setup_swap() -> None:
     swapfile = Path("/swapfile")
     if swapfile.exists():
         return
+    stat = subprocess.check_output(["df", "--output=avail", "-B1", "/"], text=True)
+    free_bytes = int(stat.splitlines()[1].strip())
+    target = 8 * 1024 ** 3
+    if free_bytes < target + 2 * 1024 ** 3:
+        # grow-rootfs may not have run yet — defer until there's enough room
+        raise RuntimeError(
+            f"only {free_bytes // 1024**3}GB free; need {target // 1024**3}GB for swap + 2GB headroom"
+        )
     sh(["fallocate", "-l", "8G", str(swapfile)])
     swapfile.chmod(0o600)
     sh(["mkswap", str(swapfile)])

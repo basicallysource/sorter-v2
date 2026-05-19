@@ -357,20 +357,19 @@ def phase_firstboot_config(ctx: BuildCtx) -> None:
     # Layout inside the placeholder file (raw bytes, fixed total size):
     #
     #   # __SORTEROS_CFG_START__
-    #   <TOML body — initially blank/comment so the file is a valid TOML>
+    #   <newline padding — the patchable region>
     #   # __SORTEROS_CFG_END__
-    #   <newline padding to total bytes>
     #
-    # sorteros-setup (the browser-side patcher) finds the markers and
-    # overwrites the region between them. ext4 metadata doesn't move
-    # because total file size is fixed.
-    header = f"# {CFG_START_MARKER}\n# sorteros boot-time config — overwrite via setup.basically.website\n"
+    # The padding goes BETWEEN the markers so the browser-side patcher
+    # (sorteros-setup) has the full (total - overhead) bytes of capacity.
+    # ext4 metadata doesn't move because total file size is fixed.
+    header = f"# {CFG_START_MARKER}\n"
     footer = f"# {CFG_END_MARKER}\n"
-    body = header + ("# (blank — boot into AP setup mode)\n" * 4) + footer
+    overhead = len(header.encode()) + len(footer.encode())
 
-    if len(body) > total:
-        sys.exit(f"placeholder header/footer too large ({len(body)} > {total})")
-    payload = body + ("\n" * (total - len(body)))
+    if overhead > total:
+        sys.exit(f"placeholder header/footer too large ({overhead} > {total})")
+    payload = header + ("\n" * (total - overhead)) + footer
     assert len(payload) == total
 
     dest = ctx.mnt / "etc" / "sorteros-config.toml"

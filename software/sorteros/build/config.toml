@@ -9,7 +9,7 @@ sha256 = ""  # fill in when known
 
 [output]
 dir = "out"
-version = "3.4"
+version = "3.4.2"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]
@@ -40,5 +40,6 @@ default = "main"
 [firstboot]
 # Placeholder size for /etc/sorteros-config.toml (the file the browser
 # customizer overwrites in-place). Must be big enough for the largest
-# config we'd ever write: Wi-Fi SSID + PSK + hostname + SSH key.
-placeholder_kb = 4
+# config we'd ever write: Wi-Fi SSID + PSK + hostname + SSH key +
+# Tailscale auth key + future fields.
+placeholder_kb = 8

@@ -13,6 +13,7 @@ restarting it (RestartPreventExitStatus=0 in the unit).
 from __future__ import annotations
 
 import logging
+import os
 import re
 import socket
 import subprocess
@@ -235,15 +236,15 @@ def stage_clone_repo() -> None:
     branch = branch_file.read_text().strip() if branch_file.exists() else "main"
     sh(["git", "clone", "--branch", branch, "--depth", "1",
         "https://github.com/basicallysource/sorter-v2", str(REPO_DIR)])
-    sh(["chown", "-R", "orangepi:orangepi", str(REPO_DIR)])
+    sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)])
 
 
 def stage_git_lfs_pull() -> None:
     if not REPO_DIR.exists():
         raise RuntimeError("repo not cloned yet")
-    sh(["git", "-C", str(REPO_DIR), "lfs", "install"])
-    sh(["git", "-C", str(REPO_DIR), "lfs", "pull"])
-    sh(["chown", "-R", "orangepi:orangepi", str(REPO_DIR)])
+    env = {**os.environ, "HOME": "/root"}
+    sh(["git", "-C", str(REPO_DIR), "lfs", "install"], env=env)
+    sh(["git", "-C", str(REPO_DIR), "lfs", "pull"], env=env)
 
 
 def stage_write_env() -> None:
@@ -284,7 +285,7 @@ def stage_uv_sync() -> None:
         raise RuntimeError("repo not cloned yet")
     if (backend / ".venv").exists():
         return
-    sh(["su", "-", "orangepi", "-c", f"cd {backend} && uv sync --python 3.13"])
+    sh(["/usr/local/bin/uv", "sync", "--python", "3.13"], cwd=backend)
 
 
 def stage_pnpm_install() -> None:
@@ -293,7 +294,7 @@ def stage_pnpm_install() -> None:
         raise RuntimeError("repo not cloned yet")
     if (frontend / "node_modules").exists():
         return
-    sh(["su", "-", "orangepi", "-c", f"cd {frontend} && pnpm install --frozen-lockfile"])
+    sh(["pnpm", "install", "--frozen-lockfile"], cwd=frontend)
 
 
 def stage_pnpm_build() -> None:
@@ -302,7 +303,7 @@ def stage_pnpm_build() -> None:
         raise RuntimeError("pnpm install not done yet")
     if (frontend / "build").exists():
         return
-    sh(["su", "-", "orangepi", "-c", f"cd {frontend} && pnpm build"])
+    sh(["pnpm", "build"], cwd=frontend)
 
 
 def stage_install_services() -> None:
@@ -314,13 +315,13 @@ def stage_install_services() -> None:
 
     pnpm_bin = subprocess.check_output(["which", "pnpm"], text=True).strip()
     replacements = {
-        "__USER__": "orangepi",
+        "__USER__": "root",
         "__SOFTWARE_DIR__": str(SOFTWARE_DIR),
         "__UV_BIN__": "/usr/local/bin/uv",
         "__PNPM_BIN__": pnpm_bin,
     }
 
-    for unit in ["sorter-backend.service", "sorter-ui.service"]:
+    for unit in ["lego-sorter-backend.service", "lego-sorter-ui.service"]:
         src = systemd_src / unit
         if not src.exists():
             raise RuntimeError(f"service template {unit} not found in repo")
@@ -332,7 +333,7 @@ def stage_install_services() -> None:
         dest.chmod(0o644)
 
     sh(["systemctl", "daemon-reload"])
-    sh(["systemctl", "enable", "--now", "sorter-backend.service", "sorter-ui.service"])
+    sh(["systemctl", "enable", "--now", "lego-sorter-backend.service", "lego-sorter-ui.service"])
     log.info("sorter services installed and started")
 
 

@@ -167,6 +167,8 @@ def run(
             detail = detail_resp.json()
             (sample_dir / "metadata.json").write_text(json.dumps(detail, indent=2, sort_keys=True))
 
+            machine_meta = detail.get("machine") if isinstance(detail, dict) else None
+            machine_id = item.get("machine_id") or (machine_meta or {}).get("id")
             manifest.append(
                 {
                     "id": sample_id,
@@ -183,6 +185,7 @@ def run(
                     "captured_at": item.get("captured_at"),
                     "has_full_frame": detail.get("has_full_frame", False),
                     "has_overlay": detail.get("has_overlay", False),
+                    "machine_id": machine_id,
                     "dir": str(sample_dir.relative_to(target_dir.parent)),
                 }
             )

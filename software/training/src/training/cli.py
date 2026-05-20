@@ -77,6 +77,11 @@ def pull(hive_url: str, zone: str, source_role: str | None, status: str, token: 
     help="When using --target-size, also balance by number of pieces in the frame.",
 )
 @click.option(
+    "--balance-machine",
+    is_flag=True,
+    help="When using --target-size, also balance by source machine so one rig can't dominate the picks.",
+)
+@click.option(
     "--piece-count-bins",
     default=None,
     help="Comma-separated piece-count buckets for --balance-piece-count, e.g. 0,1,2,3,4,5,6,7,8,9-12,13+.",
@@ -117,6 +122,7 @@ def build(
     balance_source_role: bool,
     strict_source_role_balance: bool,
     balance_piece_count: bool,
+    balance_machine: bool,
     piece_count_bins: str | None,
     min_detection_score: float | None,
     max_empty_fraction: float | None,
@@ -124,9 +130,11 @@ def build(
     output_dir: str | None,
 ) -> None:
     """Build YOLO-format dataset from a pulled Hive dump."""
-    if strict_source_role_balance and not (balance_source_role or balance_piece_count):
+    if strict_source_role_balance and not (
+        balance_source_role or balance_piece_count or balance_machine
+    ):
         raise click.ClickException(
-            "--strict-balance requires --balance-source-role or --balance-piece-count"
+            "--strict-balance requires --balance-source-role, --balance-piece-count, or --balance-machine"
         )
     if max_empty_fraction is not None:
         if not keep_empty:
@@ -148,6 +156,7 @@ def build(
         embed_model=embed_model,
         balance_source_role=balance_source_role,
         balance_piece_count=balance_piece_count,
+        balance_machine=balance_machine,
         piece_count_bins=piece_count_bins or build_mod.DEFAULT_PIECE_COUNT_BINS,
         strict_source_role_balance=strict_source_role_balance,
         min_detection_score=min_detection_score,

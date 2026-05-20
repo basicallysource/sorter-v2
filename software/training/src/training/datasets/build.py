@@ -50,6 +50,7 @@ class _LabeledSample:
     boxes: tuple[tuple[float, float, float, float], ...]
     source_role: str | None
     detection_score: float | None
+    machine_id: str | None
 
 
 def _read_manifest(raw_dir: Path) -> list[dict[str, Any]]:
@@ -90,6 +91,8 @@ def _load_sample(entry: dict[str, Any], raw_dir: Path) -> _LabeledSample | None:
             continue
         boxes.append((x1, y1, x2, y2))
 
+    machine_id_raw = entry.get("machine_id")
+    machine_id = str(machine_id_raw) if machine_id_raw else None
     return _LabeledSample(
         sample_id=sample_id,
         image_path=image_path,
@@ -103,6 +106,7 @@ def _load_sample(entry: dict[str, Any], raw_dir: Path) -> _LabeledSample | None:
             and not isinstance(entry.get("detection_score"), bool)
             else None
         ),
+        machine_id=machine_id,
     )
 
 
@@ -255,6 +259,7 @@ def _balance_group_label(
     *,
     balance_source_role: bool,
     balance_piece_count: bool,
+    balance_machine: bool,
     piece_count_bins: str,
 ) -> str:
     parts: list[str] = []
@@ -263,6 +268,8 @@ def _balance_group_label(
     if balance_piece_count:
         bucket = _piece_count_bucket(len(sample.boxes), piece_count_bins)
         parts.append(f"pieces={bucket}")
+    if balance_machine:
+        parts.append(f"machine={sample.machine_id or 'unknown'}")
     return " | ".join(parts) if parts else "all"
 
 
@@ -325,6 +332,7 @@ def _apply_balanced_diversity_sampling(
     strict: bool,
     balance_source_role: bool,
     balance_piece_count: bool,
+    balance_machine: bool,
     piece_count_bins: str,
 ) -> tuple[list[_LabeledSample], dict[str, Any]]:
     grouped: dict[str, list[_LabeledSample]] = defaultdict(list)
@@ -334,6 +342,7 @@ def _apply_balanced_diversity_sampling(
                 sample,
                 balance_source_role=balance_source_role,
                 balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
                 piece_count_bins=piece_count_bins,
             )
         ].append(sample)
@@ -384,6 +393,7 @@ def _apply_balanced_diversity_sampling(
         "strategy": "equal_quota_by_balance_group_then_diversity",
         "balance_source_role": balance_source_role,
         "balance_piece_count": balance_piece_count,
+        "balance_machine": balance_machine,
         "piece_count_bins": piece_count_bins if balance_piece_count else None,
         "model_weights": model_weights,
         "source_samples": len(samples),
@@ -411,11 +421,20 @@ def _piece_count_counts(samples: Iterable[_LabeledSample], *, bins: str) -> dict
     return dict(sorted(counts.items()))
 
 
+def _machine_counts(samples: Iterable[_LabeledSample]) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for sample in samples:
+        key = sample.machine_id or "unknown"
+        counts[key] = counts.get(key, 0) + 1
+    return dict(sorted(counts.items()))
+
+
 def _balance_group_counts(
     samples: Iterable[_LabeledSample],
     *,
     balance_source_role: bool,
     balance_piece_count: bool,
+    balance_machine: bool,
     piece_count_bins: str,
 ) -> dict[str, int]:
     counts: dict[str, int] = {}
@@ -424,6 +443,7 @@ def _balance_group_counts(
             sample,
             balance_source_role=balance_source_role,
             balance_piece_count=balance_piece_count,
+            balance_machine=balance_machine,
             piece_count_bins=piece_count_bins,
         )
         counts[group] = counts.get(group, 0) + 1
@@ -438,6 +458,7 @@ def _split_samples(
     stratify_balance_groups: bool,
     balance_source_role: bool,
     balance_piece_count: bool,
+    balance_machine: bool,
     piece_count_bins: str,
 ) -> tuple[list[_LabeledSample], list[_LabeledSample]]:
     if not stratify_balance_groups:
@@ -455,6 +476,7 @@ def _split_samples(
                 sample,
                 balance_source_role=balance_source_role,
                 balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
                 piece_count_bins=piece_count_bins,
             )
         ].append(sample)
@@ -493,6 +515,7 @@ def run(
     embed_model: str = "yolo11n.pt",
     balance_source_role: bool = False,
     balance_piece_count: bool = False,
+    balance_machine: bool = False,
     piece_count_bins: str = DEFAULT_PIECE_COUNT_BINS,
     strict_source_role_balance: bool = False,
     min_detection_score: float | None = None,
@@ -551,7 +574,7 @@ def run(
         diversity_pool = samples
 
     if target_size is not None and target_size < len(diversity_pool):
-        if balance_source_role or balance_piece_count:
+        if balance_source_role or balance_piece_count or balance_machine:
             diversity_pool, diversity_info = _apply_balanced_diversity_sampling(
                 diversity_pool,
                 target_size=target_size,
@@ -560,6 +583,7 @@ def run(
                 strict=strict_source_role_balance,
                 balance_source_role=balance_source_role,
                 balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
                 piece_count_bins=piece_count_bins,
             )
         else:
@@ -600,9 +624,10 @@ def run(
         samples,
         train_ratio=train_ratio,
         seed=seed,
-        stratify_balance_groups=balance_source_role or balance_piece_count,
+        stratify_balance_groups=balance_source_role or balance_piece_count or balance_machine,
         balance_source_role=balance_source_role,
         balance_piece_count=balance_piece_count,
+        balance_machine=balance_machine,
         piece_count_bins=piece_count_bins,
     )
 
@@ -645,6 +670,7 @@ def run(
         "classes": ["piece"],
         "balance_source_role": balance_source_role,
         "balance_piece_count": balance_piece_count,
+        "balance_machine": balance_machine,
         "piece_count_bins": piece_count_bins if balance_piece_count else None,
         "strict_balance": strict_source_role_balance,
         "strict_source_role_balance": strict_source_role_balance,
@@ -658,23 +684,31 @@ def run(
             "train": _piece_count_counts(train_samples, bins=piece_count_bins),
             "val": _piece_count_counts(val_samples, bins=piece_count_bins),
         },
+        "machine_counts": {
+            "selected": _machine_counts(samples),
+            "train": _machine_counts(train_samples),
+            "val": _machine_counts(val_samples),
+        },
         "balance_group_counts": {
             "selected": _balance_group_counts(
                 samples,
                 balance_source_role=balance_source_role,
                 balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
                 piece_count_bins=piece_count_bins,
             ),
             "train": _balance_group_counts(
                 train_samples,
                 balance_source_role=balance_source_role,
                 balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
                 piece_count_bins=piece_count_bins,
             ),
             "val": _balance_group_counts(
                 val_samples,
                 balance_source_role=balance_source_role,
                 balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
                 piece_count_bins=piece_count_bins,
             ),
         },

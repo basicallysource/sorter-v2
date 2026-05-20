@@ -39,6 +39,26 @@
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Details</h2>
 	</div>
 	<div class="divide-y divide-border">
+		{#if sample.machine}
+			{@const machine = sample.machine}
+			{@const owner = machine.owner}
+			{@const machineHref = `/samples?scope=all&machine_id=${machine.id}`}
+			<div class="flex items-center justify-between gap-3 px-4 py-2">
+				<span class="text-xs text-text-muted">Machine</span>
+				<a
+					href={machineHref}
+					class="flex min-w-0 items-center gap-1.5 text-xs font-medium text-primary hover:underline"
+					title={owner?.display_name ? `${owner.display_name} / ${machine.name}` : machine.name}
+				>
+					{#if owner?.avatar_url}
+						<img src={owner.avatar_url} alt="" class="h-4 w-4 shrink-0 rounded-full" />
+					{/if}
+					<span class="min-w-0 truncate">
+						{#if owner?.display_name}<span class="text-text-muted">{owner.display_name} /</span> {/if}{machine.name}
+					</span>
+				</a>
+			</div>
+		{/if}
 		{#if sample.source_role}
 			<div class="flex items-center justify-between px-4 py-2">
 				<span class="text-xs text-text-muted">Source</span>

@@ -1,5 +1,7 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import { api, type SampleDiversityResponse } from '$lib/api';
 	import DiversityDonut from '$lib/components/DiversityDonut.svelte';
 	import Sparkline from '$lib/components/Sparkline.svelte';
@@ -12,9 +14,11 @@
 	let error = $state<string | null>(null);
 	let timer: ReturnType<typeof setInterval> | null = null;
 
+	const scope = $derived(page.url.searchParams.get('scope') === 'mine' ? 'mine' : 'all');
+
 	async function load() {
 		try {
-			data = await api.getSampleDiversity();
+			data = await api.getSampleDiversity(undefined, { scope });
 			error = null;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load diversity stats';
@@ -24,12 +28,21 @@
 	}
 
 	$effect(() => {
+		void scope;
 		void load();
 		timer = setInterval(load, REFRESH_MS);
 		return () => {
 			if (timer) clearInterval(timer);
 		};
 	});
+
+	function setScope(next: 'mine' | 'all') {
+		if (next === scope) return;
+		const url = new URL(page.url);
+		if (next === 'mine') url.searchParams.set('scope', 'mine');
+		else url.searchParams.delete('scope');
+		void goto(`${url.pathname}${url.search}`, { replaceState: false, noScroll: true, keepFocus: true });
+	}
 
 	onDestroy(() => {
 		if (timer) clearInterval(timer);
@@ -73,7 +86,7 @@
 	<title>Diversity - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
+<div class="mb-6 flex items-center justify-between gap-4">
 	<div>
 		<div class="mb-1 text-xs text-text-muted">
 			<a href="/samples" class="hover:underline">Samples</a>
@@ -83,16 +96,34 @@
 		<h1 class="text-2xl font-bold text-text">Diversity Overview</h1>
 		<p class="mt-1 text-sm text-text-muted">
 			Each donut shows how close a capture reason is to full, balanced piece-count diversity. Targets per bucket
-			are role-specific — e.g. classification ignores 9+ pieces. Strikethrough wedges are out-of-scope for that
-			role and don't drag the score. Refreshes every {REFRESH_MS / 1000}s.
+			are role-specific — e.g. classification ignores 9+ pieces. Strikethrough wedges are out-of-scope. The score
+			is additionally multiplied by a machine factor (samples spread across {data?.machine_target ?? 3} rigs
+			before a reason can hit 100%), so a fully bucketed reason from a single machine won't read as "done".
+			Refreshes every {REFRESH_MS / 1000}s.
 		</p>
 	</div>
-	{#if data}
-		<div class="text-right text-xs text-text-muted">
-			<div class="tabular-nums text-text">{data.total.toLocaleString()} samples</div>
-			<div>updated {formatRelative(data.generated_at)}</div>
+	<div class="flex flex-col items-end gap-2">
+		<div class="flex items-center gap-1 bg-bg p-1">
+			<button
+				onclick={() => setScope('all')}
+				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'all' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+			>
+				All
+			</button>
+			<button
+				onclick={() => setScope('mine')}
+				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'mine' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+			>
+				Mine
+			</button>
 		</div>
-	{/if}
+		{#if data}
+			<div class="text-right text-xs text-text-muted">
+				<div class="tabular-nums text-text">{data.total.toLocaleString()} samples</div>
+				<div>updated {formatRelative(data.generated_at)}</div>
+			</div>
+		{/if}
+	</div>
 </div>
 
 {#if loading && !data}
@@ -133,9 +164,15 @@
 					</div>
 					<Sparkline values={group.coverage_trend} height={72} />
 				</div>
-				<div class="mt-2 flex items-center justify-between text-[11px] text-text-muted">
+				<div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-text-muted">
 					<span>
 						{group.by_source_role.length} source{group.by_source_role.length === 1 ? '' : 's'}
+					</span>
+					<span
+						title={`Machines contributing: ${group.machine_count} / target ${group.machine_target}. Coverage is multiplied by ${group.machine_factor.toFixed(2)}.`}
+						class={group.machine_factor < 1 ? 'text-warning-strong' : ''}
+					>
+						{group.machine_count}/{group.machine_target} machines
 					</span>
 					<span>
 						{group.avg_score !== null ? `⌀ ${group.avg_score.toFixed(3)}` : '—'}

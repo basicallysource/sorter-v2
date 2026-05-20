@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class SampleResponse(BaseModel):
@@ -39,9 +39,49 @@ class SampleListResponse(BaseModel):
     pages: int
 
 
+class SampleMachineOwner(BaseModel):
+    id: UUID
+    display_name: str | None = None
+    avatar_url: str | None = None
+
+
+class SampleMachineSummary(BaseModel):
+    id: UUID
+    name: str
+    owner: SampleMachineOwner | None = None
+
+    @field_validator("owner", mode="before")
+    @classmethod
+    def _coerce_owner(cls, value: Any) -> Any:
+        if value is None or isinstance(value, (SampleMachineOwner, dict)):
+            return value
+        return {
+            "id": getattr(value, "id", None),
+            "display_name": getattr(value, "display_name", None),
+            "avatar_url": getattr(value, "avatar_url", None),
+        }
+
+
 class SampleDetailResponse(SampleResponse):
     has_full_frame: bool = False
     has_overlay: bool = False
+    machine: SampleMachineSummary | None = None
+
+    @field_validator("machine", mode="before")
+    @classmethod
+    def _coerce_machine(cls, value: Any) -> Any:
+        """Bridge SQLAlchemy Machine -> SampleMachineSummary.
+
+        Otherwise ``model_validate(sample)`` walks ``sample.machine`` (a Machine row) and
+        pydantic can't tell that maps to the summary schema. Mirrors MachineResponse.owner.
+        """
+        if value is None or isinstance(value, (SampleMachineSummary, dict)):
+            return value
+        return {
+            "id": getattr(value, "id", None),
+            "name": getattr(value, "name", None),
+            "owner": getattr(value, "owner", None),
+        }
 
 
 class SavedAnnotationBody(BaseModel):

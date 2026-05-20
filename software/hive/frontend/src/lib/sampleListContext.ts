@@ -1,10 +1,15 @@
 export const SAMPLE_LIST_DEFAULT_PAGE_SIZE = 30;
 
+// 'scope' is included so the URL ?scope=mine survives reloads and is carried back to the list
+// from sample detail. Default scope (omitted) is "all samples". 'max_age_hours' carries the
+// Age sidebar filter (24/168/720) so reload preserves it.
 export const SAMPLE_LIST_FILTER_KEYS = [
+	'scope',
 	'machine_id',
 	'review_status',
 	'source_role',
-	'capture_reason'
+	'capture_reason',
+	'max_age_hours'
 ] as const;
 
 export type SampleListFilterKey = (typeof SAMPLE_LIST_FILTER_KEYS)[number];
@@ -16,10 +21,12 @@ const SAMPLE_LIST_CONTEXT_KEYS = [
 ] as const;
 
 export interface SampleListFilters {
+	scope?: string;
 	machine_id?: string;
 	review_status?: string;
 	source_role?: string;
 	capture_reason?: string;
+	max_age_hours?: string;
 }
 
 export interface SampleListContext extends SampleListFilters {
@@ -67,10 +74,12 @@ export function sampleListFilterParams(ctx: SampleListContext): SampleListFilter
 
 export function sampleListContextKey(ctx: SampleListContext): string {
 	return JSON.stringify({
+		scope: ctx.scope ?? '',
 		machine_id: ctx.machine_id ?? '',
 		review_status: ctx.review_status ?? '',
 		source_role: ctx.source_role ?? '',
 		capture_reason: ctx.capture_reason ?? '',
+		max_age_hours: ctx.max_age_hours ?? '',
 		page_size: ctx.page_size
 	});
 }

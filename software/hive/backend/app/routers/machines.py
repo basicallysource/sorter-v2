@@ -2,12 +2,12 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from pydantic import BaseModel, Field
 from slowapi import Limiter
 from slowapi.util import get_remote_address
 from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.deps import get_current_machine, get_current_user, get_db, verify_csrf
 from app.errors import APIError
@@ -47,11 +47,14 @@ class MachineSetProgressReportPayload(BaseModel):
 
 @router.get("/machines", response_model=list[MachineResponse])
 def list_machines(
+    scope: str | None = Query(None, pattern="^(mine|all)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    machines = db.query(Machine).filter(Machine.owner_id == current_user.id).all()
-    return machines
+    query = db.query(Machine).options(joinedload(Machine.owner))
+    if scope != "all":
+        query = query.filter(Machine.owner_id == current_user.id)
+    return query.all()
 
 
 @router.get("/machines/stats")

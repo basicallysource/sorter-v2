@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import FileResponse
-from sqlalchemy import case, func
+from sqlalchemy import case, distinct, func
 from sqlalchemy.orm import Session
 
 from app.deps import (
@@ -53,26 +53,44 @@ def _normalized_optional_string(value: str | None) -> str | None:
     return normalized or None
 
 
-def _sample_query_for_user(db: Session, current_user: User):
+def _visible_sample_query(db: Session, current_user: User, scope: str | None):
+    """Read-side query.
+
+    Default scope is 'all' — samples are public to any logged-in user. ``scope='mine'``
+    restricts to the caller's machines.
+    """
     query = db.query(Sample)
-    if current_user.role in {"reviewer", "admin"}:
-        return query
-    return query.filter(Sample.machine.has(owner_id=current_user.id))
+    if scope == "mine":
+        query = query.filter(Sample.machine.has(owner_id=current_user.id))
+    return query
 
 
-def _get_sample_for_user(db: Session, sample_id: UUID, current_user: User) -> Sample:
-    sample = _sample_query_for_user(db, current_user).filter(Sample.id == sample_id).first()
+def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
     if not sample:
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
     return sample
 
 
+def _get_sample_for_write(db: Session, sample_id: UUID, current_user: User) -> Sample:
+    """Writes (annotations/classification/delete) require owner or reviewer/admin."""
+    sample = _get_sample_for_read(db, sample_id)
+    is_owner = sample.machine.owner_id == current_user.id
+    is_privileged = current_user.role in {"reviewer", "admin"}
+    if not is_owner and not is_privileged:
+        raise APIError(403, "Not authorized for this sample", "FORBIDDEN")
+    return sample
+
+
+
+
 @router.get("/filter-options")
 def get_sample_filter_options(
+    scope: str | None = Query(None, pattern="^(mine|all)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    query = _sample_query_for_user(db, current_user)
+    query = _visible_sample_query(db, current_user, scope)
     source_roles = [
         value
         for (value,) in (
@@ -115,6 +133,11 @@ def get_sample_filter_options(
 _DIVERSITY_BUCKET_KEYS = ("0", "1", "2", "3", "4", "5", "6", "7", "8", "9-12", "13+")
 _DIVERSITY_TARGET_PER_BUCKET = 50
 _DIVERSITY_TREND_POINTS = 24
+# Machine-diversity target — how many distinct machines we want contributing samples for a
+# given (capture_reason × source_role) before the coverage stops being penalized. A piece
+# captured by only one rig overfits the model to that rig's lighting/optics/wear; spreading
+# across rigs is a multiplicative factor on top of bucket coverage.
+_DIVERSITY_MACHINE_TARGET = 3
 
 _DIVERSITY_TARGETS_DEFAULT: dict[str, int] = {k: _DIVERSITY_TARGET_PER_BUCKET for k in _DIVERSITY_BUCKET_KEYS}
 
@@ -190,7 +213,7 @@ def _coverage_from_fills(fills: dict[str, float | None]) -> float:
     return sum(relevant) / len(relevant)
 
 
-def _trend_boundaries(samples: list[tuple[int | None, datetime]]) -> list[datetime]:
+def _trend_boundaries(samples: list[tuple[int | None, datetime, UUID | None]]) -> list[datetime]:
     if not samples:
         return []
     t_first = samples[0][1]
@@ -199,6 +222,13 @@ def _trend_boundaries(samples: list[tuple[int | None, datetime]]) -> list[dateti
         return [t_last]
     step = (t_last - t_first) / _DIVERSITY_TREND_POINTS
     return [t_first + step * (i + 1) for i in range(_DIVERSITY_TREND_POINTS)]
+
+
+def _machine_factor(machine_count: int) -> float:
+    target = _DIVERSITY_MACHINE_TARGET
+    if target <= 0:
+        return 1.0
+    return min(machine_count, target) / target
 
 
 def _eta_seconds_from_trend(
@@ -229,18 +259,21 @@ def _eta_seconds_from_trend(
 
 
 def _trend_on_grid(
-    samples: list[tuple[int | None, datetime]],
+    samples: list[tuple[int | None, datetime, UUID | None]],
     boundaries: list[datetime],
     targets: dict[str, int],
 ) -> list[float]:
     """Cumulative coverage of the role's samples sampled at the group's shared time grid.
 
     Boundaries come from the *group* timeline so that all roles within a group line up — that
-    way the group-level trend can be the mean of role trends without time-axis skew.
+    way the group-level trend can be the mean of role trends without time-axis skew. The
+    cumulative machine count at each boundary is folded in so the trend reflects the same
+    machine-factor penalty as the live coverage number.
     """
     if not boundaries:
         return []
     counts = _empty_buckets()
+    machines: set[UUID] = set()
     trend: list[float] = []
     idx = 0
     for boundary in boundaries:
@@ -248,24 +281,31 @@ def _trend_on_grid(
             key = _piece_bucket_key(samples[idx][0])
             if key in counts:
                 counts[key] += 1
+            machine_id = samples[idx][2]
+            if machine_id is not None:
+                machines.add(machine_id)
             idx += 1
-        trend.append(_coverage_from_fills(_bucket_fills(counts, targets)))
+        base = _coverage_from_fills(_bucket_fills(counts, targets))
+        trend.append(base * _machine_factor(len(machines)))
     return trend
 
 
 @router.get("/diversity")
 def get_sample_diversity(
     capture_reason: str | None = None,
+    scope: str | None = Query(None, pattern="^(mine|all)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
     """Live diversity overview, grouped by capture_reason × source_role × piece-bucket.
 
     Each piece-count bucket has a target sample count (matches training/_progress targets).
-    `coverage` per node is the mean of `min(count, target) / target` across buckets — 1.0 == full
-    diversity. The frontend renders this as a donut where each wedge fills toward target.
+    `coverage` per node is the mean of `min(count, target) / target` across buckets, multiplied
+    by ``machine_factor = min(distinct_machines, machine_target) / machine_target`` — so a fully
+    bucketed reason that comes from a single rig still scores below 1.0. The frontend renders
+    each donut filling toward target with the machine factor surfaced separately.
     """
-    base = _sample_query_for_user(db, current_user).filter(Sample.capture_reason.isnot(None))
+    base = _visible_sample_query(db, current_user, scope).filter(Sample.capture_reason.isnot(None))
     if capture_reason:
         base = base.filter(Sample.capture_reason == capture_reason)
 
@@ -286,6 +326,7 @@ def get_sample_diversity(
         base.with_entities(
             Sample.capture_reason,
             Sample.source_role,
+            Sample.machine_id,
             Sample.detection_count,
             Sample.uploaded_at,
         )
@@ -293,14 +334,41 @@ def get_sample_diversity(
         .all()
     )
 
-    timeline_by_pair: dict[tuple[str, str], list[tuple[int | None, datetime]]] = {}
-    timeline_by_reason: dict[str, list[tuple[int | None, datetime]]] = {}
-    for reason, role, count, ts in timeline_rows:
+    machine_rows_by_pair = (
+        base.with_entities(
+            Sample.capture_reason,
+            Sample.source_role,
+            func.count(distinct(Sample.machine_id)).label("machine_count"),
+        )
+        .group_by(Sample.capture_reason, Sample.source_role)
+        .all()
+    )
+    machines_by_pair: dict[tuple[str, str], int] = {
+        (reason, role or "unknown"): int(count or 0)
+        for reason, role, count in machine_rows_by_pair
+        if reason is not None
+    }
+
+    machine_rows_by_reason = (
+        base.with_entities(
+            Sample.capture_reason,
+            func.count(distinct(Sample.machine_id)).label("machine_count"),
+        )
+        .group_by(Sample.capture_reason)
+        .all()
+    )
+    machines_by_reason: dict[str, int] = {
+        reason: int(count or 0) for reason, count in machine_rows_by_reason if reason is not None
+    }
+
+    timeline_by_pair: dict[tuple[str, str], list[tuple[int | None, datetime, UUID | None]]] = {}
+    timeline_by_reason: dict[str, list[tuple[int | None, datetime, UUID | None]]] = {}
+    for reason, role, machine_id, count, ts in timeline_rows:
         if reason is None or ts is None:
             continue
         role_key = role or "unknown"
-        timeline_by_reason.setdefault(reason, []).append((count, ts))
-        timeline_by_pair.setdefault((reason, role_key), []).append((count, ts))
+        timeline_by_reason.setdefault(reason, []).append((count, ts, machine_id))
+        timeline_by_pair.setdefault((reason, role_key), []).append((count, ts, machine_id))
 
     groups: dict[str, dict] = {}
 
@@ -378,9 +446,16 @@ def get_sample_diversity(
             role_samples = timeline_by_pair.get((reason, role["source_role"]), [])
             role_targets = _targets_for_role(role["source_role"])
             fills = _bucket_fills(role["buckets"], role_targets)
+            role_machine_count = machines_by_pair.get((reason, role["source_role"]), 0)
+            role_machine_factor = _machine_factor(role_machine_count)
             role["bucket_fills"] = fills
             role["bucket_targets"] = dict(role_targets)
-            role["coverage"] = _coverage_from_fills(fills)
+            base_coverage = _coverage_from_fills(fills)
+            role["coverage_base"] = base_coverage
+            role["coverage"] = base_coverage * role_machine_factor
+            role["machine_count"] = role_machine_count
+            role["machine_target"] = _DIVERSITY_MACHINE_TARGET
+            role["machine_factor"] = role_machine_factor
             role["coverage_trend"] = _trend_on_grid(role_samples, boundaries, role_targets)
             role["eta_seconds"] = _eta_seconds_from_trend(role["coverage"], role["coverage_trend"], boundaries)
             _finalize_score(role)
@@ -397,11 +472,19 @@ def get_sample_diversity(
 
         # Group view: average per-role fills and trends across roles where the bucket is
         # in scope. A bucket only counts as full when *every* relevant role has it filled
-        # — that's the balanced-diversity signal.
+        # — that's the balanced-diversity signal. Machine factor is applied on top of the
+        # already-multiplied role trends so the group line stays in sync.
         group_fills = _avg_fills(role_fills)
+        group_machine_count = machines_by_reason.get(reason, 0)
+        group_machine_factor = _machine_factor(group_machine_count)
         group["bucket_fills"] = group_fills
         group["bucket_targets"] = group_targets_union
-        group["coverage"] = _coverage_from_fills(group_fills)
+        base_group_coverage = _coverage_from_fills(group_fills)
+        group["coverage_base"] = base_group_coverage
+        group["coverage"] = base_group_coverage * group_machine_factor
+        group["machine_count"] = group_machine_count
+        group["machine_target"] = _DIVERSITY_MACHINE_TARGET
+        group["machine_factor"] = group_machine_factor
         if role_trends and boundaries:
             n_roles = len(role_trends)
             group["coverage_trend"] = [
@@ -421,6 +504,7 @@ def get_sample_diversity(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "total": sum(g["total"] for g in output_groups),
         "default_target_per_bucket": _DIVERSITY_TARGET_PER_BUCKET,
+        "machine_target": _DIVERSITY_MACHINE_TARGET,
         "bucket_keys": list(_DIVERSITY_BUCKET_KEYS),
         "groups": output_groups,
     }
@@ -435,10 +519,12 @@ def list_samples(
     source_role: str | None = None,
     capture_reason: str | None = None,
     review_status: str | None = None,
+    max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
+    scope: str | None = Query(None, pattern="^(mine|all)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    query = _sample_query_for_user(db, current_user)
+    query = _visible_sample_query(db, current_user, scope)
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)
@@ -450,6 +536,10 @@ def list_samples(
         query = query.filter(Sample.capture_reason == capture_reason)
     if review_status:
         query = query.filter(Sample.review_status == review_status)
+    if max_age_hours is not None:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
+        query = query.filter(Sample.uploaded_at >= cutoff)
 
     query = query.order_by(Sample.uploaded_at.desc())
 
@@ -472,7 +562,7 @@ def get_sample(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_user(db, sample_id, current_user)
+    sample = _get_sample_for_read(db, sample_id)
 
     data = SampleDetailResponse.model_validate(sample)
     data.has_full_frame = sample.full_frame_path is not None
@@ -488,7 +578,7 @@ def save_sample_annotations(
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
-    sample = _get_sample_for_user(db, sample_id, current_user)
+    sample = _get_sample_for_write(db, sample_id, current_user)
 
     payload = SampleAnnotationsPayload(
         version=data.version,
@@ -520,7 +610,7 @@ def save_sample_classification(
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
-    sample = _get_sample_for_user(db, sample_id, current_user)
+    sample = _get_sample_for_write(db, sample_id, current_user)
 
     if not _is_classification_sample(sample):
         raise APIError(
@@ -568,11 +658,9 @@ def delete_sample(
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
-    sample = db.query(Sample).filter(Sample.id == sample_id).first()
-    if not sample:
-        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    sample = _get_sample_for_read(db, sample_id)
 
-    # Only owner of the machine or admin can delete
+    # Deletes need owner or admin — reviewers don't get to drop other people's data.
     is_owner = sample.machine.owner_id == current_user.id
     is_admin = current_user.role == "admin"
     if not is_owner and not is_admin:
@@ -596,7 +684,7 @@ def get_sample_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_user(db, sample_id, current_user)
+    sample = _get_sample_for_read(db, sample_id)
 
     return serve_stored_file(sample.image_path, headers={"Cache-Control": "public, max-age=86400"})
 
@@ -607,8 +695,8 @@ def get_sample_full_frame(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_user(db, sample_id, current_user)
-    if not sample or not sample.full_frame_path:
+    sample = _get_sample_for_read(db, sample_id)
+    if not sample.full_frame_path:
         raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
 
     return serve_stored_file(sample.full_frame_path, headers={"Cache-Control": "public, max-age=86400"})
@@ -620,8 +708,8 @@ def get_sample_overlay(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_user(db, sample_id, current_user)
-    if not sample or not sample.overlay_path:
+    sample = _get_sample_for_read(db, sample_id)
+    if not sample.overlay_path:
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 
     return serve_stored_file(sample.overlay_path, headers={"Cache-Control": "public, max-age=86400"})

@@ -9,6 +9,7 @@
 	const REFRESH_MS = 5000;
 
 	const captureReason = $derived(page.params.reason ?? '');
+	const scope = $derived(page.url.searchParams.get('scope') === 'mine' ? 'mine' : 'all');
 
 	let data = $state<SampleDiversityResponse | null>(null);
 	let loading = $state(true);
@@ -20,7 +21,7 @@
 	async function load() {
 		if (!captureReason) return;
 		try {
-			data = await api.getSampleDiversity(captureReason);
+			data = await api.getSampleDiversity(captureReason, { scope });
 			error = null;
 		} catch (err) {
 			error = err instanceof Error ? err.message : 'Failed to load diversity detail';
@@ -31,6 +32,7 @@
 
 	$effect(() => {
 		void captureReason;
+		void scope;
 		void load();
 		timer = setInterval(load, REFRESH_MS);
 		return () => {
@@ -70,6 +72,7 @@
 		const sp = new URLSearchParams();
 		sp.set('capture_reason', captureReason);
 		if (sourceRole && sourceRole !== 'unknown') sp.set('source_role', sourceRole);
+		if (scope === 'mine') sp.set('scope', 'mine');
 		return `/samples?${sp.toString()}`;
 	}
 
@@ -153,6 +156,9 @@
 					<div class="text-xs text-text-muted">
 						{group.avg_score !== null ? `⌀ score ${group.avg_score.toFixed(3)}` : 'no scores'}
 					</div>
+					<div class="text-xs {group.machine_factor < 1 ? 'text-warning-strong' : 'text-text-muted'}" title={`coverage × ${group.machine_factor.toFixed(2)}`}>
+						{group.machine_count} / {group.machine_target} machines
+					</div>
 					<div class="text-xs text-text-muted">last {formatRelative(group.last_uploaded_at)}</div>
 				</div>
 			</div>
@@ -196,7 +202,10 @@
 					</div>
 					<Sparkline values={role.coverage_trend} height={72} />
 				</div>
-				<div class="mt-2 flex items-center justify-between text-[11px] text-text-muted">
+				<div class="mt-2 flex items-center justify-between gap-2 text-[11px] text-text-muted">
+					<span class={role.machine_factor < 1 ? 'text-warning-strong' : ''} title={`coverage × ${role.machine_factor.toFixed(2)}`}>
+						{role.machine_count}/{role.machine_target} machines
+					</span>
 					<span>{role.avg_score !== null ? `⌀ ${role.avg_score.toFixed(3)}` : '—'}</span>
 					<span>{formatRelative(role.last_uploaded_at)}</span>
 				</div>

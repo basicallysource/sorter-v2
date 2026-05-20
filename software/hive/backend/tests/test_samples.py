@@ -318,7 +318,7 @@ class TestSampleAssets:
 
 
 class TestSampleAuthorization:
-    def test_member_cannot_access_other_users_samples(
+    def test_member_sees_other_users_samples_by_default(
         self,
         client: TestClient,
         test_user: dict,
@@ -326,6 +326,11 @@ class TestSampleAuthorization:
         machine_token: str,
         upload_dir: str,
     ) -> None:
+        """Default scope is public — any signed-in member can read any sample.
+
+        Writes (annotations, deletes) still require ownership or reviewer/admin role; that
+        constraint is asserted further down.
+        """
         sample = _upload_sample(client, machine_token, "sess-auth", "s1")
         sample_id = sample["id"]
 
@@ -336,20 +341,25 @@ class TestSampleAuthorization:
         listing = client.get("/api/samples", headers=other_headers)
         assert listing.status_code == 200
         items = listing.json().get("items", [])
-        assert all(item["id"] != sample_id for item in items)
+        assert any(item["id"] == sample_id for item in items)
+
+        mine_only = client.get("/api/samples?scope=mine", headers=other_headers)
+        assert mine_only.status_code == 200
+        assert all(item["id"] != sample_id for item in mine_only.json().get("items", []))
 
         detail = client.get(f"/api/samples/{sample_id}", headers=other_headers)
-        assert detail.status_code == 404
+        assert detail.status_code == 200
+        assert detail.json()["id"] == sample_id
 
         asset = client.get(f"/api/samples/{sample_id}/assets/image", headers=other_headers)
-        assert asset.status_code == 404
+        assert asset.status_code == 200
 
         annotations = client.put(
             f"/api/samples/{sample_id}/annotations",
             headers=other_headers,
             json={"annotations": []},
         )
-        assert annotations.status_code == 404
+        assert annotations.status_code == 403
 
     def test_reviewer_can_access_other_users_samples(
         self,

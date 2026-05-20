@@ -30,11 +30,7 @@ SorterOS is a purpose-built OS image for Sorter, based on the official Ubuntu im
 
 ## Step 1 — Download the image
 
-Download the latest SorterOS image from the releases page:
-
-**[github.com/basicallysource/sorter-v2/releases](https://github.com/basicallysource/sorter-v2/releases)**
-
-Download the `.img` file listed under the latest release.
+Download the latest SorterOS image from the **[Sorter V2 Google Drive](https://drive.google.com/drive/folders/1nRnxsPAwqpQkKYpljX6rjEPLY775yl-R)**. Download the most recent `.zip` file, then decompress it on your computer.
 
 ## Step 2 — Configure WiFi and SSH
 

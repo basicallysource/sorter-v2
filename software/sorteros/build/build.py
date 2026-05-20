@@ -332,10 +332,15 @@ def phase_chroot(ctx: BuildCtx) -> None:
     shutil.copy2(chroot_script_src, tmp_dst)
     tmp_dst.chmod(0o755)
 
+    # Copy the host's working resolv.conf into the chroot. The Orange Pi
+    # base image has a stub or hardcoded nameserver that may be unreachable
+    # from inside the build VM; the host resolver is always correct.
+    resolv_dst = ctx.mnt / "etc" / "resolv.conf"
+    resolv_dst.unlink(missing_ok=True)
+    shutil.copy2("/etc/resolv.conf", resolv_dst)
+
     _bind_mounts_up(ctx)
     try:
-        # /etc/resolv.conf inside the chroot may be a stub symlink; the
-        # chroot_apt.sh script will write a fallback if needed.
         run(["chroot", str(ctx.mnt), "/tmp/chroot_apt.sh"])
     finally:
         _bind_mounts_down(ctx)

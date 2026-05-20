@@ -9,6 +9,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Any
 from dataclasses import dataclass
 
+from global_config import GlobalConfig
+
 
 @dataclass
 class TagAssignment:
@@ -20,7 +22,8 @@ class TagAssignment:
 class ArucoConfigManager:
     """Manages ArUco tag configuration and persistence."""
     
-    def __init__(self, config_path: str = "aruco_config.json"):
+    def __init__(self, gc: GlobalConfig, config_path: str = "aruco_config.json"):
+        self._gc = gc
         self.config_path = Path(config_path)
         self.default_config_path = self.config_path.with_name("aruco_config_default.json")
         self.config: Dict[str, Any] = self._load_or_create_config()
@@ -52,8 +55,18 @@ class ArucoConfigManager:
             try:
                 with open(self.config_path, 'r') as f:
                     return json.load(f)
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                pass
+            except (json.JSONDecodeError, UnicodeDecodeError) as e:
+                self._gc.logger.warn(
+                    f"aruco config file is corrupt ({e}): {self.config_path} — falling back to defaults"
+                )
+        elif not self.config_path.exists():
+            self._gc.logger.warn(
+                f"aruco config file not found: {self.config_path} — falling back to defaults"
+            )
+        else:
+            self._gc.logger.warn(
+                f"aruco config file is empty: {self.config_path} — falling back to defaults"
+            )
 
         if self.default_config_path.exists():
             self.config_path.parent.mkdir(parents=True, exist_ok=True)

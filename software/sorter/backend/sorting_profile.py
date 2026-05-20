@@ -15,6 +15,7 @@ class SortingProfile(ABC):
 
 class JsonSortingProfile(SortingProfile):
     def __init__(self, gc: GlobalConfig):
+        self._gc = gc
         self._sorting_profile_path = gc.sorting_profile_path
         self.part_to_category: dict[str, str] = {}
         self.default_category_id = MISC_CATEGORY
@@ -28,9 +29,20 @@ class JsonSortingProfile(SortingProfile):
             with open(self._sorting_profile_path, "r") as f:
                 content = f.read()
             if not content.strip():
+                self._gc.logger.warn(
+                    f"sorting profile file is empty: {self._sorting_profile_path}"
+                )
                 return
             data = json.loads(content)
-        except (FileNotFoundError, json.JSONDecodeError):
+        except FileNotFoundError:
+            self._gc.logger.warn(
+                f"sorting profile file not found: {self._sorting_profile_path}"
+            )
+            return
+        except json.JSONDecodeError as e:
+            self._gc.logger.warn(
+                f"sorting profile file is corrupt ({e}): {self._sorting_profile_path}"
+            )
             return
         if "part_to_category" not in data:
             raise ValueError("sorting profile json missing part_to_category")

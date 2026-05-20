@@ -189,7 +189,7 @@ def main() -> None:
     # Initialize ArUco tag configuration manager
     with gc.profiler.timer("startup.aruco_config_ms"):
         aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
-        aruco_mgr = ArucoConfigManager(str(aruco_config_path))
+        aruco_mgr = ArucoConfigManager(gc, str(aruco_config_path))
         setArucoManager(aruco_mgr)
 
     # Create a minimal IRL interface (no hardware discovery yet)

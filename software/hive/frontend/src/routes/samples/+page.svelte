@@ -431,14 +431,30 @@
 			</button>
 		{/if}
 		{#if auth.isReviewer}
+			{@const reviewHref = (() => {
+				// Forward the same sidebar filters to the review queue so the reviewer drains
+				// only the slice they have selected (e.g. "C-Channel 4, last 24h"). Empty
+				// values are omitted so a plain click with no filter behaves as before.
+				const sp = new URLSearchParams();
+				if (filterScope === 'mine') sp.set('scope', 'mine');
+				if (filterMachine) sp.set('machine_id', filterMachine);
+				if (filterSourceRole) sp.set('source_role', filterSourceRole);
+				if (filterCaptureReason) sp.set('capture_reason', filterCaptureReason);
+				if (filterMaxAgeHours) sp.set('max_age_hours', filterMaxAgeHours);
+				// review_status filter doesn't make sense — the queue only serves unreviewed
+				// + in_review samples anyway.
+				const qs = sp.toString();
+				return qs ? `/review?${qs}` : '/review';
+			})()}
 			<a
-				href="/review"
+				href={reviewHref}
 				class="inline-flex items-center gap-2 bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+				title={hasActiveFilters ? 'Review only the samples matching the current filter' : 'Open the full review queue'}
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
 				</svg>
-				Review Samples
+				Review {hasActiveFilters ? 'filtered' : 'Samples'}
 			</a>
 		{/if}
 	</div>

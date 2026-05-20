@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import { page } from '$app/state';
 	import {
 		api,
 		type SampleClassificationPayload,
@@ -178,12 +179,27 @@
 		}
 	}
 
+	// Carry the samples-list sidebar filter through the review session so the queue only
+	// serves the slice the reviewer chose (e.g. "C-Channel 4, last 24h"). The params live
+	// in the URL — a refresh keeps the filter, navigating directly to /review without
+	// query string opens the full queue as before.
+	const queueFilters = $derived.by(() => {
+		const sp = page.url.searchParams;
+		const params: Record<string, string> = {};
+		for (const key of ['scope', 'machine_id', 'source_role', 'capture_reason', 'max_age_hours']) {
+			const value = sp.get(key);
+			if (value) params[key] = value;
+		}
+		return params;
+	});
+	const activeFilterChips = $derived(Object.entries(queueFilters));
+
 	async function loadNext() {
 		loading = true;
 		error = null;
 		feedback = null;
 		try {
-			const next = await api.getNextReview();
+			const next = await api.getNextReview(queueFilters);
 			if (!next) {
 				sample = null;
 				reviews = [];
@@ -391,6 +407,17 @@
 		<p class="mt-1 text-sm text-text-muted">
 			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation.
 		</p>
+		{#if activeFilterChips.length > 0}
+			<div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+				<span class="text-text-muted">Scoped to:</span>
+				{#each activeFilterChips as [key, value] (key)}
+					<span class="border border-border bg-bg px-1.5 py-0.5 text-text-muted">
+						{key}=<span class="text-text">{value}</span>
+					</span>
+				{/each}
+				<a href="/review" class="text-primary hover:underline">Clear</a>
+			</div>
+		{/if}
 	</div>
 </div>
 

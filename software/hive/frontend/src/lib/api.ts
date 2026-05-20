@@ -702,8 +702,23 @@ export const api = {
 	},
 
 	// Review
-	getNextReview() {
-		return request<Sample | null>('GET', '/api/review/queue/next');
+	getNextReview(
+		params: {
+			scope?: 'mine' | 'all' | string;
+			machine_id?: string;
+			source_role?: string;
+			capture_reason?: string;
+			max_age_hours?: number | string;
+		} = {}
+	) {
+		const sp = new URLSearchParams();
+		for (const [key, val] of Object.entries(params)) {
+			if (val !== undefined && val !== null && val !== '') {
+				sp.set(key, String(val));
+			}
+		}
+		const qs = sp.toString();
+		return request<Sample | null>('GET', `/api/review/queue/next${qs ? '?' + qs : ''}`);
 	},
 	submitReview(sampleId: string, decision: 'accept' | 'reject', notes?: string) {
 		return request<SampleReview>('POST', `/api/review/samples/${sampleId}`, { decision, notes });

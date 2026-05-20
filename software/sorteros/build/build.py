@@ -12,6 +12,7 @@ Phases (run with --phase <name> for a partial rerun):
   chroot            — run chroot_apt.sh inside the rootfs
   firstboot-config  — write /etc/sorteros-config.toml placeholder
   finalize          — unmount, rename, report
+  zip               — compress .img → .img.zip for GitHub Releases distribution
 
 Default with no --phase: run all of them in order. Each phase is
 idempotent on its own — re-running a single phase won't break the
@@ -28,11 +29,12 @@ import shutil
 import subprocess
 import sys
 import tomllib
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PHASES = ["prep", "grow", "mount", "overlay", "chroot", "firstboot-config", "finalize"]
+PHASES = ["prep", "grow", "mount", "overlay", "chroot", "firstboot-config", "finalize", "zip"]
 
 # Bytes of free space to add to the image before chroot. The Orange Pi
 # base image is sized for an 8 GB SD card but only ~2.5 GB is free
@@ -412,6 +414,24 @@ def phase_finalize(ctx: BuildCtx) -> None:
     log(f"image ready: {final}  ({size / 1024 / 1024:.0f} MiB)")
 
 
+# ─── zip ───────────────────────────────────────────────────────────────────
+
+def phase_zip(ctx: BuildCtx) -> None:
+    imgs = sorted(ctx.out_dir.glob("sorteros-v*.img"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not imgs:
+        sys.exit("zip phase: no .img found in out/ — run finalize first")
+    img = imgs[0]
+    zip_path = img.with_suffix(".zip")
+    if zip_path.exists():
+        zip_path.unlink()
+    log(f"zipping {img.name} → {zip_path.name} ...")
+    with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
+        zf.write(img, arcname=img.name)
+    raw_mb = img.stat().st_size / 1024 ** 2
+    zip_mb = zip_path.stat().st_size / 1024 ** 2
+    log(f"zip ready: {zip_path}  ({zip_mb:.0f} MiB, {raw_mb / zip_mb:.1f}x compression)")
+
+
 # ─── orchestration ────────────────────────────────────────────────────────
 
 PHASE_FNS = {
@@ -422,6 +442,7 @@ PHASE_FNS = {
     "chroot": phase_chroot,
     "firstboot-config": phase_firstboot_config,
     "finalize": phase_finalize,
+    "zip": phase_zip,
 }
 
 

@@ -42,6 +42,7 @@ PHASE_DURATIONS: dict[str, int] = {
     "chroot": 90,
     "firstboot-config": 1,
     "finalize": 5,
+    "zip": 120,
 }
 PHASES = list(PHASE_DURATIONS.keys())
 TOTAL_EXPECTED = sum(PHASE_DURATIONS.values())
@@ -104,10 +105,20 @@ def _scan_builds() -> list[BuildRecord]:
     records: list[BuildRecord] = []
     if not OUT_DIR.exists():
         return records
-    for p in sorted(OUT_DIR.glob("sorteros-v*.img"), reverse=True):
-        m = re.match(r"sorteros-(v[\d.]+)-(\d{4}-\d{2}-\d{2})\.img", p.name)
+    seen: set[str] = set()
+    candidates = sorted(
+        list(OUT_DIR.glob("sorteros-v*.zip")) + list(OUT_DIR.glob("sorteros-v*.img")),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
+    )
+    for p in candidates:
+        m = re.match(r"sorteros-(v[\d.]+)-(\d{4}-\d{2}-\d{2})\.(img|zip)", p.name)
         if not m:
             continue
+        key = f"{m.group(1)}-{m.group(2)}"
+        if key in seen:
+            continue  # prefer .zip over .img for same version/date
+        seen.add(key)
         records.append(BuildRecord(
             version=m.group(1),
             date=m.group(2),
@@ -185,8 +196,10 @@ async def _run_build(req: BuildRequest) -> None:
     _state.end_time = time.time()
     _state.running = False
 
-    # Find the output image
-    latest = sorted(OUT_DIR.glob("sorteros-v*.img"), key=lambda p: p.stat().st_mtime, reverse=True)
+    # Prefer the .zip if present, fall back to .img
+    latest_zip = sorted(OUT_DIR.glob("sorteros-v*.zip"), key=lambda p: p.stat().st_mtime, reverse=True)
+    latest_img = sorted(OUT_DIR.glob("sorteros-v*.img"), key=lambda p: p.stat().st_mtime, reverse=True)
+    latest = latest_zip or latest_img
     if latest:
         _state.output_path = str(latest[0])
 

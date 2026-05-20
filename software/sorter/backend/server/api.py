@@ -298,12 +298,36 @@ class SortingProfileSetViewPartStateResponse(BaseModel):
     user_state: str = "auto"
 
 
+def _loadSortingProfileRaw() -> dict | None:
+    if shared_state.gc_ref is None:
+        return None
+    gc = shared_state.gc_ref
+    path = gc.sorting_profile_path
+    try:
+        with open(path, "r") as f:
+            content = f.read()
+    except FileNotFoundError:
+        gc.logger.warn(f"sorting profile file not found: {path}")
+        return None
+    if not content.strip():
+        gc.logger.warn(f"sorting profile file is empty: {path}")
+        return None
+    try:
+        data = json.loads(content)
+    except json.JSONDecodeError as e:
+        gc.logger.warn(f"sorting profile file is corrupt ({e}): {path}")
+        return None
+    if not isinstance(data, dict):
+        gc.logger.warn(f"sorting profile file is not a JSON object: {path}")
+        return None
+    return data
+
+
 @app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
 def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        data = json.load(f)
+    data = _loadSortingProfileRaw() or {}
     return SortingProfileMetadataResponse(
         id=data.get("id", ""),
         name=data.get("name", os.path.basename(shared_state.gc_ref.sorting_profile_path)),
@@ -331,8 +355,9 @@ def getSortingProfileSetView(category_id: str) -> SortingProfileSetViewResponse:
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
 
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        raw_profile = json.load(f)
+    raw_profile = _loadSortingProfileRaw()
+    if raw_profile is None:
+        raise HTTPException(status_code=404, detail="No sorting profile loaded")
     set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
     if not isinstance(set_inventories, dict):
         raise HTTPException(status_code=404, detail="No set inventory data available")
@@ -417,8 +442,9 @@ def updateSortingProfileSetViewPartState(
     if shared_state.gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
 
-    with open(shared_state.gc_ref.sorting_profile_path, "r") as f:
-        raw_profile = json.load(f)
+    raw_profile = _loadSortingProfileRaw()
+    if raw_profile is None:
+        raise HTTPException(status_code=404, detail="No sorting profile loaded")
     set_inventories = raw_profile.get("set_inventories") if isinstance(raw_profile, dict) else None
     if not isinstance(set_inventories, dict):
         raise HTTPException(status_code=404, detail="No set inventory data available")

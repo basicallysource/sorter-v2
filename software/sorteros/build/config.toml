@@ -25,6 +25,7 @@ packages = [
     "v4l-utils",          # camera inspection / V4L2 tools
     "git-lfs",            # pull LFS model artifacts on first boot
     "cloud-guest-utils",  # provides growpart for stage_grow_rootfs
+    "figlet",             # MOTD ASCII art for SorterOS login screen
 ]
 
 # Installed via curl scripts in chroot_apt.sh (NOT apt):

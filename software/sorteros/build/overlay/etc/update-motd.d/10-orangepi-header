@@ -1,0 +1,55 @@
+#!/bin/bash
+
+MOTD_DISABLE=""
+[[ -f /etc/default/orangepi-motd ]] && . /etc/default/orangepi-motd
+for f in $MOTD_DISABLE; do
+	[[ $f == header ]] && exit 0
+done
+
+SORTEROS_VERSION=$(cat /etc/sorteros/version 2>/dev/null || echo "unknown")
+KERNELID=$(uname -r)
+OPI_VERSION=$(grep '^VERSION=' /etc/orangepi-release | cut -d= -f2)
+OPI_CODENAME=$(grep '^DISTRIBUTION_CODENAME=' /etc/orangepi-release | cut -d= -f2)
+
+# Print "SorterOS" in big figlet font, aqua color
+echo -e "\e[0;96m$(figlet -f big 'SorterOS')\e[0m"
+
+echo -e "Welcome to \e[0;96mSorterOS $SORTEROS_VERSION\e[0m, built on top of \e[0;96mOrange Pi ${OPI_VERSION} ${OPI_CODENAME} with Linux ${KERNELID}\e[0m"
+echo ""
+
+# --- Network section ---
+echo -e "\e[1mNetwork\e[0m"
+
+# Ethernet
+ETH_IFACE=$(ip -o link show | awk -F': ' '!/lo|wlan|dummy/{print $2}' | head -1)
+if [[ -n "$ETH_IFACE" ]]; then
+	ETH_STATE=$(cat /sys/class/net/${ETH_IFACE}/operstate 2>/dev/null)
+	ETH_IP=$(ip -4 addr show dev "$ETH_IFACE" 2>/dev/null | awk '/inet/{print $2}' | cut -d/ -f1)
+	if [[ "$ETH_STATE" == "up" && -n "$ETH_IP" ]]; then
+		echo -e "  Ethernet ($ETH_IFACE): \e[0;92mup\e[0m  $ETH_IP"
+	elif [[ "$ETH_STATE" == "up" ]]; then
+		echo -e "  Ethernet ($ETH_IFACE): \e[0;92mup\e[0m  (no IP)"
+	else
+		echo -e "  Ethernet ($ETH_IFACE): \e[0;91mdown\e[0m"
+	fi
+fi
+
+# WiFi
+WIFI_IFACE=$(ip -o link show | awk -F': ' '/wlan/{print $2}' | head -1)
+if [[ -n "$WIFI_IFACE" ]]; then
+	WIFI_IP=$(ip -4 addr show dev "$WIFI_IFACE" 2>/dev/null | awk '/inet/{print $2}' | cut -d/ -f1)
+	WIFI_SSID=$(nmcli -t -f active,ssid dev wifi 2>/dev/null | awk -F: '/^yes/{print $2}')
+	WIFI_CONFIGURED=$(nmcli -t -f name,type con show 2>/dev/null | awk -F: '/802-11-wireless/{print $1; exit}')
+
+	if [[ -n "$WIFI_SSID" && -n "$WIFI_IP" ]]; then
+		echo -e "  WiFi ($WIFI_IFACE):    \e[0;92mconnected\e[0m  \"$WIFI_SSID\"  $WIFI_IP"
+	elif [[ -n "$WIFI_SSID" ]]; then
+		echo -e "  WiFi ($WIFI_IFACE):    \e[0;93mconnected (no IP)\e[0m  \"$WIFI_SSID\""
+	elif [[ -n "$WIFI_CONFIGURED" ]]; then
+		echo -e "  WiFi ($WIFI_IFACE):    \e[0;91mdown\e[0m  (configured: \"$WIFI_CONFIGURED\")"
+	else
+		echo -e "  WiFi ($WIFI_IFACE):    not configured"
+	fi
+fi
+
+echo ""

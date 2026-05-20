@@ -1477,17 +1477,20 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             waveshare_config=waveshare_config,
             mcu_ports=mcu_ports,
         )
-        irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
-            irl_interface.distribution_layout
-        )
-        for layer_index, servo in enumerate(irl_interface.servos):
-            layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
-            layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
-            open_angle = layer_open if layer_open is not None else servo_open_angle
-            closed_angle = layer_closed if layer_closed is not None else servo_closed_angle
-            if hasattr(servo, "set_preset_angles"):
-                servo.set_preset_angles(open_angle, closed_angle)
-        restore_servo_states(irl_interface.servos, gc)
+        if irl_interface.servo_controller is None:
+            irl_interface.servos = []
+        else:
+            irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
+                irl_interface.distribution_layout
+            )
+            for layer_index, servo in enumerate(irl_interface.servos):
+                layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
+                layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
+                open_angle = layer_open if layer_open is not None else servo_open_angle
+                closed_angle = layer_closed if layer_closed is not None else servo_closed_angle
+                if hasattr(servo, "set_preset_angles"):
+                    servo.set_preset_angles(open_angle, closed_angle)
+            restore_servo_states(irl_interface.servos, gc)
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,
         feeding_mode=config.feeding_mode,

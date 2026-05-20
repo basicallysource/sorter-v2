@@ -363,7 +363,7 @@ def build_servo_controller(
     servo_channel_config: Sequence[ServoChannelConfig],
     waveshare_config: WaveshareServoConfig | None,
     mcu_ports: Sequence[str],
-) -> ServoController:
+) -> ServoController | None:
     assignments = [
         LayerServoAssignment(id=channel.id, invert=channel.invert)
         for channel in servo_channel_config
@@ -379,7 +379,8 @@ def build_servo_controller(
 
     servo_source = _select_pca_servo_source(control_boards)
     if servo_source is None:
-        raise RuntimeError("No servo-capable control board detected.")
+        gc.logger.warn("No servo-capable control board detected — skipping servo init.")
+        return None
 
     return Pca9685ServoController(
         gc,

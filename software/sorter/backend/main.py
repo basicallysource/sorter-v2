@@ -189,8 +189,11 @@ def main() -> None:
     # Initialize ArUco tag configuration manager
     with gc.profiler.timer("startup.aruco_config_ms"):
         aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
-        aruco_mgr = ArucoConfigManager(gc, str(aruco_config_path))
-        setArucoManager(aruco_mgr)
+        try:
+            aruco_mgr = ArucoConfigManager(gc, str(aruco_config_path))
+            setArucoManager(aruco_mgr)
+        except Exception as e:
+            gc.logger.warn(f"ArUco config init failed ({e}); continuing without aruco manager.")
 
     # Create a minimal IRL interface (no hardware discovery yet)
     irl = _mkIRLInterfaceStandby(irl_config, gc)

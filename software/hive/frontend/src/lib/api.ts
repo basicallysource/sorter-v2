@@ -1005,8 +1005,16 @@ export const api = {
 	listTeacherJobs() {
 		return request<TeacherJobSummary[]>('GET', '/api/admin/teacher/jobs');
 	},
-	getTeacherJob(id: string) {
-		return request<TeacherJobDetail>('GET', `/api/admin/teacher/jobs/${id}`);
+	getTeacherJob(
+		id: string,
+		params: { items_status?: string; items_page?: number; items_page_size?: number } = {}
+	) {
+		const sp = new URLSearchParams();
+		if (params.items_status) sp.set('items_status', params.items_status);
+		if (params.items_page) sp.set('items_page', String(params.items_page));
+		if (params.items_page_size) sp.set('items_page_size', String(params.items_page_size));
+		const qs = sp.toString();
+		return request<TeacherJobDetail>('GET', `/api/admin/teacher/jobs/${id}${qs ? '?' + qs : ''}`);
 	},
 	cancelTeacherJob(id: string) {
 		return request<TeacherJobSummary>('POST', `/api/admin/teacher/jobs/${id}/cancel`);
@@ -1134,6 +1142,11 @@ export interface TeacherJobDetail extends TeacherJobSummary {
 	items: TeacherJobItemSummary[];
 	status_counts: Record<string, number>;
 	items_truncated: boolean;
+	items_page: number;
+	items_page_size: number;
+	items_total: number;
+	items_pages: number;
+	items_status_filter: string | null;
 }
 
 export interface TeacherModelInfo {

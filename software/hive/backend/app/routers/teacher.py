@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -120,6 +120,13 @@ class TeacherJobDetail(TeacherJobSummary):
     items: list[TeacherJobItemSummary]
     status_counts: dict[str, int]
     items_truncated: bool
+    # Pagination metadata for the items page below — kept inline so the existing detail
+    # endpoint stays one round-trip per UI refresh.
+    items_page: int = 1
+    items_page_size: int = 50
+    items_total: int = 0
+    items_pages: int = 1
+    items_status_filter: str | None = None
 
 
 def _job_to_summary(job: TeacherJob) -> TeacherJobSummary:
@@ -243,21 +250,36 @@ def list_teacher_jobs(
     return [_job_to_summary(j) for j in jobs]
 
 
-_COMPLETED_ITEM_TAIL = 300
+_VALID_ITEM_STATUSES: tuple[str, ...] = ("queued", "running", "done", "error", "skipped")
 
 
 @router.get("/jobs/{job_id}", response_model=TeacherJobDetail)
 def get_teacher_job(
     job_id: UUID,
+    items_status: str | None = Query(
+        None,
+        description=(
+            "Filter the items list by status (queued|running|done|error|skipped). "
+            "Omit or use 'all' for everything. status_counts always reflects the full job."
+        ),
+    ),
+    items_page: int = Query(1, ge=1),
+    items_page_size: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),
     admin: User = Depends(require_role("admin")),
 ) -> TeacherJobDetail:
+    """Job detail + paginated, status-filtered items.
+
+    At 4k+ items a single-page dump is unusable. status_counts still scans the whole
+    job (cheap GROUP BY) so the per-status badges in the header stay accurate; the items
+    list itself is paginated and filtered server-side.
+    """
     job = db.query(TeacherJob).filter(TeacherJob.id == job_id).first()
     if job is None:
         raise APIError(404, "Job not found", "TEACHER_JOB_NOT_FOUND")
 
     # Per-status totals come straight from a GROUP BY so the page can show "12 queued / 3
-    # running / 47 done" without iterating the (potentially huge) item list client-side.
+    # running / 47 done" without iterating the item list client-side.
     rows = (
         db.query(TeacherJobItem.status, func.count(TeacherJobItem.id))
         .filter(TeacherJobItem.job_id == job_id)
@@ -266,24 +288,35 @@ def get_teacher_job(
     )
     status_counts: dict[str, int] = {status: int(count) for status, count in rows}
 
-    # Return the remaining work (queued + running) in full — that's what the admin came
-    # here to see — plus a tail of the most recent finished items for context.
-    active_items = (
-        db.query(TeacherJobItem)
-        .filter(TeacherJobItem.job_id == job_id)
-        .filter(TeacherJobItem.status.in_(("queued", "running")))
-        .order_by(TeacherJobItem.created_at.asc())
-        .all()
-    )
-    finished_items = (
-        db.query(TeacherJobItem)
-        .filter(TeacherJobItem.job_id == job_id)
-        .filter(TeacherJobItem.status.in_(("done", "error", "skipped")))
-        .order_by(TeacherJobItem.processed_at.desc().nullslast())
-        .limit(_COMPLETED_ITEM_TAIL)
-        .all()
-    )
+    requested_status = (items_status or "").strip().lower() or None
+    if requested_status == "all":
+        requested_status = None
+    if requested_status is not None and requested_status not in _VALID_ITEM_STATUSES:
+        raise APIError(
+            400,
+            f"Invalid items_status {requested_status!r}; expected one of "
+            + ", ".join(_VALID_ITEM_STATUSES) + " or 'all'.",
+            "TEACHER_ITEMS_STATUS_INVALID",
+        )
 
+    base_q = db.query(TeacherJobItem).filter(TeacherJobItem.job_id == job_id)
+    if requested_status is not None:
+        base_q = base_q.filter(TeacherJobItem.status == requested_status)
+
+    # Order so active work surfaces first when no filter is applied. With a filter, the
+    # natural order is "oldest first" for queued/running and "most-recently-finished" for
+    # everything else — so we branch by filter.
+    if requested_status in (None, "queued", "running"):
+        ordered_q = base_q.order_by(TeacherJobItem.created_at.asc())
+    else:
+        ordered_q = base_q.order_by(TeacherJobItem.processed_at.desc().nullslast())
+
+    items_total = base_q.count()
+    items_pages = max(1, (items_total + items_page_size - 1) // items_page_size)
+    safe_page = min(items_page, items_pages)
+    offset = (safe_page - 1) * items_page_size
+
+    page_rows = ordered_q.offset(offset).limit(items_page_size).all()
     items = [
         TeacherJobItemSummary(
             id=item.id,
@@ -293,19 +326,22 @@ def get_teacher_job(
             detection_count=item.detection_count,
             processed_at=item.processed_at,
         )
-        for item in [*active_items, *finished_items]
+        for item in page_rows
     ]
-    finished_total = sum(
-        status_counts.get(k, 0) for k in ("done", "error", "skipped")
-    )
-    items_truncated = finished_total > len(finished_items)
 
     summary = _job_to_summary(job)
     return TeacherJobDetail(
         **summary.model_dump(),
         items=items,
         status_counts=status_counts,
-        items_truncated=items_truncated,
+        # Items are properly paginated now — the truncation flag stays for backward
+        # compat but is always False; the UI uses items_pages/items_total instead.
+        items_truncated=False,
+        items_page=safe_page,
+        items_page_size=items_page_size,
+        items_total=items_total,
+        items_pages=items_pages,
+        items_status_filter=requested_status,
     )
 
 

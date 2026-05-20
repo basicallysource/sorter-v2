@@ -8,6 +8,10 @@
 	import { Button } from '$lib/components/primitives';
 
 	const REFRESH_MS = 3000;
+	const PAGE_SIZE = 50;
+	// Filter values mirror the backend's items_status enum + "all" (no filter).
+	const FILTER_OPTIONS = ['all', 'queued', 'running', 'done', 'error', 'skipped'] as const;
+	type ItemFilter = (typeof FILTER_OPTIONS)[number];
 
 	const jobId = $derived(page.params.id ?? '');
 
@@ -16,12 +20,19 @@
 	let error = $state<string | null>(null);
 	let timer: ReturnType<typeof setInterval> | null = null;
 
+	// Pagination + filter UI state is local; we don't push it into the URL so a refresh
+	// always lands you on page 1 of the default view.
+	let itemsFilter = $state<ItemFilter>('all');
+	let itemsPage = $state(1);
+
 	$effect(() => {
 		if (!auth.isAdmin) {
 			goto('/');
 			return;
 		}
 		void jobId;
+		void itemsFilter;
+		void itemsPage;
 		void load();
 		timer = setInterval(load, REFRESH_MS);
 		return () => {
@@ -36,7 +47,11 @@
 	async function load() {
 		if (!jobId) return;
 		try {
-			job = await api.getTeacherJob(jobId);
+			job = await api.getTeacherJob(jobId, {
+				items_status: itemsFilter === 'all' ? undefined : itemsFilter,
+				items_page: itemsPage,
+				items_page_size: PAGE_SIZE
+			});
 			error = null;
 		} catch (e: unknown) {
 			error =
@@ -58,12 +73,18 @@
 		}
 	}
 
-	const remainingItems = $derived(
-		(job?.items ?? []).filter((i) => i.status === 'queued' || i.status === 'running')
-	);
-	const finishedItems = $derived(
-		(job?.items ?? []).filter((i) => i.status === 'done' || i.status === 'error' || i.status === 'skipped')
-	);
+	function setFilter(next: ItemFilter) {
+		if (next === itemsFilter) return;
+		itemsFilter = next;
+		itemsPage = 1; // restart pagination on filter change
+	}
+
+	function goToPage(target: number) {
+		if (!job) return;
+		const clamped = Math.max(1, Math.min(target, job.items_pages));
+		if (clamped === itemsPage) return;
+		itemsPage = clamped;
+	}
 
 	const pct = $derived(job && job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0);
 
@@ -210,39 +231,83 @@
 		</div>
 	</div>
 
-	<section class="mb-6">
-		<div class="mb-2 flex items-baseline justify-between">
-			<h2 class="text-sm font-semibold uppercase tracking-wider text-text">
-				Remaining ({remainingItems.length})
-			</h2>
-			<span class="text-[11px] text-text-muted">queued + currently running</span>
-		</div>
-		{#if remainingItems.length === 0}
-			<div class="border border-border bg-white px-6 py-8 text-center text-sm text-text-muted">
-				Nothing left to process.
-			</div>
-		{:else}
-			{@render itemGrid(remainingItems)}
-		{/if}
-	</section>
-
 	<section>
-		<div class="mb-2 flex items-baseline justify-between">
-			<h2 class="text-sm font-semibold uppercase tracking-wider text-text">
-				Recently finished ({finishedItems.length}{job.items_truncated ? ' shown' : ''})
-			</h2>
-			{#if job.items_truncated}
-				<span class="text-[11px] text-text-muted">
-					Older items omitted. Totals in the bar above are exact.
-				</span>
-			{/if}
+		<div class="mb-3 flex flex-wrap items-end justify-between gap-3">
+			<div>
+				<h2 class="text-sm font-semibold uppercase tracking-wider text-text">
+					Items
+				</h2>
+				<p class="text-[11px] text-text-muted">
+					{job.items_total.toLocaleString()} match{job.items_total === 1 ? '' : 'es'}
+					{itemsFilter !== 'all' ? ` (filtered to ${itemsFilter})` : ''}
+				</p>
+			</div>
+			<div class="flex flex-wrap items-center gap-1 bg-bg p-1">
+				{#each FILTER_OPTIONS as opt (opt)}
+					{@const opt_count = opt === 'all' ? job.total : statusCount(opt)}
+					<button
+						type="button"
+						onclick={() => setFilter(opt)}
+						class="px-2.5 py-1 text-xs font-medium transition-colors {itemsFilter === opt ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+					>
+						{opt}
+						<span class="ml-1 tabular-nums text-text-muted">{opt_count.toLocaleString()}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
-		{#if finishedItems.length === 0}
+		{#if job.items.length === 0}
 			<div class="border border-border bg-white px-6 py-8 text-center text-sm text-text-muted">
-				No completed items yet.
+				{#if itemsFilter === 'all'}
+					No items in this job.
+				{:else}
+					No items with status <span class="font-mono">{itemsFilter}</span>.
+				{/if}
 			</div>
 		{:else}
-			{@render itemGrid(finishedItems)}
+			{@render itemGrid(job.items)}
+		{/if}
+
+		{#if job.items_pages > 1}
+			{@const j = job}
+			<div class="mt-4 flex items-center justify-between border border-border bg-white px-4 py-2.5 text-xs">
+				<span class="text-text-muted">
+					Page {j.items_page} of {j.items_pages} · showing
+					{(j.items_page - 1) * j.items_page_size + 1}–{Math.min(j.items_page * j.items_page_size, j.items_total)}
+					of {j.items_total.toLocaleString()}
+				</span>
+				<div class="flex items-center gap-1">
+					<button
+						type="button"
+						onclick={() => goToPage(j.items_page - 1)}
+						disabled={j.items_page <= 1}
+						class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
+					>
+						Previous
+					</button>
+					{#each Array.from({ length: j.items_pages }, (_, i) => i + 1) as p}
+						{#if j.items_pages <= 7 || p === 1 || p === j.items_pages || (p >= j.items_page - 1 && p <= j.items_page + 1)}
+							<button
+								type="button"
+								onclick={() => goToPage(p)}
+								class="min-w-[32px] px-2.5 py-1.5 text-xs font-medium {p === j.items_page ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
+							>
+								{p}
+							</button>
+						{:else if p === 2 || p === j.items_pages - 1}
+							<span class="px-1 text-text-muted">…</span>
+						{/if}
+					{/each}
+					<button
+						type="button"
+						onclick={() => goToPage(j.items_page + 1)}
+						disabled={j.items_page >= j.items_pages}
+						class="border border-border px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-30"
+					>
+						Next
+					</button>
+				</div>
+			</div>
 		{/if}
 	</section>
 {/if}

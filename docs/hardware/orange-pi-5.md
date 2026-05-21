@@ -56,3 +56,17 @@ The Orange Pi family uses **two distinct M.2 connector formats** depending on th
 If you order the wrong module for your board variant it will not physically seat. Double-check which board you have before purchasing.
 
 > **Note on driver support:** The AP6275P module for the original Orange Pi 5 requires drivers included in the official Orange Pi Ubuntu image. It works on SorterOS (which is based on that image) but may not work on other third-party OS images out of the box.
+
+## USB hubs
+
+Use a **powered USB hub** for webcams, Picos, and other attached USB devices.
+We have seen bus-powered hubs let those devices brown out the Orange Pi 5 under load,
+which can trigger severe system crashes instead of a clean USB disconnect.
+
+## Cooling
+
+If the Orange Pi 5 is pinned hard, especially when running a detection model on the CPU,
+it can heat up enough to hit thermal emergency shutdown at about 105 C. A small fan is
+recommended.
+*The intent is to run models on the NPU; if a bug or fallback pushes them onto the CPU,
+this can happen.*

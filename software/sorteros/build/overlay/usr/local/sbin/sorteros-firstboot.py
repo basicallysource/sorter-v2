@@ -293,6 +293,7 @@ def stage_write_env() -> None:
     hostname = _hostname()
     env_path.write_text(
         "export DEBUG_LEVEL=2\n"
+        "export PYTHONUNBUFFERED=1\n"
         f'export MACHINE_SPECIFIC_PARAMS_PATH="{SOFTWARE_DIR}/machine.example.toml"\n'
         f'export SORTING_PROFILE_PATH="{SOFTWARE_DIR}/sorter/backend/sorting_profile.json"\n'
         "export SORTER_API_HOST=0.0.0.0\n"

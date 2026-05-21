@@ -17,6 +17,31 @@
 
 	let { sampleId, onResult, preferredModelId = null, dense = false }: Props = $props();
 
+	// Per-model cost-per-call estimate (USD) for the typical detection payload — roughly
+	// 2k input tokens (instruction + image) and 150 output tokens (the bbox list). Rates
+	// from each provider's public pricing page; refresh when a model moves out of preview.
+	// Right-aligned next to each button so admins can pick a cheap-vs-pricey model at a
+	// glance without leaving the page. The real billed cost comes back from the API.
+	const PRICE_PER_CALL_USD: Record<string, number> = {
+		// Gemini 3 Flash (preview): $0.075/M in, $0.30/M out
+		'google/gemini-3-flash-preview': (2000 * 0.075 + 150 * 0.30) / 1_000_000,
+		// Gemini 3.1 Pro (preview): $2/M in, $12/M out
+		'google/gemini-3.1-pro-preview': (2000 * 2.0 + 150 * 12.0) / 1_000_000,
+		// Gemini 3.5 Flash: $1.50/M in, $9/M out
+		'google/gemini-3.5-flash': (2000 * 1.5 + 150 * 9.0) / 1_000_000,
+		// Perceptron Mk1: $0.15/M in, $1.50/M out (docs.perceptron.inc/models)
+		'perceptron/perceptron-mk1': (2000 * 0.15 + 150 * 1.5) / 1_000_000
+	};
+
+	function formatPrice(modelId: string): string {
+		const price = PRICE_PER_CALL_USD[modelId];
+		if (price === undefined) return '';
+		// Show two significant figures so $0.000245 → "$0.00025" but $0.0076 → "$0.0076".
+		// `toPrecision` already does that for non-integer mantissas; toString cleans up
+		// trailing zeros.
+		return '$' + Number(price.toPrecision(2)).toString();
+	}
+
 	let models = $state<TeacherModelInfo[]>([]);
 	let modelsError = $state<string | null>(null);
 	// Track which model is currently in-flight so only that button shows a spinner.
@@ -107,7 +132,14 @@
 					</svg>
 				{/if}
 				<span class="min-w-0 flex-1 truncate font-medium">{m.display_name}</span>
-				<span class="text-[10px] text-text-muted">[{m.adapter_kind === 'openrouter_chat' ? 'or' : m.adapter_kind === 'perceptron' ? 'pc' : m.adapter_kind}]</span>
+				{#if formatPrice(m.model_id)}
+					<span
+						class="shrink-0 font-mono text-[10px] text-text-muted tabular-nums"
+						title="≈ cost per call (2k input + 150 output tokens)"
+					>
+						{formatPrice(m.model_id)}
+					</span>
+				{/if}
 			</button>
 		{/each}
 	</div>

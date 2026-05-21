@@ -42,14 +42,6 @@ register(OpenRouterChatAdapter(
 ))
 
 
-# --- Cross-vendor candidate kept in rotation. ----------------------------------------------
-register(OpenRouterChatAdapter(
-    model_id="qwen/qwen3.6-flash",
-    display_name="Qwen 3.6 Flash",
-    notes="Alibaba's vision flash. Cheap; Qwen-VL is known to be strong at grounding.",
-))
-
-
 # --- Purpose-built grounding model. -------------------------------------------------------
 register(PerceptronAdapter())
 

@@ -40,14 +40,35 @@ PERCEPTRON_API_TIMEOUT_S = 60.0
 PERCEPTRON_MODEL_ID = "perceptron-mk1"
 
 
-# Captures one <point_box mention="..." confidence="..."> (x1,y1) (x2,y2) </point_box>.
-_POINT_BOX_RE = re.compile(
+# Two known Perceptron output shapes, both 0-1000 XYXY:
+#
+#   1. Native XML tags (what we saw before vision_config):
+#        <point_box mention="lego" confidence="0.95"> (148,244) (228,350) </point_box>
+#
+#   2. Python-repr style list-of-dicts (what vision_config grounding now emits):
+#        [{'point_box': (891,402), (939,495), 'label': 'loose_lego_piece_or_foreign_object'}, ...]
+#      Note: the dict syntax is technically invalid Python — 'point_box' is followed by
+#      two bare tuples rather than one value. Regex tolerates that just fine; we match
+#      the *pair* of coordinate tuples right after the 'point_box' key.
+_POINT_BOX_XML_RE = re.compile(
     r'<point_box(?P<attrs>[^>]*)>\s*'
     r'\(\s*(?P<x1>-?\d+(?:\.\d+)?)\s*,\s*(?P<y1>-?\d+(?:\.\d+)?)\s*\)'
     r'\s*'
     r'\(\s*(?P<x2>-?\d+(?:\.\d+)?)\s*,\s*(?P<y2>-?\d+(?:\.\d+)?)\s*\)'
     r'\s*</point_box>',
     re.IGNORECASE | re.DOTALL,
+)
+_POINT_BOX_REPR_RE = re.compile(
+    r"""['"]point_box['"]\s*:\s*"""
+    r"\(\s*(?P<x1>-?\d+(?:\.\d+)?)\s*,\s*(?P<y1>-?\d+(?:\.\d+)?)\s*\)"
+    r"\s*,\s*"
+    r"\(\s*(?P<x2>-?\d+(?:\.\d+)?)\s*,\s*(?P<y2>-?\d+(?:\.\d+)?)\s*\)",
+    re.IGNORECASE | re.DOTALL,
+)
+# Label or mention attribute, captured after the same point_box block for kind assignment.
+_REPR_LABEL_AFTER_BOX_RE = re.compile(
+    r"['\"](?:label|mention)['\"]\s*:\s*['\"](?P<label>[^'\"]+)['\"]",
+    re.IGNORECASE,
 )
 _ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 
@@ -115,10 +136,18 @@ def _parse_point_box_attrs(attrs: str) -> dict[str, str]:
     return {key.lower(): value for key, value in _ATTR_RE.findall(attrs)}
 
 
-def _extract_point_box_xml(text: str, width: int, height: int) -> list[dict[str, Any]]:
-    """Parse Perceptron's <point_box> XML coordinates (XYXY 0-1000) into pixel boxes."""
+def _extract_point_boxes(text: str, width: int, height: int) -> list[dict[str, Any]]:
+    """Parse Perceptron's grounded output in either XML or Python-repr form.
+
+    Both formats use 0-1000 XYXY normalized coordinates. We try XML first (the legacy
+    shape and the documented one), then fall back to Python-repr (what vision_config
+    grounding actually emits in practice). They never appear in the same response, so
+    whichever has matches wins.
+    """
     detections: list[dict[str, Any]] = []
-    for match in _POINT_BOX_RE.finditer(text):
+
+    # 1. Try the documented <point_box> XML form first.
+    for match in _POINT_BOX_XML_RE.finditer(text):
         attrs = _parse_point_box_attrs(match.group("attrs") or "")
         try:
             ax = float(match.group("x1"))
@@ -146,6 +175,39 @@ def _extract_point_box_xml(text: str, width: int, height: int) -> list[dict[str,
                 "confidence": confidence,
             }
         )
+    if detections:
+        return detections
+
+    # 2. Fall back to the Python-repr list-of-dicts shape vision_config emits.
+    for match in _POINT_BOX_REPR_RE.finditer(text):
+        try:
+            ax = float(match.group("x1"))
+            ay = float(match.group("y1"))
+            bx = float(match.group("x2"))
+            by = float(match.group("y2"))
+        except (TypeError, ValueError):
+            continue
+        coords = _scale_xyxy_0_1000(ax, ay, bx, by, width, height)
+        if coords is None:
+            continue
+        # Look for a label in the same dict (between this point_box and the next), so
+        # multiple boxes don't all inherit the first dict's label.
+        tail_end = text.find("{", match.end())
+        tail = text[match.end(): tail_end if tail_end != -1 else min(match.end() + 200, len(text))]
+        label_match = _REPR_LABEL_AFTER_BOX_RE.search(tail)
+        label = label_match.group("label").strip() if label_match else "piece"
+        # vision_config doesn't emit per-detection confidence — default to high since the
+        # model already self-filtered by confidence before composing the response.
+        x1, y1, x2, y2 = coords
+        detections.append(
+            {
+                "kind": _classify_label(label),
+                "description": label,
+                "bbox": [x1, y1, x2, y2],
+                "confidence": 0.9,
+            }
+        )
+
     return detections
 
 
@@ -294,7 +356,7 @@ class PerceptronAdapter:
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        detections = _extract_point_box_xml(text, width, height)
+        detections = _extract_point_boxes(text, width, height)
         detections.sort(key=lambda d: d["confidence"], reverse=True)
         bboxes = [d["bbox"] for d in detections]
         score = detections[0]["confidence"] if detections else 0.0

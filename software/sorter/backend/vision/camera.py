@@ -1,3 +1,4 @@
+import subprocess
 import threading
 import time
 from collections import deque
@@ -19,6 +20,7 @@ from .types import CameraFrame
 
 CAPTURE_MODE_SETTLE_S = 2.0
 CAPTURE_EXPECTED_FRAME_FALLBACK_S = 10.0
+AUTO_CAMERA_CONTROL_KEYS = ("auto_exposure", "auto_white_balance", "autofocus")
 
 if platform.system() == "Darwin":
     try:
@@ -37,9 +39,59 @@ else:
     _refresh_macos_cameras = None
 
 
-def _open_capture_source(source: int | str) -> cv2.VideoCapture:
+def _try_v4l2ctl_set_format(source: int, fourcc: str, width: int | None, height: int | None) -> bool:
+    # Some cameras (e.g. Innomaker U30CAM) ignore OpenCV's CAP_V4L2 FOURCC
+    # param and stay at their firmware default (often YUYV full-res), saturating
+    # shared USB 2.0 bandwidth. Force the format at the kernel level while the
+    # device is still closed so OpenCV inherits it on open.
+    fmt_arg = f"pixelformat={fourcc}"
+    if isinstance(width, int) and width > 0:
+        fmt_arg += f",width={width}"
+    if isinstance(height, int) and height > 0:
+        fmt_arg += f",height={height}"
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", f"--set-fmt-video={fmt_arg}"],
+            capture_output=True,
+            timeout=3,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+def _open_capture_source(
+    source: int | str,
+    *,
+    width: int | None = None,
+    height: int | None = None,
+    fps: int | None = None,
+    fourcc: str | None = None,
+) -> cv2.VideoCapture:
     if isinstance(source, int) and platform.system() == "Darwin":
         return cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
+    if isinstance(source, int) and platform.system() == "Linux":
+        if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
+            _try_v4l2ctl_set_format(source, fourcc.strip()[:4].upper(), width, height)
+        params: list[int] = []
+        if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
+            params.extend(
+                [
+                    cv2.CAP_PROP_FOURCC,
+                    cv2.VideoWriter_fourcc(*fourcc.strip()[:4].upper()),
+                ]
+            )
+        if isinstance(width, int) and width > 0:
+            params.extend([cv2.CAP_PROP_FRAME_WIDTH, width])
+        if isinstance(height, int) and height > 0:
+            params.extend([cv2.CAP_PROP_FRAME_HEIGHT, height])
+        if isinstance(fps, int) and fps > 0:
+            params.extend([cv2.CAP_PROP_FPS, fps])
+        if params:
+            try:
+                return cv2.VideoCapture(source, cv2.CAP_V4L2, params)
+            except Exception:
+                pass
     return cv2.VideoCapture(source)
 
 
@@ -169,8 +221,15 @@ def _usb_camera_control_specs() -> list[dict[str, Any]]:
     return [spec for spec in specs if spec["prop"] is not None]
 
 
+def default_auto_camera_device_settings() -> dict[str, bool]:
+    return {key: True for key in AUTO_CAMERA_CONTROL_KEYS}
+
+
 def _bool_from_capture_value(key: str, value: float) -> bool:
     if key == "auto_exposure" and platform.system() == "Linux":
+        rounded = round(value)
+        if abs(value - rounded) < 0.05 and rounded in {1, 3}:
+            return rounded != 1
         return value >= 0.5
     return value >= 0.5
 
@@ -183,10 +242,78 @@ def _value_for_capture(key: str, value: bool | float) -> float:
     return float(value)
 
 
-def _read_capture_value(cap: cv2.VideoCapture, spec: dict[str, Any]) -> bool | float | None:
+# Maps our schema key → (v4l2-ctl control name, value formatter)
+_LINUX_V4L2CTL_CONTROL_MAP: dict[str, tuple[str, Any]] = {
+    "auto_exposure": ("auto_exposure", lambda v: "3" if bool(v) else "1"),
+    "auto_white_balance": ("white_balance_automatic", lambda v: "1" if bool(v) else "0"),
+    "autofocus": ("focus_automatic_continuous", lambda v: "1" if bool(v) else "0"),
+}
+
+
+def _try_v4l2ctl_set(source: int, key: str, value: bool | float) -> bool:
+    entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
+    if entry is None:
+        return False
+    ctrl_name, fmt = entry
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", "-c", f"{ctrl_name}={fmt(value)}"],
+            capture_output=True,
+            timeout=2,
+        )
+        return result.returncode == 0
+    except Exception:
+        return False
+
+
+# OpenCV's V4L2 backend lies about menu controls (auto_exposure especially) on
+# some drivers — cap.get returns 0.0/0.25 even when the kernel has the control
+# in mode 3. v4l2-ctl is the authoritative source. Returns None if unavailable.
+def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
+    entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
+    if entry is None:
+        return None
+    ctrl_name, _ = entry
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", "-C", ctrl_name],
+            capture_output=True,
+            timeout=2,
+            text=True,
+        )
+        if result.returncode != 0:
+            return None
+        # Output format: "auto_exposure: 3" or "white_balance_automatic: 1"
+        _, _, raw = result.stdout.strip().partition(":")
+        raw = raw.strip()
+        if not raw:
+            return None
+        n = int(raw.split()[0])
+        if key == "auto_exposure":
+            return n == 3
+        return n != 0
+    except Exception:
+        return None
+
+
+def _read_capture_value(
+    cap: cv2.VideoCapture,
+    spec: dict[str, Any],
+    *,
+    source: int | str | None = None,
+) -> bool | float | None:
     prop = spec.get("prop")
     if prop is None:
         return None
+    if (
+        spec["kind"] == "boolean"
+        and platform.system() == "Linux"
+        and isinstance(source, int)
+        and spec["key"] in _LINUX_V4L2CTL_CONTROL_MAP
+    ):
+        v = _try_v4l2ctl_get_bool(source, spec["key"])
+        if v is not None:
+            return v
     raw = cap.get(prop)
     if raw is None or (isinstance(raw, float) and (np.isnan(raw) or np.isinf(raw))):
         return None
@@ -254,13 +381,22 @@ def apply_camera_device_settings(
     spec_by_key = {spec["key"]: spec for spec in _usb_camera_control_specs()}
     applied: dict[str, int | float | bool] = {}
 
+    linux_int_source = source if platform.system() == "Linux" and isinstance(source, int) else None
+
     for key, value in normalized.items():
         spec = spec_by_key.get(key)
         if spec is None:
             continue
         try:
             cap.set(spec["prop"], _value_for_capture(key, value))
-            current = _read_capture_value(cap, spec)
+            current = _read_capture_value(cap, spec, source=source)
+            # If the readback doesn't match the intent, try v4l2-ctl on Linux.
+            # This handles cameras where OpenCV's cap.set encoding doesn't stick.
+            if current is not None and current != value and linux_int_source is not None:
+                if _try_v4l2ctl_set(linux_int_source, key, value):
+                    # Trust the intent; don't let the wrong readback poison _device_settings.
+                    applied[key] = value
+                    continue
             if current is not None:
                 applied[key] = current
             else:
@@ -271,10 +407,14 @@ def apply_camera_device_settings(
     return applied
 
 
-def read_camera_device_settings(cap: cv2.VideoCapture) -> dict[str, int | float | bool]:
+def read_camera_device_settings(
+    cap: cv2.VideoCapture,
+    *,
+    source: int | str | None = None,
+) -> dict[str, int | float | bool]:
     settings: dict[str, int | float | bool] = {}
     for spec in _usb_camera_control_specs():
-        current = _read_capture_value(cap, spec)
+        current = _read_capture_value(cap, spec, source=source)
         if current is not None:
             settings[spec["key"]] = current
     return settings
@@ -291,17 +431,13 @@ def describe_camera_device_controls(
 
     controls: list[dict[str, Any]] = []
     for spec in _usb_camera_control_specs():
-        current = _read_capture_value(cap, spec)
+        # Do NOT cap.set() here as a "support test" — on UVC cameras, writing
+        # CAP_PROP_EXPOSURE silently flips auto_exposure to Manual mode, so a
+        # passive describe call would corrupt the device state every time the
+        # frontend polls for drift. If cap.get returns a usable value, treat
+        # the control as supported.
+        current = _read_capture_value(cap, spec, source=source)
         if current is None:
-            continue
-
-        supported = False
-        try:
-            supported = bool(cap.set(spec["prop"], _value_for_capture(spec["key"], current)))
-        except Exception:
-            supported = False
-
-        if not supported:
             continue
 
         control: dict[str, Any] = {
@@ -355,7 +491,7 @@ def probe_camera_device_controls(
 
     try:
         controls = describe_camera_device_controls(cap, source=source)
-        current = read_camera_device_settings(cap)
+        current = read_camera_device_settings(cap, source=source)
         return controls, current or normalized_settings
     finally:
         cap.release()
@@ -617,7 +753,7 @@ class CaptureThread:
         with self._cap_lock:
             if self._cap is not None:
                 controls = describe_camera_device_controls(self._cap, source=source)
-                current = read_camera_device_settings(self._cap)
+                current = read_camera_device_settings(self._cap, source=source)
                 if controls:
                     macos_controls, macos_settings = _describe_macos_uvc_controls(source)
                     if macos_controls:
@@ -696,6 +832,8 @@ class CaptureThread:
             }
 
     def start(self) -> None:
+        if self._thread is not None and self._thread.is_alive():
+            return
         self._stop_event.clear()
         self._thread = threading.Thread(target=self._captureLoop, daemon=True)
         self._thread.start()
@@ -714,6 +852,11 @@ class CaptureThread:
         previous_source: int | str | None = None
         expected_frame_settle_until = 0.0
         last_expected_frame_at = 0.0
+        # Some UVC cameras (especially on Linux with MJPG) reset device controls
+        # (e.g. auto_exposure) when streaming starts on the first cap.read().
+        # Re-apply after the first successful read so the settings actually stick.
+        post_stream_settings: dict[str, int | float | bool] | None = None
+        post_stream_source: int | None = None
 
         while not self._stop_event.is_set():
             source, is_url, width, height, fps, fourcc = self._get_config_snapshot()
@@ -725,6 +868,8 @@ class CaptureThread:
                 next_open_attempt_at = 0.0
                 expected_frame_settle_until = 0.0
                 last_expected_frame_at = 0.0
+                post_stream_settings = None
+                post_stream_source = None
 
             if self._reopen_event.is_set():
                 self._reopen_event.clear()
@@ -737,6 +882,8 @@ class CaptureThread:
                 next_open_attempt_at = 0.0
                 expected_frame_settle_until = 0.0
                 last_expected_frame_at = 0.0
+                post_stream_settings = None
+                post_stream_source = None
 
             if source is None:
                 self.latest_frame = None
@@ -757,7 +904,13 @@ class CaptureThread:
                     continue
 
                 with self._cap_lock:
-                    candidate = _open_capture_source(source)
+                    candidate = _open_capture_source(
+                        source,
+                        width=width,
+                        height=height,
+                        fps=fps,
+                        fourcc=fourcc,
+                    )
                     if not candidate.isOpened():
                         candidate.release()
                         cap = None
@@ -792,14 +945,24 @@ class CaptureThread:
                         cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
                         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
                         cap.set(cv2.CAP_PROP_FPS, fps)
+                        settings_to_apply = self.getDeviceSettings()
+                        pre_settings = settings_to_apply or default_auto_camera_device_settings()
                         applied_device_settings = apply_camera_device_settings(
                             cap,
-                            self.getDeviceSettings(),
+                            pre_settings,
                             source=source,
                         )
                         if applied_device_settings:
                             with self._device_settings_lock:
                                 self._device_settings = dict(applied_device_settings)
+                        # Schedule a re-apply after the first read so MJPG
+                        # streaming-start control resets don't lock in wrong values.
+                        if isinstance(source, int):
+                            post_stream_settings = dict(pre_settings)
+                            post_stream_source = source
+                        else:
+                            post_stream_settings = None
+                            post_stream_source = None
 
             with self._cap_lock:
                 ret, frame = cap.read()
@@ -818,6 +981,17 @@ class CaptureThread:
                             continue
                     else:
                         last_expected_frame_at = time.time()
+                if post_stream_settings is not None and post_stream_source is not None:
+                    with self._cap_lock:
+                        if cap is not None:
+                            applied = apply_camera_device_settings(
+                                cap, post_stream_settings, source=post_stream_source
+                            )
+                            if applied:
+                                with self._device_settings_lock:
+                                    self._device_settings = dict(applied)
+                    post_stream_settings = None
+                    post_stream_source = None
                 picture_settings = self.getPictureSettings()
                 uncorrected_frame = apply_picture_settings(frame, picture_settings)
                 frame = apply_camera_color_profile(frame, self.getColorProfile())

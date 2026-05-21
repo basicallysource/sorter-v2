@@ -11,8 +11,8 @@ permalink: /sorter/
 
 ## Install
 
-- **[Install the Sorter on a Linux machine]({{ '/sorter/installation/' | relative_url }})** — the one-command install path for Debian 12 / Ubuntu 24.04 / Pi OS Bookworm. The path you walk once per machine.
-- **[Install the Sorter by hand]({{ '/sorter/install-by-hand/' | relative_url }})** — the manual sequence, for when the installer does not yet support your platform.
+- **[Installation]({{ '/sorter/installation/' | relative_url }})** — SorterOS image for Orange Pi 5, one-command installer for generic Linux, or manual setup.
+- **[Install by hand]({{ '/sorter/installation/by-hand/' | relative_url }})** — the manual sequence, for when the installer does not yet support your platform.
 
 ## Operate
 
@@ -24,6 +24,7 @@ permalink: /sorter/
 
 - **[Sorter architecture]({{ '/sorter/architecture/' | relative_url }})** — how the coordinator, the three subsystem state machines, the vision manager, the machine platform abstraction, and the SvelteKit UI fit together. For contributors touching the code.
 - **[Sorting profile reference]({{ '/sorter/profile-reference/' | relative_url }})** — the on-disk shape of `sorting_profile.json` — rules, conditions, `part_to_category`, set inventories. Accurate for `schema_version: 1`.
+- **[machine.toml reference]({{ '/sorter/machine-toml-reference/' | relative_url }})** — every field in the machine-specific config file: servo, chute, carousel, stepper bindings and overrides, cameras, and GPIO LEDs. This lives in the docs site, not the Sorter UI.
 
 ## Coming soon
 

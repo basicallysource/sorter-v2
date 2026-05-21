@@ -9,6 +9,11 @@ __pycache__/
 # Distribution / packaging
 .Python
 build/
+!sorteros/build/
+!sorteros/v3/build/
+# Built images and cached base images are large — don't track.
+sorteros/v3/build/out/
+sorteros/v3/build/cache/
 develop-eggs/
 dist/
 downloads/

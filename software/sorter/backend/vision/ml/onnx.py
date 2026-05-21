@@ -43,13 +43,20 @@ class _OnnxMixin:
     _lock: Any
     _session: Any = None
     _input_name: str = ""
+    _load_failed: bool = False
 
     def _ensure_session(self) -> Any:
         with self._lock:
+            if self._load_failed:
+                raise RuntimeError(f"ONNX model load permanently failed: {self.model_path}")
             if self._session is None:
                 log.info("Loading ONNX session for %s", self.model_path)
-                self._session = _make_session(self.model_path)
-                self._input_name = self._session.get_inputs()[0].name
+                try:
+                    self._session = _make_session(self.model_path)
+                    self._input_name = self._session.get_inputs()[0].name
+                except Exception:
+                    self._load_failed = True
+                    raise
             return self._session
 
 

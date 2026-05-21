@@ -34,6 +34,8 @@ project(sorter_interface_firmware C CXX ASM)
 pico_sdk_init()
 
 option(HW_SKR_PICO "Compile for SKR Pico hardware" OFF)
+option(HW_BASICALLY_V1_1 "Compile for Basically V1-1 board (4 steppers, LED pins on GPIO14/GPIO15)" OFF)
+option(HW_BASICALLY_V1_2 "Compile for Basically V1-2 board (5 steppers, LED pins on GPIO1/GPIO6)" OFF)
 set(FIRMWARE_ROLE "feeder" CACHE STRING "Firmware role profile: feeder or distribution")
 set_property(CACHE FIRMWARE_ROLE PROPERTY STRINGS feeder distribution)
 
@@ -85,6 +87,12 @@ target_compile_definitions(sorter_interface_firmware PRIVATE INIT_DEVICE_NAME="$
 if (HW_SKR_PICO)
     target_compile_definitions(sorter_interface_firmware PRIVATE HARDWARE_SKR_PICO)
 endif()
+if (HW_BASICALLY_V1_1)
+    target_compile_definitions(sorter_interface_firmware PRIVATE HW_BASICALLY_V1_1)
+endif()
+if (HW_BASICALLY_V1_2)
+    target_compile_definitions(sorter_interface_firmware PRIVATE HW_BASICALLY_V1_2)
+endif()
 if (FIRMWARE_ROLE_NORMALIZED STREQUAL "distribution")
     target_compile_definitions(sorter_interface_firmware PRIVATE FIRMWARE_ROLE_DISTRIBUTION)
 else()
@@ -95,6 +103,7 @@ endif()
 target_link_libraries(sorter_interface_firmware
         pico_multicore
         pico_stdlib
+        pico_bootrom
         pico_time
         hardware_i2c
         hardware_timer

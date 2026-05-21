@@ -82,7 +82,7 @@
 		pages: number;
 	};
 
-	const RUNTIME_OPTIONS = ['', 'onnx', 'ncnn', 'hailo', 'pytorch'] as const;
+	const RUNTIME_OPTIONS = ['', 'onnx', 'ncnn', 'hailo', 'rknn', 'pytorch'] as const;
 	const PAGE_SIZE = 20;
 
 	let targets = $state<HiveTarget[]>([]);
@@ -134,7 +134,7 @@
 
 	const detailCache = new Map<string, ModelDetail>();
 
-	const availableRuntimes = ['onnx', 'ncnn', 'hailo', 'pytorch'];
+	const availableRuntimes = ['onnx', 'ncnn', 'hailo', 'rknn', 'pytorch'];
 
 	const hasActiveJob = $derived(
 		jobs.some((job) => job.status === 'queued' || job.status === 'downloading')
@@ -949,7 +949,7 @@
 												</span>
 											{/if}
 											{#if !isCompatible}
-												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN and Hailo are deployable.`}>
+												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN, Hailo and RKNN are deployable.`}>
 													<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
 														Not supported
 													</span>

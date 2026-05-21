@@ -312,7 +312,7 @@
 {#if auth.user}
 	<div class="max-w-lg space-y-6">
 		<!-- Profile Section -->
-		<div class="border border-border bg-white p-6">
+		<div class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">Profile</h2>
 			<dl class="space-y-3 text-sm">
 				<div>
@@ -385,7 +385,7 @@
 		</div>
 
 		<!-- Password Section -->
-		<div id="password" class="border border-border bg-white p-6">
+		<div id="password" class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
 			{#if !auth.user.has_password}
 				<p class="mb-4 text-sm text-text-muted">
@@ -448,7 +448,7 @@
 		</div>
 
 		<!-- AI Section -->
-		<div class="border border-border bg-white p-6">
+		<div class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">AI Assistant</h2>
 			<p class="mb-4 text-sm text-text-muted">
 				Hive uses your personal OpenRouter key on the server side for profile-generation prompts, rule suggestions, and assisted edits.
@@ -629,7 +629,7 @@
 			</div>
 
 			<!-- API keys -->
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-1 font-semibold text-text">Personal Access Tokens</h2>
 				<p class="mb-4 text-sm text-text-muted">
 					Use a token to authenticate from CLI tools (e.g. the training hub). Tokens inherit your account's permissions — treat them like a password.
@@ -720,7 +720,7 @@
 		{/if}
 
 		<!-- Danger Zone -->
-		<div class="border border-primary/20 bg-white p-6">
+		<div class="border border-primary/20 bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-primary">Danger Zone</h2>
 			<p class="mb-4 text-sm text-text-muted">
 				Deleting your account will permanently remove all your machines, samples, and reviews.

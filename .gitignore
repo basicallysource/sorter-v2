@@ -1,5 +1,12 @@
 .claude/
+AGENTS.md
 .tmp-*
+
+software/sorteros/build/.env
+software/sorteros/build/*.authkey
+software/sorteros/build/out/
+software/sorteros/build/cache/
+software/sorteros/v3/build/.env
 
 # Local debug captures and ad-hoc review artifacts
 /c-channel-3-zone-editor.png
@@ -13,6 +20,8 @@
 /software/sorter/backend/calibration_image_sample_data_20x128x128x3_float32.npy
 /docs/_site/
 /docs/.jekyll-cache/
+/docs/.jekyll.pid
+/docs/.jekyll.log
 /docs/.sass-cache/
 /docs/vendor/
 /docs/.bundle/

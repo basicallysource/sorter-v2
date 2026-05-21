@@ -119,7 +119,7 @@
 	}
 </script>
 
-<div class="space-y-3 border border-border bg-white p-3" style={`margin-left: ${depth * 16}px`}>
+<div class="space-y-3 border border-border bg-surface p-3" style={`margin-left: ${depth * 16}px`}>
 	<div class="flex flex-wrap items-start justify-between gap-2">
 		<div class="flex min-w-0 flex-1 flex-col gap-2">
 			<div class="flex flex-wrap items-center gap-2">
@@ -198,7 +198,7 @@
 			<button
 				type="button"
 				onclick={() => onAddCondition(rule.id)}
-				class="border border-border bg-white px-2 py-1 text-xs font-medium text-text hover:bg-bg"
+				class="border border-border bg-surface px-2 py-1 text-xs font-medium text-text hover:bg-bg"
 			>
 				Add Condition
 			</button>
@@ -213,7 +213,7 @@
 							value={condition.field}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { field: (event.currentTarget as HTMLSelectElement).value })}
-							class="border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+							class="border border-border bg-surface px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 						>
 							{#each fieldOptions as field}
 								<option value={field}>{field}</option>
@@ -223,7 +223,7 @@
 							value={condition.op}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { op: (event.currentTarget as HTMLSelectElement).value })}
-							class="border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+							class="border border-border bg-surface px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 						>
 							{#each (opOptionsByField[condition.field] ?? ['eq', 'neq', 'in', 'contains', 'regex', 'gte', 'lte']) as op}
 								<option value={op}>{op}</option>
@@ -234,12 +234,12 @@
 							value={formatConditionValue(condition.value)}
 							onchange={(event) =>
 								onUpdateCondition(rule.id, condition.id, { value: parseConditionValue((event.currentTarget as HTMLInputElement).value) })}
-							class="border border-border bg-white px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+							class="border border-border bg-surface px-2 py-1.5 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
 						/>
 						<button
 							type="button"
 							onclick={() => onDeleteCondition(rule.id, condition.id)}
-							class="border border-primary/30 bg-white px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary-light"
+							class="border border-primary/30 bg-surface px-2 py-1.5 text-xs font-medium text-primary hover:bg-primary-light"
 						>
 							Remove
 						</button>

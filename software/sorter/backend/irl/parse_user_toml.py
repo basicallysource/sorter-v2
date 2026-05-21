@@ -49,8 +49,16 @@ PHYSICAL_STEPPER_BINDING_ALIASES = {
     "second_c_channel_rotor": "c_channel_2_rotor",
     "third_c_channel_rotor": "c_channel_3_rotor",
 }
-PHYSICAL_STEPPER_BINDING_NAMES = set(LOGICAL_STEPPER_BINDING_BASES.values()) | set(
-    PHYSICAL_STEPPER_BINDING_ALIASES
+ADDITIONAL_PHYSICAL_STEPPER_NAMES = {
+    "distribution_aux_1",
+    "distribution_aux_2",
+    "distribution_aux_3",
+    "fifth_stepper",
+}
+PHYSICAL_STEPPER_BINDING_NAMES = (
+    set(LOGICAL_STEPPER_BINDING_BASES.values())
+    | set(PHYSICAL_STEPPER_BINDING_ALIASES)
+    | ADDITIONAL_PHYSICAL_STEPPER_NAMES
 )
 
 
@@ -786,3 +794,57 @@ def applyStepperCurrentOverride(
         f"Stepper '{stepper_name}' current config applied from {source}: "
         f"IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
     )
+
+
+VALID_GPIO_LED_BOARDS = {"feeder", "distribution", "any"}
+
+
+@dataclass
+class GpioLedConfig:
+    board: str
+    pin: int
+
+
+def loadGpioLedsConfig(
+    gc: GlobalConfig,
+    machine_specific_params: dict[str, object] | None = None,
+) -> list[GpioLedConfig]:
+    raw: object = machine_specific_params
+    if raw is None:
+        raw = loadMachineSpecificParams(gc)
+
+    if not isinstance(raw, dict):
+        return []
+
+    entries_raw = raw.get("gpio_leds")
+    if entries_raw is None:
+        return []
+
+    if not isinstance(entries_raw, list):
+        gc.logger.warning("gpio_leds must be an array of tables. Ignoring.")
+        return []
+
+    configs: list[GpioLedConfig] = []
+    for i, entry in enumerate(entries_raw):
+        if not isinstance(entry, dict):
+            gc.logger.warning(f"Ignoring invalid gpio_leds[{i}]: expected object.")
+            continue
+
+        board = entry.get("board", "any")
+        if not isinstance(board, str) or board not in VALID_GPIO_LED_BOARDS:
+            gc.logger.warning(
+                f"Ignoring gpio_leds[{i}]: board={board!r} must be one of "
+                f"{sorted(VALID_GPIO_LED_BOARDS)}."
+            )
+            continue
+
+        pin = entry.get("pin")
+        if not isinstance(pin, int) or isinstance(pin, bool) or pin < 0:
+            gc.logger.warning(
+                f"Ignoring gpio_leds[{i}]: pin={pin!r} must be a non-negative integer."
+            )
+            continue
+
+        configs.append(GpioLedConfig(board=board, pin=pin))
+
+    return configs

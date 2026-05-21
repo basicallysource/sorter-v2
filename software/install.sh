@@ -168,7 +168,7 @@ if [[ "$AS_SERVICE" == "true" ]]; then
     UV_BIN="$(command -v uv)"
     PNPM_BIN="$(command -v pnpm)"
 
-    for unit in lego-sorter-backend.service lego-sorter-ui.service; do
+    for unit in sorter-backend.service sorter-ui.service; do
         sed -e "s|__USER__|$USER|g" \
             -e "s|__SOFTWARE_DIR__|$SOFTWARE_DIR|g" \
             -e "s|__UV_BIN__|$UV_BIN|g" \

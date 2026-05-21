@@ -105,7 +105,7 @@
 	});
 </script>
 
-<div class="flex min-h-0 min-w-0 flex-col overflow-hidden border border-border bg-white">
+<div class="flex min-h-0 min-w-0 flex-col overflow-hidden border border-border bg-surface">
 	<div class="flex border-b border-border">
 		<button onclick={() => onRightTabChange('chat')}
 			class="flex-1 px-4 py-2 text-center text-sm font-medium transition-colors
@@ -227,7 +227,7 @@
 																	{#if resultView.layout === 'media-grid'}
 																		<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
 																			{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
-																				<div class="overflow-hidden border border-success/15 bg-white/80">
+																				<div class="overflow-hidden border border-success/15 bg-surface/80">
 																					<div class="relative aspect-[4/3] border-b border-success/10 bg-success/5">
 																						{#if item.imageUrl}
 																							<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
@@ -247,7 +247,7 @@
 																	{:else}
 																		<div class="mt-2 space-y-1.5">
 																			{#each visibleToolResultItems(resultView, resultKey) as item (item.id)}
-																				<div class="flex items-start gap-2 border border-success/15 bg-white/70 px-2 py-1.5">
+																				<div class="flex items-start gap-2 border border-success/15 bg-surface/70 px-2 py-1.5">
 																					<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2F6B42]"></div>
 																					<div class="min-w-0">
 																						<div class="truncate font-medium text-success">{item.primary}</div>
@@ -349,7 +349,7 @@
 															{#if resultView.layout === 'media-grid'}
 																<div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
 																	{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																		<div class="overflow-hidden border {card.status === 'active' ? 'border-[#E7D7AA] bg-white/70' : 'border-success/15 bg-white/80'}">
+																		<div class="overflow-hidden border {card.status === 'active' ? 'border-[#E7D7AA] bg-surface/70' : 'border-success/15 bg-surface/80'}">
 																			<div class="relative aspect-[4/3] border-b {card.status === 'active' ? 'border-[#F0E2BD] bg-[#FFFDF5]' : 'border-success/10 bg-success/5'}">
 																				{#if item.imageUrl}
 																					<img src={item.imageUrl} alt={item.primary} class="h-full w-full object-contain p-2" loading="lazy" />
@@ -369,7 +369,7 @@
 															{:else}
 																<div class="mt-2 space-y-1.5">
 																	{#each visibleToolResultItems(resultView, card.id) as item (item.id)}
-																		<div class="flex items-start gap-2 border px-2 py-1.5 {card.status === 'active' ? 'border-[#E7D7AA] bg-white/60' : 'border-success/15 bg-white/70'}">
+																		<div class="flex items-start gap-2 border px-2 py-1.5 {card.status === 'active' ? 'border-[#E7D7AA] bg-surface/60' : 'border-success/15 bg-surface/70'}">
 																			<div class="mt-1 h-1.5 w-1.5 shrink-0 rounded-full {card.status === 'active' ? 'bg-[#8A6D1F]' : 'bg-[#2F6B42]'}"></div>
 																			<div class="min-w-0">
 																				<div class="truncate font-medium {card.status === 'active' ? 'text-[#6B571C]' : 'text-success'}">{item.primary}</div>

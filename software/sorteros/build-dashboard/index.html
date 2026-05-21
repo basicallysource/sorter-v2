@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SorterOS Build Dashboard</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f6f3; --surface: #fff; --border: #e0ddd6; --text: #1a1a1a;
+    --muted: #6b6860; --accent: #d01012; --green: #00852b; --yellow: #ffd500;
+    --mono: 'SF Mono', 'Fira Mono', monospace;
+  }
+  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); font-size: 14px; }
+  h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .layout { display: grid; grid-template-columns: 1fr 340px; gap: 16px; max-width: 1200px; margin: 0 auto; padding: 20px 16px; }
+  .col-main { display: flex; flex-direction: column; gap: 16px; }
+  .col-side { display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--surface); border: 1px solid var(--border); padding: 16px; }
+  .card-title { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 14px; }
+
+  /* header */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 12px 16px; display: flex; align-items: center; gap: 16px; }
+  header h1 { font-size: 14px; font-weight: 600; }
+  .badge { font-size: 11px; padding: 2px 7px; border: 1px solid var(--border); color: var(--muted); font-family: var(--mono); }
+  .badge.running { border-color: var(--yellow); color: #a07000; background: #fffbe6; }
+  .badge.success { border-color: var(--green); color: var(--green); background: #f0faf0; }
+  .badge.failed  { border-color: var(--accent); color: var(--accent); background: #fff0f0; }
+
+  /* progress */
+  .phases { display: flex; gap: 3px; margin-bottom: 10px; }
+  .phase-pill { flex: 1; height: 6px; background: var(--border); }
+  .phase-pill.done { background: var(--green); }
+  .phase-pill.active { background: var(--yellow); }
+  .progress-meta { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+
+  /* log */
+  .log-box { background: #111; color: #d4d0c8; font-family: var(--mono); font-size: 11px;
+    height: 280px; overflow-y: auto; padding: 10px; line-height: 1.5; }
+  .log-box .phase-hdr { color: var(--yellow); font-weight: 600; }
+  .log-box .err { color: #f88; }
+
+  /* builds table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); padding: 0 8px 8px 0; border-bottom: 1px solid var(--border); }
+  td { padding: 8px 8px 8px 0; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:last-child td { border-bottom: none; }
+  .path-cell { font-family: var(--mono); font-size: 11px; color: var(--muted); max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .path-cell a { color: inherit; }
+  button { cursor: pointer; border: 1px solid var(--border); background: var(--surface); padding: 4px 10px; font-size: 12px; font-family: inherit; }
+  button:hover { background: var(--bg); }
+  button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  button.primary:hover { background: #333; }
+  button.danger { border-color: var(--accent); color: var(--accent); }
+  button:disabled { opacity: .4; cursor: default; }
+
+  /* form */
+  .form-row { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+  label { font-size: 11px; font-weight: 600; color: var(--muted); }
+  input[type=text], textarea, select {
+    font-family: var(--mono); font-size: 12px; padding: 6px 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text); width: 100%;
+  }
+  textarea { resize: vertical; min-height: 80px; }
+  input[type=text]:focus, textarea:focus { outline: 1px solid var(--text); }
+  .row-btns { display: flex; gap: 8px; margin-top: 4px; }
+  .hint { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* preset panel */
+  .preset-actions { display: flex; gap: 6px; margin-top: 8px; }
+
+  /* sorteros-setup tab */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .tab { padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); }
+  .tab.active { color: var(--text); border-bottom-color: var(--text); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* setup inspector */
+  .img-drop { border: 1px dashed var(--border); padding: 20px; text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; }
+  .img-drop.over { border-color: var(--text); }
+  .field-row { display: grid; grid-template-columns: 120px 1fr 28px; gap: 6px; align-items: start; margin-bottom: 8px; }
+  .field-label { font-size: 11px; font-weight: 600; color: var(--muted); padding-top: 7px; }
+  .copy-btn { padding: 4px 6px; font-size: 10px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>SorterOS</h1>
+  <span id="status-badge" class="badge">idle</span>
+  <span id="version-badge" class="badge" style="margin-left:auto"></span>
+</header>
+
+<div class="layout">
+<div class="col-main">
+
+  <!-- active build -->
+  <div class="card">
+    <div class="card-title">Build progress</div>
+    <div class="phases" id="phases"></div>
+    <div class="progress-meta">
+      <span id="phase-label" style="color:var(--muted);font-size:12px">—</span>
+      <span id="eta-label" style="font-size:12px;color:var(--muted)"></span>
+    </div>
+    <div class="log-box" id="log" style="margin-top:10px"></div>
+    <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+      <span id="output-path" class="path-cell" style="flex:1"></span>
+      <button id="finder-btn" style="display:none" onclick="openFinder()">Open in Finder</button>
+    </div>
+  </div>
+
+  <!-- build history -->
+  <div class="card">
+    <div class="card-title">Build history</div>
+    <table>
+      <thead><tr><th>Version</th><th>Date</th><th>Size</th><th>Path</th><th></th></tr></thead>
+      <tbody id="builds-table"><tr><td colspan="5" style="color:var(--muted);font-size:12px">loading…</td></tr></tbody>
+    </table>
+  </div>
+
+</div>
+<div class="col-side">
+
+  <!-- new build -->
+  <div class="card">
+    <div class="card-title">New build</div>
+    <div class="form-row">
+      <label>Version</label>
+      <input type="text" id="f-version" placeholder="from config.toml">
+    </div>
+    <div class="form-row">
+      <label>Branch</label>
+      <input type="text" id="f-branch" placeholder="from config.toml">
+    </div>
+    <div class="form-row">
+      <label>Base image path</label>
+      <input type="text" id="f-base-img" placeholder="auto-discover">
+      <div class="hint">Leave blank to use ~/Downloads or build/cache/</div>
+    </div>
+    <div class="form-row">
+      <label>Preset config</label>
+      <select id="f-preset-select" onchange="onPresetSelect()">
+        <option value="">— none —</option>
+        <option value="saved">Use saved preset</option>
+        <option value="custom">Enter custom config</option>
+      </select>
+    </div>
+    <div class="form-row" id="preset-textarea-row" style="display:none">
+      <textarea id="f-preset-toml" placeholder="hostname = &quot;sorterr&quot;&#10;[wifi]&#10;ssid = &quot;MyNetwork&quot;&#10;password = &quot;...&quot;"></textarea>
+    </div>
+    <button class="primary" id="build-btn" onclick="startBuild()" style="width:100%">Build image</button>
+  </div>
+
+  <!-- preset config -->
+  <div class="card">
+    <div class="card-title">Saved preset config</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">
+      Stored locally as <code style="font-family:var(--mono)">preset.toml</code>. Applied to each build automatically if selected above. Never committed.
+    </div>
+    <textarea id="preset-toml" rows="8" placeholder='hostname = "sorterr"&#10;&#10;[wifi]&#10;ssid = "MyNetwork"&#10;password = "secret"&#10;&#10;[ssh]&#10;authorized_key = "ssh-rsa ..."&#10;&#10;[tailscale]&#10;auth_key = "tskey-auth-..."&#10;tags = "tag:sorter"'></textarea>
+    <div class="preset-actions">
+      <button onclick="savePreset()">Save preset</button>
+      <button onclick="copyPreset()">Copy</button>
+    </div>
+  </div>
+
+  <!-- sorteros-setup inspector -->
+  <div class="card">
+    <div class="card-title">sorteros-setup inspector</div>
+    <div id="img-drop" class="img-drop" onclick="document.getElementById('img-input').click()"
+         ondragover="event.preventDefault();this.classList.add('over')"
+         ondragleave="this.classList.remove('over')"
+         ondrop="onImgDrop(event)">
+      Drop .img here or click to open
+    </div>
+    <input type="file" id="img-input" accept=".img" style="display:none" onchange="onImgFile(this.files[0])">
+    <div id="inspector-fields" style="margin-top:12px;display:none">
+      <div class="field-row">
+        <span class="field-label">hostname</span>
+        <input type="text" id="fi-hostname" readonly>
+        <button class="copy-btn" onclick="copyField('fi-hostname')">⎘</button>
+      </div>
+      <div class="field-row">
+        <span class="field-label">wifi ssid</span>
+        <input type="text" id="fi-ssid" readonly>
+        <button class="copy-btn" onclick="copyField('fi-ssid')">⎘</button>
+      </div>
+      <div class="field-row">
+        <span class="field-label">wifi password</span>
+        <input type="text" id="fi-password" readonly>
+        <button class="copy-btn" onclick="copyField('fi-password')">⎘</button>
+      </div>
+      <div class="field-row">
+        <span class="field-label">ssh key</span>
+        <input type="text" id="fi-ssh-key" readonly>
+        <button class="copy-btn" onclick="copyField('fi-ssh-key')">⎘</button>
+      </div>
+      <div class="field-row">
+        <span class="field-label">tailscale key</span>
+        <input type="text" id="fi-ts-key" readonly>
+        <button class="copy-btn" onclick="copyField('fi-ts-key')">⎘</button>
+      </div>
+      <button style="width:100%;margin-top:8px" onclick="copyAsPreset()">Copy as preset TOML</button>
+    </div>
+  </div>
+
+</div>
+</div>
+
+<script>
+// ── constants ──────────────────────────────────────────────────────────────
+const PHASES = ['prep','grow','mount','overlay','chroot','firstboot-config','finalize'];
+const BASE = '';  // same origin
+
+// ── state ──────────────────────────────────────────────────────────────────
+let currentStatus = {};
+let outputPath = '';
+
+// ── SSE ────────────────────────────────────────────────────────────────────
+function connectSSE() {
+  const es = new EventSource(`${BASE}/stream`);
+  es.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    if (msg.type === 'state') applyStatus(msg.status);
+    else if (msg.type === 'log') appendLog(msg.line, msg.phase);
+    else if (msg.type === 'start') { clearLog(); refreshBuilds(); }
+    else if (msg.type === 'done') { refreshStatus(); refreshBuilds(); }
+  };
+  es.onerror = () => setTimeout(connectSSE, 3000);
+}
+
+// ── log ────────────────────────────────────────────────────────────────────
+const logEl = document.getElementById('log');
+function appendLog(line, phase) {
+  const el = document.createElement('div');
+  if (line.includes('=== phase:')) el.className = 'phase-hdr';
+  else if (/error|traceback|failed/i.test(line)) el.className = 'err';
+  el.textContent = line;
+  logEl.appendChild(el);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog() { logEl.innerHTML = ''; }
+
+// ── status / phases ────────────────────────────────────────────────────────
+function applyStatus(s) {
+  currentStatus = s;
+  outputPath = s.output_path || '';
+
+  // badge
+  const badge = document.getElementById('status-badge');
+  badge.className = 'badge' + (s.running ? ' running' : s.success === true ? ' success' : s.success === false ? ' failed' : '');
+  badge.textContent = s.running ? `building · ${s.phase}` : s.success === true ? 'done' : s.success === false ? 'failed' : 'idle';
+
+  document.getElementById('version-badge').textContent = s.version ? `v${s.version}` : '';
+
+  // phases bar
+  const container = document.getElementById('phases');
+  container.innerHTML = '';
+  PHASES.forEach((p, i) => {
+    const pill = document.createElement('div');
+    pill.className = 'phase-pill' + (i < s.phase_index ? ' done' : i === s.phase_index && s.running ? ' active' : '');
+    pill.title = p;
+    container.appendChild(pill);
+  });
+
+  // meta
+  document.getElementById('phase-label').textContent = s.running ? `${s.phase} (${s.elapsed_s}s elapsed)` : s.success === true ? 'Complete' : s.success === false ? 'Failed' : 'Idle';
+  document.getElementById('eta-label').textContent = s.running && s.eta_s > 0 ? `~${s.eta_s}s remaining` : '';
+
+  // output path
+  const pathEl = document.getElementById('output-path');
+  const finderBtn = document.getElementById('finder-btn');
+  if (outputPath) {
+    pathEl.innerHTML = `<a href="file://${outputPath}" title="${outputPath}">${outputPath.split('/').pop()}</a>`;
+    finderBtn.style.display = '';
+  }
+
+  // log tail on initial load
+  if (s.log_tail && logEl.children.length === 0) {
+    s.log_tail.forEach(l => appendLog(l, s.phase));
+  }
+
+  // build button
+  document.getElementById('build-btn').disabled = s.running;
+}
+
+function refreshStatus() {
+  fetch(`${BASE}/build/status`).then(r => r.json()).then(applyStatus);
+}
+
+// ── builds table ────────────────────────────────────────────────────────────
+function refreshBuilds() {
+  fetch(`${BASE}/builds`).then(r => r.json()).then(builds => {
+    const tbody = document.getElementById('builds-table');
+    if (!builds.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted);font-size:12px">No builds yet</td></tr>';
+      return;
+    }
+    tbody.innerHTML = builds.map(b => `
+      <tr>
+        <td><code style="font-family:var(--mono);font-size:12px">${b.version}</code></td>
+        <td style="color:var(--muted)">${b.date}</td>
+        <td style="color:var(--muted)">${b.size_mb} MB</td>
+        <td class="path-cell"><a href="file://${b.path}" title="${b.path}">${b.path.split('/').pop()}</a></td>
+        <td><button class="copy-btn" onclick="openFinderPath('${b.path}')">Finder</button></td>
+      </tr>`).join('');
+  });
+}
+
+// ── new build ───────────────────────────────────────────────────────────────
+function onPresetSelect() {
+  const v = document.getElementById('f-preset-select').value;
+  document.getElementById('preset-textarea-row').style.display = v === 'custom' ? '' : 'none';
+}
+
+async function startBuild() {
+  const version = document.getElementById('f-version').value.trim() || null;
+  const branch = document.getElementById('f-branch').value.trim() || null;
+  const base_img = document.getElementById('f-base-img').value.trim() || null;
+  const presetSel = document.getElementById('f-preset-select').value;
+  let preset_config = null;
+  if (presetSel === 'custom') preset_config = document.getElementById('f-preset-toml').value.trim() || null;
+  else if (presetSel === 'saved') preset_config = document.getElementById('preset-toml').value.trim() || null;
+
+  const res = await fetch(`${BASE}/build`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({version, branch, base_img, preset_config}),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    alert(err.detail || 'Build failed to start');
+  }
+}
+
+// ── preset panel ────────────────────────────────────────────────────────────
+function loadPreset() {
+  fetch(`${BASE}/config`).then(r => r.json()).then(cfg => {
+    if (cfg.preset) document.getElementById('preset-toml').value = cfg.preset;
+    if (cfg.version) document.getElementById('f-version').placeholder = cfg.version;
+    if (cfg.branch) document.getElementById('f-branch').placeholder = cfg.branch;
+  });
+}
+function savePreset() {
+  const toml = document.getElementById('preset-toml').value.trim();
+  fetch(`${BASE}/build`, {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({preset_config: toml}),
+  });
+  // Just save without triggering a build — hack: server ignores null fields
+  // TODO: add a dedicated /preset endpoint
+  alert('Preset saved (will apply on next build)');
+}
+function copyPreset() {
+  navigator.clipboard.writeText(document.getElementById('preset-toml').value);
+}
+
+// ── finder ──────────────────────────────────────────────────────────────────
+function openFinder() { fetch(`${BASE}/open-finder?path=${encodeURIComponent(outputPath)}`); }
+function openFinderPath(p) { fetch(`${BASE}/open-finder?path=${encodeURIComponent(p)}`); }
+
+// ── img inspector ────────────────────────────────────────────────────────────
+const START_MARKER = '__SORTEROS_CFG_START__';
+const END_MARKER   = '__SORTEROS_CFG_END__';
+
+function onImgDrop(e) {
+  e.preventDefault();
+  document.getElementById('img-drop').classList.remove('over');
+  const f = e.dataTransfer.files[0];
+  if (f) onImgFile(f);
+}
+
+function onImgFile(file) {
+  if (!file) return;
+  document.getElementById('img-drop').textContent = `Reading ${file.name}…`;
+  // Scan in 512KB chunks looking for the marker
+  const CHUNK = 512 * 1024;
+  let offset = 0;
+  const reader = new FileReader();
+  function readNext() {
+    if (offset > file.size) { notFound(); return; }
+    const blob = file.slice(offset, offset + CHUNK + START_MARKER.length);
+    reader.readAsArrayBuffer(blob);
+  }
+  reader.onload = e => {
+    const buf = e.target.result;
+    const text = new TextDecoder('utf-8', {fatal: false}).decode(new Uint8Array(buf));
+    const startIdx = text.indexOf(START_MARKER);
+    if (startIdx === -1) { offset += CHUNK; readNext(); return; }
+    const endIdx = text.indexOf(END_MARKER, startIdx);
+    if (endIdx === -1) { offset += CHUNK; readNext(); return; }
+    const between = text.slice(startIdx + START_MARKER.length, endIdx);
+    parseAndShow(between, file.name);
+  };
+  readNext();
+}
+
+function notFound() {
+  document.getElementById('img-drop').textContent = 'No config markers found in image';
+}
+
+function parseAndShow(toml, filename) {
+  document.getElementById('img-drop').textContent = `Loaded: ${filename}`;
+  const fields = {hostname:'', ssid:'', password:'', 'authorized_key':'', 'auth_key':''};
+  for (const line of toml.split('\n')) {
+    const m = line.match(/^\s*([\w_]+)\s*=\s*"(.*)"\s*$/);
+    if (m) fields[m[1]] = m[2];
+  }
+  const hasData = Object.values(fields).some(v => v.trim());
+  if (!hasData) { document.getElementById('inspector-fields').style.display = 'none'; return; }
+  document.getElementById('fi-hostname').value = fields.hostname;
+  document.getElementById('fi-ssid').value = fields.ssid;
+  document.getElementById('fi-password').value = fields.password;
+  document.getElementById('fi-ssh-key').value = fields.authorized_key;
+  document.getElementById('fi-ts-key').value = fields.auth_key;
+  document.getElementById('inspector-fields').style.display = '';
+}
+
+function copyField(id) {
+  navigator.clipboard.writeText(document.getElementById(id).value);
+}
+
+function copyAsPreset() {
+  const hostname = document.getElementById('fi-hostname').value;
+  const ssid     = document.getElementById('fi-ssid').value;
+  const password = document.getElementById('fi-password').value;
+  const sshKey   = document.getElementById('fi-ssh-key').value;
+  const tsKey    = document.getElementById('fi-ts-key').value;
+  const lines = [];
+  if (hostname) lines.push(`hostname = "${hostname}"`);
+  if (ssid || password) {
+    lines.push('', '[wifi]');
+    if (ssid)     lines.push(`ssid = "${ssid}"`);
+    if (password) lines.push(`password = "${password}"`);
+  }
+  if (sshKey) lines.push('', '[ssh]', `authorized_key = "${sshKey}"`);
+  if (tsKey)  lines.push('', '[tailscale]', `auth_key = "${tsKey}"`, 'tags = "tag:sorter"');
+  const toml = lines.join('\n').trim();
+  navigator.clipboard.writeText(toml);
+  // Also populate the preset textarea
+  document.getElementById('preset-toml').value = toml;
+}
+
+// ── init ────────────────────────────────────────────────────────────────────
+refreshStatus();
+refreshBuilds();
+loadPreset();
+connectSSE();
+</script>
+</body>
+</html>

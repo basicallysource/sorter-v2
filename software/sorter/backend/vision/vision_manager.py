@@ -2102,6 +2102,8 @@ class VisionManager:
 
     def _getOrBuildHiveProcessor(self, algorithm_id: str):
         cached = self._hive_ml_processors.get(algorithm_id)
+        if cached is False:
+            return None  # permanently failed — don't retry
         if cached is not None:
             return cached
         from .detection_registry import detection_algorithm_definition
@@ -3071,7 +3073,11 @@ class VisionManager:
             else:
                 detections = processor.infer(crop)
         except Exception as exc:
-            self.gc.logger.warning("Local model inference %s failed: %s", algorithm_id, exc)
+            if getattr(processor, "_load_failed", False):
+                self._hive_ml_processors[algorithm_id] = False
+                self.gc.logger.warning("Local model %s is permanently broken, disabling: %s", algorithm_id, exc)
+            else:
+                self.gc.logger.warning("Local model inference %s failed: %s", algorithm_id, exc)
             return None
         if not detections:
             return ClassificationDetectionResult(

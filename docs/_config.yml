@@ -51,6 +51,13 @@ defaults:
       audience: self-builder
       applies_to: hardware-v2
   - scope:
+      path: "installation"
+    values:
+      section: installation
+      owner: docs
+      audience: self-hosting operator
+      applies_to: sorter 2.x
+  - scope:
       path: "sorter"
     values:
       section: sorter

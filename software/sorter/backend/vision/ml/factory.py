@@ -65,6 +65,19 @@ def create_processor(
                 iou_threshold=iou_threshold,
             )
 
+    if runtime == "rknn":
+        from .rknn import RknnYoloProcessor
+
+        if family == "yolo":
+            return RknnYoloProcessor(
+                model_path,
+                imgsz=imgsz,
+                conf_threshold=conf_threshold,
+                iou_threshold=iou_threshold,
+            )
+        # NanoDet on RKNN is intentionally not wired yet — no .rknn nanodet
+        # artifact in scope. Add when the export pipeline produces one.
+
     if runtime == "hailo":
         from .hailo import HailoNanodetProcessor, HailoYoloProcessor
 
@@ -141,6 +154,11 @@ def resolve_variant_artifact(run_dir: Path, runtime: str) -> Path | None:
         # Fallback: plain .param next to exports
         for param in sorted(exports.glob("*.param")):
             return param
+        return None
+
+    if rt == "rknn":
+        for rknn in sorted(exports.glob("*.rknn")):
+            return rknn
         return None
 
     if rt == "hailo":

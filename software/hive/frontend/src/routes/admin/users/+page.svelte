@@ -102,7 +102,7 @@
 		<Spinner />
 	</div>
 {:else}
-	<div class="overflow-hidden border border-border bg-white">
+	<div class="overflow-hidden border border-border bg-surface">
 		<table class="min-w-full divide-y divide-border">
 			<thead class="bg-bg">
 				<tr>

@@ -641,6 +641,30 @@
 		}
 	}
 
+	async function resetCameraToAutoDefaults() {
+		if (!deviceSupported) return;
+		saving = true;
+		error = null;
+		status = '';
+		invalidateDevicePreview();
+		try {
+			const res = await fetch(
+				`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/reset-defaults`,
+				{
+					method: 'POST'
+				}
+			);
+			if (!res.ok) throw new Error(await res.text());
+			const data = (await res.json()) as CameraDeviceSettingsResponse;
+			applyDeviceResponse(data);
+			status = data.message ?? 'Camera reset to automatic settings.';
+		} catch (e: any) {
+			error = e.message ?? 'Failed to reset camera settings';
+		} finally {
+			saving = false;
+		}
+	}
+
 	async function saveSettings() {
 		saving = true;
 		error = null;
@@ -1008,12 +1032,23 @@
 				/>
 			</div>
 
-			<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
-				{#if status}
-					<div class="text-sm text-text-muted">{status}</div>
-				{/if}
+				<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
+					{#if status}
+						<div class="text-sm text-text-muted">{status}</div>
+					{/if}
 
-				<div class="flex items-center gap-2">
+					{#if deviceSupported}
+						<button
+							onclick={resetCameraToAutoDefaults}
+							disabled={saving || calibrating}
+							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							<RotateCcw size={15} />
+							<span>Reset Camera To Auto</span>
+						</button>
+					{/if}
+
+					<div class="flex items-center gap-2">
 					<button
 						onclick={revertChanges}
 						disabled={saving || calibrating || !hasUnsavedChanges()}

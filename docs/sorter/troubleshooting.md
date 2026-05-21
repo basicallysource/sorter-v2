@@ -8,7 +8,7 @@ lede: Symptom-led entries for install, first-run, and runtime problems. Search t
 permalink: /sorter/troubleshooting/
 ---
 
-Each entry: what you see → cause → fix → how to verify. For the install procedure itself, see [Install on a Linux machine]({{ '/sorter/installation/' | relative_url }}).
+Each entry: what you see → cause → fix → how to verify. For the install procedure itself, see [Installation]({{ '/sorter/installation/' | relative_url }}).
 
 ## `.onnx` files are tiny — backend logs a malformed model error
 

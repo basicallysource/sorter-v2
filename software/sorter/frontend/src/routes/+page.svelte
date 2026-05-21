@@ -1019,8 +1019,9 @@
 		{#if machine.machine}
 			<div class="flex h-[calc(100vh-7rem)] min-h-0 gap-3">
 				{#if camera_layout === 'split_feeder'}
-					{@const has_cls_top = isConfigured('classification_top')}
-					{@const has_cls_bottom = isConfigured('classification_bottom')}
+					{@const uses_chamber = machineSetup !== 'classification_channel'}
+					{@const has_cls_top = uses_chamber && isConfigured('classification_top')}
+					{@const has_cls_bottom = uses_chamber && isConfigured('classification_bottom')}
 					{@const classification_camera = preferredClassificationCamera(
 						has_cls_top,
 						has_cls_bottom

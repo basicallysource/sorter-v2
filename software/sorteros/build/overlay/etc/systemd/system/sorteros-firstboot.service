@@ -1,0 +1,16 @@
+[Unit]
+Description=SorterOS first-boot stages (idempotent, background, never blocks)
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/sbin/sorteros-firstboot.py
+Restart=on-failure
+RestartSec=30s
+# Exits 0 when all stages are stamped done — don't restart in that case.
+RestartPreventExitStatus=0
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

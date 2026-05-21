@@ -295,6 +295,18 @@ def _apply_live_usb_device_settings(
     return dict(parsed), False
 
 
+def _auto_camera_device_settings_from_controls(
+    controls: List[Dict[str, Any]],
+) -> Dict[str, bool]:
+    auto_keys = {"auto_exposure", "auto_white_balance", "autofocus"}
+    settings: Dict[str, bool] = {}
+    for control in controls:
+        key = control.get("key")
+        if key in auto_keys and control.get("kind") == "boolean":
+            settings[str(key)] = True
+    return settings
+
+
 def _as_number(value: Any) -> float | None:
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         return None
@@ -4501,6 +4513,76 @@ def save_camera_device_settings(role: str, payload: Dict[str, Any]) -> Dict[str,
         "persisted": True,
         "applied_live": applied_live,
         "message": "Camera device settings saved.",
+    }
+
+
+@router.post("/api/cameras/device-settings/{role}/reset-defaults")
+def reset_camera_device_settings_to_defaults(role: str) -> Dict[str, Any]:
+    params_path, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
+
+    if isinstance(source, str):
+        payload = {
+            "exposure_compensation": 0,
+            "ae_lock": False,
+            "awb_lock": False,
+            "white_balance_mode": "auto",
+            "processing_mode": "standard",
+        }
+        proxied = _android_camera_request(
+            source,
+            "/camera-settings",
+            method="POST",
+            payload=payload,
+        )
+        return {
+            "ok": True,
+            "role": role,
+            "source": source,
+            "provider": proxied.get("provider", "android-camera-app"),
+            "settings": proxied.get("settings", payload),
+            "persisted": True,
+            "applied_live": True,
+            "message": "Camera reset to automatic settings.",
+        }
+
+    controls, _ = _camera_service_usb_device_controls(role, source, {})
+    auto_settings = _auto_camera_device_settings_from_controls(controls)
+    if not auto_settings:
+        from vision.camera import default_auto_camera_device_settings
+
+        auto_settings = default_auto_camera_device_settings()
+
+    device_settings = _get_camera_device_settings_table(config)
+    device_settings.pop(role, None)
+    config["camera_device_settings"] = device_settings
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+
+    shared_state.camera_device_preview_overrides.pop(role, None)
+    applied_settings, applied_live = _apply_live_usb_device_settings(role, auto_settings, persist=False)
+    svc = shared_state.camera_service
+    if svc is not None and hasattr(svc, "clear_persisted_device_settings_for_role"):
+        try:
+            svc.clear_persisted_device_settings_for_role(role)
+        except Exception:
+            pass
+
+    return {
+        "ok": True,
+        "role": role,
+        "source": source,
+        "provider": "usb-opencv",
+        "settings": applied_settings,
+        "controls": controls,
+        "persisted": False,
+        "applied_live": applied_live,
+        "message": "Camera reset to automatic settings.",
     }
 
 

@@ -19,6 +19,8 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
+      - title: Orange Pi 5
+        url: /hardware/orange-pi-5/
 
   - id: sorter
     title: Sorter
@@ -30,10 +32,14 @@ sections:
     groups:
       - title: Install
         pages:
-          - title: Install on a Linux machine
+          - title: Installation
             url: /sorter/installation/
-          - title: Install by hand
-            url: /sorter/install-by-hand/
+          - title: SorterOS
+            url: /sorter/installation/sorter-os/
+          - title: Linux (generic)
+            url: /sorter/installation/linux-generic/
+          - title: By hand
+            url: /sorter/installation/by-hand/
       - title: Operate
         pages:
           - title: Your first sort run

@@ -34,17 +34,20 @@
 #include "Stepper.h"
 #include "TMC2209.h"
 #include "TMC_UART.h"
+#include "pico/bootrom.h"
 
 #include "message.h"
 
 void CMDH_init(const BusMessage *msg, BusMessage *resp);
 void CMDH_ping(const BusMessage *msg, BusMessage *resp);
+void CMDH_reboot_bootloader(const BusMessage *msg, BusMessage *resp);
 
 const struct CommandTable baseCmdTable = { //
     .prefix = NULL,
     .commands = {{
         {"INIT", "", "s", 0, NULL, CMDH_init},
         {"PING", "", "", 255, NULL, CMDH_ping},
+        {"REBOOT_BOOTLOADER", "", "", 0, NULL, CMDH_reboot_bootloader},
     }}};
 
 void CMDH_stepper_move_steps(const BusMessage *msg, BusMessage *resp);
@@ -161,21 +164,35 @@ const MasterCommandTable command_tables = {
 char DEVICE_NAME[16] = INIT_DEVICE_NAME;
 uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 
-#ifdef HARDWARE_SKR_PICO
+#if defined(HARDWARE_SKR_PICO)
 #include "hwcfg_skr_pico.h"
+#elif defined(HW_BASICALLY_V1_1)
+#include "hwcfg_basically_v1_1.h"
+#elif defined(HW_BASICALLY_V1_2)
+#include "hwcfg_basically_v1_2.h"
 #else
-#include "hwcfg_basically.h"
+#error "No hardware config selected. Define HARDWARE_SKR_PICO, HW_BASICALLY_V1_1, or HW_BASICALLY_V1_2."
 #endif
 
 // End board configuration
 
-TMC_UART_Bus tmc_bus(TMC_UART);
+TMC_UART_Bus tmc_bus_0(TMC_UART_BUSES[0]);
+#if TMC_UART_BUS_COUNT > 1
+TMC_UART_Bus tmc_bus_1(TMC_UART_BUSES[1]);
+#endif
 
-// Create the objects at compile time from the configuration constants.
+static TMC_UART_Bus* tmc_bus_for(uint8_t i) {
+#if TMC_UART_BUS_COUNT > 1
+    return TMC_UART_BUS_INDEX[i] == 0 ? &tmc_bus_0 : &tmc_bus_1;
+#else
+    (void)i;
+    return &tmc_bus_0;
+#endif
+}
 
 template <size_t... I>
 static std::array<TMC2209, STEPPER_COUNT> make_tmc_array(std::index_sequence<I...>) {
-    return {TMC2209(&tmc_bus, TMC_UART_ADDRESSES[I])...};
+    return {TMC2209(tmc_bus_for(I), TMC_UART_ADDRESSES[I])...};
 }
 
 static auto tmc_drivers = make_tmc_array(std::make_index_sequence<STEPPER_COUNT>{});
@@ -201,54 +218,67 @@ std::array<Servo, 16> servos{}; // Create 16 servo objects, but only the first S
  * \param buf_size Size of the buffer in bytes
  * \return Number of bytes written to the buffer, excluding the null terminator
  */
+static int append_stepper_names_json(char *buf, size_t buf_size) {
+    if (buf_size == 0) return -1;
+    int written = snprintf(buf, buf_size, "[");
+    if (written < 0 || (size_t)written >= buf_size) return -1;
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        int n = snprintf(buf + written, buf_size - written, "%s\"%s\"", i == 0 ? "" : ",", STEPPER_NAMES[i]);
+        if (n < 0 || (size_t)(written + n) >= buf_size) return -1;
+        written += n;
+    }
+    int n = snprintf(buf + written, buf_size - written, "]");
+    if (n < 0 || (size_t)(written + n) >= buf_size) return -1;
+    return written + n;
+}
+
 int dump_configuration(char *buf, size_t buf_size) {
     if (buf_size == 0) {
         return 0;
     }
 
+    char names_buf[256];
+    int names_len = append_stepper_names_json(names_buf, sizeof(names_buf));
+
     // Keep detect response compact to stay within bus frame limits.
     // Try richest payload first (with names), then progressively smaller valid JSON fallbacks.
 
+    if (names_len > 0) {
+        int n_bytes = snprintf(
+            buf,
+            buf_size,
+            "{\"device_name\":\"%s\",\"stepper_count\":%d,"
+            "\"stepper_names\":%s,"
+            "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+            DEVICE_NAME,
+            STEPPER_COUNT,
+            names_buf,
+            DIGITAL_INPUT_COUNT,
+            DIGITAL_OUTPUT_COUNT,
+            SERVO_COUNT.load());
+
+        if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+            return n_bytes;
+        }
+
+        n_bytes = snprintf(
+            buf,
+            buf_size,
+            "{\"stepper_count\":%d,"
+            "\"stepper_names\":%s,"
+            "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+            STEPPER_COUNT,
+            names_buf,
+            DIGITAL_INPUT_COUNT,
+            DIGITAL_OUTPUT_COUNT,
+            SERVO_COUNT.load());
+
+        if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+            return n_bytes;
+        }
+    }
+
     int n_bytes = snprintf(
-        buf,
-        buf_size,
-        "{\"device_name\":\"%s\",\"stepper_count\":%d,"
-        "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
-        "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
-        DEVICE_NAME,
-        STEPPER_COUNT,
-        STEPPER_NAMES[0],
-        STEPPER_NAMES[1],
-        STEPPER_NAMES[2],
-        STEPPER_NAMES[3],
-        DIGITAL_INPUT_COUNT,
-        DIGITAL_OUTPUT_COUNT,
-        SERVO_COUNT.load());
-
-    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
-        return n_bytes;
-    }
-
-    n_bytes = snprintf(
-        buf,
-        buf_size,
-        "{\"stepper_count\":%d,"
-        "\"stepper_names\":[\"%s\",\"%s\",\"%s\",\"%s\"],"
-        "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
-        STEPPER_COUNT,
-        STEPPER_NAMES[0],
-        STEPPER_NAMES[1],
-        STEPPER_NAMES[2],
-        STEPPER_NAMES[3],
-        DIGITAL_INPUT_COUNT,
-        DIGITAL_OUTPUT_COUNT,
-        SERVO_COUNT.load());
-
-    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
-        return n_bytes;
-    }
-
-    n_bytes = snprintf(
         buf,
         buf_size,
         "{\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
@@ -281,8 +311,10 @@ int dump_configuration(char *buf, size_t buf_size) {
  * If called again, it will return the hardware to a known state.
  */
 void initialize_hardware() {
-    // Initialize TMC UART bus
-    tmc_bus.setupComm(TMC_UART_BAUDRATE, TMC_UART_TX_PIN, TMC_UART_RX_PIN);
+    tmc_bus_0.setupComm(TMC_UART_BAUDRATE, TMC_UART_BUS_TX_PINS[0], TMC_UART_BUS_RX_PINS[0]);
+#if TMC_UART_BUS_COUNT > 1
+    tmc_bus_1.setupComm(TMC_UART_BAUDRATE, TMC_UART_BUS_TX_PINS[1], TMC_UART_BUS_RX_PINS[1]);
+#endif
     // Initialize TMC2209 drivers and steppers
     for (int i = 0; i < STEPPER_COUNT; i++) {
         steppers[i].initialize();
@@ -290,7 +322,7 @@ void initialize_hardware() {
         steppers[i].setSpeedLimits(16, 4000);
         tmc_drivers[i].initialize();
         tmc_drivers[i].enableDriver(true);
-        tmc_drivers[i].setCurrent(16, 4, 10);
+        tmc_drivers[i].setCurrent(0, 0, 0);
         tmc_drivers[i].setMicrosteps(MICROSTEP_8);
         tmc_drivers[i].enableStealthChop(true);
     }
@@ -351,6 +383,11 @@ void CMDH_ping(const BusMessage *msg, BusMessage *resp) {
     // Echo back the payload from the message into the response
     memcpy(resp->payload, msg->payload, msg->payload_length);
     resp->payload_length = msg->payload_length;
+}
+
+void CMDH_reboot_bootloader(const BusMessage *msg, BusMessage *resp) {
+    resp->payload_length = 0;
+    reset_usb_boot(0, 0);
 }
 
 bool VAL_stepper_channel(uint8_t channel) { return channel < STEPPER_COUNT; }

@@ -40,7 +40,7 @@
 	}
 </script>
 
-<div class="border border-border bg-white p-3">
+<div class="border border-border bg-surface p-3">
 	<div class="mb-2 flex items-center justify-between">
 		<h3 class="text-sm font-semibold text-text">Add LEGO Part</h3>
 		{#if onCancel}

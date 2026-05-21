@@ -506,14 +506,14 @@
 			<div class="flex items-center gap-1 bg-bg p-1">
 				<button
 					onclick={() => setView('image')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'image' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 				>
 					Image
 				</button>
 				{#if sample.has_full_frame}
 					<button
 						onclick={() => setView('full_frame')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 					>
 						Full Frame
 					</button>
@@ -521,14 +521,14 @@
 				{#if sample.has_overlay}
 					<button
 						onclick={() => setView('overlay')}
-						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'overlay' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 					>
 						Overlay
 					</button>
 				{/if}
 				<button
 					onclick={() => setView('annotate')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 				>
 					Annotate
 				</button>
@@ -598,7 +598,7 @@
 
 			<!-- Detection summary card -->
 			{#if sample.detection_algorithm || detectionFound !== undefined}
-				<div class="border border-border bg-white">
+				<div class="border border-border bg-surface">
 					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
 						<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Detection</h2>
 						{#if detectionFound !== undefined}

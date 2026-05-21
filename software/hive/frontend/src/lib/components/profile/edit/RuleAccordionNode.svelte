@@ -165,11 +165,11 @@
 			{/if}
 			{#if !isPreview}
 				<button onclick={(e) => { e.stopPropagation(); onUpdateRule(rule.id, { disabled: !rule.disabled }); }}
-					class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors {rule.disabled ? 'bg-gray-300' : 'bg-success'}"
+					class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors {rule.disabled ? 'bg-text-muted/40' : 'bg-success'}"
 					title={rule.disabled ? 'Enable rule' : 'Disable rule'}
 					role="switch"
 					aria-checked={!rule.disabled}>
-					<span class="inline-block h-3 w-3 rounded-full bg-white shadow transition-transform {rule.disabled ? 'translate-x-0.5' : 'translate-x-3.5'}"></span>
+					<span class="inline-block h-3 w-3 rounded-full bg-surface shadow transition-transform {rule.disabled ? 'translate-x-0.5' : 'translate-x-3.5'}"></span>
 				</button>
 			{/if}
 		</div>
@@ -177,7 +177,7 @@
 
 	{#if isOpen}
 		{#if rule.rule_type === 'set'}
-			<div class="border-b border-border bg-white px-3 py-3">
+			<div class="border-b border-border bg-surface px-3 py-3">
 				{#if isCustomSetRule(rule)}
 					<div class="mb-3">
 						<input
@@ -196,14 +196,14 @@
 					<div class="mb-3 flex items-center gap-2">
 						<button onclick={() => onOpenBrickLinkCsvImport(rule.id)}
 							disabled={importingCsvForRule === rule.id}
-							class="border border-border bg-white px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-bg hover:text-text disabled:opacity-50">
+							class="border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-bg hover:text-text disabled:opacity-50">
 							{importingCsvForRule === rule.id ? 'Importing...' : 'Import CSV'}
 						</button>
 						<button onclick={() => {
 							onEnsureCatalogColorsLoaded();
 							onSetAddingPartForRule(addingPartForRule === rule.id ? null : rule.id);
 						}}
-							class="border border-border bg-white px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-bg hover:text-text">
+							class="border border-border bg-surface px-3 py-1.5 text-xs font-medium text-text-muted hover:bg-bg hover:text-text">
 							Add Part
 						</button>
 					</div>
@@ -317,11 +317,11 @@
 					<div class="mb-3 flex items-center gap-4">
 						<label class="flex items-center gap-2 text-xs text-text-muted">
 							<button onclick={() => onUpdateRule(rule.id, { include_spares: !(rule.include_spares ?? false) } as Partial<SortingProfileRule>)}
-								class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors {rule.include_spares ? 'bg-success' : 'bg-gray-300'}"
+								class="relative inline-flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full transition-colors {rule.include_spares ? 'bg-success' : 'bg-text-muted/40'}"
 								role="switch"
 								aria-checked={rule.include_spares ?? false}
 								type="button">
-								<span class="inline-block h-3 w-3 rounded-full bg-white shadow transition-transform {rule.include_spares ? 'translate-x-3.5' : 'translate-x-0.5'}"></span>
+								<span class="inline-block h-3 w-3 rounded-full bg-surface shadow transition-transform {rule.include_spares ? 'translate-x-3.5' : 'translate-x-0.5'}"></span>
 							</button>
 							Include spare parts
 						</label>
@@ -343,7 +343,7 @@
 				{/if}
 			</div>
 		{:else}
-			<div class="border-b border-border bg-white px-3 py-3">
+			<div class="border-b border-border bg-surface px-3 py-3">
 				<div class="mb-3 flex items-center gap-2">
 					<input type="text" value={rule.name}
 						oninput={(e) => onUpdateRule(rule.id, { name: (e.currentTarget as HTMLInputElement).value })}

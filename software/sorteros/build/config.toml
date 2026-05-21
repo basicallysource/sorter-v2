@@ -1,0 +1,46 @@
+# v3 build config
+
+[base]
+# Orange Pi 5 Ubuntu Jammy server image — kernel 6.1.99
+url = "https://drive.google.com/file/d/1A-XwhSnRb_TaDfDxF6tNzfNyvHy8tn7w/view"
+# Override: drop a local file at cache/base.img to skip download entirely.
+filename = "Orangepi5_1.2.2_ubuntu_jammy_server_linux6.1.99.img"
+sha256 = ""  # fill in when known
+
+[output]
+dir = "out"
+version = "3.4.4"
+name = "sorteros-v{version}-{date}.img"
+
+[chroot]
+# Documentation only — the actual apt invocation lives in chroot_apt.sh.
+# Keep this list in sync so config-readers see the real package set.
+# Every entry is build time and image bytes; keep it short.
+packages = [
+    "network-manager",    # Wi-Fi client
+    "python3-pip",
+    "python3-tomli",      # tomllib backport for Python 3.10 (Ubuntu Jammy)
+    "libgl1",             # OpenCV runtime dep
+    "libglib2.0-0",       # OpenCV runtime dep
+    "v4l-utils",          # camera inspection / V4L2 tools
+    "git-lfs",            # pull LFS model artifacts on first boot
+    "cloud-guest-utils",  # provides growpart for stage_grow_rootfs
+    "figlet",             # MOTD ASCII art for SorterOS login screen
+]
+
+# Installed via curl scripts in chroot_apt.sh (NOT apt):
+#   - Node 22 via deb.nodesource.com (pnpm@latest requires >=22.13)
+#   - Tailscale via tailscale.com/install.sh
+extra_curl_installs = ["node22", "tailscale"]
+
+[branch]
+# Git branch to encode in /etc/sorteros/branch so the firstboot daemon
+# clones the right thing. Can be overridden with --branch on CLI.
+default = "sorteros-v3"
+
+[firstboot]
+# Placeholder size for /etc/sorteros-config.toml (the file the browser
+# customizer overwrites in-place). Must be big enough for the largest
+# config we'd ever write: Wi-Fi SSID + PSK + hostname + SSH key +
+# Tailscale auth key + future fields.
+placeholder_kb = 8

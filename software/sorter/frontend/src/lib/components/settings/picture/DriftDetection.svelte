@@ -94,12 +94,12 @@
 				body: JSON.stringify(liveSnapshot)
 			});
 			if (!res.ok) throw new Error(await res.text());
-			status = 'Live-Einstellungen als gespeichert übernommen.';
+			status = 'Live values saved.';
 			open = false;
 			ignoredSignature = null;
 			onAction?.('adopt');
 		} catch (e: any) {
-			error = e.message ?? 'Übernahme fehlgeschlagen';
+			error = e.message ?? 'Failed to adopt live values';
 		} finally {
 			applying = false;
 		}
@@ -116,12 +116,12 @@
 				body: JSON.stringify(savedSnapshot)
 			});
 			if (!res.ok) throw new Error(await res.text());
-			status = 'Gespeicherte Einstellungen wiederhergestellt.';
+			status = 'Saved settings restored.';
 			open = false;
 			ignoredSignature = null;
 			onAction?.('restore');
 		} catch (e: any) {
-			error = e.message ?? 'Wiederherstellung fehlgeschlagen';
+			error = e.message ?? 'Failed to restore saved values';
 		} finally {
 			applying = false;
 		}
@@ -152,10 +152,10 @@
 	});
 </script>
 
-<Modal bind:open title="Kameraeinstellungen abweichend">
+<Modal bind:open title="Camera settings drifted">
 	<div class="flex flex-col gap-3">
 		<p class="text-sm text-text">
-			Die Kamera meldet andere Werte als gespeichert. Was soll passieren?
+			The camera is reporting different values than what's saved. What should happen?
 		</p>
 
 		{#if error}
@@ -168,8 +168,8 @@
 			<table class="w-full text-sm">
 				<thead class="bg-surface text-xs font-semibold tracking-wider text-text-muted uppercase">
 					<tr>
-						<th class="px-3 py-2 text-left">Einstellung</th>
-						<th class="px-3 py-2 text-right">Gespeichert</th>
+						<th class="px-3 py-2 text-left">Setting</th>
+						<th class="px-3 py-2 text-right">Saved</th>
 						<th class="px-3 py-2 text-right">Live</th>
 					</tr>
 				</thead>
@@ -191,21 +191,21 @@
 				disabled={applying}
 				class="inline-flex items-center justify-center border border-border bg-bg px-4 py-2 text-sm text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				Ignorieren
+				Ignore
 			</button>
 			<button
 				onclick={adopt}
 				disabled={applying}
 				class="inline-flex items-center justify-center border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				Live übernehmen
+				Adopt live
 			</button>
 			<button
 				onclick={restore}
 				disabled={applying}
 				class="inline-flex items-center justify-center border border-success bg-success px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				Gespeicherte wiederherstellen
+				Restore saved
 			</button>
 		</div>
 

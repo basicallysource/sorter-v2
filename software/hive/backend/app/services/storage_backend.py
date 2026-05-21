@@ -182,6 +182,13 @@ class S3StorageBackend(StorageBackend):
             )
             response = RedirectResponse(url=url, status_code=307)
             for name, value in (headers or {}).items():
+                # Content-Length describes the eventual file body, not the
+                # redirect itself. Setting it here makes uvicorn raise
+                # "Response content shorter than Content-Length" because the
+                # 307 has an empty body. Skip it — the actual S3 GET will
+                # set its own Content-Length.
+                if name.lower() == "content-length":
+                    continue
                 response.headers[name] = value
             return response
 

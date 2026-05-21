@@ -3,7 +3,12 @@ name = "client"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-requires-python = ">=3.13"
+# Pinned to 3.12 because `rknn-toolkit-lite2` (RK3588 NPU inference, used on
+# the Orange Pi) only ships prebuilt wheels for cp37-cp312. No cp313 wheel
+# exists upstream and the package wraps a closed-source binary, so we can't
+# rebuild it ourselves. Bump only when rknn-toolkit-lite2 publishes a
+# matching cp313+ wheel.
+requires-python = ">=3.12,<3.13"
 dependencies = [
     "aiortc>=1.14.0",
     "boxmot>=18.0.0",
@@ -25,7 +30,10 @@ dependencies = [
     "readchar>=4.2.1",
     "requests>=2.32.5",
     "requests-oauthlib>=2.0.0",
+    "rknn-toolkit-lite2>=2.3.2",
     "supervision>=0.27.0.post2",
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
     "uvicorn>=0.40.0",
     "websockets>=16.0",
     "wsproto>=1.3.2",
@@ -40,3 +48,16 @@ reportMissingModuleSource = "none"
 dev = [
     "pytest>=9.0.3",
 ]
+
+# On Linux aarch64 (Orange Pi etc.), the default PyPI torch wheel pulls in NVIDIA CUDA
+# wheels whose aarch64 builds have invalid metadata, so uv sync fails. Route torch and
+# torchvision through PyTorch's CPU-only index for that platform instead. Other
+# platforms (macOS, Linux x86_64) still resolve from PyPI as before.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cpu", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" }]
+torchvision = [{ index = "pytorch-cpu", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" }]

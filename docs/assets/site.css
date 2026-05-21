@@ -373,6 +373,40 @@ tr:last-child td {
   border-bottom: 0;
 }
 
+.notice {
+  padding: 14px 18px;
+  border: 1px solid var(--info-border);
+  background: var(--info-bg);
+  color: var(--info);
+  margin: 1.4rem 0;
+}
+
+.notice.notice-warn {
+  border-color: var(--warn-border);
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+
+.notice strong {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.notice p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: inherit;
+}
+
+.notice a {
+  color: inherit;
+}
+
 .callout-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));

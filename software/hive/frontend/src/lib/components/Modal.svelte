@@ -28,7 +28,7 @@
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="mx-4 w-full max-w-lg bg-white p-6"
+			class="mx-4 w-full max-w-lg bg-surface p-6"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"

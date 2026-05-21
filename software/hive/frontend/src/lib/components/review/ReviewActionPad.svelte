@@ -26,7 +26,7 @@
 	}: Props = $props();
 </script>
 
-<div class="border border-border bg-white p-4">
+<div class="border border-border bg-surface p-4">
 	<div class="space-y-2 text-xs">
 		<div class="flex items-center justify-center gap-2">
 			<button
@@ -35,7 +35,7 @@
 				disabled={loading || submitting}
 				class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-info/30 bg-info/10' : 'border-info/20 bg-[#F0F7FF] hover:bg-info/15'}"
 			>
-				<div class="border border-info/30 bg-white px-2 py-1 text-[11px] font-bold text-info">
+				<div class="border border-info/30 bg-surface px-2 py-1 text-[11px] font-bold text-info">
 					D
 				</div>
 				<div>
@@ -49,7 +49,7 @@
 				disabled={!annotateMode || loading || submitting}
 				class="inline-flex items-center gap-2 border border-border bg-bg px-2.5 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 			>
-				<div class="border border-border bg-white px-2 py-1 text-[11px] font-bold text-text">
+				<div class="border border-border bg-surface px-2 py-1 text-[11px] font-bold text-text">
 					Esc
 				</div>
 				<div>

@@ -35,10 +35,12 @@ const char* const STEPPER_NAMES[] = {
 };
 #endif
 
-uart_inst_t* const TMC_UART = uart1;
-const int TMC_UART_TX_PIN = 8;
-const int TMC_UART_RX_PIN = 9;
+const uint8_t TMC_UART_BUS_COUNT = 1;
+uart_inst_t* const TMC_UART_BUSES[] = {uart1};
+const int TMC_UART_BUS_TX_PINS[] = {8};
+const int TMC_UART_BUS_RX_PINS[] = {9};
 const int TMC_UART_BAUDRATE = 400000;
+const uint8_t TMC_UART_BUS_INDEX[] = {0, 0, 0, 0};
 const uint8_t TMC_UART_ADDRESSES[] = {3, 0, 2, 1};
 
 const int STEPPER_nEN_PINS[] = {15, 12, 7, 2};

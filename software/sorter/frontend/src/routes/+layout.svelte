@@ -1,6 +1,5 @@
 <script>
 	import './layout.css';
-	import favicon from '$lib/assets/favicon.svg';
 	import MachinesProvider from '$lib/components/MachinesProvider.svelte';
 	import MachineProvider from '$lib/components/MachineProvider.svelte';
 	import BackendConnectionGuard from '$lib/components/BackendConnectionGuard.svelte';
@@ -44,7 +43,7 @@
 	});
 </script>
 
-<svelte:head><link rel="icon" href={favicon} /></svelte:head>
+<svelte:head><link rel="icon" type="image/x-icon" href="/favicon.ico" /></svelte:head>
 
 <MachinesProvider>
 	<MachineProvider>

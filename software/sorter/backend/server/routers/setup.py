@@ -19,8 +19,12 @@ from machine_setup import (
 )
 from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
-from irl.config import REQUIRED_STEPPER_NAMES
-from irl.parse_user_toml import LOGICAL_STEPPER_BINDING_BASES
+from irl.config import _requiredCanonicalStepperNames
+from irl.parse_user_toml import (
+    LOGICAL_STEPPER_BINDING_BASES,
+    loadMachineSetupConfig,
+    loadStepperBindingOverrides,
+)
 from machine_platform.control_board import discover_control_boards
 from server import shared_state
 from server.config_helpers import (
@@ -462,9 +466,18 @@ def _build_discovery_payload(
         for logical_name in board.get("logical_steppers", [])
         if isinstance(logical_name, str)
     }
+    gc = shared_state.gc_ref
+    try:
+        machine_setup_key = loadMachineSetupConfig(gc) if gc is not None else None
+        binding_overrides = loadStepperBindingOverrides(gc) if gc is not None else {}
+    except Exception:
+        machine_setup_key = None
+        binding_overrides = {}
+    machine_setup = get_machine_setup_definition(machine_setup_key)
+    required_stepper_names = _requiredCanonicalStepperNames(machine_setup, binding_overrides)
     missing_required_steppers = sorted(
         stepper_name
-        for stepper_name in REQUIRED_STEPPER_NAMES
+        for stepper_name in required_stepper_names
         if stepper_name not in available_stepper_names
     )
     roles = {

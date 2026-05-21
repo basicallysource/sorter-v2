@@ -212,7 +212,7 @@
 </script>
 
 {#if isClassificationSample}
-	<div class="border border-border bg-white">
+	<div class="border border-border bg-surface">
 		<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Classification</h2>
 			{#if activeManualClassification?.part_id || activeManualClassification?.item_name}

@@ -188,7 +188,7 @@
 		<!-- Stats Bar -->
 		<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
 			{#each stats as s}
-				<div class="border border-border bg-white p-4">
+				<div class="border border-border bg-surface p-4">
 					<div class="text-lg font-semibold text-text">{s.value}</div>
 					<div class="flex items-center gap-2 text-xs font-medium text-info"><span class="inline-block h-2.5 w-2.5 bg-info"></span>{s.label}</div>
 				</div>
@@ -219,7 +219,7 @@
 
 		<!-- Categories Overview -->
 		{#if sortedCategories.length > 0}
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-4 text-lg font-semibold text-text">Categories</h2>
 				<div class="space-y-2">
 					{#each sortedCategories as cat}
@@ -234,7 +234,7 @@
 		{/if}
 
 		{#if profile.profile_type === 'set'}
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<div class="flex flex-wrap items-center justify-between gap-3">
 					<div>
 						<h2 class="text-lg font-semibold text-text">Machine Progress</h2>
@@ -304,7 +304,7 @@
 														{set.total_found}/{set.total_needed} ({set.pct}%)
 													</div>
 												</div>
-												<div class="mt-2 h-1.5 w-full bg-white">
+												<div class="mt-2 h-1.5 w-full bg-surface">
 													<div
 														class="h-full bg-info transition-all"
 														style="width: {Math.min(percent(set.total_found, set.total_needed), 100)}%"
@@ -323,7 +323,7 @@
 
 		<!-- Version History -->
 		{#if profile.versions.length > 0}
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-4 text-lg font-semibold text-text">Version History</h2>
 				<div class="space-y-3">
 					{#each [...profile.versions].reverse() as v}
@@ -351,7 +351,7 @@
 
 		<!-- Settings (Owner only) -->
 		{#if profile.is_owner}
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-4 text-lg font-semibold text-text">Settings</h2>
 				<div class="space-y-4">
 					<div>
@@ -398,7 +398,7 @@
 	<div class="space-y-4">
 		<p class="text-sm text-text-muted">This removes the profile, all versions, AI messages, and machine assignments that point at it. This cannot be undone.</p>
 		<div class="flex justify-end gap-2">
-			<button onclick={() => { showDeleteModal = false; }} class="border border-border bg-white px-4 py-2 text-sm font-medium text-text hover:bg-bg">Cancel</button>
+			<button onclick={() => { showDeleteModal = false; }} class="border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg">Cancel</button>
 			<button onclick={() => void deleteProfile()} disabled={deletingProfile} class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50">{deletingProfile ? 'Deleting...' : 'Delete Profile'}</button>
 		</div>
 	</div>

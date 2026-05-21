@@ -7,6 +7,7 @@ from server import shared_state
 from server.routers import cameras
 from vision.camera import (
     CaptureThread,
+    _bool_from_capture_value,
     _capture_failure_backoff_s,
     _is_macos_camera_index_available,
     probe_camera_device_controls,
@@ -115,6 +116,50 @@ class CameraDeviceControlsTests(unittest.TestCase):
         self.assertTrue(response["applied_live"])
         self.assertEqual(23.0, response["settings"]["brightness"])
 
+    def test_reset_defaults_clears_usb_settings_and_applies_auto(self) -> None:
+        applied_calls = []
+        cleared_roles = []
+        raw_config = {
+            "cameras": {
+                "classification_top": 1,
+            },
+            "camera_device_settings": {
+                "classification_top": {"exposure": 123.0, "auto_exposure": False},
+            },
+        }
+
+        def set_device_settings_for_role(role, settings, persist=False):
+            applied_calls.append((role, settings, persist))
+            return dict(settings)
+
+        service = SimpleNamespace(
+            inspect_device_controls_for_role=lambda role, source, saved_settings: (
+                [
+                    {"key": "auto_exposure", "kind": "boolean"},
+                    {"key": "auto_white_balance", "kind": "boolean"},
+                    {"key": "exposure", "kind": "number"},
+                ],
+                {"auto_exposure": False, "exposure": 123.0},
+            ),
+            set_device_settings_for_role=set_device_settings_for_role,
+            clear_persisted_device_settings_for_role=lambda role: cleared_roles.append(role),
+        )
+
+        with patch.object(cameras.shared_state, "camera_service", service):
+            with patch("server.routers.cameras._read_machine_params_config", return_value=("machine.toml", raw_config)):
+                with patch("server.routers.cameras._write_machine_params_config") as write_config:
+                    response = cameras.reset_camera_device_settings_to_defaults("classification_top")
+
+        self.assertTrue(response["ok"])
+        self.assertEqual({"auto_exposure": True, "auto_white_balance": True}, response["settings"])
+        self.assertEqual(
+            [("classification_top", {"auto_exposure": True, "auto_white_balance": True}, False)],
+            applied_calls,
+        )
+        self.assertEqual(["classification_top"], cleared_roles)
+        self.assertNotIn("classification_top", raw_config["camera_device_settings"])
+        write_config.assert_called_once()
+
     def test_calibration_start_route_defaults_to_target_plate(self) -> None:
         fake_thread = SimpleNamespace(start=lambda: None)
 
@@ -205,6 +250,13 @@ class CameraDeviceControlsTests(unittest.TestCase):
             with patch("vision.camera._refresh_macos_cameras", return_value=cameras_list):
                 self.assertTrue(_is_macos_camera_index_available(3))
                 self.assertFalse(_is_macos_camera_index_available(2))
+
+    def test_linux_auto_exposure_v4l2_enum_readback(self) -> None:
+        with patch("vision.camera.platform.system", return_value="Linux"):
+            self.assertFalse(_bool_from_capture_value("auto_exposure", 1.0))
+            self.assertTrue(_bool_from_capture_value("auto_exposure", 3.0))
+            self.assertFalse(_bool_from_capture_value("auto_exposure", 0.25))
+            self.assertTrue(_bool_from_capture_value("auto_exposure", 0.75))
 
 
 if __name__ == "__main__":

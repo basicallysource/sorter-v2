@@ -250,6 +250,27 @@ def export_hailo(run_dir: str, zone: str) -> None:
     sys.exit(2)
 
 
+@export_group.command("rknn")
+@click.option("--preset", required=True, help="One of training.exports.rknn.PRESETS")
+@click.option("--output-dir", default=None, type=click.Path(), help="Override bundle output dir.")
+@click.option("--archive", is_flag=True, help="Also create a .tar.gz next to the bundle directory.")
+def export_rknn(preset: str, output_dir: str | None, archive: bool) -> None:
+    """Build a Rockchip RKNN compile bundle from a training run."""
+    from training.exports import rknn as rknn_mod
+
+    if preset not in rknn_mod.PRESETS:
+        raise click.ClickException(
+            f"Unknown RKNN preset {preset!r}. Available: {sorted(rknn_mod.PRESETS)}"
+        )
+    args = ["build", "--preset", preset]
+    if output_dir:
+        args += ["--output-dir", output_dir]
+    if archive:
+        args += ["--archive"]
+    sys.argv = ["rknn", *args]
+    sys.exit(rknn_mod.main())
+
+
 @main.group("auth")
 def auth_group() -> None:
     """Manage stored Hive API keys for the CLI."""

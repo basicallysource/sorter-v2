@@ -12,8 +12,10 @@ ifneq ($(wildcard $(HOMEBREW_LLVM)/clang),)
 	HOST_CXX := $(HOMEBREW_LLVM)/clang++
 endif
 
-.PHONY: setup build-feeder build-distribution flash-feeder flash-distribution build \
-        build-feeder-v1 build-distribution-v1 flash-feeder-v1 flash-distribution-v1
+.PHONY: setup build \
+        build-feeder-v1-1 build-distribution-v1-1 flash-feeder-v1-1 flash-distribution-v1-1 \
+        build-feeder-v1-2 build-distribution-v1-2 flash-feeder-v1-2 flash-distribution-v1-2 \
+        build-feeder-skr build-distribution-skr
 
 setup: $(PICO_SDK_PATH)/pico_sdk_init.cmake
 
@@ -22,24 +24,46 @@ $(PICO_SDK_PATH)/pico_sdk_init.cmake:
 	git clone --depth 1 --branch $(PICO_SDK_VERSION) https://github.com/raspberrypi/pico-sdk $(PICO_SDK_PATH)
 	cd $(PICO_SDK_PATH) && git submodule update --init --depth 1
 
-build: build-feeder build-distribution
+build: build-feeder-v1-1 build-distribution-v1-1
 
-build-feeder: setup
-	@mkdir -p build-feeder
-	@cd build-feeder && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
-	@echo "Feeder firmware built: build-feeder/sorter_interface_firmware.uf2"
+build-feeder-v1-1: setup
+	@mkdir -p build-feeder-v1-1
+	@cd build-feeder-v1-1 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_BASICALLY_V1_1=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Feeder v1-1 firmware built: build-feeder-v1-1/sorter_interface_firmware.uf2"
 
-build-distribution: setup
-	@mkdir -p build-distribution
-	@cd build-distribution && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
-	@echo "Distribution firmware built: build-distribution/sorter_interface_firmware.uf2"
+build-distribution-v1-1: setup
+	@mkdir -p build-distribution-v1-1
+	@cd build-distribution-v1-1 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_BASICALLY_V1_1=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Distribution v1-1 firmware built: build-distribution-v1-1/sorter_interface_firmware.uf2"
 
-flash-feeder: build-feeder
-	cp build-feeder/sorter_interface_firmware.uf2 /Volumes/RPI-RP2/
-	@echo "Feeder firmware flashed."
+flash-feeder-v1-1: build-feeder-v1-1
+	python3 flash.py --board feeder --uf2 build-feeder-v1-1/sorter_interface_firmware.uf2
 
-flash-distribution: build-distribution
-	cp build-distribution/sorter_interface_firmware.uf2 /Volumes/RPI-RP2/
-	@echo "Distribution firmware flashed."
+flash-distribution-v1-1: build-distribution-v1-1
+	python3 flash.py --board distribution --uf2 build-distribution-v1-1/sorter_interface_firmware.uf2
 
+build-feeder-v1-2: setup
+	@mkdir -p build-feeder-v1-2
+	@cd build-feeder-v1-2 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_BASICALLY_V1_2=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Feeder v1-2 firmware built: build-feeder-v1-2/sorter_interface_firmware.uf2"
 
+build-distribution-v1-2: setup
+	@mkdir -p build-distribution-v1-2
+	@cd build-distribution-v1-2 && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_BASICALLY_V1_2=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Distribution v1-2 firmware built: build-distribution-v1-2/sorter_interface_firmware.uf2"
+
+flash-feeder-v1-2: build-feeder-v1-2
+	python3 flash.py --board feeder --uf2 build-feeder-v1-2/sorter_interface_firmware.uf2
+
+flash-distribution-v1-2: build-distribution-v1-2
+	python3 flash.py --board distribution --uf2 build-distribution-v1-2/sorter_interface_firmware.uf2
+
+build-feeder-skr: setup
+	@mkdir -p build-feeder-skr
+	@cd build-feeder-skr && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=feeder -DHW_SKR_PICO=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Feeder SKR Pico firmware built: build-feeder-skr/sorter_interface_firmware.uf2"
+
+build-distribution-skr: setup
+	@mkdir -p build-distribution-skr
+	@cd build-distribution-skr && CC=$(HOST_CC) CXX=$(HOST_CXX) cmake -DFIRMWARE_ROLE=distribution -DHW_SKR_PICO=ON $(CMAKE_FLAGS) .. && CC=$(HOST_CC) CXX=$(HOST_CXX) make -j$(NPROC)
+	@echo "Distribution SKR Pico firmware built: build-distribution-skr/sorter_interface_firmware.uf2"

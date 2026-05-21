@@ -44,23 +44,27 @@ PCA9685::PCA9685(uint8_t i2c_addr, i2c_inst_t *i2c_port) : _i2c_addr(i2c_addr), 
 bool PCA9685::initialize() {
     int res;
     // Put device to sleep to set prescaler
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, PCA_MODE1_SLEEP}, 2, false,
+    uint8_t cmd_sleep[] = {PCA_REG_MODE1, PCA_MODE1_SLEEP};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_sleep, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
     // Set prescaler for 50Hz: 25MHz / (4096 * 50) - 1 = 121
     uint8_t prescale = 121;
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_PRE_SCALE, prescale}, 2, false,
+    uint8_t cmd_prescale[] = {PCA_REG_PRE_SCALE, prescale};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_prescale, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
     // Wake up
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, 0x00}, 2, false,
+    uint8_t cmd_wake[] = {PCA_REG_MODE1, 0x00};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_wake, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
     // Enable auto-increment
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, PCA_MODE1_AI}, 2, false,
+    uint8_t cmd_ai[] = {PCA_REG_MODE1, PCA_MODE1_AI};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_ai, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return false;
@@ -98,7 +102,8 @@ void PCA9685::setPWMFreq(uint16_t freq) {
     // Put the device to sleep to set the prescaler
     uint8_t oldmode;
 
-    int res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1}, 1, true,
+    uint8_t cmd_mode1_reg[] = {PCA_REG_MODE1};
+    int res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_mode1_reg, 1, true,
                                    PCA9685_I2C_TIMEOUT_US); // Write register address
     if (res < 0)
         return;
@@ -106,7 +111,8 @@ void PCA9685::setPWMFreq(uint16_t freq) {
     if (res < 0)
         return;
     uint8_t newmode = (oldmode & 0x7F) | PCA_MODE1_SLEEP; // Sleep
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, newmode}, 2, false,
+    uint8_t cmd_newmode[] = {PCA_REG_MODE1, newmode};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_newmode, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return;
@@ -114,13 +120,15 @@ void PCA9685::setPWMFreq(uint16_t freq) {
     sleep_us(500); // Wait for the oscillator to stabilize after sleeping (datasheet recommends at least 500us)
 
     // Set the prescaler
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_PRE_SCALE, prescale}, 2, false,
+    uint8_t cmd_freq_prescale[] = {PCA_REG_PRE_SCALE, prescale};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_freq_prescale, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
     if (res < 0)
         return;
 
     // Wake up the device
-    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){PCA_REG_MODE1, oldmode}, 2, false,
+    uint8_t cmd_oldmode[] = {PCA_REG_MODE1, oldmode};
+    res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_oldmode, 2, false,
                                PCA9685_I2C_TIMEOUT_US);
 
     sleep_us(500); // Wait for the oscillator to stabilize after waking up
@@ -171,7 +179,8 @@ void PCA9685::setPWM(uint8_t channel, uint16_t duty) {
     const uint8_t off_h = (off_time >> 8) & 0x0F;
 
     uint8_t reg_base = PCA_REG_LED0_ON_L + (4 * channel);
-    int res = i2c_write_timeout_us(_i2c_port, _i2c_addr, (uint8_t[]){reg_base, on_l, on_h, off_l, off_h}, 5, false,
+    uint8_t cmd_pwm[] = {reg_base, on_l, on_h, off_l, off_h};
+    int res = i2c_write_timeout_us(_i2c_port, _i2c_addr, cmd_pwm, 5, false,
                                    PCA9685_I2C_TIMEOUT_US);
     // If the write succeeds, update the shadow copy of the duty cycle. If it fails, we leave the shadow copy unchanged so that we will attempt to write again on the next call.
     if (res >= 0) {

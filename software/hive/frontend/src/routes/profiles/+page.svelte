@@ -85,14 +85,14 @@
 {#if loading}
 	<Spinner />
 {:else if profiles.length === 0}
-	<div class="border border-border bg-white p-6 text-sm text-text-muted">You have not created any profiles yet.</div>
+	<div class="border border-border bg-surface p-6 text-sm text-text-muted">You have not created any profiles yet.</div>
 {:else}
 	<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 		{#each profiles as profile (profile.id)}
 			{@const rules = profile.latest_version?.rules_summary ?? []}
 			{@const activeRules = rules.filter(r => !r.disabled)}
 			<a href={profile.is_owner ? `/profiles/${profile.id}/edit` : `/profiles/${profile.id}`}
-				class="group flex flex-col border border-border bg-white transition-colors hover:border-text-muted">
+				class="group flex flex-col border border-border bg-surface transition-colors hover:border-text-muted">
 				<!-- Header -->
 				<div class="px-4 pt-4 pb-3">
 					<div class="flex items-start justify-between gap-2">
@@ -200,7 +200,7 @@
 	<div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onkeydown={(e) => { if (e.key === 'Escape') deleteTarget = null; }} onclick={() => deleteTarget = null}>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="w-full max-w-md bg-white p-6"
+			class="w-full max-w-md bg-surface p-6"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
@@ -218,7 +218,7 @@
 				<button
 					onclick={() => deleteTarget = null}
 					disabled={deleting}
-					class="border border-border bg-white px-4 py-2 text-sm font-medium text-text-muted hover:bg-bg disabled:opacity-50"
+					class="border border-border bg-surface px-4 py-2 text-sm font-medium text-text-muted hover:bg-bg disabled:opacity-50"
 				>Cancel</button>
 				<button
 					onclick={confirmDelete}

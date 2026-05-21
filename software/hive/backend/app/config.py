@@ -54,7 +54,7 @@ class Settings(BaseSettings):
     SECRET_ENCRYPTION_KEY: str | None = None
     DEV_SECRET_DIR: str = "data/dev-secrets"
     MAX_MODEL_FILE_SIZE: int = 2 * 1024 * 1024 * 1024
-    ALLOWED_MODEL_RUNTIMES: tuple[str, ...] = ("onnx", "ncnn", "hailo", "pytorch")
+    ALLOWED_MODEL_RUNTIMES: tuple[str, ...] = ("onnx", "ncnn", "hailo", "pytorch", "rknn")
 
     @property
     def public_app_url(self) -> str:

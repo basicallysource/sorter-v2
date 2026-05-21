@@ -97,7 +97,7 @@ Four sources, in increasing user-editability:
 |---|---|---|
 | **Code defaults** | Python constants | Things that are the same on every machine. |
 | **TOML** | `machine.example.toml` (env: `MACHINE_SPECIFIC_PARAMS_PATH`) | Servo angles, layer layout, chute calibration, camera indices, feeding mode. |
-| **Blob storage** | `software/sorter/backend/blob/*.json` (via `blob_manager`) | Detection configs, classification polygons, Hive credentials, ArUco calibrations. Most of this is UI-edited. |
+| **Blob storage** | `software/sorter/backend/blob/*.json` (via `blob_manager`) | Detection configs, classification polygons, Hive credentials. Most of this is UI-edited. |
 | **SQLite** | `local_state.sqlite` | API keys, recent known objects, lifecycle state across restarts. |
 
 The sorting profile (`sorting_profile.json`) is technically a blob but is edited through its own UI because it changes during a run. See [profile reference]({{ '/sorter/profile-reference/' | relative_url }}).

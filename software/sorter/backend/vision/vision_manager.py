@@ -22,7 +22,6 @@ from .camera import CaptureThread
 from .burst_store import BurstFrameStore
 from .types import CameraFrame, VisionResult, DetectedMask
 from .regions import RegionName, Region
-from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
 from .classification_detection import ClassificationDetectionResult
@@ -109,7 +108,7 @@ def _hive_inference_min_interval_s_for_role(role: str | None) -> float:
 class VisionManager:
     _irl_config: IRLConfig
     _video_recorder: Optional[VideoRecorder]
-    _region_provider: Union[ArucoRegionProvider, DefaultRegionProvider, HanddrawnRegionProvider]
+    _region_provider: Union[DefaultRegionProvider, HanddrawnRegionProvider]
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig, irl: IRLInterface, camera_service=None):
         from .camera_service import CameraService
@@ -133,8 +132,6 @@ class VisionManager:
                 self._region_provider = HanddrawnRegionProvider()
             except RuntimeError:
                 self._region_provider = DefaultRegionProvider()
-        elif gc.region_provider == RegionProviderType.ARUCO:
-            self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
         self._feeder_detector: Mog2ChannelDetector | None = None
         self._carousel_heatmap: HeatmapDiff = HeatmapDiff()  # overwritten after configs set
@@ -341,10 +338,6 @@ class VisionManager:
     @_carousel_capture.setter
     def _carousel_capture(self, value):
         pass
-
-    def setArucoSmoothingTimeSeconds(self, smoothing_time_s: float) -> None:
-        if isinstance(self._region_provider, ArucoRegionProvider):
-            self._region_provider.setSmoothingTimeSeconds(smoothing_time_s)
 
     def _initOverlays(self) -> None:
         """Register overlays on CameraFeed instances based on current detection config."""
@@ -4279,16 +4272,6 @@ class VisionManager:
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         feed = self._camera_service.get_feed(camera_name)
         return feed.get_frame(annotated=True) if feed else None
-
-    def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
-        if isinstance(self._region_provider, ArucoRegionProvider):
-            return self._region_provider.getTags()
-        return {}
-
-    def getFeederArucoTagsRaw(self) -> Dict[int, Tuple[float, float]]:
-        if isinstance(self._region_provider, ArucoRegionProvider):
-            return self._region_provider.getRawTags()
-        return {}
 
     # stubbed — no inference engine
     def getFeederDetectionsByClass(self) -> Dict[int, List[VisionResult]]:

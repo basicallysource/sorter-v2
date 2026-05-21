@@ -15,7 +15,6 @@ if TYPE_CHECKING:
 
 
 class RegionProviderType(Enum):
-    ARUCO = "aruco"
     HANDDRAWN = "handdrawn"
 
 

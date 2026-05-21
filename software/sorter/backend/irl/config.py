@@ -204,44 +204,6 @@ class StepperConfig:
         self.microsteps = microsteps
 
 
-class CarouselArucoTagConfig:
-    corner1_id: int | None
-    corner2_id: int | None
-    corner3_id: int | None
-    corner4_id: int | None
-
-    def __init__(self):
-        pass
-
-
-class ArucoTagConfig:
-    second_c_channel_center_id: int | None
-    second_c_channel_output_guide_id: int | None
-    second_c_channel_radius1_id: int | None
-    second_c_channel_radius2_id: int | None
-    second_c_channel_radius3_id: int | None
-    second_c_channel_radius4_id: int | None
-    second_c_channel_radius5_id: int | None
-    second_c_channel_radius_ids: list[int]
-    second_c_channel_radius_multiplier: float
-    third_c_channel_center_id: int | None
-    third_c_channel_output_guide_id: int | None
-    third_c_channel_radius1_id: int | None
-    third_c_channel_radius2_id: int | None
-    third_c_channel_radius3_id: int | None
-    third_c_channel_radius4_id: int | None
-    third_c_channel_radius5_id: int | None
-    third_c_channel_radius_ids: list[int]
-    third_c_channel_radius_multiplier: float
-    carousel_platform1: CarouselArucoTagConfig
-    carousel_platform2: CarouselArucoTagConfig
-    carousel_platform3: CarouselArucoTagConfig
-    carousel_platform4: CarouselArucoTagConfig
-
-    def __init__(self):
-        pass
-
-
 class RotorPulseConfig:
     steps_per_pulse: int
     microsteps_per_second: int
@@ -575,7 +537,6 @@ class IRLConfig:
     c_channel_1_rotor_stepper: StepperConfig
     c_channel_2_rotor_stepper: StepperConfig
     c_channel_3_rotor_stepper: StepperConfig
-    aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
     classification_channel_config: ClassificationChannelConfig
@@ -924,47 +885,6 @@ def mkStepperConfig(
     return StepperConfig(default_steps_per_second, microsteps)
 
 
-def mkCarouselArucoTagConfig(
-    c1: int, c2: int, c3: int, c4: int
-) -> CarouselArucoTagConfig:
-    config = CarouselArucoTagConfig()
-    config.corner1_id = c1
-    config.corner2_id = c2
-    config.corner3_id = c3
-    config.corner4_id = c4
-    return config
-
-
-def mkArucoTagConfig() -> ArucoTagConfig:
-    config = ArucoTagConfig()
-    # Channel 2 (second) - 3 tags: center, radius1, radius2
-    config.second_c_channel_center_id = 20
-    config.second_c_channel_output_guide_id = None
-    config.second_c_channel_radius1_id = 31
-    config.second_c_channel_radius2_id = 7
-    config.second_c_channel_radius3_id = None
-    config.second_c_channel_radius4_id = None
-    config.second_c_channel_radius5_id = None
-    config.second_c_channel_radius_ids = [31, 7]
-    config.second_c_channel_radius_multiplier = 1.0
-    # Channel 3 (third) - 3 tags: center, radius1, radius2
-    config.third_c_channel_center_id = 33
-    config.third_c_channel_output_guide_id = None
-    config.third_c_channel_radius1_id = 14
-    config.third_c_channel_radius2_id = 30
-    config.third_c_channel_radius3_id = None
-    config.third_c_channel_radius4_id = None
-    config.third_c_channel_radius5_id = None
-    config.third_c_channel_radius_ids = [14, 30]
-    config.third_c_channel_radius_multiplier = 1.0
-    # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
-    config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
-    config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
-    config.carousel_platform3 = mkCarouselArucoTagConfig(6, 16, 11, 0)
-    config.carousel_platform4 = mkCarouselArucoTagConfig(12, 22, 28, 5)
-    return config
-
-
 def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
 
@@ -1234,7 +1154,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
 
-    irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
 

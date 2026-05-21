@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { backendWsBaseUrl } from '$lib/backend';
+	import { getBackendWsBase } from '$lib/backend';
 	import { MachineManager } from '$lib/machines/manager.svelte';
 	import { setMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
@@ -11,7 +11,7 @@
 	setMachinesContext(manager);
 
 	onMount(() => {
-		const url = `${backendWsBaseUrl}/ws`;
+		const url = `${getBackendWsBase()}/ws`;
 		manager.ensureConnected(url);
 		return manager.startConnectionWatchdog({ defaultUrl: url });
 	});

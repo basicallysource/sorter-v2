@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendWsBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
@@ -41,7 +41,7 @@
 
 	const manager = getMachinesContext();
 
-	let url = $state(`${backendWsBaseUrl}/ws`);
+	let url = $state(`${getBackendWsBase()}/ws`);
 	let nicknameDraft = $state('');
 	let loadedMachineId = $state('');
 	let nameSaving = $state(false);

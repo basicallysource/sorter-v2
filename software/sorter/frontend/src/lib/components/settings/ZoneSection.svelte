@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
@@ -983,7 +983,7 @@
 	}
 
 	function cameraIndexPreviewUrl(index: number): string {
-		return `${backendHttpBaseUrl}/api/cameras/stream/${index}`;
+		return `${getBackendHttpBase()}/api/cameras/stream/${index}`;
 	}
 
 	function discoveredCameraBySource(source: CameraSource): NetworkCameraInfo | null {
@@ -1548,7 +1548,7 @@
 	function streamOptions(channel: Channel) {
 		if (editingZone) {
 			return {
-				baseUrl: backendHttpBaseUrl,
+				baseUrl: getBackendHttpBase(),
 				role: CAMERA_FOR_CHANNEL[channel],
 				annotated: false,
 				layer: 'raw' as const,
@@ -1558,7 +1558,7 @@
 			};
 		}
 		return {
-			baseUrl: backendHttpBaseUrl,
+			baseUrl: getBackendHttpBase(),
 			role: CAMERA_FOR_CHANNEL[channel],
 			annotated: previewAnnotated,
 			layer: previewAnnotated ? ('annotated' as const) : ('raw' as const),
@@ -1586,7 +1586,7 @@
 
 	async function loadCameraConfig() {
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/config`);
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/config`);
 			if (!res.ok) return;
 			const cfg = await res.json();
 			for (const role of ALL_CAMERA_ROLES) {
@@ -1621,7 +1621,7 @@
 		const results = await Promise.all(
 			ALL_CAMERA_ROLES.map(async (role) => {
 				try {
-					const res = await fetch(`${backendHttpBaseUrl}/api/cameras/capture-modes/${role}`, {
+					const res = await fetch(`${getBackendHttpBase()}/api/cameras/capture-modes/${role}`, {
 						cache: 'no-store'
 					});
 					if (!res.ok) return [role, null] as const;
@@ -1742,7 +1742,7 @@
 		cameraAbort = abort;
 		try {
 			await loadCameraConfig();
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/list`, { signal: abort.signal });
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/list`, { signal: abort.signal });
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			if (Array.isArray(payload)) {
@@ -1772,7 +1772,7 @@
 		cameraSaving = true;
 		cameraError = null;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/assign`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/assign`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ [role]: source })
@@ -2656,7 +2656,7 @@
 	});
 
 	async function loadPolygonsPayload(): Promise<Record<string, any> | null> {
-		const res = await fetch(`${backendHttpBaseUrl}/api/polygons`, { cache: 'no-store' });
+		const res = await fetch(`${getBackendHttpBase()}/api/polygons`, { cache: 'no-store' });
 		if (!res.ok) return null;
 		return await res.json();
 	}
@@ -2955,7 +2955,7 @@
 				}
 			}
 
-			const res = await fetch(`${backendHttpBaseUrl}/api/polygons`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/polygons`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

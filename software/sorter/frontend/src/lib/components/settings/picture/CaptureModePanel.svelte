@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase } from '$lib/backend';
 	import { Alert } from '$lib/components/primitives';
 	import type { CameraRole } from '$lib/settings/stations';
 
@@ -42,7 +42,7 @@
 		error = null;
 		status = '';
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/capture-modes/${role}`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/capture-modes/${role}`, {
 				cache: 'no-store'
 			});
 			if (!res.ok) throw new Error(await res.text());
@@ -64,7 +64,7 @@
 		error = null;
 		status = '';
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/capture-modes/${role}`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/capture-modes/${role}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({

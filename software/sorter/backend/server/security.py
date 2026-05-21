@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import socket
+import subprocess
 from urllib.parse import urlsplit
 
 
@@ -82,7 +84,44 @@ def compute_allowed_ui_origins() -> list[str]:
         if bind_host != "0.0.0.0":
             origins.append(f"http://{bind_host}:{ui_port}")
 
+    tailscale_name = _tailscale_hostname()
+    if tailscale_name:
+        origins.append(f"http://{tailscale_name}:{ui_port}")
+
     return _dedupe_origins(origins)
+
+
+_tailscale_hostname_cache: tuple[bool, str | None] = (False, None)
+
+
+def _tailscale_hostname() -> str | None:
+    global _tailscale_hostname_cache
+    cached, value = _tailscale_hostname_cache
+    if cached:
+        return value
+    try:
+        result = subprocess.run(
+            ["tailscale", "status", "--json"],
+            capture_output=True,
+            text=True,
+            timeout=2.0,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        _tailscale_hostname_cache = (True, None)
+        return None
+    if result.returncode != 0 or not result.stdout:
+        _tailscale_hostname_cache = (True, None)
+        return None
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        _tailscale_hostname_cache = (True, None)
+        return None
+    name = (data.get("Self") or {}).get("HostName")
+    resolved = name if isinstance(name, str) and name else None
+    _tailscale_hostname_cache = (True, resolved)
+    return resolved
 
 
 def _dedupe_origins(origins: list[str]) -> list[str]:

@@ -1,23 +1,31 @@
-import { env } from '$env/dynamic/public';
+const BACKEND_PORT = 8000;
+const SUPERVISOR_PORT = 8001;
+const SSR_FALLBACK_HTTP = `http://localhost:${BACKEND_PORT}`;
+const SSR_FALLBACK_SUPERVISOR = `http://localhost:${SUPERVISOR_PORT}`;
 
-// SPENCER TODO: search function to find this on the local network, shhould not hardcode the address
-const fallbackHttpBaseUrl = 'http://localhost:8000';
-const rawHttpBaseUrl = env.PUBLIC_BACKEND_BASE_URL ?? fallbackHttpBaseUrl;
-const httpBaseUrl = rawHttpBaseUrl.replace(/\/+$/, '');
-const supervisorPort = (env.PUBLIC_BACKEND_SUPERVISOR_PORT ?? '8001').trim();
-const rawSupervisorBaseUrl = env.PUBLIC_BACKEND_SUPERVISOR_BASE_URL?.replace(/\/+$/, '') ?? null;
+function originForPort(port: number): string {
+	if (typeof window === 'undefined') {
+		return port === SUPERVISOR_PORT ? SSR_FALLBACK_SUPERVISOR : SSR_FALLBACK_HTTP;
+	}
+	const { protocol, hostname } = window.location;
+	return `${protocol}//${hostname}:${port}`;
+}
 
-const fallbackWsBaseUrl = httpBaseUrl.startsWith('https')
-	? httpBaseUrl.replace(/^https/, 'wss')
-	: httpBaseUrl.replace(/^http/, 'ws');
+export function getBackendHttpBase(): string {
+	return originForPort(BACKEND_PORT);
+}
 
-export const backendHttpBaseUrl = httpBaseUrl;
-export const backendWsBaseUrl = (env.PUBLIC_BACKEND_WS_URL ?? fallbackWsBaseUrl).replace(
-	/\/+$/,
-	''
-);
-export const backendSupervisorBaseUrl =
-	rawSupervisorBaseUrl ?? supervisorHttpBaseUrlFromBackendHttpBaseUrl(httpBaseUrl);
+export function getBackendWsBase(): string {
+	return getBackendHttpBase().replace(/^http/, 'ws');
+}
+
+export function getBackendSupervisorBase(): string {
+	return originForPort(SUPERVISOR_PORT);
+}
+
+export function resolveBackendHttpBase(machineUrl: string | null | undefined): string {
+	return machineHttpBaseUrlFromWsUrl(machineUrl) ?? getBackendHttpBase();
+}
 
 export function machineHttpBaseUrlFromWsUrl(wsUrl: string | null | undefined): string | null {
 	if (!wsUrl) return null;
@@ -49,29 +57,13 @@ export function machineWsUrlFromHttpBaseUrl(
 export function supervisorHttpBaseUrlFromBackendHttpBaseUrl(
 	backendBaseUrl: string | null | undefined
 ): string | null {
-	if (rawSupervisorBaseUrl) return rawSupervisorBaseUrl;
 	if (!backendBaseUrl) return null;
 	try {
 		const parsed = new URL(backendBaseUrl);
-		parsed.port = supervisorPort;
+		parsed.port = String(SUPERVISOR_PORT);
 		return parsed.toString().replace(/\/+$/, '');
 	} catch {
 		return null;
-	}
-}
-
-function isLoopbackHostname(hostname: string): boolean {
-	const normalized = hostname.trim().toLowerCase();
-	return normalized === 'localhost' || normalized === '127.0.0.1' || normalized === '::1';
-}
-
-function shouldUseDirectSupervisor(backendBaseUrl: string): boolean {
-	const supervisorBaseUrl = supervisorHttpBaseUrlFromBackendHttpBaseUrl(backendBaseUrl);
-	if (!supervisorBaseUrl) return false;
-	try {
-		return isLoopbackHostname(new URL(supervisorBaseUrl).hostname);
-	} catch {
-		return false;
 	}
 }
 
@@ -94,7 +86,7 @@ export async function requestBackendRestart(
 	timeoutMs = 4000
 ): Promise<BackendRestartRequestResult> {
 	const supervisorBaseUrl = supervisorHttpBaseUrlFromBackendHttpBaseUrl(backendBaseUrl);
-	if (supervisorBaseUrl && shouldUseDirectSupervisor(backendBaseUrl)) {
+	if (supervisorBaseUrl) {
 		try {
 			const response = await fetch(`${supervisorBaseUrl}/api/supervisor/restart`, {
 				method: 'POST',
@@ -104,7 +96,7 @@ export async function requestBackendRestart(
 				return { ok: true, mode: 'supervisor' };
 			}
 		} catch {
-			// Fall back to the legacy in-process restart path when no supervisor is available.
+			// Fall through to backend in-process restart.
 		}
 	}
 
@@ -152,7 +144,7 @@ export async function probeBackendConnection(
 	}
 
 	const supervisorBaseUrl = supervisorHttpBaseUrlFromBackendHttpBaseUrl(backendBaseUrl);
-	if (supervisorBaseUrl && shouldUseDirectSupervisor(backendBaseUrl)) {
+	if (supervisorBaseUrl) {
 		try {
 			const response = await fetch(`${supervisorBaseUrl}/api/supervisor/status`, {
 				signal: AbortSignal.timeout(supervisorTimeoutMs)
@@ -213,3 +205,4 @@ export async function waitForBackend(
 
 	return false;
 }
+

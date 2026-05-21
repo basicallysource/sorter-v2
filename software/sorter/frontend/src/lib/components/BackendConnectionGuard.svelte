@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
 	import {
-		backendWsBaseUrl,
-		backendHttpBaseUrl,
+		getBackendWsBase,
+		getBackendHttpBase,
 		machineHttpBaseUrlFromWsUrl,
 		machineWsUrlFromHttpBaseUrl,
 		probeBackendConnection,
@@ -36,11 +36,11 @@
 	};
 
 	function baseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
 	}
 
 	function wsUrl(): string {
-		return machineWsUrlFromHttpBaseUrl(baseUrl()) ?? `${backendWsBaseUrl}/ws`;
+		return machineWsUrlFromHttpBaseUrl(baseUrl()) ?? `${getBackendWsBase()}/ws`;
 	}
 
 	async function refreshFrontendAfterRecovery() {

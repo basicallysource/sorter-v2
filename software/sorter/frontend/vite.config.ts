@@ -14,8 +14,7 @@ function getTailscaleHostname() {
 }
 
 export default defineConfig(({ mode }) => {
-	const env = loadEnv(mode, new URL('.', import.meta.url).pathname, ['PUBLIC_', 'SORTER_']);
-	const backendBaseUrl = env.PUBLIC_BACKEND_BASE_URL ?? 'http://localhost:8000';
+	const env = loadEnv(mode, new URL('.', import.meta.url).pathname, ['SORTER_']);
 	const extraAllowedHosts = (env.SORTER_ALLOWED_HOSTS ?? '')
 		.split(',')
 		.map((h) => h.trim())
@@ -27,15 +26,17 @@ export default defineConfig(({ mode }) => {
 		allowedHosts.push(tailscaleHostname);
 	}
 
+	const loopbackBackend = 'http://localhost:8000';
+
 	return {
 		plugins: [tailwindcss(), sveltekit()],
 		server: {
 			hmr: { overlay: false },
 			allowedHosts,
 			proxy: {
-				'/bricklink': backendBaseUrl,
-				'/health': backendBaseUrl,
-				'/sorting-profile': backendBaseUrl
+				'/bricklink': loopbackBackend,
+				'/health': loopbackBackend,
+				'/sorting-profile': loopbackBackend
 			}
 		}
 	};

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase } from '$lib/backend';
 	import { AlertTriangle, CheckCircle2, RefreshCw } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
@@ -81,7 +81,7 @@
 				force_detection: forceDetection ? 'true' : 'false'
 			});
 			const res = await fetch(
-				`${backendHttpBaseUrl}/api/classification-channel/sector-occupancy?${params.toString()}`,
+				`${getBackendHttpBase()}/api/classification-channel/sector-occupancy?${params.toString()}`,
 				{ method: 'POST' }
 			);
 			const data = (await res.json().catch(() => ({}))) as SectorOccupancyPayload | { detail?: string };

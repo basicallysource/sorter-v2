@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
@@ -42,7 +42,7 @@
 
 	function effectiveBaseUrl(): string {
 		if (baseUrl) return baseUrl;
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
 	}
 
 	// Persistent per-camera toggle state — survives reloads via localStorage.

@@ -74,6 +74,16 @@ def _zone_instruction(zone: str) -> str:
     return "Detect every loose lego piece or foreign object."
 
 
+# What the model should look for, sent as Perceptron's native ``classes`` parameter so
+# it stays focused on the part-detection task instead of drifting into scene description.
+_ZONE_CLASSES: dict[str, list[str]] = {
+    "classification_channel": ["lego piece", "foreign object"],
+    "c_channel": ["lego piece", "foreign object"],
+    "classification_chamber": ["lego piece", "foreign object"],
+    "carousel": ["lego piece", "foreign object"],
+}
+
+
 def _classify_label(label: str) -> str:
     lowered = label.lower()
     return "lego" if any(w in lowered for w in ("lego", "brick", "plate", "tile", "piece", "tire", "wheel", "stud")) else "foreign"
@@ -138,12 +148,19 @@ def _call_perceptron_chat(
     api_key: str,
     base_url: str,
     instruction: str,
+    classes: list[str],
     image_b64: str,
 ) -> tuple[str, dict[str, Any] | None, dict[str, Any]]:
     """POST to Perceptron's OpenAI-compatible /chat/completions endpoint.
 
     Returns (assistant_text, usage_dict_or_none, raw_response). The assistant text contains
     the model's response; for grounded detection prompts that's <point_box> XML inline.
+
+    Per Perceptron docs ("Structured annotations are emitted inline with text only when
+    explicitly requested via the annotation_format parameter") we MUST send
+    ``annotation_format: "box"`` to force grounded output — without it the model just
+    chats. We also send the documented ``classes`` list and ``reasoning: False`` to keep
+    the response tight (no chain-of-thought prose around the XML).
     """
     endpoint_url = f"{base_url.rstrip('/')}/chat/completions"
     body_payload: dict[str, Any] = {
@@ -160,6 +177,11 @@ def _call_perceptron_chat(
                 ],
             },
         ],
+        # Native Perceptron grounding parameters — see https://docs.perceptron.inc/.
+        # OpenRouter strips unknown fields, but Perceptron's own endpoint honors them.
+        "annotation_format": "box",
+        "classes": classes,
+        "reasoning": False,
         "temperature": 0.0,
     }
 
@@ -243,7 +265,13 @@ class PerceptronAdapter:
         if width <= 0 or height <= 0:
             raise RuntimeError("Sample image has zero dimensions")
 
-        instruction = override_prompt if override_prompt else _zone_instruction(zone)
+        # IMPORTANT: ignore override_prompt for Perceptron. The native grounding pipeline
+        # (annotation_format + classes + short instruction) is what produces reliable
+        # <point_box> XML. A long chat-style override pulls the model into conversational
+        # prose mode regardless of annotation_format. The compare-page UI tells users this
+        # textarea is a no-op for Perceptron.
+        instruction = _zone_instruction(zone)
+        classes = _ZONE_CLASSES.get(zone, ["lego piece", "foreign object"])
         image_b64 = base64.b64encode(image_bytes).decode("ascii")
         base_url = getattr(settings, "PERCEPTRON_BASE_URL", "https://api.perceptron.inc/v1")
 
@@ -252,6 +280,7 @@ class PerceptronAdapter:
             api_key=api_key,
             base_url=base_url,
             instruction=instruction,
+            classes=classes,
             image_b64=image_b64,
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)

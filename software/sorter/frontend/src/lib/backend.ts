@@ -1,30 +1,21 @@
-import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 
-function getBackendBaseUrl(): string {
-	if (!browser) {
-		// Server-side: can't access window.location, use localhost
-		return 'http://localhost:8000';
-	}
-
-	try {
-		const { hostname, protocol } = window.location;
-		return `${protocol}//${hostname}:8000`;
-	} catch {
-		return 'http://localhost:8000';
-	}
-}
-
-const httpBaseUrl = getBackendBaseUrl().replace(/\/+$/, '');
+// SPENCER TODO: search function to find this on the local network, shhould not hardcode the address
+const fallbackHttpBaseUrl = 'http://localhost:8000';
+const rawHttpBaseUrl = env.PUBLIC_BACKEND_BASE_URL ?? fallbackHttpBaseUrl;
+const httpBaseUrl = rawHttpBaseUrl.replace(/\/+$/, '');
 const supervisorPort = (env.PUBLIC_BACKEND_SUPERVISOR_PORT ?? '8001').trim();
 const rawSupervisorBaseUrl = env.PUBLIC_BACKEND_SUPERVISOR_BASE_URL?.replace(/\/+$/, '') ?? null;
 
-const wsBaseUrl = httpBaseUrl.startsWith('https')
+const fallbackWsBaseUrl = httpBaseUrl.startsWith('https')
 	? httpBaseUrl.replace(/^https/, 'wss')
 	: httpBaseUrl.replace(/^http/, 'ws');
 
 export const backendHttpBaseUrl = httpBaseUrl;
-export const backendWsBaseUrl = wsBaseUrl.replace(/\/+$/, '');
+export const backendWsBaseUrl = (env.PUBLIC_BACKEND_WS_URL ?? fallbackWsBaseUrl).replace(
+	/\/+$/,
+	''
+);
 export const backendSupervisorBaseUrl =
 	rawSupervisorBaseUrl ?? supervisorHttpBaseUrlFromBackendHttpBaseUrl(httpBaseUrl);
 

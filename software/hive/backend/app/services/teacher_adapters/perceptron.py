@@ -58,20 +58,26 @@ def _decode_image_size(image_bytes: bytes) -> tuple[int, int]:
 
 
 def _zone_instruction(zone: str) -> str:
-    """Short imperative instruction that triggers Perceptron's grounded XML output."""
+    """Bare detect-style instruction. Perceptron's grounded XML mode is driven by
+    ``vision_config.annotation_format = "box"`` — the instruction text only specifies
+    *where to look*. Keep it close to the SDK example "Detect helmets" so the model
+    doesn't switch into descriptive-prose mode.
+    """
     if zone == "classification_channel":
+        # Single-line C4 hint. Constraints are listed comma-separated to avoid
+        # paragraph-style narrative that pushes the model toward prose.
         return (
-            "Detect every loose lego piece or foreign object on the round C4 rotor disc. "
-            "Skip anything on or outside the bright white outer rim, and skip parts queued "
-            "in the upper-left feeder channel."
+            "Detect lego pieces and foreign objects on the C4 rotor disc, "
+            "ignoring the bright white outer rim, parts on the rim, "
+            "and parts still in the upper-left feeder channel."
         )
     if zone == "c_channel":
-        return "Detect every loose lego piece or foreign object inside the C-channel feed track."
+        return "Detect lego pieces and foreign objects inside the C-channel feed track."
     if zone == "classification_chamber":
         return "Detect the lego piece on the small flat tray."
     if zone == "carousel":
-        return "Detect loose lego pieces on the rotating turntable. Skip the black center disc."
-    return "Detect every loose lego piece or foreign object."
+        return "Detect lego pieces on the rotating turntable, ignoring the black center disc."
+    return "Detect lego pieces and foreign objects."
 
 
 # What the model should look for, sent as Perceptron's native ``classes`` parameter so
@@ -153,14 +159,15 @@ def _call_perceptron_chat(
 ) -> tuple[str, dict[str, Any] | None, dict[str, Any]]:
     """POST to Perceptron's OpenAI-compatible /chat/completions endpoint.
 
-    Returns (assistant_text, usage_dict_or_none, raw_response). The assistant text contains
-    the model's response; for grounded detection prompts that's <point_box> XML inline.
+    Returns (assistant_text, usage_dict_or_none, raw_response).
 
-    Per Perceptron docs ("Structured annotations are emitted inline with text only when
-    explicitly requested via the annotation_format parameter") we MUST send
-    ``annotation_format: "box"`` to force grounded output — without it the model just
-    chats. We also send the documented ``classes`` list and ``reasoning: False`` to keep
-    the response tight (no chain-of-thought prose around the XML).
+    Perceptron's chat-completions endpoint accepts vendor-specific options as a nested
+    ``vision_config`` object — that's the only place the docs explicitly show extras on
+    the chat path ("extra_body={'vision_config': {'enable_thinking': True}}" in the
+    Quickstart). Putting ``annotation_format`` / ``classes`` / ``reasoning`` as top-level
+    fields gets them silently dropped, which is what we observed (the model kept replying
+    in prose). Nested inside ``vision_config`` they're honoured and the model emits the
+    structured ``<point_box>`` XML we parse.
     """
     endpoint_url = f"{base_url.rstrip('/')}/chat/completions"
     body_payload: dict[str, Any] = {
@@ -177,11 +184,13 @@ def _call_perceptron_chat(
                 ],
             },
         ],
-        # Native Perceptron grounding parameters — see https://docs.perceptron.inc/.
-        # OpenRouter strips unknown fields, but Perceptron's own endpoint honors them.
-        "annotation_format": "box",
-        "classes": classes,
-        "reasoning": False,
+        # Native Perceptron grounding parameters live under vision_config — see
+        # https://docs.perceptron.inc/quickstart for the canonical shape.
+        "vision_config": {
+            "annotation_format": "box",
+            "classes": classes,
+            "enable_thinking": False,
+        },
         "temperature": 0.0,
     }
 

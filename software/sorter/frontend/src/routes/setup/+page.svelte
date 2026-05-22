@@ -298,17 +298,13 @@
 	}
 
 	function cameraRolesForLayout(): string[] {
-		const auxiliaryRole =
-			wizard?.config.machine_setup?.key === 'classification_channel'
-				? 'classification_channel'
-				: 'carousel';
-		return [
-			'c_channel_2',
-			'c_channel_3',
-			auxiliaryRole,
-			'classification_top',
-			'classification_bottom'
-		];
+		const setup = wizard?.config.machine_setup;
+		const auxiliaryRole = setup?.uses_classification_channel ? 'classification_channel' : 'carousel';
+		const roles = ['c_channel_2', 'c_channel_3', auxiliaryRole];
+		if (setup?.uses_classification_chamber ?? true) {
+			roles.push('classification_top', 'classification_bottom');
+		}
+		return roles;
 	}
 
 	function parseRouteStep(step: string | null): WizardStepId | null {

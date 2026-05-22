@@ -598,6 +598,14 @@ def _open_camera_source(source: int | str) -> cv2.VideoCapture:
     return cv2.VideoCapture(source)
 
 
+def _v4l2_camera_name(index: int) -> str:
+    try:
+        with open(f"/sys/class/video4linux/video{index}/name") as f:
+            return f.read().strip()
+    except OSError:
+        return f"USB Camera {index}"
+
+
 def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
     cap = _open_camera(index)
     if not cap.isOpened():
@@ -615,6 +623,7 @@ def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
         return {
             "kind": "usb",
             "index": index,
+            "name": _v4l2_camera_name(index),
             "width": width,
             "height": height,
             "preview_available": bool(ret and frame is not None),
@@ -716,6 +725,7 @@ def _list_usb_cameras() -> List[Dict[str, Any]]:
                 usb_cameras.append({
                     "kind": "usb",
                     "index": i,
+                    "name": _v4l2_camera_name(i),
                     "width": w,
                     "height": h,
                     "preview_available": True,

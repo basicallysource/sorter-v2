@@ -2,6 +2,8 @@
 // LED/24V-en: GPIO1 (ch0), GPIO6 (ch1) — AO3400A NMOS, 2 parallel pairs
 // Hall inputs: GPIO3, GPIO2
 
+const char* const HW_ID = "basically_v1_2";
+
 const uint8_t STEPPER_COUNT = 5;
 const uint8_t STEPPER_STEP_PINS[] = {28, 26, 21, 19, 8};
 const uint8_t STEPPER_DIR_PINS[]  = {27, 22, 20, 18, 7};

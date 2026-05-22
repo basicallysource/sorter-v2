@@ -539,6 +539,7 @@ class SorterInterface(MCUDevice):
         self.servos = tuple(ServoMotor(self, ch, gc) for ch in servo_channels)
         # Read the device name from the board info, or use a default name based on the address if not provided
         self._name = self._board_info.get("device_name", f"SorterInterface_{address}")
+        self.hw_id: str = self._board_info.get("hw", "unknown")
 
     def shutdown(self):
         for dout in self.digital_outputs:

@@ -2,6 +2,8 @@
 // LED/24V-en: GPIO14 (ch0), GPIO15 (ch1) — BS170 MOSFETs
 // Hall inputs: GPIO9, GPIO8, GPIO13, GPIO12
 
+const char* const HW_ID = "basically_v1_1";
+
 const uint8_t STEPPER_COUNT = 4;
 const uint8_t STEPPER_STEP_PINS[] = {28, 26, 21, 19};
 const uint8_t STEPPER_DIR_PINS[]  = {27, 22, 20, 18};

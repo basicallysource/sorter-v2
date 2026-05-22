@@ -65,9 +65,11 @@ class MachineSetupPayload(BaseModel):
 
 
 def _board_summary(board: Any) -> dict[str, Any]:
+    interface = getattr(board, "interface", None)
     return {
         "family": getattr(board.identity, "family", "unknown"),
         "role": getattr(board.identity, "role", "unknown"),
+        "hw_id": getattr(interface, "hw_id", "unknown"),
         "device_name": getattr(board.identity, "device_name", "Unknown"),
         "port": getattr(board.identity, "port", ""),
         "address": getattr(board.identity, "address", 0),
@@ -550,10 +552,6 @@ def _build_discovery_payload(
     issues = list(issue_messages)
     if not board_summaries and not issue_messages:
         issues.append("No control boards detected.")
-    if board_summaries and not roles["feeder"]:
-        issues.append("No feeder control board detected.")
-    if board_summaries and not roles["distribution"]:
-        issues.append("No distribution control board detected.")
     if missing_required_steppers:
         issues.append(
             "Missing required steppers: " + ", ".join(missing_required_steppers)

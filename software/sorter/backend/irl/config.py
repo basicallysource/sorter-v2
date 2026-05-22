@@ -131,14 +131,14 @@ class CameraConfig:
     width: int
     height: int
     fps: int
-    fourcc: str | None
+    fourcc: str
     picture_settings: "CameraPictureSettings"
     device_settings: dict[str, int | float | bool]
     color_profile: "CameraColorProfile"
 
     def __init__(self):
         self.url = None
-        self.fourcc = None
+        self.fourcc = "MJPG"
 
 
 class CameraPictureSettings:
@@ -644,7 +644,7 @@ def mkCameraConfig(
     camera_config.width = width
     camera_config.height = height
     camera_config.fps = fps
-    camera_config.fourcc = fourcc
+    camera_config.fourcc = fourcc.strip() if (isinstance(fourcc, str) and fourcc.strip()) else "MJPG"
     camera_config.picture_settings = picture_settings or mkCameraPictureSettings()
     camera_config.device_settings = parseCameraDeviceSettings(device_settings)
     camera_config.color_profile = color_profile or mkCameraColorProfile()
@@ -1440,10 +1440,12 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.carousel_hw = None
 
     from subsystems.distribution.chute import Chute
-    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
 
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
+    chute_calibration = loadChuteCalibrationConfig(
+        gc, machine_specific_params, dict(distribution_board.input_aliases)
+    )
     chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
     if chute_home_pin is None:
         raise RuntimeError(

@@ -94,7 +94,6 @@ def _load_saved_api_keys_into_environment() -> None:
 from server.routers.hardware import router as hardware_router
 from server.routers.steppers import router as steppers_router
 from server.routers.cameras import router as cameras_router
-from server.routers.cameras import shutdownCameraWebRtcConnections
 from server.routers.detection import router as detection_router
 from server.routers.sorting_profiles import router as sorting_profiles_router
 from server.routers.system import router as system_router
@@ -129,7 +128,6 @@ async def onStartup() -> None:
 
 @app.on_event("shutdown")
 async def onShutdown() -> None:
-    await shutdownCameraWebRtcConnections()
     getSetProgressSyncWorker().stop()
     shutdownCameraDiscovery()
     get_waveshare_inventory_manager().stop()

@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
 	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -796,9 +795,9 @@
 	}
 
 	function rememberPreviewImageSize(role: CameraRole, target: EventTarget | null) {
-		if (!(target instanceof HTMLImageElement) && !(target instanceof HTMLVideoElement)) return;
-		const width = target instanceof HTMLVideoElement ? target.videoWidth : target.naturalWidth;
-		const height = target instanceof HTMLVideoElement ? target.videoHeight : target.naturalHeight;
+		if (!(target instanceof HTMLImageElement)) return;
+		const width = target.naturalWidth;
+		const height = target.naturalHeight;
 		if (width <= 0 || height <= 0) return;
 		const current = previewImageSizeByRole[role];
 		if (current?.width === width && current.height === height) return;
@@ -1545,27 +1544,20 @@
 		arcParams[channel] = clamped;
 	}
 
-	function streamOptions(channel: Channel) {
-		if (editingZone) {
-			return {
-				baseUrl: getBackendHttpBase(),
-				role: CAMERA_FOR_CHANNEL[channel],
-				annotated: false,
-				layer: 'raw' as const,
-				dashboard: false,
-				colorCorrect: true,
-				showRegions: false
-			};
-		}
-		return {
-			baseUrl: getBackendHttpBase(),
-			role: CAMERA_FOR_CHANNEL[channel],
-			annotated: previewAnnotated,
-			layer: previewAnnotated ? ('annotated' as const) : ('raw' as const),
-			dashboard: previewCropped,
-			colorCorrect: previewColorCorrect,
-			showRegions: previewCropped && previewZones
-		};
+	function streamSrc(channel: Channel): string {
+		const role = CAMERA_FOR_CHANNEL[channel];
+		const annotated = !editingZone && previewAnnotated;
+		const dashboard = !editingZone && previewCropped;
+		const colorCorrect = editingZone ? true : previewColorCorrect;
+		const showRegions = !editingZone && previewCropped && previewZones;
+		const params = new URLSearchParams({
+			annotated: annotated ? '1' : '0',
+			layer: annotated ? 'annotated' : 'raw',
+			dashboard: dashboard ? '1' : '0',
+			color_correct: colorCorrect ? '1' : '0',
+			show_regions: showRegions ? '1' : '0'
+		});
+		return `${getBackendHttpBase()}/api/cameras/feed/${encodeURIComponent(role)}?${params.toString()}`;
 	}
 
 	function feedInstanceKey(channel: Channel): string {
@@ -3255,14 +3247,14 @@
 									</div>
 								</div>
 							{:else if currentAssignment() !== null}
-								<video
-									use:webrtcCameraStream={streamOptions(currentChannel)}
-									aria-label={CHANNEL_LABELS[currentChannel]}
+								<img
+									src={streamSrc(currentChannel)}
+									alt={CHANNEL_LABELS[currentChannel]}
 									class="absolute inset-0 h-full w-full object-contain"
 									style={feedImageStyle(currentChannel)}
-									onloadedmetadata={(event) =>
+									onload={(event) =>
 										rememberPreviewImageSize(currentRole(currentChannel), event.currentTarget)}
-								></video>
+								/>
 								<div
 									class="pointer-events-none absolute"
 									style={previewOverlayStyle(currentChannel)}

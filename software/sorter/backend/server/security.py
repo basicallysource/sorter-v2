@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import ipaddress
-import json
 import os
 import socket
 import subprocess
@@ -99,29 +98,42 @@ def _tailscale_hostname() -> str | None:
     cached, value = _tailscale_hostname_cache
     if cached:
         return value
+
+    from local_state import get_tailscale_hostname, set_tailscale_hostname
+
+    resolved = _query_tailscale_hostname()
+    if resolved:
+        # Persist to DB so future boots resolve the hostname even if Tailscale
+        # isn't up yet when this process starts.
+        try:
+            set_tailscale_hostname(resolved)
+        except Exception:
+            pass
+    else:
+        resolved = get_tailscale_hostname()
+
+    _tailscale_hostname_cache = (True, resolved)
+    return resolved
+
+
+def _query_tailscale_hostname() -> str | None:
+    # tailscale status --self reads from the local daemon's in-memory state
+    # (loaded from disk at daemon startup), so it works without network access.
+    # First field is the IP, second is the bare hostname.
     try:
         result = subprocess.run(
-            ["tailscale", "status", "--json"],
+            ["tailscale", "status", "--self"],
             capture_output=True,
             text=True,
             timeout=2.0,
             check=False,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
-        _tailscale_hostname_cache = (True, None)
         return None
     if result.returncode != 0 or not result.stdout:
-        _tailscale_hostname_cache = (True, None)
         return None
-    try:
-        data = json.loads(result.stdout)
-    except json.JSONDecodeError:
-        _tailscale_hostname_cache = (True, None)
-        return None
-    name = (data.get("Self") or {}).get("HostName")
-    resolved = name if isinstance(name, str) and name else None
-    _tailscale_hostname_cache = (True, resolved)
-    return resolved
+    parts = result.stdout.strip().split()
+    return parts[1] if len(parts) >= 2 else None
 
 
 def _dedupe_origins(origins: list[str]) -> list[str]:

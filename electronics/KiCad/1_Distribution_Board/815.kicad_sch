@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Distribution Board")
-		(date "2026-04-01")
-		(rev "1.0")
+		(date "2026-05-22")
+		(rev "1.2")
 		(company "basically")
 	)
 	(lib_symbols
@@ -2355,6 +2355,262 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "PCM_JLCPCB-Capacitors:0603,100nF"
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "C"
+				(at 2.032 1.668 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(justify left)
+				)
+			)
+			(property "Value" "100nF"
+				(at 2.032 -0.3782 0)
+				(effects
+					(font
+						(size 0.8 0.8)
+					)
+					(justify left)
+				)
+			)
+			(property "Footprint" "PCM_JLCPCB:C_0603"
+				(at -1.778 0 90)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2211101700_YAGEO-CC0603KRX7R9BB104_C14663.pdf"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "50V 100nF X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "LCSC" "C14663"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Stock" "70324515"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Price" "0.006USD"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Process" "SMT"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Minimum Qty" "20"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Attrition Qty" "10"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Class" "Basic Component"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Category" "Capacitors,Multilayer Ceramic Capacitors MLCC - SMD/SMT"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Manufacturer" "YAGEO"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Part" "CC0603KRX7R9BB104"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Voltage Rated" "50V"
+				(at 2.032 -2.0462 0)
+				(effects
+					(font
+						(size 0.8 0.8)
+					)
+					(justify left)
+				)
+			)
+			(property "Tolerance" "±10%"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Capacitance" "100nF"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Temperature Coefficient" "X7R"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_fp_filters" "C_*"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "0603,100nF_0_1"
+				(polyline
+					(pts
+						(xy -1.27 0.635) (xy 1.27 0.635)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy -1.27 -0.635) (xy 1.27 -0.635)
+					)
+					(stroke
+						(width 0.254)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "0603,100nF_1_1"
+				(pin passive line
+					(at 0 3.81 270)
+					(length 3.175)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+				(pin passive line
+					(at 0 -3.81 90)
+					(length 3.175)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "2"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 		(symbol "PCM_JLCPCB-Capacitors:0603,10uF"
 			(pin_numbers
 				(hide yes)
@@ -3939,131 +4195,6 @@
 			)
 			(embedded_fonts no)
 		)
-		(symbol "power:+5V"
-			(power)
-			(pin_numbers
-				(hide yes)
-			)
-			(pin_names
-				(offset 0)
-				(hide yes)
-			)
-			(exclude_from_sim no)
-			(in_bom yes)
-			(on_board yes)
-			(property "Reference" "#PWR"
-				(at 0 -3.81 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Value" "+5V"
-				(at 0 3.556 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-				)
-			)
-			(property "Footprint" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Datasheet" ""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "Description" "Power symbol creates a global label with name \"+5V\""
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(property "ki_keywords" "global power"
-				(at 0 0 0)
-				(effects
-					(font
-						(size 1.27 1.27)
-					)
-					(hide yes)
-				)
-			)
-			(symbol "+5V_0_1"
-				(polyline
-					(pts
-						(xy -0.762 1.27) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 2.54) (xy 0.762 1.27)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-				(polyline
-					(pts
-						(xy 0 0) (xy 0 2.54)
-					)
-					(stroke
-						(width 0)
-						(type default)
-					)
-					(fill
-						(type none)
-					)
-				)
-			)
-			(symbol "+5V_1_1"
-				(pin power_in line
-					(at 0 0 90)
-					(length 0)
-					(name "~"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-					(number "1"
-						(effects
-							(font
-								(size 1.27 1.27)
-							)
-						)
-					)
-				)
-			)
-			(embedded_fonts no)
-		)
 		(symbol "power:+6V"
 			(power)
 			(pin_numbers
@@ -4290,6 +4421,131 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:VBUS"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "VBUS"
+				(at 0 3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"VBUS\""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "VBUS_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "VBUS_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(rectangle
 		(start 151.13 15.24)
@@ -4425,7 +4681,7 @@
 		)
 		(uuid "75c1d1d6-de2e-48d4-9df5-266641c88a3a")
 	)
-	(text "I2C Level Shifter for 5V PCA9685"
+	(text "I2C Level Shifter for PCA9685"
 		(exclude_from_sim no)
 		(at 31.242 18.034 0)
 		(effects
@@ -4486,6 +4742,12 @@
 		(uuid "9de06339-b6bc-4ba2-9858-ad3e3dfce389")
 	)
 	(junction
+		(at 40.64 120.65)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "0206d973-5ab1-465a-91a0-8d9dd183d0f6")
+	)
+	(junction
 		(at 127 30.48)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4520,6 +4782,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "3fc6bc67-c2ec-42d5-b733-a190b5c1e7bf")
+	)
+	(junction
+		(at 62.23 33.02)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "44086bd4-4705-4d92-bb7d-1f6b329ff698")
 	)
 	(junction
 		(at 111.76 39.4071)
@@ -4588,6 +4856,12 @@
 		(uuid "a88f75a0-0b81-4ab0-a45f-2e450a228e8f")
 	)
 	(junction
+		(at 40.64 111.76)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "b4740b57-9a42-43ae-82a8-f05796bb1dfa")
+	)
+	(junction
 		(at 78.74 86.36)
 		(diameter 0)
 		(color 0 0 0 0)
@@ -4616,12 +4890,6 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "d441a680-a061-4793-a1d0-29296036f20c")
-	)
-	(junction
-		(at 58.42 30.48)
-		(diameter 0)
-		(color 0 0 0 0)
-		(uuid "de1e09f5-cb70-4f3a-920d-398b00666b9c")
 	)
 	(junction
 		(at 111.76 30.48)
@@ -5057,16 +5325,6 @@
 	)
 	(wire
 		(pts
-			(xy 49.53 120.65) (xy 45.72 120.65)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "36be2c28-e9d0-4f07-b58d-b95d25bc8354")
-	)
-	(wire
-		(pts
 			(xy 151.13 116.84) (xy 161.29 116.84)
 		)
 		(stroke
@@ -5347,16 +5605,6 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 30.48) (xy 62.23 30.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "62f61110-0480-4860-992b-920fe6b8d183")
-	)
-	(wire
-		(pts
 			(xy 119.38 39.3655) (xy 120.65 39.37)
 		)
 		(stroke
@@ -5497,7 +5745,7 @@
 	)
 	(wire
 		(pts
-			(xy 44.45 115.57) (xy 44.45 111.76)
+			(xy 46.99 115.57) (xy 46.99 111.76)
 		)
 		(stroke
 			(width 0)
@@ -5514,16 +5762,6 @@
 			(type default)
 		)
 		(uuid "6da9512b-05b9-4e8f-8378-a91fd917c589")
-	)
-	(wire
-		(pts
-			(xy 54.61 30.48) (xy 54.61 34.29)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "6df3da7b-abcd-494d-ab66-22e15d3e72e0")
 	)
 	(wire
 		(pts
@@ -5737,16 +5975,6 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 39.37) (xy 62.23 44.45)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "8675fec8-d75b-48f6-8165-a4fc70dde48e")
-	)
-	(wire
-		(pts
 			(xy 252.73 115.57) (xy 255.27 115.57)
 		)
 		(stroke
@@ -5754,6 +5982,16 @@
 			(type default)
 		)
 		(uuid "89341047-1bb9-433b-b6f9-5e0121829ae7")
+	)
+	(wire
+		(pts
+			(xy 40.64 119.38) (xy 40.64 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "895ae8eb-8d15-4850-9bb5-01fde614ba66")
 	)
 	(wire
 		(pts
@@ -5797,6 +6035,16 @@
 	)
 	(wire
 		(pts
+			(xy 62.23 33.02) (xy 68.58 33.02)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "8df34151-2544-4316-aee8-85ec278466a8")
+	)
+	(wire
+		(pts
 			(xy 195.58 38.1) (xy 205.74 38.1)
 		)
 		(stroke
@@ -5827,6 +6075,16 @@
 	)
 	(wire
 		(pts
+			(xy 40.64 120.65) (xy 49.53 120.65)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "92036bfa-1c71-47df-9908-f1ae0ea97f96")
+	)
+	(wire
+		(pts
 			(xy 102.87 96.52) (xy 102.87 102.87)
 		)
 		(stroke
@@ -5834,6 +6092,16 @@
 			(type default)
 		)
 		(uuid "9290b504-787b-48b1-a8be-34fba4d79e72")
+	)
+	(wire
+		(pts
+			(xy 62.23 22.86) (xy 62.23 24.13)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "93b5ef51-cce9-4b6e-becc-0012e8c38c8d")
 	)
 	(wire
 		(pts
@@ -5927,6 +6195,16 @@
 	)
 	(wire
 		(pts
+			(xy 46.99 111.76) (xy 40.64 111.76)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "9fc1447b-a4eb-4d5c-a058-d7eba7cd0b5a")
+	)
+	(wire
+		(pts
 			(xy 115.57 48.26) (xy 119.38 48.26)
 		)
 		(stroke
@@ -5997,6 +6275,16 @@
 	)
 	(wire
 		(pts
+			(xy 62.23 33.02) (xy 62.23 31.75)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a7808c19-2891-4559-93a0-b856610cafda")
+	)
+	(wire
+		(pts
 			(xy 151.13 147.32) (xy 161.29 147.32)
 		)
 		(stroke
@@ -6037,6 +6325,16 @@
 	)
 	(wire
 		(pts
+			(xy 40.64 111.76) (xy 40.64 107.95)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "ab21b11f-adf8-4940-ac27-3c16b24bc490")
+	)
+	(wire
+		(pts
 			(xy 205.74 110.49) (xy 218.44 110.49)
 		)
 		(stroke
@@ -6057,13 +6355,23 @@
 	)
 	(wire
 		(pts
-			(xy 62.23 30.48) (xy 62.23 31.75)
+			(xy 62.23 33.02) (xy 54.61 33.02)
 		)
 		(stroke
 			(width 0)
 			(type default)
 		)
-		(uuid "ad8017db-f4d3-4fe5-b34c-6e004c2ad08d")
+		(uuid "b19d0e4e-109f-4ac0-9b54-c9702c1d15cb")
+	)
+	(wire
+		(pts
+			(xy 54.61 33.02) (xy 54.61 34.29)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "b1eb86c9-dccc-42e9-8b82-8f89ee2a8328")
 	)
 	(wire
 		(pts
@@ -6217,16 +6525,6 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 24.13) (xy 58.42 30.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "c5af3d89-f6c6-4a77-9f73-6bb5e3a121d1")
-	)
-	(wire
-		(pts
 			(xy 120.65 39.37) (xy 123.19 39.3655)
 		)
 		(stroke
@@ -6334,6 +6632,16 @@
 			(type default)
 		)
 		(uuid "d2f597b7-310a-490f-9ddd-60e4098ec40a")
+	)
+	(wire
+		(pts
+			(xy 62.23 33.02) (xy 62.23 44.45)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d3766d2f-576f-4de8-98d4-c3bf278ca6b1")
 	)
 	(wire
 		(pts
@@ -6447,7 +6755,7 @@
 	)
 	(wire
 		(pts
-			(xy 69.85 120.65) (xy 73.66 120.65)
+			(xy 69.85 120.65) (xy 72.39 120.65)
 		)
 		(stroke
 			(width 0)
@@ -6587,7 +6895,7 @@
 	)
 	(wire
 		(pts
-			(xy 45.72 120.65) (xy 45.72 123.19)
+			(xy 40.64 120.65) (xy 40.64 123.19)
 		)
 		(stroke
 			(width 0)
@@ -6627,16 +6935,6 @@
 	)
 	(wire
 		(pts
-			(xy 58.42 30.48) (xy 54.61 30.48)
-		)
-		(stroke
-			(width 0)
-			(type default)
-		)
-		(uuid "f9c9e8ee-7381-4417-8aea-f7c1dab0a536")
-	)
-	(wire
-		(pts
 			(xy 151.13 158.75) (xy 161.29 158.75)
 		)
 		(stroke
@@ -6657,7 +6955,7 @@
 	)
 	(wire
 		(pts
-			(xy 49.53 115.57) (xy 44.45 115.57)
+			(xy 49.53 115.57) (xy 46.99 115.57)
 		)
 		(stroke
 			(width 0)
@@ -8366,7 +8664,7 @@
 	)
 	(symbol
 		(lib_id "PCM_JLCPCB-Resistors:0603,200kΩ")
-		(at 62.23 35.56 0)
+		(at 62.23 27.94 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -8374,7 +8672,7 @@
 		(dnp no)
 		(uuid "19699114-fa0a-4dca-ab50-3d9cd60c8d0e")
 		(property "Reference" "R31"
-			(at 63.5 35.56 0)
+			(at 63.5 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8383,7 +8681,7 @@
 			)
 		)
 		(property "Value" "200kΩ"
-			(at 62.23 35.56 90)
+			(at 62.23 27.94 90)
 			(do_not_autoplace yes)
 			(effects
 				(font
@@ -8392,7 +8690,7 @@
 			)
 		)
 		(property "Footprint" "PCM_JLCPCB:R_0603"
-			(at 60.452 35.56 90)
+			(at 60.452 27.94 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8401,7 +8699,7 @@
 			)
 		)
 		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2206010045_UNI-ROYAL-Uniroyal-Elec-0603WAF2003T5E_C25811.pdf"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8410,7 +8708,7 @@
 			)
 		)
 		(property "Description" "100mW Thick Film Resistors 75V ±100ppm/°C ±1% 200kΩ 0603 Chip Resistor - Surface Mount ROHS"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8419,7 +8717,7 @@
 			)
 		)
 		(property "LCSC" "C25811"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8428,7 +8726,7 @@
 			)
 		)
 		(property "Stock" "1426208"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8437,7 +8735,7 @@
 			)
 		)
 		(property "Price" "0.004USD"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8446,7 +8744,7 @@
 			)
 		)
 		(property "Process" "SMT"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8455,7 +8753,7 @@
 			)
 		)
 		(property "Minimum Qty" "20"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8464,7 +8762,7 @@
 			)
 		)
 		(property "Attrition Qty" "10"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8473,7 +8771,7 @@
 			)
 		)
 		(property "Class" "Basic Component"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8482,7 +8780,7 @@
 			)
 		)
 		(property "Category" "Resistors,Chip Resistor - Surface Mount"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8491,7 +8789,7 @@
 			)
 		)
 		(property "Manufacturer" "UNI-ROYAL(Uniroyal Elec)"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8500,7 +8798,7 @@
 			)
 		)
 		(property "Part" "0603WAF2003T5E"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8509,7 +8807,7 @@
 			)
 		)
 		(property "Resistance" "200kΩ"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8518,7 +8816,7 @@
 			)
 		)
 		(property "Power(Watts)" "100mW"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8527,7 +8825,7 @@
 			)
 		)
 		(property "Type" "Thick Film Resistors"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8536,7 +8834,7 @@
 			)
 		)
 		(property "Overload Voltage (Max)" "75V"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8545,7 +8843,7 @@
 			)
 		)
 		(property "Operating Temperature Range" "-55°C~+155°C"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8554,7 +8852,7 @@
 			)
 		)
 		(property "Tolerance" "±1%"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -8563,7 +8861,7 @@
 			)
 		)
 		(property "Temperature Coefficient" "±100ppm/°C"
-			(at 62.23 35.56 0)
+			(at 62.23 27.94 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -9985,72 +10283,6 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 102.87 92.71 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "31f00b19-1af9-45a9-b2f1-e13970749003")
-		(property "Reference" "#PWR072"
-			(at 102.87 96.52 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+5V"
-			(at 102.87 87.63 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 102.87 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 102.87 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 102.87 92.71 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "fb95c5a7-3f81-4b95-b8f5-16608a93babf")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "#PWR072")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
 		(at 52.07 59.69 0)
 		(unit 1)
@@ -10562,74 +10794,8 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 115.57 27.94 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "380a093e-72aa-46c5-94b4-59f7b16772e2")
-		(property "Reference" "#PWR075"
-			(at 115.57 31.75 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+5V"
-			(at 115.57 22.86 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 115.57 27.94 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 115.57 27.94 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 115.57 27.94 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "103e179e-2078-436b-9d47-e4a2f1f36eac")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "#PWR075")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
 		(lib_id "power:GND")
-		(at 45.72 123.19 0)
+		(at 40.64 123.19 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -10638,7 +10804,7 @@
 		(fields_autoplaced yes)
 		(uuid "3c877566-2431-4092-acb1-3346cf08bb01")
 		(property "Reference" "#PWR065"
-			(at 45.72 129.54 0)
+			(at 40.64 129.54 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10647,7 +10813,7 @@
 			)
 		)
 		(property "Value" "GND"
-			(at 45.72 128.27 0)
+			(at 40.64 128.27 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10656,7 +10822,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 45.72 123.19 0)
+			(at 40.64 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10665,7 +10831,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 45.72 123.19 0)
+			(at 40.64 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10674,7 +10840,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
-			(at 45.72 123.19 0)
+			(at 40.64 123.19 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -10911,6 +11077,71 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "R60")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 210.82 104.14 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "418536b4-ce69-4ac1-878a-034899b1145a")
+		(property "Reference" "#PWR075"
+			(at 210.82 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 210.82 100.33 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 210.82 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 210.82 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 210.82 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "692e125e-b2cd-41b1-bf19-6dc14e1a88f8")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "#PWR075")
 					(unit 1)
 				)
 			)
@@ -11872,6 +12103,263 @@
 		)
 	)
 	(symbol
+		(lib_id "power:VBUS")
+		(at 78.74 85.09 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "5f54f11c-4f48-4ff6-b584-9e8eabb2d14b")
+		(property "Reference" "#PWR070"
+			(at 78.74 88.9 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 78.74 81.28 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 78.74 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 78.74 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 78.74 85.09 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "6573f7df-b8c8-4d81-8899-479fc15ebd5c")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "#PWR070")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "PCM_JLCPCB-Capacitors:0603,100nF")
+		(at 40.64 115.57 180)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "60c16828-5f53-4f51-874a-c41aedb523c2")
+		(property "Reference" "C9"
+			(at 36.068 115.824 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Value" "100nF"
+			(at 43.18 117.348 0)
+			(effects
+				(font
+					(size 0.8 0.8)
+				)
+			)
+		)
+		(property "Footprint" "PCM_JLCPCB:C_0603"
+			(at 42.418 115.57 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2211101700_YAGEO-CC0603KRX7R9BB104_C14663.pdf"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "50V 100nF X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Stock" "70324515"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Price" "0.006USD"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Process" "SMT"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Minimum Qty" "20"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Attrition Qty" "10"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Class" "Basic Component"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Category" "Capacitors,Multilayer Ceramic Capacitors MLCC - SMD/SMT"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Part" "CC0603KRX7R9BB104"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Voltage Rated" "50V"
+			(at 42.418 118.618 0)
+			(effects
+				(font
+					(size 0.8 0.8)
+				)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Capacitance" "100nF"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Temperature Coefficient" "X7R"
+			(at 40.64 115.57 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "8f1aac11-4a14-4c4a-8c98-b36d4c705049")
+		)
+		(pin "1"
+			(uuid "4dcb804d-c8b3-4039-8d5c-aaffe839d8ad")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "C9")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 252.73 118.11 0)
 		(unit 1)
@@ -12383,17 +12871,35 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 58.42 24.13 0)
+		(lib_id "PCM_JLCPCB-Capacitors:0603,100nF")
+		(at 68.58 36.83 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
 		(fields_autoplaced yes)
-		(uuid "7da49661-1f8d-4358-8566-5f65de490d24")
-		(property "Reference" "#PWR069"
-			(at 58.42 27.94 0)
+		(uuid "6f5ead56-b057-4c91-ab76-fca1b93b0109")
+		(property "Reference" "C16"
+			(at 71.12 34.2899 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "100nF"
+			(at 71.12 36.83 0)
+			(effects
+				(font
+					(size 0.8 0.8)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "PCM_JLCPCB:C_0603"
+			(at 66.802 36.83 90)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12401,8 +12907,185 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+5V"
-			(at 58.42 19.05 0)
+		(property "Datasheet" "https://www.lcsc.com/datasheet/lcsc_datasheet_2211101700_YAGEO-CC0603KRX7R9BB104_C14663.pdf"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "50V 100nF X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC - SMD/SMT ROHS"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "LCSC" "C14663"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Stock" "70324515"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Price" "0.006USD"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Process" "SMT"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Minimum Qty" "20"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Attrition Qty" "10"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Class" "Basic Component"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Category" "Capacitors,Multilayer Ceramic Capacitors MLCC - SMD/SMT"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Manufacturer" "YAGEO"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Part" "CC0603KRX7R9BB104"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Voltage Rated" "50V"
+			(at 71.12 39.37 0)
+			(effects
+				(font
+					(size 0.8 0.8)
+				)
+				(justify left)
+			)
+		)
+		(property "Tolerance" "±10%"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Capacitance" "100nF"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Temperature Coefficient" "X7R"
+			(at 68.58 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "b527dccd-9778-4921-a663-9be31210b257")
+		)
+		(pin "1"
+			(uuid "9d52dcc5-b30c-402b-80bd-404a47886c2c")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "C16")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 102.87 92.71 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "713d1788-b209-4718-9547-924d450fd9b8")
+		(property "Reference" "#PWR072"
+			(at 102.87 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 102.87 88.9 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12410,7 +13093,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 58.42 24.13 0)
+			(at 102.87 92.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12419,7 +13102,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 58.42 24.13 0)
+			(at 102.87 92.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12427,8 +13110,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 58.42 24.13 0)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 102.87 92.71 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12437,12 +13120,12 @@
 			)
 		)
 		(pin "1"
-			(uuid "1a19cf51-3154-4235-9067-5841a0bd0327")
+			(uuid "9bdc12ff-12a8-4724-bb2b-381b7166d247")
 		)
 		(instances
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "#PWR069")
+					(reference "#PWR072")
 					(unit 1)
 				)
 			)
@@ -13739,7 +14422,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 73.66 120.65 0)
+		(at 72.39 120.65 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -13747,7 +14430,7 @@
 		(dnp no)
 		(uuid "a2414aec-f6fa-4841-9c79-5867fd8d9d6e")
 		(property "Reference" "#PWR068"
-			(at 73.66 124.46 0)
+			(at 72.39 124.46 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13756,7 +14439,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 75.692 117.094 0)
+			(at 74.422 117.094 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13764,7 +14447,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 73.66 120.65 0)
+			(at 72.39 120.65 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13773,7 +14456,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 73.66 120.65 0)
+			(at 72.39 120.65 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -13782,7 +14465,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 73.66 120.65 0)
+			(at 72.39 120.65 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14026,7 +14709,7 @@
 	)
 	(symbol
 		(lib_id "power:+3V3")
-		(at 44.45 111.76 0)
+		(at 40.64 107.95 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
@@ -14034,7 +14717,7 @@
 		(dnp no)
 		(uuid "aef3fbde-2b55-44aa-8e07-9c3914d2be75")
 		(property "Reference" "#PWR064"
-			(at 44.45 115.57 0)
+			(at 40.64 111.76 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14043,7 +14726,7 @@
 			)
 		)
 		(property "Value" "+3V3"
-			(at 46.482 108.204 0)
+			(at 42.672 104.394 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14051,7 +14734,7 @@
 			)
 		)
 		(property "Footprint" ""
-			(at 44.45 111.76 0)
+			(at 40.64 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14060,7 +14743,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 44.45 111.76 0)
+			(at 40.64 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14069,7 +14752,7 @@
 			)
 		)
 		(property "Description" "Power symbol creates a global label with name \"+3V3\""
-			(at 44.45 111.76 0)
+			(at 40.64 107.95 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -14084,6 +14767,71 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "#PWR064")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 62.23 22.86 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "bb67d447-7924-4bbe-8a95-67c308f0b1fe")
+		(property "Reference" "#PWR092"
+			(at 62.23 26.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 62.23 19.05 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 62.23 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 62.23 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 62.23 22.86 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "c23cd171-617c-49e4-bb3b-582b30ef0c26")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "#PWR092")
 					(unit 1)
 				)
 			)
@@ -14528,72 +15276,6 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "R48")
-					(unit 1)
-				)
-			)
-		)
-	)
-	(symbol
-		(lib_id "power:+5V")
-		(at 78.74 85.09 0)
-		(unit 1)
-		(exclude_from_sim no)
-		(in_bom yes)
-		(on_board yes)
-		(dnp no)
-		(fields_autoplaced yes)
-		(uuid "c600c4e9-860d-4dd2-ad31-bb714b443f31")
-		(property "Reference" "#PWR070"
-			(at 78.74 88.9 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Value" "+5V"
-			(at 78.74 80.01 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-			)
-		)
-		(property "Footprint" ""
-			(at 78.74 85.09 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Datasheet" ""
-			(at 78.74 85.09 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 78.74 85.09 0)
-			(effects
-				(font
-					(size 1.27 1.27)
-				)
-				(hide yes)
-			)
-		)
-		(pin "1"
-			(uuid "f4df0865-c1fc-4b90-9ea4-3551c4bb920d")
-		)
-		(instances
-			(project "1_Distribution_Board"
-				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
-					(reference "#PWR070")
 					(unit 1)
 				)
 			)
@@ -15987,16 +16669,17 @@
 		)
 	)
 	(symbol
-		(lib_id "power:+5V")
-		(at 210.82 104.14 0)
+		(lib_id "power:GND")
+		(at 68.58 40.64 0)
 		(unit 1)
 		(exclude_from_sim no)
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(uuid "dea1f138-3d49-4505-9e62-c9a61d5ef417")
+		(fields_autoplaced yes)
+		(uuid "e2698346-8837-40b8-b7b5-a68e28380dd3")
 		(property "Reference" "#PWR077"
-			(at 210.82 107.95 0)
+			(at 68.58 46.99 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16004,16 +16687,17 @@
 				(hide yes)
 			)
 		)
-		(property "Value" "+5V"
-			(at 210.82 100.33 0)
+		(property "Value" "GND"
+			(at 68.58 45.72 0)
 			(effects
 				(font
 					(size 1.27 1.27)
 				)
+				(hide yes)
 			)
 		)
 		(property "Footprint" ""
-			(at 210.82 104.14 0)
+			(at 68.58 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16022,7 +16706,7 @@
 			)
 		)
 		(property "Datasheet" ""
-			(at 210.82 104.14 0)
+			(at 68.58 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16030,8 +16714,8 @@
 				(hide yes)
 			)
 		)
-		(property "Description" "Power symbol creates a global label with name \"+5V\""
-			(at 210.82 104.14 0)
+		(property "Description" "Power symbol creates a global label with name \"GND\" , ground"
+			(at 68.58 40.64 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -16040,7 +16724,7 @@
 			)
 		)
 		(pin "1"
-			(uuid "c062a16e-b626-403f-8ac9-d7a2a99624dd")
+			(uuid "a016cbd2-4ae4-47d2-9264-a0e4d426b99a")
 		)
 		(instances
 			(project "1_Distribution_Board"
@@ -16934,6 +17618,71 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
 					(reference "R33")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 115.57 27.94 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(uuid "f39022ee-08e4-46c7-8fe1-b21f07f03e9a")
+		(property "Reference" "#PWR069"
+			(at 115.57 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 115.57 24.13 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 115.57 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 115.57 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 115.57 27.94 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e686a0eb-ac30-46b8-bc59-0c7defa2f361")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3/4f60e607-b8a0-4b26-ada7-74dd2d095020"
+					(reference "#PWR069")
 					(unit 1)
 				)
 			)

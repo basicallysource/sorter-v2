@@ -6,8 +6,8 @@
 	(paper "A4")
 	(title_block
 		(title "Distribution Board")
-		(date "2026-04-01")
-		(rev "1.0")
+		(date "2026-05-22")
+		(rev "1.2")
 		(company "basically")
 	)
 	(lib_symbols
@@ -3240,6 +3240,131 @@
 			)
 			(embedded_fonts no)
 		)
+		(symbol "power:VBUS"
+			(power)
+			(pin_numbers
+				(hide yes)
+			)
+			(pin_names
+				(offset 0)
+				(hide yes)
+			)
+			(exclude_from_sim no)
+			(in_bom yes)
+			(on_board yes)
+			(property "Reference" "#PWR"
+				(at 0 -3.81 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Value" "VBUS"
+				(at 0 3.556 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+				)
+			)
+			(property "Footprint" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Datasheet" ""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "Description" "Power symbol creates a global label with name \"VBUS\""
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(property "ki_keywords" "global power"
+				(at 0 0 0)
+				(effects
+					(font
+						(size 1.27 1.27)
+					)
+					(hide yes)
+				)
+			)
+			(symbol "VBUS_0_1"
+				(polyline
+					(pts
+						(xy -0.762 1.27) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 2.54) (xy 0.762 1.27)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+				(polyline
+					(pts
+						(xy 0 0) (xy 0 2.54)
+					)
+					(stroke
+						(width 0)
+						(type default)
+					)
+					(fill
+						(type none)
+					)
+				)
+			)
+			(symbol "VBUS_1_1"
+				(pin power_in line
+					(at 0 0 90)
+					(length 0)
+					(name "~"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+					(number "1"
+						(effects
+							(font
+								(size 1.27 1.27)
+							)
+						)
+					)
+				)
+			)
+			(embedded_fonts no)
+		)
 	)
 	(polyline
 		(pts
@@ -3455,7 +3580,7 @@
 	)
 	(text "VBUS is USB Voltage from Pi Pico"
 		(exclude_from_sim no)
-		(at 175.26 38.862 0)
+		(at 184.404 43.434 0)
 		(effects
 			(font
 				(size 1.016 1.016)
@@ -3575,6 +3700,12 @@
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "287424a0-35fc-482b-9300-f099d7c2064d")
+	)
+	(junction
+		(at 163.83 41.91)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "36e4efa5-2c06-4a9f-873b-a55985d95085")
 	)
 	(junction
 		(at 262.89 152.4)
@@ -5202,16 +5333,6 @@
 		)
 		(uuid "41c0286e-f3c4-4087-9657-ee7d76a0f383")
 	)
-	(label "VSYS"
-		(at 204.47 31.75 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "425cab6b-cbf0-46f4-a413-0fae4fe54f75")
-	)
 	(label "GPIO0-GPIO_OUT-~{EN}_Stepper"
 		(at 36.83 171.45 0)
 		(effects
@@ -5852,16 +5973,6 @@
 		)
 		(uuid "f0201eb4-1b63-49d5-9fd5-5fc136223c98")
 	)
-	(label "VSYS"
-		(at 154.94 41.91 0)
-		(effects
-			(font
-				(size 1.27 1.27)
-			)
-			(justify left bottom)
-		)
-		(uuid "f035d4d4-be93-49e1-99fc-fa26e581e6d9")
-	)
 	(label "I2C1_SCL-PCA9685_SCL"
 		(at 113.03 109.22 0)
 		(effects
@@ -5993,6 +6104,72 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
 					(reference "#PWR09")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 209.55 31.75 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "09584bbb-cf7f-4658-83a1-733a1af15e09")
+		(property "Reference" "#PWR049"
+			(at 209.55 35.56 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 209.55 26.67 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 209.55 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 209.55 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 209.55 31.75 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "3b44eff9-53bf-4a8d-b06b-2480d9e977dd")
+		)
+		(instances
+			(project "1_Distribution_Board"
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
+					(reference "#PWR049")
 					(unit 1)
 				)
 			)
@@ -9022,6 +9199,72 @@
 			(project "1_Distribution_Board"
 				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
 					(reference "R5")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:VBUS")
+		(at 163.83 41.91 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "ee78856b-7751-4609-a11a-a64e265c37f6")
+		(property "Reference" "#PWR048"
+			(at 163.83 45.72 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "VSYS"
+			(at 163.83 36.83 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 163.83 41.91 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 163.83 41.91 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" "Power symbol creates a global label with name \"VBUS\""
+			(at 163.83 41.91 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "e5ed5b31-94a8-4664-9ef6-d9c3f58c99db")
+		)
+		(instances
+			(project ""
+				(path "/d53c8c01-e754-4310-8a73-7d7c95e64cd3"
+					(reference "#PWR048")
 					(unit 1)
 				)
 			)

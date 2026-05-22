@@ -816,9 +816,7 @@ class CaptureThread:
                 self._config.height = height
             if isinstance(fps, int) and fps > 0:
                 self._config.fps = fps
-            if fourcc is None:
-                self._config.fourcc = None
-            elif isinstance(fourcc, str) and fourcc.strip():
+            if isinstance(fourcc, str) and fourcc.strip():
                 self._config.fourcc = fourcc.strip()
         self._reopen_event.set()
 
@@ -934,7 +932,15 @@ class CaptureThread:
                     last_expected_frame_at = 0.0
 
                     if not is_url:
-                        if isinstance(fourcc, str) and len(fourcc) >= 4:
+                        # macOS uses AVFoundation, which negotiates its own pixel
+                        # format at open time. Setting CAP_PROP_FOURCC after the
+                        # fact can leave some cams open-but-frameless (e.g. Logitech
+                        # StreamCam). Only force the FOURCC on Linux/V4L2.
+                        if (
+                            platform.system() == "Linux"
+                            and isinstance(fourcc, str)
+                            and len(fourcc) >= 4
+                        ):
                             try:
                                 cap.set(
                                     cv2.CAP_PROP_FOURCC,

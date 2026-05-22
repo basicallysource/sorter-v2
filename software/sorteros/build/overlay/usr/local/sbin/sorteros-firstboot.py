@@ -217,6 +217,11 @@ def _write_nm_wifi(ssid: str, psk: str) -> None:
         "[ipv6]\n"
         "method=auto\n"
     )
+    backup_dir = Path("/var/lib/sorteros/wifi-backups")
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    backup = backup_dir / f"{ssid}.nmconnection"
+    backup.write_text(body)
+    backup.chmod(0o600)
     p = Path("/etc/NetworkManager/system-connections") / f"{ssid}.nmconnection"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(body)
@@ -381,6 +386,7 @@ def stage_install_services() -> None:
         dest.chmod(0o644)
 
     sh(["systemctl", "daemon-reload"])
+    sh(["systemctl", "enable", "wifi-repair.service", "wifi-connect.service"])
     # Dev services enabled by default. At this project stage, hot reload and rapid
     # iteration during setup/debugging are more valuable than production optimization.
     # Switch to sorter-backend.service / sorter-ui.service later when the system

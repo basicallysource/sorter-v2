@@ -16,6 +16,7 @@ import json
 import os
 import platform
 import statistics
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -56,7 +57,19 @@ def _load_prefs() -> dict[str, str]:
 
 def _save_prefs(prefs: dict[str, str]) -> None:
     _PREFS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    _PREFS_PATH.write_text(json.dumps(prefs, indent=2, sort_keys=True))
+    fd, tmp_path = tempfile.mkstemp(dir=_PREFS_PATH.parent, suffix=".json.tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(prefs, f, indent=2, sort_keys=True)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, _PREFS_PATH)
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _probe_cpu() -> dict:

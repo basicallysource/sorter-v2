@@ -1,4 +1,5 @@
 from datetime import datetime
+import os
 import threading
 import atexit
 from typing import Optional
@@ -27,6 +28,7 @@ class Logger:
         if self._log_file:
             self._log_file.write(line + "\n")
             self._log_file.flush()
+            os.fsync(self._log_file.fileno())
 
     def _formatMessage(self, msg: str, *args, **kwargs) -> str:
         if args:

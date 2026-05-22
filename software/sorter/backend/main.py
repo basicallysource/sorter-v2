@@ -44,6 +44,7 @@ import threading
 import queue
 import time
 import asyncio
+import signal
 import sys
 
 def _mkIRLInterfaceStandby(config, gc):
@@ -160,6 +161,10 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
 def main() -> None:
     import server.shared_state as shared_state
+
+    # SIGTERM (sent by systemd/supervisor) → instant exit without thread cleanup.
+    # SIGINT (Ctrl-C) still goes through the except-KeyboardInterrupt path below.
+    signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
 
     script_path = Path(__file__).resolve()
     repo_root = script_path.parents[2]

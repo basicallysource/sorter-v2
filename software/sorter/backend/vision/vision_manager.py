@@ -3,6 +3,7 @@ from pathlib import Path
 import base64
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, is_dataclass, replace
 import cv2
 import numpy as np
@@ -77,7 +78,7 @@ class AuxiliaryTeacherCaptureRequest:
 # stutters. Override via ``SORTER_HIVE_INFERENCE_INTERVAL_S`` env var for tuning.
 import os as _os
 HIVE_INFERENCE_MIN_INTERVAL_S: float = float(
-    _os.environ.get("SORTER_HIVE_INFERENCE_INTERVAL_S", "0.2")
+    _os.environ.get("SORTER_HIVE_INFERENCE_INTERVAL_S", "0.033")
 )
 # Per-role override: the carousel (C4) needs much higher detection cadence so
 # the polar-tracker free-fall burst window can grab ≥10 frames per drop. The
@@ -212,6 +213,7 @@ class VisionManager:
         self._feeder_tracker_active: bool = False
         self._aux_detection_stop = threading.Event()
         self._aux_detection_thread: threading.Thread | None = None
+        self._aux_detection_pool: ThreadPoolExecutor | None = None
         self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
         self._auxiliary_capture_lock = threading.Lock()
         self._openrouter_request_lock = threading.Lock()
@@ -521,6 +523,10 @@ class VisionManager:
             self.gc.logger.warning(f"reloadPolygons at start failed: {exc}")
         self._initOverlays()
         self._aux_detection_stop.clear()
+        if self._aux_detection_pool is None:
+            self._aux_detection_pool = ThreadPoolExecutor(
+                max_workers=8, thread_name_prefix="aux-detect"
+            )
         self._aux_detection_thread = threading.Thread(
             target=self._auxiliaryDetectionLoop, daemon=True, name="auxiliary-detection-loop"
         )
@@ -533,6 +539,9 @@ class VisionManager:
             self._auxiliary_capture_requests = []
         if self._aux_detection_thread:
             self._aux_detection_thread.join(timeout=2.0)
+        if self._aux_detection_pool is not None:
+            self._aux_detection_pool.shutdown(wait=False, cancel_futures=True)
+            self._aux_detection_pool = None
         self._stopFeederDetection()
         self._stopClassificationAnalysis()
         self._region_provider.stop()
@@ -1176,6 +1185,20 @@ class VisionManager:
         for key, (role, capture) in channel_map.items():
             if key not in polys or capture is None:
                 continue
+            # Skip building the MOG2 detector + analysis thread for roles that
+            # aren't actually using mog2 as their detection algorithm. The hive
+            # / rknn path runs through _runHiveDetection in the aux loop and
+            # doesn't read this detector's output; spinning the MOG2 thread
+            # just burns CPU on results nobody consumes.
+            role_algo = self._normalizeFeederDetectionAlgorithm(
+                self._feeder_detection_algorithm_by_role.get(role)
+                or self._feeder_detection_algorithm
+            )
+            if role_algo != "mog2":
+                self.gc.logger.info(
+                    f"Skipping MOG2 detection thread for {role} (algorithm={role_algo})"
+                )
+                continue
             src_w, src_h = self._channelSavedResolution(saved, key)
 
             # Wait briefly for first frame to get actual camera resolution
@@ -1745,24 +1768,30 @@ class VisionManager:
         frame: np.ndarray,
         polygon: np.ndarray,
     ) -> tuple[np.ndarray, tuple[int, int]] | None:
+        # Bare bbox slice. Previously this function built a full-frame uint8
+        # mask, a full-frame gray background, and ran np.where over the entire
+        # image just to gray-out non-polygon pixels — purely visual, ~25-50ms
+        # of pure CPU per call on the 4K carousel. The model letterbox-resizes
+        # the result to 320×320 anyway, so non-polygon pixels in the bbox have
+        # negligible effect on inference. To re-enable the polygon mask for
+        # debugging, set SORTER_POLYGON_CROP_MASK=1.
         if polygon is None or len(polygon) < 3:
             return None
         h, w = frame.shape[:2]
         x, y, bw, bh = cv2.boundingRect(polygon.astype(np.int32))
-        # Clamp to frame bounds. Arc-derived channel polygons (e.g. third_channel)
-        # can extend above y=0; numpy slicing with negative start would wrap
-        # from the end of the array and collapse the crop to 1-2 rows.
         x1 = max(0, x)
         y1 = max(0, y)
         x2 = min(w, x + bw)
         y2 = min(h, y + bh)
         if x2 <= x1 or y2 <= y1:
             return None
-        mask = np.zeros((h, w), dtype=np.uint8)
-        cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
-        background = np.full_like(frame, 230)
-        masked = np.where(mask[:, :, np.newaxis] == 255, frame, background)
-        return masked[y1:y2, x1:x2].copy(), (int(x1), int(y1))
+        if _os.environ.get("SORTER_POLYGON_CROP_MASK", "0") == "1":
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
+            background = np.full_like(frame, 230)
+            masked = np.where(mask[:, :, np.newaxis] == 255, frame, background)
+            return masked[y1:y2, x1:x2].copy(), (int(x1), int(y1))
+        return frame[y1:y2, x1:x2].copy(), (int(x1), int(y1))
 
     def _channelInfoForRole(self, role: str) -> PolygonChannel | None:
         detector = getattr(self, "_per_channel_detectors", {}).get(role)
@@ -3060,11 +3089,15 @@ class VisionManager:
             result = self._cropFrameToPolygonRegion(frame_bgr, polygon)
             if result is not None:
                 crop, (off_x, off_y) = result
+        prof = self.gc.profiler
+        prof.hit(f"hive.{role}.calls")
+        prof.mark(f"hive.{role}.interval_ms")
         try:
-            if conf_threshold is not None:
-                detections = processor.infer(crop, conf_threshold=conf_threshold)
-            else:
-                detections = processor.infer(crop)
+            with prof.timer(f"hive.{role}.infer_ms"):
+                if conf_threshold is not None:
+                    detections = processor.infer(crop, conf_threshold=conf_threshold)
+                else:
+                    detections = processor.infer(crop)
         except Exception as exc:
             if getattr(processor, "_load_failed", False):
                 self._hive_ml_processors[algorithm_id] = False
@@ -4098,33 +4131,39 @@ class VisionManager:
             )
 
     def _refreshAuxiliaryDetections(self) -> None:
-        # Run a detection refresh per dynamic-detection role on every aux
-        # tick. The per-role throttles inside ``_getFeederDynamicDetection``
-        # / ``_getCarouselDynamicDetection`` (Hive: 50 ms on carousel,
-        # 200 ms on C2/C3; Gemini: 1 s API floor) dedupe the actual
-        # inference calls, so this loop just keeps the caches warm
-        # independently of overlay rendering or browser pulls. Decoupling
-        # detection cadence from the render path eliminates the previous
-        # "no browser open → no detection" coupling.
+        # Dispatch per-role inference in parallel so RKNN/NPU calls overlap
+        # instead of serializing through one Python thread. Each role mutates
+        # only its own slot in the per-role caches; with distinct processor
+        # instances per algorithm_id the per-processor locks don't contend.
+        tasks: list[tuple[str, "callable[[], object]"]] = []
         for role in self._feederTrackerRoles():
             if not self._feederRoleUsesDynamicDetection(role):
                 continue
-            try:
-                self._getFeederDynamicDetection(role, force=False)
-            except Exception as exc:
-                self.gc.logger.warning(
-                    f"auxiliary feeder detection refresh failed for {role}: {exc}"
-                )
+            tasks.append((f"feeder:{role}", lambda r=role: self._getFeederDynamicDetection(r, force=False)))
 
         if self._carousel_capture is not None and self._isDynamicDetectionAlgorithm(
             self.getCarouselDetectionAlgorithm()
         ):
+            tasks.append(("carousel", lambda: self._getCarouselDynamicDetection(force=False)))
+
+        if not tasks:
+            return
+
+        pool = self._aux_detection_pool
+        if pool is None or len(tasks) == 1:
+            for label, fn in tasks:
+                try:
+                    fn()
+                except Exception as exc:
+                    self.gc.logger.warning(f"auxiliary detection refresh failed for {label}: {exc}")
+            return
+
+        futures = [(label, pool.submit(fn)) for label, fn in tasks]
+        for label, future in futures:
             try:
-                self._getCarouselDynamicDetection(force=False)
+                future.result()
             except Exception as exc:
-                self.gc.logger.warning(
-                    f"auxiliary carousel detection refresh failed: {exc}"
-                )
+                self.gc.logger.warning(f"auxiliary detection refresh failed for {label}: {exc}")
 
     def _auxiliaryDetectionLoop(self) -> None:
         while not self._aux_detection_stop.is_set():

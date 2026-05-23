@@ -106,7 +106,7 @@ def mkGlobalConfig() -> GlobalConfig:
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.logger = Logger(gc.debug_level, log_file=log_file)
     gc.profiler = Profiler(
-        enabled=os.getenv("PROFILER_ENABLED", "0") == "1",
+        enabled=os.getenv("PROFILER_ENABLED", "1") == "1",
         report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),
     )
 

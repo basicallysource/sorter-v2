@@ -41,6 +41,11 @@ from irl.config import (
     parseCameraDeviceSettings,
     parseCameraPictureSettings,
 )
+# Max width of the MJPEG preview stream (annotated frame is downscaled to
+# this before JPEG encoding). Annotation still runs at full capture resolution;
+# this only shrinks the encoded-and-transmitted frame. 0 disables the resize.
+PREVIEW_MAX_WIDTH = int(os.environ.get("SORTER_PREVIEW_MAX_WIDTH", "960"))
+
 from server import shared_state
 from server.calibration_reference import REFERENCE_TILE_RGB
 from server.camera_calibration import (
@@ -3927,8 +3932,15 @@ def camera_feed_by_role(
                         else frame_obj.raw
                     )
                     frame = _dashboard_frame(frame)
-                    yield encoder.encode_chunk(frame, quality=70)
-                    time.sleep(0.03)
+                    if PREVIEW_MAX_WIDTH > 0 and frame.shape[1] > PREVIEW_MAX_WIDTH:
+                        scale = PREVIEW_MAX_WIDTH / float(frame.shape[1])
+                        frame = cv2.resize(
+                            frame,
+                            (PREVIEW_MAX_WIDTH, int(round(frame.shape[0] * scale))),
+                            interpolation=cv2.INTER_AREA,
+                        )
+                    yield encoder.encode_chunk(frame, quality=55)
+                    time.sleep(0.2)
 
             return StreamingResponse(
                 generate_live(),

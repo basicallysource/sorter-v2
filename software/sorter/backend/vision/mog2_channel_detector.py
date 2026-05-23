@@ -1,3 +1,4 @@
+import os
 from typing import Callable, Dict, List
 
 import cv2
@@ -5,6 +6,14 @@ import numpy as np
 
 from defs.channel import PolygonChannel, ChannelDetection
 from .mog2_diff_configs import Mog2DiffConfig, DEFAULT_MOG2_DIFF_CONFIG
+
+# Wider input frames get downscaled to this width before MOG2 runs. The
+# masks/polygons rebuild at the smaller size automatically via _ensure_shape;
+# detection bboxes are scaled back to the original frame's coord space before
+# being returned so downstream consumers (overlays, tracker) keep using
+# camera-frame coordinates. Sized for the carousel — at 4K (3840w) this is a
+# ~28× pixel reduction; 720p inputs are untouched. 0 disables.
+MOG2_MAX_INPUT_WIDTH = int(os.environ.get("SORTER_MOG2_MAX_INPUT_WIDTH", "720"))
 
 CHANNEL_ID_MAP = {
     "second_channel": 2,
@@ -173,6 +182,13 @@ class Mog2ChannelDetector:
 
     def detect(self, frame: np.ndarray) -> List[ChannelDetection]:
         mog2_frame = self._mog2InputFrame(frame)
+        in_h, in_w = mog2_frame.shape[:2]
+        bbox_scale = 1.0
+        if MOG2_MAX_INPUT_WIDTH > 0 and in_w > MOG2_MAX_INPUT_WIDTH:
+            new_w = MOG2_MAX_INPUT_WIDTH
+            new_h = int(round(in_h * new_w / in_w))
+            mog2_frame = cv2.resize(mog2_frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
+            bbox_scale = in_w / float(new_w)
         self._ensure_shape(mog2_frame.shape[:2])
         blur_k = int(self._cfg.blur_kernel) | 1
         morph_k = int(self._cfg.morph_kernel) | 1
@@ -211,6 +227,11 @@ class Mog2ChannelDetector:
                 if max_contour_area > 0 and area > max_contour_area:
                     continue
                 x, y, w, h = cv2.boundingRect(contour)
+                if bbox_scale != 1.0:
+                    x = int(round(x * bbox_scale))
+                    y = int(round(y * bbox_scale))
+                    w = int(round(w * bbox_scale))
+                    h = int(round(h * bbox_scale))
                 detections.append(ChannelDetection(
                     bbox=(x, y, x + w, y + h),
                     channel_id=ch.polygon_channel.channel_id,
@@ -222,8 +243,13 @@ class Mog2ChannelDetector:
         return detections
 
     def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
-        self._ensure_shape(frame.shape[:2])
+        # NOTE: do not call _ensure_shape here. detect() may have downscaled
+        # the frame to MOG2_MAX_INPUT_WIDTH, leaving masks/last_fg at the
+        # smaller shape; the annotate frame comes from the full camera feed.
+        # Upsampling cached state for the draw avoids resetting the MOG2
+        # model on every overlay call.
         out = frame.copy()
+        h, w = frame.shape[:2]
 
         if self._channels:
             first = next(iter(self._channels.values()))
@@ -233,18 +259,25 @@ class Mog2ChannelDetector:
                 for ch in self._channels.values():
                     self._combined_mask = cv2.bitwise_or(self._combined_mask, ch.mask)
 
-        if self._combined_mask is not None:
-            mask_bool = self._combined_mask > 0
+        combined_mask = self._combined_mask
+        last_fg = self._last_fg
+        if combined_mask is not None and combined_mask.shape[:2] != (h, w):
+            combined_mask = cv2.resize(combined_mask, (w, h), interpolation=cv2.INTER_NEAREST)
+        if last_fg is not None and last_fg.shape[:2] != (h, w):
+            last_fg = cv2.resize(last_fg, (w, h), interpolation=cv2.INTER_NEAREST)
+
+        if combined_mask is not None:
+            mask_bool = combined_mask > 0
             out[mask_bool] = (frame[mask_bool] * 0.5).astype(np.uint8)
 
-        if self._last_fg is not None and self._combined_mask is not None:
-            fg_bool = self._last_fg > 0
-            mask_bool = self._combined_mask > 0
+        if last_fg is not None and combined_mask is not None:
+            fg_bool = last_fg > 0
+            mask_bool = combined_mask > 0
             hot = fg_bool & mask_bool
 
-            display = np.zeros(self._last_fg.shape[:2], dtype=np.uint8)
+            display = np.zeros(last_fg.shape[:2], dtype=np.uint8)
             display[hot] = np.clip(
-                self._last_fg[hot].astype(np.float32) * float(self._cfg.heat_gain), 0, 255
+                last_fg[hot].astype(np.float32) * float(self._cfg.heat_gain), 0, 255
             ).astype(np.uint8)
             heatmap = cv2.applyColorMap(display, cv2.COLORMAP_JET)
             show = hot & (display > 0)
@@ -263,11 +296,24 @@ class Mog2ChannelDetector:
             x1, y1, x2, y2 = det.bbox
             cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
+        if self._channels:
+            first = next(iter(self._channels.values()))
+            mh, mw = first.mask.shape[:2]
+            poly_sx = w / float(mw) if mw else 1.0
+            poly_sy = h / float(mh) if mh else 1.0
+        else:
+            poly_sx = poly_sy = 1.0
         for ch in self._channels.values():
             ch_color = CHANNEL_COLORS.get(ch.name, (200, 200, 200))
-            cv2.polylines(out, [ch.polygon_channel.polygon], True, ch_color, 2)
+            poly = ch.polygon_channel.polygon
+            if poly_sx != 1.0 or poly_sy != 1.0:
+                poly = np.round(poly.astype(np.float32) * np.array([poly_sx, poly_sy])).astype(np.int32)
+            cv2.polylines(out, [poly], True, ch_color, 2)
             if ch.polygon_channel.inner_polygon is not None and len(ch.polygon_channel.inner_polygon) >= 3:
-                cv2.polylines(out, [ch.polygon_channel.inner_polygon], True, ch_color, 2)
+                inner = ch.polygon_channel.inner_polygon
+                if poly_sx != 1.0 or poly_sy != 1.0:
+                    inner = np.round(inner.astype(np.float32) * np.array([poly_sx, poly_sy])).astype(np.int32)
+                cv2.polylines(out, [inner], True, ch_color, 2)
 
         return out
 

@@ -61,6 +61,7 @@ class LambdaRunConfig:
     skip_pull: bool = False
     skip_build: bool = False
     extra_build_flags: list[str] = field(default_factory=lambda: ["--balance-source-role"])
+    activation: str = "silu"  # "silu" or "relu6"
 
     @property
     def remote_run_dir(self) -> str:
@@ -196,6 +197,7 @@ def _ensureRknnVenv(host: str) -> None:
 
 def _remoteTrainCmd(cfg: LambdaRunConfig, data_yaml_remote: str, result_json_remote: str) -> str:
     head_flag = "" if cfg.head_stripped else "--no-head-strip"
+    activation_flag = f"--activation {cfg.activation}" if cfg.activation != "silu" else ""
     return (
         f"cd {REMOTE_TRAINING} && "
         f"PYTHONUNBUFFERED=1 {REMOTE_UV} run python scripts/lambda/train_export.py "
@@ -206,6 +208,7 @@ def _remoteTrainCmd(cfg: LambdaRunConfig, data_yaml_remote: str, result_json_rem
         f"--epochs {cfg.epochs} "
         f"--workers 4 "
         f"{head_flag} "
+        f"{activation_flag} "
         f"--result-json {shlex.quote(result_json_remote)}"
     )
 
@@ -246,6 +249,7 @@ def _writeBundleMetadata(cfg: LambdaRunConfig, host: str, train_result: dict, co
             "target_platform": cfg.target_platform,
             "quantization": cfg.quantization,
             "head_stripped": cfg.head_stripped,
+            "activation": cfg.activation,
             "hive_url": cfg.hive_url,
             "extra_build_flags": cfg.extra_build_flags,
         },

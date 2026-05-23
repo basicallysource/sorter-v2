@@ -186,6 +186,12 @@ def lambda_group() -> None:
 @click.option("--hive-url", default="https://hive.basically.website")
 @click.option("--output-root", default="/Volumes/T7/sorter-v2-vision-models", type=click.Path())
 @click.option("--no-head-strip", is_flag=True, help="Disable Detect.forward monkeypatch (stock ONNX).")
+@click.option(
+    "--activation",
+    type=click.Choice(["silu", "relu6"]),
+    default="silu",
+    help="Activation function. relu6 trains from scratch with ReLU6 (quant-friendly, no pretrained weights).",
+)
 @click.option("--skip-pull", is_flag=True, help="Skip `train pull` (assume samples already on box).")
 @click.option("--skip-build", is_flag=True, help="Skip `train build` (assume dataset already on box).")
 @click.option(
@@ -211,6 +217,7 @@ def lambda_run(
     hive_url: str,
     output_root: str,
     no_head_strip: bool,
+    activation: str,
     skip_pull: bool,
     skip_build: bool,
     build_flags: tuple[str, ...],
@@ -238,6 +245,7 @@ def lambda_run(
         hive_url=hive_url,
         output_root=Path(output_root),
         head_stripped=not no_head_strip,
+        activation=activation,
         skip_pull=skip_pull,
         skip_build=skip_build,
         extra_build_flags=list(build_flags) if build_flags else ["--balance-source-role"],

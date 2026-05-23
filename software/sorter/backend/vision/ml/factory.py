@@ -25,6 +25,7 @@ def create_processor(
     imgsz: int,
     conf_threshold: float = 0.25,
     iou_threshold: float = 0.45,
+    rknn_core_mask_name: str | None = None,
 ) -> BaseProcessor:
     family = (model_family or "").lower()
     runtime = (runtime or "onnx").lower()
@@ -74,6 +75,7 @@ def create_processor(
                 imgsz=imgsz,
                 conf_threshold=conf_threshold,
                 iou_threshold=iou_threshold,
+                core_mask_name=rknn_core_mask_name,
             )
         # NanoDet on RKNN is intentionally not wired yet — no .rknn nanodet
         # artifact in scope. Add when the export pipeline produces one.

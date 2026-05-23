@@ -38,14 +38,13 @@ from .base import (
 log = logging.getLogger(__name__)
 
 
-def _try_init_runtime(rknn: Any) -> int:
-    """Try increasingly-conservative core masks until one succeeds.
+_DEFAULT_MASK_FALLBACK_NAMES: tuple[str, ...] = ("NPU_CORE_0_1_2", "NPU_CORE_AUTO", "NPU_CORE_0")
 
-    Returns the rknn API status code from the first call that returned 0,
-    or the last non-zero code otherwise.
-    """
+
+def _try_init_runtime(rknn: Any, mask_names: tuple[str, ...]) -> int:
+    """Try the given core masks in order until one succeeds. Returns 0 on success."""
     attempts: list[Any] = []
-    for name in ("NPU_CORE_0_1_2", "NPU_CORE_AUTO", "NPU_CORE_0"):
+    for name in mask_names:
         mask = getattr(rknn, name, None)
         if mask is not None:
             attempts.append(mask)
@@ -65,13 +64,18 @@ class _RknnMixin:
     _lock: Any
     _runtime: Any = None
     _load_failed: bool = False
+    core_mask_name: str | None = None
 
     def _ensure_runtime(self) -> Any:
         with self._lock:
             if self._load_failed:
                 raise RuntimeError(f"RKNN model load permanently failed: {self.model_path}")
             if self._runtime is None:
-                log.info("Loading RKNN runtime for %s", self.model_path)
+                log.warning(
+                    "Loading RKNN runtime for %s (core_mask=%s)",
+                    self.model_path,
+                    self.core_mask_name or "default",
+                )
                 try:
                     from rknnlite.api import RKNNLite  # type: ignore
                 except Exception as exc:
@@ -83,8 +87,14 @@ class _RknnMixin:
                 try:
                     if rknn.load_rknn(str(self.model_path)) != 0:
                         raise RuntimeError("RKNNLite.load_rknn failed")
-                    if _try_init_runtime(rknn) != 0:
-                        raise RuntimeError("RKNNLite.init_runtime failed (all core masks)")
+                    if self.core_mask_name is not None:
+                        mask_names = (self.core_mask_name,)
+                    else:
+                        mask_names = _DEFAULT_MASK_FALLBACK_NAMES
+                    if _try_init_runtime(rknn, mask_names) != 0:
+                        raise RuntimeError(
+                            f"RKNNLite.init_runtime failed (masks={mask_names})"
+                        )
                 except Exception:
                     self._load_failed = True
                     try:
@@ -116,6 +126,23 @@ def _preprocess_rknn_yolo(
 class RknnYoloProcessor(_RknnMixin, BaseProcessor):
     family = "yolo"
     runtime = "rknn"
+
+    def __init__(
+        self,
+        model_path: Path,
+        *,
+        imgsz: int,
+        conf_threshold: float = 0.25,
+        iou_threshold: float = 0.45,
+        core_mask_name: str | None = None,
+    ) -> None:
+        super().__init__(
+            model_path,
+            imgsz=imgsz,
+            conf_threshold=conf_threshold,
+            iou_threshold=iou_threshold,
+        )
+        self.core_mask_name = core_mask_name
 
     def infer(
         self,

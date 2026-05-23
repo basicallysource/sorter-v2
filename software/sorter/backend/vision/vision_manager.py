@@ -187,6 +187,12 @@ class VisionManager:
         self._feeder_gemini_detectors: Dict[str, GeminiSamDetector] = {}
         self._carousel_gemini_detector: GeminiSamDetector | None = None
         self._hive_ml_processors: Dict[str, Any] = {}
+        # Global role → core-index assignment. Order of first appearance
+        # determines the pinned NPU core for that role (carousel → 0,
+        # c_channel_2 → 1, c_channel_3 → 2, etc.; wraps mod 3 if >3 roles).
+        self._rknn_role_core_idx: Dict[str, int] = {}
+        # Cache keyed by (role, model_path_str) → processor (or False if broken).
+        self._rknn_per_role_processors: Dict[tuple, Any] = {}
         from .tracking import build_feeder_tracker_system, TrackedPiece, DropZoneBurstCollector  # noqa: F401
         (
             self._piece_handoff_manager,
@@ -770,6 +776,7 @@ class VisionManager:
         self._diff_config.algorithm = normalized
         self._classification_dynamic_detection_cache.clear()
         self._hive_ml_processors.clear()
+        self._rknn_role_core_idx.clear(); self._rknn_per_role_processors.clear()
         self._stopClassificationAnalysis()
         self._initOverlays()
         if normalized == "baseline_diff" and self._started:
@@ -802,6 +809,7 @@ class VisionManager:
                 self._feeder_detection_algorithm_by_role[channel_role] = normalized
         self._feeder_dynamic_detection_cache.clear()
         self._hive_ml_processors.clear()
+        self._rknn_role_core_idx.clear(); self._rknn_per_role_processors.clear()
         self.resetFeederTrackers()
         self._initOverlays()
 
@@ -828,6 +836,7 @@ class VisionManager:
         self._carousel_detection_algorithm = self._normalizeCarouselDetectionAlgorithm(algorithm)
         self._carousel_dynamic_detection_cache = None
         self._hive_ml_processors.clear()
+        self._rknn_role_core_idx.clear(); self._rknn_per_role_processors.clear()
         self._initOverlays()
 
     def setCarouselOpenRouterModel(self, model: str) -> str:
@@ -2122,29 +2131,89 @@ class VisionManager:
         detection, _ = self._runGeminiDetectionRequestWithThrottle(request)
         return detection
 
-    def _getOrBuildHiveProcessor(self, algorithm_id: str):
+    def _getOrBuildHiveProcessor(self, algorithm_id: str, role: str | None = None):
+        from .detection_registry import detection_algorithm_definition
+
+        definition = detection_algorithm_definition(algorithm_id)
+        if definition is None or definition.kind not in {"hive", "bundled"} or definition.model_path is None:
+            return None
+
+        # NPU per-core fanout: when running on RKNN, build one runtime per NPU
+        # core (RK3588 has 3) and route each role to a fixed core. This bypasses
+        # the per-call NPU_CORE_0_1_2 contention that serializes concurrent
+        # inferences. Non-RKNN runtimes (onnx/ncnn/hailo) keep the single-
+        # instance behavior — this code path only activates when role is given
+        # AND runtime is rknn.
+        runtime = (definition.runtime or "onnx").lower()
+        if runtime == "rknn" and role is not None:
+            return self._getOrBuildRknnPerCoreProcessor(algorithm_id, role, definition)
+
         cached = self._hive_ml_processors.get(algorithm_id)
         if cached is False:
             return None  # permanently failed — don't retry
         if cached is not None:
             return cached
-        from .detection_registry import detection_algorithm_definition
         from .ml import create_processor
 
-        definition = detection_algorithm_definition(algorithm_id)
-        if definition is None or definition.kind not in {"hive", "bundled"} or definition.model_path is None:
-            return None
         try:
             processor = create_processor(
                 model_path=definition.model_path,
                 model_family=definition.model_family or "yolo",
-                runtime=definition.runtime or "onnx",
+                runtime=runtime,
                 imgsz=int(definition.imgsz or 320),
             )
         except Exception as exc:
             self.gc.logger.warning("Failed to build local model processor %s: %s", algorithm_id, exc)
             return None
         self._hive_ml_processors[algorithm_id] = processor
+        return processor
+
+    _RKNN_CORE_NAMES: tuple[str, ...] = ("NPU_CORE_0", "NPU_CORE_1", "NPU_CORE_2")
+
+    def _getOrBuildRknnPerCoreProcessor(self, algorithm_id: str, role: str, definition):
+        # Each role gets a fixed NPU core (assigned globally in order of first
+        # appearance, mod 3). The cache key is (role, model_path) so switching
+        # models for a role rebuilds, but it keeps the same core pinning. This
+        # is what unlocks real RK3588 NPU parallelism — previously every
+        # inference grabbed all 3 cores via NPU_CORE_0_1_2 and serialized.
+        if role not in self._rknn_role_core_idx:
+            self._rknn_role_core_idx[role] = len(self._rknn_role_core_idx) % 3
+        core_idx = self._rknn_role_core_idx[role]
+        core_name = self._RKNN_CORE_NAMES[core_idx]
+
+        model_path_str = str(definition.model_path)
+        cache_key = (role, model_path_str)
+        existing = self._rknn_per_role_processors.get(cache_key)
+        if existing is False:
+            return None
+        if existing is not None:
+            return existing
+
+        from .ml import create_processor
+
+        try:
+            processor = create_processor(
+                model_path=definition.model_path,
+                model_family=definition.model_family or "yolo",
+                runtime="rknn",
+                imgsz=int(definition.imgsz or 320),
+                rknn_core_mask_name=core_name,
+            )
+        except Exception as exc:
+            self.gc.logger.warning(
+                "Failed to build RKNN processor %s on %s: %s", algorithm_id, core_name, exc
+            )
+            self._rknn_per_role_processors[cache_key] = False
+            return None
+        self.gc.logger.warning(
+            "RKNN per-core fanout: role=%s algorithm=%s pinned to %s (idx=%d) model=%s",
+            role,
+            algorithm_id,
+            core_name,
+            core_idx,
+            model_path_str,
+        )
+        self._rknn_per_role_processors[cache_key] = processor
         return processor
 
     def _resolveZonePolygon(
@@ -3079,7 +3148,7 @@ class VisionManager:
         bypass_polygon: bool = False,
         conf_threshold: float | None = None,
     ) -> ClassificationDetectionResult | None:
-        processor = self._getOrBuildHiveProcessor(algorithm_id)
+        processor = self._getOrBuildHiveProcessor(algorithm_id, role=role)
         if processor is None or frame_bgr is None:
             return None
         polygon = None if bypass_polygon else self._resolveZonePolygon(scope, role, frame_bgr.shape)
@@ -3101,6 +3170,9 @@ class VisionManager:
         except Exception as exc:
             if getattr(processor, "_load_failed", False):
                 self._hive_ml_processors[algorithm_id] = False
+                for key, val in list(self._rknn_per_role_processors.items()):
+                    if val is processor:
+                        self._rknn_per_role_processors[key] = False
                 self.gc.logger.warning("Local model %s is permanently broken, disabling: %s", algorithm_id, exc)
             else:
                 self.gc.logger.warning("Local model inference %s failed: %s", algorithm_id, exc)
@@ -3188,6 +3260,7 @@ class VisionManager:
             if cached is not None and not force:
                 last_ts, last_det = cached
                 if now - float(last_ts) < _hive_inference_min_interval_s_for_role(role):
+                    self.gc.profiler.hit(f"hive.{role}.throttled")
                     return self._filterFeederDetectionResultToChannel(role, last_det)
             detection = self._filterFeederDetectionResultToChannel(
                 role,
@@ -3314,6 +3387,7 @@ class VisionManager:
             if cached is not None and not force:
                 last_ts, last_det = cached
                 if now - float(last_ts) < _hive_inference_min_interval_s_for_role("carousel"):
+                    self.gc.profiler.hit("hive.carousel.throttled")
                     return last_det
             detection = self._runHiveDetection(
                 algorithm,

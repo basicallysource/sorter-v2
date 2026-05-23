@@ -53,7 +53,11 @@ from .diff_configs import (
 # _getFeederDynamicDetection / _computeFeederGeminiDetection dedupe inference
 # calls, so a 20 Hz wake-up rate does NOT translate to 20 Hz inference; it
 # just keeps the cache snappy when frames are actually new.
-AUXILIARY_DETECTION_LOOP_INTERVAL_S = 0.05
+# Loop pacing: the aux loop already blocks on future.result() for the slowest
+# parallel dispatch, so the natural cycle time is max(per-role infer_ms). A
+# tiny inter-cycle wait keeps the GIL available for other threads (capture,
+# encode, main loop) and avoids busy-spinning when there's no fresh work.
+AUXILIARY_DETECTION_LOOP_INTERVAL_S = 0.002
 OPENROUTER_MAX_CONCURRENCY = 10
 OPENROUTER_FAILURE_BACKOFF_S = 2.0
 OPENROUTER_BACKGROUND_RETRY_PADDING_S = 0.35
@@ -3262,11 +3266,30 @@ class VisionManager:
                 if now - float(last_ts) < _hive_inference_min_interval_s_for_role(role):
                     self.gc.profiler.hit(f"hive.{role}.throttled")
                     return self._filterFeederDetectionResultToChannel(role, last_det)
+            # In classification-channel mode "carousel" is BOTH a feeder-tracker
+            # role and the dedicated trigger source. Use the lower carousel
+            # threshold here (matches what _getCarouselDynamicDetection used)
+            # and mirror the result into _carousel_dynamic_detection_cache so
+            # the dedicated trigger path becomes a cache read with no extra
+            # inference. Removes the 2× NPU-core-0 load that capped carousel.
+            conf_override = (
+                HIVE_CAROUSEL_CONF_THRESHOLD
+                if role == "carousel"
+                else None
+            )
             detection = self._filterFeederDetectionResultToChannel(
                 role,
-                self._runHiveDetection(algorithm, frame.raw, scope="feeder", role=role),
+                self._runHiveDetection(
+                    algorithm,
+                    frame.raw,
+                    scope="feeder",
+                    role=role,
+                    conf_threshold=conf_override,
+                ),
             )
             self._feeder_dynamic_detection_cache[role] = (now, detection)
+            if role == "carousel":
+                self._carousel_dynamic_detection_cache = (now, detection)
             self._updateFeederTracker(role, detection, now, frame_bgr=frame.raw)
             return detection
         cached = self._filterFeederDetectionResultToChannel(
@@ -4210,13 +4233,21 @@ class VisionManager:
         # only its own slot in the per-role caches; with distinct processor
         # instances per algorithm_id the per-processor locks don't contend.
         tasks: list[tuple[str, "callable[[], object]"]] = []
-        for role in self._feederTrackerRoles():
+        feeder_roles = self._feederTrackerRoles()
+        for role in feeder_roles:
             if not self._feederRoleUsesDynamicDetection(role):
                 continue
             tasks.append((f"feeder:{role}", lambda r=role: self._getFeederDynamicDetection(r, force=False)))
 
-        if self._carousel_capture is not None and self._isDynamicDetectionAlgorithm(
-            self.getCarouselDetectionAlgorithm()
+        # Only dispatch the dedicated carousel path if "carousel" is NOT already
+        # a feeder-tracker role (i.e. non-classification-channel layouts). When
+        # it IS a feeder role, _getFeederDynamicDetection("carousel") now runs
+        # the inference and mirrors the result into the carousel cache — see
+        # the local-model branch there.
+        if (
+            "carousel" not in feeder_roles
+            and self._carousel_capture is not None
+            and self._isDynamicDetectionAlgorithm(self.getCarouselDetectionAlgorithm())
         ):
             tasks.append(("carousel", lambda: self._getCarouselDynamicDetection(force=False)))
 

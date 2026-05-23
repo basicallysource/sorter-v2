@@ -158,7 +158,8 @@ def resolve_variant_artifact(run_dir: Path, runtime: str) -> Path | None:
 
     if rt == "rknn":
         for rknn in sorted(exports.glob("*.rknn")):
-            return rknn
+            if not rknn.name.startswith("._"):
+                return rknn
         return None
 
     if rt == "hailo":

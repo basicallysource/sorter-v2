@@ -3180,10 +3180,7 @@ def _save_camera_color_profile(
     parsed = parseCameraColorProfile(payload)
     profile_dict = cameraColorProfileToDict(parsed)
     profiles = _get_camera_color_profile_table(config)
-    if parsed.enabled:
-        profiles[role] = profile_dict
-    else:
-        profiles.pop(role, None)
+    profiles[role] = profile_dict
     config["camera_color_profiles"] = profiles
 
     try:
@@ -4112,6 +4109,24 @@ def delete_camera_color_profile(role: str) -> Dict[str, Any]:
         "profile": saved.get("profile"),
         "applied_live": saved.get("applied_live", False),
         "message": "Color correction removed.",
+    }
+
+
+@router.patch("/api/cameras/color-profile/{role}/enabled")
+def patch_camera_color_profile_enabled(role: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Toggle enabled flag on the stored color profile without losing calibration data."""
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    enabled = bool(body.get("enabled", False))
+    _, config = _read_machine_params_config()
+    existing = _camera_color_profile_for_role(config, role)
+    merged = {**existing, "enabled": enabled}
+    saved = _save_camera_color_profile(role, merged)
+    return {
+        "ok": True,
+        "role": role,
+        "profile": saved.get("profile"),
+        "applied_live": saved.get("applied_live", False),
     }
 
 

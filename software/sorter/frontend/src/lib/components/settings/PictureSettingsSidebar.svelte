@@ -46,6 +46,7 @@
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
 	import DriftDetection from './picture/DriftDetection.svelte';
 	import ColorProfilePanel, {
+		hasCalibrationData,
 		normalizeCameraColorProfile,
 		type CameraColorProfile
 	} from './picture/ColorProfilePanel.svelte';
@@ -165,6 +166,7 @@
 	let colorProfile = $state<CameraColorProfile | null>(null);
 	let colorProfileLoading = $state(false);
 	let colorProfileRemoving = $state(false);
+	let colorProfileToggling = $state(false);
 	let calibrationTraceEnlarged = $state(false);
 	let calibrationTaskId = $state<string | null>(null);
 	let calibrationAdvisorTrace = $state<CameraCalibrationAdvisorIteration[]>([]);
@@ -456,6 +458,29 @@
 			error = e.message ?? 'Failed to remove color correction';
 		} finally {
 			colorProfileRemoving = false;
+		}
+	}
+
+	async function toggleColorProfileEnabled(enabled: boolean) {
+		if (colorProfileToggling) return;
+		colorProfileToggling = true;
+		error = null;
+		try {
+			const res = await fetch(
+				`${getBackendHttpBase()}/api/cameras/color-profile/${role}/enabled`,
+				{
+					method: 'PATCH',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ enabled })
+				}
+			);
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			colorProfile = normalizeCameraColorProfile(data.profile);
+		} catch (e: any) {
+			error = e.message ?? 'Failed to update color correction';
+		} finally {
+			colorProfileToggling = false;
 		}
 	}
 
@@ -963,41 +988,45 @@
 			<div class="flex flex-col gap-3">
 				<div class="flex flex-col gap-3">
 					{#if deviceSupported}
-						<CalibrationPanel
-							bind:calibrationMethod
-							bind:calibrationApplyColorProfile
-							{calibrating}
-							{saving}
-							{hasCamera}
-							{calibrationReferenceImageSrc}
-							{calibrationReferenceLinkUrl}
-							{calibrationResult}
-							{calibrationStage}
-							{calibrationProgress}
-							{calibrationMessage}
-							{calibrationNeedsSave}
-							onCalibrate={calibrateFromTarget}
-						/>
-
-						{#if calibrationMethod === 'llm_guided' && (calibrating || calibrationAdvisorTrace.length > 0 || calibrationGalleryEntries.length > 0)}
-							<LLMCalibrationTrace
-								method={calibrationMethod}
-								active={calibrating}
-								taskId={calibrationTaskId}
-								entries={calibrationAdvisorTrace}
-								galleryEntries={calibrationGalleryEntries}
-								backendBaseUrl={getBackendHttpBase()}
-								compact
-								onEnlarge={() => (calibrationTraceEnlarged = true)}
-							/>
-						{/if}
-
 						<ColorProfilePanel
 							profile={colorProfile}
 							loading={colorProfileLoading}
 							removing={colorProfileRemoving}
+							toggling={colorProfileToggling}
 							onReset={removeColorProfile}
+							onToggleEnabled={toggleColorProfileEnabled}
 						/>
+
+						{#if colorProfile?.enabled || hasCalibrationData(colorProfile)}
+							<CalibrationPanel
+								bind:calibrationMethod
+								bind:calibrationApplyColorProfile
+								{calibrating}
+								{saving}
+								{hasCamera}
+								{calibrationReferenceImageSrc}
+								{calibrationReferenceLinkUrl}
+								{calibrationResult}
+								{calibrationStage}
+								{calibrationProgress}
+								{calibrationMessage}
+								{calibrationNeedsSave}
+								onCalibrate={calibrateFromTarget}
+							/>
+
+							{#if calibrationMethod === 'llm_guided' && (calibrating || calibrationAdvisorTrace.length > 0 || calibrationGalleryEntries.length > 0)}
+								<LLMCalibrationTrace
+									method={calibrationMethod}
+									active={calibrating}
+									taskId={calibrationTaskId}
+									entries={calibrationAdvisorTrace}
+									galleryEntries={calibrationGalleryEntries}
+									backendBaseUrl={getBackendHttpBase()}
+									compact
+									onEnlarge={() => (calibrationTraceEnlarged = true)}
+								/>
+							{/if}
+						{/if}
 					{/if}
 
 					<CaptureModePanel {role} />

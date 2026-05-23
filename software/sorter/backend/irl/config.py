@@ -1249,6 +1249,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     }
 
     gpio_led_configs = loadGpioLedsConfig(gc, machine_specific_params)
+    irl_interface.gpio_led_pins = _applyGpioLeds(control_boards, gpio_led_configs, gc)
 
     stepper_entries: list[tuple[str, str, "StepperMotor", "ControlBoard"]] = []
     feeder_board: "ControlBoard | None" = None
@@ -1397,10 +1398,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             if hasattr(servo, "set_preset_angles"):
                 servo.set_preset_angles(open_angle, closed_angle)
         restore_servo_states(irl_interface.servos, gc)
-
-    # Delayed: turn on LEDs after stepper+servo init to avoid adding noise to the bus
-    # during discovery. Suspect but unconfirmed — see homing failure investigation.
-    irl_interface.gpio_led_pins = _applyGpioLeds(control_boards, gpio_led_configs, gc)
 
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,

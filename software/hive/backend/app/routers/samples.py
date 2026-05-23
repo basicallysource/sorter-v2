@@ -37,6 +37,8 @@ from app.services.sample_payloads import (
 
 router = APIRouter(prefix="/api/samples", tags=["samples"])
 
+ASSET_CACHE_CONTROL = "no-store"
+
 
 def _is_classification_sample(sample: Sample) -> bool:
     return is_classification_payload(
@@ -686,7 +688,7 @@ def get_sample_image(
 ):
     sample = _get_sample_for_read(db, sample_id)
 
-    return serve_stored_file(sample.image_path, headers={"Cache-Control": "public, max-age=86400"})
+    return serve_stored_file(sample.image_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})
 
 
 @router.get("/{sample_id}/assets/full-frame")
@@ -699,7 +701,7 @@ def get_sample_full_frame(
     if not sample.full_frame_path:
         raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
 
-    return serve_stored_file(sample.full_frame_path, headers={"Cache-Control": "public, max-age=86400"})
+    return serve_stored_file(sample.full_frame_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})
 
 
 @router.get("/{sample_id}/assets/overlay")
@@ -712,4 +714,4 @@ def get_sample_overlay(
     if not sample.overlay_path:
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 
-    return serve_stored_file(sample.overlay_path, headers={"Cache-Control": "public, max-age=86400"})
+    return serve_stored_file(sample.overlay_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})

@@ -159,6 +159,21 @@ class TestListSamples:
         assert "live_classification" in data["capture_reasons"]
         assert "channel_move_complete" in data["capture_reasons"]
 
+    def test_sample_image_asset_disables_cache(
+        self,
+        client: TestClient,
+        test_user: dict,
+        auth_headers: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample = _upload_sample(client, machine_token, "sess-cache", "s1")
+
+        resp = client.get(f"/api/samples/{sample['id']}/assets/image", headers=auth_headers)
+
+        assert resp.status_code == 200
+        assert resp.headers["Cache-Control"] == "no-store"
+
 
 class TestSampleDiversity:
     def test_diversity_groups_by_capture_reason(

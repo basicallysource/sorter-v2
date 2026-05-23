@@ -3938,7 +3938,15 @@ def camera_feed_by_role(
                         if want_annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
-                    frame = _dashboard_frame(frame)
+                    # Downscale FIRST. The dashboard crop is a warpPerspective
+                    # (or polygon mask) on the input frame — on a 4K camera that
+                    # cost ~400 ms/frame, capping the stream at ~2 fps. Doing
+                    # the cheap cv2.resize first means the expensive crop runs
+                    # on a ~960-px frame. _dashboard_frame's spec cache keys on
+                    # the input shape and recomputes from the (smaller) WxH —
+                    # _dashboard_crop_spec already takes (role, frame_w,
+                    # frame_h), so it produces a correctly-scaled spec for the
+                    # downscaled frame automatically.
                     if PREVIEW_MAX_WIDTH > 0 and frame.shape[1] > PREVIEW_MAX_WIDTH:
                         scale = PREVIEW_MAX_WIDTH / float(frame.shape[1])
                         frame = cv2.resize(
@@ -3946,6 +3954,7 @@ def camera_feed_by_role(
                             (PREVIEW_MAX_WIDTH, int(round(frame.shape[0] * scale))),
                             interpolation=cv2.INTER_AREA,
                         )
+                    frame = _dashboard_frame(frame)
                     if prof is not None:
                         prof.hit(f"encode.{role}.frames")
                         prof.mark(f"encode.{role}.interval_ms")

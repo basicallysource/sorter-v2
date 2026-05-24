@@ -787,3 +787,140 @@ def run(
         file=sys.stderr,
     )
     return 0
+
+
+# ============================================================ dry-run preview
+
+def preview(
+    *,
+    zone: str,
+    keep_empty: bool = False,
+    target_size: int | None = None,
+    balance_source_role: bool = False,
+    balance_piece_count: bool = False,
+    balance_machine: bool = False,
+    piece_count_bins: str = DEFAULT_PIECE_COUNT_BINS,
+    min_detection_score: float | None = None,
+    max_empty_fraction: float | None = None,
+    raw_dir: Path | None = None,
+) -> None:
+    """Print the projected dataset composition without doing the FPS pass.
+
+    Lets you dial in --target-size + balance flags against the actual manifest
+    before paying the embedding cost. Walks the same filter + quota-allocation
+    code path as :func:`run` so the numbers are exact.
+    """
+    raw_dir = (raw_dir or (DATASETS_DIR / zone / "raw")).resolve()
+    if not raw_dir.exists():
+        raise SystemExit(f"{raw_dir} is missing. Run `train pull --zone {zone}` first.")
+
+    manifest = _read_manifest(raw_dir)
+    samples: list[_LabeledSample] = []
+    skipped_no_boxes = 0
+    skipped_low_score = 0
+    skipped_missing_score = 0
+    for entry in manifest:
+        sample = _load_sample(entry, raw_dir)
+        if sample is None:
+            continue
+        if min_detection_score is not None and sample.boxes:
+            if sample.detection_score is None:
+                skipped_missing_score += 1
+                continue
+            if sample.detection_score < min_detection_score:
+                skipped_low_score += 1
+                continue
+        if not sample.boxes and not keep_empty:
+            skipped_no_boxes += 1
+            continue
+        samples.append(sample)
+
+    if not samples:
+        raise SystemExit(f"No usable samples in {raw_dir}.")
+
+    positives = [s for s in samples if s.boxes]
+    empties = [s for s in samples if not s.boxes]
+
+    print(f"\n=== Dry-run preview for {raw_dir} ===")
+    print(f"  manifest entries:   {len(manifest)}")
+    print(f"  skipped no-boxes:   {skipped_no_boxes}")
+    if min_detection_score is not None:
+        print(f"  skipped low-score:  {skipped_low_score} (threshold {min_detection_score})")
+        print(f"  skipped no-score:   {skipped_missing_score}")
+    print(f"  usable samples:     {len(samples)}  ({len(positives)} positives + {len(empties)} empty)")
+
+    # Pool that diversity sampling actually picks from
+    if max_empty_fraction is not None:
+        diversity_pool = positives
+        print(f"  diversity pool:     positives only ({len(positives)}) because --max-empty-fraction is set")
+    else:
+        diversity_pool = samples
+
+    # Per-machine raw breakdown
+    print("\n  Raw machine distribution:")
+    raw_counts = _machine_counts(diversity_pool)
+    total = sum(raw_counts.values()) or 1
+    for mid in sorted(raw_counts, key=lambda k: -raw_counts[k]):
+        print(f"    {(mid or 'unknown')[:8]:<10} {raw_counts[mid]:>6}  ({raw_counts[mid]/total*100:>5.1f}%)")
+
+    if target_size is None:
+        print("\n  No --target-size set → would keep all usable samples as-is.")
+        return
+
+    if target_size >= len(diversity_pool):
+        print(f"\n  --target-size {target_size} >= pool ({len(diversity_pool)}) → would keep entire pool.")
+        return
+
+    any_balance = balance_source_role or balance_piece_count or balance_machine
+    if not any_balance:
+        print(
+            f"\n  No balance flag set → would FPS-sample {target_size}/{len(diversity_pool)} "
+            "from the pool with no per-group quota. Larger machines will dominate proportionally."
+        )
+        return
+
+    # Project the quota allocator without doing the embedding work
+    grouped: dict[str, list[_LabeledSample]] = defaultdict(list)
+    for sample in diversity_pool:
+        grouped[
+            _balance_group_label(
+                sample,
+                balance_source_role=balance_source_role,
+                balance_piece_count=balance_piece_count,
+                balance_machine=balance_machine,
+                piece_count_bins=piece_count_bins,
+            )
+        ].append(sample)
+    group_sizes = {g: len(items) for g, items in grouped.items()}
+    quotas = _allocate_balanced_quotas(group_sizes, target_size)
+
+    selected_total = sum(quotas.values())
+    print(f"\n  Balance flags: source_role={balance_source_role}, piece_count={balance_piece_count}, machine={balance_machine}")
+    print(f"  Groups: {len(grouped)}, target={target_size}, projected selected={selected_total}")
+
+    # If machine balance is on, also collapse the projection to a per-machine summary
+    if balance_machine:
+        per_machine_quota: dict[str, int] = defaultdict(int)
+        per_machine_avail: dict[str, int] = defaultdict(int)
+        for group, items in grouped.items():
+            mid = next((p.split("=", 1)[1] for p in group.split(" | ") if p.startswith("machine=")), "unknown")
+            per_machine_quota[mid] += quotas.get(group, 0)
+            per_machine_avail[mid] += len(items)
+        print("\n  Projected machine breakdown:")
+        for mid in sorted(per_machine_quota, key=lambda k: -per_machine_quota[k]):
+            q = per_machine_quota[mid]
+            avail = per_machine_avail[mid]
+            pct = q / selected_total * 100 if selected_total else 0
+            tag = " (CAPPED)" if q == avail else ""
+            print(f"    {(mid or 'unknown')[:8]:<10} {q:>5}/{avail:>5}  ({pct:>5.1f}%){tag}")
+
+    # Per-group detail (sorted: smallest groups first to show where balance is tight)
+    print(f"\n  Per balance-group quotas (sample of {min(20, len(grouped))} groups):")
+    sorted_groups = sorted(grouped.keys(), key=lambda g: (group_sizes[g], g))
+    for group in sorted_groups[:20]:
+        avail = group_sizes[group]
+        q = quotas.get(group, 0)
+        capped = " ⚠ capped" if q == avail and selected_total > q * len(grouped) else ""
+        print(f"    {q:>5}/{avail:>5}  {group}{capped}")
+    if len(grouped) > 20:
+        print(f"    ... and {len(grouped) - 20} more groups")

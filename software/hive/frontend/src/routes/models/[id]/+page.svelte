@@ -159,17 +159,22 @@
 	{:else if model}
 		<!-- Hero — same DNA as ModelCard but bigger -->
 		<div class="border border-[var(--color-border)] bg-[var(--color-surface)]">
-			<div class="flex items-start gap-4 border-b border-[var(--color-border)] px-5 py-4">
+			<!-- items-stretch + aspect-square on the swatch makes its height auto-match the
+				 text block's natural height (codename H1 + slug + name = ~3 lines) so the
+				 dot reads as a hero element proportional to its label. -->
+			<div class="flex items-stretch gap-4 border-b border-[var(--color-border)] px-5 py-4">
 				{#if model.codename_color}
-					<span
-						class="mt-1 inline-block h-8 w-8 shrink-0 rounded-full border border-[var(--color-border)]"
-						style="background-color: {model.codename_color}"
-						aria-hidden="true"
-					></span>
+					<div class="flex shrink-0 items-center">
+						<span
+							class="block aspect-square w-20 rounded-full border border-[var(--color-border)]"
+							style="background-color: {model.codename_color}"
+							aria-hidden="true"
+						></span>
+					</div>
 				{/if}
-				<div class="min-w-0 flex-1">
+				<div class="min-w-0 flex-1 self-center">
 					{#if model.codename}
-						<h1 class="text-3xl font-bold tracking-tight text-[var(--color-text)]">{model.codename}</h1>
+						<h1 class="text-3xl font-bold leading-tight tracking-tight text-[var(--color-text)]">{model.codename}</h1>
 					{:else}
 						<h1 class="text-2xl font-semibold tracking-tight text-[var(--color-text)]">{model.name}</h1>
 					{/if}
@@ -181,7 +186,7 @@
 					{/if}
 				</div>
 				{#if !model.is_public}
-					<span class="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-0.5 text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
+					<span class="self-start border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-0.5 text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
 				{/if}
 			</div>
 

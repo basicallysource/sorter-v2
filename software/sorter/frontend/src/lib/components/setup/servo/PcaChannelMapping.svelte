@@ -12,6 +12,7 @@
 		closedAngleByLayer = $bindable(),
 		nudgeDegrees = $bindable(),
 		selectedLayerIdx,
+		estimatedAngleByLayer,
 		onSetInvert,
 		onNudgeLayer,
 		onSelectLayer
@@ -26,6 +27,7 @@
 		closedAngleByLayer: Record<number, string>;
 		nudgeDegrees: number;
 		selectedLayerIdx: number | null;
+		estimatedAngleByLayer: Record<number, number>;
 		onSetInvert: (layerIdx: number, value: boolean) => void;
 		onNudgeLayer: (layerIdx: number, degrees: number) => void;
 		onSelectLayer: (layerIdx: number) => void;
@@ -178,6 +180,9 @@
 								>
 									{selectedLayerIdx === layerIdx ? '← → active' : 'keys'}
 								</button>
+								{#if estimatedAngleByLayer[layerIdx] !== undefined}
+									<span class="ml-1 text-sm font-medium text-text">{estimatedAngleByLayer[layerIdx]}°</span>
+								{/if}
 							</div>
 						</td>
 					</tr>

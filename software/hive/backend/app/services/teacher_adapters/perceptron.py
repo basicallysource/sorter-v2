@@ -90,7 +90,10 @@ def _zone_instruction(zone: str) -> str:
     """
     splitting = (
         " Return one box per individual lego element — a wheel counts as two pieces "
-        "(tire + hub), and any clip, hook or small attached part also counts separately."
+        "(tire + hub), and any clip, hook or small attached part also counts separately. "
+        "If no lego pieces are visible, return no detections. Do not box the disc, "
+        "the radial sectors, the center button, the feeder channel walls, or any "
+        "other fixed machine geometry — the round rotor disc itself is NOT a wheel."
     )
     if zone == "classification_channel":
         return (
@@ -114,23 +117,29 @@ def _zone_instruction(zone: str) -> str:
 
 
 # What the model should look for, sent as Perceptron's native ``classes`` parameter.
-# A granular class list discourages composite-item grouping: when the model sees
-# "lego tire" and "lego wheel hub" as separate targets it's more likely to box them
-# independently rather than collapse the whole assembly into one "lego piece" hit.
+# Brick-shaped categories only — we deliberately omit "lego tire" / "lego wheel hub"
+# because the round rotor disc itself triggers a false "wheel" hit when no real parts
+# are on the disc (the model boxed the entire frame as a single wheel). A real wheel
+# in the feed will still be detected as "lego brick" or "lego piece" with a sensibly
+# small box; we lose the specific label but gain not boxing the disc.
 _ZONE_CLASSES: dict[str, list[str]] = {
     "classification_channel": [
         "lego brick", "lego plate", "lego tile", "lego slope",
-        "lego tire", "lego wheel hub", "lego clip", "lego hook",
-        "foreign object",
+        "lego clip", "lego hook", "foreign object",
     ],
     "c_channel": [
         "lego brick", "lego plate", "lego tile", "lego slope",
-        "lego tire", "lego wheel hub", "lego clip", "lego hook",
-        "foreign object",
+        "lego clip", "lego hook", "foreign object",
     ],
     "classification_chamber": ["lego piece", "foreign object"],
     "carousel": ["lego piece", "foreign object"],
 }
+
+# Drop any detection that covers more than this fraction of the image area. No real
+# loose lego piece in any of the four zones fills half the frame — a hit that big is
+# the model boxing fixed machine geometry (the rotor disc, the feeder channel walls,
+# etc.). Tuned empirically: a chunky 2x4 brick in the C4 view is ~3% of frame.
+_MAX_BOX_AREA_FRACTION = 0.50
 
 
 def _classify_label(label: str) -> str:
@@ -150,6 +159,12 @@ def _scale_xyxy_0_1000(
     x2 = int(max(0.0, min(float(width), x2n * sx)))
     y2 = int(max(0.0, min(float(height), y2n * sy)))
     if x2 <= x1 or y2 <= y1:
+        return None
+    # Drop frame-spanning boxes: the model occasionally returns a single point_box
+    # covering the entire image (e.g. when the empty rotor disc is mistaken for a
+    # "wheel"). No real loose lego piece fills half the frame in any of our zones,
+    # so any box that large is the model boxing fixed geometry.
+    if (x2 - x1) * (y2 - y1) > _MAX_BOX_AREA_FRACTION * width * height:
         return None
     return x1, y1, x2, y2
 

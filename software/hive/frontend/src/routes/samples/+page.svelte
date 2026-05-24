@@ -301,6 +301,70 @@
 	let teacherError = $state<string | null>(null);
 	let teacherPollTimer: ReturnType<typeof setInterval> | null = null;
 
+	// Batch-delete UI state. Two-step: open the modal, hit dry-run for the
+	// count, then a separate Confirm click runs the destructive POST. The
+	// button is hidden unless scope=mine so a misclick can't even start the
+	// flow when looking at the global library.
+	let deleteModalOpen = $state(false);
+	let deleteCount = $state<number | null>(null);
+	let deleteCapped = $state(false);
+	let deleteRunning = $state(false);
+	let deleteError = $state<string | null>(null);
+	let deleteResult = $state<{ deleted: number; matched: number } | null>(null);
+
+	const currentBatchDeletePayload = $derived(() => ({
+		machine_id: filterMachine || undefined,
+		source_role: filterSourceRole || undefined,
+		capture_reason: filterCaptureReason || undefined,
+		review_status: filterStatus || undefined,
+		kind: filterKind || undefined,
+		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
+	}));
+
+	async function openDeleteModal() {
+		deleteModalOpen = true;
+		deleteCount = null;
+		deleteCapped = false;
+		deleteError = null;
+		deleteResult = null;
+		try {
+			const res = await api.batchDeleteSamples({
+				...currentBatchDeletePayload(),
+				dry_run: true
+			});
+			deleteCount = res.matched;
+			deleteCapped = res.capped;
+		} catch (e) {
+			deleteError = e instanceof Error ? e.message : 'Count probe failed.';
+		}
+	}
+
+	function closeDeleteModal() {
+		if (deleteRunning) return;
+		deleteModalOpen = false;
+		deleteCount = null;
+		deleteCapped = false;
+		deleteError = null;
+		deleteResult = null;
+	}
+
+	async function runBatchDelete() {
+		if (deleteRunning || deleteCount === null || deleteCount === 0 || deleteCapped) return;
+		deleteRunning = true;
+		deleteError = null;
+		try {
+			const res = await api.batchDeleteSamples(currentBatchDeletePayload());
+			deleteResult = { deleted: res.deleted, matched: res.matched };
+			// Refresh the visible page + filter facets.
+			await loadSamples();
+			await loadFilters();
+		} catch (e) {
+			deleteError = e instanceof Error ? e.message : 'Delete failed.';
+		} finally {
+			deleteRunning = false;
+		}
+	}
+
 	const currentTeacherFilter = $derived<TeacherJobFilter>({
 		scope: filterScope,
 		machine_id: filterMachine || undefined,
@@ -481,6 +545,23 @@
 				Re-run teacher
 			</button>
 		{/if}
+		{#if filterScope === 'mine'}
+			<!-- Destructive: only shown when looking at "My samples" so an
+			     admin browsing the global library can't even start the flow. -->
+			<button
+				type="button"
+				onclick={openDeleteModal}
+				class="inline-flex items-center gap-2 border border-danger px-4 py-2 text-sm font-medium text-danger hover:bg-danger hover:text-white"
+				title={hasActiveFilters
+					? 'Delete every sample that matches the current sidebar filter'
+					: 'Delete every one of your samples (no filter active)'}
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+				</svg>
+				Delete {hasActiveFilters ? 'filtered' : 'all mine'}
+			</button>
+		{/if}
 		{#if auth.isReviewer}
 			{@const reviewHref = (() => {
 				// Forward the same sidebar filters to the review queue so the reviewer drains
@@ -574,6 +655,77 @@
 		{/if}
 	</div>
 {/if}
+
+<Modal open={deleteModalOpen} title="Delete filtered samples" onclose={closeDeleteModal}>
+	<div class="space-y-4 text-sm">
+		{#if deleteError}
+			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger">
+				{deleteError}
+			</div>
+		{/if}
+
+		{#if deleteResult}
+			<p class="text-text">
+				Deleted <span class="font-semibold">{deleteResult.deleted}</span>
+				sample{deleteResult.deleted === 1 ? '' : 's'}.
+			</p>
+		{:else if deleteCount === null}
+			<p class="text-text-muted">Counting…</p>
+		{:else if deleteCount === 0}
+			<p class="text-text">No samples match the current filter.</p>
+		{:else}
+			<p class="text-text">
+				Permanently delete <span class="font-semibold">{deleteCount.toLocaleString()}</span>
+				sample{deleteCount === 1 ? '' : 's'} that you own and match the current filter?
+			</p>
+			<ul class="space-y-1 text-xs text-text-muted">
+				<li>• Images, full frames, overlays and annotations are dropped from storage.</li>
+				<li>• Cannot be undone.</li>
+				<li>• Only your own samples are touched — others' rigs are unaffected even if the filter would match them.</li>
+			</ul>
+			{#if hasActiveFilters}
+				<div class="border border-border bg-bg px-3 py-2 text-xs">
+					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
+						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
+						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
+						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
+						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
+						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+					No filter active — this will delete <em>every</em> sample you own. Narrow with the sidebar first if you only want a slice.
+				</div>
+			{/if}
+			{#if deleteCapped}
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+					Match count exceeds the 5,000-per-call cap. Narrow the filter before pressing Delete.
+				</div>
+			{/if}
+		{/if}
+
+		<div class="flex justify-end gap-2 border-t border-border pt-3">
+			<Button variant="secondary" onclick={closeDeleteModal} disabled={deleteRunning}>
+				{deleteResult ? 'Close' : 'Cancel'}
+			</Button>
+			{#if !deleteResult}
+				<Button
+					variant="danger"
+					onclick={runBatchDelete}
+					disabled={deleteRunning || deleteCount === null || deleteCount === 0 || deleteCapped}
+					loading={deleteRunning}
+				>
+					{deleteCount && deleteCount > 0
+						? `Delete ${deleteCount.toLocaleString()}`
+						: 'Delete'}
+				</Button>
+			{/if}
+		</div>
+	</div>
+</Modal>
 
 <Modal open={teacherModalOpen} title="Re-run Gemini teacher" onclose={() => { teacherModalOpen = false; }}>
 	<div class="space-y-4 text-sm">

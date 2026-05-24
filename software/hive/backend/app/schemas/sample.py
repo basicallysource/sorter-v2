@@ -137,3 +137,33 @@ class SaveSampleClassificationResponse(BaseModel):
     ok: bool
     cleared: bool = False
     data: SampleClassificationPayload | None = None
+
+
+class BatchDeleteSamplesRequest(BaseModel):
+    """Filter spec mirroring the /api/samples query params.
+
+    Always interpreted as 'samples I own' on the server side — the client
+    cannot widen the deletion to other users' rigs. Optional knobs:
+      - ``dry_run`` returns just the count without deleting (used by the
+        confirmation dialog to show how many will be removed).
+      - ``max_delete`` is a soft cap; if the matched set exceeds it the
+        endpoint refuses with a 400 so the operator narrows the filter
+        before pressing the button.
+    """
+
+    machine_id: str | None = None
+    source_role: str | None = None
+    capture_reason: str | None = None
+    review_status: str | None = None
+    kind: str | None = None  # 'regular' | 'condition' | None
+    max_age_hours: int | None = None
+    dry_run: bool = False
+    max_delete: int = 5000
+
+
+class BatchDeleteSamplesResponse(BaseModel):
+    ok: bool
+    matched: int
+    deleted: int
+    dry_run: bool
+    capped: bool = False

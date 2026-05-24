@@ -692,6 +692,30 @@ export const api = {
 	deleteSample(id: string) {
 		return request<void>('DELETE', `/api/samples/${id}`);
 	},
+	batchDeleteSamples(payload: {
+		machine_id?: string;
+		source_role?: string;
+		capture_reason?: string;
+		review_status?: string;
+		kind?: 'regular' | 'condition' | 'all' | string;
+		max_age_hours?: number | string;
+		dry_run?: boolean;
+		max_delete?: number;
+	}) {
+		// Strip empty values so the server sees None instead of '' (which would
+		// otherwise filter against empty strings and match nothing).
+		const body: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(payload)) {
+			if (val !== undefined && val !== null && val !== '') body[key] = val;
+		}
+		return request<{
+			ok: boolean;
+			matched: number;
+			deleted: number;
+			dry_run: boolean;
+			capped: boolean;
+		}>('POST', '/api/samples/batch-delete', body);
+	},
 	sampleImageUrl(id: string) {
 		return resolveApiPath(`/api/samples/${id}/assets/image`);
 	},

@@ -19,6 +19,8 @@ from app.models.machine import Machine
 from app.models.sample import Sample
 from app.models.user import User
 from app.schemas.sample import (
+    BatchDeleteSamplesRequest,
+    BatchDeleteSamplesResponse,
     SampleDetailResponse,
     SampleListResponse,
     SampleResponse,
@@ -685,6 +687,96 @@ def save_sample_classification(
         ok=True,
         cleared=False,
         data=payload,
+    )
+
+
+@router.post("/batch-delete", response_model=BatchDeleteSamplesResponse)
+def batch_delete_samples(
+    payload: BatchDeleteSamplesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_WRITE)),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Bulk-delete samples matching the given filters, always scoped to
+    machines the caller owns.
+
+    The ownership filter is enforced server-side regardless of what the
+    client sends — there is intentionally no admin override on this surface
+    so a misclick from an admin account can't nuke a member's samples.
+    Admins who need to drop someone else's data still go through the
+    per-sample DELETE endpoint with explicit intent.
+    """
+
+    query = db.query(Sample).filter(Sample.machine.has(owner_id=current_user.id))
+
+    query = apply_kind_filter(query, payload.kind)
+    if payload.machine_id:
+        try:
+            machine_uuid = UUID(payload.machine_id)
+        except ValueError:
+            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
+        query = query.filter(Sample.machine_id == machine_uuid)
+    if payload.source_role:
+        query = query.filter(Sample.source_role == payload.source_role)
+    if payload.capture_reason:
+        query = query.filter(Sample.capture_reason == payload.capture_reason)
+    if payload.review_status:
+        query = query.filter(Sample.review_status == payload.review_status)
+    if payload.max_age_hours is not None:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
+        query = query.filter(Sample.uploaded_at >= cutoff)
+
+    matched = query.count()
+
+    if payload.dry_run:
+        return BatchDeleteSamplesResponse(
+            ok=True,
+            matched=matched,
+            deleted=0,
+            dry_run=True,
+            capped=matched > payload.max_delete,
+        )
+
+    if matched > payload.max_delete:
+        raise APIError(
+            400,
+            f"Filter matches {matched} samples — narrow the filter or raise max_delete "
+            f"(currently {payload.max_delete}). Refusing to delete in one shot.",
+            "BATCH_DELETE_TOO_LARGE",
+        )
+
+    # Materialize once so file deletion can iterate without holding cursors.
+    samples = query.all()
+    # Track upload sessions so we can decrement their counters in one pass.
+    session_decrements: dict[UUID, int] = {}
+    deleted = 0
+    for sample in samples:
+        delete_sample_files(sample)
+        if sample.upload_session_id:
+            session_decrements[sample.upload_session_id] = (
+                session_decrements.get(sample.upload_session_id, 0) + 1
+            )
+        db.delete(sample)
+        deleted += 1
+
+    if session_decrements:
+        from app.models.upload_session import UploadSession
+        sessions = (
+            db.query(UploadSession)
+            .filter(UploadSession.id.in_(session_decrements.keys()))
+            .all()
+        )
+        for session in sessions:
+            drop = session_decrements.get(session.id, 0)
+            session.sample_count = max(0, session.sample_count - drop)
+
+    db.commit()
+    return BatchDeleteSamplesResponse(
+        ok=True,
+        matched=matched,
+        deleted=deleted,
+        dry_run=False,
     )
 
 

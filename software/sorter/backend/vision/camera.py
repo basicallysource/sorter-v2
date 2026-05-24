@@ -1,3 +1,4 @@
+import logging
 import subprocess
 import threading
 import time
@@ -6,6 +7,14 @@ from typing import Any, Optional
 import platform
 import cv2
 import numpy as np
+
+log = logging.getLogger(__name__)
+
+# One-shot flags so we log only the *first* time a non-identity picture/color
+# path runs in a given process. Lets ops grep journalctl for these strings —
+# their absence means we never paid the cost.
+_PICTURE_NONIDENTITY_LOGGED = False
+_COLOR_ACTIVE_LOGGED = False
 
 from irl.config import (
     CameraConfig,
@@ -17,6 +26,7 @@ from irl.config import (
     parseCameraDeviceSettings,
 )
 from .types import CameraFrame
+from .gst_capture import GstMjpegCapture, hw_jpeg_decode_available
 
 CAPTURE_MODE_SETTLE_S = 2.0
 CAPTURE_EXPECTED_FRAME_FALLBACK_S = 10.0
@@ -71,6 +81,27 @@ def _open_capture_source(
     if isinstance(source, int) and platform.system() == "Darwin":
         return cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
     if isinstance(source, int) and platform.system() == "Linux":
+        # HW JPEG decode (RK3588 VPU via GStreamer mppjpegdec). Software
+        # cv2.imdecode of 1080p/4K MJPEG is the capture bottleneck on the Pi;
+        # the VPU offloads it. Only taken when a concrete MJPEG mode is known
+        # and the element exists — otherwise (Mac, non-rockchip Linux, probes
+        # with no mode) fall through to cv2.VideoCapture. A pipeline that opens
+        # but delivers no frame self-fails so we still drop back to cv2.
+        fourcc_is_mjpeg = (
+            fourcc is None
+            or (isinstance(fourcc, str) and fourcc.strip()[:4].upper() in {"MJPG", "MJPE"})
+        )
+        if (
+            isinstance(width, int) and width > 0
+            and isinstance(height, int) and height > 0
+            and isinstance(fps, int) and fps > 0
+            and fourcc_is_mjpeg
+            and hw_jpeg_decode_available()
+        ):
+            gst = GstMjpegCapture(source, width, height, fps)
+            if gst.isOpened():
+                return gst  # type: ignore[return-value]
+            gst.release()
         if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
             _try_v4l2ctl_set_format(source, fourcc.strip()[:4].upper(), width, height)
         params: list[int] = []
@@ -407,6 +438,30 @@ def apply_camera_device_settings(
     return applied
 
 
+def _is_gst_capture(cap: object) -> bool:
+    return isinstance(cap, GstMjpegCapture)
+
+
+def apply_camera_device_settings_v4l2(
+    source: int,
+    settings: dict[str, int | float | bool] | None,
+) -> dict[str, int | float | bool]:
+    """Apply device settings via v4l2-ctl only (no cv2.set).
+
+    Used for the GStreamer HW-decode capture path, where there is no
+    cv2.VideoCapture to take CAP_PROP_* writes. Auto-mode toggles are applied
+    first so a following manual exposure/gain actually sticks. Keys with no
+    v4l2-ctl mapping are silently skipped (they only work through cv2).
+    """
+    normalized = parseCameraDeviceSettingsForCapture(settings)
+    applied: dict[str, int | float | bool] = {}
+    ordered = sorted(normalized.items(), key=lambda kv: 0 if "auto" in kv[0] else 1)
+    for key, value in ordered:
+        if key in _LINUX_V4L2CTL_CONTROL_MAP and _try_v4l2ctl_set(source, key, value):
+            applied[key] = value
+    return applied
+
+
 def read_camera_device_settings(
     cap: cv2.VideoCapture,
     *,
@@ -497,12 +552,32 @@ def probe_camera_device_controls(
         cap.release()
 
 
+def _picture_settings_is_identity(settings: CameraPictureSettings | None) -> bool:
+    if settings is None:
+        return True
+    return (
+        int(getattr(settings, "rotation", 0) or 0) % 360 == 0
+        and not bool(getattr(settings, "flip_horizontal", False))
+        and not bool(getattr(settings, "flip_vertical", False))
+    )
+
+
 def apply_picture_settings(
     frame: np.ndarray,
     settings: CameraPictureSettings | None,
 ) -> np.ndarray:
-    if settings is None:
+    if _picture_settings_is_identity(settings):
         return frame
+
+    global _PICTURE_NONIDENTITY_LOGGED
+    if not _PICTURE_NONIDENTITY_LOGGED:
+        _PICTURE_NONIDENTITY_LOGGED = True
+        log.warning(
+            "apply_picture_settings: non-identity branch active (rotation=%s flip_h=%s flip_v=%s) — this allocates per frame",
+            getattr(settings, "rotation", None),
+            getattr(settings, "flip_horizontal", None),
+            getattr(settings, "flip_vertical", None),
+        )
 
     current = clampCameraPictureSettings(settings)
     adjusted = frame
@@ -527,8 +602,15 @@ def apply_camera_color_profile(
     frame: np.ndarray,
     profile: CameraColorProfile | None,
 ) -> np.ndarray:
-    if profile is None:
+    if profile is None or not getattr(profile, "enabled", False):
         return frame
+
+    global _COLOR_ACTIVE_LOGGED
+    if not _COLOR_ACTIVE_LOGGED:
+        _COLOR_ACTIVE_LOGGED = True
+        log.warning(
+            "apply_camera_color_profile: enabled branch active — full-frame LUT+tensordot+gamma will run per frame"
+        )
 
     current = clampCameraColorProfile(profile)
     if not current.enabled:
@@ -689,12 +771,16 @@ class CaptureThread:
                 self._config.device_settings = dict(normalized)
 
         with self._cap_lock:
-            if self._cap is not None and isinstance(self.getCameraSource(), int):
-                applied = apply_camera_device_settings(
-                    self._cap,
-                    normalized,
-                    source=self.getCameraSource(),
-                )
+            source = self.getCameraSource()
+            if self._cap is not None and isinstance(source, int):
+                if _is_gst_capture(self._cap):
+                    applied = apply_camera_device_settings_v4l2(source, normalized)
+                else:
+                    applied = apply_camera_device_settings(
+                        self._cap,
+                        normalized,
+                        source=source,
+                    )
                 with self._device_settings_lock:
                     self._device_settings = dict(applied)
                     if persist:
@@ -816,9 +902,7 @@ class CaptureThread:
                 self._config.height = height
             if isinstance(fps, int) and fps > 0:
                 self._config.fps = fps
-            if fourcc is None:
-                self._config.fourcc = None
-            elif isinstance(fourcc, str) and fourcc.strip():
+            if isinstance(fourcc, str) and fourcc.strip():
                 self._config.fourcc = fourcc.strip()
         self._reopen_event.set()
 
@@ -851,6 +935,20 @@ class CaptureThread:
         next_open_attempt_at = 0.0
         previous_source: int | str | None = None
         expected_frame_settle_until = 0.0
+        # One-shot startup log per camera so journalctl shows the
+        # picture/color identity state. If `picture=identity color=disabled`
+        # appears for every camera and the non-identity warnings never fire,
+        # we know the per-frame apply_* calls are no-ops the whole run.
+        _initial_pic = self._picture_settings
+        _initial_col = self._color_profile
+        log.warning(
+            "CaptureThread[%s] starting — picture=%s color=%s",
+            self.name,
+            "identity"
+            if _picture_settings_is_identity(_initial_pic)
+            else f"rotation={getattr(_initial_pic, 'rotation', '?')} flip_h={getattr(_initial_pic, 'flip_horizontal', '?')} flip_v={getattr(_initial_pic, 'flip_vertical', '?')}",
+            "enabled" if getattr(_initial_col, "enabled", False) else "disabled",
+        )
         last_expected_frame_at = 0.0
         # Some UVC cameras (especially on Linux with MJPG) reset device controls
         # (e.g. auto_exposure) when streaming starts on the first cap.read().
@@ -933,8 +1031,36 @@ class CaptureThread:
                     )
                     last_expected_frame_at = 0.0
 
-                    if not is_url:
-                        if isinstance(fourcc, str) and len(fourcc) >= 4:
+                    if not is_url and _is_gst_capture(cap):
+                        # HW-decode path: capture mode is baked into the pipeline
+                        # caps and there is no cv2.VideoCapture to take CAP_PROP_*
+                        # writes, so device controls go through v4l2-ctl directly.
+                        settings_to_apply = self.getDeviceSettings()
+                        pre_settings = settings_to_apply or default_auto_camera_device_settings()
+                        applied_device_settings = apply_camera_device_settings_v4l2(
+                            source, pre_settings
+                        ) if isinstance(source, int) else {}
+                        if applied_device_settings:
+                            with self._device_settings_lock:
+                                self._device_settings = dict(applied_device_settings)
+                        # Re-apply after the first frame: v4l2src starting the
+                        # stream can reset controls (e.g. auto_exposure).
+                        if isinstance(source, int):
+                            post_stream_settings = dict(pre_settings)
+                            post_stream_source = source
+                        else:
+                            post_stream_settings = None
+                            post_stream_source = None
+                    elif not is_url:
+                        # macOS uses AVFoundation, which negotiates its own pixel
+                        # format at open time. Setting CAP_PROP_FOURCC after the
+                        # fact can leave some cams open-but-frameless (e.g. Logitech
+                        # StreamCam). Only force the FOURCC on Linux/V4L2.
+                        if (
+                            platform.system() == "Linux"
+                            and isinstance(fourcc, str)
+                            and len(fourcc) >= 4
+                        ):
                             try:
                                 cap.set(
                                     cv2.CAP_PROP_FOURCC,
@@ -984,24 +1110,34 @@ class CaptureThread:
                 if post_stream_settings is not None and post_stream_source is not None:
                     with self._cap_lock:
                         if cap is not None:
-                            applied = apply_camera_device_settings(
-                                cap, post_stream_settings, source=post_stream_source
-                            )
+                            if _is_gst_capture(cap):
+                                applied = apply_camera_device_settings_v4l2(
+                                    post_stream_source, post_stream_settings
+                                )
+                            else:
+                                applied = apply_camera_device_settings(
+                                    cap, post_stream_settings, source=post_stream_source
+                                )
                             if applied:
                                 with self._device_settings_lock:
                                     self._device_settings = dict(applied)
                     post_stream_settings = None
                     post_stream_source = None
                 picture_settings = self.getPictureSettings()
-                uncorrected_frame = apply_picture_settings(frame, picture_settings)
-                frame = apply_camera_color_profile(frame, self.getColorProfile())
-                frame = apply_picture_settings(frame, picture_settings)
+                color_profile = self.getColorProfile()
+                # Apply rotation/flip once; downstream consumers see the same
+                # geometry whether or not color correction is active.
+                geom_frame = apply_picture_settings(frame, picture_settings)
+                if getattr(color_profile, "enabled", False):
+                    corrected_frame = apply_camera_color_profile(geom_frame, color_profile)
+                else:
+                    corrected_frame = geom_frame
                 camera_frame = CameraFrame(
-                    raw=frame,
+                    raw=corrected_frame,
                     annotated=None,
                     results=[],
                     timestamp=time.time(),
-                    uncorrected_raw=uncorrected_frame,
+                    uncorrected_raw=geom_frame,
                 )
                 self.latest_frame = camera_frame
                 # deque.append is atomic under the GIL — no lock needed.

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import {
-		backendHttpBaseUrl,
-		backendWsBaseUrl,
+		getBackendHttpBase,
+		getBackendWsBase,
 		machineHttpBaseUrlFromWsUrl,
 		machineWsUrlFromHttpBaseUrl,
 		requestBackendRestart,
@@ -33,14 +33,14 @@
 	let restartConfirmOpen = $state(false);
 
 	function currentBackendBaseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
 	}
 
 	function currentBackendWsUrl(): string {
 		return (
 			manager.selectedMachine?.url ??
 			machineWsUrlFromHttpBaseUrl(currentBackendBaseUrl()) ??
-			`${backendWsBaseUrl}/ws`
+			`${getBackendWsBase()}/ws`
 		);
 	}
 
@@ -283,7 +283,7 @@
 
 	onMount(() => {
 		if (manager.machines.size === 0) {
-			manager.connect(`${backendWsBaseUrl}/ws`);
+			manager.connect(`${getBackendWsBase()}/ws`);
 		}
 		document.addEventListener('click', handlePowerMenuClickOutside);
 		return () => {

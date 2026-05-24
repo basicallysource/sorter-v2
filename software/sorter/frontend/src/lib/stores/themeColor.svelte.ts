@@ -12,7 +12,7 @@
  * so the entire UI re-skins instantly without a reload.
  */
 
-import { backendHttpBaseUrl } from '$lib/backend';
+import { getBackendHttpBase } from '$lib/backend';
 import { applyLegoColorVars, DEFAULT_COLOR_ID, getLegoColor } from '$lib/lego-colors';
 
 let currentColorId = $state(DEFAULT_COLOR_ID);
@@ -39,7 +39,7 @@ function applyColorIdLocally(colorId: string): void {
 export async function loadThemeColor(): Promise<void> {
 	if (typeof window === 'undefined') return;
 	try {
-		const response = await fetch(`${backendHttpBaseUrl}/api/settings/theme`);
+		const response = await fetch(`${getBackendHttpBase()}/api/settings/theme`);
 		if (!response.ok) {
 			applyColorIdLocally(DEFAULT_COLOR_ID);
 			return;
@@ -60,7 +60,7 @@ export async function setThemeColor(colorId: string): Promise<void> {
 	applyColorIdLocally(colorId);
 	if (typeof window === 'undefined') return;
 	try {
-		await fetch(`${backendHttpBaseUrl}/api/settings/theme`, {
+		await fetch(`${getBackendHttpBase()}/api/settings/theme`, {
 			method: 'POST',
 			headers: { 'Content-Type': 'application/json' },
 			body: JSON.stringify({ color_id: colorId })

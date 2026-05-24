@@ -3,7 +3,7 @@
 	import { RefreshCw, HelpCircle, CircleSlash, Trash2 } from 'lucide-svelte';
 	import { page } from '$app/state';
 	import { goto } from '$app/navigation';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 
@@ -44,7 +44,7 @@
 	const ctx = getMachineContext();
 
 	function effectiveBase(): string {
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
 	}
 
 	// Per-row link resolution: the tracker-history feed (HistoryItem) is the

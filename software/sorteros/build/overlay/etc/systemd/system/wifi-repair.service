@@ -1,0 +1,12 @@
+[Unit]
+Description=Repair WiFi connection profiles if corrupted
+Before=NetworkManager.service
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/wifi-repair.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target

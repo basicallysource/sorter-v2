@@ -13,6 +13,7 @@ import logging
 import os
 import platform
 import re
+import subprocess
 import threading
 import time
 from functools import lru_cache
@@ -25,10 +26,6 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from aiortc import RTCPeerConnection, RTCRtpSender, RTCSessionDescription, VideoStreamTrack
-from aiortc.mediastreams import MediaStreamError, VIDEO_CLOCK_RATE, VIDEO_TIME_BASE
-from aiortc.rtcconfiguration import RTCConfiguration
-from av import VideoFrame
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
@@ -44,6 +41,11 @@ from irl.config import (
     parseCameraDeviceSettings,
     parseCameraPictureSettings,
 )
+# Max width of the MJPEG preview stream (annotated frame is downscaled to
+# this before JPEG encoding). Annotation still runs at full capture resolution;
+# this only shrinks the encoded-and-transmitted frame. 0 disables the resize.
+PREVIEW_MAX_WIDTH = int(os.environ.get("SORTER_PREVIEW_MAX_WIDTH", "960"))
+
 from server import shared_state
 from server.calibration_reference import REFERENCE_TILE_RGB
 from server.camera_calibration import (
@@ -52,7 +54,6 @@ from server.camera_calibration import (
     generate_color_profile_from_analysis,
 )
 from server.camera_discovery import getDiscoveredCameraStreams
-from vision.media_pipeline import build_camera_media_pipeline_plan
 
 router = APIRouter()
 
@@ -75,16 +76,6 @@ _DASHBOARD_CROP_PADDING_FACTOR = 0.14
 _DASHBOARD_CROP_MIN_PADDING_PX = 48.0
 _DASHBOARD_MASK_BACKGROUND_BGR = (230, 230, 230)
 _DASHBOARD_QUAD_PADDING_FACTOR = 0.1
-WEBRTC_CAMERA_TARGET_FPS = max(
-    1.0,
-    min(30.0, float(os.getenv("SORTER_WEBRTC_CAMERA_TARGET_FPS", "12"))),
-)
-WEBRTC_H264_DEFAULT_BITRATE_BPS = int(
-    os.getenv("SORTER_WEBRTC_H264_DEFAULT_BITRATE_BPS", "12000000")
-)
-WEBRTC_H264_MAX_BITRATE_BPS = int(os.getenv("SORTER_WEBRTC_H264_MAX_BITRATE_BPS", "30000000"))
-WEBRTC_VP8_DEFAULT_BITRATE_BPS = int(os.getenv("SORTER_WEBRTC_VP8_DEFAULT_BITRATE_BPS", "8000000"))
-WEBRTC_VP8_MAX_BITRATE_BPS = int(os.getenv("SORTER_WEBRTC_VP8_MAX_BITRATE_BPS", "16000000"))
 CALIBRATION_METHOD_TARGET_PLATE = "target_plate"
 CALIBRATION_METHOD_LLM_GUIDED = "llm_guided"
 CALIBRATION_METHOD_EXPOSURE_HISTOGRAM = "exposure_histogram"
@@ -98,27 +89,6 @@ DEFAULT_LLM_CALIBRATION_MODEL = "google/gemini-3.1-pro-preview"
 DEFAULT_LLM_CALIBRATION_MAX_ITERATIONS = 10
 
 logger = logging.getLogger(__name__)
-
-
-def _configure_aiortc_video_quality() -> None:
-    """Raise aiortc's conservative defaults to camera-preview quality.
-
-    aiortc defaults are tuned for small realtime calls (VP8 max 1.5 Mbit/s,
-    H264 max 3 Mbit/s). That is visibly too soft for local 4K inspection
-    streams, even when the captured frame is actually 3840x2160.
-    """
-    try:
-        from aiortc.codecs import h264, vpx
-
-        h264.DEFAULT_BITRATE = max(1_000_000, WEBRTC_H264_DEFAULT_BITRATE_BPS)
-        h264.MAX_BITRATE = max(h264.DEFAULT_BITRATE, WEBRTC_H264_MAX_BITRATE_BPS)
-        vpx.DEFAULT_BITRATE = max(500_000, WEBRTC_VP8_DEFAULT_BITRATE_BPS)
-        vpx.MAX_BITRATE = max(vpx.DEFAULT_BITRATE, WEBRTC_VP8_MAX_BITRATE_BPS)
-    except Exception:
-        logger.exception("Failed to configure WebRTC camera bitrate limits")
-
-
-_configure_aiortc_video_quality()
 
 
 from server.config_helpers import (
@@ -598,8 +568,31 @@ def _open_camera_source(source: int | str) -> cv2.VideoCapture:
     return cv2.VideoCapture(source)
 
 
+def _open_camera_for_probe(index: int) -> cv2.VideoCapture:
+    # On Linux a UVC camera defaults to uncompressed YUYV, which is ~10x the
+    # bus bandwidth of MJPEG. With several cameras on one shared USB 2.0 bus
+    # that saturates the bus, so probing one camera makes concurrent probes of
+    # the others fail their first read ("No preview"). Negotiate MJPEG here.
+    if platform.system() == "Darwin":
+        return cv2.VideoCapture(index, cv2.CAP_AVFOUNDATION)
+    try:
+        from vision.camera import _open_capture_source
+
+        return _open_capture_source(index, fourcc="MJPG")
+    except Exception:
+        return cv2.VideoCapture(index)
+
+
+def _v4l2_camera_name(index: int) -> str:
+    try:
+        with open(f"/sys/class/video4linux/video{index}/name") as f:
+            return f.read().strip()
+    except OSError:
+        return f"USB Camera {index}"
+
+
 def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
-    cap = _open_camera(index)
+    cap = _open_camera_for_probe(index)
     if not cap.isOpened():
         cap.release()
         return None
@@ -615,6 +608,7 @@ def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
         return {
             "kind": "usb",
             "index": index,
+            "name": _v4l2_camera_name(index),
             "width": width,
             "height": height,
             "preview_available": bool(ret and frame is not None),
@@ -716,6 +710,7 @@ def _list_usb_cameras() -> List[Dict[str, Any]]:
                 usb_cameras.append({
                     "kind": "usb",
                     "index": i,
+                    "name": _v4l2_camera_name(i),
                     "width": w,
                     "height": h,
                     "preview_available": True,
@@ -3190,10 +3185,7 @@ def _save_camera_color_profile(
     parsed = parseCameraColorProfile(payload)
     profile_dict = cameraColorProfileToDict(parsed)
     profiles = _get_camera_color_profile_table(config)
-    if parsed.enabled:
-        profiles[role] = profile_dict
-    else:
-        profiles.pop(role, None)
+    profiles[role] = profile_dict
     config["camera_color_profiles"] = profiles
 
     try:
@@ -3376,11 +3368,68 @@ def list_cameras() -> Dict[str, Any]:
         }
 
 
+def _device_capturing_index(index: int):
+    """Return the camera-service device already capturing ``index``, if any.
+
+    The picker streams cameras by device index. When that index is assigned to
+    a role, the camera service's capture thread already holds /dev/videoN open;
+    opening a second VideoCapture on it fights the live pipeline for frames and
+    spikes USB/CPU. Reusing the running capture thread avoids the duplicate open.
+    """
+    service = shared_state.camera_service
+    if service is None:
+        return None
+    seen: set[int] = set()
+    for device in service.devices.values():
+        if id(device) in seen:
+            continue
+        seen.add(id(device))
+        try:
+            if device.capture_thread.getCameraSource() == index:
+                return device
+        except Exception:
+            continue
+    return None
+
+
 @router.get("/api/cameras/stream/{index}")
 def camera_stream(index: int):
-    """MJPEG stream for a single camera by index (thumbnail)."""
-    def generate():
-        cap = _open_camera(index)
+    """MJPEG thumbnail stream for a single camera by index.
+
+    Served from the running capture thread when the index is already owned by a
+    role; only falls back to a direct device open when nothing else holds it.
+    """
+    def _encode_thumb(frame: np.ndarray) -> bytes:
+        thumb = cv2.resize(frame, (426, 240))
+        ok, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        if not ok:
+            return b""
+        return (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
+        )
+
+    shared_device = _device_capturing_index(index)
+
+    if shared_device is not None:
+        def generate_shared():
+            while True:
+                frame_obj = shared_device.latest_frame
+                if frame_obj is None or frame_obj.raw is None:
+                    time.sleep(0.05)
+                    continue
+                chunk = _encode_thumb(frame_obj.raw)
+                if chunk:
+                    yield chunk
+                time.sleep(0.1)
+
+        return StreamingResponse(
+            generate_shared(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    def generate_direct():
+        cap = _open_camera_for_probe(index)
         if not cap.isOpened():
             return
         try:
@@ -3388,17 +3437,14 @@ def camera_stream(index: int):
                 ret, frame = cap.read()
                 if not ret:
                     break
-                thumb = cv2.resize(frame, (426, 240))
-                _, buf = cv2.imencode(".jpg", thumb, [cv2.IMWRITE_JPEG_QUALITY, 60])
-                yield (
-                    b"--frame\r\n"
-                    b"Content-Type: image/jpeg\r\n\r\n" + buf.tobytes() + b"\r\n"
-                )
+                chunk = _encode_thumb(frame)
+                if chunk:
+                    yield chunk
         finally:
             cap.release()
 
     return StreamingResponse(
-        generate(),
+        generate_direct(),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 
@@ -3790,236 +3836,6 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
     return processed
 
 
-class CameraWebRtcOffer(BaseModel):
-    sdp: str
-    type: str
-    annotated: bool = True
-    layer: str = "annotated"
-    dashboard: bool = False
-    color_correct: bool = True
-    show_regions: bool = True
-
-
-class CameraWebRtcAnswer(BaseModel):
-    sdp: str
-    type: str
-
-
-_camera_webrtc_peer_connections: set[RTCPeerConnection] = set()
-
-
-def _preferred_webrtc_video_codecs() -> list[Any]:
-    try:
-        codecs = RTCRtpSender.getCapabilities("video").codecs
-    except Exception:
-        return []
-    h264 = [codec for codec in codecs if codec.mimeType.lower() == "video/h264"]
-    vp8 = [codec for codec in codecs if codec.mimeType.lower() == "video/vp8"]
-    rtx = [codec for codec in codecs if codec.mimeType.lower() == "video/rtx"]
-    others = [
-        codec
-        for codec in codecs
-        if codec.mimeType.lower() not in {"video/h264", "video/vp8", "video/rtx"}
-    ]
-    return [*vp8, *h264, *rtx, *others]
-
-
-class _CameraRoleVideoTrack(VideoStreamTrack):
-    def __init__(
-        self,
-        role: str,
-        *,
-        annotated: bool,
-        dashboard: bool,
-        color_correct: bool,
-        show_regions: bool,
-    ) -> None:
-        super().__init__()
-        self._role = role
-        self._annotated = annotated
-        self._dashboard = dashboard
-        self._color_correct = color_correct
-        self._exclude_categories = frozenset({"regions"}) if not show_regions else None
-        self._cached_dashboard_shape: tuple[int, int] | None = None
-        self._cached_dashboard_spec: Dict[str, Any] | None = None
-        self._last_shape: tuple[int, int] = (640, 360)
-        self._last_frame_timestamp: float | None = None
-        self._target_fps = WEBRTC_CAMERA_TARGET_FPS
-        self._timestamp_step = max(1, int(round(VIDEO_CLOCK_RATE / self._target_fps)))
-
-    async def _next_preview_timestamp(self) -> tuple[int, Any]:
-        if self.readyState != "live":
-            raise MediaStreamError
-        if hasattr(self, "_timestamp"):
-            self._timestamp += self._timestamp_step
-            wait = self._start + (self._timestamp / VIDEO_CLOCK_RATE) - time.time()
-            if wait > 0:
-                await asyncio.sleep(wait)
-        else:
-            self._start = time.time()
-            self._timestamp = 0
-        return self._timestamp, VIDEO_TIME_BASE
-
-    def _dashboard_frame(self, frame: np.ndarray) -> np.ndarray:
-        if not self._dashboard:
-            return frame
-        frame_h, frame_w = frame.shape[:2]
-        shape = (frame_w, frame_h)
-        if self._cached_dashboard_shape != shape:
-            self._cached_dashboard_spec = _dashboard_crop_spec(self._role, frame_w, frame_h)
-            self._cached_dashboard_shape = shape
-        return _apply_dashboard_crop(frame, self._cached_dashboard_spec)
-
-    def _read_frame(self) -> np.ndarray | None:
-        service = shared_state.camera_service
-        if service is None:
-            return None
-        feed = service.get_feed(self._role)
-        if feed is None:
-            return None
-        frame_obj = feed.get_frame(
-            annotated=self._annotated,
-            exclude_categories=self._exclude_categories,
-            color_correct=self._color_correct,
-        )
-        if frame_obj is None:
-            return None
-        frame = (
-            frame_obj.annotated
-            if self._annotated and frame_obj.annotated is not None
-            else frame_obj.raw
-        )
-        frame = self._dashboard_frame(frame)
-        self._last_shape = (int(frame.shape[1]), int(frame.shape[0]))
-        self._last_frame_timestamp = float(frame_obj.timestamp)
-        return frame
-
-    def _blank_frame(self) -> np.ndarray:
-        width, height = self._last_shape
-        return np.full((height, width, 3), 230, dtype=np.uint8)
-
-    async def recv(self):
-        pts, time_base = await self._next_preview_timestamp()
-        frame = await asyncio.to_thread(self._read_frame)
-        if frame is None:
-            frame = self._blank_frame()
-        video_frame = VideoFrame.from_ndarray(frame, format="bgr24")
-        video_frame.pts = pts
-        video_frame.time_base = time_base
-        return video_frame
-
-    def metadata(self) -> Dict[str, Any]:
-        feed = None
-        service = shared_state.camera_service
-        if service is not None:
-            feed = service.get_feed(self._role)
-        health = None
-        if feed is not None:
-            try:
-                health = feed.device.health.value
-            except Exception:
-                health = None
-        width, height = self._last_shape
-        return {
-            "role": self._role,
-            "timestamp": self._last_frame_timestamp,
-            "width": width,
-            "height": height,
-            "fps": self._target_fps,
-            "status": health,
-            "annotated": self._annotated,
-            "dashboard": self._dashboard,
-            "color_correct": self._color_correct,
-            "overlays": feed.describe_overlays(self._exclude_categories) if feed is not None else [],
-        }
-
-
-async def shutdownCameraWebRtcConnections() -> None:
-    peers = list(_camera_webrtc_peer_connections)
-    if not peers:
-        return
-    await asyncio.gather(*(peer.close() for peer in peers), return_exceptions=True)
-    _camera_webrtc_peer_connections.clear()
-
-
-@router.post("/api/cameras/webrtc/offer/{role}", response_model=CameraWebRtcAnswer)
-async def camera_webrtc_offer(role: str, offer: CameraWebRtcOffer) -> CameraWebRtcAnswer:
-    """Answer a browser WebRTC offer for a live camera role.
-
-    Video still comes from the central CameraService/CaptureThread. This keeps
-    WebRTC as a transport layer and avoids opening extra camera devices per
-    dashboard widget.
-    """
-    service = shared_state.camera_service
-    if service is None:
-        raise HTTPException(503, "Camera service is not running")
-    if service.get_feed(role) is None:
-        raise HTTPException(404, f"Camera role '{role}' not configured")
-
-    want_annotated = offer.layer == "annotated" and offer.annotated
-    pc = RTCPeerConnection(configuration=RTCConfiguration(iceServers=[]))
-    _camera_webrtc_peer_connections.add(pc)
-    metadata_task: asyncio.Task | None = None
-
-    @pc.on("connectionstatechange")
-    async def on_connectionstatechange() -> None:
-        nonlocal metadata_task
-        if pc.connectionState in {"failed", "closed", "disconnected"}:
-            if metadata_task is not None:
-                metadata_task.cancel()
-                metadata_task = None
-            await pc.close()
-            _camera_webrtc_peer_connections.discard(pc)
-
-    track = _CameraRoleVideoTrack(
-        role,
-        annotated=want_annotated,
-        dashboard=offer.dashboard,
-        color_correct=offer.color_correct,
-        show_regions=offer.show_regions,
-    )
-    sender = pc.addTrack(track)
-    preferred_codecs = _preferred_webrtc_video_codecs()
-    if preferred_codecs:
-        for transceiver in pc.getTransceivers():
-            if transceiver.sender is sender:
-                try:
-                    transceiver.setCodecPreferences(preferred_codecs)
-                except Exception:
-                    logger.exception("Failed to set WebRTC camera codec preferences")
-                break
-
-    async def send_metadata(channel: Any) -> None:
-        try:
-            while pc.connectionState != "closed":
-                if getattr(channel, "readyState", None) == "open":
-                    channel.send(json.dumps({"tag": "camera_metadata", "data": track.metadata()}))
-                await asyncio.sleep(0.2)
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            pass
-
-    @pc.on("datachannel")
-    def on_datachannel(channel: Any) -> None:
-        nonlocal metadata_task
-        if getattr(channel, "label", "") != "camera-metadata":
-            return
-        if metadata_task is not None:
-            metadata_task.cancel()
-        metadata_task = asyncio.create_task(send_metadata(channel))
-
-    await pc.setRemoteDescription(RTCSessionDescription(sdp=offer.sdp, type=offer.type))
-    answer = await pc.createAnswer()
-    await pc.setLocalDescription(answer)
-    local_description = pc.localDescription
-    if local_description is None:
-        await pc.close()
-        _camera_webrtc_peer_connections.discard(pc)
-        raise HTTPException(500, "Failed to create WebRTC answer")
-    return CameraWebRtcAnswer(sdp=local_description.sdp, type=local_description.type)
-
-
 @router.get("/api/cameras/feed/{role}")
 def camera_feed_by_role(
     role: str,
@@ -4100,7 +3916,10 @@ def camera_feed_by_role(
     if not direct and shared_state.camera_service is not None:
         feed = shared_state.camera_service.get_feed(role)
         if feed is not None:
+            prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
+
             def generate_live():
+                last_frame_ts: float | None = None
                 while True:
                     frame_obj = feed.get_frame(
                         annotated=want_annotated,
@@ -4110,14 +3929,40 @@ def camera_feed_by_role(
                     if frame_obj is None:
                         time.sleep(0.05)
                         continue
+                    if last_frame_ts == frame_obj.timestamp:
+                        time.sleep(0.01)
+                        continue
+                    last_frame_ts = frame_obj.timestamp
                     frame = (
                         frame_obj.annotated
                         if want_annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
+                    # Downscale FIRST. The dashboard crop is a warpPerspective
+                    # (or polygon mask) on the input frame — on a 4K camera that
+                    # cost ~400 ms/frame, capping the stream at ~2 fps. Doing
+                    # the cheap cv2.resize first means the expensive crop runs
+                    # on a ~960-px frame. _dashboard_frame's spec cache keys on
+                    # the input shape and recomputes from the (smaller) WxH —
+                    # _dashboard_crop_spec already takes (role, frame_w,
+                    # frame_h), so it produces a correctly-scaled spec for the
+                    # downscaled frame automatically.
+                    if PREVIEW_MAX_WIDTH > 0 and frame.shape[1] > PREVIEW_MAX_WIDTH:
+                        scale = PREVIEW_MAX_WIDTH / float(frame.shape[1])
+                        frame = cv2.resize(
+                            frame,
+                            (PREVIEW_MAX_WIDTH, int(round(frame.shape[0] * scale))),
+                            interpolation=cv2.INTER_AREA,
+                        )
                     frame = _dashboard_frame(frame)
-                    yield encoder.encode_chunk(frame, quality=70)
-                    time.sleep(0.03)
+                    if prof is not None:
+                        prof.hit(f"encode.{role}.frames")
+                        prof.mark(f"encode.{role}.interval_ms")
+                        with prof.timer(f"encode.{role}.encode_ms"):
+                            chunk = encoder.encode_chunk(frame, quality=55)
+                    else:
+                        chunk = encoder.encode_chunk(frame, quality=55)
+                    yield chunk
 
             return StreamingResponse(
                 generate_live(),
@@ -4298,6 +4143,24 @@ def delete_camera_color_profile(role: str) -> Dict[str, Any]:
         "profile": saved.get("profile"),
         "applied_live": saved.get("applied_live", False),
         "message": "Color correction removed.",
+    }
+
+
+@router.patch("/api/cameras/color-profile/{role}/enabled")
+def patch_camera_color_profile_enabled(role: str, body: Dict[str, Any]) -> Dict[str, Any]:
+    """Toggle enabled flag on the stored color profile without losing calibration data."""
+    if role not in CAMERA_SETUP_ROLES:
+        raise HTTPException(status_code=404, detail=f"Unknown camera role '{role}'")
+    enabled = bool(body.get("enabled", False))
+    _, config = _read_machine_params_config()
+    existing = _camera_color_profile_for_role(config, role)
+    merged = {**existing, "enabled": enabled}
+    saved = _save_camera_color_profile(role, merged)
+    return {
+        "ok": True,
+        "role": role,
+        "profile": saved.get("profile"),
+        "applied_live": saved.get("applied_live", False),
     }
 
 
@@ -4755,10 +4618,76 @@ def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, 
         except Exception:
             pass
 
-    # Fallback: allow common USB modes when AVFoundation can't enumerate this
-    # camera's formats. Some UVC devices still stream fine even when the mode
-    # discovery API returns an empty format list.
+    if platform.system() == "Linux":
+        v4l2_modes = _list_v4l2_modes(source)
+        if v4l2_modes:
+            return (v4l2_modes, "v4l2")
+
+    # Fallback: allow common USB modes when format enumeration fails.
+    # Some UVC devices still stream fine even when the discovery API
+    # returns an empty format list.
     return (fallback_modes, "probe-fallback")
+
+
+def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
+    """Enumerate (fourcc, width, height, fps) tuples for /dev/videoN.
+
+    Parses `v4l2-ctl --list-formats-ext` output. Returns one entry per
+    (fourcc, width, height) with the maximum fps. Empty list on failure.
+    """
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", "--list-formats-ext"],
+            capture_output=True,
+            text=True,
+            timeout=3,
+        )
+    except Exception:
+        return []
+    if result.returncode != 0:
+        return []
+
+    modes: Dict[tuple[str, int, int], Dict[str, Any]] = {}
+    current_fourcc: str | None = None
+    current_size: tuple[int, int] | None = None
+    fmt_pat = re.compile(r"\]\s*:\s*'([A-Za-z0-9]{4})'")
+    size_pat = re.compile(r"Size:\s*Discrete\s+(\d+)x(\d+)")
+    interval_pat = re.compile(r"\(\s*([0-9.]+)\s*fps\s*\)")
+
+    for raw in result.stdout.splitlines():
+        line = raw.strip()
+        m = fmt_pat.search(line)
+        if m:
+            current_fourcc = m.group(1).upper()
+            current_size = None
+            continue
+        m = size_pat.search(line)
+        if m and current_fourcc is not None:
+            current_size = (int(m.group(1)), int(m.group(2)))
+            key = (current_fourcc, current_size[0], current_size[1])
+            modes.setdefault(
+                key,
+                {
+                    "width": current_size[0],
+                    "height": current_size[1],
+                    "fps": 30,
+                    "fourcc": current_fourcc,
+                    "native_fourcc": current_fourcc,
+                },
+            )
+            continue
+        m = interval_pat.search(line)
+        if m and current_fourcc is not None and current_size is not None:
+            try:
+                fps_val = int(round(float(m.group(1))))
+            except ValueError:
+                continue
+            key = (current_fourcc, current_size[0], current_size[1])
+            entry = modes.get(key)
+            if entry is not None and fps_val > int(entry.get("fps", 0)):
+                entry["fps"] = fps_val
+
+    return list(modes.values())
 
 
 def _avf_to_opencv_fourcc(native: str) -> str | None:
@@ -4852,65 +4781,6 @@ def get_camera_capture_modes(role: str) -> Dict[str, Any]:
         "modes": modes,
         "current": current,
         "live": live,
-    }
-
-
-@router.get("/api/cameras/media-pipeline")
-def get_camera_media_pipeline_status() -> Dict[str, Any]:
-    """Return the desired media pipeline for each active camera role.
-
-    Python remains the control plane. Browser live video should migrate to a
-    platform hardware-encoded WebRTC path whenever the machine has the required
-    GStreamer/encoder stack.
-    """
-    _, config = _read_machine_params_config()
-    svc = shared_state.camera_service
-    roles = sorted(svc.feeds.keys()) if svc is not None else sorted(CAMERA_SETUP_ROLES)
-    saved_capture_modes = (
-        config.get("camera_capture_modes", {})
-        if isinstance(config.get("camera_capture_modes"), dict)
-        else {}
-    )
-    plans: Dict[str, Any] = {}
-
-    for role in roles:
-        try:
-            source = _camera_source_for_role(config, role)
-        except HTTPException:
-            continue
-
-        mode: Dict[str, Any] | None = None
-        if svc is not None and hasattr(svc, "get_capture_mode_for_role"):
-            try:
-                mode = svc.get_capture_mode_for_role(role)
-            except Exception:
-                mode = None
-
-        saved_mode = saved_capture_modes.get(role) if isinstance(saved_capture_modes, dict) else None
-        if not isinstance(mode, dict):
-            mode = saved_mode if isinstance(saved_mode, dict) else {}
-
-        width = int(mode.get("width") or 1920)
-        height = int(mode.get("height") or 1080)
-        fps = int(mode.get("fps") or 30)
-        plans[role] = build_camera_media_pipeline_plan(
-            role,
-            source=source,
-            width=width,
-            height=height,
-            capture_fps=fps,
-            preview_fps=WEBRTC_CAMERA_TARGET_FPS,
-        ).to_dict()
-
-    return {
-        "ok": True,
-        "architecture": {
-            "control_plane": "python",
-            "live_video_target": "webrtc with platform hardware H.264 encoding",
-            "overlay_target": "browser metadata overlay, not burned into video",
-            "still_capture_target": "Python/OpenCV high-quality frame access",
-        },
-        "roles": plans,
     }
 
 

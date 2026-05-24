@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
@@ -59,7 +59,7 @@
 		return (
 			machineHttpBaseUrlFromWsUrl(
 				manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null
-			) ?? backendHttpBaseUrl
+			) ?? getBackendHttpBase()
 		);
 	}
 

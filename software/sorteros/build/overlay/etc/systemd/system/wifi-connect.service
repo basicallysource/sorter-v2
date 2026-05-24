@@ -1,0 +1,12 @@
+[Unit]
+Description=Force WiFi reconnect if NetworkManager did not auto-connect
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/wifi-connect.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

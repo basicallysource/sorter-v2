@@ -2,8 +2,8 @@
 	import { onMount } from 'svelte';
 	import { getMachineContext, getMachinesContext } from '$lib/machines/context';
 	import {
-		backendHttpBaseUrl,
-		backendWsBaseUrl,
+		getBackendHttpBase,
+		getBackendWsBase,
 		machineHttpBaseUrlFromWsUrl,
 		machineWsUrlFromHttpBaseUrl
 	} from '$lib/backend';
@@ -193,7 +193,7 @@
 	let incidentPolicyError = $state<string | null>(null);
 
 	function currentBackendBaseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
 
 	function onSidebarResize(delta: number) {
@@ -237,7 +237,7 @@
 				homing_step:
 					typeof payload?.message === 'string' ? payload.message : 'Starting safe recovery...'
 			});
-			const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? `${backendWsBaseUrl}/ws`;
+			const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? `${getBackendWsBase()}/ws`;
 			manager.ensureConnected(wsUrl);
 			manager.queueSystemStatusRefreshes(baseUrl);
 		} catch (e: any) {

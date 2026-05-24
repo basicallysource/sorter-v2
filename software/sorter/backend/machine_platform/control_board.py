@@ -70,7 +70,7 @@ BASICALLY_FEEDER_PROFILE = BoardProfile(
     input_aliases={},
 )
 
-BASICALLY_DISTRIBUTION_PROFILE = BoardProfile(
+BASICALLY_V1_1_DISTRIBUTION_PROFILE = BoardProfile(
     family="basically_rp2040",
     role="distribution",
     physical_to_canonical_stepper_names={
@@ -79,7 +79,20 @@ BASICALLY_DISTRIBUTION_PROFILE = BoardProfile(
         "distribution_aux_2": "distribution_aux_2",
         "distribution_aux_3": "distribution_aux_3",
     },
-    input_aliases={},
+    input_aliases={"chute_home": 0},  # GPIO8 = digital_input_pins[0] on V1.1
+)
+
+BASICALLY_V1_2_DISTRIBUTION_PROFILE = BoardProfile(
+    family="basically_rp2040",
+    role="distribution",
+    physical_to_canonical_stepper_names={
+        "chute_stepper": "chute_stepper",
+        "c_channel_1_rotor": "c_channel_1_rotor",
+        "c_channel_2_rotor": "c_channel_2_rotor",
+        "c_channel_3_rotor": "c_channel_3_rotor",
+        "carousel": "carousel",
+    },
+    input_aliases={"chute_home": 0},  # GPIO3 = digital_input_pins[0] on V1.2
 )
 
 GENERIC_PROFILE = BoardProfile(
@@ -342,7 +355,11 @@ def _detect_board_profile(sorter_interface: SorterInterface) -> BoardProfile:
         if digital_output_count >= 5:
             return SKR_PICO_DISTRIBUTION_PROFILE
         if digital_output_count <= 2:
-            return BASICALLY_DISTRIBUTION_PROFILE
+            # Distinguish V1.1 (4 digital inputs) from V1.2 (2 digital inputs)
+            digital_input_count = len(sorter_interface.digital_inputs)
+            if digital_input_count <= 2:
+                return BASICALLY_V1_2_DISTRIBUTION_PROFILE
+            return BASICALLY_V1_1_DISTRIBUTION_PROFILE
 
     return BoardProfile(
         family=GENERIC_PROFILE.family,

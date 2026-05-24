@@ -542,30 +542,44 @@ def loadWaveshareServoConfig(
 def loadChuteCalibrationConfig(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
+    board_input_aliases: dict[str, int] | None = None,
 ) -> ChuteCalibrationConfig:
     raw = machine_specific_params
     if raw is None:
         raw = loadMachineSpecificParams(gc)
 
+    board_default = (
+        board_input_aliases.get("chute_home", DEFAULT_CHUTE_HOME_PIN_CHANNEL)
+        if board_input_aliases is not None
+        else DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    )
+
     if not isinstance(raw, dict):
-        return ChuteCalibrationConfig()
+        return ChuteCalibrationConfig(home_pin_channel=board_default)
 
     chute_params = raw.get("chute")
     if chute_params is None:
-        return ChuteCalibrationConfig()
+        return ChuteCalibrationConfig(home_pin_channel=board_default)
     if not isinstance(chute_params, dict):
         gc.logger.warning("Ignoring invalid chute config: expected object. Using defaults.")
-        return ChuteCalibrationConfig()
+        return ChuteCalibrationConfig(home_pin_channel=board_default)
 
-    home_pin_channel = chute_params.get(
-        "home_pin_channel", DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    board_default = (
+        board_input_aliases.get("chute_home", DEFAULT_CHUTE_HOME_PIN_CHANNEL)
+        if board_input_aliases is not None
+        else DEFAULT_CHUTE_HOME_PIN_CHANNEL
     )
-    if not isinstance(home_pin_channel, int) or isinstance(home_pin_channel, bool):
+    home_pin_channel_raw = chute_params.get("home_pin_channel")
+    if home_pin_channel_raw is None:
+        home_pin_channel = board_default
+    elif not isinstance(home_pin_channel_raw, int) or isinstance(home_pin_channel_raw, bool):
         gc.logger.warning(
-            "Invalid chute.home_pin_channel=%r; using default %d."
-            % (home_pin_channel, DEFAULT_CHUTE_HOME_PIN_CHANNEL)
+            "Invalid chute.home_pin_channel=%r; using board default %d."
+            % (home_pin_channel_raw, board_default)
         )
-        home_pin_channel = DEFAULT_CHUTE_HOME_PIN_CHANNEL
+        home_pin_channel = board_default
+    else:
+        home_pin_channel = home_pin_channel_raw
 
     first_bin_center = chute_params.get(
         "first_bin_center", DEFAULT_CHUTE_FIRST_BIN_CENTER

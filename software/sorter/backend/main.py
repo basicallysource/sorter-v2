@@ -21,7 +21,6 @@ from server.shared_state import (
     setRuntimeVariables,
     setCommandQueue,
     setController,
-    setArucoManager,
     setCameraService,
     setVisionManager,
     setHardwareInitializeFn,
@@ -29,7 +28,6 @@ from server.shared_state import (
     setHardwareRuntimeIRL,
     setHardwareStartFn,
 )
-from aruco_config_manager import ArucoConfigManager
 from sorter_controller import SorterController
 from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
@@ -46,6 +44,7 @@ import threading
 import queue
 import time
 import asyncio
+import signal
 import sys
 
 def _mkIRLInterfaceStandby(config, gc):
@@ -163,6 +162,10 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 def main() -> None:
     import server.shared_state as shared_state
 
+    # SIGTERM (sent by systemd/supervisor) → instant exit without thread cleanup.
+    # SIGINT (Ctrl-C) still goes through the except-KeyboardInterrupt path below.
+    signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
+
     script_path = Path(__file__).resolve()
     repo_root = script_path.parents[2]
     try:
@@ -185,12 +188,6 @@ def main() -> None:
 
     with gc.profiler.timer("startup.irl_config_ms"):
         irl_config = mkIRLConfig()
-
-    # Initialize ArUco tag configuration manager
-    with gc.profiler.timer("startup.aruco_config_ms"):
-        aruco_config_path = Path(__file__).resolve().parent / "aruco_config.json"
-        aruco_mgr = ArucoConfigManager(gc, str(aruco_config_path))
-        setArucoManager(aruco_mgr)
 
     # Create a minimal IRL interface (no hardware discovery yet)
     irl = _mkIRLInterfaceStandby(irl_config, gc)

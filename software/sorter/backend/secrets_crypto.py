@@ -3,12 +3,10 @@
 Third-party API tokens (OpenRouter, Gemini, Brickognize, Hive) were previously
 written to the SQLite state store as plaintext. A read of the file was therefore
 a full secret disclosure. Values are now Fernet-encrypted with a key derived
-from a per-install seed stored at ``.secret_seed`` next to the state database.
+from a per-install seed stored in local_state.sqlite itself.
 
-Threat model this addresses:
-  * Backup / clone of ``local_state.sqlite`` alone no longer leaks tokens.
-  * A full filesystem read (which also captures ``.secret_seed``) still does.
-    The seed must stay on the machine; exclude it from any off-device backup.
+Storing the seed in the same database means the key and ciphertext always fail
+or survive together — crash-safe because SQLite's WAL durability covers both.
 
 Existing plaintext values are migrated transparently: decrypt_str() returns
 legacy values unchanged, and the caller re-saves them encrypted on next write.
@@ -16,48 +14,47 @@ legacy values unchanged, and the caller re-saves them encrypted on next write.
 from __future__ import annotations
 
 import base64
-import os
 import secrets
-from pathlib import Path
+import sqlite3
+import time
 
 from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 ENCRYPTED_PREFIX = "fernet:v1:"
-
-
-def _seed_path() -> Path:
-    override = os.getenv("SORTER_SECRET_SEED_PATH")
-    if isinstance(override, str) and override.strip():
-        return Path(override).expanduser()
-    # Co-locate with the state database so tests that redirect LOCAL_STATE_DB_PATH
-    # also redirect the seed — no repo pollution.
-    from local_state import local_state_db_path
-
-    return local_state_db_path().parent / ".secret_seed"
+_SEED_STATE_KEY = "__secret_seed"
 
 
 def _load_or_create_seed() -> bytes:
-    path = _seed_path()
-    if path.exists():
-        data = path.read_bytes()
-        if len(data) >= 32:
-            return data[:32]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    material = secrets.token_bytes(32)
-    tmp = path.with_name(path.name + ".tmp")
-    tmp.write_bytes(material)
+    from local_state import local_state_db_path
+
+    db_path = local_state_db_path()
+    conn = sqlite3.connect(str(db_path))
     try:
-        os.chmod(tmp, 0o600)
-    except OSError:
-        pass
-    os.replace(tmp, path)
-    try:
-        os.chmod(path, 0o600)
-    except OSError:
-        pass
-    return material
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS state_entries "
+            "(key TEXT PRIMARY KEY, json_value TEXT NOT NULL, updated_at REAL NOT NULL)"
+        )
+        conn.commit()
+        row = conn.execute(
+            "SELECT json_value FROM state_entries WHERE key = ?", (_SEED_STATE_KEY,)
+        ).fetchone()
+        if row:
+            raw = row[0].strip('"')
+            data = base64.b64decode(raw)
+            if len(data) >= 32:
+                return data[:32]
+        material = secrets.token_bytes(32)
+        encoded = '"' + base64.b64encode(material).decode("ascii") + '"'
+        conn.execute(
+            "INSERT OR REPLACE INTO state_entries (key, json_value, updated_at) VALUES (?, ?, ?)",
+            (_SEED_STATE_KEY, encoded, time.time()),
+        )
+        conn.commit()
+        return material
+    finally:
+        conn.close()
 
 
 def _fernet() -> Fernet:

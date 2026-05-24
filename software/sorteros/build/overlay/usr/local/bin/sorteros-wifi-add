@@ -1,0 +1,48 @@
+#!/bin/bash
+# Usage: sorteros-wifi-add <ssid> <password>
+SSID="$1"
+PSK="$2"
+BACKUP_DIR="/var/lib/sorteros/wifi-backups"
+NM_DIR="/etc/NetworkManager/system-connections"
+
+if [ -z "$SSID" ] || [ -z "$PSK" ]; then
+    echo "Usage: sorteros-wifi-add <ssid> <password>" >&2
+    exit 1
+fi
+
+UUID=$(cat /proc/sys/kernel/random/uuid)
+PROFILE="[connection]
+id=${SSID}
+uuid=${UUID}
+type=wifi
+interface-name=wlan0
+autoconnect=true
+
+[wifi]
+mode=infrastructure
+ssid=${SSID}
+
+[wifi-security]
+auth-alg=open
+key-mgmt=wpa-psk
+psk=${PSK}
+
+[ipv4]
+method=auto
+
+[ipv6]
+addr-gen-mode=stable-privacy
+method=auto
+
+[proxy]
+"
+
+mkdir -p "$BACKUP_DIR"
+printf '%s' "$PROFILE" > "$BACKUP_DIR/${SSID}.nmconnection"
+chmod 600 "$BACKUP_DIR/${SSID}.nmconnection"
+
+printf '%s' "$PROFILE" > "$NM_DIR/${SSID}.nmconnection"
+chmod 600 "$NM_DIR/${SSID}.nmconnection"
+
+nmcli con reload
+echo "Added WiFi network '$SSID' to NM and backup store"

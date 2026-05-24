@@ -5,7 +5,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
 	import type { components } from '$lib/api/rest';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
@@ -18,7 +18,7 @@
 	});
 
 	function effectiveBase(): string {
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
 	}
 
 	let uuid = $derived(String(page.params.uuid));

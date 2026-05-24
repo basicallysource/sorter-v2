@@ -101,7 +101,6 @@ training/.venv/
 # Persistent data
 sorter/backend/data.json
 sorter/backend/polygons.json
-sorter/backend/aruco_config.json
 sorter/backend/bin_layout.json
 sorter/backend/every_part_bl_api_res.json
 sorter/backend/machine_params.toml

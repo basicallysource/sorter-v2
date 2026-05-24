@@ -51,6 +51,7 @@ class _LabeledSample:
     source_role: str | None
     detection_score: float | None
     machine_id: str | None
+    detection_algorithm: str | None
 
 
 def _read_manifest(raw_dir: Path) -> list[dict[str, Any]]:
@@ -93,6 +94,8 @@ def _load_sample(entry: dict[str, Any], raw_dir: Path) -> _LabeledSample | None:
 
     machine_id_raw = entry.get("machine_id")
     machine_id = str(machine_id_raw) if machine_id_raw else None
+    algo_raw = entry.get("detection_algorithm")
+    detection_algorithm = str(algo_raw) if algo_raw else None
     return _LabeledSample(
         sample_id=sample_id,
         image_path=image_path,
@@ -107,6 +110,7 @@ def _load_sample(entry: dict[str, Any], raw_dir: Path) -> _LabeledSample | None:
             else None
         ),
         machine_id=machine_id,
+        detection_algorithm=detection_algorithm,
     )
 
 
@@ -522,6 +526,9 @@ def run(
     max_empty_fraction: float | None = None,
     raw_dir: Path | None = None,
     output_dir: Path | None = None,
+    exclude_algorithm_prefixes: tuple[str, ...] = (),
+    prioritize_machine_ids: tuple[str, ...] = (),
+    include_source_roles: tuple[str, ...] = (),
 ) -> int:
     """Entry called from the CLI."""
     if not 0.5 <= train_ratio <= 0.99:
@@ -537,15 +544,31 @@ def run(
         shutil.rmtree(out_dir)
 
     manifest = _read_manifest(raw_dir)
+    priority_machine_set = {str(m) for m in prioritize_machine_ids}
+    include_role_set = {str(r) for r in include_source_roles}
     samples: list[_LabeledSample] = []
     skipped_no_boxes = 0
     skipped_low_score = 0
     skipped_missing_score = 0
+    skipped_excluded_algorithm = 0
+    skipped_excluded_role = 0
     for entry in manifest:
         sample = _load_sample(entry, raw_dir)
         if sample is None:
             continue
-        if min_detection_score is not None and sample.boxes:
+        if include_role_set and (sample.source_role or "") not in include_role_set:
+            skipped_excluded_role += 1
+            continue
+        if exclude_algorithm_prefixes and sample.detection_algorithm:
+            algo = sample.detection_algorithm
+            if any(algo.startswith(p) for p in exclude_algorithm_prefixes):
+                skipped_excluded_algorithm += 1
+                continue
+        # Priority-machine samples bypass min_detection_score: Spencer's
+        # classification_channel samples score < 0.98 from gemini_sam but he
+        # still wants every one of his pictures in the training set.
+        is_priority = (sample.machine_id or "") in priority_machine_set
+        if min_detection_score is not None and sample.boxes and not is_priority:
             if sample.detection_score is None:
                 skipped_missing_score += 1
                 continue
@@ -564,6 +587,7 @@ def run(
         )
 
     diversity_info: dict[str, Any] = {"applied": False}
+    priority_info: dict[str, Any] = {"applied": False}
     empty_cap_info: dict[str, Any] = {"applied": False}
 
     if max_empty_fraction is not None:
@@ -573,11 +597,31 @@ def run(
     else:
         diversity_pool = samples
 
-    if target_size is not None and target_size < len(diversity_pool):
+    # Priority-machine carve-out: all samples from priority machines are kept
+    # unconditionally; only the remaining pool is subject to diversity sampling.
+    if priority_machine_set:
+        priority_pool = [s for s in diversity_pool if (s.machine_id or "") in priority_machine_set]
+        rest_pool = [s for s in diversity_pool if (s.machine_id or "") not in priority_machine_set]
+        priority_info = {
+            "applied": True,
+            "priority_machine_ids": sorted(priority_machine_set),
+            "priority_pool_size": len(priority_pool),
+            "rest_pool_size": len(rest_pool),
+        }
+        if target_size is not None:
+            rest_target = max(0, target_size - len(priority_pool))
+        else:
+            rest_target = None
+    else:
+        priority_pool = []
+        rest_pool = diversity_pool
+        rest_target = target_size
+
+    if rest_target is not None and rest_target < len(rest_pool):
         if balance_source_role or balance_piece_count or balance_machine:
-            diversity_pool, diversity_info = _apply_balanced_diversity_sampling(
-                diversity_pool,
-                target_size=target_size,
+            rest_pool, diversity_info = _apply_balanced_diversity_sampling(
+                rest_pool,
+                target_size=rest_target,
                 model_weights=embed_model,
                 seed=seed,
                 strict=strict_source_role_balance,
@@ -587,16 +631,18 @@ def run(
                 piece_count_bins=piece_count_bins,
             )
         else:
-            diversity_pool, diversity_info = _apply_diversity_sampling(
-                diversity_pool,
-                target_size=target_size,
+            rest_pool, diversity_info = _apply_diversity_sampling(
+                rest_pool,
+                target_size=rest_target,
                 model_weights=embed_model,
             )
-    elif target_size is not None and target_size >= len(diversity_pool):
+    elif rest_target is not None and rest_target >= len(rest_pool):
         diversity_info = {
             "applied": False,
-            "reason": f"target_size={target_size} >= available samples ({len(diversity_pool)})",
+            "reason": f"rest_target={rest_target} >= available rest samples ({len(rest_pool)})",
         }
+
+    diversity_pool = priority_pool + rest_pool
 
     if max_empty_fraction is not None:
         n_pos = len(diversity_pool)
@@ -656,7 +702,11 @@ def run(
     build_metadata = {
         "zone": zone,
         "dataset_name": dataset_name,
-        "source_manifest": str(raw_dir.relative_to(out_dir.parent)),
+        "source_manifest": (
+            str(raw_dir.relative_to(out_dir.parent))
+            if raw_dir.is_relative_to(out_dir.parent)
+            else str(raw_dir)
+        ),
         "seed": seed,
         "train_ratio": train_ratio,
         "train_samples": len(train_samples),
@@ -664,6 +714,12 @@ def run(
         "skipped_no_boxes": skipped_no_boxes,
         "skipped_low_score": skipped_low_score,
         "skipped_missing_score": skipped_missing_score,
+        "skipped_excluded_algorithm": skipped_excluded_algorithm,
+        "skipped_excluded_role": skipped_excluded_role,
+        "exclude_algorithm_prefixes": list(exclude_algorithm_prefixes),
+        "include_source_roles": list(include_source_roles),
+        "prioritize_machine_ids": list(prioritize_machine_ids),
+        "priority": priority_info,
         "min_detection_score": min_detection_score,
         "max_empty_fraction": max_empty_fraction,
         "empty_cap": empty_cap_info,
@@ -724,7 +780,10 @@ def run(
         f"  train={len(train_samples)} val={len(val_samples)} "
         f"skipped_no_boxes={skipped_no_boxes} "
         f"skipped_low_score={skipped_low_score} "
-        f"skipped_missing_score={skipped_missing_score}",
+        f"skipped_missing_score={skipped_missing_score} "
+        f"skipped_excluded_algorithm={skipped_excluded_algorithm} "
+        f"skipped_excluded_role={skipped_excluded_role} "
+        f"priority_kept={priority_info.get('priority_pool_size', 0)}",
         file=sys.stderr,
     )
     return 0

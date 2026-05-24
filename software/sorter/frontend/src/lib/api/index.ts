@@ -1,7 +1,7 @@
 export * from './ws';
 export type * from './events';
 
-import { backendHttpBaseUrl } from '$lib/backend';
+import { getBackendHttpBase } from '$lib/backend';
 
 export type HiveTarget = { id: string; name: string; url: string };
 
@@ -101,7 +101,7 @@ async function parseError(res: Response): Promise<string> {
 }
 
 export async function fetchHiveTargets(): Promise<HiveTarget[]> {
-	const res = await fetch(`${backendHttpBaseUrl}/api/hive/targets`);
+	const res = await fetch(`${getBackendHttpBase()}/api/hive/targets`);
 	if (!res.ok) {
 		const msg = await parseError(res);
 		const err = new Error(msg) as Error & { status?: number };
@@ -139,7 +139,7 @@ export async function fetchHiveModels(
 	}
 	const qs = params.toString();
 	const res = await fetch(
-		`${backendHttpBaseUrl}/api/hive/models${qs ? `?${qs}` : ''}`
+		`${getBackendHttpBase()}/api/hive/models${qs ? `?${qs}` : ''}`
 	);
 	if (!res.ok) throw new Error(await parseError(res));
 	const data = await res.json();
@@ -169,14 +169,14 @@ export async function fetchHiveModelDetail(
 	if (targetId) params.set('target_id', targetId);
 	const qs = params.toString();
 	const res = await fetch(
-		`${backendHttpBaseUrl}/api/hive/models/${encodeURIComponent(modelId)}${qs ? `?${qs}` : ''}`
+		`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(modelId)}${qs ? `?${qs}` : ''}`
 	);
 	if (!res.ok) throw new Error(await parseError(res));
 	return (await res.json()) as HiveModelDetail;
 }
 
 export async function fetchInstalledHiveModels(): Promise<HiveInstalledModel[]> {
-	const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/installed`);
+	const res = await fetch(`${getBackendHttpBase()}/api/hive/models/installed`);
 	if (!res.ok) throw new Error(await parseError(res));
 	const data = await res.json();
 	return Array.isArray(data) ? (data as HiveInstalledModel[]) : [];
@@ -191,7 +191,7 @@ export async function enqueueHiveModelDownload(
 	if (options.variantRuntime) params.set('variant_runtime', options.variantRuntime);
 	const qs = params.toString();
 	const res = await fetch(
-		`${backendHttpBaseUrl}/api/hive/models/${encodeURIComponent(modelId)}/download${qs ? `?${qs}` : ''}`,
+		`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(modelId)}/download${qs ? `?${qs}` : ''}`,
 		{ method: 'POST' }
 	);
 	if (!res.ok) throw new Error(await parseError(res));
@@ -199,7 +199,7 @@ export async function enqueueHiveModelDownload(
 }
 
 export async function fetchHiveDownloads(): Promise<HiveDownloadJob[]> {
-	const res = await fetch(`${backendHttpBaseUrl}/api/hive/downloads`);
+	const res = await fetch(`${getBackendHttpBase()}/api/hive/downloads`);
 	if (!res.ok) throw new Error(await parseError(res));
 	const data = (await res.json()) as HiveDownloadsResponse;
 	return Array.isArray(data?.jobs) ? data.jobs : [];
@@ -207,7 +207,7 @@ export async function fetchHiveDownloads(): Promise<HiveDownloadJob[]> {
 
 export async function deleteInstalledHiveModel(localId: string): Promise<void> {
 	const res = await fetch(
-		`${backendHttpBaseUrl}/api/hive/models/installed/${encodeURIComponent(localId)}`,
+		`${getBackendHttpBase()}/api/hive/models/installed/${encodeURIComponent(localId)}`,
 		{ method: 'DELETE' }
 	);
 	if (!res.ok) throw new Error(await parseError(res));

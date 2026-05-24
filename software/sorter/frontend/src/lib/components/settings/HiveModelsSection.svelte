@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase } from '$lib/backend';
 	import { Alert, Button, Tooltip } from '$lib/components/primitives';
 	import {
 		Download,
@@ -199,7 +199,7 @@
 		targetsError = null;
 		targetsMissing = false;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/hive/targets`);
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/targets`);
 			if (res.status === 400) {
 				targetsMissing = true;
 				targets = [];
@@ -232,7 +232,7 @@
 			if (familyFilter.trim()) params.set('family', familyFilter.trim());
 			params.set('page', String(page));
 			params.set('page_size', String(PAGE_SIZE));
-			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models?${params.toString()}`);
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/models?${params.toString()}`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const raw = await res.json();
 			let parsed: ModelsPage;
@@ -270,7 +270,7 @@
 		loadingInstalled = true;
 		installedError = null;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/installed`);
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/installed`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			const items = Array.isArray(data?.items) ? data.items : Array.isArray(data) ? data : [];
@@ -285,7 +285,7 @@
 
 	async function loadActiveAssignments() {
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/active-assignments`);
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/active-assignments`);
 			if (!res.ok) return;
 			const data = await res.json();
 			const items = Array.isArray(data?.items) ? data.items : [];
@@ -325,7 +325,7 @@
 
 	async function loadDownloads() {
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/hive/downloads`);
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/downloads`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			const next: Job[] = Array.isArray(data?.jobs) ? (data.jobs as Job[]) : [];
@@ -378,7 +378,7 @@
 			const params = new URLSearchParams();
 			params.set('target_id', targetId);
 			const res = await fetch(
-				`${backendHttpBaseUrl}/api/hive/models/${encodeURIComponent(modelId)}?${params.toString()}`
+				`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(modelId)}?${params.toString()}`
 			);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = (await res.json()) as ModelDetail;
@@ -400,7 +400,7 @@
 			params.set('target_id', targetId);
 			params.set('all', 'true');
 			const res = await fetch(
-				`${backendHttpBaseUrl}/api/hive/models/${encodeURIComponent(model.id)}/download?${params.toString()}`,
+				`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(model.id)}/download?${params.toString()}`,
 				{ method: 'POST' }
 			);
 			if (!res.ok) {
@@ -422,7 +422,7 @@
 		actionError = null;
 		activatingAlgorithmId = id;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/hive/models/activate`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/activate`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ algorithm_id: id })
@@ -473,7 +473,7 @@
 			for (const entry of candidates) {
 				try {
 					const res = await fetch(
-						`${backendHttpBaseUrl}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
+						`${getBackendHttpBase()}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
 						{ method: 'DELETE' }
 					);
 					if (!res.ok) {
@@ -505,7 +505,7 @@
 		deletingLocalId = entry.local_id;
 		try {
 			const res = await fetch(
-				`${backendHttpBaseUrl}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
+				`${getBackendHttpBase()}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
 				{ method: 'DELETE' }
 			);
 			if (!res.ok) {

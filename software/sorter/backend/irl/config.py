@@ -131,14 +131,14 @@ class CameraConfig:
     width: int
     height: int
     fps: int
-    fourcc: str | None
+    fourcc: str
     picture_settings: "CameraPictureSettings"
     device_settings: dict[str, int | float | bool]
     color_profile: "CameraColorProfile"
 
     def __init__(self):
         self.url = None
-        self.fourcc = None
+        self.fourcc = "MJPG"
 
 
 class CameraPictureSettings:
@@ -202,44 +202,6 @@ class StepperConfig:
     def __init__(self, default_steps_per_second: int = 2000, microsteps: int = 8):
         self.default_steps_per_second = default_steps_per_second
         self.microsteps = microsteps
-
-
-class CarouselArucoTagConfig:
-    corner1_id: int | None
-    corner2_id: int | None
-    corner3_id: int | None
-    corner4_id: int | None
-
-    def __init__(self):
-        pass
-
-
-class ArucoTagConfig:
-    second_c_channel_center_id: int | None
-    second_c_channel_output_guide_id: int | None
-    second_c_channel_radius1_id: int | None
-    second_c_channel_radius2_id: int | None
-    second_c_channel_radius3_id: int | None
-    second_c_channel_radius4_id: int | None
-    second_c_channel_radius5_id: int | None
-    second_c_channel_radius_ids: list[int]
-    second_c_channel_radius_multiplier: float
-    third_c_channel_center_id: int | None
-    third_c_channel_output_guide_id: int | None
-    third_c_channel_radius1_id: int | None
-    third_c_channel_radius2_id: int | None
-    third_c_channel_radius3_id: int | None
-    third_c_channel_radius4_id: int | None
-    third_c_channel_radius5_id: int | None
-    third_c_channel_radius_ids: list[int]
-    third_c_channel_radius_multiplier: float
-    carousel_platform1: CarouselArucoTagConfig
-    carousel_platform2: CarouselArucoTagConfig
-    carousel_platform3: CarouselArucoTagConfig
-    carousel_platform4: CarouselArucoTagConfig
-
-    def __init__(self):
-        pass
 
 
 class RotorPulseConfig:
@@ -575,7 +537,6 @@ class IRLConfig:
     c_channel_1_rotor_stepper: StepperConfig
     c_channel_2_rotor_stepper: StepperConfig
     c_channel_3_rotor_stepper: StepperConfig
-    aruco_tags: ArucoTagConfig
     bin_layout_config: BinLayoutConfig
     feeder_config: FeederConfig
     classification_channel_config: ClassificationChannelConfig
@@ -683,7 +644,7 @@ def mkCameraConfig(
     camera_config.width = width
     camera_config.height = height
     camera_config.fps = fps
-    camera_config.fourcc = fourcc
+    camera_config.fourcc = fourcc.strip() if (isinstance(fourcc, str) and fourcc.strip()) else "MJPG"
     camera_config.picture_settings = picture_settings or mkCameraPictureSettings()
     camera_config.device_settings = parseCameraDeviceSettings(device_settings)
     camera_config.color_profile = color_profile or mkCameraColorProfile()
@@ -924,47 +885,6 @@ def mkStepperConfig(
     return StepperConfig(default_steps_per_second, microsteps)
 
 
-def mkCarouselArucoTagConfig(
-    c1: int, c2: int, c3: int, c4: int
-) -> CarouselArucoTagConfig:
-    config = CarouselArucoTagConfig()
-    config.corner1_id = c1
-    config.corner2_id = c2
-    config.corner3_id = c3
-    config.corner4_id = c4
-    return config
-
-
-def mkArucoTagConfig() -> ArucoTagConfig:
-    config = ArucoTagConfig()
-    # Channel 2 (second) - 3 tags: center, radius1, radius2
-    config.second_c_channel_center_id = 20
-    config.second_c_channel_output_guide_id = None
-    config.second_c_channel_radius1_id = 31
-    config.second_c_channel_radius2_id = 7
-    config.second_c_channel_radius3_id = None
-    config.second_c_channel_radius4_id = None
-    config.second_c_channel_radius5_id = None
-    config.second_c_channel_radius_ids = [31, 7]
-    config.second_c_channel_radius_multiplier = 1.0
-    # Channel 3 (third) - 3 tags: center, radius1, radius2
-    config.third_c_channel_center_id = 33
-    config.third_c_channel_output_guide_id = None
-    config.third_c_channel_radius1_id = 14
-    config.third_c_channel_radius2_id = 30
-    config.third_c_channel_radius3_id = None
-    config.third_c_channel_radius4_id = None
-    config.third_c_channel_radius5_id = None
-    config.third_c_channel_radius_ids = [14, 30]
-    config.third_c_channel_radius_multiplier = 1.0
-    # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
-    config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
-    config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
-    config.carousel_platform3 = mkCarouselArucoTagConfig(6, 16, 11, 0)
-    config.carousel_platform4 = mkCarouselArucoTagConfig(12, 22, 28, 5)
-    return config
-
-
 def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config = IRLConfig()
 
@@ -1181,13 +1101,9 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         classification_camera_bottom_index = cameras_section.get("classification_bottom")
         classification_camera_top_index = cameras_section.get("classification_top")
 
-        if feeder_camera_index is None and classification_camera_top_index is None:
-            raise RuntimeError(
-                "No camera setup found in TOML [cameras] section. "
-                "Assign cameras from the Settings → Cameras page in the UI, or edit "
-                "machine_params.toml directly."
-            )
-
+        # Missing cameras resolve to device_index -1 (absent) so the backend
+        # boots in standby with no [cameras] section — cameras get assigned
+        # later from the UI.
         if not isinstance(feeder_camera_index, int):
             feeder_camera_index = -1
         if not isinstance(classification_camera_bottom_index, int):
@@ -1234,7 +1150,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config.c_channel_2_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.c_channel_3_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
 
-    irl_config.aruco_tags = mkArucoTagConfig()
     irl_config.bin_layout_config = getBinLayout()
     return irl_config
 
@@ -1483,6 +1398,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             if hasattr(servo, "set_preset_angles"):
                 servo.set_preset_angles(open_angle, closed_angle)
         restore_servo_states(irl_interface.servos, gc)
+
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,
         feeding_mode=config.feeding_mode,
@@ -1525,10 +1441,12 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.carousel_hw = None
 
     from subsystems.distribution.chute import Chute
-    chute_calibration = loadChuteCalibrationConfig(gc, machine_specific_params)
 
     if distribution_board is None:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
+    chute_calibration = loadChuteCalibrationConfig(
+        gc, machine_specific_params, dict(distribution_board.input_aliases)
+    )
     chute_home_pin = distribution_board.get_input(chute_calibration.home_pin_channel)
     if chute_home_pin is None:
         raise RuntimeError(

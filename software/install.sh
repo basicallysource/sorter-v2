@@ -168,7 +168,7 @@ if [[ "$AS_SERVICE" == "true" ]]; then
     UV_BIN="$(command -v uv)"
     PNPM_BIN="$(command -v pnpm)"
 
-    for unit in sorter-backend.service sorter-ui.service; do
+    for unit in sorter-backend.service sorter-ui.service sorter-backend-dev.service sorter-ui-dev.service; do
         sed -e "s|__USER__|$USER|g" \
             -e "s|__SOFTWARE_DIR__|$SOFTWARE_DIR|g" \
             -e "s|__UV_BIN__|$UV_BIN|g" \
@@ -178,10 +178,10 @@ if [[ "$AS_SERVICE" == "true" ]]; then
     done
 
     sudo systemctl daemon-reload
-    sudo systemctl enable --now lego-sorter-backend.service lego-sorter-ui.service
-    ok "Services installed and started"
-    log "Backend logs:  sudo journalctl -u lego-sorter-backend -f"
-    log "UI logs:       sudo journalctl -u lego-sorter-ui -f"
+    sudo systemctl enable --now sorter-backend-dev.service sorter-ui-dev.service
+    ok "Services installed and started (dev mode)"
+    log "Backend logs:  sudo journalctl -u sorter-backend-dev -f"
+    log "UI logs:       sudo journalctl -u sorter-ui-dev -f"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────

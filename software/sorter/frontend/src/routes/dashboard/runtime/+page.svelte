@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase, getBackendWsBase } from '$lib/backend';
 	import { settings } from '$lib/stores/settings';
 	import { ArrowLeft } from 'lucide-svelte';
 
@@ -269,7 +269,7 @@
 	async function loadRecords() {
 		records_error = null;
 		try {
-			const response = await fetch(`${backendHttpBaseUrl}/runtime-stats/records`);
+			const response = await fetch(`${getBackendHttpBase()}/runtime-stats/records`);
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status}`);
 			}
@@ -290,7 +290,7 @@
 		records_error = null;
 		try {
 			const response = await fetch(
-				`${backendHttpBaseUrl}/runtime-stats/record/${encodeURIComponent(record_id)}`
+				`${getBackendHttpBase()}/runtime-stats/record/${encodeURIComponent(record_id)}`
 			);
 			if (!response.ok) {
 				throw new Error(`HTTP ${response.status}`);
@@ -412,7 +412,7 @@
 		let disposed = false;
 		let initialized = false;
 		if (manager.connectedMachines.length === 0) {
-			manager.connect(`${backendWsBaseUrl}/ws`);
+			manager.connect(`${getBackendWsBase()}/ws`);
 		}
 		loadRecords();
 

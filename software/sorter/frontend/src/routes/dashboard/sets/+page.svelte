@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, backendWsBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, getBackendWsBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
 	import { ArrowLeft, Printer, ChevronDown, ChevronRight } from 'lucide-svelte';
 
@@ -46,7 +46,7 @@
 		return (
 			machineHttpBaseUrlFromWsUrl(
 				manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null
-			) ?? backendHttpBaseUrl
+			) ?? getBackendHttpBase()
 		);
 	}
 
@@ -70,7 +70,7 @@
 
 	onMount(() => {
 		if (manager.machines.size === 0) {
-			manager.connect(`${backendWsBaseUrl}/ws`);
+			manager.connect(`${getBackendWsBase()}/ws`);
 		}
 		fetchProgress();
 		const interval = setInterval(fetchProgress, 3000);

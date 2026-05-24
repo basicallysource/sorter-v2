@@ -1,3 +1,5 @@
+const char* const HW_ID = "skr_pico";
+
 const uint8_t STEPPER_COUNT = 4;
 const uint8_t STEPPER_STEP_PINS[] = {14, 11, 6, 19};
 const uint8_t STEPPER_DIR_PINS[] = {13, 10, 5, 28};

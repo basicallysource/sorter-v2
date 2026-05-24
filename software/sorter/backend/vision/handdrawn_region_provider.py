@@ -1,3 +1,5 @@
+from typing import Optional
+
 import numpy as np
 import cv2
 
@@ -92,12 +94,20 @@ class HanddrawnRegionProvider:
         self._polygons = {}
         self._channel_angles = {}
         self._arc_params = {}
+        # Static-sprite cache for annotateFrameForChannel — keyed by
+        # (poly_key, h, w, revision). The overlay (polylines, fill arcs, label)
+        # doesn't change between frames, so render once and blend onto the
+        # frame's bbox slice. Bumped via _revision on reloadPolygons.
+        self._channel_sprite_cache: dict = {}
+        self._revision: int = 0
         self._loadPolygons()
 
     def reloadPolygons(self) -> None:
         self._loadPolygons()
         self._cached_regions = {}
         self._cached_frame_shape = (0, 0)
+        self._channel_sprite_cache = {}
+        self._revision += 1
 
     def _loadPolygons(self) -> None:
         saved = getChannelPolygons()
@@ -116,11 +126,13 @@ class HanddrawnRegionProvider:
         res = saved.get("resolution", [1920, 1080])
         self._saved_resolution = (int(res[0]), int(res[1]))
 
-    def reloadPolygons(self) -> None:
+    def reloadPolygons(self) -> None:  # noqa: F811 - kept for compatibility
         """Reload polygon data from disk and clear cached regions."""
         self._loadPolygons()
         self._cached_regions = {}
         self._cached_frame_shape = (0, 0)
+        self._channel_sprite_cache = {}
+        self._revision += 1
 
     def _channelMask(
         self,
@@ -467,69 +479,147 @@ class HanddrawnRegionProvider:
         """Annotate a frame with zone overlays for a single channel.
 
         poly_key: 'second_channel', 'third_channel', 'classification_channel', or 'carousel'
+
+        The sprite (polylines + arc-zone fills + label) is static for a given
+        (poly_key, frame_shape, _revision), so render it once on a small bbox
+        canvas and blend onto the frame in-place — avoids the ~25 MB
+        full-frame .copy() + cv2.addWeighted that previously dominated 4K
+        annotation.
         """
+        h, w = frame.shape[:2]
         sx, sy = self._scaleForFrame(frame, poly_key)
 
         if poly_key == "carousel":
-            annotated = frame.copy()
+            # The carousel preview just draws a polygon outline — let the
+            # sprite cache handle that too so we never copy the frame.
+            sprite = self._channelSprite(poly_key, h, w, sx, sy)
+            if sprite is None:
+                return frame
+            self._applyChannelSprite(frame, sprite)
+            return frame
+
+        pts_list = self._polygons.get(poly_key)
+        if not pts_list or len(pts_list) < 3:
+            return frame
+
+        sprite = self._channelSprite(poly_key, h, w, sx, sy)
+        if sprite is None:
+            return frame
+        self._applyChannelSprite(frame, sprite)
+        return frame
+
+    def _channelSprite(
+        self,
+        poly_key: str,
+        h: int,
+        w: int,
+        sx: float,
+        sy: float,
+    ) -> Optional[dict]:
+        cache_key = (poly_key, h, w, self._revision)
+        cached = self._channel_sprite_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        if poly_key == "carousel":
             carousel_pts = self._polygons.get("carousel")
-            if carousel_pts and len(carousel_pts) >= 3:
-                pts = np.array(carousel_pts, dtype=np.float64)
-                pts[:, 0] *= sx
-                pts[:, 1] *= sy
-                pts = pts.astype(np.int32)
-                color = CHANNEL_COLORS[RegionName.CAROUSEL_PLATFORM]
-                cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
-            return annotated
+            if not carousel_pts or len(carousel_pts) < 3:
+                return None
+            pts = np.array(carousel_pts, dtype=np.float64)
+            pts[:, 0] *= sx
+            pts[:, 1] *= sy
+            pts = pts.astype(np.int32)
+            color = CHANNEL_COLORS[RegionName.CAROUSEL_PLATFORM]
+            x1, y1 = pts[:, 0].min(), pts[:, 1].min()
+            x2, y2 = pts[:, 0].max(), pts[:, 1].max()
+            margin = 3
+            x1 = max(0, int(x1) - margin)
+            y1 = max(0, int(y1) - margin)
+            x2 = min(w, int(x2) + margin)
+            y2 = min(h, int(y2) + margin)
+            lines_layer = np.zeros((y2 - y1, x2 - x1, 3), dtype=np.uint8)
+            lines_mask = np.zeros((y2 - y1, x2 - x1), dtype=np.uint8)
+            pts_local = pts.copy()
+            pts_local[:, 0] -= x1
+            pts_local[:, 1] -= y1
+            cv2.polylines(lines_layer, [pts_local], isClosed=True, color=color, thickness=2)
+            cv2.polylines(lines_mask, [pts_local], isClosed=True, color=255, thickness=2)
+            sprite = {
+                "bbox": (y1, y2, x1, x2),
+                "fill_layer": None,
+                "fill_mask": None,
+                "lines_layer": lines_layer,
+                "lines_mask": lines_mask,
+            }
+            self._channel_sprite_cache[cache_key] = sprite
+            return sprite
 
         region_name = (
-            RegionName.CHANNEL_2
-            if poly_key == "second_channel"
-            else RegionName.CHANNEL_3
-            if poly_key == "third_channel"
+            RegionName.CHANNEL_2 if poly_key == "second_channel"
+            else RegionName.CHANNEL_3 if poly_key == "third_channel"
             else RegionName.CAROUSEL_PLATFORM
         )
         label = (
-            "Ch2"
-            if poly_key == "second_channel"
-            else "Ch3"
-            if poly_key == "third_channel"
+            "Ch2" if poly_key == "second_channel"
+            else "Ch3" if poly_key == "third_channel"
             else "Cls"
         )
         angle_key = (
-            "second"
-            if poly_key == "second_channel"
-            else "third"
-            if poly_key == "third_channel"
+            "second" if poly_key == "second_channel"
+            else "third" if poly_key == "third_channel"
             else "classification_channel"
         )
         channel_id = 2 if poly_key == "second_channel" else 3 if poly_key == "third_channel" else 4
 
         pts_list = self._polygons.get(poly_key)
         if not pts_list or len(pts_list) < 3:
-            return frame.copy()
+            return None
 
-        annotated = frame.copy()
         dz_sections, ex_sections = zoneSectionsForChannel(
             channel_id,
             float(self._channel_angles.get(angle_key, 0.0)),
             parseSavedChannelArcZones(angle_key, self._channel_angles, self._arc_params),
         )
         ch_mask, pts, inner_pts, center, disp_r = self._scaledChannelMask(
-            annotated.shape[0], annotated.shape[1], poly_key, pts_list, sx, sy,
+            h, w, poly_key, pts_list, sx, sy,
         )
         color = CHANNEL_COLORS[region_name]
-        cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
-        if inner_pts is not None and len(inner_pts) >= 3:
-            cv2.polylines(annotated, [inner_pts], isClosed=True, color=color, thickness=2)
-
         cx, cy = int(center[0]), int(center[1])
         disp_r = int(disp_r)
         r1_angle = self._channel_angles.get(angle_key, 0.0)
         r_scale = (sx + sy) / 2.0
 
-        overlay = annotated.copy()
-        if not self._fillArcZoneOverlay(overlay, angle_key, (float(center[0]), float(center[1])), r_scale):
+        # Bbox covers the polygon, the channel mask, the label position, and
+        # any arc-zone fills that may extend slightly beyond. Pad a little.
+        ys, xs = np.where(ch_mask > 0)
+        if len(xs) == 0:
+            return None
+        x1 = int(min(xs.min(), pts[:, 0].min()))
+        y1 = int(min(ys.min(), pts[:, 1].min(), cy - disp_r - 30))
+        x2 = int(max(xs.max(), pts[:, 0].max()))
+        y2 = int(max(ys.max(), pts[:, 1].max()))
+        if inner_pts is not None and len(inner_pts) >= 3:
+            x1 = min(x1, int(inner_pts[:, 0].min()))
+            y1 = min(y1, int(inner_pts[:, 1].min()))
+            x2 = max(x2, int(inner_pts[:, 0].max()))
+            y2 = max(y2, int(inner_pts[:, 1].max()))
+        margin = 4
+        x1 = max(0, x1 - margin); y1 = max(0, y1 - margin)
+        x2 = min(w, x2 + margin); y2 = min(h, y2 + margin)
+        bh, bw = y2 - y1, x2 - x1
+
+        ch_mask_local = ch_mask[y1:y2, x1:x2]
+
+        # Fill layer: zero canvas with arc-zone colors drawn on top. Mask
+        # restricts the blend to inside ch_mask.
+        fill_layer = np.zeros((bh, bw, 3), dtype=np.uint8)
+        # Run the existing fill helper at full-frame coords on a full-shape
+        # zero canvas, then crop. Easier than translating coord math in two
+        # call paths.
+        full_fill = np.zeros((h, w, 3), dtype=np.uint8)
+        if not self._fillArcZoneOverlay(
+            full_fill, angle_key, (float(center[0]), float(center[1])), r_scale
+        ):
             for q in range(CHANNEL_SECTION_COUNT):
                 if q in ex_sections:
                     fill = PRECISE_COLOR
@@ -547,11 +637,51 @@ class HanddrawnRegionProvider:
                         int(cx + disp_r * np.cos(np.radians(a))),
                         int(cy + disp_r * np.sin(np.radians(a))),
                     ))
-                cv2.fillPoly(overlay, [np.array(arc_pts, dtype=np.int32)], fill)
-        overlay[ch_mask == 0] = annotated[ch_mask == 0]
-        annotated = cv2.addWeighted(overlay, 0.18, annotated, 0.82, 0)
+                cv2.fillPoly(full_fill, [np.array(arc_pts, dtype=np.int32)], fill)
+        fill_layer[:] = full_fill[y1:y2, x1:x2]
+        fill_mask = (ch_mask_local > 0).astype(np.uint8) * 255
+        # Erase fill outside ch_mask so the blend's no-op pixels stay zero
+        # (avoids leaking arc fills outside the channel boundary).
+        fill_layer[ch_mask_local == 0] = 0
 
-        cv2.putText(annotated, label, (cx - 20, cy - disp_r - 10),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+        # Lines layer: polylines + label drawn opaque, with a coverage mask.
+        lines_layer = np.zeros((bh, bw, 3), dtype=np.uint8)
+        lines_mask = np.zeros((bh, bw), dtype=np.uint8)
+        pts_local = pts.copy(); pts_local[:, 0] -= x1; pts_local[:, 1] -= y1
+        cv2.polylines(lines_layer, [pts_local], isClosed=True, color=color, thickness=2)
+        cv2.polylines(lines_mask, [pts_local], isClosed=True, color=255, thickness=2)
+        if inner_pts is not None and len(inner_pts) >= 3:
+            inner_local = inner_pts.copy(); inner_local[:, 0] -= x1; inner_local[:, 1] -= y1
+            cv2.polylines(lines_layer, [inner_local], isClosed=True, color=color, thickness=2)
+            cv2.polylines(lines_mask, [inner_local], isClosed=True, color=255, thickness=2)
+        label_org = (cx - 20 - x1, cy - disp_r - 10 - y1)
+        if 0 <= label_org[1] < bh and 0 <= label_org[0] < bw:
+            cv2.putText(lines_layer, label, label_org,
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, color, 2)
+            cv2.putText(lines_mask, label, label_org,
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, 255, 2)
 
-        return annotated
+        sprite = {
+            "bbox": (y1, y2, x1, x2),
+            "fill_layer": fill_layer,
+            "fill_mask": fill_mask,
+            "lines_layer": lines_layer,
+            "lines_mask": lines_mask,
+        }
+        self._channel_sprite_cache[cache_key] = sprite
+        return sprite
+
+    @staticmethod
+    def _applyChannelSprite(frame: np.ndarray, sprite: dict) -> None:
+        y1, y2, x1, x2 = sprite["bbox"]
+        slice_view = frame[y1:y2, x1:x2]
+        fill_layer = sprite["fill_layer"]
+        fill_mask = sprite["fill_mask"]
+        if fill_layer is not None and fill_mask is not None:
+            # Inside the channel mask: 0.82*frame + 0.18*fill. Outside: unchanged.
+            blended = cv2.addWeighted(slice_view, 0.82, fill_layer, 0.18, 0)
+            cv2.copyTo(blended, fill_mask, slice_view)
+        lines_layer = sprite["lines_layer"]
+        lines_mask = sprite["lines_mask"]
+        if lines_layer is not None and lines_mask is not None:
+            cv2.copyTo(lines_layer, lines_mask, slice_view)

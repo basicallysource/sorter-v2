@@ -59,6 +59,10 @@ def embed_images(
         chunk = paths[start : start + batch]
         results = model.embed(chunk, imgsz=imgsz, verbose=False)
         for tensor in results:
+            # Ultralytics returns CUDA tensors when device=cuda; np.asarray
+            # can't see GPU memory, so pull to CPU first.
+            if hasattr(tensor, "detach"):
+                tensor = tensor.detach().cpu()
             array = np.asarray(tensor, dtype=np.float32).reshape(-1)
             norm = float(np.linalg.norm(array))
             if norm > 0:

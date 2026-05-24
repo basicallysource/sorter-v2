@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { onMount, untrack } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import SetupHomingSection from '$lib/components/setup/SetupHomingSection.svelte';
 	import SetupPictureSettingsModal from '$lib/components/setup/SetupPictureSettingsModal.svelte';
@@ -237,7 +237,7 @@
 	let homingSectionRef = $state<SetupHomingSection | null>(null);
 
 	function currentBackendBaseUrl(): string {
-		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
 
 	function currentMachineId(): string {
@@ -298,17 +298,13 @@
 	}
 
 	function cameraRolesForLayout(): string[] {
-		const auxiliaryRole =
-			wizard?.config.machine_setup?.key === 'classification_channel'
-				? 'classification_channel'
-				: 'carousel';
-		return [
-			'c_channel_2',
-			'c_channel_3',
-			auxiliaryRole,
-			'classification_top',
-			'classification_bottom'
-		];
+		const setup = wizard?.config.machine_setup;
+		const auxiliaryRole = setup?.uses_classification_channel ? 'classification_channel' : 'carousel';
+		const roles = ['c_channel_2', 'c_channel_3', auxiliaryRole];
+		if (setup?.uses_classification_chamber ?? true) {
+			roles.push('classification_top', 'classification_bottom');
+		}
+		return roles;
 	}
 
 	function parseRouteStep(step: string | null): WizardStepId | null {

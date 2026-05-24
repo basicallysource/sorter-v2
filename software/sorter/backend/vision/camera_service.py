@@ -104,7 +104,32 @@ class CameraService:
             if "classification_top" not in self._disabled_cameras:
                 self._add_device_feed("classification_top", irl.classification_camera_top)
 
+    @staticmethod
+    def _config_source_key(config: CameraConfig) -> tuple | None:
+        """Returns a hashable key for the physical source, or None if the camera is disabled."""
+        if config.url is not None:
+            return ("url", config.url)
+        if config.device_index >= 0:
+            return ("index", config.device_index)
+        return None
+
     def _add_device_feed(self, role: str, config: CameraConfig) -> None:
+        # If another role already owns this physical source, alias it instead of opening
+        # a second handle. Two VideoCapture threads on the same /dev/videoN fight over
+        # frames and starve each other.
+        source_key = self._config_source_key(config)
+        if source_key is not None:
+            for existing_role, existing_device in self._devices.items():
+                if self._config_source_key(existing_device.config) == source_key:
+                    self._gc.logger.warning(
+                        f"camera role '{role}' shares source {source_key[1]!r} with '{existing_role}'; "
+                        f"aliasing to the same device instead of opening a duplicate handle. "
+                        f"Fix [cameras] in machine.toml to give each role a unique device."
+                    )
+                    self._devices[role] = existing_device
+                    self._feeds[role] = CameraFeed(role, existing_device)
+                    return
+
         device = CameraDevice(role, config)
         self._devices[role] = device
         self._feeds[role] = CameraFeed(role, device)

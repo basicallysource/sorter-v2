@@ -25,6 +25,7 @@ def create_processor(
     imgsz: int,
     conf_threshold: float = 0.25,
     iou_threshold: float = 0.45,
+    rknn_core_mask_name: str | None = None,
 ) -> BaseProcessor:
     family = (model_family or "").lower()
     runtime = (runtime or "onnx").lower()
@@ -74,6 +75,7 @@ def create_processor(
                 imgsz=imgsz,
                 conf_threshold=conf_threshold,
                 iou_threshold=iou_threshold,
+                core_mask_name=rknn_core_mask_name,
             )
         # NanoDet on RKNN is intentionally not wired yet — no .rknn nanodet
         # artifact in scope. Add when the export pipeline produces one.
@@ -125,7 +127,7 @@ def resolve_variant_artifact(run_dir: Path, runtime: str) -> Path | None:
     """Find the on-disk model file/dir for a given ``variant_runtime`` inside a hive model dir.
 
     Layout assumptions (matches ``DownloadJobManager`` behavior):
-      onnx   → ``exports/best.onnx`` or first ``exports/*.onnx``
+      onnx   → ``exports/best.onnx`` (strict; renaming the file disables the model)
       ncnn   → a directory inside ``exports/`` with ``*_ncnn_model`` in its name containing
                a ``.param`` file (the extracted tarball). Returns the ``.param`` path.
       hailo  → ``exports/*.hef`` (the tar bundle should have been extracted during download
@@ -141,8 +143,6 @@ def resolve_variant_artifact(run_dir: Path, runtime: str) -> Path | None:
         preferred = exports / "best.onnx"
         if preferred.exists():
             return preferred
-        for candidate in sorted(exports.glob("*.onnx")):
-            return candidate
         return None
 
     if rt == "ncnn":
@@ -158,7 +158,8 @@ def resolve_variant_artifact(run_dir: Path, runtime: str) -> Path | None:
 
     if rt == "rknn":
         for rknn in sorted(exports.glob("*.rknn")):
-            return rknn
+            if not rknn.name.startswith("._"):
+                return rknn
         return None
 
     if rt == "hailo":

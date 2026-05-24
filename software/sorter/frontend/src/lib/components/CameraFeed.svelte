@@ -1,7 +1,6 @@
 <script lang="ts">
-	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
 	import { getMachineContext } from '$lib/machines/context';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
@@ -42,7 +41,7 @@
 
 	function effectiveBaseUrl(): string {
 		if (baseUrl) return baseUrl;
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
 	}
 
 	// Persistent per-camera toggle state — survives reloads via localStorage.
@@ -120,14 +119,15 @@
 		}
 	}
 
-	const webrtcOptions = $derived({
-		baseUrl: effectiveBaseUrl(),
-		role: camera,
-		annotated,
-		layer,
-		dashboard: cropped,
-		colorCorrect,
-		showRegions: effectiveZones
+	const mjpegSrc = $derived.by(() => {
+		const params = new URLSearchParams({
+			annotated: annotated ? '1' : '0',
+			layer,
+			dashboard: cropped ? '1' : '0',
+			color_correct: colorCorrect ? '1' : '0',
+			show_regions: effectiveZones ? '1' : '0'
+		});
+		return `${effectiveBaseUrl()}/api/cameras/feed/${encodeURIComponent(camera)}?${params.toString()}`;
 	});
 
 	const configuredSource = $derived(ctx.machine?.camerasConfig?.cameras?.[camera]);
@@ -162,12 +162,12 @@
 		class={`relative flex-1 overflow-hidden ${showOverlay ? 'bg-[#04070B]' : 'setup-card-body'}`}
 	>
 		{#if is_configured}
-			<video
-				use:webrtcCameraStream={webrtcOptions}
-				aria-label={display_label}
+			<img
+				src={mjpegSrc}
+				alt={display_label}
 				class="absolute inset-0 h-full w-full object-contain"
 				class:opacity-30={!is_healthy}
-			></video>
+			/>
 		{/if}
 
 		{#if !is_healthy}
@@ -224,7 +224,7 @@
 				<div
 					class="rounded-full border border-white/12 bg-black/50 px-3 py-1 text-xs font-medium text-white/75 backdrop-blur-sm"
 				>
-					{annotated ? 'Annotated' : 'Raw'} — WebRTC
+					{annotated ? 'Annotated' : 'Raw'} — MJPEG
 				</div>
 			</div>
 		{/if}

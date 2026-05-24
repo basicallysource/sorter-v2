@@ -10,7 +10,7 @@
 	// retains its full classroom interface (manual recognize, per-segment
 	// reclassification); this component is intentionally "render-only".
 	import { onDestroy, onMount } from 'svelte';
-	import { backendHttpBaseUrl, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 
 	type Props = {
@@ -69,7 +69,7 @@
 	const ctx = getMachineContext();
 
 	function effectiveBase(): string {
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? backendHttpBaseUrl;
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
 	}
 
 	let detail = $state<Detail | null>(null);

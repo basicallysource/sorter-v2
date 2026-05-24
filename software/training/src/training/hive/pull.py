@@ -176,6 +176,7 @@ def run(
                     "source_role": item.get("source_role"),
                     "capture_reason": item.get("capture_reason"),
                     "review_status": item.get("review_status"),
+                    "detection_algorithm": item.get("detection_algorithm"),
                     "detection_count": item.get("detection_count"),
                     "detection_score": item.get("detection_score"),
                     "detection_bboxes": item.get("detection_bboxes"),

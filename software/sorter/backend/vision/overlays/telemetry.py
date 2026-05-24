@@ -158,10 +158,15 @@ class TelemetryOverlay:
         if box_x1 < 0 or box_y1 < 0:
             return
 
-        # Translucent background: blend a filled rectangle over a copy.
-        overlay = frame.copy()
-        cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), _BG_COLOR, thickness=-1)
-        cv2.addWeighted(overlay, _BG_ALPHA, frame, 1.0 - _BG_ALPHA, 0, frame)
+        # Translucent background: blend only the box slice (was a full-frame
+        # copy + addWeighted, ~25 MB at 4K — wasted on a corner overlay).
+        slice_view = frame[box_y1:box_y2, box_x1:box_x2]
+        cv2.addWeighted(
+            slice_view, 1.0 - _BG_ALPHA,
+            np.full_like(slice_view, _BG_COLOR[0]), _BG_ALPHA,
+            0,
+            dst=slice_view,
+        )
 
         # Lines, drawn bottom-up from baseline.
         baseline_drop = max(2, int(round(5 * scale)))

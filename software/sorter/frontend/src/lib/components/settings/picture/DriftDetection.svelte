@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase } from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
 	import { Alert } from '$lib/components/primitives';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -61,7 +61,7 @@
 		loading = true;
 		try {
 			const res = await fetch(
-				`${backendHttpBaseUrl}/api/cameras/device-settings/${role}/diff`,
+				`${getBackendHttpBase()}/api/cameras/device-settings/${role}/diff`,
 				{ cache: 'no-store' }
 			);
 			if (!res.ok) return;
@@ -88,7 +88,7 @@
 		error = null;
 		status = '';
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/device-settings/${role}`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/device-settings/${role}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(liveSnapshot)
@@ -110,7 +110,7 @@
 		error = null;
 		status = '';
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/device-settings/${role}`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/device-settings/${role}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify(savedSnapshot)

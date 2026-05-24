@@ -247,10 +247,11 @@ int dump_configuration(char *buf, size_t buf_size) {
         int n_bytes = snprintf(
             buf,
             buf_size,
-            "{\"device_name\":\"%s\",\"stepper_count\":%d,"
+            "{\"device_name\":\"%s\",\"hw\":\"%s\",\"stepper_count\":%d,"
             "\"stepper_names\":%s,"
             "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
             DEVICE_NAME,
+            HW_ID,
             STEPPER_COUNT,
             names_buf,
             DIGITAL_INPUT_COUNT,
@@ -264,9 +265,10 @@ int dump_configuration(char *buf, size_t buf_size) {
         n_bytes = snprintf(
             buf,
             buf_size,
-            "{\"stepper_count\":%d,"
+            "{\"hw\":\"%s\",\"stepper_count\":%d,"
             "\"stepper_names\":%s,"
             "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+            HW_ID,
             STEPPER_COUNT,
             names_buf,
             DIGITAL_INPUT_COUNT,
@@ -281,7 +283,8 @@ int dump_configuration(char *buf, size_t buf_size) {
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        "{\"hw\":\"%s\",\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        HW_ID,
         STEPPER_COUNT,
         DIGITAL_INPUT_COUNT,
         DIGITAL_OUTPUT_COUNT,

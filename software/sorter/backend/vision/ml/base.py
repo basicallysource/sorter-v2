@@ -152,6 +152,110 @@ def decode_yolo(
     ]
 
 
+def decode_yolo_head_stripped(
+    outputs: list,
+    *,
+    pre: dict[str, float],
+    imgsz: int,
+    conf_threshold: float,
+    iou_threshold: float,
+    reg_max: int = 16,
+) -> list[Detection]:
+    """Decode head-stripped YOLO outputs: list of [1, 4*reg_max+nc, H, W] per scale.
+
+    Each tensor contains concatenated cv2 (box, 4*reg_max channels) + cv3 (cls, nc channels)
+    outputs before DFL decode / sigmoid / anchor math. Strides are inferred from imgsz / H.
+    """
+    proj = np.arange(reg_max, dtype=np.float32)
+    n_box_ch = 4 * reg_max
+    all_boxes: list[np.ndarray] = []
+    all_scores: list[np.ndarray] = []
+
+    for feat in outputs:
+        arr = np.asarray(feat, dtype=np.float32)
+        if arr.ndim == 4:
+            arr = arr[0]  # [C, H, W]
+        if arr.ndim != 3:
+            continue
+        C, H, W = arr.shape
+        n_cls = C - n_box_ch
+        if n_cls <= 0:
+            continue
+
+        stride = imgsz / H
+        # anchor grid in feature-map coords (col+0.5, row+0.5)
+        ys, xs = np.meshgrid(np.arange(H, dtype=np.float32), np.arange(W, dtype=np.float32), indexing="ij")
+        anchor_x = xs.ravel() + 0.5  # [H*W]
+        anchor_y = ys.ravel() + 0.5
+
+        # box: [n_box_ch, H*W] → [H*W, 4, reg_max]
+        box_raw = arr[:n_box_ch].reshape(n_box_ch, H * W).T.reshape(H * W, 4, reg_max)
+        # numerically-stable softmax over reg_max dim
+        box_raw -= box_raw.max(axis=-1, keepdims=True)
+        box_exp = np.exp(box_raw)
+        box_dist = box_exp / box_exp.sum(axis=-1, keepdims=True)
+        # DFL: expected value of distribution → [H*W, 4] (l, t, r, b in feat-px)
+        box_ltrb = (box_dist * proj).sum(axis=-1)
+
+        # cls: sigmoid → [H*W, n_cls]
+        cls_raw = arr[n_box_ch:].reshape(n_cls, H * W).T
+        cls_scores = 1.0 / (1.0 + np.exp(-cls_raw))
+        scores = cls_scores.max(axis=1)
+
+        keep = scores >= conf_threshold
+        if not np.any(keep):
+            continue
+
+        ltrb = box_ltrb[keep]
+        sc = scores[keep]
+        ax = anchor_x[keep]
+        ay = anchor_y[keep]
+
+        # xyxy in feature-map px → input-image px → original-image px
+        x1 = (ax - ltrb[:, 0]) * stride
+        y1 = (ay - ltrb[:, 1]) * stride
+        x2 = (ax + ltrb[:, 2]) * stride
+        y2 = (ay + ltrb[:, 3]) * stride
+        x1 = (x1 - pre["pad_x"]) / pre["scale"]
+        y1 = (y1 - pre["pad_y"]) / pre["scale"]
+        x2 = (x2 - pre["pad_x"]) / pre["scale"]
+        y2 = (y2 - pre["pad_y"]) / pre["scale"]
+
+        all_boxes.append(np.stack([x1, y1, x2, y2], axis=1))
+        all_scores.append(sc)
+
+    if not all_boxes:
+        return []
+
+    boxes = np.concatenate(all_boxes, axis=0)
+    scores = np.concatenate(all_scores, axis=0)
+
+    w, h = pre["original_w"], pre["original_h"]
+    boxes[:, 0] = np.clip(boxes[:, 0], 0.0, w)
+    boxes[:, 1] = np.clip(boxes[:, 1], 0.0, h)
+    boxes[:, 2] = np.clip(boxes[:, 2], 0.0, w)
+    boxes[:, 3] = np.clip(boxes[:, 3], 0.0, h)
+    valid = (boxes[:, 2] > boxes[:, 0]) & (boxes[:, 3] > boxes[:, 1])
+    if not np.any(valid):
+        return []
+    boxes = boxes[valid]
+    scores = scores[valid]
+
+    kept = nms(boxes, scores, iou_threshold)
+    return [
+        Detection(
+            bbox=(
+                int(round(boxes[i, 0])),
+                int(round(boxes[i, 1])),
+                int(round(boxes[i, 2])),
+                int(round(boxes[i, 3])),
+            ),
+            score=float(scores[i]),
+        )
+        for i in kept
+    ]
+
+
 def decode_nanodet(
     output: np.ndarray,
     *,

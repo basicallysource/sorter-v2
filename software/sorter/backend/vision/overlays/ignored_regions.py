@@ -17,7 +17,8 @@ class IgnoredRegionOverlay:
         if not regions:
             return frame
 
-        annotated = frame.copy()
+        annotated = frame
+        fh, fw = annotated.shape[:2]
         for region in regions:
             bbox = region.get("bbox")
             if not isinstance(bbox, (list, tuple)) or len(bbox) < 4:
@@ -28,10 +29,20 @@ class IgnoredRegionOverlay:
                 continue
             if x2 <= x1 or y2 <= y1:
                 continue
-
-            overlay = annotated.copy()
-            cv2.rectangle(overlay, (x1, y1), (x2, y2), (48, 48, 48), -1)
-            cv2.addWeighted(overlay, 0.11, annotated, 0.89, 0.0, annotated)
+            # Clip to frame, then blend only the bbox slice — avoids the
+            # ~25 MB full-frame copy that used to dominate 4K annotation.
+            cx1, cy1 = max(0, x1), max(0, y1)
+            cx2, cy2 = min(fw, x2), min(fh, y2)
+            if cx2 > cx1 and cy2 > cy1:
+                slice_view = annotated[cy1:cy2, cx1:cx2]
+                # Blend toward (48,48,48) with the same 0.11/0.89 weighting as
+                # the old full-frame addWeighted, but in-place on the slice.
+                cv2.addWeighted(
+                    slice_view, 0.89,
+                    np.full_like(slice_view, 48), 0.11,
+                    0.0,
+                    dst=slice_view,
+                )
             cv2.rectangle(annotated, (x1, y1), (x2, y2), (90, 90, 90), 1, cv2.LINE_AA)
 
             label = str(region.get("label") or "ignored")

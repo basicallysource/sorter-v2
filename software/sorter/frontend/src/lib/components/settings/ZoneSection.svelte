@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
-	import { backendHttpBaseUrl } from '$lib/backend';
+	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
@@ -90,7 +89,13 @@
 		| 'exitStartInner'
 		| 'exitStartOuter'
 		| 'exitEndInner'
-		| 'exitEndOuter';
+		| 'exitEndOuter'
+		| 'dropStartEdge'
+		| 'dropEndEdge'
+		| 'dropRotate'
+		| 'exitStartEdge'
+		| 'exitEndEdge'
+		| 'exitRotate';
 	type ArcParamsPayload = {
 		center: number[];
 		inner_radius: number;
@@ -161,6 +166,18 @@
 					| 'arc-exit-end-outer';
 				channel: ArcChannel;
 				orig: ArcParams;
+		  }
+		| {
+				kind:
+					| 'arc-drop-start-edge'
+					| 'arc-drop-end-edge'
+					| 'arc-exit-start-edge'
+					| 'arc-exit-end-edge'
+					| 'arc-drop-rotate'
+					| 'arc-exit-rotate';
+				channel: ArcChannel;
+				orig: ArcParams;
+				startPointerAngleDeg: number;
 		  }
 		| {
 				kind: 'section-zero';
@@ -276,7 +293,19 @@
 	const DROP_ZONE_COLOR = '#22c55e';
 	const EXIT_ZONE_COLOR = '#ef4444';
 
-	type ZoneHandle = Exclude<ArcHandle, 'center' | 'inner' | 'outer' | 'exitOuter'>;
+	type ZoneHandle = Exclude<
+		ArcHandle,
+		| 'center'
+		| 'inner'
+		| 'outer'
+		| 'exitOuter'
+		| 'dropStartEdge'
+		| 'dropEndEdge'
+		| 'dropRotate'
+		| 'exitStartEdge'
+		| 'exitEndEdge'
+		| 'exitRotate'
+	>;
 	type ZoneDragKind =
 		| 'arc-drop-start-inner'
 		| 'arc-drop-start-outer'
@@ -796,9 +825,9 @@
 	}
 
 	function rememberPreviewImageSize(role: CameraRole, target: EventTarget | null) {
-		if (!(target instanceof HTMLImageElement) && !(target instanceof HTMLVideoElement)) return;
-		const width = target instanceof HTMLVideoElement ? target.videoWidth : target.naturalWidth;
-		const height = target instanceof HTMLVideoElement ? target.videoHeight : target.naturalHeight;
+		if (!(target instanceof HTMLImageElement)) return;
+		const width = target.naturalWidth;
+		const height = target.naturalHeight;
 		if (width <= 0 || height <= 0) return;
 		const current = previewImageSizeByRole[role];
 		if (current?.width === width && current.height === height) return;
@@ -983,7 +1012,7 @@
 	}
 
 	function cameraIndexPreviewUrl(index: number): string {
-		return `${backendHttpBaseUrl}/api/cameras/stream/${index}`;
+		return `${getBackendHttpBase()}/api/cameras/stream/${index}`;
 	}
 
 	function discoveredCameraBySource(source: CameraSource): NetworkCameraInfo | null {
@@ -1479,10 +1508,43 @@
 		return constrainHandlePoint(polarPoint(params.center, radius, angleDeg), pad);
 	}
 
+	function midpoint(a: Point, b: Point): Point {
+		return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+	}
+
 	function getArcHandles(channel: ArcChannel): Record<ArcHandle, Point> | null {
 		const params = arcParams[channel];
 		if (!params) return null;
 		const ringHandleAngle = effectiveRingHandleAngle(params);
+		const dropStartInner = innerHandlePoint(params, params.dropZone.startInnerAngle);
+		const dropStartOuter = outerHandlePoint(params, params.dropZone.startOuterAngle);
+		const dropEndInner = innerHandlePoint(params, params.dropZone.endInnerAngle);
+		const dropEndOuter = outerHandlePoint(params, params.dropZone.endOuterAngle);
+		const exitStartInner = innerHandlePoint(params, params.exitZone.startInnerAngle);
+		const exitStartOuter = outerHandlePoint(
+			params,
+			params.exitZone.startOuterAngle,
+			params.exitOuterRadius
+		);
+		const exitEndInner = innerHandlePoint(params, params.exitZone.endInnerAngle);
+		const exitEndOuter = outerHandlePoint(
+			params,
+			params.exitZone.endOuterAngle,
+			params.exitOuterRadius
+		);
+		const rotateOffset = 28 * editorScale;
+		const dropRotate = outerHandlePoint(
+			params,
+			zoneMidAngle(params.dropZone),
+			params.outerRadius + rotateOffset,
+			exitOuterHandlePadding
+		);
+		const exitRotate = outerHandlePoint(
+			params,
+			zoneMidAngle(params.exitZone),
+			params.outerRadius + rotateOffset,
+			exitOuterHandlePadding
+		);
 		return {
 			center: [params.center[0], params.center[1]],
 			inner: polarPoint(params.center, params.innerRadius, ringHandleAngle),
@@ -1493,23 +1555,31 @@
 				params.exitOuterRadius,
 				exitOuterHandlePadding
 			),
-			dropStartInner: innerHandlePoint(params, params.dropZone.startInnerAngle),
-			dropStartOuter: outerHandlePoint(params, params.dropZone.startOuterAngle),
-			dropEndInner: innerHandlePoint(params, params.dropZone.endInnerAngle),
-			dropEndOuter: outerHandlePoint(params, params.dropZone.endOuterAngle),
-			exitStartInner: innerHandlePoint(params, params.exitZone.startInnerAngle),
-			exitStartOuter: outerHandlePoint(
-				params,
-				params.exitZone.startOuterAngle,
-				params.exitOuterRadius
-			),
-			exitEndInner: innerHandlePoint(params, params.exitZone.endInnerAngle),
-			exitEndOuter: outerHandlePoint(params, params.exitZone.endOuterAngle, params.exitOuterRadius)
+			dropStartInner,
+			dropStartOuter,
+			dropEndInner,
+			dropEndOuter,
+			exitStartInner,
+			exitStartOuter,
+			exitEndInner,
+			exitEndOuter,
+			dropStartEdge: midpoint(dropStartInner, dropStartOuter),
+			dropEndEdge: midpoint(dropEndInner, dropEndOuter),
+			dropRotate,
+			exitStartEdge: midpoint(exitStartInner, exitStartOuter),
+			exitEndEdge: midpoint(exitEndInner, exitEndOuter),
+			exitRotate
 		};
 	}
 
 	function arcEditableHandles(_channel: ArcChannel): ArcHandle[] {
 		return [
+			'dropStartEdge',
+			'dropEndEdge',
+			'exitStartEdge',
+			'exitEndEdge',
+			'dropRotate',
+			'exitRotate',
 			'dropStartInner',
 			'dropStartOuter',
 			'dropEndInner',
@@ -1545,35 +1615,35 @@
 		arcParams[channel] = clamped;
 	}
 
-	function streamOptions(channel: Channel) {
-		if (editingZone) {
-			return {
-				baseUrl: backendHttpBaseUrl,
-				role: CAMERA_FOR_CHANNEL[channel],
-				annotated: false,
-				layer: 'raw' as const,
-				dashboard: false,
-				colorCorrect: true,
-				showRegions: false
-			};
-		}
-		return {
-			baseUrl: backendHttpBaseUrl,
-			role: CAMERA_FOR_CHANNEL[channel],
-			annotated: previewAnnotated,
-			layer: previewAnnotated ? ('annotated' as const) : ('raw' as const),
-			dashboard: previewCropped,
-			colorCorrect: previewColorCorrect,
-			showRegions: previewCropped && previewZones
-		};
+	function streamSrc(channel: Channel): string {
+		const role = CAMERA_FOR_CHANNEL[channel];
+		// The feed URL is intentionally independent of `editingZone`: entering or
+		// leaving zone-edit mode must not change the stream, so the single MJPEG
+		// connection (and its `<img>`) survives the toggle. A fresh connection
+		// opened during a camera hiccup has no frame to show and goes black; a
+		// persistent one rides the hiccup on its last frame. `beginEditing()`
+		// forces crop off so the editor canvas always maps to the full frame.
+		const annotated = previewAnnotated;
+		const dashboard = previewCropped;
+		const colorCorrect = previewColorCorrect;
+		const showRegions = previewCropped && previewZones;
+		const params = new URLSearchParams({
+			annotated: annotated ? '1' : '0',
+			layer: annotated ? 'annotated' : 'raw',
+			dashboard: dashboard ? '1' : '0',
+			color_correct: colorCorrect ? '1' : '0',
+			show_regions: showRegions ? '1' : '0'
+		});
+		return `${getBackendHttpBase()}/api/cameras/feed/${encodeURIComponent(role)}?${params.toString()}`;
 	}
 
 	function feedInstanceKey(channel: Channel): string {
 		const assignment = currentAssignment(channel);
 		const zonesMode = previewCropped ? (previewZones ? 'z' : 'nz') : 'local-zones';
-		const mode = editingZone
-			? 'edit-live-raw'
-			: `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${zonesMode}`;
+		// No `editingZone` term here — the `{#key}` block must not remount the
+		// feed `<img>` when zone editing toggles. Remounting tears down a working
+		// MJPEG connection; see streamSrc() for why that causes the black screen.
+		const mode = `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${zonesMode}`;
 		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${mode}::${feedRevision}`;
 	}
 
@@ -1586,7 +1656,7 @@
 
 	async function loadCameraConfig() {
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/config`);
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/config`);
 			if (!res.ok) return;
 			const cfg = await res.json();
 			for (const role of ALL_CAMERA_ROLES) {
@@ -1621,7 +1691,7 @@
 		const results = await Promise.all(
 			ALL_CAMERA_ROLES.map(async (role) => {
 				try {
-					const res = await fetch(`${backendHttpBaseUrl}/api/cameras/capture-modes/${role}`, {
+					const res = await fetch(`${getBackendHttpBase()}/api/cameras/capture-modes/${role}`, {
 						cache: 'no-store'
 					});
 					if (!res.ok) return [role, null] as const;
@@ -1742,7 +1812,7 @@
 		cameraAbort = abort;
 		try {
 			await loadCameraConfig();
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/list`, { signal: abort.signal });
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/list`, { signal: abort.signal });
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			if (Array.isArray(payload)) {
@@ -1772,7 +1842,7 @@
 		cameraSaving = true;
 		cameraError = null;
 		try {
-			const res = await fetch(`${backendHttpBaseUrl}/api/cameras/assign`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/assign`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ [role]: source })
@@ -2011,6 +2081,30 @@
 					canvasCursor = 'grabbing';
 					return;
 				}
+				const edgeOrRotateKind: Record<string, DragState['kind']> = {
+					dropStartEdge: 'arc-drop-start-edge',
+					dropEndEdge: 'arc-drop-end-edge',
+					exitStartEdge: 'arc-exit-start-edge',
+					exitEndEdge: 'arc-exit-end-edge',
+					dropRotate: 'arc-drop-rotate',
+					exitRotate: 'arc-exit-rotate'
+				};
+				if (handle in edgeOrRotateKind) {
+					dragState = {
+						kind: edgeOrRotateKind[handle] as
+							| 'arc-drop-start-edge'
+							| 'arc-drop-end-edge'
+							| 'arc-exit-start-edge'
+							| 'arc-exit-end-edge'
+							| 'arc-drop-rotate'
+							| 'arc-exit-rotate',
+						channel: currentChannel,
+						orig: copyArcParams(params),
+						startPointerAngleDeg: angleFromCenter(point, params.center)
+					};
+					canvasCursor = 'grabbing';
+					return;
+				}
 				if (handle === 'inner' || handle === 'outer' || handle === 'exitOuter') {
 					const origParams = copyArcParams(params);
 					dragState = {
@@ -2196,6 +2290,52 @@
 						...dragState.orig[zoneKey],
 						[edgeField]: angle
 					}
+				});
+				break;
+			}
+			case 'arc-drop-start-edge':
+			case 'arc-drop-end-edge':
+			case 'arc-exit-start-edge':
+			case 'arc-exit-end-edge':
+			case 'arc-drop-rotate':
+			case 'arc-exit-rotate': {
+				didDrag = true;
+				const currentAngle = angleFromCenter(point, dragState.orig.center);
+				const delta = currentAngle - dragState.startPointerAngleDeg;
+				const isDrop =
+					dragState.kind === 'arc-drop-start-edge' ||
+					dragState.kind === 'arc-drop-end-edge' ||
+					dragState.kind === 'arc-drop-rotate';
+				const zoneKey: 'dropZone' | 'exitZone' = isDrop ? 'dropZone' : 'exitZone';
+				const origZone = dragState.orig[zoneKey];
+				const isRotate =
+					dragState.kind === 'arc-drop-rotate' || dragState.kind === 'arc-exit-rotate';
+				const isStartEdge =
+					dragState.kind === 'arc-drop-start-edge' || dragState.kind === 'arc-exit-start-edge';
+				let newZone: ChordZone;
+				if (isRotate) {
+					newZone = {
+						startInnerAngle: origZone.startInnerAngle + delta,
+						startOuterAngle: origZone.startOuterAngle + delta,
+						endInnerAngle: origZone.endInnerAngle + delta,
+						endOuterAngle: origZone.endOuterAngle + delta
+					};
+				} else if (isStartEdge) {
+					newZone = {
+						...origZone,
+						startInnerAngle: origZone.startInnerAngle + delta,
+						startOuterAngle: origZone.startOuterAngle + delta
+					};
+				} else {
+					newZone = {
+						...origZone,
+						endInnerAngle: origZone.endInnerAngle + delta,
+						endOuterAngle: origZone.endOuterAngle + delta
+					};
+				}
+				setArc(dragState.channel, {
+					...dragState.orig,
+					[zoneKey]: newZone
 				});
 				break;
 			}
@@ -2397,6 +2537,103 @@
 		ctx.stroke();
 	}
 
+	function drawEdgeHandle(
+		ctx: CanvasRenderingContext2D,
+		point: Point,
+		innerEnd: Point,
+		outerEnd: Point,
+		color: string
+	) {
+		const s = editorScale;
+		const dx = outerEnd[0] - innerEnd[0];
+		const dy = outerEnd[1] - innerEnd[1];
+		const len = Math.hypot(dx, dy) || 1;
+		const ux = dx / len;
+		const uy = dy / len;
+		// perpendicular to the radial line
+		const px = -uy;
+		const py = ux;
+		const halfLen = 7 * s;
+		const halfThick = 2.5 * s;
+		const c1: Point = [
+			point[0] + ux * halfThick + px * halfLen,
+			point[1] + uy * halfThick + py * halfLen
+		];
+		const c2: Point = [
+			point[0] + ux * halfThick - px * halfLen,
+			point[1] + uy * halfThick - py * halfLen
+		];
+		const c3: Point = [
+			point[0] - ux * halfThick - px * halfLen,
+			point[1] - uy * halfThick - py * halfLen
+		];
+		const c4: Point = [
+			point[0] - ux * halfThick + px * halfLen,
+			point[1] - uy * halfThick + py * halfLen
+		];
+		ctx.beginPath();
+		ctx.moveTo(c1[0], c1[1]);
+		ctx.lineTo(c2[0], c2[1]);
+		ctx.lineTo(c3[0], c3[1]);
+		ctx.lineTo(c4[0], c4[1]);
+		ctx.closePath();
+		ctx.fillStyle = color;
+		ctx.globalAlpha = 0.85;
+		ctx.fill();
+		ctx.globalAlpha = 1;
+		ctx.lineWidth = 1 * s;
+		ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+		ctx.stroke();
+	}
+
+	function drawRotateHandle(
+		ctx: CanvasRenderingContext2D,
+		point: Point,
+		center: Point,
+		color: string
+	) {
+		const s = editorScale;
+		const r = HANDLE_DRAW_RADIUS * 0.7 * s;
+		ctx.beginPath();
+		ctx.arc(point[0], point[1], r, 0, Math.PI * 2);
+		ctx.fillStyle = color;
+		ctx.globalAlpha = 0.85;
+		ctx.fill();
+		ctx.globalAlpha = 1;
+		ctx.lineWidth = 1 * s;
+		ctx.strokeStyle = 'rgba(0,0,0,0.55)';
+		ctx.stroke();
+
+		// curved arrow hint indicating rotation around the ring center
+		const dx = point[0] - center[0];
+		const dy = point[1] - center[1];
+		const len = Math.hypot(dx, dy) || 1;
+		const ux = dx / len;
+		const uy = dy / len;
+		const px = -uy;
+		const py = ux;
+		const armLen = 4.5 * s;
+		ctx.beginPath();
+		ctx.moveTo(point[0] - px * armLen, point[1] - py * armLen);
+		ctx.lineTo(point[0] + px * armLen, point[1] + py * armLen);
+		ctx.strokeStyle = '#fff';
+		ctx.lineWidth = 1.8 * s;
+		ctx.stroke();
+		// little arrowheads
+		ctx.beginPath();
+		ctx.moveTo(point[0] + px * armLen, point[1] + py * armLen);
+		ctx.lineTo(
+			point[0] + px * armLen * 0.55 + ux * 2.5 * s,
+			point[1] + py * armLen * 0.55 + uy * 2.5 * s
+		);
+		ctx.moveTo(point[0] - px * armLen, point[1] - py * armLen);
+		ctx.lineTo(
+			point[0] - px * armLen * 0.55 + ux * 2.5 * s,
+			point[1] - py * armLen * 0.55 + uy * 2.5 * s
+		);
+		ctx.stroke();
+	}
+
 	function exitOuterLabelOffset(point: Point): Point {
 		return point[1] > CANVAS_H - 90 * editorScale ? [0, -26] : [0, 24];
 	}
@@ -2538,6 +2775,13 @@
 			drawHandle(ctx, handles.exitStartInner, EXIT_ZONE_COLOR, '#111');
 			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', 'Exit End', [42, 22]);
 			drawHandle(ctx, handles.exitEndInner, EXIT_ZONE_COLOR, '#111');
+
+			drawEdgeHandle(ctx, handles.dropStartEdge, handles.dropStartInner, handles.dropStartOuter, DROP_ZONE_COLOR);
+			drawEdgeHandle(ctx, handles.dropEndEdge, handles.dropEndInner, handles.dropEndOuter, DROP_ZONE_COLOR);
+			drawEdgeHandle(ctx, handles.exitStartEdge, handles.exitStartInner, handles.exitStartOuter, EXIT_ZONE_COLOR);
+			drawEdgeHandle(ctx, handles.exitEndEdge, handles.exitEndInner, handles.exitEndOuter, EXIT_ZONE_COLOR);
+			drawRotateHandle(ctx, handles.dropRotate, params.center, DROP_ZONE_COLOR);
+			drawRotateHandle(ctx, handles.exitRotate, params.center, EXIT_ZONE_COLOR);
 		}
 
 		drawSectionZero(ctx, channel, active);
@@ -2656,7 +2900,7 @@
 	});
 
 	async function loadPolygonsPayload(): Promise<Record<string, any> | null> {
-		const res = await fetch(`${backendHttpBaseUrl}/api/polygons`, { cache: 'no-store' });
+		const res = await fetch(`${getBackendHttpBase()}/api/polygons`, { cache: 'no-store' });
 		if (!res.ok) return null;
 		return await res.json();
 	}
@@ -2955,7 +3199,7 @@
 				}
 			}
 
-			const res = await fetch(`${backendHttpBaseUrl}/api/polygons`, {
+			const res = await fetch(`${getBackendHttpBase()}/api/polygons`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
@@ -3007,6 +3251,10 @@
 			setDetectionHighlights(currentRole(), null);
 		}
 		restoreSnapshot(persistedSnapshot);
+		// Editing always works on the full uncropped frame so the canvas overlay
+		// maps 1:1 to camera coordinates. Crop is normally off, so this is a
+		// no-op and the feed connection is untouched.
+		previewCropped = false;
 		editingZone = true;
 		activeSidebar = 'zone';
 		dragState = null;
@@ -3255,14 +3503,14 @@
 									</div>
 								</div>
 							{:else if currentAssignment() !== null}
-								<video
-									use:webrtcCameraStream={streamOptions(currentChannel)}
-									aria-label={CHANNEL_LABELS[currentChannel]}
+								<img
+									src={streamSrc(currentChannel)}
+									alt={CHANNEL_LABELS[currentChannel]}
 									class="absolute inset-0 h-full w-full object-contain"
 									style={feedImageStyle(currentChannel)}
-									onloadedmetadata={(event) =>
+									onload={(event) =>
 										rememberPreviewImageSize(currentRole(currentChannel), event.currentTarget)}
-								></video>
+								/>
 								<div
 									class="pointer-events-none absolute"
 									style={previewOverlayStyle(currentChannel)}

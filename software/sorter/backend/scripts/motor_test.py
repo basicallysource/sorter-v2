@@ -46,6 +46,9 @@ _cameras: dict[str, int] = {}        # name -> device index
 _camera_frames: dict[str, bytes] = {}  # name -> latest JPEG bytes
 _camera_lock = threading.Lock()
 
+_gc: GlobalConfig | None = None
+_chute_home_channel: int = 0
+
 
 def _get_steppers() -> dict[str, StepperMotor]:
     return _steppers
@@ -230,6 +233,43 @@ def api_digital_output_set():
     return jsonify({"ok": True, "index": idx, "value": value})
 
 
+@app.post("/api/reconnect")
+def api_reconnect():
+    global _steppers, _servos, _digital_outputs, _chute_home_pin, _chute_endstop_active_high
+    if _gc is None:
+        return jsonify({"ok": False, "error": "not initialised"}), 500
+    with _lock:
+        _steppers.clear()
+        _servos.clear()
+        _digital_outputs.clear()
+        _chute_home_pin = None
+        _chute_endstop_active_high = True
+
+        boards = discover_control_boards(_gc, required_stepper_names=[])
+
+        for board in boards:
+            identity = board.identity
+            for ds in board.iter_steppers():
+                name = ds.canonical_name
+                if name in _steppers:
+                    name = f"{name}__{identity.port}"
+                _steppers[name] = ds.stepper
+                ds.stepper.enabled = True
+                if ds.canonical_name == "chute_stepper" and _chute_home_pin is None:
+                    _chute_home_pin = board.get_input(_chute_home_channel)
+            _servos.extend(board.servos)
+            for i, dout in enumerate(board.interface.digital_outputs):
+                label = f"24V rail {i}" if len(board.interface.digital_outputs) <= 2 else f"output {i}"
+                _digital_outputs.append({"index": i, "label": label, "pin": dout, "value": dout.value})
+
+    return jsonify({
+        "ok": True,
+        "steppers": list(_steppers.keys()),
+        "servos": len(_servos),
+        "digital_outputs": len(_digital_outputs),
+    })
+
+
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
 PAGE = """<!DOCTYPE html>
@@ -284,7 +324,7 @@ PAGE = """<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>motor test</h1>
+<h1>motor test <button id="reconnect-btn" style="margin-left:16px;font-size:.7rem;padding:4px 10px;background:var(--yellow);color:#000;border:none;border-radius:4px;cursor:pointer">reconnect</button></h1>
 
 <h2>cameras</h2>
 <div id="camera-row" class="cam-row"></div>
@@ -552,6 +592,47 @@ document.addEventListener('keydown', e => {
   if (isNaN(idx) || idx < 0 || idx >= _stepperCards.length) return;
   _stepperCards[idx].querySelector('.move-steps-btn').click();
 });
+
+document.getElementById('reconnect-btn').onclick = async () => {
+  const btn = document.getElementById('reconnect-btn');
+  btn.textContent = 'reconnecting…';
+  btn.disabled = true;
+
+  const r = await fetch('/api/reconnect', {method:'POST'}).then(r => r.json());
+  btn.textContent = r.ok ? 'reconnect' : 'failed';
+  btn.disabled = false;
+  setTimeout(() => { btn.textContent = 'reconnect'; }, 2000);
+
+  if (!r.ok) return;
+
+  _stepperCards.length = 0;
+  document.getElementById('stepper-cards').innerHTML = '';
+  document.getElementById('servo-cards').innerHTML = '';
+  document.getElementById('dout-cards').innerHTML = '';
+
+  const {steppers, servos, digital_outputs} = await fetch('/api/status').then(r => r.json());
+
+  const sc = document.getElementById('stepper-cards');
+  for (const [i, [name, info]] of Object.entries(steppers).entries()) {
+    const card = mkStepperCard(name, info, i + 1);
+    _stepperCards.push(card);
+    sc.appendChild(card);
+  }
+  if (!Object.keys(steppers).length)
+    sc.innerHTML = '<p style="color:var(--muted);font-size:.8rem">no steppers detected</p>';
+
+  const vc = document.getElementById('servo-cards');
+  for (const [i, info] of servos.entries())
+    vc.appendChild(mkServoCard(i, info));
+  if (!servos.length)
+    vc.innerHTML = '<p style="color:var(--muted);font-size:.8rem">no servos detected</p>';
+
+  const dc = document.getElementById('dout-cards');
+  for (const d of (digital_outputs || []))
+    dc.appendChild(mkDoutCard(d));
+  if (!(digital_outputs && digital_outputs.length))
+    dc.innerHTML = '<p style="color:var(--muted);font-size:.8rem">no digital outputs detected</p>';
+};
 </script>
 </body>
 </html>"""
@@ -591,22 +672,26 @@ def _enumerate_cameras() -> dict[str, int]:
 
 
 def _camera_capture_loop(name: str, index: int) -> None:
-    path = f"/dev/video{index}"
-    cap = cv2.VideoCapture(path)
+    from vision.camera import _open_capture_source
+
+    cap = _open_capture_source(index, fourcc="MJPG", width=320, height=240)
     if not cap.isOpened():
-        print(f"Camera {name!r} ({path}) failed to open — skipping")
+        print(f"Camera {name!r} (video{index}) failed to open — skipping")
+        cap.release()
         return
-    cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 320)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 240)
+    ret, frame = cap.read()
+    if not ret:
+        print(f"Camera {name!r} (video{index}) failed first read — skipping")
+        cap.release()
+        return
     while True:
+        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
+        with _camera_lock:
+            _camera_frames[name] = buf.tobytes()
         ret, frame = cap.read()
         if not ret:
             time.sleep(0.1)
             continue
-        _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 60])
-        with _camera_lock:
-            _camera_frames[name] = buf.tobytes()
 
 
 def _load_chute_home_config() -> int:
@@ -619,7 +704,7 @@ def _load_chute_home_config() -> int:
 
 
 def main() -> None:
-    global _steppers, _servos, _chute_home_pin, _chute_endstop_active_high, _cameras
+    global _steppers, _servos, _chute_home_pin, _chute_endstop_active_high, _cameras, _gc, _chute_home_channel
 
     parser = argparse.ArgumentParser(description="Motor test web UI")
     parser.add_argument("--port", type=int, default=8765)
@@ -627,10 +712,12 @@ def main() -> None:
     args = parser.parse_args()
 
     gc = buildGc(args.debug)
+    _gc = gc
     gc.logger.info("motor_test: discovering control boards (no required steppers)")
     boards = discover_control_boards(gc, required_stepper_names=[])
 
     chute_home_channel = _load_chute_home_config()
+    _chute_home_channel = chute_home_channel
     _chute_endstop_active_high = True
 
     for board in boards:
@@ -656,6 +743,7 @@ def main() -> None:
     for cam_name, cam_index in _cameras.items():
         t = threading.Thread(target=_camera_capture_loop, args=(cam_name, cam_index), daemon=True)
         t.start()
+        time.sleep(0.3)
 
     print(f"\nDetected {len(_steppers)} stepper(s): {', '.join(_steppers) or 'none'}")
     print(f"Detected {len(_servos)} servo(s)")

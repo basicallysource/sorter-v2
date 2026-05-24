@@ -32,6 +32,7 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
+_STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
@@ -1319,3 +1320,12 @@ def get_bin_layout() -> dict[str, Any] | None:
 
 def set_bin_layout(layout: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_BIN_LAYOUT, dict(layout) if layout is not None else None)
+
+
+def get_tailscale_hostname() -> str | None:
+    value = _read_state(_STATE_KEY_TAILSCALE_HOSTNAME)
+    return value if isinstance(value, str) and value.strip() else None
+
+
+def set_tailscale_hostname(hostname: str) -> None:
+    _write_state(_STATE_KEY_TAILSCALE_HOSTNAME, hostname.strip())

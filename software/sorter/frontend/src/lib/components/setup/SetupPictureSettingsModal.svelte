@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { webrtcCameraStream } from '$lib/actions/webrtcCameraStream';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -72,10 +71,10 @@
 		return () => observer.disconnect();
 	});
 
-	function rememberPreviewImageSize(media: HTMLImageElement | HTMLVideoElement | null) {
+	function rememberPreviewImageSize(media: HTMLImageElement | null) {
 		if (!media) return;
-		const width = media instanceof HTMLVideoElement ? media.videoWidth : media.naturalWidth;
-		const height = media instanceof HTMLVideoElement ? media.videoHeight : media.naturalHeight;
+		const width = media.naturalWidth;
+		const height = media.naturalHeight;
 		if (width <= 0 || height <= 0) return;
 		if (width === previewImageSize.width && height === previewImageSize.height) return;
 		previewImageSize = { width, height };
@@ -180,14 +179,15 @@
 		return `left:${fitted.left}px;top:${fitted.top}px;width:${fitted.width}px;height:${fitted.height}px;${transformStyle}`;
 	}
 
-	const webrtcOptions = $derived({
-		baseUrl: backendBaseUrl,
-		role,
-		annotated: false,
-		layer: 'raw' as const,
-		dashboard: false,
-		colorCorrect: true,
-		showRegions: false
+	const mjpegSrc = $derived.by(() => {
+		const params = new URLSearchParams({
+			annotated: '0',
+			layer: 'raw',
+			dashboard: '0',
+			color_correct: '1',
+			show_regions: '0'
+		});
+		return `${backendBaseUrl}/api/cameras/feed/${encodeURIComponent(role)}?${params.toString()}`;
 	});
 
 	function handleSidebarSaved() {
@@ -206,14 +206,14 @@
 			>
 				{#if hasCamera}
 					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
-						<video
-							use:webrtcCameraStream={webrtcOptions}
-							aria-label={label}
+						<img
+							src={mjpegSrc}
+							alt={label}
 							class="absolute inset-0 h-full w-full object-contain"
 							style={previewTransformStyle()}
-							onloadedmetadata={(event) =>
-								rememberPreviewImageSize(event.currentTarget as HTMLVideoElement)}
-						></video>
+							onload={(event) =>
+								rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
+						/>
 						<div class="pointer-events-none absolute" style={previewOverlayStyle()}>
 							{#if calibrationHighlight}
 								<div

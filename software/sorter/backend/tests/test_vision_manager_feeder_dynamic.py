@@ -84,11 +84,13 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         self.assertIn("ChannelRegionOverlay", classification_overlay_names)
         self.assertIn("TrackOverlay", classification_overlay_names)
         self.assertNotIn("DynamicDetectionOverlay", classification_overlay_names)
-        # The encode path must be pinned to the latest detection's frame_ts
-        # so overlay bboxes match the frame the detector ran on. Wiring the
-        # provider is what gives feed.get_frame() access to the timestamp.
-        self.assertIsNotNone(carousel_feed.pinned_ts_provider)
-        self.assertIsNotNone(classification_feed.pinned_ts_provider)
+        # Preview now annotates the latest captured frame at capture fps with
+        # the last detection frozen, instead of pinning the stream to the
+        # detection frame (which throttled it to detection fps). So the
+        # pinned-ts provider must NOT be installed — the mechanism stays in
+        # CameraFeed for future use but is intentionally left uninstalled.
+        self.assertIsNone(carousel_feed.pinned_ts_provider)
+        self.assertIsNone(classification_feed.pinned_ts_provider)
 
     def test_get_feeder_dynamic_detection_does_not_force_gemini_from_live_render(self) -> None:
         vm = VisionManager.__new__(VisionManager)

@@ -3,6 +3,7 @@ from pathlib import Path
 import base64
 import time
 import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field, is_dataclass, replace
 import cv2
 import numpy as np
@@ -22,7 +23,6 @@ from .camera import CaptureThread
 from .burst_store import BurstFrameStore
 from .types import CameraFrame, VisionResult, DetectedMask
 from .regions import RegionName, Region
-from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
 from .classification_detection import ClassificationDetectionResult
@@ -53,7 +53,11 @@ from .diff_configs import (
 # _getFeederDynamicDetection / _computeFeederGeminiDetection dedupe inference
 # calls, so a 20 Hz wake-up rate does NOT translate to 20 Hz inference; it
 # just keeps the cache snappy when frames are actually new.
-AUXILIARY_DETECTION_LOOP_INTERVAL_S = 0.05
+# Loop pacing: the aux loop already blocks on future.result() for the slowest
+# parallel dispatch, so the natural cycle time is max(per-role infer_ms). A
+# tiny inter-cycle wait keeps the GIL available for other threads (capture,
+# encode, main loop) and avoids busy-spinning when there's no fresh work.
+AUXILIARY_DETECTION_LOOP_INTERVAL_S = 0.002
 OPENROUTER_MAX_CONCURRENCY = 10
 OPENROUTER_FAILURE_BACKOFF_S = 2.0
 OPENROUTER_BACKGROUND_RETRY_PADDING_S = 0.35
@@ -78,7 +82,7 @@ class AuxiliaryTeacherCaptureRequest:
 # stutters. Override via ``SORTER_HIVE_INFERENCE_INTERVAL_S`` env var for tuning.
 import os as _os
 HIVE_INFERENCE_MIN_INTERVAL_S: float = float(
-    _os.environ.get("SORTER_HIVE_INFERENCE_INTERVAL_S", "0.2")
+    _os.environ.get("SORTER_HIVE_INFERENCE_INTERVAL_S", "0.033")
 )
 # Per-role override: the carousel (C4) needs much higher detection cadence so
 # the polar-tracker free-fall burst window can grab ≥10 frames per drop. The
@@ -109,7 +113,7 @@ def _hive_inference_min_interval_s_for_role(role: str | None) -> float:
 class VisionManager:
     _irl_config: IRLConfig
     _video_recorder: Optional[VideoRecorder]
-    _region_provider: Union[ArucoRegionProvider, DefaultRegionProvider, HanddrawnRegionProvider]
+    _region_provider: Union[DefaultRegionProvider, HanddrawnRegionProvider]
 
     def __init__(self, irl_config: IRLConfig, gc: GlobalConfig, irl: IRLInterface, camera_service=None):
         from .camera_service import CameraService
@@ -133,8 +137,6 @@ class VisionManager:
                 self._region_provider = HanddrawnRegionProvider()
             except RuntimeError:
                 self._region_provider = DefaultRegionProvider()
-        elif gc.region_provider == RegionProviderType.ARUCO:
-            self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
 
         self._feeder_detector: Mog2ChannelDetector | None = None
         self._carousel_heatmap: HeatmapDiff = HeatmapDiff()  # overwritten after configs set
@@ -189,6 +191,12 @@ class VisionManager:
         self._feeder_gemini_detectors: Dict[str, GeminiSamDetector] = {}
         self._carousel_gemini_detector: GeminiSamDetector | None = None
         self._hive_ml_processors: Dict[str, Any] = {}
+        # Global role → core-index assignment. Order of first appearance
+        # determines the pinned NPU core for that role (carousel → 0,
+        # c_channel_2 → 1, c_channel_3 → 2, etc.; wraps mod 3 if >3 roles).
+        self._rknn_role_core_idx: Dict[str, int] = {}
+        # Cache keyed by (role, model_path_str) → processor (or False if broken).
+        self._rknn_per_role_processors: Dict[tuple, Any] = {}
         from .tracking import build_feeder_tracker_system, TrackedPiece, DropZoneBurstCollector  # noqa: F401
         (
             self._piece_handoff_manager,
@@ -215,6 +223,7 @@ class VisionManager:
         self._feeder_tracker_active: bool = False
         self._aux_detection_stop = threading.Event()
         self._aux_detection_thread: threading.Thread | None = None
+        self._aux_detection_pool: ThreadPoolExecutor | None = None
         self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
         self._auxiliary_capture_lock = threading.Lock()
         self._openrouter_request_lock = threading.Lock()
@@ -342,10 +351,6 @@ class VisionManager:
     def _carousel_capture(self, value):
         pass
 
-    def setArucoSmoothingTimeSeconds(self, smoothing_time_s: float) -> None:
-        if isinstance(self._region_provider, ArucoRegionProvider):
-            self._region_provider.setSmoothingTimeSeconds(smoothing_time_s)
-
     def _initOverlays(self) -> None:
         """Register overlays on CameraFeed instances based on current detection config."""
         if self._camera_service is None:
@@ -399,35 +404,24 @@ class VisionManager:
                         feed.add_overlay(ChannelRegionOverlay(self._region_provider, poly_key))
                 feeder_algo = self.getFeederDetectionAlgorithm(role)
                 if self._isDynamicDetectionAlgorithm(feeder_algo):
-                    detection_cache: dict[str, object] = {"frame_ts": None, "result": None}
-
-                    def _ensure_detection(r=role, cache=detection_cache):
-                        capture = self.getCaptureThreadForRole(r)
-                        frame = capture.latest_frame if capture is not None else None
-                        frame_ts = frame.timestamp if frame is not None else None
-                        if cache["frame_ts"] != frame_ts:
-                            cache["frame_ts"] = frame_ts
-                            cache["result"] = self._getFeederDynamicDetection(
-                                r, force=False
-                            )
-                        return cache["result"]
-
-                    # TrackOverlay replaces DynamicDetectionOverlay. Triggering
-                    # _getFeederDynamicDetection on each render tick is what
-                    # keeps local model inference (throttled) + tracker cache warm;
-                    # the overlay itself reads the freshly-updated track list.
+                    # The auxiliary detection loop (_auxiliaryDetectionLoop) runs
+                    # _getFeederDynamicDetection at its own cadence in a dedicated
+                    # thread pool. The render path previously also triggered
+                    # inference per annotated-frame pull, which serialized ~60 ms
+                    # of YOLO work into the encode thread on every frame and
+                    # capped the annotated stream at ~1 fps. Read-only here.
                     def _tracks_for(r=role):
-                        _ensure_detection(r)
                         return self.getFeederTracks(r)
 
-                    # Pin the encode path to the frame the detector last saw,
-                    # so overlay bboxes sit on the piece position the detector
-                    # actually scored — not on a newer frame where the piece
-                    # has already moved.
-                    def _pinned_ts(r=role):
-                        cached = self._feeder_dynamic_detection_cache.get(r)
-                        return float(cached[0]) if cached is not None else None
-
+                    # Preview annotates the latest captured frame at full
+                    # capture fps. Track bboxes are the last completed
+                    # detection, frozen between detections (the tracker does not
+                    # extrapolate on read), so a box trails a fast piece by up
+                    # to one detection interval — accepted in exchange for
+                    # smooth high-fps video. The CameraFeed pinned-ts mechanism
+                    # is intentionally left uninstalled here; it stays available
+                    # for when detection runs at capture fps and boxes can be
+                    # glued to their exact frame.
                     for feed in feeds:
                         # The raw-YOLO purple boxes (DynamicDetectionOverlay)
                         # double-up with the tracker-derived TrackOverlay on the
@@ -435,7 +429,6 @@ class VisionManager:
                         # confusing for the operator. The TrackOverlay carries
                         # all the identity state we need (active/coasting,
                         # velocity arrow), so the raw YOLO layer is dropped.
-                        feed.set_pinned_ts_provider(_pinned_ts)
                         feed.add_overlay(
                             IgnoredRegionOverlay(
                                 lambda r=role: self.getFeederIgnoredDetectionOverlayData(r)
@@ -455,11 +448,10 @@ class VisionManager:
                     carousel_feed.add_overlay(ChannelRegionOverlay(self._region_provider, "carousel"))
                     carousel_algo = self.getCarouselDetectionAlgorithm()
                     if self._isDynamicDetectionAlgorithm(carousel_algo):
-                        def _carousel_pinned_ts():
-                            cached = self._carousel_dynamic_detection_cache
-                            return float(cached[0]) if cached is not None else None
-
-                        carousel_feed.set_pinned_ts_provider(_carousel_pinned_ts)
+                        # See the feeder feed above: preview annotates the
+                        # latest frame at capture fps with the last detection
+                        # frozen, rather than pinning the stream to the detection
+                        # frame (which throttled it to detection fps).
                         carousel_feed.add_overlay(DynamicDetectionOverlay(
                             lambda: self._getCarouselDynamicDetection(force=False)
                         ))
@@ -528,6 +520,10 @@ class VisionManager:
             self.gc.logger.warning(f"reloadPolygons at start failed: {exc}")
         self._initOverlays()
         self._aux_detection_stop.clear()
+        if self._aux_detection_pool is None:
+            self._aux_detection_pool = ThreadPoolExecutor(
+                max_workers=8, thread_name_prefix="aux-detect"
+            )
         self._aux_detection_thread = threading.Thread(
             target=self._auxiliaryDetectionLoop, daemon=True, name="auxiliary-detection-loop"
         )
@@ -540,6 +536,9 @@ class VisionManager:
             self._auxiliary_capture_requests = []
         if self._aux_detection_thread:
             self._aux_detection_thread.join(timeout=2.0)
+        if self._aux_detection_pool is not None:
+            self._aux_detection_pool.shutdown(wait=False, cancel_futures=True)
+            self._aux_detection_pool = None
         self._stopFeederDetection()
         self._stopClassificationAnalysis()
         self._region_provider.stop()
@@ -768,6 +767,7 @@ class VisionManager:
         self._diff_config.algorithm = normalized
         self._classification_dynamic_detection_cache.clear()
         self._hive_ml_processors.clear()
+        self._rknn_role_core_idx.clear(); self._rknn_per_role_processors.clear()
         self._stopClassificationAnalysis()
         self._initOverlays()
         if normalized == "baseline_diff" and self._started:
@@ -800,6 +800,7 @@ class VisionManager:
                 self._feeder_detection_algorithm_by_role[channel_role] = normalized
         self._feeder_dynamic_detection_cache.clear()
         self._hive_ml_processors.clear()
+        self._rknn_role_core_idx.clear(); self._rknn_per_role_processors.clear()
         self.resetFeederTrackers()
         self._initOverlays()
 
@@ -826,6 +827,7 @@ class VisionManager:
         self._carousel_detection_algorithm = self._normalizeCarouselDetectionAlgorithm(algorithm)
         self._carousel_dynamic_detection_cache = None
         self._hive_ml_processors.clear()
+        self._rknn_role_core_idx.clear(); self._rknn_per_role_processors.clear()
         self._initOverlays()
 
     def setCarouselOpenRouterModel(self, model: str) -> str:
@@ -1182,6 +1184,20 @@ class VisionManager:
 
         for key, (role, capture) in channel_map.items():
             if key not in polys or capture is None:
+                continue
+            # Skip building the MOG2 detector + analysis thread for roles that
+            # aren't actually using mog2 as their detection algorithm. The hive
+            # / rknn path runs through _runHiveDetection in the aux loop and
+            # doesn't read this detector's output; spinning the MOG2 thread
+            # just burns CPU on results nobody consumes.
+            role_algo = self._normalizeFeederDetectionAlgorithm(
+                self._feeder_detection_algorithm_by_role.get(role)
+                or self._feeder_detection_algorithm
+            )
+            if role_algo != "mog2":
+                self.gc.logger.info(
+                    f"Skipping MOG2 detection thread for {role} (algorithm={role_algo})"
+                )
                 continue
             src_w, src_h = self._channelSavedResolution(saved, key)
 
@@ -1752,24 +1768,30 @@ class VisionManager:
         frame: np.ndarray,
         polygon: np.ndarray,
     ) -> tuple[np.ndarray, tuple[int, int]] | None:
+        # Bare bbox slice. Previously this function built a full-frame uint8
+        # mask, a full-frame gray background, and ran np.where over the entire
+        # image just to gray-out non-polygon pixels — purely visual, ~25-50ms
+        # of pure CPU per call on the 4K carousel. The model letterbox-resizes
+        # the result to 320×320 anyway, so non-polygon pixels in the bbox have
+        # negligible effect on inference. To re-enable the polygon mask for
+        # debugging, set SORTER_POLYGON_CROP_MASK=1.
         if polygon is None or len(polygon) < 3:
             return None
         h, w = frame.shape[:2]
         x, y, bw, bh = cv2.boundingRect(polygon.astype(np.int32))
-        # Clamp to frame bounds. Arc-derived channel polygons (e.g. third_channel)
-        # can extend above y=0; numpy slicing with negative start would wrap
-        # from the end of the array and collapse the crop to 1-2 rows.
         x1 = max(0, x)
         y1 = max(0, y)
         x2 = min(w, x + bw)
         y2 = min(h, y + bh)
         if x2 <= x1 or y2 <= y1:
             return None
-        mask = np.zeros((h, w), dtype=np.uint8)
-        cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
-        background = np.full_like(frame, 230)
-        masked = np.where(mask[:, :, np.newaxis] == 255, frame, background)
-        return masked[y1:y2, x1:x2].copy(), (int(x1), int(y1))
+        if _os.environ.get("SORTER_POLYGON_CROP_MASK", "0") == "1":
+            mask = np.zeros((h, w), dtype=np.uint8)
+            cv2.fillPoly(mask, [polygon.astype(np.int32)], 255)
+            background = np.full_like(frame, 230)
+            masked = np.where(mask[:, :, np.newaxis] == 255, frame, background)
+            return masked[y1:y2, x1:x2].copy(), (int(x1), int(y1))
+        return frame[y1:y2, x1:x2].copy(), (int(x1), int(y1))
 
     def _channelInfoForRole(self, role: str) -> PolygonChannel | None:
         detector = getattr(self, "_per_channel_detectors", {}).get(role)
@@ -2100,29 +2122,89 @@ class VisionManager:
         detection, _ = self._runGeminiDetectionRequestWithThrottle(request)
         return detection
 
-    def _getOrBuildHiveProcessor(self, algorithm_id: str):
+    def _getOrBuildHiveProcessor(self, algorithm_id: str, role: str | None = None):
+        from .detection_registry import detection_algorithm_definition
+
+        definition = detection_algorithm_definition(algorithm_id)
+        if definition is None or definition.kind not in {"hive", "bundled"} or definition.model_path is None:
+            return None
+
+        # NPU per-core fanout: when running on RKNN, build one runtime per NPU
+        # core (RK3588 has 3) and route each role to a fixed core. This bypasses
+        # the per-call NPU_CORE_0_1_2 contention that serializes concurrent
+        # inferences. Non-RKNN runtimes (onnx/ncnn/hailo) keep the single-
+        # instance behavior — this code path only activates when role is given
+        # AND runtime is rknn.
+        runtime = (definition.runtime or "onnx").lower()
+        if runtime == "rknn" and role is not None:
+            return self._getOrBuildRknnPerCoreProcessor(algorithm_id, role, definition)
+
         cached = self._hive_ml_processors.get(algorithm_id)
         if cached is False:
             return None  # permanently failed — don't retry
         if cached is not None:
             return cached
-        from .detection_registry import detection_algorithm_definition
         from .ml import create_processor
 
-        definition = detection_algorithm_definition(algorithm_id)
-        if definition is None or definition.kind not in {"hive", "bundled"} or definition.model_path is None:
-            return None
         try:
             processor = create_processor(
                 model_path=definition.model_path,
                 model_family=definition.model_family or "yolo",
-                runtime=definition.runtime or "onnx",
+                runtime=runtime,
                 imgsz=int(definition.imgsz or 320),
             )
         except Exception as exc:
             self.gc.logger.warning("Failed to build local model processor %s: %s", algorithm_id, exc)
             return None
         self._hive_ml_processors[algorithm_id] = processor
+        return processor
+
+    _RKNN_CORE_NAMES: tuple[str, ...] = ("NPU_CORE_0", "NPU_CORE_1", "NPU_CORE_2")
+
+    def _getOrBuildRknnPerCoreProcessor(self, algorithm_id: str, role: str, definition):
+        # Each role gets a fixed NPU core (assigned globally in order of first
+        # appearance, mod 3). The cache key is (role, model_path) so switching
+        # models for a role rebuilds, but it keeps the same core pinning. This
+        # is what unlocks real RK3588 NPU parallelism — previously every
+        # inference grabbed all 3 cores via NPU_CORE_0_1_2 and serialized.
+        if role not in self._rknn_role_core_idx:
+            self._rknn_role_core_idx[role] = len(self._rknn_role_core_idx) % 3
+        core_idx = self._rknn_role_core_idx[role]
+        core_name = self._RKNN_CORE_NAMES[core_idx]
+
+        model_path_str = str(definition.model_path)
+        cache_key = (role, model_path_str)
+        existing = self._rknn_per_role_processors.get(cache_key)
+        if existing is False:
+            return None
+        if existing is not None:
+            return existing
+
+        from .ml import create_processor
+
+        try:
+            processor = create_processor(
+                model_path=definition.model_path,
+                model_family=definition.model_family or "yolo",
+                runtime="rknn",
+                imgsz=int(definition.imgsz or 320),
+                rknn_core_mask_name=core_name,
+            )
+        except Exception as exc:
+            self.gc.logger.warning(
+                "Failed to build RKNN processor %s on %s: %s", algorithm_id, core_name, exc
+            )
+            self._rknn_per_role_processors[cache_key] = False
+            return None
+        self.gc.logger.warning(
+            "RKNN per-core fanout: role=%s algorithm=%s pinned to %s (idx=%d) model=%s",
+            role,
+            algorithm_id,
+            core_name,
+            core_idx,
+            model_path_str,
+        )
+        self._rknn_per_role_processors[cache_key] = processor
         return processor
 
     def _resolveZonePolygon(
@@ -3057,7 +3139,7 @@ class VisionManager:
         bypass_polygon: bool = False,
         conf_threshold: float | None = None,
     ) -> ClassificationDetectionResult | None:
-        processor = self._getOrBuildHiveProcessor(algorithm_id)
+        processor = self._getOrBuildHiveProcessor(algorithm_id, role=role)
         if processor is None or frame_bgr is None:
             return None
         polygon = None if bypass_polygon else self._resolveZonePolygon(scope, role, frame_bgr.shape)
@@ -3067,14 +3149,21 @@ class VisionManager:
             result = self._cropFrameToPolygonRegion(frame_bgr, polygon)
             if result is not None:
                 crop, (off_x, off_y) = result
+        prof = self.gc.profiler
+        prof.hit(f"hive.{role}.calls")
+        prof.mark(f"hive.{role}.interval_ms")
         try:
-            if conf_threshold is not None:
-                detections = processor.infer(crop, conf_threshold=conf_threshold)
-            else:
-                detections = processor.infer(crop)
+            with prof.timer(f"hive.{role}.infer_ms"):
+                if conf_threshold is not None:
+                    detections = processor.infer(crop, conf_threshold=conf_threshold)
+                else:
+                    detections = processor.infer(crop)
         except Exception as exc:
             if getattr(processor, "_load_failed", False):
                 self._hive_ml_processors[algorithm_id] = False
+                for key, val in list(self._rknn_per_role_processors.items()):
+                    if val is processor:
+                        self._rknn_per_role_processors[key] = False
                 self.gc.logger.warning("Local model %s is permanently broken, disabling: %s", algorithm_id, exc)
             else:
                 self.gc.logger.warning("Local model inference %s failed: %s", algorithm_id, exc)
@@ -3162,12 +3251,32 @@ class VisionManager:
             if cached is not None and not force:
                 last_ts, last_det = cached
                 if now - float(last_ts) < _hive_inference_min_interval_s_for_role(role):
+                    self.gc.profiler.hit(f"hive.{role}.throttled")
                     return self._filterFeederDetectionResultToChannel(role, last_det)
+            # In classification-channel mode "carousel" is BOTH a feeder-tracker
+            # role and the dedicated trigger source. Use the lower carousel
+            # threshold here (matches what _getCarouselDynamicDetection used)
+            # and mirror the result into _carousel_dynamic_detection_cache so
+            # the dedicated trigger path becomes a cache read with no extra
+            # inference. Removes the 2× NPU-core-0 load that capped carousel.
+            conf_override = (
+                HIVE_CAROUSEL_CONF_THRESHOLD
+                if role == "carousel"
+                else None
+            )
             detection = self._filterFeederDetectionResultToChannel(
                 role,
-                self._runHiveDetection(algorithm, frame.raw, scope="feeder", role=role),
+                self._runHiveDetection(
+                    algorithm,
+                    frame.raw,
+                    scope="feeder",
+                    role=role,
+                    conf_threshold=conf_override,
+                ),
             )
             self._feeder_dynamic_detection_cache[role] = (now, detection)
+            if role == "carousel":
+                self._carousel_dynamic_detection_cache = (now, detection)
             self._updateFeederTracker(role, detection, now, frame_bgr=frame.raw)
             return detection
         cached = self._filterFeederDetectionResultToChannel(
@@ -3288,6 +3397,7 @@ class VisionManager:
             if cached is not None and not force:
                 last_ts, last_det = cached
                 if now - float(last_ts) < _hive_inference_min_interval_s_for_role("carousel"):
+                    self.gc.profiler.hit("hive.carousel.throttled")
                     return last_det
             detection = self._runHiveDetection(
                 algorithm,
@@ -4105,33 +4215,47 @@ class VisionManager:
             )
 
     def _refreshAuxiliaryDetections(self) -> None:
-        # Run a detection refresh per dynamic-detection role on every aux
-        # tick. The per-role throttles inside ``_getFeederDynamicDetection``
-        # / ``_getCarouselDynamicDetection`` (Hive: 50 ms on carousel,
-        # 200 ms on C2/C3; Gemini: 1 s API floor) dedupe the actual
-        # inference calls, so this loop just keeps the caches warm
-        # independently of overlay rendering or browser pulls. Decoupling
-        # detection cadence from the render path eliminates the previous
-        # "no browser open → no detection" coupling.
-        for role in self._feederTrackerRoles():
+        # Dispatch per-role inference in parallel so RKNN/NPU calls overlap
+        # instead of serializing through one Python thread. Each role mutates
+        # only its own slot in the per-role caches; with distinct processor
+        # instances per algorithm_id the per-processor locks don't contend.
+        tasks: list[tuple[str, "callable[[], object]"]] = []
+        feeder_roles = self._feederTrackerRoles()
+        for role in feeder_roles:
             if not self._feederRoleUsesDynamicDetection(role):
                 continue
-            try:
-                self._getFeederDynamicDetection(role, force=False)
-            except Exception as exc:
-                self.gc.logger.warning(
-                    f"auxiliary feeder detection refresh failed for {role}: {exc}"
-                )
+            tasks.append((f"feeder:{role}", lambda r=role: self._getFeederDynamicDetection(r, force=False)))
 
-        if self._carousel_capture is not None and self._isDynamicDetectionAlgorithm(
-            self.getCarouselDetectionAlgorithm()
+        # Only dispatch the dedicated carousel path if "carousel" is NOT already
+        # a feeder-tracker role (i.e. non-classification-channel layouts). When
+        # it IS a feeder role, _getFeederDynamicDetection("carousel") now runs
+        # the inference and mirrors the result into the carousel cache — see
+        # the local-model branch there.
+        if (
+            "carousel" not in feeder_roles
+            and self._carousel_capture is not None
+            and self._isDynamicDetectionAlgorithm(self.getCarouselDetectionAlgorithm())
         ):
+            tasks.append(("carousel", lambda: self._getCarouselDynamicDetection(force=False)))
+
+        if not tasks:
+            return
+
+        pool = self._aux_detection_pool
+        if pool is None or len(tasks) == 1:
+            for label, fn in tasks:
+                try:
+                    fn()
+                except Exception as exc:
+                    self.gc.logger.warning(f"auxiliary detection refresh failed for {label}: {exc}")
+            return
+
+        futures = [(label, pool.submit(fn)) for label, fn in tasks]
+        for label, future in futures:
             try:
-                self._getCarouselDynamicDetection(force=False)
+                future.result()
             except Exception as exc:
-                self.gc.logger.warning(
-                    f"auxiliary carousel detection refresh failed: {exc}"
-                )
+                self.gc.logger.warning(f"auxiliary detection refresh failed for {label}: {exc}")
 
     def _auxiliaryDetectionLoop(self) -> None:
         while not self._aux_detection_stop.is_set():
@@ -4279,16 +4403,6 @@ class VisionManager:
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         feed = self._camera_service.get_feed(camera_name)
         return feed.get_frame(annotated=True) if feed else None
-
-    def getFeederArucoTags(self) -> Dict[int, Tuple[float, float]]:
-        if isinstance(self._region_provider, ArucoRegionProvider):
-            return self._region_provider.getTags()
-        return {}
-
-    def getFeederArucoTagsRaw(self) -> Dict[int, Tuple[float, float]]:
-        if isinstance(self._region_provider, ArucoRegionProvider):
-            return self._region_provider.getRawTags()
-        return {}
 
     # stubbed — no inference engine
     def getFeederDetectionsByClass(self) -> Dict[int, List[VisionResult]]:

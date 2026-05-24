@@ -10,8 +10,21 @@ from app.errors import APIError
 from app.models.sample import Sample
 from app.models.sample_review import SampleReview
 from app.models.user import User
-from app.schemas.review import ReviewCreate, ReviewHistoryResponse, ReviewResponse
+from app.schemas.review import (
+    ConditionTagRequest,
+    ConditionTagResponse,
+    ReviewCreate,
+    ReviewHistoryResponse,
+    ReviewResponse,
+)
 from app.schemas.sample import SampleResponse
+from app.services.condition_analysis import (
+    COMPOSITION_VALUES,
+    CONDITION_VALUES,
+    FLAG_NAMES,
+    SOURCE_HUMAN,
+    upsert_condition_analysis,
+)
 from app.services.review_status import recompute_sample_status
 
 router = APIRouter(prefix="/api/review", tags=["review"])
@@ -117,6 +130,75 @@ def create_or_update_review(
         db.refresh(review)
         recompute_sample_status(db, sample_id)
         return _review_response(review)
+
+
+@router.post("/condition/{sample_id}", response_model=ConditionTagResponse)
+def tag_condition_sample(
+    sample_id: UUID,
+    data: ConditionTagRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("reviewer", "admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Human tags a condition sample with flag chips.
+
+    Writes a `cond_primary` analysis block with source=human_review, which
+    replaces any prior auto-label from the Perceptron worker. Always wins
+    over machine output — humans are the override authority.
+
+    Keeping this separate from POST /samples/{id} (which is accept/reject)
+    means the binary review queue stays simple and the condition tagger
+    can mature independently. No sample_reviews row is written; the
+    auditable trail lives inside the analysis block (provider, written_at,
+    reviewer_id) since the existing CHECK constraint forbids any
+    decision values beyond accept/reject.
+    """
+
+    if data.composition not in COMPOSITION_VALUES:
+        raise APIError(
+            400,
+            f"composition must be one of {list(COMPOSITION_VALUES)}",
+            "INVALID_COMPOSITION",
+        )
+    if data.condition not in CONDITION_VALUES:
+        raise APIError(
+            400,
+            f"condition must be one of {list(CONDITION_VALUES)}",
+            "INVALID_CONDITION",
+        )
+
+    sample = db.query(Sample).filter(Sample.id == sample_id).first()
+    if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+
+    # Drop unknown flag keys silently — the writer also filters, but doing
+    # it here gives us a tidy payload to return to the client.
+    sanitized_flags = {
+        key: bool(value)
+        for key, value in data.flags.items()
+        if key in FLAG_NAMES and isinstance(value, bool)
+    }
+
+    analysis = upsert_condition_analysis(
+        sample,
+        composition=data.composition,
+        condition=data.condition,
+        flags=sanitized_flags,
+        source=SOURCE_HUMAN,
+        model=None,
+        visible_evidence=data.visible_evidence,
+        part_count_estimate=data.part_count_estimate,
+        issues=data.issues,
+        reviewer_id=str(current_user.id),
+    )
+    db.commit()
+    db.refresh(sample)
+    return ConditionTagResponse(
+        sample_id=sample.id,
+        analysis=analysis,
+        review_status=sample.review_status,
+        written_by=current_user.id,
+    )
 
 
 @router.get("/samples/{sample_id}/history", response_model=ReviewHistoryResponse)

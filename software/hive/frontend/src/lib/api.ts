@@ -726,6 +726,24 @@ export const api = {
 	getReviewHistory(sampleId: string) {
 		return request<{ reviews: SampleReview[]; sample_id: string; review_status: string }>('GET', `/api/review/samples/${sampleId}/history`);
 	},
+	tagCondition(
+		sampleId: string,
+		data: {
+			composition: string;
+			condition: string;
+			flags: Record<string, boolean>;
+			visible_evidence?: string | null;
+			part_count_estimate?: number | null;
+			issues?: string[];
+		}
+	) {
+		return request<{
+			sample_id: string;
+			analysis: Record<string, unknown>;
+			review_status: string;
+			written_by: string;
+		}>('POST', `/api/review/condition/${sampleId}`, data);
+	},
 
 	updateProfile(data: {
 		display_name?: string;

@@ -128,6 +128,7 @@ def build_cond_primary_analysis(
     status: str = "completed",
     error: str | None = None,
     raw_payload: dict[str, Any] | None = None,
+    reviewer_id: str | None = None,
 ) -> dict[str, Any]:
     """Shape a single `cond_primary` analysis entry.
 
@@ -153,6 +154,8 @@ def build_cond_primary_analysis(
         "written_at": datetime.now(timezone.utc).isoformat(),
         "source": source if source in ALLOWED_SOURCES else SOURCE_HUMAN,
     }
+    if reviewer_id:
+        metadata["reviewer_id"] = reviewer_id
     if raw_payload is not None:
         metadata["raw_payload"] = copy.deepcopy(raw_payload)
 
@@ -186,6 +189,7 @@ def upsert_condition_analysis(
     status: str = "completed",
     error: str | None = None,
     raw_payload: dict[str, Any] | None = None,
+    reviewer_id: str | None = None,
 ) -> dict[str, Any]:
     """Replace any prior `cond_primary` entry on the sample with a fresh one.
 
@@ -218,6 +222,7 @@ def upsert_condition_analysis(
         status=status,
         error=error,
         raw_payload=raw_payload,
+        reviewer_id=reviewer_id,
     )
     analyses.append(analysis)
     payload["analyses"] = analyses

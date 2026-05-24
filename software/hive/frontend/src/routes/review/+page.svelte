@@ -21,6 +21,7 @@
 	import ReviewHeuristics from '$lib/components/review/ReviewHeuristics.svelte';
 	import TeacherRerunButtons from '$lib/components/teacher/TeacherRerunButtons.svelte';
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
+	import SampleConditionTagger from '$lib/components/sample/SampleConditionTagger.svelte';
 	import { Alert } from '$lib/components/primitives';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
@@ -46,6 +47,14 @@
 	let lastLoadedReviewKey = $state<string | null>(null);
 	let lastSampleId = $state<string | null>(null);
 	let reviewImageAsset = $state<ReviewImageAsset>('image');
+
+	// True when the current sample is a piece-condition crop (collected by the
+	// sorter's condition_collector). In that case we render the tagger chip UI
+	// alongside the existing card so a human can override any auto-label.
+	let isConditionSample = $derived.by<boolean>(() => {
+		const payload = sample?.sample_payload as { sample?: { capture_scope?: unknown } } | null;
+		return payload?.sample?.capture_scope === 'condition';
+	});
 
 	function isTextInputTarget(target: EventTarget | null) {
 		if (!(target instanceof HTMLElement)) return false;
@@ -598,6 +607,25 @@
 			/>
 
 			<SampleConditionCard samplePayload={sample.sample_payload} />
+
+			{#if isConditionSample}
+				<SampleConditionTagger
+					sampleId={sample.id}
+					samplePayload={sample.sample_payload}
+					onSaved={(analysis) => {
+						// Splice the freshly-saved analysis into the local sample so the
+						// adjacent SampleConditionCard reflects the new label without
+						// waiting for a refetch.
+						if (sample) {
+							const payload = (sample.sample_payload as Record<string, unknown> | null) ?? {};
+							const analyses = Array.isArray(payload.analyses) ? (payload.analyses as Record<string, unknown>[]) : [];
+							const filtered = analyses.filter((a) => (a as { analysis_id?: string }).analysis_id !== 'cond_primary');
+							filtered.push(analysis);
+							sample = { ...sample, sample_payload: { ...payload, analyses: filtered } };
+						}
+					}}
+				/>
+			{/if}
 
 			<ReviewActionPad
 				{annotateMode}

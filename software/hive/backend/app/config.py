@@ -47,7 +47,7 @@ class Settings(BaseSettings):
     # Hard cap on in-flight teacher items across all providers combined. Per-provider
     # concurrency is also capped (see adapter.max_concurrent) so a single noisy provider
     # can't starve the pool — this is just the upper bound on overall thread count.
-    TEACHER_WORKER_PARALLELISM: int = 6
+    TEACHER_WORKER_PARALLELISM: int = 8
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None

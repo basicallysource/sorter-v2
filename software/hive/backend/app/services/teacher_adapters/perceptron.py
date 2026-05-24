@@ -358,12 +358,16 @@ class PerceptronAdapter:
         if width <= 0 or height <= 0:
             raise RuntimeError("Sample image has zero dimensions")
 
-        # IMPORTANT: ignore override_prompt for Perceptron. The native grounding pipeline
-        # (annotation_format + classes + short instruction) is what produces reliable
-        # <point_box> XML. A long chat-style override pulls the model into conversational
-        # prose mode regardless of annotation_format. The compare-page UI tells users this
-        # textarea is a no-op for Perceptron.
-        instruction = _zone_instruction(zone)
+        # Use the caller-supplied override if any (admin-edited settings prompt or
+        # compare-page ad-hoc textarea). Falls back to the built-in short native
+        # instruction. NOTE: long chat-style overrides will pull Perceptron into
+        # conversational prose mode regardless of vision_config — that's a tradeoff
+        # the editor accepts when they save a non-trivial custom prompt.
+        instruction = (
+            override_prompt.strip()
+            if override_prompt and override_prompt.strip()
+            else _zone_instruction(zone)
+        )
         classes = _ZONE_CLASSES.get(zone, ["lego piece", "foreign object"])
         image_b64 = base64.b64encode(image_bytes).decode("ascii")
         base_url = getattr(settings, "PERCEPTRON_BASE_URL", "https://api.perceptron.inc/v1")

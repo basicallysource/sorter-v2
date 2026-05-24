@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import TeacherPromptsEditor from '$lib/components/teacher/TeacherPromptsEditor.svelte';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -627,6 +628,9 @@
 					</button>
 				</form>
 			</div>
+
+			<!-- Per-zone teacher prompts: shared between batch worker, sample re-run, and compare. -->
+			<TeacherPromptsEditor />
 
 			<!-- API keys -->
 			<div class="border border-border bg-surface p-6">

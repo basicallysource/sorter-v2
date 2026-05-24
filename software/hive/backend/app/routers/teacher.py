@@ -15,6 +15,7 @@ from app.deps import get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.sample import Sample
 from app.models.teacher_job import TeacherJob, TeacherJobItem
+from app.models.teacher_prompt import TeacherPrompt
 from app.models.user import User
 from app.services.secrets import decrypt_secret
 from app.services.teacher_adapters import get_adapter, list_adapters
@@ -31,6 +32,13 @@ from app.services.teacher_detector import (
     zone_for_source_role,
 )
 from app.services.storage_backend import get_backend
+from app.services.teacher_prompts import (
+    SUPPORTED_PROMPT_KINDS,
+    SUPPORTED_PROMPT_ZONES,
+    adapter_kind_for,
+    default_template,
+    resolve_prompt,
+)
 
 from app.config import settings
 from app.schemas.sample import SampleDetailResponse
@@ -423,18 +431,19 @@ def get_sample_teacher_prompt(
     if adapter is None:
         raise APIError(400, f"Unknown teacher model {openrouter_model!r}.", "TEACHER_MODEL_UNKNOWN")
 
-    if adapter.adapter_kind == "perceptron":
-        prompt_text = perceptron_zone_instruction(zone)
-    else:
-        width = int(sample.image_width or 1024)
-        height = int(sample.image_height or 1024)
-        prompt_text = gemini_prompt(width, height, zone=zone)
+    resolved = resolve_prompt(
+        db,
+        zone,
+        adapter_kind_for(adapter.adapter_kind),
+        width=int(sample.image_width or 1024),
+        height=int(sample.image_height or 1024),
+    )
 
     return TeacherPromptResponse(
         model_id=adapter.model_id,
         adapter_kind=adapter.adapter_kind,
         zone=zone,
-        prompt=prompt_text,
+        prompt=resolved.content,
     )
 
 
@@ -494,13 +503,27 @@ def preview_sample_teacher(
     except FileNotFoundError as exc:
         raise APIError(404, "Sample image is missing", "SAMPLE_IMAGE_MISSING") from exc
 
+    # Chain: compare-page textarea override (ad-hoc) > persisted DB prompt (settings) >
+    # hardcoded default. The textarea has been pre-filled with the resolved value so the
+    # user only sees a real "override" when they actually typed something different.
+    effective_prompt = payload.override_prompt
+    if not (effective_prompt and effective_prompt.strip()):
+        resolved = resolve_prompt(
+            db,
+            zone,
+            adapter_kind_for(adapter.adapter_kind),
+            width=int(sample.image_width or 1024),
+            height=int(sample.image_height or 1024),
+        )
+        effective_prompt = resolved.content
+
     try:
         result = adapter.detect(
             image_bytes=image_bytes,
             zone=zone,
             api_key=api_key,
             public_app_url=settings.public_app_url,
-            override_prompt=payload.override_prompt,
+            override_prompt=effective_prompt,
         )
     except Exception as exc:
         raise APIError(502, f"Teacher detection failed: {exc}", "TEACHER_DETECTION_FAILED") from exc
@@ -576,6 +599,16 @@ def rerun_single_sample(
     except FileNotFoundError as exc:
         raise APIError(404, "Sample image is missing", "SAMPLE_IMAGE_MISSING") from exc
 
+    # Persisted-prompt resolution: pull DB-stored prompt for this zone+kind (or default
+    # template) and pass it via override_prompt. Same chain as the batch worker.
+    resolved = resolve_prompt(
+        db,
+        zone,
+        adapter_kind_for(adapter.adapter_kind),
+        width=int(sample.image_width or 1024),
+        height=int(sample.image_height or 1024),
+    )
+
     try:
         result = run_teacher_detection(
             image_bytes=image_bytes,
@@ -583,6 +616,7 @@ def rerun_single_sample(
             api_key=api_key,
             public_app_url=settings.public_app_url,
             openrouter_model=model,
+            override_prompt=resolved.content,
         )
     except Exception as exc:
         raise APIError(502, f"Teacher detection failed: {exc}", "TEACHER_DETECTION_FAILED") from exc
@@ -622,3 +656,119 @@ def cancel_teacher_job(
     db.commit()
     db.refresh(job)
     return _job_to_summary(job)
+
+
+# ============================================================ persisted prompts CRUD
+
+class TeacherPromptEntry(BaseModel):
+    zone: str
+    kind: str  # 'chat' | 'perceptron'
+    content: str              # currently-effective template (DB if set, else default)
+    is_custom: bool           # True iff a DB row exists for this (zone, kind)
+    default_content: str      # the hardcoded baseline; powers the "Reset" button
+    updated_at: datetime | None = None
+    updated_by_display_name: str | None = None
+
+
+class TeacherPromptUpdateRequest(BaseModel):
+    content: str
+
+
+def _prompt_entry_for(db: Session, zone: str, kind: str) -> TeacherPromptEntry:
+    """Compose the per-row payload the settings page consumes for one zone × kind."""
+    row = (
+        db.query(TeacherPrompt)
+        .filter(TeacherPrompt.zone == zone, TeacherPrompt.kind == kind)
+        .first()
+    )
+    default_tmpl = default_template(zone, kind)
+    if row is None:
+        return TeacherPromptEntry(
+            zone=zone, kind=kind,
+            content=default_tmpl, is_custom=False,
+            default_content=default_tmpl,
+        )
+    updater_name: str | None = None
+    if row.updated_by_id is not None:
+        u = db.query(User).filter(User.id == row.updated_by_id).first()
+        if u is not None:
+            updater_name = u.display_name or u.email
+    return TeacherPromptEntry(
+        zone=zone, kind=kind,
+        content=row.content, is_custom=True,
+        default_content=default_tmpl,
+        updated_at=row.updated_at,
+        updated_by_display_name=updater_name,
+    )
+
+
+@router.get("/prompts", response_model=list[TeacherPromptEntry])
+def list_teacher_prompts(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+) -> list[TeacherPromptEntry]:
+    """Return one row per supported (zone, kind) — exactly what the editor renders."""
+    return [
+        _prompt_entry_for(db, zone, kind)
+        for zone in SUPPORTED_PROMPT_ZONES
+        for kind in SUPPORTED_PROMPT_KINDS
+    ]
+
+
+def _validate_zone_kind(zone: str, kind: str) -> None:
+    if zone not in SUPPORTED_PROMPT_ZONES:
+        raise APIError(400, f"Unknown zone {zone!r}", "TEACHER_PROMPT_ZONE_INVALID")
+    if kind not in SUPPORTED_PROMPT_KINDS:
+        raise APIError(400, f"Unknown kind {kind!r}", "TEACHER_PROMPT_KIND_INVALID")
+
+
+@router.put("/prompts/{zone}/{kind}", response_model=TeacherPromptEntry)
+def upsert_teacher_prompt(
+    zone: str,
+    kind: str,
+    payload: TeacherPromptUpdateRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+) -> TeacherPromptEntry:
+    """Persist or update the custom prompt for ``(zone, kind)``."""
+    _validate_zone_kind(zone, kind)
+    content = (payload.content or "").strip()
+    if not content:
+        raise APIError(400, "Prompt content cannot be empty", "TEACHER_PROMPT_EMPTY")
+
+    row = (
+        db.query(TeacherPrompt)
+        .filter(TeacherPrompt.zone == zone, TeacherPrompt.kind == kind)
+        .first()
+    )
+    if row is None:
+        row = TeacherPrompt(zone=zone, kind=kind, content=content, updated_by_id=admin.id)
+        db.add(row)
+    else:
+        row.content = content
+        row.updated_by_id = admin.id
+    db.commit()
+    db.refresh(row)
+    return _prompt_entry_for(db, zone, kind)
+
+
+@router.delete("/prompts/{zone}/{kind}", response_model=TeacherPromptEntry)
+def reset_teacher_prompt(
+    zone: str,
+    kind: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+) -> TeacherPromptEntry:
+    """Drop the custom prompt so detection falls back to the hardcoded default."""
+    _validate_zone_kind(zone, kind)
+    row = (
+        db.query(TeacherPrompt)
+        .filter(TeacherPrompt.zone == zone, TeacherPrompt.kind == kind)
+        .first()
+    )
+    if row is not None:
+        db.delete(row)
+        db.commit()
+    return _prompt_entry_for(db, zone, kind)

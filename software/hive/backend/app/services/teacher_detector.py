@@ -179,17 +179,15 @@ _CLASSIFICATION_CHANNEL_PROMPT = (
 )
 
 
-def gemini_prompt(width: int, height: int, zone: str) -> str:
-    """Build the Gemini-style detection prompt for OpenAI-chat-shaped adapters.
+def gemini_prompt_template(zone: str) -> str:
+    """Return the raw chat-style prompt template for ``zone`` with ``{width}`` and
+    ``{height}`` placeholders left literal.
 
-    Public (no underscore) so :mod:`teacher_adapters.openrouter_chat` can call it. Perceptron
-    builds its own much shorter instruction in its adapter and does not need this.
+    Editable in admin settings — when the admin saves a custom prompt for this zone we
+    store the template here, not a per-image rendered string.
     """
-    # The classification_channel (C4) zone gets a compact, focused prompt that explicitly
-    # gates detections to the rotor disc — much terser than the legacy paragraph format and
-    # produces noticeably cleaner boxes from the chat-style models.
     if zone == "classification_channel":
-        return _CLASSIFICATION_CHANNEL_PROMPT.format(width=width, height=height)
+        return _CLASSIFICATION_CHANNEL_PROMPT
 
     context, ignore_rules = ZONE_PROMPTS.get(zone, ZONE_PROMPTS["classification_chamber"])
     return (
@@ -234,7 +232,7 @@ def gemini_prompt(width: int, height: int, zone: str) -> str:
         '"bbox":[y_min,x_min,y_max,x_max],"confidence":0.0-1.0}]}\n\n'
         "Field semantics:\n"
         "- bbox: Gemini's normalized 0-1000 scale, order "
-        f"[y_min, x_min, y_max, x_max], for this {width}x{height} image.\n"
+        "[y_min, x_min, y_max, x_max], for this {width}x{height} image.\n"
         "- kind: 'lego' if you are confident it is a LEGO/compatible plastic "
         "part; 'foreign' for anything else (screw, coin, stone, wrapper, "
         "unknown). When unsure, prefer 'foreign' — the machine must flag it "
@@ -243,6 +241,15 @@ def gemini_prompt(width: int, height: int, zone: str) -> str:
         "kind); 0.5-0.7 uncertain whether it is an item at all vs. artifact. "
         "Confidence is about 'is this an object', NOT 'is this LEGO'."
     )
+
+
+def gemini_prompt(width: int, height: int, zone: str) -> str:
+    """Build the Gemini-style detection prompt for OpenAI-chat-shaped adapters.
+
+    Public (no underscore) so :mod:`teacher_adapters.openrouter_chat` can call it. Perceptron
+    builds its own much shorter instruction in its adapter and does not need this.
+    """
+    return gemini_prompt_template(zone).format(width=width, height=height)
 
 
 def apply_teacher_result_to_sample(
@@ -290,12 +297,16 @@ def run_teacher_detection(
     api_key: str,
     public_app_url: str,
     openrouter_model: str | None = None,
+    override_prompt: str | None = None,
 ) -> dict[str, Any]:
     """Dispatch to the registered adapter for ``openrouter_model``.
 
     Returns the legacy dict shape (consumed by the worker + sync rerun endpoint) so callers
     don't need to know about the new adapter package. The detail page uses the adapter
     objects directly to get the richer ``TeacherDetectionResult`` (with latency etc.).
+
+    ``override_prompt`` is forwarded to the adapter; pass the resolved per-zone prompt
+    from :mod:`app.services.teacher_prompts` so admin-edited templates take effect.
     """
     model_id = normalize_openrouter_model(openrouter_model)
     adapter = get_adapter(model_id)
@@ -312,6 +323,7 @@ def run_teacher_detection(
         zone=zone,
         api_key=api_key,
         public_app_url=public_app_url,
+        override_prompt=override_prompt,
     )
     return result.to_payload()
 

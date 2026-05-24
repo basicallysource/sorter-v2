@@ -1042,6 +1042,17 @@ export const api = {
 	listTeacherModels() {
 		return request<TeacherModelInfo[]>('GET', '/api/admin/teacher/models');
 	},
+	listTeacherPrompts() {
+		return request<TeacherPromptEntry[]>('GET', '/api/admin/teacher/prompts');
+	},
+	saveTeacherPrompt(zone: string, kind: string, content: string) {
+		return request<TeacherPromptEntry>('PUT', `/api/admin/teacher/prompts/${zone}/${kind}`, {
+			content
+		});
+	},
+	resetTeacherPrompt(zone: string, kind: string) {
+		return request<TeacherPromptEntry>('DELETE', `/api/admin/teacher/prompts/${zone}/${kind}`);
+	},
 	getSampleTeacherPrompt(sampleId: string, openrouter_model: string) {
 		const qs = new URLSearchParams({ openrouter_model }).toString();
 		return request<{ model_id: string; adapter_kind: string; zone: string; prompt: string; is_default: boolean }>(
@@ -1169,6 +1180,16 @@ export interface TeacherModelInfo {
 	display_name: string;
 	adapter_kind: string;
 	notes: string;
+}
+
+export interface TeacherPromptEntry {
+	zone: string;
+	kind: string; // 'chat' | 'perceptron'
+	content: string;
+	is_custom: boolean;
+	default_content: string;
+	updated_at: string | null;
+	updated_by_display_name: string | null;
 }
 
 export interface TeacherPreviewDetection {

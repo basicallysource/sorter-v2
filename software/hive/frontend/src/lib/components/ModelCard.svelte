@@ -31,6 +31,28 @@
 	const samples = $derived(asInt(datasetMeta?.total) ?? asInt(datasetMeta?.train_samples));
 	const machineCount = $derived(asInt(asRecord(datasetMeta?.machines)?.count));
 
+	// Diversity score = normalized Shannon entropy of per-machine sample shares.
+	// 0 = single rig (training set is one camera's worth of bias), 1.0 = perfect
+	// equal split across all contributing machines. The number above gives an
+	// at-a-glance answer to "is this model overfit to one rig?".
+	const diversityScore = $derived.by<number | null>(() => {
+		const dist = asRecord(asRecord(datasetMeta?.machines)?.distribution_after_balance);
+		if (!dist) return null;
+		const counts: number[] = [];
+		for (const value of Object.values(dist)) {
+			const txt = typeof value === 'string' ? value : String(value);
+			const match = txt.match(/(\d[\d.,]*)/);
+			if (match) counts.push(parseInt(match[1].replace(/[.,]/g, ''), 10));
+		}
+		if (counts.length < 2) return counts.length === 1 ? 0 : null;
+		const total = counts.reduce((a, b) => a + b, 0);
+		if (total === 0) return null;
+		const shares = counts.map((c) => c / total);
+		const entropy = -shares.reduce((acc, p) => acc + (p > 0 ? p * Math.log(p) : 0), 0);
+		const maxEntropy = Math.log(counts.length);
+		return maxEntropy > 0 ? entropy / maxEntropy : 0;
+	});
+
 	const arch = $derived(typeof modelMeta?.architecture === 'string' ? (modelMeta.architecture as string) : null);
 	const imgsz = $derived(asInt(modelMeta?.imgsz));
 
@@ -120,10 +142,15 @@
 					{samples !== null ? samples.toLocaleString() : '—'}
 				</div>
 			</div>
-			<div class="bg-[var(--color-surface)] px-3 py-2">
-				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Rigs</div>
+			<div
+				class="bg-[var(--color-surface)] px-3 py-2"
+				title={machineCount !== null
+					? `Normalized Shannon entropy of per-machine sample shares across ${machineCount} rigs. 0 = single rig, 1.0 = perfect even split.`
+					: 'Normalized Shannon entropy of per-machine sample shares. 0 = single rig, 1.0 = perfect even split.'}
+			>
+				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Diversity</div>
 				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">
-					{machineCount !== null ? machineCount : '—'}
+					{diversityScore !== null ? diversityScore.toFixed(3) : '—'}
 				</div>
 			</div>
 		</div>

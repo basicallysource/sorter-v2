@@ -102,19 +102,32 @@
 		</div>
 	{/if}
 
-	<!-- Body: architecture/imgsz row + dataset summary row -->
-	<div class="space-y-1 px-4 py-3">
-		{#if arch || imgsz}
-			<p class="text-xs text-[var(--color-text)]">
-				{#if arch}<span class="font-medium">{arch}</span>{/if}{#if arch && imgsz}<span class="text-[var(--color-text-muted)]"> · </span>{/if}{#if imgsz}<span class="text-[var(--color-text-muted)]">{imgsz}×{imgsz}</span>{/if}
-			</p>
-		{/if}
-		{#if samples !== null || machineCount !== null}
-			<p class="text-xs text-[var(--color-text-muted)]">
-				{#if samples !== null}{samples.toLocaleString()} samples{/if}{#if samples !== null && machineCount !== null} · {/if}{#if machineCount !== null}{machineCount} rigs{/if}
-			</p>
-		{:else if model.description && !arch}
-			<p class="line-clamp-2 text-xs text-[var(--color-text-muted)]">{model.description}</p>
-		{/if}
-	</div>
+	<!-- Body — 3 columns matching the metric grid above: Model · Samples · Rigs -->
+	{#if arch || imgsz || samples !== null || machineCount !== null}
+		<div class="grid grid-cols-3 gap-px bg-[var(--color-border)]">
+			<div class="bg-[var(--color-surface)] px-3 py-2">
+				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Model</div>
+				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">
+					{#if arch && imgsz}{arch} @ {imgsz}
+					{:else if arch}{arch}
+					{:else if imgsz}{imgsz}×{imgsz}
+					{:else}—{/if}
+				</div>
+			</div>
+			<div class="bg-[var(--color-surface)] px-3 py-2">
+				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Samples</div>
+				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">
+					{samples !== null ? samples.toLocaleString() : '—'}
+				</div>
+			</div>
+			<div class="bg-[var(--color-surface)] px-3 py-2">
+				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Rigs</div>
+				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">
+					{machineCount !== null ? machineCount : '—'}
+				</div>
+			</div>
+		</div>
+	{:else if model.description}
+		<p class="line-clamp-2 px-4 py-3 text-xs text-[var(--color-text-muted)]">{model.description}</p>
+	{/if}
 </a>

@@ -87,22 +87,25 @@ PRESETS: dict[str, RknnPreset] = {
         std_values=(255.0, 255.0, 255.0),
         head_stripped=False,
     ),
-    # Target preset for the upcoming H100 build: yolo11s @ 320×320 → Orange Pi 5
-    # (RK3588 NPU, int8). Successor of A5-yolo11s-320-20260514, which was the
-    # previous best (mAP50=0.962, mAP50_95=0.837) on 900 samples from
-    # c_channel_full. Same architecture + image size; the bigger lever this round
-    # is the ~6× larger, machine-balanced dataset (5500 across 4 active rigs).
+    # Target preset for the upcoming H100 build: yolo26s @ 320×320 → Orange Pi 5
+    # (RK3588 NPU, int8). The May 14 head-to-head comparison had yolo26s 320 (A7)
+    # ahead of yolo11s 320 (A5) on the harder metric:
+    #   A7 yolo26s 320 → mAP50=0.9638, mAP50_95=0.8497, recall=0.9066
+    #   A5 yolo11s 320 → mAP50=0.9618, mAP50_95=0.8367, recall=0.9050
+    # Same exporter shape; both produce stock Ultralytics ONNX that RKNN-Toolkit2
+    # ≥1.6 handles identically. The bigger lever this round is the ~6× larger,
+    # machine-balanced dataset (5500 across 4 active rigs), not the architecture.
     #
     # After the H100 run finishes, update model_id + onnx_path + calibration_dir
-    # to point at the actual run folder (e.g. "20260524-...-c_channel_full-yolo-v2").
-    "c_channel_full_yolo11s_320_rk3588": RknnPreset(
-        name="c_channel_full_yolo11s_320_rk3588",
-        label="C-Channel Full YOLO11s 320 → RKNN (Orange Pi 5 / RK3588)",
-        model_id="TBD-c-channel-full-yolo11s-320",
+    # to point at the actual run folder (e.g. "20260524-...-c_channel_full-yolo26s-320").
+    "c_channel_full_yolo26s_320_rk3588": RknnPreset(
+        name="c_channel_full_yolo26s_320_rk3588",
+        label="C-Channel Full YOLO26s 320 → RKNN (Orange Pi 5 / RK3588)",
+        model_id="TBD-c-channel-full-yolo26s-320",
         model_family="yolo",
         target_platform="rk3588",
         onnx_path=RUNS_DIR
-            / "TBD-c-channel-full-yolo11s-320"
+            / "TBD-c-channel-full-yolo26s-320"
             / "exports"
             / "best.onnx",
         onnx_input_name="images",

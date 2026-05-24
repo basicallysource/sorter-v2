@@ -112,6 +112,12 @@ def _build_variants(run_dir: Path, hailo_bundle: Path | None) -> list[tuple[str,
     if pt.exists():
         variants.append(("pytorch", pt, None, False))
 
+    # Rockchip RKNN: a single .rknn file produced by rknn-toolkit2 from the ONNX
+    # export. Used by the Orange Pi 5 (RK3588 NPU) deployment path.
+    rknn = exports / "best.rknn"
+    if rknn.exists():
+        variants.append(("rknn", rknn, None, False))
+
     if not variants:
         raise SystemExit("No uploadable variants found")
     return variants

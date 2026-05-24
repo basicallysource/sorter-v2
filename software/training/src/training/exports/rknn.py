@@ -101,19 +101,22 @@ PRESETS: dict[str, RknnPreset] = {
     "c_channel_full_yolo26s_320_rk3588": RknnPreset(
         name="c_channel_full_yolo26s_320_rk3588",
         label="C-Channel Full YOLO26s 320 → RKNN (Orange Pi 5 / RK3588)",
-        model_id="TBD-c-channel-full-yolo26s-320",
+        # Resolved after the 20260524 H100 run completed (mAP50=0.948,
+        # mAP50_95=0.839 on the v2 val set across all 4 active machines).
+        model_id="20260524-c-channel-full-yolo26s-320",
         model_family="yolo",
         target_platform="rk3588",
         onnx_path=RUNS_DIR
-            / "TBD-c-channel-full-yolo26s-320"
-            / "exports"
+            / "20260524-104900-c_channel_full-yolo-v2"
+            / "A7-yolo26s-320"
+            / "weights"
             / "best.onnx",
         onnx_input_name="images",
         onnx_input_shape=(1, 3, 320, 320),
         classes=1,
         default_conf=0.25,
         default_iou=0.45,
-        calibration_dir=ZONE_DATASETS_DIR / "c_channel_full" / "v2" / "train" / "images",
+        calibration_dir=ZONE_DATASETS_DIR / "c_channel_full" / "v2" / "images" / "train",
         calibration_count=150,
         quantization="i8",
         mean_values=(0.0, 0.0, 0.0),
@@ -206,9 +209,10 @@ def _copy_calibration_images(preset: RknnPreset, destination_dir: Path) -> list[
 
 
 def _make_dataset_txt(calibration_filenames: list[str]) -> str:
-    # rknn-toolkit2's `build(dataset='dataset.txt')` expects one path per line,
-    # relative to the file location.
-    return "\n".join(f"calibration/images/{name}" for name in calibration_filenames) + "\n"
+    """RKNN's quantizer resolves each line in dataset.txt RELATIVE to dataset.txt
+    itself, not the bundle root. We place dataset.txt at calibration/dataset.txt
+    next to calibration/images/, so the lines have to be ``images/<file>``."""
+    return "\n".join(f"images/{name}" for name in calibration_filenames) + "\n"
 
 
 def _make_convert_script(preset: RknnPreset) -> str:

@@ -86,6 +86,13 @@ class TeacherWorker:
             if self._dispatcher is not None and self._dispatcher.is_alive():
                 return
             self._stop_event.clear()
+            # Recover orphaned 'running' items: a previous process picked them via
+            # FOR UPDATE SKIP LOCKED but crashed/was restarted before writing the
+            # terminal status. No worker thread is alive yet, so anything marked
+            # 'running' right now is by definition stranded — reset to 'queued' so
+            # the dispatcher picks them on the first cycle. Safe because the
+            # ThreadPoolExecutor + dispatcher haven't started yet.
+            self._recover_orphaned_running_items()
             self._executor = ThreadPoolExecutor(
                 max_workers=max(1, settings.TEACHER_WORKER_PARALLELISM),
                 thread_name_prefix="teacher-worker",
@@ -100,6 +107,26 @@ class TeacherWorker:
                 "Teacher worker started (parallelism=%d)",
                 settings.TEACHER_WORKER_PARALLELISM,
             )
+
+    def _recover_orphaned_running_items(self) -> None:
+        db = SessionLocal()
+        try:
+            count = (
+                db.query(TeacherJobItem)
+                .filter(TeacherJobItem.status == "running")
+                .update({TeacherJobItem.status: "queued"}, synchronize_session=False)
+            )
+            if count:
+                db.commit()
+                logger.warning(
+                    "Recovered %d orphaned teacher-job items stuck in 'running' "
+                    "after a previous worker restart.",
+                    count,
+                )
+        except Exception:
+            logger.exception("Failed to recover orphaned teacher-job items")
+        finally:
+            db.close()
 
     def stop(self, timeout: float = 5.0) -> None:
         self._stop_event.set()

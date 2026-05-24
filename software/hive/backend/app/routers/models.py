@@ -21,6 +21,7 @@ from app.models.user import User
 from app.schemas.model import (
     DetectionModelCreateRequest,
     DetectionModelCreateResponse,
+    DetectionModelUpdateRequest,
     DetectionModelDetail,
     DetectionModelListResponse,
     DetectionModelSummary,
@@ -134,6 +135,30 @@ def download_model_variant(
         sha256=variant.sha256,
         file_size=variant.file_size,
     )
+
+
+@router.patch("/{model_id}", response_model=DetectionModelCreateResponse)
+def update_model(
+    model_id: UUID,
+    payload: DetectionModelUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Update mutable fields on an existing model. Lets the training-side
+    publisher attach a fully-composed training_metadata block (benchmarks +
+    dataset selection + best metrics) after the variants were already
+    uploaded, without paying the cost of a new version + re-upload."""
+    model = db.query(DetectionModel).filter(DetectionModel.id == model_id).first()
+    if model is None:
+        raise APIError(404, "Model not found", "MODEL_NOT_FOUND")
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(model, field, value)
+    db.commit()
+    db.refresh(model)
+    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version)
 
 
 @router.post("", response_model=DetectionModelCreateResponse)

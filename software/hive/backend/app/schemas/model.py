@@ -63,6 +63,15 @@ class DetectionModelCreateResponse(BaseModel):
     version: int
 
 
+class DetectionModelUpdateRequest(BaseModel):
+    """Patch existing model fields. All optional — only provided keys update."""
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    scopes: list[str] | None = None
+    training_metadata: dict[str, Any] | None = None
+    is_public: bool | None = None
+
+
 class DetectionModelVariantUploadResponse(BaseModel):
     id: UUID
     runtime: str

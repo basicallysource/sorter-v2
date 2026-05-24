@@ -29,7 +29,7 @@ dependencies = [
     "readchar>=4.2.1",
     "requests>=2.32.5",
     "requests-oauthlib>=2.0.0",
-    "rknn-toolkit-lite2>=2.3.2",
+    "rknn-toolkit-lite2>=2.3.2; sys_platform == 'linux' and platform_machine == 'aarch64'",
     "supervision>=0.27.0.post2",
     "torch>=2.5.0",
     "torchvision>=0.20.0",

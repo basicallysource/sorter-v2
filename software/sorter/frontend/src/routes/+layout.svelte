@@ -1,4 +1,4 @@
-<script>
+<script lang="ts">
 	import './layout.css';
 	import MachinesProvider from '$lib/components/MachinesProvider.svelte';
 	import MachineProvider from '$lib/components/MachineProvider.svelte';
@@ -28,6 +28,15 @@
 		}
 	});
 
+	function reportClientError(payload: Record<string, unknown>) {
+		const base = `${window.location.protocol}//${window.location.hostname}:8000`;
+		fetch(`${base}/api/system/client-error`, {
+			method: 'POST',
+			headers: { 'Content-Type': 'application/json' },
+			body: JSON.stringify(payload)
+		}).catch(() => {});
+	}
+
 	onMount(() => {
 		try {
 			const stored = window.localStorage.getItem('settings');
@@ -40,6 +49,26 @@
 			console.error(e);
 		}
 		void loadThemeColor();
+
+		window.addEventListener('error', (e) => {
+			reportClientError({
+				type: 'uncaught',
+				message: e.message,
+				source: e.filename,
+				lineno: e.lineno,
+				colno: e.colno,
+				stack: e.error?.stack
+			});
+		});
+
+		window.addEventListener('unhandledrejection', (e) => {
+			const reason = e.reason;
+			reportClientError({
+				type: 'unhandledrejection',
+				message: reason instanceof Error ? reason.message : String(reason),
+				stack: reason instanceof Error ? reason.stack : undefined
+			});
+		});
 	});
 </script>
 

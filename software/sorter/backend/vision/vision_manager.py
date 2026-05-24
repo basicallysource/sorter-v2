@@ -207,6 +207,7 @@ class VisionManager:
             exit_observer=getattr(gc.runtime_stats, "observeChannelExit", None),
             ghost_reject_observer=getattr(gc.runtime_stats, "observeHandoffGhostReject", None),
             stale_pending_observer=getattr(gc.runtime_stats, "observeHandoffStalePendingDropped", None),
+            on_record_segment=self._handlePieceSegmentRecorded,
         )
         self._drop_zone_burst_collector = DropZoneBurstCollector(self._piece_history)
         # Fresh burst store for the C3→C4 drop-zone "fashion-shoot" feature.
@@ -734,6 +735,66 @@ class VisionManager:
             return bool(getClassificationTrainingManager().hasEnabledHiveTargets())
         except Exception:
             return False
+
+    # Minimum sector snapshots before a track is interesting enough to
+    # contribute a condition crop. Fewer than this is usually a flicker.
+    _CONDITION_MIN_SNAPSHOTS = 3
+    # How many crops to ship per finalized segment.
+    _CONDITION_MAX_PICKS_PER_SEGMENT = 2
+
+    def _handlePieceSegmentRecorded(self, segment, global_id: int) -> None:
+        """Callback fired by the track history whenever a segment is sealed.
+
+        Picks a couple of quality-gated piece crops out of the segment and
+        archives them as Hive-bound `condition` samples. Labeling happens on
+        Hive — this side stays a dumb collector.
+        """
+
+        if not self._hiveSampleCollectionEnabled():
+            return
+        sector_snapshots = getattr(segment, "sector_snapshots", None) or []
+        if len(sector_snapshots) < self._CONDITION_MIN_SNAPSHOTS:
+            return
+        snapshot_jpegs = [
+            getattr(snap, "piece_jpeg_b64", "") or ""
+            for snap in sector_snapshots
+        ]
+        if not any(snapshot_jpegs):
+            return
+
+        try:
+            from server.condition_collector import select_condition_picks
+            from server.classification_training import getClassificationTrainingManager
+        except Exception:
+            return
+
+        picks = select_condition_picks(
+            snapshot_jpegs,
+            max_picks=self._CONDITION_MAX_PICKS_PER_SEGMENT,
+        )
+        if not picks:
+            return
+
+        source_role = getattr(segment, "source_role", "") or "unknown"
+        handoff_from = getattr(segment, "handoff_from", None)
+        first_seen = float(getattr(segment, "first_seen_ts", 0.0) or 0.0)
+        last_seen = float(getattr(segment, "last_seen_ts", first_seen) or first_seen)
+        manager = getClassificationTrainingManager()
+        for pick in picks:
+            try:
+                manager.saveConditionCropCapture(
+                    pick=pick,
+                    source_role=source_role,
+                    piece_global_id=global_id,
+                    track_first_seen_ts=first_seen,
+                    track_last_seen_ts=last_seen,
+                    sector_snapshots_total=len(sector_snapshots),
+                    handoff_from=handoff_from if isinstance(handoff_from, str) else None,
+                )
+            except Exception as exc:
+                self.gc.logger.warning(
+                    f"Failed to archive condition crop sample for track {global_id}: {exc}"
+                )
 
     def isFeederSampleCollectionEnabled(self, role: str | None = None) -> bool:
         if role in self._feederTrackerRoles():

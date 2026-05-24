@@ -19,7 +19,7 @@ import threading
 from collections import OrderedDict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 import cv2
 import numpy as np
@@ -664,6 +664,7 @@ class PieceHistoryBuffer:
         max_entries: int = DEFAULT_MAX_ENTRIES,
         max_path_points: int = DEFAULT_MAX_PATH_POINTS,
         persist_dir: "Path | None" = None,
+        on_record_segment: Callable[[TrackSegment, int], None] | None = None,
     ) -> None:
         self._max_entries = int(max_entries)
         self._max_path_points = int(max_path_points)
@@ -671,6 +672,10 @@ class PieceHistoryBuffer:
         # OrderedDict → O(1) LRU-style trimming by insertion order.
         self._entries: "OrderedDict[int, TrackHistoryEntry]" = OrderedDict()
         self._persist_dir = Path(persist_dir) if persist_dir is not None else None
+        # Best-effort hook fired once per record_segment, OUTSIDE the lock so
+        # a slow listener can't stall trackers. Used by the condition sample
+        # collector to skim crops from each finalized segment.
+        self._on_record_segment = on_record_segment
         if self._persist_dir is not None:
             self._persist_dir.mkdir(parents=True, exist_ok=True)
             self._load_from_disk()
@@ -702,6 +707,12 @@ class PieceHistoryBuffer:
                     popped_id, _popped = self._entries.popitem(last=False)
                     self._delete_from_disk(popped_id)
             self._write_to_disk(existing)
+
+        if self._on_record_segment is not None:
+            try:
+                self._on_record_segment(segment, int(global_id))
+            except Exception:
+                pass
 
     def attach_burst(self, global_id: int, burst_frames: list[DropZoneBurstFrame]) -> None:
         """Attach drop-zone burst frames to an existing or newly-created entry.

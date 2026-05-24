@@ -82,18 +82,20 @@
 	href="/models/{model.id}"
 	class="block border border-[var(--color-border)] bg-[var(--color-surface)] transition-colors hover:border-primary"
 >
-	<!-- Header — codename swatch + codename H1 + slug/version/time meta -->
-	<div class="flex items-start gap-3 border-b border-[var(--color-border)] px-4 py-3">
+	<!-- Header — codename swatch sized to the codename+subtitle stack height -->
+	<div class="flex items-stretch gap-3 border-b border-[var(--color-border)] px-4 py-3">
 		{#if model.codename_color}
-			<span
-				class="mt-1 inline-block h-5 w-5 shrink-0 rounded-full border border-[var(--color-border)]"
-				style="background-color: {model.codename_color}"
-				aria-hidden="true"
-			></span>
+			<div class="flex shrink-0 items-center">
+				<span
+					class="block aspect-square w-12 rounded-full border border-[var(--color-border)]"
+					style="background-color: {model.codename_color}"
+					aria-hidden="true"
+				></span>
+			</div>
 		{/if}
-		<div class="min-w-0 flex-1">
+		<div class="min-w-0 flex-1 self-center">
 			{#if model.codename}
-				<h3 class="truncate text-xl font-bold text-[var(--color-text)]">{model.codename}</h3>
+				<h3 class="truncate text-xl font-bold leading-tight text-[var(--color-text)]">{model.codename}</h3>
 			{:else}
 				<h3 class="truncate text-base font-semibold text-[var(--color-text)]">{model.name}</h3>
 			{/if}
@@ -102,7 +104,7 @@
 			</p>
 		</div>
 		{#if !model.is_public}
-			<span class="border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
+			<span class="self-start border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
 		{/if}
 	</div>
 

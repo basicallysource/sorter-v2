@@ -19,12 +19,9 @@
 		return n === null ? null : Math.round(n);
 	}
 
-	// Pull the values the card needs out of training_metadata. All optional —
-	// older models without metadata gracefully degrade to a minimal layout.
 	const meta = $derived(asRecord(model.training_metadata));
 	const modelMeta = $derived(asRecord(meta?.model));
 	const datasetMeta = $derived(asRecord(meta?.dataset));
-	const benchMeta = $derived(asRecord(asRecord(meta?.benchmarks)?.local_mac));
 	const best = $derived(asRecord(modelMeta?.best_metrics));
 
 	const map50 = $derived(asNumber(best?.mAP50));
@@ -36,8 +33,6 @@
 
 	const arch = $derived(typeof modelMeta?.architecture === 'string' ? (modelMeta.architecture as string) : null);
 	const imgsz = $derived(asInt(modelMeta?.imgsz));
-
-	const coremlFps = $derived(asNumber(asRecord(benchMeta?.coreml_onnxruntime)?.fps_mean));
 
 	function relativeTime(iso: string): string {
 		const then = new Date(iso).getTime();
@@ -65,7 +60,7 @@
 	href="/models/{model.id}"
 	class="block border border-[var(--color-border)] bg-[var(--color-surface)] transition-colors hover:border-primary"
 >
-	<!-- Header strip — codename swatch as colored band on the left edge, big H1 codename -->
+	<!-- Header — codename swatch + codename H1 + slug/version/time meta -->
 	<div class="flex items-start gap-3 border-b border-[var(--color-border)] px-4 py-3">
 		{#if model.codename_color}
 			<span
@@ -75,16 +70,11 @@
 			></span>
 		{/if}
 		<div class="min-w-0 flex-1">
-			<div class="flex items-baseline gap-2">
-				{#if model.codename}
-					<h3 class="truncate text-xl font-bold text-[var(--color-text)]">{model.codename}</h3>
-				{:else}
-					<h3 class="truncate text-base font-semibold text-[var(--color-text)]">{model.name}</h3>
-				{/if}
-				{#if arch && imgsz}
-					<span class="text-xs text-[var(--color-text-muted)]">· {arch} @ {imgsz}</span>
-				{/if}
-			</div>
+			{#if model.codename}
+				<h3 class="truncate text-xl font-bold text-[var(--color-text)]">{model.codename}</h3>
+			{:else}
+				<h3 class="truncate text-base font-semibold text-[var(--color-text)]">{model.name}</h3>
+			{/if}
 			<p class="truncate font-mono text-[11px] text-[var(--color-text-muted)]">
 				{model.slug} · v{model.version} · {relativeTime(model.published_at)}
 			</p>
@@ -94,9 +84,9 @@
 		{/if}
 	</div>
 
-	<!-- Metric pills — only render when training_metadata.best_metrics is present -->
+	<!-- Metric pills — three columns: mAP50, mAP50_95, Recall -->
 	{#if map50 !== null || map50_95 !== null}
-		<div class="grid grid-cols-4 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)]">
+		<div class="grid grid-cols-3 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)]">
 			<div class="bg-[var(--color-surface)] px-3 py-2">
 				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">mAP50</div>
 				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">{formatPct(map50)}</div>
@@ -109,37 +99,22 @@
 				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Recall</div>
 				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">{formatPct(recall)}</div>
 			</div>
-			<div class="bg-[var(--color-surface)] px-3 py-2">
-				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">
-					{coremlFps !== null ? 'FPS (CoreML)' : samples !== null ? 'Samples' : '—'}
-				</div>
-				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">
-					{coremlFps !== null ? Math.round(coremlFps) : samples !== null ? samples.toLocaleString() : '—'}
-				</div>
-			</div>
 		</div>
 	{/if}
 
-	<!-- Body: dataset summary + runtimes/scopes -->
-	<div class="space-y-2 px-4 py-3">
-		{#if samples !== null && machineCount !== null}
-			<p class="text-xs text-[var(--color-text-muted)]">
-				{samples.toLocaleString()} samples · {machineCount} rigs
+	<!-- Body: architecture/imgsz row + dataset summary row -->
+	<div class="space-y-1 px-4 py-3">
+		{#if arch || imgsz}
+			<p class="text-xs text-[var(--color-text)]">
+				{#if arch}<span class="font-medium">{arch}</span>{/if}{#if arch && imgsz}<span class="text-[var(--color-text-muted)]"> · </span>{/if}{#if imgsz}<span class="text-[var(--color-text-muted)]">{imgsz}×{imgsz}</span>{/if}
 			</p>
-		{:else if model.description}
+		{/if}
+		{#if samples !== null || machineCount !== null}
+			<p class="text-xs text-[var(--color-text-muted)]">
+				{#if samples !== null}{samples.toLocaleString()} samples{/if}{#if samples !== null && machineCount !== null} · {/if}{#if machineCount !== null}{machineCount} rigs{/if}
+			</p>
+		{:else if model.description && !arch}
 			<p class="line-clamp-2 text-xs text-[var(--color-text-muted)]">{model.description}</p>
 		{/if}
-
-		<div class="flex flex-wrap items-center gap-1">
-			{#each model.variant_runtimes as runtime (runtime)}
-				<span class="bg-info px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">{runtime}</span>
-			{/each}
-			{#if (model.scopes ?? []).length > 0}
-				<span class="mx-1 text-[10px] text-[var(--color-text-muted)]">·</span>
-				{#each (model.scopes ?? []) as scope (scope)}
-					<span class="border border-[var(--color-border)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-muted)]">{scope}</span>
-				{/each}
-			{/if}
-		</div>
 	</div>
 </a>

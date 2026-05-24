@@ -48,6 +48,13 @@ class Settings(BaseSettings):
     # concurrency is also capped (see adapter.max_concurrent) so a single noisy provider
     # can't starve the pool — this is just the upper bound on overall thread count.
     TEACHER_WORKER_PARALLELISM: int = 8
+    # Background condition-sample auto-labeler. Off by default — operators
+    # opt in by setting a Perceptron key + flipping the flag.
+    CONDITION_WORKER_ENABLED: bool = False
+    CONDITION_WORKER_PERCEPTRON_API_KEY: str | None = None
+    CONDITION_WORKER_POLL_INTERVAL_S: float = 5.0
+    CONDITION_WORKER_BATCH_SIZE: int = 5
+    CONDITION_WORKER_MIN_INTERVAL_S: float = 0.20
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None

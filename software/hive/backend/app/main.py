@@ -24,6 +24,7 @@ from app.routers import (
     upload,
 )
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
+from app.services.condition_worker import get_condition_worker
 from app.services.teacher_worker import get_teacher_worker
 
 limiter = Limiter(key_func=get_remote_address)
@@ -34,10 +35,12 @@ async def lifespan(_app: FastAPI):
     if settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and settings.REBRICKABLE_API_KEY:
         get_profile_catalog_service().start_auto_sync_loop()
     get_teacher_worker().start()
+    get_condition_worker().start()
     try:
         yield
     finally:
         get_teacher_worker().stop()
+        get_condition_worker().stop()
         service = get_existing_profile_catalog_service()
         if service is not None:
             service.stop_auto_sync_loop()

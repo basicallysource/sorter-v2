@@ -42,10 +42,32 @@ from app.services.teacher_prompts import (
 
 from app.config import settings
 from app.schemas.sample import SampleDetailResponse
+from app.services.condition_worker import get_condition_worker
 from app.services.teacher_worker import get_teacher_worker
 
 
 router = APIRouter(prefix="/api/admin/teacher", tags=["teacher"])
+
+
+@router.get("/condition/status")
+def condition_worker_status(_admin: User = Depends(require_role("admin"))) -> dict[str, Any]:
+    """Live status of the condition auto-labeler loop. Admin-only."""
+    return get_condition_worker().status()
+
+
+@router.post("/condition/wake")
+def condition_worker_wake(
+    _admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+) -> dict[str, Any]:
+    """Force the worker to skip its idle wait and re-poll immediately.
+
+    Useful after toggling the enabled flag or just uploading a batch of
+    condition crops — saves waiting out the poll interval.
+    """
+    worker = get_condition_worker()
+    worker.wake()
+    return worker.status()
 
 
 SUPPORTED_SOURCE_ROLES: tuple[str, ...] = tuple(sorted(SOURCE_ROLE_TO_ZONE))

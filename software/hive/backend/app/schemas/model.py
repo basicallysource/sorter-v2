@@ -22,6 +22,7 @@ class DetectionModelSummary(BaseModel):
     owner_id: UUID | None = None
     slug: str
     version: int
+    codename: str | None = None
     name: str
     description: str | None = None
     model_family: str
@@ -61,6 +62,7 @@ class DetectionModelCreateResponse(BaseModel):
     id: UUID
     slug: str
     version: int
+    codename: str | None = None
 
 
 class DetectionModelUpdateRequest(BaseModel):
@@ -70,6 +72,10 @@ class DetectionModelUpdateRequest(BaseModel):
     scopes: list[str] | None = None
     training_metadata: dict[str, Any] | None = None
     is_public: bool | None = None
+    codename: str | None = Field(
+        default=None, min_length=1, max_length=40,
+        description="Codename override. Must be unique across all models.",
+    )
 
 
 class DetectionModelVariantUploadResponse(BaseModel):

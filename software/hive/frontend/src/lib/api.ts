@@ -1087,6 +1087,7 @@ export interface DetectionModelSummary {
 	owner_id: string | null;
 	slug: string;
 	version: number;
+	codename: string | null;
 	name: string;
 	description: string | null;
 	model_family: string;

@@ -22,8 +22,14 @@
 >
 	<div class="mb-2 flex items-start justify-between gap-4">
 		<div>
-			<h3 class="text-base font-semibold text-[var(--color-text)]">{model.name}</h3>
-			<p class="font-mono text-xs text-[var(--color-text-muted)]">{model.slug} · v{model.version}</p>
+			{#if model.codename}
+				<h3 class="text-lg font-bold text-[var(--color-text)]">{model.codename}</h3>
+				<p class="text-xs text-[var(--color-text-muted)]">{model.name}</p>
+				<p class="font-mono text-[11px] text-[var(--color-text-muted)]">{model.slug} · v{model.version}</p>
+			{:else}
+				<h3 class="text-base font-semibold text-[var(--color-text)]">{model.name}</h3>
+				<p class="font-mono text-xs text-[var(--color-text-muted)]">{model.slug} · v{model.version}</p>
+			{/if}
 		</div>
 		{#if !model.is_public}
 			<span class="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-0.5 text-xs text-[var(--color-text-muted)]">Private</span>

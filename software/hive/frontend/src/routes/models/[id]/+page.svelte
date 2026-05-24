@@ -100,7 +100,14 @@
 						{/if}
 						<span>· published {formatDate(model.published_at)}</span>
 					</div>
-					<h1 class="mt-1 text-xl font-semibold tracking-tight text-[var(--color-text)]">{model.name}</h1>
+					{#if model.codename}
+						<h1 class="mt-1 text-2xl font-bold tracking-tight text-[var(--color-text)]">
+							{model.codename}
+							<span class="ml-2 text-sm font-normal text-[var(--color-text-muted)]">— {model.name}</span>
+						</h1>
+					{:else}
+						<h1 class="mt-1 text-xl font-semibold tracking-tight text-[var(--color-text)]">{model.name}</h1>
+					{/if}
 					{#if model.description}
 						<p class="mt-1 max-w-3xl text-sm text-[var(--color-text-muted)]">{model.description}</p>
 					{/if}

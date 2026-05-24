@@ -158,7 +158,7 @@ def update_model(
         setattr(model, field, value)
     db.commit()
     db.refresh(model)
-    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version)
+    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version, codename=model.codename)
 
 
 @router.post("", response_model=DetectionModelCreateResponse)
@@ -175,10 +175,15 @@ def create_model(
         .scalar()
     )
     next_version = (prev or 0) + 1
+    # Assign the next alphabetical codename from the LEGO-color pool. Ubuntu-style
+    # human handle so people can say "Bronze beats Aqua" instead of slug+version.
+    from app.services.codenames import next_codename
+    codename = next_codename(db)
     model = DetectionModel(
         owner_id=current_user.id,
         slug=payload.slug,
         version=next_version,
+        codename=codename,
         name=payload.name,
         description=payload.description,
         model_family=payload.model_family,
@@ -189,7 +194,7 @@ def create_model(
     db.add(model)
     db.commit()
     db.refresh(model)
-    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version)
+    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version, codename=model.codename)
 
 
 @router.post("/{model_id}/variants", response_model=DetectionModelVariantUploadResponse)

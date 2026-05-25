@@ -108,13 +108,6 @@
 		<p class="text-center text-[11px] text-text-muted">
 			Green means keep it, red means reject it, and gray moves through the queue.
 		</p>
-		<!-- Operator guideline: blank channels / clean carousels are
-		     legitimate training signal too — they teach the detector what
-		     "nothing here" looks like. Reviewers were tempted to reject them
-		     by default before this note went up. -->
-		<div class="mt-2 border border-info/20 bg-[#F0F7FF] px-2 py-1.5 text-[11px] leading-snug text-info">
-			<span class="font-semibold">Tipp:</span> Leere Bilder (z.B. C-Channel ohne Teile, leerer Carousel) sind auch valides Trainingsdata — bitte <span class="font-semibold">Accept</span>, wenn keine Boxen drauf sind, weil tatsächlich nichts zu sehen ist.
-		</div>
 		{#if reviewHistoryLength > 0}
 			<p class="mt-2 text-center text-xs text-text-muted">{reviewHistoryLength} reviewed this session</p>
 		{/if}

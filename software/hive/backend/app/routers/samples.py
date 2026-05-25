@@ -117,6 +117,68 @@ def apply_kind_filter(query, kind: str | None):
     return query
 
 
+def apply_my_review_filter(query, my_review: str | None, viewer_id):
+    """Filter samples by the viewer's own review decision.
+
+    Values:
+      - 'unreviewed' — viewer hasn't reviewed yet
+      - 'reviewed'   — viewer reviewed (either decision)
+      - 'accepted'   — viewer accepted
+      - 'rejected'   — viewer rejected
+      - anything else / None — no filter
+
+    Uses a subquery against sample_reviews so the existing
+    (sample_id, reviewer_id) unique index does the work.
+    """
+
+    if my_review not in {"unreviewed", "reviewed", "accepted", "rejected"}:
+        return query
+
+    from sqlalchemy import select as sa_select
+    from app.models.sample_review import SampleReview
+
+    base = sa_select(SampleReview.sample_id).where(
+        SampleReview.reviewer_id == viewer_id
+    )
+    if my_review == "accepted":
+        ids = base.where(SampleReview.decision == "accept")
+    elif my_review == "rejected":
+        ids = base.where(SampleReview.decision == "reject")
+    else:
+        ids = base  # reviewed or unreviewed both key off the existence subquery
+
+    if my_review == "unreviewed":
+        return query.filter(Sample.id.notin_(ids))
+    return query.filter(Sample.id.in_(ids))
+
+
+def attach_my_reviews(items: list, db: Session, viewer_id) -> None:
+    """Populate ``my_review_decision`` on each Sample row via one batch lookup.
+
+    Mutates the ORM instances in place so the from-attributes pydantic
+    validation picks the value up without a second pass.
+    """
+
+    if not items or viewer_id is None:
+        for sample in items:
+            sample.my_review_decision = None
+        return
+    from app.models.sample_review import SampleReview
+
+    sample_ids = [s.id for s in items]
+    rows = (
+        db.query(SampleReview.sample_id, SampleReview.decision)
+        .filter(
+            SampleReview.reviewer_id == viewer_id,
+            SampleReview.sample_id.in_(sample_ids),
+        )
+        .all()
+    )
+    by_id = {sample_id: decision for sample_id, decision in rows}
+    for sample in items:
+        sample.my_review_decision = by_id.get(sample.id)
+
+
 def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
     if not sample:
@@ -572,6 +634,7 @@ def list_samples(
     capture_reason: str | None = None,
     review_status: str | None = None,
     kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
+    my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     archived: str | None = Query(None, pattern="^(active|archived|all)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
@@ -588,6 +651,7 @@ def list_samples(
     if only_archived:
         query = query.filter(Sample.archived_at.isnot(None))
     query = apply_kind_filter(query, kind)
+    query = apply_my_review_filter(query, my_review, current_user.id)
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)
@@ -609,6 +673,7 @@ def list_samples(
     total = query.count()
     pages = math.ceil(total / page_size) if total > 0 else 1
     items = query.offset((page - 1) * page_size).limit(page_size).all()
+    attach_my_reviews(items, db, current_user.id)
 
     return SampleListResponse(
         items=[SampleResponse.model_validate(s) for s in items],
@@ -626,6 +691,7 @@ def get_sample(
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
     sample = _get_sample_for_read(db, sample_id)
+    attach_my_reviews([sample], db, current_user.id)
 
     data = SampleDetailResponse.model_validate(sample)
     data.has_full_frame = sample.full_frame_path is not None

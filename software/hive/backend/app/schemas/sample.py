@@ -27,6 +27,10 @@ class SampleResponse(BaseModel):
     rejected_count: int
     uploaded_at: datetime
     resolved_at: datetime | None
+    # The current viewer's own review decision, populated by the router via a
+    # batch lookup so we don't N+1 the SampleReview table per row. Null means
+    # the viewer hasn't reviewed this sample yet.
+    my_review_decision: str | None = None
 
     model_config = {"from_attributes": True}
 

@@ -10,6 +10,7 @@ export const SAMPLE_LIST_FILTER_KEYS = [
 	'source_role',
 	'capture_reason',
 	'kind',
+	'my_review',
 	'archived',
 	'max_age_hours'
 ] as const;
@@ -32,6 +33,11 @@ export interface SampleListFilters {
 	// — splits the queue between detection samples and condition-collector
 	// crops so reviewers / browsers can drain one bucket at a time.
 	kind?: string;
+	// Per-user review filter: 'unreviewed' (viewer hasn't reviewed yet),
+	// 'reviewed' (viewer reviewed either way), 'accepted', 'rejected'.
+	// Independent of the global review_status — that's the consensus state
+	// across all reviewers, this is "what did *I* do".
+	my_review?: string;
 	// Admin-only: 'active' (default), 'archived' (only archived), 'all'. Members
 	// always see 'active' regardless of what they pass — server enforces.
 	archived?: string;
@@ -89,6 +95,7 @@ export function sampleListContextKey(ctx: SampleListContext): string {
 		source_role: ctx.source_role ?? '',
 		capture_reason: ctx.capture_reason ?? '',
 		kind: ctx.kind ?? '',
+		my_review: ctx.my_review ?? '',
 		archived: ctx.archived ?? '',
 		max_age_hours: ctx.max_age_hours ?? '',
 		page_size: ctx.page_size

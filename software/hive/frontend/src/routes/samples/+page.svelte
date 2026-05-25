@@ -40,6 +40,10 @@
 	// 'regular' (default once a filter is picked, also means: no condition crops)
 	// or 'condition'. Empty string = all = both kinds mixed.
 	const filterKind = $derived(listContext.kind ?? '');
+	// Per-user review filter — independent of the global review_status pill.
+	// 'unreviewed' = I haven't reviewed; 'accepted' / 'rejected' = my own
+	// past decision; 'reviewed' = I reviewed either way.
+	const filterMyReview = $derived(listContext.my_review ?? '');
 	// Admin-only: 'active' (default), 'archived', 'all'. Server enforces:
 	// non-admins always see active regardless of what they send.
 	const filterArchived = $derived(listContext.archived ?? '');
@@ -77,7 +81,7 @@
 	};
 
 	const hasActiveFilters = $derived(
-		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterArchived || filterMaxAgeHours
+		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterArchived || filterMaxAgeHours
 	);
 
 	$effect(() => {
@@ -92,6 +96,7 @@
 		void filterSourceRole;
 		void filterCaptureReason;
 		void filterKind;
+		void filterMyReview;
 		void filterArchived;
 		void filterMaxAgeHours;
 		void currentPage;
@@ -166,6 +171,7 @@
 				source_role: filterSourceRole || undefined,
 				capture_reason: filterCaptureReason || undefined,
 				kind: filterKind || undefined,
+				my_review: filterMyReview || undefined,
 				archived: filterArchived || undefined,
 				max_age_hours: filterMaxAgeHours || undefined
 			});
@@ -281,6 +287,7 @@
 			sp.delete('source_role');
 			sp.delete('capture_reason');
 			sp.delete('kind');
+			sp.delete('my_review');
 			sp.delete('archived');
 			sp.delete('max_age_hours');
 			sp.delete('page');
@@ -1059,9 +1066,36 @@
 				</ul>
 			</div>
 
-			<!-- Status -->
+			<!-- My review: per-viewer filter, independent of the global Status
+			     below. 'Unreviewed by me' is the natural starting point for
+			     a reviewer who wants to see what's still on their plate. -->
+			{#if auth.isReviewer}
+				<div>
+					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">My review</h3>
+					<ul class="space-y-0.5">
+						{#each [
+							{ key: '', label: 'All' },
+							{ key: 'unreviewed', label: 'Not by me yet' },
+							{ key: 'reviewed', label: 'By me (any)' },
+							{ key: 'accepted', label: 'I accepted' },
+							{ key: 'rejected', label: 'I rejected' },
+						] as item}
+							<li>
+								<button
+									onclick={() => setFilterValue('my_review', item.key)}
+									class="w-full px-2 py-1 text-left text-xs {filterMyReview === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								>
+									{item.label}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
+
+			<!-- Status — global consensus state across all reviewers. -->
 			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Status</h3>
+				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Status (global)</h3>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },

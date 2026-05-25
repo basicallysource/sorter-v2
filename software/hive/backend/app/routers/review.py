@@ -18,8 +18,9 @@ from app.schemas.review import (
     ReviewResponse,
 )
 from app.schemas.sample import SampleResponse
+from app.config import settings
 from app.models.machine import Machine
-from app.routers.samples import apply_kind_filter
+from app.routers.samples import apply_kind_filter, attach_my_reviews
 from app.services.condition_analysis import (
     COMPOSITION_VALUES,
     CONDITION_VALUES,
@@ -50,22 +51,30 @@ def get_next_review(
     current_user: User = Depends(require_role("reviewer", "admin")),
     db: Session = Depends(get_db),
 ):
-    """Return the next sample to review, honouring the same filters as the samples list.
+    """Return the next sample to review.
 
-    The samples list page passes its sidebar selection through to the Review Samples link
-    as URL params; the review queue then drains only the slice the reviewer chose. Without
-    a filter the queue behaves exactly as before (any unreviewed/in-review sample).
+    Eligibility:
+      * The viewer has not personally reviewed it yet.
+      * The sample has fewer than ``REVIEW_CONSENSUS_TARGET`` total reviews —
+        once enough independent voices have weighed in, the sample drops out
+        of every reviewer's queue. Edge cases (ties, conflicts) can still be
+        revisited via /samples; the queue is for fresh work only.
+      * Neither the sample nor its machine is archived.
 
-    ``kind=regular|condition`` is the same filter the samples list uses, so a reviewer
-    can drain only condition-collector samples (or only the regular detection queue).
+    NOTE: the *global* review_status (unreviewed / in_review / accepted /
+    rejected / conflict) intentionally does NOT gate the queue. A sample
+    that one reviewer already accepted should still appear for the next
+    reviewer until consensus is reached — that's the whole point of
+    multiple independent reviews.
     """
     already_reviewed = select(SampleReview.sample_id).where(
         SampleReview.reviewer_id == current_user.id
     )
 
+    consensus_cap = max(1, int(settings.REVIEW_CONSENSUS_TARGET))
     query = db.query(Sample).filter(
-        Sample.review_status.in_(["unreviewed", "in_review"]),
         Sample.id.notin_(already_reviewed),
+        Sample.review_count < consensus_cap,
         # Hide archived rows (per-sample archive + machine-level archive) so
         # the queue never serves something an admin has already taken out of
         # circulation.
@@ -88,7 +97,10 @@ def get_next_review(
 
     sample = (
         query.order_by(
-            Sample.review_status.desc(),
+            # Prefer samples that already have at least one review (closer to
+            # consensus) so they get knocked out of the queue first. New
+            # samples come next, ordered by upload age.
+            Sample.review_count.desc(),
             Sample.uploaded_at.asc(),
         )
         .first()
@@ -97,6 +109,7 @@ def get_next_review(
     if not sample:
         return None
 
+    attach_my_reviews([sample], db, current_user.id)
     return SampleResponse.model_validate(sample)
 
 

@@ -78,6 +78,9 @@ export interface Sample {
 	rejected_count: number;
 	uploaded_at: string;
 	resolved_at: string | null;
+	// Current viewer's own review decision (null when not yet reviewed).
+	// Server-side batch-populated so the list endpoint stays cheap.
+	my_review_decision: 'accept' | 'reject' | null;
 }
 
 export interface SampleMachineSummary {
@@ -646,6 +649,7 @@ export const api = {
 		capture_reason?: string;
 		review_status?: string;
 		kind?: 'regular' | 'condition' | 'all' | string;
+		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 		archived?: 'active' | 'archived' | 'all' | string;
 		max_age_hours?: number | string;
 		scope?: 'mine' | 'all' | string;

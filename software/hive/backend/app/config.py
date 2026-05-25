@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
     MIN_REVIEWS_FOR_CONSENSUS: int = 1
+    # Once a sample has REVIEW_CONSENSUS_TARGET independent reviews, it drops
+    # out of every reviewer's queue regardless of whether they personally
+    # reviewed it. Edge cases (ties / conflicts) can be revisited via the
+    # samples list; the queue is for fresh work.
+    REVIEW_CONSENSUS_TARGET: int = 3
     COOKIE_SECURE: bool = False
     APP_BASE_URL: str | None = None
     GITHUB_CLIENT_ID: str | None = None

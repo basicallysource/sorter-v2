@@ -92,13 +92,24 @@
 				{/each}
 			</svg>
 		{/if}
-		<!-- Status pill — top left -->
+		<!-- Status pill — top left. Global consensus state. -->
 		<span
 			class="absolute top-1.5 left-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
 			style="color: {cfg.color}; background: {cfg.bg}; backdrop-filter: blur(4px);"
 		>
 			{cfg.label}
 		</span>
+		<!-- Personal decision badge — adjacent to the global pill so you can
+		     see at a glance whether you've already voted on this sample. -->
+		{#if sample.my_review_decision}
+			<span
+				class="absolute top-1.5 left-1.5 mt-5 flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider"
+				style="color: #FFFFFF; background: {sample.my_review_decision === 'accept' ? 'rgba(0,133,43,0.85)' : 'rgba(208,16,18,0.85)'}; backdrop-filter: blur(4px);"
+				title={sample.my_review_decision === 'accept' ? 'You accepted this' : 'You rejected this'}
+			>
+				You: {sample.my_review_decision === 'accept' ? '✓' : '✗'}
+			</span>
+		{/if}
 		<!-- Detection count — top right -->
 		{#if sample.detection_count != null && sample.detection_count > 0}
 			<span class="absolute top-1.5 right-1.5 flex h-5 min-w-5 items-center justify-center bg-black/50 px-1 text-[10px] font-bold text-white backdrop-blur-sm">

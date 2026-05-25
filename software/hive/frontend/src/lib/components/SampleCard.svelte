@@ -39,13 +39,14 @@
 
 	// Mirror ExposureStats.classify on the backend so the badge stays in
 	// sync with the sidebar filter. Null stats (older un-backfilled rows)
-	// produce no badge at all rather than guessing.
+	// produce no badge at all rather than guessing. Thresholds match
+	// app/services/image_stats.py — keep both ends in sync.
 	const exposureLabel = $derived.by<'underexposed' | 'overexposed' | null>(() => {
 		const mean = sample.luminance_mean;
 		const low = sample.clipped_low_ratio;
 		const high = sample.clipped_high_ratio;
 		if (mean === null && low === null && high === null) return null;
-		if ((mean !== null && mean <= 35) || (low !== null && low >= 0.6)) return 'underexposed';
+		if ((mean !== null && mean <= 120) || (low !== null && low >= 0.7)) return 'underexposed';
 		if ((mean !== null && mean >= 210) || (high !== null && high >= 0.4)) return 'overexposed';
 		return null;
 	});

@@ -28,11 +28,20 @@ from PIL import Image, UnidentifiedImageError
 logger = logging.getLogger(__name__)
 
 
-# Thresholds the filter UI uses. Tuned for the sorter's clean-disc /
-# C-channel framings — most "normal" frames sit in 60-200 mean luminance.
-# Anything under 35 looks like the lights-off batch the user flagged.
-UNDEREXPOSED_MEAN_MAX = 35.0
-UNDEREXPOSED_CLIPPED_LOW = 0.60
+# Thresholds the filter UI uses. Tuned against actual sorter data
+# (snapshot 2026-05-25, ~16k samples):
+#
+#   - Good C-channel + carousel frames cluster at mean luminance 163-212.
+#   - Lights-off / sensor-dark frames cluster at mean ~95 (the central
+#     disc still reflects a little so a tiny p95 stays at 230, but the
+#     C-channel area itself is black). Convenient natural gap at ~120
+#     between the two clusters.
+#
+# So 'underexposed' = mean ≤ 120 OR significantly clipped shadows. The
+# overexposed thresholds stayed unchanged — the bright cluster doesn't
+# bleed into normal as much.
+UNDEREXPOSED_MEAN_MAX = 120.0
+UNDEREXPOSED_CLIPPED_LOW = 0.70
 OVEREXPOSED_MEAN_MIN = 210.0
 OVEREXPOSED_CLIPPED_HIGH = 0.40
 

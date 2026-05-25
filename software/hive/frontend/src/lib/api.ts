@@ -655,7 +655,7 @@ export const api = {
 		kind?: 'regular' | 'condition' | 'all' | string;
 		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 		annotated?: 'teacher' | 'raw' | 'all' | string;
-		exposure?: 'under' | 'normal' | 'over' | 'all' | string;
+		exposure?: 'under' | 'normal' | 'over' | string;
 		archived?: 'active' | 'archived' | 'all' | string;
 		max_age_hours?: number | string;
 		scope?: 'mine' | 'all' | string;
@@ -718,7 +718,7 @@ export const api = {
 		kind?: 'regular' | 'condition' | 'all' | string;
 		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 		annotated?: 'teacher' | 'raw' | 'all' | string;
-		exposure?: 'under' | 'normal' | 'over' | 'all' | string;
+		exposure?: 'under' | 'normal' | 'over' | string;
 		max_age_hours?: number | string;
 		dry_run?: boolean;
 		max_delete?: number;
@@ -746,7 +746,7 @@ export const api = {
 			kind?: 'regular' | 'condition' | 'all' | string;
 			my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 			annotated?: 'teacher' | 'raw' | 'all' | string;
-			exposure?: 'under' | 'normal' | 'over' | 'all' | string;
+			exposure?: 'under' | 'normal' | 'over' | string;
 			max_age_hours?: number | string;
 			dry_run?: boolean;
 			max_archive?: number;
@@ -1235,7 +1235,7 @@ export interface TeacherJobFilter {
 	kind?: 'regular' | 'condition' | 'all' | string;
 	my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 	annotated?: 'teacher' | 'raw' | 'all' | string;
-	exposure?: 'under' | 'normal' | 'over' | 'all' | string;
+	exposure?: 'under' | 'normal' | 'over' | string;
 	max_age_hours?: number;
 }
 

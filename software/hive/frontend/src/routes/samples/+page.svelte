@@ -363,11 +363,11 @@
 		kind: filterKind || undefined,
 		my_review: filterMyReview || undefined,
 		annotated: filterAnnotated || undefined,
-		// Mirror the server-side default ('not_under') so a "Delete /
-		// Archive filtered" from the default view operates on exactly the
-		// samples the operator can see — not on the underexposed batch
-		// that's hidden by default.
-		exposure: filterExposure || 'not_under',
+		// Mirror the server-side default ('normal' = good light only) so a
+		// "Delete / Archive filtered" from the default view operates on
+		// exactly the samples the operator can see — not on under/over
+		// frames that are hidden by default.
+		exposure: filterExposure || 'normal',
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -433,11 +433,11 @@
 		kind: filterKind || undefined,
 		my_review: filterMyReview || undefined,
 		annotated: filterAnnotated || undefined,
-		// Mirror the server-side default ('not_under') so a "Delete /
-		// Archive filtered" from the default view operates on exactly the
-		// samples the operator can see — not on the underexposed batch
-		// that's hidden by default.
-		exposure: filterExposure || 'not_under',
+		// Mirror the server-side default ('normal' = good light only) so a
+		// "Delete / Archive filtered" from the default view operates on
+		// exactly the samples the operator can see — not on under/over
+		// frames that are hidden by default.
+		exposure: filterExposure || 'normal',
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -1091,12 +1091,12 @@
 				title="Kind"
 				storageKey="kind"
 				active={!!filterKind}
-				activeLabel={filterKind ? (filterKind === 'regular' ? 'Regular' : 'Condition') : null}
+				activeLabel={filterKind === 'regular' ? 'Object detection' : filterKind === 'condition' ? 'Condition' : null}
 			>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },
-						{ key: 'regular', label: 'Regular' },
+						{ key: 'regular', label: 'Object detection' },
 						{ key: 'condition', label: 'Condition' },
 					] as item}
 						<li>
@@ -1140,19 +1140,16 @@
 			<FilterGroup
 				title="Exposure"
 				storageKey="exposure"
-				active={!!filterExposure && filterExposure !== 'not_under'}
-				activeLabel={filterExposure === 'under' ? 'Underexposed' : filterExposure === 'over' ? 'Overexposed' : filterExposure === 'normal' ? 'Normal' : filterExposure === 'all' ? 'All' : null}
+				active={filterExposure === 'under' || filterExposure === 'over'}
+				activeLabel={filterExposure === 'under' ? 'Underexposed' : filterExposure === 'over' ? 'Overexposed' : null}
 			>
 				<ul class="space-y-0.5">
 					{#each [
-						// Empty URL state → server applies 'not_under', so highlight
-						// "Hide underexposed (default)" for both '' and explicit
-						// 'not_under'.
-						{ key: '', label: 'Hide underexposed (default)', active: filterExposure === '' || filterExposure === 'not_under' },
-						{ key: 'all', label: 'All (incl. dark)', active: filterExposure === 'all' },
-						{ key: 'under', label: 'Underexposed only', active: filterExposure === 'under' },
-						{ key: 'normal', label: 'Normal only', active: filterExposure === 'normal' },
-						{ key: 'over', label: 'Overexposed only', active: filterExposure === 'over' },
+						// Empty URL state → server applies 'normal' default, so
+						// highlight Good Light for both '' and explicit 'normal'.
+						{ key: '', label: 'Good Light (default)', active: filterExposure === '' || filterExposure === 'normal' },
+						{ key: 'under', label: 'Underexposed', active: filterExposure === 'under' },
+						{ key: 'over', label: 'Overexposed', active: filterExposure === 'over' },
 					] as item}
 						<li>
 							<button

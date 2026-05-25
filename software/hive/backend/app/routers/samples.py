@@ -118,23 +118,21 @@ def apply_kind_filter(query, kind: str | None):
 
 
 def apply_exposure_filter(query, exposure: str | None):
-    """Filter by computed exposure bucket — underexposed / normal / overexposed.
+    """Filter to a single exposure bucket — underexposed / good / overexposed.
 
     Thresholds mirror ``ExposureStats.classify`` so the server-side filter
     and the per-sample badge stay in sync.
 
-    Values:
-      - 'under'      → only samples we *know* are underexposed (lights off)
-      - 'over'       → only samples we *know* are overexposed (saturation)
-      - 'normal'     → only samples we *know* are normal (skips un-backfilled
-                       rows so we don't accidentally classify nulls as fine)
-      - 'not_under'  → hide known-underexposed; null stats pass through
-                       (this is the call-site default for /samples + /review
-                       since lights-off frames are usually not worth reviewing)
-      - anything else (None / 'all') → no filter
+    Values (exclusive):
+      - 'under'  → only samples we *know* are underexposed (lights off)
+      - 'over'   → only samples we *know* are overexposed (saturation)
+      - 'normal' → samples we know are good-light, PLUS rows that don't have
+                   stats yet (un-backfilled). The benefit-of-the-doubt makes
+                   'normal' a safe default during/after migration windows.
+      - None / unknown → no filter (operator opts out entirely)
     """
 
-    if exposure not in {"under", "normal", "over", "not_under"}:
+    if exposure not in {"under", "normal", "over"}:
         return query
     from app.services.image_stats import (
         OVEREXPOSED_CLIPPED_HIGH,
@@ -146,27 +144,17 @@ def apply_exposure_filter(query, exposure: str | None):
     is_under = (Sample.luminance_mean <= UNDEREXPOSED_MEAN_MAX) | (
         Sample.clipped_low_ratio >= UNDEREXPOSED_CLIPPED_LOW
     )
+    is_over = (Sample.luminance_mean >= OVEREXPOSED_MEAN_MIN) | (
+        Sample.clipped_high_ratio >= OVEREXPOSED_CLIPPED_HIGH
+    )
 
     if exposure == "under":
         return query.filter(is_under)
-    if exposure == "not_under":
-        # Hide rows we know are underexposed; un-backfilled rows pass through
-        # so we don't accidentally drop everything older than the migration.
-        return query.filter(Sample.luminance_mean.is_(None) | ~is_under)
     if exposure == "over":
-        return query.filter(
-            (Sample.luminance_mean >= OVEREXPOSED_MEAN_MIN)
-            | (Sample.clipped_high_ratio >= OVEREXPOSED_CLIPPED_HIGH)
-        )
-    # normal: not under, not over, and we *do* have stats (otherwise we'd
-    # accidentally classify un-backfilled rows as 'normal').
-    return query.filter(
-        Sample.luminance_mean.isnot(None),
-        Sample.luminance_mean > UNDEREXPOSED_MEAN_MAX,
-        Sample.luminance_mean < OVEREXPOSED_MEAN_MIN,
-        (Sample.clipped_low_ratio.is_(None)) | (Sample.clipped_low_ratio < UNDEREXPOSED_CLIPPED_LOW),
-        (Sample.clipped_high_ratio.is_(None)) | (Sample.clipped_high_ratio < OVEREXPOSED_CLIPPED_HIGH),
-    )
+        return query.filter(is_over)
+    # 'normal' = neither under nor over, OR no stats yet (assume normal so
+    # un-backfilled rows aren't silently hidden during the backfill window).
+    return query.filter(Sample.luminance_mean.is_(None) | (~is_under & ~is_over))
 
 
 def apply_annotated_filter(query, annotated: str | None):
@@ -715,7 +703,7 @@ def list_samples(
     kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
     my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
-    exposure: str | None = Query(None, pattern="^(under|normal|over|not_under|all)$"),
+    exposure: str | None = Query(None, pattern="^(under|normal|over)$"),
     archived: str | None = Query(None, pattern="^(active|archived|all)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
@@ -737,10 +725,10 @@ def list_samples(
     # the teacher hasn't validated yet. Explicit ?annotated=all opts back
     # in to seeing everything.
     query = apply_annotated_filter(query, annotated or "teacher")
-    # Default-hide underexposed (lights-off / sensor-dark frames). Operator
-    # can opt in to seeing them with ?exposure=under, or ?exposure=all to
-    # disable the gate entirely.
-    query = apply_exposure_filter(query, exposure or "not_under")
+    # Default to the 'normal' (good light) bucket — under/over frames are
+    # rarely worth reviewing. Operator can opt into either of the bad
+    # buckets explicitly to find + bulk-archive them.
+    query = apply_exposure_filter(query, exposure or "normal")
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)

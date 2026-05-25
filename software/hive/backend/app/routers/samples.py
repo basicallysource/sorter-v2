@@ -680,7 +680,10 @@ def list_samples(
         query = query.filter(Sample.archived_at.isnot(None))
     query = apply_kind_filter(query, kind)
     query = apply_my_review_filter(query, my_review, current_user.id)
-    query = apply_annotated_filter(query, annotated)
+    # Default-hide raw samples — reviewers shouldn't waste time on boxes
+    # the teacher hasn't validated yet. Explicit ?annotated=all opts back
+    # in to seeing everything.
+    query = apply_annotated_filter(query, annotated or "teacher")
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)

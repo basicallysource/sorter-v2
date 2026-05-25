@@ -96,7 +96,10 @@ def get_next_review(
             query = apply_my_review_filter(query, my_review, current_user.id)
 
     query = apply_kind_filter(query, kind)
-    query = apply_annotated_filter(query, annotated)
+    # Default-hide raw samples in the review queue — boxes that haven't been
+    # teacher-validated yet are usually incomplete and serving them just
+    # makes the reviewer's job harder. ?annotated=all opts back in.
+    query = apply_annotated_filter(query, annotated or "teacher")
 
     if scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=current_user.id))

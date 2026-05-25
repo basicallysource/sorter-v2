@@ -1055,22 +1055,24 @@
 				</ul>
 			</div>
 
-			<!-- Annotation source: separates samples a Hive teacher has
-			     already processed (training-ready) from raw sorter uploads
-			     that still have unreliable boxes. Reviewers usually want
-			     'Teacher pass' to skip work that's not annotation-ready. -->
+			<!-- Annotation source: 'Teacher pass' is the default — reviewers
+			     shouldn't be served raw sorter boxes that the teacher hasn't
+			     validated yet. 'All' is an explicit opt-in for browsing
+			     freshly uploaded samples that are still pending. -->
 			<div>
 				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Annotation</h3>
 				<ul class="space-y-0.5">
 					{#each [
-						{ key: '', label: 'All' },
-						{ key: 'teacher', label: 'Teacher pass' },
-						{ key: 'raw', label: 'Raw (pending)' },
+						// Empty URL state defaults to 'teacher' on the server, so
+						// highlight Teacher pass for both '' and 'teacher'.
+						{ key: 'teacher', label: 'Teacher pass (default)', active: filterAnnotated === '' || filterAnnotated === 'teacher' },
+						{ key: 'all', label: 'All (incl. raw)', active: filterAnnotated === 'all' },
+						{ key: 'raw', label: 'Raw only (pending)', active: filterAnnotated === 'raw' },
 					] as item}
 						<li>
 							<button
-								onclick={() => setFilterValue('annotated', item.key)}
-								class="w-full px-2 py-1 text-left text-xs {filterAnnotated === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								onclick={() => setFilterValue('annotated', item.key === 'teacher' ? '' : item.key)}
+								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								{item.label}
 							</button>

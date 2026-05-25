@@ -47,7 +47,7 @@
 		const high = sample.clipped_high_ratio;
 		if (mean === null && low === null && high === null) return null;
 		if ((mean !== null && mean <= 120) || (low !== null && low >= 0.7)) return 'underexposed';
-		if ((mean !== null && mean >= 210) || (high !== null && high >= 0.4)) return 'overexposed';
+		if ((mean !== null && mean >= 240) || (high !== null && high >= 0.6)) return 'overexposed';
 		return null;
 	});
 	const roleLabel = $derived(sample.source_role ? (sourceRoleLabels[sample.source_role] ?? sample.source_role) : null);

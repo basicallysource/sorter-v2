@@ -31,19 +31,19 @@ logger = logging.getLogger(__name__)
 # Thresholds the filter UI uses. Tuned against actual sorter data
 # (snapshot 2026-05-25, ~16k samples):
 #
-#   - Good C-channel + carousel frames cluster at mean luminance 163-212.
-#   - Lights-off / sensor-dark frames cluster at mean ~95 (the central
-#     disc still reflects a little so a tiny p95 stays at 230, but the
-#     C-channel area itself is black). Convenient natural gap at ~120
-#     between the two clusters.
+#   - Good C-channel + carousel frames cluster at mean luminance 163-223
+#     (the carousel platter is naturally cream/white so well-lit frames
+#     legitimately land at 220 with ~16% pixels saturating).
+#   - Lights-off / sensor-dark frames cluster at mean ~95.
+#   - Genuinely blown out frames sit at mean 240+ or with majority
+#     clipped pixels.
 #
-# So 'underexposed' = mean ≤ 120 OR significantly clipped shadows. The
-# overexposed thresholds stayed unchanged — the bright cluster doesn't
-# bleed into normal as much.
+# Underexposed = mean ≤ 120 OR significantly clipped shadows.
+# Overexposed  = mean ≥ 240 OR most pixels saturated.
 UNDEREXPOSED_MEAN_MAX = 120.0
 UNDEREXPOSED_CLIPPED_LOW = 0.70
-OVEREXPOSED_MEAN_MIN = 210.0
-OVEREXPOSED_CLIPPED_HIGH = 0.40
+OVEREXPOSED_MEAN_MIN = 240.0
+OVEREXPOSED_CLIPPED_HIGH = 0.60
 
 
 @dataclass(frozen=True, slots=True)

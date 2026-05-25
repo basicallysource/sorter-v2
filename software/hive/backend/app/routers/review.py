@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.deps import get_db, require_role, verify_csrf
+from app.deps import get_current_user, get_db, verify_csrf
 from app.errors import APIError
 from app.models.sample import Sample
 from app.models.sample_review import SampleReview
@@ -50,7 +50,7 @@ def get_next_review(
     review_status: str | None = Query(None, pattern="^(unreviewed|in_review|accepted|rejected|conflict)$"),
     my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
-    current_user: User = Depends(require_role("reviewer", "admin")),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Return the next sample to review.
@@ -131,7 +131,7 @@ def create_or_update_review(
     sample_id: UUID,
     data: ReviewCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("reviewer", "admin")),
+    current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
     if data.decision not in ("accept", "reject"):
@@ -175,7 +175,7 @@ def tag_condition_sample(
     sample_id: UUID,
     data: ConditionTagRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("reviewer", "admin")),
+    current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
     """Human tags a condition sample with flag chips.
@@ -243,7 +243,7 @@ def tag_condition_sample(
 def get_review_history(
     sample_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("reviewer", "admin")),
+    current_user: User = Depends(get_current_user),
 ):
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
     if not sample:

@@ -16,7 +16,10 @@ export const auth = {
 	get loading() { return loading; },
 	get initialized() { return initialized; },
 	get isAuthenticated() { return user !== null; },
-	get isReviewer() { return user?.role === 'reviewer' || user?.role === 'admin'; },
+	// Reviewing is open to any logged-in user — the dedicated reviewer role
+	// turned out to be unnecessary gatekeeping. The role column still exists
+	// for future tightening, but for now any authenticated user can vote.
+	get isReviewer() { return user !== null; },
 	get isAdmin() { return user?.role === 'admin'; },
 
 	async init() {

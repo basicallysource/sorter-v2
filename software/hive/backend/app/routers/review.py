@@ -123,14 +123,17 @@ def get_next_review(
         cutoff = datetime.now(timezone.utc) - timedelta(hours=max_age_hours)
         query = query.filter(Sample.uploaded_at >= cutoff)
 
+    # Deterministic-but-per-user shuffle. Same reviewer always sees the
+    # same order (so back/forward navigation is stable) but two reviewers
+    # see different orderings, which avoids the "ten near-identical frames
+    # in a row" boredom and lets the consensus pool fill from diverse
+    # angles. md5() is plenty for a tie-breaker hash here — no security
+    # property involved, just bit dispersion.
+    from sqlalchemy import text as sa_text
+
     sample = (
-        query.order_by(
-            # Prefer samples that already have at least one review (closer to
-            # consensus) so they get knocked out of the queue first. New
-            # samples come next, ordered by upload age.
-            Sample.review_count.desc(),
-            Sample.uploaded_at.asc(),
-        )
+        query.order_by(sa_text("md5(samples.id::text || :viewer_seed)"))
+        .params(viewer_seed=str(current_user.id))
         .first()
     )
 

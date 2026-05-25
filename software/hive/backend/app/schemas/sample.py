@@ -31,6 +31,11 @@ class SampleResponse(BaseModel):
     # batch lookup so we don't N+1 the SampleReview table per row. Null means
     # the viewer hasn't reviewed this sample yet.
     my_review_decision: str | None = None
+    # Exposure stats — populated at upload + via the backfill script for
+    # older rows. Null for samples that haven't been backfilled yet.
+    luminance_mean: float | None = None
+    clipped_low_ratio: float | None = None
+    clipped_high_ratio: float | None = None
 
     model_config = {"from_attributes": True}
 

@@ -43,6 +43,15 @@ class Sample(Base):
     # bit_count(phash # :target) in postgres. Null while waiting for the
     # backfill to run or for un-decodable images.
     phash = Column(BigInteger, nullable=True)
+    # Histogram summary for exposure-quality filtering. Populated at upload
+    # (and via the backfill script for older rows). luminance_mean is the
+    # primary signal the filter buckets on; the rest are diagnostics +
+    # heuristics for partial clipping.
+    luminance_mean = Column(Float, nullable=True)
+    luminance_p05 = Column(Float, nullable=True)
+    luminance_p95 = Column(Float, nullable=True)
+    clipped_low_ratio = Column(Float, nullable=True)
+    clipped_high_ratio = Column(Float, nullable=True)
 
     machine = relationship("Machine", back_populates="samples")
     upload_session = relationship("UploadSession", back_populates="samples")

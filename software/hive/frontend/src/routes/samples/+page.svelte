@@ -49,6 +49,8 @@
 	// uploaded samples typically fall here until the teacher worker has
 	// caught up). Default '' shows both.
 	const filterAnnotated = $derived(listContext.annotated ?? '');
+	// Histogram bucket — 'under' / 'normal' / 'over' / 'all'. Empty = no filter.
+	const filterExposure = $derived(listContext.exposure ?? '');
 	// Admin-only: 'active' (default), 'archived', 'all'. Server enforces:
 	// non-admins always see active regardless of what they send.
 	const filterArchived = $derived(listContext.archived ?? '');
@@ -86,7 +88,7 @@
 	};
 
 	const hasActiveFilters = $derived(
-		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterArchived || filterMaxAgeHours
+		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterExposure || filterArchived || filterMaxAgeHours
 	);
 
 	$effect(() => {
@@ -103,6 +105,7 @@
 		void filterKind;
 		void filterMyReview;
 		void filterAnnotated;
+		void filterExposure;
 		void filterArchived;
 		void filterMaxAgeHours;
 		void currentPage;
@@ -179,6 +182,7 @@
 				kind: filterKind || undefined,
 				my_review: filterMyReview || undefined,
 				annotated: filterAnnotated || undefined,
+				exposure: filterExposure || undefined,
 				archived: filterArchived || undefined,
 				max_age_hours: filterMaxAgeHours || undefined
 			});
@@ -296,6 +300,7 @@
 			sp.delete('kind');
 			sp.delete('my_review');
 			sp.delete('annotated');
+			sp.delete('exposure');
 			sp.delete('archived');
 			sp.delete('max_age_hours');
 			sp.delete('page');
@@ -687,6 +692,7 @@
 				if (filterCaptureReason) sp.set('capture_reason', filterCaptureReason);
 				if (filterKind) sp.set('kind', filterKind);
 				if (filterAnnotated) sp.set('annotated', filterAnnotated);
+				if (filterExposure) sp.set('exposure', filterExposure);
 				if (filterMaxAgeHours) sp.set('max_age_hours', filterMaxAgeHours);
 				// Forward review_status + my_review so e.g. "show me conflict
 				// samples" or "show me what I already accepted" carries into
@@ -1081,6 +1087,31 @@
 							<button
 								onclick={() => setFilterValue('annotated', item.key === 'teacher' ? '' : item.key)}
 								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+							>
+								{item.label}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</div>
+
+			<!-- Exposure: histogram-based quality bucket. Catches lights-off
+			     batches (Underexposed) and sensor saturation (Overexposed).
+			     Older samples that haven't been backfilled yet show under
+			     'All' only. -->
+			<div>
+				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Exposure</h3>
+				<ul class="space-y-0.5">
+					{#each [
+						{ key: '', label: 'All' },
+						{ key: 'under', label: 'Underexposed' },
+						{ key: 'normal', label: 'Normal' },
+						{ key: 'over', label: 'Overexposed' },
+					] as item}
+						<li>
+							<button
+								onclick={() => setFilterValue('exposure', item.key)}
+								class="w-full px-2 py-1 text-left text-xs {filterExposure === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								{item.label}
 							</button>

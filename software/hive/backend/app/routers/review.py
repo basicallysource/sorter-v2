@@ -20,7 +20,12 @@ from app.schemas.review import (
 from app.schemas.sample import SampleResponse
 from app.config import settings
 from app.models.machine import Machine
-from app.routers.samples import apply_annotated_filter, apply_kind_filter, attach_my_reviews
+from app.routers.samples import (
+    apply_annotated_filter,
+    apply_exposure_filter,
+    apply_kind_filter,
+    attach_my_reviews,
+)
 from app.services.condition_analysis import (
     COMPOSITION_VALUES,
     CONDITION_VALUES,
@@ -50,6 +55,7 @@ def get_next_review(
     review_status: str | None = Query(None, pattern="^(unreviewed|in_review|accepted|rejected|conflict)$"),
     my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
+    exposure: str | None = Query(None, pattern="^(under|normal|over|all)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -100,6 +106,7 @@ def get_next_review(
     # teacher-validated yet are usually incomplete and serving them just
     # makes the reviewer's job harder. ?annotated=all opts back in.
     query = apply_annotated_filter(query, annotated or "teacher")
+    query = apply_exposure_filter(query, exposure)
 
     if scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=current_user.id))

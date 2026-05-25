@@ -81,6 +81,10 @@ export interface Sample {
 	// Current viewer's own review decision (null when not yet reviewed).
 	// Server-side batch-populated so the list endpoint stays cheap.
 	my_review_decision: 'accept' | 'reject' | null;
+	// Exposure stats. Null while the backfill is in flight.
+	luminance_mean: number | null;
+	clipped_low_ratio: number | null;
+	clipped_high_ratio: number | null;
 }
 
 export interface SampleMachineSummary {
@@ -651,6 +655,7 @@ export const api = {
 		kind?: 'regular' | 'condition' | 'all' | string;
 		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 		annotated?: 'teacher' | 'raw' | 'all' | string;
+		exposure?: 'under' | 'normal' | 'over' | 'all' | string;
 		archived?: 'active' | 'archived' | 'all' | string;
 		max_age_hours?: number | string;
 		scope?: 'mine' | 'all' | string;

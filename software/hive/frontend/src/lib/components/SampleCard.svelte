@@ -36,6 +36,19 @@
 	// training-ready. Surface a badge so reviewers can spot them at a
 	// glance and skip them via the Annotation sidebar filter.
 	const isRaw = $derived(!sample.extra_metadata || !('teacher_rerun' in sample.extra_metadata));
+
+	// Mirror ExposureStats.classify on the backend so the badge stays in
+	// sync with the sidebar filter. Null stats (older un-backfilled rows)
+	// produce no badge at all rather than guessing.
+	const exposureLabel = $derived.by<'underexposed' | 'overexposed' | null>(() => {
+		const mean = sample.luminance_mean;
+		const low = sample.clipped_low_ratio;
+		const high = sample.clipped_high_ratio;
+		if (mean === null && low === null && high === null) return null;
+		if ((mean !== null && mean <= 35) || (low !== null && low >= 0.6)) return 'underexposed';
+		if ((mean !== null && mean >= 210) || (high !== null && high >= 0.4)) return 'overexposed';
+		return null;
+	});
 	const roleLabel = $derived(sample.source_role ? (sourceRoleLabels[sample.source_role] ?? sample.source_role) : null);
 	const score = $derived(sample.detection_score != null ? Math.round(sample.detection_score * 100) : null);
 	const bboxes = $derived.by(() => {
@@ -129,6 +142,18 @@
 				title="No teacher pass yet — boxes may be incomplete. Consider waiting before reviewing."
 			>
 				Raw
+			</span>
+		{/if}
+		<!-- Exposure badge — bottom right so it doesn't collide with Raw. -->
+		{#if exposureLabel}
+			<span
+				class="absolute bottom-1.5 right-1.5 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-white"
+				style="background: {exposureLabel === 'underexposed' ? 'rgba(30,30,60,0.85)' : 'rgba(208,16,18,0.85)'}; backdrop-filter: blur(4px);"
+				title={exposureLabel === 'underexposed'
+					? `Underexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely a lights-off frame.`
+					: `Overexposed (mean ${sample.luminance_mean?.toFixed(0)}). Likely sensor saturation.`}
+			>
+				{exposureLabel === 'underexposed' ? 'Dark' : 'Bright'}
 			</span>
 		{/if}
 	</div>

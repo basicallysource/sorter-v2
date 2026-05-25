@@ -117,6 +117,45 @@ def apply_kind_filter(query, kind: str | None):
     return query
 
 
+def apply_exposure_filter(query, exposure: str | None):
+    """Filter by computed exposure bucket — underexposed / normal / overexposed.
+
+    Thresholds mirror ``ExposureStats.classify`` so the server-side filter
+    and the per-sample badge stay in sync. ``None``-luminance rows (older
+    samples awaiting backfill) drop out of any explicit bucket so they're
+    visible only with the 'all' default.
+    """
+
+    if exposure not in {"under", "normal", "over"}:
+        return query
+    from app.services.image_stats import (
+        OVEREXPOSED_CLIPPED_HIGH,
+        OVEREXPOSED_MEAN_MIN,
+        UNDEREXPOSED_CLIPPED_LOW,
+        UNDEREXPOSED_MEAN_MAX,
+    )
+
+    if exposure == "under":
+        return query.filter(
+            (Sample.luminance_mean <= UNDEREXPOSED_MEAN_MAX)
+            | (Sample.clipped_low_ratio >= UNDEREXPOSED_CLIPPED_LOW)
+        )
+    if exposure == "over":
+        return query.filter(
+            (Sample.luminance_mean >= OVEREXPOSED_MEAN_MIN)
+            | (Sample.clipped_high_ratio >= OVEREXPOSED_CLIPPED_HIGH)
+        )
+    # normal: not under, not over, and we *do* have stats (otherwise we'd
+    # accidentally classify un-backfilled rows as 'normal').
+    return query.filter(
+        Sample.luminance_mean.isnot(None),
+        Sample.luminance_mean > UNDEREXPOSED_MEAN_MAX,
+        Sample.luminance_mean < OVEREXPOSED_MEAN_MIN,
+        (Sample.clipped_low_ratio.is_(None)) | (Sample.clipped_low_ratio < UNDEREXPOSED_CLIPPED_LOW),
+        (Sample.clipped_high_ratio.is_(None)) | (Sample.clipped_high_ratio < OVEREXPOSED_CLIPPED_HIGH),
+    )
+
+
 def apply_annotated_filter(query, annotated: str | None):
     """Filter by whether the Hive teacher (Gemini/Perceptron) has already
     re-run on the sample.
@@ -663,6 +702,7 @@ def list_samples(
     kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
     my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
+    exposure: str | None = Query(None, pattern="^(under|normal|over|all)$"),
     archived: str | None = Query(None, pattern="^(active|archived|all)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
@@ -684,6 +724,7 @@ def list_samples(
     # the teacher hasn't validated yet. Explicit ?annotated=all opts back
     # in to seeing everything.
     query = apply_annotated_filter(query, annotated or "teacher")
+    query = apply_exposure_filter(query, exposure)
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)

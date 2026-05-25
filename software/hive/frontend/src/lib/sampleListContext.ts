@@ -12,6 +12,7 @@ export const SAMPLE_LIST_FILTER_KEYS = [
 	'kind',
 	'my_review',
 	'annotated',
+	'exposure',
 	'archived',
 	'max_age_hours'
 ] as const;
@@ -43,6 +44,10 @@ export interface SampleListFilters {
 	// processed the sample. 'teacher' = re-run done (training-ready);
 	// 'raw' = still raw sorter detections, often incomplete.
 	annotated?: string;
+	// Histogram-based exposure bucket: 'under' / 'normal' / 'over' / 'all'.
+	// Useful for catching lights-off batches or sensor saturation. Null/''
+	// means no filter (sees both clean and broken-exposure samples).
+	exposure?: string;
 	// Admin-only: 'active' (default), 'archived' (only archived), 'all'. Members
 	// always see 'active' regardless of what they pass — server enforces.
 	archived?: string;
@@ -102,6 +107,7 @@ export function sampleListContextKey(ctx: SampleListContext): string {
 		kind: ctx.kind ?? '',
 		my_review: ctx.my_review ?? '',
 		annotated: ctx.annotated ?? '',
+		exposure: ctx.exposure ?? '',
 		archived: ctx.archived ?? '',
 		max_age_hours: ctx.max_age_hours ?? '',
 		page_size: ctx.page_size

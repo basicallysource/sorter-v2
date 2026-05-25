@@ -678,6 +678,13 @@ export const api = {
 	getSample(id: string) {
 		return request<SampleDetail>('GET', `/api/samples/${id}`);
 	},
+	getSimilarSamples(id: string, params: { limit?: number; max_distance?: number } = {}) {
+		const sp = new URLSearchParams();
+		if (params.limit !== undefined) sp.set('limit', String(params.limit));
+		if (params.max_distance !== undefined) sp.set('max_distance', String(params.max_distance));
+		const qs = sp.toString();
+		return request<PaginatedSamples>('GET', `/api/samples/${id}/similar${qs ? '?' + qs : ''}`);
+	},
 	saveSampleAnnotations(id: string, data: { annotations: SavedSampleAnnotation[]; version?: 'hive-annotorious-v1' }) {
 		return request<SaveSampleAnnotationsResponse>('PUT', `/api/samples/${id}/annotations`, {
 			version: data.version ?? 'hive-annotorious-v1',

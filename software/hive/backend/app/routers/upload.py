@@ -24,6 +24,7 @@ from app.services.sample_payloads import (
     normalize_sample_payload,
     upsert_asset,
 )
+from app.services.image_hashing import compute_phash_from_stream
 from app.services.storage import save_upload_file, validate_image
 
 router = APIRouter(prefix="/api/machine", tags=["upload"])
@@ -223,6 +224,10 @@ def upload_sample(
         return existing
 
     ext = validate_image(image)
+    # Compute the pHash before save_upload_file consumes the stream. The
+    # helper rewinds the file pointer afterwards so the storage backend
+    # still sees the bytes from offset 0.
+    phash = compute_phash_from_stream(image.file)
     image_path = save_upload_file(
         str(machine.id), str(session.id), meta.local_sample_id, image, ext
     )
@@ -262,6 +267,7 @@ def upload_sample(
         image_path=image_path,
         full_frame_path=full_frame_path,
         overlay_path=overlay_path,
+        phash=phash,
     )
     _apply_payload_to_sample(
         sample,
@@ -348,6 +354,7 @@ def patch_sample(
     image_content_type = None
     if image and image.filename:
         ext = validate_image(image)
+        sample.phash = compute_phash_from_stream(image.file)
         image_path = save_upload_file(str(machine.id), str(session.id), local_sample_id, image, ext)
         image_content_type = image.content_type or None
 

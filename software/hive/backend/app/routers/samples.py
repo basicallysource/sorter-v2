@@ -716,6 +716,61 @@ def list_samples(
     )
 
 
+@router.get("/{sample_id}/similar", response_model=SampleListResponse)
+def get_similar_samples(
+    sample_id: UUID,
+    limit: int = Query(24, ge=1, le=100),
+    max_distance: int = Query(16, ge=0, le=64),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
+):
+    """Return samples visually similar to ``sample_id``, sorted by Hamming
+    distance over the stored 8×8 pHash.
+
+    Excludes the sample itself, archived rows, and anything whose pHash is
+    null (un-decodable image, or older sample that hasn't been backfilled).
+    Distance is computed in SQL via ``bit_count(phash # :target)`` so the
+    server doesn't need to materialize every row.
+    """
+    from sqlalchemy import text
+
+    target = db.query(Sample).filter(Sample.id == sample_id).first()
+    if target is None:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    if target.phash is None:
+        # No hash to compare against. Return an empty list rather than
+        # falling back to "newest samples" — empty is the truthful answer.
+        return SampleListResponse(items=[], total=0, page=1, page_size=limit, pages=0)
+
+    # Hamming distance via XOR + popcount inline in SQL. Postgres ``#`` is
+    # bitwise XOR on integers and ``bit_count`` (Postgres 14+) counts set
+    # bits. We rank by distance, drop self + archived rows + nulls, and
+    # cap by ``max_distance`` so a wildly different image doesn't surface.
+    bit_distance = text("bit_count(samples.phash # :target_phash)")
+    rows = (
+        db.query(Sample, bit_distance.label("distance"))
+        .filter(Sample.machine.has(Machine.archived_at.is_(None)))
+        .filter(Sample.archived_at.is_(None))
+        .filter(Sample.phash.isnot(None))
+        .filter(Sample.id != target.id)
+        .filter(bit_distance <= int(max_distance))
+        .order_by(text("distance"))
+        .params(target_phash=int(target.phash))
+        .limit(limit)
+        .all()
+    )
+
+    items = [sample for sample, _distance in rows]
+    attach_my_reviews(items, db, current_user.id)
+    return SampleListResponse(
+        items=[SampleResponse.model_validate(s) for s in items],
+        total=len(items),
+        page=1,
+        page_size=limit,
+        pages=1 if items else 0,
+    )
+
+
 @router.get("/{sample_id}", response_model=SampleDetailResponse)
 def get_sample(
     sample_id: UUID,

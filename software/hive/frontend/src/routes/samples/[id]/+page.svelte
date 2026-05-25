@@ -552,8 +552,15 @@
 					<span class="text-xs text-danger">{voteError}</span>
 				{/if}
 			{/if}
-			{#if auth.isAdmin}
-				<div class="ml-1 flex items-center gap-1.5">
+			<div class="ml-1 flex items-center gap-1.5">
+				<a
+					href={`/samples/${sample.id}/similar`}
+					class="inline-flex items-center gap-1 border border-border bg-white px-3 py-1 text-xs font-medium text-text hover:bg-bg"
+					title="Find samples that look visually similar to this one (uses perceptual hashing — good for spotting bursts of near-identical frames or a batch shot under the same bad lighting)."
+				>
+					Find similar
+				</a>
+				{#if auth.isAdmin}
 					<a
 						href={`/samples/${sample.id}/compare`}
 						class="inline-flex items-center gap-1 border border-border bg-white px-3 py-1 text-xs font-medium text-text hover:bg-bg"
@@ -564,8 +571,8 @@
 					<Button variant="danger" size="sm" onclick={() => { showDeleteModal = true; }}>
 						Delete
 					</Button>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	</div>
 

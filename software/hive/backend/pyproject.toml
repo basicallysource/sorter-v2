@@ -19,4 +19,5 @@ dependencies = [
     "requests>=2.32",
     "boto3>=1.35",
     "Pillow>=10.0",
+    "imagehash>=4.3",
 ]

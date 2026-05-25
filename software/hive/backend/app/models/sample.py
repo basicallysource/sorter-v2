@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -39,6 +39,10 @@ class Sample(Base):
     # queue + training pulls. Files + sample_payload stay intact so an admin
     # can un-archive without data loss.
     archived_at = Column(DateTime(timezone=True), nullable=True)
+    # 8×8 pHash for "find similar". Signed BIGINT — Hamming distance via
+    # bit_count(phash # :target) in postgres. Null while waiting for the
+    # backfill to run or for un-decodable images.
+    phash = Column(BigInteger, nullable=True)
 
     machine = relationship("Machine", back_populates="samples")
     upload_session = relationship("UploadSession", back_populates="samples")

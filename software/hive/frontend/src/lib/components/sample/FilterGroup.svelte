@@ -61,12 +61,12 @@
 	}
 </script>
 
-<div>
+<div class="border border-border bg-white">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<button
 		type="button"
 		onclick={toggle}
-		class="group flex w-full items-center justify-between gap-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-text-muted hover:text-text"
+		class="group flex w-full items-center justify-between gap-2 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-text {expanded ? 'border-b border-border bg-bg' : 'hover:bg-bg'}"
 		aria-expanded={expanded}
 	>
 		<span class="flex min-w-0 items-center gap-2">
@@ -87,7 +87,7 @@
 		</svg>
 	</button>
 	{#if expanded}
-		<div class="mt-1 mb-2">
+		<div class="px-1.5 py-2">
 			{@render children()}
 		</div>
 	{/if}

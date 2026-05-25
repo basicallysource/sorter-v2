@@ -363,7 +363,11 @@
 		kind: filterKind || undefined,
 		my_review: filterMyReview || undefined,
 		annotated: filterAnnotated || undefined,
-		exposure: filterExposure || undefined,
+		// Mirror the server-side default ('not_under') so a "Delete /
+		// Archive filtered" from the default view operates on exactly the
+		// samples the operator can see — not on the underexposed batch
+		// that's hidden by default.
+		exposure: filterExposure || 'not_under',
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -429,7 +433,11 @@
 		kind: filterKind || undefined,
 		my_review: filterMyReview || undefined,
 		annotated: filterAnnotated || undefined,
-		exposure: filterExposure || undefined,
+		// Mirror the server-side default ('not_under') so a "Delete /
+		// Archive filtered" from the default view operates on exactly the
+		// samples the operator can see — not on the underexposed batch
+		// that's hidden by default.
+		exposure: filterExposure || 'not_under',
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -1132,20 +1140,24 @@
 			<FilterGroup
 				title="Exposure"
 				storageKey="exposure"
-				active={!!filterExposure}
-				activeLabel={filterExposure === 'under' ? 'Underexposed' : filterExposure === 'over' ? 'Overexposed' : filterExposure === 'normal' ? 'Normal' : null}
+				active={!!filterExposure && filterExposure !== 'not_under'}
+				activeLabel={filterExposure === 'under' ? 'Underexposed' : filterExposure === 'over' ? 'Overexposed' : filterExposure === 'normal' ? 'Normal' : filterExposure === 'all' ? 'All' : null}
 			>
 				<ul class="space-y-0.5">
 					{#each [
-						{ key: '', label: 'All' },
-						{ key: 'under', label: 'Underexposed' },
-						{ key: 'normal', label: 'Normal' },
-						{ key: 'over', label: 'Overexposed' },
+						// Empty URL state → server applies 'not_under', so highlight
+						// "Hide underexposed (default)" for both '' and explicit
+						// 'not_under'.
+						{ key: '', label: 'Hide underexposed (default)', active: filterExposure === '' || filterExposure === 'not_under' },
+						{ key: 'all', label: 'All (incl. dark)', active: filterExposure === 'all' },
+						{ key: 'under', label: 'Underexposed only', active: filterExposure === 'under' },
+						{ key: 'normal', label: 'Normal only', active: filterExposure === 'normal' },
+						{ key: 'over', label: 'Overexposed only', active: filterExposure === 'over' },
 					] as item}
 						<li>
 							<button
 								onclick={() => setFilterValue('exposure', item.key)}
-								class="w-full px-2 py-1 text-left text-xs {filterExposure === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
 							>
 								{item.label}
 							</button>

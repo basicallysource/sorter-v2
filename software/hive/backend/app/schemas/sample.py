@@ -165,6 +165,9 @@ class BatchDeleteSamplesRequest(BaseModel):
     capture_reason: str | None = None
     review_status: str | None = None
     kind: str | None = None  # 'regular' | 'condition' | None
+    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
+    annotated: str | None = None  # 'teacher' | 'raw'
+    exposure: str | None = None  # 'under' | 'normal' | 'over'
     max_age_hours: int | None = None
     dry_run: bool = False
     max_delete: int = 5000
@@ -189,6 +192,9 @@ class BatchArchiveSamplesRequest(BaseModel):
     capture_reason: str | None = None
     review_status: str | None = None
     kind: str | None = None
+    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
+    annotated: str | None = None  # 'teacher' | 'raw'
+    exposure: str | None = None  # 'under' | 'normal' | 'over'
     max_age_hours: int | None = None
     archived: str | None = None  # 'active' | 'archived' | 'all' (for unarchive flow)
     dry_run: bool = False

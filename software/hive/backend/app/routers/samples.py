@@ -908,10 +908,17 @@ def save_sample_classification(
     )
 
 
-def _apply_archive_filters(query, payload: BatchArchiveSamplesRequest):
-    """Shared filter assembly for archive + unarchive endpoints."""
+def _apply_archive_filters(query, payload: BatchArchiveSamplesRequest, viewer_id):
+    """Shared filter assembly for archive + unarchive endpoints.
+
+    Mirrors the /api/samples list filters 1:1 — anything the operator sees
+    on the page must be what the destructive action operates on.
+    """
 
     query = apply_kind_filter(query, payload.kind)
+    query = apply_my_review_filter(query, payload.my_review, viewer_id)
+    query = apply_annotated_filter(query, payload.annotated)
+    query = apply_exposure_filter(query, payload.exposure)
     if payload.machine_id:
         try:
             machine_uuid = UUID(payload.machine_id)
@@ -951,7 +958,7 @@ def batch_archive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
     )
-    query = _apply_archive_filters(query, payload)
+    query = _apply_archive_filters(query, payload, admin.id)
 
     matched = query.count()
 
@@ -999,7 +1006,7 @@ def batch_unarchive_samples(
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.isnot(None))
     )
-    query = _apply_archive_filters(query, payload)
+    query = _apply_archive_filters(query, payload, admin.id)
 
     matched = query.count()
 
@@ -1049,7 +1056,12 @@ def batch_delete_samples(
 
     query = db.query(Sample).filter(Sample.machine.has(owner_id=current_user.id))
 
+    # Mirror the /api/samples list filters 1:1 — anything the operator sees
+    # on the page must be what the destructive action operates on.
     query = apply_kind_filter(query, payload.kind)
+    query = apply_my_review_filter(query, payload.my_review, current_user.id)
+    query = apply_annotated_filter(query, payload.annotated)
+    query = apply_exposure_filter(query, payload.exposure)
     if payload.machine_id:
         try:
             machine_uuid = UUID(payload.machine_id)

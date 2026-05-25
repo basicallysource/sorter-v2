@@ -112,6 +112,7 @@ class TeacherJobFilter(BaseModel):
     kind: str | None = None
     my_review: str | None = None
     annotated: str | None = None
+    exposure: str | None = None
     max_age_hours: int | None = None
 
 
@@ -212,6 +213,7 @@ def create_teacher_job(
     from app.models.machine import Machine as _Machine
     from app.routers.samples import (
         apply_annotated_filter as _apply_annotated,
+        apply_exposure_filter as _apply_exposure,
         apply_kind_filter as _apply_kind,
         apply_my_review_filter as _apply_my_review,
     )
@@ -249,6 +251,8 @@ def create_teacher_job(
         query = _apply_my_review(query, filt.my_review, admin.id)
     if filt.annotated:
         query = _apply_annotated(query, filt.annotated)
+    if filt.exposure:
+        query = _apply_exposure(query, filt.exposure)
 
     # Only enqueue samples whose source_role has a teacher zone — otherwise we'd just burn
     # Gemini credits on the wrong prompt. We also skip rows missing image_path defensively.

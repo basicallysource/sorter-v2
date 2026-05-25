@@ -13,6 +13,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { Button } from '$lib/components/primitives';
+	import FilterGroup from '$lib/components/sample/FilterGroup.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import {
@@ -49,6 +50,22 @@
 	// uploaded samples typically fall here until the teacher worker has
 	// caught up). Default '' shows both.
 	const filterAnnotated = $derived(listContext.annotated ?? '');
+
+	// Lookup tables for collapsed-filter chip labels. Defined once at the
+	// script top so the markup can reference them without {@const} hoisting.
+	const MY_REVIEW_LABELS: Record<string, string> = {
+		unreviewed: 'Not by me yet',
+		reviewed: 'By me',
+		accepted: 'I accepted',
+		rejected: 'I rejected'
+	};
+	const STATUS_LABELS: Record<string, string> = {
+		unreviewed: 'Unreviewed',
+		in_review: 'In Review',
+		accepted: 'Accepted',
+		rejected: 'Rejected',
+		conflict: 'Conflict'
+	};
 	// Histogram bucket — 'under' / 'normal' / 'over' / 'all'. Empty = no filter.
 	const filterExposure = $derived(listContext.exposure ?? '');
 	// Admin-only: 'active' (default), 'archived', 'all'. Server enforces:
@@ -344,6 +361,9 @@
 		capture_reason: filterCaptureReason || undefined,
 		review_status: filterStatus || undefined,
 		kind: filterKind || undefined,
+		my_review: filterMyReview || undefined,
+		annotated: filterAnnotated || undefined,
+		exposure: filterExposure || undefined,
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -407,6 +427,9 @@
 		capture_reason: filterCaptureReason || undefined,
 		review_status: filterStatus || undefined,
 		kind: filterKind || undefined,
+		my_review: filterMyReview || undefined,
+		annotated: filterAnnotated || undefined,
+		exposure: filterExposure || undefined,
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
 	}));
 
@@ -468,6 +491,7 @@
 		// usually meant as a broad re-pass, not "only what's already been
 		// teacher'd" which is what mirroring the server default would imply.
 		annotated: filterAnnotated || undefined,
+		exposure: filterExposure || undefined,
 		// Age filter must travel with the job filter — otherwise the modal counts a 24h
 		// slice but the job picks up the full table.
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
@@ -834,6 +858,9 @@
 						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
 						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
 						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
+						{#if filterMyReview}<span class="border border-border px-1.5 py-0.5 text-text">my_review={filterMyReview}</span>{/if}
+						{#if filterAnnotated}<span class="border border-border px-1.5 py-0.5 text-text">annotated={filterAnnotated}</span>{/if}
+						{#if filterExposure}<span class="border border-border px-1.5 py-0.5 text-text">exposure={filterExposure}</span>{/if}
 						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
 					</div>
 				</div>
@@ -907,6 +934,9 @@
 						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
 						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
 						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
+						{#if filterMyReview}<span class="border border-border px-1.5 py-0.5 text-text">my_review={filterMyReview}</span>{/if}
+						{#if filterAnnotated}<span class="border border-border px-1.5 py-0.5 text-text">annotated={filterAnnotated}</span>{/if}
+						{#if filterExposure}<span class="border border-border px-1.5 py-0.5 text-text">exposure={filterExposure}</span>{/if}
 						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
 					</div>
 				</div>
@@ -1013,7 +1043,7 @@
 <div class="flex gap-5">
 	<!-- Sidebar filters -->
 	<aside class="w-48 shrink-0">
-		<div class="sticky top-20 space-y-5">
+		<div class="sticky top-20 space-y-1">
 			{#if hasActiveFilters}
 				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-primary hover:underline">
 					<svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -1023,9 +1053,12 @@
 				</button>
 			{/if}
 
-			<!-- Scope -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Scope</h3>
+			<FilterGroup
+				title="Scope"
+				storageKey="scope"
+				active={filterScope === 'mine'}
+				activeLabel={filterScope === 'mine' ? 'Mine' : null}
+			>
 				<ul class="space-y-0.5">
 					<li>
 						<button
@@ -1044,13 +1077,14 @@
 						</button>
 					</li>
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Kind: regular detection samples vs condition crops. Coarser than
-			     source_role / capture_reason — splits the queue into the two
-			     fundamentally different content streams the sorter ships. -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Kind</h3>
+			<FilterGroup
+				title="Kind"
+				storageKey="kind"
+				active={!!filterKind}
+				activeLabel={filterKind ? (filterKind === 'regular' ? 'Regular' : 'Condition') : null}
+			>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },
@@ -1067,14 +1101,14 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Annotation source: 'Teacher pass' is the default — reviewers
-			     shouldn't be served raw sorter boxes that the teacher hasn't
-			     validated yet. 'All' is an explicit opt-in for browsing
-			     freshly uploaded samples that are still pending. -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Annotation</h3>
+			<FilterGroup
+				title="Annotation"
+				storageKey="annotated"
+				active={filterAnnotated === 'all' || filterAnnotated === 'raw'}
+				activeLabel={filterAnnotated === 'all' ? 'All' : filterAnnotated === 'raw' ? 'Raw' : null}
+			>
 				<ul class="space-y-0.5">
 					{#each [
 						// Empty URL state defaults to 'teacher' on the server, so
@@ -1093,14 +1127,14 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Exposure: histogram-based quality bucket. Catches lights-off
-			     batches (Underexposed) and sensor saturation (Overexposed).
-			     Older samples that haven't been backfilled yet show under
-			     'All' only. -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Exposure</h3>
+			<FilterGroup
+				title="Exposure"
+				storageKey="exposure"
+				active={!!filterExposure}
+				activeLabel={filterExposure === 'under' ? 'Underexposed' : filterExposure === 'over' ? 'Overexposed' : filterExposure === 'normal' ? 'Normal' : null}
+			>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },
@@ -1118,14 +1152,15 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- My review: per-viewer filter, independent of the global Status
-			     below. 'Unreviewed by me' is the natural starting point for
-			     a reviewer who wants to see what's still on their plate. -->
 			{#if auth.isReviewer}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">My review</h3>
+				<FilterGroup
+					title="My review"
+					storageKey="my_review"
+					active={!!filterMyReview}
+					activeLabel={filterMyReview ? (MY_REVIEW_LABELS[filterMyReview] ?? filterMyReview) : null}
+				>
 					<ul class="space-y-0.5">
 						{#each [
 							{ key: '', label: 'All' },
@@ -1144,12 +1179,15 @@
 							</li>
 						{/each}
 					</ul>
-				</div>
+				</FilterGroup>
 			{/if}
 
-			<!-- Status — global consensus state across all reviewers. -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Status (global)</h3>
+			<FilterGroup
+				title="Status (global)"
+				storageKey="status"
+				active={!!filterStatus}
+				activeLabel={filterStatus ? (STATUS_LABELS[filterStatus] ?? filterStatus) : null}
+			>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },
@@ -1169,13 +1207,16 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Machine — admin-only for now: members shouldn't be able to filter/browse by
-				 individual rigs (exposes other users' rig names + owners when scope=all). -->
 			{#if auth.user?.role === 'admin' && machines.length > 0}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Machine</h3>
+				{@const activeMachine = filterMachine ? machines.find((m) => String(m.id) === filterMachine) : null}
+				<FilterGroup
+					title="Machine"
+					storageKey="machine"
+					active={!!filterMachine}
+					activeLabel={activeMachine?.name ?? (filterMachine ? 'Selected' : null)}
+				>
 					<ul class="space-y-0.5">
 						<li>
 							<button
@@ -1204,13 +1245,16 @@
 							{/each}
 						{/each}
 					</ul>
-				</div>
+				</FilterGroup>
 			{/if}
 
-			<!-- Source -->
 			{#if filterOptions.source_roles.length > 0}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Source</h3>
+				<FilterGroup
+					title="Source"
+					storageKey="source_role"
+					active={!!filterSourceRole}
+					activeLabel={filterSourceRole ? sourceRoleLabel(filterSourceRole) : null}
+				>
 					<ul class="space-y-0.5">
 						<li>
 							<button
@@ -1233,12 +1277,15 @@
 							</li>
 						{/each}
 					</ul>
-				</div>
+				</FilterGroup>
 			{/if}
 
-			<!-- Age (upload time) -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Age</h3>
+			<FilterGroup
+				title="Age"
+				storageKey="age"
+				active={!!filterMaxAgeHours}
+				activeLabel={filterMaxAgeHours ? (AGE_OPTIONS.find((o) => o.value === filterMaxAgeHours)?.label ?? null) : null}
+			>
 				<ul class="space-y-0.5">
 					{#each AGE_OPTIONS as opt (opt.value)}
 						<li>
@@ -1251,15 +1298,15 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Archived view — admin only. Lives at the bottom because it's
-			     the least-used filter and tucking it here keeps the common
-			     filters above the fold. Members never see archived samples
-			     regardless of what's in the URL (server enforces). -->
 			{#if auth.user?.role === 'admin'}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Archived</h3>
+				<FilterGroup
+					title="Archived"
+					storageKey="archived"
+					active={!!filterArchived}
+					activeLabel={filterArchived === 'archived' ? 'Archived only' : filterArchived === 'all' ? 'Both' : null}
+				>
 					<ul class="space-y-0.5">
 						{#each [
 							{ key: '', label: 'Active only' },
@@ -1276,7 +1323,7 @@
 							</li>
 						{/each}
 					</ul>
-				</div>
+				</FilterGroup>
 			{/if}
 		</div>
 	</aside>

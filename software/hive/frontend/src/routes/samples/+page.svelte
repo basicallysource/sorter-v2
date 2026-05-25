@@ -671,8 +671,12 @@
 				if (filterCaptureReason) sp.set('capture_reason', filterCaptureReason);
 				if (filterKind) sp.set('kind', filterKind);
 				if (filterMaxAgeHours) sp.set('max_age_hours', filterMaxAgeHours);
-				// review_status filter doesn't make sense — the queue only serves unreviewed
-				// + in_review samples anyway.
+				// Forward review_status + my_review so e.g. "show me conflict
+				// samples" or "show me what I already accepted" carries into
+				// the queue. The queue treats either as 'revisit mode' and
+				// drops its default "fresh work" gates.
+				if (filterStatus) sp.set('review_status', filterStatus);
+				if (filterMyReview) sp.set('my_review', filterMyReview);
 				const qs = sp.toString();
 				return qs ? `/review?${qs}` : '/review';
 			})()}
@@ -1019,30 +1023,6 @@
 				</ul>
 			</div>
 
-			<!-- Archived view — admin only. Members never see archived samples
-			     regardless of what's in the URL (server enforces). -->
-			{#if auth.user?.role === 'admin'}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Archived</h3>
-					<ul class="space-y-0.5">
-						{#each [
-							{ key: '', label: 'Active only' },
-							{ key: 'archived', label: 'Archived only' },
-							{ key: 'all', label: 'Both' },
-						] as item}
-							<li>
-								<button
-									onclick={() => setFilterValue('archived', item.key)}
-									class="w-full px-2 py-1 text-left text-xs {filterArchived === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
-								>
-									{item.label}
-								</button>
-							</li>
-						{/each}
-					</ul>
-				</div>
-			{/if}
-
 			<!-- Kind: regular detection samples vs condition crops. Coarser than
 			     source_role / capture_reason — splits the queue into the two
 			     fundamentally different content streams the sorter ships. -->
@@ -1198,6 +1178,32 @@
 					{/each}
 				</ul>
 			</div>
+
+			<!-- Archived view — admin only. Lives at the bottom because it's
+			     the least-used filter and tucking it here keeps the common
+			     filters above the fold. Members never see archived samples
+			     regardless of what's in the URL (server enforces). -->
+			{#if auth.user?.role === 'admin'}
+				<div>
+					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Archived</h3>
+					<ul class="space-y-0.5">
+						{#each [
+							{ key: '', label: 'Active only' },
+							{ key: 'archived', label: 'Archived only' },
+							{ key: 'all', label: 'Both' },
+						] as item}
+							<li>
+								<button
+									onclick={() => setFilterValue('archived', item.key)}
+									class="w-full px-2 py-1 text-left text-xs {filterArchived === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								>
+									{item.label}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</div>
+			{/if}
 		</div>
 	</aside>
 

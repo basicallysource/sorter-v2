@@ -213,7 +213,7 @@
 	const queueFilters = $derived.by(() => {
 		const sp = page.url.searchParams;
 		const params: Record<string, string> = {};
-		for (const key of ['scope', 'machine_id', 'source_role', 'capture_reason', 'kind', 'max_age_hours']) {
+		for (const key of ['scope', 'machine_id', 'source_role', 'capture_reason', 'kind', 'review_status', 'my_review', 'max_age_hours']) {
 			const value = sp.get(key);
 			if (value) params[key] = value;
 		}

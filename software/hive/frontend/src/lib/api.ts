@@ -765,6 +765,8 @@ export const api = {
 			source_role?: string;
 			capture_reason?: string;
 			kind?: 'regular' | 'condition' | 'all' | string;
+			review_status?: 'unreviewed' | 'in_review' | 'accepted' | 'rejected' | 'conflict' | string;
+			my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
 			max_age_hours?: number | string;
 		} = {}
 	) {

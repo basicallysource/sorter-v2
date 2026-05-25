@@ -47,40 +47,53 @@ def get_next_review(
     source_role: str | None = None,
     capture_reason: str | None = None,
     kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
+    review_status: str | None = Query(None, pattern="^(unreviewed|in_review|accepted|rejected|conflict)$"),
+    my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     current_user: User = Depends(require_role("reviewer", "admin")),
     db: Session = Depends(get_db),
 ):
     """Return the next sample to review.
 
-    Eligibility:
+    Default mode (no review_status / my_review filter) is "fresh work":
       * The viewer has not personally reviewed it yet.
-      * The sample has fewer than ``REVIEW_CONSENSUS_TARGET`` total reviews —
-        once enough independent voices have weighed in, the sample drops out
-        of every reviewer's queue. Edge cases (ties, conflicts) can still be
-        revisited via /samples; the queue is for fresh work only.
-      * Neither the sample nor its machine is archived.
+      * The sample has fewer than ``REVIEW_CONSENSUS_TARGET`` total reviews.
+      * Neither sample nor machine is archived.
 
-    NOTE: the *global* review_status (unreviewed / in_review / accepted /
-    rejected / conflict) intentionally does NOT gate the queue. A sample
-    that one reviewer already accepted should still appear for the next
-    reviewer until consensus is reached — that's the whole point of
-    multiple independent reviews.
+    Override mode (explicit review_status or my_review on the URL): the
+    operator is intentionally drilling into a specific slice — e.g.
+    ``review_status=conflict`` to break ties, or ``my_review=accepted``
+    to revisit and change own votes. We drop the default "fresh work"
+    gates so those samples are reachable, but still hide archived rows.
     """
-    already_reviewed = select(SampleReview.sample_id).where(
-        SampleReview.reviewer_id == current_user.id
-    )
-
     consensus_cap = max(1, int(settings.REVIEW_CONSENSUS_TARGET))
+    # Either filter being present means the operator is in 'revisit' mode.
+    override_mode = review_status is not None or my_review is not None
+
     query = db.query(Sample).filter(
-        Sample.id.notin_(already_reviewed),
-        Sample.review_count < consensus_cap,
-        # Hide archived rows (per-sample archive + machine-level archive) so
-        # the queue never serves something an admin has already taken out of
-        # circulation.
         Sample.archived_at.is_(None),
         Sample.machine.has(Machine.archived_at.is_(None)),
     )
+
+    if not override_mode:
+        # Default: hide samples the viewer already reviewed + ones past
+        # consensus. This is the normal "give me fresh work" flow.
+        already_reviewed = select(SampleReview.sample_id).where(
+            SampleReview.reviewer_id == current_user.id
+        )
+        query = query.filter(
+            Sample.id.notin_(already_reviewed),
+            Sample.review_count < consensus_cap,
+        )
+    else:
+        # Honor the explicit narrowing. my_review handled below by helper;
+        # review_status just maps straight to the aggregate column.
+        if review_status:
+            query = query.filter(Sample.review_status == review_status)
+        if my_review:
+            from app.routers.samples import apply_my_review_filter
+            query = apply_my_review_filter(query, my_review, current_user.id)
+
     query = apply_kind_filter(query, kind)
 
     if scope == "mine":

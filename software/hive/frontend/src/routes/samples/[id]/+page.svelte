@@ -376,6 +376,27 @@
 		}
 	}
 
+	// Reviewers can vote (or change their vote) directly from the detail
+	// page — useful for revisiting conflict samples without going back
+	// through the queue. The POST endpoint is an upsert keyed by
+	// (sample_id, reviewer_id) so resubmitting just overwrites.
+	let voteSubmitting = $state(false);
+	let voteError = $state<string | null>(null);
+
+	async function submitVote(decision: 'accept' | 'reject') {
+		if (!sample || voteSubmitting) return;
+		voteSubmitting = true;
+		voteError = null;
+		try {
+			await api.submitReview(sample.id, decision);
+			await loadSample(sample.id);
+		} catch (e) {
+			voteError = e instanceof Error ? e.message : 'Vote failed.';
+		} finally {
+			voteSubmitting = false;
+		}
+	}
+
 	async function handleDelete() {
 		if (!sample) return;
 		try {
@@ -502,6 +523,34 @@
 			<Badge text={statusLabel[sample.review_status] ?? sample.review_status} variant={statusVariant[sample.review_status] ?? 'neutral'} />
 			{#if sample.review_count > 0}
 				<span class="text-xs text-text-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
+			{/if}
+			{#if auth.isReviewer}
+				{@const myVote = sample.my_review_decision}
+				<div class="ml-1 flex items-center gap-1">
+					{#if myVote}
+						<span
+							class="border px-2 py-1 text-xs font-medium {myVote === 'accept' ? 'border-success/30 bg-success/10 text-success' : 'border-primary/30 bg-primary/10 text-primary'}"
+							title={myVote === 'accept' ? 'You accepted this sample' : 'You rejected this sample'}
+						>You: {myVote === 'accept' ? '✓' : '✗'}</span>
+					{/if}
+					<button
+						type="button"
+						onclick={() => void submitVote('accept')}
+						disabled={voteSubmitting || myVote === 'accept'}
+						class="border border-success/30 bg-white px-2 py-1 text-xs font-medium text-success hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
+						title={myVote ? 'Change your vote to Accept' : 'Accept this sample'}
+					>{myVote === 'accept' ? '✓ Accepted' : myVote === 'reject' ? 'Change to ✓' : '✓ Accept'}</button>
+					<button
+						type="button"
+						onclick={() => void submitVote('reject')}
+						disabled={voteSubmitting || myVote === 'reject'}
+						class="border border-primary/30 bg-white px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+						title={myVote ? 'Change your vote to Reject' : 'Reject this sample'}
+					>{myVote === 'reject' ? '✗ Rejected' : myVote === 'accept' ? 'Change to ✗' : '✗ Reject'}</button>
+				</div>
+				{#if voteError}
+					<span class="text-xs text-danger">{voteError}</span>
+				{/if}
 			{/if}
 			{#if auth.isAdmin}
 				<div class="ml-1 flex items-center gap-1.5">

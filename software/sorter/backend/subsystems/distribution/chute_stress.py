@@ -18,7 +18,7 @@ from local_state import (
     recordChuteStressRunStart,
     updateChuteStressRunProgress,
 )
-from subsystems.distribution.chute import GEAR_RATIO, Chute
+from subsystems.distribution.chute import GEAR_RATIO, HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS, Chute
 
 StressMode = Literal["sweep", "random"]
 RunStatus = Literal["running", "paused", "stopping", "completed", "stopped", "failed"]
@@ -27,6 +27,7 @@ CHUTE_MAX_ANGLE_LIMIT_DEG = 345.0
 LEG_TIMEOUT_BUFFER_S = 5.0
 POLL_INTERVAL_S = 0.02
 MIN_RANDOM_DELTA_DEG = 5.0
+MIN_RANDOM_ANGLE_DEG = 5.0
 
 
 @dataclass
@@ -171,21 +172,58 @@ class ChuteStressTestRunner:
                 self._state.status = "stopping"
         self.logger.info("Chute stress: stop requested")
 
-    def _pickNextTarget(self, current_deg: float) -> float:
+    def _pickNextTarget(self, current_deg: float) -> float | None:
+        # Returns None to signal that sweep should home rather than move to a position.
         assert self._state is not None
         params = self._state.params
         max_deg = params.target_max_deg
-        min_deg = float(self.chute.first_bin_center or 0.0)
         if params.mode == "sweep":
             last = self._state.last_target_deg
             if last is None or last < max_deg / 2.0:
                 return max_deg
-            return min_deg
+            return None  # home leg
+        min_deg = max(MIN_RANDOM_ANGLE_DEG, float(self.chute.first_bin_center or 0.0))
         for _ in range(10):
             candidate = random.uniform(min_deg, max_deg)
             if abs(candidate - current_deg) >= MIN_RANDOM_DELTA_DEG:
                 return candidate
         return max_deg if current_deg < max_deg / 2.0 else min_deg
+
+    def _homeToZero(self) -> float:
+        assert self._state is not None
+        stepper = self.chute.stepper
+        current_deg = self.chute.current_angle
+        timeout_s = (HOME_TIMEOUT_MS / 1000.0) + LEG_TIMEOUT_BUFFER_S
+
+        stepper.enabled = True
+        stepper.home(
+            HOME_SPEED_MICROSTEPS_PER_SEC,
+            self.chute.home_pin,
+            home_pin_active_high=self.chute.endstop_active_high,
+        )
+
+        leg_start = time.monotonic()
+        while True:
+            if self._stop_event.is_set():
+                self._halt()
+                break
+            try:
+                if stepper.stopped:
+                    break
+            except Exception:
+                self._halt()
+                break
+            if (time.monotonic() - leg_start) > timeout_s:
+                self.logger.warning("Chute stress: home leg timed out")
+                self._halt()
+                break
+            time.sleep(POLL_INTERVAL_S)
+
+        try:
+            final_deg = self.chute.current_angle
+            return abs(final_deg - current_deg)
+        except Exception:
+            return abs(current_deg)
 
     def _halt(self) -> None:
         stepper = self.chute.stepper
@@ -255,7 +293,7 @@ class ChuteStressTestRunner:
 
         try:
             stepper.set_speed_limits(
-                min_speed=int(params.speed_microsteps_per_sec),
+                min_speed=16,
                 max_speed=int(params.speed_microsteps_per_sec),
             )
             self.chute.setOperatingSpeed(int(params.speed_microsteps_per_sec))
@@ -275,9 +313,12 @@ class ChuteStressTestRunner:
 
                 target = self._pickNextTarget(self.chute.current_angle)
                 with self._lock:
-                    self._state.last_target_deg = target
+                    self._state.last_target_deg = target if target is not None else 0.0
 
-                distance = self._moveTo(target)
+                if target is None:
+                    distance = self._homeToZero()
+                else:
+                    distance = self._moveTo(target)
                 with self._lock:
                     self._state.total_distance_deg += distance
                     self._state.elapsed_s = time.monotonic() - start_monotonic
@@ -308,7 +349,7 @@ class ChuteStressTestRunner:
         finally:
             try:
                 stepper.set_speed_limits(
-                    min_speed=int(prev_operating_speed),
+                    min_speed=16,
                     max_speed=int(prev_operating_speed),
                 )
                 self.chute.setOperatingSpeed(int(prev_operating_speed))

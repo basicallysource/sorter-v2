@@ -46,11 +46,13 @@ class GlobalConfig:
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
+    brickognize_dump_images: bool
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
         self.debug_level = 0
         self.should_write_camera_feeds = False
+        self.brickognize_dump_images = False
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must
@@ -99,6 +101,7 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.disable_chute = "chute" in args.disable or "chute" in env_disable
     gc.disable_servos = "servos" in args.disable or "servos" in env_disable
     gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
+    gc.brickognize_dump_images = os.getenv("BRICKOGNIZE_DUMP_IMAGES", "0") == "1"
     gc.region_provider = RegionProviderType.HANDDRAWN
 
     log_dir = os.path.join(os.path.dirname(__file__), "..", "..", "logs")

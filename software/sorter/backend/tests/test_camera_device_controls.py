@@ -10,6 +10,8 @@ from vision.camera import (
     _bool_from_capture_value,
     _capture_failure_backoff_s,
     _is_macos_camera_index_available,
+    _try_v4l2ctl_describe,
+    _try_v4l2ctl_get_number,
     probe_camera_device_controls,
 )
 
@@ -257,6 +259,34 @@ class CameraDeviceControlsTests(unittest.TestCase):
             self.assertTrue(_bool_from_capture_value("auto_exposure", 3.0))
             self.assertFalse(_bool_from_capture_value("auto_exposure", 0.25))
             self.assertTrue(_bool_from_capture_value("auto_exposure", 0.75))
+
+    def test_linux_v4l2_numeric_readback(self) -> None:
+        completed = SimpleNamespace(returncode=0, stdout="exposure_time_absolute: 200\n")
+        with patch("vision.camera.subprocess.run", return_value=completed):
+            self.assertEqual(200.0, _try_v4l2ctl_get_number(4, "exposure"))
+
+    def test_linux_v4l2_describe_parses_numeric_ranges(self) -> None:
+        stdout = """
+User Controls
+
+                     brightness 0x00980900 (int)    : min=-64 max=64 step=1 default=0 value=0
+      white_balance_temperature 0x0098091a (int)    : min=2800 max=6500 step=10 default=4600 value=2800 flags=inactive
+
+Camera Controls
+
+                  auto_exposure 0x009a0901 (menu)   : min=0 max=3 default=3 value=3 (Aperture Priority Mode)
+         exposure_time_absolute 0x009a0902 (int)    : min=0 max=10000 step=1 default=166 value=200 flags=inactive
+"""
+        completed = SimpleNamespace(returncode=0, stdout=stdout)
+        with patch("vision.camera.subprocess.run", return_value=completed):
+            described = _try_v4l2ctl_describe(4)
+
+        self.assertEqual(-64.0, described["brightness"]["min"])
+        self.assertEqual(64.0, described["brightness"]["max"])
+        self.assertEqual(1.0, described["brightness"]["step"])
+        self.assertEqual(200.0, described["exposure"]["value"])
+        self.assertTrue(bool(described["exposure"]["inactive"]))
+        self.assertTrue(bool(described["white_balance_temperature"]["inactive"]))
 
 
 if __name__ == "__main__":

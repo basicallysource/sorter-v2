@@ -5,9 +5,10 @@ from __future__ import annotations
 import os
 import signal
 import threading
-from typing import Callable, Dict, Any
+from typing import Callable, Dict, Any, Optional
 
 from fastapi import APIRouter
+from pydantic import BaseModel
 
 import server.shared_state as shared_state
 from subsystems.sample_collection_speed import (
@@ -588,3 +589,31 @@ def force_teacher_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "reason": "vision_not_initialized"}
     queued = bool(vm.forceQueueAuxiliaryTeacherCapture(role))
     return {"ok": True, "role": role, "queued": queued}
+
+
+class ClientErrorPayload(BaseModel):
+    message: Optional[str] = None
+    source: Optional[str] = None
+    lineno: Optional[int] = None
+    colno: Optional[int] = None
+    stack: Optional[str] = None
+    type: Optional[str] = None
+
+
+@router.post("/api/system/client-error")
+def report_client_error(payload: ClientErrorPayload) -> Dict[str, Any]:
+    logger = getattr(shared_state.gc_ref, "logger", None)
+    msg = payload.message or "(no message)"
+    location = ""
+    if payload.source:
+        location = f" @ {payload.source}"
+        if payload.lineno is not None:
+            location += f":{payload.lineno}"
+    stack = f"\n{payload.stack}" if payload.stack else ""
+    full = f"[browser] {payload.type or 'error'}: {msg}{location}{stack}"
+    if logger is not None:
+        logger.error(full)
+    else:
+        import logging
+        logging.getLogger(__name__).error(full)
+    return {"ok": True}

@@ -1,4 +1,5 @@
 from typing import Any, Callable, Optional, cast
+import os
 import threading
 import io
 import requests
@@ -118,7 +119,12 @@ def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
     return _classifyImages([image])
 
 
-def _classifyImages(images: list[np.ndarray]) -> BrickognizeResponse:
+def _classifyImages(
+    images: list[np.ndarray],
+    *,
+    dump_dir: Optional[str] = None,
+    dump_label: Optional[str] = None,
+) -> BrickognizeResponse:
     """Post multiple query_images in a single request.
 
     Brickognize uses all of them as evidence for one final prediction —
@@ -126,6 +132,8 @@ def _classifyImages(images: list[np.ndarray]) -> BrickognizeResponse:
     """
     if not images:
         raise ValueError("at least one image required")
+    if dump_dir:
+        os.makedirs(dump_dir, exist_ok=True)
     files: list[tuple[str, tuple[str, io.BytesIO, str]]] = []
     for i, image in enumerate(images):
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -133,6 +141,10 @@ def _classifyImages(images: list[np.ndarray]) -> BrickognizeResponse:
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="JPEG")
         payload_bytes = img_bytes.getvalue()
+        if dump_dir:
+            label = dump_label or "img"
+            with open(os.path.join(dump_dir, f"{label}_{i:02d}.jpg"), "wb") as f:
+                f.write(payload_bytes)
         files.append(
             ("query_image", (f"image_{i}.jpg", io.BytesIO(payload_bytes), "image/jpeg"))
         )

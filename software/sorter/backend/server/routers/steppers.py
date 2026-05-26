@@ -523,7 +523,7 @@ def move_stepper_degrees(
             target.set_acceleration(int(acceleration))
             target.set_speed_limits(min_speed=int(min_speed), max_speed=int(speed))
         else:
-            target.set_speed_limits(min_speed=int(speed), max_speed=int(speed))
+            target.set_speed_limits(min_speed=16, max_speed=int(speed))
         if not bool(target.move_degrees(degrees)):
             raise RuntimeError("move_degrees was not acknowledged")
     except Exception as e:

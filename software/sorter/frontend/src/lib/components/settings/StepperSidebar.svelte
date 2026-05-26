@@ -16,6 +16,7 @@
 	import StepperDriverSettings from './stepper/StepperDriverSettings.svelte';
 	import StepperEndstopSettings from './stepper/StepperEndstopSettings.svelte';
 	import StepperChuteOperation from './stepper/StepperChuteOperation.svelte';
+	import StepperChuteStressTest from './stepper/StepperChuteStressTest.svelte';
 
 	let {
 		stepperKey,
@@ -693,6 +694,10 @@
 				onCancel={cancelHoming}
 				onCalibrate={calibrate}
 			/>
+		{/if}
+
+		{#if isChute}
+			<StepperChuteStressTest operatingSpeed={chuteOperatingSpeed} />
 		{/if}
 
 		<StepperDriverSettings

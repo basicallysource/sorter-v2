@@ -46,10 +46,20 @@
 		last_error?: string | null;
 	};
 
+	type ServoSource = 'waveshare' | 'pca';
+
 	let {
-		onSaved = null
+		servoSource = 'pca',
+		discoveredServoSource = 'pca',
+		discoveredWaveshareServos = 0,
+		onSaved = null,
+		onSourceChange = null
 	}: {
+		servoSource?: ServoSource;
+		discoveredServoSource?: ServoSource;
+		discoveredWaveshareServos?: number;
 		onSaved?: (() => void | Promise<void>) | null;
+		onSourceChange?: ((value: ServoSource) => void) | null;
 	} = $props();
 
 	const manager = getMachinesContext();
@@ -184,7 +194,7 @@
 		const storageLayersRaw = Array.isArray(storage?.layers) ? storage.layers : [];
 		const servoChannels = Array.isArray(servo?.channels) ? servo.channels : [];
 
-		backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
+		backend = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
 		openAngle = Number(servo.open_angle ?? 10);
 		closedAngle = Number(servo.closed_angle ?? 83);
 		port = typeof servo.port === 'string' ? servo.port : '';
@@ -616,6 +626,17 @@
 		void loadSettings();
 	});
 
+	$effect(() => {
+		const desired = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
+		if (backend === desired) return;
+		backend = desired;
+		if (desired === 'waveshare') {
+			void loadWaveshareInventory({ refresh: false, silent: true });
+		} else {
+			busServos = [];
+		}
+	});
+
 	onMount(() => {
 		const interval = setInterval(() => {
 			if (backend !== 'waveshare') return;
@@ -663,38 +684,41 @@
 		</div>
 	{:else}
 	<div class="setup-panel p-4">
-		<div class="text-sm font-semibold text-text">Servo backend</div>
-		<div class="mt-3 grid gap-3 sm:grid-cols-2">
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input
-					class="setup-toggle"
-					type="radio"
-					name="servo-backend"
-					checked={backend === 'pca9685'}
-					onchange={() => {
-						backend = 'pca9685';
-						busServos = [];
-					}}
-				/>
-				<span>PCA9685 on a control board</span>
-			</label>
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input
-					class="setup-toggle"
-					type="radio"
-					name="servo-backend"
-					checked={backend === 'waveshare'}
-					onchange={() => {
-						backend = 'waveshare';
-						void loadWaveshareInventory({ refresh: false, silent: true });
-					}}
-				/>
-				<span>Waveshare SC serial bus</span>
-			</label>
+		<div class="flex items-start justify-between gap-3">
+			<div class="min-w-0">
+				<div class="text-sm font-semibold text-text">Servo backend</div>
+				{#if servoSource === 'waveshare'}
+					<div class="mt-1 text-sm text-text-muted">
+						{#if discoveredServoSource === 'waveshare'}
+							Waveshare SC serial bus auto-detected from discovery
+							{#if discoveredWaveshareServos > 0}
+								— <span class="text-text">{discoveredWaveshareServos} servo{discoveredWaveshareServos === 1 ? '' : 's'}</span> on the bus.
+							{:else}
+								.
+							{/if}
+						{:else}
+							Using the Waveshare SC serial bus.
+						{/if}
+					</div>
+				{:else}
+					<div class="mt-1 text-sm text-text-muted">
+						No Waveshare servo bus detected — assuming PCA9685 on a control board.
+					</div>
+				{/if}
+			</div>
+			{#if discoveredServoSource !== servoSource && onSourceChange}
+				<button
+					type="button"
+					onclick={() => onSourceChange(discoveredServoSource)}
+					class="setup-button-secondary px-3 py-1.5 text-sm text-text whitespace-nowrap"
+				>
+					Use detected ({discoveredServoSource === 'waveshare' ? 'Waveshare' : 'PCA9685'})
+				</button>
+			{/if}
 		</div>
 	</div>
 
-	{#if backend === 'waveshare'}
+	{#if servoSource === 'waveshare'}
 		<SerialPortPanel
 			bind:port
 			{availablePorts}

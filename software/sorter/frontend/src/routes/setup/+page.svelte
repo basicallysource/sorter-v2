@@ -26,7 +26,10 @@
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
 		persistConfirmations as persistConfirmationsToStorage,
 		loadStoredVerificationState as loadStoredVerificationFromStorage,
-		persistVerificationState as persistVerificationToStorage
+		persistVerificationState as persistVerificationToStorage,
+		loadStoredServoSource,
+		persistServoSource,
+		type PersistedServoSource
 	} from '$lib/setup/wizard-storage';
 	import {
 		buildCameraChoices,
@@ -235,6 +238,24 @@
 	let progressLoadedMachineId = $state('');
 	let verificationLoadedMachineId = $state('');
 	let homingSectionRef = $state<SetupHomingSection | null>(null);
+	let storedServoSource = $state<PersistedServoSource | null>(null);
+	let servoSourceLoadedMachineId = $state('');
+
+	const discoveredWaveshareServos = $derived.by(() => {
+		const devices = wizard?.discovery.usb_devices ?? [];
+		const bus = devices.find(
+			(device) => device.category === 'servo_bus' && (device.servo_count ?? 0) > 0
+		);
+		return bus ? (bus.servo_count ?? 0) : 0;
+	});
+
+	const discoveredServoSource = $derived<PersistedServoSource>(
+		discoveredWaveshareServos > 0 ? 'waveshare' : 'pca'
+	);
+
+	const effectiveServoSource = $derived<PersistedServoSource>(
+		storedServoSource ?? discoveredServoSource
+	);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -259,6 +280,19 @@
 		tunedPictures = state.tunedPictures;
 		verifiedSteppers = state.verifiedSteppers;
 		verificationLoadedMachineId = machineId || '';
+	}
+
+	function loadServoSource(machineId: string) {
+		storedServoSource = loadStoredServoSource(machineId);
+		servoSourceLoadedMachineId = machineId || '';
+	}
+
+	function setServoSource(value: PersistedServoSource) {
+		storedServoSource = value;
+		const machineId = currentMachineId();
+		if (machineId && servoSourceLoadedMachineId === machineId) {
+			persistServoSource(machineId, value);
+		}
 	}
 
 	function persistVerificationState(machineId: string) {
@@ -892,6 +926,7 @@
 		loadedMachineKey = machineId;
 		loadStoredConfirmations(machineId);
 		loadStoredVerificationState(machineId);
+		loadServoSource(machineId);
 		void loadWizard();
 		void loadCameraInventory();
 	});
@@ -916,6 +951,7 @@
 		if (machineId) {
 			loadStoredConfirmations(machineId);
 			loadStoredVerificationState(machineId);
+			loadServoSource(machineId);
 		}
 		void loadWizard();
 		void loadCameraInventory();
@@ -1043,7 +1079,13 @@
 					{:else if activeStepId === 'homing'}
 						<SetupHomingSection bind:this={homingSectionRef} />
 					{:else if activeStepId === 'servos'}
-						<SetupServoOnboardingSection onSaved={handleServoSaved} />
+						<SetupServoOnboardingSection
+							servoSource={effectiveServoSource}
+							discoveredServoSource={discoveredServoSource}
+							discoveredWaveshareServos={discoveredWaveshareServos}
+							onSaved={handleServoSaved}
+							onSourceChange={setServoSource}
+						/>
 					{:else if activeStepId === 'hive'}
 						<HiveStep
 							{hiveLoading}

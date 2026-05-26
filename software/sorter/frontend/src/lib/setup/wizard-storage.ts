@@ -6,12 +6,18 @@ export type PersistedVerificationState = {
 	verifiedSteppers?: Record<string, boolean>;
 };
 
+export type PersistedServoSource = 'waveshare' | 'pca';
+
 export function progressStorageKey(machineId: string): string {
 	return `setup-wizard-progress:${machineId}`;
 }
 
 export function verificationStorageKey(machineId: string): string {
 	return `setup-wizard-verification:${machineId}`;
+}
+
+export function servoSourceStorageKey(machineId: string): string {
+	return `setup-wizard-servo-source:${machineId}`;
 }
 
 export function loadStoredConfirmations<Id extends string>(
@@ -77,6 +83,33 @@ export function persistVerificationState(
 	if (typeof window === 'undefined' || !machineId) return;
 	try {
 		window.localStorage.setItem(verificationStorageKey(machineId), JSON.stringify(state));
+	} catch {
+		// ignore storage issues
+	}
+}
+
+export function loadStoredServoSource(machineId: string): PersistedServoSource | null {
+	if (typeof window === 'undefined' || !machineId) return null;
+	try {
+		const raw = window.localStorage.getItem(servoSourceStorageKey(machineId));
+		if (raw === 'waveshare' || raw === 'pca') return raw;
+		return null;
+	} catch {
+		return null;
+	}
+}
+
+export function persistServoSource(
+	machineId: string,
+	value: PersistedServoSource | null
+): void {
+	if (typeof window === 'undefined' || !machineId) return;
+	try {
+		if (value === null) {
+			window.localStorage.removeItem(servoSourceStorageKey(machineId));
+		} else {
+			window.localStorage.setItem(servoSourceStorageKey(machineId), value);
+		}
 	} catch {
 		// ignore storage issues
 	}

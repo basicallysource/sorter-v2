@@ -103,6 +103,14 @@ HIVE_CAROUSEL_CONF_THRESHOLD: float = float(
     _os.environ.get("SORTER_HIVE_CAROUSEL_CONF_THRESHOLD", "0.10")
 )
 
+# When set, show raw RKNN detection boxes on all feeder/carousel feeds instead
+# of tracker-derived boxes. Useful for debugging: raw boxes appear regardless
+# of machine state (no _feeder_tracker_active requirement). Set via
+# ``SORTER_RAW_DETECTION_OVERLAY=1``.
+RAW_DETECTION_OVERLAY_ENABLED: bool = (
+    _os.environ.get("SORTER_RAW_DETECTION_OVERLAY", "0") == "1"
+)
+
 
 def _hive_inference_min_interval_s_for_role(role: str | None) -> float:
     if role == "carousel":
@@ -423,18 +431,17 @@ class VisionManager:
                     # for when detection runs at capture fps and boxes can be
                     # glued to their exact frame.
                     for feed in feeds:
-                        # The raw-YOLO purple boxes (DynamicDetectionOverlay)
-                        # double-up with the tracker-derived TrackOverlay on the
-                        # carousel feed — same piece, two overlapping boxes,
-                        # confusing for the operator. The TrackOverlay carries
-                        # all the identity state we need (active/coasting,
-                        # velocity arrow), so the raw YOLO layer is dropped.
                         feed.add_overlay(
                             IgnoredRegionOverlay(
                                 lambda r=role: self.getFeederIgnoredDetectionOverlayData(r)
                             )
                         )
-                        feed.add_overlay(TrackOverlay(_tracks_for))
+                        if RAW_DETECTION_OVERLAY_ENABLED:
+                            feed.add_overlay(DynamicDetectionOverlay(
+                                lambda r=role: self._feeder_dynamic_detection_cache.get(r, (None, None))[1]
+                            ))
+                        else:
+                            feed.add_overlay(TrackOverlay(_tracks_for))
                 else:
                     detector = self._per_channel_detectors.get(role)
                     analysis = self._per_channel_analysis.get(role)
@@ -2361,6 +2368,15 @@ class VisionManager:
         """
         if not self._feeder_tracker_active:
             return
+        if role == "carousel":
+            from irl.config import ClassificationChannelMode
+            c4_mode = getattr(
+                getattr(getattr(self, "_irl_config", None), "classification_channel_config", None),
+                "mode",
+                ClassificationChannelMode.DYNAMIC,
+            )
+            if c4_mode != ClassificationChannelMode.DYNAMIC:
+                return
         tracker = self._feeder_trackers.get(role)
         if tracker is None:
             return
@@ -4601,6 +4617,17 @@ class VisionManager:
             except (TypeError, ValueError):
                 continue
         return candidates
+
+    def getCarouselPolygon(self) -> "np.ndarray | None":
+        """Carousel/classification-channel zone polygon, scaled to the live
+        frame. Same source the detection pipeline uses via
+        ``_resolveZonePolygon`` so callers can apply the standard
+        center-in-polygon membership test (see ``analysis._isInChannel``)."""
+        capture = self._carousel_capture
+        frame = capture.latest_frame if capture is not None else None
+        if frame is None:
+            return None
+        return self._resolveZonePolygon("carousel", "carousel", frame.raw.shape)
 
     def getClassificationChannelCombinedBbox(
         self,

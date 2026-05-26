@@ -1,11 +1,14 @@
 from global_config import GlobalConfig
-from irl.config import IRLConfig, IRLInterface
+from irl.config import ClassificationChannelMode, IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
 from subsystems.base_subsystem import BaseSubsystem
 from subsystems.classification_channel.detecting import Detecting
 from subsystems.classification_channel.ejecting import Ejecting
 from subsystems.classification_channel.idle import Idle
 from subsystems.classification_channel.running import Running
+from subsystems.classification_channel.simple_state_machine_rev01 import (
+    buildRev01StatesMap,
+)
 from subsystems.classification_channel.snapping import Snapping
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.shared_variables import SharedVariables
@@ -31,41 +34,55 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         self.vision = vision
         self.event_queue = event_queue
         self.transport = transport
-        self._dynamic_mode = bool(
-            getattr(irl_config.classification_channel_config, "use_dynamic_zones", False)
+        self._mode: ClassificationChannelMode = getattr(
+            irl_config.classification_channel_config,
+            "mode",
+            ClassificationChannelMode.DYNAMIC,
         )
+        self._dynamic_mode = self._mode == ClassificationChannelMode.DYNAMIC
         if self._dynamic_mode:
             self.transport.configureDynamicMode(irl_config.classification_channel_config)
         self.current_state = ClassificationChannelState.IDLE
-        self.states_map = {
-            ClassificationChannelState.IDLE: Idle(
-                irl, irl_config, gc, shared, transport, vision
-            ),
-        }
-        if self._dynamic_mode:
-            self.states_map[ClassificationChannelState.RUNNING] = Running(
-                irl,
-                irl_config,
-                gc,
-                shared,
-                transport,
-                vision,
-                event_queue,
+        if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+            self.states_map = buildRev01StatesMap(
+                irl=irl,
+                irl_config=irl_config,
+                gc=gc,
+                shared=shared,
+                transport=transport,
+                vision=vision,
+                event_queue=event_queue,
             )
         else:
-            self.states_map.update(
-                {
-                    ClassificationChannelState.DETECTING: Detecting(
-                        irl, gc, shared, transport, vision, event_queue
-                    ),
-                    ClassificationChannelState.SNAPPING: Snapping(
-                        irl, gc, shared, transport, vision, event_queue
-                    ),
-                    ClassificationChannelState.EJECTING: Ejecting(
-                        irl, irl_config, gc, shared, transport, vision, event_queue
-                    ),
-                }
-            )
+            self.states_map = {
+                ClassificationChannelState.IDLE: Idle(
+                    irl, irl_config, gc, shared, transport, vision
+                ),
+            }
+            if self._dynamic_mode:
+                self.states_map[ClassificationChannelState.RUNNING] = Running(
+                    irl,
+                    irl_config,
+                    gc,
+                    shared,
+                    transport,
+                    vision,
+                    event_queue,
+                )
+            else:
+                self.states_map.update(
+                    {
+                        ClassificationChannelState.DETECTING: Detecting(
+                            irl, gc, shared, transport, vision, event_queue
+                        ),
+                        ClassificationChannelState.SNAPPING: Snapping(
+                            irl, gc, shared, transport, vision, event_queue
+                        ),
+                        ClassificationChannelState.EJECTING: Ejecting(
+                            irl, irl_config, gc, shared, transport, vision, event_queue
+                        ),
+                    }
+                )
         self.gc.profiler.enterState("classification", self.current_state.value)
         if hasattr(self.gc, "runtime_stats"):
             self.gc.runtime_stats.observeStateTransition(

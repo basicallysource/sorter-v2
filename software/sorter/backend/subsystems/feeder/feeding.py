@@ -15,7 +15,7 @@ from .admission import (
 from .ch2_separation import Ch2SeparationDriver
 from .dropzone_incidents import DropzoneStuckIncidentManager
 from .strategies import C1JamRecoveryStrategy, C3HoldoverStrategy
-from irl.config import IRLInterface, IRLConfig
+from irl.config import ClassificationChannelMode, IRLInterface, IRLConfig
 from global_config import GlobalConfig
 from vision import VisionManager
 from defs.events import PauseCommandData, PauseCommandEvent
@@ -103,7 +103,7 @@ def _classification_channel_structural_admission_blocked(
     if (
         zone_manager is not None
         and config is not None
-        and bool(getattr(config, "use_dynamic_zones", False))
+        and getattr(config, "mode", None) == ClassificationChannelMode.DYNAMIC
     ):
         return False
     return _classification_channel_admission_blocked(

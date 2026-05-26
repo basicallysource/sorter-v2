@@ -2,7 +2,7 @@ import unittest
 from types import SimpleNamespace
 
 from defs.known_object import ClassificationStatus
-from irl.config import ClassificationChannelConfig
+from irl.config import ClassificationChannelConfig, ClassificationChannelMode
 from subsystems.feeder.feeding import (
     _classification_channel_admission_blocked,
     _classification_channel_structural_admission_blocked,
@@ -106,7 +106,7 @@ class FeederPieceCountTests(unittest.TestCase):
     def test_dynamic_classification_gate_is_source_of_truth_for_feeder_block(self) -> None:
         config = ClassificationChannelConfig()
         config.max_zones = 2
-        config.use_dynamic_zones = True
+        config.mode = ClassificationChannelMode.DYNAMIC
         zone_manager = ZoneManager(config)
         zone_manager.register_provisional_piece(
             piece_uuid="piece-1",
@@ -134,7 +134,7 @@ class FeederPieceCountTests(unittest.TestCase):
     def test_legacy_classification_admission_still_blocks_when_full(self) -> None:
         config = ClassificationChannelConfig()
         config.max_zones = 2
-        config.use_dynamic_zones = False
+        config.mode = ClassificationChannelMode.CLASSIC_CAROUSEL
         zone_manager = ZoneManager(config)
         zone_manager.register_provisional_piece(
             piece_uuid="piece-1",

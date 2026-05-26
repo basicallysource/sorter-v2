@@ -9,8 +9,8 @@
 	(paper "A4")
 	(title_block
 		(title "1_Distribution Board")
-		(date "2026-05-22")
-		(rev "1.1")
+		(date "2026-05-25")
+		(rev "1.2")
 		(company "basically")
 	)
 	(layers
@@ -14750,12 +14750,12 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R72"
-			(at -0.0682 1.27 0)
+			(at -1.9304 0 90)
 			(layer "F.SilkS")
 			(uuid "d53323cf-7cd8-4b5c-8917-2258f673eb83")
 			(effects
 				(font
-					(size 1 1)
+					(size 0.5 0.5)
 					(thickness 0.15)
 				)
 			)
@@ -25101,7 +25101,7 @@
 		(descr "Resistor SMD 0603 (1608 Metric), square (rectangular) end terminal, IPC_7351 nominal, (Body size source: IPC-SM-782 page 72, https://www.pcb-3d.com/wordpress/wp-content/uploads/ipc-sm-782a_amendment_1_and_2.pdf), generated with kicad-footprint-generator")
 		(tags "resistor")
 		(property "Reference" "R5"
-			(at 0 1.45 90)
+			(at -0.1524 -1.2348 90)
 			(layer "F.SilkS")
 			(uuid "0c7e39af-aa93-469d-9f66-169aa632eb1c")
 			(effects
@@ -68477,6 +68477,125 @@
 			)
 		)
 	)
+	(footprint "JAW:JAW"
+		(layer "B.Cu")
+		(uuid "1a6f07e1-30e8-47f9-9872-65eec4607434")
+		(at 87.3824 76.7756 -90)
+		(property "Reference" "JAW"
+			(at 0 0.5 90)
+			(unlocked yes)
+			(layer "B.SilkS")
+			(hide yes)
+			(uuid "b90572c0-42ad-4a67-83a2-f893b8957b93")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.1)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Value" "Maker's Mark"
+			(at 0 -1 90)
+			(unlocked yes)
+			(layer "B.Fab")
+			(uuid "066b624d-f976-4ab9-9890-5de566d69a49")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Datasheet" ""
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "32cb4c28-521c-4888-9dd2-039eafe4727d")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(property "Description" ""
+			(at 0 0 90)
+			(unlocked yes)
+			(layer "B.Fab")
+			(hide yes)
+			(uuid "b803f6b4-7717-4bc0-8050-0ebdcdcb4b9b")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(attr smd)
+		(fp_line
+			(start -0.6604 0.508)
+			(end 0.9144 0.508)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "B.Cu")
+			(uuid "6254b7f1-2c87-45c4-b534-e90f9c09595e")
+		)
+		(fp_line
+			(start 0.3556 -0.3556)
+			(end -0.6604 -0.3556)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "B.Cu")
+			(uuid "03173646-76df-4160-b0e9-a0663b15c781")
+		)
+		(fp_arc
+			(start 0.3556 -0.356264)
+			(mid 0.787732 0.075868)
+			(end 0.3556 0.508)
+			(stroke
+				(width 0.2)
+				(type default)
+			)
+			(layer "B.Cu")
+			(uuid "545ceee3-ea20-4a3a-b923-b46b65b434cc")
+		)
+		(fp_text user "aw"
+			(at -0.7112 -0.2032 90)
+			(unlocked yes)
+			(layer "B.Cu")
+			(uuid "01023615-4408-4c03-98c3-4447ce87b4d7")
+			(effects
+				(font
+					(size 0.6 0.6)
+					(thickness 0.2)
+				)
+				(justify left bottom mirror)
+			)
+		)
+		(fp_text user "${REFERENCE}"
+			(at 0 -2.5 90)
+			(unlocked yes)
+			(layer "B.Fab")
+			(uuid "8f3644a2-787a-48da-8ef1-97c6e276210f")
+			(effects
+				(font
+					(size 1 1)
+					(thickness 0.15)
+				)
+				(justify mirror)
+			)
+		)
+		(embedded_fonts no)
+	)
 	(gr_line
 		(start 89.217 98.875)
 		(end 89.217 117.925)
@@ -69530,7 +69649,7 @@
 		(layer "Edge.Cuts")
 		(uuid "ff1a31cd-3c07-4301-bf04-7bcb42311b24")
 	)
-	(gr_text "1_Distribution_Board\nPCB REV 1.1"
+	(gr_text "1_Distribution_Board\nPCB REV 1.2"
 		(at 88.15 55 90)
 		(layer "B.Cu")
 		(uuid "3dbe4395-a28d-40bf-91bf-186563e537ea")
@@ -69626,6 +69745,18 @@
 				(thickness 0.3)
 				(bold yes)
 			)
+		)
+	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 18.904 58.4368 0)
+		(layer "F.SilkS")
+		(uuid "200c0741-4e98-4781-949c-8bba75e54d36")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
 		)
 	)
 	(gr_text "2-3"
@@ -69740,7 +69871,7 @@
 		)
 	)
 	(gr_text "D1"
-		(at 100.8952 35.4752 0)
+		(at 103.4352 36.1356 0)
 		(layer "F.SilkS")
 		(uuid "31a423c5-10fe-4364-955a-f52988e7a6a7")
 		(effects
@@ -69972,6 +70103,42 @@
 			)
 		)
 	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 59.02 31.75 90)
+		(layer "F.SilkS")
+		(uuid "697831e1-c41d-4659-99c5-830fbf618008")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 17.1768 75.3024 0)
+		(layer "F.SilkS")
+		(uuid "6e08b61d-9bf9-470c-8ee6-18f983985bbf")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 18.4468 48.0228 0)
+		(layer "F.SilkS")
+		(uuid "6e5f0100-74e9-4c9f-bd6d-a99aad7d470a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "Stepper_A6\nTMC2209-V1.3"
 		(at 39.1 74.4896 270)
 		(layer "F.SilkS" knockout)
@@ -69983,6 +70150,18 @@
 				(bold yes)
 			)
 			(justify bottom)
+		)
+	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 150.925 70.4 0)
+		(layer "F.SilkS")
+		(uuid "767a184e-e759-4434-aed7-525861e2568a")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
 		)
 	)
 	(gr_text "3V3"
@@ -70120,6 +70299,18 @@
 			)
 		)
 	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 150.925 119.39 0)
+		(layer "F.SilkS")
+		(uuid "9dc25a2c-e9a3-46c8-a1b6-08c7508557df")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "MS2"
 		(at 108.2 46.4 0)
 		(layer "F.SilkS" knockout)
@@ -70168,6 +70359,18 @@
 				(bold yes)
 			)
 			(justify left)
+		)
+	)
+	(gr_text "VSYS"
+		(at 99.422 35.7292 0)
+		(layer "F.SilkS" knockout)
+		(uuid "b874061f-c3e6-4f87-a74e-baa403785a29")
+		(effects
+			(font
+				(size 0.75 0.75)
+				(thickness 0.2)
+			)
+			(justify left bottom)
 		)
 	)
 	(gr_text "LED_0_1"
@@ -70245,6 +70448,18 @@
 			(justify left bottom)
 		)
 	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 43.605 30.425 90)
+		(layer "F.SilkS")
+		(uuid "c9c4710b-e8bf-4c51-8745-b1990c6fda34")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
+		)
+	)
 	(gr_text "0"
 		(at 31.9596 101.1596 90)
 		(layer "F.SilkS")
@@ -70268,6 +70483,18 @@
 				(thickness 0.4)
 				(bold yes)
 			)
+		)
+	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 150.925 94.865 0)
+		(layer "F.SilkS")
+		(uuid "dd8afb07-5fc3-456d-a958-4e9484cf45c9")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
 		)
 	)
 	(gr_text "."
@@ -70415,6 +70642,18 @@
 				(thickness 0.4)
 				(bold yes)
 			)
+		)
+	)
+	(gr_text "Add Stuffs HERE!!"
+		(at 144.17 45 0)
+		(layer "F.SilkS")
+		(uuid "ff07f189-62bd-4ff4-9a33-519d7349051b")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.1)
+			)
+			(justify left bottom)
 		)
 	)
 	(gr_text "copper"

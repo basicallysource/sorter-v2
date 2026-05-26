@@ -60,7 +60,24 @@
           "width": 0.0
         }
       ],
-      "drc_exclusions": [],
+      "drc_exclusions": [
+        [
+          "clearance|35911100|54135000|81c4411f-65df-4b0d-982e-d61dbecc9cde|57933b97-aede-4a4c-ae4e-40f08cf845a5",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "clearance|35943100|43388000|5a2c6c6f-7b91-435d-8501-9a50e4791710|b11fff8f-8313-49d5-8b52-6f5a093f58b6",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "clearance|57161100|54035000|d67db092-65c0-438b-8591-0a5d6a4f95fe|170a00c0-b986-4bc6-b313-b75e01c6c23f",
+          "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "clearance|57411100|43104000|ae23e8f7-0f40-49a1-949d-ecd60431e047|4cef77cb-8eb7-4440-8d55-78dbfa2be5b1",
+          "This is a Solder Jumper location, its going to be tight. "
+        ]
+      ],
       "meta": {
         "version": 2
       },
@@ -70,7 +87,7 @@
         "connection_width": "warning",
         "copper_edge_clearance": "error",
         "copper_sliver": "warning",
-        "courtyards_overlap": "error",
+        "courtyards_overlap": "warning",
         "creepage": "error",
         "diff_pair_gap_out_of_range": "error",
         "diff_pair_uncoupled_length_too_long": "error",

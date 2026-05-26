@@ -4633,7 +4633,7 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
     """Enumerate (fourcc, width, height, fps) tuples for /dev/videoN.
 
     Parses `v4l2-ctl --list-formats-ext` output. Returns one entry per
-    (fourcc, width, height) with the maximum fps. Empty list on failure.
+    unique (fourcc, width, height, fps) combination. Empty list on failure.
     """
     try:
         result = subprocess.run(
@@ -4647,7 +4647,8 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
     if result.returncode != 0:
         return []
 
-    modes: Dict[tuple[str, int, int], Dict[str, Any]] = {}
+    seen: set[tuple[str, int, int, int]] = set()
+    modes: List[Dict[str, Any]] = []
     current_fourcc: str | None = None
     current_size: tuple[int, int] | None = None
     fmt_pat = re.compile(r"\]\s*:\s*'([A-Za-z0-9]{4})'")
@@ -4664,17 +4665,6 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
         m = size_pat.search(line)
         if m and current_fourcc is not None:
             current_size = (int(m.group(1)), int(m.group(2)))
-            key = (current_fourcc, current_size[0], current_size[1])
-            modes.setdefault(
-                key,
-                {
-                    "width": current_size[0],
-                    "height": current_size[1],
-                    "fps": 30,
-                    "fourcc": current_fourcc,
-                    "native_fourcc": current_fourcc,
-                },
-            )
             continue
         m = interval_pat.search(line)
         if m and current_fourcc is not None and current_size is not None:
@@ -4682,12 +4672,18 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
                 fps_val = int(round(float(m.group(1))))
             except ValueError:
                 continue
-            key = (current_fourcc, current_size[0], current_size[1])
-            entry = modes.get(key)
-            if entry is not None and fps_val > int(entry.get("fps", 0)):
-                entry["fps"] = fps_val
+            key = (current_fourcc, current_size[0], current_size[1], fps_val)
+            if key not in seen:
+                seen.add(key)
+                modes.append({
+                    "width": current_size[0],
+                    "height": current_size[1],
+                    "fps": fps_val,
+                    "fourcc": current_fourcc,
+                    "native_fourcc": current_fourcc,
+                })
 
-    return list(modes.values())
+    return modes
 
 
 def _avf_to_opencv_fourcc(native: str) -> str | None:

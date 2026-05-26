@@ -15,6 +15,7 @@ class Rev01Config:
     presence_streak_to_start: int = 2
     empty_streak_to_abort: int = 3
     stuck_in_exit_zone_timeout_s: float = 30.0
+    home_offset_output_deg: float = 22.0
 
 
 _DEFAULTS = Rev01Config()
@@ -32,6 +33,7 @@ FIELD_META: list[dict] = [
     {"key": "presence_streak_to_start", "label": "Presence streak to start rotation", "type": "int", "default": _DEFAULTS.presence_streak_to_start},
     {"key": "empty_streak_to_abort", "label": "Empty streak to abort rotation", "type": "int", "default": _DEFAULTS.empty_streak_to_abort},
     {"key": "stuck_in_exit_zone_timeout_s", "label": "Stuck-in-exit-zone warn timeout (s)", "type": "float", "default": _DEFAULTS.stuck_in_exit_zone_timeout_s},
+    {"key": "home_offset_output_deg", "label": "Home offset (output deg)", "type": "float", "default": _DEFAULTS.home_offset_output_deg},
 ]
 
 

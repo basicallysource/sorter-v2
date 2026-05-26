@@ -487,6 +487,13 @@ def maybeRunSpokeHome(
         result.angle_deg,
         reference_angle_deg,
     )
+    try:
+        from toml_config import getClassificationChannelRev01Config
+        from .rev01_config import configFromDict
+        home_offset_output_deg = configFromDict(getClassificationChannelRev01Config()).home_offset_output_deg
+    except Exception:
+        home_offset_output_deg = 0.0
+    delta_output_deg += home_offset_output_deg
     platter = C4FiveSectorPlatter.from_irl_config(irl_config)
     motor_microsteps = platter.output_degrees_to_motor_microsteps(delta_output_deg)
     stepper = getattr(irl, "classification_channel_rotor_stepper", None) or getattr(
@@ -502,6 +509,7 @@ def maybeRunSpokeHome(
         "C4 rev01 spoke home: "
         f"spoke_angle={result.angle_deg:.2f} "
         f"reference_angle={reference_angle_deg:.2f} "
+        f"home_offset={home_offset_output_deg:.2f} "
         f"forward_delta_output_deg={delta_output_deg:.2f} "
         f"motor_microsteps={motor_microsteps} "
         f"prominence={result.prominence_ratio:.2f}"

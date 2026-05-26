@@ -321,9 +321,19 @@
 
 		submitting = true;
 		try {
-			const review = await api.submitReview(sample.id, decision);
-			if (reviewHistory[reviewHistory.length - 1] !== sample.id) {
-				reviewHistory = [...reviewHistory, sample.id];
+			const submittedId = sample.id;
+			const review = await api.submitReview(submittedId, decision);
+			// In override mode (?review_status=conflict, ?my_review=...) the backend
+			// drops the "already reviewed" gate, so without this push the same sample
+			// would come back top-of-queue after the vote (md5 order is deterministic
+			// per viewer) and arrow keys would feel like a no-op. In default mode the
+			// backend already excludes own reviews — pushing here is redundant but
+			// harmless and keeps the two paths symmetrical.
+			if (!skippedIds.includes(submittedId)) {
+				skippedIds = [...skippedIds, submittedId];
+			}
+			if (reviewHistory[reviewHistory.length - 1] !== submittedId) {
+				reviewHistory = [...reviewHistory, submittedId];
 			}
 			currentDecision = review.decision;
 			feedback =

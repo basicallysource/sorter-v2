@@ -74,10 +74,10 @@ class Rev01BaseState(BaseState):
             self.logger.error(f"{LOG_TAG} move_at_speed not acknowledged")
         return ok
 
-    def startCaptureSweepMove(self, output_degrees: float, speed_usteps_per_s: int) -> bool:
+    def startOutputMove(self, output_degrees: float, speed_usteps_per_s: int) -> bool:
         stepper = getattr(self.irl, "carousel_stepper", None)
         if stepper is None:
-            self.logger.error(f"{LOG_TAG} carousel_stepper missing — cannot sweep")
+            self.logger.error(f"{LOG_TAG} carousel_stepper missing — cannot move")
             return False
         try:
             stepper.set_speed_limits(16, max(16, speed_usteps_per_s))
@@ -91,8 +91,11 @@ class Rev01BaseState(BaseState):
             self.logger.error(f"{LOG_TAG} sweep move failed: {exc}")
             return False
         if not ok:
-            self.logger.error(f"{LOG_TAG} sweep move not acknowledged")
+            self.logger.error(f"{LOG_TAG} move not acknowledged")
         return ok
+
+    def startCaptureSweepMove(self, output_degrees: float, speed_usteps_per_s: int) -> bool:
+        return self.startOutputMove(output_degrees, speed_usteps_per_s)
 
     def emitKnownObject(self) -> None:
         obj = self.ctx.known_object

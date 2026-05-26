@@ -9,28 +9,29 @@ from .constants import LOG_TAG
 
 
 class Discharging(Rev01BaseState):
-    """Keep rotating until the channel reads clear — the piece has fallen off
-    C4 into the distributor chute. No bin targeting in rev01."""
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._rotation_started = False
+        self._kickoff_started = False
 
     def step(self) -> Optional[ClassificationChannelState]:
         now = time.monotonic()
 
-        if not self._rotation_started:
+        if not self._kickoff_started:
             self.ctx.discharging_started_at = now
-            self._stampDistributed()
             cfg = self.ctx.config
-            if not self.startRotation(cfg.discharge_speed_usteps_per_s):
+            if not self.startOutputMove(
+                cfg.kick_off_output_deg,
+                cfg.discharge_speed_usteps_per_s,
+            ):
                 self.logger.error(
-                    f"{LOG_TAG} could not start discharge rotation — abort to IDLE"
+                    f"{LOG_TAG} could not start kick-off move — abort to IDLE"
                 )
                 return ClassificationChannelState.IDLE
-            self._rotation_started = True
+            self._kickoff_started = True
             self.logger.info(
-                f"{LOG_TAG} DISCHARGING started (speed={cfg.discharge_speed_usteps_per_s} µsteps/s)"
+                f"{LOG_TAG} DISCHARGING kick-off started "
+                f"(output={cfg.kick_off_output_deg:.1f}°, "
+                f"speed={cfg.discharge_speed_usteps_per_s} µsteps/s)"
             )
 
         if now - self.ctx.discharging_started_at > self.ctx.config.discharge_timeout_s:
@@ -41,15 +42,16 @@ class Discharging(Rev01BaseState):
             self.stopStepper()
             return ClassificationChannelState.IDLE
 
-        if not self.cv.bboxesOnChannel():
-            self.stopStepper()
-            elapsed = now - self.ctx.discharging_started_at
-            self.logger.info(
-                f"{LOG_TAG} DISCHARGING -> IDLE (channel clear after {elapsed:.2f}s)"
-            )
-            return ClassificationChannelState.IDLE
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if stepper is not None and not bool(stepper.stopped):
+            return None
 
-        return None
+        self._stampDistributed()
+        elapsed = now - self.ctx.discharging_started_at
+        self.logger.info(
+            f"{LOG_TAG} DISCHARGING -> IDLE (kick-off complete after {elapsed:.2f}s)"
+        )
+        return ClassificationChannelState.IDLE
 
     def _stampDistributed(self) -> None:
         obj = self.ctx.known_object
@@ -63,4 +65,4 @@ class Discharging(Rev01BaseState):
     def cleanup(self) -> None:
         super().cleanup()
         self.stopStepper()
-        self._rotation_started = False
+        self._kickoff_started = False

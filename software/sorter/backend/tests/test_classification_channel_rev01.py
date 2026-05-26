@@ -1,4 +1,12 @@
+from types import SimpleNamespace
+
 import numpy as np
+
+from defs.known_object import KnownObject
+from subsystems.classification_channel.simple_state_machine_rev01.discharging import (
+    Discharging,
+)
+from subsystems.classification_channel.states import ClassificationChannelState
 
 from subsystems.classification_channel.simple_state_machine_rev01.classifying import (
     Classifying,
@@ -36,3 +44,72 @@ def test_rev01_config_parses_capture_sweep_output_deg() -> None:
     cfg = configFromDict({"capture_sweep_output_deg": 135.5})
 
     assert cfg.capture_sweep_output_deg == 135.5
+
+
+def test_rev01_config_parses_kick_off_output_deg() -> None:
+    cfg = configFromDict({"kick_off_output_deg": 72.0})
+
+    assert cfg.kick_off_output_deg == 72.0
+
+
+class _Logger:
+    def info(self, *args, **kwargs) -> None:
+        pass
+
+    def warning(self, *args, **kwargs) -> None:
+        pass
+
+    def error(self, *args, **kwargs) -> None:
+        pass
+
+
+class _Stepper:
+    def __init__(self) -> None:
+        self.stopped = True
+        self.moves: list[int] = []
+        self.speed_limits: list[tuple[int, int]] = []
+
+    def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
+        self.speed_limits.append((int(min_speed), int(max_speed)))
+
+    def move_steps(self, steps: int) -> bool:
+        self.moves.append(int(steps))
+        self.stopped = True
+        return True
+
+
+class _Vision:
+    def getClassificationChannelDetectionCandidates(self):
+        return []
+
+    def getCarouselPolygon(self):
+        return [[0, 0], [1, 0], [1, 1], [0, 1]]
+
+
+def test_rev01_discharging_uses_forward_kick_off_move() -> None:
+    stepper = _Stepper()
+    state = Discharging(
+        irl=SimpleNamespace(carousel_stepper=stepper),
+        irl_config=SimpleNamespace(
+            classification_channel_config=SimpleNamespace(),
+        ),
+        gc=SimpleNamespace(logger=_Logger()),
+        shared=SimpleNamespace(),
+        transport=SimpleNamespace(),
+        vision=_Vision(),
+        event_queue=SimpleNamespace(put=lambda *args, **kwargs: None),
+        context=SimpleNamespace(
+            config=Rev01Config(
+                kick_off_output_deg=72.0,
+                discharge_speed_usteps_per_s=3000,
+                discharge_timeout_s=15.0,
+            ),
+            discharging_started_at=0.0,
+            known_object=KnownObject(),
+        ),
+    )
+
+    next_state = state.step()
+
+    assert next_state == ClassificationChannelState.IDLE
+    assert stepper.moves == [3467]

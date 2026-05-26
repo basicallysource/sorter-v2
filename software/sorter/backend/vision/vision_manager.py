@@ -1817,6 +1817,23 @@ class VisionManager:
             channel_id = 2 if key == "second_channel" else 3 if key == "third_channel" else 4
             center = tuple(np.mean(polygon, axis=0).tolist())
             angle_key = self._channelAngleKeyForPolygonKey(key)
+            from subsystems.feeder.analysis import (
+                parseSavedChannelArcZones,
+                zoneSectionsForChannel,
+            )
+            from blob_manager import getChannelPolygons as _gcp
+            _saved = _gcp() or {}
+            _arc_params = _saved.get("arc_params", {}) or {}
+            _angles = self._channel_angles or _saved.get("channel_angles", {}) or {}
+            drop_sections: set[int] = set()
+            exit_sections: set[int] = set()
+            if angle_key:
+                arc = parseSavedChannelArcZones(angle_key, _angles, _arc_params)
+                drop_sections, exit_sections = zoneSectionsForChannel(
+                    channel_id,
+                    float(_angles.get(angle_key, 0.0)),
+                    arc,
+                )
             return PolygonChannel(
                 channel_id=channel_id,
                 polygon=polygon.astype(np.int32),
@@ -1825,6 +1842,8 @@ class VisionManager:
                     getattr(self, "_channel_angles", {}).get(angle_key or "", 0.0)
                 ),
                 mask=mask,
+                dropzone_sections=drop_sections,
+                exit_sections=exit_sections,
             )
         return detector.primaryChannel()
 

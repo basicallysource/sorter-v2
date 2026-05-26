@@ -23,6 +23,7 @@ class Classifying(Rev01BaseState):
 
     def step(self) -> Optional[ClassificationChannelState]:
         now = time.monotonic()
+        self.setClassificationReady(False, "classifying")
 
         if not self._submitted:
             self.ctx.classify_started_at = now

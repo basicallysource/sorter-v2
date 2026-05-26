@@ -10,7 +10,6 @@ from .constants import LOG_TAG
 class Idle(Rev01BaseState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._last_ready_published: Optional[bool] = None
         self._presence_streak = 0
         self._stuck_since: Optional[float] = None
         self._stuck_warned = False
@@ -22,9 +21,7 @@ class Idle(Rev01BaseState):
             self._presence_streak = 0
             self._stuck_since = None
             self._stuck_warned = False
-            if self._last_ready_published is not True:
-                self.setClassificationReady(True, "channel clear")
-                self._last_ready_published = True
+            self.setClassificationReady(True, "channel clear")
             return None
 
         actionable = self.bboxesOutsideExitZone(bboxes)
@@ -41,21 +38,13 @@ class Idle(Rev01BaseState):
                 )
                 self._stuck_warned = True
             self._presence_streak = 0
-            if self._last_ready_published is not False:
-                self.setClassificationReady(
-                    False, f"{len(bboxes)} piece(s) in exit zone"
-                )
-                self._last_ready_published = False
+            self.setClassificationReady(False, f"{len(bboxes)} piece(s) in exit zone")
             return None
 
         self._stuck_since = None
         self._stuck_warned = False
         self._presence_streak += 1
-        if self._last_ready_published is not False:
-            self.setClassificationReady(
-                False, f"{len(actionable)} bbox(es) on channel"
-            )
-            self._last_ready_published = False
+        self.setClassificationReady(False, f"{len(actionable)} bbox(es) on channel")
         if self._presence_streak >= self.ctx.config.presence_streak_to_start:
             self._presence_streak = 0
             self.ctx.reset()
@@ -68,7 +57,6 @@ class Idle(Rev01BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
-        self._last_ready_published = None
         self._presence_streak = 0
         self._stuck_since = None
         self._stuck_warned = False

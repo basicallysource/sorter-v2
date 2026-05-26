@@ -17,6 +17,7 @@ class RotatingAndCapturing(Rev01BaseState):
 
     def step(self) -> Optional[ClassificationChannelState]:
         now = time.monotonic()
+        self.setClassificationReady(False, "rotating_and_capturing")
 
         bboxes = self.cv.bboxesOnChannel()
         if not self._rotation_started and not bboxes:

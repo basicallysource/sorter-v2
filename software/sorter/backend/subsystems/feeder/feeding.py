@@ -130,6 +130,8 @@ class Feeding(BaseState):
         self.vision = vision
         self._last_ch2_action = ChannelAction.IDLE
         self._last_ch3_action = ChannelAction.IDLE
+        # DEV-LOG: remove before merge — throttle for _dumpChannelZoneDebugImage
+        self._zone_dump_last_mono: float = 0.0
         self._busy_until: dict[str, float] = {}
         self._motion_until: dict[str, float] = {}
         # Block follow-up C3 pulses for this long after a delivery to the
@@ -334,6 +336,149 @@ class Feeding(BaseState):
 
     def _increment_ch1_pulses_since_ch2_activity(self) -> None:
         self._ch1_pulses_since_ch2_activity += 1
+
+    # DEV-LOG: remove before merge — writes per-channel zone overlay PNGs to
+    # software/logs/channel_zones/<run_id>/ every ~5s. Used to verify backend's
+    # belief about exit/dropzone geometry vs. the UI rendering.
+    def _dumpChannelZoneDebugImage(self, detections) -> None:
+        import os
+        from datetime import datetime
+        import cv2
+        import numpy as np
+        from defs.consts import CHANNEL_SECTION_DEG
+        from .analysis import (
+            parseSavedChannelArcZones,
+            zoneSectionsForChannel,
+        )
+        from blob_manager import getChannelPolygons
+
+        saved = getChannelPolygons() or {}
+        channel_angles = saved.get("channel_angles", {}) or {}
+        arc_params = saved.get("arc_params", {}) or {}
+
+        _info = getattr(self.vision, "_channelInfoForRole", None)
+        get_cap = getattr(self.vision, "getCaptureThreadForRole", None)
+
+        def _frame_for(role: str):
+            if not callable(get_cap):
+                return None
+            cap = get_cap(role)
+            if cap is None:
+                return None
+            f = getattr(cap, "latest_frame", None)
+            return f.raw.copy() if f is not None and getattr(f, "raw", None) is not None else None
+
+        ch3_det = next((d for d in detections if int(d.channel_id) == 3), None)
+        ch2_det = next((d for d in detections if int(d.channel_id) == 2), None)
+        ch3_chan = (
+            ch3_det.channel if ch3_det is not None
+            else (_info("c_channel_3") if callable(_info) else None)
+        )
+        ch2_chan = (
+            ch2_det.channel if ch2_det is not None
+            else (_info("c_channel_2") if callable(_info) else None)
+        )
+
+        def _sections_for(channel_key: str, ch):
+            if ch is not None and (ch.exit_sections or ch.dropzone_sections):
+                return set(ch.dropzone_sections), set(ch.exit_sections)
+            zones = parseSavedChannelArcZones(channel_key, channel_angles, arc_params)
+            r1 = float(channel_angles.get(channel_key, 0.0))
+            cid = 3 if channel_key == "third" else 2 if channel_key == "second" else 0
+            return zoneSectionsForChannel(cid, r1, zones)
+
+        def _drawChannel(canvas, ch, color_outline, det, channel_key):
+            if ch is None:
+                return
+            mask = getattr(ch, "mask", None)
+            if mask is not None:
+                tinted = np.zeros_like(canvas)
+                tinted[mask > 0] = (60, 60, 60)
+                cv2.addWeighted(tinted, 0.4, canvas, 1.0, 0, canvas)
+            poly = np.asarray(getattr(ch, "polygon", []), dtype=np.int32)
+            if poly is not None and len(poly) >= 3:
+                cv2.polylines(canvas, [poly.reshape(-1, 1, 2)], True, color_outline, 2)
+            cx, cy = ch.center
+            cv2.circle(canvas, (int(cx), int(cy)), 4, (0, 255, 0), -1)
+            r1 = float(ch.radius1_angle_image)
+            cv2.line(
+                canvas,
+                (int(cx), int(cy)),
+                (int(cx + 80 * np.cos(np.deg2rad(r1))), int(cy + 80 * np.sin(np.deg2rad(r1)))),
+                (0, 255, 0),
+                2,
+            )
+            # Walk each section, color exit/dropzone
+            section_count = int(round(360.0 / CHANNEL_SECTION_DEG))
+            drop_secs, exit_secs = _sections_for(channel_key, ch)
+            # Estimate inner/outer radius from polygon bounds
+            poly_pts = poly.reshape(-1, 2) if poly is not None and len(poly) >= 3 else None
+            if poly_pts is not None:
+                dists = np.hypot(poly_pts[:, 0] - cx, poly_pts[:, 1] - cy)
+                outer_r = float(np.max(dists))
+                inner_r = float(np.min(dists))
+            else:
+                outer_r, inner_r = 200.0, 60.0
+            for sec in range(section_count):
+                a0 = r1 + sec * CHANNEL_SECTION_DEG
+                a1 = r1 + (sec + 1) * CHANNEL_SECTION_DEG
+                in_exit = sec in exit_secs
+                in_drop = sec in drop_secs
+                if not in_exit and not in_drop:
+                    continue
+                color = (0, 0, 255) if in_exit else (255, 100, 0)  # exit=red, drop=blue-orange
+                pts = []
+                steps = 6
+                for i in range(steps + 1):
+                    ang = a0 + (a1 - a0) * i / steps
+                    rad = np.deg2rad(ang)
+                    pts.append([int(cx + outer_r * np.cos(rad)), int(cy + outer_r * np.sin(rad))])
+                for i in range(steps, -1, -1):
+                    ang = a0 + (a1 - a0) * i / steps
+                    rad = np.deg2rad(ang)
+                    pts.append([int(cx + inner_r * np.cos(rad)), int(cy + inner_r * np.sin(rad))])
+                pts_np = np.array(pts, dtype=np.int32).reshape(-1, 1, 2)
+                overlay = canvas.copy()
+                cv2.fillPoly(overlay, [pts_np], color)
+                cv2.addWeighted(overlay, 0.35, canvas, 0.65, 0, canvas)
+            if det is not None:
+                x1, y1, x2, y2 = [int(v) for v in det.bbox]
+                cv2.rectangle(canvas, (x1, y1), (x2, y2), (0, 255, 255), 2)
+                cv2.putText(
+                    canvas,
+                    f"ch{det.channel_id} mc={getattr(det,'motion_confirmed',None)}",
+                    (x1, max(0, y1 - 6)),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.5,
+                    (0, 255, 255),
+                    1,
+                )
+
+        log_dir = os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "logs")
+        out_dir = os.path.join(log_dir, "channel_zones", str(self.gc.run_id))
+        os.makedirs(out_dir, exist_ok=True)
+        ts = datetime.now().strftime("%H-%M-%S")
+
+        for role, channel_key, ch, det, label in (
+            ("c_channel_3", "third", ch3_chan, ch3_det, "ch3"),
+            ("c_channel_2", "second", ch2_chan, ch2_det, "ch2"),
+        ):
+            frame = _frame_for(role)
+            if frame is None:
+                continue
+            canvas = frame
+            if ch is not None:
+                _drawChannel(canvas, ch, (255, 255, 255), det, channel_key)
+            cv2.putText(
+                canvas,
+                f"{label}  exit=RED  drop=ORANGE  bbox=YELLOW  r1=GREEN",
+                (8, 18),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                (255, 255, 255),
+                1,
+            )
+            cv2.imwrite(os.path.join(out_dir, f"{ts}_{label}.png"), canvas)
 
     def _isStepperBusy(self, stepper: "StepperMotor") -> bool:
         return time.monotonic() < self._busy_until.get(stepper._name, 0.0)
@@ -664,6 +809,15 @@ class Feeding(BaseState):
                     ignored_dropzone_detection_ids=self._dropzone_incidents.ignored_detection_ids(),
                 )
 
+            # DEV-LOG: remove before merge — periodic image dump of channel zones
+            if now - self._zone_dump_last_mono >= 5.0:
+                try:
+                    self._dumpChannelZoneDebugImage(detections)
+                except Exception as _zd_exc:
+                    self.gc.logger.warning(f"[ZONE-DUMP] failed: {_zd_exc}")
+                self._zone_dump_last_mono = now
+
+
             ch2_action = analysis.ch2_action
             ch3_action = analysis.ch3_action
 
@@ -776,6 +930,20 @@ class Feeding(BaseState):
                     ch3_action == ChannelAction.PULSE_PRECISE
                     or ch3_action == ChannelAction.PULSE_NORMAL
                 )
+            )
+            # DEV-LOG: remove before merge — per-tick C3 gate trace
+            self.gc.logger.info(
+                f"[CH3-GATE] ch3_action={ch3_action.value} "
+                f"gate_open={classification_gate_open} "
+                f"intake_req_pending={classification_intake_request_pending} "
+                f"ready_block={classification_ready_block} "
+                f"channel_block={classification_channel_block} "
+                f"sample_mode={self.shared.sample_collection_mode} "
+                f"ch3_held={ch3_held} "
+                f"ch3_pulse_intent={(not ch3_held) and ch3_action != ChannelAction.IDLE} "
+                f"ch3_dropzone_occupied={analysis.ch3_dropzone_occupied} "
+                f"ch3_exit_overlap_max={analysis.ch3_exit_overlap_max:.2f} "
+                f"ch3_exit_center_crossed={analysis.ch3_exit_center_crossed}"
             )
             ch1_stepper_busy = self._isStepperBusy(self.irl.c_channel_1_rotor_stepper)
             ch2_stepper_busy = self._isStepperBusy(self.irl.c_channel_2_rotor_stepper)

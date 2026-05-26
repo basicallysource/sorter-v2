@@ -15,6 +15,7 @@ class Discharging(Rev01BaseState):
 
     def step(self) -> Optional[ClassificationChannelState]:
         now = time.monotonic()
+        self.setClassificationReady(False, "discharging")
 
         if not self._kickoff_started:
             self.ctx.discharging_started_at = now

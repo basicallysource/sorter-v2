@@ -3,7 +3,7 @@ from subsystems.shared_variables import SharedVariables
 from .states import FeederState
 from .idle import Idle
 from .feeding import Feeding
-from irl.config import IRLInterface, IRLConfig
+from irl.config import IRLInterface, IRLConfig, FeederMode
 from global_config import GlobalConfig
 from vision import VisionManager
 
@@ -22,11 +22,19 @@ class FeederStateMachine(BaseSubsystem):
         self.gc = gc
         self.logger = gc.logger
         self.shared = shared
+        self._mode: FeederMode = getattr(
+            irl_config.feeder_config,
+            "mode",
+            FeederMode.DROP_ZONE_REACTIVE_REV01,
+        )
         self.current_state = FeederState.IDLE
-        self.states_map = {
-            FeederState.IDLE: Idle(irl, gc, shared),
-            FeederState.FEEDING: Feeding(irl, irl_config, gc, shared, vision),
-        }
+        if self._mode == FeederMode.DROP_ZONE_REACTIVE_REV01:
+            self.states_map = {
+                FeederState.IDLE: Idle(irl, gc, shared),
+                FeederState.FEEDING: Feeding(irl, irl_config, gc, shared, vision),
+            }
+        else:
+            raise ValueError(f"Unsupported feeder mode: {self._mode}")
         self.gc.profiler.enterState("feeder", self.current_state.value)
         if hasattr(self.gc, "runtime_stats"):
             self.gc.runtime_stats.observeStateTransition(

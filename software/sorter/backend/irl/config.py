@@ -9,6 +9,10 @@ class ClassificationChannelMode(enum.Enum):
     DYNAMIC = "dynamic"
     SIMPLE_STATE_MACHINE_REV01 = "simple_state_machine_rev01"
 
+
+class FeederMode(enum.Enum):
+    DROP_ZONE_REACTIVE_REV01 = "drop_zone_reactive_rev01"
+
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
 from hardware.cobs import DecodeError
@@ -463,6 +467,7 @@ class ClassificationChannelConfig:
 
 
 class FeederConfig:
+    mode: FeederMode
     first_rotor: RotorPulseConfig
     second_rotor_normal: RotorPulseConfig
     second_rotor_precision: RotorPulseConfig
@@ -477,6 +482,7 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
+        self.mode = FeederMode.DROP_ZONE_REACTIVE_REV01
         self.first_rotor = RotorPulseConfig(
             steps=100,
             microsteps_per_second=2000,

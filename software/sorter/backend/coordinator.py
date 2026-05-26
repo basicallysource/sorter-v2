@@ -244,7 +244,7 @@ class Coordinator:
     def _channel_exit_state(self, channel: str) -> tuple[float, bool] | None:
         try:
             detections = self.vision.getFeederHeatmapDetections()
-            analysis = analyzeFeederChannels(self.gc, detections)
+            analysis = analyzeFeederChannels(detections)
         except Exception as exc:
             self.logger.warning(f"Coordinator: could not verify {channel} exit release: {exc}")
             return None

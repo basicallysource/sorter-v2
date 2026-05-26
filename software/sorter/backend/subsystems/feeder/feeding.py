@@ -804,7 +804,6 @@ class Feeding(BaseState):
 
             with prof.timer("feeder.analyze_state_ms"):
                 analysis = analyzeFeederChannels(
-                    self.gc,
                     detections,
                     ignored_dropzone_detection_ids=self._dropzone_incidents.ignored_detection_ids(),
                 )

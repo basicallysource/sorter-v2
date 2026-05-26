@@ -124,6 +124,9 @@ class Chute:
         if target is None:
             self.logger.error(f"Chute: bin {address} is unreachable")
             return 0
+        self.logger.info(
+            f"Chute: moveToBin layer={address.layer_index} section={address.section_index} bin={address.bin_index} -> {target:.2f}°"
+        )
         return self.moveToAngle(target)
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:

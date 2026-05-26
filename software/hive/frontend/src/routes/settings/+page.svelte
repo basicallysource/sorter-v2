@@ -2,6 +2,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { api } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import TeacherPromptsEditor from '$lib/components/teacher/TeacherPromptsEditor.svelte';
@@ -302,6 +303,37 @@
 		reviewer: 'info',
 		member: 'neutral'
 	};
+
+	// Sub-navigation. Each section maps to a slug in ?section= so reloads /
+	// shared links land on the right pane. 'profile' is the default and
+	// omits the param to keep clean URLs.
+	type SectionKey = 'profile' | 'security' | 'ai' | 'teacher' | 'tokens' | 'danger';
+	const ALL_SECTIONS: { key: SectionKey; label: string; adminOnly?: boolean }[] = [
+		{ key: 'profile', label: 'Profile' },
+		{ key: 'security', label: 'Security' },
+		{ key: 'ai', label: 'AI Assistant' },
+		{ key: 'teacher', label: 'Teacher models', adminOnly: true },
+		{ key: 'tokens', label: 'API tokens', adminOnly: true },
+		{ key: 'danger', label: 'Danger zone' }
+	];
+	const visibleSections = $derived(
+		ALL_SECTIONS.filter((s) => !s.adminOnly || auth.user?.role === 'admin')
+	);
+	const activeSection = $derived.by<SectionKey>(() => {
+		const raw = page.url.searchParams.get('section') as SectionKey | null;
+		if (raw && visibleSections.some((s) => s.key === raw)) return raw;
+		return 'profile';
+	});
+	function setSection(s: SectionKey) {
+		const url = new URL(page.url);
+		if (s === 'profile') url.searchParams.delete('section');
+		else url.searchParams.set('section', s);
+		void goto(`${url.pathname}${url.search}`, {
+			replaceState: true,
+			noScroll: true,
+			keepFocus: true
+		});
+	}
 </script>
 
 <svelte:head>
@@ -311,7 +343,26 @@
 <h1 class="mb-6 text-2xl font-bold text-text">Account Settings</h1>
 
 {#if auth.user}
-	<div class="max-w-lg space-y-6">
+	<div class="flex flex-col gap-6 md:flex-row">
+		<!-- Sub-nav sidebar — single column on mobile, fixed-width left rail on
+		     desktop. URL state keeps the active pane survivable across reloads
+		     and shareable via deep links. -->
+		<aside class="md:w-48 md:shrink-0">
+			<nav class="sticky top-20 flex flex-row gap-0.5 overflow-x-auto md:flex-col md:overflow-visible">
+				{#each visibleSections as s (s.key)}
+					<button
+						type="button"
+						onclick={() => setSection(s.key)}
+						class="whitespace-nowrap px-3 py-2 text-left text-sm transition-colors {activeSection === s.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+					>
+						{s.label}
+					</button>
+				{/each}
+			</nav>
+		</aside>
+
+		<div class="min-w-0 flex-1 max-w-2xl space-y-6">
+		{#if activeSection === 'profile'}
 		<!-- Profile Section -->
 		<div class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">Profile</h2>
@@ -385,6 +436,9 @@
 			</dl>
 		</div>
 
+		{/if}
+
+		{#if activeSection === 'security'}
 		<!-- Password Section -->
 		<div id="password" class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">{auth.user.has_password ? 'Change Password' : 'Set Password'}</h2>
@@ -448,6 +502,9 @@
 			</form>
 		</div>
 
+		{/if}
+
+		{#if activeSection === 'ai'}
 		<!-- AI Section -->
 		<div class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">AI Assistant</h2>
@@ -520,7 +577,9 @@
 			</form>
 		</div>
 
-		{#if auth.user.role === 'admin'}
+		{/if}
+
+		{#if activeSection === 'teacher' && auth.user.role === 'admin'}
 			<!-- Perceptron native API key (teacher-only, admin scope) -->
 			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-4 font-semibold text-text">Perceptron Teacher</h2>
@@ -631,7 +690,9 @@
 
 			<!-- Per-zone teacher prompts: shared between batch worker, sample re-run, and compare. -->
 			<TeacherPromptsEditor />
+		{/if}
 
+		{#if activeSection === 'tokens' && auth.user.role === 'admin'}
 			<!-- API keys -->
 			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-1 font-semibold text-text">Personal Access Tokens</h2>
@@ -723,6 +784,7 @@
 			</div>
 		{/if}
 
+		{#if activeSection === 'danger'}
 		<!-- Danger Zone -->
 		<div class="border border-primary/20 bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-primary">Danger Zone</h2>
@@ -735,6 +797,8 @@
 			>
 				Delete Account
 			</button>
+		</div>
+		{/if}
 		</div>
 	</div>
 {/if}

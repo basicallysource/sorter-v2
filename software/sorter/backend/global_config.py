@@ -39,6 +39,8 @@ class GlobalConfig:
     run_id: str
     disable_chute: bool
     disable_servos: bool
+    disable_c_channels: set[int]  # {1, 2, 3, 4} — c-channel rotor steppers to suppress
+    disable_carousel: bool         # carousel stepper (same physical motor as c_channel_4)
     region_provider: RegionProviderType
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
@@ -62,6 +64,8 @@ class GlobalConfig:
         # honored) or LEGOSORTER_DISABLE env, or flip back here once the
         # layer-servo bus is reattached.
         self.disable_servos = True
+        self.disable_c_channels: set[int] = set()
+        self.disable_carousel = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.use_channel_bus = False
         self.disable_video_streams = ["classification_bottom"]
@@ -98,8 +102,13 @@ def mkGlobalConfig() -> GlobalConfig:
         for token in os.getenv("LEGOSORTER_DISABLE", "").split(",")
         if token.strip()
     }
-    gc.disable_chute = "chute" in args.disable or "chute" in env_disable
-    gc.disable_servos = "servos" in args.disable or "servos" in env_disable
+    all_disable = set(args.disable) | env_disable
+    gc.disable_chute = "chute" in all_disable
+    gc.disable_servos = "servos" in all_disable
+    for ch in (1, 2, 3, 4):
+        if f"c_channel_{ch}" in all_disable:
+            gc.disable_c_channels.add(ch)
+    gc.disable_carousel = "carousel" in all_disable
     gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
     gc.brickognize_dump_images = os.getenv("BRICKOGNIZE_DUMP_IMAGES", "0") == "1"
     gc.region_provider = RegionProviderType.HANDDRAWN

@@ -1,6 +1,8 @@
 <script lang="ts">
 	import { ChevronLeft, ChevronRight, Square } from 'lucide-svelte';
 
+	const MAX_PULSE_DURATION_S = 120;
+
 	type PulseMode = 'duration' | 'degrees';
 
 	let {
@@ -96,7 +98,7 @@
 			<input
 				type="number"
 				min="0.05"
-				max="5"
+				max={MAX_PULSE_DURATION_S}
 				step="0.05"
 				bind:value={pulseDuration}
 				class="mt-1 block w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"

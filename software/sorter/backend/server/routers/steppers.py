@@ -28,6 +28,8 @@ from server import shared_state
 
 router = APIRouter()
 
+MAX_STEPPER_PULSE_DURATION_S = 120.0
+
 
 # ---------------------------------------------------------------------------
 # Pydantic models
@@ -446,8 +448,11 @@ def pulse_stepper(
     speed: int = 800,
 ) -> StepperPulseResponse:
     _ensure_manual_motion_allowed("pulse a stepper")
-    if duration_s <= 0 or duration_s > 5.0:
-        raise HTTPException(status_code=400, detail="duration_s must be in (0, 5]")
+    if duration_s <= 0 or duration_s > MAX_STEPPER_PULSE_DURATION_S:
+        raise HTTPException(
+            status_code=400,
+            detail=f"duration_s must be in (0, {int(MAX_STEPPER_PULSE_DURATION_S)}]",
+        )
     if speed <= 0:
         raise HTTPException(status_code=400, detail="speed must be > 0")
     if direction not in ("cw", "ccw"):

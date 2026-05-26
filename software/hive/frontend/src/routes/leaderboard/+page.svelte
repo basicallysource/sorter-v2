@@ -100,7 +100,7 @@
 				Who's keeping the queue flowing. Period switches the ranking; clicks open a reviewer's full stats + achievements.
 			</p>
 		</div>
-		<div class="flex border border-border bg-white text-xs">
+		<div class="flex border border-border bg-surface text-xs">
 			{#each PERIOD_OPTIONS as opt}
 				<button
 					type="button"
@@ -122,7 +122,7 @@
 			No reviews in this period yet. Be the first.
 		</div>
 	{:else}
-		<div class="border border-border bg-white">
+		<div class="border border-border bg-surface">
 			<div class="grid grid-cols-[40px_1fr_120px_150px_140px] items-center gap-3 border-b border-border bg-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
 				<span>Rank</span>
 				<span>Reviewer</span>

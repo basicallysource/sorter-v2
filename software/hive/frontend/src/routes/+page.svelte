@@ -112,7 +112,7 @@
 	<!-- Top reviewers widget — keeps the gamification visible right on the
 	     landing page so it's hard to ignore once you've started reviewing. -->
 	{#if leaderboard && leaderboard.entries.length > 0}
-		<div class="mt-8 border border-border bg-white">
+		<div class="mt-8 border border-border bg-surface">
 			<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2">
 				<h2 class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Top reviewers · last 7 days</h2>
 				<a href="/leaderboard" class="text-xs text-primary hover:underline">View full leaderboard →</a>

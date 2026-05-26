@@ -72,7 +72,7 @@
 	{:else if profile}
 		{@const isMe = auth.user?.id === profile.user_id}
 		<!-- Header card -->
-		<div class="border border-border bg-white">
+		<div class="border border-border bg-surface">
 			<div class="flex flex-wrap items-center gap-4 p-5">
 				{#if profile.avatar_url}
 					<img src={profile.avatar_url} alt="" class="h-20 w-20 shrink-0 rounded-full border border-border bg-bg object-cover" />
@@ -97,7 +97,7 @@
 
 			<!-- Metric pills -->
 			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
-				<div class="bg-white px-4 py-3">
+				<div class="bg-surface px-4 py-3">
 					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total reviews</div>
 					<div class="text-2xl font-bold text-text">{profile.total_reviews.toLocaleString()}</div>
 					<div class="text-[11px] text-text-muted">
@@ -105,17 +105,17 @@
 						<span class="text-primary">{profile.rejects}</span> ✗
 					</div>
 				</div>
-				<div class="bg-white px-4 py-3">
+				<div class="bg-surface px-4 py-3">
 					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Agreement</div>
 					<div class="text-2xl font-bold text-text">{pct(profile.agreement_rate)}</div>
 					<div class="text-[11px] text-text-muted">vs final consensus</div>
 				</div>
-				<div class="bg-white px-4 py-3">
+				<div class="bg-surface px-4 py-3">
 					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Current streak</div>
 					<div class="text-2xl font-bold text-text">{profile.current_streak_days}d</div>
 					<div class="text-[11px] text-text-muted">longest: {profile.longest_streak_days}d</div>
 				</div>
-				<div class="bg-white px-4 py-3">
+				<div class="bg-surface px-4 py-3">
 					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Best day</div>
 					<div class="text-2xl font-bold text-text">{profile.speed_record_24h}</div>
 					<div class="text-[11px] text-text-muted">{profile.machines_covered} machine{profile.machines_covered === 1 ? '' : 's'} covered</div>
@@ -140,7 +140,7 @@
 		</div>
 
 		<!-- Achievements -->
-		<div class="border border-border bg-white">
+		<div class="border border-border bg-surface">
 			<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2">
 				<h2 class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Achievements</h2>
 				<span class="text-[11px] text-text-muted">
@@ -149,7 +149,7 @@
 			</div>
 			<div class="grid grid-cols-1 gap-px bg-border sm:grid-cols-2 lg:grid-cols-3">
 				{#each profile.achievements as a (a.slug)}
-					<div class="flex items-start gap-3 bg-white p-3 {a.earned ? '' : 'opacity-50'}">
+					<div class="flex items-start gap-3 bg-surface p-3 {a.earned ? '' : 'opacity-50'}">
 						<div class="text-2xl leading-none">{a.icon}</div>
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">

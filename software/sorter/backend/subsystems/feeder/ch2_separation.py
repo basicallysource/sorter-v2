@@ -117,7 +117,8 @@ class Ch2SeparationDriver:
 
     def _halt_stepper(self) -> None:
         try:
-            self._stepper.move_at_speed(0)
+            if not bool(self._stepper.stopped):
+                self._stepper.move_at_speed(0)
         except Exception as exc:
             self._logger.warning(f"ch2 separation halt failed: {exc}")
 

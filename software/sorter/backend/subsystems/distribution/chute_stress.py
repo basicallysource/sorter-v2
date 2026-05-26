@@ -232,7 +232,8 @@ class ChuteStressTestRunner:
             if callable(halt):
                 halt(disable_driver=False)
             else:
-                stepper.move_at_speed(0)
+                if not bool(stepper.stopped):
+                    stepper.move_at_speed(0)
         except Exception as e:
             self.logger.warning(f"Chute stress: halt failed: {e}")
 

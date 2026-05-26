@@ -209,10 +209,14 @@ def _halt_stepper(stepper: Any, *, force: bool = False) -> None:
 
     if hasattr(stepper, "move_at_speed"):
         try:
-            result = stepper.move_at_speed(0, force=force)
-            stopped = stopped or bool(result)
-            if result is False:
-                errors.append("move_at_speed(0) was not acknowledged")
+            is_stopped = stepper.stopped_force() if force and hasattr(stepper, "stopped_force") else stepper.stopped
+            if not bool(is_stopped):
+                result = stepper.move_at_speed(0, force=force)
+                stopped = stopped or bool(result)
+                if result is False:
+                    errors.append("move_at_speed(0) was not acknowledged")
+            else:
+                stopped = True
         except Exception as e:
             errors.append(f"move_at_speed(0) failed: {e}")
 

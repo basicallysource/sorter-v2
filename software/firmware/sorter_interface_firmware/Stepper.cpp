@@ -87,6 +87,22 @@ bool Stepper::moveSteps(int32_t distance) {
 }
 
 bool Stepper::moveAtSpeed(int32_t speed) {
+    if (speed == 0) {
+        _mc_speed = 0;
+        _mc_distance = -1;
+        _mc_home_pin.store(-1);
+        _mc_dir.store(_current_dir.load());
+        _steps_moved = 0;
+        _steps_frac = 0;
+        if (_state == STEPPER_STOPPED) {
+            _current_speed = 0;
+            _current_speed_frac = 0;
+            return true;
+        }
+        _state = STEPPER_BRAKING;
+        return true;
+    }
+
     _mc_dir.store((speed > 0) ? 1 : -1);
     _mc_speed = (speed > 0) ? speed : -speed;
     _mc_distance = 0;

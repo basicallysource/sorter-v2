@@ -12,6 +12,7 @@ class ClassificationChannelMode(enum.Enum):
 
 class FeederMode(enum.Enum):
     DROP_ZONE_REACTIVE_REV01 = "drop_zone_reactive_rev01"
+    GO_TO_ANGLE_REV01 = "go_to_angle_rev01"
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -1002,6 +1003,18 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 valid = ", ".join(m.value for m in ClassificationChannelMode)
                 raise ValueError(
                     f"Invalid classification_channel.mode={mode_raw!r} in machine.toml; valid values: {valid}"
+                )
+
+    feeder_section = raw_toml.get("feeder", {}) if isinstance(raw_toml, dict) else {}
+    if isinstance(feeder_section, dict):
+        feeder_mode_raw = feeder_section.get("mode")
+        if isinstance(feeder_mode_raw, str) and feeder_mode_raw.strip():
+            try:
+                irl_config.feeder_config.mode = FeederMode(feeder_mode_raw.strip())
+            except ValueError:
+                valid = ", ".join(m.value for m in FeederMode)
+                raise ValueError(
+                    f"Invalid feeder.mode={feeder_mode_raw!r} in machine.toml; valid values: {valid}"
                 )
 
     if camera_layout_type == "split_feeder":

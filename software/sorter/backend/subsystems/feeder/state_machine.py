@@ -33,6 +33,12 @@ class FeederStateMachine(BaseSubsystem):
                 FeederState.IDLE: Idle(irl, gc, shared),
                 FeederState.FEEDING: Feeding(irl, irl_config, gc, shared, vision),
             }
+        elif self._mode == FeederMode.GO_TO_ANGLE_REV01:
+            from .go_to_angle.flow import GoToAngleFeeding
+            self.states_map = {
+                FeederState.IDLE: Idle(irl, gc, shared),
+                FeederState.FEEDING: GoToAngleFeeding(irl, irl_config, gc, shared, vision),
+            }
         else:
             raise ValueError(f"Unsupported feeder mode: {self._mode}")
         self.gc.profiler.enterState("feeder", self.current_state.value)

@@ -145,6 +145,40 @@ def setClassificationChannelRev01Config(updates: dict[str, Any]) -> dict[str, An
 
 
 # ---------------------------------------------------------------------------
+# Feeder go-to-angle tuning config
+# ---------------------------------------------------------------------------
+
+
+def getGoToAngleConfig() -> dict[str, Any]:
+    from subsystems.feeder.go_to_angle.config import (
+        GoToAngleConfig, configToDict,
+    )
+    config = _read_toml()
+    section = config.get("feeder_go_to_angle")
+    defaults = configToDict(GoToAngleConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setGoToAngleConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.feeder.go_to_angle.config import (
+        GoToAngleConfig, configToDict,
+    )
+    defaults = configToDict(GoToAngleConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("feeder_go_to_angle")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["feeder_go_to_angle"] = base
+
+    _update_toml(updater)
+    return getGoToAngleConfig()
+
+
+# ---------------------------------------------------------------------------
 # Detection configs
 # ---------------------------------------------------------------------------
 

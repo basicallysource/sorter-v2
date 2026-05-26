@@ -1305,7 +1305,7 @@ def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
             status_code=400, detail="jpeg_b64 or jpegs_b64 required"
         )
     try:
-        result = _classifyImages(images)
+        result = _classifyImages(shared_state.gc_ref, images)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"brickognize failed: {exc}")
     best_item, best_view = _pickBestItem(result, None)

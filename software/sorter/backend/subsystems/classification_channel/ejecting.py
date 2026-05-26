@@ -273,7 +273,7 @@ class Ejecting(BaseState):
 
         def _run() -> None:
             try:
-                result = _classifyImages(images)
+                result = _classifyImages(gc, images, piece_uuid=piece_uuid)
                 best_item, best_view = _pickBestItem(result, None)
                 best_color = _pickBestColor(result, None)
                 part_id = best_item["id"] if best_item else None

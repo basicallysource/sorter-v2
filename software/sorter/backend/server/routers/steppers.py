@@ -182,7 +182,7 @@ def _active_irl_config() -> Any | None:
     return None
 
 
-def _halt_stepper(stepper: Any) -> None:
+def _halt_stepper(stepper: Any, *, force: bool = False) -> None:
     halt = getattr(stepper, "halt", None)
     if callable(halt):
         if not bool(halt(disable_driver=True)):
@@ -192,7 +192,13 @@ def _halt_stepper(stepper: Any) -> None:
     errors: list[str] = []
     stopped = False
 
-    if hasattr(stepper, "enabled"):
+    if hasattr(stepper, "enable_force") and force:
+        try:
+            stepper.enable_force(False)
+            stopped = True
+        except Exception as e:
+            errors.append(f"disable failed: {e}")
+    elif hasattr(stepper, "enabled"):
         try:
             stepper.enabled = False
             stopped = True
@@ -201,7 +207,7 @@ def _halt_stepper(stepper: Any) -> None:
 
     if hasattr(stepper, "move_at_speed"):
         try:
-            result = stepper.move_at_speed(0)
+            result = stepper.move_at_speed(0, force=force)
             stopped = stopped or bool(result)
             if result is False:
                 errors.append("move_at_speed(0) was not acknowledged")
@@ -220,10 +226,10 @@ def _halt_stepper(stepper: Any) -> None:
         raise RuntimeError(detail)
 
 
-def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock) -> None:
+def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock, *, force: bool = False) -> None:
     try:
         time.sleep(delay_s)
-        _halt_stepper(stepper)
+        _halt_stepper(stepper, force=force)
     except Exception:
         pass
     finally:
@@ -456,8 +462,8 @@ def pulse_stepper(
     signed_speed = speed if direction == "cw" else -speed
 
     try:
-        target.enabled = True
-        if not bool(target.move_at_speed(signed_speed)):
+        target.enable_force(True)
+        if not bool(target.move_at_speed(signed_speed, force=True)):
             raise RuntimeError("move_at_speed was not acknowledged")
     except Exception as e:
         lock.release()
@@ -466,6 +472,7 @@ def pulse_stepper(
     threading.Thread(
         target=_stop_stepper_after_delay,
         args=(target, duration_s, lock),
+        kwargs={"force": True},
         daemon=True,
     ).start()
 
@@ -518,13 +525,13 @@ def move_stepper_degrees(
         raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is already moving")
 
     try:
-        target.enabled = True
+        target.enable_force(True)
         if want_ramp:
             target.set_acceleration(int(acceleration))
             target.set_speed_limits(min_speed=int(min_speed), max_speed=int(speed))
         else:
             target.set_speed_limits(min_speed=16, max_speed=int(speed))
-        if not bool(target.move_degrees(degrees)):
+        if not bool(target.move_degrees(degrees, force=True)):
             raise RuntimeError("move_degrees was not acknowledged")
     except Exception as e:
         lock.release()
@@ -536,7 +543,7 @@ def move_stepper_degrees(
             timed_out = False
             while True:
                 try:
-                    if target.stopped:
+                    if target.stopped_force():
                         break
                 except Exception:
                     _halt_stepper(target)
@@ -656,7 +663,7 @@ def stop_stepper(stepper: str) -> StepperStopResponse:
     target = _resolve_stepper(stepper)
 
     try:
-        _halt_stepper(target)
+        _halt_stepper(target, force=True)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Stop failed: {e}")
 
@@ -672,7 +679,7 @@ def stop_all_steppers() -> StepperStopAllResponse:
         if stepper is None:
             continue
         try:
-            _halt_stepper(stepper)
+            _halt_stepper(stepper, force=True)
             halted.append(name)
         except Exception as e:
             errors[name] = str(e)

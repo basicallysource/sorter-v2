@@ -47,6 +47,7 @@ class KnownObject:
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    recognition_images: List[str] = field(default_factory=list)
     # Captured timestamps of the crops actually shipped to Brickognize for
     # classification (subset of the tracker's sector snapshots). The frontend
     # uses these to highlight which crops participated in the final call.

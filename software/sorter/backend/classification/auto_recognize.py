@@ -264,8 +264,9 @@ def _run(
             _pickBestColor,
             _pickBestItem,
         )
+        from server import shared_state
 
-        result = _classifyImages(inlier_imgs)
+        result = _classifyImages(shared_state.gc_ref, inlier_imgs)
         best_item, best_view = _pickBestItem(result, None)
         best_color = _pickBestColor(result, None)
         _store_result(segment, {

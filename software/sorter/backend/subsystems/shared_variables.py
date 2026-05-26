@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import inspect
 import time
 from typing import Optional, TYPE_CHECKING
 
@@ -85,7 +86,10 @@ class SharedVariables:
         reason: str | None = None,
     ) -> None:
         next_value = bool(open)
-        if self._classification_ready == next_value and not self._bus_enabled():
+        prev_value = self._classification_ready
+        # DEV-LOG: remove before merge
+        self._log_gate_write("classification", prev_value, next_value, reason)
+        if prev_value == next_value and not self._bus_enabled():
             return
         self._classification_ready = next_value
         self._publish_station_gate(
@@ -222,6 +226,26 @@ class SharedVariables:
 
     def is_classification_dropzone_track_ignored(self, global_id: int) -> bool:
         return int(global_id) in self._ignored_classification_dropzone_track_ids
+
+    # DEV-LOG: remove before merge — instruments every gate write (incl. no-ops)
+    # with caller frame, used to track down rev01 gate regression. Drop along
+    # with the call in set_classification_gate.
+    def _log_gate_write(
+        self,
+        gate: str,
+        prev: bool,
+        next_value: bool,
+        reason: str | None,
+    ) -> None:
+        logger = getattr(self._gc, "logger", None) if self._gc is not None else None
+        if logger is None:
+            return
+        frame = inspect.stack()[2] if len(inspect.stack()) > 2 else None
+        caller = f"{frame.filename.rsplit('/', 1)[-1]}:{frame.lineno}" if frame else "?"
+        changed = "CHANGE" if prev != next_value else "noop"
+        logger.info(
+            f"[GATE] {gate} {prev}->{next_value} {changed} reason={reason} from={caller}"
+        )
 
     def _publish_station_gate(
         self,

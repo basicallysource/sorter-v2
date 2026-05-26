@@ -93,6 +93,7 @@ class StepperMotor:
         self._current_position_steps = 0
         self._last_set_current: dict[str, int] | None = None
         self._gc = gc
+        self.software_disabled = False
 
     def _logical_to_physical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
@@ -100,17 +101,20 @@ class StepperMotor:
     def _physical_to_logical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
 
-    def move_degrees(self, degrees: float) -> bool:
+    def move_degrees(self, degrees: float, *, force: bool = False) -> bool:
         """
         Move the stepper by a given number of degrees (positive or negative).
         Uses steps_per_revolution to calculate the number of steps.
         """
         steps = self.microsteps_for_degrees(degrees)
-        return self.move_steps(steps)
+        return self.move_steps(steps, force=force)
 
-    def move_steps(self, steps: int) -> bool:
+    def move_steps(self, steps: int, *, force: bool = False) -> bool:
         """Move the stepper by a given number of microsteps (positive or negative)."""
         if steps == 0:
+            return True
+        if self.software_disabled and not force:
+            self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) suppressed (software_disabled)")
             return True
         physical_steps = self._logical_to_physical_steps(steps)
         self._gc.logger.info(
@@ -128,8 +132,11 @@ class StepperMotor:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
         return success
     
-    def move_at_speed(self, speed: int) -> bool:
+    def move_at_speed(self, speed: int, *, force: bool = False) -> bool:
         """Move the stepper at a given speed in microsteps per second."""
+        if self.software_disabled and not force:
+            self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) suppressed (software_disabled)")
+            return True
         physical_speed = self._logical_to_physical_steps(speed)
         self._gc.logger.info(
             f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
@@ -158,6 +165,14 @@ class StepperMotor:
     @property
     def stopped(self) -> bool:
         """Check if the stepper is stopped."""
+        if self.software_disabled:
+            return True
+        res = self._dev.send_command(InterfaceCommandCode.STEPPER_IS_STOPPED, self._channel, b'')
+        return bool(res.payload[0])
+
+    def stopped_force(self) -> bool:
+        if self.software_disabled:
+            return True
         res = self._dev.send_command(InterfaceCommandCode.STEPPER_IS_STOPPED, self._channel, b'')
         return bool(res.payload[0])
     
@@ -189,13 +204,16 @@ class StepperMotor:
         microsteps = int(round(steps * self._microsteps))
         self.position = microsteps
 
-    def home(self, home_speed: int, home_pin : DigitalInputPin|int, home_pin_active_high=True):
+    def home(self, home_speed: int, home_pin: DigitalInputPin | int, home_pin_active_high=True, *, force: bool = False):
         """Home the stepper using the specified home pin and speed.
-        
+
         home_speed: Speed at which to home the stepper in microsteps per second. Positive values move in one direction, negative values move in the opposite direction.
         home_pin: DigitalInputPin object or integer representing the home pin channel.
         home_pin_active_high: Whether the home pin is active high (True) or active low (False).
         """
+        if self.software_disabled and not force:
+            self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: home() suppressed (software_disabled)")
+            return
         if isinstance(home_pin, DigitalInputPin):
             # If a DigitalInputPin object is provided, use its channel. ONLY IF IT BELONGS TO THE SAME INTERFACE.
             if home_pin._dev != self._dev:
@@ -221,8 +239,16 @@ class StepperMotor:
     def enabled(self, value: bool):
         """Enable or disable the stepper."""
         self._enabled = bool(value)
+        if self.software_disabled:
+            return
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_enabled={self._enabled}")
         payload = struct.pack("<?", self._enabled) # 1 byte, boolean
+        self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
+
+    def enable_force(self, value: bool):
+        self._enabled = bool(value)
+        self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_enabled={self._enabled} (force, software_disabled={self.software_disabled})")
+        payload = struct.pack("<?", self._enabled)
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_SET_ENABLED, self._channel, payload)
     
     def set_microsteps(self, microsteps: int):

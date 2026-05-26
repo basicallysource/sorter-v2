@@ -1,6 +1,13 @@
+import enum
 import os
 import time
 from dataclasses import dataclass
+
+
+class ClassificationChannelMode(enum.Enum):
+    CLASSIC_CAROUSEL = "classic_carousel"
+    DYNAMIC = "dynamic"
+    SIMPLE_STATE_MACHINE_REV01 = "simple_state_machine_rev01"
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -247,7 +254,7 @@ class ClassificationChannelExitReleaseStage:
 
 
 class ClassificationChannelConfig:
-    use_dynamic_zones: bool
+    mode: ClassificationChannelMode
     max_zones: int
     intake_angle_deg: float
     intake_body_half_width_deg: float
@@ -278,7 +285,7 @@ class ClassificationChannelConfig:
     post_distribute_cooldown_s: float
 
     def __init__(self) -> None:
-        self.use_dynamic_zones = True
+        self.mode = ClassificationChannelMode.DYNAMIC
         # Keep C4 pipelined instead of serialised: target one piece in the
         # intake/drop zone and three more spread across the platter on the way
         # to the exit. Zone hard-guards still prevent same-sector loading.
@@ -891,6 +898,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     # Check for TOML camera layout override
     import os
     from toml_config import loadTomlFile
+    from .toml_migrations import applyTomlMigrations
     camera_layout_type = "default"
     feeding_mode = "auto_channels"
     machine_setup_key = DEFAULT_MACHINE_SETUP
@@ -898,6 +906,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
         raw_toml = loadTomlFile(params_path)
+        applyTomlMigrations(raw_toml)
         cameras_section = raw_toml.get("cameras", {})
         if isinstance(cameras_section, dict):
             camera_layout_type = cameras_section.get("layout", "default")
@@ -974,6 +983,20 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config.camera_layout = camera_layout_type
     irl_config.feeding_mode = feeding_mode
     irl_config.machine_setup = machine_setup
+
+    classification_section = raw_toml.get("classification_channel", {}) if isinstance(raw_toml, dict) else {}
+    if isinstance(classification_section, dict):
+        mode_raw = classification_section.get("mode")
+        if isinstance(mode_raw, str) and mode_raw.strip():
+            try:
+                irl_config.classification_channel_config.mode = ClassificationChannelMode(
+                    mode_raw.strip()
+                )
+            except ValueError:
+                valid = ", ".join(m.value for m in ClassificationChannelMode)
+                raise ValueError(
+                    f"Invalid classification_channel.mode={mode_raw!r} in machine.toml; valid values: {valid}"
+                )
 
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
@@ -1211,6 +1234,26 @@ def _requiredCanonicalStepperNames(
     ]
 
 
+def _apply_stepper_software_disable(gc: GlobalConfig, irl: IRLInterface) -> None:
+    c_channel_attrs = {
+        1: "c_channel_1_rotor_stepper",
+        2: "c_channel_2_rotor_stepper",
+        3: "c_channel_3_rotor_stepper",
+        4: "c_channel_4_rotor_stepper",
+    }
+    for ch, attr in c_channel_attrs.items():
+        if ch in gc.disable_c_channels:
+            stepper = getattr(irl, attr, None)
+            if stepper is not None:
+                stepper.software_disabled = True
+                gc.logger.info(f"c_channel_{ch} rotor stepper software-disabled (motor suppressed)")
+    if gc.disable_carousel:
+        stepper = getattr(irl, "carousel_stepper", None)
+        if stepper is not None:
+            stepper.software_disabled = True
+            gc.logger.info("Carousel stepper software-disabled (motor suppressed)")
+
+
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.
@@ -1367,6 +1410,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.c_channel_4_rotor_stepper = irl_interface.carousel_stepper
         if config.machine_setup.uses_classification_channel:
             irl_interface.classification_channel_rotor_stepper = irl_interface.carousel_stepper
+
+    _apply_stepper_software_disable(gc, irl_interface)
 
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)

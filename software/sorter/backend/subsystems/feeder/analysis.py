@@ -637,16 +637,33 @@ def analyzeFeederChannels(
         )
 
         if det.channel_id == 3:
+            # DEV-LOG: remove before merge — per-detection dump used to diagnose
+            # empty exit_sections / dropzone_sections on ch3 tracks.
+            try:
+                _exit_sec = sorted(det.channel.exit_sections)
+                _drop_sec = sorted(det.channel.dropzone_sections)
+                x1, y1, x2, y2 = det.bbox
+                _bcx, _bcy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+                _exit_ov = _bboxExitOverlapRatio(det.bbox, det.channel)
+                _drop_ov = bboxSectionOverlapRatio(det.bbox, det.channel, det.channel.dropzone_sections)
+                gc.logger.info(
+                    f"[CH3-DET] gid={global_id} bbox=({x1},{y1},{x2},{y2}) center=({_bcx:.0f},{_bcy:.0f}) "
+                    f"bbox_sections={sorted(sections)} exit_sections={_exit_sec} dropzone_sections={_drop_sec} "
+                    f"exit_overlap={_exit_ov:.2f} drop_overlap={_drop_ov:.2f} "
+                    f"motion_confirmed={getattr(det, 'motion_confirmed', None)} "
+                    f"ch_center={det.channel.center} r1_angle={det.channel.radius1_angle_image:.1f}"
+                )
+            except Exception as _e:
+                gc.logger.warning(f"[CH3-DET] log failed: {_e}")
             drop_overlap = bboxSectionOverlapRatio(det.bbox, det.channel, det.channel.dropzone_sections)
             if drop_overlap > result.ch3_dropzone_overlap_max:
                 result.ch3_dropzone_overlap_max = drop_overlap
             if not ignore_dropzone and sections & det.channel.dropzone_sections:
                 result.ch3_dropzone_occupied = True
-            motion_confirmed = bool(getattr(det, "motion_confirmed", True))
-            overlap = _bboxExitOverlapRatio(det.bbox, det.channel) if motion_confirmed else 0.0
+            overlap = _bboxExitOverlapRatio(det.bbox, det.channel)
             if overlap > result.ch3_exit_overlap_max:
                 result.ch3_exit_overlap_max = overlap
-            if motion_confirmed and bboxCenterCrossedSectionMidpoint(
+            if bboxCenterCrossedSectionMidpoint(
                 det.bbox,
                 det.channel,
                 det.channel.exit_sections,
@@ -662,11 +679,10 @@ def analyzeFeederChannels(
                 result.ch2_dropzone_overlap_max = drop_overlap
             if not ignore_dropzone and sections & det.channel.dropzone_sections:
                 result.ch2_dropzone_occupied = True
-            motion_confirmed = bool(getattr(det, "motion_confirmed", True))
-            overlap = _bboxExitOverlapRatio(det.bbox, det.channel) if motion_confirmed else 0.0
+            overlap = _bboxExitOverlapRatio(det.bbox, det.channel)
             if overlap > result.ch2_exit_overlap_max:
                 result.ch2_exit_overlap_max = overlap
-            if motion_confirmed and bboxCenterCrossedSectionMidpoint(
+            if bboxCenterCrossedSectionMidpoint(
                 det.bbox,
                 det.channel,
                 det.channel.exit_sections,

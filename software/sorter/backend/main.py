@@ -33,7 +33,7 @@ from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
-from irl.config import mkIRLConfig, mkIRLInterface
+from irl.config import ClassificationChannelMode, mkIRLConfig, mkIRLInterface
 from subsystems.feeder.calibration import calibrateFeederChannels
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
@@ -420,6 +420,20 @@ def main() -> None:
                     gc.logger.warning("Classification baseline not found — continuing without classification")
         elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
             gc.logger.warning("Classification baseline not found — continuing without classification")
+
+        classification_mode = getattr(
+            getattr(irl_config, "classification_channel_config", None),
+            "mode",
+            None,
+        )
+        if classification_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+            from subsystems.classification_channel.simple_state_machine_rev01.spoke_home import (
+                maybeRunSpokeHome,
+            )
+
+            shared_state.setHardwareStatus(homing_step="Aligning classification channel...")
+            if not maybeRunSpokeHome(gc, irl, irl_config, vision):
+                gc.logger.warning("Classification-channel rev01 spoke home did not complete")
 
         if bool(getattr(machine_setup, "homes_carousel", True)):
             shared_state.setHardwareStatus(homing_step="Homing carousel...")

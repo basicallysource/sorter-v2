@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 
 from defs.events import (
@@ -82,6 +83,28 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestLoggingMiddleware)
 
+BACKEND_PROCESS_STARTED_AT = time.time()
+
+
+def _sanitize_known_object_payload(payload: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    if payload is None:
+        return None
+    cleaned = dict(payload)
+    cleaned.pop("recognition_images", None)
+    return cleaned
+
+
+def _is_stale_incomplete_known_object(payload: Dict[str, Any] | None) -> bool:
+    if payload is None:
+        return False
+    status = payload.get("classification_status")
+    if status not in {"pending", "classifying"}:
+        return False
+    updated_at = payload.get("updated_at")
+    if not isinstance(updated_at, (int, float)):
+        return False
+    return float(updated_at) < BACKEND_PROCESS_STARTED_AT
+
 def _load_saved_api_keys_into_environment() -> None:
     saved_api_keys = getApiKeys()
     if saved_api_keys.get("openrouter"):
@@ -102,6 +125,7 @@ from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
 from server.routers.chute_stress import router as chute_stress_router
+from server.routers.tuning import router as tuning_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -114,6 +138,7 @@ app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(runtimes_router)
 app.include_router(chute_stress_router)
+app.include_router(tuning_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -490,7 +515,7 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
     if shared_state.gc_ref is None or shared_state.gc_ref.runtime_stats is None:
         raise HTTPException(status_code=404, detail="not found")
     payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
-    if payload is None:
+    if payload is None or _is_stale_incomplete_known_object(payload):
         raise HTTPException(status_code=404, detail="not found")
     try:
         return KnownObjectData.model_validate(payload)
@@ -522,8 +547,18 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
+    import time as _time
+    _cutoff = _time.time() - 86400
     for item in reversed(getRecentKnownObjects()):
         try:
+            item = _sanitize_known_object_payload(item)
+            if item is None:
+                continue
+            if _is_stale_incomplete_known_object(item):
+                continue
+            created = item.get("created_at") or 0
+            if isinstance(created, (int, float)) and created < _cutoff:
+                continue
             event = KnownObjectEvent(
                 tag="known_object",
                 data=KnownObjectData.model_validate(item),

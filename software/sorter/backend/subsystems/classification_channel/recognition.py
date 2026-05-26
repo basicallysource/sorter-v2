@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import math
-import os
 import threading
 import time
 from typing import Optional
@@ -402,17 +401,6 @@ class ClassificationChannelRecognizer:
                 best_crop = crop
         return best_crop
 
-    def _brickognizeDumpDir(self, piece_uuid: Optional[str]) -> Optional[str]:
-        if not getattr(self.gc, "brickognize_dump_images", False):
-            return None
-        if not piece_uuid:
-            return None
-        base = os.path.join(
-            os.path.dirname(__file__), "..", "..", "..", "..", "logs", "brickognize"
-        )
-        run_id = getattr(self.gc, "run_id", "unknown_run")
-        return os.path.abspath(os.path.join(base, str(run_id), str(piece_uuid)))
-
     def _classifyTrackedCrops(
         self,
         images: list[CropEntry],
@@ -440,10 +428,10 @@ class ClassificationChannelRecognizer:
         selected_images = [
             self._padCropForBrickognize(image) for image, _role, _ts in selected
         ]
-        dump_dir = self._brickognizeDumpDir(piece_uuid)
         primary_result = _classifyImages(
+            self.gc,
             selected_images,
-            dump_dir=dump_dir,
+            piece_uuid=piece_uuid,
             dump_label="primary",
         )
         candidate = self._candidateFromResult(
@@ -456,8 +444,9 @@ class ClassificationChannelRecognizer:
         best_single = candidate
         for fallback_idx, crop in enumerate(selected_images[:SINGLE_CROP_FALLBACK_COUNT]):
             single_result = _classifyImages(
+                self.gc,
                 [crop],
-                dump_dir=dump_dir,
+                piece_uuid=piece_uuid,
                 dump_label=f"fallback_{fallback_idx:02d}",
             )
             single_candidate = self._candidateFromResult(

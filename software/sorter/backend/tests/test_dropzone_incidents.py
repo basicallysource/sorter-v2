@@ -98,11 +98,10 @@ class DropzoneIncidentTests(unittest.TestCase):
         gc = SimpleNamespace()
         det = _detection()
 
-        blocked = analyzeFeederChannels(gc, [det])
+        blocked = analyzeFeederChannels([det])
         self.assertTrue(blocked.ch2_dropzone_occupied)
 
         ignored = analyzeFeederChannels(
-            gc,
             [det],
             ignored_dropzone_detection_ids={(2, 123)},
         )
@@ -113,7 +112,6 @@ class DropzoneIncidentTests(unittest.TestCase):
         gc = SimpleNamespace()
 
         unconfirmed = analyzeFeederChannels(
-            gc,
             [_exit_detection(motion_confirmed=False)],
         )
         self.assertEqual(0.0, unconfirmed.ch2_exit_overlap_max)
@@ -121,7 +119,6 @@ class DropzoneIncidentTests(unittest.TestCase):
         self.assertEqual(ChannelAction.PULSE_NORMAL, unconfirmed.ch2_action)
 
         confirmed = analyzeFeederChannels(
-            gc,
             [_exit_detection(motion_confirmed=True)],
         )
         self.assertGreater(confirmed.ch2_exit_overlap_max, 0.0)
@@ -158,7 +155,6 @@ class DropzoneIncidentTests(unittest.TestCase):
 
         manager.update([det], 8.2, rotating_channel_ids={2})
         analysis = analyzeFeederChannels(
-            gc,
             [det],
             ignored_dropzone_detection_ids=manager.ignored_detection_ids(),
         )

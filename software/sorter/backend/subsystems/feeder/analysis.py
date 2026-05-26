@@ -1,10 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, List, Dict, Tuple, TYPE_CHECKING
+from typing import Any, List, Dict, Tuple
 import numpy as np
-
-if TYPE_CHECKING:
-    from global_config import GlobalConfig
 
 from defs.consts import (
     CHANNEL_SECTION_DEG,
@@ -621,7 +618,6 @@ def _exitOverlapRatio(sections: set[int], exit_sections: set[int]) -> float:
 
 
 def analyzeFeederChannels(
-    gc: "GlobalConfig",
     detections: List[ChannelDetection],
     ignored_dropzone_detection_ids: set[tuple[int, int]] | None = None,
 ) -> FeederAnalysis:
@@ -637,24 +633,6 @@ def analyzeFeederChannels(
         )
 
         if det.channel_id == 3:
-            # DEV-LOG: remove before merge — per-detection dump used to diagnose
-            # empty exit_sections / dropzone_sections on ch3 tracks.
-            try:
-                _exit_sec = sorted(det.channel.exit_sections)
-                _drop_sec = sorted(det.channel.dropzone_sections)
-                x1, y1, x2, y2 = det.bbox
-                _bcx, _bcy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
-                _exit_ov = _bboxExitOverlapRatio(det.bbox, det.channel)
-                _drop_ov = bboxSectionOverlapRatio(det.bbox, det.channel, det.channel.dropzone_sections)
-                gc.logger.info(
-                    f"[CH3-DET] gid={global_id} bbox=({x1},{y1},{x2},{y2}) center=({_bcx:.0f},{_bcy:.0f}) "
-                    f"bbox_sections={sorted(sections)} exit_sections={_exit_sec} dropzone_sections={_drop_sec} "
-                    f"exit_overlap={_exit_ov:.2f} drop_overlap={_drop_ov:.2f} "
-                    f"motion_confirmed={getattr(det, 'motion_confirmed', None)} "
-                    f"ch_center={det.channel.center} r1_angle={det.channel.radius1_angle_image:.1f}"
-                )
-            except Exception as _e:
-                gc.logger.warning(f"[CH3-DET] log failed: {_e}")
             drop_overlap = bboxSectionOverlapRatio(det.bbox, det.channel, det.channel.dropzone_sections)
             if drop_overlap > result.ch3_dropzone_overlap_max:
                 result.ch3_dropzone_overlap_max = drop_overlap

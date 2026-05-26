@@ -1,8 +1,17 @@
+import base64
+import time
+from typing import Optional
+
+import cv2
+import numpy as np
+
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
 from states.base_state import BaseState
+from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
 from subsystems.shared_variables import SharedVariables
+from utils.event import knownObjectToEvent
 
 from .constants import LOG_TAG
 from .context import SimpleStateMachineRev01Context
@@ -64,6 +73,45 @@ class Rev01BaseState(BaseState):
         if not ok:
             self.logger.error(f"{LOG_TAG} move_at_speed not acknowledged")
         return ok
+
+    def startCaptureSweepMove(self, output_degrees: float, speed_usteps_per_s: int) -> bool:
+        stepper = getattr(self.irl, "carousel_stepper", None)
+        if stepper is None:
+            self.logger.error(f"{LOG_TAG} carousel_stepper missing — cannot sweep")
+            return False
+        try:
+            stepper.set_speed_limits(16, max(16, speed_usteps_per_s))
+        except Exception as exc:
+            self.logger.warning(f"{LOG_TAG} set_speed_limits failed: {exc}")
+        try:
+            platter = C4FiveSectorPlatter.from_irl_config(self.irl_config)
+            move_steps = platter.output_degrees_to_motor_microsteps(output_degrees)
+            ok = bool(stepper.move_steps(int(move_steps)))
+        except Exception as exc:
+            self.logger.error(f"{LOG_TAG} sweep move failed: {exc}")
+            return False
+        if not ok:
+            self.logger.error(f"{LOG_TAG} sweep move not acknowledged")
+        return ok
+
+    def emitKnownObject(self) -> None:
+        obj = self.ctx.known_object
+        if obj is None:
+            return
+        obj.updated_at = time.time()
+        self.event_queue.put(knownObjectToEvent(obj))
+
+    @staticmethod
+    def encodeFrame(frame: np.ndarray) -> Optional[str]:
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        if not ok:
+            return None
+        return base64.b64encode(buf).decode("utf-8")
+
+    @staticmethod
+    def sharpness(frame: np.ndarray) -> float:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
     def anyBboxInExitZone(
         self, bboxes: list[tuple[int, int, int, int]]

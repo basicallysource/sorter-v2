@@ -30,16 +30,21 @@
 	let error = $state<string | null>(null);
 	let status = $state('');
 	let data = $state<CaptureModeResponse | null>(null);
-	let selectedKey = $state<string>('');
+	let selectedModeKey = $state<string>('');
 	let selectedFourcc = $state<string>('');
-	let fourccOptions = $derived(fourccsForKey(selectedKey));
+	let fourccOptions = $derived(fourccsForModeKey(selectedModeKey));
 
-	function modeKey(m: { width?: number | null; height?: number | null } | null | undefined): string {
+	function modeKey(m: { width?: number | null; height?: number | null; fps?: number | null } | null | undefined): string {
+		if (!m || !m.width || !m.height || !m.fps) return '';
+		return `${m.width}x${m.height}@${m.fps}`;
+	}
+
+	function resolutionKey(m: { width?: number | null; height?: number | null } | null | undefined): string {
 		if (!m || !m.width || !m.height) return '';
 		return `${m.width}x${m.height}`;
 	}
 
-	function fourccsForKey(key: string): string[] {
+	function fourccsForModeKey(key: string): string[] {
 		if (!data) return [];
 		const seen = new Set<string>();
 		const out: string[] = [];
@@ -50,17 +55,30 @@
 			seen.add(fc);
 			out.push(fc);
 		}
-		// Always make MJPG the first option when available — it's the default.
 		out.sort((a, b) => (a === 'MJPG' ? -1 : b === 'MJPG' ? 1 : a.localeCompare(b)));
 		return out;
 	}
 
 	function pickInitialFourcc(key: string, current: string | null | undefined): string {
-		const options = fourccsForKey(key);
+		const options = fourccsForModeKey(key);
 		if (options.length === 0) return '';
 		const want = (current || '').toUpperCase();
 		if (want && options.includes(want)) return want;
 		return options.includes('MJPG') ? 'MJPG' : options[0];
+	}
+
+	function pickInitialModeKey(currentWidth: number | null | undefined, currentHeight: number | null | undefined, currentFps: number | null | undefined): string {
+		if (!data) return '';
+		const wantRes = resolutionKey({ width: currentWidth, height: currentHeight });
+		const wantFps = currentFps ?? 0;
+		// Exact match first
+		const exact = data.modes.find((m) => resolutionKey(m) === wantRes && m.fps === wantFps);
+		if (exact) return modeKey(exact);
+		// Same resolution, highest fps
+		const sameRes = data.modes.filter((m) => resolutionKey(m) === wantRes).sort((a, b) => b.fps - a.fps);
+		if (sameRes.length > 0) return modeKey(sameRes[0]);
+		// First mode overall
+		return data.modes.length > 0 ? modeKey(data.modes[0]) : '';
 	}
 
 	async function load() {
@@ -74,8 +92,12 @@
 			if (!res.ok) throw new Error(await res.text());
 			const parsed = (await res.json()) as CaptureModeResponse;
 			data = parsed;
-			selectedKey = modeKey(parsed.current) || modeKey(parsed.live) || '';
-			selectedFourcc = pickInitialFourcc(selectedKey, parsed.current?.fourcc ?? null);
+			selectedModeKey = pickInitialModeKey(
+				parsed.current?.width ?? parsed.live?.width ?? null,
+				parsed.current?.height ?? parsed.live?.height ?? null,
+				parsed.current?.fps ?? null,
+			);
+			selectedFourcc = pickInitialFourcc(selectedModeKey, parsed.current?.fourcc ?? null);
 		} catch (e: any) {
 			error = e.message ?? 'Failed to load capture modes';
 		} finally {
@@ -83,13 +105,12 @@
 		}
 	}
 
-	async function save(key: string, fourccChoice: string) {
+	async function save(modeKeyStr: string, fourcc: string) {
 		if (!data) return;
-		const fcUpper = (fourccChoice || '').toUpperCase();
+		const fcUpper = (fourcc || '').toUpperCase();
 		const mode =
-			data.modes.find(
-				(m) => modeKey(m) === key && (m.fourcc || '').toUpperCase() === fcUpper
-			) ?? data.modes.find((m) => modeKey(m) === key);
+			data.modes.find((m) => modeKey(m) === modeKeyStr && (m.fourcc || '').toUpperCase() === fcUpper) ??
+			data.modes.find((m) => modeKey(m) === modeKeyStr);
 		if (!mode) return;
 		saving = true;
 		error = null;
@@ -98,17 +119,12 @@
 			const res = await fetch(`${getBackendHttpBase()}/api/cameras/capture-modes/${role}`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({
-					width: mode.width,
-					height: mode.height,
-					fps: mode.fps,
-					fourcc: fcUpper || mode.fourcc
-				})
+				body: JSON.stringify({ width: mode.width, height: mode.height, fps: mode.fps, fourcc: fcUpper || mode.fourcc })
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const parsed = await res.json();
 			status = parsed.message ?? 'Capture mode saved.';
-			selectedKey = key;
+			selectedModeKey = modeKeyStr;
 			selectedFourcc = fcUpper;
 			await load();
 		} catch (e: any) {
@@ -118,9 +134,9 @@
 		}
 	}
 
-	function onResolutionChange(ev: Event) {
+	function onModeChange(ev: Event) {
 		const value = (ev.target as HTMLSelectElement).value;
-		if (!value || value === selectedKey) return;
+		if (!value || value === selectedModeKey) return;
 		const nextFourcc = pickInitialFourcc(value, selectedFourcc);
 		void save(value, nextFourcc);
 	}
@@ -128,7 +144,7 @@
 	function onFourccChange(ev: Event) {
 		const value = (ev.target as HTMLSelectElement).value;
 		if (!value || value === selectedFourcc) return;
-		void save(selectedKey, value);
+		void save(selectedModeKey, value);
 	}
 
 	$effect(() => {
@@ -162,22 +178,20 @@
 		</div>
 	{:else}
 		<div>
-			<div class="mb-1 text-sm font-medium text-text">Resolution</div>
+			<div class="mb-1 text-sm font-medium text-text">Mode</div>
 			<select
 				class="w-full border border-border bg-surface px-2 py-2 text-sm text-text focus:border-primary focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-				value={selectedKey}
+				value={selectedModeKey}
 				disabled={saving}
-				onchange={onResolutionChange}
+				onchange={onModeChange}
 			>
-				{#if !selectedKey}
-					<option value="" disabled>— pick a resolution —</option>
+				{#if !selectedModeKey}
+					<option value="" disabled>— pick a mode —</option>
 				{/if}
 				{#each Array.from(new Set(data.modes.map((m) => modeKey(m)))) as key}
 					{@const sample = data.modes.find((m) => modeKey(m) === key)}
 					{#if sample}
-						<option value={key}>
-							{sample.width}×{sample.height} @ {sample.fps} fps
-						</option>
+						<option value={key}>{sample.width}×{sample.height} @ {sample.fps} fps</option>
 					{/if}
 				{/each}
 			</select>

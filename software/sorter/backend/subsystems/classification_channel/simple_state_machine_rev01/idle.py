@@ -3,7 +3,7 @@ from typing import Optional
 from subsystems.classification_channel.states import ClassificationChannelState
 
 from .base import Rev01BaseState
-from .constants import LOG_TAG, PRESENCE_STREAK_TO_START
+from .constants import LOG_TAG
 
 
 class Idle(Rev01BaseState):
@@ -20,7 +20,7 @@ class Idle(Rev01BaseState):
             if self._last_ready_published is not False:
                 self.setClassificationReady(False, f"{len(bboxes)} bbox(es) on channel")
                 self._last_ready_published = False
-            if self._presence_streak >= PRESENCE_STREAK_TO_START:
+            if self._presence_streak >= self.ctx.config.presence_streak_to_start:
                 self._presence_streak = 0
                 self.ctx.reset()
                 self.logger.info(

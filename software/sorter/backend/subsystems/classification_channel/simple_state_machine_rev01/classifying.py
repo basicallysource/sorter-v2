@@ -9,7 +9,7 @@ from defs.known_object import ClassificationStatus
 from subsystems.classification_channel.states import ClassificationChannelState
 
 from .base import Rev01BaseState
-from .constants import CLASSIFY_TIMEOUT_S, LOG_TAG
+from .constants import LOG_TAG
 
 
 class Classifying(Rev01BaseState):
@@ -60,9 +60,9 @@ class Classifying(Rev01BaseState):
             self._updateKnownObjectWithResult(result, error)
             return ClassificationChannelState.REV01_DISCHARGING
 
-        if now - self.ctx.classify_started_at > CLASSIFY_TIMEOUT_S:
+        if now - self.ctx.classify_started_at > self.ctx.config.classify_timeout_s:
             self.logger.error(
-                f"{LOG_TAG} Brickognize timed out after {CLASSIFY_TIMEOUT_S}s — "
+                f"{LOG_TAG} Brickognize timed out after {self.ctx.config.classify_timeout_s}s — "
                 f"continuing to DISCHARGING"
             )
             return ClassificationChannelState.REV01_DISCHARGING
@@ -111,16 +111,16 @@ class Classifying(Rev01BaseState):
 
         self.emitKnownObject()
 
-    @staticmethod
-    def selectRecognitionCrops(crops: list[np.ndarray]) -> list[np.ndarray]:
-        if len(crops) <= 8:
+    def selectRecognitionCrops(self, crops: list[np.ndarray]) -> list[np.ndarray]:
+        n = self.ctx.config.max_captures
+        if len(crops) <= n:
             return list(crops)
         if not crops:
             return []
         last_index = len(crops) - 1
         chosen_indices: list[int] = []
-        for slot_idx in range(8):
-            capture_idx = round((slot_idx * last_index) / 7)
+        for slot_idx in range(n):
+            capture_idx = round((slot_idx * last_index) / max(1, n - 1))
             if chosen_indices and capture_idx <= chosen_indices[-1]:
                 capture_idx = min(last_index, chosen_indices[-1] + 1)
             chosen_indices.append(capture_idx)

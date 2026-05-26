@@ -1,10 +1,11 @@
 import time
 from typing import Optional
 
+from defs.known_object import PieceStage
 from subsystems.classification_channel.states import ClassificationChannelState
 
 from .base import Rev01BaseState
-from .constants import DISCHARGE_SPEED_USTEPS_PER_S, DISCHARGE_TIMEOUT_S, LOG_TAG
+from .constants import LOG_TAG
 
 
 class Discharging(Rev01BaseState):
@@ -20,19 +21,21 @@ class Discharging(Rev01BaseState):
 
         if not self._rotation_started:
             self.ctx.discharging_started_at = now
-            if not self.startRotation(DISCHARGE_SPEED_USTEPS_PER_S):
+            self._stampDistributed()
+            cfg = self.ctx.config
+            if not self.startRotation(cfg.discharge_speed_usteps_per_s):
                 self.logger.error(
                     f"{LOG_TAG} could not start discharge rotation — abort to IDLE"
                 )
                 return ClassificationChannelState.IDLE
             self._rotation_started = True
             self.logger.info(
-                f"{LOG_TAG} DISCHARGING started (speed={DISCHARGE_SPEED_USTEPS_PER_S} µsteps/s)"
+                f"{LOG_TAG} DISCHARGING started (speed={cfg.discharge_speed_usteps_per_s} µsteps/s)"
             )
 
-        if now - self.ctx.discharging_started_at > DISCHARGE_TIMEOUT_S:
+        if now - self.ctx.discharging_started_at > self.ctx.config.discharge_timeout_s:
             self.logger.error(
-                f"{LOG_TAG} discharge timeout after {DISCHARGE_TIMEOUT_S}s — "
+                f"{LOG_TAG} discharge timeout after {self.ctx.config.discharge_timeout_s}s — "
                 f"forcing return to IDLE"
             )
             self.stopStepper()
@@ -47,6 +50,15 @@ class Discharging(Rev01BaseState):
             return ClassificationChannelState.IDLE
 
         return None
+
+    def _stampDistributed(self) -> None:
+        obj = self.ctx.known_object
+        if obj is None:
+            return
+        obj.stage = PieceStage.distributed
+        obj.distributed_at = time.time()
+        obj.destination_bin = (0, 0, 0)
+        self.emitKnownObject()
 
     def cleanup(self) -> None:
         super().cleanup()

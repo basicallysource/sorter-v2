@@ -69,6 +69,7 @@ export interface KnownObjectData {
   drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
+  recognition_images?: string[];
   recognition_used_crop_ts?: number[];
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;

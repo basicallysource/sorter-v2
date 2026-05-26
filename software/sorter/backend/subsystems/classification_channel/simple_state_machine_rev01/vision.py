@@ -83,6 +83,48 @@ class Rev01Vision:
             return None
         return frame.raw
 
+    def latestRawFrameSample(self) -> Optional[tuple[np.ndarray, float]]:
+        if self._vision is None:
+            return None
+        capture = getattr(self._vision, "_carousel_capture", None)
+        if capture is None:
+            return None
+        frame = capture.latest_frame
+        if frame is None or frame.raw is None:
+            return None
+        return frame.raw, float(frame.timestamp)
+
+    @staticmethod
+    def primaryBbox(
+        bboxes: list[tuple[int, int, int, int]]
+    ) -> Optional[tuple[int, int, int, int]]:
+        if not bboxes:
+            return None
+        return max(
+            bboxes,
+            key=lambda bbox: max(0, int(bbox[2]) - int(bbox[0]))
+            * max(0, int(bbox[3]) - int(bbox[1])),
+        )
+
+    @staticmethod
+    def cropBbox(
+        frame: np.ndarray,
+        bbox: tuple[int, int, int, int],
+        padding: int = 0,
+    ) -> Optional[np.ndarray]:
+        frame_h, frame_w = frame.shape[:2]
+        x1, y1, x2, y2 = bbox
+        crop_x1 = max(0, min(frame_w, int(x1) - padding))
+        crop_y1 = max(0, min(frame_h, int(y1) - padding))
+        crop_x2 = max(0, min(frame_w, int(x2) + padding))
+        crop_y2 = max(0, min(frame_h, int(y2) + padding))
+        if crop_x2 <= crop_x1 or crop_y2 <= crop_y1:
+            return None
+        crop = frame[crop_y1:crop_y2, crop_x1:crop_x2]
+        if crop.size == 0:
+            return None
+        return crop.copy()
+
     def channelCenter(self) -> Optional[tuple[float, float]]:
         if self._vision is None:
             return None

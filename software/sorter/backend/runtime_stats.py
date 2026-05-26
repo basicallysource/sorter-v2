@@ -66,6 +66,23 @@ def _calcValueSummary(samples: list[float]) -> dict[str, float | int]:
     }
 
 
+def _calcMsSummary(samples: list[float]) -> dict[str, float | int]:
+    if not samples:
+        return {"n": 0}
+    values = sorted(samples)
+    n = len(values)
+    p90_idx = min(n - 1, int(n * 0.9))
+    return {
+        "n": n,
+        "avg_ms": float(statistics.mean(values)),
+        "med_ms": float(statistics.median(values)),
+        "p90_ms": float(values[p90_idx]),
+        "min_ms": float(values[0]),
+        "max_ms": float(values[-1]),
+        "last_ms": float(samples[-1]),
+    }
+
+
 def _calcPpm(count: int, duration_s: float) -> float | None:
     if count <= 0 or duration_s <= 0:
         return None
@@ -142,6 +159,7 @@ class RuntimeStatsCollector:
         self._servo_bus_offline_since_ts: float | None = None
         self._bus_provider: Any | None = None
         self._active_incident: dict[str, Any] | None = None
+        self._perf_ms_samples: dict[str, list[float]] = {}
         self._last_updated_at = time.time()
 
     def setBusProvider(self, bus_provider: Any | None) -> None:
@@ -392,6 +410,14 @@ class RuntimeStatsCollector:
         glitches show up too.
         """
         self._classification_zone_lost_total += 1
+        self._last_updated_at = time.time()
+
+    def observePerfMs(self, name: str, value_ms: float) -> None:
+        bucket = self._perf_ms_samples.get(name)
+        if bucket is None:
+            bucket = []
+            self._perf_ms_samples[name] = bucket
+        _appendSample(bucket, max(0.0, float(value_ms)))
         self._last_updated_at = time.time()
 
     def clearBinContents(
@@ -1118,12 +1144,18 @@ class RuntimeStatsCollector:
                 }
             channel_throughput[channel] = channel_entry
 
+        perf_ms = {
+            key: _calcMsSummary(values)
+            for key, values in sorted(self._perf_ms_samples.items())
+        }
+
         return {
             "updated_at": now,
             "lifecycle_state": self._lifecycle_state,
             "is_running": self._is_running,
             "counts": counts,
             "timings": timings,
+            "perf_ms": perf_ms,
             "throughput": {
                 "running_time_s": running_time_s,
                 "distributed_count": counts["distributed"],

@@ -431,19 +431,39 @@ class Coordinator:
                 prof.hit("coordinator.step.feeder_skipped.active_incident")
                 if self._classification_should_step_during_incident(active_incident):
                     with prof.timer("coordinator.step.classification_ms"):
+                        classification_started = time.perf_counter()
                         self.classification.step()
+                        self.gc.runtime_stats.observePerfMs(
+                            "coordinator.step.classification_ms",
+                            (time.perf_counter() - classification_started) * 1000.0,
+                        )
                 else:
                     prof.hit("coordinator.step.classification_skipped.active_incident")
                 return
             with prof.timer("coordinator.step.distribution_ms"):
+                distribution_started = time.perf_counter()
                 self.distribution.step()
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.distribution_ms",
+                    (time.perf_counter() - distribution_started) * 1000.0,
+                )
             with prof.timer("coordinator.step.classification_ms"):
+                classification_started = time.perf_counter()
                 self.classification.step()
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.classification_ms",
+                    (time.perf_counter() - classification_started) * 1000.0,
+                )
             with prof.timer("coordinator.step.feeder_ms"):
+                feeder_started = time.perf_counter()
                 if self.manual_feed_mode:
                     prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
                 else:
                     self.feeder.step()
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.feeder_ms",
+                    (time.perf_counter() - feeder_started) * 1000.0,
+                )
 
     def cleanup(self) -> None:
         self.feeder.cleanup()

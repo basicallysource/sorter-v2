@@ -3308,6 +3308,10 @@ class VisionManager:
             frame = capture.latest_frame
         if frame is None:
             return None
+        self.gc.runtime_stats.observePerfMs(
+            f"aux.detect.feeder:{role}.frame_age_ms",
+            max(0.0, (time.time() - float(frame.timestamp)) * 1000.0),
+        )
         algorithm = self.getFeederDetectionAlgorithm(role)
         if self._isLocalModelDetectionAlgorithm(algorithm):
             # Local model inference is ~30-50ms per 320 crop on CPU. If we
@@ -3458,6 +3462,10 @@ class VisionManager:
             frame = capture.latest_frame
         if frame is None:
             return None
+        self.gc.runtime_stats.observePerfMs(
+            "aux.detect.carousel.frame_age_ms",
+            max(0.0, (time.time() - float(frame.timestamp)) * 1000.0),
+        )
         algorithm = self.getCarouselDetectionAlgorithm()
         if self._isLocalModelDetectionAlgorithm(algorithm):
             now = frame.timestamp
@@ -4309,16 +4317,26 @@ class VisionManager:
         if not tasks:
             return
 
+        def runTask(label: str, fn: "callable[[], object]") -> object:
+            started = time.perf_counter()
+            try:
+                return fn()
+            finally:
+                self.gc.runtime_stats.observePerfMs(
+                    f"aux.detect.{label}.total_ms",
+                    (time.perf_counter() - started) * 1000.0,
+                )
+
         pool = self._aux_detection_pool
         if pool is None or len(tasks) == 1:
             for label, fn in tasks:
                 try:
-                    fn()
+                    runTask(label, fn)
                 except Exception as exc:
                     self.gc.logger.warning(f"auxiliary detection refresh failed for {label}: {exc}")
             return
 
-        futures = [(label, pool.submit(fn)) for label, fn in tasks]
+        futures = [(label, pool.submit(runTask, label, fn)) for label, fn in tasks]
         for label, future in futures:
             try:
                 future.result()

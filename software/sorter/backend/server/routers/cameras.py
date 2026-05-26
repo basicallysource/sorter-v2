@@ -3921,10 +3921,15 @@ def camera_feed_by_role(
             def generate_live():
                 last_frame_ts: float | None = None
                 while True:
+                    fetch_started = time.perf_counter()
                     frame_obj = feed.get_frame(
                         annotated=want_annotated,
                         exclude_categories=exclude_categories,
                         color_correct=color_correct,
+                    )
+                    shared_state.gc_ref.runtime_stats.observePerfMs(
+                        f"preview.{role}.get_frame_ms",
+                        (time.perf_counter() - fetch_started) * 1000.0,
                     )
                     if frame_obj is None:
                         time.sleep(0.05)
@@ -3938,6 +3943,11 @@ def camera_feed_by_role(
                         if want_annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
+                    shared_state.gc_ref.runtime_stats.observePerfMs(
+                        f"preview.{role}.frame_age_ms",
+                        max(0.0, (time.time() - float(frame_obj.timestamp)) * 1000.0),
+                    )
+                    process_started = time.perf_counter()
                     # Downscale FIRST. The dashboard crop is a warpPerspective
                     # (or polygon mask) on the input frame — on a 4K camera that
                     # cost ~400 ms/frame, capping the stream at ~2 fps. Doing
@@ -3955,13 +3965,27 @@ def camera_feed_by_role(
                             interpolation=cv2.INTER_AREA,
                         )
                     frame = _dashboard_frame(frame)
+                    shared_state.gc_ref.runtime_stats.observePerfMs(
+                        f"preview.{role}.process_ms",
+                        (time.perf_counter() - process_started) * 1000.0,
+                    )
                     if prof is not None:
                         prof.hit(f"encode.{role}.frames")
                         prof.mark(f"encode.{role}.interval_ms")
                         with prof.timer(f"encode.{role}.encode_ms"):
+                            encode_started = time.perf_counter()
                             chunk = encoder.encode_chunk(frame, quality=55)
+                            shared_state.gc_ref.runtime_stats.observePerfMs(
+                                f"preview.{role}.encode_ms",
+                                (time.perf_counter() - encode_started) * 1000.0,
+                            )
                     else:
+                        encode_started = time.perf_counter()
                         chunk = encoder.encode_chunk(frame, quality=55)
+                        shared_state.gc_ref.runtime_stats.observePerfMs(
+                            f"preview.{role}.encode_ms",
+                            (time.perf_counter() - encode_started) * 1000.0,
+                        )
                     yield chunk
 
             return StreamingResponse(

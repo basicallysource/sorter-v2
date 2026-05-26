@@ -528,11 +528,18 @@ def main() -> None:
     last_heartbeat = time.time()
     last_frame_record = time.time()
     last_runtime_stats_broadcast = time.time()
+    last_main_loop_started = time.perf_counter()
 
     try:
         while True:
+            loop_started = time.perf_counter()
             gc.profiler.hit("main.loop.calls")
             gc.profiler.mark("main.loop.interval_ms")
+            gc.runtime_stats.observePerfMs(
+                "main.loop.interval_ms",
+                (loop_started - last_main_loop_started) * 1000.0,
+            )
+            last_main_loop_started = loop_started
             try:
                 event = server_to_main_queue.get(block=False)
                 with controller_lock:
@@ -582,7 +589,12 @@ def main() -> None:
                 current_controller = controller
             if current_controller is not None:
                 with gc.profiler.timer("main.loop.controller_step_ms"):
+                    controller_step_started = time.perf_counter()
                     current_controller.step()
+                    gc.runtime_stats.observePerfMs(
+                        "main.loop.controller_step_ms",
+                        (time.perf_counter() - controller_step_started) * 1000.0,
+                    )
 
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:

@@ -438,6 +438,53 @@ def detectSpokeAngle(
     )
 
 
+def clearPiecesFromChannel(
+    gc: Any,
+    irl: Any,
+    irl_config: Any,
+    vision: Any,
+) -> None:
+    from .vision import Rev01Vision
+
+    cv = Rev01Vision(vision, gc)
+    bboxes = cv.bboxesOnChannel()
+    if not bboxes:
+        gc.logger.info("C4 rev01 channel clear: no pieces detected, skipping pre-home purge")
+        return
+
+    gc.logger.info(
+        f"C4 rev01 channel clear: {len(bboxes)} piece(s) detected — sweeping 360° to purge"
+    )
+
+    stepper = getattr(irl, "classification_channel_rotor_stepper", None) or getattr(
+        irl, "c_channel_4_rotor_stepper", None
+    )
+    if stepper is None:
+        gc.logger.warning("C4 rev01 channel clear: classification stepper unavailable — skipping purge")
+        return
+
+    try:
+        from toml_config import getClassificationChannelRev01Config
+        from .rev01_config import configFromDict
+        speed_usteps_per_s = configFromDict(getClassificationChannelRev01Config()).rotate_speed_usteps_per_s
+    except Exception:
+        speed_usteps_per_s = 5000
+
+    platter = C4FiveSectorPlatter.from_irl_config(irl_config)
+    motor_microsteps = platter.output_degrees_to_motor_microsteps(360.0)
+
+    try:
+        stepper.set_speed_limits(16, max(16, speed_usteps_per_s))
+    except Exception as exc:
+        gc.logger.warning(f"C4 rev01 channel clear: set_speed_limits failed: {exc}")
+
+    ok = bool(stepper.move_steps(int(motor_microsteps)))
+    if ok:
+        gc.logger.info("C4 rev01 channel clear: 360° purge complete")
+    else:
+        gc.logger.warning("C4 rev01 channel clear: 360° purge move not acknowledged")
+
+
 def maybeRunSpokeHome(
     gc: Any,
     irl: Any,
@@ -447,6 +494,8 @@ def maybeRunSpokeHome(
     machine_setup = getattr(irl_config, "machine_setup", None)
     if machine_setup is None or not bool(getattr(machine_setup, "uses_classification_channel", False)):
         return False
+
+    clearPiecesFromChannel(gc, irl, irl_config, vision)
 
     capture = None
     if hasattr(vision, "getCaptureThreadForRole"):

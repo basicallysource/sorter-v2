@@ -28,6 +28,7 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 import zipfile
 from dataclasses import dataclass
@@ -94,6 +95,29 @@ def is_mounted(path: Path) -> bool:
     except FileNotFoundError:
         # mountpoint not available — fallback to /proc/mounts grep
         return any(str(path) in ln for ln in Path("/proc/mounts").read_text().splitlines())
+
+
+def _losetup_attach(img: Path) -> str:
+    """losetup --show -fP + wait for /dev/loopNp1 to appear.
+
+    In bare-metal Linux + udev the partition device shows up immediately.
+    In privileged Docker containers (e.g. OrbStack with /dev bind-mounted),
+    the host udev creates the node asynchronously — we have to wait briefly
+    or the next step races and sees no p1.
+    """
+    loop = subprocess.check_output(
+        ["losetup", "--show", "-fP", str(img)], text=True
+    ).strip()
+    # Prefer udevadm settle if available (idempotent, blocks until done).
+    subprocess.run(["udevadm", "settle", "--timeout=5"], check=False)
+    # Fallback poll: some containers have no udev at all, partitions appear
+    # when devtmpfs propagates from the host.
+    part = Path(f"{loop}p1")
+    for _ in range(50):
+        if part.exists():
+            break
+        time.sleep(0.1)
+    return loop
 
 
 # ─── prep ──────────────────────────────────────────────────────────────────
@@ -177,17 +201,13 @@ def phase_grow(ctx: BuildCtx) -> None:
         f.write(b"\0")
 
     # Attach via losetup so partition tools see partitions.
-    loop = subprocess.check_output(
-        ["losetup", "--show", "-fP", str(ctx.work_img)], text=True
-    ).strip()
+    loop = _losetup_attach(ctx.work_img)
     try:
         # Grow partition 1 to fill the new space.
         run(["growpart", loop, "1"])
         # Detach + reattach so the kernel rescans the (now larger) partition.
         run(["losetup", "-d", loop])
-        loop = subprocess.check_output(
-            ["losetup", "--show", "-fP", str(ctx.work_img)], text=True
-        ).strip()
+        loop = _losetup_attach(ctx.work_img)
         part = f"{loop}p1"
         # e2fsck before resize2fs (refuses unclean fs)
         p = subprocess.run(["e2fsck", "-fy", part])
@@ -211,10 +231,7 @@ def phase_mount(ctx: BuildCtx) -> None:
 
     ctx.mnt.mkdir(parents=True, exist_ok=True)
     log(f"losetup -fP {ctx.work_img}")
-    out = subprocess.check_output(
-        ["losetup", "--show", "-fP", str(ctx.work_img)], text=True
-    ).strip()
-    loop = out
+    loop = _losetup_attach(ctx.work_img)
     state_write(ctx, loop=loop)
 
     # The Orange Pi base image has one ext4 partition at p1. Verify.
@@ -282,16 +299,21 @@ def phase_overlay(ctx: BuildCtx) -> None:
         ts_env.chmod(0o600)
         log("baked tailscale auth key into /etc/sorteros/tailscale.env")
 
-    # Without this overlay the AP6275P wifi chip is invisible to the kernel.
+    # WiFi overlay is board-specific: OPi 5 onboard needs wifi-ap6275p, the
+    # CM5 Tablet carrier auto-detects via the vendor image. Configurable in
+    # [overlay].wifi_overlay (default "wifi-ap6275p" preserves OPi 5 behavior).
+    wifi_overlay = ctx.config.get("overlay", {}).get("wifi_overlay", "wifi-ap6275p")
     env_txt = ctx.mnt / "boot" / "orangepiEnv.txt"
-    if env_txt.exists():
+    if not wifi_overlay:
+        log("skip wifi overlay patch ([overlay].wifi_overlay is empty)")
+    elif env_txt.exists():
         content = env_txt.read_text()
-        if "wifi-ap6275p" not in content:
+        if wifi_overlay not in content:
             with env_txt.open("a") as f:
-                f.write("\noverlays=wifi-ap6275p\n")
-            log("appended overlays=wifi-ap6275p to /boot/orangepiEnv.txt")
+                f.write(f"\noverlays={wifi_overlay}\n")
+            log(f"appended overlays={wifi_overlay} to /boot/orangepiEnv.txt")
         else:
-            log("overlays=wifi-ap6275p already present in /boot/orangepiEnv.txt")
+            log(f"overlays={wifi_overlay} already present in /boot/orangepiEnv.txt")
     else:
         log("WARN: /boot/orangepiEnv.txt not found; wifi overlay not set")
 
@@ -350,6 +372,13 @@ def phase_chroot(ctx: BuildCtx) -> None:
             tmp_dst.unlink()
         except FileNotFoundError:
             pass
+        # Replace the build-host's /etc/resolv.conf with the standard
+        # systemd-resolved symlink. Otherwise (e.g. when building in a
+        # Docker container that has a hardcoded internal DNS like
+        # 0.250.250.200) the dead nameserver gets baked into the image
+        # and the first-boot stages can't resolve github.com.
+        resolv_dst.unlink(missing_ok=True)
+        resolv_dst.symlink_to("/run/systemd/resolve/stub-resolv.conf")
 
 
 # ─── firstboot-config ──────────────────────────────────────────────────────

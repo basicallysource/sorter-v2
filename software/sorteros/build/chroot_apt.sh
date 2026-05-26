@@ -33,7 +33,13 @@ apt-get install "${APT_OPTS[@]}" \
     v4l-utils \
     git-lfs \
     cloud-guest-utils \
-    figlet
+    figlet \
+    systemd-timesyncd
+
+# Without an enabled NTP client the system boots with a stale RTC, TLS certs
+# fail "not yet valid", and clone-repo/uv-sync/pnpm-install all bail with
+# git exit 128. timedatectl reports "NTP not supported" until we enable this.
+systemctl enable systemd-timesyncd.service || true
 
 # Tailscale install is deferred to firstboot (sorteros-firstboot.py
 # stage_install_tailscale): the base image's ext4 is sized for an 8 GB

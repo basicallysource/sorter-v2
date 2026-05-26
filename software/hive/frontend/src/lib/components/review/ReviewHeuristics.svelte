@@ -2,9 +2,9 @@
 	import { FEATURES } from '$lib/features';
 </script>
 
-<div class="bg-warning/12 p-4">
-	<h2 class="text-sm font-semibold text-[#A16207]">What Counts As Good Training Data</h2>
-	<div class="mt-3 space-y-3 text-sm text-[#A16207]">
+<div class="border border-warning/30 bg-warning/10 p-4">
+	<h2 class="text-sm font-semibold text-warning-strong">What Counts As Good Training Data</h2>
+	<div class="mt-3 space-y-3 text-sm text-text">
 		<p>
 			Accept only images where every visible LEGO part is covered by a box or corrected annotation.
 		</p>

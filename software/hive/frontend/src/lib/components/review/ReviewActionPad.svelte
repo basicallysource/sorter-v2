@@ -36,7 +36,7 @@
 					type="button"
 					onclick={onToggleAnnotate}
 					disabled={loading || submitting}
-					class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-info/30 bg-info/10' : 'border-info/20 bg-[#F0F7FF] hover:bg-info/15'}"
+					class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-info/30 bg-info/10' : 'border-info/20 bg-info/10 hover:bg-info/15'}"
 				>
 					<div class="border border-info/30 bg-surface px-2 py-1 text-[11px] font-bold text-info">
 						D
@@ -69,7 +69,7 @@
 				type="button"
 				onclick={onAccept}
 				disabled={loading || submitting}
-				class="border border-success/20 bg-[#F0F9F5] px-3 py-3 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
+				class="border border-success/20 bg-success/10 px-3 py-3 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<div class="text-2xl font-bold text-success">↑</div>
 				<div class="mt-0.5 font-medium text-success">Accept</div>

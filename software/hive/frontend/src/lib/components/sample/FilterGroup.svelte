@@ -61,7 +61,7 @@
 	}
 </script>
 
-<div class="border border-border bg-white">
+<div class="border border-border bg-surface">
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<button
 		type="button"

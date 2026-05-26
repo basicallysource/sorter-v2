@@ -670,7 +670,7 @@
 								type="button"
 								onclick={() => void submitVote('accept')}
 								disabled={voteSubmitting || myVote === 'accept'}
-								class="border border-success/20 bg-[#F0F9F5] px-3 py-2.5 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
+								class="border border-success/20 bg-success/10 px-3 py-2.5 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
 								title={myVote ? 'Change your vote to Accept' : 'Accept this sample'}
 							>
 								<div class="text-xl font-bold text-success">↑</div>

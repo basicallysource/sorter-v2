@@ -12,13 +12,13 @@ class Discharging(Rev01BaseState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._kickoff_started = False
+        self._stepper_done_at: Optional[float] = None
 
     def step(self) -> Optional[ClassificationChannelState]:
-        now = time.monotonic()
         self.setClassificationReady(False, "discharging")
 
         if not self._kickoff_started:
-            self.ctx.discharging_started_at = now
+            self.ctx.discharging_started_at = time.monotonic()
             cfg = self.ctx.config
             if not self.startOutputMove(
                 cfg.kick_off_output_deg,
@@ -35,20 +35,19 @@ class Discharging(Rev01BaseState):
                 f"speed={cfg.discharge_speed_usteps_per_s} µsteps/s)"
             )
 
-        if now - self.ctx.discharging_started_at > self.ctx.config.discharge_timeout_s:
-            self.logger.error(
-                f"{LOG_TAG} discharge timeout after {self.ctx.config.discharge_timeout_s}s — "
-                f"forcing return to IDLE"
-            )
-            self.stopStepper()
-            return ClassificationChannelState.IDLE
-
         stepper = getattr(self.irl, "carousel_stepper", None)
         if stepper is not None and not bool(stepper.stopped):
             return None
 
+        if self._stepper_done_at is None:
+            self._stepper_done_at = time.monotonic()
+
+        pause_s = self.ctx.config.post_discharge_pause_ms / 1000.0
+        if time.monotonic() - self._stepper_done_at < pause_s:
+            return None
+
         self._stampDistributed()
-        elapsed = now - self.ctx.discharging_started_at
+        elapsed = time.monotonic() - self.ctx.discharging_started_at
         self.logger.info(
             f"{LOG_TAG} DISCHARGING -> IDLE (kick-off complete after {elapsed:.2f}s)"
         )
@@ -67,3 +66,4 @@ class Discharging(Rev01BaseState):
         super().cleanup()
         self.stopStepper()
         self._kickoff_started = False
+        self._stepper_done_at = None

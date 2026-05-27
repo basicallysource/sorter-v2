@@ -102,7 +102,7 @@ def test_rev01_discharging_uses_forward_kick_off_move() -> None:
             config=Rev01Config(
                 kick_off_output_deg=72.0,
                 discharge_speed_usteps_per_s=3000,
-                discharge_timeout_s=15.0,
+                post_discharge_pause_ms=0.0,
             ),
             discharging_started_at=0.0,
             known_object=KnownObject(),

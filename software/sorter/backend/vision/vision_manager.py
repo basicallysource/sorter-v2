@@ -269,6 +269,9 @@ class VisionManager:
         # gc.use_new_vision is on. Slot reads from this registry replace
         # the preview-driven-inference + coordinator-inline-inference paths.
         self._producers: ProducerRegistry = ProducerRegistry(self)
+        # Memoized PolygonChannel per (role, w, h) for the no-MOG2-detector
+        # path in _channelInfoForRole. Cleared in reloadPolygons().
+        self._channel_info_cache: Dict[tuple, PolygonChannel] = {}
         self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
         self._auxiliary_capture_lock = threading.Lock()
         self._openrouter_request_lock = threading.Lock()
@@ -1025,6 +1028,9 @@ class VisionManager:
 
     def reloadPolygons(self) -> None:
         from blob_manager import getChannelPolygons
+        # Invalidate the memoized PolygonChannel cache; polygons may have
+        # changed, so the masks/zones must be rebuilt on next access.
+        self._channel_info_cache.clear()
         if isinstance(self._region_provider, HanddrawnRegionProvider):
             self._region_provider.reloadPolygons()
         saved = getChannelPolygons()
@@ -1935,6 +1941,17 @@ class VisionManager:
             if key is None or frame is None:
                 return None
             h, w = frame.raw.shape[:2]
+            # Memoize: this branch builds a full-frame mask (np.zeros + fillPoly)
+            # and re-reads saved polygons from disk on every call. Under Rev03
+            # producers (no per-channel MOG2 detector to provide a cached
+            # PolygonChannel) this ran twice per inference cycle per role and
+            # dominated the producer cycle (~285 ms of GIL-held Python). The
+            # result only changes when polygons/resolution change, so cache it
+            # keyed on (role, w, h) and invalidate in reloadPolygons().
+            cache_key = (role, w, h)
+            cached_channel = self._channel_info_cache.get(cache_key)
+            if cached_channel is not None:
+                return cached_channel
             polygon = self._loadSavedPolygon(key, w, h)
             if polygon is None or len(polygon) < 3:
                 return None
@@ -1960,7 +1977,7 @@ class VisionManager:
                     float(_angles.get(angle_key, 0.0)),
                     arc,
                 )
-            return PolygonChannel(
+            channel_info = PolygonChannel(
                 channel_id=channel_id,
                 polygon=polygon.astype(np.int32),
                 center=center,
@@ -1971,6 +1988,8 @@ class VisionManager:
                 dropzone_sections=drop_sections,
                 exit_sections=exit_sections,
             )
+            self._channel_info_cache[cache_key] = channel_info
+            return channel_info
         return detector.primaryChannel()
 
     def _feederRegionCrop(

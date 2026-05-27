@@ -16,9 +16,12 @@ slot refs and decides — no inference, no convert, no image processing.
 """
 from __future__ import annotations
 
+import queue
 import threading
 import time
 from typing import Dict, List, Optional, Tuple, cast, TYPE_CHECKING
+
+import numpy as np
 
 from .detection_registry import DetectionScope
 
@@ -91,12 +94,25 @@ class InferenceProducer:
         )
         self._last_frame_ts: float = -1.0
 
+        # SORT tracker runs on its own thread, fed by a small queue. This
+        # pipelines inference (NPU, GIL released) against the tracker's
+        # pure-Python work instead of running them serially on the producer
+        # thread. maxsize=2 + drop-oldest keeps frame-memory bounded and
+        # tracking on the freshest data; the producer already subsamples to
+        # whatever rate inference can sustain, so dropping a backlog frame
+        # under load loses nothing the inline path would have kept.
+        self._tracker_q: "queue.Queue[Tuple[Optional[ClassificationDetectionResult], float, np.ndarray]]" = queue.Queue(maxsize=2)
+        self._tracker_thread = threading.Thread(
+            target=self._tracker_loop, daemon=True, name=f"tracker-{role}"
+        )
+
         # Counters for /perf telemetry — also visible via runtime_stats.
         self._iter_count = 0
         self._skipped_same_frame = 0
         self._skipped_no_frame = 0
         self._inferred = 0
         self._errors = 0
+        self._tracker_dropped = 0
 
     @property
     def is_alive(self) -> bool:
@@ -104,12 +120,15 @@ class InferenceProducer:
 
     def start(self) -> None:
         self._stop.clear()
+        self._tracker_thread.start()
         self._thread.start()
 
     def stop(self, timeout: float = 2.0) -> None:
         self._stop.set()
         if self._thread.is_alive():
             self._thread.join(timeout=timeout)
+        if self._tracker_thread.is_alive():
+            self._tracker_thread.join(timeout=timeout)
 
     def _resolve_algorithm(self) -> Optional[str]:
         vm = self._vm
@@ -161,21 +180,24 @@ class InferenceProducer:
                     role=self.role,
                     conf_threshold=self._conf_threshold,
                 )
+                infer_ms = (time.perf_counter() - wall_t0) * 1000.0
+                filter_t0 = time.perf_counter()
                 filtered = vm._filterFeederDetectionResultToChannel(self.role, raw)
                 # Pre-convert to ChannelDetection list on THIS thread so the
                 # coordinator's read path is a pure ref read.
                 channel_dets = vm._channelDetectionsFromDynamicResult(
                     self.role, filtered
                 )
+                convert_ms = (time.perf_counter() - filter_t0) * 1000.0
                 wall_ms = (time.perf_counter() - wall_t0) * 1000.0
 
                 self._last_frame_ts = frame.timestamp
                 self.slot.write(frame.timestamp, filtered, channel_dets)
                 self._inferred += 1
                 prof.hit(f"producer.{self.role}.inferred")
-                runtime_stats.observePerfMs(
-                    f"producer.{self.role}.cycle_ms", wall_ms
-                )
+                runtime_stats.observePerfMs(f"producer.{self.role}.cycle_ms", wall_ms)
+                runtime_stats.observePerfMs(f"producer.{self.role}.infer_ms", infer_ms)
+                runtime_stats.observePerfMs(f"producer.{self.role}.convert_ms", convert_ms)
                 runtime_stats.observePerfMs(
                     f"producer.{self.role}.frame_age_ms",
                     max(0.0, (time.time() - float(frame.timestamp)) * 1000.0),
@@ -189,18 +211,10 @@ class InferenceProducer:
                 if self.role == "carousel":
                     vm._carousel_dynamic_detection_cache = (frame.timestamp, filtered)
 
-                # Tracker update on the producer thread — keeps SORT/handoff
-                # state live for classification_channel subsystems that read
-                # getFeederTracks/getLatestFeederTrack.
-                try:
-                    vm._updateFeederTracker(
-                        self.role, filtered, frame.timestamp, frame_bgr=frame.raw
-                    )
-                except Exception as tex:
-                    prof.hit(f"producer.{self.role}.tracker_errors")
-                    vm.gc.logger.warning(
-                        f"producer-{self.role} tracker update error: {tex}"
-                    )
+                # Hand the tracker its work on the dedicated thread. Drop the
+                # oldest queued item under backpressure rather than block the
+                # producer (keeps inference at full NPU cadence).
+                self._enqueue_tracker(filtered, frame.timestamp, frame.raw)
 
             except Exception as exc:
                 self._errors += 1
@@ -212,6 +226,47 @@ class InferenceProducer:
                 except Exception:
                     pass
                 self._stop.wait(0.1)
+
+    def _enqueue_tracker(
+        self,
+        filtered: "Optional[ClassificationDetectionResult]",
+        ts: float,
+        frame_raw: "np.ndarray",
+    ) -> None:
+        item = (filtered, ts, frame_raw)
+        try:
+            self._tracker_q.put_nowait(item)
+        except queue.Full:
+            try:
+                self._tracker_q.get_nowait()
+                self._tracker_dropped += 1
+                self._vm.gc.profiler.hit(f"producer.{self.role}.tracker_dropped")
+            except queue.Empty:
+                pass
+            try:
+                self._tracker_q.put_nowait(item)
+            except queue.Full:
+                pass
+
+    def _tracker_loop(self) -> None:
+        vm = self._vm
+        prof = vm.gc.profiler
+        runtime_stats = vm.gc.runtime_stats
+        while not self._stop.is_set():
+            try:
+                filtered, ts, frame_raw = self._tracker_q.get(timeout=0.1)
+            except queue.Empty:
+                continue
+            try:
+                t0 = time.perf_counter()
+                vm._updateFeederTracker(self.role, filtered, ts, frame_bgr=frame_raw)
+                runtime_stats.observePerfMs(
+                    f"tracker.{self.role}.update_ms",
+                    (time.perf_counter() - t0) * 1000.0,
+                )
+            except Exception as tex:
+                prof.hit(f"tracker.{self.role}.errors")
+                vm.gc.logger.warning(f"tracker-{self.role} update error: {tex}")
 
 
 class ProducerRegistry:

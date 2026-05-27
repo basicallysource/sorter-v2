@@ -1021,6 +1021,9 @@ class RuntimeStatsCollector:
         throughput_overall_ppm: float | None = None
         if running_time_s > 0 and counts["distributed"] > 0:
             throughput_overall_ppm = (float(counts["distributed"]) * 60.0) / running_time_s
+        rolling_window_s = 300.0
+        recent_distributed = sum(1 for ts in distributed_timestamps if ts >= now - rolling_window_s)
+        rolling_5min_ppm: float | None = (float(recent_distributed) / rolling_window_s * 60.0) if recent_distributed > 0 else None
         pulse_counts = {
             k: {
                 "attempts": v.attempts,
@@ -1178,6 +1181,7 @@ class RuntimeStatsCollector:
                 "running_time_s": running_time_s,
                 "distributed_count": counts["distributed"],
                 "overall_ppm": throughput_overall_ppm,
+                "rolling_5min_ppm": rolling_5min_ppm,
                 "inter_piece_ppm": _calcValueSummary(inter_piece_ppm_samples),
             },
             "channel_throughput": channel_throughput,

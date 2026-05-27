@@ -160,8 +160,11 @@ def _wait_for_frame_shapes(
             shape = _frame_shape_for_capture(cap)
             if shape is not None:
                 out[role] = shape
+                _log(gc, "info",
+                     f"[perception] camera frame for role={role} ready "
+                     f"shape={shape} after {time.monotonic() - (deadline - timeout_s):.2f}s")
         if len(out) < len(roles_needed):
-            time.sleep(0.05)
+            time.sleep(0.1)
     missing = sorted(roles_needed - set(out.keys()))
     if missing:
         _log(gc, "warning",
@@ -223,10 +226,15 @@ def build(
     raw_polygons = getChannelPolygons() or {}
     channel_angles = raw_polygons.get("channel_angles") or {}
     arc_params = raw_polygons.get("arc_params") or {}
-    # The polygons themselves sit at top-level keys (e.g. "second_channel").
+    # Saved blob shape: { "polygons": {"second_channel": [...], "third_channel": [...],
+    #                                  "classification_channel": [...]},
+    #                     "channel_angles": {"second": ..., "third": ...,
+    #                                        "classification_channel": ...},
+    #                     "arc_params": {"second": {drop_zone, exit_zone}, ...} }
+    polygon_blob = raw_polygons.get("polygons") or {}
     saved_polygons: dict[str, np.ndarray] = {}
     for key in ("second_channel", "third_channel", "classification_channel"):
-        poly = raw_polygons.get(key)
+        poly = polygon_blob.get(key)
         if poly is None:
             continue
         try:
@@ -235,10 +243,12 @@ def build(
             continue
 
     # 2. Camera frame shapes (need at least one frame in to size the mask).
-    # The capture threads start asynchronously; the first frame can be a
-    # few hundred ms behind camera_service.start(). Wait briefly for each
-    # active capture, then proceed with whatever has frames.
-    frame_shape_by_role = _wait_for_frame_shapes(camera_service, timeout_s=3.0, gc=gc)
+    # The capture threads start asynchronously; the first frame can be
+    # several seconds behind camera_service.start() (V4L2 + gstreamer
+    # pipeline negotiation, especially on /dev/video0 with MJPEG). Wait
+    # generously, then proceed with whatever has frames — a missing
+    # camera does not break the others.
+    frame_shape_by_role = _wait_for_frame_shapes(camera_service, timeout_s=15.0, gc=gc)
 
     channels = loadChannelDefs(
         saved_polygons=saved_polygons,

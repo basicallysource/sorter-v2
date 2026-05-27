@@ -1044,10 +1044,26 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_settings=_device_settings("c_channel_2"),
                 color_profile=_color_profile("c_channel_2"),
             )
+        elif isinstance(c_ch2_idx, str):
+            irl_config.c_channel_2_camera = _mkCameraConfigForRole(
+                "c_channel_2",
+                url=c_ch2_idx,
+                picture_settings=_picture_settings("c_channel_2"),
+                device_settings=_device_settings("c_channel_2"),
+                color_profile=_color_profile("c_channel_2"),
+            )
         if isinstance(c_ch3_idx, int):
             irl_config.c_channel_3_camera = _mkCameraConfigForRole(
                 "c_channel_3",
                 device_index=c_ch3_idx,
+                picture_settings=_picture_settings("c_channel_3"),
+                device_settings=_device_settings("c_channel_3"),
+                color_profile=_color_profile("c_channel_3"),
+            )
+        elif isinstance(c_ch3_idx, str):
+            irl_config.c_channel_3_camera = _mkCameraConfigForRole(
+                "c_channel_3",
+                url=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
                 device_settings=_device_settings("c_channel_3"),
                 color_profile=_color_profile("c_channel_3"),

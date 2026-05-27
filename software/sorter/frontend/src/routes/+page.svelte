@@ -214,6 +214,9 @@
 		startSystemError ?? machine.machine?.systemStatus?.hardware_error ?? null
 	);
 	const homingStep = $derived(machine.machine?.systemStatus?.homing_step ?? null);
+	const noPowerDevelopmentMode = $derived(
+		machine.machine?.systemStatus?.no_power_development_mode ?? false
+	);
 	const startingSystem = $derived(hardwareState === 'homing' || startSystemPending);
 	const runtimeStats = $derived((machine.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const exitIncident = $derived(normalizeExitIncident(runtimeStats.active_incident));
@@ -235,7 +238,8 @@
 					typeof payload?.hardware_state === 'string' ? payload.hardware_state : 'homing',
 				hardware_error: null,
 				homing_step:
-					typeof payload?.message === 'string' ? payload.message : 'Starting safe recovery...'
+					typeof payload?.message === 'string' ? payload.message : 'Starting safe recovery...',
+				no_power_development_mode: noPowerDevelopmentMode
 			});
 			const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? `${getBackendWsBase()}/ws`;
 			manager.ensureConnected(wsUrl);
@@ -1218,19 +1222,34 @@
 									<div>
 										<div class="text-sm font-medium text-text">System Standby</div>
 										<div class="text-xs text-text-muted">
-											Press Home to initialize hardware and home all axes.
+											{#if noPowerDevelopmentMode}
+												Sim Home runs the normal recovery path and skips only the physical homing steps.
+											{:else}
+												Press Home to initialize hardware and home all axes.
+											{/if}
 										</div>
 										{#if startSystemError}
 											<div class="mt-1 text-xs text-danger">{startSystemError}</div>
 										{/if}
 									</div>
-									<button
-										onclick={startSystem}
-										disabled={startingSystem}
-										class="shrink-0 cursor-pointer border border-success bg-success px-4 py-1.5 text-sm font-medium text-white hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
-									>
-										Home
-									</button>
+									<div class="flex shrink-0 items-center gap-2">
+										{#if noPowerDevelopmentMode}
+											<button
+												onclick={startSystem}
+												disabled={startingSystem}
+												class="cursor-pointer border border-border bg-surface px-4 py-1.5 text-sm font-medium text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+											>
+												Sim Home
+											</button>
+										{/if}
+										<button
+											onclick={startSystem}
+											disabled={startingSystem}
+											class="cursor-pointer border border-success bg-success px-4 py-1.5 text-sm font-medium text-white hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
+										>
+											Home
+										</button>
+									</div>
 								</div>
 							{:else if hardwareState === 'homing'}
 								<div class="flex items-center gap-3">

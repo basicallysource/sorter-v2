@@ -58,10 +58,13 @@
 		const state =
 			typeof payload?.hardware_state === 'string' ? payload.hardware_state : fallbackState;
 		const step = typeof payload?.message === 'string' ? payload.message : fallbackStep;
+		const no_power_development_mode =
+			manager.selectedMachine?.systemStatus?.no_power_development_mode ?? false;
 		manager.applySystemStatusToSelected({
 			hardware_state: state,
 			hardware_error: null,
-			homing_step: state === 'homing' || state === 'initializing' ? step : null
+			homing_step: state === 'homing' || state === 'initializing' ? step : null,
+			no_power_development_mode
 		});
 	}
 
@@ -363,13 +366,13 @@
 		<div class="flex items-center gap-2">
 			<SortingProfileDropdown />
 
-			{#if hardwareState === 'ready'}
+			{#if hardwareState === 'ready' || hardwareState === 'initialized'}
 				<button
 					onclick={togglePauseResume}
 					class="p-2 text-text transition-colors hover:bg-bg"
-					title={machineState === 'paused' ? 'Resume' : 'Pause'}
+					title={machineState === 'paused' || hardwareState === 'initialized' ? 'Resume' : 'Pause'}
 				>
-					{#if machineState === 'paused'}
+					{#if machineState === 'paused' || hardwareState === 'initialized'}
 						<Play size={20} />
 					{:else}
 						<Pause size={20} />

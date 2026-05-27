@@ -108,6 +108,10 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
         pass
 
 
+def _noPowerModeActive(gc: GlobalConfig) -> bool:
+    return bool(getattr(gc, "no_power_development_mode", False))
+
+
 def runServer() -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a
     # specific IP) exposes the API to the LAN — every endpoint (system reset,
@@ -337,6 +341,11 @@ def main() -> None:
                 f"(auto_feeder={machine_setup.automatic_feeder}, "
                 f"carousel_transport={machine_setup.uses_carousel_transport})"
             )
+        if _noPowerModeActive(gc):
+            gc.logger.warning(
+                "NO_POWER_DEVELOPMENT_MODE=1: safe recovery will initialize runtime "
+                "without feeder calibration, spoke alignment, carousel homing, or chute homing."
+            )
         if manual_feed_mode:
             gc.logger.info(
                 "Manual carousel feed mode enabled: automatic C-channel feeding and feeder calibration are disabled."
@@ -366,7 +375,7 @@ def main() -> None:
                 gc.logger.warning(
                     "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
                 )
-        elif feeder_detection_ready and bool(
+        elif feeder_detection_ready and not _noPowerModeActive(gc) and bool(
             getattr(machine_setup, "runs_reverse_pulse_calibration", True)
         ):
             # Reverse-pulse calibration seeds background-subtraction models
@@ -427,7 +436,10 @@ def main() -> None:
             "mode",
             None,
         )
-        if classification_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+        if (
+            classification_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+            and not _noPowerModeActive(gc)
+        ):
             from subsystems.classification_channel.simple_state_machine_rev01.spoke_home import (
                 maybeRunSpokeHome,
             )
@@ -436,7 +448,9 @@ def main() -> None:
             if not maybeRunSpokeHome(gc, irl, irl_config, vision):
                 gc.logger.warning("Classification-channel rev01 spoke home did not complete")
 
-        if bool(getattr(machine_setup, "homes_carousel", True)):
+        if _noPowerModeActive(gc):
+            gc.logger.info("Skipping carousel homing in no-power development mode.")
+        elif bool(getattr(machine_setup, "homes_carousel", True)):
             shared_state.setHardwareStatus(homing_step="Homing carousel...")
             carousel_hw = getattr(irl, "carousel_hw", None)
             if carousel_hw is not None:
@@ -457,14 +471,19 @@ def main() -> None:
         # not published and not started until all homing is finished, so a
         # queued/resubmitted Resume cannot make the runtime fight the homing
         # sequence.
-        shared_state.setHardwareStatus(homing_step="Homing distributor...")
+        if _noPowerModeActive(gc):
+            shared_state.setHardwareStatus(
+                homing_step="Initializing distributor without homing..."
+            )
+        else:
+            shared_state.setHardwareStatus(homing_step="Homing distributor...")
 
         next_controller = SorterController(
             irl, irl_config, gc, vision, main_to_server_queue, rv
         )
 
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None:
+        if chute is not None and not _noPowerModeActive(gc):
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():
@@ -474,6 +493,8 @@ def main() -> None:
             except Exception as e:
                 next_controller.coordinator.cleanup()
                 raise RuntimeError(f"Chute homing failed: {e}") from e
+        elif chute is not None:
+            gc.logger.info("Skipping chute homing in no-power development mode.")
 
         _drain_runtime_commands("safe recovery finish")
         with controller_lock:

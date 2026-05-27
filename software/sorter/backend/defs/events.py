@@ -132,6 +132,7 @@ class SystemStatusData(BaseModel):
     hardware_state: str
     hardware_error: Optional[str] = None
     homing_step: Optional[str] = None
+    no_power_development_mode: bool = False
 
 
 class SystemStatusEvent(BaseModel):

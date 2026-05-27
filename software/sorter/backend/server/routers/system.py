@@ -24,6 +24,9 @@ def _system_status_payload() -> Dict[str, Any]:
         "hardware_state": shared_state.hardware_state,
         "hardware_error": shared_state.hardware_error,
         "homing_step": shared_state.hardware_homing_step,
+        "no_power_development_mode": bool(
+            getattr(shared_state.gc_ref, "no_power_development_mode", False)
+        ),
     }
 
 

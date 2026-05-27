@@ -1,0 +1,244 @@
+{
+  "elapsed_s": 21.20371501799673,
+  "series": {
+    "coordinator.feeder.c_channel_2.convert_ms": {
+      "count": 515007,
+      "avg_ms": 0.005115709713657282,
+      "p50_ms": 0.005249981768429279,
+      "p90_ms": 0.005541980499401689,
+      "max_ms": 5.826259002787992,
+      "min_ms": 0.00029098009690642357
+    },
+    "coordinator.feeder.c_channel_3.convert_ms": {
+      "count": 515007,
+      "avg_ms": 0.005321111447784757,
+      "p50_ms": 0.005250010872259736,
+      "p90_ms": 0.005542009603232145,
+      "max_ms": 5.117516993777826,
+      "min_ms": 0.0
+    },
+    "coordinator.feeder.carousel.convert_ms": {
+      "count": 515007,
+      "avg_ms": 0.005548815236906196,
+      "p50_ms": 0.005250010872259736,
+      "p90_ms": 0.005542009603232145,
+      "max_ms": 2.824171999236569,
+      "min_ms": 0.0
+    },
+    "bus.c_channel_3_rotor_move_ms": {
+      "count": 515007,
+      "avg_ms": 0.0006363797542988875,
+      "p50_ms": 0.0005830079317092896,
+      "p90_ms": 0.0005839974619448185,
+      "max_ms": 1.3159830123186111,
+      "min_ms": 0.00029098009690642357
+    },
+    "coordinator.feeder_ms": {
+      "count": 515007,
+      "avg_ms": 0.024044181416190993,
+      "p50_ms": 0.02274999860674143,
+      "p90_ms": 0.02449899329803884,
+      "max_ms": 21.326349989976734,
+      "min_ms": 0.006998976459726691
+    },
+    "bus.chute_stepper_set_speed_ms": {
+      "count": 515007,
+      "avg_ms": 0.0006429255122701598,
+      "p50_ms": 0.0005830079317092896,
+      "p90_ms": 0.0005839974619448185,
+      "max_ms": 0.8889879973139614,
+      "min_ms": 0.00029098009690642357
+    },
+    "coordinator.classification_ms": {
+      "count": 515007,
+      "avg_ms": 0.005215470579448742,
+      "p50_ms": 0.002916989615187049,
+      "p90_ms": 0.003207998815923929,
+      "max_ms": 315.54077597684227,
+      "min_ms": 0.002623972250148654
+    },
+    "coordinator.distribution_ms": {
+      "count": 515007,
+      "avg_ms": 0.00028019764528299657,
+      "p50_ms": 0.00029199873097240925,
+      "p90_ms": 0.00029199873097240925,
+      "max_ms": 0.9400290146004409,
+      "min_ms": 0.0
+    },
+    "coordinator.step.total_ms": {
+      "count": 515007,
+      "avg_ms": 0.03423364570843753,
+      "p50_ms": 0.030041992431506515,
+      "p90_ms": 0.03237402415834367,
+      "max_ms": 315.6728990143165,
+      "min_ms": 0.013416982255876064
+    },
+    "coordinator.step.interval_ms": {
+      "count": 515007,
+      "avg_ms": 0.03661462594530214,
+      "p50_ms": 0.03208301495760679,
+      "p90_ms": 0.03470800584182143,
+      "max_ms": 315.67639898275957,
+      "min_ms": 0.015457975678145885
+    },
+    "infer.carousel.ms": {
+      "count": 213,
+      "avg_ms": 71.04607320299368,
+      "p50_ms": 77.7412920142524,
+      "p90_ms": 125.60581698198803,
+      "max_ms": 315.49031799659133,
+      "min_ms": 6.125212996266782
+    },
+    "frame_to_decision_ms": {
+      "count": 474597,
+      "avg_ms": 39.995944603681714,
+      "p50_ms": 32.735347747802734,
+      "p90_ms": 85.85858345031738,
+      "max_ms": 154.59799766540527,
+      "min_ms": 0.020503997802734375
+    },
+    "preview.carousel.get_frame_ms": {
+      "count": 150,
+      "avg_ms": 0.0030390850345914564,
+      "p50_ms": 0.003207998815923929,
+      "p90_ms": 0.004083995008841157,
+      "max_ms": 0.009041978046298027,
+      "min_ms": 0.0008750066626816988
+    },
+    "preview.carousel.overlay_ms": {
+      "count": 150,
+      "avg_ms": 94.64708820819699,
+      "p50_ms": 93.11252299812622,
+      "p90_ms": 129.10256200120784,
+      "max_ms": 159.20657699462026,
+      "min_ms": 8.06360598653555
+    },
+    "preview.carousel.encode_ms": {
+      "count": 150,
+      "avg_ms": 7.536745551624335,
+      "p50_ms": 5.68042800296098,
+      "p90_ms": 11.07590101310052,
+      "max_ms": 27.46327201020904,
+      "min_ms": 1.703894988168031
+    },
+    "infer.c_channel_3.ms": {
+      "count": 148,
+      "avg_ms": 90.27924381017156,
+      "p50_ms": 82.50474199303426,
+      "p90_ms": 134.54353698762134,
+      "max_ms": 949.1714199830312,
+      "min_ms": 5.80671799252741
+    },
+    "preview.c_channel_3.get_frame_ms": {
+      "count": 148,
+      "avg_ms": 0.002965916890487377,
+      "p50_ms": 0.003207998815923929,
+      "p90_ms": 0.004083995008841157,
+      "max_ms": 0.0058340083342045546,
+      "min_ms": 0.0011659867595881224
+    },
+    "preview.c_channel_3.overlay_ms": {
+      "count": 148,
+      "avg_ms": 90.36012902986447,
+      "p50_ms": 82.54674100317061,
+      "p90_ms": 134.58757800981402,
+      "max_ms": 949.2157520144247,
+      "min_ms": 5.933591019129381
+    },
+    "preview.c_channel_3.encode_ms": {
+      "count": 148,
+      "avg_ms": 8.506679051827854,
+      "p50_ms": 5.939132999628782,
+      "p90_ms": 15.792091027833521,
+      "max_ms": 37.22027700860053,
+      "min_ms": 1.7146859900094569
+    },
+    "infer.c_channel_2.ms": {
+      "count": 152,
+      "avg_ms": 90.44587324522007,
+      "p50_ms": 82.12703801109456,
+      "p90_ms": 140.05479999468662,
+      "max_ms": 1195.1514650136232,
+      "min_ms": 5.702593975001946
+    },
+    "preview.c_channel_2.get_frame_ms": {
+      "count": 152,
+      "avg_ms": 0.0031085383900637297,
+      "p50_ms": 0.003207998815923929,
+      "p90_ms": 0.004083005478605628,
+      "max_ms": 0.012540986062958837,
+      "min_ms": 0.0008750066626816988
+    },
+    "preview.c_channel_2.overlay_ms": {
+      "count": 152,
+      "avg_ms": 90.57613332295564,
+      "p50_ms": 82.4108250089921,
+      "p90_ms": 140.0982580089476,
+      "max_ms": 1195.905413973378,
+      "min_ms": 5.9472990105859935
+    },
+    "preview.c_channel_2.encode_ms": {
+      "count": 152,
+      "avg_ms": 7.5820239931329665,
+      "p50_ms": 5.787467991467565,
+      "p90_ms": 11.381271993741393,
+      "max_ms": 24.333149020094424,
+      "min_ms": 1.7423940007574856
+    }
+  },
+  "counters": {
+    "bus.c_channel_3_rotor_move.calls": 515007,
+    "bus.chute_stepper_set_speed.calls": 515007
+  },
+  "thread_counters": {
+    "coordinator.step.by_thread": {
+      "coordinator": 515007
+    },
+    "infer.carousel.by_thread": {
+      "coordinator": 63,
+      "AnyIO worker thread": 150
+    },
+    "preview.carousel.serve.by_thread": {
+      "AnyIO worker thread": 150
+    },
+    "infer.c_channel_3.by_thread": {
+      "AnyIO worker thread": 148
+    },
+    "preview.c_channel_3.serve.by_thread": {
+      "AnyIO worker thread": 148
+    },
+    "infer.c_channel_2.by_thread": {
+      "AnyIO worker thread": 152
+    },
+    "preview.c_channel_2.serve.by_thread": {
+      "AnyIO worker thread": 152
+    }
+  },
+  "rev": "rev01",
+  "config": {
+    "duration_s": 20.0,
+    "width": 640,
+    "height": 480,
+    "fps_target": 30,
+    "preview_port": 8088,
+    "bus_command_ms": 5.0,
+    "model": "/home/orangepi/sorter-v2-fresh/software/sorter/backend/bundled_models/r3-c-channel-yolo11n-320/exports/sorter-npu-r3_yolo11n-320_rk3588-int8_c-channel_2026-05-23.rknn",
+    "cameras": [
+      [
+        "c_channel_2",
+        "/dev/video0",
+        "NPU_CORE_0"
+      ],
+      [
+        "c_channel_3",
+        "/dev/video2",
+        "NPU_CORE_1"
+      ],
+      [
+        "carousel",
+        "/dev/video4",
+        "NPU_CORE_2"
+      ]
+    ]
+  }
+}

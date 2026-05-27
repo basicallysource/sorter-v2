@@ -47,13 +47,6 @@ class GlobalConfig:
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
     use_channel_bus: bool
-    # Rev03 producer/slot architecture: when True, dedicated per-camera
-    # producer threads own inference; preview overlays and the coordinator
-    # read latest-detection slots instead of triggering inference. Gates the
-    # aux detection pool, preview-driven inference, and the coordinator's
-    # inline-carousel leak off. Old paths (heatmap, dynamic tracking with
-    # gemini, mog2) still work when the role's algorithm isn't a local model.
-    use_new_vision: bool
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
@@ -80,7 +73,6 @@ class GlobalConfig:
         self.no_power_development_mode = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.use_channel_bus = False
-        self.use_new_vision = False
         self.disable_video_streams = ["classification_bottom"]
         self.runtime_stats = RuntimeStatsCollector()
         # Rev04: perception service for the GO_TO_ANGLE_REV01 +
@@ -133,7 +125,6 @@ def mkGlobalConfig() -> GlobalConfig:
         gc.disable_chute = True
         gc.disable_servos = True
     gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
-    gc.use_new_vision = os.getenv("USE_NEW_VISION", "0") == "1"
     gc.region_provider = RegionProviderType.HANDDRAWN
 
     log_dir = os.path.join(os.path.dirname(__file__), "..", "..", "logs")

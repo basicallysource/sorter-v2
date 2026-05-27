@@ -3,11 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-STANDARD_CAROUSEL_SETUP = "standard_carousel"
 CLASSIFICATION_CHANNEL_SETUP = "classification_channel"
 MANUAL_CAROUSEL_SETUP = "manual_carousel"
 
-DEFAULT_MACHINE_SETUP = STANDARD_CAROUSEL_SETUP
+# Legacy key — still recognised in stored configs (TOML), migrated on read
+# to ``CLASSIFICATION_CHANNEL_SETUP``. No longer exposed as a selectable setup.
+LEGACY_STANDARD_CAROUSEL_KEY = "standard_carousel"
+
+DEFAULT_MACHINE_SETUP = CLASSIFICATION_CHANNEL_SETUP
 
 
 @dataclass(frozen=True)
@@ -49,24 +52,6 @@ class MachineSetupDefinition:
 
 
 MACHINE_SETUPS: dict[str, MachineSetupDefinition] = {
-    STANDARD_CAROUSEL_SETUP: MachineSetupDefinition(
-        key=STANDARD_CAROUSEL_SETUP,
-        label="FIDA + Carousel + Classification Chamber",
-        description=(
-            "Standard automatic path: bulk feed through the C-channels, carousel handoff, "
-            "then classification in the chamber."
-        ),
-        feeding_mode="auto_channels",
-        automatic_feeder=True,
-        uses_carousel_transport=True,
-        uses_classification_chamber=True,
-        uses_classification_channel=False,
-        runs_reverse_pulse_calibration=True,
-        homes_carousel=True,
-        homes_chute=True,
-        requires_carousel_endstop=True,
-        runtime_supported=True,
-    ),
     CLASSIFICATION_CHANNEL_SETUP: MachineSetupDefinition(
         key=CLASSIFICATION_CHANNEL_SETUP,
         label="C-Channels + Classification Channel",
@@ -112,6 +97,8 @@ def normalize_machine_setup_key(value: object) -> str | None:
     if not isinstance(value, str):
         return None
     normalized = value.strip()
+    if normalized == LEGACY_STANDARD_CAROUSEL_KEY:
+        return CLASSIFICATION_CHANNEL_SETUP
     if normalized in MACHINE_SETUPS:
         return normalized
     return None

@@ -70,7 +70,7 @@ export type WizardSummary = {
 			mode: 'auto_channels' | 'manual_carousel';
 		};
 		machine_setup: {
-			key: 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+			key: 'classification_channel' | 'manual_carousel';
 			label: string;
 			description: string;
 			feeding_mode: 'auto_channels' | 'manual_carousel';

@@ -4,38 +4,29 @@
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
 
-	type MachineSetup = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+	type MachineSetup = 'classification_channel' | 'manual_carousel';
 
 	type MachineSetupCard = {
 		key: MachineSetup;
 		title: string;
 		description: string;
 		detail: string;
-		experimental?: boolean;
 	};
 
 	const MACHINE_SETUP_CARDS: MachineSetupCard[] = [
-		{
-			key: 'standard_carousel',
-			title: 'Standard Setup',
-			description: 'FIDA + Carousel + Classification Chamber',
-			detail:
-				'Uses the current automatic path with C-channel feeding, carousel handoff, and chamber classification.'
-		},
 		{
 			key: 'classification_channel',
 			title: 'Classification Channel',
 			description: 'C-Channels + Classification Channel',
 			detail:
-				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.',
-			experimental: true
+				'Standard automatic path: C-channel feeding into a dedicated classification C-channel (C4) on the carousel motor port.'
 		},
 		{
 			key: 'manual_carousel',
 			title: 'Manual Carousel Feed',
 			description: 'Operator-fed carousel',
 			detail:
-				'Skips automatic feeder orchestration and waits for manual part placement into the carousel dropzone.'
+				'Operators place parts directly into the carousel while the downstream classification path stays unchanged. No automatic feeder orchestration.'
 		}
 	];
 
@@ -47,7 +38,7 @@
 	let nameSaving = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
-	let machineSetup = $state<MachineSetup>('standard_carousel');
+	let machineSetup = $state<MachineSetup>('classification_channel');
 	let loadingMachineSetup = $state(false);
 	let savingMachineSetup = $state(false);
 	let machineSetupError = $state<string | null>(null);
@@ -104,16 +95,14 @@
 	}
 
 	function normalizeMachineSetup(value: unknown): MachineSetup {
-		return value === 'classification_channel' || value === 'manual_carousel'
-			? value
-			: 'standard_carousel';
+		return value === 'manual_carousel' ? 'manual_carousel' : 'classification_channel';
 	}
 
 	async function loadMachineSetup() {
 		const machine = manager.selectedMachine;
 		const httpBase = machineHttpBase(machine);
 		if (!machine || !httpBase) {
-			machineSetup = 'standard_carousel';
+			machineSetup = 'classification_channel';
 			return;
 		}
 
@@ -152,10 +141,7 @@
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
 			machineSetup = normalizeMachineSetup(data.setup);
-			machineSetupStatus =
-				data?.machine_setup?.runtime_supported === false
-					? 'Machine setup saved. Reset and re-home the machine before running. Runtime support for this experimental setup is still in progress.'
-					: 'Machine setup saved. Reset and re-home the machine before running.';
+			machineSetupStatus = 'Machine setup saved. Reset and re-home the machine before running.';
 		} catch (e: any) {
 			machineSetupError = e.message ?? 'Failed to save machine setup';
 		} finally {
@@ -171,7 +157,7 @@
 			nameSaving = false;
 			nameError = null;
 			nameStatus = '';
-			machineSetup = 'standard_carousel';
+			machineSetup = 'classification_channel';
 			loadingMachineSetup = false;
 			savingMachineSetup = false;
 			machineSetupError = null;
@@ -295,7 +281,7 @@
 					Choose which physical sorter topology this machine is currently wired and built for. The
 					selected setup controls which hardware path is expected and which homing rules apply.
 				</div>
-				<div class="grid gap-2 lg:grid-cols-3">
+				<div class="grid gap-2 lg:grid-cols-2">
 					{#each MACHINE_SETUP_CARDS as card}
 						<button
 							onclick={() => saveMachineSetup(card.key)}
@@ -306,14 +292,7 @@
 									: 'border-border bg-bg text-text hover:bg-surface'
 							}`}
 						>
-							<div class="flex w-full items-start justify-between gap-3">
-								<div class="text-sm font-medium">{card.title}</div>
-								{#if card.experimental}
-									<span class="border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-										Experimental
-									</span>
-								{/if}
-							</div>
+							<div class="text-sm font-medium">{card.title}</div>
 							<div class="text-xs font-medium text-text">{card.description}</div>
 							<div class="text-xs text-text-muted">
 								{card.detail}

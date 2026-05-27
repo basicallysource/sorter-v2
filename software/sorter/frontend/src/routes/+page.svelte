@@ -180,8 +180,8 @@
 	let homingModalDismissed = $state(false);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
-	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
-		'standard_carousel'
+	let machineSetup = $state<'classification_channel' | 'manual_carousel'>(
+		'classification_channel'
 	);
 	let showSampleCapture = $state(false);
 	let exitIncidentActionPending = $state(false);
@@ -953,12 +953,10 @@
 			const res = await fetch(`${baseUrl}/api/machine-setup`);
 			if (!res.ok) return;
 			const payload = await res.json();
-			if (
-				payload?.setup === 'classification_channel' ||
-				payload?.setup === 'manual_carousel' ||
-				payload?.setup === 'standard_carousel'
-			) {
-				machineSetup = payload.setup;
+			if (payload?.setup === 'manual_carousel') {
+				machineSetup = 'manual_carousel';
+			} else if (payload?.setup === 'classification_channel') {
+				machineSetup = 'classification_channel';
 			}
 		} catch {
 			// ignore transient shell fetch issues

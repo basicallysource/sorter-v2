@@ -11,7 +11,6 @@ import serial.tools.list_ports
 from machine_setup import (
     CLASSIFICATION_CHANNEL_SETUP,
     MANUAL_CAROUSEL_SETUP,
-    STANDARD_CAROUSEL_SETUP,
     get_machine_setup_definition,
     get_machine_setup_options,
     machine_setup_key_from_feeding_mode,
@@ -61,7 +60,7 @@ class FeedingModePayload(BaseModel):
 
 
 class MachineSetupPayload(BaseModel):
-    setup: Literal["standard_carousel", "classification_channel", "manual_carousel"]
+    setup: Literal["classification_channel", "manual_carousel"]
 
 
 def _board_summary(board: Any) -> dict[str, Any]:
@@ -651,13 +650,10 @@ def get_feeding_mode() -> Dict[str, Any]:
 @router.post("/api/feeding-mode")
 def set_feeding_mode(payload: FeedingModePayload) -> Dict[str, Any]:
     params_path, config = _read_machine_params_config()
-    current_setup_key = _machine_setup_key_from_config(config)
     if payload.mode == "manual_carousel":
         next_setup_key = MANUAL_CAROUSEL_SETUP
-    elif current_setup_key == CLASSIFICATION_CHANNEL_SETUP:
-        next_setup_key = CLASSIFICATION_CHANNEL_SETUP
     else:
-        next_setup_key = STANDARD_CAROUSEL_SETUP
+        next_setup_key = CLASSIFICATION_CHANNEL_SETUP
 
     config = _persist_machine_setup(config, next_setup_key)
 

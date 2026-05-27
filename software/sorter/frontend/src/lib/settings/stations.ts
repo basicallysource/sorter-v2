@@ -4,10 +4,7 @@ import {
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
 } from '$lib/settings/stepper-control';
 
-export type MachineSetupKey =
-	| 'standard_carousel'
-	| 'classification_channel'
-	| 'manual_carousel';
+export type MachineSetupKey = 'classification_channel' | 'manual_carousel';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -206,7 +203,7 @@ export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEnt
 	});
 }
 
-export const settingsNavItems: SettingsNavEntry[] = settingsNavItemsForSetup('standard_carousel');
+export const settingsNavItems: SettingsNavEntry[] = settingsNavItemsForSetup('classification_channel');
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {
 	return stationPageConfigs.find((station) => station.slug === slug);

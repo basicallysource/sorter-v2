@@ -3,7 +3,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
 
-	type MachineSetupKey = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
+	type MachineSetupKey = 'classification_channel' | 'manual_carousel';
 
 	type EndstopLiveStatus = {
 		live_available: boolean;
@@ -20,8 +20,8 @@
 
 	let showEndstopWiringHelp = $state(false);
 	let loadedMachineKey = $state('');
-	let machineSetup = $state<MachineSetupKey>('standard_carousel');
-	const usesCarouselEndstop = $derived(machineSetup !== 'classification_channel');
+	let machineSetup = $state<MachineSetupKey>('classification_channel');
+	const usesCarouselEndstop = $derived(machineSetup === 'manual_carousel');
 
 	let carouselLoading = $state(false);
 	let carouselSaving = $state(false);
@@ -150,11 +150,9 @@
 			if (!res.ok) return;
 			const payload = await res.json();
 			machineSetup =
-				payload?.setup === 'classification_channel' || payload?.setup === 'manual_carousel'
-					? payload.setup
-					: 'standard_carousel';
+				payload?.setup === 'manual_carousel' ? 'manual_carousel' : 'classification_channel';
 		} catch {
-			machineSetup = 'standard_carousel';
+			machineSetup = 'classification_channel';
 		}
 	}
 

@@ -75,14 +75,17 @@ class SetupWizardConfigTests(unittest.TestCase):
             entry["name"]: entry
             for entry in directions["steppers"]
         }
-        self.assertIn("carousel", by_name)
-        self.assertTrue(by_name["carousel"]["inverted"])
+        # On the classification-channel default the carousel logical stepper
+        # is surfaced as c_channel_4. Either label is acceptable.
+        carousel_entry = by_name.get("carousel") or by_name.get("c_channel_4")
+        self.assertIsNotNone(carousel_entry)
+        self.assertTrue(carousel_entry["inverted"])
 
     def test_feeding_mode_defaults_to_auto_channels(self) -> None:
         response = setup.get_feeding_mode()
 
         self.assertEqual("auto_channels", response["mode"])
-        self.assertEqual("standard_carousel", response["machine_setup"]["key"])
+        self.assertEqual("classification_channel", response["machine_setup"]["key"])
         self.assertTrue(response["requires_rehome"])
 
     def test_feeding_mode_roundtrip_is_reflected_in_setup_summary(self) -> None:
@@ -113,11 +116,11 @@ class SetupWizardConfigTests(unittest.TestCase):
         self.assertEqual("manual_carousel", summary["config"]["feeding"]["mode"])
         self.assertEqual("manual_carousel", summary["config"]["machine_setup"]["key"])
 
-    def test_machine_setup_defaults_to_standard_carousel(self) -> None:
+    def test_machine_setup_defaults_to_classification_channel(self) -> None:
         response = setup.get_machine_setup()
 
-        self.assertEqual("standard_carousel", response["setup"])
-        self.assertEqual("standard_carousel", response["machine_setup"]["key"])
+        self.assertEqual("classification_channel", response["setup"])
+        self.assertEqual("classification_channel", response["machine_setup"]["key"])
         self.assertTrue(response["requires_rehome"])
 
     def test_machine_setup_roundtrip_is_reflected_in_setup_summary(self) -> None:

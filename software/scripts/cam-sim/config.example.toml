@@ -1,0 +1,27 @@
+# Copy this to config.toml and set source_dir to wherever images are on your machine.
+#
+# source_dir is scanned recursively for .jpg/.jpeg/.png files, which are loaded
+# into memory and looped. If the directory doesn't exist or has no images, the
+# stream serves a blank frame.
+#
+# On the Pi, samples captured during normal operation live under:
+#   blob/classification_training/<session>/captures/   ← classification_channel full frames
+#   logs/channel_zones/<run>/                          ← feeder channel zone crops (ch2/ch3)
+
+[cameras.c_channel_2]
+source_dir = "/home/orangepi/sorter-v2/software/logs/channel_zones"
+fps = 30
+width = 1280
+height = 720
+
+[cameras.c_channel_3]
+source_dir = "/home/orangepi/sorter-v2/software/logs/channel_zones"
+fps = 30
+width = 1280
+height = 720
+
+[cameras.classification_channel]
+source_dir = "/home/orangepi/sorter-v2/software/sorter/backend/blob/classification_training"
+fps = 30
+width = 3840
+height = 2160

@@ -30,6 +30,7 @@ from blob_manager import (
 )
 from .camera import CaptureThread
 from .burst_store import BurstFrameStore
+from .inference_producer import ProducerRegistry
 from .types import CameraFrame, VisionResult, DetectedMask
 from .regions import RegionName, Region
 from .default_region_provider import DefaultRegionProvider
@@ -264,6 +265,10 @@ class VisionManager:
         self._aux_detection_stop = threading.Event()
         self._aux_detection_thread: threading.Thread | None = None
         self._aux_detection_pool: ThreadPoolExecutor | None = None
+        # Rev03: per-camera inference producers. Populated in start() when
+        # gc.use_new_vision is on. Slot reads from this registry replace
+        # the preview-driven-inference + coordinator-inline-inference paths.
+        self._producers: ProducerRegistry = ProducerRegistry(self)
         self._auxiliary_capture_requests: list[AuxiliaryTeacherCaptureRequest] = []
         self._auxiliary_capture_lock = threading.Lock()
         self._openrouter_request_lock = threading.Lock()
@@ -611,6 +616,9 @@ class VisionManager:
         except Exception as exc:
             self.gc.logger.warning(f"reloadPolygons at start failed: {exc}")
         self._initOverlays()
+        if getattr(self.gc, "use_new_vision", False):
+            self._startNewVisionProducers()
+            return
         if not self._shouldRunAuxiliaryDetection():
             return
         self._aux_detection_stop.clear()
@@ -623,8 +631,37 @@ class VisionManager:
         )
         self._aux_detection_thread.start()
 
+    def _startNewVisionProducers(self) -> None:
+        # One producer thread per active feeder-tracker role. Each producer
+        # owns: capture.latest_frame → RKNN infer → polygon filter → slot.write.
+        # The aux ThreadPoolExecutor is intentionally NOT created in this mode —
+        # producers take its place and there is no GIL benefit to a second
+        # parallel scheduler for the same work.
+        for role in self._feederTrackerRoles():
+            conf = HIVE_CAROUSEL_CONF_THRESHOLD if role == "carousel" else None
+            self._producers.add(role, scope="feeder", conf_threshold=conf)
+        # Carousel-as-dedicated-trigger (not in feeder tracker roles): only
+        # add it when the carousel is not already a tracker role above.
+        if "carousel" not in self._feederTrackerRoles():
+            algo = self.getCarouselDetectionAlgorithm()
+            if self._isLocalModelDetectionAlgorithm(algo):
+                self._producers.add(
+                    "carousel",
+                    scope="carousel",
+                    conf_threshold=HIVE_CAROUSEL_CONF_THRESHOLD,
+                )
+        self._producers.start_all()
+        self.gc.logger.warning(
+            "Rev03 inference producers started for roles=%s",
+            self._producers.roles(),
+        )
+
     def stop(self) -> None:
         self._started = False
+        try:
+            self._producers.stop_all(timeout=2.0)
+        except Exception:
+            pass
         self._aux_detection_stop.set()
         with self._auxiliary_capture_lock:
             self._auxiliary_capture_requests = []
@@ -3414,6 +3451,20 @@ class VisionManager:
         force: bool = False,
         frame: CameraFrame | None = None,
     ) -> ClassificationDetectionResult | None:
+        # Rev03: when use_new_vision is on and the producer for this role
+        # exists, never trigger inference from this method — read the slot.
+        # The preview overlay invokes this lambda on every served MJPEG
+        # frame; previously that triggered an RKNN call per frame on the
+        # AnyIO handler thread. Slot read costs <1 µs and stays decoupled
+        # from UI traffic.
+        if not force and getattr(self.gc, "use_new_vision", False):
+            slot = self._producers.slot(role)
+            if slot is not None:
+                entry = slot.read()
+                if entry is not None:
+                    _, raw, _ = entry
+                    return self._filterFeederDetectionResultToChannel(role, raw)
+                return None
         if frame is None:
             capture = self.getCaptureThreadForRole(role)
             if capture is None:
@@ -3452,6 +3503,16 @@ class VisionManager:
         force: bool = False,
         frame: CameraFrame | None = None,
     ) -> ClassificationDetectionResult | None:
+        # Rev03: producer slot is authoritative when active. Overlay paths
+        # call this with force=False — those become pure slot reads.
+        if not force and frame is None and getattr(self.gc, "use_new_vision", False):
+            slot = self._producers.slot(role)
+            if slot is not None:
+                entry = slot.read()
+                if entry is not None:
+                    _, raw, _ = entry
+                    return self._filterFeederDetectionResultToChannel(role, raw)
+                return None
         # When ``frame`` is supplied, run detection on exactly that frame so
         # the returned bbox coords match a sample image the caller is also
         # archiving from the same frame. When ``frame`` is None (the legacy
@@ -3608,6 +3669,17 @@ class VisionManager:
         force: bool = False,
         frame: CameraFrame | None = None,
     ) -> ClassificationDetectionResult | None:
+        # Rev03: producer slot for carousel role. Preview overlay + the
+        # classification.step inline carousel call both end up here on the
+        # main thread today; gate them off when producers are running.
+        if not force and frame is None and getattr(self.gc, "use_new_vision", False):
+            slot = self._producers.slot("carousel")
+            if slot is not None:
+                entry = slot.read()
+                if entry is not None:
+                    _, raw, _ = entry
+                    return raw
+                return None
         # See _getFeederDynamicDetection: caller-supplied frame keeps bbox
         # coords and the archived sample image in sync.
         if frame is None:
@@ -3910,6 +3982,24 @@ class VisionManager:
         return self._feeder_analysis.getDetections()
 
     def getFeederObjectDetections(self) -> list[ChannelDetection]:
+        # Rev03 fast path: when use_new_vision is on, producer threads have
+        # pre-converted ChannelDetection lists into per-role slots. This is
+        # a pure ref read — no convert, no inference, no cache lookup beyond
+        # one tuple deref per role. Replaces the 400 ms-per-tick GIL-starved
+        # list comp that capped the coordinator at 0.6 Hz.
+        if getattr(self.gc, "use_new_vision", False) and self._producers.roles():
+            detections: list[ChannelDetection] = []
+            for role in self._feederTrackerRoles():
+                slot = self._producers.slot(role)
+                if slot is None:
+                    continue
+                entry = slot.read()
+                if entry is None:
+                    continue
+                _, _, channel_dets = entry
+                if channel_dets:
+                    detections.extend(channel_dets)
+            return detections
         # Fine-grain timing: prior runs showed get_feeder_detections_ms ~466 ms
         # avg with the hot loop already a pure cache read. That points at GIL
         # stalls (CPU time << wall time). Capture both, plus per-role costs.
@@ -4327,13 +4417,23 @@ class VisionManager:
             return result
 
         if self._isLocalModelDetectionAlgorithm(algorithm):
-            detection = self._runHiveDetection(
-                algorithm,
-                frame.raw,
-                scope="carousel",
-                role="carousel",
-                conf_threshold=HIVE_CAROUSEL_CONF_THRESHOLD,
-            )
+            # Rev03: when use_new_vision is on, the carousel producer thread
+            # already has a recent detection in its slot. Reading the slot
+            # keeps this code path off the main thread (the path that was the
+            # [INFER_ON_MAIN_THREAD] leak via classification.step.idle).
+            detection: ClassificationDetectionResult | None
+            if getattr(self.gc, "use_new_vision", False) and "carousel" in self._producers:
+                slot = self._producers.slot("carousel")
+                entry = slot.read() if slot is not None else None
+                detection = entry[1] if entry is not None else None
+            else:
+                detection = self._runHiveDetection(
+                    algorithm,
+                    frame.raw,
+                    scope="carousel",
+                    role="carousel",
+                    conf_threshold=HIVE_CAROUSEL_CONF_THRESHOLD,
+                )
             if detection is None:
                 result.update(
                     {

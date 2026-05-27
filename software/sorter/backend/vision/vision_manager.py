@@ -296,6 +296,13 @@ class VisionManager:
             feeder_mode != FeederMode.GO_TO_ANGLE_REV01
             and classification_mode != ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
         )
+        # Experimental override: keep the dedicated inference thread running
+        # even in GO_TO_ANGLE / SIMPLE_STATE_MACHINE mode so RKNN doesn't pile
+        # onto the coordinator or AnyIO workers. Paired with
+        # SORTER_DISABLE_TEACHER_CAPTURE=1 to strip the Gemini archival work
+        # out of the loop body.
+        if _os.environ.get("SORTER_FORCE_AUX_INFERENCE", "").lower() in ("1", "true", "yes"):
+            run_auxiliary_detection = True
         feeder_detection_path = (
             FeederDetectionPath.OBJECT_DETECTIONS
             if feeder_mode == FeederMode.GO_TO_ANGLE_REV01
@@ -3312,6 +3319,19 @@ class VisionManager:
         ) or "unknown"
         prof.hit(f"inference.by_thread.{safe_thread}")
         prof.hit(f"inference.by_thread.{safe_thread}.{role}")
+        # When MainThread runs YOLO, somebody on the coordinator hot path
+        # called into here. Log the caller stack ONCE per role so we can find
+        # and gate it. Limited to first occurrence per role to avoid spam.
+        if thread_name == "MainThread":
+            attr = f"_logged_main_thread_infer_{role}"
+            if not getattr(self, attr, False):
+                setattr(self, attr, True)
+                import traceback as _tb
+                stack = "".join(_tb.format_stack(limit=15))
+                self.gc.logger.warning(
+                    f"[INFER_ON_MAIN_THREAD] role={role} scope={scope} "
+                    f"algorithm={algorithm_id} — caller stack:\n{stack}"
+                )
         inference_started = time.perf_counter()
         try:
             with prof.timer(f"hive.{role}.infer_ms"):
@@ -3890,9 +3910,23 @@ class VisionManager:
         return self._feeder_analysis.getDetections()
 
     def getFeederObjectDetections(self) -> list[ChannelDetection]:
+        # Fine-grain timing: prior runs showed get_feeder_detections_ms ~466 ms
+        # avg with the hot loop already a pure cache read. That points at GIL
+        # stalls (CPU time << wall time). Capture both, plus per-role costs.
+        _gfod_wall_t0 = time.perf_counter()
+        _gfod_cpu_t0 = time.process_time()
+        _runtime_stats = self.gc.runtime_stats
         if self._camera_layout == "split_feeder":
             detections: list[ChannelDetection] = []
-            for role in self._feederTrackerRoles():
+            _roles_iter_t0 = time.perf_counter()
+            roles = list(self._feederTrackerRoles())
+            _runtime_stats.observePerfMs(
+                "vision.get_feeder_object_detections.roles_list_ms",
+                (time.perf_counter() - _roles_iter_t0) * 1000.0,
+            )
+            for role in roles:
+                _role_t0 = time.perf_counter()
+                _role_cpu_t0 = time.process_time()
                 algorithm = self.getFeederDetectionAlgorithm(role)
                 if self._isLocalModelDetectionAlgorithm(algorithm):
                     # HACK 2026-05-26: pure cache read; never run inference
@@ -3911,15 +3945,49 @@ class VisionManager:
                     # "latest detection per role" API, owned by a single
                     # dedicated worker thread so neither overlay nor
                     # coordinator can stall on inference.
+                    _lookup_t0 = time.perf_counter()
                     cached = self._feeder_object_detection_cache.get(role)
                     cached_detection = cached[1] if cached is not None else None
+                    _runtime_stats.observePerfMs(
+                        f"vision.get_feeder_object_detections.{role}.cache_lookup_ms",
+                        (time.perf_counter() - _lookup_t0) * 1000.0,
+                    )
+                    _convert_t0 = time.perf_counter()
                     detections.extend(
                         self._channelDetectionsFromDynamicResult(role, cached_detection)
                     )
-                    continue
-                analysis = self._per_channel_analysis.get(role)
-                if analysis is not None:
-                    detections.extend(analysis.getDetections())
+                    _runtime_stats.observePerfMs(
+                        f"vision.get_feeder_object_detections.{role}.convert_ms",
+                        (time.perf_counter() - _convert_t0) * 1000.0,
+                    )
+                else:
+                    analysis = self._per_channel_analysis.get(role)
+                    if analysis is not None:
+                        detections.extend(analysis.getDetections())
+                _role_wall_ms = (time.perf_counter() - _role_t0) * 1000.0
+                _role_cpu_ms = (time.process_time() - _role_cpu_t0) * 1000.0
+                _runtime_stats.observePerfMs(
+                    f"vision.get_feeder_object_detections.{role}.wall_ms",
+                    _role_wall_ms,
+                )
+                _runtime_stats.observePerfMs(
+                    f"vision.get_feeder_object_detections.{role}.gil_stall_ms",
+                    max(0.0, _role_wall_ms - _role_cpu_ms),
+                )
+            _gfod_wall_ms = (time.perf_counter() - _gfod_wall_t0) * 1000.0
+            _gfod_cpu_ms = (time.process_time() - _gfod_cpu_t0) * 1000.0
+            _runtime_stats.observePerfMs(
+                "vision.get_feeder_object_detections.total_wall_ms",
+                _gfod_wall_ms,
+            )
+            _runtime_stats.observePerfMs(
+                "vision.get_feeder_object_detections.total_cpu_ms",
+                _gfod_cpu_ms,
+            )
+            _runtime_stats.observePerfMs(
+                "vision.get_feeder_object_detections.total_gil_stall_ms",
+                max(0.0, _gfod_wall_ms - _gfod_cpu_ms),
+            )
             return detections
         if self._feeder_analysis is None:
             return []
@@ -4526,11 +4594,20 @@ class VisionManager:
         safe_thread = "".join(
             c if c.isalnum() or c in "_-" else "_" for c in t_name
         ) or "unknown"
+        # Env-gated: skip teacher-capture archival (Gemini/OpenRouter side work).
+        # Set SORTER_DISABLE_TEACHER_CAPTURE=1 on the Pi when we only want the
+        # dedicated RKNN inference cadence and don't care about training-data
+        # archival. DO NOT COMMIT the env var setting to the repo — it's a
+        # machine-local override.
+        disable_teacher = _os.environ.get(
+            "SORTER_DISABLE_TEACHER_CAPTURE", ""
+        ).lower() in ("1", "true", "yes")
         while not self._aux_detection_stop.is_set():
             prof.hit(f"aux_detection_loop.iterations.by_thread.{safe_thread}")
             try:
                 self._refreshAuxiliaryDetections()
-                self._processPendingAuxiliaryTeacherCaptures()
+                if not disable_teacher:
+                    self._processPendingAuxiliaryTeacherCaptures()
             except Exception as exc:
                 self.gc.logger.warning(f"Auxiliary detection loop error: {exc}")
             self._aux_detection_stop.wait(AUXILIARY_DETECTION_LOOP_INTERVAL_S)

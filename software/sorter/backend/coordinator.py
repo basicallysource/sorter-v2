@@ -428,6 +428,10 @@ class Coordinator:
         _safe = "".join(c if c.isalnum() or c in "_-" else "_" for c in _t) or "unknown"
         prof.hit(f"coordinator.step.by_thread.{_safe}")
 
+        # GIL-stall detector: wall-clock vs CPU time. A large gap means the
+        # main thread spent its tick blocked on the GIL while another thread
+        # held it (typically AnyIO worker threads running YOLO + image work).
+        _coord_cpu_t0 = time.process_time()
         with prof.timer("coordinator.step.total_ms"):
             coordinator_started = time.perf_counter()
             self.bus.begin_tick()
@@ -476,9 +480,19 @@ class Coordinator:
                     "coordinator.step.feeder_ms",
                     (time.perf_counter() - feeder_started) * 1000.0,
                 )
+            _coord_wall_ms = (time.perf_counter() - coordinator_started) * 1000.0
+            _coord_cpu_ms = (time.process_time() - _coord_cpu_t0) * 1000.0
             self.gc.runtime_stats.observePerfMs(
                 "coordinator.step.total_ms",
-                (time.perf_counter() - coordinator_started) * 1000.0,
+                _coord_wall_ms,
+            )
+            self.gc.runtime_stats.observePerfMs(
+                "coordinator.step.cpu_ms",
+                _coord_cpu_ms,
+            )
+            self.gc.runtime_stats.observePerfMs(
+                "coordinator.step.gil_stall_ms",
+                max(0.0, _coord_wall_ms - _coord_cpu_ms),
             )
 
     def cleanup(self) -> None:

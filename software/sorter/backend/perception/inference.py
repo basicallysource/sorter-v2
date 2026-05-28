@@ -143,6 +143,10 @@ class InferenceWorker:
         # someone is watching, zero extra cost otherwise. Run on the worker
         # thread because the RKNN runtime is single-owner (one NPU context).
         self._full_frame_debug_until: float = 0.0
+        # Last full-frame result, PERSISTED (not reset per cycle) so the debug
+        # endpoint doesn't flap to "warming up" on cycles that didn't run it.
+        # {"bboxes", "infer_ms", "frame", "frame_ts"} or None until the first run.
+        self._latest_full_frame: Optional[dict] = None
 
         # Public counters — read by the smoke test.
         self.iterations: int = 0
@@ -175,6 +179,12 @@ class InferenceWorker:
         """Latest debug record (raw + on-channel bboxes, crop rect, frame,
         timing) for the perception-debug overlay. GIL-atomic read."""
         return self._latest_debug
+
+    @property
+    def latest_full_frame(self) -> Optional[dict]:
+        """Last full-frame (uncropped) debug result — persisted across cycles.
+        GIL-atomic read."""
+        return self._latest_full_frame
 
     def request_full_frame_debug(self, ttl_s: float = 10.0) -> None:
         """Ask the loop to ALSO run a full-frame (uncropped) inference for the
@@ -407,36 +417,49 @@ class InferenceWorker:
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)
-                debug_rec = {
+                self._latest_debug = {
                     "raw_bboxes": raw_bboxes_full,
                     "on_channel_bboxes": list(bboxes),
                     "crop_rect": self._crop_rect,
                     "frame": frame,
                     "infer_ms": infer_ms,
                     "conf_threshold": self._conf_threshold,
-                    "full_frame_bboxes": None,
-                    "full_frame_infer_ms": None,
                 }
                 # On-demand: also infer on the WHOLE frame so the debug page can
-                # show what the model would produce without the polygon crop.
-                # If there's no crop, the production inference already used the
-                # full frame — reuse it instead of running a duplicate.
+                # show what the model produces without the polygon crop. Persist
+                # the result (don't null it on cycles that skip it) so the debug
+                # endpoint stays available instead of flapping. If there's no
+                # crop, production already used the full frame — reuse it.
                 if self._crop_rect is None:
-                    debug_rec["full_frame_bboxes"] = list(raw_bboxes_full)
-                    debug_rec["full_frame_infer_ms"] = infer_ms
+                    self._latest_full_frame = {
+                        "bboxes": list(raw_bboxes_full),
+                        "infer_ms": infer_ms,
+                        "frame": frame,
+                        "frame_ts": frame.timestamp,
+                    }
                 elif time.time() < self._full_frame_debug_until:
                     try:
                         ff_t0 = _now_ms()
                         ff = self._runtime.infer(
                             frame.bgr, conf_threshold=self._conf_threshold
                         )
-                        debug_rec["full_frame_bboxes"] = [
-                            (int(b[0]), int(b[1]), int(b[2]), int(b[3])) for b in ff
-                        ]
-                        debug_rec["full_frame_infer_ms"] = _now_ms() - ff_t0
-                    except Exception:
-                        pass
-                self._latest_debug = debug_rec
+                        self._latest_full_frame = {
+                            "bboxes": [
+                                (int(b[0]), int(b[1]), int(b[2]), int(b[3])) for b in ff
+                            ],
+                            "infer_ms": _now_ms() - ff_t0,
+                            "frame": frame,
+                            "frame_ts": frame.timestamp,
+                        }
+                    except Exception as exc:
+                        if self._logger is not None:
+                            try:
+                                self._logger.warning(
+                                    f"[perception] {self.source_id} full-frame debug "
+                                    f"inference failed: {exc}"
+                                )
+                            except Exception:
+                                pass
                 self._maybe_emit_exit_edge(frame.timestamp, in_exit)
                 self._maybe_log_attribution(
                     in_exit, in_precise, in_exit_majority, per_bbox_counts

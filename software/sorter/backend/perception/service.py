@@ -403,8 +403,9 @@ class PerceptionService:
             "core_mask_name": getattr(runtime, "core_mask_name", None),
             "raw_bboxes": debug.get("raw_bboxes") or [],
             "on_channel_bboxes": debug.get("on_channel_bboxes") or [],
-            "full_frame_bboxes": debug.get("full_frame_bboxes"),
-            "full_frame_infer_ms": debug.get("full_frame_infer_ms"),
+            # Persisted full-frame result (its OWN frame, so the overlay's boxes
+            # line up). None until the on-demand full-frame pass has run once.
+            "full_frame": worker.latest_full_frame,
             "crop_rect": debug.get("crop_rect"),
             "infer_ms": debug.get("infer_ms"),
             "frame": debug.get("frame"),

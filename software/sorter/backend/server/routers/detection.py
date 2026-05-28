@@ -45,6 +45,7 @@ def _draw_perception_debug(
     info: Dict[str, Any],
     channel: Any,
     *,
+    frame: Any,
     raw_bboxes: list,
     on_bboxes: list,
     panel_lines: List[str],
@@ -52,9 +53,9 @@ def _draw_perception_debug(
     """Shared renderer for the perception-debug overlays. Draws the crop rect
     (white), mask (cyan), rejected raw detections (orange), kept detections
     (green), arc center (magenta), and a translucent spec panel, then returns
-    JPEG bytes (4K downscaled for transfer). ``raw_bboxes`` is every model
+    JPEG bytes (4K downscaled for transfer). ``frame`` is the PerceptionFrame to
+    draw on (the cropped or the full-frame one); ``raw_bboxes`` is every model
     detection for the mode; ``on_bboxes`` the subset drawn green."""
-    frame = info["frame"]
     img = frame.bgr.copy()
     h, w = img.shape[:2]
     s = max(1.0, w / 1280.0)  # scale strokes/text so it reads on 720p and 4K
@@ -116,9 +117,9 @@ def _draw_perception_debug(
     return StreamingResponse(io.BytesIO(buf.tobytes()), media_type="image/jpeg")
 
 
-def _model_spec_lines(info: Dict[str, Any]) -> List[str]:
+def _model_spec_lines(info: Dict[str, Any], frame: Any) -> List[str]:
     """Camera + exact-model lines shared by both debug overlays."""
-    w_h = info["frame"].bgr.shape[1], info["frame"].bgr.shape[0]
+    w_h = frame.bgr.shape[1], frame.bgr.shape[0]
     crop = info.get("crop_rect")
     conf = info.get("conf_threshold")
     return [
@@ -161,17 +162,18 @@ def perception_debug_annotated(channel_id: int):
     — reuses cached state, runs no new inference."""
     info = _perception_debug_info(channel_id)
     channel = info["_ps"].channels().get(channel_id)
+    frame = info["frame"]
     infer_ms = info.get("infer_ms")
     n_raw = len(info["raw_bboxes"])
     n_kept = len(info["on_channel_bboxes"])
-    lines = _model_spec_lines(info) + [
+    lines = _model_spec_lines(info, frame) + [
         f"core={info.get('core_mask_name')}  infer="
         + (f"{infer_ms:.0f}ms" if isinstance(infer_ms, (int, float)) else "?"),
         f"CROPPED (production): raw={n_raw} kept(green)={n_kept} rejected(orange)={n_raw - n_kept}",
         f"sections drop={info['n_drop_sections']} exit={info['n_exit_sections']} precise={info['n_precise_sections']}",
     ]
     return _draw_perception_debug(
-        info, channel,
+        info, channel, frame=frame,
         raw_bboxes=info["raw_bboxes"],
         on_bboxes=info["on_channel_bboxes"],
         panel_lines=lines,
@@ -187,33 +189,40 @@ def perception_debug_fullframe(channel_id: int):
     Runs a SECOND inference per cycle on the worker thread, enabled on demand and
     self-expiring ~10 s after the page stops polling (no steady-state cost). The
     first request after idle returns 425 while the worker produces the first
-    full-frame result; the page's auto-refresh picks it up a beat later.
+    full-frame result; the page's auto-refresh picks it up a beat later. Once a
+    result exists it is persisted, so the view does not flap back to 425.
 
     GREEN = full-frame detections whose center lands in the channel mask;
     ORANGE = full-frame detections outside it. WHITE crop rect is drawn for
     reference (it is NOT applied here)."""
+    import time as _time
+
     info = _perception_debug_info(channel_id)
     ps = info["_ps"]
     ps.request_full_frame_debug(channel_id, ttl_s=10.0)
-    ff = info.get("full_frame_bboxes")
-    if ff is None:
+    full = info.get("full_frame")
+    if not full or full.get("frame") is None:
         raise HTTPException(
             status_code=425,
             detail="full-frame inference warming up; refresh in a moment",
         )
+    frame = full["frame"]
+    ff = full.get("bboxes") or []
     channel = ps.channels().get(channel_id)
     from perception.arcs import bboxInsideChannelMask
     on_ff = [b for b in ff if channel is not None and bboxInsideChannelMask(b, channel)]
-    ff_ms = info.get("full_frame_infer_ms")
+    ff_ms = full.get("infer_ms")
+    age_s = max(0.0, _time.time() - float(full.get("frame_ts") or 0.0))
     n_crop_raw = len(info["raw_bboxes"])
-    lines = _model_spec_lines(info) + [
+    lines = _model_spec_lines(info, frame) + [
         f"core={info.get('core_mask_name')}  full-frame infer="
-        + (f"{ff_ms:.0f}ms" if isinstance(ff_ms, (int, float)) else "?"),
+        + (f"{ff_ms:.0f}ms" if isinstance(ff_ms, (int, float)) else "?")
+        + (f"  (age {age_s:.1f}s)" if age_s > 1.0 else ""),
         f"FULL-FRAME (no crop): raw={len(ff)} in-mask(green)={len(on_ff)} outside(orange)={len(ff) - len(on_ff)}",
         f"vs CROPPED production raw={n_crop_raw} kept={len(info['on_channel_bboxes'])}",
     ]
     return _draw_perception_debug(
-        info, channel, raw_bboxes=ff, on_bboxes=on_ff, panel_lines=lines,
+        info, channel, frame=frame, raw_bboxes=ff, on_bboxes=on_ff, panel_lines=lines,
     )
 
 # ---------------------------------------------------------------------------

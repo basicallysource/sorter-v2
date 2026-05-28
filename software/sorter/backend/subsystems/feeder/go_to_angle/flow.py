@@ -61,11 +61,6 @@ class GoToAngleFeeding(BaseState):
         # in test contexts).
         self._exit_only_dwell_started: dict[int, Optional[float]] = {2: None, 3: None}
         self._jitter_seqs: dict[int, JitterSequence] = {}
-        # One-shot perception snapshot dumped on first step() (i.e. when the
-        # user hits "play" and the feeder enters FEEDING). Lets us inspect
-        # what perception's YOLO is actually feeding the cascade. Never re-runs
-        # during the live loop.
-        self._startup_snapshot_dumped: bool = False
         machine_setup = getattr(irl_config, "machine_setup", None)
         self._classification_setup = bool(
             machine_setup is not None
@@ -314,28 +309,6 @@ class GoToAngleFeeding(BaseState):
         # tick, which is what the caller wants when we return False.
         return phase not in (JitterPhase.IDLE, JitterPhase.CLEARED, JitterPhase.EXHAUSTED)
 
-    def _dump_startup_snapshots(self, perception_service) -> None:
-        """One-shot diagnostic dump: writes one PNG per perception channel
-        showing zones + perception's YOLO bboxes for the latest frame. Triggered
-        on the first FEEDING step, then never again."""
-        try:
-            from perception.diagnostic import dumpStartupSnapshots
-        except Exception as exc:
-            self.gc.logger.warning(f"GoToAngle: snapshot dumper import failed: {exc}")
-            return
-        # software/logs/ already exists for dev.sh dumps; reuse it so the
-        # snapshots land next to the run logs. Resolve relative to this file
-        # so it works on both Pi and Mac checkouts.
-        import os
-        _here = os.path.dirname(os.path.abspath(__file__))
-        out_dir = os.path.abspath(os.path.join(_here, "..", "..", "..", "..", "..", "logs"))
-        try:
-            dumpStartupSnapshots(
-                perception_service, out_dir=out_dir, logger=self.gc.logger
-            )
-        except Exception as exc:
-            self.gc.logger.warning(f"GoToAngle: snapshot dump failed: {exc}")
-
     def step(self) -> Optional[FeederState]:
         cfg = self._cfg()
         runtime_stats = self.gc.runtime_stats
@@ -352,9 +325,6 @@ class GoToAngleFeeding(BaseState):
             return FeederState.FEEDING
 
         perception_service = getattr(self.gc, "perception_service", None)
-        if perception_service is not None and not self._startup_snapshot_dumped:
-            self._dump_startup_snapshots(perception_service)
-            self._startup_snapshot_dumped = True
         if perception_service is not None:
             return self._step_perception(cfg, perception_service)
 

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class Rev01Config:
     rotate_speed_usteps_per_s: int = 5000
     capture_sweep_output_deg: float = 180.0
+    kick_off_output_deg: float = 180.0
     discharge_speed_usteps_per_s: int = 3000
     crop_padding_px: int = 15
     max_captures: int = 8
@@ -35,6 +36,7 @@ _DEFAULTS = Rev01Config()
 FIELD_META: list[dict] = [
     {"key": "rotate_speed_usteps_per_s", "label": "Rotate speed (µsteps/s)", "type": "int", "default": _DEFAULTS.rotate_speed_usteps_per_s},
     {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg},
+    {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},
     {"key": "max_captures", "label": "Max captures per piece", "type": "int", "default": _DEFAULTS.max_captures},

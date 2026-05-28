@@ -46,6 +46,12 @@ def test_rev01_config_parses_capture_sweep_output_deg() -> None:
     assert cfg.capture_sweep_output_deg == 135.5
 
 
+def test_rev01_config_parses_kick_off_output_deg() -> None:
+    cfg = configFromDict({"kick_off_output_deg": 180.0})
+
+    assert cfg.kick_off_output_deg == 180.0
+
+
 def test_rev01_config_parses_verify_discharge_fields() -> None:
     cfg = configFromDict(
         {
@@ -93,10 +99,6 @@ class _Vision:
 
 
 def test_rev01_discharging_falls_back_when_no_bbox_and_transitions_to_verify() -> None:
-    # _Vision returns no detections, so the discharge path takes the
-    # "lost the piece" fallback: a fixed forward move of
-    # 2 * drop_tolerance_deg output degrees. Verifies the transition target
-    # is the new verifier state, not IDLE.
     stepper = _Stepper()
     state = Discharging(
         irl=SimpleNamespace(carousel_stepper=stepper),
@@ -113,6 +115,7 @@ def test_rev01_discharging_falls_back_when_no_bbox_and_transitions_to_verify() -
         event_queue=SimpleNamespace(put=lambda *args, **kwargs: None),
         context=SimpleNamespace(
             config=Rev01Config(
+                kick_off_output_deg=180.0,
                 discharge_speed_usteps_per_s=3000,
                 post_discharge_pause_ms=0.0,
             ),
@@ -123,8 +126,8 @@ def test_rev01_discharging_falls_back_when_no_bbox_and_transitions_to_verify() -
 
     next_state = state.step()
 
-    # Fallback output_deg = 2 * 14.0 = 28.0°. With default C4 platter
+    # Fixed output_deg = 180.0°. With default C4 platter
     # (200 steps/rev * 8 microsteps * 130/12 gear ratio = 17333.33 µsteps/output_rev),
-    # 28°/360 * 17333.33 ≈ 1348 microsteps.
+    # 180°/360 * 17333.33 ≈ 8667 microsteps.
     assert next_state == ClassificationChannelState.REV01_VERIFYING_DISCHARGE
-    assert stepper.moves == [1348]
+    assert stepper.moves == [8667]

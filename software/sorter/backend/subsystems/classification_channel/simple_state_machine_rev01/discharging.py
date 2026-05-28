@@ -19,7 +19,8 @@ class Discharging(Rev01BaseState):
         if not self._kickoff_started:
             self.ctx.discharging_started_at = time.monotonic()
             cfg = self.ctx.config
-            output_deg = self._planDischargeOutputDeg()
+            output_deg = float(cfg.kick_off_output_deg)
+            self._logDischargePlan(output_deg)
             if not self.startOutputMove(
                 output_deg,
                 cfg.discharge_speed_usteps_per_s,
@@ -52,8 +53,7 @@ class Discharging(Rev01BaseState):
         )
         return ClassificationChannelState.REV01_VERIFYING_DISCHARGE
 
-    def _planDischargeOutputDeg(self) -> float:
-        fallback = max(2.0, 2.0 * float(self.cc_config.drop_tolerance_deg))
+    def _logDischargePlan(self, output_deg: float) -> None:
         perception_service = getattr(self.gc, "perception_service", None)
         if perception_service is not None:
             raw = perception_service.read_bboxes_and_frame(4)
@@ -64,23 +64,30 @@ class Discharging(Rev01BaseState):
             center = self.cv.channelCenter()
         primary = self.cv.primaryBbox(bboxes)
         if primary is None:
-            self.logger.warning(
-                f"{LOG_TAG} discharge: no bbox visible — falling back to fixed "
-                f"{fallback:.1f}° forward move"
+            self.logger.info(
+                f"{LOG_TAG} discharge plan: fixed_output={output_deg:.1f}° "
+                f"(no bbox visible)"
             )
-            return fallback
+            return
         if center is None:
-            self.logger.warning(
-                f"{LOG_TAG} discharge: no carousel center geometry — falling back to "
-                f"{fallback:.1f}°"
+            self.logger.info(
+                f"{LOG_TAG} discharge plan: fixed_output={output_deg:.1f}° "
+                f"(no carousel center geometry)"
             )
-            return fallback
+            return
         piece_angle = self.cv.bboxAngleDeg(primary, center)
         target_angle = (
             float(self.cc_config.drop_angle_deg) + float(self.cc_config.drop_tolerance_deg)
         ) % 360.0
-        delta = (target_angle - piece_angle) % 360.0
-        return max(2.0, min(delta, 270.0))
+        computed_output_deg = max(2.0, min((target_angle - piece_angle) % 360.0, 270.0))
+        self.logger.info(
+            f"{LOG_TAG} discharge plan: fixed_output={output_deg:.1f}° "
+            f"computed_output={computed_output_deg:.1f}° "
+            f"piece_angle={piece_angle:.1f}° target_angle={target_angle:.1f}° "
+            f"drop_angle={float(self.cc_config.drop_angle_deg):.1f}° "
+            f"drop_tolerance={float(self.cc_config.drop_tolerance_deg):.1f}° "
+            f"bbox={primary} center=({float(center[0]):.1f},{float(center[1]):.1f})"
+        )
 
     def cleanup(self) -> None:
         super().cleanup()

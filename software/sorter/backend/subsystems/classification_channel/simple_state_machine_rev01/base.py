@@ -137,12 +137,6 @@ class Rev01BaseState(BaseState):
     def computeDischargeOutputDeg(
         self, bbox: tuple[int, int, int, int]
     ) -> Optional[float]:
-        """Forward output-degree delta to land bbox center at the far edge of
-        the exit zone (drop_angle + drop_tolerance). Always returns a positive
-        forward angle, taken as the short-side forward path; clamped to a
-        small floor so a piece already past the target still gets a small
-        finishing nudge. Returns None if carousel center geometry is
-        unavailable."""
         center = self.cv.channelCenter()
         if center is None:
             return None
@@ -151,12 +145,7 @@ class Rev01BaseState(BaseState):
             float(self.cc_config.drop_angle_deg)
             + float(self.cc_config.drop_tolerance_deg)
         ) % 360.0
-        # Forward rotation = positive output degrees (matches the legacy
-        # kick-off direction). Use shortest forward path mod 360.
         delta = (target_angle - piece_angle) % 360.0
-        # Minimum nudge so a piece that already overshot still gets a final
-        # push through the exit; max guard so a bad bbox can't spin the
-        # carousel wildly.
         return max(2.0, min(delta, 270.0))
 
     def stampDistributed(self) -> None:

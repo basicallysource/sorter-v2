@@ -68641,6 +68641,16 @@
 		(layer "F.SilkS")
 		(uuid "06cc8de2-ca54-4e0e-80ad-5ce4b55cb807")
 	)
+	(gr_line
+		(start 67.7 33.9)
+		(end 68.7 32.6)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "0ed595c8-cd92-42ce-ac94-c6a6f1800ba4")
+	)
 	(gr_rect
 		(start 87.6 128.435)
 		(end 95.59 143.045)
@@ -68651,6 +68661,16 @@
 		(fill no)
 		(layer "F.SilkS")
 		(uuid "141115df-437e-4ca5-b99e-ce4e1d1e609a")
+	)
+	(gr_line
+		(start 66.45 31.85)
+		(end 68.8 31.85)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "15d783e0-48ac-46c9-b2df-c7e0bb5d7e95")
 	)
 	(gr_arc
 		(start 26.987 98.875)
@@ -68718,6 +68738,16 @@
 		(fill no)
 		(layer "F.SilkS")
 		(uuid "27012783-5152-40b4-a736-59b77a468037")
+	)
+	(gr_line
+		(start 67.7 34.5)
+		(end 66.4 34.5)
+		(stroke
+			(width 0.1)
+			(type default)
+		)
+		(layer "F.SilkS")
+		(uuid "2aa0ac11-923c-4325-972c-0e416bd37bb3")
 	)
 	(gr_rect
 		(start 122.29 108.17)
@@ -69834,7 +69864,7 @@
 		)
 	)
 	(gr_text "HALL_SW_1"
-		(at 60.425 31.75 270)
+		(at 60.65 31.75 270)
 		(layer "F.SilkS" knockout)
 		(uuid "2b47aedf-8059-4946-946c-3601dc4e141e")
 		(effects
@@ -69940,6 +69970,19 @@
 				(thickness 0.4)
 				(bold yes)
 			)
+		)
+	)
+	(gr_text "GND\n"
+		(at 63.75 34.95 0)
+		(layer "F.SilkS" knockout)
+		(uuid "46cd52fc-2d75-4822-9b90-40385873ecc7")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify bottom)
 		)
 	)
 	(gr_text "Stepper_A3\nTMC2209-V1.3"
@@ -70287,6 +70330,19 @@
 			)
 		)
 	)
+	(gr_text "SIG"
+		(at 63.45 32.4 0)
+		(layer "F.SilkS" knockout)
+		(uuid "96d4f1fd-7732-4d85-a5f7-80151b6b0134")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify bottom)
+		)
+	)
 	(gr_text "12V"
 		(at 98.8 141.033274 0)
 		(layer "F.SilkS")
@@ -70458,6 +70514,19 @@
 				(thickness 0.1)
 			)
 			(justify left bottom)
+		)
+	)
+	(gr_text "3.3V"
+		(at 63.9 29.9 0)
+		(layer "F.SilkS" knockout)
+		(uuid "cb444cf1-dfc3-4f86-9c1b-37e46ff06843")
+		(effects
+			(font
+				(size 1 1)
+				(thickness 0.2)
+				(bold yes)
+			)
+			(justify bottom)
 		)
 	)
 	(gr_text "0"

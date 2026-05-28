@@ -49,13 +49,24 @@ public:
     void setAcceleration(uint32_t acceleration);
     bool moveSteps(int32_t distance);
     bool moveAtSpeed(int32_t speed);
+    // Oscillate +-amplitude microsteps for `cycles` full back-and-forths to
+    // break static friction. Sets accel/max-speed, then runs autonomously on
+    // core1; net displacement is zero (ends where it started).
+    bool jitter(int32_t amplitude, int32_t cycles, int32_t speed, int32_t accel);
     void cancel();
     bool isStopped() { return _state == STEPPER_STOPPED; }
+    // True for the whole duration of a jitter run. Unlike isStopped() this does
+    // NOT flicker between strokes (a jitter passes through STEPPER_STOPPED for
+    // ~1ms between every stroke), so it is the reliable signal for "is a jitter
+    // still in progress" and the gate that refuses overlapping jitter requests.
+    bool isJittering() { return _jitter_active.load(); }
     int32_t getPosition() { return _absolute_position; }
     void setPosition(int32_t position) { _absolute_position = position; }
     void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
 
 private:
+    void beginJitterStroke();
+
     // Pins for the step generator
     int _step_pin, _dir_pin;
     // Motion parameters
@@ -77,6 +88,15 @@ private:
     std::atomic<int32_t> _current_speed_frac;
     std::atomic<int32_t> _current_dir; // 1 = forward, -1 = reverse
     std::atomic<int32_t> _absolute_position;
+
+    // Jitter state. A jitter run is owned entirely by core1 once started: only
+    // jitter() (core0, gated so it can't fire while one is active) and the core1
+    // motion tick ever mutate these. core0 stop/move commands are REJECTED while
+    // jittering rather than tearing the run down, so there is no cross-core race.
+    std::atomic<bool> _jitter_active; // true from start until the last stroke completes
+    std::atomic<int32_t> _jitter_amplitude; // microsteps per stroke
+    std::atomic<int32_t> _jitter_strokes_remaining; // strokes still to perform (2 per cycle)
+    std::atomic<int32_t> _jitter_dir; // direction of the next stroke (1 / -1)
 };
 
 #endif // STEPPER_H

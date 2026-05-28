@@ -55,6 +55,10 @@ class ChannelState:
     # The eject controller drives this toward 0 in a closed loop, re-reading it
     # after every move so piece slippage just costs extra iterations.
     exit_com_forward_deg: float | None = None
+    # True when the LEADING piece's COM section lies in the PRECISE zone. This is
+    # the exact trigger for starting a C3 eject — the piece must actually be in
+    # the precise (staging) band, not merely within some distance of the exit.
+    exit_com_in_precise: bool = False
 
 
 EMPTY_STATE = ChannelState(ts=EMPTY_STATE_TS, in_drop=False, in_exit=False, n_pieces=0)

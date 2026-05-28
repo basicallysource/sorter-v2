@@ -241,11 +241,6 @@ class GoToAngleFeeding(BaseState):
         stepper = self._channel_stepper(ch)
         if stepper is None:
             return None
-        precise_len = 0.0
-        try:
-            precise_len = float(perception_service.precise_zone_len_deg(ch))
-        except Exception:
-            pass
 
         def _advance_move(output_deg: float, _stepper=stepper) -> bool:
             # One closed-loop advance step: just tell the motor to move that many
@@ -276,7 +271,6 @@ class GoToAngleFeeding(BaseState):
             is_stopped=_is_stopped,
             advance_move=_advance_move,
             on_success=on_success,
-            precise_zone_len_deg=precise_len,
             logger=self.gc.logger,
         )
         self._eject_controllers[ch] = ctrl

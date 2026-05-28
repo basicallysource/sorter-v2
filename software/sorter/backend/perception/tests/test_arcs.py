@@ -14,6 +14,7 @@ from perception.arcs import (
     attributeBboxes,
     bboxInsideChannelMask,
     bboxSections,
+    comInPreciseZone,
     exitComForwardDeg,
     exitNearEdgeSection,
     forwardClearanceToExitDeg,
@@ -305,6 +306,16 @@ def test_exit_com_measures_to_exit_only_not_precise() -> None:
     com_exit = exitComForwardDeg([_bbox_at_angle(270.0)], ch)
     assert com_exit is not None
     assert com_exit < 0.0, f"exit-zone piece must read negative gap, got {com_exit}"
+
+
+def test_com_in_precise_zone_is_the_eject_trigger() -> None:
+    """The eject trigger: True only when the leading piece's COM is in the
+    precise zone (225-255), not when it is before it or already in the exit."""
+    ch = _channel(precise_arc=(225.0, 255.0))  # exit 255-285, precise 225-255
+    assert comInPreciseZone([_bbox_at_angle(240.0)], ch) is True   # in precise
+    assert comInPreciseZone([_bbox_at_angle(200.0)], ch) is False  # before precise
+    assert comInPreciseZone([_bbox_at_angle(270.0)], ch) is False  # in exit, past precise
+    assert comInPreciseZone([], ch) is False                        # no piece
 
 
 # --- equivalence with legacy section math ----------------------------------

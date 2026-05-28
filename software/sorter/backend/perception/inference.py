@@ -23,6 +23,7 @@ import numpy as np
 from .arcs import (
     attributeBboxes,
     bboxInsideChannelMask,
+    comInPreciseZone,
     exitComForwardDeg,
     forwardClearanceToExitDeg,
 )
@@ -410,6 +411,7 @@ class InferenceWorker:
                     bboxes, self._channel_def
                 )
                 exit_com_forward_deg = exitComForwardDeg(bboxes, self._channel_def)
+                exit_com_in_precise = comInPreciseZone(bboxes, self._channel_def)
                 attribute_ms = _now_ms() - attribute_t0
 
                 state = ChannelState(
@@ -421,6 +423,7 @@ class InferenceWorker:
                     in_exit_majority=in_exit_majority,
                     advance_clearance_deg=advance_clearance_deg,
                     exit_com_forward_deg=exit_com_forward_deg,
+                    exit_com_in_precise=exit_com_in_precise,
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)

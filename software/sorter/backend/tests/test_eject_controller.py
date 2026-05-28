@@ -51,6 +51,7 @@ class _Harness:
     move_done_at: list = field(default_factory=lambda: [0.0])
     slip: list = field(default_factory=lambda: [0.5])   # fraction of cmd actually moved
     present: list = field(default_factory=lambda: [True])
+    in_precise: list = field(default_factory=lambda: [True])  # COM in precise zone
 
     def advance(self, dt: float) -> None:
         self.now[0] += dt
@@ -64,6 +65,7 @@ class _Harness:
             in_exit=present and g <= 0.0,
             n_pieces=1 if present else 0,
             exit_com_forward_deg=(g if present else None),
+            exit_com_in_precise=present and self.in_precise[0],
         )
 
     def tick(self, *, down: int = 0, ready: bool = True, cfg: GoToAngleConfig) -> bool:
@@ -77,10 +79,11 @@ class _Harness:
         )
 
 
-def _make(precise_len: float = 10.0, start_gap: float = 20.0, slip: float = 0.5) -> _Harness:
+def _make(start_gap: float = 20.0, slip: float = 0.5, in_precise: bool = True) -> _Harness:
     h = _Harness(ctrl=None, stepper=_FakeStepper())  # type: ignore[arg-type]
     h.gap[0] = start_gap
     h.slip[0] = slip
+    h.in_precise[0] = in_precise
 
     def advance_move(step: float) -> bool:
         h.moves.append(step)
@@ -94,7 +97,6 @@ def _make(precise_len: float = 10.0, start_gap: float = 20.0, slip: float = 0.5)
         is_stopped=lambda: h.now[0] >= h.move_done_at[0],
         advance_move=advance_move,
         on_success=lambda: h.successes.append(h.now[0]),
-        precise_zone_len_deg=precise_len,
         logger=_SilentLogger(),
     )
     return h
@@ -120,13 +122,21 @@ def _run_advance(h: _Harness, cfg: GoToAngleConfig, max_ticks: int = 60) -> None
 # --- IDLE -------------------------------------------------------------------
 
 
-def test_idle_passes_when_piece_far_from_exit() -> None:
-    h = _make(precise_len=10.0, start_gap=40.0)
-    cfg = _cfg(fast_eject_trigger_deg=0.0)  # → precise-zone length = 10°
-    consumed = h.tick(cfg=cfg)
+def test_idle_passes_when_piece_not_yet_in_precise_zone() -> None:
+    # COM short of the precise zone (gap>0, not in precise) → controller must NOT
+    # take the tick; the normal advance carries the piece in.
+    h = _make(start_gap=40.0, in_precise=False)
+    consumed = h.tick(cfg=_cfg())
     assert consumed is False
     assert h.ctrl.phase == EjectPhase.IDLE
     assert h.moves == []
+
+
+def test_idle_triggers_when_com_in_precise_zone() -> None:
+    # Same gap, but the COM is now in the precise zone → eject starts.
+    h = _make(start_gap=40.0, in_precise=True)
+    h.tick(cfg=_cfg())
+    assert h.ctrl.phase == EjectPhase.ADVANCING
 
 
 def test_idle_passes_when_no_piece() -> None:
@@ -136,7 +146,7 @@ def test_idle_passes_when_no_piece() -> None:
 
 
 def test_within_trigger_but_downstream_busy_holds() -> None:
-    h = _make(precise_len=10.0, start_gap=5.0)
+    h = _make(start_gap=5.0)
     consumed = h.tick(down=0, ready=False, cfg=_cfg())
     assert consumed is True
     assert h.ctrl.phase == EjectPhase.IDLE  # holding, no move issued
@@ -147,7 +157,7 @@ def test_within_trigger_but_downstream_busy_holds() -> None:
 
 
 def test_advances_proportionally_and_reaches_exit() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0, slip=0.5)
+    h = _make(start_gap=20.0, slip=0.5)
     cfg = _cfg(fast_eject_min_step_deg=2.0)
     _run_advance(h, cfg)
     assert h.ctrl.phase == EjectPhase.AWAITING_FALL
@@ -159,7 +169,7 @@ def test_advances_proportionally_and_reaches_exit() -> None:
 
 
 def test_advance_freezes_when_downstream_goes_busy() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0)
+    h = _make(start_gap=20.0)
     cfg = _cfg()
     h.tick(cfg=cfg)  # IDLE → ADVANCING, first move
     assert h.ctrl.phase == EjectPhase.ADVANCING
@@ -172,7 +182,7 @@ def test_advance_freezes_when_downstream_goes_busy() -> None:
 
 def test_advance_safety_cap_kicks_to_recovery() -> None:
     # Total slip (piece never moves) → gap never closes → safety cap fires.
-    h = _make(precise_len=25.0, start_gap=20.0, slip=0.0)
+    h = _make(start_gap=20.0, slip=0.0)
     cfg = _cfg(fast_eject_max_advance_iterations=3)
     _run_advance(h, cfg)
     assert h.ctrl.phase == EjectPhase.RECOVERING
@@ -183,7 +193,7 @@ def test_advance_safety_cap_kicks_to_recovery() -> None:
 
 
 def test_success_only_on_downstream_appearance() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0)
+    h = _make(start_gap=20.0)
     cfg = _cfg(fall_confirm_timeout_ms=700)
     _run_advance(h, cfg)
     assert h.ctrl.phase == EjectPhase.AWAITING_FALL
@@ -200,7 +210,7 @@ def test_success_only_on_downstream_appearance() -> None:
 
 
 def test_timeout_starts_jitter_recovery() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0)
+    h = _make(start_gap=20.0)
     cfg = _cfg(fall_confirm_timeout_ms=200, fall_recovery_max_jitter_attempts=2)
     _run_advance(h, cfg)
     assert h.ctrl.phase == EjectPhase.AWAITING_FALL
@@ -215,7 +225,7 @@ def test_timeout_starts_jitter_recovery() -> None:
 
 
 def test_recovery_success_on_downstream() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0)
+    h = _make(start_gap=20.0)
     cfg = _cfg(fall_confirm_timeout_ms=100, fall_recovery_max_jitter_attempts=3)
     _run_advance(h, cfg)
     h.advance(0.2)
@@ -228,7 +238,7 @@ def test_recovery_success_on_downstream() -> None:
 
 
 def test_recovery_reapproaches_if_piece_knocked_out_of_exit() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0)
+    h = _make(start_gap=20.0)
     cfg = _cfg(fall_confirm_timeout_ms=100)
     _run_advance(h, cfg)
     h.advance(0.2)
@@ -241,7 +251,7 @@ def test_recovery_reapproaches_if_piece_knocked_out_of_exit() -> None:
 
 
 def test_recovery_exhausts_and_assumes_glitch() -> None:
-    h = _make(precise_len=25.0, start_gap=20.0)
+    h = _make(start_gap=20.0)
     cfg = _cfg(
         fall_confirm_timeout_ms=100,
         fall_recovery_max_jitter_attempts=2,

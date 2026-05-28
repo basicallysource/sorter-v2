@@ -57,6 +57,13 @@ void Stepper::setAcceleration(uint32_t acceleration) {
 }
 
 void Stepper::cancel() {
+    // If we tear down an in-flight jitter, restore the motion params it saved so
+    // the override doesn't outlive the jitter.
+    if (_jitter_active.load()) {
+        _accel = _saved_accel;
+        _max_speed = _saved_max_speed;
+        _min_speed = _saved_min_speed;
+    }
     _state = STEPPER_STOPPED;
     _jitter_active.store(false);
     _jitter_strokes_remaining.store(0);
@@ -152,6 +159,11 @@ bool Stepper::jitter(int32_t amplitude, int32_t cycles, int32_t speed, int32_t a
     if (_jitter_active.load()) return false; // Reject overlapping jitter; let the current one finish
     if (_state != STEPPER_STOPPED) return false; // Only start from standstill
     if (amplitude <= 0 || cycles <= 0 || speed <= 0 || accel <= 0) return false;
+    // Snapshot the normal motion params so we can put them back when the jitter
+    // finishes — the jitter's fast accel/speed must not leak into later moves.
+    _saved_accel = _accel;
+    _saved_max_speed = _max_speed;
+    _saved_min_speed = _min_speed;
     setAcceleration((uint32_t)accel);
     setSpeedLimits(_min_speed, (uint32_t)speed);
     _jitter_amplitude.store(amplitude);
@@ -272,6 +284,11 @@ void Stepper::motion_update_tick() {
                 } else {
                     _jitter_amplitude.store(0);
                     _jitter_active.store(false);
+                    // Jitter done: put the normal motion params back so the next
+                    // ordinary move uses them, not the jitter's fast accel/speed.
+                    _accel = _saved_accel;
+                    _max_speed = _saved_max_speed;
+                    _min_speed = _saved_min_speed;
                 }
             }
             break;

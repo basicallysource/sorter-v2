@@ -173,6 +173,18 @@ def exitComForwardDeg(
     compute every frame on the inference worker thread alongside the existing
     attribution.
     """
+    best = _leadingExitApproach(bboxes, channel)
+    return None if best is None else best[0]
+
+
+def _leadingExitApproach(
+    bboxes: Iterable[Bbox], channel: ChannelDef
+) -> tuple[float, int] | None:
+    """``(forward_gap_deg, com_section)`` for the LEADING on-channel piece — the
+    one with the smallest forward gap to the exit-only entry edge. ``None`` when
+    there is no on-channel piece or the channel has no exit arc. Shared by
+    ``exitComForwardDeg`` and ``comInPreciseZone`` so they agree on which piece
+    is 'leading'."""
     exit_only = exitOnlySections(channel)
     ordered = _orderedCircularSections(exit_only)
     if not ordered:
@@ -181,7 +193,7 @@ def exitComForwardDeg(
     near_angle = float(near) * SECTION_DEG
     cx0, cy0 = channel.center
     r1 = channel.radius1_angle_image
-    best: float | None = None
+    best: tuple[float, int] | None = None
     for bbox in bboxes:
         if not bboxInsideChannelMask(bbox, channel):
             continue
@@ -196,9 +208,21 @@ def exitComForwardDeg(
         # a COM exactly on the entry edge at 0 rather than folding it to -360.
         if sec in exit_only and forward > 180.0:
             forward -= 360.0
-        if best is None or forward < best:
-            best = forward
+        if best is None or forward < best[0]:
+            best = (forward, sec)
     return best
+
+
+def comInPreciseZone(bboxes: Iterable[Bbox], channel: ChannelDef) -> bool:
+    """True when the LEADING piece's center-of-mass section lies in the precise
+    zone — the exact trigger for starting a C3 eject. The precise zone is the
+    staging band the piece passes through right before the exit; the eject must
+    only START once the piece's COM is actually in it, not on a distance
+    heuristic that can fire while the piece is still short of it."""
+    best = _leadingExitApproach(bboxes, channel)
+    if best is None:
+        return False
+    return best[1] in channel.precise_sections
 
 
 _AREA_GRID_N = 12  # 12x12 = 144 sample points per bbox; ample for area majority

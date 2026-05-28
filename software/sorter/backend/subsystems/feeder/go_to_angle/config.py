@@ -44,11 +44,9 @@ class GoToAngleConfig:
     # disabled the channel keeps the precise-pulse hand-off. C3 uses fast-eject.
     ch2_fast_eject_enabled: bool = False
     ch3_fast_eject_enabled: bool = True
-    # The controller starts advancing once the forward distance from the leading
-    # piece's COM to the exit-zone entry edge is within this many channel-output
-    # degrees. 0.0 means "use the channel's precise-zone angular length at
-    # runtime" — derived from the live saved arcs, not a hard-coded angle.
-    fast_eject_trigger_deg: float = 0.0
+    # The eject starts only when the leading piece's COM is in the PRECISE zone
+    # (an exact membership test derived from the live saved arc) — there is no
+    # distance-threshold knob; the precise zone IS the trigger region.
     # Smallest advance command. Each ADVANCING iteration commands the measured
     # remaining gap; this floors it so we don't emit ever-shrinking sub-degree
     # moves as the COM asymptotically approaches the edge. A control param, not a
@@ -104,7 +102,6 @@ FIELD_META: list[dict] = [
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3},
     {"section": "Fast eject (C3)", "key": "ch2_fast_eject_enabled", "label": "C2 fast eject", "type": "bool", "default": _DEFAULTS.ch2_fast_eject_enabled},
     {"section": "Fast eject (C3)", "key": "ch3_fast_eject_enabled", "label": "C3 fast eject", "type": "bool", "default": _DEFAULTS.ch3_fast_eject_enabled},
-    {"section": "Fast eject (C3)", "key": "fast_eject_trigger_deg", "label": "Trigger distance from exit (output deg, 0 = precise-zone length)", "type": "float", "default": _DEFAULTS.fast_eject_trigger_deg},
     {"section": "Fast eject (C3)", "key": "fast_eject_min_step_deg", "label": "Min advance step (output deg)", "type": "float", "default": _DEFAULTS.fast_eject_min_step_deg},
     {"section": "Fast eject (C3)", "key": "fast_eject_max_advance_iterations", "label": "Max advance moves before recovery", "type": "int", "default": _DEFAULTS.fast_eject_max_advance_iterations},
     {"section": "Fast eject (C3)", "key": "fall_confirm_timeout_ms", "label": "Await-fall timeout before recovery (ms)", "type": "int", "default": _DEFAULTS.fall_confirm_timeout_ms},

@@ -72,6 +72,10 @@ private:
     // Motion parameters
     uint32_t _accel;
     uint32_t _max_speed, _min_speed;
+    // Snapshot of the above taken when a jitter starts, restored when it ends.
+    // A jitter overrides accel/max_speed for its fast oscillation; without this
+    // the override would persist and make every subsequent normal move jolt.
+    uint32_t _saved_accel = 0, _saved_max_speed = 0, _saved_min_speed = 0;
     
     // Last commanded state
     std::atomic<StepperState> _state;

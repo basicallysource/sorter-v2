@@ -68,7 +68,6 @@ class EjectController:
         is_stopped: Callable[[], bool],
         advance_move: Callable[[float], bool],
         on_success: Callable[[], None],
-        precise_zone_len_deg: float,
         logger,
     ) -> None:
         self.channel_id = channel_id
@@ -76,7 +75,6 @@ class EjectController:
         self._is_stopped = is_stopped
         self._advance_move = advance_move
         self._on_success = on_success
-        self._precise_zone_len_deg = float(precise_zone_len_deg)
         self._logger = logger
 
         self._phase: EjectPhase = EjectPhase.IDLE
@@ -96,12 +94,6 @@ class EjectController:
         self._advance_iters = 0
         if self._seq is not None:
             self._seq.reset()
-
-    def _trigger_deg(self, cfg: "GoToAngleConfig") -> float:
-        # 0 (or unset) means "use the precise-zone angular length" — derived from
-        # the live saved arcs, not a hard-coded angle. See config.
-        configured = float(cfg.fast_eject_trigger_deg)
-        return configured if configured > 0.0 else self._precise_zone_len_deg
 
     def _downstream_new(self, downstream: "ChannelState") -> bool:
         return int(downstream.n_pieces) > self._downstream_baseline
@@ -151,9 +143,13 @@ class EjectController:
         gap = state.exit_com_forward_deg
         if state.n_pieces <= 0 or gap is None:
             return False  # nothing on this channel — let normal flow run
-        if gap > self._trigger_deg(cfg):
-            return False  # leading piece still too far — normal advance carries it in
-        # A piece is within reach of the real exit zone. From here this is ours.
+        # The eject starts ONLY when the leading piece's COM is in the precise
+        # (staging) zone, or it is already in the exit (gap <= 0). A piece short
+        # of the precise zone is carried in by the normal advance — we do not
+        # jump toward the exit while it is still outside that region.
+        if not (bool(state.exit_com_in_precise) or gap <= 0.0):
+            return False
+        # A piece is staged at the exit. From here this is our channel.
         if not downstream_ready:
             return True  # hold (freeze) until the downstream channel can accept
         # Commit: snapshot what downstream looks like now so a later rise = our drop.
@@ -162,7 +158,7 @@ class EjectController:
         self._phase = EjectPhase.ADVANCING
         self._logger.info(
             f"[eject ch{self.channel_id}] start ADVANCING (gap={gap:.1f}° "
-            f"trigger={self._trigger_deg(cfg):.1f}° downstream_baseline="
+            f"in_precise={bool(state.exit_com_in_precise)} downstream_baseline="
             f"{self._downstream_baseline})"
         )
         # Act this tick rather than burning one.

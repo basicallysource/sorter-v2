@@ -73,8 +73,10 @@
 					and decides on. <span class="text-success-dark">Green</span> = detections the mask filter
 					kept (these drive the machine); <span style="color:#cc7a00">orange</span> = raw model
 					detections the filter rejected; cyan = channel polygon mask; white rect = the crop region
-					the model actually saw; magenta dot = rotation center. The panel stamps the camera,
-					resolution, and the exact model that produced these.
+					the model actually saw; magenta dot = rotation center. Runtime zones are overlaid from the
+					actual `ChannelDef` section sets the go-to-angle feeder and rev01 classification state machine
+					read: blue = drop, red = exit-only, magenta fill = precise. The panel also shows the live
+					slot state those pipelines are consuming.
 				</p>
 			{:else}
 				<p class="text-sm text-neutral-500">
@@ -82,8 +84,9 @@
 					frame, no polygon crop, as a second inference per cycle. Use it to tell "the crop is
 					excluding pieces" from "the model isn't detecting them."
 					<span class="text-success-dark">Green</span> = full-frame detections whose center lands in
-					the channel mask; <span style="color:#cc7a00">orange</span> = outside it. The panel
-					compares full-frame vs cropped-production counts.
+					the channel mask; <span style="color:#cc7a00">orange</span> = outside it. The same runtime
+					drop / exit / precise zones are rendered here too so the full-frame comparison still lines
+					up with the real machine logic.
 				</p>
 			{/if}
 		</div>

@@ -41,6 +41,73 @@ from vision.detection_registry import (
 router = APIRouter()
 
 
+ZONE_DROP_COLOR = (255, 128, 0)
+ZONE_EXIT_COLOR = (0, 64, 255)
+ZONE_PRECISE_COLOR = (255, 0, 255)
+_ZONE_OVERLAY_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+
+
+def _channel_zone_overlay(channel: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+    if channel is None:
+        return None
+    exit_only_sections = frozenset(channel.exit_sections - channel.precise_sections)
+    key = (
+        int(channel.channel_id),
+        tuple(int(v) for v in channel.mask.shape[:2]),
+        round(float(channel.center[0]), 3),
+        round(float(channel.center[1]), 3),
+        round(float(channel.radius1_angle_image), 3),
+        tuple(sorted(int(v) for v in channel.drop_sections)),
+        tuple(sorted(int(v) for v in exit_only_sections)),
+        tuple(sorted(int(v) for v in channel.precise_sections)),
+    )
+    cached = _ZONE_OVERLAY_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    mask = np.asarray(channel.mask)
+    if mask.ndim != 2 or mask.size == 0:
+        return None
+    on_channel = mask > 0
+    ys, xs = np.nonzero(on_channel)
+    h, w = mask.shape[:2]
+    overlay = np.zeros((h, w, 3), dtype=np.uint8)
+    drop_mask = np.zeros((h, w), dtype=np.uint8)
+    exit_mask = np.zeros((h, w), dtype=np.uint8)
+    precise_mask = np.zeros((h, w), dtype=np.uint8)
+    if xs.size == 0:
+        result = (overlay, drop_mask, exit_mask, precise_mask)
+        _ZONE_OVERLAY_CACHE[key] = result
+        return result
+
+    rel = (
+        np.degrees(np.arctan2(ys.astype(np.float64) - float(channel.center[1]), xs.astype(np.float64) - float(channel.center[0])))
+        - float(channel.radius1_angle_image)
+    ) % 360.0
+    sections = np.floor(rel).astype(np.int32) % 360
+
+    precise_sections = set(int(v) for v in channel.precise_sections)
+    exit_only = set(int(v) for v in exit_only_sections)
+    drop_sections = set(int(v) for v in channel.drop_sections)
+
+    if precise_sections:
+        precise_hit = np.isin(sections, list(precise_sections))
+        precise_mask[ys[precise_hit], xs[precise_hit]] = 255
+        overlay[ys[precise_hit], xs[precise_hit]] = ZONE_PRECISE_COLOR
+    if exit_only:
+        exit_hit = np.isin(sections, list(exit_only))
+        exit_mask[ys[exit_hit], xs[exit_hit]] = 255
+        overlay[ys[exit_hit], xs[exit_hit]] = ZONE_EXIT_COLOR
+    if drop_sections:
+        drop_hit = np.isin(sections, list(drop_sections))
+        drop_mask[ys[drop_hit], xs[drop_hit]] = 255
+        overlay[ys[drop_hit], xs[drop_hit]] = ZONE_DROP_COLOR
+
+    result = (overlay, drop_mask, exit_mask, precise_mask)
+    _ZONE_OVERLAY_CACHE[key] = result
+    return result
+
+
 def _draw_perception_debug(
     info: Dict[str, Any],
     channel: Any,
@@ -67,6 +134,22 @@ def _draw_perception_debug(
             img, (int(crop[0]), int(crop[1])), (int(crop[2]), int(crop[3])),
             (255, 255, 255), max(1, thick - 1),
         )
+
+    zone_overlay = _channel_zone_overlay(channel)
+    if zone_overlay is not None:
+        overlay_img, drop_mask, exit_mask, precise_mask = zone_overlay
+        zone_pixels = np.any(overlay_img != 0, axis=2)
+        blended = img.copy()
+        blended[zone_pixels] = overlay_img[zone_pixels]
+        img = cv2.addWeighted(blended, 0.22, img, 0.78, 0)
+        for zone_mask, color in (
+            (drop_mask, ZONE_DROP_COLOR),
+            (exit_mask, ZONE_EXIT_COLOR),
+            (precise_mask, ZONE_PRECISE_COLOR),
+        ):
+            contours, _ = cv2.findContours(zone_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if contours:
+                cv2.drawContours(img, contours, -1, color, max(1, thick - 1))
 
     if channel is not None:
         contours, _ = cv2.findContours(channel.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
@@ -166,10 +249,12 @@ def perception_debug_annotated(channel_id: int):
     infer_ms = info.get("infer_ms")
     n_raw = len(info["raw_bboxes"])
     n_kept = len(info["on_channel_bboxes"])
+    state = info["_ps"].read_state(channel_id)
     lines = _model_spec_lines(info, frame) + [
         f"core={info.get('core_mask_name')}  infer="
         + (f"{infer_ms:.0f}ms" if isinstance(infer_ms, (int, float)) else "?"),
         f"CROPPED (production): raw={n_raw} kept(green)={n_kept} rejected(orange)={n_raw - n_kept}",
+        f"state: pieces={state.n_pieces} in_drop={state.in_drop} in_exit={state.in_exit} in_precise={state.in_precise}",
         f"sections drop={info['n_drop_sections']} exit={info['n_exit_sections']} precise={info['n_precise_sections']}",
     ]
     return _draw_perception_debug(
@@ -214,12 +299,14 @@ def perception_debug_fullframe(channel_id: int):
     ff_ms = full.get("infer_ms")
     age_s = max(0.0, _time.time() - float(full.get("frame_ts") or 0.0))
     n_crop_raw = len(info["raw_bboxes"])
+    state = ps.read_state(channel_id)
     lines = _model_spec_lines(info, frame) + [
         f"core={info.get('core_mask_name')}  full-frame infer="
         + (f"{ff_ms:.0f}ms" if isinstance(ff_ms, (int, float)) else "?")
         + (f"  (age {age_s:.1f}s)" if age_s > 1.0 else ""),
         f"FULL-FRAME (no crop): raw={len(ff)} in-mask(green)={len(on_ff)} outside(orange)={len(ff) - len(on_ff)}",
         f"vs CROPPED production raw={n_crop_raw} kept={len(info['on_channel_bboxes'])}",
+        f"state: pieces={state.n_pieces} in_drop={state.in_drop} in_exit={state.in_exit} in_precise={state.in_precise}",
     ]
     return _draw_perception_debug(
         info, channel, frame=frame, raw_bboxes=ff, on_bboxes=on_ff, panel_lines=lines,

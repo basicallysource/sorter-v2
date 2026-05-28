@@ -3,12 +3,12 @@ from dataclasses import dataclass
 
 @dataclass
 class Rev01Config:
-    rotate_speed_usteps_per_s: int = 5000
+    rotate_speed_usteps_per_s: int = 7000
     capture_sweep_output_deg: float = 180.0
     kick_off_output_deg: float = 180.0
-    discharge_speed_usteps_per_s: int = 3000
+    discharge_speed_usteps_per_s: int = 5000
     crop_padding_px: int = 15
-    max_captures: int = 8
+    max_captures: int = 16
     rotate_timeout_s: float = 30.0
     classify_timeout_s: float = 30.0
     presence_streak_to_start: int = 2

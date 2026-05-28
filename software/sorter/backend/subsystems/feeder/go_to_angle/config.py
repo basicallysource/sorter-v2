@@ -6,7 +6,7 @@ class GoToAngleConfig:
     # +1 carries pieces toward the exit (camera-clockwise = forward motor
     # direction). Flip to -1 if a channel's stepper is wired the other way.
     forward_direction_sign: int = 1
-    move_speed_usteps_per_s: int = 4000
+    move_speed_usteps_per_s: int = 1997
     # Normal advance per move when pieces are present but none is at the exit
     # yet — carries the train forward toward the exit zone (output degrees).
     advance_output_deg: float = 30.0
@@ -20,11 +20,11 @@ class GoToAngleConfig:
     # one move, nudge it forward one small fixed angle at a time, pausing
     # between pulses so the downstream channel can confirm receipt before we
     # push again. Mirrors the reactive flow's precise pulsing.
-    precise_pulse_output_deg: float = 1.0
-    precise_pulse_pause_ms: int = 200
+    precise_pulse_output_deg: float = 3.0
+    precise_pulse_pause_ms: int = 300
     # Bulk feeder (c_channel_1) has no vision zones: nudge it forward by a fixed
     # amount whenever c_channel_2's drop zone is clear.
-    ch1_advance_output_deg: float = 20.0
+    ch1_advance_output_deg: float = 5.0
     ch1_settle_after_move_ms: int = 800
     # Gate c_channel_3 forward motion on the downstream classification channel
     # being ready to accept a piece (avoids double-drops into the same sector).
@@ -76,11 +76,11 @@ class GoToAngleConfig:
     # Shared jitter oscillation parameters. Used ONLY by the C3 fast-eject
     # fall-recovery procedure (the old exit-dwell jitter has been removed —
     # jitter no longer fires anywhere else in the feeder flow).
-    jitter_pause_ms: int = 350
+    jitter_pause_ms: int = 750
     jitter_amplitude_motor_deg: float = 6.0
     jitter_cycles: int = 8
-    jitter_speed_usteps_per_s: int = 5000
-    jitter_accel_usteps_per_s2: int = 100000
+    jitter_speed_usteps_per_s: int = 6500
+    jitter_accel_usteps_per_s2: int = 180000
 
 
 _DEFAULTS = GoToAngleConfig()

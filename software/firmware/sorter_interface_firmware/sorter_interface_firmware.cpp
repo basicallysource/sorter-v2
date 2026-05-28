@@ -133,7 +133,10 @@ const struct CommandTable servoCmdTable = {
         {"STOP", "", "", 0, VAL_servo_channel, CMDH_servo_stop},
         {"SET_ENABLED", "?", "", 1, VAL_servo_channel, CMDH_servo_set_enabled},
         {"SET_DUTY_LIMITS", "HH", "", 4, VAL_servo_channel, CMDH_servo_set_duty_limits},
-        {"MOVE_TO_AND_RELEASE", "H", "?", 2, VAL_servo_channel, CMDH_servo_move_to_and_release},
+        // Payload: position (uint16) + optional max_duration_ms (uint16).
+        // We use payload_length=255 (variable) so the dispatcher does not reject
+        // legacy 2-byte sends. The handler itself accepts 2 or 4 bytes.
+        {"MOVE_TO_AND_RELEASE", "HH", "?", 255, VAL_servo_channel, CMDH_servo_move_to_and_release},
     }}};
 
 const MasterCommandTable command_tables = {
@@ -638,8 +641,16 @@ void CMDH_servo_move_to(const BusMessage *msg, BusMessage *resp) {
 
 void CMDH_servo_move_to_and_release(const BusMessage *msg, BusMessage *resp) {
     uint16_t position;
+    uint16_t max_duration_ms;
     memcpy(&position, msg->payload, sizeof(position));
-    bool result = servos[msg->channel].moveToAndRelease(position);
+    // New wire format: 4 bytes total (position + max duration in ms).
+    // If the caller only sent 2 bytes (old style), we treat duration as 0 (use default).
+    if (msg->payload_length >= 4) {
+        memcpy(&max_duration_ms, msg->payload + sizeof(position), sizeof(max_duration_ms));
+    } else {
+        max_duration_ms = 0;
+    }
+    bool result = servos[msg->channel].moveToAndRelease(position, max_duration_ms);
     resp->payload[0] = result ? 1 : 0;
     resp->payload_length = 1;
 }

@@ -42,7 +42,7 @@ class InterfaceCommandCode(BaseCommandCode):
     SERVO_STOP = 0x45
     SERVO_SET_ENABLED = 0x46
     SERVO_SET_DUTY_LIMITS = 0x47
-    SERVO_MOVE_TO_AND_RELEASE = 0x48
+    SERVO_MOVE_TO_AND_RELEASE = 0x48  # payload: uint16 pos (0.1°), uint16 max_duration_ms (0 = firmware default)
 
 
 class DigitalInputPin:
@@ -459,22 +459,36 @@ class ServoMotor:
         self._current_angle = angle
         return bool(res.payload[0])
 
-    def move_to_and_release(self, angle: int) -> bool:
-        """Move the servo to a given angle and auto-disable upon arrival.
+    def move_to_and_release(self, angle: int, max_duration_ms: int = 3500) -> bool:
+        """Move the servo to a given angle and *guarantee* that PWM will stop.
 
-        The servo will move to the target angle and then automatically stop
-        sending PWM once it reaches the position, preventing damage from
-        continuous holding torque.
+        Two mechanisms ensure the servo will not be left driving indefinitely:
+
+        - If the firmware's motion profile reaches the target, it releases immediately.
+        - Hard safety deadline: after `max_duration_ms` the firmware will unconditionally
+          cut the PWM signal (duty=0), even if the servo is stalled, blocked, or the
+          simulated position never arrived. This is the key protection against the servo
+          pulling stall current and overheating.
+
+        A default of 3500 ms is used if not specified. This is long enough for a full
+        0-180° move under normal conditions but short enough that a problem cannot cook
+        the servo for a long time.
         """
         if not 0 <= angle <= 180:
             raise ValueError(f"Servo angle must be 0-180, got {angle}")
+        if max_duration_ms <= 0:
+            max_duration_ms = 3500
         if not self._enabled:
             self.enabled = True
-        self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: move_to_and_release {angle}° (from {self._current_angle}°)")
-        payload = struct.pack("<H", angle * 10)  # Convert degrees to 0.1° units, 2 bytes uint16
+        self._gc.logger.info(
+            f"Servo '{self._name}' ch{self._channel}: move_to_and_release {angle}° "
+            f"(from {self._current_angle}°), max_duration_ms={max_duration_ms}"
+        )
+        # Wire format: position (0.1°) + max duration in milliseconds
+        payload = struct.pack("<HH", angle * 10, max_duration_ms)
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO_AND_RELEASE, self._channel, payload)
         self._current_angle = angle
-        self._enabled = False  # Will be disabled once the move completes
+        self._enabled = False  # Will be disabled once the move completes (or deadline hits)
         return bool(res.payload[0])
 
     @property
@@ -498,15 +512,15 @@ class ServoMotor:
     def available(self) -> bool:
         return True
 
-    def open(self, open_angle: int | None = None) -> None:
-        """Move servo to open position."""
+    def open(self, open_angle: int | None = None, max_duration_ms: int = 3500) -> None:
+        """Move servo to open position (with hard release deadline guarantee)."""
         target = open_angle if open_angle is not None else self._open_angle
-        self.move_to_and_release(target)
+        self.move_to_and_release(target, max_duration_ms=max_duration_ms)
 
-    def close(self, closed_angle: int | None = None) -> None:
-        """Move servo to closed position."""
+    def close(self, closed_angle: int | None = None, max_duration_ms: int = 3500) -> None:
+        """Move servo to closed position (with hard release deadline guarantee)."""
         target = closed_angle if closed_angle is not None else self._closed_angle
-        self.move_to_and_release(target)
+        self.move_to_and_release(target, max_duration_ms=max_duration_ms)
 
     def toggle(self) -> None:
         """Toggle between open and closed."""

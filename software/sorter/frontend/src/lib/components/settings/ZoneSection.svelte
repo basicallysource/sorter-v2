@@ -16,6 +16,7 @@
 		Bug,
 		Camera,
 		Check,
+		FlipHorizontal,
 		Pencil,
 		RefreshCw,
 		RotateCcw,
@@ -69,6 +70,10 @@
 		exitOuterRadius: number;
 		dropZone: ChordZone;
 		exitZone: ChordZone;
+		// Arc adjacent to the exit, full outer radius (no exit-style cut), own
+		// independently draggable width. May be zero-width (the default for
+		// configs that predate it) — then it contributes nothing.
+		preciseZone: ChordZone;
 		ringHandleAngleDeg: number | null;
 	};
 	type ChordZone = {
@@ -90,12 +95,19 @@
 		| 'exitStartOuter'
 		| 'exitEndInner'
 		| 'exitEndOuter'
+		| 'preciseStartInner'
+		| 'preciseStartOuter'
+		| 'preciseEndInner'
+		| 'preciseEndOuter'
 		| 'dropStartEdge'
 		| 'dropEndEdge'
 		| 'dropRotate'
 		| 'exitStartEdge'
 		| 'exitEndEdge'
-		| 'exitRotate';
+		| 'exitRotate'
+		| 'preciseStartEdge'
+		| 'preciseEndEdge'
+		| 'preciseRotate';
 	type ArcParamsPayload = {
 		center: number[];
 		inner_radius: number;
@@ -103,6 +115,7 @@
 		exit_outer_radius?: number;
 		drop_zone?: ChordZonePayload;
 		exit_zone?: ChordZonePayload;
+		precise_zone?: ChordZonePayload;
 		ring_handle_angle_deg?: number | null;
 		resolution?: number[];
 	};
@@ -163,7 +176,11 @@
 					| 'arc-exit-start-inner'
 					| 'arc-exit-start-outer'
 					| 'arc-exit-end-inner'
-					| 'arc-exit-end-outer';
+					| 'arc-exit-end-outer'
+					| 'arc-precise-start-inner'
+					| 'arc-precise-start-outer'
+					| 'arc-precise-end-inner'
+					| 'arc-precise-end-outer';
 				channel: ArcChannel;
 				orig: ArcParams;
 		  }
@@ -174,7 +191,10 @@
 					| 'arc-exit-start-edge'
 					| 'arc-exit-end-edge'
 					| 'arc-drop-rotate'
-					| 'arc-exit-rotate';
+					| 'arc-exit-rotate'
+					| 'arc-precise-start-edge'
+					| 'arc-precise-end-edge'
+					| 'arc-precise-rotate';
 				channel: ArcChannel;
 				orig: ArcParams;
 				startPointerAngleDeg: number;
@@ -292,6 +312,7 @@
 
 	const DROP_ZONE_COLOR = '#22c55e';
 	const EXIT_ZONE_COLOR = '#ef4444';
+	const PRECISE_ZONE_COLOR = '#a855f7';
 
 	type ZoneHandle = Exclude<
 		ArcHandle,
@@ -305,6 +326,9 @@
 		| 'exitStartEdge'
 		| 'exitEndEdge'
 		| 'exitRotate'
+		| 'preciseStartEdge'
+		| 'preciseEndEdge'
+		| 'preciseRotate'
 	>;
 	type ZoneDragKind =
 		| 'arc-drop-start-inner'
@@ -314,7 +338,11 @@
 		| 'arc-exit-start-inner'
 		| 'arc-exit-start-outer'
 		| 'arc-exit-end-inner'
-		| 'arc-exit-end-outer';
+		| 'arc-exit-end-outer'
+		| 'arc-precise-start-inner'
+		| 'arc-precise-start-outer'
+		| 'arc-precise-end-inner'
+		| 'arc-precise-end-outer';
 
 	const ZONE_HANDLE_TO_DRAG_KIND: Record<ZoneHandle, ZoneDragKind> = {
 		dropStartInner: 'arc-drop-start-inner',
@@ -324,14 +352,18 @@
 		exitStartInner: 'arc-exit-start-inner',
 		exitStartOuter: 'arc-exit-start-outer',
 		exitEndInner: 'arc-exit-end-inner',
-		exitEndOuter: 'arc-exit-end-outer'
+		exitEndOuter: 'arc-exit-end-outer',
+		preciseStartInner: 'arc-precise-start-inner',
+		preciseStartOuter: 'arc-precise-start-outer',
+		preciseEndInner: 'arc-precise-end-inner',
+		preciseEndOuter: 'arc-precise-end-outer'
 	};
 
 	type ChordZoneField = 'startInnerAngle' | 'startOuterAngle' | 'endInnerAngle' | 'endOuterAngle';
 
 	const DRAG_KIND_TO_ZONE_FIELD: Record<
 		ZoneDragKind,
-		[zoneKey: 'dropZone' | 'exitZone', edgeField: ChordZoneField]
+		[zoneKey: 'dropZone' | 'exitZone' | 'preciseZone', edgeField: ChordZoneField]
 	> = {
 		'arc-drop-start-inner': ['dropZone', 'startInnerAngle'],
 		'arc-drop-start-outer': ['dropZone', 'startOuterAngle'],
@@ -340,7 +372,11 @@
 		'arc-exit-start-inner': ['exitZone', 'startInnerAngle'],
 		'arc-exit-start-outer': ['exitZone', 'startOuterAngle'],
 		'arc-exit-end-inner': ['exitZone', 'endInnerAngle'],
-		'arc-exit-end-outer': ['exitZone', 'endOuterAngle']
+		'arc-exit-end-outer': ['exitZone', 'endOuterAngle'],
+		'arc-precise-start-inner': ['preciseZone', 'startInnerAngle'],
+		'arc-precise-start-outer': ['preciseZone', 'startOuterAngle'],
+		'arc-precise-end-inner': ['preciseZone', 'endInnerAngle'],
+		'arc-precise-end-outer': ['preciseZone', 'endOuterAngle']
 	};
 
 	let {
@@ -609,6 +645,39 @@
 		};
 	}
 
+	// Unlike clampZone, the precise zone is allowed to be zero-width (its
+	// migration default), so it has no minimum span — only a maximum.
+	function clampPreciseZone(zone: ChordZone): ChordZone {
+		const startOuter = normalizeAngle(zone.startOuterAngle);
+		const startInner = normalizeAngle(zone.startInnerAngle);
+		const spanOuter = Math.min(
+			(normalizeAngle(zone.endOuterAngle) - startOuter + 360) % 360,
+			360 - MIN_ZONE_SPAN_DEG
+		);
+		const spanInner = Math.min(
+			(normalizeAngle(zone.endInnerAngle) - startInner + 360) % 360,
+			360 - MIN_ZONE_SPAN_DEG
+		);
+		return {
+			startOuterAngle: startOuter,
+			endOuterAngle: normalizeAngle(startOuter + spanOuter),
+			startInnerAngle: startInner,
+			endInnerAngle: normalizeAngle(startInner + spanInner)
+		};
+	}
+
+	// A zero-width precise zone anchored at the exit's CCW (approach) edge —
+	// the default when none is configured. Forward travel increases angle, so
+	// the CCW side is the exit's start edge.
+	function defaultPreciseZone(exitZone: ChordZone): ChordZone {
+		return {
+			startOuterAngle: normalizeAngle(exitZone.startOuterAngle),
+			endOuterAngle: normalizeAngle(exitZone.startOuterAngle),
+			startInnerAngle: normalizeAngle(exitZone.startInnerAngle),
+			endInnerAngle: normalizeAngle(exitZone.startInnerAngle)
+		};
+	}
+
 	function copyArcParams(params: ArcParams): ArcParams {
 		return {
 			center: [params.center[0], params.center[1]],
@@ -617,6 +686,7 @@
 			exitOuterRadius: params.exitOuterRadius,
 			dropZone: copyChordZone(params.dropZone),
 			exitZone: copyChordZone(params.exitZone),
+			preciseZone: copyChordZone(params.preciseZone),
 			ringHandleAngleDeg: params.ringHandleAngleDeg
 		};
 	}
@@ -636,6 +706,7 @@
 			exitOuterRadius,
 			dropZone: clampZone(params.dropZone),
 			exitZone: clampZone(params.exitZone),
+			preciseZone: clampPreciseZone(params.preciseZone),
 			ringHandleAngleDeg:
 				typeof params.ringHandleAngleDeg === 'number'
 					? normalizeAngle(params.ringHandleAngleDeg)
@@ -1036,10 +1107,13 @@
 	function defaultZoneLayout(
 		channel: ArcChannel,
 		sectionZeroAngle = 0
-	): Pick<ArcParams, 'dropZone' | 'exitZone'> {
+	): Pick<ArcParams, 'dropZone' | 'exitZone' | 'preciseZone'> {
+		const exitZone =
+			sectionRangeToZone(channel, 'exit', sectionZeroAngle) ?? radialChordZone(300, 340);
 		return {
 			dropZone: sectionRangeToZone(channel, 'drop', sectionZeroAngle) ?? radialChordZone(40, 120),
-			exitZone: sectionRangeToZone(channel, 'exit', sectionZeroAngle) ?? radialChordZone(300, 340)
+			exitZone,
+			preciseZone: defaultPreciseZone(exitZone)
 		};
 	}
 
@@ -1083,6 +1157,7 @@
 			exit_outer_radius: Math.round(params.exitOuterRadius),
 			drop_zone: serializeChordZone(params.dropZone),
 			exit_zone: exitZone,
+			precise_zone: serializeChordZone(params.preciseZone),
 			ring_handle_angle_deg:
 				typeof params.ringHandleAngleDeg === 'number' ? params.ringHandleAngleDeg : null,
 			resolution
@@ -1107,6 +1182,35 @@
 		}
 		if (typeof r.start_angle === 'number' && typeof r.end_angle === 'number') {
 			return radialChordZone(r.start_angle, r.end_angle);
+		}
+		return null;
+	}
+
+	// Like parseChordZone but allows a zero-width result (no minimum span), so a
+	// saved zero-width precise zone round-trips instead of being inflated.
+	function parsePreciseChordZone(raw: unknown): ChordZone | null {
+		if (!raw || typeof raw !== 'object') return null;
+		const r = raw as ChordZonePayload;
+		if (
+			typeof r.start_inner_angle === 'number' &&
+			typeof r.start_outer_angle === 'number' &&
+			typeof r.end_inner_angle === 'number' &&
+			typeof r.end_outer_angle === 'number'
+		) {
+			return clampPreciseZone({
+				startInnerAngle: r.start_inner_angle,
+				startOuterAngle: r.start_outer_angle,
+				endInnerAngle: r.end_inner_angle,
+				endOuterAngle: r.end_outer_angle
+			});
+		}
+		if (typeof r.start_angle === 'number' && typeof r.end_angle === 'number') {
+			return clampPreciseZone({
+				startOuterAngle: r.start_angle,
+				startInnerAngle: r.start_angle,
+				endOuterAngle: r.end_angle,
+				endInnerAngle: r.end_angle
+			});
 		}
 		return null;
 	}
@@ -1150,6 +1254,8 @@
 				: typeof nestedExitOuterRaw === 'number' && Number.isFinite(nestedExitOuterRaw)
 					? nestedExitOuterRaw
 					: outerRadius;
+		const preciseZone =
+			parsePreciseChordZone((raw as ArcParamsPayload).precise_zone) ?? defaultPreciseZone(exitZone);
 		const ringHandleRaw = (raw as ArcParamsPayload).ring_handle_angle_deg;
 		const ringHandleAngleDeg =
 			typeof ringHandleRaw === 'number' && Number.isFinite(ringHandleRaw) ? ringHandleRaw : null;
@@ -1160,6 +1266,7 @@
 			exitOuterRadius,
 			dropZone,
 			exitZone,
+			preciseZone,
 			ringHandleAngleDeg
 		});
 	}
@@ -1532,6 +1639,11 @@
 			params.exitZone.endOuterAngle,
 			params.exitOuterRadius
 		);
+		// Precise zone sits at full outer radius (no exit cut).
+		const preciseStartInner = innerHandlePoint(params, params.preciseZone.startInnerAngle);
+		const preciseStartOuter = outerHandlePoint(params, params.preciseZone.startOuterAngle);
+		const preciseEndInner = innerHandlePoint(params, params.preciseZone.endInnerAngle);
+		const preciseEndOuter = outerHandlePoint(params, params.preciseZone.endOuterAngle);
 		const rotateOffset = 28 * editorScale;
 		const dropRotate = outerHandlePoint(
 			params,
@@ -1542,6 +1654,12 @@
 		const exitRotate = outerHandlePoint(
 			params,
 			zoneMidAngle(params.exitZone),
+			params.outerRadius + rotateOffset,
+			exitOuterHandlePadding
+		);
+		const preciseRotate = outerHandlePoint(
+			params,
+			zoneMidAngle(params.preciseZone),
 			params.outerRadius + rotateOffset,
 			exitOuterHandlePadding
 		);
@@ -1563,12 +1681,19 @@
 			exitStartOuter,
 			exitEndInner,
 			exitEndOuter,
+			preciseStartInner,
+			preciseStartOuter,
+			preciseEndInner,
+			preciseEndOuter,
 			dropStartEdge: midpoint(dropStartInner, dropStartOuter),
 			dropEndEdge: midpoint(dropEndInner, dropEndOuter),
 			dropRotate,
 			exitStartEdge: midpoint(exitStartInner, exitStartOuter),
 			exitEndEdge: midpoint(exitEndInner, exitEndOuter),
-			exitRotate
+			exitRotate,
+			preciseStartEdge: midpoint(preciseStartInner, preciseStartOuter),
+			preciseEndEdge: midpoint(preciseEndInner, preciseEndOuter),
+			preciseRotate
 		};
 	}
 
@@ -1588,6 +1713,13 @@
 			'exitStartOuter',
 			'exitEndInner',
 			'exitEndOuter',
+			'preciseStartEdge',
+			'preciseEndEdge',
+			'preciseRotate',
+			'preciseStartInner',
+			'preciseStartOuter',
+			'preciseEndInner',
+			'preciseEndOuter',
 			'exitOuter',
 			'outer',
 			'inner',
@@ -1613,6 +1745,38 @@
 			exitOuterRadius
 		});
 		arcParams[channel] = clamped;
+	}
+
+	// Move the precise zone to the opposite adjacent side of the exit, keeping
+	// its width. Forward travel increases angle: the CCW/approach side sits
+	// just before the exit (precise ends where exit starts); the CW/far side
+	// sits just after it (precise starts where exit ends).
+	function flipPreciseSide(channel: ArcChannel) {
+		const params = arcParams[channel];
+		if (!params) return;
+		const exit = params.exitZone;
+		const precise = params.preciseZone;
+		const widthOuter =
+			(normalizeAngle(precise.endOuterAngle) - normalizeAngle(precise.startOuterAngle) + 360) % 360;
+		const widthInner =
+			(normalizeAngle(precise.endInnerAngle) - normalizeAngle(precise.startInnerAngle) + 360) % 360;
+		const onCcwSide =
+			angularDistance(precise.endOuterAngle, exit.startOuterAngle) <=
+			angularDistance(precise.startOuterAngle, exit.endOuterAngle);
+		const next: ChordZone = onCcwSide
+			? {
+					startOuterAngle: normalizeAngle(exit.endOuterAngle),
+					endOuterAngle: normalizeAngle(exit.endOuterAngle + widthOuter),
+					startInnerAngle: normalizeAngle(exit.endInnerAngle),
+					endInnerAngle: normalizeAngle(exit.endInnerAngle + widthInner)
+				}
+			: {
+					startOuterAngle: normalizeAngle(exit.startOuterAngle - widthOuter),
+					endOuterAngle: normalizeAngle(exit.startOuterAngle),
+					startInnerAngle: normalizeAngle(exit.startInnerAngle - widthInner),
+					endInnerAngle: normalizeAngle(exit.startInnerAngle)
+				};
+		setArc(channel, { ...params, preciseZone: next });
 	}
 
 	function streamSrc(channel: Channel): string {
@@ -1763,6 +1927,7 @@
 			exitOuterRadius: params.exitOuterRadius * rs,
 			dropZone: copyChordZone(params.dropZone),
 			exitZone: copyChordZone(params.exitZone),
+			preciseZone: copyChordZone(params.preciseZone),
 			ringHandleAngleDeg: params.ringHandleAngleDeg
 		};
 	}
@@ -2087,7 +2252,10 @@
 					exitStartEdge: 'arc-exit-start-edge',
 					exitEndEdge: 'arc-exit-end-edge',
 					dropRotate: 'arc-drop-rotate',
-					exitRotate: 'arc-exit-rotate'
+					exitRotate: 'arc-exit-rotate',
+					preciseStartEdge: 'arc-precise-start-edge',
+					preciseEndEdge: 'arc-precise-end-edge',
+					preciseRotate: 'arc-precise-rotate'
 				};
 				if (handle in edgeOrRotateKind) {
 					dragState = {
@@ -2097,7 +2265,10 @@
 							| 'arc-exit-start-edge'
 							| 'arc-exit-end-edge'
 							| 'arc-drop-rotate'
-							| 'arc-exit-rotate',
+							| 'arc-exit-rotate'
+							| 'arc-precise-start-edge'
+							| 'arc-precise-end-edge'
+							| 'arc-precise-rotate',
 						channel: currentChannel,
 						orig: copyArcParams(params),
 						startPointerAngleDeg: angleFromCenter(point, params.center)
@@ -2280,7 +2451,11 @@
 			case 'arc-exit-start-inner':
 			case 'arc-exit-start-outer':
 			case 'arc-exit-end-inner':
-			case 'arc-exit-end-outer': {
+			case 'arc-exit-end-outer':
+			case 'arc-precise-start-inner':
+			case 'arc-precise-start-outer':
+			case 'arc-precise-end-inner':
+			case 'arc-precise-end-outer': {
 				didDrag = true;
 				const angle = angleFromCenter(point, dragState.orig.center);
 				const [zoneKey, edgeField] = DRAG_KIND_TO_ZONE_FIELD[dragState.kind];
@@ -2298,7 +2473,10 @@
 			case 'arc-exit-start-edge':
 			case 'arc-exit-end-edge':
 			case 'arc-drop-rotate':
-			case 'arc-exit-rotate': {
+			case 'arc-exit-rotate':
+			case 'arc-precise-start-edge':
+			case 'arc-precise-end-edge':
+			case 'arc-precise-rotate': {
 				didDrag = true;
 				const currentAngle = angleFromCenter(point, dragState.orig.center);
 				const delta = currentAngle - dragState.startPointerAngleDeg;
@@ -2306,12 +2484,24 @@
 					dragState.kind === 'arc-drop-start-edge' ||
 					dragState.kind === 'arc-drop-end-edge' ||
 					dragState.kind === 'arc-drop-rotate';
-				const zoneKey: 'dropZone' | 'exitZone' = isDrop ? 'dropZone' : 'exitZone';
+				const isPrecise =
+					dragState.kind === 'arc-precise-start-edge' ||
+					dragState.kind === 'arc-precise-end-edge' ||
+					dragState.kind === 'arc-precise-rotate';
+				const zoneKey: 'dropZone' | 'exitZone' | 'preciseZone' = isDrop
+					? 'dropZone'
+					: isPrecise
+						? 'preciseZone'
+						: 'exitZone';
 				const origZone = dragState.orig[zoneKey];
 				const isRotate =
-					dragState.kind === 'arc-drop-rotate' || dragState.kind === 'arc-exit-rotate';
+					dragState.kind === 'arc-drop-rotate' ||
+					dragState.kind === 'arc-exit-rotate' ||
+					dragState.kind === 'arc-precise-rotate';
 				const isStartEdge =
-					dragState.kind === 'arc-drop-start-edge' || dragState.kind === 'arc-exit-start-edge';
+					dragState.kind === 'arc-drop-start-edge' ||
+					dragState.kind === 'arc-exit-start-edge' ||
+					dragState.kind === 'arc-precise-start-edge';
 				let newZone: ChordZone;
 				if (isRotate) {
 					newZone = {
@@ -2668,6 +2858,18 @@
 		const innerCircle = buildCirclePoints(params.center, params.innerRadius);
 		const dropPolygon = buildZonePolygon(params, params.dropZone, params.outerRadius);
 		const exitPolygon = buildZonePolygon(params, params.exitZone, params.exitOuterRadius);
+		// Zero-width precise (the default) has no fill — positiveAngleSpan would
+		// otherwise treat a zero span as a full ring. Its handles are still drawn
+		// below so it can be dragged out to give it width.
+		const preciseWidthDeg =
+			(normalizeAngle(params.preciseZone.endOuterAngle) -
+				normalizeAngle(params.preciseZone.startOuterAngle) +
+				360) %
+			360;
+		const precisePolygon =
+			preciseWidthDeg > 0.01
+				? buildZonePolygon(params, params.preciseZone, params.outerRadius)
+				: null;
 
 		ctx.beginPath();
 		ctx.moveTo(outerBoundary[0][0], outerBoundary[0][1]);
@@ -2685,7 +2887,10 @@
 
 		const zoneOverlays: Array<{ polygon: Point[]; color: string; alpha: number }> = [
 			{ polygon: dropPolygon, color: DROP_ZONE_COLOR, alpha: active ? 0.22 : 0.1 },
-			{ polygon: exitPolygon, color: EXIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }
+			{ polygon: exitPolygon, color: EXIT_ZONE_COLOR, alpha: active ? 0.22 : 0.1 },
+			...(precisePolygon
+				? [{ polygon: precisePolygon, color: PRECISE_ZONE_COLOR, alpha: active ? 0.22 : 0.1 }]
+				: [])
 		];
 
 		for (const { polygon: zonePolygon, color: zoneColor, alpha: zoneAlpha } of zoneOverlays) {
@@ -2775,13 +2980,20 @@
 			drawHandle(ctx, handles.exitStartInner, EXIT_ZONE_COLOR, '#111');
 			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', 'Exit End', [42, 22]);
 			drawHandle(ctx, handles.exitEndInner, EXIT_ZONE_COLOR, '#111');
+			drawHandle(ctx, handles.preciseStartOuter, PRECISE_ZONE_COLOR, '#111', 'Precise Start', [-42, 22]);
+			drawHandle(ctx, handles.preciseStartInner, PRECISE_ZONE_COLOR, '#111');
+			drawHandle(ctx, handles.preciseEndOuter, PRECISE_ZONE_COLOR, '#111', 'Precise End', [42, 22]);
+			drawHandle(ctx, handles.preciseEndInner, PRECISE_ZONE_COLOR, '#111');
 
 			drawEdgeHandle(ctx, handles.dropStartEdge, handles.dropStartInner, handles.dropStartOuter, DROP_ZONE_COLOR);
 			drawEdgeHandle(ctx, handles.dropEndEdge, handles.dropEndInner, handles.dropEndOuter, DROP_ZONE_COLOR);
 			drawEdgeHandle(ctx, handles.exitStartEdge, handles.exitStartInner, handles.exitStartOuter, EXIT_ZONE_COLOR);
 			drawEdgeHandle(ctx, handles.exitEndEdge, handles.exitEndInner, handles.exitEndOuter, EXIT_ZONE_COLOR);
+			drawEdgeHandle(ctx, handles.preciseStartEdge, handles.preciseStartInner, handles.preciseStartOuter, PRECISE_ZONE_COLOR);
+			drawEdgeHandle(ctx, handles.preciseEndEdge, handles.preciseEndInner, handles.preciseEndOuter, PRECISE_ZONE_COLOR);
 			drawRotateHandle(ctx, handles.dropRotate, params.center, DROP_ZONE_COLOR);
 			drawRotateHandle(ctx, handles.exitRotate, params.center, EXIT_ZONE_COLOR);
+			drawRotateHandle(ctx, handles.preciseRotate, params.center, PRECISE_ZONE_COLOR);
 		}
 
 		drawSectionZero(ctx, channel, active);
@@ -3435,6 +3647,15 @@
 				{/if}
 
 				{#if editingZone}
+					{#if isArcChannel(currentChannel)}
+						<button
+							onclick={() => flipPreciseSide(currentChannel as ArcChannel)}
+							class="inline-flex cursor-pointer items-center gap-2 border border-violet-500 bg-violet-500/15 px-3 py-1.5 text-sm text-violet-700 transition-colors hover:bg-violet-500/25 dark:text-violet-300"
+						>
+							<FlipHorizontal size={15} />
+							<span>Flip Precise Side</span>
+						</button>
+					{/if}
 					<button
 						onclick={resetCurrentChannel}
 						class="inline-flex cursor-pointer items-center gap-2 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg/80"

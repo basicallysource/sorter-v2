@@ -433,7 +433,14 @@ def zoneSectionsForChannel(
     exit_sections = sectionsForAngleRange(
         zones.exit_start_angle, zones.exit_end_angle, section_zero_angle
     )
-    if zones.precise_start_angle is not None and zones.precise_end_angle is not None:
+    if (
+        zones.precise_start_angle is not None
+        and zones.precise_end_angle is not None
+        # Zero-width precise (the default for older saved configs that predate
+        # the precise zone) must union to nothing. sectionsForAngleRange treats
+        # a zero span as a full 360° circle, so guard it out explicitly.
+        and angularDistance(zones.precise_start_angle, zones.precise_end_angle) > 1e-6
+    ):
         exit_sections = exit_sections | sectionsForAngleRange(
             zones.precise_start_angle, zones.precise_end_angle, section_zero_angle
         )

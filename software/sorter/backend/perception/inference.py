@@ -18,7 +18,9 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
-from .arcs import attributeBboxes, forwardClearanceToExitDeg
+import numpy as np
+
+from .arcs import attributeBboxes, bboxInsideChannelMask, forwardClearanceToExitDeg
 from .capture import CaptureWorker, PerceptionFrame
 from .channel import ChannelDef
 from .runtime import InferenceRuntime
@@ -97,6 +99,16 @@ class InferenceWorker:
         self._runtime = runtime
         self._channel_def = channel_def
         self._slot = slot
+        # Crop the full frame to the channel polygon's bounding rect before
+        # inference, then offset bboxes back to full-frame coords. Mirrors the
+        # VisionManager detection path (_cropFrameToPolygonRegion). Critical for
+        # the 4K carousel: letterboxing a full 3840×2160 frame to the 320 model
+        # input shrinks an on-channel piece below detectability while large
+        # off-channel background junk survives — so the worker would detect only
+        # junk and report n_pieces=0. Computed once here (mask is immutable); the
+        # hot path does a zero-copy slice, and the model resizes a smaller region
+        # so inference preprocessing is cheaper, not more expensive.
+        self._crop_rect = self._compute_crop_rect(channel_def.mask)
         self._conf_threshold = conf_threshold
         self._on_exit_edge = on_exit_edge
         self._runtime_stats = runtime_stats
@@ -111,12 +123,18 @@ class InferenceWorker:
         )
         self._last_frame_ts: float = -1.0
         self._was_in_exit: bool = False
+        self._last_summary_log_ts: float = 0.0
 
         # Latest raw inference result — GIL-atomic tuple ref, same pattern as
         # LatestStateSlot. Written after every successful inference so the
         # classification channel state machine can read bboxes + the exact
         # frame they were computed against without triggering a new inference.
         self._latest_raw: Optional[tuple] = None
+
+        # Richer record for the perception-debug overlay only: raw (pre-filter)
+        # bboxes, the on-channel subset, the crop rect, the frame, and timing.
+        # GIL-atomic dict ref; never read on the hot path.
+        self._latest_debug: Optional[dict] = None
 
         # Public counters — read by the smoke test.
         self.iterations: int = 0
@@ -144,6 +162,12 @@ class InferenceWorker:
         inference. GIL-atomic read — no lock required."""
         return self._latest_raw
 
+    @property
+    def latest_debug(self) -> Optional[dict]:
+        """Latest debug record (raw + on-channel bboxes, crop rect, frame,
+        timing) for the perception-debug overlay. GIL-atomic read."""
+        return self._latest_debug
+
     def start(self) -> None:
         self._stop.clear()
         self._thread.start()
@@ -154,6 +178,18 @@ class InferenceWorker:
             self._thread.join(timeout=timeout)
 
     # --- hot loop --------------------------------------------------------
+
+    @staticmethod
+    def _compute_crop_rect(mask) -> Optional[tuple[int, int, int, int]]:
+        """Bounding rect (x1, y1, x2, y2) of the channel polygon mask, or None
+        when the mask is empty/absent (then the worker infers on the full frame).
+        """
+        if mask is None:
+            return None
+        ys, xs = np.nonzero(mask)
+        if xs.size == 0 or ys.size == 0:
+            return None
+        return (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
 
     def _check_source_id(self, frame: PerceptionFrame) -> bool:
         if (
@@ -232,6 +268,50 @@ class InferenceWorker:
         except Exception:
             pass
 
+    def _maybe_log_summary(
+        self,
+        bboxes: list,
+        in_drop: bool,
+        in_exit: bool,
+        n_pieces: int,
+        now_s: float,
+    ) -> None:
+        """Throttled once-per-second summary: total detections, how many are
+        on-channel, and which zones are active. Enough to debug a stalled feeder
+        without spamming every frame."""
+        if self._logger is None:
+            return
+        if now_s - self._last_summary_log_ts < 1.0:
+            return
+        self._last_summary_log_ts = now_s
+        ch = self._channel_def
+        n_total = len(bboxes)
+        # Sizes in pixels for rough scale feedback
+        sizes = []
+        for b in bboxes:
+            w = int(b[2]) - int(b[0])
+            h = int(b[3]) - int(b[1])
+            cx = (int(b[0]) + int(b[2])) // 2
+            cy = (int(b[1]) + int(b[3])) // 2
+            sizes.append(f"{w}×{h}@({cx},{cy})")
+        sizes_str = "[" + ", ".join(sizes) + "]" if sizes else "[]"
+        mh, mw = ch.mask.shape[:2]
+        sizes_str += f" mask={mw}×{mh}"
+        zones = []
+        if in_drop:
+            zones.append("DROP")
+        if in_exit:
+            zones.append("EXIT")
+        zone_str = "+".join(zones) if zones else "none"
+        try:
+            self._logger.info(
+                f"[perception summary ch={ch.channel_id} src={ch.camera_source_id}] "
+                f"detections={n_total} on_channel={n_pieces} zones={zone_str} "
+                f"sizes={sizes_str}"
+            )
+        except Exception:
+            pass
+
     def _loop(self) -> None:
         while not self._stop.is_set():
             self.iterations += 1
@@ -261,10 +341,37 @@ class InferenceWorker:
 
                 cycle_t0 = _now_ms()
                 infer_t0 = cycle_t0
-                bboxes = self._runtime.infer(
-                    frame.bgr, conf_threshold=self._conf_threshold
-                )
+                if self._crop_rect is not None:
+                    cx1, cy1, cx2, cy2 = self._crop_rect
+                    crop = frame.bgr[cy1:cy2, cx1:cx2]
+                    raw_bboxes = self._runtime.infer(
+                        crop, conf_threshold=self._conf_threshold
+                    )
+                    bboxes = [
+                        (int(b[0]) + cx1, int(b[1]) + cy1, int(b[2]) + cx1, int(b[3]) + cy1)
+                        for b in raw_bboxes
+                    ]
+                else:
+                    bboxes = list(
+                        self._runtime.infer(
+                            frame.bgr, conf_threshold=self._conf_threshold
+                        )
+                    )
                 infer_ms = _now_ms() - infer_t0
+
+                # Every model detection in full-frame coords, BEFORE the
+                # on-channel mask filter. Kept only for the perception-debug
+                # overlay so we can show what the model produced vs. what the
+                # mask filter kept — never read on the hot path.
+                raw_bboxes_full = list(bboxes)
+
+                # The crop is the polygon's bounding RECT, so its corners can
+                # still admit detections that fall OUTSIDE the polygon (e.g. the
+                # chute/exit area beside the carousel). Drop them here using the
+                # same mask membership test attributeBboxes applies, so nothing
+                # downstream — n_pieces, the classification crop, latest_raw, the
+                # debug overlay — ever sees an off-channel detection.
+                bboxes = [b for b in bboxes if bboxInsideChannelMask(b, self._channel_def)]
 
                 attribute_t0 = _now_ms()
                 in_drop, in_exit, in_precise, in_exit_majority, n_pieces, per_bbox_counts = attributeBboxes(
@@ -286,10 +393,19 @@ class InferenceWorker:
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)
+                self._latest_debug = {
+                    "raw_bboxes": raw_bboxes_full,
+                    "on_channel_bboxes": list(bboxes),
+                    "crop_rect": self._crop_rect,
+                    "frame": frame,
+                    "infer_ms": infer_ms,
+                    "conf_threshold": self._conf_threshold,
+                }
                 self._maybe_emit_exit_edge(frame.timestamp, in_exit)
                 self._maybe_log_attribution(
                     in_exit, in_precise, in_exit_majority, per_bbox_counts
                 )
+                self._maybe_log_summary(bboxes, in_drop, in_exit, n_pieces, time.time())
                 self._last_frame_ts = frame.timestamp
                 self.inferences += 1
 

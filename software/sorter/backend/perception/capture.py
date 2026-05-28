@@ -65,6 +65,12 @@ class CaptureWorker:
     def source_id(self) -> str:
         return self._source_id
 
+    @property
+    def capture_thread(self) -> CaptureLike:
+        """The underlying capture thread — exposed for read-only introspection
+        (the perception-debug overlay reads camera specs off it)."""
+        return self._capture
+
     def latest_frame(self) -> Optional[PerceptionFrame]:
         """Snapshot of the most recent frame the capture thread has produced.
 

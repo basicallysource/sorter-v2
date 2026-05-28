@@ -13,6 +13,7 @@ from uuid import uuid4
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import (
@@ -38,6 +39,131 @@ from vision.detection_registry import (
 )
 
 router = APIRouter()
+
+
+@router.get("/api/perception/debug/annotated/{channel_id}")
+def perception_debug_annotated(channel_id: int):
+    """Render the EXACT data the perception stack works on, with no ambiguity:
+
+    - GREEN boxes  = detections the on-channel mask filter KEPT (these drive the
+      feeder / classification decisions).
+    - ORANGE boxes = RAW model detections that the mask filter REJECTED — drawn
+      so it's obvious whether bad behaviour is the model producing junk vs. the
+      filter discarding good detections.
+    - CYAN outline = the polygon mask perception filters on.
+    - WHITE rect   = the crop region the model actually saw (the polygon's
+      bounding rect — the model never sees anything outside it).
+    - MAGENTA dot  = the channel's arc/rotation center.
+
+    A spec panel stamps the camera, frame resolution, the exact model
+    (algorithm id + .rknn file + imgsz + conf + NPU core) and the detection
+    counts, so there is never a question about which model produced these.
+
+    Read-only — reuses cached state, runs no new inference (no NPU, no hot-loop
+    impact)."""
+    import io
+
+    gc = shared_state.gc_ref
+    ps = getattr(gc, "perception_service", None) if gc is not None else None
+    if ps is None:
+        raise HTTPException(status_code=503, detail="perception_service not available")
+    if channel_id not in ps.channels():
+        raise HTTPException(status_code=404, detail=f"channel {channel_id} not wired")
+    info = ps.channel_debug_info(channel_id)
+    if info is None:
+        raise HTTPException(status_code=409, detail="no inference cycle yet")
+
+    frame = info["frame"]
+    img = frame.bgr.copy()
+    channel = ps.channels().get(channel_id)
+    h, w = img.shape[:2]
+    # Scale strokes/text to the frame so it reads on both 720p and 4K.
+    s = max(1.0, w / 1280.0)
+    thick = max(2, int(round(2 * s)))
+
+    # Crop rect (region the model saw) — white.
+    crop = info.get("crop_rect")
+    if crop is not None:
+        cx1, cy1, cx2, cy2 = (int(crop[0]), int(crop[1]), int(crop[2]), int(crop[3]))
+        cv2.rectangle(img, (cx1, cy1), (cx2, cy2), (255, 255, 255), max(1, thick - 1))
+
+    # Mask outline — cyan.
+    if channel is not None:
+        contours, _ = cv2.findContours(channel.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(img, contours, -1, (255, 255, 0), thick)
+
+    # Rejected raw detections — ORANGE. Drawn first so kept boxes overlay them.
+    on_set = {tuple(int(v) for v in b) for b in info["on_channel_bboxes"]}
+    for b in info["raw_bboxes"]:
+        bb = tuple(int(v) for v in b)
+        if bb in on_set:
+            continue
+        x1, y1, x2, y2 = bb
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 165, 255), thick)
+        cv2.circle(img, ((x1 + x2) // 2, (y1 + y2) // 2), max(4, int(5 * s)), (0, 165, 255), -1)
+
+    # Kept (on-channel) detections — GREEN.
+    for b in info["on_channel_bboxes"]:
+        x1, y1, x2, y2 = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), thick)
+        cv2.circle(img, ((x1 + x2) // 2, (y1 + y2) // 2), max(4, int(5 * s)), (0, 255, 0), -1)
+
+    # Arc center — magenta.
+    if info.get("center") is not None:
+        cx0, cy0 = info["center"]
+        cv2.circle(img, (int(cx0), int(cy0)), max(6, int(10 * s)), (255, 0, 255), -1)
+
+    # --- spec panel (top-left) ---
+    n_raw = len(info["raw_bboxes"])
+    n_kept = len(info["on_channel_bboxes"])
+    n_rejected = n_raw - n_kept
+    conf = info.get("conf_threshold")
+    infer_ms = info.get("infer_ms")
+    lines = [
+        f"ch {info['channel_id']}  role={info['camera_source_id']}"
+        + (f"  cam_src={info['camera_source']}" if info.get("camera_source") is not None else ""),
+        f"frame {w}x{h}   crop "
+        + (f"{int(crop[2]) - int(crop[0])}x{int(crop[3]) - int(crop[1])}" if crop is not None else "full"),
+        f"algo: {info.get('algorithm_id')}",
+        f"model: {info.get('model_name')}",
+        (f"imgsz={info.get('imgsz')}  conf={conf:.2f}" if isinstance(conf, (int, float))
+         else f"imgsz={info.get('imgsz')}  conf={conf}"),
+        f"core={info.get('core_mask_name')}  infer="
+        + (f"{infer_ms:.0f}ms" if isinstance(infer_ms, (int, float)) else "?"),
+        f"detections: raw={n_raw}  kept(green)={n_kept}  rejected(orange)={n_rejected}",
+        f"sections drop={info['n_drop_sections']} exit={info['n_exit_sections']} precise={info['n_precise_sections']}",
+    ]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fs = 0.5 * s
+    ft = max(1, int(round(s)))
+    (_, line_h), base = cv2.getTextSize("Ag", font, fs, ft)
+    row = line_h + base + int(6 * s)
+    pad = int(10 * s)
+    panel_w = 0
+    for ln in lines:
+        (tw, _), _ = cv2.getTextSize(ln, font, fs, ft)
+        panel_w = max(panel_w, tw)
+    panel_w = min(w, panel_w + 2 * pad)
+    panel_h = row * len(lines) + pad
+    overlay = img.copy()
+    cv2.rectangle(overlay, (0, 0), (panel_w, panel_h), (0, 0, 0), -1)
+    cv2.addWeighted(overlay, 0.55, img, 0.45, 0, img)
+    y = pad + line_h
+    for ln in lines:
+        cv2.putText(img, ln, (pad, y), font, fs, (0, 255, 255), ft, cv2.LINE_AA)
+        y += row
+
+    # Downscale for transfer (a 4K debug frame is huge); strokes/text were sized
+    # against the full frame so they stay legible after the resize.
+    max_w = 1600
+    if w > max_w:
+        scale = max_w / float(w)
+        img = cv2.resize(img, (max_w, int(round(h * scale))), interpolation=cv2.INTER_AREA)
+
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if not ok:
+        raise HTTPException(status_code=500, detail="encode failed")
+    return StreamingResponse(io.BytesIO(buf.tobytes()), media_type="image/jpeg")
 
 # ---------------------------------------------------------------------------
 # Constants

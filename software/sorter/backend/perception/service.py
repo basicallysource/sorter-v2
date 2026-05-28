@@ -354,6 +354,55 @@ class PerceptionService:
     def source_id_assertion_count(self) -> int:
         return sum(w.source_id_assertions for w in self._workers.values())
 
+    def channel_debug_info(self, channel_id: int) -> Optional[dict]:
+        """Everything the perception-debug overlay needs for one channel: the
+        last frame the worker inferred against, the RAW (pre-filter) bboxes and
+        the on-channel subset, the crop rect, and the exact model + camera the
+        detections came from. Returns ``None`` if the channel isn't wired or has
+        not completed an inference cycle. Read-only — no inference triggered."""
+        worker = self._workers.get(channel_id)
+        channel = self._channels.get(channel_id)
+        if worker is None or channel is None:
+            return None
+        debug = worker.latest_debug
+        if debug is None:
+            return None
+        runtime = self._runtimes.get(channel_id)
+        fp = self._fingerprints.get(channel_id)
+        capture = self._captures.get(channel_id)
+        camera_source = None
+        if capture is not None:
+            getter = getattr(getattr(capture, "capture_thread", None), "getCameraSource", None)
+            if callable(getter):
+                try:
+                    camera_source = getter()
+                except Exception:
+                    camera_source = None
+        model_path = getattr(runtime, "model_path", None)
+        model_name = str(model_path).rsplit("/", 1)[-1] if model_path else None
+        return {
+            "channel_id": channel_id,
+            "camera_source_id": channel.camera_source_id,
+            "camera_source": camera_source,
+            "algorithm_id": fp.runtime[0] if fp is not None else None,
+            "model_path": str(model_path) if model_path is not None else None,
+            "model_name": model_name,
+            "imgsz": getattr(runtime, "imgsz", None),
+            "conf_threshold": getattr(runtime, "conf_threshold", debug.get("conf_threshold")),
+            "iou_threshold": getattr(runtime, "iou_threshold", None),
+            "core_mask_name": getattr(runtime, "core_mask_name", None),
+            "raw_bboxes": debug.get("raw_bboxes") or [],
+            "on_channel_bboxes": debug.get("on_channel_bboxes") or [],
+            "crop_rect": debug.get("crop_rect"),
+            "infer_ms": debug.get("infer_ms"),
+            "frame": debug.get("frame"),
+            "center": channel.center,
+            "mask_shape": tuple(channel.mask.shape[:2]),
+            "n_drop_sections": len(channel.drop_sections),
+            "n_exit_sections": len(channel.exit_sections),
+            "n_precise_sections": len(channel.precise_sections),
+        }
+
 
 # ---------------------------------------------------------------------------
 # Boot-time builder

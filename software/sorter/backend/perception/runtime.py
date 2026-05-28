@@ -45,7 +45,10 @@ class RknnYoloRuntime:
     no role lookup.
     """
 
-    __slots__ = ("_processor", "_core_mask_name")
+    __slots__ = (
+        "_processor", "_core_mask_name", "_model_path", "_imgsz",
+        "_conf_threshold", "_iou_threshold",
+    )
 
     def __init__(
         self,
@@ -62,6 +65,11 @@ class RknnYoloRuntime:
         from vision.ml.rknn import RknnYoloProcessor
 
         self._core_mask_name = core_mask_name
+        # Stashed for introspection (the perception-debug overlay stamps these).
+        self._model_path = model_path
+        self._imgsz = int(imgsz)
+        self._conf_threshold = float(conf_threshold)
+        self._iou_threshold = float(iou_threshold)
         self._processor = RknnYoloProcessor(
             model_path=model_path,
             imgsz=imgsz,
@@ -73,6 +81,22 @@ class RknnYoloRuntime:
     @property
     def core_mask_name(self) -> str:
         return self._core_mask_name
+
+    @property
+    def model_path(self):
+        return self._model_path
+
+    @property
+    def imgsz(self) -> int:
+        return self._imgsz
+
+    @property
+    def conf_threshold(self) -> float:
+        return self._conf_threshold
+
+    @property
+    def iou_threshold(self) -> float:
+        return self._iou_threshold
 
     def infer(
         self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None

@@ -6,6 +6,7 @@
 
 
 import time
+import json
 from .bus import MCUDevice, BaseCommandCode
 import struct
 from global_config import GlobalConfig
@@ -21,6 +22,8 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_GET_POSITION = 0x15
     STEPPER_SET_POSITION = 0x16
     STEPPER_HOME = 0x17
+    STEPPER_JITTER = 0x18
+    STEPPER_IS_JITTERING = 0x19
     # Stepper driver commands
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
@@ -149,7 +152,45 @@ class StepperMotor:
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) FAILED")
         return success
-    
+
+    def jitter(self, amplitude_steps: int, cycles: int, speed: int, acceleration: int, *, force: bool = False) -> bool:
+        """Oscillate +-amplitude_steps microsteps for `cycles` full back-and-forths.
+
+        The firmware runs the oscillation autonomously on its real-time core and
+        returns to the starting position. Amplitude is a magnitude; direction is
+        symmetric so motor inversion is irrelevant.
+        """
+        if self.software_disabled and not force:
+            self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: jitter suppressed (software_disabled)")
+            return True
+        amplitude = abs(int(amplitude_steps))
+        if amplitude == 0 or cycles <= 0 or speed <= 0 or acceleration <= 0:
+            return False
+        self._gc.logger.info(
+            f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
+            f"jitter amplitude={amplitude} µsteps ({self.degrees_for_microsteps(amplitude):.2f}°), "
+            f"cycles={cycles}, speed={speed} µsteps/s, accel={acceleration} µsteps/s²"
+        )
+        payload = struct.pack("<iiii", amplitude, int(cycles), int(speed), int(acceleration))
+        res = self._dev.send_command(InterfaceCommandCode.STEPPER_JITTER, self._channel, payload)
+        success = len(res.payload) > 0 and bool(res.payload[0])
+        if not success:
+            self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: jitter was not acknowledged")
+        return success
+
+    def jitter_degrees(self, amplitude_degrees: float, cycles: int, speed: int, acceleration: int, *, force: bool = False) -> bool:
+        """Jitter with the per-stroke amplitude specified in motor degrees."""
+        return self.jitter(self.microsteps_for_degrees(abs(amplitude_degrees)), cycles, speed, acceleration, force=force)
+
+    def is_jittering(self) -> bool:
+        """True while a jitter run is in progress. Unlike `stopped`, this does not
+        flicker between strokes, so it is the reliable gate for refusing a
+        follow-up jitter until the current one has actually completed."""
+        if self.software_disabled:
+            return False
+        res = self._dev.send_command(InterfaceCommandCode.STEPPER_IS_JITTERING, self._channel, b'')
+        return len(res.payload) > 0 and bool(res.payload[0])
+
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
         """Set the minimum and maximum speed for the stepper in microsteps per second."""
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
@@ -324,6 +365,10 @@ class StepperMotor:
     @property
     def hardware_name(self) -> str:
         return self._hardware_name
+
+    @property
+    def board_info(self) -> dict:
+        return dict(getattr(self._dev, "_board_info", {}))
 
     def set_direction_inverted(self, inverted: bool) -> None:
         self._direction_inverted = bool(inverted)
@@ -542,6 +587,7 @@ class SorterInterface(MCUDevice):
     def __init__(self, bus, address, gc: GlobalConfig):
         super().__init__(bus, address)
         self._gc = gc
+        self._observability_info: dict | None = None
         # Obtain the device information to populate the internal objects
         retries = 5
         while retries > 0:
@@ -574,6 +620,20 @@ class SorterInterface(MCUDevice):
     @property
     def name(self):
         return self._name
+
+    @property
+    def board_info(self) -> dict:
+        return dict(self._board_info)
+
+    def get_observability_info(self, *, force_refresh: bool = False) -> dict:
+        if self._observability_info is not None and not force_refresh:
+            return dict(self._observability_info)
+        response = self.send_command(BaseCommandCode.GET_OBSERVABILITY, 0, b"")
+        payload = json.loads(response.payload.decode())
+        if not isinstance(payload, dict):
+            payload = {}
+        self._observability_info = payload
+        return dict(payload)
 
 if __name__ == "__main__":
     import logging as _logging

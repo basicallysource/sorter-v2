@@ -75,6 +75,7 @@ class Message:
 class BaseCommandCode:
     INIT = 0x00
     PING = 0x01
+    GET_OBSERVABILITY = 0x03
 
 
 class MCUBusError(Exception):

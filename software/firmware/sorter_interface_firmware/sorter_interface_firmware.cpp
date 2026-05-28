@@ -41,6 +41,7 @@
 void CMDH_init(const BusMessage *msg, BusMessage *resp);
 void CMDH_ping(const BusMessage *msg, BusMessage *resp);
 void CMDH_reboot_bootloader(const BusMessage *msg, BusMessage *resp);
+void CMDH_get_observability(const BusMessage *msg, BusMessage *resp);
 
 const struct CommandTable baseCmdTable = { //
     .prefix = NULL,
@@ -48,6 +49,7 @@ const struct CommandTable baseCmdTable = { //
         {"INIT", "", "s", 0, NULL, CMDH_init},
         {"PING", "", "", 255, NULL, CMDH_ping},
         {"REBOOT_BOOTLOADER", "", "", 0, NULL, CMDH_reboot_bootloader},
+        {"GET_OBSERVABILITY", "", "s", 0, NULL, CMDH_get_observability},
     }}};
 
 void CMDH_stepper_move_steps(const BusMessage *msg, BusMessage *resp);
@@ -58,6 +60,8 @@ void CMDH_stepper_is_stopped(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_get_position(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_set_position(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_jitter(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_is_jittering(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_enabled(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_microsteps(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_current(const BusMessage *msg, BusMessage *resp);
@@ -76,6 +80,8 @@ const struct CommandTable stepperCmdTable = {
         {"GET_POSITION", "", "i", 0, VAL_stepper_channel, CMDH_stepper_get_position},
         {"SET_POSITION", "i", "", 4, VAL_stepper_channel, CMDH_stepper_set_position},
         {"HOME", "iB?", "", 6, VAL_stepper_channel, CMDH_stepper_home},
+        {"JITTER", "iiii", "?", 16, VAL_stepper_channel, CMDH_stepper_jitter},
+        {"IS_JITTERING", "", "B", 0, VAL_stepper_channel, CMDH_stepper_is_jittering},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
@@ -232,6 +238,50 @@ static int append_stepper_names_json(char *buf, size_t buf_size) {
     return written + n;
 }
 
+static int append_stepper_diag_pins_json(char *buf, size_t buf_size) {
+    if (buf_size == 0) return -1;
+    int written = snprintf(buf, buf_size, "[");
+    if (written < 0 || (size_t)written >= buf_size) return -1;
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        int n = snprintf(buf + written, buf_size - written, "%s%d", i == 0 ? "" : ",", STEPPER_DIAG_PINS[i]);
+        if (n < 0 || (size_t)(written + n) >= buf_size) return -1;
+        written += n;
+    }
+    int n = snprintf(buf + written, buf_size - written, "]");
+    if (n < 0 || (size_t)(written + n) >= buf_size) return -1;
+    return written + n;
+}
+
+int dump_observability(char *buf, size_t buf_size) {
+    if (buf_size == 0) {
+        return 0;
+    }
+
+    char diag_pins_buf[128];
+    int diag_pins_len = append_stepper_diag_pins_json(diag_pins_buf, sizeof(diag_pins_buf));
+
+    int n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"hw\":\"%s\",\"diag_pins\":%s}",
+        HW_ID,
+        diag_pins_len > 0 ? diag_pins_buf : "[]");
+
+    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+        return n_bytes;
+    }
+
+    if (buf_size >= 3) {
+        buf[0] = '{';
+        buf[1] = '}';
+        buf[2] = '\0';
+        return 2;
+    }
+
+    buf[0] = '\0';
+    return 0;
+}
+
 int dump_configuration(char *buf, size_t buf_size) {
     if (buf_size == 0) {
         return 0;
@@ -245,6 +295,23 @@ int dump_configuration(char *buf, size_t buf_size) {
 
     if (names_len > 0) {
         int n_bytes = snprintf(
+            buf,
+            buf_size,
+            "{\"device_name\":\"%s\",\"stepper_count\":%d,"
+            "\"stepper_names\":%s,"
+            "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+            DEVICE_NAME,
+            STEPPER_COUNT,
+            names_buf,
+            DIGITAL_INPUT_COUNT,
+            DIGITAL_OUTPUT_COUNT,
+            SERVO_COUNT.load());
+
+        if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+            return n_bytes;
+        }
+
+        n_bytes = snprintf(
             buf,
             buf_size,
             "{\"device_name\":\"%s\",\"hw\":\"%s\",\"stepper_count\":%d,"
@@ -261,29 +328,13 @@ int dump_configuration(char *buf, size_t buf_size) {
         if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
             return n_bytes;
         }
-
-        n_bytes = snprintf(
-            buf,
-            buf_size,
-            "{\"hw\":\"%s\",\"stepper_count\":%d,"
-            "\"stepper_names\":%s,"
-            "\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
-            HW_ID,
-            STEPPER_COUNT,
-            names_buf,
-            DIGITAL_INPUT_COUNT,
-            DIGITAL_OUTPUT_COUNT,
-            SERVO_COUNT.load());
-
-        if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
-            return n_bytes;
-        }
     }
 
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        "{\"device_name\":\"%s\",\"hw\":\"%s\",\"stepper_count\":%d,\"digital_input_count\":%d,\"digital_output_count\":%d,\"servo_count\":%d}",
+        DEVICE_NAME,
         HW_ID,
         STEPPER_COUNT,
         DIGITAL_INPUT_COUNT,
@@ -393,6 +444,11 @@ void CMDH_reboot_bootloader(const BusMessage *msg, BusMessage *resp) {
     reset_usb_boot(0, 0);
 }
 
+void CMDH_get_observability(const BusMessage *msg, BusMessage *resp) {
+    (void)msg;
+    resp->payload_length = dump_observability((char *)resp->payload, MAX_PAYLOAD_SIZE);
+}
+
 bool VAL_stepper_channel(uint8_t channel) { return channel < STEPPER_COUNT; }
 
 void CMDH_stepper_move_steps(const BusMessage *msg, BusMessage *resp) {
@@ -476,6 +532,23 @@ void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp) {
     int home_pin = digital_input_pins[home_pin_channel];
     steppers[msg->channel].home(home_speed, home_pin, home_pin_polarity);
     resp->payload_length = 0;
+}
+
+void CMDH_stepper_jitter(const BusMessage *msg, BusMessage *resp) {
+    int32_t amplitude, cycles, speed, accel;
+    memcpy(&amplitude, msg->payload, sizeof(amplitude));
+    memcpy(&cycles, msg->payload + 4, sizeof(cycles));
+    memcpy(&speed, msg->payload + 8, sizeof(speed));
+    memcpy(&accel, msg->payload + 12, sizeof(accel));
+    bool result = steppers[msg->channel].jitter(amplitude, cycles, speed, accel);
+    resp->payload[0] = result ? 1 : 0;
+    resp->payload_length = 1;
+}
+
+void CMDH_stepper_is_jittering(const BusMessage *msg, BusMessage *resp) {
+    bool is_jittering = steppers[msg->channel].isJittering();
+    resp->payload[0] = is_jittering ? 1 : 0;
+    resp->payload_length = 1;
 }
 
 void CMDH_stepper_drv_set_enabled(const BusMessage *msg, BusMessage *resp) {

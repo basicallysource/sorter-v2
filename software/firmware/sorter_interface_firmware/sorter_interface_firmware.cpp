@@ -42,6 +42,7 @@ void CMDH_init(const BusMessage *msg, BusMessage *resp);
 void CMDH_ping(const BusMessage *msg, BusMessage *resp);
 void CMDH_reboot_bootloader(const BusMessage *msg, BusMessage *resp);
 void CMDH_get_observability(const BusMessage *msg, BusMessage *resp);
+void CMDH_get_version(const BusMessage *msg, BusMessage *resp);
 
 const struct CommandTable baseCmdTable = { //
     .prefix = NULL,
@@ -50,6 +51,7 @@ const struct CommandTable baseCmdTable = { //
         {"PING", "", "", 255, NULL, CMDH_ping},
         {"REBOOT_BOOTLOADER", "", "", 0, NULL, CMDH_reboot_bootloader},
         {"GET_OBSERVABILITY", "", "s", 0, NULL, CMDH_get_observability},
+        {"GET_VERSION", "", "s", 0, NULL, CMDH_get_version},
     }}};
 
 void CMDH_stepper_move_steps(const BusMessage *msg, BusMessage *resp);
@@ -170,6 +172,22 @@ const MasterCommandTable command_tables = {
 #define INIT_DEVICE_ADDRESS 0x00
 #endif
 
+#ifndef FIRMWARE_GIT_VERSION
+#define FIRMWARE_GIT_VERSION "unknown"
+#endif
+
+#ifndef FIRMWARE_GIT_COMMIT
+#define FIRMWARE_GIT_COMMIT "unknown"
+#endif
+
+#ifndef FIRMWARE_BUILD_TIME_UTC
+#define FIRMWARE_BUILD_TIME_UTC "unknown"
+#endif
+
+#ifndef FIRMWARE_VARIANT
+#define FIRMWARE_VARIANT "unknown"
+#endif
+
 char DEVICE_NAME[16] = INIT_DEVICE_NAME;
 uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 
@@ -212,6 +230,17 @@ static std::array<Stepper, STEPPER_COUNT> make_stepper_array(std::index_sequence
 }
 
 static auto steppers = make_stepper_array(std::make_index_sequence<STEPPER_COUNT>{});
+
+// Tracks whether each stepper's hardware nEN pin has been pulled low.
+// Starts false; set on first move or explicit enable so motors don't hold at boot.
+static bool stepper_hw_enabled[STEPPER_COUNT] = {};
+
+static void ensure_stepper_hw_enabled(int i) {
+    if (!stepper_hw_enabled[i]) {
+        gpio_put(STEPPER_nEN_PINS[i], 0);
+        stepper_hw_enabled[i] = true;
+    }
+}
 
 std::atomic<uint8_t> SERVO_COUNT = 0; // Number of servos controlled by the PCA9685, should be <= 16
 PCA9685 servo_controller(SERVO_I2C_ADDRESS, I2C_PORT);
@@ -360,6 +389,35 @@ int dump_configuration(char *buf, size_t buf_size) {
     return 0;
 }
 
+int dump_version(char *buf, size_t buf_size) {
+    if (buf_size == 0) {
+        return 0;
+    }
+
+    int n_bytes = snprintf(
+        buf,
+        buf_size,
+        "{\"firmware_version\":\"%s\",\"variant\":\"%s\",\"commit\":\"%s\",\"build_time_utc\":\"%s\"}",
+        FIRMWARE_GIT_VERSION,
+        FIRMWARE_VARIANT,
+        FIRMWARE_GIT_COMMIT,
+        FIRMWARE_BUILD_TIME_UTC);
+
+    if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
+        return n_bytes;
+    }
+
+    if (buf_size >= 3) {
+        buf[0] = '{';
+        buf[1] = '}';
+        buf[2] = '\0';
+        return 2;
+    }
+
+    buf[0] = '\0';
+    return 0;
+}
+
 /** \brief Initialize all hardware components, including GPIOs, UART, stepper drivers, etc.
  *
  * This function is called once at startup to set up the hardware for operation. It configures the TMC2209 drivers,
@@ -383,11 +441,12 @@ void initialize_hardware() {
         tmc_drivers[i].setMicrosteps(MICROSTEP_8);
         tmc_drivers[i].enableStealthChop(true);
     }
-    // Global enable for stepper drivers
+    // Initialize nEN pins but leave HIGH (disabled) until first move or explicit enable
     for (int i = 0; i < STEPPER_COUNT; i++) {
         gpio_init(STEPPER_nEN_PINS[i]);
         gpio_set_dir(STEPPER_nEN_PINS[i], GPIO_OUT);
-        gpio_put(STEPPER_nEN_PINS[i], 0); // Enable stepper drivers
+        gpio_put(STEPPER_nEN_PINS[i], 1);
+        stepper_hw_enabled[i] = false;
     }
     // Initialize digital inputs
     for (int i = 0; i < DIGITAL_INPUT_COUNT; i++) {
@@ -452,11 +511,17 @@ void CMDH_get_observability(const BusMessage *msg, BusMessage *resp) {
     resp->payload_length = dump_observability((char *)resp->payload, MAX_PAYLOAD_SIZE);
 }
 
+void CMDH_get_version(const BusMessage *msg, BusMessage *resp) {
+    (void)msg;
+    resp->payload_length = dump_version((char *)resp->payload, MAX_PAYLOAD_SIZE);
+}
+
 bool VAL_stepper_channel(uint8_t channel) { return channel < STEPPER_COUNT; }
 
 void CMDH_stepper_move_steps(const BusMessage *msg, BusMessage *resp) {
     int32_t distance;
     memcpy(&distance, msg->payload, sizeof(distance));
+    ensure_stepper_hw_enabled(msg->channel);
     bool result = steppers[msg->channel].moveSteps(distance);
     resp->payload[0] = result ? 1 : 0;
     resp->payload_length = 1;
@@ -465,6 +530,7 @@ void CMDH_stepper_move_steps(const BusMessage *msg, BusMessage *resp) {
 void CMDH_stepper_move_at_speed(const BusMessage *msg, BusMessage *resp) {
     int32_t speed;
     memcpy(&speed, msg->payload, sizeof(speed));
+    ensure_stepper_hw_enabled(msg->channel);
     bool result = steppers[msg->channel].moveAtSpeed(speed);
     resp->payload[0] = result ? 1 : 0;
     resp->payload_length = 1;
@@ -533,6 +599,7 @@ void CMDH_stepper_home(const BusMessage *msg, BusMessage *resp) {
         return;
     }
     int home_pin = digital_input_pins[home_pin_channel];
+    ensure_stepper_hw_enabled(msg->channel);
     steppers[msg->channel].home(home_speed, home_pin, home_pin_polarity);
     resp->payload_length = 0;
 }
@@ -543,6 +610,7 @@ void CMDH_stepper_jitter(const BusMessage *msg, BusMessage *resp) {
     memcpy(&cycles, msg->payload + 4, sizeof(cycles));
     memcpy(&speed, msg->payload + 8, sizeof(speed));
     memcpy(&accel, msg->payload + 12, sizeof(accel));
+    ensure_stepper_hw_enabled(msg->channel);
     bool result = steppers[msg->channel].jitter(amplitude, cycles, speed, accel);
     resp->payload[0] = result ? 1 : 0;
     resp->payload_length = 1;
@@ -556,6 +624,7 @@ void CMDH_stepper_is_jittering(const BusMessage *msg, BusMessage *resp) {
 
 void CMDH_stepper_drv_set_enabled(const BusMessage *msg, BusMessage *resp) {
     bool enabled = msg->payload[0] != 0;
+    if (enabled) ensure_stepper_hw_enabled(msg->channel);
     tmc_drivers[msg->channel].enableDriver(enabled);
     resp->payload_length = 0;
 }

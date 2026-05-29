@@ -62,4 +62,16 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 	>
 		<SampleStorageSection />
 	</SectionCard>
+
+	<SectionCard
+		title="Stepper StallGuard Telemetry"
+		description="Record and graph TMC2209 motor load (SG_RESULT), run targeted sweeps, and tune stall thresholds."
+	>
+		<a
+			href="/settings/stepper-stallguard"
+			class="inline-flex items-center border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-contrast transition-colors hover:bg-primary-hover"
+		>
+			Open StallGuard Telemetry
+		</a>
+	</SectionCard>
 </div>

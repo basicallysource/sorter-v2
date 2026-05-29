@@ -19,6 +19,7 @@ PICO_VID = 0x2E8A
 PICO_PID = 0x000A
 CMD_INIT = 0x00
 CMD_REBOOT_BOOTLOADER = 0x02
+CMD_GET_VERSION = 0x04
 
 
 def _cobs_encode(message: bytes) -> bytearray:
@@ -168,6 +169,9 @@ def main() -> None:
     # Check if board is already in bootloader mode before scanning serial ports
     if _find_rpi_rp2():
         print(f"RPI-RP2 already mounted in bootloader mode — flashing directly.")
+        target_port = None
+    elif platform.system() != "Darwin" and _find_rpi_rp2_blockdev():
+        print(f"RPI-RP2 block device found (not yet mounted) — flashing directly.")
         target_port = None
     else:
         print("Scanning for Pico boards...")

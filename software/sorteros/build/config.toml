@@ -9,7 +9,7 @@ sha256 = ""  # fill in when known
 
 [output]
 dir = "out"
-version = "4.0.0"
+version = "4.0.1"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]

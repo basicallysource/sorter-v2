@@ -199,9 +199,13 @@ def _render_status_page() -> bytes:
         )
 
     if complete:
+        # Relative reload — stay on whatever address the user reached this page
+        # on (IP, .local, hostname). sorter-ui takes over :80 on the same host,
+        # so a same-origin reload lands on the Sorter UI; a hardcoded .local
+        # link would wrongly bounce IP users off to an unresolvable name.
         banner = (
             '<div class="banner done">✓ Setup complete · '
-            f'<a href="http://{_html.escape(hostname)}.local/">Reload for Sorter UI →</a></div>'
+            '<a href="/">Reload for Sorter UI →</a></div>'
         )
     else:
         banner = (
@@ -595,16 +599,16 @@ def stage_write_env() -> None:
         return
     if not SOFTWARE_DIR.exists():
         raise RuntimeError("repo not cloned yet")
-    hostname = _hostname()
     env_path.write_text(
         "export DEBUG_LEVEL=2\n"
         "export PYTHONUNBUFFERED=1\n"
         'export MACHINE_SPECIFIC_PARAMS_PATH="../machine.toml"\n'
         f'export SORTING_PROFILE_PATH="{SOFTWARE_DIR}/sorter/backend/sorting_profile.json"\n'
         "export SORTER_API_HOST=0.0.0.0\n"
-        f'export SORTER_API_ALLOWED_ORIGINS='
-        f'"http://{hostname},http://{hostname}.local,http://localhost,'
-        f'http://{hostname}:5173,http://localhost:5173"\n'
+        # Headless LAN device: the user reaches it by IP, hostname, or .local —
+        # whichever resolves for them. The local API is unauthenticated and not
+        # internet-exposed, so accept any browser origin instead of guessing.
+        'export SORTER_API_ALLOWED_ORIGINS="*"\n'
     )
     sh(["chown", "orangepi:orangepi", str(env_path)])
 

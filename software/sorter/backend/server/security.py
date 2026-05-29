@@ -20,6 +20,11 @@ def normalize_origin(origin: str | None) -> str | None:
 
 
 def origin_allowed(origin: str | None, allowed_origins: list[str] | tuple[str, ...]) -> bool:
+    # "*" means allow-all (set for headless LAN devices reachable on any
+    # IP/hostname — the local sorter API is unauthenticated and not
+    # internet-exposed, so this is the right call there).
+    if any(item == "*" for item in allowed_origins if isinstance(item, str)):
+        return True
     normalized = normalize_origin(origin)
     if normalized is None:
         return False
@@ -56,15 +61,23 @@ def websocket_connection_allowed(
 def compute_allowed_ui_origins() -> list[str]:
     override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
     if override:
+        items = [item.strip() for item in override.split(",")]
+        if "*" in items:
+            return ["*"]
         return _dedupe_origins(
             [
                 origin
-                for origin in (normalize_origin(item) for item in override.split(","))
+                for origin in (normalize_origin(item) for item in items)
                 if origin is not None
             ]
         )
 
     bind_host = os.getenv("SORTER_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    # Bound to all interfaces → a headless LAN device the user reaches by
+    # whatever IP/hostname/.local resolves for them. We can't enumerate those,
+    # and the API is local + unauthenticated, so accept any origin.
+    if bind_host == "0.0.0.0":
+        return ["*"]
     ui_port = os.getenv("SORTER_UI_PORT", "5173").strip() or "5173"
     origins = [
         f"http://localhost:{ui_port}",

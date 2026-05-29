@@ -2,6 +2,9 @@
 AGENTS.md
 .tmp-*
 
+# Machine-specific config — never commit, in any directory
+machine.toml
+
 software/sorteros/build/.env
 software/sorteros/build/*.authkey
 software/sorteros/build/out/

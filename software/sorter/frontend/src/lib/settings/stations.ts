@@ -1,4 +1,4 @@
-import { Camera, Cloud, Cpu, Gauge, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
+import { Camera, Cloud, Cpu, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -95,12 +95,6 @@ export const chuteNavItem: SettingsNavItem = {
 	icon: Wrench
 };
 
-export const cChannelTrackingStressNavItem: SettingsNavItem = {
-	href: '/settings/c-channel-tracking-stress-test',
-	label: 'C-Channel Tracking Stress Test',
-	icon: Gauge
-};
-
 export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
@@ -195,9 +189,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
-	storageLayersNavItem,
-	{ type: 'heading', label: 'Stress Test' },
-	cChannelTrackingStressNavItem
+	storageLayersNavItem
 ];
 
 export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {

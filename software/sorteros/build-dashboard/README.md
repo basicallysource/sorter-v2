@@ -37,7 +37,7 @@ colima start --arch aarch64 --cpu 4 --memory 8 --disk 60 \
 # Start a build
 curl -X POST http://localhost:7373/build \
   -H 'Content-Type: application/json' \
-  -d '{"version": "3.4.4", "branch": "sorteros-v3"}'
+  -d '{"version": "3.4.5", "branch": "sorteros-v3"}'
 
 # Poll status
 curl http://localhost:7373/build/status

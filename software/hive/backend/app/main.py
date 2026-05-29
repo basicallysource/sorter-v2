@@ -13,6 +13,7 @@ from app.routers import (
     api_keys,
     auth,
     leaderboard,
+    machine_lookup,
     machine_models,
     machines,
     models as models_router,
@@ -66,6 +67,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(machines.router)
+app.include_router(machine_lookup.router)
 app.include_router(profiles.router)
 app.include_router(upload.router)
 app.include_router(samples.router)

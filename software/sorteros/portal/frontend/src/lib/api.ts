@@ -29,6 +29,8 @@ export type ConnectPayload = {
 	hidden?: boolean;
 	hostname?: string | null;
 	sshKey?: string | null;
+	rendezvousId?: string | null;
+	publicKey?: string | null;
 };
 
 export type ConnectResponse = {

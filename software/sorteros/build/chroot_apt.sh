@@ -45,11 +45,13 @@ log "installing sorteros-portal python deps"
 python3 -m pip install --no-cache-dir --break-system-packages \
     fastapi==0.115.4 \
     'uvicorn[standard]==0.32.0' \
-    pydantic==2.9.2 || \
+    pydantic==2.9.2 \
+    cryptography==43.0.3 || \
     python3 -m pip install --no-cache-dir \
         fastapi==0.115.4 \
         'uvicorn[standard]==0.32.0' \
-        pydantic==2.9.2
+        pydantic==2.9.2 \
+        cryptography==43.0.3
 
 # Without an enabled NTP client the system boots with a stale RTC, TLS certs
 # fail "not yet valid", and clone-repo/uv-sync/pnpm-install all bail with

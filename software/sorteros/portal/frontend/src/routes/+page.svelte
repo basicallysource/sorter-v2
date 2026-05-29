@@ -1,8 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { connect, fetchStatus, scanNetworks, type StatusResponse, type WifiNetwork } from '$lib/api';
+	import { createRendezvous, lookupUrl, type Rendezvous } from '$lib/rendezvous';
 	import SignalBars from '$lib/components/SignalBars.svelte';
 	import HandoffPanel from '$lib/components/HandoffPanel.svelte';
+
+	// Where the encrypted LAN-IP rendezvous is relayed. Kept in lock-step with
+	// the portal backend's DEFAULT_HIVE_URL and the sorter's DEFAULT_HIVE_URL.
+	const HIVE_URL = 'https://hive.basically.website';
 
 	type Stage = 'loading' | 'pick' | 'auth' | 'submitting' | 'handoff' | 'error';
 
@@ -21,7 +26,16 @@
 	let showAdvanced = $state(false);
 
 	let submitError = $state<string | null>(null);
-	let handoff = $state<{ ssid: string; nextUrl: string; teardownInS?: number } | null>(null);
+	let handoff = $state<{
+		ssid: string;
+		nextUrl: string;
+		lookupUrl: string | null;
+		teardownInS?: number;
+	} | null>(null);
+
+	// Generated once on mount; the public half is sent to the Pi, the private
+	// half is folded into the Hive lookup URL on handoff.
+	let rendezvous: Rendezvous | null = null;
 
 	const selectedIsOpen = $derived(selected !== null && (selected.security || '').trim() === '');
 
@@ -81,11 +95,14 @@
 				password: selectedIsOpen ? '' : password,
 				hidden: selected === null,
 				hostname: hostnameDraft.trim() || null,
-				sshKey: sshKeyDraft.trim() || null
+				sshKey: sshKeyDraft.trim() || null,
+				rendezvousId: rendezvous?.id ?? null,
+				publicKey: rendezvous?.publicKeyB64 ?? null
 			});
 			handoff = {
 				ssid,
 				nextUrl: res.next_url,
+				lookupUrl: rendezvous ? lookupUrl(HIVE_URL, rendezvous) : null,
 				teardownInS: res.teardown_in_s ?? 5
 			};
 			stage = 'handoff';
@@ -96,6 +113,12 @@
 	}
 
 	onMount(async () => {
+		// Kick off keypair generation immediately — it's ready long before the
+		// user finishes picking a network. Failure (e.g. no WebCrypto on a
+		// plain-http origin) just drops us to the .local-only handoff.
+		void createRendezvous().then((r) => {
+			rendezvous = r;
+		});
 		await refreshStatus();
 		await rescan();
 		if (stage === 'loading') {
@@ -300,7 +323,12 @@
 			</button>
 		</form>
 	{:else if stage === 'handoff' && handoff}
-		<HandoffPanel ssid={handoff.ssid} nextUrl={handoff.nextUrl} teardownInS={handoff.teardownInS ?? 5} />
+		<HandoffPanel
+			ssid={handoff.ssid}
+			nextUrl={handoff.nextUrl}
+			lookupUrl={handoff.lookupUrl}
+			teardownInS={handoff.teardownInS ?? 5}
+		/>
 	{/if}
 
 	<footer class="mt-auto pt-8 text-center text-xs text-[var(--color-text-muted)]/70">

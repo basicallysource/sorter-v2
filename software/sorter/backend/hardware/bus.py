@@ -32,6 +32,7 @@ specific to that device, while the MCUBus class handles the low-level communicat
 
 import json
 import logging
+import os
 from . import cobs
 import serial
 
@@ -40,6 +41,14 @@ import time
 from zlib import crc32
 from dataclasses import dataclass
 from threading import Lock
+
+# Set SORTER_PROFILE_BUS=1 to log how long each bus round-trip blocks the
+# caller. Every send_command takes the bus lock, writes, then blocks on
+# read_until waiting for the MCU reply — there is no queue or worker thread, so
+# the time spent here is time the calling thread (e.g. the coordinator loop) is
+# stalled. SORTER_PROFILE_BUS_MIN_MS suppresses noise from fast commands.
+_PROFILE_BUS = os.environ.get("SORTER_PROFILE_BUS") == "1"
+_PROFILE_BUS_MIN_MS = float(os.environ.get("SORTER_PROFILE_BUS_MIN_MS", "20"))
 
 
 MAX_PAYLOAD_SIZE = (
@@ -66,6 +75,7 @@ class Message:
 class BaseCommandCode:
     INIT = 0x00
     PING = 0x01
+    GET_OBSERVABILITY = 0x03
 
 
 class MCUBusError(Exception):
@@ -269,8 +279,25 @@ class MCUDevice:
         self._address = address
 
     def send_command(self, command: int, channel: int, payload: bytes) -> Message:
-        """Send a command to this device and return the response."""
-        return self._bus.send_command(self._address, command, channel, payload)
+        """Send a command to this device and return the response.
+
+        This is a synchronous request/response round-trip — there is no queue
+        or worker thread. The calling thread blocks here until the MCU replies
+        (or the serial read times out). Set SORTER_PROFILE_BUS=1 to log how long
+        each call blocks the caller.
+        """
+        if not _PROFILE_BUS:
+            return self._bus.send_command(self._address, command, channel, payload)
+        started = time.perf_counter()
+        try:
+            return self._bus.send_command(self._address, command, channel, payload)
+        finally:
+            elapsed_ms = (time.perf_counter() - started) * 1000.0
+            if elapsed_ms >= _PROFILE_BUS_MIN_MS:
+                logging.warning(
+                    "MCU bus blocked caller %.1fms (addr=%d cmd=%#04x ch=%d)",
+                    elapsed_ms, self._address, command, channel,
+                )
 
     def ping(self, payload: bytes = b"") -> bytes:
         """Send a ping command and return the device's echoed payload bytes.

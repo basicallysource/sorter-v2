@@ -28,7 +28,20 @@ class Classifying(Rev01BaseState):
         if not self._submitted:
             self.ctx.classify_started_at = now
             all_captures = list(self.ctx.captured_crops)
+            select_started = time.perf_counter()
             captures = self.selectRecognitionCrops(all_captures)
+            self.gc.runtime_stats.observePerfMs(
+                "classification.rev01.classifying.select_crops_ms",
+                (time.perf_counter() - select_started) * 1000.0,
+            )
+            self.gc.profiler.observeValue(
+                "classification.rev01.classifying.capture_count",
+                float(len(all_captures)),
+            )
+            self.gc.profiler.observeValue(
+                "classification.rev01.classifying.selected_capture_count",
+                float(len(captures)),
+            )
             self._submitted_captures = list(captures)
             self._submitted = True
             if not captures:
@@ -43,7 +56,12 @@ class Classifying(Rev01BaseState):
                 f"{LOG_TAG} submitting {len(captures)} of {len(all_captures)} captured images to Brickognize "
                 f"(~{total_bytes / 1024:.1f} KiB raw)"
             )
+            spawn_started = time.perf_counter()
             self._spawnClassifyThread(captures)
+            self.gc.runtime_stats.observePerfMs(
+                "classification.rev01.classifying.spawn_thread_ms",
+                (time.perf_counter() - spawn_started) * 1000.0,
+            )
 
         with self.ctx.classify_lock:
             result = self.ctx.classification_result

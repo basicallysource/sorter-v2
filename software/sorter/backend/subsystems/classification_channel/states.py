@@ -11,3 +11,4 @@ class ClassificationChannelState(str, Enum):
     REV01_ROTATING_AND_CAPTURING = "rev01_rotating_and_capturing"
     REV01_CLASSIFYING = "rev01_classifying"
     REV01_DISCHARGING = "rev01_discharging"
+    REV01_VERIFYING_DISCHARGE = "rev01_verifying_discharge"

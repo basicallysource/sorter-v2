@@ -64,6 +64,13 @@
 
 	const c4_active_ppm = $derived(typeof c4.active_ppm === 'number' ? c4.active_ppm : 0);
 
+	// Rolling 5-minute distributed ppm — all pieces physically distributed in
+	// the last 300 s, regardless of classification outcome.
+	const rolling_5min_ppm = $derived.by(() => {
+		const v = (throughput as Record<string, unknown>).rolling_5min_ppm;
+		return typeof v === 'number' && Number.isFinite(v) ? v : null;
+	});
+
 	// Feed rate: pieces_seen / running_time_s.
 	const feed_rate_ppm = $derived.by(() => {
 		const running_s = throughput.running_time_s;
@@ -143,11 +150,11 @@
 			<div class="grid grid-cols-2 gap-2">
 				<div class="border border-border bg-bg p-2">
 					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
-						Classified / min
+						Dist / min (5m avg)
 					</div>
 					<div class="flex items-baseline gap-1">
 						<span class="text-3xl font-semibold tabular-nums text-text">
-							{fmtPpm(goal_rate_ppm)}
+							{fmtPpm(rolling_5min_ppm)}
 						</span>
 						<span class="text-xs text-text-muted">ppm · goal 8</span>
 					</div>

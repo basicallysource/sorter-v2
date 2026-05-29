@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 
 from global_config import GlobalConfig
+from vision.types import CameraFrame
 from .constants import LOG_TAG
 
 
@@ -25,11 +26,17 @@ class Rev01Vision:
         self.gc = gc
         self.logger = gc.logger
 
-    def _rawCandidates(self) -> list[tuple[int, int, int, int]]:
+    def _rawCandidates(
+        self, frame: Optional[CameraFrame] = None
+    ) -> list[tuple[int, int, int, int]]:
         if self._vision is None:
             return []
         try:
-            return list(self._vision.getClassificationChannelDetectionCandidates())
+            if frame is None:
+                return list(self._vision.getClassificationChannelDetectionCandidates())
+            return list(
+                self._vision.getClassificationChannelDetectionCandidates(frame=frame)
+            )
         except Exception as exc:
             self.logger.warning(f"{LOG_TAG} raw YOLO bbox fetch failed: {exc}")
             return []
@@ -53,7 +60,11 @@ class Rev01Vision:
 
     def bboxesOnChannel(self) -> list[tuple[int, int, int, int]]:
         """Raw detections whose center lies inside the carousel zone polygon."""
-        candidates = self._rawCandidates()
+        return self._filterOnChannel(self._rawCandidates())
+
+    def _filterOnChannel(
+        self, candidates: list[tuple[int, int, int, int]]
+    ) -> list[tuple[int, int, int, int]]:
         if not candidates:
             return []
         polygon = self._carouselPolygon()
@@ -71,6 +82,25 @@ class Rev01Vision:
             if cv2.pointPolygonTest(polygon, (cx, cy), False) >= 0:
                 on_channel.append(bbox)
         return on_channel
+
+    def bboxesAndFrameOnChannel(
+        self,
+    ) -> tuple[list[tuple[int, int, int, int]], Optional[CameraFrame]]:
+        # Tie bbox computation and crop source to a SINGLE CameraFrame. The
+        # capture thread overwrites latest_frame during inference, so a
+        # later capture.latest_frame read would be a newer frame than the
+        # one bboxes were computed against — that's the
+        # classification-crop-frame-skew bug (see known-issues note).
+        if self._vision is None:
+            return [], None
+        capture = getattr(self._vision, "_carousel_capture", None)
+        if capture is None:
+            return [], None
+        frame = capture.latest_frame
+        if frame is None or frame.raw is None:
+            return [], None
+        bboxes = self._filterOnChannel(self._rawCandidates(frame=frame))
+        return bboxes, frame
 
     def latestRawFrame(self) -> Optional[np.ndarray]:
         if self._vision is None:

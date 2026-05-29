@@ -31,7 +31,8 @@ Stepper::Stepper(int step_pin, int dir_pin)
     _state(STEPPER_STOPPED), _mc_distance(-1), _mc_speed(-1),
       _mc_dir(1), _mc_home_pin(-1),
     _steps_moved(0), _steps_frac(0), _brake_distance(0),
-    _current_speed(0), _current_speed_frac(0), _current_dir(1) {
+    _current_speed(0), _current_speed_frac(0), _current_dir(1),
+    _jitter_active(false), _jitter_amplitude(0), _jitter_strokes_remaining(0), _jitter_dir(1) {
 }
 
 void Stepper::initialize() {
@@ -56,7 +57,17 @@ void Stepper::setAcceleration(uint32_t acceleration) {
 }
 
 void Stepper::cancel() {
+    // If we tear down an in-flight jitter, restore the motion params it saved so
+    // the override doesn't outlive the jitter.
+    if (_jitter_active.load()) {
+        _accel = _saved_accel;
+        _max_speed = _saved_max_speed;
+        _min_speed = _saved_min_speed;
+    }
     _state = STEPPER_STOPPED;
+    _jitter_active.store(false);
+    _jitter_strokes_remaining.store(0);
+    _jitter_amplitude.store(0);
     _mc_distance.store(0);
     _mc_speed.store(0);
     _mc_home_pin.store(-1);
@@ -68,6 +79,7 @@ void Stepper::cancel() {
 }
 
 bool Stepper::moveSteps(int32_t distance) {
+    if (_jitter_active.load()) return false; // Don't interrupt an in-flight jitter
     if (_state != STEPPER_STOPPED) return false; // Only allow new move when stopped
     // From this point we assume we start from a standstill
     if (distance == 0) return true; // No move
@@ -87,6 +99,28 @@ bool Stepper::moveSteps(int32_t distance) {
 }
 
 bool Stepper::moveAtSpeed(int32_t speed) {
+    // A jitter is owned by core1 and always runs to completion; reject any speed
+    // command (including a stop) while one is active so core0 never mutates the
+    // jitter's motion state underneath the relaunching strokes. The UI "stop"
+    // instead cuts driver current (DRV_SET_ENABLED false) — the jitter then
+    // finishes its remaining strokes silently against a de-energized driver.
+    if (_jitter_active.load()) return false;
+    if (speed == 0) {
+        _mc_speed = 0;
+        _mc_distance = -1;
+        _mc_home_pin.store(-1);
+        _mc_dir.store(_current_dir.load());
+        _steps_moved = 0;
+        _steps_frac = 0;
+        if (_state == STEPPER_STOPPED) {
+            _current_speed = 0;
+            _current_speed_frac = 0;
+            return true;
+        }
+        _state = STEPPER_BRAKING;
+        return true;
+    }
+
     _mc_dir.store((speed > 0) ? 1 : -1);
     _mc_speed = (speed > 0) ? speed : -speed;
     _mc_distance = 0;
@@ -119,6 +153,53 @@ bool Stepper::moveAtSpeed(int32_t speed) {
     _steps_moved = 0;
     _steps_frac = 0;
     return true;
+}
+
+bool Stepper::jitter(int32_t amplitude, int32_t cycles, int32_t speed, int32_t accel) {
+    if (_jitter_active.load()) return false; // Reject overlapping jitter; let the current one finish
+    if (_state != STEPPER_STOPPED) return false; // Only start from standstill
+    if (amplitude <= 0 || cycles <= 0 || speed <= 0 || accel <= 0) return false;
+    // Snapshot the normal motion params so we can put them back when the jitter
+    // finishes — the jitter's fast accel/speed must not leak into later moves.
+    _saved_accel = _accel;
+    _saved_max_speed = _max_speed;
+    _saved_min_speed = _min_speed;
+    setAcceleration((uint32_t)accel);
+    setSpeedLimits(_min_speed, (uint32_t)speed);
+    _jitter_amplitude.store(amplitude);
+    _jitter_strokes_remaining.store(cycles * 2); // each cycle = forward + back
+    _jitter_dir.store(1);
+    _jitter_active.store(true);
+    beginJitterStroke();
+    return true;
+}
+
+// Launch a single jitter stroke as a distance move, reusing the accel/brake
+// machinery. Unlike moveSteps() this does not touch the jitter bookkeeping, so
+// the STOPPED handler in motion_update_tick() can chain the next stroke.
+void Stepper::beginJitterStroke() {
+    int32_t amp = _jitter_amplitude.load();
+    // Defensive: never start a zero-length distance move (it would never satisfy
+    // _steps_moved >= _mc_distance and would cruise forever).
+    if (amp <= 0) {
+        _state = STEPPER_STOPPED;
+        _jitter_strokes_remaining.store(0);
+        _jitter_amplitude.store(0);
+        _jitter_active.store(false);
+        return;
+    }
+    int32_t dir = _jitter_dir.load();
+    _mc_distance = amp;
+    _mc_dir.store(dir);
+    _mc_speed = -1; // Not a speed move
+    _mc_home_pin.store(-1);
+    _current_speed = _min_speed;
+    _current_speed_frac = 0;
+    _current_dir.store(dir);
+    _steps_moved = 0;
+    _steps_frac = 0;
+    _brake_distance = amp / 2;
+    _state = STEPPER_ACCELERATING;
 }
 
 void Stepper::home(int32_t home_speed, int home_pin, bool home_pin_polarity) {
@@ -190,7 +271,26 @@ void Stepper::stepgen_tick() {
 void Stepper::motion_update_tick() {
     switch (_state) {
         case STEPPER_STOPPED:
-            // Nothing to do
+            // Chain the next jitter stroke if one is pending. A completed stroke
+            // lands here (stepgen sets STOPPED); we flip direction and relaunch
+            // until all strokes are done, leaving net displacement at zero. The
+            // last stroke clears _jitter_active, which re-opens jitter()/moves.
+            if (_jitter_strokes_remaining.load() > 0) {
+                int32_t rem = _jitter_strokes_remaining.load() - 1;
+                _jitter_strokes_remaining.store(rem);
+                if (rem > 0) {
+                    _jitter_dir.store(-_jitter_dir.load());
+                    beginJitterStroke();
+                } else {
+                    _jitter_amplitude.store(0);
+                    _jitter_active.store(false);
+                    // Jitter done: put the normal motion params back so the next
+                    // ordinary move uses them, not the jitter's fast accel/speed.
+                    _accel = _saved_accel;
+                    _max_speed = _saved_max_speed;
+                    _min_speed = _saved_min_speed;
+                }
+            }
             break;
         case STEPPER_ACCELERATING: {
             // Increase speed

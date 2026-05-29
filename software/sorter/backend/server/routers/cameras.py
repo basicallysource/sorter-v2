@@ -3921,10 +3921,15 @@ def camera_feed_by_role(
             def generate_live():
                 last_frame_ts: float | None = None
                 while True:
+                    fetch_started = time.perf_counter()
                     frame_obj = feed.get_frame(
                         annotated=want_annotated,
                         exclude_categories=exclude_categories,
                         color_correct=color_correct,
+                    )
+                    shared_state.gc_ref.runtime_stats.observePerfMs(
+                        f"preview.{role}.get_frame_ms",
+                        (time.perf_counter() - fetch_started) * 1000.0,
                     )
                     if frame_obj is None:
                         time.sleep(0.05)
@@ -3938,6 +3943,11 @@ def camera_feed_by_role(
                         if want_annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
+                    shared_state.gc_ref.runtime_stats.observePerfMs(
+                        f"preview.{role}.frame_age_ms",
+                        max(0.0, (time.time() - float(frame_obj.timestamp)) * 1000.0),
+                    )
+                    process_started = time.perf_counter()
                     # Downscale FIRST. The dashboard crop is a warpPerspective
                     # (or polygon mask) on the input frame — on a 4K camera that
                     # cost ~400 ms/frame, capping the stream at ~2 fps. Doing
@@ -3955,13 +3965,27 @@ def camera_feed_by_role(
                             interpolation=cv2.INTER_AREA,
                         )
                     frame = _dashboard_frame(frame)
+                    shared_state.gc_ref.runtime_stats.observePerfMs(
+                        f"preview.{role}.process_ms",
+                        (time.perf_counter() - process_started) * 1000.0,
+                    )
                     if prof is not None:
                         prof.hit(f"encode.{role}.frames")
                         prof.mark(f"encode.{role}.interval_ms")
                         with prof.timer(f"encode.{role}.encode_ms"):
+                            encode_started = time.perf_counter()
                             chunk = encoder.encode_chunk(frame, quality=55)
+                            shared_state.gc_ref.runtime_stats.observePerfMs(
+                                f"preview.{role}.encode_ms",
+                                (time.perf_counter() - encode_started) * 1000.0,
+                            )
                     else:
+                        encode_started = time.perf_counter()
                         chunk = encoder.encode_chunk(frame, quality=55)
+                        shared_state.gc_ref.runtime_stats.observePerfMs(
+                            f"preview.{role}.encode_ms",
+                            (time.perf_counter() - encode_started) * 1000.0,
+                        )
                     yield chunk
 
             return StreamingResponse(
@@ -4048,6 +4072,17 @@ def assign_cameras(assignment: CameraAssignment) -> Dict[str, Any]:
         "classification_bottom": cameras.get("classification_bottom"),
     }
     shared_state.publishCamerasConfig(assignment)
+
+    # Perception (rev04 mode pair) binds each channel to a camera role's
+    # capture thread. A reassignment swaps which physical camera (and which
+    # resolution) backs a role; poke the reconciler so it rebinds the affected
+    # channels within a couple seconds instead of needing a restart.
+    _ps = getattr(shared_state.gc_ref, "perception_service", None)
+    if _ps is not None:
+        try:
+            _ps.request_reconcile()
+        except Exception:
+            pass
 
     return {
         "ok": True,
@@ -4633,7 +4668,7 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
     """Enumerate (fourcc, width, height, fps) tuples for /dev/videoN.
 
     Parses `v4l2-ctl --list-formats-ext` output. Returns one entry per
-    (fourcc, width, height) with the maximum fps. Empty list on failure.
+    unique (fourcc, width, height, fps) combination. Empty list on failure.
     """
     try:
         result = subprocess.run(
@@ -4647,7 +4682,8 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
     if result.returncode != 0:
         return []
 
-    modes: Dict[tuple[str, int, int], Dict[str, Any]] = {}
+    seen: set[tuple[str, int, int, int]] = set()
+    modes: List[Dict[str, Any]] = []
     current_fourcc: str | None = None
     current_size: tuple[int, int] | None = None
     fmt_pat = re.compile(r"\]\s*:\s*'([A-Za-z0-9]{4})'")
@@ -4664,17 +4700,6 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
         m = size_pat.search(line)
         if m and current_fourcc is not None:
             current_size = (int(m.group(1)), int(m.group(2)))
-            key = (current_fourcc, current_size[0], current_size[1])
-            modes.setdefault(
-                key,
-                {
-                    "width": current_size[0],
-                    "height": current_size[1],
-                    "fps": 30,
-                    "fourcc": current_fourcc,
-                    "native_fourcc": current_fourcc,
-                },
-            )
             continue
         m = interval_pat.search(line)
         if m and current_fourcc is not None and current_size is not None:
@@ -4682,12 +4707,18 @@ def _list_v4l2_modes(source: int) -> List[Dict[str, Any]]:
                 fps_val = int(round(float(m.group(1))))
             except ValueError:
                 continue
-            key = (current_fourcc, current_size[0], current_size[1])
-            entry = modes.get(key)
-            if entry is not None and fps_val > int(entry.get("fps", 0)):
-                entry["fps"] = fps_val
+            key = (current_fourcc, current_size[0], current_size[1], fps_val)
+            if key not in seen:
+                seen.add(key)
+                modes.append({
+                    "width": current_size[0],
+                    "height": current_size[1],
+                    "fps": fps_val,
+                    "fourcc": current_fourcc,
+                    "native_fourcc": current_fourcc,
+                })
 
-    return list(modes.values())
+    return modes
 
 
 def _avf_to_opencv_fourcc(native: str) -> str | None:

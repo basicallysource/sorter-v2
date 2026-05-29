@@ -245,6 +245,9 @@ def broadcast_from_thread(event: dict) -> None:
 
 def publishSystemStatus() -> None:
     """Broadcast the current hardware status snapshot over WS."""
+    no_power_development_mode = bool(
+        getattr(gc_ref, "no_power_development_mode", False)
+    )
     broadcast_from_thread(
         {
             "tag": "system_status",
@@ -252,6 +255,7 @@ def publishSystemStatus() -> None:
                 "hardware_state": hardware_state,
                 "hardware_error": hardware_error,
                 "homing_step": hardware_homing_step,
+                "no_power_development_mode": no_power_development_mode,
             },
         }
     )

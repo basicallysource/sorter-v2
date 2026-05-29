@@ -77,7 +77,9 @@ class BackendSupervisor:
         self._health_failures = 0
         self._state = "stopped"
 
-        self._health_thread = threading.Thread(target=self._health_loop, daemon=True)
+        self._health_thread = threading.Thread(
+            target=self._health_loop, daemon=True, name="supervisor-health"
+        )
 
     def start(self) -> None:
         self._start_backend(reason="initial start")

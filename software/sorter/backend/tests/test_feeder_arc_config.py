@@ -5,6 +5,8 @@ from subsystems.feeder.analysis import (
     channelArcCropPolygon,
     channelArcOuterPolygon,
     parseSavedChannelArcZones,
+    sectionsForAngleRange,
+    zoneSectionsForChannel,
 )
 
 
@@ -44,6 +46,59 @@ class FeederArcConfigTests(unittest.TestCase):
         self.assertIsNone(zones.wait_end_angle)
         self.assertEqual(314.0, zones.exit_start_angle)
         self.assertEqual(350.0, zones.exit_end_angle)
+
+    def test_precise_zone_is_unioned_into_exit_sections(self) -> None:
+        arc = {
+            "classification_channel": {
+                "center": [500, 400],
+                "inner_radius": 120,
+                "outer_radius": 260,
+                "drop_zone": {"start_angle": 44, "end_angle": 118},
+                "exit_zone": {"start_angle": 314, "end_angle": 350},
+                "precise_zone": {"start_angle": 290, "end_angle": 314},
+            }
+        }
+        angles = {"classification_channel": 0.0}
+        zones = parseSavedChannelArcZones("classification_channel", angles, arc)
+        assert zones is not None
+        self.assertEqual(290.0, zones.precise_start_angle)
+        self.assertEqual(314.0, zones.precise_end_angle)
+
+        _drop, exit_sections = zoneSectionsForChannel(4, 0.0, zones)
+        expected = sectionsForAngleRange(314, 350, 0.0) | sectionsForAngleRange(290, 314, 0.0)
+        self.assertEqual(expected, exit_sections)
+
+    def test_missing_precise_zone_leaves_exit_sections_unchanged(self) -> None:
+        arc = {
+            "classification_channel": {
+                "center": [500, 400],
+                "inner_radius": 120,
+                "outer_radius": 260,
+                "drop_zone": {"start_angle": 44, "end_angle": 118},
+                "exit_zone": {"start_angle": 314, "end_angle": 350},
+            }
+        }
+        zones = parseSavedChannelArcZones("classification_channel", {"classification_channel": 0.0}, arc)
+        assert zones is not None
+        self.assertIsNone(zones.precise_start_angle)
+        _drop, exit_sections = zoneSectionsForChannel(4, 0.0, zones)
+        self.assertEqual(sectionsForAngleRange(314, 350, 0.0), exit_sections)
+
+    def test_zero_width_precise_zone_unions_to_nothing(self) -> None:
+        arc = {
+            "classification_channel": {
+                "center": [500, 400],
+                "inner_radius": 120,
+                "outer_radius": 260,
+                "drop_zone": {"start_angle": 44, "end_angle": 118},
+                "exit_zone": {"start_angle": 314, "end_angle": 350},
+                "precise_zone": {"start_angle": 314, "end_angle": 314},
+            }
+        }
+        zones = parseSavedChannelArcZones("classification_channel", {"classification_channel": 0.0}, arc)
+        assert zones is not None
+        _drop, exit_sections = zoneSectionsForChannel(4, 0.0, zones)
+        self.assertEqual(sectionsForAngleRange(314, 350, 0.0), exit_sections)
 
     def test_exit_zone_can_use_separate_outer_radius(self) -> None:
         zones = parseSavedChannelArcZones(

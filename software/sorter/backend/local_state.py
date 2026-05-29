@@ -15,7 +15,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 4
+_SCHEMA_VERSION = 5
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -444,6 +444,46 @@ def initialize_local_state() -> None:
                 "error TEXT"
                 ")"
             )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS profiler_metric_snapshots ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "run_id TEXT NOT NULL, "
+                "recorded_at REAL NOT NULL, "
+                "metric_kind TEXT NOT NULL, "
+                "metric_name TEXT NOT NULL, "
+                "count INTEGER NOT NULL DEFAULT 0, "
+                "total_ms REAL, "
+                "min_ms REAL, "
+                "max_ms REAL, "
+                "last_ms REAL, "
+                "total_value REAL, "
+                "max_value REAL, "
+                "last_value REAL"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_profiler_metric_snapshots_run_time "
+                "ON profiler_metric_snapshots(run_id, recorded_at)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS runtime_perf_metric_snapshots ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "run_id TEXT NOT NULL, "
+                "recorded_at REAL NOT NULL, "
+                "metric_name TEXT NOT NULL, "
+                "sample_count INTEGER NOT NULL DEFAULT 0, "
+                "avg_ms REAL, "
+                "med_ms REAL, "
+                "p90_ms REAL, "
+                "min_ms REAL, "
+                "max_ms REAL, "
+                "last_ms REAL"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runtime_perf_metric_snapshots_run_time "
+                "ON runtime_perf_metric_snapshots(run_id, recorded_at)"
+            )
             schema_version = _get_meta(conn, "schema_version")
             if schema_version != str(_SCHEMA_VERSION):
                 _set_meta(conn, "schema_version", str(_SCHEMA_VERSION))
@@ -470,6 +510,72 @@ def _write_state(key: str, value: Any | None) -> None:
             _delete_key(conn, key)
         else:
             _set_json(conn, key, value)
+        conn.commit()
+
+
+def record_profiler_metric_snapshot(
+    run_id: str,
+    recorded_at: float,
+    rows: list[dict[str, Any]],
+) -> None:
+    if not rows:
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        conn.executemany(
+            "INSERT INTO profiler_metric_snapshots("
+            "run_id, recorded_at, metric_kind, metric_name, count, total_ms, min_ms, max_ms, last_ms, total_value, max_value, last_value"
+            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    str(run_id),
+                    float(recorded_at),
+                    str(row.get("metric_kind") or ""),
+                    str(row.get("metric_name") or ""),
+                    int(row.get("count") or 0),
+                    row.get("total_ms"),
+                    row.get("min_ms"),
+                    row.get("max_ms"),
+                    row.get("last_ms"),
+                    row.get("total_value"),
+                    row.get("max_value"),
+                    row.get("last_value"),
+                )
+                for row in rows
+            ],
+        )
+        conn.commit()
+
+
+def record_runtime_perf_metric_snapshot(
+    run_id: str,
+    recorded_at: float,
+    rows: list[dict[str, Any]],
+) -> None:
+    if not rows:
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        conn.executemany(
+            "INSERT INTO runtime_perf_metric_snapshots("
+            "run_id, recorded_at, metric_name, sample_count, avg_ms, med_ms, p90_ms, min_ms, max_ms, last_ms"
+            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    str(run_id),
+                    float(recorded_at),
+                    str(row.get("metric_name") or ""),
+                    int(row.get("sample_count") or 0),
+                    row.get("avg_ms"),
+                    row.get("med_ms"),
+                    row.get("p90_ms"),
+                    row.get("min_ms"),
+                    row.get("max_ms"),
+                    row.get("last_ms"),
+                )
+                for row in rows
+            ],
+        )
         conn.commit()
 
 

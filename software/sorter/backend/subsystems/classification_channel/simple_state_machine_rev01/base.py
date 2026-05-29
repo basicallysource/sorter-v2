@@ -5,6 +5,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
+from defs.known_object import PieceStage
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
@@ -132,6 +133,29 @@ class Rev01BaseState(BaseState):
             for b in bboxes
         )
         return hit, angles
+
+    def computeDischargeOutputDeg(
+        self, bbox: tuple[int, int, int, int]
+    ) -> Optional[float]:
+        center = self.cv.channelCenter()
+        if center is None:
+            return None
+        piece_angle = self.cv.bboxAngleDeg(bbox, center)
+        target_angle = (
+            float(self.cc_config.drop_angle_deg)
+            + float(self.cc_config.drop_tolerance_deg)
+        ) % 360.0
+        delta = (target_angle - piece_angle) % 360.0
+        return max(2.0, min(delta, 270.0))
+
+    def stampDistributed(self) -> None:
+        obj = self.ctx.known_object
+        if obj is None:
+            return
+        obj.stage = PieceStage.distributed
+        obj.distributed_at = time.time()
+        obj.destination_bin = (0, 0, 0)
+        self.emitKnownObject()
 
     def bboxesOutsideExitZone(
         self, bboxes: list[tuple[int, int, int, int]]

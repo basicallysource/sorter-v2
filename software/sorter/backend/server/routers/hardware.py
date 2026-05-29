@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from blob_manager import getBinCategories, setBinCategories
+from hardware.bus import MCUBus
 from irl.bin_layout import (
     getBinLayout,
     saveBinLayout,
@@ -33,6 +34,7 @@ from local_state import clear_current_session_bins, get_current_bin_contents_sna
 from server import shared_state
 from server.routers.steppers import _stepper_mapping, _halt_stepper
 from server.waveshare_inventory import get_waveshare_inventory_manager
+from machine_platform.control_board import discover_control_boards
 
 router = APIRouter()
 
@@ -66,6 +68,34 @@ def _control_board_summary(board: Any) -> Dict[str, Any]:
     }
 
 
+def _control_board_observability(board: Any) -> Dict[str, Any]:
+    interface = getattr(board, "interface", None)
+    observability: Dict[str, Any] = {}
+    if interface is not None and hasattr(interface, "get_observability_info"):
+        try:
+            observability = dict(interface.get_observability_info())
+        except Exception as exc:
+            observability = {"error": str(exc)}
+    return {
+        **_control_board_summary(board),
+        "observability": observability,
+    }
+
+
+def _close_discovered_boards(boards: list[Any]) -> None:
+    seen_serials: set[int] = set()
+    for board in boards:
+        bus = getattr(getattr(board, "interface", None), "_bus", None)
+        serial_obj = getattr(bus, "_serial", None)
+        if serial_obj is None or id(serial_obj) in seen_serials:
+            continue
+        seen_serials.add(id(serial_obj))
+        try:
+            serial_obj.close()
+        except Exception:
+            pass
+
+
 @router.get("/api/hardware-config/control-boards/live")
 def get_live_control_boards() -> Dict[str, Any]:
     active_irl = _active_irl()
@@ -82,6 +112,56 @@ def get_live_control_boards() -> Dict[str, Any]:
             for board in control_boards.values()
         ],
     }
+
+
+@router.get("/api/hardware-config/control-boards/observability")
+def get_control_board_observability() -> Dict[str, Any]:
+    active_irl = _active_irl()
+    if active_irl is not None:
+        control_boards = getattr(active_irl, "control_boards", {})
+        if not isinstance(control_boards, dict):
+            control_boards = {}
+        return {
+            "ok": True,
+            "hardware_state": shared_state.hardware_state,
+            "source": "live",
+            "boards": [
+                _control_board_observability(board)
+                for board in control_boards.values()
+            ],
+        }
+
+    worker = shared_state.hardware_worker_thread
+    if (
+        (worker is not None and worker.is_alive())
+        or shared_state.hardware_state in {"homing", "initializing"}
+    ):
+        raise HTTPException(status_code=409, detail="Hardware operation in progress.")
+
+    gc = shared_state.gc_ref
+    if gc is None:
+        raise HTTPException(status_code=503, detail="Global config is not initialized yet.")
+
+    discovered_boards: list[Any] = []
+    try:
+        discovered_boards = discover_control_boards(
+            gc,
+            required_stepper_names=(),
+            attempts=2,
+            retry_delay_s=0.2,
+        )
+        return {
+            "ok": True,
+            "hardware_state": shared_state.hardware_state,
+            "source": "scan",
+            "mcu_ports": MCUBus.enumerate_buses(),
+            "boards": [
+                _control_board_observability(board)
+                for board in discovered_boards
+            ],
+        }
+    finally:
+        _close_discovered_boards(discovered_boards)
 
 
 def _active_waveshare_service() -> Any | None:

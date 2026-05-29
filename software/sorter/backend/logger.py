@@ -27,8 +27,14 @@ class Logger:
         print(line)
         if self._log_file:
             self._log_file.write(line + "\n")
+            # flush to the OS page cache so the file is promptly readable,
+            # but do NOT fsync per line. fsync forces a physical disk sync
+            # (5-30 ms on the Pi eMMC) and was being called on every log
+            # line — at ~15-23 Hz with multiple hot-path log lines per tick
+            # (gate/ready spam) it was costing ~33 ms per coordinator step.
+            # Durability of dev logs isn't worth that; journald (stdout)
+            # retains everything regardless.
             self._log_file.flush()
-            os.fsync(self._log_file.fileno())
 
     def _formatMessage(self, msg: str, *args, **kwargs) -> str:
         if args:

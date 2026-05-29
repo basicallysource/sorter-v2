@@ -137,7 +137,8 @@ def api_stepper_stop():
     if name not in steppers:
         return jsonify({"error": f"unknown stepper {name!r}"}), 404
     with _lock:
-        steppers[name].move_at_speed(0)
+        if not bool(steppers[name].stopped):
+            steppers[name].move_at_speed(0)
     return jsonify({"ok": True})
 
 

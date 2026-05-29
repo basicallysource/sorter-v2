@@ -1008,7 +1008,11 @@ class CaptureThread:
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._captureLoop, daemon=True)
+        self._thread = threading.Thread(
+            target=self._captureLoop,
+            daemon=True,
+            name=f"capture-{self.name}",
+        )
         self._thread.start()
 
     def stop(self) -> None:

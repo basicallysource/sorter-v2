@@ -13,6 +13,18 @@ from subsystems.classification_channel.snapping import Snapping
 from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.shared_variables import SharedVariables
 
+# =============================================================================
+# CLASSIFICATION CHANNEL PATHS
+# =============================================================================
+# SIMPLE_STATE_MACHINE_REV01  (the one that pairs with GO_TO_ANGLE_REV01 feeder)
+#   - The rev01 package (simple_state_machine_rev01/) is the relevant one for
+#     current Rev04 + jitter work on the classification side.
+#   - Has its own perception vs legacy vision branches inside the rev01 states.
+#
+# Everything else (DYNAMIC + the old classification/ package states) is the
+# legacy path and is not the focus when working on go-to-angle feeder jitter.
+# =============================================================================
+
 
 class ClassificationChannelStateMachine(BaseSubsystem):
     def __init__(

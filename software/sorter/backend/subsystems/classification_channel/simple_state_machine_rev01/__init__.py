@@ -5,6 +5,7 @@ from .context import SimpleStateMachineRev01Context
 from .discharging import Discharging
 from .idle import Idle
 from .rotating_and_capturing import RotatingAndCapturing
+from .verifying_discharge import VerifyingDischarge
 
 
 def buildRev01StatesMap(
@@ -25,6 +26,7 @@ def buildRev01StatesMap(
         ClassificationChannelState.REV01_ROTATING_AND_CAPTURING: RotatingAndCapturing(*args),
         ClassificationChannelState.REV01_CLASSIFYING: Classifying(*args),
         ClassificationChannelState.REV01_DISCHARGING: Discharging(*args),
+        ClassificationChannelState.REV01_VERIFYING_DISCHARGE: VerifyingDischarge(*args),
     }
 
 
@@ -35,4 +37,5 @@ __all__ = [
     "RotatingAndCapturing",
     "Classifying",
     "Discharging",
+    "VerifyingDischarge",
 ]

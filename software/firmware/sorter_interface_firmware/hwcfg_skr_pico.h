@@ -46,6 +46,7 @@ const uint8_t TMC_UART_BUS_INDEX[] = {0, 0, 0, 0};
 const uint8_t TMC_UART_ADDRESSES[] = {3, 0, 2, 1};
 
 const int STEPPER_nEN_PINS[] = {15, 12, 7, 2};
+const int STEPPER_DIAG_PINS[] = {-1, -1, -1, -1};
 
 const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {4, 3, 25, 16};

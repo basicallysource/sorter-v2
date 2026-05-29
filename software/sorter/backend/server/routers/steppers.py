@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import os
 import threading
 import time
@@ -27,6 +28,8 @@ from irl.parse_user_toml import (
 from server import shared_state
 
 router = APIRouter()
+
+MAX_STEPPER_PULSE_DURATION_S = 120.0
 
 
 # ---------------------------------------------------------------------------
@@ -56,6 +59,17 @@ class StepperMoveDegreesResponse(BaseModel):
     stepper: str
     degrees: float
     speed: int
+
+
+class StepperJitterResponse(BaseModel):
+    success: bool
+    stepper: str
+    amplitude_deg: float
+    amplitude_microsteps: int
+    cycles: int
+    speed: int
+    acceleration: int
+    estimated_duration_s: float
 
 
 class StepperStopResponse(BaseModel):
@@ -207,10 +221,14 @@ def _halt_stepper(stepper: Any, *, force: bool = False) -> None:
 
     if hasattr(stepper, "move_at_speed"):
         try:
-            result = stepper.move_at_speed(0, force=force)
-            stopped = stopped or bool(result)
-            if result is False:
-                errors.append("move_at_speed(0) was not acknowledged")
+            is_stopped = stepper.stopped_force() if force and hasattr(stepper, "stopped_force") else stepper.stopped
+            if not bool(is_stopped):
+                result = stepper.move_at_speed(0, force=force)
+                stopped = stopped or bool(result)
+                if result is False:
+                    errors.append("move_at_speed(0) was not acknowledged")
+            else:
+                stopped = True
         except Exception as e:
             errors.append(f"move_at_speed(0) failed: {e}")
 
@@ -244,14 +262,44 @@ def _stop_stepper_after_delay(stepper: Any, delay_s: float, lock: threading.Lock
 # ---------------------------------------------------------------------------
 
 TMC_REG_GCONF = 0x00
+TMC_REG_GSTAT = 0x01
+TMC_REG_IFCNT = 0x02
+TMC_REG_IOIN = 0x06
+TMC_REG_FACTORY_CONF = 0x07
 TMC_REG_IHOLD_IRUN = 0x10
+TMC_REG_TSTEP = 0x12
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_COOLCONF = 0x42
+TMC_REG_SG_RESULT = 0x41
+TMC_REG_MSCNT = 0x6A
+TMC_REG_MSCURACT = 0x6B
 TMC_REG_CHOPCONF = 0x6C
 TMC_REG_DRV_STATUS = 0x6F
+TMC_REG_PWM_CONF = 0x70
+TMC_REG_PWM_SCALE = 0x71
+TMC_REG_PWM_AUTO = 0x72
 
 MRES_TO_MICROSTEPS = {0: 256, 1: 128, 2: 64, 3: 32, 4: 16, 5: 8, 6: 4, 7: 2, 8: 1}
 MICROSTEPS_TO_MRES = {v: k for k, v in MRES_TO_MICROSTEPS.items()}
+
+TMC_QUERYABLE_FIELDS = [
+    "gconf",
+    "gstat",
+    "ifcnt",
+    "ioin",
+    "factory_conf",
+    "ihold_irun_configured",
+    "tstep",
+    "sg_result",
+    "mscnt",
+    "mscuract",
+    "chopconf",
+    "coolconf",
+    "pwm_conf",
+    "pwm_scale",
+    "pwm_auto",
+    "drv_status",
+]
 
 
 def _parse_drv_status(raw: int) -> Dict[str, Any]:
@@ -371,6 +419,52 @@ def _safe_read_register(stepper: Any, addr: int) -> Optional[int]:
         return None
 
 
+def _stepper_diag_capabilities(stepper: Any) -> Dict[str, Any]:
+    interface = getattr(stepper, "_dev", None)
+    observability = {}
+    if interface is not None and hasattr(interface, "get_observability_info"):
+        try:
+            observability = interface.get_observability_info()
+        except Exception:
+            observability = {}
+    diag_pins = observability.get("diag_pins")
+    channel = getattr(stepper, "channel", None)
+    diag_pin: int | None = None
+
+    if isinstance(diag_pins, list) and isinstance(channel, int) and 0 <= channel < len(diag_pins):
+        raw_pin = diag_pins[channel]
+        if isinstance(raw_pin, int) and raw_pin >= 0:
+            diag_pin = raw_pin
+
+    return {
+        "diag_expected": diag_pin is not None,
+        "diag_pin": diag_pin,
+        "diag_verified": False,
+        "diag_status": "unverified" if diag_pin is not None else "not_declared",
+    }
+
+
+def _tmc_register_snapshot(stepper: Any) -> Dict[str, int | None]:
+    return {
+        "gconf": _safe_read_register(stepper, TMC_REG_GCONF),
+        "gstat": _safe_read_register(stepper, TMC_REG_GSTAT),
+        "ifcnt": _safe_read_register(stepper, TMC_REG_IFCNT),
+        "ioin": _safe_read_register(stepper, TMC_REG_IOIN),
+        "factory_conf": _safe_read_register(stepper, TMC_REG_FACTORY_CONF),
+        "tstep": _safe_read_register(stepper, TMC_REG_TSTEP),
+        # This is the dedicated SG_RESULT register (0x41), read directly.
+        "sg_result": _safe_read_register(stepper, TMC_REG_SG_RESULT),
+        "mscnt": _safe_read_register(stepper, TMC_REG_MSCNT),
+        "mscuract": _safe_read_register(stepper, TMC_REG_MSCURACT),
+        "chopconf": _safe_read_register(stepper, TMC_REG_CHOPCONF),
+        "coolconf": _safe_read_register(stepper, TMC_REG_COOLCONF),
+        "drv_status": _safe_read_register(stepper, TMC_REG_DRV_STATUS),
+        "pwm_conf": _safe_read_register(stepper, TMC_REG_PWM_CONF),
+        "pwm_scale": _safe_read_register(stepper, TMC_REG_PWM_SCALE),
+        "pwm_auto": _safe_read_register(stepper, TMC_REG_PWM_AUTO),
+    }
+
+
 _STEPPER_API_TO_TOML_NAME: Dict[str, str] = {
     "c_channel_1": "c_channel_1_rotor",
     "c_channel_2": "c_channel_2_rotor",
@@ -446,8 +540,11 @@ def pulse_stepper(
     speed: int = 800,
 ) -> StepperPulseResponse:
     _ensure_manual_motion_allowed("pulse a stepper")
-    if duration_s <= 0 or duration_s > 5.0:
-        raise HTTPException(status_code=400, detail="duration_s must be in (0, 5]")
+    if duration_s <= 0 or duration_s > MAX_STEPPER_PULSE_DURATION_S:
+        raise HTTPException(
+            status_code=400,
+            detail=f"duration_s must be in (0, {int(MAX_STEPPER_PULSE_DURATION_S)}]",
+        )
     if speed <= 0:
         raise HTTPException(status_code=400, detail="speed must be > 0")
     if direction not in ("cw", "ccw"):
@@ -482,6 +579,124 @@ def pulse_stepper(
         direction=direction,
         duration_s=duration_s,
         speed=speed,
+    )
+
+
+class _JitterBusy(Exception):
+    """Raised when the firmware refuses a jitter because one is still in flight."""
+
+
+def _estimate_jitter_duration_s(amplitude_steps: int, cycles: int, speed: int, acceleration: int) -> float:
+    """Estimate how long a jitter run will take so the pulse lock can be held.
+
+    Each stroke is a trapezoidal (or triangular, for short strokes) accel/brake
+    move of `amplitude_steps` microsteps. Duration drives only lock release, so
+    a generous over-estimate is fine.
+    """
+    accel = max(acceleration, 1)
+    accel_distance = (speed * speed) / (2.0 * accel)  # microsteps to reach `speed`
+    if 2.0 * accel_distance >= amplitude_steps:
+        stroke_s = 2.0 * math.sqrt(amplitude_steps / accel)  # triangular: never reaches `speed`
+    else:
+        cruise_steps = amplitude_steps - 2.0 * accel_distance
+        stroke_s = 2.0 * (speed / accel) + cruise_steps / speed
+    strokes = cycles * 2
+    return strokes * stroke_s + strokes * 0.001  # +1ms per inter-stroke gap
+
+
+@router.post("/stepper/jitter", response_model=StepperJitterResponse)
+def jitter_stepper(
+    stepper: str,
+    amplitude_deg: float = 2.0,
+    cycles: int = 20,
+    speed: int = 4000,
+    acceleration: int = 60000,
+) -> StepperJitterResponse:
+    """Run a short, sharp back-and-forth oscillation to break static friction.
+
+    `amplitude_deg` is the per-stroke amplitude in motor-shaft degrees (before
+    any output gear reduction). The motion is symmetric and returns to start.
+    """
+    _ensure_manual_motion_allowed("jitter a stepper")
+    if cycles <= 0 or cycles > 5000:
+        raise HTTPException(status_code=400, detail="cycles must be in (0, 5000]")
+    if speed <= 0:
+        raise HTTPException(status_code=400, detail="speed must be > 0")
+    if acceleration <= 0:
+        raise HTTPException(status_code=400, detail="acceleration must be > 0")
+
+    target = _resolve_stepper(stepper)
+    amplitude_steps = target.microsteps_for_degrees(abs(amplitude_deg))
+    if amplitude_steps <= 0:
+        raise HTTPException(status_code=400, detail="amplitude_deg too small (rounds to zero microsteps)")
+
+    lock = shared_state.pulse_locks.setdefault(stepper, threading.Lock())
+    if not lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is already moving")
+
+    # A jitter always runs to completion on the firmware's real-time core and
+    # cannot be interrupted mid-run; the firmware refuses an overlapping jitter.
+    # Confirm the previous run has truly finished before accepting a new one —
+    # `stopped` is unreliable here because it flickers between strokes.
+    try:
+        if hasattr(target, "is_jittering") and bool(target.is_jittering()):
+            lock.release()
+            raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is still jittering")
+    except HTTPException:
+        raise
+    except Exception:
+        pass
+
+    try:
+        target.enable_force(True)
+        if not bool(target.jitter(amplitude_steps, cycles, speed, acceleration, force=True)):
+            # Firmware rejected it — almost always because a prior jitter is
+            # still finishing. Treat as "busy" rather than a hard failure.
+            raise _JitterBusy()
+    except _JitterBusy:
+        lock.release()
+        raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is still jittering")
+    except Exception as e:
+        lock.release()
+        raise HTTPException(status_code=500, detail=f"Jitter start failed: {e}")
+
+    duration_s = _estimate_jitter_duration_s(amplitude_steps, cycles, speed, acceleration)
+
+    # Let the jitter finish on its own, then de-energize the driver. We never
+    # send a stop/move that would tear down the run; we only poll completion and
+    # cut current afterward. A generous time cap bounds the poll if the firmware
+    # never reports done (e.g. driver pulled), so the lock is always released.
+    def _release_after_jitter() -> None:
+        deadline = time.monotonic() + duration_s * 2 + 5.0
+        try:
+            while time.monotonic() < deadline:
+                time.sleep(0.2)
+                try:
+                    if not (hasattr(target, "is_jittering") and bool(target.is_jittering())):
+                        break
+                except Exception:
+                    break
+            try:
+                target.enable_force(False)
+            except Exception:
+                pass
+        finally:
+            try:
+                lock.release()
+            except RuntimeError:
+                pass
+
+    threading.Thread(target=_release_after_jitter, daemon=True).start()
+
+    return StepperJitterResponse(
+        success=True,
+        stepper=stepper,
+        amplitude_deg=amplitude_deg,
+        amplitude_microsteps=amplitude_steps,
+        cycles=cycles,
+        speed=speed,
+        acceleration=acceleration,
+        estimated_duration_s=round(duration_s, 3),
     )
 
 
@@ -700,16 +915,23 @@ def stop_all_steppers() -> StepperStopAllResponse:
 @router.get("/api/stepper/{name}/tmc")
 def get_tmc_settings(name: str) -> Dict[str, Any]:
     stepper = _resolve_stepper(name)
-
-    gconf_raw = _safe_read_register(stepper, TMC_REG_GCONF)
-    chopconf_raw = _safe_read_register(stepper, TMC_REG_CHOPCONF)
-    coolconf_raw = _safe_read_register(stepper, TMC_REG_COOLCONF)
-    drv_status_raw = _safe_read_register(stepper, TMC_REG_DRV_STATUS)
+    registers = _tmc_register_snapshot(stepper)
+    gconf_raw = registers["gconf"]
+    chopconf_raw = registers["chopconf"]
+    coolconf_raw = registers["coolconf"]
+    drv_status_raw = registers["drv_status"]
 
     result: Dict[str, Any] = {}
     current_payload = _desired_stepper_current_payload(name, stepper)
     result["irun"] = current_payload["irun"]
     result["ihold"] = current_payload["ihold"]
+    result["ihold_delay"] = current_payload["ihold_delay"]
+    result["capabilities"] = {
+        **_stepper_diag_capabilities(stepper),
+        "tmc_uart_available": True,
+        "queryable_fields": list(TMC_QUERYABLE_FIELDS),
+    }
+    result["registers"] = registers
 
     if chopconf_raw is not None:
         result["microsteps"] = _parse_chopconf_mres(chopconf_raw)
@@ -727,9 +949,18 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
         result["coolstep"] = None
 
     if drv_status_raw is not None:
+        # DRV_STATUS also contains its own SG_RESULT bitfield view. Keep both:
+        # `registers.sg_result` is the raw 0x41 register, while
+        # `drv_status.sg_result` is the SG_RESULT field decoded from 0x6F.
         result["drv_status"] = _parse_drv_status(drv_status_raw)
     else:
         result["drv_status"] = None
+
+    if registers["sg_result"] is not None:
+        # Surface the direct 0x41 register value at top level for convenience.
+        result["sg_result"] = registers["sg_result"]
+    else:
+        result["sg_result"] = None
 
     return result
 

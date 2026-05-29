@@ -9,6 +9,11 @@ class ClassificationChannelMode(enum.Enum):
     DYNAMIC = "dynamic"
     SIMPLE_STATE_MACHINE_REV01 = "simple_state_machine_rev01"
 
+
+class FeederMode(enum.Enum):
+    DROP_ZONE_REACTIVE_REV01 = "drop_zone_reactive_rev01"
+    GO_TO_ANGLE_REV01 = "go_to_angle_rev01"
+
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
 from hardware.cobs import DecodeError
@@ -463,6 +468,7 @@ class ClassificationChannelConfig:
 
 
 class FeederConfig:
+    mode: FeederMode
     first_rotor: RotorPulseConfig
     second_rotor_normal: RotorPulseConfig
     second_rotor_precision: RotorPulseConfig
@@ -477,6 +483,7 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
+        self.mode = FeederMode.DROP_ZONE_REACTIVE_REV01
         self.first_rotor = RotorPulseConfig(
             steps=100,
             microsteps_per_second=2000,
@@ -998,6 +1005,18 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                     f"Invalid classification_channel.mode={mode_raw!r} in machine.toml; valid values: {valid}"
                 )
 
+    feeder_section = raw_toml.get("feeder", {}) if isinstance(raw_toml, dict) else {}
+    if isinstance(feeder_section, dict):
+        feeder_mode_raw = feeder_section.get("mode")
+        if isinstance(feeder_mode_raw, str) and feeder_mode_raw.strip():
+            try:
+                irl_config.feeder_config.mode = FeederMode(feeder_mode_raw.strip())
+            except ValueError:
+                valid = ", ".join(m.value for m in FeederMode)
+                raise ValueError(
+                    f"Invalid feeder.mode={feeder_mode_raw!r} in machine.toml; valid values: {valid}"
+                )
+
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
         cameras_section = cast(dict[str, object], raw_toml.get("cameras", {})) if isinstance(raw_toml, dict) else {}
@@ -1025,10 +1044,26 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_settings=_device_settings("c_channel_2"),
                 color_profile=_color_profile("c_channel_2"),
             )
+        elif isinstance(c_ch2_idx, str):
+            irl_config.c_channel_2_camera = _mkCameraConfigForRole(
+                "c_channel_2",
+                url=c_ch2_idx,
+                picture_settings=_picture_settings("c_channel_2"),
+                device_settings=_device_settings("c_channel_2"),
+                color_profile=_color_profile("c_channel_2"),
+            )
         if isinstance(c_ch3_idx, int):
             irl_config.c_channel_3_camera = _mkCameraConfigForRole(
                 "c_channel_3",
                 device_index=c_ch3_idx,
+                picture_settings=_picture_settings("c_channel_3"),
+                device_settings=_device_settings("c_channel_3"),
+                color_profile=_color_profile("c_channel_3"),
+            )
+        elif isinstance(c_ch3_idx, str):
+            irl_config.c_channel_3_camera = _mkCameraConfigForRole(
+                "c_channel_3",
+                url=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
                 device_settings=_device_settings("c_channel_3"),
                 color_profile=_color_profile("c_channel_3"),

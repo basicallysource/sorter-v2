@@ -27,6 +27,13 @@ class ChannelArcZones:
     exit_end_angle: float
     exit_start_inner_angle: float
     exit_end_inner_angle: float
+    # The precise zone is an arc adjacent to the exit. It is stored and rendered
+    # separately (it has no exit-style outer-radius cut), but everything that
+    # reads "the exit" as a section set unions it with the exit arc — see
+    # ``zoneSectionsForChannel``. ``None`` (or zero width) when not configured,
+    # in which case the union is just the exit arc and behavior is unchanged.
+    precise_start_angle: float | None = None
+    precise_end_angle: float | None = None
 
 
 def normalizeAngle(angle: float) -> float:
@@ -195,6 +202,7 @@ def parseSavedChannelArcZones(
         if drop_zone is None or exit_zone is None:
             return None
         wait_zone = _optional_zone("wait_zone")
+        precise_zone = _optional_zone("precise_zone")
         drop_zone_edges = _zone_edges(raw.get("drop_zone"))
         exit_zone_edges = _zone_edges(raw.get("exit_zone"))
         if drop_zone_edges is None or exit_zone_edges is None:
@@ -214,10 +222,13 @@ def parseSavedChannelArcZones(
             exit_end_angle=exit_zone_edges[1],
             exit_start_inner_angle=exit_zone_edges[2],
             exit_end_inner_angle=exit_zone_edges[3],
+            precise_start_angle=precise_zone[0] if precise_zone is not None else None,
+            precise_end_angle=precise_zone[1] if precise_zone is not None else None,
         )
 
     drop_start, drop_end, drop_start_inner, drop_end_inner = _zone_with_inner("drop_zone", legacy_drop)
     wait_zone = _optional_zone("wait_zone")
+    precise_zone = _optional_zone("precise_zone")
     exit_start, exit_end, exit_start_inner, exit_end_inner = _zone_with_inner("exit_zone", legacy_exit)
     return ChannelArcZones(
         center=(float(center[0]), float(center[1])),
@@ -234,6 +245,8 @@ def parseSavedChannelArcZones(
         exit_end_angle=exit_end,
         exit_start_inner_angle=exit_start_inner,
         exit_end_inner_angle=exit_end_inner,
+        precise_start_angle=precise_zone[0] if precise_zone is not None else None,
+        precise_end_angle=precise_zone[1] if precise_zone is not None else None,
     )
 
 
@@ -413,9 +426,27 @@ def zoneSectionsForChannel(
 ) -> tuple[set[int], set[int]]:
     if zones is None:
         return legacyChannelZoneSections(channel_id)
+    # The exit section set unions the exit and precise arcs — this is the
+    # legacy counterpart to perception's buildChannelDef. The two arcs stay
+    # separate in the schema/geometry; they are merged only here, where arcs
+    # become the section set that the rest of the pipeline treats as "exit".
+    exit_sections = sectionsForAngleRange(
+        zones.exit_start_angle, zones.exit_end_angle, section_zero_angle
+    )
+    if (
+        zones.precise_start_angle is not None
+        and zones.precise_end_angle is not None
+        # Zero-width precise (the default for older saved configs that predate
+        # the precise zone) must union to nothing. sectionsForAngleRange treats
+        # a zero span as a full 360° circle, so guard it out explicitly.
+        and angularDistance(zones.precise_start_angle, zones.precise_end_angle) > 1e-6
+    ):
+        exit_sections = exit_sections | sectionsForAngleRange(
+            zones.precise_start_angle, zones.precise_end_angle, section_zero_angle
+        )
     return (
         sectionsForAngleRange(zones.drop_start_angle, zones.drop_end_angle, section_zero_angle),
-        sectionsForAngleRange(zones.exit_start_angle, zones.exit_end_angle, section_zero_angle),
+        exit_sections,
     )
 
 

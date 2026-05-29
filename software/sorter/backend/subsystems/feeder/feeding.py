@@ -1,3 +1,18 @@
+# =============================================================================
+# LEGACY FEEDER PATH (DROP_ZONE_REACTIVE_REV01) — IGNORE FOR GO-TO-ANGLE / REV04 WORK
+# =============================================================================
+# This entire file + everything it imports (subsystems/channels/*, feeder/strategies/*,
+# DropzoneStuckIncidentManager, C1JamRecoveryStrategy, the pulse/admission/incident
+# machinery, etc.) is ONLY active when FeederMode == DROP_ZONE_REACTIVE_REV01.
+#
+# For the current Rev04 effort (jitter unstick on exit regions, perception cascade,
+# go-to-angle precise/advance logic) the ONLY relevant feeder code is:
+#   subsystems/feeder/go_to_angle/flow.py  (and its config + geometry)
+#   + the state_machine.py selection for GO_TO_ANGLE_REV01
+#
+# Do not add jitter, dwell tracking, or Rev04 perception logic here.
+# =============================================================================
+
 import time
 from typing import Optional, TYPE_CHECKING
 import server.shared_state as shared_state
@@ -720,18 +735,29 @@ class Feeding(BaseState):
 
     def _tick_once(self) -> None:
         prof = self.gc.profiler
+        runtime_stats = self.gc.runtime_stats
 
         prof.hit("feeder.execution_loop.calls")
         prof.mark("feeder.execution_loop.interval_ms")
 
         with prof.timer("feeder.execution_loop.total_ms"):
             with prof.timer("feeder.get_feeder_detections_ms"):
+                detections_started = time.perf_counter()
                 detections = self.vision.getFeederHeatmapDetections()
+                runtime_stats.observePerfMs(
+                    "feeder.get_feeder_detections_ms",
+                    (time.perf_counter() - detections_started) * 1000.0,
+                )
             prof.observeValue(
                 "feeder.object_detection_count", float(len(detections))
             )
 
+            detection_available_started = time.perf_counter()
             detection_available, detection_reason = self.vision.getFeederDetectionAvailability()
+            runtime_stats.observePerfMs(
+                "feeder.detection_availability_ms",
+                (time.perf_counter() - detection_available_started) * 1000.0,
+            )
             now = time.monotonic()
 
             if detection_available:
@@ -772,10 +798,15 @@ class Feeding(BaseState):
                 self._c3_station.set_state("feeding.wait_detection_available")
                 return
 
+            dropzone_update_started = time.perf_counter()
             dropzone_incident_published = self._dropzone_incidents.update(
                 detections,
                 now,
                 rotating_channel_ids=self._rotatingChannelIds(now),
+            )
+            runtime_stats.observePerfMs(
+                "feeder.dropzone_incident_update_ms",
+                (time.perf_counter() - dropzone_update_started) * 1000.0,
             )
             if dropzone_incident_published:
                 self.gc.runtime_stats.observeBlockedReason("feeder", "dropzone_stuck_incident")
@@ -803,9 +834,14 @@ class Feeding(BaseState):
                 return
 
             with prof.timer("feeder.analyze_state_ms"):
+                analyze_started = time.perf_counter()
                 analysis = analyzeFeederChannels(
                     detections,
                     ignored_dropzone_detection_ids=self._dropzone_incidents.ignored_detection_ids(),
+                )
+                runtime_stats.observePerfMs(
+                    "feeder.analyze_state_ms",
+                    (time.perf_counter() - analyze_started) * 1000.0,
                 )
 
             # DEV-LOG: remove before merge — periodic image dump of channel zones
@@ -835,6 +871,7 @@ class Feeding(BaseState):
                 self.gc.logger.info(f"state change: ch3 {self._last_ch3_action.value} -> {ch3_action.value}")
                 self._last_ch3_action = ch3_action
 
+            gate_compute_started = time.perf_counter()
             can_run = self.gc.rotary_channel_steppers_can_operate_in_parallel or (
                 not self.shared.chute_move_in_progress
             )
@@ -893,13 +930,6 @@ class Feeding(BaseState):
                     zone_manager=zone_manager,
                     config=classification_channel_config,
                 )
-                # Additional grace: even when the structural checks above
-                # say "intake clear", any C3 pulse fired in the last
-                # CLASSIFICATION_CHANNEL_PENDING_ADMISSION_MS still has a
-                # piece in flight that hasn't been registered yet. Hold
-                # admission until either the timer expires or the piece
-                # gets registered (which makes the structural check fail
-                # naturally on the next tick).
                 if (
                     not classification_channel_block
                     and self._classificationChannelHasPendingAdmission()
@@ -908,6 +938,10 @@ class Feeding(BaseState):
                     prof.hit("feeder.skip.classification_channel_pending_admission")
             ch3_held = (
                 classification_ready_block or classification_channel_block
+            )
+            runtime_stats.observePerfMs(
+                "feeder.gate_compute_ms",
+                (time.perf_counter() - gate_compute_started) * 1000.0,
             )
             # Sample-collection mode: bypass the downstream gate so C3 keeps
             # advancing pieces past the cameras even when the classification
@@ -1009,14 +1043,44 @@ class Feeding(BaseState):
                 sample_collection_mode=bool(self.shared.sample_collection_mode),
             )
 
+            c3_step_started = time.perf_counter()
             self._c3_station.step(ctx)
+            runtime_stats.observePerfMs(
+                "feeder.c3_step_ms",
+                (time.perf_counter() - c3_step_started) * 1000.0,
+            )
+            c2_step_started = time.perf_counter()
             self._c2_station.step(ctx)
+            runtime_stats.observePerfMs(
+                "feeder.c2_step_ms",
+                (time.perf_counter() - c2_step_started) * 1000.0,
+            )
+            c1_step_started = time.perf_counter()
             self._c1_station.step(ctx)
+            runtime_stats.observePerfMs(
+                "feeder.c1_step_ms",
+                (time.perf_counter() - c1_step_started) * 1000.0,
+            )
             if ctx.abort_tick:
                 return
+            idle_strategies_started = time.perf_counter()
             self._c2_station.run_idle_strategies(ctx)
+            runtime_stats.observePerfMs(
+                "feeder.c2_idle_strategies_ms",
+                (time.perf_counter() - idle_strategies_started) * 1000.0,
+            )
+            c2_exit_wiggle_started = time.perf_counter()
             self._c2_station.run_exit_wiggle(ctx)
+            runtime_stats.observePerfMs(
+                "feeder.c2_exit_wiggle_ms",
+                (time.perf_counter() - c2_exit_wiggle_started) * 1000.0,
+            )
+            c3_exit_wiggle_started = time.perf_counter()
             self._c3_station.run_exit_wiggle(ctx)
+            runtime_stats.observePerfMs(
+                "feeder.c3_exit_wiggle_ms",
+                (time.perf_counter() - c3_exit_wiggle_started) * 1000.0,
+            )
 
             self.gc.runtime_stats.observeFeederSignals(
                 {

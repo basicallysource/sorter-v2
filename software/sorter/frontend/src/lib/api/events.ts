@@ -109,6 +109,7 @@ export interface SystemStatusData {
   hardware_state: string;
   hardware_error: string | null;
   homing_step: string | null;
+  no_power_development_mode: boolean;
 }
 export interface SystemStatusEvent {
   tag: "system_status";

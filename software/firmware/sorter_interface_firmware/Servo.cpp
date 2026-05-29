@@ -23,10 +23,12 @@
 
 #include "Servo.h"
 
+#include "pico/time.h"  // for time_us_64() in the hard release deadline logic
+
 Servo::Servo()
         : _state(SERVO_DISABLED), _move_start_pos(0), _current_pos(0), _current_pos_frac(0), _target_pos(0), _brake_pos(0),
             _current_speed(0), _current_speed_frac(0), _max_speed(15000), _min_speed(10), _acceleration(2000),
-            _release_on_idle(false), _min_duty(102), _max_duty(512), _current_duty(0) {
+            _release_on_idle(false), _min_duty(102), _max_duty(512), _current_duty(0), _release_deadline_us(0) {
 }
 
 /** \brief Move the servo to a specified position
@@ -64,21 +66,44 @@ bool Servo::moveTo(uint16_t position) {
     // Start braking at the half way point between current and target position
     _brake_pos = _current_pos + distance / 2;
     _state = SERVO_ACCELERATING;
+
+    // A plain moveTo should never be subject to a previous release deadline.
+    _release_deadline_us = 0;
     return true;
 }
 
-/** \brief Move the servo to a specified position and disable it upon arrival
+/** \brief Move the servo to a specified position and guarantee that PWM will be turned off.
  *
- * Same as moveTo(), but the servo will automatically disable (stop sending PWM) once it reaches the target position.
- * This is useful for preventing servo damage from continuous holding torque.
+ * This is the primary safe way to command a servo. It starts a normal profiled move (if the servo is idle).
+ * Two independent mechanisms ensure the servo will stop receiving a drive signal:
+ *
+ * 1. Profile-based release: when the simulated position reaches the target, we immediately set duty=0
+ *    (the original "nice" fast release path).
+ *
+ * 2. Hard deadline (the new safety guarantee): no matter what happens (servo stalled, blocked, profile
+ *    never crosses target, extremely slow mechanical response, etc.), after `max_duration_ms` we will
+ *    unconditionally force the channel to DISABLED with duty=0.
+ *
+ * If max_duration_ms is 0, a conservative default (SERVO_DEFAULT_MAX_RELEASE_DURATION_MS) is used.
+ * This guarantees that a MOVE_TO_AND_RELEASE will never leave the servo driving / holding / heating
+ * for an unbounded amount of time.
  *
  * \param position Target position in units of 0.1 degree (0-1800 for 0-180 degrees)
+ * \param max_duration_ms Maximum time we are willing to drive the servo before forcing release.
  * \return true if the move was successfully started, false if the servo is currently moving
  */
-bool Servo::moveToAndRelease(uint16_t position) {
+bool Servo::moveToAndRelease(uint16_t position, uint16_t max_duration_ms) {
+    if (max_duration_ms == 0) {
+        max_duration_ms = SERVO_DEFAULT_MAX_RELEASE_DURATION_MS;
+    }
+
     bool result = moveTo(position);
     if (result) {
         _release_on_idle = true;
+
+        // Schedule the hard safety deadline. Even if the profile-based release never fires,
+        // this will force duty=0 after the timeout.
+        _release_deadline_us = time_us_64() + (uint64_t)max_duration_ms * 1000ULL;
     }
     return result;
 }
@@ -95,11 +120,32 @@ void Servo::update() {
         _current_pos += (_current_pos_frac / SERVO_UPDATE_RATE_HZ) * _current_dir;
         _current_pos_frac = _current_pos_frac % SERVO_UPDATE_RATE_HZ;
     }
+
+    // ========================================================================
+    // HARD RELEASE DEADLINE (the key safety guarantee)
+    // ========================================================================
+    // This check runs every servo tick. If a MOVE_TO_AND_RELEASE (or any future
+    // timed release command) set a deadline, and we have exceeded it, we force
+    // the servo to DISABLED with zero duty *immediately*, regardless of where
+    // the simulated position is. This is what prevents a stalled or slow servo
+    // from being driven forever and overheating.
+    if (_release_deadline_us != 0 && time_us_64() >= _release_deadline_us) {
+        _release_on_idle = false;
+        _release_deadline_us = 0;
+        _state = SERVO_DISABLED;
+        _current_speed = 0;
+        _current_speed_frac = 0;
+        _current_dir = 0;
+        _current_duty = 0;
+        return;
+    }
+
     // Check if we've reached or passed the target position and need to stop
     if ((_current_dir > 0 && _current_pos >= _target_pos) || (_current_dir < 0 && _current_pos <= _target_pos)) {
         _current_pos.store(_target_pos.load());
         if (_release_on_idle) {
             _release_on_idle = false;
+            _release_deadline_us = 0;   // also clear the hard deadline
             _state = SERVO_DISABLED;
             _current_speed = 0;
             _current_speed_frac = 0;
@@ -175,6 +221,11 @@ void Servo::stopMotion() {
     _current_speed = 0;
     _current_speed_frac = 0;
     _current_dir = 0;
+
+    // Stopping the motion also cancels any pending hard release deadline.
+    // If the caller wants the servo released, they should use setEnabled(false)
+    // or a fresh MOVE_TO_AND_RELEASE.
+    _release_deadline_us = 0;
 }
 
 /** \brief Enable or disable the servo

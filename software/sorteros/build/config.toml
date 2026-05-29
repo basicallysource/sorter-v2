@@ -17,7 +17,8 @@ name = "sorteros-v{version}-{date}.img"
 # Keep this list in sync so config-readers see the real package set.
 # Every entry is build time and image bytes; keep it short.
 packages = [
-    "network-manager",    # Wi-Fi client + AP-mode + dnsmasq for portal
+    "network-manager",    # Wi-Fi client + AP-mode
+    "dnsmasq-base",       # DHCP/DNS binary NM spawns for the AP captive portal
     "python3-pip",
     "python3-tomli",      # tomllib backport for Python 3.10 (Ubuntu Jammy)
     "libgl1",             # OpenCV runtime dep

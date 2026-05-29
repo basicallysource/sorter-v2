@@ -772,7 +772,14 @@ def main() -> int:
 
     for s in STAGES:
         _set_state(s.name, "done" if stamp_path(s.name).exists() else "pending")
-    server = _start_status_server(STATUS_PORT)
+
+    # Port 80 is shared with the onboarding captive portal. While onboarding is
+    # still in progress (no uplink yet and wifi not configured) the portal owns
+    # :80; firstboot must not grab it. We start the status server lazily — once
+    # the box is online or onboarding has completed — and retry each loop until
+    # the bind succeeds (the portal frees :80 when it tears the AP down).
+    onboarding_gate = STAMP_DIR / "wifi-configured"
+    server = None
 
     while True:
         remaining = [s for s in STAGES if not stamp_path(s.name).exists()]
@@ -797,6 +804,10 @@ def main() -> int:
         if net:
             _ensure_clock_synced()
             _maybe_reannounce_ip()
+
+        # Claim :80 for the status page only once onboarding is out of the way.
+        if server is None and (net or onboarding_gate.exists()):
+            server = _start_status_server(STATUS_PORT)
 
         for s in remaining:
             if s.needs_internet and not net:

@@ -24,6 +24,15 @@ if [[ -f "$GATE" ]]; then
     exit 0
 fi
 
+# If the box already has a default route (e.g. an Ethernet uplink), there is
+# nothing to onboard — the device is reachable on the LAN already. Bringing up
+# an AP would be pointless and would fight firstboot for port 80. Exit 0 so
+# systemd doesn't restart us (RestartPreventExitStatus=0).
+if ip route show default 2>/dev/null | grep -q .; then
+    log "default route present (wired/online) — skipping AP onboarding"
+    exit 0
+fi
+
 log "fresh boot — entering onboarding mode"
 
 # Bring up the AP. Failures here are recoverable on next boot.

@@ -27,6 +27,7 @@ fi
 log "installing core packages"
 apt-get install "${APT_OPTS[@]}" \
     network-manager \
+    dnsmasq-base \
     python3-pip \
     python3-tomli \
     libgl1 libglib2.0-0 \
@@ -79,8 +80,11 @@ systemctl enable sorteros-firstboot.service || true
 log "enabling sorteros-onboarding (portal)"
 systemctl enable sorteros-onboarding.service || true
 
-# NM pulls in dnsmasq as a dependency, but systemd-resolved already owns
-# port 53. Mask it so it never starts and pollutes the boot log.
+# We install dnsmasq-base (the binary NetworkManager spawns for AP/shared
+# mode — required by the onboarding captive portal). The standalone
+# dnsmasq.service must never run: systemd-resolved owns port 53, and NM
+# manages its own dnsmasq instance internally. dnsmasq-base ships no
+# service unit, but mask defensively in case the full dnsmasq pkg sneaks in.
 systemctl mask dnsmasq.service || true
 
 # Ensure /root/.ssh exists so root SSH key auth works out of the box.

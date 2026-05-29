@@ -71,6 +71,16 @@
 	const layer = $derived(setup.layer);
 	const inverted = $derived(setup.inverted);
 	const isFactory = $derived(setup.isFactory);
+
+	const estimatedAngleDeg = $derived.by(() => {
+		const pos = servo.position;
+		const min = servo.min_limit;
+		const max = servo.max_limit;
+		if (pos == null || min == null || max == null) return null;
+		const range = max - min;
+		if (range < 20) return null;
+		return Math.round((pos - min) * 180 / range);
+	});
 </script>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
@@ -260,6 +270,9 @@
 					<span class="text-xs text-info">Selected — use ←/→ arrow keys</span>
 				{:else}
 					<span class="text-xs text-text-muted">Click card to use arrow keys</span>
+				{/if}
+				{#if estimatedAngleDeg !== null}
+					<span class="ml-2 text-sm font-medium text-text">{estimatedAngleDeg}°</span>
 				{/if}
 			</div>
 		{/if}

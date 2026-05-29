@@ -642,6 +642,7 @@ def _live_chute_status() -> Dict[str, Any]:
         "endstop_triggered": None,
         "raw_endstop_high": None,
         "endstop_active_high": getattr(chute, "endstop_active_high", True),
+        "stepper_direction_inverted": bool(getattr(stepper, "direction_inverted", True)),
         "current_angle": None,
         "stepper_position_degrees": None,
         "stepper_microsteps": None,

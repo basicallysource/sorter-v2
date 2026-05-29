@@ -27,6 +27,7 @@
 		raw_endstop_high: boolean | null;
 		endstop_active_high: boolean | null;
 		endstop_error?: string;
+		stepper_direction_inverted: boolean | null;
 		current_angle: number | null;
 		stepper_position_degrees: number | null;
 		stepper_microsteps: number | null;
@@ -82,6 +83,7 @@
 		endstop_triggered: null,
 		raw_endstop_high: null,
 		endstop_active_high: null,
+		stepper_direction_inverted: null,
 		current_angle: null,
 		stepper_position_degrees: null,
 		stepper_microsteps: null,
@@ -250,6 +252,30 @@
 	async function flipChutePolarity() {
 		chuteEndstopActiveHigh = !chuteEndstopActiveHigh;
 		await saveChuteSettings();
+	}
+
+	async function flipChuteDirection() {
+		chuteSaving = true;
+		chuteError = null;
+		chuteStatus = '';
+		const current = chuteLive.stepper_direction_inverted ?? false;
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/setup-wizard/stepper-directions/chute`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ inverted: !current })
+				}
+			);
+			if (!res.ok) throw new Error(await res.text());
+			chuteStatus = `Chute direction set to ${!current ? 'inverted' : 'normal'}.`;
+			await loadChuteSettings();
+		} catch (e: any) {
+			chuteError = e.message ?? 'Failed to flip chute direction';
+		} finally {
+			chuteSaving = false;
+		}
 	}
 
 	async function cancelCarousel() {
@@ -642,21 +668,40 @@
 				</label>
 			</div>
 
-			<div class="mt-3">
-				<button
-					onclick={flipChutePolarity}
-					disabled={chuteSaving}
-					class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
-				>
-					{chuteSaving
-						? 'Flipping…'
-						: 'Trigger state looks inverted? Flip polarity'}
-				</button>
-				<div class="mt-1 text-sm text-text-muted">
-					Currently treating the input as
-					<span class="font-medium text-text"
-						>{chuteEndstopActiveHigh ? 'active-high' : 'active-low'}</span
-					>.
+			<div class="mt-3 flex flex-col gap-2">
+				<div>
+					<button
+						onclick={flipChutePolarity}
+						disabled={chuteSaving}
+						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{chuteSaving ? 'Saving…' : 'Trigger state looks inverted? Flip polarity'}
+					</button>
+					<div class="mt-1 text-sm text-text-muted">
+						Currently treating the input as
+						<span class="font-medium text-text"
+							>{chuteEndstopActiveHigh ? 'active-high' : 'active-low'}</span
+						>.
+					</div>
+				</div>
+				<div>
+					<button
+						onclick={flipChuteDirection}
+						disabled={chuteSaving}
+						class="setup-button-secondary inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+					>
+						{chuteSaving ? 'Saving…' : 'Chute moves the wrong way? Flip direction'}
+					</button>
+					<div class="mt-1 text-sm text-text-muted">
+						Stepper direction is currently
+						<span class="font-medium text-text">
+							{chuteLive.stepper_direction_inverted === null
+								? '--'
+								: chuteLive.stepper_direction_inverted
+									? 'inverted'
+									: 'normal'}
+						</span>.
+					</div>
 				</div>
 			</div>
 

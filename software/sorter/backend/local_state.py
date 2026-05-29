@@ -15,7 +15,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 4
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -427,6 +427,21 @@ def initialize_local_state() -> None:
                 "user_state TEXT NOT NULL DEFAULT 'auto', "
                 "updated_at REAL NOT NULL, "
                 "PRIMARY KEY(set_num, part_num, color_id)"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS chute_stress_runs ("
+                "id TEXT PRIMARY KEY, "
+                "started_at REAL NOT NULL, "
+                "ended_at REAL, "
+                "mode TEXT NOT NULL, "
+                "target_max_deg REAL NOT NULL, "
+                "duration_target_s REAL NOT NULL, "
+                "speed_microsteps_per_sec INTEGER NOT NULL, "
+                "status TEXT NOT NULL, "
+                "total_distance_deg REAL NOT NULL DEFAULT 0, "
+                "total_time_s REAL NOT NULL DEFAULT 0, "
+                "error TEXT"
                 ")"
             )
             schema_version = _get_meta(conn, "schema_version")
@@ -1329,3 +1344,120 @@ def get_tailscale_hostname() -> str | None:
 
 def set_tailscale_hostname(hostname: str) -> None:
     _write_state(_STATE_KEY_TAILSCALE_HOSTNAME, hostname.strip())
+
+
+# ---------------------------------------------------------------------------
+# Chute stress test runs
+# ---------------------------------------------------------------------------
+
+
+def _chuteStressRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "started_at": row["started_at"],
+        "ended_at": row["ended_at"],
+        "mode": row["mode"],
+        "target_max_deg": row["target_max_deg"],
+        "duration_target_s": row["duration_target_s"],
+        "speed_microsteps_per_sec": row["speed_microsteps_per_sec"],
+        "status": row["status"],
+        "total_distance_deg": row["total_distance_deg"],
+        "total_time_s": row["total_time_s"],
+        "error": row["error"],
+    }
+
+
+def recordChuteStressRunStart(
+    *,
+    run_id: str,
+    started_at: float,
+    mode: str,
+    target_max_deg: float,
+    duration_target_s: float,
+    speed_microsteps_per_sec: int,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "INSERT INTO chute_stress_runs("
+            "id, started_at, mode, target_max_deg, duration_target_s, "
+            "speed_microsteps_per_sec, status, total_distance_deg, total_time_s"
+            ") VALUES(?, ?, ?, ?, ?, ?, 'running', 0, 0)",
+            (
+                run_id,
+                started_at,
+                mode,
+                float(target_max_deg),
+                float(duration_target_s),
+                int(speed_microsteps_per_sec),
+            ),
+        )
+        conn.commit()
+
+
+def updateChuteStressRunProgress(
+    *,
+    run_id: str,
+    total_distance_deg: float,
+    total_time_s: float,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE chute_stress_runs SET total_distance_deg = ?, total_time_s = ? "
+            "WHERE id = ?",
+            (float(total_distance_deg), float(total_time_s), run_id),
+        )
+        conn.commit()
+
+
+def finalizeChuteStressRun(
+    *,
+    run_id: str,
+    ended_at: float,
+    status: str,
+    total_distance_deg: float,
+    total_time_s: float,
+    error: str | None,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE chute_stress_runs SET ended_at = ?, status = ?, "
+            "total_distance_deg = ?, total_time_s = ?, error = ? WHERE id = ?",
+            (
+                float(ended_at),
+                status,
+                float(total_distance_deg),
+                float(total_time_s),
+                error,
+                run_id,
+            ),
+        )
+        conn.commit()
+
+
+def listChuteStressRuns(limit: int = 100) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, started_at, ended_at, mode, target_max_deg, duration_target_s, "
+            "speed_microsteps_per_sec, status, total_distance_deg, total_time_s, error "
+            "FROM chute_stress_runs ORDER BY started_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    return [d for d in (_chuteStressRowToDict(r) for r in rows) if d is not None]
+
+
+def getChuteStressRun(run_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT id, started_at, ended_at, mode, target_max_deg, duration_target_s, "
+            "speed_microsteps_per_sec, status, total_distance_deg, total_time_s, error "
+            "FROM chute_stress_runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    return _chuteStressRowToDict(row)

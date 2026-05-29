@@ -120,16 +120,23 @@
 	}
 
 	function startSetup() {
-		// Try to hop into a real browser tab (survives the AP teardown that
-		// kills the captive-portal mini-window). On Android this usually opens
-		// Chrome; in a desktop/iOS captive sheet it may be blocked — so we also
-		// advance in-place and show the plain URL as the reliable fallback.
-		try {
-			window.open(`${PORTAL_URL}?go=1`, '_blank');
-		} catch {
-			// ignore — fallback below
-		}
+		// Continue the flow in-place. On Android the captive window is usually a
+		// real Chrome tab that survives the AP teardown, so this is fine there.
+		// On macOS/iOS the captive mini-window can't be escaped programmatically
+		// — those users are told above to open the address in a real browser.
 		stage = 'pick';
+	}
+
+	let copied = $state(false);
+	async function copyUrl() {
+		try {
+			await navigator.clipboard.writeText(PORTAL_URL);
+			copied = true;
+			setTimeout(() => (copied = false), 1500);
+		} catch {
+			// clipboard may be blocked in the captive window — the URL is shown
+			// in full anyway, so the user can just type it.
+		}
 	}
 
 	onMount(async () => {
@@ -189,22 +196,40 @@
 				<div class="text-sm tracking-wider text-[var(--color-text-muted)] uppercase">Welcome</div>
 				<h2 class="mt-1 text-2xl font-bold">Set up your sorter</h2>
 			</div>
+
 			<p class="max-w-sm text-[var(--color-text-muted)]">
-				This connects your sorter to your Wi-Fi. It works best in a normal browser tab — the small
-				setup pop-up some devices show closes itself as soon as the sorter switches networks.
+				If you're seeing this in a small pop-up window, open your normal browser
+				(Safari/Chrome) and go to the address below. Stay connected to
+				<span class="text-[var(--color-text)]">SorterOS-Setup</span> — closing the pop-up won't
+				disconnect you.
 			</p>
 
-			<button
-				type="button"
-				onclick={startSetup}
-				class="w-full max-w-xs border border-[var(--color-accent)] bg-[var(--color-accent)] px-5 py-4 text-lg font-semibold text-black hover:bg-[var(--color-accent-dark)]"
-			>
-				Start setup →
-			</button>
+			<div class="flex w-full max-w-xs flex-col items-stretch gap-2">
+				<div
+					class="border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-4 font-mono text-xl text-[var(--color-text)]"
+				>
+					http://10.42.0.1
+				</div>
+				<button
+					type="button"
+					onclick={copyUrl}
+					class="border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]"
+				>
+					{copied ? 'Copied ✓' : 'Copy address'}
+				</button>
+			</div>
 
-			<div class="text-sm text-[var(--color-text-muted)]">
-				If nothing opens, open your browser and go to<br />
-				<span class="font-mono text-base text-[var(--color-text)]">http://10.42.0.1</span>
+			<div class="flex flex-col items-center gap-1">
+				<button
+					type="button"
+					onclick={startSetup}
+					class="text-sm font-medium text-[var(--color-text)] underline underline-offset-4 hover:text-[var(--color-accent-dark)]"
+				>
+					Continue in this window →
+				</button>
+				<span class="max-w-xs text-xs text-[var(--color-text-muted)]/80">
+					(works on Android; on Mac/iPhone use the address above instead)
+				</span>
 			</div>
 		</section>
 	{:else if stage === 'pick'}

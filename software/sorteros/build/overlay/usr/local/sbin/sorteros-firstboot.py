@@ -12,7 +12,9 @@ restarting it (RestartPreventExitStatus=0 in the unit).
 
 from __future__ import annotations
 
+import base64
 import html as _html
+import json
 import logging
 import os
 import random
@@ -21,6 +23,8 @@ import socket
 import subprocess
 import threading
 import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -59,6 +63,16 @@ SOFTWARE_DIR = REPO_DIR / "software"
 POLL_INTERVAL = 60
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
 INTERNET_PROBE_TIMEOUT = 5
+
+# Re-announce: the onboarding portal writes this file with the rendezvous
+# {id, public_key, hive_url, created_at}. We re-post the current LAN IP each
+# loop until the window elapses, then delete the file. The Hive dead-drop
+# has a 10-min TTL, so re-announcing keeps the entry fresh for late lookups
+# and survives a DHCP renewal. The private key is NOT here — it only ever
+# lives in the user's browser.
+ANNOUNCE_STATE_FILE = STAMP_DIR / "ip-announce.json"
+ANNOUNCE_WINDOW_S = 900  # 15 min — comfortably past the Hive TTL
+ANNOUNCE_HTTP_TIMEOUT = 8
 
 log = logging.getLogger("sorteros-firstboot")
 
@@ -255,6 +269,106 @@ def sh(cmd: list[str], **kw) -> None:
 def _hostname() -> str:
     p = Path("/etc/hostname")
     return p.read_text().strip() if p.exists() else "sorter"
+
+
+# ─── encrypted LAN-IP re-announce ───────────────────────────────────────────
+#
+# Safety net behind the onboarding portal's immediate announce. Reads the
+# rendezvous the portal persisted and keeps re-posting the current egress LAN
+# IP to Hive until the window elapses. Best-effort and crash-proof — every
+# path is wrapped so a missing dep or network blip never kills the daemon.
+
+def _current_lan_ip() -> str | None:
+    """The IP of whichever interface routes to the internet (wlan0 or eth0).
+
+    No packets are sent — connect() on a UDP socket just selects the egress
+    interface, which is exactly the address the user reaches the local UI on.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        s.connect(("8.8.8.8", 80))
+        return s.getsockname()[0]
+    except OSError:
+        return None
+    finally:
+        s.close()
+
+
+def _encrypt_for_pubkey(pubkey_b64: str, plaintext: bytes) -> str | None:
+    """RSA-OAEP-SHA256 encrypt with the browser's SPKI public key.
+
+    Returns base64 ciphertext, or None if cryptography is missing / the key
+    is unparseable. Mirrors the portal's _encrypt_for_pubkey exactly.
+    """
+    try:
+        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives.asymmetric import padding
+
+        pub = serialization.load_der_public_key(base64.b64decode(pubkey_b64))
+        ciphertext = pub.encrypt(
+            plaintext,
+            padding.OAEP(
+                mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                algorithm=hashes.SHA256(),
+                label=None,
+            ),
+        )
+        return base64.b64encode(ciphertext).decode("ascii")
+    except Exception as e:
+        log.warning("re-announce encrypt failed: %s", e)
+        return None
+
+
+def _post_ciphertext(hive_url: str, rendezvous_id: str, ciphertext_b64: str) -> bool:
+    url = f"{hive_url.rstrip('/')}/api/machine-ip-lookup/{rendezvous_id}"
+    body = json.dumps({"ciphertext": ciphertext_b64}).encode("utf-8")
+    req = urllib.request.Request(
+        url, data=body, method="POST",
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=ANNOUNCE_HTTP_TIMEOUT) as resp:
+            return 200 <= resp.status < 300
+    except (urllib.error.URLError, urllib.error.HTTPError, OSError) as e:
+        log.info("re-announce POST failed (will retry): %s", e)
+        return False
+
+
+def _maybe_reannounce_ip() -> None:
+    """Called every loop while online. No-op unless the portal left a
+    rendezvous file and we're still inside the window."""
+    try:
+        if not ANNOUNCE_STATE_FILE.exists():
+            return
+        data = json.loads(ANNOUNCE_STATE_FILE.read_text())
+        created = float(data.get("created_at", 0))
+        if time.time() - created > ANNOUNCE_WINDOW_S:
+            ANNOUNCE_STATE_FILE.unlink(missing_ok=True)
+            log.info("ip-announce window elapsed — stopping re-announce")
+            return
+        rid = data.get("rendezvous_id")
+        pubkey = data.get("public_key")
+        hive_url = data.get("hive_url")
+        if not (rid and pubkey and hive_url):
+            ANNOUNCE_STATE_FILE.unlink(missing_ok=True)
+            return
+        ip = _current_lan_ip()
+        if not ip:
+            return
+        payload = json.dumps({
+            "ip": ip,
+            "hostname": f"{_hostname()}.local",
+            "port": 80,
+        }).encode("utf-8")
+        ciphertext = _encrypt_for_pubkey(pubkey, payload)
+        if ciphertext is None:
+            # Unparseable key — re-announce can never succeed, stop trying.
+            ANNOUNCE_STATE_FILE.unlink(missing_ok=True)
+            return
+        if _post_ciphertext(hive_url, rid, ciphertext):
+            log.info("re-announced LAN IP %s to %s", ip, hive_url)
+    except Exception as e:
+        log.warning("re-announce skipped: %s", e)
 
 
 def _mac_suffix() -> str:
@@ -682,6 +796,7 @@ def main() -> int:
             _runtime["net"] = net
         if net:
             _ensure_clock_synced()
+            _maybe_reannounce_ip()
 
         for s in remaining:
             if s.needs_internet and not net:

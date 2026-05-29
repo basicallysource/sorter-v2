@@ -197,12 +197,18 @@ Android resolve `.local` via Network Service Discovery; on Windows the
 user typically needs Bonjour. The Hive rendezvous exists precisely to
 cover the networks where `.local` doesn't resolve.
 
-## Re-announce hardening (future)
+## Re-announce safety net
 
-Today the announce only fires once, from the portal process, right after
-connect. The Hive entry then lives for its 10-minute TTL, so a user who
-opens the lookup page late within that window still gets the IP. The gap
-is a first-announce that fails *and* never retries past the portal's
-lifetime. A follow-up persists `{id, pubkey}` to disk and adds a
-firstboot stage that re-announces the current IP each loop for the first
-few minutes — covering DHCP renewals and transient Hive outages.
+The portal's immediate announce is the fast path, but it fires once from
+a process that's killed seconds later. So the portal also persists the
+rendezvous to `/var/lib/sorteros/ip-announce.json`
+(`{rendezvous_id, public_key, hive_url, created_at}` — never the private
+key), and **sorteros-firstboot re-posts the current LAN IP each loop**
+until a 15-minute window elapses, then deletes the file.
+
+This covers a failed first announce, a lookup page opened a little late,
+and a DHCP renewal that changes the IP mid-onboarding. firstboot reads
+the egress IP from a `connect()`-only UDP socket (works on wlan0 or
+eth0), lazy-imports `cryptography`, and wraps every path so the
+never-crash daemon contract holds. See `_maybe_reannounce_ip` in
+`build/overlay/usr/local/sbin/sorteros-firstboot.py`.

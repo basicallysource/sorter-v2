@@ -57,6 +57,11 @@ AP_CON_NAME = "sorteros-ap"
 AP_IFACE = "wlan0"
 WIFI_CONFIGURED_FLAG = Path("/var/lib/sorteros/wifi-configured")
 CONFIG_TOML = Path("/etc/sorteros-config.toml")
+# Handoff to firstboot's re-announce: the portal does the fast first
+# announce, then persists the rendezvous here so sorteros-firstboot keeps
+# re-posting the (possibly changed) LAN IP for a bounded window — covering a
+# failed first announce, a late-opened lookup page, or a DHCP renewal.
+ANNOUNCE_STATE_FILE = Path("/var/lib/sorteros/ip-announce.json")
 PORTAL_HOST = "0.0.0.0"
 PORTAL_PORT = 80
 AP_TEARDOWN_DELAY_S = 5.0
@@ -282,6 +287,22 @@ def _announce_ip(state: "PortalState", rendezvous_id: str, pubkey_b64: str) -> N
     log.warning("announce: gave up after %d attempts", ANNOUNCE_ATTEMPTS)
 
 
+def _write_announce_state(state: "PortalState", rendezvous_id: str, pubkey_b64: str) -> None:
+    """Persist the rendezvous so sorteros-firstboot can keep re-announcing
+    after this portal process is gone. Best-effort — failure just means no
+    re-announce safety net, the immediate announce still ran."""
+    try:
+        ANNOUNCE_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+        ANNOUNCE_STATE_FILE.write_text(json.dumps({
+            "rendezvous_id": rendezvous_id,
+            "public_key": pubkey_b64,
+            "hive_url": state.hive_url,
+            "created_at": time.time(),
+        }))
+    except OSError as e:
+        log.warning("could not persist ip-announce state: %s", e)
+
+
 # ─── hostname & lego-name ──────────────────────────────────────────────────
 
 def _hostname() -> str:
@@ -487,6 +508,11 @@ def create_app(state: PortalState) -> FastAPI:
             attempt["result"] = "error"
             attempt["error"] = str(e)
             raise HTTPException(status_code=503, detail=str(e))
+
+        if rendezvous:
+            # Persist before switchover so the re-announce survives even if
+            # the portal crashes mid-connect.
+            _write_announce_state(state, rendezvous[0], rendezvous[1])
 
         asyncio.get_event_loop().create_task(
             _delayed_switchover(state, ssid, rendezvous),

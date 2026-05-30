@@ -86,7 +86,7 @@ def _build_ai_usage_payload(proposal_result: AiProposalResult) -> dict[str, obje
 
 @router.get("/profile-catalog/status")
 def get_profile_catalog_status(
-    _current_user: User = Depends(require_role("reviewer", "admin")),
+    _current_user: User = Depends(require_role("admin")),
 ):
     return get_profile_catalog_service().status()
 
@@ -94,7 +94,7 @@ def get_profile_catalog_status(
 @router.post("/profile-catalog/sync/{sync_type}")
 def start_profile_catalog_sync(
     sync_type: str,
-    _current_user: User = Depends(require_role("reviewer", "admin")),
+    _current_user: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ):
     if sync_type not in CATALOG_SYNC_TYPES:
@@ -111,7 +111,7 @@ def start_profile_catalog_sync(
 
 @router.post("/profile-catalog/stop")
 def stop_profile_catalog_sync(
-    _current_user: User = Depends(require_role("reviewer", "admin")),
+    _current_user: User = Depends(require_role("admin")),
     _csrf: None = Depends(verify_csrf),
 ):
     get_profile_catalog_service().stop_sync()

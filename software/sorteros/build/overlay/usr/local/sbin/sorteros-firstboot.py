@@ -338,7 +338,7 @@ def stage_uv_sync() -> None:
         raise RuntimeError("repo not cloned yet")
     if (backend / ".venv").exists():
         return
-    sh(["/usr/local/bin/uv", "sync", "--python", "3.13"], cwd=backend)
+    sh(["/usr/local/bin/uv", "sync", "--python", "3.12"], cwd=backend)
 
 
 def stage_pnpm_install() -> None:

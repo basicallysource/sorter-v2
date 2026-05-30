@@ -1,10 +1,17 @@
 from __future__ import annotations
 
 import ipaddress
+import json
 import os
 import socket
 import subprocess
+import time
 from urllib.parse import urlsplit
+
+# How long a computed snapshot of this device's own addresses/names is reused
+# before we look them up again. Keeps a wifi/IP/Tailscale change visible within
+# a few seconds without spawning subprocesses on every request.
+_REFRESH_SECONDS = 15.0
 
 
 def normalize_origin(origin: str | None) -> str | None:
@@ -42,69 +49,133 @@ def is_loopback_client_address(host: str | None) -> bool:
         return False
 
 
+def _ui_port() -> str:
+    return os.getenv("SORTER_UI_PORT", "5173").strip() or "5173"
+
+
+def explicit_allowed_origins() -> list[str]:
+    override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
+    if not override:
+        return []
+    return _dedupe_origins(
+        [origin for origin in (normalize_origin(item) for item in override.split(",")) if origin is not None]
+    )
+
+
+def _local_ip_addresses() -> list[str]:
+    # `hostname -I` lists every current interface address (LAN, Tailscale, etc.),
+    # so it tracks wifi/DHCP changes without us hardcoding anything.
+    try:
+        result = subprocess.run(
+            ["hostname", "-I"], capture_output=True, text=True, timeout=2.0, check=False
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return []
+    if result.returncode != 0:
+        return []
+    return [token.lower() for token in result.stdout.split() if token]
+
+
+def _this_device_hosts() -> frozenset[str]:
+    # Every name/address that means "this machine's own UI talking to its own
+    # backend": loopback, the OS hostname (+ .local), the Tailscale name, and the
+    # device's current IPs. Deliberately scoped to this device only.
+    hosts: set[str] = {"localhost", "127.0.0.1", "::1"}
+    try:
+        hostname = socket.gethostname().strip().lower()
+    except Exception:
+        hostname = ""
+    if hostname:
+        hosts.add(hostname)
+        if not hostname.endswith(".local"):
+            hosts.add(f"{hostname}.local")
+    tailscale_name = _tailscale_hostname()
+    if tailscale_name:
+        hosts.add(tailscale_name.strip().lower())
+    hosts.update(_local_ip_addresses())
+    return frozenset(hosts)
+
+
+_hosts_snapshot: tuple[float, frozenset[str]] = (0.0, frozenset())
+
+
+def _allowed_hosts() -> frozenset[str]:
+    global _hosts_snapshot
+    now = time.monotonic()
+    cached_at, hosts = _hosts_snapshot
+    if hosts and now - cached_at < _REFRESH_SECONDS:
+        return hosts
+    hosts = _this_device_hosts()
+    _hosts_snapshot = (now, hosts)
+    return hosts
+
+
+def refresh_device_identity() -> None:
+    # Drop the cached snapshots so the next origin check re-reads this device's
+    # current IPs / hostname / Tailscale name. Call right after a join, logout,
+    # or rename so the new name is accepted immediately instead of after the
+    # refresh window.
+    global _hosts_snapshot, _tailscale_hostname_cache
+    _hosts_snapshot = (0.0, frozenset())
+    _tailscale_hostname_cache = (0.0, None)
+
+
+def is_ui_origin_allowed(origin: str | None) -> bool:
+    normalized = normalize_origin(origin)
+    if normalized is None:
+        return False
+    if normalized.lower() in {item.lower() for item in explicit_allowed_origins()}:
+        return True
+    parsed = urlsplit(normalized.lower())
+    host = parsed.hostname or ""
+    try:
+        port = parsed.port
+    except ValueError:
+        return False
+    port_str = str(port) if port is not None else ("443" if parsed.scheme == "https" else "80")
+    if port_str != _ui_port():
+        return False
+    # Any mDNS .local name (e.g. sorter.local) resolves only on the local link,
+    # so it's treated as this device on the LAN.
+    if host.endswith(".local"):
+        return True
+    return host in _allowed_hosts()
+
+
 def websocket_connection_allowed(
     origin: str | None,
     client_host: str | None,
-    allowed_origins: list[str] | tuple[str, ...],
 ) -> bool:
     normalized = normalize_origin(origin)
     if normalized is None:
         return is_loopback_client_address(client_host)
-    return origin_allowed(normalized, allowed_origins)
+    return is_ui_origin_allowed(normalized)
 
 
 def compute_allowed_ui_origins() -> list[str]:
-    override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
+    override = explicit_allowed_origins()
     if override:
-        return _dedupe_origins(
-            [
-                origin
-                for origin in (normalize_origin(item) for item in override.split(","))
-                if origin is not None
-            ]
-        )
-
-    bind_host = os.getenv("SORTER_API_HOST", "127.0.0.1").strip() or "127.0.0.1"
-    ui_port = os.getenv("SORTER_UI_PORT", "5173").strip() or "5173"
-    origins = [
-        f"http://localhost:{ui_port}",
-        f"http://127.0.0.1:{ui_port}",
-    ]
-
-    if bind_host not in ("127.0.0.1", "localhost", ""):
-        try:
-            hostname = socket.gethostname()
-        except Exception:
-            hostname = ""
-        if hostname:
-            origins.append(f"http://{hostname}:{ui_port}")
-            if not hostname.endswith(".local"):
-                origins.append(f"http://{hostname}.local:{ui_port}")
-        if bind_host != "0.0.0.0":
-            origins.append(f"http://{bind_host}:{ui_port}")
-
-    tailscale_name = _tailscale_hostname()
-    if tailscale_name:
-        origins.append(f"http://{tailscale_name}:{ui_port}")
-
-    return _dedupe_origins(origins)
+        return override
+    port = _ui_port()
+    return _dedupe_origins([f"http://{host}:{port}" for host in sorted(_this_device_hosts())])
 
 
-_tailscale_hostname_cache: tuple[bool, str | None] = (False, None)
+_tailscale_hostname_cache: tuple[float, str | None] = (0.0, None)
 
 
 def _tailscale_hostname() -> str | None:
     global _tailscale_hostname_cache
-    cached, value = _tailscale_hostname_cache
-    if cached:
+    now = time.monotonic()
+    cached_at, value = _tailscale_hostname_cache
+    if value is not None and now - cached_at < _REFRESH_SECONDS:
         return value
 
     from local_state import get_tailscale_hostname, set_tailscale_hostname
 
     resolved = _query_tailscale_hostname()
     if resolved:
-        # Persist to DB so future boots resolve the hostname even if Tailscale
-        # isn't up yet when this process starts.
+        # Persist so future boots resolve the name even if Tailscale isn't up yet
+        # when this process starts.
         try:
             set_tailscale_hostname(resolved)
         except Exception:
@@ -112,17 +183,17 @@ def _tailscale_hostname() -> str | None:
     else:
         resolved = get_tailscale_hostname()
 
-    _tailscale_hostname_cache = (True, resolved)
+    _tailscale_hostname_cache = (now, resolved)
     return resolved
 
 
 def _query_tailscale_hostname() -> str | None:
-    # tailscale status --self reads from the local daemon's in-memory state
-    # (loaded from disk at daemon startup), so it works without network access.
-    # First field is the IP, second is the bare hostname.
+    # `tailscale status --json` reads the local daemon's state (no network
+    # needed). Self.DNSName is the authoritative name MagicDNS resolves; its
+    # first label is the device name.
     try:
         result = subprocess.run(
-            ["tailscale", "status", "--self"],
+            ["tailscale", "status", "--json"],
             capture_output=True,
             text=True,
             timeout=2.0,
@@ -132,8 +203,14 @@ def _query_tailscale_hostname() -> str | None:
         return None
     if result.returncode != 0 or not result.stdout:
         return None
-    parts = result.stdout.strip().split()
-    return parts[1] if len(parts) >= 2 else None
+    try:
+        self_node = (json.loads(result.stdout).get("Self") or {})
+    except json.JSONDecodeError:
+        return None
+    dns_name = (self_node.get("DNSName") or "").rstrip(".")
+    if dns_name:
+        return dns_name.split(".")[0]
+    return self_node.get("HostName") or None
 
 
 def _dedupe_origins(origins: list[str]) -> list[str]:

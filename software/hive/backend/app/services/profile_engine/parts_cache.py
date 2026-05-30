@@ -1,16 +1,76 @@
 import os
 import threading
 import time
+from datetime import datetime, timezone
+
 import requests
 
 from .db import (
     upsertCategories, upsertColors, upsertParts, setMeta,
-    reloadPartsData, importBrickstoreDb, syncBricklinkPrices, PartsData,
+    upsertCatalogSyncState, reloadPartsData, importBrickstoreDb,
+    syncBricklinkPrices, PartsData,
 )
 
 REBRICKABLE_BASE_URL = "https://rebrickable.com/api/v3/lego"
 REBRICKABLE_PAGE_SIZE = 1000
 THROTTLE_SECONDS = 1.1
+REQUEST_TIMEOUT_SECONDS = 30
+# Transient HTTP statuses worth retrying rather than aborting a long sync.
+RETRYABLE_STATUSES = frozenset({429, 500, 502, 503, 504})
+RETRY_BACKOFF_SCHEDULE = (2, 5, 15, 30, 60)
+MAX_REQUEST_RETRIES = len(RETRY_BACKOFF_SCHEDULE)
+
+
+def _nowIso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _interruptibleSleep(seconds: float, should_stop=None) -> None:
+    slept = 0.0
+    while slept < seconds:
+        if should_stop and should_stop():
+            return
+        chunk = min(1.0, seconds - slept)
+        time.sleep(chunk)
+        slept += chunk
+
+
+def _requestJson(url, params, throttle_fn, should_stop=None, on_retry=None):
+    # Retries transient failures (rate limits, 5xx, network blips) with backoff so
+    # a single hiccup doesn't kill a multi-minute paginated sync. The throttle keeps
+    # us under Rebrickable's steady-state rate; this handles the spikes.
+    attempt = 0
+    while True:
+        throttle_fn()
+        resp = None
+        retryable = True
+        error: Exception | None = None
+        try:
+            resp = requests.get(url, params=params, timeout=REQUEST_TIMEOUT_SECONDS)
+        except requests.RequestException as exc:
+            error = exc
+        else:
+            if resp.ok:
+                return resp.json()
+            retryable = resp.status_code in RETRYABLE_STATUSES
+            error = requests.HTTPError(
+                f"{resp.status_code} {resp.reason} for url: {resp.url}", response=resp
+            )
+
+        if not retryable or attempt >= MAX_REQUEST_RETRIES:
+            raise error
+
+        delay = RETRY_BACKOFF_SCHEDULE[min(attempt, len(RETRY_BACKOFF_SCHEDULE) - 1)]
+        if resp is not None:
+            retry_after = resp.headers.get("Retry-After")
+            if retry_after and retry_after.isdigit():
+                delay = max(delay, int(retry_after))
+        attempt += 1
+        if on_retry:
+            on_retry(f"Transient error ({error}); retry {attempt}/{MAX_REQUEST_RETRIES} in {delay}s")
+        _interruptibleSleep(delay, should_stop)
+        if should_stop and should_stop():
+            raise error
 
 
 class SyncManager:
@@ -70,6 +130,7 @@ class SyncManager:
             self.sync_type = "parts"
             self.error = None
             self.last_message = "Starting parts sync..."
+            self._markRunning(conn, "parts")
         t = threading.Thread(target=self._syncPartsLoop, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
@@ -86,6 +147,7 @@ class SyncManager:
             self.sync_type = "categories"
             self.error = None
             self.last_message = "Syncing categories..."
+            self._markRunning(conn, "categories")
         t = threading.Thread(target=self._syncCategoriesOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
@@ -102,6 +164,7 @@ class SyncManager:
             self.sync_type = "colors"
             self.error = None
             self.last_message = "Syncing colors..."
+            self._markRunning(conn, "colors")
         t = threading.Thread(target=self._syncColorsOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
@@ -118,6 +181,7 @@ class SyncManager:
             self.sync_type = "brickstore"
             self.error = None
             self.last_message = "Importing BrickStore DB..."
+            self._markRunning(conn, "brickstore")
         t = threading.Thread(target=self._importBrickstoreOnce, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
@@ -137,6 +201,7 @@ class SyncManager:
             self.sync_type = "prices"
             self.error = None
             self.last_message = "Starting BrickLink price sync..."
+            self._markRunning(conn, "prices")
         t = threading.Thread(target=self._syncPricesLoop, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
@@ -148,6 +213,32 @@ class SyncManager:
             callback(*args)
         except Exception as exc:
             print(f"[sync] callback failed: {exc}")
+
+    def _persist(self, conn, sync_type, **fields) -> None:
+        fields.setdefault("updated_at", _nowIso())
+        try:
+            upsertCatalogSyncState(conn, sync_type, **fields)
+        except Exception as exc:
+            print(f"[sync] failed to persist {sync_type} state: {exc}")
+
+    def _note(self, conn, sync_type, message) -> None:
+        with self._lock:
+            self.last_message = message
+        self._persist(conn, sync_type, last_message=message)
+
+    def _markRunning(self, conn, sync_type) -> None:
+        self._persist(
+            conn,
+            sync_type,
+            status="running",
+            started_at=_nowIso(),
+            pages_fetched=self.pages_fetched,
+            progress_current=self.progress_current,
+            progress_total=self.progress_total,
+            last_message=self.last_message,
+            error=None,
+            completed_at=None,
+        )
 
     def _throttle(self):
         elapsed = time.time() - self._last_request_time
@@ -163,17 +254,32 @@ class SyncManager:
                 with self._lock:
                     if self.stop_requested:
                         self.last_message = f"Stopped after {self.pages_fetched} pages"
+                        self._persist(conn, "parts", status="stopped", last_message=self.last_message)
                         break
-                result = _syncPartsPage(gc, conn, parts_data, self._throttle)
+                result = _syncPartsPage(
+                    gc, conn, parts_data, self._throttle,
+                    should_stop=self._shouldStop,
+                    on_retry=lambda msg: self._note(conn, "parts", msg),
+                )
                 with self._lock:
                     self.pages_fetched += 1
                     pct = round((result["cached"] / result["total"]) * 100) if result["total"] else 0
                     self.progress_current = result["cached"]
                     self.progress_total = result["total"]
                     self.last_message = f'{result["cached"]} / {result["total"]} parts ({pct}%)'
+                    self._persist(
+                        conn, "parts", status="running", error=None,
+                        progress_current=result["cached"], progress_total=result["total"],
+                        pages_fetched=self.pages_fetched, last_message=self.last_message,
+                    )
                 if result["done"]:
                     with self._lock:
                         self.last_message = f'Sync complete! {result["cached"]} parts'
+                        self._persist(
+                            conn, "parts", status="completed", completed_at=_nowIso(),
+                            progress_current=result["cached"], progress_total=result["total"],
+                            last_message=self.last_message, error=None,
+                        )
                     reloadPartsData(conn, parts_data)
                     self._invoke_callback(on_complete)
                     break
@@ -181,6 +287,7 @@ class SyncManager:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+                self._persist(conn, "parts", status="error", error=str(e), last_message=self.last_message)
             self._invoke_callback(on_error, e)
         finally:
             with self._lock:
@@ -190,15 +297,25 @@ class SyncManager:
 
     def _syncCategoriesOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
-            count = _syncCategories(gc, conn, self._throttle)
+            count = _syncCategories(
+                gc, conn, self._throttle,
+                should_stop=self._shouldStop,
+                on_retry=lambda msg: self._note(conn, "categories", msg),
+            )
             reloadPartsData(conn, parts_data)
             with self._lock:
                 self.last_message = f"Synced {count} categories"
+                self._persist(
+                    conn, "categories", status="completed", completed_at=_nowIso(),
+                    progress_current=count, progress_total=count,
+                    last_message=self.last_message, error=None,
+                )
             self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+                self._persist(conn, "categories", status="error", error=str(e), last_message=self.last_message)
             self._invoke_callback(on_error, e)
         finally:
             with self._lock:
@@ -207,15 +324,25 @@ class SyncManager:
 
     def _syncColorsOnce(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
         try:
-            count = _syncColors(gc, conn, self._throttle)
+            count = _syncColors(
+                gc, conn, self._throttle,
+                should_stop=self._shouldStop,
+                on_retry=lambda msg: self._note(conn, "colors", msg),
+            )
             reloadPartsData(conn, parts_data)
             with self._lock:
                 self.last_message = f"Synced {count} colors"
+                self._persist(
+                    conn, "colors", status="completed", completed_at=_nowIso(),
+                    progress_current=count, progress_total=count,
+                    last_message=self.last_message, error=None,
+                )
             self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+                self._persist(conn, "colors", status="error", error=str(e), last_message=self.last_message)
             self._invoke_callback(on_error, e)
         finally:
             with self._lock:
@@ -233,11 +360,16 @@ class SyncManager:
                     f"Imported {result['categories']} categories, "
                     f"{result['items']} items ({result['skipped']} skipped)"
                 )
+                self._persist(
+                    conn, "brickstore", status="completed", completed_at=_nowIso(),
+                    last_message=self.last_message, error=None,
+                )
             self._invoke_callback(on_complete)
         except Exception as e:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+                self._persist(conn, "brickstore", status="error", error=str(e), last_message=self.last_message)
             self._invoke_callback(on_error, e)
         finally:
             with self._lock:
@@ -260,10 +392,19 @@ class SyncManager:
                         f"Stopped price sync: {result['updated']} / {result['total']} updated "
                         f"({result['batches']} batches)"
                     )
+                    self._persist(
+                        conn, "prices", status="stopped", last_message=self.last_message,
+                        progress_current=result["updated"], progress_total=result["total"],
+                    )
                 else:
                     self.last_message = (
                         f"Price sync complete: {result['updated']} / {result['total']} updated "
                         f"({result['batches']} batches)"
+                    )
+                    self._persist(
+                        conn, "prices", status="completed", completed_at=_nowIso(),
+                        last_message=self.last_message, error=None,
+                        progress_current=result["updated"], progress_total=result["total"],
                     )
             if not result["stopped"]:
                 self._invoke_callback(on_complete)
@@ -271,6 +412,7 @@ class SyncManager:
             with self._lock:
                 self.error = str(e)
                 self.last_message = f"Error: {e}"
+                self._persist(conn, "prices", status="error", error=str(e), last_message=self.last_message)
             self._invoke_callback(on_error, e)
         finally:
             with self._lock:
@@ -289,12 +431,12 @@ class SyncManager:
             self.last_message = message
 
 
-def _syncCategories(gc, conn, throttle_fn):
-    throttle_fn()
+def _syncCategories(gc, conn, throttle_fn, should_stop=None, on_retry=None):
     url = f"{REBRICKABLE_BASE_URL}/part_categories/"
-    resp = requests.get(url, params={"key": gc.rebrickable_api_key, "page_size": 1000})
-    resp.raise_for_status()
-    data = resp.json()
+    data = _requestJson(
+        url, {"key": gc.rebrickable_api_key, "page_size": 1000},
+        throttle_fn, should_stop=should_stop, on_retry=on_retry,
+    )
     cat_list = []
     for cat_data in data.get("results", []):
         cat_list.append({
@@ -306,12 +448,12 @@ def _syncCategories(gc, conn, throttle_fn):
     return len(cat_list)
 
 
-def _syncColors(gc, conn, throttle_fn):
-    throttle_fn()
+def _syncColors(gc, conn, throttle_fn, should_stop=None, on_retry=None):
     url = f"{REBRICKABLE_BASE_URL}/colors/"
-    resp = requests.get(url, params={"key": gc.rebrickable_api_key, "page_size": 1000})
-    resp.raise_for_status()
-    data = resp.json()
+    data = _requestJson(
+        url, {"key": gc.rebrickable_api_key, "page_size": 1000},
+        throttle_fn, should_stop=should_stop, on_retry=on_retry,
+    )
     color_list = []
     for color_data in data.get("results", []):
         color_list.append(color_data)
@@ -319,18 +461,24 @@ def _syncColors(gc, conn, throttle_fn):
     return len(color_list)
 
 
-def _syncPartsPage(gc, conn, parts_data, throttle_fn):
-    throttle_fn()
-    page_num = (len(parts_data.parts) // REBRICKABLE_PAGE_SIZE) + 1
+def _syncPartsPage(gc, conn, parts_data, throttle_fn, should_stop=None, on_retry=None):
+    # Page must advance off the persisted DB count, not parts_data.parts: the
+    # in-memory cache is only refreshed by reloadPartsData() after the whole
+    # sync finishes, so deriving the page from it pins page_num at 1 and
+    # re-fetches page 1 forever (which Rebrickable eventually 429s).
+    cached_before = conn.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
+    page_num = (cached_before // REBRICKABLE_PAGE_SIZE) + 1
     url = f"{REBRICKABLE_BASE_URL}/parts/"
-    resp = requests.get(url, params={
-        "key": gc.rebrickable_api_key,
-        "page_size": REBRICKABLE_PAGE_SIZE,
-        "inc_part_details": 1,
-        "page": page_num,
-    })
-    resp.raise_for_status()
-    data = resp.json()
+    data = _requestJson(
+        url,
+        {
+            "key": gc.rebrickable_api_key,
+            "page_size": REBRICKABLE_PAGE_SIZE,
+            "inc_part_details": 1,
+            "page": page_num,
+        },
+        throttle_fn, should_stop=should_stop, on_retry=on_retry,
+    )
     total = data["count"]
     parts_list = []
     for part_data in data.get("results", []):

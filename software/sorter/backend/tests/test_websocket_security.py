@@ -11,7 +11,6 @@ from server.api import app
 
 def test_websocket_accepts_allowed_origin() -> None:
     with (
-        patch("server.api.compute_allowed_ui_origins", return_value=["http://localhost:5173"]),
         patch("server.api.getRecentKnownObjects", return_value=[]),
         TestClient(app) as client,
     ):
@@ -23,7 +22,6 @@ def test_websocket_accepts_allowed_origin() -> None:
 
 def test_websocket_rejects_disallowed_origin() -> None:
     with (
-        patch("server.api.compute_allowed_ui_origins", return_value=["http://localhost:5173"]),
         patch("server.api.getRecentKnownObjects", return_value=[]),
         TestClient(app) as client,
     ):

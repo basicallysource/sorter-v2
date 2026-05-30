@@ -53,6 +53,9 @@ class ProfileCatalogService:
         self._conn = profile_db.initDb(self._config.db_path)
         self._parts_data = profile_db.PartsData()
         profile_db.reloadPartsData(self._conn, self._parts_data)
+        # A sync row still marked 'running' means a prior process died mid-sync;
+        # flag it 'interrupted' so the UI offers a resume instead of a dead bar.
+        profile_db.markRunningSyncsInterrupted(self._conn)
         self._sync = profile_parts_cache.SyncManager()
         self._auto_sync_state_lock = Lock()
         self._auto_sync_stop_event = Event()
@@ -81,7 +84,43 @@ class ProfileCatalogService:
             status["auto_sync_last_checked_at"] = self._auto_sync_last_checked_at
             status["auto_sync_last_started_at"] = self._auto_sync_last_started_at
         status["last_synced_at"] = self.get_last_synced_at_map()
+        status["types"] = self._build_types_status(status.get("sync_type"))
         return status
+
+    def _build_types_status(self, running_type: str | None) -> dict[str, dict[str, Any]]:
+        persisted = profile_db.getAllCatalogSyncStates(self._conn)
+        cached_counts = {
+            "categories": len(self._parts_data.categories),
+            "colors": len(self._parts_data.colors),
+            "parts": len(self._parts_data.parts),
+        }
+        types: dict[str, dict[str, Any]] = {}
+        for sync_type in PROFILE_CATALOG_SYNC_TYPES:
+            state = dict(
+                persisted.get(sync_type)
+                or {
+                    "sync_type": sync_type,
+                    "status": "idle",
+                    "progress_current": None,
+                    "progress_total": None,
+                    "pages_fetched": 0,
+                    "last_message": None,
+                    "error": None,
+                    "started_at": None,
+                    "updated_at": None,
+                    "completed_at": None,
+                }
+            )
+            # The live thread is the source of truth for "is this one running now";
+            # persisted status can lag a tick behind a fresh start/stop.
+            if running_type == sync_type:
+                state["status"] = "running"
+            elif state["status"] == "running":
+                state["status"] = "interrupted"
+            state["cached_count"] = cached_counts.get(sync_type)
+            state["last_synced_at"] = self.get_last_synced_at(sync_type)
+            types[sync_type] = state
+        return types
 
     def start_sync(self, sync_type: str) -> bool:
         with self._lock:

@@ -471,6 +471,66 @@ def getMeta(conn, key):
     return row[0] if row else None
 
 
+# --- catalog sync state (durable, survives restart) ---
+
+CATALOG_SYNC_STATE_COLUMNS = (
+    "status", "progress_current", "progress_total", "pages_fetched",
+    "last_message", "error", "started_at", "updated_at", "completed_at",
+)
+_CATALOG_SYNC_STATE_SELECT = (
+    "SELECT sync_type, status, progress_current, progress_total, pages_fetched, "
+    "last_message, error, started_at, updated_at, completed_at FROM catalog_sync_state"
+)
+
+
+def _rowToCatalogSyncState(row):
+    return {
+        "sync_type": row[0],
+        "status": row[1],
+        "progress_current": row[2],
+        "progress_total": row[3],
+        "pages_fetched": row[4],
+        "last_message": row[5],
+        "error": row[6],
+        "started_at": row[7],
+        "updated_at": row[8],
+        "completed_at": row[9],
+    }
+
+
+def upsertCatalogSyncState(conn, sync_type, **fields):
+    conn.execute("INSERT OR IGNORE INTO catalog_sync_state (sync_type) VALUES (?)", (sync_type,))
+    cols = [c for c in CATALOG_SYNC_STATE_COLUMNS if c in fields]
+    if cols:
+        assignments = ", ".join(f"{c}=?" for c in cols)
+        params = [fields[c] for c in cols] + [sync_type]
+        conn.execute(f"UPDATE catalog_sync_state SET {assignments} WHERE sync_type=?", params)
+    conn.commit()
+
+
+def getCatalogSyncState(conn, sync_type):
+    row = conn.execute(
+        f"{_CATALOG_SYNC_STATE_SELECT} WHERE sync_type=?", (sync_type,)
+    ).fetchone()
+    return _rowToCatalogSyncState(row) if row else None
+
+
+def getAllCatalogSyncStates(conn):
+    rows = conn.execute(_CATALOG_SYNC_STATE_SELECT).fetchall()
+    return {row[0]: _rowToCatalogSyncState(row) for row in rows}
+
+
+def markRunningSyncsInterrupted(conn):
+    # A row left in 'running' means the process died mid-sync; surface that so the
+    # UI can offer a resume rather than showing a stuck-forever "running".
+    conn.execute(
+        "UPDATE catalog_sync_state SET status='interrupted', "
+        "last_message='Interrupted by server restart — start again to resume' "
+        "WHERE status='running'"
+    )
+    conn.commit()
+
+
 # --- brickstore db import ---
 
 def importBrickstoreDb(conn, brickstore_db_path):

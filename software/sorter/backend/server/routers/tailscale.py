@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import os
+import random
 import shutil
 import subprocess
+from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter
@@ -13,12 +15,52 @@ router = APIRouter()
 
 _TAILSCALE_SOCKET = os.getenv("TAILSCALE_SOCKET_PATH", "").strip()
 
+# Keep this naming scheme in sync with sorteros-firstboot.py's
+# _generate_machine_name() so UI-joined and firstboot-joined machines look alike.
+LEGO_COLORS = [
+    "aqua", "azure", "black", "blue", "bright-green", "bright-pink",
+    "brown", "coral", "dark-azure", "dark-blue", "dark-brown", "dark-gray",
+    "dark-green", "dark-orange", "dark-pink", "dark-purple", "dark-red",
+    "dark-tan", "dark-turquoise", "gray", "green", "lavender", "light-aqua",
+    "light-blue", "light-gray", "light-pink", "light-purple", "light-yellow",
+    "lime", "magenta", "medium-azure", "medium-blue", "medium-green",
+    "medium-lavender", "medium-nougat", "nougat", "olive", "orange", "pink",
+    "purple", "red", "reddish-brown", "sand-blue", "sand-green", "tan",
+    "teal", "warm-gold", "white", "yellow",
+]
+
+LEGO_PIECES = [
+    "arch", "axle", "beam", "bracket", "brick", "clip", "cone", "cylinder",
+    "dome", "gear", "hinge", "panel", "pin", "plate", "rail", "slope",
+    "stud", "technic", "tile", "turntable", "wedge",
+]
+
 
 def _cli(*args: str) -> list[str]:
     base = ["tailscale"]
     if _TAILSCALE_SOCKET:
         base += [f"--socket={_TAILSCALE_SOCKET}"]
     return base + list(args)
+
+
+def _mac_suffix() -> str:
+    net = Path("/sys/class/net")
+    if net.exists():
+        for iface in sorted(net.iterdir()):
+            if iface.name == "lo":
+                continue
+            addr_file = iface / "address"
+            if addr_file.exists():
+                mac = addr_file.read_text().strip().replace(":", "")
+                if mac and mac != "000000000000":
+                    return mac[-6:].lower()
+    return format(random.randint(0, 0xFFFFFF), "06x")
+
+
+def _generate_machine_name() -> str:
+    color = random.choice(LEGO_COLORS)
+    piece = random.choice(LEGO_PIECES)
+    return f"sorter-{color}-{piece}-{_mac_suffix()}"
 
 
 def _get_status() -> Dict[str, Any]:
@@ -76,9 +118,15 @@ def tailscale_up(payload: TailscaleUpPayload) -> Dict[str, Any]:
     if not shutil.which("tailscale"):
         return {"ok": False, "error": "Tailscale is not installed on this machine"}
 
+    # Keep an existing sorter-* device name so a re-join never renames the
+    # machine; replace a generic name (e.g. "orangepi") or generate one on first
+    # join, so every UI-joined machine lands as sorter-color-piece-mac.
+    existing = (_get_status().get("hostname") or "").strip()
+    hostname = existing if existing.startswith("sorter-") else _generate_machine_name()
+
     try:
         result = subprocess.run(
-            _cli("up", f"--authkey={auth_key}", "--ssh"),
+            _cli("up", f"--authkey={auth_key}", f"--hostname={hostname}", "--ssh"),
             capture_output=True,
             text=True,
             timeout=30.0,

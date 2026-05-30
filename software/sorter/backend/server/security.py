@@ -76,6 +76,11 @@ _LOCAL_HOST_PATTERNS: tuple[str, ...] = (
     r"\[::1\]",
     r"[A-Za-z0-9-]+\.local",
     r"[A-Za-z0-9-]+\.ts\.net",
+    # Bare single-label hostname (no dot) on the UI port: covers the Tailscale
+    # MagicDNS short name. Static so a UI-driven `tailscale up --hostname` rename
+    # is reachable immediately, without waiting for a backend restart to rebuild
+    # the cached regex with the new name.
+    r"[A-Za-z0-9-]+",
 )
 
 

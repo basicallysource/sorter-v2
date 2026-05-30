@@ -27,7 +27,10 @@ from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
-from server.security import compute_allowed_ui_origins, websocket_connection_allowed
+from server.security import (
+    is_ui_origin_allowed,
+    websocket_connection_allowed,
+)
 
 from server.shared_state import (
     active_connections,
@@ -62,9 +65,16 @@ app = FastAPI(title="Sorter API", version="0.0.1")
 #   SORTER_API_ALLOWED_ORIGINS comma-separated full origins override
 #                              (e.g. "https://sorter.lan,http://192.168.1.42:5173")
 #
+# Decide per-request, so the allowlist tracks this device's current IPs /
+# hostname / Tailscale name without a restart. is_ui_origin_allowed accepts only
+# this machine's own addresses (plus any SORTER_API_ALLOWED_ORIGINS override).
+class _DeviceCORSMiddleware(CORSMiddleware):
+    def is_allowed_origin(self, origin: str) -> bool:
+        return is_ui_origin_allowed(origin)
+
+
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=compute_allowed_ui_origins(),
+    _DeviceCORSMiddleware,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -536,7 +546,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     if not websocket_connection_allowed(
         websocket.headers.get("Origin"),
         client_host,
-        compute_allowed_ui_origins(),
     ):
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,

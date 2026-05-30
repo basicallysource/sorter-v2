@@ -94,3 +94,26 @@ def tailscale_up(payload: TailscaleUpPayload) -> Dict[str, Any]:
         return {"ok": False, "error": err, "status": _get_status()}
 
     return {"ok": True, "status": _get_status()}
+
+
+@router.post("/api/tailscale/logout")
+def tailscale_logout() -> Dict[str, Any]:
+    if not shutil.which("tailscale"):
+        return {"ok": False, "error": "Tailscale is not installed on this machine"}
+
+    try:
+        result = subprocess.run(
+            _cli("logout"),
+            capture_output=True,
+            text=True,
+            timeout=10.0,
+            check=False,
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError) as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if result.returncode != 0:
+        err = (result.stderr or result.stdout or "unknown error").strip()
+        return {"ok": False, "error": err, "status": _get_status()}
+
+    return {"ok": True, "status": _get_status()}

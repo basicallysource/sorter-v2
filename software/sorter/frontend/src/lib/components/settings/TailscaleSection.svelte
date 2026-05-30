@@ -22,6 +22,8 @@
 	let applying = $state(false);
 	let applyError = $state<string | null>(null);
 	let applySuccess = $state(false);
+	let revoking = $state(false);
+	let revokeError = $state<string | null>(null);
 
 	function httpBase(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -66,6 +68,25 @@
 		}
 	}
 
+	async function revoke() {
+		revoking = true;
+		revokeError = null;
+		try {
+			const res = await fetch(`${httpBase()}/api/tailscale/logout`, { method: 'POST' });
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			if (!data.ok) {
+				revokeError = data.error ?? 'Failed to disconnect';
+			} else {
+				if (data.status) status = data.status;
+			}
+		} catch (e: any) {
+			revokeError = e.message ?? 'Failed to disconnect';
+		} finally {
+			revoking = false;
+		}
+	}
+
 	onMount(() => {
 		void loadStatus();
 	});
@@ -89,21 +110,33 @@
 			{/if}
 		</div>
 		{#if status?.connected}
-			<div class="mt-2 flex flex-col gap-0.5">
-				<div class="text-sm text-text-muted">
-					Hostname: <span class="font-mono text-text">{status.hostname}</span>
-				</div>
-				{#if status.tailnet}
+			<div class="mt-2 flex items-end justify-between gap-4">
+				<div class="flex flex-col gap-0.5">
 					<div class="text-sm text-text-muted">
-						Tailnet: <span class="font-mono text-text">{status.tailnet}</span>
+						Hostname: <span class="font-mono text-text">{status.hostname}</span>
 					</div>
-				{/if}
+					{#if status.tailnet}
+						<div class="text-sm text-text-muted">
+							Tailnet: <span class="font-mono text-text">{status.tailnet}</span>
+						</div>
+					{/if}
+				</div>
+				<Button variant="danger" size="sm" loading={revoking} onclick={() => void revoke()}>
+					{revoking ? 'Disconnecting...' : 'Disconnect'}
+				</Button>
 			</div>
 		{/if}
 		{#if status && !status.connected && status.error}
 			<div class="mt-1 text-sm text-text-muted">{status.error}</div>
 		{/if}
 	</div>
+
+	<!-- Warning -->
+	<Alert variant="warning">
+		Entering an auth key gives the owner of that Tailscale network SSH access to this machine and
+		access to your local network. Only use a key you generated yourself or from someone you fully
+		trust.
+	</Alert>
 
 	<!-- Auth key input -->
 	<div>
@@ -136,6 +169,9 @@
 	{/if}
 	{#if applySuccess}
 		<Alert variant="success">Auth key applied — machine is now connected.</Alert>
+	{/if}
+	{#if revokeError}
+		<Alert variant="danger">{revokeError}</Alert>
 	{/if}
 	{#if loadError}
 		<Alert variant="warning">{loadError}</Alert>

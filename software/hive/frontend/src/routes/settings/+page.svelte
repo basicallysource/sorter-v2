@@ -520,6 +520,21 @@
 		</div>
 
 		{#if auth.user.role === 'admin'}
+			<!-- Catalog sync dashboard (admin-only dedicated page) -->
+			<div class="border border-border bg-white p-6">
+				<h2 class="mb-2 font-semibold text-text">Catalog Sync</h2>
+				<p class="mb-4 text-sm text-text-muted">
+					Sync the Rebrickable parts / categories / colors catalog and BrickLink prices, with
+					live progress and resume-after-restart.
+				</p>
+				<a
+					href="/settings/catalog-sync"
+					class="inline-flex items-center gap-2 border border-border bg-bg px-4 py-2 text-sm font-medium text-text hover:bg-surface"
+				>
+					Open Catalog Sync →
+				</a>
+			</div>
+
 			<!-- Perceptron native API key (teacher-only, admin scope) -->
 			<div class="border border-border bg-white p-6">
 				<h2 class="mb-4 font-semibold text-text">Perceptron Teacher</h2>

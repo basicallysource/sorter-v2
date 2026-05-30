@@ -126,6 +126,7 @@ from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
 from server.routers.chute_stress import router as chute_stress_router
 from server.routers.tuning import router as tuning_router
+from server.routers.tailscale import router as tailscale_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -139,6 +140,7 @@ app.include_router(hive_models_router)
 app.include_router(runtimes_router)
 app.include_router(chute_stress_router)
 app.include_router(tuning_router)
+app.include_router(tailscale_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle

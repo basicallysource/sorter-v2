@@ -3,6 +3,7 @@ import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
 import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
 import DashboardSection from '$lib/components/settings/DashboardSection.svelte';
 import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
+import TailscaleSection from '$lib/components/settings/TailscaleSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 </script>
@@ -47,6 +48,13 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 		description="Choose which panels appear on the main dashboard."
 	>
 		<DashboardSection />
+	</SectionCard>
+
+	<SectionCard
+		title="Tailscale"
+		description="View connection status and join or switch Tailscale networks."
+	>
+		<TailscaleSection />
 	</SectionCard>
 
 	<SectionCard

@@ -1,6 +1,7 @@
 """Tailscale network management endpoints."""
 from __future__ import annotations
 
+import json
 import os
 import random
 import shutil
@@ -10,6 +11,8 @@ from typing import Any, Dict
 
 from fastapi import APIRouter
 from pydantic import BaseModel
+
+from server.security import refresh_device_identity
 
 router = APIRouter()
 
@@ -69,7 +72,7 @@ def _get_status() -> Dict[str, Any]:
 
     try:
         result = subprocess.run(
-            _cli("status", "--self"),
+            _cli("status", "--json"),
             capture_output=True,
             text=True,
             timeout=3.0,
@@ -82,14 +85,25 @@ def _get_status() -> Dict[str, Any]:
         err = (result.stderr or "").strip() or "Not connected"
         return {"installed": True, "connected": False, "error": err}
 
-    parts = result.stdout.strip().split()
-    ipv4 = parts[0] if parts else None
-    hostname = parts[1] if len(parts) > 1 else None
-    tailnet: str | None = None
-    if len(parts) >= 3:
-        fqdn_parts = parts[2].split(".")
-        if len(fqdn_parts) >= 3:
-            tailnet = ".".join(fqdn_parts[1:])
+    try:
+        data = json.loads(result.stdout)
+    except json.JSONDecodeError as exc:
+        return {"installed": True, "connected": False, "error": str(exc)}
+
+    if data.get("BackendState") != "Running":
+        return {"installed": True, "connected": False, "error": data.get("BackendState") or "Not connected"}
+
+    self_node = data.get("Self") or {}
+    # DNSName is the authoritative name MagicDNS actually resolves (e.g.
+    # "sorter-green-arch-0ffbef.tailf1686d.ts.net."); the first label is the
+    # device name, the rest is the tailnet. HostName can differ from this when a
+    # requested name collided with an existing node.
+    dns_name = (self_node.get("DNSName") or "").rstrip(".")
+    labels = dns_name.split(".") if dns_name else []
+    hostname = labels[0] if labels else (self_node.get("HostName") or None)
+    tailnet = ".".join(labels[1:]) if len(labels) >= 3 else None
+    ips = self_node.get("TailscaleIPs") or []
+    ipv4 = next((ip for ip in ips if ":" not in ip), None)
 
     return {
         "installed": True,
@@ -141,6 +155,9 @@ def tailscale_up(payload: TailscaleUpPayload) -> Dict[str, Any]:
         err = (result.stderr or result.stdout or "unknown error").strip()
         return {"ok": False, "error": err, "status": _get_status()}
 
+    # The device name just changed; let the origin allowlist pick it up now so
+    # the UI reloaded at the new name isn't blocked during the refresh window.
+    refresh_device_identity()
     return {"ok": True, "status": _get_status()}
 
 
@@ -164,4 +181,5 @@ def tailscale_logout() -> Dict[str, Any]:
         err = (result.stderr or result.stdout or "unknown error").strip()
         return {"ok": False, "error": err, "status": _get_status()}
 
+    refresh_device_identity()
     return {"ok": True, "status": _get_status()}

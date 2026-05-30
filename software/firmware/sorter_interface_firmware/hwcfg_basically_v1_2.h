@@ -18,11 +18,11 @@ const uint8_t STEPPER_DIR_PINS[]  = {27, 22, 20, 18, 7};
 // as a 4th c-channel (classification channel) instead of an actual carousel.
 // Backend aliases it per machine_setup; not worth a firmware variant.
 const char* const STEPPER_NAMES[] = {
-    "c_channel_1_rotor",   // ch0 — STEP=GP28, DIR=GP27
-    "c_channel_2_rotor",   // ch1 — STEP=GP26, DIR=GP22
-    "c_channel_3_rotor",   // ch2 — STEP=GP21, DIR=GP20
-    "carousel",            // ch3 — STEP=GP19, DIR=GP18
-    "chute_stepper"        // ch4 — STEP=GP8,  DIR=GP7
+    "chute_stepper",       // ch0 — STEP=GP28, DIR=GP27 — uart0 addr0
+    "c_channel_1_rotor",   // ch1 — STEP=GP26, DIR=GP22 — uart0 addr1
+    "c_channel_3_rotor",   // ch2 — STEP=GP21, DIR=GP20 — uart0 addr2
+    "carousel",            // ch3 — STEP=GP19, DIR=GP18 — uart0 addr3
+    "c_channel_2_rotor"    // ch4 — STEP=GP8,  DIR=GP7  — uart1 addr0
 };
 #else
 const char* const STEPPER_NAMES[] = {

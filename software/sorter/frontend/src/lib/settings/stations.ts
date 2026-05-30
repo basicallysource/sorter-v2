@@ -95,6 +95,12 @@ export const chuteNavItem: SettingsNavItem = {
 	icon: Wrench
 };
 
+export const chuteAimingNavItem: SettingsNavItem = {
+	href: '/settings/chute-aiming',
+	label: 'Chute Aiming',
+	icon: Shapes
+};
+
 export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
@@ -189,6 +195,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
+	chuteAimingNavItem,
 	storageLayersNavItem
 ];
 

@@ -27,6 +27,11 @@ DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
+# Canonical chute aiming geometry (see subsystems/distribution/chute.py).
+# section_width default = 360/6 - 8.25 pillar, to match the legacy geometry.
+DEFAULT_CHUTE_NUM_SECTIONS = 6
+DEFAULT_CHUTE_SECTION_WIDTH_DEG = 51.75
+DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG = 8.25
 DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
 # Matches the long-running carousel homing wiring used by the stable
 # pre-setup-wizard backend path.
@@ -438,6 +443,12 @@ class CarouselCalibrationConfig:
 @dataclass
 class ChuteCalibrationConfig:
     home_pin_channel: int = DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
+    section_width_deg: float = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+    first_section_offset_deg: float = DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG
+    # Legacy fields, still parsed so old machine.toml files keep working and
+    # the legacy /settings/chute page round-trips. When the canonical keys
+    # above are absent they are derived from these (see loader below).
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
@@ -636,8 +647,61 @@ def loadChuteCalibrationConfig(
         )
         operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
+    num_sections_raw = chute_params.get("num_sections", DEFAULT_CHUTE_NUM_SECTIONS)
+    if not isinstance(num_sections_raw, int) or isinstance(num_sections_raw, bool) or num_sections_raw < 1:
+        gc.logger.warning(
+            f"Invalid chute.num_sections={num_sections_raw!r}; expected int >= 1. "
+            f"Using default {DEFAULT_CHUTE_NUM_SECTIONS}."
+        )
+        num_sections = DEFAULT_CHUTE_NUM_SECTIONS
+    else:
+        num_sections = num_sections_raw
+    section_pitch = 360.0 / num_sections
+
+    # Canonical keys win. When absent, derive from the legacy geometry so an
+    # existing machine.toml keeps aiming sensibly until it is recalibrated via
+    # the new flow: usable section width = pitch - pillar, and the legacy
+    # first_bin_center is treated as the section-0 start offset.
+    if "section_width_deg" in chute_params:
+        section_width_deg = chute_params.get("section_width_deg")
+        if not isinstance(section_width_deg, (int, float)) or isinstance(section_width_deg, bool):
+            gc.logger.warning(
+                f"Invalid chute.section_width_deg={section_width_deg!r}; deriving from pillar_width_deg."
+            )
+            section_width_deg = section_pitch - pillar_width_deg
+        else:
+            section_width_deg = float(section_width_deg)
+    else:
+        section_width_deg = section_pitch - pillar_width_deg
+        gc.logger.info(
+            "chute.section_width_deg not set; derived %.3f° from pillar_width_deg. "
+            "Run the chute aiming calibration to set it directly." % section_width_deg
+        )
+
+    if section_width_deg <= 0 or section_width_deg >= section_pitch:
+        gc.logger.warning(
+            f"Invalid chute.section_width_deg={section_width_deg!r}; expected 0 < value < "
+            f"{section_pitch}. Using default {DEFAULT_CHUTE_SECTION_WIDTH_DEG}."
+        )
+        section_width_deg = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+
+    if "first_section_offset_deg" in chute_params:
+        first_section_offset_deg = chute_params.get("first_section_offset_deg")
+        if not isinstance(first_section_offset_deg, (int, float)) or isinstance(first_section_offset_deg, bool):
+            gc.logger.warning(
+                f"Invalid chute.first_section_offset_deg={first_section_offset_deg!r}; using first_bin_center."
+            )
+            first_section_offset_deg = first_bin_center
+        else:
+            first_section_offset_deg = float(first_section_offset_deg)
+    else:
+        first_section_offset_deg = first_bin_center
+
     return ChuteCalibrationConfig(
         home_pin_channel=home_pin_channel,
+        num_sections=num_sections,
+        section_width_deg=section_width_deg,
+        first_section_offset_deg=first_section_offset_deg,
         first_bin_center=first_bin_center,
         pillar_width_deg=pillar_width_deg,
         endstop_active_high=endstop_active_high,

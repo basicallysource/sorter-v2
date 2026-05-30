@@ -9,7 +9,7 @@ sha256 = ""  # fill in when known
 
 [output]
 dir = "out"
-version = "3.4.5"
+version = "3.4.6"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]
@@ -36,7 +36,7 @@ extra_curl_installs = ["node22", "tailscale"]
 [branch]
 # Git branch to encode in /etc/sorteros/branch so the firstboot daemon
 # clones the right thing. Can be overridden with --branch on CLI.
-default = "sorteros-v3"
+default = "main"
 
 [firstboot]
 # Placeholder size for /etc/sorteros-config.toml (the file the browser

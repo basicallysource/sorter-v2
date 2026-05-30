@@ -295,6 +295,15 @@ class Positioning(BaseState):
             self._servo_offline_layers.add(layer_index)
             self._markLayerUnavailable(layer_index, "its servo backend is offline")
             return False
+        if not bool(getattr(self.irl.servos[layer_index], "is_calibrated", True)):
+            # Uncalibrated PWM servos are skipped so pieces are never routed to a
+            # door that cannot safely move. Logged at debug (not warning) because
+            # this state persists until the operator calibrates the layer, and
+            # _blocked_layers may reset per-step — a warning would spam the log.
+            self.logger.debug(
+                f"Positioning: skipping layer {layer_index} — servo not calibrated"
+            )
+            return False
         if layer_index in self._blocked_layers:
             # Servo has recovered — clear the cached block so positioning
             # starts considering this layer again.

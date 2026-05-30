@@ -20,9 +20,8 @@ if TYPE_CHECKING:
 
 MACHINE_SPECIFIC_PARAMS_ENV_VAR = "MACHINE_SPECIFIC_PARAMS_PATH"
 
-# User may override these defaults by setting MACHINE_SPECIFIC_PARAMS_PATH to a TOML file.
-DEFAULT_SERVO_OPEN_ANGLE = 10
-DEFAULT_SERVO_CLOSED_ANGLE = 83
+# Servos have no hard-coded open/closed angle defaults. A PWM servo must be
+# calibrated per layer (its angles locked in via the UI) before it will move.
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
@@ -149,8 +148,8 @@ def loadFeedingModeConfig(
 
 @dataclass
 class MachineConfig:
-    servo_open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
-    servo_closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
+    servo_open_angle: int | None = None
+    servo_closed_angle: int | None = None
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
 
 
@@ -380,10 +379,10 @@ def loadStepperDirectionInverts(
     return overrides
 
 
-def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int) -> int:
+def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int | None) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 180:
         return value
-    gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using default {default}.")
+    gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using {default}.")
     return default
 
 
@@ -402,18 +401,16 @@ def loadMachineConfig(
 
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):
-        config.servo_open_angle = _validateAngle(
-            gc, "servo.open_angle",
-            servo_params.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE),
-            DEFAULT_SERVO_OPEN_ANGLE,
-        )
-        config.servo_closed_angle = _validateAngle(
-            gc, "servo.closed_angle",
-            servo_params.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE),
-            DEFAULT_SERVO_CLOSED_ANGLE,
-        )
+        if "open_angle" in servo_params:
+            config.servo_open_angle = _validateAngle(
+                gc, "servo.open_angle", servo_params.get("open_angle"), None
+            )
+        if "closed_angle" in servo_params:
+            config.servo_closed_angle = _validateAngle(
+                gc, "servo.closed_angle", servo_params.get("closed_angle"), None
+            )
     elif servo_params is not None:
-        gc.logger.warning("Ignoring invalid servo config: expected object. Using defaults.")
+        gc.logger.warning("Ignoring invalid servo config: expected object.")
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
 

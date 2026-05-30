@@ -27,8 +27,6 @@ from irl.parse_user_toml import (
     DEFAULT_CHUTE_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
-    DEFAULT_SERVO_CLOSED_ANGLE,
-    DEFAULT_SERVO_OPEN_ANGLE,
 )
 from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
 from server import shared_state
@@ -227,8 +225,8 @@ class ServoChannelConfigPayload(BaseModel):
 
 class ServoHardwareSettingsPayload(BaseModel):
     backend: str = "pca9685"
-    open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
-    closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
+    open_angle: Optional[int] = None
+    closed_angle: Optional[int] = None
     port: Optional[str] = None
     channels: List[ServoChannelConfigPayload] = []
 
@@ -260,6 +258,15 @@ class ServoNudgePayload(BaseModel):
 class ServoLayerPreviewPayload(BaseModel):
     invert: bool = False
     is_open: bool = False
+
+
+class ServoLayerMovePayload(BaseModel):
+    angle: int
+
+
+class ServoLayerLockPayload(BaseModel):
+    which: str  # "open" | "closed"
+    angle: Optional[int] = None
 
 
 class MoveToBinPayload(BaseModel):
@@ -442,12 +449,16 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
 
     try:
         position = int(servo.position)
-        return {
+        result = {
             **base,
             "available": True,
             "position": position,
+            "angle": position // 10,
             "is_open": bool(servo.isOpen()) if hasattr(servo, "isOpen") else None,
         }
+        if hasattr(servo, "is_calibrated"):
+            result.update(_servo_calibration_state(servo))
+        return result
     except Exception as e:
         return {**base, "error": str(e)}
 
@@ -476,13 +487,13 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if backend not in {"pca9685", "waveshare"}:
         backend = "pca9685"
 
-    open_angle = servo.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE)
+    open_angle = servo.get("open_angle")
     if not isinstance(open_angle, int) or isinstance(open_angle, bool):
-        open_angle = DEFAULT_SERVO_OPEN_ANGLE
+        open_angle = None
 
-    closed_angle = servo.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE)
+    closed_angle = servo.get("closed_angle")
     if not isinstance(closed_angle, int) or isinstance(closed_angle, bool):
-        closed_angle = DEFAULT_SERVO_CLOSED_ANGLE
+        closed_angle = None
 
     port = servo.get("port")
     if port is not None and not isinstance(port, str):
@@ -524,8 +535,8 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "backend": backend,
-        "open_angle": max(0, min(180, open_angle)),
-        "closed_angle": max(0, min(180, closed_angle)),
+        "open_angle": (max(0, min(180, open_angle)) if open_angle is not None else None),
+        "closed_angle": (max(0, min(180, closed_angle)) if closed_angle is not None else None),
         "port": port.strip() if isinstance(port, str) and port.strip() else None,
         "channels": channels,
         "layer_count": layer_count,
@@ -649,10 +660,11 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         servo_open = getattr(layer, "servo_open_angle", None)
         servo_closed = getattr(layer, "servo_closed_angle", None)
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
-        if isinstance(servo_open, int):
-            layer_entry["servo_open_angle"] = servo_open
-        if isinstance(servo_closed, int):
-            layer_entry["servo_closed_angle"] = servo_closed
+        open_value = servo_open if isinstance(servo_open, int) else None
+        closed_value = servo_closed if isinstance(servo_closed, int) else None
+        layer_entry["servo_open_angle"] = open_value
+        layer_entry["servo_closed_angle"] = closed_value
+        layer_entry["calibrated"] = open_value is not None and closed_value is not None
         layer_entry["max_pieces_per_bin"] = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         layers.append(layer_entry)
 
@@ -1201,6 +1213,91 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
         "degrees": payload.degrees,
         "new_angle": new_angle,
         "feedback": feedback,
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/move-to")
+def move_to_layer_servo(layer_index: int, payload: ServoLayerMovePayload) -> Dict[str, Any]:
+    _ensure_not_homing("move a servo")
+    servo = _live_servo_for_layer(layer_index)
+    if not hasattr(servo, "move_to"):
+        raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
+
+    angle = max(0, min(180, int(payload.angle)))
+    try:
+        servo.move_to(angle)
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to move layer {layer_index + 1} servo: {e}")
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "new_angle": angle,
+        "feedback": feedback,
+    }
+
+
+def _servo_calibration_state(servo: Any) -> Dict[str, Any]:
+    open_angle = getattr(servo, "open_angle", None)
+    closed_angle = getattr(servo, "closed_angle", None)
+    return {
+        "open_angle": open_angle if isinstance(open_angle, int) else None,
+        "closed_angle": closed_angle if isinstance(closed_angle, int) else None,
+        "calibrated": bool(getattr(servo, "is_calibrated", True)),
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/lock")
+def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> Dict[str, Any]:
+    _ensure_not_homing("lock a servo angle")
+    if payload.which not in {"open", "closed"}:
+        raise HTTPException(status_code=400, detail="which must be 'open' or 'closed'.")
+    servo = _live_servo_for_layer(layer_index)
+
+    if payload.angle is not None:
+        angle = max(0, min(180, int(payload.angle)))
+    else:
+        current = getattr(servo, "angle", None)
+        if current is None:
+            position = getattr(servo, "position", None)
+            current = int(position) // 10 if position is not None else None
+        if current is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not read the servo's current angle to lock in.",
+            )
+        angle = max(0, min(180, int(current)))
+
+    layout = getBinLayout()
+    if layer_index < 0 or layer_index >= len(layout.layers):
+        raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
+    layer = layout.layers[layer_index]
+    if payload.which == "open":
+        layer.servo_open_angle = angle
+        if hasattr(servo, "set_open_angle"):
+            servo.set_open_angle(angle)
+    else:
+        layer.servo_closed_angle = angle
+        if hasattr(servo, "set_closed_angle"):
+            servo.set_closed_angle(angle)
+
+    try:
+        saveBinLayout(layout)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to persist locked angle: {e}")
+
+    state = _servo_calibration_state(servo)
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "which": payload.which,
+        "angle": angle,
+        **state,
+        "feedback": _live_servo_feedback_for_layer(layer_index, servo),
+        "message": (
+            f"Layer {layer_index + 1} {payload.which} angle locked at {angle}°."
+        ),
     }
 
 

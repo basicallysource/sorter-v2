@@ -173,7 +173,9 @@ dependencies = [
     { name = "openai" },
     { name = "opencv-python" },
     { name = "pillow" },
+    { name = "pycairo", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "pydantic-to-typescript" },
+    { name = "pygobject", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
     { name = "pyright" },
     { name = "pyserial" },
     { name = "python-dotenv" },
@@ -211,7 +213,9 @@ requires-dist = [
     { name = "openai", specifier = ">=2.30.0" },
     { name = "opencv-python", specifier = ">=4.13.0.92" },
     { name = "pillow", specifier = ">=12.1.0" },
+    { name = "pycairo", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=1.29" },
     { name = "pydantic-to-typescript", specifier = ">=2.0.0" },
+    { name = "pygobject", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'", specifier = ">=3.48,<3.50" },
     { name = "pyright", specifier = ">=1.1.408" },
     { name = "pyserial", specifier = ">=3.5" },
     { name = "python-dotenv", specifier = ">=1.2.1" },
@@ -1218,6 +1222,12 @@ wheels = [
 ]
 
 [[package]]
+name = "pycairo"
+version = "1.29.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/d9/1728840a22a4ef8a8f479b9156aa2943cd98c3907accd3849fb0d5f82bfd/pycairo-1.29.0.tar.gz", hash = "sha256:f3f7fde97325cae80224c09f12564ef58d0d0f655da0e3b040f5807bd5bd3142", size = 665871 }
+
+[[package]]
 name = "pycparser"
 version = "3.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1305,6 +1315,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pygobject"
+version = "3.48.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pycairo", marker = "platform_machine == 'aarch64' and sys_platform == 'linux'" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f9/9e/6bab1ed3bd878f0912d9a0600c21f3d88bab0e8a8d4c3ce50f5cf336faaf/pygobject-3.48.2.tar.gz", hash = "sha256:c3c0a7afbe5b2c1c64dc0530109b4dd571085153dbedfbccb8ec7c5ad233f977", size = 715243 }
+
+[[package]]
 name = "pyobjc-core"
 version = "12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1318,11 +1337,11 @@ name = "pyobjc-framework-avfoundation"
 version = "12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-cocoa", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-coreaudio", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-coremedia", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-quartz", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-coreaudio", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-coremedia", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-quartz", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/cd/42/c026ab308edc2ed5582d8b4b93da6b15d1b6557c0086914a4aabedd1f032/pyobjc_framework_avfoundation-12.1.tar.gz", hash = "sha256:eda0bb60be380f9ba2344600c4231dd58a3efafa99fdc65d3673ecfbb83f6fcb", size = 310047 }
 wheels = [
@@ -1334,7 +1353,7 @@ name = "pyobjc-framework-cocoa"
 version = "12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/02/a3/16ca9a15e77c061a9250afbae2eae26f2e1579eb8ca9462ae2d2c71e1169/pyobjc_framework_cocoa-12.1.tar.gz", hash = "sha256:5556c87db95711b985d5efdaaf01c917ddd41d148b1e52a0c66b1a2e2c5c1640", size = 2772191 }
 wheels = [
@@ -1346,8 +1365,8 @@ name = "pyobjc-framework-coreaudio"
 version = "12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-cocoa", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/84/d1/0b884c5564ab952ff5daa949128c64815300556019c1bba0cf2ca752a1a0/pyobjc_framework_coreaudio-12.1.tar.gz", hash = "sha256:a9e72925fcc1795430496ce0bffd4ddaa92c22460a10308a7283ade830089fe1", size = 75077 }
 wheels = [
@@ -1359,8 +1378,8 @@ name = "pyobjc-framework-coremedia"
 version = "12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-cocoa", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/da/7d/5ad600ff7aedfef8ba8f51b11d9aaacdf247b870bd14045d6e6f232e3df9/pyobjc_framework_coremedia-12.1.tar.gz", hash = "sha256:166c66a9c01e7a70103f3ca44c571431d124b9070612ef63a1511a4e6d9d84a7", size = 89566 }
 wheels = [
@@ -1372,8 +1391,8 @@ name = "pyobjc-framework-quartz"
 version = "12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pyobjc-core", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
-    { name = "pyobjc-framework-cocoa", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'" },
+    { name = "pyobjc-core", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
+    { name = "pyobjc-framework-cocoa", marker = "(platform_machine != 'aarch64' and platform_system != 'Linux') or (platform_system != 'Linux' and sys_platform != 'linux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/94/18/cc59f3d4355c9456fc945eae7fe8797003c4da99212dd531ad1b0de8a0c6/pyobjc_framework_quartz-12.1.tar.gz", hash = "sha256:27f782f3513ac88ec9b6c82d9767eef95a5cf4175ce88a1e5a65875fee799608", size = 3159099 }
 wheels = [

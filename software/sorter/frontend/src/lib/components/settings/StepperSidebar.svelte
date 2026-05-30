@@ -606,7 +606,6 @@
 		void loadSettings();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();
-			void refreshDrvStatus();
 		}, 500);
 		return () => clearInterval(interval);
 	});

@@ -1396,6 +1396,18 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         stepper_config: StepperConfig | None = getattr(config, attr, None)
         stepper.set_hardware_name(physical_name)
         stepper.set_name(attr_base)
+        # Write GCONF to put the TMC2209 in UART-controlled mode. The chip may have
+        # powered on (or reset) after the firmware's own initialize() ran, leaving it
+        # at hardware reset defaults (I_SCALE_ANALOG=1, MSTEP_REG_SELECT=0). Setting
+        # these bits here means the backend init is idempotent regardless of motor
+        # power sequencing.
+        _TMC_GCONF_UART_INIT = 0x1C0  # PD_DISABLE | MSTEP_REG_SELECT | MULTISTEP_FILT
+        _run_stepper_init_command_with_retry(
+            gc,
+            attr_base,
+            "GCONF UART init",
+            lambda: stepper.write_driver_register(0x00, _TMC_GCONF_UART_INIT),
+        )
         if stepper_config is not None:
             microsteps = stepper_config.microsteps
             default_steps_per_second = stepper_config.default_steps_per_second

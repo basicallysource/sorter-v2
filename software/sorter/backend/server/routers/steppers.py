@@ -8,6 +8,7 @@ import threading
 import time
 from typing import Any, Dict, List, Optional
 
+import stepper_telemetry
 from toml_config import loadTomlFile
 
 from fastapi import APIRouter, HTTPException
@@ -1010,3 +1011,267 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
             stepper.write_driver_register(TMC_REG_TCOOLTHRS, 0)
 
     return get_tmc_settings(name)
+
+
+# ---------------------------------------------------------------------------
+# StallGuard tuning — data collection sweep + threshold persistence
+# ---------------------------------------------------------------------------
+
+# A sweep is a pure measurement: it runs the motor at constant speed, polls
+# SG_RESULT (load proxy, 0-510; drops toward 0 as load rises) plus CS_ACTUAL and
+# TSTEP, then stops. It never writes SGTHRS and restores TCOOLTHRS=0 on exit, so
+# it cannot leave stall enforcement half-configured. StallGuard only reports
+# while running above the TCOOLTHRS velocity floor, so we raise TCOOLTHRS for the
+# duration to keep SG_RESULT live across the operating range.
+MAX_STALLGUARD_SWEEP_DURATION_S = 30.0
+DEFAULT_STALLGUARD_TCOOLTHRS = 0xFFFFF
+
+
+class StallGuardSample(BaseModel):
+    t: float
+    sg_result: int
+    cs_actual: int
+    tstep: int
+
+
+class StallGuardSweepStats(BaseModel):
+    samples: int
+    sg_min: int
+    sg_max: int
+    sg_mean: float
+    suggested_sgthrs: int
+    suggested_trigger_level: int
+
+
+class StallGuardSweepResponse(BaseModel):
+    success: bool
+    stepper: str
+    speed: int
+    duration_s: float
+    sample_interval_s: float
+    tcoolthrs: int
+    run_id: str
+    samples: List[StallGuardSample]
+    stats: Optional[StallGuardSweepStats]
+
+
+def _suggested_sgthrs(sg_min: int) -> int:
+    # Heuristic validated on the stall-01 bring-up: place the trigger well below
+    # the unloaded minimum so normal running never trips, but high enough that a
+    # real stall (SG_RESULT -> ~0) does. DIAG fires at SG_RESULT <= 2*SGTHRS.
+    return max(1, int(sg_min * 0.4) // 2)
+
+
+@router.post("/stepper/stallguard-sweep", response_model=StallGuardSweepResponse)
+def stallguard_sweep(
+    stepper: str,
+    speed: int,
+    direction: str = "cw",
+    duration_s: float = 4.0,
+    sample_interval_s: float = 0.02,
+    spin_up_s: float = 0.3,
+    tcoolthrs: int = DEFAULT_STALLGUARD_TCOOLTHRS,
+    loaded: bool = False,
+    label: Optional[str] = None,
+) -> StallGuardSweepResponse:
+    _ensure_manual_motion_allowed("run a StallGuard sweep")
+    if speed <= 0:
+        raise HTTPException(status_code=400, detail="speed must be > 0")
+    if direction not in ("cw", "ccw"):
+        raise HTTPException(status_code=400, detail="direction must be 'cw' or 'ccw'")
+    if duration_s <= 0 or duration_s > MAX_STALLGUARD_SWEEP_DURATION_S:
+        raise HTTPException(
+            status_code=400,
+            detail=f"duration_s must be in (0, {int(MAX_STALLGUARD_SWEEP_DURATION_S)}]",
+        )
+    if sample_interval_s <= 0:
+        raise HTTPException(status_code=400, detail="sample_interval_s must be > 0")
+
+    target = _resolve_stepper(stepper)
+
+    lock = shared_state.pulse_locks.setdefault(stepper, threading.Lock())
+    if not lock.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is busy")
+
+    signed_speed = speed if direction == "cw" else -speed
+    samples: List[StallGuardSample] = []
+    telemetry_rows: List[Dict[str, Any]] = []
+
+    # Static per-run context, captured once (these don't change mid-sweep).
+    channel_ctx = getattr(target, "channel", None)
+    microsteps_ctx = getattr(target, "_microsteps", None)
+    last_current = getattr(target, "last_set_current", None)
+    irun_ctx = last_current.get("irun") if isinstance(last_current, dict) else None
+    gconf = _safe_read_register(target, TMC_REG_GCONF)
+    stealth_ctx = (not bool(gconf & (1 << 2))) if isinstance(gconf, int) else None
+
+    source = stepper_telemetry.SOURCE_STALL_TEST if loaded else stepper_telemetry.SOURCE_SWEEP
+    run_id = stepper_telemetry.createRun(
+        source,
+        stepper_name=stepper,
+        label=label,
+        params={
+            "speed": signed_speed,
+            "direction": direction,
+            "duration_s": duration_s,
+            "sample_interval_s": sample_interval_s,
+            "tcoolthrs": tcoolthrs,
+            "loaded": loaded,
+        },
+    )
+
+    try:
+        target.write_driver_register(TMC_REG_TCOOLTHRS, tcoolthrs)
+        target.enable_force(True)
+        if not bool(target.move_at_speed(signed_speed, force=True)):
+            raise RuntimeError("move_at_speed was not acknowledged")
+
+        time.sleep(min(max(spin_up_s, 0.0), 2.0))
+
+        wall_start = time.time()
+        t_start = time.monotonic()
+        while True:
+            t = time.monotonic() - t_start
+            if t >= duration_s:
+                break
+            sg = _safe_read_register(target, TMC_REG_SG_RESULT)
+            drv = _safe_read_register(target, TMC_REG_DRV_STATUS)
+            tstep = _safe_read_register(target, TMC_REG_TSTEP)
+            sg_val = sg if isinstance(sg, int) else None
+            cs_val = ((drv >> 16) & 0x1F) if isinstance(drv, int) else None
+            tstep_val = tstep if isinstance(tstep, int) else None
+            samples.append(
+                StallGuardSample(
+                    t=round(t, 4),
+                    sg_result=sg_val if sg_val is not None else -1,
+                    cs_actual=cs_val if cs_val is not None else -1,
+                    tstep=tstep_val if tstep_val is not None else -1,
+                )
+            )
+            telemetry_rows.append(
+                {
+                    "recorded_at": wall_start + t,
+                    "stepper_name": stepper,
+                    "channel": channel_ctx,
+                    "sg_result": sg_val,
+                    "cs_actual": cs_val,
+                    "tstep": tstep_val,
+                    "drv_status_raw": drv if isinstance(drv, int) else None,
+                    "commanded_speed": signed_speed,
+                    "irun": irun_ctx,
+                    "microsteps": microsteps_ctx,
+                    "stealthchop": stealth_ctx,
+                    "loaded": loaded,
+                }
+            )
+            remaining = sample_interval_s - (time.monotonic() - t_start - t)
+            if remaining > 0:
+                time.sleep(remaining)
+    except Exception as e:
+        # Best-effort save of partial data, but never let a DB error mask the
+        # underlying motor failure we're about to surface.
+        try:
+            stepper_telemetry.insertSamples(run_id, telemetry_rows)
+            stepper_telemetry.finishRun(
+                run_id, status=stepper_telemetry.RUN_STATUS_ERROR, error=str(e)
+            )
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"StallGuard sweep failed: {e}")
+    finally:
+        try:
+            _halt_stepper(target, force=True)
+        except Exception:
+            pass
+        try:
+            target.write_driver_register(TMC_REG_TCOOLTHRS, 0)
+        except Exception:
+            pass
+        try:
+            lock.release()
+        except RuntimeError:
+            pass
+
+    valid = [s.sg_result for s in samples if s.sg_result >= 0]
+    stats: Optional[StallGuardSweepStats] = None
+    sgthrs: Optional[int] = None
+    if valid:
+        sg_min = min(valid)
+        sgthrs = _suggested_sgthrs(sg_min)
+        stats = StallGuardSweepStats(
+            samples=len(valid),
+            sg_min=sg_min,
+            sg_max=max(valid),
+            sg_mean=round(sum(valid) / len(valid), 1),
+            suggested_sgthrs=sgthrs,
+            suggested_trigger_level=sgthrs * 2,
+        )
+
+    stepper_telemetry.insertSamples(run_id, telemetry_rows)
+    stepper_telemetry.finishRun(
+        run_id,
+        status=stepper_telemetry.RUN_STATUS_COMPLETED,
+        sg_min=stats.sg_min if stats else None,
+        sg_max=stats.sg_max if stats else None,
+        sg_mean=stats.sg_mean if stats else None,
+        suggested_sgthrs=sgthrs,
+    )
+
+    return StallGuardSweepResponse(
+        success=True,
+        stepper=stepper,
+        speed=speed,
+        duration_s=duration_s,
+        sample_interval_s=sample_interval_s,
+        tcoolthrs=tcoolthrs,
+        run_id=run_id,
+        samples=samples,
+        stats=stats,
+    )
+
+
+class StallGuardConfigBody(BaseModel):
+    sgthrs: int = Field(..., ge=0, le=255)
+    tcoolthrs: int = Field(DEFAULT_STALLGUARD_TCOOLTHRS, ge=0)
+    enabled: bool = True
+
+
+class StallGuardConfigResponse(BaseModel):
+    success: bool
+    stepper: str
+    toml_name: str
+    sgthrs: int
+    tcoolthrs: int
+    enabled: bool
+
+
+def _persist_stepper_stallguard(api_name: str, sgthrs: int, tcoolthrs: int, enabled: bool) -> None:
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(api_name, api_name)
+    params_path, config = _read_machine_params_config()
+    section = config.get("stepper_stallguard", {})
+    if not isinstance(section, dict):
+        section = {}
+    entry = section.get(toml_name, {})
+    if not isinstance(entry, dict):
+        entry = {}
+    entry["sgthrs"] = sgthrs
+    entry["tcoolthrs"] = tcoolthrs
+    entry["enabled"] = enabled
+    section[toml_name] = entry
+    config["stepper_stallguard"] = section
+    _write_machine_params_config(params_path, config)
+
+
+@router.post("/stepper/{stepper}/stallguard-config", response_model=StallGuardConfigResponse)
+def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuardConfigResponse:
+    _resolve_stepper(stepper)
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(stepper, stepper)
+    _persist_stepper_stallguard(stepper, body.sgthrs, body.tcoolthrs, body.enabled)
+    return StallGuardConfigResponse(
+        success=True,
+        stepper=stepper,
+        toml_name=toml_name,
+        sgthrs=body.sgthrs,
+        tcoolthrs=body.tcoolthrs,
+        enabled=body.enabled,
+    )

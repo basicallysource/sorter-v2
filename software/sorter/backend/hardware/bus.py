@@ -76,6 +76,7 @@ class BaseCommandCode:
     INIT = 0x00
     PING = 0x01
     GET_OBSERVABILITY = 0x03
+    GET_VERSION = 0x04
 
 
 class MCUBusError(Exception):
@@ -310,6 +311,11 @@ class MCUDevice:
     def detect(self) -> dict:
         """Send an init command to the device to check if it's responsive and properly initialized."""
         res = self.send_command(BaseCommandCode.INIT, 0, b"") # Returns a JSON string with device info if successful
+        info_str = res.payload.decode("utf-8")
+        return json.loads(info_str)
+
+    def get_version(self) -> dict:
+        res = self.send_command(BaseCommandCode.GET_VERSION, 0, b"")
         info_str = res.payload.decode("utf-8")
         return json.loads(info_str)
 

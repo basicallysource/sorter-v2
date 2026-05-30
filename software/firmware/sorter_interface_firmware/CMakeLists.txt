@@ -52,6 +52,41 @@ endif()
 set(INIT_DEVICE_NAME "${DEFAULT_DEVICE_NAME}" CACHE STRING "Device Name for the firmware to use on startup")
 set(INIT_DEVICE_ADDRESS "0x00" CACHE STRING "Device Address in the bus")
 
+set(FIRMWARE_VARIANT "unknown")
+if (HW_SKR_PICO)
+    set(FIRMWARE_VARIANT "${FIRMWARE_ROLE_NORMALIZED}-skr")
+elseif(HW_BASICALLY_V1_1)
+    set(FIRMWARE_VARIANT "${FIRMWARE_ROLE_NORMALIZED}-v1-1")
+elseif(HW_BASICALLY_V1_2)
+    set(FIRMWARE_VARIANT "${FIRMWARE_ROLE_NORMALIZED}-v1-2")
+endif()
+
+set(FIRMWARE_GIT_VERSION "unknown")
+execute_process(
+    COMMAND git describe --tags --match firmware/v* --always --dirty --abbrev=8
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    OUTPUT_VARIABLE FIRMWARE_GIT_VERSION
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if (FIRMWARE_GIT_VERSION STREQUAL "")
+    set(FIRMWARE_GIT_VERSION "unknown")
+endif()
+
+set(FIRMWARE_GIT_COMMIT "unknown")
+execute_process(
+    COMMAND git rev-parse --short=8 HEAD
+    WORKING_DIRECTORY ${CMAKE_CURRENT_LIST_DIR}
+    OUTPUT_VARIABLE FIRMWARE_GIT_COMMIT
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+    ERROR_QUIET
+)
+if (FIRMWARE_GIT_COMMIT STREQUAL "")
+    set(FIRMWARE_GIT_COMMIT "unknown")
+endif()
+
+string(TIMESTAMP FIRMWARE_BUILD_TIME_UTC "%Y-%m-%dT%H:%M:%SZ" UTC)
+
 # Add executable. Default name is the project name, version 0.1
 
 add_executable(sorter_interface_firmware 
@@ -67,7 +102,7 @@ add_executable(sorter_interface_firmware
 )
 
 pico_set_program_name(sorter_interface_firmware "sorter_interface_firmware")
-pico_set_program_version(sorter_interface_firmware "0.1")
+pico_set_program_version(sorter_interface_firmware "${FIRMWARE_GIT_VERSION}")
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(sorter_interface_firmware 0)
@@ -83,7 +118,16 @@ target_include_directories(sorter_interface_firmware PRIVATE
 )
 
 # Pass INIT_DEVICE_NAME and INIT_DEVICE_ADDRESS as preprocessor definitions
-target_compile_definitions(sorter_interface_firmware PRIVATE INIT_DEVICE_NAME="${INIT_DEVICE_NAME}" INIT_DEVICE_ADDRESS=${INIT_DEVICE_ADDRESS})
+target_compile_definitions(
+    sorter_interface_firmware
+    PRIVATE
+        INIT_DEVICE_NAME="${INIT_DEVICE_NAME}"
+        INIT_DEVICE_ADDRESS=${INIT_DEVICE_ADDRESS}
+        FIRMWARE_GIT_VERSION="${FIRMWARE_GIT_VERSION}"
+        FIRMWARE_GIT_COMMIT="${FIRMWARE_GIT_COMMIT}"
+        FIRMWARE_BUILD_TIME_UTC="${FIRMWARE_BUILD_TIME_UTC}"
+        FIRMWARE_VARIANT="${FIRMWARE_VARIANT}"
+)
 if (HW_SKR_PICO)
     target_compile_definitions(sorter_interface_firmware PRIVATE HARDWARE_SKR_PICO)
 endif()
@@ -110,4 +154,3 @@ target_link_libraries(sorter_interface_firmware
         )
 
 pico_add_extra_outputs(sorter_interface_firmware)
-

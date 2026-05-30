@@ -2,6 +2,8 @@
 AGENTS.md
 .tmp-*
 
+machine.toml
+
 software/sorteros/build/.env
 software/sorteros/build/*.authkey
 software/sorteros/build/out/

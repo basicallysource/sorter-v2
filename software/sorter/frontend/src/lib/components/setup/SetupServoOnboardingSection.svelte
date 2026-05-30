@@ -5,6 +5,7 @@
 	import SerialPortPanel from './servo/SerialPortPanel.svelte';
 	import ServoInventoryList from './servo/ServoInventoryList.svelte';
 	import PcaChannelMapping from './servo/PcaChannelMapping.svelte';
+	import ServoLayerCalibrator from '$lib/components/servo/ServoLayerCalibrator.svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 
@@ -749,25 +750,7 @@
 			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
 		/>
 	{:else}
-		<PcaChannelMapping
-			{layerCount}
-			pcaChoices={pcaChoices()}
-			bind:layerByAssignment
-			{invertByLayer}
-			bind:openAngle
-			bind:closedAngle
-			bind:openAngleByLayer
-			bind:closedAngleByLayer
-			bind:nudgeDegrees
-			{selectedLayerIdx}
-			{estimatedAngleByLayer}
-			onSetInvert={setInvertForLayer}
-			onNudgeLayer={(layerIdx, degrees) => void nudgeLayer(layerIdx, degrees)}
-			onSelectLayer={(layerIdx) => {
-				selectedLayerIdx = selectedLayerIdx === layerIdx ? null : layerIdx;
-				selectedServoId = null;
-			}}
-		/>
+		<ServoLayerCalibrator showDirections />
 	{/if}
 
 	<div class="flex flex-wrap items-center gap-3">

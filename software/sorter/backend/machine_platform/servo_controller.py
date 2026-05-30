@@ -175,15 +175,10 @@ class Pca9685ServoController(ServoController):
         gc: GlobalConfig,
         source_board: ControlBoard,
         assignments: Sequence[LayerServoAssignment],
-        *,
-        open_angle: int,
-        closed_angle: int,
     ):
         self._gc = gc
         self._source_board = source_board
         self._assignments = tuple(assignments)
-        self._open_angle = open_angle
-        self._closed_angle = closed_angle
         self.issues = []
 
     def create_layer_servos(self, distribution_layout: Any) -> list[Any]:
@@ -209,10 +204,9 @@ class Pca9685ServoController(ServoController):
 
             servo = self._source_board.servos[assignment.id]
             servo.set_name(f"layer_{index}_servo")
-            if assignment.invert:
-                servo.set_preset_angles(self._closed_angle, self._open_angle)
-            else:
-                servo.set_preset_angles(self._open_angle, self._closed_angle)
+            # No default angles are injected here. A PCA servo stays uncalibrated
+            # (open/closed = None) until per-layer angles are locked in via the
+            # UI; config.py applies any saved per-layer angles after this.
             layer_servos.append(servo)
             self._gc.logger.info(
                 f"Initialized PCA9685 servo 'layer_{index}_servo' on channel {assignment.id}, "
@@ -358,8 +352,6 @@ def build_servo_controller(
     gc: GlobalConfig,
     *,
     control_boards: Sequence[ControlBoard],
-    open_angle: int,
-    closed_angle: int,
     servo_channel_config: Sequence[ServoChannelConfig],
     waveshare_config: WaveshareServoConfig | None,
     mcu_ports: Sequence[str],
@@ -385,8 +377,6 @@ def build_servo_controller(
         gc,
         source_board=servo_source,
         assignments=assignments,
-        open_angle=open_angle,
-        closed_angle=closed_angle,
     )
 
 

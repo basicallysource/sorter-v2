@@ -429,8 +429,13 @@ class ServoMotor:
         self._channel = channel
         self._name = f"servo_{channel}"
         self._current_angle = 0
-        self._open_angle = 0
-        self._closed_angle = 72
+        # No factory defaults: a PWM servo must be calibrated (its open and
+        # closed angles locked in via the UI) before it is allowed to move.
+        # None means "uncalibrated" — open()/close()/toggle() no-op until both
+        # angles are set, so a fresh machine never drives a door to a guessed
+        # angle that might be mechanically unsafe.
+        self._open_angle: int | None = None
+        self._closed_angle: int | None = None
         # Track enabled state locally; the firmware does not provide a GET for enabled.
         self._enabled = False
         self._gc = gc
@@ -515,15 +520,30 @@ class ServoMotor:
     def open(self, open_angle: int | None = None, max_duration_ms: int = 3500) -> None:
         """Move servo to open position (with hard release deadline guarantee)."""
         target = open_angle if open_angle is not None else self._open_angle
+        if target is None:
+            self._gc.logger.warning(
+                f"Servo '{self._name}' ch{self._channel}: open() ignored — servo is not calibrated"
+            )
+            return
         self.move_to_and_release(target, max_duration_ms=max_duration_ms)
 
     def close(self, closed_angle: int | None = None, max_duration_ms: int = 3500) -> None:
         """Move servo to closed position (with hard release deadline guarantee)."""
         target = closed_angle if closed_angle is not None else self._closed_angle
+        if target is None:
+            self._gc.logger.warning(
+                f"Servo '{self._name}' ch{self._channel}: close() ignored — servo is not calibrated"
+            )
+            return
         self.move_to_and_release(target, max_duration_ms=max_duration_ms)
 
     def toggle(self) -> None:
         """Toggle between open and closed."""
+        if not self.is_calibrated:
+            self._gc.logger.warning(
+                f"Servo '{self._name}' ch{self._channel}: toggle() ignored — servo is not calibrated"
+            )
+            return
         if self._current_angle == self._open_angle:
             self.close()
         else:
@@ -531,10 +551,14 @@ class ServoMotor:
 
     def isOpen(self) -> bool:
         """Check if servo is in open position."""
+        if self._open_angle is None:
+            return False
         return self._current_angle == self._open_angle
 
     def isClosed(self) -> bool:
         """Check if servo is in closed position."""
+        if self._closed_angle is None:
+            return False
         return self._current_angle == self._closed_angle
 
     def set_speed_limits(self, min_speed: int, max_speed: int) -> None:
@@ -577,10 +601,34 @@ class ServoMotor:
         """Set a human-readable name for this servo."""
         self._name = name
 
-    def set_preset_angles(self, open_angle: int, closed_angle: int) -> None:
+    def set_preset_angles(self, open_angle: int | None, closed_angle: int | None) -> None:
         """Set the open and closed preset angles."""
         self._open_angle = open_angle
         self._closed_angle = closed_angle
+
+    def set_open_angle(self, angle: int | None) -> None:
+        """Lock in (or clear) the open-position angle without touching closed."""
+        self._open_angle = angle
+
+    def set_closed_angle(self, angle: int | None) -> None:
+        """Lock in (or clear) the closed-position angle without touching open."""
+        self._closed_angle = angle
+
+    @property
+    def open_angle(self) -> int | None:
+        return self._open_angle
+
+    @property
+    def closed_angle(self) -> int | None:
+        return self._closed_angle
+
+    @property
+    def requires_calibration(self) -> bool:
+        return True
+
+    @property
+    def is_calibrated(self) -> bool:
+        return self._open_angle is not None and self._closed_angle is not None
 
     @property
     def angle(self) -> int:

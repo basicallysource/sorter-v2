@@ -20,14 +20,18 @@ if TYPE_CHECKING:
 
 MACHINE_SPECIFIC_PARAMS_ENV_VAR = "MACHINE_SPECIFIC_PARAMS_PATH"
 
-# User may override these defaults by setting MACHINE_SPECIFIC_PARAMS_PATH to a TOML file.
-DEFAULT_SERVO_OPEN_ANGLE = 10
-DEFAULT_SERVO_CLOSED_ANGLE = 83
+# Servos have no hard-coded open/closed angle defaults. A PWM servo must be
+# calibrated per layer (its angles locked in via the UI) before it will move.
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
+# Canonical chute aiming geometry (see subsystems/distribution/chute.py).
+# section_width default = 360/6 - 8.25 pillar, to match the legacy geometry.
+DEFAULT_CHUTE_NUM_SECTIONS = 6
+DEFAULT_CHUTE_SECTION_WIDTH_DEG = 51.75
+DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG = 8.25
 DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
 # Matches the long-running carousel homing wiring used by the stable
 # pre-setup-wizard backend path.
@@ -149,8 +153,8 @@ def loadFeedingModeConfig(
 
 @dataclass
 class MachineConfig:
-    servo_open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
-    servo_closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
+    servo_open_angle: int | None = None
+    servo_closed_angle: int | None = None
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
 
 
@@ -380,10 +384,10 @@ def loadStepperDirectionInverts(
     return overrides
 
 
-def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int) -> int:
+def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int | None) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 180:
         return value
-    gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using default {default}.")
+    gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using {default}.")
     return default
 
 
@@ -402,18 +406,16 @@ def loadMachineConfig(
 
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):
-        config.servo_open_angle = _validateAngle(
-            gc, "servo.open_angle",
-            servo_params.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE),
-            DEFAULT_SERVO_OPEN_ANGLE,
-        )
-        config.servo_closed_angle = _validateAngle(
-            gc, "servo.closed_angle",
-            servo_params.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE),
-            DEFAULT_SERVO_CLOSED_ANGLE,
-        )
+        if "open_angle" in servo_params:
+            config.servo_open_angle = _validateAngle(
+                gc, "servo.open_angle", servo_params.get("open_angle"), None
+            )
+        if "closed_angle" in servo_params:
+            config.servo_closed_angle = _validateAngle(
+                gc, "servo.closed_angle", servo_params.get("closed_angle"), None
+            )
     elif servo_params is not None:
-        gc.logger.warning("Ignoring invalid servo config: expected object. Using defaults.")
+        gc.logger.warning("Ignoring invalid servo config: expected object.")
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
 
@@ -441,6 +443,12 @@ class CarouselCalibrationConfig:
 @dataclass
 class ChuteCalibrationConfig:
     home_pin_channel: int = DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
+    section_width_deg: float = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+    first_section_offset_deg: float = DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG
+    # Legacy fields, still parsed so old machine.toml files keep working and
+    # the legacy /settings/chute page round-trips. When the canonical keys
+    # above are absent they are derived from these (see loader below).
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
@@ -639,8 +647,61 @@ def loadChuteCalibrationConfig(
         )
         operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
+    num_sections_raw = chute_params.get("num_sections", DEFAULT_CHUTE_NUM_SECTIONS)
+    if not isinstance(num_sections_raw, int) or isinstance(num_sections_raw, bool) or num_sections_raw < 1:
+        gc.logger.warning(
+            f"Invalid chute.num_sections={num_sections_raw!r}; expected int >= 1. "
+            f"Using default {DEFAULT_CHUTE_NUM_SECTIONS}."
+        )
+        num_sections = DEFAULT_CHUTE_NUM_SECTIONS
+    else:
+        num_sections = num_sections_raw
+    section_pitch = 360.0 / num_sections
+
+    # Canonical keys win. When absent, derive from the legacy geometry so an
+    # existing machine.toml keeps aiming sensibly until it is recalibrated via
+    # the new flow: usable section width = pitch - pillar, and the legacy
+    # first_bin_center is treated as the section-0 start offset.
+    if "section_width_deg" in chute_params:
+        section_width_deg = chute_params.get("section_width_deg")
+        if not isinstance(section_width_deg, (int, float)) or isinstance(section_width_deg, bool):
+            gc.logger.warning(
+                f"Invalid chute.section_width_deg={section_width_deg!r}; deriving from pillar_width_deg."
+            )
+            section_width_deg = section_pitch - pillar_width_deg
+        else:
+            section_width_deg = float(section_width_deg)
+    else:
+        section_width_deg = section_pitch - pillar_width_deg
+        gc.logger.info(
+            "chute.section_width_deg not set; derived %.3f° from pillar_width_deg. "
+            "Run the chute aiming calibration to set it directly." % section_width_deg
+        )
+
+    if section_width_deg <= 0 or section_width_deg >= section_pitch:
+        gc.logger.warning(
+            f"Invalid chute.section_width_deg={section_width_deg!r}; expected 0 < value < "
+            f"{section_pitch}. Using default {DEFAULT_CHUTE_SECTION_WIDTH_DEG}."
+        )
+        section_width_deg = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+
+    if "first_section_offset_deg" in chute_params:
+        first_section_offset_deg = chute_params.get("first_section_offset_deg")
+        if not isinstance(first_section_offset_deg, (int, float)) or isinstance(first_section_offset_deg, bool):
+            gc.logger.warning(
+                f"Invalid chute.first_section_offset_deg={first_section_offset_deg!r}; using first_bin_center."
+            )
+            first_section_offset_deg = first_bin_center
+        else:
+            first_section_offset_deg = float(first_section_offset_deg)
+    else:
+        first_section_offset_deg = first_bin_center
+
     return ChuteCalibrationConfig(
         home_pin_channel=home_pin_channel,
+        num_sections=num_sections,
+        section_width_deg=section_width_deg,
+        first_section_offset_deg=first_section_offset_deg,
         first_bin_center=first_bin_center,
         pillar_width_deg=pillar_width_deg,
         endstop_active_high=endstop_active_high,

@@ -127,6 +127,9 @@ def restore_servo_states(servos: list, gc: GlobalConfig) -> None:
         was_open = entry.get("is_open")
         if was_open is None:
             continue
+        if not getattr(servo, "is_calibrated", True):
+            # Uncalibrated PWM servos must not move on boot.
+            continue
         try:
             if was_open:
                 servo.open()
@@ -1473,8 +1476,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.servo_controller = build_servo_controller(
             gc,
             control_boards=control_boards,
-            open_angle=servo_open_angle,
-            closed_angle=servo_closed_angle,
             servo_channel_config=servo_channel_config,
             waveshare_config=waveshare_config,
             mcu_ports=mcu_ports,
@@ -1483,12 +1484,15 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             irl_interface.distribution_layout
         )
         for layer_index, servo in enumerate(irl_interface.servos):
+            if not hasattr(servo, "set_preset_angles"):
+                continue
             layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
             layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
-            open_angle = layer_open if layer_open is not None else servo_open_angle
-            closed_angle = layer_closed if layer_closed is not None else servo_closed_angle
-            if hasattr(servo, "set_preset_angles"):
-                servo.set_preset_angles(open_angle, closed_angle)
+            # Servos only ever get angles that were explicitly locked in per
+            # layer via the UI. There is no global default to fall back on, so an
+            # uncalibrated layer stays None and will not move.
+            if layer_open is not None and layer_closed is not None:
+                servo.set_preset_angles(layer_open, layer_closed)
         restore_servo_states(irl_interface.servos, gc)
 
     irl_interface.machine_profile = build_machine_profile(
@@ -1549,8 +1553,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.chute_stepper,
         chute_home_pin,
         irl_interface.distribution_layout,
-        first_bin_center=chute_calibration.first_bin_center,
-        pillar_width_deg=chute_calibration.pillar_width_deg,
+        num_sections=chute_calibration.num_sections,
+        section_width_deg=chute_calibration.section_width_deg,
+        first_section_offset_deg=chute_calibration.first_section_offset_deg,
         endstop_active_high=chute_calibration.endstop_active_high,
         operating_speed_microsteps_per_second=chute_calibration.operating_speed_microsteps_per_second,
     )

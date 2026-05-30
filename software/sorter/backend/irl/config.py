@@ -290,7 +290,7 @@ class ClassificationChannelConfig:
     post_distribute_cooldown_s: float
 
     def __init__(self) -> None:
-        self.mode = ClassificationChannelMode.DYNAMIC
+        self.mode = ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
         # Keep C4 pipelined instead of serialised: target one piece in the
         # intake/drop zone and three more spread across the platter on the way
         # to the exit. Zone hard-guards still prevent same-sector loading.
@@ -483,7 +483,7 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
-        self.mode = FeederMode.DROP_ZONE_REACTIVE_REV01
+        self.mode = FeederMode.GO_TO_ANGLE_REV01
         self.first_rotor = RotorPulseConfig(
             steps=100,
             microsteps_per_second=2000,

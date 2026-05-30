@@ -34,7 +34,11 @@ const char* const STEPPER_NAMES[] = {
 };
 #endif
 
-const uint8_t TMC_UART_BUS_COUNT = 2;
+// Must be a preprocessor macro, not a const: it gates `#if TMC_UART_BUS_COUNT > 1`
+// blocks that construct/route the second UART bus. A const uint8_t is invisible to
+// the preprocessor (evaluates as 0), which silently compiles out the second bus and
+// makes every channel fall back to bus 0.
+#define TMC_UART_BUS_COUNT 2
 uart_inst_t* const TMC_UART_BUSES[] = {uart0, uart1};
 const int TMC_UART_BUS_TX_PINS[] = {16, 4};
 const int TMC_UART_BUS_RX_PINS[] = {17, 5};

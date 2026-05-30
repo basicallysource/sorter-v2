@@ -27,7 +27,11 @@ from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
-from server.security import compute_allowed_ui_origins, websocket_connection_allowed
+from server.security import (
+    explicit_allowed_origins,
+    ui_allowed_origin_regex,
+    websocket_connection_allowed,
+)
 
 from server.shared_state import (
     active_connections,
@@ -64,7 +68,8 @@ app = FastAPI(title="Sorter API", version="0.0.1")
 #
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=compute_allowed_ui_origins(),
+    allow_origins=explicit_allowed_origins(),
+    allow_origin_regex=ui_allowed_origin_regex(),
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -536,7 +541,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     if not websocket_connection_allowed(
         websocket.headers.get("Origin"),
         client_host,
-        compute_allowed_ui_origins(),
     ):
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,

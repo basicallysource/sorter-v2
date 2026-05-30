@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import ipaddress
 import os
+import re
 import socket
 import subprocess
+from functools import lru_cache
 from urllib.parse import urlsplit
 
 
@@ -45,12 +47,76 @@ def is_loopback_client_address(host: str | None) -> bool:
 def websocket_connection_allowed(
     origin: str | None,
     client_host: str | None,
-    allowed_origins: list[str] | tuple[str, ...],
 ) -> bool:
     normalized = normalize_origin(origin)
     if normalized is None:
         return is_loopback_client_address(client_host)
-    return origin_allowed(normalized, allowed_origins)
+    return is_ui_origin_allowed(normalized)
+
+
+def _ui_port() -> str:
+    return os.getenv("SORTER_UI_PORT", "5173").strip() or "5173"
+
+
+# Hosts trusted as "the UI talking to its own backend over the LAN": loopback,
+# every RFC1918 private range, link-local, the Tailscale CGNAT range
+# (100.64/10), any mDNS *.local or Tailscale MagicDNS *.ts.net name, plus this
+# machine's own hostname / Tailscale name. Deliberately bounded to private/local
+# hosts — a public origin never matches. Combined with the UI port this lets the
+# operator reach the UI by IP, hostname, .local, or Tailscale without per-machine
+# origin config, and survives DHCP address changes without a restart.
+_LOCAL_HOST_PATTERNS: tuple[str, ...] = (
+    r"localhost",
+    r"127(?:\.\d{1,3}){3}",
+    r"10(?:\.\d{1,3}){3}",
+    r"192\.168(?:\.\d{1,3}){2}",
+    r"172\.(?:1[6-9]|2\d|3[01])(?:\.\d{1,3}){2}",
+    r"169\.254(?:\.\d{1,3}){2}",
+    r"100\.(?:6[4-9]|[7-9]\d|1\d\d|2[0-4]\d|25[0-5])(?:\.\d{1,3}){2}",
+    r"\[::1\]",
+    r"[A-Za-z0-9-]+\.local",
+    r"[A-Za-z0-9-]+\.ts\.net",
+)
+
+
+@lru_cache(maxsize=1)
+def _local_origin_regex() -> re.Pattern[str]:
+    patterns: list[str] = list(_LOCAL_HOST_PATTERNS)
+    try:
+        hostname = socket.gethostname().strip().lower()
+    except Exception:
+        hostname = ""
+    if hostname:
+        patterns.append(re.escape(hostname))
+        if not hostname.endswith(".local"):
+            patterns.append(re.escape(f"{hostname}.local"))
+    tailscale_name = _tailscale_hostname()
+    if tailscale_name:
+        patterns.append(re.escape(tailscale_name.strip().lower()))
+    host_group = "|".join(patterns)
+    return re.compile(rf"^https?://(?:{host_group}):{re.escape(_ui_port())}$", re.IGNORECASE)
+
+
+def ui_allowed_origin_regex() -> str:
+    return _local_origin_regex().pattern
+
+
+def explicit_allowed_origins() -> list[str]:
+    override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
+    if not override:
+        return []
+    return _dedupe_origins(
+        [origin for origin in (normalize_origin(item) for item in override.split(",")) if origin is not None]
+    )
+
+
+def is_ui_origin_allowed(origin: str | None) -> bool:
+    normalized = normalize_origin(origin)
+    if normalized is None:
+        return False
+    if normalized.lower() in {item.lower() for item in explicit_allowed_origins()}:
+        return True
+    return bool(_local_origin_regex().match(normalized))
 
 
 def compute_allowed_ui_origins() -> list[str]:

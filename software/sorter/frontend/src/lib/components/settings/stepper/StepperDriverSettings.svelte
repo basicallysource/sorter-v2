@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ChevronDown } from 'lucide-svelte';
 	import StepperDrvStatusGrid from './StepperDrvStatusGrid.svelte';
+	import HoverEditNumber from './HoverEditNumber.svelte';
 
 	let {
 		open = $bindable(),
@@ -60,12 +61,16 @@
 	{:else}
 		<div class="flex flex-col gap-3">
 			<label class="flex flex-col gap-1 text-xs text-text">
-				Run Current (IRUN): {tmcIrun}
+				<span class="flex items-center gap-1">
+					Run Current (IRUN): <HoverEditNumber bind:value={tmcIrun} min={0} max={31} />
+				</span>
 				<input type="range" min="0" max="31" bind:value={tmcIrun} class="w-full" />
 			</label>
 
 			<label class="flex flex-col gap-1 text-xs text-text">
-				Hold Current (IHOLD): {tmcIhold}
+				<span class="flex items-center gap-1">
+					Hold Current (IHOLD): <HoverEditNumber bind:value={tmcIhold} min={0} max={31} />
+				</span>
 				<input type="range" min="0" max="31" bind:value={tmcIhold} class="w-full" />
 			</label>
 
@@ -103,7 +108,9 @@
 				{#if sgEnabled}
 					<div class="mt-3 flex flex-col gap-3">
 						<label class="flex flex-col gap-1 text-xs text-text">
-							Threshold (SGTHRS): {sgThrs}
+							<span class="flex items-center gap-1">
+								Threshold (SGTHRS): <HoverEditNumber bind:value={sgThrs} min={0} max={255} />
+							</span>
 							<input type="range" min="0" max="255" bind:value={sgThrs} class="w-full" />
 						</label>
 						<label class="flex flex-col gap-1 text-xs text-text">

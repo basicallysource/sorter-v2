@@ -210,13 +210,29 @@ class CameraColorProfile:
         self.gamma_b = gamma_b
 
 
+# Matches the firmware's Stepper constructor default (`_accel(10000)` in
+# Stepper.cpp). The firmware keeps acceleration as mutable per-motor state that
+# is not reliably at this value at runtime, so the backend is authoritative: it
+# stores a per-stepper default here and re-applies it before every move (see
+# StepperMotor.move_*; jitter is the only exception, it manages its own).
+# Change this one value to retune the acceleration of every stepper at once.
+FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ = 10000
+
+
 class StepperConfig:
     default_steps_per_second: int
     microsteps: int
+    acceleration_microsteps_per_second_sq: int
 
-    def __init__(self, default_steps_per_second: int = 2000, microsteps: int = 8):
+    def __init__(
+        self,
+        default_steps_per_second: int = 2000,
+        microsteps: int = 8,
+        acceleration_microsteps_per_second_sq: int = FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ,
+    ):
         self.default_steps_per_second = default_steps_per_second
         self.microsteps = microsteps
+        self.acceleration_microsteps_per_second_sq = acceleration_microsteps_per_second_sq
 
 
 class RotorPulseConfig:
@@ -1305,8 +1321,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     stepper_binding_overrides = loadStepperBindingOverrides(gc, machine_specific_params)
     stepper_current_overrides = machine_config.stepper_current_overrides
     stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
-    servo_open_angle = machine_config.servo_open_angle
-    servo_closed_angle = machine_config.servo_closed_angle
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
     mcu_ports = MCUBus.enumerate_buses()
     required_stepper_names = _requiredCanonicalStepperNames(
@@ -1414,6 +1428,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         if stepper_config is not None:
             microsteps = stepper_config.microsteps
             default_steps_per_second = stepper_config.default_steps_per_second
+            default_acceleration = stepper_config.acceleration_microsteps_per_second_sq
             _run_stepper_init_command_with_retry(
                 gc,
                 attr_base,
@@ -1426,8 +1441,17 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                 f"speed limits min=16 max={default_steps_per_second}",
                 lambda: stepper.set_speed_limits(16, default_steps_per_second),
             )
+            # Record the default so every move re-asserts it, and apply it once
+            # now so the value is correct before the first move (e.g. homing).
+            stepper.set_default_acceleration(default_acceleration)
+            _run_stepper_init_command_with_retry(
+                gc,
+                attr_base,
+                f"acceleration={default_acceleration}",
+                lambda: stepper.set_acceleration(default_acceleration),
+            )
             gc.logger.info(
-                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={microsteps}, speed={default_steps_per_second}"
+                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={microsteps}, speed={default_steps_per_second}, acceleration={default_acceleration}"
             )
         else:
             gc.logger.warn(

@@ -743,11 +743,12 @@ def move_stepper_degrees(
     try:
         target.enable_force(True)
         if want_ramp:
-            target.set_acceleration(int(acceleration))
             target.set_speed_limits(min_speed=int(min_speed), max_speed=int(speed))
+            move_acceleration: int | None = int(acceleration)
         else:
             target.set_speed_limits(min_speed=16, max_speed=int(speed))
-        if not bool(target.move_degrees(degrees, force=True)):
+            move_acceleration = None
+        if not bool(target.move_degrees(degrees, acceleration=move_acceleration, force=True)):
             raise RuntimeError("move_degrees was not acknowledged")
     except Exception as e:
         lock.release()
@@ -1123,6 +1124,7 @@ def stallguard_sweep(
     try:
         target.write_driver_register(TMC_REG_TCOOLTHRS, tcoolthrs)
         target.enable_force(True)
+        # move_at_speed re-asserts the stepper's configured default acceleration.
         if not bool(target.move_at_speed(signed_speed, force=True)):
             raise RuntimeError("move_at_speed was not acknowledged")
 

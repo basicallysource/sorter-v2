@@ -97,6 +97,14 @@ class StepperMotor:
         self._last_set_current: dict[str, int] | None = None
         self._gc = gc
         self.software_disabled = False
+        # Per-stepper default acceleration, set from StepperConfig at init. Every
+        # move re-asserts it (see _ensure_move_acceleration) so a move never runs
+        # on a stale acceleration left behind by a prior operation. None means
+        # "unmanaged" — leave whatever the firmware currently holds.
+        self._default_acceleration: int | None = None
+        # Last acceleration we sent to the firmware; lets _ensure_move_acceleration
+        # skip the UART write when the value is already correct.
+        self._applied_acceleration: int | None = None
 
     def _logical_to_physical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
@@ -104,21 +112,26 @@ class StepperMotor:
     def _physical_to_logical_steps(self, value: int) -> int:
         return -value if self._direction_inverted else value
 
-    def move_degrees(self, degrees: float, *, force: bool = False) -> bool:
+    def move_degrees(self, degrees: float, *, acceleration: int | None = None, force: bool = False) -> bool:
         """
         Move the stepper by a given number of degrees (positive or negative).
         Uses steps_per_revolution to calculate the number of steps.
         """
         steps = self.microsteps_for_degrees(degrees)
-        return self.move_steps(steps, force=force)
+        return self.move_steps(steps, acceleration=acceleration, force=force)
 
-    def move_steps(self, steps: int, *, force: bool = False) -> bool:
-        """Move the stepper by a given number of microsteps (positive or negative)."""
+    def move_steps(self, steps: int, *, acceleration: int | None = None, force: bool = False) -> bool:
+        """Move the stepper by a given number of microsteps (positive or negative).
+
+        ``acceleration`` overrides the stepper's default for this move only; when
+        None the configured per-stepper default is (re-)asserted first.
+        """
         if steps == 0:
             return True
         if self.software_disabled and not force:
             self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) suppressed (software_disabled)")
             return True
+        self._ensure_move_acceleration(acceleration)
         physical_steps = self._logical_to_physical_steps(steps)
         self._gc.logger.info(
             f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
@@ -135,11 +148,18 @@ class StepperMotor:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
         return success
     
-    def move_at_speed(self, speed: int, *, force: bool = False) -> bool:
-        """Move the stepper at a given speed in microsteps per second."""
+    def move_at_speed(self, speed: int, *, acceleration: int | None = None, force: bool = False) -> bool:
+        """Move the stepper at a given speed in microsteps per second.
+
+        ``acceleration`` overrides the stepper's default for this move only; when
+        None the configured per-stepper default is (re-)asserted first. A stop
+        (speed 0) leaves acceleration untouched.
+        """
         if self.software_disabled and not force:
             self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) suppressed (software_disabled)")
             return True
+        if speed != 0:
+            self._ensure_move_acceleration(acceleration)
         physical_speed = self._logical_to_physical_steps(speed)
         self._gc.logger.info(
             f"Stepper '{self._name}' (hw='{self._hardware_name}') ch{self._channel}: "
@@ -202,7 +222,27 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_acceleration={acceleration} µsteps/s²")
         payload = struct.pack("<I", acceleration)  # 4 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
-    
+        self._applied_acceleration = int(acceleration)
+
+    def set_default_acceleration(self, acceleration: int) -> None:
+        """Store the per-stepper default acceleration (µsteps/s²) that every move
+        re-asserts. Set from StepperConfig at init; jitter manages its own."""
+        self._default_acceleration = int(acceleration)
+
+    @property
+    def default_acceleration(self) -> int | None:
+        return self._default_acceleration
+
+    def _ensure_move_acceleration(self, override: int | None) -> None:
+        """Assert the acceleration to use for an imminent move: the per-call
+        ``override`` if given, otherwise the stepper's default. Sends the command
+        only when the firmware is not already at that value, so the steady-state
+        sorting path adds no extra bus traffic."""
+        accel = override if override is not None else self._default_acceleration
+        if accel is None or accel == self._applied_acceleration:
+            return
+        self.set_acceleration(accel)
+
     @property
     def stopped(self) -> bool:
         """Check if the stepper is stopped."""

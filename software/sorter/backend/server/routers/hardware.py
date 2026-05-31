@@ -800,9 +800,15 @@ def _live_chute_status() -> Dict[str, Any]:
         "stepper_position_degrees": None,
         "stepper_microsteps": None,
         "stepper_stopped": None,
+        "homed": None,
         "digital_inputs": [],
         "home_pin_channel": _pin_channel(getattr(chute, "home_pin", None)),
     }
+
+    try:
+        status["homed"] = bool(chute.homed)
+    except Exception:
+        pass
 
     try:
         status["raw_endstop_high"] = bool(chute.home_pin.value)

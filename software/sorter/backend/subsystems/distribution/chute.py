@@ -74,6 +74,11 @@ class Chute:
         self.first_section_offset_deg = float(first_section_offset_deg)
         self.endstop_active_high = endstop_active_high
         self.operating_speed_microsteps_per_second = operating_speed_microsteps_per_second
+        self._homed: bool = False
+
+    @property
+    def homed(self) -> bool:
+        return self._homed
 
     @property
     def section_pitch_deg(self) -> float:
@@ -288,4 +293,5 @@ class Chute:
         if not self._backoffToFirstBin():
             return False
         self.logger.info("Chute: homed successfully")
+        self._homed = True
         return True

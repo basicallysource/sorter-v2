@@ -58,6 +58,9 @@
 	let currentPositionDegrees = $state<number | null>(null);
 	let stepperMicrosteps = $state<number | null>(null);
 	let stepperStopped = $state<boolean | null>(null);
+	let chuteOutputAngle = $state<number | null>(null);
+	let chuteStepperDegrees = $state<number | null>(null);
+	let chuteHomed = $state<boolean | null>(null);
 	let liveRequestInFlight = false;
 
 	// --- Stepper control (persisted per stepper) ---
@@ -235,6 +238,17 @@
 					? payload.stepper_direction_inverted
 					: stepperDirectionInverted;
 		}
+		// chute-specific fields
+		chuteOutputAngle =
+			typeof payload?.current_angle === 'number' && Number.isFinite(payload.current_angle)
+				? payload.current_angle
+				: null;
+		chuteStepperDegrees =
+			typeof payload?.stepper_position_degrees === 'number' &&
+			Number.isFinite(payload.stepper_position_degrees)
+				? payload.stepper_position_degrees
+				: null;
+		chuteHomed = typeof payload?.homed === 'boolean' ? payload.homed : null;
 	}
 
 	async function loadSettings() {
@@ -632,14 +646,31 @@
 					<span
 						>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span
 					>
-					<span>·</span>
-					<span>{formatNumber(currentPositionDegrees)}°</span>
-					<span>·</span>
-					<span>{stepperMicrosteps ?? '--'} µs</span>
+					{#if isChute}
+						<span>·</span>
+						<span>Chute {formatNumber(chuteOutputAngle)}°</span>
+						<span>·</span>
+						<span>Motor {formatNumber(chuteStepperDegrees)}°</span>
+						<span>·</span>
+						<span>{stepperMicrosteps ?? '--'} µs</span>
+					{:else}
+						<span>·</span>
+						<span>{formatNumber(currentPositionDegrees)}°</span>
+						<span>·</span>
+						<span>{stepperMicrosteps ?? '--'} µs</span>
+					{/if}
 				</div>
+				{#if isChute}
+					<div class="mt-1 text-xs text-text-muted">
+						Gear ratio {gearRatio.toFixed(2)}× ({chuteStepperDegrees !== null && chuteOutputAngle !== null ? `${formatNumber(chuteStepperDegrees, 1)}° ÷ ${gearRatio.toFixed(2)} = ${formatNumber(chuteOutputAngle, 1)}°` : 'motor ÷ ratio = chute'})
+					</div>
+					<div class="mt-0.5 text-xs {chuteHomed === true ? 'text-success dark:text-green-400' : chuteHomed === false ? 'text-warning' : 'text-text-muted'}">
+						{chuteHomed === true ? 'Homed' : chuteHomed === false ? 'Not homed' : 'Homed: --'}
+					</div>
+				{/if}
 				{#if hasEndstop && endstopTriggered !== null}
 					<div
-						class="mt-1 text-xs {endstopTriggered
+						class="mt-0.5 text-xs {endstopTriggered
 							? 'text-success dark:text-green-400'
 							: 'text-text-muted'}"
 					>

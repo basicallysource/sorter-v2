@@ -327,6 +327,29 @@ class VisionManagerFeederDynamicTests(unittest.TestCase):
         self.assertEqual(4, channel.channel_id)
         self.assertEqual((20, 30), channel.mask.shape)
 
+    def test_feeder_region_crop_uses_saved_polygon_scaled_to_current_frame(self) -> None:
+        vm = VisionManager.__new__(VisionManager)
+        stale_channel = SimpleNamespace(
+            polygon=np.array(
+                [[70, 70], [90, 70], [90, 90], [70, 90]],
+                dtype=np.int32,
+            )
+        )
+        vm._per_channel_detectors = {
+            "carousel": SimpleNamespace(primaryChannel=lambda: stale_channel)
+        }
+        vm._channelPolygonKeyForRole = lambda role: "classification_channel"
+        vm._loadSavedPolygon = lambda key, w, h: np.array(
+            [[10, 10], [30, 10], [30, 30], [10, 30]],
+            dtype=np.int32,
+        )
+
+        frame = np.zeros((100, 100, 3), dtype=np.uint8)
+        crop, offset = VisionManager._feederRegionCrop(vm, "carousel", frame)
+
+        self.assertEqual((10, 10), offset)
+        self.assertEqual((21, 21), crop.shape[:2])
+
     def test_filter_feeder_detection_result_discards_tiny_classification_edge_slivers(self) -> None:
         vm = VisionManager.__new__(VisionManager)
         mask = np.ones((20, 20), dtype=np.uint8) * 255

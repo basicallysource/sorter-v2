@@ -172,6 +172,8 @@ def _openrouter_model_label(model: str) -> str:
         return "Gemini 3.1 Flash-Lite Preview"
     if model == "google/gemini-3.1-pro-preview":
         return "Gemini 3.1 Pro Preview"
+    if model == "google/gemini-3.5-flash":
+        return "Gemini 3.5 Flash"
     return model
 
 

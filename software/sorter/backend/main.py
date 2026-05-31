@@ -62,6 +62,7 @@ FRAME_RECORD_INTERVAL_MS = 100
 RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
 
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
+CAMERA_SHUTDOWN_SETTLE_S = float(os.getenv("SORTER_CAMERA_SHUTDOWN_SETTLE_S", "1.0"))
 
 server_to_main_queue = queue.Queue()
 main_to_server_queue = queue.Queue()
@@ -162,9 +163,20 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 def main() -> None:
     import server.shared_state as shared_state
 
-    # SIGTERM (sent by systemd/supervisor) → instant exit without thread cleanup.
-    # SIGINT (Ctrl-C) still goes through the except-KeyboardInterrupt path below.
-    signal.signal(signal.SIGTERM, lambda *_: os._exit(0))
+    shutdown_requested = threading.Event()
+    shutdown_reason = {"value": "process shutdown"}
+
+    def _request_shutdown(signum, _frame) -> None:
+        try:
+            shutdown_reason["value"] = signal.Signals(signum).name
+        except Exception:
+            shutdown_reason["value"] = "signal shutdown"
+        shutdown_requested.set()
+
+    # SIGTERM is used by the supervisor/system service for "hard restart".
+    # Release AVFoundation/OpenCV camera handles before exiting so the next
+    # process can reopen every USB camera instead of racing stale handles.
+    signal.signal(signal.SIGTERM, _request_shutdown)
 
     script_path = Path(__file__).resolve()
     repo_root = script_path.parents[2]
@@ -511,12 +523,45 @@ def main() -> None:
     setHardwareInitializeFn(_initialize_hardware)
     setHardwareResetFn(lambda: _cleanup_runtime_hardware("system reset"))
 
+    def _shutdown_runtime(reason: str) -> None:
+        gc.logger.info(f"Shutting down ({reason})...")
+
+        try:
+            gc.run_recorder.save()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to save run recorder during shutdown: {exc}")
+
+        try:
+            vision.stop()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to stop vision during shutdown: {exc}")
+
+        try:
+            camera_service.stop()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to stop camera service during shutdown: {exc}")
+
+        if CAMERA_SHUTDOWN_SETTLE_S > 0:
+            time.sleep(CAMERA_SHUTDOWN_SETTLE_S)
+
+        gc.logger.info("Stopping all motors...")
+        try:
+            _cleanup_runtime_hardware("process shutdown")
+        except Exception as exc:
+            gc.logger.warning(f"Failed to clean up hardware runtime during shutdown: {exc}")
+
+        gc.logger.info("Cleanup complete")
+        try:
+            gc.logger.flushLogs()
+        finally:
+            backend_process_guard.release()
+
     last_heartbeat = time.time()
     last_frame_record = time.time()
     last_runtime_stats_broadcast = time.time()
 
     try:
-        while True:
+        while not shutdown_requested.is_set():
             gc.profiler.hit("main.loop.calls")
             gc.profiler.mark("main.loop.interval_ms")
             try:
@@ -572,20 +617,9 @@ def main() -> None:
 
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:
-        gc.logger.info("Shutting down...")
-
-        gc.run_recorder.save()
-
-        vision.stop()
-        camera_service.stop()
-
-        gc.logger.info("Stopping all motors...")
-        _cleanup_runtime_hardware("process shutdown")
-
-        gc.logger.info("Cleanup complete")
-        gc.logger.flushLogs()
-        backend_process_guard.release()
-        sys.exit(0)
+        shutdown_reason["value"] = "KeyboardInterrupt"
+    finally:
+        _shutdown_runtime(shutdown_reason["value"])
 
 
 if __name__ == "__main__":

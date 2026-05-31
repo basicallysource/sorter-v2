@@ -131,7 +131,14 @@ class Positioning(BaseState):
                 # send this piece to the discard bucket.
                 return DistributionState.IDLE
             if address is None:
-                if not self._consumeNoBinPassthroughApproval(piece) and self._raiseNoBinAvailableIncident(piece, category_id):
+                # MISC is the intentional reject/default category. It should
+                # pass through to the bottom tray without claiming a real bin
+                # and without raising the operator no-bin incident.
+                if (
+                    category_id != MISC_CATEGORY
+                    and not self._consumeNoBinPassthroughApproval(piece)
+                    and self._raiseNoBinAvailableIncident(piece, category_id)
+                ):
                     self._setOccupancyState("positioning.no_bin_incident")
                     return DistributionState.IDLE
                 # Pass-through: no bin available for this category. Open
@@ -672,7 +679,11 @@ class Positioning(BaseState):
                         continue
                     count = piece_counts.get((layer_idx, section_idx, bin_idx), 0)
                     is_full = max_per_bin is not None and count >= max_per_bin
-                    if category_id in b.category_ids and not is_full:
+                    if (
+                        category_id != MISC_CATEGORY
+                        and category_id in b.category_ids
+                        and not is_full
+                    ):
                         return address, False
                     if b.category_ids:
                         bins_with_cats += 1
@@ -697,11 +708,10 @@ class Positioning(BaseState):
                 )
             return None, False
 
-        # MISC must never claim an unassigned bin on its own. The discard
-        # bucket below the chute (rendered in the UI as the virtual
-        # Discard Bin) is what catches misc passthrough — taking a real
-        # slot would silently swap that behavior. A bin only carries MISC
-        # if the operator explicitly tagged it that way.
+        # MISC must never claim or use a real bin. The discard bucket below
+        # the chute (rendered in the UI as the virtual Discard Bin) is what
+        # catches misc passthrough; treating MISC as a physical bin category
+        # silently swaps that behavior.
         if first_unassigned is not None and category_id != MISC_CATEGORY:
             address, b = first_unassigned
             b.category_ids = [category_id]

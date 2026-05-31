@@ -25,6 +25,7 @@ export interface MachineState {
 	url: string | null;
 	status: ConnectionStatus;
 	cameraHealth: Map<string, string>;
+	cameraFeedEpoch: number;
 	lastHeartbeat: number | null;
 	recentObjects: KnownObjectData[];
 	runtimeStats: Record<string, unknown> | null;

@@ -352,6 +352,7 @@ export class MachineManager {
 		this.pending_connections.delete(ws);
 
 		const existing = this.machines.get(identity.machine_id);
+		const replacingConnection = Boolean(existing && existing.connection !== ws);
 		if (existing && existing.connection !== ws) {
 			existing.connection.close();
 		}
@@ -363,6 +364,7 @@ export class MachineManager {
 			url: url ?? existing?.url ?? null,
 			status: 'connected',
 			cameraHealth: existing?.cameraHealth ?? new Map(),
+			cameraFeedEpoch: (existing?.cameraFeedEpoch ?? 0) + (replacingConnection ? 1 : 0),
 			lastHeartbeat: null,
 			recentObjects: existing?.recentObjects ?? [],
 			runtimeStats: existing?.runtimeStats ?? null,
@@ -382,6 +384,19 @@ export class MachineManager {
 		}
 
 		console.log(`[MachineManager] Machine identified: ${identity.machine_id}`);
+	}
+
+	refreshSelectedCameraFeeds(): void {
+		const machineId = this.selectedMachineId;
+		if (!machineId) return;
+		const machine = this.machines.get(machineId);
+		if (!machine) return;
+		const updated = new Map(this.machines);
+		updated.set(machineId, {
+			...machine,
+			cameraFeedEpoch: (machine.cameraFeedEpoch ?? 0) + 1
+		});
+		this.machines = updated;
 	}
 
 	private handleHeartbeat(machineId: string, timestamp: number): void {

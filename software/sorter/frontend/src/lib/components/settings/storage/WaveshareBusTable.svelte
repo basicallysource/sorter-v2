@@ -26,6 +26,7 @@
 
 	let {
 		busServos,
+		layerAssignments,
 		busScanning,
 		busError,
 		busStatusMsg,
@@ -38,6 +39,7 @@
 		onChangeId
 	}: {
 		busServos: BusServo[];
+		layerAssignments: Record<number, number[]>;
 		busScanning: boolean;
 		busError: string | null;
 		busStatusMsg: string;
@@ -49,6 +51,12 @@
 		onScan: () => void;
 		onChangeId: (oldId: number) => void;
 	} = $props();
+
+	function assignmentLabel(servoId: number): string {
+		const layers = layerAssignments[servoId] ?? [];
+		if (layers.length === 0) return 'Layer not assigned';
+		return `Assigned to ${layers.map((layer) => `Layer ${layer}`).join(', ')}`;
+	}
 </script>
 
 <div class="setup-panel p-4">
@@ -88,7 +96,7 @@
 					<div
 						class="flex h-10 w-14 shrink-0 flex-col items-center justify-center bg-primary font-bold text-primary-contrast"
 					>
-						<span class="text-xs uppercase tracking-wider opacity-80">ID</span>
+						<span class="text-xs tracking-wider uppercase opacity-80">ID</span>
 						<span class="text-sm leading-none">{servo.id}</span>
 					</div>
 
@@ -99,7 +107,7 @@
 								Assign a unique ID before plugging in the next servo.
 							</div>
 						{:else}
-							<div class="text-sm text-text">Assigned</div>
+							<div class="text-sm text-text">{assignmentLabel(servo.id)}</div>
 						{/if}
 					</div>
 
@@ -112,9 +120,7 @@
 							oninput={(e) => {
 								newIdInputs = { ...newIdInputs, [servo.id]: e.currentTarget.value };
 							}}
-							placeholder={isFactory && busSuggestedNextId
-								? String(busSuggestedNextId)
-								: 'New ID'}
+							placeholder={isFactory && busSuggestedNextId ? String(busSuggestedNextId) : 'New ID'}
 							disabled={changingIdFor !== null}
 							class="setup-control w-24 px-2 py-1.5 text-sm text-text"
 						/>

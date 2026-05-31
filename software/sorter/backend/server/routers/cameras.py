@@ -31,6 +31,11 @@ from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
+from vision.channel_alignment import (
+    alignmentRotationDeg,
+    dropStartAngleForRole,
+    rotateImageBgr,
+)
 from hardware.macos_camera_registry import refresh_macos_cameras
 from irl.bin_layout import getBinLayout
 from irl.config import (
@@ -3551,7 +3556,6 @@ def _dashboard_channel_crop_polygon(
     frame_h: int,
 ) -> np.ndarray | None:
     angle_key = _dashboard_channel_angle_key(polygon_key)
-    points: list[tuple[float, float]] = []
     if angle_key is not None:
         try:
             from subsystems.feeder.analysis import channelArcCropPolygon, parseSavedChannelArcZones
@@ -3562,11 +3566,27 @@ def _dashboard_channel_crop_polygon(
                 saved.get("arc_params") if isinstance(saved.get("arc_params"), dict) else {},
             )
             if arc is not None and arc.outer_radius > arc.inner_radius > 0:
-                points = [(float(x), float(y)) for x, y in channelArcCropPolygon(arc).tolist()]
+                # Match what the live region overlay does (handdrawn_region_provider
+                # ._scaledChannelMask): scale the center separately for x/y so it
+                # tracks the frame, but apply a *uniform* radius_scale so the arc
+                # stays a true circle. Building the polygon and then squashing
+                # x/y independently produces an oval crop that doesn't match the
+                # zone the operator drew.
+                src_w, src_h = _dashboard_channel_resolution(saved, polygon_key)
+                if src_w > 0 and src_h > 0 and frame_w > 0 and frame_h > 0:
+                    sx = float(frame_w) / float(src_w)
+                    sy = float(frame_h) / float(src_h)
+                    cx = arc.center[0] * sx
+                    cy = arc.center[1] * sy
+                    r_scale = (sx + sy) / 2.0
+                    polygon = channelArcCropPolygon(
+                        arc, center=(cx, cy), radius_scale=r_scale
+                    )
+                    return polygon.astype(np.float32)
         except Exception:
-            points = []
-    if not points:
-        points = _dashboard_points(polygons_table.get(polygon_key))
+            pass
+    # Fallback: scale a manually drawn polygon from saved resolution to frame.
+    points = _dashboard_points(polygons_table.get(polygon_key))
     return _scale_dashboard_points(
         points,
         _dashboard_channel_resolution(saved, polygon_key),
@@ -3684,6 +3704,13 @@ def _dashboard_quad_size(quad: np.ndarray) -> tuple[int, int]:
     return (width, height)
 
 
+def _dashboard_channel_rotation_deg(role: str, saved: Dict[str, Any] | None) -> float:
+    """Rotation (degrees, CCW positive) needed so the drop-zone start of the
+    given role sits at 6 o'clock in the rendered dashboard tile. Returns 0
+    when the role has no arc-zone configuration."""
+    return alignmentRotationDeg(dropStartAngleForRole(role, saved))
+
+
 def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
     if role in {"feeder", "c_channel_2", "c_channel_3", "carousel", "classification_channel"}:
         saved = getChannelPolygons() or {}
@@ -3720,6 +3747,7 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
                     "kind": "rectified",
                     "matrix": cv2.getPerspectiveTransform(expanded_quad.astype(np.float32), destination),
                     "size": (target_w, target_h),
+                    "rotation_deg": _dashboard_channel_rotation_deg(role, saved),
                 }
 
         polygon_keys = {
@@ -3739,7 +3767,18 @@ def _dashboard_crop_spec(role: str, frame_w: int, frame_h: int) -> Dict[str, Any
         ]
         if not scaled_polygons:
             return None
-        return {"kind": "bbox_masked", "polygons": scaled_polygons}
+        # The combined "feeder" view shows all channels at once — rotating it
+        # would smear their reference frames against each other, so we keep it
+        # un-rotated and only align single-channel views.
+        single_channel = role in {
+            "c_channel_2", "c_channel_3", "carousel", "classification_channel",
+        }
+        rotation_deg = _dashboard_channel_rotation_deg(role, saved) if single_channel else 0.0
+        return {
+            "kind": "bbox_masked",
+            "polygons": scaled_polygons,
+            "rotation_deg": rotation_deg,
+        }
 
     if role in {"classification_top", "classification_bottom"}:
         saved = getClassificationPolygons() or {}
@@ -3802,6 +3841,7 @@ def _dashboard_pad_square(frame: np.ndarray) -> np.ndarray:
 def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.ndarray:
     if not spec:
         return frame
+
     processed = frame
     if spec.get("kind") == "rectified":
         size = spec.get("size")
@@ -3833,6 +3873,10 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
 
     if spec.get("square"):
         processed = _dashboard_pad_square(processed)
+
+    rotation_deg = float(spec.get("rotation_deg") or 0.0)
+    if abs(rotation_deg) >= 1e-2:
+        processed = rotateImageBgr(processed, rotation_deg)
     return processed
 
 

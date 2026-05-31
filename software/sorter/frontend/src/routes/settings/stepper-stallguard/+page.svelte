@@ -5,7 +5,6 @@
 	import StallGuardChart from '$lib/components/StallGuardChart.svelte';
 
 	const STEPPERS = ['carousel', 'chute', 'c_channel_1', 'c_channel_2', 'c_channel_3'];
-	const DEFAULT_TCOOLTHRS = 1048575; // 0xFFFFF — StallGuard active across the speed range
 
 	type Run = {
 		id: string;
@@ -61,13 +60,12 @@
 	let swPulseDeg = $state(30);
 	let swDwellMs = $state(250);
 	let swJitterEvery = $state(5);
-	// StallGuard register thresholds (TSTEP units; lower TSTEP = faster). Default
-	// = report SG at every speed, pure StealthChop. The "hybrid" preset floors SG
-	// to cruise and switches to SpreadCycle there for a cleaner load signal while
-	// staying quiet at low speed.
-	let swTcoolthrs = $state(1048575);
-	let swTpwmthrs = $state(0);
-	let swHybrid = $state(false);
+	// Only motion at/above cruise (TSTEP <= this; lower TSTEP = faster) counts for
+	// the threshold — accel/decel/reversal transients dip SG even unloaded and
+	// would drag the floor down. This is also saved as the enforcement velocity
+	// floor (TCOOLTHRS) so DIAG only acts at cruise. The chute cruises at TSTEP
+	// ~75-150; transients are >200.
+	let swCruiseTstep = $state(150);
 	let running = $state(false);
 	let savingThreshold = $state(false);
 
@@ -79,18 +77,6 @@
 
 	function onStepperChange() {
 		swProfile = defaultProfileFor(swStepper);
-	}
-
-	function onHybridToggle() {
-		// Chute cruises at TSTEP ~75–150, transients are >200, so ~200 floors SG to
-		// cruise and puts SpreadCycle there. Tune the raw fields after if needed.
-		if (swHybrid) {
-			swTcoolthrs = 200;
-			swTpwmthrs = 200;
-		} else {
-			swTcoolthrs = 1048575;
-			swTpwmthrs = 0;
-		}
 	}
 
 	function onKeydown(ev: KeyboardEvent) {
@@ -161,8 +147,7 @@
 				duration_s: String(swDuration),
 				loaded: String(swLoaded),
 				profile: swProfile,
-				tcoolthrs: String(swTcoolthrs),
-				tpwmthrs: String(swTpwmthrs),
+				cruise_tstep: String(swCruiseTstep),
 			});
 			if (swProfile === 'chute_random') {
 				qs.set('chute_min_deg', String(swChuteMinDeg));
@@ -207,7 +192,9 @@
 					headers: { 'Content-Type': 'application/json' },
 					body: JSON.stringify({
 						sgthrs: selectedRun.suggested_sgthrs,
-						tcoolthrs: DEFAULT_TCOOLTHRS,
+						// Save the cruise floor as the enforcement TCOOLTHRS so DIAG only
+						// acts at cruise (matching where the threshold was tuned).
+						tcoolthrs: selectedRun.params?.cruise_tstep ?? swCruiseTstep,
 						enabled: true,
 					}),
 				}
@@ -410,27 +397,15 @@
 		{/if}
 
 		<div class="mt-4 flex flex-wrap items-end gap-4 border-t border-border/40 pt-4">
-			<label class="flex items-center gap-2 text-sm text-text">
-				<input
-					type="checkbox"
-					bind:checked={swHybrid}
-					onchange={onHybridToggle}
-					class="accent-primary"
-				/>
-				SpreadCycle at cruise (hybrid)
-			</label>
 			<label class="flex w-44 flex-col gap-1 text-sm text-text">
-				TCOOLTHRS (SG velocity floor)
-				<Input type="number" bind:value={swTcoolthrs} />
+				Cruise TSTEP (threshold)
+				<Input type="number" bind:value={swCruiseTstep} />
 			</label>
-			<label class="flex w-48 flex-col gap-1 text-sm text-text">
-				TPWMTHRS (SpreadCycle above)
-				<Input type="number" bind:value={swTpwmthrs} />
-			</label>
-			<div class="max-w-md text-sm text-text-muted">
-				TSTEP units (lower = faster). Default reports SG at every speed in StealthChop (quiet but
-				noisy). The hybrid preset (≈200/200) floors StallGuard to cruise and switches to SpreadCycle
-				there — cleaner separation, still quiet at low speed. Set TPWMTHRS=0 for pure StealthChop.
+			<div class="max-w-lg text-sm text-text-muted">
+				Only motion at cruise (TSTEP ≤ this; lower = faster) sets the threshold — the accel/decel and
+				reversal transients dip SG even unloaded and would drag the floor down. Stays in StealthChop
+				(the TMC2209's StallGuard works there, not SpreadCycle). The chute cruises at TSTEP ~75–150;
+				saved as the enforcement velocity floor so DIAG only acts at cruise.
 			</div>
 		</div>
 	</SectionCard>
@@ -517,10 +492,8 @@
 						</span>
 						<span class="text-text-muted">Loaded:</span>
 						<span class="text-text">{selectedRun.params?.loaded ? 'yes' : 'no'}</span>
-						<span class="text-text-muted">TCOOLTHRS:</span>
-						<span class="text-text">{selectedRun.params?.tcoolthrs ?? '—'}</span>
-						<span class="text-text-muted">TPWMTHRS:</span>
-						<span class="text-text">{selectedRun.params?.tpwmthrs ?? '—'}</span>
+						<span class="text-text-muted">Cruise TSTEP:</span>
+						<span class="text-text">{selectedRun.params?.cruise_tstep ?? '—'}</span>
 					</div>
 					<div class="mb-3 flex items-center gap-4 text-sm">
 						<label class="flex items-center gap-2 text-text">

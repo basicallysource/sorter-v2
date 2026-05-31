@@ -270,7 +270,6 @@ TMC_REG_IOIN = 0x06
 TMC_REG_FACTORY_CONF = 0x07
 TMC_REG_IHOLD_IRUN = 0x10
 TMC_REG_TSTEP = 0x12
-TMC_REG_TPWMTHRS = 0x13
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_COOLCONF = 0x42
 TMC_REG_SG_RESULT = 0x41
@@ -1246,7 +1245,7 @@ def stallguard_sweep(
     sample_interval_s: float = 0.02,
     spin_up_s: float = 0.3,
     tcoolthrs: int = DEFAULT_STALLGUARD_TCOOLTHRS,
-    tpwmthrs: int = 0,
+    cruise_tstep: int = 150,
     loaded: bool = False,
     label: Optional[str] = None,
     profile: str = "constant",
@@ -1266,8 +1265,8 @@ def stallguard_sweep(
         raise HTTPException(
             status_code=400, detail=f"profile must be one of {', '.join(SWEEP_PROFILES)}"
         )
-    if not (0 <= tpwmthrs <= 0xFFFFF):
-        raise HTTPException(status_code=400, detail="tpwmthrs must be in [0, 0xFFFFF]")
+    if cruise_tstep <= 0:
+        raise HTTPException(status_code=400, detail="cruise_tstep must be > 0")
     if duration_s <= 0 or duration_s > MAX_STALLGUARD_SWEEP_DURATION_S:
         raise HTTPException(
             status_code=400,
@@ -1330,7 +1329,7 @@ def stallguard_sweep(
             "duration_s": duration_s,
             "sample_interval_s": sample_interval_s,
             "tcoolthrs": tcoolthrs,
-            "tpwmthrs": tpwmthrs,
+            "cruise_tstep": cruise_tstep,
             "loaded": loaded,
             "irun": irun_ctx,
             "acceleration": accel_ctx,
@@ -1347,12 +1346,10 @@ def stallguard_sweep(
     )
 
     try:
+        # Measure with SG reported across the whole speed range; the cruise_tstep
+        # filter is applied at analysis time so we still see the transients in the
+        # chart but don't let them set the threshold.
         target.write_driver_register(TMC_REG_TCOOLTHRS, tcoolthrs)
-        # TPWMTHRS>0 makes the driver auto-switch StealthChop->SpreadCycle once it
-        # crosses this velocity (TSTEP < TPWMTHRS), so it stays quiet at low speed
-        # but measures load in SpreadCycle at cruise. Only meaningful while the
-        # driver is in StealthChop (which it is by default).
-        target.write_driver_register(TMC_REG_TPWMTHRS, tpwmthrs)
         target.enable_force(True)
         motion.start(time.monotonic())
 
@@ -1429,10 +1426,6 @@ def stallguard_sweep(
             target.write_driver_register(TMC_REG_TCOOLTHRS, 0)
         except Exception:
             pass
-        try:
-            target.write_driver_register(TMC_REG_TPWMTHRS, 0)  # back to pure StealthChop
-        except Exception:
-            pass
         # chute_random retunes the chute stepper's speed limits; restore them to
         # the chute's operating speed so normal aiming isn't left at sweep speed.
         if chute_restore_speed is not None:
@@ -1446,16 +1439,22 @@ def stallguard_sweep(
             pass
 
     valid = [s.sg_result for s in samples if s.sg_result >= 0]
+    # Threshold tuning only considers CRUISE samples (TSTEP <= cruise_tstep). At
+    # accel/decel/reversal the velocity is low and SG_RESULT dips even unloaded,
+    # which would drag the floor down and produce a uselessly low threshold. The
+    # chart still shows every sample; only the suggestion is cruise-filtered.
+    cruise = [s.sg_result for s in samples if s.sg_result >= 0 and 0 <= s.tstep <= cruise_tstep]
+    basis = cruise if cruise else valid
     stats: Optional[StallGuardSweepStats] = None
     sgthrs: Optional[int] = None
-    if valid:
-        sg_min = min(valid)
+    if basis:
+        sg_min = min(basis)
         sgthrs = _suggested_sgthrs(sg_min)
         stats = StallGuardSweepStats(
-            samples=len(valid),
+            samples=len(basis),
             sg_min=sg_min,
-            sg_max=max(valid),
-            sg_mean=round(sum(valid) / len(valid), 1),
+            sg_max=max(basis),
+            sg_mean=round(sum(basis) / len(basis), 1),
             suggested_sgthrs=sgthrs,
             suggested_trigger_level=sgthrs * 2,
         )

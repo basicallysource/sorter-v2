@@ -1749,8 +1749,25 @@ def stallguard_suggestion(
         )
     elif dip is not None:
         detail = "Only loaded runs found — run an unloaded sweep to measure the normal floor."
+    elif unloaded_run is not None or loaded_run is not None:
+        # Runs exist and completed, but the cruise filter kept nothing from either
+        # — every sample was below cruise velocity (TSTEP > cruise_tstep). This is
+        # what the pulsed/jitter profiles produce: the motor never sustains cruise,
+        # so SG_RESULT is all accel/decel and there's no valid load reading to tune
+        # from. Don't tell the user to re-run sweeps they already ran.
+        have = " + ".join(
+            kind
+            for kind, run in (("unloaded", unloaded_run), ("loaded", loaded_run))
+            if run is not None
+        )
+        detail = (
+            f"Latest {have} run completed but produced 0 cruise samples "
+            f"(none reached TSTEP <= {ct}) — the profile never sustained cruise "
+            "velocity. StallGuard only reads load at constant cruise; use the "
+            "constant profile to calibrate SGTHRS."
+        )
     else:
-        detail = "No completed cruise samples for this motor yet — run an unloaded and a loaded sweep."
+        detail = "No completed runs for this motor yet — run an unloaded and a loaded sweep."
 
     return StallGuardSuggestionResponse(
         success=True,

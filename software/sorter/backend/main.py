@@ -422,6 +422,8 @@ def main() -> None:
             for servo in irl.servos:
                 try:
                     if getattr(servo, "is_calibrated", True):
+                        if hasattr(servo, "apply_homing_speed"):
+                            servo.apply_homing_speed()
                         servo.open()
                     else:
                         # An uncalibrated servo must never be driven or held. A prior
@@ -605,6 +607,8 @@ def main() -> None:
             shared_state.setHardwareStatus(homing_step="Opening servos...")
             for servo in irl.servos:
                 try:
+                    if hasattr(servo, "apply_homing_speed"):
+                        servo.apply_homing_speed()
                     servo.open()
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")

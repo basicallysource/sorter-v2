@@ -762,6 +762,23 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
     }
 
 
+def _attach_live_servo_current_angles(layers: List[Dict[str, Any]]) -> None:
+    """Fill in each layer's ``servo_current_angle`` from the live servo's
+    internally-tracked angle (PCA path). None when there is no live hardware
+    or the servo has not been moved since boot."""
+    for layer in layers:
+        layer.setdefault("servo_current_angle", None)
+    active_irl = _active_irl()
+    if active_irl is None:
+        return
+    servos = list(getattr(active_irl, "servos", []))
+    for index, layer in enumerate(layers):
+        if index >= len(servos):
+            continue
+        angle = getattr(servos[index], "angle", None)
+        layer["servo_current_angle"] = angle if isinstance(angle, int) else None
+
+
 def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
     active_irl = _active_irl()
     if active_irl is None:
@@ -995,8 +1012,10 @@ def _stop_all_steppers() -> None:
 def get_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
     layout = getBinLayout()
+    storage_layers = _storage_layer_settings_from_layout(layout)
+    _attach_live_servo_current_angles(storage_layers["layers"])
     return {
-        "storage_layers": _storage_layer_settings_from_layout(layout),
+        "storage_layers": storage_layers,
         "servo": _servo_settings_from_config(config),
         "chute": _chute_settings_from_config(config),
         "carousel": _carousel_settings_from_config(config),
@@ -1138,6 +1157,8 @@ def save_servo_hardware_config(
                     else:
                         # PCA open/closed angles are calibrated per-layer via the
                         # Servo Layer Calibrator, not here — only apply speed.
+                        if hasattr(servo, "set_motion_speeds"):
+                            servo.set_motion_speeds(open_speed, close_speed, homing_speed)
                         _apply_pca_servo_speed(servo, homing_speed)
                 applied_live = True
         except Exception:
@@ -1202,6 +1223,10 @@ def save_servo_speeds(payload: ServoSpeedSettingsPayload) -> Dict[str, Any]:
     if active_irl is not None:
         try:
             for srv in getattr(active_irl, "servos", []):
+                if hasattr(srv, "set_motion_speeds"):
+                    srv.set_motion_speeds(open_speed, close_speed, homing_speed)
+                # Leave the firmware at the standard speed between moves;
+                # sorting re-applies open/close speed per move.
                 _apply_pca_servo_speed(srv, homing_speed)
         except Exception:
             pass

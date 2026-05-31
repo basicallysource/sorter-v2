@@ -599,6 +599,8 @@ class Positioning(BaseState):
                 continue
             try:
                 if servo.isClosed():
+                    if hasattr(servo, "apply_open_speed"):
+                        servo.apply_open_speed()
                     servo.open()
             except Exception as exc:
                 self._markLayerUnavailable(
@@ -626,6 +628,8 @@ class Positioning(BaseState):
             if i == target_layer_index or not self._isLayerUsable(i):
                 continue
             try:
+                if hasattr(servo, "apply_open_speed"):
+                    servo.apply_open_speed()
                 servo.open()
             except Exception as exc:
                 self._markLayerUnavailable(
@@ -634,6 +638,8 @@ class Positioning(BaseState):
                 )
 
         try:
+            if hasattr(target_servo, "apply_close_speed"):
+                target_servo.apply_close_speed()
             target_servo.close()
         except Exception as exc:
             self._markLayerUnavailable(

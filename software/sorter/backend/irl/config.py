@@ -1507,7 +1507,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
             irl_interface.distribution_layout
         )
-        homing_speed = machine_config.servo_homing_speed
         for layer_index, servo in enumerate(irl_interface.servos):
             if not hasattr(servo, "set_preset_angles"):
                 continue
@@ -1515,8 +1514,15 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
             if layer_open is not None and layer_closed is not None:
                 servo.set_preset_angles(layer_open, layer_closed)
-            if homing_speed is not None and hasattr(servo, "set_speed_limits"):
-                servo.set_speed_limits(10, homing_speed * 10)
+            if hasattr(servo, "set_motion_speeds"):
+                servo.set_motion_speeds(
+                    machine_config.servo_open_speed,
+                    machine_config.servo_close_speed,
+                    machine_config.servo_homing_speed,
+                )
+                # Start at the standard speed; sorting re-applies open/close
+                # speed per move and homing re-applies the standard speed.
+                servo.apply_homing_speed()
         restore_servo_states(irl_interface.servos, gc)
 
     irl_interface.machine_profile = build_machine_profile(

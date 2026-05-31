@@ -34,6 +34,8 @@
 		closedAngle: number | null;
 		currentAngle: number | null;
 		busy: boolean;
+		lockStatus: 'idle' | 'saving' | 'saved' | 'error';
+		lockError: string;
 	};
 
 	let {
@@ -134,8 +136,11 @@
 							: '',
 					openAngle: typeof sl.servo_open_angle === 'number' ? sl.servo_open_angle : null,
 					closedAngle: typeof sl.servo_closed_angle === 'number' ? sl.servo_closed_angle : null,
-					currentAngle: null,
-					busy: false
+					currentAngle:
+						typeof sl.servo_current_angle === 'number' ? sl.servo_current_angle : null,
+					busy: false,
+					lockStatus: 'idle',
+					lockError: ''
 				});
 			}
 			layers = next;
@@ -188,13 +193,20 @@
 	}
 
 	async function lockAngle(layerIndex: number, which: 'open' | 'closed') {
+		// The /lock endpoint persists the angle to the backend immediately, so
+		// locking is the save — the per-layer indicator reflects that write.
+		setLayer(layerIndex, { lockStatus: 'saving', lockError: '' });
 		const result = await postLayerAction(layerIndex, 'lock', { which });
 		if (result) {
 			setLayer(layerIndex, {
 				openAngle: typeof result.open_angle === 'number' ? result.open_angle : null,
-				closedAngle: typeof result.closed_angle === 'number' ? result.closed_angle : null
+				closedAngle: typeof result.closed_angle === 'number' ? result.closed_angle : null,
+				lockStatus: 'saved',
+				lockError: ''
 			});
 			statusMsg = result.message ?? `Layer ${layerIndex + 1} ${which} angle locked.`;
+		} else {
+			setLayer(layerIndex, { lockStatus: 'error', lockError: errorMsg ?? 'Save failed' });
 		}
 	}
 
@@ -295,7 +307,9 @@
 				openAngle: null,
 				closedAngle: null,
 				currentAngle: null,
-				busy: false
+				busy: false,
+				lockStatus: 'idle',
+				lockError: ''
 			}
 		];
 	}
@@ -538,6 +552,13 @@
 						>
 							<Lock size={14} /> Lock closed
 						</Button>
+						{#if layer.lockStatus === 'saving'}
+							<span class="text-sm text-text-muted">Saving…</span>
+						{:else if layer.lockStatus === 'saved'}
+							<span class="text-sm text-success">Saved</span>
+						{:else if layer.lockStatus === 'error'}
+							<span class="text-sm text-danger" title={layer.lockError}>Failed</span>
+						{/if}
 					</div>
 
 					<div class="h-6 w-px bg-border"></div>

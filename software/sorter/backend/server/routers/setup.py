@@ -19,7 +19,11 @@ from machine_setup import (
 )
 from blob_manager import getMachineId, getMachineNickname
 from hardware.bus import MCUBus
-from irl.config import _requiredCanonicalStepperNames
+from irl.config import (
+    ClassificationChannelMode,
+    FeederMode,
+    _requiredCanonicalStepperNames,
+)
 from irl.parse_user_toml import (
     LOGICAL_STEPPER_BINDING_BASES,
     loadMachineSetupConfig,
@@ -62,6 +66,14 @@ class FeedingModePayload(BaseModel):
 
 class MachineSetupPayload(BaseModel):
     setup: Literal["standard_carousel", "classification_channel", "manual_carousel"]
+
+
+class ClassificationChannelModePayload(BaseModel):
+    mode: str
+
+
+class FeederSubsystemModePayload(BaseModel):
+    mode: str
 
 
 def _board_summary(board: Any) -> dict[str, Any]:
@@ -703,6 +715,62 @@ def set_machine_setup(payload: MachineSetupPayload) -> Dict[str, Any]:
         "options": get_machine_setup_options(),
         "requires_rehome": True,
     }
+
+
+@router.get("/api/classification-channel-mode")
+def get_classification_channel_mode() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    current = config.get("classification_channel", {}).get("mode", ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01.value)
+    return {
+        "mode": current,
+        "options": [m.value for m in ClassificationChannelMode],
+    }
+
+
+@router.post("/api/classification-channel-mode")
+def set_classification_channel_mode(payload: ClassificationChannelModePayload) -> Dict[str, Any]:
+    valid = {m.value for m in ClassificationChannelMode}
+    if payload.mode not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid mode {payload.mode!r}; valid: {sorted(valid)}")
+    params_path, config = _read_machine_params_config()
+    section = config.get("classification_channel", {})
+    if not isinstance(section, dict):
+        section = {}
+    section["mode"] = payload.mode
+    config["classification_channel"] = section
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+    return {"ok": True, "mode": payload.mode}
+
+
+@router.get("/api/feeder-subsystem-mode")
+def get_feeder_subsystem_mode() -> Dict[str, Any]:
+    _, config = _read_machine_params_config()
+    current = config.get("feeder", {}).get("mode", FeederMode.GO_TO_ANGLE_REV01.value)
+    return {
+        "mode": current,
+        "options": [m.value for m in FeederMode],
+    }
+
+
+@router.post("/api/feeder-subsystem-mode")
+def set_feeder_subsystem_mode(payload: FeederSubsystemModePayload) -> Dict[str, Any]:
+    valid = {m.value for m in FeederMode}
+    if payload.mode not in valid:
+        raise HTTPException(status_code=400, detail=f"Invalid mode {payload.mode!r}; valid: {sorted(valid)}")
+    params_path, config = _read_machine_params_config()
+    section = config.get("feeder", {})
+    if not isinstance(section, dict):
+        section = {}
+    section["mode"] = payload.mode
+    config["feeder"] = section
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+    return {"ok": True, "mode": payload.mode}
 
 
 @router.get("/api/setup-wizard/stepper-directions")

@@ -421,7 +421,20 @@ def main() -> None:
             gc.logger.info("Opening all layer servos...")
             for servo in irl.servos:
                 try:
-                    servo.open()
+                    if getattr(servo, "is_calibrated", True):
+                        servo.open()
+                    else:
+                        # An uncalibrated servo must never be driven or held. A prior
+                        # calibrator jog leaves the channel energized at a stale angle
+                        # (move_to never releases PWM) and that hold survives a backend
+                        # restart, so a plain open() no-op would leave the servo hunting
+                        # and twitching through homing. Disabling cuts PWM (duty=0) so it
+                        # goes slack and physically cannot move.
+                        servo.enabled = False
+                        gc.logger.info(
+                            f"Servo ch{getattr(servo, 'channel', '?')} uncalibrated — "
+                            "released (PWM off) instead of opening."
+                        )
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
             _checkServoBusHealth(gc, irl)

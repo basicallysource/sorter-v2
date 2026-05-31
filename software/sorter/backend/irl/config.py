@@ -1507,16 +1507,16 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
             irl_interface.distribution_layout
         )
+        homing_speed = machine_config.servo_homing_speed
         for layer_index, servo in enumerate(irl_interface.servos):
             if not hasattr(servo, "set_preset_angles"):
                 continue
             layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
             layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
-            # Servos only ever get angles that were explicitly locked in per
-            # layer via the UI. There is no global default to fall back on, so an
-            # uncalibrated layer stays None and will not move.
             if layer_open is not None and layer_closed is not None:
                 servo.set_preset_angles(layer_open, layer_closed)
+            if homing_speed is not None and hasattr(servo, "set_speed_limits"):
+                servo.set_speed_limits(10, homing_speed * 10)
         restore_servo_states(irl_interface.servos, gc)
 
     irl_interface.machine_profile = build_machine_profile(

@@ -14,6 +14,7 @@
 		Keyboard,
 		Cog
 	} from 'lucide-svelte';
+	import ServoSpeedSettings from './ServoSpeedSettings.svelte';
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
@@ -55,6 +56,11 @@
 	let jogStep = $state(5);
 	let selectedIndex = $state<number | null>(null);
 
+	// Global servo speeds (°/s). null = not overridden (firmware default applies).
+	let openSpeed = $state<number | null>(null);
+	let closeSpeed = $state<number | null>(null);
+	let homingSpeed = $state<number | null>(null);
+
 	// Global angles are no longer used to drive PCA servos, but the /servo
 	// endpoint still round-trips them, so preserve whatever is stored.
 	let globalOpenAngle: number | null = null;
@@ -88,6 +94,9 @@
 			backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
 			globalOpenAngle = typeof servo.open_angle === 'number' ? servo.open_angle : null;
 			globalClosedAngle = typeof servo.closed_angle === 'number' ? servo.closed_angle : null;
+			openSpeed = typeof servo.open_speed === 'number' ? servo.open_speed : null;
+			closeSpeed = typeof servo.close_speed === 'number' ? servo.close_speed : null;
+			homingSpeed = typeof servo.homing_speed === 'number' ? servo.homing_speed : null;
 			port = typeof servo.port === 'string' ? servo.port : null;
 			channelChoices = Array.isArray(servo.available_channel_ids)
 				? servo.available_channel_ids
@@ -253,6 +262,9 @@
 					backend: 'pca9685',
 					open_angle: globalOpenAngle,
 					closed_angle: globalClosedAngle,
+					open_speed: openSpeed,
+					close_speed: closeSpeed,
+					homing_speed: homingSpeed,
 					port,
 					channels
 				})
@@ -345,6 +357,15 @@
 			positions and lock in the angles — a layer must have both angles locked before it will move
 			during sorting.
 		</div>
+	{/if}
+
+	{#if backend === 'pca9685'}
+		<ServoSpeedSettings
+			bind:openSpeed
+			bind:closeSpeed
+			bind:homingSpeed
+			disabled={loading || saving}
+		/>
 	{/if}
 
 	{#if backend === 'waveshare'}

@@ -230,6 +230,9 @@ class ServoHardwareSettingsPayload(BaseModel):
     backend: str = "pca9685"
     open_angle: Optional[int] = None
     closed_angle: Optional[int] = None
+    open_speed: Optional[int] = None
+    close_speed: Optional[int] = None
+    homing_speed: Optional[int] = None
     port: Optional[str] = None
     channels: List[ServoChannelConfigPayload] = []
 
@@ -496,6 +499,20 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
         return {**base, "error": str(e)}
 
 
+_SERVO_SPEED_FLOOR_TENTHS = 10  # 1°/s minimum floor sent to firmware
+
+
+def _apply_pca_servo_speed(servo: Any, speed_deg_per_sec: int | None) -> None:
+    if speed_deg_per_sec is None:
+        return
+    if not hasattr(servo, "set_speed_limits"):
+        return
+    try:
+        servo.set_speed_limits(_SERVO_SPEED_FLOOR_TENTHS, speed_deg_per_sec * 10)
+    except Exception:
+        pass
+
+
 def _servo_hardware_issues() -> List[Dict[str, Any]]:
     active_irl = _active_irl()
     if active_irl is None:
@@ -566,10 +583,32 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
             }
         )
 
+    _SPEED_RANGE = (1, 2000)
+    open_speed = servo.get("open_speed")
+    if not isinstance(open_speed, int) or isinstance(open_speed, bool) or open_speed <= 0:
+        open_speed = None
+    else:
+        open_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], open_speed))
+
+    close_speed = servo.get("close_speed")
+    if not isinstance(close_speed, int) or isinstance(close_speed, bool) or close_speed <= 0:
+        close_speed = None
+    else:
+        close_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], close_speed))
+
+    homing_speed = servo.get("homing_speed")
+    if not isinstance(homing_speed, int) or isinstance(homing_speed, bool) or homing_speed <= 0:
+        homing_speed = None
+    else:
+        homing_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], homing_speed))
+
     return {
         "backend": backend,
         "open_angle": (max(0, min(180, open_angle)) if open_angle is not None else None),
         "closed_angle": (max(0, min(180, closed_angle)) if closed_angle is not None else None),
+        "open_speed": open_speed,
+        "close_speed": close_speed,
+        "homing_speed": homing_speed,
         "port": port.strip() if isinstance(port, str) and port.strip() else None,
         "channels": channels,
         "layer_count": layer_count,
@@ -1011,6 +1050,10 @@ def save_servo_hardware_config(
     backend = payload.backend if payload.backend in {"pca9685", "waveshare"} else "pca9685"
     open_angle = max(0, min(180, int(payload.open_angle)))
     closed_angle = max(0, min(180, int(payload.closed_angle)))
+    _SPEED_RANGE = (1, 2000)
+    open_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.open_speed))) if payload.open_speed is not None else None
+    close_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.close_speed))) if payload.close_speed is not None else None
+    homing_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.homing_speed))) if payload.homing_speed is not None else None
     port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
     layer_count = _distribution_layer_count()
     available_pca_channels = _pca_available_servo_channels()
@@ -1067,6 +1110,12 @@ def save_servo_hardware_config(
     if backend == "pca9685":
         servo_table["open_angle"] = open_angle
         servo_table["closed_angle"] = closed_angle
+        if open_speed is not None:
+            servo_table["open_speed"] = open_speed
+        if close_speed is not None:
+            servo_table["close_speed"] = close_speed
+        if homing_speed is not None:
+            servo_table["homing_speed"] = homing_speed
     if backend == "waveshare":
         if port is not None:
             servo_table["port"] = port
@@ -1107,6 +1156,7 @@ def save_servo_hardware_config(
                             servo.set_preset_angles(closed_angle, open_angle)
                         else:
                             servo.set_preset_angles(open_angle, closed_angle)
+                        _apply_pca_servo_speed(servo, homing_speed)
                 applied_live = True
         except Exception:
             applied_live = False
@@ -1129,6 +1179,54 @@ def save_servo_hardware_config(
     }
 
 
+class ServoSpeedSettingsPayload(BaseModel):
+    open_speed: Optional[int] = None
+    close_speed: Optional[int] = None
+    homing_speed: Optional[int] = None
+
+
+@router.post("/api/hardware-config/servo/speeds")
+def save_servo_speeds(payload: ServoSpeedSettingsPayload) -> Dict[str, Any]:
+    _SPEED_RANGE = (1, 2000)
+
+    def _clamp(v: int | None) -> int | None:
+        if v is None:
+            return None
+        return max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(v)))
+
+    open_speed = _clamp(payload.open_speed)
+    close_speed = _clamp(payload.close_speed)
+    homing_speed = _clamp(payload.homing_speed)
+
+    params_path, config = _read_machine_params_config()
+    servo = config.get("servo", {})
+    if not isinstance(servo, dict):
+        servo = {}
+
+    for key, val in [("open_speed", open_speed), ("close_speed", close_speed), ("homing_speed", homing_speed)]:
+        if val is not None:
+            servo[key] = val
+        else:
+            servo.pop(key, None)
+
+    config["servo"] = servo
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    active_irl = _active_irl()
+    if active_irl is not None:
+        try:
+            for srv in getattr(active_irl, "servos", []):
+                _apply_pca_servo_speed(srv, homing_speed)
+        except Exception:
+            pass
+
+    return {"ok": True, "open_speed": open_speed, "close_speed": close_speed, "homing_speed": homing_speed}
+
+
 @router.post("/api/hardware-config/servo/layers/{layer_index}/toggle")
 def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
     _ensure_not_homing("toggle a servo")
@@ -1137,6 +1235,10 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Selected servo does not support test toggling.")
 
     try:
+        _, _cfg = _read_machine_params_config()
+        _speeds = _servo_settings_from_config(_cfg)
+        currently_open = hasattr(servo, "isOpen") and servo.isOpen()
+        _apply_pca_servo_speed(servo, _speeds.get("close_speed") if currently_open else _speeds.get("open_speed"))
         servo.toggle()
         feedback = _live_servo_feedback_for_layer(layer_index, servo)
         is_open = bool(feedback.get("is_open")) if feedback.get("available") else False
@@ -1191,9 +1293,11 @@ def preview_layer_servo(
                 servo.set_preset_angles(open_angle, closed_angle)
 
         if desired_open:
+            _apply_pca_servo_speed(servo, servo_settings.get("open_speed"))
             if hasattr(servo, "open"):
                 servo.open()
         else:
+            _apply_pca_servo_speed(servo, servo_settings.get("close_speed"))
             if hasattr(servo, "close"):
                 servo.close()
         feedback = _live_servo_feedback_for_layer(layer_index, servo)
@@ -1250,6 +1354,9 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
         raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
 
     try:
+        _, _cfg = _read_machine_params_config()
+        _apply_pca_servo_speed(servo, _servo_settings_from_config(_cfg).get("homing_speed"))
+
         current_pos = int(servo.position)
         # PCA ServoMotor.position returns tenths-of-degrees, move_to takes degrees 0-180
         # Waveshare BusServo.position returns raw 0-1023, move_to takes angle 0-180
@@ -1292,6 +1399,8 @@ def move_to_layer_servo(layer_index: int, payload: ServoLayerMovePayload) -> Dic
 
     angle = max(0, min(180, int(payload.angle)))
     try:
+        _, _cfg = _read_machine_params_config()
+        _apply_pca_servo_speed(servo, _servo_settings_from_config(_cfg).get("homing_speed"))
         servo.move_to(angle)
         feedback = _live_servo_feedback_for_layer(layer_index, servo)
     except Exception as e:

@@ -155,6 +155,9 @@ def loadFeedingModeConfig(
 class MachineConfig:
     servo_open_angle: int | None = None
     servo_closed_angle: int | None = None
+    servo_open_speed: int | None = None
+    servo_close_speed: int | None = None
+    servo_homing_speed: int | None = None
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
 
 
@@ -391,6 +394,13 @@ def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int | No
     return default
 
 
+def _validateServoSpeed(gc: GlobalConfig, name: str, value: object, default: int | None) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 2000:
+        return value
+    gc.logger.warning(f"Invalid {name}={value!r}; expected int 1-2000 (°/s). Using {default}.")
+    return default
+
+
 def loadMachineConfig(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
@@ -413,6 +423,18 @@ def loadMachineConfig(
         if "closed_angle" in servo_params:
             config.servo_closed_angle = _validateAngle(
                 gc, "servo.closed_angle", servo_params.get("closed_angle"), None
+            )
+        if "open_speed" in servo_params:
+            config.servo_open_speed = _validateServoSpeed(
+                gc, "servo.open_speed", servo_params.get("open_speed"), None
+            )
+        if "close_speed" in servo_params:
+            config.servo_close_speed = _validateServoSpeed(
+                gc, "servo.close_speed", servo_params.get("close_speed"), None
+            )
+        if "homing_speed" in servo_params:
+            config.servo_homing_speed = _validateServoSpeed(
+                gc, "servo.homing_speed", servo_params.get("homing_speed"), None
             )
     elif servo_params is not None:
         gc.logger.warning("Ignoring invalid servo config: expected object.")

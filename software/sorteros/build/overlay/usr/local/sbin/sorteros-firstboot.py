@@ -300,7 +300,6 @@ def stage_write_env() -> None:
         "export DEBUG_LEVEL=2\n"
         "export PYTHONUNBUFFERED=1\n"
         'export MACHINE_SPECIFIC_PARAMS_PATH="../machine.toml"\n'
-        f'export SORTING_PROFILE_PATH="{SOFTWARE_DIR}/sorter/backend/sorting_profile.json"\n'
         "export SORTER_API_HOST=0.0.0.0\n"
         f'export SORTER_API_ALLOWED_ORIGINS="http://{hostname}:5173,http://localhost:5173"\n'
     )

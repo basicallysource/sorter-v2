@@ -72,7 +72,7 @@
 	let saving = $state(false);
 	let errorMsg = $state<string | null>(null);
 	let statusMsg = $state('');
-	let allowedCounts = $state<number[]>([12, 18, 30]);
+	let allowedCounts = $state<number[]>([6, 12, 18, 30]);
 	let availableServoIds = $state<number[]>([]);
 	let servoIssues = $state<HardwareIssue[]>([]);
 	let backend = $state<ServoBackend>('pca9685');
@@ -229,7 +229,7 @@ function applySettings(payload: any) {
 
 		allowedCounts = Array.isArray(storage?.allowed_bin_counts)
 			? storage.allowed_bin_counts.filter((value: unknown): value is number => typeof value === 'number')
-			: [12, 18, 30];
+			: [6, 12, 18, 30];
 
 		backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
 		openAngle = Number(servo.open_angle ?? 10);

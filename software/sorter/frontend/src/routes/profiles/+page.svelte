@@ -9,22 +9,27 @@
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
+		applyLocalProfile,
 		applyProfile,
+		deleteLocalProfile,
 		fetchLibrary,
 		fetchProfileDetail,
 		reloadRuntimeProfile as callReloadRuntime,
+		uploadLocalProfile,
 		visibleVersions
 	} from '$lib/sorting-profiles/api';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import type {
 		HiveTargetLibrary,
+		LocalSortingProfile,
 		PendingProfileApply,
 		SortingProfileCardEntry,
 		SortingProfileDetail,
 		SortingProfileLibraryResponse,
 		SortingProfileSummary
 	} from '$lib/sorting-profiles/types';
-	import { RotateCw } from 'lucide-svelte';
+	import Modal from '$lib/components/Modal.svelte';
+	import { RotateCw, Trash2, Upload } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	const manager = getMachinesContext();
@@ -54,6 +59,14 @@
 	let applyConfirmOpen = $state(false);
 	let pendingApply = $state<PendingProfileApply | null>(null);
 	let openVersionMenuKey = $state<string | null>(null);
+	let fileInput = $state<HTMLInputElement | null>(null);
+	let uploading = $state(false);
+	let pendingLocal = $state<LocalSortingProfile | null>(null);
+	let localApplyOpen = $state(false);
+	let localApplyingFilename = $state<string | null>(null);
+	let deletingFilename = $state<string | null>(null);
+	let pendingDelete = $state<LocalSortingProfile | null>(null);
+	let localDeleteOpen = $state(false);
 
 	function baseUrl(): string {
 		return (
@@ -219,6 +232,90 @@
 		} finally {
 			pendingApply = null;
 			applyingKey = null;
+		}
+	}
+
+	function localProfiles(): LocalSortingProfile[] {
+		return library?.local_profiles ?? [];
+	}
+
+	async function handleUploadFile(event: Event) {
+		const input = event.currentTarget as HTMLInputElement;
+		const file = input.files?.[0];
+		input.value = '';
+		if (!file) return;
+		uploading = true;
+		error = null;
+		success = null;
+		warning = null;
+		try {
+			const text = await file.text();
+			let artifact: unknown;
+			try {
+				artifact = JSON.parse(text);
+			} catch {
+				throw new Error('That file is not valid JSON.');
+			}
+			const fallbackName = file.name.replace(/\.json$/i, '');
+			const artifactName =
+				artifact && typeof artifact === 'object' && 'name' in artifact
+					? (artifact as { name?: string }).name
+					: null;
+			await uploadLocalProfile(baseUrl(), artifact, artifactName || fallbackName);
+			await loadLibrary();
+			success = `Uploaded ${artifactName || fallbackName}.`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to upload sorting profile';
+		} finally {
+			uploading = false;
+		}
+	}
+
+	function requestApplyLocal(profile: LocalSortingProfile) {
+		pendingLocal = profile;
+		localApplyOpen = true;
+	}
+
+	async function confirmApplyLocal(mode: 'empty' | 'rules') {
+		const profile = pendingLocal;
+		if (!profile) return;
+		localApplyOpen = false;
+		localApplyingFilename = profile.filename;
+		error = null;
+		success = null;
+		warning = null;
+		try {
+			const payload = await applyLocalProfile(baseUrl(), profile.filename, mode);
+			const label = profile.name || profile.filename;
+			const preassigned = payload?.preassigned_count as number | undefined;
+			if (mode === 'rules' && preassigned) {
+				success = `Using ${label}. Pre-assigned ${preassigned} bin${preassigned === 1 ? '' : 's'}.`;
+			} else {
+				success = `Using ${label} on this machine. Bin assignments were reset.`;
+			}
+			await sortingProfileStore.reload(baseUrl());
+			await loadLibrary();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to apply local sorting profile';
+		} finally {
+			localApplyingFilename = null;
+		}
+	}
+
+	async function confirmDeleteLocal() {
+		const profile = pendingDelete;
+		if (!profile) return;
+		localDeleteOpen = false;
+		deletingFilename = profile.filename;
+		error = null;
+		try {
+			await deleteLocalProfile(baseUrl(), profile.filename);
+			await loadLibrary();
+			success = `Deleted ${profile.name || profile.filename}.`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to delete local sorting profile';
+		} finally {
+			deletingFilename = null;
 		}
 	}
 
@@ -516,6 +613,107 @@
 		<StatusBanner message={warning ?? ''} variant="warning" />
 		<StatusBanner message={error ?? ''} variant="error" />
 
+		<input
+			bind:this={fileInput}
+			type="file"
+			accept="application/json,.json"
+			class="hidden"
+			onchange={handleUploadFile}
+		/>
+
+		{#if library}
+			<div class="mb-6">
+				<div class="mb-3 flex items-center justify-between gap-3">
+					<h3 class="text-sm font-semibold uppercase tracking-wider text-text-muted">
+						Local profiles
+					</h3>
+					<button
+						type="button"
+						onclick={() => fileInput?.click()}
+						disabled={uploading}
+						class="flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+					>
+						<Upload size={14} />
+						{uploading ? 'Uploading…' : 'Upload JSON'}
+					</button>
+				</div>
+
+				{#if localProfiles().length === 0}
+					<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
+						No local profiles saved yet. Upload a profile JSON to keep it on this machine.
+					</div>
+				{:else}
+					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+						{#each localProfiles() as profile}
+							<div
+								class="setup-card-shell flex h-full flex-col overflow-hidden border transition-colors {profile.is_active
+									? 'border-success ring-1 ring-success/20'
+									: 'border-border hover:border-text-muted'}"
+							>
+								<div class="setup-card-header px-3 py-2 text-sm">
+									<div class="flex items-start justify-between gap-3">
+										<div class="min-w-0 flex-1">
+											<div class="truncate text-sm font-semibold text-text">
+												{profile.name || profile.filename}
+											</div>
+											<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+												<span class="font-mono">local:{profile.filename}</span>
+												{#if profile.is_active}
+													<span
+														class="border border-success/30 bg-success/10 px-1.5 py-0.5 font-medium uppercase tracking-wide text-success"
+														>Active</span
+													>
+												{/if}
+											</div>
+										</div>
+										<div class="flex shrink-0 items-center gap-2">
+											<button
+												type="button"
+												onclick={() => requestApplyLocal(profile)}
+												disabled={localApplyingFilename === profile.filename || Boolean(profile.error)}
+												class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+											>
+												{localApplyingFilename === profile.filename ? 'Activating…' : 'activate'}
+											</button>
+											<button
+												type="button"
+												onclick={() => {
+													pendingDelete = profile;
+													localDeleteOpen = true;
+												}}
+												disabled={deletingFilename === profile.filename}
+												title="Delete local profile"
+												class="border border-border bg-white p-2 text-text-muted transition-colors hover:bg-bg hover:text-danger disabled:opacity-50"
+											>
+												<Trash2 size={16} />
+											</button>
+										</div>
+									</div>
+								</div>
+								<div class="setup-card-body border-t border-border px-4 py-3 text-xs text-text-muted">
+									{#if profile.error}
+										<span class="text-amber-700 dark:text-amber-300">Unreadable: {profile.error}</span>
+									{:else}
+										<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+											{#if profile.rule_count != null}<span>{profile.rule_count} rules</span>{/if}
+											{#if profile.category_count != null}
+												<span aria-hidden="true">·</span>
+												<span>{profile.category_count} categories</span>
+											{/if}
+											{#if profile.profile_type}
+												<span aria-hidden="true">·</span>
+												<span>{profile.profile_type}</span>
+											{/if}
+										</div>
+									{/if}
+								</div>
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		{/if}
+
 		{#if loading && !library}
 			<Spinner />
 		{:else if !library}
@@ -610,4 +808,77 @@
 			: null}
 		onVersionChange={(versionId) => void handleDetailsModalVersionChange(versionId)}
 	/>
+
+	<Modal bind:open={localApplyOpen} title="Activate local profile">
+		{#if pendingLocal !== null}
+			{@const profile = pendingLocal}
+			<div class="flex flex-col gap-4">
+				<p class="text-sm text-text">
+					Activate <span class="font-semibold">{profile.name || profile.filename}</span>?
+				</p>
+				<p class="text-sm text-text-muted">Choose how bins should be initialized.</p>
+				<div class="flex flex-col gap-2 border border-border bg-bg p-3 text-sm text-text-muted">
+					<div>
+						<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin;
+						categories are assigned as pieces arrive.
+					</div>
+					<div>
+						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the
+						order of the profile's rules.
+					</div>
+				</div>
+				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+					<button
+						type="button"
+						onclick={() => (localApplyOpen = false)}
+						class="border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={() => void confirmApplyLocal('empty')}
+						class="border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-bg"
+					>
+						Reset bins
+					</button>
+					<button
+						type="button"
+						onclick={() => void confirmApplyLocal('rules')}
+						class="border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
+					>
+						Pre-assign from rules
+					</button>
+				</div>
+			</div>
+		{/if}
+	</Modal>
+
+	<Modal bind:open={localDeleteOpen} title="Delete local profile">
+		{#if pendingDelete !== null}
+			{@const profile = pendingDelete}
+			<div class="flex flex-col gap-4">
+				<p class="text-sm text-text">
+					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this
+					machine? This removes the saved JSON file.
+				</p>
+				<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+					<button
+						type="button"
+						onclick={() => (localDeleteOpen = false)}
+						class="border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+					>
+						Cancel
+					</button>
+					<button
+						type="button"
+						onclick={() => void confirmDeleteLocal()}
+						class="border border-danger bg-danger/10 px-3 py-1.5 text-sm font-medium text-danger hover:bg-danger/20"
+					>
+						Delete
+					</button>
+				</div>
+			</div>
+		{/if}
+	</Modal>
 </div>

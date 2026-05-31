@@ -60,6 +60,46 @@ export async function applyProfile(
 	return unwrap<ApplyProfileResponse>(res);
 }
 
+export async function applyLocalProfile(
+	baseUrl: string,
+	filename: string,
+	mode: 'empty' | 'rules'
+): Promise<ApplyProfileResponse> {
+	const res = await fetch(`${baseUrl}/api/sorting-profiles/local/apply`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ filename, preassign_mode: mode })
+	});
+	return unwrap<ApplyProfileResponse>(res);
+}
+
+export async function uploadLocalProfile(
+	baseUrl: string,
+	artifact: unknown,
+	name?: string | null
+): Promise<void> {
+	const res = await fetch(`${baseUrl}/api/sorting-profiles/local/upload`, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		body: JSON.stringify({ artifact, name: name ?? null })
+	});
+	if (!res.ok) {
+		const body = (await res.json().catch(() => null)) as JsonError | null;
+		throw new Error(body?.detail ?? `HTTP ${res.status}`);
+	}
+}
+
+export async function deleteLocalProfile(baseUrl: string, filename: string): Promise<void> {
+	const res = await fetch(
+		`${baseUrl}/api/sorting-profiles/local/${encodeURIComponent(filename)}`,
+		{ method: 'DELETE' }
+	);
+	if (!res.ok) {
+		const body = (await res.json().catch(() => null)) as JsonError | null;
+		throw new Error(body?.detail ?? `HTTP ${res.status}`);
+	}
+}
+
 export async function reloadRuntimeProfile(baseUrl: string): Promise<void> {
 	const res = await fetch(`${baseUrl}/api/sorting-profiles/reload`, { method: 'POST' });
 	if (!res.ok) {

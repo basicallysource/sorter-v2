@@ -312,7 +312,7 @@
 		try {
 			const p = await post('/api/hardware-config/chute/move-to-virtual-bin', {
 				num_sections: numSections,
-				bins_in_section: testBinsPerSection,
+				bins_in_section: selected.binCount,
 				section_index: selected.section,
 				bin_index: selected.bin
 			});

@@ -106,6 +106,8 @@ sorter/backend/every_part_bl_api_res.json
 sorter/backend/machine_params.toml
 sorter/backend/stepper_current_overrides.json
 sorter/backend/sorting_profile.json
+sorter/backend/active_sorting_profile.json
+sorter/backend/sorting_profiles/
 sorter/backend/servo_states.json
 sorter/backend/local_state.sqlite
 sorter/backend/local_state.sqlite-shm

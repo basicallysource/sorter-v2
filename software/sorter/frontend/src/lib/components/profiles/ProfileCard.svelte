@@ -219,18 +219,12 @@
 				{/if}
 			</div>
 			<div class="text-center">
-				{#if targetWebUrl(props.target)}
-					<a
+				<span class="font-mono text-text-muted">hive:</span>{#if targetWebUrl(props.target)}<a
 						href={targetWebUrl(props.target) ?? undefined}
 						target="_blank"
 						rel="noreferrer"
 						class="transition-colors hover:text-text hover:underline"
-					>
-						{sourceLabel(props.target)}
-					</a>
-				{:else}
-					{sourceLabel(props.target)}
-				{/if}
+					>{sourceLabel(props.target)}</a>{:else}{sourceLabel(props.target)}{/if}
 			</div>
 			<div class="text-right">
 				{#if displayVersion(props.profile)?.created_at}

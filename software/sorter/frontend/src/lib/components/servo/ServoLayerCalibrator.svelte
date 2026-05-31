@@ -54,7 +54,7 @@
 	let backend = $state<ServoBackend>('pca9685');
 	let layers = $state<LayerDraft[]>([]);
 	let channelChoices = $state<number[]>([]);
-	let allowedCounts = $state<number[]>([12, 18, 30]);
+	let allowedCounts = $state<number[]>([6, 12, 18, 30]);
 	let jogStep = $state(5);
 	let selectedIndex = $state<number | null>(null);
 
@@ -122,7 +122,7 @@
 			const storage = payload?.storage_layers ?? {};
 			allowedCounts = Array.isArray(storage.allowed_bin_counts)
 				? storage.allowed_bin_counts.filter((v: unknown): v is number => typeof v === 'number')
-				: [12, 18, 30];
+				: [6, 12, 18, 30];
 
 			const servoChannels: Array<{ id: number | null; invert: boolean }> = Array.isArray(
 				servo.channels

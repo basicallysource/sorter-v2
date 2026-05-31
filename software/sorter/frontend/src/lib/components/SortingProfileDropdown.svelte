@@ -13,6 +13,8 @@
 	import Modal from '$lib/components/Modal.svelte';
 
 	type SortingProfileSyncState = {
+		source?: 'hive' | 'local' | null;
+		local_filename?: string | null;
 		target_id?: string | null;
 		target_name?: string | null;
 		profile_id?: string | null;
@@ -63,8 +65,17 @@
 		profiles: SortingProfileSummary[];
 	};
 
+	type LocalProfileEntry = {
+		filename: string;
+		name?: string | null;
+		rule_count?: number | null;
+		is_active: boolean;
+		error?: string | null;
+	};
+
 	type SortingProfileLibraryResponse = {
 		targets: HiveTargetLibrary[];
+		local_profiles?: LocalProfileEntry[];
 	};
 
 	type QuickSwitchProfileEntry = {
@@ -293,6 +304,55 @@
 		}
 	}
 
+	const local_profiles = $derived<LocalProfileEntry[]>(profile_library?.local_profiles ?? []);
+
+	let pending_local_profile = $state<LocalProfileEntry | null>(null);
+	let local_modal_open = $state(false);
+
+	function requestApplyLocalProfile(profile: LocalProfileEntry) {
+		pending_local_profile = profile;
+		local_modal_open = true;
+		action_error = null;
+		action_message = null;
+	}
+
+	function cancelApplyLocalProfile() {
+		local_modal_open = false;
+	}
+
+	async function confirmApplyLocalProfile(mode: 'empty' | 'rules') {
+		const profile = pending_local_profile;
+		if (profile === null) return;
+		local_modal_open = false;
+		applying_key = `local::${profile.filename}`;
+		action_error = null;
+		action_message = null;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/sorting-profiles/local/apply`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ filename: profile.filename, preassign_mode: mode })
+			});
+			if (!res.ok) {
+				const body = await res.json().catch(() => null);
+				throw new Error(body?.detail ?? `HTTP ${res.status}`);
+			}
+			const payload = await res.json().catch(() => null);
+			await sortingProfileStore.reload(currentBackendBaseUrl()).catch(() => null);
+			await loadQuickProfileLibrary();
+			const label = profile.name || profile.filename;
+			const preassigned = payload?.preassigned_count as number | undefined;
+			action_message =
+				mode === 'rules' && preassigned
+					? `Switched to ${label}, pre-assigned ${preassigned} bin${preassigned === 1 ? '' : 's'}.`
+					: `Switched to ${label}.`;
+		} catch (e: unknown) {
+			action_error = e instanceof Error ? e.message : 'Failed to switch sorting profile';
+		} finally {
+			applying_key = null;
+		}
+	}
+
 	let pending_switch_entry = $state<QuickSwitchProfileEntry | null>(null);
 
 	function requestApplyRecentProfile(entry: QuickSwitchProfileEntry) {
@@ -353,7 +413,12 @@
 	const current_profile_name = $derived(status?.sync_state?.profile_name ?? status?.local_profile?.name ?? 'No profile');
 	const current_profile_version = $derived(status?.sync_state?.version_number ?? null);
 	const current_profile_version_label = $derived(status?.sync_state?.version_label ?? null);
-	const current_profile_target = $derived(status?.sync_state?.target_name ?? 'Local');
+	const current_profile_target = $derived.by(() => {
+		const ss = status?.sync_state;
+		if (ss?.source === 'local') return `local:${ss.local_filename ?? ss.profile_name ?? 'profile'}`;
+		if (ss?.target_name) return `hive:${ss.target_name}`;
+		return ss?.target_name ?? 'Local';
+	});
 	const current_profile_updated = $derived(
 		formatRelativeTime(status?.sync_state?.applied_at ?? status?.local_profile?.updated_at)
 	);
@@ -482,6 +547,8 @@
 									</span>
 								</div>
 								<div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-text-muted">
+									<span class="min-w-0 truncate font-mono">hive:{entry.target_name}</span>
+									<span aria-hidden="true">·</span>
 									{#if entry.rule_count != null}
 										<span>{entry.rule_count} rules</span>
 										<span aria-hidden="true">·</span>
@@ -499,9 +566,83 @@
 					</div>
 				{/if}
 			</div>
+
+			<!-- Local section — profiles saved on this machine. -->
+			<div class="border-t border-border bg-bg px-3 py-1.5">
+				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Local</span>
+			</div>
+			<div>
+				{#if local_profiles.length === 0}
+					<div class="px-3 py-2 text-xs text-text-muted">No local profiles.</div>
+				{:else}
+					<div class="divide-y divide-border">
+						{#each local_profiles as profile}
+							<button
+								type="button"
+								onclick={() => requestApplyLocalProfile(profile)}
+								disabled={applying_key === `local::${profile.filename}` || Boolean(profile.error)}
+								class="block w-full px-3 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
+							>
+								<div class="flex items-center justify-between gap-2">
+									<span class="min-w-0 truncate text-sm font-medium text-text">{profile.name || profile.filename}</span>
+									<span class="shrink-0 font-mono text-xs text-text-muted">
+										{#if applying_key === `local::${profile.filename}`}
+											switching…
+										{:else if profile.is_active}
+											active
+										{/if}
+									</span>
+								</div>
+								<div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-text-muted">
+									<span class="min-w-0 truncate font-mono">local:{profile.filename}</span>
+									{#if profile.rule_count != null}
+										<span aria-hidden="true">·</span>
+										<span>{profile.rule_count} rules</span>
+									{/if}
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
 		</div>
 	{/if}
 </div>
+
+<Modal bind:open={local_modal_open} title="Switch sorting profile">
+	{#if pending_local_profile !== null}
+		{@const profile = pending_local_profile}
+		<div class="flex flex-col gap-4">
+			<p class="text-sm text-text">
+				Switch to <span class="font-semibold">{profile.name || profile.filename}</span>?
+			</p>
+			<p class="text-sm text-text-muted">Choose how bins should be initialized for the new profile.</p>
+			<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={cancelApplyLocalProfile}
+					class="border border-border bg-surface px-3 py-1.5 text-sm text-text hover:bg-bg"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmApplyLocalProfile('empty')}
+					class="border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-bg"
+				>
+					Reset bins
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmApplyLocalProfile('rules')}
+					class="border border-primary bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
+				>
+					Pre-assign from rules
+				</button>
+			</div>
+		</div>
+	{/if}
+</Modal>
 
 <Modal open={pending_switch_entry !== null} title="Switch sorting profile">
 	{#if pending_switch_entry !== null}

@@ -131,7 +131,6 @@ else
 export DEBUG_LEVEL=2
 
 export MACHINE_SPECIFIC_PARAMS_PATH="$SOFTWARE_DIR/machine.example.toml"
-export SORTING_PROFILE_PATH="$SOFTWARE_DIR/sorter/backend/sorting_profile.json"
 
 EOF
     ok ".env written"

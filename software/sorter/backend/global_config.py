@@ -35,6 +35,7 @@ class GlobalConfig:
     debug_level: int
     timeouts: Timeouts
     sorting_profile_path: str
+    local_profiles_dir: str
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -103,7 +104,15 @@ def mkGlobalConfig() -> GlobalConfig:
     gc = GlobalConfig()
     gc.debug_level = int(os.getenv("DEBUG_LEVEL", "0"))
     gc.timeouts = mkTimeouts()
-    gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
+    # Local sorting profiles live next to local_state.sqlite in the backend
+    # dir: durable across git resets (gitignored) and on the same persistent
+    # filesystem the rest of the machine state already trusts. The active
+    # artifact is a single file the runtime reads once into memory on reload;
+    # the library dir holds every saved/uploaded profile to choose from.
+    backend_dir = Path(__file__).resolve().parent
+    gc.sorting_profile_path = str(backend_dir / "active_sorting_profile.json")
+    gc.local_profiles_dir = str(backend_dir / "sorting_profiles")
+    os.makedirs(gc.local_profiles_dir, exist_ok=True)
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
     # Allow env-var fallback so the launching supervisor can flip these

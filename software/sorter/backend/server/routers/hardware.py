@@ -341,7 +341,7 @@ class StorageLayerSettingsPayload(BaseModel):
 # Constants
 # ---------------------------------------------------------------------------
 
-ALLOWED_STORAGE_LAYER_BIN_COUNTS = [12, 18, 30]
+ALLOWED_STORAGE_LAYER_BIN_COUNTS = [6, 12, 18, 30]
 DEFAULT_STORAGE_LAYER_SECTION_COUNT = 6
 DEFAULT_CAROUSEL_ENDSTOP_ACTIVE_HIGH = False
 CAROUSEL_CALIBRATE_TIMEOUT_MS = 60000

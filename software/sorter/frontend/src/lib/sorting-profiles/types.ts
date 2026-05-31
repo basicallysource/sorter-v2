@@ -108,6 +108,8 @@ export type SortingProfileDetail = SortingProfileSummary & {
 };
 
 export type SortingProfileSyncState = {
+	source?: 'hive' | 'local' | null;
+	local_filename?: string | null;
 	target_id?: string | null;
 	target_name?: string | null;
 	target_url?: string | null;
@@ -156,8 +158,24 @@ export type HiveTargetLibrary = {
 	error: string | null;
 };
 
+export type LocalSortingProfile = {
+	filename: string;
+	id: string;
+	name: string | null;
+	description: string | null;
+	profile_type?: string | null;
+	rule_count: number | null;
+	category_count: number | null;
+	part_count?: number | null;
+	artifact_hash: string | null;
+	updated_at: string | null;
+	is_active: boolean;
+	error?: string | null;
+};
+
 export type SortingProfileLibraryResponse = {
 	targets: HiveTargetLibrary[];
+	local_profiles: LocalSortingProfile[];
 	sync_state: SortingProfileSyncState | null;
 	local_profile: LocalProfileStatus;
 };

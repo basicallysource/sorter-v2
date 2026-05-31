@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -146,13 +147,115 @@ def _atomic_write_json(path: str, data: dict[str, Any]) -> None:
         raise
 
 
+# ─── Local (on-disk) sorting profiles ──────────────────────────────────────
+# A properly-named library of saved profiles sitting next to local_state.sqlite.
+# Each is a standard artifact JSON (same shape Hive emits). Writes are atomic
+# (temp + fsync + rename) and reads open-and-close — nothing is held open, so a
+# crash or OS hiccup can't leave a half-written or locked profile behind.
+
+
+def _local_profiles_dir() -> Path:
+    if shared_state.gc_ref is not None and getattr(shared_state.gc_ref, "local_profiles_dir", None):
+        directory = Path(shared_state.gc_ref.local_profiles_dir)
+    else:
+        directory = Path(__file__).resolve().parents[2] / "sorting_profiles"
+    directory.mkdir(parents=True, exist_ok=True)
+    return directory
+
+
+def _safe_local_path(filename: str) -> Path:
+    name = os.path.basename((filename or "").strip())
+    if not name or name.startswith(".") or not name.endswith(".json"):
+        raise HTTPException(status_code=400, detail="Invalid profile filename.")
+    directory = _local_profiles_dir()
+    resolved = (directory / name).resolve()
+    if resolved.parent != directory.resolve():
+        raise HTTPException(status_code=400, detail="Invalid profile filename.")
+    return resolved
+
+
+def _slugify(value: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")
+    return slug or "profile"
+
+
+def _unique_local_path(base: str) -> Path:
+    directory = _local_profiles_dir()
+    stem = _slugify(base)
+    candidate = directory / f"{stem}.json"
+    counter = 2
+    while candidate.exists():
+        candidate = directory / f"{stem}-{counter}.json"
+        counter += 1
+    return candidate
+
+
+def _local_profile_entry(
+    path: Path, active_hash: str | None, active_filename: str | None
+) -> dict[str, Any]:
+    entry: dict[str, Any] = {
+        "filename": path.name,
+        "id": path.stem,
+        "name": None,
+        "description": None,
+        "profile_type": None,
+        "rule_count": None,
+        "category_count": None,
+        "part_count": None,
+        "artifact_hash": None,
+        "updated_at": None,
+        "is_active": False,
+        "error": None,
+    }
+    try:
+        with open(path, "r") as handle:
+            data = json.load(handle)
+    except Exception as exc:
+        entry["error"] = str(exc)
+        return entry
+    if not isinstance(data, dict):
+        entry["error"] = "profile file is not a JSON object"
+        return entry
+    artifact_hash = data.get("artifact_hash")
+    entry.update(
+        {
+            "name": data.get("name") or path.stem,
+            "description": data.get("description"),
+            "profile_type": data.get("profile_type"),
+            "rule_count": len(data.get("rules", []) or []),
+            "category_count": len(data.get("categories", {}) or {}),
+            "part_count": len(data.get("part_to_category", {}) or {}),
+            "artifact_hash": artifact_hash,
+        }
+    )
+    try:
+        entry["updated_at"] = datetime.fromtimestamp(
+            path.stat().st_mtime, tz=timezone.utc
+        ).isoformat()
+    except OSError:
+        pass
+    if active_filename and path.name == active_filename:
+        entry["is_active"] = True
+    elif artifact_hash and active_hash and artifact_hash == active_hash:
+        entry["is_active"] = True
+    return entry
+
+
+def _list_local_profiles() -> list[dict[str, Any]]:
+    sync_state = getSortingProfileSyncState() or {}
+    active_filename = (
+        sync_state.get("local_filename") if sync_state.get("source") == "local" else None
+    )
+    active_hash = sync_state.get("artifact_hash")
+    return [
+        _local_profile_entry(path, active_hash, active_filename)
+        for path in sorted(_local_profiles_dir().glob("*.json"))
+    ]
+
+
 def _current_local_profile_status() -> dict[str, Any]:
     sync_state = getSortingProfileSyncState() or {}
-    path = (
-        shared_state.gc_ref.sorting_profile_path
-        if shared_state.gc_ref is not None
-        else os.environ.get("SORTING_PROFILE_PATH")
-    )
+    path = shared_state.gc_ref.sorting_profile_path if shared_state.gc_ref is not None else None
     metadata: dict[str, Any] = {}
     if path and os.path.exists(path):
         try:
@@ -228,6 +331,7 @@ def get_sorting_profile_library() -> dict[str, Any]:
         target_payloads.append(payload)
     return {
         "targets": target_payloads,
+        "local_profiles": _list_local_profiles(),
         **_current_local_profile_status(),
     }
 
@@ -316,6 +420,8 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         preassigned_count = _preassign_bins_from_rules(artifact)
 
     sync_state = {
+        "source": "hive",
+        "local_filename": None,
         "target_id": payload.target_id,
         "target_name": target.get("name") or target.get("url"),
         "target_url": base_url,
@@ -373,3 +479,124 @@ def apply_sorting_profile(payload: ApplySortingProfilePayload) -> dict[str, Any]
         "activation_error": activation_error,
         **status,
     }
+
+
+class ApplyLocalSortingProfilePayload(BaseModel):
+    filename: str
+    reset_bin_categories: bool = False
+    preassign_mode: str | None = None
+
+
+class UploadLocalSortingProfilePayload(BaseModel):
+    artifact: dict[str, Any]
+    name: str | None = None
+
+
+def _load_local_artifact(path: Path) -> dict[str, Any]:
+    try:
+        with open(path, "r") as handle:
+            artifact = json.load(handle)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail=f"Profile file is corrupt: {exc}")
+    if not isinstance(artifact, dict) or "part_to_category" not in artifact:
+        raise HTTPException(
+            status_code=400,
+            detail="Profile is not a valid sorting profile (missing part_to_category).",
+        )
+    return artifact
+
+
+@router.post("/api/sorting-profiles/local/apply")
+def apply_local_sorting_profile(payload: ApplyLocalSortingProfilePayload) -> dict[str, Any]:
+    if shared_state.gc_ref is None:
+        raise HTTPException(status_code=500, detail="Global config not initialized.")
+
+    path = _safe_local_path(payload.filename)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Local profile not found.")
+    artifact = _load_local_artifact(path)
+
+    mode = payload.preassign_mode
+    if mode is None and payload.reset_bin_categories:
+        mode = "empty"
+    reset_result: dict[str, Any] | None = None
+    if mode in ("empty", "rules"):
+        reset_result = clear_bin_category_assignments(scope="all")
+
+    _atomic_write_json(shared_state.gc_ref.sorting_profile_path, artifact)
+    reloaded = _reload_runtime_profile()
+
+    preassigned_count = 0
+    if mode == "rules":
+        preassigned_count = _preassign_bins_from_rules(artifact)
+
+    name = str(artifact.get("name") or path.stem)
+    now = datetime.now(timezone.utc).isoformat()
+    sync_state = {
+        "source": "local",
+        "local_filename": path.name,
+        "target_id": None,
+        "target_name": "Local",
+        "target_url": None,
+        "profile_id": None,
+        "profile_name": name,
+        "version_id": None,
+        "version_number": None,
+        "version_label": None,
+        "artifact_hash": str(artifact.get("artifact_hash") or "") or None,
+        "applied_at": now,
+        "activated_at": now,
+        "last_error": None,
+    }
+    setSortingProfileSyncState(sync_state)
+    start_new_sorting_session(reason="profile_activated")
+    try:
+        from server.set_progress_sync import getSetProgressSyncWorker
+
+        getSetProgressSyncWorker().notify()
+    except Exception:
+        pass
+
+    status = _current_local_profile_status()
+    shared_state.publishSortingProfileStatus(status)
+    return {
+        "ok": True,
+        "reloaded": reloaded,
+        "bin_categories_reset": bool(reset_result),
+        "bin_categories_reset_message": reset_result.get("message") if isinstance(reset_result, dict) else None,
+        "preassigned_count": preassigned_count,
+        "local_profiles": _list_local_profiles(),
+        **status,
+    }
+
+
+@router.post("/api/sorting-profiles/local/upload")
+def upload_local_sorting_profile(payload: UploadLocalSortingProfilePayload) -> dict[str, Any]:
+    artifact = payload.artifact
+    if not isinstance(artifact, dict) or "part_to_category" not in artifact:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded JSON is not a valid sorting profile (missing part_to_category).",
+        )
+    name = (payload.name or "").strip()
+    if name:
+        artifact = {**artifact, "name": name}
+    base = name or str(artifact.get("name") or artifact.get("id") or "profile")
+    dest = _unique_local_path(base)
+    _atomic_write_json(str(dest), artifact)
+    return {
+        "ok": True,
+        "profile": _local_profile_entry(dest, None, None),
+        "local_profiles": _list_local_profiles(),
+    }
+
+
+@router.delete("/api/sorting-profiles/local/{filename}")
+def delete_local_sorting_profile(filename: str) -> dict[str, Any]:
+    path = _safe_local_path(filename)
+    if path.exists():
+        try:
+            path.unlink()
+        except OSError as exc:
+            raise HTTPException(status_code=500, detail=f"Could not delete profile: {exc}")
+    return {"ok": True, "local_profiles": _list_local_profiles()}

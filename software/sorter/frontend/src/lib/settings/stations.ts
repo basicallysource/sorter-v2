@@ -1,4 +1,4 @@
-import { Camera, Cloud, Cpu, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
+import { Activity, Camera, Cloud, Cpu, Layers3, Settings, Shapes, Wrench } from 'lucide-svelte';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -101,6 +101,12 @@ export const chuteAimingNavItem: SettingsNavItem = {
 	icon: Shapes
 };
 
+export const stallguardNavItem: SettingsNavItem = {
+	href: '/settings/stepper-stallguard',
+	label: 'StallGuard',
+	icon: Activity
+};
+
 export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
@@ -195,8 +201,10 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
+	storageLayersNavItem,
+	{ type: 'heading', label: 'Helpers' },
 	chuteAimingNavItem,
-	storageLayersNavItem
+	stallguardNavItem
 ];
 
 export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {

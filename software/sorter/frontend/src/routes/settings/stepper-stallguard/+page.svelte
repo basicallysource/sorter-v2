@@ -49,10 +49,17 @@
 	let swDuration = $state(4);
 	let swLoaded = $state(false);
 	let swLabel = $state('');
+	let swEnterToRun = $state(false);
 	let running = $state(false);
 	let savingThreshold = $state(false);
 
 	const base = () => getBackendHttpBase();
+
+	function onKeydown(ev: KeyboardEvent) {
+		if (!swEnterToRun || ev.key !== 'Enter' || running) return;
+		ev.preventDefault();
+		runSweep();
+	}
 
 	function fmtTime(epoch: number | null): string {
 		if (!epoch) return '—';
@@ -104,14 +111,7 @@
 	}
 
 	async function runSweep() {
-		const verb = swLoaded ? 'spin (and you will hand-load)' : 'spin';
-		if (
-			!confirm(
-				`This will ${verb} "${swStepper}" for ${swDuration}s at ${swSpeed} µsteps/s. ` +
-					`Make sure the area is clear. Continue?`
-			)
-		)
-			return;
+		if (running) return;
 		running = true;
 		error = null;
 		notice = null;
@@ -203,6 +203,8 @@
 		loadSummary();
 	});
 </script>
+
+<svelte:window onkeydown={onKeydown} />
 
 <div class="flex flex-col gap-6 p-6">
 	<div>
@@ -300,6 +302,10 @@
 				Loaded (stall test)
 			</label>
 			<Button variant="primary" onclick={runSweep} loading={running}>Run sweep</Button>
+			<label class="flex items-center gap-2 text-sm text-text">
+				<input type="checkbox" bind:checked={swEnterToRun} class="accent-primary" />
+				Enter to run
+			</label>
 		</div>
 	</SectionCard>
 
@@ -349,11 +355,15 @@
 		<div class="lg:col-span-2">
 			<SectionCard title="Load curve" description="SG_RESULT over time. Lower = more load; a stall drops it toward 0.">
 				{#if selectedRun}
-					<div class="mb-3 flex flex-wrap items-center gap-4 text-sm">
+					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
 						<span class="text-text-muted">Motor:</span>
 						<span class="font-mono text-text">{selectedRun.stepper_name}</span>
 						<span class="text-text-muted">Speed:</span>
 						<span class="text-text">{selectedRun.params?.speed ?? '—'} µsteps/s</span>
+						<span class="text-text-muted">Dir:</span>
+						<span class="text-text">{selectedRun.params?.direction ?? '—'}</span>
+						<span class="text-text-muted">Duration:</span>
+						<span class="text-text">{selectedRun.params?.duration_s ?? '—'} s</span>
 						{#if selectedRun.sg_mean != null}
 							<span class="text-text-muted">Mean SG:</span>
 							<span class="text-text">{Math.round(selectedRun.sg_mean)}</span>
@@ -363,6 +373,24 @@
 							<span class="text-text">{selectedRun.suggested_sgthrs}</span>
 							<span class="text-text-muted">(trigger ≤ {triggerLevel})</span>
 						{/if}
+					</div>
+					<div class="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+						<span class="text-text-muted">IRUN:</span>
+						<span class="text-text">{selectedRun.params?.irun ?? '—'}</span>
+						<span class="text-text-muted">Accel:</span>
+						<span class="text-text">{selectedRun.params?.acceleration ?? '—'} µsteps/s²</span>
+						<span class="text-text-muted">Microsteps:</span>
+						<span class="text-text">{selectedRun.params?.microsteps ?? '—'}</span>
+						<span class="text-text-muted">Chopper:</span>
+						<span class="text-text">
+							{selectedRun.params?.stealthchop == null
+								? '—'
+								: selectedRun.params.stealthchop
+									? 'StealthChop'
+									: 'SpreadCycle'}
+						</span>
+						<span class="text-text-muted">Loaded:</span>
+						<span class="text-text">{selectedRun.params?.loaded ? 'yes' : 'no'}</span>
 					</div>
 					<div class="mb-3 flex items-center gap-4 text-sm">
 						<label class="flex items-center gap-2 text-text">

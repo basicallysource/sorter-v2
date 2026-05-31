@@ -2,7 +2,9 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { Alert, Button, Input } from '$lib/components/primitives';
-	import { onMount } from 'svelte';
+	import BinLayoutViz from './BinLayoutViz.svelte';
+	import ErrorBanner from './ErrorBanner.svelte';
+	import { binCenterAngle, reachInfo } from './geometry';
 
 	const manager = getMachinesContext();
 
@@ -23,6 +25,8 @@
 	let liveAvailable = $state(false);
 	let currentAngle = $state<number | null>(null);
 	let stepperStopped = $state<boolean | null>(null);
+	let liveEndstopTriggered = $state<boolean | null>(null);
+	let stepperPositionDeg = $state<number | null>(null);
 	let liveRequestInFlight = false;
 
 	// ---- Calibration measurement -------------------------------------------
@@ -81,12 +85,15 @@
 	}
 
 	function angleFor(section: number, bin: number, binsInSection: number): number {
-		const k = Math.max(1, binsInSection);
-		const slot = sectionWidthDeg / k;
-		return firstSectionOffsetDeg + section * (360 / Math.max(1, numSections)) + (bin + 0.5) * slot;
+		return binCenterAngle(
+			{ numSections, sectionWidthDeg, firstSectionOffsetDeg },
+			section,
+			bin,
+			binsInSection
+		);
 	}
 	function isReachable(angle: number): boolean {
-		return angle >= 0 && angle <= maxAngleDeg && angle <= 360;
+		return reachInfo(angle, maxAngleDeg).reachable;
 	}
 
 	async function loadSettings() {
@@ -128,6 +135,11 @@
 			currentAngle =
 				typeof p?.current_angle === 'number' && Number.isFinite(p.current_angle) ? p.current_angle : null;
 			stepperStopped = typeof p?.stepper_stopped === 'boolean' ? p.stepper_stopped : null;
+			liveEndstopTriggered = typeof p?.endstop_triggered === 'boolean' ? p.endstop_triggered : null;
+			stepperPositionDeg =
+				typeof p?.stepper_position_degrees === 'number' && Number.isFinite(p.stepper_position_degrees)
+					? p.stepper_position_degrees
+					: null;
 		} catch {
 			// keep last known
 		} finally {
@@ -287,8 +299,10 @@
 	}
 
 	// ---- Test aim ----------------------------------------------------------
-	let testBinsPerSection = $state(3);
-	let selected = $state<{ section: number; bin: number } | null>(null);
+	// One viz instance per layer size so all are visible at once, instead of a
+	// single circle you toggle between 1–5 bins.
+	const VIZ_SIZES = [1, 2, 3, 4, 5];
+	let selected = $state<{ section: number; bin: number; binCount: number } | null>(null);
 
 	async function testAimSelected() {
 		if (!selected) return;
@@ -302,7 +316,7 @@
 				section_index: selected.section,
 				bin_index: selected.bin
 			});
-			statusMsg = `Aiming at section ${selected.section + 1}, bin ${selected.bin + 1} (${fmt(p?.target_angle)}°).`;
+			statusMsg = `Aiming at ${selected.binCount}-bin section ${selected.section + 1}, bin ${selected.bin + 1} (${fmt(p?.target_angle)}°).`;
 			void loadLive();
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Test aim failed';
@@ -335,29 +349,14 @@
 		}
 	});
 
-	onMount(() => {
-		const interval = setInterval(() => void loadLive(), 600);
+	// Poll live status; speed up while homing so you can watch the chute drive
+	// to 0° and back off to the first bin. Kept modest so it never floods.
+	$effect(() => {
+		const period = homingState ? 200 : 600;
+		const interval = setInterval(() => void loadLive(), period);
 		return () => clearInterval(interval);
 	});
 
-	// ---- SVG geometry for the test circle ----------------------------------
-	const CX = 130;
-	const CY = 130;
-	const R = 96;
-	function polar(angleDeg: number, radius = R) {
-		const rad = ((angleDeg - 90) * Math.PI) / 180;
-		return { x: CX + radius * Math.cos(rad), y: CY + radius * Math.sin(rad) };
-	}
-	const vizBins = $derived(
-		Array.from({ length: numSections }, (_, s) =>
-			Array.from({ length: testBinsPerSection }, (_, i) => {
-				const angle = angleFor(s, i, testBinsPerSection);
-				return { section: s, bin: i, angle, reachable: isReachable(angle), ...polar(angle) };
-			})
-		).flat()
-	);
-	const needle = $derived(currentAngle === null ? null : polar(currentAngle));
-	const homeMarker = $derived(polar(0, R + 10));
 </script>
 
 <svelte:window onkeydown={handleKey} />
@@ -406,7 +405,7 @@
 			<div class="flex flex-col gap-2 border-l border-border p-3">
 				<div class="text-sm font-medium text-text">Bins in this section</div>
 				<div class="grid grid-cols-3 gap-1">
-					{#each [1, 2, 3, 4, 5, 6] as n}
+					{#each [3, 4, 5, 6] as n}
 						<Button
 							variant={binsInTestSection === n ? 'primary' : 'secondary'}
 							size="sm"
@@ -417,7 +416,7 @@
 					{/each}
 				</div>
 				<p class="max-w-[13rem] text-sm text-text-muted">
-					How many bins evenly divide the section you're measuring.
+					How many bins are in the section you're measuring. More bins = more accurate; 3 or 5 is ideal.
 				</p>
 			</div>
 		{/if}
@@ -448,7 +447,7 @@
 	</div>
 
 	{#if errorMsg}
-		<Alert variant="danger">{errorMsg}</Alert>
+		<ErrorBanner message={errorMsg} />
 	{:else if statusMsg}
 		<Alert variant="info">{statusMsg}</Alert>
 	{/if}
@@ -474,11 +473,11 @@
 					<div class="text-sm font-medium text-text">{numSections}</div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Section W</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Section width</div>
 					<div class="text-sm font-medium text-text">{fmt(sectionWidthDeg, 2)}°</div>
 				</div>
 				<div>
-					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Offset θ₀</div>
+					<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">Offset from home</div>
 					<div class="text-sm font-medium text-text">{fmt(firstSectionOffsetDeg, 2)}°</div>
 				</div>
 				<div>
@@ -529,9 +528,16 @@
 			{/if}
 		</div>
 
+		<p class="text-sm text-text-muted">
+			Calibration finds just two numbers: the <span class="font-medium text-text">width of a section</span>
+			(in degrees) and the <span class="font-medium text-text">offset of the first section from the zero
+			point</span> (home). From those, the machine works out where every bin sits and which ones each
+			layout can reach.
+		</p>
+
 		<Alert variant="warning">
-			Every step here moves the chute. It hits a hard stop at 0° and 360° and can never cross zero —
-			always home first.
+			Every step here moves the chute. It hits a hard stop at home and can never cross it, so it only has
+			~{fmt(maxAngleDeg, 0)}° of travel — always home first.
 		</Alert>
 
 		<!-- Step 1: Home -->
@@ -541,6 +547,22 @@
 				<div class="text-sm font-medium text-text">Home the chute</div>
 			</div>
 			<p class="text-sm text-text-muted">Establishes the 0° reference at the home switch.</p>
+			<div class="flex flex-wrap items-center gap-x-6 gap-y-1 border border-border bg-surface px-3 py-2">
+				<div class="flex items-baseline gap-2">
+					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Chute angle</span>
+					<span class="text-sm font-medium tabular-nums text-text">{fmt(currentAngle, 1)}°</span>
+				</div>
+				<div class="flex items-baseline gap-2">
+					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Motor angle</span>
+					<span class="text-sm font-medium tabular-nums text-text">{fmt(stepperPositionDeg, 1)}°</span>
+				</div>
+				<div class="flex items-baseline gap-2">
+					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Endstop</span>
+					<span class={`text-sm font-medium ${liveEndstopTriggered ? 'text-success' : 'text-text'}`}>
+						{liveEndstopTriggered === null ? '--' : liveEndstopTriggered ? 'triggered' : 'open'}
+					</span>
+				</div>
+			</div>
 			<div class="flex flex-wrap items-center gap-2">
 				<Button variant={homed ? 'secondary' : 'primary'} loading={homingState} onclick={homeChute}>
 					{homed ? 'Re-home' : 'Home chute'}
@@ -563,9 +585,16 @@
 				<div class="text-sm font-medium text-text">Aim at the FIRST bin of a section</div>
 			</div>
 			<p class="text-sm text-text-muted">
-				{#if step2Locked}Home the chute first.{:else}Jog until the chute points dead-center at the first bin, then capture.{/if}
+				{#if step2Locked}
+					Home the chute first.
+				{:else}
+					Pick any layer and a section you can see in full with <span class="font-medium text-text"
+						>more than 2 bins</span
+					> — 3 or 5 is best, more bins means more accuracy. Set its bin count below, then jog until the
+					chute is perfectly centered going into the first bin and capture.
+				{/if}
 			</p>
-			{@render jogPad(activeStep === 2, false)}
+			{@render jogPad(activeStep === 2, true)}
 			<div class="flex flex-wrap items-center gap-2">
 				<Button variant="primary" disabled={step2Locked || currentAngle === null} onclick={captureFirst}>
 					Capture first bin
@@ -585,9 +614,9 @@
 				<div class="text-sm font-medium text-text">Aim at the LAST bin of that same section</div>
 			</div>
 			<p class="text-sm text-text-muted">
-				{#if step3Locked}Capture the first bin first.{:else}Pick how many bins the section has, jog to its last bin, then capture.{/if}
+				{#if step3Locked}Capture the first bin first.{:else}Jog until the chute is perfectly centered going into the LAST bin of that same section, then capture.{/if}
 			</p>
-			{@render jogPad(activeStep === 3, true)}
+			{@render jogPad(activeStep === 3, false)}
 			<div class="flex flex-wrap items-center gap-3">
 				<Button variant="primary" disabled={step3Locked || currentAngle === null} onclick={captureLast}>
 					Capture last bin
@@ -610,8 +639,8 @@
 				{@const slot = (capturedLast! - capturedFirst!) / Math.max(1, binsInTestSection - 1)}
 				{@const w = slot * binsInTestSection}
 				<div class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-					<div><span class="text-text-muted">Section width W:</span> {fmt(w, 2)}°</div>
-					<div><span class="text-text-muted">Offset θ₀:</span> {fmt(capturedFirst! - 0.5 * slot, 2)}°</div>
+					<div><span class="text-text-muted">Section width:</span> {fmt(w, 2)}°</div>
+					<div><span class="text-text-muted">Offset from home:</span> {fmt(capturedFirst! - 0.5 * slot, 2)}°</div>
 					<div><span class="text-text-muted">Pillar:</span> {fmt(sectionPitchDeg - w, 2)}°</div>
 				</div>
 				<label class="flex max-w-sm flex-col gap-1 text-sm text-text">
@@ -663,70 +692,53 @@
 		{/if}
 	</section>
 
-	<!-- Verify -->
+	<!-- Verify — reachable bins per layer size -->
 	<section class="flex flex-col gap-3 border border-border bg-bg px-4 py-3">
-		<div class="text-sm font-semibold text-text">Verify aim</div>
-		<p class="text-sm text-text-muted">Pick a layout, click a bin, then test-aim to confirm reality matches.</p>
-		<div class="flex flex-wrap items-center gap-1">
-			<span class="mr-1 text-sm text-text-muted">Bins per section:</span>
-			{#each [1, 2, 3, 4, 5, 6] as preset}
-				<Button
-					variant={testBinsPerSection === preset ? 'primary' : 'secondary'}
-					size="sm"
-					onclick={() => { testBinsPerSection = preset; selected = null; }}
-				>
-					{preset}
-				</Button>
+		<div class="flex flex-wrap items-baseline justify-between gap-2">
+			<div class="text-sm font-semibold text-text">Reachable bins by layer size</div>
+			<div class="text-sm text-text-muted">
+				Chute travel 0–{fmt(maxAngleDeg, 0)}° · {fmt(360 - maxAngleDeg, 0)}° no-go wedge at home
+			</div>
+		</div>
+		<p class="text-sm text-text-muted">
+			Each layout shows where the chute points for that many bins per section. Bins crossed out in red
+			can't be reached: they fall in the deadzone wedge between max travel ({fmt(maxAngleDeg, 0)}°) and
+			home (0°) — which is what eats bins whenever home doesn't land on a pillar. Click any reachable
+			bin to test-aim at it.
+		</p>
+		<div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+			{#each VIZ_SIZES as size}
+				<BinLayoutViz
+					{numSections}
+					{sectionWidthDeg}
+					{firstSectionOffsetDeg}
+					{maxAngleDeg}
+					binCount={size}
+					liveAngleDeg={currentAngle}
+					{selected}
+					onSelect={(sel) => (selected = sel)}
+				/>
 			{/each}
 		</div>
-		<div class="flex flex-col items-start gap-4 sm:flex-row">
-			<svg viewBox="0 0 260 260" class="w-64 max-w-full" role="img" aria-label="Bin layout circle">
-				<circle cx={CX} cy={CY} r={R} class="fill-surface stroke-border" stroke-width="1" />
-				{#each Array.from({ length: numSections }, (_, s) => firstSectionOffsetDeg + s * sectionPitchDeg) as edge}
-					{@const p = polar(edge, R + 6)}
-					<line x1={CX} y1={CY} x2={p.x} y2={p.y} class="stroke-border" stroke-width="0.5" />
-				{/each}
-				<circle cx={homeMarker.x} cy={homeMarker.y} r="3" class="fill-primary" />
-				<text x={homeMarker.x} y={homeMarker.y - 6} text-anchor="middle" font-size="10" class="fill-text-muted">home 0°</text>
-				{#if needle}
-					<line x1={CX} y1={CY} x2={needle.x} y2={needle.y} class="stroke-primary" stroke-width="1.5" />
-				{/if}
-				{#each vizBins as b}
-					{@const isSel = selected?.section === b.section && selected?.bin === b.bin}
-					<circle
-						cx={b.x}
-						cy={b.y}
-						r={isSel ? 7 : 5}
-						class={`cursor-pointer ${!b.reachable ? 'fill-danger stroke-danger' : isSel ? 'fill-primary stroke-primary' : 'fill-bg stroke-text-muted'}`}
-						stroke-width="1"
-						role="button"
-						tabindex="0"
-						onclick={() => (selected = { section: b.section, bin: b.bin })}
-						onkeydown={(e) => { if (e.key === 'Enter' || e.key === ' ') selected = { section: b.section, bin: b.bin }; }}
-					/>
-				{/each}
-				<circle cx={CX} cy={CY} r="2" class="fill-text-muted" />
-			</svg>
-			<div class="flex min-w-0 flex-1 flex-col gap-2">
-				{#if selected}
-					<div class="text-sm text-text">
-						Selected: section {selected.section + 1}, bin {selected.bin + 1}
-						<span class="text-text-muted">→ {fmt(angleFor(selected.section, selected.bin, testBinsPerSection), 2)}°</span>
-					</div>
-					<div>
-						<Button
-							variant="primary"
-							loading={busy}
-							disabled={!isReachable(angleFor(selected.section, selected.bin, testBinsPerSection))}
-							onclick={testAimSelected}
-						>
-							Test aim at this bin
-						</Button>
-					</div>
-				{:else}
-					<div class="text-sm text-text-muted">Click a bin in the circle to select it.</div>
-				{/if}
-			</div>
+		<div class="flex min-w-0 flex-col gap-2">
+			{#if selected}
+				<div class="text-sm text-text">
+					Selected: {selected.binCount}-bin layout, section {selected.section + 1}, bin {selected.bin + 1}
+					<span class="text-text-muted">→ {fmt(angleFor(selected.section, selected.bin, selected.binCount), 2)}°</span>
+				</div>
+				<div>
+					<Button
+						variant="primary"
+						loading={busy}
+						disabled={!isReachable(angleFor(selected.section, selected.bin, selected.binCount))}
+						onclick={testAimSelected}
+					>
+						Test aim at this bin
+					</Button>
+				</div>
+			{:else}
+				<div class="text-sm text-text-muted">Click a bin in any layout to select it, then test-aim.</div>
+			{/if}
 		</div>
 	</section>
 </div>

@@ -183,9 +183,16 @@ class Chute:
         )
         if unclamped:
             return angle
-        if angle < 0 or angle > CHUTE_MAX_ANGLE:
+        # The chute travels [0, CHUTE_MAX_ANGLE] and can never cross the home
+        # stop, so wrap the bin onto the circle: it is reachable iff its wrapped
+        # position lands inside the travel window. The arc (CHUTE_MAX_ANGLE, 360)
+        # just before home is the only dead wedge. Wrapping is what lets a
+        # section that home cut through still serve the bins sitting just
+        # clockwise of home — reached the long way round, never across the stop.
+        norm = angle % 360.0
+        if norm > CHUTE_MAX_ANGLE:
             return None
-        return angle
+        return norm
 
     def getAngleForBin(self, address: BinAddress) -> float | None:
         num_bins = self._binsInSection(address.layer_index, address.section_index)

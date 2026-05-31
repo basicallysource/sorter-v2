@@ -1865,7 +1865,7 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
     if not homed:
         raise HTTPException(
             status_code=409,
-            detail="Chute homing stopped before the endstop triggered.",
+            detail="Chute homing stopped before the endstop triggered. It's possible that the switch is not making good contact with the chute. Try moving it closer to the chute.",
         )
 
     return {

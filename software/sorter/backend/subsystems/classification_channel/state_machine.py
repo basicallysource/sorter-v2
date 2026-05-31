@@ -102,12 +102,15 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             )
 
     def step(self) -> None:
+        import time as _time
+        _t0 = _time.perf_counter()
         self.gc.profiler.hit("classification.state_machine.step.calls")
-        with self.gc.profiler.timer(
-            f"classification.state_machine.state_step_ms.{self.current_state.value}"
-        ):
-            next_state = self.states_map[self.current_state].step()
+        _t1 = _time.perf_counter()
+        next_state = self.states_map[self.current_state].step()
+        _t2 = _time.perf_counter()
+        _after_t0 = _time.perf_counter()
         if next_state and next_state != self.current_state:
+            _cleanup_t0 = _time.perf_counter()
             prev_state = self.current_state
             self.logger.info(
                 f"ClassificationChannel: {prev_state.value} -> {next_state.value}"
@@ -122,6 +125,27 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                     "classification", prev_state.value, next_state.value
                 )
             self.gc.profiler.enterState("classification", self.current_state.value)
+            self.gc.runtime_stats.observePerfMs(
+                "classification.sm.transition_cleanup_ms",
+                (_time.perf_counter() - _cleanup_t0) * 1000.0,
+            )
+        _t3 = _time.perf_counter()
+        self.gc.runtime_stats.observePerfMs(
+            f"classification.sm.state_step_ms.{self.current_state.value}",
+            (_t2 - _t1) * 1000.0,
+        )
+        self.gc.runtime_stats.observePerfMs(
+            "classification.sm.overhead_before_state_ms",
+            (_t1 - _t0) * 1000.0,
+        )
+        self.gc.runtime_stats.observePerfMs(
+            "classification.sm.overhead_after_state_ms",
+            (_t3 - _after_t0) * 1000.0,
+        )
+        self.gc.runtime_stats.observePerfMs(
+            "classification.sm.total_ms",
+            (_t3 - _t0) * 1000.0,
+        )
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")

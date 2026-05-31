@@ -43,6 +43,7 @@
 	let showTstep = $state(false);
 
 	// Sweep form
+	type Profile = 'constant' | 'chute_random' | 'pulsed';
 	let swStepper = $state('carousel');
 	let swSpeed = $state(1500);
 	let swDirection = $state<'cw' | 'ccw'>('cw');
@@ -50,10 +51,28 @@
 	let swLoaded = $state(false);
 	let swLabel = $state('');
 	let swEnterToRun = $state(false);
+	// Motion profile. Constant spin only suits a free-running motor; the chute
+	// aims to angles (random go-to + turnaround) and the rotors/carousel pulse
+	// with the odd jitter — those mirror real load. Default by motor.
+	let swProfile = $state<Profile>('pulsed');
+	let swChuteMinDeg = $state(10);
+	let swChuteMaxDeg = $state(340);
+	let swMinDeltaDeg = $state(30);
+	let swPulseDeg = $state(30);
+	let swDwellMs = $state(250);
+	let swJitterEvery = $state(5);
 	let running = $state(false);
 	let savingThreshold = $state(false);
 
 	const base = () => getBackendHttpBase();
+
+	function defaultProfileFor(stepper: string): Profile {
+		return stepper === 'chute' ? 'chute_random' : 'pulsed';
+	}
+
+	function onStepperChange() {
+		swProfile = defaultProfileFor(swStepper);
+	}
 
 	function onKeydown(ev: KeyboardEvent) {
 		if (!swEnterToRun || ev.key !== 'Enter' || running) return;
@@ -122,7 +141,17 @@
 				direction: swDirection,
 				duration_s: String(swDuration),
 				loaded: String(swLoaded),
+				profile: swProfile,
 			});
+			if (swProfile === 'chute_random') {
+				qs.set('chute_min_deg', String(swChuteMinDeg));
+				qs.set('chute_max_deg', String(swChuteMaxDeg));
+				qs.set('min_delta_deg', String(swMinDeltaDeg));
+			} else if (swProfile === 'pulsed') {
+				qs.set('pulse_deg', String(swPulseDeg));
+				qs.set('dwell_ms', String(swDwellMs));
+				qs.set('jitter_every', String(swJitterEvery));
+			}
 			if (swLabel.trim()) qs.set('label', swLabel.trim());
 			const res = await fetch(`${base()}/stepper/stallguard-sweep?${qs}`, { method: 'POST' });
 			if (!res.ok) {
@@ -258,7 +287,7 @@
 
 	<SectionCard
 		title="Run a targeted sweep"
-		description="Spins one motor at constant speed and records its load curve. Use the loaded option for a deliberate stall test — hold/resist the motor by hand while it runs."
+		description="Drives one motor with a representative motion profile and records its load curve. Use the loaded option for a deliberate stall test — hold/resist the motor by hand while it runs."
 	>
 		<Alert variant="warning">
 			This moves a real motor. Keep the area clear and your hand near the stop control.
@@ -270,12 +299,21 @@
 				<select
 					id="sw-stepper"
 					bind:value={swStepper}
+					onchange={onStepperChange}
 					class="setup-control"
 					style="min-width: 10rem;"
 				>
 					{#each STEPPERS as s}
 						<option value={s}>{s}</option>
 					{/each}
+				</select>
+			</div>
+			<div class="flex flex-col gap-1">
+				<label class="text-sm text-text" for="sw-profile">Motion profile</label>
+				<select id="sw-profile" bind:value={swProfile} class="setup-control" style="min-width: 11rem;">
+					<option value="constant">constant spin</option>
+					<option value="chute_random">chute: random go-to-angle</option>
+					<option value="pulsed">pulsed + jitter</option>
 				</select>
 			</div>
 			<label class="flex w-40 flex-col gap-1 text-sm text-text">
@@ -307,6 +345,48 @@
 				Enter to run
 			</label>
 		</div>
+
+		{#if swProfile === 'chute_random'}
+			<div class="mt-4 flex flex-wrap items-end gap-4">
+				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+					Min angle (output °)
+					<Input type="number" bind:value={swChuteMinDeg} />
+				</label>
+				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+					Max angle (output °)
+					<Input type="number" bind:value={swChuteMaxDeg} />
+				</label>
+				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+					Min angle delta (°)
+					<Input type="number" bind:value={swMinDeltaDeg} />
+				</label>
+				<div class="max-w-md text-sm text-text-muted">
+					Random go-to-angle within [min, max] output degrees (auto-clamped to the chute's safe
+					travel, max 345°), with an immediate turnaround on each arrival. Homes the chute first if
+					needed, so it operates on absolute angles and can never reach an endstop.
+				</div>
+			</div>
+		{:else if swProfile === 'pulsed'}
+			<div class="mt-4 flex flex-wrap items-end gap-4">
+				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+					Pulse size (motor °)
+					<Input type="number" bind:value={swPulseDeg} />
+				</label>
+				<label class="flex w-32 flex-col gap-1 text-sm text-text">
+					Dwell (ms)
+					<Input type="number" bind:value={swDwellMs} />
+				</label>
+				<label class="flex w-40 flex-col gap-1 text-sm text-text">
+					Jitter every N pulses
+					<Input type="number" bind:value={swJitterEvery} />
+				</label>
+				<div class="max-w-md text-sm text-text-muted">
+					Discrete pulses with a dwell between (how the rotors and carousel actually run), with an
+					unstick jitter every N pulses. Only the moving phases are sampled. Set jitter to 0 to
+					disable it.
+				</div>
+			</div>
+		{/if}
 	</SectionCard>
 
 	<div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

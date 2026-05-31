@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 import os
+import random
 import threading
 import time
 from typing import Any, Dict, List, Optional
@@ -1063,6 +1064,178 @@ def _suggested_sgthrs(sg_min: int) -> int:
     return max(1, int(sg_min * 0.4) // 2)
 
 
+# ---------------------------------------------------------------------------
+# Sweep motion profiles
+#
+# A constant-speed spin is a poor stand-in for how a motor is actually loaded in
+# service: the chute aims to angles and reverses (a constant spin just rams its
+# endstop and reads SG_RESULT=0), and the rotors/carousel run in discrete pulses
+# with dwells and the odd unstick jitter — not a steady cruise. These profiles
+# reproduce that so the recorded SG_RESULT reflects real operating load.
+#
+# Each profile models its own timeline from estimated move durations and exposes
+# moving(now): the sampler only records load-bearing motion phases and ignores
+# idle dwells, so dwell zeros don't pollute the threshold. No extra UART status
+# reads — the sample loop is already bus-bound.
+# ---------------------------------------------------------------------------
+
+SWEEP_PROFILES = ("constant", "chute_random", "pulsed")
+
+# Defaults for the unstick jitter folded into the pulsed profile, matching the
+# feeder's real fall-recovery values (go_to_angle config).
+_PULSED_JITTER_AMPLITUDE_DEG = 6.0
+_PULSED_JITTER_CYCLES = 8
+_PULSED_JITTER_SPEED = 6500
+_PULSED_JITTER_ACCEL = 180000
+
+
+class _SweepMotion:
+    def start(self, now: float) -> None: ...
+    def tick(self, now: float) -> None: ...
+    def moving(self, now: float) -> bool:
+        return True
+
+
+class _ConstantMotion(_SweepMotion):
+    def __init__(self, target: Any, signed_speed: int) -> None:
+        self._target = target
+        self._signed_speed = signed_speed
+
+    def start(self, now: float) -> None:
+        if not bool(self._target.move_at_speed(self._signed_speed, force=True)):
+            raise RuntimeError("move_at_speed was not acknowledged")
+
+
+# The chute hits HARD STOPS at 0 and 360 deg of output travel (it can cross
+# neither). Stay well inside that with the same cap the stress test uses.
+CHUTE_SAFE_MAX_DEG = 345.0
+
+
+class _ChuteRandomMotion(_SweepMotion):
+    """Random go-to-angle with immediate turnaround on the real chute, like the
+    chute stress test. Operates on the homed Chute object in ABSOLUTE output
+    degrees clamped to [min_deg, max_deg] within [0, CHUTE_SAFE_MAX_DEG], so it
+    can never reach an endstop. Homes first if the chute lacks a reference —
+    without that, "0 deg" is wherever it powered on and the clamp is meaningless.
+    Targets are at least min_delta_deg apart so every move is a real excursion."""
+
+    def __init__(self, chute: Any, speed: int, min_delta_deg: float, min_deg: float, max_deg: float) -> None:
+        self._chute = chute
+        self._speed = speed
+        self._min_delta = max(1.0, min_delta_deg)
+        self._min = max(0.0, min(min_deg, CHUTE_SAFE_MAX_DEG))
+        self._max = max(self._min, min(max_deg, CHUTE_SAFE_MAX_DEG))
+        # Don't re-check stopped for a beat after issuing a move, so we don't read
+        # a stale "stopped" before the firmware has started the move.
+        self._next_check_at = 0.0
+
+    def _home_if_needed(self) -> None:
+        if bool(getattr(self._chute, "homed", False)):
+            return
+        from subsystems.distribution.chute import HOME_SPEED_MICROSTEPS_PER_SEC, HOME_TIMEOUT_MS
+
+        st = self._chute.stepper
+        st.enabled = True
+        st.home(
+            HOME_SPEED_MICROSTEPS_PER_SEC,
+            self._chute.home_pin,
+            home_pin_active_high=self._chute.endstop_active_high,
+        )
+        deadline = time.monotonic() + HOME_TIMEOUT_MS / 1000.0 + 5.0
+        while time.monotonic() < deadline:
+            try:
+                if st.stopped:
+                    break
+            except Exception:
+                break
+            time.sleep(0.02)
+
+    def _pick(self, current: float) -> float:
+        for _ in range(20):
+            cand = random.uniform(self._min, self._max)
+            if abs(cand - current) >= self._min_delta:
+                return cand
+        mid = (self._min + self._max) / 2.0
+        return self._max if current < mid else self._min
+
+    def _go(self, now: float) -> None:
+        current = float(self._chute.current_angle)
+        target_deg = self._pick(current)
+        self._chute.moveToAngle(target_deg)  # absolute, clamps to [0,360]
+        self._next_check_at = now + 0.05
+
+    def start(self, now: float) -> None:
+        self._chute.stepper.set_speed_limits(0, self._speed)
+        self._home_if_needed()
+        self._go(now)
+
+    def tick(self, now: float) -> None:
+        # Issue the next target only once the previous move has actually finished.
+        # Re-issuing on a guessed timer floods the chute with overlapping reversals
+        # it can't follow (it stalls in place); waiting for a real stop gives clean
+        # go-to-angle moves. Immediate turnaround on stop = the quick reversal.
+        if now < self._next_check_at:
+            return
+        try:
+            if self._chute.stepper.stopped:
+                self._go(now)
+        except Exception:
+            pass
+
+
+class _PulsedMotion(_SweepMotion):
+    """Discrete forward pulses with a dwell between (how the rotors and carousel
+    actually run), with an unstick jitter folded in every jitter_every pulses.
+    moving() is true only during the move/jitter phase, not the dwell."""
+
+    def __init__(
+        self,
+        target: Any,
+        speed: int,
+        pulse_deg: float,
+        dwell_ms: float,
+        jitter_every: int,
+        sign: int,
+    ) -> None:
+        self._target = target
+        self._speed = speed
+        self._pulse_deg = abs(pulse_deg) * (1 if sign >= 0 else -1)
+        self._dwell = max(0.0, dwell_ms) / 1000.0
+        self._jitter_every = max(0, jitter_every)
+        self._count = 0
+        self._phase_end = 0.0
+        self._dwell_end = 0.0
+
+    def _next(self, now: float) -> None:
+        self._count += 1
+        if self._jitter_every and self._count % self._jitter_every == 0:
+            self._target.jitter_degrees(
+                _PULSED_JITTER_AMPLITUDE_DEG,
+                _PULSED_JITTER_CYCLES,
+                _PULSED_JITTER_SPEED,
+                _PULSED_JITTER_ACCEL,
+                force=True,
+            )
+            # Rough upper bound on jitter duration; only gates sampling, not motion.
+            dur_ms = max(200, _PULSED_JITTER_CYCLES * 60)
+        else:
+            self._target.set_speed_limits(0, self._speed)
+            self._target.move_degrees(self._pulse_deg, force=True)
+            dur_ms = self._target.estimateMoveDegreesMs(abs(self._pulse_deg), max_speed=self._speed)
+        self._phase_end = now + max(dur_ms, 1) / 1000.0
+        self._dwell_end = self._phase_end + self._dwell
+
+    def start(self, now: float) -> None:
+        self._next(now)
+
+    def tick(self, now: float) -> None:
+        if now >= self._dwell_end:
+            self._next(now)
+
+    def moving(self, now: float) -> bool:
+        return now < self._phase_end
+
+
 @router.post("/stepper/stallguard-sweep", response_model=StallGuardSweepResponse)
 def stallguard_sweep(
     stepper: str,
@@ -1074,12 +1247,23 @@ def stallguard_sweep(
     tcoolthrs: int = DEFAULT_STALLGUARD_TCOOLTHRS,
     loaded: bool = False,
     label: Optional[str] = None,
+    profile: str = "constant",
+    chute_min_deg: float = 10.0,
+    chute_max_deg: float = 340.0,
+    min_delta_deg: float = 30.0,
+    pulse_deg: float = 30.0,
+    dwell_ms: float = 250.0,
+    jitter_every: int = 5,
 ) -> StallGuardSweepResponse:
     _ensure_manual_motion_allowed("run a StallGuard sweep")
     if speed <= 0:
         raise HTTPException(status_code=400, detail="speed must be > 0")
     if direction not in ("cw", "ccw"):
         raise HTTPException(status_code=400, detail="direction must be 'cw' or 'ccw'")
+    if profile not in SWEEP_PROFILES:
+        raise HTTPException(
+            status_code=400, detail=f"profile must be one of {', '.join(SWEEP_PROFILES)}"
+        )
     if duration_s <= 0 or duration_s > MAX_STALLGUARD_SWEEP_DURATION_S:
         raise HTTPException(
             status_code=400,
@@ -1095,8 +1279,30 @@ def stallguard_sweep(
         raise HTTPException(status_code=409, detail=f"Stepper '{stepper}' is busy")
 
     signed_speed = speed if direction == "cw" else -speed
+    sign = 1 if direction == "cw" else -1
     samples: List[StallGuardSample] = []
     telemetry_rows: List[Dict[str, Any]] = []
+
+    chute_restore_speed: Optional[int] = None
+    if profile == "chute_random":
+        # The chute has hard endstops, so its motion must run on the homed Chute
+        # object (absolute, clamped angles) — never a raw open-loop spin.
+        irl = shared_state.getActiveIRL()
+        chute = getattr(irl, "chute", None) if irl is not None else None
+        if chute is None:
+            lock.release()
+            raise HTTPException(
+                status_code=409,
+                detail="chute_random needs the initialized chute; initialize hardware first.",
+            )
+        chute_restore_speed = int(getattr(chute, "operating_speed_microsteps_per_second", speed))
+        motion: _SweepMotion = _ChuteRandomMotion(
+            chute, speed, min_delta_deg, chute_min_deg, chute_max_deg
+        )
+    elif profile == "pulsed":
+        motion = _PulsedMotion(target, speed, pulse_deg, dwell_ms, jitter_every, sign)
+    else:
+        motion = _ConstantMotion(target, signed_speed)
 
     # Static per-run context, captured once (these don't change mid-sweep).
     channel_ctx = getattr(target, "channel", None)
@@ -1125,24 +1331,40 @@ def stallguard_sweep(
             "acceleration": accel_ctx,
             "microsteps": microsteps_ctx,
             "stealthchop": stealth_ctx,
+            "profile": profile,
+            "chute_min_deg": chute_min_deg if profile == "chute_random" else None,
+            "chute_max_deg": chute_max_deg if profile == "chute_random" else None,
+            "min_delta_deg": min_delta_deg if profile == "chute_random" else None,
+            "pulse_deg": pulse_deg if profile == "pulsed" else None,
+            "dwell_ms": dwell_ms if profile == "pulsed" else None,
+            "jitter_every": jitter_every if profile == "pulsed" else None,
         },
     )
 
     try:
         target.write_driver_register(TMC_REG_TCOOLTHRS, tcoolthrs)
         target.enable_force(True)
-        # move_at_speed re-asserts the stepper's configured default acceleration.
-        if not bool(target.move_at_speed(signed_speed, force=True)):
-            raise RuntimeError("move_at_speed was not acknowledged")
+        motion.start(time.monotonic())
 
-        time.sleep(min(max(spin_up_s, 0.0), 2.0))
+        # A constant spin needs a moment to reach speed before SG_RESULT is valid;
+        # the pulsed/chute profiles are sampled per-move via moving(), so skip it.
+        if profile == "constant":
+            time.sleep(min(max(spin_up_s, 0.0), 2.0))
 
         wall_start = time.time()
         t_start = time.monotonic()
         while True:
-            t = time.monotonic() - t_start
+            now = time.monotonic()
+            t = now - t_start
             if t >= duration_s:
                 break
+            motion.tick(now)
+            if not motion.moving(now):
+                # Idle dwell between pulses — its SG_RESULT isn't load data.
+                remaining = sample_interval_s - (time.monotonic() - t_start - t)
+                if remaining > 0:
+                    time.sleep(remaining)
+                continue
             sg = _safe_read_register(target, TMC_REG_SG_RESULT)
             drv = _safe_read_register(target, TMC_REG_DRV_STATUS)
             tstep = _safe_read_register(target, TMC_REG_TSTEP)
@@ -1197,6 +1419,13 @@ def stallguard_sweep(
             target.write_driver_register(TMC_REG_TCOOLTHRS, 0)
         except Exception:
             pass
+        # chute_random retunes the chute stepper's speed limits; restore them to
+        # the chute's operating speed so normal aiming isn't left at sweep speed.
+        if chute_restore_speed is not None:
+            try:
+                target.set_speed_limits(16, chute_restore_speed)
+            except Exception:
+                pass
         try:
             lock.release()
         except RuntimeError:

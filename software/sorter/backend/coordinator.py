@@ -244,7 +244,7 @@ class Coordinator:
     def _channel_exit_state(self, channel: str) -> tuple[float, bool] | None:
         try:
             detections = self.vision.getFeederHeatmapDetections()
-            analysis = analyzeFeederChannels(self.gc, detections)
+            analysis = analyzeFeederChannels(detections)
         except Exception as exc:
             self.logger.warning(f"Coordinator: could not verify {channel} exit release: {exc}")
             return None
@@ -420,8 +420,20 @@ class Coordinator:
         prof = self.gc.profiler
         prof.hit("coordinator.step.calls")
         prof.mark("coordinator.step.interval_ms")
+        # Thread-attribution: name the thread the coordinator is running on so
+        # we can prove it never does inference work itself. Cross-reference
+        # with inference.by_thread.* counters in vision_manager._runHiveDetection.
+        import threading as _th
+        _t = _th.current_thread().name
+        _safe = "".join(c if c.isalnum() or c in "_-" else "_" for c in _t) or "unknown"
+        prof.hit(f"coordinator.step.by_thread.{_safe}")
 
+        # GIL-stall detector: wall-clock vs CPU time. A large gap means the
+        # main thread spent its tick blocked on the GIL while another thread
+        # held it (typically AnyIO worker threads running YOLO + image work).
+        _coord_cpu_t0 = time.process_time()
         with prof.timer("coordinator.step.total_ms"):
+            coordinator_started = time.perf_counter()
             self.bus.begin_tick()
             active_incident = self._active_incident()
             if active_incident is not None:
@@ -431,19 +443,57 @@ class Coordinator:
                 prof.hit("coordinator.step.feeder_skipped.active_incident")
                 if self._classification_should_step_during_incident(active_incident):
                     with prof.timer("coordinator.step.classification_ms"):
+                        classification_started = time.perf_counter()
                         self.classification.step()
+                        self.gc.runtime_stats.observePerfMs(
+                            "coordinator.step.classification_ms",
+                            (time.perf_counter() - classification_started) * 1000.0,
+                        )
                 else:
                     prof.hit("coordinator.step.classification_skipped.active_incident")
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.total_ms",
+                    (time.perf_counter() - coordinator_started) * 1000.0,
+                )
                 return
             with prof.timer("coordinator.step.distribution_ms"):
+                distribution_started = time.perf_counter()
                 self.distribution.step()
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.distribution_ms",
+                    (time.perf_counter() - distribution_started) * 1000.0,
+                )
             with prof.timer("coordinator.step.classification_ms"):
+                classification_started = time.perf_counter()
                 self.classification.step()
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.classification_ms",
+                    (time.perf_counter() - classification_started) * 1000.0,
+                )
             with prof.timer("coordinator.step.feeder_ms"):
+                feeder_started = time.perf_counter()
                 if self.manual_feed_mode:
                     prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
                 else:
                     self.feeder.step()
+                self.gc.runtime_stats.observePerfMs(
+                    "coordinator.step.feeder_ms",
+                    (time.perf_counter() - feeder_started) * 1000.0,
+                )
+            _coord_wall_ms = (time.perf_counter() - coordinator_started) * 1000.0
+            _coord_cpu_ms = (time.process_time() - _coord_cpu_t0) * 1000.0
+            self.gc.runtime_stats.observePerfMs(
+                "coordinator.step.total_ms",
+                _coord_wall_ms,
+            )
+            self.gc.runtime_stats.observePerfMs(
+                "coordinator.step.cpu_ms",
+                _coord_cpu_ms,
+            )
+            self.gc.runtime_stats.observePerfMs(
+                "coordinator.step.gil_stall_ms",
+                max(0.0, _coord_wall_ms - _coord_cpu_ms),
+            )
 
     def cleanup(self) -> None:
         self.feeder.cleanup()

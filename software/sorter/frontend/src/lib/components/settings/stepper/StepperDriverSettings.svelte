@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { ChevronDown } from 'lucide-svelte';
 	import StepperDrvStatusGrid from './StepperDrvStatusGrid.svelte';
+	import HoverEditNumber from './HoverEditNumber.svelte';
 
 	let {
 		open = $bindable(),
@@ -12,6 +13,9 @@
 		tmcMicrosteps = $bindable(),
 		tmcStealthchop = $bindable(),
 		tmcCoolstep = $bindable(),
+		sgEnabled = $bindable(),
+		sgThrs = $bindable(),
+		sgTcoolthrs = $bindable(),
 		stepperDirectionInverted = $bindable(),
 		tmcDrvStatus,
 		onToggle,
@@ -26,6 +30,9 @@
 		tmcMicrosteps: number;
 		tmcStealthchop: boolean;
 		tmcCoolstep: boolean;
+		sgEnabled: boolean;
+		sgThrs: number;
+		sgTcoolthrs: number;
 		stepperDirectionInverted: boolean;
 		tmcDrvStatus: Record<string, any> | null;
 		onToggle: () => void;
@@ -54,12 +61,16 @@
 	{:else}
 		<div class="flex flex-col gap-3">
 			<label class="flex flex-col gap-1 text-xs text-text">
-				Run Current (IRUN): {tmcIrun}
+				<span class="flex items-center gap-1">
+					Run Current (IRUN): <HoverEditNumber bind:value={tmcIrun} min={0} max={31} />
+				</span>
 				<input type="range" min="0" max="31" bind:value={tmcIrun} class="w-full" />
 			</label>
 
 			<label class="flex flex-col gap-1 text-xs text-text">
-				Hold Current (IHOLD): {tmcIhold}
+				<span class="flex items-center gap-1">
+					Hold Current (IHOLD): <HoverEditNumber bind:value={tmcIhold} min={0} max={31} />
+				</span>
 				<input type="range" min="0" max="31" bind:value={tmcIhold} class="w-full" />
 			</label>
 
@@ -84,6 +95,39 @@
 				<input type="checkbox" bind:checked={tmcCoolstep} />
 				CoolStep
 			</label>
+
+			<div class="border border-border bg-bg px-3 py-3">
+				<label class="flex items-center gap-2 text-sm text-text">
+					<input type="checkbox" bind:checked={sgEnabled} />
+					StallGuard stall detection
+				</label>
+				<div class="mt-1 text-xs text-text-muted">
+					Halts the machine if this motor stalls — on every move while enabled. Tune the
+					threshold on the StallGuard page (Settings → Helpers).
+				</div>
+				{#if sgEnabled}
+					<div class="mt-3 flex flex-col gap-3">
+						<label class="flex flex-col gap-1 text-xs text-text">
+							<span class="flex items-center gap-1">
+								Threshold (SGTHRS): <HoverEditNumber bind:value={sgThrs} min={0} max={255} />
+							</span>
+							<input type="range" min="0" max="255" bind:value={sgThrs} class="w-full" />
+						</label>
+						<label class="flex flex-col gap-1 text-xs text-text">
+							Velocity floor (TCOOLTHRS, TSTEP)
+							<input
+								type="number"
+								min="0"
+								bind:value={sgTcoolthrs}
+								class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
+							/>
+						</label>
+						<div class="text-xs text-text-muted">
+							Trips when SG_RESULT ≤ {sgThrs * 2}, only at cruise (TSTEP ≤ {sgTcoolthrs}).
+						</div>
+					</div>
+				{/if}
+			</div>
 
 			<label class="flex items-center gap-2 text-sm text-text">
 				<input

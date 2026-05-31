@@ -12,7 +12,6 @@
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
-	import RuntimeHomingModal from '$lib/components/RuntimeHomingModal.svelte';
 	import SampleCollectionSpeedPanel from '$lib/components/SampleCollectionSpeedPanel.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
@@ -176,16 +175,16 @@
 	let sidebar_width = $state(SIDEBAR_DEFAULT);
 	let startSystemError = $state<string | null>(null);
 	let startSystemPending = $state(false);
-	let homingModalOpen = $state(false);
-	let homingModalDismissed = $state(false);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
-	let machineSetup = $state<'classification_channel' | 'manual_carousel'>(
-		'classification_channel'
+	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
+		'standard_carousel'
 	);
 	let showSampleCapture = $state(false);
 	let exitIncidentActionPending = $state(false);
 	let exitIncidentActionError = $state<string | null>(null);
+	let stallIncidentActionPending = $state(false);
+	let stallIncidentActionError = $state<string | null>(null);
 	let exitReleaseOutputDeg = $state(EXIT_RELEASE_DEFAULTS.outputDeg);
 	let exitReleaseSpeed = $state(EXIT_RELEASE_DEFAULTS.speed);
 	let exitReleaseAcceleration = $state(EXIT_RELEASE_DEFAULTS.acceleration);
@@ -217,31 +216,13 @@
 		startSystemError ?? machine.machine?.systemStatus?.hardware_error ?? null
 	);
 	const homingStep = $derived(machine.machine?.systemStatus?.homing_step ?? null);
+	const noPowerDevelopmentMode = $derived(
+		machine.machine?.systemStatus?.no_power_development_mode ?? false
+	);
 	const startingSystem = $derived(hardwareState === 'homing' || startSystemPending);
 	const runtimeStats = $derived((machine.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const exitIncident = $derived(normalizeExitIncident(runtimeStats.active_incident));
-
-	function openHomingModal() {
-		homingModalDismissed = false;
-		homingModalOpen = true;
-	}
-
-	function dismissHomingModal() {
-		homingModalOpen = false;
-		homingModalDismissed = true;
-	}
-
-	$effect(() => {
-		if (!machine.machine) return;
-		if (hardwareState === 'ready') {
-			homingModalOpen = false;
-			homingModalDismissed = false;
-			return;
-		}
-		if (!homingModalDismissed && !homingModalOpen) {
-			homingModalOpen = true;
-		}
-	});
+	const stallIncident = $derived(stepperStallIncident(runtimeStats.active_incident));
 
 	async function startSystem() {
 		const baseUrl = currentBackendBaseUrl();
@@ -260,7 +241,8 @@
 					typeof payload?.hardware_state === 'string' ? payload.hardware_state : 'homing',
 				hardware_error: null,
 				homing_step:
-					typeof payload?.message === 'string' ? payload.message : 'Starting safe recovery...'
+					typeof payload?.message === 'string' ? payload.message : 'Starting safe recovery...',
+				no_power_development_mode: noPowerDevelopmentMode
 			});
 			const wsUrl = machineWsUrlFromHttpBaseUrl(baseUrl) ?? `${getBackendWsBase()}/ws`;
 			manager.ensureConnected(wsUrl);
@@ -304,6 +286,41 @@
 		return active
 			? 'border-primary text-text'
 			: 'border-transparent text-text-muted hover:text-text';
+	}
+
+	function stepperStallIncident(value: unknown): Record<string, unknown> | null {
+		if (!value || typeof value !== 'object') return null;
+		const incident = value as Record<string, unknown>;
+		return incident.kind === 'stepper_stall' ? incident : null;
+	}
+
+	function stallIncidentSteppersLabel(incident: Record<string, unknown> | null): string {
+		const steppers = incident?.steppers;
+		if (Array.isArray(steppers) && steppers.length > 0) {
+			return steppers.filter((s) => typeof s === 'string').join(', ');
+		}
+		return incidentString(incident, 'channel', 'a motor');
+	}
+
+	async function acknowledgeStallIncident() {
+		if (stallIncidentActionPending) return;
+		stallIncidentActionPending = true;
+		stallIncidentActionError = null;
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}/stall-incident/clear`, {
+				method: 'POST'
+			});
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			if (!response.ok || payload?.ok === false) {
+				throw new Error(
+					typeof payload?.detail === 'string' ? payload.detail : 'Could not clear stall'
+				);
+			}
+		} catch (e: any) {
+			stallIncidentActionError = e?.message ?? 'Could not clear stall';
+		} finally {
+			stallIncidentActionPending = false;
+		}
 	}
 
 	function normalizeExitIncident(value: unknown): Record<string, unknown> | null {
@@ -953,10 +970,12 @@
 			const res = await fetch(`${baseUrl}/api/machine-setup`);
 			if (!res.ok) return;
 			const payload = await res.json();
-			if (payload?.setup === 'manual_carousel') {
-				machineSetup = 'manual_carousel';
-			} else if (payload?.setup === 'classification_channel') {
-				machineSetup = 'classification_channel';
+			if (
+				payload?.setup === 'classification_channel' ||
+				payload?.setup === 'manual_carousel' ||
+				payload?.setup === 'standard_carousel'
+			) {
+				machineSetup = payload.setup;
 			}
 		} catch {
 			// ignore transient shell fetch issues
@@ -1241,36 +1260,47 @@
 									<div>
 										<div class="text-sm font-medium text-text">System Standby</div>
 										<div class="text-xs text-text-muted">
-											Homing is required before a sorting run.
+											{#if noPowerDevelopmentMode}
+												Sim Home runs the normal recovery path and skips only the physical homing steps.
+											{:else}
+												Press Home to initialize hardware and home all axes.
+											{/if}
 										</div>
+										{#if startSystemError}
+											<div class="mt-1 text-xs text-danger">{startSystemError}</div>
+										{/if}
 									</div>
-									<button
-										onclick={openHomingModal}
-										class="shrink-0 cursor-pointer border border-success bg-success px-4 py-1.5 text-sm font-medium text-white hover:bg-success/90"
-									>
-										Home
-									</button>
+									<div class="flex shrink-0 items-center gap-2">
+										{#if noPowerDevelopmentMode}
+											<button
+												onclick={startSystem}
+												disabled={startingSystem}
+												class="cursor-pointer border border-border bg-surface px-4 py-1.5 text-sm font-medium text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+											>
+												Sim Home
+											</button>
+										{/if}
+										<button
+											onclick={startSystem}
+											disabled={startingSystem}
+											class="cursor-pointer border border-success bg-success px-4 py-1.5 text-sm font-medium text-white hover:bg-success/90 disabled:cursor-not-allowed disabled:opacity-50"
+										>
+											Home
+										</button>
+									</div>
 								</div>
 							{:else if hardwareState === 'homing'}
-								<div class="flex items-center justify-between gap-3">
-									<div class="flex items-center gap-3">
-										<div
-											class="h-4 w-4 animate-spin border-2 border-primary border-t-transparent"
-											style="border-radius: 50%;"
-										></div>
-										<div>
-											<div class="text-sm font-medium text-text">Homing...</div>
-											<div class="text-xs text-text-muted">
-												{homingStep ?? 'Initializing hardware...'}
-											</div>
+								<div class="flex items-center gap-3">
+									<div
+										class="h-4 w-4 animate-spin border-2 border-primary border-t-transparent"
+										style="border-radius: 50%;"
+									></div>
+									<div>
+										<div class="text-sm font-medium text-text">Homing...</div>
+										<div class="text-xs text-text-muted">
+											{homingStep ?? 'Initializing hardware...'}
 										</div>
 									</div>
-									<button
-										onclick={openHomingModal}
-										class="shrink-0 cursor-pointer border border-border bg-surface px-3 py-1 text-xs text-text hover:bg-bg"
-									>
-										Show
-									</button>
 								</div>
 							{:else if hardwareState === 'error'}
 								<div class="flex flex-col gap-2">
@@ -1279,10 +1309,11 @@
 										<div class="text-xs text-text-muted">{hardwareError}</div>
 									{/if}
 									<button
-										onclick={openHomingModal}
-										class="w-fit cursor-pointer border border-border bg-surface px-3 py-1 text-xs text-text hover:bg-bg"
+										onclick={startSystem}
+										disabled={startingSystem}
+										class="w-fit cursor-pointer border border-border bg-surface px-3 py-1 text-xs text-text hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 									>
-										Retry Homing
+										Retry
 									</button>
 								</div>
 							{/if}
@@ -1478,6 +1509,51 @@
 							{/if}
 						</div>
 					{/if}
+					{#if stallIncident}
+						<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
+									<div class="min-w-0">
+										<div class="flex flex-wrap items-center gap-2">
+											<div class="text-sm font-semibold text-text">Motor Stall</div>
+											<div class="bg-bg/70 px-1.5 py-0.5 text-[10px] text-text-muted">
+												{stallIncidentSteppersLabel(stallIncident)}
+											</div>
+											<div
+												class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
+											>
+												Halted
+											</div>
+										</div>
+										<div class="mt-1 text-xs text-text-muted">
+											A stepper stalled and the machine has stopped. Clear the jam, then
+											acknowledge to re-arm detection and resume.
+										</div>
+										{#if incidentString(stallIncident, 'operator_message')}
+											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+												{incidentString(stallIncident, 'operator_message')}
+											</div>
+										{/if}
+									</div>
+								</div>
+							</div>
+							<div class="mt-3 flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									onclick={acknowledgeStallIncident}
+									disabled={stallIncidentActionPending}
+									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									<Check size={13} />
+									Stall Cleared — Resume
+								</button>
+							</div>
+							{#if stallIncidentActionError}
+								<div class="mt-2 text-xs text-danger">{stallIncidentActionError}</div>
+							{/if}
+						</div>
+					{/if}
 					<CollapsibleSection title="Incidents" storageKey="incidents">
 						<div class="flex flex-col gap-2">
 							{#each incidentDefinitions as definition (definition.kind)}
@@ -1570,13 +1646,4 @@
 			</div>
 		{/if}
 	</div>
-	<RuntimeHomingModal
-		open={homingModalOpen && Boolean(machine.machine)}
-		{hardwareState}
-		{hardwareError}
-		{homingStep}
-		homePending={startingSystem}
-		onHome={startSystem}
-		onCancel={dismissHomingModal}
-	/>
 </div>

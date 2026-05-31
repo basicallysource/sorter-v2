@@ -7,12 +7,20 @@
 		open = $bindable(false),
 		title,
 		wide = false,
+		dismissible = true,
 		children
-	}: { open?: boolean; title?: string; wide?: boolean; children?: Snippet } = $props();
+	}: {
+		open?: boolean;
+		title?: string;
+		wide?: boolean;
+		dismissible?: boolean;
+		children?: Snippet;
+	} = $props();
 
 	const dispatch = createEventDispatcher<{ close: void }>();
 
 	function close() {
+		if (!dismissible) return;
 		open = false;
 		dispatch('close');
 	}

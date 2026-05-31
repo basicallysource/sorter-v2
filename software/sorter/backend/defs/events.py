@@ -94,6 +94,7 @@ class KnownObjectData(BaseModel):
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    recognition_images: List[str] = Field(default_factory=list)
     # Captured timestamps of crops shipped to Brickognize for this piece.
     recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None
@@ -131,6 +132,7 @@ class SystemStatusData(BaseModel):
     hardware_state: str
     hardware_error: Optional[str] = None
     homing_step: Optional[str] = None
+    no_power_development_mode: bool = False
 
 
 class SystemStatusEvent(BaseModel):

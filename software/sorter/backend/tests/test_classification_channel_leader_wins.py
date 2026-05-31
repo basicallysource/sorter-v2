@@ -10,7 +10,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 from defs.known_object import ClassificationStatus, KnownObject
-from irl.config import ClassificationChannelConfig
+from irl.config import ClassificationChannelConfig, ClassificationChannelMode
 from subsystems.classification_channel.running import Running
 from subsystems.classification_channel.zone_manager import ZoneManager
 
@@ -120,7 +120,7 @@ def _make_config(
     leader_wins_requires_classified: bool = True,
 ) -> SimpleNamespace:
     return SimpleNamespace(
-        use_dynamic_zones=True,
+        mode=ClassificationChannelMode.DYNAMIC,
         intake_angle_deg=305.0,
         intake_body_half_width_deg=10.0,
         intake_guard_deg=28.0,

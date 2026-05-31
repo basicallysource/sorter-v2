@@ -13,6 +13,7 @@ from uuid import uuid4
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import (
@@ -38,6 +39,278 @@ from vision.detection_registry import (
 )
 
 router = APIRouter()
+
+
+ZONE_DROP_COLOR = (255, 128, 0)
+ZONE_EXIT_COLOR = (0, 64, 255)
+ZONE_PRECISE_COLOR = (255, 0, 255)
+_ZONE_OVERLAY_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
+
+
+def _channel_zone_overlay(channel: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
+    if channel is None:
+        return None
+    exit_only_sections = frozenset(channel.exit_sections - channel.precise_sections)
+    key = (
+        int(channel.channel_id),
+        tuple(int(v) for v in channel.mask.shape[:2]),
+        round(float(channel.center[0]), 3),
+        round(float(channel.center[1]), 3),
+        round(float(channel.radius1_angle_image), 3),
+        tuple(sorted(int(v) for v in channel.drop_sections)),
+        tuple(sorted(int(v) for v in exit_only_sections)),
+        tuple(sorted(int(v) for v in channel.precise_sections)),
+    )
+    cached = _ZONE_OVERLAY_CACHE.get(key)
+    if cached is not None:
+        return cached
+
+    mask = np.asarray(channel.mask)
+    if mask.ndim != 2 or mask.size == 0:
+        return None
+    on_channel = mask > 0
+    ys, xs = np.nonzero(on_channel)
+    h, w = mask.shape[:2]
+    overlay = np.zeros((h, w, 3), dtype=np.uint8)
+    drop_mask = np.zeros((h, w), dtype=np.uint8)
+    exit_mask = np.zeros((h, w), dtype=np.uint8)
+    precise_mask = np.zeros((h, w), dtype=np.uint8)
+    if xs.size == 0:
+        result = (overlay, drop_mask, exit_mask, precise_mask)
+        _ZONE_OVERLAY_CACHE[key] = result
+        return result
+
+    rel = (
+        np.degrees(np.arctan2(ys.astype(np.float64) - float(channel.center[1]), xs.astype(np.float64) - float(channel.center[0])))
+        - float(channel.radius1_angle_image)
+    ) % 360.0
+    sections = np.floor(rel).astype(np.int32) % 360
+
+    precise_sections = set(int(v) for v in channel.precise_sections)
+    exit_only = set(int(v) for v in exit_only_sections)
+    drop_sections = set(int(v) for v in channel.drop_sections)
+
+    if precise_sections:
+        precise_hit = np.isin(sections, list(precise_sections))
+        precise_mask[ys[precise_hit], xs[precise_hit]] = 255
+        overlay[ys[precise_hit], xs[precise_hit]] = ZONE_PRECISE_COLOR
+    if exit_only:
+        exit_hit = np.isin(sections, list(exit_only))
+        exit_mask[ys[exit_hit], xs[exit_hit]] = 255
+        overlay[ys[exit_hit], xs[exit_hit]] = ZONE_EXIT_COLOR
+    if drop_sections:
+        drop_hit = np.isin(sections, list(drop_sections))
+        drop_mask[ys[drop_hit], xs[drop_hit]] = 255
+        overlay[ys[drop_hit], xs[drop_hit]] = ZONE_DROP_COLOR
+
+    result = (overlay, drop_mask, exit_mask, precise_mask)
+    _ZONE_OVERLAY_CACHE[key] = result
+    return result
+
+
+def _draw_perception_debug(
+    info: Dict[str, Any],
+    channel: Any,
+    *,
+    frame: Any,
+    raw_bboxes: list,
+    on_bboxes: list,
+    panel_lines: List[str],
+):
+    """Shared renderer for the perception-debug overlays. Draws the crop rect
+    (white), mask (cyan), rejected raw detections (orange), kept detections
+    (green), arc center (magenta), and a translucent spec panel, then returns
+    JPEG bytes (4K downscaled for transfer). ``frame`` is the PerceptionFrame to
+    draw on (the cropped or the full-frame one); ``raw_bboxes`` is every model
+    detection for the mode; ``on_bboxes`` the subset drawn green."""
+    img = frame.bgr.copy()
+    h, w = img.shape[:2]
+    s = max(1.0, w / 1280.0)  # scale strokes/text so it reads on 720p and 4K
+    thick = max(2, int(round(2 * s)))
+
+    crop = info.get("crop_rect")
+    if crop is not None:
+        cv2.rectangle(
+            img, (int(crop[0]), int(crop[1])), (int(crop[2]), int(crop[3])),
+            (255, 255, 255), max(1, thick - 1),
+        )
+
+    zone_overlay = _channel_zone_overlay(channel)
+    if zone_overlay is not None:
+        overlay_img, drop_mask, exit_mask, precise_mask = zone_overlay
+        zone_pixels = np.any(overlay_img != 0, axis=2)
+        blended = img.copy()
+        blended[zone_pixels] = overlay_img[zone_pixels]
+        img = cv2.addWeighted(blended, 0.22, img, 0.78, 0)
+        for zone_mask, color in (
+            (drop_mask, ZONE_DROP_COLOR),
+            (exit_mask, ZONE_EXIT_COLOR),
+            (precise_mask, ZONE_PRECISE_COLOR),
+        ):
+            contours, _ = cv2.findContours(zone_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+            if contours:
+                cv2.drawContours(img, contours, -1, color, max(1, thick - 1))
+
+    if channel is not None:
+        contours, _ = cv2.findContours(channel.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(img, contours, -1, (255, 255, 0), thick)
+
+    on_set = {tuple(int(v) for v in b) for b in on_bboxes}
+    for b in raw_bboxes:  # rejected raw → orange (drawn first)
+        bb = tuple(int(v) for v in b)
+        if bb in on_set:
+            continue
+        x1, y1, x2, y2 = bb
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 165, 255), thick)
+        cv2.circle(img, ((x1 + x2) // 2, (y1 + y2) // 2), max(4, int(5 * s)), (0, 165, 255), -1)
+
+    for b in on_bboxes:  # kept → green
+        x1, y1, x2, y2 = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+        cv2.rectangle(img, (x1, y1), (x2, y2), (0, 255, 0), thick)
+        cv2.circle(img, ((x1 + x2) // 2, (y1 + y2) // 2), max(4, int(5 * s)), (0, 255, 0), -1)
+
+    if info.get("center") is not None:
+        cx0, cy0 = info["center"]
+        cv2.circle(img, (int(cx0), int(cy0)), max(6, int(10 * s)), (255, 0, 255), -1)
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    fs = 0.5 * s
+    ft = max(1, int(round(s)))
+    (_, line_h), base = cv2.getTextSize("Ag", font, fs, ft)
+    row = line_h + base + int(6 * s)
+    pad = int(10 * s)
+    panel_w = min(w, max((cv2.getTextSize(ln, font, fs, ft)[0][0] for ln in panel_lines), default=0) + 2 * pad)
+    panel_h = row * len(panel_lines) + pad
+    overlay = img.copy()
+    cv2.rectangle(overlay, (0, 0), (panel_w, panel_h), (0, 0, 0), -1)
+    cv2.addWeighted(overlay, 0.55, img, 0.45, 0, img)
+    y = pad + line_h
+    for ln in panel_lines:
+        cv2.putText(img, ln, (pad, y), font, fs, (0, 255, 255), ft, cv2.LINE_AA)
+        y += row
+
+    max_w = 1600
+    if w > max_w:
+        scale = max_w / float(w)
+        img = cv2.resize(img, (max_w, int(round(h * scale))), interpolation=cv2.INTER_AREA)
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+    if not ok:
+        raise HTTPException(status_code=500, detail="encode failed")
+    import io
+    return StreamingResponse(io.BytesIO(buf.tobytes()), media_type="image/jpeg")
+
+
+def _model_spec_lines(info: Dict[str, Any], frame: Any) -> List[str]:
+    """Camera + exact-model lines shared by both debug overlays."""
+    w_h = frame.bgr.shape[1], frame.bgr.shape[0]
+    crop = info.get("crop_rect")
+    conf = info.get("conf_threshold")
+    return [
+        f"ch {info['channel_id']}  role={info['camera_source_id']}"
+        + (f"  cam_src={info['camera_source']}" if info.get("camera_source") is not None else ""),
+        f"frame {w_h[0]}x{w_h[1]}   crop "
+        + (f"{int(crop[2]) - int(crop[0])}x{int(crop[3]) - int(crop[1])}" if crop is not None else "full"),
+        f"algo: {info.get('algorithm_id')}",
+        f"model: {info.get('model_name')}",
+        (f"imgsz={info.get('imgsz')}  conf={conf:.2f}" if isinstance(conf, (int, float))
+         else f"imgsz={info.get('imgsz')}  conf={conf}"),
+    ]
+
+
+def _perception_debug_info(channel_id: int) -> Dict[str, Any]:
+    gc = shared_state.gc_ref
+    ps = getattr(gc, "perception_service", None) if gc is not None else None
+    if ps is None:
+        raise HTTPException(status_code=503, detail="perception_service not available")
+    if channel_id not in ps.channels():
+        raise HTTPException(status_code=404, detail=f"channel {channel_id} not wired")
+    info = ps.channel_debug_info(channel_id)
+    if info is None:
+        raise HTTPException(status_code=409, detail="no inference cycle yet")
+    info["_ps"] = ps
+    return info
+
+
+@router.get("/api/perception/debug/annotated/{channel_id}")
+def perception_debug_annotated(channel_id: int):
+    """The PRODUCTION view: exactly what perception infers and decides on.
+
+    - GREEN  = detections the on-channel mask filter KEPT (drive the machine).
+    - ORANGE = RAW model detections the filter REJECTED (model junk vs. filter
+      too aggressive is now obvious).
+    - WHITE  = the crop region the model actually saw (polygon bounding rect).
+    - CYAN   = the polygon mask; MAGENTA = arc center.
+
+    Spec panel stamps the camera, resolution, exact model, and counts. Read-only
+    — reuses cached state, runs no new inference."""
+    info = _perception_debug_info(channel_id)
+    channel = info["_ps"].channels().get(channel_id)
+    frame = info["frame"]
+    infer_ms = info.get("infer_ms")
+    n_raw = len(info["raw_bboxes"])
+    n_kept = len(info["on_channel_bboxes"])
+    state = info["_ps"].read_state(channel_id)
+    lines = _model_spec_lines(info, frame) + [
+        f"core={info.get('core_mask_name')}  infer="
+        + (f"{infer_ms:.0f}ms" if isinstance(infer_ms, (int, float)) else "?"),
+        f"CROPPED (production): raw={n_raw} kept(green)={n_kept} rejected(orange)={n_raw - n_kept}",
+        f"state: pieces={state.n_pieces} in_drop={state.in_drop} in_exit={state.in_exit} in_precise={state.in_precise}",
+        f"sections drop={info['n_drop_sections']} exit={info['n_exit_sections']} precise={info['n_precise_sections']}",
+    ]
+    return _draw_perception_debug(
+        info, channel, frame=frame,
+        raw_bboxes=info["raw_bboxes"],
+        on_bboxes=info["on_channel_bboxes"],
+        panel_lines=lines,
+    )
+
+
+@router.get("/api/perception/debug/fullframe/{channel_id}")
+def perception_debug_fullframe(channel_id: int):
+    """The COMPARISON view: what the same model produces on the WHOLE frame, no
+    polygon crop — to tell "the crop rect is excluding pieces" from "the model
+    just isn't detecting them."
+
+    Runs a SECOND inference per cycle on the worker thread, enabled on demand and
+    self-expiring ~10 s after the page stops polling (no steady-state cost). The
+    first request after idle returns 425 while the worker produces the first
+    full-frame result; the page's auto-refresh picks it up a beat later. Once a
+    result exists it is persisted, so the view does not flap back to 425.
+
+    GREEN = full-frame detections whose center lands in the channel mask;
+    ORANGE = full-frame detections outside it. WHITE crop rect is drawn for
+    reference (it is NOT applied here)."""
+    import time as _time
+
+    info = _perception_debug_info(channel_id)
+    ps = info["_ps"]
+    ps.request_full_frame_debug(channel_id, ttl_s=10.0)
+    full = info.get("full_frame")
+    if not full or full.get("frame") is None:
+        raise HTTPException(
+            status_code=425,
+            detail="full-frame inference warming up; refresh in a moment",
+        )
+    frame = full["frame"]
+    ff = full.get("bboxes") or []
+    channel = ps.channels().get(channel_id)
+    from perception.arcs import bboxInsideChannelMask
+    on_ff = [b for b in ff if channel is not None and bboxInsideChannelMask(b, channel)]
+    ff_ms = full.get("infer_ms")
+    age_s = max(0.0, _time.time() - float(full.get("frame_ts") or 0.0))
+    n_crop_raw = len(info["raw_bboxes"])
+    state = ps.read_state(channel_id)
+    lines = _model_spec_lines(info, frame) + [
+        f"core={info.get('core_mask_name')}  full-frame infer="
+        + (f"{ff_ms:.0f}ms" if isinstance(ff_ms, (int, float)) else "?")
+        + (f"  (age {age_s:.1f}s)" if age_s > 1.0 else ""),
+        f"FULL-FRAME (no crop): raw={len(ff)} in-mask(green)={len(on_ff)} outside(orange)={len(ff) - len(on_ff)}",
+        f"vs CROPPED production raw={n_crop_raw} kept={len(info['on_channel_bboxes'])}",
+        f"state: pieces={state.n_pieces} in_drop={state.in_drop} in_exit={state.in_exit} in_precise={state.in_precise}",
+    ]
+    return _draw_perception_debug(
+        info, channel, frame=frame, raw_bboxes=ff, on_bboxes=on_ff, panel_lines=lines,
+    )
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -1307,7 +1580,7 @@ def feeder_tracking_recognize(body: Dict[str, Any]) -> Dict[str, Any]:
             status_code=400, detail="jpeg_b64 or jpegs_b64 required"
         )
     try:
-        result = _classifyImages(images)
+        result = _classifyImages(shared_state.gc_ref, images)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"brickognize failed: {exc}")
     best_item, best_view = _pickBestItem(result, None)

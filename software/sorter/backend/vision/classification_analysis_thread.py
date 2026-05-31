@@ -46,8 +46,8 @@ class ClassificationAnalysisThread:
         self._latest_bboxes = []
         self._thread = None
 
-    def start(self) -> None:
-        self._thread = threading.Thread(target=self._loop, daemon=True)
+    def start(self, *, name: str = "classification-analysis") -> None:
+        self._thread = threading.Thread(target=self._loop, daemon=True, name=name)
         self._thread.start()
 
     def stop(self) -> None:

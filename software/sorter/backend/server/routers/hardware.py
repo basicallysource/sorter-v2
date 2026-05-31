@@ -9,6 +9,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from blob_manager import getBinCategories, setBinCategories
+from hardware.bus import MCUBus
 from irl.bin_layout import (
     getBinLayout,
     saveBinLayout,
@@ -19,20 +20,22 @@ from irl.bin_layout import (
     layoutMatchesCategories,
     mkLayoutFromConfig,
 )
-from subsystems.distribution.chute import BinAddress
+from subsystems.distribution.chute import BinAddress, CHUTE_MAX_ANGLE
 from irl.parse_user_toml import (
     DEFAULT_CAROUSEL_HOME_PIN_CHANNEL,
     DEFAULT_CHUTE_FIRST_BIN_CENTER,
+    DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG,
     DEFAULT_CHUTE_HOME_PIN_CHANNEL,
+    DEFAULT_CHUTE_NUM_SECTIONS,
     DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
-    DEFAULT_SERVO_CLOSED_ANGLE,
-    DEFAULT_SERVO_OPEN_ANGLE,
+    DEFAULT_CHUTE_SECTION_WIDTH_DEG,
 )
 from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
 from server import shared_state
 from server.routers.steppers import _stepper_mapping, _halt_stepper
 from server.waveshare_inventory import get_waveshare_inventory_manager
+from machine_platform.control_board import discover_control_boards
 
 router = APIRouter()
 
@@ -66,6 +69,34 @@ def _control_board_summary(board: Any) -> Dict[str, Any]:
     }
 
 
+def _control_board_observability(board: Any) -> Dict[str, Any]:
+    interface = getattr(board, "interface", None)
+    observability: Dict[str, Any] = {}
+    if interface is not None and hasattr(interface, "get_observability_info"):
+        try:
+            observability = dict(interface.get_observability_info())
+        except Exception as exc:
+            observability = {"error": str(exc)}
+    return {
+        **_control_board_summary(board),
+        "observability": observability,
+    }
+
+
+def _close_discovered_boards(boards: list[Any]) -> None:
+    seen_serials: set[int] = set()
+    for board in boards:
+        bus = getattr(getattr(board, "interface", None), "_bus", None)
+        serial_obj = getattr(bus, "_serial", None)
+        if serial_obj is None or id(serial_obj) in seen_serials:
+            continue
+        seen_serials.add(id(serial_obj))
+        try:
+            serial_obj.close()
+        except Exception:
+            pass
+
+
 @router.get("/api/hardware-config/control-boards/live")
 def get_live_control_boards() -> Dict[str, Any]:
     active_irl = _active_irl()
@@ -82,6 +113,56 @@ def get_live_control_boards() -> Dict[str, Any]:
             for board in control_boards.values()
         ],
     }
+
+
+@router.get("/api/hardware-config/control-boards/observability")
+def get_control_board_observability() -> Dict[str, Any]:
+    active_irl = _active_irl()
+    if active_irl is not None:
+        control_boards = getattr(active_irl, "control_boards", {})
+        if not isinstance(control_boards, dict):
+            control_boards = {}
+        return {
+            "ok": True,
+            "hardware_state": shared_state.hardware_state,
+            "source": "live",
+            "boards": [
+                _control_board_observability(board)
+                for board in control_boards.values()
+            ],
+        }
+
+    worker = shared_state.hardware_worker_thread
+    if (
+        (worker is not None and worker.is_alive())
+        or shared_state.hardware_state in {"homing", "initializing"}
+    ):
+        raise HTTPException(status_code=409, detail="Hardware operation in progress.")
+
+    gc = shared_state.gc_ref
+    if gc is None:
+        raise HTTPException(status_code=503, detail="Global config is not initialized yet.")
+
+    discovered_boards: list[Any] = []
+    try:
+        discovered_boards = discover_control_boards(
+            gc,
+            required_stepper_names=(),
+            attempts=2,
+            retry_delay_s=0.2,
+        )
+        return {
+            "ok": True,
+            "hardware_state": shared_state.hardware_state,
+            "source": "scan",
+            "mcu_ports": MCUBus.enumerate_buses(),
+            "boards": [
+                _control_board_observability(board)
+                for board in discovered_boards
+            ],
+        }
+    finally:
+        _close_discovered_boards(discovered_boards)
 
 
 def _active_waveshare_service() -> Any | None:
@@ -147,8 +228,9 @@ class ServoChannelConfigPayload(BaseModel):
 
 class ServoHardwareSettingsPayload(BaseModel):
     backend: str = "pca9685"
-    open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
-    closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
+    open_speed: Optional[int] = None
+    close_speed: Optional[int] = None
+    homing_speed: Optional[int] = None
     port: Optional[str] = None
     channels: List[ServoChannelConfigPayload] = []
 
@@ -158,6 +240,36 @@ class ChuteHardwareSettingsPayload(BaseModel):
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
     operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
+
+
+class ChuteAimingSettingsPayload(BaseModel):
+    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
+    section_width_deg: float = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+    first_section_offset_deg: float = DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG
+    endstop_active_high: Optional[bool] = None
+    operating_speed_microsteps_per_second: Optional[int] = None
+    label: Optional[str] = None
+
+
+class ChuteAimingDerivePayload(BaseModel):
+    # Measurements from the calibration routine: the chute is jogged to the
+    # first and last bin of a test section with a known bin count.
+    first_bin_angle: float
+    last_bin_angle: float
+    bins_in_test_section: int
+    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
+    label: Optional[str] = None
+
+
+class ChuteMoveToAnglePayload(BaseModel):
+    angle: float
+
+
+class ChuteVirtualBinPayload(BaseModel):
+    num_sections: int
+    bins_in_section: int
+    section_index: int
+    bin_index: int
 
 
 class CarouselHardwareSettingsPayload(BaseModel):
@@ -180,6 +292,15 @@ class ServoNudgePayload(BaseModel):
 class ServoLayerPreviewPayload(BaseModel):
     invert: bool = False
     is_open: bool = False
+
+
+class ServoLayerMovePayload(BaseModel):
+    angle: int
+
+
+class ServoLayerLockPayload(BaseModel):
+    which: str  # "open" | "closed"
+    angle: Optional[int] = None
 
 
 class MoveToBinPayload(BaseModel):
@@ -362,14 +483,32 @@ def _live_servo_feedback_for_layer(layer_index: int, servo: Any | None = None) -
 
     try:
         position = int(servo.position)
-        return {
+        result = {
             **base,
             "available": True,
             "position": position,
+            "angle": position // 10,
             "is_open": bool(servo.isOpen()) if hasattr(servo, "isOpen") else None,
         }
+        if hasattr(servo, "is_calibrated"):
+            result.update(_servo_calibration_state(servo))
+        return result
     except Exception as e:
         return {**base, "error": str(e)}
+
+
+_SERVO_SPEED_FLOOR_TENTHS = 10  # 1°/s minimum floor sent to firmware
+
+
+def _apply_pca_servo_speed(servo: Any, speed_deg_per_sec: int | None) -> None:
+    if speed_deg_per_sec is None:
+        return
+    if not hasattr(servo, "set_speed_limits"):
+        return
+    try:
+        servo.set_speed_limits(_SERVO_SPEED_FLOOR_TENTHS, speed_deg_per_sec * 10)
+    except Exception:
+        pass
 
 
 def _servo_hardware_issues() -> List[Dict[str, Any]]:
@@ -395,14 +534,6 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     backend = servo.get("backend", "pca9685")
     if backend not in {"pca9685", "waveshare"}:
         backend = "pca9685"
-
-    open_angle = servo.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE)
-    if not isinstance(open_angle, int) or isinstance(open_angle, bool):
-        open_angle = DEFAULT_SERVO_OPEN_ANGLE
-
-    closed_angle = servo.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE)
-    if not isinstance(closed_angle, int) or isinstance(closed_angle, bool):
-        closed_angle = DEFAULT_SERVO_CLOSED_ANGLE
 
     port = servo.get("port")
     if port is not None and not isinstance(port, str):
@@ -442,10 +573,30 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
             }
         )
 
+    _SPEED_RANGE = (1, 2000)
+    open_speed = servo.get("open_speed")
+    if not isinstance(open_speed, int) or isinstance(open_speed, bool) or open_speed <= 0:
+        open_speed = None
+    else:
+        open_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], open_speed))
+
+    close_speed = servo.get("close_speed")
+    if not isinstance(close_speed, int) or isinstance(close_speed, bool) or close_speed <= 0:
+        close_speed = None
+    else:
+        close_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], close_speed))
+
+    homing_speed = servo.get("homing_speed")
+    if not isinstance(homing_speed, int) or isinstance(homing_speed, bool) or homing_speed <= 0:
+        homing_speed = None
+    else:
+        homing_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], homing_speed))
+
     return {
         "backend": backend,
-        "open_angle": max(0, min(180, open_angle)),
-        "closed_angle": max(0, min(180, closed_angle)),
+        "open_speed": open_speed,
+        "close_speed": close_speed,
+        "homing_speed": homing_speed,
         "port": port.strip() if isinstance(port, str) and port.strip() else None,
         "channels": channels,
         "layer_count": layer_count,
@@ -489,6 +640,29 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if pillar_width_deg < 0 or pillar_width_deg >= 60:
         pillar_width_deg = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
 
+    num_sections = _coerce_int(chute.get("num_sections"), DEFAULT_CHUTE_NUM_SECTIONS)
+    if num_sections < 1:
+        num_sections = DEFAULT_CHUTE_NUM_SECTIONS
+    section_pitch_deg = 360.0 / num_sections
+
+    # Canonical aiming params win; otherwise derive from the legacy geometry so
+    # the old machine.toml and the legacy page still read sensibly.
+    if "section_width_deg" in chute:
+        section_width_deg = _coerce_float(
+            chute.get("section_width_deg"), section_pitch_deg - pillar_width_deg
+        )
+    else:
+        section_width_deg = section_pitch_deg - pillar_width_deg
+    if section_width_deg <= 0 or section_width_deg >= section_pitch_deg:
+        section_width_deg = min(DEFAULT_CHUTE_SECTION_WIDTH_DEG, section_pitch_deg - 0.01)
+
+    if "first_section_offset_deg" in chute:
+        first_section_offset_deg = _coerce_float(
+            chute.get("first_section_offset_deg"), first_bin_center
+        )
+    else:
+        first_section_offset_deg = first_bin_center
+
     home_pin_channel = _coerce_int(
         chute.get("home_pin_channel"), DEFAULT_CHUTE_HOME_PIN_CHANNEL
     )
@@ -499,11 +673,16 @@ def _chute_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
         home_pin_channel = live_home_pin_channel
 
     return {
+        "num_sections": num_sections,
+        "section_width_deg": round(section_width_deg, 4),
+        "first_section_offset_deg": round(first_section_offset_deg, 4),
+        "section_pitch_deg": round(section_pitch_deg, 4),
+        "pillar_width_deg": round(section_pitch_deg - section_width_deg, 4),
         "first_bin_center": first_bin_center,
-        "pillar_width_deg": pillar_width_deg,
         "endstop_active_high": endstop_active_high,
         "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
         "home_pin_channel": home_pin_channel,
+        "max_angle_deg": CHUTE_MAX_ANGLE,
     }
 
 
@@ -569,10 +748,11 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         servo_open = getattr(layer, "servo_open_angle", None)
         servo_closed = getattr(layer, "servo_closed_angle", None)
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
-        if isinstance(servo_open, int):
-            layer_entry["servo_open_angle"] = servo_open
-        if isinstance(servo_closed, int):
-            layer_entry["servo_closed_angle"] = servo_closed
+        open_value = servo_open if isinstance(servo_open, int) else None
+        closed_value = servo_closed if isinstance(servo_closed, int) else None
+        layer_entry["servo_open_angle"] = open_value
+        layer_entry["servo_closed_angle"] = closed_value
+        layer_entry["calibrated"] = open_value is not None and closed_value is not None
         layer_entry["max_pieces_per_bin"] = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         layers.append(layer_entry)
 
@@ -580,6 +760,23 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
         "allowed_bin_counts": ALLOWED_STORAGE_LAYER_BIN_COUNTS,
         "layers": layers,
     }
+
+
+def _attach_live_servo_current_angles(layers: List[Dict[str, Any]]) -> None:
+    """Fill in each layer's ``servo_current_angle`` from the live servo's
+    internally-tracked angle (PCA path). None when there is no live hardware
+    or the servo has not been moved since boot."""
+    for layer in layers:
+        layer.setdefault("servo_current_angle", None)
+    active_irl = _active_irl()
+    if active_irl is None:
+        return
+    servos = list(getattr(active_irl, "servos", []))
+    for index, layer in enumerate(layers):
+        if index >= len(servos):
+            continue
+        angle = getattr(servos[index], "angle", None)
+        layer["servo_current_angle"] = angle if isinstance(angle, int) else None
 
 
 def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
@@ -642,13 +839,20 @@ def _live_chute_status() -> Dict[str, Any]:
         "endstop_triggered": None,
         "raw_endstop_high": None,
         "endstop_active_high": getattr(chute, "endstop_active_high", True),
+        "stepper_direction_inverted": bool(getattr(stepper, "direction_inverted", True)),
         "current_angle": None,
         "stepper_position_degrees": None,
         "stepper_microsteps": None,
         "stepper_stopped": None,
+        "homed": None,
         "digital_inputs": [],
         "home_pin_channel": _pin_channel(getattr(chute, "home_pin", None)),
     }
+
+    try:
+        status["homed"] = bool(chute.homed)
+    except Exception:
+        pass
 
     try:
         status["raw_endstop_high"] = bool(chute.home_pin.value)
@@ -808,8 +1012,10 @@ def _stop_all_steppers() -> None:
 def get_hardware_config() -> Dict[str, Any]:
     _, config = _read_machine_params_config()
     layout = getBinLayout()
+    storage_layers = _storage_layer_settings_from_layout(layout)
+    _attach_live_servo_current_angles(storage_layers["layers"])
     return {
-        "storage_layers": _storage_layer_settings_from_layout(layout),
+        "storage_layers": storage_layers,
         "servo": _servo_settings_from_config(config),
         "chute": _chute_settings_from_config(config),
         "carousel": _carousel_settings_from_config(config),
@@ -849,13 +1055,19 @@ def save_servo_hardware_config(
     payload: ServoHardwareSettingsPayload,
 ) -> Dict[str, Any]:
     backend = payload.backend if payload.backend in {"pca9685", "waveshare"} else "pca9685"
-    open_angle = max(0, min(180, int(payload.open_angle)))
-    closed_angle = max(0, min(180, int(payload.closed_angle)))
+    _SPEED_RANGE = (1, 2000)
+    open_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.open_speed))) if payload.open_speed is not None else None
+    close_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.close_speed))) if payload.close_speed is not None else None
+    homing_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.homing_speed))) if payload.homing_speed is not None else None
     port = payload.port.strip() if isinstance(payload.port, str) and payload.port.strip() else None
-    layer_count = _distribution_layer_count()
     available_pca_channels = _pca_available_servo_channels()
     layout = getBinLayout()
     current_storage_layers = _storage_layer_settings_from_layout(layout)["layers"]
+    # Validate against the persisted layout we actually index into below, not the
+    # live distribution layout. After a layer add/remove the storage-layers save
+    # has already rewritten the config, but the running hardware still carries the
+    # old layer count until a restart — trusting it here rejected valid saves.
+    layer_count = len(current_storage_layers)
 
     if len(payload.channels) != layer_count:
         raise HTTPException(
@@ -905,8 +1117,12 @@ def save_servo_hardware_config(
 
     servo_table: Dict[str, Any] = {"backend": backend, "channels": channels}
     if backend == "pca9685":
-        servo_table["open_angle"] = open_angle
-        servo_table["closed_angle"] = closed_angle
+        if open_speed is not None:
+            servo_table["open_speed"] = open_speed
+        if close_speed is not None:
+            servo_table["close_speed"] = close_speed
+        if homing_speed is not None:
+            servo_table["homing_speed"] = homing_speed
     if backend == "waveshare":
         if port is not None:
             servo_table["port"] = port
@@ -954,11 +1170,12 @@ def save_servo_hardware_config(
                     if backend == "waveshare":
                         if hasattr(servo, "set_invert"):
                             servo.set_invert(invert)
-                    elif hasattr(servo, "set_preset_angles"):
-                        if invert:
-                            servo.set_preset_angles(closed_angle, open_angle)
-                        else:
-                            servo.set_preset_angles(open_angle, closed_angle)
+                    else:
+                        # PCA open/closed angles are calibrated per-layer via the
+                        # Servo Layer Calibrator, not here — only apply speed.
+                        if hasattr(servo, "set_motion_speeds"):
+                            servo.set_motion_speeds(open_speed, close_speed, homing_speed)
+                        _apply_pca_servo_speed(servo, homing_speed)
                 applied_live = True
         except Exception:
             applied_live = False
@@ -981,6 +1198,58 @@ def save_servo_hardware_config(
     }
 
 
+class ServoSpeedSettingsPayload(BaseModel):
+    open_speed: Optional[int] = None
+    close_speed: Optional[int] = None
+    homing_speed: Optional[int] = None
+
+
+@router.post("/api/hardware-config/servo/speeds")
+def save_servo_speeds(payload: ServoSpeedSettingsPayload) -> Dict[str, Any]:
+    _SPEED_RANGE = (1, 2000)
+
+    def _clamp(v: int | None) -> int | None:
+        if v is None:
+            return None
+        return max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(v)))
+
+    open_speed = _clamp(payload.open_speed)
+    close_speed = _clamp(payload.close_speed)
+    homing_speed = _clamp(payload.homing_speed)
+
+    params_path, config = _read_machine_params_config()
+    servo = config.get("servo", {})
+    if not isinstance(servo, dict):
+        servo = {}
+
+    for key, val in [("open_speed", open_speed), ("close_speed", close_speed), ("homing_speed", homing_speed)]:
+        if val is not None:
+            servo[key] = val
+        else:
+            servo.pop(key, None)
+
+    config["servo"] = servo
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    active_irl = _active_irl()
+    if active_irl is not None:
+        try:
+            for srv in getattr(active_irl, "servos", []):
+                if hasattr(srv, "set_motion_speeds"):
+                    srv.set_motion_speeds(open_speed, close_speed, homing_speed)
+                # Leave the firmware at the standard speed between moves;
+                # sorting re-applies open/close speed per move.
+                _apply_pca_servo_speed(srv, homing_speed)
+        except Exception:
+            pass
+
+    return {"ok": True, "open_speed": open_speed, "close_speed": close_speed, "homing_speed": homing_speed}
+
+
 @router.post("/api/hardware-config/servo/layers/{layer_index}/toggle")
 def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
     _ensure_not_homing("toggle a servo")
@@ -989,6 +1258,10 @@ def toggle_layer_servo(layer_index: int) -> Dict[str, Any]:
         raise HTTPException(status_code=500, detail="Selected servo does not support test toggling.")
 
     try:
+        _, _cfg = _read_machine_params_config()
+        _speeds = _servo_settings_from_config(_cfg)
+        currently_open = hasattr(servo, "isOpen") and servo.isOpen()
+        _apply_pca_servo_speed(servo, _speeds.get("close_speed") if currently_open else _speeds.get("open_speed"))
         servo.toggle()
         feedback = _live_servo_feedback_for_layer(layer_index, servo)
         is_open = bool(feedback.get("is_open")) if feedback.get("available") else False
@@ -1027,25 +1300,34 @@ def preview_layer_servo(
     _, config = _read_machine_params_config()
     servo_settings = _servo_settings_from_config(config)
     backend = servo_settings["backend"]
-    open_angle = int(servo_settings["open_angle"])
-    closed_angle = int(servo_settings["closed_angle"])
     desired_open = bool(payload.is_open)
     invert = bool(payload.invert)
+
+    layout = getBinLayout()
+    layer = layout.layers[layer_index] if 0 <= layer_index < len(layout.layers) else None
+    layer_open = getattr(layer, "servo_open_angle", None)
+    layer_closed = getattr(layer, "servo_closed_angle", None)
 
     try:
         if backend == "waveshare":
             if hasattr(servo, "set_invert"):
                 servo.set_invert(invert)
-        elif hasattr(servo, "set_preset_angles"):
+        elif (
+            hasattr(servo, "set_preset_angles")
+            and isinstance(layer_open, int)
+            and isinstance(layer_closed, int)
+        ):
             if invert:
-                servo.set_preset_angles(closed_angle, open_angle)
+                servo.set_preset_angles(layer_closed, layer_open)
             else:
-                servo.set_preset_angles(open_angle, closed_angle)
+                servo.set_preset_angles(layer_open, layer_closed)
 
         if desired_open:
+            _apply_pca_servo_speed(servo, servo_settings.get("open_speed"))
             if hasattr(servo, "open"):
                 servo.open()
         else:
+            _apply_pca_servo_speed(servo, servo_settings.get("close_speed"))
             if hasattr(servo, "close"):
                 servo.close()
         feedback = _live_servo_feedback_for_layer(layer_index, servo)
@@ -1102,6 +1384,9 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
         raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
 
     try:
+        _, _cfg = _read_machine_params_config()
+        _apply_pca_servo_speed(servo, _servo_settings_from_config(_cfg).get("homing_speed"))
+
         current_pos = int(servo.position)
         # PCA ServoMotor.position returns tenths-of-degrees, move_to takes degrees 0-180
         # Waveshare BusServo.position returns raw 0-1023, move_to takes angle 0-180
@@ -1132,6 +1417,93 @@ def nudge_layer_servo(layer_index: int, payload: ServoNudgePayload) -> Dict[str,
         "degrees": payload.degrees,
         "new_angle": new_angle,
         "feedback": feedback,
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/move-to")
+def move_to_layer_servo(layer_index: int, payload: ServoLayerMovePayload) -> Dict[str, Any]:
+    _ensure_not_homing("move a servo")
+    servo = _live_servo_for_layer(layer_index)
+    if not hasattr(servo, "move_to"):
+        raise HTTPException(status_code=500, detail="Servo does not support position-based movement.")
+
+    angle = max(0, min(180, int(payload.angle)))
+    try:
+        _, _cfg = _read_machine_params_config()
+        _apply_pca_servo_speed(servo, _servo_settings_from_config(_cfg).get("homing_speed"))
+        servo.move_to(angle)
+        feedback = _live_servo_feedback_for_layer(layer_index, servo)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to move layer {layer_index + 1} servo: {e}")
+
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "new_angle": angle,
+        "feedback": feedback,
+    }
+
+
+def _servo_calibration_state(servo: Any) -> Dict[str, Any]:
+    open_angle = getattr(servo, "open_angle", None)
+    closed_angle = getattr(servo, "closed_angle", None)
+    return {
+        "open_angle": open_angle if isinstance(open_angle, int) else None,
+        "closed_angle": closed_angle if isinstance(closed_angle, int) else None,
+        "calibrated": bool(getattr(servo, "is_calibrated", True)),
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/lock")
+def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> Dict[str, Any]:
+    _ensure_not_homing("lock a servo angle")
+    if payload.which not in {"open", "closed"}:
+        raise HTTPException(status_code=400, detail="which must be 'open' or 'closed'.")
+    servo = _live_servo_for_layer(layer_index)
+
+    if payload.angle is not None:
+        angle = max(0, min(180, int(payload.angle)))
+    else:
+        current = getattr(servo, "angle", None)
+        if current is None:
+            position = getattr(servo, "position", None)
+            current = int(position) // 10 if position is not None else None
+        if current is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Could not read the servo's current angle to lock in.",
+            )
+        angle = max(0, min(180, int(current)))
+
+    layout = getBinLayout()
+    if layer_index < 0 or layer_index >= len(layout.layers):
+        raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
+    layer = layout.layers[layer_index]
+    if payload.which == "open":
+        layer.servo_open_angle = angle
+        if hasattr(servo, "set_open_angle"):
+            servo.set_open_angle(angle)
+    else:
+        layer.servo_closed_angle = angle
+        if hasattr(servo, "set_closed_angle"):
+            servo.set_closed_angle(angle)
+
+    try:
+        saveBinLayout(layout)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to persist locked angle: {e}")
+
+    state = _servo_calibration_state(servo)
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "which": payload.which,
+        "angle": angle,
+        **state,
+        "feedback": _live_servo_feedback_for_layer(layer_index, servo),
+        "message": (
+            f"Layer {layer_index + 1} {payload.which} angle locked at {angle}°."
+        ),
     }
 
 
@@ -1439,10 +1811,19 @@ def save_chute_hardware_config(
     chute_config = config.get("chute", {})
     if not isinstance(chute_config, dict):
         chute_config = {}
+    # Keep the canonical aiming keys in sync with this legacy save so the
+    # newer chute-aiming page and this one never disagree about geometry.
+    num_sections = _coerce_int(chute_config.get("num_sections"), DEFAULT_CHUTE_NUM_SECTIONS)
+    if num_sections < 1:
+        num_sections = DEFAULT_CHUTE_NUM_SECTIONS
+    section_pitch_deg = 360.0 / num_sections
     config["chute"] = {
         **chute_config,
         "first_bin_center": first_bin_center,
         "pillar_width_deg": pillar_width_deg,
+        "num_sections": num_sections,
+        "section_width_deg": round(section_pitch_deg - pillar_width_deg, 4),
+        "first_section_offset_deg": first_bin_center,
         "endstop_active_high": endstop_active_high,
         "operating_speed_microsteps_per_second": operating_speed_microsteps_per_second,
     }
@@ -1502,7 +1883,7 @@ def calibrate_chute_find_endstop() -> Dict[str, Any]:
     if not homed:
         raise HTTPException(
             status_code=409,
-            detail="Chute homing stopped before the endstop triggered.",
+            detail="Chute homing stopped before the endstop triggered. It's possible that the switch is not making good contact with the chute. Try moving it closer to the chute.",
         )
 
     return {
@@ -1524,6 +1905,370 @@ def cancel_chute_find_endstop() -> Dict[str, Any]:
         "status": _live_chute_status(),
         "message": "Chute homing canceled. All steppers were stopped for safety.",
     }
+
+
+def _live_chute() -> Any:
+    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
+    chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+    return chute
+
+
+def _virtual_bin_angle(
+    num_sections: int,
+    bins_in_section: int,
+    section_index: int,
+    bin_index: int,
+    section_width_deg: float,
+    first_section_offset_deg: float,
+) -> float:
+    # Mirror of Chute.angleForVirtualBin so reachability can be reported for
+    # an arbitrary (not-yet-applied) geometry. Keep in lockstep with chute.py.
+    n = max(1, int(num_sections))
+    k = max(1, int(bins_in_section))
+    slot = section_width_deg / k
+    return first_section_offset_deg + section_index * (360.0 / n) + (bin_index + 0.5) * slot
+
+
+def _chute_reachability(
+    num_sections: int, section_width_deg: float, first_section_offset_deg: float
+) -> Dict[str, Any]:
+    # For the active (or default) layout, report whether every bin's center
+    # angle lands inside the chute's reachable arc [0, CHUTE_MAX_ANGLE].
+    layout = getBinLayout()
+    unreachable: List[Dict[str, Any]] = []
+    total = 0
+    for layer_index, layer in enumerate(layout.layers):
+        for section_index, section in enumerate(layer.sections):
+            bins_in_section = len(section)
+            for bin_index in range(bins_in_section):
+                total += 1
+                angle = _virtual_bin_angle(
+                    num_sections,
+                    bins_in_section,
+                    section_index,
+                    bin_index,
+                    section_width_deg,
+                    first_section_offset_deg,
+                )
+                if angle < 0 or angle > CHUTE_MAX_ANGLE:
+                    unreachable.append(
+                        {
+                            "layer_index": layer_index,
+                            "section_index": section_index,
+                            "bin_index": bin_index,
+                            "angle": round(angle, 2),
+                        }
+                    )
+    return {
+        "total_bins": total,
+        "all_reachable": len(unreachable) == 0,
+        "unreachable": unreachable[:24],
+        "unreachable_count": len(unreachable),
+    }
+
+
+def _calibrations_payload(limit: int = 50) -> List[Dict[str, Any]]:
+    from local_state import listChuteCalibrationInstances
+
+    try:
+        return listChuteCalibrationInstances(limit=limit)
+    except Exception:
+        return []
+
+
+def _record_calibration_instance(
+    *,
+    label: str,
+    num_sections: int,
+    section_width_deg: float,
+    first_section_offset_deg: float,
+    measurements: Optional[Dict[str, Any]] = None,
+) -> None:
+    from local_state import recordChuteCalibrationInstance
+
+    try:
+        recordChuteCalibrationInstance(
+            label=label,
+            num_sections=num_sections,
+            section_width_deg=round(section_width_deg, 4),
+            first_section_offset_deg=round(first_section_offset_deg, 4),
+            measurements=measurements,
+        )
+    except Exception:
+        # History is best-effort; never block a successful TOML write on it.
+        pass
+
+
+def _persist_and_apply_chute_aiming(
+    num_sections: int,
+    section_width_deg: float,
+    first_section_offset_deg: float,
+    endstop_active_high: Optional[bool] = None,
+    operating_speed_microsteps_per_second: Optional[int] = None,
+) -> Dict[str, Any]:
+    section_pitch_deg = 360.0 / num_sections
+    params_path, config = _read_machine_params_config()
+    chute_config = config.get("chute", {})
+    if not isinstance(chute_config, dict):
+        chute_config = {}
+    new_chute: Dict[str, Any] = {
+        **chute_config,
+        "num_sections": num_sections,
+        "section_width_deg": round(section_width_deg, 4),
+        "first_section_offset_deg": round(first_section_offset_deg, 4),
+        # Keep legacy keys in sync for the old page / older readers.
+        "pillar_width_deg": round(section_pitch_deg - section_width_deg, 4),
+        "first_bin_center": round(first_section_offset_deg, 4),
+    }
+    if endstop_active_high is not None:
+        new_chute["endstop_active_high"] = bool(endstop_active_high)
+    if operating_speed_microsteps_per_second is not None:
+        new_chute["operating_speed_microsteps_per_second"] = int(operating_speed_microsteps_per_second)
+    config["chute"] = new_chute
+
+    try:
+        _write_machine_params_config(params_path, config)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to write config: {e}")
+
+    applied_live = False
+    if shared_state.controller_ref is not None and hasattr(shared_state.controller_ref, "irl"):
+        chute = getattr(shared_state.controller_ref.irl, "chute", None)
+        if chute is not None and hasattr(chute, "setAimingCalibration"):
+            try:
+                chute.setAimingCalibration(
+                    num_sections,
+                    section_width_deg,
+                    first_section_offset_deg,
+                    endstop_active_high,
+                )
+                if operating_speed_microsteps_per_second is not None and hasattr(chute, "setOperatingSpeed"):
+                    chute.setOperatingSpeed(operating_speed_microsteps_per_second)
+                    stepper = getattr(shared_state.controller_ref.irl, "chute_stepper", None)
+                    if stepper is not None:
+                        stepper.set_speed_limits(16, int(operating_speed_microsteps_per_second))
+                applied_live = True
+            except Exception:
+                applied_live = False
+
+    return {
+        "ok": True,
+        "settings": _chute_settings_from_config(config),
+        "reachability": _chute_reachability(num_sections, section_width_deg, first_section_offset_deg),
+        "applied_live": applied_live,
+    }
+
+
+@router.post("/api/hardware-config/chute/aiming")
+def save_chute_aiming_config(payload: ChuteAimingSettingsPayload) -> Dict[str, Any]:
+    num_sections = int(payload.num_sections)
+    if num_sections < 1:
+        raise HTTPException(status_code=400, detail="num_sections must be >= 1.")
+    section_pitch_deg = 360.0 / num_sections
+    section_width_deg = float(payload.section_width_deg)
+    if section_width_deg <= 0 or section_width_deg >= section_pitch_deg:
+        raise HTTPException(
+            status_code=400,
+            detail=f"section_width_deg must be between 0 and the section pitch ({section_pitch_deg:.2f}°).",
+        )
+    if (
+        payload.operating_speed_microsteps_per_second is not None
+        and payload.operating_speed_microsteps_per_second <= 0
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="operating_speed_microsteps_per_second must be greater than 0.",
+        )
+
+    result = _persist_and_apply_chute_aiming(
+        num_sections,
+        section_width_deg,
+        float(payload.first_section_offset_deg),
+        payload.endstop_active_high,
+        payload.operating_speed_microsteps_per_second,
+    )
+    _record_calibration_instance(
+        label=payload.label or "Manual edit",
+        num_sections=num_sections,
+        section_width_deg=section_width_deg,
+        first_section_offset_deg=float(payload.first_section_offset_deg),
+    )
+    result["calibrations"] = _calibrations_payload()
+    result["message"] = (
+        "Chute aiming saved and applied live."
+        if result["applied_live"]
+        else "Chute aiming saved."
+    )
+    return result
+
+
+@router.post("/api/hardware-config/chute/aiming/derive")
+def derive_chute_aiming_config(payload: ChuteAimingDerivePayload) -> Dict[str, Any]:
+    num_sections = int(payload.num_sections)
+    if num_sections < 1:
+        raise HTTPException(status_code=400, detail="num_sections must be >= 1.")
+    k = int(payload.bins_in_test_section)
+    if k < 2:
+        raise HTTPException(
+            status_code=400,
+            detail="bins_in_test_section must be >= 2 to measure a first→last span.",
+        )
+    a = float(payload.first_bin_angle)
+    span = float(payload.last_bin_angle) - a
+    if span <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="last_bin_angle must be greater than first_bin_angle.",
+        )
+    # Bins are equal slots aimed at their midpoints, so the measured first→last
+    # span covers (K-1) slots, i.e. span = (K-1)/K · W. Recover W and the
+    # section start offset theta0 = first_bin_center - half a slot.
+    slot = span / (k - 1)
+    section_width_deg = slot * k
+    first_section_offset_deg = a - 0.5 * slot
+    section_pitch_deg = 360.0 / num_sections
+    if section_width_deg >= section_pitch_deg:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Derived section width {section_width_deg:.2f}° exceeds the section pitch "
+                f"({section_pitch_deg:.2f}°). Check the measured angles and bin count."
+            ),
+        )
+
+    result = _persist_and_apply_chute_aiming(
+        num_sections, section_width_deg, first_section_offset_deg
+    )
+    _record_calibration_instance(
+        label=payload.label or "Calibration",
+        num_sections=num_sections,
+        section_width_deg=section_width_deg,
+        first_section_offset_deg=first_section_offset_deg,
+        measurements={
+            "first_bin_angle": round(a, 4),
+            "last_bin_angle": round(float(payload.last_bin_angle), 4),
+            "bins_in_test_section": k,
+        },
+    )
+    result["calibrations"] = _calibrations_payload()
+    result["derived"] = {
+        "num_sections": num_sections,
+        "section_width_deg": round(section_width_deg, 4),
+        "first_section_offset_deg": round(first_section_offset_deg, 4),
+        "slot_deg": round(slot, 4),
+        "pillar_width_deg": round(section_pitch_deg - section_width_deg, 4),
+    }
+    result["message"] = (
+        "Chute aiming derived from measurements and applied live."
+        if result["applied_live"]
+        else "Chute aiming derived from measurements and saved."
+    )
+    return result
+
+
+@router.post("/api/hardware-config/chute/move-to-angle")
+def move_chute_to_angle(payload: ChuteMoveToAnglePayload) -> Dict[str, Any]:
+    _ensure_not_homing("move the chute")
+    chute = _live_chute()
+    angle = float(payload.angle)
+    if angle < 0 or angle > 360:
+        raise HTTPException(status_code=400, detail="angle must be between 0 and 360°.")
+    try:
+        estimated_ms = chute.moveToAngle(angle)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
+    return {
+        "ok": True,
+        "target_angle": round(angle, 2),
+        "estimated_ms": estimated_ms,
+        "status": _live_chute_status(),
+    }
+
+
+@router.post("/api/hardware-config/chute/move-to-virtual-bin")
+def move_chute_to_virtual_bin(payload: ChuteVirtualBinPayload) -> Dict[str, Any]:
+    # "Test aim" for the calibration circle: aim at a bin in an arbitrary,
+    # not-necessarily-installed layout using the canonical aiming formula.
+    _ensure_not_homing("move the chute")
+    chute = _live_chute()
+    if payload.num_sections < 1 or payload.bins_in_section < 1:
+        raise HTTPException(status_code=400, detail="num_sections and bins_in_section must be >= 1.")
+    if payload.section_index < 0 or payload.section_index >= payload.num_sections:
+        raise HTTPException(status_code=400, detail="section_index out of range.")
+    if payload.bin_index < 0 or payload.bin_index >= payload.bins_in_section:
+        raise HTTPException(status_code=400, detail="bin_index out of range.")
+
+    target_angle = chute.angleForVirtualBin(
+        payload.section_index,
+        payload.bin_index,
+        payload.bins_in_section,
+        num_sections=payload.num_sections,
+    )
+    if target_angle is None:
+        raise HTTPException(
+            status_code=400,
+            detail="That bin is unreachable with the current aiming geometry (angle out of range).",
+        )
+    try:
+        estimated_ms = chute.moveToAngle(target_angle)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
+    return {
+        "ok": True,
+        "target_angle": round(target_angle, 2),
+        "estimated_ms": estimated_ms,
+        "section_index": payload.section_index,
+        "bin_index": payload.bin_index,
+        "status": _live_chute_status(),
+    }
+
+
+@router.get("/api/hardware-config/chute/calibrations")
+def list_chute_calibrations() -> Dict[str, Any]:
+    return {"ok": True, "calibrations": _calibrations_payload()}
+
+
+@router.post("/api/hardware-config/chute/calibrations/{calibration_id}/activate")
+def activate_chute_calibration(calibration_id: str) -> Dict[str, Any]:
+    from local_state import activateChuteCalibrationInstance
+
+    instance = activateChuteCalibrationInstance(calibration_id)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Calibration not found.")
+
+    # Locking in an instance writes its geometry to the TOML and applies it live.
+    result = _persist_and_apply_chute_aiming(
+        int(instance["num_sections"]),
+        float(instance["section_width_deg"]),
+        float(instance["first_section_offset_deg"]),
+    )
+    result["calibrations"] = _calibrations_payload()
+    result["active"] = instance
+    result["message"] = (
+        "Calibration locked in and applied live."
+        if result["applied_live"]
+        else "Calibration locked in."
+    )
+    return result
+
+
+@router.delete("/api/hardware-config/chute/calibrations/{calibration_id}")
+def delete_chute_calibration(calibration_id: str) -> Dict[str, Any]:
+    from local_state import deleteChuteCalibrationInstance, getChuteCalibrationInstance
+
+    instance = getChuteCalibrationInstance(calibration_id)
+    if instance is None:
+        raise HTTPException(status_code=404, detail="Calibration not found.")
+    if instance.get("is_active"):
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot delete the active calibration. Lock in another one first.",
+        )
+    deleteChuteCalibrationInstance(calibration_id)
+    return {"ok": True, "calibrations": _calibrations_payload()}
 
 
 @router.get("/api/hardware-config/carousel/live")

@@ -19,6 +19,7 @@ CHANNEL_COLORS: dict[RegionName, tuple[int, int, int]] = {
 
 DROPZONE_COLOR = (0, 200, 0)
 PRECISE_COLOR = (0, 100, 255)
+PRECISE_ZONE_COLOR = (168, 85, 248)
 
 
 def parseSavedChannelArcZones(*args, **kwargs):
@@ -334,12 +335,25 @@ class HanddrawnRegionProvider:
             arc.exit_start_angle,
             arc.exit_end_angle,
         )
-        if drop_poly is None and exit_poly is None:
+        precise_poly = None
+        if arc.precise_start_angle is not None and arc.precise_end_angle is not None:
+            precise_poly = self._arcZonePolygon(
+                channel_key,
+                "precise_zone",
+                center,
+                inner_radius,
+                drop_outer_radius,
+                arc.precise_start_angle,
+                arc.precise_end_angle,
+            )
+        if drop_poly is None and exit_poly is None and precise_poly is None:
             return False
         if drop_poly is not None:
             cv2.fillPoly(overlay, [drop_poly], DROPZONE_COLOR)
         if exit_poly is not None:
             cv2.fillPoly(overlay, [exit_poly], PRECISE_COLOR)
+        if precise_poly is not None:
+            cv2.fillPoly(overlay, [precise_poly], PRECISE_ZONE_COLOR)
         return True
 
     def annotateFrame(self, frame: np.ndarray) -> np.ndarray:

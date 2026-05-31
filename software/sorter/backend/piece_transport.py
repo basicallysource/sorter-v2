@@ -193,6 +193,21 @@ class ClassificationChannelTransport(PieceTransport):
             piece_for_distribution_drop=self._exit_piece,
         )
 
+    def placePieceForDistribution(self, obj: KnownObject) -> None:
+        """Stage an externally-owned piece directly into the positioning slot.
+
+        The rev01 classification SM owns its own KnownObject and hands it off
+        only once, at discharge time, rather than registering it at intake.
+        This drops that piece into the wait (distribution-positioning) slot so
+        the distribution subsystem aims the chute for it; the subsequent
+        ``advanceTransport()`` (issued when the piece is flung into the chute)
+        promotes it to the drop slot. No-op in dynamic mode, which manages its
+        own slots via the zone manager.
+        """
+        if self._dynamic_mode:
+            return
+        self._wait_piece = obj
+
     def getPieceAtClassification(self) -> KnownObject | None:
         if self._dynamic_mode:
             if self._hood_piece_uuid is None:

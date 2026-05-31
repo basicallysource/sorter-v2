@@ -15,7 +15,7 @@ from toml_config import loadTomlFile
 SOFTWARE_DIR = Path(__file__).resolve().parent
 
 _STATE_INIT_LOCK = threading.Lock()
-_SCHEMA_VERSION = 3
+_SCHEMA_VERSION = 5
 
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
@@ -429,6 +429,74 @@ def initialize_local_state() -> None:
                 "PRIMARY KEY(set_num, part_num, color_id)"
                 ")"
             )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS chute_stress_runs ("
+                "id TEXT PRIMARY KEY, "
+                "started_at REAL NOT NULL, "
+                "ended_at REAL, "
+                "mode TEXT NOT NULL, "
+                "target_max_deg REAL NOT NULL, "
+                "duration_target_s REAL NOT NULL, "
+                "speed_microsteps_per_sec INTEGER NOT NULL, "
+                "status TEXT NOT NULL, "
+                "total_distance_deg REAL NOT NULL DEFAULT 0, "
+                "total_time_s REAL NOT NULL DEFAULT 0, "
+                "error TEXT"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS chute_calibrations ("
+                "id TEXT PRIMARY KEY, "
+                "created_at REAL NOT NULL, "
+                "label TEXT, "
+                "num_sections INTEGER NOT NULL, "
+                "section_width_deg REAL NOT NULL, "
+                "first_section_offset_deg REAL NOT NULL, "
+                "measurements TEXT, "
+                "is_active INTEGER NOT NULL DEFAULT 0, "
+                "updated_at REAL NOT NULL"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS profiler_metric_snapshots ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "run_id TEXT NOT NULL, "
+                "recorded_at REAL NOT NULL, "
+                "metric_kind TEXT NOT NULL, "
+                "metric_name TEXT NOT NULL, "
+                "count INTEGER NOT NULL DEFAULT 0, "
+                "total_ms REAL, "
+                "min_ms REAL, "
+                "max_ms REAL, "
+                "last_ms REAL, "
+                "total_value REAL, "
+                "max_value REAL, "
+                "last_value REAL"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_profiler_metric_snapshots_run_time "
+                "ON profiler_metric_snapshots(run_id, recorded_at)"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS runtime_perf_metric_snapshots ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "run_id TEXT NOT NULL, "
+                "recorded_at REAL NOT NULL, "
+                "metric_name TEXT NOT NULL, "
+                "sample_count INTEGER NOT NULL DEFAULT 0, "
+                "avg_ms REAL, "
+                "med_ms REAL, "
+                "p90_ms REAL, "
+                "min_ms REAL, "
+                "max_ms REAL, "
+                "last_ms REAL"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_runtime_perf_metric_snapshots_run_time "
+                "ON runtime_perf_metric_snapshots(run_id, recorded_at)"
+            )
             schema_version = _get_meta(conn, "schema_version")
             if schema_version != str(_SCHEMA_VERSION):
                 _set_meta(conn, "schema_version", str(_SCHEMA_VERSION))
@@ -455,6 +523,72 @@ def _write_state(key: str, value: Any | None) -> None:
             _delete_key(conn, key)
         else:
             _set_json(conn, key, value)
+        conn.commit()
+
+
+def record_profiler_metric_snapshot(
+    run_id: str,
+    recorded_at: float,
+    rows: list[dict[str, Any]],
+) -> None:
+    if not rows:
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        conn.executemany(
+            "INSERT INTO profiler_metric_snapshots("
+            "run_id, recorded_at, metric_kind, metric_name, count, total_ms, min_ms, max_ms, last_ms, total_value, max_value, last_value"
+            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    str(run_id),
+                    float(recorded_at),
+                    str(row.get("metric_kind") or ""),
+                    str(row.get("metric_name") or ""),
+                    int(row.get("count") or 0),
+                    row.get("total_ms"),
+                    row.get("min_ms"),
+                    row.get("max_ms"),
+                    row.get("last_ms"),
+                    row.get("total_value"),
+                    row.get("max_value"),
+                    row.get("last_value"),
+                )
+                for row in rows
+            ],
+        )
+        conn.commit()
+
+
+def record_runtime_perf_metric_snapshot(
+    run_id: str,
+    recorded_at: float,
+    rows: list[dict[str, Any]],
+) -> None:
+    if not rows:
+        return
+    initialize_local_state()
+    with _connection() as conn:
+        conn.executemany(
+            "INSERT INTO runtime_perf_metric_snapshots("
+            "run_id, recorded_at, metric_name, sample_count, avg_ms, med_ms, p90_ms, min_ms, max_ms, last_ms"
+            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            [
+                (
+                    str(run_id),
+                    float(recorded_at),
+                    str(row.get("metric_name") or ""),
+                    int(row.get("sample_count") or 0),
+                    row.get("avg_ms"),
+                    row.get("med_ms"),
+                    row.get("p90_ms"),
+                    row.get("min_ms"),
+                    row.get("max_ms"),
+                    row.get("last_ms"),
+                )
+                for row in rows
+            ],
+        )
         conn.commit()
 
 
@@ -1329,3 +1463,235 @@ def get_tailscale_hostname() -> str | None:
 
 def set_tailscale_hostname(hostname: str) -> None:
     _write_state(_STATE_KEY_TAILSCALE_HOSTNAME, hostname.strip())
+
+
+# ---------------------------------------------------------------------------
+# Chute stress test runs
+# ---------------------------------------------------------------------------
+
+
+def _chuteStressRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "started_at": row["started_at"],
+        "ended_at": row["ended_at"],
+        "mode": row["mode"],
+        "target_max_deg": row["target_max_deg"],
+        "duration_target_s": row["duration_target_s"],
+        "speed_microsteps_per_sec": row["speed_microsteps_per_sec"],
+        "status": row["status"],
+        "total_distance_deg": row["total_distance_deg"],
+        "total_time_s": row["total_time_s"],
+        "error": row["error"],
+    }
+
+
+def recordChuteStressRunStart(
+    *,
+    run_id: str,
+    started_at: float,
+    mode: str,
+    target_max_deg: float,
+    duration_target_s: float,
+    speed_microsteps_per_sec: int,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "INSERT INTO chute_stress_runs("
+            "id, started_at, mode, target_max_deg, duration_target_s, "
+            "speed_microsteps_per_sec, status, total_distance_deg, total_time_s"
+            ") VALUES(?, ?, ?, ?, ?, ?, 'running', 0, 0)",
+            (
+                run_id,
+                started_at,
+                mode,
+                float(target_max_deg),
+                float(duration_target_s),
+                int(speed_microsteps_per_sec),
+            ),
+        )
+        conn.commit()
+
+
+def updateChuteStressRunProgress(
+    *,
+    run_id: str,
+    total_distance_deg: float,
+    total_time_s: float,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE chute_stress_runs SET total_distance_deg = ?, total_time_s = ? "
+            "WHERE id = ?",
+            (float(total_distance_deg), float(total_time_s), run_id),
+        )
+        conn.commit()
+
+
+def finalizeChuteStressRun(
+    *,
+    run_id: str,
+    ended_at: float,
+    status: str,
+    total_distance_deg: float,
+    total_time_s: float,
+    error: str | None,
+) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE chute_stress_runs SET ended_at = ?, status = ?, "
+            "total_distance_deg = ?, total_time_s = ?, error = ? WHERE id = ?",
+            (
+                float(ended_at),
+                status,
+                float(total_distance_deg),
+                float(total_time_s),
+                error,
+                run_id,
+            ),
+        )
+        conn.commit()
+
+
+def listChuteStressRuns(limit: int = 100) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, started_at, ended_at, mode, target_max_deg, duration_target_s, "
+            "speed_microsteps_per_sec, status, total_distance_deg, total_time_s, error "
+            "FROM chute_stress_runs ORDER BY started_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    return [d for d in (_chuteStressRowToDict(r) for r in rows) if d is not None]
+
+
+def getChuteStressRun(run_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT id, started_at, ended_at, mode, target_max_deg, duration_target_s, "
+            "speed_microsteps_per_sec, status, total_distance_deg, total_time_s, error "
+            "FROM chute_stress_runs WHERE id = ?",
+            (run_id,),
+        ).fetchone()
+    return _chuteStressRowToDict(row)
+
+
+# ---------------------------------------------------------------------------
+# Chute calibration instances (history + active lock-in)
+# ---------------------------------------------------------------------------
+
+
+_CHUTE_CALIBRATION_COLUMNS = (
+    "id, created_at, label, num_sections, section_width_deg, "
+    "first_section_offset_deg, measurements, is_active, updated_at"
+)
+
+
+def _chuteCalibrationRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
+    if row is None:
+        return None
+    measurements: Any = None
+    raw = row["measurements"]
+    if isinstance(raw, str) and raw:
+        try:
+            measurements = json.loads(raw)
+        except json.JSONDecodeError:
+            measurements = None
+    return {
+        "id": row["id"],
+        "created_at": row["created_at"],
+        "label": row["label"],
+        "num_sections": row["num_sections"],
+        "section_width_deg": row["section_width_deg"],
+        "first_section_offset_deg": row["first_section_offset_deg"],
+        "measurements": measurements,
+        "is_active": bool(row["is_active"]),
+        "updated_at": row["updated_at"],
+    }
+
+
+def recordChuteCalibrationInstance(
+    *,
+    label: str | None,
+    num_sections: int,
+    section_width_deg: float,
+    first_section_offset_deg: float,
+    measurements: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    calibration_id = str(uuid.uuid4())
+    now = time.time()
+    measurements_json = json.dumps(measurements) if measurements is not None else None
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute("UPDATE chute_calibrations SET is_active = 0 WHERE is_active = 1")
+        conn.execute(
+            f"INSERT INTO chute_calibrations({_CHUTE_CALIBRATION_COLUMNS}) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, 1, ?)",
+            (
+                calibration_id,
+                now,
+                label,
+                int(num_sections),
+                float(section_width_deg),
+                float(first_section_offset_deg),
+                measurements_json,
+                now,
+            ),
+        )
+        conn.commit()
+    return getChuteCalibrationInstance(calibration_id)
+
+
+def listChuteCalibrationInstances(limit: int = 100) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_CHUTE_CALIBRATION_COLUMNS} FROM chute_calibrations "
+            "ORDER BY created_at DESC LIMIT ?",
+            (int(limit),),
+        ).fetchall()
+    return [d for d in (_chuteCalibrationRowToDict(r) for r in rows) if d is not None]
+
+
+def getChuteCalibrationInstance(calibration_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT {_CHUTE_CALIBRATION_COLUMNS} FROM chute_calibrations WHERE id = ?",
+            (calibration_id,),
+        ).fetchone()
+    return _chuteCalibrationRowToDict(row)
+
+
+def activateChuteCalibrationInstance(calibration_id: str) -> dict[str, Any] | None:
+    now = time.time()
+    initialize_local_state()
+    with _connection() as conn:
+        existing = conn.execute(
+            "SELECT id FROM chute_calibrations WHERE id = ?", (calibration_id,)
+        ).fetchone()
+        if existing is None:
+            return None
+        conn.execute("UPDATE chute_calibrations SET is_active = 0 WHERE is_active = 1")
+        conn.execute(
+            "UPDATE chute_calibrations SET is_active = 1, updated_at = ? WHERE id = ?",
+            (now, calibration_id),
+        )
+        conn.commit()
+    return getChuteCalibrationInstance(calibration_id)
+
+
+def deleteChuteCalibrationInstance(calibration_id: str) -> bool:
+    initialize_local_state()
+    with _connection() as conn:
+        cur = conn.execute(
+            "DELETE FROM chute_calibrations WHERE id = ?", (calibration_id,)
+        )
+        conn.commit()
+        return cur.rowcount > 0

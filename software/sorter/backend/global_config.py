@@ -5,7 +5,8 @@ import argparse
 import uuid
 from datetime import datetime
 from enum import Enum
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Optional, TYPE_CHECKING
 from logger import Logger
 from profiler import Profiler
 from blob_manager import getMachineId
@@ -39,6 +40,9 @@ class GlobalConfig:
     run_id: str
     disable_chute: bool
     disable_servos: bool
+    disable_c_channels: set[int]  # {1, 2, 3, 4} — c-channel rotor steppers to suppress
+    disable_carousel: bool         # carousel stepper (same physical motor as c_channel_4)
+    no_power_development_mode: bool
     region_provider: RegionProviderType
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
@@ -46,11 +50,17 @@ class GlobalConfig:
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
+    brickognize_dump_root: Optional[Path]
+    classification_burst_dump_root: Optional[Path]
+    classification_skew_dump_root: Optional[Path]
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
         self.debug_level = 0
         self.should_write_camera_feeds = False
+        self.brickognize_dump_root: Optional[Path] = None
+        self.classification_burst_dump_root: Optional[Path] = None
+        self.classification_skew_dump_root: Optional[Path] = None
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must
@@ -60,10 +70,19 @@ class GlobalConfig:
         # honored) or LEGOSORTER_DISABLE env, or flip back here once the
         # layer-servo bus is reattached.
         self.disable_servos = True
+        self.disable_c_channels: set[int] = set()
+        self.disable_carousel = False
+        self.no_power_development_mode = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
         self.use_channel_bus = False
         self.disable_video_streams = ["classification_bottom"]
         self.runtime_stats = RuntimeStatsCollector()
+        # Rev04: perception service for the GO_TO_ANGLE_REV01 +
+        # SIMPLE_STATE_MACHINE_REV01 mode pair. None when the mode pair is
+        # not active — the legacy vision path runs in that case. Set in
+        # main.py after camera startup. Not an env-toggle: the mode config
+        # determines whether this is non-None.
+        self.perception_service = None
 
 
 def mkTimeouts() -> Timeouts:
@@ -96,13 +115,32 @@ def mkGlobalConfig() -> GlobalConfig:
         for token in os.getenv("LEGOSORTER_DISABLE", "").split(",")
         if token.strip()
     }
-    gc.disable_chute = "chute" in args.disable or "chute" in env_disable
-    gc.disable_servos = "servos" in args.disable or "servos" in env_disable
+    all_disable = set(args.disable) | env_disable
+    gc.disable_chute = "chute" in all_disable
+    gc.disable_servos = "servos" in all_disable
+    for ch in (1, 2, 3, 4):
+        if f"c_channel_{ch}" in all_disable:
+            gc.disable_c_channels.add(ch)
+    gc.disable_carousel = "carousel" in all_disable
+    gc.no_power_development_mode = os.getenv("NO_POWER_DEVELOPMENT_MODE", "0") == "1"
+    if gc.no_power_development_mode:
+        gc.disable_chute = True
+        gc.disable_servos = True
     gc.use_channel_bus = os.getenv("USE_CHANNEL_BUS", "0") == "1"
     gc.region_provider = RegionProviderType.HANDDRAWN
 
     log_dir = os.path.join(os.path.dirname(__file__), "..", "..", "logs")
     os.makedirs(log_dir, exist_ok=True)
+    if os.getenv("BRICKOGNIZE_DUMP_IMAGES", "0") == "1":
+        gc.brickognize_dump_root = Path(log_dir).resolve() / "brickognize" / gc.run_id
+    if os.getenv("CLASSIFICATION_BURST_DUMP_IMAGES", "0") == "1":
+        gc.classification_burst_dump_root = Path(log_dir).resolve() / "classification_burst" / gc.run_id
+    # Cheap-but-careful: writes 1 full 4K frame + 1 crop per capture during a
+    # carousel sweep when set. JPEG quality is intentionally moderate (80) and
+    # writes are guarded so the rotation hot path stays cheap. Use a temp dir
+    # under software/logs/ that survives across runs by gc.run_id.
+    if os.getenv("CLASSIFICATION_SKEW_DUMP_IMAGES", "0") == "1":
+        gc.classification_skew_dump_root = Path(log_dir).resolve() / "classification_skew" / gc.run_id
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.logger = Logger(gc.debug_level, log_file=log_file)
     gc.profiler = Profiler(

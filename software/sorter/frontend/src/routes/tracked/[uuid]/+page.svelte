@@ -62,14 +62,13 @@
 		if (found !== null) _stickyPiece = found;
 	});
 
-	// Kick off the persistent-lookup fetch when the piece isn't in the live
-	// buffer. We avoid refetching by gating on `_fetchStatus === 'idle'` —
-	// the UUID-change effect resets it back to 'idle'.
-	$effect(() => {
-		if (_stickyPiece !== null) return;
-		if (_fetchStatus !== 'idle') return;
-		const targetUuid = uuid;
-		_fetchStatus = 'loading';
+		// Kick off one persistent-lookup fetch per UUID even if the piece is still
+		// live in the WS buffer. The live payload intentionally stays lightweight;
+		// this fetch carries the heavier detail-only fields for this route.
+		$effect(() => {
+			if (_fetchStatus !== 'idle') return;
+			const targetUuid = uuid;
+			_fetchStatus = 'loading';
 		void fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(targetUuid)}`)
 			.then(async (res) => {
 				// Ignore stale responses — the user may have navigated away.
@@ -131,7 +130,7 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	type CropEntry = { src: string; role: string; ts: number | null; used: boolean };
+	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number };
 
 	// --- Tracker-backed crop fetch ----------------------------------------
 	// The "Captured Crops" gallery used to surface just top/bottom/thumbnail.
@@ -245,7 +244,7 @@
 	// A crop's identity is (ts | src) + used flag. Top/bottom snapshots have
 	// no captured_ts, so we fall back to the full src string for keying.
 	function cropKey(c: CropEntry): string {
-		return `${c.ts ?? c.src}`;
+		return `${c.role}|${c.ts ?? 'no-ts'}|${c.src}`;
 	}
 
 	let _cachedCrops = $state<CropEntry[]>([]);
@@ -274,9 +273,9 @@
 		const entries: CropEntry[] = [];
 		const usedList = _cachedUsedTs;
 
-		if (trackDetail) {
-			for (const seg of trackDetail.segments ?? []) {
-				for (const snap of seg.sector_snapshots ?? []) {
+			if (trackDetail) {
+				for (const seg of trackDetail.segments ?? []) {
+					for (const snap of seg.sector_snapshots ?? []) {
 					const src = dataImageUrl(snap.piece_jpeg_b64 ?? snap.jpeg_b64);
 					if (!src) continue;
 					entries.push({
@@ -286,10 +285,26 @@
 						used: snap.captured_ts != null ? tsWasUsed(snap.captured_ts, usedList) : false
 					});
 				}
+				}
 			}
-		}
 
-		// Keep the classification chamber top/bottom snapshots as a fallback;
+			const recog = _fetchedPiece?.recognition_images ?? [];
+			let recogSeq = 0;
+			for (const recognition_image of recog) {
+				const src = dataImageUrl(recognition_image);
+				if (!src) continue;
+				recogSeq += 1;
+				entries.push({
+					src,
+					role: 'recognition_capture',
+					ts: null,
+					used: false,
+					seq: recogSeq,
+					total: recog.length
+				});
+			}
+
+			// Keep the classification chamber top/bottom snapshots as a fallback;
 		// they aren't in the tracker history (they come from the snapping
 		// station, not the polar tracker).
 		const top = dataImageUrl(piece.top_image);
@@ -406,12 +421,20 @@
 	}
 
 	function formatRole(role: string): string {
+		if (role === 'recognition_capture') return 'Recognition Capture';
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
 		if (role === 'c_channel_2') return 'C-Channel 2';
 		if (role === 'c_channel_3') return 'C-Channel 3';
 		return role;
+	}
+
+	function formatCropLabel(crop: CropEntry): string {
+		if (crop.role === 'recognition_capture' && crop.seq && crop.total) {
+			return `Burst ${crop.seq}/${crop.total}`;
+		}
+		return formatRole(crop.role);
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
@@ -694,14 +717,14 @@
 									class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
 										crop.used ? 'border-2 border-primary' : 'border border-border'
 									}`}
-									title={crop.used ? 'Shipped to Brickognize for classification' : formatRole(crop.role)}
-									onclick={() => (zoomImage = { src: crop.src, label: formatRole(crop.role) })}
+									title={crop.used ? 'Shipped to Brickognize for classification' : formatCropLabel(crop)}
+									onclick={() => (zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
 								>
 									<div class="relative aspect-square w-full bg-white">
 										<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
 									</div>
 									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-										<span>{formatRole(crop.role)}</span>
+										<span>{formatCropLabel(crop)}</span>
 										<span class="tabular-nums">{formatAbsTs(crop.ts)}</span>
 									</div>
 								</button>

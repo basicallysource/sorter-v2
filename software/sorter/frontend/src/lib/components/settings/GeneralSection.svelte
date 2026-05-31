@@ -4,7 +4,7 @@
 	import type { MachineState } from '$lib/machines/types';
 	import { settings } from '$lib/stores/settings';
 
-	type MachineSetup = 'classification_channel' | 'manual_carousel';
+	type MachineSetup = 'standard_carousel' | 'classification_channel' | 'manual_carousel';
 
 	type MachineSetupCard = {
 		key: MachineSetup;
@@ -19,14 +19,21 @@
 			title: 'Classification Channel',
 			description: 'C-Channels + Classification Channel',
 			detail:
-				'Standard automatic path: C-channel feeding into a dedicated classification C-channel (C4) on the carousel motor port.'
+				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.'
+		},
+		{
+			key: 'standard_carousel',
+			title: 'Carousel Setup',
+			description: 'FIDA + Carousel + Classification Chamber',
+			detail:
+				'Uses the current automatic path with C-channel feeding, carousel handoff, and chamber classification.'
 		},
 		{
 			key: 'manual_carousel',
 			title: 'Manual Carousel Feed',
 			description: 'Operator-fed carousel',
 			detail:
-				'Operators place parts directly into the carousel while the downstream classification path stays unchanged. No automatic feeder orchestration.'
+				'Skips automatic feeder orchestration and waits for manual part placement into the carousel dropzone.'
 		}
 	];
 
@@ -43,6 +50,16 @@
 	let savingMachineSetup = $state(false);
 	let machineSetupError = $state<string | null>(null);
 	let machineSetupStatus = $state('');
+
+	let classificationMode = $state('simple_state_machine_rev01');
+	let savingClassificationMode = $state(false);
+	let classificationModeError = $state<string | null>(null);
+	let classificationModeStatus = $state('');
+
+	let feederMode = $state('go_to_angle_rev01');
+	let savingFeederMode = $state(false);
+	let feederModeError = $state<string | null>(null);
+	let feederModeStatus = $state('');
 
 	function handleConnect() {
 		manager.connect(url);
@@ -95,14 +112,33 @@
 	}
 
 	function normalizeMachineSetup(value: unknown): MachineSetup {
-		return value === 'manual_carousel' ? 'manual_carousel' : 'classification_channel';
+		return value === 'standard_carousel' || value === 'manual_carousel'
+			? value
+			: 'classification_channel';
+	}
+
+	function classificationModeLabel(mode: string): string {
+		const labels: Record<string, string> = {
+			simple_state_machine_rev01: 'Simple State Machine',
+			classic_carousel: 'Classic Carousel',
+			dynamic: 'Dynamic'
+		};
+		return labels[mode] ?? mode;
+	}
+
+	function feederModeLabel(mode: string): string {
+		const labels: Record<string, string> = {
+			go_to_angle_rev01: 'Go to Angle',
+			drop_zone_reactive_rev01: 'Drop Zone Reactive'
+		};
+		return labels[mode] ?? mode;
 	}
 
 	async function loadMachineSetup() {
 		const machine = manager.selectedMachine;
 		const httpBase = machineHttpBase(machine);
 		if (!machine || !httpBase) {
-			machineSetup = 'classification_channel';
+			machineSetup = 'standard_carousel';
 			return;
 		}
 
@@ -118,6 +154,74 @@
 			machineSetupError = e.message ?? 'Failed to load machine setup';
 		} finally {
 			loadingMachineSetup = false;
+		}
+	}
+
+	async function loadSubsystemModes() {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) return;
+		try {
+			const [cRes, fRes] = await Promise.all([
+				fetch(`${httpBase}/api/classification-channel-mode`),
+				fetch(`${httpBase}/api/feeder-subsystem-mode`)
+			]);
+			if (cRes.ok) {
+				const d = await cRes.json();
+				classificationMode = d.mode;
+			}
+			if (fRes.ok) {
+				const d = await fRes.json();
+				feederMode = d.mode;
+			}
+		} catch {}
+	}
+
+	async function saveClassificationMode(mode: string) {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) return;
+		savingClassificationMode = true;
+		classificationModeError = null;
+		classificationModeStatus = '';
+		try {
+			const res = await fetch(`${httpBase}/api/classification-channel-mode`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ mode })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			classificationMode = data.mode;
+			classificationModeStatus = 'Saved. Restart the backend for changes to take effect.';
+		} catch (e: any) {
+			classificationModeError = e.message ?? 'Failed to save classification mode';
+		} finally {
+			savingClassificationMode = false;
+		}
+	}
+
+	async function saveFeederMode(mode: string) {
+		const machine = manager.selectedMachine;
+		const httpBase = machineHttpBase(machine);
+		if (!machine || !httpBase) return;
+		savingFeederMode = true;
+		feederModeError = null;
+		feederModeStatus = '';
+		try {
+			const res = await fetch(`${httpBase}/api/feeder-subsystem-mode`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ mode })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			feederMode = data.mode;
+			feederModeStatus = 'Saved. Restart the backend for changes to take effect.';
+		} catch (e: any) {
+			feederModeError = e.message ?? 'Failed to save feeder mode';
+		} finally {
+			savingFeederMode = false;
 		}
 	}
 
@@ -141,7 +245,10 @@
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
 			machineSetup = normalizeMachineSetup(data.setup);
-			machineSetupStatus = 'Machine setup saved. Reset and re-home the machine before running.';
+			machineSetupStatus =
+				data?.machine_setup?.runtime_supported === false
+					? 'Machine setup saved. Reset and re-home the machine before running. Runtime support for this experimental setup is still in progress.'
+					: 'Machine setup saved. Reset and re-home the machine before running.';
 		} catch (e: any) {
 			machineSetupError = e.message ?? 'Failed to save machine setup';
 		} finally {
@@ -157,13 +264,14 @@
 			nameSaving = false;
 			nameError = null;
 			nameStatus = '';
-			machineSetup = 'classification_channel';
+			machineSetup = 'standard_carousel';
 			loadingMachineSetup = false;
 			savingMachineSetup = false;
 			machineSetupError = null;
 			machineSetupStatus = '';
 			if (machineId) {
 				void loadMachineSetup();
+				void loadSubsystemModes();
 			}
 		}
 	});
@@ -281,7 +389,7 @@
 					Choose which physical sorter topology this machine is currently wired and built for. The
 					selected setup controls which hardware path is expected and which homing rules apply.
 				</div>
-				<div class="grid gap-2 lg:grid-cols-2">
+				<div class="grid gap-2 lg:grid-cols-3">
 					{#each MACHINE_SETUP_CARDS as card}
 						<button
 							onclick={() => saveMachineSetup(card.key)}
@@ -300,10 +408,6 @@
 						</button>
 					{/each}
 				</div>
-				<div class="text-xs text-text-muted">
-					Changing the machine setup persists to the machine TOML and takes effect after `Reset` and
-					`Re-Home`.
-				</div>
 				{#if machineSetupError}
 					<div class="text-sm text-danger dark:text-red-400">{machineSetupError}</div>
 				{:else if machineSetupStatus}
@@ -311,6 +415,71 @@
 				{:else if loadingMachineSetup}
 					<div class="text-sm text-text-muted">Loading current machine setup...</div>
 				{/if}
+
+				<div class="mt-4 flex flex-col gap-4">
+					<div>
+						<div class="mb-1.5 text-xs font-medium text-text">Classification Channel Mode</div>
+						<div class="flex flex-wrap gap-2">
+							{#each ['simple_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
+								<button
+									onclick={() => saveClassificationMode(mode)}
+									disabled={savingClassificationMode}
+									class={`flex items-center gap-1.5 border px-3 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+										classificationMode === mode
+											? 'border-primary bg-primary/10 text-text'
+											: 'border-border bg-bg text-text hover:bg-surface'
+									}`}
+								>
+									{classificationModeLabel(mode)}
+									{#if mode === 'simple_state_machine_rev01'}
+										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
+											default
+										</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+						{#if classificationModeError}
+							<div class="mt-1 text-xs text-danger">{classificationModeError}</div>
+						{:else if classificationModeStatus}
+							<div class="mt-1 text-xs text-text-muted">{classificationModeStatus}</div>
+						{/if}
+					</div>
+
+					<div>
+						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
+						<div class="flex flex-wrap gap-2">
+							{#each ['go_to_angle_rev01', 'drop_zone_reactive_rev01'] as mode}
+								<button
+									onclick={() => saveFeederMode(mode)}
+									disabled={savingFeederMode}
+									class={`flex items-center gap-1.5 border px-3 py-1.5 text-xs transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+										feederMode === mode
+											? 'border-primary bg-primary/10 text-text'
+											: 'border-border bg-bg text-text hover:bg-surface'
+									}`}
+								>
+									{feederModeLabel(mode)}
+									{#if mode === 'go_to_angle_rev01'}
+										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
+											default
+										</span>
+									{/if}
+								</button>
+							{/each}
+						</div>
+						{#if feederModeError}
+							<div class="mt-1 text-xs text-danger">{feederModeError}</div>
+						{:else if feederModeStatus}
+							<div class="mt-1 text-xs text-text-muted">{feederModeStatus}</div>
+						{/if}
+					</div>
+
+					<div class="text-xs text-text-muted">
+						Changing the machine setup persists to the machine TOML and takes effect after Reset and
+						Re-Home.
+					</div>
+				</div>
 			</div>
 		{:else}
 			<div class="text-sm text-text-muted">

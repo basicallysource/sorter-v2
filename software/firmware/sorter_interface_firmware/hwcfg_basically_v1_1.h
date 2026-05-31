@@ -24,7 +24,8 @@ const char* const STEPPER_NAMES[] = {
 };
 #endif
 
-const uint8_t TMC_UART_BUS_COUNT = 1;
+// Preprocessor macro, not a const — gates `#if TMC_UART_BUS_COUNT > 1` (see v1_2).
+#define TMC_UART_BUS_COUNT 1
 uart_inst_t* const TMC_UART_BUSES[] = {uart0};
 const int TMC_UART_BUS_TX_PINS[] = {16};
 const int TMC_UART_BUS_RX_PINS[] = {17};
@@ -34,6 +35,11 @@ const uint8_t TMC_UART_BUS_INDEX[] = {0, 0, 0, 0};
 const uint8_t TMC_UART_ADDRESSES[] = {0, 1, 2, 3};
 
 const int STEPPER_nEN_PINS[] = {0, 0, 0, 0};
+
+// V1.1 does not have board-native DIAG routing in the checked-in hardware docs.
+// If DIAG is needed, wire jumpers from the driver DIAG pins to these Pico GPIOs.
+// This is a firmware convention for custom-wired V1.1 boards, not native PCB routing.
+const int STEPPER_DIAG_PINS[] = {1, 2, 3, 4};
 
 const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {9, 8, 13, 12};

@@ -16,6 +16,7 @@
 	import StepperDriverSettings from './stepper/StepperDriverSettings.svelte';
 	import StepperEndstopSettings from './stepper/StepperEndstopSettings.svelte';
 	import StepperChuteOperation from './stepper/StepperChuteOperation.svelte';
+	import StepperChuteStressTest from './stepper/StepperChuteStressTest.svelte';
 
 	let {
 		stepperKey,
@@ -57,6 +58,9 @@
 	let currentPositionDegrees = $state<number | null>(null);
 	let stepperMicrosteps = $state<number | null>(null);
 	let stepperStopped = $state<boolean | null>(null);
+	let chuteOutputAngle = $state<number | null>(null);
+	let chuteStepperDegrees = $state<number | null>(null);
+	let chuteHomed = $state<boolean | null>(null);
 	let liveRequestInFlight = false;
 
 	// --- Stepper control (persisted per stepper) ---
@@ -108,6 +112,9 @@
 	let tmcMicrosteps = $state(8);
 	let tmcStealthchop = $state(true);
 	let tmcCoolstep = $state(false);
+	let sgEnabled = $state(false);
+	let sgThrs = $state(50);
+	let sgTcoolthrs = $state(150);
 	let tmcDrvStatus = $state<Record<string, any> | null>(null);
 	let tmcLoading = $state(false);
 	let tmcSaving = $state(false);
@@ -234,6 +241,17 @@
 					? payload.stepper_direction_inverted
 					: stepperDirectionInverted;
 		}
+		// chute-specific fields
+		chuteOutputAngle =
+			typeof payload?.current_angle === 'number' && Number.isFinite(payload.current_angle)
+				? payload.current_angle
+				: null;
+		chuteStepperDegrees =
+			typeof payload?.stepper_position_degrees === 'number' &&
+			Number.isFinite(payload.stepper_position_degrees)
+				? payload.stepper_position_degrees
+				: null;
+		chuteHomed = typeof payload?.homed === 'boolean' ? payload.homed : null;
 	}
 
 	async function loadSettings() {
@@ -519,6 +537,11 @@
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
 			if (data.stealthchop !== null) tmcStealthchop = data.stealthchop;
 			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
+			if (data.stallguard) {
+				sgEnabled = !!data.stallguard.enabled;
+				if (typeof data.stallguard.sgthrs === 'number') sgThrs = data.stallguard.sgthrs;
+				if (typeof data.stallguard.tcoolthrs === 'number') sgTcoolthrs = data.stallguard.tcoolthrs;
+			}
 			tmcDrvStatus = data.drv_status ?? null;
 			tmcLoaded = true;
 		} catch {
@@ -557,6 +580,23 @@
 			if (data.stealthchop !== null) tmcStealthchop = data.stealthchop;
 			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
 			tmcDrvStatus = data.drv_status ?? null;
+
+			const sgRes = await fetch(
+				`${currentBackendBaseUrl()}/stepper/${stepperKey}/stallguard-config`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						sgthrs: sgThrs,
+						tcoolthrs: sgTcoolthrs,
+						enabled: sgEnabled
+					})
+				}
+			);
+			if (!sgRes.ok) {
+				errorMsg = await readErrorMessage(sgRes);
+				return;
+			}
 			statusMsg = 'Driver settings applied.';
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to save driver settings';
@@ -605,7 +645,6 @@
 		void loadSettings();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();
-			void refreshDrvStatus();
 		}, 500);
 		return () => clearInterval(interval);
 	});
@@ -632,14 +671,31 @@
 					<span
 						>{stepperStopped === null ? '--' : stepperStopped ? 'Stopped' : 'Moving'}</span
 					>
-					<span>·</span>
-					<span>{formatNumber(currentPositionDegrees)}°</span>
-					<span>·</span>
-					<span>{stepperMicrosteps ?? '--'} µs</span>
+					{#if isChute}
+						<span>·</span>
+						<span>Chute {formatNumber(chuteOutputAngle)}°</span>
+						<span>·</span>
+						<span>Motor {formatNumber(chuteStepperDegrees)}°</span>
+						<span>·</span>
+						<span>{stepperMicrosteps ?? '--'} µs</span>
+					{:else}
+						<span>·</span>
+						<span>{formatNumber(currentPositionDegrees)}°</span>
+						<span>·</span>
+						<span>{stepperMicrosteps ?? '--'} µs</span>
+					{/if}
 				</div>
+				{#if isChute}
+					<div class="mt-1 text-xs text-text-muted">
+						Gear ratio {gearRatio.toFixed(2)}× ({chuteStepperDegrees !== null && chuteOutputAngle !== null ? `${formatNumber(chuteStepperDegrees, 1)}° ÷ ${gearRatio.toFixed(2)} = ${formatNumber(chuteOutputAngle, 1)}°` : 'motor ÷ ratio = chute'})
+					</div>
+					<div class="mt-0.5 text-xs {chuteHomed === true ? 'text-success dark:text-green-400' : chuteHomed === false ? 'text-warning' : 'text-text-muted'}">
+						{chuteHomed === true ? 'Homed' : chuteHomed === false ? 'Not homed' : 'Homed: --'}
+					</div>
+				{/if}
 				{#if hasEndstop && endstopTriggered !== null}
 					<div
-						class="mt-1 text-xs {endstopTriggered
+						class="mt-0.5 text-xs {endstopTriggered
 							? 'text-success dark:text-green-400'
 							: 'text-text-muted'}"
 					>
@@ -695,6 +751,10 @@
 			/>
 		{/if}
 
+		{#if isChute}
+			<StepperChuteStressTest operatingSpeed={chuteOperatingSpeed} />
+		{/if}
+
 		<StepperDriverSettings
 			bind:open={driverSettingsOpen}
 			loading={tmcLoading}
@@ -705,6 +765,9 @@
 			bind:tmcMicrosteps
 			bind:tmcStealthchop
 			bind:tmcCoolstep
+			bind:sgEnabled
+			bind:sgThrs
+			bind:sgTcoolthrs
 			bind:stepperDirectionInverted
 			{tmcDrvStatus}
 			onToggle={() => {

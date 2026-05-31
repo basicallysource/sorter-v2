@@ -10,22 +10,30 @@
 	import { Check } from 'lucide-svelte';
 
 	const selected = $derived(getCurrentThemeColorId());
+	let hovered = $state<string | null>(null);
 
 	function handlePick(colorId: string): void {
 		void setThemeColor(colorId);
 	}
+
+	const displayName = $derived(
+		LEGO_COLORS.find((c) => c.id === (hovered ?? selected))?.name ?? '—'
+	);
+	const isHovering = $derived(hovered !== null && hovered !== selected);
 </script>
 
-<div class="grid grid-cols-5 gap-1.5 sm:grid-cols-8 md:grid-cols-10">
+<div class="grid gap-1" style="grid-template-columns: repeat(auto-fill, minmax(1.5rem, 1fr));">
 	{#each LEGO_COLORS as color (color.id)}
 		{@const isActive = selected === color.id}
 		<button
 			type="button"
 			title={color.name}
 			onclick={() => handlePick(color.id)}
+			onmouseenter={() => (hovered = color.id)}
+			onmouseleave={() => (hovered = null)}
 			aria-pressed={isActive}
 			aria-label={color.name}
-			class="group relative flex aspect-square flex-col items-center justify-center text-center transition-transform hover:scale-105"
+			class="group relative flex h-6 w-full items-center justify-center transition-transform hover:scale-110"
 			style="background-color: {color.hex}; color: {color.contrast === 'white' ? '#ffffff' : '#000000'};"
 		>
 			{#if isActive}
@@ -40,5 +48,5 @@
 </div>
 
 <div class="mt-3 text-xs text-text-muted">
-	Picked: <span class="font-medium text-text">{LEGO_COLORS.find((c) => c.id === selected)?.name ?? '—'}</span>
+	{isHovering ? '' : 'Picked:'} <span class="font-medium text-text">{displayName}</span>
 </div>

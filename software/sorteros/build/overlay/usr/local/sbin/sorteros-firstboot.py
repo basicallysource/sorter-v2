@@ -580,8 +580,8 @@ def stage_clone_repo() -> None:
         return
     branch_file = Path("/etc/sorteros/branch")
     branch = branch_file.read_text().strip() if branch_file.exists() else "main"
-    sh(["git", "clone", "--branch", branch, "--depth", "1",
-        "https://github.com/basicallysource/sorter-v2", str(REPO_DIR)])
+    sh(["git", "clone", "https://github.com/basicallysource/sorter-v2", str(REPO_DIR)])
+    sh(["git", "-C", str(REPO_DIR), "checkout", branch])
     sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)])
 
 

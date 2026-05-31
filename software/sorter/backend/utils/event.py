@@ -39,6 +39,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             brickognize_preview_url=obj.brickognize_preview_url,
             brickognize_source_view=obj.brickognize_source_view,
             recognition_used_crop_ts=list(obj.recognition_used_crop_ts or []),
+            recognition_images=list(obj.recognition_images or []),
             feeding_started_at=obj.feeding_started_at,
             carousel_detected_confirmed_at=obj.carousel_detected_confirmed_at,
             first_carousel_seen_ts=obj.first_carousel_seen_ts,

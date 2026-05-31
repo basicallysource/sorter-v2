@@ -1,6 +1,5 @@
 import time
 import threading
-import atexit
 from dataclasses import dataclass
 from typing import Optional
 
@@ -75,18 +74,6 @@ class Profiler:
         self._state_start_s: dict[str, float] = {}
         self._state_name: dict[str, str] = {}
         self._active_timers: dict[tuple[str, str], float] = {}
-
-        self._running = False
-        self._report_thread: Optional[threading.Thread] = None
-
-        if self.enabled:
-            self._running = True
-            self._report_thread = threading.Thread(
-                target=self._reportLoop,
-                daemon=True,
-            )
-            self._report_thread.start()
-            atexit.register(self.stop)
 
     def timer(self, name: str) -> _TimerContext:
         return _TimerContext(self, name)
@@ -227,14 +214,78 @@ class Profiler:
             self._counters[name] = stat
         stat.count += count
 
-    def _reportLoop(self) -> None:
-        while self._running:
-            time.sleep(self.report_interval_s)
-            if not self._running:
-                break
-            report = self.getReport()
-            if report:
-                print(report)
+    def snapshotRows(self) -> list[dict[str, float | int | str | None]]:
+        if not self.enabled:
+            return []
+
+        with self._lock:
+            durations = list(self._durations.items())
+            counters = list(self._counters.items())
+            values = list(self._values.items())
+            intervals = list(self._intervals.items())
+
+        rows: list[dict[str, float | int | str | None]] = []
+        for name, stat in durations:
+            rows.append(
+                {
+                    "metric_kind": "duration",
+                    "metric_name": name,
+                    "count": stat.count,
+                    "total_ms": stat.total_ms,
+                    "min_ms": stat.min_ms if stat.count else None,
+                    "max_ms": stat.max_ms if stat.count else None,
+                    "last_ms": stat.last_ms if stat.count else None,
+                    "total_value": None,
+                    "max_value": None,
+                    "last_value": None,
+                }
+            )
+        for name, stat in counters:
+            rows.append(
+                {
+                    "metric_kind": "counter",
+                    "metric_name": name,
+                    "count": stat.count,
+                    "total_ms": None,
+                    "min_ms": None,
+                    "max_ms": None,
+                    "last_ms": None,
+                    "total_value": None,
+                    "max_value": None,
+                    "last_value": None,
+                }
+            )
+        for name, stat in values:
+            rows.append(
+                {
+                    "metric_kind": "value",
+                    "metric_name": name,
+                    "count": stat.count,
+                    "total_ms": None,
+                    "min_ms": None,
+                    "max_ms": None,
+                    "last_ms": None,
+                    "total_value": stat.total,
+                    "max_value": stat.max_value,
+                    "last_value": stat.last_value,
+                }
+            )
+        for name, stat in intervals:
+            rows.append(
+                {
+                    "metric_kind": "interval",
+                    "metric_name": name,
+                    "count": stat.count,
+                    "total_ms": stat.total_ms,
+                    "min_ms": None,
+                    "max_ms": stat.max_ms if stat.count else None,
+                    "last_ms": stat.last_ms if stat.count else None,
+                    "total_value": None,
+                    "max_value": None,
+                    "last_value": None,
+                }
+            )
+        return rows
 
     def getReport(self) -> str:
         if not self.enabled:
@@ -286,6 +337,4 @@ class Profiler:
         return "\n".join(lines)
 
     def stop(self) -> None:
-        if not self.enabled:
-            return
-        self._running = False
+        return

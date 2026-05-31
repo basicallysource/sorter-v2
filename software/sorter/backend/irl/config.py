@@ -1,6 +1,18 @@
+import enum
 import os
 import time
 from dataclasses import dataclass
+
+
+class ClassificationChannelMode(enum.Enum):
+    CLASSIC_CAROUSEL = "classic_carousel"
+    DYNAMIC = "dynamic"
+    SIMPLE_STATE_MACHINE_REV01 = "simple_state_machine_rev01"
+
+
+class FeederMode(enum.Enum):
+    DROP_ZONE_REACTIVE_REV01 = "drop_zone_reactive_rev01"
+    GO_TO_ANGLE_REV01 = "go_to_angle_rev01"
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -49,6 +61,7 @@ from .parse_user_toml import (
     loadCameraLayoutConfig,
     loadGpioLedsConfig,
     applyStepperCurrentOverride,
+    applyStepperStallguard,
 )
 from blob_manager import getBinCategories
 from local_state import get_servo_states, set_servo_states
@@ -114,6 +127,9 @@ def restore_servo_states(servos: list, gc: GlobalConfig) -> None:
             continue
         was_open = entry.get("is_open")
         if was_open is None:
+            continue
+        if not getattr(servo, "is_calibrated", True):
+            # Uncalibrated PWM servos must not move on boot.
             continue
         try:
             if was_open:
@@ -195,13 +211,29 @@ class CameraColorProfile:
         self.gamma_b = gamma_b
 
 
+# Matches the firmware's Stepper constructor default (`_accel(10000)` in
+# Stepper.cpp). The firmware keeps acceleration as mutable per-motor state that
+# is not reliably at this value at runtime, so the backend is authoritative: it
+# stores a per-stepper default here and re-applies it before every move (see
+# StepperMotor.move_*; jitter is the only exception, it manages its own).
+# Change this one value to retune the acceleration of every stepper at once.
+FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ = 10000
+
+
 class StepperConfig:
     default_steps_per_second: int
     microsteps: int
+    acceleration_microsteps_per_second_sq: int
 
-    def __init__(self, default_steps_per_second: int = 2000, microsteps: int = 8):
+    def __init__(
+        self,
+        default_steps_per_second: int = 2000,
+        microsteps: int = 8,
+        acceleration_microsteps_per_second_sq: int = FIRMWARE_DEFAULT_ACCELERATION_MICROSTEPS_PER_SECOND_SQ,
+    ):
         self.default_steps_per_second = default_steps_per_second
         self.microsteps = microsteps
+        self.acceleration_microsteps_per_second_sq = acceleration_microsteps_per_second_sq
 
 
 class RotorPulseConfig:
@@ -247,7 +279,7 @@ class ClassificationChannelExitReleaseStage:
 
 
 class ClassificationChannelConfig:
-    use_dynamic_zones: bool
+    mode: ClassificationChannelMode
     max_zones: int
     intake_angle_deg: float
     intake_body_half_width_deg: float
@@ -278,7 +310,7 @@ class ClassificationChannelConfig:
     post_distribute_cooldown_s: float
 
     def __init__(self) -> None:
-        self.use_dynamic_zones = True
+        self.mode = ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
         # Keep C4 pipelined instead of serialised: target one piece in the
         # intake/drop zone and three more spread across the platter on the way
         # to the exit. Zone hard-guards still prevent same-sector loading.
@@ -456,6 +488,7 @@ class ClassificationChannelConfig:
 
 
 class FeederConfig:
+    mode: FeederMode
     first_rotor: RotorPulseConfig
     second_rotor_normal: RotorPulseConfig
     second_rotor_precision: RotorPulseConfig
@@ -470,6 +503,7 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
+        self.mode = FeederMode.GO_TO_ANGLE_REV01
         self.first_rotor = RotorPulseConfig(
             steps=100,
             microsteps_per_second=2000,
@@ -891,6 +925,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     # Check for TOML camera layout override
     import os
     from toml_config import loadTomlFile
+    from .toml_migrations import applyTomlMigrations
     camera_layout_type = "default"
     feeding_mode = "auto_channels"
     machine_setup_key = DEFAULT_MACHINE_SETUP
@@ -898,6 +933,7 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
     if params_path and os.path.exists(params_path):
         raw_toml = loadTomlFile(params_path)
+        applyTomlMigrations(raw_toml)
         cameras_section = raw_toml.get("cameras", {})
         if isinstance(cameras_section, dict):
             camera_layout_type = cameras_section.get("layout", "default")
@@ -975,6 +1011,32 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     irl_config.feeding_mode = feeding_mode
     irl_config.machine_setup = machine_setup
 
+    classification_section = raw_toml.get("classification_channel", {}) if isinstance(raw_toml, dict) else {}
+    if isinstance(classification_section, dict):
+        mode_raw = classification_section.get("mode")
+        if isinstance(mode_raw, str) and mode_raw.strip():
+            try:
+                irl_config.classification_channel_config.mode = ClassificationChannelMode(
+                    mode_raw.strip()
+                )
+            except ValueError:
+                valid = ", ".join(m.value for m in ClassificationChannelMode)
+                raise ValueError(
+                    f"Invalid classification_channel.mode={mode_raw!r} in machine.toml; valid values: {valid}"
+                )
+
+    feeder_section = raw_toml.get("feeder", {}) if isinstance(raw_toml, dict) else {}
+    if isinstance(feeder_section, dict):
+        feeder_mode_raw = feeder_section.get("mode")
+        if isinstance(feeder_mode_raw, str) and feeder_mode_raw.strip():
+            try:
+                irl_config.feeder_config.mode = FeederMode(feeder_mode_raw.strip())
+            except ValueError:
+                valid = ", ".join(m.value for m in FeederMode)
+                raise ValueError(
+                    f"Invalid feeder.mode={feeder_mode_raw!r} in machine.toml; valid values: {valid}"
+                )
+
     if camera_layout_type == "split_feeder":
         # split_feeder: per-channel cameras from TOML, no single feeder or classification
         cameras_section = cast(dict[str, object], raw_toml.get("cameras", {})) if isinstance(raw_toml, dict) else {}
@@ -1002,10 +1064,26 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_settings=_device_settings("c_channel_2"),
                 color_profile=_color_profile("c_channel_2"),
             )
+        elif isinstance(c_ch2_idx, str):
+            irl_config.c_channel_2_camera = _mkCameraConfigForRole(
+                "c_channel_2",
+                url=c_ch2_idx,
+                picture_settings=_picture_settings("c_channel_2"),
+                device_settings=_device_settings("c_channel_2"),
+                color_profile=_color_profile("c_channel_2"),
+            )
         if isinstance(c_ch3_idx, int):
             irl_config.c_channel_3_camera = _mkCameraConfigForRole(
                 "c_channel_3",
                 device_index=c_ch3_idx,
+                picture_settings=_picture_settings("c_channel_3"),
+                device_settings=_device_settings("c_channel_3"),
+                color_profile=_color_profile("c_channel_3"),
+            )
+        elif isinstance(c_ch3_idx, str):
+            irl_config.c_channel_3_camera = _mkCameraConfigForRole(
+                "c_channel_3",
+                url=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
                 device_settings=_device_settings("c_channel_3"),
                 color_profile=_color_profile("c_channel_3"),
@@ -1211,6 +1289,26 @@ def _requiredCanonicalStepperNames(
     ]
 
 
+def _apply_stepper_software_disable(gc: GlobalConfig, irl: IRLInterface) -> None:
+    c_channel_attrs = {
+        1: "c_channel_1_rotor_stepper",
+        2: "c_channel_2_rotor_stepper",
+        3: "c_channel_3_rotor_stepper",
+        4: "c_channel_4_rotor_stepper",
+    }
+    for ch, attr in c_channel_attrs.items():
+        if ch in gc.disable_c_channels:
+            stepper = getattr(irl, attr, None)
+            if stepper is not None:
+                stepper.software_disabled = True
+                gc.logger.info(f"c_channel_{ch} rotor stepper software-disabled (motor suppressed)")
+    if gc.disable_carousel:
+        stepper = getattr(irl, "carousel_stepper", None)
+        if stepper is not None:
+            stepper.software_disabled = True
+            gc.logger.info("Carousel stepper software-disabled (motor suppressed)")
+
+
 def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.
@@ -1224,8 +1322,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     stepper_binding_overrides = loadStepperBindingOverrides(gc, machine_specific_params)
     stepper_current_overrides = machine_config.stepper_current_overrides
     stepper_direction_inverts = loadStepperDirectionInverts(gc, machine_specific_params)
-    servo_open_angle = machine_config.servo_open_angle
-    servo_closed_angle = machine_config.servo_closed_angle
     servo_channel_config = loadServoChannelConfig(gc, machine_specific_params)
     mcu_ports = MCUBus.enumerate_buses()
     required_stepper_names = _requiredCanonicalStepperNames(
@@ -1318,9 +1414,22 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         stepper_config: StepperConfig | None = getattr(config, attr, None)
         stepper.set_hardware_name(physical_name)
         stepper.set_name(attr_base)
+        # Write GCONF to put the TMC2209 in UART-controlled mode. The chip may have
+        # powered on (or reset) after the firmware's own initialize() ran, leaving it
+        # at hardware reset defaults (I_SCALE_ANALOG=1, MSTEP_REG_SELECT=0). Setting
+        # these bits here means the backend init is idempotent regardless of motor
+        # power sequencing.
+        _TMC_GCONF_UART_INIT = 0x1C0  # PD_DISABLE | MSTEP_REG_SELECT | MULTISTEP_FILT
+        _run_stepper_init_command_with_retry(
+            gc,
+            attr_base,
+            "GCONF UART init",
+            lambda: stepper.write_driver_register(0x00, _TMC_GCONF_UART_INIT),
+        )
         if stepper_config is not None:
             microsteps = stepper_config.microsteps
             default_steps_per_second = stepper_config.default_steps_per_second
+            default_acceleration = stepper_config.acceleration_microsteps_per_second_sq
             _run_stepper_init_command_with_retry(
                 gc,
                 attr_base,
@@ -1333,8 +1442,17 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                 f"speed limits min=16 max={default_steps_per_second}",
                 lambda: stepper.set_speed_limits(16, default_steps_per_second),
             )
+            # Record the default so every move re-asserts it, and apply it once
+            # now so the value is correct before the first move (e.g. homing).
+            stepper.set_default_acceleration(default_acceleration)
+            _run_stepper_init_command_with_retry(
+                gc,
+                attr_base,
+                f"acceleration={default_acceleration}",
+                lambda: stepper.set_acceleration(default_acceleration),
+            )
             gc.logger.info(
-                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={microsteps}, speed={default_steps_per_second}"
+                f"Stepper '{attr_base}' (physical '{physical_name}') config: microsteps={microsteps}, speed={default_steps_per_second}, acceleration={default_acceleration}"
             )
         else:
             gc.logger.warn(
@@ -1342,6 +1460,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             )
 
         applyStepperCurrentOverride(stepper, canonical_name, stepper_current_overrides, gc)
+        applyStepperStallguard(stepper, canonical_name, machine_config.stepper_stallguard, gc)
         logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
             stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False
@@ -1368,6 +1487,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         if config.machine_setup.uses_classification_channel:
             irl_interface.classification_channel_rotor_stepper = irl_interface.carousel_stepper
 
+    _apply_stepper_software_disable(gc, irl_interface)
+
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
@@ -1381,8 +1502,6 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.servo_controller = build_servo_controller(
             gc,
             control_boards=control_boards,
-            open_angle=servo_open_angle,
-            closed_angle=servo_closed_angle,
             servo_channel_config=servo_channel_config,
             waveshare_config=waveshare_config,
             mcu_ports=mcu_ports,
@@ -1391,12 +1510,21 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             irl_interface.distribution_layout
         )
         for layer_index, servo in enumerate(irl_interface.servos):
+            if not hasattr(servo, "set_preset_angles"):
+                continue
             layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
             layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
-            open_angle = layer_open if layer_open is not None else servo_open_angle
-            closed_angle = layer_closed if layer_closed is not None else servo_closed_angle
-            if hasattr(servo, "set_preset_angles"):
-                servo.set_preset_angles(open_angle, closed_angle)
+            if layer_open is not None and layer_closed is not None:
+                servo.set_preset_angles(layer_open, layer_closed)
+            if hasattr(servo, "set_motion_speeds"):
+                servo.set_motion_speeds(
+                    machine_config.servo_open_speed,
+                    machine_config.servo_close_speed,
+                    machine_config.servo_homing_speed,
+                )
+                # Start at the standard speed; sorting re-applies open/close
+                # speed per move and homing re-applies the standard speed.
+                servo.apply_homing_speed()
         restore_servo_states(irl_interface.servos, gc)
 
     irl_interface.machine_profile = build_machine_profile(
@@ -1457,8 +1585,9 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.chute_stepper,
         chute_home_pin,
         irl_interface.distribution_layout,
-        first_bin_center=chute_calibration.first_bin_center,
-        pillar_width_deg=chute_calibration.pillar_width_deg,
+        num_sections=chute_calibration.num_sections,
+        section_width_deg=chute_calibration.section_width_deg,
+        first_section_offset_deg=chute_calibration.first_section_offset_deg,
         endstop_active_high=chute_calibration.endstop_active_high,
         operating_speed_microsteps_per_second=chute_calibration.operating_speed_microsteps_per_second,
     )

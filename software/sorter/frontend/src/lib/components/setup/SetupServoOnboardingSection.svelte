@@ -5,6 +5,7 @@
 	import SerialPortPanel from './servo/SerialPortPanel.svelte';
 	import ServoInventoryList from './servo/ServoInventoryList.svelte';
 	import PcaChannelMapping from './servo/PcaChannelMapping.svelte';
+	import ServoLayerCalibrator from '$lib/components/servo/ServoLayerCalibrator.svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
 
@@ -95,6 +96,9 @@
 	// per-layer angle overrides (1-based layer index → angle or empty string for "use global")
 	let openAngleByLayer = $state<Record<number, string>>({});
 	let closedAngleByLayer = $state<Record<number, string>>({});
+
+	// estimated angle after nudge, per layer (1-based) for PCA where no feedback exists
+	let estimatedAngleByLayer = $state<Record<number, number>>({});
 
 	// per-servo UI state
 	let busyByServoId = $state<Record<number, string>>({}); // 'calibrating' | 'moving' | 'promoting'
@@ -419,6 +423,10 @@
 				const text = await res.text();
 				throw new Error(text);
 			}
+			const data = await res.json();
+			if (typeof data.new_angle === 'number') {
+				estimatedAngleByLayer = { ...estimatedAngleByLayer, [layerIdx]: Math.round(data.new_angle) };
+			}
 		} catch (e: any) {
 			errorMsg = e.message ?? `Failed to nudge layer ${layerIdx} servo`;
 		}
@@ -440,6 +448,10 @@
 			if (!res.ok) {
 				const text = await res.text();
 				throw new Error(text);
+			}
+			const data = await res.json();
+			if (typeof data.raw_position === 'number' && data.limits) {
+				busServos = busServos.map(s => s.id === servoId ? { ...s, position: data.raw_position } : s);
 			}
 		} catch (e: any) {
 			errorMsg = e.message ?? `Failed to nudge servo ${servoId}`;
@@ -679,9 +691,22 @@
 	</div>
 
 	{#if !settingsLoaded}
-		<div class="setup-panel px-4 py-6 text-center text-sm text-text-muted">
-			Loading servo configuration…
-		</div>
+		{#if errorMsg}
+			<div class="setup-panel border border-danger bg-primary-light px-4 py-4 text-sm text-[#7A0A0B]">
+				<div class="font-medium">Failed to load servo configuration</div>
+				<div class="mt-1">{errorMsg}</div>
+				<button
+					onclick={() => void loadSettings()}
+					class="mt-3 border border-danger px-3 py-1.5 text-sm font-medium text-[#7A0A0B] transition-colors hover:bg-danger/10"
+				>
+					Retry
+				</button>
+			</div>
+		{:else}
+			<div class="setup-panel px-4 py-6 text-center text-sm text-text-muted">
+				Loading servo configuration…
+			</div>
+		{/if}
 	{:else}
 	<div class="setup-panel p-4">
 		<div class="flex items-start justify-between gap-3">
@@ -749,24 +774,7 @@
 			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}
 		/>
 	{:else}
-		<PcaChannelMapping
-			{layerCount}
-			pcaChoices={pcaChoices()}
-			bind:layerByAssignment
-			{invertByLayer}
-			bind:openAngle
-			bind:closedAngle
-			bind:openAngleByLayer
-			bind:closedAngleByLayer
-			bind:nudgeDegrees
-			{selectedLayerIdx}
-			onSetInvert={setInvertForLayer}
-			onNudgeLayer={(layerIdx, degrees) => void nudgeLayer(layerIdx, degrees)}
-			onSelectLayer={(layerIdx) => {
-				selectedLayerIdx = selectedLayerIdx === layerIdx ? null : layerIdx;
-				selectedServoId = null;
-			}}
-		/>
+		<ServoLayerCalibrator showDirections />
 	{/if}
 
 	<div class="flex flex-wrap items-center gap-3">

@@ -9,10 +9,36 @@ if TYPE_CHECKING:
     from hardware.sorter_interface import StepperMotor, DigitalInputPin
 
 GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
-DEG_PER_SECTION = 60
-FIRST_BIN_CENTER = 8.25
-PILLAR_WIDTH_DEG = 8.25
 CHUTE_MAX_ANGLE = 350
+
+# Chute aiming geometry.
+#
+# The chute rotates within [0, 360) and hits a HARD STOP at either end — it
+# can neither cross zero nor pass 360. So every reachable bin angle must stay
+# inside that arc, and the home switch must sit such that the trailing margin
+# of the last section still fits before 360.
+#
+# The geometry is described by three calibrated invariants, all of which are
+# bin-count INDEPENDENT (this is what lets one calibration serve 1/2/3/5-bin
+# layers alike):
+#   - num_sections (N): how many bin sections tile the circle. The section
+#     pitch — first-bin to first-bin across adjacent sections — is 360 / N.
+#   - section_width_deg (W): the usable angular arc one section's bins occupy.
+#     The physical pillar between sections is therefore (360/N - W).
+#   - first_section_offset_deg (theta0): home-zero to the START edge of
+#     section 0's usable arc. From home the chute turns clockwise this far to
+#     reach the leading edge of the first section.
+#
+# Within a section of K bins, bins are equal-width slots and we aim at each
+# slot's MIDPOINT:
+#     bin_center = theta0 + section*(360/N) + (i + 0.5)*(W / K)
+# The (i + 0.5) term is what centers a 1-bin layer and splits 2/3/5-bin
+# layers evenly from the same W. See the agent-notes task
+# "chute-aiming-calibration" for the full derivation and the calibration
+# routine that measures theta0 and W.
+DEFAULT_NUM_SECTIONS = 6
+DEFAULT_SECTION_WIDTH_DEG = 51.75  # = 360/6 - 8.25 (legacy 60° pitch minus 8.25° pillar)
+DEFAULT_FIRST_SECTION_OFFSET_DEG = 8.25
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
@@ -32,8 +58,9 @@ class Chute:
         stepper: "StepperMotor",
         home_pin: "DigitalInputPin",
         layout: DistributionLayout,
-        first_bin_center: float = FIRST_BIN_CENTER,
-        pillar_width_deg: float = PILLAR_WIDTH_DEG,
+        num_sections: int = DEFAULT_NUM_SECTIONS,
+        section_width_deg: float = DEFAULT_SECTION_WIDTH_DEG,
+        first_section_offset_deg: float = DEFAULT_FIRST_SECTION_OFFSET_DEG,
         endstop_active_high: bool = True,
         operating_speed_microsteps_per_second: int = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC,
     ):
@@ -42,14 +69,40 @@ class Chute:
         self.stepper = stepper
         self.home_pin = home_pin
         self.layout = layout
-        self.first_bin_center = first_bin_center
-        self.pillar_width_deg = pillar_width_deg
+        self.num_sections = max(1, int(num_sections))
+        self.section_width_deg = float(section_width_deg)
+        self.first_section_offset_deg = float(first_section_offset_deg)
         self.endstop_active_high = endstop_active_high
         self.operating_speed_microsteps_per_second = operating_speed_microsteps_per_second
+        self._homed: bool = False
+
+    @property
+    def homed(self) -> bool:
+        return self._homed
+
+    @property
+    def section_pitch_deg(self) -> float:
+        return 360.0 / self.num_sections
+
+    @property
+    def pillar_width_deg(self) -> float:
+        # Derived for display / legacy callers: the dead arc between two
+        # adjacent sections' usable regions.
+        return self.section_pitch_deg - self.section_width_deg
 
     @property
     def usable_deg_per_section(self) -> float:
-        return DEG_PER_SECTION - self.pillar_width_deg
+        return self.section_width_deg
+
+    @property
+    def first_bin_center(self) -> float:
+        # Legacy alias (chute_stress, old settings page): the angle to the
+        # center of bin 0 in section 0, using that section's real bin count.
+        # Falls back to the bare section offset when the layout is empty.
+        angle = self.angleForVirtualBin(
+            0, 0, self._binsInFirstSection(), unclamped=True
+        )
+        return angle if angle is not None else self.first_section_offset_deg
 
     def setCalibration(
         self,
@@ -57,8 +110,26 @@ class Chute:
         pillar_width_deg: float,
         endstop_active_high: bool | None = None,
     ) -> None:
-        self.first_bin_center = first_bin_center
-        self.pillar_width_deg = pillar_width_deg
+        # Legacy entry point (old /settings/chute page). Map the old params
+        # onto the canonical model at the current num_sections: pillar width
+        # becomes the usable section width, and first_bin_center is treated as
+        # the section-0 start offset. Prefer setAimingCalibration for the new
+        # calibration flow.
+        self.section_width_deg = self.section_pitch_deg - float(pillar_width_deg)
+        self.first_section_offset_deg = float(first_bin_center)
+        if endstop_active_high is not None:
+            self.endstop_active_high = endstop_active_high
+
+    def setAimingCalibration(
+        self,
+        num_sections: int,
+        section_width_deg: float,
+        first_section_offset_deg: float,
+        endstop_active_high: bool | None = None,
+    ) -> None:
+        self.num_sections = max(1, int(num_sections))
+        self.section_width_deg = float(section_width_deg)
+        self.first_section_offset_deg = float(first_section_offset_deg)
         if endstop_active_high is not None:
             self.endstop_active_high = endstop_active_high
 
@@ -79,19 +150,55 @@ class Chute:
         stepper_angle = self.stepper.position_degrees
         return stepper_angle / GEAR_RATIO
 
-    def getAngleForBin(self, address: BinAddress) -> float | None:
-        layer = self.layout.layers[address.layer_index]
-        section = layer.sections[address.section_index]
-        num_bins = len(section.bins)
-        bin_width = self.usable_deg_per_section / num_bins
+    def _binsInSection(self, layer_index: int, section_index: int) -> int:
+        try:
+            return max(1, len(self.layout.layers[layer_index].sections[section_index].bins))
+        except (IndexError, AttributeError):
+            return 1
+
+    def _binsInFirstSection(self) -> int:
+        for layer in self.layout.layers:
+            if layer.sections:
+                return max(1, len(layer.sections[0].bins))
+        return 1
+
+    def angleForVirtualBin(
+        self,
+        section_index: int,
+        bin_index: int,
+        bins_in_section: int,
+        num_sections: int | None = None,
+        unclamped: bool = False,
+    ) -> float | None:
+        # Canonical aiming formula. Used both by getAngleForBin (real layout)
+        # and by the calibration UI (arbitrary, customizable layouts) so there
+        # is a single source of truth for where the chute points.
+        n = max(1, int(num_sections)) if num_sections else self.num_sections
+        k = max(1, int(bins_in_section))
+        slot = self.section_width_deg / k
         angle = (
-            self.first_bin_center
-            + address.section_index * DEG_PER_SECTION
-            + address.bin_index * bin_width
+            self.first_section_offset_deg
+            + section_index * (360.0 / n)
+            + (bin_index + 0.5) * slot
         )
-        if angle < 0 or angle > CHUTE_MAX_ANGLE:
+        if unclamped:
+            return angle
+        # The chute travels [0, CHUTE_MAX_ANGLE] and can never cross the home
+        # stop, so wrap the bin onto the circle: it is reachable iff its wrapped
+        # position lands inside the travel window. The arc (CHUTE_MAX_ANGLE, 360)
+        # just before home is the only dead wedge. Wrapping is what lets a
+        # section that home cut through still serve the bins sitting just
+        # clockwise of home — reached the long way round, never across the stop.
+        norm = angle % 360.0
+        if norm > CHUTE_MAX_ANGLE:
             return None
-        return angle
+        return norm
+
+    def getAngleForBin(self, address: BinAddress) -> float | None:
+        num_bins = self._binsInSection(address.layer_index, address.section_index)
+        return self.angleForVirtualBin(
+            address.section_index, address.bin_index, num_bins
+        )
 
     def moveToAngle(self, target: float) -> int:
         target = max(0.0, min(360.0, target))
@@ -124,6 +231,9 @@ class Chute:
         if target is None:
             self.logger.error(f"Chute: bin {address} is unreachable")
             return 0
+        self.logger.info(
+            f"Chute: moveToBin layer={address.layer_index} section={address.section_index} bin={address.bin_index} -> {target:.2f}°"
+        )
         return self.moveToAngle(target)
 
     def moveToAngleBlocking(self, target: float, timeout_buffer_ms: int = 0) -> int:
@@ -158,8 +268,10 @@ class Chute:
         return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
 
     def _backoffToFirstBin(self) -> bool:
-        backoff_angle = float(self.first_bin_center or 0.0)
-        if backoff_angle <= 0.0:
+        backoff_angle = self.angleForVirtualBin(
+            0, 0, self._binsInFirstSection(), unclamped=True
+        )
+        if backoff_angle is None or backoff_angle <= 0.0:
             return True
         try:
             self.moveToAngleBlocking(backoff_angle, timeout_buffer_ms=1500)
@@ -171,21 +283,39 @@ class Chute:
 
     def home(self) -> bool:
         self.logger.info("Chute: homing via sensor")
+        pos_before = self.current_angle
+        raw_before = self.raw_endstop_active
         self.stepper.home(
             HOME_SPEED_MICROSTEPS_PER_SEC,
             self.home_pin,
             home_pin_active_high=self.endstop_active_high,
         )
         start = time.monotonic()
+        polls = 0
         while not self.stepper.stopped:
+            polls += 1
             if (time.monotonic() - start) * 1000 > HOME_TIMEOUT_MS:
-                self.logger.error("Chute: homing timed out")
+                self.logger.error(
+                    f"Chute: homing timed out after {HOME_TIMEOUT_MS}ms "
+                    f"(polls={polls}, moved={self.current_angle - pos_before:.2f}°, "
+                    f"endstop raw={self.raw_endstop_active} triggered={self.endstop_triggered})"
+                )
                 return False
             time.sleep(0.01)
+        elapsed_ms = (time.monotonic() - start) * 1000
         if not self.endstop_triggered:
-            self.logger.warning("Chute: homing stopped before the endstop triggered")
+            self.logger.warning(
+                "Chute: homing stopped before the endstop triggered "
+                f"(elapsed={elapsed_ms:.0f}ms, polls={polls}, "
+                f"moved={self.current_angle - pos_before:.2f}° from {pos_before:.2f}°, "
+                f"endstop raw {raw_before}->{self.raw_endstop_active} "
+                f"(active_high={self.endstop_active_high}, triggered={self.endstop_triggered})). "
+                "polls<=1 / moved~0 means the firmware reported stopped before motion began (race); "
+                "large moved means it travelled without the switch ever firing."
+            )
             return False
         if not self._backoffToFirstBin():
             return False
         self.logger.info("Chute: homed successfully")
+        self._homed = True
         return True

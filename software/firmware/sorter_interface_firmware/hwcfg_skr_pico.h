@@ -37,7 +37,8 @@ const char* const STEPPER_NAMES[] = {
 };
 #endif
 
-const uint8_t TMC_UART_BUS_COUNT = 1;
+// Preprocessor macro, not a const — gates `#if TMC_UART_BUS_COUNT > 1` (see v1_2).
+#define TMC_UART_BUS_COUNT 1
 uart_inst_t* const TMC_UART_BUSES[] = {uart1};
 const int TMC_UART_BUS_TX_PINS[] = {8};
 const int TMC_UART_BUS_RX_PINS[] = {9};
@@ -46,6 +47,7 @@ const uint8_t TMC_UART_BUS_INDEX[] = {0, 0, 0, 0};
 const uint8_t TMC_UART_ADDRESSES[] = {3, 0, 2, 1};
 
 const int STEPPER_nEN_PINS[] = {15, 12, 7, 2};
+const int STEPPER_DIAG_PINS[] = {-1, -1, -1, -1};
 
 const uint8_t DIGITAL_INPUT_COUNT = 4;
 const int digital_input_pins[] = {4, 3, 25, 16};

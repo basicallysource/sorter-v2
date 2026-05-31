@@ -59,6 +59,26 @@ python3 -m pip install --no-cache-dir --break-system-packages \
 # git exit 128. timedatectl reports "NTP not supported" until we enable this.
 systemctl enable systemd-timesyncd.service || true
 
+# Rockchip hardware multimedia stack. Required by the backend's HW JPEG decode
+# path (software/sorter/backend/vision/gst_capture.py -> GStreamer mppjpegdec).
+# Without it the backend silently falls back to CPU cv2.VideoCapture, which
+# starves the CPU and tanks the WebRTC streams. The -dev/gir/cairo packages are
+# build deps for PyGObject + pycairo, which `uv sync` builds from source on
+# first boot (they are aarch64/linux-only deps in backend/pyproject.toml).
+log "adding Rockchip multimedia PPA"
+apt-get install "${APT_OPTS[@]}" software-properties-common
+add-apt-repository -y ppa:liujianfeng1994/rockchip-multimedia
+apt-get update -y
+
+log "installing Rockchip multimedia + PyGObject build deps"
+apt-get install "${APT_OPTS[@]}" \
+    librockchip-mpp1 librockchip-mpp-dev librockchip-vpu0 \
+    librga2 librga-dev \
+    gstreamer1.0-rockchip1 gstreamer1.0-tools \
+    gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad \
+    rockchip-multimedia-config rockchip-mpp-demos \
+    libgirepository1.0-dev libcairo2-dev gir1.2-glib-2.0 pkg-config
+
 # Tailscale install is deferred to firstboot (sorteros-firstboot.py
 # stage_install_tailscale): the base image's ext4 is sized for an 8 GB
 # SD card. After growfs the rootfs has room, and tailscale-install can

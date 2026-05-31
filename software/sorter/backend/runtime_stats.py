@@ -66,6 +66,23 @@ def _calcValueSummary(samples: list[float]) -> dict[str, float | int]:
     }
 
 
+def _calcMsSummary(samples: list[float]) -> dict[str, float | int]:
+    if not samples:
+        return {"n": 0}
+    values = sorted(samples)
+    n = len(values)
+    p90_idx = min(n - 1, int(n * 0.9))
+    return {
+        "n": n,
+        "avg_ms": float(statistics.mean(values)),
+        "med_ms": float(statistics.median(values)),
+        "p90_ms": float(values[p90_idx]),
+        "min_ms": float(values[0]),
+        "max_ms": float(values[-1]),
+        "last_ms": float(samples[-1]),
+    }
+
+
 def _calcPpm(count: int, duration_s: float) -> float | None:
     if count <= 0 or duration_s <= 0:
         return None
@@ -142,6 +159,7 @@ class RuntimeStatsCollector:
         self._servo_bus_offline_since_ts: float | None = None
         self._bus_provider: Any | None = None
         self._active_incident: dict[str, Any] | None = None
+        self._perf_ms_samples: dict[str, list[float]] = {}
         self._last_updated_at = time.time()
 
     def setBusProvider(self, bus_provider: Any | None) -> None:
@@ -393,6 +411,32 @@ class RuntimeStatsCollector:
         """
         self._classification_zone_lost_total += 1
         self._last_updated_at = time.time()
+
+    def observePerfMs(self, name: str, value_ms: float) -> None:
+        bucket = self._perf_ms_samples.get(name)
+        if bucket is None:
+            bucket = []
+            self._perf_ms_samples[name] = bucket
+        _appendSample(bucket, max(0.0, float(value_ms)))
+        self._last_updated_at = time.time()
+
+    def perfSnapshotRows(self) -> list[dict[str, float | int | str | None]]:
+        rows: list[dict[str, float | int | str | None]] = []
+        for metric_name, samples in sorted(self._perf_ms_samples.items()):
+            summary = _calcMsSummary(samples)
+            rows.append(
+                {
+                    "metric_name": metric_name,
+                    "sample_count": int(summary.get("n", 0)),
+                    "avg_ms": summary.get("avg_ms"),
+                    "med_ms": summary.get("med_ms"),
+                    "p90_ms": summary.get("p90_ms"),
+                    "min_ms": summary.get("min_ms"),
+                    "max_ms": summary.get("max_ms"),
+                    "last_ms": summary.get("last_ms"),
+                }
+            )
+        return rows
 
     def clearBinContents(
         self,
@@ -977,6 +1021,9 @@ class RuntimeStatsCollector:
         throughput_overall_ppm: float | None = None
         if running_time_s > 0 and counts["distributed"] > 0:
             throughput_overall_ppm = (float(counts["distributed"]) * 60.0) / running_time_s
+        rolling_window_s = 300.0
+        recent_distributed = sum(1 for ts in distributed_timestamps if ts >= now - rolling_window_s)
+        rolling_5min_ppm: float | None = (float(recent_distributed) / rolling_window_s * 60.0) if recent_distributed > 0 else None
         pulse_counts = {
             k: {
                 "attempts": v.attempts,
@@ -1118,16 +1165,23 @@ class RuntimeStatsCollector:
                 }
             channel_throughput[channel] = channel_entry
 
+        perf_ms = {
+            key: _calcMsSummary(values)
+            for key, values in sorted(self._perf_ms_samples.items())
+        }
+
         return {
             "updated_at": now,
             "lifecycle_state": self._lifecycle_state,
             "is_running": self._is_running,
             "counts": counts,
             "timings": timings,
+            "perf_ms": perf_ms,
             "throughput": {
                 "running_time_s": running_time_s,
                 "distributed_count": counts["distributed"],
                 "overall_ppm": throughput_overall_ppm,
+                "rolling_5min_ppm": rolling_5min_ppm,
                 "inter_piece_ppm": _calcValueSummary(inter_piece_ppm_samples),
             },
             "channel_throughput": channel_throughput,

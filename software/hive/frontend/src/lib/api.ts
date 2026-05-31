@@ -414,6 +414,31 @@ export interface SortingProfileAiMessage {
 	created_at: string;
 }
 
+export type CatalogSyncType = 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices';
+
+export type CatalogSyncStatus =
+	| 'idle'
+	| 'running'
+	| 'completed'
+	| 'error'
+	| 'interrupted'
+	| 'stopped';
+
+export interface CatalogSyncTypeState {
+	sync_type: string;
+	status: CatalogSyncStatus;
+	progress_current: number | null;
+	progress_total: number | null;
+	pages_fetched: number;
+	last_message: string | null;
+	error: string | null;
+	started_at: string | null;
+	updated_at: string | null;
+	completed_at: string | null;
+	cached_count: number | null;
+	last_synced_at: string | null;
+}
+
 export interface ProfileCatalogStatus {
 	running: boolean;
 	last_message: string;
@@ -434,6 +459,7 @@ export interface ProfileCatalogStatus {
 	auto_sync_last_checked_at: string | null;
 	auto_sync_last_started_at: string | null;
 	last_synced_at: Record<string, string | null>;
+	types: Record<string, CatalogSyncTypeState>;
 }
 
 export interface ProfileCatalogSearchResult {
@@ -846,7 +872,7 @@ export const api = {
 	getProfileCatalogStatus() {
 		return request<ProfileCatalogStatus>('GET', '/api/profile-catalog/status');
 	},
-	startProfileCatalogSync(syncType: 'categories' | 'colors' | 'parts' | 'brickstore' | 'prices') {
+	startProfileCatalogSync(syncType: CatalogSyncType) {
 		return request<{ started: boolean }>('POST', `/api/profile-catalog/sync/${syncType}`);
 	},
 	stopProfileCatalogSync() {

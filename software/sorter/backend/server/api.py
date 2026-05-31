@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 import asyncio
 import json
 import os
+import time
 from pathlib import Path
 
 from defs.events import (
@@ -26,7 +27,10 @@ from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
-from server.security import compute_allowed_ui_origins, websocket_connection_allowed
+from server.security import (
+    is_ui_origin_allowed,
+    websocket_connection_allowed,
+)
 
 from server.shared_state import (
     active_connections,
@@ -61,9 +65,16 @@ app = FastAPI(title="Sorter API", version="0.0.1")
 #   SORTER_API_ALLOWED_ORIGINS comma-separated full origins override
 #                              (e.g. "https://sorter.lan,http://192.168.1.42:5173")
 #
+# Decide per-request, so the allowlist tracks this device's current IPs /
+# hostname / Tailscale name without a restart. is_ui_origin_allowed accepts only
+# this machine's own addresses (plus any SORTER_API_ALLOWED_ORIGINS override).
+class _DeviceCORSMiddleware(CORSMiddleware):
+    def is_allowed_origin(self, origin: str) -> bool:
+        return is_ui_origin_allowed(origin)
+
+
 app.add_middleware(
-    CORSMiddleware,
-    allow_origins=compute_allowed_ui_origins(),
+    _DeviceCORSMiddleware,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -81,6 +92,28 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         return response
 
 app.add_middleware(RequestLoggingMiddleware)
+
+BACKEND_PROCESS_STARTED_AT = time.time()
+
+
+def _sanitize_known_object_payload(payload: Dict[str, Any] | None) -> Dict[str, Any] | None:
+    if payload is None:
+        return None
+    cleaned = dict(payload)
+    cleaned.pop("recognition_images", None)
+    return cleaned
+
+
+def _is_stale_incomplete_known_object(payload: Dict[str, Any] | None) -> bool:
+    if payload is None:
+        return False
+    status = payload.get("classification_status")
+    if status not in {"pending", "classifying"}:
+        return False
+    updated_at = payload.get("updated_at")
+    if not isinstance(updated_at, (int, float)):
+        return False
+    return float(updated_at) < BACKEND_PROCESS_STARTED_AT
 
 def _load_saved_api_keys_into_environment() -> None:
     saved_api_keys = getApiKeys()
@@ -101,6 +134,10 @@ from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.runtimes import router as runtimes_router
+from server.routers.chute_stress import router as chute_stress_router
+from server.routers.tuning import router as tuning_router
+from server.routers.telemetry import router as telemetry_router
+from server.routers.tailscale import router as tailscale_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -112,6 +149,10 @@ app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(runtimes_router)
+app.include_router(chute_stress_router)
+app.include_router(tuning_router)
+app.include_router(telemetry_router)
+app.include_router(tailscale_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -488,7 +529,7 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
     if shared_state.gc_ref is None or shared_state.gc_ref.runtime_stats is None:
         raise HTTPException(status_code=404, detail="not found")
     payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
-    if payload is None:
+    if payload is None or _is_stale_incomplete_known_object(payload):
         raise HTTPException(status_code=404, detail="not found")
     try:
         return KnownObjectData.model_validate(payload)
@@ -507,7 +548,6 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
     if not websocket_connection_allowed(
         websocket.headers.get("Origin"),
         client_host,
-        compute_allowed_ui_origins(),
     ):
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,
@@ -520,8 +560,18 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
+    import time as _time
+    _cutoff = _time.time() - 86400
     for item in reversed(getRecentKnownObjects()):
         try:
+            item = _sanitize_known_object_payload(item)
+            if item is None:
+                continue
+            if _is_stale_incomplete_known_object(item):
+                continue
+            created = item.get("created_at") or 0
+            if isinstance(created, (int, float)) and created < _cutoff:
+                continue
             event = KnownObjectEvent(
                 tag="known_object",
                 data=KnownObjectData.model_validate(item),
@@ -545,6 +595,9 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
                 "hardware_state": shared_state.hardware_state,
                 "hardware_error": shared_state.hardware_error,
                 "homing_step": shared_state.hardware_homing_step,
+                "no_power_development_mode": bool(
+                    getattr(shared_state.gc_ref, "no_power_development_mode", False)
+                ),
             },
         }
     )
@@ -783,4 +836,13 @@ def save_polygons(body: Dict[str, Any]) -> Dict[str, Any]:
         setClassificationPolygons(body["classification"])
     if "channel" in body and shared_state.vision_manager is not None:
         shared_state.vision_manager.reloadPolygons()
+    # Perception (rev04 mode pair) is driven by these same zones but owns its
+    # own immutable per-channel stacks; poke its reconciler so a zone edit is
+    # picked up within a fraction of a second instead of waiting a restart.
+    _ps = getattr(shared_state.gc_ref, "perception_service", None)
+    if _ps is not None:
+        try:
+            _ps.request_reconcile()
+        except Exception:
+            pass
     return {"ok": True}

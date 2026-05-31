@@ -278,6 +278,17 @@ _LINUX_V4L2CTL_CONTROL_MAP: dict[str, tuple[str, Any]] = {
     "auto_exposure": ("auto_exposure", lambda v: "3" if bool(v) else "1"),
     "auto_white_balance": ("white_balance_automatic", lambda v: "1" if bool(v) else "0"),
     "autofocus": ("focus_automatic_continuous", lambda v: "1" if bool(v) else "0"),
+    "brightness": ("brightness", lambda v: str(int(round(float(v))))),
+    "contrast": ("contrast", lambda v: str(int(round(float(v))))),
+    "saturation": ("saturation", lambda v: str(int(round(float(v))))),
+    "sharpness": ("sharpness", lambda v: str(int(round(float(v))))),
+    "gamma": ("gamma", lambda v: str(int(round(float(v))))),
+    "gain": ("gain", lambda v: str(int(round(float(v))))),
+    "exposure": ("exposure_time_absolute", lambda v: str(int(round(float(v))))),
+    "white_balance_temperature": ("white_balance_temperature", lambda v: str(int(round(float(v))))),
+    "focus": ("focus_absolute", lambda v: str(int(round(float(v))))),
+    "power_line_frequency": ("power_line_frequency", lambda v: str(int(round(float(v))))),
+    "backlight_compensation": ("backlight_compensation", lambda v: str(int(round(float(v))))),
 }
 
 
@@ -300,7 +311,7 @@ def _try_v4l2ctl_set(source: int, key: str, value: bool | float) -> bool:
 # OpenCV's V4L2 backend lies about menu controls (auto_exposure especially) on
 # some drivers — cap.get returns 0.0/0.25 even when the kernel has the control
 # in mode 3. v4l2-ctl is the authoritative source. Returns None if unavailable.
-def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
+def _try_v4l2ctl_get_raw(source: int, key: str) -> str | None:
     entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
     if entry is None:
         return None
@@ -319,12 +330,73 @@ def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
         raw = raw.strip()
         if not raw:
             return None
-        n = int(raw.split()[0])
-        if key == "auto_exposure":
-            return n == 3
-        return n != 0
+        return raw.split()[0]
     except Exception:
         return None
+
+
+def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
+    raw = _try_v4l2ctl_get_raw(source, key)
+    if raw is None:
+        return None
+    try:
+        n = int(raw)
+    except Exception:
+        return None
+    if key == "auto_exposure":
+        return n == 3
+    return n != 0
+
+
+def _try_v4l2ctl_get_number(source: int, key: str) -> float | None:
+    raw = _try_v4l2ctl_get_raw(source, key)
+    if raw is None:
+        return None
+    try:
+        return float(raw)
+    except Exception:
+        return None
+
+
+def _try_v4l2ctl_describe(source: int) -> dict[str, dict[str, float | bool]]:
+    by_ctrl_name: dict[str, str] = {}
+    for key, (ctrl_name, _) in _LINUX_V4L2CTL_CONTROL_MAP.items():
+        by_ctrl_name[ctrl_name] = key
+    try:
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{source}", "-L"],
+            capture_output=True,
+            timeout=3,
+            text=True,
+        )
+        if result.returncode != 0:
+            return {}
+    except Exception:
+        return {}
+
+    described: dict[str, dict[str, float | bool]] = {}
+    for line in result.stdout.splitlines():
+        raw_line = line.rstrip()
+        if not raw_line or raw_line.lstrip() == raw_line or "0x" not in raw_line:
+            continue
+        ctrl_name = raw_line.split()[0]
+        key = by_ctrl_name.get(ctrl_name)
+        if key is None:
+            continue
+        details: dict[str, float | bool] = {}
+        for token in raw_line.split():
+            if "=" not in token:
+                continue
+            token_key, token_value = token.split("=", 1)
+            if token_key in {"min", "max", "step", "default", "value"}:
+                try:
+                    details[token_key] = float(token_value)
+                except Exception:
+                    continue
+            elif token_key == "flags":
+                details["inactive"] = "inactive" in token_value
+        described[key] = details
+    return described
 
 
 def _read_capture_value(
@@ -337,14 +409,18 @@ def _read_capture_value(
     if prop is None:
         return None
     if (
-        spec["kind"] == "boolean"
-        and platform.system() == "Linux"
+        platform.system() == "Linux"
         and isinstance(source, int)
         and spec["key"] in _LINUX_V4L2CTL_CONTROL_MAP
     ):
-        v = _try_v4l2ctl_get_bool(source, spec["key"])
-        if v is not None:
-            return v
+        if spec["kind"] == "boolean":
+            v = _try_v4l2ctl_get_bool(source, spec["key"])
+            if v is not None:
+                return v
+        else:
+            v = _try_v4l2ctl_get_number(source, spec["key"])
+            if v is not None:
+                return v
     raw = cap.get(prop)
     if raw is None or (isinstance(raw, float) and (np.isnan(raw) or np.isinf(raw))):
         return None
@@ -485,6 +561,11 @@ def describe_camera_device_controls(
         return macos_controls
 
     controls: list[dict[str, Any]] = []
+    linux_described = (
+        _try_v4l2ctl_describe(source)
+        if platform.system() == "Linux" and isinstance(source, int)
+        else {}
+    )
     for spec in _usb_camera_control_specs():
         # Do NOT cap.set() here as a "support test" — on UVC cameras, writing
         # CAP_PROP_EXPOSURE silently flips auto_exposure to Manual mode, so a
@@ -506,6 +587,14 @@ def describe_camera_device_controls(
             min_value = spec.get("min")
             max_value = spec.get("max")
             step_value = spec.get("step", 1.0)
+            linux_spec = linux_described.get(spec["key"])
+            if linux_spec:
+                if isinstance(linux_spec.get("min"), (int, float)):
+                    min_value = float(linux_spec["min"])
+                if isinstance(linux_spec.get("max"), (int, float)):
+                    max_value = float(linux_spec["max"])
+                if isinstance(linux_spec.get("step"), (int, float)):
+                    step_value = float(linux_spec["step"])
             if isinstance(current, (int, float)) and not isinstance(current, bool):
                 if isinstance(min_value, (int, float)):
                     min_value = min(min_value, float(current))
@@ -919,7 +1008,11 @@ class CaptureThread:
         if self._thread is not None and self._thread.is_alive():
             return
         self._stop_event.clear()
-        self._thread = threading.Thread(target=self._captureLoop, daemon=True)
+        self._thread = threading.Thread(
+            target=self._captureLoop,
+            daemon=True,
+            name=f"capture-{self.name}",
+        )
         self._thread.start()
 
     def stop(self) -> None:

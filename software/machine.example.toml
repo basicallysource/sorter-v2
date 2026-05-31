@@ -5,8 +5,8 @@
 [servo]
 # For PCA9685 (default):
 # backend = "pca9685"
-open_angle = 10
-closed_angle = 83
+# PCA9685 open/closed angles are calibrated per-layer (see [layers] below), not
+# globally — there is no machine-wide default open/closed angle.
 
 # For Waveshare SC bus servos, uncomment below:
 # backend = "waveshare"
@@ -21,7 +21,9 @@ closed_angle = 83
 # invert = false
 
 # Each entry in sections is one layer's bin layout (bottom to top).
-# servo_open_angles / servo_closed_angles override the global [servo] defaults per layer index.
+# servo_open_angles / servo_closed_angles set the PCA9685 servo open/closed
+# angles per layer index. A layer is only "calibrated" (and driven on home)
+# when both its open and closed angle are set.
 [layers]
 sections = [
     [["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"], ["medium", "medium"]],

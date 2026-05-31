@@ -270,7 +270,7 @@ class ClassificationChannelRecognizer:
                     best_view,
                     part_name,
                     part_category,
-                ) = self._classifyTrackedCrops(images)
+                ) = self._classifyTrackedCrops(images, piece_uuid=piece_uuid)
                 api_call_succeeded = True
             except Exception as exc:
                 logger.error(
@@ -404,6 +404,8 @@ class ClassificationChannelRecognizer:
     def _classifyTrackedCrops(
         self,
         images: list[CropEntry],
+        *,
+        piece_uuid: Optional[str] = None,
     ) -> tuple[
         Optional[str],
         str,
@@ -426,7 +428,12 @@ class ClassificationChannelRecognizer:
         selected_images = [
             self._padCropForBrickognize(image) for image, _role, _ts in selected
         ]
-        primary_result = _classifyImages(selected_images)
+        primary_result = _classifyImages(
+            self.gc,
+            selected_images,
+            piece_uuid=piece_uuid,
+            dump_label="primary",
+        )
         candidate = self._candidateFromResult(
             primary_result,
             source_view="tracked_multi",
@@ -435,8 +442,13 @@ class ClassificationChannelRecognizer:
             return candidate
 
         best_single = candidate
-        for crop in selected_images[:SINGLE_CROP_FALLBACK_COUNT]:
-            single_result = _classifyImages([crop])
+        for fallback_idx, crop in enumerate(selected_images[:SINGLE_CROP_FALLBACK_COUNT]):
+            single_result = _classifyImages(
+                self.gc,
+                [crop],
+                piece_uuid=piece_uuid,
+                dump_label=f"fallback_{fallback_idx:02d}",
+            )
             single_candidate = self._candidateFromResult(
                 single_result,
                 source_view="tracked_single",

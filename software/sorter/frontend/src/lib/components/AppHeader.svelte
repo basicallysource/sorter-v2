@@ -58,10 +58,13 @@
 		const state =
 			typeof payload?.hardware_state === 'string' ? payload.hardware_state : fallbackState;
 		const step = typeof payload?.message === 'string' ? payload.message : fallbackStep;
+		const no_power_development_mode =
+			manager.selectedMachine?.systemStatus?.no_power_development_mode ?? false;
 		manager.applySystemStatusToSelected({
 			hardware_state: state,
 			hardware_error: null,
-			homing_step: state === 'homing' || state === 'initializing' ? step : null
+			homing_step: state === 'homing' || state === 'initializing' ? step : null,
+			no_power_development_mode
 		});
 	}
 
@@ -364,13 +367,13 @@
 		<div class="flex items-center gap-2">
 			<SortingProfileDropdown />
 
-			{#if hardwareState === 'ready'}
+			{#if hardwareState === 'ready' || hardwareState === 'initialized'}
 				<button
 					onclick={togglePauseResume}
 					class="p-2 text-text transition-colors hover:bg-bg"
-					title={machineState === 'paused' ? 'Resume' : 'Pause'}
+					title={machineState === 'paused' || hardwareState === 'initialized' ? 'Resume' : 'Pause'}
 				>
-					{#if machineState === 'paused'}
+					{#if machineState === 'paused' || hardwareState === 'initialized'}
 						<Play size={20} />
 					{:else}
 						<Pause size={20} />
@@ -642,22 +645,15 @@
 		</div>
 	</Modal>
 
-	{#if restartingBackend}
-		<div
-			class="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm"
-		>
+	<Modal open={restartingBackend} title="Restarting backend..." dismissible={false}>
+		<div class="flex flex-col items-center gap-4 py-4">
 			<div
-				class="flex flex-col items-center gap-4 border border-border bg-surface px-10 py-8 shadow-lg"
-			>
-				<div
-					class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent"
-					style="border-radius: 50%;"
-				></div>
-				<div class="text-sm font-medium text-text">Restarting backend...</div>
-				<div class="text-xs text-text-muted">Waiting for the service to come back online.</div>
-			</div>
+				class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent"
+				style="border-radius: 50%;"
+			></div>
+			<div class="text-sm text-text-muted">Waiting for the service to come back online.</div>
 		</div>
-	{/if}
+	</Modal>
 
 	<Modal bind:open={homingDetailsOpen} title="Hardware Homing">
 		<div class="flex flex-col gap-4">

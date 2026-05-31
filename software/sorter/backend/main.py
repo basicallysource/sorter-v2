@@ -7,7 +7,12 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import get_api_keys, remember_recent_known_object
+from local_state import (
+    get_api_keys,
+    record_profiler_metric_snapshot,
+    record_runtime_perf_metric_snapshot,
+    remember_recent_known_object,
+)
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
     os.environ["OPENROUTER_API_KEY"] = _saved_api_keys["openrouter"]
@@ -29,11 +34,17 @@ from server.shared_state import (
     setHardwareStartFn,
 )
 from sorter_controller import SorterController
+from stepper_stall_monitor import StepperStallMonitor
 from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
-from irl.config import mkIRLConfig, mkIRLInterface
+from irl.config import (
+    ClassificationChannelMode,
+    FeederMode,
+    mkIRLConfig,
+    mkIRLInterface,
+)
 from subsystems.feeder.calibration import calibrateFeederChannels
 from vision import VisionManager
 from process_guard import acquire_backend_process_guard, ProcessGuardError
@@ -102,6 +113,55 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
             shared_state.setHardwareStatus(error=message)
     except Exception:
         pass
+
+
+def _noPowerModeActive(gc: GlobalConfig) -> bool:
+    return bool(getattr(gc, "no_power_development_mode", False))
+
+
+def _perceptionModeActive(irl_config) -> bool:
+    """Rev04 mode pair: GO_TO_ANGLE_REV01 feeder + SIMPLE_STATE_MACHINE_REV01
+    classification. The perception package owns detection for this pair only;
+    every other mode pair keeps using the legacy VisionManager paths."""
+    feeder_mode = getattr(getattr(irl_config, "feeder_config", None), "mode", None)
+    cc_mode = getattr(
+        getattr(irl_config, "classification_channel_config", None), "mode", None
+    )
+    return (
+        feeder_mode == FeederMode.GO_TO_ANGLE_REV01
+        and cc_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+    )
+
+
+def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
+    if not _perceptionModeActive(irl_config):
+        gc.logger.info(
+            "Perception (rev04) inactive: mode pair is not "
+            "(GO_TO_ANGLE_REV01, SIMPLE_STATE_MACHINE_REV01). Legacy vision owns detection."
+        )
+        return
+
+    from perception import service as perception_service_mod
+    from vision.detection_registry import detection_algorithm_definition
+
+    def _lookup_model(algorithm_id: str):
+        definition = detection_algorithm_definition(algorithm_id)
+        if definition is None or definition.model_path is None:
+            return None
+        return definition.model_path, int(definition.imgsz or 320)
+
+    service = perception_service_mod.build(
+        gc=gc,
+        irl_config=irl_config,
+        camera_service=camera_service,
+        model_path_lookup=_lookup_model,
+    )
+    service.start()
+    gc.perception_service = service
+    gc.logger.info(
+        f"Perception (rev04) started: channels={sorted(service.channels().keys())} "
+        f"workers={sorted(service.workers().keys())}"
+    )
 
 
 def runServer() -> None:
@@ -229,16 +289,23 @@ def main() -> None:
     # Bring up the API/broadcast threads before the heavier camera + vision
     # startup steps. That way the backend stays reachable even if a camera or
     # inventory subsystem stalls during initialization.
-    server_thread = threading.Thread(target=runServer, daemon=True)
+    server_thread = threading.Thread(target=runServer, daemon=True, name="api-server")
     server_thread.start()
 
     broadcaster_thread = threading.Thread(
-        target=runBroadcaster, args=(gc,), daemon=True
+        target=runBroadcaster, args=(gc,), daemon=True, name="ws-broadcaster"
     )
     broadcaster_thread.start()
 
     with gc.profiler.timer("startup.camera_service_start_ms"):
         camera_service.start()
+    # Rev04: build the perception service BEFORE vision.start() so the
+    # VisionManager's start path can see gc.perception_service and skip
+    # legacy detection startup in the new mode pair. The build() helper
+    # waits briefly for camera frames so the channel masks can be sized
+    # against the real camera resolution.
+    with gc.profiler.timer("startup.perception_start_ms"):
+        _maybeStartPerception(gc, irl_config, camera_service)
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
@@ -248,10 +315,6 @@ def main() -> None:
 
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
-    startup_report = gc.profiler.getReport()
-    if startup_report:
-        print(startup_report)
-
     def _replace_irl(next_irl) -> None:
         nonlocal irl
         with controller_lock:
@@ -348,6 +411,11 @@ def main() -> None:
                 f"(auto_feeder={machine_setup.automatic_feeder}, "
                 f"carousel_transport={machine_setup.uses_carousel_transport})"
             )
+        if _noPowerModeActive(gc):
+            gc.logger.warning(
+                "NO_POWER_DEVELOPMENT_MODE=1: safe recovery will initialize runtime "
+                "without feeder calibration, spoke alignment, carousel homing, or chute homing."
+            )
         if manual_feed_mode:
             gc.logger.info(
                 "Manual carousel feed mode enabled: automatic C-channel feeding and feeder calibration are disabled."
@@ -366,7 +434,22 @@ def main() -> None:
             gc.logger.info("Opening all layer servos...")
             for servo in irl.servos:
                 try:
-                    servo.open()
+                    if getattr(servo, "is_calibrated", True):
+                        if hasattr(servo, "apply_homing_speed"):
+                            servo.apply_homing_speed()
+                        servo.open()
+                    else:
+                        # An uncalibrated servo must never be driven or held. A prior
+                        # calibrator jog leaves the channel energized at a stale angle
+                        # (move_to never releases PWM) and that hold survives a backend
+                        # restart, so a plain open() no-op would leave the servo hunting
+                        # and twitching through homing. Disabling cuts PWM (duty=0) so it
+                        # goes slack and physically cannot move.
+                        servo.enabled = False
+                        gc.logger.info(
+                            f"Servo ch{getattr(servo, 'channel', '?')} uncalibrated — "
+                            "released (PWM off) instead of opening."
+                        )
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
             _checkServoBusHealth(gc, irl)
@@ -377,7 +460,7 @@ def main() -> None:
                 gc.logger.warning(
                     "Manual carousel feed mode is enabled, but carousel trigger detection is not fully configured."
                 )
-        elif feeder_detection_ready and bool(
+        elif feeder_detection_ready and not _noPowerModeActive(gc) and bool(
             getattr(machine_setup, "runs_reverse_pulse_calibration", True)
         ):
             # Reverse-pulse calibration seeds background-subtraction models
@@ -433,7 +516,26 @@ def main() -> None:
         elif vision.usesClassificationBaseline() and not vision.loadClassificationBaseline():
             gc.logger.warning("Classification baseline not found — continuing without classification")
 
-        if bool(getattr(machine_setup, "homes_carousel", True)):
+        classification_mode = getattr(
+            getattr(irl_config, "classification_channel_config", None),
+            "mode",
+            None,
+        )
+        if (
+            classification_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+            and not _noPowerModeActive(gc)
+        ):
+            from subsystems.classification_channel.simple_state_machine_rev01.spoke_home import (
+                maybeRunSpokeHome,
+            )
+
+            shared_state.setHardwareStatus(homing_step="Aligning classification channel...")
+            if not maybeRunSpokeHome(gc, irl, irl_config, vision):
+                gc.logger.warning("Classification-channel rev01 spoke home did not complete")
+
+        if _noPowerModeActive(gc):
+            gc.logger.info("Skipping carousel homing in no-power development mode.")
+        elif bool(getattr(machine_setup, "homes_carousel", True)):
             shared_state.setHardwareStatus(homing_step="Homing carousel...")
             carousel_hw = getattr(irl, "carousel_hw", None)
             if carousel_hw is not None:
@@ -454,14 +556,19 @@ def main() -> None:
         # not published and not started until all homing is finished, so a
         # queued/resubmitted Resume cannot make the runtime fight the homing
         # sequence.
-        shared_state.setHardwareStatus(homing_step="Homing distributor...")
+        if _noPowerModeActive(gc):
+            shared_state.setHardwareStatus(
+                homing_step="Initializing distributor without homing..."
+            )
+        else:
+            shared_state.setHardwareStatus(homing_step="Homing distributor...")
 
         next_controller = SorterController(
             irl, irl_config, gc, vision, main_to_server_queue, rv
         )
 
         chute = getattr(next_controller.coordinator.distribution, "chute", None) if hasattr(next_controller, "coordinator") else None
-        if chute is not None:
+        if chute is not None and not _noPowerModeActive(gc):
             gc.logger.info("Homing chute...")
             try:
                 if chute.home():
@@ -471,6 +578,8 @@ def main() -> None:
             except Exception as e:
                 next_controller.coordinator.cleanup()
                 raise RuntimeError(f"Chute homing failed: {e}") from e
+        elif chute is not None:
+            gc.logger.info("Skipping chute homing in no-power development mode.")
 
         _drain_runtime_commands("safe recovery finish")
         with controller_lock:
@@ -511,6 +620,8 @@ def main() -> None:
             shared_state.setHardwareStatus(homing_step="Opening servos...")
             for servo in irl.servos:
                 try:
+                    if hasattr(servo, "apply_homing_speed"):
+                        servo.apply_homing_speed()
                     servo.open()
                 except Exception as e:
                     gc.logger.warning(f"Failed to open servo: {e}. Continuing without initialization.")
@@ -556,14 +667,36 @@ def main() -> None:
         finally:
             backend_process_guard.release()
 
+    # StallGuard stall detection: a daemon thread polls the firmware DIAG latch
+    # for every stepper that has an enabled threshold and raises a blocking
+    # `stepper_stall` incident on a stall. Detection is on for all moves (armed at
+    # hardware init), so this watcher needs no machine-state gating. Off the main
+    # loop so the UART reads never hitch operation.
+    if not _noPowerModeActive(gc):
+        stall_monitor = StepperStallMonitor(gc)
+        threading.Thread(
+            target=stall_monitor.run,
+            daemon=True,
+            name="stall-monitor",
+        ).start()
+
     last_heartbeat = time.time()
     last_frame_record = time.time()
     last_runtime_stats_broadcast = time.time()
+    last_runtime_perf_snapshot = time.time()
+    last_profiler_snapshot = time.time()
+    last_main_loop_started = time.perf_counter()
 
     try:
         while not shutdown_requested.is_set():
+            loop_started = time.perf_counter()
             gc.profiler.hit("main.loop.calls")
             gc.profiler.mark("main.loop.interval_ms")
+            gc.runtime_stats.observePerfMs(
+                "main.loop.interval_ms",
+                (loop_started - last_main_loop_started) * 1000.0,
+            )
+            last_main_loop_started = loop_started
             try:
                 event = server_to_main_queue.get(block=False)
                 with controller_lock:
@@ -609,11 +742,38 @@ def main() -> None:
                 main_to_server_queue.put(runtime_stats)
                 last_runtime_stats_broadcast = current_time
 
+            if (
+                current_time - last_runtime_perf_snapshot
+                >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
+            ):
+                record_runtime_perf_metric_snapshot(
+                    gc.run_id,
+                    current_time,
+                    gc.runtime_stats.perfSnapshotRows(),
+                )
+                last_runtime_perf_snapshot = current_time
+
+            if (
+                gc.profiler.enabled
+                and current_time - last_profiler_snapshot >= gc.profiler.report_interval_s
+            ):
+                record_profiler_metric_snapshot(
+                    gc.run_id,
+                    current_time,
+                    gc.profiler.snapshotRows(),
+                )
+                last_profiler_snapshot = current_time
+
             with controller_lock:
                 current_controller = controller
             if current_controller is not None:
                 with gc.profiler.timer("main.loop.controller_step_ms"):
+                    controller_step_started = time.perf_counter()
                     current_controller.step()
+                    gc.runtime_stats.observePerfMs(
+                        "main.loop.controller_step_ms",
+                        (time.perf_counter() - controller_step_started) * 1000.0,
+                    )
 
             time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
     except KeyboardInterrupt:

@@ -1,6 +1,7 @@
 from typing import Any, Callable, Optional, cast
-import threading
 import io
+import os
+import threading
 import requests
 import numpy as np
 import cv2
@@ -64,10 +65,10 @@ def _doClassify(
             bottom_result = None
             if top_image is not None:
                 with gc.profiler.timer("classification.brickognize.top_ms"):
-                    top_result = _classifyImage(top_image)
+                    top_result = _classifyImage(gc, top_image)
             if bottom_image is not None:
                 with gc.profiler.timer("classification.brickognize.bottom_ms"):
-                    bottom_result = _classifyImage(bottom_image)
+                    bottom_result = _classifyImage(gc, bottom_image)
 
         best_item, best_view = _pickBestItem(top_result, bottom_result)
         best_color = _pickBestColor(top_result, bottom_result)
@@ -114,18 +115,23 @@ def _doClassify(
         )
 
 
-def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
-    return _classifyImages([image])
+def _classifyImage(gc: Optional[GlobalConfig], image: np.ndarray) -> BrickognizeResponse:
+    return _classifyImages(gc, [image])
 
 
-def _classifyImages(images: list[np.ndarray]) -> BrickognizeResponse:
-    """Post multiple query_images in a single request.
-
-    Brickognize uses all of them as evidence for one final prediction —
-    great for tracked pieces where we have 5–12 angles of the same part.
-    """
+def _classifyImages(
+    gc: Optional[GlobalConfig],
+    images: list[np.ndarray],
+    *,
+    piece_uuid: Optional[str] = None,
+    dump_label: Optional[str] = None,
+) -> BrickognizeResponse:
     if not images:
         raise ValueError("at least one image required")
+    dump_dir = None
+    if gc is not None and gc.brickognize_dump_root is not None and piece_uuid:
+        dump_dir = gc.brickognize_dump_root / piece_uuid
+        os.makedirs(dump_dir, exist_ok=True)
     files: list[tuple[str, tuple[str, io.BytesIO, str]]] = []
     for i, image in enumerate(images):
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -133,6 +139,10 @@ def _classifyImages(images: list[np.ndarray]) -> BrickognizeResponse:
         img_bytes = io.BytesIO()
         img.save(img_bytes, format="JPEG")
         payload_bytes = img_bytes.getvalue()
+        if dump_dir is not None:
+            label = dump_label or "img"
+            with open(dump_dir / f"{label}_{i:02d}.jpg", "wb") as f:
+                f.write(payload_bytes)
         files.append(
             ("query_image", (f"image_{i}.jpg", io.BytesIO(payload_bytes), "image/jpeg"))
         )

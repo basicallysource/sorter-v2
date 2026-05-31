@@ -110,6 +110,75 @@ def _read_polygons_json() -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Classification channel rev01 tuning config
+# ---------------------------------------------------------------------------
+
+
+def getClassificationChannelRev01Config() -> dict[str, Any]:
+    from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import (
+        Rev01Config, configToDict,
+    )
+    config = _read_toml()
+    section = config.get("classification_channel_rev01")
+    defaults = configToDict(Rev01Config())
+    if isinstance(section, dict):
+        merged = {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+        return merged
+    return defaults
+
+
+def setClassificationChannelRev01Config(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import (
+        Rev01Config, configToDict, configFromDict,
+    )
+    defaults = configToDict(Rev01Config())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("classification_channel_rev01")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["classification_channel_rev01"] = base
+
+    _update_toml(updater)
+    return getClassificationChannelRev01Config()
+
+
+# ---------------------------------------------------------------------------
+# Feeder go-to-angle tuning config
+# ---------------------------------------------------------------------------
+
+
+def getGoToAngleConfig() -> dict[str, Any]:
+    from subsystems.feeder.go_to_angle.config import (
+        GoToAngleConfig, configToDict,
+    )
+    config = _read_toml()
+    section = config.get("feeder_go_to_angle")
+    defaults = configToDict(GoToAngleConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setGoToAngleConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.feeder.go_to_angle.config import (
+        GoToAngleConfig, configToDict,
+    )
+    defaults = configToDict(GoToAngleConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("feeder_go_to_angle")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["feeder_go_to_angle"] = base
+
+    _update_toml(updater)
+    return getGoToAngleConfig()
+
+
+# ---------------------------------------------------------------------------
 # Detection configs
 # ---------------------------------------------------------------------------
 

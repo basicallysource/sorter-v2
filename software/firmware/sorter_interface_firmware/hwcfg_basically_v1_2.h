@@ -18,11 +18,11 @@ const uint8_t STEPPER_DIR_PINS[]  = {27, 22, 20, 18, 7};
 // as a 4th c-channel (classification channel) instead of an actual carousel.
 // Backend aliases it per machine_setup; not worth a firmware variant.
 const char* const STEPPER_NAMES[] = {
-    "c_channel_1_rotor",   // ch0 — STEP=GP28, DIR=GP27
-    "c_channel_2_rotor",   // ch1 — STEP=GP26, DIR=GP22
-    "c_channel_3_rotor",   // ch2 — STEP=GP21, DIR=GP20
-    "carousel",            // ch3 — STEP=GP19, DIR=GP18
-    "chute_stepper"        // ch4 — STEP=GP8,  DIR=GP7
+    "chute_stepper",       // ch0 — STEP=GP28, DIR=GP27 — uart0 addr0
+    "c_channel_1_rotor",   // ch1 — STEP=GP26, DIR=GP22 — uart0 addr1
+    "c_channel_3_rotor",   // ch2 — STEP=GP21, DIR=GP20 — uart0 addr2
+    "carousel",            // ch3 — STEP=GP19, DIR=GP18 — uart0 addr3
+    "c_channel_2_rotor"    // ch4 — STEP=GP8,  DIR=GP7  — uart1 addr0
 };
 #else
 const char* const STEPPER_NAMES[] = {
@@ -34,7 +34,11 @@ const char* const STEPPER_NAMES[] = {
 };
 #endif
 
-const uint8_t TMC_UART_BUS_COUNT = 2;
+// Must be a preprocessor macro, not a const: it gates `#if TMC_UART_BUS_COUNT > 1`
+// blocks that construct/route the second UART bus. A const uint8_t is invisible to
+// the preprocessor (evaluates as 0), which silently compiles out the second bus and
+// makes every channel fall back to bus 0.
+#define TMC_UART_BUS_COUNT 2
 uart_inst_t* const TMC_UART_BUSES[] = {uart0, uart1};
 const int TMC_UART_BUS_TX_PINS[] = {16, 4};
 const int TMC_UART_BUS_RX_PINS[] = {17, 5};
@@ -44,6 +48,7 @@ const uint8_t TMC_UART_BUS_INDEX[]  = {0, 0, 0, 0, 1};
 const uint8_t TMC_UART_ADDRESSES[]  = {0, 1, 2, 3, 0};
 
 const int STEPPER_nEN_PINS[] = {0, 0, 0, 0, 0};
+const int STEPPER_DIAG_PINS[] = {12, 13, 14, 15, 9};
 
 const uint8_t DIGITAL_INPUT_COUNT = 2;
 const int digital_input_pins[] = {3, 2};

@@ -20,14 +20,18 @@ if TYPE_CHECKING:
 
 MACHINE_SPECIFIC_PARAMS_ENV_VAR = "MACHINE_SPECIFIC_PARAMS_PATH"
 
-# User may override these defaults by setting MACHINE_SPECIFIC_PARAMS_PATH to a TOML file.
-DEFAULT_SERVO_OPEN_ANGLE = 10
-DEFAULT_SERVO_CLOSED_ANGLE = 83
+# Servos have no hard-coded open/closed angle defaults. A PWM servo must be
+# calibrated per layer (its angles locked in via the UI) before it will move.
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
+# Canonical chute aiming geometry (see subsystems/distribution/chute.py).
+# section_width default = 360/6 - 8.25 pillar, to match the legacy geometry.
+DEFAULT_CHUTE_NUM_SECTIONS = 6
+DEFAULT_CHUTE_SECTION_WIDTH_DEG = 51.75
+DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG = 8.25
 DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC = 3000
 # Matches the long-running carousel homing wiring used by the stable
 # pre-setup-wizard backend path.
@@ -149,9 +153,13 @@ def loadFeedingModeConfig(
 
 @dataclass
 class MachineConfig:
-    servo_open_angle: int = DEFAULT_SERVO_OPEN_ANGLE
-    servo_closed_angle: int = DEFAULT_SERVO_CLOSED_ANGLE
+    servo_open_speed: int | None = None
+    servo_close_speed: int | None = None
+    servo_homing_speed: int | None = None
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
+    # canonical stepper name -> (sgthrs, tcoolthrs, enabled). From
+    # [stepper_stallguard.*]; consumed by applyStepperStallguard + the stall monitor.
+    stepper_stallguard: dict[str, tuple[int, int, bool]] = field(default_factory=dict)
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -274,6 +282,72 @@ def _parseStepperCurrentOverrides(
     return overrides
 
 
+# Built-in StallGuard defaults so a fresh machine gets working stall detection on
+# the chute and carousel without any machine.toml [stepper_stallguard.*] block.
+# Keyed by canonical (physical) stepper name; (sgthrs, tcoolthrs, enabled). A
+# machine.toml entry for the same motor overrides its default; other motors get
+# nothing unless their TOML adds them. These were tuned on the rev04 bring-up.
+DEFAULT_STEPPER_STALLGUARD: dict[str, tuple[int, int, bool]] = {
+    "carousel": (148, 150, True),
+    "chute_stepper": (55, 150, True),
+}
+
+
+def _parseStepperStallguard(
+    gc: GlobalConfig,
+    raw: dict[str, object],
+) -> dict[str, tuple[int, int, bool]]:
+    table: object = raw.get("stepper_stallguard")
+    if table is None:
+        return dict(DEFAULT_STEPPER_STALLGUARD)
+
+    if not isinstance(table, dict):
+        gc.logger.warning("stepper_stallguard must be an object. Ignoring StallGuard config.")
+        return dict(DEFAULT_STEPPER_STALLGUARD)
+
+    # Start from the built-in defaults; TOML entries below override per motor.
+    configs: dict[str, tuple[int, int, bool]] = dict(DEFAULT_STEPPER_STALLGUARD)
+    for stepper_name, value in table.items():
+        if not isinstance(stepper_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper key in stallguard config: {stepper_name!r} (must be string)"
+            )
+            continue
+
+        if not isinstance(value, dict):
+            gc.logger.warning(
+                f"Ignoring stallguard config for '{stepper_name}': expected object with sgthrs/tcoolthrs/enabled."
+            )
+            continue
+
+        sgthrs = value.get("sgthrs", -1)  # -1 => missing; rejected by range check below
+        tcoolthrs = value.get("tcoolthrs", 0xFFFFF)
+        enabled = value.get("enabled", True)
+
+        fields_valid = (
+            type(sgthrs) is int
+            and type(tcoolthrs) is int
+            and isinstance(enabled, bool)
+            and 0 <= sgthrs <= 255
+            and 0 <= tcoolthrs <= 0xFFFFF
+        )
+
+        if not fields_valid:
+            gc.logger.warning(
+                f"Ignoring invalid stallguard config for '{stepper_name}': {value!r} "
+                f"(requires sgthrs:0-255, tcoolthrs:0-0xFFFFF, enabled:bool)."
+            )
+            continue
+
+        configs[normalizePhysicalStepperBindingName(stepper_name)] = (
+            int(sgthrs),
+            int(tcoolthrs),
+            bool(enabled),
+        )
+
+    return configs
+
+
 def loadStepperBindingOverrides(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
@@ -380,10 +454,10 @@ def loadStepperDirectionInverts(
     return overrides
 
 
-def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int) -> int:
-    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 180:
+def _validateServoSpeed(gc: GlobalConfig, name: str, value: object, default: int | None) -> int | None:
+    if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 2000:
         return value
-    gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using default {default}.")
+    gc.logger.warning(f"Invalid {name}={value!r}; expected int 1-2000 (°/s). Using {default}.")
     return default
 
 
@@ -402,20 +476,23 @@ def loadMachineConfig(
 
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):
-        config.servo_open_angle = _validateAngle(
-            gc, "servo.open_angle",
-            servo_params.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE),
-            DEFAULT_SERVO_OPEN_ANGLE,
-        )
-        config.servo_closed_angle = _validateAngle(
-            gc, "servo.closed_angle",
-            servo_params.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE),
-            DEFAULT_SERVO_CLOSED_ANGLE,
-        )
+        if "open_speed" in servo_params:
+            config.servo_open_speed = _validateServoSpeed(
+                gc, "servo.open_speed", servo_params.get("open_speed"), None
+            )
+        if "close_speed" in servo_params:
+            config.servo_close_speed = _validateServoSpeed(
+                gc, "servo.close_speed", servo_params.get("close_speed"), None
+            )
+        if "homing_speed" in servo_params:
+            config.servo_homing_speed = _validateServoSpeed(
+                gc, "servo.homing_speed", servo_params.get("homing_speed"), None
+            )
     elif servo_params is not None:
-        gc.logger.warning("Ignoring invalid servo config: expected object. Using defaults.")
+        gc.logger.warning("Ignoring invalid servo config: expected object.")
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
+    config.stepper_stallguard = _parseStepperStallguard(gc, raw)
 
     return config
 
@@ -441,6 +518,12 @@ class CarouselCalibrationConfig:
 @dataclass
 class ChuteCalibrationConfig:
     home_pin_channel: int = DEFAULT_CHUTE_HOME_PIN_CHANNEL
+    num_sections: int = DEFAULT_CHUTE_NUM_SECTIONS
+    section_width_deg: float = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+    first_section_offset_deg: float = DEFAULT_CHUTE_FIRST_SECTION_OFFSET_DEG
+    # Legacy fields, still parsed so old machine.toml files keep working and
+    # the legacy /settings/chute page round-trips. When the canonical keys
+    # above are absent they are derived from these (see loader below).
     first_bin_center: float = DEFAULT_CHUTE_FIRST_BIN_CENTER
     pillar_width_deg: float = DEFAULT_CHUTE_PILLAR_WIDTH_DEG
     endstop_active_high: bool = True
@@ -639,8 +722,61 @@ def loadChuteCalibrationConfig(
         )
         operating_speed_microsteps_per_second = DEFAULT_CHUTE_OPERATING_SPEED_MICROSTEPS_PER_SEC
 
+    num_sections_raw = chute_params.get("num_sections", DEFAULT_CHUTE_NUM_SECTIONS)
+    if not isinstance(num_sections_raw, int) or isinstance(num_sections_raw, bool) or num_sections_raw < 1:
+        gc.logger.warning(
+            f"Invalid chute.num_sections={num_sections_raw!r}; expected int >= 1. "
+            f"Using default {DEFAULT_CHUTE_NUM_SECTIONS}."
+        )
+        num_sections = DEFAULT_CHUTE_NUM_SECTIONS
+    else:
+        num_sections = num_sections_raw
+    section_pitch = 360.0 / num_sections
+
+    # Canonical keys win. When absent, derive from the legacy geometry so an
+    # existing machine.toml keeps aiming sensibly until it is recalibrated via
+    # the new flow: usable section width = pitch - pillar, and the legacy
+    # first_bin_center is treated as the section-0 start offset.
+    if "section_width_deg" in chute_params:
+        section_width_deg = chute_params.get("section_width_deg")
+        if not isinstance(section_width_deg, (int, float)) or isinstance(section_width_deg, bool):
+            gc.logger.warning(
+                f"Invalid chute.section_width_deg={section_width_deg!r}; deriving from pillar_width_deg."
+            )
+            section_width_deg = section_pitch - pillar_width_deg
+        else:
+            section_width_deg = float(section_width_deg)
+    else:
+        section_width_deg = section_pitch - pillar_width_deg
+        gc.logger.info(
+            "chute.section_width_deg not set; derived %.3f° from pillar_width_deg. "
+            "Run the chute aiming calibration to set it directly." % section_width_deg
+        )
+
+    if section_width_deg <= 0 or section_width_deg >= section_pitch:
+        gc.logger.warning(
+            f"Invalid chute.section_width_deg={section_width_deg!r}; expected 0 < value < "
+            f"{section_pitch}. Using default {DEFAULT_CHUTE_SECTION_WIDTH_DEG}."
+        )
+        section_width_deg = DEFAULT_CHUTE_SECTION_WIDTH_DEG
+
+    if "first_section_offset_deg" in chute_params:
+        first_section_offset_deg = chute_params.get("first_section_offset_deg")
+        if not isinstance(first_section_offset_deg, (int, float)) or isinstance(first_section_offset_deg, bool):
+            gc.logger.warning(
+                f"Invalid chute.first_section_offset_deg={first_section_offset_deg!r}; using first_bin_center."
+            )
+            first_section_offset_deg = first_bin_center
+        else:
+            first_section_offset_deg = float(first_section_offset_deg)
+    else:
+        first_section_offset_deg = first_bin_center
+
     return ChuteCalibrationConfig(
         home_pin_channel=home_pin_channel,
+        num_sections=num_sections,
+        section_width_deg=section_width_deg,
+        first_section_offset_deg=first_section_offset_deg,
         first_bin_center=first_bin_center,
         pillar_width_deg=pillar_width_deg,
         endstop_active_high=endstop_active_high,
@@ -807,6 +943,76 @@ def applyStepperCurrentOverride(
     gc.logger.info(
         f"Stepper '{stepper_name}' current config applied from {source}: "
         f"IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
+    )
+
+
+# TMC2209 StallGuard registers.
+_TMC_REG_TCOOLTHRS = 0x14
+_TMC_REG_SGTHRS = 0x40
+
+
+def applyStepperStallguard(
+    stepper: "StepperMotor",
+    stepper_name: str,
+    configs: dict[str, tuple[int, int, bool]],
+    gc: GlobalConfig,
+) -> None:
+    """Stamp [stepper_stallguard.*] onto the stepper, write SGTHRS/TCOOLTHRS, and
+    turn DIAG detection ON.
+
+    Simple rule: if a stepper has an enabled entry, detection is on for every
+    move — there is no per-move or per-state arming. It's switched on once here at
+    hardware init and stays on. (Homing doesn't false-trip because it runs far
+    slower than cruise, below the TCOOLTHRS velocity floor where DIAG is inactive.)
+    Steppers with no entry, or enabled=false, are simply left off.
+    """
+    config = configs.get(stepper_name)
+    if config is None:
+        return
+    sgthrs, tcoolthrs, enabled = config
+    stepper.stallguard_sgthrs = sgthrs
+    stepper.stallguard_tcoolthrs = tcoolthrs
+    stepper.stallguard_enabled = enabled
+
+    if not enabled:
+        gc.logger.info(
+            f"Stepper '{stepper_name}' StallGuard configured but disabled "
+            f"(sgthrs={sgthrs}); not arming."
+        )
+        return
+
+    for attempt in range(1, HARDWARE_INIT_COMMAND_ATTEMPTS + 1):
+        try:
+            stepper.write_driver_register(_TMC_REG_SGTHRS, sgthrs)
+            stepper.write_driver_register(_TMC_REG_TCOOLTHRS, tcoolthrs)
+            break
+        except (MCUBusError, OSError, DecodeError) as e:
+            if attempt == HARDWARE_INIT_COMMAND_ATTEMPTS:
+                gc.logger.warning(
+                    f"Failed to apply StallGuard config for '{stepper_name}' "
+                    f"(sgthrs={sgthrs}, tcoolthrs={tcoolthrs}) after "
+                    f"{HARDWARE_INIT_COMMAND_ATTEMPTS} attempts: {e}. Continuing."
+                )
+                return
+            gc.logger.warning(
+                f"Failed to apply StallGuard config for '{stepper_name}' on "
+                f"attempt {attempt}/{HARDWARE_INIT_COMMAND_ATTEMPTS}: {e}. "
+                f"Retrying in {HARDWARE_INIT_RETRY_DELAY_S:.2f}s..."
+            )
+            time.sleep(HARDWARE_INIT_RETRY_DELAY_S)
+
+    try:
+        stepper.clear_stall()
+        stepper.enable_stall_detection(True)
+    except (MCUBusError, OSError, DecodeError) as e:
+        gc.logger.warning(
+            f"Wrote StallGuard regs for '{stepper_name}' but failed to arm DIAG "
+            f"detection: {e}. The stall monitor will retry on its next poll."
+        )
+
+    gc.logger.info(
+        f"Stepper '{stepper_name}' StallGuard armed: "
+        f"sgthrs={sgthrs}, tcoolthrs={tcoolthrs:#x}, enabled={enabled}"
     )
 
 

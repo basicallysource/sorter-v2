@@ -16,10 +16,9 @@ from urllib import request as urllib_request
 
 from dotenv import load_dotenv
 from server.security import (
-    compute_allowed_ui_origins,
     is_loopback_client_address,
+    is_ui_origin_allowed,
     normalize_origin,
-    origin_allowed,
 )
 
 
@@ -31,9 +30,8 @@ DEFAULT_CONTROL_PORT = int(os.getenv("BACKEND_SUPERVISOR_PORT", "8001"))
 DEFAULT_BACKEND_PORT = int(os.getenv("BACKEND_PORT", "8000"))
 DEFAULT_HEALTH_INTERVAL_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_INTERVAL_S", "2.0"))
 DEFAULT_HEALTH_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_HEALTH_TIMEOUT_S", "1.5"))
-DEFAULT_RESTART_BACKOFF_S = float(os.getenv("BACKEND_SUPERVISOR_RESTART_BACKOFF_S", "1.5"))
-DEFAULT_STOP_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_STOP_TIMEOUT_S", "12.0"))
-ALLOWED_UI_ORIGINS = tuple(compute_allowed_ui_origins())
+DEFAULT_RESTART_BACKOFF_S = float(os.getenv("BACKEND_SUPERVISOR_RESTART_BACKOFF_S", "0.2"))
+DEFAULT_STOP_TIMEOUT_S = float(os.getenv("BACKEND_SUPERVISOR_STOP_TIMEOUT_S", "5.0"))
 
 
 def _timestamp() -> float:
@@ -77,7 +75,9 @@ class BackendSupervisor:
         self._health_failures = 0
         self._state = "stopped"
 
-        self._health_thread = threading.Thread(target=self._health_loop, daemon=True)
+        self._health_thread = threading.Thread(
+            target=self._health_loop, daemon=True, name="supervisor-health"
+        )
 
     def start(self) -> None:
         self._start_backend(reason="initial start")
@@ -351,7 +351,7 @@ def _handler_factory(supervisor: BackendSupervisor):
                 return False, None
 
             origin = normalize_origin(self.headers.get("Origin"))
-            if origin is not None and not origin_allowed(origin, ALLOWED_UI_ORIGINS):
+            if origin is not None and not is_ui_origin_allowed(origin):
                 self._send_json(403, {"ok": False, "message": "Origin not allowed for supervisor control."})
                 return False, None
             if require_origin and origin is None:
@@ -370,7 +370,7 @@ def _handler_factory(supervisor: BackendSupervisor):
             self.send_response(status)
             self.send_header("Content-Type", "application/json")
             self.send_header("Content-Length", str(len(body)))
-            if origin is not None and origin_allowed(origin, ALLOWED_UI_ORIGINS):
+            if origin is not None and is_ui_origin_allowed(origin):
                 self.send_header("Access-Control-Allow-Origin", origin)
                 self.send_header("Access-Control-Allow-Methods", "GET,POST,OPTIONS")
                 self.send_header("Access-Control-Allow-Headers", "Content-Type")

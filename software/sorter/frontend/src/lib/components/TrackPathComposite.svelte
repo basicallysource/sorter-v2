@@ -231,12 +231,12 @@
 						class="block h-auto w-full"
 						preserveAspectRatio="xMidYMid meet"
 					>
-						<defs>
-							{#each segment.sector_snapshots as s (s.captured_ts)}
-								<clipPath id={`detail-sec-${globalId}-${idx}-${s.captured_ts}`}>
-									<path
-										d={wedgePath(
-											segment.channel_center_x as number,
+							<defs>
+								{#each segment.sector_snapshots as s, snapshot_idx (`${idx}|${snapshot_idx}|${s.captured_ts}`)}
+									<clipPath id={`detail-sec-${globalId}-${idx}-${snapshot_idx}-${s.captured_ts}`}>
+										<path
+											d={wedgePath(
+												segment.channel_center_x as number,
 											segment.channel_center_y as number,
 											s.r_inner && s.r_inner > 0
 												? s.r_inner
@@ -256,19 +256,19 @@
 							x="0"
 							y="0"
 							width={segment.snapshot_width}
-							height={segment.snapshot_height}
-							opacity="0.22"
-						/>
-						{#each segment.sector_snapshots as s (s.captured_ts)}
-							<image
-								href={`data:image/jpeg;base64,${s.jpeg_b64}`}
-								x={s.bbox_x}
-								y={s.bbox_y}
-								width={s.width}
-								height={s.height}
-								clip-path={`url(#detail-sec-${globalId}-${idx}-${s.captured_ts})`}
+								height={segment.snapshot_height}
+								opacity="0.22"
 							/>
-						{/each}
+							{#each segment.sector_snapshots as s, snapshot_idx (`${idx}|${snapshot_idx}|${s.captured_ts}`)}
+								<image
+									href={`data:image/jpeg;base64,${s.jpeg_b64}`}
+									x={s.bbox_x}
+									y={s.bbox_y}
+									width={s.width}
+									height={s.height}
+									clip-path={`url(#detail-sec-${globalId}-${idx}-${snapshot_idx}-${s.captured_ts})`}
+								/>
+							{/each}
 						<circle
 							cx={segment.channel_center_x as number}
 							cy={segment.channel_center_y as number}
@@ -293,12 +293,12 @@
 								stroke-width="3"
 								stroke-linejoin="round"
 							/>
-						{/if}
-						{#each segment.sector_snapshots as s (s.captured_ts)}
-							{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
-							{#if hit}
-								{@const used = isUsedCrop(s.captured_ts)}
-								<circle
+							{/if}
+							{#each segment.sector_snapshots as s, snapshot_idx (`${idx}|${snapshot_idx}|${s.captured_ts}`)}
+								{@const hit = nearestPathPoint(segment.path, s.captured_ts)}
+								{#if hit}
+									{@const used = isUsedCrop(s.captured_ts)}
+									<circle
 									cx={hit[1]}
 									cy={hit[2]}
 									r={used ? 40 : 28}

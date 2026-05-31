@@ -24,6 +24,9 @@ class InterfaceCommandCode(BaseCommandCode):
     STEPPER_HOME = 0x17
     STEPPER_JITTER = 0x18
     STEPPER_IS_JITTERING = 0x19
+    STEPPER_ENABLE_STALL_DETECTION = 0x1A
+    STEPPER_GET_STALL_STATUS = 0x1B  # channel ignored; returns a per-board stall bitmask
+    STEPPER_CLEAR_STALL = 0x1C
     # Stepper driver commands
     STEPPER_DRV_SET_ENABLED = 0x20
     STEPPER_DRV_SET_MICROSTEPS = 0x21
@@ -97,6 +100,12 @@ class StepperMotor:
         self._last_set_current: dict[str, int] | None = None
         self._gc = gc
         self.software_disabled = False
+        # StallGuard config, stamped from [stepper_stallguard.*] at init by
+        # applyStepperStallguard. The stall monitor reads these to decide which
+        # steppers to arm and at what threshold. sgthrs is None => unconfigured.
+        self.stallguard_sgthrs: int | None = None
+        self.stallguard_tcoolthrs: int = 0xFFFFF
+        self.stallguard_enabled: bool = False
         # Per-stepper default acceleration, set from StepperConfig at init. Every
         # move re-asserts it (see _ensure_move_acceleration) so a move never runs
         # on a stale acceleration left behind by a prior operation. None means
@@ -364,6 +373,13 @@ class StepperMotor:
         payload = struct.pack("<BI", address, value) # 1 byte for address, 4 bytes for value
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_WRITE_REGISTER, self._channel, payload)
 
+    def enable_stall_detection(self, enable: bool) -> None:
+        payload = struct.pack("<?", enable)
+        self._dev.send_command(InterfaceCommandCode.STEPPER_ENABLE_STALL_DETECTION, self._channel, payload)
+
+    def clear_stall(self) -> None:
+        self._dev.send_command(InterfaceCommandCode.STEPPER_CLEAR_STALL, self._channel, b'')
+
     @property
     def steps_per_revolution(self):
         return self._steps_per_revolution
@@ -393,6 +409,10 @@ class StepperMotor:
     def total_steps_per_rev(self) -> int:
         """Get the total microsteps per revolution (considering microsteps)."""
         return self._steps_per_revolution * self._microsteps
+
+    @property
+    def name(self) -> str:
+        return self._name
 
     def set_name(self, name: str) -> None:
         """Set a human-readable name for this stepper."""
@@ -766,6 +786,13 @@ class SorterInterface(MCUDevice):
     @property
     def board_info(self) -> dict:
         return dict(self._board_info)
+
+    def get_stall_status(self) -> int:
+        """Return this board's stall bitmask: bit i set => stepper channel i is
+        latched-stalled. One bus round-trip covers every channel on the board.
+        Channel arg is ignored by the firmware, so we send 0."""
+        res = self.send_command(InterfaceCommandCode.STEPPER_GET_STALL_STATUS, 0, b"")
+        return res.payload[0] if res.payload else 0
 
     def get_observability_info(self, *, force_refresh: bool = False) -> dict:
         if self._observability_info is not None and not force_refresh:

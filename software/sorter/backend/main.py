@@ -34,6 +34,7 @@ from server.shared_state import (
     setHardwareStartFn,
 )
 from sorter_controller import SorterController
+from stepper_stall_monitor import StepperStallMonitor
 from run_recorder import RunRecorder
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
@@ -620,6 +621,23 @@ def main() -> None:
     setHardwareStartFn(_home_hardware)
     setHardwareInitializeFn(_initialize_hardware)
     setHardwareResetFn(lambda: _cleanup_runtime_hardware("system reset"))
+
+    # StallGuard stall detection: a daemon thread polls the firmware DIAG latch
+    # while RUNNING and raises a blocking `stepper_stall` incident on a stall.
+    # Off the main loop so the UART reads never hitch operation.
+    if not _noPowerModeActive(gc):
+        stall_monitor = StepperStallMonitor(gc)
+
+        def _get_controller():
+            with controller_lock:
+                return controller
+
+        threading.Thread(
+            target=stall_monitor.run,
+            args=(_get_controller,),
+            daemon=True,
+            name="stall-monitor",
+        ).start()
 
     last_heartbeat = time.time()
     last_frame_record = time.time()

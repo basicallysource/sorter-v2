@@ -157,6 +157,9 @@ class MachineConfig:
     servo_close_speed: int | None = None
     servo_homing_speed: int | None = None
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
+    # canonical stepper name -> (sgthrs, tcoolthrs, enabled). From
+    # [stepper_stallguard.*]; consumed by applyStepperStallguard + the stall monitor.
+    stepper_stallguard: dict[str, tuple[int, int, bool]] = field(default_factory=dict)
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -277,6 +280,60 @@ def _parseStepperCurrentOverrides(
         )
 
     return overrides
+
+
+def _parseStepperStallguard(
+    gc: GlobalConfig,
+    raw: dict[str, object],
+) -> dict[str, tuple[int, int, bool]]:
+    table: object = raw.get("stepper_stallguard")
+    if table is None:
+        return {}
+
+    if not isinstance(table, dict):
+        gc.logger.warning("stepper_stallguard must be an object. Ignoring StallGuard config.")
+        return {}
+
+    configs: dict[str, tuple[int, int, bool]] = {}
+    for stepper_name, value in table.items():
+        if not isinstance(stepper_name, str):
+            gc.logger.warning(
+                f"Ignoring invalid stepper key in stallguard config: {stepper_name!r} (must be string)"
+            )
+            continue
+
+        if not isinstance(value, dict):
+            gc.logger.warning(
+                f"Ignoring stallguard config for '{stepper_name}': expected object with sgthrs/tcoolthrs/enabled."
+            )
+            continue
+
+        sgthrs = value.get("sgthrs", -1)  # -1 => missing; rejected by range check below
+        tcoolthrs = value.get("tcoolthrs", 0xFFFFF)
+        enabled = value.get("enabled", True)
+
+        fields_valid = (
+            type(sgthrs) is int
+            and type(tcoolthrs) is int
+            and isinstance(enabled, bool)
+            and 0 <= sgthrs <= 255
+            and 0 <= tcoolthrs <= 0xFFFFF
+        )
+
+        if not fields_valid:
+            gc.logger.warning(
+                f"Ignoring invalid stallguard config for '{stepper_name}': {value!r} "
+                f"(requires sgthrs:0-255, tcoolthrs:0-0xFFFFF, enabled:bool)."
+            )
+            continue
+
+        configs[normalizePhysicalStepperBindingName(stepper_name)] = (
+            int(sgthrs),
+            int(tcoolthrs),
+            bool(enabled),
+        )
+
+    return configs
 
 
 def loadStepperBindingOverrides(
@@ -423,6 +480,7 @@ def loadMachineConfig(
         gc.logger.warning("Ignoring invalid servo config: expected object.")
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
+    config.stepper_stallguard = _parseStepperStallguard(gc, raw)
 
     return config
 
@@ -873,6 +931,64 @@ def applyStepperCurrentOverride(
     gc.logger.info(
         f"Stepper '{stepper_name}' current config applied from {source}: "
         f"IRUN={irun}, IHOLD={ihold}, IHOLD_DELAY={ihold_delay}"
+    )
+
+
+# TMC2209 StallGuard registers.
+_TMC_REG_TCOOLTHRS = 0x14
+_TMC_REG_SGTHRS = 0x40
+
+
+def applyStepperStallguard(
+    stepper: "StepperMotor",
+    stepper_name: str,
+    configs: dict[str, tuple[int, int, bool]],
+    gc: GlobalConfig,
+) -> None:
+    """Stamp [stepper_stallguard.*] onto the stepper and write SGTHRS/TCOOLTHRS.
+
+    This does NOT arm DIAG detection — the stall monitor does that on entering
+    RUNNING (and re-writes the registers then, so they survive sweeps/coolstep
+    toggles). Steppers with no entry, or enabled=false, are simply never armed.
+    """
+    config = configs.get(stepper_name)
+    if config is None:
+        return
+    sgthrs, tcoolthrs, enabled = config
+    stepper.stallguard_sgthrs = sgthrs
+    stepper.stallguard_tcoolthrs = tcoolthrs
+    stepper.stallguard_enabled = enabled
+
+    if not enabled:
+        gc.logger.info(
+            f"Stepper '{stepper_name}' StallGuard configured but disabled "
+            f"(sgthrs={sgthrs}); not arming."
+        )
+        return
+
+    for attempt in range(1, HARDWARE_INIT_COMMAND_ATTEMPTS + 1):
+        try:
+            stepper.write_driver_register(_TMC_REG_SGTHRS, sgthrs)
+            stepper.write_driver_register(_TMC_REG_TCOOLTHRS, tcoolthrs)
+            break
+        except (MCUBusError, OSError, DecodeError) as e:
+            if attempt == HARDWARE_INIT_COMMAND_ATTEMPTS:
+                gc.logger.warning(
+                    f"Failed to apply StallGuard config for '{stepper_name}' "
+                    f"(sgthrs={sgthrs}, tcoolthrs={tcoolthrs}) after "
+                    f"{HARDWARE_INIT_COMMAND_ATTEMPTS} attempts: {e}. Continuing."
+                )
+                return
+            gc.logger.warning(
+                f"Failed to apply StallGuard config for '{stepper_name}' on "
+                f"attempt {attempt}/{HARDWARE_INIT_COMMAND_ATTEMPTS}: {e}. "
+                f"Retrying in {HARDWARE_INIT_RETRY_DELAY_S:.2f}s..."
+            )
+            time.sleep(HARDWARE_INIT_RETRY_DELAY_S)
+
+    gc.logger.info(
+        f"Stepper '{stepper_name}' StallGuard config applied: "
+        f"sgthrs={sgthrs}, tcoolthrs={tcoolthrs:#x}, enabled={enabled}"
     )
 
 

@@ -61,6 +61,7 @@ from .parse_user_toml import (
     loadCameraLayoutConfig,
     loadGpioLedsConfig,
     applyStepperCurrentOverride,
+    applyStepperStallguard,
 )
 from blob_manager import getBinCategories
 from local_state import get_servo_states, set_servo_states
@@ -1459,6 +1460,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
             )
 
         applyStepperCurrentOverride(stepper, canonical_name, stepper_current_overrides, gc)
+        applyStepperStallguard(stepper, canonical_name, machine_config.stepper_stallguard, gc)
         logical_name = logical_name_for_attr_base.get(attr_base)
         stepper.set_direction_inverted(
             stepper_direction_inverts.get(logical_name, False) if logical_name is not None else False

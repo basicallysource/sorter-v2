@@ -1103,6 +1103,9 @@ def stallguard_sweep(
     microsteps_ctx = getattr(target, "_microsteps", None)
     last_current = getattr(target, "last_set_current", None)
     irun_ctx = last_current.get("irun") if isinstance(last_current, dict) else None
+    # Acceleration the sweep runs at: move_at_speed re-asserts the stepper's
+    # configured default acceleration, so that's the value in effect per sample.
+    accel_ctx = getattr(target, "default_acceleration", None)
     gconf = _safe_read_register(target, TMC_REG_GCONF)
     stealth_ctx = (not bool(gconf & (1 << 2))) if isinstance(gconf, int) else None
 
@@ -1118,6 +1121,10 @@ def stallguard_sweep(
             "sample_interval_s": sample_interval_s,
             "tcoolthrs": tcoolthrs,
             "loaded": loaded,
+            "irun": irun_ctx,
+            "acceleration": accel_ctx,
+            "microsteps": microsteps_ctx,
+            "stealthchop": stealth_ctx,
         },
     )
 
@@ -1161,6 +1168,7 @@ def stallguard_sweep(
                     "drv_status_raw": drv if isinstance(drv, int) else None,
                     "commanded_speed": signed_speed,
                     "irun": irun_ctx,
+                    "acceleration": accel_ctx,
                     "microsteps": microsteps_ctx,
                     "stealthchop": stealth_ctx,
                     "loaded": loaded,
@@ -1277,3 +1285,19 @@ def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuar
         tcoolthrs=body.tcoolthrs,
         enabled=body.enabled,
     )
+
+
+@router.post("/stall-incident/clear")
+def clear_stall_incident() -> Dict[str, Any]:
+    """Operator-acknowledge a stall. Clears the blocking incident; the stall
+    monitor resets the firmware latch and re-arms detection on its next poll."""
+    from stepper_stall_monitor import STEPPER_STALL_INCIDENT_KIND
+
+    gc = shared_state.gc_ref
+    runtime_stats = getattr(gc, "runtime_stats", None) if gc is not None else None
+    if runtime_stats is None or not hasattr(runtime_stats, "clearActiveIncident"):
+        raise HTTPException(status_code=503, detail="runtime stats unavailable")
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    runtime_stats.clearActiveIncident(kind=STEPPER_STALL_INCIDENT_KIND)
+    cleared = isinstance(active, dict) and active.get("kind") == STEPPER_STALL_INCIDENT_KIND
+    return {"ok": True, "cleared": cleared, "kind": STEPPER_STALL_INCIDENT_KIND}

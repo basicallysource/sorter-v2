@@ -69,6 +69,9 @@ void CMDH_stepper_drv_set_microsteps(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_set_current(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_read_register(const BusMessage *msg, BusMessage *resp);
 void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp);
+void CMDH_stepper_clear_stall(const BusMessage *msg, BusMessage *resp);
 bool VAL_stepper_channel(uint8_t channel);
 
 const struct CommandTable stepperCmdTable = {
@@ -84,6 +87,12 @@ const struct CommandTable stepperCmdTable = {
         {"HOME", "iB?", "", 6, VAL_stepper_channel, CMDH_stepper_home},
         {"JITTER", "iiii", "?", 16, VAL_stepper_channel, CMDH_stepper_jitter},
         {"IS_JITTERING", "", "B", 0, VAL_stepper_channel, CMDH_stepper_is_jittering},
+        // StallGuard. GET_STALL_STATUS ignores the channel and returns a bitmask
+        // of every channel on this board (bit i = stepper i latched-stalled), so
+        // the backend learns all stalls in one bus round-trip.
+        {"ENABLE_STALL_DETECTION", "?", "", 1, VAL_stepper_channel, CMDH_stepper_enable_stall_detection},
+        {"GET_STALL_STATUS", "", "B", 0, VAL_stepper_channel, CMDH_stepper_get_stall_status},
+        {"CLEAR_STALL", "", "", 0, VAL_stepper_channel, CMDH_stepper_clear_stall},
     }}};
 
 const struct CommandTable stepperDrvCmdTable = {
@@ -448,6 +457,18 @@ void initialize_hardware() {
         gpio_put(STEPPER_nEN_PINS[i], 1);
         stepper_hw_enabled[i] = false;
     }
+    // Initialize StallGuard DIAG inputs. TMC2209 drives DIAG high on stall, so
+    // pull down for a defined idle level. Channels with no DIAG wire (pin < 0)
+    // get _stall_pin = -1 and are simply never checked.
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        if (STEPPER_DIAG_PINS[i] >= 0) {
+            gpio_init(STEPPER_DIAG_PINS[i]);
+            gpio_set_dir(STEPPER_DIAG_PINS[i], GPIO_IN);
+            gpio_pull_down(STEPPER_DIAG_PINS[i]);
+        }
+        steppers[i].setStallPin(STEPPER_DIAG_PINS[i]);
+        steppers[i].enableStallDetection(false);
+    }
     // Initialize digital inputs
     for (int i = 0; i < DIGITAL_INPUT_COUNT; i++) {
         gpio_init(digital_input_pins[i]);
@@ -697,6 +718,33 @@ void CMDH_stepper_drv_write_register(const BusMessage *msg, BusMessage *resp) {
     uint32_t value;
     memcpy(&value, msg->payload + 1, sizeof(value));
     tmc_drivers[msg->channel].writeRegister(reg, value);
+    resp->payload_length = 0;
+}
+
+void CMDH_stepper_enable_stall_detection(const BusMessage *msg, BusMessage *resp) {
+    bool enable = msg->payload[0] != 0;
+    if (enable && STEPPER_DIAG_PINS[msg->channel] < 0) {
+        resp->command = msg->command | 0x80; // Set error bit
+        resp->payload_length =
+            snprintf((char *)resp->payload, MAX_PAYLOAD_SIZE, "No DIAG pin for channel %u", msg->channel);
+        return;
+    }
+    steppers[msg->channel].enableStallDetection(enable);
+    resp->payload_length = 0;
+}
+
+void CMDH_stepper_get_stall_status(const BusMessage *msg, BusMessage *resp) {
+    (void)msg; // Channel is ignored: we report every channel on this board at once.
+    uint8_t mask = 0;
+    for (int i = 0; i < STEPPER_COUNT; i++) {
+        if (steppers[i].wasStalled()) mask |= (uint8_t)(1u << i);
+    }
+    resp->payload[0] = mask;
+    resp->payload_length = 1;
+}
+
+void CMDH_stepper_clear_stall(const BusMessage *msg, BusMessage *resp) {
+    steppers[msg->channel].clearStall();
     resp->payload_length = 0;
 }
 

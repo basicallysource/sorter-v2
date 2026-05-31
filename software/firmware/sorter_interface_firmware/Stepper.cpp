@@ -269,6 +269,19 @@ void Stepper::stepgen_tick() {
  *  It updates the motion parameters (speed, acceleration, state transitions) of the stepper.
  */
 void Stepper::motion_update_tick() {
+    // StallGuard: the TMC2209 holds DIAG high while it reads a stall (SG_RESULT
+    // <= 2*SGTHRS above the TCOOLTHRS velocity floor). When armed, latch it and
+    // stop immediately — the backend poll then raises an operator incident.
+    // Skip while jittering: the unstick wiggle is *meant* to fight load, and a
+    // stall during it is expected, not a fault.
+    if (_stall_enabled.load() && _stall_pin >= 0 && _state.load() != STEPPER_STOPPED &&
+        !_jitter_active.load() && gpio_get(_stall_pin)) {
+        _stalled.store(true);
+        _state.store(STEPPER_STOPPED);
+        _current_speed.store(0);
+        _current_speed_frac.store(0);
+        return;
+    }
     switch (_state) {
         case STEPPER_STOPPED:
             // Chain the next jitter stroke if one is pending. A completed stroke

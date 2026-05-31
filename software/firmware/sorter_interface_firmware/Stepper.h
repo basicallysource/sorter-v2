@@ -64,6 +64,20 @@ public:
     void setPosition(int32_t position) { _absolute_position = position; }
     void home(int32_t home_speed, int home_pin, bool home_pin_polarity);
 
+    // StallGuard / DIAG. The TMC2209 drives its DIAG output high when SG_RESULT
+    // falls to/below 2*SGTHRS while running above the TCOOLTHRS velocity floor —
+    // i.e. the motor is stalling. setStallPin() records the wired GPIO (-1 if
+    // none); enableStallDetection() arms the motion-tick check; wasStalled()
+    // reports the latched event; clearStall() resets it. SGTHRS/TCOOLTHRS are
+    // configured by the backend over UART (write_driver_register), not here.
+    void setStallPin(int pin) { _stall_pin = pin; }
+    void enableStallDetection(bool enable) {
+        _stall_enabled.store(enable);
+        if (enable) _stalled.store(false);
+    }
+    bool wasStalled() { return _stalled.load(); }
+    void clearStall() { _stalled.store(false); }
+
 private:
     void beginJitterStroke();
 
@@ -101,6 +115,15 @@ private:
     std::atomic<int32_t> _jitter_amplitude; // microsteps per stroke
     std::atomic<int32_t> _jitter_strokes_remaining; // strokes still to perform (2 per cycle)
     std::atomic<int32_t> _jitter_dir; // direction of the next stroke (1 / -1)
+
+    // StallGuard state. _stall_pin is set once at init (core0) and only read by
+    // the core1 motion tick, so it needs no atomicity. _stall_enabled/_stalled
+    // are written from both cores (core0 commands, core1 detection) so they are
+    // atomic. _stalled latches until clearStall() so a transient stall is not
+    // lost between backend polls.
+    int _stall_pin = -1; // TMC2209 DIAG GPIO for this channel, -1 if not wired
+    std::atomic<bool> _stall_enabled{false}; // whether the motion tick checks DIAG
+    std::atomic<bool> _stalled{false}; // latched: DIAG fired while moving
 };
 
 #endif // STEPPER_H

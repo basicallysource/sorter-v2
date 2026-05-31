@@ -183,6 +183,8 @@
 	let showSampleCapture = $state(false);
 	let exitIncidentActionPending = $state(false);
 	let exitIncidentActionError = $state<string | null>(null);
+	let stallIncidentActionPending = $state(false);
+	let stallIncidentActionError = $state<string | null>(null);
 	let exitReleaseOutputDeg = $state(EXIT_RELEASE_DEFAULTS.outputDeg);
 	let exitReleaseSpeed = $state(EXIT_RELEASE_DEFAULTS.speed);
 	let exitReleaseAcceleration = $state(EXIT_RELEASE_DEFAULTS.acceleration);
@@ -220,6 +222,7 @@
 	const startingSystem = $derived(hardwareState === 'homing' || startSystemPending);
 	const runtimeStats = $derived((machine.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const exitIncident = $derived(normalizeExitIncident(runtimeStats.active_incident));
+	const stallIncident = $derived(stepperStallIncident(runtimeStats.active_incident));
 
 	async function startSystem() {
 		const baseUrl = currentBackendBaseUrl();
@@ -283,6 +286,41 @@
 		return active
 			? 'border-primary text-text'
 			: 'border-transparent text-text-muted hover:text-text';
+	}
+
+	function stepperStallIncident(value: unknown): Record<string, unknown> | null {
+		if (!value || typeof value !== 'object') return null;
+		const incident = value as Record<string, unknown>;
+		return incident.kind === 'stepper_stall' ? incident : null;
+	}
+
+	function stallIncidentSteppersLabel(incident: Record<string, unknown> | null): string {
+		const steppers = incident?.steppers;
+		if (Array.isArray(steppers) && steppers.length > 0) {
+			return steppers.filter((s) => typeof s === 'string').join(', ');
+		}
+		return incidentString(incident, 'channel', 'a motor');
+	}
+
+	async function acknowledgeStallIncident() {
+		if (stallIncidentActionPending) return;
+		stallIncidentActionPending = true;
+		stallIncidentActionError = null;
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}/stall-incident/clear`, {
+				method: 'POST'
+			});
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			if (!response.ok || payload?.ok === false) {
+				throw new Error(
+					typeof payload?.detail === 'string' ? payload.detail : 'Could not clear stall'
+				);
+			}
+		} catch (e: any) {
+			stallIncidentActionError = e?.message ?? 'Could not clear stall';
+		} finally {
+			stallIncidentActionPending = false;
+		}
 	}
 
 	function normalizeExitIncident(value: unknown): Record<string, unknown> | null {
@@ -1468,6 +1506,51 @@
 							</div>
 							{#if exitIncidentActionError}
 								<div class="mt-2 text-xs text-danger">{exitIncidentActionError}</div>
+							{/if}
+						</div>
+					{/if}
+					{#if stallIncident}
+						<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
+									<div class="min-w-0">
+										<div class="flex flex-wrap items-center gap-2">
+											<div class="text-sm font-semibold text-text">Motor Stall</div>
+											<div class="bg-bg/70 px-1.5 py-0.5 text-[10px] text-text-muted">
+												{stallIncidentSteppersLabel(stallIncident)}
+											</div>
+											<div
+												class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
+											>
+												Halted
+											</div>
+										</div>
+										<div class="mt-1 text-xs text-text-muted">
+											A stepper stalled and the machine has stopped. Clear the jam, then
+											acknowledge to re-arm detection and resume.
+										</div>
+										{#if incidentString(stallIncident, 'operator_message')}
+											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+												{incidentString(stallIncident, 'operator_message')}
+											</div>
+										{/if}
+									</div>
+								</div>
+							</div>
+							<div class="mt-3 flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									onclick={acknowledgeStallIncident}
+									disabled={stallIncidentActionPending}
+									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									<Check size={13} />
+									Stall Cleared — Resume
+								</button>
+							</div>
+							{#if stallIncidentActionError}
+								<div class="mt-2 text-xs text-danger">{stallIncidentActionError}</div>
 							{/if}
 						</div>
 					{/if}

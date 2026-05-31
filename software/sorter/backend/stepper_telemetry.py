@@ -41,6 +41,12 @@ def _connect() -> sqlite3.Connection:
     return conn
 
 
+def _ensureColumn(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 @contextmanager
 def _connection() -> Iterator[sqlite3.Connection]:
     _ensureInitialized()
@@ -104,9 +110,13 @@ def _ensureInitialized() -> None:
                 "irun INTEGER, "
                 "microsteps INTEGER, "
                 "stealthchop INTEGER, "
-                "loaded INTEGER"
+                "loaded INTEGER, "
+                "acceleration INTEGER"
                 ")"
             )
+            # Migration: add columns introduced after the table first shipped, so
+            # DBs created by earlier versions gain them without a manual rebuild.
+            _ensureColumn(conn, "stepper_telemetry_samples", "acceleration", "INTEGER")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_samples_run "
                 "ON stepper_telemetry_samples(run_id, recorded_at)"
@@ -171,6 +181,7 @@ def insertSamples(run_id: str, samples: Iterable[dict[str, Any]]) -> int:
             s.get("microsteps"),
             1 if s.get("stealthchop") else 0 if s.get("stealthchop") is not None else None,
             1 if s.get("loaded") else 0 if s.get("loaded") is not None else None,
+            s.get("acceleration"),
         )
         for s in samples
     ]
@@ -180,8 +191,8 @@ def insertSamples(run_id: str, samples: Iterable[dict[str, Any]]) -> int:
         conn.executemany(
             "INSERT INTO stepper_telemetry_samples "
             "(run_id, recorded_at, stepper_name, channel, sg_result, cs_actual, "
-            "tstep, drv_status_raw, commanded_speed, irun, microsteps, stealthchop, loaded) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "tstep, drv_status_raw, commanded_speed, irun, microsteps, stealthchop, loaded, acceleration) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()

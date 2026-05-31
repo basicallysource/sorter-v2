@@ -11,24 +11,22 @@
 		title: string;
 		description: string;
 		detail: string;
-		experimental?: boolean;
 	};
 
 	const MACHINE_SETUP_CARDS: MachineSetupCard[] = [
-		{
-			key: 'standard_carousel',
-			title: 'Standard Setup',
-			description: 'FIDA + Carousel + Classification Chamber',
-			detail:
-				'Uses the current automatic path with C-channel feeding, carousel handoff, and chamber classification.'
-		},
 		{
 			key: 'classification_channel',
 			title: 'Classification Channel',
 			description: 'C-Channels + Classification Channel',
 			detail:
-				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.',
-			experimental: true
+				'Replaces the carousel/chamber pair with a dedicated classification C-channel on the former carousel motor port.'
+		},
+		{
+			key: 'standard_carousel',
+			title: 'Carousel Setup',
+			description: 'FIDA + Carousel + Classification Chamber',
+			detail:
+				'Uses the current automatic path with C-channel feeding, carousel handoff, and chamber classification.'
 		},
 		{
 			key: 'manual_carousel',
@@ -47,7 +45,7 @@
 	let nameSaving = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
-	let machineSetup = $state<MachineSetup>('standard_carousel');
+	let machineSetup = $state<MachineSetup>('classification_channel');
 	let loadingMachineSetup = $state(false);
 	let savingMachineSetup = $state(false);
 	let machineSetupError = $state<string | null>(null);
@@ -114,9 +112,9 @@
 	}
 
 	function normalizeMachineSetup(value: unknown): MachineSetup {
-		return value === 'classification_channel' || value === 'manual_carousel'
+		return value === 'standard_carousel' || value === 'manual_carousel'
 			? value
-			: 'standard_carousel';
+			: 'classification_channel';
 	}
 
 	function classificationModeLabel(mode: string): string {
@@ -402,24 +400,13 @@
 									: 'border-border bg-bg text-text hover:bg-surface'
 							}`}
 						>
-							<div class="flex w-full items-start justify-between gap-3">
-								<div class="text-sm font-medium">{card.title}</div>
-								{#if card.experimental}
-									<span class="border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.16em] text-amber-700 dark:text-amber-300">
-										Experimental
-									</span>
-								{/if}
-							</div>
+							<div class="text-sm font-medium">{card.title}</div>
 							<div class="text-xs font-medium text-text">{card.description}</div>
 							<div class="text-xs text-text-muted">
 								{card.detail}
 							</div>
 						</button>
 					{/each}
-				</div>
-				<div class="text-xs text-text-muted">
-					Changing the machine setup persists to the machine TOML and takes effect after `Reset` and
-					`Re-Home`.
 				</div>
 				{#if machineSetupError}
 					<div class="text-sm text-danger dark:text-red-400">{machineSetupError}</div>
@@ -486,6 +473,11 @@
 						{:else if feederModeStatus}
 							<div class="mt-1 text-xs text-text-muted">{feederModeStatus}</div>
 						{/if}
+					</div>
+
+					<div class="text-xs text-text-muted">
+						Changing the machine setup persists to the machine TOML and takes effect after Reset and
+						Re-Home.
 					</div>
 				</div>
 			</div>

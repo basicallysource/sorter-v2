@@ -321,7 +321,12 @@ def _syncColors(gc, conn, throttle_fn):
 
 def _syncPartsPage(gc, conn, parts_data, throttle_fn):
     throttle_fn()
-    page_num = (len(parts_data.parts) // REBRICKABLE_PAGE_SIZE) + 1
+    # Page must advance off the persisted DB count, not parts_data.parts: the
+    # in-memory cache is only refreshed by reloadPartsData() after the whole
+    # sync finishes, so deriving the page from it pins page_num and re-fetches
+    # the same page forever (which Rebrickable eventually 429s).
+    cached_before = conn.execute("SELECT COUNT(*) FROM parts").fetchone()[0]
+    page_num = (cached_before // REBRICKABLE_PAGE_SIZE) + 1
     url = f"{REBRICKABLE_BASE_URL}/parts/"
     resp = requests.get(url, params={
         "key": gc.rebrickable_api_key,

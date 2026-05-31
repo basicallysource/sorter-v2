@@ -39,8 +39,8 @@ PHASE_DURATIONS: dict[str, int] = {
     "grow": 15,
     "mount": 5,
     "overlay": 3,
+    "portal": 20,
     "chroot": 90,
-    "firstboot-config": 1,
     "finalize": 5,
     "zip": 120,
 }

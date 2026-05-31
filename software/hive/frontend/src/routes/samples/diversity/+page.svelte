@@ -106,13 +106,13 @@
 		<div class="flex items-center gap-1 bg-bg p-1">
 			<button
 				onclick={() => setScope('all')}
-				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'all' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'all' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 			>
 				All
 			</button>
 			<button
 				onclick={() => setScope('mine')}
-				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'mine' ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+				class="px-2.5 py-1 text-xs font-medium transition-colors {scope === 'mine' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 			>
 				Mine
 			</button>
@@ -129,11 +129,11 @@
 {#if loading && !data}
 	<Spinner />
 {:else if error && !data}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
 	</div>
 {:else if data && data.groups.length === 0}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		No capture reasons recorded yet.
 	</div>
 {:else if data}
@@ -141,7 +141,7 @@
 		{#each data.groups as group (group.capture_reason)}
 			<a
 				href="/samples/diversity/{encodeURIComponent(group.capture_reason)}"
-				class="block border border-border bg-white p-4 transition-colors hover:border-primary"
+				class="block border border-border bg-surface p-4 transition-colors hover:border-primary"
 			>
 				<div class="mb-3 flex items-baseline justify-between gap-2">
 					<h2 class="truncate text-sm font-semibold text-text">{prettifyToken(group.capture_reason)}</h2>

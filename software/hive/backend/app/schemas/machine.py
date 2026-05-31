@@ -45,6 +45,7 @@ class MachineResponse(BaseModel):
     local_ui_port: str | None
     last_seen_at: datetime | None
     is_active: bool
+    archived_at: datetime | None = None
     created_at: datetime
     owner: MachineOwnerSummary | None = None
 

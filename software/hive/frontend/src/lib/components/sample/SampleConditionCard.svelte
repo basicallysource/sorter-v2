@@ -119,14 +119,14 @@
 	function flagTone(active: boolean, risk = false): string {
 		if (!active) return 'border-border bg-bg text-text-muted opacity-60';
 		if (risk) return 'border-warning/40 bg-warning/15 text-[#A16207]';
-		return 'border-border bg-white text-text';
+		return 'border-border bg-surface text-text';
 	}
 
 	const conditionSummary = $derived(parseConditionSummary(samplePayload));
 </script>
 
 {#if conditionSummary}
-	<div class="border border-border bg-white">
+	<div class="border border-border bg-surface">
 		<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
 			<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Condition</h2>
 			{#if conditionSummary.provider}

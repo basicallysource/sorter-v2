@@ -195,7 +195,7 @@ def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
 def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = False) -> Dict[str, Any]:
     manager = get_waveshare_inventory_manager()
     if refresh:
-        return manager.refresh(port=port)
+        return manager.refresh(port=port, allow_active_runtime_scan=True)
     return manager.get_status(port=port)
 
 
@@ -1126,6 +1126,18 @@ def save_servo_hardware_config(
     if backend == "waveshare":
         if port is not None:
             servo_table["port"] = port
+        existing_servo_table = config.get("servo", {})
+        previous_highest_seen = (
+            existing_servo_table.get("highest_seen_id")
+            if isinstance(existing_servo_table, dict)
+            else None
+        )
+        if (
+            isinstance(previous_highest_seen, int)
+            and not isinstance(previous_highest_seen, bool)
+            and previous_highest_seen > 0
+        ):
+            servo_table["highest_seen_id"] = previous_highest_seen
 
     config["servo"] = servo_table
 
@@ -1596,7 +1608,10 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
 
         info = service.read_servo_info(new_id)
         try:
-            get_waveshare_inventory_manager().refresh(port=getattr(service, "port", None))
+            get_waveshare_inventory_manager().refresh(
+                port=getattr(service, "port", None),
+                allow_active_runtime_scan=True,
+            )
         except Exception:
             pass
         return {
@@ -1634,7 +1649,10 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
 
         info = service.read_servo_info(servo_id)
         try:
-            get_waveshare_inventory_manager().refresh(port=getattr(service, "port", None))
+            get_waveshare_inventory_manager().refresh(
+                port=getattr(service, "port", None),
+                allow_active_runtime_scan=True,
+            )
         except Exception:
             pass
         return {

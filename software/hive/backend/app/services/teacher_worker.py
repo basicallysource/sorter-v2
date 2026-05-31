@@ -38,6 +38,7 @@ from app.models.user import User
 from app.services.secrets import decrypt_secret
 from app.services.storage_backend import get_backend
 from app.services.teacher_adapters import TeacherRateLimitError, get_adapter
+from app.services.teacher_prompts import adapter_kind_for, resolve_prompt
 from app.services.teacher_detector import (
     DEFAULT_OPENROUTER_MODEL,
     apply_teacher_result_to_sample,
@@ -85,6 +86,13 @@ class TeacherWorker:
             if self._dispatcher is not None and self._dispatcher.is_alive():
                 return
             self._stop_event.clear()
+            # Recover orphaned 'running' items: a previous process picked them via
+            # FOR UPDATE SKIP LOCKED but crashed/was restarted before writing the
+            # terminal status. No worker thread is alive yet, so anything marked
+            # 'running' right now is by definition stranded — reset to 'queued' so
+            # the dispatcher picks them on the first cycle. Safe because the
+            # ThreadPoolExecutor + dispatcher haven't started yet.
+            self._recover_orphaned_running_items()
             self._executor = ThreadPoolExecutor(
                 max_workers=max(1, settings.TEACHER_WORKER_PARALLELISM),
                 thread_name_prefix="teacher-worker",
@@ -99,6 +107,26 @@ class TeacherWorker:
                 "Teacher worker started (parallelism=%d)",
                 settings.TEACHER_WORKER_PARALLELISM,
             )
+
+    def _recover_orphaned_running_items(self) -> None:
+        db = SessionLocal()
+        try:
+            count = (
+                db.query(TeacherJobItem)
+                .filter(TeacherJobItem.status == "running")
+                .update({TeacherJobItem.status: "queued"}, synchronize_session=False)
+            )
+            if count:
+                db.commit()
+                logger.warning(
+                    "Recovered %d orphaned teacher-job items stuck in 'running' "
+                    "after a previous worker restart.",
+                    count,
+                )
+        except Exception:
+            logger.exception("Failed to recover orphaned teacher-job items")
+        finally:
+            db.close()
 
     def stop(self, timeout: float = 5.0) -> None:
         self._stop_event.set()
@@ -228,7 +256,7 @@ class TeacherWorker:
             if ctx is None:
                 return
 
-            zone, adapter, api_key, image_bytes, sample_id, job_id, error = ctx
+            zone, adapter, api_key, image_bytes, override_prompt, sample_id, job_id, error = ctx
             if error is not None:
                 self._record_terminal_status(item_id, job_id, **error)
                 return
@@ -248,6 +276,7 @@ class TeacherWorker:
                         api_key=api_key,
                         adapter_kind=adapter_kind,
                         min_interval=min_interval,
+                        override_prompt=override_prompt,
                     )
                 except Exception as exc:
                     logger.exception("Teacher item %s failed", item_id)
@@ -289,7 +318,7 @@ class TeacherWorker:
 
             if owner is None:
                 return (
-                    None, None, None, None, sample_id, job_id,
+                    None, None, None, None, None, sample_id, job_id,
                     {
                         "status": "error", "error_message": "Job owner no longer exists",
                         "succeeded": False, "count_as_failure": True,
@@ -297,7 +326,7 @@ class TeacherWorker:
                 )
             if sample is None:
                 return (
-                    None, None, None, None, sample_id, job_id,
+                    None, None, None, None, None, sample_id, job_id,
                     {
                         "status": "error", "error_message": "Sample no longer exists",
                         "succeeded": False, "count_as_failure": True,
@@ -307,7 +336,7 @@ class TeacherWorker:
             zone = zone_for_source_role(sample.source_role)
             if zone is None:
                 return (
-                    None, None, None, None, sample_id, job_id,
+                    None, None, None, None, None, sample_id, job_id,
                     {
                         "status": "skipped",
                         "error_message": f"No teacher zone for source_role={sample.source_role!r}",
@@ -319,7 +348,7 @@ class TeacherWorker:
             adapter = get_adapter(model_id)
             if adapter is None:
                 return (
-                    None, None, None, None, sample_id, job_id,
+                    None, None, None, None, None, sample_id, job_id,
                     {
                         "status": "error",
                         "error_message": f"Unknown model {job.openrouter_model!r}",
@@ -336,7 +365,7 @@ class TeacherWorker:
                 missing_msg = "Job owner has no OpenRouter API key configured."
             if not api_key:
                 return (
-                    None, None, None, None, sample_id, job_id,
+                    None, None, None, None, None, sample_id, job_id,
                     {
                         "status": "error", "error_message": missing_msg,
                         "succeeded": False, "count_as_failure": True,
@@ -347,14 +376,26 @@ class TeacherWorker:
                 image_bytes = get_backend().read_bytes(sample.image_path)
             except FileNotFoundError:
                 return (
-                    None, None, None, None, sample_id, job_id,
+                    None, None, None, None, None, sample_id, job_id,
                     {
                         "status": "error", "error_message": "Sample image is missing",
                         "succeeded": False, "count_as_failure": True,
                     },
                 )
 
-            return zone, adapter, api_key, image_bytes, sample_id, job_id, None
+            # Resolve the admin-edited prompt for this zone+kind (DB row or default
+            # template). Done inside the short-lived session so the slow API call
+            # downstream doesn't hold a connection. Falls back cleanly to the adapter's
+            # built-in default when no row is set.
+            resolved = resolve_prompt(
+                db,
+                zone,
+                adapter_kind_for(adapter.adapter_kind),
+                width=int(sample.image_width or 1024),
+                height=int(sample.image_height or 1024),
+            )
+
+            return zone, adapter, api_key, image_bytes, resolved.content, sample_id, job_id, None
         finally:
             db.close()
 
@@ -433,6 +474,7 @@ class TeacherWorker:
         api_key: str,
         adapter_kind: str,
         min_interval: float,
+        override_prompt: str | None = None,
     ) -> dict[str, Any]:
         """Call adapter.detect with min-interval throttle + 429 exponential backoff."""
         last_error: Exception | None = None
@@ -446,6 +488,7 @@ class TeacherWorker:
                     zone=zone,
                     api_key=api_key,
                     public_app_url=settings.public_app_url,
+                    override_prompt=override_prompt,
                 )
                 return result.to_payload()
             except TeacherRateLimitError as exc:

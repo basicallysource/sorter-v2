@@ -135,11 +135,11 @@
 {#if loading && jobs.length === 0}
 	<Spinner />
 {:else if error && jobs.length === 0}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
 	</div>
 {:else if jobs.length === 0}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		No teacher jobs yet. Start one from the samples page.
 	</div>
 {:else}
@@ -155,13 +155,13 @@
 			<span class="text-[11px] text-text-muted">Auto-refresh every {REFRESH_MS / 1000}s</span>
 		</div>
 		{#if activeJobs.length === 0}
-			<div class="border border-border bg-white px-6 py-10 text-center text-sm text-text-muted">
+			<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
 				No active jobs. Start one from the samples page.
 			</div>
 		{:else}
 			<div class="space-y-4">
 				{#each activeJobs as job (job.id)}
-					<div class="border-2 border-primary bg-white">
+					<div class="border-2 border-primary bg-surface">
 						<div class="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3">
 							<span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusClass(job.status)}">
 								{job.status}
@@ -243,11 +243,11 @@
 			</h2>
 		</div>
 		{#if historyJobs.length === 0}
-			<div class="border border-border bg-white px-6 py-6 text-center text-xs text-text-muted">
+			<div class="border border-border bg-surface px-6 py-6 text-center text-xs text-text-muted">
 				No finished jobs yet.
 			</div>
 		{:else}
-			<div class="divide-y divide-border border border-border bg-white">
+			<div class="divide-y divide-border border border-border bg-surface">
 				{#each historyJobs as job (job.id)}
 					<div class="flex flex-wrap items-center gap-3 px-4 py-2.5">
 						<span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusClass(job.status)}">

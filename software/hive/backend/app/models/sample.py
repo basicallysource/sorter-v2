@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import BigInteger, CheckConstraint, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -35,6 +35,23 @@ class Sample(Base):
     rejected_count = Column(Integer, nullable=False, default=0)
     uploaded_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     resolved_at = Column(DateTime(timezone=True), nullable=True)
+    # Admin soft-delete. Non-null means hidden from default listings + review
+    # queue + training pulls. Files + sample_payload stay intact so an admin
+    # can un-archive without data loss.
+    archived_at = Column(DateTime(timezone=True), nullable=True)
+    # 8×8 pHash for "find similar". Signed BIGINT — Hamming distance via
+    # bit_count(phash # :target) in postgres. Null while waiting for the
+    # backfill to run or for un-decodable images.
+    phash = Column(BigInteger, nullable=True)
+    # Histogram summary for exposure-quality filtering. Populated at upload
+    # (and via the backfill script for older rows). luminance_mean is the
+    # primary signal the filter buckets on; the rest are diagnostics +
+    # heuristics for partial clipping.
+    luminance_mean = Column(Float, nullable=True)
+    luminance_p05 = Column(Float, nullable=True)
+    luminance_p95 = Column(Float, nullable=True)
+    clipped_low_ratio = Column(Float, nullable=True)
+    clipped_high_ratio = Column(Float, nullable=True)
 
     machine = relationship("Machine", back_populates="samples")
     upload_session = relationship("UploadSession", back_populates="samples")

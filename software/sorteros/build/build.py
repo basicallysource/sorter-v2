@@ -7,10 +7,11 @@ minimal apt delta. No partition surgery, no FAT, no qemu. Single ext4.
 
 Phases (run with --phase <name> for a partial rerun):
   prep              — fetch base img if missing, copy to working file
+  grow              — grow the .img by GROW_MIB before mount
   mount             — loop-mount the ext4 partition
   overlay           — rsync overlay/ into the rootfs
+  portal            — build + bake the SorterOS captive portal (../portal/)
   chroot            — run chroot_apt.sh inside the rootfs
-  firstboot-config  — write /etc/sorteros-config.toml placeholder
   finalize          — unmount, rename, report
   zip               — compress .img → .img.zip for GitHub Releases distribution
 
@@ -28,13 +29,15 @@ import os
 import shutil
 import subprocess
 import sys
+import time
 import tomllib
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-PHASES = ["prep", "grow", "mount", "overlay", "chroot", "firstboot-config", "finalize", "zip"]
+PORTAL_DIR = SCRIPT_DIR.parent / "portal"
+PHASES = ["prep", "grow", "mount", "overlay", "portal", "chroot", "finalize", "zip"]
 
 # Bytes of free space to add to the image before chroot. The Orange Pi
 # base image is sized for an 8 GB SD card but only ~2.5 GB is free
@@ -43,12 +46,6 @@ PHASES = ["prep", "grow", "mount", "overlay", "chroot", "firstboot-config", "fin
 # larger than vendor. First-boot growfs on the Pi expands further to fill
 # whatever real SD card it's flashed to.
 GROW_MIB = 4096
-
-# Markers found by the browser-side patcher in sorteros-setup.
-# Must match software/sorteros/sorteros-setup/src/lib/img-patch.ts.
-CFG_START_MARKER = "__SORTEROS_CFG_START__"
-CFG_END_MARKER = "__SORTEROS_CFG_END__"
-
 
 @dataclass
 class BuildCtx:
@@ -94,6 +91,29 @@ def is_mounted(path: Path) -> bool:
     except FileNotFoundError:
         # mountpoint not available — fallback to /proc/mounts grep
         return any(str(path) in ln for ln in Path("/proc/mounts").read_text().splitlines())
+
+
+def _losetup_attach(img: Path) -> str:
+    """losetup --show -fP + wait for /dev/loopNp1 to appear.
+
+    In bare-metal Linux + udev the partition device shows up immediately.
+    In privileged Docker containers (e.g. OrbStack with /dev bind-mounted),
+    the host udev creates the node asynchronously — we have to wait briefly
+    or the next step races and sees no p1.
+    """
+    loop = subprocess.check_output(
+        ["losetup", "--show", "-fP", str(img)], text=True
+    ).strip()
+    # Prefer udevadm settle if available (idempotent, blocks until done).
+    subprocess.run(["udevadm", "settle", "--timeout=5"], check=False)
+    # Fallback poll: some containers have no udev at all, partitions appear
+    # when devtmpfs propagates from the host.
+    part = Path(f"{loop}p1")
+    for _ in range(50):
+        if part.exists():
+            break
+        time.sleep(0.1)
+    return loop
 
 
 # ─── prep ──────────────────────────────────────────────────────────────────
@@ -177,17 +197,13 @@ def phase_grow(ctx: BuildCtx) -> None:
         f.write(b"\0")
 
     # Attach via losetup so partition tools see partitions.
-    loop = subprocess.check_output(
-        ["losetup", "--show", "-fP", str(ctx.work_img)], text=True
-    ).strip()
+    loop = _losetup_attach(ctx.work_img)
     try:
         # Grow partition 1 to fill the new space.
         run(["growpart", loop, "1"])
         # Detach + reattach so the kernel rescans the (now larger) partition.
         run(["losetup", "-d", loop])
-        loop = subprocess.check_output(
-            ["losetup", "--show", "-fP", str(ctx.work_img)], text=True
-        ).strip()
+        loop = _losetup_attach(ctx.work_img)
         part = f"{loop}p1"
         # e2fsck before resize2fs (refuses unclean fs)
         p = subprocess.run(["e2fsck", "-fy", part])
@@ -211,10 +227,7 @@ def phase_mount(ctx: BuildCtx) -> None:
 
     ctx.mnt.mkdir(parents=True, exist_ok=True)
     log(f"losetup -fP {ctx.work_img}")
-    out = subprocess.check_output(
-        ["losetup", "--show", "-fP", str(ctx.work_img)], text=True
-    ).strip()
-    loop = out
+    loop = _losetup_attach(ctx.work_img)
     state_write(ctx, loop=loop)
 
     # The Orange Pi base image has one ext4 partition at p1. Verify.
@@ -267,13 +280,13 @@ def phase_overlay(ctx: BuildCtx) -> None:
     log(f"wrote /etc/motd")
 
     # Tailscale auth key is intentionally NOT baked in at build time.
-    # It is supplied at setup time via the sorteros-setup browser customizer,
+    # It is supplied at setup time via the AP captive portal (../portal/),
     # written into /etc/sorteros-config.toml, and applied by firstboot
     # stage_apply_config_toml → stage_tailscale_up.
     #
-    # The key is kept in .env as TAILSCALE_AUTH_KEY for reference but build.py
-    # no longer reads it. To re-enable baking (e.g. for internal test images),
-    # rename it to SORTEROS_BAKE_TAILSCALE_AUTH_KEY and update the lookup below.
+    # The key can still be baked for internal test images via the env var
+    # below — useful when you don't want to walk through the portal flow
+    # on every test boot.
     ts_key = os.environ.get("SORTEROS_BAKE_TAILSCALE_AUTH_KEY", "")
     ts_tags = os.environ.get("TAILSCALE_TAGS", "tag:sorter")
     if ts_key:
@@ -282,16 +295,21 @@ def phase_overlay(ctx: BuildCtx) -> None:
         ts_env.chmod(0o600)
         log("baked tailscale auth key into /etc/sorteros/tailscale.env")
 
-    # Without this overlay the AP6275P wifi chip is invisible to the kernel.
+    # WiFi overlay is board-specific: OPi 5 onboard needs wifi-ap6275p, the
+    # CM5 Tablet carrier auto-detects via the vendor image. Configurable in
+    # [overlay].wifi_overlay (default "wifi-ap6275p" preserves OPi 5 behavior).
+    wifi_overlay = ctx.config.get("overlay", {}).get("wifi_overlay", "wifi-ap6275p")
     env_txt = ctx.mnt / "boot" / "orangepiEnv.txt"
-    if env_txt.exists():
+    if not wifi_overlay:
+        log("skip wifi overlay patch ([overlay].wifi_overlay is empty)")
+    elif env_txt.exists():
         content = env_txt.read_text()
-        if "wifi-ap6275p" not in content:
+        if wifi_overlay not in content:
             with env_txt.open("a") as f:
-                f.write("\noverlays=wifi-ap6275p\n")
-            log("appended overlays=wifi-ap6275p to /boot/orangepiEnv.txt")
+                f.write(f"\noverlays={wifi_overlay}\n")
+            log(f"appended overlays={wifi_overlay} to /boot/orangepiEnv.txt")
         else:
-            log("overlays=wifi-ap6275p already present in /boot/orangepiEnv.txt")
+            log(f"overlays={wifi_overlay} already present in /boot/orangepiEnv.txt")
     else:
         log("WARN: /boot/orangepiEnv.txt not found; wifi overlay not set")
 
@@ -350,40 +368,82 @@ def phase_chroot(ctx: BuildCtx) -> None:
             tmp_dst.unlink()
         except FileNotFoundError:
             pass
+        # Replace the build-host's /etc/resolv.conf with the standard
+        # systemd-resolved symlink. Otherwise (e.g. when building in a
+        # Docker container that has a hardcoded internal DNS like
+        # 0.250.250.200) the dead nameserver gets baked into the image
+        # and the first-boot stages can't resolve github.com.
+        resolv_dst.unlink(missing_ok=True)
+        resolv_dst.symlink_to("/run/systemd/resolve/stub-resolv.conf")
 
 
-# ─── firstboot-config ──────────────────────────────────────────────────────
+# ─── portal ───────────────────────────────────────────────────────────────
 
-def phase_firstboot_config(ctx: BuildCtx) -> None:
+def phase_portal(ctx: BuildCtx) -> None:
+    """Bake the SorterOS captive-portal backend script and static frontend
+    bundle into the rootfs. Portal source lives at ../portal/ and is
+    reused for local development via mock mode."""
     if not is_mounted(ctx.mnt):
         sys.exit("rootfs not mounted — run --phase mount first")
 
-    kb = int(ctx.config["firstboot"]["placeholder_kb"])
-    total = kb * 1024
+    backend_src = PORTAL_DIR / "backend" / "portal.py"
+    frontend_dir = PORTAL_DIR / "frontend"
+    frontend_build = frontend_dir / "build"
 
-    # Layout inside the placeholder file (raw bytes, fixed total size):
-    #
-    #   # __SORTEROS_CFG_START__
-    #   <newline padding — the patchable region>
-    #   # __SORTEROS_CFG_END__
-    #
-    # The padding goes BETWEEN the markers so the browser-side patcher
-    # (sorteros-setup) has the full (total - overhead) bytes of capacity.
-    # ext4 metadata doesn't move because total file size is fixed.
-    header = f"# {CFG_START_MARKER}\n"
-    footer = f"# {CFG_END_MARKER}\n"
-    overhead = len(header.encode()) + len(footer.encode())
+    if not backend_src.exists():
+        sys.exit(f"portal backend missing at {backend_src} — repo layout broken?")
+    if not frontend_dir.exists():
+        sys.exit(f"portal frontend missing at {frontend_dir} — repo layout broken?")
 
-    if overhead > total:
-        sys.exit(f"placeholder header/footer too large ({overhead} > {total})")
-    payload = header + ("\n" * (total - overhead)) + footer
-    assert len(payload) == total
+    # Build the Svelte frontend if no build/ output exists yet, or if any
+    # source file is newer than the existing build manifest.
+    if _portal_frontend_needs_build(frontend_dir, frontend_build):
+        log("building portal frontend (pnpm install + pnpm build)")
+        if not (frontend_dir / "node_modules").exists():
+            run(["pnpm", "install", "--frozen-lockfile"], cwd=str(frontend_dir))
+        run(["pnpm", "build"], cwd=str(frontend_dir))
+    else:
+        log(f"portal frontend build/ up to date — skipping pnpm")
 
-    dest = ctx.mnt / "etc" / "sorteros-config.toml"
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(payload)
-    os.chmod(dest, 0o644)
-    log(f"wrote {dest} ({total} bytes)")
+    # Backend script → /usr/local/sbin/sorteros-portal.py
+    backend_dst = ctx.mnt / "usr" / "local" / "sbin" / "sorteros-portal.py"
+    backend_dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(backend_src, backend_dst)
+    os.chmod(backend_dst, 0o755)
+    log(f"copied portal backend → {backend_dst.relative_to(ctx.mnt)}")
+
+    # Frontend bundle → /var/www/portal
+    www_dst = ctx.mnt / "var" / "www" / "portal"
+    if www_dst.exists():
+        shutil.rmtree(www_dst)
+    www_dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copytree(frontend_build, www_dst)
+    log(f"copied portal frontend → {www_dst.relative_to(ctx.mnt)}")
+
+    # The portal will also need an empty /etc/sorteros-config.toml so
+    # firstboot's stage_apply_config_toml has a known path to read once
+    # the user completes onboarding. No markers, no placeholder — just a
+    # comment so the file isn't empty.
+    cfg = ctx.mnt / "etc" / "sorteros-config.toml"
+    if not cfg.exists():
+        cfg.write_text("# Populated by sorteros-portal during AP onboarding.\n")
+        os.chmod(cfg, 0o644)
+        log(f"created {cfg.relative_to(ctx.mnt)}")
+
+
+def _portal_frontend_needs_build(src_dir: Path, build_dir: Path) -> bool:
+    manifest = build_dir / "index.html"
+    if not manifest.exists():
+        return True
+    build_mtime = manifest.stat().st_mtime
+    for path in (src_dir / "src").rglob("*"):
+        if path.is_file() and path.stat().st_mtime > build_mtime:
+            return True
+    for cfg in ("svelte.config.js", "vite.config.ts", "package.json"):
+        p = src_dir / cfg
+        if p.exists() and p.stat().st_mtime > build_mtime:
+            return True
+    return False
 
 
 # ─── finalize ──────────────────────────────────────────────────────────────
@@ -439,8 +499,8 @@ PHASE_FNS = {
     "grow": phase_grow,
     "mount": phase_mount,
     "overlay": phase_overlay,
+    "portal": phase_portal,
     "chroot": phase_chroot,
-    "firstboot-config": phase_firstboot_config,
     "finalize": phase_finalize,
     "zip": phase_zip,
 }

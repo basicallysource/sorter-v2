@@ -1,0 +1,45 @@
+# SorterOS build config — OrangePi CM5 + Tablet Base Board variant.
+#
+# Run with: sudo python build.py --config config-cm5.toml
+#
+# Differs from config.toml (OPi 5) only in [base] and [overlay].
+
+[base]
+# OrangePi vendor Ubuntu Noble (24.04) minimal — built specifically for the
+# CM5 module on the Tablet Base Board carrier. Same single-ext4-at-p1 layout
+# as the OPi 5 vendor image, so build.py works without partition patches.
+url = "https://os.orangepi.dev/ubuntu/25.02/ubuntu-noble-minimal-opicm5-tablet-arm64-25.02.img.xz"
+filename = "ubuntu-noble-minimal-opicm5-tablet-arm64-25.02.img"
+sha256 = "acd946a427101ff8fa6953d482831ee5901ea4c50d9d200fb3963be3027d1be5"
+
+[output]
+dir = "out"
+version = "4.0.5-cm5.1"
+name = "sorteros-v{version}-{date}.img"
+
+[chroot]
+# Same package set as OPi 5 build — chroot_apt.sh handles both Jammy and Noble
+# (python3-tomli exists in both; on Noble it's redundant since 3.12 has tomllib
+# in stdlib, but installing it is harmless).
+packages = [
+    "network-manager",
+    "python3-pip",
+    "python3-tomli",
+    "libgl1",
+    "libglib2.0-0",
+    "v4l-utils",
+    "git-lfs",
+    "cloud-guest-utils",
+    "figlet",
+    "systemd-timesyncd",
+    "qrencode",
+]
+extra_curl_installs = ["node22", "tailscale", "portal-py-deps"]
+
+[branch]
+default = "sorteros-v3"
+
+[overlay]
+# CM5 Tablet Base Board WiFi is auto-detected by the vendor image — no
+# orangepiEnv.txt overlay needed. Setting empty skips the patch entirely.
+wifi_overlay = ""

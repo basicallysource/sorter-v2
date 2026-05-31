@@ -12,12 +12,18 @@ from app.deps import (
     API_KEY_SCOPE_SAMPLES_WRITE,
     get_db,
     require_api_key_scopes,
+    require_role,
     verify_csrf,
 )
 from app.errors import APIError
+from app.models.machine import Machine
 from app.models.sample import Sample
 from app.models.user import User
 from app.schemas.sample import (
+    BatchArchiveSamplesRequest,
+    BatchArchiveSamplesResponse,
+    BatchDeleteSamplesRequest,
+    BatchDeleteSamplesResponse,
     SampleDetailResponse,
     SampleListResponse,
     SampleResponse,
@@ -55,16 +61,189 @@ def _normalized_optional_string(value: str | None) -> str | None:
     return normalized or None
 
 
-def _visible_sample_query(db: Session, current_user: User, scope: str | None):
+def _visible_sample_query(
+    db: Session,
+    current_user: User,
+    scope: str | None,
+    *,
+    include_archived: bool = False,
+):
     """Read-side query.
 
     Default scope is 'all' — samples are public to any logged-in user. ``scope='mine'``
     restricts to the caller's machines.
+
+    Always hides samples whose machine is archived. Archived rigs (old hardware,
+    decommissioned setups) shouldn't show up in browse/diversity/training pulls; their
+    samples stay in the DB so an admin can un-archive without data loss.
+
+    Per-sample archive flag (``Sample.archived_at``) is also filtered out by default.
+    Admins can opt in to seeing them with ``include_archived=True`` so they have a
+    surface to un-archive from.
     """
-    query = db.query(Sample)
+    query = db.query(Sample).filter(Sample.machine.has(Machine.archived_at.is_(None)))
+    if not include_archived:
+        query = query.filter(Sample.archived_at.is_(None))
     if scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=current_user.id))
     return query
+
+
+# Capture reasons that mark a sample as a piece-condition crop (collected by
+# the sorter's condition_collector or the archived condition_teacher). Kept as
+# a single source of truth so the kind filter on /samples and the queue filter
+# on /review can't drift.
+CONDITION_CAPTURE_REASONS: tuple[str, ...] = (
+    "piece_condition_collector",
+    "piece_condition_teacher",
+)
+
+
+def apply_kind_filter(query, kind: str | None):
+    """Filter a Sample query down to 'regular' or 'condition' samples.
+
+    `kind=condition` keeps only condition-collector / condition-teacher rows.
+    `kind=regular` keeps everything *but* those. Anything else (None / 'all')
+    is a no-op so the filter is safe to call unconditionally.
+    """
+
+    if kind == "condition":
+        return query.filter(Sample.capture_reason.in_(CONDITION_CAPTURE_REASONS))
+    if kind == "regular":
+        return query.filter(
+            (Sample.capture_reason.is_(None))
+            | (Sample.capture_reason.notin_(CONDITION_CAPTURE_REASONS))
+        )
+    return query
+
+
+def apply_exposure_filter(query, exposure: str | None):
+    """Filter to a single exposure bucket — underexposed / good / overexposed.
+
+    Thresholds mirror ``ExposureStats.classify`` so the server-side filter
+    and the per-sample badge stay in sync.
+
+    Values (exclusive):
+      - 'under'  → only samples we *know* are underexposed (lights off)
+      - 'over'   → only samples we *know* are overexposed (saturation)
+      - 'normal' → samples we know are good-light, PLUS rows that don't have
+                   stats yet (un-backfilled). The benefit-of-the-doubt makes
+                   'normal' a safe default during/after migration windows.
+      - None / unknown → no filter (operator opts out entirely)
+    """
+
+    if exposure not in {"under", "normal", "over"}:
+        return query
+    from app.services.image_stats import (
+        OVEREXPOSED_CLIPPED_HIGH,
+        OVEREXPOSED_MEAN_MIN,
+        UNDEREXPOSED_CLIPPED_LOW,
+        UNDEREXPOSED_MEAN_MAX,
+    )
+
+    is_under = (Sample.luminance_mean <= UNDEREXPOSED_MEAN_MAX) | (
+        Sample.clipped_low_ratio >= UNDEREXPOSED_CLIPPED_LOW
+    )
+    is_over = (Sample.luminance_mean >= OVEREXPOSED_MEAN_MIN) | (
+        Sample.clipped_high_ratio >= OVEREXPOSED_CLIPPED_HIGH
+    )
+
+    if exposure == "under":
+        return query.filter(is_under)
+    if exposure == "over":
+        return query.filter(is_over)
+    # 'normal' = neither under nor over, OR no stats yet (assume normal so
+    # un-backfilled rows aren't silently hidden during the backfill window).
+    return query.filter(Sample.luminance_mean.is_(None) | (~is_under & ~is_over))
+
+
+def apply_annotated_filter(query, annotated: str | None):
+    """Filter by whether the Hive teacher (Gemini/Perceptron) has already
+    re-run on the sample.
+
+    The signal is ``extra_metadata.teacher_rerun`` — that key is set only
+    by ``apply_teacher_result_to_sample`` after a successful teacher pass.
+    Raw sorter-side detections (the boxes that arrive with the upload)
+    are often incomplete or off, so reviewers usually want to wait until
+    a teacher has validated them.
+
+    Values:
+      - 'teacher' — has a teacher_rerun audit entry (training-ready)
+      - 'raw'     — no teacher_rerun yet (likely still needs a pass)
+      - anything else / None — no filter
+
+    Uses PostgreSQL JSONB containment (``?`` operator). Live + dev both
+    run postgres; this isn't tested on SQLite.
+    """
+
+    if annotated not in {"teacher", "raw"}:
+        return query
+    has_teacher = Sample.extra_metadata.op("?")("teacher_rerun")
+    if annotated == "teacher":
+        return query.filter(has_teacher)
+    return query.filter(~has_teacher | Sample.extra_metadata.is_(None))
+
+
+def apply_my_review_filter(query, my_review: str | None, viewer_id):
+    """Filter samples by the viewer's own review decision.
+
+    Values:
+      - 'unreviewed' — viewer hasn't reviewed yet
+      - 'reviewed'   — viewer reviewed (either decision)
+      - 'accepted'   — viewer accepted
+      - 'rejected'   — viewer rejected
+      - anything else / None — no filter
+
+    Uses a subquery against sample_reviews so the existing
+    (sample_id, reviewer_id) unique index does the work.
+    """
+
+    if my_review not in {"unreviewed", "reviewed", "accepted", "rejected"}:
+        return query
+
+    from sqlalchemy import select as sa_select
+    from app.models.sample_review import SampleReview
+
+    base = sa_select(SampleReview.sample_id).where(
+        SampleReview.reviewer_id == viewer_id
+    )
+    if my_review == "accepted":
+        ids = base.where(SampleReview.decision == "accept")
+    elif my_review == "rejected":
+        ids = base.where(SampleReview.decision == "reject")
+    else:
+        ids = base  # reviewed or unreviewed both key off the existence subquery
+
+    if my_review == "unreviewed":
+        return query.filter(Sample.id.notin_(ids))
+    return query.filter(Sample.id.in_(ids))
+
+
+def attach_my_reviews(items: list, db: Session, viewer_id) -> None:
+    """Populate ``my_review_decision`` on each Sample row via one batch lookup.
+
+    Mutates the ORM instances in place so the from-attributes pydantic
+    validation picks the value up without a second pass.
+    """
+
+    if not items or viewer_id is None:
+        for sample in items:
+            sample.my_review_decision = None
+        return
+    from app.models.sample_review import SampleReview
+
+    sample_ids = [s.id for s in items]
+    rows = (
+        db.query(SampleReview.sample_id, SampleReview.decision)
+        .filter(
+            SampleReview.reviewer_id == viewer_id,
+            SampleReview.sample_id.in_(sample_ids),
+        )
+        .all()
+    )
+    by_id = {sample_id: decision for sample_id, decision in rows}
+    for sample in items:
+        sample.my_review_decision = by_id.get(sample.id)
 
 
 def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
@@ -521,12 +700,35 @@ def list_samples(
     source_role: str | None = None,
     capture_reason: str | None = None,
     review_status: str | None = None,
+    kind: str | None = Query(None, pattern="^(regular|condition|all)$"),
+    my_review: str | None = Query(None, pattern="^(unreviewed|reviewed|accepted|rejected)$"),
+    annotated: str | None = Query(None, pattern="^(teacher|raw|all)$"),
+    exposure: str | None = Query(None, pattern="^(under|normal|over)$"),
+    archived: str | None = Query(None, pattern="^(active|archived|all)$"),
     max_age_hours: int | None = Query(None, ge=1, le=24 * 365),
     scope: str | None = Query(None, pattern="^(mine|all)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    query = _visible_sample_query(db, current_user, scope)
+    # `archived` is admin-only — members never see archived samples regardless
+    # of what they pass. Default ('active' or unset) hides them.
+    is_admin = current_user.role == "admin"
+    include_archived = is_admin and archived in ("archived", "all")
+    only_archived = is_admin and archived == "archived"
+
+    query = _visible_sample_query(db, current_user, scope, include_archived=include_archived)
+    if only_archived:
+        query = query.filter(Sample.archived_at.isnot(None))
+    query = apply_kind_filter(query, kind)
+    query = apply_my_review_filter(query, my_review, current_user.id)
+    # Default-hide raw samples — reviewers shouldn't waste time on boxes
+    # the teacher hasn't validated yet. Explicit ?annotated=all opts back
+    # in to seeing everything.
+    query = apply_annotated_filter(query, annotated or "teacher")
+    # Default to the 'normal' (good light) bucket — under/over frames are
+    # rarely worth reviewing. Operator can opt into either of the bad
+    # buckets explicitly to find + bulk-archive them.
+    query = apply_exposure_filter(query, exposure or "normal")
 
     if machine_id:
         query = query.filter(Sample.machine_id == machine_id)
@@ -548,6 +750,7 @@ def list_samples(
     total = query.count()
     pages = math.ceil(total / page_size) if total > 0 else 1
     items = query.offset((page - 1) * page_size).limit(page_size).all()
+    attach_my_reviews(items, db, current_user.id)
 
     return SampleListResponse(
         items=[SampleResponse.model_validate(s) for s in items],
@@ -558,6 +761,61 @@ def list_samples(
     )
 
 
+@router.get("/{sample_id}/similar", response_model=SampleListResponse)
+def get_similar_samples(
+    sample_id: UUID,
+    limit: int = Query(24, ge=1, le=100),
+    max_distance: int = Query(16, ge=0, le=64),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
+):
+    """Return samples visually similar to ``sample_id``, sorted by Hamming
+    distance over the stored 8×8 pHash.
+
+    Excludes the sample itself, archived rows, and anything whose pHash is
+    null (un-decodable image, or older sample that hasn't been backfilled).
+    Distance is computed in SQL via ``bit_count(phash # :target)`` so the
+    server doesn't need to materialize every row.
+    """
+    from sqlalchemy import text
+
+    target = db.query(Sample).filter(Sample.id == sample_id).first()
+    if target is None:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    if target.phash is None:
+        # No hash to compare against. Return an empty list rather than
+        # falling back to "newest samples" — empty is the truthful answer.
+        return SampleListResponse(items=[], total=0, page=1, page_size=limit, pages=0)
+
+    # Hamming distance via XOR + popcount inline in SQL. Postgres ``#`` is
+    # bitwise XOR on integers and ``bit_count`` (Postgres 14+) counts set
+    # bits. We rank by distance, drop self + archived rows + nulls, and
+    # cap by ``max_distance`` so a wildly different image doesn't surface.
+    bit_distance = text("bit_count(samples.phash # :target_phash)")
+    rows = (
+        db.query(Sample, bit_distance.label("distance"))
+        .filter(Sample.machine.has(Machine.archived_at.is_(None)))
+        .filter(Sample.archived_at.is_(None))
+        .filter(Sample.phash.isnot(None))
+        .filter(Sample.id != target.id)
+        .filter(bit_distance <= int(max_distance))
+        .order_by(text("distance"))
+        .params(target_phash=int(target.phash))
+        .limit(limit)
+        .all()
+    )
+
+    items = [sample for sample, _distance in rows]
+    attach_my_reviews(items, db, current_user.id)
+    return SampleListResponse(
+        items=[SampleResponse.model_validate(s) for s in items],
+        total=len(items),
+        page=1,
+        page_size=limit,
+        pages=1 if items else 0,
+    )
+
+
 @router.get("/{sample_id}", response_model=SampleDetailResponse)
 def get_sample(
     sample_id: UUID,
@@ -565,6 +823,7 @@ def get_sample(
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
     sample = _get_sample_for_read(db, sample_id)
+    attach_my_reviews([sample], db, current_user.id)
 
     data = SampleDetailResponse.model_validate(sample)
     data.has_full_frame = sample.full_frame_path is not None
@@ -650,6 +909,230 @@ def save_sample_classification(
         ok=True,
         cleared=False,
         data=payload,
+    )
+
+
+def _apply_archive_filters(query, payload: BatchArchiveSamplesRequest, viewer_id):
+    """Shared filter assembly for archive + unarchive endpoints.
+
+    Mirrors the /api/samples list filters 1:1 — anything the operator sees
+    on the page must be what the destructive action operates on.
+    """
+
+    query = apply_kind_filter(query, payload.kind)
+    query = apply_my_review_filter(query, payload.my_review, viewer_id)
+    query = apply_annotated_filter(query, payload.annotated)
+    query = apply_exposure_filter(query, payload.exposure)
+    if payload.machine_id:
+        try:
+            machine_uuid = UUID(payload.machine_id)
+        except ValueError:
+            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
+        query = query.filter(Sample.machine_id == machine_uuid)
+    if payload.source_role:
+        query = query.filter(Sample.source_role == payload.source_role)
+    if payload.capture_reason:
+        query = query.filter(Sample.capture_reason == payload.capture_reason)
+    if payload.review_status:
+        query = query.filter(Sample.review_status == payload.review_status)
+    if payload.max_age_hours is not None:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
+        query = query.filter(Sample.uploaded_at >= cutoff)
+    return query
+
+
+@router.post("/batch-archive", response_model=BatchArchiveSamplesResponse)
+def batch_archive_samples(
+    payload: BatchArchiveSamplesRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Admin-only soft-delete: stamp `archived_at` on every active sample
+    matching the filter, hiding it from listings + review + training pulls.
+
+    Reversible via POST /api/samples/batch-unarchive with the same filter.
+    No file deletion happens — just the flag — so unarchive restores fully.
+    """
+
+    # Only operate on currently-active samples (skip those already archived).
+    query = (
+        db.query(Sample)
+        .filter(Sample.machine.has(Machine.archived_at.is_(None)))
+        .filter(Sample.archived_at.is_(None))
+    )
+    query = _apply_archive_filters(query, payload, admin.id)
+
+    matched = query.count()
+
+    if payload.dry_run:
+        return BatchArchiveSamplesResponse(
+            ok=True,
+            matched=matched,
+            archived=0,
+            dry_run=True,
+            capped=matched > payload.max_archive,
+        )
+
+    if matched > payload.max_archive:
+        raise APIError(
+            400,
+            f"Filter matches {matched} samples — narrow the filter or raise max_archive "
+            f"(currently {payload.max_archive}). Refusing to archive in one shot.",
+            "BATCH_ARCHIVE_TOO_LARGE",
+        )
+
+    # Bulk UPDATE is cheaper than row-by-row for large sets and keeps the
+    # transaction short — no per-row ORM overhead.
+    now = datetime.now(timezone.utc)
+    archived = query.update({Sample.archived_at: now}, synchronize_session=False)
+    db.commit()
+    return BatchArchiveSamplesResponse(
+        ok=True,
+        matched=matched,
+        archived=int(archived or 0),
+        dry_run=False,
+    )
+
+
+@router.post("/batch-unarchive", response_model=BatchArchiveSamplesResponse)
+def batch_unarchive_samples(
+    payload: BatchArchiveSamplesRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Reverse of batch-archive. Operates only on currently-archived rows."""
+
+    query = (
+        db.query(Sample)
+        .filter(Sample.machine.has(Machine.archived_at.is_(None)))
+        .filter(Sample.archived_at.isnot(None))
+    )
+    query = _apply_archive_filters(query, payload, admin.id)
+
+    matched = query.count()
+
+    if payload.dry_run:
+        return BatchArchiveSamplesResponse(
+            ok=True,
+            matched=matched,
+            archived=0,
+            dry_run=True,
+            capped=matched > payload.max_archive,
+        )
+
+    if matched > payload.max_archive:
+        raise APIError(
+            400,
+            f"Filter matches {matched} archived samples — narrow the filter or raise "
+            f"max_archive (currently {payload.max_archive}).",
+            "BATCH_UNARCHIVE_TOO_LARGE",
+        )
+
+    unarchived = query.update({Sample.archived_at: None}, synchronize_session=False)
+    db.commit()
+    return BatchArchiveSamplesResponse(
+        ok=True,
+        matched=matched,
+        archived=int(unarchived or 0),
+        dry_run=False,
+    )
+
+
+@router.post("/batch-delete", response_model=BatchDeleteSamplesResponse)
+def batch_delete_samples(
+    payload: BatchDeleteSamplesRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_WRITE)),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Bulk-delete samples matching the given filters, always scoped to
+    machines the caller owns.
+
+    The ownership filter is enforced server-side regardless of what the
+    client sends — there is intentionally no admin override on this surface
+    so a misclick from an admin account can't nuke a member's samples.
+    Admins who need to drop someone else's data still go through the
+    per-sample DELETE endpoint with explicit intent.
+    """
+
+    query = db.query(Sample).filter(Sample.machine.has(owner_id=current_user.id))
+
+    # Mirror the /api/samples list filters 1:1 — anything the operator sees
+    # on the page must be what the destructive action operates on.
+    query = apply_kind_filter(query, payload.kind)
+    query = apply_my_review_filter(query, payload.my_review, current_user.id)
+    query = apply_annotated_filter(query, payload.annotated)
+    query = apply_exposure_filter(query, payload.exposure)
+    if payload.machine_id:
+        try:
+            machine_uuid = UUID(payload.machine_id)
+        except ValueError:
+            raise APIError(400, "machine_id must be a UUID", "INVALID_MACHINE_ID")
+        query = query.filter(Sample.machine_id == machine_uuid)
+    if payload.source_role:
+        query = query.filter(Sample.source_role == payload.source_role)
+    if payload.capture_reason:
+        query = query.filter(Sample.capture_reason == payload.capture_reason)
+    if payload.review_status:
+        query = query.filter(Sample.review_status == payload.review_status)
+    if payload.max_age_hours is not None:
+        from datetime import timedelta
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=payload.max_age_hours)
+        query = query.filter(Sample.uploaded_at >= cutoff)
+
+    matched = query.count()
+
+    if payload.dry_run:
+        return BatchDeleteSamplesResponse(
+            ok=True,
+            matched=matched,
+            deleted=0,
+            dry_run=True,
+            capped=matched > payload.max_delete,
+        )
+
+    if matched > payload.max_delete:
+        raise APIError(
+            400,
+            f"Filter matches {matched} samples — narrow the filter or raise max_delete "
+            f"(currently {payload.max_delete}). Refusing to delete in one shot.",
+            "BATCH_DELETE_TOO_LARGE",
+        )
+
+    # Materialize once so file deletion can iterate without holding cursors.
+    samples = query.all()
+    # Track upload sessions so we can decrement their counters in one pass.
+    session_decrements: dict[UUID, int] = {}
+    deleted = 0
+    for sample in samples:
+        delete_sample_files(sample)
+        if sample.upload_session_id:
+            session_decrements[sample.upload_session_id] = (
+                session_decrements.get(sample.upload_session_id, 0) + 1
+            )
+        db.delete(sample)
+        deleted += 1
+
+    if session_decrements:
+        from app.models.upload_session import UploadSession
+        sessions = (
+            db.query(UploadSession)
+            .filter(UploadSession.id.in_(session_decrements.keys()))
+            .all()
+        )
+        for session in sessions:
+            drop = session_decrements.get(session.id, 0)
+            session.sample_count = max(0, session.sample_count - drop)
+
+    db.commit()
+    return BatchDeleteSamplesResponse(
+        ok=True,
+        matched=matched,
+        deleted=deleted,
+        dry_run=False,
     )
 
 

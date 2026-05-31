@@ -13,6 +13,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { Button } from '$lib/components/primitives';
+	import FilterGroup from '$lib/components/sample/FilterGroup.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import {
@@ -37,6 +38,39 @@
 	const filterStatus = $derived(listContext.review_status ?? '');
 	const filterSourceRole = $derived(listContext.source_role ?? '');
 	const filterCaptureReason = $derived(listContext.capture_reason ?? '');
+	// 'regular' (default once a filter is picked, also means: no condition crops)
+	// or 'condition'. Empty string = all = both kinds mixed.
+	const filterKind = $derived(listContext.kind ?? '');
+	// Per-user review filter — independent of the global review_status pill.
+	// 'unreviewed' = I haven't reviewed; 'accepted' / 'rejected' = my own
+	// past decision; 'reviewed' = I reviewed either way.
+	const filterMyReview = $derived(listContext.my_review ?? '');
+	// 'teacher' = already validated by a Hive teacher pass;
+	// 'raw' = still raw sorter detections, often incomplete (Dave's freshly
+	// uploaded samples typically fall here until the teacher worker has
+	// caught up). Default '' shows both.
+	const filterAnnotated = $derived(listContext.annotated ?? '');
+
+	// Lookup tables for collapsed-filter chip labels. Defined once at the
+	// script top so the markup can reference them without {@const} hoisting.
+	const MY_REVIEW_LABELS: Record<string, string> = {
+		unreviewed: 'Not by me yet',
+		reviewed: 'By me',
+		accepted: 'I accepted',
+		rejected: 'I rejected'
+	};
+	const STATUS_LABELS: Record<string, string> = {
+		unreviewed: 'Unreviewed',
+		in_review: 'Needs more reviews',
+		accepted: 'Accepted',
+		rejected: 'Rejected',
+		conflict: 'Conflict'
+	};
+	// Histogram bucket — 'under' / 'normal' / 'over' / 'all'. Empty = no filter.
+	const filterExposure = $derived(listContext.exposure ?? '');
+	// Admin-only: 'active' (default), 'archived', 'all'. Server enforces:
+	// non-admins always see active regardless of what they send.
+	const filterArchived = $derived(listContext.archived ?? '');
 	const filterMaxAgeHours = $derived(listContext.max_age_hours ?? '');
 	const currentPage = $derived(listContext.page);
 	const pageSize = $derived(listContext.page_size);
@@ -71,7 +105,7 @@
 	};
 
 	const hasActiveFilters = $derived(
-		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterMaxAgeHours
+		filterMachine || filterStatus || filterSourceRole || filterCaptureReason || filterKind || filterMyReview || filterAnnotated || filterExposure || filterArchived || filterMaxAgeHours
 	);
 
 	$effect(() => {
@@ -85,6 +119,11 @@
 		void filterStatus;
 		void filterSourceRole;
 		void filterCaptureReason;
+		void filterKind;
+		void filterMyReview;
+		void filterAnnotated;
+		void filterExposure;
+		void filterArchived;
 		void filterMaxAgeHours;
 		void currentPage;
 		void pageSize;
@@ -157,6 +196,11 @@
 				review_status: filterStatus || undefined,
 				source_role: filterSourceRole || undefined,
 				capture_reason: filterCaptureReason || undefined,
+				kind: filterKind || undefined,
+				my_review: filterMyReview || undefined,
+				annotated: filterAnnotated || undefined,
+				exposure: filterExposure || undefined,
+				archived: filterArchived || undefined,
 				max_age_hours: filterMaxAgeHours || undefined
 			});
 		} catch {
@@ -270,6 +314,11 @@
 			sp.delete('review_status');
 			sp.delete('source_role');
 			sp.delete('capture_reason');
+			sp.delete('kind');
+			sp.delete('my_review');
+			sp.delete('annotated');
+			sp.delete('exposure');
+			sp.delete('archived');
 			sp.delete('max_age_hours');
 			sp.delete('page');
 		});
@@ -295,12 +344,162 @@
 	let teacherError = $state<string | null>(null);
 	let teacherPollTimer: ReturnType<typeof setInterval> | null = null;
 
+	// Batch-delete UI state. Two-step: open the modal, hit dry-run for the
+	// count, then a separate Confirm click runs the destructive POST. The
+	// button is hidden unless scope=mine so a misclick can't even start the
+	// flow when looking at the global library.
+	let deleteModalOpen = $state(false);
+	let deleteCount = $state<number | null>(null);
+	let deleteCapped = $state(false);
+	let deleteRunning = $state(false);
+	let deleteError = $state<string | null>(null);
+	let deleteResult = $state<{ deleted: number; matched: number } | null>(null);
+
+	const currentBatchDeletePayload = $derived(() => ({
+		machine_id: filterMachine || undefined,
+		source_role: filterSourceRole || undefined,
+		capture_reason: filterCaptureReason || undefined,
+		review_status: filterStatus || undefined,
+		kind: filterKind || undefined,
+		my_review: filterMyReview || undefined,
+		annotated: filterAnnotated || undefined,
+		// Mirror the server-side default ('normal' = good light only) so a
+		// "Delete / Archive filtered" from the default view operates on
+		// exactly the samples the operator can see — not on under/over
+		// frames that are hidden by default.
+		exposure: filterExposure || 'normal',
+		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
+	}));
+
+	async function openDeleteModal() {
+		deleteModalOpen = true;
+		deleteCount = null;
+		deleteCapped = false;
+		deleteError = null;
+		deleteResult = null;
+		try {
+			const res = await api.batchDeleteSamples({
+				...currentBatchDeletePayload(),
+				dry_run: true
+			});
+			deleteCount = res.matched;
+			deleteCapped = res.capped;
+		} catch (e) {
+			deleteError = e instanceof Error ? e.message : 'Count probe failed.';
+		}
+	}
+
+	function closeDeleteModal() {
+		if (deleteRunning) return;
+		deleteModalOpen = false;
+		deleteCount = null;
+		deleteCapped = false;
+		deleteError = null;
+		deleteResult = null;
+	}
+
+	async function runBatchDelete() {
+		if (deleteRunning || deleteCount === null || deleteCount === 0 || deleteCapped) return;
+		deleteRunning = true;
+		deleteError = null;
+		try {
+			const res = await api.batchDeleteSamples(currentBatchDeletePayload());
+			deleteResult = { deleted: res.deleted, matched: res.matched };
+			// Refresh the visible page + filter facets.
+			await loadSamples();
+			await loadFilters();
+		} catch (e) {
+			deleteError = e instanceof Error ? e.message : 'Delete failed.';
+		} finally {
+			deleteRunning = false;
+		}
+	}
+
+	// Admin-only batch archive. Reversible (no file deletion); operates on
+	// the full library (no ownership constraint, server enforces admin role).
+	let archiveMode = $state<'archive' | 'unarchive'>('archive');
+	let archiveModalOpen = $state(false);
+	let archiveCount = $state<number | null>(null);
+	let archiveCapped = $state(false);
+	let archiveRunning = $state(false);
+	let archiveError = $state<string | null>(null);
+	let archiveResult = $state<{ archived: number; matched: number; mode: 'archive' | 'unarchive' } | null>(null);
+
+	const currentBatchArchivePayload = $derived(() => ({
+		machine_id: filterMachine || undefined,
+		source_role: filterSourceRole || undefined,
+		capture_reason: filterCaptureReason || undefined,
+		review_status: filterStatus || undefined,
+		kind: filterKind || undefined,
+		my_review: filterMyReview || undefined,
+		annotated: filterAnnotated || undefined,
+		// Mirror the server-side default ('normal' = good light only) so a
+		// "Delete / Archive filtered" from the default view operates on
+		// exactly the samples the operator can see — not on under/over
+		// frames that are hidden by default.
+		exposure: filterExposure || 'normal',
+		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
+	}));
+
+	async function openArchiveModal(mode: 'archive' | 'unarchive') {
+		archiveMode = mode;
+		archiveModalOpen = true;
+		archiveCount = null;
+		archiveCapped = false;
+		archiveError = null;
+		archiveResult = null;
+		try {
+			const res = await api.batchArchiveSamples(
+				{ ...currentBatchArchivePayload(), dry_run: true },
+				mode
+			);
+			archiveCount = res.matched;
+			archiveCapped = res.capped;
+		} catch (e) {
+			archiveError = e instanceof Error ? e.message : 'Count probe failed.';
+		}
+	}
+
+	function closeArchiveModal() {
+		if (archiveRunning) return;
+		archiveModalOpen = false;
+		archiveCount = null;
+		archiveCapped = false;
+		archiveError = null;
+		archiveResult = null;
+	}
+
+	async function runBatchArchive() {
+		if (archiveRunning || archiveCount === null || archiveCount === 0 || archiveCapped) return;
+		archiveRunning = true;
+		archiveError = null;
+		try {
+			const res = await api.batchArchiveSamples(currentBatchArchivePayload(), archiveMode);
+			archiveResult = { archived: res.archived, matched: res.matched, mode: archiveMode };
+			await loadSamples();
+			await loadFilters();
+		} catch (e) {
+			archiveError = e instanceof Error ? e.message : 'Archive failed.';
+		} finally {
+			archiveRunning = false;
+		}
+	}
+
 	const currentTeacherFilter = $derived<TeacherJobFilter>({
 		scope: filterScope,
 		machine_id: filterMachine || undefined,
 		review_status: filterStatus || undefined,
 		source_role: filterSourceRole || undefined,
 		capture_reason: filterCaptureReason || undefined,
+		kind: filterKind || undefined,
+		my_review: filterMyReview || undefined,
+		// Only forward an explicit annotated filter ('teacher' / 'raw' /
+		// 'all'). Empty stays undefined so a default-view re-run sweeps
+		// everything matching the other filters — re-running teacher is
+		// usually meant as a broad re-pass, not "only what's already been
+		// teacher'd" which is what mirroring the server default would imply.
+		annotated: filterAnnotated || undefined,
+		exposure: filterExposure || undefined,
 		// Age filter must travel with the job filter — otherwise the modal counts a 24h
 		// slice but the job picks up the full table.
 		max_age_hours: filterMaxAgeHours ? Number(filterMaxAgeHours) : undefined
@@ -381,6 +580,51 @@
 		teacherJob = null;
 	}
 
+	// Live wall-clock that ticks once a second so the ETA chip recomputes between
+	// the slower 3s job-poll cycles — otherwise the time-remaining label would
+	// only refresh on each polled state change.
+	let nowMs = $state(Date.now());
+	let nowTicker: ReturnType<typeof setInterval> | null = null;
+	$effect(() => {
+		nowTicker = setInterval(() => { nowMs = Date.now(); }, 1000);
+		return () => {
+			if (nowTicker) clearInterval(nowTicker);
+		};
+	});
+
+	function formatRemaining(seconds: number): string {
+		if (!Number.isFinite(seconds) || seconds < 0) return '—';
+		if (seconds < 60) return `${Math.round(seconds)}s`;
+		const totalMins = Math.round(seconds / 60);
+		if (totalMins < 60) return `${totalMins}m`;
+		const hours = Math.floor(totalMins / 60);
+		const mins = totalMins % 60;
+		return mins === 0 ? `${hours}h` : `${hours}h ${mins}m`;
+	}
+
+	function computeEta(job: TeacherJobSummary): {
+		remainingLabel: string;
+		rate: number;
+		startedAtLabel: string;
+	} | null {
+		// Only meaningful while the job is in-flight with measurable progress.
+		if (job.status !== 'running' && job.status !== 'pending') return null;
+		if (!job.started_at || job.processed <= 0 || job.processed >= job.total) return null;
+		const startMs = new Date(job.started_at).getTime();
+		if (!Number.isFinite(startMs)) return null;
+		const elapsedSec = Math.max(1, (nowMs - startMs) / 1000);
+		const rate = job.processed / elapsedSec;
+		if (rate <= 0) return null;
+		const remaining = (job.total - job.processed) / rate;
+		return {
+			remainingLabel: formatRemaining(remaining),
+			rate,
+			startedAtLabel: new Date(job.started_at).toLocaleTimeString('de-DE', {
+				hour: '2-digit', minute: '2-digit'
+			})
+		};
+	}
+
 	$effect(() => {
 		return () => stopTeacherPolling();
 	});
@@ -400,7 +644,7 @@
 	<div class="flex items-center gap-2">
 		<a
 			href="/samples/diversity"
-			class="inline-flex items-center gap-2 border border-border bg-white px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+			class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 		>
 			<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 				<path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
@@ -410,7 +654,7 @@
 		{#if auth.user?.role === 'admin'}
 			<a
 				href="/admin/teacher-jobs"
-				class="inline-flex items-center gap-2 border border-border bg-white px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				title="See all running and past Gemini teacher jobs."
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -421,13 +665,51 @@
 			<button
 				type="button"
 				onclick={openTeacherModal}
-				class="inline-flex items-center gap-2 border border-border bg-white px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				class="inline-flex items-center gap-2 border border-border bg-surface px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 				title="Re-run the Gemini teacher across samples matching the current filter. Overwrites detection_bboxes and resets review status."
 			>
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
 					<path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z" />
 				</svg>
 				Re-run teacher
+			</button>
+		{/if}
+		{#if auth.user?.role === 'admin'}
+			<!-- Admin-only soft-delete. Shows Unarchive when looking at the
+			     archived-only view; Archive otherwise. -->
+			<button
+				type="button"
+				onclick={() => openArchiveModal(filterArchived === 'archived' ? 'unarchive' : 'archive')}
+				class="inline-flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium text-text hover:border-text hover:bg-text hover:text-white"
+				title={hasActiveFilters
+					? (filterArchived === 'archived'
+						? 'Unarchive every sample matching the current filter'
+						: 'Archive every sample matching the current filter')
+					: (filterArchived === 'archived'
+						? 'Unarchive every currently-archived sample (no filter active)'
+						: 'Archive every sample in the library (no filter active)')}
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
+				</svg>
+				{filterArchived === 'archived' ? 'Unarchive filtered' : 'Archive filtered'}
+			</button>
+		{/if}
+		{#if filterScope === 'mine'}
+			<!-- Destructive: only shown when looking at "My samples" so an
+			     admin browsing the global library can't even start the flow. -->
+			<button
+				type="button"
+				onclick={openDeleteModal}
+				class="inline-flex items-center gap-2 border border-danger px-4 py-2 text-sm font-medium text-danger hover:bg-danger hover:text-white"
+				title={hasActiveFilters
+					? 'Delete every sample that matches the current sidebar filter'
+					: 'Delete every one of your samples (no filter active)'}
+			>
+				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+				</svg>
+				Delete {hasActiveFilters ? 'filtered' : 'all mine'}
 			</button>
 		{/if}
 		{#if auth.isReviewer}
@@ -440,9 +722,16 @@
 				if (filterMachine) sp.set('machine_id', filterMachine);
 				if (filterSourceRole) sp.set('source_role', filterSourceRole);
 				if (filterCaptureReason) sp.set('capture_reason', filterCaptureReason);
+				if (filterKind) sp.set('kind', filterKind);
+				if (filterAnnotated) sp.set('annotated', filterAnnotated);
+				if (filterExposure) sp.set('exposure', filterExposure);
 				if (filterMaxAgeHours) sp.set('max_age_hours', filterMaxAgeHours);
-				// review_status filter doesn't make sense — the queue only serves unreviewed
-				// + in_review samples anyway.
+				// Forward review_status + my_review so e.g. "show me conflict
+				// samples" or "show me what I already accepted" carries into
+				// the queue. The queue treats either as 'revisit mode' and
+				// drops its default "fresh work" gates.
+				if (filterStatus) sp.set('review_status', filterStatus);
+				if (filterMyReview) sp.set('my_review', filterMyReview);
 				const qs = sp.toString();
 				return qs ? `/review?${qs}` : '/review';
 			})()}
@@ -463,7 +752,8 @@
 {#if teacherJob}
 	{@const job = teacherJob}
 	{@const pct = job.total > 0 ? Math.round((job.processed / job.total) * 100) : 0}
-	<div class="mb-4 border border-border bg-white">
+	{@const eta = computeEta(job)}
+	<div class="mb-4 border border-border bg-surface">
 		<div class="flex items-center justify-between gap-3 border-b border-border px-4 py-2.5">
 			<div class="flex items-center gap-2 text-xs">
 				<span class="font-semibold text-text">Teacher job</span>
@@ -483,6 +773,14 @@
 					{/if}
 				</span>
 				<span class="text-text-muted">· {job.status}</span>
+				{#if eta}
+					<span
+						class="tabular-nums text-text-muted"
+						title={`Based on ${eta.rate.toFixed(2)} items/sec since ${eta.startedAtLabel}. Updates every refresh.`}
+					>
+						· ETA {eta.remainingLabel}
+					</span>
+				{/if}
 			</div>
 			<div class="flex items-center gap-3">
 				<a href={`/admin/teacher-jobs/${job.id}`} class="text-xs text-primary hover:underline">
@@ -514,6 +812,174 @@
 	</div>
 {/if}
 
+<Modal
+	open={archiveModalOpen}
+	title={archiveMode === 'archive' ? 'Archive filtered samples' : 'Unarchive filtered samples'}
+	onclose={closeArchiveModal}
+>
+	<div class="space-y-4 text-sm">
+		{#if archiveError}
+			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger">
+				{archiveError}
+			</div>
+		{/if}
+
+		{#if archiveResult}
+			<p class="text-text">
+				{archiveResult.mode === 'archive' ? 'Archived' : 'Unarchived'}
+				<span class="font-semibold">{archiveResult.archived}</span>
+				sample{archiveResult.archived === 1 ? '' : 's'}.
+			</p>
+		{:else if archiveCount === null}
+			<p class="text-text-muted">Counting…</p>
+		{:else if archiveCount === 0}
+			<p class="text-text">
+				No {archiveMode === 'archive' ? 'active' : 'archived'} samples match the current filter.
+			</p>
+		{:else}
+			<p class="text-text">
+				{#if archiveMode === 'archive'}
+					Archive <span class="font-semibold">{archiveCount.toLocaleString()}</span>
+					sample{archiveCount === 1 ? '' : 's'} matching the current filter?
+				{:else}
+					Restore <span class="font-semibold">{archiveCount.toLocaleString()}</span>
+					archived sample{archiveCount === 1 ? '' : 's'} back into circulation?
+				{/if}
+			</p>
+			<ul class="space-y-1 text-xs text-text-muted">
+				{#if archiveMode === 'archive'}
+					<li>• Hidden from the sample list, review queue and training pulls.</li>
+					<li>• Files + sample_payload stay intact — reversible via Unarchive.</li>
+					<li>• Admin-only action, applied across the global library.</li>
+				{:else}
+					<li>• Samples reappear in listings, review queue and training pulls.</li>
+					<li>• No data changes besides clearing the archived_at flag.</li>
+				{/if}
+			</ul>
+			{#if hasActiveFilters}
+				<div class="border border-border bg-bg px-3 py-2 text-xs">
+					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#if filterScope === 'mine'}<span class="border border-border px-1.5 py-0.5 text-text">scope=mine</span>{/if}
+						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
+						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
+						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
+						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
+						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
+						{#if filterMyReview}<span class="border border-border px-1.5 py-0.5 text-text">my_review={filterMyReview}</span>{/if}
+						{#if filterAnnotated}<span class="border border-border px-1.5 py-0.5 text-text">annotated={filterAnnotated}</span>{/if}
+						{#if filterExposure}<span class="border border-border px-1.5 py-0.5 text-text">exposure={filterExposure}</span>{/if}
+						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+					No filter active — this will {archiveMode === 'archive' ? 'archive every active sample in the library' : 'unarchive every currently-archived sample'}. Narrow with the sidebar first if you only want a slice.
+				</div>
+			{/if}
+			{#if archiveCapped}
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+					Match count exceeds the 20,000-per-call cap. Narrow the filter and try again.
+				</div>
+			{/if}
+		{/if}
+
+		<div class="flex justify-end gap-2 border-t border-border pt-3">
+			<Button variant="secondary" onclick={closeArchiveModal} disabled={archiveRunning}>
+				{archiveResult ? 'Close' : 'Cancel'}
+			</Button>
+			{#if !archiveResult}
+				<Button
+					variant="primary"
+					onclick={runBatchArchive}
+					disabled={archiveRunning || archiveCount === null || archiveCount === 0 || archiveCapped}
+					loading={archiveRunning}
+				>
+					{#if archiveCount && archiveCount > 0}
+						{archiveMode === 'archive' ? `Archive ${archiveCount.toLocaleString()}` : `Unarchive ${archiveCount.toLocaleString()}`}
+					{:else}
+						{archiveMode === 'archive' ? 'Archive' : 'Unarchive'}
+					{/if}
+				</Button>
+			{/if}
+		</div>
+	</div>
+</Modal>
+
+<Modal open={deleteModalOpen} title="Delete filtered samples" onclose={closeDeleteModal}>
+	<div class="space-y-4 text-sm">
+		{#if deleteError}
+			<div class="border border-danger bg-danger/10 px-3 py-2 text-xs text-danger">
+				{deleteError}
+			</div>
+		{/if}
+
+		{#if deleteResult}
+			<p class="text-text">
+				Deleted <span class="font-semibold">{deleteResult.deleted}</span>
+				sample{deleteResult.deleted === 1 ? '' : 's'}.
+			</p>
+		{:else if deleteCount === null}
+			<p class="text-text-muted">Counting…</p>
+		{:else if deleteCount === 0}
+			<p class="text-text">No samples match the current filter.</p>
+		{:else}
+			<p class="text-text">
+				Permanently delete <span class="font-semibold">{deleteCount.toLocaleString()}</span>
+				sample{deleteCount === 1 ? '' : 's'} that you own and match the current filter?
+			</p>
+			<ul class="space-y-1 text-xs text-text-muted">
+				<li>• Images, full frames, overlays and annotations are dropped from storage.</li>
+				<li>• Cannot be undone.</li>
+				<li>• Only your own samples are touched — others' rigs are unaffected even if the filter would match them.</li>
+			</ul>
+			{#if hasActiveFilters}
+				<div class="border border-border bg-bg px-3 py-2 text-xs">
+					<div class="mb-1 font-semibold text-text-muted">Active filter</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#if filterMachine}<span class="border border-border px-1.5 py-0.5 text-text">machine={filterMachine}</span>{/if}
+						{#if filterSourceRole}<span class="border border-border px-1.5 py-0.5 text-text">source_role={filterSourceRole}</span>{/if}
+						{#if filterCaptureReason}<span class="border border-border px-1.5 py-0.5 text-text">capture_reason={filterCaptureReason}</span>{/if}
+						{#if filterStatus}<span class="border border-border px-1.5 py-0.5 text-text">status={filterStatus}</span>{/if}
+						{#if filterKind}<span class="border border-border px-1.5 py-0.5 text-text">kind={filterKind}</span>{/if}
+						{#if filterMyReview}<span class="border border-border px-1.5 py-0.5 text-text">my_review={filterMyReview}</span>{/if}
+						{#if filterAnnotated}<span class="border border-border px-1.5 py-0.5 text-text">annotated={filterAnnotated}</span>{/if}
+						{#if filterExposure}<span class="border border-border px-1.5 py-0.5 text-text">exposure={filterExposure}</span>{/if}
+						{#if filterMaxAgeHours}<span class="border border-border px-1.5 py-0.5 text-text">max_age_hours={filterMaxAgeHours}</span>{/if}
+					</div>
+				</div>
+			{:else}
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+					No filter active — this will delete <em>every</em> sample you own. Narrow with the sidebar first if you only want a slice.
+				</div>
+			{/if}
+			{#if deleteCapped}
+				<div class="border border-warning bg-warning/10 px-3 py-2 text-xs text-text">
+					Match count exceeds the 5,000-per-call cap. Narrow the filter before pressing Delete.
+				</div>
+			{/if}
+		{/if}
+
+		<div class="flex justify-end gap-2 border-t border-border pt-3">
+			<Button variant="secondary" onclick={closeDeleteModal} disabled={deleteRunning}>
+				{deleteResult ? 'Close' : 'Cancel'}
+			</Button>
+			{#if !deleteResult}
+				<Button
+					variant="danger"
+					onclick={runBatchDelete}
+					disabled={deleteRunning || deleteCount === null || deleteCount === 0 || deleteCapped}
+					loading={deleteRunning}
+				>
+					{deleteCount && deleteCount > 0
+						? `Delete ${deleteCount.toLocaleString()}`
+						: 'Delete'}
+				</Button>
+			{/if}
+		</div>
+	</div>
+</Modal>
+
 <Modal open={teacherModalOpen} title="Re-run Gemini teacher" onclose={() => { teacherModalOpen = false; }}>
 	<div class="space-y-4 text-sm">
 		<p class="text-text">
@@ -544,7 +1010,7 @@
 	{@const segments = [
 		{ key: 'accepted', label: 'Accepted', count: stats.accepted_samples, color: '#00852B' },
 		{ key: 'rejected', label: 'Rejected', count: stats.rejected_samples, color: '#D01012' },
-		{ key: 'in_review', label: 'In Review', count: stats.in_review_samples, color: '#0055BF' },
+		{ key: 'in_review', label: 'Needs more reviews', count: stats.in_review_samples, color: '#0055BF' },
 		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: '#FFD500' },
 		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: '#E2E0DB' },
 	]}
@@ -585,7 +1051,7 @@
 <div class="flex gap-5">
 	<!-- Sidebar filters -->
 	<aside class="w-48 shrink-0">
-		<div class="sticky top-20 space-y-5">
+		<div class="sticky top-20 space-y-1">
 			{#if hasActiveFilters}
 				<button onclick={clearFilters} class="flex items-center gap-1 text-xs text-primary hover:underline">
 					<svg class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -595,9 +1061,12 @@
 				</button>
 			{/if}
 
-			<!-- Scope -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Scope</h3>
+			<FilterGroup
+				title="Scope"
+				storageKey="scope"
+				active={filterScope === 'mine'}
+				activeLabel={filterScope === 'mine' ? 'Mine' : null}
+			>
 				<ul class="space-y-0.5">
 					<li>
 						<button
@@ -616,16 +1085,123 @@
 						</button>
 					</li>
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Status -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Status</h3>
+			<FilterGroup
+				title="Kind"
+				storageKey="kind"
+				active={!!filterKind}
+				activeLabel={filterKind === 'regular' ? 'Object detection' : filterKind === 'condition' ? 'Condition' : null}
+			>
+				<ul class="space-y-0.5">
+					{#each [
+						{ key: '', label: 'All' },
+						{ key: 'regular', label: 'Object detection' },
+						{ key: 'condition', label: 'Condition' },
+					] as item}
+						<li>
+							<button
+								onclick={() => setFilterValue('kind', item.key)}
+								class="w-full px-2 py-1 text-left text-xs {filterKind === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+							>
+								{item.label}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</FilterGroup>
+
+			<FilterGroup
+				title="Annotation"
+				storageKey="annotated"
+				active={filterAnnotated === 'all' || filterAnnotated === 'raw'}
+				activeLabel={filterAnnotated === 'all' ? 'All' : filterAnnotated === 'raw' ? 'Raw' : null}
+			>
+				<ul class="space-y-0.5">
+					{#each [
+						// Empty URL state defaults to 'teacher' on the server, so
+						// highlight Teacher pass for both '' and 'teacher'.
+						{ key: 'teacher', label: 'Teacher pass (default)', active: filterAnnotated === '' || filterAnnotated === 'teacher' },
+						{ key: 'all', label: 'All (incl. raw)', active: filterAnnotated === 'all' },
+						{ key: 'raw', label: 'Raw only (pending)', active: filterAnnotated === 'raw' },
+					] as item}
+						<li>
+							<button
+								onclick={() => setFilterValue('annotated', item.key === 'teacher' ? '' : item.key)}
+								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+							>
+								{item.label}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</FilterGroup>
+
+			<FilterGroup
+				title="Exposure"
+				storageKey="exposure"
+				active={filterExposure === 'under' || filterExposure === 'over'}
+				activeLabel={filterExposure === 'under' ? 'Underexposed' : filterExposure === 'over' ? 'Overexposed' : null}
+			>
+				<ul class="space-y-0.5">
+					{#each [
+						// Empty URL state → server applies 'normal' default, so
+						// highlight Good Light for both '' and explicit 'normal'.
+						{ key: '', label: 'Good Light (default)', active: filterExposure === '' || filterExposure === 'normal' },
+						{ key: 'under', label: 'Underexposed', active: filterExposure === 'under' },
+						{ key: 'over', label: 'Overexposed', active: filterExposure === 'over' },
+					] as item}
+						<li>
+							<button
+								onclick={() => setFilterValue('exposure', item.key)}
+								class="w-full px-2 py-1 text-left text-xs {item.active ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+							>
+								{item.label}
+							</button>
+						</li>
+					{/each}
+				</ul>
+			</FilterGroup>
+
+			{#if auth.isReviewer}
+				<FilterGroup
+					title="My review"
+					storageKey="my_review"
+					active={!!filterMyReview}
+					activeLabel={filterMyReview ? (MY_REVIEW_LABELS[filterMyReview] ?? filterMyReview) : null}
+				>
+					<ul class="space-y-0.5">
+						{#each [
+							{ key: '', label: 'All' },
+							{ key: 'unreviewed', label: 'Not by me yet' },
+							{ key: 'reviewed', label: 'By me (any)' },
+							{ key: 'accepted', label: 'I accepted' },
+							{ key: 'rejected', label: 'I rejected' },
+						] as item}
+							<li>
+								<button
+									onclick={() => setFilterValue('my_review', item.key)}
+									class="w-full px-2 py-1 text-left text-xs {filterMyReview === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								>
+									{item.label}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</FilterGroup>
+			{/if}
+
+			<FilterGroup
+				title="Status (global)"
+				storageKey="status"
+				active={!!filterStatus}
+				activeLabel={filterStatus ? (STATUS_LABELS[filterStatus] ?? filterStatus) : null}
+			>
 				<ul class="space-y-0.5">
 					{#each [
 						{ key: '', label: 'All' },
 						{ key: 'unreviewed', label: 'Unreviewed' },
-						{ key: 'in_review', label: 'In Review' },
+						{ key: 'in_review', label: 'Needs more reviews' },
 						{ key: 'accepted', label: 'Accepted' },
 						{ key: 'rejected', label: 'Rejected' },
 						{ key: 'conflict', label: 'Conflict' },
@@ -640,13 +1216,16 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
 
-			<!-- Machine — admin-only for now: members shouldn't be able to filter/browse by
-				 individual rigs (exposes other users' rig names + owners when scope=all). -->
 			{#if auth.user?.role === 'admin' && machines.length > 0}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Machine</h3>
+				{@const activeMachine = filterMachine ? machines.find((m) => String(m.id) === filterMachine) : null}
+				<FilterGroup
+					title="Machine"
+					storageKey="machine"
+					active={!!filterMachine}
+					activeLabel={activeMachine?.name ?? (filterMachine ? 'Selected' : null)}
+				>
 					<ul class="space-y-0.5">
 						<li>
 							<button
@@ -675,13 +1254,16 @@
 							{/each}
 						{/each}
 					</ul>
-				</div>
+				</FilterGroup>
 			{/if}
 
-			<!-- Source -->
 			{#if filterOptions.source_roles.length > 0}
-				<div>
-					<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Source</h3>
+				<FilterGroup
+					title="Source"
+					storageKey="source_role"
+					active={!!filterSourceRole}
+					activeLabel={filterSourceRole ? sourceRoleLabel(filterSourceRole) : null}
+				>
 					<ul class="space-y-0.5">
 						<li>
 							<button
@@ -704,12 +1286,15 @@
 							</li>
 						{/each}
 					</ul>
-				</div>
+				</FilterGroup>
 			{/if}
 
-			<!-- Age (upload time) -->
-			<div>
-				<h3 class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-muted">Age</h3>
+			<FilterGroup
+				title="Age"
+				storageKey="age"
+				active={!!filterMaxAgeHours}
+				activeLabel={filterMaxAgeHours ? (AGE_OPTIONS.find((o) => o.value === filterMaxAgeHours)?.label ?? null) : null}
+			>
 				<ul class="space-y-0.5">
 					{#each AGE_OPTIONS as opt (opt.value)}
 						<li>
@@ -722,7 +1307,33 @@
 						</li>
 					{/each}
 				</ul>
-			</div>
+			</FilterGroup>
+
+			{#if auth.user?.role === 'admin'}
+				<FilterGroup
+					title="Archived"
+					storageKey="archived"
+					active={!!filterArchived}
+					activeLabel={filterArchived === 'archived' ? 'Archived only' : filterArchived === 'all' ? 'Both' : null}
+				>
+					<ul class="space-y-0.5">
+						{#each [
+							{ key: '', label: 'Active only' },
+							{ key: 'archived', label: 'Archived only' },
+							{ key: 'all', label: 'Both' },
+						] as item}
+							<li>
+								<button
+									onclick={() => setFilterValue('archived', item.key)}
+									class="w-full px-2 py-1 text-left text-xs {filterArchived === item.key ? 'bg-primary-light font-medium text-primary' : 'text-text hover:bg-bg'}"
+								>
+									{item.label}
+								</button>
+							</li>
+						{/each}
+					</ul>
+				</FilterGroup>
+			{/if}
 		</div>
 	</aside>
 

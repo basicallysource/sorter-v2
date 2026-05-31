@@ -36,7 +36,7 @@ TRACK_SCRIPTS: dict[str, Path] = {
     "rfdetr": Path(__file__).resolve().parent / "tracks" / "rfdetr.py",
 }
 
-DEFAULT_IMAGE_YOLO = "pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime"
+DEFAULT_IMAGE_YOLO = "roothirsch/lego-sorter-training-image:latest"
 DEFAULT_IMAGE_NANODET = "pytorch/pytorch:2.4.1-cuda12.1-cudnn9-devel"
 DEFAULT_OFFERS_QUERY = (
     "num_gpus=1 cpu_arch=amd64 reliability>0.98 disk_space>=60 inet_down>200 "

@@ -96,7 +96,7 @@
 </svelte:head>
 
 <div class="mx-auto grid min-h-[70vh] max-w-2xl place-items-center">
-	<div class="w-full border border-border bg-white p-6 shadow-sm dark:bg-[var(--color-surface)]">
+	<div class="w-full border border-border bg-surface p-6 shadow-sm dark:bg-[var(--color-surface)]">
 		<div class="flex items-start gap-3">
 			<div class="flex h-10 w-10 shrink-0 items-center justify-center bg-primary-light text-primary">
 				<svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true">
@@ -144,7 +144,7 @@
 						type="text"
 						required
 						disabled={submitting}
-						class="border border-border bg-white px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+						class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
 					/>
 				</label>
 
@@ -155,7 +155,7 @@
 						rows="3"
 						disabled={submitting}
 						placeholder="Where this sorter lives, who maintains it, or what it is used for."
-						class="resize-y border border-border bg-white px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+						class="resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
 					></textarea>
 				</label>
 

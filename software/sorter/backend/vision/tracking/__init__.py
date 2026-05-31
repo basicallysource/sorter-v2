@@ -39,6 +39,7 @@ def build_feeder_tracker_system(
     exit_observer: Callable[..., Any] | None = None,
     ghost_reject_observer: Callable[..., Any] | None = None,
     stale_pending_observer: Callable[..., Any] | None = None,
+    on_record_segment: Callable[..., Any] | None = None,
 ) -> tuple[PieceHandoffManager, dict[str, PolarFeederTracker], PieceHistoryBuffer]:
     """Create a handoff manager + per-role polar trackers wired together.
 
@@ -96,7 +97,14 @@ def build_feeder_tracker_system(
         stale_pending_observer=stale_pending_observer,
     )
     if history is None:
-        history = PieceHistoryBuffer(persist_dir=DEFAULT_HISTORY_PERSIST_DIR)
+        history = PieceHistoryBuffer(
+            persist_dir=DEFAULT_HISTORY_PERSIST_DIR,
+            on_record_segment=on_record_segment,
+        )
+    elif on_record_segment is not None:
+        # Caller passed a pre-built history but still wants the hook. Attach
+        # it directly — the buffer fires it best-effort outside its lock.
+        history._on_record_segment = on_record_segment  # type: ignore[attr-defined]
     # Seed the id counter past any persisted global_id so fresh tracks
     # after a restart don't append segments to an existing (and unrelated)
     # history entry.

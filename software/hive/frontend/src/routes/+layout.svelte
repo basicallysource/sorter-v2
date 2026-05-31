@@ -17,7 +17,9 @@
 
 	let dropdownOpen = $state(false);
 
-	const publicRoutes = ['/login', '/register'];
+	// /machine-ip-lookup is an unlisted, login-free rendezvous page used by the
+	// SorterOS onboarding flow — a fresh sorter has no Hive account yet.
+	const publicRoutes = ['/login', '/register', '/machine-ip-lookup'];
 
 	function currentPathWithSearch(): string {
 		return `${page.url.pathname}${page.url.search}`;
@@ -86,6 +88,12 @@
 							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/models') ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
 							Models
+						</a>
+						<a
+							href="/leaderboard"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/leaderboard') ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+						>
+							Leaderboard
 						</a>
 					</div>
 				</div>

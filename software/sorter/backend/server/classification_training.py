@@ -13,6 +13,12 @@ import cv2
 import numpy as np
 
 from blob_manager import BLOB_DIR, getClassificationTrainingConfig, setClassificationTrainingConfig
+from server.condition_collector import (
+    CONDITION_CAPTURE_REASON,
+    CONDITION_SOURCE,
+    ConditionCropPick,
+    build_condition_metadata,
+)
 from server.hive_uploader import HiveUploader
 from server.sample_payloads import build_sample_payload
 
@@ -532,6 +538,60 @@ class ClassificationTrainingManager:
             top_zone=input_image,
             bottom_zone=None,
             top_frame=source_frame,
+            bottom_frame=None,
+            metadata=metadata,
+        )
+
+    def saveConditionCropCapture(
+        self,
+        *,
+        pick: ConditionCropPick,
+        source_role: str,
+        piece_global_id: int,
+        track_first_seen_ts: float,
+        track_last_seen_ts: float,
+        sector_snapshots_total: int,
+        handoff_from: str | None = None,
+    ) -> dict[str, Any]:
+        """Archive one picked piece crop as a Hive-bound condition sample.
+
+        No labeling happens here — the sample lands on Hive as a
+        capture_scope=condition record, and Hive (auto or human) decides
+        composition/condition flags later.
+        """
+
+        with self._lock:
+            if self._ensureSessionLocked():
+                self._persistConfig()
+            session_dir = self._requireSessionDirLocked()
+            processor = self._processor
+
+        condition_metadata = build_condition_metadata(
+            pick=pick,
+            piece_global_id=piece_global_id,
+            source_role=source_role,
+            track_first_seen_ts=track_first_seen_ts,
+            track_last_seen_ts=track_last_seen_ts,
+            sector_snapshots_total=sector_snapshots_total,
+            handoff_from=handoff_from,
+        )
+        metadata: dict[str, Any] = {
+            "source": CONDITION_SOURCE,
+            "source_role": source_role,
+            "camera": source_role,
+            "capture_reason": CONDITION_CAPTURE_REASON,
+            "detection_scope": "condition",
+            "captured_at": time.time(),
+            **condition_metadata,
+        }
+
+        return self._archiveSample(
+            session_dir=session_dir,
+            processor=processor,
+            preferred_camera="top",
+            top_zone=pick.image_bgr,
+            bottom_zone=None,
+            top_frame=None,
             bottom_frame=None,
             metadata=metadata,
         )

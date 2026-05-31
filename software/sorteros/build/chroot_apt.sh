@@ -27,13 +27,37 @@ fi
 log "installing core packages"
 apt-get install "${APT_OPTS[@]}" \
     network-manager \
+    dnsmasq-base \
     python3-pip \
     python3-tomli \
     libgl1 libglib2.0-0 \
     v4l-utils \
     git-lfs \
     cloud-guest-utils \
-    figlet
+    figlet \
+    systemd-timesyncd \
+    qrencode
+
+log "installing sorteros-portal python deps"
+# Onboarding portal runs before the repo is cloned and before uv pulls the
+# backend's venv — needs its own system-wide install of fastapi+uvicorn+
+# pydantic. They land in /usr/local/lib/python3.* so `python3 portal.py`
+# works straight from the overlay'd /usr/local/sbin/.
+python3 -m pip install --no-cache-dir --break-system-packages \
+    fastapi==0.115.4 \
+    'uvicorn[standard]==0.32.0' \
+    pydantic==2.9.2 \
+    cryptography==43.0.3 || \
+    python3 -m pip install --no-cache-dir \
+        fastapi==0.115.4 \
+        'uvicorn[standard]==0.32.0' \
+        pydantic==2.9.2 \
+        cryptography==43.0.3
+
+# Without an enabled NTP client the system boots with a stale RTC, TLS certs
+# fail "not yet valid", and clone-repo/uv-sync/pnpm-install all bail with
+# git exit 128. timedatectl reports "NTP not supported" until we enable this.
+systemctl enable systemd-timesyncd.service || true
 
 # Rockchip hardware multimedia stack. Required by the backend's HW JPEG decode
 # path (software/sorter/backend/vision/gst_capture.py -> GStreamer mppjpegdec).
@@ -73,8 +97,14 @@ rm -rf /var/lib/apt/lists/*
 log "enabling sorteros-firstboot"
 systemctl enable sorteros-firstboot.service || true
 
-# NM pulls in dnsmasq as a dependency, but systemd-resolved already owns
-# port 53. Mask it so it never starts and pollutes the boot log.
+log "enabling sorteros-onboarding (portal)"
+systemctl enable sorteros-onboarding.service || true
+
+# We install dnsmasq-base (the binary NetworkManager spawns for AP/shared
+# mode — required by the onboarding captive portal). The standalone
+# dnsmasq.service must never run: systemd-resolved owns port 53, and NM
+# manages its own dnsmasq instance internally. dnsmasq-base ships no
+# service unit, but mask defensively in case the full dnsmasq pkg sneaks in.
 systemctl mask dnsmasq.service || true
 
 # Ensure /root/.ssh exists so root SSH key auth works out of the box.

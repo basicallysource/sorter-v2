@@ -47,6 +47,7 @@
 		const url = wsUrl();
 		manager.reconnectStaleConnections({ fallbackUrl: url, heartbeatStaleMs: HEARTBEAT_STALE_MS });
 		manager.ensureConnected(url);
+		manager.refreshSelectedCameraFeeds();
 
 		const now = Date.now();
 		if (now - lastRecoveryRefreshAt < 1500) return;

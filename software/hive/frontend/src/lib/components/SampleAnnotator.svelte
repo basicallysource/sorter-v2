@@ -12,6 +12,7 @@
 	import '@annotorious/annotorious/annotorious.css';
 	import { api, type SavedSampleAnnotation } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import { FEATURES } from '$lib/features';
 	import { AnnotatorApi } from './annotator-api.svelte';
 
 	export interface SeedBox {
@@ -603,6 +604,14 @@
 				onload={handleImageLoad}
 			/>
 		</div>
+	</div>
+{:else if !FEATURES.ANNOTATION_EDITING}
+	<!-- Annotation editing is gated off (currently buggy). Render the image
+	     without any edit affordances so a stale URL with ?view=annotate still
+	     shows something useful instead of an empty surface. -->
+	<div class="border border-border bg-surface p-4 text-sm text-text-muted">
+		Annotation editing is temporarily disabled while we sort out a save-flow bug.
+		Boxes remain visible on the regular image view.
 	</div>
 {:else}
 	<!-- Self-contained mode: toolbar + canvas -->

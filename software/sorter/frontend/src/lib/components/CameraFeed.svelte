@@ -4,6 +4,7 @@
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
+	import { onDestroy } from 'svelte';
 
 	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'fullscreen';
 
@@ -112,6 +113,8 @@
 	const effectiveZones = $derived(showZones ? zones : defaultZones);
 
 	let fullscreenOpen = $state(false);
+	let streamRetry = $state(0);
+	let retryTimer: ReturnType<typeof setTimeout> | null = null;
 
 	function handleFullscreenKey(event: KeyboardEvent) {
 		if (event.key === 'Escape' && fullscreenOpen) {
@@ -119,13 +122,30 @@
 		}
 	}
 
+	function scheduleStreamRetry() {
+		if (retryTimer !== null) return;
+		const delayMs = health === 'online' || health === 'unknown' ? 1000 : 2500;
+		retryTimer = setTimeout(() => {
+			retryTimer = null;
+			streamRetry += 1;
+		}, delayMs);
+	}
+
+	onDestroy(() => {
+		if (retryTimer !== null) {
+			clearTimeout(retryTimer);
+		}
+	});
+
 	const mjpegSrc = $derived.by(() => {
 		const params = new URLSearchParams({
 			annotated: annotated ? '1' : '0',
 			layer,
 			dashboard: cropped ? '1' : '0',
 			color_correct: colorCorrect ? '1' : '0',
-			show_regions: effectiveZones ? '1' : '0'
+			show_regions: effectiveZones ? '1' : '0',
+			stream_epoch: String(ctx.machine?.cameraFeedEpoch ?? 0),
+			stream_retry: String(streamRetry)
 		});
 		return `${effectiveBaseUrl()}/api/cameras/feed/${encodeURIComponent(camera)}?${params.toString()}`;
 	});
@@ -167,6 +187,7 @@
 				alt={display_label}
 				class="absolute inset-0 h-full w-full object-contain"
 				class:opacity-30={!is_healthy}
+				onerror={scheduleStreamRetry}
 			/>
 		{/if}
 

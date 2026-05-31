@@ -1,0 +1,23 @@
+[Unit]
+Description=SorterOS Wi-Fi onboarding (AP + captive portal)
+Documentation=https://github.com/basicallysource/sorter-v2/tree/main/software/sorteros/portal
+After=NetworkManager.service network.target
+Wants=NetworkManager.service
+Before=sorteros-firstboot.service
+ConditionPathExists=!/var/lib/sorteros/wifi-configured
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/sorteros-onboarding.sh
+# Restart on crash, but stop trying when wifi-configured arrives — the
+# script exits 0 in that case and systemd's RestartPreventExitStatus
+# matches it.
+Restart=on-failure
+RestartSec=10
+RestartPreventExitStatus=0
+TimeoutStopSec=15
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

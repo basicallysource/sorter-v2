@@ -22,6 +22,9 @@ class Machine(Base):
     local_ui_port = Column(String, nullable=True, default="8000")
     last_seen_at = Column(DateTime(timezone=True), nullable=True)
     is_active = Column(Boolean, nullable=False, default=True)
+    # When non-null, the machine + its samples are hidden from default listings,
+    # stats/diversity rollups, and training pulls. Reversible — clear to un-archive.
+    archived_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     owner = relationship("User", back_populates="machines")

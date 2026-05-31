@@ -70,6 +70,10 @@ Output: `datasets/<zone>/<name>/` with `images/{train,val}/`, `labels/{train,val
 
 ## 3. Package + provision a Vast.ai box
 
+The trainer image (`roothirsch/lego-sorter-training-image:latest`) ships
+pre-baked ultralytics + numpy/opencv + cached YOLO base weights. To rebuild
+after an Ultralytics bump, see [`docker/README.md`](docker/README.md).
+
 ```bash
 uv run train vastai package \
   --zone c_channel_full \
@@ -84,7 +88,7 @@ uv run train vastai offers --limit 5
 OFFER=36792868
 TARBALL=runs/staging/<timestamp>-c_channel_full-yolo-v6_maxout_score095.tar.gz
 INSTANCE=$(vastai create instance $OFFER \
-  --image pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime \
+  --image roothirsch/lego-sorter-training-image:latest \
   --disk 60 \
   --ssh \
   --label c_channel_full-yolo26s-v6 \

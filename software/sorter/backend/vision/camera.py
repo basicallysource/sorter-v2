@@ -953,7 +953,7 @@ class CaptureThread:
                 self._config.url = None
                 self._config.device_index = -1
         self.latest_frame = None
-        self._reopen_event.set()
+        self._requestReopen()
 
     def getCameraSource(self) -> int | str | None:
         with self._config_lock:
@@ -993,7 +993,7 @@ class CaptureThread:
                 self._config.fps = fps
             if isinstance(fourcc, str) and fourcc.strip():
                 self._config.fourcc = fourcc.strip()
-        self._reopen_event.set()
+        self._requestReopen()
 
     def getCaptureMode(self) -> dict[str, int | str | None]:
         with self._config_lock:
@@ -1017,8 +1017,20 @@ class CaptureThread:
 
     def stop(self) -> None:
         self._stop_event.set()
+        self._requestReopen()
         if self._thread:
             self._thread.join(timeout=2.0)
+
+    def _requestReopen(self) -> None:
+        self._reopen_event.set()
+        with self._cap_lock:
+            cap = self._cap
+            self._cap = None
+        if cap is not None:
+            try:
+                cap.release()
+            except Exception:
+                pass
 
     def _captureLoop(self) -> None:
         cap: Optional[cv2.VideoCapture] = None
@@ -1183,8 +1195,14 @@ class CaptureThread:
                             post_stream_settings = None
                             post_stream_source = None
 
-            with self._cap_lock:
+            # Do not hold _cap_lock while reading. AVFoundation can block inside
+            # cap.read(); holding the lock there prevents stop/reopen requests
+            # from releasing the handle and leaves the camera stuck until the
+            # whole process exits.
+            try:
                 ret, frame = cap.read()
+            except Exception:
+                ret, frame = False, None
             if ret:
                 read_failures = 0
                 if not is_url and width > 0 and height > 0:

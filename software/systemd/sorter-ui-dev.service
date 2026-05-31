@@ -13,8 +13,10 @@ WorkingDirectory=__SOFTWARE_DIR__/sorter/frontend
 Environment=PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 # `vite dev` gives sub-second HMR for .svelte / .ts edits scp'd from the Mac.
 # `--host 0.0.0.0` makes it reachable on the LAN; `--strictPort` makes it fail
-# loudly if 5173 is busy instead of silently picking another port.
-ExecStart=__PNPM_BIN__ dev --host 0.0.0.0 --port 5173 --strictPort
+# loudly if the port is busy instead of silently picking another port.
+# Port 80 lets users hit http://<host>.local without a port suffix; unprivileged
+# binding is enabled via /etc/sysctl.d/99-sorter-unprivileged-ports.conf.
+ExecStart=__PNPM_BIN__ dev --host 0.0.0.0 --port 80 --strictPort
 Restart=on-failure
 RestartSec=2
 StandardOutput=journal

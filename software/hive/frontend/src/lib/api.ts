@@ -78,6 +78,13 @@ export interface Sample {
 	rejected_count: number;
 	uploaded_at: string;
 	resolved_at: string | null;
+	// Current viewer's own review decision (null when not yet reviewed).
+	// Server-side batch-populated so the list endpoint stays cheap.
+	my_review_decision: 'accept' | 'reject' | null;
+	// Exposure stats. Null while the backfill is in flight.
+	luminance_mean: number | null;
+	clipped_low_ratio: number | null;
+	clipped_high_ratio: number | null;
 }
 
 export interface SampleMachineSummary {
@@ -671,6 +678,11 @@ export const api = {
 		source_role?: string;
 		capture_reason?: string;
 		review_status?: string;
+		kind?: 'regular' | 'condition' | 'all' | string;
+		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
+		annotated?: 'teacher' | 'raw' | 'all' | string;
+		exposure?: 'under' | 'normal' | 'over' | string;
+		archived?: 'active' | 'archived' | 'all' | string;
 		max_age_hours?: number | string;
 		scope?: 'mine' | 'all' | string;
 	} = {}) {
@@ -697,6 +709,13 @@ export const api = {
 	getSample(id: string) {
 		return request<SampleDetail>('GET', `/api/samples/${id}`);
 	},
+	getSimilarSamples(id: string, params: { limit?: number; max_distance?: number } = {}) {
+		const sp = new URLSearchParams();
+		if (params.limit !== undefined) sp.set('limit', String(params.limit));
+		if (params.max_distance !== undefined) sp.set('max_distance', String(params.max_distance));
+		const qs = sp.toString();
+		return request<PaginatedSamples>('GET', `/api/samples/${id}/similar${qs ? '?' + qs : ''}`);
+	},
 	saveSampleAnnotations(id: string, data: { annotations: SavedSampleAnnotation[]; version?: 'hive-annotorious-v1' }) {
 		return request<SaveSampleAnnotationsResponse>('PUT', `/api/samples/${id}/annotations`, {
 			version: data.version ?? 'hive-annotorious-v1',
@@ -717,6 +736,62 @@ export const api = {
 	deleteSample(id: string) {
 		return request<void>('DELETE', `/api/samples/${id}`);
 	},
+	batchDeleteSamples(payload: {
+		machine_id?: string;
+		source_role?: string;
+		capture_reason?: string;
+		review_status?: string;
+		kind?: 'regular' | 'condition' | 'all' | string;
+		my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
+		annotated?: 'teacher' | 'raw' | 'all' | string;
+		exposure?: 'under' | 'normal' | 'over' | string;
+		max_age_hours?: number | string;
+		dry_run?: boolean;
+		max_delete?: number;
+	}) {
+		// Strip empty values so the server sees None instead of '' (which would
+		// otherwise filter against empty strings and match nothing).
+		const body: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(payload)) {
+			if (val !== undefined && val !== null && val !== '') body[key] = val;
+		}
+		return request<{
+			ok: boolean;
+			matched: number;
+			deleted: number;
+			dry_run: boolean;
+			capped: boolean;
+		}>('POST', '/api/samples/batch-delete', body);
+	},
+	batchArchiveSamples(
+		payload: {
+			machine_id?: string;
+			source_role?: string;
+			capture_reason?: string;
+			review_status?: string;
+			kind?: 'regular' | 'condition' | 'all' | string;
+			my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
+			annotated?: 'teacher' | 'raw' | 'all' | string;
+			exposure?: 'under' | 'normal' | 'over' | string;
+			max_age_hours?: number | string;
+			dry_run?: boolean;
+			max_archive?: number;
+		},
+		mode: 'archive' | 'unarchive' = 'archive'
+	) {
+		const body: Record<string, unknown> = {};
+		for (const [key, val] of Object.entries(payload)) {
+			if (val !== undefined && val !== null && val !== '') body[key] = val;
+		}
+		const path = mode === 'archive' ? '/api/samples/batch-archive' : '/api/samples/batch-unarchive';
+		return request<{
+			ok: boolean;
+			matched: number;
+			archived: number;
+			dry_run: boolean;
+			capped: boolean;
+		}>('POST', path, body);
+	},
 	sampleImageUrl(id: string) {
 		return resolveApiPath(`/api/samples/${id}/assets/image`);
 	},
@@ -734,14 +809,22 @@ export const api = {
 			machine_id?: string;
 			source_role?: string;
 			capture_reason?: string;
+			kind?: 'regular' | 'condition' | 'all' | string;
+			review_status?: 'unreviewed' | 'in_review' | 'accepted' | 'rejected' | 'conflict' | string;
+			my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
+			annotated?: 'teacher' | 'raw' | 'all' | string;
 			max_age_hours?: number | string;
-		} = {}
+		} = {},
+		excludeIds: string[] = []
 	) {
 		const sp = new URLSearchParams();
 		for (const [key, val] of Object.entries(params)) {
 			if (val !== undefined && val !== null && val !== '') {
 				sp.set(key, String(val));
 			}
+		}
+		for (const id of excludeIds) {
+			sp.append('exclude_id', id);
 		}
 		const qs = sp.toString();
 		return request<Sample | null>('GET', `/api/review/queue/next${qs ? '?' + qs : ''}`);
@@ -751,6 +834,24 @@ export const api = {
 	},
 	getReviewHistory(sampleId: string) {
 		return request<{ reviews: SampleReview[]; sample_id: string; review_status: string }>('GET', `/api/review/samples/${sampleId}/history`);
+	},
+	tagCondition(
+		sampleId: string,
+		data: {
+			composition: string;
+			condition: string;
+			flags: Record<string, boolean>;
+			visible_evidence?: string | null;
+			part_count_estimate?: number | null;
+			issues?: string[];
+		}
+	) {
+		return request<{
+			sample_id: string;
+			analysis: Record<string, unknown>;
+			review_status: string;
+			written_by: string;
+		}>('POST', `/api/review/condition/${sampleId}`, data);
 	},
 
 	updateProfile(data: {
@@ -1068,6 +1169,17 @@ export const api = {
 	listTeacherModels() {
 		return request<TeacherModelInfo[]>('GET', '/api/admin/teacher/models');
 	},
+	listTeacherPrompts() {
+		return request<TeacherPromptEntry[]>('GET', '/api/admin/teacher/prompts');
+	},
+	saveTeacherPrompt(zone: string, kind: string, content: string) {
+		return request<TeacherPromptEntry>('PUT', `/api/admin/teacher/prompts/${zone}/${kind}`, {
+			content
+		});
+	},
+	resetTeacherPrompt(zone: string, kind: string) {
+		return request<TeacherPromptEntry>('DELETE', `/api/admin/teacher/prompts/${zone}/${kind}`);
+	},
 	getSampleTeacherPrompt(sampleId: string, openrouter_model: string) {
 		const qs = new URLSearchParams({ openrouter_model }).toString();
 		return request<{ model_id: string; adapter_kind: string; zone: string; prompt: string; is_default: boolean }>(
@@ -1084,8 +1196,64 @@ export const api = {
 				override_prompt: override_prompt ?? null
 			}
 		);
+	},
+
+	// Leaderboard
+	getLeaderboard(period: '24h' | '7d' | '30d' | 'all' = '7d', limit = 100) {
+		return request<LeaderboardResponse>(
+			'GET',
+			`/api/leaderboard?period=${period}&limit=${limit}`
+		);
+	},
+	getReviewerProfile(userId: string) {
+		return request<ReviewerProfile>('GET', `/api/leaderboard/${userId}`);
 	}
 };
+
+export interface LeaderboardEntry {
+	user_id: string;
+	display_name: string | null;
+	avatar_url: string | null;
+	role: string;
+	total_reviews: number;
+	accepts: number;
+	rejects: number;
+	last_review_at: string | null;
+}
+
+export interface LeaderboardResponse {
+	period: '24h' | '7d' | '30d' | 'all' | string;
+	entries: LeaderboardEntry[];
+}
+
+export interface AchievementEntry {
+	slug: string;
+	name: string;
+	description: string;
+	icon: string;
+	tier: 'bronze' | 'silver' | 'gold' | 'special' | string;
+	earned: boolean;
+	progress: string;
+}
+
+export interface ReviewerProfile {
+	user_id: string;
+	display_name: string | null;
+	avatar_url: string | null;
+	role: string;
+	total_reviews: number;
+	accepts: number;
+	rejects: number;
+	agreement_rate: number | null;
+	machines_covered: number;
+	current_streak_days: number;
+	longest_streak_days: number;
+	speed_record_24h: number;
+	first_review_at: string | null;
+	last_review_at: string | null;
+	daily_counts: number[];
+	achievements: AchievementEntry[];
+}
 
 export interface DetectionModelVariant {
 	id: string;
@@ -1102,6 +1270,8 @@ export interface DetectionModelSummary {
 	owner_id: string | null;
 	slug: string;
 	version: number;
+	codename: string | null;
+	codename_color: string | null;
 	name: string;
 	description: string | null;
 	model_family: string;
@@ -1110,6 +1280,7 @@ export interface DetectionModelSummary {
 	published_at: string;
 	updated_at: string;
 	variant_runtimes: string[];
+	training_metadata: Record<string, unknown> | null;
 }
 
 export interface DetectionModelDetail extends DetectionModelSummary {
@@ -1147,6 +1318,10 @@ export interface TeacherJobFilter {
 	source_role?: string;
 	capture_reason?: string;
 	review_status?: string;
+	kind?: 'regular' | 'condition' | 'all' | string;
+	my_review?: 'unreviewed' | 'reviewed' | 'accepted' | 'rejected' | string;
+	annotated?: 'teacher' | 'raw' | 'all' | string;
+	exposure?: 'under' | 'normal' | 'over' | string;
 	max_age_hours?: number;
 }
 
@@ -1195,6 +1370,16 @@ export interface TeacherModelInfo {
 	display_name: string;
 	adapter_kind: string;
 	notes: string;
+}
+
+export interface TeacherPromptEntry {
+	zone: string;
+	kind: string; // 'chat' | 'perceptron'
+	content: string;
+	is_custom: boolean;
+	default_content: string;
+	updated_at: string | null;
+	updated_by_display_name: string | null;
 }
 
 export interface TeacherPreviewDetection {

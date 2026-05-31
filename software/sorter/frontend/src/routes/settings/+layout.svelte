@@ -35,7 +35,7 @@
 	let hotkeyErrorMsg = $state<string | null>(null);
 	let hotkeyBusy = $state<Partial<Record<StepperKey, boolean>>>({});
 	let hotkeyStatusTimeout: ReturnType<typeof setTimeout> | null = null;
-	let machineSetup = $state<MachineSetupKey>('standard_carousel');
+	let machineSetup = $state<MachineSetupKey>('classification_channel');
 
 	const visibleSettingsNavItems = $derived(settingsNavItemsForSetup(machineSetup));
 
@@ -106,12 +106,10 @@
 			const res = await fetch(`${currentBackendBaseUrl()}/api/machine-setup`);
 			if (!res.ok) return;
 			const payload = await res.json();
-			if (
-				payload?.setup === 'classification_channel' ||
-				payload?.setup === 'manual_carousel' ||
-				payload?.setup === 'standard_carousel'
-			) {
-				machineSetup = payload.setup;
+			if (payload?.setup === 'manual_carousel') {
+				machineSetup = 'manual_carousel';
+			} else if (payload?.setup === 'classification_channel') {
+				machineSetup = 'classification_channel';
 			}
 		} catch {
 			// Ignore transient backend fetch issues in the nav shell.

@@ -9,7 +9,7 @@ from slowapi.util import get_remote_address
 from sqlalchemy import func
 from sqlalchemy.orm import Session, joinedload
 
-from app.deps import get_current_machine, get_current_user, get_db, verify_csrf
+from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.user import User
@@ -48,12 +48,15 @@ class MachineSetProgressReportPayload(BaseModel):
 @router.get("/machines", response_model=list[MachineResponse])
 def list_machines(
     scope: str | None = Query(None, pattern="^(mine|all)$"),
+    include_archived: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     query = db.query(Machine).options(joinedload(Machine.owner))
     if scope != "all":
         query = query.filter(Machine.owner_id == current_user.id)
+    if not include_archived:
+        query = query.filter(Machine.archived_at.is_(None))
     return query.all()
 
 
@@ -476,3 +479,43 @@ def report_machine_set_progress(
 
     db.commit()
     return {"ok": True, "updated": len(normalized_items), "deleted": deleted}
+
+@router.post("/machines/{machine_id}/archive", response_model=MachineResponse)
+def archive_machine(
+    machine_id: UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Hide a machine + its samples from default listings/stats/training pulls.
+
+    Reversible via the matching DELETE endpoint. Sample rows stay intact; the
+    archive flag just filters them out wherever the UI/training treat the
+    sample roster as 'active fleet'.
+    """
+    machine = db.query(Machine).filter(Machine.id == machine_id).first()
+    if not machine:
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+    if machine.archived_at is None:
+        machine.archived_at = datetime.now(timezone.utc)
+        db.commit()
+        db.refresh(machine)
+    return machine
+
+
+@router.delete("/machines/{machine_id}/archive", response_model=MachineResponse)
+def unarchive_machine(
+    machine_id: UUID,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    machine = db.query(Machine).filter(Machine.id == machine_id).first()
+    if not machine:
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+    if machine.archived_at is not None:
+        machine.archived_at = None
+        db.commit()
+        db.refresh(machine)
+    return machine
+

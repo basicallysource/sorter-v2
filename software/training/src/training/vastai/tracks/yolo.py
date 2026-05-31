@@ -55,31 +55,62 @@ def select_models(models: list[dict], selected_ids: set[str]) -> list[dict]:
     return [model for model in models if model["id"] in selected_ids]
 
 
-def setup():
-    """Install dependencies."""
-    # Ultralytics pulls OpenCV, which needs a few shared libs in the base image.
-    subprocess.run(
-        [
-            "bash",
-            "-lc",
-            "apt-get update && "
-            "DEBIAN_FRONTEND=noninteractive apt-get install -y "
-            "libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libxcb1",
-        ],
-        check=True,
-    )
-    subprocess.run(["pip", "install", "-q", "ultralytics"], check=True)
-    subprocess.run(
-        ["pip", "uninstall", "-y", "opencv-python", "opencv-contrib-python"],
-        check=False,
-    )
-    subprocess.run(
-        ["pip", "install", "-q", "--force-reinstall", "numpy<2", "opencv-python-headless"],
-        check=True,
-    )
+def _ultralytics_available() -> bool:
+    try:
+        import ultralytics  # noqa: F401
+        return True
+    except ImportError:
+        return False
 
-    # Symlink YOLO labels into the expected location for Ultralytics
-    # Ultralytics expects labels/ next to images/ with matching structure
+
+def _link_cached_weights() -> None:
+    """Surface pre-baked YOLO weights from $YOLO_WEIGHTS_DIR in CWD.
+
+    Ultralytics resolves bare model names like ``yolo26s.pt`` against CWD
+    first, then falls back to a GitHub download. When running on the
+    pre-baked Vast.ai image the weights ship under ``/opt/yolo-weights`` —
+    linking them here skips the per-model download on every fresh box.
+    """
+    cache = Path(os.environ.get("YOLO_WEIGHTS_DIR", "/opt/yolo-weights"))
+    if not cache.is_dir():
+        return
+    cwd = Path.cwd()
+    for pt in cache.glob("*.pt"):
+        link = cwd / pt.name
+        if link.exists() or link.is_symlink():
+            continue
+        link.symlink_to(pt)
+        print(f"Linked weight {link.name} <- {pt}")
+
+
+def setup():
+    """Install dependencies; no-op on the pre-baked trainer image."""
+    if _ultralytics_available():
+        print("[setup] ultralytics already installed — skipping apt/pip")
+    else:
+        subprocess.run(
+            [
+                "bash",
+                "-lc",
+                "apt-get update && "
+                "DEBIAN_FRONTEND=noninteractive apt-get install -y "
+                "libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libxcb1",
+            ],
+            check=True,
+        )
+        subprocess.run(["pip", "install", "-q", "ultralytics"], check=True)
+        subprocess.run(
+            ["pip", "uninstall", "-y", "opencv-python", "opencv-contrib-python"],
+            check=False,
+        )
+        subprocess.run(
+            ["pip", "install", "-q", "--force-reinstall", "numpy<2", "opencv-python-headless"],
+            check=True,
+        )
+
+    _link_cached_weights()
+
+    # Ultralytics expects labels/ next to images/ with matching structure.
     src = Path(DATASET) / "labels_yolo"
     dst = Path(DATASET) / "labels"
     if src.exists() and not dst.exists():

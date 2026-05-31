@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import {
 		api,
 		type SampleClassificationPayload,
 		type SampleDetail,
 		type SampleReview,
-		type SavedSampleAnnotation,
-		type TeacherModelInfo
+		type SavedSampleAnnotation
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import Badge from '$lib/components/Badge.svelte';
@@ -20,7 +20,10 @@
 	import ReviewActionPad from '$lib/components/review/ReviewActionPad.svelte';
 	import ReviewAnnotatorPanel from '$lib/components/review/ReviewAnnotatorPanel.svelte';
 	import ReviewHeuristics from '$lib/components/review/ReviewHeuristics.svelte';
+	import TeacherRerunButtons from '$lib/components/teacher/TeacherRerunButtons.svelte';
 	import SampleConditionCard from '$lib/components/sample/SampleConditionCard.svelte';
+	import SampleConditionTagger from '$lib/components/sample/SampleConditionTagger.svelte';
+	import { FEATURES } from '$lib/features';
 	import { Alert } from '$lib/components/primitives';
 	import { extractLegacyReviewBboxes, extractPrimaryBboxes, mergeUniqueBboxes, parseBboxCollection, proposalColor } from '$lib/components/sample/bbox-helpers';
 
@@ -43,9 +46,22 @@
 	let imageNaturalWidth = $state(0);
 	let imageNaturalHeight = $state(0);
 	let reviewHistory = $state<string[]>([]);
+	// Session-local list of samples the reviewer pressed → on. Without
+	// this the backend's deterministic per-user order serves the same top
+	// candidate again and the queue gets stuck on a single sample. Reset
+	// when filters change so changing the slice gives a fresh queue.
+	let skippedIds = $state<string[]>([]);
 	let lastLoadedReviewKey = $state<string | null>(null);
 	let lastSampleId = $state<string | null>(null);
 	let reviewImageAsset = $state<ReviewImageAsset>('image');
+
+	// True when the current sample is a piece-condition crop (collected by the
+	// sorter's condition_collector). In that case we render the tagger chip UI
+	// alongside the existing card so a human can override any auto-label.
+	let isConditionSample = $derived.by<boolean>(() => {
+		const payload = sample?.sample_payload as { sample?: { capture_scope?: unknown } } | null;
+		return payload?.sample?.capture_scope === 'condition';
+	});
 
 	function isTextInputTarget(target: EventTarget | null) {
 		if (!(target instanceof HTMLElement)) return false;
@@ -152,89 +168,22 @@
 	});
 
 	// Admin-only teacher rerun panel. Lets the reviewer try a different model on the
-	// currently displayed sample without leaving the queue — useful when boxes look bad
-	// and you want to A/B a fresh detection inline instead of skipping to /compare.
-	const REVIEW_TEACHER_MODEL_STORAGE_KEY = 'hive.review.teacherModel';
-	let teacherModels = $state<TeacherModelInfo[]>([]);
-	let teacherModelChoice = $state('');
-	let teacherRerunning = $state(false);
-	let teacherRerunError = $state<string | null>(null);
-	// Set once after the dropdown is populated so the localStorage-sync effect doesn't
-	// fire during initial prefill (which would overwrite a stale key with itself anyway,
-	// but lets us skip a noop write).
-	let teacherChoiceInitialized = $state(false);
-
-	function readStoredTeacherModel(): string | null {
-		if (typeof window === 'undefined') return null;
-		try {
-			return window.localStorage.getItem(REVIEW_TEACHER_MODEL_STORAGE_KEY);
-		} catch {
-			return null;
-		}
-	}
-
-	function writeStoredTeacherModel(value: string) {
-		if (typeof window === 'undefined' || !value) return;
-		try {
-			window.localStorage.setItem(REVIEW_TEACHER_MODEL_STORAGE_KEY, value);
-		} catch {
-			/* private mode / quota — silently drop */
-		}
-	}
-
-	// Persist the dropdown choice so the next visit reopens on the same model. Default
-	// resolution: stored value > user.preferred_teacher_model > first registered.
-	$effect(() => {
-		if (!teacherChoiceInitialized) return;
-		if (!teacherModelChoice) return;
-		writeStoredTeacherModel(teacherModelChoice);
-	});
-
+	// currently displayed sample without leaving the queue. UX is one button per model
+	// (see TeacherRerunButtons) — turned out faster than a dropdown + Run for the
+	// click-through review flow. Preferred-model still highlights the user's saved
+	// default so the eye lands there first.
 	onMount(() => {
 		void loadNext();
-		if (auth.isAdmin) {
-			void api
-				.listTeacherModels()
-				.then((m) => {
-					teacherModels = m;
-					const stored = readStoredTeacherModel();
-					const preferred = auth.user?.preferred_teacher_model;
-					if (stored && m.some((mod) => mod.model_id === stored)) {
-						teacherModelChoice = stored;
-					} else if (preferred && m.some((mod) => mod.model_id === preferred)) {
-						teacherModelChoice = preferred;
-					} else if (m.length > 0) {
-						teacherModelChoice = m[0].model_id;
-					}
-					teacherChoiceInitialized = true;
-				})
-				.catch(() => {
-					/* ignore — panel just stays empty */
-				});
-		}
 	});
 
-	async function handleTeacherRerunInReview() {
-		if (!sample || teacherRerunning || !teacherModelChoice) return;
-		teacherRerunning = true;
-		teacherRerunError = null;
-		try {
-			const updated = await api.rerunSampleTeacher(sample.id, teacherModelChoice);
-			sample = updated;
-			// Detection was overwritten and review_status reset on the backend, so the local
-			// review history no longer applies to these boxes — clear so the action pad
-			// shows a fresh slate.
-			reviews = [];
-			currentDecision = null;
-			lastLoadedReviewKey = null;
-		} catch (e: unknown) {
-			teacherRerunError =
-				e && typeof e === 'object' && 'error' in e
-					? String((e as { error: unknown }).error)
-					: 'Teacher rerun failed';
-		} finally {
-			teacherRerunning = false;
-		}
+	function handleTeacherRerunResult(updated: SampleDetail) {
+		sample = updated;
+		// Detection was overwritten and review_status reset on the backend, so the local
+		// review history no longer applies to these boxes — clear so the action pad
+		// shows a fresh slate.
+		reviews = [];
+		currentDecision = null;
+		lastLoadedReviewKey = null;
 	}
 
 	async function loadSample(sampleId: string) {
@@ -269,7 +218,7 @@
 	const queueFilters = $derived.by(() => {
 		const sp = page.url.searchParams;
 		const params: Record<string, string> = {};
-		for (const key of ['scope', 'machine_id', 'source_role', 'capture_reason', 'max_age_hours']) {
+		for (const key of ['scope', 'machine_id', 'source_role', 'capture_reason', 'kind', 'review_status', 'my_review', 'max_age_hours']) {
 			const value = sp.get(key);
 			if (value) params[key] = value;
 		}
@@ -277,12 +226,38 @@
 	});
 	const activeFilterChips = $derived(Object.entries(queueFilters));
 
+	// Re-slicing the queue invalidates the skip set — a sample I skipped
+	// inside "kind=regular" might be exactly what I want to see in
+	// "kind=condition". Compare by string so the effect only fires when
+	// the filter shape actually changes.
+	let lastQueueFiltersKey = $state<string | null>(null);
+	$effect(() => {
+		const key = JSON.stringify(queueFilters);
+		if (lastQueueFiltersKey !== null && key !== lastQueueFiltersKey) {
+			skippedIds = [];
+		}
+		lastQueueFiltersKey = key;
+	});
+
+	const currentKind = $derived(queueFilters.kind ?? '');
+
+	function setKind(next: '' | 'regular' | 'condition') {
+		const url = new URL(page.url);
+		if (next) url.searchParams.set('kind', next);
+		else url.searchParams.delete('kind');
+		void goto(`${url.pathname}${url.search ? url.search : ''}`, {
+			replaceState: false,
+			noScroll: true,
+			keepFocus: true
+		});
+	}
+
 	async function loadNext() {
 		loading = true;
 		error = null;
 		feedback = null;
 		try {
-			const next = await api.getNextReview(queueFilters);
+			const next = await api.getNextReview(queueFilters, skippedIds);
 			if (!next) {
 				sample = null;
 				reviews = [];
@@ -346,9 +321,19 @@
 
 		submitting = true;
 		try {
-			const review = await api.submitReview(sample.id, decision);
-			if (reviewHistory[reviewHistory.length - 1] !== sample.id) {
-				reviewHistory = [...reviewHistory, sample.id];
+			const submittedId = sample.id;
+			const review = await api.submitReview(submittedId, decision);
+			// In override mode (?review_status=conflict, ?my_review=...) the backend
+			// drops the "already reviewed" gate, so without this push the same sample
+			// would come back top-of-queue after the vote (md5 order is deterministic
+			// per viewer) and arrow keys would feel like a no-op. In default mode the
+			// backend already excludes own reviews — pushing here is redundant but
+			// harmless and keeps the two paths symmetrical.
+			if (!skippedIds.includes(submittedId)) {
+				skippedIds = [...skippedIds, submittedId];
+			}
+			if (reviewHistory[reviewHistory.length - 1] !== submittedId) {
+				reviewHistory = [...reviewHistory, submittedId];
 			}
 			currentDecision = review.decision;
 			feedback =
@@ -369,6 +354,16 @@
 		if (!classificationOk) return;
 		const annotationsOk = await savePendingAnnotationsIfNeeded();
 		if (!annotationsOk) return;
+		// Record the skip so the backend doesn't immediately hand it back
+		// (its order is md5-deterministic per viewer), and so ← lets the
+		// reviewer return to the skipped sample if they change their mind.
+		if (sample) {
+			const id = sample.id;
+			if (!skippedIds.includes(id)) skippedIds = [...skippedIds, id];
+			if (reviewHistory[reviewHistory.length - 1] !== id) {
+				reviewHistory = [...reviewHistory, id];
+			}
+		}
 		await loadNext();
 	}
 
@@ -387,6 +382,7 @@
 	}
 
 	function toggleAnnotateMode() {
+		if (!FEATURES.ANNOTATION_EDITING) return;
 		if (!sample || loading) return;
 		annotateMode = !annotateMode;
 		if (annotateMode) {
@@ -422,13 +418,13 @@
 			return;
 		}
 
-		if (event.key.toLowerCase() === 'd') {
+		if (FEATURES.ANNOTATION_EDITING && event.key.toLowerCase() === 'd') {
 			event.preventDefault();
 			toggleAnnotateMode();
 			return;
 		}
 
-		if (event.key === 'Escape' && annotateMode) {
+		if (FEATURES.ANNOTATION_EDITING && event.key === 'Escape' && annotateMode) {
 			event.preventDefault();
 			annotateMode = false;
 		}
@@ -488,7 +484,7 @@
 	<div>
 		<h1 class="text-2xl font-bold text-text">Review Queue</h1>
 		<p class="mt-1 text-sm text-text-muted">
-			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation.
+			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back{#if FEATURES.ANNOTATION_EDITING}, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation{/if}.
 		</p>
 		{#if activeFilterChips.length > 0}
 			<div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
@@ -501,6 +497,23 @@
 				<a href="/review" class="text-primary hover:underline">Clear</a>
 			</div>
 		{/if}
+	</div>
+	<!-- Kind switcher — flips the queue between regular detection samples and
+	     piece-condition crops without leaving the review page. -->
+	<div class="flex border border-border bg-surface text-xs">
+		{#each [
+			{ value: '', label: 'All' },
+			{ value: 'regular', label: 'Regular' },
+			{ value: 'condition', label: 'Condition' }
+		] as opt}
+			<button
+				type="button"
+				class="border-l border-border px-3 py-1.5 first:border-l-0 {currentKind === opt.value ? 'bg-primary text-white' : 'text-text hover:bg-bg'}"
+				onclick={() => setKind(opt.value as '' | 'regular' | 'condition')}
+			>
+				{opt.label}
+			</button>
+		{/each}
 	</div>
 </div>
 
@@ -666,6 +679,25 @@
 
 			<SampleConditionCard samplePayload={sample.sample_payload} />
 
+			{#if isConditionSample}
+				<SampleConditionTagger
+					sampleId={sample.id}
+					samplePayload={sample.sample_payload}
+					onSaved={(analysis) => {
+						// Splice the freshly-saved analysis into the local sample so the
+						// adjacent SampleConditionCard reflects the new label without
+						// waiting for a refetch.
+						if (sample) {
+							const payload = (sample.sample_payload as Record<string, unknown> | null) ?? {};
+							const analyses = Array.isArray(payload.analyses) ? (payload.analyses as Record<string, unknown>[]) : [];
+							const filtered = analyses.filter((a) => (a as { analysis_id?: string }).analysis_id !== 'cond_primary');
+							filtered.push(analysis);
+							sample = { ...sample, sample_payload: { ...payload, analyses: filtered } };
+						}
+					}}
+				/>
+			{/if}
+
 			<ReviewActionPad
 				{annotateMode}
 				{loading}
@@ -680,54 +712,12 @@
 			/>
 
 			{#if auth.isAdmin}
-				<div class="border border-border bg-white p-3">
-					<div class="mb-2 flex items-center justify-between">
-						<h3 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Re-run teacher</h3>
-						<a
-							href={`/samples/${sample.id}/compare`}
-							class="text-[11px] text-text-muted hover:text-primary"
-							title="Compare all models side-by-side"
-						>
-							Compare →
-						</a>
-					</div>
-					<div class="flex gap-2">
-						<select
-							bind:value={teacherModelChoice}
-							disabled={teacherRerunning || teacherModels.length === 0}
-							class="min-w-0 flex-1 border border-border bg-white px-2 py-1.5 text-xs text-text focus:border-primary focus:outline-none"
-						>
-							{#if teacherModels.length === 0}
-								<option value="">(no models)</option>
-							{:else}
-								{#each teacherModels as m (m.model_id)}
-									<option value={m.model_id}>{m.display_name}</option>
-								{/each}
-							{/if}
-						</select>
-						<button
-							type="button"
-							onclick={() => void handleTeacherRerunInReview()}
-							disabled={teacherRerunning || !teacherModelChoice}
-							class="inline-flex items-center gap-1.5 border border-border bg-white px-3 py-1.5 text-xs font-medium text-text hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed"
-						>
-							{#if teacherRerunning}
-								<span class="inline-block h-3 w-3 animate-spin border-2 border-current border-t-transparent rounded-full"></span>
-								Running…
-							{:else}
-								Run
-							{/if}
-						</button>
-					</div>
-					<p class="mt-2 text-[10px] text-text-muted">
-						Overwrites detection_bboxes on this sample and resets review status to unreviewed.
-					</p>
-					{#if teacherRerunError}
-						<div class="mt-2 border border-warning-strong bg-warning-bg px-2 py-1.5 text-[11px] text-warning-strong">
-							{teacherRerunError}
-						</div>
-					{/if}
-				</div>
+				<TeacherRerunButtons
+					sampleId={sample.id}
+					onResult={handleTeacherRerunResult}
+					preferredModelId={auth.user?.preferred_teacher_model ?? null}
+					dense
+				/>
 			{/if}
 
 			<ReviewHeuristics />

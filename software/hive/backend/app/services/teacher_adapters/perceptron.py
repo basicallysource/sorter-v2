@@ -40,14 +40,35 @@ PERCEPTRON_API_TIMEOUT_S = 60.0
 PERCEPTRON_MODEL_ID = "perceptron-mk1"
 
 
-# Captures one <point_box mention="..." confidence="..."> (x1,y1) (x2,y2) </point_box>.
-_POINT_BOX_RE = re.compile(
+# Two known Perceptron output shapes, both 0-1000 XYXY:
+#
+#   1. Native XML tags (what we saw before vision_config):
+#        <point_box mention="lego" confidence="0.95"> (148,244) (228,350) </point_box>
+#
+#   2. Python-repr style list-of-dicts (what vision_config grounding now emits):
+#        [{'point_box': (891,402), (939,495), 'label': 'loose_lego_piece_or_foreign_object'}, ...]
+#      Note: the dict syntax is technically invalid Python — 'point_box' is followed by
+#      two bare tuples rather than one value. Regex tolerates that just fine; we match
+#      the *pair* of coordinate tuples right after the 'point_box' key.
+_POINT_BOX_XML_RE = re.compile(
     r'<point_box(?P<attrs>[^>]*)>\s*'
     r'\(\s*(?P<x1>-?\d+(?:\.\d+)?)\s*,\s*(?P<y1>-?\d+(?:\.\d+)?)\s*\)'
     r'\s*'
     r'\(\s*(?P<x2>-?\d+(?:\.\d+)?)\s*,\s*(?P<y2>-?\d+(?:\.\d+)?)\s*\)'
     r'\s*</point_box>',
     re.IGNORECASE | re.DOTALL,
+)
+_POINT_BOX_REPR_RE = re.compile(
+    r"""['"]point_box['"]\s*:\s*"""
+    r"\(\s*(?P<x1>-?\d+(?:\.\d+)?)\s*,\s*(?P<y1>-?\d+(?:\.\d+)?)\s*\)"
+    r"\s*,\s*"
+    r"\(\s*(?P<x2>-?\d+(?:\.\d+)?)\s*,\s*(?P<y2>-?\d+(?:\.\d+)?)\s*\)",
+    re.IGNORECASE | re.DOTALL,
+)
+# Label or mention attribute, captured after the same point_box block for kind assignment.
+_REPR_LABEL_AFTER_BOX_RE = re.compile(
+    r"['\"](?:label|mention)['\"]\s*:\s*['\"](?P<label>[^'\"]+)['\"]",
+    re.IGNORECASE,
 )
 _ATTR_RE = re.compile(r'(\w+)\s*=\s*"([^"]*)"')
 
@@ -58,20 +79,67 @@ def _decode_image_size(image_bytes: bytes) -> tuple[int, int]:
 
 
 def _zone_instruction(zone: str) -> str:
-    """Short imperative instruction that triggers Perceptron's grounded XML output."""
+    """Bare detect-style instruction. Perceptron's grounded XML mode is driven by
+    ``vision_config.annotation_format = "box"`` — the instruction text only specifies
+    *where to look* and how to split composite assemblies.
+
+    Splitting hint matters: a "wheel" in everyday language is one object but in LEGO
+    terms it's two pieces (rubber tire + plastic hub), and clip/hook parts attached to
+    bricks count separately too. Without an explicit "one box per piece" cue Perceptron
+    groups composite items into a single bbox and undercounts.
+    """
+    splitting = (
+        " Return one box per individual lego element — a wheel counts as two pieces "
+        "(tire + hub), and any clip, hook or small attached part also counts separately. "
+        "If no lego pieces are visible, return no detections. Do not box the disc, "
+        "the radial sectors, the center button, the feeder channel walls, or any "
+        "other fixed machine geometry — the round rotor disc itself is NOT a wheel."
+    )
     if zone == "classification_channel":
         return (
-            "Detect every loose lego piece or foreign object on the round C4 rotor disc. "
-            "Skip anything on or outside the bright white outer rim, and skip parts queued "
-            "in the upper-left feeder channel."
+            "Detect each individual lego piece and foreign object on the C4 rotor disc, "
+            "ignoring the bright white outer rim, parts on the rim, "
+            "and parts still in the upper-left feeder channel." + splitting
         )
     if zone == "c_channel":
-        return "Detect every loose lego piece or foreign object inside the C-channel feed track."
+        return (
+            "Detect each individual lego piece and foreign object inside the C-channel "
+            "feed track." + splitting
+        )
     if zone == "classification_chamber":
-        return "Detect the lego piece on the small flat tray."
+        return "Detect each individual lego piece on the small flat tray." + splitting
     if zone == "carousel":
-        return "Detect loose lego pieces on the rotating turntable. Skip the black center disc."
-    return "Detect every loose lego piece or foreign object."
+        return (
+            "Detect each individual lego piece on the rotating turntable, ignoring the "
+            "black center disc." + splitting
+        )
+    return "Detect each individual lego piece and foreign object." + splitting
+
+
+# What the model should look for, sent as Perceptron's native ``classes`` parameter.
+# Brick-shaped categories only — we deliberately omit "lego tire" / "lego wheel hub"
+# because the round rotor disc itself triggers a false "wheel" hit when no real parts
+# are on the disc (the model boxed the entire frame as a single wheel). A real wheel
+# in the feed will still be detected as "lego brick" or "lego piece" with a sensibly
+# small box; we lose the specific label but gain not boxing the disc.
+_ZONE_CLASSES: dict[str, list[str]] = {
+    "classification_channel": [
+        "lego brick", "lego plate", "lego tile", "lego slope",
+        "lego clip", "lego hook", "foreign object",
+    ],
+    "c_channel": [
+        "lego brick", "lego plate", "lego tile", "lego slope",
+        "lego clip", "lego hook", "foreign object",
+    ],
+    "classification_chamber": ["lego piece", "foreign object"],
+    "carousel": ["lego piece", "foreign object"],
+}
+
+# Drop any detection that covers more than this fraction of the image area. No real
+# loose lego piece in any of the four zones fills half the frame — a hit that big is
+# the model boxing fixed machine geometry (the rotor disc, the feeder channel walls,
+# etc.). Tuned empirically: a chunky 2x4 brick in the C4 view is ~3% of frame.
+_MAX_BOX_AREA_FRACTION = 0.50
 
 
 def _classify_label(label: str) -> str:
@@ -92,6 +160,12 @@ def _scale_xyxy_0_1000(
     y2 = int(max(0.0, min(float(height), y2n * sy)))
     if x2 <= x1 or y2 <= y1:
         return None
+    # Drop frame-spanning boxes: the model occasionally returns a single point_box
+    # covering the entire image (e.g. when the empty rotor disc is mistaken for a
+    # "wheel"). No real loose lego piece fills half the frame in any of our zones,
+    # so any box that large is the model boxing fixed geometry.
+    if (x2 - x1) * (y2 - y1) > _MAX_BOX_AREA_FRACTION * width * height:
+        return None
     return x1, y1, x2, y2
 
 
@@ -99,10 +173,18 @@ def _parse_point_box_attrs(attrs: str) -> dict[str, str]:
     return {key.lower(): value for key, value in _ATTR_RE.findall(attrs)}
 
 
-def _extract_point_box_xml(text: str, width: int, height: int) -> list[dict[str, Any]]:
-    """Parse Perceptron's <point_box> XML coordinates (XYXY 0-1000) into pixel boxes."""
+def _extract_point_boxes(text: str, width: int, height: int) -> list[dict[str, Any]]:
+    """Parse Perceptron's grounded output in either XML or Python-repr form.
+
+    Both formats use 0-1000 XYXY normalized coordinates. We try XML first (the legacy
+    shape and the documented one), then fall back to Python-repr (what vision_config
+    grounding actually emits in practice). They never appear in the same response, so
+    whichever has matches wins.
+    """
     detections: list[dict[str, Any]] = []
-    for match in _POINT_BOX_RE.finditer(text):
+
+    # 1. Try the documented <point_box> XML form first.
+    for match in _POINT_BOX_XML_RE.finditer(text):
         attrs = _parse_point_box_attrs(match.group("attrs") or "")
         try:
             ax = float(match.group("x1"))
@@ -130,6 +212,39 @@ def _extract_point_box_xml(text: str, width: int, height: int) -> list[dict[str,
                 "confidence": confidence,
             }
         )
+    if detections:
+        return detections
+
+    # 2. Fall back to the Python-repr list-of-dicts shape vision_config emits.
+    for match in _POINT_BOX_REPR_RE.finditer(text):
+        try:
+            ax = float(match.group("x1"))
+            ay = float(match.group("y1"))
+            bx = float(match.group("x2"))
+            by = float(match.group("y2"))
+        except (TypeError, ValueError):
+            continue
+        coords = _scale_xyxy_0_1000(ax, ay, bx, by, width, height)
+        if coords is None:
+            continue
+        # Look for a label in the same dict (between this point_box and the next), so
+        # multiple boxes don't all inherit the first dict's label.
+        tail_end = text.find("{", match.end())
+        tail = text[match.end(): tail_end if tail_end != -1 else min(match.end() + 200, len(text))]
+        label_match = _REPR_LABEL_AFTER_BOX_RE.search(tail)
+        label = label_match.group("label").strip() if label_match else "piece"
+        # vision_config doesn't emit per-detection confidence — default to high since the
+        # model already self-filtered by confidence before composing the response.
+        x1, y1, x2, y2 = coords
+        detections.append(
+            {
+                "kind": _classify_label(label),
+                "description": label,
+                "bbox": [x1, y1, x2, y2],
+                "confidence": 0.9,
+            }
+        )
+
     return detections
 
 
@@ -138,12 +253,20 @@ def _call_perceptron_chat(
     api_key: str,
     base_url: str,
     instruction: str,
+    classes: list[str],
     image_b64: str,
 ) -> tuple[str, dict[str, Any] | None, dict[str, Any]]:
     """POST to Perceptron's OpenAI-compatible /chat/completions endpoint.
 
-    Returns (assistant_text, usage_dict_or_none, raw_response). The assistant text contains
-    the model's response; for grounded detection prompts that's <point_box> XML inline.
+    Returns (assistant_text, usage_dict_or_none, raw_response).
+
+    Perceptron's chat-completions endpoint accepts vendor-specific options as a nested
+    ``vision_config`` object — that's the only place the docs explicitly show extras on
+    the chat path ("extra_body={'vision_config': {'enable_thinking': True}}" in the
+    Quickstart). Putting ``annotation_format`` / ``classes`` / ``reasoning`` as top-level
+    fields gets them silently dropped, which is what we observed (the model kept replying
+    in prose). Nested inside ``vision_config`` they're honoured and the model emits the
+    structured ``<point_box>`` XML we parse.
     """
     endpoint_url = f"{base_url.rstrip('/')}/chat/completions"
     body_payload: dict[str, Any] = {
@@ -160,6 +283,13 @@ def _call_perceptron_chat(
                 ],
             },
         ],
+        # Native Perceptron grounding parameters live under vision_config — see
+        # https://docs.perceptron.inc/quickstart for the canonical shape.
+        "vision_config": {
+            "annotation_format": "box",
+            "classes": classes,
+            "enable_thinking": False,
+        },
         "temperature": 0.0,
     }
 
@@ -221,11 +351,14 @@ class PerceptronAdapter:
     adapter_kind = "perceptron"
     secret_kind = "perceptron"
     notes = "Purpose-built detection model. Calls Perceptron's native API directly."
-    # Perceptron documents 300 req/min for /chat/completions and explicitly recommends a
-    # 4-worker pool for bulk jobs — see https://docs.perceptron.inc/scaling. 0.2s spacing
-    # caps the worst-case burst at 5 req/s (well under the 5 req/s the quota allows).
-    max_concurrent = 4
-    min_interval_s = 0.2
+    # Perceptron documents 300 req/min for /chat/completions and recommends a 4-worker
+    # pool as a default — see https://docs.perceptron.inc/scaling. Empirically at 4 +
+    # 0.2s we sit at ~2.5 req/s (half the quota) because individual calls take ~400ms.
+    # Push concurrency to 6 and shorten spacing to 0.15s to land around ~3.5-4 req/s
+    # with comfortable headroom before the 5/s ceiling; the worker's 429-with-Retry-After
+    # backoff catches the rare overshoot without disturbing the rest of the pool.
+    max_concurrent = 7
+    min_interval_s = 0.15
 
     def detect(
         self,
@@ -243,7 +376,17 @@ class PerceptronAdapter:
         if width <= 0 or height <= 0:
             raise RuntimeError("Sample image has zero dimensions")
 
-        instruction = override_prompt if override_prompt else _zone_instruction(zone)
+        # Use the caller-supplied override if any (admin-edited settings prompt or
+        # compare-page ad-hoc textarea). Falls back to the built-in short native
+        # instruction. NOTE: long chat-style overrides will pull Perceptron into
+        # conversational prose mode regardless of vision_config — that's a tradeoff
+        # the editor accepts when they save a non-trivial custom prompt.
+        instruction = (
+            override_prompt.strip()
+            if override_prompt and override_prompt.strip()
+            else _zone_instruction(zone)
+        )
+        classes = _ZONE_CLASSES.get(zone, ["lego piece", "foreign object"])
         image_b64 = base64.b64encode(image_bytes).decode("ascii")
         base_url = getattr(settings, "PERCEPTRON_BASE_URL", "https://api.perceptron.inc/v1")
 
@@ -252,11 +395,12 @@ class PerceptronAdapter:
             api_key=api_key,
             base_url=base_url,
             instruction=instruction,
+            classes=classes,
             image_b64=image_b64,
         )
         elapsed_ms = int((time.monotonic() - start) * 1000)
 
-        detections = _extract_point_box_xml(text, width, height)
+        detections = _extract_point_boxes(text, width, height)
         detections.sort(key=lambda d: d["confidence"], reverse=True)
         bboxes = [d["bbox"] for d in detections]
         score = detections[0]["confidence"] if detections else 0.0

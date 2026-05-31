@@ -1,5 +1,9 @@
+import logging
+
 from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
+
+logger = logging.getLogger(__name__)
 
 
 class APIError(HTTPException):
@@ -20,4 +24,17 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
     return JSONResponse(
         status_code=exc.status_code,
         content={"ok": False, "error": exc.detail, "code": "HTTP_ERROR"},
+    )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    logger.exception(
+        "Unhandled API exception on %s %s",
+        request.method,
+        request.url.path,
+        exc_info=exc,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"ok": False, "error": "Internal server error", "code": "INTERNAL_SERVER_ERROR"},
     )

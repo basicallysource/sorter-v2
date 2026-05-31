@@ -110,7 +110,13 @@
 	let newIdInputs = $state<Record<number, string>>({});
 
 	// Waveshare port discovery
-	type WavesharePort = { device: string; product: string; serial: string | null; confirmed?: boolean; servo_count?: number };
+	type WavesharePort = {
+		device: string;
+		product: string;
+		serial: string | null;
+		confirmed?: boolean;
+		servo_count?: number;
+	};
 	let availablePorts = $state<WavesharePort[]>([]);
 	let portsLoaded = $state(false);
 
@@ -146,7 +152,23 @@
 			for (let i = 1; i <= Math.max(layers.length, 1); i++) ids.add(i);
 		}
 
+		for (const layer of layers) {
+			const id = Number(layer.servoId);
+			if (Number.isInteger(id) && id >= 1 && id <= 253) ids.add(id);
+		}
+
 		return [...ids].sort((a, b) => a - b);
+	}
+
+	function waveshareLayerAssignments(): Record<number, number[]> {
+		const assignments: Record<number, number[]> = {};
+		for (const layer of layers) {
+			if (!layer.enabled || !layerHasAssignedServo(layer)) continue;
+			const id = Number(layer.servoId);
+			if (!Number.isInteger(id) || id < 1 || id > 253) continue;
+			assignments[id] = [...(assignments[id] ?? []), layer.index];
+		}
+		return assignments;
 	}
 
 	function layerHasAssignedServo(layer: LayerDraft): boolean {
@@ -220,7 +242,7 @@
 		);
 	}
 
-function applySettings(payload: any) {
+	function applySettings(payload: any) {
 		const storage = payload?.storage_layers ?? payload?.settings ?? {};
 		const servo = payload?.servo ?? {};
 		const previousStates = new Map(
@@ -228,7 +250,9 @@ function applySettings(payload: any) {
 		);
 
 		allowedCounts = Array.isArray(storage?.allowed_bin_counts)
-			? storage.allowed_bin_counts.filter((value: unknown): value is number => typeof value === 'number')
+			? storage.allowed_bin_counts.filter(
+					(value: unknown): value is number => typeof value === 'number'
+				)
 			: [6, 12, 18, 30];
 
 		backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
@@ -236,7 +260,9 @@ function applySettings(payload: any) {
 		closedAngle = Number(servo.closed_angle ?? 83);
 		port = typeof servo.port === 'string' ? servo.port : '';
 		availableServoIds = Array.isArray(servo.available_channel_ids)
-			? servo.available_channel_ids.filter((value: unknown): value is number => typeof value === 'number')
+			? servo.available_channel_ids.filter(
+					(value: unknown): value is number => typeof value === 'number'
+				)
 			: [];
 		servoIssues = Array.isArray(servo.issues)
 			? servo.issues.filter(
@@ -264,7 +290,8 @@ function applySettings(payload: any) {
 					? String(Math.floor(layer.max_pieces_per_bin))
 					: '',
 			liveOpen: previousStates.get(Number(layer?.index ?? index + 1))?.liveOpen ?? null,
-			telemetry: previousStates.get(Number(layer?.index ?? index + 1))?.telemetry ?? emptyTelemetry(),
+			telemetry:
+				previousStates.get(Number(layer?.index ?? index + 1))?.telemetry ?? emptyTelemetry(),
 			testing: false,
 			calibrating: false
 		}));
@@ -355,7 +382,6 @@ function applySettings(payload: any) {
 		const scannedIds = busServos.map((s) => s.id).sort((a, b) => a - b);
 		if (scannedIds.length === 0) return;
 
-		// Check if any enabled layer already has a valid scanned ID
 		const alreadyAssigned = layers.some(
 			(l) => l.enabled && layerHasAssignedServo(l) && scannedIds.includes(Number(l.servoId))
 		);
@@ -363,7 +389,10 @@ function applySettings(payload: any) {
 
 		let nextIndex = 0;
 		layers = layers.map((layer) => {
-			if (!layer.enabled || layerHasAssignedServo(layer)) return layer;
+			if (!layer.enabled) return layer;
+			const currentId = Number(layer.servoId);
+			if (layerHasAssignedServo(layer) && scannedIds.includes(currentId)) return layer;
+			if (nextIndex >= scannedIds.length) return layer;
 			const assignedId = scannedIds[nextIndex] ?? scannedIds[scannedIds.length - 1];
 			nextIndex += 1;
 			return { ...layer, servoId: String(assignedId) };
@@ -446,7 +475,9 @@ function applySettings(payload: any) {
 				if (trimmed.length > 0) {
 					const parsed = Number(trimmed);
 					if (!Number.isInteger(parsed) || parsed <= 0) {
-						throw new Error(`Layer ${draft?.index ?? index + 1} max pieces per bin must be a positive integer.`);
+						throw new Error(
+							`Layer ${draft?.index ?? index + 1} max pieces per bin must be a positive integer.`
+						);
 					}
 					maxPiecesPerBin = parsed;
 				}
@@ -458,11 +489,14 @@ function applySettings(payload: any) {
 			});
 			const channels = parsedServoChannels();
 
-			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ layer_bin_counts: layerBinCounts, layers: storageLayers })
-			});
+			const storageRes = await fetch(
+				`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ layer_bin_counts: layerBinCounts, layers: storageLayers })
+				}
+			);
 			if (!storageRes.ok) throw new Error(await storageRes.text());
 			const storagePayload = await storageRes.json();
 
@@ -602,7 +636,7 @@ function applySettings(payload: any) {
 		}
 	}
 
-function addLayer() {
+	function addLayer() {
 		const nextIndex = layers.length > 0 ? Math.max(...layers.map((l) => l.index)) + 1 : 1;
 		layers = [
 			...layers,
@@ -631,9 +665,7 @@ function addLayer() {
 		const layer = layers[index];
 		const label = layer ? `Layer ${layer.index}` : `layer ${index + 1}`;
 		if (!window.confirm(`Remove ${label}? This only changes the draft — Save to apply.`)) return;
-		layers = layers
-			.filter((_, i) => i !== index)
-			.map((layer, i) => ({ ...layer, index: i + 1 }));
+		layers = layers.filter((_, i) => i !== index).map((layer, i) => ({ ...layer, index: i + 1 }));
 	}
 
 	function updateLayerCount(index: number, value: string) {
@@ -646,9 +678,9 @@ function addLayer() {
 		layers = layers.map((layer, layerIndex) =>
 			layerIndex === index
 				? {
-					...layer,
-					enabled: value
-				}
+						...layer,
+						enabled: value
+					}
 				: layer
 		);
 	}
@@ -657,10 +689,10 @@ function addLayer() {
 		layers = layers.map((layer, layerIndex) =>
 			layerIndex === index
 				? {
-					...layer,
-					servoId: value,
-					enabled: value.trim().length > 0 ? layer.enabled : false
-				}
+						...layer,
+						servoId: value,
+						enabled: value.trim().length > 0 ? layer.enabled : false
+					}
 				: layer
 		);
 	}
@@ -716,7 +748,8 @@ function addLayer() {
 
 	$effect(() => {
 		const machineKey =
-			(manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null) ?? '__local__';
+			(manager.selectedMachine?.status === 'connected' ? manager.selectedMachine.url : null) ??
+			'__local__';
 		if (machineKey !== loadedMachineKey) {
 			loadedMachineKey = machineKey;
 			void loadSettings();
@@ -829,6 +862,7 @@ function addLayer() {
 		{#if backend === 'waveshare'}
 			<WaveshareBusTable
 				{busServos}
+				layerAssignments={waveshareLayerAssignments()}
 				{busScanning}
 				{busError}
 				{busStatusMsg}

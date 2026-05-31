@@ -13,6 +13,8 @@
 	import Spinner from '$lib/components/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import SampleAnnotator, { type SeedBox } from '$lib/components/SampleAnnotator.svelte';
+	import { FEATURES } from '$lib/features';
+	import TeacherRerunButtons from '$lib/components/teacher/TeacherRerunButtons.svelte';
 	import SampleClassificationCard from '$lib/components/SampleClassificationCard.svelte';
 	import { AnnotatorApi } from '$lib/components/annotator-api.svelte';
 	import { auth } from '$lib/auth.svelte';
@@ -43,6 +45,10 @@
 
 	function readViewFromUrl(): ViewMode {
 		const v = page.url.searchParams.get('view');
+		// If a stale URL still references the annotate view but the feature is
+		// gated off, fall back to the default image view instead of mounting
+		// the half-baked annotator behind no toggle.
+		if (v === 'annotate' && !FEATURES.ANNOTATION_EDITING) return 'image';
 		if (v && validViews.includes(v as ViewMode)) return v as ViewMode;
 		return 'image';
 	}
@@ -74,7 +80,28 @@
 	// browsing context. Lets us walk to prev/next neighbours without losing filters.
 	const listContext = $derived(readSampleListContext(page.url.searchParams));
 	const listContextKey = $derived(sampleListContextKey(listContext));
-	const listBackHref = $derived(`/samples${sampleListContextQuery(page.url.searchParams)}`);
+
+	// Alternative navigation source: when the URL carries ?teacher_job=<id>, prev/next
+	// walks through that job's items (paginated 50/page) instead of the global samples
+	// roster. Lets the admin step through a backfill from inside the sample detail view.
+	const teacherJobId = $derived(page.url.searchParams.get('teacher_job'));
+	const teacherJobItemsStatus = $derived(
+		page.url.searchParams.get('teacher_job_items_status') ?? 'all'
+	);
+	const teacherJobNavKey = $derived(
+		teacherJobId ? `job:${teacherJobId}:${teacherJobItemsStatus}` : null
+	);
+
+	const listBackHref = $derived(
+		teacherJobId
+			? `/admin/teacher-jobs/${teacherJobId}`
+			: `/samples${sampleListContextQuery(page.url.searchParams)}`
+	);
+
+	// Single key that flushes the neighbor cache when the source changes (filter on
+	// samples list, OR switch to a different teacher job).
+	const navSourceKey = $derived(teacherJobNavKey ?? listContextKey);
+	const navPageSize = $derived(teacherJobId ? 50 : listContext.page_size);
 
 	let neighborPages = $state(new SvelteMap<number, string[]>());
 	let neighborMeta = $state<{ pages: number; total: number } | null>(null);
@@ -110,13 +137,13 @@
 	const positionLabel = $derived.by(() => {
 		const loc = sampleLocation;
 		if (!loc || !neighborMeta) return null;
-		const absoluteIndex = (loc.pageNum - 1) * listContext.page_size + loc.idx + 1;
+		const absoluteIndex = (loc.pageNum - 1) * navPageSize + loc.idx + 1;
 		return `${absoluteIndex} / ${neighborMeta.total}`;
 	});
 
 	$effect(() => {
-		if (listContextKey !== lastNeighborKey) {
-			lastNeighborKey = listContextKey;
+		if (navSourceKey !== lastNeighborKey) {
+			lastNeighborKey = navSourceKey;
 			neighborPages = new SvelteMap();
 			neighborMeta = null;
 		}
@@ -124,7 +151,12 @@
 
 	$effect(() => {
 		if (!sampleId) return;
-		void ensureNeighborPage(listContext.page);
+		if (teacherJobId) {
+			const start = Number(page.url.searchParams.get('teacher_job_items_page') ?? '1');
+			void ensureNeighborPage(Math.max(1, start));
+		} else {
+			void ensureNeighborPage(listContext.page);
+		}
 	});
 
 	$effect(() => {
@@ -142,16 +174,27 @@
 	async function ensureNeighborPage(pageNum: number) {
 		if (pageNum < 1) return;
 		if (neighborPages.has(pageNum)) return;
+		const sourceAtRequest = navSourceKey;
 		try {
-			const result = await api.getSamples({
-				...sampleListFilterParams(listContext),
-				page: pageNum,
-				page_size: listContext.page_size
-			});
-			// Bail if context changed under us mid-flight.
-			if (sampleListContextKey(listContext) !== listContextKey) return;
-			neighborPages.set(pageNum, result.items.map((s) => s.id));
-			neighborMeta = { pages: result.pages, total: result.total };
+			if (teacherJobId) {
+				const result = await api.getTeacherJob(teacherJobId, {
+					items_page: pageNum,
+					items_page_size: navPageSize,
+					items_status: teacherJobItemsStatus === 'all' ? undefined : teacherJobItemsStatus
+				});
+				if (navSourceKey !== sourceAtRequest) return;
+				neighborPages.set(pageNum, result.items.map((i) => i.sample_id));
+				neighborMeta = { pages: result.items_pages, total: result.items_total };
+			} else {
+				const result = await api.getSamples({
+					...sampleListFilterParams(listContext),
+					page: pageNum,
+					page_size: listContext.page_size
+				});
+				if (navSourceKey !== sourceAtRequest) return;
+				neighborPages.set(pageNum, result.items.map((s) => s.id));
+				neighborMeta = { pages: result.pages, total: result.total };
+			}
 		} catch {
 			// ignore — neighbor info is best-effort
 		}
@@ -159,7 +202,12 @@
 
 	function navigateToNeighbor(targetId: string | null) {
 		if (!targetId) return;
-		let targetPage = listContext.page;
+		// Default page based on source: when navigating via teacher_job, use the
+		// teacher_job_items_page param so the back-link lands on the right job page.
+		const defaultPage = teacherJobId
+			? Number(page.url.searchParams.get('teacher_job_items_page') ?? '1')
+			: listContext.page;
+		let targetPage = defaultPage;
 		for (const [pageNum, ids] of neighborPages.entries()) {
 			if (ids.includes(targetId)) {
 				targetPage = pageNum;
@@ -167,8 +215,9 @@
 			}
 		}
 		const sp = new URLSearchParams(page.url.searchParams);
-		if (targetPage <= 1) sp.delete('page');
-		else sp.set('page', String(targetPage));
+		const pageKey = teacherJobId ? 'teacher_job_items_page' : 'page';
+		if (targetPage <= 1) sp.delete(pageKey);
+		else sp.set(pageKey, String(targetPage));
 		const search = sp.toString();
 		void goto(`/samples/${targetId}${search ? `?${search}` : ''}`, {
 			noScroll: true,
@@ -203,7 +252,7 @@
 
 	const statusLabel: Record<string, string> = {
 		unreviewed: 'Unreviewed',
-		in_review: 'In Review',
+		in_review: 'Needs more reviews',
 		accepted: 'Accepted',
 		rejected: 'Rejected',
 		conflict: 'Conflict'
@@ -327,6 +376,27 @@
 		}
 	}
 
+	// Reviewers can vote (or change their vote) directly from the detail
+	// page — useful for revisiting conflict samples without going back
+	// through the queue. The POST endpoint is an upsert keyed by
+	// (sample_id, reviewer_id) so resubmitting just overwrites.
+	let voteSubmitting = $state(false);
+	let voteError = $state<string | null>(null);
+
+	async function submitVote(decision: 'accept' | 'reject') {
+		if (!sample || voteSubmitting) return;
+		voteSubmitting = true;
+		voteError = null;
+		try {
+			await api.submitReview(sample.id, decision);
+			await loadSample(sample.id);
+		} catch (e) {
+			voteError = e instanceof Error ? e.message : 'Vote failed.';
+		} finally {
+			voteSubmitting = false;
+		}
+	}
+
 	async function handleDelete() {
 		if (!sample) return;
 		try {
@@ -337,26 +407,11 @@
 		}
 	}
 
-	let teacherRerunning = $state(false);
-	let teacherRerunError = $state<string | null>(null);
-
-	async function handleTeacherRerun() {
-		if (!sample || teacherRerunning) return;
-		teacherRerunning = true;
-		teacherRerunError = null;
-		try {
-			sample = await api.rerunSampleTeacher(sample.id);
-			// The teacher resets review state, so existing review history is no longer
-			// accurate for these boxes — drop it so the panel reflects the fresh slate.
-			reviews = [];
-		} catch (err) {
-			teacherRerunError =
-				err && typeof err === 'object' && 'error' in err
-					? String((err as { error: unknown }).error)
-					: 'Teacher rerun failed';
-		} finally {
-			teacherRerunning = false;
-		}
+	function handleTeacherRerunResult(updated: SampleDetail) {
+		sample = updated;
+		// The teacher reset review state on the backend — drop local history so the panel
+		// reflects the fresh slate.
+		reviews = [];
 	}
 
 	function handleClassificationSaved(payload: SampleClassificationPayload | null) {
@@ -448,7 +503,7 @@
 					onclick={() => navigateToNeighbor(prevSampleId)}
 					disabled={!prevSampleId}
 					aria-label="Previous sample (←)"
-					class="border border-border bg-white p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
+					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
 				</button>
@@ -460,7 +515,7 @@
 					onclick={() => navigateToNeighbor(nextSampleId)}
 					disabled={!nextSampleId}
 					aria-label="Next sample (→)"
-					class="border border-border bg-white p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
+					class="border border-border bg-surface p-1.5 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:cursor-not-allowed disabled:opacity-30"
 				>
 					<svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
 				</button>
@@ -469,35 +524,29 @@
 			{#if sample.review_count > 0}
 				<span class="text-xs text-text-muted">{sample.review_count} review{sample.review_count !== 1 ? 's' : ''}</span>
 			{/if}
-			{#if auth.isAdmin}
-				<div class="ml-1 flex items-center gap-1.5">
+			<div class="ml-1 flex items-center gap-1.5">
+				<a
+					href={`/samples/${sample.id}/similar`}
+					class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
+					title="Find samples that look visually similar to this one (uses perceptual hashing — good for spotting bursts of near-identical frames or a batch shot under the same bad lighting)."
+				>
+					Find similar
+				</a>
+				{#if auth.isAdmin}
 					<a
 						href={`/samples/${sample.id}/compare`}
-						class="inline-flex items-center gap-1 border border-border bg-white px-3 py-1 text-xs font-medium text-text hover:bg-bg"
+						class="inline-flex items-center gap-1 border border-border bg-surface px-3 py-1 text-xs font-medium text-text hover:bg-bg"
 						title="Run every supported teacher model on this sample and compare bounding boxes side-by-side."
 					>
 						Compare models
 					</a>
-					<Button
-						variant="secondary"
-						size="sm"
-						loading={teacherRerunning}
-						onclick={handleTeacherRerun}
-					>
-						{teacherRerunning ? 'Running teacher…' : 'Re-run teacher'}
-					</Button>
 					<Button variant="danger" size="sm" onclick={() => { showDeleteModal = true; }}>
 						Delete
 					</Button>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 	</div>
-	{#if teacherRerunError && auth.isAdmin}
-		<div class="-mt-3 mb-4 border border-warning-strong bg-warning-bg px-3 py-2 text-xs text-warning-strong">
-			{teacherRerunError}
-		</div>
-	{/if}
 
 	<div class="grid gap-5 lg:grid-cols-[1fr_340px]">
 		<!-- Left: Image area -->
@@ -526,12 +575,14 @@
 						Overlay
 					</button>
 				{/if}
-				<button
-					onclick={() => setView('annotate')}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
-				>
-					Annotate
-				</button>
+				{#if FEATURES.ANNOTATION_EDITING}
+					<button
+						onclick={() => setView('annotate')}
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'annotate' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+					>
+						Annotate
+					</button>
+				{/if}
 
 				{#if activeView === 'image' && proposalBoxes.length > 0}
 					<div class="ml-auto flex items-center gap-1.5 pr-1">
@@ -596,6 +647,60 @@
 				<SampleAnnotatorPanel {annotatorApi} />
 			{/if}
 
+			<!-- Review actions — mirrors the /review page's action pad so
+			     reviewers vote from the same spot regardless of which
+			     surface they're working from. -->
+			{#if auth.isReviewer}
+				{@const myVote = sample.my_review_decision}
+				<div class="border border-border bg-surface">
+					<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
+						<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Your review</h2>
+						{#if myVote}
+							<span
+								class="border px-1.5 py-0.5 text-[11px] font-medium {myVote === 'accept' ? 'border-success/30 bg-success/10 text-success' : 'border-primary/30 bg-primary/10 text-primary'}"
+								title={myVote === 'accept' ? 'You accepted this sample' : 'You rejected this sample'}
+							>You: {myVote === 'accept' ? '✓' : '✗'}</span>
+						{:else}
+							<span class="text-[11px] text-text-muted">Not voted</span>
+						{/if}
+					</div>
+					<div class="space-y-2 p-3">
+						<div class="grid grid-cols-2 gap-1.5">
+							<button
+								type="button"
+								onclick={() => void submitVote('accept')}
+								disabled={voteSubmitting || myVote === 'accept'}
+								class="border border-success/20 bg-success/10 px-3 py-2.5 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
+								title={myVote ? 'Change your vote to Accept' : 'Accept this sample'}
+							>
+								<div class="text-xl font-bold text-success">↑</div>
+								<div class="text-xs font-medium text-success">
+									{myVote === 'accept' ? 'Accepted' : myVote === 'reject' ? 'Change to ✓' : 'Accept'}
+								</div>
+							</button>
+							<button
+								type="button"
+								onclick={() => void submitVote('reject')}
+								disabled={voteSubmitting || myVote === 'reject'}
+								class="border border-primary/20 bg-primary-light px-3 py-2.5 text-center transition-colors hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-50"
+								title={myVote ? 'Change your vote to Reject' : 'Reject this sample'}
+							>
+								<div class="text-xl font-bold text-primary">↓</div>
+								<div class="text-xs font-medium text-primary">
+									{myVote === 'reject' ? 'Rejected' : myVote === 'accept' ? 'Change to ✗' : 'Reject'}
+								</div>
+							</button>
+						</div>
+						{#if voteError}
+							<div class="border border-danger bg-danger/10 px-2 py-1 text-[11px] text-danger">{voteError}</div>
+						{/if}
+						<p class="text-center text-[11px] text-text-muted">
+							{sample.review_count} of 3 reviews · {sample.accepted_count} ✓ / {sample.rejected_count} ✗
+						</p>
+					</div>
+				</div>
+			{/if}
+
 			<!-- Detection summary card -->
 			{#if sample.detection_algorithm || detectionFound !== undefined}
 				<div class="border border-border bg-surface">
@@ -647,6 +752,14 @@
 						{/if}
 					</div>
 				</div>
+			{/if}
+
+			{#if auth.isAdmin}
+				<TeacherRerunButtons
+					sampleId={sample.id}
+					onResult={handleTeacherRerunResult}
+					preferredModelId={auth.user?.preferred_teacher_model ?? null}
+				/>
 			{/if}
 
 			<SampleClassificationCard

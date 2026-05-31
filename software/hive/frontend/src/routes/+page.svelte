@@ -1,13 +1,15 @@
 <script lang="ts">
-	import { api, type StatsOverview } from '$lib/api';
+	import { api, type LeaderboardResponse, type StatsOverview } from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 
 	let stats = $state<StatsOverview | null>(null);
 	let loading = $state(true);
+	let leaderboard = $state<LeaderboardResponse | null>(null);
 
 	$effect(() => {
 		loadStats();
+		void loadLeaderboard();
 	});
 
 	async function loadStats() {
@@ -19,6 +21,21 @@
 		} finally {
 			loading = false;
 		}
+	}
+
+	async function loadLeaderboard() {
+		try {
+			leaderboard = await api.getLeaderboard('7d', 5);
+		} catch {
+			leaderboard = null;
+		}
+	}
+
+	const MEDALS = ['🥇', '🥈', '🥉'];
+
+	function initials(name: string | null): string {
+		if (!name) return '?';
+		return name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '?';
 	}
 </script>
 
@@ -91,6 +108,46 @@
 			Start Reviewing
 		</a>
 	</div>
+
+	<!-- Top reviewers widget — keeps the gamification visible right on the
+	     landing page so it's hard to ignore once you've started reviewing. -->
+	{#if leaderboard && leaderboard.entries.length > 0}
+		<div class="mt-8 border border-border bg-surface">
+			<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-2">
+				<h2 class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Top reviewers · last 7 days</h2>
+				<a href="/leaderboard" class="text-xs text-primary hover:underline">View full leaderboard →</a>
+			</div>
+			<div>
+				{#each leaderboard.entries as entry, idx (entry.user_id)}
+					{@const isMe = auth.user?.id === entry.user_id}
+					{@const medal = idx < 3 ? MEDALS[idx] : null}
+					<a
+						href={`/leaderboard/${entry.user_id}`}
+						class="flex items-center gap-3 border-b border-border px-4 py-2.5 text-sm transition-colors hover:bg-bg {isMe ? 'bg-primary-light/30' : ''} last:border-b-0"
+					>
+						<span class="w-6 text-center text-base font-semibold tabular-nums text-text">
+							{medal ?? idx + 1}
+						</span>
+						{#if entry.avatar_url}
+							<img src={entry.avatar_url} alt="" class="h-7 w-7 shrink-0 rounded-full border border-border bg-bg object-cover" />
+						{:else}
+							<span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-border bg-bg text-[10px] font-semibold text-text-muted">
+								{initials(entry.display_name)}
+							</span>
+						{/if}
+						<span class="min-w-0 flex-1 truncate font-medium text-text">
+							{entry.display_name ?? 'Anonymous'}
+							{#if isMe}<span class="ml-1 text-[10px] uppercase tracking-wider text-primary">you</span>{/if}
+						</span>
+						<span class="text-base font-bold tabular-nums text-text">{entry.total_reviews.toLocaleString()}</span>
+						<span class="text-[11px] tabular-nums text-text-muted">
+							<span class="text-success">{entry.accepts}</span>·<span class="text-primary">{entry.rejects}</span>
+						</span>
+					</a>
+				{/each}
+			</div>
+		</div>
+	{/if}
 {:else}
 	<p class="text-text-muted">Failed to load dashboard stats.</p>
 {/if}

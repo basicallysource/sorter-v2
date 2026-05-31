@@ -1724,6 +1724,10 @@
 	}
 
 	function arcEditableHandles(_channel: ArcChannel): ArcHandle[] {
+		// Drop Start is intentionally a *radial* boundary — its inner angle is
+		// locked to the outer angle, so we only expose the outer handle. This
+		// guarantees a clean line from the channel center to the outer circle
+		// at the drop-zone entry, matching the physical guide rail.
 		return [
 			'dropStartEdge',
 			'dropEndEdge',
@@ -1731,7 +1735,6 @@
 			'exitEndEdge',
 			'dropRotate',
 			'exitRotate',
-			'dropStartInner',
 			'dropStartOuter',
 			'dropEndInner',
 			'dropEndOuter',
@@ -2488,11 +2491,18 @@
 				didDrag = true;
 				const angle = angleFromCenter(point, dragState.orig.center);
 				const [zoneKey, edgeField] = DRAG_KIND_TO_ZONE_FIELD[dragState.kind];
+				const update: Record<string, number> = { [edgeField]: angle };
+				// Drop Start is a radial cut — keep the inner angle locked to
+				// the outer one so the gap is a clean line from the channel
+				// center to the outer circle.
+				if (dragState.kind === 'arc-drop-start-outer') {
+					update.startInnerAngle = angle;
+				}
 				setArc(dragState.channel, {
 					...dragState.orig,
 					[zoneKey]: {
 						...dragState.orig[zoneKey],
-						[edgeField]: angle
+						...update
 					}
 				});
 				break;
@@ -2971,7 +2981,9 @@
 			ctx.strokeStyle = `${DROP_ZONE_COLOR}cc`;
 			ctx.lineWidth = 1.25 * s;
 			ctx.beginPath();
-			ctx.moveTo(handles.dropStartInner[0], handles.dropStartInner[1]);
+			// Drop Start is locked radial — draw straight from the center to
+			// the outer handle so the user sees the true cut geometry.
+			ctx.moveTo(params.center[0], params.center[1]);
 			ctx.lineTo(handles.dropStartOuter[0], handles.dropStartOuter[1]);
 			ctx.moveTo(handles.dropEndInner[0], handles.dropEndInner[1]);
 			ctx.lineTo(handles.dropEndOuter[0], handles.dropEndOuter[1]);
@@ -3012,7 +3024,7 @@
 				exitOuterLabelOffset(handles.exitOuter)
 			);
 			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', 'Drop Start', [-42, -18]);
-			drawHandle(ctx, handles.dropStartInner, DROP_ZONE_COLOR, '#111');
+			// Drop Start has no inner handle — the boundary is locked radial.
 			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', 'Drop End', [42, -18]);
 			drawHandle(ctx, handles.dropEndInner, DROP_ZONE_COLOR, '#111');
 			drawHandle(ctx, handles.exitStartOuter, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-42, 22]);

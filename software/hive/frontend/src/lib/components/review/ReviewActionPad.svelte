@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { FEATURES } from '$lib/features';
+
 	interface Props {
 		annotateMode: boolean;
 		loading: boolean;
@@ -28,36 +30,38 @@
 
 <div class="border border-border bg-surface p-4">
 	<div class="space-y-2 text-xs">
-		<div class="flex items-center justify-center gap-2">
-			<button
-				type="button"
-				onclick={onToggleAnnotate}
-				disabled={loading || submitting}
-				class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-info/30 bg-info/10' : 'border-info/20 bg-[#F0F7FF] hover:bg-info/15'}"
-			>
-				<div class="border border-info/30 bg-surface px-2 py-1 text-[11px] font-bold text-info">
-					D
-				</div>
-				<div>
-					<div class="font-medium text-info">Annotate</div>
-					<div class="text-[11px] text-info">Toggle edit mode</div>
-				</div>
-			</button>
-			<button
-				type="button"
-				onclick={onExitAnnotate}
-				disabled={!annotateMode || loading || submitting}
-				class="inline-flex items-center gap-2 border border-border bg-bg px-2.5 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
-			>
-				<div class="border border-border bg-surface px-2 py-1 text-[11px] font-bold text-text">
-					Esc
-				</div>
-				<div>
-					<div class="font-medium text-text">Close</div>
-					<div class="text-[11px] text-text-muted">Exit annotate</div>
-				</div>
-			</button>
-		</div>
+		{#if FEATURES.ANNOTATION_EDITING}
+			<div class="flex items-center justify-center gap-2">
+				<button
+					type="button"
+					onclick={onToggleAnnotate}
+					disabled={loading || submitting}
+					class="inline-flex items-center gap-2 border px-2.5 py-2 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {annotateMode ? 'border-info/30 bg-info/10' : 'border-info/20 bg-info/10 hover:bg-info/15'}"
+				>
+					<div class="border border-info/30 bg-surface px-2 py-1 text-[11px] font-bold text-info">
+						D
+					</div>
+					<div>
+						<div class="font-medium text-info">Annotate</div>
+						<div class="text-[11px] text-info">Toggle edit mode</div>
+					</div>
+				</button>
+				<button
+					type="button"
+					onclick={onExitAnnotate}
+					disabled={!annotateMode || loading || submitting}
+					class="inline-flex items-center gap-2 border border-border bg-bg px-2.5 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
+				>
+					<div class="border border-border bg-surface px-2 py-1 text-[11px] font-bold text-text">
+						Esc
+					</div>
+					<div>
+						<div class="font-medium text-text">Close</div>
+						<div class="text-[11px] text-text-muted">Exit annotate</div>
+					</div>
+				</button>
+			</div>
+		{/if}
 
 		<div class="mx-auto grid max-w-[210px] grid-cols-3 gap-1.5">
 			<div></div>
@@ -65,7 +69,7 @@
 				type="button"
 				onclick={onAccept}
 				disabled={loading || submitting}
-				class="border border-success/20 bg-[#F0F9F5] px-3 py-3 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
+				class="border border-success/20 bg-success/10 px-3 py-3 text-center transition-colors hover:bg-success/15 disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<div class="text-2xl font-bold text-success">↑</div>
 				<div class="mt-0.5 font-medium text-success">Accept</div>

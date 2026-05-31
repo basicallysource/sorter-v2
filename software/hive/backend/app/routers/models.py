@@ -21,6 +21,7 @@ from app.models.user import User
 from app.schemas.model import (
     DetectionModelCreateRequest,
     DetectionModelCreateResponse,
+    DetectionModelUpdateRequest,
     DetectionModelDetail,
     DetectionModelListResponse,
     DetectionModelSummary,
@@ -136,6 +137,30 @@ def download_model_variant(
     )
 
 
+@router.patch("/{model_id}", response_model=DetectionModelCreateResponse)
+def update_model(
+    model_id: UUID,
+    payload: DetectionModelUpdateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Update mutable fields on an existing model. Lets the training-side
+    publisher attach a fully-composed training_metadata block (benchmarks +
+    dataset selection + best metrics) after the variants were already
+    uploaded, without paying the cost of a new version + re-upload."""
+    model = db.query(DetectionModel).filter(DetectionModel.id == model_id).first()
+    if model is None:
+        raise APIError(404, "Model not found", "MODEL_NOT_FOUND")
+    data = payload.model_dump(exclude_unset=True)
+    for field, value in data.items():
+        setattr(model, field, value)
+    db.commit()
+    db.refresh(model)
+    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version, codename=model.codename)
+
+
 @router.post("", response_model=DetectionModelCreateResponse)
 def create_model(
     payload: DetectionModelCreateRequest,
@@ -150,10 +175,15 @@ def create_model(
         .scalar()
     )
     next_version = (prev or 0) + 1
+    # Assign the next alphabetical codename from the LEGO-color pool. Ubuntu-style
+    # human handle so people can say "Bronze beats Aqua" instead of slug+version.
+    from app.services.codenames import next_codename
+    codename = next_codename(db)
     model = DetectionModel(
         owner_id=current_user.id,
         slug=payload.slug,
         version=next_version,
+        codename=codename,
         name=payload.name,
         description=payload.description,
         model_family=payload.model_family,
@@ -164,7 +194,7 @@ def create_model(
     db.add(model)
     db.commit()
     db.refresh(model)
-    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version)
+    return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version, codename=model.codename)
 
 
 @router.post("/{model_id}/variants", response_model=DetectionModelVariantUploadResponse)

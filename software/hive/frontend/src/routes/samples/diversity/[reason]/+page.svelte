@@ -133,15 +133,15 @@
 {#if loading && !data}
 	<Spinner />
 {:else if error && !data}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
 	</div>
 {:else if !group || !data}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		No samples found for this capture reason.
 	</div>
 {:else}
-	<section class="mb-4 border border-border bg-white p-4">
+	<section class="mb-4 border border-border bg-surface p-4">
 		<div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
 			<div class="flex items-center gap-4">
 				<DiversityDonut
@@ -181,7 +181,7 @@
 		{#each group.by_source_role as role (role.source_role)}
 			<a
 				href={samplesHref(role.source_role)}
-				class="block border border-border bg-white p-4 transition-colors hover:border-primary"
+				class="block border border-border bg-surface p-4 transition-colors hover:border-primary"
 			>
 				<div class="mb-3 flex items-baseline justify-between gap-2">
 					<h2 class="truncate text-sm font-semibold text-text">{sourceLabel(role.source_role)}</h2>

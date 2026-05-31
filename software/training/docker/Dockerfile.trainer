@@ -1,0 +1,42 @@
+# Pre-baked LEGO-Sorter trainer image for Vast.ai.
+#
+# Bundles everything yolo.py's setup() used to install on every fresh box:
+#   - OpenCV runtime apt libs
+#   - ultralytics + numpy<2 + opencv-python-headless
+#   - YOLO base checkpoints cached under /opt/yolo-weights/
+#
+# Saves ~3-5 min per spin-up. Build + push:
+#
+#   cd software/training/docker
+#   ./build.sh
+#   docker push roothirsch/lego-sorter-training-image:latest
+#
+FROM pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PIP_NO_CACHE_DIR=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    YOLO_WEIGHTS_DIR=/opt/yolo-weights
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 libxcb1 \
+        ca-certificates curl git tini \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip install --upgrade pip \
+    && pip install ultralytics \
+    && pip uninstall -y opencv-python opencv-contrib-python || true \
+    && pip install --force-reinstall "numpy<2" "opencv-python-headless"
+
+# Pre-fetch the base checkpoints yolo.py picks from (MODELS table in tracks/yolo.py).
+# We let Ultralytics do the download so it picks the matching asset release.
+RUN mkdir -p "$YOLO_WEIGHTS_DIR" \
+    && cd "$YOLO_WEIGHTS_DIR" \
+    && python -c "from ultralytics import YOLO; [YOLO(m) for m in ['yolo11n.pt','yolo11s.pt','yolo26n.pt','yolo26s.pt','yolov8n.pt']]"
+
+WORKDIR /workspace
+
+# tini reaps zombie processes from `nohup python yolo.py ... &` patterns.
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["bash"]

@@ -160,10 +160,11 @@
 		}
 		await waitForBackend(baseUrl, { maxAttempts: 60 });
 		const wsUrl = currentBackendWsUrl();
-		manager.reconnectStaleConnections({ fallbackUrl: wsUrl });
-		manager.ensureConnected(wsUrl);
+		manager.connect(wsUrl, { force: true });
+		manager.refreshSelectedCameraFeeds();
 		restartingBackend = false;
-		// Ws will reconnect and push fresh snapshots automatically.
+		// Ws will reconnect and push fresh snapshots automatically; the feed
+		// epoch forces existing MJPEG <img> streams to reconnect without a page reload.
 	}
 
 	function handlePowerMenuClickOutside(event: MouseEvent) {
@@ -454,16 +455,6 @@
 								{/if}
 							</button>
 							<button
-								onclick={() => {
-									resetHardwareSystem();
-									powerMenuOpen = false;
-								}}
-								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
-							>
-								<RefreshCw size={14} class="text-text-muted" />
-								Reset Hardware
-							</button>
-							<button
 								onclick={requestRestartBackend}
 								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
 							>
@@ -625,7 +616,7 @@
 				</div>
 				<div>
 					<div class="text-sm text-text">
-						This will forcibly restart the sorter backend service.
+						This will restart the sorter backend service after releasing camera handles.
 					</div>
 					<div class="mt-2 text-sm text-text-muted">
 						Any running sort or homing operation will be interrupted. Cameras and hardware state

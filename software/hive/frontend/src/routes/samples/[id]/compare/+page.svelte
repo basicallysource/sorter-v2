@@ -160,15 +160,15 @@
 {#if loading}
 	<Spinner />
 {:else if loadError}
-	<div class="border border-border bg-white px-6 py-10 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
 		{loadError}
 	</div>
 {:else if !sample}
-	<div class="border border-border bg-white px-6 py-10 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
 		Sample not found.
 	</div>
 {:else}
-	<details class="mb-5 border border-border bg-white" open>
+	<details class="mb-5 border border-border bg-surface" open>
 		<summary class="flex cursor-pointer items-center justify-between gap-2 border-b border-border px-4 py-2.5">
 			<div class="flex items-center gap-2">
 				<span class="text-sm font-semibold text-text">Prompt</span>
@@ -203,7 +203,7 @@
 				bind:value={promptText}
 				oninput={onPromptInput}
 				rows="12"
-				class="w-full resize-y border border-border bg-white px-3 py-2 font-mono text-[12px] leading-relaxed text-text focus:border-primary focus:outline-none"
+				class="w-full resize-y border border-border bg-surface px-3 py-2 font-mono text-[12px] leading-relaxed text-text focus:border-primary focus:outline-none"
 			></textarea>
 			<p class="mt-2 text-[11px] text-text-muted">
 				Modified prompt is sent verbatim to every <em>chat-style</em> adapter on the next Run.

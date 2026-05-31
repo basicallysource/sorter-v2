@@ -96,7 +96,7 @@ class WaveshareInventoryManager:
     def trigger_refresh(self) -> None:
         self._wake_event.set()
 
-    def refresh(self, *, port: str | None = None) -> dict[str, Any]:
+    def refresh(self, *, port: str | None = None, allow_active_runtime_scan: bool = False) -> dict[str, Any]:
         requested_port = _normalize_port(port)
         with self._scan_lock:
             started_at = time.time()
@@ -105,7 +105,10 @@ class WaveshareInventoryManager:
                 self._snapshot["last_scan_started_at"] = started_at
                 self._snapshot["last_error"] = None
             try:
-                next_snapshot = self._scan_inventory(port=requested_port)
+                next_snapshot = self._scan_inventory(
+                    port=requested_port,
+                    allow_active_runtime_scan=allow_active_runtime_scan,
+                )
             except Exception as exc:
                 with self._lock:
                     self._snapshot["scanning"] = False
@@ -182,7 +185,12 @@ class WaveshareInventoryManager:
             if woke_early or self._scan_interval_s > 0:
                 self.refresh()
 
-    def _scan_inventory(self, *, port: str | None = None) -> dict[str, Any]:
+    def _scan_inventory(
+        self,
+        *,
+        port: str | None = None,
+        allow_active_runtime_scan: bool = False,
+    ) -> dict[str, Any]:
         with self._lock:
             previous_last_error = self._snapshot.get("last_error")
             previous_servos_by_port = {
@@ -248,9 +256,16 @@ class WaveshareInventoryManager:
                 meta["serial"] = None
 
             previous_servos = [dict(servo) for servo in previous_servos_by_port.get(device, [])]
-            servos = previous_servos if is_homing else []
+            is_active_runtime_port = active_service is not None and device == live_port
+            skip_active_runtime_scan = is_active_runtime_port and not allow_active_runtime_scan
+            servos = previous_servos if is_homing or skip_active_runtime_scan else []
             scan_error: str | None = None
-            if not is_homing:
+            scan_skipped: str | None = None
+            if is_homing:
+                scan_skipped = "homing"
+            elif skip_active_runtime_scan:
+                scan_skipped = "active_runtime"
+            else:
                 try:
                     if active_service is not None and device == live_port:
                         _, servos = active_service.list_servo_infos(_SCAN_START_ID, _SCAN_END_ID)
@@ -280,6 +295,8 @@ class WaveshareInventoryManager:
             }
             if scan_error is not None:
                 entry["error"] = scan_error
+            if scan_skipped is not None:
+                entry["scan_skipped"] = scan_skipped
             ports.append(entry)
 
         highest_seen_id = self._update_highest_seen_servo_id(sorted(all_found_ids))

@@ -247,6 +247,7 @@ class VisionManager:
             exit_observer=getattr(gc.runtime_stats, "observeChannelExit", None),
             ghost_reject_observer=getattr(gc.runtime_stats, "observeHandoffGhostReject", None),
             stale_pending_observer=getattr(gc.runtime_stats, "observeHandoffStalePendingDropped", None),
+            on_record_segment=self._handlePieceSegmentRecorded,
         )
         self._drop_zone_burst_collector = DropZoneBurstCollector(self._piece_history)
         # Fresh burst store for the C3→C4 drop-zone "fashion-shoot" feature.
@@ -842,6 +843,74 @@ class VisionManager:
             return bool(getClassificationTrainingManager().hasEnabledHiveTargets())
         except Exception:
             return False
+
+    # Minimum sector snapshots before a track is interesting enough to
+    # contribute a condition crop. Fewer than this is usually a flicker.
+    _CONDITION_MIN_SNAPSHOTS = 3
+    # How many crops to ship per finalized segment.
+    _CONDITION_MAX_PICKS_PER_SEGMENT = 2
+    # Only the C4 classification channel produces useful condition crops.
+    # Feeder C-channels see the piece sideways through metal walls and the
+    # lighting/angle are wrong for composition+condition judgement — the
+    # auto-labeler quality drops to noise on those. Lock collection to the
+    # carousel platter where the camera sees the piece flat on a clean disc.
+    _CONDITION_SOURCE_ROLES = ("carousel",)
+
+    def _handlePieceSegmentRecorded(self, segment, global_id: int) -> None:
+        """Callback fired by the track history whenever a segment is sealed.
+
+        Picks a couple of quality-gated piece crops out of the segment and
+        archives them as Hive-bound `condition` samples. Labeling happens on
+        Hive — this side stays a dumb collector.
+        """
+
+        source_role = getattr(segment, "source_role", "") or ""
+        if source_role not in self._CONDITION_SOURCE_ROLES:
+            return
+        if not self._hiveSampleCollectionEnabled():
+            return
+        sector_snapshots = getattr(segment, "sector_snapshots", None) or []
+        if len(sector_snapshots) < self._CONDITION_MIN_SNAPSHOTS:
+            return
+        snapshot_jpegs = [
+            getattr(snap, "piece_jpeg_b64", "") or ""
+            for snap in sector_snapshots
+        ]
+        if not any(snapshot_jpegs):
+            return
+
+        try:
+            from server.condition_collector import select_condition_picks
+            from server.classification_training import getClassificationTrainingManager
+        except Exception:
+            return
+
+        picks = select_condition_picks(
+            snapshot_jpegs,
+            max_picks=self._CONDITION_MAX_PICKS_PER_SEGMENT,
+        )
+        if not picks:
+            return
+
+        handoff_from = getattr(segment, "handoff_from", None)
+        first_seen = float(getattr(segment, "first_seen_ts", 0.0) or 0.0)
+        last_seen = float(getattr(segment, "last_seen_ts", first_seen) or first_seen)
+        manager = getClassificationTrainingManager()
+        for pick in picks:
+            try:
+                manager.saveConditionCropCapture(
+                    pick=pick,
+                    source_role=source_role,
+                    piece_global_id=global_id,
+                    track_first_seen_ts=first_seen,
+                    track_last_seen_ts=last_seen,
+                    sector_snapshots_total=len(sector_snapshots),
+                    handoff_from=handoff_from if isinstance(handoff_from, str) else None,
+                )
+            except Exception as exc:
+                self.gc.logger.warning(
+                    f"Failed to archive condition crop sample for track {global_id}: {exc}"
+                )
 
     def isFeederSampleCollectionEnabled(self, role: str | None = None) -> bool:
         if role in self._feederTrackerRoles():
@@ -1966,21 +2035,42 @@ class VisionManager:
             return channel_info
         return detector.primaryChannel()
 
+    def _channelPolygonForFrame(
+        self,
+        role: str,
+        frame_shape: tuple[int, int],
+    ) -> np.ndarray | None:
+        h, w = frame_shape[:2]
+        key = self._channelPolygonKeyForRole(role)
+        if key is not None:
+            polygon = self._loadSavedPolygon(key, w, h)
+            if polygon is not None and len(polygon) >= 3:
+                return np.asarray(polygon, dtype=np.int32)
+
+        channel = self._channelInfoForRole(role)
+        if channel is not None and channel.polygon is not None and len(channel.polygon) >= 3:
+            return np.asarray(channel.polygon, dtype=np.int32)
+        return None
+
     def _feederRegionCrop(
         self,
         role: str,
         frame: np.ndarray,
     ) -> tuple[np.ndarray, tuple[int, int]]:
-        channel = self._channelInfoForRole(role)
-        if channel is None:
+        polygon = self._channelPolygonForFrame(role, frame.shape)
+        if polygon is None:
             return frame.copy(), (0, 0)
-        cropped = self._cropFrameToPolygonRegion(frame, channel.polygon)
+        cropped = self._cropFrameToPolygonRegion(frame, polygon)
         return cropped if cropped is not None else (frame.copy(), (0, 0))
 
     def _carouselRegionCrop(self, frame: np.ndarray) -> tuple[np.ndarray, tuple[int, int]]:
-        if self._carousel_polygon is None or len(self._carousel_polygon) < 3:
-            return frame.copy(), (0, 0)
-        polygon = np.array(self._carousel_polygon, dtype=np.int32)
+        h, w = frame.shape[:2]
+        key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
+        polygon = self._loadSavedPolygon(key, w, h)
+        if polygon is None or len(polygon) < 3:
+            if self._carousel_polygon is None or len(self._carousel_polygon) < 3:
+                return frame.copy(), (0, 0)
+            polygon = np.array(self._carousel_polygon, dtype=np.int32)
         cropped = self._cropFrameToPolygonRegion(frame, polygon)
         return cropped if cropped is not None else (frame.copy(), (0, 0))
 
@@ -2376,19 +2466,16 @@ class VisionManager:
             return np.asarray(scaled, dtype=np.int32)
 
         if scope == "feeder":
-            channel = self._channelInfoForRole(role)
-            if channel is not None and channel.polygon is not None and len(channel.polygon) >= 3:
-                return np.asarray(channel.polygon, dtype=np.int32)
-            key = self._channelPolygonKeyForRole(role)
-            if key is None:
-                return None
-            return self._loadSavedPolygon(key, w, h)
+            return self._channelPolygonForFrame(role, frame_shape)
 
         if scope == "carousel":
+            key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
+            polygon = self._loadSavedPolygon(key, w, h)
+            if polygon is not None and len(polygon) >= 3:
+                return np.asarray(polygon, dtype=np.int32)
             if self._carousel_polygon is not None and len(self._carousel_polygon) >= 3:
                 return np.asarray(self._carousel_polygon, dtype=np.int32)
-            key = "classification_channel" if self._usesClassificationChannelSetup() else "carousel"
-            return self._loadSavedPolygon(key, w, h)
+            return None
 
         return None
 
@@ -3418,13 +3505,13 @@ class VisionManager:
         *,
         force_call: bool,
     ) -> ClassificationDetectionResult | None:
-        channel = self._channelInfoForRole(role)
+        polygon = self._resolveZonePolygon("feeder", role, frame.raw.shape)
         return self._runGeminiDetectionRequest(
             DetectionRequest(
                 scope="feeder",
                 role=role,
                 frame=frame.raw,
-                zone_polygon=channel.polygon if channel is not None else None,
+                zone_polygon=polygon,
                 force=force_call,
             )
         )
@@ -3617,11 +3704,7 @@ class VisionManager:
         *,
         force_call: bool,
     ) -> ClassificationDetectionResult | None:
-        polygon = (
-            np.array(self._carousel_polygon, dtype=np.int32)
-            if self._carousel_polygon is not None and len(self._carousel_polygon) >= 3
-            else None
-        )
+        polygon = self._resolveZonePolygon("carousel", "carousel", frame.raw.shape)
         return self._runGeminiDetectionRequest(
             DetectionRequest(
                 scope="carousel",
@@ -3681,7 +3764,31 @@ class VisionManager:
         self._carousel_dynamic_detection_cache = (frame.timestamp, detection)
         return detection
 
+    def _channelAlignmentRotationDeg(self, role: str) -> float:
+        """Rotation (CCW positive) that lands the role's drop-zone start at
+        6 o'clock — matches the dashboard-stream alignment so sample crops
+        uploaded to the Hive arrive in the same clock-aligned frame the
+        operator sees live."""
+        from blob_manager import getChannelPolygons
+        from vision.channel_alignment import alignmentRotationDeg, dropStartAngleForRole
+
+        try:
+            saved = getChannelPolygons() or {}
+        except Exception:
+            return 0.0
+        # Sample capture for "carousel" with classification-channel setup is
+        # sourced from the classification_channel polygon; the alignment lookup
+        # is keyed by role, so map it explicitly.
+        lookup_role = (
+            "classification_channel"
+            if role == "carousel" and self._usesClassificationChannelSetup()
+            else role
+        )
+        return alignmentRotationDeg(dropStartAngleForRole(lookup_role, saved))
+
     def _captureAuxiliarySampleFromFrame(self, role: str, frame_raw: np.ndarray) -> dict[str, np.ndarray | None]:
+        from vision.channel_alignment import rotateImageBgr
+
         if role in self._feederTrackerRoles():
             crop, offset = self._feederRegionCrop(role, frame_raw)
         elif role == "carousel":
@@ -3689,6 +3796,11 @@ class VisionManager:
         else:
             crop = frame_raw.copy()
             offset = (0, 0)
+
+        rotation_deg = self._channelAlignmentRotationDeg(role)
+        if abs(rotation_deg) >= 1e-2 and isinstance(crop, np.ndarray) and crop.size > 0:
+            crop = rotateImageBgr(crop, rotation_deg)
+
         return {
             "input_image": crop,
             "frame": frame_raw.copy(),

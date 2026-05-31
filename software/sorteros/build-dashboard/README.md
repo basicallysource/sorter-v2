@@ -6,8 +6,9 @@ Local Mac service for managing SorterOS image builds. Replaces manually tailing 
 
 - **Build dashboard** — live phase progress, ETA, streaming log, history of past `.img` files with Finder links
 - **Build API** — agents and scripts can trigger builds and stream progress over HTTP without opening a browser
-- **Preset config** — save your Wi-Fi/SSH/Tailscale credentials once; they auto-fill every build so you never re-enter them
-- **Image inspector** — drop any `.img` onto the page to read back its embedded `sorteros-config.toml` (the same data setup.basically.website writes); also exports as a preset TOML you can paste into the saved preset
+- **Preset config** — save your Wi-Fi/SSH/Tailscale credentials once; they auto-fill internal test builds so you can skip the on-device captive portal
+
+Production images don't need a preset — they ship generic and configure themselves via the SorterOS captive portal on first boot. The preset is only for development convenience.
 
 ## Start
 
@@ -83,12 +84,6 @@ tags = "tag:sorter"
 In the **New build** form, choose "Use saved preset" to embed it in the next image. The dashboard saves the preset in-place; it does not trigger a build.
 
 You can also paste preset TOML directly in the "Enter custom config" option for a one-off override.
-
-## Image inspector
-
-Drop any `.img` file onto the inspector panel (bottom-right). If the image has a filled-in `sorteros-config.toml` region (written by setup.basically.website), the values are displayed. Click **Copy as preset TOML** to export them into the saved preset textarea.
-
-This works entirely in the browser — the file is never uploaded.
 
 ## Port
 

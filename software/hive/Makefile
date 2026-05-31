@@ -8,7 +8,10 @@ dev:
 	$(MAKE) backend & $(MAKE) frontend & wait
 
 backend:
-	cd backend && uv run uvicorn app.main:app --reload --port 8002
+	# Bind dual-stack (IPv6 + IPv4). Default 127.0.0.1 broke browsers
+	# that resolve localhost → ::1 first (Happy Eyeballs picks IPv6,
+	# fetch() doesn't always fall back to IPv4 the way curl does).
+	cd backend && uv run uvicorn app.main:app --reload --host :: --port 8002
 
 frontend:
 	cd frontend && pnpm dev --port 5174

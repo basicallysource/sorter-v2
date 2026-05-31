@@ -25,3 +25,4 @@ from app.models.machine_set_progress import MachineSetProgress  # noqa: E402, F4
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401
 from app.models.user_api_key import UserApiKey  # noqa: E402, F401
 from app.models.teacher_job import TeacherJob, TeacherJobItem  # noqa: E402, F401
+from app.models.teacher_prompt import TeacherPrompt  # noqa: E402, F401

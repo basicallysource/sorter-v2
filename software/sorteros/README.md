@@ -1,50 +1,63 @@
-# SorterOS v3
+# SorterOS v4
 
-> Full design doc: `sorter-v2-agent-notes/orange_pi/sorteros_v3.md`.
-> Read it before touching anything here.
+> Predecessor: SorterOS v3 used a browser-side image customizer
+> (`sorteros-setup/`) that patched WiFi/hostname/SSH placeholders into a
+> downloaded `.img` before flashing. v4 ships a single generic image and
+> moves all configuration to a captive portal on the device — no more
+> placeholders, no more pre-flash customizer.
 
 ## What's here
 
-- **`build/`** — Python builder. Runs locally on the M2 Mac via colima. No qemu, no Hive. Target wall-time < 3 min.
-- **`sorteros-setup/`** — Pure-browser .img customizer. SvelteKit + Tailwind, deployed to Vercel at <https://setup.basically.website>. User uploads an image, fills out a form (Wi-Fi, hostname, SSH keys), downloads a customized .img. No backend.
+- **`build/`** — Python image builder. Runs locally on the M2 Mac via colima. No qemu, no Hive. Target wall-time < 3 min.
+- **`portal/`** — Captive-portal stack the image boots into when no Wi-Fi is configured. FastAPI backend + SvelteKit static frontend, both source-of-truth here. The build copies them into `/usr/local/sbin/sorteros-portal.py` and `/var/www/portal/` on the image.
+- **`build-dashboard/`** — Local web UI + agent API in front of the builder.
 
-> **AP captive portal** (`ap-site/`) is not included — deferred as a future feature. It wasn't working on first hardware boot; see agent notes for details.
+## Boot story
 
-## First boot
+```
+fresh flash
+   │
+   ├─→ sorteros-onboarding.service (Before=firstboot)
+   │    ├─ /var/lib/sorteros/wifi-configured present? → exit 0
+   │    └─ else: nmcli AP up + sorteros-portal on 10.42.0.1:80
+   │              └─ user submits SSID/password
+   │                    └─ portal writes .nmconnection, touches gate,
+   │                       brings the AP down
+   │
+   ├─→ sorteros-firstboot.service (Type=simple, 60s loop)
+   │    ├─ reads /etc/sorteros-config.toml (populated by portal)
+   │    ├─ stages: ssh-keys, grow-rootfs, swap, repo-clone, lfs-pull,
+   │    │           env files, machine.toml, tailscale-up, …
+   │    └─ status HTML on :80 until done
+   │
+   └─→ sorter-ui.service takes over :80 with the regular setup wizard
+```
 
-One `Type=simple` background daemon (`sorteros-firstboot.service`) that loops every 60s, runs idempotent stages, never blocks boot, never errors when offline. Heavy stages (uv sync, pnpm install) wait until internet is up. See the design doc for the stage list.
+Recovery: deleting `/var/lib/sorteros/wifi-configured` (and rebooting) drops the device back into AP mode. A future change wires this to a long-press GPIO button.
 
 ## Layout
 
 ```
 sorteros/
-├── README.md                # this file
-├── build/                   # Python image builder
-│   ├── build.py
-│   ├── config.toml
-│   ├── chroot_apt.sh
-│   ├── overlay/             # files copied into the rootfs as-is
-│   └── README.md
-└── sorteros-setup/          # browser-side .img customizer (SvelteKit + Vercel)
-    ├── package.json
-    ├── svelte.config.js
-    ├── src/
-    │   ├── app.css
-    │   ├── lib/img-patch.ts
-    │   └── routes/{+layout,+page}.svelte
-    └── README.md            # deploys to setup.basically.website
+├── README.md          # this file
+├── build/             # image builder (build.py + overlay + chroot_apt.sh)
+├── portal/            # captive-portal source (backend + frontend)
+│   ├── backend/portal.py
+│   ├── frontend/      # SvelteKit + adapter-static + Tailwind v4
+│   └── README.md      # local dev / mock-mode walkthrough
+└── build-dashboard/   # local builder UI
 ```
+
+The portal source is the single source of truth — the build's `portal` phase copies `portal/backend/portal.py` into the rootfs and `pnpm build`s `portal/frontend/` into `/var/www/portal/`. Editing the portal during development uses mock mode and never touches an image.
 
 ## Versioning
 
-Version lives in `build/config.toml` under `[output] version`. It flows into
-the output filename (`sorteros-v{version}-{date}.img`). Bump it before every
-build that will be flashed to hardware.
+Version lives in `build/config.toml` under `[output] version`. It flows into the output filename (`sorteros-v{version}-{date}.img`). Bump before every build that will be flashed to hardware.
 
 | Change type | Bump | Examples |
 |---|---|---|
-| New feature, new firstboot stage, new overlay file | **minor** (3.2 → 3.3) | adding `stage_clone_repo`, new AP site feature |
-| Bug fix, config tweak, comment-only change | **patch** (3.2 → 3.2.1) | fixing `sh()` error swallowing, marker split fix |
-| Incompatible firstboot protocol change, partition layout change | **major** (3.x → 4.0) | changing marker contract, switching base image |
+| New feature, new firstboot stage, new overlay file | **minor** (4.0 → 4.1) | adding `stage_clone_repo`, new portal flow step |
+| Bug fix, config tweak, comment-only change | **patch** (4.0 → 4.0.1) | fixing `sh()` error swallowing |
+| Incompatible firstboot protocol change, partition layout change | **major** (4.x → 5.0) | changing the config-toml schema, switching base image |
 
 Always bump before starting a build — never retroactively rename a build that was already flashed to hardware.

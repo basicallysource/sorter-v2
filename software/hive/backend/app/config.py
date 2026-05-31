@@ -25,7 +25,17 @@ class Settings(BaseSettings):
     CORS_ORIGIN: str = "http://localhost:5174"
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 15
     JWT_REFRESH_TOKEN_EXPIRE_DAYS: int = 30
-    MIN_REVIEWS_FOR_CONSENSUS: int = 1
+    # Reviews required before a sample can flip out of 'in_review' into a
+    # final status. Aligned with REVIEW_CONSENSUS_TARGET so the global status
+    # only resolves once the queue stops serving the sample — no "tentative
+    # accepted after the first vote" race. Unanimity is enforced by
+    # recompute_sample_status: 3✓ → accepted, 3✗ → rejected, any mix → conflict.
+    MIN_REVIEWS_FOR_CONSENSUS: int = 3
+    # Once a sample has REVIEW_CONSENSUS_TARGET independent reviews, it drops
+    # out of every reviewer's queue regardless of whether they personally
+    # reviewed it. Edge cases (ties / conflicts) can be revisited via the
+    # samples list; the queue is for fresh work.
+    REVIEW_CONSENSUS_TARGET: int = 3
     COOKIE_SECURE: bool = False
     APP_BASE_URL: str | None = None
     GITHUB_CLIENT_ID: str | None = None
@@ -47,7 +57,14 @@ class Settings(BaseSettings):
     # Hard cap on in-flight teacher items across all providers combined. Per-provider
     # concurrency is also capped (see adapter.max_concurrent) so a single noisy provider
     # can't starve the pool — this is just the upper bound on overall thread count.
-    TEACHER_WORKER_PARALLELISM: int = 6
+    TEACHER_WORKER_PARALLELISM: int = 8
+    # Background condition-sample auto-labeler. Off by default — operators
+    # opt in by setting a Perceptron key + flipping the flag.
+    CONDITION_WORKER_ENABLED: bool = False
+    CONDITION_WORKER_PERCEPTRON_API_KEY: str | None = None
+    CONDITION_WORKER_POLL_INTERVAL_S: float = 5.0
+    CONDITION_WORKER_BATCH_SIZE: int = 5
+    CONDITION_WORKER_MIN_INTERVAL_S: float = 0.20
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None

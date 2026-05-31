@@ -15,14 +15,13 @@ def get_overview(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
+    # Both samples + machine counts exclude archived rigs so the dashboard reflects
+    # the active fleet, not retired hardware. Admins can re-archive/un-archive via
+    # the machine endpoints if a rig comes back.
+    machine_query = db.query(Machine).filter(Machine.archived_at.is_(None))
     if scope == "mine":
-        sample_query = db.query(Sample).filter(Sample.machine_id.in_(
-            db.query(Machine.id).filter(Machine.owner_id == current_user.id)
-        ))
-        machine_query = db.query(Machine).filter(Machine.owner_id == current_user.id)
-    else:
-        sample_query = db.query(Sample)
-        machine_query = db.query(Machine)
+        machine_query = machine_query.filter(Machine.owner_id == current_user.id)
+    sample_query = db.query(Sample).filter(Sample.machine_id.in_(machine_query.with_entities(Machine.id)))
 
     total = sample_query.count()
     unreviewed = sample_query.filter(Sample.review_status == "unreviewed").count()

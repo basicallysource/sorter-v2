@@ -14,6 +14,7 @@ legacy values unchanged, and the caller re-saves them encrypted on next write.
 from __future__ import annotations
 
 import base64
+import binascii
 import secrets
 import sqlite3
 import time
@@ -24,6 +25,14 @@ from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
 ENCRYPTED_PREFIX = "fernet:v1:"
 _SEED_STATE_KEY = "__secret_seed"
+_SEED_CORRUPT_MSG = (
+    "Stored secret seed at {path!r} exists but is unusable ({detail}). "
+    "Silently regenerating would invalidate every encrypted secret in this "
+    "database (Hive tokens, API keys, etc). Recover by either:\n"
+    "  1. Restoring local_state.sqlite from a backup that has matching ciphertexts, OR\n"
+    "  2. Deleting the __secret_seed row from state_entries (this forces a fresh "
+    "seed on next start) AND re-issuing every encrypted secret afterwards."
+)
 
 
 def _load_or_create_seed() -> bytes:
@@ -40,11 +49,27 @@ def _load_or_create_seed() -> bytes:
         row = conn.execute(
             "SELECT json_value FROM state_entries WHERE key = ?", (_SEED_STATE_KEY,)
         ).fetchone()
-        if row:
+        if row is not None:
+            # Seed already exists. If it's malformed, refuse to overwrite —
+            # silently regenerating would invalidate every existing ciphertext
+            # in the database (and the operator would only find out when an
+            # upload starts failing auth, like the 2026-05-24 Hive incident).
             raw = row[0].strip('"')
-            data = base64.b64decode(raw)
-            if len(data) >= 32:
-                return data[:32]
+            try:
+                data = base64.b64decode(raw)
+            except (binascii.Error, ValueError) as exc:
+                raise RuntimeError(
+                    _SEED_CORRUPT_MSG.format(path=str(db_path), detail=f"base64 decode failed: {exc}")
+                ) from exc
+            if len(data) < 32:
+                raise RuntimeError(
+                    _SEED_CORRUPT_MSG.format(
+                        path=str(db_path),
+                        detail=f"got {len(data)} bytes, need >= 32",
+                    )
+                )
+            return data[:32]
+        # First-run path only: no seed yet. Generate one and persist.
         material = secrets.token_bytes(32)
         encoded = '"' + base64.b64encode(material).decode("ascii") + '"'
         conn.execute(

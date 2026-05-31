@@ -69,19 +69,12 @@
   /* preset panel */
   .preset-actions { display: flex; gap: 6px; margin-top: 8px; }
 
-  /* sorteros-setup tab */
+  /* tabs (still used by the build form layout) */
   .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
   .tab { padding: 7px 14px; font-size: 12px; font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); }
   .tab.active { color: var(--text); border-bottom-color: var(--text); }
   .tab-content { display: none; }
   .tab-content.active { display: block; }
-
-  /* setup inspector */
-  .img-drop { border: 1px dashed var(--border); padding: 20px; text-align: center; font-size: 12px; color: var(--muted); cursor: pointer; }
-  .img-drop.over { border-color: var(--text); }
-  .field-row { display: grid; grid-template-columns: 120px 1fr 28px; gap: 6px; align-items: start; margin-bottom: 8px; }
-  .field-label { font-size: 11px; font-weight: 600; color: var(--muted); padding-top: 7px; }
-  .copy-btn { padding: 4px 6px; font-size: 10px; }
 </style>
 </head>
 <body>
@@ -165,52 +158,17 @@
     </div>
   </div>
 
-  <!-- sorteros-setup inspector -->
-  <div class="card">
-    <div class="card-title">sorteros-setup inspector</div>
-    <div id="img-drop" class="img-drop" onclick="document.getElementById('img-input').click()"
-         ondragover="event.preventDefault();this.classList.add('over')"
-         ondragleave="this.classList.remove('over')"
-         ondrop="onImgDrop(event)">
-      Drop .img here or click to open
-    </div>
-    <input type="file" id="img-input" accept=".img" style="display:none" onchange="onImgFile(this.files[0])">
-    <div id="inspector-fields" style="margin-top:12px;display:none">
-      <div class="field-row">
-        <span class="field-label">hostname</span>
-        <input type="text" id="fi-hostname" readonly>
-        <button class="copy-btn" onclick="copyField('fi-hostname')">⎘</button>
-      </div>
-      <div class="field-row">
-        <span class="field-label">wifi ssid</span>
-        <input type="text" id="fi-ssid" readonly>
-        <button class="copy-btn" onclick="copyField('fi-ssid')">⎘</button>
-      </div>
-      <div class="field-row">
-        <span class="field-label">wifi password</span>
-        <input type="text" id="fi-password" readonly>
-        <button class="copy-btn" onclick="copyField('fi-password')">⎘</button>
-      </div>
-      <div class="field-row">
-        <span class="field-label">ssh key</span>
-        <input type="text" id="fi-ssh-key" readonly>
-        <button class="copy-btn" onclick="copyField('fi-ssh-key')">⎘</button>
-      </div>
-      <div class="field-row">
-        <span class="field-label">tailscale key</span>
-        <input type="text" id="fi-ts-key" readonly>
-        <button class="copy-btn" onclick="copyField('fi-ts-key')">⎘</button>
-      </div>
-      <button style="width:100%;margin-top:8px" onclick="copyAsPreset()">Copy as preset TOML</button>
-    </div>
-  </div>
+  <!-- removed in v4: sorteros-setup inspector. The portal-based onboarding
+       writes the TOML on the device, so there are no markers to scan for in
+       the .img anymore. The preset TOML textarea above is still wired up for
+       internal test images that want to skip the portal. -->
 
 </div>
 </div>
 
 <script>
 // ── constants ──────────────────────────────────────────────────────────────
-const PHASES = ['prep','grow','mount','overlay','chroot','firstboot-config','finalize'];
+const PHASES = ['prep','grow','mount','overlay','portal','chroot','finalize'];
 const BASE = '';  // same origin
 
 // ── state ──────────────────────────────────────────────────────────────────
@@ -360,88 +318,6 @@ function copyPreset() {
 // ── finder ──────────────────────────────────────────────────────────────────
 function openFinder() { fetch(`${BASE}/open-finder?path=${encodeURIComponent(outputPath)}`); }
 function openFinderPath(p) { fetch(`${BASE}/open-finder?path=${encodeURIComponent(p)}`); }
-
-// ── img inspector ────────────────────────────────────────────────────────────
-const START_MARKER = '__SORTEROS_CFG_START__';
-const END_MARKER   = '__SORTEROS_CFG_END__';
-
-function onImgDrop(e) {
-  e.preventDefault();
-  document.getElementById('img-drop').classList.remove('over');
-  const f = e.dataTransfer.files[0];
-  if (f) onImgFile(f);
-}
-
-function onImgFile(file) {
-  if (!file) return;
-  document.getElementById('img-drop').textContent = `Reading ${file.name}…`;
-  // Scan in 512KB chunks looking for the marker
-  const CHUNK = 512 * 1024;
-  let offset = 0;
-  const reader = new FileReader();
-  function readNext() {
-    if (offset > file.size) { notFound(); return; }
-    const blob = file.slice(offset, offset + CHUNK + START_MARKER.length);
-    reader.readAsArrayBuffer(blob);
-  }
-  reader.onload = e => {
-    const buf = e.target.result;
-    const text = new TextDecoder('utf-8', {fatal: false}).decode(new Uint8Array(buf));
-    const startIdx = text.indexOf(START_MARKER);
-    if (startIdx === -1) { offset += CHUNK; readNext(); return; }
-    const endIdx = text.indexOf(END_MARKER, startIdx);
-    if (endIdx === -1) { offset += CHUNK; readNext(); return; }
-    const between = text.slice(startIdx + START_MARKER.length, endIdx);
-    parseAndShow(between, file.name);
-  };
-  readNext();
-}
-
-function notFound() {
-  document.getElementById('img-drop').textContent = 'No config markers found in image';
-}
-
-function parseAndShow(toml, filename) {
-  document.getElementById('img-drop').textContent = `Loaded: ${filename}`;
-  const fields = {hostname:'', ssid:'', password:'', 'authorized_key':'', 'auth_key':''};
-  for (const line of toml.split('\n')) {
-    const m = line.match(/^\s*([\w_]+)\s*=\s*"(.*)"\s*$/);
-    if (m) fields[m[1]] = m[2];
-  }
-  const hasData = Object.values(fields).some(v => v.trim());
-  if (!hasData) { document.getElementById('inspector-fields').style.display = 'none'; return; }
-  document.getElementById('fi-hostname').value = fields.hostname;
-  document.getElementById('fi-ssid').value = fields.ssid;
-  document.getElementById('fi-password').value = fields.password;
-  document.getElementById('fi-ssh-key').value = fields.authorized_key;
-  document.getElementById('fi-ts-key').value = fields.auth_key;
-  document.getElementById('inspector-fields').style.display = '';
-}
-
-function copyField(id) {
-  navigator.clipboard.writeText(document.getElementById(id).value);
-}
-
-function copyAsPreset() {
-  const hostname = document.getElementById('fi-hostname').value;
-  const ssid     = document.getElementById('fi-ssid').value;
-  const password = document.getElementById('fi-password').value;
-  const sshKey   = document.getElementById('fi-ssh-key').value;
-  const tsKey    = document.getElementById('fi-ts-key').value;
-  const lines = [];
-  if (hostname) lines.push(`hostname = "${hostname}"`);
-  if (ssid || password) {
-    lines.push('', '[wifi]');
-    if (ssid)     lines.push(`ssid = "${ssid}"`);
-    if (password) lines.push(`password = "${password}"`);
-  }
-  if (sshKey) lines.push('', '[ssh]', `authorized_key = "${sshKey}"`);
-  if (tsKey)  lines.push('', '[tailscale]', `auth_key = "${tsKey}"`, 'tags = "tag:sorter"');
-  const toml = lines.join('\n').trim();
-  navigator.clipboard.writeText(toml);
-  // Also populate the preset textarea
-  document.getElementById('preset-toml').value = toml;
-}
 
 // ── init ────────────────────────────────────────────────────────────────────
 refreshStatus();

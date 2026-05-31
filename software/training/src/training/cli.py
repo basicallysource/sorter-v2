@@ -99,6 +99,14 @@ def pull(hive_url: str, zone: str, source_role: str | None, status: str, token: 
     help="When --keep-empty is set, cap empties so they are at most this fraction of the final dataset (e.g. 0.1 = 10%%). Empties are randomly subsampled; positives are kept (after diversity sampling).",
 )
 @click.option(
+    "--dry-run",
+    is_flag=True,
+    help="Skip the expensive embedding + dataset write. Print the projected "
+         "per-machine + per-balance-group selection counts for the given "
+         "--target-size + balance flags, then exit. Lets you pick a sensible "
+         "target before committing to a multi-minute build.",
+)
+@click.option(
     "--raw-dir",
     default=None,
     type=click.Path(exists=True, file_okay=False, dir_okay=True),
@@ -144,6 +152,7 @@ def build(
     piece_count_bins: str | None,
     min_detection_score: float | None,
     max_empty_fraction: float | None,
+    dry_run: bool,
     raw_dir: str | None,
     output_dir: str | None,
     exclude_algorithm_prefixes: tuple[str, ...],
@@ -165,6 +174,21 @@ def build(
 
     from training.datasets import build as build_mod
     from pathlib import Path
+
+    if dry_run:
+        build_mod.preview(
+            zone=zone,
+            keep_empty=keep_empty,
+            target_size=target_size,
+            balance_source_role=balance_source_role,
+            balance_piece_count=balance_piece_count,
+            balance_machine=balance_machine,
+            piece_count_bins=piece_count_bins or build_mod.DEFAULT_PIECE_COUNT_BINS,
+            min_detection_score=min_detection_score,
+            max_empty_fraction=max_empty_fraction,
+            raw_dir=Path(raw_dir) if raw_dir else None,
+        )
+        return
 
     build_mod.run(
         zone=zone,

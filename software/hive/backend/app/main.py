@@ -7,11 +7,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 
 from app.config import settings
-from app.errors import APIError, api_error_handler, http_exception_handler
+from app.errors import APIError, api_error_handler, http_exception_handler, unhandled_exception_handler
 from app.routers import (
     admin,
     api_keys,
     auth,
+    leaderboard,
+    machine_lookup,
     machine_models,
     machines,
     models as models_router,
@@ -24,6 +26,7 @@ from app.routers import (
     upload,
 )
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
+from app.services.condition_worker import get_condition_worker
 from app.services.teacher_worker import get_teacher_worker
 
 limiter = Limiter(key_func=get_remote_address)
@@ -34,10 +37,12 @@ async def lifespan(_app: FastAPI):
     if settings.PROFILE_CATALOG_AUTO_SYNC_ENABLED and settings.REBRICKABLE_API_KEY:
         get_profile_catalog_service().start_auto_sync_loop()
     get_teacher_worker().start()
+    get_condition_worker().start()
     try:
         yield
     finally:
         get_teacher_worker().stop()
+        get_condition_worker().stop()
         service = get_existing_profile_catalog_service()
         if service is not None:
             service.stop_auto_sync_loop()
@@ -56,11 +61,13 @@ app.add_middleware(
 
 app.add_exception_handler(APIError, api_error_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
+app.add_exception_handler(Exception, unhandled_exception_handler)
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(machines.router)
+app.include_router(machine_lookup.router)
 app.include_router(profiles.router)
 app.include_router(upload.router)
 app.include_router(samples.router)
@@ -71,6 +78,7 @@ app.include_router(models_router.router)
 app.include_router(machine_models.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
+app.include_router(leaderboard.router)
 
 
 @app.get("/api/health")

@@ -61,7 +61,7 @@
 				<p class="font-mono text-xs text-[#7A7770]">#F7F6F3</p>
 			</div>
 			<div>
-				<div class="h-16 w-full border border-[#E2E0DB] bg-white"></div>
+				<div class="h-16 w-full border border-[#E2E0DB] bg-surface"></div>
 				<p class="mt-2 text-xs font-medium">Surface</p>
 				<p class="font-mono text-xs text-[#7A7770]">#FFFFFF</p>
 			</div>
@@ -86,7 +86,7 @@
 	<!-- ─── Typography ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Typography</h2>
-		<div class="space-y-6 border border-[#E2E0DB] bg-white p-6">
+		<div class="space-y-6 border border-[#E2E0DB] bg-surface p-6">
 			<div>
 				<p class="text-xs uppercase tracking-wider text-[#7A7770]">IBM Plex Sans</p>
 				<p class="mt-2 text-3xl font-bold tracking-tight">Page Title — 3xl Bold</p>
@@ -108,17 +108,17 @@
 	<!-- ─── Buttons ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Buttons</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex flex-wrap items-center gap-3">
 				<button class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Primary Action</button>
-				<button class="border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Secondary</button>
+				<button class="border border-[#E2E0DB] bg-surface px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Secondary</button>
 				<button class="bg-[#9B1D20] px-4 py-2 text-sm font-medium text-white hover:bg-[#7A1517]">Danger</button>
 				<button class="px-4 py-2 text-sm font-medium text-[#D01012] hover:bg-[#FEF2F2]">Ghost</button>
 				<button class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white opacity-50" disabled>Disabled</button>
 			</div>
 			<div class="mt-4 flex flex-wrap items-center gap-3">
 				<button class="bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#B00E10]">Small Primary</button>
-				<button class="border border-[#E2E0DB] bg-white px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Small Secondary</button>
+				<button class="border border-[#E2E0DB] bg-surface px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Small Secondary</button>
 				<button class="text-xs font-medium text-[#9B1D20] hover:text-[#7A1517]">Small Destructive Text</button>
 			</div>
 		</div>
@@ -127,17 +127,17 @@
 	<!-- ─── Form Elements ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Form Elements</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="grid max-w-lg gap-4">
 				<div>
 					<label for="sg-text" class="mb-1 block text-sm font-medium">Text Input</label>
-					<input id="sg-text" type="text" placeholder="Enter value..." class="w-full border border-[#E2E0DB] bg-white px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+					<input id="sg-text" type="text" placeholder="Enter value..." class="w-full border border-[#E2E0DB] bg-surface px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 				</div>
 				<div>
 					<label for="sg-search" class="mb-1 block text-sm font-medium">Search</label>
 					<div class="flex gap-2">
-						<input id="sg-search" type="search" placeholder="Search by name or set number..." class="flex-1 border border-[#E2E0DB] bg-white px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
-						<button class="border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Search</button>
+						<input id="sg-search" type="search" placeholder="Search by name or set number..." class="flex-1 border border-[#E2E0DB] bg-surface px-3 py-2 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
+						<button class="border border-[#E2E0DB] bg-surface px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Search</button>
 					</div>
 				</div>
 				<div class="flex items-center gap-2">
@@ -151,14 +151,14 @@
 	<!-- ─── Badges ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Badges & Tags</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex flex-wrap items-center gap-3">
 				<span class="border border-[#00852B]/30 bg-[#00852B]/10 px-2.5 py-0.5 text-xs font-medium text-[#00852B]">Published</span>
 				<span class="border border-[#0055BF]/30 bg-[#0055BF]/8 px-2.5 py-0.5 text-xs font-medium text-[#0055BF]">In Review</span>
 				<span class="border border-[#FFD500]/30 bg-[#FFD500]/15 px-2.5 py-0.5 text-xs font-medium text-[#A16207]">Warning</span>
 				<span class="border border-[#D01012]/30 bg-[#D01012]/8 px-2.5 py-0.5 text-xs font-medium text-[#D01012]">Rejected</span>
 				<span class="border border-[#E2E0DB] bg-[#F7F6F3] px-2.5 py-0.5 text-xs font-medium text-[#7A7770]">Draft</span>
-				<span class="border border-[#E2E0DB] bg-white px-2.5 py-0.5 text-xs font-medium text-[#1A1A1A]">private</span>
+				<span class="border border-[#E2E0DB] bg-surface px-2.5 py-0.5 text-xs font-medium text-[#1A1A1A]">private</span>
 			</div>
 		</div>
 	</section>
@@ -168,19 +168,19 @@
 		<h2 class="text-lg font-semibold tracking-tight">Stat Cards</h2>
 		<p class="text-sm text-[#7A7770]">Colored label + dot indicator. The label text and dot carry the semantic color.</p>
 		<div class="grid grid-cols-4 gap-4">
-			<div class="border border-[#E2E0DB] bg-white p-4">
+			<div class="border border-[#E2E0DB] bg-surface p-4">
 				<p class="flex items-center gap-2 text-xs font-medium text-[#0055BF]"><span class="inline-block h-2.5 w-2.5 bg-[#0055BF]"></span>In Review</p>
 				<p class="font-mono text-2xl font-bold">9</p>
 			</div>
-			<div class="border border-[#E2E0DB] bg-white p-4">
+			<div class="border border-[#E2E0DB] bg-surface p-4">
 				<p class="flex items-center gap-2 text-xs font-medium text-[#00852B]"><span class="inline-block h-2.5 w-2.5 bg-[#00852B]"></span>Accepted</p>
 				<p class="font-mono text-2xl font-bold">0</p>
 			</div>
-			<div class="border border-[#E2E0DB] bg-white p-4">
+			<div class="border border-[#E2E0DB] bg-surface p-4">
 				<p class="flex items-center gap-2 text-xs font-medium text-[#D01012]"><span class="inline-block h-2.5 w-2.5 bg-[#D01012]"></span>Rejected</p>
 				<p class="font-mono text-2xl font-bold">0</p>
 			</div>
-			<div class="border border-[#E2E0DB] bg-white p-4">
+			<div class="border border-[#E2E0DB] bg-surface p-4">
 				<p class="flex items-center gap-2 text-xs font-medium text-[#B8960C]"><span class="inline-block h-2.5 w-2.5 bg-[#FFD500]"></span>Conflict</p>
 				<p class="font-mono text-2xl font-bold">0</p>
 			</div>
@@ -192,17 +192,17 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Profile Cards</h2>
 		<div class="grid grid-cols-3 gap-4">
-			<a href="#" class="border border-[#E2E0DB] bg-white p-4 transition-colors hover:border-[#7A7770]">
+			<a href="#" class="border border-[#E2E0DB] bg-surface p-4 transition-colors hover:border-[#7A7770]">
 				<p class="font-semibold">My Star Wars Collection</p>
 				<p class="text-xs text-[#7A7770]">Set-based profile</p>
 				<p class="mt-2 font-mono text-xs text-[#7A7770]">v3 | 617 parts</p>
 			</a>
-			<a href="#" class="border border-[#E2E0DB] bg-white p-4 transition-colors hover:border-[#7A7770]">
+			<a href="#" class="border border-[#E2E0DB] bg-surface p-4 transition-colors hover:border-[#7A7770]">
 				<p class="font-semibold">Presort</p>
 				<p class="text-xs text-[#7A7770]">Rule-based profile</p>
 				<p class="mt-2 font-mono text-xs text-[#7A7770]">v3 | 0 parts</p>
 			</a>
-			<a href="#" class="border border-[#E2E0DB] bg-white p-4 transition-colors hover:border-[#7A7770]">
+			<a href="#" class="border border-[#E2E0DB] bg-surface p-4 transition-colors hover:border-[#7A7770]">
 				<p class="font-semibold">Basics</p>
 				<p class="text-xs text-[#7A7770]">by color and type</p>
 				<p class="mt-2 font-mono text-xs text-[#7A7770]">v1 | 0 parts</p>
@@ -224,7 +224,7 @@
 	<!-- ─── Version History ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Version History</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="space-y-3">
 				<div class="border border-[#E2E0DB] p-4">
 					<div class="flex items-center justify-between">
@@ -272,7 +272,7 @@
 	<!-- ─── Navigation Tab Styles ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Tab Navigation</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="inline-flex border border-[#E2E0DB] p-1">
 				<button class="px-3 py-1.5 text-sm font-medium text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]">Discover</button>
 				<button class="px-3 py-1.5 text-sm font-medium text-[#7A7770] hover:text-[#1A1A1A] hover:bg-[#F7F6F3]">My Library</button>
@@ -284,9 +284,9 @@
 	<!-- ─── Modal / Dialog ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Modal / Dialog</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="relative overflow-hidden border border-black/10 bg-black/50 p-8" style="min-height: 260px">
-				<div class="mx-auto w-full max-w-lg bg-white p-6">
+				<div class="mx-auto w-full max-w-lg bg-surface p-6">
 					<div class="mb-4 flex items-center justify-between">
 						<h3 class="text-lg font-semibold text-[#1A1A1A]">Confirm Action</h3>
 						<button class="p-1 text-[#7A7770] hover:text-[#7A7770]">
@@ -297,19 +297,19 @@
 					</div>
 					<p class="mb-6 text-sm text-[#7A7770]">Are you sure you want to delete this machine? This action cannot be undone.</p>
 					<div class="flex justify-end gap-3">
-						<button class="border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Cancel</button>
+						<button class="border border-[#E2E0DB] bg-surface px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Cancel</button>
 						<button class="bg-[#9B1D20] px-4 py-2 text-sm font-medium text-white hover:bg-[#7A1517]">Delete</button>
 					</div>
 				</div>
 			</div>
-			<p class="mt-2 text-xs text-[#7A7770]">Backdrop: bg-black/50 · Content: max-w-lg bg-white p-6 · Dismissible via ESC and backdrop click</p>
+			<p class="mt-2 text-xs text-[#7A7770]">Backdrop: bg-black/50 · Content: max-w-lg bg-surface p-6 · Dismissible via ESC and backdrop click</p>
 		</div>
 	</section>
 
 	<!-- ─── Dropdown Menu ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Dropdown Menu</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex gap-8">
 				<div class="relative">
 					<button class="flex items-center gap-2 border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">
@@ -318,7 +318,7 @@
 							<path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
 						</svg>
 					</button>
-					<div class="absolute left-0 z-50 mt-1 w-56 border border-[#E2E0DB] bg-white py-1">
+					<div class="absolute left-0 z-50 mt-1 w-56 border border-[#E2E0DB] bg-surface py-1">
 						<div class="px-4 py-2 text-xs font-medium uppercase tracking-wider text-[#7A7770]">Account</div>
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">Settings</a>
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">Profile</a>
@@ -332,7 +332,7 @@
 							<path d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z" />
 						</svg>
 					</button>
-					<div class="absolute left-0 z-50 mt-1 w-48 border border-[#E2E0DB] bg-white py-1">
+					<div class="absolute left-0 z-50 mt-1 w-48 border border-[#E2E0DB] bg-surface py-1">
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">Edit</a>
 						<a href="#" class="flex items-center gap-2 px-4 py-2 text-sm text-[#1A1A1A] hover:bg-[#F7F6F3]">Duplicate</a>
 						<div class="my-1 border-b border-[#E2E0DB]"></div>
@@ -347,7 +347,7 @@
 	<!-- ─── Icon Buttons ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Icon Buttons</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex flex-wrap items-center gap-4">
 				<div class="flex items-center gap-1">
 					<button class="p-1 text-[#7A7770] hover:text-[#1A1A1A]" title="Move up">
@@ -389,7 +389,7 @@
 	<!-- ─── Accordion / Collapsible ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Accordion / Collapsible</h2>
-		<div class="border border-[#E2E0DB] bg-white">
+		<div class="border border-[#E2E0DB] bg-surface">
 			<div class="cursor-pointer border-b border-[#E2E0DB] px-3 py-2 hover:bg-[#F7F6F3] bg-[#D01012]/8">
 				<div class="flex items-center gap-2">
 					<svg class="h-3.5 w-3.5 shrink-0 text-[#7A7770] rotate-90 transition-transform" viewBox="0 0 20 20" fill="currentColor">
@@ -399,7 +399,7 @@
 					<span class="ml-auto bg-[#F7F6F3] px-1.5 py-0.5 text-xs font-medium text-[#7A7770]">128</span>
 				</div>
 			</div>
-			<div class="border-b border-[#E2E0DB] bg-white px-3 py-3">
+			<div class="border-b border-[#E2E0DB] bg-surface px-3 py-3">
 				<p class="text-sm text-[#7A7770]">Expanded content area — form fields, details, actions go here.</p>
 			</div>
 			<div class="cursor-pointer border-b border-[#E2E0DB] px-3 py-2 hover:bg-[#F7F6F3]">
@@ -428,7 +428,7 @@
 	<!-- ─── Set Rule Card ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Set Rule Card</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<p class="mb-3 text-xs font-medium uppercase tracking-wider text-[#7A7770]">Collapsed (in rule list)</p>
 			<div class="mb-6 flex cursor-pointer items-center gap-2 border-b border-[#E2E0DB] px-3 py-2 hover:bg-[#F7F6F3]">
 				<img src="https://cdn.rebrickable.com/media/sets/21242-1/120155.jpg" alt="The End Arena" class="h-16 w-16 shrink-0 object-contain" />
@@ -439,7 +439,7 @@
 				<span class="bg-[#F7F6F3] px-1.5 py-0.5 text-xs font-medium text-[#7A7770]">252</span>
 			</div>
 			<p class="mb-3 text-xs font-medium uppercase tracking-wider text-[#7A7770]">Expanded (editor view)</p>
-			<div class="border border-[#E2E0DB] bg-white px-3 py-3">
+			<div class="border border-[#E2E0DB] bg-surface px-3 py-3">
 				<div class="mb-3 flex gap-4">
 					<img src="https://cdn.rebrickable.com/media/sets/21242-1/120155.jpg" alt="The End Arena" class="h-32 w-32 shrink-0 object-contain" />
 					<div class="min-w-0 flex-1">
@@ -470,7 +470,7 @@
 	<!-- ─── Progress Bars ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Progress Bars</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="space-y-4">
 				<div>
 					<div class="mb-1 flex justify-between text-xs text-[#7A7770]">
@@ -507,7 +507,7 @@
 	<!-- ─── Spinner / Loading ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Loading States</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex items-center gap-8">
 				<div class="flex flex-col items-center gap-2">
 					<div class="h-8 w-8 animate-spin border-4 border-[#E2E0DB] border-t-[#D01012]" style="border-radius: 50%"></div>
@@ -528,8 +528,8 @@
 	<!-- ─── Search with Results ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Search with Inline Results</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
-			<div class="max-w-md border border-[#E2E0DB] bg-white p-3">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
+			<div class="max-w-md border border-[#E2E0DB] bg-surface p-3">
 				<div class="mb-2 flex items-center justify-between">
 					<h3 class="text-sm font-semibold text-[#1A1A1A]">Add LEGO Set</h3>
 					<button class="p-1 text-[#7A7770] hover:text-[#7A7770]">
@@ -568,7 +568,7 @@
 	<!-- ─── Data Table ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Data Table</h2>
-		<div class="border border-[#E2E0DB] bg-white">
+		<div class="border border-[#E2E0DB] bg-surface">
 			<table class="min-w-full divide-y divide-[#E2E0DB]">
 				<thead class="bg-[#F7F6F3]">
 					<tr>
@@ -600,7 +600,7 @@
 	<!-- ─── Pagination ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Pagination</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex items-center gap-1">
 				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3] disabled:opacity-50" disabled>Previous</button>
 				<button class="border border-[#E2E0DB] px-3 py-1.5 text-sm font-medium bg-[#D01012] text-white">1</button>
@@ -617,7 +617,7 @@
 	<!-- ─── Empty States ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Empty States</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="grid gap-4 sm:grid-cols-2">
 				<div class="border border-[#E2E0DB] p-8 text-center">
 					<p class="text-sm text-[#7A7770]">No machines yet. Add one to get started.</p>
@@ -625,7 +625,7 @@
 				</div>
 				<div class="border border-[#E2E0DB] p-8 text-center">
 					<p class="text-sm text-[#7A7770]">No results found for your search.</p>
-					<button class="mt-3 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Clear Filters</button>
+					<button class="mt-3 border border-[#E2E0DB] bg-surface px-4 py-2 text-sm font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Clear Filters</button>
 				</div>
 			</div>
 		</div>
@@ -634,7 +634,7 @@
 	<!-- ─── AI Chat Messages ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">AI Chat Messages</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="space-y-3">
 				<!-- User message -->
 				<div class="ml-8">
@@ -658,7 +658,7 @@
 							<div class="mt-0.5 text-[#00852B]/60">Found 22 sets for "Minecraft": The Panda Haven (21245-1), The End Arena (21242-1), ...</div>
 						</div>
 						<!-- AI content -->
-						<div class="border border-[#00852B]/10 bg-white p-3 text-sm text-[#1A1A1A]">
+						<div class="border border-[#00852B]/10 bg-surface p-3 text-sm text-[#1A1A1A]">
 							I found 22 Minecraft sets from 2023. I'll add them all as set rules.
 						</div>
 					</div>
@@ -673,21 +673,21 @@
 					</div>
 				</div>
 			</div>
-			<p class="mt-3 text-xs text-[#7A7770]">User: ml-8 bg-[#D01012]/8 border-[#D01012]/20 · AI: mr-8 bg-white border-[#00852B]/10 · Tool trace: bg-[#00852B]/5 border-[#00852B]/15</p>
+			<p class="mt-3 text-xs text-[#7A7770]">User: ml-8 bg-[#D01012]/8 border-[#D01012]/20 · AI: mr-8 bg-surface border-[#00852B]/10 · Tool trace: bg-[#00852B]/5 border-[#00852B]/15</p>
 		</div>
 	</section>
 
 	<!-- ─── Popover / Positioned Form ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Popover</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="relative inline-block">
 				<button class="bg-[#D01012] px-4 py-2 text-sm font-medium text-white hover:bg-[#B00E10]">Save Version</button>
-				<div class="absolute left-0 top-full z-50 mt-2 w-72 border border-[#E2E0DB] bg-white p-4">
+				<div class="absolute left-0 top-full z-50 mt-2 w-72 border border-[#E2E0DB] bg-surface p-4">
 					<h3 class="mb-2 text-sm font-semibold">Save New Version</h3>
 					<input type="text" placeholder="Change note (optional)" class="mb-3 w-full border border-[#E2E0DB] px-2 py-1 text-sm focus:border-[#D01012] focus:outline-none focus:ring-1 focus:ring-[#D01012]" />
 					<div class="flex justify-end gap-2">
-						<button class="border border-[#E2E0DB] bg-white px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Cancel</button>
+						<button class="border border-[#E2E0DB] bg-surface px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Cancel</button>
 						<button class="bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#B00E10]">Save</button>
 					</div>
 				</div>
@@ -699,15 +699,15 @@
 	<!-- ─── Unsaved Changes Bar ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Unsaved Changes Bar</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
-			<div class="border-t border-[#E2E0DB] bg-white px-4 py-3">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
+			<div class="border-t border-[#E2E0DB] bg-surface px-4 py-3">
 				<div class="flex items-center justify-between">
 					<div class="flex items-center gap-2 text-sm text-[#7A7770]">
 						<span class="inline-block h-2 w-2 bg-[#FFD500]"></span>
 						Unsaved changes
 					</div>
 					<div class="flex gap-2">
-						<button class="border border-[#E2E0DB] bg-white px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Discard</button>
+						<button class="border border-[#E2E0DB] bg-surface px-3 py-1.5 text-xs font-medium text-[#1A1A1A] hover:bg-[#F7F6F3]">Discard</button>
 						<button class="bg-[#D01012] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#B00E10]">Save</button>
 					</div>
 				</div>
@@ -719,7 +719,7 @@
 	<!-- ─── Select Dropdown ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Select Dropdown</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="flex max-w-lg gap-4">
 				<div class="flex-1">
 					<label class="mb-1 block text-sm font-medium">Machine</label>
@@ -745,7 +745,7 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Card Grid</h2>
 		<div class="grid grid-cols-3 gap-4">
-			<div class="border border-[#E2E0DB] border-t-2 border-t-[#00852B] bg-white text-left">
+			<div class="border border-[#E2E0DB] border-t-2 border-t-[#00852B] bg-surface text-left">
 				<div class="aspect-square overflow-hidden bg-[#F7F6F3]">
 					<div class="flex h-full items-center justify-center text-sm text-[#7A7770]">Image</div>
 				</div>
@@ -756,7 +756,7 @@
 					<p class="font-mono text-xs text-[#7A7770]">Plate 2x4 · Red</p>
 				</div>
 			</div>
-			<div class="border border-[#E2E0DB] border-t-2 border-t-[#0055BF] bg-white text-left">
+			<div class="border border-[#E2E0DB] border-t-2 border-t-[#0055BF] bg-surface text-left">
 				<div class="aspect-square overflow-hidden bg-[#F7F6F3]">
 					<div class="flex h-full items-center justify-center text-sm text-[#7A7770]">Image</div>
 				</div>
@@ -767,7 +767,7 @@
 					<p class="font-mono text-xs text-[#7A7770]">Brick 1x2 · Blue</p>
 				</div>
 			</div>
-			<div class="border border-[#E2E0DB] border-t-2 border-t-[#D01012] bg-white text-left">
+			<div class="border border-[#E2E0DB] border-t-2 border-t-[#D01012] bg-surface text-left">
 				<div class="aspect-square overflow-hidden bg-[#F7F6F3]">
 					<div class="flex h-full items-center justify-center text-sm text-[#7A7770]">Image</div>
 				</div>
@@ -851,7 +851,7 @@
 	<!-- ─── Spacing Reference ─── -->
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Spacing Scale</h2>
-		<div class="border border-[#E2E0DB] bg-white p-6">
+		<div class="border border-[#E2E0DB] bg-surface p-6">
 			<div class="space-y-2">
 				{#each [1, 2, 3, 4, 6, 8, 12, 16] as size}
 					<div class="flex items-center gap-4">

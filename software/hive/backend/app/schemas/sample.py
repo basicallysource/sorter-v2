@@ -27,6 +27,15 @@ class SampleResponse(BaseModel):
     rejected_count: int
     uploaded_at: datetime
     resolved_at: datetime | None
+    # The current viewer's own review decision, populated by the router via a
+    # batch lookup so we don't N+1 the SampleReview table per row. Null means
+    # the viewer hasn't reviewed this sample yet.
+    my_review_decision: str | None = None
+    # Exposure stats — populated at upload + via the backfill script for
+    # older rows. Null for samples that haven't been backfilled yet.
+    luminance_mean: float | None = None
+    clipped_low_ratio: float | None = None
+    clipped_high_ratio: float | None = None
 
     model_config = {"from_attributes": True}
 
@@ -137,3 +146,64 @@ class SaveSampleClassificationResponse(BaseModel):
     ok: bool
     cleared: bool = False
     data: SampleClassificationPayload | None = None
+
+
+class BatchDeleteSamplesRequest(BaseModel):
+    """Filter spec mirroring the /api/samples query params.
+
+    Always interpreted as 'samples I own' on the server side — the client
+    cannot widen the deletion to other users' rigs. Optional knobs:
+      - ``dry_run`` returns just the count without deleting (used by the
+        confirmation dialog to show how many will be removed).
+      - ``max_delete`` is a soft cap; if the matched set exceeds it the
+        endpoint refuses with a 400 so the operator narrows the filter
+        before pressing the button.
+    """
+
+    machine_id: str | None = None
+    source_role: str | None = None
+    capture_reason: str | None = None
+    review_status: str | None = None
+    kind: str | None = None  # 'regular' | 'condition' | None
+    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
+    annotated: str | None = None  # 'teacher' | 'raw'
+    exposure: str | None = None  # 'under' | 'normal' | 'over'
+    max_age_hours: int | None = None
+    dry_run: bool = False
+    max_delete: int = 5000
+
+
+class BatchDeleteSamplesResponse(BaseModel):
+    ok: bool
+    matched: int
+    deleted: int
+    dry_run: bool
+    capped: bool = False
+
+
+class BatchArchiveSamplesRequest(BaseModel):
+    """Admin-only soft-delete. Same filter spec as BatchDeleteSamplesRequest
+    but the target set is the *full library* (no ownership constraint) —
+    admins manage the global content surface.
+    """
+
+    machine_id: str | None = None
+    source_role: str | None = None
+    capture_reason: str | None = None
+    review_status: str | None = None
+    kind: str | None = None
+    my_review: str | None = None  # 'unreviewed' | 'reviewed' | 'accepted' | 'rejected'
+    annotated: str | None = None  # 'teacher' | 'raw'
+    exposure: str | None = None  # 'under' | 'normal' | 'over'
+    max_age_hours: int | None = None
+    archived: str | None = None  # 'active' | 'archived' | 'all' (for unarchive flow)
+    dry_run: bool = False
+    max_archive: int = 20000
+
+
+class BatchArchiveSamplesResponse(BaseModel):
+    ok: bool
+    matched: int
+    archived: int
+    dry_run: bool
+    capped: bool = False

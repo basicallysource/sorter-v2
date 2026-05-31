@@ -73,7 +73,7 @@
 
 <svelte:window onresize={onWindowResize} />
 
-<div class="border border-border bg-white">
+<div class="border border-border bg-surface">
 	<div class="flex items-center gap-2 border-b border-border px-3 py-2">
 		<span class="h-4 w-4 shrink-0 border border-border" style="background: {color};"></span>
 		<div class="min-w-0 flex-1">
@@ -110,7 +110,7 @@
 			{/each}
 		{/if}
 		{#if status === 'running'}
-			<div class="absolute inset-0 flex items-center justify-center bg-white/60">
+			<div class="absolute inset-0 flex items-center justify-center bg-surface/60">
 				<div class="text-xs text-text-muted">Running…</div>
 			</div>
 		{/if}

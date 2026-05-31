@@ -24,6 +24,8 @@ from app.services.sample_payloads import (
     normalize_sample_payload,
     upsert_asset,
 )
+from app.services.image_hashing import compute_phash_bytes
+from app.services.image_stats import compute_exposure_stats_bytes
 from app.services.storage import save_upload_file, validate_image
 
 router = APIRouter(prefix="/api/machine", tags=["upload"])
@@ -223,6 +225,14 @@ def upload_sample(
         return existing
 
     ext = validate_image(image)
+    # Read the upload bytes once, compute pHash + exposure stats from the
+    # same buffer, then hand the rewound stream to save_upload_file. Saves
+    # one decode pass vs. running each helper independently.
+    image.file.seek(0)
+    image_bytes = image.file.read()
+    image.file.seek(0)
+    phash = compute_phash_bytes(image_bytes)
+    exposure = compute_exposure_stats_bytes(image_bytes)
     image_path = save_upload_file(
         str(machine.id), str(session.id), meta.local_sample_id, image, ext
     )
@@ -262,6 +272,12 @@ def upload_sample(
         image_path=image_path,
         full_frame_path=full_frame_path,
         overlay_path=overlay_path,
+        phash=phash,
+        luminance_mean=exposure.luminance_mean if exposure else None,
+        luminance_p05=exposure.luminance_p05 if exposure else None,
+        luminance_p95=exposure.luminance_p95 if exposure else None,
+        clipped_low_ratio=exposure.clipped_low_ratio if exposure else None,
+        clipped_high_ratio=exposure.clipped_high_ratio if exposure else None,
     )
     _apply_payload_to_sample(
         sample,
@@ -348,6 +364,17 @@ def patch_sample(
     image_content_type = None
     if image and image.filename:
         ext = validate_image(image)
+        image.file.seek(0)
+        new_image_bytes = image.file.read()
+        image.file.seek(0)
+        sample.phash = compute_phash_bytes(new_image_bytes)
+        new_exposure = compute_exposure_stats_bytes(new_image_bytes)
+        if new_exposure is not None:
+            sample.luminance_mean = new_exposure.luminance_mean
+            sample.luminance_p05 = new_exposure.luminance_p05
+            sample.luminance_p95 = new_exposure.luminance_p95
+            sample.clipped_low_ratio = new_exposure.clipped_low_ratio
+            sample.clipped_high_ratio = new_exposure.clipped_high_ratio
         image_path = save_upload_file(str(machine.id), str(session.id), local_sample_id, image, ext)
         image_content_type = image.content_type or None
 

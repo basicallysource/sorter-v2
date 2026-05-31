@@ -233,6 +233,41 @@ class ServoBusFatalTests(unittest.TestCase):
         self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
         self.assertEqual(set(), shared_state.distribution_no_bin_passthrough_approvals)
 
+    def test_misc_without_assigned_bin_passes_through_without_incident(self) -> None:
+        servo = _mk_healthy_servo()
+        positioning = self._mk_positioning(
+            servos=[servo],
+            sorting_profile=_AllCategoriesProfile(MISC_CATEGORY),
+        )
+
+        next_state = positioning.step()
+
+        self.assertEqual(DistributionState.READY, next_state)
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+        self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
+        servo.open.assert_called_once()
+
+    def test_misc_assigned_bin_is_ignored_for_bottom_passthrough(self) -> None:
+        servo = _mk_healthy_servo()
+        section = BinSection(bins=[Bin(size=BinSize.MEDIUM, category_ids=[MISC_CATEGORY])])
+        layer = Layer(sections=[section])
+        layer.enabled = True
+        layout = DistributionLayout(layers=[layer])
+        positioning = self._mk_positioning(
+            servos=[servo],
+            layout=layout,
+            sorting_profile=_AllCategoriesProfile(MISC_CATEGORY),
+        )
+
+        next_state = positioning.step()
+
+        self.assertEqual(DistributionState.READY, next_state)
+        self.assertIsNone(self.runtime_stats.snapshot().get("active_incident"))
+        self.assertIsNone(positioning._piece.destination_bin)
+        self.assertEqual("positioning.passthrough_no_bin", positioning._occupancy_state)
+        positioning.chute.moveToBin.assert_not_called()
+        servo.open.assert_called_once()
+
     def test_repeat_detection_does_not_spam_error_or_queue(self) -> None:
         # Re-entering Positioning while the bus is still offline must not
         # enqueue a second pause or re-log the banner on every tick.

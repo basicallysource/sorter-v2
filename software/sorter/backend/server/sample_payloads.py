@@ -61,6 +61,8 @@ def _capture_scope(metadata: dict[str, Any]) -> str | None:
     scope = metadata.get("detection_scope")
     if isinstance(scope, str) and scope:
         return scope
+    if metadata.get("condition_sample") is True:
+        return "condition"
     source_role = metadata.get("source_role")
     if source_role == "classification_chamber":
         return "classification"
@@ -80,6 +82,8 @@ def _capture_mode(metadata: dict[str, Any]) -> str:
         return "settings_test"
     if metadata.get("archive_mode") == "backfill":
         return "backfill"
+    if metadata.get("condition_sample") is True:
+        return "condition_collector"
     if metadata.get("teacher_capture") or source == "live_aux_teacher_capture":
         return "background_teacher"
     return "runtime"

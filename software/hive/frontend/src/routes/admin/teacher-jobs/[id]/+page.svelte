@@ -133,7 +133,14 @@
 	}
 
 	function sampleHref(sampleId: string): string {
-		return `/samples/${sampleId}`;
+		// Carry teacher_job context (and the current items filter/page) so the sample
+		// detail page can fetch its prev/next neighbours from this job's item list
+		// instead of the global samples roster. Arrow-keys then walk through the job.
+		const sp = new URLSearchParams();
+		sp.set('teacher_job', jobId);
+		if (itemsFilter !== 'all') sp.set('teacher_job_items_status', itemsFilter);
+		if (itemsPage > 1) sp.set('teacher_job_items_page', String(itemsPage));
+		return `/samples/${sampleId}?${sp.toString()}`;
 	}
 
 	function sampleThumbUrl(sampleId: string): string {
@@ -179,11 +186,11 @@
 {#if loading && !job}
 	<Spinner />
 {:else if error && !job}
-	<div class="border border-border bg-white px-6 py-12 text-center text-sm text-text-muted">
+	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}
 	</div>
 {:else if job}
-	<div class="mb-5 border border-border bg-white">
+	<div class="mb-5 border border-border bg-surface">
 		<div class="flex flex-wrap items-center gap-3 border-b border-border px-4 py-2.5">
 			<span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider {statusBadge(job.status)}">
 				{job.status}
@@ -248,7 +255,7 @@
 					<button
 						type="button"
 						onclick={() => setFilter(opt)}
-						class="px-2.5 py-1 text-xs font-medium transition-colors {itemsFilter === opt ? 'bg-white text-text' : 'text-text-muted hover:text-text'}"
+						class="px-2.5 py-1 text-xs font-medium transition-colors {itemsFilter === opt ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 					>
 						{opt}
 						<span class="ml-1 tabular-nums text-text-muted">{opt_count.toLocaleString()}</span>
@@ -257,7 +264,7 @@
 			</div>
 		</div>
 		{#if job.items.length === 0}
-			<div class="border border-border bg-white px-6 py-8 text-center text-sm text-text-muted">
+			<div class="border border-border bg-surface px-6 py-8 text-center text-sm text-text-muted">
 				{#if itemsFilter === 'all'}
 					No items in this job.
 				{:else}
@@ -270,7 +277,7 @@
 
 		{#if job.items_pages > 1}
 			{@const j = job}
-			<div class="mt-4 flex items-center justify-between border border-border bg-white px-4 py-2.5 text-xs">
+			<div class="mt-4 flex items-center justify-between border border-border bg-surface px-4 py-2.5 text-xs">
 				<span class="text-text-muted">
 					Page {j.items_page} of {j.items_pages} · showing
 					{(j.items_page - 1) * j.items_page_size + 1}–{Math.min(j.items_page * j.items_page_size, j.items_total)}
@@ -315,7 +322,7 @@
 {#snippet itemRow(item: TeacherJobItemSummary)}
 	<a
 		href={sampleHref(item.sample_id)}
-		class="flex items-center gap-3 border border-border bg-white px-3 py-2 transition-colors hover:border-primary"
+		class="flex items-center gap-3 border border-border bg-surface px-3 py-2 transition-colors hover:border-primary"
 	>
 		<img
 			src={sampleThumbUrl(item.sample_id)}

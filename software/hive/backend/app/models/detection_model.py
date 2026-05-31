@@ -32,6 +32,11 @@ class DetectionModel(Base):
     scopes = Column(JSON_VARIANT, nullable=True)
     training_metadata = Column(JSON_VARIANT, nullable=True)
     is_public = Column(Boolean, nullable=False, default=True)
+    # Human-friendly handle drawn from a curated LEGO-color word list — like Ubuntu's
+    # codenames. Picked by :func:`app.services.codenames.next_codename` alphabetically
+    # at publish time; persistent so people can refer to "Bronze beats Aqua by 1.5 %"
+    # instead of slug+version. Unique across all rows (incl. archived/private).
+    codename = Column(String, nullable=True)
     published_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -54,6 +59,7 @@ class DetectionModel(Base):
     __table_args__ = (
         UniqueConstraint("slug", "version", name="uq_detection_models_slug_version"),
         Index("ix_detection_models_slug", "slug"),
+        Index("ix_detection_models_codename", "codename", unique=True),
         Index("ix_detection_models_model_family", "model_family"),
         Index("ix_detection_models_is_public", "is_public"),
     )

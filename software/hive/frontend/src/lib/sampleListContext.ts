@@ -9,6 +9,11 @@ export const SAMPLE_LIST_FILTER_KEYS = [
 	'review_status',
 	'source_role',
 	'capture_reason',
+	'kind',
+	'my_review',
+	'annotated',
+	'exposure',
+	'archived',
 	'max_age_hours'
 ] as const;
 
@@ -26,6 +31,26 @@ export interface SampleListFilters {
 	review_status?: string;
 	source_role?: string;
 	capture_reason?: string;
+	// 'regular' | 'condition' | undefined (= all). Coarser than capture_reason
+	// — splits the queue between detection samples and condition-collector
+	// crops so reviewers / browsers can drain one bucket at a time.
+	kind?: string;
+	// Per-user review filter: 'unreviewed' (viewer hasn't reviewed yet),
+	// 'reviewed' (viewer reviewed either way), 'accepted', 'rejected'.
+	// Independent of the global review_status — that's the consensus state
+	// across all reviewers, this is "what did *I* do".
+	my_review?: string;
+	// Filter by whether a Hive teacher (Gemini/Perceptron) has already
+	// processed the sample. 'teacher' = re-run done (training-ready);
+	// 'raw' = still raw sorter detections, often incomplete.
+	annotated?: string;
+	// Histogram-based exposure bucket: 'under' / 'normal' / 'over' / 'all'.
+	// Useful for catching lights-off batches or sensor saturation. Null/''
+	// means no filter (sees both clean and broken-exposure samples).
+	exposure?: string;
+	// Admin-only: 'active' (default), 'archived' (only archived), 'all'. Members
+	// always see 'active' regardless of what they pass — server enforces.
+	archived?: string;
 	max_age_hours?: string;
 }
 
@@ -79,6 +104,11 @@ export function sampleListContextKey(ctx: SampleListContext): string {
 		review_status: ctx.review_status ?? '',
 		source_role: ctx.source_role ?? '',
 		capture_reason: ctx.capture_reason ?? '',
+		kind: ctx.kind ?? '',
+		my_review: ctx.my_review ?? '',
+		annotated: ctx.annotated ?? '',
+		exposure: ctx.exposure ?? '',
+		archived: ctx.archived ?? '',
 		max_age_hours: ctx.max_age_hours ?? '',
 		page_size: ctx.page_size
 	});

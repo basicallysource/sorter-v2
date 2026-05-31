@@ -21,6 +21,21 @@ DEFAULT_QUERY = (
     "num_gpus=1 cpu_arch=amd64 reliability>0.98 disk_space>=80 inet_down>200 "
     "gpu_name in [RTX_3090,RTX_4090,RTX_A5000,RTX_A6000] rented=False"
 )
+
+# Named GPU tiers — pick via --gpu-tier instead of hand-rolling --query. Filter is
+# otherwise identical to DEFAULT_QUERY (single GPU, amd64, reliable, fast network).
+_GPU_BASE_FILTER = (
+    "num_gpus=1 cpu_arch=amd64 reliability>0.98 disk_space>=80 inet_down>200 rented=False"
+)
+GPU_TIER_QUERIES: dict[str, str] = {
+    # Price/performance sweet spot for YOLO. ~$0.30-0.50/h. Default.
+    "standard": f"{_GPU_BASE_FILTER} gpu_name in [RTX_3090,RTX_4090,RTX_A5000,RTX_A6000]",
+    # Includes A100 (40GB + 80GB). ~$1.00-2.00/h. Useful if VRAM matters.
+    "fast": f"{_GPU_BASE_FILTER} gpu_name in [RTX_4090,RTX_A6000,A100_SXM4,A100_PCIE,A100_SXM_80GB]",
+    # H100 family. ~$2.00-3.00/h. ~2× faster than 4090 on YOLO but ~5× the price —
+    # only worth it when you're iterating many runs back-to-back.
+    "max": f"{_GPU_BASE_FILTER} gpu_name in [H100_PCIE,H100_SXM,H100_NVL,H200]",
+}
 DEFAULT_IMAGE = "ubuntu:22.04"
 DEFAULT_TARGET_HW_ARCH = "hailo8"
 
@@ -36,13 +51,23 @@ def _load_vastai_json(args: list[str]) -> list[dict]:
     return json.loads(result.stdout)
 
 
+def _resolve_query(args: argparse.Namespace) -> str:
+    """Pick the active vast.ai search query — explicit --query wins over --gpu-tier."""
+    if getattr(args, "query", None):
+        return args.query
+    tier = getattr(args, "gpu_tier", None) or "standard"
+    return GPU_TIER_QUERIES.get(tier, DEFAULT_QUERY)
+
+
 def _search_offers(args: argparse.Namespace) -> int:
+    query = _resolve_query(args)
+    print(f"using query: {query}")
     offers = _load_vastai_json(
         [
             "vastai",
             "search",
             "offers",
-            args.query,
+            query,
             "--raw",
             "-o",
             args.order,
@@ -410,7 +435,13 @@ def parse_args() -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     search = subparsers.add_parser("search-offers", help="Search Vast.ai offers without launching anything.")
-    search.add_argument("--query", default=DEFAULT_QUERY)
+    search.add_argument("--query", default=None, help="Raw vast.ai filter expression; overrides --gpu-tier.")
+    search.add_argument(
+        "--gpu-tier",
+        choices=sorted(GPU_TIER_QUERIES.keys()),
+        default="standard",
+        help="Named GPU tier (standard=3090/4090/A-series, fast=+A100, max=H100/H200).",
+    )
     search.add_argument("--order", default="dph_total")
     search.add_argument("--limit", type=int, default=5)
 

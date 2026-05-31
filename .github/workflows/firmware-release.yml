@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install ARM toolchain
         run: |
@@ -54,35 +56,57 @@ jobs:
           cp build-feeder-skr/sorter_interface_firmware.uf2          feeder-skr-${VER}.uf2
           cp build-distribution-skr/sorter_interface_firmware.uf2    distribution-skr-${VER}.uf2
 
+      - name: Build firmware-only release notes
+        run: |
+          CURRENT="$GITHUB_REF_NAME"
+          PREV=$(git tag -l 'firmware/v*' | sort -V | awk -v cur="$CURRENT" '$0==cur{print prev} {prev=$0}')
+          FW_DIR=software/firmware/sorter_interface_firmware
+          if [ -n "$PREV" ]; then
+            echo "## Firmware changes since ${PREV#firmware/}" > RELEASE_NOTES.md
+            RANGE="${PREV}..HEAD"
+          else
+            echo "## Firmware changes" > RELEASE_NOTES.md
+            RANGE="HEAD"
+          fi
+          echo "" >> RELEASE_NOTES.md
+          CHANGES=$(git log --full-history --no-merges --pretty=format:'- %s (%h)' "$RANGE" -- "$FW_DIR")
+          if [ -n "$CHANGES" ]; then
+            echo "$CHANGES" >> RELEASE_NOTES.md
+          else
+            echo "_No firmware changes since the previous release._" >> RELEASE_NOTES.md
+          fi
+          cat >> RELEASE_NOTES.md <<'EOF'
+
+          ## Firmware files
+
+          Flash the `.uf2` for your board revision and role. Hold BOOTSEL while plugging in the Pico, then drag the file onto the RPI-RP2 drive.
+
+          **basically v1-1** — labeled either "Feeder" or "Distribution" on the board. Download both:
+          - `feeder-v1-1` → the board controlling the feeder stages
+          - `distribution-v1-1` → the board controlling the chute and bin tower
+
+          **basically v1-2** — has 5 total steppers. Only one firmware needed:
+          - `distribution-v1-2` → handles everything on the v1-2 board
+
+          **SKR Pico** — labeled either "Feeder" or "Distribution" on the board. Download both:
+          - `feeder-skr` → the board controlling the feeder stages
+          - `distribution-skr` → the board controlling the chute and bin tower
+
+          | File | Board | Role |
+          |------|-------|------|
+          | `basically-v1-1-feeder-*.uf2` | basically v1-1 | Feeder MB |
+          | `basically-v1-1-distribution-*.uf2` | basically v1-1 | Distribution MB |
+          | `basically-v1-2-distribution-*.uf2` | basically v1-2 | Distribution MB (all-in-one) |
+          | `feeder-skr-*.uf2` | SKR Pico | Feeder MB |
+          | `distribution-skr-*.uf2` | SKR Pico | Distribution MB |
+          EOF
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           name: "Firmware ${{ github.ref_name }}"
-          generate_release_notes: true
-          body: |
-            ## Firmware files
-
-            Flash the `.uf2` for your board revision and role. Hold BOOTSEL while plugging in the Pico, then drag the file onto the RPI-RP2 drive.
-
-            **basically v1-1** — labeled either "Feeder" or "Distribution" on the board. Download both:
-            - `feeder-v1-1` → the board controlling the feeder stages
-            - `distribution-v1-1` → the board controlling the chute and bin tower
-
-            **basically v1-2** — has 5 total steppers. Only one firmware needed:
-            - `distribution-v1-2` → handles everything on the v1-2 board
-
-            **SKR Pico** — labeled either "Feeder" or "Distribution" on the board. Download both:
-            - `feeder-skr` → the board controlling the feeder stages
-            - `distribution-skr` → the board controlling the chute and bin tower
-
-            | File | Board | Role |
-            |------|-------|------|
-            | `basically-v1-1-feeder-*.uf2` | basically v1-1 | Feeder MB |
-            | `basically-v1-1-distribution-*.uf2` | basically v1-1 | Distribution MB |
-            | `basically-v1-2-distribution-*.uf2` | basically v1-2 | Distribution MB (all-in-one) |
-            | `feeder-skr-*.uf2` | SKR Pico | Feeder MB |
-            | `distribution-skr-*.uf2` | SKR Pico | Distribution MB |
-
+          generate_release_notes: false
+          body_path: RELEASE_NOTES.md
           files: |
             software/firmware/sorter_interface_firmware/basically-v1-1-feeder-*.uf2
             software/firmware/sorter_interface_firmware/basically-v1-1-distribution-*.uf2

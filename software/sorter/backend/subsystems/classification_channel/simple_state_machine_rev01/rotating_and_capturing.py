@@ -105,10 +105,10 @@ class RotatingAndCapturing(Rev01BaseState):
         if now - self.ctx.rotating_started_at > self.ctx.config.rotate_timeout_s:
             self.logger.error(
                 f"{LOG_TAG} rotation timeout after {self.ctx.config.rotate_timeout_s}s "
-                f"(captures={len(self.ctx.captured_crops)}) — abort to DISCHARGING"
+                f"(captures={len(self.ctx.captured_crops)}) — abort to POSITIONING"
             )
             self.stopStepper()
-            return ClassificationChannelState.REV01_DISCHARGING
+            return ClassificationChannelState.REV01_POSITIONING
 
         primary_bbox_started = time.perf_counter()
         primary_bbox = self.cv.primaryBbox(bboxes)
@@ -228,10 +228,10 @@ class RotatingAndCapturing(Rev01BaseState):
         if now - self.ctx.rotating_started_at > self.ctx.config.rotate_timeout_s:
             self.logger.error(
                 f"{LOG_TAG} rotation timeout after {self.ctx.config.rotate_timeout_s}s "
-                f"(captures={len(self.ctx.captured_crops)}) — abort to DISCHARGING"
+                f"(captures={len(self.ctx.captured_crops)}) — abort to POSITIONING"
             )
             self.stopStepper()
-            return ClassificationChannelState.REV01_DISCHARGING
+            return ClassificationChannelState.REV01_POSITIONING
 
         primary_bbox_started = time.perf_counter()
         primary_bbox = self.cv.primaryBbox(bboxes)

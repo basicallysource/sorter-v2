@@ -40,7 +40,6 @@ class VerifyingDischarge(Rev01BaseState):
                     f"{LOG_TAG} VERIFYING_DISCHARGE -> IDLE (exit zone clear after "
                     f"{cfg.verify_discharge_wait_ms}ms settle)"
                 )
-                self.stampDistributed()
                 return ClassificationChannelState.IDLE
 
             # Stuck. Kick off the jitter sequence (may fail to build if the
@@ -51,7 +50,6 @@ class VerifyingDischarge(Rev01BaseState):
                     f"{LOG_TAG} VERIFYING_DISCHARGE: jitter sequence unavailable — "
                     f"giving up, returning to IDLE"
                 )
-                self.stampDistributed()
                 return ClassificationChannelState.IDLE
             self.logger.info(
                 f"{LOG_TAG} VERIFYING_DISCHARGE: piece still in exit zone — "
@@ -65,7 +63,6 @@ class VerifyingDischarge(Rev01BaseState):
             self.logger.info(
                 f"{LOG_TAG} VERIFYING_DISCHARGE -> IDLE (jitter cleared the piece)"
             )
-            self.stampDistributed()
             return ClassificationChannelState.IDLE
 
         if phase == JitterPhase.EXHAUSTED:
@@ -74,7 +71,6 @@ class VerifyingDischarge(Rev01BaseState):
                 f"{cfg.verify_discharge_max_jitter_attempts} jitter attempts — "
                 f"giving up, returning to IDLE"
             )
-            self.stampDistributed()
             return ClassificationChannelState.IDLE
 
         return None

@@ -10,5 +10,6 @@ class ClassificationChannelState(str, Enum):
     # Rev01 simple-state-machine states
     REV01_ROTATING_AND_CAPTURING = "rev01_rotating_and_capturing"
     REV01_CLASSIFYING = "rev01_classifying"
+    REV01_POSITIONING = "rev01_positioning"
     REV01_DISCHARGING = "rev01_discharging"
     REV01_VERIFYING_DISCHARGE = "rev01_verifying_discharge"

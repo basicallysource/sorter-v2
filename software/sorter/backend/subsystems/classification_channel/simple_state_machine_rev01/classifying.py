@@ -49,7 +49,7 @@ class Classifying(Rev01BaseState):
                     f"{LOG_TAG} CLASSIFYING with zero captures — skipping Brickognize call"
                 )
                 self.ctx.classification_error = "no_captures"
-                return ClassificationChannelState.REV01_DISCHARGING
+                return ClassificationChannelState.REV01_POSITIONING
 
             total_bytes = sum(int(f.nbytes) for f in captures)
             self.logger.info(
@@ -88,7 +88,7 @@ class Classifying(Rev01BaseState):
                 result=result,
                 error=error,
             )
-            return ClassificationChannelState.REV01_DISCHARGING
+            return ClassificationChannelState.REV01_POSITIONING
 
         if now - self.ctx.classify_started_at > self.ctx.config.classify_timeout_s:
             self.logger.error(
@@ -101,7 +101,7 @@ class Classifying(Rev01BaseState):
                 result=None,
                 error="timeout",
             )
-            return ClassificationChannelState.REV01_DISCHARGING
+            return ClassificationChannelState.REV01_POSITIONING
         return None
 
     def _dumpBurstCaptureArtifacts(

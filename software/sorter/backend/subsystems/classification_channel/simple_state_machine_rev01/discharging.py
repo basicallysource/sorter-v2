@@ -42,6 +42,12 @@ class Discharging(Rev01BaseState):
 
         if self._stepper_done_at is None:
             self._stepper_done_at = time.monotonic()
+            # The piece has just been flung out of the C-channel into the chute,
+            # which distribution already aimed at the target bin during
+            # POSITIONING. Promote it from the positioning slot to the drop slot
+            # and drop the gate — distribution's Ready state is holding on the
+            # gate and advances to Sending (commit + record) when it goes False.
+            self._releaseToDistribution()
 
         pause_s = self.ctx.config.post_discharge_pause_ms / 1000.0
         if time.monotonic() - self._stepper_done_at < pause_s:
@@ -52,6 +58,17 @@ class Discharging(Rev01BaseState):
             f"{LOG_TAG} DISCHARGING -> VERIFYING_DISCHARGE (move complete after {elapsed:.2f}s)"
         )
         return ClassificationChannelState.REV01_VERIFYING_DISCHARGE
+
+    def _releaseToDistribution(self) -> None:
+        obj = self.ctx.known_object
+        # advanceTransport (non-dynamic) shifts wait -> exit, so the piece
+        # distribution positioned for now occupies the drop slot it reads from.
+        self.transport.advanceTransport()
+        self.shared.set_distribution_gate(False, reason="rev01_discharged")
+        if obj is not None:
+            self.logger.info(
+                f"{LOG_TAG} DISCHARGING: released piece {obj.uuid[:8]} to distribution"
+            )
 
     def _logDischargePlan(self, output_deg: float) -> None:
         perception_service = getattr(self.gc, "perception_service", None)

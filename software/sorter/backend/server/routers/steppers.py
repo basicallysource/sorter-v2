@@ -918,14 +918,45 @@ def stop_all_steppers() -> StepperStopAllResponse:
 
 @router.get("/api/stepper/{name}/tmc")
 def get_tmc_settings(name: str) -> Dict[str, Any]:
-    stepper = _resolve_stepper(name)
+    if name not in _STEPPER_API_TO_TOML_NAME:
+        raise HTTPException(status_code=400, detail=f"Unknown stepper '{name}'")
+
+    # Configured values (currents, StallGuard) live in machine.toml and don't need
+    # live hardware to read — so serve them even at standby, when there's no IRL
+    # yet. Only the register read-outs (microsteps, chopper mode, DRV_STATUS,
+    # SG_RESULT) require a live driver; those come back null until hardware is up.
+    try:
+        stepper = _resolve_stepper(name)
+    except HTTPException:
+        stepper = None
+
+    if stepper is None:
+        persisted_current = _current_payload_from_persisted_config(name)
+        return {
+            "hardware_ready": False,
+            "irun": persisted_current["irun"],
+            "ihold": persisted_current["ihold"],
+            "ihold_delay": persisted_current["ihold_delay"],
+            "stallguard": _stallguard_payload_from_persisted_config(name),
+            "capabilities": {
+                "tmc_uart_available": False,
+                "queryable_fields": list(TMC_QUERYABLE_FIELDS),
+            },
+            "registers": None,
+            "microsteps": None,
+            "stealthchop": None,
+            "coolstep": None,
+            "drv_status": None,
+            "sg_result": None,
+        }
+
     registers = _tmc_register_snapshot(stepper)
     gconf_raw = registers["gconf"]
     chopconf_raw = registers["chopconf"]
     coolconf_raw = registers["coolconf"]
     drv_status_raw = registers["drv_status"]
 
-    result: Dict[str, Any] = {}
+    result: Dict[str, Any] = {"hardware_ready": True}
     current_payload = _desired_stepper_current_payload(name, stepper)
     result["irun"] = current_payload["irun"]
     result["ihold"] = current_payload["ihold"]

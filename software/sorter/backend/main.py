@@ -627,13 +627,17 @@ def main() -> None:
     # `stepper_stall` incident on a stall. Detection is on for all moves (armed at
     # hardware init), so this watcher needs no machine-state gating. Off the main
     # loop so the UART reads never hitch operation.
-    if not _noPowerModeActive(gc):
+    from hardware.sorter_interface import DISABLE_STALLGUARD
+
+    if not _noPowerModeActive(gc) and not DISABLE_STALLGUARD:
         stall_monitor = StepperStallMonitor(gc)
         threading.Thread(
             target=stall_monitor.run,
             daemon=True,
             name="stall-monitor",
         ).start()
+    elif DISABLE_STALLGUARD:
+        gc.logger.info("StallGuard monitor not started (DISABLE_STALLGUARD=1).")
 
     last_heartbeat = time.time()
     last_frame_record = time.time()

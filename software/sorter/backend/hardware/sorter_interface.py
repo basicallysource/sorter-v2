@@ -5,11 +5,19 @@
 # Licensed under the MIT License. See LICENSE file in the project root for full license information.
 
 
+import os
 import time
 import json
 from .bus import MCUDevice, BaseCommandCode
 import struct
 from global_config import GlobalConfig
+
+# Kill switch for the firmware StallGuard/DIAG path. When set, the backend never
+# sends ENABLE_STALL_DETECTION / GET_STALL_STATUS / CLEAR_STALL (0x1A/0x1B/0x1C)
+# and never writes SGTHRS/TCOOLTHRS — for boards (e.g. basically v1-1) whose DIAG
+# isn't wired, where the v0.6.0 stallguard polling returns corrupt/partial frames
+# and fails moves. Read once at import; set in the machine .env before start.
+DISABLE_STALLGUARD = os.getenv("DISABLE_STALLGUARD", "0") == "1"
 
 class InterfaceCommandCode(BaseCommandCode):
     """Command codes specific to the Sorter Interface."""
@@ -374,10 +382,14 @@ class StepperMotor:
         self._dev.send_command(InterfaceCommandCode.STEPPER_DRV_WRITE_REGISTER, self._channel, payload)
 
     def enable_stall_detection(self, enable: bool) -> None:
+        if DISABLE_STALLGUARD:
+            return
         payload = struct.pack("<?", enable)
         self._dev.send_command(InterfaceCommandCode.STEPPER_ENABLE_STALL_DETECTION, self._channel, payload)
 
     def clear_stall(self) -> None:
+        if DISABLE_STALLGUARD:
+            return
         self._dev.send_command(InterfaceCommandCode.STEPPER_CLEAR_STALL, self._channel, b'')
 
     @property
@@ -791,6 +803,8 @@ class SorterInterface(MCUDevice):
         """Return this board's stall bitmask: bit i set => stepper channel i is
         latched-stalled. One bus round-trip covers every channel on the board.
         Channel arg is ignored by the firmware, so we send 0."""
+        if DISABLE_STALLGUARD:
+            return 0
         res = self.send_command(InterfaceCommandCode.STEPPER_GET_STALL_STATUS, 0, b"")
         return res.payload[0] if res.payload else 0
 

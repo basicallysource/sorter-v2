@@ -966,6 +966,14 @@ def applyStepperStallguard(
     slower than cruise, below the TCOOLTHRS velocity floor where DIAG is inactive.)
     Steppers with no entry, or enabled=false, are simply left off.
     """
+    from hardware.sorter_interface import DISABLE_STALLGUARD
+
+    if DISABLE_STALLGUARD:
+        gc.logger.info(
+            f"Stepper '{stepper_name}' StallGuard skipped (DISABLE_STALLGUARD=1)."
+        )
+        return
+
     config = configs.get(stepper_name)
     if config is None:
         return

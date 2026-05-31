@@ -112,6 +112,9 @@
 	let tmcMicrosteps = $state(8);
 	let tmcStealthchop = $state(true);
 	let tmcCoolstep = $state(false);
+	let sgEnabled = $state(false);
+	let sgThrs = $state(50);
+	let sgTcoolthrs = $state(150);
 	let tmcDrvStatus = $state<Record<string, any> | null>(null);
 	let tmcLoading = $state(false);
 	let tmcSaving = $state(false);
@@ -534,6 +537,11 @@
 			if (data.microsteps !== null) tmcMicrosteps = data.microsteps;
 			if (data.stealthchop !== null) tmcStealthchop = data.stealthchop;
 			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
+			if (data.stallguard) {
+				sgEnabled = !!data.stallguard.enabled;
+				if (typeof data.stallguard.sgthrs === 'number') sgThrs = data.stallguard.sgthrs;
+				if (typeof data.stallguard.tcoolthrs === 'number') sgTcoolthrs = data.stallguard.tcoolthrs;
+			}
 			tmcDrvStatus = data.drv_status ?? null;
 			tmcLoaded = true;
 		} catch {
@@ -572,6 +580,23 @@
 			if (data.stealthchop !== null) tmcStealthchop = data.stealthchop;
 			if (data.coolstep !== null) tmcCoolstep = data.coolstep;
 			tmcDrvStatus = data.drv_status ?? null;
+
+			const sgRes = await fetch(
+				`${currentBackendBaseUrl()}/stepper/${stepperKey}/stallguard-config`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						sgthrs: sgThrs,
+						tcoolthrs: sgTcoolthrs,
+						enabled: sgEnabled
+					})
+				}
+			);
+			if (!sgRes.ok) {
+				errorMsg = await readErrorMessage(sgRes);
+				return;
+			}
 			statusMsg = 'Driver settings applied.';
 		} catch (e: any) {
 			errorMsg = e.message ?? 'Failed to save driver settings';
@@ -740,6 +765,9 @@
 			bind:tmcMicrosteps
 			bind:tmcStealthchop
 			bind:tmcCoolstep
+			bind:sgEnabled
+			bind:sgThrs
+			bind:sgTcoolthrs
 			bind:stepperDirectionInverted
 			{tmcDrvStatus}
 			onToggle={() => {

@@ -272,6 +272,7 @@ TMC_REG_IHOLD_IRUN = 0x10
 TMC_REG_TSTEP = 0x12
 TMC_REG_TCOOLTHRS = 0x14
 TMC_REG_COOLCONF = 0x42
+TMC_REG_SGTHRS = 0x40
 TMC_REG_SG_RESULT = 0x41
 TMC_REG_MSCNT = 0x6A
 TMC_REG_MSCURACT = 0x6B
@@ -965,6 +966,10 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     else:
         result["sg_result"] = None
 
+    # Persisted StallGuard stall-detection config (or defaults) so the driver
+    # settings UI can show/edit it alongside the other TMC settings.
+    result["stallguard"] = _stallguard_payload_from_persisted_config(name)
+
     return result
 
 
@@ -1514,6 +1519,36 @@ class StallGuardConfigResponse(BaseModel):
     enabled: bool
 
 
+# Defaults shown in the per-stepper driver settings when a motor has no saved
+# StallGuard config yet. Disabled by default; the numbers are just sane starting
+# points to tune from on the StallGuard page (cruise velocity floor ~150).
+DEFAULT_STALLGUARD_SGTHRS = 50
+DEFAULT_STALLGUARD_ENFORCE_TCOOLTHRS = 150
+
+
+def _stallguard_payload_from_persisted_config(name: str) -> Dict[str, Any]:
+    result: Dict[str, Any] = {
+        "sgthrs": DEFAULT_STALLGUARD_SGTHRS,
+        "tcoolthrs": DEFAULT_STALLGUARD_ENFORCE_TCOOLTHRS,
+        "enabled": False,
+    }
+    try:
+        _, config = _read_machine_params_config()
+    except Exception:
+        return result
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(name, name)
+    section = config.get("stepper_stallguard", {})
+    entry = section.get(toml_name, {}) if isinstance(section, dict) else {}
+    if isinstance(entry, dict):
+        if isinstance(entry.get("sgthrs"), int):
+            result["sgthrs"] = entry["sgthrs"]
+        if isinstance(entry.get("tcoolthrs"), int):
+            result["tcoolthrs"] = entry["tcoolthrs"]
+        if isinstance(entry.get("enabled"), bool):
+            result["enabled"] = entry["enabled"]
+    return result
+
+
 def _persist_stepper_stallguard(api_name: str, sgthrs: int, tcoolthrs: int, enabled: bool) -> None:
     toml_name = _STEPPER_API_TO_TOML_NAME.get(api_name, api_name)
     params_path, config = _read_machine_params_config()
@@ -1533,9 +1568,26 @@ def _persist_stepper_stallguard(api_name: str, sgthrs: int, tcoolthrs: int, enab
 
 @router.post("/stepper/{stepper}/stallguard-config", response_model=StallGuardConfigResponse)
 def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuardConfigResponse:
-    _resolve_stepper(stepper)
+    target = _resolve_stepper(stepper)
     toml_name = _STEPPER_API_TO_TOML_NAME.get(stepper, stepper)
     _persist_stepper_stallguard(stepper, body.sgthrs, body.tcoolthrs, body.enabled)
+
+    # Apply live so the change takes effect on the very next move — no reinit
+    # needed. Stamp the attrs the stall monitor reads, write the driver registers,
+    # and turn detection on/off. When disabled, drop the velocity floor to 0 so
+    # DIAG can never fire. Best-effort: a UART hiccup here still leaves the config
+    # persisted, and hardware init will re-apply it.
+    try:
+        target.stallguard_sgthrs = body.sgthrs
+        target.stallguard_tcoolthrs = body.tcoolthrs
+        target.stallguard_enabled = body.enabled
+        target.write_driver_register(TMC_REG_SGTHRS, body.sgthrs)
+        target.write_driver_register(TMC_REG_TCOOLTHRS, body.tcoolthrs if body.enabled else 0)
+        target.clear_stall()
+        target.enable_stall_detection(bool(body.enabled))
+    except Exception:
+        pass
+
     return StallGuardConfigResponse(
         success=True,
         stepper=stepper,

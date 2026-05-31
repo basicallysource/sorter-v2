@@ -153,8 +153,6 @@ def loadFeedingModeConfig(
 
 @dataclass
 class MachineConfig:
-    servo_open_angle: int | None = None
-    servo_closed_angle: int | None = None
     servo_open_speed: int | None = None
     servo_close_speed: int | None = None
     servo_homing_speed: int | None = None
@@ -387,13 +385,6 @@ def loadStepperDirectionInverts(
     return overrides
 
 
-def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int | None) -> int | None:
-    if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 180:
-        return value
-    gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using {default}.")
-    return default
-
-
 def _validateServoSpeed(gc: GlobalConfig, name: str, value: object, default: int | None) -> int | None:
     if isinstance(value, int) and not isinstance(value, bool) and 1 <= value <= 2000:
         return value
@@ -416,14 +407,6 @@ def loadMachineConfig(
 
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):
-        if "open_angle" in servo_params:
-            config.servo_open_angle = _validateAngle(
-                gc, "servo.open_angle", servo_params.get("open_angle"), None
-            )
-        if "closed_angle" in servo_params:
-            config.servo_closed_angle = _validateAngle(
-                gc, "servo.closed_angle", servo_params.get("closed_angle"), None
-            )
         if "open_speed" in servo_params:
             config.servo_open_speed = _validateServoSpeed(
                 gc, "servo.open_speed", servo_params.get("open_speed"), None

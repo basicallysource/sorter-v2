@@ -228,8 +228,6 @@ class ServoChannelConfigPayload(BaseModel):
 
 class ServoHardwareSettingsPayload(BaseModel):
     backend: str = "pca9685"
-    open_angle: Optional[int] = None
-    closed_angle: Optional[int] = None
     open_speed: Optional[int] = None
     close_speed: Optional[int] = None
     homing_speed: Optional[int] = None
@@ -537,14 +535,6 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if backend not in {"pca9685", "waveshare"}:
         backend = "pca9685"
 
-    open_angle = servo.get("open_angle")
-    if not isinstance(open_angle, int) or isinstance(open_angle, bool):
-        open_angle = None
-
-    closed_angle = servo.get("closed_angle")
-    if not isinstance(closed_angle, int) or isinstance(closed_angle, bool):
-        closed_angle = None
-
     port = servo.get("port")
     if port is not None and not isinstance(port, str):
         port = None
@@ -604,8 +594,6 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
 
     return {
         "backend": backend,
-        "open_angle": (max(0, min(180, open_angle)) if open_angle is not None else None),
-        "closed_angle": (max(0, min(180, closed_angle)) if closed_angle is not None else None),
         "open_speed": open_speed,
         "close_speed": close_speed,
         "homing_speed": homing_speed,
@@ -1048,8 +1036,6 @@ def save_servo_hardware_config(
     payload: ServoHardwareSettingsPayload,
 ) -> Dict[str, Any]:
     backend = payload.backend if payload.backend in {"pca9685", "waveshare"} else "pca9685"
-    open_angle = max(0, min(180, int(payload.open_angle)))
-    closed_angle = max(0, min(180, int(payload.closed_angle)))
     _SPEED_RANGE = (1, 2000)
     open_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.open_speed))) if payload.open_speed is not None else None
     close_speed = max(_SPEED_RANGE[0], min(_SPEED_RANGE[1], int(payload.close_speed))) if payload.close_speed is not None else None
@@ -1108,8 +1094,6 @@ def save_servo_hardware_config(
 
     servo_table: Dict[str, Any] = {"backend": backend, "channels": channels}
     if backend == "pca9685":
-        servo_table["open_angle"] = open_angle
-        servo_table["closed_angle"] = closed_angle
         if open_speed is not None:
             servo_table["open_speed"] = open_speed
         if close_speed is not None:
@@ -1151,11 +1135,9 @@ def save_servo_hardware_config(
                     if backend == "waveshare":
                         if hasattr(servo, "set_invert"):
                             servo.set_invert(invert)
-                    elif hasattr(servo, "set_preset_angles"):
-                        if invert:
-                            servo.set_preset_angles(closed_angle, open_angle)
-                        else:
-                            servo.set_preset_angles(open_angle, closed_angle)
+                    else:
+                        # PCA open/closed angles are calibrated per-layer via the
+                        # Servo Layer Calibrator, not here — only apply speed.
                         _apply_pca_servo_speed(servo, homing_speed)
                 applied_live = True
         except Exception:
@@ -1277,20 +1259,27 @@ def preview_layer_servo(
     _, config = _read_machine_params_config()
     servo_settings = _servo_settings_from_config(config)
     backend = servo_settings["backend"]
-    open_angle = int(servo_settings["open_angle"])
-    closed_angle = int(servo_settings["closed_angle"])
     desired_open = bool(payload.is_open)
     invert = bool(payload.invert)
+
+    layout = getBinLayout()
+    layer = layout.layers[layer_index] if 0 <= layer_index < len(layout.layers) else None
+    layer_open = getattr(layer, "servo_open_angle", None)
+    layer_closed = getattr(layer, "servo_closed_angle", None)
 
     try:
         if backend == "waveshare":
             if hasattr(servo, "set_invert"):
                 servo.set_invert(invert)
-        elif hasattr(servo, "set_preset_angles"):
+        elif (
+            hasattr(servo, "set_preset_angles")
+            and isinstance(layer_open, int)
+            and isinstance(layer_closed, int)
+        ):
             if invert:
-                servo.set_preset_angles(closed_angle, open_angle)
+                servo.set_preset_angles(layer_closed, layer_open)
             else:
-                servo.set_preset_angles(open_angle, closed_angle)
+                servo.set_preset_angles(layer_open, layer_closed)
 
         if desired_open:
             _apply_pca_servo_speed(servo, servo_settings.get("open_speed"))

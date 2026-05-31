@@ -16,8 +16,6 @@
 	let errorMsg = $state<string | null>(null);
 	let statusMsg = $state('');
 	let backend = $state<ServoBackend>('pca9685');
-	let openAngle = $state(10);
-	let closedAngle = $state(83);
 	let port = $state('');
 	let layerCount = $state(0);
 	let channels = $state<ServoChannelDraft[]>([]);
@@ -50,8 +48,6 @@
 			const servo = payload?.servo ?? {};
 			layerCount = Number(servo.layer_count ?? 0);
 			backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
-			openAngle = Number(servo.open_angle ?? 10);
-			closedAngle = Number(servo.closed_angle ?? 83);
 			port = typeof servo.port === 'string' ? servo.port : '';
 			channels = normalizedChannels(layerCount, Array.isArray(servo.channels) ? servo.channels : []);
 		} catch (e: any) {
@@ -82,8 +78,6 @@
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
 					backend,
-					open_angle: openAngle,
-					closed_angle: closedAngle,
 					port: backend === 'waveshare' ? port.trim() || null : null,
 					channels: parsedChannels
 				})
@@ -93,8 +87,6 @@
 			const servo = payload?.settings ?? {};
 			layerCount = Number(servo.layer_count ?? layerCount);
 			backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
-			openAngle = Number(servo.open_angle ?? openAngle);
-			closedAngle = Number(servo.closed_angle ?? closedAngle);
 			port = typeof servo.port === 'string' ? servo.port : '';
 			channels = normalizedChannels(layerCount, Array.isArray(servo.channels) ? servo.channels : []);
 			statusMsg = payload?.message ?? 'Servo settings saved.';
@@ -144,30 +136,6 @@
 				<option value="pca9685">PCA9685</option>
 				<option value="waveshare">Waveshare SC</option>
 			</select>
-		</label>
-		<label class="text-xs text-text">
-			Open Angle
-			<input
-				type="number"
-				min="0"
-				max="180"
-				step="1"
-				bind:value={openAngle}
-				disabled={loading || saving}
-				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-			/>
-		</label>
-		<label class="text-xs text-text">
-			Closed Angle
-			<input
-				type="number"
-				min="0"
-				max="180"
-				step="1"
-				bind:value={closedAngle}
-				disabled={loading || saving}
-				class="mt-1 w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
-			/>
 		</label>
 	</div>
 

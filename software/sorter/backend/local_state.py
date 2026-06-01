@@ -17,6 +17,34 @@ SOFTWARE_DIR = Path(__file__).resolve().parent
 _STATE_INIT_LOCK = threading.Lock()
 _SCHEMA_VERSION = 5
 
+# This module opens a fresh connection per operation (thread-safe, simple). The
+# catch: SQLite runs a WAL checkpoint whenever the LAST connection to a WAL DB
+# closes. With connection-per-op every close IS the last connection, so a
+# write-per-second workload checkpoints (and fsyncs the multi-GB DB) on every
+# op — on the eMMC each fsync stalls the whole process via iowait, which froze
+# the API event loop and made the frontend lag seconds behind. Holding one idle
+# "keeper" connection open for the process lifetime keeps the connection count
+# above zero, so per-op closes no longer checkpoint. WAL truncation then happens
+# via the normal wal_autocheckpoint threshold instead of once per close.
+_KEEPER_LOCK = threading.Lock()
+_keeper_conn: "sqlite3.Connection | None" = None
+
+
+def _ensure_keeper_connection() -> None:
+    global _keeper_conn
+    with _KEEPER_LOCK:
+        if _keeper_conn is not None:
+            return
+        try:
+            # Held open and idle (never runs queries); check_same_thread=False
+            # only because it's created on whichever thread inits state first.
+            _keeper_conn = sqlite3.connect(
+                local_state_db_path(), timeout=5.0, check_same_thread=False
+            )
+            _keeper_conn.execute("PRAGMA journal_mode = WAL")
+        except Exception:
+            _keeper_conn = None
+
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
 _STATE_KEY_SERVO_POSITIONS = "servo_positions"
@@ -81,6 +109,11 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
+    # synchronous=NORMAL is the recommended setting for WAL: commits no longer
+    # fsync individually (only checkpoints sync), which is safe against crashes
+    # for everything except a power loss mid-checkpoint. On the eMMC this is the
+    # difference between an fsync per commit and a handful per minute.
+    conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
     try:
@@ -509,6 +542,10 @@ def initialize_local_state() -> None:
             _cleanup_machine_params_runtime_sections(conn)
             _migrate_renamed_state_keys(conn)
             conn.commit()
+
+        # Keep one connection open so subsequent per-op closes don't checkpoint
+        # the (large) WAL DB and stall the process on fsync.
+        _ensure_keeper_connection()
 
 
 def _read_state(key: str) -> Any | None:

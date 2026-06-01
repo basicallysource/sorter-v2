@@ -3,7 +3,7 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-	import { Button } from '$lib/components/primitives';
+	import { Button, Alert } from '$lib/components/primitives';
 
 	const ctx = getMachineContext();
 
@@ -477,10 +477,16 @@
 		title="Detailed profiler"
 		description="The detailed code profiler adds per-block timers and a periodic report. Headline rates above are always collected regardless of this setting; this only controls the extra fine-grained instrumentation. Persisted to this machine's config and applied live."
 	>
-		<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
+		<Alert variant="warning">
+			Leave this <strong>off</strong> for normal sorting. The profiler adds per-call timing
+			overhead across hot loops — it can noticeably slow things like the live camera feed — and
+			writes telemetry to disk. It's a diagnostic for comparing one machine against another, not
+			something to run continuously.
+		</Alert>
+		<label class="mt-3 flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
 			<input
 				type="checkbox"
-				checked={profilerEnabled ?? true}
+				checked={profilerEnabled ?? false}
 				disabled={profilerEnabled == null || profilerSaving}
 				onchange={(e) => void saveProfiler(e.currentTarget.checked)}
 				class="mt-0.5 h-4 w-4 accent-sky-500"
@@ -488,8 +494,8 @@
 			<span class="min-w-0">
 				<span class="block text-sm font-medium text-text">Enable detailed profiler</span>
 				<span class="mt-0.5 block text-sm text-text-muted">
-					On by default. Turning it off slightly reduces per-tick overhead; the Performance
-					numbers above keep working either way.
+					Off by default. The Performance numbers above keep working either way — only turn this
+					on temporarily when you need fine-grained per-block timings.
 				</span>
 			</span>
 		</label>

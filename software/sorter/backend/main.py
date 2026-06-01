@@ -19,6 +19,7 @@ if _saved_api_keys.get("openrouter"):
 
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables
+from utils.event import slimKnownObjectForSocket
 from server.api import app
 from server.shared_state import (
     broadcastEvent,
@@ -184,6 +185,11 @@ def runBroadcaster(gc: GlobalConfig) -> None:
         latest_frame_commands = {}
         pending_commands = []
 
+        # Backlog gauge: how deep the queue is BEFORE we drain it. A persistently
+        # large value means the broadcaster can't keep up with producers and
+        # frontend state is arriving late. ~0 means the pipeline is keeping pace.
+        queue_depth = main_to_server_queue.qsize()
+
         while True:
             try:
                 command = main_to_server_queue.get(block=False)
@@ -197,24 +203,55 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
         pending_commands.extend(latest_frame_commands.values())
 
+        if pending_commands:
+            gc.runtime_stats.observePerfMs("socket.queue_depth", float(queue_depth))
+            gc.runtime_stats.observePerfMs("socket.batch_size", float(len(pending_commands)))
+
         for command in pending_commands:
+            payload = command.model_dump()
             if command.tag == "known_object":
                 obj_payload = command.data.model_dump()
+                # Detail-page lookup keeps the FULL object (incl. the cumulative
+                # recognition_images list) in memory, served via
+                # /api/known-objects/<uuid>. The live socket and the recent ring
+                # carry only the slim form (see slimKnownObjectForSocket) so the
+                # per-piece payload stays bounded instead of growing quadratically.
                 gc.runtime_stats.observeKnownObject(obj_payload)
-                remember_recent_known_object(obj_payload)
+                event_data = payload.get("data")
+                if isinstance(event_data, dict):
+                    payload["data"] = slimKnownObjectForSocket(event_data)
+                remember_recent_known_object(slimKnownObjectForSocket(obj_payload))
+                # End-to-end backend latency for a piece update: wall-clock now
+                # minus when the piece was stamped (updated_at, set right before
+                # emit). This is the number that must be near-zero for the UI to
+                # feel realtime — it captures queue wait + broadcaster time.
+                updated_at = obj_payload.get("updated_at")
+                if isinstance(updated_at, (int, float)):
+                    gc.runtime_stats.observePerfMs(
+                        "socket.known_object_send_age_ms",
+                        max(0.0, (time.time() - float(updated_at)) * 1000.0),
+                    )
             if (
                 command.tag != "frame"
                 and command.tag != "heartbeat"
                 and command.tag != "runtime_stats"
             ):
                 gc.logger.info(f"broadcasting {command.tag} event")
+            send_started = time.perf_counter()
             future = asyncio.run_coroutine_threadsafe(
-                broadcastEvent(command.model_dump()), shared_state.server_loop
+                broadcastEvent(payload), shared_state.server_loop
             )
             try:
                 future.result(timeout=1.0)
             except Exception:
                 pass
+            # Time to push ONE event to all clients. Large here (with depth ~0)
+            # points at a slow client or a saturated asyncio loop (e.g. MJPEG),
+            # not a producer backlog.
+            gc.runtime_stats.observePerfMs(
+                "socket.broadcast_event_ms",
+                (time.perf_counter() - send_started) * 1000.0,
+            )
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 

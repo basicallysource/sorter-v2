@@ -156,12 +156,15 @@ def mkGlobalConfig() -> GlobalConfig:
         gc.classification_skew_dump_root = Path(log_dir).resolve() / "classification_skew" / gc.run_id
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.logger = Logger(gc.debug_level, log_file=log_file)
-    # Profiler enable now lives in machine_params.toml ([profiler] enabled),
-    # defaulting on, so the Performance settings page can toggle it. The
-    # report interval stays an env knob.
+    # Profiler enable lives in machine_params.toml ([profiler] enabled), toggled
+    # from the Performance settings page. Defaults OFF: profiling adds per-call
+    # timing overhead across hot loops (notably the frontend camera feed) and
+    # writes telemetry to local_state.sqlite — it's a diagnostic for comparing
+    # systems, not something to leave on during normal sorting. The report
+    # interval stays an env knob.
     from toml_config import getProfilerConfig
     gc.profiler = Profiler(
-        enabled=bool(getProfilerConfig().get("enabled", True)),
+        enabled=bool(getProfilerConfig().get("enabled", False)),
         report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),
     )
 

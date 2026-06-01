@@ -43,6 +43,7 @@ from server.shared_state import (
     _getRuntimeVariables,
 )
 import server.shared_state as shared_state
+from utils.event import slimKnownObjectForSocket
 
 # ---------------------------------------------------------------------------
 # App creation
@@ -99,9 +100,7 @@ BACKEND_PROCESS_STARTED_AT = time.time()
 def _sanitize_known_object_payload(payload: Dict[str, Any] | None) -> Dict[str, Any] | None:
     if payload is None:
         return None
-    cleaned = dict(payload)
-    cleaned.pop("recognition_images", None)
-    return cleaned
+    return slimKnownObjectForSocket(payload)
 
 
 def _is_stale_incomplete_known_object(payload: Dict[str, Any] | None) -> bool:
@@ -159,10 +158,29 @@ app.include_router(tailscale_router)
 # ---------------------------------------------------------------------------
 
 
+async def _loop_lag_probe() -> None:
+    """Measure how late the uvicorn asyncio loop wakes a fixed-interval sleep.
+
+    A high socket.loop_lag_ms means the event loop is blocked/starved (a sync
+    call on the loop, GIL contention, MJPEG streaming) and CAN'T promptly run
+    the websocket broadcast coroutines — which is the real frontend-latency
+    lever. Near-zero lag with high client_send_ms instead means a slow client.
+    """
+    interval = 0.1
+    while True:
+        started = time.perf_counter()
+        await asyncio.sleep(interval)
+        lag_ms = (time.perf_counter() - started - interval) * 1000.0
+        gc = shared_state.gc_ref
+        if gc is not None and getattr(gc, "runtime_stats", None) is not None:
+            gc.runtime_stats.observePerfMs("socket.loop_lag_ms", max(0.0, lag_ms))
+
+
 @app.on_event("startup")
 async def onStartup() -> None:
     _load_saved_api_keys_into_environment()
     shared_state.server_loop = asyncio.get_running_loop()
+    asyncio.create_task(_loop_lag_probe())
     getSetProgressSyncWorker().start()
     get_waveshare_inventory_manager().start()
 
@@ -773,6 +791,139 @@ def getRuntimeStatsRecord(record_id: str) -> RuntimeStatsResponse:
     if not isinstance(runtime_stats, dict):
         raise HTTPException(status_code=404, detail="runtime_stats_final missing")
     return RuntimeStatsResponse(payload=runtime_stats)
+
+
+# ---------------------------------------------------------------------------
+# Records (sorting history across all saved runs)
+# ---------------------------------------------------------------------------
+
+
+class RecordsOverviewResponse(BaseModel):
+    total_runs: int
+    total_pieces: int
+    classified_pieces: int
+    distributed_pieces: int
+    unique_parts: int
+    unique_colors: int
+    first_seen: Optional[float]
+    last_seen: Optional[float]
+
+
+class RecordPieceItem(BaseModel):
+    uuid: str
+    run_id: str
+    seen_at: Optional[float]
+    classification_status: Optional[str]
+    part_id: Optional[str]
+    color_id: Optional[str]
+    color_name: Optional[str]
+    category_id: Optional[str]
+    confidence: Optional[float]
+    destination_bin: Optional[List[int]]
+
+
+class RecordsPiecesResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    pieces: List[RecordPieceItem]
+
+
+def _loadAllRecordedPieces() -> List[RecordPieceItem]:
+    if not RECORDS_DIR.exists():
+        return []
+    pieces: List[RecordPieceItem] = []
+    for path in RECORDS_DIR.glob("*.json"):
+        try:
+            with open(path, "r") as f:
+                data = json.load(f)
+        except Exception:
+            continue
+        run_id = data.get("run_id")
+        if not isinstance(run_id, str):
+            continue
+        started_at = data.get("started_at")
+        run_started = started_at if isinstance(started_at, (int, float)) else None
+        raw_pieces = data.get("pieces")
+        if not isinstance(raw_pieces, list):
+            continue
+        for p in raw_pieces:
+            if not isinstance(p, dict):
+                continue
+            uuid = p.get("uuid")
+            if not isinstance(uuid, str):
+                continue
+            created_at = p.get("created_at")
+            seen_at = created_at if isinstance(created_at, (int, float)) else run_started
+            bin_raw = p.get("destination_bin")
+            dest_bin = (
+                [int(v) for v in bin_raw]
+                if isinstance(bin_raw, list) and len(bin_raw) > 0
+                else None
+            )
+            pieces.append(
+                RecordPieceItem(
+                    uuid=uuid,
+                    run_id=run_id,
+                    seen_at=float(seen_at) if seen_at is not None else None,
+                    classification_status=p.get("classification_status"),
+                    part_id=p.get("part_id"),
+                    color_id=p.get("color_id"),
+                    color_name=p.get("color_name"),
+                    category_id=p.get("category_id"),
+                    confidence=p.get("confidence"),
+                    destination_bin=dest_bin,
+                )
+            )
+    pieces.sort(key=lambda it: it.seen_at if it.seen_at is not None else 0.0, reverse=True)
+    return pieces
+
+
+@app.get("/api/records/overview", response_model=RecordsOverviewResponse)
+def getRecordsOverview() -> RecordsOverviewResponse:
+    run_ids: set = set()
+    if RECORDS_DIR.exists():
+        for path in RECORDS_DIR.glob("*.json"):
+            try:
+                with open(path, "r") as f:
+                    data = json.load(f)
+            except Exception:
+                continue
+            rid = data.get("run_id")
+            if isinstance(rid, str):
+                run_ids.add(rid)
+
+    pieces = _loadAllRecordedPieces()
+    classified = sum(1 for p in pieces if p.classification_status == "classified")
+    distributed = sum(1 for p in pieces if p.destination_bin is not None)
+    unique_parts = {p.part_id for p in pieces if p.part_id}
+    unique_colors = {p.color_id for p in pieces if p.color_id}
+    seen_times = [p.seen_at for p in pieces if p.seen_at is not None]
+
+    return RecordsOverviewResponse(
+        total_runs=len(run_ids),
+        total_pieces=len(pieces),
+        classified_pieces=classified,
+        distributed_pieces=distributed,
+        unique_parts=len(unique_parts),
+        unique_colors=len(unique_colors),
+        first_seen=min(seen_times) if seen_times else None,
+        last_seen=max(seen_times) if seen_times else None,
+    )
+
+
+@app.get("/api/records/pieces", response_model=RecordsPiecesResponse)
+def getRecordsPieces(offset: int = 0, limit: int = 50) -> RecordsPiecesResponse:
+    offset = max(0, offset)
+    limit = max(1, min(limit, 200))
+    pieces = _loadAllRecordedPieces()
+    page = pieces[offset : offset + limit]
+    return RecordsPiecesResponse(
+        total=len(pieces),
+        offset=offset,
+        limit=limit,
+        pieces=page,
+    )
 
 
 # ---------------------------------------------------------------------------

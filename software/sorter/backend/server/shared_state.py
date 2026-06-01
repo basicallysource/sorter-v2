@@ -30,6 +30,12 @@ command_queue: Optional[queue.Queue] = None
 controller_ref: Optional[Any] = None
 gc_ref: Optional[GlobalConfig] = None
 vision_manager: Optional[Any] = None
+
+# Per-client send budget for a single broadcast. Bounds how long one slow or
+# half-dead websocket client can hold up a broadcast before it's pruned. On a
+# healthy LAN a send is sub-millisecond, so this only ever fires for genuinely
+# stuck clients.
+_BROADCAST_SEND_TIMEOUT_S = 0.25
 camera_service: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
 distribution_no_bin_passthrough_approvals: set[str] = set()
@@ -198,15 +204,37 @@ async def broadcastEvent(event: dict) -> None:
         cameras_config_snapshot = dict(data)
     elif tag == "sorting_profile_status" and data is not None:
         sorting_profile_status_snapshot = dict(data)
-    dead_connections = []
-    for connection in active_connections[:]:
+    connections = active_connections[:]
+    if not connections:
+        return
+
+    # Fan out to every client CONCURRENTLY with a per-client timeout. The old
+    # code awaited send_json sequentially with no timeout, so a single slow or
+    # half-dead client (closed laptop, sleeping phone, congested wifi) blocked
+    # every other client AND the broadcaster thread behind it — making piece
+    # state arrive seconds late regardless of payload size. Now a stuck client
+    # costs at most SEND_TIMEOUT_S once, then gets pruned.
+    async def _send(connection) -> object | None:
         try:
-            await connection.send_json(event)
+            await asyncio.wait_for(
+                connection.send_json(event), timeout=_BROADCAST_SEND_TIMEOUT_S
+            )
+            return None
         except Exception:
-            dead_connections.append(connection)
-    for conn in dead_connections:
-        if conn in active_connections:
+            return connection
+
+    _fanout_started = time.perf_counter()
+    results = await asyncio.gather(*[_send(conn) for conn in connections])
+    for conn in results:
+        if conn is not None and conn in active_connections:
             active_connections.remove(conn)
+    # Pure client-send fanout time (concurrent across clients). Compared against
+    # socket.broadcast_event_ms (which also includes loop-scheduling delay) and
+    # socket.loop_lag_ms, this splits "slow client" from "loop is blocked".
+    if gc_ref is not None and getattr(gc_ref, "runtime_stats", None) is not None:
+        gc_ref.runtime_stats.observePerfMs(
+            "socket.client_send_ms", (time.perf_counter() - _fanout_started) * 1000.0
+        )
 
 
 def _update_snapshot(event: dict) -> None:

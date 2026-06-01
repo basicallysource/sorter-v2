@@ -8,10 +8,11 @@ dev:
 	$(MAKE) backend & $(MAKE) frontend & wait
 
 backend:
-	# Bind dual-stack (IPv6 + IPv4). Default 127.0.0.1 broke browsers
-	# that resolve localhost → ::1 first (Happy Eyeballs picks IPv6,
-	# fetch() doesn't always fall back to IPv4 the way curl does).
-	cd backend && uv run uvicorn app.main:app --reload --host :: --port 8002
+	# Bind 0.0.0.0 so IPv4 clients connect (the Sorter Pi dials the Mac's
+	# LAN/Tailscale IPv4 address). uvicorn's `--host ::` came up IPv6-only
+	# here, refusing every IPv4 connection. On the Mac use http://127.0.0.1
+	# (not localhost, which resolves to ::1 first) to hit the dev server.
+	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8002
 
 frontend:
 	cd frontend && pnpm dev --port 5174

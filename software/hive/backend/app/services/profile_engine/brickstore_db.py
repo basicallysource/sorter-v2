@@ -227,8 +227,14 @@ def readItems(r, count, item_types, categories):
         cat_indexes = r.pooled_u16_array()
         # skip relationship match ids (2 bytes each)
         rel_matches = r.pooled_u16_array()
-        # skip dimensions (8 bytes each)
-        dims_count = r.pooled_raw_array(8)
+        # dimensions: array of 8-byte entries; the first 4 bytes of each are two
+        # little-endian float16 values = the X/Y footprint in LEGO stud units
+        # (1 stud = 8mm pitch). Height is not encoded. We keep the first entry.
+        dim_x = dim_y = None
+        dims_count = r.u32()
+        if dims_count not in (0, 0xFFFFFFFF):
+            raw_dims = r.raw(dims_count * 8)
+            dim_x, dim_y = struct.unpack_from('<ee', raw_dims, 0)
         # skip pccs (8 bytes each)
         pccs_count = r.pooled_raw_array(8)
         # alternate ids (char8_t)
@@ -256,6 +262,9 @@ def readItems(r, count, item_types, categories):
             "year_released": year_released if year_released else None,
             "year_last_produced": year_last if year_last else None,
             "is_obsolete": False,  # not stored in DB directly
+            "known_colors": known_colors,  # BrickLink color ids this item exists in
+            "dim_x_studs": round(dim_x, 4) if dim_x is not None else None,
+            "dim_y_studs": round(dim_y, 4) if dim_y is not None else None,
         })
 
         if (i + 1) % 50000 == 0:

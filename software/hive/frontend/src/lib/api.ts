@@ -620,6 +620,88 @@ async function request<T>(
 	return res.json();
 }
 
+export interface PartsDbOverview {
+	tables: Record<string, number | null>;
+	coverage: {
+		parts_total: number | null;
+		parts_with_bricklink_id: number;
+		parts_with_bricklink_item: number;
+		parts_with_price_guide: number;
+		bricklink_ids_without_item: number;
+		bricklink_items_with_dims: number;
+		price_color_rows_mapped_to_rb: number;
+	};
+	sync: Record<string, unknown>;
+}
+
+export interface PartsDbPart {
+	part_num: string;
+	name: string;
+	part_cat_id: number | null;
+	year_from: number | null;
+	year_to: number | null;
+	part_img_url: string | null;
+	part_url: string | null;
+	external_ids: Record<string, string[]>;
+	_category_name: string;
+	_bl_name: string | null;
+	_bl_category_name: string | null;
+	_bl_id_count: number;
+	_bl_item_count: number;
+	_price_count: number;
+}
+
+export interface PartsDbPartsPage {
+	results: PartsDbPart[];
+	total: number;
+	offset: number;
+	limit: number;
+}
+
+export interface PartsDbBricklinkLink {
+	item_no: string;
+	is_primary: boolean;
+	bl_name: string | null;
+	type: string | null;
+	weight: number | null;
+	year_released: number | null;
+	is_obsolete: boolean | null;
+	bl_category_name: string | null;
+	has_item_record: boolean;
+	has_price_guide: boolean;
+}
+
+export interface PartsDbPriceRow {
+	item_no: string;
+	bl_color_id: number;
+	rb_color_id: number | null;
+	color_name: string | null;
+	new_qty: number | null;
+	new_avg: number | null;
+	new_min: number | null;
+	new_max: number | null;
+	used_qty: number | null;
+	used_avg: number | null;
+	used_min: number | null;
+	used_max: number | null;
+}
+
+export interface PartsDbPartDetail {
+	part: Omit<PartsDbPart, '_bl_name' | '_bl_category_name' | '_bl_id_count' | '_bl_item_count' | '_price_count'> & {
+		dim_x_studs: number | null;
+		dim_y_studs: number | null;
+	};
+	bricklink: PartsDbBricklinkLink[];
+	prices: PartsDbPriceRow[];
+}
+
+export interface PartsDbCategory {
+	id: number;
+	name: string;
+	part_count: number | null;
+	actual_part_count: number;
+}
+
 export const api = {
 	// Auth
 	register(email: string, password: string, display_name: string) {
@@ -1079,6 +1161,27 @@ export const api = {
 	},
 	deleteUser(id: string) {
 		return request<void>('DELETE', `/api/admin/users/${id}`);
+	},
+
+	// Admin: parts catalog DB browser
+	getPartsDbOverview() {
+		return request<PartsDbOverview>('GET', '/api/admin/parts-db/overview');
+	},
+	listPartsDbParts(
+		params: { q?: string; cat_id?: number; missing?: string; limit?: number; offset?: number } = {}
+	) {
+		const sp = new URLSearchParams();
+		for (const [key, val] of Object.entries(params)) {
+			if (val !== undefined && val !== null && val !== '') sp.set(key, String(val));
+		}
+		const qs = sp.toString();
+		return request<PartsDbPartsPage>('GET', `/api/admin/parts-db/parts${qs ? '?' + qs : ''}`);
+	},
+	getPartsDbPart(partNum: string) {
+		return request<PartsDbPartDetail>('GET', `/api/admin/parts-db/parts/${encodeURIComponent(partNum)}`);
+	},
+	listPartsDbCategories() {
+		return request<{ results: PartsDbCategory[] }>('GET', '/api/admin/parts-db/categories');
 	},
 
 	// Stats

@@ -170,6 +170,16 @@
 										Teacher Jobs
 									</a>
 									<a
+										href="/admin/parts"
+										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
+										onclick={() => { dropdownOpen = false; }}
+									>
+										<svg class="h-4 w-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5" />
+										</svg>
+										Parts Database
+									</a>
+									<a
 										href="/settings/catalog-sync"
 										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
 										onclick={() => { dropdownOpen = false; }}

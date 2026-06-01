@@ -560,6 +560,45 @@ def set_sample_collection_speeds(payload: Dict[str, Any]) -> Dict[str, Any]:
     return _sample_collection_speeds_payload()
 
 
+def _sample_collector():
+    controller = shared_state.controller_ref
+    gc = getattr(controller, "gc", None) if controller is not None else shared_state.gc_ref
+    return getattr(gc, "sample_collector", None)
+
+
+@router.get("/api/system/sample-capture")
+def get_sample_capture() -> Dict[str, Any]:
+    collector = _sample_collector()
+    if collector is None:
+        return {"ok": False, "enabled": False, "reason": "collector_not_initialized"}
+    return collector.status()
+
+
+@router.post("/api/system/sample-capture")
+def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standalone training-image capture: one enable toggle + a target rate.
+
+    Independent of machine mode and of the legacy sample_collection_mode
+    feeder bypass. ``enabled`` flips picture-taking on/off; ``rate_hz`` or
+    ``interval_s`` sets the cadence (default 1 every 2s). Both persist.
+    """
+    collector = _sample_collector()
+    if collector is None:
+        return {"ok": False, "reason": "collector_not_initialized"}
+    if "interval_s" in payload and payload.get("interval_s") is not None:
+        collector.setIntervalSeconds(float(payload["interval_s"]))
+    elif "rate_hz" in payload and payload.get("rate_hz") is not None:
+        try:
+            collector.setRateHz(float(payload["rate_hz"]))
+        except ValueError as exc:
+            result = collector.status()
+            result.update({"ok": False, "reason": "invalid_rate", "message": str(exc)})
+            return result
+    if "enabled" in payload:
+        collector.setEnabled(bool(payload.get("enabled")))
+    return collector.status()
+
+
 @router.post("/api/system/force-teacher-capture")
 def force_teacher_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
     """Queue a Gemini-labeled teacher capture for a given role on demand.

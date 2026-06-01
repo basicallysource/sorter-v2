@@ -33,6 +33,7 @@ _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
+_STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
@@ -685,6 +686,22 @@ def set_classification_training_state(state: dict[str, Any] | None) -> None:
             if isinstance(key, str) and value is not None
         }
     _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, normalized)
+
+
+def get_sample_collection_state() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_SAMPLE_COLLECTION)
+    return value if isinstance(value, dict) else None
+
+
+def set_sample_collection_state(state: dict[str, Any] | None) -> None:
+    normalized = None
+    if isinstance(state, dict):
+        normalized = {
+            key: value
+            for key, value in state.items()
+            if isinstance(key, str) and value is not None
+        }
+    _write_state(_STATE_KEY_SAMPLE_COLLECTION, normalized)
 
 
 def get_hive_config() -> dict[str, Any] | None:

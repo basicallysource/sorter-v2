@@ -306,6 +306,12 @@ def main() -> None:
     # against the real camera resolution.
     with gc.profiler.timer("startup.perception_start_ms"):
         _maybeStartPerception(gc, irl_config, camera_service)
+    # Mode-agnostic: the sample collector runs in every config, gated only by
+    # its own enable toggle (persisted). Started after cameras so feeds exist.
+    from sample_collector import SampleCollector
+    sample_collector = SampleCollector(gc, camera_service)
+    sample_collector.start()
+    gc.sample_collector = sample_collector
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
     with gc.profiler.timer("startup.waveshare_inventory_ms"):

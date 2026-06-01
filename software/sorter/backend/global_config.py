@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from logger import Logger
 from profiler import Profiler
 from blob_manager import getMachineId
@@ -84,6 +84,10 @@ class GlobalConfig:
         # main.py after camera startup. Not an env-toggle: the mode config
         # determines whether this is non-None.
         self.perception_service = None
+
+        # Standalone training-image grabber. Runs regardless of machine mode;
+        # set in main.py after camera startup. See sample_collector.py.
+        self.sample_collector: "Any" = None
 
 
 def mkTimeouts() -> Timeouts:

@@ -118,6 +118,29 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.sample_collection_passthrough")
                 return DistributionState.READY
 
+            if piece.too_big:
+                # Oversize for any real bin — send it down the center of the
+                # chute to the misc bottom bin (open every usable door so it
+                # falls straight through). Never claims a bin, never raises a
+                # no-bin incident.
+                self.logger.info(
+                    f"Positioning: piece {piece.uuid} is too big "
+                    f"({piece.max_dimension_mm}mm) — passthrough to misc bottom bin"
+                )
+                self._clearBinsFullAlertIfOwned()
+                self._clearChuteJamAlertIfOwned()
+                self._openAllDoorsForPassthrough()
+                piece.stage = PieceStage.distributing
+                piece.distributing_at = time.time()
+                piece.distribution_target_selected_at = piece.distributing_at
+                piece.category_id = MISC_CATEGORY
+                piece.destination_bin = None
+                piece.updated_at = time.time()
+                self._piece = piece
+                self.event_queue.put(knownObjectToEvent(piece))
+                self._setOccupancyState("positioning.passthrough_too_big")
+                return DistributionState.READY
+
             if piece.part_id is not None:
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:

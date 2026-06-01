@@ -16,6 +16,7 @@ from app.routers import (
     leaderboard,
     machine_lookup,
     machine_models,
+    machine_parts,
     machines,
     models as models_router,
     profiles,
@@ -78,6 +79,7 @@ app.include_router(sets.router)
 app.include_router(stats.router)
 app.include_router(models_router.router)
 app.include_router(machine_models.router)
+app.include_router(machine_parts.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
 app.include_router(leaderboard.router)

@@ -34,6 +34,12 @@ class KnownObject:
     color_name: str = "Any Color"
     category_id: Optional[str] = None
     confidence: Optional[float] = None
+    # Largest single physical dimension (bbox x/y/z) in mm, resolved from Hive
+    # part metadata at classification time. None when unknown.
+    max_dimension_mm: Optional[float] = None
+    # Set when the piece exceeds the global oversize limit: sent down the
+    # center of the chute to the misc bottom bin instead of a real bin.
+    too_big: bool = False
     destination_bin: Optional[Tuple[int, int, int]] = None
     thumbnail: Optional[str] = None
     latest_captured_crop: Optional[str] = None

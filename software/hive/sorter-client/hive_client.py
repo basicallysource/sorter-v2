@@ -58,6 +58,11 @@ class HiveClient:
             payload["local_ui_port"] = str(local_ui_port)
         return self._request("POST", "/api/machine/heartbeat", json=payload)
 
+    def get_part_metadata(self, part_num: str) -> dict:
+        """GET /api/machine/parts/{part_num} -- part metadata incl. the
+        resolved physical ``dimensions`` block (mm)."""
+        return self._request("GET", f"/api/machine/parts/{part_num}")
+
     def upload_sample(
         self,
         source_session_id: str,

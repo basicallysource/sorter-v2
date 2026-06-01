@@ -241,7 +241,16 @@ def _normalize_hive_config(raw: Any) -> dict[str, Any]:
         legacy_target = _normalize_hive_target(raw, 0)
         if legacy_target is not None:
             normalized_targets.append(legacy_target)
-    return {"targets": normalized_targets}
+
+    # Exactly one target is the "primary" — used for metadata lookups (piece
+    # dimensions, etc). Default to the first target; reset to the first if the
+    # stored id no longer points at a live target.
+    target_ids = {target["id"] for target in normalized_targets}
+    primary_target_id = raw.get("primary_target_id") if isinstance(raw, dict) else None
+    if not isinstance(primary_target_id, str) or primary_target_id not in target_ids:
+        primary_target_id = normalized_targets[0]["id"] if normalized_targets else None
+
+    return {"targets": normalized_targets, "primary_target_id": primary_target_id}
 
 
 def _migrate_state_key(conn: sqlite3.Connection, key: str, value: Any) -> None:

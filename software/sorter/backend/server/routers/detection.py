@@ -608,8 +608,17 @@ def _load_hive_targets() -> list[dict[str, Any]]:
     return [dict(target) for target in targets if isinstance(target, dict)]
 
 
-def _save_hive_targets(targets: list[dict[str, Any]]) -> None:
-    setHiveConfig({"targets": targets})
+def _save_hive_targets(targets: list[dict[str, Any]], primary_target_id: str | None = None) -> None:
+    if primary_target_id is None:
+        existing = getHiveConfig() or {}
+        primary_target_id = existing.get("primary_target_id")
+    setHiveConfig({"targets": targets, "primary_target_id": primary_target_id})
+
+
+def _load_hive_primary_id() -> str | None:
+    config = getHiveConfig() or {}
+    primary = config.get("primary_target_id")
+    return primary if isinstance(primary, str) else None
 
 
 def _mask_hive_token(token: str | None) -> str | None:
@@ -640,11 +649,13 @@ def get_hive_config() -> Dict[str, Any]:
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
     targets = _load_hive_targets()
+    primary_target_id = _load_hive_primary_id()
 
     return {
         "ok": True,
         "configured_count": len(targets),
         "enabled_count": sum(1 for target in targets if bool(target.get("enabled", False))),
+        "primary_target_id": primary_target_id,
         "targets": [
             {
                 "id": target["id"],
@@ -653,6 +664,7 @@ def get_hive_config() -> Dict[str, Any]:
                 "machine_id": target.get("machine_id"),
                 "api_token_masked": _mask_hive_token(target.get("api_token")),
                 "enabled": bool(target.get("enabled", False)),
+                "is_primary": target["id"] == primary_target_id,
                 "uploader": (
                     dict(uploader_by_id[target["id"]])
                     if target["id"] in uploader_by_id
@@ -717,6 +729,20 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
     _save_hive_targets(next_targets)
     getClassificationTrainingManager().reloadHiveUploader()
     return {"ok": True, "message": "Hive target removed."}
+
+
+class HivePrimaryPayload(BaseModel):
+    target_id: str
+
+
+@router.post("/api/settings/hive/primary")
+def set_hive_primary(payload: HivePrimaryPayload) -> Dict[str, Any]:
+    target_id = payload.target_id.strip()
+    targets = _load_hive_targets()
+    if not any(target.get("id") == target_id for target in targets):
+        raise HTTPException(404, "Unknown Hive target.")
+    _save_hive_targets(targets, primary_target_id=target_id)
+    return {"ok": True, "message": "Primary Hive target set.", "primary_target_id": target_id}
 
 
 @router.post("/api/settings/hive/register")

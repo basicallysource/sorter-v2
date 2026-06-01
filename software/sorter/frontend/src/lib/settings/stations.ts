@@ -1,4 +1,4 @@
-import { Activity, Camera, Cloud, Cpu, Layers3, Settings, Shapes, Wrench, Zap } from 'lucide-svelte';
+import { Activity, Camera, Cloud, Cpu, Gauge, Layers3, Settings, Shapes, Wrench, Zap } from 'lucide-svelte';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -110,6 +110,12 @@ export const jitterTestNavItem: SettingsNavItem = {
 	icon: Zap
 };
 
+export const performanceNavItem: SettingsNavItem = {
+	href: '/settings/performance',
+	label: 'Performance',
+	icon: Gauge
+};
+
 export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
@@ -208,7 +214,8 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Helpers' },
 	chuteAimingNavItem,
 	stallguardNavItem,
-	jitterTestNavItem
+	jitterTestNavItem,
+	performanceNavItem
 ];
 
 export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {

@@ -49,6 +49,14 @@ class Idle(Rev01BaseState):
             "classification.rev01.idle.perception_read_ms",
             (time.perf_counter() - t0) * 1000.0,
         )
+        # How stale is the perception result at the instant we gate a decision
+        # on it: wall-clock now minus the frame's capture timestamp (state.ts).
+        # This is the dashboard's "age of inference data we decide on" metric.
+        if state.ts:
+            self.gc.runtime_stats.observePerfMs(
+                "classification.decision_frame_age_ms",
+                max(0.0, (time.time() - state.ts) * 1000.0),
+            )
         self.gc.profiler.observeValue(
             "classification.rev01.idle.n_pieces", float(state.n_pieces)
         )

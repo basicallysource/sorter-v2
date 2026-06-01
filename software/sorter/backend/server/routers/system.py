@@ -504,6 +504,31 @@ def set_dashboard_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     return response
 
 
+@router.get("/api/system/profiler-config")
+def get_profiler_config() -> Dict[str, Any]:
+    from toml_config import getProfilerConfig
+
+    return {"ok": True, **getProfilerConfig()}
+
+
+@router.post("/api/system/profiler-config")
+def set_profiler_config(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from toml_config import setProfilerConfig
+    from defs.events import SetProfilerEnabledEvent, SetProfilerEnabledData
+
+    merged = setProfilerConfig(payload or {})
+    # Apply live to the running main loop so the toggle takes effect without a
+    # restart; the toml write makes it survive one.
+    if shared_state.command_queue is not None:
+        shared_state.command_queue.put(
+            SetProfilerEnabledEvent(
+                tag="set_profiler_enabled",
+                data=SetProfilerEnabledData(enabled=bool(merged["enabled"])),
+            )
+        )
+    return {"ok": True, **merged}
+
+
 @router.get("/api/system/sample-collection-mode")
 def get_sample_collection_mode() -> Dict[str, Any]:
     shared = _shared_variables()

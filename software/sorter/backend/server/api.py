@@ -694,6 +694,29 @@ def getRuntimeStats() -> RuntimeStatsResponse:
     return RuntimeStatsResponse(payload=shared_state.runtime_stats_snapshot)
 
 
+class PerfHistoryResponse(BaseModel):
+    window_s: float
+    now: float
+    rows: List[Dict[str, Any]]
+    rates: Dict[str, Any]
+
+
+@app.get("/runtime-stats/perf-history", response_model=PerfHistoryResponse)
+def getPerfHistory(window_s: float = 300.0) -> PerfHistoryResponse:
+    import time as _time
+    from server import perf_history
+
+    now = _time.time()
+    window_s = max(1.0, min(float(window_s), 3900.0))
+    rows = perf_history.window(window_s, now)
+    return PerfHistoryResponse(
+        window_s=window_s,
+        now=now,
+        rows=rows,
+        rates=perf_history.computeRates(rows),
+    )
+
+
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
 def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
     if not RECORDS_DIR.exists():

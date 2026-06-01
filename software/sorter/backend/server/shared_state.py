@@ -10,12 +10,14 @@ import asyncio
 import math
 import queue
 import threading
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import WebSocket
 
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables
+import server.perf_history as perf_history
 
 # ---------------------------------------------------------------------------
 # Global state
@@ -187,6 +189,7 @@ async def broadcastEvent(event: dict) -> None:
         payload = data.get("payload")
         if isinstance(payload, dict):
             runtime_stats_snapshot = payload
+            perf_history.record(payload, time.time())
     elif tag == "system_status" and data is not None:
         system_status_snapshot = dict(data)
     elif tag == "sorter_state" and data is not None:
@@ -223,6 +226,7 @@ def _update_snapshot(event: dict) -> None:
         payload = data.get("payload")
         if isinstance(payload, dict):
             runtime_stats_snapshot = payload
+            perf_history.record(payload, time.time())
 
 
 def broadcast_from_thread(event: dict) -> None:

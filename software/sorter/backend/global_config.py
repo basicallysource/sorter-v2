@@ -156,8 +156,12 @@ def mkGlobalConfig() -> GlobalConfig:
         gc.classification_skew_dump_root = Path(log_dir).resolve() / "classification_skew" / gc.run_id
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.logger = Logger(gc.debug_level, log_file=log_file)
+    # Profiler enable now lives in machine_params.toml ([profiler] enabled),
+    # defaulting on, so the Performance settings page can toggle it. The
+    # report interval stays an env knob.
+    from toml_config import getProfilerConfig
     gc.profiler = Profiler(
-        enabled=os.getenv("PROFILER_ENABLED", "1") == "1",
+        enabled=bool(getProfilerConfig().get("enabled", True)),
         report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),
     )
 

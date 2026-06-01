@@ -145,6 +145,34 @@ def setClassificationChannelRev01Config(updates: dict[str, Any]) -> dict[str, An
 
 
 # ---------------------------------------------------------------------------
+# Profiler toggle
+# ---------------------------------------------------------------------------
+
+
+def getProfilerConfig() -> dict[str, Any]:
+    """Whether the detailed code profiler is enabled. Defaults to True so a
+    fresh machine collects profiling out of the box."""
+    config = _read_toml()
+    section = config.get("profiler")
+    enabled = True
+    if isinstance(section, dict) and isinstance(section.get("enabled"), bool):
+        enabled = section["enabled"]
+    return {"enabled": enabled}
+
+
+def setProfilerConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    def updater(config: dict[str, Any]) -> None:
+        section = config.get("profiler")
+        base = dict(section) if isinstance(section, dict) else {}
+        if "enabled" in updates:
+            base["enabled"] = bool(updates["enabled"])
+        config["profiler"] = base
+
+    _update_toml(updater)
+    return getProfilerConfig()
+
+
+# ---------------------------------------------------------------------------
 # Feeder go-to-angle tuning config
 # ---------------------------------------------------------------------------
 

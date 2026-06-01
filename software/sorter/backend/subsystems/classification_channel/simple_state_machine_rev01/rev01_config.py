@@ -24,14 +24,21 @@ class Rev01Config:
     post_discharge_pause_ms: float = 300.0
 
     # Closed-loop discharge (active perception path). Drive the leading piece's
-    # COM onto the centre of the fall-off zone with repeated moves until it is
-    # within tolerance, capped by a converge time budget. Once parked (or the
-    # budget runs out) and the piece still hasn't fallen, run the jitter
-    # sequence; if that is exhausted too, raise an exit-stuck operator incident.
+    # COM onto the centre of the fall-off zone with repeated bounded moves until
+    # the channel reads physically clear. Success is confirmed-clear only; the
+    # piece is committed to distribution there and nowhere else.
     discharge_center_tolerance_deg: float = 3.0
-    discharge_converge_timeout_ms: int = 2000
-    discharge_settle_ms: int = 400
     discharge_max_move_output_deg: float = 270.0
+    # One overall budget for the whole discharge of a piece-set, NOT reset per
+    # move. When it runs out with the channel still occupied, raise the stuck
+    # incident and hold (works from anywhere on the channel, not just the exit).
+    discharge_total_timeout_ms: int = 30000
+    # No-forward-progress window: if the COM-to-centre gap hasn't improved by
+    # more than discharge_progress_eps_deg for this long, the piece is stalled
+    # (parked at the exit and won't drop, or jammed earlier) — fire a jitter
+    # burst to unstick it.
+    discharge_stall_ms: int = 2000
+    discharge_progress_eps_deg: float = 2.0
     # Consecutive stopped-carousel zero-detection reads required before the
     # channel is believed clear. The runtime detector blinks to 0 constantly;
     # 1 read used to false-finish the discharge before the piece had moved.
@@ -72,9 +79,10 @@ FIELD_META: list[dict] = [
     {"key": "home_offset_output_deg", "label": "Home offset (output deg)", "type": "float", "default": _DEFAULTS.home_offset_output_deg},
     {"key": "post_discharge_pause_ms", "label": "Post-discharge pause (ms)", "type": "float", "default": _DEFAULTS.post_discharge_pause_ms},
     {"key": "discharge_center_tolerance_deg", "label": "Discharge: fall-off centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.discharge_center_tolerance_deg},
-    {"key": "discharge_converge_timeout_ms", "label": "Discharge: converge time budget (ms)", "type": "int", "default": _DEFAULTS.discharge_converge_timeout_ms},
-    {"key": "discharge_settle_ms", "label": "Discharge: settle before fall re-check (ms)", "type": "int", "default": _DEFAULTS.discharge_settle_ms},
     {"key": "discharge_max_move_output_deg", "label": "Discharge: max single converge move (output deg)", "type": "float", "default": _DEFAULTS.discharge_max_move_output_deg},
+    {"key": "discharge_total_timeout_ms", "label": "Discharge: total budget before stuck incident (ms)", "type": "int", "default": _DEFAULTS.discharge_total_timeout_ms},
+    {"key": "discharge_stall_ms", "label": "Discharge: no-progress window before jitter (ms)", "type": "int", "default": _DEFAULTS.discharge_stall_ms},
+    {"key": "discharge_progress_eps_deg", "label": "Discharge: min gap improvement to count as progress (deg)", "type": "float", "default": _DEFAULTS.discharge_progress_eps_deg},
     {"key": "discharge_clear_confirm_reads", "label": "Discharge: zero-read streak to confirm clear", "type": "int", "default": _DEFAULTS.discharge_clear_confirm_reads},
     {"key": "multi_feed_confirm_reads", "label": "Multi-feed: frames of >=2 pieces to confirm", "type": "int", "default": _DEFAULTS.multi_feed_confirm_reads},
     {"key": "verify_discharge_wait_ms", "label": "Verify-discharge: settle wait before re-check (ms)", "type": "int", "default": _DEFAULTS.verify_discharge_wait_ms},

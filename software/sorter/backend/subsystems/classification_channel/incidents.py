@@ -198,9 +198,11 @@ def publish_classification_exit_stuck_incident(
     jitter_attempts: int,
     converge_ms: float,
 ) -> bool:
-    """A piece reached the C4 fall-off zone but would not drop, and jitter
-    recovery was exhausted. It is physically stuck — the operator must clear it.
-    The discharge holds (channel gate stays not-ready) until perception sees the
+    """A piece on the C4 channel could not be discharged — either it reached the
+    fall-off zone and would not drop, or it jammed earlier on the channel and
+    made no forward progress within the discharge budget, with jitter recovery
+    unable to free it. It is physically stuck — the operator must clear it. The
+    discharge holds (channel gate stays not-ready) until perception sees the
     channel clear, then auto-clears this incident."""
     kind = CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
     if _incident_handling_off(kind):
@@ -234,11 +236,11 @@ def publish_classification_exit_stuck_incident(
         "jitter_attempts": int(jitter_attempts),
         "converge_ms": float(converge_ms),
         "triggered_at": time.time(),
-        "rule": "c4_piece_at_falloff_centre_would_not_drop_after_jitter",
+        "rule": "c4_piece_would_not_discharge_within_budget_after_jitter",
         "resolution": "operator_clear_stuck_c4_piece_then_auto_resumes",
         "operator_message": (
-            "A piece is physically stuck in the classification channel fall-off "
-            "zone and could not be cleared by jitter. Remove it to continue."
+            "A piece is physically stuck in the classification channel and could "
+            "not be discharged by jitter. Remove it to continue."
         ),
     }
     runtime_stats.setActiveIncident(payload)

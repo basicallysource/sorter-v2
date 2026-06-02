@@ -619,6 +619,8 @@ def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
             result = collector.status()
             result.update({"ok": False, "reason": "invalid_rate", "message": str(exc)})
             return result
+    if "annotate" in payload:
+        collector.setAnnotate(bool(payload.get("annotate")))
     if "enabled" in payload:
         collector.setEnabled(bool(payload.get("enabled")))
     return collector.status()

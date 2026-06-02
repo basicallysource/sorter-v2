@@ -1,7 +1,7 @@
 <script lang="ts">
 import GeneralSection from '$lib/components/settings/GeneralSection.svelte';
 import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
-import DashboardSection from '$lib/components/settings/DashboardSection.svelte';
+import SampleCaptureSection from '$lib/components/settings/SampleCaptureSection.svelte';
 import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
 import TailscaleSection from '$lib/components/settings/TailscaleSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
@@ -44,13 +44,6 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 	</SectionCard>
 
 	<SectionCard
-		title="Dashboard"
-		description="Choose which panels appear on the main dashboard."
-	>
-		<DashboardSection />
-	</SectionCard>
-
-	<SectionCard
 		title="Tailscale"
 		description="View connection status and join or switch Tailscale networks."
 	>
@@ -62,6 +55,13 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 		description="Configure the OpenRouter key used for cloud-assisted detection."
 	>
 		<ApiKeysSection />
+	</SectionCard>
+
+	<SectionCard
+		title="Sample Capture"
+		description="Collect raw camera frames for model training. Runs in any machine mode without changing sorting behavior."
+	>
+		<SampleCaptureSection />
 	</SectionCard>
 
 	<SectionCard

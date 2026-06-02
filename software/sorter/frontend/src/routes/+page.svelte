@@ -13,7 +13,6 @@
 	import Modal from '$lib/components/Modal.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
-	import SampleCollectionSpeedPanel from '$lib/components/SampleCollectionSpeedPanel.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
@@ -181,7 +180,6 @@
 	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
 		'standard_carousel'
 	);
-	let showSampleCapture = $state(false);
 	let exitIncidentActionPending = $state(false);
 	let exitIncidentActionError = $state<string | null>(null);
 	let stallIncidentActionPending = $state(false);
@@ -1034,7 +1032,6 @@
 			const res = await fetch(`${baseUrl}/api/system/dashboard-config`);
 			if (!res.ok) return;
 			const payload = await res.json();
-			showSampleCapture = Boolean(payload?.show_sample_capture);
 			const definitions = normalizeIncidentDefinitions(payload?.incident_definitions);
 			incidentDefinitions = definitions;
 			const handling =
@@ -1687,11 +1684,6 @@
 							{/if}
 						</div>
 					</CollapsibleSection>
-					{#if showSampleCapture}
-						<CollapsibleSection title="Sample Capture" storageKey="sampleCapture">
-							<SampleCollectionSpeedPanel baseUrl={currentBackendBaseUrl()} {hardwareState} />
-						</CollapsibleSection>
-					{/if}
 					<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
 						<RecentObjects />
 					</CollapsibleSection>

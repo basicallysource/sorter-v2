@@ -1,0 +1,181 @@
+<script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
+	import { getMachineContext } from '$lib/machines/context';
+
+	const machine = getMachineContext();
+
+	const STATUS_POLL_MS = 3000;
+
+	let enabled = $state(false);
+	let annotate = $state(true);
+	let perMinute = $state(6);
+	let savedCount = $state(0);
+	let lastSavedAgeS = $state<number | null>(null);
+	let lastError = $state<string | null>(null);
+	let outputDir = $state('');
+	let initialized = $state(false);
+
+	let loading = $state(true);
+	let saving = $state(false);
+	let errorMsg = $state<string | null>(null);
+
+	let pollTimer: ReturnType<typeof setInterval> | null = null;
+
+	function currentBackendBaseUrl(): string {
+		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
+	}
+
+	function applyStatus(payload: any) {
+		initialized = payload?.reason !== 'collector_not_initialized';
+		enabled = Boolean(payload?.enabled);
+		annotate = payload?.annotate !== false;
+		const ivl = Number(payload?.interval_s);
+		if (Number.isFinite(ivl) && ivl > 0) perMinute = Math.round((60 / ivl) * 10) / 10;
+		savedCount = Number(payload?.saved_count) || 0;
+		const age = Number(payload?.last_saved_age_s);
+		lastSavedAgeS = Number.isFinite(age) ? age : null;
+		lastError = typeof payload?.last_error === 'string' ? payload.last_error : null;
+		if (typeof payload?.output_dir === 'string') outputDir = payload.output_dir;
+	}
+
+	async function loadStatus(showLoading = true) {
+		if (showLoading) loading = true;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/system/sample-capture`);
+			if (!res.ok) throw new Error(await res.text());
+			applyStatus(await res.json());
+			errorMsg = null;
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Failed to load sample-capture status.';
+		} finally {
+			if (showLoading) loading = false;
+		}
+	}
+
+	async function post(body: Record<string, unknown>) {
+		saving = true;
+		errorMsg = null;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/system/sample-capture`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(body)
+			});
+			if (!res.ok) throw new Error(await res.text());
+			applyStatus(await res.json());
+		} catch (e: any) {
+			errorMsg = e?.message ?? 'Failed to update sample capture.';
+		} finally {
+			saving = false;
+		}
+	}
+
+	function saveEnabled(next: boolean) {
+		void post({ enabled: next });
+	}
+
+	function saveAnnotate(next: boolean) {
+		void post({ annotate: next });
+	}
+
+	function saveRate(next: number) {
+		if (!Number.isFinite(next) || next <= 0) return;
+		void post({ interval_s: 60 / next });
+	}
+
+	onMount(() => {
+		void loadStatus();
+		pollTimer = setInterval(() => void loadStatus(false), STATUS_POLL_MS);
+	});
+
+	onDestroy(() => {
+		if (pollTimer) clearInterval(pollTimer);
+	});
+</script>
+
+<div class="flex flex-col gap-3">
+	<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
+		<input
+			type="checkbox"
+			checked={enabled}
+			disabled={loading || saving || !initialized}
+			onchange={(event) => saveEnabled(event.currentTarget.checked)}
+			class="mt-0.5 h-4 w-4 accent-sky-500"
+		/>
+		<span class="min-w-0">
+			<span class="block text-sm font-medium text-text">Capture training frames</span>
+			<span class="mt-0.5 block text-sm text-text-muted">
+				Snapshots the latest frame from every live camera at the rate below and feeds
+				each into the classification pipeline — saved to a session, queued, and
+				uploaded to Hive. Runs in any machine mode without changing sorting behavior;
+				it only reads camera frames. Off by default; the setting persists across
+				restarts.
+			</span>
+		</span>
+	</label>
+
+	<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
+		<input
+			type="checkbox"
+			checked={annotate}
+			disabled={loading || saving || !initialized}
+			onchange={(event) => saveAnnotate(event.currentTarget.checked)}
+			class="mt-0.5 h-4 w-4 accent-sky-500"
+		/>
+		<span class="min-w-0">
+			<span class="block text-sm font-medium text-text">Annotate with OpenRouter</span>
+			<span class="mt-0.5 block text-sm text-text-muted">
+				Run the Gemini (gemini_sam) detector on each frame before upload so samples
+				arrive in Hive as teacher captures. Adds an OpenRouter call per frame per
+				camera. If off (or no API key), frames upload as raw samples.
+			</span>
+		</span>
+	</label>
+
+	<label class="flex items-center justify-between gap-3 border border-border bg-bg px-3 py-2.5">
+		<span class="min-w-0">
+			<span class="block text-sm font-medium text-text">Capture rate</span>
+			<span class="mt-0.5 block text-sm text-text-muted">
+				Frames per minute per camera. Default 6 (one every 10s).
+			</span>
+		</span>
+		<span class="flex shrink-0 items-center gap-2">
+			<input
+				type="number"
+				min="0.1"
+				max="600"
+				step="1"
+				value={perMinute}
+				disabled={loading || saving || !initialized}
+				onchange={(event) => saveRate(Number(event.currentTarget.value))}
+				class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
+			/>
+			<span class="text-sm text-text-muted">/min</span>
+		</span>
+	</label>
+
+	{#if !initialized && !loading}
+		<div class="text-sm text-text-muted">
+			Sample collector is not initialized on this machine (no camera service yet).
+		</div>
+	{/if}
+
+	<div class="flex flex-col gap-1 text-sm text-text-muted">
+		<span>
+			Saved this session: <span class="font-medium text-text">{savedCount}</span>
+			{#if enabled && lastSavedAgeS !== null}
+				· last frame {lastSavedAgeS.toFixed(1)}s ago
+			{/if}
+		</span>
+		{#if outputDir}
+			<span class="break-all">Writing to <span class="text-text">{outputDir}</span></span>
+		{/if}
+	</div>
+
+	{#if errorMsg}
+		<div class="text-sm text-danger dark:text-red-400">{errorMsg}</div>
+	{:else if lastError}
+		<div class="text-sm text-danger dark:text-red-400">Last capture error: {lastError}</div>
+	{/if}
+</div>

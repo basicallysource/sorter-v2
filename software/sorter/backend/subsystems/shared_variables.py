@@ -107,7 +107,14 @@ class SharedVariables:
         next_value = bool(open)
         if self._distribution_ready == next_value and not self._bus_enabled():
             return
+        prev = self._distribution_ready
         self._distribution_ready = next_value
+        if prev != next_value and self._gc is not None:
+            logger = getattr(self._gc, "logger", None)
+            if logger is not None:
+                logger.info(
+                    f"distribution_ready {prev} -> {next_value} (reason={reason})"
+                )
         self._publish_station_gate(
             StationId.DISTRIBUTION,
             open=next_value,

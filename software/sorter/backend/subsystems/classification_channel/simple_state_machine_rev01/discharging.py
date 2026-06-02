@@ -267,9 +267,13 @@ class Discharging(Rev01BaseState):
             return
         obj = self.ctx.known_object
         # advanceTransport (non-dynamic) shifts wait -> exit so the piece
-        # distribution positioned for now occupies the drop slot it reads from.
+        # distribution positioned now occupies the drop slot it reads from.
+        # Distribution watches that slot transition itself (Ready -> Sending) to
+        # know the piece was flung. Classification does NOT touch
+        # ``distribution_ready`` — distribution is the sole owner of that gate.
+        # The old cross-subsystem False edge here could be lost in a race and
+        # wedge distribution in READY forever; the durable slot signal can't be.
         self.transport.advanceTransport()
-        self.shared.set_distribution_gate(False, reason="rev01_discharged")
         self._released = True
         if obj is not None:
             self.logger.info(

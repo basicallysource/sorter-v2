@@ -142,42 +142,6 @@ RAW_DETECTION_OVERLAY_ENABLED: bool = (
 )
 
 
-# Debug: when SORTER_DUMP_MODEL_INPUT_DIR is set, dump the exact crop this stack
-# feeds the model (and its letterboxed square) to <dir>/vm/<role>/ as a ring
-# buffer, so the legacy and perception stacks can be compared pixel-for-pixel.
-_VM_DUMP_DIR = _os.environ.get("SORTER_DUMP_MODEL_INPUT_DIR", "").strip()
-_VM_DUMP_EVERY = max(1, int(_os.environ.get("SORTER_DUMP_MODEL_INPUT_EVERY", "4") or "4"))
-_VM_DUMP_MAX = max(1, int(_os.environ.get("SORTER_DUMP_MODEL_INPUT_MAX", "300") or "300"))
-_vm_dump_counters: dict[str, int] = {}
-
-
-def _dumpVmModelInput(crop, role: str, imgsz: int) -> None:
-    if not _VM_DUMP_DIR:
-        return
-    n = _vm_dump_counters.get(role, 0)
-    _vm_dump_counters[role] = n + 1
-    if n % _VM_DUMP_EVERY != 0:
-        return
-    try:
-        from vision.ml.base import letterbox
-
-        slot = (n // _VM_DUMP_EVERY) % _VM_DUMP_MAX
-        out_dir = _os.path.join(_VM_DUMP_DIR, "vm", role)
-        _os.makedirs(out_dir, exist_ok=True)
-        model_input = letterbox(crop, int(imgsz))[0]
-        png = [cv2.IMWRITE_PNG_COMPRESSION, 1]
-        crop_save = crop
-        if crop.shape[1] > 1280:
-            sc = 1280.0 / float(crop.shape[1])
-            crop_save = cv2.resize(
-                crop, (1280, int(round(crop.shape[0] * sc))), interpolation=cv2.INTER_AREA
-            )
-        cv2.imwrite(_os.path.join(out_dir, f"crop_{slot:05d}.png"), crop_save, png)
-        cv2.imwrite(_os.path.join(out_dir, f"model_{slot:05d}.png"), model_input, png)
-    except Exception:
-        pass
-
-
 def _hive_inference_min_interval_s_for_role(role: str | None) -> float:
     if role == "carousel":
         return HIVE_INFERENCE_MIN_INTERVAL_S_CAROUSEL
@@ -3463,8 +3427,6 @@ class VisionManager:
             result = self._cropFrameToPolygonRegion(frame_bgr, polygon)
             if result is not None:
                 crop, (off_x, off_y) = result
-        if _VM_DUMP_DIR:
-            _dumpVmModelInput(crop, role, getattr(processor, "imgsz", 320))
         prof = self.gc.profiler
         prof.hit(f"hive.{role}.calls")
         prof.mark(f"hive.{role}.interval_ms")

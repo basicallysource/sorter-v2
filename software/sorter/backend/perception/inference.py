@@ -19,7 +19,6 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
-import cv2
 import numpy as np
 
 from .arcs import (
@@ -51,17 +50,10 @@ _IDLE_SLEEP_S = 0.005
 _NO_FRAME_SLEEP_S = 0.010
 
 
-# Debug: gray-fill (value 230) the pixels outside the channel polygon before
-# inference, matching VisionManager's SORTER_POLYGON_CROP_MASK path so the two
-# stacks feed the model identical pixels. Off by default.
+# Gray-fill (value 230) the pixels outside the channel polygon before inference,
+# so the model only sees pixels inside the channel region (matching
+# VisionManager's crop-mask path). Gated on SORTER_POLYGON_CROP_MASK.
 _POLYGON_CROP_MASK = os.environ.get("SORTER_POLYGON_CROP_MASK", "0") == "1"
-
-# Debug: when SORTER_DUMP_MODEL_INPUT_DIR is set, write the exact crop the model
-# receives (and its letterboxed square) to <dir>/perception/<channel_id>/ as a
-# ring buffer of the most recent _DUMP_MAX samples, one every _DUMP_EVERY cycle.
-_DUMP_DIR = os.environ.get("SORTER_DUMP_MODEL_INPUT_DIR", "").strip()
-_DUMP_EVERY = max(1, int(os.environ.get("SORTER_DUMP_MODEL_INPUT_EVERY", "4") or "4"))
-_DUMP_MAX = max(1, int(os.environ.get("SORTER_DUMP_MODEL_INPUT_MAX", "300") or "300"))
 
 
 def _now_ms() -> float:
@@ -403,32 +395,6 @@ class InferenceWorker:
         except Exception:
             pass
 
-    def _dumpModelInput(self, crop) -> None:
-        n = getattr(self, "_dump_n", 0)
-        self._dump_n = n + 1
-        if n % _DUMP_EVERY != 0:
-            return
-        try:
-            from vision.ml.base import letterbox
-
-            slot = (n // _DUMP_EVERY) % _DUMP_MAX
-            out_dir = os.path.join(
-                _DUMP_DIR, "perception", str(self._channel_def.channel_id)
-            )
-            os.makedirs(out_dir, exist_ok=True)
-            model_input = letterbox(crop, int(self._runtime.imgsz))[0]
-            png = [cv2.IMWRITE_PNG_COMPRESSION, 1]
-            crop_save = crop
-            if crop.shape[1] > 1280:
-                sc = 1280.0 / float(crop.shape[1])
-                crop_save = cv2.resize(
-                    crop, (1280, int(round(crop.shape[0] * sc))), interpolation=cv2.INTER_AREA
-                )
-            cv2.imwrite(os.path.join(out_dir, f"crop_{slot:05d}.png"), crop_save, png)
-            cv2.imwrite(os.path.join(out_dir, f"model_{slot:05d}.png"), model_input, png)
-        except Exception:
-            pass
-
     def _loop(self) -> None:
         while not self._stop.is_set():
             self.iterations += 1
@@ -466,8 +432,6 @@ class InferenceWorker:
                         crop = np.where(
                             mask_crop[:, :, None] > 0, crop, np.uint8(230)
                         )
-                    if _DUMP_DIR:
-                        self._dumpModelInput(crop)
                     raw_bboxes = self._runtime.infer(
                         crop, conf_threshold=self._conf_threshold
                     )
@@ -480,8 +444,6 @@ class InferenceWorker:
                     if _POLYGON_CROP_MASK:
                         m = self._channel_def.mask
                         full = np.where(m[:, :, None] > 0, full, np.uint8(230))
-                    if _DUMP_DIR:
-                        self._dumpModelInput(full)
                     bboxes = list(
                         self._runtime.infer(
                             full, conf_threshold=self._conf_threshold

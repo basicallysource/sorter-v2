@@ -42,6 +42,14 @@ from .state import ChannelState, EMPTY_STATE, LatestStateSlot
 _RECONCILE_INTERVAL_S = 2.0
 
 
+# The classification camera is registered under source id "carousel" while
+# configs/UI may name the role "classification_channel" — treat them as one.
+_PERCEPTION_ROLE_ALIASES = {
+    "carousel": "classification_channel",
+    "classification_channel": "carousel",
+}
+
+
 # RK3588 has three NPU cores. We pin each perception channel to a fixed
 # core; the order matches CHANNEL_REGISTRY insertion order so C2/C3/C4
 # always land on the same cores boot to boot.
@@ -85,6 +93,12 @@ class PerceptionService:
         self._workers = workers
         self._started = False
         self._start_lock = threading.RLock()
+
+        # Live-feed preview cache. The overlay is composited at most ONCE per
+        # inference frame (keyed by frame timestamp + preview width) and shared
+        # across every streaming client, instead of re-rendering on every poll.
+        self._preview_lock = threading.Lock()
+        self._preview_cache: Dict[int, tuple[float, int, np.ndarray]] = {}
 
         # Reconcile machinery. ``context`` carries everything needed to
         # (re)build a single channel stack from disk at runtime; ``None`` (test
@@ -416,12 +430,41 @@ class PerceptionService:
                 return channel_id
         return None
 
-    def annotated_feed_frame(self, channel_id: int):
+    def owns_role(self, role: str) -> bool:
+        """Whether this camera role belongs to the perception stack — a STATIC
+        fact from ``CHANNEL_REGISTRY``, independent of whether the channel has
+        finished building. The feed endpoint uses this to decide the stack ONCE:
+        a perception role's annotations come only from perception, never the
+        legacy VisionManager overlay, even while the channel is still warming up
+        (in which case the feed shows raw video, not someone else's boxes)."""
+        registry_sources = {src for (src, _poly, _ang) in CHANNEL_REGISTRY.values()}
+        for candidate in (role, _PERCEPTION_ROLE_ALIASES.get(role)):
+            if candidate is not None and candidate in registry_sources:
+                return True
+        return False
+
+    def channel_id_for_role(self, role: str) -> Optional[int]:
+        """Built channel id for a role (with the carousel/classification alias),
+        or ``None`` if the channel is not built yet. Stack ownership is
+        ``owns_role``; this only answers "can perception render it right now"."""
+        for candidate in (role, _PERCEPTION_ROLE_ALIASES.get(role)):
+            if candidate is None:
+                continue
+            channel_id = self.channel_id_for_source(candidate)
+            if channel_id is not None:
+                return channel_id
+        return None
+
+    def preview_frame(self, channel_id: int, max_width: int = 0):
         """``(annotated_bgr, frame_timestamp)`` for the live feed — the clean
         operating overlay (zones + on-channel boxes the machine acts on) drawn
         on the exact frame the model inferred against, so boxes never drift off
         the pixels. Reuses the last inference cycle; runs NO new inference.
-        ``None`` until the worker has completed a cycle."""
+
+        Rendered at ``max_width`` (preview resolution) and cached per inference
+        frame: no matter how many clients stream or how fast they poll, the
+        overlay is composited at most once per inference cycle. ``None`` until
+        the worker has completed a cycle."""
         worker = self._workers.get(channel_id)
         channel = self._channels.get(channel_id)
         if worker is None or channel is None:
@@ -432,13 +475,21 @@ class PerceptionService:
         frame = debug.get("frame")
         if frame is None:
             return None
+        ts = float(frame.timestamp)
+        with self._preview_lock:
+            cached = self._preview_cache.get(channel_id)
+            if cached is not None and cached[0] == ts and cached[1] == max_width:
+                return cached[2], ts
         annotated = renderFeedOverlay(
             frame.bgr,
             channel,
             debug.get("on_channel_bboxes") or [],
             detections=debug.get("detections"),
+            max_width=max_width,
         )
-        return annotated, frame.timestamp
+        with self._preview_lock:
+            self._preview_cache[channel_id] = (ts, max_width, annotated)
+        return annotated, ts
 
     def request_full_frame_debug(self, channel_id: int, ttl_s: float = 10.0) -> bool:
         """Turn on the worker's on-demand full-frame (uncropped) inference for a

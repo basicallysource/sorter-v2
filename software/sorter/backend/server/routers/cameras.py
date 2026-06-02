@@ -3956,87 +3956,79 @@ def camera_feed_by_role(
             cached_dashboard_shape = shape
         return _apply_dashboard_crop(frame, cached_dashboard_spec)
 
-    # Perception path: when the perception service owns detection for this
-    # role, serve ITS annotations (drawn on the exact frame it inferred) rather
-    # than the legacy VisionManager overlays. This is the single-inference path
-    # — it never triggers VisionManager's inline detection — and the boxes are
-    # glued to their own frame, so they cannot drift ahead of the video the way
-    # last-detection-on-latest-frame overlays do.
+    # ---- Stack decision (made ONCE, no fallthrough between renderers) --------
+    # A camera role is on exactly one stack:
+    #   * PERCEPTION stack  -> annotations come ONLY from perception's renderer
+    #   * VISIONMANAGER/live -> annotations come ONLY from the VisionManager
+    #     overlay
+    # The two annotation renderers never cross. ``owns_role`` is a STATIC fact
+    # (registry membership), so a perception role stays a perception role even
+    # while its channel is still building — in that window it shows raw video
+    # (pixels only, from the SAME shared capture thread), never the other
+    # stack's boxes. Raw pixels are identical on either path because perception
+    # and the preview share one V4L2 capture thread.
     perception_service = (
         getattr(shared_state.gc_ref, "perception_service", None)
         if shared_state.gc_ref is not None
         else None
     )
-    if (
+    on_perception = (
         not direct
-        and want_annotated
-        and color_correct
         and perception_service is not None
-    ):
-        # Perception's channel for the classification camera is registered under
-        # the source id "carousel" while configs/UI may name it
-        # "classification_channel" — try both names for that one role.
-        _ROLE_ALIASES = {
-            "carousel": "classification_channel",
-            "classification_channel": "carousel",
-        }
-        candidate_sources: list[str] = []
-        for candidate in (config_role, role):
-            if candidate not in candidate_sources:
-                candidate_sources.append(candidate)
-            alias = _ROLE_ALIASES.get(candidate)
-            if alias is not None and alias not in candidate_sources:
-                candidate_sources.append(alias)
-        channel_id = None
-        for candidate in candidate_sources:
-            channel_id = perception_service.channel_id_for_source(candidate)
-            if channel_id is not None:
-                break
-        if channel_id is not None:
-            prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
+        and perception_service.owns_role(role)
+    )
+    perception_channel_id = (
+        perception_service.channel_id_for_role(role) if on_perception else None
+    )
 
-            def generate_perception():
-                last_frame_ts: float | None = None
-                while True:
-                    result = perception_service.annotated_feed_frame(channel_id)
-                    if result is None:
-                        time.sleep(0.05)
-                        continue
-                    frame, frame_ts = result
-                    if last_frame_ts == frame_ts:
-                        time.sleep(0.01)
-                        continue
-                    last_frame_ts = frame_ts
-                    shared_state.gc_ref.runtime_stats.observePerfMs(
-                        f"preview.{role}.frame_age_ms",
-                        max(0.0, (time.time() - float(frame_ts)) * 1000.0),
-                    )
-                    if PREVIEW_MAX_WIDTH > 0 and frame.shape[1] > PREVIEW_MAX_WIDTH:
-                        scale = PREVIEW_MAX_WIDTH / float(frame.shape[1])
-                        frame = cv2.resize(
-                            frame,
-                            (PREVIEW_MAX_WIDTH, int(round(frame.shape[0] * scale))),
-                            interpolation=cv2.INTER_AREA,
-                        )
-                    frame = _dashboard_frame(frame)
-                    if prof is not None:
-                        prof.hit(f"encode.{role}.frames")
-                        prof.mark(f"encode.{role}.interval_ms")
-                        with prof.timer(f"encode.{role}.encode_ms"):
-                            chunk = encoder.encode_chunk(frame, quality=55)
-                    else:
+    # PERCEPTION stack, annotated, channel ready -> perception renderer only.
+    if on_perception and want_annotated and perception_channel_id is not None:
+        prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
+
+        def generate_perception():
+            last_frame_ts: float | None = None
+            while True:
+                # Dedup on the inference frame timestamp BEFORE any heavy work.
+                # preview_frame renders the overlay at preview width at most
+                # once per inference cycle (cached + shared across clients), so
+                # this loop only encodes when a genuinely new frame lands — no
+                # per-poll re-rendering of the 4K frame.
+                result = perception_service.preview_frame(perception_channel_id, PREVIEW_MAX_WIDTH)
+                if result is None:
+                    time.sleep(0.05)
+                    continue
+                frame, frame_ts = result
+                if last_frame_ts == frame_ts:
+                    time.sleep(0.01)
+                    continue
+                last_frame_ts = frame_ts
+                shared_state.gc_ref.runtime_stats.observePerfMs(
+                    f"preview.{role}.frame_age_ms",
+                    max(0.0, (time.time() - float(frame_ts)) * 1000.0),
+                )
+                frame = _dashboard_frame(frame)
+                if prof is not None:
+                    prof.hit(f"encode.{role}.frames")
+                    prof.mark(f"encode.{role}.interval_ms")
+                    with prof.timer(f"encode.{role}.encode_ms"):
                         chunk = encoder.encode_chunk(frame, quality=55)
-                    yield chunk
+                else:
+                    chunk = encoder.encode_chunk(frame, quality=55)
+                yield chunk
 
-            return StreamingResponse(
-                generate_perception(),
-                media_type="multipart/x-mixed-replace; boundary=frame",
-            )
+        return StreamingResponse(
+            generate_perception(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
+        )
 
-    # Live path: use CameraService feed if available
+    # Live path: shared CameraService capture. VisionManager annotations are
+    # drawn ONLY for roles perception does not own; a perception role that lands
+    # here (raw, or channel still building) gets pixels with no overlay, so the
+    # VisionManager renderer never runs for a perception role.
     if not direct and shared_state.camera_service is not None:
         feed = shared_state.camera_service.get_feed(role)
         if feed is not None:
+            vm_annotated = want_annotated and not on_perception
             prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
 
             def generate_live():
@@ -4044,7 +4036,7 @@ def camera_feed_by_role(
                 while True:
                     fetch_started = time.perf_counter()
                     frame_obj = feed.get_frame(
-                        annotated=want_annotated,
+                        annotated=vm_annotated,
                         exclude_categories=exclude_categories,
                         color_correct=color_correct,
                     )
@@ -4061,7 +4053,7 @@ def camera_feed_by_role(
                     last_frame_ts = frame_obj.timestamp
                     frame = (
                         frame_obj.annotated
-                        if want_annotated and frame_obj.annotated is not None
+                        if vm_annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
                     shared_state.gc_ref.runtime_stats.observePerfMs(

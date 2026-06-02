@@ -60,8 +60,12 @@ class HiveClient:
 
     def get_part_metadata(self, part_num: str) -> dict:
         """GET /api/machine/parts/{part_num} -- part metadata incl. the
-        resolved physical ``dimensions`` block (mm)."""
-        return self._request("GET", f"/api/machine/parts/{part_num}")
+        resolved physical ``dimensions`` block (mm).
+
+        Short (connect, read) timeout: this runs per piece in the
+        classification path, so a hung/slow Hive must fail fast rather than
+        stall sorting. The caller treats any failure as "no metadata"."""
+        return self._request("GET", f"/api/machine/parts/{part_num}", timeout=(2, 4))
 
     def upload_sample(
         self,

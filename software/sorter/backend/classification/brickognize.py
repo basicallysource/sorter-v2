@@ -11,6 +11,10 @@ from .brickognize_types import BrickognizeResponse, BrickognizeItem, Brickognize
 
 API_URL = "https://api.brickognize.com/predict/?predict_color=true"
 API_TIMEOUT_S = (3.0, 8.0)
+# Brickognize rejects requests with more than this many query images. Callers
+# should pre-trim, but we hard-cap here too so a stray oversized batch degrades
+# (drops the tail) instead of erroring out the whole classification.
+MAX_QUERY_IMAGES = 8
 ANY_COLOR = "any_color"
 ANY_COLOR_NAME = "Any Color"
 FILTER_CATEGORIES = ["primo", "duplo"]
@@ -128,6 +132,8 @@ def _classifyImages(
 ) -> BrickognizeResponse:
     if not images:
         raise ValueError("at least one image required")
+    if len(images) > MAX_QUERY_IMAGES:
+        images = images[:MAX_QUERY_IMAGES]
     dump_dir = None
     if gc is not None and gc.brickognize_dump_root is not None and piece_uuid:
         dump_dir = gc.brickognize_dump_root / piece_uuid

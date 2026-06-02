@@ -129,6 +129,7 @@
 	function feederModeLabel(mode: string): string {
 		const labels: Record<string, string> = {
 			go_to_angle_rev01: 'Go to Angle',
+			pulse_perception_rev01: 'Simple Pulse',
 			drop_zone_reactive_rev01: 'Drop Zone Reactive'
 		};
 		return labels[mode] ?? mode;
@@ -449,7 +450,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['go_to_angle_rev01', 'drop_zone_reactive_rev01'] as mode}
+							{#each ['go_to_angle_rev01', 'pulse_perception_rev01'] as mode}
 								<button
 									onclick={() => saveFeederMode(mode)}
 									disabled={savingFeederMode}

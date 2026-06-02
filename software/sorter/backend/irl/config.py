@@ -13,6 +13,11 @@ class ClassificationChannelMode(enum.Enum):
 class FeederMode(enum.Enum):
     DROP_ZONE_REACTIVE_REV01 = "drop_zone_reactive_rev01"
     GO_TO_ANGLE_REV01 = "go_to_angle_rev01"
+    # Simple pulsing state machine on the new perception stack. Like
+    # go-to-angle it reads ChannelState from the perception service, but the
+    # exit/drop handling is just "pulse a fixed distance, pause a fixed time"
+    # per region — no fast-eject / COM closed loop / jitter recovery.
+    PULSE_PERCEPTION_REV01 = "pulse_perception_rev01"
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError

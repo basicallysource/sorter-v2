@@ -299,7 +299,19 @@ def list_models(
 # so FastAPI's path matcher doesn't capture ``"installed"`` as a model id.
 @router.get("/models/installed")
 def list_installed() -> dict:
-    return {"items": hive_models_service.list_installed_models()}
+    from vision.detection_registry import detection_algorithm_definition
+
+    items = hive_models_service.list_installed_models()
+    # Tag each entry with the training scopes the registry knows it for, so the
+    # Models UI can flag "not designed for this subsystem" when the operator
+    # assigns a model to a slot outside its scope (still allowed — informational).
+    for item in items:
+        algo_id = f"{'bundled:' if item.get('bundled') else 'hive:'}{item.get('local_id')}"
+        definition = detection_algorithm_definition(algo_id)
+        item["registry_scopes"] = (
+            sorted(definition.supported_scopes) if definition is not None else []
+        )
+    return {"items": items}
 
 
 @router.get("/models/active-assignments")
@@ -315,15 +327,64 @@ def list_active_assignments() -> dict:
 
 class ActivatePayload(BaseModel):
     algorithm_id: str
+    # When ``scope`` is set, activate for EXACTLY that one subsystem slot (1:1
+    # with the TOML, no fan-out, no scope gate). When omitted, fall back to the
+    # legacy behavior of activating every slot the model's training scope claims.
+    scope: str | None = None
+    role: str | None = None
+
+
+def _apply_active_assignment_to_slot(
+    algorithm_id: str, target_scope: str, target_role: str | None
+) -> dict:
+    """Write ``algorithm_id`` to exactly ONE subsystem slot. 1:1 with the TOML,
+    no fan-out and NO scope gate — a model may be assigned to a slot whose
+    training scope it doesn't claim (perception loads any model by id; the UI
+    surfaces a 'not designed for this' note). Pushes the live VisionManager and
+    pokes perception to reconcile so the change applies without a restart."""
+    from toml_config import getDetectionConfig, setDetectionConfig
+
+    slot = None
+    for s in _slots_for_setup(_current_setup_key()):
+        if s[0] == target_scope and s[1] == target_role:
+            slot = s
+            break
+    if slot is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"no subsystem for scope={target_scope!r} role={target_role!r} in this setup",
+        )
+    scope, role, label, _registry_scope, _group = slot
+    merged = dict(getDetectionConfig(scope) or {})
+    if role is None:
+        merged["algorithm"] = algorithm_id
+    else:
+        current = (
+            merged.get("algorithm_by_role")
+            if isinstance(merged.get("algorithm_by_role"), dict)
+            else {}
+        )
+        merged["algorithm_by_role"] = {**current, role: algorithm_id}
+    setDetectionConfig(scope, merged)
+    _push_to_live_vision_manager(scope, role, algorithm_id)
+    try:
+        from server import shared_state
+
+        ps = getattr(getattr(shared_state, "gc_ref", None), "perception_service", None)
+        if ps is not None and hasattr(ps, "request_reconcile"):
+            ps.request_reconcile()
+    except Exception:
+        pass
+    return {"applied": [label], "skipped": []}
 
 
 @router.post("/models/activate")
 def activate_algorithm(payload: ActivatePayload) -> dict:
-    """Set ``algorithm_id`` as the active detector for every slot it can serve.
+    """Activate ``algorithm_id`` for a subsystem.
 
-    Returns the post-activation assignment list plus a summary of which slots
-    were updated and which were left untouched (model didn't claim that
-    scope).
+    With ``scope`` set, writes exactly one subsystem slot — 1:1 with the TOML,
+    no scope gate. Without it, the legacy behavior writes every slot the model's
+    training scope claims.
     """
     from vision.detection_registry import detection_algorithm_definition, invalidate_registry
 
@@ -338,9 +399,14 @@ def activate_algorithm(payload: ActivatePayload) -> dict:
         raise HTTPException(
             status_code=404, detail=f"unknown algorithm: {payload.algorithm_id}"
         )
-    summary = _apply_active_assignments(
-        payload.algorithm_id, set(definition.supported_scopes)
-    )
+    if payload.scope is not None:
+        summary = _apply_active_assignment_to_slot(
+            payload.algorithm_id, payload.scope, payload.role
+        )
+    else:
+        summary = _apply_active_assignments(
+            payload.algorithm_id, set(definition.supported_scopes)
+        )
     return {
         "algorithm_id": payload.algorithm_id,
         "label": definition.label,

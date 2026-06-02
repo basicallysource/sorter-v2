@@ -7,7 +7,7 @@ from typing import Optional
 import cv2
 import numpy as np
 
-from classification.brickognize import _classifyImages
+from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
 from defs.known_object import ClassificationStatus
 from subsystems.classification_channel.states import ClassificationChannelState
 
@@ -236,14 +236,45 @@ class Classifying(Rev01BaseState):
 
         obj.classified_at = time.time()
 
+        if obj.classification_status == ClassificationStatus.classified and obj.part_id:
+            self._applyHiveSizeMetadata(obj)
+
         if frames:
             best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
             obj.thumbnail = self.encodeFrame(frames[best_idx])
 
         self.emitKnownObject()
 
+    def _applyHiveSizeMetadata(self, obj) -> None:
+        # Resolve physical dimensions from the primary Hive target and flag the
+        # piece as too_big when any single axis exceeds the oversize limit. Hive
+        # being unreachable must never block classification — best effort only.
+        try:
+            from hive_metadata import (
+                OVERSIZE_MAX_DIMENSION_MM,
+                getMetadataForPieceFromHive,
+                isOversize,
+                maxDimensionMm,
+            )
+
+            metadata = getMetadataForPieceFromHive(self.gc, obj.part_id)
+            max_dim = maxDimensionMm(metadata)
+            if max_dim is None:
+                return
+            obj.max_dimension_mm = max_dim
+            obj.too_big = isOversize(max_dim)
+            if obj.too_big:
+                self.gc.logger.info(
+                    f"piece {obj.uuid} part {obj.part_id} is oversize "
+                    f"({max_dim:.1f}mm > {OVERSIZE_MAX_DIMENSION_MM}mm) -> misc bottom bin"
+                )
+        except Exception as exc:
+            self.gc.logger.warn(f"hive size metadata lookup failed: {exc}")
+
     def selectRecognitionCrops(self, crops: list[np.ndarray]) -> list[np.ndarray]:
-        n = self.ctx.config.max_captures
+        # Hard-cap at the Brickognize per-request image limit regardless of the
+        # configured max_captures — over the limit the API errors the whole call.
+        n = min(self.ctx.config.max_captures, MAX_QUERY_IMAGES)
         if len(crops) <= n:
             return list(crops)
         if not crops:

@@ -29,6 +29,7 @@ from blob_manager import (
     setFeederDetectionConfig,
     setHiveConfig,
 )
+from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
 from vision.detection_registry import (
@@ -39,73 +40,6 @@ from vision.detection_registry import (
 )
 
 router = APIRouter()
-
-
-ZONE_DROP_COLOR = (255, 128, 0)
-ZONE_EXIT_COLOR = (0, 64, 255)
-ZONE_PRECISE_COLOR = (255, 0, 255)
-_ZONE_OVERLAY_CACHE: dict[tuple, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
-
-
-def _channel_zone_overlay(channel: Any) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray] | None:
-    if channel is None:
-        return None
-    exit_only_sections = frozenset(channel.exit_sections - channel.precise_sections)
-    key = (
-        int(channel.channel_id),
-        tuple(int(v) for v in channel.mask.shape[:2]),
-        round(float(channel.center[0]), 3),
-        round(float(channel.center[1]), 3),
-        round(float(channel.radius1_angle_image), 3),
-        tuple(sorted(int(v) for v in channel.drop_sections)),
-        tuple(sorted(int(v) for v in exit_only_sections)),
-        tuple(sorted(int(v) for v in channel.precise_sections)),
-    )
-    cached = _ZONE_OVERLAY_CACHE.get(key)
-    if cached is not None:
-        return cached
-
-    mask = np.asarray(channel.mask)
-    if mask.ndim != 2 or mask.size == 0:
-        return None
-    on_channel = mask > 0
-    ys, xs = np.nonzero(on_channel)
-    h, w = mask.shape[:2]
-    overlay = np.zeros((h, w, 3), dtype=np.uint8)
-    drop_mask = np.zeros((h, w), dtype=np.uint8)
-    exit_mask = np.zeros((h, w), dtype=np.uint8)
-    precise_mask = np.zeros((h, w), dtype=np.uint8)
-    if xs.size == 0:
-        result = (overlay, drop_mask, exit_mask, precise_mask)
-        _ZONE_OVERLAY_CACHE[key] = result
-        return result
-
-    rel = (
-        np.degrees(np.arctan2(ys.astype(np.float64) - float(channel.center[1]), xs.astype(np.float64) - float(channel.center[0])))
-        - float(channel.radius1_angle_image)
-    ) % 360.0
-    sections = np.floor(rel).astype(np.int32) % 360
-
-    precise_sections = set(int(v) for v in channel.precise_sections)
-    exit_only = set(int(v) for v in exit_only_sections)
-    drop_sections = set(int(v) for v in channel.drop_sections)
-
-    if precise_sections:
-        precise_hit = np.isin(sections, list(precise_sections))
-        precise_mask[ys[precise_hit], xs[precise_hit]] = 255
-        overlay[ys[precise_hit], xs[precise_hit]] = ZONE_PRECISE_COLOR
-    if exit_only:
-        exit_hit = np.isin(sections, list(exit_only))
-        exit_mask[ys[exit_hit], xs[exit_hit]] = 255
-        overlay[ys[exit_hit], xs[exit_hit]] = ZONE_EXIT_COLOR
-    if drop_sections:
-        drop_hit = np.isin(sections, list(drop_sections))
-        drop_mask[ys[drop_hit], xs[drop_hit]] = 255
-        overlay[ys[drop_hit], xs[drop_hit]] = ZONE_DROP_COLOR
-
-    result = (overlay, drop_mask, exit_mask, precise_mask)
-    _ZONE_OVERLAY_CACHE[key] = result
-    return result
 
 
 def _draw_perception_debug(
@@ -135,25 +69,7 @@ def _draw_perception_debug(
             (255, 255, 255), max(1, thick - 1),
         )
 
-    zone_overlay = _channel_zone_overlay(channel)
-    if zone_overlay is not None:
-        overlay_img, drop_mask, exit_mask, precise_mask = zone_overlay
-        zone_pixels = np.any(overlay_img != 0, axis=2)
-        blended = img.copy()
-        blended[zone_pixels] = overlay_img[zone_pixels]
-        img = cv2.addWeighted(blended, 0.22, img, 0.78, 0)
-        for zone_mask, color in (
-            (drop_mask, ZONE_DROP_COLOR),
-            (exit_mask, ZONE_EXIT_COLOR),
-            (precise_mask, ZONE_PRECISE_COLOR),
-        ):
-            contours, _ = cv2.findContours(zone_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-            if contours:
-                cv2.drawContours(img, contours, -1, color, max(1, thick - 1))
-
-    if channel is not None:
-        contours, _ = cv2.findContours(channel.mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(img, contours, -1, (255, 255, 0), thick)
+    drawChannelZones(img, channel, thick)
 
     on_set = {tuple(int(v) for v in b) for b in on_bboxes}
     for b in raw_bboxes:  # rejected raw → orange (drawn first)
@@ -333,6 +249,7 @@ CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
+CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND = "classification_exit_stuck"
 CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
 CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
@@ -692,8 +609,17 @@ def _load_hive_targets() -> list[dict[str, Any]]:
     return [dict(target) for target in targets if isinstance(target, dict)]
 
 
-def _save_hive_targets(targets: list[dict[str, Any]]) -> None:
-    setHiveConfig({"targets": targets})
+def _save_hive_targets(targets: list[dict[str, Any]], primary_target_id: str | None = None) -> None:
+    if primary_target_id is None:
+        existing = getHiveConfig() or {}
+        primary_target_id = existing.get("primary_target_id")
+    setHiveConfig({"targets": targets, "primary_target_id": primary_target_id})
+
+
+def _load_hive_primary_id() -> str | None:
+    config = getHiveConfig() or {}
+    primary = config.get("primary_target_id")
+    return primary if isinstance(primary, str) else None
 
 
 def _mask_hive_token(token: str | None) -> str | None:
@@ -724,11 +650,13 @@ def get_hive_config() -> Dict[str, Any]:
         if isinstance(item, dict) and isinstance(item.get("id"), str)
     }
     targets = _load_hive_targets()
+    primary_target_id = _load_hive_primary_id()
 
     return {
         "ok": True,
         "configured_count": len(targets),
         "enabled_count": sum(1 for target in targets if bool(target.get("enabled", False))),
+        "primary_target_id": primary_target_id,
         "targets": [
             {
                 "id": target["id"],
@@ -737,6 +665,7 @@ def get_hive_config() -> Dict[str, Any]:
                 "machine_id": target.get("machine_id"),
                 "api_token_masked": _mask_hive_token(target.get("api_token")),
                 "enabled": bool(target.get("enabled", False)),
+                "is_primary": target["id"] == primary_target_id,
                 "uploader": (
                     dict(uploader_by_id[target["id"]])
                     if target["id"] in uploader_by_id
@@ -801,6 +730,20 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
     _save_hive_targets(next_targets)
     getClassificationTrainingManager().reloadHiveUploader()
     return {"ok": True, "message": "Hive target removed."}
+
+
+class HivePrimaryPayload(BaseModel):
+    target_id: str
+
+
+@router.post("/api/settings/hive/primary")
+def set_hive_primary(payload: HivePrimaryPayload) -> Dict[str, Any]:
+    target_id = payload.target_id.strip()
+    targets = _load_hive_targets()
+    if not any(target.get("id") == target_id for target in targets):
+        raise HTTPException(404, "Unknown Hive target.")
+    _save_hive_targets(targets, primary_target_id=target_id)
+    return {"ok": True, "message": "Primary Hive target set.", "primary_target_id": target_id}
 
 
 @router.post("/api/settings/hive/register")
@@ -1884,6 +1827,7 @@ def classification_channel_fallback_incident_clear(
         CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
         CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
         CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
+        CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND,
     }
     if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
         for kind in fallback_kinds:

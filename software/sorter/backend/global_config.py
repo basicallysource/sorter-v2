@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 from logger import Logger
 from profiler import Profiler
 from blob_manager import getMachineId
@@ -14,6 +14,7 @@ from blob_manager import getMachineId
 if TYPE_CHECKING:
     from run_recorder import RunRecorder
     from runtime_stats import RuntimeStatsCollector
+    from lifetime_stats import LifetimeStatsTracker
 
 
 class RegionProviderType(Enum):
@@ -51,6 +52,7 @@ class GlobalConfig:
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
+    lifetime_stats: "LifetimeStatsTracker"
     brickognize_dump_root: Optional[Path]
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]
@@ -84,6 +86,10 @@ class GlobalConfig:
         # main.py after camera startup. Not an env-toggle: the mode config
         # determines whether this is non-None.
         self.perception_service = None
+
+        # Standalone training-image grabber. Runs regardless of machine mode;
+        # set in main.py after camera startup. See sample_collector.py.
+        self.sample_collector: "Any" = None
 
 
 def mkTimeouts() -> Timeouts:
@@ -152,8 +158,15 @@ def mkGlobalConfig() -> GlobalConfig:
         gc.classification_skew_dump_root = Path(log_dir).resolve() / "classification_skew" / gc.run_id
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.logger = Logger(gc.debug_level, log_file=log_file)
+    # Profiler enable lives in machine_params.toml ([profiler] enabled), toggled
+    # from the Performance settings page. Defaults OFF: profiling adds per-call
+    # timing overhead across hot loops (notably the frontend camera feed) and
+    # writes telemetry to local_state.sqlite — it's a diagnostic for comparing
+    # systems, not something to leave on during normal sorting. The report
+    # interval stays an env knob.
+    from toml_config import getProfilerConfig
     gc.profiler = Profiler(
-        enabled=os.getenv("PROFILER_ENABLED", "1") == "1",
+        enabled=bool(getProfilerConfig().get("enabled", False)),
         report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),
     )
 

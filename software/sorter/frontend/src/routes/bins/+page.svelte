@@ -77,6 +77,8 @@
 	let statusMsg = $state('');
 	let clearingStates = $state<ClearingState[]>([]);
 	let togglingLayerKey = $state<number | null>(null);
+	let allowMultiCategory = $state(false);
+	let savingMultiCategory = $state(false);
 	let contentsByKey = $state<Record<string, BinContents>>({});
 	let detailsOpen = $state(false);
 	let detailsBin = $state<{ bin: BinInfo; layerIndex: number; contents: BinContents | null } | null>(null);
@@ -110,6 +112,45 @@
 			error = e instanceof Error ? e.message : 'Failed to load bin layout';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function loadBinSettings() {
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/settings`);
+			if (!res.ok) return;
+			const data = await res.json();
+			allowMultiCategory = Boolean(data.allow_multiple_categories_per_bin);
+		} catch {
+			// Keep last known setting on transient failures.
+		}
+	}
+
+	async function toggleMultiCategory() {
+		if (savingMultiCategory) return;
+		savingMultiCategory = true;
+		statusMsg = '';
+		error = null;
+		const next = !allowMultiCategory;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/settings`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ allow_multiple_categories_per_bin: next })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			allowMultiCategory = Boolean(data.allow_multiple_categories_per_bin);
+			statusMsg = allowMultiCategory
+				? 'Bins can now hold multiple categories once all bins are assigned.'
+				: 'Bins will use a single category each.';
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update setting';
+		} finally {
+			savingMultiCategory = false;
 		}
 	}
 
@@ -488,6 +529,7 @@
 		void loadLayout();
 		void loadBinContents();
 		void loadSetProgress();
+		void loadBinSettings();
 		void sortingProfileStore.load(baseUrl()).catch(() => {});
 		const interval = setInterval(() => {
 			void loadLayout();
@@ -516,6 +558,7 @@
 		void loadLayout();
 		void loadBinContents();
 		void loadSetProgress();
+		void loadBinSettings();
 		void sortingProfileStore.load(nextBaseUrl).catch(() => {});
 	});
 
@@ -605,6 +648,30 @@
 					{hasClearingKey('reset-all') ? 'Resetting…' : 'Reset All Bins'}
 				</button>
 			</div>
+		</div>
+
+		<div class="mb-4 flex items-center justify-between gap-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+			<div class="pr-4">
+				<div class="text-sm font-medium text-[#1A1A1A]">Allow multiple categories per bin</div>
+				<div class="mt-0.5 text-sm text-[#66635C]">
+					When every bin already has an assignment, keep sorting new categories by
+					combining them into existing bins (least-loaded first) instead of sending
+					them to the discard passthrough.
+				</div>
+			</div>
+			<label class="flex items-center">
+				<button
+					type="button"
+					role="switch"
+					aria-checked={allowMultiCategory}
+					aria-label="Allow multiple categories per bin"
+					onclick={() => void toggleMultiCategory()}
+					disabled={savingMultiCategory}
+					class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${allowMultiCategory ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
+				>
+					<span class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${allowMultiCategory ? 'translate-x-6' : 'translate-x-1'}`}></span>
+				</button>
+			</label>
 		</div>
 
 		<StatusBanner message={statusMsg} variant="success" />

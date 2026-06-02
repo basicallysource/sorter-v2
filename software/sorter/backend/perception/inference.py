@@ -14,6 +14,7 @@ catches that anyway.
 
 from __future__ import annotations
 
+import os
 import threading
 import time
 from typing import Any, Callable, Optional
@@ -23,12 +24,15 @@ import numpy as np
 from .arcs import (
     attributeBboxes,
     bboxInsideChannelMask,
+    bboxInsideMask,
     comInPreciseZone,
     exitComForwardDeg,
+    exitComForwardToCenterDeg,
     forwardClearanceToExitDeg,
 )
 from .capture import CaptureWorker, PerceptionFrame
 from .channel import ChannelDef
+from .detection import Detection
 from .runtime import InferenceRuntime
 from .state import ChannelState, LatestStateSlot
 
@@ -44,6 +48,12 @@ OnExitEdge = Callable[[float], None]
 # stale or the capture has none yet.
 _IDLE_SLEEP_S = 0.005
 _NO_FRAME_SLEEP_S = 0.010
+
+
+# Gray-fill (value 230) the pixels outside the channel polygon before inference,
+# so the model only sees pixels inside the channel region (matching
+# VisionManager's crop-mask path). Gated on SORTER_POLYGON_CROP_MASK.
+_POLYGON_CROP_MASK = os.environ.get("SORTER_POLYGON_CROP_MASK", "0") == "1"
 
 
 def _now_ms() -> float:
@@ -115,6 +125,16 @@ class InferenceWorker:
         # hot path does a zero-copy slice, and the model resizes a smaller region
         # so inference preprocessing is cheaper, not more expensive.
         self._crop_rect = self._compute_crop_rect(channel_def.mask)
+        # When this channel has secondary (foreign) zones defined, infer on the
+        # FULL frame instead of the primary-polygon crop, so pieces sitting in
+        # those zones (outside the primary crop) are actually detected and we can
+        # verify the secondary-zone filtering/tagging end to end. This is a
+        # verification aid, not the production crop: on the 4K carousel a
+        # full-frame → model-input resize shrinks small on-channel pieces toward
+        # the detectability floor (see the crop rationale above), so primary
+        # detection may degrade while foreign zones are present.
+        if channel_def.secondary_zones:
+            self._crop_rect = None
         self._conf_threshold = conf_threshold
         self._on_exit_edge = on_exit_edge
         self._runtime_stats = runtime_stats
@@ -141,6 +161,11 @@ class InferenceWorker:
         # bboxes, the on-channel subset, the crop rect, the frame, and timing.
         # GIL-atomic dict ref; never read on the hot path.
         self._latest_debug: Optional[dict] = None
+
+        # Latest in-crop detections tagged with zone provenance (primary +
+        # secondary). GIL-atomic list ref. Display/tag only — the slot and
+        # ``latest_raw`` stay primary-only, so the state machine is unaffected.
+        self._latest_detections: Optional[list[Detection]] = None
 
         # On-demand full-frame debug inference. When a request bumps this
         # timestamp, the loop ALSO runs the model on the WHOLE frame (no crop)
@@ -191,6 +216,30 @@ class InferenceWorker:
         """Last full-frame (uncropped) debug result — persisted across cycles.
         GIL-atomic read."""
         return self._latest_full_frame
+
+    @property
+    def latest_detections(self) -> Optional[list[Detection]]:
+        """Latest in-crop detections tagged with primary/secondary zone
+        membership. GIL-atomic read — display/tag only."""
+        return self._latest_detections
+
+    def _tag_detections(self, all_bboxes: list) -> list[Detection]:
+        """Wrap each in-crop bbox with its zone provenance: ``in_primary`` (inside
+        the channel polygon mask) and the ids of any secondary zones whose mask
+        contains the bbox center. A few mask indices per bbox — cheap."""
+        ch = self._channel_def
+        zones = ch.secondary_zones
+        out: list[Detection] = []
+        for b in all_bboxes:
+            bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+            in_primary = bboxInsideChannelMask(bbox, ch)
+            sids = (
+                tuple(z.id for z in zones if bboxInsideMask(bbox, z.mask))
+                if zones
+                else ()
+            )
+            out.append(Detection(bbox=bbox, in_primary=in_primary, secondary_zone_ids=sids))
+        return out
 
     def request_full_frame_debug(self, ttl_s: float = 10.0) -> None:
         """Ask the loop to ALSO run a full-frame (uncropped) inference for the
@@ -311,7 +360,11 @@ class InferenceWorker:
         without spamming every frame."""
         if self._logger is None:
             return
-        if now_s - self._last_summary_log_ts < 1.0:
+        # Empty frames are the bulk of the volume and carry no debug value once
+        # you know the channel is clear — log them at 10s, real detections at 1s.
+        idle_frame = len(bboxes) == 0 and n_pieces == 0
+        throttle_s = 10.0 if idle_frame else 1.0
+        if now_s - self._last_summary_log_ts < throttle_s:
             return
         self._last_summary_log_ts = now_s
         ch = self._channel_def
@@ -374,6 +427,11 @@ class InferenceWorker:
                 if self._crop_rect is not None:
                     cx1, cy1, cx2, cy2 = self._crop_rect
                     crop = frame.bgr[cy1:cy2, cx1:cx2]
+                    if _POLYGON_CROP_MASK:
+                        mask_crop = self._channel_def.mask[cy1:cy2, cx1:cx2]
+                        crop = np.where(
+                            mask_crop[:, :, None] > 0, crop, np.uint8(230)
+                        )
                     raw_bboxes = self._runtime.infer(
                         crop, conf_threshold=self._conf_threshold
                     )
@@ -382,9 +440,13 @@ class InferenceWorker:
                         for b in raw_bboxes
                     ]
                 else:
+                    full = frame.bgr
+                    if _POLYGON_CROP_MASK:
+                        m = self._channel_def.mask
+                        full = np.where(m[:, :, None] > 0, full, np.uint8(230))
                     bboxes = list(
                         self._runtime.infer(
-                            frame.bgr, conf_threshold=self._conf_threshold
+                            full, conf_threshold=self._conf_threshold
                         )
                     )
                 infer_ms = _now_ms() - infer_t0
@@ -411,6 +473,9 @@ class InferenceWorker:
                     bboxes, self._channel_def
                 )
                 exit_com_forward_deg = exitComForwardDeg(bboxes, self._channel_def)
+                exit_com_forward_to_center_deg = exitComForwardToCenterDeg(
+                    bboxes, self._channel_def
+                )
                 exit_com_in_precise = comInPreciseZone(bboxes, self._channel_def)
                 attribute_ms = _now_ms() - attribute_t0
 
@@ -423,13 +488,21 @@ class InferenceWorker:
                     in_exit_majority=in_exit_majority,
                     advance_clearance_deg=advance_clearance_deg,
                     exit_com_forward_deg=exit_com_forward_deg,
+                    exit_com_forward_to_center_deg=exit_com_forward_to_center_deg,
                     exit_com_in_precise=exit_com_in_precise,
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)
+                # Tag ALL in-crop detections (not just on-channel) with zone
+                # provenance so the overlay can show foreign-zone hits and future
+                # consumers can ask which zone a piece is in. Off the hot read
+                # path — the slot above stays primary-only.
+                detections = self._tag_detections(raw_bboxes_full)
+                self._latest_detections = detections
                 self._latest_debug = {
                     "raw_bboxes": raw_bboxes_full,
                     "on_channel_bboxes": list(bboxes),
+                    "detections": detections,
                     "crop_rect": self._crop_rect,
                     "frame": frame,
                     "infer_ms": infer_ms,

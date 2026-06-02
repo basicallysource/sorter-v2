@@ -277,6 +277,18 @@ def setClassificationTrainingConfig(config: dict) -> None:
     set_classification_training_state(config)
 
 
+def getSampleCollectionConfig() -> dict | None:
+    from local_state import get_sample_collection_state
+
+    return get_sample_collection_state()
+
+
+def setSampleCollectionConfig(config: dict) -> None:
+    from local_state import set_sample_collection_state
+
+    set_sample_collection_state(config)
+
+
 def getHiveConfig() -> dict | None:
     from local_state import get_hive_config
 

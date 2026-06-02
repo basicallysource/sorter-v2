@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import inspect
+import sys
 import time
 from typing import Optional, TYPE_CHECKING
 
@@ -107,7 +107,14 @@ class SharedVariables:
         next_value = bool(open)
         if self._distribution_ready == next_value and not self._bus_enabled():
             return
+        prev = self._distribution_ready
         self._distribution_ready = next_value
+        if prev != next_value and self._gc is not None:
+            logger = getattr(self._gc, "logger", None)
+            if logger is not None:
+                logger.info(
+                    f"distribution_ready {prev} -> {next_value} (reason={reason})"
+                )
         self._publish_station_gate(
             StationId.DISTRIBUTION,
             open=next_value,
@@ -240,11 +247,22 @@ class SharedVariables:
         logger = getattr(self._gc, "logger", None) if self._gc is not None else None
         if logger is None:
             return
-        frame = inspect.stack()[2] if len(inspect.stack()) > 2 else None
-        caller = f"{frame.filename.rsplit('/', 1)[-1]}:{frame.lineno}" if frame else "?"
-        changed = "CHANGE" if prev != next_value else "noop"
+        # inspect.stack() walks the WHOLE stack and reads source files off
+        # disk; called twice per gate write at 15-23Hz it was costing ~100ms+
+        # per tick and stalling the main loop. sys._getframe(2) gets the same
+        # caller frame in O(1) with no disk I/O.
+        # Only log actual transitions. The no-op case fires every tick (the
+        # gate is re-asserted at 15-23Hz) and was the dominant log-flood source
+        # — dozens of identical "False->False noop" lines per second.
+        if prev == next_value:
+            return
+        try:
+            frame = sys._getframe(2)
+            caller = f"{frame.f_code.co_filename.rsplit('/', 1)[-1]}:{frame.f_lineno}"
+        except Exception:
+            caller = "?"
         logger.info(
-            f"[GATE] {gate} {prev}->{next_value} {changed} reason={reason} from={caller}"
+            f"[GATE] {gate} {prev}->{next_value} CHANGE reason={reason} from={caller}"
         )
 
     def _publish_station_gate(

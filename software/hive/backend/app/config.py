@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     BL_AFFILIATE_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
     SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
+    SORTING_PROFILE_LDRAW_LIBRARY_DIR: str = "ldraw_lib"
     PROFILE_CATALOG_AUTO_SYNC_ENABLED: bool = True
     PROFILE_CATALOG_AUTO_SYNC_CHECK_INTERVAL_MINUTES: int = 60
     PROFILE_CATALOG_AUTO_SYNC_PARTS_MAX_AGE_HOURS: int = 24

@@ -41,12 +41,20 @@ class Positioning(Rev01BaseState):
 
         if not self._placed:
             self._entered_at = now
+            # Multi-feed (two+ pieces shared this cycle): the classification can't
+            # be trusted, so force MISC regardless of what Brickognize returned.
+            # No operator incident — silent route + the discharge clears every
+            # piece off the channel.
+            if self.ctx.multi_feed_detected:
+                obj.part_id = None
+                obj.part_name = None
+                obj.classification_status = ClassificationStatus.multi_drop_fail
             # Distribution only accepts a piece with a routable status. A piece
             # whose classification never resolved (no captures / timeout /
             # error) is still left pending/classifying — coerce it to
             # ``unknown`` so it routes to MISC/discard rather than wedging the
             # handoff (distribution's Idle gate ignores pending pieces).
-            if obj.part_id is None and obj.classification_status in (
+            elif obj.part_id is None and obj.classification_status in (
                 ClassificationStatus.pending,
                 ClassificationStatus.classifying,
             ):

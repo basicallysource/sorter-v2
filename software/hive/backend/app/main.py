@@ -10,11 +10,13 @@ from app.config import settings
 from app.errors import APIError, api_error_handler, http_exception_handler, unhandled_exception_handler
 from app.routers import (
     admin,
+    admin_parts,
     api_keys,
     auth,
     leaderboard,
     machine_lookup,
     machine_models,
+    machine_parts,
     machines,
     models as models_router,
     profiles,
@@ -66,6 +68,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.include_router(auth.router)
 app.include_router(admin.router)
+app.include_router(admin_parts.router)
 app.include_router(machines.router)
 app.include_router(machine_lookup.router)
 app.include_router(profiles.router)
@@ -76,6 +79,7 @@ app.include_router(sets.router)
 app.include_router(stats.router)
 app.include_router(models_router.router)
 app.include_router(machine_models.router)
+app.include_router(machine_parts.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
 app.include_router(leaderboard.router)

@@ -46,9 +46,19 @@
 	let error = $state<string | null>(null);
 	let savedAt = $state<number | null>(null);
 	let loadedBaseUrl = $state<string | null>(null);
+	let hasOpenrouterKey = $state<boolean | null>(null);
 
 	const modeLabel = $derived(mode ? 'On' : modeAvailable ? 'Off' : 'Unavailable');
 	const statusLabel = $derived(savedAt ? 'Saved' : hardwareState);
+	// 60s / SAMPLE_MODE_TEACHER_CAPTURE_MIN_INTERVAL_S (0.8s, running.py) = ~75 with a
+	// working OpenRouter key. With no key, GeminiSamDetector.__init__ raises before the save
+	// ever runs (gemini_sam_detector.py), so piece samples are never captured — only
+	// empty-state negatives (which need no key) get archived.
+	const rateLabel = $derived(
+		hasOpenrouterKey === false
+			? 'No OpenRouter key — piece samples are NOT captured'
+			: 'Collects up to ~75 samples/min (one every 0.8 s)'
+	);
 
 	function numberFromPayload(value: unknown): number | null {
 		const parsed = Number(value);
@@ -68,6 +78,17 @@
 	function setSpeed(role: Role, value: string) {
 		speedInputs = { ...speedInputs, [role]: value };
 		savedAt = null;
+	}
+
+	async function loadKeyState() {
+		if (!baseUrl) return;
+		try {
+			const res = await fetch(`${baseUrl}/api/settings/api-keys`);
+			const payload = await res.json();
+			hasOpenrouterKey = Boolean(payload?.keys?.openrouter);
+		} catch {
+			hasOpenrouterKey = null;
+		}
 	}
 
 	async function loadSpeeds() {
@@ -179,10 +200,12 @@
 		if (!baseUrl || baseUrl === loadedBaseUrl) return;
 		loadedBaseUrl = baseUrl;
 		void loadSpeeds();
+		void loadKeyState();
 	});
 
 	onMount(() => {
 		void loadSpeeds();
+		void loadKeyState();
 	});
 </script>
 
@@ -207,6 +230,8 @@
 			<span>{modeLabel}</span>
 		</button>
 	</div>
+
+	<div class="text-xs text-text-muted">{rateLabel}</div>
 
 	<div class="grid grid-cols-2 gap-2">
 		{#each CHANNELS as channel (channel.role)}

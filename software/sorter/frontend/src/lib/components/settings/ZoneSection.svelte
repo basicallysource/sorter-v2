@@ -18,6 +18,7 @@
 		Check,
 		FlipHorizontal,
 		Pencil,
+		Plus,
 		RefreshCw,
 		RotateCcw,
 		SlidersHorizontal,
@@ -36,6 +37,16 @@
 	type ArcChannel = 'second' | 'third' | 'classification_channel';
 	type RectChannel = 'carousel' | 'class_top' | 'class_bottom';
 	type Point = [number, number];
+	// Secondary ("foreign") zone: a polygon this camera sees that belongs to
+	// ANOTHER channel (e.g. the classification camera can see C3's exit). Drawn
+	// and labeled here, shown on the live feed by perception — never acted on.
+	type SecondaryZoneType = 'drop' | 'exit' | 'precise';
+	type SecondaryZoneUI = {
+		id: string;
+		sourceChannel: number;
+		zoneType: SecondaryZoneType;
+		points: Point[];
+	};
 	type QuadParams = {
 		corners: [Point, Point, Point, Point]; // TL, TR, BR, BL
 	};
@@ -428,6 +439,13 @@
 	let dragState = $state<DragState | null>(null);
 	let didDrag = $state(false);
 	let editingZone = $state(false);
+	// Secondary-zone editor state. Keyed by host storage key (e.g.
+	// 'classification_channel'). Edited only while ``secondaryEditMode`` is on,
+	// which short-circuits the primary zone pointer handlers.
+	let secondaryZones = $state<Record<string, SecondaryZoneUI[]>>({});
+	let secondaryEditMode = $state(false);
+	let activeSecondaryId = $state<string | null>(null);
+	let secondaryVertexDrag = $state<{ id: string; vertexIdx: number } | null>(null);
 	let activeSidebar = $state<SidePanel>(null);
 	let previewColorCorrect = $state(true);
 	let previewAnnotated = $state(true);
@@ -485,6 +503,11 @@
 	);
 	const EDITOR_BASELINE_WIDTH = 1280;
 	const editorScale = $derived(Math.max(1, CANVAS_W / EDITOR_BASELINE_WIDTH));
+	// The channel physically upstream of the current one, whose zone this camera
+	// may be able to see. Only these expose the "add foreign zone" affordance.
+	const previousSourceChannel = $derived(
+		currentChannel === 'classification_channel' ? 3 : currentChannel === 'third' ? 2 : null
+	);
 	const handleHitRadius = $derived(HANDLE_HIT_RADIUS * editorScale);
 	const vertexHitRadius = $derived(VERTEX_HIT_RADIUS * editorScale);
 	const handleCanvasPadding = $derived(HANDLE_CANVAS_PADDING * editorScale);
@@ -1091,6 +1114,8 @@
 		currentChannel = channel;
 		dragState = null;
 		didDrag = false;
+		exitSecondaryEditMode();
+		activeSecondaryId = null;
 		canvasCursor = editingZone ? 'crosshair' : 'default';
 		statusMsg = '';
 	}
@@ -2252,6 +2277,10 @@
 
 	function onMouseDown(e: MouseEvent) {
 		if (!editingZone) return;
+		if (secondaryEditMode) {
+			onSecondaryMouseDown(e);
+			return;
+		}
 		if (e.button !== 0) return;
 		const point = canvasCoords(e);
 		didDrag = false;
@@ -2402,6 +2431,10 @@
 	function onMouseMove(e: MouseEvent) {
 		if (!editingZone) {
 			canvasCursor = 'default';
+			return;
+		}
+		if (secondaryEditMode) {
+			onSecondaryMouseMove(e);
 			return;
 		}
 
@@ -2615,6 +2648,10 @@
 			canvasCursor = 'default';
 			return;
 		}
+		if (secondaryEditMode) {
+			onSecondaryMouseUp(e);
+			return;
+		}
 		if (e.button !== 0) return;
 		dragState = null;
 		updateCanvasCursor(canvasCoords(e));
@@ -2622,6 +2659,10 @@
 
 	function onClick(e: MouseEvent) {
 		if (!editingZone) return;
+		if (secondaryEditMode) {
+			onSecondaryClick(e);
+			return;
+		}
 		if (didDrag) {
 			didDrag = false;
 			return;
@@ -2648,6 +2689,10 @@
 
 	function onContextMenu(e: MouseEvent) {
 		if (!editingZone) return;
+		if (secondaryEditMode) {
+			onSecondaryContextMenu(e);
+			return;
+		}
 		e.preventDefault();
 		if (isArcChannel(currentChannel) || isRectChannel(currentChannel)) {
 			return;
@@ -3031,17 +3076,60 @@
 			drawHandle(ctx, handles.exitStartInner, EXIT_ZONE_COLOR, '#111');
 			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', 'Exit End', [42, 22]);
 			drawHandle(ctx, handles.exitEndInner, EXIT_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.preciseStartOuter, PRECISE_ZONE_COLOR, '#111', 'Precise Start', [-42, 22]);
+			drawHandle(
+				ctx,
+				handles.preciseStartOuter,
+				PRECISE_ZONE_COLOR,
+				'#111',
+				'Precise Start',
+				[-42, 22]
+			);
 			drawHandle(ctx, handles.preciseStartInner, PRECISE_ZONE_COLOR, '#111');
 			drawHandle(ctx, handles.preciseEndOuter, PRECISE_ZONE_COLOR, '#111', 'Precise End', [42, 22]);
 			drawHandle(ctx, handles.preciseEndInner, PRECISE_ZONE_COLOR, '#111');
 
-			drawEdgeHandle(ctx, handles.dropStartEdge, handles.dropStartInner, handles.dropStartOuter, DROP_ZONE_COLOR);
-			drawEdgeHandle(ctx, handles.dropEndEdge, handles.dropEndInner, handles.dropEndOuter, DROP_ZONE_COLOR);
-			drawEdgeHandle(ctx, handles.exitStartEdge, handles.exitStartInner, handles.exitStartOuter, EXIT_ZONE_COLOR);
-			drawEdgeHandle(ctx, handles.exitEndEdge, handles.exitEndInner, handles.exitEndOuter, EXIT_ZONE_COLOR);
-			drawEdgeHandle(ctx, handles.preciseStartEdge, handles.preciseStartInner, handles.preciseStartOuter, PRECISE_ZONE_COLOR);
-			drawEdgeHandle(ctx, handles.preciseEndEdge, handles.preciseEndInner, handles.preciseEndOuter, PRECISE_ZONE_COLOR);
+			drawEdgeHandle(
+				ctx,
+				handles.dropStartEdge,
+				handles.dropStartInner,
+				handles.dropStartOuter,
+				DROP_ZONE_COLOR
+			);
+			drawEdgeHandle(
+				ctx,
+				handles.dropEndEdge,
+				handles.dropEndInner,
+				handles.dropEndOuter,
+				DROP_ZONE_COLOR
+			);
+			drawEdgeHandle(
+				ctx,
+				handles.exitStartEdge,
+				handles.exitStartInner,
+				handles.exitStartOuter,
+				EXIT_ZONE_COLOR
+			);
+			drawEdgeHandle(
+				ctx,
+				handles.exitEndEdge,
+				handles.exitEndInner,
+				handles.exitEndOuter,
+				EXIT_ZONE_COLOR
+			);
+			drawEdgeHandle(
+				ctx,
+				handles.preciseStartEdge,
+				handles.preciseStartInner,
+				handles.preciseStartOuter,
+				PRECISE_ZONE_COLOR
+			);
+			drawEdgeHandle(
+				ctx,
+				handles.preciseEndEdge,
+				handles.preciseEndInner,
+				handles.preciseEndOuter,
+				PRECISE_ZONE_COLOR
+			);
 			drawRotateHandle(ctx, handles.dropRotate, params.center, DROP_ZONE_COLOR);
 			drawRotateHandle(ctx, handles.exitRotate, params.center, EXIT_ZONE_COLOR);
 			drawRotateHandle(ctx, handles.preciseRotate, params.center, PRECISE_ZONE_COLOR);
@@ -3128,6 +3216,190 @@
 		drawPolygonChannel(ctx, channel, active);
 	}
 
+	// --- secondary (foreign) zones -------------------------------------------
+
+	const SECONDARY_ZONE_COLOR = '#38bdf8';
+
+	function secondaryHostKey(): string {
+		return channelStorageKey(currentChannel);
+	}
+
+	function currentSecondaryList(): SecondaryZoneUI[] {
+		return secondaryZones[secondaryHostKey()] ?? [];
+	}
+
+	function genSecondaryId(sourceChannel: number, zoneType: SecondaryZoneType): string {
+		const rand =
+			typeof crypto !== 'undefined' && 'randomUUID' in crypto
+				? crypto.randomUUID().slice(0, 8)
+				: Math.floor(Math.random() * 1e9).toString(36);
+		return `sz_${sourceChannel}_${zoneType}_${rand}`;
+	}
+
+	function addSecondaryZone(sourceChannel: number, zoneType: SecondaryZoneType = 'exit') {
+		const host = secondaryHostKey();
+		const zone: SecondaryZoneUI = {
+			id: genSecondaryId(sourceChannel, zoneType),
+			sourceChannel,
+			zoneType,
+			points: []
+		};
+		secondaryZones[host] = [...(secondaryZones[host] ?? []), zone];
+		activeSecondaryId = zone.id;
+		secondaryEditMode = true;
+	}
+
+	function selectSecondaryZone(id: string) {
+		activeSecondaryId = id;
+		secondaryEditMode = true;
+	}
+
+	function deleteSecondaryZone(id: string) {
+		const host = secondaryHostKey();
+		secondaryZones[host] = (secondaryZones[host] ?? []).filter((z) => z.id !== id);
+		if (activeSecondaryId === id) activeSecondaryId = null;
+	}
+
+	function setSecondaryZoneType(id: string, zoneType: SecondaryZoneType) {
+		const host = secondaryHostKey();
+		secondaryZones[host] = (secondaryZones[host] ?? []).map((z) =>
+			z.id === id ? { ...z, zoneType } : z
+		);
+	}
+
+	function exitSecondaryEditMode() {
+		secondaryEditMode = false;
+		secondaryVertexDrag = null;
+	}
+
+	function activeSecondaryZone(): SecondaryZoneUI | null {
+		return currentSecondaryList().find((z) => z.id === activeSecondaryId) ?? null;
+	}
+
+	function hitSecondaryVertex(point: Point): { id: string; vertexIdx: number } | null {
+		const zone = activeSecondaryZone();
+		if (!zone) return null;
+		for (let i = 0; i < zone.points.length; i++) {
+			if (pointDistance(point, zone.points[i]) <= vertexHitRadius) {
+				return { id: zone.id, vertexIdx: i };
+			}
+		}
+		return null;
+	}
+
+	function updateSecondaryPoints(id: string, points: Point[]) {
+		const host = secondaryHostKey();
+		secondaryZones[host] = (secondaryZones[host] ?? []).map((z) =>
+			z.id === id ? { ...z, points } : z
+		);
+	}
+
+	function onSecondaryMouseDown(e: MouseEvent) {
+		if (e.button !== 0) return;
+		const point = canvasCoords(e);
+		didDrag = false;
+		const hit = hitSecondaryVertex(point);
+		if (hit) {
+			secondaryVertexDrag = hit;
+			canvasCursor = 'grabbing';
+		}
+	}
+
+	function onSecondaryMouseMove(e: MouseEvent) {
+		const point = canvasCoords(e);
+		if (!secondaryVertexDrag) {
+			canvasCursor = hitSecondaryVertex(point) ? 'pointer' : 'crosshair';
+			return;
+		}
+		didDrag = true;
+		canvasCursor = 'grabbing';
+		const zone = activeSecondaryZone();
+		if (!zone || zone.id !== secondaryVertexDrag.id) return;
+		const next = zone.points.map((pt, i) =>
+			i === secondaryVertexDrag!.vertexIdx ? ([point[0], point[1]] as Point) : pt
+		);
+		updateSecondaryPoints(zone.id, next);
+	}
+
+	function onSecondaryMouseUp(e: MouseEvent) {
+		if (e.button !== 0) return;
+		secondaryVertexDrag = null;
+	}
+
+	function onSecondaryClick(e: MouseEvent) {
+		if (didDrag) {
+			didDrag = false;
+			return;
+		}
+		const zone = activeSecondaryZone();
+		if (!zone) return;
+		const point = canvasCoords(e);
+		updateSecondaryPoints(zone.id, [...zone.points, [point[0], point[1]]]);
+	}
+
+	function onSecondaryContextMenu(e: MouseEvent) {
+		e.preventDefault();
+		const zone = activeSecondaryZone();
+		if (!zone) return;
+		const point = canvasCoords(e);
+		let minDist = Infinity;
+		let minIdx = -1;
+		for (let i = 0; i < zone.points.length; i++) {
+			const d = pointDistance(point, zone.points[i]);
+			if (d < minDist) {
+				minDist = d;
+				minIdx = i;
+			}
+		}
+		if (minIdx >= 0 && minDist < 40) {
+			updateSecondaryPoints(
+				zone.id,
+				zone.points.filter((_, idx) => idx !== minIdx)
+			);
+		}
+	}
+
+	function drawSecondaryZones(ctx: CanvasRenderingContext2D) {
+		const zones = currentSecondaryList();
+		if (zones.length === 0) return;
+		const s = editorScale;
+		const color = SECONDARY_ZONE_COLOR;
+		for (const zone of zones) {
+			const pts = zone.points;
+			const isActive = secondaryEditMode && zone.id === activeSecondaryId;
+			if (pts.length >= 2) {
+				ctx.beginPath();
+				ctx.moveTo(pts[0][0], pts[0][1]);
+				for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
+				if (pts.length >= 3) ctx.closePath();
+				ctx.fillStyle = `${color}1f`;
+				if (pts.length >= 3) ctx.fill();
+				ctx.strokeStyle = color;
+				ctx.globalAlpha = isActive ? 1 : 0.6;
+				ctx.setLineDash([8 * s, 6 * s]);
+				ctx.lineWidth = (isActive ? 2 : 1.5) * s;
+				ctx.stroke();
+				ctx.setLineDash([]);
+				ctx.globalAlpha = 1;
+			}
+			if (isActive) {
+				for (const pt of pts) {
+					ctx.beginPath();
+					ctx.arc(pt[0], pt[1], 6 * s, 0, Math.PI * 2);
+					ctx.fillStyle = color;
+					ctx.fill();
+				}
+			}
+			if (pts.length >= 1) {
+				const lx = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+				const ly = pts.reduce((a, p) => a + p[1], 0) / pts.length;
+				ctx.fillStyle = color;
+				ctx.font = `${Math.round(20 * s)}px sans-serif`;
+				ctx.fillText(`C${zone.sourceChannel} ${zone.zoneType}`, lx, ly);
+			}
+		}
+	}
+
 	function drawCanvas() {
 		if (!canvasEl) return;
 		const ctx = canvasEl.getContext('2d');
@@ -3146,6 +3418,7 @@
 		}
 
 		drawChannel(ctx, currentChannel, true);
+		drawSecondaryZones(ctx);
 	}
 
 	$effect(() => {
@@ -3157,6 +3430,9 @@
 		void channels;
 		void editingZone;
 		void previewZones;
+		void secondaryZones;
+		void secondaryEditMode;
+		void activeSecondaryId;
 		void CANVAS_W;
 		void CANVAS_H;
 		drawCanvas();
@@ -3263,6 +3539,43 @@
 					}
 				}
 			}
+
+			// Load secondary (foreign) zones, keyed by host storage key. Points are
+			// saved in the host channel's arc resolution, so rescale them the same
+			// way the primary polygon for that host is rescaled.
+			const channelSecondary = channelData.secondary_zones ?? {};
+			const nextSecondary: Record<string, SecondaryZoneUI[]> = {};
+			for (const [hostKey, rawList] of Object.entries(channelSecondary)) {
+				if (!Array.isArray(rawList)) continue;
+				const chName = ARC_CHANNELS.find((c) => channelStorageKey(c) === hostKey) ?? null;
+				let src: { width: number; height: number } | null = null;
+				let dst: { width: number; height: number } | null = null;
+				if (chName) {
+					const rawArc = channelArcParams[chName] as { resolution?: unknown } | undefined;
+					src = resolveChannelSource(rawArc?.resolution, channelSavedResolution);
+					dst = channelCanvasSize(chName);
+				}
+				const list: SecondaryZoneUI[] = [];
+				for (const raw of rawList as any[]) {
+					if (!raw || !Array.isArray(raw.points)) continue;
+					let pts: Point[] = raw.points.map((p: number[]) => [p[0], p[1]] as Point);
+					if (src && dst) {
+						pts = rescalePoints(pts, src.width, src.height, dst.width, dst.height) as Point[];
+					}
+					const sourceChannel = Number(raw.source_channel ?? 0);
+					const zoneType: SecondaryZoneType = ['drop', 'exit', 'precise'].includes(raw.zone_type)
+						? raw.zone_type
+						: 'exit';
+					list.push({
+						id: String(raw.id ?? genSecondaryId(sourceChannel, zoneType)),
+						sourceChannel,
+						zoneType,
+						points: pts
+					});
+				}
+				nextSecondary[hostKey] = list;
+			}
+			secondaryZones = nextSecondary;
 
 			// Load rect params for carousel, classification channels
 			const channelQuadParams = channelData.quad_params ?? {};
@@ -3382,6 +3695,12 @@
 			const section_zero_pts: Record<string, number[]> = {
 				...(existingChannel.section_zero_pts ?? {})
 			};
+			// Preserve secondary zones for other hosts; rewrite only the current
+			// host's list. Points are in the current canvas resolution, which is the
+			// camera/frame resolution, so the backend rescales them correctly.
+			const secondary_zones: Record<string, any[]> = {
+				...(existingChannel.secondary_zones ?? {})
+			};
 
 			const current = currentChannel;
 			const currentResolution: [number, number] = [CANVAS_W, CANVAS_H];
@@ -3422,6 +3741,16 @@
 					} else {
 						delete section_zero_pts[current];
 					}
+				}
+				if (isArcChannel(current)) {
+					secondary_zones[key] = (secondaryZones[key] ?? [])
+						.filter((z) => z.points.length >= 3)
+						.map((z) => ({
+							id: z.id,
+							source_channel: z.sourceChannel,
+							zone_type: z.zoneType,
+							points: z.points.map((p) => [Math.round(p[0]), Math.round(p[1])])
+						}));
 				}
 			}
 
@@ -3473,6 +3802,7 @@
 						quad_params: quad_params_channel,
 						channel_angles,
 						section_zero_pts,
+						secondary_zones,
 						resolution: channelGroupResolution
 					},
 					classification: {
@@ -3489,6 +3819,7 @@
 			activeSidebar = null;
 			dragState = null;
 			didDrag = false;
+			exitSecondaryEditMode();
 			canvasCursor = 'default';
 			statusMsg = 'Zone saved.';
 			dispatch('saved');
@@ -3532,6 +3863,7 @@
 		activeSidebar = null;
 		dragState = null;
 		didDrag = false;
+		exitSecondaryEditMode();
 		canvasCursor = 'default';
 		statusMsg = 'Zone changes discarded.';
 	}
@@ -3861,6 +4193,88 @@
 						{/if}
 					</div>
 				</div>
+
+				{#if editingZone && previousSourceChannel !== null}
+					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">
+						<div class="flex flex-wrap items-center justify-between gap-2">
+							<div class="font-semibold text-text">
+								Add Channel {previousSourceChannel} Zone
+							</div>
+							<button
+								onclick={() => addSecondaryZone(previousSourceChannel!, 'exit')}
+								class="inline-flex cursor-pointer items-center gap-2 border border-info bg-info/15 px-3 py-1.5 text-sm text-info transition-colors hover:bg-info/25"
+							>
+								<Plus size={15} />
+								<span>Add Zone</span>
+							</button>
+						</div>
+						<div class="mt-2 leading-6">
+							If this camera's view can see the previous channel (C{previousSourceChannel}), denote
+							its zone here for more reliable feeding and more angles for classification. These are
+							shown on the live feed but not acted on yet.
+						</div>
+
+						{#if currentSecondaryList().length > 0}
+							<div class="mt-3 flex flex-col gap-2">
+								{#each currentSecondaryList() as zone (zone.id)}
+									{@const isEditing = secondaryEditMode && zone.id === activeSecondaryId}
+									<div
+										class="flex flex-wrap items-center gap-2 border border-border bg-bg px-3 py-2"
+										class:border-info={isEditing}
+									>
+										<span class="font-medium text-text">C{zone.sourceChannel}</span>
+										<select
+											value={zone.zoneType}
+											onchange={(e) =>
+												setSecondaryZoneType(
+													zone.id,
+													(e.currentTarget as HTMLSelectElement).value as SecondaryZoneType
+												)}
+											class="border border-border bg-surface px-2 py-1 text-sm text-text"
+										>
+											<option value="drop">drop</option>
+											<option value="exit">exit</option>
+											<option value="precise">precise</option>
+										</select>
+										<span class="text-sm text-text-muted">{zone.points.length} pts</span>
+										<div class="ml-auto flex items-center gap-2">
+											{#if isEditing}
+												<button
+													onclick={exitSecondaryEditMode}
+													class="inline-flex cursor-pointer items-center gap-1 border border-success bg-success/15 px-2 py-1 text-sm text-success transition-colors hover:bg-success/25"
+												>
+													<Check size={14} />
+													<span>Done</span>
+												</button>
+											{:else}
+												<button
+													onclick={() => selectSecondaryZone(zone.id)}
+													class="inline-flex cursor-pointer items-center gap-1 border border-border bg-bg px-2 py-1 text-sm text-text transition-colors hover:bg-bg/80"
+												>
+													<Pencil size={14} />
+													<span>Edit</span>
+												</button>
+											{/if}
+											<button
+												onclick={() => deleteSecondaryZone(zone.id)}
+												class="inline-flex cursor-pointer items-center gap-1 border border-border bg-bg px-2 py-1 text-sm text-text transition-colors hover:bg-bg/80"
+											>
+												<X size={14} />
+											</button>
+										</div>
+									</div>
+								{/each}
+							</div>
+						{/if}
+
+						{#if secondaryEditMode}
+							<div class="mt-2 text-sm text-info">
+								Drawing C{activeSecondaryZone()?.sourceChannel} zone: click to add points, drag a point
+								to move it, right-click a point to remove it.
+							</div>
+						{/if}
+					</div>
+				{/if}
 
 				{#if wizardMode && editingZone}
 					<div class="border border-border bg-surface px-4 py-3 text-sm text-text-muted">

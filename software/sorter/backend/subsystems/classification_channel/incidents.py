@@ -9,6 +9,7 @@ CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
+CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND = "classification_exit_stuck"
 
 
 def classification_fallback_incident_kind(
@@ -188,6 +189,73 @@ def publish_classification_track_lost_incident(
         payload["track_id"] = int(tracked_global_id)
     runtime_stats.setActiveIncident(payload)
     return True
+
+
+def publish_classification_exit_stuck_incident(
+    gc: Any,
+    *,
+    piece: Any,
+    jitter_attempts: int,
+    converge_ms: float,
+) -> bool:
+    """A piece on the C4 channel could not be discharged — either it reached the
+    fall-off zone and would not drop, or it jammed earlier on the channel and
+    made no forward progress within the discharge budget, with jitter recovery
+    unable to free it. It is physically stuck — the operator must clear it. The
+    discharge holds (channel gate stays not-ready) until perception sees the
+    channel clear, then auto-clears this incident."""
+    kind = CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
+    if _incident_handling_off(kind):
+        return False
+
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "setActiveIncident"):
+        return False
+
+    active = None
+    if hasattr(runtime_stats, "activeIncident"):
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            active = None
+    if isinstance(active, dict) and active.get("kind") == kind:
+        return True
+
+    piece_uuid = str(getattr(piece, "uuid", "") or "")
+    payload: dict[str, Any] = {
+        "kind": kind,
+        "severity": "critical",
+        "status": "waiting_for_operator",
+        "awaiting_operator": True,
+        "scope": "classification",
+        "channel": "c4",
+        "role": "classification_channel",
+        "channel_label": "C4",
+        "piece_uuid": piece_uuid,
+        "piece_short": piece_uuid[:8],
+        "jitter_attempts": int(jitter_attempts),
+        "converge_ms": float(converge_ms),
+        "triggered_at": time.time(),
+        "rule": "c4_piece_would_not_discharge_within_budget_after_jitter",
+        "resolution": "operator_clear_stuck_c4_piece_then_auto_resumes",
+        "operator_message": (
+            "A piece is physically stuck in the classification channel and could "
+            "not be discharged by jitter. Remove it to continue."
+        ),
+    }
+    runtime_stats.setActiveIncident(payload)
+    return True
+
+
+def clear_classification_exit_stuck_incident(gc: Any) -> None:
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
+        try:
+            runtime_stats.clearActiveIncident(
+                kind=CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
+            )
+        except Exception:
+            pass
 
 
 def _incident_handling_off(kind: str) -> bool:

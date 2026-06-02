@@ -30,6 +30,7 @@ from .arcs import bboxInsideChannelMask
 from .capture import CaptureWorker
 from .channel import CHANNEL_REGISTRY, SECTION_DEG, ChannelDef, channelDefFromBlob
 from .inference import InferenceWorker, OnExitEdge
+from .overlay import renderFeedOverlay
 from .runtime import InferenceRuntime, RknnYoloRuntime
 from .state import ChannelState, EMPTY_STATE, LatestStateSlot
 
@@ -39,6 +40,28 @@ from .state import ChannelState, EMPTY_STATE, LatestStateSlot
 # ``request_reconcile()`` for sub-second pickup; this is the fallback cadence
 # (and the only trigger for a camera that simply starts producing frames).
 _RECONCILE_INTERVAL_S = 2.0
+
+
+# The classification camera is registered under source id "carousel" while
+# configs/UI may name the role "classification_channel" — treat them as one.
+_PERCEPTION_ROLE_ALIASES = {
+    "carousel": "classification_channel",
+    "classification_channel": "carousel",
+}
+
+
+def is_perception_role(role: str) -> bool:
+    """Whether a camera role belongs to the perception stack — a STATIC fact
+    from ``CHANNEL_REGISTRY``, with NO dependency on a built service instance.
+    The feed endpoint uses this so a perception role is routed to the perception
+    renderer even on a fresh boot before ``PerceptionService`` exists (it shows
+    raw video until perception is ready, never the legacy VisionManager
+    overlay)."""
+    registry_sources = {src for (src, _poly, _ang) in CHANNEL_REGISTRY.values()}
+    for candidate in (role, _PERCEPTION_ROLE_ALIASES.get(role)):
+        if candidate is not None and candidate in registry_sources:
+            return True
+    return False
 
 
 # RK3588 has three NPU cores. We pin each perception channel to a fixed
@@ -84,6 +107,12 @@ class PerceptionService:
         self._workers = workers
         self._started = False
         self._start_lock = threading.RLock()
+
+        # Live-feed preview cache. The overlay is composited at most ONCE per
+        # inference frame (keyed by frame timestamp + preview width) and shared
+        # across every streaming client, instead of re-rendering on every poll.
+        self._preview_lock = threading.Lock()
+        self._preview_cache: Dict[int, tuple[float, int, np.ndarray]] = {}
 
         # Reconcile machinery. ``context`` carries everything needed to
         # (re)build a single channel stack from disk at runtime; ``None`` (test
@@ -209,6 +238,7 @@ class PerceptionService:
                     channel_angles=disk.channel_angles,
                     arc_params=disk.arc_params,
                     frame_shape=gathered.frame_shape,
+                    secondary_zones=disk.secondary_zones,
                 )
                 if channel_def is None:
                     continue
@@ -331,6 +361,50 @@ class PerceptionService:
         on_channel = [b for b in bboxes if bboxInsideChannelMask(b, channel)]
         return on_channel, frame
 
+    def read_detections(self, channel_id: int):
+        """Latest in-crop ``Detection`` list for this channel, each tagged with
+        ``in_primary`` and the secondary-zone ids it falls in. Display/tag only —
+        the state machine still reads the primary-only slot / ``latest_raw``.
+        Returns ``None`` if the channel isn't wired or hasn't produced a cycle."""
+        worker = self._workers.get(channel_id)
+        if worker is None:
+            return None
+        return worker.latest_detections
+
+    def secondary_zone_occupied(
+        self,
+        channel_id: int,
+        *,
+        source_channel: Optional[int] = None,
+        zone_type: Optional[str] = None,
+    ) -> bool:
+        """Does ``channel_id``'s camera currently see a piece inside a secondary
+        (foreign) zone matching the filter? e.g. ``secondary_zone_occupied(4,
+        source_channel=3)`` answers "does the classification camera see a piece in
+        C3's annotated exit/precise zone." Returns ``False`` when the channel is
+        unwired, has no matching secondary zone, or has produced no detection yet
+        — so a consumer that gates on this is a no-op until a zone is drawn.
+        Cheap: a handful of set lookups over the last cycle's tagged detections."""
+        worker = self._workers.get(channel_id)
+        channel = self._channels.get(channel_id)
+        if worker is None or channel is None:
+            return False
+        matching_ids = {
+            z.id
+            for z in channel.secondary_zones
+            if (source_channel is None or z.source_channel == source_channel)
+            and (zone_type is None or z.zone_type == zone_type)
+        }
+        if not matching_ids:
+            return False
+        detections = worker.latest_detections
+        if not detections:
+            return False
+        for d in detections:
+            if any(sid in matching_ids for sid in d.secondary_zone_ids):
+                return True
+        return False
+
     def channel_center(self, channel_id: int):
         """Center pixel of the channel's rotation arc as ``(cx, cy)``, or
         ``None`` if the channel isn't wired in this service instance."""
@@ -363,6 +437,69 @@ class PerceptionService:
 
     def source_id_assertion_count(self) -> int:
         return sum(w.source_id_assertions for w in self._workers.values())
+
+    def channel_id_for_source(self, camera_source_id: str) -> Optional[int]:
+        for channel_id, channel in self._channels.items():
+            if channel.camera_source_id == camera_source_id:
+                return channel_id
+        return None
+
+    def owns_role(self, role: str) -> bool:
+        """Whether this camera role belongs to the perception stack — a STATIC
+        fact from ``CHANNEL_REGISTRY``, independent of whether the channel has
+        finished building. The feed endpoint uses this to decide the stack ONCE:
+        a perception role's annotations come only from perception, never the
+        legacy VisionManager overlay, even while the channel is still warming up
+        (in which case the feed shows raw video, not someone else's boxes)."""
+        return is_perception_role(role)
+
+    def channel_id_for_role(self, role: str) -> Optional[int]:
+        """Built channel id for a role (with the carousel/classification alias),
+        or ``None`` if the channel is not built yet. Stack ownership is
+        ``owns_role``; this only answers "can perception render it right now"."""
+        for candidate in (role, _PERCEPTION_ROLE_ALIASES.get(role)):
+            if candidate is None:
+                continue
+            channel_id = self.channel_id_for_source(candidate)
+            if channel_id is not None:
+                return channel_id
+        return None
+
+    def preview_frame(self, channel_id: int, max_width: int = 0):
+        """``(annotated_bgr, frame_timestamp)`` for the live feed — the clean
+        operating overlay (zones + on-channel boxes the machine acts on) drawn
+        on the exact frame the model inferred against, so boxes never drift off
+        the pixels. Reuses the last inference cycle; runs NO new inference.
+
+        Rendered at ``max_width`` (preview resolution) and cached per inference
+        frame: no matter how many clients stream or how fast they poll, the
+        overlay is composited at most once per inference cycle. ``None`` until
+        the worker has completed a cycle."""
+        worker = self._workers.get(channel_id)
+        channel = self._channels.get(channel_id)
+        if worker is None or channel is None:
+            return None
+        debug = worker.latest_debug
+        if debug is None:
+            return None
+        frame = debug.get("frame")
+        if frame is None:
+            return None
+        ts = float(frame.timestamp)
+        with self._preview_lock:
+            cached = self._preview_cache.get(channel_id)
+            if cached is not None and cached[0] == ts and cached[1] == max_width:
+                return cached[2], ts
+        annotated = renderFeedOverlay(
+            frame.bgr,
+            channel,
+            debug.get("on_channel_bboxes") or [],
+            detections=debug.get("detections"),
+            max_width=max_width,
+        )
+        with self._preview_lock:
+            self._preview_cache[channel_id] = (ts, max_width, annotated)
+        return annotated, ts
 
     def request_full_frame_debug(self, channel_id: int, ttl_s: float = 10.0) -> bool:
         """Turn on the worker's on-demand full-frame (uncropped) inference for a
@@ -436,15 +573,19 @@ def _resolve_algorithm_id_per_channel(
     feeder_config: dict | None,
     carousel_config: dict | None,
 ) -> Dict[int, str]:
-    """Return {channel_id: algorithm_id} as configured on disk."""
+    """Return {channel_id: algorithm_id}, read 1:1 from each subsystem's own
+    TOML slot — NO fallback. ch4 (the classification C4 / carousel station)
+    reads ``detection.carousel.algorithm``; the C-channels read their own
+    ``detection.feeder.algorithm_by_role`` entry. An unset slot leaves that
+    channel unwired (no detector) rather than silently inheriting another
+    subsystem's model — the operator picks a model per subsystem explicitly."""
     out: Dict[int, str] = {}
-    feeder_default = (feeder_config or {}).get("algorithm")
     feeder_by_role = (feeder_config or {}).get("algorithm_by_role") or {}
     for ch_id, (role, _polygon_key, _angle_key) in CHANNEL_REGISTRY.items():
         if ch_id == 4:
-            algo = (carousel_config or {}).get("algorithm") or feeder_by_role.get(role) or feeder_default
+            algo = (carousel_config or {}).get("algorithm")
         else:
-            algo = feeder_by_role.get(role) or feeder_default
+            algo = feeder_by_role.get(role)
         if isinstance(algo, str) and algo:
             out[ch_id] = algo
     return out
@@ -541,6 +682,7 @@ class _DiskInputs:
     channel_angles: dict
     arc_params: dict
     algo_by_channel: Dict[int, str]
+    secondary_zones: dict
 
 
 @dataclass(frozen=True)
@@ -574,6 +716,7 @@ def _read_disk_inputs(gc: Any) -> _DiskInputs:
     raw_polygons = getChannelPolygons() or {}
     channel_angles = raw_polygons.get("channel_angles") or {}
     arc_params = raw_polygons.get("arc_params") or {}
+    secondary_zones = raw_polygons.get("secondary_zones") or {}
     polygon_blob = raw_polygons.get("polygons") or {}
     saved_polygons: Dict[str, np.ndarray] = {}
     for key in ("second_channel", "third_channel", "classification_channel"):
@@ -592,6 +735,7 @@ def _read_disk_inputs(gc: Any) -> _DiskInputs:
         channel_angles=channel_angles,
         arc_params=arc_params,
         algo_by_channel=algo_by_channel,
+        secondary_zones=secondary_zones if isinstance(secondary_zones, dict) else {},
     )
 
 
@@ -622,10 +766,12 @@ def _gather_channel(
     core_name = _core_for_channel(channel_id)
     conf = float(ctx.resolved_conf.get(channel_id, 0.25))
     arc_entry = disk.arc_params.get(polygon_key) or disk.arc_params.get(angle_key)
+    secondary_entry = disk.secondary_zones.get(polygon_key)
     poly_arr = np.asarray(polygon)
     cd_hash = hashlib.md5(
         poly_arr.tobytes()
         + repr(arc_entry).encode("utf-8", "replace")
+        + repr(secondary_entry).encode("utf-8", "replace")
         + repr(float(disk.channel_angles.get(angle_key, 0.0))).encode()
         + repr(tuple(frame_shape)).encode()
     ).hexdigest()

@@ -47,8 +47,13 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI}
+      REBRICKABLE_API_KEY: ${REBRICKABLE_API_KEY}
     volumes:
       - ./data/uploads:${UPLOAD_DIR}
+      # Rebrickable parts catalog SQLite db (parts/categories/colors). Persisted
+      # so it survives container recreates — otherwise every redeploy wipes it
+      # and forces a full multi-hour re-sync from Rebrickable.
+      - ./data/profile_builder:/app/data/profile_builder
     networks:
       - default
       - web

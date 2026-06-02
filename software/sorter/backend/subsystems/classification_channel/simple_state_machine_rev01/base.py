@@ -41,11 +41,16 @@ class Rev01BaseState(BaseState):
 
     def setClassificationReady(self, ready: bool, reason: str) -> None:
         setter = getattr(self.shared, "set_classification_gate", None)
+        getter = getattr(self.shared, "get_classification_ready", None)
+        prev = bool(getter()) if callable(getter) else None
         if callable(setter):
             setter(ready, reason=reason)
         else:
             self.shared.classification_ready = ready
-        self.logger.info(f"{LOG_TAG} classification_ready -> {ready} ({reason})")
+        # Log only on transition. This fires every tick; logging it
+        # unconditionally was a main-thread log-flood source.
+        if prev is None or prev != bool(ready):
+            self.logger.info(f"{LOG_TAG} classification_ready -> {ready} ({reason})")
 
     def stopStepper(self) -> None:
         stepper = getattr(self.irl, "carousel_stepper", None)

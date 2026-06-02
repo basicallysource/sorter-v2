@@ -58,6 +58,7 @@
 		path: string;
 		bundled?: boolean;
 		compatible?: boolean;
+		registry_scopes?: string[];
 	};
 	type Job = {
 		job_id: string;
@@ -119,6 +120,7 @@
 		role: string | null;
 		label: string;
 		algorithm_id: string | null;
+		registry_scope?: string;
 		group?: string;
 	};
 	let activeAssignments = $state<ActiveAssignment[]>([]);
@@ -417,7 +419,11 @@
 		}
 	}
 
-	async function handleActivate(entry: Installed) {
+	// Activate a model for exactly ONE subsystem slot — 1:1 with the TOML, no
+	// fan-out and no scope fallback. The backend allows assigning a model to a
+	// slot outside its training scope (we flag it in the hover list), so there's
+	// no "valid?" gate here.
+	async function handleActivateForSlot(entry: Installed, slot: ActiveAssignment) {
 		const id = entryAlgorithmId(entry);
 		actionError = null;
 		activatingAlgorithmId = id;
@@ -425,19 +431,10 @@
 			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/activate`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ algorithm_id: id })
+				body: JSON.stringify({ algorithm_id: id, scope: slot.scope, role: slot.role })
 			});
 			if (!res.ok) {
 				throw new Error(await readApiError(res, `HTTP ${res.status}`));
-			}
-			const payload = await res.json().catch(() => ({}));
-			const applied = Array.isArray(payload?.applied) ? payload.applied : [];
-			// Backend silently writes to all scopes that match — and the
-			// Installed list will show the new Active badge as soon as we
-			// reload assignments. Surface a banner only when *nothing* could
-			// be applied, since that case has no other visible signal.
-			if (applied.length === 0) {
-				actionError = `${entry.name} doesn't claim any scope on this machine setup — nothing changed.`;
 			}
 			await loadActiveAssignments();
 		} catch (e: any) {
@@ -988,18 +985,71 @@
 											<span class="px-3 py-1.5 text-xs text-text-muted">
 												Cannot activate
 											</span>
-										{:else if !isActive}
-											<Button
-												variant="primary"
-												size="sm"
-												disabled={activatingAlgorithmId === algorithmId}
-												loading={activatingAlgorithmId === algorithmId}
-												onclick={() => void handleActivate(entry)}
-											>
-												{activatingAlgorithmId === algorithmId
-													? 'Activating'
-													: 'Activate'}
-											</Button>
+										{:else}
+											<!-- Hover-expand activate: assign this model to a single
+											     subsystem at a time, 1:1 with the TOML, no fallback. -->
+											<div class="group relative">
+												<button
+													type="button"
+													class={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors ${
+														isActive
+															? 'border-success/40 bg-success/[0.08] text-text'
+															: 'border-border bg-surface text-text hover:bg-bg'
+													}`}
+												>
+													{#if isActive}
+														<CheckCircle2 size={14} class="shrink-0 text-success" />
+														<span>Active: {activeLabels.join(', ')}</span>
+													{:else}
+														<span>Activate</span>
+													{/if}
+													<ChevronDown size={13} class="opacity-70" />
+												</button>
+												<div
+													class="invisible absolute right-0 top-full z-30 mt-px min-w-[16rem] border border-border bg-surface opacity-0 shadow-lg transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
+												>
+													<div
+														class="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted"
+													>
+														Activate for subsystem
+													</div>
+													{#if activeAssignments.length === 0}
+														<div class="px-3 py-2 text-sm text-text-muted">
+															No detection subsystems on this machine setup.
+														</div>
+													{/if}
+													{#each activeAssignments as slot (slot.scope + (slot.role ?? ''))}
+														{@const slotActive = slot.algorithm_id === algorithmId}
+														{@const designedFor = (entry.registry_scopes ?? []).includes(
+															slot.registry_scope ?? '__none__'
+														)}
+														<button
+															type="button"
+															disabled={activatingAlgorithmId === algorithmId}
+															onclick={() => void handleActivateForSlot(entry, slot)}
+															class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-bg disabled:opacity-60 ${
+																slotActive ? 'bg-success/[0.08]' : ''
+															}`}
+														>
+															<span class="flex min-w-0 items-center gap-2">
+																{#if slotActive}
+																	<CheckCircle2 size={14} class="shrink-0 text-success" />
+																{:else}
+																	<span class="inline-block w-[14px] shrink-0"></span>
+																{/if}
+																<span class="truncate text-text">{slot.label}</span>
+															</span>
+															{#if !designedFor}
+																<span
+																	class="inline-flex shrink-0 items-center bg-warning/20 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-warning-dark dark:text-warning"
+																>
+																	not designed for this
+																</span>
+															{/if}
+														</button>
+													{/each}
+												</div>
+											</div>
 										{/if}
 										{#if !entry.bundled}
 											<Tooltip text="Remove this downloaded model">

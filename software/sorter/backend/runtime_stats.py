@@ -160,6 +160,10 @@ class RuntimeStatsCollector:
         self._bus_provider: Any | None = None
         self._active_incident: dict[str, Any] | None = None
         self._perf_ms_samples: dict[str, list[float]] = {}
+        # Uncapped cumulative call-count per metric key. The sample lists above
+        # are ring buffers (their length saturates), so these are the only
+        # reliable event counters for deriving rates (Hz) over a time window.
+        self._perf_total_counts: dict[str, int] = {}
         self._last_updated_at = time.time()
 
     def setBusProvider(self, bus_provider: Any | None) -> None:
@@ -418,6 +422,7 @@ class RuntimeStatsCollector:
             bucket = []
             self._perf_ms_samples[name] = bucket
         _appendSample(bucket, max(0.0, float(value_ms)))
+        self._perf_total_counts[name] = self._perf_total_counts.get(name, 0) + 1
         self._last_updated_at = time.time()
 
     def perfSnapshotRows(self) -> list[dict[str, float | int | str | None]]:
@@ -1177,6 +1182,7 @@ class RuntimeStatsCollector:
             "counts": counts,
             "timings": timings,
             "perf_ms": perf_ms,
+            "perf_total_counts": dict(self._perf_total_counts),
             "throughput": {
                 "running_time_s": running_time_s,
                 "distributed_count": counts["distributed"],

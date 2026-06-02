@@ -145,6 +145,34 @@ def setClassificationChannelRev01Config(updates: dict[str, Any]) -> dict[str, An
 
 
 # ---------------------------------------------------------------------------
+# Profiler toggle
+# ---------------------------------------------------------------------------
+
+
+def getProfilerConfig() -> dict[str, Any]:
+    """Whether the detailed code profiler is enabled. Defaults to True so a
+    fresh machine collects profiling out of the box."""
+    config = _read_toml()
+    section = config.get("profiler")
+    enabled = True
+    if isinstance(section, dict) and isinstance(section.get("enabled"), bool):
+        enabled = section["enabled"]
+    return {"enabled": enabled}
+
+
+def setProfilerConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    def updater(config: dict[str, Any]) -> None:
+        section = config.get("profiler")
+        base = dict(section) if isinstance(section, dict) else {}
+        if "enabled" in updates:
+            base["enabled"] = bool(updates["enabled"])
+        config["profiler"] = base
+
+    _update_toml(updater)
+    return getProfilerConfig()
+
+
+# ---------------------------------------------------------------------------
 # Feeder go-to-angle tuning config
 # ---------------------------------------------------------------------------
 
@@ -176,6 +204,40 @@ def setGoToAngleConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
     _update_toml(updater)
     return getGoToAngleConfig()
+
+
+# ---------------------------------------------------------------------------
+# Feeder pulse-perception tuning config
+# ---------------------------------------------------------------------------
+
+
+def getPulsePerceptionConfig() -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.config import (
+        PulsePerceptionConfig, configToDict,
+    )
+    config = _read_toml()
+    section = config.get("feeder_pulse_perception")
+    defaults = configToDict(PulsePerceptionConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setPulsePerceptionConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.config import (
+        PulsePerceptionConfig, configToDict,
+    )
+    defaults = configToDict(PulsePerceptionConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("feeder_pulse_perception")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["feeder_pulse_perception"] = base
+
+    _update_toml(updater)
+    return getPulsePerceptionConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +341,7 @@ _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     "classification_multi_drop_collision": _INCIDENT_MODE_MANUAL,
     "classification_intake_request_timeout": _INCIDENT_MODE_MANUAL,
     "classification_track_lost": _INCIDENT_MODE_MANUAL,
+    "classification_exit_stuck": _INCIDENT_MODE_MANUAL,
 }
 _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
@@ -401,6 +464,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "automatic_label": "Automatic track-loss handling",
         "automatic_supported": False,
     },
+    {
+        "kind": "classification_exit_stuck",
+        "label": "C4 Piece Stuck",
+        "scope": "C4",
+        "description": "A piece on the classification channel could not be discharged. Remove it, then resolve to resume.",
+        "off_label": "Do not raise C4 stuck incidents",
+        "manual_label": "Operator removes the stuck piece",
+        "automatic_label": "Automatic C4 stuck handling",
+        "automatic_supported": False,
+    },
 )
 
 _DASHBOARD_DEFAULTS: dict[str, Any] = {
@@ -498,6 +571,40 @@ def setDashboardConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
     _update_toml(updater)
     return getDashboardConfig()
+
+
+# ---------------------------------------------------------------------------
+# Bin assignment preferences
+# ---------------------------------------------------------------------------
+
+
+def getBinAssignmentConfig() -> dict[str, Any]:
+    """Bin-assignment behavior. When allow_multiple_categories_per_bin is True,
+    once every bin already has an assignment the distributor keeps sorting new
+    categories by combining them into existing bins (picking the least-loaded
+    one) instead of falling through to the misc/discard passthrough."""
+    config = _read_toml()
+    section = config.get("bins")
+    allow_multiple = False
+    if isinstance(section, dict) and isinstance(
+        section.get("allow_multiple_categories_per_bin"), bool
+    ):
+        allow_multiple = section["allow_multiple_categories_per_bin"]
+    return {"allow_multiple_categories_per_bin": allow_multiple}
+
+
+def setBinAssignmentConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("bins")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        if "allow_multiple_categories_per_bin" in updates:
+            base["allow_multiple_categories_per_bin"] = bool(
+                updates["allow_multiple_categories_per_bin"]
+            )
+        config["bins"] = base
+
+    _update_toml(updater)
+    return getBinAssignmentConfig()
 
 
 # ---------------------------------------------------------------------------

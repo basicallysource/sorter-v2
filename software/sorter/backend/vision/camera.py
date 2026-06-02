@@ -26,7 +26,6 @@ from irl.config import (
     parseCameraDeviceSettings,
 )
 from .types import CameraFrame
-from .gst_capture import GstMjpegCapture, hw_jpeg_decode_available
 
 CAPTURE_MODE_SETTLE_S = 2.0
 CAPTURE_EXPECTED_FRAME_FALLBACK_S = 10.0
@@ -81,27 +80,14 @@ def _open_capture_source(
     if isinstance(source, int) and platform.system() == "Darwin":
         return cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
     if isinstance(source, int) and platform.system() == "Linux":
-        # HW JPEG decode (RK3588 VPU via GStreamer mppjpegdec). Software
-        # cv2.imdecode of 1080p/4K MJPEG is the capture bottleneck on the Pi;
-        # the VPU offloads it. Only taken when a concrete MJPEG mode is known
-        # and the element exists — otherwise (Mac, non-rockchip Linux, probes
-        # with no mode) fall through to cv2.VideoCapture. A pipeline that opens
-        # but delivers no frame self-fails so we still drop back to cv2.
-        fourcc_is_mjpeg = (
-            fourcc is None
-            or (isinstance(fourcc, str) and fourcc.strip()[:4].upper() in {"MJPG", "MJPE"})
-        )
-        if (
-            isinstance(width, int) and width > 0
-            and isinstance(height, int) and height > 0
-            and isinstance(fps, int) and fps > 0
-            and fourcc_is_mjpeg
-            and hw_jpeg_decode_available()
-        ):
-            gst = GstMjpegCapture(source, width, height, fps)
-            if gst.isOpened():
-                return gst  # type: ignore[return-value]
-            gst.release()
+        # V4L2 MJPEG capture via cv2.VideoCapture (software JPEG decode). A HW
+        # GStreamer mppjpegdec path used to live here; it was removed because it
+        # offloaded the JPEG decode to the VPU but then did a full-frame
+        # NV12->BGR cv2.cvtColor + copy on the CPU per frame, making it slower
+        # than plain cv2.VideoCapture on the Pi (and it silently varied by
+        # whether the gi/GStreamer bindings happened to be installed). RGA for
+        # the convert is only a win with full dmabuf zero-copy — not worth it
+        # while cv2 keeps up. See agent-notes why-tf-is-spencers-so-slow.
         if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
             _try_v4l2ctl_set_format(source, fourcc.strip()[:4].upper(), width, height)
         params: list[int] = []
@@ -514,30 +500,6 @@ def apply_camera_device_settings(
     return applied
 
 
-def _is_gst_capture(cap: object) -> bool:
-    return isinstance(cap, GstMjpegCapture)
-
-
-def apply_camera_device_settings_v4l2(
-    source: int,
-    settings: dict[str, int | float | bool] | None,
-) -> dict[str, int | float | bool]:
-    """Apply device settings via v4l2-ctl only (no cv2.set).
-
-    Used for the GStreamer HW-decode capture path, where there is no
-    cv2.VideoCapture to take CAP_PROP_* writes. Auto-mode toggles are applied
-    first so a following manual exposure/gain actually sticks. Keys with no
-    v4l2-ctl mapping are silently skipped (they only work through cv2).
-    """
-    normalized = parseCameraDeviceSettingsForCapture(settings)
-    applied: dict[str, int | float | bool] = {}
-    ordered = sorted(normalized.items(), key=lambda kv: 0 if "auto" in kv[0] else 1)
-    for key, value in ordered:
-        if key in _LINUX_V4L2CTL_CONTROL_MAP and _try_v4l2ctl_set(source, key, value):
-            applied[key] = value
-    return applied
-
-
 def read_camera_device_settings(
     cap: cv2.VideoCapture,
     *,
@@ -862,14 +824,11 @@ class CaptureThread:
         with self._cap_lock:
             source = self.getCameraSource()
             if self._cap is not None and isinstance(source, int):
-                if _is_gst_capture(self._cap):
-                    applied = apply_camera_device_settings_v4l2(source, normalized)
-                else:
-                    applied = apply_camera_device_settings(
-                        self._cap,
-                        normalized,
-                        source=source,
-                    )
+                applied = apply_camera_device_settings(
+                    self._cap,
+                    normalized,
+                    source=source,
+                )
                 with self._device_settings_lock:
                     self._device_settings = dict(applied)
                     if persist:
@@ -1136,27 +1095,7 @@ class CaptureThread:
                     )
                     last_expected_frame_at = 0.0
 
-                    if not is_url and _is_gst_capture(cap):
-                        # HW-decode path: capture mode is baked into the pipeline
-                        # caps and there is no cv2.VideoCapture to take CAP_PROP_*
-                        # writes, so device controls go through v4l2-ctl directly.
-                        settings_to_apply = self.getDeviceSettings()
-                        pre_settings = settings_to_apply or default_auto_camera_device_settings()
-                        applied_device_settings = apply_camera_device_settings_v4l2(
-                            source, pre_settings
-                        ) if isinstance(source, int) else {}
-                        if applied_device_settings:
-                            with self._device_settings_lock:
-                                self._device_settings = dict(applied_device_settings)
-                        # Re-apply after the first frame: v4l2src starting the
-                        # stream can reset controls (e.g. auto_exposure).
-                        if isinstance(source, int):
-                            post_stream_settings = dict(pre_settings)
-                            post_stream_source = source
-                        else:
-                            post_stream_settings = None
-                            post_stream_source = None
-                    elif not is_url:
+                    if not is_url:
                         # macOS uses AVFoundation, which negotiates its own pixel
                         # format at open time. Setting CAP_PROP_FOURCC after the
                         # fact can leave some cams open-but-frameless (e.g. Logitech
@@ -1221,14 +1160,9 @@ class CaptureThread:
                 if post_stream_settings is not None and post_stream_source is not None:
                     with self._cap_lock:
                         if cap is not None:
-                            if _is_gst_capture(cap):
-                                applied = apply_camera_device_settings_v4l2(
-                                    post_stream_source, post_stream_settings
-                                )
-                            else:
-                                applied = apply_camera_device_settings(
-                                    cap, post_stream_settings, source=post_stream_source
-                                )
+                            applied = apply_camera_device_settings(
+                                cap, post_stream_settings, source=post_stream_source
+                            )
                             if applied:
                                 with self._device_settings_lock:
                                     self._device_settings = dict(applied)

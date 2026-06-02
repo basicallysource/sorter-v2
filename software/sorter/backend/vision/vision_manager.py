@@ -296,8 +296,12 @@ class VisionManager:
             if uses_classification_channel_setup
             else ("c_channel_2", "c_channel_3")
         )
+        perception_native_feeder = feeder_mode in (
+            FeederMode.GO_TO_ANGLE_REV01,
+            FeederMode.PULSE_PERCEPTION_REV01,
+        )
         run_auxiliary_detection = (
-            feeder_mode != FeederMode.GO_TO_ANGLE_REV01
+            not perception_native_feeder
             and classification_mode != ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
         )
         # Experimental override: keep the dedicated inference thread running
@@ -309,7 +313,7 @@ class VisionManager:
             run_auxiliary_detection = True
         feeder_detection_path = (
             FeederDetectionPath.OBJECT_DETECTIONS
-            if feeder_mode == FeederMode.GO_TO_ANGLE_REV01
+            if perception_native_feeder
             else FeederDetectionPath.TRACKS
         )
         feeder_dynamic_overlay_path = (

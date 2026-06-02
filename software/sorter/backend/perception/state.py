@@ -55,6 +55,12 @@ class ChannelState:
     # The eject controller drives this toward 0 in a closed loop, re-reading it
     # after every move so piece slippage just costs extra iterations.
     exit_com_forward_deg: float | None = None
+    # Signed forward distance (output degrees) from the LEADING piece's COM to the
+    # CENTER of the exit-only (fall-off) arc, not its near edge — see
+    # ``arcs.exitComForwardToCenterDeg``. The C4 closed-loop discharge drives this
+    # toward 0 so a piece parks in the MIDDLE of the fall-off zone rather than on
+    # its leading lip. Same None semantics as ``exit_com_forward_deg``.
+    exit_com_forward_to_center_deg: float | None = None
     # True when the LEADING piece's COM section lies in the PRECISE zone. This is
     # the exact trigger for starting a C3 eject — the piece must actually be in
     # the precise (staging) band, not merely within some distance of the exit.

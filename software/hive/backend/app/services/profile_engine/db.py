@@ -230,8 +230,11 @@ def loadPartsDict(conn):
             "synced_at": synced_at,
         }
 
-    # load structured price guides
+    # load structured price guides. price_guides is now keyed by (item_no, color),
+    # but this legacy per-item map (used by the rule engine) needs one row per item;
+    # pick each item's most-liquid color as the representative price.
     price_guides = {}
+    _pg_best_liquidity = {}
     for row in conn.execute(
         "SELECT item_no, "
         "inv_new_lots, inv_new_qty, inv_new_min, inv_new_max, inv_new_avg, inv_new_wavg, "
@@ -240,7 +243,12 @@ def loadPartsDict(conn):
         "ord_used_lots, ord_used_qty, ord_used_min, ord_used_max, ord_used_avg, ord_used_wavg "
         "FROM price_guides"
     ):
-        price_guides[row[0]] = {
+        item_no = row[0]
+        liquidity = (row[2] or 0) + (row[8] or 0)  # inv_new_qty + inv_used_qty
+        if item_no in _pg_best_liquidity and liquidity <= _pg_best_liquidity[item_no]:
+            continue
+        _pg_best_liquidity[item_no] = liquidity
+        price_guides[item_no] = {
             "inv_new":  {"lots": row[1], "qty": row[2], "min": row[3], "max": row[4], "avg": row[5], "wavg": row[6]},
             "inv_used": {"lots": row[7], "qty": row[8], "min": row[9], "max": row[10], "avg": row[11], "wavg": row[12]},
             "ord_new":  {"lots": row[13], "qty": row[14], "min": row[15], "max": row[16], "avg": row[17], "wavg": row[18]},
@@ -423,10 +431,12 @@ def upsertBricklinkItem(conn, item):
         # update catalog fields without clobbering price_guide or synced_at
         sets = ["part_num=?", "name=COALESCE(?, name)", "type=COALESCE(?, type)",
                 "category_id=COALESCE(?, category_id)", "weight=COALESCE(?, weight)",
-                "year_released=COALESCE(?, year_released)", "is_obsolete=COALESCE(?, is_obsolete)"]
+                "year_released=COALESCE(?, year_released)", "is_obsolete=COALESCE(?, is_obsolete)",
+                "dim_x_studs=COALESCE(?, dim_x_studs)", "dim_y_studs=COALESCE(?, dim_y_studs)"]
         params = [item["part_num"], item.get("name"), item.get("type", "PART"),
                   item.get("category_id"), item.get("weight"), item.get("year_released"),
-                  1 if item.get("is_obsolete") else 0]
+                  1 if item.get("is_obsolete") else 0,
+                  item.get("dim_x_studs"), item.get("dim_y_studs")]
         if item.get("synced_at"):
             sets.append("synced_at=?")
             params.append(item["synced_at"])
@@ -437,8 +447,8 @@ def upsertBricklinkItem(conn, item):
         conn.execute(f"UPDATE bricklink_items SET {', '.join(sets)} WHERE item_no=?", params)
     else:
         conn.execute(
-            "INSERT INTO bricklink_items (item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, price_guide) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO bricklink_items (item_no, part_num, name, type, category_id, weight, year_released, is_obsolete, synced_at, price_guide, dim_x_studs, dim_y_studs) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 item["item_no"],
                 item["part_num"],
@@ -450,6 +460,8 @@ def upsertBricklinkItem(conn, item):
                 1 if item.get("is_obsolete") else 0,
                 item.get("synced_at"),
                 price_guide_json,
+                item.get("dim_x_studs"),
+                item.get("dim_y_studs"),
             ),
         )
 
@@ -459,6 +471,14 @@ def upsertPartBricklinkId(conn, part_num, item_no, is_primary=0):
         "INSERT OR REPLACE INTO part_bricklink_ids (part_num, item_no, is_primary) VALUES (?, ?, ?)",
         (part_num, item_no, is_primary),
     )
+
+
+def upsertBricklinkItemColors(conn, item_no, bl_color_ids):
+    for cid in bl_color_ids or []:
+        conn.execute(
+            "INSERT OR IGNORE INTO bricklink_item_colors (item_no, bl_color_id) VALUES (?, ?)",
+            (item_no, cid),
+        )
 
 
 def setMeta(conn, key, value):
@@ -575,8 +595,11 @@ def importBrickstoreDb(conn, brickstore_db_path):
             "year_released": item["year_released"],
             "is_obsolete": item["is_obsolete"],
             "synced_at": "brickstore_db",
+            "dim_x_studs": item.get("dim_x_studs"),
+            "dim_y_studs": item.get("dim_y_studs"),
         })
         upsertPartBricklinkId(conn, part_num, item_no)
+        upsertBricklinkItemColors(conn, item_no, item.get("known_colors"))
         imported += 1
 
     conn.commit()
@@ -592,17 +615,24 @@ BL_AFFILIATE_THROTTLE_SECONDS = 0.5
 
 
 def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
-    # get ALL parts that have a bricklink ID, not just ones with existing bricklink_items rows
+    # Price every real (part, color) combo. The colors come from BrickStore's
+    # known_colors (bricklink_item_colors), so we only request combos that exist
+    # instead of the old color_id=0 request, which returns a near-empty bucket.
+    bl_to_rb = {bl: rb for rb, bl in _buildRbToBlColorMap(_loadColors(conn)).items()}
+
     rows = conn.execute(
-        "SELECT pb.item_no, pb.part_num FROM part_bricklink_ids pb WHERE pb.is_primary = 1"
+        "SELECT bic.item_no, bic.bl_color_id, bi.part_num "
+        "FROM bricklink_item_colors bic "
+        "JOIN bricklink_items bi ON bi.item_no = bic.item_no "
+        "ORDER BY bic.item_no, bic.bl_color_id"
     ).fetchall()
-    all_items = [(r[0], r[1]) for r in rows]
-    total = len(all_items)
+    combos = [(r[0], r[1], r[2]) for r in rows]
+    total = len(combos)
     if total == 0:
         return {"total": 0, "updated": 0, "batches": 0, "stopped": False}
 
     if progress_fn:
-        progress_fn(0, total, f"Starting price sync for {total} items...")
+        progress_fn(0, total, f"Starting per-color price sync for {total} part/color combos...")
 
     updated = 0
     batches_sent = 0
@@ -611,8 +641,9 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
         if should_stop_fn and should_stop_fn():
             return {"total": total, "updated": updated, "batches": batches_sent, "stopped": True}
 
-        batch = all_items[batch_start:batch_start + BL_AFFILIATE_BATCH_SIZE]
-        body = [{"color_id": 0, "item": {"no": item_no, "type": "PART"}} for item_no, _ in batch]
+        batch = combos[batch_start:batch_start + BL_AFFILIATE_BATCH_SIZE]
+        body = [{"color_id": cid, "item": {"no": item_no, "type": "PART"}}
+                for item_no, cid, _ in batch]
 
         time.sleep(BL_AFFILIATE_THROTTLE_SECONDS)
         resp = requests.post(
@@ -630,19 +661,17 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
         result = resp.json()
         batches_sent += 1
 
-        response_data = result.get("data", [])
-        price_by_item = {}
-        for entry in response_data:
-            item_info = entry.get("item", {})
-            item_no = item_info.get("no")
-            if item_no:
-                price_by_item[item_no] = entry
+        # key responses by (item_no, color_id) since one batch spans many colors
+        price_by_key = {}
+        for entry in result.get("data", []):
+            item_no = entry.get("item", {}).get("no")
+            if item_no is not None:
+                price_by_key[(item_no, entry.get("color_id"))] = entry
 
-        for item_no, part_num in batch:
-            price_entry = price_by_item.get(item_no)
+        for item_no, cid, part_num in batch:
+            price_entry = price_by_key.get((item_no, cid))
             if not price_entry:
                 continue
-            # ensure bricklink_items row exists
             existing = conn.execute("SELECT 1 FROM bricklink_items WHERE item_no = ?", (item_no,)).fetchone()
             if not existing:
                 conn.execute(
@@ -650,7 +679,7 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
                     "VALUES (?, ?, 'PART', 'price_sync')",
                     (item_no, part_num),
                 )
-            _upsertPriceGuide(conn, item_no, price_entry)
+            _upsertPriceGuide(conn, item_no, cid, bl_to_rb.get(cid), price_entry)
             updated += 1
 
         conn.commit()
@@ -660,16 +689,16 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
             pct = round((processed / total) * 100)
             progress_fn(
                 processed, total,
-                f"Prices: {processed} / {total} ({pct}%), {updated} updated, batch #{batches_sent}",
+                f"Prices: {processed} / {total} combos ({pct}%), {updated} priced, batch #{batches_sent}",
             )
 
-        print(f"[prices] batch #{batches_sent}: {len(batch)} items, {len(price_by_item)} responses")
+        print(f"[prices] batch #{batches_sent}: {len(batch)} combos, {len(price_by_key)} responses")
 
     return {"total": total, "updated": updated, "batches": batches_sent, "stopped": False}
 
 
-def _upsertPriceGuide(conn, item_no, entry):
-    # entry is the affiliate API response for one item
+def _upsertPriceGuide(conn, item_no, bl_color_id, rb_color_id, entry):
+    # entry is the affiliate API response for one (item, color)
     # compute avg = total_price / total_quantity, wavg = total_qty_price / unit_quantity
     vals = {"item_no": item_no, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     for api_key, col_prefix in [
@@ -691,14 +720,14 @@ def _upsertPriceGuide(conn, item_no, entry):
         vals[f"{col_prefix}_wavg"] = _safeDiv(s.get("total_qty_price"), lots)
     conn.execute(
         "INSERT OR REPLACE INTO price_guides ("
-        "item_no, updated_at, "
+        "item_no, bl_color_id, rb_color_id, updated_at, "
         "inv_new_lots, inv_new_qty, inv_new_min, inv_new_max, inv_new_avg, inv_new_wavg, "
         "inv_used_lots, inv_used_qty, inv_used_min, inv_used_max, inv_used_avg, inv_used_wavg, "
         "ord_new_lots, ord_new_qty, ord_new_min, ord_new_max, ord_new_avg, ord_new_wavg, "
         "ord_used_lots, ord_used_qty, ord_used_min, ord_used_max, ord_used_avg, ord_used_wavg"
-        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (
-            vals.get("item_no"), vals.get("updated_at"),
+            vals.get("item_no"), bl_color_id, rb_color_id, vals.get("updated_at"),
             vals.get("inv_new_lots", 0), vals.get("inv_new_qty", 0),
             vals.get("inv_new_min"), vals.get("inv_new_max"), vals.get("inv_new_avg"), vals.get("inv_new_wavg"),
             vals.get("inv_used_lots", 0), vals.get("inv_used_qty", 0),
@@ -709,3 +738,339 @@ def _upsertPriceGuide(conn, item_no, entry):
             vals.get("ord_used_min"), vals.get("ord_used_max"), vals.get("ord_used_avg"), vals.get("ord_used_wavg"),
         ),
     )
+
+
+# --- admin parts-db browser (read-only inspection / connection verification) ---
+
+def _tableCount(conn, table):
+    try:
+        return conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]
+    except sqlite3.Error:
+        return None
+
+
+def adminCatalogOverview(conn):
+    parts_total = _tableCount(conn, "parts")
+    parts_with_bl_id = conn.execute(
+        "SELECT COUNT(DISTINCT part_num) FROM part_bricklink_ids"
+    ).fetchone()[0]
+    parts_with_bl_item = conn.execute(
+        "SELECT COUNT(DISTINCT p.part_num) FROM parts p "
+        "JOIN part_bricklink_ids pbi ON pbi.part_num = p.part_num "
+        "JOIN bricklink_items bi ON bi.item_no = pbi.item_no"
+    ).fetchone()[0]
+    parts_with_price = conn.execute(
+        "SELECT COUNT(DISTINCT p.part_num) FROM parts p "
+        "JOIN part_bricklink_ids pbi ON pbi.part_num = p.part_num "
+        "JOIN price_guides pg ON pg.item_no = pbi.item_no"
+    ).fetchone()[0]
+    # BrickLink ids pointing at a part that doesn't exist, or at no item record
+    orphan_bl_ids = conn.execute(
+        "SELECT COUNT(*) FROM part_bricklink_ids pbi "
+        "WHERE NOT EXISTS (SELECT 1 FROM bricklink_items bi WHERE bi.item_no = pbi.item_no)"
+    ).fetchone()[0]
+    parts_with_dims = conn.execute(
+        "SELECT COUNT(*) FROM bricklink_items WHERE dim_x_studs IS NOT NULL"
+    ).fetchone()[0]
+    price_rows_with_rb_color = conn.execute(
+        "SELECT COUNT(*) FROM price_guides WHERE rb_color_id IS NOT NULL"
+    ).fetchone()[0]
+    parts_with_geometry = _tableCount(conn, "part_geometry")
+    return {
+        "tables": {
+            "parts": parts_total,
+            "categories": _tableCount(conn, "categories"),
+            "colors": _tableCount(conn, "colors"),
+            "bricklink_items": _tableCount(conn, "bricklink_items"),
+            "bricklink_categories": _tableCount(conn, "bricklink_categories"),
+            "bricklink_item_colors": _tableCount(conn, "bricklink_item_colors"),
+            "part_bricklink_ids": _tableCount(conn, "part_bricklink_ids"),
+            "price_guides": _tableCount(conn, "price_guides"),
+            "rebrickable_sets": _tableCount(conn, "rebrickable_sets"),
+            "rebrickable_set_inventory": _tableCount(conn, "rebrickable_set_inventory"),
+        },
+        "coverage": {
+            "parts_total": parts_total,
+            "parts_with_bricklink_id": parts_with_bl_id,
+            "parts_with_bricklink_item": parts_with_bl_item,
+            "parts_with_price_guide": parts_with_price,
+            "bricklink_ids_without_item": orphan_bl_ids,
+            "bricklink_items_with_dims": parts_with_dims,
+            "price_color_rows_mapped_to_rb": price_rows_with_rb_color,
+            "parts_with_ldraw_geometry": parts_with_geometry,
+        },
+    }
+
+
+def adminListParts(conn, query=None, cat_filter=None, missing=None, limit=100, offset=0):
+    query_lower = query.lower().strip() if query else ""
+    conditions = []
+    params = []
+
+    if query_lower:
+        conditions.append(
+            "(LOWER(p.name) LIKE ? OR LOWER(p.part_num) LIKE ? OR EXISTS "
+            "(SELECT 1 FROM part_bricklink_ids pb WHERE pb.part_num = p.part_num AND LOWER(pb.item_no) LIKE ?))"
+        )
+        like_val = f"%{query_lower}%"
+        params.extend([like_val, like_val, like_val])
+
+    if cat_filter is not None:
+        conditions.append("p.part_cat_id = ?")
+        params.append(cat_filter)
+
+    if missing == "bricklink_id":
+        conditions.append(
+            "NOT EXISTS (SELECT 1 FROM part_bricklink_ids pb WHERE pb.part_num = p.part_num)"
+        )
+    elif missing == "bricklink_item":
+        conditions.append(
+            "NOT EXISTS (SELECT 1 FROM part_bricklink_ids pb "
+            "JOIN bricklink_items bi ON bi.item_no = pb.item_no WHERE pb.part_num = p.part_num)"
+        )
+
+    where = (" WHERE " + " AND ".join(conditions)) if conditions else ""
+
+    total = conn.execute(f"SELECT COUNT(*) FROM parts p{where}", params).fetchone()[0]
+
+    sql = (
+        "SELECT p.part_num, p.name, p.part_cat_id, p.year_from, p.year_to, "
+        "p.part_img_url, p.part_url, p.external_ids, c.name, bi.name, bc.name, "
+        "(SELECT COUNT(*) FROM part_bricklink_ids pb WHERE pb.part_num = p.part_num), "
+        "(SELECT COUNT(*) FROM part_bricklink_ids pb JOIN bricklink_items b2 ON b2.item_no = pb.item_no WHERE pb.part_num = p.part_num), "
+        "(SELECT COUNT(*) FROM part_bricklink_ids pb JOIN price_guides pg ON pg.item_no = pb.item_no WHERE pb.part_num = p.part_num) "
+        "FROM parts p LEFT JOIN categories c ON c.id = p.part_cat_id "
+        "LEFT JOIN part_bricklink_ids pbi ON pbi.part_num = p.part_num AND pbi.is_primary = 1 "
+        "LEFT JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
+        "LEFT JOIN bricklink_categories bc ON bc.id = bi.category_id "
+        f"{where} ORDER BY p.part_num LIMIT ? OFFSET ?"
+    )
+
+    results = []
+    for row in conn.execute(sql, params + [limit, offset]):
+        (part_num, name, part_cat_id, year_from, year_to, part_img_url, part_url,
+         ext_ids_json, cat_name, bl_name, bl_cat_name, bl_id_count, bl_item_count, price_count) = row
+        external_ids = json.loads(ext_ids_json) if ext_ids_json else {}
+        results.append({
+            "part_num": part_num,
+            "name": name,
+            "part_cat_id": part_cat_id,
+            "year_from": year_from,
+            "year_to": year_to,
+            "part_img_url": part_img_url,
+            "part_url": part_url,
+            "external_ids": external_ids,
+            "_category_name": cat_name or "Unknown",
+            "_bl_name": bl_name,
+            "_bl_category_name": bl_cat_name,
+            "_bl_id_count": bl_id_count,
+            "_bl_item_count": bl_item_count,
+            "_price_count": price_count,
+        })
+
+    return results, total
+
+
+def adminGetPart(conn, part_num):
+    prow = conn.execute(
+        "SELECT p.part_num, p.name, p.part_cat_id, p.year_from, p.year_to, "
+        "p.part_img_url, p.part_url, p.external_ids, c.name "
+        "FROM parts p LEFT JOIN categories c ON c.id = p.part_cat_id WHERE p.part_num = ?",
+        (part_num,),
+    ).fetchone()
+    if not prow:
+        return None
+
+    external_ids = json.loads(prow[7]) if prow[7] else {}
+    part = {
+        "part_num": prow[0],
+        "name": prow[1],
+        "part_cat_id": prow[2],
+        "year_from": prow[3],
+        "year_to": prow[4],
+        "part_img_url": prow[5],
+        "part_url": prow[6],
+        "external_ids": external_ids,
+        "_category_name": prow[8] or "Unknown",
+    }
+
+    bricklink = []
+    dim_x = dim_y = None
+    for row in conn.execute(
+        "SELECT pbi.item_no, pbi.is_primary, bi.name, bi.type, bi.weight, "
+        "bi.year_released, bi.is_obsolete, bc.name, "
+        "(SELECT COUNT(*) FROM price_guides pg WHERE pg.item_no = pbi.item_no), "
+        "bi.dim_x_studs, bi.dim_y_studs "
+        "FROM part_bricklink_ids pbi "
+        "LEFT JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
+        "LEFT JOIN bricklink_categories bc ON bc.id = bi.category_id "
+        "WHERE pbi.part_num = ? ORDER BY pbi.is_primary DESC, pbi.item_no",
+        (part_num,),
+    ):
+        bricklink.append({
+            "item_no": row[0],
+            "is_primary": bool(row[1]),
+            "bl_name": row[2],
+            "type": row[3],
+            "weight": row[4],
+            "year_released": row[5],
+            "is_obsolete": bool(row[6]) if row[6] is not None else None,
+            "bl_category_name": row[7],
+            "has_item_record": row[2] is not None,
+            "has_price_guide": bool(row[8]),
+        })
+        if dim_x is None and row[9] is not None:
+            dim_x, dim_y = row[9], row[10]
+
+    part["dim_x_studs"] = dim_x
+    part["dim_y_studs"] = dim_y
+
+    # per-color prices across this part's bricklink item(s)
+    prices = []
+    for row in conn.execute(
+        "SELECT pg.item_no, pg.bl_color_id, pg.rb_color_id, col.name, "
+        "pg.inv_new_qty, pg.inv_new_avg, pg.inv_new_min, pg.inv_new_max, "
+        "pg.inv_used_qty, pg.inv_used_avg, pg.inv_used_min, pg.inv_used_max "
+        "FROM price_guides pg "
+        "JOIN part_bricklink_ids pbi ON pbi.item_no = pg.item_no AND pbi.part_num = ? "
+        "LEFT JOIN colors col ON col.id = pg.rb_color_id "
+        "ORDER BY pg.inv_used_avg DESC",
+        (part_num,),
+    ):
+        prices.append({
+            "item_no": row[0],
+            "bl_color_id": row[1],
+            "rb_color_id": row[2],
+            "color_name": row[3],
+            "new_qty": row[4], "new_avg": row[5], "new_min": row[6], "new_max": row[7],
+            "used_qty": row[8], "used_avg": row[9], "used_min": row[10], "used_max": row[11],
+        })
+
+    geometry = getPartGeometry(conn, part_num)
+    dimensions = resolvePartDimensions(conn, part_num)
+
+    return {"part": part, "bricklink": bricklink, "prices": prices,
+            "geometry": geometry, "dimensions": dimensions}
+
+
+def getPartGeometry(conn, part_num):
+    row = conn.execute(
+        "SELECT ldraw_id, physical_parent_part_num, geometry_source, "
+        "bbox_x_mm, bbox_y_mm, bbox_z_mm, max_extent_mm, volume_mm3 "
+        "FROM part_geometry WHERE part_num = ?",
+        (part_num,),
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "ldraw_id": row[0],
+        "physical_parent_part_num": row[1],
+        "geometry_source": row[2],
+        "bbox_x_mm": row[3],
+        "bbox_y_mm": row[4],
+        "bbox_z_mm": row[5],
+        "max_extent_mm": row[6],
+        "volume_mm3": row[7],
+    }
+
+
+def upsertPartGeometry(conn, part_num, geom, computed_at):
+    conn.execute(
+        "INSERT OR REPLACE INTO part_geometry "
+        "(part_num, ldraw_id, physical_parent_part_num, geometry_source, "
+        "bbox_x_mm, bbox_y_mm, bbox_z_mm, max_extent_mm, volume_mm3, computed_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            part_num, geom.get("ldraw_id"), geom.get("physical_parent_part_num"),
+            geom.get("geometry_source"), geom.get("bbox_x_mm"), geom.get("bbox_y_mm"),
+            geom.get("bbox_z_mm"), geom.get("max_extent_mm"), geom.get("volume_mm3"),
+            computed_at,
+        ),
+    )
+
+
+# Category -> representative part whose LDraw geometry stands in for the whole
+# family (minifig torsos/heads/etc. share one physical shape regardless of print).
+# Used only as a runtime fallback; never stored.
+_CANONICAL_BY_CATEGORY = {
+    "Minifig Upper Body": "973c00",
+    "Minifig Torso Assembly": "973c00",
+    "Minifig Heads": "3626a",
+    "Minifig Head": "3626a",
+}
+
+
+def _geomFields(g):
+    return {
+        "bbox_x_mm": g["bbox_x_mm"], "bbox_y_mm": g["bbox_y_mm"], "bbox_z_mm": g["bbox_z_mm"],
+        "max_extent_mm": g["max_extent_mm"], "volume_mm3": g["volume_mm3"],
+    }
+
+
+def resolvePartDimensions(conn, part_num):
+    # Best-available dimensions for a part, in mm, with a source/confidence flag.
+    # Tier 1: the part's own LDraw geometry (exact).
+    g = getPartGeometry(conn, part_num)
+    if g:
+        src = "ldraw_" + (g.get("geometry_source") or "direct")
+        return {**_geomFields(g), "source": src, "confidence": "exact",
+                "ldraw_id": g.get("ldraw_id"), "physical_parent_part_num": g.get("physical_parent_part_num")}
+
+    # Tier 2: category-canonical family shape (e.g. any minifig torso -> 973).
+    catrow = conn.execute(
+        "SELECT c.name FROM parts p LEFT JOIN categories c ON c.id = p.part_cat_id WHERE p.part_num = ?",
+        (part_num,),
+    ).fetchone()
+    rep = _CANONICAL_BY_CATEGORY.get(catrow[0]) if catrow else None
+    if rep:
+        gg = getPartGeometry(conn, rep)
+        if gg:
+            return {**_geomFields(gg), "source": f"canonical:{rep}", "confidence": "family",
+                    "ldraw_id": gg.get("ldraw_id"), "physical_parent_part_num": rep}
+
+    # Tier 3: BrickStore stud footprint -> mm (x/y only, height unknown).
+    row = conn.execute(
+        "SELECT bi.dim_x_studs, bi.dim_y_studs FROM part_bricklink_ids pbi "
+        "JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
+        "WHERE pbi.part_num = ? AND bi.dim_x_studs IS NOT NULL "
+        "ORDER BY pbi.is_primary DESC LIMIT 1",
+        (part_num,),
+    ).fetchone()
+    if row and row[0] is not None:
+        import math
+        x, y = row[0] * 8.0, row[1] * 8.0
+        return {"bbox_x_mm": round(max(x, y), 2), "bbox_y_mm": round(min(x, y), 2), "bbox_z_mm": None,
+                "max_extent_mm": round(math.hypot(x, y), 2), "volume_mm3": None,
+                "source": "studs_footprint", "confidence": "coarse",
+                "ldraw_id": None, "physical_parent_part_num": None}
+
+    return {"bbox_x_mm": None, "bbox_y_mm": None, "bbox_z_mm": None, "max_extent_mm": None,
+            "volume_mm3": None, "source": "none", "confidence": "none",
+            "ldraw_id": None, "physical_parent_part_num": None}
+
+
+def getPartColorPrice(conn, part_num, rb_color_id, condition="used"):
+    # Lookup used by sorting profiles: price for a detected (part, color).
+    # Returns the avg price for the requested condition ('new'|'used'), or None.
+    # Prefers the part's primary BrickLink item when several map.
+    col = "inv_used_avg" if condition == "used" else "inv_new_avg"
+    row = conn.execute(
+        f"SELECT pg.{col} FROM price_guides pg "
+        "JOIN part_bricklink_ids pbi ON pbi.item_no = pg.item_no AND pbi.part_num = ? "
+        "WHERE pg.rb_color_id = ? "
+        "ORDER BY pbi.is_primary DESC LIMIT 1",
+        (part_num, rb_color_id),
+    ).fetchone()
+    return row[0] if row and row[0] is not None else None
+
+
+def adminListCategories(conn):
+    rows = conn.execute(
+        "SELECT c.id, c.name, c.part_count, "
+        "(SELECT COUNT(*) FROM parts p WHERE p.part_cat_id = c.id) "
+        "FROM categories c ORDER BY c.name"
+    ).fetchall()
+    return [
+        {"id": r[0], "name": r[1], "part_count": r[2], "actual_part_count": r[3]}
+        for r in rows
+    ]

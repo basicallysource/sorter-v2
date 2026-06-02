@@ -33,6 +33,7 @@
 		servoId: string;
 		invert: boolean;
 		maxPiecesPerBin: string;
+		maxDimensionMm: string;
 		liveOpen: boolean | null;
 		telemetry: LayerTelemetry;
 		testing: boolean;
@@ -73,6 +74,7 @@
 	let errorMsg = $state<string | null>(null);
 	let statusMsg = $state('');
 	let allowedCounts = $state<number[]>([6, 12, 18, 30]);
+	let maxDimensionDefaults = $state<Record<string, number>>({});
 	let availableServoIds = $state<number[]>([]);
 	let servoIssues = $state<HardwareIssue[]>([]);
 	let backend = $state<ServoBackend>('pca9685');
@@ -94,7 +96,8 @@
 				enabled: l.enabled,
 				servoId: l.servoId.trim(),
 				invert: l.invert,
-				maxPiecesPerBin: l.maxPiecesPerBin.trim()
+				maxPiecesPerBin: l.maxPiecesPerBin.trim(),
+				maxDimensionMm: l.maxDimensionMm.trim()
 			}))
 		})
 	);
@@ -255,6 +258,15 @@
 				)
 			: [6, 12, 18, 30];
 
+		maxDimensionDefaults =
+			storage?.max_dimension_defaults && typeof storage.max_dimension_defaults === 'object'
+				? (Object.fromEntries(
+						Object.entries(storage.max_dimension_defaults as Record<string, unknown>)
+							.filter(([, v]) => typeof v === 'number')
+							.map(([k, v]) => [k, v as number])
+					) as Record<string, number>)
+				: {};
+
 		backend = servo.backend === 'waveshare' ? 'waveshare' : 'pca9685';
 		openAngle = Number(servo.open_angle ?? 10);
 		closedAngle = Number(servo.closed_angle ?? 83);
@@ -288,6 +300,10 @@
 			maxPiecesPerBin:
 				typeof layer?.max_pieces_per_bin === 'number' && layer.max_pieces_per_bin > 0
 					? String(Math.floor(layer.max_pieces_per_bin))
+					: '',
+			maxDimensionMm:
+				typeof layer?.max_dimension_mm === 'number' && layer.max_dimension_mm > 0
+					? String(layer.max_dimension_mm)
 					: '',
 			liveOpen: previousStates.get(Number(layer?.index ?? index + 1))?.liveOpen ?? null,
 			telemetry:
@@ -481,10 +497,22 @@
 					}
 					maxPiecesPerBin = parsed;
 				}
+				const dimTrimmed = draft?.maxDimensionMm.trim() ?? '';
+				let maxDimensionMm: number | null = null;
+				if (dimTrimmed.length > 0) {
+					const parsedDim = Number(dimTrimmed);
+					if (!Number.isFinite(parsedDim) || parsedDim <= 0) {
+						throw new Error(
+							`Layer ${draft?.index ?? index + 1} max dimension must be a positive number of millimeters.`
+						);
+					}
+					maxDimensionMm = parsedDim;
+				}
 				return {
 					bin_count: binCount,
 					enabled: draft?.enabled ?? true,
-					max_pieces_per_bin: maxPiecesPerBin
+					max_pieces_per_bin: maxPiecesPerBin,
+					max_dimension_mm: maxDimensionMm
 				};
 			});
 			const channels = parsedServoChannels();
@@ -647,6 +675,7 @@
 				servoId: '',
 				invert: false,
 				maxPiecesPerBin: '',
+				maxDimensionMm: defaultMaxDimensionFor('12'),
 				liveOpen: null,
 				telemetry: emptyTelemetry(),
 				testing: false,
@@ -661,6 +690,17 @@
 		);
 	}
 
+	function defaultMaxDimensionFor(binCount: string): string {
+		const value = maxDimensionDefaults[String(Number(binCount))];
+		return typeof value === 'number' ? String(value) : '';
+	}
+
+	function updateLayerMaxDimension(index: number, value: string) {
+		layers = layers.map((layer, layerIndex) =>
+			layerIndex === index ? { ...layer, maxDimensionMm: value } : layer
+		);
+	}
+
 	function removeLayer(index: number) {
 		const layer = layers[index];
 		const label = layer ? `Layer ${layer.index}` : `layer ${index + 1}`;
@@ -669,8 +709,12 @@
 	}
 
 	function updateLayerCount(index: number, value: string) {
+		// Changing the bin count resets this layer's max-dimension limit to the
+		// default for the new count (denser layers get a tighter limit).
 		layers = layers.map((layer, layerIndex) =>
-			layerIndex === index ? { ...layer, binCount: value } : layer
+			layerIndex === index
+				? { ...layer, binCount: value, maxDimensionMm: defaultMaxDimensionFor(value) }
+				: layer
 		);
 	}
 
@@ -855,6 +899,7 @@
 			onUpdateServoId={updateLayerServoId}
 			onUpdateInvert={(index, value) => void updateLayerInvert(index, value)}
 			onUpdateMaxPieces={updateLayerMaxPieces}
+			onUpdateMaxDimension={updateLayerMaxDimension}
 			onToggle={toggleLayerServo}
 			onCalibrate={calibrateLayerServo}
 		/>

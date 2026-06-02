@@ -1,3 +1,5 @@
+import time
+
 from global_config import GlobalConfig
 from irl.config import ClassificationChannelMode, IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
@@ -5,6 +7,21 @@ from subsystems.base_subsystem import BaseSubsystem
 from subsystems.classification_channel.detecting import Detecting
 from subsystems.classification_channel.ejecting import Ejecting
 from subsystems.classification_channel.idle import Idle
+from subsystems.classification_channel.incidents import (
+    CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND,
+    clear_classification_exit_stuck_incident,
+    publish_classification_exit_stuck_incident,
+)
+
+# General no-progress watchdog: if a piece is physically on the classification
+# channel (perception n_pieces > 0) but the state machine makes NO transition
+# for this long, the process is wedged — no matter WHICH state it's stuck in or
+# which zone perception thinks the piece is in. Raise the operator exit-stuck
+# incident (manual: dashboard pop-up + Resolve) so a stall is never silent. No
+# auto-recovery — the operator clears the piece and Resolves to resume. The
+# threshold is well above any normal single-state dwell (rotate/classify/
+# discharge all transition within a few seconds).
+_STALL_INCIDENT_MS = 30000.0
 from subsystems.classification_channel.running import Running
 from subsystems.classification_channel.simple_state_machine_rev01 import (
     buildRev01StatesMap,
@@ -100,6 +117,10 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             self.gc.runtime_stats.observeStateTransition(
                 "classification", None, self.current_state.value
             )
+        # No-progress watchdog state: last time the SM made a transition (its
+        # "progress" signal) and whether we've raised the stall incident.
+        self._last_progress_at = time.monotonic()
+        self._stall_incident_raised = False
 
     def step(self) -> None:
         import time as _time
@@ -112,6 +133,8 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         if next_state and next_state != self.current_state:
             _cleanup_t0 = _time.perf_counter()
             prev_state = self.current_state
+            # A state transition is the SM's "forward progress" signal.
+            self._last_progress_at = _time.monotonic()
             self.logger.info(
                 f"ClassificationChannel: {prev_state.value} -> {next_state.value}"
             )
@@ -146,6 +169,65 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             "classification.sm.total_ms",
             (_t3 - _t0) * 1000.0,
         )
+        self._checkStall(_time.monotonic())
+
+    def _stallIncidentActive(self) -> bool:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+            return False
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            return False
+        return (
+            isinstance(active, dict)
+            and active.get("kind") == CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
+        )
+
+    def _checkStall(self, now: float) -> None:
+        # Only the rev01 (active) path. Legacy/dynamic paths have their own flow.
+        if self._mode != ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+            return
+
+        # If we raised the incident and it's since been resolved (operator
+        # cleared it), re-arm from now so we don't instantly re-fire on the next
+        # step — give the resumed flow a fresh window to make progress.
+        if self._stall_incident_raised and not self._stallIncidentActive():
+            self._stall_incident_raised = False
+            self._last_progress_at = now
+            return
+
+        perception_service = getattr(self.gc, "perception_service", None)
+        occupied = False
+        if perception_service is not None:
+            try:
+                occupied = int(perception_service.read_state(4).n_pieces) > 0
+            except Exception:
+                occupied = False
+
+        if not occupied:
+            # Channel clear -> not stuck. Re-arm and drop any raised incident
+            # (the piece left / was removed).
+            self._last_progress_at = now
+            if self._stall_incident_raised:
+                clear_classification_exit_stuck_incident(self.gc)
+                self._stall_incident_raised = False
+            return
+
+        stalled_ms = (now - self._last_progress_at) * 1000.0
+        if not self._stall_incident_raised and stalled_ms >= _STALL_INCIDENT_MS:
+            published = publish_classification_exit_stuck_incident(
+                self.gc,
+                piece=None,
+                jitter_attempts=0,
+                converge_ms=stalled_ms,
+            )
+            self._stall_incident_raised = bool(published)
+            self.logger.info(
+                f"ClassificationChannel: STALLED in {self.current_state.value} for "
+                f"{stalled_ms:.0f}ms with a piece on the channel — raised exit-stuck "
+                f"incident (published={self._stall_incident_raised})"
+            )
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")

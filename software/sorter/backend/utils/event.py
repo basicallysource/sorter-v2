@@ -1,3 +1,5 @@
+from typing import Any
+
 from defs.known_object import KnownObject
 from defs.events import (
     KnownObjectEvent,
@@ -5,6 +7,31 @@ from defs.events import (
     PieceStage,
     ClassificationStatus,
 )
+
+
+# Heavy, write-once KnownObject fields that exist for server-side lookup only
+# and must NOT travel over the live control socket. They are kept in the
+# in-memory lookup (runtime_stats) and served on demand by the per-piece detail
+# page via /api/known-objects/<uuid>. recognition_images in particular is a list
+# that grows one base64 crop per capture; re-broadcasting the whole list on every
+# capture made known_object payloads grow quadratically and backed up the socket
+# broadcaster. The live UI renders latest_captured_crop (bounded), not this list.
+# Add a field here to drop it from the live socket without touching call sites.
+KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_images"})
+
+
+def slimKnownObjectForSocket(data: dict[str, Any]) -> dict[str, Any]:
+    """Single boundary for what a known_object carries over the live socket.
+
+    Returns a copy of the known_object ``data`` dict with the lookup-only
+    (heavy) fields removed. Used by both the live broadcaster and the WS replay
+    so the rule lives in exactly one place.
+    """
+    return {
+        key: value
+        for key, value in data.items()
+        if key not in KNOWN_OBJECT_LOOKUP_ONLY_FIELDS
+    }
 
 
 def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
@@ -23,6 +50,10 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             color_name=obj.color_name,
             category_id=obj.category_id,
             confidence=obj.confidence,
+            max_dimension_mm=obj.max_dimension_mm,
+            too_big=obj.too_big,
+            too_big_for_layer=obj.too_big_for_layer,
+            intended_layer_index=obj.intended_layer_index,
             destination_bin=obj.destination_bin,
             tracked_global_id=obj.tracked_global_id,
             classification_channel_zone_state=obj.classification_channel_zone_state,

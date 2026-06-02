@@ -10,6 +10,45 @@ class LayerConfig:
     servo_open_angle: int | None = None
     servo_closed_angle: int | None = None
     max_pieces_per_bin: int | None = None
+    # Largest piece (max single physical dimension, mm) this layer will accept.
+    # None disables the check for the layer — pieces of any size may be sent
+    # here. A piece exceeding this is rerouted to the misc bottom bin.
+    max_dimension_mm: float | None = None
+
+
+# Per-layer oversize-limit defaults, keyed by the layer's total bin count.
+# Denser layers (more, smaller bins) get a tighter limit. A bin count not
+# listed here defaults to None (no per-layer size check). 5 is included per
+# spec even though it is not currently an allowed bin count; 30 (the densest
+# allowed layer) mirrors that tight limit.
+_LAYER_MAX_DIMENSION_DEFAULTS_MM: dict[int, float] = {
+    5: 40.0,
+    6: 80.0,
+    12: 80.0,
+    18: 50.0,
+    30: 40.0,
+}
+
+
+def defaultMaxDimensionForBinCount(bin_count: int) -> float | None:
+    return _LAYER_MAX_DIMENSION_DEFAULTS_MM.get(bin_count)
+
+
+def _binCountOf(sections: List[List[str]]) -> int:
+    return sum(len(section) for section in sections)
+
+
+_MISSING = object()
+
+
+def _parseMaxDimension(raw: object, sections: List[List[str]]) -> float | None:
+    # Missing key (legacy layout) -> bin-count default. Explicit null -> no
+    # check. A number -> that limit.
+    if raw is _MISSING:
+        return defaultMaxDimensionForBinCount(_binCountOf(sections))
+    if isinstance(raw, (int, float)) and not isinstance(raw, bool) and raw > 0:
+        return float(raw)
+    return None
 
 
 @dataclass
@@ -39,6 +78,7 @@ class Layer:
     sections: List[BinSection] = field(default_factory=list)
     enabled: bool = True
     max_pieces_per_bin: int | None = None
+    max_dimension_mm: float | None = None
 
 
 @dataclass
@@ -95,6 +135,14 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 )
 
 
+# The default layout has 12-bin layers, so give each the 12-bin size limit.
+for _default_layer in DEFAULT_BIN_LAYOUT.layers:
+    if _default_layer.max_dimension_mm is None:
+        _default_layer.max_dimension_mm = defaultMaxDimensionForBinCount(
+            _binCountOf(_default_layer.sections)
+        )
+
+
 def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
     raw_layers = data.get("layers")
     if not isinstance(raw_layers, list) or not raw_layers:
@@ -124,12 +172,14 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
         servo_open = layer_data.get("servo_open_angle")
         servo_close = layer_data.get("servo_closed_angle")
         max_per_bin = layer_data.get("max_pieces_per_bin")
+        max_dimension = _parseMaxDimension(layer_data.get("max_dimension_mm", _MISSING), sections)
         layers.append(LayerConfig(
             sections=sections,
             enabled=enabled,
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_close if isinstance(servo_close, int) else None,
             max_pieces_per_bin=max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
+            max_dimension_mm=max_dimension,
         ))
     return BinLayoutConfig(layers=layers) if layers else None
 
@@ -181,6 +231,7 @@ def _loadFromToml() -> BinLayoutConfig | None:
             sections=sections,
             servo_open_angle=open_val if isinstance(open_val, int) else None,
             servo_closed_angle=closed_val if isinstance(closed_val, int) else None,
+            max_dimension_mm=defaultMaxDimensionForBinCount(_binCountOf(sections)),
         ))
 
     return BinLayoutConfig(layers=layers) if layers else None
@@ -213,6 +264,7 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
+                "max_dimension_mm": layer.max_dimension_mm,
             }
             for layer in config.layers
         ]
@@ -234,6 +286,7 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
             sections=sections,
             enabled=layer_config.enabled,
             max_pieces_per_bin=layer_config.max_pieces_per_bin,
+            max_dimension_mm=layer_config.max_dimension_mm,
         ))
     return DistributionLayout(layers=layers)
 

@@ -76,6 +76,37 @@ The production stack expects:
 
 On startup, the backend automatically runs Alembic migrations and bootstraps an admin user from `ADMIN_EMAIL` / `ADMIN_PASSWORD` if those values are set.
 
+### Persisted data
+
+The backend bind-mounts two host directories under `software/hive/data/` so they
+survive container rebuilds/recreates:
+
+- `data/uploads` — uploaded sample images
+- `data/profile_builder` — the Rebrickable parts catalog SQLite db
+  (`parts.db`: parts, categories, colors). **Without this mount the catalog
+  lives only in the container layer and is wiped on every recreate, forcing a
+  full multi-hour re-sync from Rebrickable on each deploy.**
+
+`REBRICKABLE_API_KEY` must be set in `.env.prod` for the catalog auto-sync to run.
+
+To seed `parts.db` (e.g. from a machine that already has a populated catalog)
+instead of syncing from scratch, copy a clean snapshot into the host dir before
+starting the stack — the container runs as uid `100`, so the dir and file must
+be writable by it:
+
+```bash
+# on the source machine: make a consistent copy (works even while the db is open)
+python -c "import sqlite3; s=sqlite3.connect('parts.db'); d=sqlite3.connect('/tmp/parts_seed.db'); s.backup(d)"
+# on the server:
+mkdir -p software/hive/data/profile_builder
+scp /tmp/parts_seed.db <server>:.../software/hive/data/profile_builder/parts.db
+chown -R 100:101 software/hive/data/profile_builder
+```
+
+The catalog db carries its own `schema_version`; the backend applies only the
+parts-db migrations newer than that version on open, so a seeded db from a newer
+build is used as-is (no downgrade needed).
+
 ## Architecture
 
 - **Backend**: FastAPI + SQLAlchemy + PostgreSQL (port 8002)

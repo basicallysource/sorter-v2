@@ -3904,6 +3904,7 @@ def camera_feed_by_role(
         apply_picture_settings,
     )
     from vision.outputs.mjpeg import MjpegOutput
+    from perception.service import is_perception_role
 
     # Resolve layer — legacy `annotated` param maps into `layer`
     want_annotated = layer == "annotated" and annotated
@@ -3956,10 +3957,92 @@ def camera_feed_by_role(
             cached_dashboard_shape = shape
         return _apply_dashboard_crop(frame, cached_dashboard_spec)
 
-    # Live path: use CameraService feed if available
+    # ---- Stack decision: made ONCE, statically, no crossing ------------------
+    # A camera role is on exactly one stack:
+    #   * PERCEPTION stack   -> generate_perception_stack (below)
+    #   * VISIONMANAGER/live -> generate_live
+    # ``is_perception_role`` is a STATIC registry fact — it does NOT depend on
+    # the perception service being built yet. So a perception role is routed to
+    # the perception generator even on a fresh boot before perception is ready;
+    # the generator shows raw video until perception comes up and then upgrades
+    # to its overlay in-place. A perception role can NEVER land on the
+    # VisionManager overlay (the old stack), at boot or any other time.
+    if not direct and is_perception_role(role):
+        prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
+
+        def generate_perception_stack():
+            last_frame_ts: float | None = None
+            while True:
+                # Re-read the service each loop so a connection opened before
+                # perception finished initializing upgrades from raw -> overlay
+                # without a reconnect.
+                ps = (
+                    getattr(shared_state.gc_ref, "perception_service", None)
+                    if shared_state.gc_ref is not None
+                    else None
+                )
+                channel_id = ps.channel_id_for_role(role) if ps is not None else None
+                result = None
+                if want_annotated and ps is not None and channel_id is not None:
+                    # preview_frame renders the overlay at preview width at most
+                    # once per inference cycle (cached + shared across clients).
+                    result = ps.preview_frame(channel_id, PREVIEW_MAX_WIDTH)
+                if result is not None:
+                    frame, frame_ts = result
+                else:
+                    # Annotations off, or perception not ready yet: raw pixels
+                    # from the SAME shared capture thread — never a VisionManager
+                    # overlay.
+                    feed = (
+                        shared_state.camera_service.get_feed(role)
+                        if shared_state.camera_service is not None
+                        else None
+                    )
+                    frame_obj = (
+                        feed.get_frame(annotated=False, color_correct=color_correct)
+                        if feed is not None
+                        else None
+                    )
+                    if frame_obj is None:
+                        time.sleep(0.05)
+                        continue
+                    frame_ts = frame_obj.timestamp
+                    frame = frame_obj.raw
+                    if PREVIEW_MAX_WIDTH > 0 and frame.shape[1] > PREVIEW_MAX_WIDTH:
+                        scale = PREVIEW_MAX_WIDTH / float(frame.shape[1])
+                        frame = cv2.resize(
+                            frame,
+                            (PREVIEW_MAX_WIDTH, int(round(frame.shape[0] * scale))),
+                            interpolation=cv2.INTER_AREA,
+                        )
+                if last_frame_ts == frame_ts:
+                    time.sleep(0.01)
+                    continue
+                last_frame_ts = frame_ts
+                shared_state.gc_ref.runtime_stats.observePerfMs(
+                    f"preview.{role}.frame_age_ms",
+                    max(0.0, (time.time() - float(frame_ts)) * 1000.0),
+                )
+                frame = _dashboard_frame(frame)
+                if prof is not None:
+                    prof.hit(f"encode.{role}.frames")
+                    prof.mark(f"encode.{role}.interval_ms")
+                    with prof.timer(f"encode.{role}.encode_ms"):
+                        chunk = encoder.encode_chunk(frame, quality=55)
+                else:
+                    chunk = encoder.encode_chunk(frame, quality=55)
+                yield chunk
+
+        return StreamingResponse(
+            generate_perception_stack(),
+            media_type="multipart/x-mixed-replace; boundary=frame",
+        )
+
+    # Live / VisionManager stack — NON-perception roles only.
     if not direct and shared_state.camera_service is not None:
         feed = shared_state.camera_service.get_feed(role)
         if feed is not None:
+            vm_annotated = want_annotated
             prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
 
             def generate_live():
@@ -3967,7 +4050,7 @@ def camera_feed_by_role(
                 while True:
                     fetch_started = time.perf_counter()
                     frame_obj = feed.get_frame(
-                        annotated=want_annotated,
+                        annotated=vm_annotated,
                         exclude_categories=exclude_categories,
                         color_correct=color_correct,
                     )
@@ -3984,7 +4067,7 @@ def camera_feed_by_role(
                     last_frame_ts = frame_obj.timestamp
                     frame = (
                         frame_obj.annotated
-                        if want_annotated and frame_obj.annotated is not None
+                        if vm_annotated and frame_obj.annotated is not None
                         else frame_obj.raw
                     )
                     shared_state.gc_ref.runtime_stats.observePerfMs(

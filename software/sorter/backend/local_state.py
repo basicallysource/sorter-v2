@@ -17,6 +17,34 @@ SOFTWARE_DIR = Path(__file__).resolve().parent
 _STATE_INIT_LOCK = threading.Lock()
 _SCHEMA_VERSION = 5
 
+# This module opens a fresh connection per operation (thread-safe, simple). The
+# catch: SQLite runs a WAL checkpoint whenever the LAST connection to a WAL DB
+# closes. With connection-per-op every close IS the last connection, so a
+# write-per-second workload checkpoints (and fsyncs the multi-GB DB) on every
+# op — on the eMMC each fsync stalls the whole process via iowait, which froze
+# the API event loop and made the frontend lag seconds behind. Holding one idle
+# "keeper" connection open for the process lifetime keeps the connection count
+# above zero, so per-op closes no longer checkpoint. WAL truncation then happens
+# via the normal wal_autocheckpoint threshold instead of once per close.
+_KEEPER_LOCK = threading.Lock()
+_keeper_conn: "sqlite3.Connection | None" = None
+
+
+def _ensure_keeper_connection() -> None:
+    global _keeper_conn
+    with _KEEPER_LOCK:
+        if _keeper_conn is not None:
+            return
+        try:
+            # Held open and idle (never runs queries); check_same_thread=False
+            # only because it's created on whichever thread inits state first.
+            _keeper_conn = sqlite3.connect(
+                local_state_db_path(), timeout=5.0, check_same_thread=False
+            )
+            _keeper_conn.execute("PRAGMA journal_mode = WAL")
+        except Exception:
+            _keeper_conn = None
+
 _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
 _STATE_KEY_SERVO_POSITIONS = "servo_positions"
@@ -33,6 +61,7 @@ _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
+_STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 
@@ -80,6 +109,11 @@ def _connect() -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, timeout=5.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")
+    # synchronous=NORMAL is the recommended setting for WAL: commits no longer
+    # fsync individually (only checkpoints sync), which is safe against crashes
+    # for everything except a power loss mid-checkpoint. On the eMMC this is the
+    # difference between an fsync per commit and a handful per minute.
+    conn.execute("PRAGMA synchronous = NORMAL")
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA busy_timeout = 5000")
     try:
@@ -207,7 +241,16 @@ def _normalize_hive_config(raw: Any) -> dict[str, Any]:
         legacy_target = _normalize_hive_target(raw, 0)
         if legacy_target is not None:
             normalized_targets.append(legacy_target)
-    return {"targets": normalized_targets}
+
+    # Exactly one target is the "primary" — used for metadata lookups (piece
+    # dimensions, etc). Default to the first target; reset to the first if the
+    # stored id no longer points at a live target.
+    target_ids = {target["id"] for target in normalized_targets}
+    primary_target_id = raw.get("primary_target_id") if isinstance(raw, dict) else None
+    if not isinstance(primary_target_id, str) or primary_target_id not in target_ids:
+        primary_target_id = normalized_targets[0]["id"] if normalized_targets else None
+
+    return {"targets": normalized_targets, "primary_target_id": primary_target_id}
 
 
 def _migrate_state_key(conn: sqlite3.Connection, key: str, value: Any) -> None:
@@ -509,6 +552,10 @@ def initialize_local_state() -> None:
             _migrate_renamed_state_keys(conn)
             conn.commit()
 
+        # Keep one connection open so subsequent per-op closes don't checkpoint
+        # the (large) WAL DB and stall the process on fsync.
+        _ensure_keeper_connection()
+
 
 def _read_state(key: str) -> Any | None:
     initialize_local_state()
@@ -685,6 +732,22 @@ def set_classification_training_state(state: dict[str, Any] | None) -> None:
             if isinstance(key, str) and value is not None
         }
     _write_state(_STATE_KEY_CLASSIFICATION_TRAINING, normalized)
+
+
+def get_sample_collection_state() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_SAMPLE_COLLECTION)
+    return value if isinstance(value, dict) else None
+
+
+def set_sample_collection_state(state: dict[str, Any] | None) -> None:
+    normalized = None
+    if isinstance(state, dict):
+        normalized = {
+            key: value
+            for key, value in state.items()
+            if isinstance(key, str) and value is not None
+        }
+    _write_state(_STATE_KEY_SAMPLE_COLLECTION, normalized)
 
 
 def get_hive_config() -> dict[str, Any] | None:

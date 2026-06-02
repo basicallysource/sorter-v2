@@ -8,7 +8,7 @@
 		DEFAULT_HIVE_URL,
 		defaultHiveTargetName
 	} from '$lib/hive/link-flow';
-	import { Cloud, Link2, Pencil, Plus, RefreshCw, Trash2, Upload } from 'lucide-svelte';
+	import { Cloud, Link2, Pencil, Plus, RefreshCw, Star, Trash2, Upload } from 'lucide-svelte';
 
 	const machine = getMachineContext();
 
@@ -29,12 +29,14 @@
 		machine_id: string | null;
 		api_token_masked: string | null;
 		enabled: boolean;
+		is_primary: boolean;
 		uploader: UploaderStatus;
 	};
 
 	type HiveConfig = {
 		configured_count: number;
 		enabled_count: number;
+		primary_target_id: string | null;
 		targets: HiveTarget[];
 	};
 
@@ -98,10 +100,12 @@
 
 	function normalizeConfig(raw: unknown): HiveConfig {
 		if (!raw || typeof raw !== 'object') {
-			return { configured_count: 0, enabled_count: 0, targets: [] };
+			return { configured_count: 0, enabled_count: 0, primary_target_id: null, targets: [] };
 		}
 
 		const data = raw as Record<string, unknown>;
+		const primaryTargetId =
+			typeof data.primary_target_id === 'string' ? data.primary_target_id : null;
 		if (Array.isArray(data.targets)) {
 			const normalizedTargets = data.targets.flatMap((entry, index) => {
 				if (!entry || typeof entry !== 'object') return [];
@@ -126,6 +130,7 @@
 						api_token_masked:
 							typeof target.api_token_masked === 'string' ? target.api_token_masked : null,
 						enabled,
+						is_primary: Boolean(target.is_primary),
 						uploader: {
 							...emptyUploaderStatus(enabled),
 							...(uploaderRaw ?? {})
@@ -134,10 +139,19 @@
 				];
 			});
 
+			const resolvedPrimaryId =
+				primaryTargetId && normalizedTargets.some((t) => t.id === primaryTargetId)
+					? primaryTargetId
+					: (normalizedTargets[0]?.id ?? null);
+
 			return {
 				configured_count: normalizedTargets.length,
 				enabled_count: normalizedTargets.filter((target) => target.enabled).length,
-				targets: normalizedTargets
+				primary_target_id: resolvedPrimaryId,
+				targets: normalizedTargets.map((t) => ({
+					...t,
+					is_primary: t.id === resolvedPrimaryId
+				}))
 			};
 		}
 
@@ -146,13 +160,14 @@
 			Boolean(legacy.configured) ||
 			(typeof legacy.url === 'string' && legacy.url.trim().length > 0);
 		if (!configured || typeof legacy.url !== 'string' || !legacy.url.trim()) {
-			return { configured_count: 0, enabled_count: 0, targets: [] };
+			return { configured_count: 0, enabled_count: 0, primary_target_id: null, targets: [] };
 		}
 
 		const enabled = Boolean(legacy.enabled);
 		return {
 			configured_count: 1,
 			enabled_count: enabled ? 1 : 0,
+			primary_target_id: 'legacy-target',
 			targets: [
 				{
 					id: 'legacy-target',
@@ -162,6 +177,7 @@
 					api_token_masked:
 						typeof legacy.api_token_masked === 'string' ? legacy.api_token_masked : null,
 					enabled,
+					is_primary: true,
 					uploader: {
 						...emptyUploaderStatus(enabled),
 						...(legacy.uploader ?? {})
@@ -332,6 +348,28 @@
 			errorMsg = e.message ?? 'Failed to remove Hive target.';
 		} finally {
 			removingTargetId = null;
+		}
+	}
+
+	let settingPrimaryTargetId = $state<string | null>(null);
+
+	async function handleSetPrimary(target: HiveTarget) {
+		if (target.is_primary) return;
+		settingPrimaryTargetId = target.id;
+		clearMessages();
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/primary`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ target_id: target.id })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			statusMsg = `"${target.name}" is now the primary Hive (used for piece metadata).`;
+			await loadConfig();
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Failed to set primary Hive target.';
+		} finally {
+			settingPrimaryTargetId = null;
 		}
 	}
 
@@ -546,11 +584,35 @@
 								<div class="flex items-center gap-2">
 									<Cloud size={14} class="text-text-muted" />
 									<span class="text-sm font-medium text-text">{target.name}</span>
+									{#if target.is_primary}
+										<span
+											class="inline-flex items-center gap-1 border border-primary bg-primary/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
+										>
+											<Star size={11} />
+											Primary
+										</span>
+									{/if}
 								</div>
 								<div class={`mt-1 text-xs ${statusToneClass(target)}`}>{statusLabel(target)}</div>
+								<div class="mt-0.5 text-sm text-text-muted">
+									{target.is_primary
+										? 'Used for piece metadata lookups (dimensions, etc).'
+										: ''}
+								</div>
 							</div>
 
 							<div class="flex flex-wrap justify-end gap-2">
+								{#if !target.is_primary}
+									<button
+										type="button"
+										onclick={() => void handleSetPrimary(target)}
+										disabled={settingPrimaryTargetId === target.id}
+										class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<Star size={12} />
+										{settingPrimaryTargetId === target.id ? 'Setting...' : 'Set Primary'}
+									</button>
+								{/if}
 								<button
 									type="button"
 									onclick={() => openTargetEditor(target)}

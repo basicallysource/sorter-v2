@@ -98,7 +98,9 @@ class _Vision:
         return [[0, 0], [1, 0], [1, 1], [0, 1]]
 
 
-def test_rev01_discharging_falls_back_when_no_bbox_and_transitions_to_verify() -> None:
+def test_rev01_discharging_legacy_fallback_fixed_kick_then_idle() -> None:
+    # No perception_service on gc → legacy non-perception fallback: a single
+    # fixed kick-off move, then (with zero settle pause) straight back to IDLE.
     stepper = _Stepper()
     state = Discharging(
         irl=SimpleNamespace(carousel_stepper=stepper),
@@ -109,8 +111,10 @@ def test_rev01_discharging_falls_back_when_no_bbox_and_transitions_to_verify() -
             ),
         ),
         gc=SimpleNamespace(logger=_Logger()),
-        shared=SimpleNamespace(),
-        transport=SimpleNamespace(),
+        shared=SimpleNamespace(
+            set_distribution_gate=lambda *args, **kwargs: None,
+        ),
+        transport=SimpleNamespace(advanceTransport=lambda *args, **kwargs: None),
         vision=_Vision(),
         event_queue=SimpleNamespace(put=lambda *args, **kwargs: None),
         context=SimpleNamespace(
@@ -129,5 +133,5 @@ def test_rev01_discharging_falls_back_when_no_bbox_and_transitions_to_verify() -
     # Fixed output_deg = 180.0°. With default C4 platter
     # (200 steps/rev * 8 microsteps * 130/12 gear ratio = 17333.33 µsteps/output_rev),
     # 180°/360 * 17333.33 ≈ 8667 microsteps.
-    assert next_state == ClassificationChannelState.REV01_VERIFYING_DISCHARGE
+    assert next_state == ClassificationChannelState.IDLE
     assert stepper.moves == [8667]

@@ -20,4 +20,6 @@ dependencies = [
     "boto3>=1.35",
     "Pillow>=10.0",
     "imagehash>=4.3",
+    "numpy>=2.0",
+    "scipy>=1.14",
 ]

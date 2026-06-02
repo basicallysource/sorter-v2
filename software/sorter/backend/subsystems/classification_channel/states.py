@@ -12,4 +12,6 @@ class ClassificationChannelState(str, Enum):
     REV01_CLASSIFYING = "rev01_classifying"
     REV01_POSITIONING = "rev01_positioning"
     REV01_DISCHARGING = "rev01_discharging"
+    # Deprecated: verify/jitter is now folded into REV01_DISCHARGING's closed-loop
+    # discharge. Kept only so any persisted/serialized value still deserializes.
     REV01_VERIFYING_DISCHARGE = "rev01_verifying_discharge"

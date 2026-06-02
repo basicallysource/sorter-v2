@@ -16,7 +16,7 @@ re-implemented here from the saved-blob schema rather than reused from
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Mapping
+from typing import Any, Mapping, Sequence
 
 import cv2
 import numpy as np
@@ -38,6 +38,30 @@ CHANNEL_REGISTRY: dict[int, tuple[str, str, str]] = {
 }
 
 
+# Zone-type vocabulary for secondary zones. A secondary zone is a labeled
+# polygon a camera sees that belongs to ANOTHER channel (e.g. the carousel
+# camera can see C3's exit). It is display-/tag-only: it never feeds into the
+# primary ``mask`` or the arc section sets the cascade reads, so the subsystem
+# keeps acting on its own channel exactly as before.
+SECONDARY_ZONE_TYPES: frozenset[str] = frozenset({"drop", "exit", "precise"})
+
+
+@dataclass(frozen=True)
+class SecondaryZone:
+    """A foreign channel's zone, annotated in THIS camera's frame.
+
+    ``mask`` is the filled polygon at the live capture resolution (already
+    rescaled from the editor resolution, same transform as the primary
+    polygon). Membership is a single center-in-mask index — no arc/section
+    math, since a foreign zone projected into this camera does not share this
+    channel's rotation center."""
+
+    id: str
+    source_channel: int
+    zone_type: str
+    mask: np.ndarray
+
+
 @dataclass(frozen=True)
 class ChannelDef:
     channel_id: int
@@ -53,6 +77,8 @@ class ChannelDef:
     # tell the two apart.
     exit_sections: frozenset[int]
     precise_sections: frozenset[int] = frozenset()
+    # Foreign zones this camera observes — display/tag only, never acted on.
+    secondary_zones: tuple[SecondaryZone, ...] = ()
 
     @property
     def has_zones(self) -> bool:
@@ -144,6 +170,60 @@ def _parse_resolution(
 
 
 # ---------------------------------------------------------------------------
+# Secondary-zone parsing (host-keyed blob → filled masks)
+# ---------------------------------------------------------------------------
+
+
+def _build_secondary_zones(
+    zone_entries: Sequence[Mapping[str, Any]] | None,
+    *,
+    frame_shape: tuple[int, int],
+    scale_x: float,
+    scale_y: float,
+) -> tuple[SecondaryZone, ...]:
+    """Turn the saved per-host list of ``{id, source_channel, zone_type,
+    points}`` into filled-mask ``SecondaryZone`` objects, rescaling the polygon
+    pixels by the SAME (scale_x, scale_y) the primary polygon uses so a zone
+    drawn at editor resolution lands on the right pixels at capture resolution.
+    Malformed / degenerate entries are skipped rather than raising."""
+    if not zone_entries:
+        return ()
+    h, w = frame_shape
+    out: list[SecondaryZone] = []
+    for idx, entry in enumerate(zone_entries):
+        if not isinstance(entry, Mapping):
+            continue
+        points = entry.get("points")
+        if not isinstance(points, (list, tuple)) or len(points) < 3:
+            continue
+        try:
+            poly = np.asarray(points, dtype=np.float64).reshape(-1, 2).copy()
+        except Exception:
+            continue
+        poly[:, 0] *= scale_x
+        poly[:, 1] *= scale_y
+        mask = np.zeros((h, w), dtype=np.uint8)
+        cv2.fillPoly(mask, [poly.astype(np.int32)], 255)
+        zone_type = str(entry.get("zone_type") or "exit")
+        if zone_type not in SECONDARY_ZONE_TYPES:
+            zone_type = "exit"
+        try:
+            source_channel = int(entry.get("source_channel"))
+        except (TypeError, ValueError):
+            source_channel = 0
+        zone_id = str(entry.get("id") or f"sz_{source_channel}_{zone_type}_{idx}")
+        out.append(
+            SecondaryZone(
+                id=zone_id,
+                source_channel=source_channel,
+                zone_type=zone_type,
+                mask=mask,
+            )
+        )
+    return tuple(out)
+
+
+# ---------------------------------------------------------------------------
 # ChannelDef construction
 # ---------------------------------------------------------------------------
 
@@ -159,6 +239,7 @@ def buildChannelDef(
     precise_arc: tuple[float, float] | None,
     arc_center: tuple[float, float] | None = None,
     saved_resolution: tuple[float, float] | None = None,
+    secondary_zone_entries: Sequence[Mapping[str, Any]] | None = None,
 ) -> ChannelDef:
     """Pure builder. Used directly by tests; the on-disk loader below is the
     production entry point but defers to this for the actual construction.
@@ -226,6 +307,13 @@ def buildChannelDef(
         else frozenset()
     )
 
+    secondary_zones = _build_secondary_zones(
+        secondary_zone_entries,
+        frame_shape=(h, w),
+        scale_x=scale_x,
+        scale_y=scale_y,
+    )
+
     return ChannelDef(
         channel_id=channel_id,
         camera_source_id=camera_source_id,
@@ -235,6 +323,7 @@ def buildChannelDef(
         drop_sections=drop_sections,
         exit_sections=exit_sections | precise_sections,
         precise_sections=precise_sections,
+        secondary_zones=secondary_zones,
     )
 
 
@@ -245,6 +334,7 @@ def channelDefFromBlob(
     channel_angles: Mapping[str, float],
     arc_params: Mapping[str, Mapping[str, Any]],
     frame_shape: tuple[int, int] | None,
+    secondary_zones: Mapping[str, Any] | None = None,
 ) -> ChannelDef | None:
     """Build one channel's ChannelDef from the saved blobs, or ``None`` when
     the polygon or the live frame shape is unavailable.
@@ -261,6 +351,11 @@ def channelDefFromBlob(
         return None
     section_zero_angle = float(channel_angles.get(angle_key, 0.0))
     arc_entry = arc_params.get(polygon_key) or arc_params.get(angle_key)
+    secondary_entries = None
+    if isinstance(secondary_zones, Mapping):
+        raw = secondary_zones.get(polygon_key)
+        if isinstance(raw, (list, tuple)):
+            secondary_entries = raw
     return buildChannelDef(
         channel_id=channel_id,
         polygon=np.asarray(polygon),
@@ -271,6 +366,7 @@ def channelDefFromBlob(
         precise_arc=_parse_arc(arc_entry, "precise_zone"),
         arc_center=_parse_arc_center(arc_entry),
         saved_resolution=_parse_resolution(arc_entry),
+        secondary_zone_entries=secondary_entries,
     )
 
 
@@ -280,6 +376,7 @@ def loadChannelDefs(
     channel_angles: Mapping[str, float],
     arc_params: Mapping[str, Mapping[str, Any]],
     frame_shape_by_role: Mapping[str, tuple[int, int]],
+    secondary_zones: Mapping[str, Any] | None = None,
 ) -> dict[int, ChannelDef]:
     """Build a ChannelDef per registered perception channel.
 
@@ -304,6 +401,7 @@ def loadChannelDefs(
             channel_angles=channel_angles,
             arc_params=arc_params,
             frame_shape=frame_shape_by_role.get(camera_source_id),
+            secondary_zones=secondary_zones,
         )
         if cd is not None:
             out[channel_id] = cd

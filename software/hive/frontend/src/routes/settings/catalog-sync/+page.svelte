@@ -15,20 +15,22 @@
 
 	const REFRESH_MS = 2000;
 
-	const TYPE_ORDER: CatalogSyncType[] = ['parts', 'categories', 'colors', 'prices', 'brickstore'];
+	const TYPE_ORDER: CatalogSyncType[] = ['parts', 'categories', 'colors', 'prices', 'brickstore', 'geometry'];
 	const TYPE_LABELS: Record<CatalogSyncType, string> = {
 		parts: 'Parts',
 		categories: 'Categories',
 		colors: 'Colors',
 		prices: 'BrickLink Prices',
-		brickstore: 'BrickStore Import'
+		brickstore: 'BrickStore Import',
+		geometry: 'LDraw Geometry'
 	};
 	const TYPE_BLURBS: Record<CatalogSyncType, string> = {
 		parts: 'Full part catalog from Rebrickable (largest sync — paginated, resumable).',
 		categories: 'Rebrickable part categories.',
 		colors: 'Rebrickable color list.',
 		prices: 'BrickLink affiliate price guide (requires BL_AFFILIATE_API_KEY).',
-		brickstore: 'Import from a local BrickStore database file.'
+		brickstore: 'Import from a local BrickStore database file.',
+		geometry: 'True part dimensions in mm from the LDraw library (downloads ~135MB on first run).'
 	};
 
 	let status = $state<ProfileCatalogStatus | null>(null);

@@ -423,6 +423,16 @@ class GoToAngleFeeding(BaseState):
             c3_downstream_ready = (
                 c4.n_pieces == 0 and now_mono >= self._classification_pending_until
             )
+            # Extra hold: if the classification camera sees a piece sitting in
+            # C3's annotated exit zone (a secondary/foreign zone on channel 4)
+            # while classification is not ready, freeze C3 so we don't shove it
+            # forward into a busy C4. No-op until such a zone is drawn — the
+            # accessor returns False when no C3 secondary zone exists.
+            if (
+                not self._classification_ready(cfg)
+                and perception_service.secondary_zone_occupied(4, source_channel=3)
+            ):
+                c3_downstream_ready = False
             self._drive_channel(
                 "ch3", 3, actions.c3, c3, c4, c3_downstream_ready,
                 self.irl.c_channel_3_rotor_stepper, cfg, perception_service, now_mono,

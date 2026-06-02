@@ -19,6 +19,7 @@ if _saved_api_keys.get("openrouter"):
 
 from global_config import mkGlobalConfig, GlobalConfig
 from runtime_variables import mkRuntimeVariables
+from utils.event import slimKnownObjectForSocket
 from server.api import app
 from server.shared_state import (
     broadcastEvent,
@@ -36,6 +37,7 @@ from server.shared_state import (
 from sorter_controller import SorterController
 from stepper_stall_monitor import StepperStallMonitor
 from run_recorder import RunRecorder
+from lifetime_stats import LifetimeStatsTracker
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
@@ -71,6 +73,7 @@ def _mkIRLInterfaceStandby(config, gc):
 
 FRAME_RECORD_INTERVAL_MS = 100
 RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
+LIFETIME_FLUSH_INTERVAL_MS = 10000
 
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 CAMERA_SHUTDOWN_SETTLE_S = float(os.getenv("SORTER_CAMERA_SHUTDOWN_SETTLE_S", "1.0"))
@@ -120,15 +123,17 @@ def _noPowerModeActive(gc: GlobalConfig) -> bool:
 
 
 def _perceptionModeActive(irl_config) -> bool:
-    """Rev04 mode pair: GO_TO_ANGLE_REV01 feeder + SIMPLE_STATE_MACHINE_REV01
-    classification. The perception package owns detection for this pair only;
-    every other mode pair keeps using the legacy VisionManager paths."""
+    """Rev04 perception stack: a perception-native feeder mode
+    (GO_TO_ANGLE_REV01 or PULSE_PERCEPTION_REV01) paired with the
+    SIMPLE_STATE_MACHINE_REV01 classification channel. The perception package
+    owns detection for these pairs only; every other mode pair keeps using the
+    legacy VisionManager paths."""
     feeder_mode = getattr(getattr(irl_config, "feeder_config", None), "mode", None)
     cc_mode = getattr(
         getattr(irl_config, "classification_channel_config", None), "mode", None
     )
     return (
-        feeder_mode == FeederMode.GO_TO_ANGLE_REV01
+        feeder_mode in (FeederMode.GO_TO_ANGLE_REV01, FeederMode.PULSE_PERCEPTION_REV01)
         and cc_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
     )
 
@@ -180,9 +185,25 @@ def runBroadcaster(gc: GlobalConfig) -> None:
     while shared_state.server_loop is None:
         time.sleep(0.01)
 
+    # Per-piece rate limit for known_object events on the live socket. A piece in
+    # the rotate/capture phase emits one known_object PER CAMERA FRAME (hundreds
+    # per second across a run); the broadcaster and the browser can't keep up and
+    # fall many seconds behind. The UI only needs the latest state a few times a
+    # second, so we coalesce per piece and sample at this interval — but always
+    # send IMMEDIATELY on a stage/classification_status change so transitions stay
+    # instant. uuid -> (last_send_mono, stage, status).
+    KNOWN_OBJECT_THROTTLE_S = 0.1
+    ko_last_broadcast: dict = {}
+
     while True:
         latest_frame_commands = {}
         pending_commands = []
+        ko_latest: dict = {}
+
+        # Backlog gauge: how deep the queue is BEFORE we drain it. A persistently
+        # large value means the broadcaster can't keep up with producers and
+        # frontend state is arriving late. ~0 means the pipeline is keeping pace.
+        queue_depth = main_to_server_queue.qsize()
 
         while True:
             try:
@@ -192,29 +213,82 @@ def runBroadcaster(gc: GlobalConfig) -> None:
 
             if command.tag == "frame":
                 latest_frame_commands[command.data.camera] = command
+            elif command.tag == "known_object":
+                # Coalesce per piece (latest wins) using cheap attribute access;
+                # we only model_dump() the events we actually send below, so a
+                # piece emitting at camera-frame rate with a growing image list
+                # doesn't cost a full serialization per frame.
+                ko_latest[command.data.uuid] = command
             else:
                 pending_commands.append(command)
 
+        # Pick which coalesced known_objects actually reach the socket.
+        now_mono = time.monotonic()
+        for uuid, command in ko_latest.items():
+            stage = command.data.stage
+            status = command.data.classification_status
+            last = ko_last_broadcast.get(uuid)
+            changed = last is None or last[1] != stage or last[2] != status
+            due = last is None or (now_mono - last[0]) >= KNOWN_OBJECT_THROTTLE_S
+            if changed or due:
+                ko_last_broadcast[uuid] = (now_mono, stage, status)
+                pending_commands.append(command)
+        if len(ko_last_broadcast) > 256:
+            cutoff = now_mono - 30.0
+            for uuid in [u for u, v in ko_last_broadcast.items() if v[0] < cutoff]:
+                del ko_last_broadcast[uuid]
+
         pending_commands.extend(latest_frame_commands.values())
 
+        if pending_commands:
+            gc.runtime_stats.observePerfMs("socket.queue_depth", float(queue_depth))
+            gc.runtime_stats.observePerfMs("socket.batch_size", float(len(pending_commands)))
+
         for command in pending_commands:
+            payload = command.model_dump()
             if command.tag == "known_object":
                 obj_payload = command.data.model_dump()
+                # Detail-page lookup keeps the FULL object (incl. the cumulative
+                # recognition_images list) in memory, served via
+                # /api/known-objects/<uuid>. The live socket and the recent ring
+                # carry only the slim form (see slimKnownObjectForSocket) so the
+                # per-piece payload stays bounded instead of growing quadratically.
                 gc.runtime_stats.observeKnownObject(obj_payload)
-                remember_recent_known_object(obj_payload)
+                event_data = payload.get("data")
+                if isinstance(event_data, dict):
+                    payload["data"] = slimKnownObjectForSocket(event_data)
+                remember_recent_known_object(slimKnownObjectForSocket(obj_payload))
+                # End-to-end backend latency for a piece update: wall-clock now
+                # minus when the piece was stamped (updated_at, set right before
+                # emit). This is the number that must be near-zero for the UI to
+                # feel realtime — it captures queue wait + broadcaster time.
+                updated_at = obj_payload.get("updated_at")
+                if isinstance(updated_at, (int, float)):
+                    gc.runtime_stats.observePerfMs(
+                        "socket.known_object_send_age_ms",
+                        max(0.0, (time.time() - float(updated_at)) * 1000.0),
+                    )
             if (
                 command.tag != "frame"
                 and command.tag != "heartbeat"
                 and command.tag != "runtime_stats"
             ):
                 gc.logger.info(f"broadcasting {command.tag} event")
+            send_started = time.perf_counter()
             future = asyncio.run_coroutine_threadsafe(
-                broadcastEvent(command.model_dump()), shared_state.server_loop
+                broadcastEvent(payload), shared_state.server_loop
             )
             try:
                 future.result(timeout=1.0)
             except Exception:
                 pass
+            # Time to push ONE event to all clients. Large here (with depth ~0)
+            # points at a slow client or a saturated asyncio loop (e.g. MJPEG),
+            # not a producer backlog.
+            gc.runtime_stats.observePerfMs(
+                "socket.broadcast_event_ms",
+                (time.perf_counter() - send_started) * 1000.0,
+            )
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 
@@ -252,6 +326,7 @@ def main() -> None:
 
     gc = mkGlobalConfig()
     gc.run_recorder = RunRecorder(gc)
+    gc.lifetime_stats = LifetimeStatsTracker(gc)
     setGlobalConfig(gc)
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
@@ -306,6 +381,12 @@ def main() -> None:
     # against the real camera resolution.
     with gc.profiler.timer("startup.perception_start_ms"):
         _maybeStartPerception(gc, irl_config, camera_service)
+    # Mode-agnostic: the sample collector runs in every config, gated only by
+    # its own enable toggle (persisted). Started after cameras so feeds exist.
+    from sample_collector import SampleCollector
+    sample_collector = SampleCollector(gc, camera_service)
+    sample_collector.start()
+    gc.sample_collector = sample_collector
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
@@ -638,6 +719,11 @@ def main() -> None:
         gc.logger.info(f"Shutting down ({reason})...")
 
         try:
+            gc.lifetime_stats.flush()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to flush lifetime stats during shutdown: {exc}")
+
+        try:
             gc.run_recorder.save()
         except Exception as exc:
             gc.logger.warning(f"Failed to save run recorder during shutdown: {exc}")
@@ -687,6 +773,7 @@ def main() -> None:
     last_heartbeat = time.time()
     last_frame_record = time.time()
     last_runtime_stats_broadcast = time.time()
+    last_lifetime_flush = time.time()
     last_runtime_perf_snapshot = time.time()
     last_profiler_snapshot = time.time()
     last_main_loop_started = time.perf_counter()
@@ -745,6 +832,12 @@ def main() -> None:
                 )
                 main_to_server_queue.put(runtime_stats)
                 last_runtime_stats_broadcast = current_time
+
+            # Durable lifetime accumulator — periodic flush so powered/sorted
+            # time survives the soft-restart (os._exit) that skips save().
+            if current_time - last_lifetime_flush >= LIFETIME_FLUSH_INTERVAL_MS / 1000.0:
+                gc.lifetime_stats.flush()
+                last_lifetime_flush = current_time
 
             if (
                 current_time - last_runtime_perf_snapshot

@@ -126,3 +126,9 @@ android-camera-app/local.properties
 # Model checkpoints directory
 sorter/backend/models/checkpoints/
 sorter/backend/blob/tracked_history/
+
+# the generic parts/ rule above (Python build dir) must not ignore the SvelteKit admin/parts route
+!hive/frontend/src/routes/admin/parts/
+
+# vendored LDraw library (build input for part geometry; not source)
+hive/backend/ldraw_lib/

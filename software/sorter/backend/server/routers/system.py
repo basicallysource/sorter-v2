@@ -504,6 +504,31 @@ def set_dashboard_config(payload: Dict[str, Any]) -> Dict[str, Any]:
     return response
 
 
+@router.get("/api/system/profiler-config")
+def get_profiler_config() -> Dict[str, Any]:
+    from toml_config import getProfilerConfig
+
+    return {"ok": True, **getProfilerConfig()}
+
+
+@router.post("/api/system/profiler-config")
+def set_profiler_config(payload: Dict[str, Any]) -> Dict[str, Any]:
+    from toml_config import setProfilerConfig
+    from defs.events import SetProfilerEnabledEvent, SetProfilerEnabledData
+
+    merged = setProfilerConfig(payload or {})
+    # Apply live to the running main loop so the toggle takes effect without a
+    # restart; the toml write makes it survive one.
+    if shared_state.command_queue is not None:
+        shared_state.command_queue.put(
+            SetProfilerEnabledEvent(
+                tag="set_profiler_enabled",
+                data=SetProfilerEnabledData(enabled=bool(merged["enabled"])),
+            )
+        )
+    return {"ok": True, **merged}
+
+
 @router.get("/api/system/sample-collection-mode")
 def get_sample_collection_mode() -> Dict[str, Any]:
     shared = _shared_variables()
@@ -558,6 +583,45 @@ def set_sample_collection_speeds(payload: Dict[str, Any]) -> Dict[str, Any]:
         result.update({"ok": False, "reason": "invalid_speed", "message": str(exc)})
         return result
     return _sample_collection_speeds_payload()
+
+
+def _sample_collector():
+    controller = shared_state.controller_ref
+    gc = getattr(controller, "gc", None) if controller is not None else shared_state.gc_ref
+    return getattr(gc, "sample_collector", None)
+
+
+@router.get("/api/system/sample-capture")
+def get_sample_capture() -> Dict[str, Any]:
+    collector = _sample_collector()
+    if collector is None:
+        return {"ok": False, "enabled": False, "reason": "collector_not_initialized"}
+    return collector.status()
+
+
+@router.post("/api/system/sample-capture")
+def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Standalone training-image capture: one enable toggle + a target rate.
+
+    Independent of machine mode and of the legacy sample_collection_mode
+    feeder bypass. ``enabled`` flips picture-taking on/off; ``rate_hz`` or
+    ``interval_s`` sets the cadence (default 1 every 2s). Both persist.
+    """
+    collector = _sample_collector()
+    if collector is None:
+        return {"ok": False, "reason": "collector_not_initialized"}
+    if "interval_s" in payload and payload.get("interval_s") is not None:
+        collector.setIntervalSeconds(float(payload["interval_s"]))
+    elif "rate_hz" in payload and payload.get("rate_hz") is not None:
+        try:
+            collector.setRateHz(float(payload["rate_hz"]))
+        except ValueError as exc:
+            result = collector.status()
+            result.update({"ok": False, "reason": "invalid_rate", "message": str(exc)})
+            return result
+    if "enabled" in payload:
+        collector.setEnabled(bool(payload.get("enabled")))
+    return collector.status()
 
 
 @router.post("/api/system/force-teacher-capture")

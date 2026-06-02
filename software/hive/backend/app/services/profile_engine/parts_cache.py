@@ -8,7 +8,7 @@ import requests
 from .db import (
     upsertCategories, upsertColors, upsertParts, setMeta,
     upsertCatalogSyncState, reloadPartsData, importBrickstoreDb,
-    syncBricklinkPrices, PartsData,
+    syncBricklinkPrices, upsertPartGeometry, PartsData,
 )
 
 REBRICKABLE_BASE_URL = "https://rebrickable.com/api/v3/lego"
@@ -205,6 +205,66 @@ class SyncManager:
         t = threading.Thread(target=self._syncPricesLoop, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
         t.start()
         return True
+
+    def startGeometrySync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> bool:
+        with self._lock:
+            if self.running:
+                return False
+            self.running = True
+            self.stop_requested = False
+            self.pages_fetched = 0
+            self.progress_current = 0
+            self.progress_total = None
+            self.sync_type = "geometry"
+            self.error = None
+            self.last_message = "Preparing LDraw geometry..."
+            self._markRunning(conn, "geometry")
+        t = threading.Thread(target=self._runGeometrySync, args=(gc, conn, parts_data, on_complete, on_error), daemon=True)
+        t.start()
+        return True
+
+    def _runGeometrySync(self, gc, conn, parts_data, on_complete=None, on_error=None) -> None:
+        try:
+            # lazy import so the backend still boots without numpy/scipy installed
+            from . import ldraw_geometry as lg
+            self._note(conn, "geometry", "Ensuring LDraw library is present...")
+            ldraw_root = lg.ensureLibrary(gc.ldraw_library_dir)
+            result = lg.computeAllGeometry(
+                conn, ldraw_root, upsertPartGeometry, _nowIso(),
+                progress_fn=self._updateProgress, should_stop_fn=self._shouldStop,
+            )
+            with self._lock:
+                if result["stopped"]:
+                    self.last_message = (
+                        f"Stopped geometry: {result['computed']} / {result['total']} computed"
+                    )
+                    self._persist(
+                        conn, "geometry", status="stopped", last_message=self.last_message,
+                        progress_current=result["computed"], progress_total=result["total"],
+                    )
+                else:
+                    self.last_message = (
+                        f"Geometry complete: {result['computed']} / {result['total']} parts "
+                        f"(direct {result['direct']}, parent {result['parent']})"
+                    )
+                    self._persist(
+                        conn, "geometry", status="completed", completed_at=_nowIso(),
+                        last_message=self.last_message, error=None,
+                        progress_current=result["computed"], progress_total=result["total"],
+                    )
+            if not result["stopped"]:
+                self._invoke_callback(on_complete)
+        except Exception as e:
+            with self._lock:
+                self.error = str(e)
+                self.last_message = f"Error: {e}"
+                self._persist(conn, "geometry", status="error", error=str(e), last_message=self.last_message)
+            self._invoke_callback(on_error, e)
+        finally:
+            with self._lock:
+                self.running = False
+                self.stop_requested = False
+                self.sync_type = None
 
     def _invoke_callback(self, callback, *args) -> None:
         if not callable(callback):

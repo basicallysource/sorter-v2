@@ -48,6 +48,7 @@ class SorterController:
         self.state = SorterLifecycle.RUNNING
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markRunning()
+        self.gc.lifetime_stats.markRunning()
         self._setTrackerActive(True)
         _broadcastSorterState(self.state.value)
 
@@ -56,6 +57,7 @@ class SorterController:
         self.state = SorterLifecycle.PAUSED
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
+        self.gc.lifetime_stats.markStopped()
         self._setTrackerActive(False)
         _broadcastSorterState(self.state.value)
 
@@ -64,6 +66,7 @@ class SorterController:
         self.state = SorterLifecycle.READY
         self.gc.runtime_stats.setLifecycleState(self.state.value)
         self.gc.run_recorder.markPaused()
+        self.gc.lifetime_stats.markStopped()
         self._setTrackerActive(False)
         _broadcastSorterState(self.state.value)
 

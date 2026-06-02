@@ -333,14 +333,14 @@
 					Profiles
 				</a>
 				<a
-					href="/tracked"
+					href="/records"
 					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
-						'/tracked'
+						'/records'
 					)
 						? 'border-b-2 border-primary text-primary'
 						: 'text-text-muted hover:bg-bg hover:text-text'}"
 				>
-					Tracked
+					Records
 				</a>
 				<a
 					href="/logs"

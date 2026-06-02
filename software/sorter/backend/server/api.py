@@ -23,7 +23,6 @@ from blob_manager import (
     setMachineNickname,
 )
 from runtime_variables import VARIABLE_DEFS
-from run_recorder import RECORDS_DIR
 from server.camera_discovery import shutdownCameraDiscovery
 from server.set_progress_sync import getSetProgressSyncWorker
 from server.waveshare_inventory import get_waveshare_inventory_manager
@@ -43,6 +42,7 @@ from server.shared_state import (
     _getRuntimeVariables,
 )
 import server.shared_state as shared_state
+from utils.event import slimKnownObjectForSocket
 
 # ---------------------------------------------------------------------------
 # App creation
@@ -99,9 +99,7 @@ BACKEND_PROCESS_STARTED_AT = time.time()
 def _sanitize_known_object_payload(payload: Dict[str, Any] | None) -> Dict[str, Any] | None:
     if payload is None:
         return None
-    cleaned = dict(payload)
-    cleaned.pop("recognition_images", None)
-    return cleaned
+    return slimKnownObjectForSocket(payload)
 
 
 def _is_stale_incomplete_known_object(payload: Dict[str, Any] | None) -> bool:
@@ -159,10 +157,29 @@ app.include_router(tailscale_router)
 # ---------------------------------------------------------------------------
 
 
+async def _loop_lag_probe() -> None:
+    """Measure how late the uvicorn asyncio loop wakes a fixed-interval sleep.
+
+    A high socket.loop_lag_ms means the event loop is blocked/starved (a sync
+    call on the loop, GIL contention, MJPEG streaming) and CAN'T promptly run
+    the websocket broadcast coroutines — which is the real frontend-latency
+    lever. Near-zero lag with high client_send_ms instead means a slow client.
+    """
+    interval = 0.1
+    while True:
+        started = time.perf_counter()
+        await asyncio.sleep(interval)
+        lag_ms = (time.perf_counter() - started - interval) * 1000.0
+        gc = shared_state.gc_ref
+        if gc is not None and getattr(gc, "runtime_stats", None) is not None:
+            gc.runtime_stats.observePerfMs("socket.loop_lag_ms", max(0.0, lag_ms))
+
+
 @app.on_event("startup")
 async def onStartup() -> None:
     _load_saved_api_keys_into_environment()
     shared_state.server_loop = asyncio.get_running_loop()
+    asyncio.create_task(_loop_lag_probe())
     getSetProgressSyncWorker().start()
     get_waveshare_inventory_manager().start()
 
@@ -694,62 +711,137 @@ def getRuntimeStats() -> RuntimeStatsResponse:
     return RuntimeStatsResponse(payload=shared_state.runtime_stats_snapshot)
 
 
+class PerfHistoryResponse(BaseModel):
+    window_s: float
+    now: float
+    rows: List[Dict[str, Any]]
+    rates: Dict[str, Any]
+
+
+@app.get("/runtime-stats/perf-history", response_model=PerfHistoryResponse)
+def getPerfHistory(window_s: float = 300.0) -> PerfHistoryResponse:
+    import time as _time
+    from server import perf_history
+
+    now = _time.time()
+    window_s = max(1.0, min(float(window_s), 3900.0))
+    rows = perf_history.window(window_s, now)
+    return PerfHistoryResponse(
+        window_s=window_s,
+        now=now,
+        rows=rows,
+        rates=perf_history.computeRates(rows),
+    )
+
+
 @app.get("/runtime-stats/records", response_model=RuntimeStatsRecordsResponse)
 def listRuntimeStatsRecords() -> RuntimeStatsRecordsResponse:
-    if not RECORDS_DIR.exists():
-        return RuntimeStatsRecordsResponse(records=[])
+    import runtime_stat_records
 
-    records: List[RuntimeStatsRecordItem] = []
-    for path in sorted(RECORDS_DIR.glob("*.json"), reverse=True):
-        try:
-            with open(path, "r") as f:
-                data = json.load(f)
-        except Exception:
-            continue
-        runtime_stats = data.get("runtime_stats_final")
-        if not isinstance(runtime_stats, dict):
-            continue
-        run_id = data.get("run_id")
-        started_at = data.get("started_at")
-        ended_at = data.get("ended_at")
-        total_pieces = data.get("total_pieces")
-        if not isinstance(run_id, str):
-            continue
-        if not isinstance(started_at, (int, float)):
-            continue
-        if not isinstance(ended_at, (int, float)):
-            continue
-        if not isinstance(total_pieces, int):
-            continue
-        records.append(
-            RuntimeStatsRecordItem(
-                record_id=path.name,
-                run_id=run_id,
-                started_at=float(started_at),
-                ended_at=float(ended_at),
-                total_pieces=total_pieces,
-            )
-        )
-    return RuntimeStatsRecordsResponse(records=records)
+    return RuntimeStatsRecordsResponse(
+        records=[RuntimeStatsRecordItem(**r) for r in runtime_stat_records.listRuns()]
+    )
 
 
 @app.get("/runtime-stats/record/{record_id}", response_model=RuntimeStatsResponse)
 def getRuntimeStatsRecord(record_id: str) -> RuntimeStatsResponse:
-    safe_name = Path(record_id).name
-    if safe_name != record_id:
-        raise HTTPException(status_code=400, detail="Invalid record id")
-    path = RECORDS_DIR / safe_name
-    if not path.exists():
+    import runtime_stat_records
+
+    snapshot = runtime_stat_records.getSnapshot(record_id)
+    if snapshot is None:
         raise HTTPException(status_code=404, detail="Record not found")
-    try:
-        with open(path, "r") as f:
-            data = json.load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed reading record: {e}")
-    runtime_stats = data.get("runtime_stats_final")
-    if not isinstance(runtime_stats, dict):
-        raise HTTPException(status_code=404, detail="runtime_stats_final missing")
-    return RuntimeStatsResponse(payload=runtime_stats)
+    return RuntimeStatsResponse(payload=snapshot)
+
+
+# ---------------------------------------------------------------------------
+# Records (durable per-piece sorting history, backed by the local_state DB)
+# ---------------------------------------------------------------------------
+
+
+class RecordsOverviewResponse(BaseModel):
+    total_runs: int
+    total_pieces: int
+    classified_pieces: int
+    distributed_pieces: int
+    unique_parts: int
+    unique_colors: int
+    first_seen: Optional[float]
+    last_seen: Optional[float]
+
+
+class RecordPieceItem(BaseModel):
+    uuid: str
+    run_id: str
+    seen_at: Optional[float]
+    classification_status: Optional[str]
+    part_id: Optional[str]
+    part_name: Optional[str]
+    color_id: Optional[str]
+    color_name: Optional[str]
+    category_id: Optional[str]
+    confidence: Optional[float]
+    destination_bin: Optional[List[int]]
+
+
+class RecordsPiecesResponse(BaseModel):
+    total: int
+    offset: int
+    limit: int
+    pieces: List[RecordPieceItem]
+
+
+@app.get("/api/records/overview", response_model=RecordsOverviewResponse)
+def getRecordsOverview() -> RecordsOverviewResponse:
+    import piece_records
+
+    return RecordsOverviewResponse(**piece_records.getOverview())
+
+
+@app.get("/api/records/pieces", response_model=RecordsPiecesResponse)
+def getRecordsPieces(offset: int = 0, limit: int = 50) -> RecordsPiecesResponse:
+    import piece_records
+
+    total, rows = piece_records.listPieces(offset=offset, limit=limit)
+    return RecordsPiecesResponse(
+        total=total,
+        offset=max(0, offset),
+        limit=max(1, min(limit, 200)),
+        pieces=[RecordPieceItem(**r) for r in rows],
+    )
+
+
+class LifetimeDayItem(BaseModel):
+    day: str
+    seconds_powered: float
+    seconds_sorted: float
+    pieces_seen: int
+    pieces_classified: int
+    pieces_distributed: int
+
+
+class LifetimeStatsResponse(BaseModel):
+    seconds_sorted: float
+    seconds_powered: float
+    pieces_seen: int
+    pieces_classified: int
+    pieces_distributed: int
+    overall_ppm: float
+    best_hour_ppm: float
+    active_days: int
+    first_hour: Optional[float]
+    last_hour: Optional[float]
+    daily: List[LifetimeDayItem]
+
+
+@app.get("/api/records/lifetime", response_model=LifetimeStatsResponse)
+def getRecordsLifetime(daily_days: int = 30) -> LifetimeStatsResponse:
+    import lifetime_stats
+
+    data = lifetime_stats.getOverview(daily_days=daily_days)
+    return LifetimeStatsResponse(
+        **{k: v for k, v in data.items() if k != "daily"},
+        daily=[LifetimeDayItem(**d) for d in data["daily"]],
+    )
 
 
 # ---------------------------------------------------------------------------

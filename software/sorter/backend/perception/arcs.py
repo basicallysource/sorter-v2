@@ -36,6 +36,18 @@ def bboxInsideChannelMask(bbox: Bbox, channel: ChannelDef) -> bool:
     return bool(channel.mask[iy, ix])
 
 
+def bboxInsideMask(bbox: Bbox, mask: np.ndarray) -> bool:
+    """Center-in-mask test against an arbitrary filled mask — the same membership
+    rule as ``bboxInsideChannelMask`` but for a secondary-zone mask. Used to tag
+    detections with the foreign zones they fall in (display/tag only)."""
+    cx, cy = bboxCenter(bbox)
+    h, w = mask.shape[:2]
+    ix, iy = int(cx), int(cy)
+    if not (0 <= ix < w and 0 <= iy < h):
+        return False
+    return bool(mask[iy, ix])
+
+
 def bboxSections(bbox: Bbox, channel: ChannelDef) -> frozenset[int]:
     """Section ids touched by a small set of sample points on the bbox.
 
@@ -223,6 +235,36 @@ def comInPreciseZone(bboxes: Iterable[Bbox], channel: ChannelDef) -> bool:
     if best is None:
         return False
     return best[1] in channel.precise_sections
+
+
+def exitOnlyCenterOffsetDeg(channel: ChannelDef) -> float | None:
+    """Forward distance (output degrees) from the exit-only entry (near) edge to
+    the CENTER of the exit-only (fall-off) arc. Static per-channel geometry;
+    ``None`` when the channel has no exit-only arc."""
+    ordered = _orderedCircularSections(exitOnlySections(channel))
+    if not ordered:
+        return None
+    return float(len(ordered) // 2) * SECTION_DEG
+
+
+def exitComForwardToCenterDeg(
+    bboxes: Iterable[Bbox], channel: ChannelDef
+) -> float | None:
+    """Signed forward distance (output degrees) from the LEADING on-channel
+    piece's COM to the CENTER of the REAL exit (fall-off) region — the exit arc
+    MINUS the precise arc. Same leading-piece selection and sign convention as
+    ``exitComForwardDeg`` (which targets the near edge); this just shifts the
+    target forward to the arc midpoint so a closed-loop discharge can park the
+    piece in the middle of the fall-off zone instead of on its leading lip.
+
+    > 0 : COM is short of the center — advance forward this much.
+    <= 0: COM is at/past the center.
+    ``None`` when there is no on-channel piece or the channel has no exit arc."""
+    best = _leadingExitApproach(bboxes, channel)
+    center_offset = exitOnlyCenterOffsetDeg(channel)
+    if best is None or center_offset is None:
+        return None
+    return best[0] + center_offset
 
 
 _AREA_GRID_N = 12  # 12x12 = 144 sample points per bbox; ample for area majority

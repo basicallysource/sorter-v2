@@ -60,6 +60,12 @@ class FeederStateMachine(BaseSubsystem):
                 FeederState.IDLE: Idle(irl, gc, shared),
                 FeederState.FEEDING: GoToAngleFeeding(irl, irl_config, gc, shared, vision),
             }
+        elif self._mode == FeederMode.PULSE_PERCEPTION_REV01:
+            from .pulse_perception.flow import PulsePerceptionFeeding
+            self.states_map = {
+                FeederState.IDLE: Idle(irl, gc, shared),
+                FeederState.FEEDING: PulsePerceptionFeeding(irl, irl_config, gc, shared, vision),
+            }
         else:
             raise ValueError(f"Unsupported feeder mode: {self._mode}")
         self.gc.profiler.enterState("feeder", self.current_state.value)

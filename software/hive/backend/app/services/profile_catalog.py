@@ -22,7 +22,7 @@ from app.services.profile_engine import sorting_profile as profile_sorting_profi
 from app.services.set_inventory import get_cached_inventory, get_cached_set, fetch_set_inventory, search_sets as _search_sets
 
 CUSTOM_SET_ANY_COLOR_ID = -1
-PROFILE_CATALOG_SYNC_TYPES = ("categories", "colors", "parts", "brickstore", "prices")
+PROFILE_CATALOG_SYNC_TYPES = ("categories", "colors", "parts", "brickstore", "prices", "geometry")
 PROFILE_CATALOG_AUTO_SYNC_TYPES = ("categories", "colors", "parts")
 PROFILE_CATALOG_LAST_SYNC_META_PREFIX = "profile_catalog.last_sync."
 
@@ -37,6 +37,7 @@ class CatalogConfig:
     bl_affiliate_api_key: str
     db_path: str
     brickstore_db_path: str
+    ldraw_library_dir: str
 
 
 class ProfileCatalogService:
@@ -48,6 +49,7 @@ class ProfileCatalogService:
             bl_affiliate_api_key=settings.BL_AFFILIATE_API_KEY,
             db_path=db_path,
             brickstore_db_path=os.path.expanduser(settings.SORTING_PROFILE_BRICKSTORE_DB_PATH),
+            ldraw_library_dir=os.path.expanduser(settings.SORTING_PROFILE_LDRAW_LIBRARY_DIR),
         )
         self._lock = Lock()
         self._conn = profile_db.initDb(self._config.db_path)
@@ -154,6 +156,13 @@ class ProfileCatalogService:
                 )
             if sync_type == "prices":
                 return self._sync.startPriceSync(
+                    self._config,
+                    self._conn,
+                    self._parts_data,
+                    on_complete=lambda: self._mark_sync_completed(sync_type),
+                )
+            if sync_type == "geometry":
+                return self._sync.startGeometrySync(
                     self._config,
                     self._conn,
                     self._parts_data,
@@ -312,6 +321,26 @@ class ProfileCatalogService:
             return {"results": [], "total": 0, "offset": offset, "limit": limit}
         results, total = profile_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
         return {"results": results, "total": total, "offset": offset, "limit": limit}
+
+    def admin_overview(self) -> dict[str, Any]:
+        overview = profile_db.adminCatalogOverview(self._conn)
+        overview["sync"] = self.status()
+        return overview
+
+    def admin_list_parts(
+        self, query: str = "", cat_id: int | None = None, missing: str | None = None,
+        limit: int = 100, offset: int = 0,
+    ) -> dict[str, Any]:
+        results, total = profile_db.adminListParts(
+            self._conn, query=query, cat_filter=cat_id, missing=missing, limit=limit, offset=offset
+        )
+        return {"results": results, "total": total, "offset": offset, "limit": limit}
+
+    def admin_get_part(self, part_num: str) -> dict[str, Any] | None:
+        return profile_db.adminGetPart(self._conn, part_num)
+
+    def admin_list_categories(self) -> list[dict[str, Any]]:
+        return profile_db.adminListCategories(self._conn)
 
     def list_colors(self) -> list[dict[str, Any]]:
         colors = []

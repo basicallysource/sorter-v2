@@ -279,6 +279,8 @@
 		obj.classification_status === 'unknown' ||
 		obj.classification_status === 'not_found'}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
+	{@const is_too_big = Boolean(obj.too_big) || Boolean(obj.too_big_for_layer)}
+	{@const too_big_label = obj.too_big_for_layer ? 'Too big for layer' : 'Too big'}
 	{@const is_classified_ok = !is_unknown && !is_multi_drop && Boolean(reference_src)}
 	{@const ts =
 		obj.distributed_at ??
@@ -375,6 +377,20 @@
 						{PHASE_LABEL[phase]}
 					</span>
 
+					<!-- Too-big chip — recognized piece rerouted to misc for size -->
+					{#if is_too_big}
+						<span
+							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
+							title={obj.too_big_for_layer && typeof obj.intended_layer_index === 'number'
+								? `Too big for layer ${obj.intended_layer_index + 1} — sent to misc bottom bin`
+								: 'Too big — sent to misc bottom bin'}
+						>
+							{too_big_label}{typeof obj.max_dimension_mm === 'number'
+								? ` · ${Math.round(obj.max_dimension_mm)}mm`
+								: ''}
+						</span>
+					{/if}
+
 					<!-- Color chip — sharp-edged, filled with the LEGO hex -->
 					{#if lego_color}
 						<span
@@ -400,9 +416,9 @@
 						<span
 							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs tabular-nums text-text"
 						>
-							{is_unknown || is_multi_drop ? 'discard ' : ''}{formatBin(obj.destination_bin)}
+							{is_unknown || is_multi_drop || is_too_big ? 'discard ' : ''}{formatBin(obj.destination_bin)}
 						</span>
-					{:else if phase === 'distributed' && (is_unknown || is_multi_drop)}
+					{:else if phase === 'distributed' && (is_unknown || is_multi_drop || is_too_big)}
 						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
 							discard bin
 						</span>

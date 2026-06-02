@@ -102,6 +102,7 @@ configured `RestartSec` delay before bringing the service back.
 | You changed… | Use |
 |---|---|
 | A `.py` file in the backend | Soft restart (UI button or `curl`) |
+| `machine.toml` | Soft restart (UI button or `curl`) |
 | The `.env` file or a newly installed package | Full restart (`systemctl restart`) |
 | The systemd unit file | Full restart (`systemctl restart`) |
 

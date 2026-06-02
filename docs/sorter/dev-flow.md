@@ -71,6 +71,13 @@ curl -sS -X POST http://127.0.0.1:8001/api/supervisor/restart \
 The `Origin` header is required — the supervisor only accepts requests from an
 allowed UI origin. `http://sorter.local:5173` works from any machine.
 
+> **Tip — make it a one-word command.** Add a shell alias on the machine so a
+> soft restart is just `soft-reboot`:
+>
+> ```bash
+> echo "alias soft-reboot='curl -sS -X POST http://127.0.0.1:8001/api/supervisor/restart -H \"Origin: http://sorter.local:5173\"'" >> ~/.bashrc && source ~/.bashrc
+> ```
+
 > The **Restart Backend** button in the machine UI (under the power menu in the
 > top-right header) does exactly this — it is the same soft restart as the
 > `curl` call above, just from the browser. It releases the camera handles,

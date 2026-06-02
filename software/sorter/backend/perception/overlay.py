@@ -189,14 +189,11 @@ def drawChannelZones(img: np.ndarray, channel: Any, thick: int) -> None:
 
 
 def drawDetectionBoxes(
-    img: np.ndarray, bboxes: list, color: tuple[int, int, int], scale: float, thick: int
+    img: np.ndarray, bboxes: list, color: tuple[int, int, int], thick: int
 ) -> None:
     for b in bboxes:
         x1, y1, x2, y2 = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
         cv2.rectangle(img, (x1, y1), (x2, y2), color, thick, cv2.LINE_AA)
-        cv2.circle(
-            img, ((x1 + x2) // 2, (y1 + y2) // 2), max(4, int(5 * scale)), color, -1, cv2.LINE_AA
-        )
 
 
 def drawSecondaryZones(img: np.ndarray, channel: Any, thick: int) -> None:
@@ -255,11 +252,9 @@ def renderFeedOverlay(
     else:
         scale = 1.0
         img = frame_bgr.copy()
-    w = img.shape[1]
-    s = max(1.0, w / 1280.0)
     # Thin lines. The overlay is composited at preview width, so a 1px AA line
-    # reads like the old full-res overlay did once downscaled. Zone outlines and
-    # the channel outline all share this thinness; boxes too.
+    # reads like the old full-res overlay did once downscaled. Zone outlines,
+    # the channel outline, and the detection boxes all share this thinness.
     thick = 1
     drawChannelZones(img, channel, thick)
     drawSecondaryZones(img, channel, thick)
@@ -269,8 +264,8 @@ def renderFeedOverlay(
             for d in detections
             if not d.in_primary and d.secondary_zone_ids
         ]
-        drawDetectionBoxes(img, secondary_hits, SECONDARY_DETECTION_COLOR, s, thick)
+        drawDetectionBoxes(img, secondary_hits, SECONDARY_DETECTION_COLOR, thick)
     drawDetectionBoxes(
-        img, [_scaleBbox(b, scale) for b in on_bboxes], ON_CHANNEL_COLOR, s, thick
+        img, [_scaleBbox(b, scale) for b in on_bboxes], ON_CHANNEL_COLOR, thick
     )
     return img

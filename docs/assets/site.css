@@ -330,6 +330,52 @@ pre code {
   font-size: inherit;
 }
 
+div.highlighter-rouge {
+  position: relative;
+}
+
+.copy-code-button {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  color: #cbcac6;
+  background: rgba(245, 244, 241, 0.08);
+  border: 1px solid rgba(245, 244, 241, 0.22);
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.copy-code-button svg {
+  display: block;
+}
+
+div.highlighter-rouge:hover .copy-code-button,
+.copy-code-button:focus-visible {
+  opacity: 1;
+}
+
+.copy-code-button:hover {
+  color: #ffffff;
+  background: rgba(245, 244, 241, 0.16);
+  border-color: rgba(245, 244, 241, 0.45);
+}
+
+.copy-code-button.is-copied {
+  opacity: 1;
+  color: #ffffff;
+  background: rgba(0, 133, 43, 0.85);
+  border-color: rgba(0, 133, 43, 0.9);
+}
+
 blockquote {
   margin: 1.2rem 0;
   padding: 12px 16px;

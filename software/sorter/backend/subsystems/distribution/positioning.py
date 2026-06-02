@@ -184,6 +184,31 @@ class Positioning(BaseState):
                 self._setOccupancyState("positioning.passthrough_no_bin")
                 return DistributionState.READY
 
+            if self._exceedsLayerMaxDimension(piece, address.layer_index):
+                # The piece fits a real bin by category, but is physically too
+                # large for that bin's layer. Reroute it to the misc bottom bin
+                # (center-of-chute passthrough) and mark why.
+                layer_max = self._layerMaxDimensionMm(address.layer_index)
+                self.logger.info(
+                    f"Positioning: piece {piece.uuid} ({piece.max_dimension_mm}mm) exceeds "
+                    f"layer {address.layer_index} limit ({layer_max}mm) — passthrough to misc bottom bin"
+                )
+                self._clearBinsFullAlertIfOwned()
+                self._clearChuteJamAlertIfOwned()
+                self._openAllDoorsForPassthrough()
+                piece.stage = PieceStage.distributing
+                piece.distributing_at = time.time()
+                piece.distribution_target_selected_at = piece.distributing_at
+                piece.category_id = MISC_CATEGORY
+                piece.destination_bin = None
+                piece.too_big_for_layer = True
+                piece.intended_layer_index = address.layer_index
+                piece.updated_at = time.time()
+                self._piece = piece
+                self.event_queue.put(knownObjectToEvent(piece))
+                self._setOccupancyState("positioning.passthrough_too_big_for_layer")
+                return DistributionState.READY
+
             self._clearBinsFullAlertIfOwned()
             self._clearChuteJamAlertIfOwned()
             self.logger.info(
@@ -303,6 +328,23 @@ class Positioning(BaseState):
         self._moving_started_at = 0.0
         self._piece = None
         self.shared.set_chute_motion(False, target_bin=target_address)
+
+    def _layerMaxDimensionMm(self, layer_index: int) -> Optional[float]:
+        layers = getattr(self.layout, "layers", [])
+        if 0 <= layer_index < len(layers):
+            value = getattr(layers[layer_index], "max_dimension_mm", None)
+            if isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0:
+                return float(value)
+        return None
+
+    def _exceedsLayerMaxDimension(self, piece, layer_index: int) -> bool:
+        layer_max = self._layerMaxDimensionMm(layer_index)
+        if layer_max is None:
+            return False
+        piece_max = piece.max_dimension_mm
+        if not isinstance(piece_max, (int, float)):
+            return False
+        return float(piece_max) > layer_max
 
     def _isLayerUsable(self, layer_index: int) -> bool:
         """Check whether this layer is currently usable for a sort move.

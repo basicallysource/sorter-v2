@@ -20,6 +20,7 @@
 		servoId: string;
 		invert: boolean;
 		maxPiecesPerBin: string;
+		maxDimensionMm: string;
 		liveOpen: boolean | null;
 		telemetry: LayerTelemetry;
 		testing: boolean;
@@ -41,6 +42,7 @@
 		onUpdateServoId,
 		onUpdateInvert,
 		onUpdateMaxPieces,
+		onUpdateMaxDimension,
 		onToggle,
 		onCalibrate
 	}: {
@@ -58,6 +60,7 @@
 		onUpdateServoId: (index: number, value: string) => void;
 		onUpdateInvert: (index: number, value: boolean) => void;
 		onUpdateMaxPieces: (index: number, value: string) => void;
+		onUpdateMaxDimension: (index: number, value: string) => void;
 		onToggle: (index: number) => void;
 		onCalibrate: (index: number) => void;
 	} = $props();
@@ -109,6 +112,12 @@
 						<th class="px-3 py-2 font-medium" title="Max pieces per bin. Empty = unlimited.">
 							Max/Bin
 						</th>
+						<th
+							class="px-3 py-2 font-medium"
+							title="Largest piece (longest single dimension, mm) this layer accepts. Empty = no limit. Bigger pieces are sent to the misc bottom bin."
+						>
+							Max mm
+						</th>
 						<th class="px-3 py-2 font-medium"
 							>{backend === 'waveshare' ? 'Servo ID' : 'Channel'}</th
 						>
@@ -159,6 +168,19 @@
 									disabled={loading || saving}
 									class="setup-control w-24 px-2 py-1.5 text-text"
 									title="Max pieces per bin. Empty = unlimited."
+								/>
+							</td>
+							<td class="px-3 py-2">
+								<input
+									type="number"
+									min="1"
+									step="1"
+									placeholder="∞"
+									value={layer.maxDimensionMm}
+									oninput={(event) => onUpdateMaxDimension(index, event.currentTarget.value)}
+									disabled={loading || saving}
+									class="setup-control w-24 px-2 py-1.5 text-text"
+									title="Largest piece (longest single dimension, mm) this layer accepts. Empty = no limit."
 								/>
 							</td>
 							<td class="px-3 py-2">

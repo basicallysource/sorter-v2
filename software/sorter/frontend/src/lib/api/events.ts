@@ -54,6 +54,10 @@ export interface KnownObjectData {
   color_name?: string;
   category_id?: string | null;
   confidence?: number | null;
+  max_dimension_mm?: number | null;
+  too_big?: boolean;
+  too_big_for_layer?: boolean;
+  intended_layer_index?: number | null;
   destination_bin?: [unknown, unknown, unknown] | null;
   tracked_global_id?: number | null;
   classification_channel_zone_state?: string | null;

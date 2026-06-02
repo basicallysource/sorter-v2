@@ -79,6 +79,10 @@ class KnownObjectData(BaseModel):
     color_name: str = "Any Color"
     category_id: Optional[str] = None
     confidence: Optional[float] = None
+    max_dimension_mm: Optional[float] = None
+    too_big: bool = False
+    too_big_for_layer: bool = False
+    intended_layer_index: Optional[int] = None
     destination_bin: Optional[Tuple[int, int, int]] = None
     tracked_global_id: Optional[int] = None
     classification_channel_zone_state: Optional[str] = None

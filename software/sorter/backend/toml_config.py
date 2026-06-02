@@ -307,6 +307,7 @@ _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     "classification_multi_drop_collision": _INCIDENT_MODE_MANUAL,
     "classification_intake_request_timeout": _INCIDENT_MODE_MANUAL,
     "classification_track_lost": _INCIDENT_MODE_MANUAL,
+    "classification_exit_stuck": _INCIDENT_MODE_MANUAL,
 }
 _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
@@ -427,6 +428,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "off_label": "Treat stale C4 tracks as diagnostics",
         "manual_label": "Operator reviews lost C4 tracks",
         "automatic_label": "Automatic track-loss handling",
+        "automatic_supported": False,
+    },
+    {
+        "kind": "classification_exit_stuck",
+        "label": "C4 Piece Stuck",
+        "scope": "C4",
+        "description": "A piece on the classification channel could not be discharged. Remove it, then resolve to resume.",
+        "off_label": "Do not raise C4 stuck incidents",
+        "manual_label": "Operator removes the stuck piece",
+        "automatic_label": "Automatic C4 stuck handling",
         "automatic_supported": False,
     },
 )

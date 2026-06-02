@@ -339,7 +339,8 @@
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
 			incident.kind === 'classification_intake_request_timeout' ||
-			incident.kind === 'classification_track_lost'
+			incident.kind === 'classification_track_lost' ||
+			incident.kind === 'classification_exit_stuck'
 			? incident
 			: null;
 	}
@@ -542,7 +543,8 @@
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
 			incident.kind === 'classification_intake_request_timeout' ||
-			incident.kind === 'classification_track_lost'
+			incident.kind === 'classification_track_lost' ||
+			incident.kind === 'classification_exit_stuck'
 		) {
 			return `${currentBackendBaseUrl()}/api/classification-channel/fallback-incident`;
 		}
@@ -610,6 +612,9 @@
 		if (incident?.kind === 'classification_track_lost') {
 			return 'Track Lost';
 		}
+		if (incident?.kind === 'classification_exit_stuck') {
+			return 'C4 Piece Stuck';
+		}
 		return 'Exit Stuck';
 	}
 
@@ -662,6 +667,9 @@
 		}
 		if (incident?.kind === 'classification_track_lost') {
 			return 'A tracked piece disappeared before the expected drop flow completed.';
+		}
+		if (incident?.kind === 'classification_exit_stuck') {
+			return 'A piece is stuck on the classification channel and could not be discharged. Remove it from the channel, then resolve to resume feeding.';
 		}
 		return 'A piece is not falling off the channel.';
 	}

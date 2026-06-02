@@ -2,6 +2,7 @@ import time
 from typing import Optional
 
 from subsystems.classification_channel.incidents import (
+    CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND,
     clear_classification_exit_stuck_incident,
     publish_classification_exit_stuck_incident,
 )
@@ -124,9 +125,20 @@ class Discharging(Rev01BaseState):
             )
             return ClassificationChannelState.IDLE
 
-        # Gave up — hold (gate stays not-ready) until the channel physically
-        # clears above. The incident is raised; nothing to do but wait.
+        # Gave up: an operator incident is up asking to remove the stuck part.
+        # We do nothing autonomous — just hold until that incident is resolved
+        # (operator removed the piece and clicked Resolve, or it was force-
+        # cleared). The moment it's gone, credit the piece and hand back to IDLE,
+        # which re-reads the channel from scratch and resumes the normal feed
+        # flow. If no incident was actually raised (handling off), don't wedge
+        # silently — fall back to IDLE so the channel keeps moving.
         if self._gave_up:
+            if not self._incident_raised or not self._incidentActive():
+                self._releaseOnce()
+                self.logger.info(
+                    f"{LOG_TAG} DISCHARGING: stuck incident resolved — returning to IDLE"
+                )
+                return ClassificationChannelState.IDLE
             return None
 
         # Let an in-flight jitter sequence run to resolution before anything else.
@@ -227,15 +239,28 @@ class Discharging(Rev01BaseState):
             f"{attempts} jitter attempt(s) / {total_ms:.0f}ms — raising stuck "
             f"incident, holding until cleared"
         )
-        publish_classification_exit_stuck_incident(
+        published = publish_classification_exit_stuck_incident(
             self.gc,
             piece=self.ctx.known_object,
             jitter_attempts=int(attempts),
             converge_ms=float(total_ms),
         )
-        self._incident_raised = True
+        self._incident_raised = bool(published)
         self._gave_up = True
         self.stopStepper()
+
+    def _incidentActive(self) -> bool:
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+            return False
+        try:
+            active = runtime_stats.activeIncident()
+        except Exception:
+            return False
+        return (
+            isinstance(active, dict)
+            and active.get("kind") == CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
+        )
 
     def _releaseOnce(self) -> None:
         if self._released:

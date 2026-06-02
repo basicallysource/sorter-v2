@@ -140,10 +140,10 @@ def drawDetectionBoxes(
         )
 
 
-def drawSecondaryZones(img: np.ndarray, channel: Any, scale: float, thick: int) -> None:
-    """Outline each foreign (secondary) zone the camera observes, with a label
-    like ``C3 exit``. Outline only — no fill — so it's visually distinct from
-    the channel's own acted-on zones."""
+def drawSecondaryZones(img: np.ndarray, channel: Any, thick: int) -> None:
+    """Outline each foreign (secondary) zone the camera observes. Outline only —
+    no fill, no text label — so it's visually distinct from the channel's own
+    acted-on zones without cluttering the operating feed."""
     zones = getattr(channel, "secondary_zones", None)
     if not zones:
         return
@@ -158,17 +158,9 @@ def drawSecondaryZones(img: np.ndarray, channel: Any, scale: float, thick: int) 
         )
         if not contours:
             continue
+        # Outline only on the video stream — no text label (the zone identity is
+        # shown in the editor UI, not on the operating feed).
         cv2.drawContours(img, contours, -1, color, line_thick)
-        biggest = max(contours, key=cv2.contourArea)
-        m = cv2.moments(biggest)
-        if m["m00"] > 0:
-            lx = int(m["m10"] / m["m00"])
-            ly = int(m["m01"] / m["m00"])
-            label = f"C{zone.source_channel} {zone.zone_type}"
-            cv2.putText(
-                img, label, (lx, ly), cv2.FONT_HERSHEY_SIMPLEX,
-                max(0.4, 0.5 * scale), color, max(1, line_thick), cv2.LINE_AA
-            )
 
 
 def renderFeedOverlay(
@@ -186,7 +178,7 @@ def renderFeedOverlay(
     s = max(1.0, w / 1280.0)
     thick = max(2, int(round(2 * s)))
     drawChannelZones(img, channel, thick)
-    drawSecondaryZones(img, channel, s, thick)
+    drawSecondaryZones(img, channel, thick)
     if detections:
         secondary_hits = [
             d.bbox for d in detections if not d.in_primary and d.secondary_zone_ids

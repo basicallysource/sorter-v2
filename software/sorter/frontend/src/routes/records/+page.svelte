@@ -30,6 +30,29 @@
 		destination_bin: number[] | null;
 	};
 
+	type LifetimeDay = {
+		day: string;
+		seconds_powered: number;
+		seconds_sorted: number;
+		pieces_seen: number;
+		pieces_classified: number;
+		pieces_distributed: number;
+	};
+
+	type Lifetime = {
+		seconds_sorted: number;
+		seconds_powered: number;
+		pieces_seen: number;
+		pieces_classified: number;
+		pieces_distributed: number;
+		overall_ppm: number;
+		best_hour_ppm: number;
+		active_days: number;
+		first_hour: number | null;
+		last_hour: number | null;
+		daily: LifetimeDay[];
+	};
+
 	const ctx = getMachineContext();
 
 	function effectiveBase(): string {
@@ -39,6 +62,7 @@
 	const PAGE_SIZE = 50;
 
 	let overview = $state<Overview | null>(null);
+	let lifetime = $state<Lifetime | null>(null);
 	let pieces = $state<PieceItem[]>([]);
 	let total = $state(0);
 	let offset = $state(0);
@@ -52,6 +76,16 @@
 			const res = await fetch(`${effectiveBase()}/api/records/overview`);
 			if (!res.ok) return;
 			overview = await res.json();
+		} catch {
+			// ignore
+		}
+	}
+
+	async function loadLifetime() {
+		try {
+			const res = await fetch(`${effectiveBase()}/api/records/lifetime`);
+			if (!res.ok) return;
+			lifetime = await res.json();
 		} catch {
 			// ignore
 		}
@@ -76,6 +110,7 @@
 
 	function refresh() {
 		void loadOverview();
+		void loadLifetime();
 		void loadPieces();
 	}
 
@@ -134,6 +169,38 @@
 		return `${(c * 100).toFixed(0)}%`;
 	}
 
+	function formatDuration(seconds: number | null | undefined): string {
+		if (!seconds || seconds <= 0) return '0h 0m';
+		const total_min = Math.floor(seconds / 60);
+		const days = Math.floor(total_min / 1440);
+		const hours = Math.floor((total_min % 1440) / 60);
+		const mins = total_min % 60;
+		if (days > 0) return `${days}d ${hours}h`;
+		return `${hours}h ${mins}m`;
+	}
+
+	function formatHours(seconds: number | null | undefined): string {
+		if (!seconds || seconds <= 0) return '0';
+		return (seconds / 3600).toLocaleString(undefined, { maximumFractionDigits: 1 });
+	}
+
+	function formatPpm(ppm: number | null | undefined): string {
+		if (!ppm || ppm <= 0) return '—';
+		return ppm.toLocaleString(undefined, { maximumFractionDigits: 1 });
+	}
+
+	let utilizationPct = $derived(
+		lifetime && lifetime.seconds_powered > 0
+			? (lifetime.seconds_sorted / lifetime.seconds_powered) * 100
+			: 0
+	);
+
+	function formatDayLabel(day: string): string {
+		const d = new Date(`${day}T00:00:00`);
+		if (Number.isNaN(d.getTime())) return day;
+		return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+	}
+
 	onMount(() => {
 		refresh();
 	});
@@ -165,14 +232,87 @@
 			</button>
 		</header>
 
-		<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
-			{#snippet statCard(label: string, value: string)}
-				<div class="border border-border bg-surface px-4 py-3">
-					<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">{label}</div>
-					<div class="mt-1 text-2xl font-bold text-text">{value}</div>
-				</div>
-			{/snippet}
+		{#snippet statCard(label: string, value: string)}
+			<div class="border border-border bg-surface px-4 py-3">
+				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">{label}</div>
+				<div class="mt-1 text-2xl font-bold text-text">{value}</div>
+			</div>
+		{/snippet}
+		{#snippet statCardSub(label: string, value: string, sub: string)}
+			<div class="border border-border bg-surface px-4 py-3">
+				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">{label}</div>
+				<div class="mt-1 text-2xl font-bold text-text">{value}</div>
+				<div class="mt-0.5 text-sm text-text-muted">{sub}</div>
+			</div>
+		{/snippet}
 
+		<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">Lifetime</h3>
+		<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+			{@render statCardSub(
+				'Hours sorted',
+				lifetime ? formatHours(lifetime.seconds_sorted) : '—',
+				lifetime ? formatDuration(lifetime.seconds_sorted) + ' active' : ''
+			)}
+			{@render statCardSub(
+				'Hours powered',
+				lifetime ? formatHours(lifetime.seconds_powered) : '—',
+				lifetime ? formatDuration(lifetime.seconds_powered) + ' on' : ''
+			)}
+			{@render statCard('Utilization', lifetime ? `${utilizationPct.toFixed(0)}%` : '—')}
+			{@render statCard('Active days', lifetime ? lifetime.active_days.toLocaleString() : '—')}
+			{@render statCard(
+				'Pieces sorted',
+				lifetime ? lifetime.pieces_distributed.toLocaleString() : '—'
+			)}
+			{@render statCardSub(
+				'Throughput',
+				lifetime ? formatPpm(lifetime.overall_ppm) : '—',
+				'avg pieces/min'
+			)}
+			{@render statCardSub(
+				'Best hour',
+				lifetime ? formatPpm(lifetime.best_hour_ppm) : '—',
+				'peak pieces/min'
+			)}
+			{@render statCard(
+				'Classified',
+				lifetime ? lifetime.pieces_classified.toLocaleString() : '—'
+			)}
+		</div>
+
+		{#if lifetime && lifetime.daily.length > 0}
+			<div class="overflow-x-auto border border-border">
+				<table class="w-full border-collapse text-sm">
+					<thead>
+						<tr class="border-b border-border bg-surface text-left text-text-muted">
+							<th class="px-3 py-2 font-semibold">Day</th>
+							<th class="px-3 py-2 font-semibold">Powered</th>
+							<th class="px-3 py-2 font-semibold">Sorted</th>
+							<th class="px-3 py-2 font-semibold">Pieces</th>
+							<th class="px-3 py-2 font-semibold">Classified</th>
+							<th class="px-3 py-2 font-semibold">PPM</th>
+						</tr>
+					</thead>
+					<tbody>
+						{#each lifetime.daily as d (d.day)}
+							<tr class="border-b border-border last:border-b-0 hover:bg-surface">
+								<td class="px-3 py-2 text-text">{formatDayLabel(d.day)}</td>
+								<td class="px-3 py-2 text-text-muted">{formatDuration(d.seconds_powered)}</td>
+								<td class="px-3 py-2 text-text">{formatDuration(d.seconds_sorted)}</td>
+								<td class="px-3 py-2 text-text">{d.pieces_distributed.toLocaleString()}</td>
+								<td class="px-3 py-2 text-text-muted">{d.pieces_classified.toLocaleString()}</td>
+								<td class="px-3 py-2 text-text">
+									{formatPpm(d.seconds_sorted > 0 ? (d.pieces_distributed * 60) / d.seconds_sorted : 0)}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
+		{/if}
+
+		<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">History</h3>
+		<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
 			{@render statCard('Pieces seen', overview ? overview.total_pieces.toLocaleString() : '—')}
 			{@render statCard(
 				'Classified',

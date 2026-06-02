@@ -37,6 +37,7 @@ from server.shared_state import (
 from sorter_controller import SorterController
 from stepper_stall_monitor import StepperStallMonitor
 from run_recorder import RunRecorder
+from lifetime_stats import LifetimeStatsTracker
 from message_queue.handler import handleServerToMainEvent
 from defs.events import HeartbeatEvent, HeartbeatData, MainThreadToServerCommand
 from defs.events import RuntimeStatsEvent, RuntimeStatsData
@@ -72,6 +73,7 @@ def _mkIRLInterfaceStandby(config, gc):
 
 FRAME_RECORD_INTERVAL_MS = 100
 RUNTIME_STATS_BROADCAST_INTERVAL_MS = 1000
+LIFETIME_FLUSH_INTERVAL_MS = 10000
 
 SERVO_BUS_ALERT_PREFIX = "Servo bus offline"
 CAMERA_SHUTDOWN_SETTLE_S = float(os.getenv("SORTER_CAMERA_SHUTDOWN_SETTLE_S", "1.0"))
@@ -324,6 +326,7 @@ def main() -> None:
 
     gc = mkGlobalConfig()
     gc.run_recorder = RunRecorder(gc)
+    gc.lifetime_stats = LifetimeStatsTracker(gc)
     setGlobalConfig(gc)
     rv = mkRuntimeVariables(gc)
     setRuntimeVariables(rv)
@@ -716,6 +719,11 @@ def main() -> None:
         gc.logger.info(f"Shutting down ({reason})...")
 
         try:
+            gc.lifetime_stats.flush()
+        except Exception as exc:
+            gc.logger.warning(f"Failed to flush lifetime stats during shutdown: {exc}")
+
+        try:
             gc.run_recorder.save()
         except Exception as exc:
             gc.logger.warning(f"Failed to save run recorder during shutdown: {exc}")
@@ -765,6 +773,7 @@ def main() -> None:
     last_heartbeat = time.time()
     last_frame_record = time.time()
     last_runtime_stats_broadcast = time.time()
+    last_lifetime_flush = time.time()
     last_runtime_perf_snapshot = time.time()
     last_profiler_snapshot = time.time()
     last_main_loop_started = time.perf_counter()
@@ -823,6 +832,12 @@ def main() -> None:
                 )
                 main_to_server_queue.put(runtime_stats)
                 last_runtime_stats_broadcast = current_time
+
+            # Durable lifetime accumulator — periodic flush so powered/sorted
+            # time survives the soft-restart (os._exit) that skips save().
+            if current_time - last_lifetime_flush >= LIFETIME_FLUSH_INTERVAL_MS / 1000.0:
+                gc.lifetime_stats.flush()
+                last_lifetime_flush = current_time
 
             if (
                 current_time - last_runtime_perf_snapshot

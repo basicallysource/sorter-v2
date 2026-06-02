@@ -14,6 +14,7 @@ from blob_manager import getMachineId
 if TYPE_CHECKING:
     from run_recorder import RunRecorder
     from runtime_stats import RuntimeStatsCollector
+    from lifetime_stats import LifetimeStatsTracker
 
 
 class RegionProviderType(Enum):
@@ -51,6 +52,7 @@ class GlobalConfig:
     disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
     run_recorder: "RunRecorder"
     runtime_stats: "RuntimeStatsCollector"
+    lifetime_stats: "LifetimeStatsTracker"
     brickognize_dump_root: Optional[Path]
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]

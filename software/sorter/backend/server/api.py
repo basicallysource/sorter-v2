@@ -810,6 +810,40 @@ def getRecordsPieces(offset: int = 0, limit: int = 50) -> RecordsPiecesResponse:
     )
 
 
+class LifetimeDayItem(BaseModel):
+    day: str
+    seconds_powered: float
+    seconds_sorted: float
+    pieces_seen: int
+    pieces_classified: int
+    pieces_distributed: int
+
+
+class LifetimeStatsResponse(BaseModel):
+    seconds_sorted: float
+    seconds_powered: float
+    pieces_seen: int
+    pieces_classified: int
+    pieces_distributed: int
+    overall_ppm: float
+    best_hour_ppm: float
+    active_days: int
+    first_hour: Optional[float]
+    last_hour: Optional[float]
+    daily: List[LifetimeDayItem]
+
+
+@app.get("/api/records/lifetime", response_model=LifetimeStatsResponse)
+def getRecordsLifetime(daily_days: int = 30) -> LifetimeStatsResponse:
+    import lifetime_stats
+
+    data = lifetime_stats.getOverview(daily_days=daily_days)
+    return LifetimeStatsResponse(
+        **{k: v for k, v in data.items() if k != "daily"},
+        daily=[LifetimeDayItem(**d) for d in data["daily"]],
+    )
+
+
 # ---------------------------------------------------------------------------
 # Set Progress
 # ---------------------------------------------------------------------------

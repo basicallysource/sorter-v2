@@ -179,12 +179,14 @@ def runServer(gc: GlobalConfig) -> None:
     from server.security import (
         compute_allowed_ui_origins,
         explicit_allowed_origins,
+        allow_any_origin,
         _this_device_hosts,
         _ui_port,
     )
 
     gc.logger.info(
         f"[server] binding host={host!r} port=8000 ui_port={_ui_port()!r} "
+        f"allow_any_origin={allow_any_origin()} "
         f"SORTER_API_ALLOWED_ORIGINS_override={explicit_allowed_origins()} "
         f"effective_allowed_origins={compute_allowed_ui_origins()} "
         f"device_hosts={sorted(_this_device_hosts())}"

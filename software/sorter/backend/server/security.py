@@ -53,6 +53,13 @@ def _ui_port() -> str:
     return os.getenv("SORTER_UI_PORT", "5173").strip() or "5173"
 
 
+def allow_any_origin() -> bool:
+    # ESCAPE HATCH: SORTER_API_ALLOW_ANY_ORIGIN=1 accepts any origin (and any
+    # cross-origin websocket). Defeats the device-scoped allowlist entirely, so
+    # it's a temporary bring-up measure on a trusted LAN only, not a default.
+    return os.getenv("SORTER_API_ALLOW_ANY_ORIGIN", "").lower() in ("1", "true", "yes")
+
+
 def explicit_allowed_origins() -> list[str]:
     override = os.getenv("SORTER_API_ALLOWED_ORIGINS")
     if not override:
@@ -124,6 +131,8 @@ def is_ui_origin_allowed(origin: str | None) -> bool:
     normalized = normalize_origin(origin)
     if normalized is None:
         return False
+    if allow_any_origin():
+        return True
     if normalized.lower() in {item.lower() for item in explicit_allowed_origins()}:
         return True
     parsed = urlsplit(normalized.lower())

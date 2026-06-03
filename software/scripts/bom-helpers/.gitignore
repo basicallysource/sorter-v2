@@ -1,0 +1,10 @@
+stl-downloads/
+bom-downloads/
+bom-outputs/
+*.csv
+*.zip
+*.stl
+.venv/
+uv.lock
+__pycache__/
+notes.md

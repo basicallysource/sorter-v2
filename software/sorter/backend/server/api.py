@@ -70,7 +70,12 @@ app = FastAPI(title="Sorter API", version="0.0.1")
 # this machine's own addresses (plus any SORTER_API_ALLOWED_ORIGINS override).
 class _DeviceCORSMiddleware(CORSMiddleware):
     def is_allowed_origin(self, origin: str) -> bool:
-        return is_ui_origin_allowed(origin)
+        allowed = is_ui_origin_allowed(origin)
+        if not allowed and shared_state.gc_ref is not None:
+            from server.security import describe_origin_decision
+
+            shared_state.gc_ref.logger.info(f"[CORS reject] {describe_origin_decision(origin)}")
+        return allowed
 
 
 app.add_middleware(
@@ -566,6 +571,12 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         websocket.headers.get("Origin"),
         client_host,
     ):
+        if shared_state.gc_ref is not None:
+            from server.security import describe_origin_decision
+
+            shared_state.gc_ref.logger.info(
+                f"[WS reject] client_host={client_host!r} {describe_origin_decision(websocket.headers.get('Origin'))}"
+            )
         await websocket.close(
             code=status.WS_1008_POLICY_VIOLATION,
             reason="WebSocket origin not allowed.",

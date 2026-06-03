@@ -142,6 +142,29 @@ def is_ui_origin_allowed(origin: str | None) -> bool:
     return host in _allowed_hosts()
 
 
+def describe_origin_decision(origin: str | None) -> str:
+    # Diagnostic for CORS/websocket rejections: shows the raw origin, how it
+    # normalized, the parsed host/port, and everything the allowlist compares
+    # against, so a remote "CORS error" can be diagnosed from the backend log.
+    normalized = normalize_origin(origin)
+    allowed = is_ui_origin_allowed(origin)
+    host = ""
+    port_str = ""
+    if normalized is not None:
+        parsed = urlsplit(normalized.lower())
+        host = parsed.hostname or ""
+        try:
+            port = parsed.port
+            port_str = str(port) if port is not None else ("443" if parsed.scheme == "https" else "80")
+        except ValueError:
+            port_str = "<invalid>"
+    return (
+        f"allowed={allowed} origin={origin!r} normalized={normalized!r} "
+        f"host={host!r} port={port_str!r} ui_port={_ui_port()!r} "
+        f"explicit_overrides={explicit_allowed_origins()} device_hosts={sorted(_this_device_hosts())}"
+    )
+
+
 def websocket_connection_allowed(
     origin: str | None,
     client_host: str | None,

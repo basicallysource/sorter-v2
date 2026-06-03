@@ -169,13 +169,26 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     )
 
 
-def runServer() -> None:
+def runServer(gc: GlobalConfig) -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a
     # specific IP) exposes the API to the LAN — every endpoint (system reset,
     # supervisor restart, calibration, camera control) becomes reachable from
     # any host that can route to this machine, so only do that on a trusted
     # network. CORS is widened to match in server/api.py.
     host = os.getenv("SORTER_API_HOST", "127.0.0.1") or "127.0.0.1"
+    from server.security import (
+        compute_allowed_ui_origins,
+        explicit_allowed_origins,
+        _this_device_hosts,
+        _ui_port,
+    )
+
+    gc.logger.info(
+        f"[server] binding host={host!r} port=8000 ui_port={_ui_port()!r} "
+        f"SORTER_API_ALLOWED_ORIGINS_override={explicit_allowed_origins()} "
+        f"effective_allowed_origins={compute_allowed_ui_origins()} "
+        f"device_hosts={sorted(_this_device_hosts())}"
+    )
     uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
 
 
@@ -364,7 +377,7 @@ def main() -> None:
     # Bring up the API/broadcast threads before the heavier camera + vision
     # startup steps. That way the backend stays reachable even if a camera or
     # inventory subsystem stalls during initialization.
-    server_thread = threading.Thread(target=runServer, daemon=True, name="api-server")
+    server_thread = threading.Thread(target=runServer, args=(gc,), daemon=True, name="api-server")
     server_thread.start()
 
     broadcaster_thread = threading.Thread(

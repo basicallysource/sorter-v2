@@ -160,6 +160,13 @@
 	}
 
 	onMount(() => {
+		console.info('[backend] resolved endpoints', {
+			location: window.location.href,
+			baseUrl: baseUrl(),
+			wsUrl: wsUrl(),
+			defaultHttpBase: getBackendHttpBase(),
+			defaultWsBase: getBackendWsBase()
+		});
 		void poll();
 		const interval = setInterval(() => void poll(), HEALTH_INTERVAL_MS);
 		return () => clearInterval(interval);

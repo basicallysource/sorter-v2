@@ -88,13 +88,27 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import Response
 
+# Set SORTER_LOG_REQUESTS=1 to log EVERY request (including GETs, which are
+# otherwise silent) with its Origin header and client address — needed to see
+# whether a remote browser's calls are even reaching the backend.
+_LOG_ALL_REQUESTS = os.environ.get("SORTER_LOG_REQUESTS", "").lower() in ("1", "true", "yes")
+
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
-        if request.method != "GET":
-            if shared_state.gc_ref is not None:
-                shared_state.gc_ref.logger.info(f"[API] {request.method} {request.url.path}")
-        response: Response = await call_next(request)
-        return response
+        gc = shared_state.gc_ref
+        if _LOG_ALL_REQUESTS and gc is not None:
+            client = request.client.host if request.client is not None else None
+            gc.logger.info(
+                f"[req] {request.method} {request.url.path} "
+                f"origin={request.headers.get('origin')!r} client={client!r}"
+            )
+            response: Response = await call_next(request)
+            gc.logger.info(f"[req] <- {response.status_code} {request.method} {request.url.path}")
+            return response
+        if request.method != "GET" and gc is not None:
+            gc.logger.info(f"[API] {request.method} {request.url.path}")
+        return await call_next(request)
 
 app.add_middleware(RequestLoggingMiddleware)
 

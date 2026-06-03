@@ -139,7 +139,9 @@ export async function probeBackendConnection(
 				restartRequested: false
 			};
 		}
-	} catch {
+		console.warn(`[backend] /health probe returned non-ok status ${response.status} for ${backendBaseUrl}/health`);
+	} catch (err) {
+		console.warn(`[backend] /health probe failed for ${backendBaseUrl}/health:`, err);
 		// Try supervisor next.
 	}
 
@@ -161,7 +163,8 @@ export async function probeBackendConnection(
 					restartRequested: Boolean(data?.restart_requested)
 				};
 			}
-		} catch {
+		} catch (err) {
+			console.warn(`[backend] supervisor probe failed for ${supervisorBaseUrl}/api/supervisor/status:`, err);
 			// Supervisor unavailable too.
 		}
 	}

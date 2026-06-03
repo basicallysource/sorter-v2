@@ -9,7 +9,7 @@ export function connectWebSocket(
 	const ws = new WebSocket(url);
 
 	ws.onopen = () => {
-		console.log('WebSocket connected');
+		console.log('WebSocket connected', url);
 	};
 
 	ws.onmessage = (message) => {
@@ -18,12 +18,14 @@ export function connectWebSocket(
 	};
 
 	ws.onerror = (error) => {
-		console.error('WebSocket error:', error);
+		console.error('WebSocket error:', url, error);
 		onError?.(error);
 	};
 
-	ws.onclose = () => {
-		console.log('WebSocket disconnected');
+	ws.onclose = (event) => {
+		// code 1008 = policy violation (backend rejected the Origin); 1006 = abnormal
+		// close, usually the connection never reached the server (refused / blocked).
+		console.log('WebSocket disconnected', url, 'code=', event.code, 'reason=', event.reason);
 		onClose?.();
 	};
 

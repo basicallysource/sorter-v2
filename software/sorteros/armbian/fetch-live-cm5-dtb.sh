@@ -4,9 +4,15 @@
 set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-REMOTE=${1:-orangepi@10.0.42.232}
+REMOTE=${1:-${SORTEROS_REMOTE:-}}
 REMOTE_DTB=${REMOTE_DTB:-/boot/dtb/rockchip/rk3588s-orangepi-cm5-tablet.dtb}
 OUT="${SCRIPT_DIR}/artifacts/rk3588s-orangepi-cm5-tablet.dtb"
+
+if [[ -z "${REMOTE}" ]]; then
+	echo "usage: $0 <user@host>" >&2
+	echo "or set SORTEROS_REMOTE=<user@host>" >&2
+	exit 2
+fi
 
 mkdir -p "${SCRIPT_DIR}/artifacts"
 

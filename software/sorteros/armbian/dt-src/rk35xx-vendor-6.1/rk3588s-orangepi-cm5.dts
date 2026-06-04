@@ -715,7 +715,7 @@
 	             &gmac1_rx_bus2
 	             &gmac1_rgmii_clk
 	             &gmac1_rgmii_bus>;
-	
+
 	tx_delay = <0x42>;
 	/* rx_delay = <0x3f>; */
 

@@ -167,8 +167,7 @@ def _open_capture_source(
         # NV12->BGR cv2.cvtColor + copy on the CPU per frame, making it slower
         # than plain cv2.VideoCapture on the Pi (and it silently varied by
         # whether the gi/GStreamer bindings happened to be installed). RGA for
-        # the convert is only a win with full dmabuf zero-copy — not worth it
-        # while cv2 keeps up. See agent-notes why-tf-is-spencers-so-slow.
+        # the convert is only a win with full dmabuf zero-copy while cv2 keeps up.
         if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
             _try_v4l2ctl_set_format(source, fourcc.strip()[:4].upper(), width, height)
         device_path = _linux_video_device_path(source)

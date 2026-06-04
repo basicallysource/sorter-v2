@@ -230,9 +230,8 @@ def _find_base_image(ctx: BuildCtx) -> Path:
     """Look for the base .img in order of preference:
         1. $SORTEROS_BASE_IMG env var (explicit override)
         2. cache/<filename> in this build dir
-        3. ~/Downloads/<filename> (Spencer's usual landing zone)
-        4. /Users/spencer/Downloads/<filename> (same, from inside colima)
-        5. /Volumes/macHome/Downloads/<filename> (some colima setups)
+        3. ~/Downloads/<filename>
+        4. /Volumes/macHome/Downloads/<filename> (some VM/container setups)
     """
     filename = ctx.config["base"]["filename"]
     candidates: list[Path] = []
@@ -242,7 +241,6 @@ def _find_base_image(ctx: BuildCtx) -> Path:
     candidates.append(ctx.cache_dir / filename)
     home = Path(os.environ.get("HOME", "/root"))
     candidates.append(home / "Downloads" / filename)
-    candidates.append(Path("/Users/spencer/Downloads") / filename)
     candidates.append(Path("/Volumes/macHome/Downloads") / filename)
     for c in candidates:
         if c.exists():

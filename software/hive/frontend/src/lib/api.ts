@@ -56,6 +56,18 @@ export interface MachineStats {
 	parts_needed: number;
 }
 
+export interface MachineConfigBackupSummary {
+	id: string;
+	version: number;
+	content_hash: string;
+	trigger: string;
+	created_at: string;
+}
+
+export interface MachineConfigBackupDetail extends MachineConfigBackupSummary {
+	payload: Record<string, unknown>;
+}
+
 export interface Sample {
 	id: string;
 	machine_id: string;
@@ -775,6 +787,12 @@ export const api = {
 	},
 	purgeMachineData(id: string) {
 		return request<{ ok: boolean; deleted_sessions: number; deleted_samples: number }>('POST', `/api/machines/${id}/purge`);
+	},
+	getMachineConfigBackups(id: string) {
+		return request<MachineConfigBackupSummary[]>('GET', `/api/machines/${id}/config-backups`);
+	},
+	getMachineConfigBackup(id: string, version: number) {
+		return request<MachineConfigBackupDetail>('GET', `/api/machines/${id}/config-backups/${version}`);
 	},
 
 	// Samples

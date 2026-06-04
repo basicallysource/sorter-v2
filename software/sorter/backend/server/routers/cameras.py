@@ -1060,13 +1060,27 @@ def _linux_v4l2_capture_info(index: int) -> dict[str, Any] | None:
 
 
 def _list_linux_v4l2_cameras(active: dict[int, tuple[int, int]]) -> list[dict[str, Any]]:
+    # The picker stores whatever ``index`` we emit here straight into the camera
+    # config (see /api/cameras/assign). That stored value is later resolved by
+    # vision.camera._resolve_linux_video_index, which treats EVEN values as
+    # *logical slots* (0, 2, 4 → 1st/2nd/3rd capture camera, looked up via the
+    # stable /dev/v4l/by-path *index0 nodes) so the assignment survives USB
+    # re-enumeration across reboots. Emitting the raw /dev/videoN number here
+    # broke that: an even one (e.g. /dev/video4) gets silently reinterpreted as a
+    # slot and points at the wrong camera. So emit the logical slot — keeping the
+    # picker, the persisted config, and the resolver speaking the same language.
+    from vision.camera import _linux_index0_video_indices
+
+    raw_to_slot = {raw: 2 * pos for pos, raw in enumerate(_linux_index0_video_indices())}
     cameras: list[dict[str, Any]] = []
     for index in _linux_video_indices():
         info = _linux_v4l2_capture_info(index)
         if info is None:
             continue
-        if index in active:
-            width, height = active[index]
+        slot = raw_to_slot.get(index, index)
+        info["index"] = slot
+        if slot in active:
+            width, height = active[slot]
             if width > 0 and height > 0:
                 info["width"] = width
                 info["height"] = height

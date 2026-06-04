@@ -26,7 +26,7 @@ from uuid import uuid4
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.responses import HTMLResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -87,9 +87,10 @@ CALIBRATION_METHOD_EXPOSURE_HISTOGRAM = "exposure_histogram"
 DEFAULT_CAMERA_CALIBRATION_METHOD = CALIBRATION_METHOD_TARGET_PLATE
 EXPOSURE_HISTOGRAM_TARGET_LUMA = 128.0
 EXPOSURE_HISTOGRAM_TOLERANCE_LUMA = 3.0
-EXPOSURE_HISTOGRAM_MAX_ITERATIONS = 20
+EXPOSURE_HISTOGRAM_MAX_ITERATIONS = 12
 EXPOSURE_HISTOGRAM_P_GAIN = 1.4
-EXPOSURE_HISTOGRAM_SETTLE_S = 0.35
+EXPOSURE_HISTOGRAM_SETTLE_S = 0.9
+EXPOSURE_HISTOGRAM_SAMPLE_FRAMES = 5
 DEFAULT_LLM_CALIBRATION_MODEL = "google/gemini-3.1-pro-preview"
 DEFAULT_LLM_CALIBRATION_MAX_ITERATIONS = 10
 
@@ -158,6 +159,32 @@ def _camera_source_for_role(config: Dict[str, Any], role: str) -> int | str | No
             fallback_source = _normalized_source(camera_setup.get(role))
             if fallback_source is not None:
                 return fallback_source
+    return None
+
+
+def _camera_config_role_for_role(config: Dict[str, Any], role: str) -> str:
+    cameras = config.get("cameras", {})
+    cameras_section = cameras if isinstance(cameras, dict) else {}
+    if (
+        role == "carousel"
+        and cameras_section.get("carousel") is None
+        and cameras_section.get("classification_channel") is not None
+    ):
+        return "classification_channel"
+    if (
+        role == "classification_channel"
+        and cameras_section.get("classification_channel") is None
+        and cameras_section.get("carousel") is not None
+    ):
+        return "carousel"
+    return role
+
+
+def _camera_physical_source_key(source: int | str | None) -> str | None:
+    if isinstance(source, int):
+        return f"video:{source}"
+    if isinstance(source, str):
+        return f"url:{source}"
     return None
 
 
@@ -264,6 +291,21 @@ def _apply_live_usb_device_settings(
             live_result = shared_state.vision_manager.setDeviceSettingsForRole(role, parsed, persist=persist)
             if live_result is not None:
                 return cameraDeviceSettingsToDict(live_result), True
+        except Exception:
+            pass
+
+    # No service owns this camera yet (e.g. the setup wizard before the runtime
+    # is up). V4L2 controls are global to the device node, so push them straight
+    # to /dev/video{source} via v4l2-ctl — the same authoritative path the live
+    # camera uses — instead of only persisting and leaving the sensor untouched.
+    _, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if platform.system() == "Linux" and isinstance(source, int):
+        try:
+            from vision.camera import apply_device_settings_via_v4l2
+
+            applied = apply_device_settings_via_v4l2(source, parsed)
+            return cameraDeviceSettingsToDict(applied), True
         except Exception:
             pass
 
@@ -441,6 +483,163 @@ def _camera_color_profile_for_role(config: Dict[str, Any], role: str) -> Dict[st
 # ---------------------------------------------------------------------------
 
 
+def _calibration_second_capture_allowed() -> bool:
+    return os.environ.get("SORTER_ALLOW_CALIBRATION_SECOND_CAPTURE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _camera_source_matches(
+    capture: Any,
+    source: int | str | None,
+) -> bool:
+    if source is None:
+        return True
+    getter = getattr(capture, "getCameraSource", None)
+    if not callable(getter):
+        return True
+    try:
+        return getter() == source
+    except Exception:
+        return True
+
+
+def _frame_pixels(
+    frame_obj: Any,
+    *,
+    prefer_uncorrected: bool,
+) -> tuple[np.ndarray, float] | None:
+    if frame_obj is None:
+        return None
+    frame = (
+        getattr(frame_obj, "uncorrected_raw", None)
+        if prefer_uncorrected
+        else getattr(frame_obj, "raw", None)
+    )
+    if frame is None and prefer_uncorrected:
+        frame = getattr(frame_obj, "raw", None)
+    elif frame is None:
+        frame = getattr(frame_obj, "uncorrected_raw", None)
+    if not isinstance(frame, np.ndarray) or frame.size <= 0:
+        return None
+    timestamp = float(getattr(frame_obj, "timestamp", 0.0) or 0.0)
+    return frame.copy(), timestamp
+
+
+def _grab_running_capture_frame_entry(
+    role: str,
+    source: int | str | None,
+    *,
+    after_timestamp: float | None = None,
+    timeout: float = 1.0,
+    max_age_s: float = 2.0,
+    allow_stale: bool = True,
+    prefer_uncorrected: bool = False,
+) -> tuple[np.ndarray, float] | None:
+    """Return calibration pixels from an already-running capture pipeline.
+
+    This is the preferred calibration path. It keeps exposure/color work on the
+    same single capture thread that feeds the UI/runtime instead of opening a
+    second ``/dev/videoN`` handle. The returned pixels are raw/uncorrected when
+    the capture retains them, because calibration should measure the sensor
+    signal rather than the UI-rendered picture profile.
+    """
+
+    def candidates() -> list[Any]:
+        out: list[Any] = []
+        svc = shared_state.camera_service
+        if svc is not None:
+            try:
+                feed = svc.get_feed(role) if hasattr(svc, "get_feed") else None
+            except Exception:
+                feed = None
+            if feed is not None:
+                out.append(("feed", feed))
+            try:
+                capture = (
+                    svc.get_capture_thread_for_role(role)
+                    if hasattr(svc, "get_capture_thread_for_role")
+                    else None
+                )
+            except Exception:
+                capture = None
+            if capture is not None:
+                out.append(("capture", capture))
+
+        vm = shared_state.vision_manager
+        if vm is not None and hasattr(vm, "getCaptureThreadForRole"):
+            try:
+                capture = vm.getCaptureThreadForRole(role)
+            except Exception:
+                capture = None
+            if capture is not None:
+                out.append(("capture", capture))
+        return out
+
+    def read_candidate(candidate: Any) -> tuple[np.ndarray, float] | None:
+        kind, obj = candidate
+        if kind == "feed":
+            capture = getattr(getattr(obj, "device", None), "capture_thread", None)
+            if capture is not None and not _camera_source_matches(capture, source):
+                return None
+            getter = getattr(obj, "get_frame", None)
+            if not callable(getter):
+                return None
+            try:
+                frame_obj = getter(annotated=False, color_correct=False)
+            except TypeError:
+                frame_obj = getter(False)
+            except Exception:
+                return None
+        else:
+            if not _camera_source_matches(obj, source):
+                return None
+            frame_obj = getattr(obj, "latest_frame", None)
+        pixels = _frame_pixels(frame_obj, prefer_uncorrected=prefer_uncorrected)
+        if pixels is None:
+            return None
+        frame, timestamp = pixels
+        if after_timestamp is not None and timestamp < float(after_timestamp):
+            return None
+        if timestamp > 0 and time.time() - timestamp > max_age_s:
+            return None
+        return frame, timestamp
+
+    deadline = time.time() + max(0.0, timeout)
+    stale_candidate: tuple[np.ndarray, float] | None = None
+    while True:
+        for candidate in candidates():
+            current = read_candidate(candidate)
+            if current is not None:
+                return current
+            if allow_stale:
+                kind, obj = candidate
+                if kind == "feed":
+                    capture = getattr(getattr(obj, "device", None), "capture_thread", None)
+                    if capture is not None and not _camera_source_matches(capture, source):
+                        continue
+                elif not _camera_source_matches(obj, source):
+                    continue
+                frame_obj = None
+                if kind == "feed":
+                    getter = getattr(obj, "get_frame", None)
+                    try:
+                        frame_obj = getter(annotated=False, color_correct=False) if callable(getter) else None
+                    except Exception:
+                        frame_obj = None
+                else:
+                    frame_obj = getattr(obj, "latest_frame", None)
+                pixels = _frame_pixels(frame_obj, prefer_uncorrected=prefer_uncorrected)
+                if pixels is not None:
+                    stale_candidate = pixels
+        if time.time() >= deadline:
+            return stale_candidate
+        time.sleep(0.03)
+
+
 def _capture_frame_for_calibration(
     role: str,
     source: int | str | None,
@@ -451,6 +650,7 @@ def _capture_frame_for_calibration(
     color_profile: Dict[str, Any] | None = None,
 ) -> np.ndarray | None:
     from vision.camera import (
+        _open_capture_source,
         apply_camera_color_profile,
         apply_camera_device_settings,
         apply_picture_settings,
@@ -481,7 +681,53 @@ def _capture_frame_for_calibration(
     if not isinstance(source, int):
         return None
 
-    cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION) if platform.system() == "Darwin" else cv2.VideoCapture(source)
+    running = _grab_running_capture_frame_entry(
+        role,
+        source,
+        after_timestamp=after_timestamp,
+        timeout=1.0,
+        max_age_s=2.0,
+        allow_stale=True,
+        prefer_uncorrected=True,
+    )
+    if running is not None:
+        frame, _ = running
+        frame = apply_camera_color_profile(frame, parsed_color_profile)
+        frame = apply_picture_settings(frame, parsed_picture_settings)
+        return frame.copy()
+
+    recent = _grab_recent_direct_frame(
+        role,
+        source,
+        after_timestamp=after_timestamp,
+        timeout=1.0,
+    )
+    if recent is not None:
+        recent = apply_camera_color_profile(recent, parsed_color_profile)
+        recent = apply_picture_settings(recent, parsed_picture_settings)
+        return recent.copy()
+
+    if not _calibration_second_capture_allowed():
+        logger.warning(
+            "Calibration frame unavailable for %s/source %s without opening a second capture; "
+            "set SORTER_ALLOW_CALIBRATION_SECOND_CAPTURE=1 only for explicit debugging.",
+            role,
+            source,
+        )
+        return None
+
+    if platform.system() == "Darwin":
+        cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION)
+    else:
+        _, config = _read_machine_params_config()
+        capture_mode = _capture_mode_for_role(config, role, source)
+        cap = _open_capture_source(
+            source,
+            width=capture_mode.get("width"),
+            height=capture_mode.get("height"),
+            fps=capture_mode.get("fps"),
+            fourcc=capture_mode.get("fourcc"),
+        )
     if not cap.isOpened():
         cap.release()
         return None
@@ -504,55 +750,121 @@ def _capture_frame_for_calibration(
         cap.release()
 
 
-def _grab_live_frame(role: str, after_timestamp: float, timeout: float = 1.0) -> np.ndarray | None:
+def _grab_live_frame(
+    role: str,
+    after_timestamp: float,
+    timeout: float = 1.0,
+    *,
+    allow_stale: bool = True,
+) -> np.ndarray | None:
     """Grab a frame from the running CaptureThread, waiting for one newer than after_timestamp."""
-    if shared_state.vision_manager is None or not hasattr(shared_state.vision_manager, "getCaptureThreadForRole"):
+    entry = _grab_running_capture_frame_entry(
+        role,
+        None,
+        after_timestamp=after_timestamp,
+        timeout=timeout,
+        allow_stale=allow_stale,
+        prefer_uncorrected=False,
+    )
+    if entry is None:
         return None
-    try:
-        capture = shared_state.vision_manager.getCaptureThreadForRole(role)
-    except Exception:
-        return None
-    if capture is None:
-        return None
+    frame, _ = entry
+    return frame
 
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        frame_obj = capture.latest_frame
-        if frame_obj is not None and frame_obj.timestamp > after_timestamp and frame_obj.raw is not None:
-            return frame_obj.raw.copy()
+
+def _grab_recent_direct_frame_entry(
+    role: str,
+    source: int | str | None,
+    *,
+    after_timestamp: float | None = None,
+    timeout: float = 1.0,
+    max_age_s: float = 2.0,
+) -> tuple[np.ndarray, float] | None:
+    """Return a recent frame + timestamp from an already-open direct setup stream.
+
+    The setup UI keeps a direct MJPEG stream open. Opening the same UVC device a
+    second time for calibration can fail with device-busy, so calibration reuses
+    the stream's latest raw frame when it is fresh enough.
+    """
+    deadline = time.time() + max(0.0, timeout)
+    while True:
+        with shared_state.camera_direct_frames_lock:
+            entry = shared_state.camera_direct_frames.get(role)
+            if isinstance(entry, dict):
+                ts = entry.get("timestamp")
+                entry_source = entry.get("source")
+                frame = entry.get("frame")
+                if (
+                    isinstance(ts, (int, float))
+                    and (after_timestamp is None or float(ts) >= after_timestamp)
+                    and time.time() - float(ts) <= max_age_s
+                    and (not isinstance(source, int) or entry_source == source)
+                    and isinstance(frame, np.ndarray)
+                    and frame.size > 0
+                ):
+                    return frame.copy(), float(ts)
+        if time.time() >= deadline:
+            return None
         time.sleep(0.03)
-    # Last resort: return whatever is there
-    frame_obj = capture.latest_frame
-    if frame_obj is not None and frame_obj.raw is not None:
-        return frame_obj.raw.copy()
-    return None
+
+
+def _grab_recent_direct_frame(
+    role: str,
+    source: int | str | None,
+    *,
+    after_timestamp: float | None = None,
+    timeout: float = 1.0,
+    max_age_s: float = 2.0,
+) -> np.ndarray | None:
+    entry = _grab_recent_direct_frame_entry(
+        role,
+        source,
+        after_timestamp=after_timestamp,
+        timeout=timeout,
+        max_age_s=max_age_s,
+    )
+    if entry is None:
+        return None
+    frame, _ = entry
+    return frame
 
 
 def _analyze_candidate_settings(
     role: str,
     source: int | str | None,
     settings: Dict[str, Any],
+    *,
+    analyze_target: bool = True,
+    settle_s: float = 0.25,
+    allow_stale_frame: bool = True,
 ) -> tuple[Dict[str, Any], Dict[str, Any] | None, np.ndarray | None]:
-    preview_started_at = time.time()
     preview = preview_camera_device_settings(role, settings)
     preview_settings = preview.get("settings", settings)
     if isinstance(source, str):
         applied_settings = dict(preview_settings) if isinstance(preview_settings, dict) else dict(settings)
-        time.sleep(1.35)
-        frame = _capture_frame_for_calibration(role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings)
+        time.sleep(max(1.35, settle_s))
+        frame_after = time.time()
+        frame = _capture_frame_for_calibration(role, source, after_timestamp=frame_after, fallback_settings=applied_settings)
     else:
         applied_settings = cameraDeviceSettingsToDict(parseCameraDeviceSettings(preview_settings))
-        time.sleep(0.25)
+        time.sleep(max(0.0, settle_s))
+        frame_after = time.time()
         # Grab from live CaptureThread — no second camera open needed
-        frame = _grab_live_frame(role, after_timestamp=preview_started_at)
+        frame = _grab_live_frame(
+            role,
+            after_timestamp=frame_after,
+            allow_stale=allow_stale_frame,
+        )
         if frame is None:
             # Fallback: direct capture (CaptureThread might not be running)
-            frame = _capture_frame_for_calibration(role, source, after_timestamp=preview_started_at, fallback_settings=applied_settings)
+            frame = _capture_frame_for_calibration(role, source, after_timestamp=frame_after, fallback_settings=applied_settings)
 
     if frame is None:
         return applied_settings, None, None
-    analysis = analyze_color_plate_target(frame)
-    analysis_dict = analysis.to_dict() if analysis is not None else None
+    analysis_dict = None
+    if analyze_target:
+        analysis = analyze_color_plate_target(frame)
+        analysis_dict = analysis.to_dict() if analysis is not None else None
     return applied_settings, analysis_dict, frame
 
 
@@ -571,6 +883,92 @@ def _open_camera_source(source: int | str) -> cv2.VideoCapture:
     if isinstance(source, int):
         return _open_camera(source)
     return cv2.VideoCapture(source)
+
+
+def _normalized_capture_mode_entry(entry: Any) -> Dict[str, Any] | None:
+    if not isinstance(entry, dict):
+        return None
+    width = entry.get("width")
+    height = entry.get("height")
+    if not isinstance(width, int) or not isinstance(height, int) or width <= 0 or height <= 0:
+        return None
+    mode: Dict[str, Any] = {
+        "width": int(width),
+        "height": int(height),
+    }
+    fps = entry.get("fps")
+    if isinstance(fps, int) and fps > 0:
+        mode["fps"] = int(fps)
+    fourcc = entry.get("fourcc")
+    if isinstance(fourcc, str) and fourcc.strip():
+        mode["fourcc"] = fourcc.strip().upper()[:4]
+    return mode
+
+
+def _preferred_capture_mode(modes: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+    def normalized_modes() -> List[Dict[str, Any]]:
+        out: List[Dict[str, Any]] = []
+        for mode in modes:
+            normalized = _normalized_capture_mode_entry(mode)
+            if normalized is not None:
+                out.append(normalized)
+        return out
+
+    candidates = normalized_modes()
+    if not candidates:
+        return None
+
+    def fourcc(mode: Dict[str, Any]) -> str:
+        value = mode.get("fourcc")
+        return value.upper() if isinstance(value, str) else ""
+
+    def fps(mode: Dict[str, Any]) -> int:
+        value = mode.get("fps")
+        return int(value) if isinstance(value, int) and value > 0 else 0
+
+    def best(filtered: List[Dict[str, Any]]) -> Dict[str, Any] | None:
+        if not filtered:
+            return None
+        return max(filtered, key=lambda m: (fps(m) <= 30, fps(m)))
+
+    preferred_720 = [
+        mode
+        for mode in candidates
+        if mode["width"] == 1280 and mode["height"] == 720 and fourcc(mode) == "MJPG"
+    ]
+    picked = best(preferred_720)
+    if picked is not None:
+        return picked
+
+    modest_mjpg = [
+        mode
+        for mode in candidates
+        if fourcc(mode) == "MJPG" and mode["width"] <= 1280 and mode["height"] <= 720
+    ]
+    if modest_mjpg:
+        return max(modest_mjpg, key=lambda m: (m["width"] * m["height"], fps(m) <= 30, fps(m)))
+
+    mjpg = [mode for mode in candidates if fourcc(mode) == "MJPG"]
+    if mjpg:
+        return min(mjpg, key=lambda m: (m["width"] * m["height"], -fps(m)))
+
+    return min(candidates, key=lambda m: (m["width"] * m["height"], -fps(m)))
+
+
+def _capture_mode_for_role(config: Dict[str, Any], role: str, source: int | str | None) -> Dict[str, Any]:
+    saved_section = config.get("camera_capture_modes", {})
+    if isinstance(saved_section, dict):
+        saved = _normalized_capture_mode_entry(saved_section.get(role))
+        if saved is not None:
+            return saved
+
+    if isinstance(source, int):
+        modes, _ = _capture_modes_for_source(source)
+        preferred = _preferred_capture_mode(modes)
+        if preferred is not None:
+            return preferred
+
+    return {"width": 1280, "height": 720, "fps": 30, "fourcc": "MJPG"}
 
 
 def _open_camera_for_probe(index: int) -> cv2.VideoCapture:
@@ -594,6 +992,87 @@ def _v4l2_camera_name(index: int) -> str:
             return f.read().strip()
     except OSError:
         return f"USB Camera {index}"
+
+
+def _run_v4l2_ctl(index: int, *args: str, timeout: float = 2.0) -> subprocess.CompletedProcess[str] | None:
+    try:
+        return subprocess.run(
+            ["v4l2-ctl", "-d", f"/dev/video{index}", *args],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except Exception:
+        return None
+
+
+def _v4l2_formats_include_video_capture(output: str) -> bool:
+    return bool(re.search(r"^\s*\[\d+\]:", output or "", re.MULTILINE))
+
+
+def _v4l2_size_from_output(output: str) -> tuple[int, int]:
+    match = re.search(r"Width/Height\s*:\s*(\d+)\s*/\s*(\d+)", output or "")
+    if not match:
+        return 0, 0
+    return int(match.group(1)), int(match.group(2))
+
+
+def _linux_video_indices() -> list[int]:
+    indices: list[int] = []
+    for path in Path("/sys/class/video4linux").glob("video[0-9]*"):
+        suffix = path.name.removeprefix("video")
+        if suffix.isdigit():
+            indices.append(int(suffix))
+    return sorted(set(indices))
+
+
+def _linux_v4l2_capture_info(index: int) -> dict[str, Any] | None:
+    formats = _run_v4l2_ctl(index, "--list-formats-ext")
+    if formats is None or formats.returncode != 0:
+        return None
+    if not _v4l2_formats_include_video_capture(formats.stdout):
+        # UVC metadata side-channel nodes report no real video formats. Listing
+        # them in the picker makes the backend try to stream from a non-frame
+        # endpoint and can leave OpenCV file descriptors around after failure.
+        return None
+
+    width = height = 0
+    current = _run_v4l2_ctl(index, "--get-fmt-video")
+    if current is not None and current.returncode == 0:
+        width, height = _v4l2_size_from_output(current.stdout)
+    if width <= 0 or height <= 0:
+        details = _run_v4l2_ctl(index, "--all")
+        if details is not None and details.returncode == 0:
+            width, height = _v4l2_size_from_output(details.stdout)
+
+    name = _v4l2_camera_name(index)
+    if _is_ignored_camera_name(name):
+        return None
+    return {
+        "kind": "usb",
+        "index": index,
+        "name": name,
+        "width": width,
+        "height": height,
+        "preview_available": width > 0 and height > 0,
+    }
+
+
+def _list_linux_v4l2_cameras(active: dict[int, tuple[int, int]]) -> list[dict[str, Any]]:
+    cameras: list[dict[str, Any]] = []
+    for index in _linux_video_indices():
+        info = _linux_v4l2_capture_info(index)
+        if info is None:
+            continue
+        if index in active:
+            width, height = active[index]
+            if width > 0 and height > 0:
+                info["width"] = width
+                info["height"] = height
+                info["preview_available"] = True
+        cameras.append(info)
+    return cameras
 
 
 def _probe_camera_index(index: int) -> Optional[Dict[str, Any]]:
@@ -694,6 +1173,9 @@ def _list_usb_cameras() -> List[Dict[str, Any]]:
                     }
                 )
             return cameras
+
+    if platform.system() == "Linux":
+        return _list_linux_v4l2_cameras(active)
 
     # Non-macOS: probe indices 0-15, skip active ones
     indices_to_probe = [i for i in range(16) if i not in active]
@@ -834,31 +1316,6 @@ def _get_camera_calibration_task(task_id: str) -> Dict[str, Any] | None:
 # ---------------------------------------------------------------------------
 
 
-def _capture_raw_frame(
-    role: str,
-    source: int,
-    settings: Dict[str, int | float | bool],
-) -> np.ndarray | None:
-    """Capture a raw frame (no color profile / picture settings) for histogram analysis."""
-    from vision.camera import apply_camera_device_settings
-
-    cap = cv2.VideoCapture(source, cv2.CAP_AVFOUNDATION) if platform.system() == "Darwin" else cv2.VideoCapture(source)
-    if not cap.isOpened():
-        cap.release()
-        return None
-    try:
-        apply_camera_device_settings(cap, settings, source=source)
-        time.sleep(0.15)
-        frame: np.ndarray | None = None
-        for _ in range(4):
-            ret, current = cap.read()
-            if ret and current is not None:
-                frame = current
-        return frame.copy() if frame is not None else None
-    finally:
-        cap.release()
-
-
 def _quantize_control(value: float, control: Dict[str, Any]) -> float:
     """Quantize a value to match a control's min/step grid."""
     c_min = _as_number(control.get("min")) or 0.0
@@ -875,6 +1332,75 @@ def _clamp_control(value: float, control: Dict[str, Any]) -> float:
     if c_max is not None:
         value = min(c_max, value)
     return _quantize_control(value, control)
+
+
+def _exposure_histogram_mask(role: str, frame: np.ndarray) -> tuple[np.ndarray | None, str]:
+    frame_h, frame_w = frame.shape[:2]
+    if frame_h <= 0 or frame_w <= 0:
+        return None, "full_frame"
+    try:
+        spec = _dashboard_crop_spec(role, frame_w, frame_h)
+    except Exception:
+        return None, "full_frame"
+    if not isinstance(spec, dict):
+        return None, "full_frame"
+
+    if spec.get("kind") == "bbox_masked":
+        polygons = spec.get("polygons")
+        if not isinstance(polygons, list):
+            return None, "full_frame"
+        valid = [polygon for polygon in polygons if isinstance(polygon, np.ndarray) and len(polygon) >= 3]
+        if not valid:
+            return None, "full_frame"
+        mask = np.zeros((frame_h, frame_w), dtype=np.uint8)
+        for polygon in valid:
+            cv2.fillPoly(mask, [np.round(polygon).astype(np.int32)], 255)
+        if int(np.count_nonzero(mask)) >= 100:
+            return mask, "zone_mask"
+        return None, "full_frame"
+
+    bbox = spec.get("bbox")
+    if isinstance(bbox, tuple) and len(bbox) == 4:
+        x1, y1, x2, y2 = [int(value) for value in bbox]
+        x1 = max(0, min(frame_w, x1))
+        x2 = max(0, min(frame_w, x2))
+        y1 = max(0, min(frame_h, y1))
+        y2 = max(0, min(frame_h, y2))
+        if x2 > x1 and y2 > y1 and (x2 - x1) * (y2 - y1) >= 100:
+            mask = np.zeros((frame_h, frame_w), dtype=np.uint8)
+            mask[y1:y2, x1:x2] = 255
+            return mask, "zone_bbox"
+
+    return None, "full_frame"
+
+
+def _measure_exposure_histogram_luma(
+    role: str,
+    frame: np.ndarray,
+) -> tuple[float, Dict[str, Any], np.ndarray | None]:
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) if frame.ndim == 3 else frame
+    mask, scope = _exposure_histogram_mask(role, frame)
+    if mask is not None:
+        pixels = gray[mask > 0]
+    else:
+        pixels = gray.reshape(-1)
+    if pixels.size <= 0:
+        pixels = gray.reshape(-1)
+        mask = None
+        scope = "full_frame"
+
+    mean_luma = float(np.mean(pixels))
+    stats: Dict[str, Any] = {
+        "scope": scope,
+        "pixel_count": int(pixels.size),
+        "mean_luma": round(mean_luma, 2),
+        "p10_luma": round(float(np.percentile(pixels, 10)), 2),
+        "p50_luma": round(float(np.percentile(pixels, 50)), 2),
+        "p90_luma": round(float(np.percentile(pixels, 90)), 2),
+        "clipped_white_fraction": round(float(np.mean(pixels >= 250)), 4),
+        "near_black_fraction": round(float(np.mean(pixels <= 10)), 4),
+    }
+    return mean_luma, stats, mask
 
 
 def _normalize_camera_calibration_method(value: str | None) -> str:
@@ -2220,7 +2746,14 @@ def _calibrate_exposure_via_histogram(
 
     for iteration in range(1, max_iterations + 1):
         before = time.time()
-        applied, _, frame = _analyze_candidate_settings(role, source, settings)
+        applied, _, frame = _analyze_candidate_settings(
+            role,
+            source,
+            settings,
+            analyze_target=False,
+            settle_s=EXPOSURE_HISTOGRAM_SETTLE_S,
+            allow_stale_frame=False,
+        )
         frame_to_use = frame
         if frame_to_use is None:
             frame_to_use = _capture_frame_for_calibration(
@@ -2229,20 +2762,32 @@ def _calibrate_exposure_via_histogram(
         if frame_to_use is None:
             raise HTTPException(status_code=500, detail="Could not capture a frame for histogram calibration.")
 
-        gray = cv2.cvtColor(frame_to_use, cv2.COLOR_BGR2GRAY) if frame_to_use.ndim == 3 else frame_to_use
-        mean_luma = float(np.mean(gray))
+        mean_luma, luma_stats, histogram_mask = _measure_exposure_histogram_luma(role, frame_to_use)
         delta = target_luma - mean_luma
         trace.append({
             "iteration": iteration,
             "exposure": float(settings["exposure"]),
             "mean_luma": round(mean_luma, 2),
             "delta": round(delta, 2),
+            "scope": str(luma_stats.get("scope")),
+            "pixel_count": int(luma_stats.get("pixel_count") or 0),
+            "p10_luma": float(luma_stats.get("p10_luma") or 0.0),
+            "p50_luma": float(luma_stats.get("p50_luma") or 0.0),
+            "p90_luma": float(luma_stats.get("p90_luma") or 0.0),
         })
 
         if gallery_dir is not None:
             try:
                 stamp = f"hist_{iteration:02d}_exp{int(settings['exposure'])}_l{int(mean_luma)}.jpg"
                 cv2.imwrite(str(gallery_dir / stamp), frame_to_use)
+                if histogram_mask is not None:
+                    masked = np.zeros_like(frame_to_use)
+                    masked[histogram_mask > 0] = frame_to_use[histogram_mask > 0]
+                    masked_stamp = (
+                        f"hist_{iteration:02d}_exp{int(settings['exposure'])}_"
+                        f"l{int(mean_luma)}_zone.jpg"
+                    )
+                    cv2.imwrite(str(gallery_dir / masked_stamp), masked)
             except Exception:
                 pass
 
@@ -2259,10 +2804,16 @@ def _calibrate_exposure_via_histogram(
                 min(0.9, progress),
                 (
                     f"Iter {iteration}/{max_iterations}: "
-                    f"exposure={int(settings['exposure'])} → luma={mean_luma:.0f} "
+                    f"exposure={int(settings['exposure'])} → "
+                    f"{str(luma_stats.get('scope')).replace('_', ' ')} luma={mean_luma:.0f} "
                     f"(target {int(target_luma)}, Δ={delta:+.1f})."
                 ),
-                {"iteration": iteration, "mean_luma": mean_luma, "exposure": settings["exposure"]},
+                {
+                    "iteration": iteration,
+                    "mean_luma": mean_luma,
+                    "exposure": settings["exposure"],
+                    **luma_stats,
+                },
             )
 
         if abs(delta) <= tolerance:
@@ -2290,6 +2841,8 @@ def _calibrate_exposure_via_histogram(
         "final_exposure": best_settings.get("exposure"),
         "iterations": len(trace),
         "converged": best_delta <= tolerance,
+        "scope": trace[-1].get("scope") if trace else "full_frame",
+        "pixel_count": trace[-1].get("pixel_count") if trace else 0,
         "trace": trace,
     }
 
@@ -2384,7 +2937,12 @@ def _calibrate_usb_camera_device_settings(
         time.sleep(0.25)
         frame = _grab_live_frame(role, after_timestamp=ts)
         if frame is None:
-            frame = _capture_raw_frame(role, source, s)
+            frame = _capture_frame_for_calibration(
+                role,
+                source,
+                after_timestamp=ts,
+                fallback_settings=s,
+            )
         return frame
 
     # ------------------------------------------------------------------
@@ -3278,6 +3836,11 @@ class CameraCalibrationStartPayload(BaseModel):
     apply_color_profile: Optional[bool] = None
 
 
+class CameraWebRtcOfferPayload(BaseModel):
+    type: str
+    sdp: str
+
+
 # ===================================================================
 # Routes
 # ===================================================================
@@ -3301,6 +3864,258 @@ def get_camera_health() -> Dict[str, Any]:
     if shared_state.camera_service is None:
         raise HTTPException(status_code=500, detail="Camera service not initialized")
     return shared_state.camera_service.get_health_status()
+
+
+def _legacy_mjpeg_client_snapshot() -> Dict[str, Any]:
+    with shared_state.camera_legacy_mjpeg_clients_lock:
+        return {
+            key: dict(value)
+            for key, value in shared_state.camera_legacy_mjpeg_clients.items()
+            if isinstance(value, dict)
+        }
+
+
+def _legacy_mjpeg_stream_key(record: Dict[str, Any]) -> str:
+    return json.dumps(record, sort_keys=True, separators=(",", ":"), default=str)
+
+
+def _track_legacy_mjpeg_stream(chunks: Any, record: Dict[str, Any]):
+    key = _legacy_mjpeg_stream_key(record)
+    now = time.time()
+    with shared_state.camera_legacy_mjpeg_clients_lock:
+        entry = shared_state.camera_legacy_mjpeg_clients.get(key)
+        if not isinstance(entry, dict):
+            entry = dict(record)
+            entry["active_clients"] = 0
+            entry["started_count"] = 0
+            entry["first_opened_at"] = now
+            shared_state.camera_legacy_mjpeg_clients[key] = entry
+        entry["active_clients"] = int(entry.get("active_clients", 0) or 0) + 1
+        entry["started_count"] = int(entry.get("started_count", 0) or 0) + 1
+        entry["last_opened_at"] = now
+    try:
+        yield from chunks
+    finally:
+        with shared_state.camera_legacy_mjpeg_clients_lock:
+            entry = shared_state.camera_legacy_mjpeg_clients.get(key)
+            if isinstance(entry, dict):
+                entry["active_clients"] = max(0, int(entry.get("active_clients", 0) or 0) - 1)
+                entry["last_closed_at"] = time.time()
+
+
+@router.get("/api/cameras/media-plane")
+def get_camera_media_plane() -> Dict[str, Any]:
+    """Return the active camera media-plane topology and encoder readiness."""
+    from vision.media_plane import describe_media_plane
+
+    return describe_media_plane(
+        shared_state.camera_service,
+        legacy_mjpeg_streams=_legacy_mjpeg_client_snapshot(),
+    )
+
+
+@router.get("/api/cameras/webrtc/sessions")
+def get_camera_webrtc_sessions() -> Dict[str, Any]:
+    """Return target WebRTC media sessions, one per physical camera source."""
+    from vision.webrtc_transport import get_camera_webrtc_registry
+
+    return get_camera_webrtc_registry().describe(shared_state.camera_service)
+
+
+@router.post("/api/cameras/webrtc/offer/{role}")
+async def create_camera_webrtc_offer(role: str, payload: CameraWebRtcOfferPayload) -> Dict[str, Any]:
+    """Negotiate a browser WebRTC media session for a camera role.
+
+    The target transport forbids software H.264 fallbacks. On hosts where the
+    Rockchip hardware path is not ready, this route returns a structured 503
+    that names the failing gates instead of silently opening another MJPEG or
+    software-encoded stream.
+    """
+    from vision.webrtc_transport import WebRtcTransportError, get_camera_webrtc_registry
+
+    try:
+        return await get_camera_webrtc_registry().prepare_offer(
+            role,
+            sdp=payload.sdp,
+            offer_type=payload.type,
+            camera_service=shared_state.camera_service,
+            metadata_provider=lambda metadata_role: _camera_feed_metadata_payload(
+                metadata_role,
+                show_regions=True,
+            ),
+        )
+    except WebRtcTransportError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.to_http_detail())
+
+
+def _camera_feed_metadata_payload(role: str, show_regions: bool = True) -> Dict[str, Any]:
+    from vision.media_plane import describe_feed_metadata
+
+    _, raw = _read_machine_params_config(require_exists=True)
+    config_role = _camera_config_role_for_role(raw, role)
+    source = _camera_source_for_role(raw, role)
+    if source is None:
+        raise HTTPException(404, f"Camera role '{role}' not configured")
+
+    service = shared_state.camera_service
+    if service is None:
+        raise HTTPException(503, "Camera service is not running")
+
+    feed = service.get_feed(role)
+    feed_role = role
+    if feed is None and config_role != role:
+        feed = service.get_feed(config_role)
+        feed_role = config_role
+    if feed is None:
+        raise HTTPException(404, f"Camera feed '{role}' is not active")
+
+    exclude_categories = frozenset({"regions"}) if not show_regions else None
+    latest = getattr(getattr(feed, "device", None), "latest_frame", None)
+    frame = getattr(latest, "raw", None)
+    crop_metadata = None
+    if isinstance(frame, np.ndarray) and frame.size > 0:
+        frame_h, frame_w = frame.shape[:2]
+        crop_metadata = _dashboard_crop_metadata(role, frame_w, frame_h)
+    return describe_feed_metadata(
+        str(getattr(feed, "role", feed_role)),
+        feed,
+        requested_role=role,
+        config_role=config_role,
+        physical_source=_camera_physical_source_key(source),
+        exclude_categories=exclude_categories,
+        crop=crop_metadata,
+    )
+
+
+@router.get("/api/cameras/feed-metadata")
+def camera_feed_metadata_all(show_regions: bool = True) -> Dict[str, Any]:
+    """Return metadata-only overlay/control-plane state for active feeds."""
+    from vision.media_plane import camera_metadata_data_channel_spec, describe_feed_metadata
+
+    service = shared_state.camera_service
+    if service is None:
+        return {
+            "ok": True,
+            "active": False,
+            "roles": {},
+            "control_plane": {
+                "transport_target": "websocket_or_webrtc_datachannel",
+                "browser_side_render_target": True,
+                "payload_contains_pixels": False,
+                "data_channel": camera_metadata_data_channel_spec(),
+            },
+        }
+
+    _, raw = _read_machine_params_config(require_exists=True)
+    exclude_categories = frozenset({"regions"}) if not show_regions else None
+    roles: dict[str, Any] = {}
+    for feed_role, feed in sorted(getattr(service, "feeds", {}).items()):
+        feed_role_str = str(feed_role)
+        config_role = _camera_config_role_for_role(raw, feed_role_str)
+        try:
+            source = _camera_source_for_role(raw, feed_role_str)
+        except HTTPException:
+            source = None
+        latest = getattr(getattr(feed, "device", None), "latest_frame", None)
+        frame = getattr(latest, "raw", None)
+        crop_metadata = None
+        if isinstance(frame, np.ndarray) and frame.size > 0:
+            frame_h, frame_w = frame.shape[:2]
+            crop_metadata = _dashboard_crop_metadata(feed_role_str, frame_w, frame_h)
+        roles[feed_role_str] = describe_feed_metadata(
+            str(getattr(feed, "role", feed_role_str)),
+            feed,
+            requested_role=feed_role_str,
+            config_role=config_role,
+            physical_source=_camera_physical_source_key(source),
+            exclude_categories=exclude_categories,
+            crop=crop_metadata,
+        )
+
+    return {
+        "ok": True,
+        "active": True,
+        "roles": roles,
+        "control_plane": {
+            "transport_target": "websocket_or_webrtc_datachannel",
+            "browser_side_render_target": True,
+            "payload_contains_pixels": False,
+            "data_channel": camera_metadata_data_channel_spec(),
+        },
+    }
+
+
+@router.get("/api/cameras/feed-metadata/{role}")
+def camera_feed_metadata_by_role(role: str, show_regions: bool = True) -> Dict[str, Any]:
+    """Return metadata-only overlay/control-plane state for one feed role."""
+    return _camera_feed_metadata_payload(role, show_regions=show_regions)
+
+
+@router.websocket("/ws/cameras/feed-metadata/{role}")
+async def camera_feed_metadata_ws(websocket: WebSocket, role: str) -> None:
+    """Stream metadata-only overlay/control-plane state for browser rendering."""
+    from server.security import describe_origin_decision, websocket_connection_allowed
+
+    client_host = websocket.client.host if websocket.client is not None else None
+    if not websocket_connection_allowed(websocket.headers.get("Origin"), client_host):
+        if shared_state.gc_ref is not None:
+            shared_state.gc_ref.logger.info(
+                f"[WS camera metadata reject] client_host={client_host!r} "
+                f"{describe_origin_decision(websocket.headers.get('Origin'))}"
+            )
+        await websocket.close(
+            code=status.WS_1008_POLICY_VIOLATION,
+            reason="WebSocket origin not allowed.",
+        )
+        return
+
+    def _truthy_query(name: str, default: bool) -> bool:
+        value = websocket.query_params.get(name)
+        if value is None:
+            return default
+        return value.strip().lower() not in {"0", "false", "no", "off"}
+
+    def _interval_s() -> float:
+        raw = websocket.query_params.get("interval_ms")
+        try:
+            interval_ms = float(raw) if raw is not None else 100.0
+        except (TypeError, ValueError):
+            interval_ms = 100.0
+        return max(0.033, min(1.0, interval_ms / 1000.0))
+
+    await websocket.accept()
+    show_regions = _truthy_query("show_regions", True)
+    interval_s = _interval_s()
+    last_frame_ts: float | None = None
+
+    try:
+        while True:
+            try:
+                payload = _camera_feed_metadata_payload(role, show_regions=show_regions)
+            except HTTPException as exc:
+                await websocket.send_json(
+                    {
+                        "ok": False,
+                        "role": role,
+                        "status_code": exc.status_code,
+                        "detail": exc.detail,
+                    }
+                )
+                await asyncio.sleep(interval_s)
+                continue
+
+            frame = payload.get("frame") if isinstance(payload, dict) else None
+            frame_ts = (
+                float(frame.get("timestamp"))
+                if isinstance(frame, dict) and isinstance(frame.get("timestamp"), (int, float))
+                else None
+            )
+            if frame_ts is None or frame_ts != last_frame_ts:
+                await websocket.send_json(payload)
+                last_frame_ts = frame_ts
+            await asyncio.sleep(interval_s)
+    except WebSocketDisconnect:
+        return
 
 
 @router.get("/api/cameras/config")
@@ -3356,6 +4171,10 @@ def save_camera_layout(payload: CameraLayoutPayload) -> Dict[str, Any]:
 
     result = get_camera_config()
     shared_state.publishCamerasConfig(result)
+    current_state = "initializing"
+    if shared_state.controller_ref is not None:
+        current_state = getattr(shared_state.controller_ref.state, "value", current_state)
+    shared_state.publishSorterState(current_state, payload.layout)
     return result
 
 
@@ -3880,6 +4699,158 @@ def _apply_dashboard_crop(frame: np.ndarray, spec: Dict[str, Any] | None) -> np.
     return processed
 
 
+def _dashboard_crop_viewport_from_bbox(
+    bbox: tuple[int, int, int, int] | None,
+    frame_w: int,
+    frame_h: int,
+) -> Dict[str, Any] | None:
+    if not isinstance(bbox, tuple) or len(bbox) != 4:
+        return None
+    x1, y1, x2, y2 = [int(value) for value in bbox]
+    x1 = max(0, min(frame_w, x1))
+    x2 = max(0, min(frame_w, x2))
+    y1 = max(0, min(frame_h, y1))
+    y2 = max(0, min(frame_h, y2))
+    if x2 <= x1 or y2 <= y1:
+        return None
+    return {
+        "x": x1,
+        "y": y1,
+        "width": x2 - x1,
+        "height": y2 - y1,
+        "bbox": [x1, y1, x2, y2],
+    }
+
+
+def _dashboard_crop_viewport_from_polygons(
+    polygons: list[np.ndarray],
+    frame_w: int,
+    frame_h: int,
+) -> Dict[str, Any] | None:
+    valid = [polygon for polygon in polygons if isinstance(polygon, np.ndarray) and len(polygon) >= 3]
+    if not valid:
+        return None
+    merged = np.concatenate(valid, axis=0)
+    bbox = (
+        int(np.floor(float(np.min(merged[:, 0])))),
+        int(np.floor(float(np.min(merged[:, 1])))),
+        int(np.ceil(float(np.max(merged[:, 0])))),
+        int(np.ceil(float(np.max(merged[:, 1])))),
+    )
+    return _dashboard_crop_viewport_from_bbox(bbox, frame_w, frame_h)
+
+
+def _dashboard_points_json(points: np.ndarray) -> list[list[float]]:
+    return [
+        [round(float(point[0]), 3), round(float(point[1]), 3)]
+        for point in points.tolist()
+        if isinstance(point, (list, tuple)) and len(point) >= 2
+    ]
+
+
+def _dashboard_crop_output_frame(
+    viewport: Dict[str, Any],
+    *,
+    square: bool,
+    size: tuple[int, int] | None = None,
+) -> Dict[str, int]:
+    if isinstance(size, tuple) and len(size) == 2:
+        width = max(1, int(size[0]))
+        height = max(1, int(size[1]))
+    else:
+        width = max(1, int(viewport.get("width") or 1))
+        height = max(1, int(viewport.get("height") or 1))
+    if square:
+        width = height = max(width, height)
+    return {"width": width, "height": height}
+
+
+def _dashboard_crop_metadata_from_spec(
+    spec: Dict[str, Any] | None,
+    frame_w: int,
+    frame_h: int,
+) -> Dict[str, Any] | None:
+    """Serialize dashboard crop geometry for browser-side rendering.
+
+    The legacy stream applies these specs server-side. The target media plane
+    ships a single raw video track and lets the browser turn the same metadata
+    into viewports, masks, rotations, and future perspective rectification.
+    """
+    if not spec or frame_w <= 0 or frame_h <= 0:
+        return None
+
+    kind = str(spec.get("kind") or "bbox")
+    square = bool(spec.get("square"))
+    rotation_deg = float(spec.get("rotation_deg") or 0.0)
+    polygons_json: list[list[list[float]]] = []
+    source_quad_json: list[list[float]] | None = None
+    matrix_json: list[list[float]] | None = None
+    rectified_size: tuple[int, int] | None = None
+    viewport: Dict[str, Any] | None = None
+
+    if kind == "rectified":
+        size = spec.get("size")
+        matrix = spec.get("matrix")
+        if isinstance(size, tuple) and len(size) == 2:
+            rectified_size = (int(size[0]), int(size[1]))
+        if isinstance(matrix, np.ndarray) and matrix.shape == (3, 3) and rectified_size is not None:
+            matrix_json = [
+                [round(float(value), 8) for value in row]
+                for row in matrix.tolist()
+            ]
+            try:
+                target_w, target_h = rectified_size
+                destination = np.array(
+                    [[[0, 0], [target_w - 1, 0], [target_w - 1, target_h - 1], [0, target_h - 1]]],
+                    dtype=np.float32,
+                )
+                source_quad = cv2.perspectiveTransform(destination, np.linalg.inv(matrix))[0]
+                source_quad_json = _dashboard_points_json(source_quad)
+                viewport = _dashboard_crop_viewport_from_polygons([source_quad], frame_w, frame_h)
+            except Exception:
+                viewport = None
+    elif kind == "bbox_masked":
+        polygons = spec.get("polygons")
+        if isinstance(polygons, list):
+            valid_polygons = [
+                polygon
+                for polygon in polygons
+                if isinstance(polygon, np.ndarray) and len(polygon) >= 3
+            ]
+            viewport = _dashboard_crop_viewport_from_polygons(valid_polygons, frame_w, frame_h)
+            polygons_json = [_dashboard_points_json(polygon) for polygon in valid_polygons]
+    else:
+        viewport = _dashboard_crop_viewport_from_bbox(spec.get("bbox"), frame_w, frame_h)
+
+    if viewport is None:
+        return None
+
+    return {
+        "available": True,
+        "kind": kind,
+        "input_frame": {"width": int(frame_w), "height": int(frame_h)},
+        "viewport": viewport,
+        "output_frame": _dashboard_crop_output_frame(
+            viewport,
+            square=square,
+            size=rectified_size,
+        ),
+        "rotation_deg": round(rotation_deg, 3),
+        "square": square,
+        "polygons": polygons_json,
+        "source_quad": source_quad_json,
+        "perspective_matrix": matrix_json,
+    }
+
+
+def _dashboard_crop_metadata(role: str, frame_w: int, frame_h: int) -> Dict[str, Any] | None:
+    try:
+        spec = _dashboard_crop_spec(role, frame_w, frame_h)
+    except Exception:
+        return None
+    return _dashboard_crop_metadata_from_spec(spec, frame_w, frame_h)
+
+
 @router.get("/api/cameras/feed/{role}")
 def camera_feed_by_role(
     role: str,
@@ -3899,6 +4870,7 @@ def camera_feed_by_role(
     ``show_regions=false`` keeps detections but hides zone polygons/labels.
     """
     from vision.camera import (
+        _open_capture_source,
         apply_camera_color_profile,
         apply_camera_device_settings,
         apply_picture_settings,
@@ -3910,20 +4882,7 @@ def camera_feed_by_role(
     want_annotated = layer == "annotated" and annotated
     exclude_categories = frozenset({"regions"}) if not show_regions else None
     _, raw = _read_machine_params_config(require_exists=True)
-    cameras_section = raw.get("cameras", {}) if isinstance(raw.get("cameras"), dict) else {}
-    config_role = role
-    if (
-        role == "carousel"
-        and cameras_section.get("carousel") is None
-        and cameras_section.get("classification_channel") is not None
-    ):
-        config_role = "classification_channel"
-    elif (
-        role == "classification_channel"
-        and cameras_section.get("classification_channel") is None
-        and cameras_section.get("carousel") is not None
-    ):
-        config_role = "carousel"
+    config_role = _camera_config_role_for_role(raw, role)
 
     picture_settings = parseCameraPictureSettings(_get_picture_settings_table(raw).get(config_role))
     color_profile = parseCameraColorProfile(_get_camera_color_profile_table(raw).get(config_role))
@@ -3943,6 +4902,24 @@ def camera_feed_by_role(
 
     encoder = MjpegOutput()
 
+    def _legacy_mjpeg_record(stack: str) -> Dict[str, Any]:
+        return {
+            "transport": "legacy_mjpeg",
+            "codec": "mjpeg",
+            "stack": stack,
+            "role": role,
+            "config_role": config_role,
+            "physical_source": _camera_physical_source_key(source),
+            "layer": "annotated" if want_annotated else "raw",
+            "direct": bool(direct),
+            "dashboard": bool(dashboard),
+            "color_correct": bool(color_correct),
+            "show_regions": bool(show_regions),
+            "preview_max_width": PREVIEW_MAX_WIDTH,
+            "per_client_encode": True,
+            "target_replacement": "webrtc_media_track",
+        }
+
     cached_dashboard_shape: tuple[int, int] | None = None
     cached_dashboard_spec: Dict[str, Any] | None = None
 
@@ -3956,6 +4933,20 @@ def camera_feed_by_role(
             cached_dashboard_spec = _dashboard_crop_spec(role, frame_w, frame_h)
             cached_dashboard_shape = shape
         return _apply_dashboard_crop(frame, cached_dashboard_spec)
+
+    def _remember_direct_frame(frame: np.ndarray, timestamp: float) -> None:
+        if not isinstance(source, int):
+            return
+        with shared_state.camera_direct_frames_lock:
+            shared_state.camera_direct_frames[role] = {
+                "timestamp": timestamp,
+                "source": source,
+                "frame": frame.copy(),
+            }
+            if config_role != role:
+                shared_state.camera_direct_frames[config_role] = dict(
+                    shared_state.camera_direct_frames[role]
+                )
 
     # ---- Stack decision: made ONCE, statically, no crossing ------------------
     # A camera role is on exactly one stack:
@@ -4034,7 +5025,10 @@ def camera_feed_by_role(
                 yield chunk
 
         return StreamingResponse(
-            generate_perception_stack(),
+            _track_legacy_mjpeg_stream(
+                generate_perception_stack(),
+                _legacy_mjpeg_record("perception_stack"),
+            ),
             media_type="multipart/x-mixed-replace; boundary=frame",
         )
 
@@ -4116,31 +5110,109 @@ def camera_feed_by_role(
                     yield chunk
 
             return StreamingResponse(
-                generate_live(),
+                _track_legacy_mjpeg_stream(
+                    generate_live(),
+                    _legacy_mjpeg_record("camera_service_live"),
+                ),
+                media_type="multipart/x-mixed-replace; boundary=frame",
+            )
+
+    # Direct setup feed while the runtime already owns the camera. Reuse the
+    # existing CaptureThread instead of opening /dev/videoN a second time; the
+    # latter fails with busy/black frames once the split dashboard is visible.
+    if direct and shared_state.camera_service is not None:
+        feed = shared_state.camera_service.get_feed(role) or shared_state.camera_service.get_feed(config_role)
+        if feed is not None:
+            prof = shared_state.gc_ref.profiler if shared_state.gc_ref is not None else None
+
+            def generate_shared_direct():
+                last_frame_ts: float | None = None
+                while True:
+                    frame_obj = feed.get_frame(annotated=False, color_correct=color_correct)
+                    if frame_obj is None:
+                        time.sleep(0.05)
+                        continue
+                    if last_frame_ts == frame_obj.timestamp:
+                        time.sleep(0.01)
+                        continue
+                    last_frame_ts = frame_obj.timestamp
+                    calibration_frame = (
+                        frame_obj.uncorrected_raw
+                        if frame_obj.uncorrected_raw is not None
+                        else frame_obj.raw
+                    )
+                    _remember_direct_frame(calibration_frame, frame_obj.timestamp)
+                    frame = frame_obj.raw
+                    if PREVIEW_MAX_WIDTH > 0 and frame.shape[1] > PREVIEW_MAX_WIDTH:
+                        scale = PREVIEW_MAX_WIDTH / float(frame.shape[1])
+                        frame = cv2.resize(
+                            frame,
+                            (PREVIEW_MAX_WIDTH, int(round(frame.shape[0] * scale))),
+                            interpolation=cv2.INTER_AREA,
+                        )
+                    frame = _dashboard_frame(frame)
+                    if prof is not None:
+                        prof.hit(f"encode.{role}.shared_direct.frames")
+                        prof.mark(f"encode.{role}.shared_direct.interval_ms")
+                    yield encoder.encode_chunk(frame, quality=70)
+
+            return StreamingResponse(
+                _track_legacy_mjpeg_stream(
+                    generate_shared_direct(),
+                    _legacy_mjpeg_record("shared_direct_capture"),
+                ),
                 media_type="multipart/x-mixed-replace; boundary=frame",
             )
 
     def generate_direct():
-        cap = _open_camera_source(source)
-        if not cap.isOpened():
-            return
-        try:
-            if isinstance(source, int) and device_settings:
-                apply_camera_device_settings(cap, device_settings, source=source)
-            while True:
-                ret, frame = cap.read()
-                if not ret:
-                    break
-                if color_correct:
-                    frame = apply_camera_color_profile(frame, color_profile)
-                frame = apply_picture_settings(frame, picture_settings)
-                frame = _dashboard_frame(frame)
-                yield encoder.encode_chunk(frame, quality=70)
-        finally:
-            cap.release()
+        def open_direct_capture() -> cv2.VideoCapture:
+            capture_mode = _capture_mode_for_role(raw, config_role, source)
+            if isinstance(source, int):
+                return _open_capture_source(
+                    source,
+                    width=capture_mode.get("width"),
+                    height=capture_mode.get("height"),
+                    fps=capture_mode.get("fps"),
+                    fourcc=capture_mode.get("fourcc"),
+                )
+            return _open_camera_source(source)
+
+        while True:
+            cap = open_direct_capture()
+            if not cap.isOpened():
+                cap.release()
+                time.sleep(0.25)
+                continue
+
+            try:
+                if isinstance(source, int) and device_settings:
+                    apply_camera_device_settings(cap, device_settings, source=source)
+                read_failures = 0
+                while True:
+                    ret, frame = cap.read()
+                    if not ret or frame is None:
+                        read_failures += 1
+                        if read_failures >= 3:
+                            break
+                        time.sleep(0.03)
+                        continue
+                    read_failures = 0
+                    if isinstance(source, int):
+                        _remember_direct_frame(frame, time.time())
+                    if color_correct:
+                        frame = apply_camera_color_profile(frame, color_profile)
+                    frame = apply_picture_settings(frame, picture_settings)
+                    frame = _dashboard_frame(frame)
+                    yield encoder.encode_chunk(frame, quality=70)
+            finally:
+                cap.release()
+            time.sleep(0.15)
 
     return StreamingResponse(
-        generate_direct(),
+        _track_legacy_mjpeg_stream(
+            generate_direct(),
+            _legacy_mjpeg_record("direct_capture"),
+        ),
         media_type="multipart/x-mixed-replace; boundary=frame",
     )
 
@@ -4905,13 +5977,7 @@ def get_camera_capture_modes(role: str) -> Dict[str, Any]:
     if current is None:
         saved_section = config.get("camera_capture_modes", {}) if isinstance(config.get("camera_capture_modes"), dict) else {}
         saved_entry = saved_section.get(role) if isinstance(saved_section, dict) else None
-        if isinstance(saved_entry, dict):
-            current = {
-                "width": int(saved_entry.get("width", 0)) or None,
-                "height": int(saved_entry.get("height", 0)) or None,
-                "fps": int(saved_entry.get("fps", 0)) or None,
-                "fourcc": saved_entry.get("fourcc") if isinstance(saved_entry.get("fourcc"), str) else None,
-            }
+        current = _normalized_capture_mode_entry(saved_entry)
 
     # Enrich current with actual live resolution from telemetry
     live: Dict[str, Any] | None = None
@@ -4929,6 +5995,9 @@ def get_camera_capture_modes(role: str) -> Dict[str, Any]:
                     }
             except Exception:
                 pass
+
+    if current is None and live is None:
+        current = _preferred_capture_mode(modes)
 
     return {
         "ok": True,

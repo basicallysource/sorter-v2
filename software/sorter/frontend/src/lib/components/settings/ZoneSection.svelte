@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
 	import CameraSourcePreview from '$lib/components/CameraSourcePreview.svelte';
+	import CameraTransportPreview from '$lib/components/CameraTransportPreview.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import ClassificationBaselineSection from '$lib/components/settings/ClassificationBaselineSection.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
@@ -944,10 +945,9 @@
 		return detectionHighlightByRole[role] ?? [];
 	}
 
-	function rememberPreviewImageSize(role: CameraRole, target: EventTarget | null) {
-		if (!(target instanceof HTMLImageElement)) return;
-		const width = target.naturalWidth;
-		const height = target.naturalHeight;
+	function rememberPreviewMediaSize(role: CameraRole, detail: { width: number; height: number }) {
+		const width = detail.width;
+		const height = detail.height;
 		if (width <= 0 || height <= 0) return;
 		const current = previewImageSizeByRole[role];
 		if (current?.width === width && current.height === height) return;
@@ -1839,11 +1839,10 @@
 	function streamSrc(channel: Channel): string {
 		const role = CAMERA_FOR_CHANNEL[channel];
 		// The feed URL is intentionally independent of `editingZone`: entering or
-		// leaving zone-edit mode must not change the stream, so the single MJPEG
-		// connection (and its `<img>`) survives the toggle. A fresh connection
-		// opened during a camera hiccup has no frame to show and goes black; a
-		// persistent one rides the hiccup on its last frame. `beginEditing()`
-		// forces crop off so the editor canvas always maps to the full frame.
+		// leaving zone-edit mode must not change the media element. WebRTC uses a
+		// shared track when ready; this URL is only the direct MJPEG fallback.
+		// `beginEditing()` forces crop off so the editor canvas always maps to the
+		// full frame.
 		const annotated = previewAnnotated;
 		const dashboard = previewCropped;
 		const colorCorrect = previewColorCorrect;
@@ -1851,6 +1850,7 @@
 		const params = new URLSearchParams({
 			annotated: annotated ? '1' : '0',
 			layer: annotated ? 'annotated' : 'raw',
+			direct: '1',
 			dashboard: dashboard ? '1' : '0',
 			color_correct: colorCorrect ? '1' : '0',
 			show_regions: showRegions ? '1' : '0'
@@ -1862,8 +1862,8 @@
 		const assignment = currentAssignment(channel);
 		const zonesMode = previewCropped ? (previewZones ? 'z' : 'nz') : 'local-zones';
 		// No `editingZone` term here — the `{#key}` block must not remount the
-		// feed `<img>` when zone editing toggles. Remounting tears down a working
-		// MJPEG connection; see streamSrc() for why that causes the black screen.
+		// media element when zone editing toggles. Remounting tears down a working
+		// fallback stream or WebRTC subscriber.
 		const mode = `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${zonesMode}`;
 		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${mode}::${feedRevision}`;
 	}
@@ -4107,13 +4107,15 @@
 									</div>
 								</div>
 							{:else if currentAssignment() !== null}
-								<img
-									src={streamSrc(currentChannel)}
+								<CameraTransportPreview
+									camera={currentRole(currentChannel)}
+									baseUrl={getBackendHttpBase()}
+									mjpegSrc={streamSrc(currentChannel)}
 									alt={CHANNEL_LABELS[currentChannel]}
-									class="absolute inset-0 h-full w-full object-contain"
-									style={feedImageStyle(currentChannel)}
-									onload={(event) =>
-										rememberPreviewImageSize(currentRole(currentChannel), event.currentTarget)}
+									mediaClass="absolute inset-0 h-full w-full object-contain"
+									mediaStyle={feedImageStyle(currentChannel)}
+									on:mediasize={(event) =>
+										rememberPreviewMediaSize(currentRole(currentChannel), event.detail)}
 								/>
 								<div
 									class="pointer-events-none absolute"

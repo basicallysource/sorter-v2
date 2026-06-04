@@ -1497,40 +1497,53 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
-    # Initialize servos — either Waveshare SC bus or PCA9685 (default)
+    # Initialize servos — either Waveshare SC bus or PCA9685 (default).
+    # The servo subsystem is isolated from the steppers: a missing servo board
+    # (or any other bring-up failure) must not abort hardware init, because the
+    # setup wizard's Motion Direction Check jogs steppers before servos are ever
+    # configured. Degrade to "no servos" with a loud warning instead of raising.
     if gc.disable_servos:
         gc.logger.info("Servo init skipped (--disable servos)")
         irl_interface.servo_controller = None
         irl_interface.servos = []
     else:
-        waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
-        irl_interface.servo_controller = build_servo_controller(
-            gc,
-            control_boards=control_boards,
-            servo_channel_config=servo_channel_config,
-            waveshare_config=waveshare_config,
-            mcu_ports=mcu_ports,
-        )
-        irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
-            irl_interface.distribution_layout
-        )
-        for layer_index, servo in enumerate(irl_interface.servos):
-            if not hasattr(servo, "set_preset_angles"):
-                continue
-            layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
-            layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
-            if layer_open is not None and layer_closed is not None:
-                servo.set_preset_angles(layer_open, layer_closed)
-            if hasattr(servo, "set_motion_speeds"):
-                servo.set_motion_speeds(
-                    machine_config.servo_open_speed,
-                    machine_config.servo_close_speed,
-                    machine_config.servo_homing_speed,
-                )
-                # Start at the standard speed; sorting re-applies open/close
-                # speed per move and homing re-applies the standard speed.
-                servo.apply_homing_speed()
-        restore_servo_states(irl_interface.servos, gc)
+        try:
+            waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
+            irl_interface.servo_controller = build_servo_controller(
+                gc,
+                control_boards=control_boards,
+                servo_channel_config=servo_channel_config,
+                waveshare_config=waveshare_config,
+                mcu_ports=mcu_ports,
+            )
+            irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
+                irl_interface.distribution_layout
+            )
+            for layer_index, servo in enumerate(irl_interface.servos):
+                if not hasattr(servo, "set_preset_angles"):
+                    continue
+                layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
+                layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
+                if layer_open is not None and layer_closed is not None:
+                    servo.set_preset_angles(layer_open, layer_closed)
+                if hasattr(servo, "set_motion_speeds"):
+                    servo.set_motion_speeds(
+                        machine_config.servo_open_speed,
+                        machine_config.servo_close_speed,
+                        machine_config.servo_homing_speed,
+                    )
+                    # Start at the standard speed; sorting re-applies open/close
+                    # speed per move and homing re-applies the standard speed.
+                    servo.apply_homing_speed()
+            restore_servo_states(irl_interface.servos, gc)
+        except Exception as exc:
+            gc.logger.warning(
+                f"Servo bring-up failed ({exc}); continuing without servos. "
+                "Steppers stay available; configure servos once a servo-capable "
+                "board is connected."
+            )
+            irl_interface.servo_controller = None
+            irl_interface.servos = []
 
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,

@@ -45,6 +45,10 @@ class CameraDevice:
     def latest_frame(self) -> Optional[CameraFrame]:
         return self._capture.latest_frame
 
+    @property
+    def ring_buffer_depth(self) -> int:
+        return self._capture.ring_buffer_depth()
+
     def frame_at_or_before(
         self,
         timestamp: float,
@@ -137,3 +141,6 @@ class CameraDevice:
 
     def get_capture_mode(self) -> dict[str, int | str | None]:
         return self._capture.getCaptureMode()
+
+    def describe_capture_backend(self) -> dict[str, Any]:
+        return self._capture.describeCaptureBackend()

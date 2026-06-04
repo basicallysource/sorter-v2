@@ -1,0 +1,13 @@
+[Unit]
+Description=SorterOS bootstrap users and SSH homes
+DefaultDependencies=no
+After=local-fs.target
+Before=ssh.service sorteros-firstboot.service multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sorteros-bootstrap-users.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

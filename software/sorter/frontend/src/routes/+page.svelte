@@ -201,7 +201,12 @@
 		sidebar_width = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, sidebar_width - delta));
 	}
 
-	const camera_layout = $derived(machine.machine?.sorterState?.camera_layout ?? 'default');
+	const configuredCameraLayout = $derived(machine.machine?.camerasConfig?.cameras?.layout);
+	const camera_layout = $derived(
+		configuredCameraLayout === 'split_feeder' || configuredCameraLayout === 'default'
+			? configuredCameraLayout
+			: (machine.machine?.sorterState?.camera_layout ?? 'default')
+	);
 	const cameraConfig = $derived<Record<string, number | string | null>>(
 		machine.machine?.camerasConfig?.cameras ?? {}
 	);

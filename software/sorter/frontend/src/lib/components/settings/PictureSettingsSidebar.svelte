@@ -44,7 +44,6 @@
 	import { Alert } from '$lib/components/primitives';
 	import CalibrationPanel, { hasTileDetails } from './picture/CalibrationPanel.svelte';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
-	import DriftDetection from './picture/DriftDetection.svelte';
 	import ColorProfilePanel, {
 		hasCalibrationData,
 		normalizeCameraColorProfile,
@@ -1030,12 +1029,6 @@
 					{/if}
 
 					<CaptureModePanel {role} />
-					<DriftDetection
-						{role}
-						onAction={() => {
-							void loadDeviceSettings();
-						}}
-					/>
 
 					<DeviceControlsPanel
 						{deviceProvider}

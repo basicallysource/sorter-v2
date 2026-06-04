@@ -191,7 +191,22 @@ def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
         return service
 
     _, config = _read_machine_params_config()
-    return _configured_waveshare_service(config, timeout=timeout)
+    service = _configured_waveshare_service(config, timeout=timeout)
+    if service is not None:
+        return service
+
+    # During the Servo Configuration step the backend may not be persisted as
+    # "waveshare" yet (the operator is still calibrating/assigning before
+    # pressing Save), so neither the live controller nor the configured port
+    # resolves. Fall back to the bus the inventory manager already auto-detected
+    # so calibrate/move/set-id/nudge work on the detected port. The bus service
+    # is a per-port singleton shared with the scan loop, so this is conflict-free.
+    detected_port = get_waveshare_inventory_manager().get_status().get("current_port")
+    if isinstance(detected_port, str) and detected_port.strip():
+        from hardware.waveshare_bus_service import get_waveshare_bus_service
+
+        return get_waveshare_bus_service(detected_port.strip(), timeout=timeout)
+    return None
 
 
 def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = False) -> Dict[str, Any]:

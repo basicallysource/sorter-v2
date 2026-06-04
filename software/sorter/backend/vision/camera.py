@@ -1,8 +1,11 @@
 import logging
+import asyncio
+import os
 import subprocess
 import threading
 import time
 from collections import deque
+from pathlib import Path
 from typing import Any, Optional
 import platform
 import cv2
@@ -48,6 +51,48 @@ else:
     _refresh_macos_cameras = None
 
 
+def _linux_video_index_from_path(path: Path) -> int | None:
+    name = path.name
+    if not name.startswith("video"):
+        return None
+    suffix = name[len("video") :]
+    return int(suffix) if suffix.isdigit() else None
+
+
+def _linux_index0_video_indices() -> list[int]:
+    by_path = Path("/dev/v4l/by-path")
+    if not by_path.exists():
+        return []
+    indices: list[int] = []
+    seen: set[int] = set()
+    for link in sorted(by_path.glob("*video-index0")):
+        try:
+            index = _linux_video_index_from_path(link.resolve(strict=False))
+        except Exception:
+            index = None
+        if index is None or index in seen:
+            continue
+        seen.add(index)
+        indices.append(index)
+    return indices
+
+
+def _resolve_linux_video_index(source: int) -> int | None:
+    if source >= 0 and source % 2 == 0:
+        index0_nodes = _linux_index0_video_indices()
+        slot = source // 2
+        if 0 <= slot < len(index0_nodes):
+            return index0_nodes[slot]
+    if Path(f"/dev/video{source}").exists():
+        return source
+    return None
+
+
+def _linux_video_device_path(source: int) -> Path:
+    resolved = _resolve_linux_video_index(source)
+    return Path(f"/dev/video{resolved if resolved is not None else source}")
+
+
 def _try_v4l2ctl_set_format(source: int, fourcc: str, width: int | None, height: int | None) -> bool:
     # Some cameras (e.g. Innomaker U30CAM) ignore OpenCV's CAP_V4L2 FOURCC
     # param and stay at their firmware default (often YUYV full-res), saturating
@@ -59,14 +104,50 @@ def _try_v4l2ctl_set_format(source: int, fourcc: str, width: int | None, height:
     if isinstance(height, int) and height > 0:
         fmt_arg += f",height={height}"
     try:
+        device_path = _linux_video_device_path(source)
         result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", f"--set-fmt-video={fmt_arg}"],
+            ["v4l2-ctl", "-d", str(device_path), f"--set-fmt-video={fmt_arg}"],
             capture_output=True,
             timeout=3,
         )
         return result.returncode == 0
     except Exception:
         return False
+
+
+def _try_v4l2ctl_get_format(source: int) -> tuple[int | None, int | None, str | None]:
+    try:
+        device_path = _linux_video_device_path(source)
+        result = subprocess.run(
+            ["v4l2-ctl", "-d", str(device_path), "--get-fmt-video"],
+            capture_output=True,
+            timeout=3,
+            text=True,
+        )
+    except Exception:
+        return None, None, None
+    if result.returncode != 0:
+        return None, None, None
+    text = result.stdout
+    width: int | None = None
+    height: int | None = None
+    fourcc: str | None = None
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("Width/Height"):
+            _, _, raw = stripped.partition(":")
+            left, _, right = raw.strip().partition("/")
+            try:
+                width = int(left.strip())
+                height = int(right.strip())
+            except Exception:
+                pass
+        elif stripped.startswith("Pixel Format"):
+            _, _, raw = stripped.partition(":")
+            raw = raw.strip()
+            if raw.startswith("'") and "'" in raw[1:]:
+                fourcc = raw.split("'", 2)[1]
+    return width, height, fourcc
 
 
 def _open_capture_source(
@@ -90,6 +171,7 @@ def _open_capture_source(
         # while cv2 keeps up. See agent-notes why-tf-is-spencers-so-slow.
         if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
             _try_v4l2ctl_set_format(source, fourcc.strip()[:4].upper(), width, height)
+        device_path = _linux_video_device_path(source)
         params: list[int] = []
         if isinstance(fourcc, str) and len(fourcc.strip()) >= 4:
             params.extend(
@@ -106,9 +188,10 @@ def _open_capture_source(
             params.extend([cv2.CAP_PROP_FPS, fps])
         if params:
             try:
-                return cv2.VideoCapture(source, cv2.CAP_V4L2, params)
+                return cv2.VideoCapture(str(device_path), cv2.CAP_V4L2, params)
             except Exception:
                 pass
+        return cv2.VideoCapture(str(device_path), cv2.CAP_V4L2)
     return cv2.VideoCapture(source)
 
 
@@ -125,6 +208,12 @@ def _is_macos_camera_index_available(source: int | str | None) -> bool:
         return any(int(camera.index) == source for camera in _refresh_macos_cameras())
     except Exception:
         return True
+
+
+def _is_linux_video_device_available(source: int | str | None) -> bool:
+    if platform.system() != "Linux" or not isinstance(source, int):
+        return True
+    return _resolve_linux_video_index(source) is not None
 
 
 def _cv_prop(name: str) -> int | None:
@@ -278,20 +367,114 @@ _LINUX_V4L2CTL_CONTROL_MAP: dict[str, tuple[str, Any]] = {
 }
 
 
-def _try_v4l2ctl_set(source: int, key: str, value: bool | float) -> bool:
-    entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
-    if entry is None:
-        return False
-    ctrl_name, fmt = entry
+# Order in which controls are written in a single v4l2-ctl call. A manual value
+# (exposure/white_balance_temperature/focus) only sticks once its auto toggle is
+# off, and v4l2-ctl applies -c args left-to-right, so each auto_* must precede
+# the value it gates.
+_V4L2_APPLY_ORDER: tuple[str, ...] = (
+    "auto_exposure",
+    "exposure",
+    "auto_white_balance",
+    "white_balance_temperature",
+    "autofocus",
+    "focus",
+    "gain",
+    "brightness",
+    "contrast",
+    "saturation",
+    "sharpness",
+    "gamma",
+    "power_line_frequency",
+    "backlight_compensation",
+)
+
+# Manual control → the auto toggle that, when enabled, makes it driver-managed
+# (and inactive). We skip writing the manual value in that case so v4l2-ctl
+# doesn't error on an inactive control.
+_V4L2_AUTO_GATE: dict[str, str] = {
+    "exposure": "auto_exposure",
+    "white_balance_temperature": "auto_white_balance",
+    "focus": "autofocus",
+}
+
+
+def _v4l2ctl_set_many(source: int, items: list[tuple[str, bool | float]]) -> bool:
+    """Apply several controls in one v4l2-ctl call, preserving the given order."""
+    args: list[str] = []
+    for key, value in items:
+        entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
+        if entry is None:
+            continue
+        ctrl_name, fmt = entry
+        args += ["-c", f"{ctrl_name}={fmt(value)}"]
+    if not args:
+        return True
     try:
+        device_path = _linux_video_device_path(source)
         result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", "-c", f"{ctrl_name}={fmt(value)}"],
+            ["v4l2-ctl", "-d", str(device_path), *args],
             capture_output=True,
-            timeout=2,
+            timeout=3,
         )
         return result.returncode == 0
     except Exception:
         return False
+
+
+def _apply_linux_v4l2_device_settings(
+    normalized: dict[str, int | float | bool],
+    source: int,
+) -> dict[str, int | float | bool]:
+    """Apply device settings on Linux through v4l2-ctl only.
+
+    OpenCV's V4L2 CAP_PROP_* path is unreliable here: it reports/sets a
+    different scale than the kernel control (e.g. CAP_PROP_EXPOSURE 3509 vs
+    exposure_time_absolute 35), and writing CAP_PROP_EXPOSURE silently flips
+    auto_exposure to manual. v4l2-ctl is authoritative, so we set and read back
+    exclusively through it and store the real driver values (not the intent).
+
+    Controls are device-global per ``/dev/video{source}``, so this works whether
+    or not a capture is open — letting the setup wizard tune a camera the runtime
+    isn't streaming.
+    """
+    items: list[tuple[str, bool | float]] = []
+    for key in _V4L2_APPLY_ORDER:
+        if key not in normalized:
+            continue
+        gate = _V4L2_AUTO_GATE.get(key)
+        if gate is not None and normalized.get(gate) is True:
+            # Auto owns this control; leave the manual value untouched.
+            continue
+        items.append((key, normalized[key]))
+
+    _v4l2ctl_set_many(source, items)
+
+    spec_by_key = {spec["key"]: spec for spec in _usb_camera_control_specs()}
+    applied: dict[str, int | float | bool] = {}
+    for key, value in normalized.items():
+        spec = spec_by_key.get(key)
+        if spec is None:
+            continue
+        if spec["kind"] == "boolean":
+            current = _try_v4l2ctl_get_bool(source, key)
+        else:
+            current = _try_v4l2ctl_get_number(source, key)
+        applied[key] = current if current is not None else value
+    return applied
+
+
+def apply_device_settings_via_v4l2(
+    source: int,
+    settings: dict[str, int | float | bool] | None,
+) -> dict[str, int | float | bool]:
+    """Public entry point to push device settings straight to a Linux V4L2 node.
+
+    Used when no live capture object owns the camera (e.g. the setup wizard),
+    since v4l2-ctl controls are global to the device node.
+    """
+    return _apply_linux_v4l2_device_settings(
+        parseCameraDeviceSettingsForCapture(settings), source
+    )
 
 
 # OpenCV's V4L2 backend lies about menu controls (auto_exposure especially) on
@@ -303,8 +486,9 @@ def _try_v4l2ctl_get_raw(source: int, key: str) -> str | None:
         return None
     ctrl_name, _ = entry
     try:
+        device_path = _linux_video_device_path(source)
         result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", "-C", ctrl_name],
+            ["v4l2-ctl", "-d", str(device_path), "-C", ctrl_name],
             capture_output=True,
             timeout=2,
             text=True,
@@ -330,7 +514,7 @@ def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
     except Exception:
         return None
     if key == "auto_exposure":
-        return n == 3
+        return n in {0, 3}
     return n != 0
 
 
@@ -349,8 +533,9 @@ def _try_v4l2ctl_describe(source: int) -> dict[str, dict[str, float | bool]]:
     for key, (ctrl_name, _) in _LINUX_V4L2CTL_CONTROL_MAP.items():
         by_ctrl_name[ctrl_name] = key
     try:
+        device_path = _linux_video_device_path(source)
         result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", "-L"],
+            ["v4l2-ctl", "-d", str(device_path), "-L"],
             capture_output=True,
             timeout=3,
             text=True,
@@ -407,6 +592,11 @@ def _read_capture_value(
             v = _try_v4l2ctl_get_number(source, spec["key"])
             if v is not None:
                 return v
+    if cap is None:
+        # No capture handle (e.g. a v4l2-ctl-only describe that deliberately
+        # avoids opening the device while it's being streamed). Anything not
+        # covered by v4l2-ctl above is simply unknown here.
+        return None
     raw = cap.get(prop)
     if raw is None or (isinstance(raw, float) and (np.isnan(raw) or np.isinf(raw))):
         return None
@@ -471,10 +661,12 @@ def apply_camera_device_settings(
     if macos_handled:
         return macos_applied
 
+    linux_int_source = source if platform.system() == "Linux" and isinstance(source, int) else None
+    if linux_int_source is not None:
+        return _apply_linux_v4l2_device_settings(normalized, linux_int_source)
+
     spec_by_key = {spec["key"]: spec for spec in _usb_camera_control_specs()}
     applied: dict[str, int | float | bool] = {}
-
-    linux_int_source = source if platform.system() == "Linux" and isinstance(source, int) else None
 
     for key, value in normalized.items():
         spec = spec_by_key.get(key)
@@ -483,13 +675,6 @@ def apply_camera_device_settings(
         try:
             cap.set(spec["prop"], _value_for_capture(key, value))
             current = _read_capture_value(cap, spec, source=source)
-            # If the readback doesn't match the intent, try v4l2-ctl on Linux.
-            # This handles cameras where OpenCV's cap.set encoding doesn't stick.
-            if current is not None and current != value and linux_int_source is not None:
-                if _try_v4l2ctl_set(linux_int_source, key, value):
-                    # Trust the intent; don't let the wrong readback poison _device_settings.
-                    applied[key] = value
-                    continue
             if current is not None:
                 applied[key] = current
             else:
@@ -586,6 +771,17 @@ def probe_camera_device_controls(
     macos_controls, macos_settings = _describe_macos_uvc_controls(source)
     if macos_controls:
         return macos_controls, macos_settings or normalized_settings
+
+    # On Linux, describe controls purely through v4l2-ctl — it reads the device
+    # node without holding a handle, so it never conflicts with a live capture
+    # (the setup wizard's direct stream, the runtime feed). Opening a second
+    # cv2.VideoCapture here would hit "device busy" and return zero controls
+    # while a feed is streaming, and the open/close churn black-frames the stream.
+    if platform.system() == "Linux":
+        controls = describe_camera_device_controls(None, source=source)
+        if controls:
+            current = read_camera_device_settings(None, source=source)
+            return controls, current or normalized_settings
 
     if not allow_open_capture:
         return [], normalized_settings
@@ -731,6 +927,7 @@ class CaptureThread:
         self._stop_event = threading.Event()
         self._reopen_event = threading.Event()
         self._cap = None
+        self._gst_runtime: Any | None = None
         self.latest_frame = None
         # 90-frame ring buffer (~3 s at 30 FPS) for burst-capture replay. The
         # GIL + deque.append atomicity lets us push without holding a lock.
@@ -743,6 +940,39 @@ class CaptureThread:
         self._color_profile_lock = threading.Lock()
         self._config_lock = threading.Lock()
         self._cap_lock = threading.Lock()
+
+    @staticmethod
+    def _requested_capture_backend() -> str:
+        return os.environ.get("SORTER_CAMERA_CAPTURE_BACKEND", "").strip().lower()
+
+    @staticmethod
+    def _gstreamer_capture_enabled() -> bool:
+        explicit = CaptureThread._requested_capture_backend()
+        env_enabled = os.environ.get("SORTER_ENABLE_GSTREAMER_MPP_CAPTURE", "").strip().lower()
+        return explicit in {"gstreamer", "gstreamer_mpp", "mpp", "auto"} or env_enabled in {
+            "1",
+            "true",
+            "yes",
+            "on",
+        }
+
+    @staticmethod
+    def _gstreamer_capture_strict() -> bool:
+        return CaptureThread._requested_capture_backend() in {"gstreamer", "gstreamer_mpp", "mpp"}
+
+    @staticmethod
+    def _should_use_gstreamer_mpp_capture(
+        source: int | str | None,
+        *,
+        is_url: bool,
+        fourcc: str | None,
+    ) -> bool:
+        if platform.system() != "Linux" or is_url or not isinstance(source, int):
+            return False
+        if not CaptureThread._gstreamer_capture_enabled():
+            return False
+        normalized_fourcc = (fourcc or "MJPG").strip().upper()
+        return normalized_fourcc in {"MJPG", "JPEG"}
 
     def drain_ring_buffer(self, max_frames: int) -> list[CameraFrame]:
         """Return up to ``max_frames`` most-recent frames from the ring buffer.
@@ -758,6 +988,10 @@ class CaptureThread:
         if len(frames) <= max_frames:
             return frames
         return frames[-max_frames:]
+
+    def ring_buffer_depth(self) -> int:
+        """Return the number of timestamped raw frames currently retained."""
+        return len(self._ring_buffer)
 
     def frame_at_or_before(
         self,
@@ -826,6 +1060,17 @@ class CaptureThread:
             if self._cap is not None and isinstance(source, int):
                 applied = apply_camera_device_settings(
                     self._cap,
+                    normalized,
+                    source=source,
+                )
+                with self._device_settings_lock:
+                    self._device_settings = dict(applied)
+                    if persist:
+                        self._config.device_settings = dict(applied)
+                return dict(applied)
+            if platform.system() == "Linux" and isinstance(source, int):
+                applied = apply_camera_device_settings(
+                    None,
                     normalized,
                     source=source,
                 )
@@ -963,6 +1208,80 @@ class CaptureThread:
                 "fourcc": getattr(self._config, "fourcc", None),
             }
 
+    def describeCaptureBackend(self) -> dict[str, Any]:
+        source, is_url, width, height, fps, fourcc = self._get_config_snapshot()
+        with self._cap_lock:
+            gst_runtime = self._gst_runtime
+        if gst_runtime is not None:
+            describe = getattr(gst_runtime, "describe_capture_backend", None)
+            if callable(describe):
+                return describe()
+        if source is None:
+            implementation = "unassigned"
+        elif is_url:
+            implementation = "opencv_url_raw_ring"
+        elif platform.system() == "Linux":
+            implementation = "opencv_v4l2_raw_ring"
+        elif platform.system() == "Darwin":
+            implementation = "opencv_avfoundation_raw_ring"
+        else:
+            implementation = "opencv_raw_ring"
+        return {
+            "implementation": implementation,
+            "source": source,
+            "requested_mode": {
+                "width": int(width),
+                "height": int(height),
+                "fps": int(fps),
+                "fourcc": fourcc,
+            },
+            "owns_capture_device": source is not None,
+            "single_capture_owner": True,
+            "raw_ring_branch": True,
+            "h264_webrtc_branch": False,
+            "hardware_scale_convert": False,
+            "zero_copy_dmabuf": False,
+            "target_compliant": False,
+            "reason": (
+                "Current backend owns one OpenCV capture and feeds the raw ring only; "
+                "the target requires an integrated v4l2src/MPP tee with raw-ring and H.264 branches."
+            )
+            if source is not None
+            else "No camera source is assigned.",
+        }
+
+    async def recv_encoded_h264(self) -> Any:
+        deadline = time.time() + 5.0
+        while time.time() < deadline and not self._stop_event.is_set():
+            with self._cap_lock:
+                runtime = self._gst_runtime
+            if runtime is not None and getattr(runtime, "active", False):
+                return await runtime.recv_encoded_h264()
+            await asyncio.sleep(0.02)
+        raise RuntimeError(f"CaptureThread[{self.name}] has no active GStreamer H.264 source.")
+
+    def describeEncodedH264Source(self) -> dict[str, Any]:
+        with self._cap_lock:
+            runtime = self._gst_runtime
+        if runtime is None:
+            return {
+                "available": False,
+                "active": False,
+                "source": self.getCameraSource(),
+                "reason": "GStreamer MPP capture runtime is not active.",
+            }
+        describe = getattr(runtime, "describe_capture_backend", None)
+        backend = describe() if callable(describe) else {}
+        return {
+            "available": bool(getattr(runtime, "active", False)),
+            "active": bool(getattr(runtime, "active", False)),
+            "source": self.getCameraSource(),
+            "codec": "h264",
+            "pipeline_profile": "gstreamer_v4l2_mpp_tee_h264",
+            "target_compliant": bool(backend.get("target_compliant")),
+            "backend": backend,
+        }
+
     def start(self) -> None:
         if self._thread is not None and self._thread.is_alive():
             return
@@ -985,9 +1304,132 @@ class CaptureThread:
         with self._cap_lock:
             cap = self._cap
             self._cap = None
+            gst_runtime = self._gst_runtime
+            self._gst_runtime = None
         if cap is not None:
             try:
                 cap.release()
+            except Exception:
+                pass
+        if gst_runtime is not None:
+            try:
+                gst_runtime.stop()
+            except Exception:
+                pass
+
+    def _publish_raw_frame(self, frame: np.ndarray, *, timestamp: float | None = None) -> None:
+        picture_settings = self.getPictureSettings()
+        color_profile = self.getColorProfile()
+        geom_frame = apply_picture_settings(frame, picture_settings)
+        if getattr(color_profile, "enabled", False):
+            corrected_frame = apply_camera_color_profile(geom_frame, color_profile)
+        else:
+            corrected_frame = geom_frame
+        camera_frame = CameraFrame(
+            raw=corrected_frame,
+            annotated=None,
+            results=[],
+            timestamp=float(timestamp or time.time()),
+            uncorrected_raw=geom_frame,
+        )
+        self.latest_frame = camera_frame
+        self._ring_buffer.append(camera_frame)
+
+    def _publish_gstreamer_raw_frame(self, frame: CameraFrame) -> None:
+        raw = getattr(frame, "raw", None)
+        if raw is None:
+            return
+        # GStreamer PTS is stream-relative, while CameraFrame timestamps are
+        # wall-clock seconds used by health checks and overlay pinning.
+        self._publish_raw_frame(raw, timestamp=time.time())
+
+    def _runGStreamerMppCapture(
+        self,
+        *,
+        source: int,
+        width: int,
+        height: int,
+        fps: int,
+        fourcc: str | None,
+    ) -> bool:
+        from .gstreamer_target_capture import GStreamerTargetCaptureConfig
+        from .gstreamer_target_runtime import GStreamerTargetCaptureRuntime
+
+        actual_source = _resolve_linux_video_index(source)
+        if actual_source is None:
+            log.warning(
+                "CaptureThread[%s] cannot resolve Linux camera source %s to a /dev/video node.",
+                self.name,
+                source,
+            )
+            return False
+        normalized_fourcc = (fourcc or "MJPG").strip().upper()
+        _try_v4l2ctl_set_format(actual_source, normalized_fourcc, width, height)
+        actual_width, actual_height, actual_fourcc = _try_v4l2ctl_get_format(actual_source)
+        if actual_width and actual_height:
+            width = actual_width
+            height = actual_height
+        if actual_fourcc:
+            normalized_fourcc = actual_fourcc.strip().upper()
+        config = GStreamerTargetCaptureConfig(
+            device_path=f"/dev/video{actual_source}",
+            width=int(width),
+            height=int(height),
+            fps=int(fps),
+            input_fourcc=normalized_fourcc,
+        )
+        runtime = GStreamerTargetCaptureRuntime(
+            config,
+            raw_frame_callback=self._publish_gstreamer_raw_frame,
+        )
+        try:
+            settings_to_apply = self.getDeviceSettings() or default_auto_camera_device_settings()
+            applied_device_settings = apply_camera_device_settings(
+                None,
+                settings_to_apply,
+                source=actual_source,
+            )
+            if applied_device_settings:
+                with self._device_settings_lock:
+                    self._device_settings = dict(applied_device_settings)
+            runtime.start()
+        except Exception as exc:
+            try:
+                runtime.stop()
+            except Exception:
+                pass
+            log.warning(
+                "CaptureThread[%s] GStreamer MPP capture failed for logical video%s -> /dev/video%s: %s",
+                self.name,
+                source,
+                actual_source,
+                exc,
+            )
+            return False
+
+        with self._cap_lock:
+            self._cap = None
+            self._gst_runtime = runtime
+        log.warning(
+            "CaptureThread[%s] using GStreamer MPP capture backend for logical video%s -> /dev/video%s (%sx%s@%s %s)",
+            self.name,
+            source,
+            actual_source,
+            width,
+            height,
+            fps,
+            normalized_fourcc,
+        )
+        try:
+            while not self._stop_event.is_set() and not self._reopen_event.is_set():
+                time.sleep(0.05)
+            return True
+        finally:
+            with self._cap_lock:
+                if self._gst_runtime is runtime:
+                    self._gst_runtime = None
+            try:
+                runtime.stop()
             except Exception:
                 pass
 
@@ -1064,6 +1506,36 @@ class CaptureThread:
                     next_open_attempt_at = time.time() + _capture_failure_backoff_s(open_failures)
                     time.sleep(min(0.25, _capture_failure_backoff_s(open_failures)))
                     continue
+
+                if not is_url and not _is_linux_video_device_available(source):
+                    self.latest_frame = None
+                    open_failures += 1
+                    next_open_attempt_at = time.time() + _capture_failure_backoff_s(open_failures)
+                    time.sleep(min(0.25, _capture_failure_backoff_s(open_failures)))
+                    continue
+
+                if self._should_use_gstreamer_mpp_capture(source, is_url=is_url, fourcc=fourcc):
+                    if cap is not None:
+                        cap.release()
+                        cap = None
+                    self._cap = None
+                    used_gstreamer = self._runGStreamerMppCapture(
+                        source=int(source),
+                        width=int(width),
+                        height=int(height),
+                        fps=int(fps),
+                        fourcc=fourcc,
+                    )
+                    if used_gstreamer:
+                        open_failures = 0
+                        read_failures = 0
+                        continue
+                    open_failures += 1
+                    next_open_attempt_at = time.time() + _capture_failure_backoff_s(open_failures)
+                    if self._gstreamer_capture_strict():
+                        self.latest_frame = None
+                        time.sleep(min(0.25, _capture_failure_backoff_s(open_failures)))
+                        continue
 
                 with self._cap_lock:
                     candidate = _open_capture_source(

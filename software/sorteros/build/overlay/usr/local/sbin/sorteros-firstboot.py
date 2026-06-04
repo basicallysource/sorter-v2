@@ -17,8 +17,11 @@ import html as _html
 import json
 import logging
 import os
+import platform
 import random
 import re
+import shutil
+import shlex
 import socket
 import subprocess
 import threading
@@ -57,9 +60,38 @@ except ImportError:
 
 STAMP_DIR = Path("/var/lib/sorteros")
 CONFIG_PATH = Path("/etc/sorteros-config.toml")
+CAMERA_TRANSPORT_TARGET_PATH = Path("/etc/sorteros/camera-transport-target.json")
+CAMERA_TRANSPORT_STATUS_PATH = STAMP_DIR / "camera-transport-status.json"
 STATUS_PORT = 80
 REPO_DIR = Path("/home/orangepi/sorter-v2")
 SOFTWARE_DIR = REPO_DIR / "software"
+NPU_SMOKE_FALLBACK_DIR = Path("/opt/sorteros/npu-smoke")
+NPU_PROBE_RELATIVE_PATH = Path("software/sorter/backend/scripts/probe_rk3588_npu_stack.py")
+CODE_FALLBACK_RELATIVE_PATHS = (
+    Path("software/sorter/backend/pyproject.toml"),
+    Path("software/sorter/backend/uv.lock"),
+    Path("software/sorter/backend/main.py"),
+    Path("software/sorter/backend/server/routers/cameras.py"),
+    Path("software/sorter/backend/server/shared_state.py"),
+    Path("software/sorter/backend/vision/camera.py"),
+    Path("software/sorter/backend/vision/camera_device.py"),
+    Path("software/sorter/backend/vision/media_plane.py"),
+    Path("software/sorter/backend/vision/ffmpeg_h264_source.py"),
+    Path("software/sorter/backend/vision/gstreamer_target_capture.py"),
+    Path("software/sorter/backend/vision/gstreamer_target_runtime.py"),
+    Path("software/sorter/backend/vision/h264_webrtc_bridge.py"),
+    Path("software/sorter/backend/vision/webrtc_transport.py"),
+    Path("software/sorter/backend/scripts/probe_camera_transport_stack.py"),
+    Path("software/sorter/backend/scripts/probe_camera_handle_stability.py"),
+    Path("software/sorter/backend/scripts/probe_gstreamer_target_capture_pipeline.py"),
+    Path("software/sorter/backend/scripts/probe_camera_calibration_ring.py"),
+    Path("software/sorter/backend/scripts/probe_webrtc_view_scaling.py"),
+    NPU_PROBE_RELATIVE_PATH,
+)
+NPU_MODEL_RELATIVE_PATH = Path(
+    "software/training/rknn_bundles/c_channel_full_yolo26s_320_rk3588/results/"
+    "c_channel_full_yolo26s_320_rk3588.rknn"
+)
 POLL_INTERVAL = 60
 INTERNET_PROBE_HOSTS = ("deb.debian.org", "github.com")
 INTERNET_PROBE_TIMEOUT = 5
@@ -268,6 +300,31 @@ def sh(cmd: list[str], **kw) -> None:
     r = subprocess.run(cmd, **kw)
     if r.returncode != 0:
         raise RuntimeError(f"{cmd[0]} exited {r.returncode}")
+
+
+def _command_output(args: list[str], timeout_s: float = 5.0) -> str:
+    try:
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+    except Exception:
+        return ""
+    return "\n".join(part for part in (result.stdout, result.stderr) if part)
+
+
+def _dpkg_package_versions(names: list[str]) -> dict[str, str | None]:
+    if not names:
+        return {}
+    output = _command_output(["dpkg-query", "-W", *names], timeout_s=5.0)
+    versions: dict[str, str | None] = {str(name): None for name in names}
+    for line in output.splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[0] in versions:
+            versions[parts[0]] = parts[1]
+    return versions
 
 
 def _hostname() -> str:
@@ -576,13 +633,17 @@ def stage_setup_swap() -> None:
 
 
 def stage_clone_repo() -> None:
+    env = {**os.environ, "HOME": "/root"}
     if REPO_DIR.exists():
+        sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)], env=env)
+        _install_npu_smoke_fallbacks()
         return
     branch_file = Path("/etc/sorteros/branch")
     branch = branch_file.read_text().strip() if branch_file.exists() else "main"
     sh(["git", "clone", "https://github.com/basicallysource/sorter-v2", str(REPO_DIR)])
     sh(["git", "-C", str(REPO_DIR), "checkout", branch])
-    sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)])
+    sh(["git", "config", "--global", "--add", "safe.directory", str(REPO_DIR)], env=env)
+    _install_npu_smoke_fallbacks()
 
 
 def stage_git_lfs_pull() -> None:
@@ -591,25 +652,393 @@ def stage_git_lfs_pull() -> None:
     env = {**os.environ, "HOME": "/root"}
     sh(["git", "-C", str(REPO_DIR), "lfs", "install"], env=env)
     sh(["git", "-C", str(REPO_DIR), "lfs", "pull"], env=env)
+    _install_npu_smoke_fallbacks()
+
+
+def _is_lfs_pointer(path: Path) -> bool:
+    try:
+        prefix = path.read_bytes()[:128]
+    except OSError:
+        return False
+    return prefix.startswith(b"version https://git-lfs.github.com/spec/v1")
+
+
+def _needs_npu_smoke_fallback(source: Path, target: Path) -> bool:
+    if not target.exists():
+        return True
+    if target == REPO_DIR / NPU_MODEL_RELATIVE_PATH:
+        return target.stat().st_size < 1024 * 1024 or _is_lfs_pointer(target)
+    if target == REPO_DIR / NPU_PROBE_RELATIVE_PATH:
+        try:
+            text = target.read_text(errors="ignore")
+        except OSError:
+            return True
+        if "--require-inference" not in text or "RKNNLite.inference" not in text:
+            return True
+    try:
+        return source.read_bytes() != target.read_bytes()
+    except OSError:
+        return True
+
+
+def _install_npu_smoke_fallbacks() -> None:
+    if not NPU_SMOKE_FALLBACK_DIR.exists():
+        return
+    if not REPO_DIR.exists():
+        return
+
+    for relative_path in (*CODE_FALLBACK_RELATIVE_PATHS, NPU_MODEL_RELATIVE_PATH):
+        source = NPU_SMOKE_FALLBACK_DIR / relative_path
+        target = REPO_DIR / relative_path
+        if not source.exists() or not _needs_npu_smoke_fallback(source, target):
+            continue
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, target)
+        sh(["chown", "orangepi:orangepi", str(target)])
+        log.info("installed NPU smoke fallback: %s", target)
 
 
 def stage_write_env() -> None:
     env_path = SOFTWARE_DIR / ".env"
-    if env_path.exists():
-        return
     if not SOFTWARE_DIR.exists():
         raise RuntimeError("repo not cloned yet")
-    env_path.write_text(
-        "export DEBUG_LEVEL=2\n"
-        "export PYTHONUNBUFFERED=1\n"
-        'export MACHINE_SPECIFIC_PARAMS_PATH="../machine.toml"\n'
-        "export SORTER_API_HOST=0.0.0.0\n"
+    env_updates = {
+        "DEBUG_LEVEL": "2",
+        "PYTHONUNBUFFERED": "1",
+        "MACHINE_SPECIFIC_PARAMS_PATH": "../machine.toml",
+        "SORTER_API_HOST": "0.0.0.0",
+        "SORTER_UI_PORT": "80",
         # Headless LAN device: the user reaches it by IP, hostname, or .local —
         # whichever resolves for them. The local API is unauthenticated and not
         # internet-exposed, so accept any browser origin instead of guessing.
-        'export SORTER_API_ALLOWED_ORIGINS="*"\n'
-    )
+        "SORTER_API_ALLOWED_ORIGINS": "*",
+        **_camera_transport_backend_env(),
+    }
+    existing = env_path.read_text().splitlines() if env_path.exists() else []
+    lines, seen = _merge_export_env_lines(existing, env_updates)
+    for key, value in env_updates.items():
+        if key not in seen:
+            lines.append(f"export {key}={shlex.quote(str(value))}")
+    env_path.write_text("\n".join(lines) + "\n")
     sh(["chown", "orangepi:orangepi", str(env_path)])
+
+
+def _merge_export_env_lines(
+    lines: list[str],
+    updates: dict[str, str],
+) -> tuple[list[str], set[str]]:
+    merged: list[str] = []
+    seen: set[str] = set()
+    export_pattern = re.compile(r"^export\s+([A-Z_][A-Z0-9_]*)=.*$")
+    for line in lines:
+        match = export_pattern.match(line)
+        if match and match.group(1) in updates:
+            key = match.group(1)
+            merged.append(f"export {key}={shlex.quote(str(updates[key]))}")
+            seen.add(key)
+            continue
+        merged.append(line)
+    return merged, seen
+
+
+def _camera_transport_backend_env() -> dict[str, str]:
+    payload = _camera_transport_contract()
+    if payload is None:
+        return {}
+    env = payload.get("backend_env", {})
+    if not isinstance(env, dict):
+        return {}
+    result: dict[str, str] = {}
+    for key, value in env.items():
+        key = str(key)
+        if not re.fullmatch(r"[A-Z_][A-Z0-9_]*", key):
+            log.warning("ignoring invalid camera transport env key: %s", key)
+            continue
+        result[key] = str(value)
+    return result
+
+
+def _camera_transport_contract() -> dict | None:
+    try:
+        payload = json.loads(CAMERA_TRANSPORT_TARGET_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _tail_text(text: str, limit: int = 4000) -> str:
+    return text[-limit:] if len(text) > limit else text
+
+
+def _regex_or_substring_match(pattern: str, value: str) -> bool:
+    try:
+        return re.search(pattern, value) is not None
+    except re.error:
+        return pattern in value
+
+
+def _run_camera_transport_probe(command: str) -> dict:
+    command = command.strip()
+    if not command:
+        return {
+            "command": "",
+            "returncode": None,
+            "report": None,
+            "stdout_tail": "",
+            "stderr_tail": "No camera transport probe command configured.",
+        }
+    json_command = command if "--json" in command.split() else f"{command} --json"
+    try:
+        result = subprocess.run(
+            json_command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+    except Exception as exc:
+        return {
+            "command": json_command,
+            "returncode": None,
+            "report": None,
+            "stdout_tail": "",
+            "stderr_tail": str(exc),
+        }
+    report = None
+    try:
+        parsed = json.loads(result.stdout)
+        if isinstance(parsed, dict):
+            report = parsed
+    except json.JSONDecodeError:
+        report = None
+    return {
+        "command": json_command,
+        "returncode": result.returncode,
+        "report": report,
+        "stdout_tail": _tail_text(result.stdout),
+        "stderr_tail": _tail_text(result.stderr),
+    }
+
+
+def _run_camera_transport_acceptance_probes(commands: list[str]) -> list[dict]:
+    return [_run_camera_transport_probe(command) for command in commands]
+
+
+def _camera_transport_backend_units() -> list[str]:
+    try:
+        units = Path("/var/lib/sorteros/active-services").read_text().split()
+    except OSError:
+        units = ["sorter-backend-dev.service", "sorter-backend.service"]
+    return [
+        unit
+        for unit in units
+        if "backend" in unit and unit.endswith(".service")
+    ]
+
+
+def _start_camera_transport_backend_for_probe() -> dict:
+    units = _camera_transport_backend_units()
+    if not units:
+        return {"attempted": False, "units": [], "returncode": None, "stderr_tail": "No backend service unit configured."}
+    try:
+        result = subprocess.run(
+            ["systemctl", "start", *units],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        return {
+            "attempted": True,
+            "units": units,
+            "returncode": result.returncode,
+            "stdout_tail": _tail_text(result.stdout),
+            "stderr_tail": _tail_text(result.stderr),
+        }
+    except Exception as exc:
+        return {
+            "attempted": True,
+            "units": units,
+            "returncode": None,
+            "stdout_tail": "",
+            "stderr_tail": str(exc),
+        }
+
+
+def _camera_transport_status_payload(
+    *,
+    contract: dict | None,
+    package_versions: dict[str, str | None] | None = None,
+    probe_result: dict | None = None,
+    acceptance_probe_results: list[dict] | None = None,
+    backend_start_result: dict | None = None,
+    path_exists: Callable[[str], bool] | None = None,
+    kernel_release: str | None = None,
+    machine: str | None = None,
+) -> dict:
+    path_exists = path_exists or (lambda path: Path(path).exists())
+    if contract is None:
+        return {
+            "schema_version": 1,
+            "created_at": time.time(),
+            "contract_present": False,
+            "target_ready": False,
+            "target_architecture_compliant": False,
+            "summary": "No camera transport target contract is present in this image.",
+        }
+
+    kernel_release = str(kernel_release if kernel_release is not None else platform.release())
+    machine = str(machine if machine is not None else platform.machine())
+    required_machine = contract.get("required_machine")
+    required_machine = str(required_machine) if isinstance(required_machine, str) and required_machine else None
+    required_kernel_patterns = [
+        str(item)
+        for item in contract.get("required_kernel_release_patterns", [])
+        if isinstance(item, str)
+    ]
+    required_nodes = [
+        str(item)
+        for item in contract.get("required_device_nodes", [])
+        if isinstance(item, str)
+    ]
+    required_packages = [
+        str(item)
+        for item in contract.get("required_packages", [])
+        if isinstance(item, str)
+    ]
+    required_gates = [
+        str(item)
+        for item in contract.get("required_runtime_gates", [])
+        if isinstance(item, str)
+    ]
+    acceptance_commands = [
+        str(item)
+        for item in contract.get("acceptance_probe_commands", [])
+        if isinstance(item, str) and item.strip()
+    ]
+    package_versions = package_versions if package_versions is not None else _dpkg_package_versions(required_packages)
+    backend_start_result = backend_start_result if backend_start_result is not None else _start_camera_transport_backend_for_probe()
+    probe_result = probe_result if probe_result is not None else _run_camera_transport_probe(
+        str(contract.get("probe_command", ""))
+    )
+    acceptance_probe_results = (
+        acceptance_probe_results
+        if acceptance_probe_results is not None
+        else _run_camera_transport_acceptance_probes(acceptance_commands)
+    )
+    report = probe_result.get("report") if isinstance(probe_result, dict) else None
+    gates = {}
+    blockers: list[str] = []
+    if isinstance(report, dict):
+        evaluation = report.get("evaluation")
+        if isinstance(evaluation, dict):
+            raw_gates = evaluation.get("gates")
+            if isinstance(raw_gates, dict):
+                gates = {str(key): bool(value) for key, value in raw_gates.items()}
+            raw_blockers = evaluation.get("blockers")
+            if isinstance(raw_blockers, list):
+                blockers = [str(item) for item in raw_blockers if isinstance(item, str)]
+
+    device_nodes = {
+        node: bool(path_exists(node))
+        for node in required_nodes
+    }
+    missing_kernel_patterns = [
+        pattern for pattern in required_kernel_patterns
+        if not _regex_or_substring_match(pattern, kernel_release)
+    ]
+    machine_mismatch = bool(required_machine and machine != required_machine)
+    missing_nodes = [node for node, exists in device_nodes.items() if not exists]
+    missing_packages = [
+        name for name in required_packages
+        if not package_versions.get(name)
+    ]
+    missing_gates = [
+        gate for gate in required_gates
+        if not gates.get(gate, False)
+    ]
+    acceptance_failures = []
+    for result in acceptance_probe_results:
+        if not isinstance(result, dict):
+            acceptance_failures.append(
+                {"command": None, "returncode": None, "stderr_tail": "Acceptance probe returned a non-object result."}
+            )
+            continue
+        if result.get("returncode") != 0:
+            acceptance_failures.append(
+                {
+                    "command": result.get("command"),
+                    "returncode": result.get("returncode"),
+                    "stderr_tail": result.get("stderr_tail", ""),
+                }
+            )
+    acceptance_ok = not acceptance_failures
+    target_ready = bool(gates.get("target_ready"))
+    target_compliant = bool(gates.get("target_architecture_compliant"))
+    ok = (
+        not missing_kernel_patterns
+        and not machine_mismatch
+        and not missing_nodes
+        and not missing_packages
+        and not missing_gates
+        and acceptance_ok
+        and target_compliant
+    )
+    return {
+        "schema_version": 1,
+        "created_at": time.time(),
+        "contract_present": True,
+        "profile": contract.get("profile"),
+        "image_version": contract.get("image_version"),
+        "branch": contract.get("branch"),
+        "ok": ok,
+        "platform": {
+            "kernel_release": kernel_release,
+            "machine": machine,
+        },
+        "required_kernel_release_patterns": required_kernel_patterns,
+        "missing_kernel_release_patterns": missing_kernel_patterns,
+        "required_machine": required_machine,
+        "machine_mismatch": machine_mismatch,
+        "target_ready": target_ready,
+        "target_architecture_compliant": target_compliant,
+        "required_runtime_gates": required_gates,
+        "runtime_gates": gates,
+        "missing_runtime_gates": missing_gates,
+        "required_device_nodes": device_nodes,
+        "missing_device_nodes": missing_nodes,
+        "required_packages": package_versions,
+        "missing_packages": missing_packages,
+        "backend_start": backend_start_result,
+        "probe": {
+            "command": probe_result.get("command") if isinstance(probe_result, dict) else None,
+            "returncode": probe_result.get("returncode") if isinstance(probe_result, dict) else None,
+            "stdout_tail": probe_result.get("stdout_tail") if isinstance(probe_result, dict) else "",
+            "stderr_tail": probe_result.get("stderr_tail") if isinstance(probe_result, dict) else "",
+        },
+        "acceptance_probe_commands": acceptance_commands,
+        "acceptance_probes": acceptance_probe_results,
+        "acceptance_probes_ok": acceptance_ok,
+        "acceptance_probe_failures": acceptance_failures,
+        "blockers": blockers,
+        "summary": (
+            "Camera transport target is satisfied."
+            if ok
+            else "Camera transport target is not satisfied; inspect missing_* fields."
+        ),
+    }
+
+
+def stage_camera_transport_probe() -> None:
+    contract = _camera_transport_contract()
+    status_payload = _camera_transport_status_payload(contract=contract)
+    CAMERA_TRANSPORT_STATUS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CAMERA_TRANSPORT_STATUS_PATH.write_text(
+        json.dumps(status_payload, indent=2, sort_keys=True) + "\n"
+    )
+    if status_payload.get("ok"):
+        log.info("camera transport target satisfied: %s", status_payload.get("profile"))
+    else:
+        log.warning("camera transport target not satisfied: %s", status_payload.get("summary"))
 
 
 def stage_write_machine_toml() -> None:
@@ -781,6 +1210,7 @@ STAGES: list[Stage] = [
     Stage("pnpm-install",        needs_internet=True,  run=stage_pnpm_install),
     Stage("pnpm-build",          needs_internet=False, run=stage_pnpm_build),
     Stage("install-services",    needs_internet=False, run=stage_install_services),
+    Stage("camera-transport-probe", needs_internet=False, run=stage_camera_transport_probe),
     Stage("install-tailscale",   needs_internet=True,  run=stage_install_tailscale),
     Stage("tailscale-up",        needs_internet=True,  run=stage_tailscale_up),
 ]

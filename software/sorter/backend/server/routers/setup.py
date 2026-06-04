@@ -508,7 +508,15 @@ def _build_discovery_payload(
         live_servo_port = getattr(bus_service, "port", None)
         live_servo_count = len(getattr(active_irl, "servos", []))
 
-    probe_servo_buses = shared_state.hardware_state == "standby" and live_servo_port is None
+    # Probe candidate serial ports for a Waveshare servo bus whenever no live
+    # servo controller already owns one. We deliberately do NOT gate on
+    # hardware_state == "standby": the setup wizard's Motion Direction Check
+    # initializes steppers (state -> "initialized") without bringing up servos,
+    # which leaves the Waveshare bus unowned. Gating on standby skipped the probe
+    # there and silently downgraded an already-detected bus to "unknown". The
+    # probe opens the port only briefly and yields 0 if it's busy, so it's safe
+    # while steppers run.
+    probe_servo_buses = live_servo_port is None
     usb_devices = _enumerate_usb_devices(
         board_summaries=board_summaries,
         probe_servo_buses=probe_servo_buses,
@@ -829,6 +837,17 @@ def set_setup_camera_layout(payload: CameraLayoutPayload) -> Dict[str, Any]:
         _write_machine_params_config(params_path, config)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+
+    current_state = "initializing"
+    if shared_state.controller_ref is not None:
+        current_state = getattr(shared_state.controller_ref.state, "value", current_state)
+    shared_state.publishSorterState(current_state, payload.layout)
+    try:
+        from server.routers.cameras import get_camera_config
+
+        shared_state.publishCamerasConfig(get_camera_config())
+    except Exception:
+        pass
 
     return {
         "ok": True,

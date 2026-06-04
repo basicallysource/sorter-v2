@@ -1,4 +1,5 @@
 <script lang="ts">
+	import CameraTransportPreview from '$lib/components/CameraTransportPreview.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
@@ -6,6 +7,7 @@
 
 	type CalibrationHighlight = [number, number, number, number];
 	type PreviewImageSize = { width: number; height: number };
+	type MediaSizeEvent = { width: number; height: number };
 	type TransformMatrix = [number, number, number, number];
 	type PicturePreviewState = {
 		saved: PictureSettings;
@@ -71,10 +73,9 @@
 		return () => observer.disconnect();
 	});
 
-	function rememberPreviewImageSize(media: HTMLImageElement | null) {
-		if (!media) return;
-		const width = media.naturalWidth;
-		const height = media.naturalHeight;
+	function rememberPreviewMediaSize(event: CustomEvent<MediaSizeEvent>) {
+		const width = event.detail.width;
+		const height = event.detail.height;
 		if (width <= 0 || height <= 0) return;
 		if (width === previewImageSize.width && height === previewImageSize.height) return;
 		previewImageSize = { width, height };
@@ -183,6 +184,7 @@
 		const params = new URLSearchParams({
 			annotated: '0',
 			layer: 'raw',
+			direct: '1',
 			dashboard: '0',
 			color_correct: '1',
 			show_regions: '0'
@@ -206,13 +208,14 @@
 			>
 				{#if hasCamera}
 					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
-						<img
-							src={mjpegSrc}
+						<CameraTransportPreview
+							camera={role}
+							baseUrl={backendBaseUrl}
+							{mjpegSrc}
 							alt={label}
-							class="absolute inset-0 h-full w-full object-contain"
-							style={previewTransformStyle()}
-							onload={(event) =>
-								rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
+							mediaClass="absolute inset-0 h-full w-full object-contain"
+							mediaStyle={previewTransformStyle()}
+							on:mediasize={rememberPreviewMediaSize}
 						/>
 						<div class="pointer-events-none absolute" style={previewOverlayStyle()}>
 							{#if calibrationHighlight}

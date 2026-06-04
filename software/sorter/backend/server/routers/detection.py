@@ -859,6 +859,49 @@ def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]
 
 
 # ---------------------------------------------------------------------------
+# Versioned machine-settings backup to Hive
+# ---------------------------------------------------------------------------
+
+
+class ConfigBackupRestorePayload(BaseModel):
+    version: int
+    include_calibration: bool = False
+
+
+@router.get("/api/hive/config-backups")
+def hive_config_backups() -> Dict[str, Any]:
+    from server import config_backup
+
+    try:
+        return {"ok": True, "versions": config_backup.list_versions()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Failed to list config backups: {exc}")
+
+
+@router.post("/api/hive/config-backup")
+def hive_config_backup_now() -> Dict[str, Any]:
+    from server import config_backup
+
+    return config_backup.push_snapshot(trigger="manual")
+
+
+@router.post("/api/hive/config-backup/restore")
+def hive_config_backup_restore(payload: ConfigBackupRestorePayload) -> Dict[str, Any]:
+    from server import config_backup
+    from server.routers.system import restart_system
+
+    try:
+        result = config_backup.restore_version(
+            payload.version, include_calibration=payload.include_calibration
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Restore failed: {exc}")
+    # The TOML only takes effect after a backend restart.
+    restart_system()
+    return {**result, "restarting": True}
+
+
+# ---------------------------------------------------------------------------
 # Classification detection config
 # ---------------------------------------------------------------------------
 

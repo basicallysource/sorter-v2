@@ -9,7 +9,9 @@ from vision.camera import (
     CaptureThread,
     _bool_from_capture_value,
     _capture_failure_backoff_s,
+    _is_linux_video_device_available,
     _is_macos_camera_index_available,
+    _resolve_linux_video_index,
     _try_v4l2ctl_describe,
     _try_v4l2ctl_get_number,
     probe_camera_device_controls,
@@ -45,6 +47,35 @@ class CameraDeviceControlsTests(unittest.TestCase):
 
         self.assertEqual([], described_controls)
         self.assertEqual({"brightness": 21.0}, current_settings)
+
+    def test_linux_video_device_presence_checks_dev_node(self) -> None:
+        with patch("vision.camera.platform.system", return_value="Linux"):
+            with patch("vision.camera.Path.exists", return_value=False):
+                self.assertFalse(_is_linux_video_device_available(7))
+            with patch("vision.camera.Path.exists", return_value=True):
+                self.assertTrue(_is_linux_video_device_available(5))
+
+    def test_linux_video_device_presence_ignores_non_linux_and_urls(self) -> None:
+        with patch("vision.camera.platform.system", return_value="Darwin"):
+            self.assertTrue(_is_linux_video_device_available(7))
+        with patch("vision.camera.platform.system", return_value="Linux"):
+            self.assertTrue(_is_linux_video_device_available("rtsp://camera"))
+            self.assertTrue(_is_linux_video_device_available(None))
+
+    def test_linux_video_source_resolver_maps_legacy_even_slots_to_index0_nodes(self) -> None:
+        with patch("vision.camera.Path.exists", return_value=False):
+            with patch("vision.camera._linux_index0_video_indices", return_value=[1, 5, 7]):
+                self.assertEqual(1, _resolve_linux_video_index(0))
+                self.assertEqual(5, _resolve_linux_video_index(2))
+                self.assertEqual(7, _resolve_linux_video_index(4))
+                self.assertIsNone(_resolve_linux_video_index(6))
+
+    def test_linux_video_source_resolver_prefers_index0_for_legacy_even_slots(self) -> None:
+        with patch("vision.camera.Path.exists", return_value=True):
+            with patch("vision.camera._linux_index0_video_indices", return_value=[0, 3, 6]):
+                self.assertEqual(0, _resolve_linux_video_index(0))
+                self.assertEqual(3, _resolve_linux_video_index(2))
+                self.assertEqual(6, _resolve_linux_video_index(4))
 
     def test_capture_thread_describe_uses_safe_probe_when_capture_not_ready(self) -> None:
         capture = CaptureThread("classification_top", mkCameraConfig(device_index=1))

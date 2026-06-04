@@ -127,6 +127,85 @@ class HanddrawnRegionProvider:
         res = saved.get("resolution", [1920, 1080])
         self._saved_resolution = (int(res[0]), int(res[1]))
 
+    def _polygonMetadata(self, poly_key: str) -> dict[str, object] | None:
+        pts_list = self._polygons.get(poly_key)
+        if not pts_list or len(pts_list) < 3:
+            return None
+
+        src_w, src_h = self._savedResolutionForPolygonKey(poly_key)
+        label = (
+            "Ch2"
+            if poly_key == "second_channel"
+            else "Ch3"
+            if poly_key == "third_channel"
+            else "Cls"
+            if poly_key == "classification_channel"
+            else "Carousel"
+        )
+        angle_key = (
+            "second"
+            if poly_key == "second_channel"
+            else "third"
+            if poly_key == "third_channel"
+            else "classification_channel"
+            if poly_key == "classification_channel"
+            else None
+        )
+        channel_id = (
+            2
+            if poly_key == "second_channel"
+            else 3
+            if poly_key == "third_channel"
+            else 4
+            if poly_key == "classification_channel"
+            else None
+        )
+
+        metadata: dict[str, object] = {
+            "type": "channel_regions",
+            "category": "regions",
+            "poly_key": poly_key,
+            "label": label,
+            "coordinate_space": {"width": int(src_w), "height": int(src_h)},
+            "polygon": [[float(pt[0]), float(pt[1])] for pt in pts_list if len(pt) >= 2],
+        }
+
+        if angle_key is not None and channel_id is not None:
+            arc = parseSavedChannelArcZones(angle_key, self._channel_angles, self._arc_params)
+            drop_sections, exit_sections = zoneSectionsForChannel(
+                channel_id,
+                float(self._channel_angles.get(angle_key, 0.0)),
+                arc,
+            )
+            metadata.update(
+                {
+                    "channel_angle_deg": float(self._channel_angles.get(angle_key, 0.0)),
+                    "section_count": int(CHANNEL_SECTION_COUNT),
+                    "dropzone_sections": sorted(int(section) for section in drop_sections),
+                    "exit_sections": sorted(int(section) for section in exit_sections),
+                }
+            )
+            raw_arc = self._arc_params.get(angle_key) if isinstance(self._arc_params, dict) else None
+            if isinstance(raw_arc, dict):
+                metadata["arc_params"] = raw_arc
+
+        return metadata
+
+    def describeOverlayMetadata(self, poly_key: str | None = None) -> list[dict[str, object]]:
+        """Return static zone geometry for browser-side overlay rendering."""
+        keys = [poly_key] if poly_key is not None else [
+            "second_channel",
+            "third_channel",
+            "classification_channel",
+            "carousel",
+        ]
+        items: list[dict[str, object]] = []
+        for key in keys:
+            metadata = self._polygonMetadata(key)
+            if metadata is not None:
+                items.append(metadata)
+        return items
+
     def reloadPolygons(self) -> None:  # noqa: F811 - kept for compatibility
         """Reload polygon data from disk and clear cached regions."""
         self._loadPolygons()

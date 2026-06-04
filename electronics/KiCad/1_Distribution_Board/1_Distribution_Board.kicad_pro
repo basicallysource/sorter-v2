@@ -76,6 +76,10 @@
         [
           "clearance|57411100|43104000|ae23e8f7-0f40-49a1-949d-ecd60431e047|4cef77cb-8eb7-4440-8d55-78dbfa2be5b1",
           "This is a Solder Jumper location, its going to be tight. "
+        ],
+        [
+          "starved_thermal|66490000|97200000|446ab205-8072-4653-83cf-247eff39f2e3|727ca9a3-7df9-4086-bcf8-6918dd497201|F.Cu",
+          "Trace covers this"
         ]
       ],
       "meta": {

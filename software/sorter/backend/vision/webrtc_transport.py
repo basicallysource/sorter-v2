@@ -11,6 +11,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import json
+import logging
 import os
 import resource
 import threading
@@ -25,6 +26,56 @@ from .media_plane import (
     describe_media_plane,
     evaluate_transport_gates,
 )
+
+logger = logging.getLogger(__name__)
+
+# SorterOS exposes a USB-C direct-connect fallback network on usb0
+# (172.31.42.0/24). aioice gathers ICE host candidates from *every* interface,
+# so it advertises 172.31.42.x to LAN browsers that can never reach it — and,
+# worse, on this multi-homed box the device-side ICE agent emits connectivity
+# checks *from* that interface's source address toward the LAN peer, which
+# reverse-path filtering / asymmetric routing drops. The result is that ICE
+# never nominates a working pair even though a reachable LAN candidate exists.
+# Restrict host-candidate gathering to routable IPv4 interfaces so only the LAN
+# (and its server-reflexive) candidates are offered.
+_ICE_EXCLUDED_NETWORKS = ("172.31.42.0/24",)
+
+
+def _install_ice_interface_policy() -> None:
+    import ipaddress
+
+    try:
+        from aioice import ice as _aioice_ice
+    except Exception:  # pragma: no cover - aioice always present with aiortc
+        return
+    original = getattr(_aioice_ice, "get_host_addresses", None)
+    if original is None or getattr(original, "_sorter_ice_filtered", False):
+        return
+
+    excluded = [ipaddress.ip_network(net) for net in _ICE_EXCLUDED_NETWORKS]
+
+    def _filtered(use_ipv4: bool, use_ipv6: bool) -> list[str]:
+        kept: list[str] = []
+        for addr in original(use_ipv4=use_ipv4, use_ipv6=use_ipv6):
+            try:
+                ip = ipaddress.ip_address(addr)
+            except ValueError:
+                continue
+            # IPv6 ULA/link-local candidates only add dead pairs for a LAN
+            # IPv4 browser; keep ICE to the routable IPv4 LAN.
+            if ip.version != 4:
+                continue
+            if ip.is_link_local or any(ip in net for net in excluded):
+                continue
+            kept.append(addr)
+        return kept
+
+    _filtered._sorter_ice_filtered = True  # type: ignore[attr-defined]
+    _aioice_ice.get_host_addresses = _filtered
+    logger.info("ICE host-candidate policy installed (excluding %s)", _ICE_EXCLUDED_NETWORKS)
+
+
+_install_ice_interface_policy()
 
 
 class WebRtcTransportError(RuntimeError):

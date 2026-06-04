@@ -40,6 +40,18 @@ class GStreamerTargetRuntimeError(RuntimeError):
     pass
 
 
+class GStreamerTargetRestartingError(GStreamerTargetRuntimeError):
+    """The pipeline is (re)building and has no H.264 sample *yet*.
+
+    Distinct from the base error so the WebRTC fanout can treat a camera-switch
+    transient as "wait and retry" instead of a fatal stream failure that tears
+    the peer down. A genuine encoder stall (active pipeline, silent beyond the
+    watchdog) still raises the base ``GStreamerTargetRuntimeError``.
+    """
+
+    pass
+
+
 @dataclass(frozen=True)
 class GStreamerRuntimeModules:
     Gst: Any
@@ -153,6 +165,18 @@ class GStreamerTargetCaptureRuntime:
         self._active = False
         self._packet_index = 0
         self._last_error: str | None = None
+        # Bus watch + liveness tracking so a post-PLAYING failure stops being
+        # silent and "rebuilding" can be told apart from "active but dead".
+        self._bus: Any | None = None
+        self._bus_thread: threading.Thread | None = None
+        self._bus_stop = threading.Event()
+        self._active_since: float | None = None
+        self._last_h264_at: float | None = None
+        self._frames_since_start = 0
+        # How long the pipeline may be active yet silent before we call it dead
+        # rather than merely restarting. A camera remap rebuilds in ~1-3s here,
+        # so this must comfortably exceed that.
+        self._h264_watchdog_s = 4.0
 
     @property
     def active(self) -> bool:
@@ -232,26 +256,103 @@ class GStreamerTargetCaptureRuntime:
             self._h264_sink = h264_sink
             self._active = True
             self._last_error = None
+            self._active_since = time.monotonic()
+            self._last_h264_at = None
+            self._frames_since_start = 0
+
+            # Watch the pipeline bus on a daemon thread (polled, so it does not
+            # depend on a running GLib main loop — the appsink callbacks fire on
+            # the streaming thread regardless). An ERROR/EOS after PLAYING flips
+            # us inactive with a real reason instead of surfacing only as the
+            # H.264 read timeout. Guarded so a pipeline double without get_bus
+            # (or an environment without a real bus) simply skips the watch.
+            get_bus = getattr(pipeline, "get_bus", None)
+            bus = get_bus() if callable(get_bus) else None
+            if bus is not None:
+                self._bus = bus
+                self._bus_stop.clear()
+                self._bus_thread = threading.Thread(
+                    target=self._bus_poll_loop,
+                    args=(bus, Gst),
+                    name=f"gst-bus-{self.config.raw_sink_name}",
+                    daemon=True,
+                )
+                self._bus_thread.start()
 
     def stop(self) -> None:
         with self._lock:
             pipeline = self._pipeline
             modules = self._modules
+            bus_thread = self._bus_thread
+            self._bus_stop.set()
             self._active = False
             self._pipeline = None
             self._raw_sink = None
             self._h264_sink = None
+            self._bus = None
+            self._bus_thread = None
             if pipeline is not None and modules is not None:
                 try:
                     pipeline.set_state(modules.Gst.State.NULL)
                 except Exception as exc:
                     self._last_error = str(exc)
+        # Join outside the lock — the poll loop never takes _lock, but it can be
+        # parked in a 100ms timed_pop, so bound the wait.
+        if bus_thread is not None and bus_thread.is_alive():
+            bus_thread.join(timeout=1.0)
+
+    def _bus_poll_loop(self, bus: Any, Gst: Any) -> None:
+        """Drain ERROR/EOS off the pipeline bus so async failures are visible.
+
+        Polled (not add_signal_watch) so it works without a running GLib main
+        loop. On a hard message it records the reason and flips the runtime
+        inactive, which lets the H.264 read distinguish a real failure from a
+        warm-up/remap transient instead of always raising the 5s timeout.
+        """
+        msg_types = Gst.MessageType.ERROR | Gst.MessageType.EOS
+        poll_ns = 100 * Gst.MSECOND
+        while not self._bus_stop.is_set():
+            try:
+                message = bus.timed_pop_filtered(poll_ns, msg_types)
+            except Exception:
+                break
+            if message is None:
+                continue
+            if message.type == Gst.MessageType.ERROR:
+                err, debug = message.parse_error()
+                detail = getattr(err, "message", None) or str(err)
+                self._last_error = f"{detail} ({debug})" if debug else str(detail)
+                self._active = False
+            elif message.type == Gst.MessageType.EOS:
+                self._last_error = "Target pipeline reached EOS unexpectedly."
+                self._active = False
 
     def _next_h264_frame_blocking(self) -> EncodedH264Frame:
+        # A bus-reported error is a real failure — surface it immediately so the
+        # caller tears down rather than spinning.
+        if self._last_error is not None:
+            raise GStreamerTargetRuntimeError(self._last_error)
+        if not self._active:
+            raise GStreamerTargetRestartingError("Target pipeline is not active (rebuilding).")
         try:
-            return self._h264_queue.get(timeout=5.0)
+            return self._h264_queue.get(timeout=1.0)
         except queue.Empty as exc:
-            raise GStreamerTargetRuntimeError("Timed out waiting for target H.264 sample.") from exc
+            if self._last_error is not None:
+                raise GStreamerTargetRuntimeError(self._last_error) from exc
+            if not self._active:
+                raise GStreamerTargetRestartingError(
+                    "Target pipeline went inactive while waiting."
+                ) from exc
+            # Active but silent: a transient (warm-up or mid-remap) until it has
+            # been silent longer than a healthy encoder ever is — only then fatal.
+            reference = self._last_h264_at or self._active_since or time.monotonic()
+            if time.monotonic() - reference >= self._h264_watchdog_s:
+                raise GStreamerTargetRuntimeError(
+                    "Target pipeline active but produced no H.264 within the watchdog window."
+                ) from exc
+            raise GStreamerTargetRestartingError(
+                "Target pipeline active but momentarily silent; retrying."
+            ) from exc
 
     def _on_raw_sample(self, sink: Any) -> Any:
         flow_ok = self._flow_return("OK")
@@ -279,6 +380,8 @@ class GStreamerTargetCaptureRuntime:
                 except queue.Empty:
                     break
             self._h264_queue.put_nowait(encoded)
+            self._frames_since_start += 1
+            self._last_h264_at = time.monotonic()
             return flow_ok
         except Exception as exc:
             self._last_error = str(exc)

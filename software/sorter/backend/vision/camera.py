@@ -1250,14 +1250,25 @@ class CaptureThread:
         }
 
     async def recv_encoded_h264(self) -> Any:
-        deadline = time.time() + 5.0
-        while time.time() < deadline and not self._stop_event.is_set():
+        # During a camera remap the runtime is briefly torn down and rebuilt.
+        # Report that as a *restarting* transient (not a hard failure) so the
+        # WebRTC fanout waits and resumes instead of tearing the peer down. The
+        # fanout bounds how long it tolerates restarting before giving up, so we
+        # only need a short per-call wait here.
+        from .gstreamer_target_runtime import GStreamerTargetRestartingError
+
+        deadline = time.time() + 1.5
+        while not self._stop_event.is_set():
             with self._cap_lock:
                 runtime = self._gst_runtime
             if runtime is not None and getattr(runtime, "active", False):
                 return await runtime.recv_encoded_h264()
+            if time.time() >= deadline:
+                raise GStreamerTargetRestartingError(
+                    f"CaptureThread[{self.name}] GStreamer H.264 source is (re)starting."
+                )
             await asyncio.sleep(0.02)
-        raise RuntimeError(f"CaptureThread[{self.name}] has no active GStreamer H.264 source.")
+        raise RuntimeError(f"CaptureThread[{self.name}] is stopping; no GStreamer H.264 source.")
 
     def describeEncodedH264Source(self) -> dict[str, Any]:
         with self._cap_lock:

@@ -309,11 +309,7 @@ class CameraWebRtcSessionRegistry:
             if callable(close):
                 close()
         for peer in peers:
-            close = getattr(peer, "close", None)
-            if callable(close):
-                result = close()
-                if inspect.isawaitable(result):
-                    await result
+            await _close_peer(peer)
         for source in sources:
             await _stop_hardware_source(source)
 
@@ -708,6 +704,11 @@ class CameraWebRtcSessionRegistry:
     ) -> dict[str, Any]:
         from aiortc import RTCPeerConnection, RTCRtpSender, RTCSessionDescription
 
+        # Belt-and-suspenders against churn: drop any already-dead peers for this
+        # source and cap how many can coexist, so a rapidly-retrying client can
+        # never pile up zombie encoders even if a teardown is briefly delayed.
+        await self._reap_dead_peers(physical_source)
+
         peer = RTCPeerConnection()
         if not hasattr(source, "subscribe"):
             await peer.close()
@@ -851,6 +852,32 @@ class CameraWebRtcSessionRegistry:
         with self._lock:
             return list(self._metadata_tasks_by_peer.pop(peer, set()))
 
+    async def _reap_dead_peers(self, physical_source: str, *, max_peers: int = 4) -> None:
+        """Drop already-dead peers for a source and cap coexisting peers.
+
+        Defensive bound on top of the per-peer ``_close_peer`` teardown: enforces
+        the one-active-encoder-per-source invariant under client churn so a
+        transient stall + retry storm cannot accumulate zombies.
+        """
+        dead_states = {"failed", "closed", "disconnected"}
+        with self._lock:
+            peers = list(self._peers_by_source.get(physical_source, set()))
+        for peer in peers:
+            if getattr(peer, "connectionState", None) in dead_states:
+                await self._drop_peer(physical_source, peer)
+        with self._lock:
+            remaining = list(self._peers_by_source.get(physical_source, set()))
+        # Still over budget → evict not-yet-connected peers (never an
+        # established viewer) until within the cap.
+        if len(remaining) > max_peers:
+            evictable = [
+                peer
+                for peer in remaining
+                if getattr(peer, "connectionState", None) != "connected"
+            ]
+            for peer in evictable[: len(remaining) - max_peers]:
+                await self._drop_peer(physical_source, peer)
+
     async def _drop_peer(self, physical_source: str, peer: Any) -> None:
         source_to_stop = None
         metadata_tasks: list[asyncio.Task[Any]]
@@ -880,6 +907,7 @@ class CameraWebRtcSessionRegistry:
         await _cancel_tasks(metadata_tasks)
         if source_to_stop is not None:
             await _stop_hardware_source(source_to_stop)
+        await _close_peer(peer)
 
 
 async def _wait_for_ice_gathering_complete(peer: Any, timeout_s: float = 2.0) -> None:
@@ -895,6 +923,33 @@ async def _wait_for_ice_gathering_complete(peer: Any, timeout_s: float = 2.0) ->
     try:
         await asyncio.wait_for(event.wait(), timeout=timeout_s)
     except asyncio.TimeoutError:
+        pass
+
+
+async def _close_peer(peer: Any) -> None:
+    """Close an RTCPeerConnection once, idempotently.
+
+    Dropping a peer must actually close it so its ICE/DTLS transport ends
+    immediately; otherwise the connection lingers ~30-60s until ICE times out,
+    and a rapidly-retrying client piles up zombie peers. Guarded so the
+    track-stop and connection-state-change paths can't double-close.
+    """
+    if peer is None:
+        return
+    if getattr(peer, "_sorter_closing", False):
+        return
+    try:
+        peer._sorter_closing = True
+    except Exception:
+        pass
+    close = getattr(peer, "close", None)
+    if not callable(close):
+        return
+    try:
+        result = close()
+        if inspect.isawaitable(result):
+            await result
+    except Exception:
         pass
 
 

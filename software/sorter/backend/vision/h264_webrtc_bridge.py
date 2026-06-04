@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 import logging
+import time
 from dataclasses import dataclass
 from fractions import Fraction
 from typing import Any, Protocol
@@ -186,12 +187,38 @@ class HardwareH264SourceFanout:
                 await result
 
     async def _read_loop(self) -> None:
+        # Imported lazily to avoid a circular import (gstreamer_target_runtime
+        # imports EncodedH264Frame from this module).
+        from .gstreamer_target_runtime import (
+            GStreamerTargetRestartingError,
+            GStreamerTargetRuntimeError,
+        )
+
+        # While the capture pipeline rebuilds (camera remap), recv raises a
+        # *restarting* transient. Tolerate it so the live peer survives the
+        # switch and resumes — only give up if the source stays down past this
+        # grace window. This is what stops a routine camera switch from tearing
+        # every WebRTC peer down (and triggering the client retry storm).
+        restart_grace_s = 10.0
+        restarting_since: float | None = None
         try:
             while not self._stopped:
                 if not self._subscriptions:
                     await self._subscriber_event.wait()
                     continue
-                item = await _maybe_await(self.source.recv_encoded_h264())
+                try:
+                    item = await _maybe_await(self.source.recv_encoded_h264())
+                except GStreamerTargetRestartingError:
+                    now = time.monotonic()
+                    if restarting_since is None:
+                        restarting_since = now
+                    elif now - restarting_since >= restart_grace_s:
+                        raise GStreamerTargetRuntimeError(
+                            "Hardware H.264 source did not recover within the restart grace window."
+                        )
+                    await asyncio.sleep(0.15)
+                    continue
+                restarting_since = None
                 frame = clone_hardware_h264_frame(item)
                 for subscription in list(self._subscriptions):
                     subscription._push(frame)
@@ -200,6 +227,10 @@ class HardwareH264SourceFanout:
             raise
         except Exception as exc:
             log.exception("Hardware H.264 fanout reader stopped after upstream error: %s", exc)
+            # Genuine, non-transient failure: mark stopped so new subscriptions
+            # get a clear error instead of spawning another doomed reader, then
+            # poison the current subscribers so their tracks end cleanly.
+            self._stopped = True
             for subscription in list(self._subscriptions):
                 subscription._push(exc)
 

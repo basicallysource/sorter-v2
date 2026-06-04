@@ -236,6 +236,7 @@ class SharedCameraWebrtcSession {
 	private metadataTimestamp: number | null = null;
 	private abortController: AbortController | null = null;
 	private retryTimer: ReturnType<typeof setTimeout> | null = null;
+	private retryAttempt = 0;
 	private negotiationInFlight = false;
 	private closed = false;
 
@@ -372,6 +373,9 @@ class SharedCameraWebrtcSession {
 		};
 		peer.ontrack = (event) => {
 			const stream = event.streams[0] ?? new MediaStream([event.track]);
+			// A live track means the path recovered — reset the backoff so the
+			// next transient (e.g. a camera switch) retries promptly again.
+			this.retryAttempt = 0;
 			this.setState({
 				status: 'connected',
 				targetReady,
@@ -494,10 +498,18 @@ class SharedCameraWebrtcSession {
 
 	private scheduleRetry(delayMs: number) {
 		if (this.closed || this.retryTimer !== null || this.subscribers.size === 0) return;
+		// Capped exponential backoff with jitter. ``delayMs`` is the floor for
+		// this failure class (e.g. 10s for 'unavailable'); repeated failures grow
+		// it toward a 30s cap so a persistent transient cannot become a retry
+		// storm that outpaces server-side peer teardown (the 0->35+ peer leak).
+		const attempt = this.retryAttempt;
+		this.retryAttempt = Math.min(attempt + 1, 8);
+		const backoff = Math.min(30000, delayMs * Math.pow(2, attempt));
+		const jitter = Math.random() * 0.3 * backoff;
 		this.retryTimer = setTimeout(() => {
 			this.retryTimer = null;
 			this.start();
-		}, delayMs);
+		}, Math.round(backoff + jitter));
 	}
 
 	close() {

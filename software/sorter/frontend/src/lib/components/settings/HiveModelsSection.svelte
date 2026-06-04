@@ -17,6 +17,8 @@
 		id: string;
 		slug: string;
 		version: number;
+		codename?: string | null;
+		codename_color?: string | null;
 		name: string;
 		description: string | null;
 		model_family: string;
@@ -55,6 +57,8 @@
 		size_bytes: number;
 		downloaded_at: string | null;
 		trained_at: string | null;
+		codename?: string | null;
+		codename_color?: string | null;
 		path: string;
 		bundled?: boolean;
 		compatible?: boolean;
@@ -610,6 +614,30 @@
 		if (!sha) return '—';
 		return `${sha.slice(0, 12)}…`;
 	}
+
+	function safeCodenameColor(color: string | null | undefined): string | null {
+		if (!color) return null;
+		const trimmed = color.trim();
+		return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : null;
+	}
+
+	function codenameDotStyle(color: string | null | undefined): string {
+		const safe = safeCodenameColor(color) ?? 'var(--color-primary)';
+		return `background-color: ${safe};`;
+	}
+
+	// The model FORMAT (rknn/ncnn/onnx/…) is the only thing that distinguishes
+	// the multiple installed variants of one model — surface it as a prominent
+	// chip, with a primary accent for the NPU/accelerator runtimes so the
+	// operator can tell at a glance which one runs off-CPU.
+	function runtimeLabel(runtime: string | null | undefined): string {
+		return (runtime ?? '').toUpperCase() || '—';
+	}
+
+	function isAcceleratedRuntime(runtime: string | null | undefined): boolean {
+		const r = (runtime ?? '').toLowerCase();
+		return r.includes('rknn') || r.includes('hef') || r.includes('hailo');
+	}
 </script>
 
 <div class="grid gap-5">
@@ -776,7 +804,18 @@
 							>
 								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-2">
-										{#if browseHref}
+										{#if model.codename}
+											<span
+												class="inline-flex items-center gap-1.5 text-sm font-semibold text-text"
+												title={`Hive codename: ${model.codename}`}
+											>
+												<span
+													class="inline-block h-2.5 w-2.5"
+													style={codenameDotStyle(model.codename_color)}
+												></span>
+												{model.codename}
+											</span>
+										{:else if browseHref}
 											<a
 												href={browseHref}
 												target="_blank"
@@ -797,6 +836,22 @@
 										{/if}
 									</div>
 									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+										{#if model.codename}
+											{#if browseHref}
+												<a
+													href={browseHref}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="font-mono text-text-muted hover:text-primary hover:underline"
+													title={`Open in source Hive: ${browseHref}`}
+												>
+													{model.name}
+												</a>
+											{:else}
+												<span class="font-mono">{model.name}</span>
+											{/if}
+											<span aria-hidden="true">·</span>
+										{/if}
 										<span>{model.model_family}</span>
 										<span aria-hidden="true">·</span>
 										<span>v{model.version}</span>
@@ -925,7 +980,18 @@
 								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 									<div class="min-w-0 flex-1">
 										<div class="flex flex-wrap items-center gap-2">
-											{#if detailHref}
+											{#if entry.codename}
+												<span
+													class="inline-flex items-center gap-1.5 text-sm font-semibold text-text"
+													title={`Hive codename: ${entry.codename}`}
+												>
+													<span
+														class="inline-block h-2.5 w-2.5"
+														style={codenameDotStyle(entry.codename_color)}
+													></span>
+													{entry.codename}
+												</span>
+											{:else if detailHref}
 												<a
 													href={detailHref}
 													target="_blank"
@@ -940,6 +1006,18 @@
 													{entry.name}
 												</span>
 											{/if}
+											<span
+												class={`inline-flex items-center px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${
+													isAcceleratedRuntime(entry.variant_runtime)
+														? 'border border-primary text-primary'
+														: 'border border-border text-text-muted'
+												}`}
+												title={isAcceleratedRuntime(entry.variant_runtime)
+													? `${runtimeLabel(entry.variant_runtime)} — runs on the NPU/accelerator`
+													: `${runtimeLabel(entry.variant_runtime)} — CPU runtime`}
+											>
+												{runtimeLabel(entry.variant_runtime)}
+											</span>
 											{#if entry.bundled}
 												<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
 													Bundled
@@ -954,9 +1032,23 @@
 											{/if}
 										</div>
 										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+											{#if entry.codename}
+												{#if detailHref}
+													<a
+														href={detailHref}
+														target="_blank"
+														rel="noopener noreferrer"
+														class="font-mono text-text-muted hover:text-primary hover:underline"
+														title={`Open in source Hive: ${detailHref}`}
+													>
+														{entry.name}
+													</a>
+												{:else}
+													<span class="font-mono">{entry.name}</span>
+												{/if}
+												<span aria-hidden="true">·</span>
+											{/if}
 											<span>{entry.model_family}</span>
-											<span aria-hidden="true">·</span>
-											<span>{entry.variant_runtime}</span>
 											<span aria-hidden="true">·</span>
 											<span>{formatSize(entry.size_bytes)}</span>
 											{#if ageIso}

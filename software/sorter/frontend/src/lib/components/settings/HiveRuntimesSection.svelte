@@ -460,25 +460,30 @@
 										{@const rs = resultsFor(opt)}
 										{#each rs as r (`${r.local_id}@${r.threads}`)}
 											<div
-												class={`flex items-center justify-between gap-2 border px-2 py-1 text-sm ${
+												class={`flex flex-col gap-1 border px-2 py-1 text-sm ${
 													r.error ? 'border-danger bg-danger/10 text-danger' : fpsClass(r.fps)
 												}`}
 											>
-												<div class="flex min-w-0 flex-col">
-													<span class="truncate text-xs opacity-70" title={r.model_label}>
-														{r.model_label}
-													</span>
-													<span class="opacity-80">
-														{r.threads} thread{r.threads === 1 ? '' : 's'}
-													</span>
+												<div class="flex items-center justify-between gap-2">
+													<div class="flex min-w-0 flex-col">
+														<span class="truncate text-xs opacity-70" title={r.model_label}>
+															{r.model_label}
+														</span>
+														<span class="opacity-80">
+															{r.threads} thread{r.threads === 1 ? '' : 's'}
+														</span>
+													</div>
+													{#if r.error}
+														<span class="font-medium">failed</span>
+													{:else}
+														<span class="font-mono font-medium">
+															{r.fps.toFixed(1)} fps
+															<span class="opacity-70">· {r.mean_ms.toFixed(1)} ms</span>
+														</span>
+													{/if}
 												</div>
 												{#if r.error}
-													<span title={r.error}>failed</span>
-												{:else}
-													<span class="font-mono font-medium">
-														{r.fps.toFixed(1)} fps
-														<span class="opacity-70">· {r.mean_ms.toFixed(1)} ms</span>
-													</span>
+													<span class="break-words text-sm opacity-90">{r.error}</span>
 												{/if}
 											</div>
 										{/each}

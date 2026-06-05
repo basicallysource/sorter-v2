@@ -546,17 +546,29 @@
 		}
 	});
 
+	// Re-run the WebRTC session effect ONLY when the session identity actually
+	// changes — not on every reactive churn of effectiveBaseUrl()'s inputs. A
+	// $derived propagates only when its VALUE changes, so if base URL / role /
+	// epoch resolve to the same key the effect does not re-run and does not tear
+	// the session down. Tearing it down mid-handshake was calling closePeer(),
+	// which aborts the in-flight /webrtc/offer fetch — so every offer was
+	// aborted ~80-470ms in and the feed stayed stuck on "Connecting camera".
+	const webrtcSessionKey = $derived(
+		webrtcCandidate && typeof fetch !== 'undefined'
+			? `${effectiveBaseUrl()}\n${camera}\n${String(ctx.machine?.cameraFeedEpoch ?? 0)}`
+			: null
+	);
+
 	$effect(() => {
-		if (!webrtcCandidate || typeof fetch === 'undefined') {
+		const key = webrtcSessionKey;
+		if (key === null) {
 			webrtcTargetReady = false;
 			webrtcBlockers = [];
 			webrtcStatus = 'idle';
 			untrack(() => releaseWebrtcSession());
 			return;
 		}
-		const httpBase = effectiveBaseUrl();
-		const role = camera;
-		const streamEpoch = String(ctx.machine?.cameraFeedEpoch ?? 0);
+		const [httpBase, role, streamEpoch] = key.split('\n');
 		untrack(() => releaseWebrtcSession());
 		const lease = acquireCameraWebrtcSession(
 			{ baseUrl: httpBase, camera: role, streamEpoch },

@@ -78,6 +78,33 @@ def _install_ice_interface_policy() -> None:
 _install_ice_interface_policy()
 
 
+# describe_media_plane() probes the camera service / capabilities and is called
+# on EVERY /webrtc/sessions poll and every offer. Under WebRTC churn (many peers
+# retrying) that is a storm of expensive, event-loop-blocking calls that drives
+# the box into overload — requests then time out and offers 409, which makes the
+# client retry harder (a death spiral). Memoize it for a short window and
+# serialize the compute so at most one runs per TTL instead of one per request.
+_MEDIA_PLANE_TTL_S = 1.0
+_media_plane_cache_lock = threading.Lock()
+_media_plane_cache: dict[str, Any] = {"at": -1.0, "key": None, "value": None}
+
+
+def _describe_media_plane_cached(camera_service: Any) -> dict[str, Any]:
+    now = time.monotonic()
+    key = id(camera_service)
+    with _media_plane_cache_lock:
+        cached = _media_plane_cache
+        if (
+            cached["value"] is not None
+            and cached["key"] == key
+            and now - cached["at"] < _MEDIA_PLANE_TTL_S
+        ):
+            return cached["value"]
+        value = describe_media_plane(camera_service)
+        _media_plane_cache.update(at=time.monotonic(), key=key, value=value)
+        return value
+
+
 class WebRtcTransportError(RuntimeError):
     def __init__(
         self,
@@ -436,7 +463,7 @@ class CameraWebRtcSessionRegistry:
         *,
         media_plane_payload: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        media_plane = media_plane_payload or describe_media_plane(camera_service)
+        media_plane = media_plane_payload or _describe_media_plane_cached(camera_service)
         evaluation = evaluate_transport_gates(media_plane)
 
         sessions: list[dict[str, Any]] = []
@@ -554,7 +581,7 @@ class CameraWebRtcSessionRegistry:
                 f"Camera feed '{role}' has no assigned physical source.",
             )
 
-        media_plane = media_plane_payload or describe_media_plane(camera_service)
+        media_plane = media_plane_payload or _describe_media_plane_cached(camera_service)
         evaluation = evaluate_transport_gates(media_plane)
         session_roles: list[str] = []
         for source in media_plane.get("physical_sources", []):

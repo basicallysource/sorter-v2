@@ -8,6 +8,7 @@ model artifact inside a ``hive-<id>/`` directory.
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,54 @@ from .base import BaseProcessor
 
 
 log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Inference device policy
+# ---------------------------------------------------------------------------
+# Detection inference must run on the NPU/accelerator by default. CPU runtimes
+# (onnx/ncnn/pytorch) quietly turning up — e.g. an overlay detector resolving to
+# an onnx model variant — saturate the CPU and starve the live pipeline (the NPU
+# sits idle while the CPU melts). So CPU inference is an explicit, warned
+# exception: it is refused unless SORTER_ALLOW_CPU_INFERENCE is set.
+_CPU_INFERENCE_RUNTIMES = frozenset({"onnx", "ncnn", "pytorch", "torch"})
+
+
+class CpuInferenceForbiddenError(RuntimeError):
+    """A CPU inference runtime was requested without explicit opt-in."""
+
+
+def cpu_inference_allowed() -> bool:
+    return os.environ.get("SORTER_ALLOW_CPU_INFERENCE", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def _enforce_inference_device_policy(runtime: str, model_path: Path) -> None:
+    if runtime not in _CPU_INFERENCE_RUNTIMES:
+        return
+    if cpu_inference_allowed():
+        log.warning(
+            "CPU inference ENABLED (SORTER_ALLOW_CPU_INFERENCE) for runtime=%s model=%s — "
+            "this loads the CPU and is meant to be a deliberate exception, not the norm.",
+            runtime,
+            model_path,
+        )
+        return
+    log.error(
+        "Refusing CPU inference for runtime=%s model=%s. Detection must run on the NPU "
+        "(rknn). Assign an rknn model variant, or set SORTER_ALLOW_CPU_INFERENCE=1 to "
+        "explicitly allow CPU inference.",
+        runtime,
+        model_path,
+    )
+    raise CpuInferenceForbiddenError(
+        f"CPU inference refused for runtime={runtime!r} (model={model_path}); "
+        "use an NPU (rknn) variant or set SORTER_ALLOW_CPU_INFERENCE=1."
+    )
 
 
 def create_processor(
@@ -29,6 +78,9 @@ def create_processor(
 ) -> BaseProcessor:
     family = (model_family or "").lower()
     runtime = (runtime or "onnx").lower()
+
+    # NPU by default; CPU inference only as an explicitly-enabled exception.
+    _enforce_inference_device_policy(runtime, model_path)
 
     if runtime == "onnx":
         from .onnx import OnnxNanodetProcessor, OnnxYoloProcessor

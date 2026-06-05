@@ -263,7 +263,10 @@ class SharedCameraWebrtcSession {
 	subscribe(subscriber: CameraWebrtcSubscriber) {
 		this.subscribers.add(subscriber);
 		notifySubscriber(subscriber, this.state);
-		if (this.state.status === 'idle' && !this.negotiationInFlight) {
+		// Kick a fresh subscriber's session when it is idle OR stuck in a
+		// terminal failure — so attaching to an already-errored shared session
+		// recovers immediately instead of waiting out the retry timer.
+		if (this.canStart && !this.negotiationInFlight) {
 			this.start();
 		}
 	}
@@ -286,8 +289,28 @@ class SharedCameraWebrtcSession {
 		}
 	}
 
+	// A session may (re)negotiate only from a terminal/idle state. Crucially it
+	// must NOT start while a peer is already 'connected' or mid-'connecting':
+	// a stale retry timer firing there would re-enter negotiate(), which clears
+	// the live stream and calls closePeer() — tearing down the very peer that is
+	// streaming H.264, right as the track would render. (checking/connecting are
+	// also covered by negotiationInFlight during active negotiation, but the
+	// window between negotiate() resolving and ontrack firing is not.)
+	private get canStart(): boolean {
+		return (
+			this.state.status === 'idle' ||
+			this.state.status === 'error' ||
+			this.state.status === 'unavailable'
+		);
+	}
+
 	private start() {
-		if (this.closed || this.negotiationInFlight || this.subscribers.size === 0) return;
+		if (this.closed || this.negotiationInFlight || this.subscribers.size === 0 || !this.canStart)
+			return;
+		if (this.retryTimer !== null) {
+			clearTimeout(this.retryTimer);
+			this.retryTimer = null;
+		}
 		this.negotiationInFlight = true;
 		void this.negotiate()
 			.catch((err) => {

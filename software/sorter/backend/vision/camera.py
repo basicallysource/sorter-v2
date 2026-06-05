@@ -1215,6 +1215,36 @@ class CaptureThread:
             describe = getattr(gst_runtime, "describe_capture_backend", None)
             if callable(describe):
                 return describe()
+        # The integrated GStreamer/MPP runtime is briefly absent while the
+        # capture pipeline (re)builds — a camera remap or a transient read-fail
+        # reopen under load. Report the CONFIGURED target architecture
+        # (compliant, but inactive) in that window instead of the OpenCV
+        # fallback, so the WebRTC compliance gate (source_pipeline_target_
+        # compliant) does not flap to non-compliant on every capture hiccup and
+        # bounce offers with 409. The H.264 reader tolerates the gap and resumes
+        # once the runtime is back.
+        if self._should_use_gstreamer_mpp_capture(source, is_url=is_url, fourcc=fourcc):
+            from .gstreamer_target_capture import TARGET_PIPELINE_NAME
+
+            return {
+                "implementation": TARGET_PIPELINE_NAME,
+                "source": source,
+                "requested_mode": {
+                    "width": int(width),
+                    "height": int(height),
+                    "fps": int(fps),
+                    "fourcc": fourcc,
+                },
+                "owns_capture_device": source is not None,
+                "single_capture_owner": True,
+                "raw_ring_branch": True,
+                "h264_webrtc_branch": True,
+                "hardware_scale_convert": False,
+                "zero_copy_dmabuf": True,
+                "target_compliant": True,
+                "active": False,
+                "reason": "Integrated GStreamer v4l2src/MPP tee target backend (pipeline (re)building).",
+            }
         if source is None:
             implementation = "unassigned"
         elif is_url:

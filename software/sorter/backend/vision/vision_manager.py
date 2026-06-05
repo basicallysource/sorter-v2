@@ -811,6 +811,14 @@ class VisionManager:
         return float(detection.score)
 
     def getFeederDetectionAlgorithm(self, role: str | None = None) -> FeederDetectionAlgorithm:
+        # In the C4 (classification-channel) setup the carousel role IS the C4
+        # station, whose model the operator activates under the carousel scope
+        # ([detection.carousel], e.g. via "Classification C-Channel (C4)" in
+        # Settings → Models). Resolve it there instead of the feeder/carousel
+        # role config — otherwise the C4 overlay/tracker silently falls back to
+        # the bundled default model rather than the activated one.
+        if role == "carousel" and self._usesClassificationChannelSetup():
+            return self.getCarouselDetectionAlgorithm()
         if role in self._feederTrackerRoles():
             return self._normalizeFeederDetectionAlgorithm(
                 self._feeder_detection_algorithm_by_role.get(role)
@@ -2394,6 +2402,10 @@ class VisionManager:
             )
         except Exception as exc:
             self.gc.logger.warning("Failed to build local model processor %s: %s", algorithm_id, exc)
+            # Cache the failure so the overlay/render path doesn't re-attempt the
+            # build (and re-log) on every frame — e.g. a CPU-inference refusal is
+            # permanent until the model/config changes and the process restarts.
+            self._hive_ml_processors[algorithm_id] = False
             return None
         self._hive_ml_processors[algorithm_id] = processor
         return processor

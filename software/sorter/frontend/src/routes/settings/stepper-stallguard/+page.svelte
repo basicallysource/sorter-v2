@@ -39,7 +39,7 @@
 	let error = $state<string | null>(null);
 	let notice = $state<string | null>(null);
 	let showCs = $state(false);
-	let showTstep = $state(false);
+	let showTstep = $state(true);
 
 	// Sweep form
 	type Profile = 'constant' | 'chute_random' | 'pulsed';
@@ -75,6 +75,7 @@
 	type Suggestion = {
 		stepper: string;
 		cruise_tstep: number;
+		measured_cruise_tstep: number | null;
 		unloaded_floor: number | null;
 		loaded_dip: number | null;
 		trigger_level: number | null;
@@ -532,10 +533,10 @@
 					</div>
 					<div class="mb-3 flex items-center gap-4 text-sm">
 						<label class="flex items-center gap-2 text-text">
-							<input type="checkbox" bind:checked={showCs} class="accent-warning" /> CS_ACTUAL (norm.)
+							<input type="checkbox" bind:checked={showCs} class="accent-warning" /> CS_ACTUAL panel
 						</label>
 						<label class="flex items-center gap-2 text-text">
-							<input type="checkbox" bind:checked={showTstep} class="accent-success" /> TSTEP (norm.)
+							<input type="checkbox" bind:checked={showTstep} class="accent-success" /> TSTEP panel
 						</label>
 					</div>
 
@@ -546,6 +547,7 @@
 							{points}
 							triggerLevel={triggerLevel}
 							sgMean={selectedRun.sg_mean}
+							cruiseTstep={selectedRun.params?.cruise_tstep ?? null}
 							{showCs}
 							{showTstep}
 						/>
@@ -563,12 +565,19 @@
 								<span class="text-text">{suggestion.loaded_dip ?? '—'}</span>
 								<span class="text-text-muted">→ Trigger ≤:</span>
 								<span class="text-text">{suggestion.trigger_level ?? '—'}</span>
-								<span class="text-text-muted">Cruise TSTEP:</span>
+								<span class="text-text-muted">→ SGTHRS:</span>
+								<span class="text-text">{suggestion.suggested_sgthrs ?? '—'}</span>
+							</div>
+							<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+								<span class="text-text-muted">Measured cruise TSTEP:</span>
+								<span class="text-text">{suggestion.measured_cruise_tstep ?? '—'}</span>
+								<span class="text-text-muted">→ Gate TCOOLTHRS:</span>
 								<span class="text-text">{suggestion.cruise_tstep}</span>
 							</div>
 							<div class="mt-1 text-sm text-text-muted">
-								Geometric midpoint of the measured gap, from the latest unloaded + loaded test for this
-								motor.
+								SGTHRS = geometric midpoint of the measured floor/dip gap. TCOOLTHRS = measured
+								cruise TSTEP (fastest sustained) ×1.75, so the gate stays open through cruise but off
+								during accel/decel. Both written to machine.toml on Save — nothing assumed.
 							</div>
 							{#if !suggestion.enough_data}
 								<Alert variant="warning">{suggestion.detail}</Alert>
@@ -580,8 +589,8 @@
 										onclick={saveThreshold}
 										loading={savingThreshold}
 									>
-										Save{suggestion.enough_data ? '' : ' provisional'} SGTHRS={suggestion.suggested_sgthrs}
-										to machine.toml
+										Save{suggestion.enough_data ? '' : ' provisional'} SGTHRS={suggestion.suggested_sgthrs},
+										TCOOLTHRS={suggestion.cruise_tstep} to machine.toml
 									</Button>
 								</div>
 							{/if}

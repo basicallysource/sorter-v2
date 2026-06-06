@@ -1660,11 +1660,24 @@ def set_stallguard_config(stepper: str, body: StallGuardConfigBody) -> StallGuar
 _FLOOR_PERCENTILE = 0.05   # unloaded: worst-case normal cruise (low end of floor)
 _DIP_PERCENTILE = 0.10     # loaded: representative stall dip (low end)
 
+# Cruise TSTEP / TCOOLTHRS derivation. The single biggest tuning trap was leaving
+# TCOOLTHRS (the velocity gate) as a typed guess: if it sits below the motor's real
+# cruise TSTEP at the operating speed, the gate is shut the whole move and DIAG
+# never fires no matter the SGTHRS. So we MEASURE it. The fastest-sustained TSTEP
+# (a low percentile of the moving samples) is the cruise floor; the enforcement
+# gate is set a margin above it so it stays open through cruise (incl. a slightly
+# slower loaded cruise) but closed during accel/decel/reversal, where SG is junk.
+# Margin 1.75 reproduces the empirically-good chute value (cruise ~114 -> ~200).
+_CRUISE_TSTEP_PERCENTILE = 0.10  # fastest-sustained TSTEP = cruise floor
+_TCOOLTHRS_CRUISE_MARGIN = 1.75  # gate = this * measured cruise floor
+_TSTEP_STANDSTILL = 1_000_000    # >= this is the TMC standstill reading, not motion
+
 
 class StallGuardSuggestionResponse(BaseModel):
     success: bool
     stepper: str
-    cruise_tstep: int
+    cruise_tstep: int            # recommended TCOOLTHRS (derived, or override)
+    measured_cruise_tstep: Optional[int]  # raw fastest-sustained TSTEP from the data
     unloaded_floor: Optional[int]
     loaded_dip: Optional[int]
     trigger_level: Optional[int]
@@ -1680,6 +1693,26 @@ def _percentile(sorted_vals: List[int], q: float) -> Optional[int]:
         return None
     idx = int(round(q * (len(sorted_vals) - 1)))
     return sorted_vals[max(0, min(len(sorted_vals) - 1, idx))]
+
+
+def _moving_tstep(run: Optional[Dict[str, Any]]) -> List[int]:
+    if run is None:
+        return []
+    out: List[int] = []
+    for s in stepper_telemetry.getRunSamples(run["id"]):
+        ts = s.get("tstep")
+        if isinstance(ts, int) and 0 < ts < _TSTEP_STANDSTILL:
+            out.append(ts)
+    return sorted(out)
+
+
+def _measured_cruise_tstep(*runs: Optional[Dict[str, Any]]) -> Optional[int]:
+    """Fastest-sustained TSTEP (cruise floor) from the first run that has motion."""
+    for run in runs:
+        ts = _moving_tstep(run)
+        if ts:
+            return _percentile(ts, _CRUISE_TSTEP_PERCENTILE)
+    return None
 
 
 def _cruise_sg(run: Optional[Dict[str, Any]], cruise_tstep: int) -> List[int]:
@@ -1724,12 +1757,18 @@ def stallguard_suggestion(
     unloaded_run = _latest(stepper_telemetry.SOURCE_SWEEP)
     loaded_run = _latest(stepper_telemetry.SOURCE_STALL_TEST)
 
-    if cruise_tstep is None:
-        latest_params = unloaded_run["params"] if unloaded_run else None
-        ct = int(latest_params.get("cruise_tstep", 150)) if isinstance(latest_params, dict) else 150
+    # Measure the cruise floor from the data (unloaded preferred), then set the
+    # recommended TCOOLTHRS a margin above it. An explicit ?cruise_tstep= overrides
+    # the derivation (manual tuning); otherwise everything below — including the
+    # cruise filter for the SG floor/dip — uses the measured gate, so the threshold
+    # is computed within the exact velocity window enforcement will use.
+    measured_ct = _measured_cruise_tstep(unloaded_run, loaded_run)
+    if cruise_tstep is not None:
+        ct = max(1, cruise_tstep)
+    elif measured_ct is not None:
+        ct = max(1, int(round(measured_ct * _TCOOLTHRS_CRUISE_MARGIN)))
     else:
-        ct = cruise_tstep
-    ct = max(1, ct)
+        ct = 150  # no motion data yet — harmless fallback
 
     floor = _percentile(_cruise_sg(unloaded_run, ct), _FLOOR_PERCENTILE)
     dip = _percentile(_cruise_sg(loaded_run, ct), _DIP_PERCENTILE)
@@ -1743,9 +1782,14 @@ def stallguard_suggestion(
         trigger = int(round(math.sqrt(float(floor) * float(max(1, dip)))))
         sgthrs = max(1, min(255, round(trigger / 2)))
         enough = True
+        gate_note = (
+            f"; gate TCOOLTHRS {ct} = cruise {measured_ct}×{_TCOOLTHRS_CRUISE_MARGIN:g}"
+            if measured_ct is not None
+            else f"; gate TCOOLTHRS {ct} (manual)"
+        )
         detail = (
             f"Balanced trigger {trigger} = geo-mean(floor {floor}, dip {dip}) "
-            "from the latest unloaded + latest loaded run."
+            f"from the latest unloaded + latest loaded run{gate_note}."
         )
     elif floor is not None:
         # Provisional: no loaded stall test yet, so we can't see the dip. Fall
@@ -1782,6 +1826,7 @@ def stallguard_suggestion(
         success=True,
         stepper=stepper,
         cruise_tstep=ct,
+        measured_cruise_tstep=measured_ct,
         unloaded_floor=floor,
         loaded_dip=dip,
         trigger_level=trigger,

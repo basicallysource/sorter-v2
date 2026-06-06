@@ -43,7 +43,7 @@
 
 	let open = $state(false);
 	let mode = $state<StressMode>('sweep');
-	let targetMaxDeg = $state(300);
+	let targetMaxDeg = $state(340);
 	let durationSec = $state(60);
 	let useMaxSpeed = $state(true);
 	let speedOverride = $state(operatingSpeed);

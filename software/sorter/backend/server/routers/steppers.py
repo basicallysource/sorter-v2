@@ -1066,7 +1066,6 @@ def set_tmc_settings(name: str, body: TmcSettingsRequest) -> Dict[str, Any]:
 # it cannot leave stall enforcement half-configured. StallGuard only reports
 # while running above the TCOOLTHRS velocity floor, so we raise TCOOLTHRS for the
 # duration to keep SG_RESULT live across the operating range.
-MAX_STALLGUARD_SWEEP_DURATION_S = 30.0
 DEFAULT_STALLGUARD_TCOOLTHRS = 0xFFFFF
 
 
@@ -1308,11 +1307,8 @@ def stallguard_sweep(
         )
     if cruise_tstep <= 0:
         raise HTTPException(status_code=400, detail="cruise_tstep must be > 0")
-    if duration_s <= 0 or duration_s > MAX_STALLGUARD_SWEEP_DURATION_S:
-        raise HTTPException(
-            status_code=400,
-            detail=f"duration_s must be in (0, {int(MAX_STALLGUARD_SWEEP_DURATION_S)}]",
-        )
+    if duration_s <= 0:
+        raise HTTPException(status_code=400, detail="duration_s must be > 0")
     if sample_interval_s <= 0:
         raise HTTPException(status_code=400, detail="sample_interval_s must be > 0")
 
@@ -1966,16 +1962,22 @@ def _clear_one_stall(stepper: Any) -> None:
 
 @router.get("/steppers/stall-state")
 def steppers_stall_state() -> Dict[str, Any]:
-    """Live per-stepper stall latch for every armed motor — what the UI polls to
-    show stall badges and resolve incidents indirectly."""
+    """Live per-stepper stall latch, keyed by API stepper name (the same name the
+    station pages use) — what the UI polls to show stall badges and resolve
+    incidents indirectly. Keyed by API name, NOT the raw firmware name, so the
+    frontend's stepperKey lookups match."""
     state: Dict[str, Any] = {}
-    for st in _armed_steppers():
-        name = getattr(st, "name", None)
-        if name is not None:
-            state[name] = {
-                "stalled": bool(getattr(st, "stalled", False)),
-                "enabled": bool(getattr(st, "stallguard_enabled", False)),
-            }
+    try:
+        mapping = _stepper_mapping()
+    except HTTPException:
+        return {"steppers": state}
+    for api_name, stepper in mapping.items():
+        if stepper is None or not getattr(stepper, "stallguard_enabled", False):
+            continue
+        state[api_name] = {
+            "stalled": bool(getattr(stepper, "stalled", False)),
+            "enabled": True,
+        }
     return {"steppers": state}
 
 

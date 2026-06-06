@@ -1672,6 +1672,17 @@ _CRUISE_TSTEP_PERCENTILE = 0.10  # fastest-sustained TSTEP = cruise floor
 _TCOOLTHRS_CRUISE_MARGIN = 1.75  # gate = this * measured cruise floor
 _TSTEP_STANDSTILL = 1_000_000    # >= this is the TMC standstill reading, not motion
 
+# Reliability cross-check. A gentle unloaded sweep gives an optimistically clean
+# floor; real reversing motion at the same speed can dip cruise SG far lower
+# (StealthChop's SG baseline isn't always stable run-to-run). So we cross-check the
+# proposed trigger against the worst in-gate SG seen in recent REAL motion (the
+# stress-test runs). If normal motion gets within this margin of the trip line,
+# no SGTHRS is safe at this speed and we say so loudly instead of pretending.
+_REALISTIC_RUNS = 6              # recent stress runs to scan for the worst floor
+_REALISTIC_FLOOR_PERCENTILE = 0.02
+_RELIABLE_MARGIN = 1.5          # realistic floor must clear the trigger by this much
+_STALL_CAPTURE_RATIO = 0.5     # a loaded run must dip to <= this * floor to count
+
 
 class StallGuardSuggestionResponse(BaseModel):
     success: bool
@@ -1683,6 +1694,11 @@ class StallGuardSuggestionResponse(BaseModel):
     trigger_level: Optional[int]
     suggested_sgthrs: Optional[int]
     enough_data: bool
+    # reliable=False means a threshold CAN be computed but the data says it won't
+    # actually work at this speed — show a hard warning, not a confident Save.
+    reliable: bool
+    realistic_floor: Optional[int]  # lowest cruise SG seen in real (stress) motion
+    speed: Optional[int]            # operating speed of the unloaded run, for messaging
     unloaded_runs: int
     loaded_runs: int
     detail: str
@@ -1732,26 +1748,70 @@ def _cruise_sg(run: Optional[Dict[str, Any]], cruise_tstep: int) -> List[int]:
     return sorted(out)
 
 
+def _realistic_in_gate_floor(
+    toml_name: str, cruise_tstep: int, speed: Optional[int]
+) -> Optional[int]:
+    """Worst-case cruise SG seen in recent REAL (stress-test) motion, AT THIS SPEED.
+    The pessimistic p02 across the last few stress runs — what ordinary reversing
+    motion actually produces in-gate, vs the cleaner number a gentle sweep reports.
+    Filtered to samples whose commanded_speed matches so a run at another speed can't
+    poison the verdict. None if there's no matching stress data (only the chute has it)."""
+    runs = stepper_telemetry.listRuns(
+        stepper_name=toml_name,
+        source=stepper_telemetry.SOURCE_CHUTE_STRESS,
+        limit=_REALISTIC_RUNS,
+    )
+    worst: Optional[int] = None
+    for r in runs:
+        vals: List[int] = []
+        for s in stepper_telemetry.getRunSamples(r["id"]):
+            sg = s.get("sg_result")
+            ts = s.get("tstep")
+            cs = s.get("commanded_speed")
+            if not (isinstance(sg, int) and sg >= 0 and isinstance(ts, int) and 0 <= ts <= cruise_tstep):
+                continue
+            if speed is not None and (not isinstance(cs, int) or cs != speed):
+                continue
+            vals.append(sg)
+        p = _percentile(sorted(vals), _REALISTIC_FLOOR_PERCENTILE)
+        if p is not None:
+            worst = p if worst is None else min(worst, p)
+    return worst
+
+
 @router.get(
     "/stepper/{stepper}/stallguard-suggestion",
     response_model=StallGuardSuggestionResponse,
 )
 def stallguard_suggestion(
-    stepper: str, cruise_tstep: Optional[int] = None
+    stepper: str, cruise_tstep: Optional[int] = None, speed: Optional[int] = None
 ) -> StallGuardSuggestionResponse:
     """Pure DB analysis — no hardware. Takes cruise SG from the latest unloaded
     (sweep) and latest loaded (stall_test) run for this motor and returns the
-    geometric-midpoint trigger between the normal floor and the stall dip."""
+    geometric-midpoint trigger between the normal floor and the stall dip.
+
+    SG floor/dip/baseline all shift with speed, so when `speed` is given every input
+    (unloaded, loaded, stress) is filtered to that speed — otherwise a 2000 sweep
+    could get paired with an old 3000 stall test and a clean run wrongly flagged.
+    The UI passes the selected run's speed so the suggestion matches what you see."""
     if stepper not in _STEPPER_API_TO_TOML_NAME:
         raise HTTPException(status_code=400, detail=f"Unknown stepper '{stepper}'")
+
+    def _run_speed(r: Dict[str, Any]) -> Optional[int]:
+        p = r.get("params")
+        sp = p.get("speed") if isinstance(p, dict) else None
+        return int(sp) if isinstance(sp, (int, float)) else None
 
     def _latest(source: str) -> Optional[Dict[str, Any]]:
         rows = stepper_telemetry.listRuns(
             stepper_name=stepper, source=source, limit=50
         )
         for r in rows:  # listRuns is newest-first
-            if r.get("status") == stepper_telemetry.RUN_STATUS_COMPLETED:
-                return r
+            if r.get("status") != stepper_telemetry.RUN_STATUS_COMPLETED:
+                continue
+            if speed is not None and _run_speed(r) != speed:
+                continue
+            return r
         return None
 
     unloaded_run = _latest(stepper_telemetry.SOURCE_SWEEP)
@@ -1770,12 +1830,21 @@ def stallguard_suggestion(
     else:
         ct = 150  # no motion data yet — harmless fallback
 
-    floor = _percentile(_cruise_sg(unloaded_run, ct), _FLOOR_PERCENTILE)
-    dip = _percentile(_cruise_sg(loaded_run, ct), _DIP_PERCENTILE)
+    unloaded_cruise = _cruise_sg(unloaded_run, ct)
+    loaded_cruise = _cruise_sg(loaded_run, ct)
+    floor = _percentile(unloaded_cruise, _FLOOR_PERCENTILE)
+    dip = _percentile(loaded_cruise, _DIP_PERCENTILE)
+
+    eff_speed = speed if speed is not None else (_run_speed(unloaded_run) if unloaded_run else None)
+    speed_txt = f"{eff_speed} µs/s" if eff_speed else "this speed"
+
+    toml_name = _STEPPER_API_TO_TOML_NAME.get(stepper, stepper)
+    realistic_floor = _realistic_in_gate_floor(toml_name, ct, eff_speed)
 
     trigger: Optional[int] = None
     sgthrs: Optional[int] = None
     enough = False
+    reliable = False
     if floor is not None and dip is not None:
         # Geometric midpoint of the gap. Clamp dip to >=1 so a stall floor that
         # reaches 0 doesn't collapse the geo-mean to 0.
@@ -1787,18 +1856,48 @@ def stallguard_suggestion(
             if measured_ct is not None
             else f"; gate TCOOLTHRS {ct} (manual)"
         )
-        detail = (
-            f"Balanced trigger {trigger} = geo-mean(floor {floor}, dip {dip}) "
-            f"from the latest unloaded + latest loaded run{gate_note}."
-        )
+        # Did the loaded run actually stall? If it never dipped well below the
+        # floor, it's not a real stall reference and the trigger is guesswork.
+        loaded_min = loaded_cruise[0] if loaded_cruise else None
+        captured_stall = loaded_min is not None and loaded_min <= floor * _STALL_CAPTURE_RATIO
+
+        if realistic_floor is not None and realistic_floor < trigger * _RELIABLE_MARGIN:
+            # The killer case: real reversing motion dips into the trip range, so no
+            # SGTHRS separates a stall from an ordinary move at this speed.
+            reliable = False
+            detail = (
+                f"⚠ NOT reliably tunable at {speed_txt}. Real (stress-test) motion dips to "
+                f"SG {realistic_floor} at cruise — at/near the {trigger} trip line — so this "
+                f"threshold WILL false-trip on ordinary moves. The cruise SG baseline isn't "
+                f"stable enough at this speed to separate normal motion from a stall. Lower the "
+                f"speed for a steadier baseline and re-characterize, or accept it's unreliable."
+            )
+        elif not captured_stall:
+            reliable = False
+            detail = (
+                f"⚠ The loaded run never actually stalled — its cruise SG only reached "
+                f"{loaded_min} vs the {floor} unloaded floor. Hold/resist the motor until it "
+                f"bogs down, then re-run the loaded sweep so there's a real stall to tune to."
+            )
+        else:
+            reliable = True
+            extra = (
+                f" Real-motion floor {realistic_floor} clears it."
+                if realistic_floor is not None
+                else ""
+            )
+            detail = (
+                f"Balanced trigger {trigger} = geo-mean(floor {floor}, dip {dip}) "
+                f"from the latest unloaded + latest loaded run{gate_note}.{extra}"
+            )
     elif floor is not None:
         # Provisional: no loaded stall test yet, so we can't see the dip. Fall
         # back to a fraction of the floor and flag it as unvalidated.
         trigger = int(round(floor * 0.4))
         sgthrs = max(1, min(255, round(trigger / 2)))
         detail = (
-            "No loaded stall test for this motor yet — provisional SGTHRS from the "
-            "unloaded floor only. Run a loaded (held/resisted) sweep to validate."
+            f"No loaded stall test at {speed_txt} yet — provisional SGTHRS from the "
+            "unloaded floor only. Run a loaded (held/resisted) sweep at this speed to validate."
         )
     elif dip is not None:
         detail = "Only loaded runs found — run an unloaded sweep to measure the normal floor."
@@ -1832,6 +1931,9 @@ def stallguard_suggestion(
         trigger_level=trigger,
         suggested_sgthrs=sgthrs,
         enough_data=enough,
+        reliable=reliable,
+        realistic_floor=realistic_floor,
+        speed=eff_speed,
         unloaded_runs=1 if unloaded_run else 0,
         loaded_runs=1 if loaded_run else 0,
         detail=detail,

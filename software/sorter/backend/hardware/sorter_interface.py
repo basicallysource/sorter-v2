@@ -114,6 +114,10 @@ class StepperMotor:
         self.stallguard_sgthrs: int | None = None
         self.stallguard_tcoolthrs: int = 0xFFFFF
         self.stallguard_enabled: bool = False
+        # Live per-stepper stall state, mirrored from the firmware DIAG latch by the
+        # stall monitor each poll. The single source of truth for "is this motor
+        # stalled" — the operator incident and the per-stepper UI both derive from it.
+        self.stalled: bool = False
         # Per-stepper default acceleration, set from StepperConfig at init. Every
         # move re-asserts it (see _ensure_move_acceleration) so a move never runs
         # on a stale acceleration left behind by a prior operation. None means

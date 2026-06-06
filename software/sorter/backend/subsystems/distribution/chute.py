@@ -80,6 +80,15 @@ class Chute:
     def homed(self) -> bool:
         return self._homed
 
+    def markUnhomed(self, reason: str = "") -> None:
+        """Drop the home reference. A stall means lost steps -> the recorded position
+        is no longer trustworthy, so force a re-home before the next precise move."""
+        if self._homed:
+            self.logger.warning(
+                f"Chute: home reference invalidated{f' ({reason})' if reason else ''}; re-home required."
+            )
+        self._homed = False
+
     @property
     def section_pitch_deg(self) -> float:
         return 360.0 / self.num_sections

@@ -1002,6 +1002,10 @@ def get_tmc_settings(name: str) -> Dict[str, Any]:
     # settings UI can show/edit it alongside the other TMC settings.
     result["stallguard"] = _stallguard_payload_from_persisted_config(name)
 
+    # Live stall latch (mirrored by the stall monitor) so a station's page can show
+    # "this motor is stalled" and offer to clear it.
+    result["stalled"] = bool(getattr(stepper, "stalled", False))
+
     return result
 
 
@@ -1940,16 +1944,72 @@ def stallguard_suggestion(
     )
 
 
+def _armed_steppers() -> List[Any]:
+    """Every stall-armed StepperMotor across all boards (raw per-board objects)."""
+    irl = shared_state.getActiveIRL()
+    out: List[Any] = []
+    interfaces = getattr(irl, "interfaces", None) or {}
+    for iface in interfaces.values():
+        for st in getattr(iface, "steppers", ()):
+            if getattr(st, "stallguard_enabled", False):
+                out.append(st)
+    return out
+
+
+def _clear_one_stall(stepper: Any) -> None:
+    """Clear a stepper's firmware DIAG latch and re-arm detection. The monitor's
+    next poll mirrors the now-cleared state and the derived incident follows."""
+    stepper.clear_stall()
+    stepper.enable_stall_detection(bool(getattr(stepper, "stallguard_enabled", False)))
+    stepper.stalled = False
+
+
+@router.get("/steppers/stall-state")
+def steppers_stall_state() -> Dict[str, Any]:
+    """Live per-stepper stall latch for every armed motor — what the UI polls to
+    show stall badges and resolve incidents indirectly."""
+    state: Dict[str, Any] = {}
+    for st in _armed_steppers():
+        name = getattr(st, "name", None)
+        if name is not None:
+            state[name] = {
+                "stalled": bool(getattr(st, "stalled", False)),
+                "enabled": bool(getattr(st, "stallguard_enabled", False)),
+            }
+    return {"steppers": state}
+
+
+@router.post("/stepper/{stepper}/clear-stall")
+def clear_stepper_stall(stepper: str) -> Dict[str, Any]:
+    """Clear ONE motor's stall latch (from its station page). The blocking incident
+    is derived from the latch state, so it resolves on the next monitor poll once no
+    motor is still latched — no separate ack needed."""
+    target = _resolve_stepper(stepper)
+    try:
+        _clear_one_stall(target)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to clear stall: {e}")
+    return {"ok": True, "stepper": stepper, "stalled": False}
+
+
 @router.post("/stall-incident/clear")
 def clear_stall_incident() -> Dict[str, Any]:
-    """Operator-acknowledge a stall. Clears the blocking incident; the stall
-    monitor resets the firmware latch and re-arms detection on its next poll."""
+    """Clear ALL motors' stall latches (the global 'Acknowledge'). Resets every
+    armed driver's firmware latch + re-arms, then drops the blocking incident; the
+    monitor confirms the cleared state on its next poll."""
     from stepper_stall_monitor import STEPPER_STALL_INCIDENT_KIND
 
     gc = shared_state.gc_ref
     runtime_stats = getattr(gc, "runtime_stats", None) if gc is not None else None
     if runtime_stats is None or not hasattr(runtime_stats, "clearActiveIncident"):
         raise HTTPException(status_code=503, detail="runtime stats unavailable")
+
+    for st in _armed_steppers():
+        try:
+            _clear_one_stall(st)
+        except Exception:
+            pass  # best-effort; the monitor re-reads and a stuck latch re-raises
+
     active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
     runtime_stats.clearActiveIncident(kind=STEPPER_STALL_INCIDENT_KIND)
     cleared = isinstance(active, dict) and active.get("kind") == STEPPER_STALL_INCIDENT_KIND

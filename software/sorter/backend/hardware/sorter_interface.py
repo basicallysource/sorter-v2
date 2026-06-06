@@ -392,6 +392,20 @@ class StepperMotor:
             return
         self._dev.send_command(InterfaceCommandCode.STEPPER_CLEAR_STALL, self._channel, b'')
 
+    def read_stall_latched(self) -> bool:
+        """True iff the firmware currently latches a StallGuard/DIAG stall on this
+        channel. One UART round-trip reads the whole board's bitmask. The latch is
+        sticky until clear_stall(), and a set bit is an unambiguous TMC DIAG stall —
+        unlike a rejected move or a garbled ack. Raises on bus error so callers can
+        distinguish 'confirmed not stalled' from 'could not read'."""
+        if DISABLE_STALLGUARD:
+            return False
+        get_status = getattr(self._dev, "get_stall_status", None)
+        if not callable(get_status):
+            return False
+        mask = get_status()
+        return bool(mask & (1 << self._channel))
+
     @property
     def steps_per_revolution(self):
         return self._steps_per_revolution

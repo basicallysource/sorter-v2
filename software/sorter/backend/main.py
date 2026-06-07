@@ -176,7 +176,13 @@ def runServer() -> None:
     # any host that can route to this machine, so only do that on a trusted
     # network. CORS is widened to match in server/api.py.
     host = os.getenv("SORTER_API_HOST", "127.0.0.1") or "127.0.0.1"
-    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
+    # log_config=None disables uvicorn's logging.config.dictConfig() pass. This
+    # backend routes everything through its own Logger, so uvicorn's logging
+    # setup is unused — and it intermittently crashed the api-server thread at
+    # startup ("ValueError: Unknown level: 'INFO'" out of dictConfig), leaving
+    # main.py alive but port 8000 unbound so the UI couldn't connect. Skipping
+    # dictConfig removes the failure mode entirely.
+    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto", log_config=None)
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:

@@ -639,6 +639,42 @@ def record_runtime_perf_metric_snapshot(
         conn.commit()
 
 
+# Per-second snapshot tables that grow unbounded; the pruner trims these by age.
+_METRIC_SNAPSHOT_TABLES = ("runtime_perf_metric_snapshots", "profiler_metric_snapshots")
+
+
+def prune_metric_snapshots(
+    cutoff_recorded_at: float,
+    batch_size: int = 5000,
+    pacing_s: float = 0.05,
+) -> dict[str, int]:
+    initialize_local_state()
+    deleted: dict[str, int] = {}
+    for table in _METRIC_SNAPSHOT_TABLES:
+        removed = 0
+        while True:
+            # Oldest rows have the lowest ids and sort first, so the LIMIT
+            # subquery finds expired rows at the front of the scan — batched and
+            # committed per-batch so we never hold a long write lock or build a
+            # huge WAL. Table name is a fixed constant, not user input.
+            with _connection() as conn:
+                cur = conn.execute(
+                    f"DELETE FROM {table} WHERE id IN ("
+                    f"SELECT id FROM {table} WHERE recorded_at < ? LIMIT ?)",
+                    (float(cutoff_recorded_at), int(batch_size)),
+                )
+                n = cur.rowcount
+                conn.commit()
+            if n and n > 0:
+                removed += n
+            if not n or n < batch_size:
+                break
+            if pacing_s and pacing_s > 0:
+                time.sleep(pacing_s)
+        deleted[table] = removed
+    return deleted
+
+
 def get_machine_id() -> str | None:
     value = _read_state(_STATE_KEY_MACHINE_ID)
     return value if isinstance(value, str) and value.strip() else None

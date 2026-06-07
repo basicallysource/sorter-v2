@@ -277,6 +277,7 @@ class PerceptionService:
                     runtime_stats=getattr(ctx.gc, "runtime_stats", None),
                     profiler=getattr(ctx.gc, "profiler", None),
                     logger=getattr(ctx.gc, "logger", None),
+                    log_attribution=getattr(ctx.gc, "log_perception_attribution", False),
                 )
 
                 # Stop the outgoing worker BEFORE starting the new one: both

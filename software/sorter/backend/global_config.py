@@ -56,6 +56,7 @@ class GlobalConfig:
     brickognize_dump_root: Optional[Path]
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]
+    log_perception_attribution: bool
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
@@ -64,6 +65,11 @@ class GlobalConfig:
         self.brickognize_dump_root: Optional[Path] = None
         self.classification_burst_dump_root: Optional[Path] = None
         self.classification_skew_dump_root: Optional[Path] = None
+        # Per-frame perception attribution log (the verbose "[perception ch=N
+        # src=...] in_exit=... | section_sizes ... | bbox=(...) n_drop/n_exit_only/
+        # n_precise/n_in_mask ..." line from InferenceWorker._maybe_log_attribution).
+        # A frame-rate-firehose debug aid; off by default so it can't flood logs.
+        self.log_perception_attribution = False
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must

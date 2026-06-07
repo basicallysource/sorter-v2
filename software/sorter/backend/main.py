@@ -191,7 +191,13 @@ def runServer(gc: GlobalConfig) -> None:
         f"effective_allowed_origins={compute_allowed_ui_origins()} "
         f"device_hosts={sorted(_this_device_hosts())}"
     )
-    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
+    # log_config=None disables uvicorn's logging.config.dictConfig() pass. This
+    # backend routes everything through its own Logger, so uvicorn's logging
+    # setup is unused — and it intermittently crashed the api-server thread at
+    # startup ("ValueError: Unknown level: 'INFO'" out of dictConfig), leaving
+    # main.py alive but port 8000 unbound so the UI couldn't connect. Skipping
+    # dictConfig removes the failure mode entirely.
+    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto", log_config=None)
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:

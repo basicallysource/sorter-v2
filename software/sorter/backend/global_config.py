@@ -57,6 +57,7 @@ class GlobalConfig:
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]
     max_log_bytes: int
+    log_perception_attribution: bool
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
@@ -69,6 +70,11 @@ class GlobalConfig:
         # startup we delete whole old session .log files (oldest-first) until
         # the directory fits under this, so the SD card can't fill with logs.
         self.max_log_bytes = 1 * 1024 ** 3
+        # Per-frame perception attribution log (the verbose "[perception ch=N
+        # src=...] in_exit=... | section_sizes ... | bbox=(...) n_drop/n_exit_only/
+        # n_precise/n_in_mask ..." line from InferenceWorker._maybe_log_attribution).
+        # A frame-rate-firehose debug aid; off by default so it can't flood logs.
+        self.log_perception_attribution = False
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must

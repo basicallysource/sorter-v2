@@ -101,6 +101,7 @@ class InferenceWorker:
         runtime_stats: Optional[Any] = None,
         profiler: Optional[Any] = None,
         logger: Optional[Any] = None,
+        log_attribution: bool = False,
     ) -> None:
         # Construction-time invariant: the capture's source_id must match
         # the channel's. After this point the worker holds direct refs;
@@ -140,6 +141,7 @@ class InferenceWorker:
         self._runtime_stats = runtime_stats
         self._profiler = profiler
         self._logger = logger
+        self._log_attribution = log_attribution
 
         self._stop = threading.Event()
         self._thread = threading.Thread(
@@ -315,7 +317,7 @@ class InferenceWorker:
         sizes are appended so it's obvious if precise_sections is empty
         (which would silently degrade exit_only → full exit union).
         """
-        if self._logger is None:
+        if self._logger is None or not self._log_attribution:
             return
         if not in_exit and not in_exit_majority:
             return

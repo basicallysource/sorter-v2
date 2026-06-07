@@ -4,7 +4,7 @@ import platform
 import threading
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Union
+from typing import TYPE_CHECKING, Optional, Union
 
 if TYPE_CHECKING:
     from global_config import GlobalConfig
@@ -50,7 +50,7 @@ def _deprioritizeCurrentThread() -> None:
         pass
 
 
-def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Path, max_bytes: int) -> None:
+def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Optional[Path], max_bytes: int) -> None:
     _deprioritizeCurrentThread()
 
     entries: list[tuple[float, int, Path]] = []
@@ -66,10 +66,14 @@ def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Path, 
     except OSError:
         return
 
-    try:
-        current_size = current_log.stat().st_size
-    except OSError:
-        current_size = 0
+    # current_log is None when file dumping is off — nothing live to protect,
+    # so we just trim the leftover .log files down to the cap.
+    current_size = 0
+    if current_log is not None:
+        try:
+            current_size = current_log.stat().st_size
+        except OSError:
+            current_size = 0
 
     # The live session is always kept; we only ever remove whole prior .log
     # files, oldest-first, until everything fits under the cap. Never truncate —
@@ -100,13 +104,13 @@ def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Path, 
         )
 
 
-def pruneOldLogsAsync(gc: "GlobalConfig", log_dir: Union[str, Path], current_log: Union[str, Path]) -> None:
+def pruneOldLogsAsync(gc: "GlobalConfig", log_dir: Union[str, Path], current_log: Optional[Union[str, Path]]) -> None:
     max_bytes = getattr(gc, "max_log_bytes", DEFAULT_MAX_LOG_BYTES)
     if not max_bytes or max_bytes <= 0:
         return
     thread = threading.Thread(
         target=_pruneOldLogsBlocking,
-        args=(gc, Path(log_dir), Path(current_log), int(max_bytes)),
+        args=(gc, Path(log_dir), Path(current_log) if current_log is not None else None, int(max_bytes)),
         name="log-pruner",
         daemon=True,
     )

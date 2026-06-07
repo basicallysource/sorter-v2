@@ -56,6 +56,7 @@ class GlobalConfig:
     brickognize_dump_root: Optional[Path]
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]
+    max_log_bytes: int
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
@@ -64,6 +65,10 @@ class GlobalConfig:
         self.brickognize_dump_root: Optional[Path] = None
         self.classification_burst_dump_root: Optional[Path] = None
         self.classification_skew_dump_root: Optional[Path] = None
+        # Cap on the total size of run logs kept under software/logs/. At each
+        # startup we delete whole old session .log files (oldest-first) until
+        # the directory fits under this, so the SD card can't fill with logs.
+        self.max_log_bytes = 1 * 1024 ** 3
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must
@@ -158,6 +163,8 @@ def mkGlobalConfig() -> GlobalConfig:
         gc.classification_skew_dump_root = Path(log_dir).resolve() / "classification_skew" / gc.run_id
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.logger = Logger(gc.debug_level, log_file=log_file)
+    from log_pruner import pruneOldLogsAsync
+    pruneOldLogsAsync(gc, log_dir, log_file)
     # Profiler enable lives in machine_params.toml ([profiler] enabled), toggled
     # from the Performance settings page. Defaults OFF: profiling adds per-call
     # timing overhead across hot loops (notably the frontend camera feed) and

@@ -9,13 +9,21 @@ from typing import TYPE_CHECKING, Optional, Union
 if TYPE_CHECKING:
     from global_config import GlobalConfig
 
-DEFAULT_MAX_LOG_BYTES = 1 * 1024 ** 3
+# Single background pruning system for everything that grows unbounded on the
+# machine: the software/logs/ run logs and the per-second metric snapshot tables
+# in local_state.sqlite. One daemon thread runs every _PRUNE_INTERVAL_S so long
+# sessions stay bounded (the runtime-perf snapshot writes one row/metric/second
+# regardless of any toggle), and it drops itself to idle I/O + CPU priority and
+# paces its deletes so a multi-GB cleanup can never choke the camera / hardware
+# hot loops.
 
-# Deleting several multi-GB run logs off the SD card at once can saturate disk
-# I/O and stall the camera / hardware hot loops. The prune therefore runs on a
-# detached daemon thread, drops itself to idle I/O + CPU priority, and paces
-# each unlink so it can never starve the live session of disk bandwidth.
-_DELETE_PACING_S = 0.1
+DEFAULT_MAX_LOG_BYTES = 1 * 1024 ** 3
+DEFAULT_METRICS_RETENTION_DAYS = 3.0
+
+_PRUNE_INTERVAL_S = 3600
+_LOG_DELETE_PACING_S = 0.1
+_DB_DELETE_BATCH = 5000
+_DB_DELETE_PACING_S = 0.05
 
 # Arch-specific __NR_ioprio_set — glibc ships no wrapper for it, so we go
 # straight through syscall(). Numbers differ per ABI; the Orange Pi is aarch64.
@@ -50,8 +58,9 @@ def _deprioritizeCurrentThread() -> None:
         pass
 
 
-def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Optional[Path], max_bytes: int) -> None:
-    _deprioritizeCurrentThread()
+def _pruneLogs(gc: "GlobalConfig", log_dir: Path, current_log: Optional[Path], max_bytes: int) -> None:
+    if not max_bytes or max_bytes <= 0:
+        return
 
     entries: list[tuple[float, int, Path]] = []
     try:
@@ -95,7 +104,7 @@ def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Option
         total -= size
         freed += size
         deleted += 1
-        time.sleep(_DELETE_PACING_S)
+        time.sleep(_LOG_DELETE_PACING_S)
 
     if deleted:
         gc.logger.info(
@@ -104,14 +113,62 @@ def _pruneOldLogsBlocking(gc: "GlobalConfig", log_dir: Path, current_log: Option
         )
 
 
-def pruneOldLogsAsync(gc: "GlobalConfig", log_dir: Union[str, Path], current_log: Optional[Union[str, Path]]) -> None:
-    max_bytes = getattr(gc, "max_log_bytes", DEFAULT_MAX_LOG_BYTES)
-    if not max_bytes or max_bytes <= 0:
+def _pruneMetrics(gc: "GlobalConfig", retention_days: float) -> None:
+    if not retention_days or retention_days <= 0:
         return
+    from local_state import prune_metric_snapshots
+
+    cutoff = time.time() - retention_days * 86400.0
+    deleted = prune_metric_snapshots(
+        cutoff, batch_size=_DB_DELETE_BATCH, pacing_s=_DB_DELETE_PACING_S
+    )
+    total = sum(deleted.values())
+    if total:
+        detail = ", ".join(f"{name}={count}" for name, count in deleted.items() if count)
+        gc.logger.info(
+            f"metrics prune: removed {total} snapshot row(s) older than {retention_days}d ({detail})"
+        )
+
+
+def _run(
+    gc: "GlobalConfig",
+    log_dir: Path,
+    current_log: Optional[Path],
+    max_bytes: int,
+    retention_days: float,
+) -> None:
+    _deprioritizeCurrentThread()
+    while True:
+        try:
+            _pruneLogs(gc, log_dir, current_log, max_bytes)
+        except Exception as exc:
+            try:
+                gc.logger.error(f"log prune failed: {exc}")
+            except Exception:
+                pass
+        try:
+            _pruneMetrics(gc, retention_days)
+        except Exception as exc:
+            try:
+                gc.logger.error(f"metrics prune failed: {exc}")
+            except Exception:
+                pass
+        time.sleep(_PRUNE_INTERVAL_S)
+
+
+def runPruningAsync(gc: "GlobalConfig", log_dir: Union[str, Path], current_log: Optional[Union[str, Path]]) -> None:
+    max_bytes = int(getattr(gc, "max_log_bytes", DEFAULT_MAX_LOG_BYTES) or 0)
+    retention_days = float(getattr(gc, "metrics_retention_days", DEFAULT_METRICS_RETENTION_DAYS) or 0.0)
     thread = threading.Thread(
-        target=_pruneOldLogsBlocking,
-        args=(gc, Path(log_dir), Path(current_log) if current_log is not None else None, int(max_bytes)),
-        name="log-pruner",
+        target=_run,
+        args=(
+            gc,
+            Path(log_dir),
+            Path(current_log) if current_log is not None else None,
+            max_bytes,
+            retention_days,
+        ),
+        name="pruner",
         daemon=True,
     )
     thread.start()

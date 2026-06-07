@@ -58,6 +58,7 @@ class GlobalConfig:
     classification_skew_dump_root: Optional[Path]
     max_log_bytes: int
     dump_logs_to_file: bool
+    metrics_retention_days: float
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
@@ -71,6 +72,11 @@ class GlobalConfig:
         # the directory fits under this, so the SD card can't fill with logs.
         self.max_log_bytes = 1 * 1024 ** 3
         self.dump_logs_to_file = False
+        # Age cap for the per-second metric snapshot tables in local_state.sqlite
+        # (runtime_perf + profiler). The pruner deletes rows older than this; the
+        # runtime-perf table writes one row/metric/second regardless of toggles,
+        # so without this the DB grows without bound (it hit 7 GB on one machine).
+        self.metrics_retention_days = 3.0
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must
@@ -169,10 +175,11 @@ def mkGlobalConfig() -> GlobalConfig:
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
     gc.dump_logs_to_file = os.getenv("DUMP_BACKEND_LOGS", "0") == "1"
     gc.logger = Logger(gc.debug_level, log_file=log_file if gc.dump_logs_to_file else None)
-    # Prune regardless of the flag so previously-accumulated logs still get
+    # Single background pruning system (logs + DB metric snapshots). Prune logs
+    # regardless of the dump flag so previously-accumulated logs still get
     # cleaned; only protect the live file when we are actually writing one.
-    from log_pruner import pruneOldLogsAsync
-    pruneOldLogsAsync(gc, log_dir, log_file if gc.dump_logs_to_file else None)
+    from pruner import runPruningAsync
+    runPruningAsync(gc, log_dir, log_file if gc.dump_logs_to_file else None)
     # Profiler enable lives in machine_params.toml ([profiler] enabled), toggled
     # from the Performance settings page. Defaults OFF: profiling adds per-call
     # timing overhead across hot loops (notably the frontend camera feed) and

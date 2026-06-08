@@ -111,7 +111,8 @@ def run(
     hive_url: str,
     zone: str,
     source_role: str | None = None,
-    review_status: str | None = "accepted",
+    review_statuses: list[str] | None = None,
+    max_rejected: int | None = None,
     token: str | None = None,
     output_dir: Path | None = None,
 ) -> int:
@@ -133,7 +134,8 @@ def run(
     manifest: list[dict[str, Any]] = []
     count = 0
     seen_ids: set[str] = set()
-    for role in roles:
+    statuses_to_pull = review_statuses if review_statuses else [None]
+    for review_status, role in [(s, r) for s in statuses_to_pull for r in roles]:
         for item in _iter_samples(
             session,
             hive_url,
@@ -143,6 +145,12 @@ def run(
             sample_id = item["id"]
             if sample_id in seen_ids:
                 continue
+            # 0-rejects-style filter: drop contested samples (e.g. in_review
+            # leaning toward reject) so they don't add label noise.
+            if max_rejected is not None:
+                rejected = item.get("rejected_count")
+                if isinstance(rejected, int) and rejected > max_rejected:
+                    continue
             seen_ids.add(sample_id)
 
             sample_dir = target_dir / sample_id
@@ -197,7 +205,7 @@ def run(
     (target_dir / "manifest.json").write_text(json.dumps(manifest, indent=2, sort_keys=True))
     print(
         f"Pulled {count} samples from {hive_url} zone={zone} roles={list(roles)} "
-        f"status={review_status or '(any)'} → {target_dir}",
+        f"statuses={statuses_to_pull} max_rejected={max_rejected} → {target_dir}",
         file=sys.stderr,
     )
     return 0

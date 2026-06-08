@@ -26,9 +26,30 @@ def main() -> None:
 @click.option("--hive-url", required=True)
 @click.option("--zone", required=True, help="classification_chamber | c_channel_2 | c_channel_3 | carousel | …")
 @click.option("--source-role", default=None, help="Hive source_role filter (defaults to --zone)")
-@click.option("--status", default="accepted", help="Sample review_status filter; pass empty string for any")
+@click.option(
+    "--status",
+    "statuses",
+    multiple=True,
+    default=("accepted",),
+    help="Sample review_status filter(s); repeatable to pull multiple tiers into one "
+    "raw dir (e.g. --status accepted --status in_review --status unreviewed). Pass '' for any.",
+)
+@click.option(
+    "--max-rejected",
+    default=None,
+    type=int,
+    help="Drop samples with more than N reject votes (e.g. 0 = only zero-reject samples). "
+    "Lets you take in_review without the contested ones.",
+)
 @click.option("--token", default=None, help="Hive API key; falls back to stored token")
-def pull(hive_url: str, zone: str, source_role: str | None, status: str, token: str | None) -> None:
+def pull(
+    hive_url: str,
+    zone: str,
+    source_role: str | None,
+    statuses: tuple[str, ...],
+    max_rejected: int | None,
+    token: str | None,
+) -> None:
     """Pull reviewed samples from Hive into datasets/<zone>/raw/."""
     from training.hive import pull as pull_mod
 
@@ -36,7 +57,8 @@ def pull(hive_url: str, zone: str, source_role: str | None, status: str, token: 
         hive_url=hive_url,
         zone=zone,
         source_role=source_role,
-        review_status=status or None,
+        review_statuses=[s for s in statuses if s] or None,
+        max_rejected=max_rejected,
         token=token,
     )
 
@@ -45,6 +67,13 @@ def pull(hive_url: str, zone: str, source_role: str | None, status: str, token: 
 @click.option("--zone", required=True)
 @click.option("--name", default=None, help="Dataset subdirectory under datasets/<zone>/ (default: v1)")
 @click.option("--split", default=0.85, type=float, help="Train/val split ratio")
+@click.option(
+    "--val-from",
+    default=None,
+    help="Hold the validation set out ONLY from this review tier (e.g. 'accepted'). "
+    "Everything else — incl. non-held-out accepted — goes to train. Keeps the "
+    "metric honest: never validate against unverified teacher labels.",
+)
 @click.option("--keep-empty", is_flag=True, help="Include samples with zero bounding boxes")
 @click.option("--seed", default=42, type=int, help="Shuffle seed")
 @click.option("--copy/--symlink", default=False, help="Copy images instead of symlinking")
@@ -140,6 +169,7 @@ def build(
     zone: str,
     name: str | None,
     split: float,
+    val_from: str | None,
     keep_empty: bool,
     seed: int,
     copy: bool,
@@ -211,6 +241,7 @@ def build(
         exclude_algorithm_prefixes=exclude_algorithm_prefixes,
         prioritize_machine_ids=prioritize_machine_ids,
         include_source_roles=include_source_roles,
+        val_from=val_from,
     )
 
 

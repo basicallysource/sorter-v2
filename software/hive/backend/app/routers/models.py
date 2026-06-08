@@ -190,7 +190,9 @@ def create_model(
     # Assign the next alphabetical codename from the LEGO-color pool. Ubuntu-style
     # human handle so people can say "Bronze beats Aqua" instead of slug+version.
     from app.services.codenames import next_codename
-    codename = next_codename(db)
+    # Experimental models don't consume a production codename — keep the curated
+    # color pool for real releases (so a throwaway test run doesn't burn "Amber").
+    codename = None if payload.experimental else next_codename(db)
     model = DetectionModel(
         owner_id=current_user.id,
         slug=payload.slug,

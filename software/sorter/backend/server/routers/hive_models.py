@@ -268,6 +268,7 @@ def list_models(
     runtime: str | None = Query(default=None),
     family: str | None = Query(default=None),
     q: str | None = Query(default=None),
+    include_experimental: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=30, ge=1, le=200),
 ) -> dict:
@@ -280,6 +281,8 @@ def list_models(
         filters["family"] = family
     if q:
         filters["q"] = q
+    if include_experimental:
+        filters["include_experimental"] = True
 
     # No target_id → aggregate across every enabled Hive so the UI can present
     # a single merged catalog and tag each row with its source Hive.
@@ -311,6 +314,22 @@ def list_installed() -> dict:
         item["registry_scopes"] = (
             sorted(definition.supported_scopes) if definition is not None else []
         )
+        if item.get("codename") or item.get("bundled"):
+            continue
+        target_id = item.get("target_id")
+        model_id = item.get("model_id")
+        if not isinstance(target_id, str) or not isinstance(model_id, str):
+            continue
+        try:
+            detail = hive_models_service.get_remote_model(target_id, model_id)
+        except Exception:
+            continue
+        codename = detail.get("codename") if isinstance(detail, dict) else None
+        codename_color = detail.get("codename_color") if isinstance(detail, dict) else None
+        if isinstance(codename, str) and codename.strip():
+            item["codename"] = codename.strip()
+        if isinstance(codename_color, str) and codename_color.strip():
+            item["codename_color"] = codename_color.strip()
     return {"items": items}
 
 

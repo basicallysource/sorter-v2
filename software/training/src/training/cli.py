@@ -495,6 +495,12 @@ def compose_metadata(run_dir: str, dataset_dir: str, benchmark_json: str | None,
 @click.option("--family", default=None)
 @click.option("--public/--private", default=True)
 @click.option(
+    "--experimental",
+    is_flag=True,
+    help="Mark the model experimental — hidden from the default Browse on Hive and "
+    "the sorters (opt in via 'Show experimental') so it isn't installed by accident.",
+)
+@click.option(
     "--dataset-dir",
     default=None,
     type=click.Path(exists=True, file_okay=False),

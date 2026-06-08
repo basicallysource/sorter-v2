@@ -137,6 +137,7 @@ def _run_publish(
     password: str | None = None,
     api_key: str | None = None,
     is_public: bool,
+    experimental: bool = False,
 ) -> int:
     run_dir = run_dir.resolve()
     meta = _load_run_metadata(run_dir)
@@ -164,8 +165,9 @@ def _run_publish(
         "scopes": scopes,
         "training_metadata": training_metadata,
         "is_public": is_public,
+        "experimental": experimental,
     }
-    print(f"Creating model slug={slug}", file=sys.stderr)
+    print(f"Creating model slug={slug}{' [experimental]' if experimental else ''}", file=sys.stderr)
     created = client.create_model(payload)
     model_id = created["id"]
     print(f"  id={model_id} version={created['version']}", file=sys.stderr)
@@ -235,6 +237,7 @@ def cli(kwargs: dict) -> int:
         password=password,
         api_key=api_key,
         is_public=kwargs.get("public", True),
+        experimental=kwargs.get("experimental", False),
     )
 
 

@@ -53,7 +53,11 @@ class RknnPreset:
     default_iou: float
     calibration_dir: Path
     calibration_count: int
-    quantization: str  # "i8" | "fp"
+    # "fp" (fp16) | "i8". For YOLO prefer the canonical builder at
+    # ``software/training/rknn_builder/`` instead of this bundle path — i8 on a
+    # fused YOLO output collapses the confidence scores to 0 (box coords dominate
+    # the per-tensor scale). i8 is only safe with a true head-stripped ONNX.
+    quantization: str
     # Mean/std applied INSIDE the RKNN graph (rknn config(mean_values=..., std_values=...)).
     # Layout matches the ONNX input order — typically RGB for our YOLO exports.
     mean_values: tuple[float, float, float] = (0.0, 0.0, 0.0)
@@ -118,7 +122,7 @@ PRESETS: dict[str, RknnPreset] = {
         default_iou=0.45,
         calibration_dir=ZONE_DATASETS_DIR / "c_channel_full" / "v2" / "images" / "train",
         calibration_count=150,
-        quantization="i8",
+        quantization="fp",  # i8 collapses scores on the fused YOLO head — see rknn_builder/
         mean_values=(0.0, 0.0, 0.0),
         std_values=(255.0, 255.0, 255.0),
         head_stripped=False,

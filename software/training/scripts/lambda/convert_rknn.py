@@ -1,11 +1,26 @@
-"""Convert a head-stripped ONNX to a quantized .rknn for RK3588.
+"""Convert an ONNX to a quantized .rknn for RK3588 (low-level helper).
 
 Designed to run inside the rknn-toolkit2 sidecar venv (Python 3.10) — NOT the
 project uv venv. On the canonical Lambda box that's `/lambda/nfs/one/sorter-npu/rknn-venv/`.
 
-The conversion is per-channel INT8 with a calibration set of `n` representative
-frames. Mean/std are baked into the graph (0/255) so input tensors stay in the
-0..255 byte range coming off the Pi-side preprocess.
+WARNING — do not use ``--quantization i8`` on a *fused* YOLO ONNX (the standard
+training export, output ``(1, 300, 6)`` or ``(1, 5, N)``). i8 quantizes that
+output tensor per-tensor; the box coords (0..imgsz) dominate the single scale
+and the confidence scores (0..1) collapse to exactly 0 — the NPU returns boxes
+but zero scores, so nothing is ever detected. This silently broke Aqua, Bronze
+and Cherry.
+
+For YOLO, the canonical, correct path is ``software/training/rknn_builder/``
+(``./build.sh best.pt out.rknn``), which runs ultralytics' official RKNN export:
+it re-exports the model with the end2end branch disabled (so the head emits a
+plain ``(1, 5, N)`` the sorter decodes via ``vision.ml.base.decode_yolo``) and
+builds **fp16** (``do_quantization=False``) so the scores survive. i8 is only
+safe with a true head-stripped ONNX (raw conv logits), decoded on the CPU via
+``decode_yolo_head_stripped``.
+
+i8 here uses per-channel weights + a calibration set of `n` frames; fp16 needs
+no calibration. Mean/std are baked into the graph (0/255) so input tensors stay
+in the 0..255 byte range coming off the Pi-side preprocess.
 """
 
 from __future__ import annotations

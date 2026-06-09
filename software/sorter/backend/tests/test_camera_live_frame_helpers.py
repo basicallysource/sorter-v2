@@ -11,24 +11,12 @@ from server.routers import cameras
 from vision.types import CameraFrame
 
 
-def _frame(
-    *,
-    ts: float | None = None,
-    raw_value: int = 1,
-    uncorrected_value: int | None = 2,
-) -> CameraFrame:
-    raw = np.full((4, 5, 3), raw_value, dtype=np.uint8)
-    uncorrected = (
-        np.full((4, 5, 3), uncorrected_value, dtype=np.uint8)
-        if uncorrected_value is not None
-        else None
-    )
+def _frame(*, ts: float | None = None, raw_value: int = 1) -> CameraFrame:
     return CameraFrame(
-        raw=raw,
+        raw=np.full((4, 5, 3), raw_value, dtype=np.uint8),
         annotated=None,
         results=[],
         timestamp=time.time() if ts is None else ts,
-        uncorrected_raw=uncorrected,
     )
 
 
@@ -44,10 +32,10 @@ class _Capture:
 class _Feed:
     def __init__(self, capture: _Capture) -> None:
         self.device = SimpleNamespace(capture_thread=capture)
-        self.calls: list[tuple[bool, bool]] = []
+        self.calls: list[bool] = []
 
-    def get_frame(self, annotated: bool = True, color_correct: bool = True) -> CameraFrame:
-        self.calls.append((annotated, color_correct))
+    def get_frame(self, annotated: bool = True) -> CameraFrame:
+        self.calls.append(annotated)
         return self.device.capture_thread.latest_frame
 
 
@@ -70,8 +58,8 @@ def _reset_camera_runtime(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(shared_state, "vision_manager", None)
 
 
-def test_calibration_capture_prefers_uncorrected_running_service_frame() -> None:
-    capture = _Capture(5, _frame(raw_value=7, uncorrected_value=11))
+def test_running_frame_helper_reads_running_service_frame() -> None:
+    capture = _Capture(5, _frame(raw_value=7))
     feed = _Feed(capture)
     shared_state.camera_service = _CameraService("c_channel_2", feed, capture)
 
@@ -79,75 +67,28 @@ def test_calibration_capture_prefers_uncorrected_running_service_frame() -> None
         "c_channel_2",
         5,
         after_timestamp=time.time() - 1.0,
-        prefer_uncorrected=True,
     )
 
     assert result is not None
     frame, timestamp = result
     assert timestamp > 0.0
-    assert int(frame[0, 0, 0]) == 11
-    assert feed.calls == [(False, False)]
+    assert int(frame[0, 0, 0]) == 7
+    assert feed.calls == [False]
 
 
 def test_live_frame_helper_keeps_raw_frame_semantics() -> None:
-    capture = _Capture(5, _frame(raw_value=7, uncorrected_value=11))
+    capture = _Capture(5, _frame(raw_value=9))
     feed = _Feed(capture)
     shared_state.camera_service = _CameraService("c_channel_2", feed, capture)
 
     frame = cameras._grab_live_frame("c_channel_2", after_timestamp=time.time() - 1.0)
 
     assert frame is not None
-    assert int(frame[0, 0, 0]) == 7
+    assert int(frame[0, 0, 0]) == 9
 
 
-def test_capture_frame_for_calibration_uses_running_capture_without_opening_device(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    capture = _Capture(5, _frame(raw_value=7, uncorrected_value=11))
-    feed = _Feed(capture)
-    shared_state.camera_service = _CameraService("c_channel_2", feed, capture)
-
-    import vision.camera as camera_module
-
-    def fail_open(*_args, **_kwargs):
-        raise AssertionError("calibration opened a second capture")
-
-    monkeypatch.setattr(camera_module, "_open_capture_source", fail_open)
-
-    frame = cameras._capture_frame_for_calibration(
-        "c_channel_2",
-        5,
-        after_timestamp=time.time() - 1.0,
-    )
-
-    assert frame is not None
-    assert int(frame[0, 0, 0]) == 11
-
-
-def test_capture_frame_for_calibration_refuses_second_capture_by_default(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.delenv("SORTER_ALLOW_CALIBRATION_SECOND_CAPTURE", raising=False)
-    monkeypatch.setattr(cameras.platform, "system", lambda: "Linux")
-
-    import vision.camera as camera_module
-
-    def fail_open(*_args, **_kwargs):
-        raise AssertionError("calibration opened a second capture")
-
-    monkeypatch.setattr(camera_module, "_open_capture_source", fail_open)
-
-    frame = cameras._capture_frame_for_calibration(
-        "c_channel_2",
-        5,
-        after_timestamp=time.time() - 1.0,
-    )
-
-    assert frame is None
-
-
-def test_running_capture_frame_rejects_source_mismatch() -> None:
-    capture = _Capture(7, _frame(raw_value=7, uncorrected_value=11))
+def test_running_frame_helper_rejects_source_mismatch() -> None:
+    capture = _Capture(7, _frame(raw_value=7))
     feed = _Feed(capture)
     shared_state.camera_service = _CameraService("c_channel_2", feed, capture)
 
@@ -157,7 +98,6 @@ def test_running_capture_frame_rejects_source_mismatch() -> None:
         after_timestamp=time.time() - 1.0,
         timeout=0.0,
         allow_stale=True,
-        prefer_uncorrected=True,
     )
 
     assert result is None

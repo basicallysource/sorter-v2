@@ -6,7 +6,7 @@ import time
 from enum import Enum
 from typing import Any, Optional
 
-from irl.config import CameraConfig, CameraColorProfile, CameraPictureSettings
+from irl.config import CameraConfig, CameraPictureSettings
 from .camera import CaptureThread
 from .types import CameraFrame
 
@@ -107,12 +107,6 @@ class CameraDevice:
 
     def get_picture_settings(self) -> CameraPictureSettings:
         return self._capture.getPictureSettings()
-
-    def set_color_profile(self, profile: CameraColorProfile | None) -> None:
-        self._capture.setColorProfile(profile)
-
-    def get_color_profile(self) -> CameraColorProfile:
-        return self._capture.getColorProfile()
 
     def set_device_settings(
         self,

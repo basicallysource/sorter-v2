@@ -106,7 +106,6 @@ def _stream_url(base_url: str, role: str, *, index: int) -> str:
         "layer": "annotated",
         "dashboard": "1",
         "direct": "0",
-        "color_correct": "1",
         "show_regions": "1",
         "benchmark": f"{int(time.time())}-{index}",
     }

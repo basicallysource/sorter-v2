@@ -17,6 +17,7 @@ import hashlib
 import json
 import logging
 import os
+from pathlib import Path
 import threading
 import time
 from typing import Any
@@ -31,6 +32,7 @@ log = logging.getLogger(__name__)
 
 SYNC_INTERVAL_S = 30.0
 _HTTP_TIMEOUT_S = 15.0
+_RESTORE_SUPPRESS_TTL_S = 10 * 60
 
 # local_state keys that are pure settings — always safe to restore.
 _SETTINGS_KEYS = ("bin_categories", "channel_polygons", "classification_polygons", "classification_training")
@@ -73,6 +75,64 @@ def build_snapshot() -> tuple[dict[str, Any], str]:
         "nickname": getMachineNickname(),
     }
     return payload, content_hash
+
+
+def _restore_suppress_path() -> Path:
+    return Path(
+        os.environ.get(
+            "SORTER_CONFIG_BACKUP_SUPPRESS_PATH",
+            "/tmp/sorter-config-backup-suppress-next.json",
+        )
+    )
+
+
+def _mark_restored_snapshot(content_hash: str, *, version: int) -> None:
+    """Prevent the background sync from immediately re-backing-up a restore.
+
+    Restores may intentionally be partial (for example, without stepper/servo
+    calibration). The resulting local hash can differ from the Hive version,
+    but that is not a user-authored config change and should not create a fresh
+    backup version right after the backend restarts.
+    """
+    payload = {
+        "content_hash": content_hash,
+        "version": version,
+        "expires_at": time.time() + _RESTORE_SUPPRESS_TTL_S,
+    }
+    path = _restore_suppress_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(f"{path.suffix}.tmp")
+        tmp.write_text(json.dumps(payload, sort_keys=True), encoding="utf-8")
+        os.replace(tmp, path)
+    except Exception as exc:  # noqa: BLE001 - suppression is best-effort only
+        log.warning("restore: failed to mark restored snapshot for backup suppression: %s", exc)
+
+
+def _should_suppress_sync_for_hash(content_hash: str) -> bool:
+    path = _restore_suppress_path()
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return False
+    except Exception as exc:  # noqa: BLE001
+        log.warning("config-backup sync: failed to read restore suppression marker: %s", exc)
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        return False
+
+    if float(payload.get("expires_at") or 0) < time.time():
+        try:
+            path.unlink()
+        except OSError:
+            pass
+        return False
+
+    if payload.get("content_hash") != content_hash:
+        return False
+    return True
 
 
 def _enabled_targets() -> list[dict[str, Any]]:
@@ -183,6 +243,12 @@ def restore_version(version: int, *, include_calibration: bool = False) -> dict[
     Caller should restart the backend afterwards for the TOML to take effect."""
     backup = _fetch_version(version)
     payload = backup.get("payload") or {}
+    machine_id = payload.get("machine_id")
+    wrote_machine_id = False
+    if isinstance(machine_id, str) and machine_id.strip():
+        local_state.set_machine_id(machine_id)
+        wrote_machine_id = True
+
     toml_text = payload.get("toml_text")
     if isinstance(toml_text, str) and toml_text.strip():
         _write_toml_text(toml_text)
@@ -200,11 +266,15 @@ def restore_version(version: int, *, include_calibration: bool = False) -> dict[
             applied_keys.append(key)
         except Exception as exc:  # noqa: BLE001
             log.warning("restore: failed to apply local_state %s: %s", key, exc)
+    _, restored_content_hash = build_snapshot()
+    _mark_restored_snapshot(restored_content_hash, version=version)
     return {
         "ok": True,
         "version": version,
         "applied_local_state": applied_keys,
         "wrote_toml": bool(isinstance(toml_text, str) and toml_text.strip()),
+        "wrote_machine_id": wrote_machine_id,
+        "suppressed_backup_hash": restored_content_hash,
     }
 
 
@@ -235,9 +305,13 @@ class ConfigBackupSync:
                 if _enabled_targets():
                     _, content_hash = build_snapshot()
                     if content_hash != self._last_hash:
-                        result = push_snapshot(trigger="heartbeat" if self._last_hash else "config_change")
-                        if any(r.get("ok") for r in result.get("results", [])):
+                        if _should_suppress_sync_for_hash(content_hash):
                             self._last_hash = content_hash
+                            log.info("config-backup sync: suppressed immediate post-restore backup")
+                        else:
+                            result = push_snapshot(trigger="heartbeat" if self._last_hash else "config_change")
+                            if any(r.get("ok") for r in result.get("results", [])):
+                                self._last_hash = content_hash
             except Exception as exc:  # noqa: BLE001
                 log.debug("config-backup sync tick failed: %s", exc)
             self._stop.wait(self._interval_s)

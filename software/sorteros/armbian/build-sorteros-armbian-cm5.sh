@@ -6,12 +6,82 @@ set -euo pipefail
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(cd -- "${SCRIPT_DIR}/../../.." && pwd)
 ARMBIAN_DIR=${ARMBIAN_BUILD_DIR:-${HOME}/Workspace/armbian-build-sorteros}
+PORTAL_DIR="${REPO_ROOT}/software/sorteros/portal"
+PORTAL_FRONTEND_DIR="${PORTAL_DIR}/frontend"
+PORTAL_FRONTEND_BUILD="${PORTAL_FRONTEND_DIR}/build"
 BOARD=orangepi-cm5-sorter
 RELEASE=noble
 BRANCH=vendor
 SORTEROS_BRANCH=${SORTEROS_BRANCH:-sorthive}
 FORCE_USERPATCHES=0
 PREPARE_ONLY=0
+
+portal_frontend_needs_build() {
+	if [[ ! -f "${PORTAL_FRONTEND_BUILD}/index.html" ]]; then
+		return 0
+	fi
+
+	if find "${PORTAL_FRONTEND_DIR}/src" -type f -newer "${PORTAL_FRONTEND_BUILD}/index.html" -print -quit | grep -q .; then
+		return 0
+	fi
+
+	local cfg
+	for cfg in svelte.config.js vite.config.ts package.json pnpm-lock.yaml; do
+		if [[ -f "${PORTAL_FRONTEND_DIR}/${cfg}" && "${PORTAL_FRONTEND_DIR}/${cfg}" -nt "${PORTAL_FRONTEND_BUILD}/index.html" ]]; then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
+prepare_portal_overlay() {
+	local overlay_dir=$1
+	local backend_src="${PORTAL_DIR}/backend/portal.py"
+	local backend_dst="${overlay_dir}/usr/local/sbin/sorteros-portal.py"
+	local www_dst="${overlay_dir}/var/www/portal"
+	local cfg_dst="${overlay_dir}/etc/sorteros-config.toml"
+
+	if [[ ! -f "${backend_src}" ]]; then
+		echo "[sorteros-armbian] missing portal backend: ${backend_src}" >&2
+		exit 1
+	fi
+	if [[ ! -d "${PORTAL_FRONTEND_DIR}" ]]; then
+		echo "[sorteros-armbian] missing portal frontend: ${PORTAL_FRONTEND_DIR}" >&2
+		exit 1
+	fi
+
+	if portal_frontend_needs_build; then
+		if ! command -v pnpm >/dev/null 2>&1; then
+			echo "[sorteros-armbian] portal frontend needs a build, but pnpm is not installed." >&2
+			exit 1
+		fi
+		echo "[sorteros-armbian] building SorterOS captive portal frontend"
+		if [[ ! -d "${PORTAL_FRONTEND_DIR}/node_modules" ]]; then
+			( cd "${PORTAL_FRONTEND_DIR}" && pnpm install --frozen-lockfile )
+		fi
+		( cd "${PORTAL_FRONTEND_DIR}" && pnpm build )
+	else
+		echo "[sorteros-armbian] portal frontend build/ up to date"
+	fi
+
+	if [[ ! -f "${PORTAL_FRONTEND_BUILD}/index.html" ]]; then
+		echo "[sorteros-armbian] portal frontend build missing after build step: ${PORTAL_FRONTEND_BUILD}" >&2
+		exit 1
+	fi
+
+	echo "[sorteros-armbian] baking SorterOS captive portal into overlay"
+	mkdir -p "$(dirname "${backend_dst}")" "$(dirname "${www_dst}")" "$(dirname "${cfg_dst}")"
+	cp "${backend_src}" "${backend_dst}"
+	chmod 0755 "${backend_dst}"
+	rm -rf "${www_dst}"
+	mkdir -p "${www_dst}"
+	rsync -a --delete "${PORTAL_FRONTEND_BUILD}/" "${www_dst}/"
+	if [[ ! -f "${cfg_dst}" ]]; then
+		printf '%s\n' "# Populated by sorteros-portal during AP onboarding." > "${cfg_dst}"
+		chmod 0644 "${cfg_dst}"
+	fi
+}
 
 usage() {
 	cat <<EOF
@@ -100,6 +170,7 @@ mkdir -p "${USERPATCHES}/overlay/tmp" "${USERPATCHES}/overlay/etc/sorteros"
 cp "${REPO_ROOT}/software/sorteros/build/chroot_apt.sh" "${USERPATCHES}/overlay/tmp/sorteros-chroot_apt.sh"
 chmod +x "${USERPATCHES}/overlay/tmp/sorteros-chroot_apt.sh"
 printf '%s\n' "${SORTEROS_BRANCH}" > "${USERPATCHES}/overlay/etc/sorteros/branch"
+prepare_portal_overlay "${USERPATCHES}/overlay"
 
 if compgen -G "${HOME}/.ssh/*.pub" >/dev/null; then
 	echo "[sorteros-armbian] adding local SSH public keys for first boot access"

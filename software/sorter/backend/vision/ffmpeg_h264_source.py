@@ -352,7 +352,7 @@ class FfmpegRkmppH264Source:
     def _wait_for_frame(self, timeout_s: float = 5.0) -> np.ndarray:
         deadline = time.time() + timeout_s
         while time.time() < deadline and not self._stop.is_set():
-            frame_obj = self.feed.get_frame(annotated=False, color_correct=True)
+            frame_obj = self.feed.get_frame(annotated=False)
             if frame_obj is not None and getattr(frame_obj, "raw", None) is not None:
                 return self._coerce_bgr24(frame_obj.raw)
             time.sleep(0.02)
@@ -373,7 +373,7 @@ class FfmpegRkmppH264Source:
             return
         frame_interval = 1.0 / max(1, int(self.config.fps))
         while not self._stop.is_set() and self.active:
-            frame_obj = self.feed.get_frame(annotated=False, color_correct=True)
+            frame_obj = self.feed.get_frame(annotated=False)
             if frame_obj is None or getattr(frame_obj, "raw", None) is None:
                 time.sleep(0.02)
                 continue

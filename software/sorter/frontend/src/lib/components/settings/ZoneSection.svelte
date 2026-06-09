@@ -154,7 +154,6 @@
 		saved: PictureSettings;
 		draft: PictureSettings;
 	};
-	type CalibrationHighlight = [number, number, number, number];
 	type DetectionHighlight = [number, number, number, number];
 	type SidePanel = 'picture' | 'zone' | 'classification' | null;
 	type DragState =
@@ -448,7 +447,6 @@
 	let activeSecondaryId = $state<string | null>(null);
 	let secondaryVertexDrag = $state<{ id: string; vertexIdx: number } | null>(null);
 	let activeSidebar = $state<SidePanel>(null);
-	let previewColorCorrect = $state(true);
 	let previewAnnotated = $state(true);
 	let previewCropped = $state(false);
 	let previewZones = $state(true);
@@ -470,7 +468,6 @@
 	});
 	let picturePreviewByRole = $state<Partial<Record<CameraRole, PicturePreviewState>>>({});
 	let previewImageSizeByRole = $state<Partial<Record<CameraRole, PreviewImageSize>>>({});
-	let calibrationHighlightByRole = $state<Partial<Record<CameraRole, CalibrationHighlight>>>({});
 	let detectionHighlightByRole = $state<Partial<Record<CameraRole, DetectionHighlight[]>>>({});
 	let feedRevision = $state(0);
 	let reassignConfirm = $state<{
@@ -917,20 +914,6 @@
 		return picturePreviewByRole[role] ?? null;
 	}
 
-	function setCalibrationHighlight(role: CameraRole, bbox: CalibrationHighlight | null) {
-		const next = { ...calibrationHighlightByRole };
-		if (bbox) {
-			next[role] = bbox;
-		} else {
-			delete next[role];
-		}
-		calibrationHighlightByRole = next;
-	}
-
-	function getCalibrationHighlight(role: CameraRole = currentRole()): CalibrationHighlight | null {
-		return calibrationHighlightByRole[role] ?? null;
-	}
-
 	function setDetectionHighlights(role: CameraRole, bboxes: DetectionHighlight[] | null) {
 		const next = { ...detectionHighlightByRole };
 		if (bboxes && bboxes.length > 0) {
@@ -1094,7 +1077,6 @@
 		if (!supportsDetectionSidebar(currentChannel)) return;
 		if (activeSidebar === 'picture') {
 			clearPicturePreview(currentRole());
-			setCalibrationHighlight(currentRole(), null);
 		}
 		if (activeSidebar === 'classification') {
 			setDetectionHighlights(currentRole(), null);
@@ -1845,14 +1827,12 @@
 		// full frame.
 		const annotated = previewAnnotated;
 		const dashboard = previewCropped;
-		const colorCorrect = previewColorCorrect;
 		const showRegions = previewCropped && previewZones;
 		const params = new URLSearchParams({
 			annotated: annotated ? '1' : '0',
 			layer: annotated ? 'annotated' : 'raw',
 			direct: '1',
 			dashboard: dashboard ? '1' : '0',
-			color_correct: colorCorrect ? '1' : '0',
 			show_regions: showRegions ? '1' : '0'
 		});
 		return `${getBackendHttpBase()}/api/cameras/feed/${encodeURIComponent(role)}?${params.toString()}`;
@@ -1864,7 +1844,7 @@
 		// No `editingZone` term here — the `{#key}` block must not remount the
 		// media element when zone editing toggles. Remounting tears down a working
 		// fallback stream or WebRTC subscriber.
-		const mode = `${previewAnnotated ? 'annot' : 'raw'}-${previewColorCorrect ? 'cc' : 'nocc'}-${previewCropped ? 'crop' : 'full'}-${zonesMode}`;
+		const mode = `${previewAnnotated ? 'annot' : 'raw'}-${previewCropped ? 'crop' : 'full'}-${zonesMode}`;
 		return `${currentRole(channel)}::${assignment === null ? 'none' : String(assignment)}::${mode}::${feedRevision}`;
 	}
 
@@ -4121,19 +4101,6 @@
 									class="pointer-events-none absolute"
 									style={previewOverlayStyle(currentChannel)}
 								>
-									{#if getCalibrationHighlight(currentRole())}
-										{@const highlight = getCalibrationHighlight(currentRole())!}
-										<div
-											class="absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
-											style={`left:${highlight[0] * 100}%;top:${highlight[1] * 100}%;width:${(highlight[2] - highlight[0]) * 100}%;height:${(highlight[3] - highlight[1]) * 100}%;`}
-										>
-											<div
-												class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
-											>
-												Calibration Target
-											</div>
-										</div>
-									{/if}
 									{#each getDetectionHighlights(currentRole()) as highlight, index}
 										<div
 											class={`absolute border-2 shadow-[0_0_0_1px_rgba(255,255,255,0.35)] ${
@@ -4184,11 +4151,9 @@
 						{#if !editingZone && currentAssignment() !== null}
 							<StreamControlsOverlay
 								bind:annotated={previewAnnotated}
-								bind:colorCorrect={previewColorCorrect}
 								bind:cropped={previewCropped}
 								bind:zones={previewZones}
 								showAnnotations
-								showColor
 								showCrop
 								showZones
 							/>
@@ -4360,17 +4325,12 @@
 						onPreviewChange={(role, savedSettings, draftSettings) => {
 							setPicturePreview(role, savedSettings, draftSettings);
 						}}
-						onCalibrationHighlightChange={(bbox) => {
-							setCalibrationHighlight(currentRole(), bbox);
-						}}
 						onClose={() => {
 							clearPicturePreview(currentRole());
-							setCalibrationHighlight(currentRole(), null);
 							activeSidebar = null;
 						}}
 						onSaved={() => {
 							clearPicturePreview(currentRole());
-							setCalibrationHighlight(currentRole(), null);
 							activeSidebar = null;
 							feedRevision += 1;
 							statusMsg = 'Picture settings updated.';

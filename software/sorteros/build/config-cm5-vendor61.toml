@@ -98,8 +98,6 @@ required_runtime_gates = [
     "target_capture_backend_integrated",
     "os_video_handle_audit_available",
     "legacy_mjpeg_clients_absent",
-    "calibration_second_capture_disabled",
-    "calibration_raw_ring_buffer_available",
     "target_ready",
     "target_architecture_compliant",
 ]

@@ -2,16 +2,20 @@ export const DEFAULT_HIVE_URL = 'https://hive.basically.website';
 
 const PENDING_LINK_KEY = 'sorter.hiveLink.pending.v1';
 
+export type HiveLinkIntent = 'connect' | 'restore';
+
 type PendingHiveLink = {
 	state: string;
 	hiveUrl: string;
 	apiUrl?: string;
 	targetName: string;
+	intent: HiveLinkIntent;
 	createdAt: number;
 };
 
 export type HiveLinkResult = {
 	completed: boolean;
+	intent?: HiveLinkIntent;
 	targetName?: string;
 	machineName?: string;
 	message?: string;
@@ -47,6 +51,7 @@ function parseStoredPending(): PendingHiveLink | null {
 			hiveUrl: parsed.hiveUrl,
 			apiUrl: typeof parsed.apiUrl === 'string' ? parsed.apiUrl : undefined,
 			targetName: parsed.targetName,
+			intent: parsed.intent === 'restore' ? 'restore' : 'connect',
 			createdAt: typeof parsed.createdAt === 'number' ? parsed.createdAt : 0
 		};
 	} catch {
@@ -138,11 +143,13 @@ export function beginHiveLink({
 	hiveUrl,
 	targetName,
 	machineName,
+	intent = 'connect',
 	returnPath
 }: {
 	hiveUrl: string;
 	targetName?: string;
 	machineName?: string;
+	intent?: HiveLinkIntent;
 	returnPath: string;
 }) {
 	if (typeof window === 'undefined' || typeof sessionStorage === 'undefined') {
@@ -159,6 +166,7 @@ export function beginHiveLink({
 		hiveUrl: normalizedHiveUrl,
 		apiUrl: normalizeHiveApiBaseUrl(hiveUrl),
 		targetName: resolvedTargetName,
+		intent,
 		createdAt: Date.now()
 	};
 	sessionStorage.setItem(PENDING_LINK_KEY, JSON.stringify(pending));
@@ -168,6 +176,7 @@ export function beginHiveLink({
 	linkUrl.searchParams.set('state', state);
 	linkUrl.searchParams.set('target_name', resolvedTargetName);
 	linkUrl.searchParams.set('sorter_origin', window.location.origin);
+	linkUrl.searchParams.set('intent', intent);
 	const suggestedMachineName = (machineName ?? '').trim();
 	if (suggestedMachineName) {
 		linkUrl.searchParams.set('suggested_machine_name', suggestedMachineName);
@@ -229,6 +238,7 @@ export async function completeReturnedHiveLink(backendBaseUrl: string): Promise<
 	cleanPending();
 	return {
 		completed: true,
+		intent: pending.intent,
 		targetName,
 		machineName,
 		message: `Connected ${machineName || targetName} to ${hiveApiUrl}.`

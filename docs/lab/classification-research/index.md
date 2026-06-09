@@ -60,29 +60,22 @@ Synthetic rendering is viable for augmentation. Varying angles, lighting, and po
 
 ## Color classification
 
-ML is **unreliable** for color detection due to lighting variation across machines and environments. The recommended approach avoids ML entirely:
-
-1. Place a color calibration card (reference colors) in frame.
-2. Apply classic white-balance correction.
-3. Use histogram matching against known reference patches.
-
-This is more reliable than any ML-based color detection the team tested.
+ML is **unreliable** for color detection due to lighting variation across machines and environments. The sorter currently treats color as a separate vision problem from part-shape classification, with camera exposure, white balance, and lighting kept under manual operator control.
 
 ## Trade-offs
 
 - **Remote API vs local model** — Brickognize API works and is fast (0.56s), but requires internet. A local model is planned for offline operation. Strategy: dual-mode — local for common parts, API for rare/uncertain.
 - **Embeddings vs classifier** — Embeddings need fewer examples per class but are fragile to bad vectors. Classifiers need more training data but are more robust. With enough data, classifiers win.
 - **Breadth vs depth** — Supporting all 70k parts requires impractical amounts of data. Focusing on top 5k gives 85%+ coverage with achievable effort.
-- **ML color vs calibration-based color** — ML color detection sounds elegant but fails across different lighting conditions. Calibration cards are boring but reliable.
+- **ML color vs controlled capture** — ML color detection sounds elegant but fails across different lighting conditions. The practical path is to keep the capture environment controlled before adding any dedicated color classifier.
 
 ## What this is not
 
 - **Not aiming for universal coverage.** Rare and obscure parts (post-2020 limited editions, regional exclusives) are out of scope for the initial classifier.
-- **Not doing color via ML.** Color detection uses classical computer vision (calibration cards, white balance), not learned models.
+- **Not doing color via ML.** Color handling is kept separate from the part classifier until the capture pipeline is stable enough for a dedicated color strategy.
 - **Not a self-contained local system yet.** The primary classifier (Brickognize) is a remote API. Local self-hosting is planned but not shipped.
 
 ## Where to go next
 
 - [Object detection research]({{ '/lab/object-detection/' | relative_url }}) — the detector that finds pieces in the chamber before classification
 - [Sorter architecture]({{ '/sorter/architecture/' | relative_url }}) — how classification fits into the sorting pipeline
-- [Camera calibration]({{ '/sorter/camera-calibration/' | relative_url }}) — the color calibration workflow that feeds into classification

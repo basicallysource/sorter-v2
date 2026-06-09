@@ -31,7 +31,6 @@ def _frame(ts: float = 100.0) -> CameraFrame:
         annotated=None,
         results=[],
         timestamp=ts,
-        uncorrected_raw=np.ones((8, 12, 3), dtype=np.uint8),
     )
 
 
@@ -44,9 +43,12 @@ def _device(
     ring_depth: int = 7,
     ts: float = 100.0,
     latest_frame: CameraFrame | None | object = _DEFAULT_FRAME,
+    capture_backend: dict | None = None,
 ):
     latest = _frame(ts) if latest_frame is _DEFAULT_FRAME else latest_frame
     def _capture_backend() -> dict:
+        if capture_backend is not None:
+            return dict(capture_backend)
         return {
             "implementation": "opencv_v4l2_raw_ring",
             "source": source,
@@ -222,7 +224,6 @@ def test_media_plane_aliases_multiple_roles_to_one_capture_instance() -> None:
     assert source["ring_buffer_depth"] == 42
     assert source["latest_frame"]["width"] == 12
     assert source["latest_frame"]["height"] == 8
-    assert source["latest_frame"]["has_uncorrected_raw"] is True
     contract = source["target_capture_pipeline_contract"]
     assert contract["name"] == "gstreamer_v4l2_tee_mpp_h264"
     assert contract["device_path"] == "/dev/video3"
@@ -234,9 +235,6 @@ def test_media_plane_aliases_multiple_roles_to_one_capture_instance() -> None:
     assert contract["launch_pipeline"].split().count("v4l2src") == 1
     assert "sorter_capture_tee. ! queue name=sorter_raw_queue" in contract["launch_pipeline"]
     assert "sorter_capture_tee. ! queue name=sorter_h264_queue" in contract["launch_pipeline"]
-    assert source["calibration_frame_source"]["kind"] == "raw_ring_buffer"
-    assert source["calibration_frame_source"]["available"] is True
-    assert source["calibration_frame_source"]["uses_second_capture"] is False
     assert source["capture_backend"]["implementation"] in {
         "opencv_v4l2_raw_ring",
         "opencv_avfoundation_raw_ring",
@@ -248,7 +246,6 @@ def test_media_plane_aliases_multiple_roles_to_one_capture_instance() -> None:
     assert source["capture_backend"]["h264_webrtc_branch"] is False
     assert source["capture_backend"]["target_compliant"] is False
     assert payload["invariants"]["target_capture_backend_integrated"] is False
-    assert payload["invariants"]["calibration_raw_ring_buffer_available"] is True
     assert len(payload["encoder_sessions"]) == 1
     session = payload["encoder_sessions"][0]
     assert session["session_key"] == "video:3"
@@ -261,22 +258,190 @@ def test_media_plane_aliases_multiple_roles_to_one_capture_instance() -> None:
     assert session["shares_capture_thread"] is True
 
 
-def test_media_plane_flags_missing_raw_ring_buffer_for_calibration() -> None:
-    service = SimpleNamespace(
-        feeds={
-            "c_channel_2": _feed(_device(5, ring_depth=0, latest_frame=None)),
-        }
+def test_media_plane_marks_active_high_res_capture_as_needing_hardware_scale(monkeypatch) -> None:
+    monkeypatch.setattr(
+        media_plane,
+        "probe_media_capabilities",
+        lambda: {
+            "target": {"transport": "webrtc", "video_codec": "h264", "encoder": "rockchip_mpp"},
+            "python_webrtc": {"ready": True},
+            "ffmpeg": {
+                "rkmpp_h264_encoder": True,
+                "rkmpp_h264_runtime_ready": True,
+                "rkrga_filters": True,
+                "rkrga_runtime_ready": True,
+                "rkrga_crop_filter": True,
+                "rkrga_crop_runtime_ready": True,
+            },
+            "selected_encoder_path": {
+                "name": "gstreamer_rockchip_mpp",
+                "available": True,
+                "hardware": True,
+                "target_compliant": True,
+                "production_ready": True,
+            },
+            "webrtc_hardware_bridge": {
+                "implemented": True,
+                "source_factory_registered": True,
+            },
+            "devices": {
+                "video": ["/dev/video5"],
+                "known_rockchip_accelerators": {
+                    "/dev/mpp_service": True,
+                    "/dev/rga": True,
+                    "/dev/dma_heap": True,
+                    "/dev/dri/renderD128": True,
+                },
+                "v4l2_m2m": {"h264_encoder_ready": False},
+            },
+            "source_pipeline": {
+                "target_capture_backend_required": True,
+                "hardware_crop_in_source": False,
+                "rkrga_crop_filter_advertised": True,
+                "rkrga_crop_runtime_ready": True,
+                "rkrga_crop_path": "ffmpeg_vpp_rkrga",
+                "candidates": [
+                    {
+                        "name": "gstreamer_v4l2_tee_mpp_h264",
+                        "available": True,
+                    }
+                ],
+            },
+            "ready_for_hardware_webrtc": True,
+        },
     )
+    monkeypatch.setattr(
+        media_plane,
+        "_scan_video_open_handles",
+        lambda: media_plane._summarize_video_handle_entries([]),
+    )
+    backend = {
+        "implementation": "gstreamer_v4l2_tee_mpp_h264",
+        "source": "/dev/video5",
+        "requested_mode": {"width": 3840, "height": 2160, "fps": 30, "fourcc": "MJPG"},
+        "single_capture_owner": True,
+        "raw_ring_branch": True,
+        "h264_webrtc_branch": True,
+        "hardware_scale_convert": False,
+        "zero_copy_dmabuf": True,
+        "target_compliant": True,
+    }
+    service = SimpleNamespace(feeds={"classification_channel": _feed(_device(5, capture_backend=backend))})
 
     payload = describe_media_plane(service)
-    source = payload["physical_sources"][0]
+    source_pipeline = payload["capabilities"]["source_pipeline"]
+    evaluation = evaluate_transport_gates(payload)
 
-    assert source["source"] == "video:5"
-    assert source["calibration_frame_source"]["kind"] == "raw_ring_buffer"
-    assert source["calibration_frame_source"]["available"] is False
-    assert source["calibration_frame_source"]["ring_buffer_depth"] == 0
-    assert source["calibration_frame_source"]["latest_frame_available"] is False
-    assert payload["invariants"]["calibration_raw_ring_buffer_available"] is False
+    assert payload["physical_sources"][0]["capture_profile"]["exceeds_preview_budget"] is True
+    assert source_pipeline["active_high_res_sources"] == ["video:5"]
+    assert source_pipeline["active_high_res_capture_requires_scale"] is True
+    assert source_pipeline["active_high_res_scale_ready"] is False
+    assert source_pipeline["hardware_crop_in_source"] is False
+    assert source_pipeline["rkrga_crop_runtime_ready"] is True
+    assert source_pipeline["rkrga_crop_path"] == "ffmpeg_vpp_rkrga"
+    strategy = source_pipeline["detection_crop_strategy"]
+    assert strategy["target_stage"] == "detection_yolo_branch_before_scale"
+    assert strategy["current_stage"] == "scaled_full_frame_then_perception_crop"
+    assert strategy["active_media_pipeline_crop"] is False
+    assert strategy["hardware_crop_runtime_available"] is True
+    assert strategy["hardware_crop_runtime_path"] == "ffmpeg_vpp_rkrga"
+    assert strategy["software_videocrop_allowed"] is False
+    assert evaluation["gates"]["active_high_res_capture_requires_scale"] is True
+    assert evaluation["gates"]["active_high_res_scale_ready"] is False
+    assert evaluation["gates"]["hardware_crop_source_pipeline"] is False
+    assert evaluation["gates"]["ffmpeg_rkrga_crop_runtime"] is True
+    assert evaluation["gates"]["target_architecture_compliant"] is False
+    assert any(
+        "Active high-res camera capture exceeds the preview budget" in item
+        for item in evaluation["blockers"]
+    )
+
+
+def test_media_plane_does_not_treat_direct_librga_detection_as_preview_scale(monkeypatch) -> None:
+    monkeypatch.setattr(
+        media_plane,
+        "probe_media_capabilities",
+        lambda: {
+            "target": {"transport": "webrtc", "video_codec": "h264", "encoder": "rockchip_mpp"},
+            "python_webrtc": {"ready": True},
+            "ffmpeg": {"rkrga_crop_runtime_ready": True},
+            "selected_encoder_path": {
+                "name": "gstreamer_rockchip_mpp",
+                "available": True,
+                "hardware": True,
+                "target_compliant": True,
+                "production_ready": True,
+            },
+            "webrtc_hardware_bridge": {
+                "implemented": True,
+                "source_factory_registered": True,
+            },
+            "devices": {
+                "video": ["/dev/video5"],
+                "known_rockchip_accelerators": {
+                    "/dev/mpp_service": True,
+                    "/dev/rga": True,
+                    "/dev/dma_heap": True,
+                },
+            },
+            "source_pipeline": {
+                "target_capture_backend_required": True,
+                "candidates": [
+                    {
+                        "name": "gstreamer_v4l2_tee_mpp_h264",
+                        "available": True,
+                    }
+                ],
+            },
+            "ready_for_hardware_webrtc": True,
+        },
+    )
+    monkeypatch.setattr(
+        media_plane,
+        "_scan_video_open_handles",
+        lambda: media_plane._summarize_video_handle_entries([]),
+    )
+    backend = {
+        "implementation": "gstreamer_v4l2_tee_mpp_h264",
+        "source": "/dev/video5",
+        "requested_mode": {"width": 3840, "height": 2160, "fps": 30, "fourcc": "MJPG"},
+        "single_capture_owner": True,
+        "raw_ring_branch": True,
+        "h264_webrtc_branch": True,
+        "hardware_scale_convert": True,
+        "hardware_preview_scale_convert": False,
+        "hardware_detection_scale_convert": True,
+        "hardware_detection_crop_capable": True,
+        "zero_copy_dmabuf": True,
+        "target_compliant": True,
+    }
+    service = SimpleNamespace(feeds={"classification_channel": _feed(_device(5, capture_backend=backend))})
+
+    payload = describe_media_plane(service)
+    source_pipeline = payload["capabilities"]["source_pipeline"]
+    evaluation = evaluate_transport_gates(payload)
+
+    assert source_pipeline["hardware_scale_convert_in_source"] is True
+    assert source_pipeline["hardware_preview_scale_convert_in_source"] is False
+    assert source_pipeline["hardware_detection_scale_convert_in_source"] is True
+    assert source_pipeline["active_high_res_capture_requires_scale"] is True
+    assert source_pipeline["active_high_res_scale_ready"] is False
+    assert evaluation["gates"]["active_high_res_scale_ready"] is False
+
+
+def test_transport_gate_keeps_720p_capture_valid_without_hardware_scale() -> None:
+    service = SimpleNamespace(feeds={"c_channel_2": _feed(_device(5))})
+    payload = _hardware_ready_media_plane_payload(service, bridge_implemented=True)
+    payload["capabilities"]["source_pipeline"]["hardware_scale_convert_in_source"] = False
+    payload["capabilities"]["source_pipeline"]["active_high_res_capture_requires_scale"] = False
+    payload["capabilities"]["source_pipeline"]["active_high_res_scale_ready"] = True
+
+    evaluation = evaluate_transport_gates(payload)
+
+    assert evaluation["gates"]["hardware_scale_convert_source_pipeline"] is False
+    assert evaluation["gates"]["active_high_res_capture_requires_scale"] is False
+    assert evaluation["gates"]["active_high_res_scale_ready"] is True
+    assert evaluation["gates"]["target_architecture_compliant"] is True
 
 
 def test_media_plane_flags_assigned_video_source_missing(monkeypatch) -> None:
@@ -374,6 +539,8 @@ def test_media_capability_probe_classifies_encoder_paths() -> None:
     assert {
         "shared_feed_bgr24_to_ffmpeg_rkmpp",
         "forbidden_ffmpeg_v4l2_direct_to_rkmpp",
+        "ffmpeg_v4l2_single_capture_split_rkmpp_rkrga",
+        "in_process_librga_virtualaddr_scale_crop",
         "gstreamer_v4l2_tee_mpp_h264",
     } <= set(candidates)
     assert candidates["shared_feed_bgr24_to_ffmpeg_rkmpp"]["opens_capture_device"] is False
@@ -382,6 +549,22 @@ def test_media_capability_probe_classifies_encoder_paths() -> None:
     assert candidates["forbidden_ffmpeg_v4l2_direct_to_rkmpp"]["opens_capture_device"] is True
     assert candidates["forbidden_ffmpeg_v4l2_direct_to_rkmpp"]["violates_single_capture"] is True
     assert candidates["forbidden_ffmpeg_v4l2_direct_to_rkmpp"]["target_compliant"] is False
+    ffmpeg_single_capture = candidates["ffmpeg_v4l2_single_capture_split_rkmpp_rkrga"]
+    assert ffmpeg_single_capture["role"] == "alternate_target_candidate"
+    assert ffmpeg_single_capture["single_capture_pipeline"] is True
+    assert ffmpeg_single_capture["violates_single_capture"] is False
+    assert ffmpeg_single_capture["raw_ring_branch"] is True
+    assert ffmpeg_single_capture["h264_webrtc_branch"] is True
+    assert ffmpeg_single_capture["detection_yolo_branch"] is True
+    assert ffmpeg_single_capture["implementation_registered"] is False
+    assert ffmpeg_single_capture["target_compliant"] is False
+    librga_candidate = candidates["in_process_librga_virtualaddr_scale_crop"]
+    assert librga_candidate["role"] == "next_runtime_step"
+    assert librga_candidate["opens_capture_device"] is False
+    assert librga_candidate["input_from_single_capture_feed"] is True
+    assert librga_candidate["detection_yolo_branch"] is True
+    assert librga_candidate["zero_copy_dmabuf"] is False
+    assert librga_candidate["target_compliant"] is False
     target_candidate = candidates["gstreamer_v4l2_tee_mpp_h264"]
     assert target_candidate["role"] == "target_candidate"
     assert target_candidate["single_capture_pipeline"] is True
@@ -411,6 +594,15 @@ def test_media_capability_probe_classifies_encoder_paths() -> None:
     assert payload["webrtc_hardware_bridge"]["software_h264_fallback_allowed"] is False
     assert payload["gstreamer_target_runtime"]["implemented"] is True
     assert payload["gstreamer_target_runtime"]["software_h264_fallback_allowed"] is False
+    recommendation = payload["source_pipeline"]["recommended_next_hardware_path"]
+    assert recommendation["name"] in {
+        "gstreamer_explicit_rga_transform",
+        "in_process_librga_virtualaddr_scale_crop",
+    }
+    assert recommendation["target_backend"] == "gstreamer_v4l2_tee_mpp_h264"
+    assert "remaining_for_full_target" in recommendation
+    assert "ffmpeg_alternative_blockers" in recommendation
+    assert "librga" in payload
     path_names = {path["name"] for path in payload["encoder_paths"]}
     assert {
         "gstreamer_rockchip_mpp",
@@ -516,6 +708,12 @@ def test_feed_metadata_reports_frame_sync_and_json_safe_overlays() -> None:
     assert payload["physical_source"] == "video:5"
     assert payload["frame"]["timestamp"] == 123.4
     assert payload["frame"]["width"] == 12
+    assert payload["coordinate_space"]["name"] == "sensor_frame"
+    assert payload["coordinate_space"]["width"] == 12
+    assert payload["coordinate_space"]["height"] == 8
+    assert payload["coordinate_space"]["overlays"] == "sensor_frame"
+    assert payload["transport_frame"] is None
+    assert payload["inference_frame"] is None
     assert payload["ring_buffer_depth"] == 13
     assert payload["control_plane"]["payload_contains_pixels"] is False
     assert payload["control_plane"]["browser_side_render_target"] is True
@@ -530,6 +728,69 @@ def test_feed_metadata_reports_frame_sync_and_json_safe_overlays() -> None:
     assert payload["crop"]["viewport"]["width"] == 100
     assert payload["overlays"][0]["bbox"] == [1, 2, 3, 4]
     assert payload["overlay_count"] == 2
+
+
+def test_feed_metadata_declares_scaled_transport_and_inference_frames() -> None:
+    sensor_frame = CameraFrame(
+        raw=np.zeros((2160, 3840, 3), dtype=np.uint8),
+        annotated=None,
+        results=[],
+        timestamp=200.0,
+    )
+    feed = _MetadataFeed(
+        _device(
+            0,
+            latest_frame=sensor_frame,
+            capture_backend={
+                "implementation": "gstreamer_v4l2_tee_mpp_h264",
+                "requested_mode": {
+                    "width": 3840,
+                    "height": 2160,
+                    "fps": 30,
+                    "fourcc": "MJPG",
+                },
+                "h264_output_mode": {"width": 1280, "height": 720, "fps": 30},
+                "detection_output_mode": {"width": 640, "height": 360, "fps": 30},
+                "hardware_scale_convert": True,
+            },
+        )
+    )
+
+    payload = describe_feed_metadata(
+        "classification_channel",
+        feed,
+        requested_role="classification_channel",
+        config_role="carousel",
+        physical_source="video:0",
+        crop={
+            "available": True,
+            "kind": "bbox_masked",
+            "input_frame": {"width": 3840, "height": 2160},
+            "viewport": {"x": 960, "y": 540, "width": 1280, "height": 720},
+            "output_frame": {"width": 1280, "height": 720},
+        },
+    )
+
+    assert payload["frame"]["width"] == 3840
+    assert payload["frame"]["height"] == 2160
+    assert payload["transport_frame"] == {"width": 1280, "height": 720, "fps": 30}
+    assert payload["inference_frame"] == {"width": 640, "height": 360, "fps": 30}
+    assert payload["coordinate_space"]["name"] == "sensor_frame"
+    assert payload["coordinate_space"]["overlays"] == "sensor_frame"
+    assert payload["coordinate_space"]["crop"] == "sensor_frame"
+    assert payload["coordinate_space"]["transport"] == {
+        "kind": "scaled_full_frame",
+        "source_rect": {"x": 0, "y": 0, "width": 3840, "height": 2160},
+        "output_frame": {"width": 1280, "height": 720, "fps": 30},
+    }
+    assert payload["coordinate_space"]["inference"] == {
+        "kind": "scaled_full_frame",
+        "source_rect": {"x": 0, "y": 0, "width": 3840, "height": 2160},
+        "output_frame": {"width": 640, "height": 360, "fps": 30},
+    }
+    assert payload["crop"]["input_frame"] == {"width": 3840, "height": 2160}
+    assert payload["crop"]["viewport"]["x"] == 960
+    assert payload["overlays"][0]["bbox"] == [1, 2, 3, 4]
 
 
 def test_feed_metadata_honors_region_filter() -> None:
@@ -610,11 +871,14 @@ def _blocked_media_plane_payload(service) -> dict:
             "rkmpp_h264_runtime_ready": False,
             "rkrga_filters": True,
             "rkrga_runtime_ready": False,
+            "rkrga_crop_filter": True,
+            "rkrga_crop_runtime_ready": False,
         },
         "source_pipeline": {
             "implementation": "staging_bgr24_cpu_pipe_to_h264_rkmpp",
             "zero_copy_dmabuf": False,
             "hardware_scale_convert_in_source": False,
+            "hardware_crop_in_source": False,
             "target_compliant": False,
             "reason": "staging source pipeline",
         },
@@ -684,11 +948,14 @@ def _hardware_ready_media_plane_payload(
             "rkmpp_h264_runtime_ready": True,
             "rkrga_filters": True,
             "rkrga_runtime_ready": True,
+            "rkrga_crop_filter": True,
+            "rkrga_crop_runtime_ready": True,
         },
         "source_pipeline": {
             "implementation": "dmabuf_rga_h264_rkmpp",
             "zero_copy_dmabuf": True,
             "hardware_scale_convert_in_source": True,
+            "hardware_crop_in_source": False,
             "target_compliant": True,
             "reason": "test target source pipeline",
         },
@@ -804,6 +1071,9 @@ def test_transport_gate_accepts_full_architecture_when_hardware_bridge_and_no_le
     assert evaluation["gates"]["hardware_h264_source_factory_registered"] is True
     assert evaluation["gates"]["webrtc_hardware_bridge_implemented"] is True
     assert evaluation["gates"]["source_pipeline_target_compliant"] is True
+    assert evaluation["gates"]["hardware_scale_convert_source_pipeline"] is True
+    assert evaluation["gates"]["hardware_crop_source_pipeline"] is False
+    assert evaluation["gates"]["ffmpeg_rkrga_crop_runtime"] is True
     assert evaluation["gates"]["legacy_mjpeg_clients_absent"] is True
     assert evaluation["gates"]["target_architecture_compliant"] is True
     assert evaluation["blockers"] == []
@@ -855,35 +1125,69 @@ def test_transport_gate_rejects_staging_bgr_pipe_source_pipeline() -> None:
     assert "staging source pipeline" in evaluation["blockers"]
 
 
-def test_transport_gate_rejects_calibration_second_capture_debug_fallback() -> None:
-    service = SimpleNamespace(feeds={"c_channel_2": _feed(_device(5))})
-    payload = _hardware_ready_media_plane_payload(service, bridge_implemented=True)
-    payload["invariants"]["calibration_second_capture_fallback_allowed"] = True
-
-    evaluation = evaluate_transport_gates(payload)
-
-    assert evaluation["gates"]["target_ready"] is True
-    assert evaluation["gates"]["calibration_second_capture_disabled"] is False
-    assert evaluation["gates"]["target_architecture_compliant"] is False
-    assert "Calibration is allowed to open a second capture handle." in evaluation["blockers"]
-
-
-def test_transport_gate_requires_raw_ring_buffer_for_calibration() -> None:
+def test_media_plane_reports_active_videoconvertscale_software_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        media_plane,
+        "probe_media_capabilities",
+        lambda: {
+            "target": {"transport": "webrtc", "video_codec": "h264", "encoder": "rockchip_mpp"},
+            "python_webrtc": {"ready": True, "aiortc": True, "av": True},
+            "ffmpeg": {"rkrga_crop_runtime_ready": True},
+            "source_pipeline": {
+                "target_capture_backend_required": True,
+                "candidates": [
+                    {
+                        "name": "gstreamer_v4l2_tee_mpp_h264",
+                        "available": True,
+                    }
+                ],
+                "zero_copy_dmabuf": False,
+                "hardware_scale_convert_in_source": False,
+                "hardware_crop_in_source": False,
+                "target_compliant": False,
+            },
+            "webrtc_hardware_bridge": {
+                "implemented": True,
+                "source_factory_registered": True,
+                "runtime_hardware_encoder_ready": True,
+            },
+            "selected_encoder_path": {"hardware": True, "target_compliant": True},
+            "ready_for_hardware_webrtc": True,
+        },
+    )
+    monkeypatch.setattr(
+        media_plane,
+        "_scan_video_open_handles",
+        lambda: media_plane._summarize_video_handle_entries([]),
+    )
+    capture_backend = {
+        "implementation": "gstreamer_v4l2_tee_mpp_h264",
+        "target_compliant": True,
+        "single_capture_owner": True,
+        "raw_ring_branch": True,
+        "h264_webrtc_branch": True,
+        "hardware_scale_convert": False,
+        "hardware_scale_convert_element": None,
+        "scale_convert_element": "videoconvertscale",
+        "software_scale_convert_fallback": True,
+        "hardware_crop": False,
+        "hardware_crop_element": None,
+        "zero_copy_dmabuf": True,
+    }
     service = SimpleNamespace(
-        feeds={"c_channel_2": _feed(_device(5, ring_depth=0, latest_frame=None))}
+        feeds={"c_channel_2": _feed(_device(5, capture_backend=capture_backend))}
     )
-    payload = _hardware_ready_media_plane_payload(service, bridge_implemented=True)
 
-    evaluation = evaluate_transport_gates(payload)
+    payload = describe_media_plane(service)
+    source_pipeline = payload["capabilities"]["source_pipeline"]
 
-    assert evaluation["gates"]["target_ready"] is True
-    assert evaluation["gates"]["calibration_second_capture_disabled"] is True
-    assert evaluation["gates"]["calibration_raw_ring_buffer_available"] is False
-    assert evaluation["gates"]["target_architecture_compliant"] is False
-    assert (
-        "Calibration raw-frame ring buffer is not available for every assigned camera."
-        in evaluation["blockers"]
-    )
+    assert source_pipeline["target_compliant"] is True
+    assert source_pipeline["zero_copy_dmabuf"] is True
+    assert source_pipeline["hardware_scale_convert_in_source"] is False
+    assert source_pipeline["hardware_scale_convert_element"] is None
+    assert source_pipeline["scale_convert_element"] == "videoconvertscale"
+    assert source_pipeline["software_scale_convert_fallback"] is True
+    assert "software fallback" in source_pipeline["reason"]
 
 
 def test_transport_gate_requires_assigned_camera_sources_to_exist() -> None:

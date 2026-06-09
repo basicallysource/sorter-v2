@@ -30,6 +30,8 @@ class GStreamerCaptureH264Source:
     def describe(self) -> dict[str, Any]:
         describe = getattr(self._capture_thread, "describeEncodedH264Source", None)
         backend = describe() if callable(describe) else {}
+        backend_detail = backend.get("backend") if isinstance(backend.get("backend"), dict) else {}
+        hardware_scale = bool(backend_detail.get("hardware_scale_convert"))
         return {
             "physical_source": self.physical_source,
             "codec": "h264",
@@ -38,7 +40,7 @@ class GStreamerCaptureH264Source:
             "pipeline_profile": "gstreamer_v4l2_mpp_tee_h264",
             "input_memory": "gstreamer_v4l2_dmabuf_mpp_decoded_frames",
             "zero_copy_dmabuf": True,
-            "hardware_scale_convert_in_source": True,
+            "hardware_scale_convert_in_source": hardware_scale,
             "target_compliant": bool(backend.get("target_compliant")),
             "input_from_single_capture_feed": True,
             "backend": backend,

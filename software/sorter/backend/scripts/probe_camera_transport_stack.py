@@ -322,8 +322,41 @@ def _print_text_report(report: dict[str, Any]) -> None:
             "  hardware_scale_convert_in_source: "
             f"{source_pipeline.get('hardware_scale_convert_in_source')}"
         )
+        print(f"  hardware_scale_convert_element: {source_pipeline.get('hardware_scale_convert_element')}")
+        print(f"  hardware_crop_in_source: {source_pipeline.get('hardware_crop_in_source')}")
+        print(f"  hardware_crop_element: {source_pipeline.get('hardware_crop_element')}")
+        print(f"  preview_budget: {source_pipeline.get('preview_budget')}")
+        print(
+            "  active_high_res_capture_requires_scale: "
+            f"{source_pipeline.get('active_high_res_capture_requires_scale')}"
+        )
+        print(f"  active_high_res_scale_ready: {source_pipeline.get('active_high_res_scale_ready')}")
+        print(f"  active_high_res_sources: {source_pipeline.get('active_high_res_sources')}")
         print(f"  rkrga_filters_advertised: {source_pipeline.get('rkrga_filters_advertised')}")
         print(f"  rkrga_runtime_ready: {source_pipeline.get('rkrga_runtime_ready')}")
+        print(f"  rkrga_crop_filter_advertised: {source_pipeline.get('rkrga_crop_filter_advertised')}")
+        print(f"  rkrga_crop_runtime_ready: {source_pipeline.get('rkrga_crop_runtime_ready')}")
+        print(f"  rkrga_crop_path: {source_pipeline.get('rkrga_crop_path')}")
+        print(f"  direct_librga_runtime_ready: {source_pipeline.get('direct_librga_runtime_ready')}")
+        print(f"  direct_librga_path: {source_pipeline.get('direct_librga_path')}")
+        crop_strategy = source_pipeline.get("detection_crop_strategy")
+        if isinstance(crop_strategy, dict):
+            print("  detection_crop_strategy:")
+            print(f"    target_stage: {crop_strategy.get('target_stage')}")
+            print(f"    current_stage: {crop_strategy.get('current_stage')}")
+            print(
+                "    active_media_pipeline_crop: "
+                f"{crop_strategy.get('active_media_pipeline_crop')}"
+            )
+            print(f"    hardware_crop_element: {crop_strategy.get('hardware_crop_element')}")
+            print(
+                "    hardware_crop_runtime_available: "
+                f"{crop_strategy.get('hardware_crop_runtime_available')}"
+            )
+            print(f"    hardware_crop_runtime_path: {crop_strategy.get('hardware_crop_runtime_path')}")
+            print(f"    software_videocrop_allowed: {crop_strategy.get('software_videocrop_allowed')}")
+            if crop_strategy.get("reason"):
+                print(f"    reason: {crop_strategy.get('reason')}")
         print(
             "  target_capture_backend_integrated: "
             f"{source_pipeline.get('target_capture_backend_integrated')}"
@@ -432,23 +465,14 @@ def _print_text_report(report: dict[str, Any]) -> None:
     if media_plane.get("physical_sources"):
         print("Physical Sources")
         for item in media_plane.get("physical_sources", []):
-            calibration = item.get("calibration_frame_source")
-            calibration_available = (
-                calibration.get("available")
-                if isinstance(calibration, dict)
-                else None
-            )
-            latest_available = (
-                calibration.get("latest_frame_available")
-                if isinstance(calibration, dict)
-                else None
-            )
+            latest = item.get("latest_frame")
+            latest_available = isinstance(latest, dict)
             print(
                 "  "
                 f"{item.get('source')} roles={item.get('roles')} "
                 f"captures={item.get('capture_instances')} ring={item.get('ring_buffer_depth')} "
                 f"exists={item.get('source_exists')} "
-                f"calibration_raw={calibration_available} latest={latest_available}"
+                f"latest={latest_available}"
             )
             os_handles = item.get("os_handle_audit")
             if isinstance(os_handles, dict):

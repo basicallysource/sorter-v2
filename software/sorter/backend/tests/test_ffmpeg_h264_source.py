@@ -89,10 +89,10 @@ def test_annex_b_parser_handles_chunked_pipe_reads_without_losing_start_codes() 
 class _Feed:
     def __init__(self, frame: np.ndarray | None) -> None:
         self.frame = frame
-        self.calls: list[tuple[bool, bool]] = []
+        self.calls: list[bool] = []
 
-    def get_frame(self, *, annotated: bool, color_correct: bool):
-        self.calls.append((annotated, color_correct))
+    def get_frame(self, *, annotated: bool):
+        self.calls.append(annotated)
         if self.frame is None:
             return None
         return CameraFrame(raw=self.frame, annotated=None, results=[], timestamp=123.0)
@@ -111,7 +111,7 @@ def test_ffmpeg_source_waits_for_raw_frame_from_existing_feed() -> None:
 
     assert raw.shape == (4, 6, 3)
     assert raw.flags["C_CONTIGUOUS"]
-    assert feed.calls == [(False, True)]
+    assert feed.calls == [False]
 
 
 def test_ffmpeg_source_rejects_non_bgr24_frames() -> None:

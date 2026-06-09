@@ -285,6 +285,17 @@ def _start_status_server(port: int) -> ThreadingHTTPServer | None:
     return srv
 
 
+def _service_active(name: str) -> bool:
+    try:
+        return subprocess.run(
+            ["systemctl", "is-active", "--quiet", name],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        ).returncode == 0
+    except OSError:
+        return False
+
+
 def internet_up() -> bool:
     for host in INTERNET_PROBE_HOSTS:
         try:
@@ -1251,6 +1262,17 @@ def main() -> int:
                 services = ["sorter-backend.service", "sorter-ui.service"]
             subprocess.run(["systemctl", "start", *services])
             return 0
+
+        # The onboarding portal is allowed to collect hostname, SSH key and
+        # optional Tailscale data before apply-config-toml stamps itself done.
+        # With Type=simple systemd considers sorteros-onboarding.service
+        # "started" as soon as the shell process is running, so ordering alone
+        # does not serialize the portal handoff and firstboot stages.
+        if not onboarding_gate.exists() and _service_active("sorteros-onboarding.service"):
+            for s in remaining:
+                _set_state(s.name, "waiting", "waiting for Wi-Fi onboarding")
+            time.sleep(POLL_INTERVAL)
+            continue
 
         net = internet_up()
         with _state_lock:

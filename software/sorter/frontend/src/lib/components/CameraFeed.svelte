@@ -2,10 +2,7 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
-	import {
-		acquireCameraWebrtcSession,
-		type CameraWebrtcLease
-	} from '$lib/camera/webrtc-session';
+	import { acquireCameraWebrtcSession, type CameraWebrtcLease } from '$lib/camera/webrtc-session';
 	import {
 		decideCameraFeedMetadataUpdate,
 		type CameraFeedMetadata as FeedMetadata,
@@ -20,7 +17,7 @@
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
-	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'fullscreen';
+	type ControlKey = 'annotations' | 'crop' | 'zones' | 'fullscreen';
 	type Point = [number, number];
 	type MediaViewport = {
 		x: number;
@@ -59,7 +56,6 @@
 		crop = null,
 		showOverlay = false,
 		defaultAnnotated = true,
-		defaultColorCorrect = true,
 		defaultCropped = undefined,
 		defaultZones = true,
 		controls = ['annotations'],
@@ -75,7 +71,6 @@
 		crop?: DashboardFeedCrop | null;
 		showOverlay?: boolean;
 		defaultAnnotated?: boolean;
-		defaultColorCorrect?: boolean;
 		defaultCropped?: boolean;
 		defaultZones?: boolean;
 		controls?: ControlKey[];
@@ -122,8 +117,6 @@
 
 	/* svelte-ignore state_referenced_locally */
 	let annotated = $state(readPersisted('annotated', defaultAnnotated && layer === 'annotated'));
-	/* svelte-ignore state_referenced_locally */
-	let colorCorrect = $state(readPersisted('colorCorrect', defaultColorCorrect));
 	// Legacy: presence of `crop` prop defaulted cropping on. Honor that unless
 	// the caller explicitly sets `defaultCropped`.
 	/* svelte-ignore state_referenced_locally */
@@ -145,9 +138,6 @@
 		writePersisted('annotated', annotated);
 	});
 	$effect(() => {
-		writePersisted('colorCorrect', colorCorrect);
-	});
-	$effect(() => {
 		writePersisted('cropped', cropped);
 	});
 	$effect(() => {
@@ -155,7 +145,6 @@
 	});
 
 	const showAnnotations = $derived(controls.includes('annotations'));
-	const showColor = $derived(controls.includes('color'));
 	const showCrop = $derived(controls.includes('crop'));
 	const showZones = $derived(controls.includes('zones'));
 	const showFullscreen = $derived(controls.includes('fullscreen'));
@@ -218,7 +207,9 @@
 		return points.map(([x, y]) => `${x},${y}`).join(' ');
 	}
 
-	function bboxRect(value: unknown): { x: number; y: number; width: number; height: number } | null {
+	function bboxRect(
+		value: unknown
+	): { x: number; y: number; width: number; height: number } | null {
 		if (!Array.isArray(value) || value.length < 4) return null;
 		const x1 = numberValue(value[0]);
 		const y1 = numberValue(value[1]);
@@ -358,7 +349,6 @@
 			layer: serverAnnotated ? 'annotated' : 'raw',
 			direct: direct ? '1' : '0',
 			dashboard: serverDashboard ? '1' : '0',
-			color_correct: colorCorrect ? '1' : '0',
 			show_regions: serverShowRegions ? '1' : '0',
 			stream_epoch: String(ctx.machine?.cameraFeedEpoch ?? 0),
 			stream_retry: String(streamRetry)
@@ -729,12 +719,10 @@
 
 		<StreamControlsOverlay
 			bind:annotated
-			bind:colorCorrect
 			bind:cropped
 			bind:zones
 			bind:fullscreen={fullscreenOpen}
 			{showAnnotations}
-			{showColor}
 			{showCrop}
 			{showZones}
 			{showFullscreen}

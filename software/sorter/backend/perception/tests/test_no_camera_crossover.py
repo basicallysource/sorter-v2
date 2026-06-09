@@ -39,6 +39,8 @@ from perception.state import LatestStateSlot
 class FakeFrame:
     raw: np.ndarray
     timestamp: float
+    sensor_rect: tuple[float, float, float, float] | None = None
+    scale_backend: str | None = None
 
 
 class FakeCapture:
@@ -50,6 +52,7 @@ class FakeCapture:
 
     def __init__(self, w: int = 100, h: int = 100) -> None:
         self._frame: Optional[FakeFrame] = None
+        self._detection_frame: Optional[FakeFrame] = None
         self._w = w
         self._h = h
 
@@ -57,11 +60,33 @@ class FakeCapture:
     def latest_frame(self) -> Optional[FakeFrame]:
         return self._frame
 
-    def push(self, timestamp: float, fill: int = 64) -> None:
+    def latest_detection_frame(self) -> Optional[FakeFrame]:
+        return self._detection_frame
+
+    def push(
+        self,
+        timestamp: float,
+        fill: int = 64,
+        *,
+        detection_shape: tuple[int, int] | None = None,
+        detection_sensor_rect: tuple[float, float, float, float] | None = None,
+        detection_scale_backend: str | None = None,
+    ) -> None:
         self._frame = FakeFrame(
             raw=np.full((self._h, self._w, 3), fill, dtype=np.uint8),
             timestamp=timestamp,
         )
+        if detection_shape is not None:
+            detection_w, detection_h = detection_shape
+            self._detection_frame = FakeFrame(
+                raw=np.full((detection_h, detection_w, 3), fill, dtype=np.uint8),
+                timestamp=timestamp,
+                sensor_rect=detection_sensor_rect
+                or (0.0, 0.0, float(self._w), float(self._h)),
+                scale_backend=detection_scale_backend,
+            )
+        else:
+            self._detection_frame = None
 
 
 def _annulus_polygon(
@@ -189,7 +214,9 @@ def test_three_workers_do_not_cross_outputs_when_run_concurrently() -> None:
         rad = math.radians(angle_deg)
         cx = 50.0 + 30.0 * math.cos(rad)
         cy = 50.0 + 30.0 * math.sin(rad)
-        return (int(cx - 5), int(cy - 5), int(cx + 5), int(cy + 5))
+        # The worker infers on the channel polygon's bounding rect. The stub
+        # runtime therefore returns crop-local boxes, just like a real model.
+        return (int(cx - 5) - 10, int(cy - 5) - 10, int(cx + 5) - 10, int(cy + 5) - 10)
 
     runtimes = {
         2: (bbox_at(90.0),),    # in drop arc
@@ -262,6 +289,146 @@ def test_swapping_capture_at_runtime_is_caught_by_source_id_check() -> None:
     assert frame is not None
     assert worker._check_source_id(frame) is False  # type: ignore[attr-defined]
     assert worker.source_id_assertions == 1
+
+
+def test_reduced_detection_frame_bboxes_map_back_to_sensor_frame_for_crops() -> None:
+    capture_thread = FakeCapture(w=100, h=100)
+    capture = CaptureWorker(source_id="c_channel_2", capture_thread=capture_thread)
+    channel = buildChannelDef(
+        channel_id=2,
+        polygon=np.array([[0, 0], [99, 0], [99, 99], [0, 99]], dtype=np.int32),
+        frame_shape=(100, 100),
+        section_zero_angle=0.0,
+        drop_arc=(0.0, 180.0),
+        exit_arc=(180.0, 360.0),
+        precise_arc=None,
+        arc_center=(50.0, 50.0),
+    )
+    runtime = StubRuntime(bboxes=[(20, 20, 30, 30)])
+    slot = LatestStateSlot()
+    worker = InferenceWorker(
+        capture=capture,
+        runtime=runtime,
+        channel_def=channel,
+        slot=slot,
+    )
+
+    worker.start()
+    try:
+        capture_thread.push(timestamp=1.0, detection_shape=(50, 50))
+        deadline = time.time() + 2.0
+        while time.time() < deadline and worker.inferences < 1:
+            time.sleep(0.02)
+    finally:
+        worker.stop()
+
+    raw = worker.latest_raw
+    assert raw is not None
+    bboxes, frame = raw
+    assert bboxes == [(40, 40, 60, 60)]
+    assert frame.bgr.shape == (100, 100, 3)
+    assert frame.inference_image.shape == (50, 50, 3)
+    assert worker.latest_debug is not None
+    assert worker.latest_debug["crop_rect"] == (0, 0, 100, 100)
+    assert worker.latest_debug["inference_crop_rect"] == (0, 0, 50, 50)
+
+
+def test_inference_worker_reports_desired_crop_plan_without_claiming_hardware_crop() -> None:
+    capture_thread = FakeCapture(w=100, h=100)
+    capture = CaptureWorker(source_id="c_channel_2", capture_thread=capture_thread)
+    channel = buildChannelDef(
+        channel_id=2,
+        polygon=np.array([[10, 20], [80, 20], [80, 70], [10, 70]], dtype=np.int32),
+        frame_shape=(100, 100),
+        section_zero_angle=0.0,
+        drop_arc=(0.0, 180.0),
+        exit_arc=(180.0, 360.0),
+        precise_arc=None,
+        arc_center=(50.0, 50.0),
+    )
+    runtime = StubRuntime(bboxes=[(4, 4, 8, 8)])
+    worker = InferenceWorker(
+        capture=capture,
+        runtime=runtime,
+        channel_def=channel,
+        slot=LatestStateSlot(),
+    )
+
+    plan = worker.inference_crop_plan
+    assert plan["desired_sensor_rect"] == {"x": 10, "y": 20, "width": 71, "height": 51}
+    assert plan["desired_crop_effective"] is True
+    assert plan["active_media_pipeline_crop"] is False
+    assert plan["hardware_crop_element"] is None
+    assert plan["software_videocrop_allowed"] is False
+    assert plan["target_stage"] == "detection_yolo_branch_before_scale"
+
+    worker.start()
+    try:
+        capture_thread.push(timestamp=1.0, detection_shape=(50, 50))
+        deadline = time.time() + 2.0
+        while time.time() < deadline and worker.inferences < 1:
+            time.sleep(0.02)
+    finally:
+        worker.stop()
+
+    assert worker.latest_debug is not None
+    debug_plan = worker.latest_debug["crop_plan"]
+    assert debug_plan["current_inference_source"] == "hardware_scaled_full_frame_branch"
+    assert debug_plan["current_inference_crop_rect"] is not None
+    assert debug_plan["current_sensor_crop_rect"] is not None
+    assert debug_plan["current_stage"] == "scaled_full_frame_then_perception_crop"
+    assert debug_plan["active_media_pipeline_crop"] is False
+
+
+def test_inference_worker_reports_active_hardware_crop_when_detection_frame_is_sensor_crop() -> None:
+    capture_thread = FakeCapture(w=100, h=100)
+    capture = CaptureWorker(source_id="c_channel_2", capture_thread=capture_thread)
+    channel = buildChannelDef(
+        channel_id=2,
+        polygon=np.array([[10, 20], [80, 20], [80, 70], [10, 70]], dtype=np.int32),
+        frame_shape=(100, 100),
+        section_zero_angle=0.0,
+        drop_arc=(0.0, 180.0),
+        exit_arc=(180.0, 360.0),
+        precise_arc=None,
+        arc_center=(50.0, 50.0),
+    )
+    runtime = StubRuntime(bboxes=[(4, 4, 8, 8)])
+    worker = InferenceWorker(
+        capture=capture,
+        runtime=runtime,
+        channel_def=channel,
+        slot=LatestStateSlot(),
+    )
+
+    worker.start()
+    try:
+        capture_thread.push(
+            timestamp=1.0,
+            detection_shape=(36, 26),
+            detection_sensor_rect=(10.0, 20.0, 82.0, 72.0),
+            detection_scale_backend="librga_virtualaddr",
+        )
+        deadline = time.time() + 2.0
+        while time.time() < deadline and worker.inferences < 1:
+            time.sleep(0.02)
+    finally:
+        worker.stop()
+
+    assert worker.latest_debug is not None
+    debug_plan = worker.latest_debug["crop_plan"]
+    assert debug_plan["desired_sensor_rect"] == {"x": 10, "y": 20, "width": 71, "height": 51}
+    assert debug_plan["current_inference_source"] == "hardware_cropped_scaled_branch"
+    assert debug_plan["current_inference_source_rect"] == {
+        "x": 10.0,
+        "y": 20.0,
+        "width": 72.0,
+        "height": 52.0,
+    }
+    assert debug_plan["active_media_pipeline_crop"] is True
+    assert debug_plan["hardware_crop_element"] == "librga_virtualaddr"
+    assert debug_plan["current_stage"] == "hardware_crop_before_yolo_scale"
+    assert debug_plan["software_videocrop_allowed"] is False
 
 
 # Ensure helper import is exercised (silences pyright unused warning).

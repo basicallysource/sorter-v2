@@ -2,6 +2,27 @@ export type CameraFeedMetadataFrame = {
 	width?: number;
 	height?: number;
 	timestamp?: number;
+	fps?: number;
+	fourcc?: string;
+};
+
+export type CameraFeedMetadataFrameTransform = {
+	kind?: string;
+	source_rect?: CameraFeedMetadataViewport | null;
+	output_frame?: CameraFeedMetadataFrame | null;
+};
+
+export type CameraFeedMetadataCoordinateSpace = {
+	name?: string;
+	units?: string;
+	origin?: string;
+	width?: number;
+	height?: number;
+	frame?: string;
+	overlays?: string;
+	crop?: string;
+	transport?: CameraFeedMetadataFrameTransform | null;
+	inference?: CameraFeedMetadataFrameTransform | null;
 };
 
 export type CameraFeedMetadataOverlay = {
@@ -39,6 +60,9 @@ export type CameraFeedMetadata = {
 	config_role?: string;
 	physical_source?: string;
 	frame?: CameraFeedMetadataFrame | null;
+	coordinate_space?: CameraFeedMetadataCoordinateSpace | null;
+	transport_frame?: CameraFeedMetadataFrame | null;
+	inference_frame?: CameraFeedMetadataFrame | null;
 	crop?: CameraFeedMetadataCrop | null;
 	overlays?: CameraFeedMetadataOverlay[];
 };

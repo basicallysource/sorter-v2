@@ -65,6 +65,10 @@ def test_build_wrapper_copies_existing_sorteros_overlay_and_chroot_installer() -
 
     assert "software/sorteros/build/overlay" in script
     assert "software/sorteros/build/chroot_apt.sh" in script
+    assert "prepare_portal_overlay" in script
+    assert "software/sorteros/portal" in script
+    assert "sorteros-portal.py" in script
+    assert "var/www/portal" in script
     assert "bootstrap_authorized_keys" in script
     assert "render-camera-contract.py" in script
     assert "rk3588s-orangepi-cm5-tablet.dtb" in script
@@ -78,6 +82,21 @@ def test_build_wrapper_copies_existing_sorteros_overlay_and_chroot_installer() -
     ).exists()
     assert "--prepare-only" in script
     assert "KERNEL_BTF=no" in script
+
+
+def test_armbian_build_wrapper_bakes_captive_portal_artifacts() -> None:
+    script = (ROOT / "build-sorteros-armbian-cm5.sh").read_text()
+
+    assert "PORTAL_DIR=" in script
+    assert "portal_frontend_needs_build" in script
+    assert "pnpm install --frozen-lockfile" in script
+    assert "pnpm build" in script
+    assert "baking SorterOS captive portal into overlay" in script
+    assert "usr/local/sbin/sorteros-portal.py" in script
+    assert "var/www/portal" in script
+    assert "etc/sorteros-config.toml" in script
+    assert (REPO / "software" / "sorteros" / "portal" / "backend" / "portal.py").exists()
+    assert (REPO / "software" / "sorteros" / "portal" / "frontend" / "package.json").exists()
 
 
 def test_build_wrapper_embeds_npu_smoke_fallback_artifacts() -> None:
@@ -263,6 +282,63 @@ def test_chroot_installer_enables_first_boot_ssh_and_networkmanager() -> None:
     assert "modprobe g_ether" in gadget_script
     assert "172.31.42.2/24" in gadget_script
     assert "Before=sorteros-onboarding.service sorteros-firstboot.service" in gadget_service
+
+
+def test_wifi_onboarding_is_portal_first_and_interface_agnostic() -> None:
+    ap_up = (
+        REPO
+        / "software"
+        / "sorteros"
+        / "build"
+        / "overlay"
+        / "usr"
+        / "local"
+        / "sbin"
+        / "sorteros-ap-up.sh"
+    ).read_text()
+    onboarding = (
+        REPO
+        / "software"
+        / "sorteros"
+        / "build"
+        / "overlay"
+        / "usr"
+        / "local"
+        / "sbin"
+        / "sorteros-onboarding.sh"
+    ).read_text()
+    firstboot = (
+        REPO
+        / "software"
+        / "sorteros"
+        / "build"
+        / "overlay"
+        / "usr"
+        / "local"
+        / "sbin"
+        / "sorteros-firstboot.py"
+    ).read_text()
+    wifi_add = (
+        REPO
+        / "software"
+        / "sorteros"
+        / "build"
+        / "overlay"
+        / "usr"
+        / "local"
+        / "bin"
+        / "sorteros-wifi-add"
+    ).read_text()
+
+    assert "SORTEROS_ONBOARDING_WIFI_IFACE" in ap_up
+    assert "resolve_wifi_iface" in ap_up
+    assert "nmcli -t -f DEVICE,TYPE dev status" in ap_up
+    assert "IFACE=wlan0" not in ap_up
+    assert "SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE" in onboarding
+    assert "the portal is" in onboarding
+    assert '"systemctl", "is-active", "--quiet"' in firstboot
+    assert "waiting for Wi-Fi onboarding" in firstboot
+    assert "interface-name=wlan0" not in wifi_add
 
 
 def test_customize_image_keeps_armbian_dtb_path_as_special_case() -> None:

@@ -10,12 +10,14 @@ Rockchip/WebRTC encoder prerequisites.
 from __future__ import annotations
 
 import importlib.util
+import json
 import math
 import os
 import platform
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import time
 from functools import lru_cache
@@ -25,6 +27,8 @@ from typing import Any
 from .gstreamer_target_capture import (
     TARGET_PIPELINE_NAME as GSTREAMER_TARGET_PIPELINE_NAME,
     build_gstreamer_target_capture_contract,
+    patched_videoconvertscale_rga_enabled,
+    target_detection_crop_strategy,
 )
 
 
@@ -46,6 +50,8 @@ _V4L2_RAW_YUV_FORMATS = frozenset(
 )
 CAMERA_METADATA_MESSAGE_TYPE = "camera.feed_metadata"
 CAMERA_METADATA_SCHEMA_VERSION = 1
+HIGH_RES_PREVIEW_BUDGET_MAX_WIDTH = 1280
+HIGH_RES_PREVIEW_BUDGET_MAX_HEIGHT = 720
 CAMERA_METADATA_DATA_CHANNEL_LABEL = "camera-metadata"
 
 
@@ -82,6 +88,121 @@ def _command_result(args: list[str], timeout_s: float = 2.0) -> subprocess.Compl
         )
     except Exception:
         return None
+
+
+def _probe_librga_direct_runtime() -> dict[str, Any]:
+    script = Path(__file__).resolve().parents[1] / "scripts" / "probe_librga_scale_crop.py"
+    if not script.exists():
+        return {
+            "ok": False,
+            "available": False,
+            "runtime_ready": False,
+            "reason": "librga scale/crop probe script is not installed.",
+        }
+    result = _command_result([sys.executable, str(script), "--json"], timeout_s=10.0)
+    if result is None:
+        return {
+            "ok": False,
+            "available": False,
+            "runtime_ready": False,
+            "reason": "librga scale/crop probe did not complete.",
+        }
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    ok = bool(payload.get("ok")) and result.returncode == 0
+    return {
+        **payload,
+        "ok": ok,
+        "runtime_ready": bool(ok and payload.get("runtime_ready", True)),
+        "probe_returncode": result.returncode,
+        "probe_stderr": result.stderr.strip()[:1000],
+    }
+
+
+def _probe_gstreamer_videoconvertscale_rga(gst_bin: str | None) -> dict[str, Any]:
+    if not gst_bin:
+        return {
+            "tested": False,
+            "ok": False,
+            "element": None,
+            "reason": "gst-inspect-1.0 is not available.",
+        }
+    if not patched_videoconvertscale_rga_enabled():
+        return {
+            "tested": False,
+            "ok": False,
+            "element": None,
+            "reason": (
+                "Patched videoconvertscale RGA is available only as an explicit opt-in "
+                "because the live appsink graph is not stable on this image."
+            ),
+        }
+    if os.environ.get("GST_VIDEO_CONVERT_USE_RGA", "").strip().lower() in {"0", "false", "no", "off"}:
+        return {
+            "tested": False,
+            "ok": False,
+            "element": None,
+            "reason": "GST_VIDEO_CONVERT_USE_RGA explicitly disables the patched RGA converter.",
+        }
+    launcher = shutil.which("gst-launch-1.0")
+    if not launcher:
+        return {
+            "tested": False,
+            "ok": False,
+            "element": None,
+            "reason": "gst-launch-1.0 is not available.",
+        }
+    if not _command_output([gst_bin, "videoconvertscale"], timeout_s=2.0):
+        return {
+            "tested": False,
+            "ok": False,
+            "element": None,
+            "reason": "videoconvertscale is not available.",
+        }
+    env = {**os.environ, "GST_VIDEO_CONVERT_USE_RGA": "1"}
+    try:
+        result = subprocess.run(
+            [
+                launcher,
+                "-q",
+                "videotestsrc",
+                "num-buffers=1",
+                "!",
+                "video/x-raw,format=NV12,width=64,height=64,framerate=1/1",
+                "!",
+                "videoconvertscale",
+                "!",
+                "video/x-raw,format=NV12,width=32,height=32",
+                "!",
+                "fakesink",
+                "sync=false",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            env=env,
+        )
+    except Exception as exc:
+        return {
+            "tested": True,
+            "ok": False,
+            "element": "videoconvertscale",
+            "reason": str(exc),
+        }
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+    ok = result.returncode == 0 and "rga_api" in output.lower()
+    return {
+        "tested": True,
+        "ok": bool(ok),
+        "element": "videoconvertscale" if ok else None,
+        "reason": "videoconvertscale initialized librga via GST_VIDEO_CONVERT_USE_RGA=1."
+        if ok
+        else (output.strip()[:500] or f"gst-launch returned {result.returncode} without RGA evidence."),
+    }
 
 
 def _module_available(name: str) -> bool:
@@ -342,10 +463,16 @@ def _candidate_ffmpeg_bins() -> list[str]:
 
 def _probe_ffmpeg_bin(path: str) -> dict[str, Any]:
     output = _command_output([path, "-hide_banner", "-encoders"], timeout_s=3.0)
+    decoders = _command_output([path, "-hide_banner", "-decoders"], timeout_s=3.0)
     filters = _command_output([path, "-hide_banner", "-filters"], timeout_s=3.0)
     has_h264 = "h264_rkmpp" in output
     has_hevc = "hevc_rkmpp" in output
+    has_mjpeg_rkmpp_decoder = "mjpeg_rkmpp" in decoders
+    has_software_mjpeg_decoder = bool(
+        re.search(r"^\s*V\S*\s+mjpeg\s", decoders, flags=re.MULTILINE)
+    )
     has_rga = _contains_any(filters, ("scale_rkrga", "vpp_rkrga", "overlay_rkrga"))
+    has_rga_crop = _contains_any(filters, ("vpp_rkrga",))
     runtime = _probe_ffmpeg_runtime(
         path,
         [
@@ -404,15 +531,50 @@ def _probe_ffmpeg_bin(path: str) -> dict[str, Any]:
         "bytes": 0,
         "error": None,
     }
+    rga_crop_runtime = _probe_ffmpeg_runtime(
+        path,
+        [
+            "-hide_banner",
+            "-y",
+            "-init_hw_device",
+            "rkmpp=hw",
+            "-filter_hw_device",
+            "hw",
+            "-f",
+            "lavfi",
+            "-i",
+            "testsrc2=size=1920x1080:rate=5,format=nv12",
+            "-t",
+            str(_FFMPEG_RKMPP_TEST_S),
+            "-vf",
+            "hwupload,vpp_rkrga=cx=320:cy=180:cw=1280:ch=720:w=640:h=360:format=nv12",
+            "-c:v",
+            "h264_rkmpp",
+            "-b:v",
+            "512k",
+            "-f",
+            "h264",
+        ],
+        suffix=".h264",
+    ) if has_h264 and has_rga_crop else {
+        "tested": False,
+        "ok": False,
+        "bytes": 0,
+        "error": None,
+    }
 
     return {
         "path": path,
         "available": bool(output),
         "rkmpp_h264_encoder": has_h264,
         "rkmpp_hevc_encoder": has_hevc,
+        "rkmpp_mjpeg_decoder": has_mjpeg_rkmpp_decoder,
+        "software_mjpeg_decoder": has_software_mjpeg_decoder,
         "rkrga_filters": has_rga,
+        "rkrga_crop_filter": has_rga_crop,
         "runtime_h264_rkmpp": runtime,
         "runtime_rkrga_h264_rkmpp": rga_runtime,
+        "runtime_rkrga_crop_h264_rkmpp": rga_crop_runtime,
     }
 
 
@@ -694,6 +856,14 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
         ),
         None,
     )
+    selected_ffmpeg_rga_crop = next(
+        (
+            item for item in ffmpeg_bins
+            if item.get("rkrga_crop_filter")
+            and item.get("runtime_rkrga_crop_h264_rkmpp", {}).get("ok")
+        ),
+        None,
+    )
 
     mpp_encoder_bin = shutil.which("mpi_enc_test")
     mpp_info_bin = shutil.which("mpp_info_test")
@@ -715,16 +885,94 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
     gst_has_h264_parse = _contains_any(gst_all_output, ("h264parse",))
     gst_has_jpeg_parse = _contains_any(gst_all_output, ("jpegparse",))
     gst_has_v4l2src = _contains_any(gst_all_output, ("v4l2src",))
+    gst_has_appsrc = _contains_any(gst_all_output, ("appsrc",))
     gst_has_appsink = _contains_any(gst_all_output, ("appsink",))
-    gst_has_rga_convert = _contains_any(
+    gst_has_explicit_rga_convert = _contains_any(
         gst_all_output,
         ("rgaconvert", "rkrgaconvert", "rkvideoconvert"),
     )
+    gst_videoconvertscale_rga = _probe_gstreamer_videoconvertscale_rga(gst_bin)
+    gst_rga_convert_element = (
+        "rgaconvert"
+        if _contains_any(gst_all_output, ("rgaconvert",))
+        else "rkrgaconvert"
+        if _contains_any(gst_all_output, ("rkrgaconvert",))
+        else "rkvideoconvert"
+        if _contains_any(gst_all_output, ("rkvideoconvert",))
+        else str(gst_videoconvertscale_rga.get("element") or "")
+        if gst_videoconvertscale_rga.get("ok")
+        else None
+    )
+    gst_has_rga_convert = bool(gst_has_explicit_rga_convert or gst_videoconvertscale_rga.get("ok"))
     gst_has_software_h264 = _contains_any(gst_all_output, ("openh264enc", "x264enc"))
     ffmpeg_has_encoder = any(item["rkmpp_h264_encoder"] for item in ffmpeg_bins)
     ffmpeg_runtime_ready = selected_ffmpeg is not None
+    ffmpeg_has_rkmpp_mjpeg_decoder = any(item.get("rkmpp_mjpeg_decoder") for item in ffmpeg_bins)
+    ffmpeg_has_software_mjpeg_decoder = any(item.get("software_mjpeg_decoder") for item in ffmpeg_bins)
     ffmpeg_has_rga_filters = any(item["rkrga_filters"] for item in ffmpeg_bins)
     ffmpeg_rga_runtime_ready = selected_ffmpeg_rga is not None
+    ffmpeg_has_rga_crop_filter = any(item.get("rkrga_crop_filter") for item in ffmpeg_bins)
+    ffmpeg_rga_crop_runtime_ready = selected_ffmpeg_rga_crop is not None
+    ffmpeg_rga_crop_path = "ffmpeg_vpp_rkrga" if ffmpeg_rga_crop_runtime_ready else None
+    ffmpeg_single_capture_blockers = [
+        reason
+        for reason, missing in (
+            ("ffmpeg h264_rkmpp runtime probe is not ready.", not ffmpeg_runtime_ready),
+            ("ffmpeg RGA scale runtime probe is not ready.", not ffmpeg_rga_runtime_ready),
+            ("ffmpeg vpp_rkrga crop runtime probe is not ready.", not ffmpeg_rga_crop_runtime_ready),
+            (
+                "ffmpeg has no Rockchip MJPEG decoder for the MJPG high-res camera inputs.",
+                not ffmpeg_has_rkmpp_mjpeg_decoder,
+            ),
+        )
+        if missing
+    ]
+    ffmpeg_single_capture_hardware_viable = bool(
+        ffmpeg_runtime_ready
+        and ffmpeg_rga_runtime_ready
+        and ffmpeg_rga_crop_runtime_ready
+        and ffmpeg_has_rkmpp_mjpeg_decoder
+    )
+    librga_direct_runtime = _probe_librga_direct_runtime()
+    librga_direct_ready = bool(librga_direct_runtime.get("runtime_ready"))
+    recommended_next_hardware_path = {
+        "name": "in_process_librga_virtualaddr_scale_crop"
+        if librga_direct_ready
+        else "gstreamer_explicit_rga_transform",
+        "component": "librga virtual-address NV12 scale/crop helper"
+        if librga_direct_ready
+        else "GStreamer RGA scale/crop element",
+        "target_backend": GSTREAMER_TARGET_PIPELINE_NAME,
+        "reason": (
+            "librga completed NV12 resize, crop, and crop-scale for 720p and 4K "
+            "source frames on this host. The next shippable step is to use that "
+            "from the integrated GStreamer runtime for the YOLO detection branch, "
+            "while keeping the current single v4l2src owner and MPP decode/encode."
+            if librga_direct_ready
+            else (
+                "The active GStreamer backend already preserves one v4l2src owner, "
+                "MPP MJPEG decode, the high-res raw ring, and MPP H.264 encode. "
+                "The missing hardware piece is an explicit stable RGA transform/crop "
+                "element in that source graph."
+            )
+        ),
+        "zero_copy_dmabuf": False if librga_direct_ready else None,
+        "runtime_ready": librga_direct_ready,
+        "remaining_for_full_target": [
+            "replace virtual-address librga staging with DMABuf-capable RGA for preview and YOLO when available",
+            "feed zone-mask crop rectangles into the librga crop stage once sensor-space bounds are finalized",
+        ]
+        if librga_direct_ready
+        else [
+            "install or implement a stable GStreamer RGA transform/crop element",
+        ],
+        "ffmpeg_alternative_viable_for_mjpg_cameras": ffmpeg_single_capture_hardware_viable,
+        "ffmpeg_alternative_blockers": ffmpeg_single_capture_blockers,
+    }
+    detection_crop_strategy = target_detection_crop_strategy(
+        hardware_crop_runtime_available=ffmpeg_rga_crop_runtime_ready,
+        hardware_crop_runtime_path=ffmpeg_rga_crop_path,
+    )
     ffmpeg_webrtc_source_enabled = os.environ.get("SORTER_ENABLE_FFMPEG_RKMPP_WEBRTC", "").lower() in {
         "1",
         "true",
@@ -855,6 +1103,7 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
     )
     gstreamer_target_ready = bool(
         gst_has_v4l2src
+        and gst_has_appsrc
         and gst_has_appsink
         and gst_has_jpeg_parse
         and gst_has_mpp_jpeg_decoder
@@ -882,6 +1131,7 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
             hardware_encode=ffmpeg_runtime_ready,
             zero_copy_dmabuf=False,
             hardware_scale_convert=False,
+            hardware_crop=False,
             software_h264_fallback_allowed=False,
         ),
         _source_pipeline_candidate(
@@ -896,6 +1146,71 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
             hardware_encode=ffmpeg_runtime_ready,
             zero_copy_dmabuf=False,
             hardware_scale_convert=ffmpeg_rga_runtime_ready,
+            hardware_crop=ffmpeg_rga_crop_runtime_ready,
+            hardware_crop_filter="vpp_rkrga" if ffmpeg_rga_crop_runtime_ready else None,
+            hardware_crop_path=ffmpeg_rga_crop_path,
+            software_h264_fallback_allowed=False,
+        ),
+        _source_pipeline_candidate(
+            name="ffmpeg_v4l2_single_capture_split_rkmpp_rkrga",
+            role="alternate_target_candidate",
+            available=bool(ffmpeg_runtime_ready and ffmpeg_rga_crop_runtime_ready),
+            target_compliant=False,
+            reason=(
+                "Would be a valid direction only as a new backend that owns /dev/videoN once "
+                "and feeds raw-ring, H.264, and YOLO branches itself. On this image it is not "
+                "the preferred next path because FFmpeg lacks Rockchip MJPEG decode for the "
+                "current high-res MJPG camera modes."
+                if not ffmpeg_single_capture_hardware_viable
+                else "Runtime pieces are present, but this backend is not implemented or registered."
+            ),
+            opens_capture_device=True,
+            single_capture_pipeline=True,
+            violates_single_capture=False,
+            replaces_backend_capture=True,
+            raw_ring_branch=True,
+            h264_webrtc_branch=True,
+            detection_yolo_branch=True,
+            hardware_decode_mjpeg=ffmpeg_has_rkmpp_mjpeg_decoder,
+            software_decode_mjpeg_available=ffmpeg_has_software_mjpeg_decoder,
+            hardware_encode=ffmpeg_runtime_ready,
+            hardware_scale_convert=ffmpeg_rga_runtime_ready,
+            hardware_scale_convert_filter="scale_rkrga" if ffmpeg_rga_runtime_ready else None,
+            hardware_crop=ffmpeg_rga_crop_runtime_ready,
+            hardware_crop_filter="vpp_rkrga" if ffmpeg_rga_crop_runtime_ready else None,
+            hardware_crop_path=ffmpeg_rga_crop_path,
+            zero_copy_dmabuf_target=True,
+            implementation_registered=False,
+            target_possible_when_implemented=ffmpeg_single_capture_hardware_viable,
+            blockers=ffmpeg_single_capture_blockers,
+            software_h264_fallback_allowed=False,
+        ),
+        _source_pipeline_candidate(
+            name="in_process_librga_virtualaddr_scale_crop",
+            role="next_runtime_step",
+            available=librga_direct_ready,
+            target_compliant=False,
+            reason=(
+                "librga runtime-proved NV12 resize, crop, and crop-scale on virtual-address buffers. "
+                "This can replace CPU scaling for the YOLO detection frame after the MPP JPEG decode appsink, "
+                "but it is not the final zero-copy DMABuf preview path."
+                if librga_direct_ready
+                else str(librga_direct_runtime.get("reason") or "librga runtime probe is not ready.")
+            ),
+            opens_capture_device=False,
+            input_from_single_capture_feed=True,
+            raw_ring_branch=True,
+            h264_webrtc_branch=False,
+            detection_yolo_branch=True,
+            hardware_scale_convert=librga_direct_ready,
+            hardware_crop=librga_direct_ready,
+            hardware_crop_path="librga_virtualaddr",
+            hardware_crop_filter="improcess_crop_scale" if librga_direct_ready else None,
+            zero_copy_dmabuf=False,
+            input_memory="virtualaddr",
+            pixel_format="NV12",
+            runtime=librga_direct_runtime,
+            implementation_registered=False,
             software_h264_fallback_allowed=False,
         ),
         _source_pipeline_candidate(
@@ -906,7 +1221,7 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
             reason=(
                 "Host has the required Rockchip MPP pieces, but the active camera backend must still be the integrated tee capture backend."
                 if gstreamer_target_ready
-                else "Requires v4l2src, appsink, jpegparse, mppjpegdec, H.264 parser/encoder, and /dev/mpp_service+/dev/rga+/dev/dma_heap."
+                else "Requires v4l2src, appsrc, appsink, jpegparse, mppjpegdec, H.264 parser/encoder, and /dev/mpp_service+/dev/rga+/dev/dma_heap."
             ),
             opens_capture_device=True,
             single_capture_pipeline=True,
@@ -925,9 +1240,12 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
             ),
             required_gstreamer_elements={
                 "v4l2src": gst_has_v4l2src,
+                "appsrc": gst_has_appsrc,
                 "appsink": gst_has_appsink,
                 "jpegparse": gst_has_jpeg_parse,
                 "mppjpegdec": gst_has_mpp_jpeg_decoder,
+                "rockchip_rga_convert": gst_has_rga_convert,
+                "rockchip_rga_convert_element": gst_rga_convert_element,
                 "rockchip_mpp_h264_encoder": gst_has_encoder,
                 "h264parse": gst_has_h264_parse,
             },
@@ -937,7 +1255,11 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
                 "/dev/dma_heap": has_dma_heap_node,
             },
             zero_copy_dmabuf=gstreamer_target_ready,
-            hardware_scale_convert=gstreamer_target_ready,
+            hardware_scale_convert=bool(gstreamer_target_ready and gst_has_rga_convert),
+            hardware_scale_convert_element=gst_rga_convert_element,
+            hardware_crop=False,
+            hardware_crop_element=None,
+            detection_crop_strategy=detection_crop_strategy,
             software_h264_fallback_allowed=False,
         ),
     ]
@@ -960,9 +1282,19 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
         else None,
         "zero_copy_dmabuf": False,
         "hardware_scale_convert_in_source": False,
+        "hardware_scale_convert_element": gst_rga_convert_element,
+        "hardware_crop_in_source": False,
+        "hardware_crop_element": None,
         "rkrga_filters_advertised": ffmpeg_has_rga_filters,
         "rkrga_runtime_ready": ffmpeg_rga_runtime_ready,
+        "rkrga_crop_filter_advertised": ffmpeg_has_rga_crop_filter,
+        "rkrga_crop_runtime_ready": ffmpeg_rga_crop_runtime_ready,
+        "rkrga_crop_path": ffmpeg_rga_crop_path,
+        "direct_librga_runtime_ready": librga_direct_ready,
+        "direct_librga_path": "librga_virtualaddr" if librga_direct_ready else None,
+        "detection_crop_strategy": detection_crop_strategy,
         "candidates": source_pipeline_candidates,
+        "recommended_next_hardware_path": recommended_next_hardware_path,
         "target_capture_backend_required": True,
         "target_capture_backend_integrated": False,
         "target_compliant": False,
@@ -1038,12 +1370,15 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
             "rockchipmpp": "rockchipmpp" in gst_output.lower(),
             "elements": {
                 "v4l2src": gst_has_v4l2src,
+                "appsrc": gst_has_appsrc,
                 "appsink": gst_has_appsink,
                 "jpegparse": gst_has_jpeg_parse,
                 "mppjpegdec": gst_has_mpp_jpeg_decoder,
                 "rockchip_rga_convert": gst_has_rga_convert,
+                "rockchip_rga_convert_element": gst_rga_convert_element,
                 "h264parse": gst_has_h264_parse,
             },
+            "videoconvertscale_rga": gst_videoconvertscale_rga,
             "h264_encoder": gst_has_encoder,
             "software_h264_encoder": gst_has_software_h264,
             "usable_for_webrtc_encoder": gst_has_encoder,
@@ -1055,9 +1390,14 @@ def _probe_media_capabilities_cached(bucket: int) -> dict[str, Any]:
             "candidates": ffmpeg_bins,
             "rkmpp_h264_encoder": ffmpeg_has_encoder,
             "rkmpp_h264_runtime_ready": ffmpeg_runtime_ready,
+            "rkmpp_mjpeg_decoder": ffmpeg_has_rkmpp_mjpeg_decoder,
+            "software_mjpeg_decoder": ffmpeg_has_software_mjpeg_decoder,
             "rkrga_filters": ffmpeg_has_rga_filters,
             "rkrga_runtime_ready": ffmpeg_rga_runtime_ready,
+            "rkrga_crop_filter": ffmpeg_has_rga_crop_filter,
+            "rkrga_crop_runtime_ready": ffmpeg_rga_crop_runtime_ready,
         },
+        "librga": librga_direct_runtime,
         "source_pipeline": source_pipeline,
         "devices": {
             "media": _device_paths(["media*"]),
@@ -1137,26 +1477,138 @@ def _frame_summary(frame: Any) -> dict[str, Any] | None:
         "height": int(height),
         "timestamp": timestamp,
         "age_ms": max(0.0, (time.time() - timestamp) * 1000.0) if timestamp > 0 else None,
-        "has_uncorrected_raw": getattr(frame, "uncorrected_raw", None) is not None,
     }
 
 
-def _calibration_frame_source_summary(device: Any) -> dict[str, Any]:
-    latest = getattr(device, "latest_frame", None)
-    frame = _frame_summary(latest)
+def _mode_frame_summary(mode: Any) -> dict[str, Any] | None:
+    if not isinstance(mode, dict):
+        return None
     try:
-        ring_depth = max(0, int(getattr(device, "ring_buffer_depth", 0) or 0))
-    except Exception:
-        ring_depth = 0
+        width = int(mode.get("width"))
+        height = int(mode.get("height"))
+    except (TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    out: dict[str, Any] = {"width": width, "height": height}
+    try:
+        fps = int(mode.get("fps"))
+    except (TypeError, ValueError):
+        fps = None
+    if fps is not None and fps > 0:
+        out["fps"] = fps
+    fourcc = mode.get("fourcc")
+    if fourcc:
+        out["fourcc"] = str(fourcc)
+    return out
+
+
+def _frame_rect_summary(frame: dict[str, Any] | None) -> dict[str, int] | None:
+    if not isinstance(frame, dict):
+        return None
+    try:
+        width = int(frame.get("width"))
+        height = int(frame.get("height"))
+    except (TypeError, ValueError):
+        return None
+    if width <= 0 or height <= 0:
+        return None
+    return {"x": 0, "y": 0, "width": width, "height": height}
+
+
+def _feed_coordinate_space(
+    sensor_frame: dict[str, Any] | None,
+    *,
+    transport_frame: dict[str, Any] | None = None,
+    inference_frame: dict[str, Any] | None = None,
+) -> dict[str, Any] | None:
+    sensor_rect = _frame_rect_summary(sensor_frame)
+    if sensor_rect is None:
+        return None
     return {
-        "kind": "raw_ring_buffer",
-        "available": bool(ring_depth > 0 and frame is not None),
-        "ring_buffer_depth": ring_depth,
-        "latest_frame_available": frame is not None,
-        "latest_frame": frame,
-        "uses_second_capture": False,
-        "uses_legacy_direct_stream_cache": False,
+        "name": "sensor_frame",
+        "units": "pixels",
+        "origin": "top_left",
+        "width": sensor_rect["width"],
+        "height": sensor_rect["height"],
+        "frame": "sensor_frame",
+        "overlays": "sensor_frame",
+        "crop": "sensor_frame",
+        "transport": {
+            "kind": "scaled_full_frame",
+            "source_rect": dict(sensor_rect),
+            "output_frame": transport_frame,
+        }
+        if transport_frame is not None
+        else None,
+        "inference": {
+            "kind": "scaled_full_frame",
+            "source_rect": dict(sensor_rect),
+            "output_frame": inference_frame,
+        }
+        if inference_frame is not None
+        else None,
     }
+
+
+def _capture_mode_for_budget(
+    capture_backend: dict[str, Any],
+    latest_summary: dict[str, Any] | None,
+) -> dict[str, int] | None:
+    requested = capture_backend.get("requested_mode")
+    if isinstance(requested, dict):
+        width = requested.get("width")
+        height = requested.get("height")
+        fps = requested.get("fps")
+    else:
+        width = latest_summary.get("width") if isinstance(latest_summary, dict) else None
+        height = latest_summary.get("height") if isinstance(latest_summary, dict) else None
+        fps = None
+    try:
+        out = {"width": int(width), "height": int(height)}
+    except (TypeError, ValueError):
+        return None
+    if out["width"] <= 0 or out["height"] <= 0:
+        return None
+    try:
+        out["fps"] = int(fps)
+    except (TypeError, ValueError):
+        pass
+    return out
+
+
+def _capture_exceeds_preview_budget(mode: dict[str, int] | None) -> bool:
+    if not isinstance(mode, dict):
+        return False
+    width = mode.get("width")
+    height = mode.get("height")
+    if not isinstance(width, int) or not isinstance(height, int):
+        return False
+    return width > HIGH_RES_PREVIEW_BUDGET_MAX_WIDTH or height > HIGH_RES_PREVIEW_BUDGET_MAX_HEIGHT
+
+
+def _high_res_preview_hardware_ready(capture_backend: dict[str, Any]) -> bool:
+    if bool(capture_backend.get("hardware_preview_scale_convert")):
+        return True
+    if bool(capture_backend.get("software_scale_convert_fallback")):
+        return False
+    if not (
+        bool(capture_backend.get("target_compliant"))
+        and bool(capture_backend.get("h264_webrtc_branch"))
+        and bool(capture_backend.get("zero_copy_dmabuf"))
+    ):
+        return False
+    requested = capture_backend.get("requested_mode")
+    h264_mode = capture_backend.get("h264_output_mode")
+    if not isinstance(requested, dict) or not isinstance(h264_mode, dict):
+        return False
+    try:
+        return (
+            int(h264_mode.get("width")) == int(requested.get("width"))
+            and int(h264_mode.get("height")) == int(requested.get("height"))
+        )
+    except (TypeError, ValueError):
+        return False
 
 
 def _json_safe(value: Any) -> Any:
@@ -1193,15 +1645,6 @@ def _encoder_path_map(payload: dict[str, Any]) -> dict[str, dict[str, Any]]:
         str(item.get("name")): item
         for item in capabilities.get("encoder_paths", [])
         if isinstance(item, dict)
-    }
-
-
-def _calibration_second_capture_allowed() -> bool:
-    return os.environ.get("SORTER_ALLOW_CALIBRATION_SECOND_CAPTURE", "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
     }
 
 
@@ -1347,6 +1790,8 @@ def evaluate_transport_gates(payload: dict[str, Any]) -> dict[str, Any]:
         "ffmpeg_rkmpp_runtime": bool(ffmpeg.get("rkmpp_h264_runtime_ready")),
         "ffmpeg_rkrga_filters_advertised": bool(ffmpeg.get("rkrga_filters")),
         "ffmpeg_rkrga_runtime": bool(ffmpeg.get("rkrga_runtime_ready")),
+        "ffmpeg_rkrga_crop_filter_advertised": bool(ffmpeg.get("rkrga_crop_filter")),
+        "ffmpeg_rkrga_crop_runtime": bool(ffmpeg.get("rkrga_crop_runtime_ready")),
         "v4l2_m2m_h264_runtime": bool(v4l2_m2m.get("h264_encoder_ready")),
         "mpp_service_node": bool(
             known_devices.get("/dev/mpp_service") or known_devices.get("/dev/mpp-service")
@@ -1362,6 +1807,19 @@ def evaluate_transport_gates(payload: dict[str, Any]) -> dict[str, Any]:
         "hardware_scale_convert_source_pipeline": bool(
             source_pipeline.get("hardware_scale_convert_in_source")
         ),
+        "hardware_crop_source_pipeline": bool(source_pipeline.get("hardware_crop_in_source")),
+        "active_high_res_capture_requires_scale": bool(
+            source_pipeline.get("active_high_res_capture_requires_scale")
+        ),
+        "active_high_res_scale_ready": bool(
+            source_pipeline.get("active_high_res_scale_ready", True)
+        ),
+        "active_high_res_preview_hardware_ready": bool(
+            source_pipeline.get(
+                "active_high_res_preview_hardware_ready",
+                source_pipeline.get("active_high_res_scale_ready", True),
+            )
+        ),
         "zero_copy_source_pipeline": bool(source_pipeline.get("zero_copy_dmabuf")),
         "source_pipeline_target_compliant": bool(source_pipeline.get("target_compliant")),
         "target_capture_backend_integrated": bool(
@@ -1371,15 +1829,6 @@ def evaluate_transport_gates(payload: dict[str, Any]) -> dict[str, Any]:
             capabilities.get("devices", {}).get("video_open_handles", {}).get("available")
         ),
         "legacy_mjpeg_clients_absent": legacy_mjpeg_clients == 0,
-        "calibration_second_capture_disabled": not bool(
-            payload.get("invariants", {}).get(
-                "calibration_second_capture_fallback_allowed",
-                _calibration_second_capture_allowed(),
-            )
-        ),
-        "calibration_raw_ring_buffer_available": bool(
-            payload.get("invariants", {}).get("calibration_raw_ring_buffer_available", True)
-        ),
         "assigned_camera_sources_exist": bool(
             payload.get("invariants", {}).get("assigned_physical_sources_exist", True)
         ),
@@ -1395,9 +1844,8 @@ def evaluate_transport_gates(payload: dict[str, Any]) -> dict[str, Any]:
         and gates["webrtc_hardware_bridge_implemented"]
         and gates["source_pipeline_target_compliant"]
         and gates["target_capture_backend_integrated"]
+        and gates["active_high_res_preview_hardware_ready"]
         and gates["legacy_mjpeg_clients_absent"]
-        and gates["calibration_second_capture_disabled"]
-        and gates["calibration_raw_ring_buffer_available"]
         and gates["assigned_camera_sources_exist"]
     )
 
@@ -1420,6 +1868,10 @@ def evaluate_transport_gates(payload: dict[str, Any]) -> dict[str, Any]:
         blockers.append("ffmpeg exposes h264_rkmpp, but the runtime encode probe fails.")
     if gates["ffmpeg_rkrga_filters_advertised"] and not gates["ffmpeg_rkrga_runtime"]:
         blockers.append("ffmpeg exposes Rockchip RGA filters, but the RGA+RKMPP runtime probe fails.")
+    if gates["ffmpeg_rkrga_crop_filter_advertised"] and not gates["ffmpeg_rkrga_crop_runtime"]:
+        migration_warnings.append(
+            "ffmpeg exposes vpp_rkrga crop, but the RGA crop+RKMPP runtime probe fails."
+        )
     if not gates["mpp_service_node"]:
         blockers.append("Rockchip MPP codec device node is missing (/dev/mpp_service).")
     if not gates["rga_node"]:
@@ -1428,16 +1880,24 @@ def evaluate_transport_gates(payload: dict[str, Any]) -> dict[str, Any]:
         blockers.append("DMA heap allocator node is missing (/dev/dma_heap).")
     if not gates["single_capture_per_physical_source"]:
         blockers.append("At least one physical camera has more than one capture instance.")
-    if not gates["calibration_second_capture_disabled"]:
-        blockers.append("Calibration is allowed to open a second capture handle.")
-    if not gates["calibration_raw_ring_buffer_available"]:
-        blockers.append("Calibration raw-frame ring buffer is not available for every assigned camera.")
     if gates["target_ready"] and not gates["source_pipeline_target_compliant"]:
         reason = source_pipeline.get("reason")
         blockers.append(
             "Hardware WebRTC source pipeline is still staging, not the final integrated MPP capture target."
             if not isinstance(reason, str) or not reason
             else reason
+        )
+    if (
+        gates["target_ready"]
+        and gates["active_high_res_capture_requires_scale"]
+        and not gates["active_high_res_preview_hardware_ready"]
+    ):
+        sources = source_pipeline.get("active_high_res_sources")
+        suffix = f" ({', '.join(str(item) for item in sources)})" if isinstance(sources, list) and sources else ""
+        blockers.append(
+            "Active high-res camera capture exceeds the preview budget, but the source pipeline has neither hardware preview scale/crop nor an unscaled hardware H.264 preview path ready"
+            + suffix
+            + "."
         )
     if not gates["target_capture_backend_integrated"]:
         blockers.append(
@@ -1503,6 +1963,18 @@ def describe_feed_metadata(
         if isinstance(described, list):
             overlays = [item for item in described if isinstance(item, dict)]
 
+    latest_summary = _frame_summary(latest)
+    capture_backend_fn = getattr(device, "describe_capture_backend", None)
+    capture_backend: dict[str, Any] = {}
+    if callable(capture_backend_fn):
+        try:
+            described_backend = capture_backend_fn()
+        except Exception:
+            described_backend = {}
+        if isinstance(described_backend, dict):
+            capture_backend = described_backend
+    transport_frame = _mode_frame_summary(capture_backend.get("h264_output_mode"))
+    inference_frame = _mode_frame_summary(capture_backend.get("detection_output_mode"))
     source = physical_source or _source_key(getattr(device, "config", None))
     return {
         "message_type": CAMERA_METADATA_MESSAGE_TYPE,
@@ -1512,7 +1984,16 @@ def describe_feed_metadata(
         "requested_role": str(requested_role or role),
         "config_role": str(config_role or role),
         "physical_source": source,
-        "frame": _frame_summary(latest),
+        "frame": latest_summary,
+        "coordinate_space": _json_safe(
+            _feed_coordinate_space(
+                latest_summary,
+                transport_frame=transport_frame,
+                inference_frame=inference_frame,
+            )
+        ),
+        "transport_frame": _json_safe(transport_frame),
+        "inference_frame": _json_safe(inference_frame),
         "ring_buffer_depth": int(getattr(device, "ring_buffer_depth", 0) or 0),
         "crop": _json_safe(crop),
         "overlays": _json_safe(overlays),
@@ -1599,9 +2080,6 @@ def describe_media_plane(
                 "one_encoder_per_physical_source_target": True,
                 "assigned_physical_sources_exist": True,
                 "target_capture_backend_integrated": True,
-                "calibration_uses_raw_ring_buffer_target": True,
-                "calibration_raw_ring_buffer_available": True,
-                "calibration_second_capture_fallback_allowed": _calibration_second_capture_allowed(),
             },
         }
 
@@ -1628,7 +2106,6 @@ def describe_media_plane(
         role_names = sorted(role for role, info in roles.items() if info["physical_source"] == source)
         device = devices_by_id[next(iter(device_ids))]
         latest = getattr(device, "latest_frame", None)
-        calibration_frame_source = _calibration_frame_source_summary(device)
         capture_backend_fn = getattr(device, "describe_capture_backend", None)
         capture_backend = (
             capture_backend_fn()
@@ -1656,6 +2133,8 @@ def describe_media_plane(
         if audit_source != source:
             os_handle_audit["logical_source"] = source
         latest_summary = _frame_summary(latest)
+        capture_profile = _capture_mode_for_budget(capture_backend, latest_summary)
+        capture_exceeds_preview_budget = _capture_exceeds_preview_budget(capture_profile)
         encoder_status = (
             "planned_ready"
             if source != "unassigned" and selected_encoder_path is not None
@@ -1671,7 +2150,16 @@ def describe_media_plane(
                 "encoder_instances_target": 1 if source != "unassigned" else 0,
                 "ring_buffer_depth": int(getattr(device, "ring_buffer_depth", 0) or 0),
                 "latest_frame": latest_summary,
-                "calibration_frame_source": calibration_frame_source,
+                "capture_profile": {
+                    **(capture_profile or {}),
+                    "exceeds_preview_budget": bool(capture_exceeds_preview_budget),
+                    "preview_budget": {
+                        "max_width": HIGH_RES_PREVIEW_BUDGET_MAX_WIDTH,
+                        "max_height": HIGH_RES_PREVIEW_BUDGET_MAX_HEIGHT,
+                    },
+                }
+                if capture_profile is not None
+                else None,
                 "capture_backend": capture_backend,
                 "target_capture_pipeline_contract": _target_capture_pipeline_contract(
                     source_presence.get("expected_device_path"),
@@ -1703,20 +2191,99 @@ def describe_media_plane(
     one_encoder_target_ok = all(
         session["encoder_instances_target"] == 1 for session in encoder_sessions
     )
-    calibration_raw_ring_buffer_ok = all(
-        source == "unassigned" or bool(item.get("calibration_frame_source", {}).get("available"))
-        for item in physical_sources
-    )
     target_capture_backend_integrated = all(
         source == "unassigned" or bool(item.get("capture_backend", {}).get("target_compliant"))
         for item in physical_sources
+    )
+    active_hardware_scale_convert = any(
+        source != "unassigned" and bool(item.get("capture_backend", {}).get("hardware_scale_convert"))
+        for item in physical_sources
+    )
+    active_hardware_preview_scale_convert = any(
+        source != "unassigned"
+        and bool(
+            item.get("capture_backend", {}).get(
+                "hardware_preview_scale_convert",
+                item.get("capture_backend", {}).get("hardware_scale_convert"),
+            )
+        )
+        for item in physical_sources
+    )
+    active_hardware_detection_scale_convert = any(
+        source != "unassigned"
+        and bool(item.get("capture_backend", {}).get("hardware_detection_scale_convert"))
+        for item in physical_sources
+    )
+    active_hardware_crop = any(
+        source != "unassigned" and bool(item.get("capture_backend", {}).get("hardware_crop"))
+        for item in physical_sources
+    )
+    active_hardware_detection_crop_capable = any(
+        source != "unassigned"
+        and bool(item.get("capture_backend", {}).get("hardware_detection_crop_capable"))
+        for item in physical_sources
+    )
+    active_capabilities = dict(capabilities)
+    source_pipeline = dict(active_capabilities.get("source_pipeline", {}))
+    active_hardware_scale_convert_element = next(
+        (
+            item.get("capture_backend", {}).get("hardware_scale_convert_element")
+            for item in physical_sources
+            if item.get("source") != "unassigned"
+            and item.get("capture_backend", {}).get("hardware_scale_convert_element")
+        ),
+        source_pipeline.get("hardware_scale_convert_element"),
+    )
+    active_scale_convert_element = next(
+        (
+            item.get("capture_backend", {}).get("scale_convert_element")
+            for item in physical_sources
+            if item.get("source") != "unassigned"
+            and item.get("capture_backend", {}).get("scale_convert_element")
+        ),
+        source_pipeline.get("scale_convert_element")
+        or active_hardware_scale_convert_element,
+    )
+    active_software_scale_fallback = any(
+        source != "unassigned"
+        and bool(item.get("capture_backend", {}).get("software_scale_convert_fallback"))
+        for item in physical_sources
+    )
+    active_hardware_crop_element = next(
+        (
+            item.get("capture_backend", {}).get("hardware_crop_element")
+            for item in physical_sources
+            if item.get("source") != "unassigned"
+            and item.get("capture_backend", {}).get("hardware_crop_element")
+        ),
+        source_pipeline.get("hardware_crop_element"),
+    )
+    active_high_res_sources = [
+        str(item.get("source"))
+        for item in physical_sources
+        if item.get("source") != "unassigned"
+        and isinstance(item.get("capture_profile"), dict)
+        and bool(item["capture_profile"].get("exceeds_preview_budget"))
+    ]
+    active_high_res_scale_ready = all(
+        bool(
+            item.get("capture_backend", {}).get(
+                "hardware_preview_scale_convert",
+                item.get("capture_backend", {}).get("hardware_scale_convert"),
+            )
+        )
+        for item in physical_sources
+        if item.get("source") in active_high_res_sources
+    )
+    active_high_res_preview_hardware_ready = all(
+        _high_res_preview_hardware_ready(item.get("capture_backend", {}))
+        for item in physical_sources
+        if item.get("source") in active_high_res_sources
     )
     assigned_sources_exist = all(
         source == "unassigned" or bool(item.get("source_exists"))
         for item in physical_sources
     )
-    active_capabilities = dict(capabilities)
-    source_pipeline = dict(active_capabilities.get("source_pipeline", {}))
     source_pipeline["target_capture_backend_integrated"] = target_capture_backend_integrated
     target_pipeline_candidate_ready = any(
         isinstance(candidate, dict)
@@ -1732,9 +2299,39 @@ def describe_media_plane(
         source_pipeline["implementation"] = GSTREAMER_TARGET_PIPELINE_NAME
         source_pipeline["input_memory"] = "dmabuf_or_hardware_decoded_frames"
         source_pipeline["zero_copy_dmabuf"] = True
-        source_pipeline["hardware_scale_convert_in_source"] = False
+        source_pipeline["hardware_scale_convert_in_source"] = active_hardware_scale_convert
+        source_pipeline["hardware_preview_scale_convert_in_source"] = active_hardware_preview_scale_convert
+        source_pipeline["hardware_detection_scale_convert_in_source"] = active_hardware_detection_scale_convert
+        source_pipeline["hardware_scale_convert_element"] = active_hardware_scale_convert_element
+        source_pipeline["scale_convert_element"] = active_scale_convert_element
+        source_pipeline["software_scale_convert_fallback"] = active_software_scale_fallback
+        source_pipeline["hardware_crop_in_source"] = active_hardware_crop
+        source_pipeline["hardware_detection_crop_capable"] = active_hardware_detection_crop_capable
+        source_pipeline["hardware_crop_element"] = active_hardware_crop_element
+        source_pipeline["detection_crop_strategy"] = target_detection_crop_strategy(
+            active_media_pipeline_crop=active_hardware_crop,
+            hardware_crop_element=active_hardware_crop_element,
+            hardware_crop_runtime_available=bool(source_pipeline.get("rkrga_crop_runtime_ready")),
+            hardware_crop_runtime_path=source_pipeline.get("rkrga_crop_path"),
+        )
+        source_pipeline["preview_budget"] = {
+            "max_width": HIGH_RES_PREVIEW_BUDGET_MAX_WIDTH,
+            "max_height": HIGH_RES_PREVIEW_BUDGET_MAX_HEIGHT,
+        }
+        source_pipeline["active_high_res_sources"] = active_high_res_sources
+        source_pipeline["active_high_res_capture_requires_scale"] = bool(active_high_res_sources)
+        source_pipeline["active_high_res_scale_ready"] = bool(active_high_res_scale_ready)
+        source_pipeline["active_high_res_preview_hardware_ready"] = bool(
+            active_high_res_preview_hardware_ready
+        )
         source_pipeline["target_compliant"] = True
-        source_pipeline["reason"] = "Active capture backend owns a single v4l2src tee with raw-ring and H.264 branches."
+        source_pipeline["reason"] = (
+            "Active capture backend owns a single v4l2src tee with raw-ring, hardware scale, and H.264 branches."
+            if active_hardware_scale_convert
+            else "Active capture backend owns a single v4l2src tee with raw-ring and H.264 branches; scale uses the configured converter as a software fallback because no stable GStreamer RGA converter is active."
+            if active_software_scale_fallback
+            else "Active capture backend owns a single v4l2src tee with raw-ring and H.264 branches; hardware scale is not active in the source path yet."
+        )
     elif target_capture_backend_integrated and source_pipeline.get("target_capture_backend_required"):
         source_pipeline["target_compliant"] = False
         source_pipeline["reason"] = "Capture backend is integrated, but the host is missing required GStreamer/Rockchip target pipeline pieces."
@@ -1755,8 +2352,5 @@ def describe_media_plane(
             "assigned_physical_sources_exist": assigned_sources_exist,
             "target_capture_backend_integrated": target_capture_backend_integrated,
             "browser_side_overlays_target": True,
-            "calibration_uses_raw_ring_buffer_target": True,
-            "calibration_raw_ring_buffer_available": calibration_raw_ring_buffer_ok,
-            "calibration_second_capture_fallback_allowed": _calibration_second_capture_allowed(),
         },
     }

@@ -55,7 +55,6 @@ def _stream_url(base_url: str, role: str, *, index: int) -> str:
             "layer": "raw",
             "direct": "0",
             "dashboard": "0",
-            "color_correct": "1",
             "show_regions": "0",
         },
         {
@@ -63,7 +62,6 @@ def _stream_url(base_url: str, role: str, *, index: int) -> str:
             "layer": "annotated",
             "direct": "0",
             "dashboard": "1",
-            "color_correct": "1",
             "show_regions": "1",
         },
         {
@@ -71,7 +69,6 @@ def _stream_url(base_url: str, role: str, *, index: int) -> str:
             "layer": "annotated",
             "direct": "0",
             "dashboard": "0",
-            "color_correct": "1",
             "show_regions": "0",
         },
     ]

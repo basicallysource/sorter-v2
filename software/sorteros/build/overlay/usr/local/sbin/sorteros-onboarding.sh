@@ -16,6 +16,7 @@ set -euo pipefail
 
 GATE=/var/lib/sorteros/wifi-configured
 LOG_TAG=sorteros-onboarding
+SKIP_WHEN_ONLINE=${SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE:-0}
 
 log() { logger -t "$LOG_TAG" -- "$*"; echo "[$LOG_TAG] $*" >&2; }
 
@@ -24,12 +25,11 @@ if [[ -f "$GATE" ]]; then
     exit 0
 fi
 
-# If the box already has a default route (e.g. an Ethernet uplink), there is
-# nothing to onboard — the device is reachable on the LAN already. Bringing up
-# an AP would be pointless and would fight firstboot for port 80. Exit 0 so
-# systemd doesn't restart us (RestartPreventExitStatus=0).
-if ip route show default 2>/dev/null | grep -q .; then
-    log "default route present (wired/online) — skipping AP onboarding"
+# Normally the AP still comes up when Ethernet/USB-LAN is present: the portal is
+# the first-run Wi-Fi/identity handoff, not only a reachability fallback. Lab or
+# Ethernet-only images can opt out explicitly.
+if [[ "$SKIP_WHEN_ONLINE" =~ ^(1|true|yes)$ ]] && ip route show default 2>/dev/null | grep -q .; then
+    log "default route present and SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE=${SKIP_WHEN_ONLINE} — skipping AP onboarding"
     exit 0
 fi
 

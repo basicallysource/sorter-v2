@@ -1,10 +1,12 @@
 import logging
 import asyncio
 import os
+import re
 import subprocess
 import threading
 import time
 from collections import deque
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Optional
 import platform
@@ -13,18 +15,14 @@ import numpy as np
 
 log = logging.getLogger(__name__)
 
-# One-shot flags so we log only the *first* time a non-identity picture/color
-# path runs in a given process. Lets ops grep journalctl for these strings —
-# their absence means we never paid the cost.
+# One-shot flag so we log only the *first* time a non-identity picture path
+# runs in a given process. Lets ops grep journalctl for this string.
 _PICTURE_NONIDENTITY_LOGGED = False
-_COLOR_ACTIVE_LOGGED = False
 
 from irl.config import (
     CameraConfig,
-    CameraColorProfile,
     CameraPictureSettings,
     cameraDeviceSettingsToDict,
-    clampCameraColorProfile,
     clampCameraPictureSettings,
     parseCameraDeviceSettings,
 )
@@ -33,6 +31,10 @@ from .types import CameraFrame
 CAPTURE_MODE_SETTLE_S = 2.0
 CAPTURE_EXPECTED_FRAME_FALLBACK_S = 10.0
 AUTO_CAMERA_CONTROL_KEYS = ("auto_exposure", "auto_white_balance", "autofocus")
+GSTREAMER_H264_PREVIEW_MAX_WIDTH = 1280
+GSTREAMER_H264_PREVIEW_MAX_HEIGHT = 720
+GSTREAMER_YOLO_DETECTION_MAX_WIDTH = 640
+GSTREAMER_YOLO_DETECTION_MAX_HEIGHT = 360
 
 if platform.system() == "Darwin":
     try:
@@ -148,6 +150,102 @@ def _try_v4l2ctl_get_format(source: int) -> tuple[int | None, int | None, str | 
             if raw.startswith("'") and "'" in raw[1:]:
                 fourcc = raw.split("'", 2)[1]
     return width, height, fourcc
+
+
+@lru_cache(maxsize=1)
+def _gstreamer_rga_converter_element() -> str | None:
+    if platform.system() != "Linux":
+        return None
+    for name in ("rgaconvert", "rkrgaconvert", "rkvideoconvert"):
+        try:
+            result = subprocess.run(
+                ["gst-inspect-1.0", name],
+                capture_output=True,
+                timeout=2,
+            )
+        except Exception:
+            continue
+        if result.returncode == 0:
+            return name
+    if os.environ.get("GST_VIDEO_CONVERT_USE_RGA", "").strip().lower() in {"0", "false", "no", "off"}:
+        return None
+    try:
+        env = {**os.environ, "GST_VIDEO_CONVERT_USE_RGA": "1"}
+        result = subprocess.run(
+            [
+                "gst-launch-1.0",
+                "-q",
+                "videotestsrc",
+                "num-buffers=1",
+                "!",
+                "video/x-raw,format=NV12,width=64,height=64,framerate=1/1",
+                "!",
+                "videoconvertscale",
+                "!",
+                "video/x-raw,format=NV12,width=32,height=32",
+                "!",
+                "fakesink",
+                "sync=false",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            env=env,
+        )
+    except Exception:
+        return None
+    output = "\n".join(part for part in (result.stdout, result.stderr) if part)
+    if result.returncode == 0 and "rga_api" in output.lower():
+        return "videoconvertscale"
+    return None
+
+
+@lru_cache(maxsize=1)
+def _direct_librga_detection_available() -> bool:
+    if platform.system() != "Linux":
+        return False
+    if os.environ.get("SORTER_DISABLE_DIRECT_LIBRGA_DETECTION", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }:
+        return False
+    try:
+        from .librga_nv12 import DirectLibrgaNv12Scaler
+
+        return DirectLibrgaNv12Scaler.available()
+    except Exception:
+        return False
+
+
+def _bounded_h264_preview_dimensions(
+    width: int,
+    height: int,
+    *,
+    max_width: int = GSTREAMER_H264_PREVIEW_MAX_WIDTH,
+    max_height: int = GSTREAMER_H264_PREVIEW_MAX_HEIGHT,
+) -> tuple[int, int]:
+    width = max(1, int(width))
+    height = max(1, int(height))
+    max_width = max(1, int(max_width))
+    max_height = max(1, int(max_height))
+    if width <= max_width and height <= max_height:
+        return width, height
+    scale = min(max_width / float(width), max_height / float(height))
+    out_w = max(2, int(round(width * scale)))
+    out_h = max(2, int(round(height * scale)))
+    # Chroma-subsampled NV12/H.264 paths are happiest with even dimensions.
+    return out_w - (out_w % 2), out_h - (out_h % 2)
+
+
+def _bounded_yolo_detection_dimensions(width: int, height: int) -> tuple[int, int]:
+    return _bounded_h264_preview_dimensions(
+        width,
+        height,
+        max_width=GSTREAMER_YOLO_DETECTION_MAX_WIDTH,
+        max_height=GSTREAMER_YOLO_DETECTION_MAX_HEIGHT,
+    )
 
 
 def _open_capture_source(
@@ -347,22 +445,53 @@ def _value_for_capture(key: str, value: bool | float) -> float:
     return float(value)
 
 
+_V4L2_SAFE_CONTROL_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
+_V4L2_CONTROL_LINE_RE = re.compile(
+    r"^\s*([A-Za-z0-9_]+)\s+0x[0-9A-Fa-f]+\s+\(([^)]+)\)\s*:\s*(.*)$"
+)
+_V4L2_MENU_OPTION_LINE_RE = re.compile(r"^\s*(-?\d+)\s*:\s*(.+?)\s*$")
+
+
+def _format_v4l2_integer(value: int | float | bool) -> str:
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    return str(int(round(float(value))))
+
+
+def _format_v4l2_auto_exposure(value: int | float | bool) -> str:
+    if isinstance(value, bool):
+        return "3" if value else "1"
+    try:
+        numeric = int(round(float(value)))
+    except Exception:
+        return "3" if bool(value) else "1"
+    if numeric in {0, 1, 2, 3}:
+        return str(numeric)
+    return "3" if numeric else "1"
+
+
+def _format_v4l2_bool(value: int | float | bool) -> str:
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    return "1" if float(value) != 0 else "0"
+
+
 # Maps our schema key → (v4l2-ctl control name, value formatter)
 _LINUX_V4L2CTL_CONTROL_MAP: dict[str, tuple[str, Any]] = {
-    "auto_exposure": ("auto_exposure", lambda v: "3" if bool(v) else "1"),
-    "auto_white_balance": ("white_balance_automatic", lambda v: "1" if bool(v) else "0"),
-    "autofocus": ("focus_automatic_continuous", lambda v: "1" if bool(v) else "0"),
-    "brightness": ("brightness", lambda v: str(int(round(float(v))))),
-    "contrast": ("contrast", lambda v: str(int(round(float(v))))),
-    "saturation": ("saturation", lambda v: str(int(round(float(v))))),
-    "sharpness": ("sharpness", lambda v: str(int(round(float(v))))),
-    "gamma": ("gamma", lambda v: str(int(round(float(v))))),
-    "gain": ("gain", lambda v: str(int(round(float(v))))),
-    "exposure": ("exposure_time_absolute", lambda v: str(int(round(float(v))))),
-    "white_balance_temperature": ("white_balance_temperature", lambda v: str(int(round(float(v))))),
-    "focus": ("focus_absolute", lambda v: str(int(round(float(v))))),
-    "power_line_frequency": ("power_line_frequency", lambda v: str(int(round(float(v))))),
-    "backlight_compensation": ("backlight_compensation", lambda v: str(int(round(float(v))))),
+    "auto_exposure": ("auto_exposure", _format_v4l2_auto_exposure),
+    "auto_white_balance": ("white_balance_automatic", _format_v4l2_bool),
+    "autofocus": ("focus_automatic_continuous", _format_v4l2_bool),
+    "brightness": ("brightness", _format_v4l2_integer),
+    "contrast": ("contrast", _format_v4l2_integer),
+    "saturation": ("saturation", _format_v4l2_integer),
+    "sharpness": ("sharpness", _format_v4l2_integer),
+    "gamma": ("gamma", _format_v4l2_integer),
+    "gain": ("gain", _format_v4l2_integer),
+    "exposure": ("exposure_time_absolute", _format_v4l2_integer),
+    "white_balance_temperature": ("white_balance_temperature", _format_v4l2_integer),
+    "focus": ("focus_absolute", _format_v4l2_integer),
+    "power_line_frequency": ("power_line_frequency", _format_v4l2_integer),
+    "backlight_compensation": ("backlight_compensation", _format_v4l2_integer),
 }
 
 
@@ -397,15 +526,155 @@ _V4L2_AUTO_GATE: dict[str, str] = {
 }
 
 
-def _v4l2ctl_set_many(source: int, items: list[tuple[str, bool | float]]) -> bool:
+def _v4l2_reverse_control_map() -> dict[str, str]:
+    return {ctrl_name: key for key, (ctrl_name, _) in _LINUX_V4L2CTL_CONTROL_MAP.items()}
+
+
+def _v4l2_control_name_for_key(key: str) -> str | None:
+    entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
+    if entry is not None:
+        return entry[0]
+    if _V4L2_SAFE_CONTROL_KEY_RE.match(key):
+        return key
+    return None
+
+
+def _v4l2_schema_key_for_control(ctrl_name: str) -> str:
+    return _v4l2_reverse_control_map().get(ctrl_name, ctrl_name)
+
+
+def _humanize_v4l2_control_label(ctrl_name: str) -> str:
+    known = _v4l2_schema_key_for_control(ctrl_name)
+    for spec in _usb_camera_control_specs():
+        if spec["key"] == known:
+            return str(spec["label"])
+    words = ctrl_name.replace("_", " ").strip().split()
+    return " ".join(word.upper() if word in {"wb", "ae", "awb"} else word.capitalize() for word in words)
+
+
+def _parse_v4l2_number(value: object) -> float | None:
+    try:
+        if isinstance(value, str):
+            value = value.strip()
+            if not value:
+                return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _parse_v4l2_detail_tokens(raw: str) -> dict[str, float | str]:
+    details: dict[str, float | str] = {}
+    for match in re.finditer(r"([A-Za-z_]+)=([^\s]+)", raw):
+        key = match.group(1)
+        value = match.group(2)
+        if key in {"min", "max", "step", "default", "value"}:
+            numeric = _parse_v4l2_number(value)
+            if numeric is not None:
+                details[key] = numeric
+        elif key == "flags":
+            details[key] = value
+    return details
+
+
+def _v4l2_kind_from_type(control_type: str) -> str | None:
+    normalized = control_type.strip().lower().replace("-", "_").replace(" ", "_")
+    if normalized in {"bool", "boolean"}:
+        return "boolean"
+    if normalized in {"int", "integer", "integer64", "bitmask"}:
+        return "number"
+    if "menu" in normalized:
+        return "menu"
+    if normalized == "button":
+        return "button"
+    return None
+
+
+def _v4l2_flag_set(raw: object) -> set[str]:
+    if not isinstance(raw, str):
+        return set()
+    return {part.strip().lower().replace("_", "-") for part in re.split(r"[,| ]+", raw) if part.strip()}
+
+
+def _coerce_v4l2_control_value(
+    key: str,
+    kind: object,
+    value: object,
+) -> int | float | bool | None:
+    if kind == "button":
+        return None
+    numeric = _parse_v4l2_number(value)
+    if numeric is None:
+        return value if isinstance(value, bool) else None
+    if kind == "boolean":
+        if key == "auto_exposure":
+            return int(round(numeric)) in {0, 2, 3}
+        return numeric != 0
+    return numeric
+
+
+def _v4l2_auto_gate_enabled(key: str, value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    numeric = _parse_v4l2_number(value)
+    if numeric is None:
+        return bool(value)
+    if key == "auto_exposure":
+        return int(round(numeric)) in {0, 2, 3}
+    return numeric != 0
+
+
+def _v4l2_control_is_readonly(control: dict[str, Any] | None) -> bool:
+    return bool(control and control.get("readonly"))
+
+
+def _v4l2_control_is_inactive_for_payload(
+    key: str,
+    control: dict[str, Any] | None,
+    payload: dict[str, int | float | bool],
+) -> bool:
+    if not bool(control and control.get("inactive")):
+        return False
+    gate = _V4L2_AUTO_GATE.get(key)
+    if gate is not None and gate in payload and not _v4l2_auto_gate_enabled(gate, payload.get(gate)):
+        return False
+    return True
+
+
+def _public_v4l2_control(control: dict[str, Any]) -> dict[str, Any]:
+    return {key: value for key, value in control.items() if not key.startswith("_")}
+
+
+def _sorted_v4l2_controls(
+    described: dict[str, dict[str, Any]]
+) -> list[tuple[str, dict[str, Any]]]:
+    order = {key: index for index, key in enumerate(_V4L2_APPLY_ORDER)}
+    return sorted(
+        described.items(),
+        key=lambda item: (order.get(item[0], len(order) + int(item[1].get("_order", 0))), int(item[1].get("_order", 0))),
+    )
+
+
+def _v4l2_current_value_from_control(
+    key: str,
+    control: dict[str, Any],
+) -> int | float | bool | None:
+    return _coerce_v4l2_control_value(key, control.get("kind"), control.get("value"))
+
+
+def _v4l2ctl_set_many(source: int, items: list[tuple[str, int | float | bool]]) -> bool:
     """Apply several controls in one v4l2-ctl call, preserving the given order."""
     args: list[str] = []
     for key, value in items:
         entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
-        if entry is None:
+        if entry is not None:
+            ctrl_name, fmt = entry
+            args += ["-c", f"{ctrl_name}={fmt(value)}"]
             continue
-        ctrl_name, fmt = entry
-        args += ["-c", f"{ctrl_name}={fmt(value)}"]
+        ctrl_name = _v4l2_control_name_for_key(key)
+        if ctrl_name is None:
+            continue
+        args += ["-c", f"{ctrl_name}={_format_v4l2_integer(value)}"]
     if not args:
         return True
     try:
@@ -436,25 +705,50 @@ def _apply_linux_v4l2_device_settings(
     or not a capture is open — letting the setup wizard tune a camera the runtime
     isn't streaming.
     """
-    items: list[tuple[str, bool | float]] = []
+    described = _try_v4l2ctl_describe(source)
+    described_keys = set(described.keys())
+    ordered_keys: list[str] = []
     for key in _V4L2_APPLY_ORDER:
         if key not in normalized:
             continue
+        ordered_keys.append(key)
+    for key in normalized:
+        if key not in ordered_keys:
+            ordered_keys.append(key)
+
+    items: list[tuple[str, int | float | bool]] = []
+    for key in ordered_keys:
+        if described and key not in described_keys:
+            continue
+        control = described.get(key)
+        if _v4l2_control_is_readonly(control):
+            continue
+        if _v4l2_control_is_inactive_for_payload(key, control, normalized):
+            continue
+        if control and control.get("kind") == "button":
+            continue
         gate = _V4L2_AUTO_GATE.get(key)
-        if gate is not None and normalized.get(gate) is True:
+        if gate is not None and _v4l2_auto_gate_enabled(gate, normalized.get(gate)):
             # Auto owns this control; leave the manual value untouched.
             continue
         items.append((key, normalized[key]))
 
     _v4l2ctl_set_many(source, items)
 
-    spec_by_key = {spec["key"]: spec for spec in _usb_camera_control_specs()}
+    described_after = _try_v4l2ctl_describe(source)
     applied: dict[str, int | float | bool] = {}
     for key, value in normalized.items():
-        spec = spec_by_key.get(key)
-        if spec is None:
+        control = described_after.get(key) or described.get(key)
+        if control is not None:
+            current = _v4l2_current_value_from_control(key, control)
+            if current is not None:
+                applied[key] = current
+                continue
+            if control.get("kind") == "button":
+                continue
+        if described and control is None:
             continue
-        if spec["kind"] == "boolean":
+        if control and control.get("kind") == "boolean":
             current = _try_v4l2ctl_get_bool(source, key)
         else:
             current = _try_v4l2ctl_get_number(source, key)
@@ -480,10 +774,9 @@ def apply_device_settings_via_v4l2(
 # some drivers — cap.get returns 0.0/0.25 even when the kernel has the control
 # in mode 3. v4l2-ctl is the authoritative source. Returns None if unavailable.
 def _try_v4l2ctl_get_raw(source: int, key: str) -> str | None:
-    entry = _LINUX_V4L2CTL_CONTROL_MAP.get(key)
-    if entry is None:
+    ctrl_name = _v4l2_control_name_for_key(key)
+    if ctrl_name is None:
         return None
-    ctrl_name, _ = entry
     try:
         device_path = _linux_video_device_path(source)
         result = subprocess.run(
@@ -513,7 +806,7 @@ def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
     except Exception:
         return None
     if key == "auto_exposure":
-        return n in {0, 3}
+        return n in {0, 2, 3}
     return n != 0
 
 
@@ -527,10 +820,7 @@ def _try_v4l2ctl_get_number(source: int, key: str) -> float | None:
         return None
 
 
-def _try_v4l2ctl_describe(source: int) -> dict[str, dict[str, float | bool]]:
-    by_ctrl_name: dict[str, str] = {}
-    for key, (ctrl_name, _) in _LINUX_V4L2CTL_CONTROL_MAP.items():
-        by_ctrl_name[ctrl_name] = key
+def _try_v4l2ctl_describe(source: int) -> dict[str, dict[str, Any]]:
     try:
         device_path = _linux_video_device_path(source)
         result = subprocess.run(
@@ -544,28 +834,87 @@ def _try_v4l2ctl_describe(source: int) -> dict[str, dict[str, float | bool]]:
     except Exception:
         return {}
 
-    described: dict[str, dict[str, float | bool]] = {}
+    described: dict[str, dict[str, Any]] = {}
+    category: str | None = None
+    current_menu_key: str | None = None
+    known_specs = {spec["key"]: spec for spec in _usb_camera_control_specs()}
+    order = 0
+
     for line in result.stdout.splitlines():
         raw_line = line.rstrip()
-        if not raw_line or raw_line.lstrip() == raw_line or "0x" not in raw_line:
+        stripped = raw_line.strip()
+        if not stripped:
+            current_menu_key = None
             continue
-        ctrl_name = raw_line.split()[0]
-        key = by_ctrl_name.get(ctrl_name)
-        if key is None:
+
+        if raw_line.lstrip() == raw_line:
+            if stripped.lower().endswith("controls"):
+                category = stripped
+            current_menu_key = None
             continue
-        details: dict[str, float | bool] = {}
-        for token in raw_line.split():
-            if "=" not in token:
+
+        menu_match = _V4L2_MENU_OPTION_LINE_RE.match(raw_line)
+        if menu_match and current_menu_key is not None:
+            option_value = _parse_v4l2_number(menu_match.group(1))
+            if option_value is None:
                 continue
-            token_key, token_value = token.split("=", 1)
-            if token_key in {"min", "max", "step", "default", "value"}:
-                try:
-                    details[token_key] = float(token_value)
-                except Exception:
-                    continue
-            elif token_key == "flags":
-                details["inactive"] = "inactive" in token_value
-        described[key] = details
+            label = menu_match.group(2).strip()
+            options = described[current_menu_key].setdefault("options", [])
+            options.append({"value": option_value, "label": label})
+            continue
+
+        match = _V4L2_CONTROL_LINE_RE.match(raw_line)
+        if not match:
+            current_menu_key = None
+            continue
+
+        ctrl_name = match.group(1)
+        control_type = match.group(2)
+        raw_details = match.group(3)
+        kind = _v4l2_kind_from_type(control_type)
+        if kind is None:
+            current_menu_key = None
+            continue
+
+        key = _v4l2_schema_key_for_control(ctrl_name)
+        spec = known_specs.get(key, {})
+        parsed_details = _parse_v4l2_detail_tokens(raw_details)
+        flags = _v4l2_flag_set(parsed_details.get("flags"))
+        inactive = "inactive" in flags or "disabled" in flags
+        readonly = "read-only" in flags or "readonly" in flags or "write-only" in flags
+        control: dict[str, Any] = {
+            "key": key,
+            "label": spec.get("label") or _humanize_v4l2_control_label(ctrl_name),
+            "kind": kind,
+            "driverKey": ctrl_name,
+            "type": control_type.strip(),
+            "_order": order,
+        }
+        order += 1
+        if category:
+            control["category"] = category
+        if spec.get("help"):
+            control["help"] = spec["help"]
+        if inactive:
+            control["inactive"] = True
+        if readonly:
+            control["readonly"] = True
+        if inactive or readonly:
+            control["disabled"] = True
+
+        for detail_key in ("min", "max", "step"):
+            value = parsed_details.get(detail_key)
+            if isinstance(value, (int, float)) and not isinstance(value, bool):
+                control[detail_key] = float(value)
+
+        for detail_key in ("default", "value"):
+            value = _coerce_v4l2_control_value(key, kind, parsed_details.get(detail_key))
+            if value is not None:
+                control[detail_key] = value
+
+        described[key] = control
+        current_menu_key = key if kind == "menu" else None
+
     return described
 
 
@@ -689,6 +1038,16 @@ def read_camera_device_settings(
     *,
     source: int | str | None = None,
 ) -> dict[str, int | float | bool]:
+    if platform.system() == "Linux" and isinstance(source, int):
+        described = _try_v4l2ctl_describe(source)
+        if described:
+            settings: dict[str, int | float | bool] = {}
+            for key, control in described.items():
+                current = _v4l2_current_value_from_control(key, control)
+                if current is not None:
+                    settings[key] = current
+            return settings
+
     settings: dict[str, int | float | bool] = {}
     for spec in _usb_camera_control_specs():
         current = _read_capture_value(cap, spec, source=source)
@@ -705,6 +1064,14 @@ def describe_camera_device_controls(
     macos_controls, _ = _describe_macos_uvc_controls(source)
     if macos_controls:
         return macos_controls
+
+    if platform.system() == "Linux" and isinstance(source, int):
+        linux_described = _try_v4l2ctl_describe(source)
+        if linux_described:
+            return [
+                _public_v4l2_control(control)
+                for _, control in _sorted_v4l2_controls(linux_described)
+            ]
 
     controls: list[dict[str, Any]] = []
     linux_described = (
@@ -844,73 +1211,6 @@ def apply_picture_settings(
     return adjusted
 
 
-def apply_camera_color_profile(
-    frame: np.ndarray,
-    profile: CameraColorProfile | None,
-) -> np.ndarray:
-    if profile is None or not getattr(profile, "enabled", False):
-        return frame
-
-    global _COLOR_ACTIVE_LOGGED
-    if not _COLOR_ACTIVE_LOGGED:
-        _COLOR_ACTIVE_LOGGED = True
-        log.warning(
-            "apply_camera_color_profile: enabled branch active — full-frame LUT+tensordot+gamma will run per frame"
-        )
-
-    current = clampCameraColorProfile(profile)
-    if not current.enabled:
-        return frame
-
-    matrix = np.array(current.matrix, dtype=np.float32)
-    bias = np.array(current.bias, dtype=np.float32)
-    if matrix.shape != (3, 3) or bias.shape != (3,):
-        return frame
-
-    # Step 1: Linearize via response LUT (if available)
-    has_lut = (
-        current.response_lut_r is not None
-        and current.response_lut_g is not None
-        and current.response_lut_b is not None
-        and len(current.response_lut_r) == 256
-        and len(current.response_lut_g) == 256
-        and len(current.response_lut_b) == 256
-    )
-
-    if has_lut:
-        # Build per-channel LUT: uint8 → float32 linear [0, 1]
-        lut_b = np.array(current.response_lut_b, dtype=np.float32)
-        lut_g = np.array(current.response_lut_g, dtype=np.float32)
-        lut_r = np.array(current.response_lut_r, dtype=np.float32)
-        rgb = np.stack([lut_r[frame[:, :, 2]], lut_g[frame[:, :, 1]], lut_b[frame[:, :, 0]]], axis=-1)
-    else:
-        rgb = frame[:, :, ::-1].astype(np.float32) / 255.0
-
-    # Step 2: Affine CCM (3×3 matrix + bias)
-    corrected = np.tensordot(rgb, matrix.T, axes=1) + bias
-
-    # Step 3: Per-channel gamma (if available)
-    has_gamma = (
-        current.gamma_a is not None
-        and current.gamma_exp is not None
-        and current.gamma_b is not None
-        and len(current.gamma_a) == 3
-        and len(current.gamma_exp) == 3
-        and len(current.gamma_b) == 3
-    )
-
-    if has_gamma:
-        ga = current.gamma_a
-        ge = current.gamma_exp
-        gb = current.gamma_b
-        for c in range(3):
-            ch = np.clip(corrected[:, :, c], 0.0, None)
-            corrected[:, :, c] = ga[c] * np.power(ch, ge[c]) + gb[c]
-
-    corrected = np.clip(corrected, 0.0, 1.0)
-    return np.round(corrected[:, :, ::-1] * 255.0).astype(np.uint8)
-
-
 class CaptureThread:
     _thread: Optional[threading.Thread]
     _stop_event: threading.Event
@@ -927,16 +1227,15 @@ class CaptureThread:
         self._reopen_event = threading.Event()
         self._cap = None
         self._gst_runtime: Any | None = None
+        self._detection_crop_rect_xyxy: tuple[int, int, int, int] | None = None
         self.latest_frame = None
         # 90-frame ring buffer (~3 s at 30 FPS) for burst-capture replay. The
         # GIL + deque.append atomicity lets us push without holding a lock.
         self._ring_buffer: deque[CameraFrame] = deque(maxlen=90)
         self._picture_settings = clampCameraPictureSettings(config.picture_settings)
         self._device_settings = parseCameraDeviceSettingsForCapture(config.device_settings)
-        self._color_profile = clampCameraColorProfile(config.color_profile)
         self._picture_settings_lock = threading.Lock()
         self._device_settings_lock = threading.Lock()
-        self._color_profile_lock = threading.Lock()
         self._config_lock = threading.Lock()
         self._cap_lock = threading.Lock()
 
@@ -992,6 +1291,49 @@ class CaptureThread:
         """Return the number of timestamped raw frames currently retained."""
         return len(self._ring_buffer)
 
+    def latest_detection_frame(self) -> Optional[CameraFrame]:
+        """Return the reduced hardware YOLO frame when the capture backend has one.
+
+        The full-resolution ``latest_frame`` remains the authoritative sensor
+        frame for overlays and classification crops; this optional frame is only
+        an inference input with metadata that maps it back to the sensor frame.
+        """
+        with self._cap_lock:
+            gst_runtime = self._gst_runtime
+        getter = getattr(gst_runtime, "latest_detection_frame", None)
+        if callable(getter):
+            try:
+                return getter()
+            except Exception:
+                return None
+        return None
+
+    def setDetectionCropRect(
+        self,
+        sensor_rect_xyxy: tuple[int, int, int, int] | None,
+    ) -> bool:
+        """Request a sensor-space YOLO crop for direct hardware detection.
+
+        ``sensor_rect_xyxy`` uses the same coordinate convention as perception
+        and UI overlays: ``x1,y1,x2,y2`` in the full sensor frame. The active
+        GStreamer runtime converts that to the even NV12 crop required by RGA.
+        """
+        rect: tuple[int, int, int, int] | None = None
+        if sensor_rect_xyxy is not None:
+            if len(sensor_rect_xyxy) != 4:
+                raise ValueError("Detection crop rect must be x1,y1,x2,y2")
+            rect = tuple(int(value) for value in sensor_rect_xyxy)
+        with self._cap_lock:
+            self._detection_crop_rect_xyxy = rect
+            gst_runtime = self._gst_runtime
+        setter = getattr(gst_runtime, "set_detection_crop_rect", None)
+        if callable(setter):
+            try:
+                return bool(setter(rect))
+            except Exception:
+                return False
+        return False
+
     def frame_at_or_before(
         self,
         timestamp: float,
@@ -1031,16 +1373,6 @@ class CaptureThread:
     def getPictureSettings(self) -> CameraPictureSettings:
         with self._picture_settings_lock:
             return clampCameraPictureSettings(self._picture_settings)
-
-    def setColorProfile(self, profile: CameraColorProfile | None) -> None:
-        clamped = clampCameraColorProfile(profile or CameraColorProfile())
-        with self._color_profile_lock:
-            self._color_profile = clamped
-            self._config.color_profile = clamped
-
-    def getColorProfile(self) -> CameraColorProfile:
-        with self._color_profile_lock:
-            return clampCameraColorProfile(self._color_profile)
 
     def setDeviceSettings(
         self,
@@ -1224,8 +1556,47 @@ class CaptureThread:
         # bounce offers with 409. The H.264 reader tolerates the gap and resumes
         # once the runtime is back.
         if self._should_use_gstreamer_mpp_capture(source, is_url=is_url, fourcc=fourcc):
-            from .gstreamer_target_capture import TARGET_PIPELINE_NAME
+            from .gstreamer_target_capture import (
+                TARGET_PIPELINE_NAME,
+                scale_converter_uses_hardware,
+                target_detection_crop_strategy,
+            )
+            from .librga_nv12 import LIBRGA_VIRTUALADDR_PATH
 
+            preview_width, preview_height = _bounded_h264_preview_dimensions(width, height)
+            detection_width, detection_height = _bounded_yolo_detection_dimensions(width, height)
+            rga_converter = _gstreamer_rga_converter_element()
+            direct_librga_detection = bool(_direct_librga_detection_available())
+            direct_librga_preview = bool(
+                direct_librga_detection
+                and (preview_width != int(width) or preview_height != int(height))
+            )
+            scale_converter_hardware = scale_converter_uses_hardware(rga_converter)
+            h264_scaled = bool(
+                (direct_librga_preview or (rga_converter and scale_converter_hardware))
+                and (preview_width != int(width) or preview_height != int(height))
+            )
+            detection_scaled = bool(
+                (direct_librga_detection or (rga_converter and scale_converter_hardware))
+                and (detection_width != int(width) or detection_height != int(height))
+            )
+            hardware_scale_convert = bool(scale_converter_hardware and h264_scaled)
+            hardware_preview_scale_convert = bool(
+                (direct_librga_preview and h264_scaled)
+                or (scale_converter_hardware and h264_scaled)
+            )
+            hardware_detection_scale_convert = bool(
+                (direct_librga_detection and detection_scaled)
+                or (scale_converter_hardware and detection_scaled)
+            )
+            software_scale_convert_fallback = bool(
+                rga_converter
+                and not scale_converter_hardware
+                and (
+                    (h264_scaled and not direct_librga_preview)
+                    or (detection_scaled and not direct_librga_detection)
+                )
+            )
             return {
                 "implementation": TARGET_PIPELINE_NAME,
                 "source": source,
@@ -1239,8 +1610,68 @@ class CaptureThread:
                 "single_capture_owner": True,
                 "raw_ring_branch": True,
                 "h264_webrtc_branch": True,
-                "hardware_scale_convert": False,
+                "h264_webrtc_pipeline_branch": not direct_librga_preview,
+                "h264_webrtc_direct_librga": direct_librga_preview,
+                "detection_yolo_branch": bool(detection_scaled),
+                "detection_yolo_pipeline_branch": bool(detection_scaled and not direct_librga_detection),
+                "detection_yolo_direct_librga": bool(detection_scaled and direct_librga_detection),
+                "hardware_scale_convert": bool(hardware_preview_scale_convert or hardware_detection_scale_convert),
+                "hardware_preview_scale_convert": hardware_preview_scale_convert,
+                "hardware_preview_scale_convert_element": (
+                    LIBRGA_VIRTUALADDR_PATH
+                    if direct_librga_preview and h264_scaled
+                    else rga_converter
+                    if hardware_scale_convert
+                    else None
+                ),
+                "hardware_scale_convert_element": rga_converter
+                if hardware_scale_convert
+                or (hardware_detection_scale_convert and not direct_librga_detection)
+                else LIBRGA_VIRTUALADDR_PATH
+                if (hardware_preview_scale_convert and direct_librga_preview)
+                or (hardware_detection_scale_convert and direct_librga_detection)
+                else None,
+                "scale_convert_element": (
+                    LIBRGA_VIRTUALADDR_PATH
+                    if direct_librga_preview
+                    or (direct_librga_detection and detection_scaled and not h264_scaled)
+                    else rga_converter
+                    if h264_scaled or (detection_scaled and not direct_librga_detection)
+                    else None
+                ),
+                "software_scale_convert_fallback": software_scale_convert_fallback,
+                "hardware_detection_scale_convert": hardware_detection_scale_convert,
+                "hardware_crop": False,
+                "hardware_crop_element": None,
+                "hardware_detection_crop": False,
+                "hardware_detection_crop_capable": bool(direct_librga_detection and detection_scaled),
+                "detection_crop_strategy": target_detection_crop_strategy(
+                    hardware_crop_runtime_available=True
+                    if direct_librga_detection and detection_scaled
+                    else None,
+                    hardware_crop_runtime_path=LIBRGA_VIRTUALADDR_PATH
+                    if direct_librga_detection and detection_scaled
+                    else None,
+                ),
+                "h264_output_mode": {
+                    "width": int(preview_width if h264_scaled else width),
+                    "height": int(preview_height if h264_scaled else height),
+                    "fps": int(fps),
+                },
+                "detection_output_mode": {
+                    "width": int(detection_width),
+                    "height": int(detection_height),
+                    "fps": int(fps),
+                }
+                if detection_scaled
+                else None,
                 "zero_copy_dmabuf": True,
+                "preview_zero_copy_dmabuf": False if direct_librga_preview else True,
+                "preview_input_memory": "virtualaddr" if direct_librga_preview else "gstreamer_pipeline",
+                "detection_zero_copy_dmabuf": False if direct_librga_detection and detection_scaled else True,
+                "detection_input_memory": (
+                    "virtualaddr" if direct_librga_detection and detection_scaled else "gstreamer_appsink"
+                ),
                 "target_compliant": True,
                 "active": False,
                 "reason": "Integrated GStreamer v4l2src/MPP tee target backend (pipeline (re)building).",
@@ -1359,18 +1790,12 @@ class CaptureThread:
 
     def _publish_raw_frame(self, frame: np.ndarray, *, timestamp: float | None = None) -> None:
         picture_settings = self.getPictureSettings()
-        color_profile = self.getColorProfile()
         geom_frame = apply_picture_settings(frame, picture_settings)
-        if getattr(color_profile, "enabled", False):
-            corrected_frame = apply_camera_color_profile(geom_frame, color_profile)
-        else:
-            corrected_frame = geom_frame
         camera_frame = CameraFrame(
-            raw=corrected_frame,
+            raw=geom_frame,
             annotated=None,
             results=[],
             timestamp=float(timestamp or time.time()),
-            uncorrected_raw=geom_frame,
         )
         self.latest_frame = camera_frame
         self._ring_buffer.append(camera_frame)
@@ -1392,7 +1817,8 @@ class CaptureThread:
         fps: int,
         fourcc: str | None,
     ) -> bool:
-        from .gstreamer_target_capture import GStreamerTargetCaptureConfig
+        from .gstreamer_target_capture import GStreamerTargetCaptureConfig, GStreamerTargetElements
+        from .gstreamer_target_capture import scale_converter_uses_hardware
         from .gstreamer_target_runtime import GStreamerTargetCaptureRuntime
 
         actual_source = _resolve_linux_video_index(source)
@@ -1411,18 +1837,66 @@ class CaptureThread:
             height = actual_height
         if actual_fourcc:
             normalized_fourcc = actual_fourcc.strip().upper()
+        h264_width: int | None = None
+        h264_height: int | None = None
+        detection_width: int | None = None
+        detection_height: int | None = None
+        elements = GStreamerTargetElements()
+        rga_converter = _gstreamer_rga_converter_element()
+        direct_librga_detection = bool(_direct_librga_detection_available())
+        scale_converter_hardware = scale_converter_uses_hardware(rga_converter)
+        preview_width, preview_height = _bounded_h264_preview_dimensions(width, height)
+        yolo_width, yolo_height = _bounded_yolo_detection_dimensions(width, height)
+        direct_librga_preview = bool(
+            direct_librga_detection
+            and (preview_width != int(width) or preview_height != int(height))
+        )
+        if direct_librga_preview:
+            h264_width = preview_width
+            h264_height = preview_height
+        elif rga_converter and scale_converter_hardware:
+            if preview_width != int(width) or preview_height != int(height):
+                h264_width = preview_width
+                h264_height = preview_height
+        if direct_librga_detection:
+            detection_width = yolo_width
+            detection_height = yolo_height
+        elif (
+            rga_converter
+            and scale_converter_hardware
+            and (yolo_width != int(width) or yolo_height != int(height))
+        ):
+            detection_width = yolo_width
+            detection_height = yolo_height
+        if rga_converter and (
+            normalized_fourcc not in {"MJPG", "JPEG"}
+            or (h264_width is not None and not direct_librga_preview)
+            or (detection_width is not None and not direct_librga_detection)
+        ):
+            elements = GStreamerTargetElements(rga_converter=rga_converter)
         config = GStreamerTargetCaptureConfig(
             device_path=f"/dev/video{actual_source}",
             width=int(width),
             height=int(height),
             fps=int(fps),
             input_fourcc=normalized_fourcc,
+            h264_width=h264_width,
+            h264_height=h264_height,
+            direct_librga_preview=direct_librga_preview,
+            detection_width=detection_width,
+            detection_height=detection_height,
+            direct_librga_detection=direct_librga_detection and detection_width is not None and detection_height is not None,
+            elements=elements,
         )
         runtime = GStreamerTargetCaptureRuntime(
             config,
             raw_frame_callback=self._publish_gstreamer_raw_frame,
         )
         try:
+            with self._cap_lock:
+                pending_detection_crop_rect = self._detection_crop_rect_xyxy
+            if pending_detection_crop_rect is not None:
+                runtime.set_detection_crop_rect(pending_detection_crop_rect)
             settings_to_apply = self.getDeviceSettings() or default_auto_camera_device_settings()
             applied_device_settings = apply_camera_device_settings(
                 None,
@@ -1451,7 +1925,7 @@ class CaptureThread:
             self._cap = None
             self._gst_runtime = runtime
         log.warning(
-            "CaptureThread[%s] using GStreamer MPP capture backend for logical video%s -> /dev/video%s (%sx%s@%s %s)",
+            "CaptureThread[%s] using GStreamer MPP capture backend for logical video%s -> /dev/video%s (%sx%s@%s %s, h264=%sx%s, yolo=%s, rga=%s, direct_librga_preview=%s, direct_librga_yolo=%s)",
             self.name,
             source,
             actual_source,
@@ -1459,6 +1933,12 @@ class CaptureThread:
             height,
             fps,
             normalized_fourcc,
+            config.h264_output_dimensions()[0],
+            config.h264_output_dimensions()[1],
+            f"{detection_width}x{detection_height}" if detection_width and detection_height else "raw-ring",
+            config.elements.rga_converter or "none",
+            config.direct_librga_preview,
+            config.direct_librga_detection,
         )
         try:
             while not self._stop_event.is_set() and not self._reopen_event.is_set():
@@ -1481,19 +1961,15 @@ class CaptureThread:
         next_open_attempt_at = 0.0
         previous_source: int | str | None = None
         expected_frame_settle_until = 0.0
-        # One-shot startup log per camera so journalctl shows the
-        # picture/color identity state. If `picture=identity color=disabled`
-        # appears for every camera and the non-identity warnings never fire,
-        # we know the per-frame apply_* calls are no-ops the whole run.
+        # One-shot startup log per camera so journalctl shows whether the
+        # picture path is identity at runtime.
         _initial_pic = self._picture_settings
-        _initial_col = self._color_profile
         log.warning(
-            "CaptureThread[%s] starting — picture=%s color=%s",
+            "CaptureThread[%s] starting — picture=%s",
             self.name,
             "identity"
             if _picture_settings_is_identity(_initial_pic)
             else f"rotation={getattr(_initial_pic, 'rotation', '?')} flip_h={getattr(_initial_pic, 'flip_horizontal', '?')} flip_v={getattr(_initial_pic, 'flip_vertical', '?')}",
-            "enabled" if getattr(_initial_col, "enabled", False) else "disabled",
         )
         last_expected_frame_at = 0.0
         # Some UVC cameras (especially on Linux with MJPG) reset device controls
@@ -1681,20 +2157,12 @@ class CaptureThread:
                     post_stream_settings = None
                     post_stream_source = None
                 picture_settings = self.getPictureSettings()
-                color_profile = self.getColorProfile()
-                # Apply rotation/flip once; downstream consumers see the same
-                # geometry whether or not color correction is active.
                 geom_frame = apply_picture_settings(frame, picture_settings)
-                if getattr(color_profile, "enabled", False):
-                    corrected_frame = apply_camera_color_profile(geom_frame, color_profile)
-                else:
-                    corrected_frame = geom_frame
                 camera_frame = CameraFrame(
-                    raw=corrected_frame,
+                    raw=geom_frame,
                     annotated=None,
                     results=[],
                     timestamp=time.time(),
-                    uncorrected_raw=geom_frame,
                 )
                 self.latest_frame = camera_frame
                 # deque.append is atomic under the GIL — no lock needed.

@@ -76,8 +76,24 @@ def test_probe_text_report_surfaces_legacy_mjpeg_migration_warning(capsys) -> No
                     "input_memory": "cpu_bgr24_frames_from_camera_feed",
                     "zero_copy_dmabuf": False,
                     "hardware_scale_convert_in_source": False,
+                    "hardware_crop_in_source": False,
                     "rkrga_filters_advertised": True,
                     "rkrga_runtime_ready": False,
+                    "rkrga_crop_filter_advertised": True,
+                    "rkrga_crop_runtime_ready": True,
+                    "rkrga_crop_path": "ffmpeg_vpp_rkrga",
+                    "direct_librga_runtime_ready": True,
+                    "direct_librga_path": "librga_virtualaddr",
+                    "detection_crop_strategy": {
+                        "target_stage": "detection_yolo_branch_before_scale",
+                        "current_stage": "scaled_full_frame_then_perception_crop",
+                        "active_media_pipeline_crop": False,
+                        "hardware_crop_element": None,
+                        "hardware_crop_runtime_available": True,
+                        "hardware_crop_runtime_path": "ffmpeg_vpp_rkrga",
+                        "software_videocrop_allowed": False,
+                        "reason": "RGA crop runtime exists, but active source graph does not crop.",
+                    },
                     "target_capture_backend_integrated": False,
                     "target_compliant": False,
                     "reason": "staging source pipeline",
@@ -121,6 +137,18 @@ def test_probe_text_report_surfaces_legacy_mjpeg_migration_warning(capsys) -> No
     assert "implementation: staging_bgr24_cpu_pipe_to_h264_rkmpp" in output
     assert "zero_copy_dmabuf: False" in output
     assert "hardware_scale_convert_in_source: False" in output
+    assert "hardware_crop_in_source: False" in output
+    assert "rkrga_crop_filter_advertised: True" in output
+    assert "rkrga_crop_runtime_ready: True" in output
+    assert "rkrga_crop_path: ffmpeg_vpp_rkrga" in output
+    assert "direct_librga_runtime_ready: True" in output
+    assert "direct_librga_path: librga_virtualaddr" in output
+    assert "detection_crop_strategy:" in output
+    assert "target_stage: detection_yolo_branch_before_scale" in output
+    assert "current_stage: scaled_full_frame_then_perception_crop" in output
+    assert "active_media_pipeline_crop: False" in output
+    assert "hardware_crop_runtime_available: True" in output
+    assert "software_videocrop_allowed: False" in output
     assert "target_capture_backend_integrated: False" in output
     assert "target_compliant: False" in output
     assert "candidates:" in output
@@ -207,10 +235,7 @@ def test_probe_text_report_surfaces_sorteros_image_contract(capsys) -> None:
                     "roles": ["c_channel_2", "feeder"],
                     "capture_instances": 1,
                     "ring_buffer_depth": 90,
-                    "calibration_frame_source": {
-                        "available": True,
-                        "latest_frame_available": True,
-                    },
+                    "latest_frame": {"timestamp": 100.0},
                 }
             ],
         },
@@ -259,10 +284,7 @@ def test_probe_text_report_surfaces_firstboot_camera_transport_status(capsys) ->
                     "roles": ["c_channel_2", "feeder"],
                     "capture_instances": 1,
                     "ring_buffer_depth": 90,
-                    "calibration_frame_source": {
-                        "available": True,
-                        "latest_frame_available": True,
-                    },
+                    "latest_frame": {"timestamp": 100.0},
                 }
             ],
         },
@@ -301,10 +323,7 @@ def test_probe_text_report_surfaces_webrtc_runtime_summary(capsys) -> None:
                     "roles": ["c_channel_2", "feeder"],
                     "capture_instances": 1,
                     "ring_buffer_depth": 90,
-                    "calibration_frame_source": {
-                        "available": True,
-                        "latest_frame_available": True,
-                    },
+                    "latest_frame": {"timestamp": 100.0},
                 }
             ],
         },
@@ -351,4 +370,4 @@ def test_probe_text_report_surfaces_webrtc_runtime_summary(capsys) -> None:
     assert "OK encoder_count_does_not_scale_with_views" in output
     assert "OK metadata_payloads_are_pixel_free" in output
     assert "video:5 roles=['c_channel_2', 'feeder'] captures=1 ring=90" in output
-    assert "calibration_raw=True latest=True" in output
+    assert "latest=True" in output

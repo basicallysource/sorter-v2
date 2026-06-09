@@ -14,19 +14,13 @@ from vision.camera_feed import CameraFeed
 from vision.types import CameraFrame
 
 
-def _frame(ts: float, marker: int = 0, uncorrected_marker: int | None = None) -> CameraFrame:
+def _frame(ts: float, marker: int = 0) -> CameraFrame:
     raw = np.full((4, 4, 3), marker % 256, dtype=np.uint8)
-    uncorrected_raw = (
-        np.full((4, 4, 3), uncorrected_marker % 256, dtype=np.uint8)
-        if uncorrected_marker is not None
-        else None
-    )
     return CameraFrame(
         raw=raw,
         annotated=None,
         results=[],
         timestamp=ts,
-        uncorrected_raw=uncorrected_raw,
     )
 
 
@@ -146,29 +140,6 @@ class CameraFeedPinningTests(unittest.TestCase):
         feed.set_pinned_ts_provider(lambda: 100.0)
         feed.get_frame(annotated=True)
         self.assertEqual([99.0, 10.0], seen)
-
-    def test_get_frame_can_return_uncorrected_raw_without_reopening_camera(self) -> None:
-        latest = _frame(100.5, marker=99, uncorrected_marker=12)
-        device = _Device(latest=latest, lookup={})
-        feed = CameraFeed("carousel", device)
-
-        result = feed.get_frame(annotated=False, color_correct=False)
-
-        self.assertIsNotNone(result)
-        assert result is not None
-        self.assertEqual(12, int(result.raw[0, 0, 0]))
-
-    def test_annotation_cache_is_separate_for_color_corrected_and_uncorrected_frames(self) -> None:
-        latest = _frame(100.5, marker=99, uncorrected_marker=12)
-        device = _Device(latest=latest, lookup={})
-        feed = CameraFeed("carousel", device)
-        seen: list[float] = []
-        feed.add_overlay(_CallbackOverlay(seen))
-
-        feed.get_frame(annotated=True, color_correct=True)
-        feed.get_frame(annotated=True, color_correct=False)
-
-        self.assertEqual([99.0, 12.0], seen)
 
     def test_describe_overlays_returns_structured_metadata_and_honors_filters(self) -> None:
         latest = _frame(100.5, marker=99)

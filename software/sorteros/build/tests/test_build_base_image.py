@@ -75,8 +75,6 @@ class BaseImagePrepTests(unittest.TestCase):
                 "source_pipeline_target_compliant",
                 "target_capture_backend_integrated",
                 "os_video_handle_audit_available",
-                "calibration_second_capture_disabled",
-                "calibration_raw_ring_buffer_available",
                 "assigned_camera_sources_exist",
                 "target_ready",
                 "target_architecture_compliant",

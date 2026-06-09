@@ -1,7 +1,7 @@
 # SorterOS v4
 
 > Predecessor: SorterOS v3 used a browser-side image customizer
-> (`sorteros-setup/`) that patched WiFi/hostname/SSH placeholders into a
+> (`sorteros-setup`, removed) that patched WiFi/hostname/SSH placeholders into a
 > downloaded `.img` before flashing. v4 ships a single generic image and
 > moves all configuration to a captive portal on the device — no more
 > placeholders, no more pre-flash customizer.

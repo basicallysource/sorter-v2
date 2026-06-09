@@ -152,6 +152,8 @@ def _make_detail(model_id: str = "model-1") -> dict:
     return {
         "id": model_id,
         "name": "Test Detector",
+        "codename": "Aqua",
+        "codename_color": "#0055BF",
         "model_family": "yolo",
         "training_metadata": {"imgsz": 320, "epochs": 200},
         "variants": [
@@ -218,6 +220,8 @@ class TestDownloadJobManager:
         assert sentinel["sha256"] == "expected-sha"
         # Training metadata + name/family carry over for installed-model UI.
         assert run_json.get("name") == "Test Detector"
+        assert run_json.get("codename") == "Aqua"
+        assert run_json.get("codename_color") == "#0055BF"
         assert run_json.get("model_family") == "yolo"
         assert run_json.get("imgsz") == 320
 
@@ -226,6 +230,8 @@ class TestDownloadJobManager:
         assert len(installed) == 1
         assert installed[0]["local_id"] == "hive-model-1-onnx"
         assert installed[0]["target_id"] == "hive-a"
+        assert installed[0]["codename"] == "Aqua"
+        assert installed[0]["codename_color"] == "#0055BF"
 
     def test_sha_mismatch_is_captured_as_failure(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

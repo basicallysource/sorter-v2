@@ -409,6 +409,14 @@ def main() -> None:
         waveshare_inventory.start()
         waveshare_inventory.refresh()
 
+    # Versioned settings backup to Hive: pushes a snapshot whenever the local
+    # config hash changes (Hive dedups), so backups version on real changes only.
+    try:
+        from server.config_backup import get_config_backup_sync
+        get_config_backup_sync().start()
+    except Exception as exc:
+        gc.logger.warning(f"config-backup sync not started: {exc}")
+
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")
     def _replace_irl(next_irl) -> None:

@@ -13,7 +13,6 @@ from global_config import GlobalConfig, RegionProviderType
 from irl.config import (
     IRLConfig,
     IRLInterface,
-    CameraColorProfile,
     CameraPictureSettings,
     ClassificationChannelMode,
     FeederMode,
@@ -148,6 +147,76 @@ def _hive_inference_min_interval_s_for_role(role: str | None) -> float:
     return HIVE_INFERENCE_MIN_INTERVAL_S
 
 
+def _valid_sensor_rect(
+    rect: object,
+    sensor_shape: tuple[int, int],
+) -> tuple[float, float, float, float]:
+    sensor_h, sensor_w = sensor_shape[:2]
+    fallback = (0.0, 0.0, float(sensor_w), float(sensor_h))
+    if not isinstance(rect, (list, tuple)) or len(rect) != 4:
+        return fallback
+    try:
+        x1, y1, x2, y2 = (float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3]))
+    except Exception:
+        return fallback
+    if x2 <= x1 or y2 <= y1:
+        return fallback
+    return (x1, y1, x2, y2)
+
+
+def _project_sensor_polygon_to_inference_frame(
+    polygon: np.ndarray,
+    sensor_rect: tuple[float, float, float, float],
+    inference_shape: tuple[int, ...],
+) -> np.ndarray:
+    x1, y1, x2, y2 = sensor_rect
+    rect_w = max(1e-6, float(x2) - float(x1))
+    rect_h = max(1e-6, float(y2) - float(y1))
+    frame_h, frame_w = inference_shape[:2]
+    projected = np.asarray(polygon, dtype=np.float32).copy()
+    projected[:, 0] = (projected[:, 0] - float(x1)) * (float(frame_w) / rect_w)
+    projected[:, 1] = (projected[:, 1] - float(y1)) * (float(frame_h) / rect_h)
+    return np.rint(projected).astype(np.int32)
+
+
+def _map_inference_bbox_to_sensor_bbox(
+    bbox: tuple[int, int, int, int],
+    sensor_rect: tuple[float, float, float, float],
+    inference_shape: tuple[int, ...],
+    sensor_shape: tuple[int, int],
+) -> tuple[int, int, int, int]:
+    x1, y1, x2, y2 = sensor_rect
+    inf_h, inf_w = inference_shape[:2]
+    sensor_h, sensor_w = sensor_shape[:2]
+    scale_x = (float(x2) - float(x1)) / max(1.0, float(inf_w))
+    scale_y = (float(y2) - float(y1)) / max(1.0, float(inf_h))
+    bx1, by1, bx2, by2 = bbox
+    mapped = (
+        int(round(float(x1) + float(bx1) * scale_x)),
+        int(round(float(y1) + float(by1) * scale_y)),
+        int(round(float(x1) + float(bx2) * scale_x)),
+        int(round(float(y1) + float(by2) * scale_y)),
+    )
+    mx1 = min(max(0, mapped[0]), int(sensor_w))
+    my1 = min(max(0, mapped[1]), int(sensor_h))
+    mx2 = min(max(0, mapped[2]), int(sensor_w))
+    my2 = min(max(0, mapped[3]), int(sensor_h))
+    return (
+        min(mx1, mx2),
+        min(my1, my2),
+        max(mx1, mx2),
+        max(my1, my2),
+    )
+
+
+@dataclass(frozen=True)
+class _HiveInferenceFrameView:
+    image: np.ndarray
+    sensor_rect: tuple[float, float, float, float]
+    sensor_shape: tuple[int, int]
+    source: str
+
+
 class VisionManager:
     _irl_config: IRLConfig
     _video_recorder: Optional[VideoRecorder]
@@ -226,6 +295,7 @@ class VisionManager:
         self._feeder_dynamic_detection_cache: Dict[str, Tuple[float, ClassificationDetectionResult | None]] = {}
         self._feeder_object_detection_cache: Dict[str, Tuple[float, ClassificationDetectionResult | None]] = {}
         self._carousel_dynamic_detection_cache: Tuple[float, ClassificationDetectionResult | None] | None = None
+        self._capture_detection_crop_requests: Dict[str, tuple[int, int, int, int] | None] = {}
         self._classification_openrouter_model: str = DEFAULT_OPENROUTER_MODEL
         self._gemini_sam_detector: GeminiSamDetector | None = None
         self._feeder_gemini_detectors: Dict[str, GeminiSamDetector] = {}
@@ -811,6 +881,14 @@ class VisionManager:
         return float(detection.score)
 
     def getFeederDetectionAlgorithm(self, role: str | None = None) -> FeederDetectionAlgorithm:
+        # In the C4 (classification-channel) setup the carousel role IS the C4
+        # station, whose model the operator activates under the carousel scope
+        # ([detection.carousel], e.g. via "Classification C-Channel (C4)" in
+        # Settings → Models). Resolve it there instead of the feeder/carousel
+        # role config — otherwise the C4 overlay/tracker silently falls back to
+        # the bundled default model rather than the activated one.
+        if role == "carousel" and self._usesClassificationChannelSetup():
+            return self.getCarouselDetectionAlgorithm()
         if role in self._feederTrackerRoles():
             return self._normalizeFeederDetectionAlgorithm(
                 self._feeder_detection_algorithm_by_role.get(role)
@@ -1740,7 +1818,13 @@ class VisionManager:
                 )
             )
         elif self._isLocalModelDetectionAlgorithm(algorithm):
-            detection = self._runHiveDetection(algorithm, frame.raw, scope="classification", role=cam)
+            detection = self._runHiveDetection(
+                algorithm,
+                frame.raw,
+                scope="classification",
+                role=cam,
+                frame_context=frame,
+            )
 
         self._classification_dynamic_detection_cache[cam] = (frame.timestamp, detection)
         return detection
@@ -2394,6 +2478,10 @@ class VisionManager:
             )
         except Exception as exc:
             self.gc.logger.warning("Failed to build local model processor %s: %s", algorithm_id, exc)
+            # Cache the failure so the overlay/render path doesn't re-attempt the
+            # build (and re-log) on every frame — e.g. a CPU-inference refusal is
+            # permanent until the model/config changes and the process restarts.
+            self._hive_ml_processors[algorithm_id] = False
             return None
         self._hive_ml_processors[algorithm_id] = processor
         return processor
@@ -3407,6 +3495,115 @@ class VisionManager:
                     entry_polygon=_rect_to_polygon(x, y, x + w, y + h),
                 )
 
+    def _captureThreadForHiveRole(
+        self,
+        scope: DetectionScope,
+        role: str,
+    ) -> Optional[CaptureThread]:
+        if scope == "classification":
+            try:
+                if role == "top":
+                    return self._classification_top_capture
+                if role == "bottom":
+                    return self._classification_bottom_capture
+            except Exception:
+                return None
+        try:
+            return self.getCaptureThreadForRole(role)
+        except Exception:
+            return None
+
+    def _capturePictureSettingsAreIdentity(self, capture: CaptureThread | None) -> bool:
+        if capture is None:
+            return False
+        getter = getattr(capture, "getPictureSettings", None)
+        if not callable(getter):
+            return True
+        try:
+            settings = getter()
+        except Exception:
+            return False
+        if settings is None:
+            return True
+        return (
+            int(getattr(settings, "rotation", 0) or 0) % 360 == 0
+            and not bool(getattr(settings, "flip_horizontal", False))
+            and not bool(getattr(settings, "flip_vertical", False))
+        )
+
+    def _applyCaptureDetectionCropForRole(
+        self,
+        scope: DetectionScope,
+        role: str,
+        polygon: np.ndarray | None,
+        frame_shape: tuple[int, ...],
+    ) -> bool:
+        capture = self._captureThreadForHiveRole(scope, role)
+        setter = getattr(capture, "setDetectionCropRect", None)
+        if not callable(setter):
+            return False
+        rect: tuple[int, int, int, int] | None = None
+        if polygon is not None and len(polygon) >= 3:
+            frame_h, frame_w = frame_shape[:2]
+            x, y, w, h = cv2.boundingRect(np.asarray(polygon, dtype=np.int32))
+            x1 = max(0, min(int(frame_w), int(x)))
+            y1 = max(0, min(int(frame_h), int(y)))
+            x2 = max(0, min(int(frame_w), int(x + w)))
+            y2 = max(0, min(int(frame_h), int(y + h)))
+            if x2 > x1 and y2 > y1:
+                rect = (x1, y1, x2, y2)
+        cache = getattr(self, "_capture_detection_crop_requests", None)
+        if not isinstance(cache, dict):
+            cache = {}
+            self._capture_detection_crop_requests = cache
+        if cache.get(role) == rect:
+            return False
+        try:
+            applied = bool(setter(rect))
+        except Exception:
+            return False
+        cache[role] = rect
+        return applied
+
+    def _liveHiveInferenceFrameForContext(
+        self,
+        *,
+        scope: DetectionScope,
+        role: str,
+        frame_bgr: np.ndarray,
+        frame_context: CameraFrame | None,
+    ) -> _HiveInferenceFrameView | None:
+        if frame_context is None or getattr(frame_context, "raw", None) is not frame_bgr:
+            return None
+        capture = self._captureThreadForHiveRole(scope, role)
+        if capture is None or not self._capturePictureSettingsAreIdentity(capture):
+            return None
+        try:
+            if getattr(capture, "latest_frame", None) is not frame_context:
+                return None
+        except Exception:
+            return None
+        latest_detection = getattr(capture, "latest_detection_frame", None)
+        if not callable(latest_detection):
+            return None
+        try:
+            detection_frame = latest_detection()
+        except Exception:
+            return None
+        if detection_frame is None:
+            return None
+        candidate = getattr(detection_frame, "raw", None)
+        if not isinstance(candidate, np.ndarray) or candidate.ndim < 2 or candidate.size == 0:
+            return None
+        sensor_shape = cast(tuple[int, int], tuple(int(v) for v in frame_bgr.shape[:2]))
+        sensor_rect = _valid_sensor_rect(getattr(detection_frame, "sensor_rect", None), sensor_shape)
+        return _HiveInferenceFrameView(
+            image=candidate,
+            sensor_rect=sensor_rect,
+            sensor_shape=sensor_shape,
+            source="capture_detection_branch",
+        )
+
     def _runHiveDetection(
         self,
         algorithm_id: str,
@@ -3416,19 +3613,39 @@ class VisionManager:
         role: str,
         bypass_polygon: bool = False,
         conf_threshold: float | None = None,
+        frame_context: CameraFrame | None = None,
     ) -> ClassificationDetectionResult | None:
         processor = self._getOrBuildHiveProcessor(algorithm_id, role=role)
         if processor is None or frame_bgr is None:
             return None
         polygon = None if bypass_polygon else self._resolveZonePolygon(scope, role, frame_bgr.shape)
-        crop = frame_bgr
+        self._applyCaptureDetectionCropForRole(scope, role, polygon, frame_bgr.shape)
+        inference_view = self._liveHiveInferenceFrameForContext(
+            scope=scope,
+            role=role,
+            frame_bgr=frame_bgr,
+            frame_context=frame_context,
+        )
+        inference_frame = inference_view.image if inference_view is not None else frame_bgr
+        inference_polygon = polygon
+        if polygon is not None and inference_view is not None:
+            inference_polygon = _project_sensor_polygon_to_inference_frame(
+                polygon,
+                inference_view.sensor_rect,
+                inference_frame.shape,
+            )
+        crop = inference_frame
         off_x, off_y = 0, 0
-        if polygon is not None:
-            result = self._cropFrameToPolygonRegion(frame_bgr, polygon)
+        if inference_polygon is not None:
+            result = self._cropFrameToPolygonRegion(inference_frame, inference_polygon)
             if result is not None:
                 crop, (off_x, off_y) = result
         prof = self.gc.profiler
         prof.hit(f"hive.{role}.calls")
+        if inference_view is not None:
+            prof.hit(f"hive.{role}.inference_frame.reduced")
+        else:
+            prof.hit(f"hive.{role}.inference_frame.full")
         prof.mark(f"hive.{role}.interval_ms")
         # Thread-attribution profiling: which threads actually run YOLO?
         # Coordinator/main thread should be ZERO; aux detection loop and
@@ -3493,6 +3710,16 @@ class VisionManager:
             )
             for det in detections
         ]
+        if inference_view is not None:
+            shifted = [
+                _map_inference_bbox_to_sensor_bbox(
+                    bbox,
+                    inference_view.sensor_rect,
+                    inference_frame.shape,
+                    inference_view.sensor_shape,
+                )
+                for bbox in shifted
+            ]
         top_box = shifted[0]
         return ClassificationDetectionResult(
             bbox=top_box,
@@ -3561,6 +3788,7 @@ class VisionManager:
                 scope="feeder",
                 role=role,
                 conf_threshold=conf_override,
+                frame_context=frame,
             ),
         )
         self._feeder_object_detection_cache[role] = (now, detection)
@@ -3620,6 +3848,7 @@ class VisionManager:
                     scope="feeder",
                     role=role,
                     conf_threshold=conf_override,
+                    frame_context=frame,
                 ),
             )
             self._feeder_dynamic_detection_cache[role] = (now, detection)
@@ -3753,6 +3982,7 @@ class VisionManager:
                 scope="carousel",
                 role="carousel",
                 conf_threshold=HIVE_CAROUSEL_CONF_THRESHOLD,
+                frame_context=frame,
             )
             self._carousel_dynamic_detection_cache = (now, detection)
             return detection
@@ -4884,13 +5114,6 @@ class VisionManager:
         camera_name: str,
     ) -> tuple[list[dict[str, Any]], dict[str, int | float | bool]] | None:
         return self._camera_service.describe_device_controls_for_role(camera_name)
-
-    def setColorProfileForRole(
-        self,
-        camera_name: str,
-        profile: CameraColorProfile | None,
-    ) -> bool:
-        return self._camera_service.set_color_profile_for_role(camera_name, profile)
 
     def getFrame(self, camera_name: str) -> Optional[CameraFrame]:
         feed = self._camera_service.get_feed(camera_name)

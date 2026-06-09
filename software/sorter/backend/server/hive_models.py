@@ -289,6 +289,8 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
                 "sha256": hive_meta.get("sha256"),
                 "downloaded_at": hive_meta.get("downloaded_at"),
                 "trained_at": trained_at if isinstance(trained_at, str) else None,
+                "codename": payload.get("codename"),
+                "codename_color": payload.get("codename_color"),
                 "name": payload.get("name"),
                 "model_family": payload.get("model_family"),
                 "size_bytes": size_bytes,
@@ -821,6 +823,12 @@ class DownloadJobManager:
         model_family = detail.get("model_family") if isinstance(detail, dict) else None
         if isinstance(model_family, str) and model_family:
             base["model_family"] = model_family
+        codename = detail.get("codename") if isinstance(detail, dict) else None
+        if isinstance(codename, str) and codename.strip():
+            base["codename"] = codename.strip()
+        codename_color = detail.get("codename_color") if isinstance(detail, dict) else None
+        if isinstance(codename_color, str) and codename_color.strip():
+            base["codename_color"] = codename_color.strip()
         if variant_runtime and "runtime" not in base:
             base["runtime"] = variant_runtime
 

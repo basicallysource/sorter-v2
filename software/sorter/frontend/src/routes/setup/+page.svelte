@@ -20,7 +20,12 @@
 	import CalibrationStep from '$lib/components/setup/steps/CalibrationStep.svelte';
 	import HiveStep from '$lib/components/setup/steps/HiveStep.svelte';
 	import AdvancedStep from '$lib/components/setup/steps/AdvancedStep.svelte';
-	import { beginHiveLink, completeReturnedHiveLink, DEFAULT_HIVE_URL } from '$lib/hive/link-flow';
+	import {
+		beginHiveLink,
+		completeReturnedHiveLink,
+		DEFAULT_HIVE_URL,
+		type HiveLinkIntent
+	} from '$lib/hive/link-flow';
 	import { RefreshCcw } from 'lucide-svelte';
 	import {
 		loadStoredConfirmations as loadStoredConfirmationsFromStorage,
@@ -41,6 +46,7 @@
 	} from '$lib/setup/camera-choices';
 	import type {
 		DiscoveredBoard,
+		HiveConfigBackupSummary,
 		HiveSetupTarget,
 		StepperDirectionEntry,
 		UsbDevice,
@@ -68,6 +74,7 @@
 	};
 
 	type WizardStepConfirmation = Partial<Record<WizardStepId, boolean>>;
+	type IdentityMode = 'new' | 'restore';
 
 	const machine = getMachineContext();
 	const STEP_ORDER = [
@@ -184,6 +191,15 @@
 	let savingName = $state(false);
 	let nameError = $state<string | null>(null);
 	let nameStatus = $state('');
+	let identityMode = $state<IdentityMode>('new');
+	let restoreBackups = $state<HiveConfigBackupSummary[]>([]);
+	let restoreLoadingBackups = $state(false);
+	let restoreSelectedVersion = $state<number | null>(null);
+	let restoreIncludeCalibration = $state(false);
+	let restoreApplying = $state(false);
+	let restoreError = $state<string | null>(null);
+	let restoreStatus = $state<string | null>(null);
+	let restoreApplied = $state(false);
 
 	let selectedLayout = $state<'default' | 'split_feeder'>('default');
 	let savingLayout = $state(false);
@@ -219,7 +235,7 @@
 
 	let hiveLoading = $state(false);
 	let hiveTargets = $state<HiveSetupTarget[]>([]);
-	let hiveUrl = $state('');
+	let hiveUrl = $state(DEFAULT_HIVE_URL);
 	let hiveConnecting = $state(false);
 	let hiveError = $state<string | null>(null);
 	let hiveStatus = $state<string | null>(null);
@@ -232,6 +248,11 @@
 				return target.url.replace(/\/$/, '') === DEFAULT_HIVE_URL;
 			}
 		}) ?? null
+	);
+	const primaryHiveTarget = $derived(
+		hiveTargets.find((target) => target.is_primary && target.enabled) ??
+			hiveTargets.find((target) => target.enabled) ??
+			null
 	);
 
 	let activeStepId = $state<WizardStepId>('identity');
@@ -260,6 +281,32 @@
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
+	}
+
+	async function responseErrorMessage(res: Response, fallback: string): Promise<string> {
+		const text = await res.text();
+		try {
+			const body = JSON.parse(text);
+			if (typeof body?.detail === 'string') return body.detail;
+			if (typeof body?.error === 'string') return body.error;
+		} catch {
+			// Use text below.
+		}
+		return text || fallback;
+	}
+
+	function sleep(ms: number): Promise<void> {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	function isLikelyRestartFetchError(error: unknown): boolean {
+		const message =
+			error instanceof Error
+				? error.message
+				: typeof error === 'string'
+					? error
+					: '';
+		return /failed to fetch|networkerror|load failed|terminated|connection/i.test(message);
 	}
 
 	function currentMachineId(): string {
@@ -429,6 +476,9 @@
 	function isStepComplete(stepId: WizardStepId): boolean {
 		switch (stepId) {
 			case 'identity':
+				if (identityMode === 'restore') {
+					return restoreApplied || Boolean(wizard?.readiness.machine_named);
+				}
 				return Boolean(wizard?.readiness.machine_named);
 			case 'theme':
 				return true;
@@ -539,6 +589,13 @@
 
 	const STEP_BLOCKERS: Record<string, () => string | null> = {
 		identity: () => {
+			if (identityMode === 'restore') {
+				if (hiveConnecting) return 'Finish the Hive connection first';
+				if (restoreApplying) return 'Restore is running...';
+				if (!restoreApplied && !wizard?.readiness.machine_named)
+					return 'Connect to Hive and restore a machine backup to continue';
+				return null;
+			}
 			if (nicknameDraft.trim().length === 0) return 'Enter a machine name to continue';
 			if (savingName) return 'Saving name…';
 			return null;
@@ -575,6 +632,9 @@
 
 	function canAdvanceCurrentStep(): boolean {
 		if (activeStepId === 'identity') {
+			if (identityMode === 'restore') {
+				return !hiveConnecting && !restoreApplying && (restoreApplied || Boolean(wizard?.readiness.machine_named));
+			}
 			return !savingName && nicknameDraft.trim().length > 0;
 		}
 		if (currentStep().requiresManualConfirm) {
@@ -585,6 +645,11 @@
 
 	async function handleContinue() {
 		if (activeStepId === 'identity') {
+			if (identityMode === 'restore') {
+				await loadWizard();
+				await navigateToStep('discovery');
+				return;
+			}
 			await saveMachineName();
 			return;
 		}
@@ -604,37 +669,77 @@
 		goToNextStep();
 	}
 
+	async function fetchWizardSummary(): Promise<WizardSummary> {
+		const res = await fetch(`${currentBackendBaseUrl()}/api/setup-wizard`, { cache: 'no-store' });
+		if (!res.ok) throw new Error(await res.text());
+		return (await res.json()) as WizardSummary;
+	}
+
+	function applyWizardSummary(payload: WizardSummary) {
+		wizard = payload;
+		hardwareState = payload.hardware.state;
+		hardwareError = payload.hardware.error;
+		homingStep = payload.hardware.homing_step;
+		nicknameDraft = payload.machine.nickname ?? '';
+		const configuredLayout = payload.config.camera_assignments.layout;
+		selectedLayout =
+			configuredLayout === 'split_feeder'
+				? 'split_feeder'
+				: configuredLayout === 'default'
+					? 'default'
+					: payload.discovery.recommended_camera_layout;
+
+		const nextSelections: Record<string, string> = {};
+		for (const role of Object.keys(payload.config.camera_assignments)) {
+			if (role === 'layout') continue;
+			nextSelections[role] = sourceKey(payload.config.camera_assignments[role]);
+		}
+		roleSelections = nextSelections;
+	}
+
 	async function loadWizard() {
 		loadingWizard = true;
 		wizardError = null;
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/setup-wizard`);
-			if (!res.ok) throw new Error(await res.text());
-			const payload = (await res.json()) as WizardSummary;
-			wizard = payload;
-			hardwareState = payload.hardware.state;
-			hardwareError = payload.hardware.error;
-			homingStep = payload.hardware.homing_step;
-			nicknameDraft = payload.machine.nickname ?? '';
-			const configuredLayout = payload.config.camera_assignments.layout;
-			selectedLayout =
-				configuredLayout === 'split_feeder'
-					? 'split_feeder'
-					: configuredLayout === 'default'
-						? 'default'
-						: payload.discovery.recommended_camera_layout;
-
-			const nextSelections: Record<string, string> = {};
-			for (const role of Object.keys(payload.config.camera_assignments)) {
-				if (role === 'layout') continue;
-				nextSelections[role] = sourceKey(payload.config.camera_assignments[role]);
-			}
-			roleSelections = nextSelections;
+			applyWizardSummary(await fetchWizardSummary());
 		} catch (e: any) {
 			wizardError = e.message ?? 'Failed to load setup wizard state';
 		} finally {
 			loadingWizard = false;
 		}
+	}
+
+	async function waitForBackendAfterRestore() {
+		const baseUrl = currentBackendBaseUrl();
+		const deadline = Date.now() + 45_000;
+		let lastError: unknown = null;
+
+		while (Date.now() < deadline) {
+			try {
+				const res = await fetch(`${baseUrl}/health`, { cache: 'no-store' });
+				if (res.ok) break;
+			} catch (e) {
+				lastError = e;
+			}
+			await sleep(750);
+		}
+
+		for (let attempt = 0; attempt < 30; attempt += 1) {
+			try {
+				applyWizardSummary(await fetchWizardSummary());
+				wizardError = null;
+				return;
+			} catch (e) {
+				lastError = e;
+				await sleep(750);
+			}
+		}
+
+		throw new Error(
+			lastError instanceof Error
+				? lastError.message
+				: 'Backend did not come back after restore.'
+		);
 	}
 
 	async function loadSorthiveConfig() {
@@ -655,7 +760,8 @@
 							: `Hive ${index + 1}`,
 				url: typeof entry?.url === 'string' ? entry.url : '',
 				machine_id: typeof entry?.machine_id === 'string' ? entry.machine_id : null,
-				enabled: Boolean(entry?.enabled)
+				enabled: Boolean(entry?.enabled),
+				is_primary: Boolean(entry?.is_primary)
 			})) satisfies HiveSetupTarget[];
 		} catch (e: any) {
 			hiveError = e.message ?? 'Failed to load Hive configuration.';
@@ -664,12 +770,105 @@
 		}
 	}
 
-	function connectToSorthive() {
+	async function loadConfigBackups() {
+		restoreLoadingBackups = true;
+		restoreError = null;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/hive/config-backups`);
+			if (!res.ok) {
+				throw new Error(await responseErrorMessage(res, 'Failed to load config backups.'));
+			}
+			const payload = await res.json();
+			const versions = Array.isArray(payload?.versions) ? payload.versions : [];
+			restoreBackups = versions.map((entry: any) => ({
+				id: String(entry.id ?? `${entry.version ?? ''}`),
+				version: Number(entry.version ?? 0),
+				content_hash: String(entry.content_hash ?? ''),
+				trigger: String(entry.trigger ?? 'config_change'),
+				created_at: String(entry.created_at ?? '')
+			})) satisfies HiveConfigBackupSummary[];
+			const latest = restoreBackups[0]?.version ?? null;
+			if (
+				restoreSelectedVersion === null ||
+				!restoreBackups.some((backup) => backup.version === restoreSelectedVersion)
+			) {
+				restoreSelectedVersion = latest;
+			}
+			if (restoreBackups.length === 0) {
+				restoreStatus = 'No Hive backups found for this machine profile yet.';
+			}
+		} catch (e: any) {
+			restoreError = e?.message ?? 'Failed to load config backups.';
+		} finally {
+			restoreLoadingBackups = false;
+		}
+	}
+
+	async function applySelectedConfigBackup() {
+		if (restoreSelectedVersion === null) return;
+		restoreApplying = true;
+		restoreError = null;
+		restoreStatus = null;
+		try {
+			let responseInterruptedByRestart = false;
+			try {
+				const res = await fetch(`${currentBackendBaseUrl()}/api/hive/config-backup/restore`, {
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						version: restoreSelectedVersion,
+						include_calibration: restoreIncludeCalibration
+					})
+				});
+				if (!res.ok) {
+					throw new Error(await responseErrorMessage(res, 'Restore failed.'));
+				}
+			} catch (e) {
+				if (!isLikelyRestartFetchError(e)) throw e;
+				responseInterruptedByRestart = true;
+			}
+			restoreApplied = true;
+			restoreStatus = responseInterruptedByRestart
+				? 'Restore request reached the backend. Waiting for it to restart with the restored settings...'
+				: 'Restore applied. The backend is restarting with the restored settings...';
+			stepConfirmations = {
+				...stepConfirmations,
+				hive: true,
+				motion: false,
+				calibration: false,
+				servos: false,
+				cameras: false
+			};
+			const machineId = currentMachineId();
+			if (machineId && progressLoadedMachineId === machineId) {
+				persistConfirmations(machineId);
+			}
+			await waitForBackendAfterRestore();
+			restoreStatus = 'Restore applied. Review the hardware steps before continuing.';
+			await loadCameraInventory();
+		} catch (e: any) {
+			restoreError =
+				e?.message === 'Failed to fetch'
+					? 'Restore is still waiting for the backend to come back. Refresh the setup page if this does not clear in a moment.'
+					: e?.message ?? 'Restore failed.';
+		} finally {
+			restoreApplying = false;
+		}
+	}
+
+	function connectToSorthive(intent: HiveLinkIntent = 'connect') {
 		const url = (hiveUrl.trim() || DEFAULT_HIVE_URL).trim();
 		if (!url) return;
 		hiveConnecting = true;
 		hiveError = null;
 		hiveStatus = null;
+		restoreError = null;
+		restoreStatus = null;
+		if (intent === 'restore') {
+			restoreBackups = [];
+			restoreSelectedVersion = null;
+			restoreApplied = false;
+		}
 		const machineName =
 			(wizard?.machine.nickname ?? '').trim() ||
 			nicknameDraft.trim() ||
@@ -679,9 +878,13 @@
 				hiveUrl: url,
 				targetName: undefined,
 				machineName: machineName || undefined,
+				intent,
 				// Bring the user back to the same setup step so the
 				// returned-link handler at mount can finish the pairing.
-				returnPath: window.location.pathname + window.location.search
+				returnPath:
+					intent === 'restore'
+						? `${window.location.pathname}?${new URLSearchParams({ step: 'identity' }).toString()}`
+						: window.location.pathname + window.location.search
 			});
 			// beginHiveLink redirects; if it returns we never got there.
 		} catch (e: any) {
@@ -694,6 +897,11 @@
 		try {
 			const result = await completeReturnedHiveLink(currentBackendBaseUrl());
 			if (!result.completed) return;
+			if (result.intent === 'restore') {
+				identityMode = 'restore';
+				restoreStatus =
+					result.message ?? 'Connected to Hive. Choose a backup version to restore.';
+			}
 			hiveStatus =
 				result.message ?? 'Connected to Hive. Sample sync will resume in the background.';
 			stepConfirmations = { ...stepConfirmations, hive: true };
@@ -702,8 +910,12 @@
 				persistConfirmations(machineId);
 			}
 			await loadSorthiveConfig();
+			if (result.intent === 'restore') {
+				await loadConfigBackups();
+			}
 		} catch (e: any) {
 			hiveError = e?.message ?? 'Hive link could not be completed.';
+			restoreError = e?.message ?? 'Hive link could not be completed.';
 		} finally {
 			hiveConnecting = false;
 		}
@@ -947,6 +1159,22 @@
 		});
 	});
 
+	$effect(() => {
+		if (activeStepId !== 'identity' || identityMode !== 'restore') return;
+		if (hiveLoading || hiveTargets.length > 0 || hiveError) return;
+		untrack(() => {
+			void loadSorthiveConfig();
+		});
+	});
+
+	$effect(() => {
+		if (activeStepId !== 'identity' || identityMode !== 'restore' || !primaryHiveTarget) return;
+		if (restoreLoadingBackups || restoreBackups.length > 0 || restoreError) return;
+		untrack(() => {
+			void loadConfigBackups();
+		});
+	});
+
 	onMount(() => {
 		const machineId = currentMachineId();
 		if (machineId) {
@@ -1027,9 +1255,25 @@
 					{:else if activeStepId === 'identity'}
 						<IdentityStep
 							machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
+							bind:mode={identityMode}
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
+							officialHiveTarget={primaryHiveTarget}
+							defaultHiveUrl={DEFAULT_HIVE_URL}
+							bind:hiveUrl
+							{hiveConnecting}
+							{restoreBackups}
+							{restoreLoadingBackups}
+							bind:restoreSelectedVersion
+							bind:restoreIncludeCalibration
+							{restoreApplying}
+							{restoreError}
+							{restoreStatus}
+							{restoreApplied}
+							onConnectRestore={() => connectToSorthive('restore')}
+							onRefreshBackups={loadConfigBackups}
+							onRestore={applySelectedConfigBackup}
 						/>
 					{:else if activeStepId === 'theme'}
 						<ThemeStep />

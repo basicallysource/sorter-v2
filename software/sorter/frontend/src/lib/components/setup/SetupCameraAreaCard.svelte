@@ -104,7 +104,15 @@
 	<div class="mt-3 overflow-hidden border border-border bg-bg">
 		{#if selectedSource !== null}
 			<div class="relative aspect-video overflow-hidden bg-surface">
-				<CameraFeed camera={role} label={selectedLabel} showHeader={false} framed={false} />
+				<CameraFeed
+					camera={role}
+					label={selectedLabel}
+					showHeader={false}
+					framed={false}
+					direct
+					defaultAnnotated={false}
+					defaultZones={false}
+				/>
 				<div
 					class="pointer-events-none absolute right-1.5 bottom-1.5 rounded-full border border-white/20 bg-black/65 px-3 py-1 text-xs font-medium text-white shadow-sm backdrop-blur-sm"
 				>

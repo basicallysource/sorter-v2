@@ -24,7 +24,10 @@ class RegionOverlay:
     def annotate(self, frame: np.ndarray) -> np.ndarray:
         return self._region_provider.annotateFrame(frame)
 
-    def metadata(self) -> dict[str, object]:
+    def metadata(self) -> dict[str, object] | list[dict[str, object]]:
+        describe = getattr(self._region_provider, "describeOverlayMetadata", None)
+        if callable(describe):
+            return describe()
         return {
             "type": "regions",
             "category": self.category,
@@ -51,7 +54,10 @@ class ChannelRegionOverlay:
             return self._region_provider.annotateFrameForChannel(frame, self._poly_key)
         return frame
 
-    def metadata(self) -> dict[str, object]:
+    def metadata(self) -> dict[str, object] | list[dict[str, object]]:
+        describe = getattr(self._region_provider, "describeOverlayMetadata", None)
+        if callable(describe):
+            return describe(self._poly_key)
         return {
             "type": "channel_regions",
             "category": self.category,

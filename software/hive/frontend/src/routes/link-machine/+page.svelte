@@ -1,12 +1,30 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { api, getApiBaseUrl, type ApiError } from '$lib/api';
+	import { onMount } from 'svelte';
+	import {
+		api,
+		getApiBaseUrl,
+		type ApiError,
+		type Machine,
+		type MachineConfigBackupSummary,
+		type MachineWithToken
+	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+
+	type LinkMode = 'existing' | 'new';
 
 	let machineName = $state(page.url.searchParams.get('suggested_machine_name') || 'Lego Sorter');
 	let description = $state('');
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
+	let linkMode = $state<LinkMode>(page.url.searchParams.get('intent') === 'restore' ? 'existing' : 'new');
+	let machines = $state<Machine[]>([]);
+	let machineBackups = $state<Record<string, MachineConfigBackupSummary[]>>({});
+	let selectedMachineId = $state('');
+	let loadingMachines = $state(false);
+	let machineLoadError = $state<string | null>(null);
+
+	const restoreIntent = $derived(page.url.searchParams.get('intent') === 'restore');
 
 	function returnToUrl(): URL | null {
 		const raw = page.url.searchParams.get('return_to');
@@ -46,7 +64,9 @@
 	}
 
 	function canSubmit(): boolean {
-		return Boolean(returnToUrl() && stateToken() && machineName.trim());
+		if (!returnToUrl() || !stateToken()) return false;
+		if (linkMode === 'existing') return Boolean(selectedMachineId);
+		return Boolean(machineName.trim());
 	}
 
 	function hiveApiBaseUrl(): string {
@@ -54,6 +74,62 @@
 		if (apiBaseUrl) return apiBaseUrl;
 		return window.location.origin;
 	}
+
+	function backupCount(machineId: string): number {
+		return machineBackups[machineId]?.length ?? 0;
+	}
+
+	function selectedMachine(): Machine | null {
+		return machines.find((machine) => machine.id === selectedMachineId) ?? null;
+	}
+
+	async function loadExistingMachines() {
+		loadingMachines = true;
+		machineLoadError = null;
+		try {
+			const list = await api.getMachines({ scope: 'mine' });
+			machines = list;
+			if (!selectedMachineId && list.length > 0) {
+				selectedMachineId = list[0].id;
+			}
+
+			if (restoreIntent) {
+				const backupEntries = await Promise.all(
+					list.map(async (machine) => {
+						try {
+							const backups = await api.getMachineConfigBackups(machine.id);
+							return [machine.id, backups] as const;
+						} catch {
+							return [machine.id, []] as const;
+						}
+					})
+				);
+				const nextBackups = Object.fromEntries(backupEntries);
+				machineBackups = nextBackups;
+				const firstWithBackups = list.find((machine) => (nextBackups[machine.id]?.length ?? 0) > 0);
+				if (firstWithBackups && (!selectedMachineId || backupCount(selectedMachineId) === 0)) {
+					selectedMachineId = firstWithBackups.id;
+				}
+			} else {
+				machineBackups = {};
+			}
+			if (list.length === 0) {
+				linkMode = 'new';
+			}
+		} catch (e) {
+			const apiError = e as Partial<ApiError>;
+			machineLoadError = apiError.error ?? (e instanceof Error ? e.message : 'Machines could not be loaded.');
+			if (machines.length === 0) {
+				linkMode = 'new';
+			}
+		} finally {
+			loadingMachines = false;
+		}
+	}
+
+	onMount(() => {
+		void loadExistingMachines();
+	});
 
 	async function handleSubmit(e: Event) {
 		e.preventDefault();
@@ -65,10 +141,17 @@
 
 		submitting = true;
 		try {
-			const machine = await api.createMachine(
-				machineName.trim(),
-				description.trim() || undefined
-			);
+			let machine: MachineWithToken;
+			if (linkMode === 'existing') {
+				const existing = selectedMachine();
+				if (!existing) throw new Error('Choose an existing machine profile.');
+				machine = await api.rotateToken(existing.id);
+			} else {
+				machine = await api.createMachine(
+					machineName.trim(),
+					description.trim() || undefined
+				);
+			}
 			const callback = returnToUrl();
 			if (!callback) throw new Error('The Sorter callback URL is invalid.');
 
@@ -106,10 +189,17 @@
 			</div>
 			<div class="min-w-0">
 				<p class="text-xs font-semibold tracking-wider text-text-muted uppercase">Machine link</p>
-				<h1 class="mt-1 text-2xl font-semibold tracking-tight text-text">Connect this sorter to Hive</h1>
+				<h1 class="mt-1 text-2xl font-semibold tracking-tight text-text">
+					{restoreIntent ? 'Restore this sorter from Hive' : 'Connect this sorter to Hive'}
+				</h1>
 				<p class="mt-2 text-sm leading-relaxed text-text-muted">
-					Hive creates a machine token for your account and sends it directly back to the
-					Sorter. The token is not shown on this page.
+					{#if restoreIntent}
+						Choose an existing machine profile or create a new one. Hive sends a machine
+						token directly back to the Sorter.
+					{:else}
+						Choose an existing machine profile if this Sorter was already registered, or
+						create a new one. Hive sends the machine token directly back to the Sorter.
+					{/if}
 				</p>
 			</div>
 		</div>
@@ -137,27 +227,100 @@
 			</div>
 
 			<form onsubmit={handleSubmit} class="mt-5 grid gap-4">
-				<label class="grid gap-1">
-					<span class="text-sm font-medium text-text">Machine name in Hive</span>
-					<input
-						bind:value={machineName}
-						type="text"
-						required
-						disabled={submitting}
-						class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
-					/>
-				</label>
+				<div class="grid gap-3">
+					<div class="grid gap-2 sm:grid-cols-2">
+						<button
+							type="button"
+							onclick={() => { linkMode = 'existing'; }}
+							disabled={submitting || loadingMachines || machines.length === 0}
+							class={`border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+								linkMode === 'existing'
+									? 'border-primary bg-primary-light text-text'
+									: 'border-border bg-surface text-text hover:border-primary'
+							}`}
+						>
+							<div class="text-sm font-semibold">Use existing profile</div>
+							<div class="mt-1 text-xs leading-relaxed text-text-muted">
+								Reconnect this Sorter to a machine already in Hive.
+							</div>
+						</button>
+						<button
+							type="button"
+							onclick={() => { linkMode = 'new'; }}
+							disabled={submitting}
+							class={`border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+								linkMode === 'new'
+									? 'border-primary bg-primary-light text-text'
+									: 'border-border bg-surface text-text hover:border-primary'
+							}`}
+						>
+							<div class="text-sm font-semibold">Create new profile</div>
+							<div class="mt-1 text-xs leading-relaxed text-text-muted">
+								Start fresh and let the Sorter create its first backup later.
+							</div>
+						</button>
+					</div>
 
-				<label class="grid gap-1">
-					<span class="text-sm font-medium text-text">Description <span class="text-text-muted">(optional)</span></span>
-					<textarea
-						bind:value={description}
-						rows="3"
-						disabled={submitting}
-						placeholder="Where this sorter lives, who maintains it, or what it is used for."
-						class="resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
-					></textarea>
-				</label>
+					{#if machineLoadError}
+						<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger">
+							{machineLoadError}
+						</div>
+					{/if}
+
+					{#if linkMode === 'existing'}
+						{#if loadingMachines}
+							<div class="border border-border bg-bg px-4 py-3 text-sm text-text-muted">
+								Loading your machines…
+							</div>
+						{:else if machines.length === 0}
+							<div class="border border-border bg-bg px-4 py-3 text-sm text-text-muted">
+								No existing machines found for this account.
+							</div>
+						{:else}
+							<label class="grid gap-1">
+								<span class="text-sm font-medium text-text">Machine profile</span>
+								<select
+									bind:value={selectedMachineId}
+									disabled={submitting}
+									class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+								>
+									{#each machines as machine}
+										<option value={machine.id}>
+											{machine.name}{restoreIntent ? ` · ${backupCount(machine.id)} backup${backupCount(machine.id) === 1 ? '' : 's'}` : ''}
+										</option>
+									{/each}
+								</select>
+							</label>
+							<p class="text-xs leading-relaxed text-text-muted">
+								Hive will issue a fresh token for this machine. The previous token stops working.
+							</p>
+						{/if}
+					{/if}
+				</div>
+
+				{#if linkMode === 'new'}
+					<label class="grid gap-1">
+						<span class="text-sm font-medium text-text">Machine name in Hive</span>
+						<input
+							bind:value={machineName}
+							type="text"
+							required
+							disabled={submitting}
+							class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+						/>
+					</label>
+
+					<label class="grid gap-1">
+						<span class="text-sm font-medium text-text">Description <span class="text-text-muted">(optional)</span></span>
+						<textarea
+							bind:value={description}
+							rows="3"
+							disabled={submitting}
+							placeholder="Where this sorter lives, who maintains it, or what it is used for."
+							class="resize-y border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-[var(--color-bg)]"
+						></textarea>
+					</label>
+				{/if}
 
 				{#if error}
 					<div class="border border-danger/40 bg-danger/[0.06] px-3 py-2 text-sm text-danger">
@@ -182,7 +345,7 @@
 								<path d="M11 3a1 1 0 1 0 0 2h2.59L8.3 10.29a1 1 0 1 0 1.41 1.42L15 6.41V9a1 1 0 1 0 2 0V4a1 1 0 0 0-1-1h-5Z" />
 								<path d="M5 5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-3a1 1 0 1 0-2 0v3H5V7h3a1 1 0 0 0 0-2H5Z" />
 							</svg>
-							Link machine
+							{linkMode === 'existing' ? 'Reconnect machine' : 'Link machine'}
 						{/if}
 					</button>
 				</div>

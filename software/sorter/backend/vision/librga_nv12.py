@@ -339,7 +339,7 @@ class DirectLibrgaNv12Scaler:
         expected = width * height * 3 // 2
         data = bytes(payload)
         if len(data) != expected:
-            raise ValueError(f"NV12 input has {len(data)} bytes; expected {expected}")
+            data = _slice_tight_nv12(data, width, height)
         output_size = output_width * output_height * 3 // 2
         output = ctypes.create_string_buffer(output_size)
         src = ctypes.create_string_buffer(data)
@@ -362,6 +362,28 @@ class DirectLibrgaNv12Scaler:
             reason = err.value.decode("utf-8", errors="replace") or f"librga returned {rc}"
             raise LibrgaUnavailableError(reason)
         return output.raw
+
+
+def _slice_tight_nv12(data: bytes, width: int, height: int) -> bytes:
+    """Normalize an NV12 buffer whose height stride is padded to 16 rows.
+
+    The Rockchip MPP JPEG decoder allocates NV12 with the vertical stride
+    rounded up to 16 (e.g. 1920x1080 arrives as 1920x1088), while the caps
+    still report the display height. Slice both planes tight; reject
+    anything else loudly.
+    """
+    tight = width * height * 3 // 2
+    vstride = (height + 15) // 16 * 16
+    padded = width * vstride * 3 // 2
+    if len(data) != padded:
+        raise ValueError(
+            f"NV12 input has {len(data)} bytes; expected {tight} (tight) or {padded} "
+            f"(vstride {vstride})"
+        )
+    y_plane = data[: width * height]
+    uv_offset = width * vstride
+    uv_plane = data[uv_offset : uv_offset + width * height // 2]
+    return y_plane + uv_plane
 
 
 def create_direct_librga_nv12_scaler() -> DirectLibrgaNv12Scaler | None:

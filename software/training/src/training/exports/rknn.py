@@ -1,6 +1,6 @@
 """Prepare self-contained Rockchip RKNN compile bundles for our detector models.
 
-Mirrors ``exports/hailo.py``: a *preset* points at a trained ONNX + a calibration
+A *preset* points at a trained ONNX + a calibration
 image directory; ``build`` packages everything (model, calibration subset,
 convert script, README, manifest) into one self-contained directory that can be
 copied to an x86_64 Linux host with ``rknn-toolkit2`` installed and compiled
@@ -69,28 +69,6 @@ class RknnPreset:
 
 
 PRESETS: dict[str, RknnPreset] = {
-    # Placeholder — gets filled once the first Lambda training run lands. Mirrors
-    # the hailo preset entries; concrete run-id slot stays empty until the
-    # `runs/<id>/exports/best.onnx` exists.
-    "c_channel_yolo11n_320_rk3588": RknnPreset(
-        name="c_channel_yolo11n_320_rk3588",
-        label="C-Channel YOLO11n 320 -> RKNN (RK3588)",
-        model_id="TBD-c-channel-yolo11n-320",
-        model_family="yolo",
-        target_platform="rk3588",
-        onnx_path=RUNS_DIR / "TBD-c-channel-yolo11n-320" / "exports" / "best.onnx",
-        onnx_input_name="images",
-        onnx_input_shape=(1, 3, 320, 320),
-        classes=1,
-        default_conf=0.25,
-        default_iou=0.45,
-        calibration_dir=ZONE_DATASETS_DIR / "c_channel_full" / "train" / "images",
-        calibration_count=150,
-        quantization="i8",
-        mean_values=(0.0, 0.0, 0.0),
-        std_values=(255.0, 255.0, 255.0),
-        head_stripped=False,
-    ),
     # Target preset for the upcoming H100 build: yolo26s @ 320×320 → Orange Pi 5
     # (RK3588 NPU, int8). The May 14 head-to-head comparison had yolo26s 320 (A7)
     # ahead of yolo11s 320 (A5) on the harder metric:
@@ -307,8 +285,7 @@ def _make_readme(preset: RknnPreset, bundle_dir: Path, calibration_count: int) -
     )
     return f"""# {preset.label}
 
-Self-contained RKNN compile bundle. Mirrors the layout of our Hailo bundles
-(`software/training/hailo_bundles/`).
+Self-contained RKNN compile bundle.
 
 {head_note}
 

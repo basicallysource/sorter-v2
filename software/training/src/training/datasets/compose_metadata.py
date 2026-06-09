@@ -3,8 +3,8 @@
 Reads:
   - <dataset_dir>/build.json
   - <run_dir>/track_a_results.json (or first matching) for best metrics
-  - optional benchmark JSON in the format produced by
-    scripts/benchmark_v6_local.py (a list with CPU/CoreML providers)
+  - optional benchmark JSON as produced by ``train benchmark``
+    (a list with CPU/CoreML providers)
 
 Writes the structured payload into <run_dir>/run.json under
 ``training_metadata`` so ``train publish`` ships it directly.

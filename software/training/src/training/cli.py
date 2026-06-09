@@ -5,7 +5,7 @@ Subcommands (some are stubs pending module implementation):
     pull       Pull samples + annotations from Hive into datasets/<zone>/
     build      Convert a pulled Hive dump into a YOLO-format dataset
     vastai     Provision a Vast.ai session and run a training track
-    export     Produce runtime artifacts from a run (ONNX → NCNN/Hailo)
+    export     Produce runtime artifacts from a run (ONNX → RKNN)
     publish    Publish a finished run to Hive's model catalog
     benchmark  Run the cross-device benchmark bundle
 """
@@ -407,17 +407,6 @@ def vastai_fetch(
 @main.group("export")
 def export_group() -> None:
     """Produce runtime artifacts from a training run."""
-
-
-@export_group.command("hailo")
-@click.option("--run-dir", required=True, type=click.Path(exists=True))
-@click.option("--zone", required=True)
-def export_hailo(run_dir: str, zone: str) -> None:
-    """Build a Hailo compile bundle from a training run."""
-    from training.exports import hailo
-
-    click.echo(f"[stub] delegating to {hailo.__name__}.main with --run-dir {run_dir} --zone {zone}", err=True)
-    sys.exit(2)
 
 
 @export_group.command("rknn")

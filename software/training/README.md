@@ -19,9 +19,9 @@ Vast.ai GPU
       │  (download best.pt + run.json)
       ▼
 runs/<run-id>/
-      │  train export --hailo
+      │  train export rknn
       ▼
-hailo_bundles/<name>/
+rknn_bundles/<name>/
       │  train publish
       ▼
 Hive (published detection_models + variants)
@@ -39,17 +39,15 @@ software/training/
 │   │   └── publish.py         # runs/<id> → Hive model catalog
 │   ├── datasets/build.py      # Hive dump → YOLO-format dataset
 │   ├── vastai/
-│   │   ├── session.py         # provision + attach to Vast.ai instance
+│   │   ├── train.py           # provision + attach to Vast.ai instance
 │   │   └── tracks/            # training scripts shipped to the remote
 │   │       ├── yolo.py        # Ultralytics YOLO (11n/11s/v8n/26n)
 │   │       └── nanodet.py     # NanoDet-Plus-m
 │   ├── exports/
-│   │   ├── hailo.py           # ONNX → Hailo HEF bundle
-│   │   └── hailo_shared_worker.py
+│   │   └── rknn.py            # ONNX → Rockchip RKNN bundle
 │   └── reports/               # benchmark + cross-device reports
 ├── datasets/                  # built datasets per zone
 ├── runs/                      # training outputs (run.json + exports/)
-├── hailo_bundles/             # Hailo HEF compile bundles
 └── vendor/
     └── nanodet/               # vendored NanoDet source
 ```

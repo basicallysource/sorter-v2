@@ -444,6 +444,39 @@ def test_transport_gate_keeps_720p_capture_valid_without_hardware_scale() -> Non
     assert evaluation["gates"]["target_architecture_compliant"] is True
 
 
+def test_unassigned_roles_do_not_fail_capture_and_backend_invariants(monkeypatch) -> None:
+    """Regression: the invariant comprehensions used the leaked `source` loop
+    variable instead of item["source"], so the "unassigned" exemption applied
+    to the wrong entry. Two unassigned roles then failed
+    single_capture_per_physical_source and every WebRTC offer was 409'd."""
+    monkeypatch.setattr(
+        media_plane,
+        "probe_media_capabilities",
+        lambda: {
+            "target": {"transport": "webrtc", "video_codec": "h264", "encoder": "rockchip_mpp"},
+            "devices": {"video": ["/dev/video4"]},
+            "selected_encoder_path": None,
+        },
+    )
+    service = SimpleNamespace(
+        feeds={
+            # Two roles without a configured camera → one "unassigned" pseudo
+            # source with two capture instances. Sorts before "video:4", which
+            # is exactly the layout that triggered the leaked-variable bug.
+            "classification_top": _feed(_device(None, latest_frame=None)),
+            "feeder": _feed(_device(None, latest_frame=None)),
+            "c_channel_2": _feed(_device(4)),
+        }
+    )
+
+    payload = describe_media_plane(service)
+
+    by_source = {item["source"]: item for item in payload["physical_sources"]}
+    assert by_source["unassigned"]["capture_instances"] == 2
+    assert payload["invariants"]["single_capture_per_physical_source"] is True
+    assert payload["invariants"]["assigned_physical_sources_exist"] is True
+
+
 def test_media_plane_flags_assigned_video_source_missing(monkeypatch) -> None:
     monkeypatch.setattr(
         media_plane,

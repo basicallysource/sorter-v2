@@ -2185,22 +2185,30 @@ def describe_media_plane(
                 }
             )
 
+    # NOTE: these comprehensions must read item["source"], not the leaked
+    # `source` loop variable above — otherwise the "unassigned" exemption
+    # silently applies to the wrong entry (it bit us when only some roles
+    # were assigned: the unassigned pseudo-source failed the gates and every
+    # WebRTC offer got 409'd).
     single_capture_ok = all(
-        source == "unassigned" or item["capture_instances"] <= 1 for item in physical_sources
+        item["source"] == "unassigned" or item["capture_instances"] <= 1
+        for item in physical_sources
     )
     one_encoder_target_ok = all(
         session["encoder_instances_target"] == 1 for session in encoder_sessions
     )
     target_capture_backend_integrated = all(
-        source == "unassigned" or bool(item.get("capture_backend", {}).get("target_compliant"))
+        item["source"] == "unassigned"
+        or bool(item.get("capture_backend", {}).get("target_compliant"))
         for item in physical_sources
     )
     active_hardware_scale_convert = any(
-        source != "unassigned" and bool(item.get("capture_backend", {}).get("hardware_scale_convert"))
+        item["source"] != "unassigned"
+        and bool(item.get("capture_backend", {}).get("hardware_scale_convert"))
         for item in physical_sources
     )
     active_hardware_preview_scale_convert = any(
-        source != "unassigned"
+        item["source"] != "unassigned"
         and bool(
             item.get("capture_backend", {}).get(
                 "hardware_preview_scale_convert",
@@ -2210,16 +2218,17 @@ def describe_media_plane(
         for item in physical_sources
     )
     active_hardware_detection_scale_convert = any(
-        source != "unassigned"
+        item["source"] != "unassigned"
         and bool(item.get("capture_backend", {}).get("hardware_detection_scale_convert"))
         for item in physical_sources
     )
     active_hardware_crop = any(
-        source != "unassigned" and bool(item.get("capture_backend", {}).get("hardware_crop"))
+        item["source"] != "unassigned"
+        and bool(item.get("capture_backend", {}).get("hardware_crop"))
         for item in physical_sources
     )
     active_hardware_detection_crop_capable = any(
-        source != "unassigned"
+        item["source"] != "unassigned"
         and bool(item.get("capture_backend", {}).get("hardware_detection_crop_capable"))
         for item in physical_sources
     )
@@ -2245,7 +2254,7 @@ def describe_media_plane(
         or active_hardware_scale_convert_element,
     )
     active_software_scale_fallback = any(
-        source != "unassigned"
+        item["source"] != "unassigned"
         and bool(item.get("capture_backend", {}).get("software_scale_convert_fallback"))
         for item in physical_sources
     )
@@ -2281,7 +2290,7 @@ def describe_media_plane(
         if item.get("source") in active_high_res_sources
     )
     assigned_sources_exist = all(
-        source == "unassigned" or bool(item.get("source_exists"))
+        item["source"] == "unassigned" or bool(item.get("source_exists"))
         for item in physical_sources
     )
     source_pipeline["target_capture_backend_integrated"] = target_capture_backend_integrated

@@ -124,7 +124,7 @@ class BaseImagePrepTests(unittest.TestCase):
             payload["base"]["filename"],
             "Orangepicm5-tablet_1.0.0_ubuntu_jammy_server_linux6.1.43.img",
         )
-        self.assertNotIn("root_partition", payload["base"])  # single ext4 at p1
+        self.assertEqual(payload["base"]["root_partition"], 2)  # 1G boot at p1, rootfs at p2
         self.assertEqual(payload["output"]["version"], "4.1.0-cm5-tablet-vendor61.0")
         self.assertEqual(payload["overlay"]["wifi_overlay"], "")
         self.assertEqual(payload["camera_transport"]["profile"], "rk3588-rockchip-mpp-rga-rknn")

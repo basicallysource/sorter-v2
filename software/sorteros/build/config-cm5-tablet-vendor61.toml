@@ -21,7 +21,10 @@
 # automatically (needs a 7z binary).
 url = "https://drive.google.com/drive/folders/1rfsIJjzKyOGdI6iIcAPWzzSpmvaBte0u"
 filename = "Orangepicm5-tablet_1.0.0_ubuntu_jammy_server_linux6.1.43.img"
-sha256 = ""  # fill in after the first manual download
+sha256_7z = "6643beb6fbeed5293b326e42dbdbdc6bde7bd0a20bab0c6f08975882f0b27c81"
+sha256_img = "165203ac95ba79cc188e457db0a73b1629e31c6bc1a507bee65034531730ce74"
+# GPT layout: p1 = 1G "Linux extended boot", p2 = rootfs.
+root_partition = 2
 
 [output]
 dir = "out"

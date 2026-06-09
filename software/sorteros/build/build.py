@@ -527,6 +527,22 @@ def phase_overlay(ctx: BuildCtx) -> None:
         ts_env.chmod(0o600)
         log("baked tailscale auth key into /etc/sorteros/tailscale.env")
 
+    # SSH bootstrap keys follow the same rule: public/release images ship
+    # without any (the portal collects the user's key), but internal test
+    # images can bake the build host's key so wired-LAN boots that skip the
+    # portal are still reachable. chroot_apt.sh and the bootstrap-users
+    # service install the file into root's and orangepi's authorized_keys.
+    keys_path = os.environ.get("SORTEROS_BAKE_AUTHORIZED_KEYS", "")
+    if keys_path:
+        keys_file = Path(keys_path).expanduser()
+        keys = keys_file.read_text().strip()
+        if not keys.startswith("ssh-") and not keys.startswith("ecdsa-"):
+            sys.exit(f"SORTEROS_BAKE_AUTHORIZED_KEYS={keys_path} does not look like a public key file")
+        dest = sorteros_etc / "bootstrap_authorized_keys"
+        dest.write_text(keys + "\n")
+        dest.chmod(0o644)
+        log(f"baked {len(keys.splitlines())} SSH bootstrap key(s) from {keys_file}")
+
     # WiFi overlay is board-specific: OPi 5 onboard needs wifi-ap6275p, the
     # CM5 Tablet carrier auto-detects via the vendor image. Configurable in
     # [overlay].wifi_overlay (default "wifi-ap6275p" preserves OPi 5 behavior).

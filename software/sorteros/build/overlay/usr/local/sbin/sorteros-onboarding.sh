@@ -16,7 +16,8 @@ set -euo pipefail
 
 GATE=/var/lib/sorteros/wifi-configured
 LOG_TAG=sorteros-onboarding
-SKIP_WHEN_ONLINE=${SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE:-0}
+SKIP_WHEN_ONLINE=${SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE:-1}
+HIVE_URL=${SORTEROS_HIVE_URL:-https://hive.basically.website}
 
 log() { logger -t "$LOG_TAG" -- "$*"; echo "[$LOG_TAG] $*" >&2; }
 
@@ -25,12 +26,28 @@ if [[ -f "$GATE" ]]; then
     exit 0
 fi
 
-# Normally the AP still comes up when Ethernet/USB-LAN is present: the portal is
-# the first-run Wi-Fi/identity handoff, not only a reachability fallback. Lab or
-# Ethernet-only images can opt out explicitly.
-if [[ "$SKIP_WHEN_ONLINE" =~ ^(1|true|yes)$ ]] && ip route show default 2>/dev/null | grep -q .; then
-    log "default route present and SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE=${SKIP_WHEN_ONLINE} — skipping AP onboarding"
-    exit 0
+# A wired uplink with working internet makes the captive portal pointless: the
+# device is already reachable on the LAN and firstboot can proceed without it.
+# The portal only runs when the box is genuinely offline (no cable, no
+# configured Wi-Fi). Identity data (SSH key, Tailscale) can be baked at build
+# time for wired setups (SORTEROS_BAKE_AUTHORIZED_KEYS / .._TAILSCALE_AUTH_KEY).
+# Set SORTEROS_ONBOARDING_SKIP_WHEN_ONLINE=0 to force the portal regardless.
+uplink_online() {
+    ip route show default 2>/dev/null | grep -q . || return 1
+    curl -fsS -m 5 -o /dev/null "$HIVE_URL" 2>/dev/null && return 0
+    curl -fsS -m 5 -o /dev/null http://connectivity-check.ubuntu.com 2>/dev/null
+}
+
+if [[ "$SKIP_WHEN_ONLINE" =~ ^(1|true|yes)$ ]]; then
+    # The default route can take a moment after boot (DHCP on USB-LAN).
+    for _ in 1 2 3 4 5 6; do
+        if uplink_online; then
+            log "wired uplink with internet detected — skipping AP onboarding"
+            exit 0
+        fi
+        sleep 5
+    done
+    log "no online uplink after 30s — falling through to AP onboarding"
 fi
 
 log "fresh boot — entering onboarding mode"

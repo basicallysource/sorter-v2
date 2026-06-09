@@ -264,9 +264,11 @@ def _expected_sha256(ctx: BuildCtx, path: Path) -> str:
     base_cfg = ctx.config["base"]
     if path.name.endswith(".xz"):
         return str(base_cfg.get("sha256_xz") or base_cfg.get("sha256") or "").strip()
+    if path.name.endswith(".7z"):
+        return str(base_cfg.get("sha256_7z") or base_cfg.get("sha256") or "").strip()
     if base_cfg.get("sha256_img"):
         return str(base_cfg["sha256_img"]).strip()
-    if str(base_cfg.get("url", "")).endswith(".xz") and base_cfg.get("sha256"):
+    if str(base_cfg.get("url", "")).endswith((".xz", ".7z")) and base_cfg.get("sha256"):
         return ""
     return str(base_cfg.get("sha256") or "").strip()
 
@@ -292,6 +294,43 @@ def _download_file(url: str, dest: Path) -> None:
     tmp.rename(dest)
 
 
+def _find_base_archive(ctx: BuildCtx, suffix: str) -> Path | None:
+    """Look for a compressed base archive (<filename>.xz / .7z) in cache and Downloads."""
+    archive_name = ctx.config["base"]["filename"] + suffix
+    home = Path(os.environ.get("HOME", "/root"))
+    # Orange Pi distributes 7z archives named after the .img they contain.
+    seven_z_name = Path(ctx.config["base"]["filename"]).with_suffix(".7z").name
+    candidates = [
+        ctx.cache_dir / archive_name,
+        home / "Downloads" / archive_name,
+    ]
+    if suffix == ".7z":
+        candidates += [ctx.cache_dir / seven_z_name, home / "Downloads" / seven_z_name]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def _extract_7z_base_image(ctx: BuildCtx, archive: Path, img_path: Path) -> None:
+    seven_z = shutil.which("7z") or shutil.which("7zz")
+    if not seven_z:
+        sys.exit(
+            f"found {archive} but no 7z binary to extract it. "
+            "Install p7zip (apt: p7zip-full, brew: 7-zip)."
+        )
+    log(f"extracting {archive.name} → {img_path.name}")
+    run([seven_z, "x", "-y", f"-o{ctx.cache_dir}", str(archive)])
+    if img_path.exists():
+        return
+    # Archive may contain a differently named .img — normalise to the expected name.
+    extracted = [p for p in ctx.cache_dir.glob("*.img") if p != img_path and p.stat().st_size > 0]
+    if len(extracted) == 1:
+        extracted[0].rename(img_path)
+        return
+    sys.exit(f"7z did not produce expected image: {img_path}")
+
+
 def _ensure_base_image(ctx: BuildCtx) -> Path:
     """Return an uncompressed base .img, downloading/decompressing if needed."""
     try:
@@ -308,13 +347,15 @@ def _ensure_base_image(ctx: BuildCtx) -> Path:
     url = ctx.config["base"].get("url", "").strip()
     if not xz_path.exists() and url:
         if not (url.endswith(".img") or url.endswith(".img.xz")):
-            sys.exit(
-                f"[base].url is not a direct .img/.img.xz URL: {url}\n"
-                f"Download the base image manually and place {filename} in {ctx.cache_dir}/, "
-                "or set SORTEROS_BASE_IMG=<path>."
-            )
-        download_path = xz_path if url.endswith(".xz") else img_path
-        _download_file(url, download_path)
+            if _find_base_archive(ctx, ".7z") is None:
+                sys.exit(
+                    f"[base].url is not a direct .img/.img.xz URL: {url}\n"
+                    f"Download the base image manually and place {filename} "
+                    f"(or its .7z archive) in {ctx.cache_dir}/, or set SORTEROS_BASE_IMG=<path>."
+                )
+        else:
+            download_path = xz_path if url.endswith(".xz") else img_path
+            _download_file(url, download_path)
 
     if img_path.exists():
         _verify_sha256(ctx, img_path)
@@ -326,6 +367,13 @@ def _ensure_base_image(ctx: BuildCtx) -> Path:
         run(["xz", "-dkf", str(xz_path)])
         if not img_path.exists():
             sys.exit(f"xz did not produce expected image: {img_path}")
+        _verify_sha256(ctx, img_path)
+        return img_path
+
+    seven_z_path = _find_base_archive(ctx, ".7z")
+    if seven_z_path is not None:
+        _verify_sha256(ctx, seven_z_path)
+        _extract_7z_base_image(ctx, seven_z_path, img_path)
         _verify_sha256(ctx, img_path)
         return img_path
 

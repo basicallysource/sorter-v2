@@ -116,6 +116,88 @@ class BaseImagePrepTests(unittest.TestCase):
             )
         )
 
+    def test_tablet_vendor61_config_targets_official_jammy_61_base(self) -> None:
+        config_path = Path(__file__).resolve().parents[1] / "config-cm5-tablet-vendor61.toml"
+        payload = tomllib.loads(config_path.read_text())
+
+        self.assertEqual(
+            payload["base"]["filename"],
+            "Orangepicm5-tablet_1.0.0_ubuntu_jammy_server_linux6.1.43.img",
+        )
+        self.assertNotIn("root_partition", payload["base"])  # single ext4 at p1
+        self.assertEqual(payload["output"]["version"], "4.1.0-cm5-tablet-vendor61.0")
+        self.assertEqual(payload["overlay"]["wifi_overlay"], "")
+        self.assertEqual(payload["camera_transport"]["profile"], "rk3588-rockchip-mpp-rga-rknn")
+        self.assertIn("^6\\.1\\.", payload["camera_transport"]["required_kernel_release_patterns"])
+        self.assertEqual(
+            payload["camera_transport"]["backend_env"],
+            {
+                "SORTER_CAMERA_CAPTURE_BACKEND": "gstreamer_mpp",
+                "SORTER_ENABLE_GSTREAMER_MPP_CAPTURE": "1",
+                "SORTER_ENABLE_FFMPEG_RKMPP_WEBRTC": "1",
+            },
+        )
+        # The tablet contract must stay in lock-step with the vendor61 gate set.
+        vendor61 = tomllib.loads(
+            (Path(__file__).resolve().parents[1] / "config-cm5-vendor61.toml").read_text()
+        )
+        self.assertEqual(
+            set(payload["camera_transport"]["required_runtime_gates"]),
+            set(vendor61["camera_transport"]["required_runtime_gates"]),
+        )
+        self.assertEqual(
+            payload["camera_transport"]["required_device_nodes"],
+            vendor61["camera_transport"]["required_device_nodes"],
+        )
+
+    def test_7z_sha_applies_to_archive(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            ctx = _ctx(
+                Path(tmp),
+                {
+                    "filename": "base.img",
+                    "url": "https://drive.google.com/drive/folders/example",
+                    "sha256": "archive-sha",
+                },
+            )
+
+            self.assertEqual(build._expected_sha256(ctx, ctx.cache_dir / "base.img.7z"), "archive-sha")
+            self.assertEqual(build._expected_sha256(ctx, ctx.cache_dir / "base.7z"), "archive-sha")
+
+    @unittest.skipUnless(shutil.which("7z") or shutil.which("7zz"), "7z command is required")
+    def test_ensure_base_image_extracts_cached_7z_despite_non_direct_url(self) -> None:
+        seven_z = shutil.which("7z") or shutil.which("7zz")
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            ctx = _ctx(
+                root,
+                {
+                    "filename": "Orangepicm5-tablet_test.img",
+                    "url": "https://drive.google.com/drive/folders/example",
+                    "sha256": "",
+                },
+            )
+            ctx.cache_dir.mkdir()
+            image_bytes = b"sorteros tablet image bytes"
+            src_dir = root / "src"
+            src_dir.mkdir()
+            (src_dir / "Orangepicm5-tablet_test.img").write_bytes(image_bytes)
+            # Orange Pi names the archive after the .img: <stem>.7z
+            import subprocess
+
+            subprocess.run(
+                [seven_z, "a", str(ctx.cache_dir / "Orangepicm5-tablet_test.7z"),
+                 str(src_dir / "Orangepicm5-tablet_test.img")],
+                check=True,
+                capture_output=True,
+            )
+
+            with mock.patch.dict(build.os.environ, {"HOME": str(root)}, clear=False):
+                base = build._ensure_base_image(ctx)
+
+            self.assertEqual(base, ctx.cache_dir / "Orangepicm5-tablet_test.img")
+            self.assertEqual(base.read_bytes(), image_bytes)
+
     def test_xz_url_sha_applies_to_archive_not_decompressed_image(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             ctx = _ctx(

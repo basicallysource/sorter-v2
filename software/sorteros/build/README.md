@@ -42,9 +42,22 @@ the RKNPU render node. The OrangePi CM5 Tablet 25.02 base currently boots Linux 
 and does not expose the multimedia devices, even after installing the Rockchip
 multimedia PPA packages in `chroot_apt.sh`.
 
-Use `config-cm5-vendor61.toml` as the experimental CM5 Ubuntu 24.04 / Linux 6.1
-candidate. The build bakes `/etc/sorteros/camera-transport-target.json` into
-that image; firstboot copies the contract's backend env into `software/.env`,
+Two vendor-6.1 candidates exist for the CM5:
+
+- `config-cm5-tablet-vendor61.toml` — **preferred**: the official OrangePi
+  vendor image for the CM5 **Tablet Base Board** (Ubuntu Jammy, BSP kernel
+  6.1.43) — the direct analogue of the OPi 5 base in `config.toml`. Google
+  Drive is token-gated, so download
+  `Orangepicm5-tablet_1.0.0_ubuntu_jammy_server_linux6.1.43.7z` manually from
+  the official CM5 Ubuntu folder (orangepi.org → Orange Pi CM5 → Ubuntu Image)
+  and drop it into `cache/` — `build.py` extracts `.7z` archives itself
+  (needs `p7zip`).
+- `config-cm5-vendor61.toml` — Joshua-Riek ubuntu-rockchip CM5 image (Ubuntu
+  24.04, vendor 6.1). Targets the standard CM5 evaluation board, so the
+  tablet-carrier peripherals (cameras, WiFi) are not covered by its DTB.
+
+Both bake `/etc/sorteros/camera-transport-target.json` into
+the image; firstboot copies the contract's backend env into `software/.env`,
 including `SORTER_ENABLE_FFMPEG_RKMPP_WEBRTC=1`. Firstboot also writes a
 non-fatal runtime summary to
 `/var/lib/sorteros/camera-transport-status.json`, including missing device

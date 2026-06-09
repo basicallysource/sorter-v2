@@ -17,7 +17,7 @@ set -euo pipefail
 HOST="${HIVE_HOST:-root@45.55.232.164}"
 REPO="${HIVE_REPO:-/basically/sorter/sorter-v2}"
 BRANCH="${1:-${HIVE_BRANCH:-sorthive}}"
-HEALTH_URL="${HIVE_HEALTH_URL:-https://hive.basically.website/api/models?page_size=1}"
+HEALTH_URL="${HIVE_HEALTH_URL:-https://hive.basically.website/api/health}"   # public 200; /api/models needs auth
 HIVE_DIR="$REPO/software/hive"
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

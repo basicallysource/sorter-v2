@@ -68,21 +68,34 @@ class GStreamerRuntimeModules:
     GLib: Any
 
 
+# gi's lazy repository import is not thread-safe: two CaptureThreads importing
+# gi.repository concurrently at boot can race the overrides setup and fail with
+# nonsense like "'gi.repository.GLib' object has no attribute 'Idle'".
+# Serialize the first import and cache the result.
+_runtime_modules_lock = threading.Lock()
+_runtime_modules: GStreamerRuntimeModules | None = None
+
+
 def load_gstreamer_runtime_modules() -> GStreamerRuntimeModules:
-    try:
-        import gi  # type: ignore
+    global _runtime_modules
+    with _runtime_modules_lock:
+        if _runtime_modules is not None:
+            return _runtime_modules
+        try:
+            import gi  # type: ignore
 
-        gi.require_version("Gst", "1.0")
-        gi.require_version("GLib", "2.0")
-        from gi.repository import GLib, Gst  # type: ignore
-    except Exception as exc:
-        raise GStreamerTargetRuntimeError(f"GStreamer/PyGObject runtime is unavailable: {exc}") from exc
+            gi.require_version("Gst", "1.0")
+            gi.require_version("GLib", "2.0")
+            from gi.repository import GLib, Gst  # type: ignore
+        except Exception as exc:
+            raise GStreamerTargetRuntimeError(f"GStreamer/PyGObject runtime is unavailable: {exc}") from exc
 
-    try:
-        Gst.init(None)
-    except Exception as exc:
-        raise GStreamerTargetRuntimeError(f"Could not initialize GStreamer: {exc}") from exc
-    return GStreamerRuntimeModules(Gst=Gst, GLib=GLib)
+        try:
+            Gst.init(None)
+        except Exception as exc:
+            raise GStreamerTargetRuntimeError(f"Could not initialize GStreamer: {exc}") from exc
+        _runtime_modules = GStreamerRuntimeModules(Gst=Gst, GLib=GLib)
+        return _runtime_modules
 
 
 def describe_gstreamer_target_runtime() -> dict[str, Any]:

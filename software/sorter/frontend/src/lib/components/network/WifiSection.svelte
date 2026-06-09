@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { onMount, untrack } from 'svelte';
 	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import { Button, Input, Alert } from '$lib/components/primitives';
@@ -52,21 +52,31 @@
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
 
-	async function loadStatus(autoScan = false) {
+	async function loadStatus() {
 		loadError = null;
 		try {
 			const res = await fetch(`${httpBase()}/api/network/wifi/status`);
 			if (!res.ok) throw new Error(await res.text());
 			status = await res.json();
-			// When there is no active WiFi connection, surface the picker
-			// right away instead of waiting for a manual scan click.
-			if (autoScan && canScan && !wifiConnected && !scanned && !scanning) {
-				void scan();
-			}
 		} catch (e: any) {
 			loadError = e.message ?? 'Failed to load network status';
 		}
 	}
+
+	// The picker scans by itself: immediately when it becomes visible (no
+	// active WiFi connection) and then every 20 s while it stays open. Only
+	// the visibility condition is tracked — the busy flags are read untracked
+	// so a finishing scan does not re-trigger the effect.
+	$effect(() => {
+		if (!canScan || wifiConnected) return;
+		untrack(() => {
+			if (!scanning) void scan();
+		});
+		const interval = setInterval(() => {
+			if (!scanning && !connecting) void scan();
+		}, 20_000);
+		return () => clearInterval(interval);
+	});
 
 	async function scan() {
 		scanning = true;
@@ -133,10 +143,11 @@
 			if (!data.ok) {
 				connectError = data.error ?? 'Failed to disconnect';
 			}
+			// The picker effect kicks in as soon as the status flips to
+			// disconnected and scans automatically.
 			if (data.status) status = data.status;
-			// Back on the picker: refresh the list so reconnecting is one click.
 			scanned = false;
-			void loadStatus(true);
+			void loadStatus();
 		} catch (e: any) {
 			connectError = e.message ?? 'Failed to disconnect';
 		} finally {
@@ -152,7 +163,7 @@
 	}
 
 	onMount(() => {
-		void loadStatus(true);
+		void loadStatus();
 	});
 </script>
 

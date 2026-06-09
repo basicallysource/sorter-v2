@@ -1,4 +1,4 @@
-import { Activity, Camera, Cloud, Cpu, Gauge, Layers3, Settings, Shapes, Wrench, Zap } from 'lucide-svelte';
+import { Activity, Camera, Cloud, Cpu, Gauge, Layers3, Network, Settings, Shapes, Wrench, Zap } from 'lucide-svelte';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -72,6 +72,12 @@ export const storageLayersNavItem: SettingsNavItem = {
 	href: '/settings/storage-layers',
 	label: 'Storage Layers',
 	icon: Layers3
+};
+
+export const networkNavItem: SettingsNavItem = {
+	href: '/settings/network',
+	label: 'Network',
+	icon: Network
 };
 
 export const hiveNavItem: SettingsNavItem = {
@@ -205,6 +211,7 @@ export type SettingsNavEntry = SettingsNavItem | SettingsNavHeading;
 
 const baseSettingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
+	networkNavItem,
 	hiveNavItem,
 	hiveModelsNavItem,
 	{ type: 'heading', label: 'Hardware' },

@@ -80,6 +80,14 @@ cd /home/orangepi/sorter-v2/software/sorter/backend
 .venv/bin/python scripts/probe_camera_transport_stack.py
 ```
 
+To compare the legacy MJPEG pipeline against the RKMPP/WebRTC pipeline on
+the same device (CPU/RSS/thermals/FPS under identical streaming load):
+
+```bash
+sudo .venv/bin/python scripts/ab_compare_camera_pipelines.py \
+    --duration-s 120 --idle-s 60 --clients 3
+```
+
 The probe output also surfaces the firstboot status file when it exists, so one
 command shows both the baked image contract and the latest boot-time verdict.
 

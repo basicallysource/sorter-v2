@@ -404,28 +404,33 @@ def _format_rknn(caps: dict) -> dict:
     has_rknn = bool(rknn.get("available"))
     cores = int(rknn.get("npu_cores", 0) or 0)
     runtime_version = rknn.get("runtime_version") or ""
-    options = [
-        {
-            "id": "rknn-npu-auto",
-            "label": "NPU (auto core)",
-            "available": has_rknn,
-            "reason": None if has_rknn else rknn.get("reason") or "no NPU detected",
-            "rank": 1,
-            "detail": f"{cores} core(s); {runtime_version}" if has_rknn else "",
-        },
-    ]
-    # Per-core options are useful for multi-stream pinning (one camera per core).
-    for core_index in range(cores):
+    # Two meaningful modes: multi-stream fan-out (one stream per core, the way
+    # the sorter actually runs it → aggregate throughput) and a single stream.
+    # Per-core pinning options were dropped — they measured nothing useful.
+    options = []
+    if cores >= 2:
         options.append(
             {
-                "id": f"rknn-npu-core{core_index}",
-                "label": f"NPU core {core_index}",
+                "id": "rknn-npu-multi",
+                "label": "NPU multi-core",
                 "available": has_rknn,
-                "reason": None,
+                "reason": None if has_rknn else rknn.get("reason") or "no NPU detected",
                 "rank": 1,
-                "detail": "pinned",
+                "recommended": has_rknn,
+                "detail": f"{cores} cores · parallel fan-out; {runtime_version}" if has_rknn else "",
             }
         )
+    options.append(
+        {
+            "id": "rknn-npu-single",
+            "label": "NPU single-core",
+            "available": has_rknn,
+            "reason": None if has_rknn else rknn.get("reason") or "no NPU detected",
+            "rank": 2 if cores >= 2 else 1,
+            "recommended": has_rknn and cores < 2,
+            "detail": "1 stream, 1 core" if has_rknn else "",
+        }
+    )
     return {
         "id": "rknn",
         "label": "Rockchip RKNN",
@@ -627,6 +632,77 @@ def _bench_rknn(model_dir: Path, core_mask_name: str, warmup: int, iterations: i
             pass
 
 
+def _bench_rknn_multi(model_dir: Path, n_streams: int, warmup: int, iterations: int) -> dict:
+    """Fan-out throughput: one RKNNLite stream pinned per NPU core, all running
+    concurrently. This is how the sorter actually uses the RK3588 (one stream per
+    camera/zone), so the meaningful number is the *aggregate* FPS across cores,
+    not a single 3-core-split inference. Returns fps = aggregate throughput,
+    mean_ms = per-stream latency.
+    """
+    rknn_path = _pick_first(["*.rknn"], model_dir)
+    if rknn_path is None:
+        raise HTTPException(status_code=400, detail="No .rknn file in model directory")
+    try:
+        from rknnlite.api import RKNNLite  # type: ignore
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"rknn-toolkit-lite2 unavailable: {exc}")
+
+    per_core = [
+        getattr(RKNNLite, "NPU_CORE_0", 1),
+        getattr(RKNNLite, "NPU_CORE_1", 2),
+        getattr(RKNNLite, "NPU_CORE_2", 4),
+    ]
+    n_streams = max(1, min(len(per_core), int(n_streams)))
+    size = 320
+    dummy = np.random.randint(0, 255, (1, size, size, 3), dtype=np.uint8)
+
+    instances: list = []
+    try:
+        for idx in range(n_streams):
+            rk = RKNNLite()
+            if rk.load_rknn(str(rknn_path)) != 0:
+                raise HTTPException(status_code=500, detail="load_rknn failed")
+            if rk.init_runtime(core_mask=per_core[idx]) != 0 and rk.init_runtime() != 0:
+                raise HTTPException(status_code=500, detail="init_runtime failed")
+            for _ in range(max(0, warmup)):
+                rk.inference(inputs=[dummy])
+            instances.append(rk)
+
+        elapsed_per: list[float] = [0.0] * n_streams
+
+        def worker(i: int) -> None:
+            t0 = time.perf_counter()
+            for _ in range(iterations):
+                instances[i].inference(inputs=[dummy])
+            elapsed_per[i] = time.perf_counter() - t0
+
+        threads = [threading.Thread(target=worker, args=(i,)) for i in range(n_streams)]
+        wall0 = time.perf_counter()
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        wall = time.perf_counter() - wall0
+
+        total_infer = iterations * n_streams
+        agg_fps = total_infer / wall if wall > 0 else 0.0
+        per_stream_ms = (sum(elapsed_per) / n_streams / iterations) * 1000.0 if iterations else 0.0
+        return {
+            "fps": round(agg_fps, 2),
+            "mean_ms": round(per_stream_ms, 3),
+            "p50_ms": round(per_stream_ms, 3),
+            "p90_ms": round(per_stream_ms, 3),
+            "streams": n_streams,
+            "aggregate": True,
+        }
+    finally:
+        for rk in instances:
+            try:
+                rk.release()
+            except Exception:
+                pass
+
+
 _OPTION_DISPATCH: dict[str, dict] = {
     "onnx-cpu": {"backend": "onnx", "providers": ["CPUExecutionProvider"]},
     "onnx-coreml": {"backend": "onnx", "providers": ["CoreMLExecutionProvider", "CPUExecutionProvider"]},
@@ -634,10 +710,11 @@ _OPTION_DISPATCH: dict[str, dict] = {
     "onnx-dml": {"backend": "onnx", "providers": ["DmlExecutionProvider", "CPUExecutionProvider"]},
     "ncnn-cpu": {"backend": "ncnn", "use_vulkan": False},
     "ncnn-vulkan": {"backend": "ncnn", "use_vulkan": True},
-    "rknn-npu-auto": {"backend": "rknn", "core_mask_name": "auto"},
-    "rknn-npu-core0": {"backend": "rknn", "core_mask_name": "core0"},
-    "rknn-npu-core1": {"backend": "rknn", "core_mask_name": "core1"},
-    "rknn-npu-core2": {"backend": "rknn", "core_mask_name": "core2"},
+    # NPU: single stream (one core) vs multi-stream fan-out (all 3 cores in
+    # parallel). The old per-core (core0/1/2) options were meaningless — the win
+    # is concurrent streams, not pinning one inference to one core.
+    "rknn-npu-single": {"backend": "rknn", "core_mask_name": "core0"},
+    "rknn-npu-multi": {"backend": "rknn-multi", "n_streams": 3},
 }
 
 
@@ -681,6 +758,13 @@ def run_benchmark(req: BenchmarkRequest) -> dict:
             result = _bench_rknn(
                 model_dir,
                 core_mask_name=spec["core_mask_name"],
+                warmup=warmup,
+                iterations=iterations,
+            )
+        elif spec["backend"] == "rknn-multi":
+            result = _bench_rknn_multi(
+                model_dir,
+                n_streams=spec["n_streams"],
                 warmup=warmup,
                 iterations=iterations,
             )

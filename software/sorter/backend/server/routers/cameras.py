@@ -2766,7 +2766,14 @@ def _capture_modes_for_source(source: int | str | None) -> tuple[List[Dict[str, 
             pass
 
     if platform.system() == "Linux":
-        v4l2_modes = _list_v4l2_modes(source)
+        # `source` is the logical camera index used in machine config; the
+        # capture layer maps it to the actual /dev/video node. Enumerating
+        # modes on the raw index can hit a *different* physical camera and
+        # offer resolutions the mapped device cannot deliver.
+        from vision.camera import _resolve_linux_video_index
+
+        actual = _resolve_linux_video_index(source)
+        v4l2_modes = _list_v4l2_modes(actual if actual is not None else source)
         if v4l2_modes:
             return (v4l2_modes, "v4l2")
 

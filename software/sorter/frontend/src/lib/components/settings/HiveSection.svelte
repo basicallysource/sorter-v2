@@ -790,8 +790,9 @@
 			<div class="grid gap-3 border border-primary bg-primary/[0.05] px-3 py-3">
 				<div class="text-sm font-medium text-text">Pair with a Hive</div>
 				<div class="text-sm text-text-muted">
-					Enter the Hive URL, then continue on Hive to pick a machine name. Hive sends you back here
-					once the link is saved — no email or password leaves this Sorter.
+					Enter the Hive URL, then continue on Hive. There you can reconnect one of your existing
+					machines or create a new one. Hive sends you back here once the link is saved — no email
+					or password leaves this Sorter.
 				</div>
 				<label class="flex flex-col gap-1 text-sm text-text">
 					Hive URL

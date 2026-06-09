@@ -18,6 +18,9 @@
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
 	let linkMode = $state<LinkMode>(page.url.searchParams.get('intent') === 'restore' ? 'existing' : 'new');
+	// Set once the user picks a mode by hand so the async machine load does
+	// not flip their choice afterwards.
+	let modeTouched = $state(false);
 	let machines = $state<Machine[]>([]);
 	let machineBackups = $state<Record<string, MachineConfigBackupSummary[]>>({});
 	let selectedMachineId = $state('');
@@ -91,6 +94,11 @@
 			machines = list;
 			if (!selectedMachineId && list.length > 0) {
 				selectedMachineId = list[0].id;
+			}
+			// Accounts that already own machines almost always want to
+			// reconnect one of them — make that the default for every intent.
+			if (list.length > 0 && !modeTouched) {
+				linkMode = 'existing';
 			}
 
 			if (restoreIntent) {
@@ -231,7 +239,7 @@
 					<div class="grid gap-2 sm:grid-cols-2">
 						<button
 							type="button"
-							onclick={() => { linkMode = 'existing'; }}
+							onclick={() => { linkMode = 'existing'; modeTouched = true; }}
 							disabled={submitting || loadingMachines || machines.length === 0}
 							class={`border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
 								linkMode === 'existing'
@@ -246,7 +254,7 @@
 						</button>
 						<button
 							type="button"
-							onclick={() => { linkMode = 'new'; }}
+							onclick={() => { linkMode = 'new'; modeTouched = true; }}
 							disabled={submitting}
 							class={`border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
 								linkMode === 'new'

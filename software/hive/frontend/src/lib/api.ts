@@ -1253,6 +1253,7 @@ export const api = {
 		runtime?: string;
 		family?: string;
 		q?: string;
+		include_experimental?: boolean;
 	} = {}) {
 		const searchParams = new URLSearchParams();
 		for (const [key, val] of Object.entries(params)) {
@@ -1424,6 +1425,7 @@ export interface DetectionModelSummary {
 	model_family: string;
 	scopes: string[] | null;
 	is_public: boolean;
+	experimental: boolean;
 	published_at: string;
 	updated_at: string;
 	variant_runtimes: string[];

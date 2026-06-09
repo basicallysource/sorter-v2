@@ -99,15 +99,26 @@ def nmconnection_body(ssid: str, password: str, hidden: bool) -> str:
     return body
 
 
-def _device_ip(device: str) -> Optional[str]:
-    result = _run(["nmcli", "-t", "-f", "IP4.ADDRESS", "device", "show", device])
-    for line in result.stdout.splitlines():
-        # "IP4.ADDRESS[1]:10.0.42.74/24"
-        _, _, value = line.partition(":")
+def parse_device_net_info(stdout: str) -> Dict[str, Any]:
+    """Parse `nmcli -t -f IP4.ADDRESS,IP4.GATEWAY,IP4.DNS device show` output."""
+    info: Dict[str, Any] = {"ip": None, "gateway": None, "dns": []}
+    for line in stdout.splitlines():
+        key, _, value = line.partition(":")
         value = value.strip()
-        if value:
-            return value.split("/")[0]
-    return None
+        if not value:
+            continue
+        if key.startswith("IP4.ADDRESS") and info["ip"] is None:
+            info["ip"] = value.split("/")[0]
+        elif key == "IP4.GATEWAY":
+            info["gateway"] = value
+        elif key.startswith("IP4.DNS"):
+            info["dns"].append(value)
+    return info
+
+
+def _device_net_info(device: str) -> Dict[str, Any]:
+    result = _run(["nmcli", "-t", "-f", "IP4.ADDRESS,IP4.GATEWAY,IP4.DNS", "device", "show", device])
+    return parse_device_net_info(result.stdout)
 
 
 def _wifi_radio_enabled() -> bool:
@@ -123,7 +134,11 @@ def _status() -> Dict[str, Any]:
     )
     wifi_devices = [d for d in devices if d["type"] == "wifi"]
     ethernet = [
-        {**d, "ip": _device_ip(d["device"]) if d["state"].startswith("connected") else None}
+        {
+            **d,
+            **(_device_net_info(d["device"]) if d["state"].startswith("connected")
+               else {"ip": None, "gateway": None, "dns": []}),
+        }
         for d in devices
         if d["type"] == "ethernet"
     ]
@@ -136,7 +151,7 @@ def _status() -> Dict[str, Any]:
                 "connected": True,
                 "device": d["device"],
                 "ssid": d["connection"],
-                "ip": _device_ip(d["device"]),
+                **_device_net_info(d["device"]),
             }
             break
 
@@ -221,18 +236,21 @@ def connect_wifi(payload: WifiConnectPayload) -> Dict[str, Any]:
     return {"ok": True, "status": status}
 
 
-class WifiForgetPayload(BaseModel):
+class WifiDisconnectPayload(BaseModel):
     ssid: str
 
 
-@router.post("/api/network/wifi/forget")
-def forget_wifi(payload: WifiForgetPayload) -> Dict[str, Any]:
+@router.post("/api/network/wifi/disconnect")
+def disconnect_wifi(payload: WifiDisconnectPayload) -> Dict[str, Any]:
+    """Take the connection down. The saved profile is kept, so reconnecting
+    later does not require re-entering the password; NetworkManager blocks
+    autoconnect until the user brings it up again."""
     if not _nmcli_available():
         return {"ok": False, "error": "NetworkManager (nmcli) is not available on this machine"}
     ssid = payload.ssid.strip()
     if not _SSID_RE.match(ssid):
         return {"ok": False, "error": "Invalid SSID"}
-    result = _run(["nmcli", "connection", "delete", ssid])
+    result = _run(["nmcli", "connection", "down", ssid])
     if result.returncode != 0:
         err = (result.stderr or result.stdout or "unknown error").strip()
         return {"ok": False, "error": err, "status": _status()}

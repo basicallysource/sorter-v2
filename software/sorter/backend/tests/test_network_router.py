@@ -55,6 +55,23 @@ def test_nmconnection_body_open_and_hidden() -> None:
     assert "psk=" not in body
 
 
+def test_parse_device_net_info() -> None:
+    stdout = "\n".join([
+        "IP4.ADDRESS[1]:10.0.42.74/24",
+        "IP4.GATEWAY:10.0.42.1",
+        "IP4.DNS[1]:10.0.42.1",
+        "IP4.DNS[2]:1.1.1.1",
+    ])
+
+    info = network.parse_device_net_info(stdout)
+
+    assert info == {"ip": "10.0.42.74", "gateway": "10.0.42.1", "dns": ["10.0.42.1", "1.1.1.1"]}
+
+
+def test_parse_device_net_info_disconnected() -> None:
+    assert network.parse_device_net_info("IP4.GATEWAY:\n") == {"ip": None, "gateway": None, "dns": []}
+
+
 def test_connect_rejects_bad_input(monkeypatch) -> None:
     monkeypatch.setattr(network, "_nmcli_available", lambda: True)
 
@@ -71,5 +88,5 @@ def test_endpoints_degrade_without_nmcli(monkeypatch) -> None:
     assert network.get_wifi_status() == {"available": False}
     assert network.scan_wifi()["available"] is False
     assert network.connect_wifi(network.WifiConnectPayload(ssid="x", password=""))["ok"] is False
-    assert network.forget_wifi(network.WifiForgetPayload(ssid="x"))["ok"] is False
+    assert network.disconnect_wifi(network.WifiDisconnectPayload(ssid="x"))["ok"] is False
     assert network.set_wifi_radio(network.WifiRadioPayload(enabled=True))["ok"] is False

@@ -13,6 +13,8 @@
 		device?: string;
 		ssid?: string | null;
 		ip?: string | null;
+		gateway?: string | null;
+		dns?: string[];
 	};
 	type NetworkStatus = {
 		available: boolean;
@@ -39,23 +41,28 @@
 	let connecting = $state(false);
 	let connectError = $state<string | null>(null);
 	let connectSuccess = $state<string | null>(null);
-	let forgetting = $state(false);
+	let disconnecting = $state(false);
+
+	const wifiConnected = $derived(Boolean(status?.wifi?.connected));
+	const canScan = $derived(
+		Boolean(status?.available && status?.radio_enabled && status?.wifi?.present)
+	);
 
 	function httpBase(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
 
-	function selectedNeedsPassword(): boolean {
-		const net = networks.find((n) => n.ssid === selectedSsid);
-		return net ? net.security.trim().length > 0 : true;
-	}
-
-	async function loadStatus() {
+	async function loadStatus(autoScan = false) {
 		loadError = null;
 		try {
 			const res = await fetch(`${httpBase()}/api/network/wifi/status`);
 			if (!res.ok) throw new Error(await res.text());
 			status = await res.json();
+			// When there is no active WiFi connection, surface the picker
+			// right away instead of waiting for a manual scan click.
+			if (autoScan && canScan && !wifiConnected && !scanned && !scanning) {
+				void scan();
+			}
 		} catch (e: any) {
 			loadError = e.message ?? 'Failed to load network status';
 		}
@@ -99,11 +106,10 @@
 			} else {
 				status = data.status ?? status;
 				const ip = data.status?.wifi?.ip;
-				connectSuccess = ip ? `Connected to ${ssid} — WiFi IP ${ip}` : `Connected to ${ssid}`;
+				connectSuccess = ip ? `Connected to ${ssid} — IP ${ip}` : `Connected to ${ssid}`;
 				selectedSsid = null;
 				passwordDraft = '';
 				hiddenSsidDraft = '';
-				void scan();
 			}
 		} catch (e: any) {
 			connectError = e.message ?? 'Failed to connect';
@@ -112,12 +118,12 @@
 		}
 	}
 
-	async function forget(ssid: string) {
-		forgetting = true;
+	async function disconnect(ssid: string) {
+		disconnecting = true;
 		connectError = null;
 		connectSuccess = null;
 		try {
-			const res = await fetch(`${httpBase()}/api/network/wifi/forget`, {
+			const res = await fetch(`${httpBase()}/api/network/wifi/disconnect`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({ ssid })
@@ -125,13 +131,16 @@
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
 			if (!data.ok) {
-				connectError = data.error ?? 'Failed to forget network';
+				connectError = data.error ?? 'Failed to disconnect';
 			}
 			if (data.status) status = data.status;
+			// Back on the picker: refresh the list so reconnecting is one click.
+			scanned = false;
+			void loadStatus(true);
 		} catch (e: any) {
-			connectError = e.message ?? 'Failed to forget network';
+			connectError = e.message ?? 'Failed to disconnect';
 		} finally {
-			forgetting = false;
+			disconnecting = false;
 		}
 	}
 
@@ -143,26 +152,26 @@
 	}
 
 	onMount(() => {
-		void loadStatus();
+		void loadStatus(true);
 	});
 </script>
 
 <div class="flex flex-col gap-4">
-	<!-- Status row -->
+	<!-- Status -->
 	<div class="border border-border bg-surface px-3 py-3">
 		<div class="flex items-center gap-2">
 			{#if status === null}
 				<span class="text-sm text-text-muted">Loading...</span>
 			{:else if !status.available}
 				<WifiOff size={14} class="text-text-muted" />
-				<span class="text-sm font-medium text-text">NetworkManager is not available on this machine</span>
-			{:else if status.wifi?.connected}
+				<span class="text-sm font-medium text-text">Network management is not available on this machine</span>
+			{:else if wifiConnected}
 				<Wifi size={14} class="text-success" />
-				<span class="text-sm font-medium text-text">{status.wifi.ssid}</span>
-				<span class="ml-auto font-mono text-sm text-text-muted">{status.wifi.ip}</span>
+				<span class="text-sm font-medium text-text">{status.wifi?.ssid}</span>
+				<span class="ml-auto font-mono text-sm text-text-muted">{status.wifi?.device}</span>
 			{:else if !status.radio_enabled}
 				<WifiOff size={14} class="text-text-muted" />
-				<span class="text-sm font-medium text-text">WiFi radio is off</span>
+				<span class="text-sm font-medium text-text">WiFi is turned off</span>
 			{:else if !status.wifi?.present}
 				<WifiOff size={14} class="text-text-muted" />
 				<span class="text-sm font-medium text-text">No WiFi adapter detected</span>
@@ -171,33 +180,43 @@
 				<span class="text-sm font-medium text-text">Not connected</span>
 			{/if}
 		</div>
-		{#if status?.wifi?.connected}
-			<div class="mt-2 flex items-center justify-end">
+		{#if wifiConnected}
+			<div class="mt-2 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1">
+				<span class="text-sm text-text-muted">IP address</span>
+				<span class="font-mono text-sm text-text">{status?.wifi?.ip ?? '—'}</span>
+				<span class="text-sm text-text-muted">Router</span>
+				<span class="font-mono text-sm text-text">{status?.wifi?.gateway ?? '—'}</span>
+				<span class="text-sm text-text-muted">DNS</span>
+				<span class="font-mono text-sm text-text">{(status?.wifi?.dns ?? []).join(', ') || '—'}</span>
+			</div>
+			<div class="mt-3 flex justify-end">
 				<Button
-					variant="danger"
+					variant="secondary"
 					size="sm"
-					loading={forgetting}
-					onclick={() => status?.wifi?.ssid && void forget(status.wifi.ssid)}
+					loading={disconnecting}
+					onclick={() => status?.wifi?.ssid && void disconnect(status.wifi.ssid)}
 				>
-					{forgetting ? 'Forgetting...' : 'Forget network'}
+					{disconnecting ? 'Disconnecting...' : 'Disconnect'}
 				</Button>
 			</div>
 		{/if}
 	</div>
 
-	{#if status?.available}
-		<!-- Scan -->
+	<!-- Picker: only while not connected -->
+	{#if status?.available && !wifiConnected && status.wifi?.present && status.radio_enabled}
 		<div>
 			<div class="mb-2 flex items-center justify-between">
 				<div class="text-sm font-medium text-text">Available networks</div>
 				<Button variant="secondary" size="sm" loading={scanning} onclick={() => void scan()}>
 					<RefreshCcw size={14} />
-					{scanning ? 'Scanning...' : scanned ? 'Rescan' : 'Scan'}
+					{scanning ? 'Scanning...' : 'Rescan'}
 				</Button>
 			</div>
 
 			{#if scanError}
 				<Alert variant="danger">{scanError}</Alert>
+			{:else if scanning && !scanned}
+				<div class="border border-border px-3 py-3 text-sm text-text-muted">Searching for networks...</div>
 			{:else if scanned && networks.length === 0}
 				<Alert variant="info">No networks found.</Alert>
 			{:else if networks.length > 0}
@@ -214,12 +233,9 @@
 								{#if net.security}
 									<Lock size={12} class="text-text-muted" />
 								{/if}
-								{#if net.in_use}
-									<span class="text-xs font-semibold tracking-wider text-success uppercase">connected</span>
-								{/if}
 								<span class="ml-auto font-mono text-sm text-text-muted">{net.signal}%</span>
 							</button>
-							{#if selectedSsid === net.ssid && !net.in_use}
+							{#if selectedSsid === net.ssid}
 								<div class="flex gap-2 border-t border-border bg-surface px-3 py-2">
 									{#if net.security}
 										<Input
@@ -252,7 +268,7 @@
 		<div>
 			<div class="mb-2 text-sm font-medium text-text">Hidden network</div>
 			<div class="flex gap-2">
-				<Input type="text" placeholder="SSID" bind:value={hiddenSsidDraft} class="flex-1" />
+				<Input type="text" placeholder="Network name" bind:value={hiddenSsidDraft} class="flex-1" />
 				<Input type="password" placeholder="Password" bind:value={passwordDraft} class="flex-1" />
 				<Button
 					variant="secondary"

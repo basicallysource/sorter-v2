@@ -8,9 +8,15 @@
 
 ## What's here
 
-- **`build/`** — Python image builder. Runs locally on the M2 Mac via colima. No qemu, no Hive. Target wall-time < 3 min.
-- **`portal/`** — Captive-portal stack the image boots into when no Wi-Fi is configured. FastAPI backend + SvelteKit static frontend, both source-of-truth here. The build copies them into `/usr/local/sbin/sorteros-portal.py` and `/var/www/portal/` on the image.
+- **`build/`** — Python image builder. Runs locally on the M2 Mac via colima/OrbStack. No qemu, no Hive. Target wall-time < 3 min. Bases: official Orange Pi vendor images (OPi 5 and CM5 Tablet, Rockchip BSP kernel 6.1 — same track for both boards).
+- **`portal/`** — Captive-portal stack the image boots into when it has no network. FastAPI backend + SvelteKit static frontend, both source-of-truth here. The build copies them into `/usr/local/sbin/sorteros-portal.py` and `/var/www/portal/` on the image. A wired uplink with internet skips the portal entirely.
+- **`flash/`** — MaskROM flashing for the CM5 (`flash-cm5-maskrom.sh` + RK3588 SPL loader).
 - **`build-dashboard/`** — Local web UI + agent API in front of the builder.
+
+> An experimental Armbian-based build path (`armbian/`) existed while the
+> official CM5-Tablet base seemed to lack the Rockchip multimedia kernel; it
+> was removed once the official vendor-6.1 tablet image proved out (git
+> history has it if ever needed).
 
 ## Boot story
 
@@ -41,6 +47,7 @@ Recovery: deleting `/var/lib/sorteros/wifi-configured` (and rebooting) drops the
 sorteros/
 ├── README.md          # this file
 ├── build/             # image builder (build.py + overlay + chroot_apt.sh)
+├── flash/             # MaskROM flashing (flash-cm5-maskrom.sh + rkbin loader)
 ├── portal/            # captive-portal source (backend + frontend)
 │   ├── backend/portal.py
 │   ├── frontend/      # SvelteKit + adapter-static + Tailwind v4

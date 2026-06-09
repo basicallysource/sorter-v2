@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Flash the current SorterOS Armbian CM5 image via Rockchip MaskROM.
+# Flash a SorterOS image onto the Orange Pi CM5 via Rockchip MaskROM.
+# Defaults to the newest image in software/sorteros/build/out/.
 
 set -euo pipefail
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
-REPO_ROOT=$(cd -- "${SCRIPT_DIR}/../../.." && pwd)
-ARMBIAN_DIR=${ARMBIAN_BUILD_DIR:-${HOME}/Workspace/armbian-build-sorteros}
-IMAGE="${ARMBIAN_DIR}/output/images/Armbian-unofficial_26.05.0-trunk_Orangepi-cm5-sorter_noble_vendor_6.1.115_minimal.img"
-LOADER="${SCRIPT_DIR}/artifacts/rkbin/rk3588_spl_loader_v1.16.113.bin"
-READBACK="${SCRIPT_DIR}/artifacts/flash-readback-bootstrap-first16m-cm5-tablet-vendor-uboot.img"
+IMAGE=$(ls -t "${SCRIPT_DIR}/../build/out/"*.img 2>/dev/null | head -1 || true)
+LOADER="${SCRIPT_DIR}/rkbin/rk3588_spl_loader_v1.16.113.bin"
+READBACK="${SCRIPT_DIR}/flash-readback-first16m.img"
 WAIT_SECONDS=0
 NO_REBOOT=0
 

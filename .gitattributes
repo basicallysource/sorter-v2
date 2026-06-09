@@ -2,3 +2,4 @@ software/sorter/backend/bundled_models/**/*.onnx filter=lfs diff=lfs merge=lfs -
 software/sorter/backend/bundled_models/**/*.bin filter=lfs diff=lfs merge=lfs -text
 software/training/rknn_bundles/**/*.rknn filter=lfs diff=lfs merge=lfs -text
 software/sorteros/build/overlay/usr/lib/librknnrt.so filter=lfs diff=lfs merge=lfs -text
+software/sorteros/flash/rkbin/*.bin filter=lfs diff=lfs merge=lfs -text

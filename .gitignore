@@ -41,8 +41,7 @@ local_state.sqlite*
 /software/sorter/frontend/sorter-*.png
 /software/sorter/backend/aruco_config.json
 /software/sorter/backend/data/
-/software/sorteros/armbian/artifacts/
-/software/sorteros/armbian/userpatches/u-boot/
+/software/sorteros/flash/*.img
 /software/training/rknn_bundles/
 
 .DS_Store

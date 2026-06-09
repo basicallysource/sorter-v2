@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getBackendHttpBase } from '$lib/backend';
 	import { Alert, Button, Tooltip } from '$lib/components/primitives';
+	import BenchmarkModal from './BenchmarkModal.svelte';
 	import {
 		Download,
 		RefreshCw,
@@ -9,7 +10,9 @@
 		Search,
 		CheckCircle2,
 		ChevronDown,
-		ChevronRight
+		ChevronRight,
+		Gauge,
+		Zap
 	} from 'lucide-svelte';
 
 	type HiveTarget = { id: string; name: string; url: string };
@@ -31,20 +34,6 @@
 		target_id?: string | null;
 		target_url?: string | null;
 		target_name?: string | null;
-	};
-	type ModelVariant = {
-		id: string;
-		runtime: string;
-		file_name: string;
-		file_size: number;
-		sha256: string;
-		format_meta: Record<string, unknown> | null;
-		uploaded_at: string;
-	};
-	type ModelDetail = ModelSummary & {
-		training_metadata: Record<string, unknown> | null;
-		variants: ModelVariant[];
-		recommended_runtime: string | null;
 	};
 	type Installed = {
 		local_id: string;
@@ -78,7 +67,6 @@
 		created_at: string;
 		updated_at: string;
 	};
-
 	type ModelsPage = {
 		items: ModelSummary[];
 		total: number;
@@ -86,22 +74,38 @@
 		page_size: number;
 		pages: number;
 	};
+	type ActiveAssignment = {
+		scope: string;
+		role: string | null;
+		label: string;
+		algorithm_id: string | null;
+		registry_scope?: string;
+		group?: string;
+	};
+
+	// A single logical model — one or more downloaded format variants collapsed
+	// into one row, plus (for not-yet-downloaded models) the Hive catalog entry.
+	type UnifiedModel = {
+		key: string;
+		name: string;
+		codename: string | null;
+		codename_color: string | null;
+		model_family: string;
+		installed: boolean;
+		bundled: boolean;
+		variants: Installed[];
+		summary: ModelSummary | null;
+	};
 
 	const RUNTIME_OPTIONS = ['', 'onnx', 'ncnn', 'hailo', 'rknn', 'pytorch'] as const;
 	const PAGE_SIZE = 20;
 
 	let targets = $state<HiveTarget[]>([]);
-	// selectedTargetId is no longer used for browsing — the Browse Hive view
-	// aggregates across every configured target and each row carries its own
-	// target_id. We still load `targets` to surface the "no Hive configured"
-	// empty state and use it as a fallback for resolving the display name of
-	// installed models (see targetName()).
 	let targetsLoading = $state(true);
 	let targetsError = $state<string | null>(null);
 	let targetsMissing = $state(false);
 
-	let tab = $state<'available' | 'installed'>('installed');
-	let expandedDetailsId = $state<string | null>(null);
+	let expandedDetailsKey = $state<string | null>(null);
 
 	let query = $state('');
 	let scopeFilter = $state('');
@@ -119,33 +123,27 @@
 	let loadingInstalled = $state(false);
 	let installedError = $state<string | null>(null);
 
-	type ActiveAssignment = {
-		scope: string;
-		role: string | null;
-		label: string;
-		algorithm_id: string | null;
-		registry_scope?: string;
-		group?: string;
-	};
 	let activeAssignments = $state<ActiveAssignment[]>([]);
 
 	let jobs = $state<Job[]>([]);
 	let pollTimer: ReturnType<typeof setInterval> | null = null;
 
-	let downloadingModelId = $state<string | null>(null);
-	let deletingLocalId = $state<string | null>(null);
+	let downloadingKey = $state<string | null>(null);
+	let deletingKey = $state<string | null>(null);
 	let activatingAlgorithmId = $state<string | null>(null);
 	let cleaningUp = $state(false);
 	let actionError = $state<string | null>(null);
 
-	const detailCache = new Map<string, ModelDetail>();
+	// Machine-recommended model format (rknn / onnx / …) — used to pick which
+	// downloaded variant a row activates and benchmarks by default.
+	let recommendedFormatId = $state<string | null>(null);
 
-	const availableRuntimes = ['onnx', 'ncnn', 'hailo', 'rknn', 'pytorch'];
+	let benchmarkOpen = $state(false);
+	let benchmarkModel = $state<UnifiedModel | null>(null);
 
 	const hasActiveJob = $derived(
 		jobs.some((job) => job.status === 'queued' || job.status === 'downloading')
 	);
-
 	const activeJobModelIds = $derived(
 		new Set(
 			jobs
@@ -171,11 +169,7 @@
 		if (!iso) return '—';
 		const d = new Date(iso);
 		if (Number.isNaN(d.getTime())) return iso;
-		return d.toLocaleDateString(undefined, {
-			year: 'numeric',
-			month: 'short',
-			day: '2-digit'
-		});
+		return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' });
 	}
 
 	function formatRelativeAge(iso: string | null | undefined): string | null {
@@ -198,8 +192,6 @@
 		return `${years} year${years === '1' ? '' : 's'} ago`;
 	}
 
-
-
 	async function loadTargets() {
 		targetsLoading = true;
 		targetsError = null;
@@ -214,9 +206,7 @@
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = (await res.json()) as HiveTarget[];
 			targets = Array.isArray(data) ? data : [];
-			if (targets.length === 0) {
-				targetsMissing = true;
-			}
+			if (targets.length === 0) targetsMissing = true;
 		} catch (e: any) {
 			targetsError = e?.message ?? 'Failed to load Hive targets.';
 			targets = [];
@@ -230,8 +220,6 @@
 		modelsError = null;
 		try {
 			const params = new URLSearchParams();
-			// No target_id → backend aggregates across every configured Hive
-			// and tags each row with target_id/target_url/target_name.
 			if (query.trim()) params.set('q', query.trim());
 			if (scopeFilter.trim()) params.set('scope', scopeFilter.trim());
 			if (runtimeFilter) params.set('runtime', runtimeFilter);
@@ -294,15 +282,74 @@
 			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/active-assignments`);
 			if (!res.ok) return;
 			const data = await res.json();
-			const items = Array.isArray(data?.items) ? data.items : [];
-			activeAssignments = items as ActiveAssignment[];
+			activeAssignments = Array.isArray(data?.items) ? (data.items as ActiveAssignment[]) : [];
 		} catch {
 			// Active assignments are decorative — keep the page functional on failure.
 		}
 	}
 
+	async function loadRecommendedFormat() {
+		try {
+			const res = await fetch(`${getBackendHttpBase()}/api/runtimes/formats`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			const fmts = Array.isArray(payload?.formats) ? payload.formats : [];
+			let bestRank = Infinity;
+			let bestFmt: string | null = null;
+			let flaggedFmt: string | null = null;
+			for (const f of fmts) {
+				for (const o of f.options ?? []) {
+					if (!o.available) continue;
+					if (o.recommended) flaggedFmt = f.id;
+					if (typeof o.rank === 'number' && o.rank < bestRank) {
+						bestRank = o.rank;
+						bestFmt = f.id;
+					}
+				}
+			}
+			recommendedFormatId = flaggedFmt ?? bestFmt;
+		} catch {
+			// Recommendation is advisory — fall back to first-variant order.
+		}
+	}
+
 	function entryAlgorithmId(entry: Installed): string {
 		return `${entry.bundled ? 'bundled:' : 'hive:'}${entry.local_id}`;
+	}
+
+	function formatIdFromVariant(variant: string | null | undefined): string | null {
+		const v = (variant ?? '').toLowerCase();
+		if (v.includes('onnx')) return 'onnx';
+		if (v.includes('ncnn')) return 'ncnn';
+		if (v.includes('rknn')) return 'rknn';
+		if (v.includes('hef') || v.includes('hailo')) return 'hailo';
+		if (v.includes('pt') || v.includes('torch')) return 'pytorch';
+		return null;
+	}
+
+	function compatibleVariants(model: UnifiedModel): Installed[] {
+		return model.variants.filter((v) => v.compatible !== false);
+	}
+
+	// The variant a row's Activate/Benchmark actions target: the machine-
+	// recommended format if downloaded, else the first deployable variant.
+	function activationVariant(model: UnifiedModel): Installed | null {
+		const pool = compatibleVariants(model);
+		if (pool.length === 0) return null;
+		if (recommendedFormatId) {
+			const match = pool.find(
+				(v) => formatIdFromVariant(v.variant_runtime) === recommendedFormatId
+			);
+			if (match) return match;
+		}
+		return pool[0];
+	}
+
+	function activeLabelsForModel(model: UnifiedModel): string[] {
+		const ids = new Set(model.variants.map(entryAlgorithmId));
+		return activeAssignments
+			.filter((a) => a.algorithm_id != null && ids.has(a.algorithm_id))
+			.map((a) => a.label);
 	}
 
 	async function readApiError(res: Response, fallback: string): Promise<string> {
@@ -313,20 +360,13 @@
 			if (typeof parsed?.detail === 'string') return parsed.detail;
 			if (typeof parsed?.message === 'string') return parsed.message;
 		} catch {
-			// Not JSON — fall through and return the raw text.
+			// Not JSON — return raw text.
 		}
 		return text;
 	}
 
-	function activeLabelsFor(entry: Installed): string[] {
-		const id = entryAlgorithmId(entry);
-		return activeAssignments
-			.filter((assignment) => assignment.algorithm_id === id)
-			.map((assignment) => assignment.label);
-	}
-
-	function toggleDetails(localId: string) {
-		expandedDetailsId = expandedDetailsId === localId ? null : localId;
+	function toggleDetails(key: string) {
+		expandedDetailsKey = expandedDetailsKey === key ? null : key;
 	}
 
 	async function loadDownloads() {
@@ -335,36 +375,25 @@
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			const next: Job[] = Array.isArray(data?.jobs) ? (data.jobs as Job[]) : [];
-
 			const prevActive = new Set(
-				jobs
-					.filter((j) => j.status === 'queued' || j.status === 'downloading')
-					.map((j) => j.job_id)
+				jobs.filter((j) => j.status === 'queued' || j.status === 'downloading').map((j) => j.job_id)
 			);
 			let anyFinished = false;
 			for (const job of next) {
-				if (
-					prevActive.has(job.job_id) &&
-					(job.status === 'done' || job.status === 'failed')
-				) {
+				if (prevActive.has(job.job_id) && (job.status === 'done' || job.status === 'failed')) {
 					anyFinished = true;
 					break;
 				}
 			}
-
 			jobs = next;
-
 			if (anyFinished) {
 				void loadInstalled();
 				void loadActiveAssignments();
-				if (tab === 'available') {
-					void loadModels();
-				}
+				void loadModels();
 			}
 		} catch {
-			// Silent — the download poll runs in the background and any
-			// surfaced error already comes via actionError on enqueue. Job
-			// failures are surfaced through the failed-job alert.
+			// Silent — the poll runs in the background; failures surface via the
+			// failed-job alert.
 		}
 	}
 
@@ -376,70 +405,44 @@
 		page = 1;
 	}
 
-	async function ensureDetail(modelId: string, targetId: string | null | undefined): Promise<ModelDetail | null> {
-		if (!targetId) return null;
-		const cached = detailCache.get(modelId);
-		if (cached) return cached;
-		try {
-			const params = new URLSearchParams();
-			params.set('target_id', targetId);
-			const res = await fetch(
-				`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(modelId)}?${params.toString()}`
-			);
-			if (!res.ok) throw new Error(`HTTP ${res.status}`);
-			const data = (await res.json()) as ModelDetail;
-			detailCache.set(modelId, data);
-			return data;
-		} catch (e: any) {
-			actionError = e?.message ?? 'Failed to load model details.';
-			return null;
-		}
-	}
-
-	async function handleDownload(model: ModelSummary) {
-		const targetId = model.target_id;
-		if (!targetId) return;
+	async function handleDownload(model: UnifiedModel) {
+		const summary = model.summary;
+		const targetId = summary?.target_id;
+		if (!summary || !targetId) return;
 		actionError = null;
-		downloadingModelId = model.id;
+		downloadingKey = model.key;
 		try {
 			const params = new URLSearchParams();
 			params.set('target_id', targetId);
 			params.set('all', 'true');
 			const res = await fetch(
-				`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(model.id)}/download?${params.toString()}`,
+				`${getBackendHttpBase()}/api/hive/models/${encodeURIComponent(summary.id)}/download?${params.toString()}`,
 				{ method: 'POST' }
 			);
-			if (!res.ok) {
-				throw new Error(await readApiError(res, `HTTP ${res.status}`));
-			}
-			// Quiet flow: kick off the silent poll loop and let the Installed
-			// list refresh itself when the download finishes. No toast, no
-			// tab — keep the operator's attention on the model list.
+			if (!res.ok) throw new Error(await readApiError(res, `HTTP ${res.status}`));
 			await loadDownloads();
 		} catch (e: any) {
 			actionError = e?.message ?? 'Failed to enqueue download.';
 		} finally {
-			downloadingModelId = null;
+			downloadingKey = null;
 		}
 	}
 
-	// Activate a model for exactly ONE subsystem slot — 1:1 with the TOML, no
-	// fan-out and no scope fallback. The backend allows assigning a model to a
-	// slot outside its training scope (we flag it in the hover list), so there's
-	// no "valid?" gate here.
-	async function handleActivateForSlot(entry: Installed, slot: ActiveAssignment) {
-		const id = entryAlgorithmId(entry);
+	// Activate for ALL designed channels in one click — the default. The backend
+	// fans out to every detection slot the model's training scope claims.
+	async function handleActivateAll(model: UnifiedModel) {
+		const variant = activationVariant(model);
+		if (!variant) return;
+		const id = entryAlgorithmId(variant);
 		actionError = null;
 		activatingAlgorithmId = id;
 		try {
 			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/activate`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ algorithm_id: id, scope: slot.scope, role: slot.role })
+				body: JSON.stringify({ algorithm_id: id })
 			});
-			if (!res.ok) {
-				throw new Error(await readApiError(res, `HTTP ${res.status}`));
-			}
+			if (!res.ok) throw new Error(await readApiError(res, `HTTP ${res.status}`));
 			await loadActiveAssignments();
 		} catch (e: any) {
 			actionError = e?.message ?? 'Failed to activate model.';
@@ -448,78 +451,99 @@
 		}
 	}
 
-	async function handleCleanupUnused() {
-		// Sweep up: entries that aren't bundled, aren't currently active,
-		// and either are flagged as not-deployable on this sorter or just
-		// nobody uses them.
-		const candidates = installed.filter(
-			(entry) =>
-				!entry.bundled &&
-				(entry.compatible === false || activeLabelsFor(entry).length === 0)
-		);
-		if (candidates.length === 0) {
-			// No-op — the unused-count badge in the header already tells
-			// the operator there's nothing to do.
+	// The exception path: bind the model to exactly ONE subsystem slot.
+	async function handleActivateForSlot(model: UnifiedModel, slot: ActiveAssignment) {
+		const variant = activationVariant(model);
+		if (!variant) return;
+		const id = entryAlgorithmId(variant);
+		actionError = null;
+		activatingAlgorithmId = id;
+		try {
+			const res = await fetch(`${getBackendHttpBase()}/api/hive/models/activate`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ algorithm_id: id, scope: slot.scope, role: slot.role })
+			});
+			if (!res.ok) throw new Error(await readApiError(res, `HTTP ${res.status}`));
+			await loadActiveAssignments();
+		} catch (e: any) {
+			actionError = e?.message ?? 'Failed to activate model.';
+		} finally {
+			activatingAlgorithmId = null;
+		}
+	}
+
+	function openBenchmark(model: UnifiedModel) {
+		benchmarkModel = model;
+		benchmarkOpen = true;
+	}
+
+	async function deleteVariants(variants: Installed[]): Promise<string[]> {
+		const failures: string[] = [];
+		for (const entry of variants) {
+			if (entry.bundled) continue;
+			try {
+				const res = await fetch(
+					`${getBackendHttpBase()}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
+					{ method: 'DELETE' }
+				);
+				if (!res.ok)
+					failures.push(`${entry.name}: ${await readApiError(res, `HTTP ${res.status}`)}`);
+			} catch (e: any) {
+				failures.push(`${entry.name}: ${e?.message ?? 'request failed'}`);
+			}
+		}
+		return failures;
+	}
+
+	async function handleDeleteModel(model: UnifiedModel) {
+		const removable = model.variants.filter((v) => !v.bundled);
+		if (removable.length === 0) return;
+		const fmts = removable.map((v) => v.variant_runtime).join(', ');
+		if (
+			!confirm(
+				`Remove "${model.name}" (${removable.length} format${removable.length === 1 ? '' : 's'}: ${fmts}) from this sorter?`
+			)
+		) {
 			return;
 		}
-		const summary = candidates.map((entry) => entry.name).join('\n  • ');
-		if (!confirm(`Remove ${candidates.length} unused downloaded model${candidates.length === 1 ? '' : 's'}?\n\n  • ${summary}`)) {
+		actionError = null;
+		deletingKey = model.key;
+		try {
+			const failures = await deleteVariants(removable);
+			await Promise.all([loadInstalled(), loadModels(), loadActiveAssignments()]);
+			if (failures.length > 0)
+				actionError = `Some formats failed to delete:\n${failures.join('\n')}`;
+		} finally {
+			deletingKey = null;
+		}
+	}
+
+	async function handleCleanupUnused() {
+		const candidates = unifiedInstalled.filter(
+			(m) =>
+				!m.bundled && (compatibleVariants(m).length === 0 || activeLabelsForModel(m).length === 0)
+		);
+		if (candidates.length === 0) return;
+		const list = candidates.map((m) => m.name).join('\n  • ');
+		if (
+			!confirm(
+				`Remove ${candidates.length} unused model${candidates.length === 1 ? '' : 's'}?\n\n  • ${list}`
+			)
+		) {
 			return;
 		}
 		actionError = null;
 		cleaningUp = true;
 		try {
-			let removed = 0;
 			const failures: string[] = [];
-			for (const entry of candidates) {
-				try {
-					const res = await fetch(
-						`${getBackendHttpBase()}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
-						{ method: 'DELETE' }
-					);
-					if (!res.ok) {
-						failures.push(
-							`${entry.name}: ${await readApiError(res, `HTTP ${res.status}`)}`
-						);
-						continue;
-					}
-					removed += 1;
-				} catch (e: any) {
-					failures.push(`${entry.name}: ${e?.message ?? 'request failed'}`);
-				}
+			for (const model of candidates) {
+				failures.push(...(await deleteVariants(model.variants.filter((v) => !v.bundled))));
 			}
-			await loadInstalled();
-			if (tab === 'available') {
-				await loadModels();
-			}
-			if (failures.length > 0) {
-				actionError = `Removed ${removed}, ${failures.length} failed:\n${failures.join('\n')}`;
-			}
+			await Promise.all([loadInstalled(), loadModels(), loadActiveAssignments()]);
+			if (failures.length > 0) actionError = `${failures.length} failed:\n${failures.join('\n')}`;
 		} finally {
 			cleaningUp = false;
-		}
-	}
-
-	async function handleDelete(entry: Installed) {
-		if (!confirm(`Remove the installed model "${entry.name}" from this sorter?`)) return;
-		actionError = null;
-		deletingLocalId = entry.local_id;
-		try {
-			const res = await fetch(
-				`${getBackendHttpBase()}/api/hive/models/installed/${encodeURIComponent(entry.local_id)}`,
-				{ method: 'DELETE' }
-			);
-			if (!res.ok) {
-				throw new Error(await readApiError(res, `HTTP ${res.status}`));
-			}
-			await loadInstalled();
-			if (tab === 'available') {
-				await loadModels();
-			}
-		} catch (e: any) {
-			actionError = e?.message ?? 'Failed to delete model.';
-		} finally {
-			deletingLocalId = null;
 		}
 	}
 
@@ -529,69 +553,46 @@
 			pollTimer = null;
 		}
 	}
-
 	function startPolling() {
 		if (pollTimer !== null) return;
-		pollTimer = setInterval(() => {
-			void loadDownloads();
-		}, 2000);
+		pollTimer = setInterval(() => void loadDownloads(), 2000);
 	}
 
 	$effect(() => {
-		if (tab === 'available') {
-			// Track dependencies so the effect re-runs when they change.
-			void query;
-			void scopeFilter;
-			void runtimeFilter;
-			void familyFilter;
-			void page;
-			void loadModels();
-		}
+		// Catalog search/filters re-fetch the Hive side.
+		void query;
+		void scopeFilter;
+		void runtimeFilter;
+		void familyFilter;
+		void page;
+		if (!targetsMissing) void loadModels();
 	});
 
 	$effect(() => {
-		if (tab === 'installed') {
-			void loadInstalled();
-			void loadActiveAssignments();
-		}
-	});
-
-	$effect(() => {
-		// Keep polling silently while a download is in flight so the
-		// Installed list refreshes the moment it lands. No tab to render — the
-		// poll just drives the auto-refresh in loadDownloads().
-		if (hasActiveJob) {
-			startPolling();
-		} else {
-			stopPolling();
-		}
-		return () => {
-			stopPolling();
-		};
+		if (hasActiveJob) startPolling();
+		else stopPolling();
+		return () => stopPolling();
 	});
 
 	onMount(() => {
 		void (async () => {
 			await loadTargets();
-			await Promise.all([loadInstalled(), loadDownloads(), loadActiveAssignments()]);
+			await Promise.all([
+				loadInstalled(),
+				loadDownloads(),
+				loadActiveAssignments(),
+				loadRecommendedFormat()
+			]);
 		})();
-		return () => {
-			stopPolling();
-		};
+		return () => stopPolling();
 	});
-
-	function setTab(next: 'available' | 'installed') {
-		tab = next;
-	}
 
 	function onFilterChange() {
 		page = 1;
 	}
-
 	function prevPage() {
 		if (page > 1) page -= 1;
 	}
-
 	function nextPage() {
 		if (page < modelsPages) page += 1;
 	}
@@ -599,64 +600,120 @@
 	function targetName(id: string): string {
 		return targets.find((t) => t.id === id)?.name ?? id;
 	}
-
 	function targetUrl(id: string | null | undefined): string | null {
 		if (!id) return null;
 		return targets.find((t) => t.id === id)?.url ?? null;
 	}
-
 	function hostFromUrl(url: string | null | undefined): string | null {
 		if (!url) return null;
 		return url.replace(/^https?:\/\//, '').replace(/\/+$/, '');
 	}
-
 	function shortSha(sha: string | null | undefined): string {
 		if (!sha) return '—';
 		return `${sha.slice(0, 12)}…`;
 	}
-
 	function safeCodenameColor(color: string | null | undefined): string | null {
 		if (!color) return null;
 		const trimmed = color.trim();
 		return /^#[0-9a-fA-F]{6}$/.test(trimmed) ? trimmed : null;
 	}
-
 	function codenameDotStyle(color: string | null | undefined): string {
-		const safe = safeCodenameColor(color) ?? 'var(--color-primary)';
-		return `background-color: ${safe};`;
+		return `background-color: ${safeCodenameColor(color) ?? 'var(--color-primary)'};`;
 	}
-
-	// The model FORMAT (rknn/ncnn/onnx/…) is the only thing that distinguishes
-	// the multiple installed variants of one model — surface it as a prominent
-	// chip, with a primary accent for the NPU/accelerator runtimes so the
-	// operator can tell at a glance which one runs off-CPU.
 	function runtimeLabel(runtime: string | null | undefined): string {
 		return (runtime ?? '').toUpperCase() || '—';
 	}
-
 	function isAcceleratedRuntime(runtime: string | null | undefined): boolean {
 		const r = (runtime ?? '').toLowerCase();
 		return r.includes('rknn') || r.includes('hef') || r.includes('hailo');
 	}
+
+	// ── Unified model assembly ────────────────────────────────────────────
+	// Installed/bundled variants collapse into one row per logical model.
+	let unifiedInstalled = $derived.by<UnifiedModel[]>(() => {
+		const map = new Map<string, Installed[]>();
+		for (const e of installed) {
+			const key = typeof e.model_id === 'string' && e.model_id ? e.model_id : `local:${e.local_id}`;
+			const arr = map.get(key) ?? [];
+			arr.push(e);
+			map.set(key, arr);
+		}
+		const out: UnifiedModel[] = [];
+		for (const [key, variants] of map) {
+			const lead = activationVariant({ variants } as UnifiedModel) ?? variants[0];
+			out.push({
+				key,
+				name: lead.name,
+				codename: lead.codename ?? null,
+				codename_color: lead.codename_color ?? null,
+				model_family: lead.model_family,
+				installed: true,
+				bundled: variants.some((v) => v.bundled),
+				variants,
+				summary: null
+			});
+		}
+		// Active first, then alphabetical — the operator cares about what's live.
+		return out.sort((a, b) => {
+			const aActive = activeLabelsForModel(a).length > 0 ? 0 : 1;
+			const bActive = activeLabelsForModel(b).length > 0 ? 0 : 1;
+			if (aActive !== bActive) return aActive - bActive;
+			return a.name.localeCompare(b.name);
+		});
+	});
+
+	// Catalog models not yet downloaded — greyed Download rows below the installed.
+	let unifiedAvailable = $derived.by<UnifiedModel[]>(() => {
+		const installedIds = new Set(
+			installed.map((e) => e.model_id).filter((id): id is string => typeof id === 'string' && !!id)
+		);
+		return models
+			.filter((m) => !m.installed && !installedIds.has(m.id))
+			.map((m) => ({
+				key: `hive:${m.id}`,
+				name: m.name,
+				codename: m.codename ?? null,
+				codename_color: m.codename_color ?? null,
+				model_family: m.model_family,
+				installed: false,
+				bundled: false,
+				variants: [] as Installed[],
+				summary: m
+			}));
+	});
+
+	let visibleInstalled = $derived.by<UnifiedModel[]>(() => {
+		const q = query.trim().toLowerCase();
+		if (!q) return unifiedInstalled;
+		return unifiedInstalled.filter(
+			(m) =>
+				m.name.toLowerCase().includes(q) ||
+				(m.codename ?? '').toLowerCase().includes(q) ||
+				m.model_family.toLowerCase().includes(q)
+		);
+	});
+
+	let unusedCount = $derived(
+		unifiedInstalled.filter(
+			(m) =>
+				!m.bundled && (compatibleVariants(m).length === 0 || activeLabelsForModel(m).length === 0)
+		).length
+	);
 </script>
 
 <div class="grid gap-5">
-	<!-- ───────────────────── Action feedback ─────────────────────
-	     Errors only — success states are conveyed by the Installed list
-	     itself (Active pill, model appearing/disappearing). -->
 	{#if actionError}
 		<Alert variant="danger">
 			<div class="whitespace-pre-line">{actionError}</div>
 		</Alert>
 	{/if}
 
-	<!-- ───────────────────── Catalog manager ───────────────────── -->
 	{#if targetsLoading}
 		<Alert variant="info">Loading Hive targets…</Alert>
 	{:else if targetsMissing && installed.length === 0}
 		<Alert variant="info">
-			No Hive target configured and no models installed. Configure a target in the Hive
-			card to browse the catalog.
+			No Hive target configured and no models installed. Configure a target in the Hive card to
+			browse the catalog.
 		</Alert>
 	{:else if targetsError}
 		<Alert variant="danger">{targetsError}</Alert>
@@ -664,43 +721,44 @@
 
 	{#if !targetsLoading && !targetsError}
 		<div class="border border-border bg-surface">
-			<!-- Section header: tabs + target picker + refresh -->
-			<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-2">
-				<nav class="-mb-px flex items-stretch" aria-label="Models view">
-					<button
-						type="button"
-						onclick={() => setTab('installed')}
-						class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'installed' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
-					>
-						Installed
-						{#if installed.length > 0}
-							<span class="ml-1 text-xs font-normal text-text-muted">
-								{installed.length}
-							</span>
-						{/if}
-					</button>
-					{#if !targetsMissing}
-						<button
-							type="button"
-							onclick={() => setTab('available')}
-							class={`border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${tab === 'available' ? 'border-primary text-text' : 'border-transparent text-text-muted hover:text-text'}`}
+			<!-- Header: search + filters + refresh -->
+			<header
+				class="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-bg px-4 py-3"
+			>
+				<div class="relative min-w-[16rem] flex-1">
+					<Search
+						size={14}
+						class="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-text-muted"
+					/>
+					<input
+						bind:value={query}
+						oninput={onFilterChange}
+						type="text"
+						placeholder="Search models"
+						class="w-full border border-border bg-surface py-2 pr-3 pl-9 text-sm text-text focus:border-primary focus:outline-none"
+					/>
+				</div>
+				<div class="flex items-center gap-2">
+					{#if unusedCount > 0}
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => void handleCleanupUnused()}
+							disabled={cleaningUp}
+							loading={cleaningUp}
 						>
-							Browse Hive
-						</button>
+							<Trash2 size={12} />
+							<span>{cleaningUp ? 'Cleaning up' : `Cleanup ${unusedCount} unused`}</span>
+						</Button>
 					{/if}
-				</nav>
-
-				<div class="flex items-center gap-2 px-2 py-2">
-					<Tooltip text="Refresh current view">
+					<Tooltip text="Refresh">
 						<Button
 							variant="ghost"
 							size="sm"
 							onclick={() => {
-								if (tab === 'available') void loadModels();
-								if (tab === 'installed') {
-									void loadInstalled();
-									void loadActiveAssignments();
-								}
+								void loadInstalled();
+								void loadActiveAssignments();
+								void loadModels();
 							}}
 						>
 							<RefreshCw size={14} />
@@ -709,31 +767,16 @@
 				</div>
 			</header>
 
-			<div class="p-4">
-
-		{#if tab === 'available'}
-			<div class="flex flex-col gap-4">
-				<div class="flex flex-wrap items-center gap-2">
-					<div class="relative flex-1 min-w-[16rem]">
-						<Search
-							size={14}
-							class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
-						/>
-						<input
-							bind:value={query}
-							oninput={onFilterChange}
-							type="text"
-							placeholder="Search name or slug"
-							class="w-full border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text focus:border-primary focus:outline-none"
-						/>
-					</div>
+			{#if !targetsMissing}
+				<div
+					class="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-2"
+				>
 					<details class="group">
-						<summary class="cursor-pointer list-none border border-border bg-surface px-3 py-2 text-sm text-text-muted transition-colors hover:bg-bg">
+						<summary
+							class="cursor-pointer list-none text-sm text-text-muted transition-colors hover:text-text"
+						>
 							<span class="inline-flex items-center gap-1.5">
-								<ChevronRight
-									size={14}
-									class="transition-transform group-open:rotate-90"
-								/>
+								<ChevronRight size={14} class="transition-transform group-open:rotate-90" />
 								Advanced filters
 							</span>
 						</summary>
@@ -763,233 +806,62 @@
 							/>
 						</div>
 					</details>
-				</div>
-
-				<div class="flex items-center justify-between text-xs text-text-muted">
-					<span>
-						{#if loadingModels}
-							Loading models…
-						{:else}
-							{modelsTotal} model{modelsTotal === 1 ? '' : 's'}{modelsPages > 1
-								? ` · page ${page} of ${modelsPages}`
-								: ''}
-						{/if}
-					</span>
 					{#if query || scopeFilter || runtimeFilter || familyFilter}
 						<button
 							type="button"
 							onclick={resetFilters}
-							class="text-text-muted underline-offset-2 hover:text-text hover:underline"
+							class="text-sm text-text-muted underline-offset-2 hover:text-text hover:underline"
 						>
 							Clear filters
 						</button>
 					{/if}
 				</div>
+			{/if}
 
-				{#if modelsError}
-					<Alert variant="danger">{modelsError}</Alert>
-				{/if}
-
-				{#if !loadingModels && models.length === 0 && !modelsError}
-					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
-						No models found.
-					</div>
-				{:else}
-					<ul class="flex flex-col">
-						{#each models as model, idx (model.id)}
-							{@const jobActive = activeJobModelIds.has(model.id)}
-							{@const browseHref = model.target_url ? `${model.target_url.replace(/\/+$/, '')}/models/${model.id}` : null}
-							<li
-								class={`flex flex-wrap items-center justify-between gap-3 border border-border bg-surface px-4 py-3 ${idx > 0 ? '-mt-px' : ''}`}
-							>
-								<div class="min-w-0 flex-1">
-									<div class="flex flex-wrap items-center gap-2">
-										{#if model.codename}
-											<span
-												class="inline-flex items-center gap-1.5 text-sm font-semibold text-text"
-												title={`Hive codename: ${model.codename}`}
-											>
-												<span
-													class="inline-block h-2.5 w-2.5"
-													style={codenameDotStyle(model.codename_color)}
-												></span>
-												{model.codename}
-											</span>
-										{:else if browseHref}
-											<a
-												href={browseHref}
-												target="_blank"
-												rel="noopener noreferrer"
-												class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
-												title={`Open in source Hive: ${browseHref}`}
-											>
-												{model.name}
-											</a>
-										{:else}
-											<span class="font-mono text-sm font-medium text-text">{model.name}</span>
-										{/if}
-										{#if model.installed}
-											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
-												<CheckCircle2 size={10} />
-												Installed
-											</span>
-										{/if}
-									</div>
-									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
-										{#if model.codename}
-											{#if browseHref}
-												<a
-													href={browseHref}
-													target="_blank"
-													rel="noopener noreferrer"
-													class="font-mono text-text-muted hover:text-primary hover:underline"
-													title={`Open in source Hive: ${browseHref}`}
-												>
-													{model.name}
-												</a>
-											{:else}
-												<span class="font-mono">{model.name}</span>
-											{/if}
-											<span aria-hidden="true">·</span>
-										{/if}
-										<span>{model.model_family}</span>
-										<span aria-hidden="true">·</span>
-										<span>v{model.version}</span>
-										{#if model.variant_runtimes.length > 0}
-											<span aria-hidden="true">·</span>
-											<span>
-												{model.variant_runtimes.length} format{model.variant_runtimes.length === 1 ? '' : 's'}
-												<span class="text-text-muted/70">
-													({model.variant_runtimes.join(', ')})
-												</span>
-											</span>
-										{/if}
-										<span aria-hidden="true">·</span>
-										<Tooltip text={`Published ${formatDate(model.published_at)}`}>
-											<span class="text-text">
-												published {formatRelativeAge(model.published_at) ?? formatDate(model.published_at)}
-											</span>
-										</Tooltip>
-										{#if model.target_url}
-											<span aria-hidden="true">·</span>
-											<span class="font-mono text-text-muted/80" title={`Source Hive: ${model.target_url}`}>
-												{model.target_url.replace(/^https?:\/\//, '')}
-											</span>
-										{/if}
-									</div>
-								</div>
-								<Button
-									variant={model.installed ? 'secondary' : 'primary'}
-									size="sm"
-									disabled={jobActive || downloadingModelId === model.id || !model.target_id}
-									loading={downloadingModelId === model.id || jobActive}
-									onclick={() => void handleDownload(model)}
-								>
-									{#if !(downloadingModelId === model.id || jobActive)}
-										<Download size={12} />
-									{/if}
-									<span>
-										{jobActive
-											? 'Downloading…'
-											: downloadingModelId === model.id
-												? 'Starting…'
-												: model.installed
-													? 'Download again'
-													: 'Download'}
-									</span>
-								</Button>
-							</li>
-						{/each}
-					</ul>
-				{/if}
-
-				{#if modelsPages > 1}
-					<div class="flex items-center justify-end gap-2 text-xs">
-						<Button variant="secondary" size="sm" onclick={prevPage} disabled={page <= 1}>
-							Previous
-						</Button>
-						<span class="text-text-muted">Page {page} of {modelsPages}</span>
-						<Button
-							variant="secondary"
-							size="sm"
-							onclick={nextPage}
-							disabled={page >= modelsPages}
-						>
-							Next
-						</Button>
-					</div>
-				{/if}
-			</div>
-		{:else if tab === 'installed'}
-			{@const unusedCount = installed.filter(
-				(entry) =>
-					!entry.bundled &&
-					(entry.compatible === false || activeLabelsFor(entry).length === 0)
-			).length}
-			<div class="flex flex-col gap-4">
+			<div class="p-4">
 				{#if installedError}
 					<Alert variant="danger">{installedError}</Alert>
 				{/if}
-
-				{#if installed.length > 0}
-					<div class="flex flex-wrap items-center justify-between gap-3 text-xs text-text-muted">
-						<span>
-							{installed.length} installed
-							{#if unusedCount > 0}
-								· <span class="text-warning-dark dark:text-warning">{unusedCount} unused</span>
-							{/if}
-						</span>
-						{#if unusedCount > 0}
-							<Button
-								variant="ghost"
-								size="sm"
-								onclick={() => void handleCleanupUnused()}
-								disabled={cleaningUp}
-								loading={cleaningUp}
-							>
-								<Trash2 size={12} />
-								<span>
-									{cleaningUp ? 'Cleaning up' : `Cleanup ${unusedCount} unused`}
-								</span>
-							</Button>
-						{/if}
-					</div>
+				{#if modelsError}
+					<Alert variant="danger" class="mt-2">{modelsError}</Alert>
 				{/if}
 
-				{#if loadingInstalled}
-					<div class="text-sm text-text-muted">Loading installed models…</div>
-				{:else if installed.length === 0}
-					<div class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
-						No models installed yet. Open <span class="font-medium text-text">Browse Hive</span> to download one.
-					</div>
+				{#if loadingInstalled && installed.length === 0}
+					<div class="text-sm text-text-muted">Loading models…</div>
 				{:else}
 					<ul class="flex flex-col">
-						{#each installed as entry, idx (entry.local_id)}
-							{@const activeLabels = activeLabelsFor(entry)}
+						<!-- ── Downloaded / bundled models ── -->
+						{#each visibleInstalled as model, idx (model.key)}
+							{@const activeLabels = activeLabelsForModel(model)}
 							{@const isActive = activeLabels.length > 0}
-							{@const isExpanded = expandedDetailsId === entry.local_id}
-							{@const algorithmId = entryAlgorithmId(entry)}
-							{@const ageIso = entry.trained_at ?? entry.downloaded_at}
-							{@const ageRelative = formatRelativeAge(ageIso)}
-							{@const isCompatible = entry.compatible !== false}
-							{@const hiveBase = targetUrl(entry.target_id)}
-							{@const detailHref = !entry.bundled && hiveBase ? `${hiveBase.replace(/\/+$/, '')}/models/${entry.model_id}` : null}
+							{@const isExpanded = expandedDetailsKey === model.key}
+							{@const compatible = compatibleVariants(model)}
+							{@const canActivate = compatible.length > 0}
+							{@const target = activationVariant(model)}
+							{@const lead = model.variants[0]}
+							{@const ageIso = lead.trained_at ?? lead.downloaded_at}
+							{@const hiveBase = targetUrl(lead.target_id)}
+							{@const detailHref =
+								!model.bundled && hiveBase
+									? `${hiveBase.replace(/\/+$/, '')}/models/${lead.model_id}`
+									: null}
+							{@const removable = model.variants.filter((v) => !v.bundled).length}
 							<li
-								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !isCompatible ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
+								class={`border ${idx > 0 ? '-mt-px' : ''} ${isActive ? 'border-success bg-success/[0.06]' : !canActivate ? 'border-border bg-bg opacity-70' : 'border-border bg-surface'}`}
 							>
 								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 									<div class="min-w-0 flex-1">
 										<div class="flex flex-wrap items-center gap-2">
-											{#if entry.codename}
+											{#if model.codename}
 												<span
 													class="inline-flex items-center gap-1.5 text-sm font-semibold text-text"
-													title={`Hive codename: ${entry.codename}`}
+													title={`Hive codename: ${model.codename}`}
 												>
 													<span
 														class="inline-block h-2.5 w-2.5"
-														style={codenameDotStyle(entry.codename_color)}
+														style={codenameDotStyle(model.codename_color)}
 													></span>
-													{entry.codename}
+													{model.codename}
 												</span>
 											{:else if detailHref}
 												<a
@@ -999,91 +871,101 @@
 													class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
 													title={`Open in source Hive: ${detailHref}`}
 												>
-													{entry.name}
+													{model.name}
 												</a>
 											{:else}
-												<span class="font-mono text-sm font-medium text-text">
-													{entry.name}
-												</span>
+												<span class="font-mono text-sm font-medium text-text">{model.name}</span>
 											{/if}
-											<span
-												class={`inline-flex items-center px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${
-													isAcceleratedRuntime(entry.variant_runtime)
-														? 'border border-primary text-primary'
-														: 'border border-border text-text-muted'
-												}`}
-												title={isAcceleratedRuntime(entry.variant_runtime)
-													? `${runtimeLabel(entry.variant_runtime)} — runs on the NPU/accelerator`
-													: `${runtimeLabel(entry.variant_runtime)} — CPU runtime`}
-											>
-												{runtimeLabel(entry.variant_runtime)}
-											</span>
-											{#if entry.bundled}
-												<span class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
+											{#each model.variants as variant (variant.local_id)}
+												{@const isTarget = target?.local_id === variant.local_id}
+												<span
+													class={`inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold tracking-wider uppercase ${
+														variant.compatible === false
+															? 'border border-border text-text-muted opacity-60'
+															: isAcceleratedRuntime(variant.variant_runtime)
+																? 'border border-primary text-primary'
+																: 'border border-border text-text-muted'
+													}`}
+													title={variant.compatible === false
+														? `${runtimeLabel(variant.variant_runtime)} — not deployable on this sorter`
+														: isTarget
+															? `${runtimeLabel(variant.variant_runtime)} — recommended on this machine`
+															: runtimeLabel(variant.variant_runtime)}
+												>
+													{#if isTarget && canActivate}
+														<Zap size={10} />
+													{/if}
+													{runtimeLabel(variant.variant_runtime)}
+												</span>
+											{/each}
+											{#if model.bundled}
+												<span
+													class="inline-flex items-center bg-text-muted/20 px-2 py-0.5 text-xs font-semibold tracking-wider text-text uppercase"
+												>
 													Bundled
 												</span>
 											{/if}
-											{#if !isCompatible}
-												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN, Hailo and RKNN are deployable.`}>
-													<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
-														Not supported
-													</span>
-												</Tooltip>
-											{/if}
 										</div>
-										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
-											{#if entry.codename}
+										<div
+											class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
+										>
+											{#if model.codename}
 												{#if detailHref}
 													<a
 														href={detailHref}
 														target="_blank"
 														rel="noopener noreferrer"
 														class="font-mono text-text-muted hover:text-primary hover:underline"
-														title={`Open in source Hive: ${detailHref}`}
+														>{model.name}</a
 													>
-														{entry.name}
-													</a>
 												{:else}
-													<span class="font-mono">{entry.name}</span>
+													<span class="font-mono">{model.name}</span>
 												{/if}
 												<span aria-hidden="true">·</span>
 											{/if}
-											<span>{entry.model_family}</span>
+											<span>{model.model_family}</span>
 											<span aria-hidden="true">·</span>
-											<span>{formatSize(entry.size_bytes)}</span>
+											<span
+												>{formatSize(
+													model.variants.reduce((s, v) => s + (v.size_bytes || 0), 0)
+												)}</span
+											>
 											{#if ageIso}
 												<span aria-hidden="true">·</span>
-												<Tooltip text={`${entry.trained_at ? 'Trained' : 'Downloaded'} ${formatDate(ageIso)}`}>
-													<span class="text-text">
-														{entry.trained_at ? 'trained' : 'downloaded'}
-														{ageRelative}
-													</span>
+												<Tooltip
+													text={`${lead.trained_at ? 'Trained' : 'Downloaded'} ${formatDate(ageIso)}`}
+												>
+													<span class="text-text"
+														>{lead.trained_at ? 'trained' : 'downloaded'}
+														{formatRelativeAge(ageIso)}</span
+													>
 												</Tooltip>
 											{/if}
-											{#if entry.bundled}
+											{#if model.bundled}
 												<span aria-hidden="true">·</span>
 												<span>bundled</span>
-											{:else if hostFromUrl(targetUrl(entry.target_id)) }
+											{:else if hostFromUrl(hiveBase)}
 												<span aria-hidden="true">·</span>
-												<span class="font-mono text-text-muted/80" title={`From Hive: ${targetUrl(entry.target_id)}`}>
-													{hostFromUrl(targetUrl(entry.target_id))}
-												</span>
+												<span class="font-mono text-text-muted/80" title={`From Hive: ${hiveBase}`}
+													>{hostFromUrl(hiveBase)}</span
+												>
 											{/if}
 										</div>
 									</div>
 
 									<div class="flex flex-wrap items-center gap-2">
-										{#if !isCompatible}
-											<span class="px-3 py-1.5 text-xs text-text-muted">
-												Cannot activate
-											</span>
+										{#if !canActivate}
+											<span class="px-3 py-1.5 text-xs text-text-muted">Cannot activate</span>
 										{:else}
-											<!-- Hover-expand activate: assign this model to a single
-											     subsystem at a time, 1:1 with the TOML, no fallback. -->
-											<div class="group relative">
+											<!-- Default = activate every designed channel; the dropdown
+											     scopes it down to a single channel as the exception. -->
+											<div class="flex items-stretch">
 												<button
 													type="button"
-													class={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors ${
+													disabled={activatingAlgorithmId ===
+														(target ? entryAlgorithmId(target) : '')}
+													onclick={() => void handleActivateAll(model)}
+													class={`inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors disabled:opacity-60 ${
 														isActive
 															? 'border-success/40 bg-success/[0.08] text-text'
 															: 'border-border bg-surface text-text hover:bg-bg'
@@ -1093,63 +975,77 @@
 														<CheckCircle2 size={14} class="shrink-0 text-success" />
 														<span>Active: {activeLabels.join(', ')}</span>
 													{:else}
-														<span>Activate</span>
+														<span>Activate all channels</span>
 													{/if}
-													<ChevronDown size={13} class="opacity-70" />
 												</button>
-												<div
-													class="invisible absolute right-0 top-full z-30 mt-px min-w-[16rem] border border-border bg-surface opacity-0 shadow-lg transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100"
-												>
-													<div
-														class="border-b border-border px-3 py-2 text-xs font-semibold uppercase tracking-wider text-text-muted"
+												<div class="group relative">
+													<button
+														type="button"
+														aria-label="Activate for a single channel"
+														class="inline-flex h-full items-center border border-l-0 border-border bg-surface px-1.5 text-text transition-colors hover:bg-bg"
 													>
-														Activate for subsystem
-													</div>
-													{#if activeAssignments.length === 0}
-														<div class="px-3 py-2 text-sm text-text-muted">
-															No detection subsystems on this machine setup.
-														</div>
-													{/if}
-													{#each activeAssignments as slot (slot.scope + (slot.role ?? ''))}
-														{@const slotActive = slot.algorithm_id === algorithmId}
-														{@const designedFor = (entry.registry_scopes ?? []).includes(
-															slot.registry_scope ?? '__none__'
-														)}
-														<button
-															type="button"
-															disabled={activatingAlgorithmId === algorithmId}
-															onclick={() => void handleActivateForSlot(entry, slot)}
-															class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-bg disabled:opacity-60 ${
-																slotActive ? 'bg-success/[0.08]' : ''
-															}`}
+														<ChevronDown size={14} class="opacity-70" />
+													</button>
+													<div
+														class="invisible absolute top-full right-0 z-30 mt-px min-w-[16rem] border border-border bg-surface opacity-0 shadow-lg transition-opacity duration-100 group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100"
+													>
+														<div
+															class="border-b border-border px-3 py-2 text-xs font-semibold tracking-wider text-text-muted uppercase"
 														>
-															<span class="flex min-w-0 items-center gap-2">
-																{#if slotActive}
-																	<CheckCircle2 size={14} class="shrink-0 text-success" />
-																{:else}
-																	<span class="inline-block w-[14px] shrink-0"></span>
-																{/if}
-																<span class="truncate text-text">{slot.label}</span>
-															</span>
-															{#if !designedFor}
-																<span
-																	class="inline-flex shrink-0 items-center bg-warning/20 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wider text-warning-dark dark:text-warning"
-																>
-																	not designed for this
+															Only for one channel
+														</div>
+														{#if activeAssignments.length === 0}
+															<div class="px-3 py-2 text-sm text-text-muted">
+																No detection subsystems on this machine setup.
+															</div>
+														{/if}
+														{#each activeAssignments as slot (slot.scope + (slot.role ?? ''))}
+															{@const slotActive =
+																target != null && slot.algorithm_id === entryAlgorithmId(target)}
+															{@const designedFor = (target?.registry_scopes ?? []).includes(
+																slot.registry_scope ?? '__none__'
+															)}
+															<button
+																type="button"
+																disabled={activatingAlgorithmId ===
+																	(target ? entryAlgorithmId(target) : '')}
+																onclick={() => void handleActivateForSlot(model, slot)}
+																class={`flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm transition-colors hover:bg-bg disabled:opacity-60 ${slotActive ? 'bg-success/[0.08]' : ''}`}
+															>
+																<span class="flex min-w-0 items-center gap-2">
+																	{#if slotActive}
+																		<CheckCircle2 size={14} class="shrink-0 text-success" />
+																	{:else}
+																		<span class="inline-block w-[14px] shrink-0"></span>
+																	{/if}
+																	<span class="truncate text-text">Only {slot.label}</span>
 																</span>
-															{/if}
-														</button>
-													{/each}
+																{#if !designedFor}
+																	<span
+																		class="inline-flex shrink-0 items-center bg-warning/20 px-1.5 py-0.5 text-xs font-medium tracking-wider text-warning-dark uppercase dark:text-warning"
+																	>
+																		not designed for this
+																	</span>
+																{/if}
+															</button>
+														{/each}
+													</div>
 												</div>
 											</div>
+											<Tooltip text="Benchmark inference speed on this machine">
+												<Button variant="secondary" size="sm" onclick={() => openBenchmark(model)}>
+													<Gauge size={14} />
+													<span>Benchmark</span>
+												</Button>
+											</Tooltip>
 										{/if}
-										{#if !entry.bundled}
+										{#if removable > 0}
 											<Tooltip text="Remove this downloaded model">
 												<Button
 													variant="ghost"
 													size="sm"
-													disabled={deletingLocalId === entry.local_id}
-													onclick={() => void handleDelete(entry)}
+													disabled={deletingKey === model.key}
+													onclick={() => void handleDeleteModel(model)}
 												>
 													<Trash2 size={14} class="text-danger" />
 												</Button>
@@ -1158,8 +1054,8 @@
 										<button
 											type="button"
 											aria-expanded={isExpanded}
-											aria-controls={`installed-details-${entry.local_id}`}
-											onclick={() => toggleDetails(entry.local_id)}
+											aria-controls={`model-details-${model.key}`}
+											onclick={() => toggleDetails(model.key)}
 											class="inline-flex items-center gap-1 px-1.5 py-1 text-xs text-text-muted transition-colors hover:text-text"
 										>
 											{#if isExpanded}
@@ -1174,66 +1070,185 @@
 
 								{#if isExpanded}
 									<div
-										id={`installed-details-${entry.local_id}`}
+										id={`model-details-${model.key}`}
 										class="border-t border-border bg-bg px-4 py-3"
 									>
 										<dl class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1.5 text-xs">
-											{#if entry.trained_at}
+											{#if lead.trained_at}
 												<dt class="text-text-muted">Trained</dt>
 												<dd class="text-text">
-													{formatDate(entry.trained_at)}
-													<span class="ml-1 text-text-muted">
-														({formatRelativeAge(entry.trained_at)})
-													</span>
+													{formatDate(lead.trained_at)}
+													<span class="ml-1 text-text-muted"
+														>({formatRelativeAge(lead.trained_at)})</span
+													>
 												</dd>
+											{/if}
+											<dt class="text-text-muted">Formats</dt>
+											<dd class="text-text">
+												{#each model.variants as v, vi (v.local_id)}
+													{vi > 0 ? ', ' : ''}{runtimeLabel(v.variant_runtime)} ({formatSize(
+														v.size_bytes
+													)})
+												{/each}
+											</dd>
+											<dt class="text-text-muted">{model.bundled ? 'Source' : 'Downloaded'}</dt>
+											<dd class="text-text">
+												{model.bundled
+													? 'Shipped with sorter'
+													: `${formatDate(lead.downloaded_at)} (${formatRelativeAge(lead.downloaded_at) ?? '—'})`}
+											</dd>
+											{#if !model.bundled}
+												<dt class="text-text-muted">Hive</dt>
+												<dd class="font-mono break-all text-text">
+													{hiveBase ?? targetName(lead.target_id ?? '')}
+												</dd>
+											{/if}
+											{#if target}
+												<dt class="text-text-muted">Active algorithm ID</dt>
+												<dd class="font-mono break-all text-text">{entryAlgorithmId(target)}</dd>
 											{/if}
 											<dt class="text-text-muted">SHA-256</dt>
-											<dd class="font-mono text-text" title={entry.sha256 ?? ''}>
-												{shortSha(entry.sha256)}
-											</dd>
-											<dt class="text-text-muted">Size</dt>
-											<dd class="text-text">{formatSize(entry.size_bytes)}</dd>
-											<dt class="text-text-muted">
-												{entry.bundled ? 'Source' : 'Downloaded'}
-											</dt>
-											<dd class="text-text">
-												{entry.bundled
-													? 'Shipped with sorter'
-													: `${formatDate(entry.downloaded_at)} (${formatRelativeAge(entry.downloaded_at) ?? '—'})`}
-											</dd>
-											{#if !entry.bundled}
-												<dt class="text-text-muted">Hive</dt>
-												<dd class="break-all font-mono text-text">
-													{targetUrl(entry.target_id) ?? targetName(entry.target_id ?? '')}
-												</dd>
-											{/if}
-											<dt class="text-text-muted">Algorithm ID</dt>
-											<dd class="break-all font-mono text-text">{algorithmId}</dd>
-											<dt class="text-text-muted">Path</dt>
-											<dd
-												class="break-all font-mono text-text"
-												title={entry.path}
-											>
-												{entry.path}
+											<dd class="font-mono text-text" title={lead.sha256 ?? ''}>
+												{shortSha(lead.sha256)}
 											</dd>
 										</dl>
 									</div>
 								{/if}
 							</li>
 						{/each}
+
+						<!-- ── Available on Hive (not yet downloaded) ── -->
+						{#if !targetsMissing && unifiedAvailable.length > 0}
+							<li
+								class="-mt-px border-b border-border bg-bg px-4 py-2 text-xs font-semibold tracking-wider text-text-muted uppercase"
+							>
+								Available on Hive
+								{#if loadingModels}<span class="ml-1 font-normal lowercase">· loading…</span>{/if}
+							</li>
+							{#each unifiedAvailable as model (model.key)}
+								{@const summary = model.summary}
+								{@const jobActive = summary != null && activeJobModelIds.has(summary.id)}
+								{@const browseHref = summary?.target_url
+									? `${summary.target_url.replace(/\/+$/, '')}/models/${summary.id}`
+									: null}
+								<li
+									class="-mt-px flex flex-wrap items-center justify-between gap-3 border border-border bg-bg px-4 py-3 opacity-70"
+								>
+									<div class="min-w-0 flex-1">
+										<div class="flex flex-wrap items-center gap-2">
+											{#if model.codename}
+												<span
+													class="inline-flex items-center gap-1.5 text-sm font-semibold text-text"
+													title={`Hive codename: ${model.codename}`}
+												>
+													<span
+														class="inline-block h-2.5 w-2.5"
+														style={codenameDotStyle(model.codename_color)}
+													></span>
+													{model.codename}
+												</span>
+											{:else if browseHref}
+												<a
+													href={browseHref}
+													target="_blank"
+													rel="noopener noreferrer"
+													class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
+													>{model.name}</a
+												>
+											{:else}
+												<span class="font-mono text-sm font-medium text-text">{model.name}</span>
+											{/if}
+										</div>
+										<div
+											class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted"
+										>
+											<span>{model.model_family}</span>
+											{#if summary}
+												<span aria-hidden="true">·</span>
+												<span>v{summary.version}</span>
+												{#if summary.variant_runtimes.length > 0}
+													<span aria-hidden="true">·</span>
+													<span>{summary.variant_runtimes.join(', ')}</span>
+												{/if}
+												<span aria-hidden="true">·</span>
+												<Tooltip text={`Published ${formatDate(summary.published_at)}`}>
+													<span class="text-text"
+														>published {formatRelativeAge(summary.published_at) ??
+															formatDate(summary.published_at)}</span
+													>
+												</Tooltip>
+												{#if summary.target_url}
+													<span aria-hidden="true">·</span>
+													<span
+														class="font-mono text-text-muted/80"
+														title={`Source Hive: ${summary.target_url}`}
+														>{summary.target_url.replace(/^https?:\/\//, '')}</span
+													>
+												{/if}
+											{/if}
+										</div>
+									</div>
+									<Button
+										variant="primary"
+										size="sm"
+										disabled={jobActive || downloadingKey === model.key || !summary?.target_id}
+										loading={downloadingKey === model.key || jobActive}
+										onclick={() => void handleDownload(model)}
+									>
+										{#if !(downloadingKey === model.key || jobActive)}
+											<Download size={12} />
+										{/if}
+										<span
+											>{jobActive
+												? 'Downloading…'
+												: downloadingKey === model.key
+													? 'Starting…'
+													: 'Download'}</span
+										>
+									</Button>
+								</li>
+							{/each}
+						{/if}
+
+						{#if visibleInstalled.length === 0 && unifiedAvailable.length === 0 && !loadingModels && !loadingInstalled}
+							<li class="border border-border bg-bg px-4 py-6 text-center text-sm text-text-muted">
+								{query ? 'No models match your search.' : 'No models installed or available.'}
+							</li>
+						{/if}
 					</ul>
 				{/if}
-			</div>
-		{/if}
 
-		{#if jobs.some((job) => job.status === 'failed')}
-			{@const failure = jobs.find((job) => job.status === 'failed')}
-			<Alert variant="danger" class="mt-3">
-				Download failed: {failure?.error ?? failure?.file_name ?? 'unknown error'}
-			</Alert>
-		{/if}
+				{#if !targetsMissing && modelsPages > 1}
+					<div class="mt-3 flex items-center justify-end gap-2 text-xs">
+						<Button variant="secondary" size="sm" onclick={prevPage} disabled={page <= 1}
+							>Previous</Button
+						>
+						<span class="text-text-muted">Hive page {page} of {modelsPages}</span>
+						<Button variant="secondary" size="sm" onclick={nextPage} disabled={page >= modelsPages}
+							>Next</Button
+						>
+					</div>
+				{/if}
 
+				{#if jobs.some((job) => job.status === 'failed')}
+					{@const failure = jobs.find((job) => job.status === 'failed')}
+					<Alert variant="danger" class="mt-3">
+						Download failed: {failure?.error ?? failure?.file_name ?? 'unknown error'}
+					</Alert>
+				{/if}
 			</div>
 		</div>
 	{/if}
 </div>
+
+{#if benchmarkModel}
+	<BenchmarkModal
+		bind:open={benchmarkOpen}
+		modelName={benchmarkModel.codename ?? benchmarkModel.name}
+		variants={compatibleVariants(benchmarkModel).map((v) => ({
+			local_id: v.local_id,
+			variant_runtime: v.variant_runtime
+		}))}
+		baseUrl={getBackendHttpBase()}
+	/>
+{/if}

@@ -4,7 +4,6 @@ import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
 import SampleCaptureSection from '$lib/components/settings/SampleCaptureSection.svelte';
 import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
 import TailscaleSection from '$lib/components/settings/TailscaleSection.svelte';
-import WifiSection from '$lib/components/settings/WifiSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 </script>
@@ -42,13 +41,6 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 				</a>
 			</div>
 		</div>
-	</SectionCard>
-
-	<SectionCard
-		title="WiFi"
-		description="Scan for wireless networks and connect — the wired LAN connection stays untouched."
-	>
-		<WifiSection />
 	</SectionCard>
 
 	<SectionCard

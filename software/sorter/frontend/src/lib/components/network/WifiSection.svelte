@@ -3,7 +3,7 @@
 	import { machineHttpBaseUrlFromWsUrl, getBackendHttpBase } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import { Button, Input, Alert } from '$lib/components/primitives';
-	import { Wifi, WifiOff, Lock, Cable, RefreshCcw } from 'lucide-svelte';
+	import { Wifi, WifiOff, Lock, RefreshCcw } from 'lucide-svelte';
 
 	const machine = getMachineContext();
 
@@ -14,17 +14,10 @@
 		ssid?: string | null;
 		ip?: string | null;
 	};
-	type EthernetState = {
-		device: string;
-		state: string;
-		connection: string | null;
-		ip?: string | null;
-	};
 	type NetworkStatus = {
 		available: boolean;
 		radio_enabled?: boolean;
 		wifi?: WifiState;
-		ethernet?: EthernetState[];
 	};
 	type ScanNetwork = {
 		ssid: string;
@@ -149,10 +142,6 @@
 		selectedSsid = selectedSsid === ssid ? null : ssid;
 	}
 
-	const connectedEthernet = $derived(
-		(status?.ethernet ?? []).filter((e) => e.state.startsWith('connected'))
-	);
-
 	onMount(() => {
 		void loadStatus();
 	});
@@ -194,12 +183,6 @@
 				</Button>
 			</div>
 		{/if}
-		{#each connectedEthernet as eth (eth.device)}
-			<div class="mt-2 flex items-center gap-2 text-sm text-text-muted">
-				<Cable size={14} />
-				<span>Wired LAN connected ({eth.device}{eth.ip ? `, ${eth.ip}` : ''}) — stays up regardless of WiFi changes.</span>
-			</div>
-		{/each}
 	</div>
 
 	{#if status?.available}

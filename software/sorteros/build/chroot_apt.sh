@@ -161,6 +161,9 @@ systemctl enable sorteros-firstboot.service || true
 log "enabling sorteros-onboarding (portal)"
 systemctl enable sorteros-onboarding.service || true
 
+log "enabling sorteros-performance-governor"
+systemctl enable sorteros-performance-governor.service || true
+
 # We install dnsmasq-base (the binary NetworkManager spawns for AP/shared
 # mode — required by the onboarding captive portal). The standalone
 # dnsmasq.service must never run: systemd-resolved owns port 53, and NM

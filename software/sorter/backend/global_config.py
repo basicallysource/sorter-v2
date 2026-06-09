@@ -56,6 +56,9 @@ class GlobalConfig:
     brickognize_dump_root: Optional[Path]
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]
+    max_log_bytes: int
+    dump_logs_to_file: bool
+    metrics_retention_days: float
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
@@ -64,6 +67,16 @@ class GlobalConfig:
         self.brickognize_dump_root: Optional[Path] = None
         self.classification_burst_dump_root: Optional[Path] = None
         self.classification_skew_dump_root: Optional[Path] = None
+        # Cap on the total size of run logs kept under software/logs/. At each
+        # startup we delete whole old session .log files (oldest-first) until
+        # the directory fits under this, so the SD card can't fill with logs.
+        self.max_log_bytes = 1 * 1024 ** 3
+        self.dump_logs_to_file = False
+        # Age cap for the per-second metric snapshot tables in local_state.sqlite
+        # (runtime_perf + profiler). The pruner deletes rows older than this; the
+        # runtime-perf table writes one row/metric/second regardless of toggles,
+        # so without this the DB grows without bound (it hit 7 GB on one machine).
+        self.metrics_retention_days = 3.0
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must
@@ -156,8 +169,17 @@ def mkGlobalConfig() -> GlobalConfig:
     # under software/logs/ that survives across runs by gc.run_id.
     if os.getenv("CLASSIFICATION_SKEW_DUMP_IMAGES", "0") == "1":
         gc.classification_skew_dump_root = Path(log_dir).resolve() / "classification_skew" / gc.run_id
+    # Persistent per-run .log dumping is opt-in (DUMP_BACKEND_LOGS=1). It is
+    # unconditional otherwise and, at DEBUG_LEVEL>=2, floods multi-GB files that
+    # have filled SD cards. journald already captures stdout, so default off.
     log_file = os.path.join(log_dir, datetime.now().strftime("%Y-%m-%d_%H-%M-%S") + ".log")
-    gc.logger = Logger(gc.debug_level, log_file=log_file)
+    gc.dump_logs_to_file = os.getenv("DUMP_BACKEND_LOGS", "0") == "1"
+    gc.logger = Logger(gc.debug_level, log_file=log_file if gc.dump_logs_to_file else None)
+    # Single background pruning system (logs + DB metric snapshots). Prune logs
+    # regardless of the dump flag so previously-accumulated logs still get
+    # cleaned; only protect the live file when we are actually writing one.
+    from pruner import runPruningAsync
+    runPruningAsync(gc, log_dir, log_file if gc.dump_logs_to_file else None)
     # Profiler enable lives in machine_params.toml ([profiler] enabled), toggled
     # from the Performance settings page. Defaults OFF: profiling adds per-call
     # timing overhead across hot loops (notably the frontend camera feed) and

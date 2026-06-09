@@ -718,13 +718,39 @@ _OPTION_DISPATCH: dict[str, dict] = {
 }
 
 
+def _pause_live_inference():
+    """Pause the perception inference loops for the benchmark window so the
+    measurement gets the NPU (and the CPU feeding threads) to itself. Returns
+    a resume callback; both directions are best-effort no-ops when perception
+    is not running."""
+    from server import shared_state
+
+    service = getattr(getattr(shared_state, "gc_ref", None), "perception_service", None)
+    if service is None or not getattr(service, "started", False):
+        return False, lambda: None
+    try:
+        paused = service.pause_inference() > 0
+    except Exception:
+        return False, lambda: None
+
+    def _resume() -> None:
+        try:
+            service.resume_inference()
+        except Exception:
+            pass
+
+    return paused, _resume
+
+
 @router.post("/benchmark")
 def run_benchmark(req: BenchmarkRequest) -> dict:
     """Run ``req.iterations`` forward passes of the chosen model+runtime.
 
     Synchronous — meant to be called sequentially from the UI, one option
-    at a time, so results aren't skewed by concurrent load. ``threads``
-    only meaningfully differs for NCNN/ONNX-CPU; other paths ignore it.
+    at a time, so results aren't skewed by concurrent load. Live perception
+    inference is paused for the duration so it does not compete for the NPU.
+    ``threads`` only meaningfully differs for NCNN/ONNX-CPU; other paths
+    ignore it.
     """
     spec = _OPTION_DISPATCH.get(req.option_id)
     if spec is None:
@@ -737,6 +763,7 @@ def run_benchmark(req: BenchmarkRequest) -> dict:
     warmup = max(0, min(20, int(req.warmup)))
     threads = max(1, min(32, int(req.threads)))
 
+    live_inference_paused, resume_live_inference = _pause_live_inference()
     try:
         if spec["backend"] == "onnx":
             result = _bench_onnx(
@@ -774,11 +801,14 @@ def run_benchmark(req: BenchmarkRequest) -> dict:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Benchmark failed: {exc}")
+    finally:
+        resume_live_inference()
 
     return {
         "option_id": req.option_id,
         "local_id": req.local_id,
         "threads": threads,
+        "live_inference_paused": live_inference_paused,
         **result,
     }
 

@@ -196,6 +196,7 @@ class InferenceWorker:
         self._logger = logger
 
         self._stop = threading.Event()
+        self._paused = threading.Event()
         self._thread = threading.Thread(
             target=self._loop,
             daemon=True,
@@ -406,6 +407,18 @@ class InferenceWorker:
         if self._thread.is_alive():
             self._thread.join(timeout=timeout)
 
+    def pause(self) -> None:
+        """Idle the hot loop without tearing the thread down. Capture keeps
+        running; the NPU goes quiet (used while benchmarks need it alone)."""
+        self._paused.set()
+
+    def resume(self) -> None:
+        self._paused.clear()
+
+    @property
+    def paused(self) -> bool:
+        return self._paused.is_set()
+
     # --- hot loop --------------------------------------------------------
 
     @staticmethod
@@ -596,6 +609,9 @@ class InferenceWorker:
 
     def _loop(self) -> None:
         while not self._stop.is_set():
+            if self._paused.is_set():
+                self._stop.wait(0.2)
+                continue
             self.iterations += 1
             _hit(self._profiler, f"perception.{self.source_id}.iterations")
             try:

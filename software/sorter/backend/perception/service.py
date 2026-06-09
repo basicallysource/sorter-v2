@@ -163,6 +163,21 @@ class PerceptionService:
     def started(self) -> bool:
         return self._started
 
+    def pause_inference(self) -> int:
+        """Idle every channel's inference loop (captures keep running) so the
+        NPU is exclusively available, e.g. for model benchmarks. Returns the
+        number of workers paused. Reconcile may swap workers while paused —
+        acceptable for the short benchmark window; resume clears all."""
+        count = 0
+        for worker in self._workers.values():
+            worker.pause()
+            count += 1
+        return count
+
+    def resume_inference(self) -> None:
+        for worker in self._workers.values():
+            worker.resume()
+
     # --- live reconcile -------------------------------------------------
 
     def request_reconcile(self) -> None:

@@ -1770,6 +1770,13 @@ class CaptureThread:
             await asyncio.sleep(0.02)
         raise RuntimeError(f"CaptureThread[{self.name}] is stopping; no GStreamer H.264 source.")
 
+    def request_keyframe(self) -> None:
+        with self._cap_lock:
+            runtime = self._gst_runtime
+        request = getattr(runtime, "request_keyframe", None)
+        if callable(request):
+            request()
+
     def describeEncodedH264Source(self) -> dict[str, Any]:
         with self._cap_lock:
             runtime = self._gst_runtime

@@ -166,6 +166,7 @@
 	// view mounts and removed once the live stream renders its first frame.
 	let posterVisible = $state(true);
 	let posterLoaded = $state(false);
+	let liveFrameRendered = $state(false);
 	let rtcVideo = $state<HTMLVideoElement | null>(null);
 	let mediaContainer = $state<HTMLDivElement | null>(null);
 	let mediaContainerWidth = $state(0);
@@ -538,14 +539,14 @@
 		rtcVideo.srcObject = rtcStream;
 		if (rtcStream !== null) {
 			const video = rtcVideo;
+			const onFirstFrame = () => {
+				posterVisible = false;
+				liveFrameRendered = true;
+			};
 			if ('requestVideoFrameCallback' in video) {
-				video.requestVideoFrameCallback(() => (posterVisible = false));
+				video.requestVideoFrameCallback(onFirstFrame);
 			} else {
-				(video as HTMLVideoElement).addEventListener(
-					'loadeddata',
-					() => (posterVisible = false),
-					{ once: true }
-				);
+				(video as HTMLVideoElement).addEventListener('loadeddata', onFirstFrame, { once: true });
 			}
 			void rtcVideo.play().catch(() => {
 				// Autoplay may be temporarily blocked; the element is muted and will
@@ -579,6 +580,7 @@
 		const [httpBase, role, streamEpoch] = key.split('\n');
 		posterVisible = true;
 		posterLoaded = false;
+		liveFrameRendered = false;
 		untrack(() => releaseWebrtcSession());
 		const lease = acquireCameraWebrtcSession(
 			{ baseUrl: httpBase, camera: role, streamEpoch },
@@ -652,7 +654,10 @@
 					class="absolute max-w-none"
 					class:opacity-30={!is_healthy}
 					style={mediaLayout.imageStyle}
-					onload={() => (posterVisible = false)}
+					onload={() => {
+						posterVisible = false;
+						liveFrameRendered = true;
+					}}
 					onerror={scheduleStreamRetry}
 				/>
 			{:else if legacyMjpegAllowed}
@@ -661,7 +666,10 @@
 					alt={display_label}
 					class="absolute inset-0 h-full w-full object-contain"
 					class:opacity-30={!is_healthy}
-					onload={() => (posterVisible = false)}
+					onload={() => {
+						posterVisible = false;
+						liveFrameRendered = true;
+					}}
 					onerror={scheduleStreamRetry}
 				/>
 			{:else if !posterLoaded}
@@ -690,7 +698,7 @@
 			{/if}
 		{/if}
 
-		{#if browserOverlayCandidate && mediaLayout && overlayItems.length > 0}
+		{#if browserOverlayCandidate && mediaLayout && overlayItems.length > 0 && (liveFrameRendered || (posterVisible && posterLoaded))}
 			<svg
 				class="pointer-events-none absolute"
 				style={mediaLayout.overlayStyle}

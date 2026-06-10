@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import numpy as np
+
 
 LIBRGA_VIRTUALADDR_PATH = "librga_virtualaddr"
 
@@ -185,6 +187,124 @@ cleanup:
     }
     return rc;
 }
+
+/*
+ * Persistent NV12->BGR conversion context.
+ *
+ * The one-shot crop/scale entry point above allocates, imports (pins) and
+ * releases its RGA buffers on every call, which costs more CPU than the
+ * conversion itself. The raw-ring branch converts every captured frame, so
+ * it keeps one context per camera with the aligned buffers imported once.
+ */
+typedef struct {
+    int width;
+    int height;
+    uint8_t *src_buf;
+    uint8_t *dst_buf;
+    rga_buffer_handle_t src_handle;
+    rga_buffer_handle_t dst_handle;
+    rga_buffer_t src_img;
+    rga_buffer_t dst_img;
+} sorter_nv12_bgr_ctx;
+
+void sorter_librga_nv12_bgr_ctx_destroy(sorter_nv12_bgr_ctx *ctx) {
+    if (ctx == NULL) {
+        return;
+    }
+    if (ctx->src_handle) {
+        releasebuffer_handle(ctx->src_handle);
+    }
+    if (ctx->dst_handle) {
+        releasebuffer_handle(ctx->dst_handle);
+    }
+    free(ctx->src_buf);
+    free(ctx->dst_buf);
+    free(ctx);
+}
+
+sorter_nv12_bgr_ctx *sorter_librga_nv12_bgr_ctx_create(
+    int width,
+    int height,
+    char *err,
+    int err_len
+) {
+    if (width <= 0 || height <= 0 || ((width | height) & 1)) {
+        set_error(err, err_len, "NV12 dimensions must be positive and even");
+        return NULL;
+    }
+    sorter_nv12_bgr_ctx *ctx = calloc(1, sizeof(sorter_nv12_bgr_ctx));
+    if (ctx == NULL) {
+        set_error(err, err_len, "context allocation failed");
+        return NULL;
+    }
+    ctx->width = width;
+    ctx->height = height;
+    size_t src_size = (size_t)width * (size_t)height * 3 / 2;
+    size_t dst_size = (size_t)width * (size_t)height * 3;
+    if (posix_memalign((void **)&ctx->src_buf, 4096, src_size) != 0 ||
+        posix_memalign((void **)&ctx->dst_buf, 4096, dst_size) != 0) {
+        set_error(err, err_len, "aligned buffer allocation failed");
+        sorter_librga_nv12_bgr_ctx_destroy(ctx);
+        return NULL;
+    }
+
+    im_handle_param_t src_param = {
+        .width = (uint32_t)width,
+        .height = (uint32_t)height,
+        .format = RK_FORMAT_YCbCr_420_SP,
+    };
+    im_handle_param_t dst_param = {
+        .width = (uint32_t)width,
+        .height = (uint32_t)height,
+        .format = RK_FORMAT_BGR_888,
+    };
+    ctx->src_handle = importbuffer_virtualaddr(ctx->src_buf, &src_param);
+    ctx->dst_handle = importbuffer_virtualaddr(ctx->dst_buf, &dst_param);
+    if (!ctx->src_handle || !ctx->dst_handle) {
+        set_error(err, err_len, "importbuffer_virtualaddr failed");
+        sorter_librga_nv12_bgr_ctx_destroy(ctx);
+        return NULL;
+    }
+    ctx->src_img = wrapbuffer_handle(ctx->src_handle, width, height, RK_FORMAT_YCbCr_420_SP);
+    ctx->dst_img = wrapbuffer_handle(ctx->dst_handle, width, height, RK_FORMAT_BGR_888);
+    return ctx;
+}
+
+int sorter_librga_nv12_bgr_ctx_convert(
+    sorter_nv12_bgr_ctx *ctx,
+    const uint8_t *src,
+    uint8_t *dst,
+    char *err,
+    int err_len
+) {
+    if (ctx == NULL || src == NULL || dst == NULL) {
+        set_error(err, err_len, "context, source and destination are required");
+        return 10;
+    }
+    size_t src_size = (size_t)ctx->width * (size_t)ctx->height * 3 / 2;
+    size_t dst_size = (size_t)ctx->width * (size_t)ctx->height * 3;
+    memcpy(ctx->src_buf, src, src_size);
+
+    im_rect full_rect = {0, 0, ctx->width, ctx->height};
+    im_rect pat_rect = {0, 0, 0, 0};
+    rga_buffer_t pat_img;
+    memset(&pat_img, 0, sizeof(pat_img));
+    IM_STATUS status = improcess(
+        ctx->src_img,
+        ctx->dst_img,
+        pat_img,
+        full_rect,
+        full_rect,
+        pat_rect,
+        IM_SYNC
+    );
+    if (!ok_status(status)) {
+        set_status_error(err, err_len, "librga improcess NV12->BGR failed", status);
+        return 16;
+    }
+    memcpy(dst, ctx->dst_buf, dst_size);
+    return 0;
+}
 """
 
 
@@ -270,6 +390,21 @@ def _load_library() -> ctypes.CDLL:
                 ctypes.c_int,
             ]
             function.restype = ctypes.c_int
+            ctx_create = library.sorter_librga_nv12_bgr_ctx_create
+            ctx_create.argtypes = [ctypes.c_int, ctypes.c_int, ctypes.c_char_p, ctypes.c_int]
+            ctx_create.restype = ctypes.c_void_p
+            ctx_convert = library.sorter_librga_nv12_bgr_ctx_convert
+            ctx_convert.argtypes = [
+                ctypes.c_void_p,
+                ctypes.c_char_p,
+                ctypes.c_void_p,
+                ctypes.c_char_p,
+                ctypes.c_int,
+            ]
+            ctx_convert.restype = ctypes.c_int
+            ctx_destroy = library.sorter_librga_nv12_bgr_ctx_destroy
+            ctx_destroy.argtypes = [ctypes.c_void_p]
+            ctx_destroy.restype = None
             _LIBRARY = library
             return library
         except Exception as exc:
@@ -284,6 +419,8 @@ class DirectLibrgaNv12Scaler:
 
     def __init__(self) -> None:
         self._library = _load_library()
+        self._bgr_contexts: dict[tuple[int, int], int] = {}
+        self._ctx_lock = threading.Lock()
 
     @classmethod
     def available(cls) -> bool:
@@ -362,6 +499,59 @@ class DirectLibrgaNv12Scaler:
             reason = err.value.decode("utf-8", errors="replace") or f"librga returned {rc}"
             raise LibrgaUnavailableError(reason)
         return output.raw
+
+    def nv12_to_bgr(
+        self,
+        payload: bytes | memoryview,
+        *,
+        width: int,
+        height: int,
+    ) -> np.ndarray:
+        """Convert a full NV12 frame to a writable BGR ndarray on the RGA.
+
+        This replaces the per-frame CPU ``cv2.cvtColor`` in the raw-ring
+        branch. The RGA context (pinned buffers) is created once per frame
+        size and reused; the only CPU work left per frame is two memcpys.
+        """
+        width = int(width)
+        height = int(height)
+        expected = width * height * 3 // 2
+        data = bytes(payload)
+        if len(data) != expected:
+            data = _slice_tight_nv12(data, width, height)
+        output = np.empty((height, width, 3), dtype=np.uint8)
+        err = ctypes.create_string_buffer(512)
+        with self._ctx_lock:
+            ctx = self._bgr_contexts.get((width, height))
+            if ctx is None:
+                ctx = self._library.sorter_librga_nv12_bgr_ctx_create(width, height, err, len(err))
+                if not ctx:
+                    reason = err.value.decode("utf-8", errors="replace") or "context create failed"
+                    raise LibrgaUnavailableError(reason)
+                self._bgr_contexts[(width, height)] = ctx
+            rc = self._library.sorter_librga_nv12_bgr_ctx_convert(
+                ctx,
+                data,
+                output.ctypes.data,
+                err,
+                len(err),
+            )
+        if rc != 0:
+            reason = err.value.decode("utf-8", errors="replace") or f"librga returned {rc}"
+            raise LibrgaUnavailableError(reason)
+        return output
+
+    def __del__(self) -> None:
+        contexts = getattr(self, "_bgr_contexts", None)
+        library = getattr(self, "_library", None)
+        if not contexts or library is None:
+            return
+        for ctx in contexts.values():
+            try:
+                library.sorter_librga_nv12_bgr_ctx_destroy(ctx)
+            except Exception:
+                pass
+        contexts.clear()
 
 
 def _slice_tight_nv12(data: bytes, width: int, height: int) -> bytes:

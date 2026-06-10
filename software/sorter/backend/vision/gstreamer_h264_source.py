@@ -49,6 +49,11 @@ class GStreamerCaptureH264Source:
     async def recv_encoded_h264(self):
         return await self._capture_thread.recv_encoded_h264()
 
+    def request_keyframe(self) -> None:
+        request = getattr(self._capture_thread, "request_keyframe", None)
+        if callable(request):
+            request()
+
     def stop(self) -> None:
         # The underlying CaptureThread owns the camera and must remain alive for
         # calibration/detection and other roles sharing the same physical source.

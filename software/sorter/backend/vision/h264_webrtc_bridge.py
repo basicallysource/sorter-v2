@@ -161,6 +161,14 @@ class HardwareH264SourceFanout:
         self._subscriber_event.set()
         if self._reader_task is None or self._reader_task.done():
             self._reader_task = asyncio.create_task(self._read_loop())
+        # New peers join mid-GOP and cannot decode until the next IDR; ask the
+        # encoder for one now so the first picture is immediate.
+        request_keyframe = getattr(self.source, "request_keyframe", None)
+        if callable(request_keyframe):
+            try:
+                request_keyframe()
+            except Exception:
+                log.debug("keyframe request on subscribe failed", exc_info=True)
         return subscription
 
     def unsubscribe(self, subscription: HardwareH264FanoutSubscription) -> None:

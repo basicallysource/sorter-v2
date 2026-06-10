@@ -12,6 +12,7 @@ capability metadata instead of silently falling back to OpenCV or software H.264
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import queue
 import threading
@@ -40,6 +41,8 @@ from .librga_nv12 import (
     create_direct_librga_nv12_scaler,
 )
 from .types import CameraFrame
+
+log = logging.getLogger(__name__)
 
 
 GST_SECOND = 1_000_000_000
@@ -180,6 +183,7 @@ class GStreamerTargetCaptureRuntime:
         self._module_loader = module_loader
         self._librga_scaler_factory = librga_scaler_factory
         self._direct_librga_scaler: Any | None = None
+        self._raw_bgr_librga_failed = False
         self._raw_frame_callback = raw_frame_callback
         self._raw_ring: deque[CameraFrame] = deque(maxlen=max(1, int(raw_ring_size)))
         self._detection_ring: deque[CameraFrame] = deque(maxlen=max(1, int(raw_ring_size)))
@@ -308,6 +312,29 @@ class GStreamerTargetCaptureRuntime:
         self.start()
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self._next_h264_frame_blocking)
+
+    def request_keyframe(self) -> None:
+        """Ask the encoder for an immediate IDR (with SPS/PPS).
+
+        A WebRTC peer that joins mid-GOP cannot decode anything until the next
+        keyframe — with GOP = fps that is up to a second of black video after
+        the connection is already up. Forcing a key unit on subscriber join
+        makes the first picture appear right after the handshake.
+        """
+        modules = self._modules
+        pipeline = self._encoder_pipeline or self._pipeline
+        if modules is None or pipeline is None:
+            return
+        try:
+            encoder = pipeline.get_by_name("sorter_h264_encoder")
+            if encoder is None:
+                return
+            Gst = modules.Gst
+            structure = Gst.Structure.new_empty("GstForceKeyUnit")
+            structure.set_value("all-headers", True)
+            encoder.send_event(Gst.Event.new_custom(Gst.EventType.CUSTOM_UPSTREAM, structure))
+        except Exception:
+            log.debug("force-keyunit request failed", exc_info=True)
 
     def describe_capture_backend(self) -> dict[str, Any]:
         active_config = self._active_detection_config()
@@ -681,12 +708,38 @@ class GStreamerTargetCaptureRuntime:
         return self._raw_frame_from_nv12(payload, timestamp=timestamp)
 
     def _raw_frame_from_nv12(self, payload: bytes, *, timestamp: float) -> CameraFrame:
-        raw = coerce_nv12_sample_bytes(payload, width=self.config.width, height=self.config.height)
+        raw = self._bgr_from_nv12(payload)
         return CameraFrame(
             raw=raw,
             annotated=None,
             results=[],
             timestamp=timestamp,
+        )
+
+    def _bgr_from_nv12(self, payload: bytes) -> Any:
+        # Prefer the RGA for the full-res NV12->BGR conversion: this runs per
+        # captured frame and the CPU cvtColor path was the single hottest
+        # block in the whole backend under live viewing.
+        if not self._raw_bgr_librga_failed:
+            scaler = self._direct_librga_scaler
+            if scaler is None:
+                scaler = self._librga_scaler_factory()
+                if scaler is not None:
+                    self._direct_librga_scaler = scaler
+            if scaler is not None and hasattr(scaler, "nv12_to_bgr"):
+                try:
+                    return scaler.nv12_to_bgr(
+                        payload, width=self.config.width, height=self.config.height
+                    )
+                except Exception as exc:
+                    self._raw_bgr_librga_failed = True
+                    log.warning(
+                        "librga NV12->BGR failed, falling back to CPU conversion: %s", exc
+                    )
+            else:
+                self._raw_bgr_librga_failed = True
+        return coerce_nv12_sample_bytes(
+            payload, width=self.config.width, height=self.config.height
         )
 
     def _push_direct_librga_preview_from_nv12(self, payload: bytes, *, pts_ns: int | None) -> None:

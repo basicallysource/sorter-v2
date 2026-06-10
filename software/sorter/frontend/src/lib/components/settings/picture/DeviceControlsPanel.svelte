@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { Tooltip } from '$lib/components/primitives';
+	import { Info } from 'lucide-svelte';
 	import {
 		processingModeLabel,
 		whiteBalanceModeLabel,
@@ -223,7 +225,14 @@
 		{:else if control.kind === 'menu' && control.options && control.options.length > 0}
 			<label class="flex flex-col gap-2 {disabled ? 'opacity-60' : ''}">
 				<div class="flex items-center justify-between gap-3 text-sm">
-					<span class="font-medium text-text">{control.label}</span>
+					<span class="flex items-center gap-1.5 font-medium text-text">
+						{control.label}
+						{#if control.help}
+							<Tooltip text={control.help}>
+								<Info size={13} class="text-text-muted" />
+							</Tooltip>
+						{/if}
+					</span>
 					<span class="truncate text-sm text-text-muted">
 						{formatUsbValue(control)}
 					</span>
@@ -238,11 +247,6 @@
 						<option value={String(option.value)} disabled={option.disabled}>{option.label}</option>
 					{/each}
 				</select>
-				{#if control.help}
-					<div class="text-sm text-text-muted">
-						{control.help}
-					</div>
-				{/if}
 			</label>
 		{:else if control.kind === 'button'}
 			<label
@@ -266,7 +270,14 @@
 			{@const usbStep = Number(control.step ?? 1)}
 			<label class="flex flex-col gap-2 {disabled ? 'opacity-60' : ''}">
 				<div class="flex items-center justify-between gap-3 text-sm">
-					<span class="font-medium text-text">{control.label}</span>
+					<span class="flex items-center gap-1.5 font-medium text-text">
+						{control.label}
+						{#if control.help}
+							<Tooltip text={control.help}>
+								<Info size={13} class="text-text-muted" />
+							</Tooltip>
+						{/if}
+					</span>
 					<span class="font-mono text-sm text-text-muted">
 						{formatUsbValue(control)}
 					</span>
@@ -297,11 +308,6 @@
 						>&plus;</button
 					>
 				</div>
-				{#if control.help}
-					<div class="text-sm text-text-muted">
-						{control.help}
-					</div>
-				{/if}
 			</label>
 		{/if}
 	{/each}

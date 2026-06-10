@@ -32,7 +32,7 @@
 		type PictureSettings
 	} from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
-	import { RotateCcw, Save, SlidersHorizontal, Undo2, X } from 'lucide-svelte';
+	import { RotateCcw, Save, SlidersHorizontal, Undo2, Wand2, X } from 'lucide-svelte';
 	import { Alert } from '$lib/components/primitives';
 	import CaptureModePanel from './picture/CaptureModePanel.svelte';
 	import DeviceControlsPanel from './picture/DeviceControlsPanel.svelte';
@@ -394,6 +394,39 @@
 		}
 	}
 
+	let calibrating = $state(false);
+
+	async function calibratePicture() {
+		if (!deviceSupported) return;
+		calibrating = true;
+		saving = true;
+		error = null;
+		status = 'Calibrating — make sure the channel is empty…';
+		invalidateDevicePreview();
+		try {
+			const res = await fetch(
+				`${getBackendHttpBase()}/api/cameras/device-settings/${role}/calibrate-picture`,
+				{ method: 'POST' }
+			);
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			const report = data.report ?? {};
+			if (data.ok) {
+				status = `Picture calibrated (brightness ${report.luma ?? '–'}, ${report.exposure_steps ?? 0} exposure / ${report.wb_steps ?? 0} WB steps).`;
+			} else {
+				error = report.reason ?? 'Calibration did not converge.';
+				status = '';
+			}
+			await loadDeviceSettings();
+		} catch (e: any) {
+			error = e.message ?? 'Picture calibration failed';
+			status = '';
+		} finally {
+			calibrating = false;
+			saving = false;
+		}
+	}
+
 	async function resetCameraDeviceDefaults() {
 		if (!deviceSupported) return;
 		saving = true;
@@ -620,6 +653,15 @@
 				{/if}
 
 				{#if deviceSupported}
+					<button
+						onclick={calibratePicture}
+						disabled={saving}
+						title="Locks auto exposure/white balance and converges on a stable, neutral picture. Run with an empty channel."
+						class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<Wand2 size={15} />
+						<span>{calibrating ? 'Calibrating…' : 'Calibrate Picture'}</span>
+					</button>
 					<button
 						onclick={resetCameraDeviceDefaults}
 						disabled={saving}

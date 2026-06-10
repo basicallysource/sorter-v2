@@ -2596,6 +2596,94 @@ def reset_camera_device_settings_to_defaults(role: str) -> Dict[str, Any]:
     }
 
 
+def _latest_raw_frame_for_role(role: str):
+    """Newest BGR frame for a role from the running camera service, or None."""
+    svc = shared_state.camera_service
+    if svc is None:
+        return None
+    feed = svc.get_feed(role)
+    if feed is None:
+        _, config = _read_machine_params_config()
+        config_role = _camera_config_role_for_role(config, role)
+        if config_role != role:
+            feed = svc.get_feed(config_role)
+    if feed is None:
+        return None
+    device = getattr(feed, "device", None)
+    frame = getattr(device, "latest_frame", None)
+    raw = getattr(frame, "raw", None)
+    return raw if raw is not None and getattr(raw, "size", 0) else None
+
+
+@router.post("/api/cameras/device-settings/{role}/calibrate-picture")
+def calibrate_camera_picture(role: str) -> Dict[str, Any]:
+    """One-click picture calibration: lock AE/AWB, converge exposure/gain on
+    the target brightness and white balance on a neutral scene, then persist
+    the result as this role's saved device settings. Run with an empty
+    channel — the tray background is the neutral reference.
+    """
+    from vision.picture_calibration import calibrate_picture
+
+    params_path, config = _read_machine_params_config()
+    source = _camera_source_for_role(config, role)
+    if source is None:
+        raise HTTPException(status_code=404, detail="No camera is assigned to this role.")
+    if isinstance(source, str):
+        raise HTTPException(
+            status_code=400,
+            detail="Picture calibration is only available for USB cameras.",
+        )
+
+    saved_settings = cameraDeviceSettingsToDict(
+        parseCameraDeviceSettings(_get_camera_device_settings_table(config).get(role))
+    )
+    controls, _ = _camera_service_usb_device_controls(role, source, saved_settings)
+    if not controls:
+        raise HTTPException(
+            status_code=400,
+            detail="This camera does not expose adjustable device controls.",
+        )
+    if _latest_raw_frame_for_role(role) is None:
+        raise HTTPException(
+            status_code=409,
+            detail="The camera is not delivering frames; start the feed first.",
+        )
+
+    def _apply(settings: Dict[str, int | float | bool]) -> Dict[str, int | float | bool]:
+        applied, _ = _apply_live_usb_device_settings(role, settings, persist=False)
+        return applied
+
+    report = calibrate_picture(
+        controls=controls,
+        apply_settings=_apply,
+        get_frame=lambda: _latest_raw_frame_for_role(role),
+    )
+
+    persisted = False
+    if report.ok and report.settings:
+        merged = dict(saved_settings)
+        merged.update(report.settings)
+        parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(merged))
+        device_settings = _get_camera_device_settings_table(config)
+        device_settings[role] = dict(parsed)
+        config["camera_device_settings"] = device_settings
+        try:
+            _write_machine_params_config(params_path, config)
+            persisted = True
+        except Exception as exc:
+            report.reason = f"Calibrated, but persisting failed: {exc}"
+        shared_state.camera_device_preview_overrides[role] = dict(parsed)
+        _apply_live_usb_device_settings(role, parsed, persist=True)
+
+    return {
+        "ok": report.ok,
+        "role": role,
+        "source": source,
+        "persisted": persisted,
+        "report": report.to_dict(),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Drift detection (device settings)
 # ---------------------------------------------------------------------------

@@ -83,6 +83,19 @@ export function __resetCameraWebrtcSessionsForTests() {
 	directoryRequests.clear();
 }
 
+// Close peers eagerly when the page goes away. Without this the server only
+// notices dead peers via ICE timeout seconds later — a reload's new offers
+// then collide with the old page's still-registered encoders and get 503'd.
+if (typeof window !== 'undefined') {
+	window.addEventListener('pagehide', () => {
+		for (const session of sessions.values()) {
+			session.close();
+		}
+		sessions.clear();
+		directoryRequests.clear();
+	});
+}
+
 function normalizeBaseUrl(baseUrl: string): string {
 	return baseUrl.replace(/\/$/, '');
 }
@@ -451,7 +464,7 @@ class SharedCameraWebrtcSession {
 				stream: null
 			});
 			this.closePeer();
-			this.scheduleRetry(answerResponse.status === 503 ? 10000 : 5000);
+			this.scheduleRetry(answerResponse.status === 503 ? 2500 : 5000);
 			return;
 		}
 		if (!answerPayload || !('sdp' in answerPayload) || !answerPayload.sdp || !answerPayload.type) {

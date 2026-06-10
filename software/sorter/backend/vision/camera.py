@@ -79,6 +79,30 @@ def _linux_index0_video_indices() -> list[int]:
     return indices
 
 
+# Serializes GStreamer/UVC pipeline bring-up across CaptureThreads and keeps a
+# minimum gap between consecutive starts. Starting multiple UVC streams in the
+# same instant can wedge the RK3588 vendor kernel's USB host controller.
+_CAPTURE_START_LOCK = threading.Lock()
+_CAPTURE_START_MIN_GAP_S = 2.0
+_capture_last_start_monotonic = 0.0
+
+
+class _gstreamer_capture_start_gate:
+    def __enter__(self):
+        global _capture_last_start_monotonic
+        _CAPTURE_START_LOCK.acquire()
+        wait = _capture_last_start_monotonic + _CAPTURE_START_MIN_GAP_S - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        return self
+
+    def __exit__(self, *exc):
+        global _capture_last_start_monotonic
+        _capture_last_start_monotonic = time.monotonic()
+        _CAPTURE_START_LOCK.release()
+        return False
+
+
 def _resolve_linux_video_index(source: int) -> int | None:
     if source >= 0 and source % 2 == 0:
         index0_nodes = _linux_index0_video_indices()
@@ -1809,6 +1833,24 @@ class CaptureThread:
         self._publish_raw_frame(raw, timestamp=time.time())
 
     def _runGStreamerMppCapture(
+        self,
+        *,
+        source: int,
+        width: int,
+        height: int,
+        fps: int,
+        fourcc: str | None,
+    ) -> bool:
+        # Bringing up several UVC pipelines at the same instant reliably
+        # wedges the RK3588 vendor kernel's USB host stack (observed as a
+        # hard kernel lockup with 3 cameras). Serialize pipeline bring-up
+        # across all CaptureThreads and keep a small gap between starts.
+        with _gstreamer_capture_start_gate():
+            return self._runGStreamerMppCaptureLocked(
+                source=source, width=width, height=height, fps=fps, fourcc=fourcc
+            )
+
+    def _runGStreamerMppCaptureLocked(
         self,
         *,
         source: int,

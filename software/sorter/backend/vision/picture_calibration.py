@@ -32,16 +32,20 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 
-LUMA_TARGET = 120.0
-LUMA_TOLERANCE = 8.0
+# The sorter scenes are dark-background with small bright content (pieces,
+# tray highlights) — mean-luma metering is meaningless there. Expose for the
+# highlights instead: drive the 99th-percentile luma of the ROI into a high,
+# unclipped band.
+LUMA_TARGET = 210.0
+LUMA_TOLERANCE = 20.0
 # Accept band for the final verdict (slightly wider than the search band).
 LUMA_ACCEPT_TOLERANCE = LUMA_TOLERANCE * 1.5
 CLIP_LEVEL = 250
 CLIP_MAX_FRACTION = 0.015
-WB_TOLERANCE = 0.04
-# Below this luma a WB measurement is sensor noise — skip WB instead of
-# steering it with garbage.
-WB_MIN_LUMA = 40.0
+WB_TOLERANCE = 0.05
+# Below this highlight level a WB measurement is sensor noise — skip WB
+# instead of steering it with garbage.
+WB_MIN_LUMA = 80.0
 
 _EXPOSURE_KEYS = ("exposure_time_absolute", "exposure_absolute", "exposure")
 _GAIN_KEYS = ("gain",)
@@ -96,19 +100,28 @@ def _control_by_key(controls: List[Dict[str, Any]], keys: tuple[str, ...]) -> Op
 
 
 def measure_roi(frame: np.ndarray) -> tuple[float, float, tuple[float, float, float]]:
-    """Return (mean_luma, clip_fraction, (r_mean, g_mean, b_mean)) of the
-    center ROI (central 60% of the frame, BGR input)."""
+    """Return (highlight_luma, clip_fraction, bright-pixel (r, g, b) means)
+    over the center ROI (central 60%, BGR input).
+
+    highlight_luma is the 99th-percentile luma — the exposure target for
+    dark-background scenes. The RGB means are computed over the brightest
+    ~20% of pixels only, so white balance is steered by the visible content
+    instead of the noise floor of the black background."""
     h, w = frame.shape[:2]
     y0, y1 = int(h * 0.2), int(h * 0.8)
     x0, x1 = int(w * 0.2), int(w * 0.8)
     roi = frame[y0:y1, x0:x1].astype(np.float32)
-    b = float(roi[..., 0].mean())
-    g = float(roi[..., 1].mean())
-    r = float(roi[..., 2].mean())
-    luma = 0.114 * b + 0.587 * g + 0.299 * r
     luma_plane = 0.114 * roi[..., 0] + 0.587 * roi[..., 1] + 0.299 * roi[..., 2]
+    highlight = float(np.percentile(luma_plane, 99.0))
     clip_fraction = float((luma_plane >= CLIP_LEVEL).mean())
-    return luma, clip_fraction, (r, g, b)
+    bright_cut = float(np.percentile(luma_plane, 80.0))
+    mask = luma_plane >= max(bright_cut, 1.0)
+    if not mask.any():
+        mask = np.ones_like(luma_plane, dtype=bool)
+    b = float(roi[..., 0][mask].mean())
+    g = float(roi[..., 1][mask].mean())
+    r = float(roi[..., 2][mask].mean())
+    return highlight, clip_fraction, (r, g, b)
 
 
 class _Session:

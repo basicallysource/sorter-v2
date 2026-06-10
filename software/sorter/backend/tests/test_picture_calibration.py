@@ -63,7 +63,7 @@ class FakeCamera:
             exposure = min(exposure, self.exposure_cap)
         luma = exposure * self.luma_per_exposure
         if self.with_gain:
-            luma += float(self.settings.get("gain", 0)) * 0.6
+            luma += float(self.settings.get("gain", 0)) * 1.8
         if self.with_gamma:
             luma += (float(self.settings.get("gamma", 100)) - 100.0) * self.gamma_luma_boost
         luma = float(np.clip(luma, 2, 253))

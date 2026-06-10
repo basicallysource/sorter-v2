@@ -67,8 +67,16 @@
 		return Date.now() - machine.lastHeartbeat * 1000 < HEARTBEAT_STALE_MS;
 	}
 
+	// A dead backend fails the probe instantly (connection refused), so the
+	// timeout only decides the alive-but-busy case: during NPU model load and
+	// with active WebRTC senders the event loop queues /health for seconds.
+	// That must not count as an outage, or the guard hides a working dashboard.
+	const PROBE_TIMEOUT_MS = 8000;
+
 	async function checkHealth(): Promise<HealthCheckResult> {
-		const status = await probeBackendConnection(baseUrl());
+		const status = await probeBackendConnection(baseUrl(), {
+			backendTimeoutMs: PROBE_TIMEOUT_MS
+		});
 		if (status.backendOk) {
 			const url = wsUrl();
 			manager.reconnectStaleConnections({ fallbackUrl: url, heartbeatStaleMs: HEARTBEAT_STALE_MS });
@@ -107,20 +115,30 @@
 		};
 	}
 
+	// The probe timeout exceeds the poll interval, so without this guard slow
+	// probes would stack up and race their state updates.
+	let pollInFlight = false;
+
 	async function poll() {
-		const result = await checkHealth();
-		if (result.backendOk) {
-			const recovered = !healthy || consecutiveFailures > 0 || firstFailureAt !== null;
-			consecutiveFailures = 0;
-			if (!healthy) {
-				healthy = true;
-				restarting = false;
+		if (pollInFlight) return;
+		pollInFlight = true;
+		try {
+			const result = await checkHealth();
+			if (result.backendOk) {
+				const recovered = !healthy || consecutiveFailures > 0 || firstFailureAt !== null;
+				consecutiveFailures = 0;
+				if (!healthy) {
+					healthy = true;
+					restarting = false;
+				}
+				if (recovered) {
+					await refreshFrontendAfterRecovery();
+				}
+			} else if (result.showUnavailable) {
+				healthy = false;
 			}
-			if (recovered) {
-				await refreshFrontendAfterRecovery();
-			}
-		} else if (result.showUnavailable) {
-			healthy = false;
+		} finally {
+			pollInFlight = false;
 		}
 	}
 

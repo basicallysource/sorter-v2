@@ -206,10 +206,10 @@
 			.filter((point): point is Point => point !== null);
 	}
 
-	function polygonPoints(value: unknown): string | null {
+	function polygonPoints(value: unknown, scaleX = 1, scaleY = 1): string | null {
 		const points = pointList(value);
 		if (points.length < 3) return null;
-		return points.map(([x, y]) => `${x},${y}`).join(' ');
+		return points.map(([x, y]) => `${x * scaleX},${y * scaleY}`).join(' ');
 	}
 
 	function bboxRect(
@@ -443,7 +443,14 @@
 			const category = String(overlay.category ?? '');
 			if (category === 'regions') {
 				if (!effectiveZones) continue;
-				const points = polygonPoints(overlay.polygon);
+				// Region polygons are calibrated in their own coordinate space
+				// (often 1920×1080) which can differ from the live frame size
+				// (e.g. a 1280×720 capture). Scale them into frame coordinates so
+				// they line up with the video and the crop-based viewBox.
+				const cs = overlay.coordinate_space;
+				const scaleX = cs?.width && cs.width > 0 ? overlayFrame.width / cs.width : 1;
+				const scaleY = cs?.height && cs.height > 0 ? overlayFrame.height / cs.height : 1;
+				const points = polygonPoints(overlay.polygon, scaleX, scaleY);
 				if (points) {
 					items.push({
 						kind: 'polygon',

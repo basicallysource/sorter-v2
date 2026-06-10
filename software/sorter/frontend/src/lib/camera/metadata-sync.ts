@@ -32,6 +32,7 @@ export type CameraFeedMetadataOverlay = {
 	bbox?: unknown;
 	polygon?: unknown;
 	poly_key?: string;
+	coordinate_space?: CameraFeedMetadataCoordinateSpace | null;
 };
 
 export type CameraFeedMetadataViewport = {

@@ -9,13 +9,9 @@ if TYPE_CHECKING:
 
 GEAR_RATIO = 120 / 25  # 25T motor gear -> 25T idle gear -> 120T chute gear
 DEG_PER_SECTION = 60
-# FIRST_SECTION_CENTER = 54.6
-FIRST_SECTION_CENTER = 39
-PILLAR_WIDTH_DEG = 8.2
-USABLE_DEG_PER_SECTION = DEG_PER_SECTION - PILLAR_WIDTH_DEG
-HOME_SECTION_LAST_BIN = 12.2
-# HOME_SECTION_LAST_BIN = 48
-CHUTE_MAX_ANGLE = 350
+DEFAULT_FIRST_SECTION_CENTER = 39.0
+DEFAULT_PILLAR_WIDTH_DEG = 8.2
+CHUTE_MAX_ANGLE = 360
 
 HOME_SPEED_MICROSTEPS_PER_SEC = -1000
 HOME_TIMEOUT_MS = 15000
@@ -35,12 +31,16 @@ class Chute:
         stepper: "StepperMotor",
         home_pin: "DigitalInputPin",
         layout: DistributionLayout,
+        first_section_center: float = DEFAULT_FIRST_SECTION_CENTER,
+        pillar_width_deg: float = DEFAULT_PILLAR_WIDTH_DEG,
     ):
         self.gc = gc
         self.logger = gc.logger
         self.stepper = stepper
         self.home_pin = home_pin
         self.layout = layout
+        self._first_section_center = first_section_center
+        self._usable_deg_per_section = DEG_PER_SECTION - pillar_width_deg
 
     @property
     def current_angle(self) -> float:
@@ -51,17 +51,12 @@ class Chute:
         layer = self.layout.layers[address.layer_index]
         section = layer.sections[address.section_index]
         num_bins = len(section.bins)
-        slot_width = USABLE_DEG_PER_SECTION / num_bins
-        section_center = FIRST_SECTION_CENTER + address.section_index * DEG_PER_SECTION
+        slot_width = self._usable_deg_per_section / num_bins
+        section_center = self._first_section_center + address.section_index * DEG_PER_SECTION
         bin_offset = (address.bin_index - (num_bins - 1) / 2) * slot_width
         angle = section_center + bin_offset
         if angle > CHUTE_MAX_ANGLE:
-            bins_from_end = (num_bins - 1) - address.bin_index
-            wrapped = HOME_SECTION_LAST_BIN - bins_from_end * slot_width
-            if wrapped >= 0:
-                angle = wrapped
-            else:
-                return None
+            return None
         return angle
 
     def moveToAngle(self, target: float) -> int:

@@ -30,6 +30,8 @@ class MachineConfig:
     servo_open_angle_overrides: dict[int, int] = field(default_factory=dict)
     servo_closed_angle_overrides: dict[int, int] = field(default_factory=dict)
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
+    first_bin_center: float | None = None
+    pillar_width_deg: float | None = None
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -242,6 +244,14 @@ def loadMachineConfig(
         raw_closed = layers_table.get("servo_closed_angles")
         if raw_closed is not None:
             config.servo_closed_angle_overrides = _parseAngleOverrides(gc, raw_closed, "layers.servo_closed_angles", config.servo_closed_angle)
+
+        raw_fbc = layers_table.get("first_bin_center")
+        if isinstance(raw_fbc, (int, float)) and not isinstance(raw_fbc, bool):
+            config.first_bin_center = float(raw_fbc)
+
+        raw_pw = layers_table.get("pillar_width_deg")
+        if isinstance(raw_pw, (int, float)) and not isinstance(raw_pw, bool):
+            config.pillar_width_deg = float(raw_pw)
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
 

@@ -68,11 +68,7 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     layers = []
-    # reversed so that the config is setup the same as it is in real life
-    # bottom most is bottom in real life
-    # but the top most layers are "first" for the rest of the code
-    reversedLayers = list(reversed(config.layers))
-    for layer_idx, layer_config in enumerate(reversedLayers):
+    for layer_idx, layer_config in enumerate(config.layers):
         total_bins = sum(len(s) for s in layer_config.sections)
         if total_bins == 6:
             bin_size = BinSize.BIG

@@ -464,8 +464,14 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         raise RuntimeError("Distribution board not found — cannot initialize chute homing")
     chute_home_pin = distribution_board.digital_inputs[CHUTE_HOME_PIN_CHANNEL]
 
+    chute_kwargs = {}
+    if machine_config.first_bin_center is not None:
+        chute_kwargs["first_section_center"] = machine_config.first_bin_center
+    if machine_config.pillar_width_deg is not None:
+        chute_kwargs["pillar_width_deg"] = machine_config.pillar_width_deg
     irl_interface.chute = Chute(
-        gc, irl_interface.chute_stepper, chute_home_pin, irl_interface.distribution_layout
+        gc, irl_interface.chute_stepper, chute_home_pin, irl_interface.distribution_layout,
+        **chute_kwargs
     )
 
     return irl_interface

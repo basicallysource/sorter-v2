@@ -971,7 +971,11 @@ async def create_camera_webrtc_offer(role: str, payload: CameraWebRtcOfferPayloa
         raise HTTPException(status_code=exc.status_code, detail=detail)
 
 
-def _camera_feed_metadata_payload(role: str, show_regions: bool = True) -> Dict[str, Any]:
+def _camera_feed_metadata_payload(
+    role: str,
+    show_regions: bool = True,
+    include_detections: bool = True,
+) -> Dict[str, Any]:
     from vision.media_plane import describe_feed_metadata
 
     _, raw = _read_machine_params_config(require_exists=True)
@@ -992,7 +996,12 @@ def _camera_feed_metadata_payload(role: str, show_regions: bool = True) -> Dict[
     if feed is None:
         raise HTTPException(404, f"Camera feed '{role}' is not active")
 
-    exclude_categories = frozenset({"regions"}) if not show_regions else None
+    excluded: set[str] = set()
+    if not show_regions:
+        excluded.add("regions")
+    if not include_detections:
+        excluded.add("detections")
+    exclude_categories = frozenset(excluded) if excluded else None
     latest = getattr(getattr(feed, "device", None), "latest_frame", None)
     frame = getattr(latest, "raw", None)
     crop_metadata = None
@@ -1110,6 +1119,12 @@ async def camera_feed_metadata_ws(websocket: WebSocket, role: str) -> None:
     show_regions = _truthy_query("show_regions", True)
     interval_s = _interval_s()
     last_frame_ts: float | None = None
+    # The first payload skips detection overlays: those can trigger an
+    # on-demand NPU inference, while frame size, crop viewport, and zone
+    # polygons are static and cheap. Sending them immediately lets the
+    # browser place the poster image and zone overlays correctly without
+    # waiting seconds for the first detection round.
+    first_message = True
 
     try:
         while True:
@@ -1120,8 +1135,12 @@ async def camera_feed_metadata_ws(websocket: WebSocket, role: str) -> None:
                 # and starved all HTTP/WebRTC handling while a dashboard was
                 # open.
                 payload = await run_in_threadpool(
-                    _camera_feed_metadata_payload, role, show_regions=show_regions
+                    _camera_feed_metadata_payload,
+                    role,
+                    show_regions=show_regions,
+                    include_detections=not first_message,
                 )
+                first_message = False
             except HTTPException as exc:
                 await websocket.send_json(
                     {

@@ -955,7 +955,15 @@ async def create_camera_webrtc_offer(role: str, payload: CameraWebRtcOfferPayloa
             ),
         )
     except WebRtcTransportError as exc:
-        raise HTTPException(status_code=exc.status_code, detail=exc.to_http_detail())
+        detail = exc.to_http_detail()
+        if exc.status_code == 503:
+            logger.warning(
+                "WebRTC offer for %s rejected (503): %s | blockers=%s",
+                role,
+                detail.get("message") if isinstance(detail, dict) else exc,
+                (detail.get("blockers") if isinstance(detail, dict) else None),
+            )
+        raise HTTPException(status_code=exc.status_code, detail=detail)
 
 
 def _camera_feed_metadata_payload(role: str, show_regions: bool = True) -> Dict[str, Any]:

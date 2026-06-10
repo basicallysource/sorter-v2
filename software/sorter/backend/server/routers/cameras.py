@@ -2686,9 +2686,12 @@ def calibrate_camera_picture(role: str) -> Dict[str, Any]:
             persisted = True
         except Exception as exc:
             report.reason = f"Calibrated, but persisting failed: {exc}"
+        # The calibrated values are already live on the sensor (the search just
+        # set them) — only persistence is needed. Re-applying here through the
+        # per-role paths bounces capture pipelines for nothing and poisons the
+        # next calibration's measurements.
         for target_role in target_roles:
             shared_state.camera_device_preview_overrides[target_role] = dict(parsed)
-            _apply_live_usb_device_settings(target_role, parsed, persist=True)
 
     return {
         "ok": report.ok,

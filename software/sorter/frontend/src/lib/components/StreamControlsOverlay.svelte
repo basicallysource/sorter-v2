@@ -1,43 +1,32 @@
 <script lang="ts">
-	import { Crop, Expand, Palette, SendToBack, Shapes } from 'lucide-svelte';
+	import { Crop, Expand, SendToBack, Shapes } from 'lucide-svelte';
 
 	let {
 		annotated = $bindable(true),
-		colorCorrect = $bindable(true),
 		cropped = $bindable(false),
 		zones = $bindable(true),
 		fullscreen = $bindable(false),
 		showAnnotations = true,
-		showColor = false,
 		showCrop = false,
 		showZones = false,
 		showFullscreen = false,
 		disabled = false
 	}: {
 		annotated?: boolean;
-		colorCorrect?: boolean;
 		cropped?: boolean;
 		zones?: boolean;
 		fullscreen?: boolean;
 		showAnnotations?: boolean;
-		showColor?: boolean;
 		showCrop?: boolean;
 		showZones?: boolean;
 		showFullscreen?: boolean;
 		disabled?: boolean;
 	} = $props();
 
-	const hasAny = $derived(
-		showAnnotations || showColor || showCrop || showZones || showFullscreen
-	);
+	const hasAny = $derived(showAnnotations || showCrop || showZones || showFullscreen);
 </script>
 
-{#snippet togglePill(
-	Icon: typeof SendToBack,
-	active: boolean,
-	label: string,
-	onToggle: () => void
-)}
+{#snippet togglePill(Icon: typeof SendToBack, active: boolean, label: string, onToggle: () => void)}
 	<button
 		type="button"
 		{disabled}
@@ -53,16 +42,14 @@
 	>
 		<Icon size={13} />
 		<span
-			class={`h-1.5 w-1.5 rounded-full transition-colors ${
-				active ? 'bg-white' : 'bg-white/30'
-			}`}
+			class={`h-1.5 w-1.5 rounded-full transition-colors ${active ? 'bg-white' : 'bg-white/30'}`}
 			aria-hidden="true"
 		></span>
 	</button>
 {/snippet}
 
 {#if hasAny}
-	<div class="pointer-events-none absolute right-2 top-2 z-10 flex gap-1">
+	<div class="pointer-events-none absolute top-2 right-2 z-10 flex gap-1">
 		{#if showAnnotations}
 			{@render togglePill(
 				SendToBack,
@@ -78,15 +65,6 @@
 				zones,
 				zones ? 'Hide zones' : 'Show zones',
 				() => (zones = !zones)
-			)}
-		{/if}
-
-		{#if showColor}
-			{@render togglePill(
-				Palette,
-				colorCorrect,
-				colorCorrect ? 'Disable color correction' : 'Enable color correction',
-				() => (colorCorrect = !colorCorrect)
 			)}
 		{/if}
 

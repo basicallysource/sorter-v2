@@ -6,6 +6,7 @@ Builds a bootable Orange Pi 5 .img with the v3 overlay applied and a
 minimal apt delta. No partition surgery, no FAT, no qemu. Single ext4.
 
 Phases (run with --phase <name> for a partial rerun):
+  fetch-base        — download/decompress/checksum the configured base image
   prep              — fetch base img if missing, copy to working file
   grow              — grow the .img by GROW_MIB before mount
   mount             — loop-mount the ext4 partition
@@ -24,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import shutil
@@ -31,13 +33,14 @@ import subprocess
 import sys
 import time
 import tomllib
+import urllib.request
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PORTAL_DIR = SCRIPT_DIR.parent / "portal"
-PHASES = ["prep", "grow", "mount", "overlay", "portal", "chroot", "finalize", "zip"]
+PHASES = ["fetch-base", "prep", "grow", "mount", "overlay", "portal", "chroot", "finalize", "zip"]
 
 # Bytes of free space to add to the image before chroot. The Orange Pi
 # base image is sized for an 8 GB SD card but only ~2.5 GB is free
@@ -85,6 +88,35 @@ def state_write(ctx: BuildCtx, **kw) -> None:
     ctx.state_file.write_text(json.dumps(s, indent=2))
 
 
+def _camera_transport_contract(ctx: BuildCtx) -> dict | None:
+    section = ctx.config.get("camera_transport")
+    if not isinstance(section, dict):
+        return None
+    return {
+        "schema_version": 1,
+        "image_version": ctx.config["output"]["version"],
+        "branch": ctx.branch,
+        "profile": section.get("profile", "rk3588-rockchip-mpp-h264-webrtc"),
+        "description": section.get("description", ""),
+        "required_kernel_release_patterns": list(
+            section.get("required_kernel_release_patterns", [])
+        ),
+        "required_machine": section.get("required_machine"),
+        "required_runtime_gates": list(section.get("required_runtime_gates", [])),
+        "required_device_nodes": list(section.get("required_device_nodes", [])),
+        "required_packages": list(section.get("required_packages", [])),
+        "backend_env": dict(section.get("backend_env", {})),
+        "probe_command": section.get(
+            "probe_command",
+            (
+                "cd /home/orangepi/sorter-v2/software/sorter/backend && "
+                ".venv/bin/python scripts/probe_camera_transport_stack.py"
+            ),
+        ),
+        "acceptance_probe_commands": list(section.get("acceptance_probe_commands", [])),
+    }
+
+
 def is_mounted(path: Path) -> bool:
     try:
         return subprocess.run(["mountpoint", "-q", str(path)]).returncode == 0
@@ -93,30 +125,96 @@ def is_mounted(path: Path) -> bool:
         return any(str(path) in ln for ln in Path("/proc/mounts").read_text().splitlines())
 
 
-def _losetup_attach(img: Path) -> str:
-    """losetup --show -fP + wait for /dev/loopNp1 to appear.
+def _root_partition_number(ctx: BuildCtx) -> int:
+    return int(ctx.config.get("base", {}).get("root_partition", 1))
+
+
+def _loop_partition(loop: str, partition: int) -> str:
+    return f"{loop}p{partition}"
+
+
+def _losetup_attach(img: Path, *, wait_partition: int = 1) -> str:
+    """losetup --show -fP + wait for /dev/loopNpN to appear.
 
     In bare-metal Linux + udev the partition device shows up immediately.
     In privileged Docker containers (e.g. OrbStack with /dev bind-mounted),
-    the host udev creates the node asynchronously — we have to wait briefly
-    or the next step races and sees no p1.
+    the host udev creates the node asynchronously, so wait for the configured
+    rootfs partition before the next step touches it.
     """
     loop = subprocess.check_output(
         ["losetup", "--show", "-fP", str(img)], text=True
     ).strip()
+    if shutil.which("partprobe"):
+        subprocess.run(["partprobe", loop], check=False)
+    if shutil.which("partx"):
+        subprocess.run(["partx", "-u", loop], check=False)
     # Prefer udevadm settle if available (idempotent, blocks until done).
     subprocess.run(["udevadm", "settle", "--timeout=5"], check=False)
     # Fallback poll: some containers have no udev at all, partitions appear
     # when devtmpfs propagates from the host.
-    part = Path(f"{loop}p1")
-    for _ in range(50):
+    part = Path(_loop_partition(loop, wait_partition))
+    for _ in range(120):
         if part.exists():
             break
         time.sleep(0.1)
+    if not part.exists():
+        available = ", ".join(sorted(str(path) for path in Path("/dev").glob(f"{Path(loop).name}*")))
+        log(f"partition node {part} did not appear after losetup; available: {available or 'none'}")
     return loop
 
 
+def _root_partition_spec(img: Path, partition: int) -> tuple[int, int]:
+    if not shutil.which("sfdisk"):
+        sys.exit("sfdisk is required when loop partition nodes are unavailable")
+    raw = subprocess.check_output(["sfdisk", "--json", str(img)], text=True)
+    table = json.loads(raw)["partitiontable"]
+    sector_size = int(table.get("sectorsize", 512))
+    partitions = table.get("partitions", [])
+    if partition < 1 or partition > len(partitions):
+        sys.exit(f"image has {len(partitions)} partitions; root_partition={partition} is invalid")
+    item = partitions[partition - 1]
+    return int(item["start"]) * sector_size, int(item["size"]) * sector_size
+
+
+def _root_partition_device(ctx: BuildCtx, disk_loop: str, img: Path) -> tuple[str, str | None]:
+    partition = _root_partition_number(ctx)
+    part = _loop_partition(disk_loop, partition)
+    if Path(part).exists():
+        return part, None
+
+    offset, size = _root_partition_spec(img, partition)
+    part_loop = subprocess.check_output(
+        [
+            "losetup",
+            "--show",
+            "-f",
+            "-o",
+            str(offset),
+            "--sizelimit",
+            str(size),
+            str(img),
+        ],
+        text=True,
+    ).strip()
+    log(
+        "attached root partition via offset loop "
+        f"{part_loop} (p{partition}, offset={offset}, size={size})"
+    )
+    return part_loop, part_loop
+
+
+def _detach_loop_device(loop: str | None) -> None:
+    if loop and Path(loop).exists():
+        subprocess.run(["losetup", "-d", loop])
+
+
 # ─── prep ──────────────────────────────────────────────────────────────────
+
+def phase_fetch_base(ctx: BuildCtx) -> None:
+    ctx.cache_dir.mkdir(parents=True, exist_ok=True)
+    base = _ensure_base_image(ctx)
+    log(f"base image ready: {base}")
+
 
 def _teardown_mnt(ctx: BuildCtx) -> None:
     """Unmount everything under ctx.mnt and detach the loop device."""
@@ -124,17 +222,16 @@ def _teardown_mnt(ctx: BuildCtx) -> None:
     if is_mounted(ctx.mnt):
         subprocess.run(["umount", str(ctx.mnt)])
     s = state_read(ctx)
+    _detach_loop_device(s.get("partition_loop"))
     loop = s.get("loop")
-    if loop and Path(loop).exists():
-        subprocess.run(["losetup", "-d", loop])
+    _detach_loop_device(loop)
 
 def _find_base_image(ctx: BuildCtx) -> Path:
     """Look for the base .img in order of preference:
         1. $SORTEROS_BASE_IMG env var (explicit override)
         2. cache/<filename> in this build dir
-        3. ~/Downloads/<filename> (Spencer's usual landing zone)
-        4. /Users/spencer/Downloads/<filename> (same, from inside colima)
-        5. /Volumes/macHome/Downloads/<filename> (some colima setups)
+        3. ~/Downloads/<filename>
+        4. /Volumes/macHome/Downloads/<filename> (some VM/container setups)
     """
     filename = ctx.config["base"]["filename"]
     candidates: list[Path] = []
@@ -144,7 +241,6 @@ def _find_base_image(ctx: BuildCtx) -> Path:
     candidates.append(ctx.cache_dir / filename)
     home = Path(os.environ.get("HOME", "/root"))
     candidates.append(home / "Downloads" / filename)
-    candidates.append(Path("/Users/spencer/Downloads") / filename)
     candidates.append(Path("/Volumes/macHome/Downloads") / filename)
     for c in candidates:
         if c.exists():
@@ -153,6 +249,137 @@ def _find_base_image(ctx: BuildCtx) -> Path:
         "base image not found. Looked at:\n  "
         + "\n  ".join(str(c) for c in candidates)
         + f"\nSet SORTEROS_BASE_IMG=<path> or drop it in {ctx.cache_dir}/."
+    )
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _expected_sha256(ctx: BuildCtx, path: Path) -> str:
+    base_cfg = ctx.config["base"]
+    if path.name.endswith(".xz"):
+        return str(base_cfg.get("sha256_xz") or base_cfg.get("sha256") or "").strip()
+    if path.name.endswith(".7z"):
+        return str(base_cfg.get("sha256_7z") or base_cfg.get("sha256") or "").strip()
+    if base_cfg.get("sha256_img"):
+        return str(base_cfg["sha256_img"]).strip()
+    if str(base_cfg.get("url", "")).endswith((".xz", ".7z")) and base_cfg.get("sha256"):
+        return ""
+    return str(base_cfg.get("sha256") or "").strip()
+
+
+def _verify_sha256(ctx: BuildCtx, path: Path) -> None:
+    expected = _expected_sha256(ctx, path)
+    if not expected:
+        if path.suffix != ".partial":
+            log(f"no sha256 configured for {path.name}; skipping checksum")
+        return
+    actual = _sha256(path)
+    if actual != expected:
+        sys.exit(f"sha256 mismatch for {path}: expected {expected}, got {actual}")
+    log(f"sha256 verified for {path.name}")
+
+
+def _download_file(url: str, dest: Path) -> None:
+    tmp = dest.with_suffix(dest.suffix + ".partial")
+    tmp.unlink(missing_ok=True)
+    log(f"downloading {url} → {dest}")
+    with urllib.request.urlopen(url) as response, tmp.open("wb") as out:
+        shutil.copyfileobj(response, out, length=1024 * 1024)
+    tmp.rename(dest)
+
+
+def _find_base_archive(ctx: BuildCtx, suffix: str) -> Path | None:
+    """Look for a compressed base archive (<filename>.xz / .7z) in cache and Downloads."""
+    archive_name = ctx.config["base"]["filename"] + suffix
+    home = Path(os.environ.get("HOME", "/root"))
+    # Orange Pi distributes 7z archives named after the .img they contain.
+    seven_z_name = Path(ctx.config["base"]["filename"]).with_suffix(".7z").name
+    candidates = [
+        ctx.cache_dir / archive_name,
+        home / "Downloads" / archive_name,
+    ]
+    if suffix == ".7z":
+        candidates += [ctx.cache_dir / seven_z_name, home / "Downloads" / seven_z_name]
+    for c in candidates:
+        if c.exists():
+            return c
+    return None
+
+
+def _extract_7z_base_image(ctx: BuildCtx, archive: Path, img_path: Path) -> None:
+    seven_z = shutil.which("7z") or shutil.which("7zz")
+    if not seven_z:
+        sys.exit(
+            f"found {archive} but no 7z binary to extract it. "
+            "Install p7zip (apt: p7zip-full, brew: 7-zip)."
+        )
+    log(f"extracting {archive.name} → {img_path.name}")
+    run([seven_z, "x", "-y", f"-o{ctx.cache_dir}", str(archive)])
+    if img_path.exists():
+        return
+    # Archive may contain a differently named .img — normalise to the expected name.
+    extracted = [p for p in ctx.cache_dir.glob("*.img") if p != img_path and p.stat().st_size > 0]
+    if len(extracted) == 1:
+        extracted[0].rename(img_path)
+        return
+    sys.exit(f"7z did not produce expected image: {img_path}")
+
+
+def _ensure_base_image(ctx: BuildCtx) -> Path:
+    """Return an uncompressed base .img, downloading/decompressing if needed."""
+    try:
+        base = _find_base_image(ctx)
+    except SystemExit:
+        base = None
+    if base is not None:
+        _verify_sha256(ctx, base)
+        return base
+
+    filename = ctx.config["base"]["filename"]
+    img_path = ctx.cache_dir / filename
+    xz_path = ctx.cache_dir / f"{filename}.xz"
+    url = ctx.config["base"].get("url", "").strip()
+    if not xz_path.exists() and url:
+        if not (url.endswith(".img") or url.endswith(".img.xz")):
+            if _find_base_archive(ctx, ".7z") is None:
+                sys.exit(
+                    f"[base].url is not a direct .img/.img.xz URL: {url}\n"
+                    f"Download the base image manually and place {filename} "
+                    f"(or its .7z archive) in {ctx.cache_dir}/, or set SORTEROS_BASE_IMG=<path>."
+                )
+        else:
+            download_path = xz_path if url.endswith(".xz") else img_path
+            _download_file(url, download_path)
+
+    if img_path.exists():
+        _verify_sha256(ctx, img_path)
+        return img_path
+
+    if xz_path.exists():
+        _verify_sha256(ctx, xz_path)
+        log(f"decompressing {xz_path.name} → {img_path.name}")
+        run(["xz", "-dkf", str(xz_path)])
+        if not img_path.exists():
+            sys.exit(f"xz did not produce expected image: {img_path}")
+        _verify_sha256(ctx, img_path)
+        return img_path
+
+    seven_z_path = _find_base_archive(ctx, ".7z")
+    if seven_z_path is not None:
+        _verify_sha256(ctx, seven_z_path)
+        _extract_7z_base_image(ctx, seven_z_path, img_path)
+        _verify_sha256(ctx, img_path)
+        return img_path
+
+    sys.exit(
+        "base image not found and no downloadable [base].url is configured. "
+        f"Set SORTEROS_BASE_IMG=<path> or drop {filename} into {ctx.cache_dir}/."
     )
 
 
@@ -168,7 +395,7 @@ def phase_prep(ctx: BuildCtx) -> None:
         ctx.work_img.unlink()
     ctx.state_file.unlink(missing_ok=True)
 
-    base = _find_base_image(ctx)
+    base = _ensure_base_image(ctx)
     log(f"base image: {base}")
     log(f"copying base → {ctx.work_img}")
     shutil.copy2(base, ctx.work_img)
@@ -177,12 +404,11 @@ def phase_prep(ctx: BuildCtx) -> None:
 # ─── grow ──────────────────────────────────────────────────────────────────
 
 def phase_grow(ctx: BuildCtx) -> None:
-    """Grow the image file and extend p1 + ext4 to use the new space.
+    """Grow the image file and extend the configured rootfs partition.
 
-    Not partition surgery in the v2 sense — the partition table layout
-    stays the same (single ext4 at p1), we just push the partition end
-    further out and resize the filesystem. No second partition, no FAT,
-    no bootloader region touched.
+    Not partition surgery in the v2 sense — we keep the base image's partition
+    layout, push only the configured rootfs partition end further out, and
+    resize the filesystem.
     """
     if not ctx.work_img.exists():
         sys.exit(f"{ctx.work_img} missing — run --phase prep first")
@@ -197,21 +423,24 @@ def phase_grow(ctx: BuildCtx) -> None:
         f.write(b"\0")
 
     # Attach via losetup so partition tools see partitions.
-    loop = _losetup_attach(ctx.work_img)
+    partition = _root_partition_number(ctx)
+    loop = _losetup_attach(ctx.work_img, wait_partition=partition)
+    part_loop: str | None = None
     try:
-        # Grow partition 1 to fill the new space.
-        run(["growpart", loop, "1"])
+        # Grow the configured rootfs partition to fill the new space.
+        run(["growpart", loop, str(partition)])
         # Detach + reattach so the kernel rescans the (now larger) partition.
-        run(["losetup", "-d", loop])
-        loop = _losetup_attach(ctx.work_img)
-        part = f"{loop}p1"
+        _detach_loop_device(loop)
+        loop = _losetup_attach(ctx.work_img, wait_partition=partition)
+        part, part_loop = _root_partition_device(ctx, loop, ctx.work_img)
         # e2fsck before resize2fs (refuses unclean fs)
         p = subprocess.run(["e2fsck", "-fy", part])
         if p.returncode not in (0, 1):
             sys.exit(f"e2fsck exit {p.returncode}")
         run(["resize2fs", part])
     finally:
-        run(["losetup", "-d", loop])
+        _detach_loop_device(part_loop)
+        _detach_loop_device(loop)
     log("grow complete")
 
 
@@ -227,14 +456,12 @@ def phase_mount(ctx: BuildCtx) -> None:
 
     ctx.mnt.mkdir(parents=True, exist_ok=True)
     log(f"losetup -fP {ctx.work_img}")
-    loop = _losetup_attach(ctx.work_img)
+    partition = _root_partition_number(ctx)
+    loop = _losetup_attach(ctx.work_img, wait_partition=partition)
     state_write(ctx, loop=loop)
 
-    # The Orange Pi base image has one ext4 partition at p1. Verify.
-    part = f"{loop}p1"
-    if not Path(part).exists():
-        run(["losetup", "-d", loop])
-        sys.exit(f"expected {part} to exist; image layout is unexpected")
+    part, part_loop = _root_partition_device(ctx, loop, ctx.work_img)
+    state_write(ctx, partition_loop=part_loop)
 
     log(f"fsck {part}")
     # e2fsck -fy: force-check, answer yes to repairs. Returns 1 if it
@@ -273,6 +500,11 @@ def phase_overlay(ctx: BuildCtx) -> None:
     (sorteros_etc / "version").write_text(version + "\n")
     log(f"branch baked into image: {ctx.branch}")
     log(f"version baked into image: {version}")
+    camera_transport_contract = _camera_transport_contract(ctx)
+    if camera_transport_contract is not None:
+        contract_path = sorteros_etc / "camera-transport-target.json"
+        contract_path.write_text(json.dumps(camera_transport_contract, indent=2, sort_keys=True) + "\n")
+        log(f"camera transport target baked into image: {camera_transport_contract['profile']}")
 
     # MOTD so `ssh root-pi` immediately shows the image version.
     motd = ctx.mnt / "etc" / "motd"
@@ -294,6 +526,22 @@ def phase_overlay(ctx: BuildCtx) -> None:
         ts_env.write_text(f"TAILSCALE_AUTH_KEY={ts_key}\nTAILSCALE_TAGS={ts_tags}\n")
         ts_env.chmod(0o600)
         log("baked tailscale auth key into /etc/sorteros/tailscale.env")
+
+    # SSH bootstrap keys follow the same rule: public/release images ship
+    # without any (the portal collects the user's key), but internal test
+    # images can bake the build host's key so wired-LAN boots that skip the
+    # portal are still reachable. chroot_apt.sh and the bootstrap-users
+    # service install the file into root's and orangepi's authorized_keys.
+    keys_path = os.environ.get("SORTEROS_BAKE_AUTHORIZED_KEYS", "")
+    if keys_path:
+        keys_file = Path(keys_path).expanduser()
+        keys = keys_file.read_text().strip()
+        if not keys.startswith("ssh-") and not keys.startswith("ecdsa-"):
+            sys.exit(f"SORTEROS_BAKE_AUTHORIZED_KEYS={keys_path} does not look like a public key file")
+        dest = sorteros_etc / "bootstrap_authorized_keys"
+        dest.write_text(keys + "\n")
+        dest.chmod(0o644)
+        log(f"baked {len(keys.splitlines())} SSH bootstrap key(s) from {keys_file}")
 
     # WiFi overlay is board-specific: OPi 5 onboard needs wifi-ap6275p, the
     # CM5 Tablet carrier auto-detects via the vendor image. Configurable in
@@ -457,10 +705,10 @@ def phase_finalize(ctx: BuildCtx) -> None:
         run(["umount", str(ctx.mnt)])
 
     s = state_read(ctx)
+    _detach_loop_device(s.get("partition_loop"))
     loop = s.get("loop")
-    if loop and Path(loop).exists():
-        run(["losetup", "-d", loop])
-        state_write(ctx, loop=None, partition=None)
+    _detach_loop_device(loop)
+    state_write(ctx, loop=None, partition=None, partition_loop=None)
 
     date = dt.date.today().isoformat()
     version = ctx.config["output"]["version"]
@@ -495,6 +743,7 @@ def phase_zip(ctx: BuildCtx) -> None:
 # ─── orchestration ────────────────────────────────────────────────────────
 
 PHASE_FNS = {
+    "fetch-base": phase_fetch_base,
     "prep": phase_prep,
     "grow": phase_grow,
     "mount": phase_mount,
@@ -513,8 +762,6 @@ def main() -> None:
     ap.add_argument("--config", default=str(SCRIPT_DIR / "config.toml"))
     args = ap.parse_args()
 
-    require_root()
-
     # Load .env from the build dir (gitignored — contains Tailscale auth key).
     env_file = SCRIPT_DIR / ".env"
     if env_file.exists():
@@ -528,6 +775,9 @@ def main() -> None:
         config = tomllib.load(f)
 
     branch = args.branch or config["branch"]["default"]
+
+    if args.phase != "fetch-base":
+        require_root()
 
     ctx = BuildCtx(
         config=config,

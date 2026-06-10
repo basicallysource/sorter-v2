@@ -52,6 +52,7 @@ class _LabeledSample:
     detection_score: float | None
     machine_id: str | None
     detection_algorithm: str | None
+    review_status: str | None = None
 
 
 def _read_manifest(raw_dir: Path) -> list[dict[str, Any]]:
@@ -111,6 +112,7 @@ def _load_sample(entry: dict[str, Any], raw_dir: Path) -> _LabeledSample | None:
         ),
         machine_id=machine_id,
         detection_algorithm=detection_algorithm,
+        review_status=(str(entry["review_status"]) if entry.get("review_status") else None),
     )
 
 
@@ -464,7 +466,29 @@ def _split_samples(
     balance_piece_count: bool,
     balance_machine: bool,
     piece_count_bins: str,
+    val_from: str | None = None,
 ) -> tuple[list[_LabeledSample], list[_LabeledSample]]:
+    # When --val-from is set, the validation set is held out ONLY from samples of
+    # that review tier (e.g. 'accepted' = human-verified). Everything else —
+    # including the non-held-out accepted — goes to train. This keeps the metric
+    # honest: you never validate against unverified teacher labels.
+    if val_from:
+        eligible = [s for s in samples if (s.review_status or "") == val_from]
+        others = [s for s in samples if (s.review_status or "") != val_from]
+        if not eligible:
+            raise SystemExit(
+                f"--val-from {val_from}: no samples with review_status={val_from} in the pool "
+                "to hold out for validation."
+            )
+        _deterministic_shuffle(eligible, seed=seed)
+        val_count = int(round(len(eligible) * (1.0 - train_ratio)))
+        val_count = max(1, min(val_count, len(eligible) - 1)) if len(eligible) > 1 else 0
+        val_samples = eligible[:val_count]
+        train_samples = others + eligible[val_count:]
+        _deterministic_shuffle(train_samples, seed=seed)
+        _deterministic_shuffle(val_samples, seed=seed + 1)
+        return train_samples, val_samples
+
     if not stratify_balance_groups:
         shuffled = list(samples)
         _deterministic_shuffle(shuffled, seed=seed)
@@ -529,6 +553,7 @@ def run(
     exclude_algorithm_prefixes: tuple[str, ...] = (),
     prioritize_machine_ids: tuple[str, ...] = (),
     include_source_roles: tuple[str, ...] = (),
+    val_from: str | None = None,
 ) -> int:
     """Entry called from the CLI."""
     if not 0.5 <= train_ratio <= 0.99:
@@ -675,6 +700,7 @@ def run(
         balance_piece_count=balance_piece_count,
         balance_machine=balance_machine,
         piece_count_bins=piece_count_bins,
+        val_from=val_from,
     )
 
     for split_name, split_samples in (("train", train_samples), ("val", val_samples)):

@@ -116,4 +116,13 @@ export type HiveSetupTarget = {
 	url: string;
 	machine_id: string | null;
 	enabled: boolean;
+	is_primary?: boolean;
+};
+
+export type HiveConfigBackupSummary = {
+	id: string;
+	version: number;
+	content_hash: string;
+	trigger: string;
+	created_at: string;
 };

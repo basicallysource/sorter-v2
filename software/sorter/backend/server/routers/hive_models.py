@@ -268,6 +268,7 @@ def list_models(
     runtime: str | None = Query(default=None),
     family: str | None = Query(default=None),
     q: str | None = Query(default=None),
+    include_experimental: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=30, ge=1, le=200),
 ) -> dict:
@@ -280,6 +281,8 @@ def list_models(
         filters["family"] = family
     if q:
         filters["q"] = q
+    if include_experimental:
+        filters["include_experimental"] = True
 
     # No target_id → aggregate across every enabled Hive so the UI can present
     # a single merged catalog and tag each row with its source Hive.
@@ -311,6 +314,22 @@ def list_installed() -> dict:
         item["registry_scopes"] = (
             sorted(definition.supported_scopes) if definition is not None else []
         )
+        if item.get("codename") or item.get("bundled"):
+            continue
+        target_id = item.get("target_id")
+        model_id = item.get("model_id")
+        if not isinstance(target_id, str) or not isinstance(model_id, str):
+            continue
+        try:
+            detail = hive_models_service.get_remote_model(target_id, model_id)
+        except Exception:
+            continue
+        codename = detail.get("codename") if isinstance(detail, dict) else None
+        codename_color = detail.get("codename_color") if isinstance(detail, dict) else None
+        if isinstance(codename, str) and codename.strip():
+            item["codename"] = codename.strip()
+        if isinstance(codename_color, str) and codename_color.strip():
+            item["codename_color"] = codename_color.strip()
     return {"items": items}
 
 
@@ -378,13 +397,50 @@ def _apply_active_assignment_to_slot(
     return {"applied": [label], "skipped": []}
 
 
+def _resolve_best_installed_variant(algorithm_id: str) -> tuple[str, str | None]:
+    """Swap a model-variant algorithm id for the sibling variant whose runtime
+    this machine actually executes (e.g. rknn over onnx on an NPU host).
+
+    A model is often installed in several runtime variants with separate
+    local_ids; activating "the model" must never silently bind a variant the
+    inference layer will refuse (CPU onnx on the sorter). Returns the possibly
+    substituted id plus a human-readable note when a swap happened.
+    """
+    prefix, _, local_id = algorithm_id.partition(":")
+    if prefix not in ("hive", "bundled") or not local_id:
+        return algorithm_id, None
+    items = hive_models_service.list_installed_models()
+    requested = next((i for i in items if i.get("local_id") == local_id), None)
+    if requested is None or not requested.get("model_id"):
+        return algorithm_id, None
+    siblings = [
+        i for i in items
+        if i.get("model_id") == requested["model_id"] and i.get("variant_runtime")
+    ]
+    best = hive_models_service.pick_runtime_for_this_machine(
+        [i["variant_runtime"] for i in siblings]
+    )
+    if best is None or best == requested.get("variant_runtime"):
+        return algorithm_id, None
+    chosen = next((i for i in siblings if i["variant_runtime"] == best), None)
+    if chosen is None:
+        return algorithm_id, None
+    chosen_id = f"{'bundled' if chosen.get('bundled') else 'hive'}:{chosen['local_id']}"
+    return chosen_id, (
+        f"Activated the {best} variant instead of {requested.get('variant_runtime')} — "
+        "it is the runtime this machine executes."
+    )
+
+
 @router.post("/models/activate")
 def activate_algorithm(payload: ActivatePayload) -> dict:
     """Activate ``algorithm_id`` for a subsystem.
 
     With ``scope`` set, writes exactly one subsystem slot — 1:1 with the TOML,
     no scope gate. Without it, the legacy behavior writes every slot the model's
-    training scope claims.
+    training scope claims. Model-variant ids are transparently swapped for the
+    sibling variant that fits this machine's hardware (see
+    ``_resolve_best_installed_variant``).
     """
     from vision.detection_registry import detection_algorithm_definition, invalidate_registry
 
@@ -394,22 +450,29 @@ def activate_algorithm(payload: ActivatePayload) -> dict:
     # otherwise hand the user a confusing "unknown algorithm" error.
     invalidate_registry()
 
-    definition = detection_algorithm_definition(payload.algorithm_id)
+    algorithm_id, substitution_note = _resolve_best_installed_variant(payload.algorithm_id)
+
+    definition = detection_algorithm_definition(algorithm_id)
     if definition is None:
         raise HTTPException(
-            status_code=404, detail=f"unknown algorithm: {payload.algorithm_id}"
+            status_code=404, detail=f"unknown algorithm: {algorithm_id}"
         )
     if payload.scope is not None:
         summary = _apply_active_assignment_to_slot(
-            payload.algorithm_id, payload.scope, payload.role
+            algorithm_id, payload.scope, payload.role
         )
     else:
         summary = _apply_active_assignments(
-            payload.algorithm_id, set(definition.supported_scopes)
+            algorithm_id, set(definition.supported_scopes)
         )
     return {
-        "algorithm_id": payload.algorithm_id,
+        "algorithm_id": algorithm_id,
         "label": definition.label,
+        **(
+            {"requested_algorithm_id": payload.algorithm_id, "substitution_note": substitution_note}
+            if substitution_note
+            else {}
+        ),
         **summary,
         "items": _collect_active_assignments(),
     }

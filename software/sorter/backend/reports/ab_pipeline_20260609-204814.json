@@ -1,0 +1,20 @@
+{
+  "legacy": {
+    "dry_run": true,
+    "env": {
+      "SORTER_CAMERA_CAPTURE_BACKEND": "opencv",
+      "SORTER_ENABLE_FFMPEG_RKMPP_WEBRTC": "0",
+      "SORTER_ENABLE_GSTREAMER_MPP_CAPTURE": "0"
+    },
+    "mode": "legacy"
+  },
+  "rkmpp": {
+    "dry_run": true,
+    "env": {
+      "SORTER_CAMERA_CAPTURE_BACKEND": "gstreamer_mpp",
+      "SORTER_ENABLE_FFMPEG_RKMPP_WEBRTC": "1",
+      "SORTER_ENABLE_GSTREAMER_MPP_CAPTURE": "1"
+    },
+    "mode": "rkmpp"
+  }
+}

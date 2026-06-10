@@ -8,8 +8,8 @@ kicker: Installation — SorterOS
 lede: Flash SorterOS onto an SD card and configure it for first boot. The recommended way to run Sorter on an Orange Pi 5.
 permalink: /sorter/installation/sorter-os/
 audience: self-hosting operator
-applies_to: sorteros v3.x
-last_verified: 2026-05-19
+applies_to: sorteros v4.x
+last_verified: 2026-06-09
 ---
 
 <div class="notice notice-warn">
@@ -32,40 +32,27 @@ SorterOS is a purpose-built OS image for Sorter, based on the official Ubuntu im
 
 Go to **[github.com/basicallysource/sorter-v2/releases](https://github.com/basicallysource/sorter-v2/releases)**, find the latest SorterOS release, and download the `.zip` file from its assets.
 
-## Step 2 — Configure WiFi and SSH
-
-If you do not need to configure WiFi, hostname, SSH auth key, or Tailscale auth key, you can flash the `.zip` file directly — skip ahead to Step 3.
-
-Otherwise, decompress the `.zip` file on your computer first, then open the `.img` file in **[SorterOS Setup](https://setup.basically.website)** to set those options before flashing. Everything runs client-side in the browser — nothing is sent to a server.
-
-**Saving the configured image:**
-- **Chrome** — SorterOS Setup can overwrite the original `.img` file directly, so no extra disk space is needed.
-- **Other browsers** — a new copy is downloaded. The image is about 8 GB, so make sure you have the space. Once you have the configured copy you can delete the original.
-
-The Pi needs an internet connection to complete first-boot initialization and to run Sorter on an ongoing basis. If you are not comfortable working in a terminal, configure WiFi here before flashing — the base image has no desktop environment, so WiFi cannot be set up through a GUI after booting.
-
-Alternatively, plug the Pi into your router via Ethernet and it will come online automatically without any WiFi configuration.
-
-If you ever need to change your WiFi network or SSH key, you can run the image through SorterOS Setup again — it will overwrite the previous configuration.
-
-## Step 3 — Flash to SD card
+## Step 2 — Flash to SD card
 
 1. Open **[Balena Etcher](https://etcher.balena.io/)**
-2. Click **Flash from file** and select either the `.zip` file (if you skipped setup) or the `.img` file (if you ran it through SorterOS Setup)
+2. Click **Flash from file** and select the downloaded `.zip` file
 3. Click **Select target** and choose your SD card
 4. Click **Flash**
 
-Wait for Etcher to finish writing and verifying. Do not remove the card until it reports success.
+Wait for Etcher to finish writing and verifying. Do not remove the card until it reports success. The image ships generic — there is nothing to configure before flashing.
 
-## Step 4 — Boot
+## Step 3 — Boot and connect to WiFi
 
-Insert the SD card into the Orange Pi 5 and power it on. SorterOS completes first-boot setup automatically, then starts the Sorter backend and UI. This takes less than 5 minutes if everything is working.
+Insert the SD card into the Orange Pi 5 and power it on.
 
-Once first-boot initialization completes and the Pi has finished downloading its dependencies, the Sorter UI is available at:
+- **Ethernet** — if the Pi is wired to your router, it comes online automatically without any WiFi configuration.
+- **WiFi** — when the Pi boots without a network connection, it opens a temporary hotspot named **`SorterOS-Setup-…`**. Join it from your phone or laptop; a captive portal opens automatically where you pick your WiFi network and enter its password. The Pi then shuts down the hotspot and joins your network.
+
+The Pi needs an internet connection to complete first-boot initialization and to run Sorter on an ongoing basis. Once first-boot setup completes and the Pi has finished downloading its dependencies — less than 5 minutes if everything is working — the Sorter UI is available at:
 
 **[http://sorter.local:5173/](http://sorter.local:5173/)**
 
-This uses mDNS — the device you're browsing from must be on the same network as the Pi. If you set a custom hostname in SorterOS Setup, substitute that name for `sorter`.
+This uses mDNS — the device you're browsing from must be on the same network as the Pi.
 
 ## SSH access
 

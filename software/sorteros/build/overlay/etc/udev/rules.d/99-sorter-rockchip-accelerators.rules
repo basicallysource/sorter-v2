@@ -1,0 +1,8 @@
+# Rockchip RK3588 accelerator access for the non-root sorter backend.
+# The image creates the orangepi user in video/render groups during chroot.
+
+KERNEL=="mpp_service", MODE="0660", GROUP="video", TAG+="uaccess"
+KERNEL=="rga", MODE="0660", GROUP="video", TAG+="uaccess"
+SUBSYSTEM=="dma_heap", MODE="0660", GROUP="video", TAG+="uaccess"
+SUBSYSTEM=="drm", KERNEL=="renderD*", MODE="0660", GROUP="render", TAG+="uaccess"
+KERNEL=="rknpu", MODE="0660", GROUP="render", TAG+="uaccess"

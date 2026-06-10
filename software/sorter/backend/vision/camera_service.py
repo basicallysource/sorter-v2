@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Dict, List, Optional
 
 from defs.events import CameraName
 from irl.config import (
-    CameraColorProfile,
     CameraPictureSettings,
     CameraConfig,
     mkCameraConfig,
@@ -335,20 +334,6 @@ class CameraService:
         if device is None:
             return None
         return device.get_capture_mode()
-
-    def set_color_profile_for_role(
-        self, role: str, profile: CameraColorProfile | None
-    ) -> bool:
-        device = self._device_for_role(role)
-        if device is None:
-            return False
-        config_attr = _ROLE_TO_CONFIG_ATTR.get(role)
-        if config_attr is not None:
-            config = getattr(self._irl_config, config_attr, None)
-            if config is not None:
-                config.color_profile = profile
-        device.set_color_profile(profile)
-        return True
 
     # ---- Health polling ----
 

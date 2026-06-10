@@ -340,7 +340,7 @@ def _probe_waveshare_servo_count(device_path: str) -> int:
         return 0
 
     try:
-        service = get_waveshare_bus_service(device_path, timeout=0.01)
+        service = get_waveshare_bus_service(device_path)
     except Exception:
         return 0
     try:
@@ -508,16 +508,31 @@ def _build_discovery_payload(
         live_servo_port = getattr(bus_service, "port", None)
         live_servo_count = len(getattr(active_irl, "servos", []))
 
-    probe_servo_buses = shared_state.hardware_state == "standby" and live_servo_port is None
+    # Probe candidate serial ports for a Waveshare servo bus whenever no live
+    # servo controller already owns one. We deliberately do NOT gate on
+    # hardware_state == "standby": the setup wizard's Motion Direction Check
+    # initializes steppers (state -> "initialized") without bringing up servos,
+    # which leaves the Waveshare bus unowned. Gating on standby skipped the probe
+    # there and silently downgraded an already-detected bus to "unknown". The
+    # probe opens the port only briefly and yields 0 if it's busy, so it's safe
+    # while steppers run.
+    probe_servo_buses = live_servo_port is None
     usb_devices = _enumerate_usb_devices(
         board_summaries=board_summaries,
         probe_servo_buses=probe_servo_buses,
     )
 
     if live_servo_port is not None:
+        # The live bus may report a /dev/serial/by-id path while comports()
+        # lists the raw tty twin — compare canonical paths or the same
+        # physical adapter gets listed twice.
+        from hardware.serial_identity import canonical_port_path
+
+        live_servo_canonical = canonical_port_path(live_servo_port)
         matched_live_port = False
         for device in usb_devices:
-            if device.get("device") != live_servo_port:
+            device_path = device.get("device")
+            if not isinstance(device_path, str) or canonical_port_path(device_path) != live_servo_canonical:
                 continue
             device["category"] = "servo_bus"
             device["use_by_default"] = True
@@ -530,7 +545,8 @@ def _build_discovery_payload(
             port_meta = next(
                 (
                     port for port in serial.tools.list_ports.comports()
-                    if getattr(port, "device", None) == live_servo_port
+                    if isinstance(getattr(port, "device", None), str)
+                    and canonical_port_path(port.device) == live_servo_canonical
                 ),
                 None,
             )
@@ -829,6 +845,17 @@ def set_setup_camera_layout(payload: CameraLayoutPayload) -> Dict[str, Any]:
         _write_machine_params_config(params_path, config)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to write config: {exc}")
+
+    current_state = "initializing"
+    if shared_state.controller_ref is not None:
+        current_state = getattr(shared_state.controller_ref.state, "value", current_state)
+    shared_state.publishSorterState(current_state, payload.layout)
+    try:
+        from server.routers.cameras import get_camera_config
+
+        shared_state.publishCamerasConfig(get_camera_config())
+    except Exception:
+        pass
 
     return {
         "ok": True,

@@ -1,20 +1,17 @@
 <script lang="ts">
+	import CameraTransportPreview from '$lib/components/CameraTransportPreview.svelte';
 	import PictureSettingsSidebar from '$lib/components/settings/PictureSettingsSidebar.svelte';
 	import { pictureSettingsEqual, type PictureSettings } from '$lib/settings/picture-settings';
 	import type { CameraRole } from '$lib/settings/stations';
 	import { createEventDispatcher } from 'svelte';
 
-	type CalibrationHighlight = [number, number, number, number];
 	type PreviewImageSize = { width: number; height: number };
+	type MediaSizeEvent = { width: number; height: number };
 	type TransformMatrix = [number, number, number, number];
 	type PicturePreviewState = {
 		saved: PictureSettings;
 		draft: PictureSettings;
 	};
-
-	const COLOR_CHECKER_REFERENCE_IMAGE = '/setup/color-checker-reference.png';
-	const COLOR_CHECKER_BRICKLINK_URL =
-		'https://www.bricklink.com/v3/studio/design.page?idModel=810209';
 
 	let {
 		role,
@@ -33,7 +30,6 @@
 	const dispatch = createEventDispatcher<{ saved: void }>();
 
 	let picturePreview = $state<PicturePreviewState | null>(null);
-	let calibrationHighlight = $state<CalibrationHighlight | null>(null);
 	let previewViewportEl: HTMLDivElement | null = null;
 	let previewViewportSize = $state<PreviewImageSize>({ width: 0, height: 0 });
 	let previewImageSize = $state<PreviewImageSize>({ width: 0, height: 0 });
@@ -45,7 +41,6 @@
 		if (nextKey === previewKey) return;
 		previewKey = nextKey;
 		picturePreview = null;
-		calibrationHighlight = null;
 		previewImageSize = { width: 0, height: 0 };
 		feedRevision += 1;
 	});
@@ -71,10 +66,9 @@
 		return () => observer.disconnect();
 	});
 
-	function rememberPreviewImageSize(media: HTMLImageElement | null) {
-		if (!media) return;
-		const width = media.naturalWidth;
-		const height = media.naturalHeight;
+	function rememberPreviewMediaSize(event: CustomEvent<MediaSizeEvent>) {
+		const width = event.detail.width;
+		const height = event.detail.height;
 		if (width <= 0 || height <= 0) return;
 		if (width === previewImageSize.width && height === previewImageSize.height) return;
 		previewImageSize = { width, height };
@@ -183,8 +177,8 @@
 		const params = new URLSearchParams({
 			annotated: '0',
 			layer: 'raw',
+			direct: '1',
 			dashboard: '0',
-			color_correct: '1',
 			show_regions: '0'
 		});
 		return `${backendBaseUrl}/api/cameras/feed/${encodeURIComponent(role)}?${params.toString()}`;
@@ -206,36 +200,22 @@
 			>
 				{#if hasCamera}
 					{#key `${role}::${typeof source === 'string' ? source : source === null ? 'none' : source}::${feedRevision}`}
-						<img
-							src={mjpegSrc}
+						<CameraTransportPreview
+							camera={role}
+							baseUrl={backendBaseUrl}
+							{mjpegSrc}
 							alt={label}
-							class="absolute inset-0 h-full w-full object-contain"
-							style={previewTransformStyle()}
-							onload={(event) =>
-								rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
+							mediaClass="absolute inset-0 h-full w-full object-contain"
+							mediaStyle={previewTransformStyle()}
+							on:mediasize={rememberPreviewMediaSize}
 						/>
-						<div class="pointer-events-none absolute" style={previewOverlayStyle()}>
-							{#if calibrationHighlight}
-								<div
-									class="absolute border-2 border-sky-400 shadow-[0_0_0_1px_rgba(255,255,255,0.35),0_0_24px_rgba(56,189,248,0.35)]"
-									style={`left:${calibrationHighlight[0] * 100}%;top:${calibrationHighlight[1] * 100}%;width:${(calibrationHighlight[2] - calibrationHighlight[0]) * 100}%;height:${(calibrationHighlight[3] - calibrationHighlight[1]) * 100}%;`}
-								>
-									<div
-										class="absolute -top-7 left-0 rounded bg-sky-400 px-2 py-1 text-xs font-medium text-slate-950 shadow-md"
-									>
-										Color Check
-									</div>
-								</div>
-							{/if}
-						</div>
 					{/key}
 				{:else}
 					<div
 						class="absolute inset-0 flex items-center justify-center px-6 text-center text-sm text-white/80"
 					>
 						<div class="max-w-sm rounded-md bg-black/55 px-4 py-3">
-							Assign a camera first so you can preview picture settings and place the Color Check
-							target.
+							Assign a camera first so you can preview picture settings live.
 						</div>
 					</div>
 				{/if}
@@ -249,8 +229,6 @@
 		{source}
 		{hasCamera}
 		showHeader={false}
-		calibrationReferenceImageSrc={COLOR_CHECKER_REFERENCE_IMAGE}
-		calibrationReferenceLinkUrl={COLOR_CHECKER_BRICKLINK_URL}
 		primaryActionLabel="Confirm"
 		allowPrimaryActionWithoutChanges={true}
 		onSaved={handleSidebarSaved}
@@ -260,9 +238,6 @@
 				saved: savedSettings,
 				draft: draftSettings
 			};
-		}}
-		onCalibrationHighlightChange={(bbox) => {
-			calibrationHighlight = bbox;
 		}}
 	/>
 </div>

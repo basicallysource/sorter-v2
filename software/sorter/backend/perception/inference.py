@@ -19,6 +19,7 @@ import threading
 import time
 from typing import Any, Callable, Optional
 
+import cv2
 import numpy as np
 
 from .arcs import (
@@ -86,6 +87,57 @@ def _hit(counter: Optional[Any], key: str) -> None:
         pass
 
 
+def _rect_xywh(rect: tuple[int, int, int, int] | None) -> dict[str, int] | None:
+    if rect is None:
+        return None
+    x1, y1, x2, y2 = (int(rect[0]), int(rect[1]), int(rect[2]), int(rect[3]))
+    return {
+        "x": x1,
+        "y": y1,
+        "width": max(0, x2 - x1),
+        "height": max(0, y2 - y1),
+    }
+
+
+def _rect_xywh_float(rect: tuple[float, float, float, float] | None) -> dict[str, float] | None:
+    if rect is None:
+        return None
+    x1, y1, x2, y2 = (float(rect[0]), float(rect[1]), float(rect[2]), float(rect[3]))
+    return {
+        "x": x1,
+        "y": y1,
+        "width": max(0.0, x2 - x1),
+        "height": max(0.0, y2 - y1),
+    }
+
+
+def _rect_covers(
+    container: tuple[float, float, float, float],
+    target: tuple[int, int, int, int] | None,
+    *,
+    tolerance_px: float = 2.0,
+) -> bool:
+    if target is None:
+        return False
+    cx1, cy1, cx2, cy2 = (float(value) for value in container)
+    tx1, ty1, tx2, ty2 = (float(value) for value in target)
+    return (
+        cx1 <= tx1 + tolerance_px
+        and cy1 <= ty1 + tolerance_px
+        and cx2 >= tx2 - tolerance_px
+        and cy2 >= ty2 - tolerance_px
+    )
+
+
+def _rect_matches(
+    a: tuple[float, float, float, float],
+    b: tuple[int, int, int, int],
+    *,
+    tolerance_px: float = 1e-6,
+) -> bool:
+    return all(abs(float(left) - float(right)) <= tolerance_px for left, right in zip(a, b))
+
+
 class InferenceWorker:
     """One thread per channel. Capture → infer → attribute → slot.write."""
 
@@ -135,6 +187,8 @@ class InferenceWorker:
         # detection may degrade while foreign zones are present.
         if channel_def.secondary_zones:
             self._crop_rect = None
+        self._inference_mask_cache_key: tuple | None = None
+        self._inference_mask_cache: np.ndarray | None = None
         self._conf_threshold = conf_threshold
         self._on_exit_edge = on_exit_edge
         self._runtime_stats = runtime_stats
@@ -142,6 +196,7 @@ class InferenceWorker:
         self._logger = logger
 
         self._stop = threading.Event()
+        self._paused = threading.Event()
         self._thread = threading.Thread(
             target=self._loop,
             daemon=True,
@@ -223,6 +278,102 @@ class InferenceWorker:
         membership. GIL-atomic read — display/tag only."""
         return self._latest_detections
 
+    @property
+    def inference_crop_plan(self) -> dict[str, Any]:
+        """Desired media-pipeline crop for this channel, in sensor pixels.
+
+        Today the active GStreamer branch delivers a hardware-scaled full frame
+        for YOLO and this worker crops after appsink/RKNN preprocessing. This
+        plan names the sensor rect that a future RGA-capable source branch
+        should crop before scaling, without silently inserting a software
+        ``videocrop`` element into the hot path.
+        """
+        return self._build_crop_plan()
+
+    def _build_crop_plan(
+        self,
+        *,
+        frame: PerceptionFrame | None = None,
+        inference_crop_rect: tuple[int, int, int, int] | None = None,
+        sensor_crop_rect: tuple[int, int, int, int] | None = None,
+    ) -> dict[str, Any]:
+        ch = self._channel_def
+        mask_h, mask_w = ch.mask.shape[:2]
+        desired_rect = self._crop_rect
+        full_rect = (0, 0, int(mask_w), int(mask_h))
+        desired_effective = bool(desired_rect is not None and desired_rect != full_rect)
+        disabled_reason = None
+        if ch.secondary_zones:
+            disabled_reason = "secondary_zones_require_full_frame_detection"
+        elif desired_rect is None:
+            disabled_reason = "empty_or_missing_channel_mask"
+
+        active_media_pipeline_crop = False
+        hardware_crop_element = None
+        current_stage = (
+            "scaled_full_frame_then_perception_crop"
+            if desired_rect is not None
+            else "scaled_full_frame_detection"
+        )
+        fallback_crop_stage = "perception_numpy_slice_after_hardware_scaled_full_frame"
+        reason = (
+            "The channel crop is known in sensor coordinates, but the active "
+            "GStreamer source graph has no proven Rockchip/RGA crop element; "
+            "software videocrop is not used."
+            if desired_rect is not None
+            else "This channel currently requires full-frame inference."
+        )
+        if frame is not None and desired_effective and frame.inference_bgr is not None:
+            current_rect = frame.inference_rect
+            if not _rect_matches(current_rect, full_rect) and _rect_covers(current_rect, desired_rect):
+                active_media_pipeline_crop = True
+                hardware_crop_element = frame.inference_scale_backend or "hardware_detection_branch"
+                current_stage = "hardware_crop_before_yolo_scale"
+                fallback_crop_stage = "perception_numpy_slice_inside_hardware_crop_for_mask_edges"
+                reason = (
+                    "The active detection branch crops a sensor-space rect that "
+                    "covers the channel-mask bounding rect before YOLO scaling."
+                )
+
+        plan: dict[str, Any] = {
+            "target_stage": "detection_yolo_branch_before_scale",
+            "requested_by": "channel_mask_bounding_rect",
+            "coordinate_space": "sensor_frame",
+            "desired_sensor_rect": _rect_xywh(desired_rect),
+            "desired_sensor_frame": {"width": int(mask_w), "height": int(mask_h)},
+            "desired_crop_effective": desired_effective,
+            "disabled_reason": disabled_reason,
+            "active_media_pipeline_crop": active_media_pipeline_crop,
+            "hardware_crop_element": hardware_crop_element,
+            "software_videocrop_allowed": False,
+            "current_stage": current_stage,
+            "fallback_crop_stage": fallback_crop_stage,
+            "reason": reason,
+        }
+        if frame is not None:
+            sensor_w, sensor_h = frame.sensor_size
+            image = frame.inference_image
+            ih, iw = image.shape[:2]
+            current_inference_source = (
+                "hardware_cropped_scaled_branch"
+                if active_media_pipeline_crop
+                else "hardware_scaled_full_frame_branch"
+                if frame.inference_bgr is not None
+                else "sensor_frame"
+            )
+            plan.update(
+                {
+                    "current_sensor_frame": {"width": int(sensor_w), "height": int(sensor_h)},
+                    "current_inference_frame": {"width": int(iw), "height": int(ih)},
+                    "current_inference_source_rect": _rect_xywh_float(frame.inference_rect),
+                    "current_inference_source": current_inference_source,
+                    "current_inference_scale_backend": frame.inference_scale_backend,
+                    "current_inference_crop_rect": _rect_xywh(inference_crop_rect),
+                    "current_sensor_crop_rect": _rect_xywh(sensor_crop_rect),
+                }
+            )
+        return plan
+
     def _tag_detections(self, all_bboxes: list) -> list[Detection]:
         """Wrap each in-crop bbox with its zone provenance: ``in_primary`` (inside
         the channel polygon mask) and the ids of any secondary zones whose mask
@@ -256,6 +407,18 @@ class InferenceWorker:
         if self._thread.is_alive():
             self._thread.join(timeout=timeout)
 
+    def pause(self) -> None:
+        """Idle the hot loop without tearing the thread down. Capture keeps
+        running; the NPU goes quiet (used while benchmarks need it alone)."""
+        self._paused.set()
+
+    def resume(self) -> None:
+        self._paused.clear()
+
+    @property
+    def paused(self) -> bool:
+        return self._paused.is_set()
+
     # --- hot loop --------------------------------------------------------
 
     @staticmethod
@@ -269,6 +432,55 @@ class InferenceWorker:
         if xs.size == 0 or ys.size == 0:
             return None
         return (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+
+    def _mask_for_inference_frame(self, frame: PerceptionFrame) -> np.ndarray:
+        """Project the channel mask from sensor coords into the inference image.
+
+        ``frame.bgr`` remains the full-resolution crop source. ``frame`` may
+        also carry a hardware-reduced ``inference_bgr``. In that case the model
+        sees fewer pixels, but all mask tests and bboxes are mapped back into
+        the full sensor coordinate space before the machine acts on them.
+        """
+        sensor_mask = self._channel_def.mask
+        image = frame.inference_image
+        ih, iw = image.shape[:2]
+        rx1, ry1, rx2, ry2 = frame.inference_rect
+        key = (
+            id(sensor_mask),
+            tuple(int(v) for v in sensor_mask.shape[:2]),
+            int(iw),
+            int(ih),
+            round(float(rx1), 3),
+            round(float(ry1), 3),
+            round(float(rx2), 3),
+            round(float(ry2), 3),
+        )
+        if key == self._inference_mask_cache_key and self._inference_mask_cache is not None:
+            return self._inference_mask_cache
+
+        mh, mw = sensor_mask.shape[:2]
+        identity_rect = (
+            abs(rx1) < 1e-6
+            and abs(ry1) < 1e-6
+            and abs(rx2 - float(mw)) < 1e-6
+            and abs(ry2 - float(mh)) < 1e-6
+        )
+        if identity_rect and iw == mw and ih == mh:
+            projected = sensor_mask
+        else:
+            x1 = max(0, min(mw, int(np.floor(rx1))))
+            y1 = max(0, min(mh, int(np.floor(ry1))))
+            x2 = max(x1, min(mw, int(np.ceil(rx2))))
+            y2 = max(y1, min(mh, int(np.ceil(ry2))))
+            if x2 <= x1 or y2 <= y1 or iw <= 0 or ih <= 0:
+                projected = np.zeros((max(1, ih), max(1, iw)), dtype=np.uint8)
+            else:
+                mask_crop = sensor_mask[y1:y2, x1:x2]
+                projected = cv2.resize(mask_crop, (iw, ih), interpolation=cv2.INTER_NEAREST)
+
+        self._inference_mask_cache_key = key
+        self._inference_mask_cache = projected
+        return projected
 
     def _check_source_id(self, frame: PerceptionFrame) -> bool:
         if (
@@ -397,6 +609,9 @@ class InferenceWorker:
 
     def _loop(self) -> None:
         while not self._stop.is_set():
+            if self._paused.is_set():
+                self._stop.wait(0.2)
+                continue
             self.iterations += 1
             _hit(self._profiler, f"perception.{self.source_id}.iterations")
             try:
@@ -424,31 +639,55 @@ class InferenceWorker:
 
                 cycle_t0 = _now_ms()
                 infer_t0 = cycle_t0
-                if self._crop_rect is not None:
-                    cx1, cy1, cx2, cy2 = self._crop_rect
-                    crop = frame.bgr[cy1:cy2, cx1:cx2]
+                inference_image = frame.inference_image
+                inference_mask = self._mask_for_inference_frame(frame)
+                inference_crop_rect = None if self._crop_rect is None else self._compute_crop_rect(inference_mask)
+                sensor_crop_rect = (
+                    frame.inference_bbox_to_sensor(inference_crop_rect)
+                    if inference_crop_rect is not None
+                    else None
+                )
+                crop_plan = self._build_crop_plan(
+                    frame=frame,
+                    inference_crop_rect=inference_crop_rect,
+                    sensor_crop_rect=sensor_crop_rect,
+                )
+                if inference_crop_rect is not None:
+                    cx1, cy1, cx2, cy2 = inference_crop_rect
+                    crop = inference_image[cy1:cy2, cx1:cx2]
                     if _POLYGON_CROP_MASK:
-                        mask_crop = self._channel_def.mask[cy1:cy2, cx1:cx2]
+                        mask_crop = inference_mask[cy1:cy2, cx1:cx2]
                         crop = np.where(
                             mask_crop[:, :, None] > 0, crop, np.uint8(230)
                         )
                     raw_bboxes = self._runtime.infer(
                         crop, conf_threshold=self._conf_threshold
                     )
-                    bboxes = [
-                        (int(b[0]) + cx1, int(b[1]) + cy1, int(b[2]) + cx1, int(b[3]) + cy1)
+                    inference_bboxes = [
+                        (
+                            int(b[0]) + cx1,
+                            int(b[1]) + cy1,
+                            int(b[2]) + cx1,
+                            int(b[3]) + cy1,
+                        )
                         for b in raw_bboxes
                     ]
                 else:
-                    full = frame.bgr
+                    full = inference_image
                     if _POLYGON_CROP_MASK:
-                        m = self._channel_def.mask
+                        m = inference_mask
                         full = np.where(m[:, :, None] > 0, full, np.uint8(230))
-                    bboxes = list(
+                    inference_bboxes = list(
                         self._runtime.infer(
                             full, conf_threshold=self._conf_threshold
                         )
                     )
+                bboxes = [
+                    frame.inference_bbox_to_sensor(
+                        (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+                    )
+                    for b in inference_bboxes
+                ]
                 infer_ms = _now_ms() - infer_t0
 
                 # Every model detection in full-frame coords, BEFORE the
@@ -503,7 +742,10 @@ class InferenceWorker:
                     "raw_bboxes": raw_bboxes_full,
                     "on_channel_bboxes": list(bboxes),
                     "detections": detections,
-                    "crop_rect": self._crop_rect,
+                    "crop_rect": sensor_crop_rect,
+                    "inference_crop_rect": inference_crop_rect,
+                    "crop_plan": crop_plan,
+                    "inference_shape": tuple(int(v) for v in inference_image.shape[:2]),
                     "frame": frame,
                     "infer_ms": infer_ms,
                     "conf_threshold": self._conf_threshold,
@@ -513,7 +755,7 @@ class InferenceWorker:
                 # the result (don't null it on cycles that skip it) so the debug
                 # endpoint stays available instead of flapping. If there's no
                 # crop, production already used the full frame — reuse it.
-                if self._crop_rect is None:
+                if inference_crop_rect is None:
                     self._latest_full_frame = {
                         "bboxes": list(raw_bboxes_full),
                         "infer_ms": infer_ms,

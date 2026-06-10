@@ -32,4 +32,3 @@ class CameraFrame:
     results: List[VisionResult]
     timestamp: float
     segmentation_map: Optional[np.ndarray] = field(default=None)
-    uncorrected_raw: Optional[np.ndarray] = field(default=None)

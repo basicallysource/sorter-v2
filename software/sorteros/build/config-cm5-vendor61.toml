@@ -1,0 +1,135 @@
+# SorterOS experimental build config — OrangePi CM5 with Rockchip vendor 6.1.
+#
+# Purpose: validate the RK3588 acceleration target that requires Rockchip
+# MPP/RGA runtime device nodes (/dev/mpp_service, /dev/rga, /dev/dma_heap) for
+# hardware H.264 encoding and the RKNN/NPU runtime for inference. The current
+# official OrangePi CM5 Tablet 25.02 base boots Linux 6.13.0 and does not expose
+# the needed multimedia nodes.
+#
+# Run with: sudo python build.py --config config-cm5-vendor61.toml
+# After first boot, run:
+#   cd /home/orangepi/sorter-v2/software/sorter/backend
+#   .venv/bin/python scripts/probe_camera_transport_stack.py
+#   .venv/bin/python scripts/probe_rk3588_npu_stack.py --require-inference
+
+[base]
+# Ubuntu Rockchip image for Orange Pi CM5: Ubuntu 24.04 LTS Server with Linux
+# 6.1. This is an experimental candidate for MPP/RGA capability validation.
+url = "https://github.com/Joshua-Riek/ubuntu-rockchip/releases/download/v2.4.0/ubuntu-24.04-preinstalled-server-arm64-orangepi-cm5.img.xz"
+filename = "ubuntu-24.04-preinstalled-server-arm64-orangepi-cm5.img"
+sha256 = "d641fd21ee41dd1ecdc884c7cbda4adfbe2c4dd4b977c9a239ac43e0c75c125a"
+# This image has a tiny boot partition at p1 and the rootfs at p2.
+root_partition = 2
+
+[output]
+dir = "out"
+version = "4.0.9-cm5-vendor61.0"
+name = "sorteros-v{version}-{date}.img"
+
+[chroot]
+packages = [
+    "network-manager",
+    "sudo",
+    "python3-pip",
+    "python3-tomli",
+    "libgl1",
+    "libglib2.0-0",
+    "v4l-utils",
+    "libv4l-0",
+    "libv4l-dev",
+    "libv4l-rkmpp",
+    "ffmpeg",
+    "librockchip-mpp1",
+    "librockchip-mpp-dev",
+    "librockchip-vpu0",
+    "librga2",
+    "librga-dev",
+    "gstreamer1.0-rockchip1",
+    "python3-gi",
+    "gir1.2-gstreamer-1.0",
+    "gir1.2-gst-plugins-base-1.0",
+    "rockchip-multimedia-config",
+    "rockchip-mpp-demos",
+    "git-lfs",
+    "cloud-guest-utils",
+    "figlet",
+    "systemd-timesyncd",
+    "qrencode",
+]
+extra_curl_installs = ["node22", "tailscale", "portal-py-deps"]
+
+[branch]
+default = "sorthive"
+
+[overlay]
+# Keep empty until the CM5 tablet/base-board carrier needs an explicit overlay
+# with this vendor-6.1 image. The transport probe is the first acceptance gate.
+wifi_overlay = ""
+
+[camera_transport]
+profile = "rk3588-rockchip-mpp-rga-rknn"
+description = "Target RK3588 stack: one capture and one Rockchip MPP H.264 WebRTC encoder per physical camera, RGA scale/convert, and RKNN/NPU inference."
+required_machine = "aarch64"
+# The current OrangePi CM5 Tablet 25.02 image boots Linux 6.13.0 and lacks the
+# Rockchip MPP/RGA/DMA runtime nodes. This candidate intentionally requires the
+# Rockchip vendor 6.1 family before the runtime device-node checks can pass.
+required_kernel_release_patterns = [
+    "^6\\.1\\.",
+]
+required_runtime_gates = [
+    "python_webrtc",
+    "assigned_camera_sources_exist",
+    "single_capture_per_physical_source",
+    "one_encoder_per_physical_source_target",
+    "ffmpeg_rkmpp_advertised",
+    "ffmpeg_rkmpp_runtime",
+    "ffmpeg_rkrga_filters_advertised",
+    "ffmpeg_rkrga_runtime",
+    "mpp_service_node",
+    "rga_node",
+    "dma_heap_node",
+    "drm_render_node",
+    "production_hardware_encoder",
+    "hardware_h264_source_factory_registered",
+    "webrtc_hardware_bridge_implemented",
+    "hardware_scale_convert_source_pipeline",
+    "zero_copy_source_pipeline",
+    "source_pipeline_target_compliant",
+    "target_capture_backend_integrated",
+    "os_video_handle_audit_available",
+    "legacy_mjpeg_clients_absent",
+    "target_ready",
+    "target_architecture_compliant",
+]
+required_device_nodes = [
+    "/dev/mpp_service",
+    "/dev/rga",
+    "/dev/dma_heap",
+    "/dev/dri/renderD128",
+    "/dev/dri/by-path/platform-fdab0000.npu-render",
+]
+required_packages = [
+    "ffmpeg",
+    "librockchip-mpp1",
+    "librockchip-mpp-dev",
+    "librga2",
+    "librga-dev",
+    "libv4l-rkmpp",
+    "rockchip-multimedia-config",
+    "rockchip-mpp-demos",
+    "v4l-utils",
+]
+probe_command = "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_camera_transport_stack.py"
+acceptance_probe_commands = [
+    "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_camera_transport_stack.py",
+    "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_camera_handle_stability.py --role c_channel_2 --clients 2",
+    "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_gstreamer_target_capture_pipeline.py --all-assigned",
+    "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_camera_calibration_ring.py --all-assigned",
+    "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_webrtc_view_scaling.py --role c_channel_2 --views 3",
+    "cd /home/orangepi/sorter-v2/software/sorter/backend && .venv/bin/python scripts/probe_rk3588_npu_stack.py --require-inference",
+]
+
+[camera_transport.backend_env]
+SORTER_CAMERA_CAPTURE_BACKEND = "gstreamer_mpp"
+SORTER_ENABLE_GSTREAMER_MPP_CAPTURE = "1"
+SORTER_ENABLE_FFMPEG_RKMPP_WEBRTC = "1"

@@ -56,6 +56,18 @@ export interface MachineStats {
 	parts_needed: number;
 }
 
+export interface MachineConfigBackupSummary {
+	id: string;
+	version: number;
+	content_hash: string;
+	trigger: string;
+	created_at: string;
+}
+
+export interface MachineConfigBackupDetail extends MachineConfigBackupSummary {
+	payload: Record<string, unknown>;
+}
+
 export interface Sample {
 	id: string;
 	machine_id: string;
@@ -776,6 +788,12 @@ export const api = {
 	purgeMachineData(id: string) {
 		return request<{ ok: boolean; deleted_sessions: number; deleted_samples: number }>('POST', `/api/machines/${id}/purge`);
 	},
+	getMachineConfigBackups(id: string) {
+		return request<MachineConfigBackupSummary[]>('GET', `/api/machines/${id}/config-backups`);
+	},
+	getMachineConfigBackup(id: string, version: number) {
+		return request<MachineConfigBackupDetail>('GET', `/api/machines/${id}/config-backups/${version}`);
+	},
 
 	// Samples
 	getSamples(params: {
@@ -1058,12 +1076,6 @@ export const api = {
 	}) {
 		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
 	},
-	publishSortingProfileVersion(profileId: string, versionId: string) {
-		return request<SortingProfileVersion>('POST', `/api/profiles/${profileId}/versions/${versionId}/publish`);
-	},
-	getSortingProfileArtifact(profileId: string, versionId: string) {
-		return request<{ artifact: Record<string, unknown> }>('GET', `/api/profiles/${profileId}/versions/${versionId}/artifact`);
-	},
 	saveSortingProfileToLibrary(id: string) {
 		return request<{ ok: boolean }>('POST', `/api/profiles/${id}/library`);
 	},
@@ -1073,15 +1085,6 @@ export const api = {
 	forkSortingProfile(id: string, data: { name?: string | null; description?: string | null; add_to_library?: boolean }, versionId?: string) {
 		const qs = versionId ? `?${new URLSearchParams({ version_id: versionId }).toString()}` : '';
 		return request<SortingProfileDetail>('POST', `/api/profiles/${id}/fork${qs}`, data);
-	},
-	previewSortingProfile(data: {
-		name?: string;
-		description?: string | null;
-		default_category_id?: string;
-		rules: SortingProfileRule[];
-		fallback_mode: SortingProfileFallbackMode;
-	}) {
-		return request<Record<string, unknown>>('POST', '/api/profiles/preview', data);
 	},
 	previewSortingRule(data: {
 		name?: string;
@@ -1235,6 +1238,7 @@ export const api = {
 		runtime?: string;
 		family?: string;
 		q?: string;
+		include_experimental?: boolean;
 	} = {}) {
 		const searchParams = new URLSearchParams();
 		for (const [key, val] of Object.entries(params)) {
@@ -1251,21 +1255,6 @@ export const api = {
 	modelVariantDownloadUrl(modelId: string, variantId: string) {
 		return resolveApiPath(`/api/models/${modelId}/variants/${variantId}/download`);
 	},
-	createModel(payload: {
-		slug: string;
-		name: string;
-		description?: string | null;
-		model_family: string;
-		scopes?: string[];
-		training_metadata?: Record<string, unknown>;
-		is_public?: boolean;
-	}) {
-		return request<{ id: string; slug: string; version: number }>('POST', '/api/models', payload);
-	},
-	deleteModel(id: string) {
-		return request<void>('DELETE', `/api/models/${id}`);
-	},
-
 	// Teacher (admin-only re-detection jobs)
 	createTeacherJob(filter: TeacherJobFilter, openrouter_model?: string) {
 		return request<TeacherJobSummary>('POST', '/api/admin/teacher/jobs', {
@@ -1297,17 +1286,6 @@ export const api = {
 	},
 	listTeacherModels() {
 		return request<TeacherModelInfo[]>('GET', '/api/admin/teacher/models');
-	},
-	listTeacherPrompts() {
-		return request<TeacherPromptEntry[]>('GET', '/api/admin/teacher/prompts');
-	},
-	saveTeacherPrompt(zone: string, kind: string, content: string) {
-		return request<TeacherPromptEntry>('PUT', `/api/admin/teacher/prompts/${zone}/${kind}`, {
-			content
-		});
-	},
-	resetTeacherPrompt(zone: string, kind: string) {
-		return request<TeacherPromptEntry>('DELETE', `/api/admin/teacher/prompts/${zone}/${kind}`);
 	},
 	getSampleTeacherPrompt(sampleId: string, openrouter_model: string) {
 		const qs = new URLSearchParams({ openrouter_model }).toString();
@@ -1406,6 +1384,7 @@ export interface DetectionModelSummary {
 	model_family: string;
 	scopes: string[] | null;
 	is_public: boolean;
+	experimental: boolean;
 	published_at: string;
 	updated_at: string;
 	variant_runtimes: string[];
@@ -1499,16 +1478,6 @@ export interface TeacherModelInfo {
 	display_name: string;
 	adapter_kind: string;
 	notes: string;
-}
-
-export interface TeacherPromptEntry {
-	zone: string;
-	kind: string; // 'chat' | 'perceptron'
-	content: string;
-	is_custom: boolean;
-	default_content: string;
-	updated_at: string | null;
-	updated_by_display_name: string | null;
 }
 
 export interface TeacherPreviewDetection {

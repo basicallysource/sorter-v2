@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { getMachinesContext, getMachineContext } from '$lib/machines/context';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { getBackendHttpBase, getBackendWsBase } from '$lib/backend';
 	import { settings } from '$lib/stores/settings';
 	import { ArrowLeft } from 'lucide-svelte';
@@ -601,8 +602,9 @@
 	{/if}
 
 	{#if !machine_ctx.machine && !loaded_runtime_stats}
-		<div class="py-12 text-center text-text-muted">
-			No machine selected.
+		<div class="flex items-center justify-center gap-2 py-12 text-text-muted">
+			<Spinner />
+			<span>Connecting to sorter …</span>
 		</div>
 	{:else}
 		<div class="grid grid-cols-1 gap-4 lg:grid-cols-2">

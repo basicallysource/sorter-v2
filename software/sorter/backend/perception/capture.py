@@ -36,6 +36,46 @@ class PerceptionFrame:
     source_id: str
     timestamp: float
     bgr: np.ndarray   # HxWx3 uint8, BGR, original resolution
+    inference_bgr: Optional[np.ndarray] = None
+    inference_sensor_rect: Optional[tuple[float, float, float, float]] = None
+    inference_scale_backend: Optional[str] = None
+
+    @property
+    def inference_image(self) -> np.ndarray:
+        return self.inference_bgr if self.inference_bgr is not None else self.bgr
+
+    @property
+    def sensor_size(self) -> tuple[int, int]:
+        h, w = self.bgr.shape[:2]
+        return int(w), int(h)
+
+    @property
+    def inference_rect(self) -> tuple[float, float, float, float]:
+        if self.inference_sensor_rect is not None:
+            x1, y1, x2, y2 = self.inference_sensor_rect
+            return float(x1), float(y1), float(x2), float(y2)
+        w, h = self.sensor_size
+        return 0.0, 0.0, float(w), float(h)
+
+    def inference_bbox_to_sensor(self, bbox: tuple[int, int, int, int]) -> tuple[int, int, int, int]:
+        image = self.inference_image
+        ih, iw = image.shape[:2]
+        if iw <= 0 or ih <= 0:
+            return (0, 0, 0, 0)
+        rx1, ry1, rx2, ry2 = self.inference_rect
+        scale_x = (rx2 - rx1) / float(iw)
+        scale_y = (ry2 - ry1) / float(ih)
+        sensor_w, sensor_h = self.sensor_size
+        x1 = int(round(rx1 + float(bbox[0]) * scale_x))
+        y1 = int(round(ry1 + float(bbox[1]) * scale_y))
+        x2 = int(round(rx1 + float(bbox[2]) * scale_x))
+        y2 = int(round(ry1 + float(bbox[3]) * scale_y))
+        return (
+            max(0, min(sensor_w, x1)),
+            max(0, min(sensor_h, y1)),
+            max(0, min(sensor_w, x2)),
+            max(0, min(sensor_h, y2)),
+        )
 
 
 class CaptureLike(Protocol):
@@ -89,8 +129,36 @@ class CaptureWorker:
         ts = getattr(frame, "timestamp", None)
         if raw is None or ts is None:
             return None
+        inference_bgr = None
+        inference_sensor_rect = None
+        inference_scale_backend = None
+        latest_detection = getattr(self._capture, "latest_detection_frame", None)
+        detection_frame = None
+        if callable(latest_detection):
+            try:
+                detection_frame = latest_detection()
+            except Exception:
+                detection_frame = None
+        if detection_frame is not None:
+            candidate = getattr(detection_frame, "raw", None)
+            if candidate is not None:
+                inference_bgr = candidate
+                rect = getattr(detection_frame, "sensor_rect", None)
+                if isinstance(rect, (list, tuple)) and len(rect) == 4:
+                    inference_sensor_rect = (
+                        float(rect[0]),
+                        float(rect[1]),
+                        float(rect[2]),
+                        float(rect[3]),
+                    )
+                backend = getattr(detection_frame, "scale_backend", None)
+                if isinstance(backend, str) and backend:
+                    inference_scale_backend = backend
         return PerceptionFrame(
             source_id=self._source_id,
             timestamp=float(ts),
             bgr=raw,
+            inference_bgr=inference_bgr,
+            inference_sensor_rect=inference_sensor_rect,
+            inference_scale_backend=inference_scale_backend,
         )

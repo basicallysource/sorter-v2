@@ -18,12 +18,25 @@ name = "sorteros-v{version}-{date}.img"
 # Every entry is build time and image bytes; keep it short.
 packages = [
     "network-manager",    # Wi-Fi client + AP-mode
+    "sudo",               # default admin path for the baked orangepi SSH user
     "dnsmasq-base",       # DHCP/DNS binary NM spawns for the AP captive portal
     "python3-pip",
     "python3-tomli",      # tomllib backport for Python 3.10 (Ubuntu Jammy)
     "libgl1",             # OpenCV runtime dep
     "libglib2.0-0",       # OpenCV runtime dep
     "v4l-utils",          # camera inspection / V4L2 tools
+    "libv4l-0",           # V4L2 core library, required before rockchip-multimedia-config
+    "libv4l-dev",
+    "libv4l-rkmpp",       # Rockchip MPP V4L integration
+    "ffmpeg",             # PPA-provided ffmpeg with RKMPP support where kernel allows it
+    "librockchip-mpp1",
+    "librockchip-mpp-dev",
+    "librockchip-vpu0",
+    "librga2",
+    "librga-dev",
+    "gstreamer1.0-rockchip1",
+    "rockchip-multimedia-config",
+    "rockchip-mpp-demos",
     "git-lfs",            # pull LFS model artifacts on first boot
     "cloud-guest-utils",  # provides growpart for stage_grow_rootfs
     "figlet",             # MOTD ASCII art for SorterOS login screen

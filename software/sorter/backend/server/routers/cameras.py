@@ -2667,16 +2667,28 @@ def calibrate_camera_picture(role: str) -> Dict[str, Any]:
         merged = dict(saved_settings)
         merged.update(report.settings)
         parsed = cameraDeviceSettingsToDict(parseCameraDeviceSettings(merged))
+        # V4L2 controls are per physical camera, and a shared camera's capture
+        # applies ITS role's persisted settings at stream start. Persist for
+        # every role on this source so a sibling role (e.g. the
+        # classification_channel capture owning the carousel camera) cannot
+        # undo the calibration on the next restart.
+        target_roles = [
+            candidate
+            for candidate in CAMERA_SETUP_ROLES
+            if _camera_source_for_role(config, candidate) == source
+        ] or [role]
         device_settings = _get_camera_device_settings_table(config)
-        device_settings[role] = dict(parsed)
+        for target_role in target_roles:
+            device_settings[target_role] = dict(parsed)
         config["camera_device_settings"] = device_settings
         try:
             _write_machine_params_config(params_path, config)
             persisted = True
         except Exception as exc:
             report.reason = f"Calibrated, but persisting failed: {exc}"
-        shared_state.camera_device_preview_overrides[role] = dict(parsed)
-        _apply_live_usb_device_settings(role, parsed, persist=True)
+        for target_role in target_roles:
+            shared_state.camera_device_preview_overrides[target_role] = dict(parsed)
+            _apply_live_usb_device_settings(target_role, parsed, persist=True)
 
     return {
         "ok": report.ok,

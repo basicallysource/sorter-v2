@@ -1987,19 +1987,41 @@ class CaptureThread:
         # sensor. Re-apply once the stream has settled; runs detached so the
         # capture bring-up (and the start gate) is not delayed.
         def _reapply_device_settings_after_streamon() -> None:
-            time.sleep(2.0)
-            try:
-                # Prefer the persisted config: the in-memory copy holds the
-                # pre-STREAMON readback, which may already be the clamped
-                # values we are trying to correct.
-                settings = dict(getattr(self._config, "device_settings", None) or {}) or self.getDeviceSettings()
-                if settings:
+            # Prefer the persisted config: the in-memory copy holds the
+            # pre-STREAMON readback, which may already be the clamped
+            # values we are trying to correct. Verify and retry — some
+            # cameras keep clamping for several seconds after stream start.
+            settings = dict(getattr(self._config, "device_settings", None) or {})
+            if not settings:
+                return
+            numeric_intent = {
+                key: float(value)
+                for key, value in settings.items()
+                if isinstance(value, (int, float)) and not isinstance(value, bool)
+            }
+            for delay in (2.0, 4.0, 6.0):
+                time.sleep(delay)
+                try:
                     applied = apply_camera_device_settings(None, settings, source=actual_source)
-                    if applied:
-                        with self._device_settings_lock:
-                            self._device_settings = dict(applied)
-            except Exception:
-                pass
+                except Exception:
+                    continue
+                if not applied:
+                    continue
+                with self._device_settings_lock:
+                    self._device_settings = dict(applied)
+                mismatched = [
+                    key
+                    for key, intent in numeric_intent.items()
+                    if isinstance(applied.get(key), (int, float))
+                    and abs(float(applied[key]) - intent) > max(2.0, abs(intent) * 0.05)
+                ]
+                if not mismatched:
+                    return
+                log.info(
+                    "CaptureThread[%s] device settings still clamped after stream start (%s) — retrying",
+                    self.name,
+                    ", ".join(sorted(mismatched)),
+                )
 
         threading.Thread(
             target=_reapply_device_settings_after_streamon,

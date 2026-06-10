@@ -23,6 +23,7 @@ from urllib import request as urllib_request
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
@@ -949,7 +950,11 @@ async def create_camera_webrtc_offer(role: str, payload: CameraWebRtcOfferPayloa
             sdp=payload.sdp,
             offer_type=payload.type,
             camera_service=shared_state.camera_service,
-            metadata_provider=lambda metadata_role: _camera_feed_metadata_payload(
+            # Returns an awaitable that resolves in the threadpool — the
+            # provider can trigger an on-demand NPU detection and must never
+            # run inline on the event loop (see camera_feed_metadata_ws).
+            metadata_provider=lambda metadata_role: run_in_threadpool(
+                _camera_feed_metadata_payload,
                 metadata_role,
                 show_regions=True,
             ),
@@ -1109,7 +1114,14 @@ async def camera_feed_metadata_ws(websocket: WebSocket, role: str) -> None:
     try:
         while True:
             try:
-                payload = _camera_feed_metadata_payload(role, show_regions=show_regions)
+                # MUST run in the threadpool: overlay providers can trigger an
+                # on-demand NPU detection (~50-200ms). Running that inline
+                # blocked the event loop for every metadata tick of every view
+                # and starved all HTTP/WebRTC handling while a dashboard was
+                # open.
+                payload = await run_in_threadpool(
+                    _camera_feed_metadata_payload, role, show_regions=show_regions
+                )
             except HTTPException as exc:
                 await websocket.send_json(
                     {

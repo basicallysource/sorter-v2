@@ -2596,8 +2596,8 @@ def reset_camera_device_settings_to_defaults(role: str) -> Dict[str, Any]:
     }
 
 
-def _latest_raw_frame_for_role(role: str):
-    """Newest BGR frame for a role from the running camera service, or None."""
+def _latest_frame_sample_for_role(role: str):
+    """Newest (BGR frame, wall-clock timestamp) for a role, or None."""
     svc = shared_state.camera_service
     if svc is None:
         return None
@@ -2612,7 +2612,10 @@ def _latest_raw_frame_for_role(role: str):
     device = getattr(feed, "device", None)
     frame = getattr(device, "latest_frame", None)
     raw = getattr(frame, "raw", None)
-    return raw if raw is not None and getattr(raw, "size", 0) else None
+    timestamp = getattr(frame, "timestamp", None)
+    if raw is None or not getattr(raw, "size", 0) or not isinstance(timestamp, (int, float)):
+        return None
+    return raw, float(timestamp)
 
 
 @router.post("/api/cameras/device-settings/{role}/calibrate-picture")
@@ -2643,7 +2646,7 @@ def calibrate_camera_picture(role: str) -> Dict[str, Any]:
             status_code=400,
             detail="This camera does not expose adjustable device controls.",
         )
-    if _latest_raw_frame_for_role(role) is None:
+    if _latest_frame_sample_for_role(role) is None:
         raise HTTPException(
             status_code=409,
             detail="The camera is not delivering frames; start the feed first.",
@@ -2656,7 +2659,7 @@ def calibrate_camera_picture(role: str) -> Dict[str, Any]:
     report = calibrate_picture(
         controls=controls,
         apply_settings=_apply,
-        get_frame=lambda: _latest_raw_frame_for_role(role),
+        get_frame=lambda: _latest_frame_sample_for_role(role),
     )
 
     persisted = False

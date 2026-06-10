@@ -2782,9 +2782,17 @@ def _device_setting_diff(
         return None
 
     if isinstance(saved_value, bool) or isinstance(live_value, bool):
-        if bool(saved_value) == bool(live_value):
+        # auto_exposure is a V4L2 menu control (1 = Manual, 3 = Aperture
+        # Priority); a plain bool() cast reads Manual (1) as enabled and
+        # reports a phantom drift forever. Compare via the shared auto-gate
+        # semantics instead.
+        from vision.camera import _v4l2_auto_gate_enabled
+
+        saved_enabled = _v4l2_auto_gate_enabled(key, saved_value)
+        live_enabled = _v4l2_auto_gate_enabled(key, live_value)
+        if saved_enabled == live_enabled:
             return None
-        return {"key": key, "saved": bool(saved_value), "live": bool(live_value), "kind": "boolean"}
+        return {"key": key, "saved": saved_enabled, "live": live_enabled, "kind": "boolean"}
 
     try:
         saved_num = float(saved_value)

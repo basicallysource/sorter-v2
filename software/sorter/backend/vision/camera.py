@@ -1894,8 +1894,13 @@ class CaptureThread:
             )
             return False
         normalized_fourcc = (fourcc or "MJPG").strip().upper()
-        _try_v4l2ctl_set_format(actual_source, normalized_fourcc, width, height)
-        actual_width, actual_height, actual_fourcc = _try_v4l2ctl_get_format(actual_source)
+        # The v4l2ctl helpers take the LOGICAL source and resolve the /dev/video
+        # node themselves. Passing the already-resolved actual_source here makes
+        # them resolve twice, which lands format/control writes on a different
+        # physical camera (slot rotation) — that cross-applied every role's
+        # saved calibration to the wrong device on each capture start.
+        _try_v4l2ctl_set_format(source, normalized_fourcc, width, height)
+        actual_width, actual_height, actual_fourcc = _try_v4l2ctl_get_format(source)
         if actual_width and actual_height:
             width = actual_width
             height = actual_height
@@ -1965,7 +1970,7 @@ class CaptureThread:
             applied_device_settings = apply_camera_device_settings(
                 None,
                 settings_to_apply,
-                source=actual_source,
+                source=source,
             )
             if applied_device_settings:
                 with self._device_settings_lock:
@@ -2009,7 +2014,7 @@ class CaptureThread:
             for delay in (2.0, 4.0, 6.0):
                 time.sleep(delay)
                 try:
-                    applied = apply_camera_device_settings(None, settings, source=actual_source)
+                    applied = apply_camera_device_settings(None, settings, source=source)
                 except Exception:
                     continue
                 if not applied:

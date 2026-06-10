@@ -88,9 +88,23 @@ _capture_last_start_monotonic = 0.0
 
 
 class _gstreamer_capture_start_gate:
+    # Best-effort serialization: if a bring-up wedges in an uninterruptible
+    # kernel call (a dying UVC device can do that), the gate must not starve
+    # every other camera forever — fall through after a bounded wait.
+    _ACQUIRE_TIMEOUT_S = 30.0
+
+    def __init__(self) -> None:
+        self._acquired = False
+
     def __enter__(self):
         global _capture_last_start_monotonic
-        _CAPTURE_START_LOCK.acquire()
+        self._acquired = _CAPTURE_START_LOCK.acquire(timeout=self._ACQUIRE_TIMEOUT_S)
+        if not self._acquired:
+            log.warning(
+                "capture start gate held for >%.0fs (wedged bring-up?) — proceeding unserialized",
+                self._ACQUIRE_TIMEOUT_S,
+            )
+            return self
         wait = _capture_last_start_monotonic + _CAPTURE_START_MIN_GAP_S - time.monotonic()
         if wait > 0:
             time.sleep(wait)
@@ -99,7 +113,8 @@ class _gstreamer_capture_start_gate:
     def __exit__(self, *exc):
         global _capture_last_start_monotonic
         _capture_last_start_monotonic = time.monotonic()
-        _CAPTURE_START_LOCK.release()
+        if self._acquired:
+            _CAPTURE_START_LOCK.release()
         return False
 
 

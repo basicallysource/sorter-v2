@@ -203,7 +203,7 @@
 		{/if}
 	</div>
 {:else if deviceProvider === 'usb-opencv' && deviceSupported && usbControls.length > 0}
-	{#each usbControls as control (control.key)}
+	{#each usbControls.filter((c) => c.key !== 'power_line_frequency') as control (control.key)}
 		{@const disabled = usbControlDisabled(control)}
 		{#if control.kind === 'boolean'}
 			<label

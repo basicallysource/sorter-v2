@@ -672,11 +672,17 @@
 					</div>
 				</div>
 			{/if}
-			{#if posterVisible}
+			{#if posterVisible && (mediaLayout || !browserCropCandidate)}
+				<!-- Position exactly like the live media so zone overlays line up
+				     from the first paint; crop views wait for the layout instead
+				     of flashing the uncropped frame. -->
 				<img
 					src={posterSrc}
 					alt={display_label}
-					class="absolute inset-0 h-full w-full object-contain"
+					class={mediaLayout
+						? 'absolute max-w-none'
+						: 'absolute inset-0 h-full w-full object-contain'}
+					style={mediaLayout ? mediaLayout.imageStyle : undefined}
 					class:opacity-0={!posterLoaded}
 					onload={() => (posterLoaded = true)}
 					onerror={() => (posterVisible = false)}

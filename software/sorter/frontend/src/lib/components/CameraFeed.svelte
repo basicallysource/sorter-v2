@@ -162,6 +162,10 @@
 	let webrtcBlockers = $state<string[]>([]);
 	let rtcStream = $state<MediaStream | null>(null);
 	const usingWebrtc = $derived(rtcStream !== null);
+	// Instant poster: a single JPEG of the newest frame, shown the moment the
+	// view mounts and removed once the live stream renders its first frame.
+	let posterVisible = $state(true);
+	let posterLoaded = $state(false);
 	let rtcVideo = $state<HTMLVideoElement | null>(null);
 	let mediaContainer = $state<HTMLDivElement | null>(null);
 	let mediaContainerWidth = $state(0);
@@ -356,6 +360,10 @@
 		return `${effectiveBaseUrl()}/api/cameras/feed/${encodeURIComponent(camera)}?${params.toString()}`;
 	});
 
+	const posterSrc = $derived(
+		`${effectiveBaseUrl()}/api/cameras/snapshot/${encodeURIComponent(camera)}`
+	);
+
 	const metadataWsSrc = $derived.by(() => {
 		const params = new URLSearchParams({
 			show_regions: effectiveZones ? '1' : '0',
@@ -529,6 +537,16 @@
 		if (!rtcVideo) return;
 		rtcVideo.srcObject = rtcStream;
 		if (rtcStream !== null) {
+			const video = rtcVideo;
+			if ('requestVideoFrameCallback' in video) {
+				video.requestVideoFrameCallback(() => (posterVisible = false));
+			} else {
+				(video as HTMLVideoElement).addEventListener(
+					'loadeddata',
+					() => (posterVisible = false),
+					{ once: true }
+				);
+			}
 			void rtcVideo.play().catch(() => {
 				// Autoplay may be temporarily blocked; the element is muted and will
 				// retry naturally when the browser allows playback.
@@ -559,6 +577,8 @@
 			return;
 		}
 		const [httpBase, role, streamEpoch] = key.split('\n');
+		posterVisible = true;
+		posterLoaded = false;
 		untrack(() => releaseWebrtcSession());
 		const lease = acquireCameraWebrtcSession(
 			{ baseUrl: httpBase, camera: role, streamEpoch },
@@ -632,6 +652,7 @@
 					class="absolute max-w-none"
 					class:opacity-30={!is_healthy}
 					style={mediaLayout.imageStyle}
+					onload={() => (posterVisible = false)}
 					onerror={scheduleStreamRetry}
 				/>
 			{:else if legacyMjpegAllowed}
@@ -640,15 +661,26 @@
 					alt={display_label}
 					class="absolute inset-0 h-full w-full object-contain"
 					class:opacity-30={!is_healthy}
+					onload={() => (posterVisible = false)}
 					onerror={scheduleStreamRetry}
 				/>
-			{:else}
+			{:else if !posterLoaded}
 				<div class="absolute inset-0 flex items-center justify-center">
 					<div class="flex flex-col items-center gap-2 text-center">
 						<Loader2 size={28} class="animate-spin text-text-muted" />
 						<span class="text-sm font-medium text-text-muted">Connecting camera...</span>
 					</div>
 				</div>
+			{/if}
+			{#if posterVisible}
+				<img
+					src={posterSrc}
+					alt={display_label}
+					class="absolute inset-0 h-full w-full object-contain"
+					class:opacity-0={!posterLoaded}
+					onload={() => (posterLoaded = true)}
+					onerror={() => (posterVisible = false)}
+				/>
 			{/if}
 		{/if}
 

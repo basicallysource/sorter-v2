@@ -73,6 +73,14 @@
 		return `${mjpegSrc}${separator}transport_retry=${mjpegRetry}`;
 	});
 
+	// Instant poster: a single JPEG of the newest frame, shown the moment the
+	// view mounts and removed once the live stream renders its first frame.
+	let posterVisible = $state(true);
+	let posterLoaded = $state(false);
+	const posterSrc = $derived(
+		`${baseUrl.replace(/\/$/, '')}/api/cameras/snapshot/${encodeURIComponent(camera)}`
+	);
+
 	function reportMediaSize(width: number, height: number, kind: 'image' | 'video') {
 		if (width <= 0 || height <= 0) return;
 		dispatch('mediasize', { width, height, kind });
@@ -108,6 +116,16 @@
 		if (!rtcVideo) return;
 		rtcVideo.srcObject = rtcStream;
 		if (rtcStream !== null) {
+			const video = rtcVideo;
+			if ('requestVideoFrameCallback' in video) {
+				video.requestVideoFrameCallback(() => (posterVisible = false));
+			} else {
+				(video as HTMLVideoElement).addEventListener(
+					'loadeddata',
+					() => (posterVisible = false),
+					{ once: true }
+				);
+			}
 			void rtcVideo.play().catch(() => {
 				// Muted inline video can still be delayed by browser autoplay policy.
 			});
@@ -122,6 +140,8 @@
 			untrack(() => releaseWebrtcSession());
 			return;
 		}
+		posterVisible = true;
+		posterLoaded = false;
 		const lease = acquireCameraWebrtcSession(
 			{
 				baseUrl,
@@ -173,11 +193,25 @@
 		{alt}
 		class={mediaClass}
 		style={mediaStyle}
-		onload={() => reportImageSize(mjpegImage)}
+		onload={() => {
+			posterVisible = false;
+			reportImageSize(mjpegImage);
+		}}
 		onerror={scheduleMjpegRetry}
 	/>
-{:else}
+{:else if !posterLoaded}
 	<div class="absolute inset-0 flex items-center justify-center text-sm text-white/70">
 		Connecting camera...
 	</div>
+{/if}
+{#if posterVisible}
+	<img
+		src={posterSrc}
+		{alt}
+		class={mediaClass}
+		style={mediaStyle}
+		class:opacity-0={!posterLoaded}
+		onload={() => (posterLoaded = true)}
+		onerror={() => (posterVisible = false)}
+	/>
 {/if}

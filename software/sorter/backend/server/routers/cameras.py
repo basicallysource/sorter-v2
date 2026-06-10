@@ -23,7 +23,7 @@ from urllib import request as urllib_request
 import cv2
 import numpy as np
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from blob_manager import BLOB_DIR, getCameraSetup, getChannelPolygons, getClassificationPolygons
@@ -2616,6 +2616,30 @@ def _latest_frame_sample_for_role(role: str):
     if raw is None or not getattr(raw, "size", 0) or not isinstance(timestamp, (int, float)):
         return None
     return raw, float(timestamp)
+
+
+@router.get("/api/cameras/snapshot/{role}")
+def get_camera_snapshot(role: str):
+    """Single JPEG of the newest frame — instant poster image for camera
+    views while the WebRTC session is still connecting."""
+    sample = _latest_frame_sample_for_role(role)
+    if sample is None:
+        raise HTTPException(status_code=404, detail="No frame available for this role.")
+    raw, _ = sample
+    # Downscale before encoding: the poster only bridges the WebRTC connect
+    # gap, and a <=1280px JPEG encodes and transfers noticeably faster.
+    max_width = 1280
+    if raw.shape[1] > max_width:
+        scale = max_width / raw.shape[1]
+        raw = cv2.resize(raw, (max_width, int(raw.shape[0] * scale)), interpolation=cv2.INTER_AREA)
+    ok, encoded = cv2.imencode(".jpg", raw, [int(cv2.IMWRITE_JPEG_QUALITY), 80])
+    if not ok:
+        raise HTTPException(status_code=500, detail="Could not encode snapshot.")
+    return Response(
+        content=encoded.tobytes(),
+        media_type="image/jpeg",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @router.post("/api/cameras/device-settings/{role}/calibrate-picture")

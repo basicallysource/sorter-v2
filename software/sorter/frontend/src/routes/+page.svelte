@@ -15,6 +15,7 @@
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
 	import { AlertTriangle, Check, Eye, EyeOff, Info, Play, X } from 'lucide-svelte';
 
@@ -1705,8 +1706,9 @@
 				</div>
 			</div>
 		{:else}
-			<div class="py-12 text-center text-text-muted">
-				No machine selected. Connect to a machine in Settings.
+			<div class="flex items-center justify-center gap-2 py-12 text-text-muted">
+				<Spinner />
+				<span>Connecting to sorter …</span>
 			</div>
 		{/if}
 	</div>

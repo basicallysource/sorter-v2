@@ -46,7 +46,7 @@
 			</span>
 		{:else}
 			<span class="h-2 w-2 rounded-full bg-gray-500"></span>
-			<span class="text-text-muted">No machine</span>
+			<span class="text-text-muted">Connecting …</span>
 		{/if}
 		<ChevronDown size={14} class="opacity-60" />
 	</button>

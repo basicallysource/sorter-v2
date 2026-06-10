@@ -164,18 +164,35 @@ class _Session:
         except Exception:
             return False
 
-    def sample(self) -> Optional[tuple[float, float, tuple[float, float, float]]]:
-        """Measure a frame captured AFTER the last settings push."""
+    def _fresh_measure(
+        self, after: float
+    ) -> Optional[tuple[float, float, tuple[float, float, float], float]]:
         deadline = self._now() + _FRESH_FRAME_TIMEOUT_S
         while True:
             got = self._get_frame()
             if got is not None:
                 frame, ts = got
-                if frame is not None and getattr(frame, "size", 0) and ts > self._last_push_at:
-                    return measure_roi(frame)
+                if frame is not None and getattr(frame, "size", 0) and ts > after:
+                    return (*measure_roi(frame), ts)
             if self._now() >= deadline:
                 return None
             self._sleep(0.1)
+
+    def sample(self) -> Optional[tuple[float, float, tuple[float, float, float]]]:
+        """Measure two consecutive frames captured AFTER the last settings
+        push and average them — single live frames are too noisy (LED
+        flicker, moving content) to steer a search reliably."""
+        first = self._fresh_measure(self._last_push_at)
+        if first is None:
+            return None
+        second = self._fresh_measure(first[3])
+        if second is None:
+            luma, clip, rgb, _ = first
+            return luma, clip, rgb
+        luma = (first[0] + second[0]) / 2
+        clip = max(first[1], second[1])
+        rgb = tuple((a + b) / 2 for a, b in zip(first[2], second[2]))
+        return luma, clip, rgb  # type: ignore[return-value]
 
 
 def _bounds(control: Dict[str, Any]) -> tuple[float, float]:
@@ -209,6 +226,7 @@ def _search_brightness_control(
     best: tuple[float, float, float, tuple[float, float, float]] | None = None  # (distance, value, luma, rgb)
     prev: tuple[float, float] | None = None  # (value, luma)
     dark_floor, bright_ceil = lo, hi
+    bracketed = False  # set once any measurement came back too bright
 
     measured = None
     for _ in range(max_steps):
@@ -231,6 +249,7 @@ def _search_brightness_control(
 
         if too_bright:
             bright_ceil = value
+            bracketed = True
         else:
             # Ceiling detection: a meaningful value jump with no luma response
             # means the control is saturated (e.g. exposure capped by the
@@ -245,7 +264,7 @@ def _search_brightness_control(
             dark_floor = value
 
         prev = (value, luma)
-        if bright_ceil < hi:
+        if bracketed:
             next_value = (dark_floor + bright_ceil) / 2  # bisect once bracketed
         else:
             # Expand aggressively; the range-based floor keeps a start at 0

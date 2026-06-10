@@ -148,9 +148,9 @@ def test_failed_run_restores_touched_controls() -> None:
 
 
 def test_walks_gain_down_when_too_bright_at_minimum_exposure() -> None:
-    # Sensitive sensor: even exposure=1 with gain 20 is over target — the
-    # gain must come down (OBSBOT-style failure).
-    camera = FakeCamera(luma_per_exposure=1.0, exposure_cap=None)
+    # Sensitive sensor: even near-minimum exposure with high gain is over
+    # target — the gain must come down (OBSBOT-style failure).
+    camera = FakeCamera(luma_per_exposure=30.0, exposure_cap=None)
     camera.settings["exposure"] = 2
     camera.settings["gain"] = 100
     controls = _controls()

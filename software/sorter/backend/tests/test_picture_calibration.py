@@ -147,6 +147,25 @@ def test_failed_run_restores_touched_controls() -> None:
     assert camera.applied_log[-1].get("auto_exposure") == 3
 
 
+def test_walks_gain_down_when_too_bright_at_minimum_exposure() -> None:
+    # Sensitive sensor: even exposure=1 with gain 20 is over target — the
+    # gain must come down (OBSBOT-style failure).
+    camera = FakeCamera(luma_per_exposure=1.0, exposure_cap=None)
+    camera.settings["exposure"] = 2
+    camera.settings["gain"] = 100
+    controls = _controls()
+    for control in controls:
+        if control["key"] == "exposure":
+            control.update({"min": 1, "max": 2500, "value": 2})
+        if control["key"] == "gain":
+            control["value"] = 100
+
+    report = _run(camera, controls)
+
+    assert report.ok, report.reason
+    assert report.settings.get("gain", 100) < 100
+
+
 def test_fails_cleanly_without_frames() -> None:
     camera = FakeCamera()
     report = calibrate_picture(

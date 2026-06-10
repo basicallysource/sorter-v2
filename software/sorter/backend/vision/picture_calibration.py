@@ -300,12 +300,20 @@ def calibrate_picture(
         return report
 
     # 2. Brightness: exposure → gain → gamma until the target band is hit or
-    #    every lever is exhausted.
+    #    every lever is exhausted. The fallbacks work in BOTH directions —
+    #    e.g. a sensitive camera can still be too bright at minimum exposure
+    #    and needs its gain walked down (the search bisects downward when the
+    #    first measurement is too bright).
+    def _in_band(m: tuple[float, float, tuple[float, float, float]]) -> bool:
+        luma, clip, _ = m
+        return (
+            LUMA_TARGET - LUMA_TOLERANCE <= luma <= LUMA_TARGET + LUMA_TOLERANCE
+            and clip <= CLIP_MAX_FRACTION
+        )
+
     measured = _search_brightness_control(session, exposure, report, max_steps=_MAX_EXPOSURE_STEPS)
     for fallback_keys in (_GAIN_KEYS, _GAMMA_KEYS):
-        if measured is None:
-            break
-        if measured[0] >= LUMA_TARGET - LUMA_TOLERANCE:
+        if measured is None or _in_band(measured):
             break
         fallback = _control_by_key(controls, fallback_keys)
         if fallback is None:

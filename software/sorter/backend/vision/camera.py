@@ -1981,6 +1981,32 @@ class CaptureThread:
         with self._cap_lock:
             self._cap = None
             self._gst_runtime = runtime
+
+        # UVC firmware commonly resets or clamps controls around STREAMON, so
+        # the values applied before runtime.start() may no longer be on the
+        # sensor. Re-apply once the stream has settled; runs detached so the
+        # capture bring-up (and the start gate) is not delayed.
+        def _reapply_device_settings_after_streamon() -> None:
+            time.sleep(2.0)
+            try:
+                # Prefer the persisted config: the in-memory copy holds the
+                # pre-STREAMON readback, which may already be the clamped
+                # values we are trying to correct.
+                settings = dict(getattr(self._config, "device_settings", None) or {}) or self.getDeviceSettings()
+                if settings:
+                    applied = apply_camera_device_settings(None, settings, source=actual_source)
+                    if applied:
+                        with self._device_settings_lock:
+                            self._device_settings = dict(applied)
+            except Exception:
+                pass
+
+        threading.Thread(
+            target=_reapply_device_settings_after_streamon,
+            daemon=True,
+            name=f"{self.name}-settings-reapply",
+        ).start()
+
         log.warning(
             "CaptureThread[%s] using GStreamer MPP capture backend for logical video%s -> /dev/video%s (%sx%s@%s %s, h264=%sx%s, yolo=%s, rga=%s, direct_librga_preview=%s, direct_librga_yolo=%s)",
             self.name,

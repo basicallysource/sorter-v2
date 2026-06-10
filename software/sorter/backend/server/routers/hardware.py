@@ -175,23 +175,23 @@ def _active_waveshare_service() -> Any | None:
     return getattr(servo_controller, "bus_service", None)
 
 
-def _configured_waveshare_service(config: Dict[str, Any], *, timeout: float = 0.02) -> Any | None:
+def _configured_waveshare_service(config: Dict[str, Any]) -> Any | None:
     servo = config.get("servo", {})
     port = servo.get("port") if isinstance(servo, dict) else None
     if not isinstance(port, str) or not port.strip():
         return None
     from hardware.waveshare_bus_service import get_waveshare_bus_service
 
-    return get_waveshare_bus_service(port.strip(), timeout=timeout)
+    return get_waveshare_bus_service(port.strip())
 
 
-def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
+def _get_waveshare_service() -> Any | None:
     service = _active_waveshare_service()
     if service is not None:
         return service
 
     _, config = _read_machine_params_config()
-    service = _configured_waveshare_service(config, timeout=timeout)
+    service = _configured_waveshare_service(config)
     if service is not None:
         return service
 
@@ -205,14 +205,14 @@ def _get_waveshare_service(*, timeout: float = 0.02) -> Any | None:
     if isinstance(detected_port, str) and detected_port.strip():
         from hardware.waveshare_bus_service import get_waveshare_bus_service
 
-        return get_waveshare_bus_service(detected_port.strip(), timeout=timeout)
+        return get_waveshare_bus_service(detected_port.strip())
     return None
 
 
 def _waveshare_inventory_status(*, port: str | None = None, refresh: bool = False) -> Dict[str, Any]:
     manager = get_waveshare_inventory_manager()
     if refresh:
-        return manager.refresh(port=port, allow_active_runtime_scan=True)
+        return manager.refresh(port=port, allow_active_runtime_scan=True, probe_all=True)
     return manager.get_status(port=port)
 
 
@@ -1186,10 +1186,18 @@ def save_servo_hardware_config(
     channel_ids = [int(channel["id"]) if channel["id"] is not None else None for channel in channels]
     channel_inverts = [bool(channel["invert"]) for channel in channels]
 
+    # Compare ports by canonical path: the UI may show the live bus as a
+    # /dev/serial/by-id path while the config holds its raw tty twin —
+    # re-saving that must not count as a structural change.
+    from hardware.serial_identity import canonical_port_path
+
+    port_changed = (canonical_port_path(port) if port else None) != (
+        canonical_port_path(previous["port"]) if previous["port"] else None
+    )
     structural_change = (
         backend != previous["backend"]
         or channel_ids != previous_ids
-        or (backend == "waveshare" and port != previous["port"])
+        or (backend == "waveshare" and port_changed)
     )
 
     active_irl = _active_irl()
@@ -1548,7 +1556,7 @@ def get_servo_status() -> Dict[str, Any]:
     "Servo bus offline" banner. Returns one entry per layer with its
     live ``available`` flag plus the aggregate ``bus_online`` status —
     useful when the operator has reconnected the Waveshare USB and
-    wants to verify the bus is back before pressing Resume.
+    wants to verify the bus is back before pressing Home to re-initialize.
     """
     active_irl = _active_irl()
     layers: list[dict[str, Any]] = []
@@ -1621,7 +1629,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
     if new_id == servo_id:
         raise HTTPException(status_code=400, detail="New ID is the same as the current ID.")
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1646,6 +1654,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
             get_waveshare_inventory_manager().refresh(
                 port=getattr(service, "port", None),
                 allow_active_runtime_scan=True,
+                probe_all=True,
             )
         except Exception:
             pass
@@ -1669,7 +1678,7 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1687,6 +1696,7 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
             get_waveshare_inventory_manager().refresh(
                 port=getattr(service, "port", None),
                 allow_active_runtime_scan=True,
+                probe_all=True,
             )
         except Exception:
             pass
@@ -1717,7 +1727,7 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
             detail="position must be one of: open, close, center.",
         )
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 
@@ -1771,7 +1781,7 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
     if servo_id < 1 or servo_id > 253:
         raise HTTPException(status_code=400, detail="Servo ID must be between 1 and 253.")
 
-    service = _get_waveshare_service(timeout=0.02)
+    service = _get_waveshare_service()
     if service is None:
         raise HTTPException(status_code=503, detail="No Waveshare bus available.")
 

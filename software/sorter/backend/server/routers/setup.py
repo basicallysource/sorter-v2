@@ -340,7 +340,7 @@ def _probe_waveshare_servo_count(device_path: str) -> int:
         return 0
 
     try:
-        service = get_waveshare_bus_service(device_path, timeout=0.01)
+        service = get_waveshare_bus_service(device_path)
     except Exception:
         return 0
     try:
@@ -523,9 +523,16 @@ def _build_discovery_payload(
     )
 
     if live_servo_port is not None:
+        # The live bus may report a /dev/serial/by-id path while comports()
+        # lists the raw tty twin — compare canonical paths or the same
+        # physical adapter gets listed twice.
+        from hardware.serial_identity import canonical_port_path
+
+        live_servo_canonical = canonical_port_path(live_servo_port)
         matched_live_port = False
         for device in usb_devices:
-            if device.get("device") != live_servo_port:
+            device_path = device.get("device")
+            if not isinstance(device_path, str) or canonical_port_path(device_path) != live_servo_canonical:
                 continue
             device["category"] = "servo_bus"
             device["use_by_default"] = True
@@ -538,7 +545,8 @@ def _build_discovery_payload(
             port_meta = next(
                 (
                     port for port in serial.tools.list_ports.comports()
-                    if getattr(port, "device", None) == live_servo_port
+                    if isinstance(getattr(port, "device", None), str)
+                    and canonical_port_path(port.device) == live_servo_canonical
                 ),
                 None,
             )

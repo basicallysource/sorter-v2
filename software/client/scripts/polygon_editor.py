@@ -561,6 +561,13 @@ if __name__ == "__main__":
         channel_camera_map["third"] = "c_channel_3"
         channel_camera_map["carousel"] = "c_channel_3"
 
+    if "carousel" in camera_setup:
+        captures["carousel"] = CaptureThread(
+            "carousel", mkCameraConfig(camera_setup["carousel"])
+        )
+        captures["carousel"].start()
+        channel_camera_map["carousel"] = "carousel"
+
     print(f"Server starting on http://localhost:{PORT}")
     print(f"Cameras: {list(captures.keys())}")
     print(f"Channel→camera: {channel_camera_map}")

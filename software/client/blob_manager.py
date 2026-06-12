@@ -123,6 +123,18 @@ def setCameraSetup(setup: dict) -> None:
         saveData(data)
 
 
+def getExcludedCameraIndices() -> list[int]:
+    data = loadData()
+    return data.get("excluded_camera_indices", [])
+
+
+def setExcludedCameraIndices(indices: list[int]) -> None:
+    with _DATA_LOCK:
+        data = loadData()
+        data["excluded_camera_indices"] = sorted(set(indices))
+        saveData(data)
+
+
 def getChannelPolygons() -> dict | None:
     data = loadData()
     return data.get("channel_polygons")

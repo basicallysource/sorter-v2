@@ -14,6 +14,7 @@
 		const data = show_annotated && frame.annotated ? frame.annotated : frame.raw;
 		return `data:image/jpeg;base64,${data}`;
 	});
+	const annotation_label = $derived(camera === 'carousel' ? 'detections' : 'annotations');
 </script>
 
 <div
@@ -26,7 +27,7 @@
 		<button
 			onclick={() => (show_annotated = !show_annotated)}
 			class="dark:hover:bg-border-dark dark:text-text-dark p-1 text-text transition-colors hover:bg-border"
-			title={show_annotated ? 'Hide annotations' : 'Show annotations'}
+			title={show_annotated ? `Hide ${annotation_label}` : `Show ${annotation_label}`}
 		>
 			{#if show_annotated}
 				<Eye size={14} />

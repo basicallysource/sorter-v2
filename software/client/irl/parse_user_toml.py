@@ -32,6 +32,9 @@ class MachineConfig:
     stepper_current_overrides: dict[str, tuple[int, int, int]] = field(default_factory=dict)
     first_bin_center: float | None = None
     pillar_width_deg: float | None = None
+    chute_home_direction: str | None = None
+    chute_home_angle: float | None = None
+    carousel_trigger_score: float | None = None
 
 
 def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
@@ -252,6 +255,22 @@ def loadMachineConfig(
         raw_pw = layers_table.get("pillar_width_deg")
         if isinstance(raw_pw, (int, float)) and not isinstance(raw_pw, bool):
             config.pillar_width_deg = float(raw_pw)
+
+    chute_table = raw.get("chute")
+    if isinstance(chute_table, dict):
+        raw_dir = chute_table.get("home_direction")
+        if isinstance(raw_dir, str):
+            config.chute_home_direction = raw_dir
+
+        raw_home_angle = chute_table.get("home_angle")
+        if isinstance(raw_home_angle, (int, float)) and not isinstance(raw_home_angle, bool):
+            config.chute_home_angle = float(raw_home_angle)
+
+    carousel_table = raw.get("carousel")
+    if isinstance(carousel_table, dict):
+        raw_trigger = carousel_table.get("heatmap_trigger_score")
+        if isinstance(raw_trigger, (int, float)) and not isinstance(raw_trigger, bool):
+            config.carousel_trigger_score = float(raw_trigger)
 
     config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
 

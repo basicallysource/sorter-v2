@@ -137,6 +137,7 @@ class IRLConfig:
     classification_camera_top: CameraConfig
     c_channel_2_camera: "CameraConfig | None"
     c_channel_3_camera: "CameraConfig | None"
+    carousel_camera: "CameraConfig | None"
     carousel_stepper: StepperConfig
     chute_stepper: StepperConfig
     first_c_channel_rotor_stepper: StepperConfig
@@ -144,11 +145,14 @@ class IRLConfig:
     third_c_channel_rotor_stepper: StepperConfig
     aruco_tags: ArucoTagConfig
     feeder_config: FeederConfig
+    carousel_trigger_score: "float | None"
 
     def __init__(self):
         self.feeder_config = FeederConfig()
         self.c_channel_2_camera = None
         self.c_channel_3_camera = None
+        self.carousel_camera = None
+        self.carousel_trigger_score = None
 
 
 class IRLInterface:
@@ -286,7 +290,9 @@ def mkIRLConfig() -> IRLConfig:
         irl_config.c_channel_2_camera = mkCameraConfig(device_index=camera_setup["c_channel_2"])
     if "c_channel_3" in camera_setup:
         irl_config.c_channel_3_camera = mkCameraConfig(device_index=camera_setup["c_channel_3"])
-    
+    if "carousel" in camera_setup:
+        irl_config.carousel_camera = mkCameraConfig(device_index=camera_setup["carousel"])
+
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
     irl_config.first_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
@@ -307,11 +313,14 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     irl_interface = IRLInterface()
     machine_config = loadMachineConfig(gc)
     stepper_current_overrides = machine_config.stepper_current_overrides
+    config.carousel_trigger_score = machine_config.carousel_trigger_score
 
     if config.c_channel_2_camera is not None:
         gc.logger.info(f"Split-feeder mode: c_channel_2 camera index={config.c_channel_2_camera.device_index}")
     if config.c_channel_3_camera is not None:
         gc.logger.info(f"Split-feeder mode: c_channel_3 camera index={config.c_channel_3_camera.device_index}")
+    if config.carousel_camera is not None:
+        gc.logger.info(f"Carousel camera index={config.carousel_camera.device_index}")
 
     ports = MCUBus.enumerate_buses()
     if not ports:
@@ -469,6 +478,10 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         chute_kwargs["first_section_center"] = machine_config.first_bin_center
     if machine_config.pillar_width_deg is not None:
         chute_kwargs["pillar_width_deg"] = machine_config.pillar_width_deg
+    if machine_config.chute_home_direction is not None:
+        chute_kwargs["home_direction"] = machine_config.chute_home_direction
+    if machine_config.chute_home_angle is not None:
+        chute_kwargs["home_angle"] = machine_config.chute_home_angle
     irl_interface.chute = Chute(
         gc, irl_interface.chute_stepper, chute_home_pin, irl_interface.distribution_layout,
         **chute_kwargs

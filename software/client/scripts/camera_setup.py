@@ -4,7 +4,12 @@ import cv2
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from blob_manager import getCameraSetup, setCameraSetup
+from blob_manager import (
+    getCameraSetup,
+    setCameraSetup,
+    getExcludedCameraIndices,
+    setExcludedCameraIndices,
+)
 
 MAX_INDEX = 10
 WARMUP_FRAMES = 5
@@ -18,6 +23,8 @@ ROLES = {
     ord("T"): "classification_top",
     ord("2"): "c_channel_2",
     ord("3"): "c_channel_3",
+    ord("c"): "carousel",
+    ord("C"): "carousel",
 }
 
 MENU_LINES = [
@@ -26,7 +33,9 @@ MENU_LINES = [
     "T - classification top",
     "2 - c_channel_2 (split feeder)",
     "3 - c_channel_3 (split feeder)",
+    "C - carousel (dedicated)",
     "N - next camera",
+    "X - exclude this camera (skip on future runs)",
     "Q - quit & save",
 ]
 
@@ -34,9 +43,15 @@ REQUIRED_ROLES = ["feeder", "classification_bottom", "classification_top"]
 
 
 def main():
+    excluded = set(getExcludedCameraIndices())
+
     caps = []
+    starved = []
     stderr_fd = sys.stderr.fileno()
     for i in range(MAX_INDEX):
+        if i in excluded:
+            print(f"index {i}: excluded, skipping")
+            continue
         old_stderr = os.dup(stderr_fd)
         os.dup2(os.open(os.devnull, os.O_WRONLY), stderr_fd)
         cap = cv2.VideoCapture(i)
@@ -51,7 +66,20 @@ def main():
             if ret:
                 caps.append((i, cap))
                 continue
+            print(f"index {i}: opened but never returned a frame, skipping")
+            starved.append(i)
         cap.release()
+
+    if starved:
+        print(
+            f"\n*** {len(starved)} camera(s) opened but never delivered a frame "
+            f"(indices {starved}). ***\n"
+            "    This usually means the USB bus is out of bandwidth — too many\n"
+            "    cameras sharing one controller/port. To fix:\n"
+            "      - Unplug any unused cameras and re-run this script, or\n"
+            "      - Move cameras to a different USB port / powered USB hub /\n"
+            "        USB adapter so they don't share the same bus.\n"
+        )
 
     if not caps:
         print("no cameras found")
@@ -122,6 +150,14 @@ def main():
                 else:
                     print(f"camera {index} -> skipped")
                 break
+            elif key in (ord("x"), ord("X")):
+                excluded.add(index)
+                setExcludedCameraIndices(list(excluded))
+                for role, idx in list(setup.items()):
+                    if idx == index:
+                        del setup[role]
+                print(f"camera {index} -> excluded (will be skipped on future runs)")
+                break
             elif key in (ord("q"), ord("Q")):
                 for _, c in caps:
                     c.release()
@@ -144,6 +180,9 @@ def printSummary(setup):
     missing = [r for r in REQUIRED_ROLES if r not in setup]
     if missing:
         print(f"not assigned: {', '.join(missing)}")
+    excluded = getExcludedCameraIndices()
+    if excluded:
+        print(f"excluded indices: {excluded}")
 
 
 if __name__ == "__main__":

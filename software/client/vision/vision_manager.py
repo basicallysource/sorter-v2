@@ -1,4 +1,5 @@
 from typing import Optional, List, Dict, Tuple, Union
+from dataclasses import replace
 import base64
 import time
 import threading
@@ -31,6 +32,7 @@ class VisionManager:
     _feeder_capture: CaptureThread
     _c_channel_2_capture: Optional[CaptureThread]
     _c_channel_3_capture: Optional[CaptureThread]
+    _carousel_capture: Optional[CaptureThread]
     _classification_bottom_capture: Optional[CaptureThread]
     _classification_top_capture: Optional[CaptureThread]
     _video_recorder: Optional[VideoRecorder]
@@ -59,6 +61,11 @@ class VisionManager:
         self._c_channel_3_capture = (
             CaptureThread("c_channel_3", irl_config.c_channel_3_camera)
             if self._is_split_feeder else None
+        )
+
+        self._carousel_capture = (
+            CaptureThread("carousel", irl_config.carousel_camera)
+            if getattr(irl_config, "carousel_camera", None) is not None else None
         )
 
         if "classification_bottom" in self._disabled_cameras and "classification_top" in self._disabled_cameras:
@@ -99,6 +106,14 @@ class VisionManager:
         self._classification_polygon_resolution: Tuple[int, int] = (1920, 1080)
         self._loadClassificationPolygons()
         self._carousel_diff_config: CarouselDiffConfig = DEFAULT_CAROUSEL_DIFF_CONFIG
+        carousel_trigger_score = getattr(irl_config, "carousel_trigger_score", None)
+        if carousel_trigger_score is not None:
+            self._carousel_diff_config = replace(
+                self._carousel_diff_config, trigger_score=carousel_trigger_score
+            )
+            self.gc.logger.info(
+                f"Carousel heatmap trigger_score overridden to {carousel_trigger_score} (from machine config)"
+            )
         self._diff_config: ClassificationDiffConfig = DEFAULT_CLASSIFICATION_DIFF_CONFIG
         self._carousel_heatmap = self._makeCarouselHeatmap()
 
@@ -125,6 +140,8 @@ class VisionManager:
             self._c_channel_2_capture.start()
         if self._c_channel_3_capture:
             self._c_channel_3_capture.start()
+        if self._carousel_capture:
+            self._carousel_capture.start()
         if self._classification_bottom_capture:
             self._classification_bottom_capture.start()
         if self._classification_top_capture:
@@ -154,6 +171,8 @@ class VisionManager:
             self._c_channel_2_capture.stop()
         if self._c_channel_3_capture:
             self._c_channel_3_capture.stop()
+        if self._carousel_capture:
+            self._carousel_capture.stop()
         if self._classification_bottom_capture:
             self._classification_bottom_capture.stop()
         if self._classification_top_capture:
@@ -450,8 +469,11 @@ class VisionManager:
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
 
     def getLatestCarouselGray(self) -> np.ndarray | None:
-        """In split mode, carousel is visible in c_channel_3; otherwise use feeder."""
-        if self._is_split_feeder and self._c_channel_3_capture is not None:
+        """Use the dedicated carousel camera if assigned. Otherwise, in split
+        mode carousel is visible in c_channel_3; falling back to feeder."""
+        if self._carousel_capture is not None:
+            frame = self._carousel_capture.latest_frame
+        elif self._is_split_feeder and self._c_channel_3_capture is not None:
             frame = self._c_channel_3_capture.latest_frame
         else:
             frame = self._feeder_capture.latest_frame
@@ -489,8 +511,7 @@ class VisionManager:
 
     def isCarouselTriggered(self) -> Tuple[bool, float, int]:
         score, hot_px = self._carousel_heatmap.computeDiff()
-        from vision.heatmap_diff import TRIGGER_SCORE
-        return score >= TRIGGER_SCORE, score, hot_px
+        return score >= self._carousel_diff_config.trigger_score, score, hot_px
 
     def recordFrames(self) -> None:
         prof = self.gc.profiler
@@ -565,7 +586,7 @@ class VisionManager:
                 label = f"ch{det.channel_id} {sorted(secs)} p={precise} d={drop}"
                 cv2.putText(annotated, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
 
-        if self._carousel_heatmap.has_baseline:
+        if self._carousel_capture is None and self._carousel_heatmap.has_baseline:
             annotated = self._carousel_heatmap.annotateFrame(annotated, label="carousel", text_y=80)
 
         result = CameraFrame(
@@ -651,6 +672,12 @@ class VisionManager:
             return self._makeChannelFrame(self._c_channel_2_capture, self._feeder_analysis)
         elif camera_name == "c_channel_3" and self._c_channel_3_capture is not None:
             return self._makeChannelFrame(self._c_channel_3_capture, self._feeder_analysis_ch3)
+        elif camera_name == "carousel" and self._carousel_capture is not None:
+            frame = self._makeChannelFrame(self._carousel_capture, None)
+            if frame is not None and self._carousel_heatmap.has_baseline:
+                annotated = self._carousel_heatmap.annotateFrame(frame.annotated, label="carousel", text_y=80)
+                frame = CameraFrame(raw=frame.raw, annotated=annotated, results=frame.results, timestamp=frame.timestamp)
+            return frame
         elif camera_name == "classification_bottom":
             return self.classification_bottom_frame
         elif camera_name == "classification_top":

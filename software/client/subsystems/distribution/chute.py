@@ -13,8 +13,19 @@ DEFAULT_FIRST_SECTION_CENTER = 39.0
 DEFAULT_PILLAR_WIDTH_DEG = 8.2
 CHUTE_MAX_ANGLE = 360
 
-HOME_SPEED_MICROSTEPS_PER_SEC = -1000
+HOME_SPEED_MAGNITUDE_MICROSTEPS_PER_SEC = 1000
 HOME_TIMEOUT_MS = 15000
+
+# Sign of the homing speed per direction. Counterclockwise (negative speed) is
+# the historical default the machine homed in.
+HOME_DIRECTION_SIGNS = {
+    "counterclockwise": -1,
+    "ccw": -1,
+    "clockwise": 1,
+    "cw": 1,
+}
+DEFAULT_HOME_DIRECTION = "counterclockwise"
+DEFAULT_HOME_ANGLE = 0.0
 
 
 @dataclass
@@ -33,6 +44,8 @@ class Chute:
         layout: DistributionLayout,
         first_section_center: float = DEFAULT_FIRST_SECTION_CENTER,
         pillar_width_deg: float = DEFAULT_PILLAR_WIDTH_DEG,
+        home_direction: str = DEFAULT_HOME_DIRECTION,
+        home_angle: float = DEFAULT_HOME_ANGLE,
     ):
         self.gc = gc
         self.logger = gc.logger
@@ -41,6 +54,16 @@ class Chute:
         self.layout = layout
         self._first_section_center = first_section_center
         self._usable_deg_per_section = DEG_PER_SECTION - pillar_width_deg
+        sign = HOME_DIRECTION_SIGNS.get(home_direction.lower())
+        if sign is None:
+            self.logger.warning(
+                f"Chute: unknown home_direction '{home_direction}', "
+                f"defaulting to {DEFAULT_HOME_DIRECTION}"
+            )
+            sign = HOME_DIRECTION_SIGNS[DEFAULT_HOME_DIRECTION]
+        self._home_direction = home_direction
+        self._home_speed = sign * HOME_SPEED_MAGNITUDE_MICROSTEPS_PER_SEC
+        self._home_angle = home_angle
 
     @property
     def current_angle(self) -> float:
@@ -118,12 +141,19 @@ class Chute:
         return self.moveToAngleBlocking(target, timeout_buffer_ms=timeout_buffer_ms)
 
     def home(self) -> None:
-        self.logger.info("Chute: homing via sensor")
-        self.stepper.home(HOME_SPEED_MICROSTEPS_PER_SEC, self.home_pin, home_pin_active_high=True)
+        self.logger.info(
+            f"Chute: homing via sensor (direction={self._home_direction}, "
+            f"speed={self._home_speed} µsteps/s, zero point={self._home_angle:.1f}°)"
+        )
+        self.stepper.home(self._home_speed, self.home_pin, home_pin_active_high=True)
         start = time.monotonic()
         while not self.stepper.stopped:
             if (time.monotonic() - start) * 1000 > HOME_TIMEOUT_MS:
                 self.logger.error("Chute: homing timed out")
                 return
             time.sleep(0.01)
-        self.logger.info("Chute: homed successfully")
+        # The firmware zeroes the stepper at the endstop; offset so the endstop
+        # position reports the configured chute angle instead of 0°.
+        if self._home_angle != 0.0:
+            self.stepper.position_degrees = self._home_angle * GEAR_RATIO
+        self.logger.info(f"Chute: homed successfully (now at {self.current_angle:.1f}°)")

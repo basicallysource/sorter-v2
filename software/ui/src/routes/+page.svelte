@@ -87,19 +87,29 @@
 		{@const has_bottom = machine.frames.has('classification_bottom')}
 		{@const single_classification = (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
 		{@const is_split_feeder = machine.frames.has('c_channel_2') || machine.frames.has('c_channel_3')}
+		{@const has_carousel = machine.frames.has('carousel')}
 		<div class="flex h-[60vh] gap-3">
-			{#if single_classification}
-				<div class="flex min-w-0 flex-1 flex-col gap-3">
-					<div class="flex-1">
-						{#if is_split_feeder}
-							<div class="flex h-full gap-3">
-								<div class="flex-1"><CameraFeed camera="c_channel_2" /></div>
-								<div class="flex-1"><CameraFeed camera="c_channel_3" /></div>
-							</div>
-						{:else}
-							<CameraFeed camera="feeder" />
+			{#if is_split_feeder}
+				<div class="flex min-w-0 flex-1 gap-3">
+					<div class="flex flex-1 flex-col gap-3">
+						<div class="flex-1"><CameraFeed camera="c_channel_2" /></div>
+						{#if has_carousel}
+							<div class="flex-1"><CameraFeed camera="carousel" /></div>
 						{/if}
 					</div>
+					<div class="flex flex-1 flex-col gap-3">
+						<div class="flex-1"><CameraFeed camera="c_channel_3" /></div>
+						{#if has_top}
+							<div class="flex-1"><CameraFeed camera="classification_top" /></div>
+						{/if}
+						{#if has_bottom}
+							<div class="flex-1"><CameraFeed camera="classification_bottom" /></div>
+						{/if}
+					</div>
+				</div>
+			{:else if single_classification}
+				<div class="flex min-w-0 flex-1 flex-col gap-3">
+					<div class="flex-1"><CameraFeed camera="feeder" /></div>
 					<div class="flex-1">
 						{#if has_top}
 							<CameraFeed camera="classification_top" />
@@ -110,16 +120,7 @@
 				</div>
 			{:else}
 				<div class="flex min-w-0 flex-1 gap-3">
-					<div class="flex-1">
-						{#if is_split_feeder}
-							<div class="flex h-full gap-3">
-								<div class="flex-1"><CameraFeed camera="c_channel_2" /></div>
-								<div class="flex-1"><CameraFeed camera="c_channel_3" /></div>
-							</div>
-						{:else}
-							<CameraFeed camera="feeder" />
-						{/if}
-					</div>
+					<div class="flex-1"><CameraFeed camera="feeder" /></div>
 					<div class="flex flex-1 flex-col gap-3">
 						<div class="flex-1">
 							<CameraFeed camera="classification_top" />

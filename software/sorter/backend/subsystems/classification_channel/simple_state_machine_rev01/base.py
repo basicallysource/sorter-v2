@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
-from defs.known_object import ClassificationStatus
+from defs.known_object import ClassificationStatus, PieceStage
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
@@ -115,6 +115,29 @@ class Rev01BaseState(BaseState):
             return
         obj.updated_at = time.time()
         self.event_queue.put(knownObjectToEvent(obj))
+
+    def abandonInFlightObject(self, reason: str) -> None:
+        # A piece was photographed (emitted to the UI with a crop) but its cycle
+        # is being torn down before it ever classified or distributed — machine
+        # stop, or a reset mid-capture. Mark it aborted and emit a final update
+        # so the UI drops it instead of leaving it stuck in "capturing" forever.
+        # No-op for finalized pieces (already classified/distributed) and pieces
+        # that never started capturing.
+        obj = self.ctx.known_object
+        if obj is None or obj.aborted:
+            return
+        terminal_status = obj.classification_status not in (
+            ClassificationStatus.pending,
+            ClassificationStatus.classifying,
+        )
+        already_distributed = (
+            obj.stage == PieceStage.distributed or obj.distributed_at is not None
+        )
+        if terminal_status or already_distributed:
+            return
+        obj.aborted = True
+        self.logger.info(f"{LOG_TAG} abandoning in-flight piece {obj.uuid[:8]} ({reason})")
+        self.emitKnownObject()
 
     @staticmethod
     def encodeFrame(frame: np.ndarray) -> Optional[str]:

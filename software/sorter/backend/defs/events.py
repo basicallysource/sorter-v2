@@ -72,6 +72,7 @@ class KnownObjectData(BaseModel):
     updated_at: float
     stage: PieceStage
     classification_status: ClassificationStatus
+    aborted: bool = False
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None

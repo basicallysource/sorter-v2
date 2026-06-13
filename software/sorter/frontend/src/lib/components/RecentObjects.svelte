@@ -10,6 +10,16 @@
 	const MAX_DELIVERED_PIECES = 8;
 	const RECENT_TERMINAL_DEDUPE_WINDOW_S = 15;
 	const C4_DROP_ANGLE_DEG = 30;
+	// A piece that landed on C4 emits a KnownObject (with a crop) the instant it
+	// is photographed, but only gets a terminal classification_status once it
+	// reaches distribution. If its cycle is torn down first — machine stop,
+	// backend restart, or the state machine reset mid-capture — the object
+	// freezes in the 'capturing'/'tracking' phase and never receives another
+	// event, so it would otherwise sit in this list forever. C4 processes one
+	// piece at a time: the live piece updates every frame and flips to
+	// 'classified' within seconds, so any OLDER pre-classification piece that
+	// has had no event for this long has been abandoned and is dropped.
+	const STALE_CAPTURING_S = 15;
 
 	const ctx = getMachineContext();
 	sortingProfileStore.load();
@@ -148,7 +158,18 @@
 		return lastEventTs(b) - lastEventTs(a);
 	}
 
+	// Tick loop so relative timestamps refresh and stale pieces drop without new
+	// events.
+	let now_tick = $state(0);
+	$effect(() => {
+		const id = setInterval(() => (now_tick += 1), 1000);
+		return () => clearInterval(id);
+	});
+
 	const activeOnC4 = $derived.by(() => {
+		// Re-evaluate on the 1s tick so abandoned (frozen) pieces drop out of the
+		// list even when no new events are arriving.
+		void now_tick;
 		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
 		// If a terminal event and a stale active split briefly coexist, keep
 		// the terminal row and suppress the old active identity.
@@ -166,7 +187,19 @@
 			.filter((o) => !recent_terminal_keys.has(physicalPieceKey(o)))
 			.sort((a, b) => lastEventTs(b) - lastEventTs(a));
 
-		return dedupeByPhysicalPiece(freshest_first).sort(sortActiveC4Pieces);
+		// Drop orphaned pre-classification pieces (see STALE_CAPTURING_S). The
+		// freshest active piece is always kept — that's the one currently on the
+		// channel, which may legitimately sit pre-classification for a few
+		// seconds while Brickognize runs.
+		const deduped = dedupeByPhysicalPiece(freshest_first);
+		const live = deduped.filter((o, i) => {
+			if (i === 0) return true;
+			const phase = lifecyclePhase(o);
+			if (phase !== 'capturing' && phase !== 'tracking') return true;
+			return now_s - lastEventTs(o) <= STALE_CAPTURING_S;
+		});
+
+		return live.sort(sortActiveC4Pieces);
 	});
 
 	const deliveredHistory = $derived.by(() => {
@@ -256,15 +289,6 @@
 		return null;
 	}
 
-	// Tick loop so relative timestamps refresh without new events.
-	let now_tick = $state(0);
-	$effect(() => {
-		const id = setInterval(() => (now_tick += 1), 1000);
-		return () => clearInterval(id);
-	});
-	$effect(() => {
-		void now_tick;
-	});
 </script>
 
 {#snippet pieceCard(obj: KnownObjectData)}

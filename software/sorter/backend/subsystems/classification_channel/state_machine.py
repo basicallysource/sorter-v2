@@ -231,6 +231,14 @@ class ClassificationChannelStateMachine(BaseSubsystem):
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")
+        # Tearing down mid-cycle (machine stop / standby): if a piece was
+        # photographed but never classified or distributed, mark it aborted so
+        # the UI drops it instead of leaving it stuck in "capturing" forever.
+        if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+            current = self.states_map[self.current_state]
+            abandon = getattr(current, "abandonInFlightObject", None)
+            if callable(abandon):
+                abandon("classification channel teardown")
         self.states_map[self.current_state].cleanup()
         if self._dynamic_mode and hasattr(self.transport, "resetDynamicState"):
             self.transport.resetDynamicState()

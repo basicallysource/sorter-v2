@@ -47,6 +47,10 @@ export interface KnownObjectData {
   updated_at: number;
   stage: PieceStage;
   classification_status: ClassificationStatus;
+  // Set by the backend when a piece's cycle was torn down before it ever
+  // classified or distributed (machine stop / reset mid-capture). Such pieces
+  // are dropped from the UI rather than left stuck in the "capturing" phase.
+  aborted?: boolean;
   part_id?: string | null;
   part_name?: string | null;
   part_category?: string | null;

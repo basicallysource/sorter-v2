@@ -27,6 +27,12 @@ class KnownObject:
     updated_at: float = field(default_factory=time.time)
     stage: PieceStage = PieceStage.created
     classification_status: ClassificationStatus = ClassificationStatus.pending
+    # Set when a piece's classification cycle was torn down before it ever
+    # produced a result (machine stop / reset mid-capture). The object was
+    # already emitted to the UI with a crop but will never be classified or
+    # distributed; the UI drops aborted pieces rather than leaving them stuck
+    # in the "capturing" phase forever.
+    aborted: bool = False
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None

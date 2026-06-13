@@ -102,6 +102,7 @@ class Idle(Rev01BaseState):
         )
         if self._presence_streak >= self.ctx.config.presence_streak_to_start:
             self._presence_streak = 0
+            self.abandonInFlightObject("new cycle starting")
             self.ctx.reset()
             self.logger.info(
                 f"{LOG_TAG} IDLE -> ROTATING_AND_CAPTURING "
@@ -162,6 +163,7 @@ class Idle(Rev01BaseState):
         self.setClassificationReady(False, f"{len(actionable)} bbox(es) on channel")
         if self._presence_streak >= self.ctx.config.presence_streak_to_start:
             self._presence_streak = 0
+            self.abandonInFlightObject("new cycle starting")
             self.ctx.reset()
             self.logger.info(
                 f"{LOG_TAG} IDLE -> ROTATING_AND_CAPTURING "

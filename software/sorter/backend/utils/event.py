@@ -43,6 +43,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             updated_at=obj.updated_at,
             stage=PieceStage(obj.stage),
             classification_status=ClassificationStatus(obj.classification_status),
+            aborted=obj.aborted,
             part_id=obj.part_id,
             part_name=obj.part_name,
             part_category=obj.part_category,

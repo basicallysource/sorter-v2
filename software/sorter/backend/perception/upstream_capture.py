@@ -92,6 +92,14 @@ class UpstreamMatchConfig:
     max_results: int = 24
     search_ch2: bool = True
     search_ch3: bool = True
+    # When both channels are searched, how the top results are drawn:
+    #  - False (default): ONE similarity search over both channels' crops pooled
+    #    together — the global top ``max_results``, so the channel with stronger
+    #    matches can take every slot.
+    #  - True: search each channel SEPARATELY, take the top ``max_results`` from
+    #    C2 and the top ``max_results`` from C3, then merge — both channels are
+    #    always represented. No effect when only one channel is enabled.
+    search_per_channel_topn: bool = False
 
     # --- Classification injection --------------------------------------
     # When a piece lands on C4, embed its burst crops, find its best upstream
@@ -130,6 +138,7 @@ FIELD_META: list[dict] = [
     {"section": "Search", "key": "max_results", "label": "Max results", "type": "int", "default": _DEFAULTS.max_results, "description": "Maximum number of candidate matches a search returns."},
     {"section": "Search", "key": "search_ch2", "label": "Search C2", "type": "bool", "default": _DEFAULTS.search_ch2, "description": "Include Channel 2 crops when searching for matches."},
     {"section": "Search", "key": "search_ch3", "label": "Search C3", "type": "bool", "default": _DEFAULTS.search_ch3, "description": "Include Channel 3 crops when searching for matches."},
+    {"section": "Search", "key": "search_per_channel_topn", "label": "Top-N per channel (don't pool C2 + C3)", "type": "bool", "default": _DEFAULTS.search_per_channel_topn, "description": "How results are drawn when both C2 and C3 are searched. Off: one search over both channels' crops pooled together, returning the global top 'Max results' — a channel with stronger matches can take every slot. On: search each channel on its own and take the top 'Max results' from C2 and the top 'Max results' from C3, then merge, so both channels are always represented. No effect when only one channel is enabled."},
     {"section": "Classification", "key": "classify_inject_enabled", "label": "Inject matches into Brickognize", "type": "bool", "default": _DEFAULTS.classify_inject_enabled, "description": "When a piece lands on C4, automatically find its best upstream (C2/C3) views and send them to Brickognize alongside the C4 photos, giving the classifier extra angles. Runs one paid embedding per classified piece, so it's off by default."},
     {"section": "Classification", "key": "classify_top_n", "label": "Matches to grab (top N)", "type": "int", "default": _DEFAULTS.classify_top_n, "description": "How many upstream matches to GRAB (top-N by similarity) and attach to the piece for review. All of these show on the piece's detail card."},
     {"section": "Classification", "key": "classify_use_n", "label": "Matches to use for classification (top N)", "type": "int", "default": _DEFAULTS.classify_use_n, "description": "Of the grabbed matches, how many of the most-similar to actually SEND to Brickognize for classification. The rest are kept for review only. Total images (C4 burst + these) is capped at Brickognize's 8-image limit."},
@@ -501,20 +510,31 @@ class UpstreamCropStore:
 
         t0 = ref_ts - cfg.lookback_seconds
         t1 = ref_ts + cfg.forward_seconds
-        sql = (
-            "select channel, ts, bbox, jpeg, distance from upstream_crops "
-            "where embedding match ? and k = ? and ts >= ? and ts <= ?"
-        )
-        params: list[Any] = [_serializeF32(query), int(max(1, cfg.max_results)), t0, t1]
-        if len(channels) == 1:
-            sql += " and channel = ?"
-            params.append(channels[0])
-        sql += " order by distance"
+        k = int(max(1, cfg.max_results))
 
+        # Per-channel mode (only meaningful with both channels enabled): run one
+        # KNN per channel so each contributes its own top-k. Otherwise a single
+        # KNN over the pooled crops returns the global top-k.
+        if cfg.search_per_channel_topn and len(channels) > 1:
+            query_groups = [[c] for c in channels]
+        else:
+            query_groups = [channels]
+
+        rows: list[Any] = []
         try:
             con = self._openDb()
             try:
-                rows = con.execute(sql, params).fetchall()
+                for group in query_groups:
+                    sql = (
+                        "select channel, ts, bbox, jpeg, distance from upstream_crops "
+                        "where embedding match ? and k = ? and ts >= ? and ts <= ?"
+                    )
+                    params: list[Any] = [_serializeF32(query), k, t0, t1]
+                    if len(group) == 1:
+                        sql += " and channel = ?"
+                        params.append(group[0])
+                    sql += " order by distance"
+                    rows.extend(con.execute(sql, params).fetchall())
             finally:
                 con.close()
         except Exception as exc:
@@ -539,6 +559,7 @@ class UpstreamCropStore:
                 "bbox": bbox,
                 "jpeg_b64": jpeg_b64,
             })
+        candidates.sort(key=lambda c: c["score"], reverse=True)
         return {"candidates": candidates, "n_anchor_embedded": len(vecs)}
 
     def matchForClassification(self, anchor_b64s: list[str], ref_ts: float) -> list[dict]:

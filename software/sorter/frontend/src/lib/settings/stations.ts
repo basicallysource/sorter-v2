@@ -1,4 +1,16 @@
-import { Activity, Camera, Cloud, Cpu, Gauge, Layers3, Settings, Shapes, Wrench, Zap } from 'lucide-svelte';
+import {
+	Activity,
+	Camera,
+	Cloud,
+	Cpu,
+	Gauge,
+	Layers3,
+	Settings,
+	Shapes,
+	SlidersHorizontal,
+	Wrench,
+	Zap
+} from 'lucide-svelte';
 import {
 	CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO,
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
@@ -116,6 +128,24 @@ export const performanceNavItem: SettingsNavItem = {
 	icon: Gauge
 };
 
+export const tuningNavItems: SettingsNavItem[] = [
+	{
+		href: '/tuning/feeder-go-to-angle',
+		label: 'Feeder Go-To-Angle',
+		icon: SlidersHorizontal
+	},
+	{
+		href: '/tuning/feeder-pulse-perception',
+		label: 'Feeder Simple Pulse',
+		icon: SlidersHorizontal
+	},
+	{
+		href: '/tuning/classification-channel',
+		label: 'Classification Channel',
+		icon: SlidersHorizontal
+	}
+];
+
 export const stationPageConfigs: StationPageConfig[] = [
 	{
 		slug: 'c-channel-1',
@@ -215,7 +245,9 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	chuteAimingNavItem,
 	stallguardNavItem,
 	jitterTestNavItem,
-	performanceNavItem
+	performanceNavItem,
+	{ type: 'heading', label: 'Tuning' },
+	...tuningNavItems
 ];
 
 export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {

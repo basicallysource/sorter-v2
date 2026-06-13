@@ -27,6 +27,10 @@ class ClassificationAttemptStrategy(str, Enum):
     # Re-send only the C4 burst, with the upstream match crops removed — the
     # first retry when ``initial`` recognized nothing and upstream was injected.
     drop_upstream = "drop_upstream"
+    # Fan-out: submit the last burst frame and the single top-similarity upstream
+    # crop as two parallel single-image queries, then keep the higher-confidence
+    # result of whichever come back.
+    split_singles = "split_singles"
     # Reserved for upcoming subset experiments (drop the burst, add more upstream
     # or more burst frames, …). Add the enum value here and a builder in the
     # classify retry runner; the rest of the plumbing is strategy-agnostic.
@@ -59,6 +63,10 @@ class ClassificationAttempt:
     n_burst: int
     n_upstream: int
     found: bool
+    # Distinguishes the parallel sub-calls of a fan-out strategy (e.g.
+    # "last_burst" vs "top_upstream" under split_singles). For single-call
+    # strategies this equals the strategy name.
+    label: Optional[str] = None
     part_id: Optional[str] = None
     confidence: Optional[float] = None
     error: Optional[str] = None

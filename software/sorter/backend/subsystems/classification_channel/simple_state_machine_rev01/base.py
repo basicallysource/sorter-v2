@@ -39,6 +39,25 @@ class _SendImage:
     rec: RecognitionImage
 
 
+@dataclass
+class _ClassifyRequest:
+    # One Brickognize call: a labelled subset of the sendable images. Most steps
+    # have a single request; a fan-out step (e.g. split_singles) carries several
+    # that are submitted in parallel and merged by confidence.
+    label: str
+    images: list[_SendImage]
+
+
+@dataclass
+class _AttemptStep:
+    # One rung of the retry ladder. ``requests`` is submitted as a unit: a single
+    # request is one Brickognize call; multiple requests run in parallel and the
+    # step's applied result is the highest-confidence one that came back. Steps
+    # run in order, each only if the previous recognized nothing.
+    strategy: ClassificationAttemptStrategy
+    requests: list[_ClassifyRequest]
+
+
 class Rev01BaseState(BaseState):
     def __init__(
         self,
@@ -300,125 +319,187 @@ class Rev01BaseState(BaseState):
         self.ctx.classify_thread = thread
         thread.start()
 
-    def _buildAttemptPlan(
-        self, sendable: list[_SendImage]
-    ) -> list[tuple[ClassificationAttemptStrategy, list[_SendImage]]]:
-        # The ordered list of (strategy, image subset) to try. Attempt 0 is the
-        # full set; each retry strategy appends a reduced subset, tried in order
-        # only if a prior attempt recognized nothing. A strategy that wouldn't
-        # change the set (e.g. drop_upstream with no upstream present) is skipped
-        # so we never pay for an identical re-submit.
-        plan: list[tuple[ClassificationAttemptStrategy, list[_SendImage]]] = [
-            (ClassificationAttemptStrategy.initial, list(sendable))
+    def _buildAttemptPlan(self, sendable: list[_SendImage]) -> list[_AttemptStep]:
+        # The ordered retry ladder. Step 0 submits the full set; each enabled
+        # strategy appends a step, tried in order only if a prior step recognized
+        # nothing. A strategy that wouldn't change anything (e.g. drop_upstream
+        # with no upstream present) is skipped so we never pay for an identical
+        # re-submit.
+        burst = [s for s in sendable if s.rec.source == "c4_burst"]
+        upstream = [s for s in sendable if s.rec.source == "upstream"]
+        plan: list[_AttemptStep] = [
+            _AttemptStep(
+                ClassificationAttemptStrategy.initial,
+                [_ClassifyRequest("initial", list(sendable))],
+            )
         ]
         cfg = self.ctx.config
-        if getattr(cfg, "classify_retry_drop_upstream", False):
-            burst_only = [s for s in sendable if s.rec.source != "upstream"]
-            if burst_only and len(burst_only) != len(sendable):
-                plan.append((ClassificationAttemptStrategy.drop_upstream, burst_only))
+        if getattr(cfg, "classify_retry_drop_upstream", False) and upstream and burst:
+            plan.append(
+                _AttemptStep(
+                    ClassificationAttemptStrategy.drop_upstream,
+                    [_ClassifyRequest("drop_upstream", list(burst))],
+                )
+            )
+        if getattr(cfg, "classify_retry_split_singles", False) and upstream and burst:
+            # Two single-image queries in parallel: the last (most-settled) burst
+            # frame vs. the single highest-similarity upstream crop. We keep the
+            # higher-confidence of whichever come back, so a piece the fused set
+            # confused can still be carried by either view alone.
+            last_burst = burst[-1]
+            top_upstream = max(
+                upstream, key=lambda s: s.rec.score if s.rec.score is not None else -1.0
+            )
+            plan.append(
+                _AttemptStep(
+                    ClassificationAttemptStrategy.split_singles,
+                    [
+                        _ClassifyRequest("last_burst", [last_burst]),
+                        _ClassifyRequest("top_upstream", [top_upstream]),
+                    ],
+                )
+            )
         return plan
 
+    @staticmethod
+    def _topItem(result: object) -> Optional[dict]:
+        items = result.get("items", []) if isinstance(result, dict) else []
+        return items[0] if items else None
+
+    def _runRequestsParallel(
+        self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
+    ) -> list[tuple[_ClassifyRequest, Optional[dict], Optional[str], float]]:
+        # Submit every request concurrently (one thread each) and wait for all to
+        # return. A single request runs inline — no thread overhead. Each tuple is
+        # (request, result|None, error|None, duration_s).
+        out: list[Optional[tuple[_ClassifyRequest, Optional[dict], Optional[str], float]]] = [
+            None
+        ] * len(requests)
+
+        def work(i: int, req: _ClassifyRequest) -> None:
+            t0 = time.monotonic()
+            try:
+                result = _classifyImages(
+                    self.gc,
+                    [s.bgr for s in req.images],
+                    piece_uuid=piece_uuid,
+                    dump_label=req.label,
+                )
+                out[i] = (req, result if isinstance(result, dict) else None, None, time.monotonic() - t0)
+            except Exception as exc:
+                out[i] = (req, None, str(exc), time.monotonic() - t0)
+
+        if len(requests) == 1:
+            work(0, requests[0])
+        else:
+            threads = [
+                threading.Thread(target=work, args=(i, req), daemon=True)
+                for i, req in enumerate(requests)
+            ]
+            for th in threads:
+                th.start()
+            for th in threads:
+                th.join()
+        return [r for r in out if r is not None]
+
     def _runClassifyAttempts(
-        self,
-        plan: list[tuple[ClassificationAttemptStrategy, list[_SendImage]]],
-        piece_uuid: Optional[str],
+        self, plan: list[_AttemptStep], piece_uuid: Optional[str]
     ) -> None:
-        # Submit each attempt in order until one recognizes the piece (Brickognize
-        # returns >=1 item) or the list / time budget is exhausted. A transport
-        # failure on the FIRST attempt is fatal (recorded as an error, no retry —
-        # a smaller set won't fix the network); on a retry it's swallowed and the
-        # earlier no-recognition result stands. Flags + records are finalized once
-        # the winning attempt is known.
+        # Walk the ladder until a step recognizes the piece or the time budget is
+        # spent. Within a step, all requests run in parallel and the step winner
+        # is the highest-confidence request that returned an item. A transport
+        # failure on the very first (initial) call is fatal — no retry can fix a
+        # network error — otherwise errors are swallowed and the loop continues.
         deadline = self.ctx.classify_started_at + float(self.ctx.config.classify_timeout_s)
         attempts: list[ClassificationAttempt] = []
-        results: list[Optional[dict]] = []
-        for idx, (strategy, subset) in enumerate(plan):
+        # (winning _SendImage subset, applied result dict, strategy) once decided.
+        winner: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]] = None
+        # First non-error result, used as the no-recognition fallback to apply.
+        fallback: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]] = None
+
+        for idx, step in enumerate(plan):
             if idx > 0 and time.monotonic() >= deadline:
                 self.logger.warning(
-                    f"{LOG_TAG} classify budget spent before retry [{strategy.value}] — stopping"
+                    f"{LOG_TAG} classify budget spent before retry [{step.strategy.value}] — stopping"
                 )
                 break
-            n_burst = sum(1 for s in subset if s.rec.source == "c4_burst")
-            n_upstream = sum(1 for s in subset if s.rec.source == "upstream")
-            captures = [s.bgr for s in subset]
-            t0 = time.monotonic()
             self.logger.info(
-                f"{LOG_TAG} Brickognize attempt {idx + 1}/{len(plan)} [{strategy.value}]: "
-                f"{n_burst} burst + {n_upstream} upstream = {len(captures)} image(s)"
+                f"{LOG_TAG} Brickognize step {idx + 1}/{len(plan)} [{step.strategy.value}]: "
+                f"{len(step.requests)} request(s) "
+                f"({', '.join(r.label for r in step.requests)})"
             )
-            try:
-                result = _classifyImages(self.gc, captures, piece_uuid=piece_uuid)
-            except Exception as exc:
+            results = self._runRequestsParallel(step.requests, piece_uuid)
+            step_found: list[tuple[_ClassifyRequest, dict, float]] = []
+            for req, result, error, dur in results:
+                top = self._topItem(result)
                 attempts.append(
                     ClassificationAttempt(
-                        strategy=strategy,
-                        n_burst=n_burst,
-                        n_upstream=n_upstream,
-                        found=False,
-                        error=str(exc),
-                        duration_s=time.monotonic() - t0,
+                        strategy=step.strategy,
+                        label=req.label,
+                        n_burst=sum(1 for s in req.images if s.rec.source == "c4_burst"),
+                        n_upstream=sum(1 for s in req.images if s.rec.source == "upstream"),
+                        found=top is not None,
+                        part_id=top.get("id") if isinstance(top, dict) else None,
+                        confidence=top.get("score") if isinstance(top, dict) else None,
+                        error=error,
+                        duration_s=dur,
                     )
                 )
-                results.append(None)
-                if idx == 0:
-                    with self.ctx.classify_lock:
-                        self.ctx.classification_error = str(exc)
-                else:
+                if error is not None:
+                    if idx == 0 and len(step.requests) == 1:
+                        with self.ctx.classify_lock:
+                            self.ctx.classification_error = error
+                        self._finalizeAttempts(plan, attempts, None, fallback)
+                        return
                     self.logger.warning(
-                        f"{LOG_TAG} retry [{strategy.value}] transport error: {exc} — "
-                        f"keeping the initial result"
+                        f"{LOG_TAG} request [{step.strategy.value}/{req.label}] transport "
+                        f"error: {error}"
                     )
-                break
-            items = result.get("items", []) if isinstance(result, dict) else []
-            best = items[0] if items else None
-            attempts.append(
-                ClassificationAttempt(
-                    strategy=strategy,
-                    n_burst=n_burst,
-                    n_upstream=n_upstream,
-                    found=bool(items),
-                    part_id=best.get("id") if isinstance(best, dict) else None,
-                    confidence=best.get("score") if isinstance(best, dict) else None,
-                    duration_s=time.monotonic() - t0,
-                )
-            )
-            results.append(result if isinstance(result, dict) else None)
-            if items:
+                    continue
+                if result is not None and fallback is None:
+                    fallback = (req.images, result, plan[0].strategy)
+                if top is not None and result is not None:
+                    score = top.get("score") if isinstance(top, dict) else None
+                    step_found.append((req, result, float(score) if score is not None else -1.0))
+            if step_found:
+                best_req, best_result, _ = max(step_found, key=lambda x: x[2])
+                winner = (best_req.images, best_result, step.strategy)
                 if idx > 0:
                     self.logger.info(
-                        f"{LOG_TAG} retry [{strategy.value}] recognized piece after "
-                        f"initial no-recognition"
+                        f"{LOG_TAG} step [{step.strategy.value}] recognized piece via "
+                        f"[{best_req.label}] after earlier no-recognition"
                     )
                 break
             self.logger.info(
-                f"{LOG_TAG} attempt [{strategy.value}] recognized nothing"
+                f"{LOG_TAG} step [{step.strategy.value}] recognized nothing"
             )
-        self._finalizeAttempts(plan, attempts, results)
+
+        self._finalizeAttempts(plan, attempts, winner, fallback)
 
     def _finalizeAttempts(
         self,
-        plan: list[tuple[ClassificationAttemptStrategy, list[_SendImage]]],
+        plan: list[_AttemptStep],
         attempts: list[ClassificationAttempt],
-        results: list[Optional[dict]],
+        winner: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]],
+        fallback: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]],
     ) -> None:
-        # The winner is the first attempt that recognized the piece; if none did,
-        # we fall back to attempt 0 (its no-recognition result is what gets
-        # applied, and its full image set is what we mark as "used"). Every
-        # sendable image either drove the winning attempt (used=True) or was
-        # dropped to get there (excluded_from_result=True).
-        found_idx = next((i for i, a in enumerate(attempts) if a.found), None)
-        winner_idx = found_idx if found_idx is not None else 0
-        full = plan[0][1] if plan else []
-        winning_subset = plan[winner_idx][1] if winner_idx < len(plan) else full
+        # Apply the winning attempt if one recognized the piece; otherwise fall
+        # back to the first no-recognition result (its full image set becomes the
+        # "used" set). Every sendable image either drove the applied attempt
+        # (used=True) or was sent in a losing/earlier attempt and pulled
+        # (excluded_from_result=True). Images never sent stay used=False.
+        applied = winner or fallback
+        full = plan[0].requests[0].images if plan else []
+        winning_subset = applied[0] if applied is not None else full
         winning_ids = {id(s) for s in winning_subset}
         for s in full:
             in_winner = id(s) in winning_ids
             s.rec.used = in_winner
             s.rec.excluded_from_result = not in_winner
-        strategy = plan[winner_idx][0] if winner_idx < len(plan) else (
-            plan[0][0] if plan else ClassificationAttemptStrategy.initial
+        strategy = applied[2] if applied is not None else (
+            plan[0].strategy if plan else ClassificationAttemptStrategy.initial
         )
-        winner_result = results[winner_idx] if winner_idx < len(results) else None
+        winner_result = applied[1] if applied is not None else None
         with self.ctx.classify_lock:
             self.ctx.classification_attempts = list(attempts)
             self.ctx.classification_strategy = strategy
@@ -429,7 +510,7 @@ class Rev01BaseState(BaseState):
                 self.ctx.classification_result = winner_result
         self.logger.info(
             f"{LOG_TAG} classify done: applied [{strategy.value}] "
-            f"(attempts={[(a.strategy.value, a.found) for a in attempts]})"
+            f"(attempts={[(a.strategy.value, a.label, a.found) for a in attempts]})"
         )
 
     def _gatherUpstreamMatches(

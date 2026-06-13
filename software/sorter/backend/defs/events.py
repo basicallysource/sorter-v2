@@ -81,6 +81,7 @@ class RecognitionImage(BaseModel):
 class ClassificationAttemptStrategy(str, Enum):
     initial = "initial"
     drop_upstream = "drop_upstream"
+    split_singles = "split_singles"
 
 
 class ClassificationAttempt(BaseModel):
@@ -88,6 +89,7 @@ class ClassificationAttempt(BaseModel):
     n_burst: int
     n_upstream: int
     found: bool
+    label: Optional[str] = None
     part_id: Optional[str] = None
     confidence: Optional[float] = None
     error: Optional[str] = None

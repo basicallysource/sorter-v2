@@ -41,6 +41,12 @@ class Rev01Config:
     # drop_upstream: re-send only the C4 burst (no upstream C2/C3 match crops).
     # A no-op when no upstream was injected, so it costs nothing on most pieces.
     classify_retry_drop_upstream: bool = True
+    # split_singles: submit the last burst frame and the single top-similarity
+    # upstream crop as two PARALLEL single-image queries and keep the
+    # higher-confidence result of whichever come back. Only fires when both a
+    # burst and an upstream crop exist. Costs up to two extra Brickognize calls,
+    # but only on a piece that already missed every prior step.
+    classify_retry_split_singles: bool = True
     rotate_timeout_s: float = 30.0
     classify_timeout_s: float = 30.0
     presence_streak_to_start: int = 2
@@ -121,6 +127,7 @@ FIELD_META: list[dict] = [
     {"key": "max_captures", "label": "Burst frames to grab per piece", "type": "int", "default": _DEFAULTS.max_captures},
     {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count},
     {"key": "classify_retry_drop_upstream", "label": "On no recognition, retry without upstream crops", "type": "bool", "default": _DEFAULTS.classify_retry_drop_upstream},
+    {"key": "classify_retry_split_singles", "label": "On no recognition, retry last-burst & top-upstream in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_retry_split_singles},
     {"key": "rotate_timeout_s", "label": "Rotate timeout (s)", "type": "float", "default": _DEFAULTS.rotate_timeout_s},
     {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s},
     {"key": "presence_streak_to_start", "label": "Presence streak to start rotation", "type": "int", "default": _DEFAULTS.presence_streak_to_start},

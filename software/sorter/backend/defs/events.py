@@ -90,6 +90,7 @@ class ClassificationAttempt(BaseModel):
     n_upstream: int
     found: bool
     label: Optional[str] = None
+    applied: bool = False
     part_id: Optional[str] = None
     confidence: Optional[float] = None
     error: Optional[str] = None

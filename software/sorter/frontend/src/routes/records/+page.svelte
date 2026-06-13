@@ -8,11 +8,18 @@
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
-	import type { KnownObjectData, RecognitionImage } from '$lib/api/events';
+	import type {
+		ClassificationAttempt,
+		ClassificationAttemptStrategy,
+		KnownObjectData,
+		RecognitionImage
+	} from '$lib/api/events';
 
 	type ImageState = {
 		status: 'loading' | 'ok' | 'missing';
 		images: RecognitionImage[];
+		strategy?: ClassificationAttemptStrategy | null;
+		attempts?: ClassificationAttempt[];
 	};
 
 	type Overview = {
@@ -143,7 +150,12 @@
 			const data = (await res.json()) as KnownObjectData;
 			imagesByUuid = {
 				...imagesByUuid,
-				[uuid]: { status: 'ok', images: data.recognition_image_set ?? [] }
+				[uuid]: {
+					status: 'ok',
+					images: data.recognition_image_set ?? [],
+					strategy: data.classification_strategy ?? null,
+					attempts: data.classification_attempts ?? []
+				}
 			};
 		} catch {
 			imagesByUuid = { ...imagesByUuid, [uuid]: { status: 'missing', images: [] } };
@@ -250,6 +262,41 @@
 		return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
 	}
 
+	// Badge shown on the result header when classification needed a retry. null
+	// for the normal first-try (initial) path, so it only ever flags the
+	// interesting case.
+	function strategyBadge(
+		strategy: ClassificationAttemptStrategy | null | undefined
+	): { label: string } | null {
+		if (!strategy || strategy === 'initial') return null;
+		if (strategy === 'drop_upstream') return { label: 'RETRY · NO UPSTREAM' };
+		if (strategy === 'split_singles') return { label: 'RETRY · SPLIT' };
+		return { label: `RETRY · ${strategy}` };
+	}
+
+	// One chip per Brickognize attempt for the attempts strip. The applied one is
+	// highlighted; misses and errors read muted.
+	function attemptChip(a: ClassificationAttempt): { text: string; cls: string } {
+		const name = a.label ?? a.strategy;
+		const outcome = a.error
+			? 'error'
+			: a.found
+				? `${((a.confidence ?? 0) * 100).toFixed(0)}%`
+				: 'miss';
+		const cls = a.applied
+			? 'border-primary/60 bg-primary/[0.12] text-primary'
+			: 'border-border bg-surface text-text-muted';
+		return { text: `${name}: ${outcome}${a.applied ? ' ✓' : ''}`, cls };
+	}
+
+	// Per-image visual state: produced the applied result, sent-then-dropped on a
+	// retry, or never shipped.
+	function imageState(img: RecognitionImage): 'used' | 'dropped' | 'unsent' {
+		if (img.used) return 'used';
+		if (img.excluded_from_result) return 'dropped';
+		return 'unsent';
+	}
+
 	// C4 burst frames first, then upstream matches — read left-to-right as
 	// "what the camera saw" followed by "what we pulled from upstream".
 	function sortImages(images: RecognitionImage[]): RecognitionImage[] {
@@ -285,9 +332,15 @@
 		img: RecognitionImage,
 		c4RefTs: number | null
 	): { label: string; value: string }[] {
+		const shipped =
+			img.used
+				? 'Yes — used for result'
+				: img.excluded_from_result
+					? 'Sent, then dropped on retry'
+					: 'No';
 		const rows: { label: string; value: string }[] = [
 			{ label: 'Source', value: img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst' },
-			{ label: 'Shipped', value: img.used ? 'Yes' : 'No' }
+			{ label: 'Shipped', value: shipped }
 		];
 		if (img.source === 'upstream' && typeof img.score === 'number') {
 			rows.push({ label: 'Similarity', value: `${(img.score * 100).toFixed(0)}%` });
@@ -531,6 +584,18 @@
 								</span>
 							{/if}
 
+							{#if img_state?.status === 'ok'}
+								{@const sb = strategyBadge(img_state.strategy)}
+								{#if sb}
+									<span
+										class="inline-flex items-center border border-info/60 bg-info/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-info"
+										title="Brickognize recognized this piece only after a retry with a reduced image set"
+									>
+										{sb.label}
+									</span>
+								{/if}
+							{/if}
+
 							{#if lego_color}
 								<span
 									class="inline-flex items-center border border-border px-1.5 py-0.5 text-xs font-semibold"
@@ -575,6 +640,23 @@
 							</span>
 						</div>
 
+						<!-- Attempts strip — only when a retry happened (>1 attempt) -->
+						{#if img_state?.status === 'ok' && (img_state.attempts?.length ?? 0) > 1}
+							<div
+								class="flex flex-wrap items-center gap-1.5 border-b border-border bg-bg px-3 py-1.5"
+							>
+								<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+									Attempts
+								</span>
+								{#each img_state.attempts ?? [] as a, ai (ai)}
+									{@const chip = attemptChip(a)}
+									<span class="inline-flex items-center border px-1.5 py-0.5 text-xs {chip.cls}">
+										{chip.text}
+									</span>
+								{/each}
+							</div>
+						{/if}
+
 						<!-- Image contact sheet -->
 						<div class="p-3">
 							{#if img_state?.status === 'loading' || img_state === undefined}
@@ -591,13 +673,20 @@
 									{#each sorted as img, i (i)}
 										{@const badge = sourceBadge(img)}
 										{@const src = dataImageUrl(img.image)}
+										{@const state = imageState(img)}
 										<div
-											class="relative flex flex-col border bg-white {img.used
+											class="relative flex flex-col border bg-white {state === 'used'
 												? 'border-2 border-primary'
-												: 'border-border'}"
-											title={img.used ? 'Shipped to Brickognize' : 'Captured, not shipped'}
+												: state === 'dropped'
+													? 'border-2 border-danger/60'
+													: 'border-border'}"
+											title={state === 'used'
+												? 'Used — produced the applied result'
+												: state === 'dropped'
+													? 'Sent in a failed attempt, then dropped for the retry'
+													: 'Captured, not shipped'}
 										>
-											<div class="h-28 w-28 bg-white">
+											<div class="h-28 w-28 bg-white {state === 'dropped' ? 'opacity-50' : ''}">
 												{#if src}
 													<img
 														{src}
@@ -620,7 +709,13 @@
 												>
 													{badge.label}
 												</span>
-												{#if img.source === 'upstream' && typeof img.score === 'number'}
+												{#if state === 'dropped'}
+													<span
+														class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"
+													>
+														Dropped
+													</span>
+												{:else if img.source === 'upstream' && typeof img.score === 'number'}
 													<span class="text-xs tabular-nums text-text-muted">
 														{(img.score * 100).toFixed(0)}%
 													</span>

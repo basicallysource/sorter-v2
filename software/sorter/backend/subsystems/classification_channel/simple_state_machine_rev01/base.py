@@ -412,10 +412,13 @@ class Rev01BaseState(BaseState):
         # network error — otherwise errors are swallowed and the loop continues.
         deadline = self.ctx.classify_started_at + float(self.ctx.config.classify_timeout_s)
         attempts: list[ClassificationAttempt] = []
-        # (winning _SendImage subset, applied result dict, strategy) once decided.
-        winner: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]] = None
+        # ClassificationAttempt <-> the request that produced it, so the applied
+        # one can be flagged in _finalizeAttempts.
+        attempt_reqs: list[_ClassifyRequest] = []
+        # (winning request, applied result dict, strategy) once decided.
+        winner: Optional[tuple[_ClassifyRequest, dict, ClassificationAttemptStrategy]] = None
         # First non-error result, used as the no-recognition fallback to apply.
-        fallback: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]] = None
+        fallback: Optional[tuple[_ClassifyRequest, dict, ClassificationAttemptStrategy]] = None
 
         for idx, step in enumerate(plan):
             if idx > 0 and time.monotonic() >= deadline:
@@ -445,11 +448,12 @@ class Rev01BaseState(BaseState):
                         duration_s=dur,
                     )
                 )
+                attempt_reqs.append(req)
                 if error is not None:
                     if idx == 0 and len(step.requests) == 1:
                         with self.ctx.classify_lock:
                             self.ctx.classification_error = error
-                        self._finalizeAttempts(plan, attempts, None, fallback)
+                        self._finalizeAttempts(plan, attempts, attempt_reqs, fallback)
                         return
                     self.logger.warning(
                         f"{LOG_TAG} request [{step.strategy.value}/{req.label}] transport "
@@ -457,13 +461,13 @@ class Rev01BaseState(BaseState):
                     )
                     continue
                 if result is not None and fallback is None:
-                    fallback = (req.images, result, plan[0].strategy)
+                    fallback = (req, result, plan[0].strategy)
                 if top is not None and result is not None:
                     score = top.get("score") if isinstance(top, dict) else None
                     step_found.append((req, result, float(score) if score is not None else -1.0))
             if step_found:
                 best_req, best_result, _ = max(step_found, key=lambda x: x[2])
-                winner = (best_req.images, best_result, step.strategy)
+                winner = (best_req, best_result, step.strategy)
                 if idx > 0:
                     self.logger.info(
                         f"{LOG_TAG} step [{step.strategy.value}] recognized piece via "
@@ -474,28 +478,31 @@ class Rev01BaseState(BaseState):
                 f"{LOG_TAG} step [{step.strategy.value}] recognized nothing"
             )
 
-        self._finalizeAttempts(plan, attempts, winner, fallback)
+        self._finalizeAttempts(plan, attempts, attempt_reqs, winner or fallback)
 
     def _finalizeAttempts(
         self,
         plan: list[_AttemptStep],
         attempts: list[ClassificationAttempt],
-        winner: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]],
-        fallback: Optional[tuple[list[_SendImage], dict, ClassificationAttemptStrategy]],
+        attempt_reqs: list[_ClassifyRequest],
+        applied: Optional[tuple[_ClassifyRequest, dict, ClassificationAttemptStrategy]],
     ) -> None:
         # Apply the winning attempt if one recognized the piece; otherwise fall
         # back to the first no-recognition result (its full image set becomes the
         # "used" set). Every sendable image either drove the applied attempt
         # (used=True) or was sent in a losing/earlier attempt and pulled
-        # (excluded_from_result=True). Images never sent stay used=False.
-        applied = winner or fallback
+        # (excluded_from_result=True). Images never sent stay used=False. The
+        # applied attempt's record is flagged so the UI need not re-derive it.
+        applied_req = applied[0] if applied is not None else None
         full = plan[0].requests[0].images if plan else []
-        winning_subset = applied[0] if applied is not None else full
+        winning_subset = applied_req.images if applied_req is not None else full
         winning_ids = {id(s) for s in winning_subset}
         for s in full:
             in_winner = id(s) in winning_ids
             s.rec.used = in_winner
             s.rec.excluded_from_result = not in_winner
+        for att, req in zip(attempts, attempt_reqs):
+            att.applied = req is applied_req
         strategy = applied[2] if applied is not None else (
             plan[0].strategy if plan else ClassificationAttemptStrategy.initial
         )

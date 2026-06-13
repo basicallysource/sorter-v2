@@ -13,6 +13,20 @@ export interface RecognitionImage {
   used: boolean;
   ts?: number | null;
   score?: number | null;
+  excluded_from_result?: boolean;
+}
+export type ClassificationAttemptStrategy = "initial" | "drop_upstream" | "split_singles";
+export interface ClassificationAttempt {
+  strategy: ClassificationAttemptStrategy;
+  n_burst: number;
+  n_upstream: number;
+  found: boolean;
+  label?: string | null;
+  applied?: boolean;
+  part_id?: string | null;
+  confidence?: number | null;
+  error?: string | null;
+  duration_s?: number | null;
 }
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
@@ -86,6 +100,8 @@ export interface KnownObjectData {
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
   recognition_image_set?: RecognitionImage[];
+  classification_attempts?: ClassificationAttempt[];
+  classification_strategy?: ClassificationAttemptStrategy | null;
   recognition_used_crop_ts?: number[];
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;

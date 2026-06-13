@@ -67,6 +67,9 @@ class ClassificationAttempt:
     # "last_burst" vs "top_upstream" under split_singles). For single-call
     # strategies this equals the strategy name.
     label: Optional[str] = None
+    # True for the one attempt whose result was applied to the piece (the
+    # highest-confidence found attempt, or attempt 0 when nothing was found).
+    applied: bool = False
     part_id: Optional[str] = None
     confidence: Optional[float] = None
     error: Optional[str] = None

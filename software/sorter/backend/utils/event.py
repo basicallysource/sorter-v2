@@ -92,6 +92,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                     n_upstream=a.n_upstream,
                     found=a.found,
                     label=a.label,
+                    applied=a.applied,
                     part_id=a.part_id,
                     confidence=a.confidence,
                     error=a.error,

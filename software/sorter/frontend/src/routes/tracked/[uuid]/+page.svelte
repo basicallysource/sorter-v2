@@ -6,6 +6,7 @@
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
 	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
+	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
@@ -367,6 +368,17 @@
 
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
+	// Latest C4 burst capture time — when the classification chamber snapped its
+	// pics. Used to report how old each upstream match was relative to it.
+	const c4SnapTs = $derived.by<number | null>(() => {
+		let ref: number | null = null;
+		for (const c of crops) {
+			if (c.role === 'recognition_capture' && typeof c.ts === 'number') {
+				ref = ref === null ? c.ts : Math.max(ref, c.ts);
+			}
+		}
+		return ref;
+	});
 
 	// --- Drop-zone burst --------------------------------------------------
 	// Pre+post-event frames from C3 + carousel captured when the piece fell
@@ -477,6 +489,12 @@
 		];
 		if (crop.score != null && Number.isFinite(crop.score)) {
 			rows.push({ label: 'Similarity', value: `${Math.round(crop.score * 100)}%` });
+		}
+		// For upstream crops, how long before the C4 chamber snap this view was
+		// captured — i.e. how stale the upstream match is relative to the frame
+		// that was actually classified.
+		if (crop.role === 'upstream_match' && crop.ts != null && c4SnapTs !== null) {
+			rows.push({ label: 'Age before C4', value: `${(c4SnapTs - crop.ts).toFixed(1)}s` });
 		}
 		if (crop.ts != null) {
 			rows.push({ label: 'Captured', value: formatAbsTs(crop.ts) });
@@ -805,6 +823,19 @@
 					{/if}
 				</div>
 			</section>
+
+			<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
+			{#if crops.length > 0}
+				<ReclassifyPanel
+					endpointBase={effectiveBase()}
+					images={crops.map((c) => ({
+						image: c.src,
+						label: formatCropLabel(c),
+						used: c.used,
+						score: c.score
+					}))}
+				/>
+			{/if}
 
 			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
 			{#if burstFrames.length > 0}

@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { RefreshCw, ChevronLeft, ChevronRight, ExternalLink } from 'lucide-svelte';
+	import { RefreshCw, ChevronLeft, ChevronRight, ExternalLink, FlaskConical } from 'lucide-svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
+	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 	import type { KnownObjectData, RecognitionImage } from '$lib/api/events';
@@ -77,6 +78,14 @@
 	let offset = $state(0);
 	let loading = $state(false);
 	let imagesByUuid = $state<Record<string, ImageState>>({});
+	let expandedReclassify = $state<Set<string>>(new Set());
+
+	function toggleReclassify(uuid: string) {
+		const next = new Set(expandedReclassify);
+		if (next.has(uuid)) next.delete(uuid);
+		else next.add(uuid);
+		expandedReclassify = next;
+	}
 
 	let pageNum = $derived(Math.floor(offset / PAGE_SIZE) + 1);
 	let pageCount = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
@@ -260,13 +269,32 @@
 		return { c4, upstream };
 	}
 
-	function imageInfoRows(img: RecognitionImage): { label: string; value: string }[] {
+	// Latest C4 burst capture timestamp for a piece — the moment the
+	// classification chamber snapped its pics. Used to age upstream crops.
+	function c4ReferenceTs(images: RecognitionImage[]): number | null {
+		let ref: number | null = null;
+		for (const img of images) {
+			if (img.source !== 'upstream' && typeof img.ts === 'number') {
+				ref = ref === null ? img.ts : Math.max(ref, img.ts);
+			}
+		}
+		return ref;
+	}
+
+	function imageInfoRows(
+		img: RecognitionImage,
+		c4RefTs: number | null
+	): { label: string; value: string }[] {
 		const rows: { label: string; value: string }[] = [
 			{ label: 'Source', value: img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst' },
 			{ label: 'Shipped', value: img.used ? 'Yes' : 'No' }
 		];
 		if (img.source === 'upstream' && typeof img.score === 'number') {
 			rows.push({ label: 'Similarity', value: `${(img.score * 100).toFixed(0)}%` });
+		}
+		if (img.source === 'upstream' && typeof img.ts === 'number' && c4RefTs !== null) {
+			const age = c4RefTs - img.ts;
+			rows.push({ label: 'Age before C4', value: `${age.toFixed(1)}s` });
 		}
 		return rows;
 	}
@@ -477,6 +505,7 @@
 					{@const img_state = imagesByUuid[p.uuid]}
 					{@const sorted = img_state?.status === 'ok' ? sortImages(img_state.images) : []}
 					{@const counts = imageCounts(sorted)}
+					{@const c4RefTs = c4ReferenceTs(sorted)}
 					{@const lego_color = lookupLegoColor(p.color_id, p.color_name)}
 					<div class="border border-border bg-surface">
 						<!-- Result header -->
@@ -524,6 +553,18 @@
 								{/if}
 								<span class="font-mono">{formatBin(p.destination_bin)}</span>
 								<span class="tabular-nums">{formatTimestamp(p.seen_at)}</span>
+								{#if img_state?.status === 'ok' && sorted.length > 0}
+									<button
+										type="button"
+										onclick={() => toggleReclassify(p.uuid)}
+										class="inline-flex items-center gap-1 {expandedReclassify.has(p.uuid)
+											? 'text-warning'
+											: 'text-text-muted hover:text-warning'}"
+										title="Scratch reclassify — pick crops and re-run Brickognize (not recorded)"
+									>
+										<FlaskConical size={13} />
+									</button>
+								{/if}
 								<a
 									href={`/tracked/${p.uuid}`}
 									class="inline-flex items-center gap-1 text-text-muted hover:text-primary"
@@ -567,7 +608,7 @@
 													<ImageInfoBadge
 														class="absolute right-1 top-1 z-10"
 														{src}
-														rows={imageInfoRows(img)}
+														rows={imageInfoRows(img, c4RefTs)}
 													/>
 												{/if}
 											</div>
@@ -590,6 +631,20 @@
 								</div>
 							{/if}
 						</div>
+
+						{#if expandedReclassify.has(p.uuid) && img_state?.status === 'ok'}
+							<div class="border-t border-border p-3">
+								<ReclassifyPanel
+									endpointBase={effectiveBase()}
+									images={sorted.map((img) => ({
+										image: img.image,
+										label: img.source === 'upstream' ? 'Upstream' : 'C4 burst',
+										used: img.used,
+										score: img.score
+									}))}
+								/>
+							</div>
+						{/if}
 					</div>
 				{/each}
 			</div>

@@ -34,6 +34,10 @@ class ChannelArcZones:
     # in which case the union is just the exit arc and behavior is unchanged.
     precise_start_angle: float | None = None
     precise_end_angle: float | None = None
+    # Counterclockwise channels (the classification carousel) travel from the
+    # exit side back to the drop side, so the crop must sweep exit_start ->
+    # drop_end instead of drop_start -> exit_end. See ``channelArcCropPolygon``.
+    ccw: bool = False
 
 
 def normalizeAngle(angle: float) -> float:
@@ -224,6 +228,7 @@ def parseSavedChannelArcZones(
             exit_end_inner_angle=exit_zone_edges[3],
             precise_start_angle=precise_zone[0] if precise_zone is not None else None,
             precise_end_angle=precise_zone[1] if precise_zone is not None else None,
+            ccw=(channel_key == "classification_channel"),
         )
 
     drop_start, drop_end, drop_start_inner, drop_end_inner = _zone_with_inner("drop_zone", legacy_drop)
@@ -247,6 +252,7 @@ def parseSavedChannelArcZones(
         exit_end_inner_angle=exit_end_inner,
         precise_start_angle=precise_zone[0] if precise_zone is not None else None,
         precise_end_angle=precise_zone[1] if precise_zone is not None else None,
+        ccw=(channel_key == "classification_channel"),
     )
 
 
@@ -317,7 +323,12 @@ def _appendChannelCropBoundaryPoint(
         points.append(_polarPoint(cx, cy, zones.exit_outer_radius, angle, radius_scale))
         return
     if has_exit_cut and angularDistance(angle, zones.exit_end_angle) < 1e-6:
+        # Step back UP to the full radius radially, AT the exit edge — mirror of
+        # the step-down at exit_start. Without the second point the boundary
+        # climbs to full radius only at the next swept angle, so it slants
+        # diagonally instead of running straight out from the center.
         points.append(_polarPoint(cx, cy, zones.exit_outer_radius, angle, radius_scale))
+        points.append(_polarPoint(cx, cy, zones.outer_radius, angle, radius_scale))
         return
     points.append(_polarPoint(cx, cy, channelOuterRadiusForAngle(angle, zones), angle, radius_scale))
 
@@ -365,15 +376,26 @@ def channelArcCropPolygon(
     center: Tuple[float, float] | None = None,
     radius_scale: float = 1.0,
 ) -> np.ndarray:
-    """Return the physical channel surface, excluding the exit-to-drop gap.
+    """Return the physical channel surface the piece travels, excluding the arc
+    it never crosses.
 
-    The operator draws ``Exit End`` and ``Drop Start`` as the two boundaries of
-    the output-guide opening. Pixels in that angular gap are outside the local
-    channel even if they are inside the nominal outer circle.
+    Clockwise channels keep ``drop_start -> exit_end`` and crop the output-guide
+    opening between exit-end and drop-start. The counterclockwise classification
+    carousel travels the other way, so it keeps ``exit_start -> drop_end`` (the
+    arc the piece actually crosses) and crops the empty far side instead. The
+    operator draws the same zone boundaries either way; ``zones.ccw`` only decides
+    which end is the sweep beginning vs end.
     """
     cx, cy = zones.center if center is None else center
-    outer_start = normalizeAngle(zones.drop_start_angle)
-    outer_span = positiveAngleSpan(zones.drop_start_angle, zones.exit_end_angle)
+    if getattr(zones, "ccw", False):
+        outer_from, outer_to = zones.exit_start_angle, zones.drop_end_angle
+        inner_from, inner_to = zones.exit_start_inner_angle, zones.drop_end_inner_angle
+    else:
+        outer_from, outer_to = zones.drop_start_angle, zones.exit_end_angle
+        inner_from, inner_to = zones.drop_start_inner_angle, zones.exit_end_inner_angle
+
+    outer_start = normalizeAngle(outer_from)
+    outer_span = positiveAngleSpan(outer_from, outer_to)
     outer_end = outer_start + outer_span
     outer_segments = max(16, int(round((outer_span / 360.0) * float(segment_count))))
 
@@ -388,8 +410,8 @@ def channelArcCropPolygon(
     for angle in sorted(outer_angles):
         _appendChannelCropBoundaryPoint(points, zones, cx, cy, angle, radius_scale)
 
-    inner_start = normalizeAngle(zones.drop_start_inner_angle)
-    inner_span = positiveAngleSpan(zones.drop_start_inner_angle, zones.exit_end_inner_angle)
+    inner_start = normalizeAngle(inner_from)
+    inner_span = positiveAngleSpan(inner_from, inner_to)
     inner_segments = max(16, int(round((inner_span / 360.0) * float(segment_count))))
     for i in range(inner_segments, -1, -1):
         angle = inner_start + (inner_span * i) / inner_segments

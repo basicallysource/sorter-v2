@@ -2,6 +2,8 @@ from typing import Any
 
 from defs.known_object import KnownObject
 from defs.events import (
+    ClassificationAttempt,
+    ClassificationAttemptStrategy,
     KnownObjectEvent,
     KnownObjectData,
     PieceStage,
@@ -79,9 +81,28 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                     used=r.used,
                     ts=r.ts,
                     score=r.score,
+                    excluded_from_result=getattr(r, "excluded_from_result", False),
                 )
                 for r in (obj.recognition_image_set or [])
             ],
+            classification_attempts=[
+                ClassificationAttempt(
+                    strategy=ClassificationAttemptStrategy(a.strategy),
+                    n_burst=a.n_burst,
+                    n_upstream=a.n_upstream,
+                    found=a.found,
+                    part_id=a.part_id,
+                    confidence=a.confidence,
+                    error=a.error,
+                    duration_s=a.duration_s,
+                )
+                for a in (obj.classification_attempts or [])
+            ],
+            classification_strategy=(
+                ClassificationAttemptStrategy(obj.classification_strategy)
+                if obj.classification_strategy is not None
+                else None
+            ),
             feeding_started_at=obj.feeding_started_at,
             carousel_detected_confirmed_at=obj.carousel_detected_confirmed_at,
             first_carousel_seen_ts=obj.first_carousel_seen_ts,

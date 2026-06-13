@@ -2,6 +2,7 @@ import base64
 import json
 import threading
 import time
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Optional
 
@@ -9,7 +10,13 @@ import cv2
 import numpy as np
 
 from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
-from defs.known_object import ClassificationStatus, PieceStage, RecognitionImage
+from defs.known_object import (
+    ClassificationAttempt,
+    ClassificationAttemptStrategy,
+    ClassificationStatus,
+    PieceStage,
+    RecognitionImage,
+)
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
@@ -21,6 +28,15 @@ from utils.event import knownObjectToEvent
 from .constants import LOG_TAG
 from .context import SimpleStateMachineRev01Context
 from .vision import Rev01Vision
+
+
+@dataclass
+class _SendImage:
+    # One image eligible to be sent to Brickognize, paired with the
+    # RecognitionImage that represents it on the KnownObject so a retry strategy
+    # can both drop the BGR from the request AND flag the corresponding entry.
+    bgr: np.ndarray
+    rec: RecognitionImage
 
 
 class Rev01BaseState(BaseState):
@@ -229,22 +245,24 @@ class Rev01BaseState(BaseState):
         # is a paid, blocking HTTP call (embed the burst, KNN the vec DB), so it
         # MUST NOT run on the main loop. The thread fuses any upstream matches
         # with the C4 burst — bursts give up slots so the total never exceeds
-        # Brickognize's 8-image limit — then submits the combined set.
-        gc = self.gc
+        # Brickognize's 8-image limit — then runs the attempt sequence: submit
+        # the full set, and on a no-recognition result retry with a reduced set
+        # (see _runClassifyAttempts).
         obj = self.ctx.known_object
         piece_uuid = obj.uuid if obj is not None else None
-        # Only the last burst frame drives classification: it anchors the
-        # upstream-similarity search and is the sole C4 image sent to Brickognize.
-        # The rest of the burst is kept on the KnownObject (used=False) for review.
+        # Only the last classify_burst_count burst frames drive classification:
+        # they anchor the upstream-similarity search and are the C4 images sent to
+        # Brickognize. The rest of the burst is kept on the KnownObject
+        # (used=False) for review.
+        n_use = max(1, int(self.ctx.config.classify_burst_count))
         burst_entries = (
             [r for r in obj.recognition_image_set if r.source == "c4_burst"]
             if obj is not None
             else []
         )
-        if burst_entries:
-            burst_entries[-1].used = True
-        anchor_b64s = [burst_entries[-1].image] if burst_entries else []
-        burst_crops = list(all_captures[-1:])
+        used_entries = burst_entries[-n_use:]
+        anchor_b64s = [e.image for e in used_entries]
+        burst_crops = list(all_captures[-n_use:])
         ref_ts = float(
             (obj.first_carousel_seen_ts or obj.created_at)
             if obj is not None
@@ -256,21 +274,24 @@ class Rev01BaseState(BaseState):
                 upstream_bgr, upstream_images = self._gatherUpstreamMatches(
                     anchor_b64s, ref_ts, max_inject=MAX_QUERY_IMAGES - len(burst_crops)
                 )
-                captures = list(burst_crops) + list(upstream_bgr)
                 with self.ctx.classify_lock:
-                    self.ctx.selected_captures = list(burst_crops)
                     self.ctx.upstream_recognition_images = list(upstream_images)
-                self.logger.info(
-                    f"{LOG_TAG} Brickognize submit: {len(burst_crops)} C4 burst + "
-                    f"{len(upstream_bgr)} upstream = {len(captures)} image(s)"
-                )
-                if not captures:
+                # Pair each sendable image with its RecognitionImage. The used
+                # upstream entries (flagged by the store) align 1:1, in order,
+                # with upstream_bgr.
+                sendable: list[_SendImage] = [
+                    _SendImage(bgr, rec) for bgr, rec in zip(burst_crops, used_entries)
+                ]
+                used_upstream = [r for r in upstream_images if r.used]
+                sendable += [
+                    _SendImage(bgr, rec) for bgr, rec in zip(upstream_bgr, used_upstream)
+                ]
+                if not sendable:
                     with self.ctx.classify_lock:
                         self.ctx.classification_error = "no_captures"
                     return
-                result = _classifyImages(gc, captures, piece_uuid=piece_uuid)
-                with self.ctx.classify_lock:
-                    self.ctx.classification_result = result
+                plan = self._buildAttemptPlan(sendable)
+                self._runClassifyAttempts(plan, piece_uuid)
             except Exception as exc:
                 with self.ctx.classify_lock:
                     self.ctx.classification_error = str(exc)
@@ -278,6 +299,138 @@ class Rev01BaseState(BaseState):
         thread = threading.Thread(target=_run, daemon=True)
         self.ctx.classify_thread = thread
         thread.start()
+
+    def _buildAttemptPlan(
+        self, sendable: list[_SendImage]
+    ) -> list[tuple[ClassificationAttemptStrategy, list[_SendImage]]]:
+        # The ordered list of (strategy, image subset) to try. Attempt 0 is the
+        # full set; each retry strategy appends a reduced subset, tried in order
+        # only if a prior attempt recognized nothing. A strategy that wouldn't
+        # change the set (e.g. drop_upstream with no upstream present) is skipped
+        # so we never pay for an identical re-submit.
+        plan: list[tuple[ClassificationAttemptStrategy, list[_SendImage]]] = [
+            (ClassificationAttemptStrategy.initial, list(sendable))
+        ]
+        cfg = self.ctx.config
+        if getattr(cfg, "classify_retry_drop_upstream", False):
+            burst_only = [s for s in sendable if s.rec.source != "upstream"]
+            if burst_only and len(burst_only) != len(sendable):
+                plan.append((ClassificationAttemptStrategy.drop_upstream, burst_only))
+        return plan
+
+    def _runClassifyAttempts(
+        self,
+        plan: list[tuple[ClassificationAttemptStrategy, list[_SendImage]]],
+        piece_uuid: Optional[str],
+    ) -> None:
+        # Submit each attempt in order until one recognizes the piece (Brickognize
+        # returns >=1 item) or the list / time budget is exhausted. A transport
+        # failure on the FIRST attempt is fatal (recorded as an error, no retry —
+        # a smaller set won't fix the network); on a retry it's swallowed and the
+        # earlier no-recognition result stands. Flags + records are finalized once
+        # the winning attempt is known.
+        deadline = self.ctx.classify_started_at + float(self.ctx.config.classify_timeout_s)
+        attempts: list[ClassificationAttempt] = []
+        results: list[Optional[dict]] = []
+        for idx, (strategy, subset) in enumerate(plan):
+            if idx > 0 and time.monotonic() >= deadline:
+                self.logger.warning(
+                    f"{LOG_TAG} classify budget spent before retry [{strategy.value}] — stopping"
+                )
+                break
+            n_burst = sum(1 for s in subset if s.rec.source == "c4_burst")
+            n_upstream = sum(1 for s in subset if s.rec.source == "upstream")
+            captures = [s.bgr for s in subset]
+            t0 = time.monotonic()
+            self.logger.info(
+                f"{LOG_TAG} Brickognize attempt {idx + 1}/{len(plan)} [{strategy.value}]: "
+                f"{n_burst} burst + {n_upstream} upstream = {len(captures)} image(s)"
+            )
+            try:
+                result = _classifyImages(self.gc, captures, piece_uuid=piece_uuid)
+            except Exception as exc:
+                attempts.append(
+                    ClassificationAttempt(
+                        strategy=strategy,
+                        n_burst=n_burst,
+                        n_upstream=n_upstream,
+                        found=False,
+                        error=str(exc),
+                        duration_s=time.monotonic() - t0,
+                    )
+                )
+                results.append(None)
+                if idx == 0:
+                    with self.ctx.classify_lock:
+                        self.ctx.classification_error = str(exc)
+                else:
+                    self.logger.warning(
+                        f"{LOG_TAG} retry [{strategy.value}] transport error: {exc} — "
+                        f"keeping the initial result"
+                    )
+                break
+            items = result.get("items", []) if isinstance(result, dict) else []
+            best = items[0] if items else None
+            attempts.append(
+                ClassificationAttempt(
+                    strategy=strategy,
+                    n_burst=n_burst,
+                    n_upstream=n_upstream,
+                    found=bool(items),
+                    part_id=best.get("id") if isinstance(best, dict) else None,
+                    confidence=best.get("score") if isinstance(best, dict) else None,
+                    duration_s=time.monotonic() - t0,
+                )
+            )
+            results.append(result if isinstance(result, dict) else None)
+            if items:
+                if idx > 0:
+                    self.logger.info(
+                        f"{LOG_TAG} retry [{strategy.value}] recognized piece after "
+                        f"initial no-recognition"
+                    )
+                break
+            self.logger.info(
+                f"{LOG_TAG} attempt [{strategy.value}] recognized nothing"
+            )
+        self._finalizeAttempts(plan, attempts, results)
+
+    def _finalizeAttempts(
+        self,
+        plan: list[tuple[ClassificationAttemptStrategy, list[_SendImage]]],
+        attempts: list[ClassificationAttempt],
+        results: list[Optional[dict]],
+    ) -> None:
+        # The winner is the first attempt that recognized the piece; if none did,
+        # we fall back to attempt 0 (its no-recognition result is what gets
+        # applied, and its full image set is what we mark as "used"). Every
+        # sendable image either drove the winning attempt (used=True) or was
+        # dropped to get there (excluded_from_result=True).
+        found_idx = next((i for i, a in enumerate(attempts) if a.found), None)
+        winner_idx = found_idx if found_idx is not None else 0
+        full = plan[0][1] if plan else []
+        winning_subset = plan[winner_idx][1] if winner_idx < len(plan) else full
+        winning_ids = {id(s) for s in winning_subset}
+        for s in full:
+            in_winner = id(s) in winning_ids
+            s.rec.used = in_winner
+            s.rec.excluded_from_result = not in_winner
+        strategy = plan[winner_idx][0] if winner_idx < len(plan) else (
+            plan[0][0] if plan else ClassificationAttemptStrategy.initial
+        )
+        winner_result = results[winner_idx] if winner_idx < len(results) else None
+        with self.ctx.classify_lock:
+            self.ctx.classification_attempts = list(attempts)
+            self.ctx.classification_strategy = strategy
+            self.ctx.selected_captures = [
+                s.bgr for s in winning_subset if s.rec.source == "c4_burst"
+            ]
+            if winner_result is not None:
+                self.ctx.classification_result = winner_result
+        self.logger.info(
+            f"{LOG_TAG} classify done: applied [{strategy.value}] "
+            f"(attempts={[(a.strategy.value, a.found) for a in attempts]})"
+        )
 
     def _gatherUpstreamMatches(
         self, anchor_b64s: list[str], ref_ts: float, max_inject: int
@@ -374,6 +527,8 @@ class Rev01BaseState(BaseState):
 
         with self.ctx.classify_lock:
             obj.recognition_image_set.extend(self.ctx.upstream_recognition_images)
+            obj.classification_attempts = list(self.ctx.classification_attempts)
+            obj.classification_strategy = self.ctx.classification_strategy
 
         self.emitKnownObject()
 

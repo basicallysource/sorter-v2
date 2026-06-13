@@ -24,8 +24,23 @@ class Rev01Config:
     kick_off_output_deg: float = 180.0
     discharge_speed_usteps_per_s: int = 5000
     crop_padding_px: int = 15
-    # Capped to the Brickognize per-request image limit (8) by selectRecognitionCrops.
+    # How many burst frames to GRAB at rest. Capped to the Brickognize
+    # per-request image limit (8) by selectRecognitionCrops.
     max_captures: int = 8
+    # Of the captured burst, how many of the most-recent (last-N, most-settled)
+    # frames to actually USE for classification — anchored for the upstream
+    # similarity search and sent to Brickognize. The rest of the burst is kept on
+    # the piece for review but did not influence the result. 1 = last frame only.
+    classify_burst_count: int = 1
+    # When a Brickognize attempt recognizes NOTHING (zero items), retry with a
+    # reduced image set before giving up. Each enabled strategy is tried in order
+    # until one recognizes the piece or the list is exhausted. Retries fire only
+    # on an empty result, never on a network error/timeout (a smaller set won't
+    # fix a transport failure), and the whole sequence still lives inside the
+    # per-piece classify_timeout_s budget.
+    # drop_upstream: re-send only the C4 burst (no upstream C2/C3 match crops).
+    # A no-op when no upstream was injected, so it costs nothing on most pieces.
+    classify_retry_drop_upstream: bool = True
     rotate_timeout_s: float = 30.0
     classify_timeout_s: float = 30.0
     presence_streak_to_start: int = 2
@@ -103,7 +118,9 @@ FIELD_META: list[dict] = [
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},
-    {"key": "max_captures", "label": "Max captures per piece", "type": "int", "default": _DEFAULTS.max_captures},
+    {"key": "max_captures", "label": "Burst frames to grab per piece", "type": "int", "default": _DEFAULTS.max_captures},
+    {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count},
+    {"key": "classify_retry_drop_upstream", "label": "On no recognition, retry without upstream crops", "type": "bool", "default": _DEFAULTS.classify_retry_drop_upstream},
     {"key": "rotate_timeout_s", "label": "Rotate timeout (s)", "type": "float", "default": _DEFAULTS.rotate_timeout_s},
     {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s},
     {"key": "presence_streak_to_start", "label": "Presence streak to start rotation", "type": "int", "default": _DEFAULTS.presence_streak_to_start},
@@ -139,6 +156,8 @@ def configFromDict(d: dict) -> Rev01Config:
         try:
             if meta["type"] == "int":
                 setattr(cfg, k, int(raw))
+            elif meta["type"] == "bool":
+                setattr(cfg, k, bool(raw))
             else:
                 setattr(cfg, k, float(raw))
         except (TypeError, ValueError):

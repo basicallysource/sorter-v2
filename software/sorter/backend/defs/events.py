@@ -72,6 +72,26 @@ class RecognitionImage(BaseModel):
     used: bool = False
     ts: Optional[float] = None
     score: Optional[float] = None
+    # True when this image was submitted in an earlier classification attempt
+    # that recognized nothing and was then removed for the retry whose result
+    # was applied (distinct from used=False, which means "never sent").
+    excluded_from_result: bool = False
+
+
+class ClassificationAttemptStrategy(str, Enum):
+    initial = "initial"
+    drop_upstream = "drop_upstream"
+
+
+class ClassificationAttempt(BaseModel):
+    strategy: ClassificationAttemptStrategy
+    n_burst: int
+    n_upstream: int
+    found: bool
+    part_id: Optional[str] = None
+    confidence: Optional[float] = None
+    error: Optional[str] = None
+    duration_s: Optional[float] = None
 
 
 class KnownObjectData(BaseModel):
@@ -110,6 +130,12 @@ class KnownObjectData(BaseModel):
     # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
     # whether it was actually submitted to Brickognize.
     recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)
+    # Per-attempt Brickognize record; >1 entry means a retry with a reduced image
+    # set was made after a no-recognition result. The last entry is the applied
+    # one. ``classification_strategy`` is its strategy (``initial`` = first try
+    # won; ``drop_upstream`` = won only after dropping the upstream crops).
+    classification_attempts: List["ClassificationAttempt"] = Field(default_factory=list)
+    classification_strategy: Optional[ClassificationAttemptStrategy] = None
     # Captured timestamps of crops shipped to Brickognize for this piece.
     recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None

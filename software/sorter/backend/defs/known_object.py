@@ -21,6 +21,20 @@ class ClassificationStatus(str, Enum):
 
 
 @dataclass
+class RecognitionImage:
+    # One image gathered for recognizing a piece. ``source`` is "c4_burst" for a
+    # classification-channel capture or "upstream" for a C2/C3 match crop fused
+    # in by the embedding search. ``used`` is True only when this exact image was
+    # actually submitted to Brickognize — CAPTURING photographs the whole burst
+    # but only a subset (currently just the last frame) drives the classification.
+    image: str
+    source: str
+    used: bool = False
+    ts: Optional[float] = None
+    score: Optional[float] = None
+
+
+@dataclass
 class KnownObject:
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
     created_at: float = field(default_factory=time.time)
@@ -65,7 +79,11 @@ class KnownObject:
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
-    recognition_images: List[str] = field(default_factory=list)
+    # Every image gathered for recognition — C4 burst captures plus any upstream
+    # (C2/C3) match crops fused in by the embedding search — each flagged with
+    # whether it was actually submitted to Brickognize. The burst keeps all its
+    # frames; only the entries with used=True drove the classification.
+    recognition_image_set: List["RecognitionImage"] = field(default_factory=list)
     # Captured timestamps of the crops actually shipped to Brickognize for
     # classification (subset of the tracker's sector snapshots). The frontend
     # uses these to highlight which crops participated in the final call.

@@ -17,7 +17,7 @@ import math
 import numpy as np
 
 from perception.arcs import (
-    comForwardToPreciseCenterDeg,
+    comForwardToPreciseEntryDeg,
     comInPreciseZone,
     exitComForwardDeg,
 )
@@ -73,16 +73,17 @@ def test_reverse_exit_gap_goes_negative_inside_exit_only() -> None:
     assert -25.0 < gap < 0.0
 
 
-def test_reverse_precise_gap_and_membership() -> None:
+def test_reverse_precise_gap_targets_entry_edge() -> None:
     ch = _make_channel(4)
-    # Short of the precise band: positive gap, not yet in precise.
+    # precise arc = [160,190); reverse travel ENTERS at the high edge (~189), so
+    # the target is the BEGINNING of the band, not its centre.
     assert comInPreciseZone([_bbox_at(250.0)], ch) is False
-    far = comForwardToPreciseCenterDeg([_bbox_at(250.0)], ch)
+    far = comForwardToPreciseEntryDeg([_bbox_at(250.0)], ch)
     assert far is not None
-    assert abs(far - (250.0 - 175.0)) < 3.0  # ~75° to the precise centre
-    # Parked at the precise centre: in precise, gap ~ 0.
-    assert comInPreciseZone([_bbox_at(175.0)], ch) is True
-    at = comForwardToPreciseCenterDeg([_bbox_at(175.0)], ch)
+    assert abs(far - (250.0 - 189.0)) < 3.0  # ~61° to the precise ENTRY edge
+    # Parked at the entry edge: in precise, gap ~ 0 (the beginning, not the centre).
+    assert comInPreciseZone([_bbox_at(189.0)], ch) is True
+    at = comForwardToPreciseEntryDeg([_bbox_at(189.0)], ch)
     assert at is not None
     assert abs(at) < 3.0
 

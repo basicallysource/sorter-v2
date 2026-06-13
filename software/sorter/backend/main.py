@@ -282,7 +282,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             if command.tag == "known_object":
                 obj_payload = command.data.model_dump()
                 # Detail-page lookup keeps the FULL object (incl. the cumulative
-                # recognition_images list) in memory, served via
+                # recognition_image_set list) in memory, served via
                 # /api/known-objects/<uuid>. The live socket and the recent ring
                 # carry only the slim form (see slimKnownObjectForSocket) so the
                 # per-piece payload stays bounded instead of growing quadratically.

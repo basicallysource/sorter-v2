@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { onDestroy } from 'svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 
 	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
@@ -216,6 +218,60 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
+	// --- Hover image cycling ----------------------------------------------
+	// The live `recentObjects` ring carries only `latest_captured_crop` — the
+	// full `recognition_image_set` (every C4 burst frame + the upstream C2/C3
+	// matches) is slimmed off the socket and only served by the per-piece
+	// detail endpoint. So on hover we lazily fetch it once per uuid, then cycle
+	// through all of those views every CYCLE_MS so the operator can eyeball
+	// every angle the recognizer actually saw, not just one frame.
+	const CYCLE_MS = 300;
+	function effectiveBase(): string {
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
+	}
+	let hoverUuid = $state<string | null>(null);
+	let cycleIndex = $state(0);
+	let imagesByUuid = $state<Record<string, string[]>>({});
+	let cycleTimer: ReturnType<typeof setInterval> | null = null;
+
+	function stopCycle(): void {
+		if (cycleTimer !== null) {
+			clearInterval(cycleTimer);
+			cycleTimer = null;
+		}
+	}
+
+	async function fetchHoverImages(uuid: string): Promise<void> {
+		if (imagesByUuid[uuid]) return;
+		try {
+			const res = await fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(uuid)}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as KnownObjectData;
+			const urls = (data.recognition_image_set ?? [])
+				.map((r) => dataImageUrl(r.image))
+				.filter((u): u is string => Boolean(u));
+			if (urls.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: urls };
+		} catch {
+			// Silent — hover just falls back to the static crop.
+		}
+	}
+
+	function startHover(uuid: string): void {
+		hoverUuid = uuid;
+		cycleIndex = 0;
+		void fetchHoverImages(uuid);
+		stopCycle();
+		cycleTimer = setInterval(() => (cycleIndex += 1), CYCLE_MS);
+	}
+
+	function endHover(): void {
+		hoverUuid = null;
+		cycleIndex = 0;
+		stopCycle();
+	}
+
+	onDestroy(stopCycle);
+
 	function capturedCropUrl(obj: KnownObjectData, phase: LifecyclePhase): string | null {
 		// Prefer the newest object crop; full-frame/drop snapshots are only a
 		// final fallback once no crop-like evidence exists.
@@ -336,29 +392,47 @@
 			? 'text-text-muted'
 			: 'text-text'}
 
+	{@const base_src = is_classified_ok ? reference_src : captured}
+	{@const cycle_imgs = imagesByUuid[obj.uuid] ?? []}
+	{@const is_hovering = hoverUuid === obj.uuid}
+	<!-- On hover: cycle through every recognition view (bursts + upstreams). If
+	     they haven't loaded yet, fall back to the single captured crop so the
+	     hover still does something. -->
+	{@const cycle_src =
+		is_hovering && cycle_imgs.length > 0
+			? cycle_imgs[cycleIndex % cycle_imgs.length]
+			: null}
+	{@const hover_src = is_hovering ? (cycle_src ?? captured) : null}
+	{@const show_hover = is_hovering && hover_src != null && hover_src !== base_src}
+
 	<a
 		href={`/tracked/${obj.uuid}`}
 		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+		onmouseenter={() => startHover(obj.uuid)}
+		onmouseleave={endHover}
 	>
 		<div class="flex items-start gap-3 p-2">
-			<!-- Primary image well (hover-swap only on classified+recognized) -->
-			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white group">
-				{#if is_classified_ok && captured}
-					<!-- Brickognize reference is primary; captured crop on hover -->
-					<img
-						src={reference_src}
-						alt="reference"
-						class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 group-hover:opacity-0"
-					/>
-					<img
-						src={captured}
-						alt="captured"
-						class="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-					/>
-				{:else if is_classified_ok && !captured}
-					<img src={reference_src} alt="reference" class="h-full w-full object-contain" />
-				{:else if captured}
-					<img src={captured} alt="captured" class="h-full w-full object-contain" />
+			<!-- Primary image well — hover scrubs through every recognition view. -->
+			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white">
+				{#if base_src || hover_src}
+					{#if base_src}
+						<img
+							src={base_src}
+							alt="piece"
+							class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_hover
+								? 'opacity-0'
+								: 'opacity-100'}"
+						/>
+					{/if}
+					{#if hover_src}
+						<img
+							src={hover_src}
+							alt="recognition view"
+							class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_hover
+								? 'opacity-100'
+								: 'opacity-0'}"
+						/>
+					{/if}
 				{:else}
 					<div class="flex h-full w-full items-center justify-center">
 						<Spinner />

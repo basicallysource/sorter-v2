@@ -23,9 +23,12 @@ import numpy as np
 
 from .arcs import (
     attributeBboxes,
+    bboxArea,
     bboxInsideChannelMask,
     bboxInsideMask,
-    comForwardToPreciseCenterDeg,
+    bboxWithinAreaFraction,
+    bboxWithinMaskExtent,
+    comForwardToPreciseEntryDeg,
     comInPreciseZone,
     exitComForwardDeg,
     exitComForwardToCenterDeg,
@@ -55,6 +58,22 @@ _NO_FRAME_SLEEP_S = 0.010
 # so the model only sees pixels inside the channel region (matching
 # VisionManager's crop-mask path). Gated on SORTER_POLYGON_CROP_MASK.
 _POLYGON_CROP_MASK = os.environ.get("SORTER_POLYGON_CROP_MASK", "0") == "1"
+
+
+# Drop detections whose bbox covers more than this fraction of the channel mask
+# area — implausibly massive hits (a hand, a shadow, the model latching onto the
+# whole channel). Override via env for tuning.
+_MAX_BBOX_MASK_AREA_FRACTION = float(
+    os.environ.get("SORTER_MAX_BBOX_MASK_AREA_FRACTION", "0.6")
+)
+# Drop detections whose bbox width OR height exceeds this fraction of the channel
+# mask's bounding extent. Catches long, skinny boxes (e.g. 80% wide / 20% tall)
+# that slip under the area limit. Override via env for tuning.
+_MAX_BBOX_MASK_DIM_FRACTION = float(
+    os.environ.get("SORTER_MAX_BBOX_MASK_DIM_FRACTION", "0.6")
+)
+# Throttle (seconds) for the average-bbox-size readout used to tune the filter.
+_BBOX_SIZE_LOG_THROTTLE_S = 5.0
 
 
 def _now_ms() -> float:
@@ -153,6 +172,17 @@ class InferenceWorker:
         self._last_frame_ts: float = -1.0
         self._was_in_exit: bool = False
         self._last_summary_log_ts: float = 0.0
+        self._last_size_log_ts: float = 0.0
+        # Channel mask area + bounding extent in pixels, precomputed once (mask
+        # is immutable). Used by the oversize-bbox filters and the size readout.
+        self._mask_area_px: float = float(int(np.count_nonzero(channel_def.mask)))
+        _ys, _xs = np.nonzero(channel_def.mask)
+        if _ys.size:
+            self._mask_w_extent: float = float(int(_xs.max() - _xs.min() + 1))
+            self._mask_h_extent: float = float(int(_ys.max() - _ys.min() + 1))
+        else:
+            self._mask_w_extent = 0.0
+            self._mask_h_extent = 0.0
 
         # Latest raw inference result — GIL-atomic tuple ref, same pattern as
         # LatestStateSlot. Written after every successful inference so the
@@ -398,6 +428,45 @@ class InferenceWorker:
         except Exception:
             pass
 
+    def _maybe_log_bbox_sizes(self, bboxes: list, now_s: float) -> None:
+        """Throttled (~5s) average-bbox-size readout per channel, for tuning the
+        oversize filter. Reports sizes against the on-mask set BEFORE the area
+        filter so the full distribution (including the big hits being dropped) is
+        visible. Only fires when there are detections, so idle channels don't
+        flood the logs."""
+        if self._logger is None or not bboxes:
+            return
+        if now_s - self._last_size_log_ts < _BBOX_SIZE_LOG_THROTTLE_S:
+            return
+        self._last_size_log_ts = now_s
+        ch = self._channel_def
+        mask_area = self._mask_area_px or 1.0
+        mask_w = self._mask_w_extent or 1.0
+        mask_h = self._mask_h_extent or 1.0
+        areas = [bboxArea(b) for b in bboxes]
+        w_fracs = [(b[2] - b[0]) / mask_w for b in bboxes]
+        h_fracs = [(b[3] - b[1]) / mask_h for b in bboxes]
+        avg_area = sum(areas) / len(areas)
+        n_dropped = sum(
+            1
+            for b, a in zip(bboxes, areas)
+            if a > _MAX_BBOX_MASK_AREA_FRACTION * mask_area
+            or (b[2] - b[0]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_w
+            or (b[3] - b[1]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_h
+        )
+        try:
+            self._logger.info(
+                f"[perception sizes ch={ch.channel_id} src={ch.camera_source_id}] "
+                f"n={len(bboxes)} avg_area_px={avg_area:.0f} "
+                f"avg_frac_area={avg_area / mask_area:.2f} "
+                f"max_frac_area={max(areas) / mask_area:.2f} "
+                f"max_frac_w={max(w_fracs):.2f} max_frac_h={max(h_fracs):.2f} "
+                f"limits(area={_MAX_BBOX_MASK_AREA_FRACTION:.2f},"
+                f"dim={_MAX_BBOX_MASK_DIM_FRACTION:.2f}) oversized_dropped={n_dropped}"
+            )
+        except Exception:
+            pass
+
     def _loop(self) -> None:
         while not self._stop.is_set():
             self.iterations += 1
@@ -466,7 +535,28 @@ class InferenceWorker:
                 # same mask membership test attributeBboxes applies, so nothing
                 # downstream — n_pieces, the classification crop, latest_raw, the
                 # debug overlay — ever sees an off-channel detection.
-                bboxes = [b for b in bboxes if bboxInsideChannelMask(b, self._channel_def)]
+                on_mask = [
+                    b for b in bboxes if bboxInsideChannelMask(b, self._channel_def)
+                ]
+                # Then drop implausibly massive detections: anything covering more
+                # than _MAX_BBOX_MASK_AREA_FRACTION of the channel mask area, OR
+                # whose width/height exceeds _MAX_BBOX_MASK_DIM_FRACTION of the
+                # mask's extent (catches long, skinny boxes the area test misses).
+                # Logged (throttled) below against the pre-filter on-mask set so
+                # the thresholds can be tuned against real footage.
+                bboxes = [
+                    b
+                    for b in on_mask
+                    if bboxWithinAreaFraction(
+                        b, self._mask_area_px, _MAX_BBOX_MASK_AREA_FRACTION
+                    )
+                    and bboxWithinMaskExtent(
+                        b,
+                        self._mask_w_extent,
+                        self._mask_h_extent,
+                        _MAX_BBOX_MASK_DIM_FRACTION,
+                    )
+                ]
 
                 attribute_t0 = _now_ms()
                 in_drop, in_exit, in_precise, in_exit_majority, n_pieces, per_bbox_counts = attributeBboxes(
@@ -479,7 +569,7 @@ class InferenceWorker:
                 exit_com_forward_to_center_deg = exitComForwardToCenterDeg(
                     bboxes, self._channel_def
                 )
-                exit_com_forward_to_precise_deg = comForwardToPreciseCenterDeg(
+                exit_com_forward_to_precise_deg = comForwardToPreciseEntryDeg(
                     bboxes, self._channel_def
                 )
                 exit_com_in_precise = comInPreciseZone(bboxes, self._channel_def)
@@ -555,6 +645,7 @@ class InferenceWorker:
                     in_exit, in_precise, in_exit_majority, per_bbox_counts
                 )
                 self._maybe_log_summary(bboxes, in_drop, in_exit, n_pieces, time.time())
+                self._maybe_log_bbox_sizes(on_mask, time.time())
                 self._last_frame_ts = frame.timestamp
                 self.inferences += 1
 

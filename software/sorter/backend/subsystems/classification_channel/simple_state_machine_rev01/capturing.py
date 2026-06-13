@@ -1,7 +1,12 @@
 import time
 from typing import Optional
 
-from defs.known_object import ClassificationStatus, KnownObject, PieceStage
+from defs.known_object import (
+    ClassificationStatus,
+    KnownObject,
+    PieceStage,
+    RecognitionImage,
+)
 from subsystems.classification_channel.states import ClassificationChannelState
 
 from .base import Rev01BaseState
@@ -143,7 +148,11 @@ class Capturing(Rev01BaseState):
             if encoded is not None:
                 self.ctx.known_object.latest_captured_crop = encoded
                 self.ctx.known_object.latest_captured_crop_ts = frame_ts
-                self.ctx.known_object.recognition_images.append(encoded)
+                self.ctx.known_object.recognition_image_set.append(
+                    RecognitionImage(
+                        image=encoded, source="c4_burst", used=False, ts=frame_ts
+                    )
+                )
             self.emitKnownObject()
 
     def _maybeFinishCapture(self, now: float) -> Optional[ClassificationChannelState]:
@@ -157,16 +166,15 @@ class Capturing(Rev01BaseState):
 
         self.ctx.classify_started_at = now
         all_captures = list(self.ctx.captured_crops)
-        captures = self.selectRecognitionCrops(all_captures)
-        self.ctx.selected_captures = list(captures)
-        if captures:
-            total_bytes = sum(int(f.nbytes) for f in captures)
+        # Burst selection + upstream-match injection happen on the classify
+        # thread (selectRecognitionCrops needs the upstream count to know how
+        # many burst slots are left), so we hand it the full burst here.
+        if all_captures:
             self.logger.info(
                 f"{LOG_TAG} CAPTURING -> MOVING_TO_PRECISE "
-                f"(captured {n}, submitting {len(captures)} to Brickognize, "
-                f"~{total_bytes / 1024:.1f} KiB; exit_seen={self._exit_seen})"
+                f"(captured {n}, classifying off-thread; exit_seen={self._exit_seen})"
             )
-            self.spawnClassifyThread(captures)
+            self.spawnClassifyThread(all_captures)
         else:
             self.logger.warning(
                 f"{LOG_TAG} CAPTURING -> MOVING_TO_PRECISE with zero captures — "

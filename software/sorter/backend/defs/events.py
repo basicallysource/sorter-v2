@@ -66,6 +66,14 @@ class IdentityEvent(BaseModel):
     data: MachineIdentityData
 
 
+class RecognitionImage(BaseModel):
+    image: str
+    source: str
+    used: bool = False
+    ts: Optional[float] = None
+    score: Optional[float] = None
+
+
 class KnownObjectData(BaseModel):
     uuid: str
     created_at: float
@@ -99,7 +107,9 @@ class KnownObjectData(BaseModel):
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
-    recognition_images: List[str] = Field(default_factory=list)
+    # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
+    # whether it was actually submitted to Brickognize.
+    recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)
     # Captured timestamps of crops shipped to Brickognize for this piece.
     recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None

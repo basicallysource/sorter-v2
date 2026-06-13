@@ -6,18 +6,19 @@ from defs.events import (
     KnownObjectData,
     PieceStage,
     ClassificationStatus,
+    RecognitionImage,
 )
 
 
 # Heavy, write-once KnownObject fields that exist for server-side lookup only
 # and must NOT travel over the live control socket. They are kept in the
 # in-memory lookup (runtime_stats) and served on demand by the per-piece detail
-# page via /api/known-objects/<uuid>. recognition_images in particular is a list
-# that grows one base64 crop per capture; re-broadcasting the whole list on every
+# page via /api/known-objects/<uuid>. recognition_image_set in particular is a
+# list that grows one base64 crop per capture; re-broadcasting the whole list on every
 # capture made known_object payloads grow quadratically and backed up the socket
 # broadcaster. The live UI renders latest_captured_crop (bounded), not this list.
 # Add a field here to drop it from the live socket without touching call sites.
-KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_images"})
+KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_image_set"})
 
 
 def slimKnownObjectForSocket(data: dict[str, Any]) -> dict[str, Any]:
@@ -71,7 +72,16 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             brickognize_preview_url=obj.brickognize_preview_url,
             brickognize_source_view=obj.brickognize_source_view,
             recognition_used_crop_ts=list(obj.recognition_used_crop_ts or []),
-            recognition_images=list(obj.recognition_images or []),
+            recognition_image_set=[
+                RecognitionImage(
+                    image=r.image,
+                    source=r.source,
+                    used=r.used,
+                    ts=r.ts,
+                    score=r.score,
+                )
+                for r in (obj.recognition_image_set or [])
+            ],
             feeding_started_at=obj.feeding_started_at,
             carousel_detected_confirmed_at=obj.carousel_detected_confirmed_at,
             first_carousel_seen_ts=obj.first_carousel_seen_ts,

@@ -3,7 +3,7 @@ from typing import Optional
 
 import numpy as np
 
-from defs.known_object import KnownObject
+from defs.known_object import KnownObject, RecognitionImage
 
 from .rev01_config import Rev01Config, configFromDict
 
@@ -27,6 +27,10 @@ class SimpleStateMachineRev01Context:
         # when it spawns the classify thread, read by AWAITING_DISTRIBUTION when
         # it dumps the burst artifacts (the spawn/apply split spans two states).
         self.selected_captures: list[np.ndarray] = []
+        # Upstream (C2/C3) match crops the classify thread fused into the
+        # Brickognize call, extended onto the KnownObject's recognition_image_set
+        # when the result lands (the spawn/apply split spans two states).
+        self.upstream_recognition_images: list[RecognitionImage] = []
         self.last_capture_frame_ts: float = 0.0
         self.capturing_started_at: float = 0.0
         self.rotating_started_at: float = 0.0
@@ -71,6 +75,7 @@ class SimpleStateMachineRev01Context:
         self.captured_crops = []
         self.captured_crop_timestamps = []
         self.selected_captures = []
+        self.upstream_recognition_images = []
         self.last_capture_frame_ts = 0.0
         self.capturing_started_at = 0.0
         self.rotating_started_at = 0.0

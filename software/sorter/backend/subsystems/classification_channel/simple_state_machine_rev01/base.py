@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 
 from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
-from defs.known_object import ClassificationStatus, PieceStage
+from defs.known_object import ClassificationStatus, PieceStage, RecognitionImage
 from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
@@ -202,14 +202,19 @@ class Rev01BaseState(BaseState):
     # (which applies the result) — the spawn/apply split spans two states, and
     # all handoff flows through ``self.ctx``.
 
-    def selectRecognitionCrops(self, crops: list[np.ndarray]) -> list[np.ndarray]:
+    def selectRecognitionCrops(
+        self, crops: list[np.ndarray], max_images: Optional[int] = None
+    ) -> list[np.ndarray]:
         # Hard-cap at the Brickognize per-request image limit regardless of the
         # configured max_captures — over the limit the API errors the whole call.
-        n = min(self.ctx.config.max_captures, MAX_QUERY_IMAGES)
+        # ``max_images`` lets the caller reserve slots for injected upstream
+        # matches (the total across both must stay <= MAX_QUERY_IMAGES).
+        cap = MAX_QUERY_IMAGES if max_images is None else max_images
+        n = min(self.ctx.config.max_captures, cap)
+        if n <= 0 or not crops:
+            return []
         if len(crops) <= n:
             return list(crops)
-        if not crops:
-            return []
         last_index = len(crops) - 1
         chosen_indices: list[int] = []
         for slot_idx in range(n):
@@ -219,12 +224,50 @@ class Rev01BaseState(BaseState):
             chosen_indices.append(capture_idx)
         return [crops[idx] for idx in chosen_indices]
 
-    def spawnClassifyThread(self, captures: list[np.ndarray]) -> None:
+    def spawnClassifyThread(self, all_captures: list[np.ndarray]) -> None:
+        # Runs entirely off the state-machine thread: the upstream-match search
+        # is a paid, blocking HTTP call (embed the burst, KNN the vec DB), so it
+        # MUST NOT run on the main loop. The thread fuses any upstream matches
+        # with the C4 burst — bursts give up slots so the total never exceeds
+        # Brickognize's 8-image limit — then submits the combined set.
         gc = self.gc
-        piece_uuid = self.ctx.known_object.uuid if self.ctx.known_object is not None else None
+        obj = self.ctx.known_object
+        piece_uuid = obj.uuid if obj is not None else None
+        # Only the last burst frame drives classification: it anchors the
+        # upstream-similarity search and is the sole C4 image sent to Brickognize.
+        # The rest of the burst is kept on the KnownObject (used=False) for review.
+        burst_entries = (
+            [r for r in obj.recognition_image_set if r.source == "c4_burst"]
+            if obj is not None
+            else []
+        )
+        if burst_entries:
+            burst_entries[-1].used = True
+        anchor_b64s = [burst_entries[-1].image] if burst_entries else []
+        burst_crops = list(all_captures[-1:])
+        ref_ts = float(
+            (obj.first_carousel_seen_ts or obj.created_at)
+            if obj is not None
+            else time.time()
+        )
 
         def _run() -> None:
             try:
+                upstream_bgr, upstream_images = self._gatherUpstreamMatches(
+                    anchor_b64s, ref_ts, max_inject=MAX_QUERY_IMAGES - len(burst_crops)
+                )
+                captures = list(burst_crops) + list(upstream_bgr)
+                with self.ctx.classify_lock:
+                    self.ctx.selected_captures = list(burst_crops)
+                    self.ctx.upstream_recognition_images = list(upstream_images)
+                self.logger.info(
+                    f"{LOG_TAG} Brickognize submit: {len(burst_crops)} C4 burst + "
+                    f"{len(upstream_bgr)} upstream = {len(captures)} image(s)"
+                )
+                if not captures:
+                    with self.ctx.classify_lock:
+                        self.ctx.classification_error = "no_captures"
+                    return
                 result = _classifyImages(gc, captures, piece_uuid=piece_uuid)
                 with self.ctx.classify_lock:
                     self.ctx.classification_result = result
@@ -235,6 +278,61 @@ class Rev01BaseState(BaseState):
         thread = threading.Thread(target=_run, daemon=True)
         self.ctx.classify_thread = thread
         thread.start()
+
+    def _gatherUpstreamMatches(
+        self, anchor_b64s: list[str], ref_ts: float, max_inject: int
+    ) -> tuple[list[np.ndarray], list[RecognitionImage]]:
+        # Returns (decoded BGR crops to SEND to Brickognize, wrapped
+        # RecognitionImages for the KnownObject/UI). The store grabs
+        # classify_top_n matches and flags the most-similar classify_use_n as
+        # used; we send only the used crops (capped by max_inject for the 8-image
+        # limit) but attach ALL grabbed crops to the piece for review, each with
+        # its cosine similarity to the anchor (the classified C4 frame).
+        # Best-effort: any failure yields none.
+        store = getattr(getattr(self.gc, "perception_service", None), "upstream_store", None)
+        if store is None:
+            return [], []
+        try:
+            candidates = store.matchForClassification(anchor_b64s, ref_ts)
+        except Exception as exc:
+            self.logger.warning(f"{LOG_TAG} upstream match failed: {exc}")
+            return [], []
+        bgr_list: list[np.ndarray] = []
+        image_list: list[RecognitionImage] = []
+        for cand in candidates:
+            b64 = cand.get("jpeg_b64") if isinstance(cand, dict) else None
+            if not isinstance(b64, str) or not b64:
+                continue
+            img = self._decodeB64Jpeg(b64)
+            if img is None or img.size == 0:
+                continue
+            score = cand.get("score")
+            used = bool(cand.get("used")) and len(bgr_list) < max_inject
+            if used:
+                bgr_list.append(img)
+            image_list.append(
+                RecognitionImage(
+                    image=b64,
+                    source="upstream",
+                    used=used,
+                    score=float(score) if isinstance(score, (int, float)) else None,
+                )
+            )
+        if image_list:
+            self.logger.info(
+                f"{LOG_TAG} upstream match: grabbed {len(image_list)}, using "
+                f"{len(bgr_list)} (scores={[r.score for r in image_list]})"
+            )
+        return bgr_list, image_list
+
+    @staticmethod
+    def _decodeB64Jpeg(b64: str) -> Optional[np.ndarray]:
+        try:
+            raw = base64.b64decode(b64)
+            arr = np.frombuffer(raw, dtype=np.uint8)
+            return cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        except Exception:
+            return None
 
     def updateKnownObjectWithResult(self, result: object, error: Optional[str]) -> None:
         obj = self.ctx.known_object
@@ -273,6 +371,9 @@ class Rev01BaseState(BaseState):
         if frames:
             best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
             obj.thumbnail = self.encodeFrame(frames[best_idx])
+
+        with self.ctx.classify_lock:
+            obj.recognition_image_set.extend(self.ctx.upstream_recognition_images)
 
         self.emitKnownObject()
 

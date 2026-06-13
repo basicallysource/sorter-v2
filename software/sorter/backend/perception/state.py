@@ -62,10 +62,11 @@ class ChannelState:
     # its leading lip. Same None semantics as ``exit_com_forward_deg``.
     exit_com_forward_to_center_deg: float | None = None
     # Signed travel-direction distance (output degrees) from the LEADING piece's
-    # COM to the CENTER of the PRECISE (staging) arc — see
-    # ``arcs.comForwardToPreciseCenterDeg``. The C4 reverse flow drives this
-    # toward 0 in MOVING_TO_PRECISE to park the piece in the precise band before
-    # the fall-off. Same None semantics as ``exit_com_forward_to_center_deg``.
+    # COM to the BEGINNING (entry edge) of the PRECISE (staging) arc — see
+    # ``arcs.comForwardToPreciseEntryDeg``. The C4 reverse flow drives this toward
+    # 0 in MOVING_TO_PRECISE to park the piece at the START of the precise band
+    # (not its centre, which overshot) before the fall-off. Same None semantics as
+    # ``exit_com_forward_to_center_deg``.
     exit_com_forward_to_precise_deg: float | None = None
     # True when the LEADING piece's COM section lies in the PRECISE zone. This is
     # the exact trigger for starting a C3 eject — the piece must actually be in

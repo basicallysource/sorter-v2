@@ -6,6 +6,14 @@
 */
 
 export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
+
+export interface RecognitionImage {
+  image: string;
+  source: "c4_burst" | "upstream";
+  used: boolean;
+  ts?: number | null;
+  score?: number | null;
+}
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
 
@@ -77,7 +85,7 @@ export interface KnownObjectData {
   drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
-  recognition_images?: string[];
+  recognition_image_set?: RecognitionImage[];
   recognition_used_crop_ts?: number[];
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;

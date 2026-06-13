@@ -31,7 +31,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Optional
 
 import cv2
@@ -93,6 +93,24 @@ class UpstreamMatchConfig:
     search_ch2: bool = True
     search_ch3: bool = True
 
+    # --- Classification injection --------------------------------------
+    # When a piece lands on C4, embed its burst crops, find its best upstream
+    # (C2/C3) matches, and hand those extra views to Brickognize alongside the
+    # C4 burst. Off by default — same paid embedding call as search, run once
+    # per classified piece.
+    classify_inject_enabled: bool = False
+    # How many upstream matches to GRAB (top-N by similarity) and attach to the
+    # piece for review. All grabbed crops show on the detail card; only the most
+    # similar ``classify_use_n`` of them are actually sent to Brickognize.
+    classify_top_n: int = 3
+    # Of the grabbed matches, how many of the most-similar to USE for
+    # classification — sent to Brickognize and flagged used. The rest stay on the
+    # piece for review but did not influence the result. Capped so the total
+    # (burst + used upstream) never exceeds Brickognize's 8-image limit.
+    classify_use_n: int = 1
+    # Only inject a match this similar or better (cosine similarity 0-1).
+    classify_min_similarity: float = 0.8
+
 
 _DEFAULTS = UpstreamMatchConfig()
 
@@ -112,6 +130,10 @@ FIELD_META: list[dict] = [
     {"section": "Search", "key": "max_results", "label": "Max results", "type": "int", "default": _DEFAULTS.max_results},
     {"section": "Search", "key": "search_ch2", "label": "Search C2", "type": "bool", "default": _DEFAULTS.search_ch2},
     {"section": "Search", "key": "search_ch3", "label": "Search C3", "type": "bool", "default": _DEFAULTS.search_ch3},
+    {"section": "Classification", "key": "classify_inject_enabled", "label": "Inject matches into Brickognize", "type": "bool", "default": _DEFAULTS.classify_inject_enabled},
+    {"section": "Classification", "key": "classify_top_n", "label": "Matches to grab (top N)", "type": "int", "default": _DEFAULTS.classify_top_n},
+    {"section": "Classification", "key": "classify_use_n", "label": "Matches to use for classification (top N)", "type": "int", "default": _DEFAULTS.classify_use_n},
+    {"section": "Classification", "key": "classify_min_similarity", "label": "Min similarity to inject (0-1)", "type": "float", "default": _DEFAULTS.classify_min_similarity},
 ]
 
 
@@ -204,9 +226,12 @@ def embedDataUris(data_uris: list[str], logger: Any = None) -> list[Optional[lis
 
 def anchorImageB64s(payload: dict) -> list[str]:
     b64s: list[str] = []
-    for b64 in (payload.get("recognition_images") or []):
-        if isinstance(b64, str) and b64:
-            b64s.append(b64)
+    for entry in (payload.get("recognition_image_set") or []):
+        if not isinstance(entry, dict) or entry.get("source") != "c4_burst":
+            continue
+        img = entry.get("image")
+        if isinstance(img, str) and img:
+            b64s.append(img)
     if not b64s:
         latest = payload.get("latest_captured_crop")
         if isinstance(latest, str) and latest:
@@ -515,6 +540,32 @@ class UpstreamCropStore:
                 "jpeg_b64": jpeg_b64,
             })
         return {"candidates": candidates, "n_anchor_embedded": len(vecs)}
+
+    def matchForClassification(self, anchor_b64s: list[str], ref_ts: float) -> list[dict]:
+        """Top-N upstream matches to fuse into a C4 piece's Brickognize call.
+
+        Reuses ``search`` but gates on the classification-specific knobs
+        (``classify_min_similarity`` / ``classify_top_n``) instead of the
+        search-page ones. Grabs ``classify_top_n`` candidates (sorted most-
+        similar first) and tags each with ``used``: True for the most-similar
+        ``classify_use_n``, which are the ones actually sent to Brickognize.
+        Returns ``[]`` when injection is disabled, there is no anchor, or nothing
+        clears the bar."""
+        cfg = self.config()
+        if not cfg.classify_inject_enabled or cfg.classify_top_n < 1 or not anchor_b64s:
+            return []
+        search_cfg = replace(
+            cfg,
+            min_similarity=cfg.classify_min_similarity,
+            max_results=cfg.classify_top_n,
+        )
+        result = self.search(anchor_b64s, ref_ts, search_cfg)
+        candidates = list(result.get("candidates", []))[: cfg.classify_top_n]
+        use_n = max(0, int(cfg.classify_use_n))
+        for i, cand in enumerate(candidates):
+            if isinstance(cand, dict):
+                cand["used"] = i < use_n
+        return candidates
 
     def listCrops(self, offset: int = 0, limit: int = 60, channel: Optional[int] = None) -> dict:
         """Paginated view of what's actually embedded + stored, newest first."""

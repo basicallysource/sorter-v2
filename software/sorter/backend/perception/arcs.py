@@ -27,6 +27,47 @@ def bboxCenter(bbox: Bbox) -> tuple[float, float]:
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
+def bboxArea(bbox: Bbox) -> int:
+    x1, y1, x2, y2 = bbox
+    w = x2 - x1
+    h = y2 - y1
+    if w <= 0 or h <= 0:
+        return 0
+    return w * h
+
+
+def bboxWithinAreaFraction(bbox: Bbox, mask_area_px: float, max_fraction: float) -> bool:
+    """True if the bbox area is at or below ``max_fraction`` of the channel mask
+    area. Drops implausibly massive detections (a hand, a shadow, the model
+    latching onto the whole channel) before they reach the state machine.
+    ``mask_area_px`` is precomputed once by the caller (the mask is immutable),
+    so this stays cheap on the hot path."""
+    if mask_area_px <= 0:
+        return True
+    return bboxArea(bbox) <= max_fraction * mask_area_px
+
+
+def bboxWithinMaskExtent(
+    bbox: Bbox,
+    mask_w_extent: float,
+    mask_h_extent: float,
+    max_fraction: float,
+) -> bool:
+    """True if the bbox width AND height are each at or below ``max_fraction`` of
+    the channel mask's bounding extent. Catches long, skinny detections that span
+    most of the channel in one dimension (e.g. 80% of the width but only 20% of
+    the height) — these stay under an area-fraction limit while still being
+    implausibly large. Extents are precomputed once by the caller."""
+    x1, y1, x2, y2 = bbox
+    w = x2 - x1
+    h = y2 - y1
+    if mask_w_extent > 0 and w > max_fraction * mask_w_extent:
+        return False
+    if mask_h_extent > 0 and h > max_fraction * mask_h_extent:
+        return False
+    return True
+
+
 def bboxInsideChannelMask(bbox: Bbox, channel: ChannelDef) -> bool:
     cx, cy = bboxCenter(bbox)
     h, w = channel.mask.shape[:2]
@@ -243,37 +284,40 @@ def _leadingExitApproach(
     return best
 
 
-def _arcCenterRelativeDeg(sections: frozenset[int]) -> float | None:
-    """Relative angle (output degrees) of the middle section of an arc. ``None``
-    for an empty arc. Direction-agnostic — the midpoint of the ordered walk is
-    the same section regardless of which edge is the entry."""
+def _arcEntryRelativeDeg(sections: frozenset[int], reverse: bool) -> float | None:
+    """Relative angle (output degrees) of the arc's ENTRY edge in the travel
+    direction — the edge the piece reaches FIRST. Reverse travel enters at the
+    high-relative edge (``ordered[-1]``); forward at the low-relative edge
+    (``ordered[0]``). ``None`` for an empty arc."""
     ordered = _orderedCircularSections(sections)
     if not ordered:
         return None
-    return float(ordered[len(ordered) // 2]) * SECTION_DEG
+    entry = ordered[-1] if reverse else ordered[0]
+    return float(entry) * SECTION_DEG
 
 
-def comForwardToPreciseCenterDeg(
+def comForwardToPreciseEntryDeg(
     bboxes: Iterable[Bbox], channel: ChannelDef
 ) -> float | None:
     """Signed travel-direction distance (output degrees) from the LEADING
-    on-channel piece's COM to the CENTER of the PRECISE (staging) arc. The C4
-    reverse flow drives this toward 0 in MOVING_TO_PRECISE so the piece parks in
-    the precise band — short of the fall-off — while classification runs.
+    on-channel piece's COM to the BEGINNING (entry edge) of the PRECISE (staging)
+    arc — the edge the piece reaches first. The C4 reverse flow drives this toward
+    0 in MOVING_TO_PRECISE so the piece parks at the START of the precise band,
+    not its centre (which overshot), while classification runs.
 
     Same leading-piece selection and sign convention as ``exitComForwardToCenterDeg``
-    (> 0 = advance toward the precise centre; <= 0 = at/past it), but the target
-    is the precise arc, not the exit-only arc. ``None`` when there is no on-channel
-    piece or the channel has no precise arc."""
+    (> 0 = advance toward the precise entry; <= 0 = at/past it). ``None`` when there
+    is no on-channel piece or the channel has no precise arc."""
     best = _leadingExitApproach(bboxes, channel)
-    center_rel = _arcCenterRelativeDeg(channel.precise_sections)
-    if best is None or center_rel is None:
+    reverse = bool(getattr(channel, "reverse", False))
+    entry_rel = _arcEntryRelativeDeg(channel.precise_sections, reverse)
+    if best is None or entry_rel is None:
         return None
     com_rel = float(best[1]) * SECTION_DEG
-    if bool(getattr(channel, "reverse", False)):
-        gap = (com_rel - center_rel) % 360.0
+    if reverse:
+        gap = (com_rel - entry_rel) % 360.0
     else:
-        gap = (center_rel - com_rel) % 360.0
+        gap = (entry_rel - com_rel) % 360.0
     if gap > 180.0:
         gap -= 360.0
     return gap

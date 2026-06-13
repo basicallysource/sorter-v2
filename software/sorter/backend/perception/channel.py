@@ -46,6 +46,15 @@ CHANNEL_REGISTRY: dict[int, tuple[str, str, str]] = {
 SECONDARY_ZONE_TYPES: frozenset[str] = frozenset({"drop", "exit", "precise"})
 
 
+# Channels whose piece travel runs REVERSE (decreasing relative angle / negative
+# motor degrees) toward the exit instead of forward. C4 (the carousel
+# classification channel) reverse-converges a piece a short distance to the
+# precise zone and then into the fall-off; C2/C3 feeder ejects stay forward. The
+# flag rides on ChannelDef so the forward-distance arc math (``arcs.py``) and the
+# eject/discharge consumers stay per-channel — see ``arcs._leadingExitApproach``.
+REVERSE_TRAVEL_CHANNELS: frozenset[int] = frozenset({4})
+
+
 @dataclass(frozen=True)
 class SecondaryZone:
     """A foreign channel's zone, annotated in THIS camera's frame.
@@ -79,6 +88,11 @@ class ChannelDef:
     precise_sections: frozenset[int] = frozenset()
     # Foreign zones this camera observes — display/tag only, never acted on.
     secondary_zones: tuple[SecondaryZone, ...] = ()
+    # When True the piece travels REVERSE (decreasing relative angle) toward the
+    # exit, so the forward-distance arc math measures the gap to the FAR edge of
+    # the exit-only arc instead of the near edge (see ``arcs._leadingExitApproach``).
+    # Set per channel from ``REVERSE_TRAVEL_CHANNELS``; C2/C3 stay forward.
+    reverse: bool = False
 
     @property
     def has_zones(self) -> bool:
@@ -324,6 +338,7 @@ def buildChannelDef(
         exit_sections=exit_sections | precise_sections,
         precise_sections=precise_sections,
         secondary_zones=secondary_zones,
+        reverse=channel_id in REVERSE_TRAVEL_CHANNELS,
     )
 
 

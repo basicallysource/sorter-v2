@@ -25,6 +25,7 @@ from .arcs import (
     attributeBboxes,
     bboxInsideChannelMask,
     bboxInsideMask,
+    comForwardToPreciseCenterDeg,
     comInPreciseZone,
     exitComForwardDeg,
     exitComForwardToCenterDeg,
@@ -478,6 +479,9 @@ class InferenceWorker:
                 exit_com_forward_to_center_deg = exitComForwardToCenterDeg(
                     bboxes, self._channel_def
                 )
+                exit_com_forward_to_precise_deg = comForwardToPreciseCenterDeg(
+                    bboxes, self._channel_def
+                )
                 exit_com_in_precise = comInPreciseZone(bboxes, self._channel_def)
                 attribute_ms = _now_ms() - attribute_t0
 
@@ -491,6 +495,7 @@ class InferenceWorker:
                     advance_clearance_deg=advance_clearance_deg,
                     exit_com_forward_deg=exit_com_forward_deg,
                     exit_com_forward_to_center_deg=exit_com_forward_to_center_deg,
+                    exit_com_forward_to_precise_deg=exit_com_forward_to_precise_deg,
                     exit_com_in_precise=exit_com_in_precise,
                 )
                 self._slot.write(state)

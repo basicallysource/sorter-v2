@@ -8,8 +8,8 @@ from subsystems.classification_channel.simple_state_machine_rev01.discharging im
 )
 from subsystems.classification_channel.states import ClassificationChannelState
 
-from subsystems.classification_channel.simple_state_machine_rev01.classifying import (
-    Classifying,
+from subsystems.classification_channel.simple_state_machine_rev01.capturing import (
+    Capturing,
 )
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import (
     Rev01Config,
@@ -31,9 +31,9 @@ def test_rev01_crop_bbox_uses_exact_bounds() -> None:
 def test_rev01_select_recognition_crops_keeps_even_spread() -> None:
     crops = [np.full((2, 2, 3), idx, dtype=np.uint8) for idx in range(12)]
 
-    classify = Classifying.__new__(Classifying)
-    classify.ctx = type("Ctx", (), {"config": Rev01Config(max_captures=8)})()
-    selected = classify.selectRecognitionCrops(crops)
+    capturing = Capturing.__new__(Capturing)
+    capturing.ctx = type("Ctx", (), {"config": Rev01Config(max_captures=8)})()
+    selected = capturing.selectRecognitionCrops(crops)
 
     assert len(selected) == 8
     selected_ids = [int(crop[0, 0, 0]) for crop in selected]
@@ -130,8 +130,9 @@ def test_rev01_discharging_legacy_fallback_fixed_kick_then_idle() -> None:
 
     next_state = state.step()
 
-    # Fixed output_deg = 180.0°. With default C4 platter
+    # Fixed output_deg = -180.0° (the carousel travels REVERSE — negative output
+    # degrees — toward the fall-off). With default C4 platter
     # (200 steps/rev * 8 microsteps * 130/12 gear ratio = 17333.33 µsteps/output_rev),
-    # 180°/360 * 17333.33 ≈ 8667 microsteps.
+    # -180°/360 * 17333.33 ≈ -8667 microsteps.
     assert next_state == ClassificationChannelState.IDLE
-    assert stepper.moves == [8667]
+    assert stepper.moves == [-8667]

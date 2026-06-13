@@ -23,7 +23,12 @@ class SimpleStateMachineRev01Context:
         self.config: Rev01Config = _loadConfig()
         self.captured_crops: list[np.ndarray] = []
         self.captured_crop_timestamps: list[float] = []
+        # The subset actually submitted to Brickognize — selected by CAPTURING
+        # when it spawns the classify thread, read by AWAITING_DISTRIBUTION when
+        # it dumps the burst artifacts (the spawn/apply split spans two states).
+        self.selected_captures: list[np.ndarray] = []
         self.last_capture_frame_ts: float = 0.0
+        self.capturing_started_at: float = 0.0
         self.rotating_started_at: float = 0.0
         self.classify_started_at: float = 0.0
         self.discharging_started_at: float = 0.0
@@ -65,7 +70,9 @@ class SimpleStateMachineRev01Context:
         self.config = _loadConfig()
         self.captured_crops = []
         self.captured_crop_timestamps = []
+        self.selected_captures = []
         self.last_capture_frame_ts = 0.0
+        self.capturing_started_at = 0.0
         self.rotating_started_at = 0.0
         self.classify_started_at = 0.0
         self.discharging_started_at = 0.0

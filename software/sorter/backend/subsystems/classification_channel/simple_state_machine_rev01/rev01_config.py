@@ -4,7 +4,20 @@ from dataclasses import dataclass
 @dataclass
 class Rev01Config:
     rotate_speed_usteps_per_s: int = 7000
+    # Active-path UNUSED: the reverse capture-at-rest flow no longer sweeps the
+    # carousel while photographing. Kept only for the legacy non-perception
+    # fallback (a single fixed move).
     capture_sweep_output_deg: float = 180.0
+    # How long CAPTURING photographs the piece AT REST before spawning the
+    # Brickognize request and starting the reverse move to the precise zone. The
+    # burst denoises / lets selectRecognitionCrops pick the sharpest frames; the
+    # piece does not rotate, so the views are near-identical.
+    capture_at_rest_ms: float = 350.0
+    # Reverse converge to the precise staging zone (MOVING_TO_PRECISE). Slower
+    # than the discharge converge so the approach into the narrow precise band is
+    # gentle; tolerance is the |gap-to-precise-centre| at which we call it parked.
+    precise_converge_speed_usteps_per_s: int = 5000
+    precise_center_tolerance_deg: float = 4.0
     # Legacy fixed discharge kick (only used on the non-perception fallback path).
     # The active perception path closed-loops onto the fall-off centre instead;
     # see ``discharge_*`` fields below.
@@ -83,7 +96,10 @@ _DEFAULTS = Rev01Config()
 
 FIELD_META: list[dict] = [
     {"key": "rotate_speed_usteps_per_s", "label": "Rotate speed (µsteps/s)", "type": "int", "default": _DEFAULTS.rotate_speed_usteps_per_s},
-    {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg},
+    {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg, legacy)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg},
+    {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms},
+    {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s},
+    {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},

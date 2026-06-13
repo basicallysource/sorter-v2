@@ -107,7 +107,7 @@ class Idle(Rev01BaseState):
                 f"{LOG_TAG} IDLE -> ROTATING_AND_CAPTURING "
                 f"(perception confirmed piece on channel, n_pieces={state.n_pieces})"
             )
-            return ClassificationChannelState.REV01_ROTATING_AND_CAPTURING
+            return ClassificationChannelState.REV01_CAPTURING
         return None
 
     # ---- Legacy (non-perception) path, unchanged ----
@@ -167,7 +167,7 @@ class Idle(Rev01BaseState):
                 f"{LOG_TAG} IDLE -> ROTATING_AND_CAPTURING "
                 f"(piece confirmed on channel, count={len(actionable)})"
             )
-            return ClassificationChannelState.REV01_ROTATING_AND_CAPTURING
+            return ClassificationChannelState.REV01_CAPTURING
         return None
 
     def cleanup(self) -> None:

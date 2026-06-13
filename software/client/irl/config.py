@@ -23,14 +23,58 @@ from .parse_user_toml import (
 from blob_manager import getCameraSetup
 
 
+# Locked manual controls for the classification cameras. These disable the
+# camera's auto exposure / white balance / gain so the backlit magenta floor
+# reads a stable, consistent color for HSV-based detection. Values are starting
+# points to be tuned empirically per machine; re-capture the classification
+# baseline after changing them (the absolute levels shift once auto is off).
+CLASSIFICATION_CAMERA_LOCK = {
+    "auto_exposure": False,
+    "exposure": 5.0,
+    "auto_wb": False,
+    "wb_temperature": 6150.0,
+    "auto_gain": False,
+    "gain": 0.0,
+    "hue": -15.0,
+    "saturation": 100.0,
+}
+
+# UVC product name of the classification top camera, used to lock its controls
+# out-of-band via the uvc-util utility on macOS (AVFoundation ignores OpenCV's
+# property sets, so the values above are no-ops there). On V4L2 (Linux) the locks
+# go through OpenCV directly and this is unused. Machine-specific.
+CLASSIFICATION_TOP_UVC_NAME = "Innomaker-U20CAM-1080p-S1"
+
+
 class CameraConfig:
     device_index: int
     width: int
     height: int
     fps: int
+    # Optional manual camera controls. None => leave at driver default (do not
+    # touch). Locking these is required for color-stable HSV detection.
+    auto_exposure: "bool | None"
+    exposure: "float | None"
+    auto_wb: "bool | None"
+    wb_temperature: "float | None"
+    auto_gain: "bool | None"
+    gain: "float | None"
+    hue: "float | None"
+    saturation: "float | None"
+    # UVC product name for out-of-band control locking via uvc-util on macOS,
+    # where OpenCV/AVFoundation cannot set these properties. None => not used.
+    uvc_device_name: "str | None"
 
     def __init__(self):
-        pass
+        self.auto_exposure = None
+        self.exposure = None
+        self.auto_wb = None
+        self.wb_temperature = None
+        self.auto_gain = None
+        self.gain = None
+        self.hue = None
+        self.saturation = None
+        self.uvc_device_name = None
 
 
 class StepperConfig:
@@ -200,13 +244,34 @@ class IRLInterface:
 
 
 def mkCameraConfig(
-    device_index: int, width: int = 1920, height: int = 1080, fps: int = 30
+    device_index: int,
+    width: int = 1920,
+    height: int = 1080,
+    fps: int = 30,
+    auto_exposure: "bool | None" = None,
+    exposure: "float | None" = None,
+    auto_wb: "bool | None" = None,
+    wb_temperature: "float | None" = None,
+    auto_gain: "bool | None" = None,
+    gain: "float | None" = None,
+    hue: "float | None" = None,
+    saturation: "float | None" = None,
+    uvc_device_name: "str | None" = None,
 ) -> CameraConfig:
     camera_config = CameraConfig()
     camera_config.device_index = device_index
     camera_config.width = width
     camera_config.height = height
     camera_config.fps = fps
+    camera_config.auto_exposure = auto_exposure
+    camera_config.exposure = exposure
+    camera_config.auto_wb = auto_wb
+    camera_config.wb_temperature = wb_temperature
+    camera_config.auto_gain = auto_gain
+    camera_config.gain = gain
+    camera_config.hue = hue
+    camera_config.saturation = saturation
+    camera_config.uvc_device_name = uvc_device_name
     return camera_config
 
 
@@ -280,10 +345,13 @@ def mkIRLConfig() -> IRLConfig:
 
     irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
     irl_config.classification_camera_bottom = mkCameraConfig(
-        device_index=classification_camera_bottom_index, width=9999, height=9999
+        device_index=classification_camera_bottom_index, width=9999, height=9999,
+        **CLASSIFICATION_CAMERA_LOCK,
     )
     irl_config.classification_camera_top = mkCameraConfig(
-        device_index=classification_camera_top_index, width=9999, height=9999
+        device_index=classification_camera_top_index, width=9999, height=9999,
+        uvc_device_name=CLASSIFICATION_TOP_UVC_NAME,
+        **CLASSIFICATION_CAMERA_LOCK,
     )
 
     if "c_channel_2" in camera_setup:

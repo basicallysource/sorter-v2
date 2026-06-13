@@ -11,6 +11,7 @@
 		type: 'int' | 'float' | 'bool';
 		default: number | boolean;
 		section?: string;
+		description?: string;
 	};
 
 	const initialUuid = page.url.searchParams.get('uuid') ?? '';
@@ -250,9 +251,31 @@
 						</div>
 						{#each section.fields as field}
 							<div class="flex items-center gap-4">
-								<label class="w-72 text-sm text-text" for={field.key}>
-									{field.label}
-									<span class="ml-1 text-xs text-text-muted">(default: {field.default})</span>
+								<label class="flex w-72 items-center gap-1.5 text-sm text-text" for={field.key}>
+									<span>{field.label}</span>
+									{#if field.description}
+										<span class="group relative inline-flex shrink-0" tabindex="0" role="note" aria-label={field.description}>
+											<svg
+												class="h-4 w-4 cursor-help text-text-muted"
+												viewBox="0 0 16 16"
+												fill="none"
+												stroke="currentColor"
+												stroke-width="1.5"
+												aria-hidden="true"
+											>
+												<circle cx="8" cy="8" r="6.5" />
+												<path d="M8 7.25v3.75" stroke-linecap="round" />
+												<circle cx="8" cy="5" r="0.6" fill="currentColor" stroke="none" />
+											</svg>
+											<span
+												class="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-1 w-72 whitespace-normal border border-border bg-surface px-3 py-2 text-sm leading-snug text-text shadow-md group-hover:visible group-focus-within:visible"
+												role="tooltip"
+											>
+												{field.description}
+											</span>
+										</span>
+									{/if}
+									<span class="ml-auto shrink-0 text-xs text-text-muted">(default: {field.default})</span>
 								</label>
 								{#if field.type === 'bool'}
 									<input

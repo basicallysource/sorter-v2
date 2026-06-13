@@ -200,7 +200,9 @@ class PulsePerceptionFeeding(BaseState):
                 and now_mono >= self._classification_pending_until
                 and self._classification_ready(cfg)
             )
-            action = feederChannelAction(c3, downstream_clear=c3_downstream_ready)
+            action = feederChannelAction(
+                c3, downstream_clear=c3_downstream_ready, greedy=cfg.ch3_greedy_enabled
+            )
             self._apply_action(
                 "ch3", action, self.irl.c_channel_3_rotor_stepper, c3, cfg
             )
@@ -216,7 +218,9 @@ class PulsePerceptionFeeding(BaseState):
         if cfg.enable_ch2:
             # C2's downstream is C3. "Clear" = C3's drop zone is not occupied,
             # so we never pulse a C2 piece off the edge into a busy C3.
-            action = feederChannelAction(c2, downstream_clear=not c3.in_drop)
+            action = feederChannelAction(
+                c2, downstream_clear=not c3.in_drop, greedy=cfg.ch2_greedy_enabled
+            )
             self._apply_action(
                 "ch2", action, self.irl.c_channel_2_rotor_stepper, c2, cfg
             )
@@ -249,21 +253,32 @@ class PulsePerceptionFeeding(BaseState):
         if self._busy(stepper):
             return
         if action == Action.ADVANCE:
-            # Free drop-zone pulse, but never push the most-forward piece off the
+            # Free advance pulse, but never push the most-forward piece off the
             # edge into the exit zone: cap the move to its forward clearance to
             # the exit edge. Once a piece reaches the exit, the PRECISE/FREEZE
             # branch (gated on downstream readiness) meters it out instead.
-            output_deg = cfg.drop_pulse_output_deg
+            # A piece still in the drop zone uses the drop-zone params; a greedy
+            # advance of a piece that has already left the drop zone uses the
+            # greedy params (only reachable when greedy mode is on for this
+            # channel — the cascade returns IDLE here otherwise).
+            if state.in_drop:
+                output_deg = cfg.drop_pulse_output_deg
+                pause_ms = cfg.drop_pulse_pause_ms
+                move_label = f"{label}_drop"
+            else:
+                output_deg = cfg.greedy_pulse_output_deg
+                pause_ms = cfg.greedy_pulse_pause_ms
+                move_label = f"{label}_greedy"
             enforce_min = True
             clearance = getattr(state, "advance_clearance_deg", None)
             if clearance is not None and clearance < output_deg:
                 output_deg = clearance
                 enforce_min = False
             self._move(
-                f"{label}_drop",
+                move_label,
                 stepper,
                 output_deg,
-                cfg.drop_pulse_pause_ms,
+                pause_ms,
                 cfg,
                 enforce_min=enforce_min,
             )

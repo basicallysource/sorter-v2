@@ -18,6 +18,7 @@ from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
 from .heatmap_diff import HeatmapDiff
+from .hsv_correction import loadHsvCorrection, applyHsvCorrection, rotateHue, isNoop as _hsvIsNoop
 from .mog2_channel_detector import Mog2ChannelDetector
 from .feeder_analysis_thread import FeederAnalysisThread
 from .classification_analysis_thread import ClassificationAnalysisThread
@@ -115,6 +116,14 @@ class VisionManager:
                 f"Carousel heatmap trigger_score overridden to {carousel_trigger_score} (from machine config)"
             )
         self._diff_config: ClassificationDiffConfig = DEFAULT_CLASSIFICATION_DIFF_CONFIG
+        # Optional HSV correction applied in the classification HS getters; must
+        # match what the baseline calibration applied. None => no-op.
+        self._hsv_correction = loadHsvCorrection()
+        if self._diff_config.use_hsv:
+            self.gc.logger.info(
+                "Classification detection: HSV (hue+saturation) mode"
+                + ("" if _hsvIsNoop(self._hsv_correction) else " with HSV correction")
+            )
         self._carousel_heatmap = self._makeCarouselHeatmap()
 
         self._classification_top_heatmap: HeatmapDiff | None = None
@@ -335,38 +344,108 @@ class VisionManager:
             max_contour_aspect=c.max_contour_aspect,
             heat_gain=c.heat_gain,
             current_frames=c.current_frames,
+            channel_mode=("hsv" if c.use_value else "hs") if c.use_hsv else "gray",
+            low_sat_thresh=c.low_sat_thresh,
         )
+
+    def _loadChannelEnvelope(
+        self, baseline_dir, cam_key: str, channel: str, margin: int, adaptive_k: float,
+        max_value: int = 255,
+    ):
+        """Load one channel's min/max envelope PNGs and its per-frame stack,
+        widen by the per-channel margin and (optional) adaptive std, and return
+        (baseline_min, baseline_max) as uint8 arrays — or None if the envelope
+        PNGs are missing. `channel` is 'h'/'s' (HSV mode) or '' (legacy gray).
+        `max_value` caps the widened envelope: 179 for hue (OpenCV's valid range)
+        so widening can't push it past the hue period into nonsense like 235."""
+        import glob as globmod
+
+        suffix = f"_{channel}" if channel else ""
+        min_path = baseline_dir / f"{cam_key}_baseline{suffix}_min.png"
+        max_path = baseline_dir / f"{cam_key}_baseline{suffix}_max.png"
+        if not (min_path.exists() and max_path.exists()):
+            return None
+
+        bl_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
+        bl_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
+        if bl_min is None or bl_max is None:
+            return None
+
+        frames: List[np.ndarray] = []
+        # Per-frame stacks for the adaptive-std margin. HSV channels use a
+        # distinct "{cam}_{ch}frame_*" prefix so the legacy gray glob
+        # "{cam}_frame_*" never picks them up.
+        frame_glob = f"{cam_key}_{channel}frame_*.png" if channel else f"{cam_key}_frame_*.png"
+        for p in sorted(globmod.glob(str(baseline_dir / frame_glob))):
+            f = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
+            if f is not None:
+                frames.append(f)
+
+        if len(frames) >= 2 and adaptive_k > 0:
+            # Robust (MAD-based) spread, not naive std: a pixel that is floor on
+            # 62/64 frames with 1-2 stray glints has a large std but ~0 MAD, so
+            # the margin doesn't re-widen what the percentile envelope tightened.
+            stack = np.stack(frames, axis=0).astype(np.float32)
+            median = np.median(stack, axis=0)
+            mad = np.median(np.abs(stack - median), axis=0)
+            robust_std = 1.4826 * mad  # MAD -> std for a normal distribution
+            adaptive_margin = np.clip(robust_std * adaptive_k, 0, 100).astype(np.int16)
+            bl_min = np.clip(bl_min.astype(np.int16) - adaptive_margin, 0, max_value).astype(np.uint8)
+            bl_max = np.clip(bl_max.astype(np.int16) + adaptive_margin, 0, max_value).astype(np.uint8)
+
+        if margin > 0:
+            bl_min = np.clip(bl_min.astype(np.int16) - margin, 0, max_value).astype(np.uint8)
+            bl_max = np.clip(bl_max.astype(np.int16) + margin, 0, max_value).astype(np.uint8)
+
+        return bl_min, bl_max
 
     def loadClassificationBaseline(self) -> bool:
         from blob_manager import BLOB_DIR
-        import glob as globmod
 
         cfg = self._diff_config
-
+        use_hsv = cfg.use_hsv
         baseline_dir = BLOB_DIR / "classification_baseline"
         loaded_any = False
 
         for cam_key, capture in [("top", self._classification_top_capture), ("bottom", self._classification_bottom_capture)]:
             if capture is None:
                 continue
-            min_path = baseline_dir / f"{cam_key}_baseline_min.png"
-            max_path = baseline_dir / f"{cam_key}_baseline_max.png"
-            if not (min_path.exists() and max_path.exists()):
-                self.gc.logger.warn(f"Classification {cam_key} baseline not found. Run: scripts/calibrate_classification_baseline.py")
-                continue
 
-            baseline_min = cv2.imread(str(min_path), cv2.IMREAD_GRAYSCALE)
-            baseline_max = cv2.imread(str(max_path), cv2.IMREAD_GRAYSCALE)
-            if baseline_min is None or baseline_max is None:
-                self.gc.logger.warn(f"Failed to read classification {cam_key} baseline images.")
-                continue
+            if use_hsv:
+                # Hue capped at 179 (its valid range) so widening can't overflow.
+                h_env = self._loadChannelEnvelope(baseline_dir, cam_key, "h", cfg.envelope_margin, cfg.adaptive_std_k, max_value=179)
+                s_env = self._loadChannelEnvelope(baseline_dir, cam_key, "s", cfg.envelope_margin_s, cfg.adaptive_std_k)
+                if h_env is None or s_env is None:
+                    self.gc.logger.warn(
+                        f"Classification {cam_key} HSV baseline not found. "
+                        f"Run: scripts/calibrate_classification_baseline.py --wipe"
+                    )
+                    continue
+                channels_min = [h_env[0], s_env[0]]
+                channels_max = [h_env[1], s_env[1]]
+                if cfg.use_value:
+                    v_env = self._loadChannelEnvelope(baseline_dir, cam_key, "v", cfg.envelope_margin_v, cfg.adaptive_std_k)
+                    if v_env is None:
+                        self.gc.logger.warn(
+                            f"Classification {cam_key} value envelope not found; "
+                            f"falling back to H/S only. Re-run calibration to enable V."
+                        )
+                    else:
+                        channels_min.append(v_env[0])
+                        channels_max.append(v_env[1])
+                # Stack into 2- or 3-channel min/max envelopes; HeatmapDiff adapts
+                # to the channel count (H,S or H,S,V) per pixel.
+                baseline_min = np.stack(channels_min, axis=-1)
+                baseline_max = np.stack(channels_max, axis=-1)
+            else:
+                gray_env = self._loadChannelEnvelope(baseline_dir, cam_key, "", cfg.envelope_margin, cfg.adaptive_std_k)
+                if gray_env is None:
+                    self.gc.logger.warn(f"Classification {cam_key} baseline not found. Run: scripts/calibrate_classification_baseline.py")
+                    continue
+                baseline_min, baseline_max = gray_env
 
-            calibration_frames: List[np.ndarray] = []
-            for p in sorted(globmod.glob(str(baseline_dir / f"{cam_key}_frame_*.png"))):
-                gray = cv2.imread(p, cv2.IMREAD_GRAYSCALE)
-                if gray is not None:
-                    calibration_frames.append(gray)
-
+            # Rescale envelopes to the live camera resolution if it differs from
+            # the resolution the baseline was captured at.
             frame = capture.latest_frame
             if frame is not None:
                 cam_h, cam_w = frame.raw.shape[:2]
@@ -377,17 +456,6 @@ class VisionManager:
                     )
                     baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
                     baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
-                    calibration_frames = [cv2.resize(f, (cam_w, cam_h), interpolation=cv2.INTER_AREA) for f in calibration_frames]
-
-            if len(calibration_frames) >= 2 and cfg.adaptive_std_k > 0:
-                stddev = np.std(np.stack(calibration_frames, axis=0).astype(np.float32), axis=0)
-                adaptive_margin = np.clip(stddev * cfg.adaptive_std_k, 0, 100).astype(np.uint8)
-                baseline_min = np.clip(baseline_min.astype(np.int16) - adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
-                baseline_max = np.clip(baseline_max.astype(np.int16) + adaptive_margin.astype(np.int16), 0, 255).astype(np.uint8)
-
-            if cfg.envelope_margin > 0:
-                baseline_min = np.clip(baseline_min.astype(np.int16) - cfg.envelope_margin, 0, 255).astype(np.uint8)
-                baseline_max = np.clip(baseline_max.astype(np.int16) + cfg.envelope_margin, 0, 255).astype(np.uint8)
 
             polygon = self._classification_masks.get(cam_key)
             if polygon is not None:
@@ -396,38 +464,73 @@ class VisionManager:
                 cv2.fillPoly(mask, [scaled], 255)
             else:
                 mask = np.ones(baseline_min.shape[:2], dtype=np.uint8) * 255
+
+            # Intersect with the stable-pixel mask from calibration: pixels that
+            # wobbled too much across the carousel sweep (tray-edge/marker/shadow)
+            # are dropped so their ballooned envelope can't blind detection there.
+            stable_path = baseline_dir / f"{cam_key}_stable_mask.png"
+            if stable_path.exists():
+                stable = cv2.imread(str(stable_path), cv2.IMREAD_GRAYSCALE)
+                if stable is not None:
+                    if stable.shape[:2] != mask.shape[:2]:
+                        stable = cv2.resize(stable, (mask.shape[1], mask.shape[0]), interpolation=cv2.INTER_NEAREST)
+                    before = int(np.count_nonzero(mask))
+                    mask = cv2.bitwise_and(mask, stable)
+                    after = int(np.count_nonzero(mask))
+                    dropped = 100.0 * (1 - after / before) if before else 0.0
+                    self.gc.logger.info(
+                        f"Classification {cam_key} stable mask applied: "
+                        f"dropped {dropped:.1f}% of in-polygon pixels"
+                    )
+
             mx, my, mw, mh = cv2.boundingRect(mask)
             self._classification_mask_bboxes[cam_key] = (mx, my, mx + mw, my + mh)
 
             heatmap = self._makeClassificationHeatmap()
             heatmap.loadEnvelope(baseline_min, baseline_max, mask)
 
+            # Match the live getter's channel count to the envelope: 3ch (H,S,V)
+            # only if the V envelope actually loaded, else 2ch (H,S), else gray.
+            with_value = use_hsv and baseline_min.ndim == 3 and baseline_min.shape[2] == 3
+            if cam_key == "top":
+                if with_value:
+                    get_frame = self._getLatestClassificationTopHSV
+                elif use_hsv:
+                    get_frame = self._getLatestClassificationTopHS
+                else:
+                    get_frame = self._getLatestClassificationTopGray
+            else:
+                if with_value:
+                    get_frame = self._getLatestClassificationBottomHSV
+                elif use_hsv:
+                    get_frame = self._getLatestClassificationBottomHS
+                else:
+                    get_frame = self._getLatestClassificationBottomGray
+
+            analysis = ClassificationAnalysisThread(
+                name=cam_key,
+                heatmap=heatmap,
+                get_gray=get_frame,
+                profiler=self.gc.profiler,
+                logger=self.gc.logger,
+                min_bbox_dimension_px=cfg.min_bbox_dim,
+                min_bbox_area_px=cfg.min_bbox_area,
+            )
             if cam_key == "top":
                 self._classification_top_heatmap = heatmap
-                self._classification_top_analysis = ClassificationAnalysisThread(
-                    name="top",
-                    heatmap=heatmap,
-                    get_gray=self._getLatestClassificationTopGray,
-                    profiler=self.gc.profiler,
-                    logger=self.gc.logger,
-                    min_bbox_dimension_px=cfg.min_bbox_dim,
-                    min_bbox_area_px=cfg.min_bbox_area,
-                )
-                self._classification_top_analysis.start()
+                self._classification_top_analysis = analysis
             else:
                 self._classification_bottom_heatmap = heatmap
-                self._classification_bottom_analysis = ClassificationAnalysisThread(
-                    name="bottom",
-                    heatmap=heatmap,
-                    get_gray=self._getLatestClassificationBottomGray,
-                    profiler=self.gc.profiler,
-                    logger=self.gc.logger,
-                    min_bbox_dimension_px=cfg.min_bbox_dim,
-                    min_bbox_area_px=cfg.min_bbox_area,
-                )
-                self._classification_bottom_analysis.start()
+                self._classification_bottom_analysis = analysis
+            analysis.start()
 
-            self.gc.logger.info(f"Classification {cam_key} baseline loaded (margin={cfg.envelope_margin}, adaptive_k={cfg.adaptive_std_k}, {len(calibration_frames)} cal frames)")
+            mode = ("HSV+V" if with_value else "HSV") if use_hsv else "gray"
+            self.gc.logger.info(
+                f"Classification {cam_key} baseline loaded ({mode}, "
+                f"margin_h={cfg.envelope_margin}, margin_s={cfg.envelope_margin_s}, "
+                f"margin_v={cfg.envelope_margin_v}, adaptive_k={cfg.adaptive_std_k}, "
+                f"low_sat_thresh={cfg.low_sat_thresh})"
+            )
             loaded_any = True
 
         return loaded_any
@@ -447,6 +550,59 @@ class VisionManager:
         if frame is None:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
+
+    def _bgrToHS(self, bgr: np.ndarray) -> np.ndarray:
+        """BGR frame -> 2-channel (H, S) at full resolution, with optional HSV
+        correction applied (matching what the baseline calibration applied).
+        V is discarded: luminance varies with rotation and LED nonuniformity,
+        which is the failure mode the HSV pipeline moves away from. HeatmapDiff
+        handles the 0.25 downscale, keeping this symmetric with the envelope."""
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        hsv = rotateHue(hsv)  # move magenta background off the 0/180 hue wrap
+        hsv = applyHsvCorrection(hsv, self._hsv_correction)
+        return hsv[:, :, :2].copy()
+
+    def _getLatestClassificationTopHS(self) -> np.ndarray | None:
+        if self._classification_top_capture is None:
+            return None
+        frame = self._classification_top_capture.latest_frame
+        if frame is None:
+            return None
+        return self._bgrToHS(frame.raw)
+
+    def _getLatestClassificationBottomHS(self) -> np.ndarray | None:
+        if self._classification_bottom_capture is None:
+            return None
+        frame = self._classification_bottom_capture.latest_frame
+        if frame is None:
+            return None
+        return self._bgrToHS(frame.raw)
+
+    def _bgrToHSV(self, bgr: np.ndarray) -> np.ndarray:
+        """BGR frame -> 3-channel (H, S, V) at full resolution, hue rotated +
+        optional correction (same transform as the baseline). Unlike _bgrToHS,
+        V is kept so opaque pieces that block the backlight (darker than the
+        glowing floor) register on the value channel."""
+        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+        hsv = rotateHue(hsv)
+        hsv = applyHsvCorrection(hsv, self._hsv_correction)
+        return hsv
+
+    def _getLatestClassificationTopHSV(self) -> np.ndarray | None:
+        if self._classification_top_capture is None:
+            return None
+        frame = self._classification_top_capture.latest_frame
+        if frame is None:
+            return None
+        return self._bgrToHSV(frame.raw)
+
+    def _getLatestClassificationBottomHSV(self) -> np.ndarray | None:
+        if self._classification_bottom_capture is None:
+            return None
+        frame = self._classification_bottom_capture.latest_frame
+        if frame is None:
+            return None
+        return self._bgrToHSV(frame.raw)
 
     def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
         if cam == "top" and self._classification_top_analysis:

@@ -20,6 +20,33 @@ MIN_CONTOUR_AREA = 70
 MIN_HOT_THICKNESS_PIXELS = 12
 MAX_CONTOUR_ASPECT_RATIO = 3.0
 
+# HSV mode: OpenCV 8-bit hue has period 180, so the largest possible circular
+# distance between two hues is 90. Scale hue diffs by this to land in the same
+# 0-255 range as the saturation diff, so a single pixel_thresh applies to both.
+HUE_PERIOD = 180
+HUE_MAX_DISTANCE = HUE_PERIOD // 2  # 90
+HUE_DIFF_SCALE = 255.0 / HUE_MAX_DISTANCE
+
+
+def _hueCircularDistance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+    """Shortest distance between two OpenCV 8-bit hue arrays (period 180)."""
+    d = np.abs(a - b)
+    return np.minimum(d, HUE_PERIOD - d)
+
+
+def _hueArcDistance(h: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+    """Circular distance from hue `h` to the envelope arc [lo, hi]. Zero inside
+    the arc, else the shortest circular distance to the nearer endpoint.
+
+    Assumes the stored envelope arc does NOT wrap the 0/180 boundary (true for
+    the current magenta background at H~150-170). The `lo <= h <= hi` inside
+    test is only valid under that assumption; if the background hue ever moves
+    near 0 (red) or 90, switch to a wrap-aware inside test. The distance itself
+    is already wrap-aware via _hueCircularDistance."""
+    inside = (h >= lo) & (h <= hi)
+    d = np.minimum(_hueCircularDistance(h, lo), _hueCircularDistance(h, hi))
+    return np.where(inside, 0, d)
+
 
 def _makePlatformMask(corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> np.ndarray:
     mask = np.zeros(shape[:2], dtype=np.uint8)
@@ -49,8 +76,16 @@ class HeatmapDiff:
         max_contour_aspect: float = MAX_CONTOUR_ASPECT_RATIO,
         heat_gain: float = HEAT_GAIN,
         current_frames: int = CURRENT_FRAMES,
+        channel_mode: str = "gray",
+        low_sat_thresh: int = 60,
     ):
         self._gc = gc
+        # "gray" = single-channel luminance envelope (carousel + legacy
+        # classification). "hs" = 2-channel hue/saturation envelope with a
+        # saturation gate on hue (classification HSV pipeline). Frames pushed
+        # and envelopes loaded must match this mode's channel count.
+        self._channel_mode = channel_mode
+        self._low_sat_thresh = low_sat_thresh
         self._pixel_thresh = pixel_thresh
         self._blur_kernel = blur_kernel
         self._min_hot_pixels = min_hot_pixels
@@ -172,6 +207,49 @@ class HeatmapDiff:
         self._gray_ring.clear()
         self._cached_result = None
 
+    def _envelopeDiffHS(
+        self, current: np.ndarray, bl_min: np.ndarray, bl_max: np.ndarray
+    ) -> np.ndarray:
+        """Saturation-gated hue/saturation(/value) envelope diff -> 0-255 map.
+
+        `current`, `bl_min`, `bl_max` are 2-channel (H, S) or 3-channel (H, S, V)
+        uint8 arrays. Hue uses circular arc distance (scaled up to 0-255 from its
+        0-90 range); saturation and value use a linear out-of-envelope distance.
+        A pixel whose saturation is below `low_sat_thresh` has unreliable hue, so
+        hue is dropped there (judged on S, and V if present); otherwise the result
+        is the max over all available channel diffs. This catches desaturating
+        pieces (S), hue-shifted pieces (H), and pieces that block the backlight
+        and read darker than the floor (V) -- the last rescues hue/saturation-
+        contaminated pieces against the magenta background. The per-pixel V
+        envelope is permissive where the floor varies, so it self-gates."""
+        h_cur = current[:, :, 0].astype(np.int16)
+        s_cur = current[:, :, 1].astype(np.int16)
+        h_min = bl_min[:, :, 0].astype(np.int16)
+        h_max = bl_max[:, :, 0].astype(np.int16)
+        s_min = bl_min[:, :, 1].astype(np.int16)
+        s_max = bl_max[:, :, 1].astype(np.int16)
+
+        h_dist = _hueArcDistance(h_cur, h_min, h_max)
+        h_diff = np.clip(h_dist * HUE_DIFF_SCALE, 0, 255)
+
+        s_below = np.clip(s_min - s_cur, 0, 255)
+        s_above = np.clip(s_cur - s_max, 0, 255)
+        s_diff = np.maximum(s_below, s_above)
+
+        # Non-hue diff (always trustworthy regardless of saturation): S, plus V
+        # when a value channel is present.
+        non_hue = s_diff
+        if current.shape[2] >= 3:
+            v_cur = current[:, :, 2].astype(np.int16)
+            v_min = bl_min[:, :, 2].astype(np.int16)
+            v_max = bl_max[:, :, 2].astype(np.int16)
+            v_diff = np.maximum(np.clip(v_min - v_cur, 0, 255), np.clip(v_cur - v_max, 0, 255))
+            non_hue = np.maximum(non_hue, v_diff)
+
+        low_sat = s_cur < self._low_sat_thresh
+        combined = np.where(low_sat, non_hue, np.maximum(h_diff, non_hue))
+        return combined.astype(np.uint8)
+
     def _computeDiffMap(self) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         if self._cached_result is not None:
             return self._cached_result
@@ -197,15 +275,18 @@ class HeatmapDiff:
 
         if bl_min is not None and bl_max is not None:
             current_masked = cv2.bitwise_and(avg, avg, mask=mask)
-            below = np.clip(
-                bl_min.astype(np.int16) - current_masked.astype(np.int16),
-                0, 255,
-            ).astype(np.uint8)
-            above = np.clip(
-                current_masked.astype(np.int16) - bl_max.astype(np.int16),
-                0, 255,
-            ).astype(np.uint8)
-            diff = np.maximum(below, above)
+            if self._channel_mode in ("hs", "hsv"):
+                diff = self._envelopeDiffHS(current_masked, bl_min, bl_max)
+            else:
+                below = np.clip(
+                    bl_min.astype(np.int16) - current_masked.astype(np.int16),
+                    0, 255,
+                ).astype(np.uint8)
+                above = np.clip(
+                    current_masked.astype(np.int16) - bl_max.astype(np.int16),
+                    0, 255,
+                ).astype(np.uint8)
+                diff = np.maximum(below, above)
         elif self._baseline_gray is not None:
             current_masked = cv2.bitwise_and(avg, avg, mask=mask)
             bl_gray = self._baseline_gray

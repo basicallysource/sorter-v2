@@ -130,18 +130,23 @@ export const performanceNavItem: SettingsNavItem = {
 
 export const tuningNavItems: SettingsNavItem[] = [
 	{
-		href: '/tuning/feeder-go-to-angle',
+		href: '/settings/tuning/feeder-go-to-angle',
 		label: 'Feeder Go-To-Angle',
 		icon: SlidersHorizontal
 	},
 	{
-		href: '/tuning/feeder-pulse-perception',
+		href: '/settings/tuning/feeder-pulse-perception',
 		label: 'Feeder Simple Pulse',
 		icon: SlidersHorizontal
 	},
 	{
-		href: '/tuning/classification-channel',
+		href: '/settings/tuning/classification-channel',
 		label: 'Classification Channel',
+		icon: SlidersHorizontal
+	},
+	{
+		href: '/settings/tuning/upstream-match',
+		label: 'Upstream Match',
 		icon: SlidersHorizontal
 	}
 ];

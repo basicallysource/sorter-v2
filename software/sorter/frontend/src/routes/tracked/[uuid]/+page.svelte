@@ -4,6 +4,7 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
+	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
@@ -538,16 +539,26 @@
 					{/if}
 				{/if}
 			</div>
-			{#if piece?.tracked_global_id != null}
+			<div class="flex flex-wrap items-center gap-3">
 				<a
-					href={`/tracked/${piece.tracked_global_id}`}
+					href={`/settings/tuning/upstream-match?uuid=${uuid}`}
 					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
-					title="Open tracker-level record (all angular crops)"
+					title="Find crops of this piece from the upstream channels (C2/C3)"
 				>
 					<ExternalLink size={14} />
-					Track #{piece.tracked_global_id}
+					Upstream match
 				</a>
-			{/if}
+				{#if piece?.tracked_global_id != null}
+					<a
+						href={`/tracked/${piece.tracked_global_id}`}
+						class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
+						title="Open tracker-level record (all angular crops)"
+					>
+						<ExternalLink size={14} />
+						Track #{piece.tracked_global_id}
+					</a>
+				{/if}
+			</div>
 		</header>
 
 		{#if !piece}
@@ -569,6 +580,16 @@
 				</div>
 			{/if}
 		{:else}
+			<!-- Upstream match (C2/C3) -->
+			<section class="flex flex-col border border-border bg-surface">
+				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+					Upstream match (C2/C3)
+				</div>
+				<div class="p-3">
+					<UpstreamMatchSearch initialUuid={uuid} autoShowAll />
+				</div>
+			</section>
+
 			<!-- Identity & classification summary -->
 			<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
 				<div class="flex flex-col border border-border bg-surface">

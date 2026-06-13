@@ -168,6 +168,18 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         f"workers={sorted(service.workers().keys())}"
     )
 
+    try:
+        from perception.upstream_capture import UpstreamCropStore, configFromDict
+        from toml_config import getUpstreamMatchConfig
+
+        store = UpstreamCropStore(perception_service=service, logger=gc.logger)
+        store.configure(configFromDict(getUpstreamMatchConfig()))
+        store.start()
+        service.upstream_store = store
+        gc.logger.info("Perception upstream-crop store started.")
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start upstream-crop store: {exc}")
+
 
 def runServer(gc: GlobalConfig) -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a

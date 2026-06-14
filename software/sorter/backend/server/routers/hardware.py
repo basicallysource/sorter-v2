@@ -326,6 +326,13 @@ class ClearBinContentsPayload(BinScopePayload):
     pass
 
 
+class AssignBinCategoriesPayload(BaseModel):
+    layer_index: int
+    section_index: int
+    bin_index: int
+    category_ids: List[str] = []
+
+
 class StorageLayerPayload(BaseModel):
     bin_count: int
     enabled: bool = True
@@ -2761,6 +2768,66 @@ def clear_bin_category_assignments(
     }
 
 
+def assign_bin_categories(
+    *,
+    layer_index: int,
+    section_index: int,
+    bin_index: int,
+    category_ids: list[str],
+) -> dict[str, Any]:
+    from sorting_profile import MISC_CATEGORY
+
+    categories = _current_bin_categories()
+
+    if layer_index < 0 or layer_index >= len(categories):
+        raise HTTPException(status_code=400, detail="Invalid layer index.")
+    if section_index < 0 or section_index >= len(categories[layer_index]):
+        raise HTTPException(status_code=400, detail="Invalid section index.")
+    if bin_index < 0 or bin_index >= len(categories[layer_index][section_index]):
+        raise HTTPException(status_code=400, detail="Invalid bin index.")
+
+    cleaned: list[str] = []
+    for category_id in category_ids:
+        if not isinstance(category_id, str):
+            raise HTTPException(status_code=400, detail="category_ids must be strings.")
+        category_id = category_id.strip()
+        if not category_id or category_id in cleaned:
+            continue
+        # MISC is the virtual discard passthrough, never a physical bin.
+        if category_id == MISC_CATEGORY:
+            raise HTTPException(
+                status_code=400,
+                detail="Misc is the discard passthrough and cannot be assigned to a bin.",
+            )
+        cleaned.append(category_id)
+
+    # A category lives in exactly one bin. Drop these category_ids from every
+    # other bin first so a manual assignment moves the category here rather than
+    # leaving a stale duplicate that the positioner would match first.
+    target = (layer_index, section_index, bin_index)
+    for li, layer in enumerate(categories):
+        for si, section in enumerate(layer):
+            for bi, existing in enumerate(section):
+                if (li, si, bi) == target or not existing:
+                    continue
+                section[bi] = [c for c in existing if c not in cleaned]
+
+    categories[layer_index][section_index][bin_index] = cleaned
+    _apply_and_persist_bin_categories(categories)
+    _clear_passthrough_alert_if_owned()
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "section_index": section_index,
+        "bin_index": bin_index,
+        "category_ids": cleaned,
+        "message": (
+            f"Assigned {len(cleaned)} categor{'y' if len(cleaned) == 1 else 'ies'} "
+            f"to bin {bin_index + 1} on layer {layer_index + 1}."
+        ),
+    }
+
+
 def clear_bin_contents(
     *,
     scope: str,
@@ -3006,6 +3073,16 @@ def clear_bins_categories(payload: ClearBinCategoriesPayload) -> Dict[str, Any]:
         layer_index=payload.layer_index,
         section_index=payload.section_index,
         bin_index=payload.bin_index,
+    )
+
+
+@router.post("/api/bins/categories/assign")
+def assign_bins_categories(payload: AssignBinCategoriesPayload) -> Dict[str, Any]:
+    return assign_bin_categories(
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+        category_ids=payload.category_ids,
     )
 
 

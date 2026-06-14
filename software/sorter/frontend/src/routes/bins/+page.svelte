@@ -4,10 +4,11 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import { Button, Input } from '$lib/components/primitives';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2 } from 'lucide-svelte';
+	import { ArchiveX, Check, Crosshair, FolderOutput, Home, Loader2, Tag, X } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
@@ -83,6 +84,14 @@
 	let detailsOpen = $state(false);
 	let detailsBin = $state<{ bin: BinInfo; layerIndex: number; contents: BinContents | null } | null>(null);
 	let bricklinkCache = $state<Map<string, BricklinkPartResponse | null>>(new Map());
+
+	// Manual category assignment editor (lives inside the bin details modal).
+	// assignSelected is the working set the operator is editing; it's seeded from
+	// the bin's saved category_ids when the modal opens and only changes on
+	// explicit user action, so the 2s layout refresh never clobbers an edit.
+	let assignSelected = $state<string[]>([]);
+	let assignSearch = $state('');
+	let savingAssign = $state(false);
 
 	type SetProgressSummary = { total_needed: number; total_found: number; pct: number };
 	let setProgressByCategoryId = $state<Record<string, SetProgressSummary>>({});
@@ -358,8 +367,70 @@
 		const contents = contentsForBin(layerIndex, bin);
 		detailsBin = { layerIndex, bin, contents };
 		detailsOpen = true;
+		assignSelected = [...bin.category_ids];
+		assignSearch = '';
 		for (const item of contents?.items ?? []) {
 			if (item.part_id) void fetchBricklinkData(item.part_id);
+		}
+	}
+
+	function availableCategories(): { id: string; name: string }[] {
+		const cats = sortingProfileStore.data?.categories ?? {};
+		return Object.entries(cats)
+			.map(([id, cat]) => ({ id, name: cat?.name ?? id }))
+			.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	function filteredAssignCategories(): { id: string; name: string }[] {
+		const query = assignSearch.trim().toLowerCase();
+		const all = availableCategories();
+		if (!query) return all;
+		return all.filter(
+			(cat) => cat.name.toLowerCase().includes(query) || cat.id.toLowerCase().includes(query)
+		);
+	}
+
+	function toggleAssignCategory(id: string) {
+		assignSelected = assignSelected.includes(id)
+			? assignSelected.filter((c) => c !== id)
+			: [...assignSelected, id];
+	}
+
+	function assignDirty(): boolean {
+		if (!detailsBin) return false;
+		const current = [...detailsBin.bin.category_ids].sort();
+		const next = [...assignSelected].sort();
+		return current.length !== next.length || current.some((c, i) => c !== next[i]);
+	}
+
+	async function saveAssignment() {
+		if (!detailsBin || savingAssign) return;
+		savingAssign = true;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/categories/assign`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					layer_index: detailsBin.layerIndex,
+					section_index: detailsBin.bin.section_index,
+					bin_index: detailsBin.bin.bin_index,
+					category_ids: assignSelected
+				})
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			assignSelected = Array.isArray(data.category_ids) ? data.category_ids : assignSelected;
+			statusMsg = data?.message ?? 'Bin categories updated.';
+			await loadLayout();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to assign categories';
+		} finally {
+			savingAssign = false;
 		}
 	}
 
@@ -789,6 +860,14 @@
 										<div class="flex items-center gap-1.5">
 											<button
 												type="button"
+												onclick={() => openBinDetails(layer.layer_index, bin)}
+												class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A]"
+												title="Assign categories to this bin"
+											>
+												<Tag size={13} />
+											</button>
+											<button
+												type="button"
 												onclick={() => moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
 												disabled={!!movingTo || homing || hasAnyClearing() || !layer.enabled}
 												class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
@@ -956,6 +1035,83 @@
 						<div class="text-xs uppercase tracking-wide">Recorded Pieces</div>
 						<div class="mt-1 text-base font-medium text-text">{detailsBin.contents?.piece_count ?? 0} {(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}</div>
 					</div>
+				</div>
+
+				<!-- Manual category assignment. Pick one or more sorting-profile
+				     categories to route into this bin. Assigning a category here
+				     removes it from any other bin (a category lives in one bin). -->
+				<div class="border border-border bg-bg p-4">
+					<div class="mb-2 flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2 text-sm font-semibold text-text">
+							<Tag size={15} />
+							Assign categories
+						</div>
+						<Button
+							size="sm"
+							variant="primary"
+							loading={savingAssign}
+							disabled={!assignDirty()}
+							onclick={() => void saveAssignment()}
+						>
+							Save
+						</Button>
+					</div>
+					<p class="mb-3 text-sm text-text-muted">
+						Choose one or more categories from your sorting profile to route into this bin.
+						Assigning a category here moves it out of whatever bin it was in before.
+					</p>
+
+					{#if assignSelected.length > 0}
+						<div class="mb-3 flex flex-wrap gap-2">
+							{#each assignSelected as id (id)}
+								<span
+									class="inline-flex items-center gap-1.5 border border-primary bg-primary/[0.08] px-2 py-1 text-sm text-text"
+								>
+									{formatCategoryName(id) || id}
+									<button
+										type="button"
+										class="text-text-muted transition-colors hover:text-danger"
+										onclick={() => toggleAssignCategory(id)}
+										aria-label={`Remove ${formatCategoryName(id) || id}`}
+									>
+										<X size={13} />
+									</button>
+								</span>
+							{/each}
+						</div>
+					{:else}
+						<div class="mb-3 text-sm text-text-muted">
+							No categories assigned — matching pieces fall through to the discard bin.
+						</div>
+					{/if}
+
+					<Input type="search" placeholder="Search categories…" bind:value={assignSearch} />
+					{#if availableCategories().length === 0}
+						<div class="mt-2 border border-border bg-surface px-3 py-3 text-sm text-text-muted">
+							No categories in the active sorting profile.
+						</div>
+					{:else}
+						<div class="mt-2 max-h-64 overflow-y-auto border border-border">
+							{#each filteredAssignCategories() as cat (cat.id)}
+								{@const checked = assignSelected.includes(cat.id)}
+								<button
+									type="button"
+									onclick={() => toggleAssignCategory(cat.id)}
+									class="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface {checked ? 'bg-primary/[0.06]' : 'bg-white'}"
+								>
+									<span
+										class="flex h-4 w-4 shrink-0 items-center justify-center border {checked ? 'border-primary bg-primary text-white' : 'border-border bg-white'}"
+									>
+										{#if checked}<Check size={12} />{/if}
+									</span>
+									<span class="flex-1 text-text">{cat.name}</span>
+								</button>
+							{/each}
+							{#if filteredAssignCategories().length === 0}
+								<div class="px-3 py-3 text-sm text-text-muted">No categories match “{assignSearch}”.</div>
+							{/if}
+						</div>
+					{/if}
 				</div>
 
 				{#if setMeta}

@@ -133,7 +133,15 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null };
+	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null; channel?: number | null };
+
+	// Channel the image came from, for the corner badge: C4 burst capture, or
+	// C2/C3 upstream match. Falls back to "C2/3" for older upstream records that
+	// predate the channel being recorded.
+	function channelLabel(channel: number | null | undefined, role: string): string {
+		if (channel === 2 || channel === 3 || channel === 4) return `C${channel}`;
+		return role === 'upstream_match' ? 'C2/3' : 'C4';
+	}
 
 	// --- Tracker-backed crop fetch ----------------------------------------
 	// The "Captured Crops" gallery used to surface just top/bottom/thumbnail.
@@ -312,7 +320,8 @@
 						used: entry.used,
 						seq: upstreamSeq,
 						total: upstreamTotal,
-						score: entry.score
+						score: entry.score,
+						channel: entry.channel ?? null
 					});
 				} else {
 					recogSeq += 1;
@@ -322,7 +331,8 @@
 						ts: entry.ts ?? null,
 						used: entry.used,
 						seq: recogSeq,
-						total: burstTotal
+						total: burstTotal,
+						channel: entry.channel ?? 4
 					});
 				}
 			}
@@ -807,6 +817,12 @@
 												{formatSimilarity(crop.score)}
 											</span>
 										{/if}
+										<span
+											class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
+											title="Channel this image came from"
+										>
+											{channelLabel(crop.channel, crop.role)}
+										</span>
 										<ImageInfoBadge
 											class="absolute bottom-1 right-1 z-10"
 											src={crop.src}

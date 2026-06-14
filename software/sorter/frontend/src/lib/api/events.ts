@@ -14,6 +14,8 @@ export interface RecognitionImage {
   ts?: number | null;
   score?: number | null;
   excluded_from_result?: boolean;
+  // Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match.
+  channel?: number | null;
 }
 export type ClassificationAttemptStrategy = "initial" | "drop_upstream" | "split_singles";
 export interface ClassificationAttempt {

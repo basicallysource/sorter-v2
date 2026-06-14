@@ -256,8 +256,12 @@
 	}
 
 	function sourceBadge(img: RecognitionImage): { label: string; cls: string } {
+		const ch = img.channel;
 		if (img.source === 'upstream') {
-			return { label: 'UPSTREAM', cls: 'border-warning/60 bg-warning/[0.12] text-warning' };
+			// Upstream crops come from C2 or C3; fall back to "C2/3" for older
+			// records captured before the channel was recorded.
+			const label = ch === 2 || ch === 3 ? `C${ch}` : 'C2/3';
+			return { label, cls: 'border-warning/60 bg-warning/[0.12] text-warning' };
 		}
 		return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
 	}

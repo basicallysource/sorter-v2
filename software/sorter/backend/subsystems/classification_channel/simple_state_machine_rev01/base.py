@@ -551,12 +551,14 @@ class Rev01BaseState(BaseState):
             used = bool(cand.get("used")) and len(bgr_list) < max_inject
             if used:
                 bgr_list.append(img)
+            chan = cand.get("channel_id")
             image_list.append(
                 RecognitionImage(
                     image=b64,
                     source="upstream",
                     used=used,
                     score=float(score) if isinstance(score, (int, float)) else None,
+                    channel=int(chan) if isinstance(chan, (int, float)) else None,
                 )
             )
         if image_list:

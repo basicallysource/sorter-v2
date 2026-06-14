@@ -76,6 +76,9 @@ class RecognitionImage(BaseModel):
     # that recognized nothing and was then removed for the retry whose result
     # was applied (distinct from used=False, which means "never sent").
     excluded_from_result: bool = False
+    # Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match
+    # crop. None when unknown (older records).
+    channel: Optional[int] = None
 
 
 class ClassificationAttemptStrategy(str, Enum):

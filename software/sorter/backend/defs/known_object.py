@@ -51,6 +51,9 @@ class RecognitionImage:
     ts: Optional[float] = None
     score: Optional[float] = None
     excluded_from_result: bool = False
+    # Physical channel the image came from: 4 for a C4 burst capture, 2 or 3 for
+    # an upstream match crop. None when unknown (older records).
+    channel: Optional[int] = None
 
 
 @dataclass

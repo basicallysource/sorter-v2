@@ -361,9 +361,13 @@ def _sample_collection_speeds_payload() -> Dict[str, Any]:
 
 @router.get("/api/system/dashboard-config")
 def get_dashboard_config() -> Dict[str, Any]:
-    from toml_config import getDashboardConfig
+    from toml_config import getDashboardConfig, incidentDefinitions
 
-    return {"ok": True, **getDashboardConfig()}
+    return {
+        "ok": True,
+        **getDashboardConfig(),
+        "incident_definitions": incidentDefinitions(),
+    }
 
 
 def _active_runtime_incident() -> dict[str, Any] | None:

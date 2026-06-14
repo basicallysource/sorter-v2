@@ -501,8 +501,8 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "description": "A piece on the classification channel could not be discharged. Remove it, then resolve to resume.",
         "off_label": "Do not raise C4 stuck incidents",
         "manual_label": "Operator removes the stuck piece",
-        "automatic_label": "Automatic C4 stuck handling",
-        "automatic_supported": False,
+        "automatic_label": "Advance the channel forward until the piece is gone",
+        "automatic_supported": True,
     },
 )
 

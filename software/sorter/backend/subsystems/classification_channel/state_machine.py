@@ -63,6 +63,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         self.vision = vision
         self.event_queue = event_queue
         self.transport = transport
+        self.irl_config = irl_config
         self._mode: ClassificationChannelMode = getattr(
             irl_config.classification_channel_config,
             "mode",
@@ -215,19 +216,63 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             return
 
         stalled_ms = (now - self._last_progress_at) * 1000.0
-        if not self._stall_incident_raised and stalled_ms >= _STALL_INCIDENT_MS:
-            published = publish_classification_exit_stuck_incident(
-                self.gc,
-                piece=None,
-                jitter_attempts=0,
-                converge_ms=stalled_ms,
-            )
-            self._stall_incident_raised = bool(published)
+        if self._stall_incident_raised or stalled_ms < _STALL_INCIDENT_MS:
+            return
+
+        # Auto-resolve: when this incident is set to automatic handling, try to
+        # clear the channel ourselves (advance forward until the piece is gone,
+        # the same routine spoke-home uses) instead of stopping for an operator.
+        # Only fall through to the manual incident if that didn't clear it.
+        if self._tryAutoResolveStall(stalled_ms):
+            return
+
+        published = publish_classification_exit_stuck_incident(
+            self.gc,
+            piece=None,
+            jitter_attempts=0,
+            converge_ms=stalled_ms,
+        )
+        self._stall_incident_raised = bool(published)
+        self.logger.info(
+            f"ClassificationChannel: STALLED in {self.current_state.value} for "
+            f"{stalled_ms:.0f}ms with a piece on the channel — raised exit-stuck "
+            f"incident (published={self._stall_incident_raised})"
+        )
+
+    def _tryAutoResolveStall(self, stalled_ms: float) -> bool:
+        try:
+            from toml_config import incidentHandlingAutomatic
+
+            if not incidentHandlingAutomatic(CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND):
+                return False
+        except Exception:
+            return False
+
+        from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
+            clearChannelByAdvancing,
+        )
+
+        self.logger.info(
+            f"ClassificationChannel: STALLED in {self.current_state.value} for "
+            f"{stalled_ms:.0f}ms — auto-resolve enabled, advancing channel to clear the piece"
+        )
+        result = clearChannelByAdvancing(
+            self.gc, self.irl, self.irl_config, vision=self.vision
+        )
+        if result.cleared:
+            # Re-arm fresh: the blocking clear consumed real time, so the window
+            # restarts from now, not from the pre-clear timestamp.
+            self._last_progress_at = time.monotonic()
             self.logger.info(
-                f"ClassificationChannel: STALLED in {self.current_state.value} for "
-                f"{stalled_ms:.0f}ms with a piece on the channel — raised exit-stuck "
-                f"incident (published={self._stall_incident_raised})"
+                f"ClassificationChannel: auto-resolve cleared the channel after advancing "
+                f"{result.output_deg_moved:.0f}° — resuming feeding"
             )
+            return True
+        self.logger.warning(
+            f"ClassificationChannel: auto-resolve advanced {result.output_deg_moved:.0f}° but the "
+            f"channel is still occupied ({result.reason}) — falling back to the manual incident"
+        )
+        return False
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")

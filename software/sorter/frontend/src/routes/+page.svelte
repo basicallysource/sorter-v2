@@ -164,6 +164,17 @@
 			manual_label: 'Operator reviews lost C4 tracks',
 			automatic_label: 'Automatic track-loss handling',
 			automatic_supported: false
+		},
+		{
+			kind: 'classification_exit_stuck',
+			label: 'C4 Piece Stuck',
+			scope: 'C4',
+			description:
+				'A piece on the classification channel could not be discharged. Remove it, then resolve to resume.',
+			off_label: 'Do not raise C4 stuck incidents',
+			manual_label: 'Operator removes the stuck piece',
+			automatic_label: 'Advance the channel forward until the piece is gone',
+			automatic_supported: true
 		}
 	];
 

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
-	import type { KnownObjectData, RecognitionImage } from '$lib/api/events';
+	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -256,16 +256,7 @@
 		);
 	}
 
-	type CycleImage = { src: string; label: string };
-
-	// Channel badge for a recognition view: C4 for a burst capture, C2/C3 for an
-	// upstream match. Falls back to "C2/3" for upstream crops from older records
-	// that predate the channel being recorded.
-	function channelLabel(r: RecognitionImage): string {
-		const ch = r.channel;
-		if (ch === 2 || ch === 3 || ch === 4) return `C${ch}`;
-		return r.source === 'upstream' ? 'C2/3' : 'C4';
-	}
+	type CycleImage = { src: string };
 
 	let cycleTick = $state(0);
 	let hoverUuid = $state<string | null>(null);
@@ -285,7 +276,7 @@
 			const imgs = (data.recognition_image_set ?? [])
 				.map((r) => {
 					const src = dataImageUrl(r.image);
-					return src ? { src, label: channelLabel(r) } : null;
+					return src ? { src } : null;
 				})
 				.filter((v): v is CycleImage => v !== null);
 			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
@@ -360,19 +351,19 @@
 		obj: KnownObjectData,
 		phase: LifecyclePhase,
 		base_src: string | null
-	): { src: string | null; cycling: boolean; label: string | null } {
+	): { src: string | null; cycling: boolean } {
 		const imgs = imagesByUuid[obj.uuid] ?? [];
 		if (hoverUuid === obj.uuid && imgs.length > 0) {
 			const img = imgs[cycleTick % imgs.length];
-			return { src: img.src, cycling: true, label: img.label };
+			return { src: img.src, cycling: true };
 		}
-		if (phase === 'distributed') return { src: base_src, cycling: false, label: null };
+		if (phase === 'distributed') return { src: base_src, cycling: false };
 		const e = anim[obj.uuid];
 		if (e && !e.settled && imgs.length > 0) {
 			const img = imgs[e.raw % imgs.length];
-			return { src: img.src, cycling: true, label: img.label };
+			return { src: img.src, cycling: true };
 		}
-		return { src: base_src, cycling: false, label: null };
+		return { src: base_src, cycling: false };
 	}
 
 	function capturedCropUrl(obj: KnownObjectData, phase: LifecyclePhase): string | null {
@@ -536,14 +527,6 @@
 					<div class="flex h-full w-full items-center justify-center">
 						<Spinner />
 					</div>
-				{/if}
-				{#if show_cycle && view.label}
-					<span
-						class="absolute bottom-0.5 left-0.5 bg-text/80 px-1 py-0.5 text-xs font-semibold leading-none text-bg"
-						title="Channel this view came from"
-					>
-						{view.label}
-					</span>
 				{/if}
 				{#if phase === 'capturing' || phase === 'tracking'}
 					<div class="absolute -right-1 -top-1">

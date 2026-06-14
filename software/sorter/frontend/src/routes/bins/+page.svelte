@@ -8,7 +8,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { ArchiveX, Check, Crosshair, FolderOutput, Home, Loader2, Tag, X } from 'lucide-svelte';
+	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2, Plus, Tag, X } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
@@ -92,6 +92,7 @@
 	let assignSelected = $state<string[]>([]);
 	let assignSearch = $state('');
 	let savingAssign = $state(false);
+	let assignDropdownOpen = $state(false);
 
 	type SetProgressSummary = { total_needed: number; total_found: number; pct: number };
 	let setProgressByCategoryId = $state<Record<string, SetProgressSummary>>({});
@@ -369,6 +370,7 @@
 		detailsOpen = true;
 		assignSelected = [...bin.category_ids];
 		assignSearch = '';
+		assignDropdownOpen = false;
 		for (const item of contents?.items ?? []) {
 			if (item.part_id) void fetchBricklinkData(item.part_id);
 		}
@@ -381,19 +383,49 @@
 			.sort((a, b) => a.name.localeCompare(b.name));
 	}
 
-	function filteredAssignCategories(): { id: string; name: string }[] {
-		const query = assignSearch.trim().toLowerCase();
-		const all = availableCategories();
-		if (!query) return all;
-		return all.filter(
-			(cat) => cat.name.toLowerCase().includes(query) || cat.id.toLowerCase().includes(query)
-		);
+	// Where each category is currently assigned across the persisted layout, so
+	// the picker can flag categories already living in another bin (assigning
+	// here will move them). Keyed by category_id → that bin's global index.
+	function categoryLocations(): Record<string, { layerIndex: number; globalIndex: number }> {
+		const map: Record<string, { layerIndex: number; globalIndex: number }> = {};
+		for (const layer of layers) {
+			for (const bin of layer.bins) {
+				for (const id of bin.category_ids) {
+					if (!(id in map)) {
+						map[id] = { layerIndex: layer.layer_index, globalIndex: bin.global_index };
+					}
+				}
+			}
+		}
+		return map;
 	}
 
-	function toggleAssignCategory(id: string) {
-		assignSelected = assignSelected.includes(id)
-			? assignSelected.filter((c) => c !== id)
-			: [...assignSelected, id];
+	function assignedElsewhereLabel(id: string): string | null {
+		const loc = categoryLocations()[id];
+		if (!loc) return null;
+		if (detailsBin && loc.globalIndex === detailsBin.bin.global_index) return null;
+		return `Bin ${loc.globalIndex + 1}`;
+	}
+
+	// Dropdown candidates: every profile category not already in the working set,
+	// filtered by the search box.
+	function pickableCategories(): { id: string; name: string }[] {
+		const query = assignSearch.trim().toLowerCase();
+		return availableCategories().filter((cat) => {
+			if (assignSelected.includes(cat.id)) return false;
+			if (!query) return true;
+			return cat.name.toLowerCase().includes(query) || cat.id.toLowerCase().includes(query);
+		});
+	}
+
+	function addAssignCategory(id: string) {
+		if (!assignSelected.includes(id)) assignSelected = [...assignSelected, id];
+		assignSearch = '';
+		assignDropdownOpen = false;
+	}
+
+	function removeAssignCategory(id: string) {
+		assignSelected = assignSelected.filter((c) => c !== id);
 	}
 
 	function assignDirty(): boolean {
@@ -425,6 +457,7 @@
 			}
 			const data = await res.json();
 			assignSelected = Array.isArray(data.category_ids) ? data.category_ids : assignSelected;
+			assignDropdownOpen = false;
 			statusMsg = data?.message ?? 'Bin categories updated.';
 			await loadLayout();
 		} catch (e: unknown) {
@@ -1061,55 +1094,83 @@
 						Assigning a category here moves it out of whatever bin it was in before.
 					</p>
 
-					{#if assignSelected.length > 0}
-						<div class="mb-3 flex flex-wrap gap-2">
-							{#each assignSelected as id (id)}
-								<span
-									class="inline-flex items-center gap-1.5 border border-primary bg-primary/[0.08] px-2 py-1 text-sm text-text"
-								>
-									{formatCategoryName(id) || id}
-									<button
-										type="button"
-										class="text-text-muted transition-colors hover:text-danger"
-										onclick={() => toggleAssignCategory(id)}
-										aria-label={`Remove ${formatCategoryName(id) || id}`}
-									>
-										<X size={13} />
-									</button>
-								</span>
-							{/each}
-						</div>
-					{:else}
-						<div class="mb-3 text-sm text-text-muted">
-							No categories assigned — matching pieces fall through to the discard bin.
-						</div>
-					{/if}
-
-					<Input type="search" placeholder="Search categories…" bind:value={assignSearch} />
-					{#if availableCategories().length === 0}
-						<div class="mt-2 border border-border bg-surface px-3 py-3 text-sm text-text-muted">
-							No categories in the active sorting profile.
-						</div>
-					{:else}
-						<div class="mt-2 max-h-64 overflow-y-auto border border-border">
-							{#each filteredAssignCategories() as cat (cat.id)}
-								{@const checked = assignSelected.includes(cat.id)}
+					<div class="flex flex-wrap items-center gap-2">
+						{#each assignSelected as id (id)}
+							{@const elsewhere = assignedElsewhereLabel(id)}
+							<span
+								class="inline-flex items-center gap-1.5 border border-primary bg-primary/[0.08] px-2 py-1 text-sm text-text"
+							>
+								{formatCategoryName(id) || id}
+								{#if elsewhere}
+									<span class="text-xs text-text-muted">(was {elsewhere})</span>
+								{/if}
 								<button
 									type="button"
-									onclick={() => toggleAssignCategory(cat.id)}
-									class="flex w-full items-center gap-2 border-b border-border px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface {checked ? 'bg-primary/[0.06]' : 'bg-white'}"
+									class="text-text-muted transition-colors hover:text-danger"
+									onclick={() => removeAssignCategory(id)}
+									aria-label={`Remove ${formatCategoryName(id) || id}`}
 								>
-									<span
-										class="flex h-4 w-4 shrink-0 items-center justify-center border {checked ? 'border-primary bg-primary text-white' : 'border-border bg-white'}"
-									>
-										{#if checked}<Check size={12} />{/if}
-									</span>
-									<span class="flex-1 text-text">{cat.name}</span>
+									<X size={13} />
 								</button>
-							{/each}
-							{#if filteredAssignCategories().length === 0}
-								<div class="px-3 py-3 text-sm text-text-muted">No categories match “{assignSearch}”.</div>
+							</span>
+						{/each}
+
+						<div class="relative">
+							<button
+								type="button"
+								onclick={() => (assignDropdownOpen = !assignDropdownOpen)}
+								class="inline-flex items-center gap-1 border border-border bg-white px-2 py-1 text-sm text-text transition-colors hover:bg-surface"
+							>
+								<Plus size={14} />
+								Add category
+							</button>
+
+							{#if assignDropdownOpen}
+								<div
+									class="absolute left-0 top-full z-10 mt-1 w-72 border border-border bg-white shadow-lg"
+								>
+									<div class="border-b border-border p-2">
+										<Input type="search" placeholder="Search categories…" bind:value={assignSearch} />
+									</div>
+									<div class="max-h-64 overflow-y-auto">
+										{#if availableCategories().length === 0}
+											<div class="px-3 py-3 text-sm text-text-muted">
+												No categories in the active sorting profile.
+											</div>
+										{:else}
+											{#each pickableCategories() as cat (cat.id)}
+												{@const elsewhere = assignedElsewhereLabel(cat.id)}
+												<button
+													type="button"
+													onclick={() => addAssignCategory(cat.id)}
+													class="flex w-full items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface"
+												>
+													<span class="flex-1 text-text">{cat.name}</span>
+													{#if elsewhere}
+														<span
+															class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+															title="Currently assigned here — adding will move it"
+														>
+															{elsewhere}
+														</span>
+													{/if}
+												</button>
+											{/each}
+											{#if pickableCategories().length === 0}
+												<div class="px-3 py-3 text-sm text-text-muted">
+													{assignSearch.trim() ? `No categories match “${assignSearch}”.` : 'All categories are already added.'}
+												</div>
+											{/if}
+										{/if}
+									</div>
+								</div>
 							{/if}
+						</div>
+					</div>
+
+					{#if assignSelected.length === 0}
+						<div class="mt-3 text-sm text-text-muted">
+							No categories assigned — matching pieces fall through to the discard bin.
 						</div>
 					{/if}
 				</div>

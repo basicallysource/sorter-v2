@@ -86,6 +86,18 @@ class UpstreamMatchConfig:
     # reached C4, so look back, plus a little forward for clock skew.
     lookback_seconds: float = 120.0
     forward_seconds: float = 2.0
+    # Per-channel time windows. When False, every channel uses the single
+    # lookback/forward window above. When True, each channel gets its own window
+    # expressed as a span of "seconds before the piece arrived at C4": the piece
+    # passes the further-upstream channel (C2) earlier than the nearer one (C3),
+    # so their best matches sit at different ages. A window runs from
+    # ``*_window_start_s`` (older edge) to ``*_window_end_s`` (newer edge) seconds
+    # before arrival; set the end negative to extend past arrival for clock skew.
+    per_channel_window: bool = False
+    ch2_window_start_s: float = 60.0
+    ch2_window_end_s: float = 30.0
+    ch3_window_start_s: float = 30.0
+    ch3_window_end_s: float = 0.0
     # Cosine-similarity floor (similarity = 1 - cosine_distance). The
     # precision-over-recall knob.
     min_similarity: float = 0.5
@@ -134,6 +146,11 @@ FIELD_META: list[dict] = [
     {"section": "Collection", "key": "embed_max_queue", "label": "Max pending crops", "type": "int", "default": _DEFAULTS.embed_max_queue, "description": "Capacity of the in-memory queue of crops waiting to be embedded. If embedding can't keep up and the queue fills, new crops are dropped rather than letting the backlog grow unbounded."},
     {"section": "Search", "key": "lookback_seconds", "label": "Look back from arrival (s)", "type": "float", "default": _DEFAULTS.lookback_seconds, "description": "When searching for a C4 piece's earlier views, how far BEFORE its C4 arrival time to look. The piece was upstream before it reached C4, so its matches are in the recent past."},
     {"section": "Search", "key": "forward_seconds", "label": "Look forward from arrival (s)", "type": "float", "default": _DEFAULTS.forward_seconds, "description": "How far AFTER the piece's C4 arrival time to also include in the search, to absorb small clock differences between the cameras."},
+    {"section": "Search", "key": "per_channel_window", "label": "Per-channel time windows", "type": "bool", "default": _DEFAULTS.per_channel_window, "description": "When off, every channel is searched over the same 'Look back/forward from arrival' window above. When on, C2 and C3 each use their own window below, set as a span of seconds before the piece reached C4. The piece passes C2 (further upstream) earlier than C3, so their matches sit at different ages."},
+    {"section": "Search", "key": "ch2_window_start_s", "label": "C2 window start (s before arrival)", "type": "float", "default": _DEFAULTS.ch2_window_start_s, "description": "Only used when 'Per-channel time windows' is on. Older edge of the C2 search window: how many seconds before the piece arrived at C4 the window begins. Default 60 = start looking 60s before arrival."},
+    {"section": "Search", "key": "ch2_window_end_s", "label": "C2 window end (s before arrival)", "type": "float", "default": _DEFAULTS.ch2_window_end_s, "description": "Only used when 'Per-channel time windows' is on. Newer edge of the C2 search window: how many seconds before arrival the window ends. Default 30 = stop at 30s before arrival, so C2 covers 30–60s ago. Set negative to extend past arrival into the future (e.g. -2 = 2s after arrival) for clock skew."},
+    {"section": "Search", "key": "ch3_window_start_s", "label": "C3 window start (s before arrival)", "type": "float", "default": _DEFAULTS.ch3_window_start_s, "description": "Only used when 'Per-channel time windows' is on. Older edge of the C3 search window: how many seconds before arrival the window begins. Default 30 = start looking 30s before arrival."},
+    {"section": "Search", "key": "ch3_window_end_s", "label": "C3 window end (s before arrival)", "type": "float", "default": _DEFAULTS.ch3_window_end_s, "description": "Only used when 'Per-channel time windows' is on. Newer edge of the C3 search window: how many seconds before arrival the window ends. Default 0 = up to the arrival moment, so C3 covers 0–30s ago. Set negative to extend past arrival into the future (e.g. -2 = 2s after arrival) for clock skew."},
     {"section": "Search", "key": "min_similarity", "label": "Min similarity (0-1)", "type": "float", "default": _DEFAULTS.min_similarity, "description": "Minimum cosine similarity (0–1, where 1 is identical) a stored crop must have to the query to count as a match. Higher = fewer but more confident matches."},
     {"section": "Search", "key": "max_results", "label": "Max results", "type": "int", "default": _DEFAULTS.max_results, "description": "Maximum number of candidate matches a search returns."},
     {"section": "Search", "key": "search_ch2", "label": "Search C2", "type": "bool", "default": _DEFAULTS.search_ch2, "description": "Include Channel 2 crops when searching for matches."},
@@ -508,14 +525,22 @@ class UpstreamCropStore:
         if not channels:
             return {"candidates": [], "n_anchor_embedded": len(vecs)}
 
-        t0 = ref_ts - cfg.lookback_seconds
-        t1 = ref_ts + cfg.forward_seconds
         k = int(max(1, cfg.max_results))
 
-        # Per-channel mode (only meaningful with both channels enabled): run one
-        # KNN per channel so each contributes its own top-k. Otherwise a single
-        # KNN over the pooled crops returns the global top-k.
-        if cfg.search_per_channel_topn and len(channels) > 1:
+        def _windowFor(group: list[int]) -> tuple[float, float]:
+            # Per-channel windows are spans of "seconds before arrival": the window
+            # runs from start_s (older edge) to end_s (newer edge) before ref_ts. A
+            # negative end reaches past arrival into the future (clock-skew slack).
+            if cfg.per_channel_window and len(group) == 1:
+                if group[0] == 2:
+                    return ref_ts - cfg.ch2_window_start_s, ref_ts - cfg.ch2_window_end_s
+                return ref_ts - cfg.ch3_window_start_s, ref_ts - cfg.ch3_window_end_s
+            return ref_ts - cfg.lookback_seconds, ref_ts + cfg.forward_seconds
+
+        # Split into per-channel queries when either per-channel windows or
+        # per-channel top-N is on (both need each channel queried on its own).
+        # Otherwise a single pooled KNN over both channels returns the global top-k.
+        if (cfg.per_channel_window or cfg.search_per_channel_topn) and len(channels) > 1:
             query_groups = [[c] for c in channels]
         else:
             query_groups = [channels]
@@ -525,6 +550,7 @@ class UpstreamCropStore:
             con = self._openDb()
             try:
                 for group in query_groups:
+                    t0, t1 = _windowFor(group)
                     sql = (
                         "select channel, ts, bbox, jpeg, distance from upstream_crops "
                         "where embedding match ? and k = ? and ts >= ? and ts <= ?"
@@ -560,6 +586,10 @@ class UpstreamCropStore:
                 "jpeg_b64": jpeg_b64,
             })
         candidates.sort(key=lambda c: c["score"], reverse=True)
+        # Per-channel top-N keeps each channel's top-k (up to 2k total); pooled
+        # mode (even when split for per-channel windows) returns the global top-k.
+        if not cfg.search_per_channel_topn:
+            candidates = candidates[:k]
         return {"candidates": candidates, "n_anchor_embedded": len(vecs)}
 
     def matchForClassification(self, anchor_b64s: list[str], ref_ts: float) -> list[dict]:

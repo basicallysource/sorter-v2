@@ -4,6 +4,7 @@
 	import { Button, Input, Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
+	import UpstreamWindowTimeline from '$lib/components/UpstreamWindowTimeline.svelte';
 
 	type FieldMeta = {
 		key: string;
@@ -249,6 +250,9 @@
 						<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
 							{section.name}
 						</div>
+						{#if section.name === 'Search' && 'ch2_window_start_s' in values}
+							<UpstreamWindowTimeline bind:values />
+						{/if}
 						{#each section.fields as field}
 							<div class="flex items-center gap-4">
 								<label class="flex w-72 items-center gap-1.5 text-sm text-text" for={field.key}>

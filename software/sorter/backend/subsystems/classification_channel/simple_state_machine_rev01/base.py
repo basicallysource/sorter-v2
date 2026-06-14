@@ -256,8 +256,9 @@ class Rev01BaseState(BaseState):
         # MUST NOT run on the main loop. The thread fuses any upstream matches
         # with the C4 burst — bursts give up slots so the total never exceeds
         # Brickognize's 8-image limit — then fires the parallel request fan-out
-        # (the fused combined call plus single-image calls) and keeps the
-        # highest-confidence result (see _runClassifyRequests).
+        # (the fused combined call plus single-image calls). The combined call's
+        # result is kept whenever it recognizes the piece at all; otherwise the
+        # highest-confidence single-image call wins (see _runClassifyRequests).
         obj = self.ctx.known_object
         piece_uuid = obj.uuid if obj is not None else None
         # Only the last classify_burst_count burst frames drive classification:
@@ -397,10 +398,14 @@ class Rev01BaseState(BaseState):
     def _runClassifyRequests(
         self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
     ) -> None:
-        # Fire every request concurrently and keep the highest-confidence result.
-        # No sequential retries: the calls are redundant, run in parallel, and the
-        # best-scoring one that returned an item is applied — its images become the
-        # "used" set, every other sent image is thrown out (excluded_from_result).
+        # Fire every request concurrently and apply one result. No sequential
+        # retries: the calls are redundant and run in parallel. The combined
+        # (fused burst + upstream) call is preferred whenever it recognizes the
+        # piece at all — it has the most context, so we trust it over a
+        # higher-confidence lone-image call. Only if combined came back empty does
+        # the highest-confidence single-image call win. The applied request's
+        # images become the "used" set; every other sent image is thrown out
+        # (excluded_from_result).
         # If a request errored but another returned, we just ignore the error. Only
         # when EVERY request errors (a transport failure across the board) is the
         # piece marked errored — a smaller image set can't fix a network failure.
@@ -445,12 +450,34 @@ class Rev01BaseState(BaseState):
 
         applied: Optional[tuple[_ClassifyRequest, dict]] = None
         if found:
-            best_req, best_result, best_score = max(found, key=lambda x: x[2])
-            applied = (best_req, best_result)
-            self.logger.info(
-                f"{LOG_TAG} classify winner [{best_req.label}] @ {best_score:.2f} "
-                f"({len(found)}/{len(requests)} requests recognized the piece)"
+            # Prefer the combined (fused burst + upstream) request whenever it
+            # recognized the piece at all — it sees the most context, so we trust
+            # any result it returns over a higher-confidence lone-image call. Only
+            # when the combined call came back empty do we fall back to the
+            # highest-confidence single-image request.
+            combined_hit = next(
+                (
+                    f
+                    for f in found
+                    if f[0].strategy == ClassificationAttemptStrategy.combined
+                ),
+                None,
             )
+            if combined_hit is not None:
+                best_req, best_result, best_score = combined_hit
+                self.logger.info(
+                    f"{LOG_TAG} classify winner [{best_req.label}] @ {best_score:.2f} "
+                    f"(combined recognized the piece; "
+                    f"{len(found)}/{len(requests)} requests recognized it)"
+                )
+            else:
+                best_req, best_result, best_score = max(found, key=lambda x: x[2])
+                self.logger.info(
+                    f"{LOG_TAG} classify winner [{best_req.label}] @ {best_score:.2f} "
+                    f"(combined missed; highest-confidence fallback; "
+                    f"{len(found)}/{len(requests)} requests recognized the piece)"
+                )
+            applied = (best_req, best_result)
         elif fallback is not None:
             applied = fallback
             self.logger.info(

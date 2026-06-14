@@ -9,7 +9,7 @@
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import type { KnownObjectData } from '$lib/api/events';
+	import type { KnownObjectData, ClassificationAttempt } from '$lib/api/events';
 	import type { components } from '$lib/api/rest';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
@@ -512,6 +512,32 @@
 		return rows;
 	}
 
+	// The parallel Brickognize requests fired for this piece (combined + the
+	// single-image variants). They run concurrently, not as retries; the one
+	// flagged applied=True is the highest-confidence call whose result was used.
+	const attempts = $derived(piece?.classification_attempts ?? []);
+
+	function attemptName(a: ClassificationAttempt): string {
+		if (a.label) return a.label;
+		if (a.strategy === 'single_burst') return 'Single burst frame';
+		if (a.strategy === 'single_upstream') return 'Single upstream crop';
+		return 'Combined (fused set)';
+	}
+
+	function attemptOutcome(a: ClassificationAttempt): string {
+		if (a.error) return 'error';
+		if (!a.found) return 'no match';
+		const pct = a.confidence != null ? ` · ${(a.confidence * 100).toFixed(0)}%` : '';
+		return `${a.part_id ?? '?'}${pct}`;
+	}
+
+	function attemptInputs(a: ClassificationAttempt): string {
+		const parts: string[] = [];
+		if (a.n_burst) parts.push(`${a.n_burst} burst`);
+		if (a.n_upstream) parts.push(`${a.n_upstream} upstream`);
+		return parts.length ? parts.join(' + ') : 'no images';
+	}
+
 	function confidenceClass(conf: number | null | undefined): string {
 		if (conf == null) return 'text-text-muted';
 		const pct = conf * 100;
@@ -773,6 +799,59 @@
 								</div>
 							</button>
 						{/if}
+					</div>
+				</section>
+			{/if}
+
+			<!-- Classification requests: the parallel Brickognize calls (combined +
+			     single-image variants). Each ran concurrently; the highest-confidence
+			     "found" call wins and is marked applied. Shows what every request
+			     returned, not just the winner, so a confused fused set vs. a clean
+			     lone frame is visible at a glance. -->
+			{#if attempts.length > 0}
+				<section class="border border-border bg-surface">
+					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+						Classification requests
+						<span class="ml-2 text-text-muted">{attempts.length}</span>
+					</div>
+					<div class="flex flex-col gap-2 p-3">
+						{#each attempts as a, ai (ai)}
+							<div
+								class={`flex flex-wrap items-center gap-x-3 gap-y-1 border px-3 py-2 text-sm ${
+									a.applied
+										? 'border-primary bg-primary/[0.08]'
+										: 'border-border bg-bg'
+								}`}
+							>
+								<span class="font-medium text-text">{attemptName(a)}</span>
+								<span class="text-text-muted">{attemptInputs(a)}</span>
+								<span
+									class={`tabular-nums ${
+										a.error
+											? 'text-danger'
+											: a.found
+												? 'font-medium text-text'
+												: 'text-text-muted'
+									}`}
+								>
+									{attemptOutcome(a)}
+								</span>
+								{#if a.error}
+									<span class="text-text-muted">{a.error}</span>
+								{/if}
+								{#if a.duration_s != null}
+									<span class="text-text-muted tabular-nums">{a.duration_s.toFixed(2)}s</span>
+								{/if}
+								{#if a.applied}
+									<span
+										class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+										title="This request's result was applied to the piece"
+									>
+										Applied
+									</span>
+								{/if}
+							</div>
+						{/each}
 					</div>
 				</section>
 			{/if}

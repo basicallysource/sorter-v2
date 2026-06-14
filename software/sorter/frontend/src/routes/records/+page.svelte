@@ -23,6 +23,9 @@
 		// Creation time of the owning KnownObject (epoch seconds) — the reference
 		// each pic is aged against.
 		createdAt?: number | null;
+		// Brickognize stock photo of the identified part (remote URL), shown on the
+		// right of the contact sheet next to the crops we actually captured.
+		stockUrl?: string | null;
 	};
 
 	type Overview = {
@@ -158,7 +161,8 @@
 					images: data.recognition_image_set ?? [],
 					strategy: data.classification_strategy ?? null,
 					attempts: data.classification_attempts ?? [],
-					createdAt: data.created_at ?? null
+					createdAt: data.created_at ?? null,
+					stockUrl: data.brickognize_preview_url ?? null
 				}
 			};
 		} catch {
@@ -678,7 +682,8 @@
 									Images unavailable (aged out of memory or none captured).
 								</div>
 							{:else}
-								<div class="flex flex-wrap gap-2">
+								<div class="flex items-start gap-4">
+									<div class="flex flex-1 flex-wrap gap-2">
 									{#each sorted as img, i (i)}
 										{@const badge = sourceBadge(img)}
 										{@const src = dataImageUrl(img.image)}
@@ -732,6 +737,28 @@
 											</div>
 										</div>
 									{/each}
+									</div>
+									{#if img_state.stockUrl}
+										<div class="ml-auto flex flex-col border border-border bg-white">
+											<div class="h-28 w-28 bg-white">
+												<img
+													src={img_state.stockUrl}
+													alt="Brickognize stock photo"
+													class="h-full w-full object-contain"
+													loading="lazy"
+												/>
+											</div>
+											<div
+												class="flex items-center justify-center border-t border-border px-1.5 py-1"
+											>
+												<span
+													class="inline-flex items-center text-xs font-semibold uppercase tracking-wider text-text-muted"
+												>
+													Brickognize
+												</span>
+											</div>
+										</div>
+									{/if}
 								</div>
 							{/if}
 						</div>

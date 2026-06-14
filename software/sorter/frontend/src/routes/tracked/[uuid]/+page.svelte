@@ -516,12 +516,21 @@
 	// single-image variants). They run concurrently, not as retries; the one
 	// flagged applied=True is the highest-confidence call whose result was used.
 	const attempts = $derived(piece?.classification_attempts ?? []);
+	// Which request rows are expanded to show their sent crops + stock photo.
+	let expandedAttempts = $state<Set<number>>(new Set());
+
+	function toggleAttempt(i: number): void {
+		const next = new Set(expandedAttempts);
+		if (next.has(i)) next.delete(i);
+		else next.add(i);
+		expandedAttempts = next;
+	}
 
 	function attemptName(a: ClassificationAttempt): string {
-		if (a.label) return a.label;
 		if (a.strategy === 'single_burst') return 'Single burst frame';
 		if (a.strategy === 'single_upstream') return 'Single upstream crop';
-		return 'Combined (fused set)';
+		if (a.strategy === 'combined') return 'Combined (fused set)';
+		return a.label ?? a.strategy;
 	}
 
 	function attemptOutcome(a: ClassificationAttempt): string {
@@ -536,6 +545,14 @@
 		if (a.n_burst) parts.push(`${a.n_burst} burst`);
 		if (a.n_upstream) parts.push(`${a.n_upstream} upstream`);
 		return parts.length ? parts.join(' + ') : 'no images';
+	}
+
+	// The crops actually submitted in this request, resolved from the recognition
+	// set by matching the attempt's captured-image timestamps against each crop's.
+	function attemptImages(a: ClassificationAttempt): CropEntry[] {
+		const tss = a.image_ts ?? [];
+		if (tss.length === 0) return [];
+		return crops.filter((c) => c.ts != null && tsWasUsed(c.ts, tss));
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
@@ -816,39 +833,125 @@
 					</div>
 					<div class="flex flex-col gap-2 p-3">
 						{#each attempts as a, ai (ai)}
+							{@const open = expandedAttempts.has(ai)}
+							{@const sent = attemptImages(a)}
 							<div
-								class={`flex flex-wrap items-center gap-x-3 gap-y-1 border px-3 py-2 text-sm ${
-									a.applied
-										? 'border-primary bg-primary/[0.08]'
-										: 'border-border bg-bg'
+								class={`border ${
+									a.applied ? 'border-primary' : 'border-border'
 								}`}
 							>
-								<span class="font-medium text-text">{attemptName(a)}</span>
-								<span class="text-text-muted">{attemptInputs(a)}</span>
-								<span
-									class={`tabular-nums ${
-										a.error
-											? 'text-danger'
-											: a.found
-												? 'font-medium text-text'
-												: 'text-text-muted'
+								<button
+									type="button"
+									class={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm ${
+										a.applied ? 'bg-primary/[0.08]' : 'bg-bg hover:bg-surface'
 									}`}
+									onclick={() => toggleAttempt(ai)}
 								>
-									{attemptOutcome(a)}
-								</span>
-								{#if a.error}
-									<span class="text-text-muted">{a.error}</span>
-								{/if}
-								{#if a.duration_s != null}
-									<span class="text-text-muted tabular-nums">{a.duration_s.toFixed(2)}s</span>
-								{/if}
-								{#if a.applied}
+									{#if open}
+										<ChevronDown class="h-4 w-4 shrink-0 text-text-muted" />
+									{:else}
+										<ChevronRight class="h-4 w-4 shrink-0 text-text-muted" />
+									{/if}
+									<span class="font-medium text-text">{attemptName(a)}</span>
+									<span class="text-text-muted">{attemptInputs(a)}</span>
 									<span
-										class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
-										title="This request's result was applied to the piece"
+										class={`tabular-nums ${
+											a.error
+												? 'text-danger'
+												: a.found
+													? 'font-medium text-text'
+													: 'text-text-muted'
+										}`}
 									>
-										Applied
+										{attemptOutcome(a)}
 									</span>
+									{#if a.found && a.part_name}
+										<span class="text-text-muted">{a.part_name}</span>
+									{/if}
+									{#if a.found && a.color_name}
+										<span class="text-text-muted">· {a.color_name}</span>
+									{/if}
+									{#if a.error}
+										<span class="text-text-muted">{a.error}</span>
+									{/if}
+									{#if a.duration_s != null}
+										<span class="text-text-muted tabular-nums">{a.duration_s.toFixed(2)}s</span>
+									{/if}
+									{#if a.applied}
+										<span
+											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+											title="This request's result was applied to the piece"
+										>
+											Applied
+										</span>
+									{/if}
+								</button>
+								{#if open}
+									<div class="flex flex-wrap gap-4 border-t border-border p-3">
+										<!-- What was sent to Brickognize for this request -->
+										<div class="flex flex-col gap-1.5">
+											<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+												Sent ({sent.length})
+											</div>
+											{#if sent.length === 0}
+												<div class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted">
+													crops aged out
+												</div>
+											{:else}
+												<div class="flex flex-wrap gap-2">
+													{#each sent as crop (cropKey(crop))}
+														<button
+															type="button"
+															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+															onclick={() => (zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
+														>
+															<div class="h-32 w-32 bg-white">
+																<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
+															</div>
+															<div class="px-1.5 py-1 text-xs text-text-muted">{formatCropLabel(crop)}</div>
+														</button>
+													{/each}
+												</div>
+											{/if}
+										</div>
+										<!-- What Brickognize returned for this request -->
+										<div class="flex flex-col gap-1.5">
+											<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+												Result
+											</div>
+											{#if a.error}
+												<div class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-bg p-2 text-center text-sm text-danger">
+													{a.error}
+												</div>
+											{:else if a.found}
+												<div class="flex gap-2">
+													{#if a.preview_url}
+														<button
+															type="button"
+															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+															onclick={() => (zoomImage = { src: a.preview_url as string, label: a.part_name ?? a.part_id ?? 'result' })}
+														>
+															<div class="h-32 w-32 bg-white">
+																<img src={a.preview_url} alt="brickognize reference" class="h-full w-full object-contain" loading="lazy" />
+															</div>
+														</button>
+													{/if}
+													<div class="flex flex-col gap-0.5 text-sm">
+														<span class="font-medium text-text tabular-nums">{a.part_id}</span>
+														{#if a.part_name}<span class="text-text-muted">{a.part_name}</span>{/if}
+														{#if a.confidence != null}
+															<span class="text-text-muted tabular-nums">{(a.confidence * 100).toFixed(0)}% match</span>
+														{/if}
+														{#if a.color_name}<span class="text-text-muted">Color: {a.color_name}</span>{/if}
+													</div>
+												</div>
+											{:else}
+												<div class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted">
+													no match
+												</div>
+											{/if}
+										</div>
+									</div>
 								{/if}
 							</div>
 						{/each}

@@ -28,9 +28,14 @@ export interface ClassificationAttempt {
   label?: string | null;
   applied?: boolean;
   part_id?: string | null;
+  part_name?: string | null;
+  preview_url?: string | null;
   confidence?: number | null;
+  color_id?: string | null;
+  color_name?: string | null;
   error?: string | null;
   duration_s?: number | null;
+  image_ts?: number[];
 }
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";

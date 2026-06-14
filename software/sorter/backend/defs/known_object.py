@@ -77,9 +77,20 @@ class ClassificationAttempt:
     # highest-confidence found attempt, or the first call when nothing was found).
     applied: bool = False
     part_id: Optional[str] = None
+    # Brickognize's human name for the top item and its reference (stock) image
+    # URL, so the UI can show what this request thought it saw without re-querying.
+    part_name: Optional[str] = None
+    preview_url: Optional[str] = None
     confidence: Optional[float] = None
+    # Top color this request returned (Brickognize reports colors per request).
+    color_id: Optional[str] = None
+    color_name: Optional[str] = None
     error: Optional[str] = None
     duration_s: Optional[float] = None
+    # Capture timestamps of the exact images submitted in this request. The UI
+    # resolves these against the recognition image set to show which crops went
+    # into each parallel call when a request row is expanded.
+    image_ts: List[float] = field(default_factory=list)
 
 
 @dataclass

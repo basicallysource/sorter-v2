@@ -359,6 +359,14 @@ class Rev01BaseState(BaseState):
         items = result.get("items", []) if isinstance(result, dict) else []
         return items[0] if items else None
 
+    @staticmethod
+    def _topColor(result: object) -> Optional[dict]:
+        colors = result.get("colors", []) if isinstance(result, dict) else []
+        valid = [c for c in colors if isinstance(c, dict)]
+        if not valid:
+            return None
+        return max(valid, key=lambda c: c.get("score", 0))
+
     def _runRequestsParallel(
         self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
     ) -> list[tuple[_ClassifyRequest, Optional[dict], Optional[str], float]]:
@@ -422,6 +430,7 @@ class Rev01BaseState(BaseState):
 
         for req, result, error, dur in results:
             top = self._topItem(result)
+            top_color = self._topColor(result)
             attempts.append(
                 ClassificationAttempt(
                     strategy=req.strategy,
@@ -430,9 +439,24 @@ class Rev01BaseState(BaseState):
                     n_upstream=sum(1 for s in req.images if s.rec.source == "upstream"),
                     found=top is not None,
                     part_id=top.get("id") if isinstance(top, dict) else None,
+                    part_name=top.get("name") if isinstance(top, dict) else None,
+                    preview_url=top.get("img_url") if isinstance(top, dict) else None,
                     confidence=top.get("score") if isinstance(top, dict) else None,
+                    color_id=(
+                        str(top_color.get("id"))
+                        if isinstance(top_color, dict) and top_color.get("id") is not None
+                        else None
+                    ),
+                    color_name=(
+                        str(top_color.get("name"))
+                        if isinstance(top_color, dict) and top_color.get("name") is not None
+                        else None
+                    ),
                     error=error,
                     duration_s=dur,
+                    image_ts=[
+                        s.rec.ts for s in req.images if s.rec.ts is not None
+                    ],
                 )
             )
             attempt_reqs.append(req)

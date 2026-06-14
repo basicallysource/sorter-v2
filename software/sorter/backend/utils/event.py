@@ -96,9 +96,14 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                     label=a.label,
                     applied=a.applied,
                     part_id=a.part_id,
+                    part_name=a.part_name,
+                    preview_url=a.preview_url,
                     confidence=a.confidence,
+                    color_id=a.color_id,
+                    color_name=a.color_name,
                     error=a.error,
                     duration_s=a.duration_s,
+                    image_ts=list(a.image_ts or []),
                 )
                 for a in (obj.classification_attempts or [])
             ],

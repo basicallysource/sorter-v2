@@ -98,9 +98,14 @@ class ClassificationAttempt(BaseModel):
     label: Optional[str] = None
     applied: bool = False
     part_id: Optional[str] = None
+    part_name: Optional[str] = None
+    preview_url: Optional[str] = None
     confidence: Optional[float] = None
+    color_id: Optional[str] = None
+    color_name: Optional[str] = None
     error: Optional[str] = None
     duration_s: Optional[float] = None
+    image_ts: List[float] = Field(default_factory=list)
 
 
 class KnownObjectData(BaseModel):

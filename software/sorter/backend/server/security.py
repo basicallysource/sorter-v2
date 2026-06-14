@@ -141,8 +141,10 @@ def is_ui_origin_allowed(origin: str | None) -> bool:
         port = parsed.port
     except ValueError:
         return False
-    port_str = str(port) if port is not None else ("443" if parsed.scheme == "https" else "80")
-    if port_str != _ui_port():
+    # Accept the configured UI dev port (5173) AND a bare host with no explicit
+    # port (the UI served on the default 80/443), so http://<device-ip> works
+    # just like http://<device-ip>:5173.
+    if port is not None and str(port) != _ui_port():
         return False
     # Any mDNS .local name (e.g. sorter.local) resolves only on the local link,
     # so it's treated as this device on the LAN.
@@ -189,7 +191,11 @@ def compute_allowed_ui_origins() -> list[str]:
     if override:
         return override
     port = _ui_port()
-    return _dedupe_origins([f"http://{host}:{port}" for host in sorted(_this_device_hosts())])
+    origins: list[str] = []
+    for host in sorted(_this_device_hosts()):
+        origins.append(f"http://{host}:{port}")
+        origins.append(f"http://{host}")
+    return _dedupe_origins(origins)
 
 
 _tailscale_hostname_cache: tuple[float, str | None] = (0.0, None)

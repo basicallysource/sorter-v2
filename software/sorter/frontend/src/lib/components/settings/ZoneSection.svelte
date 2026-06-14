@@ -1500,20 +1500,22 @@
 		];
 	}
 
-	function buildCropPolygon(params: ArcParams): Point[] {
+	function buildCropPolygon(params: ArcParams, ccw = false): Point[] {
 		const { center, innerRadius, dropZone, exitZone } = params;
-		const outerSpan = positiveAngleSpan(dropZone.startOuterAngle, exitZone.endOuterAngle);
-		const innerSpan = positiveAngleSpan(dropZone.startInnerAngle, exitZone.endInnerAngle);
+		// Clockwise keeps drop-start -> exit-end. Counterclockwise (the carousel)
+		// keeps exit-start -> drop-end — the arc the piece travels going the other
+		// way — so the cropped gap lands on the side it never crosses.
+		const outerFrom = ccw ? exitZone.startOuterAngle : dropZone.startOuterAngle;
+		const outerTo = ccw ? dropZone.endOuterAngle : exitZone.endOuterAngle;
+		const innerFrom = ccw ? exitZone.startInnerAngle : dropZone.startInnerAngle;
+		const innerTo = ccw ? dropZone.endInnerAngle : exitZone.endInnerAngle;
+		const outerSpan = positiveAngleSpan(outerFrom, outerTo);
+		const innerSpan = positiveAngleSpan(innerFrom, innerTo);
 		const outerSegments = Math.max(16, Math.round((outerSpan / 360) * ARC_SEGMENTS));
 		const innerSegments = Math.max(16, Math.round((innerSpan / 360) * ARC_SEGMENTS));
-		const pts: Point[] = buildOuterArcPoints(
-			params,
-			dropZone.startOuterAngle,
-			outerSpan,
-			outerSegments
-		);
+		const pts: Point[] = buildOuterArcPoints(params, outerFrom, outerSpan, outerSegments);
 		for (let i = innerSegments; i >= 0; i--) {
-			const angle = dropZone.startInnerAngle + (innerSpan * i) / innerSegments;
+			const angle = innerFrom + (innerSpan * i) / innerSegments;
 			pts.push(polarPoint(center, innerRadius, angle));
 		}
 		return pts;
@@ -1758,6 +1760,11 @@
 			'dropEndEdge',
 			'exitStartEdge',
 			'exitEndEdge',
+			// exitOuter (radius) shares the exit mid-angle with exitRotate and can
+			// stack on it (both clamp to the canvas edge when the zone is near the
+			// frame top). Check the radius handle FIRST so a click on the overlap
+			// drags the radius; pulling it inward then separates the two.
+			'exitOuter',
 			'dropRotate',
 			'exitRotate',
 			'dropStartOuter',
@@ -1774,7 +1781,6 @@
 			'preciseStartOuter',
 			'preciseEndInner',
 			'preciseEndOuter',
-			'exitOuter',
 			'outer',
 			'inner',
 			'center'
@@ -3068,24 +3074,28 @@
 				'Exit Outer',
 				exitOuterLabelOffset(handles.exitOuter)
 			);
-			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', 'Drop Start', [-42, -18]);
+			// The classification carousel travels counterclockwise, so the edge a
+			// piece reaches FIRST is the geometric "end" edge. Label in travel order
+			// so "Start" is always the entry edge (Start comes before End going CCW).
+			const ccwZones = currentChannel === 'classification_channel';
+			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop End' : 'Drop Start', [-42, -18]);
 			// Drop Start has no inner handle — the boundary is locked radial.
-			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', 'Drop End', [42, -18]);
+			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop Start' : 'Drop End', [42, -18]);
 			drawHandle(ctx, handles.dropEndInner, DROP_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.exitStartOuter, EXIT_ZONE_COLOR, '#111', 'Exit Start', [-42, 22]);
+			drawHandle(ctx, handles.exitStartOuter, EXIT_ZONE_COLOR, '#111', ccwZones ? 'Exit End' : 'Exit Start', [-42, 22]);
 			drawHandle(ctx, handles.exitStartInner, EXIT_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', 'Exit End', [42, 22]);
+			drawHandle(ctx, handles.exitEndOuter, EXIT_ZONE_COLOR, '#111', ccwZones ? 'Exit Start' : 'Exit End', [42, 22]);
 			drawHandle(ctx, handles.exitEndInner, EXIT_ZONE_COLOR, '#111');
 			drawHandle(
 				ctx,
 				handles.preciseStartOuter,
 				PRECISE_ZONE_COLOR,
 				'#111',
-				'Precise Start',
+				ccwZones ? 'Precise End' : 'Precise Start',
 				[-42, 22]
 			);
 			drawHandle(ctx, handles.preciseStartInner, PRECISE_ZONE_COLOR, '#111');
-			drawHandle(ctx, handles.preciseEndOuter, PRECISE_ZONE_COLOR, '#111', 'Precise End', [42, 22]);
+			drawHandle(ctx, handles.preciseEndOuter, PRECISE_ZONE_COLOR, '#111', ccwZones ? 'Precise Start' : 'Precise End', [42, 22]);
 			drawHandle(ctx, handles.preciseEndInner, PRECISE_ZONE_COLOR, '#111');
 
 			drawEdgeHandle(
@@ -3708,10 +3718,10 @@
 			if (TRANSPORT_CHANNELS.includes(current)) {
 				const key = channelStorageKey(current);
 				if (isArcChannel(current) && arcParams[current]) {
-					const cropPts = buildCropPolygon(arcParams[current]!).map((pt) => [
-						Math.round(pt[0]),
-						Math.round(pt[1])
-					]);
+					const cropPts = buildCropPolygon(
+						arcParams[current]!,
+						current === 'classification_channel'
+					).map((pt) => [Math.round(pt[0]), Math.round(pt[1])]);
 					polygons[key] = cropPts;
 					user_pts[current] = cropPts;
 					arc_params[current] = serializeArcParams(arcParams[current]!, currentResolution);

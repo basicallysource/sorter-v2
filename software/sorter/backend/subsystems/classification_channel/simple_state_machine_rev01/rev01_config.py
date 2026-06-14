@@ -4,15 +4,46 @@ from dataclasses import dataclass
 @dataclass
 class Rev01Config:
     rotate_speed_usteps_per_s: int = 7000
+    # Active-path UNUSED: the reverse capture-at-rest flow no longer sweeps the
+    # carousel while photographing. Kept only for the legacy non-perception
+    # fallback (a single fixed move).
     capture_sweep_output_deg: float = 180.0
+    # How long CAPTURING photographs the piece AT REST before spawning the
+    # Brickognize request and starting the reverse move to the precise zone. The
+    # burst denoises / lets selectRecognitionCrops pick the sharpest frames; the
+    # piece does not rotate, so the views are near-identical.
+    capture_at_rest_ms: float = 350.0
+    # Reverse converge to the precise staging zone (MOVING_TO_PRECISE). Slower
+    # than the discharge converge so the approach into the narrow precise band is
+    # gentle; tolerance is the |gap-to-precise-centre| at which we call it parked.
+    precise_converge_speed_usteps_per_s: int = 5000
+    precise_center_tolerance_deg: float = 4.0
     # Legacy fixed discharge kick (only used on the non-perception fallback path).
     # The active perception path closed-loops onto the fall-off centre instead;
     # see ``discharge_*`` fields below.
     kick_off_output_deg: float = 180.0
     discharge_speed_usteps_per_s: int = 5000
     crop_padding_px: int = 15
-    # Capped to the Brickognize per-request image limit (8) by selectRecognitionCrops.
+    # How many burst frames to GRAB at rest. Capped to the Brickognize
+    # per-request image limit (8) by selectRecognitionCrops.
     max_captures: int = 8
+    # Of the captured burst, how many of the most-recent (last-N, most-settled)
+    # frames to actually USE for classification — anchored for the upstream
+    # similarity search and sent to Brickognize. The rest of the burst is kept on
+    # the piece for review but did not influence the result. 1 = last frame only.
+    classify_burst_count: int = 1
+    # Alongside the fused "combined" call, fire extra single-image Brickognize
+    # requests IN PARALLEL and keep whichever result scores highest. These are
+    # redundant, not sequential retries: a lone clean frame frequently recognizes
+    # a piece the fused set confuses, and firing every variant concurrently costs
+    # the same wall-clock as the slowest single call. A single-image request that
+    # would duplicate the combined call (e.g. combined is already one burst frame)
+    # is skipped.
+    # single_burst: also send just the last (most-settled) C4 burst frame, alone.
+    classify_parallel_single_burst: bool = True
+    # single_upstream: also send just the single highest-similarity upstream
+    # (C2/C3) match crop, alone. A no-op when no upstream was injected.
+    classify_parallel_single_upstream: bool = True
     rotate_timeout_s: float = 30.0
     classify_timeout_s: float = 30.0
     presence_streak_to_start: int = 2
@@ -83,11 +114,17 @@ _DEFAULTS = Rev01Config()
 
 FIELD_META: list[dict] = [
     {"key": "rotate_speed_usteps_per_s", "label": "Rotate speed (µsteps/s)", "type": "int", "default": _DEFAULTS.rotate_speed_usteps_per_s},
-    {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg},
+    {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg, legacy)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg},
+    {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms},
+    {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s},
+    {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},
-    {"key": "max_captures", "label": "Max captures per piece", "type": "int", "default": _DEFAULTS.max_captures},
+    {"key": "max_captures", "label": "Burst frames to grab per piece", "type": "int", "default": _DEFAULTS.max_captures},
+    {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count},
+    {"key": "classify_parallel_single_burst", "label": "Also classify the last burst frame alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_burst},
+    {"key": "classify_parallel_single_upstream", "label": "Also classify the top upstream crop alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_upstream},
     {"key": "rotate_timeout_s", "label": "Rotate timeout (s)", "type": "float", "default": _DEFAULTS.rotate_timeout_s},
     {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s},
     {"key": "presence_streak_to_start", "label": "Presence streak to start rotation", "type": "int", "default": _DEFAULTS.presence_streak_to_start},
@@ -123,6 +160,8 @@ def configFromDict(d: dict) -> Rev01Config:
         try:
             if meta["type"] == "int":
                 setattr(cfg, k, int(raw))
+            elif meta["type"] == "bool":
+                setattr(cfg, k, bool(raw))
             else:
                 setattr(cfg, k, float(raw))
         except (TypeError, ValueError):

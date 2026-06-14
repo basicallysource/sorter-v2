@@ -168,6 +168,18 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         f"workers={sorted(service.workers().keys())}"
     )
 
+    try:
+        from perception.upstream_capture import UpstreamCropStore, configFromDict
+        from toml_config import getUpstreamMatchConfig
+
+        store = UpstreamCropStore(perception_service=service, logger=gc.logger)
+        store.configure(configFromDict(getUpstreamMatchConfig()))
+        store.start()
+        service.upstream_store = store
+        gc.logger.info("Perception upstream-crop store started.")
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start upstream-crop store: {exc}")
+
 
 def runServer(gc: GlobalConfig) -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a
@@ -191,7 +203,13 @@ def runServer(gc: GlobalConfig) -> None:
         f"effective_allowed_origins={compute_allowed_ui_origins()} "
         f"device_hosts={sorted(_this_device_hosts())}"
     )
-    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto")
+    # log_config=None disables uvicorn's logging.config.dictConfig() pass. This
+    # backend routes everything through its own Logger, so uvicorn's logging
+    # setup is unused — and it intermittently crashed the api-server thread at
+    # startup ("ValueError: Unknown level: 'INFO'" out of dictConfig), leaving
+    # main.py alive but port 8000 unbound so the UI couldn't connect. Skipping
+    # dictConfig removes the failure mode entirely.
+    uvicorn.run(app, host=host, port=8000, log_level="error", ws="wsproto", log_config=None)
 
 
 def runBroadcaster(gc: GlobalConfig) -> None:
@@ -264,7 +282,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
             if command.tag == "known_object":
                 obj_payload = command.data.model_dump()
                 # Detail-page lookup keeps the FULL object (incl. the cumulative
-                # recognition_images list) in memory, served via
+                # recognition_image_set list) in memory, served via
                 # /api/known-objects/<uuid>. The live socket and the recent ring
                 # carry only the slim form (see slimKnownObjectForSocket) so the
                 # per-piece payload stays bounded instead of growing quadratically.

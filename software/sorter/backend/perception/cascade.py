@@ -33,11 +33,24 @@ class FeederActions(NamedTuple):
     c3: Action
 
 
-def feederChannelAction(state: ChannelState, downstream_clear: bool) -> Action:
-    """The rule for C2 and C3 (channels with their own drop+exit zones)."""
+def feederChannelAction(
+    state: ChannelState, downstream_clear: bool, greedy: bool = False
+) -> Action:
+    """The rule for C2 and C3 (channels with their own drop+exit zones).
+
+    ``greedy`` (per-channel): in the default rule a channel only advances while a
+    piece is in its drop zone, then idles until the piece reaches the exit zone.
+    In greedy mode the channel advances a piece toward the exit as soon as it is
+    seen ANYWHERE on the channel (any on-channel piece, not yet at the exit), so
+    the piece is staged at the exit edge immediately and the drop zone clears
+    sooner — letting the upstream channel feed again. The advance is still capped
+    to the exit edge by the caller (advance_clearance_deg) and exit hand-off
+    stays downstream-gated, so the usual protections hold."""
     if state.in_exit:
         return Action.PRECISE if downstream_clear else Action.FREEZE
     if state.in_drop:
+        return Action.ADVANCE
+    if greedy and state.n_pieces > 0:
         return Action.ADVANCE
     return Action.IDLE
 

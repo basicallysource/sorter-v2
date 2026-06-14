@@ -24,6 +24,7 @@ _initialized = False
 SOURCE_SWEEP = "sweep"          # constant-speed targeted test
 SOURCE_STALL_TEST = "stall_test"  # deliberate-load test to find the stall floor
 SOURCE_PASSIVE = "passive"      # background logging during normal operation
+SOURCE_CHUTE_STRESS = "chute_stress"  # telemetry captured during a chute stress run
 
 RUN_STATUS_RUNNING = "running"
 RUN_STATUS_COMPLETED = "completed"
@@ -84,9 +85,11 @@ def _ensureInitialized() -> None:
                 "sg_mean REAL, "
                 "suggested_sgthrs INTEGER, "
                 "notes TEXT, "
-                "error TEXT"
+                "error TEXT, "
+                "chute_stress_run_id TEXT"
                 ")"
             )
+            _ensureColumn(conn, "stepper_telemetry_runs", "chute_stress_run_id", "TEXT")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_time "
                 "ON stepper_telemetry_runs(started_at)"
@@ -94,6 +97,10 @@ def _ensureInitialized() -> None:
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_stepper "
                 "ON stepper_telemetry_runs(stepper_name, started_at)"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_runs_chute_stress "
+                "ON stepper_telemetry_runs(chute_stress_run_id)"
             )
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS stepper_telemetry_samples ("
@@ -111,12 +118,16 @@ def _ensureInitialized() -> None:
                 "microsteps INTEGER, "
                 "stealthchop INTEGER, "
                 "loaded INTEGER, "
-                "acceleration INTEGER"
+                "acceleration INTEGER, "
+                "pwm_scale INTEGER, "
+                "ioin INTEGER"
                 ")"
             )
             # Migration: add columns introduced after the table first shipped, so
             # DBs created by earlier versions gain them without a manual rebuild.
             _ensureColumn(conn, "stepper_telemetry_samples", "acceleration", "INTEGER")
+            _ensureColumn(conn, "stepper_telemetry_samples", "pwm_scale", "INTEGER")
+            _ensureColumn(conn, "stepper_telemetry_samples", "ioin", "INTEGER")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_stepper_telemetry_samples_run "
                 "ON stepper_telemetry_samples(run_id, recorded_at)"
@@ -140,14 +151,15 @@ def createRun(
     machine_id: Optional[str] = None,
     sorting_session_id: Optional[str] = None,
     notes: Optional[str] = None,
+    chute_stress_run_id: Optional[str] = None,
 ) -> str:
     run_id = uuid.uuid4().hex
     with _connection() as conn:
         conn.execute(
             "INSERT INTO stepper_telemetry_runs "
             "(id, started_at, source, stepper_name, label, status, params_json, "
-            "machine_id, sorting_session_id, notes) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "machine_id, sorting_session_id, notes, chute_stress_run_id) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 run_id,
                 time.time(),
@@ -159,6 +171,7 @@ def createRun(
                 machine_id,
                 sorting_session_id,
                 notes,
+                chute_stress_run_id,
             ),
         )
         conn.commit()
@@ -182,6 +195,8 @@ def insertSamples(run_id: str, samples: Iterable[dict[str, Any]]) -> int:
             1 if s.get("stealthchop") else 0 if s.get("stealthchop") is not None else None,
             1 if s.get("loaded") else 0 if s.get("loaded") is not None else None,
             s.get("acceleration"),
+            s.get("pwm_scale"),
+            s.get("ioin"),
         )
         for s in samples
     ]
@@ -191,8 +206,8 @@ def insertSamples(run_id: str, samples: Iterable[dict[str, Any]]) -> int:
         conn.executemany(
             "INSERT INTO stepper_telemetry_samples "
             "(run_id, recorded_at, stepper_name, channel, sg_result, cs_actual, "
-            "tstep, drv_status_raw, commanded_speed, irun, microsteps, stealthchop, loaded, acceleration) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "tstep, drv_status_raw, commanded_speed, irun, microsteps, stealthchop, loaded, acceleration, pwm_scale, ioin) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rows,
         )
         conn.commit()
@@ -275,6 +290,16 @@ def getRun(run_id: str) -> Optional[dict[str, Any]]:
     with _connection() as conn:
         row = conn.execute(
             "SELECT * FROM stepper_telemetry_runs WHERE id = ?", (run_id,)
+        ).fetchone()
+    return _runRowToDict(row) if row else None
+
+
+def getRunByChuteStressRunId(chute_stress_run_id: str) -> Optional[dict[str, Any]]:
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT * FROM stepper_telemetry_runs WHERE chute_stress_run_id = ? "
+            "ORDER BY started_at DESC LIMIT 1",
+            (chute_stress_run_id,),
         ).fetchone()
     return _runRowToDict(row) if row else None
 

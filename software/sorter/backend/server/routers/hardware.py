@@ -1928,9 +1928,15 @@ def cancel_chute_find_endstop() -> Dict[str, Any]:
 
 
 def _live_chute() -> Any:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
-    chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    # Mirror the chute home endpoint (find-endstop): resolve off the active
+    # runtime IRL, not a fully-published SorterController. This lets the chute
+    # be aimed after a no-homing /api/system/initialize (steppers up, nothing
+    # homed) — homing the chute alone is enough to use it, no cameras or full
+    # recover required.
+    irl = _active_irl()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Initialize or home the system first.")
+    chute = getattr(irl, "chute", None)
     if chute is None:
         raise HTTPException(status_code=503, detail="Chute subsystem not available.")
     return chute
@@ -2193,6 +2199,8 @@ def derive_chute_aiming_config(payload: ChuteAimingDerivePayload) -> Dict[str, A
 def move_chute_to_angle(payload: ChuteMoveToAnglePayload) -> Dict[str, Any]:
     _ensure_not_homing("move the chute")
     chute = _live_chute()
+    if not getattr(chute, "homed", False):
+        raise HTTPException(status_code=409, detail="Home the chute first.")
     angle = float(payload.angle)
     if angle < 0 or angle > 360:
         raise HTTPException(status_code=400, detail="angle must be between 0 and 360°.")
@@ -2214,6 +2222,8 @@ def move_chute_to_virtual_bin(payload: ChuteVirtualBinPayload) -> Dict[str, Any]
     # not-necessarily-installed layout using the canonical aiming formula.
     _ensure_not_homing("move the chute")
     chute = _live_chute()
+    if not getattr(chute, "homed", False):
+        raise HTTPException(status_code=409, detail="Home the chute first.")
     if payload.num_sections < 1 or payload.bins_in_section < 1:
         raise HTTPException(status_code=400, detail="num_sections and bins_in_section must be >= 1.")
     if payload.section_index < 0 or payload.section_index >= payload.num_sections:

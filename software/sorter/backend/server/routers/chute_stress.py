@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
+import stepper_telemetry
 from local_state import getChuteStressRun, listChuteStressRuns
 from server import shared_state
 from subsystems.distribution.chute_stress import (
@@ -161,3 +162,16 @@ def getStressTestRun(run_id: str) -> dict[str, Any]:
     if run is None:
         raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
     return run
+
+
+@router.get("/api/chute/stress-test/runs/{run_id}/telemetry")
+def getStressTestTelemetry(run_id: str, max_points: int = 5000) -> dict[str, Any]:
+    telemetry_run = stepper_telemetry.getRunByChuteStressRunId(run_id)
+    if telemetry_run is None:
+        raise HTTPException(
+            status_code=404, detail=f"No telemetry recorded for run '{run_id}'"
+        )
+    samples = stepper_telemetry.getRunSamples(
+        telemetry_run["id"], max_points=max(100, min(max_points, 20000))
+    )
+    return {"run": telemetry_run, "samples": samples}

@@ -1,8 +1,9 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
-	import type { KnownObjectData } from '$lib/api/events';
+	import type { KnownObjectData, RecognitionImage } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 
 	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
@@ -10,6 +11,16 @@
 	const MAX_DELIVERED_PIECES = 8;
 	const RECENT_TERMINAL_DEDUPE_WINDOW_S = 15;
 	const C4_DROP_ANGLE_DEG = 30;
+	// A piece that landed on C4 emits a KnownObject (with a crop) the instant it
+	// is photographed, but only gets a terminal classification_status once it
+	// reaches distribution. If its cycle is torn down first — machine stop,
+	// backend restart, or the state machine reset mid-capture — the object
+	// freezes in the 'capturing'/'tracking' phase and never receives another
+	// event, so it would otherwise sit in this list forever. C4 processes one
+	// piece at a time: the live piece updates every frame and flips to
+	// 'classified' within seconds, so any OLDER pre-classification piece that
+	// has had no event for this long has been abandoned and is dropped.
+	const STALE_CAPTURING_S = 15;
 
 	const ctx = getMachineContext();
 	sortingProfileStore.load();
@@ -148,7 +159,18 @@
 		return lastEventTs(b) - lastEventTs(a);
 	}
 
+	// Tick loop so relative timestamps refresh and stale pieces drop without new
+	// events.
+	let now_tick = $state(0);
+	$effect(() => {
+		const id = setInterval(() => (now_tick += 1), 1000);
+		return () => clearInterval(id);
+	});
+
 	const activeOnC4 = $derived.by(() => {
+		// Re-evaluate on the 1s tick so abandoned (frozen) pieces drop out of the
+		// list even when no new events are arriving.
+		void now_tick;
 		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
 		// If a terminal event and a stale active split briefly coexist, keep
 		// the terminal row and suppress the old active identity.
@@ -166,7 +188,19 @@
 			.filter((o) => !recent_terminal_keys.has(physicalPieceKey(o)))
 			.sort((a, b) => lastEventTs(b) - lastEventTs(a));
 
-		return dedupeByPhysicalPiece(freshest_first).sort(sortActiveC4Pieces);
+		// Drop orphaned pre-classification pieces (see STALE_CAPTURING_S). The
+		// freshest active piece is always kept — that's the one currently on the
+		// channel, which may legitimately sit pre-classification for a few
+		// seconds while Brickognize runs.
+		const deduped = dedupeByPhysicalPiece(freshest_first);
+		const live = deduped.filter((o, i) => {
+			if (i === 0) return true;
+			const phase = lifecyclePhase(o);
+			if (phase !== 'capturing' && phase !== 'tracking') return true;
+			return now_s - lastEventTs(o) <= STALE_CAPTURING_S;
+		});
+
+		return live.sort(sortActiveC4Pieces);
 	});
 
 	const deliveredHistory = $derived.by(() => {
@@ -181,6 +215,164 @@
 
 	function dataImageUrl(payload: string | null | undefined): string | null {
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
+	}
+
+	// --- Recognition-view cycling -----------------------------------------
+	// The live `recentObjects` ring carries only `latest_captured_crop` — the
+	// full `recognition_image_set` (every C4 burst frame + the upstream C2/C3
+	// matches) is slimmed off the socket and only served by the per-piece detail
+	// endpoint. While a piece is still being recognized we poll that endpoint and
+	// flash through every view it has so far, so the operator sees the burst
+	// frames (and, once classification runs, the fused-in upstream matches)
+	// animate in place instead of a single frozen crop. When the result lands we
+	// keep flashing for one full pass — long enough to pick up the upstream crops
+	// that only appear at classification — before settling on the reference/stock
+	// photo. The classification TEXT updates independently and immediately off the
+	// socket; only the image well waits for the pass to finish.
+	const CYCLE_MS = 300;
+	const FETCH_MS = 600;
+	const MIN_FINISH_MS = 1200; // keep flashing at least this long after the result
+	const MAX_FINISH_MS = 12000; // safety cap so a card can never flash forever
+	const NO_IMG_GRACE_MS = 1500; // give up waiting for views if none ever load
+
+	type CycleAnim = {
+		raw: number;
+		classified_raw: number | null;
+		classified_ms: number;
+		settled: boolean;
+	};
+
+	function effectiveBase(): string {
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
+	}
+
+	function isResultKnown(obj: KnownObjectData): boolean {
+		return (
+			obj.classification_status === 'classified' ||
+			obj.classification_status === 'unknown' ||
+			obj.classification_status === 'not_found' ||
+			obj.classification_status === 'multi_drop_fail' ||
+			Boolean(obj.classified_at)
+		);
+	}
+
+	type CycleImage = { src: string; label: string };
+
+	// Channel badge for a recognition view: C4 for a burst capture, C2/C3 for an
+	// upstream match. Falls back to "C2/3" for upstream crops from older records
+	// that predate the channel being recorded.
+	function channelLabel(r: RecognitionImage): string {
+		const ch = r.channel;
+		if (ch === 2 || ch === 3 || ch === 4) return `C${ch}`;
+		return r.source === 'upstream' ? 'C2/3' : 'C4';
+	}
+
+	let cycleTick = $state(0);
+	let hoverUuid = $state<string | null>(null);
+	let imagesByUuid = $state<Record<string, CycleImage[]>>({});
+	let anim = $state<Record<string, CycleAnim>>({});
+	const lastFetchMs: Record<string, number> = {};
+	const fetchingUuids = new Set<string>();
+
+	async function fetchImages(uuid: string): Promise<void> {
+		if (fetchingUuids.has(uuid)) return;
+		fetchingUuids.add(uuid);
+		lastFetchMs[uuid] = Date.now();
+		try {
+			const res = await fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(uuid)}`);
+			if (!res.ok) return;
+			const data = (await res.json()) as KnownObjectData;
+			const imgs = (data.recognition_image_set ?? [])
+				.map((r) => {
+					const src = dataImageUrl(r.image);
+					return src ? { src, label: channelLabel(r) } : null;
+				})
+				.filter((v): v is CycleImage => v !== null);
+			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
+		} catch {
+			// Silent — the card just keeps showing the captured crop.
+		} finally {
+			fetchingUuids.delete(uuid);
+		}
+	}
+
+	function startHover(uuid: string): void {
+		hoverUuid = uuid;
+		void fetchImages(uuid);
+	}
+	function endHover(): void {
+		hoverUuid = null;
+	}
+
+	function cycleStep(now_ms: number): void {
+		for (const obj of activeOnC4) {
+			const uuid = obj.uuid;
+			const result_known = isResultKnown(obj);
+			let e = anim[uuid];
+			if (!e) {
+				// A piece first seen already classified never flashed for us — show
+				// its stock photo straight away rather than animating after the fact.
+				anim[uuid] = {
+					raw: 0,
+					classified_raw: null,
+					classified_ms: 0,
+					settled: result_known
+				};
+				e = anim[uuid];
+			}
+			if (e.settled) continue;
+			const imgs = imagesByUuid[uuid] ?? [];
+			if (now_ms - (lastFetchMs[uuid] ?? 0) > FETCH_MS && !fetchingUuids.has(uuid)) {
+				void fetchImages(uuid);
+			}
+			if (result_known && e.classified_raw === null) {
+				e.classified_raw = e.raw;
+				e.classified_ms = now_ms;
+			}
+			e.raw += 1;
+			if (result_known && e.classified_raw !== null) {
+				const pass_done = imgs.length > 0 && e.raw - e.classified_raw >= imgs.length;
+				const min_elapsed = now_ms - e.classified_ms >= MIN_FINISH_MS;
+				const max_elapsed = now_ms - e.classified_ms >= MAX_FINISH_MS;
+				const no_imgs = imgs.length === 0 && now_ms - e.classified_ms >= NO_IMG_GRACE_MS;
+				if ((pass_done && min_elapsed) || max_elapsed || no_imgs) e.settled = true;
+			}
+		}
+		// Prune state for pieces that have aged out of the live ring.
+		const ring = new Set((ctx.machine?.recentObjects ?? []).map((o) => o.uuid));
+		for (const k of Object.keys(anim)) if (!ring.has(k)) delete anim[k];
+		for (const k of Object.keys(imagesByUuid)) if (!ring.has(k)) delete imagesByUuid[k];
+		for (const k of Object.keys(lastFetchMs)) if (!ring.has(k)) delete lastFetchMs[k];
+	}
+
+	$effect(() => {
+		const id = setInterval(() => {
+			cycleTick += 1;
+			cycleStep(Date.now());
+		}, CYCLE_MS);
+		return () => clearInterval(id);
+	});
+
+	// What the image well shows: a flashing recognition view while the piece is
+	// being recognized (and during the post-result finish pass), the hover scrub
+	// when the operator points at it, otherwise the base/stock photo.
+	function viewFor(
+		obj: KnownObjectData,
+		phase: LifecyclePhase,
+		base_src: string | null
+	): { src: string | null; cycling: boolean; label: string | null } {
+		const imgs = imagesByUuid[obj.uuid] ?? [];
+		if (hoverUuid === obj.uuid && imgs.length > 0) {
+			const img = imgs[cycleTick % imgs.length];
+			return { src: img.src, cycling: true, label: img.label };
+		}
+		if (phase === 'distributed') return { src: base_src, cycling: false, label: null };
+		const e = anim[obj.uuid];
+		if (e && !e.settled && imgs.length > 0) {
+			const img = imgs[e.raw % imgs.length];
+			return { src: img.src, cycling: true, label: img.label };
+		}
+		return { src: base_src, cycling: false, label: null };
 	}
 
 	function capturedCropUrl(obj: KnownObjectData, phase: LifecyclePhase): string | null {
@@ -256,15 +448,6 @@
 		return null;
 	}
 
-	// Tick loop so relative timestamps refresh without new events.
-	let now_tick = $state(0);
-	$effect(() => {
-		const id = setInterval(() => (now_tick += 1), 1000);
-		return () => clearInterval(id);
-	});
-	$effect(() => {
-		void now_tick;
-	});
 </script>
 
 {#snippet pieceCard(obj: KnownObjectData)}
@@ -312,33 +495,55 @@
 			? 'text-text-muted'
 			: 'text-text'}
 
+	{@const base_src = is_classified_ok ? reference_src : captured}
+	<!-- Flash through every recognition view (burst frames + upstream matches)
+	     while the piece is being recognized and during the finish pass; hover
+	     scrubs the same views. -->
+	{@const view = viewFor(obj, phase, base_src)}
+	{@const cycle_src = view.src}
+	{@const show_cycle = view.cycling && cycle_src != null && cycle_src !== base_src}
+
 	<a
 		href={`/tracked/${obj.uuid}`}
 		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+		onmouseenter={() => startHover(obj.uuid)}
+		onmouseleave={endHover}
 	>
 		<div class="flex items-start gap-3 p-2">
-			<!-- Primary image well (hover-swap only on classified+recognized) -->
-			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white group">
-				{#if is_classified_ok && captured}
-					<!-- Brickognize reference is primary; captured crop on hover -->
-					<img
-						src={reference_src}
-						alt="reference"
-						class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 group-hover:opacity-0"
-					/>
-					<img
-						src={captured}
-						alt="captured"
-						class="absolute inset-0 h-full w-full object-contain opacity-0 transition-opacity duration-150 group-hover:opacity-100"
-					/>
-				{:else if is_classified_ok && !captured}
-					<img src={reference_src} alt="reference" class="h-full w-full object-contain" />
-				{:else if captured}
-					<img src={captured} alt="captured" class="h-full w-full object-contain" />
+			<!-- Primary image well — flashes through every recognition view while
+			     the piece is being recognized; hover scrubs the same views. -->
+			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white">
+				{#if base_src || cycle_src}
+					{#if base_src}
+						<img
+							src={base_src}
+							alt="piece"
+							class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_cycle
+								? 'opacity-0'
+								: 'opacity-100'}"
+						/>
+					{/if}
+					{#if cycle_src}
+						<img
+							src={cycle_src}
+							alt="recognition view"
+							class="absolute inset-0 h-full w-full object-contain transition-opacity duration-150 {show_cycle
+								? 'opacity-100'
+								: 'opacity-0'}"
+						/>
+					{/if}
 				{:else}
 					<div class="flex h-full w-full items-center justify-center">
 						<Spinner />
 					</div>
+				{/if}
+				{#if show_cycle && view.label}
+					<span
+						class="absolute bottom-0.5 left-0.5 bg-text/80 px-1 py-0.5 text-xs font-semibold leading-none text-bg"
+						title="Channel this view came from"
+					>
+						{view.label}
+					</span>
 				{/if}
 				{#if phase === 'capturing' || phase === 'tracking'}
 					<div class="absolute -right-1 -top-1">

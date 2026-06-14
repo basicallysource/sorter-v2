@@ -66,12 +66,50 @@ class IdentityEvent(BaseModel):
     data: MachineIdentityData
 
 
+class RecognitionImage(BaseModel):
+    image: str
+    source: str
+    used: bool = False
+    ts: Optional[float] = None
+    score: Optional[float] = None
+    # True when this image was submitted in a parallel classification request
+    # that lost (a different request scored higher) and was thrown out (distinct
+    # from used=False, which means "never sent").
+    excluded_from_result: bool = False
+    # Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match
+    # crop. None when unknown (older records).
+    channel: Optional[int] = None
+    # Wall-clock capture time (epoch seconds). The UI ages each pic against the
+    # owning KnownObject.created_at. None for older records.
+    created_at: Optional[float] = None
+
+
+class ClassificationAttemptStrategy(str, Enum):
+    combined = "combined"
+    single_burst = "single_burst"
+    single_upstream = "single_upstream"
+
+
+class ClassificationAttempt(BaseModel):
+    strategy: ClassificationAttemptStrategy
+    n_burst: int
+    n_upstream: int
+    found: bool
+    label: Optional[str] = None
+    applied: bool = False
+    part_id: Optional[str] = None
+    confidence: Optional[float] = None
+    error: Optional[str] = None
+    duration_s: Optional[float] = None
+
+
 class KnownObjectData(BaseModel):
     uuid: str
     created_at: float
     updated_at: float
     stage: PieceStage
     classification_status: ClassificationStatus
+    aborted: bool = False
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None
@@ -98,7 +136,15 @@ class KnownObjectData(BaseModel):
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
-    recognition_images: List[str] = Field(default_factory=list)
+    # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
+    # whether it was actually submitted to Brickognize.
+    recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)
+    # Per-request Brickognize record; the requests fan out in parallel (combined +
+    # single-image calls), not as retries. The applied one is flagged.
+    # ``classification_strategy`` is which request won (``combined`` = the fused
+    # set; ``single_burst`` / ``single_upstream`` = a lone image beat it).
+    classification_attempts: List["ClassificationAttempt"] = Field(default_factory=list)
+    classification_strategy: Optional[ClassificationAttemptStrategy] = None
     # Captured timestamps of crops shipped to Brickognize for this piece.
     recognition_used_crop_ts: List[float] = Field(default_factory=list)
     feeding_started_at: Optional[float] = None

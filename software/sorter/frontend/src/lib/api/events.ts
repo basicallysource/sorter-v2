@@ -6,6 +6,32 @@
 */
 
 export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
+
+export interface RecognitionImage {
+  image: string;
+  source: "c4_burst" | "upstream";
+  used: boolean;
+  ts?: number | null;
+  score?: number | null;
+  excluded_from_result?: boolean;
+  // Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match.
+  channel?: number | null;
+  // Wall-clock capture time (epoch seconds); aged against KnownObject.created_at.
+  created_at?: number | null;
+}
+export type ClassificationAttemptStrategy = "combined" | "single_burst" | "single_upstream";
+export interface ClassificationAttempt {
+  strategy: ClassificationAttemptStrategy;
+  n_burst: number;
+  n_upstream: number;
+  found: boolean;
+  label?: string | null;
+  applied?: boolean;
+  part_id?: string | null;
+  confidence?: number | null;
+  error?: string | null;
+  duration_s?: number | null;
+}
 export type PieceStage = "created" | "distributing" | "distributed";
 export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
 
@@ -47,6 +73,10 @@ export interface KnownObjectData {
   updated_at: number;
   stage: PieceStage;
   classification_status: ClassificationStatus;
+  // Set by the backend when a piece's cycle was torn down before it ever
+  // classified or distributed (machine stop / reset mid-capture). Such pieces
+  // are dropped from the UI rather than left stuck in the "capturing" phase.
+  aborted?: boolean;
   part_id?: string | null;
   part_name?: string | null;
   part_category?: string | null;
@@ -73,7 +103,9 @@ export interface KnownObjectData {
   drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
-  recognition_images?: string[];
+  recognition_image_set?: RecognitionImage[];
+  classification_attempts?: ClassificationAttempt[];
+  classification_strategy?: ClassificationAttemptStrategy | null;
   recognition_used_crop_ts?: number[];
   feeding_started_at?: number | null;
   carousel_detected_confirmed_at?: number | null;

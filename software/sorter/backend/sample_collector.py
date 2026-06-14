@@ -124,12 +124,27 @@ class SampleCollector:
                 "last_error": self._last_error,
             }
 
+    def _isSorting(self) -> bool:
+        # Only collect while the machine is actively sorting (RUNNING). Paused,
+        # ready, or standby means pieces aren't flowing, so capturing would just
+        # save endless duplicate frames of an empty channel around the clock.
+        try:
+            from server import shared_state
+            from defs.sorter_controller import SorterLifecycle
+
+            controller = shared_state.controller_ref
+            if controller is None:
+                return False
+            return controller.state == SorterLifecycle.RUNNING
+        except Exception:
+            return False
+
     def _loop(self) -> None:
         while not self._stop.is_set():
             with self._lock:
                 enabled = self._enabled
                 interval = self._interval_s
-            if not enabled:
+            if not enabled or not self._isSorting():
                 self._wake.wait(timeout=_IDLE_POLL_S)
                 self._wake.clear()
                 continue

@@ -17,6 +17,7 @@
 		Home,
 		Pause,
 		Play,
+		Power,
 		RefreshCw,
 		RotateCcw,
 		X
@@ -117,6 +118,18 @@
 			const response = await fetch(`${baseUrl}/api/system/recover`, { method: 'POST' });
 			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
 			applySystemActionResponse(payload, 'homing', 'Starting safe recovery...');
+			keepSystemStatusFresh(baseUrl);
+		} catch {
+			keepSystemStatusFresh(baseUrl);
+		}
+	}
+
+	async function initializeSystem() {
+		const baseUrl = currentBackendBaseUrl();
+		try {
+			const response = await fetch(`${baseUrl}/api/system/initialize`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			applySystemActionResponse(payload, 'initializing', 'Initializing hardware...');
 			keepSystemStatusFresh(baseUrl);
 		} catch {
 			keepSystemStatusFresh(baseUrl);
@@ -454,6 +467,19 @@
 									Re-Home
 								{/if}
 							</button>
+							{#if hardwareState === 'standby' || hardwareState === 'error'}
+								<button
+									onclick={() => {
+										initializeSystem();
+										powerMenuOpen = false;
+									}}
+									class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"
+									title="Power on the steppers without homing. Home individual subsystems (e.g. the chute) on demand afterward."
+								>
+									<Power size={14} class="text-text-muted" />
+									Initialize (no homing)
+								</button>
+							{/if}
 							<button
 								onclick={requestRestartBackend}
 								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-text transition-colors hover:bg-bg"

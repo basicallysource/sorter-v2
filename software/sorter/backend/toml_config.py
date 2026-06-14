@@ -241,6 +241,36 @@ def setPulsePerceptionConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Upstream-match tuning config
+# ---------------------------------------------------------------------------
+
+
+def getUpstreamMatchConfig() -> dict[str, Any]:
+    from perception.upstream_capture import UpstreamMatchConfig, configToDict
+    config = _read_toml()
+    section = config.get("upstream_match")
+    defaults = configToDict(UpstreamMatchConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setUpstreamMatchConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from perception.upstream_capture import UpstreamMatchConfig, configToDict
+    defaults = configToDict(UpstreamMatchConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("upstream_match")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["upstream_match"] = base
+
+    _update_toml(updater)
+    return getUpstreamMatchConfig()
+
+
+# ---------------------------------------------------------------------------
 # Detection configs
 # ---------------------------------------------------------------------------
 
@@ -471,8 +501,8 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "description": "A piece on the classification channel could not be discharged. Remove it, then resolve to resume.",
         "off_label": "Do not raise C4 stuck incidents",
         "manual_label": "Operator removes the stuck piece",
-        "automatic_label": "Automatic C4 stuck handling",
-        "automatic_supported": False,
+        "automatic_label": "Advance the channel forward until the piece is gone",
+        "automatic_supported": True,
     },
 )
 

@@ -143,7 +143,7 @@ def _classifyImages(
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(rgb_image)
         img_bytes = io.BytesIO()
-        img.save(img_bytes, format="JPEG")
+        img.save(img_bytes, format="JPEG", quality=95, subsampling=0)
         payload_bytes = img_bytes.getvalue()
         if dump_dir is not None:
             label = dump_label or "img"

@@ -4,6 +4,9 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
+	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
+	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
+	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData } from '$lib/api/events';
@@ -130,7 +133,15 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number };
+	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null; channel?: number | null };
+
+	// Channel the image came from, for the corner badge: C4 burst capture, or
+	// C2/C3 upstream match. Falls back to "C2/3" for older upstream records that
+	// predate the channel being recorded.
+	function channelLabel(channel: number | null | undefined, role: string): string {
+		if (channel === 2 || channel === 3 || channel === 4) return `C${channel}`;
+		return role === 'upstream_match' ? 'C2/3' : 'C4';
+	}
 
 	// --- Tracker-backed crop fetch ----------------------------------------
 	// The "Captured Crops" gallery used to surface just top/bottom/thumbnail.
@@ -288,20 +299,42 @@
 				}
 			}
 
-			const recog = _fetchedPiece?.recognition_images ?? [];
+			// C4 burst captures + upstream (C2/C3) match crops, each already
+			// flagged by the backend with whether it was shipped to Brickognize.
+			// Upstream entries also carry the cosine similarity to the classified
+			// C4 frame they were matched against.
+			const recogSet = _fetchedPiece?.recognition_image_set ?? [];
+			const burstTotal = recogSet.filter((r) => r.source === 'c4_burst').length;
+			const upstreamTotal = recogSet.filter((r) => r.source === 'upstream').length;
 			let recogSeq = 0;
-			for (const recognition_image of recog) {
-				const src = dataImageUrl(recognition_image);
+			let upstreamSeq = 0;
+			for (const entry of recogSet) {
+				const src = dataImageUrl(entry.image);
 				if (!src) continue;
-				recogSeq += 1;
-				entries.push({
-					src,
-					role: 'recognition_capture',
-					ts: null,
-					used: false,
-					seq: recogSeq,
-					total: recog.length
-				});
+				if (entry.source === 'upstream') {
+					upstreamSeq += 1;
+					entries.push({
+						src,
+						role: 'upstream_match',
+						ts: entry.ts ?? null,
+						used: entry.used,
+						seq: upstreamSeq,
+						total: upstreamTotal,
+						score: entry.score,
+						channel: entry.channel ?? null
+					});
+				} else {
+					recogSeq += 1;
+					entries.push({
+						src,
+						role: 'recognition_capture',
+						ts: entry.ts ?? null,
+						used: entry.used,
+						seq: recogSeq,
+						total: burstTotal,
+						channel: entry.channel ?? 4
+					});
+				}
 			}
 
 			// Keep the classification chamber top/bottom snapshots as a fallback;
@@ -345,7 +378,17 @@
 
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
-	const usedCropCount = $derived(crops.reduce((n, c) => n + (c.used ? 1 : 0), 0));
+	// Latest C4 burst capture time — when the classification chamber snapped its
+	// pics. Used to report how old each upstream match was relative to it.
+	const c4SnapTs = $derived.by<number | null>(() => {
+		let ref: number | null = null;
+		for (const c of crops) {
+			if (c.role === 'recognition_capture' && typeof c.ts === 'number') {
+				ref = ref === null ? c.ts : Math.max(ref, c.ts);
+			}
+		}
+		return ref;
+	});
 
 	// --- Drop-zone burst --------------------------------------------------
 	// Pre+post-event frames from C3 + carousel captured when the piece fell
@@ -422,6 +465,7 @@
 
 	function formatRole(role: string): string {
 		if (role === 'recognition_capture') return 'Recognition Capture';
+		if (role === 'upstream_match') return 'Upstream Match (C2/C3)';
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
@@ -434,7 +478,38 @@
 		if (crop.role === 'recognition_capture' && crop.seq && crop.total) {
 			return `Burst ${crop.seq}/${crop.total}`;
 		}
+		if (crop.role === 'upstream_match' && crop.seq && crop.total) {
+			const sim = formatSimilarity(crop.score);
+			return sim ? `Upstream ${crop.seq}/${crop.total} · ${sim}` : `Upstream ${crop.seq}/${crop.total}`;
+		}
 		return formatRole(crop.role);
+	}
+
+	// Cosine similarity (0-1) of an upstream match to the classified C4 frame it
+	// was matched against, shown as a percent on the crop card.
+	function formatSimilarity(score: number | null | undefined): string {
+		if (score == null || !Number.isFinite(score)) return '';
+		return `${Math.round(score * 100)}% match`;
+	}
+
+	function cropInfoRows(crop: CropEntry): { label: string; value: string }[] {
+		const rows: { label: string; value: string }[] = [
+			{ label: 'Type', value: formatRole(crop.role) },
+			{ label: 'Shipped', value: crop.used ? 'Yes' : 'No' }
+		];
+		if (crop.score != null && Number.isFinite(crop.score)) {
+			rows.push({ label: 'Similarity', value: `${Math.round(crop.score * 100)}%` });
+		}
+		// For upstream crops, how long before the C4 chamber snap this view was
+		// captured — i.e. how stale the upstream match is relative to the frame
+		// that was actually classified.
+		if (crop.role === 'upstream_match' && crop.ts != null && c4SnapTs !== null) {
+			rows.push({ label: 'Age before C4', value: `${(c4SnapTs - crop.ts).toFixed(1)}s` });
+		}
+		if (crop.ts != null) {
+			rows.push({ label: 'Captured', value: formatAbsTs(crop.ts) });
+		}
+		return rows;
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
@@ -538,16 +613,26 @@
 					{/if}
 				{/if}
 			</div>
-			{#if piece?.tracked_global_id != null}
+			<div class="flex flex-wrap items-center gap-3">
 				<a
-					href={`/tracked/${piece.tracked_global_id}`}
+					href={`/settings/tuning/upstream-match?uuid=${uuid}`}
 					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
-					title="Open tracker-level record (all angular crops)"
+					title="Find crops of this piece from the upstream channels (C2/C3)"
 				>
 					<ExternalLink size={14} />
-					Track #{piece.tracked_global_id}
+					Upstream match
 				</a>
-			{/if}
+				{#if piece?.tracked_global_id != null}
+					<a
+						href={`/tracked/${piece.tracked_global_id}`}
+						class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
+						title="Open tracker-level record (all angular crops)"
+					>
+						<ExternalLink size={14} />
+						Track #{piece.tracked_global_id}
+					</a>
+				{/if}
+			</div>
 		</header>
 
 		{#if !piece}
@@ -699,12 +784,6 @@
 						Captured crops
 						<span class="ml-2 text-text-muted">{crops.length}</span>
 					</div>
-					{#if usedCropCount > 0}
-						<div class="flex items-center gap-2 text-text-muted">
-							<span class="inline-block h-3 w-3 border-2 border-primary"></span>
-							<span>{usedCropCount} shipped to Brickognize</span>
-						</div>
-					{/if}
 				</div>
 				<div class="p-3">
 					{#if crops.length === 0}
@@ -722,6 +801,33 @@
 								>
 									<div class="relative aspect-square w-full bg-white">
 										<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
+										{#if crop.used}
+											<span
+												class="absolute left-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
+												title="Shipped to Brickognize for classification"
+											>
+												Used
+											</span>
+										{/if}
+										{#if crop.role === 'upstream_match' && formatSimilarity(crop.score)}
+											<span
+												class="absolute right-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums"
+												title="Cosine similarity to the classified C4 capture"
+											>
+												{formatSimilarity(crop.score)}
+											</span>
+										{/if}
+										<span
+											class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
+											title="Channel this image came from"
+										>
+											{channelLabel(crop.channel, crop.role)}
+										</span>
+										<ImageInfoBadge
+											class="absolute bottom-1 right-1 z-10"
+											src={crop.src}
+											rows={cropInfoRows(crop)}
+										/>
 									</div>
 									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
 										<span>{formatCropLabel(crop)}</span>
@@ -729,28 +835,23 @@
 									</div>
 								</button>
 							{/each}
-							{#if piece.brickognize_preview_url || bricklink?.thumbnail_url}
-								{@const ref_src = bricklink?.thumbnail_url
-									? `https:${bricklink.thumbnail_url}`
-									: (piece.brickognize_preview_url as string)}
-								<button
-									type="button"
-									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-									onclick={() => (zoomImage = { src: ref_src, label: 'Brickognize reference' })}
-								>
-									<div class="relative aspect-square w-full bg-white">
-										<img src={ref_src} alt="reference" class="h-full w-full object-contain" loading="lazy" />
-									</div>
-									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-										<span>Brickognize ref.</span>
-										<span class="tabular-nums">{piece.part_id ?? ''}</span>
-									</div>
-								</button>
-							{/if}
 						</div>
 					{/if}
 				</div>
 			</section>
+
+			<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
+			{#if crops.length > 0}
+				<ReclassifyPanel
+					endpointBase={effectiveBase()}
+					images={crops.map((c) => ({
+						image: c.src,
+						label: formatCropLabel(c),
+						used: c.used,
+						score: c.score
+					}))}
+				/>
+			{/if}
 
 			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
 			{#if burstFrames.length > 0}
@@ -891,6 +992,16 @@
 					</div>
 				</section>
 			{/if}
+
+			<!-- Upstream match (C2/C3) -->
+			<section class="flex flex-col border border-border bg-surface">
+				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+					Upstream match (C2/C3)
+				</div>
+				<div class="p-3">
+					<UpstreamMatchSearch initialUuid={uuid} autoShowAll />
+				</div>
+			</section>
 
 			<!-- Raw JSON toggle -->
 			<section class="border border-border bg-surface">

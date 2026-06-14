@@ -573,6 +573,60 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
         raise HTTPException(status_code=404, detail="not found")
 
 
+class ClassifyRetryRequest(BaseModel):
+    # base64 JPEGs (with or without a data: URI prefix). Order is preserved.
+    images: List[str]
+
+
+# Scratch / ephemeral re-classification. Runs a hand-picked subset of a piece's
+# crops back through Brickognize for testing — it records NOTHING (no piece
+# record, no run recorder, no dump), takes no piece_uuid, and has no effect on
+# sorting. Purely for eyeballing how different image subsets classify.
+@app.post("/api/classify/retry")
+def classify_retry(req: ClassifyRetryRequest) -> Dict[str, Any]:
+    import base64 as _b64
+    import numpy as _np
+    import cv2 as _cv2
+    from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
+
+    decoded: List[Any] = []
+    for raw in req.images:
+        if not isinstance(raw, str) or not raw:
+            continue
+        b64 = raw.split(",", 1)[1] if raw.startswith("data:") else raw
+        try:
+            buf = _np.frombuffer(_b64.b64decode(b64), dtype=_np.uint8)
+            img = _cv2.imdecode(buf, _cv2.IMREAD_COLOR)
+        except Exception:
+            img = None
+        if img is not None and img.size > 0:
+            decoded.append(img)
+
+    if not decoded:
+        raise HTTPException(status_code=400, detail="no decodable images")
+    if len(decoded) > MAX_QUERY_IMAGES:
+        decoded = decoded[:MAX_QUERY_IMAGES]
+
+    gc = shared_state.gc_ref
+    try:
+        # piece_uuid=None → no dump-to-disk; this call is intentionally untracked.
+        result = _classifyImages(gc, decoded, piece_uuid=None)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"brickognize failed: {exc}")
+
+    items = result.get("items", []) if isinstance(result, dict) else []
+    colors = result.get("colors", []) if isinstance(result, dict) else []
+    best_item = max(items, key=lambda i: i.get("score", 0)) if items else None
+    best_color = max(colors, key=lambda c: c.get("score", 0)) if colors else None
+    return {
+        "n_images": len(decoded),
+        "items": items,
+        "colors": colors,
+        "best_item": best_item,
+        "best_color": best_color,
+    }
+
+
 # ---------------------------------------------------------------------------
 # WebSocket
 # ---------------------------------------------------------------------------

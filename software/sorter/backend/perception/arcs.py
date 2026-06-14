@@ -27,6 +27,47 @@ def bboxCenter(bbox: Bbox) -> tuple[float, float]:
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
+def bboxArea(bbox: Bbox) -> int:
+    x1, y1, x2, y2 = bbox
+    w = x2 - x1
+    h = y2 - y1
+    if w <= 0 or h <= 0:
+        return 0
+    return w * h
+
+
+def bboxWithinAreaFraction(bbox: Bbox, mask_area_px: float, max_fraction: float) -> bool:
+    """True if the bbox area is at or below ``max_fraction`` of the channel mask
+    area. Drops implausibly massive detections (a hand, a shadow, the model
+    latching onto the whole channel) before they reach the state machine.
+    ``mask_area_px`` is precomputed once by the caller (the mask is immutable),
+    so this stays cheap on the hot path."""
+    if mask_area_px <= 0:
+        return True
+    return bboxArea(bbox) <= max_fraction * mask_area_px
+
+
+def bboxWithinMaskExtent(
+    bbox: Bbox,
+    mask_w_extent: float,
+    mask_h_extent: float,
+    max_fraction: float,
+) -> bool:
+    """True if the bbox width AND height are each at or below ``max_fraction`` of
+    the channel mask's bounding extent. Catches long, skinny detections that span
+    most of the channel in one dimension (e.g. 80% of the width but only 20% of
+    the height) — these stay under an area-fraction limit while still being
+    implausibly large. Extents are precomputed once by the caller."""
+    x1, y1, x2, y2 = bbox
+    w = x2 - x1
+    h = y2 - y1
+    if mask_w_extent > 0 and w > max_fraction * mask_w_extent:
+        return False
+    if mask_h_extent > 0 and h > max_fraction * mask_h_extent:
+        return False
+    return True
+
+
 def bboxInsideChannelMask(bbox: Bbox, channel: ChannelDef) -> bool:
     cx, cy = bboxCenter(bbox)
     h, w = channel.mask.shape[:2]
@@ -192,17 +233,34 @@ def exitComForwardDeg(
 def _leadingExitApproach(
     bboxes: Iterable[Bbox], channel: ChannelDef
 ) -> tuple[float, int] | None:
-    """``(forward_gap_deg, com_section)`` for the LEADING on-channel piece — the
-    one with the smallest forward gap to the exit-only entry edge. ``None`` when
-    there is no on-channel piece or the channel has no exit arc. Shared by
-    ``exitComForwardDeg`` and ``comInPreciseZone`` so they agree on which piece
-    is 'leading'."""
+    """``(travel_gap_deg, com_section)`` for the LEADING on-channel piece — the
+    one with the smallest gap to the exit-only entry edge measured along the
+    channel's travel direction. ``None`` when there is no on-channel piece or the
+    channel has no exit arc. Shared by ``exitComForwardDeg`` and
+    ``comInPreciseZone`` so they agree on which piece is 'leading'.
+
+    The gap is always returned with the SAME sign semantics regardless of travel
+    direction (> 0 = advance toward the exit this many degrees; <= 0 = the COM is
+    already past the entry edge). Only the physical move direction differs.
+
+    Direction (``channel.reverse``):
+    - forward (default): the piece moves in increasing relative angle, so it
+      enters the exit-only arc at the NEAR edge (``ordered[0]``); the gap is
+      ``(near - relative) % 360``.
+    - reverse (C4 carousel): the piece moves in decreasing relative angle, so it
+      enters the exit-only arc at the FAR edge (``ordered[-1]``); the gap is
+      ``(relative - far) % 360``.
+    In both cases a COM genuinely inside the exit-only arc folds to a small
+    negative value; the ``> 180`` guard keeps a COM exactly on the entry edge at
+    0 rather than folding it to -360.
+    """
     exit_only = exitOnlySections(channel)
     ordered = _orderedCircularSections(exit_only)
     if not ordered:
         return None
-    near = ordered[0]
-    near_angle = float(near) * SECTION_DEG
+    reverse = bool(getattr(channel, "reverse", False))
+    entry = ordered[-1] if reverse else ordered[0]
+    entry_angle = float(entry) * SECTION_DEG
     cx0, cy0 = channel.center
     r1 = channel.radius1_angle_image
     best: tuple[float, int] | None = None
@@ -213,16 +271,56 @@ def _leadingExitApproach(
         angle = float(np.degrees(np.arctan2(my - cy0, mx - cx0)))
         relative = (angle - r1) % 360.0
         sec = int(relative / SECTION_DEG) % SECTION_COUNT
-        # Degrees the COM sits BEHIND the entry edge, in [0, 360).
-        forward = (near_angle - relative) % 360.0
-        # Only when the COM is genuinely inside the exit-only zone do we express
-        # it as negative (past the entry edge). The ``forward > 180`` guard keeps
-        # a COM exactly on the entry edge at 0 rather than folding it to -360.
-        if sec in exit_only and forward > 180.0:
-            forward -= 360.0
-        if best is None or forward < best[0]:
-            best = (forward, sec)
+        # Degrees the COM sits BEHIND the entry edge along the travel direction,
+        # in [0, 360).
+        if reverse:
+            gap = (relative - entry_angle) % 360.0
+        else:
+            gap = (entry_angle - relative) % 360.0
+        if sec in exit_only and gap > 180.0:
+            gap -= 360.0
+        if best is None or gap < best[0]:
+            best = (gap, sec)
     return best
+
+
+def _arcEntryRelativeDeg(sections: frozenset[int], reverse: bool) -> float | None:
+    """Relative angle (output degrees) of the arc's ENTRY edge in the travel
+    direction — the edge the piece reaches FIRST. Reverse travel enters at the
+    high-relative edge (``ordered[-1]``); forward at the low-relative edge
+    (``ordered[0]``). ``None`` for an empty arc."""
+    ordered = _orderedCircularSections(sections)
+    if not ordered:
+        return None
+    entry = ordered[-1] if reverse else ordered[0]
+    return float(entry) * SECTION_DEG
+
+
+def comForwardToPreciseEntryDeg(
+    bboxes: Iterable[Bbox], channel: ChannelDef
+) -> float | None:
+    """Signed travel-direction distance (output degrees) from the LEADING
+    on-channel piece's COM to the BEGINNING (entry edge) of the PRECISE (staging)
+    arc — the edge the piece reaches first. The C4 reverse flow drives this toward
+    0 in MOVING_TO_PRECISE so the piece parks at the START of the precise band,
+    not its centre (which overshot), while classification runs.
+
+    Same leading-piece selection and sign convention as ``exitComForwardToCenterDeg``
+    (> 0 = advance toward the precise entry; <= 0 = at/past it). ``None`` when there
+    is no on-channel piece or the channel has no precise arc."""
+    best = _leadingExitApproach(bboxes, channel)
+    reverse = bool(getattr(channel, "reverse", False))
+    entry_rel = _arcEntryRelativeDeg(channel.precise_sections, reverse)
+    if best is None or entry_rel is None:
+        return None
+    com_rel = float(best[1]) * SECTION_DEG
+    if reverse:
+        gap = (com_rel - entry_rel) % 360.0
+    else:
+        gap = (entry_rel - com_rel) % 360.0
+    if gap > 180.0:
+        gap -= 360.0
+    return gap
 
 
 def comInPreciseZone(bboxes: Iterable[Bbox], channel: ChannelDef) -> bool:

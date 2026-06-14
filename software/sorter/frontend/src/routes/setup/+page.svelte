@@ -219,7 +219,7 @@
 
 	let hiveLoading = $state(false);
 	let hiveTargets = $state<HiveSetupTarget[]>([]);
-	let hiveUrl = $state('');
+	let hiveUrl = $state(DEFAULT_HIVE_URL);
 	let hiveConnecting = $state(false);
 	let hiveError = $state<string | null>(null);
 	let hiveStatus = $state<string | null>(null);

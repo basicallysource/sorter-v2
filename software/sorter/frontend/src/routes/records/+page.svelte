@@ -272,10 +272,12 @@
 	function strategyBadge(
 		strategy: ClassificationAttemptStrategy | null | undefined
 	): { label: string } | null {
-		if (!strategy || strategy === 'initial') return null;
-		if (strategy === 'drop_upstream') return { label: 'RETRY · NO UPSTREAM' };
-		if (strategy === 'split_singles') return { label: 'RETRY · SPLIT' };
-		return { label: `RETRY · ${strategy}` };
+		// Only flag the interesting case: a lone-image parallel request beat the
+		// fused "combined" call. The combined winner is the unremarkable default.
+		if (!strategy || strategy === 'combined') return null;
+		if (strategy === 'single_burst') return { label: 'WON · BURST ALONE' };
+		if (strategy === 'single_upstream') return { label: 'WON · UPSTREAM ALONE' };
+		return { label: `WON · ${strategy}` };
 	}
 
 	// One chip per Brickognize attempt for the attempts strip. The applied one is
@@ -340,7 +342,7 @@
 			img.used
 				? 'Yes — used for result'
 				: img.excluded_from_result
-					? 'Sent, then dropped on retry'
+					? 'Sent, lost to a higher-scoring request'
 					: 'No';
 		const rows: { label: string; value: string }[] = [
 			{ label: 'Source', value: img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst' },
@@ -593,7 +595,7 @@
 								{#if sb}
 									<span
 										class="inline-flex items-center border border-info/60 bg-info/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-info"
-										title="Brickognize recognized this piece only after a retry with a reduced image set"
+										title="A single-image Brickognize request outscored the fused combined call"
 									>
 										{sb.label}
 									</span>
@@ -644,7 +646,7 @@
 							</span>
 						</div>
 
-						<!-- Attempts strip — only when a retry happened (>1 attempt) -->
+						<!-- Attempts strip — the parallel requests (combined + singles) -->
 						{#if img_state?.status === 'ok' && (img_state.attempts?.length ?? 0) > 1}
 							<div
 								class="flex flex-wrap items-center gap-1.5 border-b border-border bg-bg px-3 py-1.5"
@@ -687,7 +689,7 @@
 											title={state === 'used'
 												? 'Used — produced the applied result'
 												: state === 'dropped'
-													? 'Sent in a failed attempt, then dropped for the retry'
+													? 'Sent in a parallel request that lost — thrown out'
 													: 'Captured, not shipped'}
 										>
 											<div class="h-28 w-28 bg-white {state === 'dropped' ? 'opacity-50' : ''}">
@@ -698,21 +700,21 @@
 														class="h-full w-full object-contain"
 														loading="lazy"
 													/>
-													<ImageInfoBadge
-														class="absolute right-1 top-1 z-10"
-														{src}
-														rows={imageInfoRows(img, c4RefTs)}
-													/>
 												{/if}
 											</div>
 											<div
 												class="flex items-center justify-between gap-1 border-t border-border px-1.5 py-1"
 											>
-												<span
-													class="inline-flex items-center border px-1 py-0.5 text-xs font-semibold uppercase tracking-wider {badge.cls}"
-												>
-													{badge.label}
-												</span>
+												<div class="flex items-center gap-1">
+													{#if src}
+														<ImageInfoBadge {src} rows={imageInfoRows(img, c4RefTs)} />
+													{/if}
+													<span
+														class="inline-flex items-center border px-1 py-0.5 text-xs font-semibold uppercase tracking-wider {badge.cls}"
+													>
+														{badge.label}
+													</span>
+												</div>
 												{#if state === 'dropped'}
 													<span
 														class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"

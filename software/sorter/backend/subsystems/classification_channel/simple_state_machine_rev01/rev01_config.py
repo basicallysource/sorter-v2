@@ -32,21 +32,18 @@ class Rev01Config:
     # similarity search and sent to Brickognize. The rest of the burst is kept on
     # the piece for review but did not influence the result. 1 = last frame only.
     classify_burst_count: int = 1
-    # When a Brickognize attempt recognizes NOTHING (zero items), retry with a
-    # reduced image set before giving up. Each enabled strategy is tried in order
-    # until one recognizes the piece or the list is exhausted. Retries fire only
-    # on an empty result, never on a network error/timeout (a smaller set won't
-    # fix a transport failure), and the whole sequence still lives inside the
-    # per-piece classify_timeout_s budget.
-    # drop_upstream: re-send only the C4 burst (no upstream C2/C3 match crops).
-    # A no-op when no upstream was injected, so it costs nothing on most pieces.
-    classify_retry_drop_upstream: bool = True
-    # split_singles: submit the last burst frame and the single top-similarity
-    # upstream crop as two PARALLEL single-image queries and keep the
-    # higher-confidence result of whichever come back. Only fires when both a
-    # burst and an upstream crop exist. Costs up to two extra Brickognize calls,
-    # but only on a piece that already missed every prior step.
-    classify_retry_split_singles: bool = True
+    # Alongside the fused "combined" call, fire extra single-image Brickognize
+    # requests IN PARALLEL and keep whichever result scores highest. These are
+    # redundant, not sequential retries: a lone clean frame frequently recognizes
+    # a piece the fused set confuses, and firing every variant concurrently costs
+    # the same wall-clock as the slowest single call. A single-image request that
+    # would duplicate the combined call (e.g. combined is already one burst frame)
+    # is skipped.
+    # single_burst: also send just the last (most-settled) C4 burst frame, alone.
+    classify_parallel_single_burst: bool = True
+    # single_upstream: also send just the single highest-similarity upstream
+    # (C2/C3) match crop, alone. A no-op when no upstream was injected.
+    classify_parallel_single_upstream: bool = True
     rotate_timeout_s: float = 30.0
     classify_timeout_s: float = 30.0
     presence_streak_to_start: int = 2
@@ -126,8 +123,8 @@ FIELD_META: list[dict] = [
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},
     {"key": "max_captures", "label": "Burst frames to grab per piece", "type": "int", "default": _DEFAULTS.max_captures},
     {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count},
-    {"key": "classify_retry_drop_upstream", "label": "On no recognition, retry without upstream crops", "type": "bool", "default": _DEFAULTS.classify_retry_drop_upstream},
-    {"key": "classify_retry_split_singles", "label": "On no recognition, retry last-burst & top-upstream in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_retry_split_singles},
+    {"key": "classify_parallel_single_burst", "label": "Also classify the last burst frame alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_burst},
+    {"key": "classify_parallel_single_upstream", "label": "Also classify the top upstream crop alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_upstream},
     {"key": "rotate_timeout_s", "label": "Rotate timeout (s)", "type": "float", "default": _DEFAULTS.rotate_timeout_s},
     {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s},
     {"key": "presence_streak_to_start", "label": "Presence streak to start rotation", "type": "int", "default": _DEFAULTS.presence_streak_to_start},

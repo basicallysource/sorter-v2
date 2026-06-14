@@ -21,19 +21,18 @@ class ClassificationStatus(str, Enum):
 
 
 class ClassificationAttemptStrategy(str, Enum):
-    # The full set we'd normally send: the used C4 burst frames plus any upstream
-    # (C2/C3) match crops the embedding search injected.
-    initial = "initial"
-    # Re-send only the C4 burst, with the upstream match crops removed — the
-    # first retry when ``initial`` recognized nothing and upstream was injected.
-    drop_upstream = "drop_upstream"
-    # Fan-out: submit the last burst frame and the single top-similarity upstream
-    # crop as two parallel single-image queries, then keep the higher-confidence
-    # result of whichever come back.
-    split_singles = "split_singles"
-    # Reserved for upcoming subset experiments (drop the burst, add more upstream
-    # or more burst frames, …). Add the enum value here and a builder in the
-    # classify retry runner; the rest of the plumbing is strategy-agnostic.
+    # Which parallel request produced the applied result. All requests for a
+    # piece are submitted at once (redundant, NOT sequential retries); the
+    # highest-confidence one wins and its label is recorded here.
+    # The full fused set: the used C4 burst frames plus any upstream (C2/C3)
+    # match crops the embedding search injected.
+    combined = "combined"
+    # Only the last (most-settled) C4 burst frame, sent alone.
+    single_burst = "single_burst"
+    # Only the single highest-similarity upstream (C2/C3) match crop, sent alone.
+    single_upstream = "single_upstream"
+    # Add a new parallel variant by adding the enum value here and a request in
+    # _buildClassifyRequests; the rest of the plumbing is strategy-agnostic.
 
 
 @dataclass
@@ -41,10 +40,10 @@ class RecognitionImage:
     # One image gathered for recognizing a piece. ``source`` is "c4_burst" for a
     # classification-channel capture or "upstream" for a C2/C3 match crop fused
     # in by the embedding search. ``used`` is True only when this exact image was
-    # actually submitted to Brickognize in the attempt whose result was applied.
-    # ``excluded_from_result`` is True when this image WAS submitted in an earlier
-    # attempt that recognized nothing and was then deliberately removed for the
-    # retry that won — distinct from ``used=False`` (kept for review, never sent).
+    # actually submitted to Brickognize in the request whose result was applied.
+    # ``excluded_from_result`` is True when this image WAS submitted in a parallel
+    # request that lost (a different request scored higher) and was thus thrown
+    # out — distinct from ``used=False`` (kept for review, never sent).
     image: str
     source: str
     used: bool = False
@@ -58,20 +57,19 @@ class RecognitionImage:
 
 @dataclass
 class ClassificationAttempt:
-    # One Brickognize call for a piece. More than one of these on a KnownObject
-    # means an earlier attempt recognized nothing and a retry strategy (e.g.
-    # dropping the upstream crops) was applied. The last entry is the attempt
-    # whose result was applied to the piece.
+    # One Brickognize call for a piece. A piece fans out several of these in
+    # parallel (combined, single_burst, single_upstream); they are redundant, not
+    # retries. The ``applied`` one is the highest-confidence call that recognized
+    # the piece.
     strategy: "ClassificationAttemptStrategy"
     n_burst: int
     n_upstream: int
     found: bool
-    # Distinguishes the parallel sub-calls of a fan-out strategy (e.g.
-    # "last_burst" vs "top_upstream" under split_singles). For single-call
-    # strategies this equals the strategy name.
+    # Human-facing name of the parallel request; equals the strategy value
+    # (combined / single_burst / single_upstream).
     label: Optional[str] = None
     # True for the one attempt whose result was applied to the piece (the
-    # highest-confidence found attempt, or attempt 0 when nothing was found).
+    # highest-confidence found attempt, or the first call when nothing was found).
     applied: bool = False
     part_id: Optional[str] = None
     confidence: Optional[float] = None
@@ -129,13 +127,13 @@ class KnownObject:
     # whether it was actually submitted to Brickognize. The burst keeps all its
     # frames; only the entries with used=True drove the classification.
     recognition_image_set: List["RecognitionImage"] = field(default_factory=list)
-    # Ordered record of each Brickognize attempt for this piece. Length > 1 means
-    # the first attempt(s) recognized nothing and a retry with a reduced image
-    # set was made; the last entry is the one whose result was applied.
+    # Record of each parallel Brickognize request for this piece (combined plus
+    # any single-image calls). They run concurrently, not as retries; the one
+    # flagged applied=True is the highest-confidence call that recognized it.
     classification_attempts: List["ClassificationAttempt"] = field(default_factory=list)
-    # Strategy of the attempt whose result was applied (the last attempt's
-    # strategy). None until classification runs. ``initial`` = first try won;
-    # anything else = a retry was needed.
+    # Which parallel request produced the applied result. None until
+    # classification runs. ``combined`` = the fused set won; ``single_burst`` /
+    # ``single_upstream`` = a lone-image call beat the fused set.
     classification_strategy: Optional["ClassificationAttemptStrategy"] = None
     # Captured timestamps of the crops actually shipped to Brickognize for
     # classification (subset of the tracker's sector snapshots). The frontend

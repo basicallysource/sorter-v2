@@ -72,9 +72,9 @@ class RecognitionImage(BaseModel):
     used: bool = False
     ts: Optional[float] = None
     score: Optional[float] = None
-    # True when this image was submitted in an earlier classification attempt
-    # that recognized nothing and was then removed for the retry whose result
-    # was applied (distinct from used=False, which means "never sent").
+    # True when this image was submitted in a parallel classification request
+    # that lost (a different request scored higher) and was thrown out (distinct
+    # from used=False, which means "never sent").
     excluded_from_result: bool = False
     # Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match
     # crop. None when unknown (older records).
@@ -82,9 +82,9 @@ class RecognitionImage(BaseModel):
 
 
 class ClassificationAttemptStrategy(str, Enum):
-    initial = "initial"
-    drop_upstream = "drop_upstream"
-    split_singles = "split_singles"
+    combined = "combined"
+    single_burst = "single_burst"
+    single_upstream = "single_upstream"
 
 
 class ClassificationAttempt(BaseModel):
@@ -136,10 +136,10 @@ class KnownObjectData(BaseModel):
     # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
     # whether it was actually submitted to Brickognize.
     recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)
-    # Per-attempt Brickognize record; >1 entry means a retry with a reduced image
-    # set was made after a no-recognition result. The last entry is the applied
-    # one. ``classification_strategy`` is its strategy (``initial`` = first try
-    # won; ``drop_upstream`` = won only after dropping the upstream crops).
+    # Per-request Brickognize record; the requests fan out in parallel (combined +
+    # single-image calls), not as retries. The applied one is flagged.
+    # ``classification_strategy`` is which request won (``combined`` = the fused
+    # set; ``single_burst`` / ``single_upstream`` = a lone image beat it).
     classification_attempts: List["ClassificationAttempt"] = Field(default_factory=list)
     classification_strategy: Optional[ClassificationAttemptStrategy] = None
     # Captured timestamps of crops shipped to Brickognize for this piece.

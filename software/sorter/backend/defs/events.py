@@ -79,6 +79,9 @@ class RecognitionImage(BaseModel):
     # Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match
     # crop. None when unknown (older records).
     channel: Optional[int] = None
+    # Wall-clock capture time (epoch seconds). The UI ages each pic against the
+    # owning KnownObject.created_at. None for older records.
+    created_at: Optional[float] = None
 
 
 class ClassificationAttemptStrategy(str, Enum):

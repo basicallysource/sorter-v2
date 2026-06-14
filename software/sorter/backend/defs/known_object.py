@@ -53,6 +53,11 @@ class RecognitionImage:
     # Physical channel the image came from: 4 for a C4 burst capture, 2 or 3 for
     # an upstream match crop. None when unknown (older records).
     channel: Optional[int] = None
+    # Wall-clock capture time of this image (epoch seconds). For a C4 burst this
+    # is the frame timestamp; for an upstream match it's when the crop was grabbed
+    # at C2/C3 (earlier than the piece reaching C4). The UI ages each pic against
+    # the owning KnownObject.created_at. None for older records.
+    created_at: Optional[float] = None
 
 
 @dataclass

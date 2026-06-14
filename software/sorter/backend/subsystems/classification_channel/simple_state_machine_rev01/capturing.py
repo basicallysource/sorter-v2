@@ -150,7 +150,12 @@ class Capturing(Rev01BaseState):
                 self.ctx.known_object.latest_captured_crop_ts = frame_ts
                 self.ctx.known_object.recognition_image_set.append(
                     RecognitionImage(
-                        image=encoded, source="c4_burst", used=False, ts=frame_ts, channel=4
+                        image=encoded,
+                        source="c4_burst",
+                        used=False,
+                        ts=frame_ts,
+                        channel=4,
+                        created_at=frame_ts,
                     )
                 )
             self.emitKnownObject()

@@ -16,6 +16,8 @@ export interface RecognitionImage {
   excluded_from_result?: boolean;
   // Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match.
   channel?: number | null;
+  // Wall-clock capture time (epoch seconds); aged against KnownObject.created_at.
+  created_at?: number | null;
 }
 export type ClassificationAttemptStrategy = "combined" | "single_burst" | "single_upstream";
 export interface ClassificationAttempt {

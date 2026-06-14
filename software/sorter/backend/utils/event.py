@@ -81,6 +81,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                     used=r.used,
                     ts=r.ts,
                     score=r.score,
+                    channel=r.channel,
+                    created_at=getattr(r, "created_at", None),
                     excluded_from_result=getattr(r, "excluded_from_result", False),
                 )
                 for r in (obj.recognition_image_set or [])

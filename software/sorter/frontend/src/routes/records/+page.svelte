@@ -20,6 +20,9 @@
 		images: RecognitionImage[];
 		strategy?: ClassificationAttemptStrategy | null;
 		attempts?: ClassificationAttempt[];
+		// Creation time of the owning KnownObject (epoch seconds) — the reference
+		// each pic is aged against.
+		createdAt?: number | null;
 	};
 
 	type Overview = {
@@ -154,7 +157,8 @@
 					status: 'ok',
 					images: data.recognition_image_set ?? [],
 					strategy: data.classification_strategy ?? null,
-					attempts: data.classification_attempts ?? []
+					attempts: data.classification_attempts ?? [],
+					createdAt: data.created_at ?? null
 				}
 			};
 		} catch {
@@ -322,21 +326,20 @@
 		return { c4, upstream };
 	}
 
-	// Latest C4 burst capture timestamp for a piece — the moment the
-	// classification chamber snapped its pics. Used to age upstream crops.
-	function c4ReferenceTs(images: RecognitionImage[]): number | null {
-		let ref: number | null = null;
-		for (const img of images) {
-			if (img.source !== 'upstream' && typeof img.ts === 'number') {
-				ref = ref === null ? img.ts : Math.max(ref, img.ts);
-			}
-		}
-		return ref;
+	// Age of a pic in seconds relative to when the owning KnownObject was created.
+	// Upstream crops are captured before the piece reaches C4 (object creation),
+	// so they read "before"; C4 burst frames are snapped just after creation.
+	function imageAgeLabel(img: RecognitionImage, objCreatedAt: number | null): string | null {
+		if (typeof img.created_at !== 'number' || objCreatedAt === null) return null;
+		const delta = objCreatedAt - img.created_at;
+		const mag = Math.abs(delta).toFixed(1);
+		if (Math.abs(delta) < 0.05) return '0.0s';
+		return delta > 0 ? `${mag}s before` : `${mag}s after`;
 	}
 
 	function imageInfoRows(
 		img: RecognitionImage,
-		c4RefTs: number | null
+		objCreatedAt: number | null
 	): { label: string; value: string }[] {
 		const shipped =
 			img.used
@@ -351,9 +354,9 @@
 		if (img.source === 'upstream' && typeof img.score === 'number') {
 			rows.push({ label: 'Similarity', value: `${(img.score * 100).toFixed(0)}%` });
 		}
-		if (img.source === 'upstream' && typeof img.ts === 'number' && c4RefTs !== null) {
-			const age = c4RefTs - img.ts;
-			rows.push({ label: 'Age before C4', value: `${age.toFixed(1)}s` });
+		const age = imageAgeLabel(img, objCreatedAt);
+		if (age !== null) {
+			rows.push({ label: 'Age', value: age });
 		}
 		return rows;
 	}
@@ -564,7 +567,7 @@
 					{@const img_state = imagesByUuid[p.uuid]}
 					{@const sorted = img_state?.status === 'ok' ? sortImages(img_state.images) : []}
 					{@const counts = imageCounts(sorted)}
-					{@const c4RefTs = c4ReferenceTs(sorted)}
+					{@const objCreatedAt = img_state?.createdAt ?? null}
 					{@const lego_color = lookupLegoColor(p.color_id, p.color_name)}
 					<div class="border border-border bg-surface">
 						<!-- Result header -->
@@ -707,7 +710,7 @@
 											>
 												<div class="flex items-center gap-1">
 													{#if src}
-														<ImageInfoBadge {src} rows={imageInfoRows(img, c4RefTs)} />
+														<ImageInfoBadge {src} rows={imageInfoRows(img, objCreatedAt)} />
 													{/if}
 													<span
 														class="inline-flex items-center border px-1 py-0.5 text-xs font-semibold uppercase tracking-wider {badge.cls}"

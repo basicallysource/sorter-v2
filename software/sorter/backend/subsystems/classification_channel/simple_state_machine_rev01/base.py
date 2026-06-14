@@ -538,6 +538,8 @@ class Rev01BaseState(BaseState):
             if used:
                 bgr_list.append(img)
             chan = cand.get("channel_id")
+            cap_ts = cand.get("ts")
+            cap_ts = float(cap_ts) if isinstance(cap_ts, (int, float)) else None
             image_list.append(
                 RecognitionImage(
                     image=b64,
@@ -545,6 +547,8 @@ class Rev01BaseState(BaseState):
                     used=used,
                     score=float(score) if isinstance(score, (int, float)) else None,
                     channel=int(chan) if isinstance(chan, (int, float)) else None,
+                    ts=cap_ts,
+                    created_at=cap_ts,
                 )
             )
         if image_list:

@@ -14,6 +14,40 @@ EMPTY_STATE_TS = 0.0
 
 
 @dataclass(frozen=True)
+class PieceObservation:
+    """One on-channel piece as seen THIS frame, ordered leading-first in
+    ``ChannelState.pieces``.
+
+    The multi-piece holding flow reasons about pieces by travel position + which
+    zone their centre sits in — NOT by cross-frame identity. ``sv_bt_track_id``
+    adds an advisory stable id (perception ByteTrack — see
+    ``perception.tracking``) for diagnostics, the stream overlay, and any future
+    identity-aware consumer, but the control flow does not depend on it."""
+
+    # Signed travel-direction gap (channel-output degrees) from this piece's COM
+    # to the entry edge of the REAL exit (exit-only) arc — same quantity and sign
+    # convention as ``ChannelState.exit_com_forward_deg`` but per piece. > 0 = the
+    # COM is short of the exit by this much; <= 0 = the COM has crossed the entry
+    # edge. Smaller = more forward, so ``pieces[0]`` is the leading piece.
+    com_forward_to_exit_deg: float
+    com_section: int
+    # Region the COM section sits in, matching ``perception.arcs._region_lookup``:
+    # 0 = none (between named zones), 1 = drop, 2 = exit_only, 3 = precise. Extends
+    # with additional codes when holding bands are added to the region LUT.
+    zone_code: int
+    # This piece's bbox (x1, y1, x2, y2) in frame pixels — lets a consumer crop the
+    # specific piece in a given zone (e.g. capture the DROP-zone piece while another
+    # piece sits in precise), without re-deriving which bbox is which.
+    bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
+    # Advisory stable identity from the perception ByteTrack tracker: the same
+    # physical piece keeps one id frame-to-frame as it slides down the channel,
+    # surviving brief detector dropouts. ``None`` when tracking is unavailable or
+    # the box is not yet a confirmed track. Not used by control logic (see class
+    # docstring) — diagnostics / overlay / future identity-aware consumers only.
+    sv_bt_track_id: int | None = None
+
+
+@dataclass(frozen=True)
 class ChannelState:
     """The only thing the coordinator reads per channel.
 
@@ -72,6 +106,14 @@ class ChannelState:
     # the exact trigger for starting a C3 eject — the piece must actually be in
     # the precise (staging) band, not merely within some distance of the exit.
     exit_com_in_precise: bool = False
+    # Every on-channel piece this frame, ordered leading-first (ascending
+    # com_forward_to_exit_deg). Empty when there is no on-channel piece or the
+    # channel has no exit arc. The single-leading ``exit_com_*`` fields above are
+    # ``pieces[0]``; this additionally exposes the TRAILING pieces a multi-piece
+    # holding flow needs to tell apart the piece staged for discharge from the one
+    # still being classified in the drop zone. No cross-frame identity — reason by
+    # position + zone, not tracking.
+    pieces: tuple[PieceObservation, ...] = ()
 
 
 EMPTY_STATE = ChannelState(ts=EMPTY_STATE_TS, in_drop=False, in_exit=False, n_pieces=0)

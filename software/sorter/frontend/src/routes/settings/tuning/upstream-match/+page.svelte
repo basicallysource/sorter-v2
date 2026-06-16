@@ -1,24 +1,21 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Input, Alert } from '$lib/components/primitives';
+	import { Button, Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
+	import {
+		groupTuningSections,
+		type TuningFieldMeta,
+		type TuningValues
+	} from '$lib/settings/tuning';
 	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
 	import UpstreamWindowTimeline from '$lib/components/UpstreamWindowTimeline.svelte';
 
-	type FieldMeta = {
-		key: string;
-		label: string;
-		type: 'int' | 'float' | 'bool';
-		default: number | boolean;
-		section?: string;
-		description?: string;
-	};
-
 	const initialUuid = page.url.searchParams.get('uuid') ?? '';
 
-	let fields = $state<FieldMeta[]>([]);
-	let values = $state<Record<string, number | boolean>>({});
+	let fields = $state<TuningFieldMeta[]>([]);
+	let values = $state<TuningValues>({});
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -26,19 +23,7 @@
 	let stats = $state<any>(null);
 	let searchReload = $state(0);
 
-	let sections = $derived.by(() => {
-		const order: string[] = [];
-		const bySection = new Map<string, FieldMeta[]>();
-		for (const field of fields) {
-			const section = field.section ?? 'Parameters';
-			if (!bySection.has(section)) {
-				bySection.set(section, []);
-				order.push(section);
-			}
-			bySection.get(section)!.push(field);
-		}
-		return order.map((name) => ({ name, fields: bySection.get(name)! }));
-	});
+	let sections = $derived(groupTuningSections(fields));
 
 	async function load() {
 		loading = true;
@@ -192,19 +177,45 @@
 		<div class="flex flex-col gap-3">
 			<div class="flex flex-wrap items-center gap-2">
 				<span class="text-sm text-text-muted">Channel:</span>
-				<Button variant={cropChannel === null ? 'primary' : 'secondary'} size="sm" onclick={() => setCropChannel(null)}>All</Button>
-				<Button variant={cropChannel === 2 ? 'primary' : 'secondary'} size="sm" onclick={() => setCropChannel(2)}>C2</Button>
-				<Button variant={cropChannel === 3 ? 'primary' : 'secondary'} size="sm" onclick={() => setCropChannel(3)}>C3</Button>
+				<Button
+					variant={cropChannel === null ? 'primary' : 'secondary'}
+					size="sm"
+					onclick={() => setCropChannel(null)}>All</Button
+				>
+				<Button
+					variant={cropChannel === 2 ? 'primary' : 'secondary'}
+					size="sm"
+					onclick={() => setCropChannel(2)}>C2</Button
+				>
+				<Button
+					variant={cropChannel === 3 ? 'primary' : 'secondary'}
+					size="sm"
+					onclick={() => setCropChannel(3)}>C3</Button
+				>
 				<div class="flex-1"></div>
-				<Button variant="secondary" size="sm" onclick={loadCrops} loading={cropsLoading}>Refresh</Button>
+				<Button variant="secondary" size="sm" onclick={loadCrops} loading={cropsLoading}
+					>Refresh</Button
+				>
 			</div>
 
 			<div class="flex items-center gap-3 text-sm text-text-muted">
-				<Button variant="secondary" size="sm" onclick={() => cropPage(-1)} disabled={cropOffset === 0}>‹ Prev</Button>
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => cropPage(-1)}
+					disabled={cropOffset === 0}>‹ Prev</Button
+				>
 				<span>
-					{cropTotal === 0 ? '0' : `${cropOffset + 1}–${Math.min(cropOffset + cropLimit, cropTotal)}`} of {cropTotal}
+					{cropTotal === 0
+						? '0'
+						: `${cropOffset + 1}–${Math.min(cropOffset + cropLimit, cropTotal)}`} of {cropTotal}
 				</span>
-				<Button variant="secondary" size="sm" onclick={() => cropPage(1)} disabled={cropOffset + cropLimit >= cropTotal}>Next ›</Button>
+				<Button
+					variant="secondary"
+					size="sm"
+					onclick={() => cropPage(1)}
+					disabled={cropOffset + cropLimit >= cropTotal}>Next ›</Button
+				>
 			</div>
 
 			{#if cropsError}
@@ -218,7 +229,10 @@
 					Nothing embedded yet. Crops are only collected while the machine is actively sorting.
 				</div>
 			{:else}
-				<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));">
+				<div
+					class="grid gap-2"
+					style="grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));"
+				>
 					{#each cropItems as crop (crop.channel_id + '-' + crop.ts + '-' + crop.bbox.join(','))}
 						<div class="flex flex-col border border-border bg-bg">
 							<div class="aspect-square w-full bg-white">
@@ -247,53 +261,14 @@
 			<div class="flex flex-col gap-8">
 				{#each sections as section}
 					<div class="flex flex-col gap-4">
-						<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 							{section.name}
 						</div>
 						{#if section.name === 'Search' && 'ch2_window_start_s' in values}
 							<UpstreamWindowTimeline bind:values />
 						{/if}
 						{#each section.fields as field}
-							<div class="flex items-center gap-4">
-								<label class="flex w-72 items-center gap-1.5 text-sm text-text" for={field.key}>
-									<span>{field.label}</span>
-									{#if field.description}
-										<span class="group relative inline-flex shrink-0" tabindex="0" role="note" aria-label={field.description}>
-											<svg
-												class="h-4 w-4 cursor-help text-text-muted"
-												viewBox="0 0 16 16"
-												fill="none"
-												stroke="currentColor"
-												stroke-width="1.5"
-												aria-hidden="true"
-											>
-												<circle cx="8" cy="8" r="6.5" />
-												<path d="M8 7.25v3.75" stroke-linecap="round" />
-												<circle cx="8" cy="5" r="0.6" fill="currentColor" stroke="none" />
-											</svg>
-											<span
-												class="pointer-events-none invisible absolute bottom-full left-0 z-50 mb-1 w-72 whitespace-normal border border-border bg-surface px-3 py-2 text-sm leading-snug text-text shadow-md group-hover:visible group-focus-within:visible"
-												role="tooltip"
-											>
-												{field.description}
-											</span>
-										</span>
-									{/if}
-									<span class="ml-auto shrink-0 text-xs text-text-muted">(default: {field.default})</span>
-								</label>
-								{#if field.type === 'bool'}
-									<input
-										id={field.key}
-										type="checkbox"
-										checked={Boolean(values[field.key])}
-										onchange={(e) => (values[field.key] = e.currentTarget.checked)}
-									/>
-								{:else}
-									<div class="w-40">
-										<Input id={field.key} type="number" bind:value={values[field.key]} />
-									</div>
-								{/if}
-							</div>
+							<TuningParamRow {field} bind:values />
 						{/each}
 					</div>
 				{/each}

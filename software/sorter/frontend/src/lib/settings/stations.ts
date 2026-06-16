@@ -148,6 +148,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 		href: '/settings/tuning/upstream-match',
 		label: 'Upstream Match',
 		icon: SlidersHorizontal
+	},
+	{
+		href: '/settings/tuning/object-tracker',
+		label: 'Object Tracker',
+		icon: SlidersHorizontal
 	}
 ];
 
@@ -157,8 +162,7 @@ export const stationPageConfigs: StationPageConfig[] = [
 		href: '/settings/c-channel-1',
 		label: 'C-Channel 1',
 		icon: Wrench,
-		description:
-			'Bulk feed channel. This station only exposes manual stepper control.',
+		description: 'Bulk feed channel. This station only exposes manual stepper control.',
 		cameraRoles: [],
 		zoneChannels: [],
 		stepperKeys: ['c_channel_1']
@@ -269,7 +273,8 @@ export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEnt
 	});
 }
 
-export const settingsNavItems: SettingsNavEntry[] = settingsNavItemsForSetup('classification_channel');
+export const settingsNavItems: SettingsNavEntry[] =
+	settingsNavItemsForSetup('classification_channel');
 
 export function getStationPageConfig(slug: string): StationPageConfig | undefined {
 	return stationPageConfigs.find((station) => station.slug === slug);

@@ -431,6 +431,91 @@ def _bboxRegionCounts(
     return n_drop, n_exit_only, n_precise, n_on_channel
 
 
+def orderedPieceObservations(
+    bboxes: Iterable[Bbox], channel: ChannelDef
+) -> list[tuple[float, int, int, Bbox]]:
+    """Per-piece ``(com_forward_to_exit_deg, com_section, region_code, bbox)`` for EVERY
+    on-channel piece, ordered leading-first (ascending gap to the exit-only entry
+    edge). Uses the identical gap math and sign convention as
+    ``_leadingExitApproach`` — whose single result is exactly this list's head —
+    so the leading piece agrees across both. ``region_code`` is the
+    ``_region_lookup`` code at the COM section (0 none, 1 drop, 2 exit_only,
+    3 precise). ``[]`` when the channel has no exit arc (no travel reference) or
+    no on-channel piece.
+
+    The scalar ``exit_com_*`` helpers collapse the channel to its single leading
+    piece; this exposes the whole channel so a multi-piece holding flow can tell
+    leading from trailing and ask which named zone each piece's centre sits in,
+    without any cross-frame tracking.
+    """
+    exit_only = exitOnlySections(channel)
+    ordered = _orderedCircularSections(exit_only)
+    if not ordered:
+        return []
+    reverse = bool(getattr(channel, "reverse", False))
+    entry = ordered[-1] if reverse else ordered[0]
+    entry_angle = float(entry) * SECTION_DEG
+    cx0, cy0 = channel.center
+    r1 = channel.radius1_angle_image
+    lut = _region_lookup(channel)
+    out: list[tuple[float, int, int, Bbox]] = []
+    for bbox in bboxes:
+        if not bboxInsideChannelMask(bbox, channel):
+            continue
+        mx, my = bboxCenter(bbox)
+        angle = float(np.degrees(np.arctan2(my - cy0, mx - cx0)))
+        relative = (angle - r1) % 360.0
+        sec = int(relative / SECTION_DEG) % SECTION_COUNT
+        if reverse:
+            gap = (relative - entry_angle) % 360.0
+        else:
+            gap = (entry_angle - relative) % 360.0
+        if sec in exit_only and gap > 180.0:
+            gap -= 360.0
+        out.append((gap, sec, int(lut[sec]), (int(bbox[0]), int(bbox[1]), int(bbox[2]), int(bbox[3]))))
+    out.sort(key=lambda t: t[0])
+    return out
+
+
+def holdingSlotSections(
+    channel: ChannelDef, count: int
+) -> list[frozenset[int]]:
+    """Subdivide the drawn precise (holding) band into ``count`` contiguous
+    holding slots, ordered ENTRY-FIRST in the travel direction: slot 0 is the
+    edge a piece reaches FIRST coming from the drop zone; the last slot is the
+    edge adjacent to the fall-off (the piece's final hold before discharge).
+
+    ``count == 1`` returns the whole precise band as one slot — exactly today's
+    single holding region. ``count`` is clamped to ``[1, len(band sections)]`` so
+    a slot is never empty (an empty section-set could never read as occupied and
+    would wedge the scheduler); callers should treat ``len(result)`` as the
+    effective slot count rather than assuming their requested ``count``. Returns
+    ``[]`` when the channel has no precise band.
+
+    The UI exposes ONE draggable precise/holding band (width + position); this is
+    where ``Rev01Config.holding_region_count`` turns that single band into N
+    slots, so adding holding regions needs no UI change.
+    """
+    ordered = _orderedCircularSections(channel.precise_sections)
+    if not ordered:
+        return []
+    # Entry-first: the edge the piece reaches first. _orderedCircularSections
+    # returns rear-edge-first (forward-travel entry); reverse travel (C4) enters
+    # at the far edge, so flip to keep slot 0 == entry in both directions.
+    if bool(getattr(channel, "reverse", False)):
+        ordered = list(reversed(ordered))
+    n = len(ordered)
+    count = max(1, min(int(count), n))
+    base, rem = divmod(n, count)
+    slots: list[frozenset[int]] = []
+    i = 0
+    for s in range(count):
+        size = base + (1 if s < rem else 0)
+        slots.append(frozenset(ordered[i : i + size]))
+        i += size
+    return slots
+
+
 def attributeBboxes(
     bboxes: Iterable[Bbox], channel: ChannelDef
 ) -> tuple[bool, bool, bool, bool, int, list[tuple[int, int, int, int, Bbox]]]:

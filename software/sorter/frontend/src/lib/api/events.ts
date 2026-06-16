@@ -18,6 +18,9 @@ export interface RecognitionImage {
   channel?: number | null;
   // Wall-clock capture time (epoch seconds); aged against KnownObject.created_at.
   created_at?: number | null;
+  // Motion-blur / focus measure: variance of the image's Laplacian (higher =
+  // sharper). Set for C4 burst crops; null for upstream crops / older records.
+  sharpness?: number | null;
 }
 export type ClassificationAttemptStrategy = "combined" | "single_burst" | "single_upstream";
 export interface ClassificationAttempt {
@@ -82,6 +85,10 @@ export interface KnownObjectData {
   // classified or distributed (machine stop / reset mid-capture). Such pieces
   // are dropped from the UI rather than left stuck in the "capturing" phase.
   aborted?: boolean;
+  // Set when the backend reaps a piece that went silent for too long without
+  // reaching the distributed stage (the time-based analogue of `aborted`). The
+  // UI drops dead pieces from the recent list.
+  dead?: boolean;
   part_id?: string | null;
   part_name?: string | null;
   part_category?: string | null;

@@ -184,6 +184,34 @@ def drawDetectionBoxes(
         cv2.rectangle(img, (x1, y1), (x2, y2), color, thick, cv2.LINE_AA)
 
 
+def drawTrackIds(
+    img: np.ndarray, detections: list | None, scale: float, thick: int
+) -> None:
+    """Label each tracked detection with its ``sv_bt_track_id`` (e.g. ``#7``) at
+    the box's top-left. Detections without an id (off-channel, or not yet a
+    confirmed track) are skipped — so labels land exactly on the green on-channel
+    boxes. A dark pad behind the text keeps it legible over any background."""
+    if not detections:
+        return
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.4
+    text_thick = max(1, thick)
+    for d in detections:
+        tid = getattr(d, "sv_bt_track_id", None)
+        if tid is None:
+            continue
+        b = _scaleBbox(d.bbox, scale)
+        x1, y1 = int(b[0]), int(b[1])
+        label = f"#{int(tid)}"
+        (tw, th), _ = cv2.getTextSize(label, font, font_scale, text_thick)
+        ty = max(th + 2, y1 - 2)
+        cv2.rectangle(img, (x1, ty - th - 2), (x1 + tw + 2, ty + 2), (0, 0, 0), -1)
+        cv2.putText(
+            img, label, (x1 + 1, ty), font, font_scale,
+            ON_CHANNEL_COLOR, text_thick, cv2.LINE_AA,
+        )
+
+
 def drawSecondaryZones(img: np.ndarray, channel: Any, thick: int) -> None:
     """Outline each foreign (secondary) zone the camera observes. Outline only —
     no fill, no text label — so it's visually distinct from the channel's own
@@ -256,4 +284,8 @@ def renderFeedOverlay(
     drawDetectionBoxes(
         img, [_scaleBbox(b, scale) for b in on_bboxes], ON_CHANNEL_COLOR, thick
     )
+    # Label the on-channel boxes with their sv_bt_track_id. Detections carry the
+    # id; only on-channel (tracked) ones have a non-None value, so these land on
+    # the green boxes drawn just above.
+    drawTrackIds(img, detections, scale, thick)
     return img

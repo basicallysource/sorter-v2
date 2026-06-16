@@ -133,7 +133,7 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null; channel?: number | null };
+	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null; channel?: number | null; sharpness?: number | null };
 
 	// Channel the image came from, for the corner badge: C4 burst capture, or
 	// C2/C3 upstream match. Falls back to "C2/3" for older upstream records that
@@ -332,7 +332,8 @@
 						used: entry.used,
 						seq: recogSeq,
 						total: burstTotal,
-						channel: entry.channel ?? 4
+						channel: entry.channel ?? 4,
+						sharpness: entry.sharpness ?? null
 					});
 				}
 			}
@@ -492,6 +493,14 @@
 		return `${Math.round(score * 100)}% match`;
 	}
 
+	// Motion-blur / focus measure (Laplacian variance) of a burst crop; higher =
+	// sharper. Shown rounded — the absolute value is camera/lighting dependent, so
+	// it's mainly useful for comparing crops of the same piece.
+	function formatSharpness(sharpness: number | null | undefined): string {
+		if (sharpness == null || !Number.isFinite(sharpness)) return '';
+		return `${Math.round(sharpness)}`;
+	}
+
 	function cropInfoRows(crop: CropEntry): { label: string; value: string }[] {
 		const rows: { label: string; value: string }[] = [
 			{ label: 'Type', value: formatRole(crop.role) },
@@ -499,6 +508,9 @@
 		];
 		if (crop.score != null && Number.isFinite(crop.score)) {
 			rows.push({ label: 'Similarity', value: `${Math.round(crop.score * 100)}%` });
+		}
+		if (crop.sharpness != null && Number.isFinite(crop.sharpness)) {
+			rows.push({ label: 'Sharpness', value: formatSharpness(crop.sharpness) });
 		}
 		// For upstream crops, how long before the C4 chamber snap this view was
 		// captured — i.e. how stale the upstream match is relative to the frame
@@ -652,6 +664,14 @@
 					{#if is_multi_drop}
 						<span class="inline-flex items-center border border-danger bg-danger/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger">
 							Multi-drop
+						</span>
+					{/if}
+					{#if piece.dead}
+						<span
+							class="inline-flex items-center border border-warning bg-warning/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark"
+							title="This piece went silent for too long without ever reaching the distributed stage, so the backend reaped it."
+						>
+							Timed out
 						</span>
 					{/if}
 				{/if}
@@ -997,6 +1017,13 @@
 												title="Cosine similarity to the classified C4 capture"
 											>
 												{formatSimilarity(crop.score)}
+											</span>
+										{:else if crop.sharpness != null}
+											<span
+												class="absolute right-1 top-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
+												title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
+											>
+												⌖ {formatSharpness(crop.sharpness)}
 											</span>
 										{/if}
 										<span

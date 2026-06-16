@@ -24,13 +24,31 @@ class Rev01Config:
     kick_off_output_deg: float = 180.0
     discharge_speed_usteps_per_s: int = 5000
     crop_padding_px: int = 15
-    # How many burst frames to GRAB at rest. Capped to the Brickognize
-    # per-request image limit (8) by selectRecognitionCrops.
-    max_captures: int = 8
-    # Of the captured burst, how many of the most-recent (last-N, most-settled)
-    # frames to actually USE for classification — anchored for the upstream
-    # similarity search and sent to Brickognize. The rest of the burst is kept on
-    # the piece for review but did not influence the result. 1 = last frame only.
+    # Hard ceiling on burst frames GRABBED at rest. With require_sharp_capture on
+    # this is the fallback cap — capture normally stops earlier, the instant a
+    # sharp frame lands. Set high enough to leave room to wait out the motion blur
+    # right after a piece settles (~30 fps, so 20 frames ≈ 0.66 s of headroom).
+    max_captures: int = 20
+    # Motion-blur gate. Keep grabbing frames AT REST until at least one crop is
+    # sharp — Laplacian variance of the bbox crop >= min_sharpness_laplacian_var —
+    # then stop and classify. Bounds: never exceed max_captures frames or
+    # capture_max_wait_ms. If no frame ever clears the floor, the sharpest crop
+    # captured is still what gets sent (sharpest-frame selection below), so a
+    # mis-tuned floor only costs latency, never correctness. The floor is
+    # camera/lighting/piece dependent — watch the per-capture "sharp=" log values
+    # and tune. Set require_sharp_capture False to restore the old fixed-window
+    # behavior (stop at capture_at_rest_ms / max_captures, send the last frame).
+    require_sharp_capture: bool = True
+    min_sharpness_laplacian_var: float = 25.0
+    # Hard time cap on the keep-waiting-for-sharp loop (only used when
+    # require_sharp_capture is on).
+    capture_max_wait_ms: float = 1000.0
+    # Of the captured burst, how many frames to actually USE for classification —
+    # anchored for the upstream similarity search and sent to Brickognize. With
+    # require_sharp_capture on these are the SHARPEST N crops (least motion blur);
+    # otherwise the most-recent (last-N, most-settled) N. The rest of the burst is
+    # kept on the piece for review but did not influence the result. 1 = a single
+    # frame (the sharpest).
     classify_burst_count: int = 1
     # Alongside the fused "combined" call, fire extra single-image Brickognize
     # requests IN PARALLEL and keep whichever result scores highest. These are
@@ -121,7 +139,10 @@ FIELD_META: list[dict] = [
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},
-    {"key": "max_captures", "label": "Burst frames to grab per piece", "type": "int", "default": _DEFAULTS.max_captures},
+    {"key": "max_captures", "label": "Burst frames to grab per piece (hard ceiling)", "type": "int", "default": _DEFAULTS.max_captures},
+    {"key": "require_sharp_capture", "label": "Keep capturing until a sharp (non-blurry) frame", "type": "bool", "default": _DEFAULTS.require_sharp_capture},
+    {"key": "min_sharpness_laplacian_var", "label": "Sharpness floor (Laplacian variance of bbox crop)", "type": "float", "default": _DEFAULTS.min_sharpness_laplacian_var},
+    {"key": "capture_max_wait_ms", "label": "Max wait for a sharp frame (ms)", "type": "float", "default": _DEFAULTS.capture_max_wait_ms},
     {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count},
     {"key": "classify_parallel_single_burst", "label": "Also classify the last burst frame alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_burst},
     {"key": "classify_parallel_single_upstream", "label": "Also classify the top upstream crop alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_upstream},

@@ -1,37 +1,22 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Input, Alert } from '$lib/components/primitives';
+	import { Button, Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
+	import {
+		groupTuningSections,
+		type TuningFieldMeta,
+		type TuningValues
+	} from '$lib/settings/tuning';
 
-	type FieldMeta = {
-		key: string;
-		label: string;
-		type: 'int' | 'float' | 'bool';
-		default: number | boolean;
-		section?: string;
-	};
-
-	let fields = $state<FieldMeta[]>([]);
-	let values = $state<Record<string, number | boolean>>({});
+	let fields = $state<TuningFieldMeta[]>([]);
+	let values = $state<TuningValues>({});
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
 	let saved = $state(false);
 
-	// Group fields under their section, preserving first-seen section order.
-	let sections = $derived.by(() => {
-		const order: string[] = [];
-		const bySection = new Map<string, FieldMeta[]>();
-		for (const field of fields) {
-			const section = field.section ?? 'Parameters';
-			if (!bySection.has(section)) {
-				bySection.set(section, []);
-				order.push(section);
-			}
-			bySection.get(section)!.push(field);
-		}
-		return order.map((name) => ({ name, fields: bySection.get(name)! }));
-	});
+	let sections = $derived(groupTuningSections(fields));
 
 	async function load() {
 		loading = true;
@@ -57,7 +42,7 @@
 			const res = await fetch(`${getBackendHttpBase()}/api/tuning/feeder-go-to-angle`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(values),
+				body: JSON.stringify(values)
 			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
@@ -95,35 +80,21 @@
 		<Alert variant="success">Saved. Changes apply within ~1 second.</Alert>
 	{/if}
 
-	<SectionCard title="Parameters" description="All tunable parameters for the go-to-angle feeder flow.">
+	<SectionCard
+		title="Parameters"
+		description="All tunable parameters for the go-to-angle feeder flow."
+	>
 		{#if loading}
 			<div class="text-sm text-text-muted">Loading…</div>
 		{:else}
 			<div class="flex flex-col gap-8">
 				{#each sections as section}
 					<div class="flex flex-col gap-4">
-						<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 							{section.name}
 						</div>
 						{#each section.fields as field}
-							<div class="flex items-center gap-4">
-								<label class="w-72 text-sm text-text" for={field.key}>
-									{field.label}
-									<span class="ml-1 text-xs text-text-muted">(default: {field.default})</span>
-								</label>
-								{#if field.type === 'bool'}
-									<input
-										id={field.key}
-										type="checkbox"
-										checked={Boolean(values[field.key])}
-										onchange={(e) => (values[field.key] = e.currentTarget.checked)}
-									/>
-								{:else}
-									<div class="w-40">
-										<Input id={field.key} type="number" bind:value={values[field.key]} />
-									</div>
-								{/if}
-							</div>
+							<TuningParamRow {field} bind:values />
 						{/each}
 					</div>
 				{/each}

@@ -30,10 +30,22 @@ import numpy as np
 Bbox = Tuple[int, int, int, int]
 
 
+ScoredBbox = Tuple[Bbox, float]
+
+
 class InferenceRuntime(Protocol):
     def infer(
         self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None
     ) -> Sequence[Bbox]:
+        ...
+
+    def inferWithScores(
+        self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None
+    ) -> Sequence[ScoredBbox]:
+        """Same detections as ``infer`` but each paired with its confidence
+        score, for the tracker (ByteTrack uses scores for its two-stage
+        association). ``infer`` stays bbox-only so existing callers are
+        unaffected."""
         ...
 
 
@@ -112,6 +124,22 @@ class RknnYoloRuntime:
             out.append((int(b[0]), int(b[1]), int(b[2]), int(b[3])))
         return out
 
+    def inferWithScores(
+        self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None
+    ) -> Sequence[ScoredBbox]:
+        if conf_threshold is None:
+            detections = self._processor.infer(bgr)
+        else:
+            detections = self._processor.infer(bgr, conf_threshold=conf_threshold)
+        # ``Detection`` carries .bbox (4-tuple) and .score (float).
+        out: list[ScoredBbox] = []
+        for d in detections:
+            b = d.bbox
+            out.append(
+                ((int(b[0]), int(b[1]), int(b[2]), int(b[3])), float(d.score))
+            )
+        return out
+
 
 class StubRuntime:
     """Test runtime: returns a fixed list of bboxes for any input.
@@ -134,3 +162,9 @@ class StubRuntime:
     ) -> Sequence[Bbox]:
         self.calls += 1
         return self._bboxes
+
+    def inferWithScores(
+        self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None
+    ) -> Sequence[ScoredBbox]:
+        self.calls += 1
+        return [(b, 1.0) for b in self._bboxes]

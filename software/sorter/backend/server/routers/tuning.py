@@ -12,6 +12,10 @@ from toml_config import (
     setClassificationChannelRev01Config,
     getGoToAngleConfig,
     setGoToAngleConfig,
+    getActiveTrackerType,
+    setActiveTrackerType,
+    getTrackerConfig,
+    setTrackerConfig,
     getPulsePerceptionConfig,
     setPulsePerceptionConfig,
     getUpstreamMatchConfig,
@@ -20,6 +24,7 @@ from toml_config import (
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
 from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
+from perception.tracker_config import TRACKER_SPECS
 from perception.upstream_capture import (
     EMBED_MODEL,
     FIELD_META as UPSTREAM_MATCH_FIELD_META,
@@ -79,6 +84,46 @@ def set_pulse_perception_config(body: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"config": updated}
+
+
+@router.get("/api/tuning/object-tracker")
+def get_object_tracker_config() -> dict[str, Any]:
+    # All trackers up front so the UI can switch between them client-side; the
+    # active one is flagged separately.
+    return {
+        "active_type": getActiveTrackerType(),
+        "trackers": [
+            {
+                "type": t,
+                "label": spec.label,
+                "description": spec.description,
+                "fields": spec.field_meta,
+                "config": getTrackerConfig(t),
+            }
+            for t, spec in TRACKER_SPECS.items()
+        ],
+    }
+
+
+@router.post("/api/tuning/object-tracker")
+def set_object_tracker_config(body: dict[str, Any]) -> dict[str, Any]:
+    # Body may carry {type, config} to save one tracker's params and/or
+    # {active_type} to switch the active tracker. The page sends both on Save.
+    cfg_type = body.get("type")
+    config = body.get("config")
+    active_type = body.get("active_type")
+    try:
+        if cfg_type is not None and isinstance(config, dict):
+            if cfg_type not in TRACKER_SPECS:
+                raise ValueError(f"unknown tracker type: {cfg_type}")
+            setTrackerConfig(cfg_type, config)
+        if active_type is not None:
+            if active_type not in TRACKER_SPECS:
+                raise ValueError(f"unknown tracker type: {active_type}")
+            setActiveTrackerType(active_type)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return get_object_tracker_config()
 
 
 def _upstreamStore():

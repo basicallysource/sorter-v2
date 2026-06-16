@@ -860,6 +860,8 @@ class RecordPieceItem(BaseModel):
     category_id: Optional[str]
     confidence: Optional[float]
     destination_bin: Optional[List[int]]
+    # True when the piece was reaped for never reaching the distributed stage.
+    dead: bool = False
 
 
 class RecordsPiecesResponse(BaseModel):

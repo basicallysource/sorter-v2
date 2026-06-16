@@ -192,12 +192,14 @@ class PulsePerceptionFeeding(BaseState):
         c3 = self._latch_drop(3, c3, now_mono, cfg)
 
         if cfg.enable_ch3:
-            # C3's downstream is the classification channel (C4). Ready = C4
-            # empty AND past the post-dispense admission window AND the
-            # classification SM reports ready.
+            # C3's downstream is the classification channel (C4). The feeder does
+            # NOT define "ready" itself — that determination is owned and exposed
+            # by the classification channel (shared.classification_ready, set per
+            # its active mode: single-piece = whole channel empty, two-piece = drop
+            # zone clear). The feeder just asks. The only feeder-side gate is the
+            # post-dispense admission window (let an in-flight piece register first).
             c3_downstream_ready = (
-                c4.n_pieces == 0
-                and now_mono >= self._classification_pending_until
+                now_mono >= self._classification_pending_until
                 and self._classification_ready(cfg)
             )
             action = feederChannelAction(

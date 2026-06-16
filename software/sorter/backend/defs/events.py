@@ -82,6 +82,10 @@ class RecognitionImage(BaseModel):
     # Wall-clock capture time (epoch seconds). The UI ages each pic against the
     # owning KnownObject.created_at. None for older records.
     created_at: Optional[float] = None
+    # Motion-blur / focus measure: variance of the image's Laplacian (higher =
+    # sharper). Set for C4 burst crops at capture; None for upstream crops and
+    # older records. Lets consumers judge image validity without redecoding.
+    sharpness: Optional[float] = None
 
 
 class ClassificationAttemptStrategy(str, Enum):
@@ -115,6 +119,10 @@ class KnownObjectData(BaseModel):
     stage: PieceStage
     classification_status: ClassificationStatus
     aborted: bool = False
+    # Set when the backend reaps a piece that went silent for too long without
+    # reaching the distributed stage (the time-based analogue of ``aborted``).
+    # The UI drops dead pieces from the recent list.
+    dead: bool = False
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None

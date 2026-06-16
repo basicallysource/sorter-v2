@@ -33,12 +33,14 @@ from .arcs import (
     exitComForwardDeg,
     exitComForwardToCenterDeg,
     forwardClearanceToExitDeg,
+    orderedPieceObservations,
 )
 from .capture import CaptureWorker, PerceptionFrame
 from .channel import ChannelDef
 from .detection import Detection
 from .runtime import InferenceRuntime
-from .state import ChannelState, LatestStateSlot
+from .state import ChannelState, LatestStateSlot, PieceObservation
+from .tracking import TrackerManager
 
 
 # Callable signature for the optional KnownObject emit hook (rising edge of
@@ -200,6 +202,14 @@ class InferenceWorker:
         # ``latest_raw`` stay primary-only, so the state machine is unaffected.
         self._latest_detections: Optional[list[Detection]] = None
 
+        # Per-channel cross-frame identity. Holds the operator-selected tracker
+        # (ByteTrack or the angular tracker) and hot-swaps it when the Settings
+        # page changes. Fed the final on-channel bboxes every cycle; assigns each
+        # a stable ``sv_bt_track_id`` that survives brief detector dropouts.
+        # Advisory — the slot/state machine read positions and zones, not
+        # identity; the id rides along on pieces/detections/overlay.
+        self._tracker = TrackerManager()
+
         # On-demand full-frame debug inference. When a request bumps this
         # timestamp, the loop ALSO runs the model on the WHOLE frame (no crop)
         # for the next few seconds, so the debug page can compare cropped
@@ -256,12 +266,19 @@ class InferenceWorker:
         membership. GIL-atomic read — display/tag only."""
         return self._latest_detections
 
-    def _tag_detections(self, all_bboxes: list) -> list[Detection]:
+    def _tag_detections(
+        self, all_bboxes: list, track_id_by_bbox: Optional[dict] = None
+    ) -> list[Detection]:
         """Wrap each in-crop bbox with its zone provenance: ``in_primary`` (inside
         the channel polygon mask) and the ids of any secondary zones whose mask
-        contains the bbox center. A few mask indices per bbox — cheap."""
+        contains the bbox center. A few mask indices per bbox — cheap.
+
+        ``track_id_by_bbox`` maps the on-channel (tracked) bboxes to their
+        ``sv_bt_track_id``; off-channel detections aren't tracked, so they fall
+        through to ``None``."""
         ch = self._channel_def
         zones = ch.secondary_zones
+        tids = track_id_by_bbox or {}
         out: list[Detection] = []
         for b in all_bboxes:
             bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
@@ -271,7 +288,14 @@ class InferenceWorker:
                 if zones
                 else ()
             )
-            out.append(Detection(bbox=bbox, in_primary=in_primary, secondary_zone_ids=sids))
+            out.append(
+                Detection(
+                    bbox=bbox,
+                    in_primary=in_primary,
+                    secondary_zone_ids=sids,
+                    sv_bt_track_id=tids.get(bbox),
+                )
+            )
         return out
 
     def request_full_frame_debug(self, ttl_s: float = 10.0) -> None:
@@ -504,23 +528,31 @@ class InferenceWorker:
                         crop = np.where(
                             mask_crop[:, :, None] > 0, crop, np.uint8(230)
                         )
-                    raw_bboxes = self._runtime.infer(
+                    scored = self._runtime.inferWithScores(
                         crop, conf_threshold=self._conf_threshold
                     )
-                    bboxes = [
-                        (int(b[0]) + cx1, int(b[1]) + cy1, int(b[2]) + cx1, int(b[3]) + cy1)
-                        for b in raw_bboxes
-                    ]
+                    bboxes = []
+                    score_by_bbox: dict = {}
+                    for b, s in scored:
+                        bb = (
+                            int(b[0]) + cx1, int(b[1]) + cy1,
+                            int(b[2]) + cx1, int(b[3]) + cy1,
+                        )
+                        bboxes.append(bb)
+                        score_by_bbox[bb] = s
                 else:
                     full = frame.bgr
                     if _POLYGON_CROP_MASK:
                         m = self._channel_def.mask
                         full = np.where(m[:, :, None] > 0, full, np.uint8(230))
-                    bboxes = list(
-                        self._runtime.infer(
-                            full, conf_threshold=self._conf_threshold
-                        )
-                    )
+                    bboxes = []
+                    score_by_bbox = {}
+                    for b, s in self._runtime.inferWithScores(
+                        full, conf_threshold=self._conf_threshold
+                    ):
+                        bb = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+                        bboxes.append(bb)
+                        score_by_bbox[bb] = s
                 infer_ms = _now_ms() - infer_t0
 
                 # Every model detection in full-frame coords, BEFORE the
@@ -558,6 +590,19 @@ class InferenceWorker:
                     )
                 ]
 
+                # Assign each final on-channel piece a stable ``sv_bt_track_id``.
+                # Called every cycle — including empty ones — so the tracker ages
+                # coasting tracks on the right cadence. Cheap for 1–2 boxes. Real
+                # detection scores drive ByteTrack's confidence-based association.
+                scores = [score_by_bbox.get(b, 1.0) for b in bboxes]
+                track_id_by_bbox = self._tracker.update(
+                    bboxes,
+                    scores,
+                    frame_bgr=frame.bgr,
+                    channel=self._channel_def,
+                    timestamp=frame.timestamp,
+                )
+
                 attribute_t0 = _now_ms()
                 in_drop, in_exit, in_precise, in_exit_majority, n_pieces, per_bbox_counts = attributeBboxes(
                     bboxes, self._channel_def
@@ -573,6 +618,18 @@ class InferenceWorker:
                     bboxes, self._channel_def
                 )
                 exit_com_in_precise = comInPreciseZone(bboxes, self._channel_def)
+                pieces = tuple(
+                    PieceObservation(
+                        com_forward_to_exit_deg=gap,
+                        com_section=sec,
+                        zone_code=zone_code,
+                        bbox=bbox,
+                        sv_bt_track_id=track_id_by_bbox.get(bbox),
+                    )
+                    for gap, sec, zone_code, bbox in orderedPieceObservations(
+                        bboxes, self._channel_def
+                    )
+                )
                 attribute_ms = _now_ms() - attribute_t0
 
                 state = ChannelState(
@@ -587,6 +644,7 @@ class InferenceWorker:
                     exit_com_forward_to_center_deg=exit_com_forward_to_center_deg,
                     exit_com_forward_to_precise_deg=exit_com_forward_to_precise_deg,
                     exit_com_in_precise=exit_com_in_precise,
+                    pieces=pieces,
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)
@@ -594,11 +652,15 @@ class InferenceWorker:
                 # provenance so the overlay can show foreign-zone hits and future
                 # consumers can ask which zone a piece is in. Off the hot read
                 # path — the slot above stays primary-only.
-                detections = self._tag_detections(raw_bboxes_full)
+                detections = self._tag_detections(raw_bboxes_full, track_id_by_bbox)
                 self._latest_detections = detections
                 self._latest_debug = {
                     "raw_bboxes": raw_bboxes_full,
                     "on_channel_bboxes": list(bboxes),
+                    # sv_bt_track_id per on-channel bbox, index-aligned to
+                    # ``on_channel_bboxes`` (None for any not-yet-confirmed track),
+                    # so the debug page can label boxes without a tuple-keyed map.
+                    "on_channel_track_ids": [track_id_by_bbox.get(b) for b in bboxes],
                     "detections": detections,
                     "crop_rect": self._crop_rect,
                     "frame": frame,

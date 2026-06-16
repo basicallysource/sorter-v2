@@ -2,6 +2,7 @@
 	type InputType = 'text' | 'number' | 'password' | 'email' | 'search';
 
 	let {
+		id,
 		type = 'text',
 		value = $bindable(''),
 		placeholder = '',
@@ -11,6 +12,7 @@
 		onchange,
 		oninput
 	}: {
+		id?: string;
 		type?: InputType;
 		value?: string | number;
 		placeholder?: string;
@@ -23,6 +25,7 @@
 </script>
 
 <input
+	{id}
 	{type}
 	bind:value
 	{placeholder}

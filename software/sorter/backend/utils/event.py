@@ -47,6 +47,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             stage=PieceStage(obj.stage),
             classification_status=ClassificationStatus(obj.classification_status),
             aborted=obj.aborted,
+            dead=obj.dead,
             part_id=obj.part_id,
             part_name=obj.part_name,
             part_category=obj.part_category,
@@ -84,6 +85,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                     channel=r.channel,
                     created_at=getattr(r, "created_at", None),
                     excluded_from_result=getattr(r, "excluded_from_result", False),
+                    sharpness=getattr(r, "sharpness", None),
                 )
                 for r in (obj.recognition_image_set or [])
             ],

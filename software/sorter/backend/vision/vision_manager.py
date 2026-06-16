@@ -302,7 +302,11 @@ class VisionManager:
         )
         run_auxiliary_detection = (
             not perception_native_feeder
-            and classification_mode != ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+            and classification_mode
+            not in (
+                ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
+                ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
+            )
         )
         # Experimental override: keep the dedicated inference thread running
         # even in GO_TO_ANGLE / SIMPLE_STATE_MACHINE mode so RKNN doesn't pile

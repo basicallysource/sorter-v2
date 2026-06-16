@@ -3074,10 +3074,11 @@
 				'Exit Outer',
 				exitOuterLabelOffset(handles.exitOuter)
 			);
-			// The classification carousel travels counterclockwise, so the edge a
-			// piece reaches FIRST is the geometric "end" edge. Label in travel order
-			// so "Start" is always the entry edge (Start comes before End going CCW).
-			const ccwZones = currentChannel === 'classification_channel';
+			// All channels (including the classification channel, now CLOCKWISE like
+			// C2/C3 — see backend defs.consts.CLASSIFICATION_CHANNEL_CLOCKWISE) travel
+			// FORWARD, so the entry edge is the geometric "start" edge and no label
+			// swap is needed. Kept as a named flag so a future CCW build can flip it.
+			const ccwZones = false;
 			drawHandle(ctx, handles.dropStartOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop End' : 'Drop Start', [-42, -18]);
 			// Drop Start has no inner handle — the boundary is locked radial.
 			drawHandle(ctx, handles.dropEndOuter, DROP_ZONE_COLOR, '#111', ccwZones ? 'Drop Start' : 'Drop End', [42, -18]);

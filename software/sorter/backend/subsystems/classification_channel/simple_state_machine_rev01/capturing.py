@@ -135,13 +135,16 @@ class Capturing(Rev01BaseState):
         crop = self.cv.cropBbox(frame_bgr, primary_bbox, self.ctx.config.crop_padding_px)
         if crop is None:
             return
+        sharp = self.sharpness(crop)
         self.ctx.captured_crops.append(crop)
         self.ctx.captured_crop_timestamps.append(frame_ts)
+        self.ctx.captured_crop_sharpness.append(sharp)
         self.ctx.last_capture_frame_ts = frame_ts
         elapsed = now - self.ctx.capturing_started_at
         self.logger.info(
             f"{LOG_TAG} capture #{len(self.ctx.captured_crops)} "
-            f"(t+{elapsed:.2f}s, ts={frame_ts:.3f}, bbox={primary_bbox}, shape={crop.shape})"
+            f"(t+{elapsed:.2f}s, ts={frame_ts:.3f}, bbox={primary_bbox}, "
+            f"shape={crop.shape}, sharp={sharp:.0f})"
         )
         if self.ctx.known_object is not None:
             encoded = self.encodeFrame(crop)
@@ -156,6 +159,7 @@ class Capturing(Rev01BaseState):
                         ts=frame_ts,
                         channel=4,
                         created_at=frame_ts,
+                        sharpness=sharp,
                     )
                 )
             self.emitKnownObject()
@@ -163,11 +167,10 @@ class Capturing(Rev01BaseState):
     def _maybeFinishCapture(self, now: float) -> Optional[ClassificationChannelState]:
         if self.ctx.capturing_started_at == 0.0:
             return None
-        elapsed_ms = (now - self.ctx.capturing_started_at) * 1000.0
-        n = len(self.ctx.captured_crops)
-        done = n >= self.ctx.config.max_captures or elapsed_ms >= self.ctx.config.capture_at_rest_ms
+        done, reason = self.burstCaptureComplete(self.ctx, now)
         if not done:
             return None
+        n = len(self.ctx.captured_crops)
 
         self.ctx.classify_started_at = now
         all_captures = list(self.ctx.captured_crops)
@@ -177,7 +180,8 @@ class Capturing(Rev01BaseState):
         if all_captures:
             self.logger.info(
                 f"{LOG_TAG} CAPTURING -> MOVING_TO_PRECISE "
-                f"(captured {n}, classifying off-thread; exit_seen={self._exit_seen})"
+                f"(captured {n}, stop={reason}, classifying off-thread; "
+                f"exit_seen={self._exit_seen})"
             )
             self.spawnClassifyThread(all_captures)
         else:

@@ -25,3 +25,8 @@ class Detection:
     bbox: Bbox
     in_primary: bool
     secondary_zone_ids: tuple[str, ...] = ()
+    # Stable id from the perception ByteTrack tracker (``perception.tracking``)
+    # when this bbox is an on-channel piece. ``None`` for off-channel / secondary
+    # detections (only on-channel pieces are tracked) and when tracking is
+    # unavailable. The stream overlay labels each box with this id.
+    sv_bt_track_id: int | None = None

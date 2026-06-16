@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Input, Alert } from '$lib/components/primitives';
+	import { Button, Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
+	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
+	import type { TuningFieldMeta, TuningValues } from '$lib/settings/tuning';
 
-	type FieldMeta = { key: string; label: string; type: 'int' | 'float'; default: number };
-
-	let fields = $state<FieldMeta[]>([]);
-	let values = $state<Record<string, number>>({});
+	let fields = $state<TuningFieldMeta[]>([]);
+	let values = $state<TuningValues>({});
 	let loading = $state(true);
 	let saving = $state(false);
 	let error = $state<string | null>(null);
@@ -33,14 +33,11 @@
 		saved = false;
 		error = null;
 		try {
-			const res = await fetch(
-				`${getBackendHttpBase()}/api/tuning/classification-channel-rev01`,
-				{
-					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify(values),
-				}
-			);
+			const res = await fetch(`${getBackendHttpBase()}/api/tuning/classification-channel-rev01`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(values)
+			});
 			if (!res.ok) {
 				const body = await res.json().catch(() => ({}));
 				throw new Error(body.detail ?? `HTTP ${res.status}`);
@@ -83,19 +80,7 @@
 		{:else}
 			<div class="flex flex-col gap-4">
 				{#each fields as field}
-					<div class="flex items-center gap-4">
-						<label class="w-64 text-sm text-text" for={field.key}>
-							{field.label}
-							<span class="ml-1 text-xs text-text-muted">(default: {field.default})</span>
-						</label>
-						<div class="w-40">
-							<Input
-								id={field.key}
-								type="number"
-								bind:value={values[field.key]}
-							/>
-						</div>
-					</div>
+					<TuningParamRow {field} bind:values />
 				{/each}
 			</div>
 

@@ -177,6 +177,51 @@ class Rev01BaseState(BaseState):
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
+    @staticmethod
+    def burstCaptureComplete(ctx, now: float) -> tuple[bool, str]:
+        # Shared stop condition for the at-rest burst (single-piece CAPTURING and
+        # the two-piece incoming worker). With require_sharp_capture on, keep
+        # grabbing frames until at least one crop clears the motion-blur floor,
+        # bounded by max_captures and capture_max_wait_ms; otherwise fall back to
+        # the old fixed window (capture_at_rest_ms / max_captures). Returns
+        # (done, reason) so callers can log why the burst ended.
+        cfg = ctx.config
+        n = len(ctx.captured_crops)
+        if n <= 0:
+            return False, ""
+        elapsed_ms = (now - ctx.capturing_started_at) * 1000.0
+        if not getattr(cfg, "require_sharp_capture", False):
+            if n >= cfg.max_captures:
+                return True, "frame_cap"
+            if elapsed_ms >= cfg.capture_at_rest_ms:
+                return True, "window"
+            return False, ""
+        floor = float(cfg.min_sharpness_laplacian_var)
+        if any(s >= floor for s in ctx.captured_crop_sharpness):
+            return True, "sharp"
+        if n >= cfg.max_captures:
+            return True, "frame_cap"
+        if elapsed_ms >= float(cfg.capture_max_wait_ms):
+            return True, "time_cap"
+        return False, ""
+
+    def _selectBurstIndices(self, crops: list[np.ndarray], n_use: int) -> list[int]:
+        # Which burst frames drive classification. With require_sharp_capture on,
+        # the SHARPEST n_use crops (least motion blur); otherwise the last n_use
+        # (most-settled tail) to preserve the legacy behavior. Returned in capture
+        # order so the anchors/sent images stay chronological.
+        total = len(crops)
+        n = max(1, min(int(n_use), total)) if total else 0
+        if n == 0:
+            return []
+        cfg = self.ctx.config
+        sharp = self.ctx.captured_crop_sharpness
+        if getattr(cfg, "require_sharp_capture", False) and len(sharp) == total:
+            order = sorted(range(total), key=lambda i: sharp[i], reverse=True)
+        else:
+            order = list(reversed(range(total)))
+        return sorted(order[:n])
+
     def anyBboxInExitZone(
         self, bboxes: list[tuple[int, int, int, int]]
     ) -> tuple[bool, list[float]]:
@@ -261,19 +306,21 @@ class Rev01BaseState(BaseState):
         # highest-confidence single-image call wins (see _runClassifyRequests).
         obj = self.ctx.known_object
         piece_uuid = obj.uuid if obj is not None else None
-        # Only the last classify_burst_count burst frames drive classification:
-        # they anchor the upstream-similarity search and are the C4 images sent to
-        # Brickognize. The rest of the burst is kept on the KnownObject
-        # (used=False) for review.
+        # classify_burst_count frames drive classification: they anchor the
+        # upstream-similarity search and are the C4 images sent to Brickognize.
+        # _selectBurstIndices picks the sharpest (least motion-blurred) frames when
+        # require_sharp_capture is on, the most-settled tail otherwise. The rest of
+        # the burst is kept on the KnownObject (used=False) for review.
         n_use = max(1, int(self.ctx.config.classify_burst_count))
         burst_entries = (
             [r for r in obj.recognition_image_set if r.source == "c4_burst"]
             if obj is not None
             else []
         )
-        used_entries = burst_entries[-n_use:]
+        chosen = [i for i in self._selectBurstIndices(all_captures, n_use) if i < len(burst_entries)]
+        used_entries = [burst_entries[i] for i in chosen]
         anchor_b64s = [e.image for e in used_entries]
-        burst_crops = list(all_captures[-n_use:])
+        burst_crops = [all_captures[i] for i in chosen]
         ref_ts = float(
             (obj.first_carousel_seen_ts or obj.created_at)
             if obj is not None

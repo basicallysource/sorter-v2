@@ -50,6 +50,11 @@ class RecognitionImage:
     ts: Optional[float] = None
     score: Optional[float] = None
     excluded_from_result: bool = False
+    # Motion-blur / focus measure of this image: the variance of its Laplacian
+    # (higher = sharper, lower = blurrier). Computed for C4 burst crops at capture
+    # time so anything downstream can judge the image's validity without redecoding
+    # the JPEG. None when not measured (e.g. upstream match crops, older records).
+    sharpness: Optional[float] = None
     # Physical channel the image came from: 4 for a C4 burst capture, 2 or 3 for
     # an upstream match crop. None when unknown (older records).
     channel: Optional[int] = None
@@ -106,6 +111,13 @@ class KnownObject:
     # distributed; the UI drops aborted pieces rather than leaving them stuck
     # in the "capturing" phase forever.
     aborted: bool = False
+    # Set by the broadcaster's stuck-piece reaper when a piece goes silent for
+    # longer than STUCK_PIECE_TIMEOUT_S without reaching the distributed stage
+    # while the machine is running (e.g. stuck "classified" but never
+    # distributed). Like ``aborted`` but time-based rather than teardown-driven;
+    # the UI drops dead pieces from the recent list. Self-clears if the piece
+    # later progresses and re-emits.
+    dead: bool = False
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None

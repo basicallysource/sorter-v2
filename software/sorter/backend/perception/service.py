@@ -551,6 +551,8 @@ class PerceptionService:
             "core_mask_name": getattr(runtime, "core_mask_name", None),
             "raw_bboxes": debug.get("raw_bboxes") or [],
             "on_channel_bboxes": debug.get("on_channel_bboxes") or [],
+            # sv_bt_track_id per on-channel bbox, index-aligned to on_channel_bboxes.
+            "on_channel_track_ids": debug.get("on_channel_track_ids") or [],
             # Persisted full-frame result (its OWN frame, so the overlay's boxes
             # line up). None until the on-demand full-frame pass has run once.
             "full_frame": worker.latest_full_frame,

@@ -134,7 +134,11 @@ def _perceptionModeActive(irl_config) -> bool:
     )
     return (
         feeder_mode in (FeederMode.GO_TO_ANGLE_REV01, FeederMode.PULSE_PERCEPTION_REV01)
-        and cc_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+        and cc_mode
+        in (
+            ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
+            ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
+        )
     )
 
 
@@ -227,6 +231,14 @@ def runBroadcaster(gc: GlobalConfig) -> None:
     # instant. uuid -> (last_send_mono, stage, status).
     KNOWN_OBJECT_THROTTLE_S = 0.1
     ko_last_broadcast: dict = {}
+
+    # Stuck-piece reaper: pieces that never reach the distributed stage stop
+    # emitting events and would otherwise linger in the UI forever. Once a
+    # second, mark any that have gone silent past the timeout as dead and
+    # broadcast a final event so the UI (and the per-piece lookup) drop them.
+    from defs.consts import STUCK_PIECE_TIMEOUT_S, STUCK_PIECE_REAP_INTERVAL_S
+
+    last_reap_mono = 0.0
 
     while True:
         latest_frame_commands = {}
@@ -322,6 +334,40 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 "socket.broadcast_event_ms",
                 (time.perf_counter() - send_started) * 1000.0,
             )
+
+        if now_mono - last_reap_mono >= STUCK_PIECE_REAP_INTERVAL_S:
+            last_reap_mono = now_mono
+            for full_payload in gc.runtime_stats.reapStuckPieces(
+                time.time(), STUCK_PIECE_TIMEOUT_S
+            ):
+                slim = slimKnownObjectForSocket(full_payload)
+                remember_recent_known_object(slim)
+                # Persist to the durable history so a stuck piece still shows up
+                # on /records (ordered by created_at) instead of vanishing —
+                # normally only distributed pieces get recorded.
+                try:
+                    import piece_records
+
+                    piece_records.recordPiece(
+                        full_payload, run_id=gc.run_id, machine_id=gc.machine_id
+                    )
+                except Exception as exc:
+                    gc.logger.warning(f"failed to record reaped piece: {exc}")
+                gc.logger.info(
+                    "reaping stuck piece "
+                    f"{str(full_payload.get('uuid', ''))[:8]} "
+                    f"(stage={getattr(full_payload.get('stage'), 'value', full_payload.get('stage'))} "
+                    f"status={getattr(full_payload.get('classification_status'), 'value', full_payload.get('classification_status'))}) "
+                    "— no progress to distributed before timeout"
+                )
+                future = asyncio.run_coroutine_threadsafe(
+                    broadcastEvent({"tag": "known_object", "data": slim}),
+                    shared_state.server_loop,
+                )
+                try:
+                    future.result(timeout=1.0)
+                except Exception:
+                    pass
 
         time.sleep(gc.timeouts.main_loop_sleep_ms / 1000.0)
 
@@ -636,7 +682,11 @@ def main() -> None:
             None,
         )
         if (
-            classification_mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+            classification_mode
+            in (
+                ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
+                ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
+            )
             and not _noPowerModeActive(gc)
         ):
             from subsystems.classification_channel.simple_state_machine_rev01.spoke_home import (

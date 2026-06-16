@@ -73,6 +73,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         if self._dynamic_mode:
             self.transport.configureDynamicMode(irl_config.classification_channel_config)
         self.current_state = ClassificationChannelState.IDLE
+        # The two-piece codepath is a single self-contained controller (not a
+        # states_map); step()/cleanup() delegate to it when this mode is active.
+        self._two_piece = None
         if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
             self.states_map = buildRev01StatesMap(
                 irl=irl,
@@ -82,6 +85,24 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                 transport=transport,
                 vision=vision,
                 event_queue=event_queue,
+            )
+        elif self._mode == ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01:
+            from subsystems.classification_channel.two_piece import (
+                TwoPieceClassificationChannel,
+            )
+            from subsystems.classification_channel.simple_state_machine_rev01.context import (
+                SimpleStateMachineRev01Context,
+            )
+            self.states_map = {}
+            self._two_piece = TwoPieceClassificationChannel(
+                irl,
+                irl_config,
+                gc,
+                shared,
+                transport,
+                vision,
+                event_queue,
+                SimpleStateMachineRev01Context(),
             )
         else:
             self.states_map = {
@@ -124,6 +145,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         self._stall_incident_raised = False
 
     def step(self) -> None:
+        if self._two_piece is not None:
+            self._two_piece.step()
+            return
         import time as _time
         _t0 = _time.perf_counter()
         self.gc.profiler.hit("classification.state_machine.step.calls")
@@ -276,6 +300,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")
+        if self._two_piece is not None:
+            self._two_piece.cleanup()
+            return
         # Tearing down mid-cycle (machine stop / standby): if a piece was
         # photographed but never classified or distributed, mark it aborted so
         # the UI drops it instead of leaving it stuck in "capturing" forever.

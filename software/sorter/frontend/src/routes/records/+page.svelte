@@ -51,6 +51,8 @@
 		category_id: string | null;
 		confidence: number | null;
 		destination_bin: number[] | null;
+		// True when the piece was reaped for never reaching the distributed stage.
+		dead: boolean;
 	};
 
 	type LifetimeDay = {
@@ -583,6 +585,15 @@
 							>
 								{formatStatus(p.classification_status)}
 							</span>
+
+							{#if p.dead}
+								<span
+									class="inline-flex items-center border border-warning bg-warning/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark"
+									title="Reaped — went silent without ever reaching the distributed stage"
+								>
+									Timed out
+								</span>
+							{/if}
 
 							<span class="truncate text-sm font-semibold text-text">
 								{p.part_name ?? p.part_id ?? p.uuid.slice(0, 8)}

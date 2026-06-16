@@ -21,6 +21,13 @@
 	// 'classified' within seconds, so any OLDER pre-classification piece that
 	// has had no event for this long has been abandoned and is dropped.
 	const STALE_CAPTURING_S = 15;
+	// A piece that classified but never reached distribution stops emitting
+	// events and would otherwise sit in the active list forever. The backend
+	// reaps these (marking them `dead`, which removes them from the buffer)
+	// after ~30s of silence; this is the UI backstop for when that signal never
+	// arrives (e.g. backend wedged). Set slightly above the backend timeout so
+	// the authoritative `dead` event normally wins first.
+	const STALE_CLASSIFIED_S = 35;
 
 	const ctx = getMachineContext();
 	sortingProfileStore.load();
@@ -194,10 +201,15 @@
 		// seconds while Brickognize runs.
 		const deduped = dedupeByPhysicalPiece(freshest_first);
 		const live = deduped.filter((o, i) => {
-			if (i === 0) return true;
 			const phase = lifecyclePhase(o);
-			if (phase !== 'capturing' && phase !== 'tracking') return true;
-			return now_s - lastEventTs(o) <= STALE_CAPTURING_S;
+			const stale_s = now_s - lastEventTs(o);
+			if (phase === 'capturing' || phase === 'tracking') {
+				return i === 0 || stale_s <= STALE_CAPTURING_S;
+			}
+			// Classified but not yet distributed — drop once it has gone silent
+			// past the backstop window (see STALE_CLASSIFIED_S) so a stuck piece
+			// can't sit in the active list forever.
+			return stale_s <= STALE_CLASSIFIED_S;
 		});
 
 		return live.sort(sortActiveC4Pieces);

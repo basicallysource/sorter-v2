@@ -87,9 +87,10 @@ function mergeKnownObject(
 
 function shouldKeepRecentObject(obj: KnownObjectData): boolean {
 	// Aborted pieces had their classification cycle torn down before any result
-	// (machine stop / reset mid-capture). They never classify or distribute, so
-	// drop them rather than leaving them stuck in the "capturing" phase.
-	if (obj.aborted) return false;
+	// (machine stop / reset mid-capture). Dead pieces were reaped by the backend
+	// after going silent too long without ever reaching distributed. Neither will
+	// progress, so drop them rather than leaving them stuck in the list.
+	if (obj.aborted || obj.dead) return false;
 	// Recent Pieces is a C4-only view: a piece enters the list when it is
 	// first observed on the classification channel and stays until it is
 	// distributed. `first_carousel_seen_ts` is set by piece_transport.py
@@ -416,10 +417,10 @@ export class MachineManager {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
 
-		// Aborted: the piece's classification cycle was torn down before any
-		// result. Drop it from the buffer immediately so it can't linger in the
-		// "capturing" phase.
-		if (obj.aborted) {
+		// Aborted (teardown) or dead (reaped by the backend after going silent
+		// too long without distributing): the piece will never progress. Drop it
+		// from the buffer immediately so it can't linger.
+		if (obj.aborted || obj.dead) {
 			this.clearRecentRemovalTimer(machineId, obj.uuid);
 			if (machine.recentObjects.some((o) => o.uuid === obj.uuid)) {
 				const updated = new Map(this.machines);

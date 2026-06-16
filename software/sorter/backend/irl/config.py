@@ -8,6 +8,11 @@ class ClassificationChannelMode(enum.Enum):
     CLASSIC_CAROUSEL = "classic_carousel"
     DYNAMIC = "dynamic"
     SIMPLE_STATE_MACHINE_REV01 = "simple_state_machine_rev01"
+    # Hold exactly two pieces at a time: one staged in the precise zone being
+    # processed, one waiting in the drop zone. Separate, self-contained flow
+    # (two_piece/) — SIMPLE_STATE_MACHINE_REV01 stays the untouched single-piece
+    # fallback. See subsystems/classification_channel/two_piece/.
+    TWO_PIECE_STATE_MACHINE_REV01 = "two_piece_state_machine_rev01"
 
 
 class FeederMode(enum.Enum):

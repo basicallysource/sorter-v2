@@ -7,6 +7,7 @@ from defs.consts import (
     CHANNEL_SECTION_DEG,
     CH3_PRECISE_SECTIONS, CH3_DROPZONE_SECTIONS,
     CH2_PRECISE_SECTIONS, CH2_DROPZONE_SECTIONS,
+    CLASSIFICATION_CHANNEL_CLOCKWISE,
 )
 from defs.channel import PolygonChannel, ChannelGeometry, ChannelDetection
 
@@ -228,7 +229,7 @@ def parseSavedChannelArcZones(
             exit_end_inner_angle=exit_zone_edges[3],
             precise_start_angle=precise_zone[0] if precise_zone is not None else None,
             precise_end_angle=precise_zone[1] if precise_zone is not None else None,
-            ccw=(channel_key == "classification_channel"),
+            ccw=(channel_key == "classification_channel" and not CLASSIFICATION_CHANNEL_CLOCKWISE),
         )
 
     drop_start, drop_end, drop_start_inner, drop_end_inner = _zone_with_inner("drop_zone", legacy_drop)
@@ -252,7 +253,7 @@ def parseSavedChannelArcZones(
         exit_end_inner_angle=exit_end_inner,
         precise_start_angle=precise_zone[0] if precise_zone is not None else None,
         precise_end_angle=precise_zone[1] if precise_zone is not None else None,
-        ccw=(channel_key == "classification_channel"),
+        ccw=(channel_key == "classification_channel" and not CLASSIFICATION_CHANNEL_CLOCKWISE),
     )
 
 

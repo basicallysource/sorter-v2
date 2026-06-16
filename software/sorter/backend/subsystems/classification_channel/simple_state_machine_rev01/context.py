@@ -28,6 +28,10 @@ class SimpleStateMachineRev01Context:
         self.config: Rev01Config = _loadConfig()
         self.captured_crops: list[np.ndarray] = []
         self.captured_crop_timestamps: list[float] = []
+        # Laplacian-variance sharpness of each captured crop (higher = sharper),
+        # index-aligned with captured_crops. Drives the keep-capturing-until-sharp
+        # stop condition and the sharpest-frame selection sent to Brickognize.
+        self.captured_crop_sharpness: list[float] = []
         # The subset actually submitted to Brickognize — selected by CAPTURING
         # when it spawns the classify thread, read by AWAITING_DISTRIBUTION when
         # it dumps the burst artifacts (the spawn/apply split spans two states).
@@ -84,6 +88,7 @@ class SimpleStateMachineRev01Context:
         self.config = _loadConfig()
         self.captured_crops = []
         self.captured_crop_timestamps = []
+        self.captured_crop_sharpness = []
         self.selected_captures = []
         self.upstream_recognition_images = []
         self.classification_attempts = []

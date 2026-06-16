@@ -207,6 +207,65 @@ def setGoToAngleConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Perception object-tracker: active-tracker selection + per-tracker tuning
+# ---------------------------------------------------------------------------
+# The active tracker type lives in [object_tracker].type; each tracker's params
+# live in their own [object_tracker_<type>] section, so switching trackers keeps
+# each one's tuning. Helpers are generic over tracker type via TRACKER_SPECS.
+
+
+def getActiveTrackerType() -> str:
+    from perception.tracker_config import DEFAULT_TRACKER_TYPE, TRACKER_SPECS
+    config = _read_toml()
+    section = config.get("object_tracker")
+    if isinstance(section, dict):
+        t = section.get("type")
+        if isinstance(t, str) and t in TRACKER_SPECS:
+            return t
+    return DEFAULT_TRACKER_TYPE
+
+
+def setActiveTrackerType(tracker_type: str) -> str:
+    from perception.tracker_config import DEFAULT_TRACKER_TYPE, TRACKER_SPECS
+    t = tracker_type if tracker_type in TRACKER_SPECS else DEFAULT_TRACKER_TYPE
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("object_tracker")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base["type"] = t
+        config["object_tracker"] = base
+
+    _update_toml(updater)
+    return getActiveTrackerType()
+
+
+def getTrackerConfig(tracker_type: str) -> dict[str, Any]:
+    from perception.tracker_config import defaultsFor
+    config = _read_toml()
+    section = config.get(f"object_tracker_{tracker_type}")
+    defaults = defaultsFor(tracker_type)
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setTrackerConfig(tracker_type: str, updates: dict[str, Any]) -> dict[str, Any]:
+    from perception.tracker_config import defaultsFor
+    defaults = defaultsFor(tracker_type)
+    valid = {k: v for k, v in updates.items() if k in defaults}
+    key = f"object_tracker_{tracker_type}"
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get(key)
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config[key] = base
+
+    _update_toml(updater)
+    return getTrackerConfig(tracker_type)
+
+
+# ---------------------------------------------------------------------------
 # Feeder pulse-perception tuning config
 # ---------------------------------------------------------------------------
 

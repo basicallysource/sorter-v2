@@ -120,6 +120,7 @@
 	function classificationModeLabel(mode: string): string {
 		const labels: Record<string, string> = {
 			simple_state_machine_rev01: 'Simple State Machine',
+			two_piece_state_machine_rev01: 'Two Piece',
 			classic_carousel: 'Classic Carousel',
 			dynamic: 'Dynamic'
 		};
@@ -421,7 +422,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Classification Channel Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['simple_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
+							{#each ['simple_state_machine_rev01', 'two_piece_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
 								<button
 									onclick={() => saveClassificationMode(mode)}
 									disabled={savingClassificationMode}

@@ -60,10 +60,11 @@ def main():
             continue
         old_stderr = os.dup(stderr_fd)
         os.dup2(os.open(os.devnull, os.O_WRONLY), stderr_fd)
-        cap = cv2.VideoCapture(i)
+        cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
         os.dup2(old_stderr, stderr_fd)
         os.close(old_stderr)
         if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
             ret = False
             for _ in range(WARMUP_FRAMES):
                 ret, _ = cap.read()

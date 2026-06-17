@@ -196,8 +196,9 @@ class CaptureThread:
             )
 
     def _captureLoop(self) -> None:
-        cap = cv2.VideoCapture(self._config.device_index)
+        cap = cv2.VideoCapture(self._config.device_index, cv2.CAP_V4L2)
         self._cap = cap
+        cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)
         cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self._config.height)
         cap.set(cv2.CAP_PROP_FPS, self._config.fps)

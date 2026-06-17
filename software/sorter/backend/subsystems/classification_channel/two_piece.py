@@ -1,5 +1,6 @@
 import time
 from enum import Enum
+from typing import Optional
 
 from defs.known_object import (
     ClassificationStatus,
@@ -14,37 +15,127 @@ from .simple_state_machine_rev01.context import SimpleStateMachineRev01Context
 
 LOG_TAG = "[C4-2PIECE]"
 
-# How far the LEADING piece's gap-to-exit must JUMP UP to conclude the front piece
-# has LEFT (dropped) and the waiting piece is now leading. Pieces can't pass each
-# other on a rigid one-way platter, so the leading gap only jumps up when the old
-# leading piece is gone.
-_FRONT_LEFT_JUMP_DEG = 15.0
-# Safety: give up a discharge that never resolves (piece stuck at the fall-off).
-_DISCHARGE_TIMEOUT_S = 15.0
-_DROP_ZONE_CODE = 1  # perception.arcs._region_lookup: 1 = drop
+# perception.arcs._region_lookup / PieceObservation.zone_code values. The
+# classification channel is a rotating platter viewed from above; pieces travel
+# FORWARD (one way, never reversed) through these zones in this order:
+#   DROP  -> PRECISE (the holding region) -> EXIT (the fall-off)
+_ZONE_NONE = 0
+_ZONE_DROP = 1
+_ZONE_PRECISE = 3  # the holding region (a.k.a. "precise"); 2 = exit (the fall-off)
+
+# Identity is the source of truth (PieceObservation.sv_bt_track_id). A track id
+# that has been missing from perception for longer than this is treated as gone
+# (the piece left the channel). Long enough to ride out a detector blink, short
+# enough to react within a cycle.
+_TRACK_GONE_RETIRE_S = 0.7
+# The ejecting piece is "ejected" the instant its track id stays gone this long.
+# Slightly under the retire window so we commit the discharge before the bookkeep
+# prune runs. This is the user's rule: "if that ID has disappeared, the piece has
+# been ejected."
+_EJECT_GONE_CONFIRM_S = 0.35
+
+# Safety ceilings so a move that never resolves can't wedge the machine forever.
+_EJECT_TIMEOUT_S = 15.0
+_STAGE_TIMEOUT_S = 15.0
 
 
 class _Phase(Enum):
-    STAGE = "stage"          # rotate the front piece's COM forward into precise
-    PROCESS = "process"      # apply result + aim chute; wait for the back piece
-    DISCHARGE = "discharge"  # push the front into the fall-off; it drops
+    # Platter STOPPED. Observe, photograph the drop-zone piece, classify, and aim
+    # the chute for the holding piece. The only place we accept a new piece.
+    WAITING = "waiting"
+    # Rotating the holding piece off the fall-off. Done when its track id is gone.
+    EJECTING = "ejecting"
+    # Rotating the drop piece forward into the holding region. Done when its track
+    # id reads in the precise zone.
+    STAGING = "staging"
+
+
+class _TrackedPiece:
+    """One physical piece on the channel, keyed by its perception track id. Owns
+    a private capture/classify worker (its own KnownObject + burst context) so two
+    pieces never share classification state."""
+
+    def __init__(self, track_id: int, worker: Rev01BaseState, now: float) -> None:
+        self.track_id = track_id
+        self.worker = worker
+        self.zone = _ZONE_NONE
+        self.bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
+        self.gap_to_exit: Optional[float] = None
+        self.created_at = now
+        self.last_seen = now
+        # Burst capture (drop zone only) has finished -> safe to rotate the piece
+        # out of the drop zone.
+        self.capture_done = False
+        # Classification result has been written onto the KnownObject.
+        self.result_applied = False
+        # Handed to distribution (chute is aiming / aimed for it).
+        self.placed = False
+        # Two pieces landed in the drop zone at once -> can't classify reliably,
+        # route to the misc bin.
+        self.double_feed = False
+
+    @property
+    def known_object(self) -> Optional[KnownObject]:
+        return self.worker.ctx.known_object
 
 
 class TwoPieceClassificationChannel(Rev01BaseState):
-    """Hold up to two pieces on the classification channel: one staged in precise
-    being processed, one captured in the drop zone. Platter only ever turns
-    CLOCKWISE (forward); no move is reversed. Single-piece SIMPLE_STATE_MACHINE_REV01
-    is untouched."""
+    """Hold up to two pieces on the classification channel, one cycle ahead of
+    the chute: one staged in the holding (precise) region being classified +
+    aimed, one waiting in the drop zone. The platter only ever turns FORWARD
+    (clockwise); no move is reversed.
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self._deps = args[:7]
-        self._phase = _Phase.STAGE
-        self._placed = False
-        self._result_applied = False
-        self._front_exit_gap = None
-        self._discharge_started_at = 0.0
-        self._incoming = Rev01BaseState(*self._deps, SimpleStateMachineRev01Context())
+    SOURCE OF TRUTH = perception track ids (``PieceObservation.sv_bt_track_id``),
+    not heuristics: a piece's id moving DROP -> PRECISE confirms it staged; a
+    piece's id DISAPPEARING confirms it was ejected off the fall-off.
+
+    State machine (platter-level; per-piece classification runs concurrently):
+
+      WAITING (stopped) --------------------------------------------------+
+        - photograph the drop piece (drop zone only), classify off-thread |
+        - once the holding piece is classified, aim the chute for it      |
+        - feeder may add a piece only here (drop clear + stopped)         |
+        - ROTATE when there is a captured drop piece AND                  |
+            (holding empty            -> STAGING, or                      |
+             holding piece is ready   -> EJECTING)                        |
+                                                                          |
+      EJECTING (moving) -- push holding piece off the fall-off            |
+        - done when its track id is gone -> commit it to distribution     |
+          -> STAGING                                                      |
+                                                                          |
+      STAGING (moving) -- bring the drop piece into the holding region    |
+        - done when its track id reads in the precise zone -> WAITING ----+
+
+    "Ready" for the holding piece = classified AND the distribution chute is
+    aimed for it. We never eject the holding piece unless a drop piece is there to
+    take its place, so one rotation always both ejects and refills.
+
+    The single-piece SIMPLE_STATE_MACHINE_REV01 path is untouched.
+    """
+
+    def __init__(
+        self,
+        irl,
+        irl_config,
+        gc,
+        shared,
+        transport,
+        vision,
+        event_queue,
+        context: SimpleStateMachineRev01Context,
+    ):
+        super().__init__(
+            irl, irl_config, gc, shared, transport, vision, event_queue, context
+        )
+        self._deps = (irl, irl_config, gc, shared, transport, vision, event_queue)
+        self._pieces: dict[int, _TrackedPiece] = {}
+        self._phase = _Phase.WAITING
+        self._eject_target: Optional[_TrackedPiece] = None
+        self._stage_target: Optional[_TrackedPiece] = None
+        self._phase_started_at = 0.0
+        # Multi-feed debounce: consecutive distinct frames showing >1 drop-zone id.
+        self._multi_drop_streak = 0
+        self._multi_drop_last_ts = -1.0
         self.ctx.reset()
         self.ctx.known_object = None
 
@@ -57,211 +148,307 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         state = perception_service.read_state(4)
         stepper = getattr(self.irl, "carousel_stepper", None)
         stopped = bool(getattr(stepper, "stopped", True))
-
-        self.setClassificationReady(
-            (not state.in_drop) and stopped, "drop clear + stopped (two-piece)"
-        )
-
-        # Concurrently photograph + classify whatever is waiting in the DROP zone,
-        # whenever the platter is stopped.
-        if stopped:
-            self._captureIncoming(perception_service, state)
-
-        # No front piece staged? Promote the captured incoming piece (if any).
-        if self.ctx.known_object is None:
-            self._promoteIfReady()
-            if self.ctx.known_object is None:
-                return
-
-        if self._phase == _Phase.STAGE:
-            self._stage(state, stopped)
-        elif self._phase == _Phase.PROCESS:
-            self._process(state)
-        elif self._phase == _Phase.DISCHARGE:
-            self._discharge(state, stopped)
-
-    # ------------------------------------------------- incoming (drop) capture
-
-    def _captureIncoming(self, perception_service, state) -> None:
-        inc = self._incoming.ctx
-        if inc.classify_started_at != 0.0:
-            return  # already captured + classifying
-        drop_bbox = self._zoneBbox(state, _DROP_ZONE_CODE)
-        if drop_bbox is None:
-            return
-        raw = perception_service.read_bboxes_and_frame(4)
-        if raw is None:
-            return
-        _bboxes, perc_frame = raw
         now = time.monotonic()
-        if inc.capturing_started_at == 0.0:
-            inc.capturing_started_at = now
-            inc.known_object = KnownObject(
-                stage=PieceStage.created,
-                classification_status=ClassificationStatus.pending,
-                first_carousel_seen_ts=time.time(),
-            )
-            self._incoming.emitKnownObject()
-            self.logger.info(f"{LOG_TAG} capturing incoming drop-zone piece (concurrent)")
-        self._cropBurstFrame(self._incoming, drop_bbox, perc_frame)
-        n = len(inc.captured_crops)
-        done, reason = self._incoming.burstCaptureComplete(inc, now)
-        if done:
-            inc.classify_started_at = now
-            caps = list(inc.captured_crops)
-            if caps:
-                self._incoming.spawnClassifyThread(caps)
-            else:
-                inc.classification_error = "no_captures"
-            best_sharp = max(inc.captured_crop_sharpness, default=0.0)
-            self.logger.info(
-                f"{LOG_TAG} incoming piece classifying off-thread "
-                f"({n} crops, stop={reason}, best_sharp={best_sharp:.0f}, "
-                f"floor={inc.config.min_sharpness_laplacian_var:.0f})"
-            )
 
-    def _promoteIfReady(self) -> None:
-        inc = self._incoming.ctx
-        if inc.known_object is None:
-            return
-        # Never promote (and therefore never STAGE the piece out of the drop zone)
-        # until its at-rest burst capture has COMPLETED. classify_started_at is set
-        # the instant the burst finishes, so it doubles as the capture-done flag.
-        if inc.classify_started_at == 0.0:
-            return
-        # Hand the incoming context over to the front. Its classify thread keeps a
-        # reference to inc, so it keeps writing to this same context — now the
-        # front's. Spin up a FRESH worker for the next incoming piece.
-        self.ctx = inc
-        self._incoming = Rev01BaseState(*self._deps, SimpleStateMachineRev01Context())
-        self._placed = False
-        self._result_applied = False
-        self._front_exit_gap = None
-        self._discharge_started_at = 0.0
-        self._phase = _Phase.STAGE
-        self.logger.info(f"{LOG_TAG} promoted incoming piece to FRONT (already classifying)")
+        self._observe(state, now)
 
-    # --------------------------------------------------------- front lifecycle
+        # The classification channel OWNS the feeder admission gate. Ready only
+        # when we are idle between cycles (not mid-rotation) AND the drop zone is
+        # clear AND the platter has settled — i.e. "rotation complete, drop empty".
+        ready = self._phase == _Phase.WAITING and (not state.in_drop) and stopped
+        self.setClassificationReady(ready, "waiting + drop clear + stopped")
 
-    def _stage(self, state, stopped: bool) -> None:
-        # Advance the front piece's COM FORWARD into the precise zone. FORWARD ONLY.
-        gap = state.exit_com_forward_to_precise_deg
-        if gap is None:
-            return
-        if gap <= self.ctx.config.precise_center_tolerance_deg:
+        # Classification results arrive on background threads — apply them every
+        # tick regardless of phase.
+        self._applyResults(now)
+
+        if self._phase == _Phase.WAITING:
             if stopped:
-                self._phase = _Phase.PROCESS
-                self.logger.info(f"{LOG_TAG} STAGE -> PROCESS (front at/past precise, gap={gap:.0f})")
+                self._captureDropPieces(perception_service, now)
+                self._aimChuteForHoldingPiece()
+                self._maybeStartRotation()
+        elif self._phase == _Phase.EJECTING:
+            self._ejecting(state, stopped, now)
+        elif self._phase == _Phase.STAGING:
+            self._staging(state, stopped, now)
+
+    # ------------------------------------------------- perception reconciliation
+
+    def _observe(self, state, now: float) -> None:
+        """Match this frame's observations to tracked pieces by track id, create
+        pieces for new ids, retire pieces whose id has been gone too long, and
+        flag double feeds."""
+        for po in getattr(state, "pieces", ()):
+            tid = po.sv_bt_track_id
+            if tid is None:
+                continue  # untracked box — counts for zone occupancy, not identity
+            tp = self._pieces.get(tid)
+            if tp is None:
+                tp = self._createPiece(tid, now)
+            tp.zone = int(po.zone_code)
+            b = po.bbox
+            tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+            tp.gap_to_exit = po.com_forward_to_exit_deg
+            tp.last_seen = now
+
+        self._retireGonePieces(now)
+        self._flagDoubleFeeds(state)
+
+    def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
+        worker = Rev01BaseState(*self._deps, SimpleStateMachineRev01Context())
+        worker.ctx.reset()
+        worker.ctx.known_object = KnownObject(
+            stage=PieceStage.created,
+            classification_status=ClassificationStatus.pending,
+            first_carousel_seen_ts=time.time(),
+        )
+        worker.emitKnownObject()
+        tp = _TrackedPiece(track_id, worker, now)
+        self._pieces[track_id] = tp
+        self.logger.info(f"{LOG_TAG} new piece track={track_id}")
+        return tp
+
+    def _retireGonePieces(self, now: float) -> None:
+        for tid in [
+            tid
+            for tid, tp in self._pieces.items()
+            if (now - tp.last_seen) > _TRACK_GONE_RETIRE_S
+        ]:
+            tp = self._pieces.pop(tid)
+            # A piece already handed to distribution has a terminal status, so
+            # abandonInFlightObject is a no-op for it. Only an in-flight piece
+            # (photographed but never classified/distributed) is dropped from the
+            # UI — e.g. a stray that fell off before it could be processed.
+            tp.worker.abandonInFlightObject("track id gone (left channel)")
+            self.logger.info(f"{LOG_TAG} retired piece track={tid}")
+
+    def _flagDoubleFeeds(self, state) -> None:
+        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
+        frame_ts = float(getattr(state, "ts", 0.0))
+        if frame_ts != self._multi_drop_last_ts:
+            self._multi_drop_last_ts = frame_ts
+            self._multi_drop_streak = self._multi_drop_streak + 1 if len(drop) > 1 else 0
+        threshold = max(1, int(self.ctx.config.multi_feed_confirm_reads))
+        if self._multi_drop_streak < threshold:
+            return
+        for tp in drop:
+            if not tp.double_feed:
+                self._markDoubleFeed(tp)
+
+    def _markDoubleFeed(self, tp: _TrackedPiece) -> None:
+        # Two pieces in the drop zone at once: classification can't be trusted, so
+        # skip it and route the piece to the misc bin. It still rides the normal
+        # bucket-brigade (staged to holding, then ejected) — just to misc.
+        tp.double_feed = True
+        tp.capture_done = True
+        tp.result_applied = True
+        obj = tp.known_object
+        if obj is not None:
+            obj.classification_status = ClassificationStatus.multi_drop_fail
+            obj.part_id = None
+            tp.worker.emitKnownObject()
+        self.logger.warning(f"{LOG_TAG} double feed -> misc (track={tp.track_id})")
+
+    # --------------------------------------------------- ordered-zone accessors
+
+    def _holdingPiece(self) -> Optional[_TrackedPiece]:
+        # Most-forward piece in the holding region (smallest gap to exit leads).
+        held = [tp for tp in self._pieces.values() if tp.zone == _ZONE_PRECISE]
+        if not held:
+            return None
+        return min(held, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
+
+    def _dropPiece(self) -> Optional[_TrackedPiece]:
+        drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
+        if not drop:
+            return None
+        return min(drop, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
+
+    # -------------------------------------------- capture / classify / aim chute
+
+    def _captureDropPieces(self, perception_service, now: float) -> None:
+        # Photograph pieces ONLY while they sit at rest in the drop zone (the
+        # user's rule). Each piece is cropped from its OWN tracked bbox, so two
+        # pieces never cross-contaminate each other's burst.
+        raw = None
+        for tp in list(self._pieces.values()):
+            if tp.zone != _ZONE_DROP or tp.capture_done or tp.double_feed:
+                continue
+            if raw is None:
+                raw = perception_service.read_bboxes_and_frame(4)
+                if raw is None:
+                    return
+            _bboxes, perc_frame = raw
+            ctx = tp.worker.ctx
+            if ctx.capturing_started_at == 0.0:
+                ctx.capturing_started_at = now
+            self._cropBurstFrame(tp.worker, tp.bbox, perc_frame)
+            done, reason = tp.worker.burstCaptureComplete(ctx, now)
+            if done:
+                tp.capture_done = True
+                ctx.classify_started_at = now
+                caps = list(ctx.captured_crops)
+                if caps:
+                    tp.worker.spawnClassifyThread(caps)
+                else:
+                    ctx.classification_error = "no_captures"
+                self.logger.info(
+                    f"{LOG_TAG} captured track={tp.track_id} "
+                    f"({len(caps)} crops, stop={reason}); classifying"
+                )
+
+    def _applyResults(self, now: float) -> None:
+        for tp in self._pieces.values():
+            if tp.result_applied or tp.double_feed:
+                continue
+            ctx = tp.worker.ctx
+            if ctx.classify_started_at == 0.0:
+                continue
+            with ctx.classify_lock:
+                result = ctx.classification_result
+                error = ctx.classification_error
+            if result is not None or error is not None:
+                tp.worker.updateKnownObjectWithResult(result, error)
+                tp.result_applied = True
+            elif (now - ctx.classify_started_at) > ctx.config.classify_timeout_s:
+                self.logger.error(f"{LOG_TAG} classify timeout track={tp.track_id} -> unknown")
+                tp.worker.updateKnownObjectWithResult(None, "timeout")
+                tp.result_applied = True
+
+    def _aimChuteForHoldingPiece(self) -> None:
+        # Hand the holding piece to distribution so the chute aims while the next
+        # piece is captured (the throughput overlap). Distribution has a single
+        # slot, so only ever place the leading holding piece; the next one is
+        # placed after this one ejects and frees the slot.
+        tp = self._holdingPiece()
+        if tp is None or tp.placed or not tp.result_applied:
+            return
+        obj = tp.known_object
+        if obj is None:
+            return
+        if obj.part_id is None and obj.classification_status in (
+            ClassificationStatus.pending,
+            ClassificationStatus.classifying,
+        ):
+            obj.classification_status = ClassificationStatus.unknown
+        self.transport.placePieceForDistribution(obj)
+        tp.placed = True
+        self.logger.info(
+            f"{LOG_TAG} aiming chute for holding piece track={tp.track_id} "
+            f"(status={obj.classification_status})"
+        )
+
+    def _holdingReady(self, tp: _TrackedPiece) -> bool:
+        # Classified AND the chute is physically aimed for this piece.
+        obj = tp.known_object
+        return bool(
+            tp.placed
+            and self.shared.distribution_ready
+            and obj is not None
+            and obj.stage == PieceStage.distributing
+        )
+
+    # ----------------------------------------------------------------- movement
+
+    def _maybeStartRotation(self) -> None:
+        # The ONLY two rotation triggers, both requiring a captured drop piece to
+        # bring into holding:
+        #   1. holding empty                 -> stage the drop piece (no eject)
+        #   2. holding piece ready to ship   -> eject it AND stage the drop piece
+        # If the holding piece is not ready yet, we wait (don't rotate a not-ready
+        # piece toward the fall-off).
+        drop = self._dropPiece()
+        if drop is None or not drop.capture_done:
+            return
+        holding = self._holdingPiece()
+        if holding is None:
+            self._stage_target = drop
+            self._eject_target = None
+            self._enterPhase(_Phase.STAGING)
+            self.logger.info(f"{LOG_TAG} ROTATE: stage track={drop.track_id} (holding empty)")
+        elif self._holdingReady(holding):
+            self._stage_target = drop
+            self._eject_target = holding
+            self._enterPhase(_Phase.EJECTING)
+            self.logger.info(
+                f"{LOG_TAG} ROTATE: eject track={holding.track_id} + stage track={drop.track_id}"
+            )
+
+    def _ejecting(self, state, stopped: bool, now: float) -> None:
+        target = self._eject_target
+        if target is None:
+            self._enterPhase(_Phase.STAGING)
+            return
+        gone_for = now - target.last_seen
+        timed_out = (now - self._phase_started_at) > _EJECT_TIMEOUT_S
+        if gone_for >= _EJECT_GONE_CONFIRM_S or timed_out:
+            # Track id gone (debounced) == the piece dropped off the fall-off ==
+            # ejected. Commit it to distribution; the chute was already aimed.
+            self.transport.advanceTransport()
+            if timed_out and gone_for < _EJECT_GONE_CONFIRM_S:
+                self.logger.warning(
+                    f"{LOG_TAG} EJECT timeout track={target.track_id} — committing anyway"
+                )
+            else:
+                self.logger.info(f"{LOG_TAG} ejected track={target.track_id} (id gone)")
+            self._eject_target = None
+            self._enterPhase(_Phase.STAGING)
+            return
+        if gone_for > 0.0:
+            return  # id missing (likely just dropped) — stop pushing, let it confirm
+        if stopped:
+            gap = state.exit_com_forward_to_center_deg
+            if gap is not None and gap > self.ctx.config.discharge_center_tolerance_deg:
+                move = min(self.ctx.config.discharge_max_move_output_deg, gap)
+                self.startOutputMove(
+                    C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
+                )
+
+    def _staging(self, state, stopped: bool, now: float) -> None:
+        target = self._stage_target
+        if target is None or target.track_id not in self._pieces:
+            self._enterPhase(_Phase.WAITING)
+            return
+        if target.zone == _ZONE_PRECISE:
+            # Drop -> holding confirmed by the track id reading in the precise
+            # zone: "basically successful."
+            self.logger.info(f"{LOG_TAG} staged track={target.track_id} -> holding")
+            self._stage_target = None
+            self._enterPhase(_Phase.WAITING)
+            return
+        if (now - self._phase_started_at) > _STAGE_TIMEOUT_S:
+            self.logger.warning(
+                f"{LOG_TAG} STAGE timeout track={target.track_id} (zone={target.zone}) — giving up"
+            )
+            self._stage_target = None
+            self._enterPhase(_Phase.WAITING)
             return
         if stopped:
-            move = min(gap, self.ctx.config.discharge_max_move_output_deg)
-            self.startOutputMove(
-                C4_TRAVEL_SIGN * move,
-                self.ctx.config.precise_converge_speed_usteps_per_s,
-            )
-            self.logger.info(f"{LOG_TAG} STAGE move {move:.0f}deg (gap_to_precise={gap:.0f})")
-
-    def _process(self, state) -> None:
-        obj = self.ctx.known_object
-        if obj is None:
-            self._phase = _Phase.DISCHARGE
-            return
-        now = time.monotonic()
-        if not self._result_applied:
-            with self.ctx.classify_lock:
-                result = self.ctx.classification_result
-                error = self.ctx.classification_error
-            if result is not None or error is not None:
-                self.updateKnownObjectWithResult(result, error)
-                self._result_applied = True
-            elif (now - self.ctx.classify_started_at) > self.ctx.config.classify_timeout_s:
-                self.logger.error(f"{LOG_TAG} classify timed out — routing unknown")
-                self.updateKnownObjectWithResult(None, "timeout")
-                self._result_applied = True
-            else:
-                return  # classification still running; piece is safe in precise
-        if not self._placed:
-            if obj.part_id is None and obj.classification_status in (
-                ClassificationStatus.pending,
-                ClassificationStatus.classifying,
+            gap = state.exit_com_forward_to_precise_deg
+            if gap is None:
+                return
+            # comForwardToPreciseEntryDeg wraps to (-180, 180]; a piece that lands
+            # far up the drop zone reads as a small/negative gap ("already past
+            # precise") when it is really a near-full turn short. Un-wrap when the
+            # reliable gap-to-exit shows it is clearly upstream.
+            if gap <= self.ctx.config.precise_center_tolerance_deg and (
+                target.gap_to_exit is not None and target.gap_to_exit > 180.0
             ):
-                obj.classification_status = ClassificationStatus.unknown
-            self.transport.placePieceForDistribution(obj)
-            self._placed = True
-            self.logger.info(
-                f"{LOG_TAG} PROCESS handed piece {obj.uuid[:8]} to distribution "
-                f"(status={obj.classification_status})"
-            )
-        chute_aimed = bool(self.shared.distribution_ready) and obj.stage == PieceStage.distributing
-        back_present = bool(state.in_drop)
-        if chute_aimed and back_present:
-            self._front_exit_gap = None
-            self._discharge_started_at = now
-            self._phase = _Phase.DISCHARGE
-            self.logger.info(
-                f"{LOG_TAG} PROCESS -> DISCHARGE (chute aimed + back in drop, "
-                f"bin={obj.destination_bin})"
-            )
-
-    def _discharge(self, state, stopped: bool) -> None:
-        # Eject ONLY the front (leading) piece. It has LEFT once it's no longer the
-        # leading piece — the channel empties OR the leading gap JUMPS UP to the
-        # waiting piece. STOP the instant that happens so the waiting piece is never
-        # carried into the fall-off.
-        pieces = getattr(state, "pieces", ())
-        front_gap = pieces[0].com_forward_to_exit_deg if pieces else None
-        front_left = front_gap is None or (
-            self._front_exit_gap is not None
-            and front_gap > self._front_exit_gap + _FRONT_LEFT_JUMP_DEG
-        )
-        timed_out = (
-            self._discharge_started_at > 0.0
-            and (time.monotonic() - self._discharge_started_at) > _DISCHARGE_TIMEOUT_S
-        )
-        if front_left or timed_out:
-            if timed_out and not front_left:
-                self.logger.warning(
-                    f"{LOG_TAG} DISCHARGE timed out (front never left) — giving up"
+                gap += 360.0
+            if gap > self.ctx.config.precise_center_tolerance_deg:
+                move = min(self.ctx.config.discharge_max_move_output_deg, gap)
+                self.startOutputMove(
+                    C4_TRAVEL_SIGN * move,
+                    self.ctx.config.precise_converge_speed_usteps_per_s,
                 )
-            prev_gap = self._front_exit_gap
-            self.transport.advanceTransport()  # commit the front to distribution
-            self.ctx.known_object = None  # front gone; next promote() stages the back
-            self._placed = False
-            self._result_applied = False
-            self._front_exit_gap = None
-            self._discharge_started_at = 0.0
-            self._phase = _Phase.STAGE
-            self.logger.info(
-                f"{LOG_TAG} DISCHARGE done (front left; prev_lead_gap="
-                f"{None if prev_gap is None else round(prev_gap, 1)}, new_lead_gap="
-                f"{None if front_gap is None else round(front_gap, 1)})"
-            )
-            return
-        self._front_exit_gap = front_gap
-        gap_to_center = state.exit_com_forward_to_center_deg
-        if (
-            stopped
-            and gap_to_center is not None
-            and gap_to_center > self.ctx.config.discharge_center_tolerance_deg
-        ):
-            move = max(0.0, min(self.ctx.config.discharge_max_move_output_deg, gap_to_center))
-            self.startOutputMove(
-                C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
-            )
-            self.logger.info(f"{LOG_TAG} DISCHARGE move {move:.0f}deg (gap_to_center={gap_to_center:.0f})")
+
+    def _enterPhase(self, phase: _Phase) -> None:
+        self._phase = phase
+        self._phase_started_at = time.monotonic()
 
     # ------------------------------------------------------------------ helpers
 
-    @staticmethod
-    def _zoneBbox(state, zone_code: int):
-        for p in getattr(state, "pieces", ()):
-            if p.zone_code == zone_code:
-                b = p.bbox
-                if b and b[2] > b[0] and b[3] > b[1]:
-                    return b
-        return None
-
-    def _cropBurstFrame(self, worker, bbox, perc_frame) -> None:
+    def _cropBurstFrame(self, worker: Rev01BaseState, bbox, perc_frame) -> None:
         ctx = worker.ctx
         if perc_frame.bgr is None or bbox is None:
             return
@@ -274,6 +461,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         sharp = self.sharpness(crop)
         ctx.captured_crops.append(crop)
         ctx.captured_crop_sharpness.append(sharp)
+        ctx.captured_crop_timestamps.append(frame_ts)
         ctx.last_capture_frame_ts = frame_ts
         obj = ctx.known_object
         if obj is not None:
@@ -295,16 +483,16 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             worker.emitKnownObject()
 
     def cleanup(self) -> None:
-        self.abandonInFlightObject("two-piece classification channel teardown")
-        try:
-            self._incoming.abandonInFlightObject("two-piece teardown")
-        except Exception:
-            pass
+        for tp in self._pieces.values():
+            try:
+                tp.worker.abandonInFlightObject("two-piece classification channel teardown")
+            except Exception:
+                pass
+        self._pieces = {}
+        self._phase = _Phase.WAITING
+        self._eject_target = None
+        self._stage_target = None
+        self._multi_drop_streak = 0
+        self._multi_drop_last_ts = -1.0
         self.ctx.reset()
         self.ctx.known_object = None
-        self._incoming = Rev01BaseState(*self._deps, SimpleStateMachineRev01Context())
-        self._phase = _Phase.STAGE
-        self._placed = False
-        self._result_applied = False
-        self._front_exit_gap = None
-        self._discharge_started_at = 0.0

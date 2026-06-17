@@ -20,9 +20,10 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 from blob_manager import (
-    getCameraSetup, getChannelPolygons, setChannelPolygons,
+    getChannelPolygons, setChannelPolygons,
     getClassificationPolygons, setClassificationPolygons,
 )
+from hardware.camera_resolver import resolveCameraSetup
 from irl.config import mkCameraConfig
 from vision.camera import CaptureThread
 
@@ -526,8 +527,8 @@ def save():
 
 
 if __name__ == "__main__":
-    camera_setup = getCameraSetup()
-    if camera_setup is None or "feeder" not in camera_setup:
+    camera_setup = resolveCameraSetup()
+    if not camera_setup or "feeder" not in camera_setup:
         print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
         sys.exit(1)
 
@@ -566,6 +567,9 @@ if __name__ == "__main__":
             "carousel", mkCameraConfig(camera_setup["carousel"])
         )
         captures["carousel"].start()
+        # A dedicated carousel camera takes priority over the feeder/c_channel_3
+        # shared view: draw the carousel polygon on the carousel camera itself.
+        channel_camera_map["carousel"] = "carousel"
         channel_camera_map["carousel"] = "carousel"
 
     print(f"Server starting on http://localhost:{PORT}")

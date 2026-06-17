@@ -8,7 +8,6 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from blob_manager import getCameraSetup
 from irl.config import mkArucoTagConfig
 
 
@@ -189,9 +188,10 @@ def testParams(cap, aruco_dict, params_config, expected_ids, display_time_ms=500
 
 
 def main():
-    # Load camera setup
-    camera_setup = getCameraSetup()
-    if camera_setup is None:
+    # Resolve camera setup to current cv2 indices by stable identity.
+    from hardware.camera_resolver import resolveCameraSetup
+    camera_setup = resolveCameraSetup()
+    if not camera_setup:
         print("Error: No camera setup found. Run client/scripts/camera_setup.py first.")
         return
 

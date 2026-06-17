@@ -45,9 +45,10 @@ class ClassificationDiffConfig:
     # heatmap diff params. In HSV mode the combined diff is normalized to 0-255
     # (hue circular distance scaled up from its 0-90 range), so pixel_thresh
     # carries roughly the same meaning it did for the 0-255 grayscale diff.
-    # Tuned to 14 via tune_classification_detection.py to catch contaminated
-    # bottom-edge reds; validate empty-tray false positives after changing.
-    pixel_thresh: int = 14
+    # Tuned via tune_classification_detection.py to catch contaminated reds; the
+    # floor sits at ~0 diff after a fresh baseline, leaving headroom. Validate
+    # empty-tray false positives across a full carousel rotation after changing.
+    pixel_thresh: int = 10
     blur_kernel: int = 7
     min_hot_pixels: int = 50
     trigger_score: int = 17

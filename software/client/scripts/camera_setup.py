@@ -10,6 +10,12 @@ from blob_manager import (
     getExcludedCameraIndices,
     setExcludedCameraIndices,
 )
+from hardware.camera_resolver import enumerateCameras, cameraIdentityForIndex
+
+
+def _setupIndex(value) -> int:
+    """A setup entry is either a legacy int index or an identity dict."""
+    return value if isinstance(value, int) else value.get("index")
 
 MAX_INDEX = 10
 WARMUP_FRAMES = 5
@@ -87,6 +93,10 @@ def main():
 
     print(f"found {len(caps)} camera(s): {[i for i, _ in caps]}")
 
+    # Identities (name + stable USB location) so roles resolve to the right
+    # camera after a power-cycle reorder, not a fixed index.
+    cam_infos = enumerateCameras()
+
     setup = getCameraSetup() or {}
 
     window = "Camera Setup"
@@ -95,7 +105,7 @@ def main():
 
     for index, cap in caps:
         roles_this_camera: list[str] = [
-            role for role, idx in setup.items() if idx == index
+            role for role, val in setup.items() if _setupIndex(val) == index
         ]
         while True:
             ret, frame = cap.read()
@@ -140,10 +150,15 @@ def main():
 
             if key in ROLES:
                 role = ROLES[key]
-                setup[role] = index
+                # Store the stable identity (name+location) so this role
+                # re-resolves to the right camera after a reorder; fall back to
+                # the bare index if identity lookup fails.
+                setup[role] = cameraIdentityForIndex(index, cam_infos) or index
                 if role not in roles_this_camera:
                     roles_this_camera.append(role)
-                print(f"camera {index} -> {role}")
+                ident = setup[role]
+                label = ident.get("name") if isinstance(ident, dict) else ident
+                print(f"camera {index} -> {role}  ({label})")
             elif key in (ord("n"), ord("N")):
                 if roles_this_camera:
                     print(f"camera {index} -> {', '.join(roles_this_camera)}")
@@ -153,8 +168,8 @@ def main():
             elif key in (ord("x"), ord("X")):
                 excluded.add(index)
                 setExcludedCameraIndices(list(excluded))
-                for role, idx in list(setup.items()):
-                    if idx == index:
+                for role, val in list(setup.items()):
+                    if _setupIndex(val) == index:
                         del setup[role]
                 print(f"camera {index} -> excluded (will be skipped on future runs)")
                 break
@@ -175,8 +190,12 @@ def main():
 
 def printSummary(setup):
     print("\nsaved:")
-    for role, index in setup.items():
-        print(f"  {role}: {index}")
+    for role, val in setup.items():
+        if isinstance(val, dict):
+            print(f"  {role}: index={val.get('index')} name={val.get('name')!r} "
+                  f"location={val.get('location')!r}")
+        else:
+            print(f"  {role}: {val} (legacy index; re-run to record identity)")
     missing = [r for r in REQUIRED_ROLES if r not in setup]
     if missing:
         print(f"not assigned: {', '.join(missing)}")

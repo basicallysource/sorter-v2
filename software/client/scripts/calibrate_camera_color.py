@@ -45,13 +45,14 @@ from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
 from global_config import mkGlobalConfig
-from irl.config import mkIRLConfig, mkIRLInterface, CLASSIFICATION_TOP_UVC_NAME
+from irl.config import (
+    mkIRLConfig, mkIRLInterface, CLASSIFICATION_TOP_UVC_NAME, CAROUSEL_UVC_NAME,
+)
 from vision import VisionManager
 from vision.camera import _resolveUvcUtil, UVC_UTIL_ENV_VAR
 
 # --- target definition -------------------------------------------------------
 
-CAMERA_KEY = "top_camera"  # bottom classification camera is unused; top only.
 COLOR_TILES = ["red", "green", "blue", "yellow"]  # top row, saturated
 GRAY_TILES = ["black", "dark_gray", "light_gray", "white"]  # bottom row, ramp
 TILE_ORDER = COLOR_TILES + GRAY_TILES  # click order, left->right, top then bottom
@@ -60,10 +61,42 @@ DEFAULT_ROI_SIZE = 40  # half-not; full square side length in pixels
 # --- paths -------------------------------------------------------------------
 
 CALIBRATION_DIR = Path(__file__).resolve().parent.parent / "calibration"
+# target_rois.json holds every camera's tile ROIs keyed by the camera's profile
+# key, so cameras share one file without colliding.
 ROIS_PATH = CALIBRATION_DIR / "target_rois.json"
-REFERENCE_PATH = CALIBRATION_DIR / "reference_snapshot.json"
-REFERENCE_IMAGE_PATH = CALIBRATION_DIR / "reference_snapshot.png"
-SWEEP_OUT_DIR = CALIBRATION_DIR / "sweep_output"
+
+
+# --- camera profiles ---------------------------------------------------------
+
+class CameraProfile:
+    """Per-camera targeting + output paths so one script calibrates either the
+    classification top camera or the carousel camera. classification_top keeps
+    the legacy un-suffixed file names; other cameras get a per-key suffix so
+    their reference/sweep artifacts don't collide."""
+
+    def __init__(self, cli_name: str, key: str, uvc_name: str, frame_name: str,
+                 lock_const: str):
+        self.cli_name = cli_name        # --camera value
+        self.key = key                  # key inside the rois/reference JSON
+        self.uvc_name = uvc_name        # uvc-util device name
+        self.frame_name = frame_name    # vision.getFrame(...) argument
+        self.lock_const = lock_const    # config.py dict to paste results into
+        suffix = "" if key == "top_camera" else f"_{key}"
+        self.reference_path = CALIBRATION_DIR / f"reference_snapshot{suffix}.json"
+        self.reference_image_path = CALIBRATION_DIR / f"reference_snapshot{suffix}.png"
+        self.sweep_out_dir = CALIBRATION_DIR / f"sweep_output{suffix}"
+
+
+PROFILES = {
+    "classification_top": CameraProfile(
+        "classification_top", "top_camera", CLASSIFICATION_TOP_UVC_NAME,
+        "classification_top", "CLASSIFICATION_CAMERA_LOCK",
+    ),
+    "carousel": CameraProfile(
+        "carousel", "carousel_camera", CAROUSEL_UVC_NAME,
+        "carousel", "CAROUSEL_CAMERA_LOCK",
+    ),
+}
 
 # --- scoring weights (WB matters most for downstream HSV) --------------------
 
@@ -150,38 +183,45 @@ class UvcControl:
 # =============================================================================
 
 
-def startVision():
-    """Bring up GlobalConfig + IRL + VisionManager and wait for the top frame."""
+def startVision(profile: CameraProfile):
+    """Bring up GlobalConfig + IRL + VisionManager and wait for the target frame."""
     gc = mkGlobalConfig()
     irl_config = mkIRLConfig()
     irl = mkIRLInterface(irl_config, gc)
     vision = VisionManager(irl_config, gc, irl)
     vision.start()
-    print("waiting for top-camera frames...")
-    for _ in range(50):
-        if vision.classification_top_frame is not None:
+    print(f"waiting for {profile.cli_name} camera frames...")
+    for _ in range(80):
+        if vision.getFrame(profile.frame_name) is not None:
             break
         time.sleep(0.1)
-    if vision.classification_top_frame is None:
-        print("ERROR: no frames from the classification top camera.")
+    if vision.getFrame(profile.frame_name) is None:
+        print(f"ERROR: no frames from the {profile.cli_name} camera "
+              f"(is it assigned in camera_setup?).")
         return None, None
     return vision, irl
 
 
-def grabFrame(vision: VisionManager) -> "np.ndarray | None":
-    frame = vision.classification_top_frame
+def grabFrame(vision: VisionManager, profile: CameraProfile) -> "np.ndarray | None":
+    frame = vision.getFrame(profile.frame_name)
     if frame is None:
         return None
     return frame.raw  # BGR
 
 
-def loadRois() -> dict:
+def loadRois(profile: CameraProfile) -> dict:
     if not ROIS_PATH.exists():
         raise FileNotFoundError(
             f"{ROIS_PATH} missing. Run the `roi` subcommand first."
         )
     with open(ROIS_PATH) as f:
-        return json.load(f)[CAMERA_KEY]["tiles"]
+        data = json.load(f)
+    if profile.key not in data:
+        raise FileNotFoundError(
+            f"No ROIs for '{profile.key}' in {ROIS_PATH}. "
+            f"Run `roi --camera {profile.cli_name}` first."
+        )
+    return data[profile.key]["tiles"]
 
 
 def sampleTile(image: "np.ndarray", roi: dict) -> tuple[list[int], list[int]]:
@@ -220,10 +260,11 @@ def hueDistance(h1: int, h2: int) -> int:
 
 
 def cmdRoi(args) -> int:
-    vision, irl = startVision()
+    profile = args.profile
+    vision, irl = startVision(profile)
     if vision is None:
         return 1
-    image = grabFrame(vision)
+    image = grabFrame(vision, profile)
     if image is None:
         return 1
 
@@ -283,9 +324,16 @@ def cmdRoi(args) -> int:
         for name, (cx, cy) in zip(TILE_ORDER, clicks)
     }
     CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
+    # Merge into the shared rois file under this camera's key so the other
+    # camera's ROIs are preserved.
+    data = {}
+    if ROIS_PATH.exists():
+        with open(ROIS_PATH) as f:
+            data = json.load(f)
+    data[profile.key] = {"tiles": tiles}
     with open(ROIS_PATH, "w") as f:
-        json.dump({CAMERA_KEY: {"tiles": tiles}}, f, indent=2)
-    print(f"\nsaved {len(tiles)} ROIs -> {ROIS_PATH}")
+        json.dump(data, f, indent=2)
+    print(f"\nsaved {len(tiles)} ROIs for '{profile.key}' -> {ROIS_PATH}")
     return 0
 
 
@@ -295,15 +343,16 @@ def cmdRoi(args) -> int:
 
 
 def cmdReference(args) -> int:
-    rois = loadRois()
-    vision, irl = startVision()
+    profile = args.profile
+    rois = loadRois(profile)
+    vision, irl = startVision(profile)
     if vision is None:
         return 1
-    image = grabFrame(vision)
+    image = grabFrame(vision, profile)
     if image is None:
         return 1
 
-    uvc = UvcControl(CLASSIFICATION_TOP_UVC_NAME)
+    uvc = UvcControl(profile.uvc_name)
     settings = {
         "wb_temperature": uvc.query_range("white-balance-temp")["current"],
         "exposure": uvc.query_range("exposure-time-abs")["current"],
@@ -322,14 +371,14 @@ def cmdReference(args) -> int:
     snapshot = {
         "captured_at": datetime.now().isoformat(timespec="seconds"),
         "camera_settings": settings,
-        CAMERA_KEY: tiles,
+        profile.key: tiles,
     }
     CALIBRATION_DIR.mkdir(parents=True, exist_ok=True)
-    with open(REFERENCE_PATH, "w") as f:
+    with open(profile.reference_path, "w") as f:
         json.dump(snapshot, f, indent=2)
-    cv2.imwrite(str(REFERENCE_IMAGE_PATH), image)
-    print(f"saved reference -> {REFERENCE_PATH}")
-    print(f"saved reference image -> {REFERENCE_IMAGE_PATH}")
+    cv2.imwrite(str(profile.reference_image_path), image)
+    print(f"saved reference -> {profile.reference_path}")
+    print(f"saved reference image -> {profile.reference_image_path}")
     print(f"camera settings at capture: {settings}")
     for name in TILE_ORDER:
         print(f"  {name:11s} bgr={tiles[name]['bgr']} hsv={tiles[name]['hsv']}")
@@ -398,8 +447,9 @@ def buildSweepValues(uvc: UvcControl, args) -> tuple[list[int], list[int], list[
     return wb_vals, sorted(set(exp_vals)), sorted(set(gain_vals))
 
 
-def scoreCapture(measured: dict, reference: dict) -> dict:
+def scoreCapture(measured: dict, reference: dict, profile: CameraProfile) -> dict:
     """Score one capture vs reference. Lower total is better."""
+    ref_tiles = reference[profile.key]
     neutrality = 0.0
     for name in GRAY_TILES:
         b, g, r = measured[name][0]
@@ -411,15 +461,13 @@ def scoreCapture(measured: dict, reference: dict) -> dict:
     lum_err = 0.0
     for name in GRAY_TILES:
         meas_l = luminance(measured[name][0])
-        ref_l = reference[CAMERA_KEY][name].get(
-            "target_luminance", luminance(reference[CAMERA_KEY][name]["bgr"])
-        )
+        ref_l = ref_tiles[name].get("target_luminance", luminance(ref_tiles[name]["bgr"]))
         lum_err += abs(meas_l - ref_l)
 
     color_err = 0.0
     for name in COLOR_TILES:
         m_hsv = measured[name][1]
-        r_hsv = reference[CAMERA_KEY][name]["hsv"]
+        r_hsv = ref_tiles[name]["hsv"]
         color_err += hueDistance(m_hsv[0], r_hsv[0]) + abs(m_hsv[1] - r_hsv[1])
 
     clip_penalty = 0.0
@@ -476,20 +524,22 @@ def saveComparison(reference_image, best_image, rois, best, out_path) -> None:
 
 
 def cmdSweep(args) -> int:
-    rois = loadRois()
-    if not REFERENCE_PATH.exists():
-        print(f"ERROR: {REFERENCE_PATH} missing. Run `reference` first.")
+    profile = args.profile
+    rois = loadRois(profile)
+    if not profile.reference_path.exists():
+        print(f"ERROR: {profile.reference_path} missing. Run `reference` first.")
         return 1
-    with open(REFERENCE_PATH) as f:
+    with open(profile.reference_path) as f:
         reference = json.load(f)
     reference_image = (
-        cv2.imread(str(REFERENCE_IMAGE_PATH)) if REFERENCE_IMAGE_PATH.exists() else None
+        cv2.imread(str(profile.reference_image_path))
+        if profile.reference_image_path.exists() else None
     )
 
-    vision, irl = startVision()
+    vision, irl = startVision(profile)
     if vision is None:
         return 1
-    uvc = UvcControl(CLASSIFICATION_TOP_UVC_NAME)
+    uvc = UvcControl(profile.uvc_name)
 
     wb_vals, exp_vals, gain_vals = buildSweepValues(uvc, args)
     combos = [(w, e, g) for w in wb_vals for e in exp_vals for g in gain_vals]
@@ -506,12 +556,12 @@ def cmdSweep(args) -> int:
     for i, (wb, exp, gain) in enumerate(combos):
         uvc.apply(exposure=exp, wb=wb, gain=gain)
         time.sleep(args.settle_ms / 1000.0)
-        image = grabFrame(vision)
+        image = grabFrame(vision, profile)
         if image is None:
             print(f"  [{i+1}/{total_combos}] no frame, skipping")
             continue
         measured = sampleAll(image, rois)
-        score = scoreCapture(measured, reference)
+        score = scoreCapture(measured, reference, profile)
         record = {
             "wb": wb, "exposure": exp, "gain": gain,
             "score": score, "tiles": measured,
@@ -542,11 +592,11 @@ def cmdSweep(args) -> int:
         for wb in fine_wb:
             uvc.apply(exposure=best["exposure"], wb=wb, gain=best["gain"])
             time.sleep(args.settle_ms / 1000.0)
-            image = grabFrame(vision)
+            image = grabFrame(vision, profile)
             if image is None:
                 continue
             measured = sampleAll(image, rois)
-            score = scoreCapture(measured, reference)
+            score = scoreCapture(measured, reference, profile)
             record = {"wb": wb, "exposure": best["exposure"], "gain": best["gain"],
                       "score": score, "tiles": measured}
             results.append(record)
@@ -554,12 +604,12 @@ def cmdSweep(args) -> int:
                 best = record
                 best_image = image.copy()
 
-    SWEEP_OUT_DIR.mkdir(parents=True, exist_ok=True)
+    profile.sweep_out_dir.mkdir(parents=True, exist_ok=True)
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_path = SWEEP_OUT_DIR / f"results_{ts}.json"
-    csv_path = SWEEP_OUT_DIR / f"results_{ts}.csv"
-    best_path = SWEEP_OUT_DIR / f"best_{ts}.json"
-    compare_path = SWEEP_OUT_DIR / f"compare_{ts}.png"
+    results_path = profile.sweep_out_dir / f"results_{ts}.json"
+    csv_path = profile.sweep_out_dir / f"results_{ts}.csv"
+    best_path = profile.sweep_out_dir / f"best_{ts}.json"
+    compare_path = profile.sweep_out_dir / f"compare_{ts}.png"
 
     with open(results_path, "w") as f:
         json.dump(results, f, indent=2)
@@ -586,12 +636,12 @@ def cmdSweep(args) -> int:
     print("  color tiles (hsv):")
     for name in COLOR_TILES:
         print(f"    {name:11s} hsv={best['tiles'][name][1]}  "
-              f"ref={reference[CAMERA_KEY][name]['hsv']}")
+              f"ref={reference[profile.key][name]['hsv']}")
     print(f"\nresults  -> {results_path}")
     print(f"sorted   -> {csv_path}")
     print(f"best     -> {best_path}")
     print(f"compare  -> {compare_path}")
-    print(f"\nCommit into CLASSIFICATION_CAMERA_LOCK (irl/config.py):")
+    print(f"\nCommit into {profile.lock_const} (irl/config.py):")
     print(f"  exposure={float(best['exposure'])}, "
           f"wb_temperature={float(best['wb'])}, gain={float(best['gain'])}")
     vision.stop()
@@ -603,6 +653,12 @@ def cmdSweep(args) -> int:
 # =============================================================================
 
 
+def _addCameraArg(p) -> None:
+    p.add_argument("--camera", choices=sorted(PROFILES.keys()),
+                   default="classification_top",
+                   help="which camera to calibrate (default: classification_top)")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -610,9 +666,11 @@ def main() -> int:
     p_roi = sub.add_parser("roi", help="click the 8 tile centers, save ROIs")
     p_roi.add_argument("--size", type=int, default=DEFAULT_ROI_SIZE,
                        help="ROI square side length in px")
+    _addCameraArg(p_roi)
     p_roi.set_defaults(func=cmdRoi)
 
     p_ref = sub.add_parser("reference", help="capture the reference snapshot")
+    _addCameraArg(p_ref)
     p_ref.set_defaults(func=cmdReference)
 
     p_sweep = sub.add_parser("sweep", help="sweep settings, score vs reference")
@@ -631,9 +689,11 @@ def main() -> int:
                          help="ignore tuned defaults/overrides and build a broad "
                               "discovery sweep from this camera's reported "
                               "exposure/WB/gain ranges (use after swapping cameras)")
+    _addCameraArg(p_sweep)
     p_sweep.set_defaults(func=cmdSweep)
 
     args = parser.parse_args()
+    args.profile = PROFILES[args.camera]
     # mkGlobalConfig() (called via startVision -> mkIRLConfig/mkIRLInterface) runs
     # its own argparse against sys.argv with only a --disable flag; strip our own
     # subcommand/args so it doesn't choke on them (same pattern as

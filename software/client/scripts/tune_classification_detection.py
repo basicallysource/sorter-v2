@@ -103,7 +103,7 @@ def _panelLabel(img: np.ndarray, text: str) -> np.ndarray:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--cam", choices=["top", "bottom"], default="top")
+    parser.add_argument("--cam", choices=["top", "bottom", "carousel"], default="top")
     args = parser.parse_args()
     cam = args.cam
 
@@ -119,40 +119,48 @@ def main() -> int:
     vision = VisionManager(irl_config, gc, irl)
     vision.start()
 
+    # Frame source: classification cameras expose annotated properties; the
+    # carousel uses the generic getFrame accessor.
+    frame_name = {"top": "classification_top", "bottom": "classification_bottom",
+                  "carousel": "carousel"}[cam]
+    get_frame_prop = lambda: vision.getFrame(frame_name)
+
     print("waiting for camera frames (up to 15s)...")
     deadline = time.time() + 15.0
-    get_frame_prop = (
-        (lambda: vision.classification_top_frame) if cam == "top"
-        else (lambda: vision.classification_bottom_frame)
-    )
     while time.time() < deadline and get_frame_prop() is None:
         time.sleep(0.25)
     if get_frame_prop() is None:
-        print(f"ERROR: no {cam} classification camera frames")
+        print(f"ERROR: no {cam} camera frames (is it assigned in camera_setup?)")
         vision.stop()
         return 1
 
-    if not vision.loadClassificationBaseline():
-        print("ERROR: no classification baseline loaded. "
-              "Run scripts/calibrate_classification_baseline.py --wipe first.")
-        vision.stop()
-        return 1
-
-    if cam == "top":
-        heatmap = vision._classification_top_heatmap
-        analysis = vision._classification_top_analysis
+    if cam == "carousel":
+        if not vision.loadCarouselHsvBaseline():
+            print("ERROR: no carousel HSV baseline. Run: "
+                  "scripts/calibrate_classification_baseline.py --camera carousel --wipe")
+            vision.stop()
+            return 1
+        heatmap = vision._carousel_hsv_heatmap
+        analysis = None
+        get_hs = vision._getLatestCarouselHSV
     else:
-        heatmap = vision._classification_bottom_heatmap
-        analysis = vision._classification_bottom_analysis
-
-    # Match the frame getter's channel count to the heatmap mode (hsv -> 3ch so
-    # the value channel is exercised; hs -> 2ch).
-    if heatmap is not None and getattr(heatmap, "_channel_mode", "hs") == "hsv":
-        get_hs = (vision._getLatestClassificationTopHSV if cam == "top"
-                  else vision._getLatestClassificationBottomHSV)
-    else:
-        get_hs = (vision._getLatestClassificationTopHS if cam == "top"
-                  else vision._getLatestClassificationBottomHS)
+        if not vision.loadClassificationBaseline():
+            print("ERROR: no classification baseline loaded. "
+                  "Run scripts/calibrate_classification_baseline.py --wipe first.")
+            vision.stop()
+            return 1
+        if cam == "top":
+            heatmap = vision._classification_top_heatmap
+            analysis = vision._classification_top_analysis
+        else:
+            heatmap = vision._classification_bottom_heatmap
+            analysis = vision._classification_bottom_analysis
+        # Match the getter's channel count to the heatmap mode (hsv -> 3ch).
+        hsv_mode = heatmap is not None and getattr(heatmap, "_channel_mode", "hs") == "hsv"
+        if cam == "top":
+            get_hs = vision._getLatestClassificationTopHSV if hsv_mode else vision._getLatestClassificationTopHS
+        else:
+            get_hs = vision._getLatestClassificationBottomHSV if hsv_mode else vision._getLatestClassificationBottomHS
 
     if heatmap is None or not heatmap.has_baseline:
         print(f"ERROR: {cam} heatmap/baseline not available")

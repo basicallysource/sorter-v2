@@ -215,17 +215,29 @@ def saveEnvelope(baseline_dir: Path, prefix: str, channel: str, frames: list[np.
     cv2.imwrite(str(baseline_dir / f"{prefix}_baseline_{channel}_max.png"), hi.astype(np.uint8))
 
 
+# Baseline camera targets: prefix (file/heatmap key) -> vision.getFrame() name.
+CAM_FRAME_NAMES = {
+    "top": "classification_top",
+    "bottom": "classification_bottom",
+    "carousel": "carousel",
+}
+# Which prefixes each --camera selection captures.
+CAMERA_GROUPS = {
+    "classification": ["top", "bottom"],
+    "carousel": ["carousel"],
+    "all": ["top", "bottom", "carousel"],
+}
+
+
 def getLatestHSV(vision: VisionManager, cam: str, correction) -> np.ndarray | None:
-    """Full-resolution HSV (with optional correction) of the latest frame.
+    """Full-resolution HSV (with optional correction) of the latest frame for the
+    target camera (cam is the file prefix: 'top'/'bottom'/'carousel').
 
     Mirrors the runtime path (vision_manager._bgrToHS): cvtColor on the full-res
     BGR frame, then the same HSV correction the detector applies. HeatmapDiff
     handles the 0.25 downscale at load/push time, so the stored envelope and the
     runtime frames go through identical transforms."""
-    if cam == "top":
-        frame = vision.classification_top_frame
-    else:
-        frame = vision.classification_bottom_frame
+    frame = vision.getFrame(CAM_FRAME_NAMES[cam])
     if frame is None:
         return None
     hsv = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2HSV)
@@ -479,6 +491,9 @@ def main() -> int:
     parser.add_argument("--chute-wiggle-hz", type=float, default=DEFAULT_CHUTE_WIGGLE_HZ)
     parser.add_argument("--chute-wiggle-steps", type=int, default=DEFAULT_CHUTE_WIGGLE_STEPS,
                         help="chute wiggle amplitude in microsteps")
+    parser.add_argument("--camera", choices=sorted(CAMERA_GROUPS.keys()),
+                        default="classification",
+                        help="which camera(s) to baseline (default: classification = top+bottom)")
     args, rest = parser.parse_known_args()
     wipe = args.wipe
     no_jitter = not args.jitter
@@ -524,22 +539,23 @@ def main() -> int:
         # Poll for the first frame instead of a fixed sleep: the AVFoundation
         # camera with locked low exposure can take several seconds to warm up
         # and deliver its first frame, which a short fixed wait would race.
+        wanted = CAMERA_GROUPS[args.camera]
         FRAME_WAIT_TIMEOUT_S = 15.0
-        print(f"waiting for camera frames (up to {FRAME_WAIT_TIMEOUT_S:.0f}s)...")
+        print(f"waiting for {args.camera} camera frames (up to {FRAME_WAIT_TIMEOUT_S:.0f}s)...")
         deadline = time.time() + FRAME_WAIT_TIMEOUT_S
-        has_top = has_bottom = False
+        available = []
         while time.time() < deadline:
-            has_top = vision.classification_top_frame is not None
-            has_bottom = vision.classification_bottom_frame is not None
-            if has_top or has_bottom:
+            available = [c for c in wanted if vision.getFrame(CAM_FRAME_NAMES[c]) is not None]
+            if available:
                 break
             time.sleep(0.25)
 
-        if not has_top and not has_bottom:
-            print("ERROR: no classification cameras available")
+        if not available:
+            print(f"ERROR: no {args.camera} camera(s) available "
+                  f"(assign in camera_setup; wanted {wanted})")
             return 1
 
-        print(f"cameras: top={'yes' if has_top else 'no'} bottom={'yes' if has_bottom else 'no'}")
+        print("cameras: " + " ".join(f"{c}={'yes' if c in available else 'no'}" for c in wanted))
 
         if wiggler is not None:
             wiggler.start()
@@ -547,14 +563,10 @@ def main() -> int:
                   f"amplitude {args.chute_wiggle_steps} microsteps")
 
         std_args = (args.max_hue_std, args.max_sat_std, args.max_val_std, args.percentile)
-        if has_top:
-            top_ok, interrupted = calibrateCamera(vision, irl, baseline_dir, "top", correction, wipe, no_jitter, *std_args)
-            ok = top_ok and ok
-            if interrupted:
-                raise KeyboardInterrupt
-        if has_bottom:
-            bottom_ok, interrupted = calibrateCamera(vision, irl, baseline_dir, "bottom", correction, wipe, no_jitter, *std_args)
-            ok = bottom_ok and ok
+        for cam in available:
+            cam_ok, interrupted = calibrateCamera(
+                vision, irl, baseline_dir, cam, correction, wipe, no_jitter, *std_args)
+            ok = cam_ok and ok
             if interrupted:
                 raise KeyboardInterrupt
         print(f"done. baseline in {baseline_dir}")

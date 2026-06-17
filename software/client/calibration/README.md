@@ -82,6 +82,30 @@ the old sensor and likely don't apply to a new one. Starting fresh:
    hand-edit the 3-10 default in `buildSweepValues()` to match the new
    camera if you'll be re-tuning it often.
 
+## Calibrating a different camera (e.g. the carousel)
+
+All the calibration scripts take a camera target so the same workflow tunes
+the carousel camera (or any future camera) — its outputs are namespaced so
+they don't collide with the classification camera's.
+
+- **Boot-time lock**: the carousel camera is locked on startup just like the
+  classification cameras, via `CAROUSEL_CAMERA_LOCK` + `CAROUSEL_UVC_NAME` in
+  `irl/config.py` (applied through the same `uvc-util` path in `camera.py`).
+  Set `CAROUSEL_DETECTION_MODE` ("gray" legacy snapshot vs "hsv" envelope).
+- **Color**: `calibrate_camera_color.py roi|reference|sweep --camera carousel`.
+  Writes `reference_snapshot_carousel_camera.json` / `sweep_output_carousel_camera/`;
+  ROIs share `target_rois.json` keyed per camera. Paste the winning values into
+  `CAROUSEL_CAMERA_LOCK`.
+- **Polygon**: run `scripts/polygon_editor.py`; the "Carousel" tab now draws on
+  the dedicated carousel camera when one is assigned in `camera_setup`.
+- **HSV baseline**: `calibrate_classification_baseline.py --camera carousel
+  --wipe` (writes `carousel_*` envelopes + stable mask).
+- **Tune**: `tune_classification_detection.py --cam carousel`.
+
+Note: the carousel's *live* detection still defaults to the legacy grayscale
+path (`CAROUSEL_DETECTION_MODE="gray"`); the HSV baseline/tuner work above lets
+you calibrate and validate the HSV path before flipping the mode to "hsv".
+
 ## Files
 
 - `target_rois.json` — pixel ROI for each tile (from `roi`), committed.

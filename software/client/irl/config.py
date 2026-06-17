@@ -20,7 +20,6 @@ from .parse_user_toml import (
     loadMachineConfig,
     applyStepperCurrentOverride,
 )
-from blob_manager import getCameraSetup
 
 
 # Locked manual controls for the classification cameras. These disable the
@@ -30,9 +29,9 @@ from blob_manager import getCameraSetup
 # baseline after changing them (the absolute levels shift once auto is off).
 CLASSIFICATION_CAMERA_LOCK = {
     "auto_exposure": False,
-    "exposure": 5.0,
+    "exposure": 3.0,
     "auto_wb": False,
-    "wb_temperature": 6150.0,
+    "wb_temperature": 5921.0,
     "auto_gain": False,
     "gain": 0.0,
     "hue": -15.0,
@@ -44,6 +43,36 @@ CLASSIFICATION_CAMERA_LOCK = {
 # property sets, so the values above are no-ops there). On V4L2 (Linux) the locks
 # go through OpenCV directly and this is unused. Machine-specific.
 CLASSIFICATION_TOP_UVC_NAME = "Innomaker-U20CAM-1080p-S1"
+
+# Locked manual controls for the carousel camera. Same out-of-band lock mechanism
+# as the classification cameras (see CLASSIFICATION_CAMERA_LOCK / camera.py), so
+# the carousel scene reads a stable, consistent color/brightness for detection.
+# Fresh neutral starting point (autos off, controls at their UVC defaults) — tune
+# empirically for the carousel scene with scripts/calibrate_camera_color.py
+# --camera carousel, then re-capture the carousel baseline.
+CAROUSEL_CAMERA_LOCK = {
+    "auto_exposure": False,
+    "exposure": 157.0,        # UVC exposure-time-abs default
+    "auto_wb": False,
+    "wb_temperature": 4600.0,  # UVC white-balance-temp default
+    "auto_gain": False,
+    "gain": 0.0,
+    "hue": 0.0,
+    "saturation": 64.0,        # UVC saturation default
+}
+
+# UVC product name of the carousel camera, as reported by *uvc-util* (which can
+# differ from the AVFoundation/system_profiler name used for capture: this is the
+# Arducam, which uvc-util calls "USB 2.0 Camera" while AVFoundation calls it
+# "Arducam IMX323 USB2.0 Camera"). Must be a DIFFERENT physical camera than
+# CLASSIFICATION_TOP_UVC_NAME, or their locks fight over one camera.
+CAROUSEL_UVC_NAME = "USB 2.0 Camera"
+
+# Carousel detection method: "gray" keeps the legacy grayscale single-snapshot
+# diff (captureBaseline + CarouselDiffConfig); "hsv" uses the same HSV rotational-
+# envelope pipeline as the classification chamber (calibrate_classification_baseline
+# --camera carousel + the HSV heatmap). Selectable per machine.
+CAROUSEL_DETECTION_MODE = "gray"
 
 
 class CameraConfig:
@@ -176,9 +205,11 @@ class FeederConfig:
 
 
 class IRLConfig:
-    feeder_camera: CameraConfig
-    classification_camera_bottom: CameraConfig
-    classification_camera_top: CameraConfig
+    # Cameras are optional — a machine may not have a feeder, a bottom
+    # classification camera, etc. Absent ones are None and consumers degrade.
+    feeder_camera: "CameraConfig | None"
+    classification_camera_bottom: "CameraConfig | None"
+    classification_camera_top: "CameraConfig | None"
     c_channel_2_camera: "CameraConfig | None"
     c_channel_3_camera: "CameraConfig | None"
     carousel_camera: "CameraConfig | None"
@@ -193,6 +224,9 @@ class IRLConfig:
 
     def __init__(self):
         self.feeder_config = FeederConfig()
+        self.feeder_camera = None
+        self.classification_camera_bottom = None
+        self.classification_camera_top = None
         self.c_channel_2_camera = None
         self.c_channel_3_camera = None
         self.carousel_camera = None
@@ -325,41 +359,55 @@ def mkArucoTagConfig() -> ArucoTagConfig:
 
 def mkIRLConfig() -> IRLConfig:
     irl_config = IRLConfig()
-    camera_setup = getCameraSetup()
+    # Resolve each role to its CURRENT cv2 index by stable camera identity
+    # (name + USB location), since power cycles can reorder indices. Falls back
+    # to the stored index if a camera can't be resolved. See camera_resolver.
+    from hardware.camera_resolver import resolveCameraSetup
+    camera_setup = resolveCameraSetup()
 
-    if camera_setup is None:
+    if not camera_setup:
         raise RuntimeError(
             "No camera setup found. Run client/scripts/camera_setup.py first."
         )
 
-    def resolveCamera(role: str) -> int:
-        if role not in camera_setup:
-            raise RuntimeError(
-                f"Camera '{role}' not in setup. Run client/scripts/camera_setup.py first."
-            )
-        return camera_setup[role]
+    # Cameras are optional: build each role only if it's assigned. Missing
+    # cameras stay None and consumers (VisionManager) degrade gracefully, so a
+    # machine without e.g. a feeder still runs.
+    def cameraIndex(role: str) -> "int | None":
+        idx = camera_setup.get(role)
+        if idx is None:
+            print(f"[config] camera '{role}' not assigned; that subsystem is disabled.")
+        return idx
 
-    feeder_camera_index = resolveCamera("feeder")
-    classification_camera_bottom_index = resolveCamera("classification_bottom")
-    classification_camera_top_index = resolveCamera("classification_top")
+    feeder_idx = cameraIndex("feeder")
+    if feeder_idx is not None:
+        irl_config.feeder_camera = mkCameraConfig(device_index=feeder_idx)
 
-    irl_config.feeder_camera = mkCameraConfig(device_index=feeder_camera_index)
-    irl_config.classification_camera_bottom = mkCameraConfig(
-        device_index=classification_camera_bottom_index, width=9999, height=9999,
-        **CLASSIFICATION_CAMERA_LOCK,
-    )
-    irl_config.classification_camera_top = mkCameraConfig(
-        device_index=classification_camera_top_index, width=9999, height=9999,
-        uvc_device_name=CLASSIFICATION_TOP_UVC_NAME,
-        **CLASSIFICATION_CAMERA_LOCK,
-    )
+    bottom_idx = cameraIndex("classification_bottom")
+    if bottom_idx is not None:
+        irl_config.classification_camera_bottom = mkCameraConfig(
+            device_index=bottom_idx, width=9999, height=9999,
+            **CLASSIFICATION_CAMERA_LOCK,
+        )
+
+    top_idx = cameraIndex("classification_top")
+    if top_idx is not None:
+        irl_config.classification_camera_top = mkCameraConfig(
+            device_index=top_idx, width=9999, height=9999,
+            uvc_device_name=CLASSIFICATION_TOP_UVC_NAME,
+            **CLASSIFICATION_CAMERA_LOCK,
+        )
 
     if "c_channel_2" in camera_setup:
         irl_config.c_channel_2_camera = mkCameraConfig(device_index=camera_setup["c_channel_2"])
     if "c_channel_3" in camera_setup:
         irl_config.c_channel_3_camera = mkCameraConfig(device_index=camera_setup["c_channel_3"])
     if "carousel" in camera_setup:
-        irl_config.carousel_camera = mkCameraConfig(device_index=camera_setup["carousel"])
+        irl_config.carousel_camera = mkCameraConfig(
+            device_index=camera_setup["carousel"], width=9999, height=9999,
+            uvc_device_name=CAROUSEL_UVC_NAME,
+            **CAROUSEL_CAMERA_LOCK,
+        )
 
     irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
     irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)

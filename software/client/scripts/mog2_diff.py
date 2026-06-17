@@ -23,7 +23,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from dotenv import load_dotenv
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
-from blob_manager import getCameraSetup, getChannelPolygons
+from blob_manager import getChannelPolygons
+from hardware.camera_resolver import resolveCameraSetup
 from global_config import mkGlobalConfig
 from irl.config import mkIRLConfig, mkIRLInterface
 from vision.heatmap_diff import HeatmapDiff
@@ -1082,8 +1083,8 @@ if __name__ == "__main__":
         print("ERROR: No channel polygons saved. Run client/scripts/polygon_editor.py first.")
         sys.exit(1)
 
-    camera_setup = getCameraSetup()
-    if camera_setup is None or "feeder" not in camera_setup:
+    camera_setup = resolveCameraSetup()
+    if not camera_setup or "feeder" not in camera_setup:
         print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
         sys.exit(1)
 

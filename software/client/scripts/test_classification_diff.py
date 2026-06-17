@@ -27,7 +27,7 @@ from irl.config import mkIRLConfig, mkIRLInterface
 from vision.camera import CaptureThread
 from vision.heatmap_diff import HeatmapDiff
 from vision.diff_configs import DEFAULT_CLASSIFICATION_DIFF_CONFIG
-from blob_manager import BLOB_DIR, getCameraSetup, getClassificationPolygons
+from blob_manager import BLOB_DIR, getClassificationPolygons
 from irl.config import mkCameraConfig
 import glob as globmod
 
@@ -976,8 +976,9 @@ def replay_status():
 
 
 if __name__ == "__main__":
-    camera_setup = getCameraSetup()
-    if camera_setup is None or "classification_top" not in camera_setup:
+    from hardware.camera_resolver import resolveCameraSetup
+    camera_setup = resolveCameraSetup()
+    if not camera_setup or "classification_top" not in camera_setup:
         print("ERROR: No classification_top camera found. Run camera_setup.py first.")
         sys.exit(1)
 

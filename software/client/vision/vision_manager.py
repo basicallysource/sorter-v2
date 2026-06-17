@@ -30,7 +30,7 @@ FRAME_ENCODE_INTERVAL_MS = 100
 
 class VisionManager:
     _irl_config: IRLConfig
-    _feeder_capture: CaptureThread
+    _feeder_capture: Optional[CaptureThread]
     _c_channel_2_capture: Optional[CaptureThread]
     _c_channel_3_capture: Optional[CaptureThread]
     _carousel_capture: Optional[CaptureThread]
@@ -46,10 +46,14 @@ class VisionManager:
         self._feeder_camera_config = irl_config.feeder_camera
         self._disabled_cameras = set(gc.disable_video_streams)
 
-        if "feeder" in self._disabled_cameras:
-            raise RuntimeError("Cannot disable feeder camera — it is required for operation")
-
-        self._feeder_capture = CaptureThread("feeder", irl_config.feeder_camera)
+        # Feeder is optional: a machine may not have one. When absent (or
+        # disabled) the feeder capture, detection, and region provider are all
+        # skipped and the rest of the system runs.
+        self._feeder_capture = (
+            CaptureThread("feeder", irl_config.feeder_camera)
+            if irl_config.feeder_camera is not None and "feeder" not in self._disabled_cameras
+            else None
+        )
 
         self._is_split_feeder = (
             getattr(irl_config, "c_channel_2_camera", None) is not None
@@ -72,11 +76,15 @@ class VisionManager:
         if "classification_bottom" in self._disabled_cameras and "classification_top" in self._disabled_cameras:
             raise RuntimeError("Cannot disable both classification cameras — at least one is required")
 
-        self._classification_bottom_capture = None if "classification_bottom" in self._disabled_cameras else CaptureThread(
-            "classification_bottom", irl_config.classification_camera_bottom
+        self._classification_bottom_capture = (
+            CaptureThread("classification_bottom", irl_config.classification_camera_bottom)
+            if irl_config.classification_camera_bottom is not None
+            and "classification_bottom" not in self._disabled_cameras else None
         )
-        self._classification_top_capture = None if "classification_top" in self._disabled_cameras else CaptureThread(
-            "classification_top", irl_config.classification_camera_top
+        self._classification_top_capture = (
+            CaptureThread("classification_top", irl_config.classification_camera_top)
+            if irl_config.classification_camera_top is not None
+            and "classification_top" not in self._disabled_cameras else None
         )
 
         self._video_recorder = VideoRecorder() if gc.should_write_camera_feeds else None
@@ -84,13 +92,22 @@ class VisionManager:
         self._telemetry = None
         self._last_telemetry_save = 0.0
 
-        if gc.region_provider == RegionProviderType.HANDDRAWN:
+        if self._feeder_capture is None:
+            # No feeder camera -> no feeder-based regions.
+            self._region_provider = DefaultRegionProvider()
+        elif gc.region_provider == RegionProviderType.HANDDRAWN:
             self._region_provider = HanddrawnRegionProvider()
         elif gc.region_provider == RegionProviderType.ARUCO:
             self._region_provider = ArucoRegionProvider(gc, self._feeder_capture, irl_config)
+        else:
+            self._region_provider = DefaultRegionProvider()
 
         self._feeder_detector: Mog2ChannelDetector | None = None
         self._carousel_heatmap: HeatmapDiff = HeatmapDiff()  # overwritten after configs set
+        # Optional HSV heatmap for the carousel camera (CAROUSEL_DETECTION_MODE
+        # == "hsv"); loaded on demand from the carousel_* baseline. None when the
+        # carousel uses the legacy grayscale single-snapshot detection.
+        self._carousel_hsv_heatmap: HeatmapDiff | None = None
 
         self._channel_polygons: Dict[str, np.ndarray] = {}
         self._channel_angles: Dict[str, float] = {}
@@ -144,7 +161,8 @@ class VisionManager:
             self._region_provider.setSmoothingTimeSeconds(smoothing_time_s)
 
     def start(self) -> None:
-        self._feeder_capture.start()
+        if self._feeder_capture:
+            self._feeder_capture.start()
         if self._c_channel_2_capture:
             self._c_channel_2_capture.start()
         if self._c_channel_3_capture:
@@ -175,7 +193,8 @@ class VisionManager:
         if self._classification_bottom_analysis:
             self._classification_bottom_analysis.stop()
         self._region_provider.stop()
-        self._feeder_capture.stop()
+        if self._feeder_capture:
+            self._feeder_capture.stop()
         if self._c_channel_2_capture:
             self._c_channel_2_capture.stop()
         if self._c_channel_3_capture:
@@ -191,6 +210,10 @@ class VisionManager:
 
     def initFeederDetection(self) -> bool:
         from blob_manager import getChannelPolygons
+
+        if self._feeder_capture is None:
+            self.gc.logger.info("No feeder camera; skipping feeder detection.")
+            return False
 
         saved = getChannelPolygons()
         if saved is None:
@@ -604,6 +627,83 @@ class VisionManager:
             return None
         return self._bgrToHSV(frame.raw)
 
+    def _getLatestCarouselHSV(self) -> np.ndarray | None:
+        if self._carousel_capture is None:
+            return None
+        frame = self._carousel_capture.latest_frame
+        if frame is None:
+            return None
+        return self._bgrToHSV(frame.raw)
+
+    def loadCarouselHsvBaseline(self) -> bool:
+        """Load the carousel camera's HSV envelope baseline (the carousel_* PNGs
+        from `calibrate_classification_baseline.py --camera carousel`) into a
+        dedicated HSV heatmap. Additive — leaves the legacy grayscale carousel
+        heatmap untouched. Used by the tuner and the CAROUSEL_DETECTION_MODE
+        =="hsv" path. Reuses the classification HSV diff config as a starting
+        point (tune via tune_classification_detection.py --camera carousel)."""
+        from blob_manager import BLOB_DIR, getChannelPolygons
+
+        if self._carousel_capture is None:
+            self.gc.logger.warn("Carousel camera not configured; cannot load HSV baseline.")
+            return False
+
+        cfg = self._diff_config
+        baseline_dir = BLOB_DIR / "classification_baseline"
+        h_env = self._loadChannelEnvelope(baseline_dir, "carousel", "h", cfg.envelope_margin, cfg.adaptive_std_k, max_value=179)
+        s_env = self._loadChannelEnvelope(baseline_dir, "carousel", "s", cfg.envelope_margin_s, cfg.adaptive_std_k)
+        if h_env is None or s_env is None:
+            self.gc.logger.warn(
+                "Carousel HSV baseline not found. Run: "
+                "scripts/calibrate_classification_baseline.py --camera carousel --wipe"
+            )
+            return False
+        channels_min = [h_env[0], s_env[0]]
+        channels_max = [h_env[1], s_env[1]]
+        if cfg.use_value:
+            v_env = self._loadChannelEnvelope(baseline_dir, "carousel", "v", cfg.envelope_margin_v, cfg.adaptive_std_k)
+            if v_env is not None:
+                channels_min.append(v_env[0])
+                channels_max.append(v_env[1])
+        baseline_min = np.stack(channels_min, axis=-1)
+        baseline_max = np.stack(channels_max, axis=-1)
+
+        # Rescale to the live carousel resolution if needed.
+        frame = self._carousel_capture.latest_frame
+        if frame is not None:
+            cam_h, cam_w = frame.raw.shape[:2]
+            if (cam_w, cam_h) != (baseline_min.shape[1], baseline_min.shape[0]):
+                baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+                baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+
+        # Mask from the saved carousel polygon (drawn on the carousel camera in
+        # polygon_editor), scaled to the envelope resolution.
+        mask = np.ones(baseline_min.shape[:2], dtype=np.uint8) * 255
+        saved = getChannelPolygons()
+        if saved:
+            pts = (saved.get("polygons") or {}).get("carousel")
+            if pts and len(pts) >= 3:
+                res = saved.get("carousel_resolution") or [baseline_min.shape[1], baseline_min.shape[0]]
+                poly = np.array(pts, dtype=np.float64)
+                poly[:, 0] *= baseline_min.shape[1] / res[0]
+                poly[:, 1] *= baseline_min.shape[0] / res[1]
+                mask = np.zeros(baseline_min.shape[:2], dtype=np.uint8)
+                cv2.fillPoly(mask, [poly.astype(np.int32)], 255)
+
+        stable_path = baseline_dir / "carousel_stable_mask.png"
+        if stable_path.exists():
+            stable = cv2.imread(str(stable_path), cv2.IMREAD_GRAYSCALE)
+            if stable is not None:
+                if stable.shape[:2] != mask.shape[:2]:
+                    stable = cv2.resize(stable, (mask.shape[1], mask.shape[0]), interpolation=cv2.INTER_NEAREST)
+                mask = cv2.bitwise_and(mask, stable)
+
+        heatmap = self._makeClassificationHeatmap()
+        heatmap.loadEnvelope(baseline_min, baseline_max, mask)
+        self._carousel_hsv_heatmap = heatmap
+        self.gc.logger.info("Carousel HSV baseline loaded.")
+        return True
+
     def getClassificationBboxes(self, cam: str) -> List[Tuple[int, int, int, int]]:
         if cam == "top" and self._classification_top_analysis:
             return self._classification_top_analysis.getBboxes()
@@ -619,6 +719,8 @@ class VisionManager:
         return None
 
     def getLatestFeederGray(self) -> np.ndarray | None:
+        if self._feeder_capture is None:
+            return None
         frame = self._feeder_capture.latest_frame
         if frame is None:
             return None
@@ -631,13 +733,17 @@ class VisionManager:
             frame = self._carousel_capture.latest_frame
         elif self._is_split_feeder and self._c_channel_3_capture is not None:
             frame = self._c_channel_3_capture.latest_frame
-        else:
+        elif self._feeder_capture is not None:
             frame = self._feeder_capture.latest_frame
+        else:
+            return None
         if frame is None:
             return None
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
 
     def getRegions(self) -> dict[RegionName, Region]:
+        if self._feeder_capture is None:
+            return {}
         prof = self.gc.profiler
         prof.hit("vision.get_regions.calls")
         with prof.timer("vision.get_regions.total_ms"):
@@ -717,6 +823,8 @@ class VisionManager:
 
     @property
     def feeder_frame(self) -> Optional[CameraFrame]:
+        if self._feeder_capture is None:
+            return None
         frame = self._feeder_capture.latest_frame
         if frame is None:
             return None

@@ -83,6 +83,7 @@ Thumbs.db
 #ui/src/lib/api/events.ts
 client/logs/
 client/blob/
+client/calibration/sweep_output*/
 
 # Persistent data
 client/data.json

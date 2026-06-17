@@ -263,8 +263,16 @@ class OrderedTrackerConfig:
     new_cost: float = 0.7
     # Min detection confidence to START a new track.
     new_track_min_score: float = 0.1
-    # Frames a track must be seen before its id is emitted. 1 = label immediately.
-    min_hits: int = 1
+    # Ghost filter: frames a NEW track must be seen before it is CONFIRMED and its
+    # id is emitted. A box that flickers in for a single frame never reaches this,
+    # so it never becomes a piece (no false multi-drop, no phantom KnownObject).
+    # Real pieces sit at rest in the drop zone for ~1s, so the few-frame delay is
+    # invisible. 1 = emit immediately (no filtering).
+    min_hits: int = 3
+    # Coast leash for a TENTATIVE (not-yet-confirmed) track — much shorter than
+    # max_coast_s so a one-frame false detection is dropped almost immediately
+    # instead of lingering. Confirmed tracks use max_coast_s to ride real blinks.
+    tentative_max_coast_s: float = 0.3
     # EMA factor for the running color estimate.
     smoothing: float = 0.5
 
@@ -382,10 +390,28 @@ ORDERED_FIELD_META: list[dict] = [
     {
         "section": "Track creation",
         "key": "min_hits",
-        "label": "Min hits",
+        "label": "Confirm frames (ghost filter)",
         "type": "int",
         "default": OrderedTrackerConfig().min_hits,
-        "description": "Frames a detection must be tracked before its id is emitted. 1 = immediately.",
+        "description": (
+            "Frames a new detection must persist before it gets an id and counts "
+            "as a real piece. This is the filter for spurious one-frame detections "
+            "— raise it if false boxes still slip through, lower toward 1 if real "
+            "pieces are slow to be picked up. 3 ≈ a quarter second."
+        ),
+    },
+    {
+        "section": "Track creation",
+        "key": "tentative_max_coast_s",
+        "label": "Tentative coast (s)",
+        "type": "float",
+        "default": OrderedTrackerConfig().tentative_max_coast_s,
+        "description": (
+            "How long an unconfirmed track is kept when it stops being detected, "
+            "before it's discarded. Short, so a one-frame ghost vanishes fast. "
+            "Confirmed pieces instead use the (longer) coast time so they survive "
+            "real detector blinks."
+        ),
     },
     {
         "section": "Motion",

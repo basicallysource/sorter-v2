@@ -170,6 +170,10 @@ class OrderedChannelTracker:
         tracks = sorted(self._tracks.values(), key=lambda t: t.gap)  # leading-first
         align = self._align(tracks, dets)
 
+        # An id is emitted (and so becomes a real piece downstream) only once a
+        # track is CONFIRMED — seen for min_hits frames. A one-frame false box
+        # never reaches that, so it's filtered out before it can spawn a phantom
+        # piece or a bogus multi-drop.
         out: dict[Bbox, int] = {}
         for ti, di in align.matches:
             tr = tracks[ti]
@@ -183,10 +187,14 @@ class OrderedChannelTracker:
                 tr = self._newTrack(det, now)
                 if tr.hits >= cfg.min_hits:
                     out[det.bbox] = tr.track_id
-        # Unmatched tracks coast (kept in the dict, no emit) until they age out —
-        # a blink in the middle is held; a piece gone from the head has exited.
+        # Coast unmatched tracks until they age out. Two-tier leash: a CONFIRMED
+        # piece is held max_coast_s so it survives a real detector blink; an
+        # unconfirmed (tentative) track gets the much shorter tentative leash so a
+        # one-frame ghost is discarded almost immediately instead of lingering in
+        # the order alignment.
         for tid, tr in list(self._tracks.items()):
-            if now - tr.last_match_t > cfg.max_coast_s:
+            leash = cfg.max_coast_s if tr.hits >= cfg.min_hits else cfg.tentative_max_coast_s
+            if now - tr.last_match_t > leash:
                 del self._tracks[tid]
         return out
 

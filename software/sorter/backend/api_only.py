@@ -1,6 +1,15 @@
 import os
 
 import uvicorn
+
+# The full runtime (main.py) initializes local state before importing the API.
+# This standalone API-only entrypoint must do the same, otherwise every
+# persisted-state read (recent known objects, sorting profiles, themes, …)
+# comes back empty and the UI looks like a machine that has never run.
+from local_state import initialize_local_state
+
+initialize_local_state()
+
 from server.api import app
 
 if __name__ == "__main__":

@@ -710,6 +710,16 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         layout = None
         if shared_state.vision_manager is not None:
             layout = getattr(shared_state.vision_manager, "_camera_layout", None)
+        if layout is None:
+            # No live vision manager (e.g. api_only / no-power dev): fall back to
+            # the configured camera layout so the dashboard renders the right
+            # variant rather than always assuming "default".
+            try:
+                from server.routers.cameras import get_camera_config
+
+                layout = get_camera_config().get("layout")
+            except Exception:
+                layout = None
         fsm_state = "initializing"
         if shared_state.controller_ref is not None:
             fsm_state = getattr(shared_state.controller_ref.state, "value", "initializing")

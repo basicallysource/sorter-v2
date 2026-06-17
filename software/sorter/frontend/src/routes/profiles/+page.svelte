@@ -342,14 +342,15 @@
 	}
 
 	function searchableProfileText(profile: SortingProfileSummary): string {
-		const ruleBits = (profile.latest_published_version ?? profile.latest_version)?.rules_summary
-			?.filter((rule) => !rule.disabled)
-			.flatMap((rule) => [
-				rule.name,
-				rule.set_num,
-				rule.set_meta?.name,
-				rule.set_meta?.year != null ? String(rule.set_meta.year) : null
-			]) ?? [];
+		const ruleBits =
+			(profile.latest_published_version ?? profile.latest_version)?.rules_summary
+				?.filter((rule) => !rule.disabled)
+				.flatMap((rule) => [
+					rule.name,
+					rule.set_num,
+					rule.set_meta?.name,
+					rule.set_meta?.year != null ? String(rule.set_meta.year) : null
+				]) ?? [];
 		const owner = profile.owner;
 		return [
 			profile.name,
@@ -451,7 +452,7 @@
 
 	function activeDetailsModalSummary(): SortingProfileDetail | null {
 		const key = activeDetailsModalKey();
-		return key ? detailCache[key] ?? null : null;
+		return key ? (detailCache[key] ?? null) : null;
 	}
 
 	function activeDetailsModalDetail(): SortingProfileDetail | null {
@@ -476,7 +477,7 @@
 			return versionDetailErrors[versionKey];
 		}
 		const key = activeDetailsModalKey();
-		return key ? detailErrors[key] ?? null : null;
+		return key ? (detailErrors[key] ?? null) : null;
 	}
 
 	function activeDetailsModalLoading(): boolean {
@@ -587,7 +588,9 @@
 	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<h2 class="text-xl font-bold text-text">Sorting Profiles</h2>
-			<div class="flex min-w-[24rem] max-w-[36rem] flex-1 items-center justify-end gap-2">
+			<div
+				class="flex w-full flex-1 items-center justify-end gap-2 sm:w-auto sm:max-w-[36rem] sm:min-w-[24rem]"
+			>
 				<input
 					id="profile-search"
 					type="search"
@@ -628,7 +631,7 @@
 			</div>
 			<div class="mb-6">
 				<div class="mb-3 flex items-center justify-between gap-3">
-					<h3 class="text-sm font-semibold uppercase tracking-wider text-text-muted">
+					<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
 						Local profiles
 					</h3>
 					<button
@@ -643,7 +646,9 @@
 				</div>
 
 				{#if localProfiles().length === 0}
-					<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
+					<div
+						class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted"
+					>
 						No local profiles saved yet. Upload a profile JSON to keep it on this machine.
 					</div>
 				{:else}
@@ -664,7 +669,7 @@
 												<span class="font-mono">local:{profile.filename}</span>
 												{#if profile.is_active}
 													<span
-														class="border border-success/30 bg-success/10 px-1.5 py-0.5 font-medium uppercase tracking-wide text-success"
+														class="border border-success/30 bg-success/10 px-1.5 py-0.5 font-medium tracking-wide text-success uppercase"
 														>Active</span
 													>
 												{/if}
@@ -674,7 +679,8 @@
 											<button
 												type="button"
 												onclick={() => requestApplyLocal(profile)}
-												disabled={localApplyingFilename === profile.filename || Boolean(profile.error)}
+												disabled={localApplyingFilename === profile.filename ||
+													Boolean(profile.error)}
 												class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
 											>
 												{localApplyingFilename === profile.filename ? 'Activating…' : 'activate'}
@@ -694,9 +700,13 @@
 										</div>
 									</div>
 								</div>
-								<div class="setup-card-body border-t border-border px-4 py-3 text-xs text-text-muted">
+								<div
+									class="setup-card-body border-t border-border px-4 py-3 text-xs text-text-muted"
+								>
 									{#if profile.error}
-										<span class="text-amber-700 dark:text-amber-300">Unreadable: {profile.error}</span>
+										<span class="text-amber-700 dark:text-amber-300"
+											>Unreadable: {profile.error}</span
+										>
 									{:else}
 										<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
 											{#if profile.rule_count != null}<span>{profile.rule_count} rules</span>{/if}
@@ -760,9 +770,9 @@
 							detailError={detailErrors[key]}
 							syncState={library.sync_state}
 							selectedVersionId={selectedVersionIds[key] ?? null}
-							applyingKey={applyingKey}
+							{applyingKey}
 							cardKey={key}
-							openVersionMenuKey={openVersionMenuKey}
+							{openVersionMenuKey}
 							onOpenDetails={() => void openProfileDetails(entry.target, entry.profile)}
 							onApply={() => void requestApplyProfile(entry.target, entry.profile)}
 							onApplyVersion={(versionId) =>
@@ -773,7 +783,7 @@
 				</div>
 
 				<ProfilePagination
-					pageSize={pageSize}
+					{pageSize}
 					pageSizeOptions={PROFILE_PAGE_SIZE_OPTIONS}
 					currentPage={currentListPage()}
 					totalPages={totalPages()}
@@ -823,12 +833,12 @@
 				<p class="text-sm text-text-muted">Choose how bins should be initialized.</p>
 				<div class="flex flex-col gap-2 border border-border bg-bg p-3 text-sm text-text-muted">
 					<div>
-						<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin;
-						categories are assigned as pieces arrive.
+						<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin; categories are
+						assigned as pieces arrive.
 					</div>
 					<div>
-						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the
-						order of the profile's rules.
+						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the order
+						of the profile's rules.
 					</div>
 				</div>
 				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
@@ -863,8 +873,8 @@
 			{@const profile = pendingDelete}
 			<div class="flex flex-col gap-4">
 				<p class="text-sm text-text">
-					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this
-					machine? This removes the saved JSON file.
+					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this machine?
+					This removes the saved JSON file.
 				</p>
 				<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
 					<button

@@ -101,7 +101,11 @@
 	let autoAssignResult = $state<string | null>(null);
 	let contentsByKey = $state<Record<string, BinContents>>({});
 	let detailsOpen = $state(false);
-	let detailsBin = $state<{ bin: BinInfo; layerIndex: number; contents: BinContents | null } | null>(null);
+	let detailsBin = $state<{
+		bin: BinInfo;
+		layerIndex: number;
+		contents: BinContents | null;
+	} | null>(null);
 	let bricklinkCache = $state<Map<string, BricklinkPartResponse | null>>(new Map());
 
 	// Manual category assignment editor (lives inside the bin details modal).
@@ -405,7 +409,9 @@
 	}
 
 	function pieceTooltip(item: BinContentItem): string {
-		const label = item.part_id ? `${item.part_id}${item.color_name ? ` · ${item.color_name}` : ''}` : 'Unknown part';
+		const label = item.part_id
+			? `${item.part_id}${item.color_name ? ` · ${item.color_name}` : ''}`
+			: 'Unknown part';
 		const status = item.classification_status ? ` (${item.classification_status})` : '';
 		return `${label}${status}`;
 	}
@@ -420,7 +426,9 @@
 		return bits.join(' · ') || 'Unrecognized item';
 	}
 
-	function assignedSetMeta(categoryIds: string[]): { name: string; set_num?: string; img_url?: string } | null {
+	function assignedSetMeta(
+		categoryIds: string[]
+	): { name: string; set_num?: string; img_url?: string } | null {
 		if (!categoryIds || categoryIds.length !== 1) return null;
 		const categoryId = categoryIds[0];
 		const match = sortingProfileStore.data?.rules.find((rule) => {
@@ -581,19 +589,13 @@
 		);
 	}
 
-	function isBinClearing(
-		layerIndex: number,
-		sectionIndex: number,
-		binIndex: number
-	): boolean {
-		return (
-			clearingStates.some(
-				(state) =>
-					state.scope === 'bin' &&
-					state.layerIndex === layerIndex &&
-					state.sectionIndex === sectionIndex &&
-					state.binIndex === binIndex
-			)
+	function isBinClearing(layerIndex: number, sectionIndex: number, binIndex: number): boolean {
+		return clearingStates.some(
+			(state) =>
+				state.scope === 'bin' &&
+				state.layerIndex === layerIndex &&
+				state.sectionIndex === sectionIndex &&
+				state.binIndex === binIndex
 		);
 	}
 
@@ -613,18 +615,13 @@
 
 	function layerClearingLabel(layerIndex: number): string {
 		const state =
-			clearingStates.find(
-				(entry) => entry.scope === 'layer' && entry.layerIndex === layerIndex
-			) ?? null;
+			clearingStates.find((entry) => entry.scope === 'layer' && entry.layerIndex === layerIndex) ??
+			null;
 		if (!state) return '';
 		return `${actionVerb(state.endpoint)} layer ${layerIndex + 1}…`;
 	}
 
-	function binClearingLabel(
-		layerIndex: number,
-		sectionIndex: number,
-		binIndex: number
-	): string {
+	function binClearingLabel(layerIndex: number, sectionIndex: number, binIndex: number): string {
 		const state =
 			clearingStates.find(
 				(entry) =>
@@ -889,28 +886,34 @@
 		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
 			<div class="w-full max-w-md border border-[#E2E0DB] bg-white p-6 shadow-xl">
 				<div class="flex items-start gap-4">
-					<div class="flex h-10 w-10 items-center justify-center border border-[#E2E0DB] bg-surface">
+					<div
+						class="flex h-10 w-10 items-center justify-center border border-[#E2E0DB] bg-surface"
+					>
 						<Loader2 size={18} class="animate-spin text-primary" />
 					</div>
 					<div class="space-y-2">
 						<h3 class="text-lg font-semibold text-[#1A1A1A]">{globalClearingTitle()}</h3>
 						<p class="text-sm leading-6 text-[#66635C]">{globalClearingDescription()}</p>
-						<p class="text-xs uppercase tracking-wide text-[#8B887F]">Please wait while the sorter refreshes the bin state.</p>
+						<p class="text-xs tracking-wide text-[#8B887F] uppercase">
+							Please wait while the sorter refreshes the bin state.
+						</p>
 					</div>
 				</div>
 			</div>
 		</div>
 	{/if}
 	<div class="p-4 sm:p-6">
-		<div class="mb-4 flex items-center justify-between gap-4">
+		<div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
 			<div>
-				<h2 class="text-xl font-bold text-text">Bin Grid</h2>
+				<h2 class="text-xl font-bold whitespace-nowrap text-text">Bin Grid</h2>
 			</div>
-			<div class="flex items-center gap-3">
+			<div class="flex flex-wrap items-center gap-3">
 				<button
 					onclick={homeChute}
 					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
+					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50 {homing
+						? 'animate-pulse'
+						: ''}"
 					title="Home chute (find endstop)"
 				>
 					<Home size={16} />
@@ -952,13 +955,15 @@
 
 		<BinLayoutSection baseUrl={baseUrl()} profileId={activeProfileId} profileName={activeProfileName} />
 
-		<div class="mb-4 flex items-center justify-between gap-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+		<div
+			class="mb-4 flex items-center justify-between gap-4 border border-[#E2E0DB] bg-surface px-4 py-3"
+		>
 			<div class="pr-4">
 				<div class="text-sm font-medium text-[#1A1A1A]">Allow multiple categories per bin</div>
 				<div class="mt-0.5 text-sm text-[#66635C]">
-					When every bin already has an assignment, keep sorting new categories by
-					combining them into existing bins (least-loaded first) instead of sending
-					them to the discard passthrough.
+					When every bin already has an assignment, keep sorting new categories by combining them
+					into existing bins (least-loaded first) instead of sending them to the discard
+					passthrough.
 				</div>
 			</div>
 			<label class="flex items-center">
@@ -971,7 +976,9 @@
 					disabled={savingMultiCategory}
 					class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${allowMultiCategory ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
 				>
-					<span class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${allowMultiCategory ? 'translate-x-6' : 'translate-x-1'}`}></span>
+					<span
+						class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${allowMultiCategory ? 'translate-x-6' : 'translate-x-1'}`}
+					></span>
 				</button>
 			</label>
 		</div>
@@ -1080,23 +1087,34 @@
 					{@const layerNii = layer.bins.length > 0 && layer.bins.every((b) => b.not_in_inventory)}
 					<div class="relative border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
 						{#if layerBusy}
-							<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/78 backdrop-blur-[1px]">
-								<div class="flex items-center gap-3 border border-[#E2E0DB] bg-white px-4 py-3 shadow-sm">
+							<div
+								class="absolute inset-0 z-20 flex items-center justify-center bg-white/78 backdrop-blur-[1px]"
+							>
+								<div
+									class="flex items-center gap-3 border border-[#E2E0DB] bg-white px-4 py-3 shadow-sm"
+								>
 									<Loader2 size={16} class="animate-spin text-primary" />
-									<div class="text-sm font-medium text-[#1A1A1A]">{layerClearingLabel(layer.layer_index)}</div>
+									<div class="text-sm font-medium text-[#1A1A1A]">
+										{layerClearingLabel(layer.layer_index)}
+									</div>
 								</div>
 							</div>
 						{/if}
-						<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-4 py-3">
+						<div
+							class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-4 py-3"
+						>
 							<div class="flex items-center gap-3">
 								<h3 class="text-base font-semibold text-[#1A1A1A]">
 									Layer {layer.layer_index + 1}
-									<span class="ml-2 text-sm font-normal text-[#7A7770]">{layer.bin_count} bins</span>
+									<span class="ml-2 text-sm font-normal text-[#7A7770]">{layer.bin_count} bins</span
+									>
 								</h3>
 							</div>
 							<div class="flex items-center gap-3">
 								{#if isActive}
-									<span class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-success">
+									<span
+										class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-success uppercase"
+									>
 										<span class="inline-block h-2 w-2 bg-success"></span>
 										Active
 									</span>
@@ -1106,12 +1124,16 @@
 										type="button"
 										role="switch"
 										aria-checked={layer.enabled}
-										aria-label={layer.enabled ? `Disable layer ${layer.layer_index + 1}` : `Enable layer ${layer.layer_index + 1}`}
+										aria-label={layer.enabled
+											? `Disable layer ${layer.layer_index + 1}`
+											: `Enable layer ${layer.layer_index + 1}`}
 										onclick={() => void toggleLayerEnabled(layer.layer_index, !layer.enabled)}
 										disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
 										class={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${layer.enabled ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
 									>
-										<span class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${layer.enabled ? 'translate-x-6' : 'translate-x-1'}`}></span>
+										<span
+											class={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${layer.enabled ? 'translate-x-6' : 'translate-x-1'}`}
+										></span>
 									</button>
 								</label>
 								<button
@@ -1124,7 +1146,11 @@
 											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will mark all bins on that layer as emptied, but keep their assignments.`,
 											`empty-layer-${layer.layer_index}`
 										)}
-									disabled={homing || !!movingTo || isGlobalClearing() || layerBusy || togglingLayerKey !== null}
+									disabled={homing ||
+										!!movingTo ||
+										isGlobalClearing() ||
+										layerBusy ||
+										togglingLayerKey !== null}
 									class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									<FolderOutput size={14} />
@@ -1139,11 +1165,17 @@
 											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer and mark its bins as empty.`,
 											`reset-layer-${layer.layer_index}`
 										)}
-									disabled={homing || !!movingTo || isGlobalClearing() || layerBusy || togglingLayerKey !== null}
+									disabled={homing ||
+										!!movingTo ||
+										isGlobalClearing() ||
+										layerBusy ||
+										togglingLayerKey !== null}
 									class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
 								>
 									<ArchiveX size={14} />
-									{hasClearingKey(`reset-layer-${layer.layer_index}`) ? 'Resetting…' : 'Reset Layer'}
+									{hasClearingKey(`reset-layer-${layer.layer_index}`)
+										? 'Resetting…'
+										: 'Reset Layer'}
 								</button>
 								<button
 									type="button"
@@ -1197,12 +1229,18 @@
 								</div>
 							{/each}
 						</div>
-						<div class="grid grid-cols-6 gap-3 p-3">
+						<div
+							class="grid grid-cols-2 gap-3 p-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
+						>
 							{#each layer.bins as bin}
 								{@const key = `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
 								{@const isCurrent = isCurrentBin(bin) && isActive}
 								{@const isMoving = movingTo === key}
-								{@const isClearing = isBinClearing(layer.layer_index, bin.section_index, bin.bin_index)}
+								{@const isClearing = isBinClearing(
+									layer.layer_index,
+									bin.section_index,
+									bin.bin_index
+								)}
 								{@const catLabel = categoryLabel(bin.category_ids)}
 								{@const contents = contentsForBin(layer.layer_index, bin)}
 								{@const previewItems = cardPreviewItems(contents)}
@@ -1216,17 +1254,27 @@
 										</div>
 									{/if}
 									{#if isClearing}
-										<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/82 backdrop-blur-[1px]">
-											<div class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-2 shadow-sm">
+										<div
+											class="absolute inset-0 z-20 flex items-center justify-center bg-white/82 backdrop-blur-[1px]"
+										>
+											<div
+												class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-2 shadow-sm"
+											>
 												<Loader2 size={14} class="animate-spin text-primary" />
-												<span class="text-xs font-semibold uppercase tracking-wide text-[#1A1A1A]">
+												<span class="text-xs font-semibold tracking-wide text-[#1A1A1A] uppercase">
 													{binClearingLabel(layer.layer_index, bin.section_index, bin.bin_index)}
 												</span>
 											</div>
 										</div>
 									{/if}
-									<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-3 py-2">
-										<div class="pr-3 text-base font-semibold {isCurrent ? 'text-success' : 'text-[#1A1A1A]'}">
+									<div
+										class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-3 py-2"
+									>
+										<div
+											class="pr-3 text-base font-semibold {isCurrent
+												? 'text-success'
+												: 'text-[#1A1A1A]'}"
+										>
 											{#if catLabel}
 												{bin.global_index + 1}: {catLabel}
 											{:else}
@@ -1244,7 +1292,8 @@
 											</button>
 											<button
 												type="button"
-												onclick={() => moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
+												onclick={() =>
+													moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
 												disabled={!!movingTo || homing || hasAnyClearing() || !layer.enabled}
 												class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
 												title="Move chute to this bin"
@@ -1258,11 +1307,19 @@
 														void runBinAction(
 															'contents/clear',
 															'bin',
-															{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
+															{
+																layer_index: layer.layer_index,
+																section_index: bin.section_index,
+																bin_index: bin.bin_index
+															},
 															`Please make sure bin ${bin.global_index + 1} is physically empty first. This will mark the bin as emptied but keep its assignment.`,
 															`empty-bin-${key}`
 														)}
-													disabled={!!movingTo || homing || isGlobalClearing() || layerBusy || isClearing}
+													disabled={!!movingTo ||
+														homing ||
+														isGlobalClearing() ||
+														layerBusy ||
+														isClearing}
 													class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
 													title="Empty this bin but keep assignment"
 												>
@@ -1276,11 +1333,19 @@
 														void runBinAction(
 															'categories/clear',
 															'bin',
-															{ layer_index: layer.layer_index, section_index: bin.section_index, bin_index: bin.bin_index },
+															{
+																layer_index: layer.layer_index,
+																section_index: bin.section_index,
+																bin_index: bin.bin_index
+															},
 															`Please make sure bin ${bin.global_index + 1} is physically empty first. This will remove the learned assignment for just this bin and mark it as empty.`,
 															`reset-bin-${key}`
 														)}
-													disabled={!!movingTo || homing || isGlobalClearing() || layerBusy || isClearing}
+													disabled={!!movingTo ||
+														homing ||
+														isGlobalClearing() ||
+														layerBusy ||
+														isClearing}
 													class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
 													title="Reset this bin and clear assignment"
 												>
@@ -1300,17 +1365,27 @@
 											title="{fillCount} / {fillMax} pieces"
 										>
 											<div
-												class="absolute inset-y-0 left-0 transition-all {isFull ? 'bg-danger' : isNearFull ? 'bg-warning' : 'bg-success'}"
+												class="absolute inset-y-0 left-0 transition-all {isFull
+													? 'bg-danger'
+													: isNearFull
+														? 'bg-warning'
+														: 'bg-success'}"
 												style="width: {fillPct}%"
 											></div>
-											<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">
+											<div
+												class="relative flex h-full items-center justify-center text-xs font-semibold text-[#1A1A1A] tabular-nums mix-blend-luminosity"
+											>
 												{fillCount} / {fillMax}
 											</div>
 										</div>
 									{/if}
 									<button
 										onclick={() => openBinDetails(layer.layer_index, bin)}
-										class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent ? 'bg-success/8 ring-2 ring-inset ring-success' : layer.enabled ? 'hover:bg-[#F7F6F3]' : 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
+										class="relative flex min-h-[6.25rem] w-full flex-1 flex-col items-start justify-start px-3 py-3 text-left transition-colors {isCurrent
+											? 'bg-success/8 ring-2 ring-success ring-inset'
+											: layer.enabled
+												? 'hover:bg-[#F7F6F3]'
+												: 'cursor-not-allowed'} {isMoving || isClearing ? 'animate-pulse' : ''}"
 										title={`Bin ${bin.global_index + 1}${catLabel ? ` — ${catLabel}` : ''}`}
 									>
 										{#if contents}
@@ -1318,19 +1393,34 @@
 												{#if setMeta}
 													<div class="relative w-full border border-[#E2E0DB] bg-bg">
 														{#if setMeta.img_url}
-															<img src={setMeta.img_url} alt={setMeta.name} class="block max-h-[400px] w-full bg-white object-contain" />
+															<img
+																src={setMeta.img_url}
+																alt={setMeta.name}
+																class="block max-h-[400px] w-full bg-white object-contain"
+															/>
 														{/if}
 														{#if setMeta.set_num}
-															<div class="absolute top-2 right-2 border border-border bg-white/95 px-2 py-1 text-xs font-medium text-[#1A1A1A] shadow-sm">{setMeta.set_num}</div>
+															<div
+																class="absolute top-2 right-2 border border-border bg-white/95 px-2 py-1 text-xs font-medium text-[#1A1A1A] shadow-sm"
+															>
+																{setMeta.set_num}
+															</div>
 														{/if}
 													</div>
 												{/if}
 												<div class="grid w-full grid-cols-4 gap-2">
 													{#each previewItems as piece}
 														{@const thumb = previewUrl(piece)}
-														<div class="flex aspect-square w-full items-center justify-center" title={pieceTooltip(piece)}>
+														<div
+															class="flex aspect-square w-full items-center justify-center"
+															title={pieceTooltip(piece)}
+														>
 															{#if thumb}
-																<img src={thumb} alt={pieceTooltip(piece)} class="h-full w-full object-contain" />
+																<img
+																	src={thumb}
+																	alt={pieceTooltip(piece)}
+																	class="h-full w-full object-contain"
+																/>
 															{/if}
 														</div>
 													{/each}
@@ -1339,8 +1429,12 @@
 										{/if}
 									</button>
 									{#if !catLabel && !contents}
-										<div class="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center opacity-0 transition-opacity group-hover:opacity-100">
-											<div class="text-sm text-text-muted">No category assigned yet. No recorded pieces yet.</div>
+										<div
+											class="pointer-events-none absolute inset-0 flex items-center justify-center px-4 text-center opacity-0 transition-opacity group-hover:opacity-100"
+										>
+											<div class="text-sm text-text-muted">
+												No category assigned yet. No recorded pieces yet.
+											</div>
 										</div>
 									{/if}
 									{#if setProgress && setProgress.total_needed > 0}
@@ -1351,17 +1445,26 @@
 											title="{setProgress.total_found} of {setProgress.total_needed} parts found"
 										>
 											<div
-												class="absolute inset-y-0 left-0 transition-all {isDone ? 'bg-success' : 'bg-primary'}"
+												class="absolute inset-y-0 left-0 transition-all {isDone
+													? 'bg-success'
+													: 'bg-primary'}"
 												style="width: {clampedPct}%"
 											></div>
-											<div class="relative flex h-full items-center justify-center text-xs font-semibold tabular-nums text-[#1A1A1A] mix-blend-luminosity">
+											<div
+												class="relative flex h-full items-center justify-center text-xs font-semibold text-[#1A1A1A] tabular-nums mix-blend-luminosity"
+											>
 												{setProgress.total_found} / {setProgress.total_needed} parts
 											</div>
 										</div>
 									{/if}
 									{#if contents}
-										<div class="flex items-center justify-between border-t border-[#E2E0DB] px-3 py-2 text-xs text-[#66635C]">
-											<div>{contents.unique_item_count} {contents.unique_item_count === 1 ? 'type' : 'types'}</div>
+										<div
+											class="flex items-center justify-between border-t border-[#E2E0DB] px-3 py-2 text-xs text-[#66635C]"
+										>
+											<div>
+												{contents.unique_item_count}
+												{contents.unique_item_count === 1 ? 'type' : 'types'}
+											</div>
 											<div>{contents.piece_count} total</div>
 										</div>
 									{/if}
@@ -1377,39 +1480,51 @@
 				     knows the output exists; not interactive, no real
 				     physical slot. -->
 				<div class="mt-4 flex flex-col border-2 border-dashed border-warning/50 bg-warning/[0.05]">
-					<div class="flex items-center justify-between border-b border-warning/30 bg-warning/10 px-3 py-2">
-						<span class="text-sm font-semibold uppercase tracking-wider text-warning-dark">
+					<div
+						class="flex items-center justify-between border-b border-warning/30 bg-warning/10 px-3 py-2"
+					>
+						<span class="text-sm font-semibold tracking-wider text-warning-dark uppercase">
 							Discard Bin · Misc Passthrough
 						</span>
 						<span class="text-xs text-text-muted">virtual</span>
 					</div>
 					<div class="p-3 text-sm text-text-muted">
-						Pieces that don't match any sorting rule (or whose category
-						has no assigned bin) fall through all layer doors into the
-						discard bucket below the machine. Empty it manually when it
-						fills up.
+						Pieces that don't match any sorting rule (or whose category has no assigned bin) fall
+						through all layer doors into the discard bucket below the machine. Empty it manually
+						when it fills up.
 					</div>
 				</div>
 			</div>
 		{/if}
 	</div>
 
-	<Modal bind:open={detailsOpen} title={detailsBin ? `Bin ${detailsBin.bin.global_index + 1} Details` : 'Bin Details'} wide={true}>
+	<Modal
+		bind:open={detailsOpen}
+		title={detailsBin ? `Bin ${detailsBin.bin.global_index + 1} Details` : 'Bin Details'}
+		wide={true}
+	>
 		{#if detailsBin}
 			{@const setMeta = assignedSetMeta(detailsBin.bin.category_ids)}
 			<div class="space-y-4">
-				<div class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-3">
+				<div
+					class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-3"
+				>
 					<div>
-						<div class="text-xs uppercase tracking-wide">Layer</div>
+						<div class="text-xs tracking-wide uppercase">Layer</div>
 						<div class="mt-1 text-base font-medium text-text">{detailsBin.layerIndex + 1}</div>
 					</div>
 					<div>
-						<div class="text-xs uppercase tracking-wide">Assigned Category</div>
-						<div class="mt-1 text-base font-medium text-text">{categoryLabel(detailsBin.bin.category_ids) || 'None'}</div>
+						<div class="text-xs tracking-wide uppercase">Assigned Category</div>
+						<div class="mt-1 text-base font-medium text-text">
+							{categoryLabel(detailsBin.bin.category_ids) || 'None'}
+						</div>
 					</div>
 					<div>
-						<div class="text-xs uppercase tracking-wide">Recorded Pieces</div>
-						<div class="mt-1 text-base font-medium text-text">{detailsBin.contents?.piece_count ?? 0} {(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}</div>
+						<div class="text-xs tracking-wide uppercase">Recorded Pieces</div>
+						<div class="mt-1 text-base font-medium text-text">
+							{detailsBin.contents?.piece_count ?? 0}
+							{(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}
+						</div>
 					</div>
 				</div>
 
@@ -1516,7 +1631,11 @@
 						<div class="grid gap-4 md:grid-cols-[160px_1fr] md:items-center">
 							<div class="flex items-center justify-center bg-surface p-3">
 								{#if setMeta.img_url}
-									<img src={setMeta.img_url} alt={setMeta.name} class="h-32 w-full object-contain" />
+									<img
+										src={setMeta.img_url}
+										alt={setMeta.name}
+										class="h-32 w-full object-contain"
+									/>
 								{/if}
 							</div>
 							<div>
@@ -1525,8 +1644,15 @@
 									<div class="mt-1 text-sm text-text-muted">{setMeta.set_num}</div>
 								{/if}
 								<div class="mt-3 flex flex-wrap gap-2 text-xs text-text-muted">
-									<span class="border border-border bg-surface px-2 py-1">{detailsBin.contents?.unique_item_count ?? 0} {(detailsBin.contents?.unique_item_count ?? 0) === 1 ? 'item type' : 'item types'}</span>
-									<span class="border border-border bg-surface px-2 py-1">{detailsBin.contents?.piece_count ?? 0} total pieces</span>
+									<span class="border border-border bg-surface px-2 py-1"
+										>{detailsBin.contents?.unique_item_count ?? 0}
+										{(detailsBin.contents?.unique_item_count ?? 0) === 1
+											? 'item type'
+											: 'item types'}</span
+									>
+									<span class="border border-border bg-surface px-2 py-1"
+										>{detailsBin.contents?.piece_count ?? 0} total pieces</span
+									>
 								</div>
 								<div class="mt-4">
 									<button
@@ -1543,7 +1669,9 @@
 				{/if}
 
 				{#if !detailsBin.contents || detailsBin.contents.items.length === 0}
-					<div class="border border-border bg-bg px-4 py-4 text-sm text-text-muted">No detailed piece records for this bin yet.</div>
+					<div class="border border-border bg-bg px-4 py-4 text-sm text-text-muted">
+						No detailed piece records for this bin yet.
+					</div>
 				{:else}
 					<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
 						{#each detailsBin.contents.items as item}
@@ -1553,14 +1681,18 @@
 									{#if hero}
 										<img src={hero} alt={pieceTooltip(item)} class="h-40 w-full object-contain" />
 									{/if}
-									<div class="absolute top-3 right-3 flex h-10 min-w-10 items-center justify-center bg-[#16A6B6] px-3 text-lg font-semibold text-white shadow-sm">
+									<div
+										class="absolute top-3 right-3 flex h-10 min-w-10 items-center justify-center bg-[#16A6B6] px-3 text-lg font-semibold text-white shadow-sm"
+									>
 										{item.count}
 									</div>
 								</div>
 								<div class="px-4 py-3">
 									<div class="text-base font-medium text-text">{itemDisplayName(item)}</div>
 									<div class="mt-1 text-sm text-text-muted">{itemSecondaryText(item)}</div>
-									<div class="mt-2 text-sm text-text-muted">{formatCategoryName(item.category_id) || 'No category'}</div>
+									<div class="mt-2 text-sm text-text-muted">
+										{formatCategoryName(item.category_id) || 'No category'}
+									</div>
 								</div>
 							</div>
 						{/each}

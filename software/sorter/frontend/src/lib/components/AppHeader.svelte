@@ -15,6 +15,7 @@
 		AlertTriangle,
 		ChevronDown,
 		Home,
+		Menu,
 		Pause,
 		Play,
 		Power,
@@ -27,10 +28,24 @@
 
 	const manager = getMachinesContext();
 
+	const navItems = [
+		{ href: '/', label: 'Dashboard' },
+		{ href: '/bins', label: 'Bins' },
+		{ href: '/profiles', label: 'Profiles' },
+		{ href: '/records', label: 'Records' },
+		{ href: '/logs', label: 'Logs' },
+		{ href: '/settings', label: 'Settings' }
+	];
+
+	function navActive(href: string, pathname: string): boolean {
+		return href === '/' ? pathname === '/' : pathname.startsWith(href);
+	}
+
 	let dismissedHardwareError = $state<string | null>(null);
 	let homingDetailsOpen = $state(false);
 	let hardwareAlertOpen = $state(false);
 	let powerMenuOpen = $state(false);
+	let mobileNavOpen = $state(false);
 	let restartingBackend = $state(false);
 	let restartConfirmOpen = $state(false);
 	let powerdownConfirmOpen = $state(false);
@@ -214,6 +229,9 @@
 		if (!target.closest('[data-power-menu]')) {
 			powerMenuOpen = false;
 		}
+		if (!target.closest('[data-mobile-nav]')) {
+			mobileNavOpen = false;
+		}
 	}
 
 	async function retryHardwareAction() {
@@ -327,6 +345,12 @@
 		}
 	});
 
+	$effect(() => {
+		// Close the mobile nav drawer whenever the route changes.
+		void page.url.pathname;
+		mobileNavOpen = false;
+	});
+
 	onMount(() => {
 		if (manager.machines.size === 0) {
 			manager.connect(`${getBackendWsBase()}/ws`);
@@ -340,7 +364,27 @@
 
 <nav class="border-b border-border bg-surface">
 	<div class="flex items-center justify-between px-4 py-3 sm:px-6">
-		<div class="flex items-center gap-6">
+		<div class="flex items-center gap-3 lg:gap-6">
+			<button
+				type="button"
+				data-mobile-nav
+				onclick={(e) => {
+					// Stop the click reaching the document-level outside handler: toggling
+					// swaps the Menu/X icon, which detaches event.target before that
+					// handler runs, so its closest('[data-mobile-nav]') guard would miss.
+					e.stopPropagation();
+					mobileNavOpen = !mobileNavOpen;
+				}}
+				class="p-2 text-text-muted transition-colors hover:bg-bg hover:text-text lg:hidden"
+				aria-label="Toggle navigation"
+				aria-expanded={mobileNavOpen}
+			>
+				{#if mobileNavOpen}
+					<X size={20} />
+				{:else}
+					<Menu size={20} />
+				{/if}
+			</button>
 			<a
 				href="/"
 				class="flex items-center gap-2.5 font-mono text-xl font-bold tracking-tight text-text uppercase"
@@ -348,62 +392,20 @@
 				<span class="h-5 w-5 shrink-0 bg-primary" aria-hidden="true"></span>
 				Sorter
 			</a>
-			<div class="flex gap-1">
-				<a
-					href="/"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/'
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Dashboard
-				</a>
-				<a
-					href="/bins"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname === '/bins'
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Bins
-				</a>
-				<a
-					href="/profiles"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname ===
-					'/profiles'
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Profiles
-				</a>
-				<a
-					href="/records"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
-						'/records'
-					)
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Records
-				</a>
-				<a
-					href="/logs"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
-						'/logs'
-					)
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Logs
-				</a>
-				<a
-					href="/settings"
-					class="px-3 py-1.5 text-sm font-medium transition-colors {page.url.pathname.startsWith(
-						'/settings'
-					)
-						? 'border-b-2 border-primary text-primary'
-						: 'text-text-muted hover:bg-bg hover:text-text'}"
-				>
-					Settings
-				</a>
+			<div class="hidden gap-1 lg:flex">
+				{#each navItems as item (item.href)}
+					<a
+						href={item.href}
+						class="px-3 py-1.5 text-sm font-medium transition-colors {navActive(
+							item.href,
+							page.url.pathname
+						)
+							? 'border-b-2 border-primary text-primary'
+							: 'text-text-muted hover:bg-bg hover:text-text'}"
+					>
+						{item.label}
+					</a>
+				{/each}
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
@@ -529,6 +531,26 @@
 			</div>
 		</div>
 	</div>
+
+	{#if mobileNavOpen}
+		<div class="border-t border-border bg-surface lg:hidden" data-mobile-nav>
+			<div class="flex flex-col px-2 py-2">
+				{#each navItems as item (item.href)}
+					<a
+						href={item.href}
+						class="px-3 py-2.5 text-sm font-medium transition-colors {navActive(
+							item.href,
+							page.url.pathname
+						)
+							? 'bg-bg text-primary'
+							: 'text-text-muted hover:bg-bg hover:text-text'}"
+					>
+						{item.label}
+					</a>
+				{/each}
+			</div>
+		</div>
+	{/if}
 
 	{#if hardwareState === 'homing'}
 		<div

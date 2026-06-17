@@ -818,7 +818,9 @@
 			const pulses = incidentNumber(incident, 'pulses_since_activity');
 			const minPulses = incidentNumber(incident, 'min_pulses');
 			if (pulses === null) return '-';
-			return minPulses === null ? pulses.toFixed(0) : `${pulses.toFixed(0)} / ${minPulses.toFixed(0)}`;
+			return minPulses === null
+				? pulses.toFixed(0)
+				: `${pulses.toFixed(0)} / ${minPulses.toFixed(0)}`;
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			return incidentString(incident, 'detail', '-');
@@ -1112,9 +1114,9 @@
 
 <div class="min-h-screen bg-bg">
 	<AppHeader />
-	<div class="p-6">
+	<div class="p-3 sm:p-6">
 		{#if machine.machine}
-			<div class="flex h-[calc(100vh-7rem)] min-h-0 gap-3">
+			<div class="flex flex-col gap-3 lg:h-[calc(100vh-7rem)] lg:min-h-0 lg:flex-row">
 				{#if camera_layout === 'split_feeder'}
 					{@const uses_chamber = machineSetup !== 'classification_channel'}
 					{@const has_cls_top = uses_chamber && isConfigured('classification_top')}
@@ -1123,7 +1125,7 @@
 						has_cls_top,
 						has_cls_bottom
 					)}
-					<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+					<div class="flex min-w-0 flex-col gap-3 max-lg:h-[65vh] lg:min-h-0 lg:flex-1">
 						<div class="flex min-h-0 flex-1 gap-3">
 							<div class="min-w-0 flex-1">
 								<CameraFeed
@@ -1215,7 +1217,7 @@
 					{@const has_bottom = isConfigured('classification_bottom')}
 					{@const classification_camera = preferredClassificationCamera(has_top, has_bottom)}
 					{#if classification_camera && (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
-						<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+						<div class="flex min-w-0 flex-col gap-3 max-lg:h-[65vh] lg:min-h-0 lg:flex-1">
 							<div class="min-w-0 flex-1">
 								<CameraFeed
 									camera="feeder"
@@ -1234,7 +1236,7 @@
 							</div>
 						</div>
 					{:else}
-						<div class="flex min-h-0 min-w-0 flex-1 gap-3">
+						<div class="flex min-w-0 gap-3 max-lg:h-[65vh] lg:min-h-0 lg:flex-1">
 							<div class="min-w-0 flex-1">
 								<CameraFeed
 									camera="feeder"
@@ -1302,11 +1304,13 @@
 					{/if}
 				{/if}
 
-				<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
+				<div class="hidden lg:contents">
+					<ResizeHandle orientation="vertical" onresize={onSidebarResize} />
+				</div>
 
 				<div
-					class="flex min-h-0 flex-shrink-0 flex-col gap-3 overflow-y-auto"
-					style="width: {sidebar_width}px;"
+					class="flex w-full flex-col gap-3 lg:min-h-0 lg:w-[var(--sidebar-w)] lg:flex-shrink-0 lg:overflow-y-auto"
+					style="--sidebar-w: {sidebar_width}px;"
 				>
 					{#if hardwareState !== 'ready'}
 						<div class="shrink-0 border border-border bg-bg px-4 py-3">
@@ -1316,7 +1320,8 @@
 										<div class="text-sm font-medium text-text">System Standby</div>
 										<div class="text-xs text-text-muted">
 											{#if noPowerDevelopmentMode}
-												Sim Home runs the normal recovery path and skips only the physical homing steps.
+												Sim Home runs the normal recovery path and skips only the physical homing
+												steps.
 											{:else}
 												Press Home to initialize hardware and home all axes.
 											{/if}
@@ -1407,42 +1412,42 @@
 								</div>
 							</div>
 							{#if exitIncident?.kind !== 'classification_exit_stuck'}
-							<div class="mt-3 grid grid-cols-2 gap-2 text-xs">
-								<div class="bg-bg/70 px-2 py-1.5">
-									<div class="text-text-muted">
-										{exitIncidentPrimaryMetricLabel(exitIncident)}
-									</div>
-									<div class="font-mono text-text tabular-nums">
-										{exitIncidentPrimaryMetricValue(exitIncident)}
-									</div>
-								</div>
-								<div class="bg-bg/70 px-2 py-1.5">
-									<div class="text-text-muted">
-										{exitIncidentSecondaryMetricLabel(exitIncident)}
-									</div>
-									<div class="font-mono text-text tabular-nums">
-										{exitIncidentSecondaryMetricValue(exitIncident)}
-									</div>
-								</div>
-								{#if exitIncidentCanTestRelease(exitIncident)}
-									<div class="col-span-2 bg-bg/70 px-2 py-1.5">
-										<div class="text-text-muted">Suggested Release</div>
-										<div class="text-text">{exitIncidentStageLabel(exitIncident)}</div>
-										<div class="mt-0.5 font-mono text-[11px] text-text-muted tabular-nums">
-											{fmtIncidentNumber(
-												incidentNumber(exitIncident, 'amplitude_output_deg'),
-												' deg'
-											)} / {incidentNumber(exitIncident, 'cycles')?.toFixed(0) ?? '-'} cycles / {incidentNumber(
-												exitIncident,
-												'microsteps_per_second'
-											)?.toFixed(0) ?? '-'} usteps/s / {incidentNumber(
-												exitIncident,
-												'acceleration_microsteps_per_second_sq'
-											)?.toFixed(0) ?? '-'} usteps/s2
+								<div class="mt-3 grid grid-cols-2 gap-2 text-xs">
+									<div class="bg-bg/70 px-2 py-1.5">
+										<div class="text-text-muted">
+											{exitIncidentPrimaryMetricLabel(exitIncident)}
+										</div>
+										<div class="font-mono text-text tabular-nums">
+											{exitIncidentPrimaryMetricValue(exitIncident)}
 										</div>
 									</div>
-								{/if}
-							</div>
+									<div class="bg-bg/70 px-2 py-1.5">
+										<div class="text-text-muted">
+											{exitIncidentSecondaryMetricLabel(exitIncident)}
+										</div>
+										<div class="font-mono text-text tabular-nums">
+											{exitIncidentSecondaryMetricValue(exitIncident)}
+										</div>
+									</div>
+									{#if exitIncidentCanTestRelease(exitIncident)}
+										<div class="col-span-2 bg-bg/70 px-2 py-1.5">
+											<div class="text-text-muted">Suggested Release</div>
+											<div class="text-text">{exitIncidentStageLabel(exitIncident)}</div>
+											<div class="mt-0.5 font-mono text-[11px] text-text-muted tabular-nums">
+												{fmtIncidentNumber(
+													incidentNumber(exitIncident, 'amplitude_output_deg'),
+													' deg'
+												)} / {incidentNumber(exitIncident, 'cycles')?.toFixed(0) ?? '-'} cycles / {incidentNumber(
+													exitIncident,
+													'microsteps_per_second'
+												)?.toFixed(0) ?? '-'} usteps/s / {incidentNumber(
+													exitIncident,
+													'acceleration_microsteps_per_second_sq'
+												)?.toFixed(0) ?? '-'} usteps/s2
+											</div>
+										</div>
+									{/if}
+								</div>
 							{/if}
 							{#if exitIncidentCanTestRelease(exitIncident)}
 								<div class="mt-3 bg-bg/70 px-3 py-2">
@@ -1593,8 +1598,8 @@
 											</div>
 										</div>
 										<div class="mt-1 text-xs text-text-muted">
-											A stepper stalled and the machine has stopped. Clear the jam, then
-											acknowledge to re-arm detection and resume.
+											A stepper stalled and the machine has stopped. Clear the jam, then acknowledge
+											to re-arm detection and resume.
 										</div>
 										{#if incidentString(stallIncident, 'operator_message')}
 											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
@@ -1723,7 +1728,7 @@
 			{#each incidentDetailEntries(incidentDetailsTarget) as entry (entry.key)}
 				<div class="flex items-start justify-between gap-4 py-1.5">
 					<dt class="shrink-0 font-mono text-xs text-text-muted">{entry.key}</dt>
-					<dd class="max-w-[65%] break-words text-right font-mono text-sm text-text">
+					<dd class="max-w-[65%] text-right font-mono text-sm break-words text-text">
 						{entry.value}
 					</dd>
 				</div>

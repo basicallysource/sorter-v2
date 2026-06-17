@@ -24,6 +24,12 @@ class TrackerType(str, Enum):
     # center (circular motion + off-screen excursions predict correctly) plus a
     # color gate. Keeps ids through the curve and brief disappearances.
     ANGULAR = "angular"
+    # Strongest domain tracker: exploits the no-crossing order invariant of a
+    # rigid one-way platter. Aligns this frame's travel-ordered detections to the
+    # live tracks, requiring only that order is preserved and pieces move forward
+    # — robust to arbitrarily large between-frame jumps, with no motion model and
+    # no motor-timing dependence. Color/size are soft tie-breakers.
+    ORDERED = "ordered"
 
 
 # --- ByteTrack ------------------------------------------------------------
@@ -226,6 +232,172 @@ ANGULAR_FIELD_META: list[dict] = [
 ]
 
 
+# --- Ordered (channel queue) ----------------------------------------------
+
+
+@dataclass
+class OrderedTrackerConfig:
+    # Pieces only move toward the exit; a detection whose travel-gap GREW by more
+    # than this (deg) moved backward, so it can't be that track. Small — just
+    # absorbs COM jitter. Large forward jumps are always allowed.
+    back_tol_deg: float = 8.0
+    # How long (s) to keep coasting a track with no matching detection before
+    # giving up its id. Long enough to ride out a detector blink; a piece that
+    # truly left (off the exit) ages out and its disappearance reads as ejected.
+    max_coast_s: float = 1.5
+    # Soft tie-breaker weights (only used to disambiguate order-compatible
+    # candidates, never to bridge a jump). Color dominates; size/radius assist.
+    color_weight: float = 1.0
+    size_weight: float = 0.4
+    radius_weight: float = 0.4
+    # Fraction of the bbox (centered) sampled for color — a big box is mostly
+    # platter background, so sample the middle where the piece is.
+    color_center_frac: float = 0.5
+    # A candidate match whose combined tie-breaker cost exceeds this is rejected
+    # (treated as exit + new instead) — stops two clearly-different pieces being
+    # matched when an exit and an arrival happen in the same frame.
+    match_max_cost: float = 0.6
+    # Base costs for leaving a track unmatched (exit/blink) vs. spawning a new id.
+    # Tuned so re-acquiring a coasting track beats dropping it + making a new one.
+    miss_cost: float = 0.7
+    new_cost: float = 0.7
+    # Min detection confidence to START a new track.
+    new_track_min_score: float = 0.1
+    # Frames a track must be seen before its id is emitted. 1 = label immediately.
+    min_hits: int = 1
+    # EMA factor for the running color estimate.
+    smoothing: float = 0.5
+
+
+ORDERED_FIELD_META: list[dict] = [
+    {
+        "section": "Matching",
+        "key": "back_tol_deg",
+        "label": "Backward tolerance (°)",
+        "type": "float",
+        "default": OrderedTrackerConfig().back_tol_deg,
+        "description": (
+            "Pieces only travel toward the exit. A detection whose travel position "
+            "moved backward by more than this many degrees can't be the same piece "
+            "(just absorbs detection jitter). Forward jumps of any size are always "
+            "allowed — that's what makes this robust to the platter's fast moves."
+        ),
+    },
+    {
+        "section": "Matching",
+        "key": "match_max_cost",
+        "label": "Max match cost",
+        "type": "float",
+        "default": OrderedTrackerConfig().match_max_cost,
+        "description": (
+            "Upper bound on the color+size+radius tie-breaker cost for a match. Above "
+            "it the pair is treated as 'one piece exited and a different one arrived' "
+            "rather than the same piece. Lower = stricter about appearance changes."
+        ),
+    },
+    {
+        "section": "Appearance",
+        "key": "color_weight",
+        "label": "Color weight",
+        "type": "float",
+        "default": OrderedTrackerConfig().color_weight,
+        "description": (
+            "How strongly color disambiguates two order-ambiguous candidates. Color "
+            "is sampled from the center of the box (saturation-weighted hue + "
+            "brightness), so it separates e.g. a gray piece from a yellow one."
+        ),
+    },
+    {
+        "section": "Appearance",
+        "key": "size_weight",
+        "label": "Size weight",
+        "type": "float",
+        "default": OrderedTrackerConfig().size_weight,
+        "description": "Tie-breaker weight on relative bbox-area difference between a track and a detection.",
+    },
+    {
+        "section": "Appearance",
+        "key": "radius_weight",
+        "label": "Radius weight",
+        "type": "float",
+        "default": OrderedTrackerConfig().radius_weight,
+        "description": "Tie-breaker weight on how far the two sit from the channel center (pieces stay at a roughly fixed radius).",
+    },
+    {
+        "section": "Appearance",
+        "key": "color_center_frac",
+        "label": "Color sample (center fraction)",
+        "type": "float",
+        "default": OrderedTrackerConfig().color_center_frac,
+        "description": (
+            "Fraction of the bbox, centered, used to sample color. 0.5 = the middle "
+            "50%. Smaller focuses on the piece and ignores surrounding platter; too "
+            "small gets noisy."
+        ),
+    },
+    {
+        "section": "Lifetime",
+        "key": "max_coast_s",
+        "label": "Coast time (s)",
+        "type": "float",
+        "default": OrderedTrackerConfig().max_coast_s,
+        "description": (
+            "How long to keep a track alive with no matching detection (a blink / "
+            "brief occlusion) before dropping its id. A piece that actually left the "
+            "exit ages out here, and its disappearance is what marks it ejected."
+        ),
+    },
+    {
+        "section": "Lifetime",
+        "key": "miss_cost",
+        "label": "Unmatched-track cost",
+        "type": "float",
+        "default": OrderedTrackerConfig().miss_cost,
+        "description": (
+            "Cost of leaving a live track with no detection this frame (it exited or "
+            "blinked). Raise to hold ids harder through dropouts; lower to give them "
+            "up sooner."
+        ),
+    },
+    {
+        "section": "Lifetime",
+        "key": "new_cost",
+        "label": "New-track cost",
+        "type": "float",
+        "default": OrderedTrackerConfig().new_cost,
+        "description": (
+            "Cost of spawning a new id for a detection that matched no track. A box "
+            "in the drop zone is discounted (legitimate arrival); raise this to "
+            "suppress spurious new ids elsewhere."
+        ),
+    },
+    {
+        "section": "Track creation",
+        "key": "new_track_min_score",
+        "label": "Activation score",
+        "type": "float",
+        "default": OrderedTrackerConfig().new_track_min_score,
+        "description": "Minimum detection confidence to start a new track.",
+    },
+    {
+        "section": "Track creation",
+        "key": "min_hits",
+        "label": "Min hits",
+        "type": "int",
+        "default": OrderedTrackerConfig().min_hits,
+        "description": "Frames a detection must be tracked before its id is emitted. 1 = immediately.",
+    },
+    {
+        "section": "Motion",
+        "key": "smoothing",
+        "label": "Color smoothing (0–1)",
+        "type": "float",
+        "default": OrderedTrackerConfig().smoothing,
+        "description": "EMA factor for the running color estimate. Higher reacts faster; lower is steadier.",
+    },
+]
+
+
 # --- Registry -------------------------------------------------------------
 
 
@@ -261,6 +433,20 @@ TRACKER_SPECS: dict[str, "TrackerSpec"] = {
         ),
         config_cls=AngularTrackerConfig,
         field_meta=ANGULAR_FIELD_META,
+    ),
+    TrackerType.ORDERED.value: TrackerSpec(
+        type=TrackerType.ORDERED.value,
+        label="Ordered + Color (channel)",
+        description=(
+            "Strongest tracker for this machine. On a rigid one-way platter pieces "
+            "never pass each other, so it aligns each frame's travel-ordered "
+            "detections to the live tracks, requiring only that order is preserved "
+            "and pieces move forward. Robust to the platter's large between-frame "
+            "jumps with no motion model and no motor-timing dependence; color/size "
+            "only break ties. Best for 0–4 pieces."
+        ),
+        config_cls=OrderedTrackerConfig,
+        field_meta=ORDERED_FIELD_META,
     ),
 }
 

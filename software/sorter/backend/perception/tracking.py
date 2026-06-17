@@ -31,6 +31,7 @@ except Exception:  # pragma: no cover - supervision is a declared dep; guard dev
 
 from .arcs import Bbox
 from .angular_tracker import AngularColorTracker
+from .ordered_tracker import OrderedChannelTracker
 from .tracker_config import (
     ByteTrackConfig,
     TrackerType,
@@ -118,6 +119,8 @@ class SvByteTrackTracker:
 def build_tracker(tracker_type: str, cfg_dict: dict) -> Optional[Any]:
     """Construct the tracker for ``tracker_type`` from its persisted config dict."""
     cfg = configFromDict(tracker_type, cfg_dict)
+    if tracker_type == TrackerType.ORDERED.value:
+        return OrderedChannelTracker(cfg)
     if tracker_type == TrackerType.ANGULAR.value:
         return AngularColorTracker(cfg)
     tracker = SvByteTrackTracker(cfg)

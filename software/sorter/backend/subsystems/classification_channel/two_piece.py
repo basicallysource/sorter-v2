@@ -19,9 +19,12 @@ LOG_TAG = "[C4-2PIECE]"
 # classification channel is a rotating platter viewed from above; pieces travel
 # FORWARD (one way, never reversed) through these zones in this order:
 #   DROP  -> PRECISE (the holding region) -> EXIT (the fall-off)
+# Anything that has LEFT the drop zone (PRECISE, EXIT, or the unnamed gap NONE
+# between them) is "forward" and part of the processing queue.
 _ZONE_NONE = 0
 _ZONE_DROP = 1
-_ZONE_PRECISE = 3  # the holding region (a.k.a. "precise"); 2 = exit (the fall-off)
+# (2 = exit / the fall-off, 3 = precise / the holding region; we only branch on
+# DROP vs not-DROP — "left the drop zone" is what matters for the queue.)
 
 # Identity is the source of truth (PieceObservation.sv_bt_track_id). A track id
 # that has been missing from perception for longer than this is treated as gone
@@ -33,6 +36,15 @@ _TRACK_GONE_RETIRE_S = 0.7
 # prune runs. This is the user's rule: "if that ID has disappeared, the piece has
 # been ejected."
 _EJECT_GONE_CONFIRM_S = 0.35
+# A forward (already left the drop zone) piece that was NEVER captured/classified
+# — a stray, a detector-churn leftover, or the trailing piece of a multi-drop
+# that skipped the drop zone — is routed to misc after this long so it can be
+# ejected instead of deadlocking as an un-shippable head.
+_STRAY_MISC_S = 4.0
+# Fixed forward nudge (output deg) used while STAGING once the leading piece has
+# already reached/passed precise but the drop zone still isn't clear — keeps
+# pushing the clump out of the drop zone without a gap to size against.
+_STAGE_STEP_DEG = 25.0
 
 # Safety ceilings so a move that never resolves can't wedge the machine forever.
 _EJECT_TIMEOUT_S = 15.0
@@ -41,12 +53,12 @@ _STAGE_TIMEOUT_S = 15.0
 
 class _Phase(Enum):
     # Platter STOPPED. Observe, photograph the drop-zone piece, classify, and aim
-    # the chute for the holding piece. The only place we accept a new piece.
+    # the chute for the head piece. The only place we accept a new piece.
     WAITING = "waiting"
-    # Rotating the holding piece off the fall-off. Done when its track id is gone.
+    # Rotating the head piece off the fall-off. Done when its track id is gone.
     EJECTING = "ejecting"
-    # Rotating the drop piece forward into the holding region. Done when its track
-    # id reads in the precise zone.
+    # Rotating the clump forward until the drop zone is clear (the new piece, plus
+    # any multi-drop siblings, have all left the drop zone).
     STAGING = "staging"
 
 
@@ -70,9 +82,11 @@ class _TrackedPiece:
         self.result_applied = False
         # Handed to distribution (chute is aiming / aimed for it).
         self.placed = False
-        # Two pieces landed in the drop zone at once -> can't classify reliably,
-        # route to the misc bin.
+        # Two+ pieces landed in the drop zone at once -> can't classify reliably,
+        # route to the misc bin. multi_drop_group ties the clump's distinct track
+        # ids together as one logical multi-drop (None when not a multi-drop).
         self.double_feed = False
+        self.multi_drop_group: Optional[int] = None
 
     @property
     def known_object(self) -> Optional[KnownObject]:
@@ -81,34 +95,38 @@ class _TrackedPiece:
 
 class TwoPieceClassificationChannel(Rev01BaseState):
     """Hold up to two pieces on the classification channel, one cycle ahead of
-    the chute: one staged in the holding (precise) region being classified +
-    aimed, one waiting in the drop zone. The platter only ever turns FORWARD
-    (clockwise); no move is reversed.
+    the chute: a HEAD being classified + aimed + ejected, and a fresh piece
+    captured in the drop zone. The platter only ever turns FORWARD (clockwise);
+    no move is reversed.
 
-    SOURCE OF TRUTH = perception track ids (``PieceObservation.sv_bt_track_id``),
-    not heuristics: a piece's id moving DROP -> PRECISE confirms it staged; a
-    piece's id DISAPPEARING confirms it was ejected off the fall-off.
+    SOURCE OF TRUTH = perception track ids (``PieceObservation.sv_bt_track_id``):
+    a piece's id leaving the drop zone confirms it staged; a piece's id
+    DISAPPEARING confirms it was ejected off the fall-off.
+
+    The channel is treated as an ORDERED QUEUE (most-forward = head), not a fixed
+    "one in precise, one in drop" pair — so a multi-drop clump or a stray that
+    lands between zones is always part of the queue and never stranded.
 
     State machine (platter-level; per-piece classification runs concurrently):
 
       WAITING (stopped) --------------------------------------------------+
         - photograph the drop piece (drop zone only), classify off-thread |
-        - once the holding piece is classified, aim the chute for it      |
+        - aim the chute for the head once it's classified                 |
         - feeder may add a piece only here (drop clear + stopped)         |
         - ROTATE when there is a captured drop piece AND                  |
-            (holding empty            -> STAGING, or                      |
-             holding piece is ready   -> EJECTING)                        |
+            (no head            -> STAGING, or                            |
+             head is ready      -> EJECTING)                              |
                                                                           |
-      EJECTING (moving) -- push holding piece off the fall-off            |
+      EJECTING (moving) -- push the head off the fall-off                 |
         - done when its track id is gone -> commit it to distribution     |
           -> STAGING                                                      |
                                                                           |
-      STAGING (moving) -- bring the drop piece into the holding region    |
-        - done when its track id reads in the precise zone -> WAITING ----+
+      STAGING (moving) -- advance until the DROP ZONE IS CLEAR (whole     |
+        clump leaves drop) -> WAITING ------------------------------------+
 
-    "Ready" for the holding piece = classified AND the distribution chute is
-    aimed for it. We never eject the holding piece unless a drop piece is there to
-    take its place, so one rotation always both ejects and refills.
+    "Ready" for the head = classified AND the distribution chute is aimed for it.
+    A multi-drop's pieces stay distinct but share a ``multi_drop_group`` id and
+    all route to misc, draining one per cycle.
 
     The single-piece SIMPLE_STATE_MACHINE_REV01 path is untouched.
     """
@@ -136,6 +154,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # Multi-feed debounce: consecutive distinct frames showing >1 drop-zone id.
         self._multi_drop_streak = 0
         self._multi_drop_last_ts = -1.0
+        # Monotonic counter for multi_drop_group ids; advanced once per new clump.
+        self._multi_drop_seq = 0
         self.ctx.reset()
         self.ctx.known_object = None
 
@@ -165,7 +185,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if self._phase == _Phase.WAITING:
             if stopped:
                 self._captureDropPieces(perception_service, now)
-                self._aimChuteForHoldingPiece()
+                self._aimChuteForHead(now)
                 self._maybeStartRotation()
         elif self._phase == _Phase.EJECTING:
             self._ejecting(state, stopped, now)
@@ -231,15 +251,27 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         threshold = max(1, int(self.ctx.config.multi_feed_confirm_reads))
         if self._multi_drop_streak < threshold:
             return
+        # Bind this whole clump under one multi_drop_group id. Reuse an existing
+        # group already present in the drop zone so a third piece joining a known
+        # clump is tied to the same logical multi-drop rather than starting a new one.
+        group = next(
+            (tp.multi_drop_group for tp in drop if tp.multi_drop_group is not None),
+            None,
+        )
+        if group is None:
+            self._multi_drop_seq += 1
+            group = self._multi_drop_seq
         for tp in drop:
             if not tp.double_feed:
-                self._markDoubleFeed(tp)
+                self._markDoubleFeed(tp, group)
 
-    def _markDoubleFeed(self, tp: _TrackedPiece) -> None:
-        # Two pieces in the drop zone at once: classification can't be trusted, so
+    def _markDoubleFeed(self, tp: _TrackedPiece, group: int) -> None:
+        # Two+ pieces in the drop zone at once: classification can't be trusted, so
         # skip it and route the piece to the misc bin. It still rides the normal
-        # bucket-brigade (staged to holding, then ejected) — just to misc.
+        # bucket-brigade (staged, then ejected) — just to misc. All members of the
+        # clump share one multi_drop_group so they read as a single multi-drop.
         tp.double_feed = True
+        tp.multi_drop_group = group
         tp.capture_done = True
         tp.result_applied = True
         obj = tp.known_object
@@ -247,16 +279,22 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             obj.classification_status = ClassificationStatus.multi_drop_fail
             obj.part_id = None
             tp.worker.emitKnownObject()
-        self.logger.warning(f"{LOG_TAG} double feed -> misc (track={tp.track_id})")
+        self.logger.warning(
+            f"{LOG_TAG} double feed -> misc (track={tp.track_id}, group={group})"
+        )
 
-    # --------------------------------------------------- ordered-zone accessors
+    # --------------------------------------------------- ordered-queue accessors
 
-    def _holdingPiece(self) -> Optional[_TrackedPiece]:
-        # Most-forward piece in the holding region (smallest gap to exit leads).
-        held = [tp for tp in self._pieces.values() if tp.zone == _ZONE_PRECISE]
-        if not held:
+    def _headPiece(self) -> Optional[_TrackedPiece]:
+        # The head of the queue: the most-forward piece that has LEFT the drop zone
+        # (in precise, the exit approach, or the unnamed gap between drop and
+        # precise). This is the piece we classify-aim and eject next. Including the
+        # gap (zone NONE) is what keeps a clump piece that overshot precise, or a
+        # stray that landed mid-channel, from being stranded.
+        fwd = [tp for tp in self._pieces.values() if tp.zone != _ZONE_DROP]
+        if not fwd:
             return None
-        return min(held, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
+        return min(fwd, key=lambda tp: tp.gap_to_exit if tp.gap_to_exit is not None else 1e9)
 
     def _dropPiece(self) -> Optional[_TrackedPiece]:
         drop = [tp for tp in self._pieces.values() if tp.zone == _ZONE_DROP]
@@ -315,14 +353,31 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 tp.worker.updateKnownObjectWithResult(None, "timeout")
                 tp.result_applied = True
 
-    def _aimChuteForHoldingPiece(self) -> None:
-        # Hand the holding piece to distribution so the chute aims while the next
-        # piece is captured (the throughput overlap). Distribution has a single
-        # slot, so only ever place the leading holding piece; the next one is
-        # placed after this one ejects and frees the slot.
-        tp = self._holdingPiece()
-        if tp is None or tp.placed or not tp.result_applied:
+    def _aimChuteForHead(self, now: float) -> None:
+        # Hand the head to distribution so the chute aims while the next piece is
+        # captured (the throughput overlap). Distribution has a single slot, so
+        # only ever place the head; the next piece is placed after this one ejects
+        # and frees the slot.
+        tp = self._headPiece()
+        if tp is None or tp.placed:
             return
+        if not tp.result_applied:
+            # A forward piece that was never even captured (stray / churn leftover /
+            # a multi-drop sibling that skipped the drop zone) would otherwise sit
+            # as an un-shippable head forever. After a grace period, send it to misc
+            # so it can be ejected and the queue drains.
+            if tp.worker.ctx.classify_started_at == 0.0 and (now - tp.created_at) > _STRAY_MISC_S:
+                obj0 = tp.known_object
+                if obj0 is not None:
+                    obj0.classification_status = ClassificationStatus.unknown
+                    obj0.part_id = None
+                    tp.worker.emitKnownObject()
+                tp.result_applied = True
+                self.logger.warning(
+                    f"{LOG_TAG} stray head track={tp.track_id} never classified -> misc"
+                )
+            else:
+                return
         obj = tp.known_object
         if obj is None:
             return
@@ -334,11 +389,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self.transport.placePieceForDistribution(obj)
         tp.placed = True
         self.logger.info(
-            f"{LOG_TAG} aiming chute for holding piece track={tp.track_id} "
+            f"{LOG_TAG} aiming chute for head track={tp.track_id} "
             f"(status={obj.classification_status})"
         )
 
-    def _holdingReady(self, tp: _TrackedPiece) -> bool:
+    def _headReady(self, tp: _TrackedPiece) -> bool:
         # Classified AND the chute is physically aimed for this piece.
         obj = tp.known_object
         return bool(
@@ -352,26 +407,26 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     def _maybeStartRotation(self) -> None:
         # The ONLY two rotation triggers, both requiring a captured drop piece to
-        # bring into holding:
-        #   1. holding empty                 -> stage the drop piece (no eject)
-        #   2. holding piece ready to ship   -> eject it AND stage the drop piece
-        # If the holding piece is not ready yet, we wait (don't rotate a not-ready
+        # bring into the channel:
+        #   1. no head on the channel       -> stage the drop piece (no eject)
+        #   2. head ready to ship           -> eject it AND stage the drop piece
+        # If a head exists but is not ready yet, we wait (don't rotate a not-ready
         # piece toward the fall-off).
         drop = self._dropPiece()
         if drop is None or not drop.capture_done:
             return
-        holding = self._holdingPiece()
-        if holding is None:
+        head = self._headPiece()
+        if head is None:
             self._stage_target = drop
             self._eject_target = None
             self._enterPhase(_Phase.STAGING)
-            self.logger.info(f"{LOG_TAG} ROTATE: stage track={drop.track_id} (holding empty)")
-        elif self._holdingReady(holding):
+            self.logger.info(f"{LOG_TAG} ROTATE: stage track={drop.track_id} (no head)")
+        elif self._headReady(head):
             self._stage_target = drop
-            self._eject_target = holding
+            self._eject_target = head
             self._enterPhase(_Phase.EJECTING)
             self.logger.info(
-                f"{LOG_TAG} ROTATE: eject track={holding.track_id} + stage track={drop.track_id}"
+                f"{LOG_TAG} ROTATE: eject track={head.track_id} + stage track={drop.track_id}"
             )
 
     def _ejecting(self, state, stopped: bool, now: float) -> None:
@@ -405,42 +460,46 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 )
 
     def _staging(self, state, stopped: bool, now: float) -> None:
-        target = self._stage_target
-        if target is None or target.track_id not in self._pieces:
-            self._enterPhase(_Phase.WAITING)
-            return
-        if target.zone == _ZONE_PRECISE:
-            # Drop -> holding confirmed by the track id reading in the precise
-            # zone: "basically successful."
-            self.logger.info(f"{LOG_TAG} staged track={target.track_id} -> holding")
-            self._stage_target = None
-            self._enterPhase(_Phase.WAITING)
-            return
+        # Advance the platter until the DROP ZONE IS CLEAR — i.e. the new piece and
+        # any multi-drop siblings have all left the drop zone (into the holding
+        # area). Keying on "drop clear" rather than "one chosen piece reached
+        # precise" is what moves a clump through together instead of stranding the
+        # trailing piece.
         if (now - self._phase_started_at) > _STAGE_TIMEOUT_S:
-            self.logger.warning(
-                f"{LOG_TAG} STAGE timeout track={target.track_id} (zone={target.zone}) — giving up"
-            )
+            self.logger.warning(f"{LOG_TAG} STAGE timeout — giving up")
             self._stage_target = None
             self._enterPhase(_Phase.WAITING)
             return
-        if stopped:
-            gap = state.exit_com_forward_to_precise_deg
-            if gap is None:
-                return
+        if not stopped:
+            return
+        drop_clear = (not state.in_drop) and not any(
+            tp.zone == _ZONE_DROP for tp in self._pieces.values()
+        )
+        if drop_clear:
+            self.logger.info(f"{LOG_TAG} staged -> holding (drop clear)")
+            self._stage_target = None
+            self._enterPhase(_Phase.WAITING)
+            return
+        # Size the nudge by the leading piece's gap to the precise entry so the head
+        # converges onto the holding band; once the leading piece is already at/past
+        # precise (gap <= tol) but the drop zone still isn't clear, fall back to a
+        # fixed step to keep pushing the clump out.
+        gap = state.exit_com_forward_to_precise_deg
+        move = _STAGE_STEP_DEG
+        tol = self.ctx.config.precise_center_tolerance_deg
+        if gap is not None:
+            lead_to_exit = state.exit_com_forward_deg
             # comForwardToPreciseEntryDeg wraps to (-180, 180]; a piece that lands
-            # far up the drop zone reads as a small/negative gap ("already past
-            # precise") when it is really a near-full turn short. Un-wrap when the
-            # reliable gap-to-exit shows it is clearly upstream.
-            if gap <= self.ctx.config.precise_center_tolerance_deg and (
-                target.gap_to_exit is not None and target.gap_to_exit > 180.0
-            ):
+            # far up the drop zone reads as a small/negative gap when it is really a
+            # near-full turn short. Un-wrap when the leading gap-to-exit shows it is
+            # clearly upstream.
+            if gap <= tol and lead_to_exit is not None and lead_to_exit > 180.0:
                 gap += 360.0
-            if gap > self.ctx.config.precise_center_tolerance_deg:
+            if gap > tol:
                 move = min(self.ctx.config.discharge_max_move_output_deg, gap)
-                self.startOutputMove(
-                    C4_TRAVEL_SIGN * move,
-                    self.ctx.config.precise_converge_speed_usteps_per_s,
-                )
+        self.startOutputMove(
+            C4_TRAVEL_SIGN * move, self.ctx.config.precise_converge_speed_usteps_per_s
+        )
 
     def _enterPhase(self, phase: _Phase) -> None:
         self._phase = phase

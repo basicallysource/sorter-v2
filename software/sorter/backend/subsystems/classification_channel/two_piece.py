@@ -215,18 +215,28 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._flagDoubleFeeds(state)
 
     def _createPiece(self, track_id: int, now: float) -> _TrackedPiece:
+        # Track the id for position immediately, but DEFER the KnownObject: it's
+        # created only when the piece is actually photographed (a real drop
+        # arrival) or routed to distribution (see _ensureKnownObject). A transient
+        # detection that appears mid-channel and does neither is tracked but never
+        # becomes a UI 'piece' — no spam of pending objects, no false multi-drop.
         worker = Rev01BaseState(*self._deps, SimpleStateMachineRev01Context())
         worker.ctx.reset()
-        worker.ctx.known_object = KnownObject(
+        worker.ctx.known_object = None
+        tp = _TrackedPiece(track_id, worker, now)
+        self._pieces[track_id] = tp
+        return tp
+
+    def _ensureKnownObject(self, tp: _TrackedPiece) -> None:
+        if tp.worker.ctx.known_object is not None:
+            return
+        tp.worker.ctx.known_object = KnownObject(
             stage=PieceStage.created,
             classification_status=ClassificationStatus.pending,
             first_carousel_seen_ts=time.time(),
         )
-        worker.emitKnownObject()
-        tp = _TrackedPiece(track_id, worker, now)
-        self._pieces[track_id] = tp
-        self.logger.info(f"{LOG_TAG} new piece track={track_id}")
-        return tp
+        tp.worker.emitKnownObject()
+        self.logger.info(f"{LOG_TAG} new piece track={tp.track_id}")
 
     def _retireGonePieces(self, now: float) -> None:
         for tid in [
@@ -274,6 +284,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.multi_drop_group = group
         tp.capture_done = True
         tp.result_applied = True
+        self._ensureKnownObject(tp)
         obj = tp.known_object
         if obj is not None:
             obj.classification_status = ClassificationStatus.multi_drop_fail
@@ -317,6 +328,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 if raw is None:
                     return
             _bboxes, perc_frame = raw
+            self._ensureKnownObject(tp)  # real drop arrival -> becomes a UI piece
             ctx = tp.worker.ctx
             if ctx.capturing_started_at == 0.0:
                 ctx.capturing_started_at = now
@@ -367,6 +379,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # as an un-shippable head forever. After a grace period, send it to misc
             # so it can be ejected and the queue drains.
             if tp.worker.ctx.classify_started_at == 0.0 and (now - tp.created_at) > _STRAY_MISC_S:
+                self._ensureKnownObject(tp)
                 obj0 = tp.known_object
                 if obj0 is not None:
                     obj0.classification_status = ClassificationStatus.unknown
@@ -378,6 +391,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                 )
             else:
                 return
+        self._ensureKnownObject(tp)
         obj = tp.known_object
         if obj is None:
             return

@@ -33,6 +33,7 @@ from .arcs import (
     exitComForwardDeg,
     exitComForwardToCenterDeg,
     forwardClearanceToExitDeg,
+    mergeNearbyBboxes,
     orderedPieceObservations,
 )
 from .capture import CaptureWorker, PerceptionFrame
@@ -76,6 +77,15 @@ _MAX_BBOX_MASK_DIM_FRACTION = float(
 )
 # Throttle (seconds) for the average-bbox-size readout used to tune the filter.
 _BBOX_SIZE_LOG_THROTTLE_S = 5.0
+
+# The classification channel's detector over-segments a single piece — a box per
+# colour region of a multi-coloured brick, or a momentary split — which the C4
+# flow otherwise reads as several pieces / a false multi-drop. Merge on-channel
+# boxes that overlap or sit within this many pixels of each other into one piece
+# BEFORE tracking + zone attribution. C4 ONLY: the C2/C3 feeder logic counts raw
+# boxes per zone and would break if merged. Override via env for tuning.
+_CLASSIFICATION_CHANNEL_ID = 4
+_C4_BBOX_MERGE_GAP_PX = float(os.environ.get("SORTER_C4_BBOX_MERGE_GAP_PX", "14"))
 
 
 def _now_ms() -> float:
@@ -590,6 +600,22 @@ class InferenceWorker:
                     )
                 ]
 
+                # Classification channel only: collapse the detector's
+                # over-segmentation (one piece drawn as several overlapping /
+                # adjacent boxes) into one box per physical piece, so tracking,
+                # the piece count and multi-drop detection all see one piece.
+                # ``pre_merge_bboxes`` keeps the originals for the overlay;
+                # ``merged_multi`` is the boxes that were actually fused (>1
+                # source), drawn distinctly. C2/C3 are left untouched.
+                pre_merge_bboxes = list(bboxes)
+                merged_multi: list = []
+                if self._channel_def.channel_id == _CLASSIFICATION_CHANNEL_ID:
+                    clusters = mergeNearbyBboxes(bboxes, _C4_BBOX_MERGE_GAP_PX)
+                    bboxes = [merged for merged, _members in clusters]
+                    merged_multi = [
+                        merged for merged, members in clusters if len(members) > 1
+                    ]
+
                 # Assign each final on-channel piece a stable ``sv_bt_track_id``.
                 # Called every cycle — including empty ones — so the tracker ages
                 # coasting tracks on the right cadence. Cheap for 1–2 boxes. Real
@@ -661,6 +687,13 @@ class InferenceWorker:
                     # ``on_channel_bboxes`` (None for any not-yet-confirmed track),
                     # so the debug page can label boxes without a tuple-keyed map.
                     "on_channel_track_ids": [track_id_by_bbox.get(b) for b in bboxes],
+                    # C4 box merge: the originals (what the model drew) and the
+                    # boxes that were actually fused (drawn distinctly on the feed,
+                    # with their track id). Empty/equal to on_channel_bboxes on
+                    # channels that don't merge.
+                    "pre_merge_bboxes": pre_merge_bboxes,
+                    "merged_bboxes": list(merged_multi),
+                    "merged_track_ids": [track_id_by_bbox.get(b) for b in merged_multi],
                     "detections": detections,
                     "crop_rect": self._crop_rect,
                     "frame": frame,

@@ -494,9 +494,13 @@ class PerceptionService:
         annotated = renderFeedOverlay(
             frame.bgr,
             channel,
-            debug.get("on_channel_bboxes") or [],
+            # Originals (what the model drew) in green; on C4 the merged boxes we
+            # actually act on are overlaid distinctly via merged_bboxes.
+            debug.get("pre_merge_bboxes") or debug.get("on_channel_bboxes") or [],
             detections=debug.get("detections"),
             max_width=max_width,
+            merged_bboxes=debug.get("merged_bboxes"),
+            merged_track_ids=debug.get("merged_track_ids"),
         )
         with self._preview_lock:
             self._preview_cache[channel_id] = (ts, max_width, annotated)

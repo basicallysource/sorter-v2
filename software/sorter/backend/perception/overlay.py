@@ -21,6 +21,11 @@ ZONE_PRECISE_COLOR = (255, 0, 255)
 ON_CHANNEL_COLOR = (0, 255, 0)
 REJECTED_COLOR = (0, 165, 255)
 CHANNEL_OUTLINE_COLOR = (255, 255, 0)
+# A box we synthesised by MERGING the detector's over-segmented output (several
+# overlapping/adjacent boxes for one physical piece) — what the machine actually
+# acts on. Drawn distinctly + thicker over the green originals so it's clear what
+# the model drew vs. what we treat as one piece.
+MERGED_COLOR = (255, 0, 128)
 
 # Secondary (foreign) zones: same hue family as the matching primary zone type
 # but drawn as a thin desaturated outline (no fill) so they read as "observed,
@@ -212,6 +217,33 @@ def drawTrackIds(
         )
 
 
+def drawMergedBoxes(
+    img: np.ndarray, bboxes: list, track_ids: list | None, scale: float, thick: int
+) -> None:
+    """Draw the fused (merged) boxes the machine actually acts on, distinctly and
+    thicker over the green originals, each labelled with its track id below the
+    box (the green per-detection id sits above). Shows model-output vs. acted-on."""
+    if not bboxes:
+        return
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.4
+    text_thick = max(1, thick)
+    line_thick = max(2, thick + 1)
+    ids = track_ids or []
+    for i, b in enumerate(bboxes):
+        sb = _scaleBbox(b, scale)
+        x1, y1, x2, y2 = int(sb[0]), int(sb[1]), int(sb[2]), int(sb[3])
+        cv2.rectangle(img, (x1, y1), (x2, y2), MERGED_COLOR, line_thick, cv2.LINE_AA)
+        tid = ids[i] if i < len(ids) else None
+        label = f"merged #{int(tid)}" if tid is not None else "merged"
+        (tw, th), _ = cv2.getTextSize(label, font, font_scale, text_thick)
+        ty = min(img.shape[0] - 2, y2 + th + 3)
+        cv2.rectangle(img, (x1, ty - th - 2), (x1 + tw + 2, ty + 2), (0, 0, 0), -1)
+        cv2.putText(
+            img, label, (x1 + 1, ty), font, font_scale, MERGED_COLOR, text_thick, cv2.LINE_AA
+        )
+
+
 def drawSecondaryZones(img: np.ndarray, channel: Any, thick: int) -> None:
     """Outline each foreign (secondary) zone the camera observes. Outline only —
     no fill, no text label — so it's visually distinct from the channel's own
@@ -243,6 +275,8 @@ def renderFeedOverlay(
     on_bboxes: list,
     detections: list | None = None,
     max_width: int = 0,
+    merged_bboxes: list | None = None,
+    merged_track_ids: list | None = None,
 ) -> np.ndarray:
     """The clean operating-feed look: zone outlines plus the green on-channel
     boxes the machine acts on. No spec panel, no rejected (orange) boxes — that
@@ -288,4 +322,7 @@ def renderFeedOverlay(
     # id; only on-channel (tracked) ones have a non-None value, so these land on
     # the green boxes drawn just above.
     drawTrackIds(img, detections, scale, thick)
+    # On C4, draw the merged boxes (the fused output we actually track/act on) in
+    # MERGED_COLOR over their green originals, each tagged with its track id.
+    drawMergedBoxes(img, merged_bboxes or [], merged_track_ids, scale, thick)
     return img

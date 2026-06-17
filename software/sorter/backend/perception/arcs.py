@@ -27,6 +27,66 @@ def bboxCenter(bbox: Bbox) -> tuple[float, float]:
     return (x1 + x2) / 2.0, (y1 + y2) / 2.0
 
 
+def mergeNearbyBboxes(
+    bboxes: Iterable[Bbox], gap_px: float
+) -> list[tuple[Bbox, list[Bbox]]]:
+    """Collapse boxes that belong to ONE physical piece into a single box.
+
+    The detector over-segments a single piece — drawing a separate box per
+    colour region of a multi-coloured brick, or briefly splitting one piece into
+    two — so several overlapping / adjacent boxes really describe one object.
+    This clusters boxes that overlap OR sit within ``gap_px`` of each other
+    (transitively, via union-find) and returns, per cluster, the union box plus
+    its member boxes. ``gap_px <= 0`` merges only boxes that actually overlap.
+
+    Returns ``[(merged_union_bbox, [member_bbox, ...]), ...]``. A lone box comes
+    back as a single-member cluster (merged == itself). Order is not guaranteed.
+    """
+    boxes: list[Bbox] = [
+        (int(b[0]), int(b[1]), int(b[2]), int(b[3])) for b in bboxes
+    ]
+    n = len(boxes)
+    if n <= 1:
+        return [(b, [b]) for b in boxes]
+
+    parent = list(range(n))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def near(a: Bbox, b: Bbox) -> bool:
+        # True if the boxes overlap or come within gap_px on both axes (i.e. the
+        # gap between them is < gap_px in x AND y — touching/overlapping corners
+        # count). Axis-separated boxes never merge.
+        return (
+            a[0] - gap_px <= b[2]
+            and b[0] - gap_px <= a[2]
+            and a[1] - gap_px <= b[3]
+            and b[1] - gap_px <= a[3]
+        )
+
+    for i in range(n):
+        for j in range(i + 1, n):
+            if near(boxes[i], boxes[j]):
+                parent[find(i)] = find(j)
+
+    clusters: dict[int, list[Bbox]] = {}
+    for i in range(n):
+        clusters.setdefault(find(i), []).append(boxes[i])
+
+    out: list[tuple[Bbox, list[Bbox]]] = []
+    for members in clusters.values():
+        x1 = min(m[0] for m in members)
+        y1 = min(m[1] for m in members)
+        x2 = max(m[2] for m in members)
+        y2 = max(m[3] for m in members)
+        out.append(((x1, y1, x2, y2), members))
+    return out
+
+
 def bboxArea(bbox: Bbox) -> int:
     x1, y1, x2, y2 = bbox
     w = x2 - x1

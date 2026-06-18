@@ -88,19 +88,26 @@
 	}
 </script>
 
-<div class="space-y-3 border border-border bg-surface p-3" style={`margin-left: ${Math.min(depth, 5) * 16}px`}>
+<div
+	class="space-y-3 border border-border bg-surface p-3"
+	style={`margin-left: ${Math.min(depth, 5) * 16}px`}
+>
 	<div class="flex flex-wrap items-start justify-between gap-3">
 		<div class="min-w-0 flex-1">
 			<div class="flex flex-wrap items-center gap-2">
 				<h4 class="text-sm font-semibold text-text">{rule.name}</h4>
-				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-text-muted">
+				<span
+					class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium tracking-wide text-text-muted uppercase"
+				>
 					{ruleTypeLabel(rule)}
 				</span>
 				<span class="border border-border bg-bg px-1.5 py-0.5 text-xs font-medium text-text-muted">
 					{rule.match_mode === 'any' ? 'Any condition' : 'All conditions'}
 				</span>
 				{#if rule.disabled}
-					<span class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300">
+					<span
+						class="border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-xs font-medium text-amber-700 dark:text-amber-300"
+					>
 						Disabled
 					</span>
 				{/if}
@@ -121,19 +128,21 @@
 				/>
 			{/if}
 			<div class="min-w-0 flex-1 space-y-1.5">
-				<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">
+				<div class="text-xs font-semibold tracking-wide text-text-muted uppercase">
 					{sourceLabel(rule)}
 				</div>
 				{#if setMetaBits(rule).length > 0}
 					<div class="flex flex-wrap gap-1.5">
 						{#each setMetaBits(rule) as bit}
-							<span class="border border-border bg-surface px-2 py-1 text-xs text-text-muted">{bit}</span>
+							<span class="border border-border bg-surface px-2 py-1 text-xs text-text-muted"
+								>{bit}</span
+							>
 						{/each}
 					</div>
 				{/if}
 				{#if rule.custom_parts && rule.custom_parts.length > 0}
 					<div>
-						<div class="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">
+						<div class="mb-1 text-xs font-semibold tracking-wide text-text-muted uppercase">
 							Custom parts
 						</div>
 						<div class="space-y-1">
@@ -148,7 +157,7 @@
 	{/if}
 
 	<div class="space-y-2">
-		<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">Conditions</div>
+		<div class="text-xs font-semibold tracking-wide text-text-muted uppercase">Conditions</div>
 		{#if rule.conditions.length === 0}
 			<div class="text-xs text-text-muted">
 				{#if rule.rule_type === 'set'}
@@ -160,7 +169,9 @@
 		{:else}
 			<div class="space-y-2">
 				{#each rule.conditions as condition}
-					<div class="grid gap-2 border border-border bg-bg/40 px-3 py-2 text-xs md:grid-cols-[1fr,auto,1fr]">
+					<div
+						class="grid gap-2 border border-border bg-bg/40 px-3 py-2 text-xs md:grid-cols-[1fr_auto_1fr]"
+					>
 						<div class="font-mono text-text">{condition.field}</div>
 						<div class="text-text-muted">{condition.op}</div>
 						<div class="break-all text-text">{formatConditionValue(condition.value)}</div>
@@ -172,7 +183,7 @@
 
 	{#if rule.children.length > 0}
 		<div class="space-y-3">
-			<div class="text-xs font-semibold uppercase tracking-wide text-text-muted">
+			<div class="text-xs font-semibold tracking-wide text-text-muted uppercase">
 				Children ({rule.children.length})
 			</div>
 			{#each rule.children as child (child.id)}

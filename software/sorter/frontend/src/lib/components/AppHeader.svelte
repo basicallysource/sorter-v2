@@ -375,7 +375,7 @@
 					e.stopPropagation();
 					mobileNavOpen = !mobileNavOpen;
 				}}
-				class="p-2 text-text-muted transition-colors hover:bg-bg hover:text-text lg:hidden"
+				class="p-2.5 text-text-muted transition-colors hover:bg-bg hover:text-text lg:hidden"
 				aria-label="Toggle navigation"
 				aria-expanded={mobileNavOpen}
 			>
@@ -408,13 +408,13 @@
 				{/each}
 			</div>
 		</div>
-		<div class="flex items-center gap-2">
+		<div class="flex min-w-0 items-center gap-2">
 			<SortingProfileDropdown />
 
 			{#if hardwareState === 'ready' || hardwareState === 'initialized'}
 				<button
 					onclick={togglePauseResume}
-					class="p-2 text-text transition-colors hover:bg-bg"
+					class="p-2.5 text-text transition-colors hover:bg-bg"
 					title={machineState === 'paused' || hardwareState === 'initialized' ? 'Resume' : 'Pause'}
 				>
 					{#if machineState === 'paused' || hardwareState === 'initialized'}
@@ -428,7 +428,7 @@
 			<div class="relative" data-power-menu>
 				<button
 					onclick={() => (powerMenuOpen = !powerMenuOpen)}
-					class="flex items-center gap-1.5 p-2 text-text-muted transition-colors hover:bg-bg hover:text-text"
+					class="flex items-center gap-1.5 p-2.5 text-text-muted transition-colors hover:bg-bg hover:text-text"
 					title="System controls"
 				>
 					<span

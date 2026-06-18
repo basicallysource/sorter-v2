@@ -35,14 +35,14 @@
 			type="button"
 			onclick={() => props.onPageChange(props.currentPage - 1)}
 			disabled={props.currentPage <= 1}
-			class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
+			class="border border-border px-3 py-2 text-text transition-colors hover:bg-bg disabled:opacity-50 md:py-1.5"
 			>Previous</button
 		>
 		{#each props.visiblePageNumbers as pageNumber}
 			<button
 				type="button"
 				onclick={() => props.onPageChange(pageNumber)}
-				class="border px-3 py-1.5 transition-colors {pageNumber === props.currentPage
+				class="border px-3 py-2 transition-colors md:py-1.5 {pageNumber === props.currentPage
 					? 'border-primary bg-primary text-primary-contrast'
 					: 'border-border text-text hover:bg-bg'}"
 			>
@@ -53,7 +53,7 @@
 			type="button"
 			onclick={() => props.onPageChange(props.currentPage + 1)}
 			disabled={props.currentPage >= props.totalPages}
-			class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-bg disabled:opacity-50"
+			class="border border-border px-3 py-2 text-text transition-colors hover:bg-bg disabled:opacity-50 md:py-1.5"
 			>Next</button
 		>
 	</div>

@@ -4099,7 +4099,7 @@
 	<!-- Content -->
 	<div class="-mx-4 -mb-4 px-4 pb-4">
 		<div
-			class={`grid gap-4 ${showSidebarColumn ? 'xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start' : ''}`}
+			class={`grid gap-4 ${showSidebarColumn ? 'lg:grid-cols-[minmax(0,1fr)_18rem] lg:items-start xl:grid-cols-[minmax(0,1fr)_20rem]' : ''}`}
 		>
 			<div class="flex min-w-0 flex-col gap-3">
 				<div class="relative overflow-hidden bg-black">

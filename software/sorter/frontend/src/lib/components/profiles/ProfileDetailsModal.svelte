@@ -80,15 +80,14 @@
 				<div class="w-full max-w-sm space-y-2">
 					<label
 						for={versionSelectId}
-						class="block text-xs font-semibold uppercase tracking-wide text-text-muted"
+						class="block text-xs font-semibold tracking-wide text-text-muted uppercase"
 					>
 						Version
 					</label>
 					<select
 						id={versionSelectId}
 						value={selectedVersionId ?? ''}
-						onchange={(event) =>
-							onVersionChange((event.currentTarget as HTMLSelectElement).value)}
+						onchange={(event) => onVersionChange((event.currentTarget as HTMLSelectElement).value)}
 						class="w-full border border-border bg-bg px-3 py-2 text-sm text-text focus:border-text-muted focus:outline-none"
 					>
 						{#each visibleVersions(summary) as version}
@@ -121,20 +120,18 @@
 			{/if}
 
 			{#if loading && !detail}
-				<div class="py-8 text-center text-sm text-text-muted">
-					Loading full profile details...
-				</div>
+				<div class="py-8 text-center text-sm text-text-muted">Loading full profile details...</div>
 			{:else if detail?.current_version}
-				<div class="grid gap-4 lg:grid-cols-[minmax(0,2fr),minmax(18rem,1fr)]">
+				<div class="grid gap-4 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
 					<div class="space-y-4">
 						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+							<div class="mb-3 text-xs font-semibold tracking-wide text-text-muted uppercase">
 								Rule Tree
 							</div>
 							{#if detail.current_version.rules.length > 0}
 								<div class="space-y-3">
 									{#each detail.current_version.rules as rule (rule.id)}
-										<ProfileRuleTreeNode rule={rule} />
+										<ProfileRuleTreeNode {rule} />
 									{/each}
 								</div>
 							{:else}
@@ -145,30 +142,30 @@
 
 					<div class="space-y-4">
 						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+							<div class="mb-3 text-xs font-semibold tracking-wide text-text-muted uppercase">
 								Compiled Stats
 							</div>
 							<div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Matched</div>
+									<div class="text-xs tracking-wide text-text-muted uppercase">Matched</div>
 									<div class="text-lg font-semibold text-text">
 										{(detail.current_version.compiled_stats?.matched ?? 0).toLocaleString()}
 									</div>
 								</div>
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Total parts</div>
+									<div class="text-xs tracking-wide text-text-muted uppercase">Total parts</div>
 									<div class="text-lg font-semibold text-text">
 										{(detail.current_version.compiled_stats?.total_parts ?? 0).toLocaleString()}
 									</div>
 								</div>
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Unmatched</div>
+									<div class="text-xs tracking-wide text-text-muted uppercase">Unmatched</div>
 									<div class="text-lg font-semibold text-text">
 										{(detail.current_version.compiled_stats?.unmatched ?? 0).toLocaleString()}
 									</div>
 								</div>
 								<div class="border border-border bg-bg px-3 py-2">
-									<div class="text-xs uppercase tracking-wide text-text-muted">Categories</div>
+									<div class="text-xs tracking-wide text-text-muted uppercase">Categories</div>
 									<div class="text-lg font-semibold text-text">
 										{categoryEntries(detail).length.toLocaleString()}
 									</div>
@@ -177,7 +174,7 @@
 						</div>
 
 						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+							<div class="mb-3 text-xs font-semibold tracking-wide text-text-muted uppercase">
 								Fallback
 							</div>
 							<div class="flex flex-wrap gap-2">
@@ -198,11 +195,11 @@
 						</div>
 
 						<div class="border border-border bg-surface p-4">
-							<div class="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">
+							<div class="mb-3 text-xs font-semibold tracking-wide text-text-muted uppercase">
 								Categories
 							</div>
 							{#if categoryEntries(detail).length > 0}
-								<div class="max-h-[24rem] space-y-2 overflow-y-auto">
+								<div class="max-h-[16rem] space-y-2 overflow-y-auto lg:max-h-[24rem]">
 									{#each categoryEntries(detail) as [categoryId, category]}
 										<div class="border border-border bg-bg px-3 py-2">
 											<div class="text-sm font-medium text-text">

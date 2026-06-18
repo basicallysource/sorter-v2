@@ -586,7 +586,7 @@
 									<span class="text-sm font-medium text-text">{target.name}</span>
 									{#if target.is_primary}
 										<span
-											class="inline-flex items-center gap-1 border border-primary bg-primary/10 px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
+											class="inline-flex items-center gap-1 border border-primary bg-primary/10 px-1.5 py-0.5 text-xs font-semibold tracking-wider text-primary uppercase"
 										>
 											<Star size={11} />
 											Primary
@@ -595,9 +595,7 @@
 								</div>
 								<div class={`mt-1 text-xs ${statusToneClass(target)}`}>{statusLabel(target)}</div>
 								<div class="mt-0.5 text-sm text-text-muted">
-									{target.is_primary
-										? 'Used for piece metadata lookups (dimensions, etc).'
-										: ''}
+									{target.is_primary ? 'Used for piece metadata lookups (dimensions, etc).' : ''}
 								</div>
 							</div>
 
@@ -658,13 +656,13 @@
 							</div>
 						</div>
 
-						<div class="mt-3 grid grid-cols-[auto,1fr] gap-x-3 gap-y-1 text-xs">
+						<div class="mt-3 grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-1 text-xs">
 							<span class="text-text-muted">Server</span>
-							<span class="font-mono text-text">{target.url}</span>
+							<span class="font-mono break-all text-text">{target.url}</span>
 							<span class="text-text-muted">Machine ID</span>
-							<span class="font-mono text-text">{target.machine_id ?? '—'}</span>
+							<span class="font-mono break-all text-text">{target.machine_id ?? '—'}</span>
 							<span class="text-text-muted">Token</span>
-							<span class="font-mono text-text">{target.api_token_masked ?? '—'}</span>
+							<span class="font-mono break-all text-text">{target.api_token_masked ?? '—'}</span>
 						</div>
 
 						{#if backfillTargetId === target.id && backfillResult}
@@ -688,7 +686,7 @@
 								<Upload size={14} class="text-text-muted" />
 								<span class="text-sm font-medium text-text">Status</span>
 							</div>
-							<div class="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+							<div class="mt-3 grid grid-cols-2 gap-2 text-center text-xs sm:grid-cols-4">
 								<div>
 									<div class="text-lg font-semibold text-text">{target.uploader.uploaded}</div>
 									<div class="text-text-muted">Uploaded</div>

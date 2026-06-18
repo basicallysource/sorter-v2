@@ -109,8 +109,9 @@
 	let hiddenFormatsCount = $derived.by<number>(() => {
 		if (showAll) return 0;
 		const hiddenFormats = formats.filter((f) => f.options.every((o) => !o.available)).length;
-		const hiddenOptions = formats
-			.flatMap((f) => f.options.filter((o) => !o.available && f.options.some((x) => x.available))).length;
+		const hiddenOptions = formats.flatMap((f) =>
+			f.options.filter((o) => !o.available && f.options.some((x) => x.available))
+		).length;
 		return hiddenFormats + hiddenOptions;
 	});
 
@@ -376,11 +377,7 @@
 		</div>
 		<div class="flex items-center gap-3">
 			<label class="flex cursor-pointer items-center gap-2 text-sm text-text-muted">
-				<input
-					type="checkbox"
-					bind:checked={showAll}
-					class="h-4 w-4 cursor-pointer"
-				/>
+				<input type="checkbox" bind:checked={showAll} class="h-4 w-4 cursor-pointer" />
 				<span>Show unsupported</span>
 			</label>
 			<button
@@ -401,10 +398,14 @@
 		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
 	{:else if visibleFormats.length === 0}
 		<div class="text-sm text-text-muted">
-			{showAll ? 'No runtimes reported.' : 'No runtimes supported on this machine. Toggle "Show unsupported" to see what could work elsewhere.'}
+			{showAll
+				? 'No runtimes reported.'
+				: 'No runtimes supported on this machine. Toggle "Show unsupported" to see what could work elsewhere.'}
 		</div>
 	{:else}
-		<div class="grid gap-3" style="grid-template-columns: repeat(auto-fit, minmax(280px, 480px));">
+		<div
+			class="grid grid-cols-1 gap-3 sm:[grid-template-columns:repeat(auto-fit,minmax(280px,480px))]"
+		>
 			{#each visibleFormats as fmt (fmt.id)}
 				<div
 					class="flex flex-col border border-border bg-bg"
@@ -422,10 +423,7 @@
 					</div>
 					<div class="flex flex-col divide-y divide-border">
 						{#each fmt.options as opt (opt.id)}
-							<div
-								class="flex items-start gap-3 px-3 py-2"
-								class:opacity-50={!opt.available}
-							>
+							<div class="flex items-start gap-3 px-3 py-2" class:opacity-50={!opt.available}>
 								{#if opt.available}
 									<input
 										type="radio"
@@ -447,14 +445,14 @@
 										<span class="text-sm font-medium text-text">{opt.label}</span>
 										{#if opt.available}
 											<span
-												class="border border-border px-1.5 py-0.5 text-xs uppercase tracking-wide text-text-muted"
+												class="border border-border px-1.5 py-0.5 text-xs tracking-wide text-text-muted uppercase"
 											>
 												{rankLabel(opt.rank)}
 											</span>
 										{/if}
 									</div>
 									<span class="text-sm text-text-muted">
-										{opt.available ? (opt.detail || 'ready') : (opt.reason || 'unavailable')}
+										{opt.available ? opt.detail || 'ready' : opt.reason || 'unavailable'}
 									</span>
 									{#if opt.available && (isRunnable(opt, fmt.id) || resultsFor(opt).length > 0)}
 										{@const rs = resultsFor(opt)}

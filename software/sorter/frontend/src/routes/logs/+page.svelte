@@ -76,7 +76,9 @@
 	}
 
 	function preferredSourceId(availableSources: LogSource[]): string | null {
-		const preferred = availableSources.find((source) => source.id === 'machine-backend' && source.available);
+		const preferred = availableSources.find(
+			(source) => source.id === 'machine-backend' && source.available
+		);
 		if (preferred) return preferred.id;
 		return availableSources.find((source) => source.available)?.id ?? null;
 	}
@@ -99,7 +101,10 @@
 			if (requestId !== sourcesRequestSeq) return;
 			const nextSources = Array.isArray(data.sources) ? (data.sources as LogSource[]) : [];
 			sources = nextSources;
-			if (!selectedSourceId || !nextSources.some((source) => source.id === selectedSourceId && source.available)) {
+			if (
+				!selectedSourceId ||
+				!nextSources.some((source) => source.id === selectedSourceId && source.available)
+			) {
 				selectedSourceId = preferredSourceId(nextSources);
 			}
 			error = null;
@@ -128,7 +133,9 @@
 		refreshingContent = background || selectedLog !== null;
 
 		try {
-			const res = await fetch(`${baseUrl()}/api/logs/${encodeURIComponent(selectedSourceId)}?lines=${Number(lineLimit)}`);
+			const res = await fetch(
+				`${baseUrl()}/api/logs/${encodeURIComponent(selectedSourceId)}?lines=${Number(lineLimit)}`
+			);
 			if (!res.ok) {
 				const body = await res.json().catch(() => null);
 				throw new Error(body?.detail ?? `HTTP ${res.status}`);
@@ -166,7 +173,7 @@
 					raw,
 					timestamp: bracketed[1],
 					level,
-					message: bracketed[3],
+					message: bracketed[3]
 				};
 			}
 
@@ -178,7 +185,7 @@
 					raw,
 					timestamp: null,
 					level,
-					message: colonLevel[2],
+					message: colonLevel[2]
 				};
 			}
 
@@ -187,7 +194,7 @@
 				raw,
 				timestamp: null,
 				level: inferLevel(raw),
-				message: raw,
+				message: raw
 			};
 		});
 	}
@@ -252,25 +259,28 @@
 			<div class="flex flex-wrap items-center gap-2 text-sm">
 				<label class="flex items-center gap-2 text-text-muted">
 					<span>Lines</span>
-					<select bind:value={lineLimit} class="border border-border bg-surface px-2 py-1 text-sm text-text">
+					<select
+						bind:value={lineLimit}
+						class="border border-border bg-surface px-2 py-2 text-sm text-text lg:py-1"
+					>
 						<option value="200">200</option>
 						<option value="400">400</option>
 						<option value="800">800</option>
 						<option value="1500">1500</option>
 					</select>
 				</label>
-				<label class="flex items-center gap-2 text-text-muted">
-					<input type="checkbox" bind:checked={autoRefresh} />
+				<label class="flex items-center gap-2 py-1.5 text-text-muted">
+					<input type="checkbox" bind:checked={autoRefresh} class="h-5 w-5" />
 					Auto refresh
 				</label>
-				<label class="flex items-center gap-2 text-text-muted">
-					<input type="checkbox" bind:checked={wrapLines} />
+				<label class="flex items-center gap-2 py-1.5 text-text-muted">
+					<input type="checkbox" bind:checked={wrapLines} class="h-5 w-5" />
 					Wrap lines
 				</label>
 				<button
 					type="button"
 					onclick={() => void refreshNow()}
-					class="border border-border px-3 py-1.5 text-text transition-colors hover:bg-surface disabled:opacity-50"
+					class="border border-border px-3 py-2 text-text transition-colors hover:bg-surface disabled:opacity-50 lg:py-1.5"
 					disabled={refreshingSources || refreshingContent}
 				>
 					Refresh
@@ -296,7 +306,10 @@
 									if (source.available) selectedSourceId = source.id;
 								}}
 								disabled={!source.available}
-								class="border-b border-border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {selectedSourceId === source.id ? 'bg-bg' : 'hover:bg-bg'}"
+								class="border-b border-border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 {selectedSourceId ===
+								source.id
+									? 'bg-bg'
+									: 'hover:bg-bg'}"
 							>
 								<div class="flex items-center justify-between gap-2">
 									<div class="text-sm font-medium text-text">{source.label}</div>
@@ -309,7 +322,9 @@
 								<div class="mt-1 text-sm text-text-muted">{source.description}</div>
 								{#if source.available}
 									<div class="mt-2 truncate text-xs text-text-muted">{source.path}</div>
-									<div class="mt-1 text-sm text-text-muted">Updated {formatTimestamp(source.updated_at)}</div>
+									<div class="mt-1 text-sm text-text-muted">
+										Updated {formatTimestamp(source.updated_at)}
+									</div>
 								{/if}
 							</button>
 						{/each}
@@ -321,10 +336,10 @@
 				<div class="border-b border-border px-4 py-3">
 					{#if selectedLog}
 						<div class="flex flex-wrap items-start justify-between gap-3">
-							<div>
+							<div class="min-w-0">
 								<div class="text-sm font-medium text-text">{selectedLog.label}</div>
 								<div class="mt-1 text-sm text-text-muted">{selectedLog.description}</div>
-								<div class="mt-2 text-sm text-text-muted">{selectedLog.path}</div>
+								<div class="mt-2 text-sm break-all text-text-muted">{selectedLog.path}</div>
 							</div>
 							<div class="text-right text-xs text-text-muted">
 								<div>{formatBytes(selectedLog.size_bytes)}</div>
@@ -336,7 +351,9 @@
 						</div>
 					{:else}
 						<div class="text-sm font-medium text-text">Log Output</div>
-						<div class="mt-1 text-sm text-text-muted">Select an available source to inspect its logs.</div>
+						<div class="mt-1 text-sm text-text-muted">
+							Select an available source to inspect its logs.
+						</div>
 					{/if}
 				</div>
 
@@ -349,7 +366,10 @@
 								placeholder="Search message text, error names, part IDs, camera names…"
 								class="border border-border bg-bg px-3 py-2 text-sm text-text"
 							/>
-							<select bind:value={levelFilter} class="border border-border bg-bg px-3 py-2 text-sm text-text">
+							<select
+								bind:value={levelFilter}
+								class="border border-border bg-bg px-3 py-2 text-sm text-text"
+							>
 								<option value="all">All levels</option>
 								<option value="ERROR">Errors only</option>
 								<option value="WARN">Warnings only</option>
@@ -360,27 +380,45 @@
 						</div>
 
 						<div class="mt-3 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-							<span class="rounded border border-border bg-bg px-2 py-1">{filteredEntries().length} matching lines</span>
-							<span class="rounded border border-danger/30 bg-danger/10 px-2 py-1 text-danger">Errors: {countByLevel('ERROR')}</span>
-							<span class="rounded border border-warning/30 bg-warning/10 px-2 py-1 text-[#A56D00]">Warnings: {countByLevel('WARN')}</span>
-							<span class="rounded border border-primary/30 bg-primary/10 px-2 py-1 text-primary">Info: {countByLevel('INFO')}</span>
+							<span class="border border-border bg-bg px-2 py-1"
+								>{filteredEntries().length} matching lines</span
+							>
+							<span class="border border-danger/30 bg-danger/10 px-2 py-1 text-danger"
+								>Errors: {countByLevel('ERROR')}</span
+							>
+							<span class="border border-warning/30 bg-warning/10 px-2 py-1 text-[#A56D00]"
+								>Warnings: {countByLevel('WARN')}</span
+							>
+							<span class="border border-primary/30 bg-primary/10 px-2 py-1 text-primary"
+								>Info: {countByLevel('INFO')}</span
+							>
 						</div>
 					</div>
 
-					<div class="max-h-[70vh] overflow-auto bg-bg">
+					<div class="overflow-auto bg-bg lg:max-h-[70vh]">
 						{#if filteredEntries().length === 0}
-							<div class="px-4 py-4 text-sm text-text-muted">No log lines match the current filters.</div>
+							<div class="px-4 py-4 text-sm text-text-muted">
+								No log lines match the current filters.
+							</div>
 						{:else}
 							<div class="min-w-full">
 								{#each filteredEntries() as entry (entry.index + ':' + entry.raw)}
-									<div class="grid gap-2 border-b border-border px-4 py-2 text-xs leading-5 {wrapLines ? '' : 'grid-cols-[110px_70px_minmax(0,1fr)]'}">
+									<div
+										class="grid gap-2 border-b border-border px-4 py-2 text-sm leading-5 {wrapLines
+											? ''
+											: 'grid-cols-[110px_70px_minmax(0,1fr)]'}"
+									>
 										<div class="font-mono text-text-muted">{entry.timestamp ?? ''}</div>
 										<div>
-											<span class={`inline-flex rounded border px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide ${levelBadgeClass(entry.level)}`}>
+											<span
+												class={`inline-flex border px-1.5 py-0.5 text-xs font-medium tracking-wide uppercase ${levelBadgeClass(entry.level)}`}
+											>
 												{entry.level}
 											</span>
 										</div>
-										<div class={`font-mono text-text ${wrapLines ? 'whitespace-pre-wrap break-words' : 'overflow-x-auto whitespace-pre'}`}>
+										<div
+											class={`font-mono text-text ${wrapLines ? 'break-words whitespace-pre-wrap' : 'overflow-x-auto whitespace-pre'}`}
+										>
 											{entry.message}
 										</div>
 									</div>

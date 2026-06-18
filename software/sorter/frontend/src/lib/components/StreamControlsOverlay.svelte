@@ -27,17 +27,10 @@
 		disabled?: boolean;
 	} = $props();
 
-	const hasAny = $derived(
-		showAnnotations || showColor || showCrop || showZones || showFullscreen
-	);
+	const hasAny = $derived(showAnnotations || showColor || showCrop || showZones || showFullscreen);
 </script>
 
-{#snippet togglePill(
-	Icon: typeof SendToBack,
-	active: boolean,
-	label: string,
-	onToggle: () => void
-)}
+{#snippet togglePill(Icon: typeof SendToBack, active: boolean, label: string, onToggle: () => void)}
 	<button
 		type="button"
 		{disabled}
@@ -45,7 +38,7 @@
 		title={label}
 		aria-pressed={active}
 		aria-label={label}
-		class={`pointer-events-auto inline-flex h-7 items-center gap-1.5 rounded-full border px-2.5 text-white shadow-md backdrop-blur-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+		class={`pointer-events-auto inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-white shadow-md backdrop-blur-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:h-7 ${
 			active
 				? 'border-primary/70 bg-primary/80 hover:bg-primary'
 				: 'border-white/20 bg-black/55 hover:bg-black/70'
@@ -53,16 +46,14 @@
 	>
 		<Icon size={13} />
 		<span
-			class={`h-1.5 w-1.5 rounded-full transition-colors ${
-				active ? 'bg-white' : 'bg-white/30'
-			}`}
+			class={`h-1.5 w-1.5 rounded-full transition-colors ${active ? 'bg-white' : 'bg-white/30'}`}
 			aria-hidden="true"
 		></span>
 	</button>
 {/snippet}
 
 {#if hasAny}
-	<div class="pointer-events-none absolute right-2 top-2 z-10 flex gap-1">
+	<div class="pointer-events-none absolute top-2 right-2 z-10 flex gap-1">
 		{#if showAnnotations}
 			{@render togglePill(
 				SendToBack,

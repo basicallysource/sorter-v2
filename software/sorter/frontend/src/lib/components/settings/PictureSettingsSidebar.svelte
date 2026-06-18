@@ -466,14 +466,11 @@
 		colorProfileToggling = true;
 		error = null;
 		try {
-			const res = await fetch(
-				`${getBackendHttpBase()}/api/cameras/color-profile/${role}/enabled`,
-				{
-					method: 'PATCH',
-					headers: { 'Content-Type': 'application/json' },
-					body: JSON.stringify({ enabled })
-				}
-			);
+			const res = await fetch(`${getBackendHttpBase()}/api/cameras/color-profile/${role}/enabled`, {
+				method: 'PATCH',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ enabled })
+			});
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
 			colorProfile = normalizeCameraColorProfile(data.profile);
@@ -603,12 +600,15 @@
 		devicePreviewAbortController = abortController;
 		const requestId = ++devicePreviewRequest;
 		try {
-			const res = await fetch(`${getBackendHttpBase()}/api/cameras/device-settings/${role}/preview`, {
-				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify(payload),
-				signal: abortController.signal
-			});
+			const res = await fetch(
+				`${getBackendHttpBase()}/api/cameras/device-settings/${role}/preview`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify(payload),
+					signal: abortController.signal
+				}
+			);
 			if (!res.ok) throw new Error(await res.text());
 			const data = (await res.json()) as CameraDeviceSettingsResponse;
 			if (requestId !== devicePreviewRequest) return;
@@ -938,7 +938,7 @@
 </script>
 
 <aside
-	class="flex h-full min-w-0 flex-col overflow-hidden border border-border bg-white shadow-sm xl:min-h-[32rem] dark:bg-bg"
+	class="flex h-full min-w-0 flex-col overflow-hidden border border-border bg-white shadow-sm lg:min-h-[32rem] dark:bg-bg"
 >
 	{#if showHeader}
 		<div class="border-b border-border bg-surface px-4 py-3">
@@ -975,7 +975,9 @@
 
 		{#if error}
 			<Alert variant="danger">
-				<div class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300">
+				<div
+					class="text-xs font-semibold tracking-wider text-danger-dark uppercase dark:text-rose-300"
+				>
 					Error
 				</div>
 				<div class="mt-1 text-sm leading-relaxed text-text">{error}</div>
@@ -1061,23 +1063,23 @@
 				/>
 			</div>
 
-				<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
-					{#if status}
-						<div class="text-sm text-text-muted">{status}</div>
-					{/if}
+			<div class="mt-auto flex flex-col gap-2 border-t border-border pt-3">
+				{#if status}
+					<div class="text-sm text-text-muted">{status}</div>
+				{/if}
 
-					{#if deviceSupported}
-						<button
-							onclick={resetCameraToAutoDefaults}
-							disabled={saving || calibrating}
-							class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
-						>
-							<RotateCcw size={15} />
-							<span>Reset Camera To Auto</span>
-						</button>
-					{/if}
+				{#if deviceSupported}
+					<button
+						onclick={resetCameraToAutoDefaults}
+						disabled={saving || calibrating}
+						class="inline-flex w-full cursor-pointer items-center justify-center gap-2 border border-border bg-bg px-3 py-2 text-sm font-medium text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						<RotateCcw size={15} />
+						<span>Reset Camera To Auto</span>
+					</button>
+				{/if}
 
-					<div class="flex items-center gap-2">
+				<div class="flex items-center gap-2">
 					<button
 						onclick={revertChanges}
 						disabled={saving || calibrating || !hasUnsavedChanges()}

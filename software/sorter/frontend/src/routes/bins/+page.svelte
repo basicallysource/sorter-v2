@@ -1101,16 +1101,16 @@
 							</div>
 						{/if}
 						<div
-							class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-4 py-3"
+							class="flex flex-wrap items-center justify-between gap-3 border-b border-[#E2E0DB] bg-surface px-4 py-3"
 						>
-							<div class="flex items-center gap-3">
+							<div class="flex min-w-0 items-center gap-3">
 								<h3 class="text-base font-semibold text-[#1A1A1A]">
 									Layer {layer.layer_index + 1}
 									<span class="ml-2 text-sm font-normal text-[#7A7770]">{layer.bin_count} bins</span
 									>
 								</h3>
 							</div>
-							<div class="flex items-center gap-3">
+							<div class="flex flex-wrap items-center gap-3">
 								{#if isActive}
 									<span
 										class="flex items-center gap-1.5 text-xs font-semibold tracking-wide text-success uppercase"
@@ -1271,7 +1271,7 @@
 										class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-3 py-2"
 									>
 										<div
-											class="pr-3 text-base font-semibold {isCurrent
+											class="min-w-0 truncate pr-3 text-base font-semibold {isCurrent
 												? 'text-success'
 												: 'text-[#1A1A1A]'}"
 										>
@@ -1281,7 +1281,7 @@
 												Bin {bin.global_index + 1}
 											{/if}
 										</div>
-										<div class="flex items-center gap-1.5">
+										<div class="flex shrink-0 items-center gap-1.5">
 											<button
 												type="button"
 												onclick={() => openBinDetails(layer.layer_index, bin)}
@@ -1295,7 +1295,7 @@
 												onclick={() =>
 													moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
 												disabled={!!movingTo || homing || hasAnyClearing() || !layer.enabled}
-												class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
+												class="border border-[#E2E0DB] bg-white/95 p-2.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50 lg:p-1.5"
 												title="Move chute to this bin"
 											>
 												<Crosshair size={13} />
@@ -1320,7 +1320,7 @@
 														isGlobalClearing() ||
 														layerBusy ||
 														isClearing}
-													class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
+													class="border border-[#E2E0DB] bg-white/95 p-2.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50 lg:p-1.5"
 													title="Empty this bin but keep assignment"
 												>
 													<FolderOutput size={13} />
@@ -1346,7 +1346,7 @@
 														isGlobalClearing() ||
 														layerBusy ||
 														isClearing}
-													class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50"
+													class="border border-[#E2E0DB] bg-white/95 p-2.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A] disabled:cursor-not-allowed disabled:opacity-50 lg:p-1.5"
 													title="Reset this bin and clear assignment"
 												>
 													<ArchiveX size={13} />
@@ -1408,7 +1408,7 @@
 														{/if}
 													</div>
 												{/if}
-												<div class="grid w-full grid-cols-4 gap-2">
+												<div class="grid w-full grid-cols-3 gap-2 sm:grid-cols-4">
 													{#each previewItems as piece}
 														{@const thumb = previewUrl(piece)}
 														<div

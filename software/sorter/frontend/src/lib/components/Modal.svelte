@@ -46,12 +46,14 @@
 
 {#if open}
 	<div
-		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+		class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
 		onclick={handleBackdrop}
 		role="presentation"
 	>
 		<div
-			class="relative max-h-[90vh] w-full overflow-auto border border-border bg-bg shadow-lg {wide ? 'max-w-6xl' : 'max-w-2xl'}"
+			class="relative max-h-[90vh] w-full overflow-auto border border-border bg-bg shadow-lg {wide
+				? 'max-w-6xl'
+				: 'max-w-2xl'}"
 		>
 			<div
 				class="sticky top-0 flex items-center justify-between border-b border-border bg-surface px-4 py-3"
@@ -61,10 +63,7 @@
 				{:else}
 					<div></div>
 				{/if}
-				<button
-					onclick={close}
-					class="p-1 text-text transition-colors hover:bg-border"
-				>
+				<button onclick={close} class="p-1 text-text transition-colors hover:bg-border">
 					<X size={16} />
 				</button>
 			</div>

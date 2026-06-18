@@ -201,7 +201,7 @@
 	<div class="flex min-w-0 flex-col gap-3">
 		<div class="relative overflow-hidden bg-black">
 			<div
-				class="relative min-h-[24rem] sm:min-h-[30rem] lg:min-h-[36rem] xl:min-h-[42rem]"
+				class="relative min-h-[20rem] sm:min-h-[24rem] xl:min-h-[42rem]"
 				bind:this={previewViewportEl}
 			>
 				{#if hasCamera}
@@ -211,8 +211,7 @@
 							alt={label}
 							class="absolute inset-0 h-full w-full object-contain"
 							style={previewTransformStyle()}
-							onload={(event) =>
-								rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
+							onload={(event) => rememberPreviewImageSize(event.currentTarget as HTMLImageElement)}
 						/>
 						<div class="pointer-events-none absolute" style={previewOverlayStyle()}>
 							{#if calibrationHighlight}

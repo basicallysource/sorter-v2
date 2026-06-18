@@ -50,7 +50,9 @@
 			: `${payload.sector_offset_deg.toFixed(1)}°`
 	);
 	const frameText = $derived(
-		payload?.frame_resolution ? `${payload.frame_resolution[0]} x ${payload.frame_resolution[1]}` : 'n/a'
+		payload?.frame_resolution
+			? `${payload.frame_resolution[0]} x ${payload.frame_resolution[1]}`
+			: 'n/a'
 	);
 
 	function sectorClass(sector: Sector): string {
@@ -84,7 +86,9 @@
 				`${getBackendHttpBase()}/api/classification-channel/sector-occupancy?${params.toString()}`,
 				{ method: 'POST' }
 			);
-			const data = (await res.json().catch(() => ({}))) as SectorOccupancyPayload | { detail?: string };
+			const data = (await res.json().catch(() => ({}))) as
+				| SectorOccupancyPayload
+				| { detail?: string };
 			if (!res.ok) {
 				const detail = 'detail' in data && typeof data.detail === 'string' ? data.detail : null;
 				throw new Error(detail ?? `HTTP ${res.status}`);
@@ -107,7 +111,7 @@
 </script>
 
 <div class="flex flex-col gap-4">
-	<div class="flex flex-wrap items-center justify-between gap-3">
+	<div class="flex flex-wrap items-center gap-3 sm:justify-between">
 		<div class="flex flex-wrap items-center gap-2 text-xs text-text-muted">
 			<span class="inline-flex items-center gap-1.5">
 				{#if payload?.phase_ok}
@@ -144,7 +148,7 @@
 		</div>
 	{/if}
 
-	<div class="grid grid-cols-5 gap-2">
+	<div class="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
 		{#each sectors as sector (sector.sector_index)}
 			<div class={`min-h-24 border px-3 py-2 ${sectorClass(sector)}`}>
 				<div class="flex items-start justify-between gap-2">
@@ -178,11 +182,19 @@
 			</div>
 			<div class="border border-border bg-bg px-3 py-2">
 				<div class="font-medium text-text">Handoff</div>
-				<div>{payload.handoff_sector === null || payload.handoff_sector === undefined ? 'n/a' : `S${payload.handoff_sector + 1}`}</div>
+				<div>
+					{payload.handoff_sector === null || payload.handoff_sector === undefined
+						? 'n/a'
+						: `S${payload.handoff_sector + 1}`}
+				</div>
 			</div>
 			<div class="border border-border bg-bg px-3 py-2">
 				<div class="font-medium text-text">Exit</div>
-				<div>{payload.exit_sector === null || payload.exit_sector === undefined ? 'n/a' : `S${payload.exit_sector + 1}`}</div>
+				<div>
+					{payload.exit_sector === null || payload.exit_sector === undefined
+						? 'n/a'
+						: `S${payload.exit_sector + 1}`}
+				</div>
 			</div>
 		</div>
 	{/if}

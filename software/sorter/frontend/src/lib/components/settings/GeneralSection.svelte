@@ -321,9 +321,7 @@
 					>
 						<div class="flex items-center gap-2">
 							<span
-								class="h-2 w-2 rounded-full {m.status === 'connected'
-									? 'bg-success'
-									: 'bg-danger'}"
+								class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-success' : 'bg-danger'}"
 							></span>
 							<span class="text-sm text-text">
 								{m.identity?.nickname ?? id.slice(0, 8)}
@@ -434,7 +432,9 @@
 								>
 									{classificationModeLabel(mode)}
 									{#if mode === 'simple_state_machine_rev01'}
-										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
+										<span
+											class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-xs font-medium tracking-wider text-primary uppercase"
+										>
 											default
 										</span>
 									{/if}
@@ -463,7 +463,9 @@
 								>
 									{feederModeLabel(mode)}
 									{#if mode === 'go_to_angle_rev01'}
-										<span class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-[0.14em] text-primary">
+										<span
+											class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-xs font-medium tracking-wider text-primary uppercase"
+										>
 											default
 										</span>
 									{/if}

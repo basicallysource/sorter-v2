@@ -37,9 +37,7 @@
 	>
 		{#if selected}
 			<span
-				class="h-2 w-2 rounded-full {selected.status === 'connected'
-					? 'bg-success'
-					: 'bg-danger'}"
+				class="h-2 w-2 rounded-full {selected.status === 'connected' ? 'bg-success' : 'bg-danger'}"
 			></span>
 			<span class="max-w-32 truncate">
 				{selected.identity?.nickname ?? selected.identity?.machine_id.slice(0, 8) ?? 'Unknown'}
@@ -53,7 +51,7 @@
 
 	{#if dropdown_open && machines.length > 0}
 		<div
-			class="absolute top-full right-0 z-50 mt-1 min-w-48 border border-border bg-surface shadow-lg"
+			class="absolute top-full right-0 z-50 mt-1 max-w-[calc(100vw-1rem)] min-w-48 border border-border bg-surface shadow-lg"
 		>
 			{#each machines as [id, m]}
 				<button
@@ -64,8 +62,7 @@
 						? 'bg-primary/20 text-primary'
 						: 'text-text hover:bg-bg'}"
 				>
-					<span
-						class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-success' : 'bg-danger'}"
+					<span class="h-2 w-2 rounded-full {m.status === 'connected' ? 'bg-success' : 'bg-danger'}"
 					></span>
 					<span class="truncate">
 						{m.identity?.nickname ?? id.slice(0, 8)}

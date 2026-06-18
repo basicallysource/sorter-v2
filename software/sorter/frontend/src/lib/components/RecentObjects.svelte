@@ -35,10 +35,10 @@
 	function hasLocalPreview(obj: KnownObjectData): boolean {
 		return Boolean(
 			obj.latest_captured_crop ||
-				obj.thumbnail ||
-				obj.top_image ||
-				obj.bottom_image ||
-				obj.drop_snapshot
+			obj.thumbnail ||
+			obj.top_image ||
+			obj.bottom_image ||
+			obj.drop_snapshot
 		);
 	}
 
@@ -46,10 +46,7 @@
 		// Anything proving the capture/classify pipeline has engaged: a snap
 		// timestamp, a locally-stored crop or thumbnail, or any part data.
 		return Boolean(
-			obj.carousel_snapping_started_at ||
-				obj.classified_at ||
-				obj.part_id ||
-				hasLocalPreview(obj)
+			obj.carousel_snapping_started_at || obj.classified_at || obj.part_id || hasLocalPreview(obj)
 		);
 	}
 
@@ -101,9 +98,9 @@
 		if (!isUnresolvedTerminal(obj)) return true;
 		return Boolean(
 			obj.latest_captured_crop ||
-				obj.top_image ||
-				obj.bottom_image ||
-				(obj.thumbnail && obj.classified_at)
+			obj.top_image ||
+			obj.bottom_image ||
+			(obj.thumbnail && obj.classified_at)
 		);
 	}
 
@@ -387,10 +384,7 @@
 			dataImageUrl(obj.bottom_image);
 		if (crop_like) return crop_like;
 		if (phase === 'tracking' || phase === 'capturing') return null;
-		return (
-			dataImageUrl(obj.thumbnail) ??
-			dataImageUrl(obj.drop_snapshot)
-		);
+		return dataImageUrl(obj.thumbnail) ?? dataImageUrl(obj.drop_snapshot);
 	}
 
 	function formatBin(bin: [unknown, unknown, unknown]): string {
@@ -476,9 +470,7 @@
 	{@const captured = capturedCropUrl(obj, phase)}
 	{@const preview = obj.brickognize_preview_url ?? null}
 	{@const reference_src = preview}
-	{@const cat_name = obj.category_id
-		? sortingProfileStore.getCategoryName(obj.category_id)
-		: null}
+	{@const cat_name = obj.category_id ? sortingProfileStore.getCategoryName(obj.category_id) : null}
 	{@const is_unknown =
 		obj.classification_status === 'unknown' ||
 		obj.classification_status === 'not_found'}
@@ -538,7 +530,7 @@
 		<div class="flex items-start gap-3 p-2">
 			<!-- Primary image well — flashes through every recognition view while
 			     the piece is being recognized; hover scrubs the same views. -->
-			<div class="relative h-20 w-20 flex-shrink-0 border border-border bg-white">
+			<div class="relative h-16 w-16 flex-shrink-0 border border-border bg-white sm:h-20 sm:w-20">
 				{#if base_src || cycle_src}
 					{#if base_src}
 						<img
@@ -564,7 +556,7 @@
 					</div>
 				{/if}
 				{#if phase === 'capturing' || phase === 'tracking'}
-					<div class="absolute -right-1 -top-1">
+					<div class="absolute -top-1 -right-1">
 						<Spinner />
 					</div>
 				{/if}
@@ -576,7 +568,11 @@
 						{primary_text}
 					</span>
 					{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-						<span class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
+						<span
+							class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(
+								obj.confidence
+							)}"
+						>
 							{(obj.confidence * 100).toFixed(0)}%
 						</span>
 					{/if}
@@ -609,7 +605,7 @@
 				<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
 					<!-- Phase chip -->
 					<span
-						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {phaseChipClass(
+						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold tracking-wider uppercase {phaseChipClass(
 							phase
 						)}"
 					>
@@ -619,7 +615,7 @@
 					<!-- Too-big chip — recognized piece rerouted to misc for size -->
 					{#if is_too_big}
 						<span
-							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
+							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-warning uppercase"
 							title={obj.too_big_for_layer && typeof obj.intended_layer_index === 'number'
 								? `Too big for layer ${obj.intended_layer_index + 1} — sent to misc bottom bin`
 								: 'Too big — sent to misc bottom bin'}
@@ -670,7 +666,9 @@
 							{lego_color.name}
 						</span>
 					{:else if obj.color_name && obj.color_name !== 'Any Color' && !is_unknown && !is_multi_drop}
-						<span class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted">
+						<span
+							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+						>
 							{obj.color_name}
 						</span>
 					{/if}
@@ -683,12 +681,16 @@
 					<!-- Bin chip — monospace, neutral surface -->
 					{#if obj.destination_bin && phase === 'distributed'}
 						<span
-							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs tabular-nums text-text"
+							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text tabular-nums"
 						>
-							{is_unknown || is_multi_drop || is_too_big ? 'discard ' : ''}{formatBin(obj.destination_bin)}
+							{is_unknown || is_multi_drop || is_too_big ? 'discard ' : ''}{formatBin(
+								obj.destination_bin
+							)}
 						</span>
 					{:else if phase === 'distributed' && (is_unknown || is_multi_drop || is_too_big)}
-						<span class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted">
+						<span
+							class="ml-auto inline-flex items-center border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted"
+						>
 							discard bin
 						</span>
 					{/if}
@@ -713,7 +715,9 @@
 				<!-- Exit divider -->
 				<div class="flex items-center gap-2 py-1 select-none">
 					<div class="h-px flex-1 bg-border"></div>
-					<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">distributed</span>
+					<span class="text-xs font-semibold tracking-wider text-text-muted uppercase"
+						>distributed</span
+					>
 					<div class="h-px flex-1 bg-border"></div>
 				</div>
 

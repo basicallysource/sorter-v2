@@ -65,36 +65,38 @@
 		</div>
 	</div>
 
-	<div class="mt-4 flex items-center gap-2 text-xs">
-		<div class="flex min-w-0 flex-[1.15] basis-0 items-center gap-2">
+	<div class="mt-4 flex flex-wrap items-center gap-2 text-xs">
+		<div class="flex min-w-0 basis-full items-center gap-2 sm:flex-[1.15] sm:basis-0">
 			<button
 				onclick={() => selectedSource !== null && (changingCamera = !changingCamera)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
+				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-2 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${selectedSource === null ? 'border-border bg-bg text-text-muted' : 'border-success/30 bg-success/10 text-success hover:bg-success/15'}`}
 			>
 				<span class="whitespace-nowrap"
 					>{selectedSource === null ? 'Choose camera' : 'Camera selected'}</span
 				>
 			</button>
 			<div
-				class={`h-px w-8 shrink-0 ${selectedSource === null ? 'bg-border' : 'bg-success/25'}`}
+				class={`hidden h-px w-8 shrink-0 sm:block ${selectedSource === null ? 'bg-border' : 'bg-success/25'}`}
 			></div>
 		</div>
-		<div class="flex min-w-0 flex-[1.05] basis-0 items-center gap-2">
+		<div class="flex min-w-0 basis-full items-center gap-2 sm:flex-[1.05] sm:basis-0">
 			<button
 				onclick={() => onOpenZoneEditor?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex min-w-0 flex-1 items-center justify-center border px-2 py-2 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${zoneReviewed ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{zoneReviewed ? 'Zone reviewed' : 'Review zone'}</span>
 			</button>
-			<div class={`h-px w-8 shrink-0 ${zoneReviewed ? 'bg-success/25' : 'bg-border'}`}></div>
+			<div
+				class={`hidden h-px w-8 shrink-0 sm:block ${zoneReviewed ? 'bg-success/25' : 'bg-border'}`}
+			></div>
 		</div>
-		<div class="min-w-0 flex-1 basis-0">
+		<div class="min-w-0 basis-full sm:flex-1 sm:basis-0">
 			<button
 				onclick={() => onOpenPictureSettings?.(role)}
 				disabled={selectedSource === null}
-				class={`inline-flex w-full min-w-0 items-center justify-center border px-2 py-1.5 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
+				class={`inline-flex w-full min-w-0 items-center justify-center border px-2 py-2 text-center text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 sm:text-xs ${pictureTuned ? 'border-success/30 bg-success/10 text-success hover:bg-success/15' : 'border-border bg-bg text-text-muted hover:border-border/80 hover:bg-surface'}`}
 			>
 				<span class="whitespace-nowrap">{pictureTuned ? 'Picture tuned' : 'Picture tuning'}</span>
 			</button>
@@ -204,7 +206,7 @@
 							onSelect?.(role, '__none__');
 							changingCamera = false;
 						}}
-						class="rounded border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:border-danger hover:bg-danger/5 hover:text-danger"
+						class="border border-border bg-surface px-3 py-2 text-sm text-text transition-colors hover:border-danger hover:bg-danger/5 hover:text-danger"
 					>
 						Clear camera
 					</button>

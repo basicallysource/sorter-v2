@@ -12,7 +12,7 @@
 	} = $props();
 </script>
 
-<aside class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]">
+<aside class="flex h-full min-w-0 flex-col border border-border bg-bg lg:min-h-[32rem]">
 	<div class="border-b border-border bg-surface px-4 py-3">
 		<div class="flex items-start gap-3">
 			<div class="flex h-9 w-9 items-center justify-center rounded-full bg-bg text-text">

@@ -334,7 +334,9 @@
 
 	function cameraRolesForLayout(): string[] {
 		const setup = wizard?.config.machine_setup;
-		const auxiliaryRole = setup?.uses_classification_channel ? 'classification_channel' : 'carousel';
+		const auxiliaryRole = setup?.uses_classification_channel
+			? 'classification_channel'
+			: 'carousel';
 		const roles = ['c_channel_2', 'c_channel_3', auxiliaryRole];
 		if (setup?.uses_classification_chamber ?? true) {
 			roles.push('classification_top', 'classification_bottom');
@@ -982,7 +984,7 @@
 
 			<div class="flex flex-col gap-6">
 				<section class="setup-card-shell overflow-hidden border border-border">
-					<div class="setup-card-body px-6 py-6">
+					<div class="setup-card-body px-3 py-4 sm:px-6 sm:py-6">
 						<SetupStepperNav
 							steps={WIZARD_STEPS}
 							getStatus={(id) => stepStatus(id as WizardStepId)}
@@ -1082,8 +1084,8 @@
 					{:else if activeStepId === 'servos'}
 						<SetupServoOnboardingSection
 							servoSource={effectiveServoSource}
-							discoveredServoSource={discoveredServoSource}
-							discoveredWaveshareServos={discoveredWaveshareServos}
+							{discoveredServoSource}
+							{discoveredWaveshareServos}
 							onSaved={handleServoSaved}
 							onSourceChange={setServoSource}
 						/>

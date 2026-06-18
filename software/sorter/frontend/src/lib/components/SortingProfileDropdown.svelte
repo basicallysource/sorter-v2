@@ -103,7 +103,10 @@
 	let action_message = $state<string | null>(null);
 	let applying_key = $state<string | null>(null);
 	const status = $derived<SortingProfileStatusResponse | null>(
-		(manager.selectedMachine?.sortingProfileStatus as SortingProfileStatusResponse | null | undefined) ?? null
+		(manager.selectedMachine?.sortingProfileStatus as
+			| SortingProfileStatusResponse
+			| null
+			| undefined) ?? null
 	);
 	let profile_library = $state<SortingProfileLibraryResponse | null>(null);
 	let recent_profiles = $state<RecentSortingProfileEntry[]>([]);
@@ -124,11 +127,15 @@
 		return Number.isFinite(timestamp) ? timestamp : 0;
 	}
 
-	function recentEntryKey(entry: Pick<RecentSortingProfileEntry, 'target_id' | 'profile_id' | 'version_id'>): string {
+	function recentEntryKey(
+		entry: Pick<RecentSortingProfileEntry, 'target_id' | 'profile_id' | 'version_id'>
+	): string {
 		return `${entry.target_id}::${entry.profile_id}::${entry.version_id}`;
 	}
 
-	function recentProfileKey(entry: Pick<RecentSortingProfileEntry, 'target_id' | 'profile_id'>): string {
+	function recentProfileKey(
+		entry: Pick<RecentSortingProfileEntry, 'target_id' | 'profile_id'>
+	): string {
 		return `${entry.target_id}::${entry.profile_id}`;
 	}
 
@@ -172,7 +179,9 @@
 		rebuildQuickProfiles();
 	}
 
-	function latestRemoteVersion(profile: SortingProfileSummary): SortingProfileVersionSummary | null {
+	function latestRemoteVersion(
+		profile: SortingProfileSummary
+	): SortingProfileVersionSummary | null {
 		return profile.latest_version ?? profile.latest_published_version ?? null;
 	}
 
@@ -238,7 +247,9 @@
 						version_id: version.id,
 						version_number: version.version_number ?? null,
 						version_label: version.label ?? null,
-						rule_count: Array.isArray(version.rules_summary) ? version.rules_summary.length : existing.rule_count,
+						rule_count: Array.isArray(version.rules_summary)
+							? version.rules_summary.length
+							: existing.rule_count,
 						updated_at: updatedAt,
 						sort_timestamp: Math.max(updatedTimestamp, lastUsedTimestamp)
 					});
@@ -247,7 +258,9 @@
 						...existing,
 						target_name: target.name || target.url || existing.target_name,
 						profile_name: existing.profile_name || profile.name,
-						rule_count: Array.isArray(version.rules_summary) ? version.rules_summary.length : existing.rule_count,
+						rule_count: Array.isArray(version.rules_summary)
+							? version.rules_summary.length
+							: existing.rule_count,
 						updated_at: updatedAt,
 						sort_timestamp: Math.max(existing.sort_timestamp, updatedTimestamp)
 					});
@@ -258,7 +271,10 @@
 		const currentKey = current_entry ? recentEntryKey(current_entry) : null;
 		quick_profiles = [...byProfile.values()]
 			.filter((entry) => recentEntryKey(entry) !== currentKey)
-			.sort((a, b) => b.sort_timestamp - a.sort_timestamp || a.profile_name.localeCompare(b.profile_name))
+			.sort(
+				(a, b) =>
+					b.sort_timestamp - a.sort_timestamp || a.profile_name.localeCompare(b.profile_name)
+			)
 			.slice(0, MAX_QUICK_SWITCH_PROFILES);
 	}
 
@@ -392,7 +408,10 @@
 				throw new Error(body?.detail ?? `HTTP ${res.status}`);
 			}
 			const payload = await res.json().catch(() => null);
-			recent_profiles = rememberRecentSortingProfile(currentMachineKey(), { ...entry, last_used_at: null });
+			recent_profiles = rememberRecentSortingProfile(currentMachineKey(), {
+				...entry,
+				last_used_at: null
+			});
 			await sortingProfileStore.reload(currentBackendBaseUrl()).catch(() => null);
 			await loadQuickProfileLibrary();
 			const preassigned = payload?.preassigned_count as number | undefined;
@@ -411,7 +430,9 @@
 	}
 
 	const current_entry = $derived(syncStateToRecentEntry(status?.sync_state));
-	const current_profile_name = $derived(status?.sync_state?.profile_name ?? status?.local_profile?.name ?? 'No profile');
+	const current_profile_name = $derived(
+		status?.sync_state?.profile_name ?? status?.local_profile?.name ?? 'No profile'
+	);
 	const current_profile_version = $derived(status?.sync_state?.version_number ?? null);
 	const current_profile_version_label = $derived(status?.sync_state?.version_label ?? null);
 	const current_profile_target = $derived.by(() => {
@@ -458,12 +479,12 @@
 
 <svelte:window onclick={handleClickOutside} />
 
-<div class="sorting-profile-dropdown relative">
+<div class="sorting-profile-dropdown relative min-w-0">
 	<button
 		type="button"
 		onclick={() => void toggleDropdown()}
 		disabled={!manager.selectedMachineId}
-		class="flex max-w-[240px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:cursor-default disabled:opacity-60"
+		class="flex max-w-[140px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:cursor-default disabled:opacity-60 sm:max-w-[200px] lg:max-w-[240px]"
 	>
 		<span class="truncate font-medium">{current_profile_name}</span>
 		{#if current_profile_version}
@@ -473,7 +494,9 @@
 	</button>
 
 	{#if dropdown_open}
-		<div class="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden border border-border bg-surface shadow-[0_12px_28px_rgba(15,23,42,0.14)]">
+		<div
+			class="absolute top-full right-0 z-50 mt-1 w-[min(20rem,calc(100vw-1rem))] overflow-hidden border border-border bg-surface shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
+		>
 			<!-- Active profile header — tinted to stand out vs. recent list. -->
 			<div class="bg-primary/[0.05] px-3 py-2">
 				<div class="flex items-center justify-between gap-2">
@@ -481,10 +504,15 @@
 					<div class="flex shrink-0 items-center gap-1.5">
 						{#if current_profile_version}
 							<span class="font-mono text-xs text-text-muted">
-								v{current_profile_version}{current_profile_version_label ? ` · ${current_profile_version_label}` : ''}
+								v{current_profile_version}{current_profile_version_label
+									? ` · ${current_profile_version_label}`
+									: ''}
 							</span>
 						{/if}
-						<span class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium uppercase tracking-wide text-success">Active</span>
+						<span
+							class="border border-success/30 bg-success/10 px-1.5 py-0.5 text-xs font-medium tracking-wide text-success uppercase"
+							>Active</span
+						>
 					</div>
 				</div>
 				<div class="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-text-muted">
@@ -501,7 +529,9 @@
 			</div>
 
 			{#if action_message}
-				<div class="mx-2 mt-2 border border-success/30 bg-success/10 px-2 py-1.5 text-xs text-success">
+				<div
+					class="mx-2 mt-2 border border-success/30 bg-success/10 px-2 py-1.5 text-xs text-success"
+				>
 					{action_message}
 				</div>
 			{/if}
@@ -518,7 +548,7 @@
 
 			<!-- Recent section — tight divider + small label. -->
 			<div class="border-t border-border bg-bg px-3 py-1.5">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Recent</span>
+				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Recent</span>
 			</div>
 
 			<div>
@@ -538,7 +568,9 @@
 								class="block w-full px-3 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
 							>
 								<div class="flex items-center justify-between gap-2">
-									<span class="min-w-0 truncate text-sm font-medium text-text">{entry.profile_name}</span>
+									<span class="min-w-0 truncate text-sm font-medium text-text"
+										>{entry.profile_name}</span
+									>
 									<span class="shrink-0 font-mono text-xs text-text-muted">
 										{#if applying_key === recentEntryKey(entry)}
 											switching…
@@ -570,7 +602,7 @@
 
 			<!-- Local section — profiles saved on this machine. -->
 			<div class="border-t border-border bg-bg px-3 py-1.5">
-				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Local</span>
+				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">Local</span>
 			</div>
 			<div>
 				{#if loading_quick_profiles && local_profiles.length === 0}
@@ -587,7 +619,9 @@
 								class="block w-full px-3 py-2 text-left transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-60"
 							>
 								<div class="flex items-center justify-between gap-2">
-									<span class="min-w-0 truncate text-sm font-medium text-text">{profile.name || profile.filename}</span>
+									<span class="min-w-0 truncate text-sm font-medium text-text"
+										>{profile.name || profile.filename}</span
+									>
 									<span class="shrink-0 font-mono text-xs text-text-muted">
 										{#if applying_key === `local::${profile.filename}`}
 											switching…
@@ -619,7 +653,9 @@
 			<p class="text-sm text-text">
 				Switch to <span class="font-semibold">{profile.name || profile.filename}</span>?
 			</p>
-			<p class="text-sm text-text-muted">Choose how bins should be initialized for the new profile.</p>
+			<p class="text-sm text-text-muted">
+				Choose how bins should be initialized for the new profile.
+			</p>
 			<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
 				<button
 					type="button"
@@ -659,13 +695,12 @@
 			</p>
 			<div class="flex flex-col gap-2 border border-border bg-bg p-3 text-sm text-text-muted">
 				<div>
-					<span class="font-medium text-text">Reset (dynamic)</span> — clear every
-					bin; categories will be assigned dynamically as pieces arrive.
+					<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin; categories will
+					be assigned dynamically as pieces arrive.
 				</div>
 				<div>
-					<span class="font-medium text-text">Pre-assign (rule order)</span> —
-					seed bins in order of the profile's rules (rule 1 → bin 1, rule 2 →
-					bin 2, …).
+					<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in order of the
+					profile's rules (rule 1 → bin 1, rule 2 → bin 2, …).
 				</div>
 			</div>
 			<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">

@@ -76,11 +76,9 @@
 
 	<div class="min-h-0 flex-1 overflow-auto">
 		{#if items.length === 0}
-			<div class="px-3 py-4 text-xs text-text-muted">
-				No pieces tracked yet.
-			</div>
+			<div class="px-3 py-4 text-sm text-text-muted">No pieces tracked yet.</div>
 		{:else}
-			<div class="grid grid-cols-4 gap-2 p-2">
+			<div class="grid grid-cols-2 gap-2 p-2 sm:grid-cols-3 lg:grid-cols-4">
 				{#each items as item (item.global_id)}
 					<button
 						type="button"
@@ -106,15 +104,18 @@
 								aria-hidden="true"
 							></span>
 							{#if item.handoff_count > 0}
-								<span class="absolute top-1 right-1 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary">
+								<span
+									class="absolute top-1 right-1 border border-primary bg-bg/80 px-1 text-xs font-medium text-primary"
+								>
 									H
 								</span>
 							{/if}
 						</div>
 						<div class="flex flex-col gap-0.5 px-1.5 py-1">
-							<span class="font-mono font-medium leading-none">#{formatHashId(item.global_id)}</span>
-							<span class="truncate text-text-muted leading-none">{formatRoles(item.roles)}</span>
-							<span class="text-text-muted leading-none">{formatDuration(item.duration_s)}</span>
+							<span class="font-mono leading-none font-medium">#{formatHashId(item.global_id)}</span
+							>
+							<span class="truncate leading-none text-text-muted">{formatRoles(item.roles)}</span>
+							<span class="leading-none text-text-muted">{formatDuration(item.duration_s)}</span>
 						</div>
 					</button>
 				{/each}
@@ -124,8 +125,5 @@
 </div>
 
 {#if selectedId !== null}
-	<TrackedPieceDetailModal
-		globalId={selectedId}
-		onClose={() => (selectedId = null)}
-	/>
+	<TrackedPieceDetailModal globalId={selectedId} onClose={() => (selectedId = null)} />
 {/if}

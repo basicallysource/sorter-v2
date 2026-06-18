@@ -497,7 +497,7 @@
 
 	function incidentModeButtonClass(active: boolean, disabled = false): string {
 		const base =
-			'min-h-8 px-2.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
+			'min-h-10 px-2.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40';
 		if (active)
 			return `${base} bg-primary text-white shadow-[inset_0_0_0_1px_var(--color-primary)]`;
 		if (disabled)
@@ -1125,9 +1125,9 @@
 						has_cls_top,
 						has_cls_bottom
 					)}
-					<div class="flex min-w-0 flex-col gap-3 max-lg:h-[65vh] lg:min-h-0 lg:flex-1">
-						<div class="flex min-h-0 flex-1 gap-3">
-							<div class="min-w-0 flex-1">
+					<div class="flex min-w-0 flex-col gap-3 max-lg:h-auto lg:min-h-0 lg:flex-1">
+						<div class="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="c_channel_2"
 									label={cameraLabel('c_channel_2')}
@@ -1135,7 +1135,7 @@
 									controls={['annotations', 'zones', 'crop', 'fullscreen']}
 								/>
 							</div>
-							<div class="min-w-0 flex-1">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
@@ -1144,8 +1144,8 @@
 								/>
 							</div>
 						</div>
-						<div class="flex min-h-0 flex-1 gap-3">
-							<div class="min-w-0 flex-1">
+						<div class="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera={c4CameraRole}
 									label={cameraLabel(c4CameraRole)}
@@ -1154,7 +1154,7 @@
 								/>
 							</div>
 							{#if classification_camera}
-								<div class="min-w-0 flex-1">
+								<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 									<div class="setup-card-shell flex h-full min-h-0 flex-col border">
 										<div
 											class="setup-card-header flex items-center justify-between px-3 py-2 text-sm"
@@ -1218,7 +1218,7 @@
 					{@const classification_camera = preferredClassificationCamera(has_top, has_bottom)}
 					{#if classification_camera && (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
 						<div class="flex min-w-0 flex-col gap-3 max-lg:h-[65vh] lg:min-h-0 lg:flex-1">
-							<div class="min-w-0 flex-1">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="feeder"
 									label={cameraLabel('feeder')}
@@ -1226,7 +1226,7 @@
 									controls={['annotations', 'zones', 'crop', 'fullscreen']}
 								/>
 							</div>
-							<div class="min-w-0 flex-1">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera={classification_camera}
 									label={cameraLabel(classification_camera)}
@@ -1236,8 +1236,8 @@
 							</div>
 						</div>
 					{:else}
-						<div class="flex min-w-0 gap-3 max-lg:h-[65vh] lg:min-h-0 lg:flex-1">
-							<div class="min-w-0 flex-1">
+						<div class="flex min-w-0 flex-col gap-3 max-lg:h-auto lg:min-h-0 lg:flex-1 lg:flex-row">
+							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="feeder"
 									label={cameraLabel('feeder')}
@@ -1246,7 +1246,9 @@
 								/>
 							</div>
 							{#if classification_camera}
-								<div class="setup-card-shell flex min-h-0 flex-1 flex-col border">
+								<div
+									class="setup-card-shell flex min-h-0 flex-1 flex-col border max-lg:aspect-video lg:aspect-auto"
+								>
 									<div
 										class="setup-card-header flex items-center justify-between px-3 py-2 text-sm"
 									>
@@ -1433,7 +1435,7 @@
 										<div class="col-span-2 bg-bg/70 px-2 py-1.5">
 											<div class="text-text-muted">Suggested Release</div>
 											<div class="text-text">{exitIncidentStageLabel(exitIncident)}</div>
-											<div class="mt-0.5 font-mono text-[11px] text-text-muted tabular-nums">
+											<div class="mt-0.5 font-mono text-xs text-text-muted tabular-nums">
 												{fmtIncidentNumber(
 													incidentNumber(exitIncident, 'amplitude_output_deg'),
 													' deg'
@@ -1657,7 +1659,7 @@
 													</div>
 												{/if}
 											</div>
-											<div class="mt-1 text-[11px] text-text-muted">{definition.description}</div>
+											<div class="mt-1 text-sm text-text-muted">{definition.description}</div>
 										</div>
 										<div class="flex shrink-0 overflow-hidden">
 											<button

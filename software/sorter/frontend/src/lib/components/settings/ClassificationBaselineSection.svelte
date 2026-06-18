@@ -432,7 +432,7 @@
 	});
 </script>
 
-<aside class="flex h-full min-w-0 flex-col border border-border bg-bg xl:min-h-[32rem]">
+<aside class="flex h-full min-w-0 flex-col border border-border bg-bg lg:min-h-[32rem]">
 	<div class="border-b border-border bg-surface px-4 py-3">
 		<div class="flex items-start justify-between gap-3">
 			<div class="flex items-start gap-3">
@@ -441,7 +441,7 @@
 				</div>
 				<div class="min-w-0">
 					<div class="text-sm font-semibold text-text">{scopeTitle()}</div>
-					<div class="mt-0.5 text-xs text-text-muted">
+					<div class="mt-0.5 text-sm text-text-muted">
 						{scopeDescription()}
 					</div>
 				</div>
@@ -460,7 +460,7 @@
 
 	<div class="flex flex-1 flex-col gap-3 px-4 py-4">
 		{#if !hasCamera}
-			<div class="border border-dashed border-border bg-surface px-3 py-2 text-xs text-text-muted">
+			<div class="border border-dashed border-border bg-surface px-3 py-2 text-sm text-text-muted">
 				Assign a camera to {label} before testing detection on the live feed.
 			</div>
 		{/if}
@@ -475,7 +475,7 @@
 
 		<div class="grid grid-cols-1 gap-3">
 			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
-				<label class="text-xs text-text">
+				<label class="text-sm text-text">
 					Detection Method
 					<select
 						value={algorithm}
@@ -500,7 +500,7 @@
 
 				{#if showSampleCollectionToggle()}
 					<label
-						class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-xs text-text"
+						class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text"
 					>
 						<input
 							type="checkbox"
@@ -515,13 +515,13 @@
 						/>
 						<span class="min-w-0">
 							<span class="block text-sm font-medium text-text"> Collect Positive Samples </span>
-							<span class="mt-0.5 block text-xs text-text-muted">
+							<span class="mt-0.5 block text-sm text-text-muted">
 								{sampleCollectionDescription()}
 							</span>
 						</span>
 					</label>
 				{:else if scope !== 'classification'}
-					<div class="border border-border bg-bg px-3 py-2.5 text-xs text-text-muted">
+					<div class="border border-border bg-bg px-3 py-2.5 text-sm text-text-muted">
 						{sampleCollectionDescription()}
 					</div>
 				{/if}

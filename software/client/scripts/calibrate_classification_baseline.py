@@ -24,7 +24,7 @@ LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 from vision import VisionManager
 from vision.hsv_correction import loadHsvCorrection, applyHsvCorrection, rotateHue, isNoop
 from vision.diff_configs import DEFAULT_CLASSIFICATION_DIFF_CONFIG
-from blob_manager import BLOB_DIR, getClassificationPolygons
+from blob_manager import BLOB_DIR, getClassificationPolygons, getChannelPolygons
 
 LOW_SAT_THRESH = DEFAULT_CLASSIFICATION_DIFF_CONFIG.low_sat_thresh
 
@@ -301,14 +301,22 @@ def _loadPolygonMask(prefix: str, shape) -> "np.ndarray | None":
     None if no polygon is saved. Mirrors vision_manager's scaling so the report
     reflects the region detection actually runs in (excludes green surroundings
     outside the floor)."""
-    saved = getClassificationPolygons()
+    # top/bottom live in the classification polygon store; the carousel polygon
+    # is drawn in polygon_editor and saved in the channel store under its own
+    # resolution key, so pull each from the source the runtime actually uses.
+    if prefix == "carousel":
+        saved = getChannelPolygons()
+        res_key = "carousel_resolution"
+    else:
+        saved = getClassificationPolygons()
+        res_key = "resolution"
     if not saved:
         return None
     pts = (saved.get("polygons") or {}).get(prefix)
     if not pts or len(pts) < 3:
         return None
     H, W = shape[:2]
-    res = saved.get("resolution") or [W, H]
+    res = saved.get(res_key) or [W, H]
     poly = np.array(pts, dtype=np.float64)
     poly[:, 0] *= W / res[0]
     poly[:, 1] *= H / res[1]
@@ -387,11 +395,78 @@ def saveStableMask(
     )
 
 
-def calibrateCamera(
+class CameraCaptureState:
+    """Per-camera frame stacks + finalization for one baseline run.
+
+    Capture is driven externally (calibrateCameras) so multiple cameras can
+    share a single carousel sweep — each grabs a frame at the same carousel
+    position rather than each rotating the carousel itself."""
+
+    def __init__(self, cam: str, baseline_dir: Path, wipe: bool):
+        self.cam = cam
+        self.prefix = cam
+        self.cam_dir = baseline_dir
+        if wipe:
+            for p in globmod.glob(str(self.cam_dir / f"{self.prefix}_*.png")):
+                os.remove(p)
+        # Three parallel per-channel frame stacks. V is captured for debugging
+        # only (handoff: keep it around, not used at runtime).
+        self.h_frames = loadExistingChannel(self.cam_dir, self.prefix, "h")
+        self.s_frames = loadExistingChannel(self.cam_dir, self.prefix, "s")
+        self.v_frames = loadExistingChannel(self.cam_dir, self.prefix, "v")
+        self.existing_count = min(len(self.h_frames), len(self.s_frames))
+        self.frames_needed = MAX_FRAMES - self.existing_count
+
+    @property
+    def complete(self) -> bool:
+        return min(len(self.h_frames), len(self.s_frames)) >= MAX_FRAMES
+
+    def captureFrame(self, vision: VisionManager, correction) -> None:
+        """Grab and store one HSV frame at the current carousel position."""
+        hsv = getLatestHSV(vision, self.cam, correction)
+        if hsv is None:
+            print(f"    {self.cam} frame {len(self.h_frames) + 1}/{MAX_FRAMES} - no frame")
+            return
+        h, s, v = cv2.split(hsv)
+        self.h_frames.append(h)
+        self.s_frames.append(s)
+        self.v_frames.append(v)
+        idx = len(self.h_frames) - 1
+        cv2.imwrite(str(self.cam_dir / f"{self.prefix}_hframe_{idx:03d}.png"), h)
+        cv2.imwrite(str(self.cam_dir / f"{self.prefix}_sframe_{idx:03d}.png"), s)
+        cv2.imwrite(str(self.cam_dir / f"{self.prefix}_vframe_{idx:03d}.png"), v)
+        saveEnvelope(self.cam_dir, self.prefix, "h", self.h_frames)
+        saveEnvelope(self.cam_dir, self.prefix, "s", self.s_frames)
+        saveEnvelope(self.cam_dir, self.prefix, "v", self.v_frames)  # debug-only
+        print(f"    {self.cam} frame {len(self.h_frames)}/{MAX_FRAMES}")
+
+    def finalize(
+        self, max_hue_std: float, max_sat_std: float, max_val_std: float,
+        percentile: float, interrupted: bool,
+    ) -> bool:
+        if not self.h_frames:
+            print(f"  {self.cam}: no frames captured")
+            return False
+        # Final envelope uses the robust percentile (the per-frame saves during
+        # capture were fast naive min/max interim, in case of a crash).
+        saveEnvelope(self.cam_dir, self.prefix, "h", self.h_frames, percentile=percentile)
+        saveEnvelope(self.cam_dir, self.prefix, "s", self.s_frames, percentile=percentile)
+        saveEnvelope(self.cam_dir, self.prefix, "v", self.v_frames, percentile=percentile)
+        status = "interrupted" if interrupted else "done"
+        print(f"  {self.cam}: {status}. {len(self.h_frames)} frames + H/S/V envelopes")
+        # Save the stable mask first so reportEnvelopeWidth can show kept-pixel width.
+        saveStableMask(self.cam_dir, self.prefix, self.h_frames, self.s_frames, self.v_frames,
+                       max_hue_std, max_sat_std, max_val_std)
+        reportEnvelopeWidth(self.cam_dir, self.prefix)
+        sanityCheck(self.cam_dir, self.prefix)
+        return True
+
+
+def calibrateCameras(
     vision: VisionManager,
     irl,
     baseline_dir: Path,
-    cam: str,
+    cams: list[str],
     correction,
     wipe: bool,
     no_jitter: bool,
@@ -399,32 +474,25 @@ def calibrateCamera(
     max_sat_std: float,
     max_val_std: float,
     percentile: float,
-) -> bool:
-    prefix = cam
-    cam_dir = baseline_dir
+) -> tuple[bool, bool]:
+    """Capture every camera in a single shared carousel sweep: move the carousel
+    once per step and grab a frame from each camera that still needs one. A
+    multi-camera run thus rotates the carousel MAX_FRAMES times total instead of
+    MAX_FRAMES per camera. Already-complete cameras skip capture but still get
+    finalized (regenerating their envelope/mask/report)."""
+    states = [CameraCaptureState(cam, baseline_dir, wipe) for cam in cams]
+    for st in states:
+        if st.frames_needed <= 0:
+            print(f"  {st.cam}: already have {st.existing_count} frames (max {MAX_FRAMES}); "
+                  f"regenerating envelope/mask/report (use --wipe to recapture).")
+        else:
+            print(f"  {st.cam}: have {st.existing_count} existing frames, capturing {st.frames_needed} more...")
 
-    if wipe:
-        for p in globmod.glob(str(cam_dir / f"{prefix}_*.png")):
-            os.remove(p)
-
-    # Three parallel per-channel frame stacks. V is captured for debugging only
-    # (handoff: keep it around, not used at runtime).
-    h_frames = loadExistingChannel(cam_dir, prefix, "h")
-    s_frames = loadExistingChannel(cam_dir, prefix, "s")
-    v_frames = loadExistingChannel(cam_dir, prefix, "v")
-    existing_count = min(len(h_frames), len(s_frames))
-    frames_needed = MAX_FRAMES - existing_count
-
-    if frames_needed <= 0:
-        print(f"  {cam}: already have {existing_count} frames (max {MAX_FRAMES}). use --wipe to reset.")
-        return True
-
-    print(f"  {cam}: have {existing_count} existing frames, capturing {frames_needed} more...")
-
+    steps_needed = max((st.frames_needed for st in states), default=0)
     JITTER_RANGE = 5
     debt = 0.0
     interrupted = False
-    for i in range(frames_needed):
+    for i in range(steps_needed):
         try:
             if not no_jitter and i % 2 == 1:
                 jitter = random.uniform(-JITTER_RANGE, JITTER_RANGE)
@@ -434,46 +502,19 @@ def calibrateCamera(
             debt = jitter
             irl.carousel_stepper.move_degrees_blocking(move)
             time.sleep(MOVE_TIMEOUT_MS / 1000.0)
-
-            hsv = getLatestHSV(vision, cam, correction)
-            if hsv is None:
-                print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} - no frame")
-                continue
-
-            h, s, v = cv2.split(hsv)
-            h_frames.append(h)
-            s_frames.append(s)
-            v_frames.append(v)
-            idx = len(h_frames) - 1
-            cv2.imwrite(str(cam_dir / f"{prefix}_hframe_{idx:03d}.png"), h)
-            cv2.imwrite(str(cam_dir / f"{prefix}_sframe_{idx:03d}.png"), s)
-            cv2.imwrite(str(cam_dir / f"{prefix}_vframe_{idx:03d}.png"), v)
-            saveEnvelope(cam_dir, prefix, "h", h_frames)
-            saveEnvelope(cam_dir, prefix, "s", s_frames)
-            saveEnvelope(cam_dir, prefix, "v", v_frames)  # debug-only envelope
-            print(f"    frame {existing_count + i + 1}/{MAX_FRAMES} ({len(h_frames)} total)")
+            # One carousel position, every still-incomplete camera samples it.
+            for st in states:
+                if not st.complete:
+                    st.captureFrame(vision, correction)
         except KeyboardInterrupt:
             interrupted = True
-            print(f"\n  {cam}: interrupted — finalizing envelope from {len(h_frames)} captured frames...")
+            print("\n  interrupted — finalizing envelopes from captured frames...")
             break
 
-    if not h_frames:
-        print(f"  {cam}: no frames captured")
-        return False, interrupted
-
-    # Final envelope uses the robust percentile (the per-frame saves above were
-    # fast naive min/max interim, in case of a crash before this point).
-    saveEnvelope(cam_dir, prefix, "h", h_frames, percentile=percentile)
-    saveEnvelope(cam_dir, prefix, "s", s_frames, percentile=percentile)
-    saveEnvelope(cam_dir, prefix, "v", v_frames, percentile=percentile)
-    status = "interrupted" if interrupted else "done"
-    print(f"  {cam}: {status}. {len(h_frames)} frames + H/S/V envelopes")
-    # Save the stable mask first so reportEnvelopeWidth can show kept-pixel width.
-    saveStableMask(cam_dir, prefix, h_frames, s_frames, v_frames,
-                   max_hue_std, max_sat_std, max_val_std)
-    reportEnvelopeWidth(cam_dir, prefix)
-    sanityCheck(cam_dir, prefix)
-    return True, interrupted
+    ok = True
+    for st in states:
+        ok = st.finalize(max_hue_std, max_sat_std, max_val_std, percentile, interrupted) and ok
+    return ok, interrupted
 
 
 def main() -> int:
@@ -541,12 +582,25 @@ def main() -> int:
         # and deliver its first frame, which a short fixed wait would race.
         wanted = CAMERA_GROUPS[args.camera]
         FRAME_WAIT_TIMEOUT_S = 15.0
+        # Cameras warm up at different rates (their uvc-util locks are applied
+        # serially), so don't grab the first one and run — that drops slower
+        # cameras. Once any camera appears, wait a short grace for stragglers,
+        # resetting it each time a new one shows up. This avoids blocking the
+        # full timeout on cameras in `wanted` that simply aren't assigned.
+        STRAGGLER_GRACE_S = 4.0
         print(f"waiting for {args.camera} camera frames (up to {FRAME_WAIT_TIMEOUT_S:.0f}s)...")
         deadline = time.time() + FRAME_WAIT_TIMEOUT_S
-        available = []
+        available: list[str] = []
+        settle_deadline: float | None = None
+        prev_count = 0
         while time.time() < deadline:
             available = [c for c in wanted if vision.getFrame(CAM_FRAME_NAMES[c]) is not None]
-            if available:
+            if len(available) == len(wanted):
+                break  # everything we asked for is delivering
+            if available and (settle_deadline is None or len(available) > prev_count):
+                settle_deadline = time.time() + STRAGGLER_GRACE_S
+            prev_count = len(available)
+            if settle_deadline is not None and time.time() >= settle_deadline:
                 break
             time.sleep(0.25)
 
@@ -563,12 +617,11 @@ def main() -> int:
                   f"amplitude {args.chute_wiggle_steps} microsteps")
 
         std_args = (args.max_hue_std, args.max_sat_std, args.max_val_std, args.percentile)
-        for cam in available:
-            cam_ok, interrupted = calibrateCamera(
-                vision, irl, baseline_dir, cam, correction, wipe, no_jitter, *std_args)
-            ok = cam_ok and ok
-            if interrupted:
-                raise KeyboardInterrupt
+        run_ok, interrupted = calibrateCameras(
+            vision, irl, baseline_dir, available, correction, wipe, no_jitter, *std_args)
+        ok = run_ok and ok
+        if interrupted:
+            raise KeyboardInterrupt
         print(f"done. baseline in {baseline_dir}")
     except KeyboardInterrupt:
         print(f"\nstopped early. partial baseline saved in {baseline_dir}")

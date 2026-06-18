@@ -1,114 +1,114 @@
 {
-  "captured_at": "2026-06-14T22:10:27",
+  "captured_at": "2026-06-17T23:38:09",
   "camera_settings": {
-    "wb_temperature": 6150,
-    "exposure": 5,
+    "wb_temperature": 5900,
+    "exposure": 3,
     "gain": 0
   },
   "top_camera": {
     "red": {
       "bgr": [
-        53,
-        52,
-        213
+        68,
+        86,
+        247
       ],
       "hsv": [
-        0,
-        194,
-        213
+        3,
+        186,
+        247
       ]
     },
     "green": {
       "bgr": [
         0,
-        157,
-        6
+        200,
+        0
       ],
       "hsv": [
-        59,
+        60,
         255,
-        156
+        199
       ]
     },
     "blue": {
       "bgr": [
-        161,
-        111,
+        200,
+        140,
         0
       ],
       "hsv": [
         99,
         255,
-        161
+        199
       ]
     },
     "yellow": {
       "bgr": [
         0,
-        196,
-        251
+        216,
+        255
       ],
       "hsv": [
-        23,
+        25,
         255,
-        251
+        255
       ]
     },
     "black": {
       "bgr": [
-        29,
-        35,
-        36
+        36,
+        39,
+        38
       ],
       "hsv": [
+        38,
         26,
-        57,
-        36
+        39
       ],
       "expected_neutral": true,
-      "target_luminance": 34.6
+      "target_luminance": 38.4
     },
     "dark_gray": {
       "bgr": [
-        61,
-        105,
-        72
+        100,
+        142,
+        78
       ],
       "hsv": [
-        53,
-        108,
-        104
+        70,
+        115,
+        142
       ],
       "expected_neutral": true,
-      "target_luminance": 90.1
+      "target_luminance": 118.1
     },
     "light_gray": {
       "bgr": [
-        116,
-        167,
-        122
+        152,
+        198,
+        126
       ],
       "hsv": [
-        56,
-        78,
-        166
+        71,
+        92,
+        197
       ],
       "expected_neutral": true,
-      "target_luminance": 147.7
+      "target_luminance": 171.2
     },
     "white": {
       "bgr": [
-        146,
-        214,
-        183
+        179,
+        246,
+        189
       ],
       "hsv": [
-        44,
-        81,
-        214
+        56,
+        69,
+        246
       ],
       "expected_neutral": true,
-      "target_luminance": 197.0
+      "target_luminance": 221.3
     }
   }
 }

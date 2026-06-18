@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from typing import Optional
@@ -8,6 +9,21 @@ import cv2
 
 from irl.config import CameraConfig
 from .types import CameraFrame
+
+
+def _captureBackend() -> int:
+    """Select the OpenCV capture backend for the current platform.
+
+    The target hardware (OrangePi/Linux) uses V4L2, but on macOS that backend
+    doesn't exist — VideoCapture silently fails to open and the first
+    getBackendName() call asserts (api != 0). Use AVFoundation on macOS so
+    local development on a Mac works; let OpenCV pick on other platforms.
+    """
+    if sys.platform == "darwin":
+        return cv2.CAP_AVFOUNDATION
+    if sys.platform.startswith("linux"):
+        return cv2.CAP_V4L2
+    return cv2.CAP_ANY
 
 # macOS-only: OpenCV's AVFoundation backend ignores UVC control property sets, so
 # we lock exposure/white-balance/gain out-of-band by shelling out to the uvc-util
@@ -196,7 +212,7 @@ class CaptureThread:
             )
 
     def _captureLoop(self) -> None:
-        cap = cv2.VideoCapture(self._config.device_index, cv2.CAP_V4L2)
+        cap = cv2.VideoCapture(self._config.device_index, _captureBackend())
         self._cap = cap
         cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         cap.set(cv2.CAP_PROP_FRAME_WIDTH, self._config.width)

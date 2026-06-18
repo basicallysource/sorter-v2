@@ -211,18 +211,22 @@ class VisionManager:
     def initFeederDetection(self) -> bool:
         from blob_manager import getChannelPolygons
 
-        if self._feeder_capture is None:
+        if self._feeder_capture is None and not self._is_split_feeder:
             self.gc.logger.info("No feeder camera; skipping feeder detection.")
             return False
 
         saved = getChannelPolygons()
-        if saved is None:
-            self.gc.logger.warn("Channel polygons not found. Run: scripts/polygon_editor.py")
-            return False
-
-        polygon_data = saved.get("polygons", {})
+        polygon_data = saved.get("polygons", {}) if saved else {}
         if not any(polygon_data.get(k) for k in ("second_channel", "third_channel")):
-            self.gc.logger.warn("Channel polygons empty. Run: scripts/polygon_editor.py")
+            # Split-feeder mode treats feeder channel polygons as optional: the
+            # carousel pipeline still runs and the split branch skips channels
+            # without polygons, so a missing/empty set is not fatal here.
+            if self._is_split_feeder:
+                self.gc.logger.info(
+                    "Channel polygons not found; split-feeder running without feeder channel detection."
+                )
+                return True
+            self.gc.logger.warn("Channel polygons not found. Run: scripts/polygon_editor.py")
             return False
 
         self._channel_angles = saved.get("channel_angles", {})
@@ -766,7 +770,26 @@ class VisionManager:
         gray = self.getLatestCarouselGray()
         if gray is None:
             return False
-        return self._carousel_heatmap.captureBaseline(self._carousel_polygon, gray.shape)
+        # Exclude the varying pixels recorded by the rotational sweep, the same
+        # way the HSV carousel path does (loadCarouselHsvBaseline). The mask is
+        # produced by calibrate_classification_baseline.py regardless of
+        # detection mode; its value-std component is exactly the right signal
+        # for a grayscale diff. Absent -> polygon-only mask (prior behavior).
+        stable_mask = self._loadCarouselStableMask()
+        return self._carousel_heatmap.captureBaseline(
+            self._carousel_polygon, gray.shape, extra_mask=stable_mask
+        )
+
+    def _loadCarouselStableMask(self) -> "np.ndarray | None":
+        from blob_manager import BLOB_DIR
+
+        stable_path = BLOB_DIR / "classification_baseline" / "carousel_stable_mask.png"
+        if not stable_path.exists():
+            return None
+        stable = cv2.imread(str(stable_path), cv2.IMREAD_GRAYSCALE)
+        if stable is not None:
+            self.gc.logger.info("Carousel gray baseline: applying stable-pixel mask.")
+        return stable
 
     def clearCarouselBaseline(self) -> None:
         self._carousel_heatmap.clearBaseline()

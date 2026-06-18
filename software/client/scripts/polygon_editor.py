@@ -528,12 +528,23 @@ def save():
 
 if __name__ == "__main__":
     camera_setup = resolveCameraSetup()
-    if not camera_setup or "feeder" not in camera_setup:
+    if not camera_setup:
         print("ERROR: No camera setup found. Run client/scripts/camera_setup.py first.")
         sys.exit(1)
 
-    captures["feeder"] = CaptureThread("feeder", mkCameraConfig(camera_setup["feeder"]))
-    captures["feeder"].start()
+    # The feeder channels can come from a single feeder camera OR, in split-feeder
+    # configs, from c_channel_2/c_channel_3. Require at least one of those views;
+    # the channel->camera map below remaps channels onto whichever exist.
+    if not any(c in camera_setup for c in ("feeder", "c_channel_2", "c_channel_3")):
+        print(
+            "ERROR: No feeder or split-feeder (c_channel_2/c_channel_3) camera assigned. "
+            "Run client/scripts/camera_setup.py first."
+        )
+        sys.exit(1)
+
+    if "feeder" in camera_setup:
+        captures["feeder"] = CaptureThread("feeder", mkCameraConfig(camera_setup["feeder"]))
+        captures["feeder"].start()
 
     if "classification_top" in camera_setup:
         captures["classification_top"] = CaptureThread(
@@ -569,7 +580,6 @@ if __name__ == "__main__":
         captures["carousel"].start()
         # A dedicated carousel camera takes priority over the feeder/c_channel_3
         # shared view: draw the carousel polygon on the carousel camera itself.
-        channel_camera_map["carousel"] = "carousel"
         channel_camera_map["carousel"] = "carousel"
 
     print(f"Server starting on http://localhost:{PORT}")

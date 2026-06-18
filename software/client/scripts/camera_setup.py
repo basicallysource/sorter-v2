@@ -20,6 +20,20 @@ def _setupIndex(value) -> int:
 MAX_INDEX = 10
 WARMUP_FRAMES = 5
 
+
+def _captureBackend() -> int:
+    """OpenCV capture backend for the current platform.
+
+    Target hardware (OrangePi/Linux) uses V4L2, but that backend doesn't exist
+    on macOS — VideoCapture(i, CAP_V4L2) fails to open and every index reports
+    "no cameras found". Use AVFoundation on macOS so local Mac dev works.
+    """
+    if sys.platform == "darwin":
+        return cv2.CAP_AVFOUNDATION
+    if sys.platform.startswith("linux"):
+        return cv2.CAP_V4L2
+    return cv2.CAP_ANY
+
 ROLES = {
     ord("f"): "feeder",
     ord("F"): "feeder",
@@ -60,7 +74,7 @@ def main():
             continue
         old_stderr = os.dup(stderr_fd)
         os.dup2(os.open(os.devnull, os.O_WRONLY), stderr_fd)
-        cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
+        cap = cv2.VideoCapture(i, _captureBackend())
         os.dup2(old_stderr, stderr_fd)
         os.close(old_stderr)
         if cap.isOpened():

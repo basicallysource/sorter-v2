@@ -1,0 +1,114 @@
+{
+  "captured_at": "2026-06-17T23:44:20",
+  "camera_settings": {
+    "wb_temperature": 3329,
+    "exposure": 130,
+    "gain": 25
+  },
+  "carousel_camera": {
+    "red": {
+      "bgr": [
+        43,
+        47,
+        114
+      ],
+      "hsv": [
+        1,
+        159,
+        114
+      ]
+    },
+    "green": {
+      "bgr": [
+        37,
+        82,
+        13
+      ],
+      "hsv": [
+        71,
+        218,
+        82
+      ]
+    },
+    "blue": {
+      "bgr": [
+        160,
+        51,
+        14
+      ],
+      "hsv": [
+        112,
+        233,
+        160
+      ]
+    },
+    "yellow": {
+      "bgr": [
+        50,
+        194,
+        182
+      ],
+      "hsv": [
+        32,
+        191,
+        194
+      ]
+    },
+    "black": {
+      "bgr": [
+        15,
+        12,
+        8
+      ],
+      "hsv": [
+        105,
+        136,
+        15
+      ],
+      "expected_neutral": true,
+      "target_luminance": 11.1
+    },
+    "dark_gray": {
+      "bgr": [
+        63,
+        57,
+        38
+      ],
+      "hsv": [
+        96,
+        103,
+        62
+      ],
+      "expected_neutral": true,
+      "target_luminance": 52.0
+    },
+    "light_gray": {
+      "bgr": [
+        138,
+        131,
+        95
+      ],
+      "hsv": [
+        94,
+        78,
+        137
+      ],
+      "expected_neutral": true,
+      "target_luminance": 121.0
+    },
+    "white": {
+      "bgr": [
+        204,
+        213,
+        186
+      ],
+      "hsv": [
+        79,
+        32,
+        213
+      ],
+      "expected_neutral": true,
+      "target_luminance": 203.9
+    }
+  }
+}

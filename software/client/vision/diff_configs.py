@@ -4,7 +4,7 @@ from dataclasses import dataclass
 @dataclass
 class CarouselDiffConfig:
     # carousel uses captureBaseline (single snapshot, no envelope)
-    pixel_thresh: int = 8
+    pixel_thresh: int = 15
     blur_kernel: int = 5
     min_hot_pixels: int = 50
     trigger_score: int = 17

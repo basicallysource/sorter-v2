@@ -139,7 +139,12 @@ class HeatmapDiff:
         frames = list(self._gray_ring)[-n:]
         return _averageGrays(frames)
 
-    def captureBaseline(self, corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> bool:
+    def captureBaseline(
+        self,
+        corners: List[Tuple[float, float]],
+        shape: Tuple[int, ...],
+        extra_mask: Optional[np.ndarray] = None,
+    ) -> bool:
         avg = self._getAveraged(BASELINE_FRAMES)
         if avg is None:
             return False
@@ -151,6 +156,16 @@ class HeatmapDiff:
             scaled_corners = corners
             scaled_shape = shape
         mask = _makePlatformMask(scaled_corners, scaled_shape)
+        # Optionally exclude unreliable (varying) pixels recorded during a
+        # rotational sweep — the same stable-pixel mask the HSV path uses. The
+        # mask is at calibration resolution, so fit it to the baseline mask.
+        if extra_mask is not None:
+            if extra_mask.shape[:2] != mask.shape[:2]:
+                extra_mask = cv2.resize(
+                    extra_mask, (mask.shape[1], mask.shape[0]),
+                    interpolation=cv2.INTER_NEAREST,
+                )
+            mask = cv2.bitwise_and(mask, extra_mask)
         self._baseline_gray = cv2.bitwise_and(avg, avg, mask=mask)
         self._baseline_min = None
         self._baseline_max = None

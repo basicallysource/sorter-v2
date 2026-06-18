@@ -52,11 +52,11 @@ CLASSIFICATION_TOP_UVC_NAME = "Innomaker-U20CAM-1080p-S1"
 # --camera carousel, then re-capture the carousel baseline.
 CAROUSEL_CAMERA_LOCK = {
     "auto_exposure": False,
-    "exposure": 130.0,        # UVC exposure-time-abs default
+    "exposure": 830.0,        # UVC exposure-time-abs default
     "auto_wb": False,
     "wb_temperature": 3757.0,  # UVC white-balance-temp default
     "auto_gain": False,
-    "gain": 25.0,
+    "gain": 0.0,
     "hue": 0.0,
     "saturation": 64.0,        # UVC saturation default
 }

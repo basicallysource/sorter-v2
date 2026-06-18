@@ -18,7 +18,7 @@ from .aruco_region_provider import ArucoRegionProvider
 from .default_region_provider import DefaultRegionProvider
 from .handdrawn_region_provider import HanddrawnRegionProvider
 from .heatmap_diff import HeatmapDiff
-from .hsv_correction import loadHsvCorrection, applyHsvCorrection, rotateHue, isNoop as _hsvIsNoop
+from .hsv_correction import loadHsvCorrection, bgrToHsvScaled, isNoop as _hsvIsNoop
 from .mog2_channel_detector import Mog2ChannelDetector
 from .feeder_analysis_thread import FeederAnalysisThread
 from .classification_analysis_thread import ClassificationAnalysisThread
@@ -359,8 +359,13 @@ class VisionManager:
 
     def _makeClassificationHeatmap(self) -> HeatmapDiff:
         c = self._diff_config
+        # prescaled=True: the getters (_bgrToHS/_bgrToHSV) and the calibration
+        # baseline both already produce working-resolution HSV (downscale before
+        # convert), so HeatmapDiff must not downscale again. scale stays the
+        # full->working ratio for bbox/threshold mapping.
         return HeatmapDiff(
-            scale=0.25,
+            scale=c.scale,
+            prescaled=True,
             gc=self.gc,
             pixel_thresh=c.pixel_thresh,
             blur_kernel=c.blur_kernel,
@@ -471,18 +476,22 @@ class VisionManager:
                     continue
                 baseline_min, baseline_max = gray_env
 
-            # Rescale envelopes to the live camera resolution if it differs from
-            # the resolution the baseline was captured at.
+            # The baseline is captured at working resolution (full * scale), and
+            # the live getters feed frames at the same working resolution, so
+            # rescale the envelope to the live camera's working resolution if it
+            # differs from the resolution the baseline was captured at.
             frame = capture.latest_frame
             if frame is not None:
                 cam_h, cam_w = frame.raw.shape[:2]
+                work_w = max(1, int(cam_w * cfg.scale))
+                work_h = max(1, int(cam_h * cfg.scale))
                 bl_h, bl_w = baseline_min.shape[:2]
-                if cam_w != bl_w or cam_h != bl_h:
+                if work_w != bl_w or work_h != bl_h:
                     self.gc.logger.info(
-                        f"Classification {cam_key} baseline {bl_w}x{bl_h} -> camera {cam_w}x{cam_h}, rescaling"
+                        f"Classification {cam_key} baseline {bl_w}x{bl_h} -> working {work_w}x{work_h}, rescaling"
                     )
-                    baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
-                    baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+                    baseline_min = cv2.resize(baseline_min, (work_w, work_h), interpolation=cv2.INTER_AREA)
+                    baseline_max = cv2.resize(baseline_max, (work_w, work_h), interpolation=cv2.INTER_AREA)
 
             polygon = self._classification_masks.get(cam_key)
             if polygon is not None:
@@ -510,8 +519,14 @@ class VisionManager:
                         f"dropped {dropped:.1f}% of in-polygon pixels"
                     )
 
+            # boundingRect is in working-res pixels; map it back to full res so
+            # it can be compared against detection bboxes (which computeBboxes
+            # already upscales by 1/scale) in _edgeBiasedMargins.
             mx, my, mw, mh = cv2.boundingRect(mask)
-            self._classification_mask_bboxes[cam_key] = (mx, my, mx + mw, my + mh)
+            inv = 1.0 / cfg.scale if cfg.scale < 1.0 else 1.0
+            self._classification_mask_bboxes[cam_key] = (
+                int(mx * inv), int(my * inv), int((mx + mw) * inv), int((my + mh) * inv)
+            )
 
             heatmap = self._makeClassificationHeatmap()
             heatmap.loadEnvelope(baseline_min, baseline_max, mask)
@@ -579,15 +594,12 @@ class VisionManager:
         return cv2.cvtColor(frame.raw, cv2.COLOR_BGR2GRAY)
 
     def _bgrToHS(self, bgr: np.ndarray) -> np.ndarray:
-        """BGR frame -> 2-channel (H, S) at full resolution, with optional HSV
-        correction applied (matching what the baseline calibration applied).
-        V is discarded: luminance varies with rotation and LED nonuniformity,
-        which is the failure mode the HSV pipeline moves away from. HeatmapDiff
-        handles the 0.25 downscale, keeping this symmetric with the envelope."""
-        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-        hsv = rotateHue(hsv)  # move magenta background off the 0/180 hue wrap
-        hsv = applyHsvCorrection(hsv, self._hsv_correction)
-        return hsv[:, :, :2].copy()
+        """BGR frame -> 2-channel (H, S) at working resolution, hue-rotated and
+        corrected (matching the baseline calibration). The downscale happens on
+        the BGR before the HSV conversion, so the conversion runs on scale**2 as
+        many pixels and is symmetric with the envelope (also captured at scale).
+        V is discarded: luminance varies with rotation and LED nonuniformity."""
+        return bgrToHsvScaled(bgr, self._diff_config.scale, self._hsv_correction, keep_value=False)
 
     def _getLatestClassificationTopHS(self) -> np.ndarray | None:
         if self._classification_top_capture is None:
@@ -606,14 +618,11 @@ class VisionManager:
         return self._bgrToHS(frame.raw)
 
     def _bgrToHSV(self, bgr: np.ndarray) -> np.ndarray:
-        """BGR frame -> 3-channel (H, S, V) at full resolution, hue rotated +
-        optional correction (same transform as the baseline). Unlike _bgrToHS,
-        V is kept so opaque pieces that block the backlight (darker than the
-        glowing floor) register on the value channel."""
-        hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-        hsv = rotateHue(hsv)
-        hsv = applyHsvCorrection(hsv, self._hsv_correction)
-        return hsv
+        """BGR frame -> 3-channel (H, S, V) at working resolution, hue rotated +
+        correction (same transform as the baseline; downscale-before-convert).
+        Unlike _bgrToHS, V is kept so opaque pieces that block the backlight
+        (darker than the glowing floor) register on the value channel."""
+        return bgrToHsvScaled(bgr, self._diff_config.scale, self._hsv_correction, keep_value=True)
 
     def _getLatestClassificationTopHSV(self) -> np.ndarray | None:
         if self._classification_top_capture is None:
@@ -673,12 +682,16 @@ class VisionManager:
         baseline_max = np.stack(channels_max, axis=-1)
 
         # Rescale to the live carousel resolution if needed.
+        # Baseline is captured at working resolution (full * scale); rescale to
+        # the live carousel's working resolution to match the prescaled heatmap.
         frame = self._carousel_capture.latest_frame
         if frame is not None:
             cam_h, cam_w = frame.raw.shape[:2]
-            if (cam_w, cam_h) != (baseline_min.shape[1], baseline_min.shape[0]):
-                baseline_min = cv2.resize(baseline_min, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
-                baseline_max = cv2.resize(baseline_max, (cam_w, cam_h), interpolation=cv2.INTER_AREA)
+            work_w = max(1, int(cam_w * cfg.scale))
+            work_h = max(1, int(cam_h * cfg.scale))
+            if (work_w, work_h) != (baseline_min.shape[1], baseline_min.shape[0]):
+                baseline_min = cv2.resize(baseline_min, (work_w, work_h), interpolation=cv2.INTER_AREA)
+                baseline_max = cv2.resize(baseline_max, (work_w, work_h), interpolation=cv2.INTER_AREA)
 
         # Mask from the saved carousel polygon (drawn on the carousel camera in
         # polygon_editor), scaled to the envelope resolution.

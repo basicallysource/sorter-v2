@@ -41,15 +41,15 @@ from vision.heatmap_diff import _hueArcDistance, HUE_DIFF_SCALE
 WINDOW = "classification detection tuner"
 
 
-def _inspectPixel(cx, cy, panel_w, panel_h, live, hs, heatmap, low_sat,
-                  v_cur_full=None, v_lo_full=None, v_hi_full=None) -> None:
+def _inspectPixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
+                  v_lo=None, v_hi=None) -> None:
     """Print the H/S, envelope, and per-channel diff at a clicked point in the
     top-left (live) panel — turns 'why isn't it detected' into measured numbers.
 
-    If a V (value/brightness) envelope and live V frame are supplied, also report
-    V vs its envelope — to gauge whether brightness is a usable extra signal for
-    pieces hue+saturation can't separate (e.g. the contaminated bottom reds)."""
-    fh, fw = live.shape[:2]
+    Everything here (live hs, the envelope, and the V PNGs) is at working
+    resolution now, so the click maps to each array by its own dimensions. The
+    live V is taken from the working-res hs (3rd channel) when present."""
+    fh, fw = hs.shape[:2]
     fx = min(fw - 1, int(cx * fw / panel_w))
     fy = min(fh - 1, int(cy * fh / panel_h))
     h_cur, s_cur = int(hs[fy, fx, 0]), int(hs[fy, fx, 1])
@@ -58,10 +58,11 @@ def _inspectPixel(cx, cy, panel_w, panel_h, live, hs, heatmap, low_sat,
     if bl_min is None or bl_max is None:
         print(f"  ({fx},{fy}) H={h_cur} S={s_cur}  (no envelope loaded)")
         return
-    # Envelope is stored at the heatmap's diff scale (0.25).
+    # hs and the envelope are both at working resolution; map proportionally in
+    # case the envelope was captured at a slightly different camera size.
     dh, dw = bl_min.shape[:2]
-    dx = min(dw - 1, int(fx * heatmap._scale))
-    dy = min(dh - 1, int(fy * heatmap._scale))
+    dx = min(dw - 1, int(fx * dw / fw))
+    dy = min(dh - 1, int(fy * dh / fh))
     h_min, s_min = int(bl_min[dy, dx, 0]), int(bl_min[dy, dx, 1])
     h_max, s_max = int(bl_max[dy, dx, 0]), int(bl_max[dy, dx, 1])
 
@@ -73,11 +74,13 @@ def _inspectPixel(cx, cy, panel_w, panel_h, live, hs, heatmap, low_sat,
     # heatmap_diff._envelopeDiffHS so `combined` equals actual detection).
     non_hue = s_diff
     v_str = ""
-    if v_cur_full is not None and v_lo_full is not None and v_hi_full is not None:
-        # V envelope PNGs are full-res (V is not rotated/downscaled here).
-        v_cur = int(v_cur_full[fy, fx])
-        v_min = int(v_lo_full[fy, fx])
-        v_max = int(v_hi_full[fy, fx])
+    if hs.shape[2] >= 3 and v_lo is not None and v_hi is not None:
+        v_cur = int(hs[fy, fx, 2])
+        vh, vw = v_lo.shape[:2]
+        vx = min(vw - 1, int(fx * vw / fw))
+        vy = min(vh - 1, int(fy * vh / fh))
+        v_min = int(v_lo[vy, vx])
+        v_max = int(v_hi[vy, vx])
         v_diff = max(0, v_min - v_cur, v_cur - v_max)
         if getattr(heatmap, "_channel_mode", "hs") == "hsv":
             non_hue = max(non_hue, v_diff)
@@ -242,10 +245,8 @@ def main() -> int:
             mouse["click"] = None
             cx, cy = click
             if cx < panel_w and cy < panel_h and hs is not None:
-                v_full = (cv2.cvtColor(live, cv2.COLOR_BGR2HSV)[:, :, 2]
-                          if frame is not None else None)
-                _inspectPixel(cx, cy, panel_w, panel_h, live, hs, heatmap, low_sat,
-                              v_cur_full=v_full, v_lo_full=v_lo, v_hi_full=v_hi)
+                _inspectPixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
+                              v_lo=v_lo, v_hi=v_hi)
 
         def fit(img):
             return cv2.resize(img, (panel_w, panel_h))

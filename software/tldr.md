@@ -23,4 +23,8 @@ copy values into irl/config.py
 
 uv run python scripts/calibrate_classification_baseline.py --camera all --wipe
 
+optional tuning:
+uv run python scripts/tune_classification_detection.py --cam carousel
+uv run python scripts/tune_classification_detection.py --cam top
+
 uv run python main.py

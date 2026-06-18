@@ -21,6 +21,7 @@ import json
 from pathlib import Path
 from typing import Optional
 
+import cv2
 import numpy as np
 
 # The classification background (magenta floor) sits near OpenCV's 8-bit hue
@@ -117,3 +118,31 @@ def applyHsvCorrection(hsv: np.ndarray, corr: Optional[dict]) -> np.ndarray:
     out[:, :, 1] = s.astype(np.uint8)
     out[:, :, 2] = v.astype(np.uint8)
     return out
+
+
+def bgrToHsvScaled(
+    bgr: np.ndarray,
+    scale: float,
+    corr: Optional[dict],
+    keep_value: bool = True,
+) -> np.ndarray:
+    """BGR frame -> hue-rotated, corrected HSV at `scale` resolution.
+
+    The downscale happens on the BGR *before* cvtColor, so the (expensive) color
+    conversion + hue rotation + correction run on `scale**2` as many pixels.
+    Downscaling in linear BGR space (INTER_AREA) is also more correct than
+    averaging in HSV space, where hue is angular and can't be linearly averaged.
+
+    Both the runtime detector and the baseline calibration MUST call this with
+    the same `scale` so the stored envelope and live frames share one transform
+    (convert-after-downscale); mixing orders silently breaks detection.
+
+    Returns 3-channel (H,S,V) when keep_value, else 2-channel (H,S).
+    """
+    if scale < 1.0:
+        h, w = bgr.shape[:2]
+        bgr = cv2.resize(bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    hsv = rotateHue(hsv)  # move magenta background off the 0/180 hue wrap
+    hsv = applyHsvCorrection(hsv, corr)
+    return hsv if keep_value else hsv[:, :, :2].copy()

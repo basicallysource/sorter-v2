@@ -22,11 +22,16 @@ from irl.config import mkIRLConfig, mkIRLInterface
 
 LOGS_DIR = Path(__file__).resolve().parent.parent / "logs"
 from vision import VisionManager
-from vision.hsv_correction import loadHsvCorrection, applyHsvCorrection, rotateHue, isNoop
+from vision.hsv_correction import loadHsvCorrection, bgrToHsvScaled, isNoop
 from vision.diff_configs import DEFAULT_CLASSIFICATION_DIFF_CONFIG
 from blob_manager import BLOB_DIR, getClassificationPolygons, getChannelPolygons
 
 LOW_SAT_THRESH = DEFAULT_CLASSIFICATION_DIFF_CONFIG.low_sat_thresh
+# Capture the envelope at the same working resolution the detector runs at, with
+# the downscale applied to BGR before the HSV conversion (bgrToHsvScaled). The
+# runtime getters use this same scale, so the stored envelope and live frames
+# share one transform. Changing it (here or in the config) invalidates baselines.
+CLASSIFICATION_SCALE = DEFAULT_CLASSIFICATION_DIFF_CONFIG.scale
 
 MAX_FRAMES = 64
 DEGREES_PER_FRAME = -90
@@ -230,19 +235,18 @@ CAMERA_GROUPS = {
 
 
 def getLatestHSV(vision: VisionManager, cam: str, correction) -> np.ndarray | None:
-    """Full-resolution HSV (with optional correction) of the latest frame for the
-    target camera (cam is the file prefix: 'top'/'bottom'/'carousel').
+    """Working-resolution HSV (with optional correction) of the latest frame for
+    the target camera (cam is the file prefix: 'top'/'bottom'/'carousel').
 
-    Mirrors the runtime path (vision_manager._bgrToHS): cvtColor on the full-res
-    BGR frame, then the same HSV correction the detector applies. HeatmapDiff
-    handles the 0.25 downscale at load/push time, so the stored envelope and the
-    runtime frames go through identical transforms."""
+    Mirrors the runtime path (vision_manager._bgrToHSV): the BGR frame is
+    downscaled by CLASSIFICATION_SCALE, then cvtColor + hue rotation +
+    correction. Capturing the envelope at the same working resolution and with
+    the same downscale-before-convert order the detector uses keeps the stored
+    envelope and live frames on one identical transform."""
     frame = vision.getFrame(CAM_FRAME_NAMES[cam])
     if frame is None:
         return None
-    hsv = cv2.cvtColor(frame.raw, cv2.COLOR_BGR2HSV)
-    hsv = rotateHue(hsv)  # move magenta background off the 0/180 hue wrap
-    return applyHsvCorrection(hsv, correction)
+    return bgrToHsvScaled(frame.raw, CLASSIFICATION_SCALE, correction, keep_value=True)
 
 
 def sanityCheck(baseline_dir: Path, prefix: str) -> None:

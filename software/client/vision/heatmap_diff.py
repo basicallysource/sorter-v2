@@ -78,6 +78,7 @@ class HeatmapDiff:
         current_frames: int = CURRENT_FRAMES,
         channel_mode: str = "gray",
         low_sat_thresh: int = 60,
+        prescaled: bool = False,
     ):
         self._gc = gc
         # "gray" = single-channel luminance envelope (carousel + legacy
@@ -104,6 +105,11 @@ class HeatmapDiff:
         self._gray_ring: deque[np.ndarray] = deque(maxlen=30)
         self._last_ring_time: float = 0.0
         self._scale = scale
+        # When True, frames and baselines already arrive at working resolution
+        # (the caller downscaled the BGR before HSV conversion), so this class
+        # must NOT downscale again. _scale is still the full->working ratio used
+        # to map detections back to full res and to scale pixel thresholds.
+        self._prescaled = prescaled
         self._full_size: Optional[Tuple[int, int]] = None
         self._cached_result: Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]] = None
 
@@ -128,7 +134,8 @@ class HeatmapDiff:
     def pushFrame(self, gray: np.ndarray) -> None:
         now = time.time()
         if (now - self._last_ring_time) * 1000 >= CAPTURE_INTERVAL_MS:
-            self._gray_ring.append(self._downscale(gray))
+            frame = gray if self._prescaled else self._downscale(gray)
+            self._gray_ring.append(frame)
             self._last_ring_time = now
             self._cached_result = None
 
@@ -197,7 +204,9 @@ class HeatmapDiff:
         return True
 
     def loadEnvelope(self, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray) -> None:
-        if self._scale < 1.0:
+        # When prescaled, the caller already supplies working-resolution
+        # envelopes (the baseline was captured at scale), so don't downscale.
+        if self._scale < 1.0 and not self._prescaled:
             h, w = baseline_min.shape[:2]
             self._full_size = (w, h)
             new_w, new_h = int(w * self._scale), int(h * self._scale)

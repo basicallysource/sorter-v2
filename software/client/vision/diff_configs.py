@@ -42,6 +42,13 @@ class ClassificationDiffConfig:
     envelope_margin_v: int = 8       # value envelope margin (HSV+value mode only)
     adaptive_std_k: float = 1.0
 
+    # Working resolution as a fraction of full camera res. The BGR frame is
+    # downscaled by this BEFORE the HSV conversion (vision.hsv_correction.
+    # bgrToHsvScaled), and the baseline is captured at the same scale, so the
+    # color conversion runs on scale**2 as many pixels. detection coords are
+    # mapped back to full res via 1/scale. Changing this invalidates baselines.
+    scale: float = 0.25
+
     # heatmap diff params. In HSV mode the combined diff is normalized to 0-255
     # (hue circular distance scaled up from its 0-90 range), so pixel_thresh
     # carries roughly the same meaning it did for the 0-255 grayscale diff.

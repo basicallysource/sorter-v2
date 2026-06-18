@@ -14,6 +14,7 @@
 		stepperGearRatioForSetup,
 		triggerStoredStepperPulse
 	} from '$lib/settings/stepper-control';
+	import { ChevronDown } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	let { children } = $props();
@@ -38,6 +39,27 @@
 	let machineSetup = $state<MachineSetupKey>('classification_channel');
 
 	const visibleSettingsNavItems = $derived(settingsNavItemsForSetup(machineSetup));
+
+	// Below lg the nav is a collapsible disclosure so the ~16 items don't bury
+	// the section content; on lg+ it is the always-visible sidebar.
+	let navOpen = $state(false);
+
+	const activeNavEntry = $derived.by(() => {
+		const links = visibleSettingsNavItems.filter((entry) => 'href' in entry);
+		const exact = links.find((entry) => page.url.pathname === entry.href);
+		if (exact) return exact;
+		return (
+			links
+				.filter((entry) => page.url.pathname.startsWith(entry.href))
+				.sort((a, b) => b.href.length - a.href.length)[0] ?? null
+		);
+	});
+
+	$effect(() => {
+		// Collapse the mobile nav whenever the route changes.
+		void page.url.pathname;
+		navOpen = false;
+	});
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -126,49 +148,67 @@
 <div class="min-h-screen bg-bg">
 	<AppHeader />
 	<div class="p-4 sm:p-6">
-
-	{#if hotkeyStatusMsg || hotkeyErrorMsg}
-		<div
-			class={`mb-4 border px-3 py-2 text-sm ${
-				hotkeyErrorMsg
-					? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
-					: 'border-success bg-success/10 text-success dark:border-success dark:bg-success/10 dark:text-emerald-300'
-			}`}
-		>
-			{hotkeyErrorMsg ?? hotkeyStatusMsg}
-		</div>
-	{/if}
-
-	<div class="flex flex-col gap-4 lg:flex-row lg:gap-6">
-		<nav class="w-full lg:w-48 lg:flex-shrink-0">
-			<div class="grid grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-1">
-				{#each visibleSettingsNavItems as entry, i (i)}
-					{#if 'href' in entry}
-						{@const active = page.url.pathname === entry.href}
-						<a
-							href={entry.href}
-							aria-current={active ? 'page' : undefined}
-							class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
-								? 'bg-primary/10 font-medium text-primary'
-								: 'text-text-muted hover:bg-surface'}"
-						>
-							<entry.icon size={16} />
-							{entry.label}
-						</a>
-					{:else}
-						<div
-							class="col-span-full mt-3 px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wider text-text-muted lg:mt-4"
-						>
-							{entry.label}
-						</div>
-					{/if}
-				{/each}
+		{#if hotkeyStatusMsg || hotkeyErrorMsg}
+			<div
+				class={`mb-4 border px-3 py-2 text-sm ${
+					hotkeyErrorMsg
+						? 'border-danger bg-danger/10 text-danger dark:border-danger dark:bg-danger/10 dark:text-red-400'
+						: 'border-success bg-success/10 text-success dark:border-success dark:bg-success/10 dark:text-emerald-300'
+				}`}
+			>
+				{hotkeyErrorMsg ?? hotkeyStatusMsg}
 			</div>
-		</nav>
+		{/if}
 
-		<div class="min-w-0 flex-1">
-			{@render children()}
+		<div class="flex flex-col gap-4 lg:flex-row lg:gap-6">
+			<nav class="w-full lg:w-48 lg:flex-shrink-0">
+				<button
+					type="button"
+					onclick={() => (navOpen = !navOpen)}
+					aria-expanded={navOpen}
+					class="mb-1 flex w-full items-center justify-between border border-border bg-surface px-3 py-2.5 text-sm text-text lg:hidden"
+				>
+					<span class="flex min-w-0 items-center gap-2">
+						{#if activeNavEntry}
+							<activeNavEntry.icon size={16} class="shrink-0 text-primary" />
+						{/if}
+						<span class="truncate font-medium">{activeNavEntry?.label ?? 'Settings menu'}</span>
+					</span>
+					<ChevronDown
+						size={16}
+						class={`shrink-0 transition-transform duration-150 ${navOpen ? 'rotate-180' : ''}`}
+					/>
+				</button>
+				<div
+					class={`${navOpen ? 'grid' : 'hidden'} grid-cols-2 gap-1 border border-border bg-surface p-1 sm:grid-cols-3 lg:grid lg:grid-cols-1 lg:border-0 lg:bg-transparent lg:p-0`}
+				>
+					{#each visibleSettingsNavItems as entry, i (i)}
+						{#if 'href' in entry}
+							{@const active = page.url.pathname === entry.href}
+							<a
+								href={entry.href}
+								aria-current={active ? 'page' : undefined}
+								class="flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors {active
+									? 'bg-primary/10 font-medium text-primary'
+									: 'text-text-muted hover:bg-surface'}"
+							>
+								<entry.icon size={16} />
+								{entry.label}
+							</a>
+						{:else}
+							<div
+								class="col-span-full mt-3 px-3 pt-2 pb-1 text-xs font-semibold tracking-wider text-text-muted uppercase lg:mt-4"
+							>
+								{entry.label}
+							</div>
+						{/if}
+					{/each}
+				</div>
+			</nav>
+
+			<div class="min-w-0 flex-1">
+				{@render children()}
+			</div>
 		</div>
-	</div>
 	</div>
 </div>

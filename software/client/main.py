@@ -126,6 +126,11 @@ def main() -> None:
     if not vision.loadClassificationBaseline():
         gc.logger.error("Classification baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py (with pieces removed from classification chamber)")
         sys.exit(1)
+    # In HSV carousel mode the runtime triggers against the pre-calibrated
+    # rotational envelope (same path the tuner validates), so load it now.
+    if vision.isCarouselHsvMode() and not vision.loadCarouselHsvBaseline():
+        gc.logger.error("Carousel HSV baseline not found. Run: uv run python scripts/calibrate_classification_baseline.py --camera carousel --wipe")
+        sys.exit(1)
     controller.start()
 
     server_thread = threading.Thread(target=runServer, daemon=True)

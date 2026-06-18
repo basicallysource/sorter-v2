@@ -72,7 +72,7 @@ CAROUSEL_UVC_NAME = "USB 2.0 Camera"
 # diff (captureBaseline + CarouselDiffConfig); "hsv" uses the same HSV rotational-
 # envelope pipeline as the classification chamber (calibrate_classification_baseline
 # --camera carousel + the HSV heatmap). Selectable per machine.
-CAROUSEL_DETECTION_MODE = "gray"
+CAROUSEL_DETECTION_MODE = "hsv"
 
 
 class CameraConfig:

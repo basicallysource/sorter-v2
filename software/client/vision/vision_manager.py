@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from global_config import GlobalConfig, RegionProviderType
-from irl.config import IRLConfig, IRLInterface
+from irl.config import IRLConfig, IRLInterface, CAROUSEL_DETECTION_MODE
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
 from defs.channel import ChannelDetection
 from blob_manager import VideoRecorder, getClassificationPolygons
@@ -105,9 +105,13 @@ class VisionManager:
         self._feeder_detector: Mog2ChannelDetector | None = None
         self._carousel_heatmap: HeatmapDiff = HeatmapDiff()  # overwritten after configs set
         # Optional HSV heatmap for the carousel camera (CAROUSEL_DETECTION_MODE
-        # == "hsv"); loaded on demand from the carousel_* baseline. None when the
-        # carousel uses the legacy grayscale single-snapshot detection.
+        # == "hsv"); loaded from the carousel_* baseline. None when the carousel
+        # uses the legacy grayscale single-snapshot detection.
         self._carousel_hsv_heatmap: HeatmapDiff | None = None
+        # Which carousel detector the runtime uses. "hsv" routes triggering
+        # through the pre-calibrated rotational envelope (same path the tuner
+        # validates); "gray" uses the legacy live-snapshot diff.
+        self._carousel_hsv_mode = (CAROUSEL_DETECTION_MODE == "hsv")
 
         self._channel_polygons: Dict[str, np.ndarray] = {}
         self._channel_angles: Dict[str, float] = {}
@@ -142,6 +146,9 @@ class VisionManager:
                 + ("" if _hsvIsNoop(self._hsv_correction) else " with HSV correction")
             )
         self._carousel_heatmap = self._makeCarouselHeatmap()
+        self.gc.logger.info(
+            f"Carousel detection mode: {'HSV envelope' if self._carousel_hsv_mode else 'gray snapshot'}"
+        )
 
         self._classification_top_heatmap: HeatmapDiff | None = None
         self._classification_bottom_heatmap: HeatmapDiff | None = None
@@ -777,7 +784,30 @@ class VisionManager:
             detections.extend(self._feeder_analysis_ch3.getDetections())
         return detections
 
+    def isCarouselHsvMode(self) -> bool:
+        """True when the carousel uses the pre-calibrated HSV envelope detector
+        (CAROUSEL_DETECTION_MODE == "hsv"); the runtime loads its baseline at
+        startup."""
+        return self._carousel_hsv_mode
+
+    def _activeCarouselHeatmap(self) -> HeatmapDiff:
+        """The heatmap the runtime triggers against: the pre-calibrated HSV
+        envelope in HSV mode (when loaded), else the gray snapshot heatmap."""
+        if self._carousel_hsv_mode and self._carousel_hsv_heatmap is not None:
+            return self._carousel_hsv_heatmap
+        return self._carousel_heatmap
+
     def captureCarouselBaseline(self) -> bool:
+        # HSV mode triggers against the static pre-calibrated rotational
+        # envelope, so there's no per-entry snapshot to capture — just confirm
+        # the envelope is loaded so the Detecting state can proceed.
+        if self._carousel_hsv_mode:
+            loaded = self._carousel_hsv_heatmap is not None and self._carousel_hsv_heatmap.has_baseline
+            if not loaded:
+                self.gc.logger.warn(
+                    "Carousel HSV baseline not loaded; run loadCarouselHsvBaseline at startup."
+                )
+            return loaded
         if self._carousel_polygon is None:
             return False
         gray = self.getLatestCarouselGray()
@@ -805,19 +835,30 @@ class VisionManager:
         return stable
 
     def clearCarouselBaseline(self) -> None:
+        # The HSV envelope is the persistent pre-calibrated baseline; only the
+        # gray mode captures a per-entry snapshot that needs clearing.
+        if self._carousel_hsv_mode:
+            return
         self._carousel_heatmap.clearBaseline()
 
     def isCarouselTriggered(self) -> Tuple[bool, float, int]:
-        score, hot_px = self._carousel_heatmap.computeDiff()
+        score, hot_px = self._activeCarouselHeatmap().computeDiff()
         return score >= self._carousel_diff_config.trigger_score, score, hot_px
 
     def recordFrames(self) -> None:
         prof = self.gc.profiler
         prof.hit("vision.record_frames.calls")
         with prof.timer("vision.record_frames.total_ms"):
-            gray = self.getLatestCarouselGray()
-            if gray is not None:
-                self._carousel_heatmap.pushFrame(gray)
+            # Feed the active carousel detector: working-res HSV in HSV mode,
+            # full-res gray in legacy mode.
+            if self._carousel_hsv_mode and self._carousel_hsv_heatmap is not None:
+                hsv = self._getLatestCarouselHSV()
+                if hsv is not None:
+                    self._carousel_hsv_heatmap.pushFrame(hsv)
+            else:
+                gray = self.getLatestCarouselGray()
+                if gray is not None:
+                    self._carousel_heatmap.pushFrame(gray)
 
             if self._video_recorder:
                 with prof.timer("vision.record_frames.video_recorder_write_ms"):
@@ -886,8 +927,9 @@ class VisionManager:
                 label = f"ch{det.channel_id} {sorted(secs)} p={precise} d={drop}"
                 cv2.putText(annotated, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.35, (255, 255, 0), 1)
 
-        if self._carousel_capture is None and self._carousel_heatmap.has_baseline:
-            annotated = self._carousel_heatmap.annotateFrame(annotated, label="carousel", text_y=80)
+        carousel_hm = self._activeCarouselHeatmap()
+        if self._carousel_capture is None and carousel_hm.has_baseline:
+            annotated = carousel_hm.annotateFrame(annotated, label="carousel", text_y=80)
 
         result = CameraFrame(
             raw=frame.raw,
@@ -974,8 +1016,9 @@ class VisionManager:
             return self._makeChannelFrame(self._c_channel_3_capture, self._feeder_analysis_ch3)
         elif camera_name == "carousel" and self._carousel_capture is not None:
             frame = self._makeChannelFrame(self._carousel_capture, None)
-            if frame is not None and self._carousel_heatmap.has_baseline:
-                annotated = self._carousel_heatmap.annotateFrame(frame.annotated, label="carousel", text_y=80)
+            carousel_hm = self._activeCarouselHeatmap()
+            if frame is not None and carousel_hm.has_baseline:
+                annotated = carousel_hm.annotateFrame(frame.annotated, label="carousel", text_y=80)
                 frame = CameraFrame(raw=frame.raw, annotated=annotated, results=frame.results, timestamp=frame.timestamp)
             return frame
         elif camera_name == "classification_bottom":

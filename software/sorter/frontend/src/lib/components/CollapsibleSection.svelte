@@ -9,9 +9,18 @@
 		grow?: boolean;
 		actions?: Snippet;
 		children: Snippet;
+		class?: string;
 	}
 
-	let { title, storageKey, defaultCollapsed = false, grow = false, actions, children }: Props = $props();
+	let {
+		title,
+		storageKey,
+		defaultCollapsed = false,
+		grow = false,
+		actions,
+		children,
+		class: className = ''
+	}: Props = $props();
 
 	const storageId = $derived(`sorter.sidebar.collapsed.${storageKey}`);
 	let collapsed = $state(false);
@@ -41,7 +50,7 @@
 </script>
 
 <section
-	class="flex min-h-0 flex-col border border-border bg-surface"
+	class="flex min-h-0 flex-col border border-border bg-surface {className}"
 	style="flex: {collapsed ? '0 0 auto' : grow ? '1 1 auto' : '0 0 auto'};"
 >
 	<div class="setup-card-header flex shrink-0 items-center justify-between px-3 py-2 text-sm">

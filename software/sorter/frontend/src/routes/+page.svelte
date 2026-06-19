@@ -1125,8 +1125,8 @@
 						has_cls_top,
 						has_cls_bottom
 					)}
-					<div class="flex min-w-0 flex-col gap-3 max-lg:h-auto lg:min-h-0 lg:flex-1">
-						<div class="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+					<div class="flex min-w-0 gap-3 max-lg:h-[30vh] lg:min-h-0 lg:flex-1">
+						<div class="contents">
 							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="c_channel_2"
@@ -1144,7 +1144,7 @@
 								/>
 							</div>
 						</div>
-						<div class="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row">
+						<div class="contents">
 							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera={c4CameraRole}
@@ -1636,7 +1636,7 @@
 							{/if}
 						</div>
 					{/if}
-					<CollapsibleSection title="Incidents" storageKey="incidents">
+					<CollapsibleSection title="Incidents" storageKey="incidents" class="max-lg:order-last">
 						<div class="flex flex-col gap-2">
 							{#each incidentDefinitions as definition (definition.kind)}
 								{@const mode = incidentMode(definition.kind)}
@@ -1702,7 +1702,12 @@
 							{/if}
 						</div>
 					</CollapsibleSection>
-					<CollapsibleSection title="Recent Pieces" storageKey="recent" grow>
+					<CollapsibleSection
+						title="Recent Pieces"
+						storageKey="recent"
+						grow
+						class="max-lg:order-first"
+					>
 						<RecentObjects />
 					</CollapsibleSection>
 					<CollapsibleSection title="Bins" storageKey="bins">

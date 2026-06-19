@@ -24,11 +24,20 @@ class RegionProviderType(Enum):
 class Timeouts:
     main_loop_sleep_ms: float
     heartbeat_interval_ms: float
+    # Cloud recognition (Brickognize) request timeouts, seconds: (connect, read).
+    # Deliberately generous — the machine often runs on slow/unreliable internet,
+    # where a short connect timeout made recognition fail outright (ConnectTimeout)
+    # instead of merely being slow. The read timeout still scales per extra image
+    # in brickognize._classifyImages.
+    brickognize_connect_s: float
+    brickognize_read_s: float
 
     def __init__(self):
         from defs.consts import LOOP_TICK_MS
         self.main_loop_sleep_ms = LOOP_TICK_MS
         self.heartbeat_interval_ms = 5000
+        self.brickognize_connect_s = 60.0
+        self.brickognize_read_s = 60.0
 
 
 class GlobalConfig:

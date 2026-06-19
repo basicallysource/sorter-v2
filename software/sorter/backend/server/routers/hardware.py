@@ -305,6 +305,10 @@ class ServoLayerLockPayload(BaseModel):
     angle: Optional[int] = None
 
 
+class ServoLayerClearPayload(BaseModel):
+    which: str = "both"  # "open" | "closed" | "both"
+
+
 class MoveToBinPayload(BaseModel):
     layer_index: int
     section_index: int
@@ -1530,6 +1534,47 @@ def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> 
         "feedback": _live_servo_feedback_for_layer(layer_index, servo),
         "message": (
             f"Layer {layer_index + 1} {payload.which} angle locked at {angle}°."
+        ),
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/clear")
+def clear_layer_servo_angle(layer_index: int, payload: ServoLayerClearPayload) -> Dict[str, Any]:
+    _ensure_not_homing("clear a servo angle")
+    if payload.which not in {"open", "closed", "both"}:
+        raise HTTPException(status_code=400, detail="which must be 'open', 'closed' or 'both'.")
+    servo = _live_servo_for_layer(layer_index)
+
+    layout = getBinLayout()
+    if layer_index < 0 or layer_index >= len(layout.layers):
+        raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
+    layer = layout.layers[layer_index]
+
+    if payload.which in {"open", "both"}:
+        layer.servo_open_angle = None
+        if hasattr(servo, "set_open_angle"):
+            servo.set_open_angle(None)
+    if payload.which in {"closed", "both"}:
+        layer.servo_closed_angle = None
+        if hasattr(servo, "set_closed_angle"):
+            servo.set_closed_angle(None)
+
+    try:
+        saveBinLayout(layout)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to clear angle: {e}")
+
+    state = _servo_calibration_state(servo)
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "which": payload.which,
+        **state,
+        "feedback": _live_servo_feedback_for_layer(layer_index, servo),
+        "message": (
+            f"Layer {layer_index + 1} calibration cleared."
+            if payload.which == "both"
+            else f"Layer {layer_index + 1} {payload.which} angle cleared."
         ),
     }
 
@@ -3094,6 +3139,27 @@ def clear_bins_contents(payload: ClearBinContentsPayload) -> Dict[str, Any]:
         section_index=payload.section_index,
         bin_index=payload.bin_index,
     )
+
+
+@router.post("/api/bins/reset/layer/{layer_index}")
+def reset_bins_layer(layer_index: int) -> Dict[str, Any]:
+    # Full reset of one layer: drop its category assignments and empty its bins
+    # in a single server-side call, then hand back the fresh layout + contents so
+    # the UI can update without slow follow-up round-trips.
+    result = clear_bin_category_assignments(scope="layer", layer_index=layer_index)
+    result["layout"] = get_bins_layout()
+    result["bins"] = get_bin_contents().get("bins", [])
+    return result
+
+
+@router.post("/api/bins/reset/machine")
+def reset_bins_machine() -> Dict[str, Any]:
+    # Full machine reset: drop every assignment and empty every bin in one call,
+    # returning the fresh layout + (now empty) contents.
+    result = clear_bin_category_assignments(scope="all")
+    result["layout"] = get_bins_layout()
+    result["bins"] = get_bin_contents().get("bins", [])
+    return result
 
 
 @router.get("/api/bins/contents")

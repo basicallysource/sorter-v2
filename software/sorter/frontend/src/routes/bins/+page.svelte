@@ -190,22 +190,28 @@
 		return setProgressByCategoryId[categoryIds[0]] ?? null;
 	}
 
+	function applyBinsContents(bins: unknown) {
+		const next: Record<string, BinContents> = {};
+		for (const entry of Array.isArray(bins) ? bins : []) {
+			if (!entry || typeof entry !== 'object' || typeof entry.bin_key !== 'string') continue;
+			next[entry.bin_key] = entry as BinContents;
+		}
+		contentsByKey = next;
+		// fetchBricklinkData is cached per part, so re-applying the full snapshot
+		// only hits the (slow) BrickLink API for parts we haven't seen yet.
+		for (const bin of Object.values(next)) {
+			for (const item of bin.items) {
+				if (item.part_id) void fetchBricklinkData(item.part_id);
+			}
+		}
+	}
+
 	async function loadBinContents() {
 		try {
 			const res = await fetch(`${baseUrl()}/api/bins/contents`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
-			const next: Record<string, BinContents> = {};
-			for (const entry of Array.isArray(data.bins) ? data.bins : []) {
-				if (!entry || typeof entry !== 'object' || typeof entry.bin_key !== 'string') continue;
-				next[entry.bin_key] = entry as BinContents;
-			}
-			contentsByKey = next;
-			for (const bin of Object.values(next)) {
-				for (const item of bin.items) {
-					if (item.part_id) void fetchBricklinkData(item.part_id);
-				}
-			}
+			applyBinsContents(data.bins);
 		} catch {
 			// Keep last known contents on transient failures.
 		}
@@ -599,6 +605,50 @@
 		}
 	}
 
+	// Dedicated full-reset path (layer or whole machine). The backend clears
+	// assignments + contents in one call and returns the fresh layout + contents,
+	// so we update state directly instead of firing extra GET round-trips.
+	async function runBinReset(
+		scope: 'all' | 'layer',
+		layerIndex: number | undefined,
+		confirmMessage: string,
+		busyKey: string
+	) {
+		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
+		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
+		if (!window.confirm(confirmMessage)) return;
+
+		clearingStates = [
+			...clearingStates,
+			{ endpoint: 'categories/clear', scope, busyKey, layerIndex }
+		];
+		statusMsg = '';
+		error = null;
+		try {
+			const url =
+				scope === 'all'
+					? `${baseUrl()}/api/bins/reset/machine`
+					: `${baseUrl()}/api/bins/reset/layer/${layerIndex}`;
+			const res = await fetch(url, { method: 'POST' });
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			statusMsg = data?.message ?? 'Bins reset.';
+			if (data.layout) {
+				layers = data.layout.layers ?? layers;
+				currentAngle = data.layout.current_angle ?? null;
+				activeLayer = data.layout.active_layer ?? null;
+			}
+			applyBinsContents(data.bins);
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to reset bins';
+		} finally {
+			clearingStates = clearingStates.filter((state) => state.busyKey !== busyKey);
+		}
+	}
+
 	async function toggleLayerEnabled(layerIndex: number, enabled: boolean) {
 		if (movingTo || homing || hasAnyClearing() || togglingLayerKey !== null) return;
 		togglingLayerKey = layerIndex;
@@ -737,10 +787,9 @@
 				</button>
 				<button
 					onclick={() =>
-						void runBinAction(
-							'categories/clear',
+						void runBinReset(
 							'all',
-							{},
+							undefined,
 							'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
 							'reset-all'
 						)}
@@ -845,10 +894,9 @@
 								<button
 									type="button"
 									onclick={() =>
-										void runBinAction(
-											'categories/clear',
+										void runBinReset(
 											'layer',
-											{ layer_index: layer.layer_index },
+											layer.layer_index,
 											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer and mark its bins as empty.`,
 											`reset-layer-${layer.layer_index}`
 										)}

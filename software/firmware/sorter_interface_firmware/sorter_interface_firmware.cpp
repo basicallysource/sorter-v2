@@ -206,8 +206,10 @@ uint8_t DEVICE_ADDRESS = INIT_DEVICE_ADDRESS;
 #include "hwcfg_basically_v1_1.h"
 #elif defined(HW_BASICALLY_V1_2)
 #include "hwcfg_basically_v1_2.h"
+#elif defined(HW_PICO2W_BREADBOARD)
+#include "hwcfg_pico2w_breadboard.h"
 #else
-#error "No hardware config selected. Define HARDWARE_SKR_PICO, HW_BASICALLY_V1_1, or HW_BASICALLY_V1_2."
+#error "No hardware config selected. Define HARDWARE_SKR_PICO, HW_BASICALLY_V1_1, HW_BASICALLY_V1_2, or HW_PICO2W_BREADBOARD."
 #endif
 
 // End board configuration

@@ -134,3 +134,108 @@ class StubRuntime:
     ) -> Sequence[Bbox]:
         self.calls += 1
         return self._bboxes
+
+
+class OnnxYoloRuntime:
+    """ONNX inference runtime for non-RK3588 hosts (macOS dev, x86).
+
+    Runs the bundled best.onnx export using onnxruntime-cpu.
+    Input: BGR uint8 frame of any size (resized to imgsz×imgsz internally).
+    Output: list of (x1, y1, x2, y2) integer bboxes.
+    """
+
+    __slots__ = ("_session", "_imgsz", "_conf_threshold", "_iou_threshold", "_model_path")
+
+    def __init__(
+        self,
+        *,
+        model_path,
+        imgsz: int,
+        conf_threshold: float = 0.25,
+        iou_threshold: float = 0.45,
+        # core_mask_name ignored on non-NPU hardware; accepted for API parity
+        core_mask_name: str = "CPU",
+    ) -> None:
+        import onnxruntime as ort  # pip install onnxruntime
+
+        self._model_path = model_path
+        self._imgsz = int(imgsz)
+        self._conf_threshold = float(conf_threshold)
+        self._iou_threshold = float(iou_threshold)
+        self._session = ort.InferenceSession(
+            str(model_path),
+            providers=["CPUExecutionProvider"],
+        )
+
+    @property
+    def model_path(self):
+        return self._model_path
+
+    @property
+    def imgsz(self) -> int:
+        return self._imgsz
+
+    @property
+    def conf_threshold(self) -> float:
+        return self._conf_threshold
+
+    def infer(
+        self, bgr: np.ndarray, *, conf_threshold: Optional[float] = None
+    ) -> Sequence[Bbox]:
+        import cv2
+
+        conf = conf_threshold if conf_threshold is not None else self._conf_threshold
+        img = cv2.resize(bgr, (self._imgsz, self._imgsz))
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        inp = rgb.astype(np.float32) / 255.0
+        inp = np.expand_dims(inp.transpose(2, 0, 1), 0)  # NCHW
+
+        input_name = self._session.get_inputs()[0].name
+        raw = self._session.run(None, {input_name: inp})[0]  # shape: (1, num_det, 6) or (1, 6, 8400)
+
+        # YOLO11 ultralytics ONNX export: output shape (1, num_classes+4, 8400)
+        # Transpose to (8400, num_classes+4) for row-by-row processing.
+        preds = raw[0]
+        if preds.shape[0] < preds.shape[1]:  # (6, 8400) → (8400, 6)
+            preds = preds.T
+
+        bboxes: list[Bbox] = []
+        scale_x = bgr.shape[1] / self._imgsz
+        scale_y = bgr.shape[0] / self._imgsz
+
+        for row in preds:
+            # YOLO format: cx, cy, w, h, [class scores...]
+            cx, cy, w, h = row[0], row[1], row[2], row[3]
+            scores = row[4:]
+            score = float(scores.max())
+            if score < conf:
+                continue
+            x1 = int((cx - w / 2) * scale_x)
+            y1 = int((cy - h / 2) * scale_y)
+            x2 = int((cx + w / 2) * scale_x)
+            y2 = int((cy + h / 2) * scale_y)
+            bboxes.append((x1, y1, x2, y2))
+
+        # Simple NMS — filter overlapping detections
+        return _nms(bboxes, self._iou_threshold)
+
+
+def _nms(boxes: list[Bbox], iou_threshold: float) -> list[Bbox]:
+    if not boxes:
+        return []
+    boxes_arr = np.array(boxes, dtype=np.float32)
+    x1, y1, x2, y2 = boxes_arr[:, 0], boxes_arr[:, 1], boxes_arr[:, 2], boxes_arr[:, 3]
+    areas = (x2 - x1) * (y2 - y1)
+    order = areas.argsort()[::-1]
+    keep = []
+    while order.size:
+        i = order[0]
+        keep.append(i)
+        xx1 = np.maximum(x1[i], x1[order[1:]])
+        yy1 = np.maximum(y1[i], y1[order[1:]])
+        xx2 = np.minimum(x2[i], x2[order[1:]])
+        yy2 = np.minimum(y2[i], y2[order[1:]])
+        inter = np.maximum(0.0, xx2 - xx1) * np.maximum(0.0, yy2 - yy1)
+        iou = inter / (areas[i] + areas[order[1:]] - inter + 1e-6)
+        order = order[np.where(iou <= iou_threshold)[0] + 1]
+    return [boxes[i] for i in keep]

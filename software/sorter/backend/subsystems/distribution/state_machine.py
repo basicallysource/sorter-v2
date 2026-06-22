@@ -57,6 +57,8 @@ class DistributionStateMachine(BaseSubsystem):
             )
 
     def step(self) -> None:
+        if self.chute is None:
+            return  # Distribution disabled — no distribution board present
         self.gc.profiler.hit("distribution.state_machine.step.calls")
         with self.gc.profiler.timer(
             f"distribution.state_machine.state_step_ms.{self.current_state.value}"

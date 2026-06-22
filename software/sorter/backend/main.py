@@ -149,6 +149,10 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     from perception import service as perception_service_mod
     from vision.detection_registry import detection_algorithm_definition
 
+    import platform
+    from perception.runtime import OnnxYoloRuntime
+    _is_rk3588 = platform.machine() == "aarch64" and platform.system() == "Linux"
+
     def _lookup_model(algorithm_id: str):
         definition = detection_algorithm_definition(algorithm_id)
         if definition is None or definition.model_path is None:
@@ -160,11 +164,13 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         irl_config=irl_config,
         camera_service=camera_service,
         model_path_lookup=_lookup_model,
+        **({} if _is_rk3588 else {"runtime_factory": OnnxYoloRuntime}),
     )
     service.start()
     gc.perception_service = service
     gc.logger.info(
-        f"Perception (rev04) started: channels={sorted(service.channels().keys())} "
+        f"Perception (rev04) started: runtime={'rknn' if _is_rk3588 else 'onnx'} "
+        f"channels={sorted(service.channels().keys())} "
         f"workers={sorted(service.workers().keys())}"
     )
 

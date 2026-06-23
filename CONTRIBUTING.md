@@ -21,15 +21,18 @@ This applies to all versions of the basically Sorter project (V1, V2, and beyond
 
 ## Non-Commercial vs Commercial Use
 
-**Non-commercial use of design files (free):**
+**Non-commercial use (free):**
 - Use design files to build Sorters for personal projects
 - Use design files for educational purposes
 - Use design files for research and development
 
-**Commercial use of design files (requires license):**
+Building a Sorter from the design files is free for non-commercial use, but using that self-built machine to earn revenue (sorting-as-a-service or otherwise) is a commercial use and requires a license.
+
+**Commercial use (requires a license):**
 - Use design files to manufacture Sorters for sale
 - Modify designs and manufacture products for sale
 - Distribute design files for commercial purposes
+- Operate, or offer to others, a Sorter built from the design files as part of any commercial product or service — including "sorting as a service" (sorting LEGO parts for third parties for a fee or other consideration)
 
 **Important: Purchased Products**
 If you purchase a basically Sorter from Basically Technologies LLC or an authorized distributor, you may use that physical unit for any purpose, including commercial use. The non-commercial restriction applies only to the design files, not to products you legally purchase.

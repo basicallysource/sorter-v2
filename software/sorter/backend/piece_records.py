@@ -168,6 +168,55 @@ def getOverview() -> dict[str, Any]:
     }
 
 
+def getValueStats(gc: Any) -> dict[str, Any]:
+    # Estimated BrickLink value of every identified piece ever recorded, computed
+    # on the fly from the local price DB — no stored price column / backfill
+    # needed. We group by (part_id, color_id) so each distinct part is priced once
+    # (the lookup is cached) and multiplied by its count, all-time and last-24h.
+    from piece_metadata_db import getLocalPieceMetadata
+
+    cutoff = time.time() - 86400.0
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT part_id, color_id, COUNT(*) AS n, "
+            "SUM(CASE WHEN COALESCE(recorded_at, seen_at) >= ? THEN 1 ELSE 0 END) AS n24 "
+            "FROM piece_records "
+            "WHERE part_id IS NOT NULL AND dead = 0 "
+            "GROUP BY part_id, color_id",
+            (cutoff,),
+        ).fetchall()
+
+    all_total = all_priced = 0
+    d24_total = d24_priced = 0
+    all_value = d24_value = 0.0
+    for r in rows:
+        n = int(r["n"] or 0)
+        n24 = int(r["n24"] or 0)
+        all_total += n
+        d24_total += n24
+        metadata = getLocalPieceMetadata(gc, r["part_id"], r["color_id"])
+        price = metadata.get("moving_avg_price") if metadata else None
+        if isinstance(price, (int, float)) and price > 0:
+            all_value += price * n
+            all_priced += n
+            d24_value += price * n24
+            d24_priced += n24
+
+    return {
+        "currency": "USD",
+        "all_time": {
+            "pieces": all_total,
+            "priced_pieces": all_priced,
+            "value_usd": round(all_value, 2),
+        },
+        "last_24h": {
+            "pieces": d24_total,
+            "priced_pieces": d24_priced,
+            "value_usd": round(d24_value, 2),
+        },
+    }
+
+
 def listPieces(*, offset: int = 0, limit: int = 50) -> tuple[int, list[dict[str, Any]]]:
     offset = max(0, offset)
     limit = max(1, min(limit, 200))

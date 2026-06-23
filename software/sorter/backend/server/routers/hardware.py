@@ -315,6 +315,20 @@ class MoveToBinPayload(BaseModel):
     bin_index: int
 
 
+class MoveToSectionPayload(BaseModel):
+    section_index: int
+
+
+class SectionEnabledPayload(BaseModel):
+    # scope "section" -> one section in one layer (needs layer_index + section_index)
+    # scope "column"  -> the same section index across every layer (needs section_index)
+    # scope "all"     -> every section in every layer
+    scope: str
+    layer_index: Optional[int] = None
+    section_index: Optional[int] = None
+    enabled: bool
+
+
 class BinScopePayload(BaseModel):
     scope: str
     layer_index: Optional[int] = None
@@ -828,6 +842,26 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
             else None,
         )
+    return True
+
+
+def _apply_live_section_enabled(config: "BinLayoutConfig") -> bool:
+    # Mirror the persisted per-section on/off flags into the live runtime
+    # distribution layout so toggles take effect without a backend restart,
+    # exactly like _apply_live_storage_layer_enabled does for whole layers.
+    active_irl = _active_irl()
+    if active_irl is None:
+        return False
+    distribution_layout = getattr(active_irl, "distribution_layout", None)
+    runtime_layers = list(getattr(distribution_layout, "layers", [])) if distribution_layout is not None else []
+    if len(runtime_layers) != len(config.layers):
+        return False
+    for runtime_layer, layer_config in zip(runtime_layers, config.layers):
+        flags = layer_config.section_enabled or []
+        runtime_sections = list(getattr(runtime_layer, "sections", []))
+        for section_idx, runtime_section in enumerate(runtime_sections):
+            enabled = flags[section_idx] if section_idx < len(flags) else True
+            setattr(runtime_section, "enabled", bool(enabled))
     return True
 
 
@@ -2607,6 +2641,11 @@ def save_storage_layer_hardware_config(
             else None
         )
 
+        # Section count is preserved across this rebuild, so carry the existing
+        # per-section on/off flags through rather than resetting them to all-on.
+        prior_flags = layout.layers[i].section_enabled if i < len(layout.layers) else None
+        prior_section_enabled = list(prior_flags) if prior_flags is not None else None
+
         new_layer_configs.append(LayerConfig(
             sections=sections,
             enabled=enabled,
@@ -2614,6 +2653,7 @@ def save_storage_layer_hardware_config(
             servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
             max_pieces_per_bin=max_per_bin_value,
             max_dimension_mm=max_dim_value,
+            section_enabled=prior_section_enabled,
         ))
         if cur_layer:
             layout_changed = layout_changed or count != int(cur_layer["bin_count"])
@@ -2966,10 +3006,14 @@ def get_bins_layout() -> Dict[str, Any]:
                 global_bin += 1
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
         max_dimension = getattr(layer, "max_dimension_mm", None)
+        section_enabled = list(getattr(layer, "section_enabled", None) or [True] * len(sections))
+        if len(section_enabled) < len(sections):
+            section_enabled += [True] * (len(sections) - len(section_enabled))
         layers_out.append({
             "layer_index": layer_idx,
             "enabled": layer.enabled,
             "section_count": len(sections),
+            "section_enabled": section_enabled,
             "bin_count": global_bin,
             "max_pieces_per_bin": max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
             "max_dimension_mm": (
@@ -3108,6 +3152,88 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
         "layer_index": payload.layer_index,
         "section_index": payload.section_index,
         "bin_index": payload.bin_index,
+    }
+
+
+@router.post("/api/bins/move-to-section")
+def move_to_section(payload: MoveToSectionPayload) -> Dict[str, Any]:
+    """Point the chute at the center of a section without opening any servo."""
+    _ensure_not_homing("point at a section")
+    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
+    chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+    if payload.section_index < 0:
+        raise HTTPException(status_code=400, detail="section_index must be >= 0.")
+
+    # bins_in_section=1, bin_index=0 -> the midpoint of the section's usable arc.
+    target_angle = chute.angleForVirtualBin(payload.section_index, 0, 1)
+    if target_angle is None:
+        raise HTTPException(status_code=400, detail="Section is unreachable (angle out of range).")
+
+    try:
+        estimated_ms = chute.moveToAngle(target_angle)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
+
+    return {
+        "ok": True,
+        "target_angle": round(target_angle, 2),
+        "estimated_ms": estimated_ms,
+        "section_index": payload.section_index,
+    }
+
+
+@router.post("/api/bins/sections/enabled")
+def set_section_enabled(payload: SectionEnabledPayload) -> Dict[str, Any]:
+    """Enable/disable sections: a single section, a whole column (same section
+    index across every layer), or every section on the machine."""
+    if payload.scope not in {"section", "column", "all"}:
+        raise HTTPException(status_code=400, detail="scope must be 'section', 'column' or 'all'.")
+
+    layout = getBinLayout()
+    enabled = bool(payload.enabled)
+    changed = 0
+
+    def _set_layer_section(layer: LayerConfig, section_index: int) -> None:
+        nonlocal changed
+        flags = list(layer.section_enabled or [True] * len(layer.sections))
+        if 0 <= section_index < len(flags) and flags[section_index] != enabled:
+            flags[section_index] = enabled
+            layer.section_enabled = flags
+            changed += 1
+
+    if payload.scope == "section":
+        if payload.layer_index is None or payload.section_index is None:
+            raise HTTPException(status_code=400, detail="section scope needs layer_index and section_index.")
+        if payload.layer_index < 0 or payload.layer_index >= len(layout.layers):
+            raise HTTPException(status_code=404, detail=f"Unknown layer {payload.layer_index}.")
+        _set_layer_section(layout.layers[payload.layer_index], payload.section_index)
+    elif payload.scope == "column":
+        if payload.section_index is None:
+            raise HTTPException(status_code=400, detail="column scope needs section_index.")
+        for layer in layout.layers:
+            _set_layer_section(layer, payload.section_index)
+    else:  # all
+        for layer in layout.layers:
+            for section_index in range(len(layer.sections)):
+                _set_layer_section(layer, section_index)
+
+    if changed:
+        try:
+            saveBinLayout(layout)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to persist section state: {e}")
+
+    applied_live = _apply_live_section_enabled(layout)
+    return {
+        "ok": True,
+        "scope": payload.scope,
+        "enabled": enabled,
+        "changed": changed,
+        "applied_live": applied_live,
+        "layout": get_bins_layout(),
     }
 
 

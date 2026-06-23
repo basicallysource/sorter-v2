@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
 import uuid
 import time
@@ -105,6 +105,11 @@ class KnownObject:
     updated_at: float = field(default_factory=time.time)
     stage: PieceStage = PieceStage.created
     classification_status: ClassificationStatus = ClassificationStatus.pending
+    # Set when the Brickognize request itself failed (timeout / DNS / connection
+    # error on a flaky network) rather than succeeding with no match. The piece
+    # still routes as ``unknown`` (no part_id -> misc); this only changes the UI
+    # card label to "Request failed" so a network blip isn't read as a bad piece.
+    request_failed: bool = False
     # Set when a piece's classification cycle was torn down before it ever
     # produced a result (machine stop / reset mid-capture). The object was
     # already emitted to the UI with a crop but will never be classified or
@@ -128,6 +133,19 @@ class KnownObject:
     # Largest single physical dimension (bbox x/y/z) in mm, resolved from Hive
     # part metadata at classification time. None when unknown.
     max_dimension_mm: Optional[float] = None
+    # Headline BrickLink "moving average" price (USD) for this part+color, resolved
+    # at classification time from the local parts.db (piece_metadata_db). None when
+    # the local DB is disabled or has no price. This is the only metadata-DB field
+    # the Recent Pieces card renders.
+    moving_avg_price: Optional[float] = None
+    # Full local-DB metadata blob (part info, BrickLink item, the four price
+    # buckets, etc.) — as much as parts.db carries. Kept for the detail view; the
+    # card shows only moving_avg_price. None when unavailable.
+    piece_metadata: Optional[Dict[str, Any]] = None
+    # Set by the distributor when the profile's high_value_routing override fired
+    # for this piece (moving_avg_price cleared the threshold), so it was rerouted
+    # into the high-value category's bin. Surfaced as a chip on the UI card.
+    high_value_routed: bool = False
     # Set when the piece exceeds the global oversize limit: sent down the
     # center of the chute to the misc bottom bin instead of a real bin.
     too_big: bool = False

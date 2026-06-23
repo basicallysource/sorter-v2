@@ -576,6 +576,22 @@
 		return 'text-danger';
 	}
 
+	// Local-catalog (BrickLink) price formatter. Sub-cent values keep an extra
+	// digit so cheap parts don't collapse to "$0.00"; non-positive/missing → em-dash.
+	function fmtPrice(v: unknown): string {
+		if (typeof v !== 'number' || !isFinite(v) || v <= 0) return '—';
+		return v >= 0.01 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`;
+	}
+
+	// The four BrickLink price buckets in display order: sold (last 6 months)
+	// first since that's what the routing headline prefers, then current listings.
+	const PRICE_BUCKETS: [string, string][] = [
+		['ord_used', 'Sold · Used'],
+		['ord_new', 'Sold · New'],
+		['inv_used', 'Listed · Used'],
+		['inv_new', 'Listed · New']
+	];
+
 	// Timeline: piece lifecycle events with absolute timestamps. We only show
 	// events that actually happened.
 	type TimelineEvent = { label: string; ts: number };
@@ -790,6 +806,89 @@
 					</div>
 				</div>
 			</section>
+
+			<!-- Pricing — every BrickLink bucket from the local parts.db catalog.
+			     The headline `moving_avg_price` (what routing uses) is the first
+			     non-empty of these, sold·new preferred; the table shows all four
+			     so you can see whatever source actually exists for this part. -->
+			{#if piece.piece_metadata}
+				{@const md = piece.piece_metadata as Record<string, any>}
+				{@const price = (md.price ?? null) as Record<string, any> | null}
+				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
+				<section class="border border-border bg-surface">
+					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+						Pricing — local catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
+					</div>
+					<div class="flex flex-col gap-3 p-3 text-sm">
+						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+							<span class="text-text-muted">Moving avg (routing)</span>
+							<span class="text-base font-semibold tabular-nums text-success">
+								{typeof md.moving_avg_price === 'number' ? fmtPrice(md.moving_avg_price) : '—'}
+							</span>
+							<span class="text-xs text-text-muted">first available · sold·new preferred</span>
+							<span class="border border-border bg-bg px-1.5 py-0.5 text-xs text-text-muted">
+								{md.price_color_specific ? 'this color' : 'all colors (most liquid)'}
+							</span>
+							{#if md.price_updated_at}
+								<span class="text-xs text-text-muted">synced {String(md.price_updated_at).slice(0, 10)}</span>
+							{/if}
+						</div>
+
+						{#if md.price_from_base_mold}
+							<div class="border border-warning/40 bg-warning/[0.08] px-2.5 py-1.5 text-sm text-text">
+								≈ Approximate — no market data for this exact print. Showing the base
+								mold <span class="font-mono">{md.price_from_base_mold}</span>{md.price_from_base_name
+									? ` (${md.price_from_base_name})`
+									: ''} price instead.
+							</div>
+						{/if}
+
+						{#if price}
+							<div class="overflow-x-auto">
+								<table class="w-full border-collapse text-sm">
+									<thead>
+										<tr class="text-text-muted">
+											<th class="border border-border px-2 py-1 text-left font-medium">Source</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Avg</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Wt avg</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Min</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Max</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Qty</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Lots</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each PRICE_BUCKETS as [key, label]}
+											{@const b = (price[key] ?? {}) as Record<string, any>}
+											<tr>
+												<td class="border border-border px-2 py-1 text-text">{label}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text">{fmtPrice(b.avg)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text">{fmtPrice(b.wavg)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{fmtPrice(b.min)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{fmtPrice(b.max)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{b.qty ?? '—'}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{b.lots ?? '—'}</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						{:else}
+							<div class="text-text-muted">No price-guide rows for this part in the local catalog.</div>
+						{/if}
+
+						{#if bl}
+							<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+								{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
+								{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
+								{#if bl.dim_x_studs && bl.dim_y_studs}<span>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span>{/if}
+								{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
+								{#if bl.is_obsolete}<span>obsolete</span>{/if}
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
 
 			<!-- Arrival snapshot: full carousel frame at the instant the piece
 			     first appeared on C4 (dropping in from C3), side-by-side with

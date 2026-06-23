@@ -156,6 +156,19 @@ class Positioning(BaseState):
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
                 category_id = MISC_CATEGORY
+            # High-value override: a piece whose local-DB moving-average price
+            # clears the profile's high_value_routing threshold is rerouted into
+            # the configured category (e.g. Yellow/Orange Tiles), so it lands in
+            # that category's bin regardless of its normal classification.
+            high_value_category = self.sorting_profile.highValueCategoryId(piece.moving_avg_price)
+            if high_value_category is not None:
+                self.logger.info(
+                    f"Positioning: piece {piece.uuid} ({piece.part_id}) moving-avg "
+                    f"${piece.moving_avg_price} clears high-value threshold — routing to "
+                    f"category {high_value_category} (was {category_id})"
+                )
+                category_id = high_value_category
+                piece.high_value_routed = True
             address, _ = self._findOrAssignBinForCategory(category_id)
             if address is None and self._servo_bus_pause_enqueued:
                 # Fatal: the servo bus is offline, so every layer is
@@ -768,6 +781,9 @@ class Positioning(BaseState):
             has_usable_layers = True
             max_per_bin = getattr(layer, "max_pieces_per_bin", None)
             for section_idx, section in enumerate(layer.sections):
+                if not getattr(section, "enabled", True):
+                    skipped.append(f"layer{layer_idx}.section{section_idx}=disabled")
+                    continue
                 for bin_idx, b in enumerate(section.bins):
                     address = BinAddress(layer_idx, section_idx, bin_idx)
                     if not self.chute.isBinReachable(address):

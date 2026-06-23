@@ -553,7 +553,7 @@ def markRunningSyncsInterrupted(conn):
 
 # --- brickstore db import ---
 
-def importBrickstoreDb(conn, brickstore_db_path):
+def importBrickstoreDb(conn, brickstore_db_path, only_minifigs=False):
     db_data = parseDatabase(brickstore_db_path)
 
     # upsert categories
@@ -567,11 +567,45 @@ def importBrickstoreDb(conn, brickstore_db_path):
     for row in conn.execute("SELECT part_num, item_no FROM part_bricklink_ids"):
         bl_to_part[row[1]] = row[0]
 
-    # upsert items (only type P = parts)
+    # upsert items: type P = parts, type M = complete minifigs.
     imported = 0
     skipped = 0
+    minifigs = 0
     for item in db_data["items"]:
-        if item["type"] != "P":
+        item_type = item["type"]
+        if item_type == "M":
+            # Complete minifigs. Brickognize recognizes assembled figs and returns
+            # the BrickLink minifig number (e.g. "sw0001a") as the item id, which is
+            # exactly this catalog key. We register each fig as its own "part"
+            # (part_num == BL minifig no, primary BrickLink mapping) plus a MINIFIG
+            # bricklink item, and seed color 0 (figs are color-agnostic) so the
+            # price pass picks it up via type=MINIFIG.
+            mf_no = item["no"]
+            upsertPart(conn, {
+                "part_num": mf_no,
+                "name": item["name"],
+                "part_cat_id": None,
+                "year_from": item.get("year_released"),
+                "year_to": item.get("year_last_produced"),
+                "external_ids": {"BrickLink": [mf_no]},
+            })
+            upsertBricklinkItem(conn, {
+                "item_no": mf_no,
+                "part_num": mf_no,
+                "name": item["name"],
+                "type": "MINIFIG",
+                "category_id": item["category_id"],
+                "weight": item["weight"],
+                "year_released": item.get("year_released"),
+                "is_obsolete": item.get("is_obsolete"),
+                "synced_at": "brickstore_db",
+                "dim_x_studs": item.get("dim_x_studs"),
+                "dim_y_studs": item.get("dim_y_studs"),
+            })
+            upsertBricklinkItemColors(conn, mf_no, [0])
+            minifigs += 1
+            continue
+        if only_minifigs or item_type != "P":
             continue
         item_no = item["no"]
         part_num = bl_to_part.get(item_no)
@@ -603,8 +637,8 @@ def importBrickstoreDb(conn, brickstore_db_path):
         imported += 1
 
     conn.commit()
-    print(f"[db] imported {imported} bricklink items ({skipped} skipped, no matching part)")
-    return {"categories": len(db_data["categories"]), "items": imported, "skipped": skipped}
+    print(f"[db] imported {imported} bricklink items + {minifigs} minifigs ({skipped} skipped, no matching part)")
+    return {"categories": len(db_data["categories"]), "items": imported, "minifigs": minifigs, "skipped": skipped}
 
 
 # --- bricklink affiliate price sync ---
@@ -614,19 +648,28 @@ BL_AFFILIATE_BATCH_SIZE = 500
 BL_AFFILIATE_THROTTLE_SECONDS = 0.5
 
 
-def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
-    # Price every real (part, color) combo. The colors come from BrickStore's
+def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, only_types=None):
+    # Price every real (item, color) combo. The colors come from BrickStore's
     # known_colors (bricklink_item_colors), so we only request combos that exist
     # instead of the old color_id=0 request, which returns a near-empty bucket.
+    # ``only_types`` (e.g. {"MINIFIG"}) restricts the pass to those item types so
+    # a targeted re-price (just the figs) doesn't re-fetch every part.
     bl_to_rb = {bl: rb for rb, bl in _buildRbToBlColorMap(_loadColors(conn)).items()}
 
+    where = ""
+    where_params: list = []
+    if only_types:
+        where = "WHERE bi.type IN (%s) " % ",".join("?" * len(only_types))
+        where_params = list(only_types)
     rows = conn.execute(
-        "SELECT bic.item_no, bic.bl_color_id, bi.part_num "
+        "SELECT bic.item_no, bic.bl_color_id, bi.part_num, bi.type "
         "FROM bricklink_item_colors bic "
         "JOIN bricklink_items bi ON bi.item_no = bic.item_no "
-        "ORDER BY bic.item_no, bic.bl_color_id"
+        f"{where}"
+        "ORDER BY bic.item_no, bic.bl_color_id",
+        where_params,
     ).fetchall()
-    combos = [(r[0], r[1], r[2]) for r in rows]
+    combos = [(r[0], r[1], r[2], r[3] or "PART") for r in rows]
     total = len(combos)
     if total == 0:
         return {"total": 0, "updated": 0, "batches": 0, "stopped": False}
@@ -642,21 +685,37 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
             return {"total": total, "updated": updated, "batches": batches_sent, "stopped": True}
 
         batch = combos[batch_start:batch_start + BL_AFFILIATE_BATCH_SIZE]
-        body = [{"color_id": cid, "item": {"no": item_no, "type": "PART"}}
-                for item_no, cid, _ in batch]
+        body = [{"color_id": cid,
+                 "item": {"no": item_no, "type": "MINIFIG" if itype == "MINIFIG" else "PART"}}
+                for item_no, cid, _, itype in batch]
 
         time.sleep(BL_AFFILIATE_THROTTLE_SECONDS)
-        resp = requests.post(
-            BL_AFFILIATE_BATCH_URL,
-            params={
-                "currency_code": "USD",
-                "precision": "4",
-                "vat_type": "0",
-                "api_key": api_key,
-            },
-            json=body,
-            timeout=30,
-        )
+        # Retry transient network failures (flaky DNS / connection resets) with
+        # backoff rather than aborting the whole multi-thousand-combo sync on a
+        # single hiccup. Only connection-level errors are retried; an HTTP error
+        # status still raises after raise_for_status below.
+        resp = None
+        for attempt in range(5):
+            try:
+                resp = requests.post(
+                    BL_AFFILIATE_BATCH_URL,
+                    params={
+                        "currency_code": "USD",
+                        "precision": "4",
+                        "vat_type": "0",
+                        "api_key": api_key,
+                    },
+                    json=body,
+                    timeout=30,
+                )
+                break
+            except requests.exceptions.RequestException as exc:
+                if attempt == 4:
+                    raise
+                wait_s = 2 ** attempt
+                if progress_fn:
+                    progress_fn(batch_start, total, f"network error ({exc.__class__.__name__}), retry {attempt + 1}/4 in {wait_s}s")
+                time.sleep(wait_s)
         resp.raise_for_status()
         result = resp.json()
         batches_sent += 1
@@ -668,7 +727,7 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
             if item_no is not None:
                 price_by_key[(item_no, entry.get("color_id"))] = entry
 
-        for item_no, cid, part_num in batch:
+        for item_no, cid, part_num, itype in batch:
             price_entry = price_by_key.get((item_no, cid))
             if not price_entry:
                 continue
@@ -676,8 +735,8 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None):
             if not existing:
                 conn.execute(
                     "INSERT INTO bricklink_items (item_no, part_num, type, synced_at) "
-                    "VALUES (?, ?, 'PART', 'price_sync')",
-                    (item_no, part_num),
+                    "VALUES (?, ?, ?, 'price_sync')",
+                    (item_no, part_num, itype),
                 )
             _upsertPriceGuide(conn, item_no, cid, bl_to_rb.get(cid), price_entry)
             updated += 1

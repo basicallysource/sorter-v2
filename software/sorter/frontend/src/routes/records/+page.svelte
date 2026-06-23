@@ -86,8 +86,12 @@
 
 	const PAGE_SIZE = 100;
 
+	type ValueBucket = { pieces: number; priced_pieces: number; value_usd: number };
+	type ValueStats = { currency: string; all_time: ValueBucket; last_24h: ValueBucket };
+
 	let overview = $state<Overview | null>(null);
 	let lifetime = $state<Lifetime | null>(null);
+	let value = $state<ValueStats | null>(null);
 	let pieces = $state<PieceItem[]>([]);
 	let total = $state(0);
 	let offset = $state(0);
@@ -120,6 +124,16 @@
 			const res = await fetch(`${effectiveBase()}/api/records/lifetime`);
 			if (!res.ok) return;
 			lifetime = await res.json();
+		} catch {
+			// ignore
+		}
+	}
+
+	async function loadValue() {
+		try {
+			const res = await fetch(`${effectiveBase()}/api/records/value`);
+			if (!res.ok) return;
+			value = await res.json();
 		} catch {
 			// ignore
 		}
@@ -175,6 +189,7 @@
 	function refresh() {
 		void loadOverview();
 		void loadLifetime();
+		void loadValue();
 		void loadPieces();
 	}
 
@@ -387,6 +402,15 @@
 		return ppm.toLocaleString(undefined, { maximumFractionDigits: 1 });
 	}
 
+	function formatUsd(amount: number | null | undefined): string {
+		if (typeof amount !== 'number') return '—';
+		return amount.toLocaleString(undefined, {
+			style: 'currency',
+			currency: 'USD',
+			maximumFractionDigits: 2
+		});
+	}
+
 	let utilizationPct = $derived(
 		lifetime && lifetime.seconds_powered > 0
 			? (lifetime.seconds_sorted / lifetime.seconds_powered) * 100
@@ -475,6 +499,27 @@
 			{@render statCard(
 				'Classified',
 				lifetime ? lifetime.pieces_classified.toLocaleString() : '—'
+			)}
+		</div>
+
+		<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
+			Estimated value
+			<span class="ml-1 font-normal normal-case text-text-muted">— BrickLink moving avg, from the local catalog</span>
+		</h3>
+		<div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+			{@render statCardSub(
+				'Total value',
+				value ? formatUsd(value.all_time.value_usd) : '—',
+				value
+					? `${value.all_time.priced_pieces.toLocaleString()} of ${value.all_time.pieces.toLocaleString()} pieces priced`
+					: ''
+			)}
+			{@render statCardSub(
+				'Value · last 24h',
+				value ? formatUsd(value.last_24h.value_usd) : '—',
+				value
+					? `${value.last_24h.priced_pieces.toLocaleString()} of ${value.last_24h.pieces.toLocaleString()} pieces priced`
+					: ''
 			)}
 		</div>
 

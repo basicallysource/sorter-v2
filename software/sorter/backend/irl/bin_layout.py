@@ -14,6 +14,20 @@ class LayerConfig:
     # None disables the check for the layer — pieces of any size may be sent
     # here. A piece exceeding this is rerouted to the misc bottom bin.
     max_dimension_mm: float | None = None
+    # Per-section on/off, one bool per section (parallel to ``sections``). A
+    # disabled section is skipped during assignment exactly like a disabled
+    # layer. None / wrong length is normalized to all-enabled in __post_init__.
+    section_enabled: List[bool] | None = None
+
+    def __post_init__(self) -> None:
+        n = len(self.sections)
+        if self.section_enabled is None:
+            self.section_enabled = [True] * n
+            return
+        normalized = [bool(flag) for flag in self.section_enabled][:n]
+        if len(normalized) < n:
+            normalized += [True] * (n - len(normalized))
+        self.section_enabled = normalized
 
 
 # Per-layer oversize-limit defaults, keyed by the layer's total bin count.
@@ -71,6 +85,7 @@ class Bin:
 @dataclass
 class BinSection:
     bins: List[Bin] = field(default_factory=list)
+    enabled: bool = True
 
 
 @dataclass
@@ -173,6 +188,12 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
         servo_close = layer_data.get("servo_closed_angle")
         max_per_bin = layer_data.get("max_pieces_per_bin")
         max_dimension = _parseMaxDimension(layer_data.get("max_dimension_mm", _MISSING), sections)
+        section_enabled_raw = layer_data.get("section_enabled")
+        section_enabled = (
+            [bool(flag) for flag in section_enabled_raw]
+            if isinstance(section_enabled_raw, list)
+            else None
+        )
         layers.append(LayerConfig(
             sections=sections,
             enabled=enabled,
@@ -180,6 +201,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
             servo_closed_angle=servo_close if isinstance(servo_close, int) else None,
             max_pieces_per_bin=max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
             max_dimension_mm=max_dimension,
+            section_enabled=section_enabled,
         ))
     return BinLayoutConfig(layers=layers) if layers else None
 
@@ -207,6 +229,9 @@ def _loadFromToml() -> BinLayoutConfig | None:
     closed_angles = layers_table.get("servo_closed_angles", {})
     if not isinstance(closed_angles, dict):
         closed_angles = {}
+    section_enabled_all = layers_table.get("section_enabled")
+    if not isinstance(section_enabled_all, list):
+        section_enabled_all = []
 
     layers = []
     for i, sections in enumerate(raw_sections):
@@ -227,11 +252,18 @@ def _loadFromToml() -> BinLayoutConfig | None:
             continue
         open_val = open_angles.get(str(i))
         closed_val = closed_angles.get(str(i))
+        section_enabled_raw = section_enabled_all[i] if i < len(section_enabled_all) else None
+        section_enabled = (
+            [bool(flag) for flag in section_enabled_raw]
+            if isinstance(section_enabled_raw, list)
+            else None
+        )
         layers.append(LayerConfig(
             sections=sections,
             servo_open_angle=open_val if isinstance(open_val, int) else None,
             servo_closed_angle=closed_val if isinstance(closed_val, int) else None,
             max_dimension_mm=defaultMaxDimensionForBinCount(_binCountOf(sections)),
+            section_enabled=section_enabled,
         ))
 
     return BinLayoutConfig(layers=layers) if layers else None
@@ -265,6 +297,7 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
                 "servo_closed_angle": layer.servo_closed_angle,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
                 "max_dimension_mm": layer.max_dimension_mm,
+                "section_enabled": layer.section_enabled,
             }
             for layer in config.layers
         ]
@@ -276,12 +309,14 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     layers = []
     for layer_config in config.layers:
         sections = []
-        for section_config in layer_config.sections:
+        section_flags = layer_config.section_enabled or []
+        for section_idx, section_config in enumerate(layer_config.sections):
             bins = []
             for bin_size_str in section_config:
                 bin_size = BinSize(bin_size_str)
                 bins.append(Bin(size=bin_size))
-            sections.append(BinSection(bins=bins))
+            section_enabled = section_flags[section_idx] if section_idx < len(section_flags) else True
+            sections.append(BinSection(bins=bins, enabled=section_enabled))
         layers.append(Layer(
             sections=sections,
             enabled=layer_config.enabled,

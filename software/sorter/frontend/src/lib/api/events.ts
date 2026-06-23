@@ -84,6 +84,9 @@ export interface KnownObjectData {
   // Set by the backend when a piece's cycle was torn down before it ever
   // classified or distributed (machine stop / reset mid-capture). Such pieces
   // are dropped from the UI rather than left stuck in the "capturing" phase.
+  // True when the Brickognize request failed (timeout/DNS/connection on a flaky
+  // network) rather than succeeding with no match. Card shows "Request failed".
+  request_failed?: boolean;
   aborted?: boolean;
   // Set when the backend reaps a piece that went silent for too long without
   // reaching the distributed stage (the time-based analogue of `aborted`). The
@@ -97,6 +100,16 @@ export interface KnownObjectData {
   category_id?: string | null;
   confidence?: number | null;
   max_dimension_mm?: number | null;
+  // Headline BrickLink moving-average price (USD) from the local parts.db. This
+  // is the only metadata-DB field the Recent Pieces card renders. null when the
+  // local DB is disabled or has no price for this part.
+  moving_avg_price?: number | null;
+  // Full local-DB metadata blob (part info, BrickLink item, price buckets, etc.)
+  // packaged for the detail view; the card shows only moving_avg_price.
+  piece_metadata?: Record<string, unknown> | null;
+  // True when the profile's high_value_routing override rerouted this piece into
+  // the high-value category's bin. Drives the "High value" chip on the card.
+  high_value_routed?: boolean;
   too_big?: boolean;
   too_big_for_layer?: boolean;
   intended_layer_index?: number | null;

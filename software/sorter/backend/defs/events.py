@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import Literal, Union, Optional, Tuple, List
+from typing import Any, Dict, Literal, Union, Optional, Tuple, List
 from enum import Enum
 
 
@@ -118,6 +118,9 @@ class KnownObjectData(BaseModel):
     updated_at: float
     stage: PieceStage
     classification_status: ClassificationStatus
+    # True when the Brickognize request failed (timeout/DNS/connection) rather than
+    # succeeding with no match. Drives the "Request failed" card label.
+    request_failed: bool = False
     aborted: bool = False
     # Set when the backend reaps a piece that went silent for too long without
     # reaching the distributed stage (the time-based analogue of ``aborted``).
@@ -131,6 +134,14 @@ class KnownObjectData(BaseModel):
     category_id: Optional[str] = None
     confidence: Optional[float] = None
     max_dimension_mm: Optional[float] = None
+    # Headline BrickLink moving-average price (USD) from the local parts.db, plus
+    # the full local-DB metadata blob. moving_avg_price is what the Recent Pieces
+    # card renders; piece_metadata carries the rest for the detail view.
+    moving_avg_price: Optional[float] = None
+    piece_metadata: Optional[Dict[str, Any]] = None
+    # True when the profile's high_value_routing override rerouted this piece into
+    # the high-value category's bin. Drives the "High value" chip on the card.
+    high_value_routed: bool = False
     too_big: bool = False
     too_big_for_layer: bool = False
     intended_layer_index: Optional[int] = None

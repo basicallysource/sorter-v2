@@ -27,6 +27,7 @@
 		layer_index: number;
 		enabled: boolean;
 		section_count: number;
+		section_enabled?: boolean[];
 		bin_count: number;
 		max_pieces_per_bin: number | null;
 		bins: BinInfo[];
@@ -78,6 +79,8 @@
 	let statusMsg = $state('');
 	let clearingStates = $state<ClearingState[]>([]);
 	let togglingLayerKey = $state<number | null>(null);
+	let sectionBusyKey = $state<string | null>(null);
+	let pointingSectionKey = $state<string | null>(null);
 	let allowMultiCategory = $state(false);
 	let savingMultiCategory = $state(false);
 	let contentsByKey = $state<Record<string, BinContents>>({});
@@ -679,6 +682,78 @@
 		}
 	}
 
+	function sectionEnabled(layer: LayerInfo, sectionIndex: number): boolean {
+		return layer.section_enabled?.[sectionIndex] ?? true;
+	}
+
+	// A column (same section index across every layer) is "on" only when every
+	// layer has that section enabled.
+	function columnEnabled(sectionIndex: number): boolean {
+		return layers.every((layer) => sectionEnabled(layer, sectionIndex));
+	}
+
+	function maxSectionCount(): number {
+		return layers.reduce((max, layer) => Math.max(max, layer.section_count ?? 0), 0);
+	}
+
+	async function setSectionEnabled(
+		scope: 'section' | 'column' | 'all',
+		enabled: boolean,
+		opts: { layer_index?: number; section_index?: number },
+		busyKey: string
+	) {
+		if (movingTo || homing || hasAnyClearing() || sectionBusyKey !== null) return;
+		sectionBusyKey = busyKey;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/sections/enabled`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope, enabled, ...opts })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			if (data.layout?.layers) {
+				layers = data.layout.layers;
+				currentAngle = data.layout.current_angle ?? currentAngle;
+				activeLayer = data.layout.active_layer ?? activeLayer;
+			}
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update section status';
+		} finally {
+			sectionBusyKey = null;
+		}
+	}
+
+	async function pointAtSection(sectionIndex: number) {
+		const busyKey = `point-${sectionIndex}`;
+		if (movingTo || homing || pointingSectionKey !== null) return;
+		pointingSectionKey = busyKey;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/move-to-section`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ section_index: sectionIndex })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			statusMsg = `Pointing chute at section ${sectionIndex + 1} (${data.target_angle}°).`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to point at section';
+		} finally {
+			pointingSectionKey = null;
+		}
+	}
+
 	onMount(() => {
 		void loadLayout();
 		void loadBinContents();
@@ -827,6 +902,59 @@
 			</label>
 		</div>
 
+		{#if !loading && layers.length > 0 && maxSectionCount() > 0}
+			<div class="mb-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+				<div class="mb-2 flex items-center justify-between gap-4">
+					<div>
+						<div class="text-sm font-medium text-[#1A1A1A]">Columns (sections across all layers)</div>
+						<div class="mt-0.5 text-sm text-[#66635C]">
+							Disable a whole column to stop sorting into that section on every layer, or
+							point the chute at it to find it.
+						</div>
+					</div>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					{#each Array(maxSectionCount()) as _, sectionIndex}
+						{@const colOn = columnEnabled(sectionIndex)}
+						{@const colBusy = sectionBusyKey === `col-${sectionIndex}`}
+						<div class="flex items-center gap-2 border border-[#E2E0DB] {colOn ? 'bg-white' : 'bg-[#F2F0EB]'} px-3 py-1.5">
+							<span class="text-sm font-semibold {colOn ? 'text-[#1A1A1A]' : 'text-[#9A968E]'}">
+								Col {sectionIndex + 1}
+							</span>
+							<button
+								type="button"
+								role="switch"
+								aria-checked={colOn}
+								aria-label={colOn ? `Disable column ${sectionIndex + 1}` : `Enable column ${sectionIndex + 1}`}
+								onclick={() =>
+									void setSectionEnabled('column', !colOn, { section_index: sectionIndex }, `col-${sectionIndex}`)}
+								disabled={homing || !!movingTo || hasAnyClearing() || sectionBusyKey !== null}
+								class={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${colOn ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
+							>
+								<span class={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${colOn ? 'translate-x-5' : 'translate-x-1'}`}></span>
+							</button>
+							<button
+								type="button"
+								onclick={() => void pointAtSection(sectionIndex)}
+								disabled={homing || !!movingTo || pointingSectionKey !== null}
+								class="flex items-center justify-center border border-[#E2E0DB] bg-white p-1 text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+								title="Point chute at section {sectionIndex + 1}"
+							>
+								{#if pointingSectionKey === `point-${sectionIndex}`}
+									<Loader2 size={14} class="animate-spin" />
+								{:else}
+									<Crosshair size={14} />
+								{/if}
+							</button>
+							{#if colBusy}
+								<Loader2 size={14} class="animate-spin text-primary" />
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
 		<StatusBanner message={statusMsg} variant="success" />
 		<StatusBanner message={error ?? ''} variant="error" />
 
@@ -908,6 +1036,41 @@
 								</button>
 							</div>
 						</div>
+						<div class="flex flex-wrap items-center gap-2 border-b border-[#E2E0DB] bg-[#FAFAF8] px-3 py-2">
+							<span class="text-xs font-semibold uppercase tracking-wide text-[#7A7770]">Sections</span>
+							{#each Array(layer.section_count) as _, sectionIndex}
+								{@const secOn = sectionEnabled(layer, sectionIndex)}
+								{@const secKey = `sec-${layer.layer_index}-${sectionIndex}`}
+								<div class="flex items-center gap-1.5 border border-[#E2E0DB] {secOn ? 'bg-white' : 'bg-[#F2F0EB]'} px-2 py-1">
+									<span class="text-sm {secOn ? 'text-[#1A1A1A]' : 'text-[#9A968E]'}">S{sectionIndex + 1}</span>
+									<button
+										type="button"
+										role="switch"
+										aria-checked={secOn}
+										aria-label={secOn ? `Disable layer ${layer.layer_index + 1} section ${sectionIndex + 1}` : `Enable layer ${layer.layer_index + 1} section ${sectionIndex + 1}`}
+										onclick={() =>
+											void setSectionEnabled('section', !secOn, { layer_index: layer.layer_index, section_index: sectionIndex }, secKey)}
+										disabled={homing || !!movingTo || hasAnyClearing() || sectionBusyKey !== null}
+										class={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${secOn ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
+									>
+										<span class={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${secOn ? 'translate-x-5' : 'translate-x-1'}`}></span>
+									</button>
+									<button
+										type="button"
+										onclick={() => void pointAtSection(sectionIndex)}
+										disabled={homing || !!movingTo || pointingSectionKey !== null}
+										class="flex items-center justify-center border border-[#E2E0DB] bg-white p-1 text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+										title="Point chute at section {sectionIndex + 1}"
+									>
+										{#if pointingSectionKey === `point-${sectionIndex}`}
+											<Loader2 size={13} class="animate-spin" />
+										{:else}
+											<Crosshair size={13} />
+										{/if}
+									</button>
+								</div>
+							{/each}
+						</div>
 						<div class="grid grid-cols-6 gap-3 p-3">
 							{#each layer.bins as bin}
 								{@const key = `${layer.layer_index}-${bin.section_index}-${bin.bin_index}`}
@@ -919,7 +1082,13 @@
 								{@const previewItems = cardPreviewItems(contents)}
 								{@const setMeta = assignedSetMeta(bin.category_ids)}
 								{@const setProgress = setProgressFor(bin.category_ids)}
-								<div class="group relative flex h-full flex-col border border-[#E2E0DB] bg-white">
+								{@const secOn = sectionEnabled(layer, bin.section_index)}
+								<div class="group relative flex h-full flex-col border border-[#E2E0DB] bg-white {secOn ? '' : 'opacity-50'}">
+									{#if !secOn}
+										<div class="absolute right-1 top-1 z-10 bg-[#9A968E] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+											Section off
+										</div>
+									{/if}
 									{#if isClearing}
 										<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/82 backdrop-blur-[1px]">
 											<div class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-2 shadow-sm">

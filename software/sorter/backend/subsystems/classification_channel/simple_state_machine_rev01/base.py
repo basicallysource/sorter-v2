@@ -672,8 +672,16 @@ class Rev01BaseState(BaseState):
 
         frames = list(self.ctx.captured_crops)
 
+        obj.request_failed = False
         if error is not None:
             obj.classification_status = ClassificationStatus.unknown
+            # A transport error (Brickognize timeout / DNS / connection failure on
+            # a flaky network) means the request failed, not that the piece is
+            # unidentifiable — flag it so the card reads "Request failed". The
+            # local-pipeline sentinels ("no_captures"/"no_result") are not network
+            # failures, so they stay plain "unknown".
+            if error not in ("no_captures", "no_result"):
+                obj.request_failed = True
         elif isinstance(result, dict):
             items = result.get("items", [])
             colors = result.get("colors", [])
@@ -698,6 +706,7 @@ class Rev01BaseState(BaseState):
 
         if obj.classification_status == ClassificationStatus.classified and obj.part_id:
             self._applyHiveSizeMetadata(obj)
+            self._applyLocalPieceMetadata(obj)
 
         if frames:
             best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
@@ -735,6 +744,22 @@ class Rev01BaseState(BaseState):
                 )
         except Exception as exc:
             self.gc.logger.warn(f"hive size metadata lookup failed: {exc}")
+
+    def _applyLocalPieceMetadata(self, obj) -> None:
+        # Additive, local-only: pull metadata + BrickLink pricing for this
+        # part+color straight off the local parts.db copy and stash it on the
+        # piece. Temporary convenience alongside the network Hive path; a missing
+        # DB or absent part must never affect classification.
+        try:
+            from piece_metadata_db import getLocalPieceMetadata
+
+            metadata = getLocalPieceMetadata(self.gc, obj.part_id, obj.color_id)
+            if metadata is None:
+                return
+            obj.piece_metadata = metadata
+            obj.moving_avg_price = metadata.get("moving_avg_price")
+        except Exception as exc:
+            self.gc.logger.warn(f"local piece metadata lookup failed: {exc}")
 
     def dumpBurstCaptureArtifacts(
         self,

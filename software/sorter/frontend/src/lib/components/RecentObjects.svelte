@@ -416,6 +416,24 @@
 		return 'text-danger';
 	}
 
+	// BrickLink moving-average price (USD) from the local parts.db. Sub-dollar
+	// pieces (most bricks) get an extra decimal so they don't all collapse to
+	// "$0.00"; a dollar and up reads as plain currency.
+	function formatPrice(price: number): string {
+		return price >= 0.01 ? `$${price.toFixed(2)}` : `$${price.toFixed(3)}`;
+	}
+
+	// First-release year for the card badge: Rebrickable year_from, falling back
+	// to the BrickLink release year (used for printed parts / minifigs). Null when
+	// unknown. Pulled straight off the piece_metadata blob on the event.
+	function yearOf(obj: KnownObjectData): number | null {
+		const md = obj.piece_metadata as Record<string, unknown> | null | undefined;
+		if (!md) return null;
+		const bl = md.bricklink as Record<string, unknown> | null | undefined;
+		const y = (md.year_from as number | undefined) ?? (bl?.year_released as number | undefined);
+		return typeof y === 'number' && y > 0 ? y : null;
+	}
+
 	const PHASE_LABEL: Record<LifecyclePhase, string> = {
 		tracking: 'Tracking',
 		capturing: 'Capturing',
@@ -464,6 +482,7 @@
 	{@const is_unknown =
 		obj.classification_status === 'unknown' ||
 		obj.classification_status === 'not_found'}
+	{@const is_request_failed = Boolean(obj.request_failed)}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
 	{@const is_too_big = Boolean(obj.too_big) || Boolean(obj.too_big_for_layer)}
 	{@const too_big_label = obj.too_big_for_layer ? 'Too big for layer' : 'Too big'}
@@ -485,18 +504,22 @@
 	{@const has_name = Boolean(resolved_name) && !is_unknown && !is_multi_drop}
 	{@const primary_text = is_multi_drop
 		? 'Multi drop — rejected'
-		: is_unknown
-			? obj.classification_status === 'not_found'
-				? 'Not recognized by Brickognize'
-				: 'Unknown piece'
-			: has_name
-				? resolved_name!
-				: (obj.part_id ?? obj.uuid.slice(0, 8))}
+		: is_request_failed
+			? 'Request failed'
+			: is_unknown
+				? obj.classification_status === 'not_found'
+					? 'Not recognized by Brickognize'
+					: 'Unknown piece'
+				: has_name
+					? resolved_name!
+					: (obj.part_id ?? obj.uuid.slice(0, 8))}
 	{@const primary_class = is_multi_drop
 		? 'text-danger'
-		: is_unknown
-			? 'text-text-muted'
-			: 'text-text'}
+		: is_request_failed
+			? 'text-warning'
+			: is_unknown
+				? 'text-text-muted'
+				: 'text-text'}
 
 	{@const base_src = is_classified_ok ? reference_src : captured}
 	<!-- Flash through every recognition view (burst frames + upstream matches)
@@ -560,7 +583,23 @@
 				</div>
 
 				{#if has_name && obj.part_id}
-					<div class="truncate font-mono text-xs text-text-muted">{obj.part_id}</div>
+					<div class="flex items-baseline justify-between gap-2">
+						<span class="truncate font-mono text-xs text-text-muted">{obj.part_id}</span>
+						{#if typeof obj.moving_avg_price === 'number'}
+							<span
+								class="flex-shrink-0 text-sm font-semibold tabular-nums text-success"
+								title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
+									?.price_from_base_mold
+									? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
+									: 'BrickLink moving-average price (local catalog)'}
+							>
+								{(obj.piece_metadata as Record<string, unknown> | null | undefined)
+									?.price_from_base_mold
+									? '≈'
+									: ''}{formatPrice(obj.moving_avg_price)}
+							</span>
+						{/if}
+					</div>
 				{:else if phase === 'tracking' && !is_unknown && !is_multi_drop}
 					<div class="text-xs text-text-muted">Tracked on carousel…</div>
 				{:else if phase === 'capturing' && !is_unknown && !is_multi_drop}
@@ -588,6 +627,26 @@
 							{too_big_label}{typeof obj.max_dimension_mm === 'number'
 								? ` · ${Math.round(obj.max_dimension_mm)}mm`
 								: ''}
+						</span>
+					{/if}
+
+					<!-- High-value chip — piece rerouted by the profile's price override -->
+					{#if obj.high_value_routed}
+						<span
+							class="inline-flex items-center border border-success/60 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-success"
+							title="Moving-average price cleared the profile's high-value threshold — rerouted to the high-value bin"
+						>
+							High value
+						</span>
+					{/if}
+
+					<!-- Year badge — first-release year -->
+					{#if yearOf(obj) !== null}
+						<span
+							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tabular-nums text-text-muted"
+							title="First-release year"
+						>
+							{yearOf(obj)}
 						</span>
 					{/if}
 

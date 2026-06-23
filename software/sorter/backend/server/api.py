@@ -155,6 +155,7 @@ from server.routers.chute_stress import router as chute_stress_router
 from server.routers.tuning import router as tuning_router
 from server.routers.telemetry import router as telemetry_router
 from server.routers.tailscale import router as tailscale_router
+from server.routers.wifi import router as wifi_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -170,6 +171,7 @@ app.include_router(chute_stress_router)
 app.include_router(tuning_router)
 app.include_router(telemetry_router)
 app.include_router(tailscale_router)
+app.include_router(wifi_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle
@@ -876,6 +878,19 @@ def getRecordsOverview() -> RecordsOverviewResponse:
     import piece_records
 
     return RecordsOverviewResponse(**piece_records.getOverview())
+
+
+@app.get("/api/records/value")
+def getRecordsValue() -> Dict[str, Any]:
+    # Estimated BrickLink value of all recorded pieces (all-time + last 24h),
+    # priced on the fly from the local catalog. Returns zeros if the price DB is
+    # disabled or no pieces have been recorded.
+    import piece_records
+
+    gc = shared_state.gc_ref
+    if gc is None:
+        raise HTTPException(status_code=503, detail="not ready")
+    return piece_records.getValueStats(gc)
 
 
 @app.get("/api/records/pieces", response_model=RecordsPiecesResponse)

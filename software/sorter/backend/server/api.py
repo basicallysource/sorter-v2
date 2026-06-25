@@ -155,6 +155,7 @@ from server.routers.chute_stress import router as chute_stress_router
 from server.routers.tuning import router as tuning_router
 from server.routers.telemetry import router as telemetry_router
 from server.routers.tailscale import router as tailscale_router
+from server.routers.network import router as network_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -170,6 +171,7 @@ app.include_router(chute_stress_router)
 app.include_router(tuning_router)
 app.include_router(telemetry_router)
 app.include_router(tailscale_router)
+app.include_router(network_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle

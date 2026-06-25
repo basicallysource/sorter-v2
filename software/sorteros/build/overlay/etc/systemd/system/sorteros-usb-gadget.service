@@ -1,0 +1,18 @@
+[Unit]
+Description=SorterOS USB-C direct network fallback
+Documentation=man:modprobe(8)
+After=local-fs.target systemd-modules-load.service NetworkManager.service
+Wants=NetworkManager.service
+Before=sorteros-onboarding.service sorteros-firstboot.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sorteros-usb-gadget.sh start
+ExecStop=/usr/local/sbin/sorteros-usb-gadget.sh stop
+RemainAfterExit=yes
+TimeoutStartSec=30
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

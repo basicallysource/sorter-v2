@@ -1,5 +1,6 @@
 import enum
 import os
+import re
 import time
 from dataclasses import dataclass
 
@@ -155,7 +156,6 @@ class CameraConfig:
     fourcc: str
     picture_settings: "CameraPictureSettings"
     device_settings: dict[str, int | float | bool]
-    color_profile: "CameraColorProfile"
 
     def __init__(self):
         self.url = None
@@ -176,44 +176,6 @@ class CameraPictureSettings:
         self.rotation = rotation
         self.flip_horizontal = flip_horizontal
         self.flip_vertical = flip_vertical
-
-
-class CameraColorProfile:
-    enabled: bool
-    matrix: list[list[float]]
-    bias: list[float]
-    response_lut_r: list[float] | None
-    response_lut_g: list[float] | None
-    response_lut_b: list[float] | None
-    gamma_a: list[float] | None
-    gamma_exp: list[float] | None
-    gamma_b: list[float] | None
-
-    def __init__(
-        self,
-        enabled: bool = False,
-        matrix: list[list[float]] | None = None,
-        bias: list[float] | None = None,
-        response_lut_r: list[float] | None = None,
-        response_lut_g: list[float] | None = None,
-        response_lut_b: list[float] | None = None,
-        gamma_a: list[float] | None = None,
-        gamma_exp: list[float] | None = None,
-        gamma_b: list[float] | None = None,
-    ):
-        self.enabled = enabled
-        self.matrix = matrix or [
-            [1.0, 0.0, 0.0],
-            [0.0, 1.0, 0.0],
-            [0.0, 0.0, 1.0],
-        ]
-        self.bias = bias or [0.0, 0.0, 0.0]
-        self.response_lut_r = response_lut_r
-        self.response_lut_g = response_lut_g
-        self.response_lut_b = response_lut_b
-        self.gamma_a = gamma_a
-        self.gamma_exp = gamma_exp
-        self.gamma_b = gamma_b
 
 
 # Matches the firmware's Stepper constructor default (`_accel(10000)` in
@@ -675,7 +637,6 @@ def mkCameraConfig(
     fourcc: str | None = None,
     picture_settings: CameraPictureSettings | None = None,
     device_settings: dict[str, int | float | bool] | None = None,
-    color_profile: CameraColorProfile | None = None,
 ) -> CameraConfig:
     camera_config = CameraConfig()
     camera_config.device_index = device_index
@@ -686,7 +647,6 @@ def mkCameraConfig(
     camera_config.fourcc = fourcc.strip() if (isinstance(fourcc, str) and fourcc.strip()) else "MJPG"
     camera_config.picture_settings = picture_settings or mkCameraPictureSettings()
     camera_config.device_settings = parseCameraDeviceSettings(device_settings)
-    camera_config.color_profile = color_profile or mkCameraColorProfile()
     return camera_config
 
 
@@ -740,120 +700,17 @@ def cameraPictureSettingsToDict(settings: CameraPictureSettings) -> dict[str, in
     }
 
 
-def mkCameraColorProfile(
-    enabled: bool = False,
-    matrix: list[list[float]] | None = None,
-    bias: list[float] | None = None,
-    response_lut_r: list[float] | None = None,
-    response_lut_g: list[float] | None = None,
-    response_lut_b: list[float] | None = None,
-    gamma_a: list[float] | None = None,
-    gamma_exp: list[float] | None = None,
-    gamma_b: list[float] | None = None,
-) -> CameraColorProfile:
-    return CameraColorProfile(
-        enabled=enabled,
-        matrix=matrix,
-        bias=bias,
-        response_lut_r=response_lut_r,
-        response_lut_g=response_lut_g,
-        response_lut_b=response_lut_b,
-        gamma_a=gamma_a,
-        gamma_exp=gamma_exp,
-        gamma_b=gamma_b,
-    )
+_CAMERA_DEVICE_SETTING_KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,127}$")
 
 
-def clampCameraColorProfile(profile: CameraColorProfile) -> CameraColorProfile:
-    def _number(value: object, default: float) -> float:
-        return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else default
-
-    raw_matrix = getattr(profile, "matrix", None)
-    matrix_rows: list[list[float]] = []
-    if isinstance(raw_matrix, list):
-        for row_index, raw_row in enumerate(raw_matrix[:3]):
-            if isinstance(raw_row, list):
-                row = [
-                    _number(raw_row[col_index] if col_index < len(raw_row) else 1.0 if row_index == col_index else 0.0,
-                            1.0 if row_index == col_index else 0.0)
-                    for col_index in range(3)
-                ]
-            else:
-                row = [1.0 if row_index == col_index else 0.0 for col_index in range(3)]
-            matrix_rows.append(row)
-    while len(matrix_rows) < 3:
-        row_index = len(matrix_rows)
-        matrix_rows.append([1.0 if row_index == col_index else 0.0 for col_index in range(3)])
-
-    raw_bias = getattr(profile, "bias", None)
-    bias_values: list[float] = []
-    if isinstance(raw_bias, list):
-        bias_values = [
-            _number(raw_bias[index] if index < len(raw_bias) else 0.0, 0.0)
-            for index in range(3)
-        ]
-    while len(bias_values) < 3:
-        bias_values.append(0.0)
-
-    def _parse_float_list(attr_name: str, length: int) -> list[float] | None:
-        raw = getattr(profile, attr_name, None)
-        if not isinstance(raw, list) or len(raw) < length:
-            return None
-        values = [_number(v, 0.0) for v in raw[:length]]
-        return values
-
-    return mkCameraColorProfile(
-        enabled=bool(getattr(profile, "enabled", False)),
-        matrix=matrix_rows,
-        bias=bias_values,
-        response_lut_r=_parse_float_list("response_lut_r", 256),
-        response_lut_g=_parse_float_list("response_lut_g", 256),
-        response_lut_b=_parse_float_list("response_lut_b", 256),
-        gamma_a=_parse_float_list("gamma_a", 3),
-        gamma_exp=_parse_float_list("gamma_exp", 3),
-        gamma_b=_parse_float_list("gamma_b", 3),
-    )
-
-
-def parseCameraColorProfile(raw: object) -> CameraColorProfile:
-    if not isinstance(raw, dict):
-        return mkCameraColorProfile()
-
-    return clampCameraColorProfile(
-        mkCameraColorProfile(
-            enabled=bool(raw.get("enabled", False)),
-            matrix=raw.get("matrix") if isinstance(raw.get("matrix"), list) else None,
-            bias=raw.get("bias") if isinstance(raw.get("bias"), list) else None,
-            response_lut_r=raw.get("response_lut_r") if isinstance(raw.get("response_lut_r"), list) else None,
-            response_lut_g=raw.get("response_lut_g") if isinstance(raw.get("response_lut_g"), list) else None,
-            response_lut_b=raw.get("response_lut_b") if isinstance(raw.get("response_lut_b"), list) else None,
-            gamma_a=raw.get("gamma_a") if isinstance(raw.get("gamma_a"), list) else None,
-            gamma_exp=raw.get("gamma_exp") if isinstance(raw.get("gamma_exp"), list) else None,
-            gamma_b=raw.get("gamma_b") if isinstance(raw.get("gamma_b"), list) else None,
-        )
-    )
-
-
-def cameraColorProfileToDict(profile: CameraColorProfile) -> dict[str, object]:
-    clamped = clampCameraColorProfile(profile)
-    result: dict[str, object] = {
-        "enabled": clamped.enabled,
-        "matrix": [[float(value) for value in row] for row in clamped.matrix],
-        "bias": [float(value) for value in clamped.bias],
-    }
-    if clamped.response_lut_r is not None:
-        result["response_lut_r"] = [float(v) for v in clamped.response_lut_r]
-    if clamped.response_lut_g is not None:
-        result["response_lut_g"] = [float(v) for v in clamped.response_lut_g]
-    if clamped.response_lut_b is not None:
-        result["response_lut_b"] = [float(v) for v in clamped.response_lut_b]
-    if clamped.gamma_a is not None:
-        result["gamma_a"] = [float(v) for v in clamped.gamma_a]
-    if clamped.gamma_exp is not None:
-        result["gamma_exp"] = [float(v) for v in clamped.gamma_exp]
-    if clamped.gamma_b is not None:
-        result["gamma_b"] = [float(v) for v in clamped.gamma_b]
-    return result
+def _camera_auto_setting_enabled(key: str, value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if not isinstance(value, (int, float)):
+        return False
+    if key == "auto_exposure":
+        return int(round(float(value))) in {0, 2, 3}
+    return float(value) != 0.0
 
 
 def parseCameraDeviceSettings(raw: object) -> dict[str, int | float | bool]:
@@ -880,32 +737,47 @@ def parseCameraDeviceSettings(raw: object) -> dict[str, int | float | bool]:
         "backlight_compensation",
     }
 
-    for key in bool_keys:
-        value = raw.get(key)
-        if isinstance(value, bool):
-            result[key] = value
-
-    for key in float_keys:
-        value = raw.get(key)
-        if isinstance(value, (int, float)) and not isinstance(value, bool):
+    known_keys = bool_keys | float_keys
+    for raw_key, value in raw.items():
+        if not isinstance(raw_key, str) or not _CAMERA_DEVICE_SETTING_KEY_RE.match(raw_key):
+            continue
+        if raw_key in bool_keys and isinstance(value, bool):
+            result[raw_key] = value
+            continue
+        if raw_key in float_keys and isinstance(value, (int, float)) and not isinstance(value, bool):
             # Driver sentinel: cap.get() returns -1 for properties the device
             # does not actually expose. Persisting/applying these poisons the
             # camera — drop them.
-            if float(value) == -1.0 and key in {"focus", "gain", "exposure", "white_balance_temperature"}:
+            if float(value) == -1.0 and raw_key in {
+                "focus",
+                "gain",
+                "exposure",
+                "white_balance_temperature",
+            }:
                 continue
-            result[key] = float(value)
+            result[raw_key] = float(value)
+            continue
+        if raw_key in bool_keys and isinstance(value, (int, float)) and not isinstance(value, bool):
+            result[raw_key] = float(value)
+            continue
+        if raw_key in known_keys:
+            continue
+        if isinstance(value, bool):
+            result[raw_key] = value
+        elif isinstance(value, (int, float)):
+            result[raw_key] = float(value)
 
     # Drop manual settings that fight their auto-mode counterpart. A UVC camera
     # silently flips `auto_exposure` to Manual the moment a manual exposure value
     # is written, so persisting both leaves the device in a self-contradictory
     # state and the manual value always wins on reopen. Auto wins here: if the
     # user wants manual control, they explicitly turn auto off.
-    if result.get("auto_exposure") is True:
+    if _camera_auto_setting_enabled("auto_exposure", result.get("auto_exposure")):
         result.pop("exposure", None)
         result.pop("gain", None)
-    if result.get("auto_white_balance") is True:
+    if _camera_auto_setting_enabled("auto_white_balance", result.get("auto_white_balance")):
         result.pop("white_balance_temperature", None)
-    if result.get("autofocus") is True:
+    if _camera_auto_setting_enabled("autofocus", result.get("autofocus")):
         result.pop("focus", None)
 
     return result
@@ -966,9 +838,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
     device_settings_section = {}
     if isinstance(raw_toml, dict):
         device_settings_section = raw_toml.get("camera_device_settings", {})
-    color_profiles_section = {}
-    if isinstance(raw_toml, dict):
-        color_profiles_section = raw_toml.get("camera_color_profiles", {})
     capture_modes_section = {}
     if isinstance(raw_toml, dict):
         capture_modes_section = raw_toml.get("camera_capture_modes", {})
@@ -998,11 +867,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         if not isinstance(device_settings_section, dict):
             return {}
         return parseCameraDeviceSettings(device_settings_section.get(role))
-
-    def _color_profile(role: str) -> CameraColorProfile:
-        if not isinstance(color_profiles_section, dict):
-            return mkCameraColorProfile()
-        return parseCameraColorProfile(color_profiles_section.get(role))
 
     def _mkCameraConfigForRole(role: str, **kwargs) -> CameraConfig:
         mode = _capture_mode(role)
@@ -1067,7 +931,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_index=c_ch2_idx,
                 picture_settings=_picture_settings("c_channel_2"),
                 device_settings=_device_settings("c_channel_2"),
-                color_profile=_color_profile("c_channel_2"),
             )
         elif isinstance(c_ch2_idx, str):
             irl_config.c_channel_2_camera = _mkCameraConfigForRole(
@@ -1075,7 +938,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=c_ch2_idx,
                 picture_settings=_picture_settings("c_channel_2"),
                 device_settings=_device_settings("c_channel_2"),
-                color_profile=_color_profile("c_channel_2"),
             )
         if isinstance(c_ch3_idx, int):
             irl_config.c_channel_3_camera = _mkCameraConfigForRole(
@@ -1083,7 +945,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_index=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
                 device_settings=_device_settings("c_channel_3"),
-                color_profile=_color_profile("c_channel_3"),
             )
         elif isinstance(c_ch3_idx, str):
             irl_config.c_channel_3_camera = _mkCameraConfigForRole(
@@ -1091,7 +952,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=c_ch3_idx,
                 picture_settings=_picture_settings("c_channel_3"),
                 device_settings=_device_settings("c_channel_3"),
-                color_profile=_color_profile("c_channel_3"),
             )
         if isinstance(carousel_source, str):
             irl_config.carousel_camera = _mkCameraConfigForRole(
@@ -1099,7 +959,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=carousel_source,
                 picture_settings=_picture_settings(aux_camera_role),
                 device_settings=_device_settings(aux_camera_role),
-                color_profile=_color_profile(aux_camera_role),
             )
         elif isinstance(carousel_source, int):
             irl_config.carousel_camera = _mkCameraConfigForRole(
@@ -1107,7 +966,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_index=carousel_source,
                 picture_settings=_picture_settings(aux_camera_role),
                 device_settings=_device_settings(aux_camera_role),
-                color_profile=_color_profile(aux_camera_role),
             )
 
         # Classification cameras (optional in split_feeder mode) — int or URL string
@@ -1120,7 +978,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=cls_top,
                 picture_settings=_picture_settings("classification_top"),
                 device_settings=_device_settings("classification_top"),
-                color_profile=_color_profile("classification_top"),
             )
         elif isinstance(cls_top, int):
             irl_config.classification_camera_top = _mkCameraConfigForRole(
@@ -1130,7 +987,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 height=9999,
                 picture_settings=_picture_settings("classification_top"),
                 device_settings=_device_settings("classification_top"),
-                color_profile=_color_profile("classification_top"),
             )
         else:
             irl_config.classification_camera_top = _mkCameraConfigForRole(
@@ -1138,7 +994,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_index=-1,
                 picture_settings=_picture_settings("classification_top"),
                 device_settings=_device_settings("classification_top"),
-                color_profile=_color_profile("classification_top"),
             )
 
         if isinstance(cls_bottom, str):
@@ -1147,7 +1002,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 url=cls_bottom,
                 picture_settings=_picture_settings("classification_bottom"),
                 device_settings=_device_settings("classification_bottom"),
-                color_profile=_color_profile("classification_bottom"),
             )
         elif isinstance(cls_bottom, int):
             irl_config.classification_camera_bottom = _mkCameraConfigForRole(
@@ -1157,7 +1011,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 height=9999,
                 picture_settings=_picture_settings("classification_bottom"),
                 device_settings=_device_settings("classification_bottom"),
-                color_profile=_color_profile("classification_bottom"),
             )
         else:
             irl_config.classification_camera_bottom = _mkCameraConfigForRole(
@@ -1165,7 +1018,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
                 device_index=-1,
                 picture_settings=_picture_settings("classification_bottom"),
                 device_settings=_device_settings("classification_bottom"),
-                color_profile=_color_profile("classification_bottom"),
             )
 
         # Dummy feeder camera so nothing crashes on attr access
@@ -1174,7 +1026,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             device_index=-1,
             picture_settings=_picture_settings("feeder"),
             device_settings=_device_settings("feeder"),
-            color_profile=_color_profile("feeder"),
         )
     else:
         # default: single feeder + classification cameras from TOML [cameras]
@@ -1199,7 +1050,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             device_index=feeder_camera_index,
             picture_settings=_picture_settings("feeder"),
             device_settings=_device_settings("feeder"),
-            color_profile=_color_profile("feeder"),
         )
         irl_config.classification_camera_bottom = _mkCameraConfigForRole(
             "classification_bottom",
@@ -1208,7 +1058,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             height=9999,
             picture_settings=_picture_settings("classification_bottom"),
             device_settings=_device_settings("classification_bottom"),
-            color_profile=_color_profile("classification_bottom"),
         )
         irl_config.classification_camera_top = _mkCameraConfigForRole(
             "classification_top",
@@ -1217,7 +1066,6 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             height=9999,
             picture_settings=_picture_settings("classification_top"),
             device_settings=_device_settings("classification_top"),
-            color_profile=_color_profile("classification_top"),
         )
     
     classification_channel_setup = machine_setup.key == "classification_channel"
@@ -1497,40 +1345,53 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
-    # Initialize servos — either Waveshare SC bus or PCA9685 (default)
+    # Initialize servos — either Waveshare SC bus or PCA9685 (default).
+    # The servo subsystem is isolated from the steppers: a missing servo board
+    # (or any other bring-up failure) must not abort hardware init, because the
+    # setup wizard's Motion Direction Check jogs steppers before servos are ever
+    # configured. Degrade to "no servos" with a loud warning instead of raising.
     if gc.disable_servos:
         gc.logger.info("Servo init skipped (--disable servos)")
         irl_interface.servo_controller = None
         irl_interface.servos = []
     else:
-        waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
-        irl_interface.servo_controller = build_servo_controller(
-            gc,
-            control_boards=control_boards,
-            servo_channel_config=servo_channel_config,
-            waveshare_config=waveshare_config,
-            mcu_ports=mcu_ports,
-        )
-        irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
-            irl_interface.distribution_layout
-        )
-        for layer_index, servo in enumerate(irl_interface.servos):
-            if not hasattr(servo, "set_preset_angles"):
-                continue
-            layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
-            layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
-            if layer_open is not None and layer_closed is not None:
-                servo.set_preset_angles(layer_open, layer_closed)
-            if hasattr(servo, "set_motion_speeds"):
-                servo.set_motion_speeds(
-                    machine_config.servo_open_speed,
-                    machine_config.servo_close_speed,
-                    machine_config.servo_homing_speed,
-                )
-                # Start at the standard speed; sorting re-applies open/close
-                # speed per move and homing re-applies the standard speed.
-                servo.apply_homing_speed()
-        restore_servo_states(irl_interface.servos, gc)
+        try:
+            waveshare_config = loadWaveshareServoConfig(gc, machine_specific_params)
+            irl_interface.servo_controller = build_servo_controller(
+                gc,
+                control_boards=control_boards,
+                servo_channel_config=servo_channel_config,
+                waveshare_config=waveshare_config,
+                mcu_ports=mcu_ports,
+            )
+            irl_interface.servos = irl_interface.servo_controller.create_layer_servos(
+                irl_interface.distribution_layout
+            )
+            for layer_index, servo in enumerate(irl_interface.servos):
+                if not hasattr(servo, "set_preset_angles"):
+                    continue
+                layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
+                layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
+                if layer_open is not None and layer_closed is not None:
+                    servo.set_preset_angles(layer_open, layer_closed)
+                if hasattr(servo, "set_motion_speeds"):
+                    servo.set_motion_speeds(
+                        machine_config.servo_open_speed,
+                        machine_config.servo_close_speed,
+                        machine_config.servo_homing_speed,
+                    )
+                    # Start at the standard speed; sorting re-applies open/close
+                    # speed per move and homing re-applies the standard speed.
+                    servo.apply_homing_speed()
+            restore_servo_states(irl_interface.servos, gc)
+        except Exception as exc:
+            gc.logger.warning(
+                f"Servo bring-up failed ({exc}); continuing without servos. "
+                "Steppers stay available; configure servos once a servo-capable "
+                "board is connected."
+            )
+            irl_interface.servo_controller = None
+            irl_interface.servos = []
 
     irl_interface.machine_profile = build_machine_profile(
         camera_layout=config.camera_layout,

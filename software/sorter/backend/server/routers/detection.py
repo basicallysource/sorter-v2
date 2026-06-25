@@ -147,6 +147,64 @@ def _perception_debug_info(channel_id: int) -> Dict[str, Any]:
     return info
 
 
+@router.get("/api/perception/debug/status/{channel_id}")
+def perception_debug_status(channel_id: int) -> Dict[str, Any]:
+    """Pixel-free perception debug status for one channel.
+
+    This mirrors the annotated debug image's metadata and exposes the crop
+    plan that a future hardware RGA detection branch should consume.
+    """
+    info = _perception_debug_info(channel_id)
+    frame = info.get("frame")
+    frame_shape = getattr(getattr(frame, "bgr", None), "shape", None)
+    frame_summary = None
+    if frame_shape is not None and len(frame_shape) >= 2:
+        frame_summary = {
+            "width": int(frame_shape[1]),
+            "height": int(frame_shape[0]),
+            "timestamp": float(getattr(frame, "timestamp", 0.0) or 0.0),
+        }
+    full = info.get("full_frame") if isinstance(info.get("full_frame"), dict) else None
+    full_summary = None
+    if full is not None:
+        full_frame = full.get("frame")
+        full_shape = getattr(getattr(full_frame, "bgr", None), "shape", None)
+        full_summary = {
+            "bboxes": full.get("bboxes") or [],
+            "infer_ms": full.get("infer_ms"),
+            "frame_ts": full.get("frame_ts"),
+            "frame": {
+                "width": int(full_shape[1]),
+                "height": int(full_shape[0]),
+            }
+            if full_shape is not None and len(full_shape) >= 2
+            else None,
+        }
+    return {
+        "ok": True,
+        "channel_id": info.get("channel_id"),
+        "camera_source_id": info.get("camera_source_id"),
+        "camera_source": info.get("camera_source"),
+        "algorithm_id": info.get("algorithm_id"),
+        "model_name": info.get("model_name"),
+        "imgsz": info.get("imgsz"),
+        "conf_threshold": info.get("conf_threshold"),
+        "core_mask_name": info.get("core_mask_name"),
+        "raw_bboxes": info.get("raw_bboxes") or [],
+        "on_channel_bboxes": info.get("on_channel_bboxes") or [],
+        "crop_rect": info.get("crop_rect"),
+        "crop_plan": info.get("crop_plan"),
+        "infer_ms": info.get("infer_ms"),
+        "frame": frame_summary,
+        "full_frame": full_summary,
+        "center": info.get("center"),
+        "mask_shape": info.get("mask_shape"),
+        "n_drop_sections": info.get("n_drop_sections"),
+        "n_exit_sections": info.get("n_exit_sections"),
+        "n_precise_sections": info.get("n_precise_sections"),
+    }
+
+
 @router.get("/api/perception/debug/annotated/{channel_id}")
 def perception_debug_annotated(channel_id: int):
     """The PRODUCTION view: exactly what perception infers and decides on.
@@ -710,7 +768,7 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
     else:
         targets = [next_target if target.get("id") == target_id else target for target in targets]
 
-    _save_hive_targets(targets)
+    _save_hive_targets(targets, primary_target_id=target_id)
     getClassificationTrainingManager().reloadHiveUploader()
     return {"ok": True, "message": "Hive target saved.", "target_id": target_id}
 
@@ -790,7 +848,7 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
             "machine_id": str(machine_id),
         }
     )
-    _save_hive_targets(targets)
+    _save_hive_targets(targets, primary_target_id=target_id)
     getClassificationTrainingManager().reloadHiveUploader()
     return {
         "ok": True,
@@ -833,7 +891,7 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
             "machine_id": str(payload.machine_id) if payload.machine_id else "",
         }
     )
-    _save_hive_targets(targets)
+    _save_hive_targets(targets, primary_target_id=target_id)
     getClassificationTrainingManager().reloadHiveUploader()
     return {
         "ok": True,
@@ -856,6 +914,49 @@ def hive_backfill(payload: HiveBackfillPayload = HiveBackfillPayload()) -> Dict[
 @router.post("/api/settings/hive/purge")
 def hive_purge(payload: HivePurgePayload = HivePurgePayload()) -> Dict[str, Any]:
     return getClassificationTrainingManager().purgeHiveQueue(target_ids=payload.target_ids)
+
+
+# ---------------------------------------------------------------------------
+# Versioned machine-settings backup to Hive
+# ---------------------------------------------------------------------------
+
+
+class ConfigBackupRestorePayload(BaseModel):
+    version: int
+    include_calibration: bool = False
+
+
+@router.get("/api/hive/config-backups")
+def hive_config_backups() -> Dict[str, Any]:
+    from server import config_backup
+
+    try:
+        return {"ok": True, "versions": config_backup.list_versions()}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Failed to list config backups: {exc}")
+
+
+@router.post("/api/hive/config-backup")
+def hive_config_backup_now() -> Dict[str, Any]:
+    from server import config_backup
+
+    return config_backup.push_snapshot(trigger="manual")
+
+
+@router.post("/api/hive/config-backup/restore")
+def hive_config_backup_restore(payload: ConfigBackupRestorePayload) -> Dict[str, Any]:
+    from server import config_backup
+    from server.routers.system import restart_system
+
+    try:
+        result = config_backup.restore_version(
+            payload.version, include_calibration=payload.include_calibration
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=502, detail=f"Restore failed: {exc}")
+    # The TOML only takes effect after a backend restart.
+    restart_system()
+    return {**result, "restarting": True}
 
 
 # ---------------------------------------------------------------------------

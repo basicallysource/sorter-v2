@@ -10,6 +10,7 @@
 	} from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
+	import SystemLoadWidget from '$lib/components/SystemLoadWidget.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
 		AlertTriangle,
@@ -365,6 +366,7 @@
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
+			<SystemLoadWidget />
 			<SortingProfileDropdown />
 
 			{#if hardwareState === 'ready' || hardwareState === 'initialized'}

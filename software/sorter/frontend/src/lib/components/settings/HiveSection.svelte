@@ -5,8 +5,7 @@
 	import {
 		beginHiveLink,
 		completeReturnedHiveLink,
-		DEFAULT_HIVE_URL,
-		defaultHiveTargetName
+		DEFAULT_HIVE_URL
 	} from '$lib/hive/link-flow';
 	import { Cloud, Link2, Pencil, Plus, RefreshCw, Star, Trash2, Upload } from 'lucide-svelte';
 
@@ -81,8 +80,6 @@
 	let showPairForm = $state(false);
 	let pairing = $state(false);
 	let pairUrl = $state(DEFAULT_HIVE_URL);
-	let pairTargetName = $state('');
-	let pairMachineName = $state('');
 
 	const targets = $derived(config?.targets ?? []);
 
@@ -256,8 +253,6 @@
 
 	function resetPairForm() {
 		pairUrl = DEFAULT_HIVE_URL;
-		pairTargetName = '';
-		pairMachineName = '';
 	}
 
 	function openPairForm() {
@@ -284,8 +279,6 @@
 		try {
 			beginHiveLink({
 				hiveUrl: pairUrl.trim(),
-				targetName: pairTargetName.trim() || undefined,
-				machineName: pairMachineName.trim() || undefined,
 				returnPath: window.location.pathname + window.location.search
 			});
 		} catch (e: any) {
@@ -790,8 +783,9 @@
 			<div class="grid gap-3 border border-primary bg-primary/[0.05] px-3 py-3">
 				<div class="text-sm font-medium text-text">Pair with a Hive</div>
 				<div class="text-sm text-text-muted">
-					Enter the Hive URL, then continue on Hive to pick a machine name. Hive sends you back here
-					once the link is saved — no email or password leaves this Sorter.
+					Enter the Hive URL, then continue on Hive. There you can reconnect one of your existing
+					machines or create a new one. Hive sends you back here once the link is saved — no email
+					or password leaves this Sorter.
 				</div>
 				<label class="flex flex-col gap-1 text-sm text-text">
 					Hive URL
@@ -799,24 +793,6 @@
 						bind:value={pairUrl}
 						type="url"
 						placeholder={DEFAULT_HIVE_URL}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Target name (optional)
-					<input
-						bind:value={pairTargetName}
-						type="text"
-						placeholder={pairUrl.trim() ? defaultHiveTargetName(pairUrl) : 'e.g. Hive Community'}
-						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
-					/>
-				</label>
-				<label class="flex flex-col gap-1 text-sm text-text">
-					Suggested machine name (optional)
-					<input
-						bind:value={pairMachineName}
-						type="text"
-						placeholder="Lego Sorter"
 						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 				</label>

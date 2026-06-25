@@ -31,4 +31,17 @@ software/sorteros/v3/build/.env
 /test.db
 /test-profile-parts.db
 
+# Local runtime state, logs, backups
+/backups/
+log/
+logs/
+local_state.sqlite*
+.playwright-mcp/
+/sorter-*.png
+/software/sorter/frontend/sorter-*.png
+/software/sorter/backend/aruco_config.json
+/software/sorter/backend/data/
+/software/sorteros/flash/*.img
+/software/training/rknn_bundles/
+
 .DS_Store

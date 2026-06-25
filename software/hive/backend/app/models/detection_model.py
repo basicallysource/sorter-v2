@@ -32,6 +32,10 @@ class DetectionModel(Base):
     scopes = Column(JSON_VARIANT, nullable=True)
     training_metadata = Column(JSON_VARIANT, nullable=True)
     is_public = Column(Boolean, nullable=False, default=True)
+    # Experimental models are first-class but hidden from the default Browse on
+    # both Hive and the sorters, so operators don't install a test model by
+    # accident. Opt back in with ?include_experimental=true.
+    experimental = Column(Boolean, nullable=False, default=False, server_default="false")
     # Human-friendly handle drawn from a curated LEGO-color word list — like Ubuntu's
     # codenames. Picked by :func:`app.services.codenames.next_codename` alphabetically
     # at publish time; persistent so people can refer to "Bronze beats Aqua by 1.5 %"
@@ -62,6 +66,7 @@ class DetectionModel(Base):
         Index("ix_detection_models_codename", "codename", unique=True),
         Index("ix_detection_models_model_family", "model_family"),
         Index("ix_detection_models_is_public", "is_public"),
+        Index("ix_detection_models_experimental", "experimental"),
     )
 
 

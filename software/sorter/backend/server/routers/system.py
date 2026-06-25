@@ -30,6 +30,105 @@ def _system_status_payload() -> Dict[str, Any]:
     }
 
 
+# ---------------------------------------------------------------------------
+# System load (navbar widget) — pure /proc//sys readers, no psutil dependency.
+# ---------------------------------------------------------------------------
+
+_cpu_sample_lock = threading.Lock()
+_last_cpu_sample: tuple[int, int] | None = None  # (busy_ticks, total_ticks)
+
+
+def _read_cpu_ticks() -> Optional[tuple[int, int]]:
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as handle:
+            fields = handle.readline().split()[1:]
+        values = [int(v) for v in fields]
+        idle = values[3] + (values[4] if len(values) > 4 else 0)
+    except (OSError, ValueError, IndexError):
+        return None
+    return sum(values) - idle, sum(values)
+
+
+def _cpu_percent() -> Optional[float]:
+    global _last_cpu_sample
+    sample = _read_cpu_ticks()
+    if sample is None:
+        return None
+    with _cpu_sample_lock:
+        last, _last_cpu_sample = _last_cpu_sample, sample
+    if last is None:
+        return None  # first call has no delta — the next poll does
+    busy = sample[0] - last[0]
+    total = sample[1] - last[1]
+    if total <= 0:
+        return None
+    return max(0.0, min(100.0, 100.0 * busy / total))
+
+
+def _memory_info() -> Optional[Dict[str, int]]:
+    try:
+        info: Dict[str, int] = {}
+        with open("/proc/meminfo", "r", encoding="utf-8") as handle:
+            for line in handle:
+                key, _, rest = line.partition(":")
+                if key in ("MemTotal", "MemAvailable"):
+                    info[key] = int(rest.split()[0])  # kB
+                if len(info) == 2:
+                    break
+        total = info.get("MemTotal", 0)
+        available = info.get("MemAvailable", 0)
+    except (OSError, ValueError, IndexError):
+        return None
+    if total <= 0:
+        return None
+    return {"total_mb": total // 1024, "used_mb": (total - available) // 1024}
+
+
+def _max_temperature_c() -> Optional[float]:
+    import glob
+
+    best: Optional[float] = None
+    for path in glob.glob("/sys/class/thermal/thermal_zone*/temp"):
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                temp = int(handle.read().strip()) / 1000.0
+        except (OSError, ValueError):
+            continue
+        if best is None or temp > best:
+            best = temp
+    return best
+
+
+def _npu_load_pct() -> Optional[float]:
+    import re
+
+    try:
+        with open("/sys/kernel/debug/rknpu/load", "r", encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return None
+    values = [int(v) for v in re.findall(r"(\d+)%", text)]
+    return float(max(values)) if values else None
+
+
+@router.get("/api/system/load")
+def get_system_load() -> Dict[str, Any]:
+    try:
+        load1, load5, _ = os.getloadavg()
+    except OSError:
+        load1 = load5 = None
+    return {
+        "ok": True,
+        "cpu_pct": _cpu_percent(),
+        "load1": round(load1, 2) if load1 is not None else None,
+        "load5": round(load5, 2) if load5 is not None else None,
+        "cpu_count": os.cpu_count(),
+        "memory": _memory_info(),
+        "temp_c": _max_temperature_c(),
+        "npu_pct": _npu_load_pct(),
+    }
+
+
 @router.get("/api/system/status")
 def get_system_status() -> Dict[str, Any]:
     with shared_state.hardware_lifecycle_lock:

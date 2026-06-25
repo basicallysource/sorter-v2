@@ -1,0 +1,15 @@
+[Unit]
+Description=Pin CPU and NPU frequency governors to performance
+# The vendor image defaults to ondemand, which costs ~20% NPU benchmark
+# throughput (slow ramp-up of the CPU feeding threads) and adds latency
+# jitter to live detection. A sorter is an appliance — pin to performance.
+After=multi-user.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'for p in /sys/devices/system/cpu/cpufreq/policy*/scaling_governor; do echo performance > "$p"; done'
+ExecStart=/bin/sh -c 'echo performance > /sys/class/devfreq/fdab0000.npu/governor 2>/dev/null || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

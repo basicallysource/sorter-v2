@@ -90,8 +90,9 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
     cabling) before the controller is allowed to accept pieces.
 
     The banner clears automatically the next time ``Positioning`` finds
-    any layer's servo back online, so a subsequent Resume after
-    reconnecting the bus recovers without a full restart.
+    any layer's servo back online. Boot-time offline servos stay offline
+    until the IRL is rebuilt, so the operator instruction is Home (full
+    hardware recovery), not Resume.
     """
     import server.shared_state as shared_state
 
@@ -104,7 +105,7 @@ def _checkServoBusHealth(gc: GlobalConfig, irl) -> None:
 
     message = (
         f"{SERVO_BUS_ALERT_PREFIX} — no layer servos responded at boot. "
-        "Check Waveshare USB + power, then press Resume."
+        "Check Waveshare USB + power, then press Home to re-initialize."
     )
     gc.logger.error(message)
     try:
@@ -408,6 +409,14 @@ def main() -> None:
         waveshare_inventory = get_waveshare_inventory_manager()
         waveshare_inventory.start()
         waveshare_inventory.refresh()
+
+    # Versioned settings backup to Hive: pushes a snapshot whenever the local
+    # config hash changes (Hive dedups), so backups version on real changes only.
+    try:
+        from server.config_backup import get_config_backup_sync
+        get_config_backup_sync().start()
+    except Exception as exc:
+        gc.logger.warning(f"config-backup sync not started: {exc}")
 
     startup_total_ms = (time.time() - startup_total_start) * 1000
     gc.logger.info(f"standby startup complete in {startup_total_ms:.0f}ms")

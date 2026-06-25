@@ -1,5 +1,4 @@
 import inspect
-import statistics
 import time
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -29,6 +28,14 @@ CLASSIFICATION_ACTIVE_OCCUPANCY_STATES = {
 }
 
 
+def _sortedMedian(values: list[float]) -> float:
+    # Pure-python statistics.mean/median on every snapshot of every metric was
+    # a measurable share of backend CPU; the list is already sorted here.
+    n = len(values)
+    mid = n // 2
+    return float(values[mid]) if n % 2 else (values[mid - 1] + values[mid]) / 2.0
+
+
 def _appendSample(samples: list[float], value: float) -> None:
     samples.append(value)
     if len(samples) > MAX_TIMING_SAMPLES:
@@ -43,8 +50,8 @@ def _calcSummary(samples: list[float]) -> dict[str, float | int]:
     p90_idx = min(n - 1, int(n * 0.9))
     return {
         "n": n,
-        "avg_s": float(statistics.mean(values)),
-        "med_s": float(statistics.median(values)),
+        "avg_s": float(sum(values) / n),
+        "med_s": _sortedMedian(values),
         "p90_s": float(values[p90_idx]),
         "min_s": float(values[0]),
         "max_s": float(values[-1]),
@@ -59,8 +66,8 @@ def _calcValueSummary(samples: list[float]) -> dict[str, float | int]:
     p90_idx = min(n - 1, int(n * 0.9))
     return {
         "n": n,
-        "avg": float(statistics.mean(values)),
-        "med": float(statistics.median(values)),
+        "avg": float(sum(values) / n),
+        "med": _sortedMedian(values),
         "p90": float(values[p90_idx]),
         "min": float(values[0]),
         "max": float(values[-1]),
@@ -75,8 +82,8 @@ def _calcMsSummary(samples: list[float]) -> dict[str, float | int]:
     p90_idx = min(n - 1, int(n * 0.9))
     return {
         "n": n,
-        "avg_ms": float(statistics.mean(values)),
-        "med_ms": float(statistics.median(values)),
+        "avg_ms": float(sum(values) / n),
+        "med_ms": _sortedMedian(values),
         "p90_ms": float(values[p90_idx]),
         "min_ms": float(values[0]),
         "max_ms": float(values[-1]),

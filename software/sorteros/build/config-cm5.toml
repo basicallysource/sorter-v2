@@ -14,7 +14,7 @@ sha256 = "acd946a427101ff8fa6953d482831ee5901ea4c50d9d200fb3963be3027d1be5"
 
 [output]
 dir = "out"
-version = "4.0.5-cm5.1"
+version = "4.0.6-cm5.2"
 name = "sorteros-v{version}-{date}.img"
 
 [chroot]
@@ -23,11 +23,24 @@ name = "sorteros-v{version}-{date}.img"
 # in stdlib, but installing it is harmless).
 packages = [
     "network-manager",
+    "sudo",
     "python3-pip",
     "python3-tomli",
     "libgl1",
     "libglib2.0-0",
     "v4l-utils",
+    "libv4l-0",
+    "libv4l-dev",
+    "libv4l-rkmpp",
+    "ffmpeg",
+    "librockchip-mpp1",
+    "librockchip-mpp-dev",
+    "librockchip-vpu0",
+    "librga2",
+    "librga-dev",
+    "gstreamer1.0-rockchip1",
+    "rockchip-multimedia-config",
+    "rockchip-mpp-demos",
     "git-lfs",
     "cloud-guest-utils",
     "figlet",
@@ -37,7 +50,7 @@ packages = [
 extra_curl_installs = ["node22", "tailscale", "portal-py-deps"]
 
 [branch]
-default = "sorteros-v3"
+default = "sorthive"
 
 [overlay]
 # CM5 Tablet Base Board WiFi is auto-detected by the vendor image — no

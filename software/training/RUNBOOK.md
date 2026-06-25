@@ -169,22 +169,21 @@ mv $RUN/A7-yolo26s-320-best.onnx $RUN/exports/best.onnx
 mv $RUN/A7-yolo26s-320-best.pt   $RUN/exports/best.pt
 mv $RUN/A7-yolo26s-320-ncnn      $RUN/exports/best_ncnn_model
 rm -rf $RUN/exports/best_ncnn_model/__pycache__
-# Then write a minimal $RUN/run.json (see scripts/compose_v6_metadata.py
-# for the shape; the real metadata gets composed by --dataset-dir below).
+# Then write a minimal $RUN/run.json (`uv run train compose-metadata --help`
+# shows the shape; the real metadata gets composed by --dataset-dir below).
 ```
 
 ---
 
 ## 7. Local latency benchmark (optional but recommended)
 
-`scripts/benchmark_v6_local.py` runs CPU + CoreML onnxruntime for 30
-iterations at 320 × 320 and writes a JSON in the
-`reports_out/device_benchmarks/` shape that the Hive page reads. Adapt
-the `RUN_DIR` / `OUT_PATH` constants for the new run, then:
+`train benchmark` packs the run into a portable bundle and measures
+latency per runtime, writing JSONs in the
+`reports_out/device_benchmarks/` shape that the Hive page reads:
 
 ```bash
-uv run python scripts/benchmark_v6_local.py
-# → reports_out/device_benchmarks/local_<slug>_<date>.json
+uv run train benchmark bundle --output /tmp/bench-bundle --model-run $RUN/run.json --split val
+uv run train benchmark run --bundle /tmp/bench-bundle --output-dir reports_out/device_benchmarks
 ```
 
 Reference: CoreML 3.4 ms (298 fps), CPU 12.1 ms (83 fps) on Apple Silicon.
@@ -256,14 +255,3 @@ ssh root@45.55.232.164 "
 that live there.
 
 ---
-
-## TBD — Hailo HEF compile
-
-A `c_channel_yolo26s` preset isn't in `src/training/exports/hailo.py:PRESETS`
-yet. The current presets are `classification_chamber_yolo11s` and
-`classification_chamber_nanodet`. To add it, mirror those entries:
-network_name, parser_end_nodes (introspect from the YOLO26 ONNX), the
-calibration dir under `datasets/c_channel_full/<name>/train/images`, and
-a fresh reference benchmark. Then a separate Vast.ai session with the
-Hailo Dataflow Compiler image runs `hailomz compile`. Examples of past
-sessions: `hailo_bundles/vastai_session_20260406_*.md`.

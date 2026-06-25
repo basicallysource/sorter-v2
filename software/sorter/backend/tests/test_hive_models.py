@@ -152,6 +152,8 @@ def _make_detail(model_id: str = "model-1") -> dict:
     return {
         "id": model_id,
         "name": "Test Detector",
+        "codename": "Aqua",
+        "codename_color": "#0055BF",
         "model_family": "yolo",
         "training_metadata": {"imgsz": 320, "epochs": 200},
         "variants": [
@@ -218,6 +220,8 @@ class TestDownloadJobManager:
         assert sentinel["sha256"] == "expected-sha"
         # Training metadata + name/family carry over for installed-model UI.
         assert run_json.get("name") == "Test Detector"
+        assert run_json.get("codename") == "Aqua"
+        assert run_json.get("codename_color") == "#0055BF"
         assert run_json.get("model_family") == "yolo"
         assert run_json.get("imgsz") == 320
 
@@ -226,6 +230,8 @@ class TestDownloadJobManager:
         assert len(installed) == 1
         assert installed[0]["local_id"] == "hive-model-1-onnx"
         assert installed[0]["target_id"] == "hive-a"
+        assert installed[0]["codename"] == "Aqua"
+        assert installed[0]["codename_color"] == "#0055BF"
 
     def test_sha_mismatch_is_captured_as_failure(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
@@ -413,3 +419,39 @@ class TestRemoveInstalledModel:
         (target / "run.json").write_text("{}")
         hive_models.remove_installed_model("hive-abc")
         assert not target.exists()
+
+
+# ---------------------------------------------------------------------------
+# Activation variant substitution
+# ---------------------------------------------------------------------------
+
+
+def test_activate_substitutes_machine_fitting_variant(monkeypatch) -> None:
+    """Activating the onnx variant of a model on an NPU host must bind the
+    installed rknn sibling instead — the inference layer refuses CPU onnx."""
+    from server.routers import hive_models as router_mod
+
+    installed = [
+        {"local_id": "m-onnx", "model_id": "mid-1", "variant_runtime": "onnx"},
+        {"local_id": "m-rknn", "model_id": "mid-1", "variant_runtime": "rknn"},
+        {"local_id": "other-onnx", "model_id": "mid-2", "variant_runtime": "onnx"},
+    ]
+    monkeypatch.setattr(hive_models, "list_installed_models", lambda: installed)
+    monkeypatch.setattr(hive_models, "pick_runtime_for_this_machine",
+                        lambda runtimes: "rknn" if "rknn" in runtimes else (runtimes[0] if runtimes else None))
+
+    resolved, note = router_mod._resolve_best_installed_variant("hive:m-onnx")
+    assert resolved == "hive:m-rknn"
+    assert "rknn" in (note or "")
+
+    # Already-optimal request passes through untouched.
+    resolved, note = router_mod._resolve_best_installed_variant("hive:m-rknn")
+    assert resolved == "hive:m-rknn" and note is None
+
+    # No better sibling installed → keep the request.
+    resolved, note = router_mod._resolve_best_installed_variant("hive:other-onnx")
+    assert resolved == "hive:other-onnx" and note is None
+
+    # Non-model algorithms are never touched.
+    resolved, note = router_mod._resolve_best_installed_variant("classic:mog2")
+    assert resolved == "classic:mog2" and note is None

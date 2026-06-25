@@ -163,6 +163,21 @@ class PerceptionService:
     def started(self) -> bool:
         return self._started
 
+    def pause_inference(self) -> int:
+        """Idle every channel's inference loop (captures keep running) so the
+        NPU is exclusively available, e.g. for model benchmarks. Returns the
+        number of workers paused. Reconcile may swap workers while paused —
+        acceptable for the short benchmark window; resume clears all."""
+        count = 0
+        for worker in self._workers.values():
+            worker.pause()
+            count += 1
+        return count
+
+    def resume_inference(self) -> None:
+        for worker in self._workers.values():
+            worker.resume()
+
     # --- live reconcile -------------------------------------------------
 
     def request_reconcile(self) -> None:
@@ -242,6 +257,12 @@ class PerceptionService:
                 )
                 if channel_def is None:
                     continue
+                _apply_capture_detection_crop(
+                    gathered.capture_thread,
+                    channel_def,
+                    gc=ctx.gc,
+                    channel_id=channel_id,
+                )
 
                 reuse_runtime = (
                     prev is not None
@@ -550,6 +571,7 @@ class PerceptionService:
             "core_mask_name": getattr(runtime, "core_mask_name", None),
             "raw_bboxes": debug.get("raw_bboxes") or [],
             "on_channel_bboxes": debug.get("on_channel_bboxes") or [],
+            "crop_plan": debug.get("crop_plan") or worker.inference_crop_plan,
             # Persisted full-frame result (its OWN frame, so the overlay's boxes
             # line up). None until the on-demand full-frame pass has run once.
             "full_frame": worker.latest_full_frame,
@@ -640,6 +662,41 @@ def _frame_shape_for_capture(capture_thread: Any) -> Optional[tuple[int, int]]:
     if shape is None or len(shape) < 2:
         return None
     return int(shape[0]), int(shape[1])
+
+
+def _channel_mask_crop_rect(mask: Any) -> Optional[tuple[int, int, int, int]]:
+    if mask is None:
+        return None
+    try:
+        ys, xs = np.nonzero(mask)
+    except Exception:
+        return None
+    if xs.size == 0 or ys.size == 0:
+        return None
+    return (int(xs.min()), int(ys.min()), int(xs.max()) + 1, int(ys.max()) + 1)
+
+
+def _apply_capture_detection_crop(
+    capture_thread: Any,
+    channel_def: ChannelDef,
+    *,
+    gc: Any,
+    channel_id: int,
+) -> bool:
+    setter = getattr(capture_thread, "setDetectionCropRect", None)
+    if not callable(setter):
+        return False
+    rect = None if channel_def.secondary_zones else _channel_mask_crop_rect(channel_def.mask)
+    try:
+        return bool(setter(rect))
+    except Exception as exc:
+        _log(
+            gc,
+            "warning",
+            f"[perception] channel {channel_id} could not apply detection crop "
+            f"rect={rect}: {exc}",
+        )
+        return False
 
 
 # Channel-id order fixes the NPU-core assignment: the Nth registered channel

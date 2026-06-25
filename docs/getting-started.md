@@ -24,7 +24,7 @@ Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, 
 | Classification (Brickognize API) | Working | 98.5% accuracy on supported parts, 0.56s avg response |
 | Object detection (chamber zone) | Working | NanoDet + YOLO11s trained, benchmarked on Pi 5 + Orange Pi 5 |
 | Host software (Python backend) | WIP | Coordinator, state machines, vision manager functional |
-| SvelteKit UI | WIP | Setup wizard, camera calibration, runtime dashboard in progress |
+| SvelteKit UI | WIP | Setup wizard, camera controls, runtime dashboard in progress |
 | Hive community platform | WIP | Upload pipeline, shared profiles, crowd verification |
 | Electronics / PCB | WIP | Feeder + distribution board schematics in review (Rev 0.3) |
 | Hardware CAD | WIP | V2 CAD mostly complete in Onshape, validation in progress |

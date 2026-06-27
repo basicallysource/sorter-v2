@@ -1180,6 +1180,38 @@ def _create_sorting_session_conn(
     return session
 
 
+def _carry_forward_bin_contents_conn(
+    conn: sqlite3.Connection, old_session_id: str, new_session_id: str
+) -> None:
+    """Copy physical bin contents (per-bin counts + per-item aggregates, with their
+    bin_epoch) from the prior session into the new one. Bins are physical — switching
+    a profile/layout must NOT appear to empty them. The only things that clear contents
+    are the explicit wipe endpoints (clear_current_session_bins), which run against the
+    current session *before* a new one is created, so a wiped bin carries forward empty."""
+    if not old_session_id or old_session_id == new_session_id:
+        return
+    now = time.time()
+    conn.execute(
+        "INSERT OR IGNORE INTO bin_state_current"
+        "(session_id, layer_index, section_index, bin_index, bin_epoch, piece_count, "
+        "unique_item_count, last_distributed_at, updated_at) "
+        "SELECT ?, layer_index, section_index, bin_index, bin_epoch, piece_count, "
+        "unique_item_count, last_distributed_at, ? FROM bin_state_current WHERE session_id = ?",
+        (new_session_id, now, old_session_id),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO bin_item_aggregates"
+        "(session_id, layer_index, section_index, bin_index, item_key, part_id, color_id, "
+        "color_name, category_id, classification_status, count, last_distributed_at, "
+        "thumbnail, top_image, bottom_image, brickognize_preview_url) "
+        "SELECT ?, layer_index, section_index, bin_index, item_key, part_id, color_id, "
+        "color_name, category_id, classification_status, count, last_distributed_at, "
+        "thumbnail, top_image, bottom_image, brickognize_preview_url "
+        "FROM bin_item_aggregates WHERE session_id = ?",
+        (new_session_id, old_session_id),
+    )
+
+
 def _ensure_active_sorting_session_conn(
     conn: sqlite3.Connection,
     *,
@@ -1203,7 +1235,10 @@ def _ensure_active_sorting_session_conn(
     if force_new:
         _close_active_sorting_session_conn(conn, reason=reason)
 
-    return _create_sorting_session_conn(conn, sync_state=sync_state, reason=reason)
+    new_session = _create_sorting_session_conn(conn, sync_state=sync_state, reason=reason)
+    if force_new and active_session_id:
+        _carry_forward_bin_contents_conn(conn, active_session_id, new_session["id"])
+    return new_session
 
 
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
@@ -1779,6 +1814,7 @@ def create_bin_layout(
             (lid, name, profile_id, profile_source, json.dumps(layout), now, now,
              1 if make_active else 0),
         )
+        conn.commit()
     record = get_bin_layout_record(lid)
     assert record is not None
     return record
@@ -1803,6 +1839,7 @@ def update_bin_layout(
     params.append(layout_id)
     with _connection() as conn:
         conn.execute(f"UPDATE bin_layouts SET {', '.join(sets)} WHERE id = ?", params)
+        conn.commit()
     return get_bin_layout_record(layout_id)
 
 
@@ -1811,12 +1848,14 @@ def set_active_bin_layout(layout_id: str) -> None:
     with _connection() as conn:
         conn.execute("UPDATE bin_layouts SET is_active = 0")
         conn.execute("UPDATE bin_layouts SET is_active = 1 WHERE id = ?", (layout_id,))
+        conn.commit()
 
 
 def delete_bin_layout(layout_id: str) -> None:
     initialize_local_state()
     with _connection() as conn:
         conn.execute("DELETE FROM bin_layouts WHERE id = ?", (layout_id,))
+        conn.commit()
 
 
 def get_tailscale_hostname() -> str | None:

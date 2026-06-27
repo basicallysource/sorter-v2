@@ -2,6 +2,7 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import ProfileApplyModal from '$lib/components/profiles/ProfileApplyModal.svelte';
+	import BsxSection from '$lib/components/profiles/BsxSection.svelte';
 	import ProfileCard from '$lib/components/profiles/ProfileCard.svelte';
 	import ProfileDetailsModal from '$lib/components/profiles/ProfileDetailsModal.svelte';
 	import ProfilePagination from '$lib/components/profiles/ProfilePagination.svelte';
@@ -622,6 +623,9 @@
 		/>
 
 		{#if library}
+			<div class="mb-6">
+				<BsxSection baseUrl={baseUrl()} />
+			</div>
 			<div class="mb-6">
 				<div class="mb-3 flex items-center justify-between gap-3">
 					<h3 class="text-sm font-semibold uppercase tracking-wider text-text-muted">

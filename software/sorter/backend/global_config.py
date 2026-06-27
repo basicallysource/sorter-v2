@@ -46,6 +46,9 @@ class GlobalConfig:
     timeouts: Timeouts
     sorting_profile_path: str
     local_profiles_dir: str
+    # Directory of uploaded BrickStore inventory (.bsx) files + the active-pointer
+    # file. Used for "not in inventory" routing (see bsx_inventory.py).
+    bsx_files_dir: str
     # Optional path to a local read-only copy of the profile-builder parts.db
     # (PIECE_METADATA_DB_PATH). When set, piece metadata + BrickLink price guides
     # are served off this file in addition to the network Hive path. None = off.
@@ -152,6 +155,9 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.sorting_profile_path = str(backend_dir / "active_sorting_profile.json")
     gc.local_profiles_dir = str(backend_dir / "sorting_profiles")
     os.makedirs(gc.local_profiles_dir, exist_ok=True)
+    # Uploaded BrickStore inventory (.bsx) files for "not in inventory" routing.
+    gc.bsx_files_dir = str(backend_dir / "bsx_files")
+    os.makedirs(gc.bsx_files_dir, exist_ok=True)
     # Optional local parts.db for piece metadata + pricing. Relative paths
     # resolve against the backend dir so a machine-local copy under software/mine/
     # can be referenced as ../mine/piece_metadata.db. Empty/unset = disabled.

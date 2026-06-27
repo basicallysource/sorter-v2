@@ -146,6 +146,11 @@ class KnownObject:
     # for this piece (moving_avg_price cleared the threshold), so it was rerouted
     # into the high-value category's bin. Surfaced as a chip on the UI card.
     high_value_routed: bool = False
+    # Live membership check against the active .bsx inventory, resolved at
+    # classification time. None = no active inventory / undecidable; True = the
+    # part+color is stocked; False = NOT in inventory (drives the badge and, when
+    # the profile's inventory_routing is on, reroutes to the not-in-inventory bin).
+    not_in_inventory: Optional[bool] = None
     # Set when the piece exceeds the global oversize limit: sent down the
     # center of the chute to the misc bottom bin instead of a real bin.
     too_big: bool = False

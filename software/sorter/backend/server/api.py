@@ -146,6 +146,7 @@ from server.routers.steppers import router as steppers_router
 from server.routers.cameras import router as cameras_router
 from server.routers.detection import router as detection_router
 from server.routers.sorting_profiles import router as sorting_profiles_router
+from server.routers.bsx import router as bsx_router
 from server.routers.system import router as system_router
 from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
@@ -162,6 +163,7 @@ app.include_router(steppers_router)
 app.include_router(cameras_router)
 app.include_router(detection_router)
 app.include_router(sorting_profiles_router)
+app.include_router(bsx_router)
 app.include_router(system_router)
 app.include_router(setup_router)
 app.include_router(logs_router)

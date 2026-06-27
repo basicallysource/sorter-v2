@@ -169,7 +169,19 @@ class Positioning(BaseState):
                 )
                 category_id = high_value_category
                 piece.high_value_routed = True
-            address, _ = self._findOrAssignBinForCategory(category_id)
+            # Inventory routing: a piece absent from the active .bsx (resolved at
+            # classification time via a live BrickLink-id lookup) routes within the
+            # parallel not-in-inventory bin pool, sub-sorted by its normal category.
+            # Everyone else routes among the normal bins; the pools never mix.
+            route_not_in_inventory = piece.not_in_inventory is True
+            if route_not_in_inventory:
+                self.logger.info(
+                    f"Positioning: piece {piece.uuid} ({piece.part_id}) not in active "
+                    f"inventory — routing within not-in-inventory bins as {category_id}"
+                )
+            address, _ = self._findOrAssignBinForCategory(
+                category_id, not_in_inventory=route_not_in_inventory
+            )
             if address is None and self._servo_bus_pause_enqueued:
                 # Fatal: the servo bus is offline, so every layer is
                 # unusable. ``_findOrAssignBinForCategory`` already set
@@ -747,8 +759,13 @@ class Positioning(BaseState):
         return True
 
     def _findOrAssignBinForCategory(
-        self, category_id: str
+        self, category_id: str, not_in_inventory: bool = False
     ) -> tuple[Optional[BinAddress], bool]:
+        # ``not_in_inventory`` selects which bin pool to search. Pieces absent
+        # from the active .bsx route only among bins flagged not-in-inventory;
+        # everyone else routes only among the normal bins. The two pools never
+        # mix. Within the not-in-inventory pool, overlap (multi-category) is
+        # always allowed as the last resort ("if we run out, overlap them").
         from local_state import get_current_bin_piece_counts
 
         piece_counts = get_current_bin_piece_counts()
@@ -785,6 +802,8 @@ class Positioning(BaseState):
                     skipped.append(f"layer{layer_idx}.section{section_idx}=disabled")
                     continue
                 for bin_idx, b in enumerate(section.bins):
+                    if bool(b.not_in_inventory) != not_in_inventory:
+                        continue
                     address = BinAddress(layer_idx, section_idx, bin_idx)
                     if not self.chute.isBinReachable(address):
                         unreachable_bins += 1
@@ -850,7 +869,7 @@ class Positioning(BaseState):
         if (
             category_id != MISC_CATEGORY
             and best_combine is not None
-            and _allowMultiCategoryBins()
+            and (not_in_inventory or _allowMultiCategoryBins())
         ):
             _, _, address, b = best_combine
             b.category_ids.append(category_id)
@@ -862,11 +881,12 @@ class Positioning(BaseState):
             )
             return address, True
 
-        if category_id != MISC_CATEGORY:
+        if category_id != MISC_CATEGORY and not not_in_inventory:
             # No bin slot available for this category; fall back to MISC,
             # which will only succeed if the operator pre-assigned a bin
             # to MISC. Otherwise it returns None and the piece passes
-            # through to the discard bucket.
+            # through to the discard bucket. Not-in-inventory pieces never fall
+            # back to a normal MISC bin — they stay in their pool or pass through.
             return self._findOrAssignBinForCategory(MISC_CATEGORY)
 
         self.logger.info(

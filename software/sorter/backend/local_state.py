@@ -49,6 +49,7 @@ _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
 _STATE_KEY_SERVO_POSITIONS = "servo_positions"
 _STATE_KEY_BIN_CATEGORIES = "bin_categories"
+_STATE_KEY_NOT_IN_INVENTORY_BINS = "not_in_inventory_bins"
 _STATE_KEY_CHANNEL_POLYGONS = "channel_polygons"
 _STATE_KEY_CLASSIFICATION_POLYGONS = "classification_polygons"
 _STATE_KEY_CLASSIFICATION_TRAINING = "classification_training"
@@ -734,6 +735,26 @@ def get_bin_categories() -> list[list[list[list[str]]]] | None:
 
 def set_bin_categories(categories: list[list[list[list[str]]]]) -> None:
     _write_state(_STATE_KEY_BIN_CATEGORIES, categories)
+
+
+def get_not_in_inventory_bins() -> list[list[list[bool]]] | None:
+    value = _read_state(_STATE_KEY_NOT_IN_INVENTORY_BINS)
+    return value if isinstance(value, list) else None
+
+
+def set_not_in_inventory_bins(flags: list[list[list[bool]]]) -> None:
+    _write_state(_STATE_KEY_NOT_IN_INVENTORY_BINS, flags)
+
+
+def get_distributed_part_keys_since(since_ts: float) -> list[tuple[str | None, str | None]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT part_id, color_id FROM piece_events "
+            "WHERE distributed_at >= ? AND part_id IS NOT NULL AND part_id != ''",
+            (float(since_ts),),
+        ).fetchall()
+    return [(row[0], row[1]) for row in rows]
 
 
 def get_channel_polygons() -> dict[str, Any] | None:

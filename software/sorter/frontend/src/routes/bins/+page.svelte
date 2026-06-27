@@ -4,7 +4,7 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
-	import { Button, Input } from '$lib/components/primitives';
+	import { Button, SelectMenu } from '$lib/components/primitives';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
@@ -21,6 +21,7 @@
 		size: string;
 		angle: number;
 		category_ids: string[];
+		not_in_inventory?: boolean;
 	};
 
 	type LayerInfo = {
@@ -83,6 +84,8 @@
 	let pointingSectionKey = $state<string | null>(null);
 	let allowMultiCategory = $state(false);
 	let savingMultiCategory = $state(false);
+	let autoAssignBusy = $state(false);
+	let autoAssignResult = $state<string | null>(null);
 	let contentsByKey = $state<Record<string, BinContents>>({});
 	let detailsOpen = $state(false);
 	let detailsBin = $state<{ bin: BinInfo; layerIndex: number; contents: BinContents | null } | null>(null);
@@ -136,6 +139,62 @@
 			allowMultiCategory = Boolean(data.allow_multiple_categories_per_bin);
 		} catch {
 			// Keep last known setting on transient failures.
+		}
+	}
+
+	let niiBusyLayer = $state<number | null>(null);
+	async function setLayerNotInInventory(layerIndex: number, enabled: boolean) {
+		niiBusyLayer = layerIndex;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/not-in-inventory/set`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope: 'layer', layer_index: layerIndex, enabled })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			await loadLayout();
+			statusMsg = enabled
+				? `Layer ${layerIndex + 1} is now a "not in inventory" layer.`
+				: `Layer ${layerIndex + 1} is back to normal sorting.`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update not-in-inventory mode';
+		} finally {
+			niiBusyLayer = null;
+		}
+	}
+
+	async function runAutoAssign(overlap: boolean) {
+		if (autoAssignBusy) return;
+		autoAssignBusy = true;
+		autoAssignResult = null;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/auto-assign`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ overlap })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			await loadLayout();
+			if (data.assigned === 0) {
+				autoAssignResult = data.message ?? 'Nothing to assign.';
+			} else {
+				autoAssignResult = `Assigned ${data.categories_ranked} categories across ${data.bins_used} bin${data.bins_used === 1 ? '' : 's'} from ${data.total_pieces} recent pieces${overlap ? ' (overlapping)' : ''}.`;
+			}
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Auto-assign failed';
+		} finally {
+			autoAssignBusy = false;
 		}
 	}
 
@@ -902,6 +961,42 @@
 			</label>
 		</div>
 
+		<div class="mb-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+			<div class="flex flex-wrap items-center justify-between gap-4">
+				<div class="pr-4">
+					<div class="text-sm font-medium text-[#1A1A1A]">Auto-assign bins</div>
+					<div class="mt-0.5 text-sm text-[#66635C]">
+						Ranks the active profile's categories by how many recently-sorted pieces
+						hit them, then fills bins biggest-first — the larger bottom bins get the
+						highest-volume categories. Overwrites current normal-bin assignments;
+						not-in-inventory bins are left alone.
+					</div>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onclick={() => void runAutoAssign(false)}
+						disabled={autoAssignBusy}
+						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{autoAssignBusy ? 'Assigning…' : 'Auto-assign'}
+					</button>
+					<button
+						type="button"
+						onclick={() => void runAutoAssign(true)}
+						disabled={autoAssignBusy}
+						title="Pack every ranked category in, sharing bins once they run out"
+						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{autoAssignBusy ? 'Assigning…' : 'Auto-assign + overlap'}
+					</button>
+				</div>
+			</div>
+			{#if autoAssignResult}
+				<div class="mt-2 text-sm text-[#66635C]">{autoAssignResult}</div>
+			{/if}
+		</div>
+
 		{#if !loading && layers.length > 0 && maxSectionCount() > 0}
 			<div class="mb-4 border border-[#E2E0DB] bg-surface px-4 py-3">
 				<div class="mb-2 flex items-center justify-between gap-4">
@@ -967,6 +1062,7 @@
 				{#each layers as layer}
 					{@const isActive = activeLayer === layer.layer_index}
 					{@const layerBusy = isLayerClearing(layer.layer_index)}
+					{@const layerNii = layer.bins.length > 0 && layer.bins.every((b) => b.not_in_inventory)}
 					<div class="relative border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
 						{#if layerBusy}
 							<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/78 backdrop-blur-[1px]">
@@ -1033,6 +1129,21 @@
 								>
 									<ArchiveX size={14} />
 									{hasClearingKey(`reset-layer-${layer.layer_index}`) ? 'Resetting…' : 'Reset Layer'}
+								</button>
+								<button
+									type="button"
+									onclick={() => void setLayerNotInInventory(layer.layer_index, !layerNii)}
+									disabled={niiBusyLayer !== null}
+									title="Route pieces not in the active BrickLink inventory (.bsx) into this layer's bins"
+									class="flex items-center gap-2 border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {layerNii
+										? 'border-warning bg-warning/[0.12] text-warning'
+										: 'border-[#E2E0DB] bg-white text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+								>
+									{niiBusyLayer === layer.layer_index
+										? 'Saving…'
+										: layerNii
+											? 'Not-in-inventory: ON'
+											: 'Not-in-inventory mode'}
 								</button>
 							</div>
 						</div>
@@ -1332,57 +1443,50 @@
 							</span>
 						{/each}
 
-						<div class="relative">
-							<button
-								type="button"
-								onclick={() => (assignDropdownOpen = !assignDropdownOpen)}
-								class="inline-flex items-center gap-1 border border-border bg-white px-2 py-1 text-sm text-text transition-colors hover:bg-surface"
-							>
-								<Plus size={14} />
-								Add category
-							</button>
-
-							{#if assignDropdownOpen}
-								<div
-									class="absolute left-0 top-full z-10 mt-1 w-72 border border-border bg-white shadow-lg"
+						<SelectMenu
+							bind:open={assignDropdownOpen}
+							bind:search={assignSearch}
+							searchPlaceholder="Search categories…"
+							width={320}
+						>
+							{#snippet trigger()}
+								<span
+									class="inline-flex items-center gap-1 border border-border bg-white px-2 py-1 text-sm text-text transition-colors hover:bg-surface"
 								>
-									<div class="border-b border-border p-2">
-										<Input type="search" placeholder="Search categories…" bind:value={assignSearch} />
-									</div>
-									<div class="max-h-64 overflow-y-auto">
-										{#if availableCategories().length === 0}
-											<div class="px-3 py-3 text-sm text-text-muted">
-												No categories in the active sorting profile.
-											</div>
-										{:else}
-											{#each pickableCategories() as cat (cat.id)}
-												{@const elsewhere = assignedElsewhereLabel(cat.id)}
-												<button
-													type="button"
-													onclick={() => addAssignCategory(cat.id)}
-													class="flex w-full items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface"
-												>
-													<span class="flex-1 text-text">{cat.name}</span>
-													{#if elsewhere}
-														<span
-															class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
-															title="Currently assigned here — adding will move it"
-														>
-															{elsewhere}
-														</span>
-													{/if}
-												</button>
-											{/each}
-											{#if pickableCategories().length === 0}
-												<div class="px-3 py-3 text-sm text-text-muted">
-													{assignSearch.trim() ? `No categories match “${assignSearch}”.` : 'All categories are already added.'}
-												</div>
-											{/if}
-										{/if}
-									</div>
+									<Plus size={14} />
+									Add category
+								</span>
+							{/snippet}
+							{#if availableCategories().length === 0}
+								<div class="px-3 py-3 text-sm text-text-muted">
+									No categories in the active sorting profile.
 								</div>
+							{:else}
+								{#each pickableCategories() as cat (cat.id)}
+									{@const elsewhere = assignedElsewhereLabel(cat.id)}
+									<button
+										type="button"
+										onclick={() => addAssignCategory(cat.id)}
+										class="flex w-full items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface"
+									>
+										<span class="flex-1 text-text">{cat.name}</span>
+										{#if elsewhere}
+											<span
+												class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+												title="Currently assigned here — adding will move it"
+											>
+												{elsewhere}
+											</span>
+										{/if}
+									</button>
+								{/each}
+								{#if pickableCategories().length === 0}
+									<div class="px-3 py-3 text-sm text-text-muted">
+										{assignSearch.trim() ? `No categories match “${assignSearch}”.` : 'All categories are already added.'}
+									</div>
+								{/if}
 							{/if}
-						</div>
+						</SelectMenu>
 					</div>
 
 					{#if assignSelected.length === 0}

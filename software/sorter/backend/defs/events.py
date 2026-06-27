@@ -142,6 +142,9 @@ class KnownObjectData(BaseModel):
     # True when the profile's high_value_routing override rerouted this piece into
     # the high-value category's bin. Drives the "High value" chip on the card.
     high_value_routed: bool = False
+    # Live .bsx inventory membership: None = no active inventory; True = stocked;
+    # False = not in inventory. Drives the "Not in inventory" badge on the card.
+    not_in_inventory: Optional[bool] = None
     too_big: bool = False
     too_big_for_layer: bool = False
     intended_layer_index: Optional[int] = None

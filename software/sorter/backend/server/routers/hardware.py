@@ -8,7 +8,12 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getBinCategories, setBinCategories
+from blob_manager import (
+    getBinCategories,
+    setBinCategories,
+    getNotInInventoryBins,
+    setNotInInventoryBins,
+)
 from hardware.bus import MCUBus
 from irl.bin_layout import (
     getBinLayout,
@@ -19,6 +24,9 @@ from irl.bin_layout import (
     applyCategories,
     layoutMatchesCategories,
     mkLayoutFromConfig,
+    extractNotInInventory,
+    applyNotInInventory,
+    notInInventoryMatchesLayout,
     defaultMaxDimensionForBinCount,
     _LAYER_MAX_DIMENSION_DEFAULTS_MM,
 )
@@ -349,6 +357,16 @@ class AssignBinCategoriesPayload(BaseModel):
     section_index: int
     bin_index: int
     category_ids: List[str] = []
+
+
+class NotInInventoryModePayload(BinScopePayload):
+    # scope "bin" | "layer" | "all"; enabled toggles not-in-inventory mode.
+    enabled: bool = True
+
+
+class AutoAssignBinsPayload(BaseModel):
+    overlap: bool = False
+    window_days: float = 7.0
 
 
 class StorageLayerPayload(BaseModel):
@@ -2630,8 +2648,17 @@ def save_storage_layer_hardware_config(
         bin_size = cur_layer["bin_size"] if cur_layer else default_bin_size
         sections = [[bin_size] * bins_per_section for _ in range(section_count)]
 
+        # Preserve existing servo calibration when the payload omits it. A bin-count
+        # or enabled-flag change must NEVER null the angles — that silently wiped the
+        # layer-door calibration before (only recoverable from a config backup). To
+        # intentionally clear an angle, use /api/hardware-config/servo/layers/{i}/clear.
+        prior_layer = layout.layers[i] if i < len(layout.layers) else None
         servo_open = layer_update.get("servo_open_angle")
+        if not isinstance(servo_open, int):
+            servo_open = prior_layer.servo_open_angle if prior_layer else None
         servo_closed = layer_update.get("servo_closed_angle")
+        if not isinstance(servo_closed, int):
+            servo_closed = prior_layer.servo_closed_angle if prior_layer else None
         max_per_bin = layer_update.get("max_pieces_per_bin")
         max_per_bin_value = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         max_dim = layer_update.get("max_dimension_mm")
@@ -2746,6 +2773,175 @@ def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -
         return
 
     setBinCategories(categories)
+
+
+def _empty_not_in_inventory_from_config() -> list[list[list[bool]]]:
+    layout_config = getBinLayout()
+    return [
+        [[False for _ in section] for section in layer.sections]
+        for layer in layout_config.layers
+    ]
+
+
+def _current_not_in_inventory() -> list[list[list[bool]]]:
+    runtime_layout = _runtime_distribution_layout()
+    if runtime_layout is not None:
+        return extractNotInInventory(runtime_layout)
+
+    saved = getNotInInventoryBins()
+    if saved is not None:
+        reference_layout = mkLayoutFromConfig(getBinLayout())
+        if notInInventoryMatchesLayout(reference_layout, saved):
+            return saved
+
+    return _empty_not_in_inventory_from_config()
+
+
+def _apply_and_persist_not_in_inventory(flags: list[list[list[bool]]]) -> None:
+    runtime_layout = _runtime_distribution_layout()
+    if runtime_layout is not None and notInInventoryMatchesLayout(runtime_layout, flags):
+        applyNotInInventory(runtime_layout, flags)
+        setNotInInventoryBins(extractNotInInventory(runtime_layout))
+        return
+
+    setNotInInventoryBins(flags)
+
+
+def set_not_in_inventory_mode(
+    *, scope: str, layer_index: int | None, section_index: int | None,
+    bin_index: int | None, enabled: bool,
+) -> dict[str, Any]:
+    flags = _current_not_in_inventory()
+    if scope == "all":
+        for layer in flags:
+            for section in layer:
+                for i in range(len(section)):
+                    section[i] = enabled
+    elif scope == "layer":
+        if layer_index is None or layer_index < 0 or layer_index >= len(flags):
+            raise HTTPException(status_code=400, detail="Invalid layer index.")
+        for section in flags[layer_index]:
+            for i in range(len(section)):
+                section[i] = enabled
+    elif scope == "bin":
+        if (
+            layer_index is None or section_index is None or bin_index is None
+            or layer_index < 0 or layer_index >= len(flags)
+            or section_index < 0 or section_index >= len(flags[layer_index])
+            or bin_index < 0 or bin_index >= len(flags[layer_index][section_index])
+        ):
+            raise HTTPException(status_code=400, detail="Invalid bin coordinates.")
+        flags[layer_index][section_index][bin_index] = enabled
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported scope.")
+    _apply_and_persist_not_in_inventory(flags)
+    total = sum(1 for layer in flags for section in layer for b in section if b)
+    return {"ok": True, "scope": scope, "enabled": enabled, "not_in_inventory_bin_count": total}
+
+
+def _resolve_profile_category(ptc: dict, default_cat: str, part_id: str, color_id: str | None) -> str:
+    color = color_id if color_id else "any_color"
+    key = f"{color}-{part_id}"
+    if key in ptc:
+        return str(ptc[key])
+    any_key = f"any_color-{part_id}"
+    return str(ptc.get(any_key, default_cat))
+
+
+def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, Any]:
+    # Rank the active profile's categories by how many recently-distributed
+    # pieces hit them (re-mapped through the CURRENT profile, since the profile
+    # may have changed), then fill bins biggest-first: bottom layers (the larger
+    # bins) get the highest-volume categories. Not-in-inventory bins are left for
+    # the parallel pool. With overlap, leftover categories share bins.
+    import json
+    import os
+    import time
+    from collections import Counter
+    from sorting_profile import MISC_CATEGORY
+    from local_state import get_distributed_part_keys_since
+
+    gc = shared_state.gc_ref
+    path = getattr(gc, "sorting_profile_path", None) if gc is not None else None
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=400, detail="No active sorting profile to assign from.")
+    with open(path) as handle:
+        artifact = json.load(handle)
+    ptc = artifact.get("part_to_category", {}) or {}
+    default_cat = str(artifact.get("default_category_id", MISC_CATEGORY))
+    cat_meta = artifact.get("categories", {}) or {}
+
+    keys = get_distributed_part_keys_since(time.time() - window_days * 86400.0)
+    tally: Counter[str] = Counter()
+    for part_id, color_id in keys:
+        if not part_id:
+            continue
+        cat = _resolve_profile_category(ptc, default_cat, part_id, color_id)
+        if cat and cat != MISC_CATEGORY and cat != default_cat:
+            tally[cat] += 1
+    ranked = [cat for cat, _ in tally.most_common()]
+
+    flags = _current_not_in_inventory()
+    current = _current_bin_categories()
+    layout_config = getBinLayout()
+
+    def _pool_targets(want_nii: bool) -> list[tuple[int, int, int]]:
+        out: list[tuple[int, int, int]] = []
+        for li, layer in enumerate(layout_config.layers):
+            if not getattr(layer, "enabled", True):
+                continue
+            section_flags = layer.section_enabled or [True] * len(layer.sections)
+            for si, section in enumerate(layer.sections):
+                if si < len(section_flags) and not section_flags[si]:
+                    continue
+                for bi in range(len(section)):
+                    if bool(flags[li][si][bi]) == want_nii:
+                        out.append((li, si, bi))
+        # Bottom layers first (they hold the larger bins), then section/bin order.
+        out.sort(key=lambda t: (-t[0], t[1], t[2]))
+        return out
+
+    normal_targets = _pool_targets(False)
+    nii_targets = _pool_targets(True)
+
+    new_cats = [[[list(b) for b in sec] for sec in layer] for layer in current]
+    for li, si, bi in normal_targets + nii_targets:
+        new_cats[li][si][bi] = []
+
+    def _assign_pool(targets: list[tuple[int, int, int]], pool: str) -> list[dict[str, Any]]:
+        n = len(targets)
+        out: list[dict[str, Any]] = []
+        if n == 0 or not ranked:
+            return out
+        chosen = ranked if overlap else ranked[:n]
+        for i, cat in enumerate(chosen):
+            li, si, bi = targets[i % n]
+            new_cats[li][si][bi].append(cat)
+            out.append({
+                "category_id": cat,
+                "name": (cat_meta.get(cat) or {}).get("name", cat),
+                "pieces": tally[cat],
+                "bin": [li, si, bi],
+                "pool": pool,
+            })
+        return out
+
+    main_assignments = _assign_pool(normal_targets, "main")
+    nii_assignments = _assign_pool(nii_targets, "not_in_inventory")
+    _apply_and_persist_bin_categories(new_cats)
+    assignments = main_assignments + nii_assignments
+    return {
+        "ok": True,
+        "main_bins": len(normal_targets),
+        "not_in_inventory_bins": len(nii_targets),
+        "main_assigned": len(main_assignments),
+        "not_in_inventory_assigned": len(nii_assignments),
+        "categories_ranked": len(ranked),
+        "total_pieces": sum(tally.values()),
+        "overlap": overlap,
+        "window_days": window_days,
+        "assignments": assignments,
+    }
 
 
 def _clear_passthrough_alert_if_owned() -> None:
@@ -3076,6 +3272,18 @@ def get_bins_layout() -> Dict[str, Any]:
         for bin_out in layer_out["bins"]:
             bin_out.setdefault("category_ids", [])
 
+    # Overlay not-in-inventory mode flags (parallel bin pool).
+    nii_flags = _current_not_in_inventory()
+    for layer_out in layers_out:
+        li = layer_out["layer_index"]
+        for bin_out in layer_out["bins"]:
+            si = bin_out["section_index"]
+            bi = bin_out["bin_index"]
+            try:
+                bin_out["not_in_inventory"] = bool(nii_flags[li][si][bi])
+            except (IndexError, TypeError):
+                bin_out["not_in_inventory"] = False
+
     return {
         "ok": True,
         "layers": layers_out,
@@ -3254,6 +3462,22 @@ def assign_bins_categories(payload: AssignBinCategoriesPayload) -> Dict[str, Any
         section_index=payload.section_index,
         bin_index=payload.bin_index,
         category_ids=payload.category_ids,
+    )
+
+
+@router.post("/api/bins/auto-assign")
+def auto_assign_bins_route(payload: AutoAssignBinsPayload) -> Dict[str, Any]:
+    return auto_assign_bins(overlap=payload.overlap, window_days=payload.window_days)
+
+
+@router.post("/api/bins/not-in-inventory/set")
+def set_bins_not_in_inventory(payload: NotInInventoryModePayload) -> Dict[str, Any]:
+    return set_not_in_inventory_mode(
+        scope=payload.scope,
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+        enabled=payload.enabled,
     )
 
 

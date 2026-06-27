@@ -750,6 +750,7 @@ class Rev01BaseState(BaseState):
         # part+color straight off the local parts.db copy and stash it on the
         # piece. Temporary convenience alongside the network Hive path; a missing
         # DB or absent part must never affect classification.
+        self._applyBsxInventoryFlag(obj)
         try:
             from piece_metadata_db import getLocalPieceMetadata
 
@@ -760,6 +761,22 @@ class Rev01BaseState(BaseState):
             obj.moving_avg_price = metadata.get("moving_avg_price")
         except Exception as exc:
             self.gc.logger.warn(f"local piece metadata lookup failed: {exc}")
+
+    def _applyBsxInventoryFlag(self, obj) -> None:
+        # Live membership test against the active .bsx inventory. Brickognize ids
+        # are already in the BrickLink id space the .bsx uses, so this matches
+        # directly. None when no inventory is active or the part is unknown.
+        try:
+            from bsx_inventory import getActiveBsxInventory
+
+            inventory = getActiveBsxInventory(self.gc)
+            if inventory is None:
+                obj.not_in_inventory = None
+                return
+            in_inventory = inventory.isInInventory(obj.part_id, obj.color_id)
+            obj.not_in_inventory = (in_inventory is False)
+        except Exception as exc:
+            self.gc.logger.warn(f"bsx inventory check failed: {exc}")
 
     def dumpBurstCaptureArtifacts(
         self,

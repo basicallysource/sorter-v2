@@ -60,6 +60,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             moving_avg_price=obj.moving_avg_price,
             piece_metadata=obj.piece_metadata,
             high_value_routed=obj.high_value_routed,
+            not_in_inventory=obj.not_in_inventory,
             too_big=obj.too_big,
             too_big_for_layer=obj.too_big_for_layer,
             intended_layer_index=obj.intended_layer_index,

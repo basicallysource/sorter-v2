@@ -110,6 +110,9 @@ export interface KnownObjectData {
   // True when the profile's high_value_routing override rerouted this piece into
   // the high-value category's bin. Drives the "High value" chip on the card.
   high_value_routed?: boolean;
+  // Live .bsx inventory membership: undefined/null = no active inventory; true =
+  // stocked; false = NOT in inventory. Drives the "Not in inventory" badge.
+  not_in_inventory?: boolean | null;
   too_big?: boolean;
   too_big_for_layer?: boolean;
   intended_layer_index?: number | null;

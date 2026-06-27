@@ -191,6 +191,18 @@ def setBinCategories(categories: list[list[list[list[str]]]]) -> None:
     set_bin_categories(categories)
 
 
+def getNotInInventoryBins() -> list[list[list[bool]]] | None:
+    from local_state import get_not_in_inventory_bins
+
+    return get_not_in_inventory_bins()
+
+
+def setNotInInventoryBins(flags: list[list[list[bool]]]) -> None:
+    from local_state import set_not_in_inventory_bins
+
+    set_not_in_inventory_bins(flags)
+
+
 def getCameraSetup() -> dict | None:
     from toml_config import getCameraSetup as _get
     return _get()

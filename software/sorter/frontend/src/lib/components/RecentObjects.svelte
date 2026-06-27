@@ -640,6 +640,16 @@
 						</span>
 					{/if}
 
+					<!-- Not-in-inventory badge — part+color absent from the active .bsx -->
+					{#if obj.not_in_inventory === true}
+						<span
+							class="inline-flex items-center border border-warning/60 bg-warning/[0.12] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning"
+							title="This part+color is not in the active BrickLink inventory (.bsx)"
+						>
+							Not in inventory
+						</span>
+					{/if}
+
 					<!-- Year badge — first-release year -->
 					{#if yearOf(obj) !== null}
 						<span

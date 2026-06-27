@@ -80,6 +80,10 @@ class BinSize(Enum):
 class Bin:
     size: BinSize
     category_ids: list[str] = field(default_factory=list)
+    # "Not in inventory" mode: when True this bin is part of the parallel pool
+    # that only receives pieces absent from the active .bsx inventory. Such bins
+    # are excluded from normal routing and vice-versa. See positioning.py.
+    not_in_inventory: bool = False
 
 
 @dataclass
@@ -335,6 +339,43 @@ def extractCategories(layout: DistributionLayout) -> list[list[list[list[str]]]]
         [[list(b.category_ids) for b in section.bins] for section in layer.sections]
         for layer in layout.layers
     ]
+
+
+def extractNotInInventory(layout: DistributionLayout) -> list[list[list[bool]]]:
+    return [
+        [[bool(b.not_in_inventory) for b in section.bins] for section in layer.sections]
+        for layer in layout.layers
+    ]
+
+
+def applyNotInInventory(
+    layout: DistributionLayout, flags: list[list[list[bool]]]
+) -> None:
+    for layer_idx, layer in enumerate(layout.layers):
+        for section_idx, section in enumerate(layer.sections):
+            for bin_idx, b in enumerate(section.bins):
+                b.not_in_inventory = bool(flags[layer_idx][section_idx][bin_idx])
+
+
+def emptyNotInInventory(layout: DistributionLayout) -> list[list[list[bool]]]:
+    return [
+        [[False for _ in section.bins] for section in layer.sections]
+        for layer in layout.layers
+    ]
+
+
+def notInInventoryMatchesLayout(
+    layout: DistributionLayout, flags: list[list[list[bool]]]
+) -> bool:
+    if len(flags) != len(layout.layers):
+        return False
+    for layer_idx, layer in enumerate(layout.layers):
+        if len(flags[layer_idx]) != len(layer.sections):
+            return False
+        for section_idx, section in enumerate(layer.sections):
+            if len(flags[layer_idx][section_idx]) != len(section.bins):
+                return False
+    return True
 
 
 def applyCategories(

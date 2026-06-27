@@ -19,6 +19,15 @@ class SortingProfile(ABC):
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:
         return None
 
+    # Optional inventory-based override: a profile may declare an
+    # inventory_routing block that reroutes any piece NOT present in the active
+    # .bsx inventory into a chosen category (e.g. the "not in inventory" bin).
+    # `in_inventory` is the live membership answer from bsx_inventory: True/False,
+    # or None when undecidable (no active .bsx / no part id). Returns the override
+    # category id, or None when not applicable. Base impl = off.
+    def notInInventoryCategoryId(self, in_inventory: Optional[bool]) -> Optional[str]:
+        return None
+
 
 class JsonSortingProfile(SortingProfile):
     def __init__(self, gc: GlobalConfig):
@@ -32,6 +41,9 @@ class JsonSortingProfile(SortingProfile):
         # Parsed high_value_routing block: {"enabled", "min_price", "category_id"}
         # or None. See highValueCategoryId.
         self.high_value_routing: Optional[dict[str, Any]] = None
+        # Parsed inventory_routing block: {"enabled", "not_in_inventory_category_id"}
+        # or None. See notInInventoryCategoryId.
+        self.inventory_routing: Optional[dict[str, Any]] = None
         self.reload()
 
     def _loadData(self) -> None:
@@ -70,6 +82,8 @@ class JsonSortingProfile(SortingProfile):
         self.is_set_based = data.get("profile_type") == "set" or bool(self.set_inventories)
         raw_hvr = data.get("high_value_routing")
         self.high_value_routing = raw_hvr if isinstance(raw_hvr, dict) else None
+        raw_inv = data.get("inventory_routing")
+        self.inventory_routing = raw_inv if isinstance(raw_inv, dict) else None
 
     def reload(self) -> None:
         self._loadData()
@@ -104,6 +118,16 @@ class JsonSortingProfile(SortingProfile):
             if price > min_price:
                 return category_id
         return None
+
+    def notInInventoryCategoryId(self, in_inventory: Optional[bool]) -> Optional[str]:
+        cfg = self.inventory_routing
+        # Only fire on a definite "not in inventory" answer. None (undecidable:
+        # no active .bsx or no part id) and True (in inventory) both pass through
+        # to normal routing.
+        if not cfg or not cfg.get("enabled") or in_inventory is not False:
+            return None
+        category_id = cfg.get("not_in_inventory_category_id")
+        return category_id if isinstance(category_id, str) and category_id else None
 
 
 def mkSortingProfile(gc: GlobalConfig) -> SortingProfile:

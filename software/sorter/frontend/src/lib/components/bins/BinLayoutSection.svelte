@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Button, Input, SelectMenu } from '$lib/components/primitives';
+	import { Button, Input } from '$lib/components/primitives';
 	import Modal from '$lib/components/Modal.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { requestBackendRestart, waitForBackend } from '$lib/backend';
@@ -14,7 +14,7 @@
 		type BinLayoutRecord
 	} from '$lib/api/bin-layouts';
 	import { onMount } from 'svelte';
-	import { Check, Loader2, Pencil, Trash2 } from 'lucide-svelte';
+	import { Check, ChevronDown, Loader2, Pencil, Trash2 } from 'lucide-svelte';
 
 	let {
 		baseUrl,
@@ -28,7 +28,7 @@
 	let restarting = $state(false);
 	let error = $state<string | null>(null);
 	let status = $state('');
-	let pickerOpen = $state(false);
+	let dropdownOpen = $state(false);
 
 	let switchOpen = $state(false);
 	let saveAsOpen = $state(false);
@@ -39,10 +39,14 @@
 
 	const isDirty = $derived(active?.dirty ?? false);
 
+	function profileLabel(id: string | null): string {
+		return (id ?? '').replace(/\.json$/, '') || 'no profile';
+	}
+
 	async function reload() {
 		try {
 			const [list, act] = await Promise.all([
-				fetchBinLayouts(baseUrl, profileId),
+				fetchBinLayouts(baseUrl),
 				fetchActiveBinLayout(baseUrl)
 			]);
 			layouts = list.layouts;
@@ -59,36 +63,33 @@
 		return () => clearInterval(interval);
 	});
 
-	// Reload when the active profile changes (layouts are scoped to it).
-	let lastProfile = $state<string | null | undefined>(undefined);
-	$effect(() => {
-		if (profileId !== lastProfile) {
-			lastProfile = profileId;
-			void reload();
-		}
-	});
+	function handleClickOutside(event: MouseEvent) {
+		const el = event.target as HTMLElement;
+		if (!el.closest('.bin-layout-dropdown')) dropdownOpen = false;
+	}
 
 	function openSwitch(layout: BinLayoutRecord) {
-		pickerOpen = false;
+		dropdownOpen = false;
 		if (layout.is_active) return;
 		target = layout;
 		switchOpen = true;
 	}
 
 	function openSaveAs() {
+		dropdownOpen = false;
 		draftName = '';
 		saveAsOpen = true;
 	}
 
 	function openRename(layout: BinLayoutRecord) {
-		pickerOpen = false;
+		dropdownOpen = false;
 		target = layout;
 		draftName = layout.name;
 		renameOpen = true;
 	}
 
 	function openDelete(layout: BinLayoutRecord) {
-		pickerOpen = false;
+		dropdownOpen = false;
 		target = layout;
 		deleteOpen = true;
 	}
@@ -162,70 +163,85 @@
 	}
 </script>
 
+<svelte:window onclick={handleClickOutside} />
+
 <div class="mb-4 border border-border bg-surface px-4 py-3">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div class="min-w-0">
 			<div class="text-sm font-medium text-text">Bin layout</div>
 			<div class="mt-0.5 text-sm text-text-muted">
-				Saved bin configurations for <span class="text-text">{profileName || 'this profile'}</span>.
-				Switch between them; bin contents are kept unless you empty the bins.
+				Saved bin configurations. Switch between them; bin contents are kept unless you empty the bins.
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
-			<SelectMenu bind:open={pickerOpen} searchable={false} width={300} align="right">
-				{#snippet trigger()}
-					<span
-						class="inline-flex items-center gap-2 border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-surface"
-					>
-						{#if restarting}
-							<Loader2 size={14} class="animate-spin" />
-						{/if}
-						{active?.name ?? 'No layout'}
-						{#if isDirty}<span class="text-warning">• unsaved</span>{/if}
-					</span>
-				{/snippet}
-				{#if layouts.length === 0}
-					<div class="px-3 py-2 text-sm text-text-muted">No saved layouts for this profile.</div>
-				{/if}
-				{#each layouts as layout (layout.id)}
+			<div class="bin-layout-dropdown relative">
+				<button
+					type="button"
+					onclick={() => (dropdownOpen = !dropdownOpen)}
+					class="flex max-w-[260px] items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg"
+				>
+					{#if restarting}<Loader2 size={14} class="shrink-0 animate-spin" />{/if}
+					<span class="truncate font-medium">{active?.name ?? 'No layout'}</span>
+					{#if isDirty}<span class="shrink-0 text-xs text-warning">unsaved</span>{/if}
+					<ChevronDown size={14} class="shrink-0 opacity-60" />
+				</button>
+
+				{#if dropdownOpen}
 					<div
-						class="flex items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 text-sm last:border-b-0 hover:bg-surface"
+						class="absolute top-full right-0 z-50 mt-1 w-80 overflow-hidden border border-border bg-surface shadow-[0_12px_28px_rgba(15,23,42,0.14)]"
 					>
-						<button
-							type="button"
-							class="flex min-w-0 flex-1 items-center gap-2 text-left text-text disabled:opacity-60"
-							disabled={busy || layout.is_active}
-							onclick={() => openSwitch(layout)}
-						>
-							{#if layout.is_active}
-								<Check size={14} class="shrink-0 text-success" />
-							{:else}
-								<span class="w-[14px] shrink-0"></span>
-							{/if}
-							<span class="truncate">{layout.name}</span>
-						</button>
-						<div class="flex shrink-0 items-center gap-1">
-							<button
-								type="button"
-								class="p-1 text-text-muted hover:text-text"
-								title="Rename"
-								onclick={() => openRename(layout)}
-							>
-								<Pencil size={13} />
-							</button>
-							<button
-								type="button"
-								class="p-1 text-text-muted hover:text-danger disabled:opacity-40"
-								title={layout.is_active ? 'Cannot delete the active layout' : 'Delete'}
-								disabled={layout.is_active}
-								onclick={() => openDelete(layout)}
-							>
-								<Trash2 size={13} />
-							</button>
+						<div class="border-b border-border bg-bg px-3 py-2 text-xs text-text-muted">
+							Each layout belongs to a profile and only works with that profile.
+						</div>
+						{#if layouts.length === 0}
+							<div class="px-3 py-2 text-sm text-text-muted">No saved layouts yet.</div>
+						{/if}
+						<div class="divide-y divide-border">
+							{#each layouts as layout (layout.id)}
+								{@const matches = layout.profile_id === profileId}
+								<div class="flex items-center justify-between gap-2 px-3 py-2 {matches ? '' : 'opacity-50'}">
+									<button
+										type="button"
+										class="flex min-w-0 flex-1 items-center gap-2 text-left disabled:cursor-not-allowed"
+										disabled={busy || layout.is_active || !matches}
+										title={matches ? '' : 'Switch to this layout’s profile first'}
+										onclick={() => openSwitch(layout)}
+									>
+										{#if layout.is_active}
+											<Check size={14} class="shrink-0 text-success" />
+										{:else}
+											<span class="w-[14px] shrink-0"></span>
+										{/if}
+										<div class="min-w-0">
+											<div class="truncate text-sm font-medium text-text">{layout.name}</div>
+											<div class="truncate font-mono text-xs text-text-muted">{profileLabel(layout.profile_id)}</div>
+										</div>
+									</button>
+									<div class="flex shrink-0 items-center gap-1">
+										<button
+											type="button"
+											class="p-1 text-text-muted transition-colors hover:text-text"
+											title="Rename"
+											onclick={() => openRename(layout)}
+										>
+											<Pencil size={13} />
+										</button>
+										<button
+											type="button"
+											class="p-1 text-text-muted transition-colors hover:text-danger disabled:opacity-40"
+											title={layout.is_active ? 'Cannot delete the active layout' : 'Delete'}
+											disabled={layout.is_active}
+											onclick={() => openDelete(layout)}
+										>
+											<Trash2 size={13} />
+										</button>
+									</div>
+								</div>
+							{/each}
 						</div>
 					</div>
-				{/each}
-			</SelectMenu>
+				{/if}
+			</div>
 			<Button variant="secondary" size="sm" disabled={busy || !isDirty} onclick={() => void saveChanges()}>
 				Save changes
 			</Button>

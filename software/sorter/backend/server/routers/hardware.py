@@ -791,12 +791,16 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
             "bin_size": bin_size,
             "enabled": enabled,
         }
-        servo_open = getattr(layer, "servo_open_angle", None)
-        servo_closed = getattr(layer, "servo_closed_angle", None)
+        # Calibration is sourced from the per-channel store (resolved via the
+        # layer's servo_channel_id), not the layer's deprecated angle fields.
+        from irl.bin_layout import calibratedAnglesForLayer, channelIdForLayer
+
+        servo_open, servo_closed = calibratedAnglesForLayer(layout, index - 1)
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
         max_dimension = getattr(layer, "max_dimension_mm", None)
         open_value = servo_open if isinstance(servo_open, int) else None
         closed_value = servo_closed if isinstance(servo_closed, int) else None
+        layer_entry["servo_channel_id"] = channelIdForLayer(layout, index - 1)
         layer_entry["servo_open_angle"] = open_value
         layer_entry["servo_closed_angle"] = closed_value
         layer_entry["calibrated"] = open_value is not None and closed_value is not None
@@ -1387,9 +1391,12 @@ def preview_layer_servo(
     invert = bool(payload.invert)
 
     layout = getBinLayout()
-    layer = layout.layers[layer_index] if 0 <= layer_index < len(layout.layers) else None
-    layer_open = getattr(layer, "servo_open_angle", None)
-    layer_closed = getattr(layer, "servo_closed_angle", None)
+    from irl.bin_layout import calibratedAnglesForLayer
+
+    if 0 <= layer_index < len(layout.layers):
+        layer_open, layer_closed = calibratedAnglesForLayer(layout, layer_index)
+    else:
+        layer_open = layer_closed = None
 
     try:
         if backend == "waveshare":
@@ -1561,25 +1568,26 @@ def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> 
     layout = getBinLayout()
     if layer_index < 0 or layer_index >= len(layout.layers):
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
-    layer = layout.layers[layer_index]
+    # Calibration is per-channel (machine-level), not stored on the layout — so
+    # locking an angle never touches bin_layout / geometry.
+    from irl.bin_layout import channelIdForLayer
+    from local_state import set_servo_channel_angle
+
+    channel_id = channelIdForLayer(layout, layer_index)
     if payload.which == "open":
-        layer.servo_open_angle = angle
+        set_servo_channel_angle(channel_id, "open", angle)
         if hasattr(servo, "set_open_angle"):
             servo.set_open_angle(angle)
     else:
-        layer.servo_closed_angle = angle
+        set_servo_channel_angle(channel_id, "closed", angle)
         if hasattr(servo, "set_closed_angle"):
             servo.set_closed_angle(angle)
-
-    try:
-        saveBinLayout(layout)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to persist locked angle: {e}")
 
     state = _servo_calibration_state(servo)
     return {
         "ok": True,
         "layer_index": layer_index,
+        "channel_id": channel_id,
         "which": payload.which,
         "angle": angle,
         **state,
@@ -1600,21 +1608,18 @@ def clear_layer_servo_angle(layer_index: int, payload: ServoLayerClearPayload) -
     layout = getBinLayout()
     if layer_index < 0 or layer_index >= len(layout.layers):
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
-    layer = layout.layers[layer_index]
+    from irl.bin_layout import channelIdForLayer
+    from local_state import set_servo_channel_angle
 
+    channel_id = channelIdForLayer(layout, layer_index)
     if payload.which in {"open", "both"}:
-        layer.servo_open_angle = None
+        set_servo_channel_angle(channel_id, "open", None)
         if hasattr(servo, "set_open_angle"):
             servo.set_open_angle(None)
     if payload.which in {"closed", "both"}:
-        layer.servo_closed_angle = None
+        set_servo_channel_angle(channel_id, "closed", None)
         if hasattr(servo, "set_closed_angle"):
             servo.set_closed_angle(None)
-
-    try:
-        saveBinLayout(layout)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to clear angle: {e}")
 
     state = _servo_calibration_state(servo)
     return {
@@ -2678,6 +2683,9 @@ def save_storage_layer_hardware_config(
             enabled=enabled,
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
+            # Carry the layer's servo channel reference through a rebuild (calibration
+            # itself lives per-channel and is untouched here).
+            servo_channel_id=prior_layer.servo_channel_id if prior_layer else None,
             max_pieces_per_bin=max_per_bin_value,
             max_dimension_mm=max_dim_value,
             section_enabled=prior_section_enabled,

@@ -18,6 +18,13 @@ class LayerConfig:
     # disabled section is skipped during assignment exactly like a disabled
     # layer. None / wrong length is normalized to all-enabled in __post_init__.
     section_enabled: List[bool] | None = None
+    # Which PWM servo channel drives this layer's door. The calibration angles
+    # live per-channel in local_state (servo_channel_calibration), NOT here, so
+    # editing/switching layouts never touches calibration. None => fall back to
+    # the layer index (the historical 1:1 mapping). servo_open_angle /
+    # servo_closed_angle above are DEPRECATED (kept only for the one-time
+    # migration that seeds the per-channel store) and are no longer the source.
+    servo_channel_id: int | None = None
 
     def __post_init__(self) -> None:
         n = len(self.sections)
@@ -190,6 +197,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
             enabled = True
         servo_open = layer_data.get("servo_open_angle")
         servo_close = layer_data.get("servo_closed_angle")
+        servo_channel = layer_data.get("servo_channel_id")
         max_per_bin = layer_data.get("max_pieces_per_bin")
         max_dimension = _parseMaxDimension(layer_data.get("max_dimension_mm", _MISSING), sections)
         section_enabled_raw = layer_data.get("section_enabled")
@@ -203,6 +211,7 @@ def _parseLayersDict(data: dict) -> BinLayoutConfig | None:
             enabled=enabled,
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_close if isinstance(servo_close, int) else None,
+            servo_channel_id=servo_channel if isinstance(servo_channel, int) else None,
             max_pieces_per_bin=max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
             max_dimension_mm=max_dimension,
             section_enabled=section_enabled,
@@ -297,8 +306,11 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
             {
                 "sections": layer.sections,
                 "enabled": layer.enabled,
+                # servo angles are DEPRECATED here — calibration lives per-channel.
+                # Persisted only so legacy data round-trips during the migration window.
                 "servo_open_angle": layer.servo_open_angle,
                 "servo_closed_angle": layer.servo_closed_angle,
+                "servo_channel_id": layer.servo_channel_id,
                 "max_pieces_per_bin": layer.max_pieces_per_bin,
                 "max_dimension_mm": layer.max_dimension_mm,
                 "section_enabled": layer.section_enabled,
@@ -307,6 +319,55 @@ def saveBinLayout(config: BinLayoutConfig) -> None:
         ]
     }
     set_bin_layout(data)
+
+
+def channelIdForLayer(config: "BinLayoutConfig", layer_index: int, servo_channel_config=None) -> int:
+    layer = config.layers[layer_index] if layer_index < len(config.layers) else None
+    if layer is not None and layer.servo_channel_id is not None:
+        return layer.servo_channel_id
+    if servo_channel_config and layer_index < len(servo_channel_config):
+        ch = getattr(servo_channel_config[layer_index], "id", None)
+        if isinstance(ch, int):
+            return ch
+    return layer_index
+
+
+def calibratedAnglesForLayer(config: "BinLayoutConfig", layer_index: int, servo_channel_config=None):
+    """Resolve a layer's (open, closed) angles from the per-channel calibration
+    store, falling back to the layer's legacy angles if the channel isn't
+    calibrated yet (ultra-safe during the migration window)."""
+    from local_state import get_servo_channel_calibration
+
+    channel_id = channelIdForLayer(config, layer_index, servo_channel_config)
+    cal = get_servo_channel_calibration().get(str(channel_id)) or {}
+    open_angle = cal.get("open")
+    closed_angle = cal.get("closed")
+    if open_angle is None and closed_angle is None and layer_index < len(config.layers):
+        layer = config.layers[layer_index]
+        open_angle = layer.servo_open_angle
+        closed_angle = layer.servo_closed_angle
+    return open_angle, closed_angle
+
+
+def snapshotLayout(config: "BinLayoutConfig", bin_categories=None, not_in_inventory=None) -> dict:
+    """Snapshot a layout for the bin_layouts presets table: geometry + enabled +
+    section flags + layer->channel ref + assignments + NII. NO servo angles
+    (those are per-channel and machine-level)."""
+    return {
+        "layers": [
+            {
+                "sections": layer.sections,
+                "enabled": layer.enabled,
+                "servo_channel_id": layer.servo_channel_id,
+                "max_pieces_per_bin": layer.max_pieces_per_bin,
+                "max_dimension_mm": layer.max_dimension_mm,
+                "section_enabled": layer.section_enabled,
+            }
+            for layer in config.layers
+        ],
+        "bin_categories": bin_categories,
+        "not_in_inventory_bins": not_in_inventory,
+    }
 
 
 def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:

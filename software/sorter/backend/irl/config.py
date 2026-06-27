@@ -1502,6 +1502,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     bin_layout = config.bin_layout_config
     irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
 
+    from .bin_layout import calibratedAnglesForLayer
+
     # Initialize servos — either Waveshare SC bus or PCA9685 (default)
     if gc.disable_servos:
         gc.logger.info("Servo init skipped (--disable servos)")
@@ -1522,8 +1524,12 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         for layer_index, servo in enumerate(irl_interface.servos):
             if not hasattr(servo, "set_preset_angles"):
                 continue
-            layer_open = bin_layout.layers[layer_index].servo_open_angle if layer_index < len(bin_layout.layers) else None
-            layer_closed = bin_layout.layers[layer_index].servo_closed_angle if layer_index < len(bin_layout.layers) else None
+            # Angles come from the per-channel calibration store (resolved via the
+            # layer's servo_channel_id, with a legacy fallback to the layer's own
+            # angle if the channel isn't calibrated yet).
+            layer_open, layer_closed = calibratedAnglesForLayer(
+                bin_layout, layer_index, servo_channel_config
+            )
             if layer_open is not None and layer_closed is not None:
                 servo.set_preset_angles(layer_open, layer_closed)
             if hasattr(servo, "set_motion_speeds"):

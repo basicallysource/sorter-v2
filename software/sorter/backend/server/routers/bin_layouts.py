@@ -101,6 +101,31 @@ def create_bin_layout(payload: CreateBinLayoutPayload) -> dict[str, Any]:
     return {"ok": True, "layout": _record_out(record)}
 
 
+class ImportBinLayoutPayload(BaseModel):
+    name: str
+    layout: dict[str, Any]
+    profile_id: Optional[str] = None
+    profile_source: Optional[str] = None
+    make_active: bool = False
+
+
+@router.post("/api/bin-layouts/import")
+def import_bin_layout(payload: ImportBinLayoutPayload) -> dict[str, Any]:
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="name is required.")
+    if not isinstance(payload.layout, dict) or not isinstance(payload.layout.get("layers"), list):
+        raise HTTPException(status_code=400, detail="layout must contain a layers list.")
+    record = ls.create_bin_layout(
+        name=name,
+        layout=payload.layout,
+        profile_id=payload.profile_id,
+        profile_source=payload.profile_source,
+        make_active=payload.make_active,
+    )
+    return {"ok": True, "layout": _record_out(record)}
+
+
 @router.post("/api/bin-layouts/{layout_id}/save")
 def save_bin_layout(layout_id: str) -> dict[str, Any]:
     if ls.get_bin_layout_record(layout_id) is None:

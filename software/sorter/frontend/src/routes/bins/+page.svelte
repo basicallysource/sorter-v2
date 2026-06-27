@@ -2,6 +2,7 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { components } from '$lib/api/rest';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import BinLayoutSection from '$lib/components/bins/BinLayoutSection.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { Button, SelectMenu } from '$lib/components/primitives';
@@ -11,6 +12,18 @@
 	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2, Plus, Tag, X } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
+	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
+	// local_filename rather than a profile_id; either identifies the profile a layout ties to.
+	const profileSync = $derived(
+		(manager.selectedMachine?.sortingProfileStatus as { sync_state?: Record<string, unknown> } | null)
+			?.sync_state ?? null
+	);
+	const activeProfileId = $derived(
+		(profileSync?.profile_id as string | undefined) ??
+			(profileSync?.local_filename as string | undefined) ??
+			null
+	);
+	const activeProfileName = $derived((profileSync?.profile_name as string | undefined) ?? '');
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	let activeBaseUrl = $state(baseUrl());
 
@@ -936,6 +949,8 @@
 				</button>
 			</div>
 		</div>
+
+		<BinLayoutSection baseUrl={baseUrl()} profileId={activeProfileId} profileName={activeProfileName} />
 
 		<div class="mb-4 flex items-center justify-between gap-4 border border-[#E2E0DB] bg-surface px-4 py-3">
 			<div class="pr-4">

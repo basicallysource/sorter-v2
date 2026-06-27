@@ -18,6 +18,7 @@
 		Pause,
 		Play,
 		Power,
+		PowerOff,
 		RefreshCw,
 		RotateCcw,
 		X
@@ -32,6 +33,9 @@
 	let powerMenuOpen = $state(false);
 	let restartingBackend = $state(false);
 	let restartConfirmOpen = $state(false);
+	let powerdownConfirmOpen = $state(false);
+	let poweringDown = $state(false);
+	let powerdownFailed = $state(false);
 
 	function currentBackendBaseUrl(): string {
 		return machineHttpBaseUrlFromWsUrl(manager.selectedMachine?.url) ?? getBackendHttpBase();
@@ -178,6 +182,31 @@
 		restartingBackend = false;
 		// Ws will reconnect and push fresh snapshots automatically; the feed
 		// epoch forces existing MJPEG <img> streams to reconnect without a page reload.
+	}
+
+	function requestPowerDown() {
+		powerMenuOpen = false;
+		powerdownConfirmOpen = true;
+	}
+
+	async function confirmPowerDown() {
+		powerdownConfirmOpen = false;
+		powerdownFailed = false;
+		poweringDown = true;
+		const baseUrl = currentBackendBaseUrl();
+		try {
+			const response = await fetch(`${baseUrl}/api/system/shutdown`, { method: 'POST' });
+			if (!response.ok) {
+				poweringDown = false;
+				powerdownFailed = true;
+			}
+			// On success, leave the progress modal up — the machine is going down and
+			// the UI will stop responding shortly. There's nothing left to wait for.
+		} catch {
+			// The request may not return if the OS starts tearing things down before
+			// the response is delivered. Treat a dropped connection as success and keep
+			// the progress modal up.
+		}
 	}
 
 	function handlePowerMenuClickOutside(event: MouseEvent) {
@@ -487,6 +516,13 @@
 								<RotateCcw size={14} class="text-text-muted" />
 								Restart Backend
 							</button>
+							<button
+								onclick={requestPowerDown}
+								class="flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm text-[#B11618] transition-colors hover:bg-danger/[0.08]"
+							>
+								<PowerOff size={14} />
+								Full Machine Power Down
+							</button>
 						</div>
 					</div>
 				{/if}
@@ -678,6 +714,87 @@
 				style="border-radius: 50%;"
 			></div>
 			<div class="text-sm text-text-muted">Waiting for the service to come back online.</div>
+		</div>
+	</Modal>
+
+	<Modal bind:open={powerdownConfirmOpen} title="Power down the machine?">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
+					<AlertTriangle size={18} />
+				</div>
+				<div>
+					<div class="text-sm text-text">
+						This shuts down the entire machine — the same as running <span class="font-mono"
+							>shutdown</span
+						> on the Linux computer. The sorter will fully power off.
+					</div>
+					<div class="mt-2 text-sm text-text-muted">
+						Any running sort will be interrupted. To turn the machine back on you'll need physical
+						access to power it up again.
+					</div>
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={() => (powerdownConfirmOpen = false)}
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+				>
+					Cancel
+				</button>
+				<button
+					type="button"
+					onclick={() => void confirmPowerDown()}
+					class="inline-flex items-center gap-1.5 border border-danger/25 bg-danger/[0.08] px-3 py-1.5 text-sm font-medium text-[#B11618] transition-colors hover:bg-danger/[0.14]"
+				>
+					<PowerOff size={14} />
+					Power Down Machine
+				</button>
+			</div>
+		</div>
+	</Modal>
+
+	<Modal open={poweringDown} title="Powering down..." dismissible={false}>
+		<div class="flex flex-col items-center gap-4 py-4 text-center">
+			<div
+				class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent"
+				style="border-radius: 50%;"
+			></div>
+			<div class="text-sm text-text">The machine is shutting down.</div>
+			<div class="text-sm text-text-muted">
+				This page will stop responding shortly. Linux can take up to about 2 minutes to fully power
+				off after that — wait until the machine is completely off before cutting power.
+			</div>
+		</div>
+	</Modal>
+
+	<Modal bind:open={powerdownFailed} title="Power down failed">
+		<div class="flex flex-col gap-4">
+			<div class="flex items-start gap-3">
+				<div
+					class="flex h-9 w-9 shrink-0 items-center justify-center border border-danger/25 bg-danger/[0.08] text-[#B11618]"
+				>
+					<AlertTriangle size={18} />
+				</div>
+				<div class="text-sm text-text">
+					The shutdown command could not be started. The machine is still running. Check the backend
+					logs for details.
+				</div>
+			</div>
+
+			<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
+				<button
+					type="button"
+					onclick={() => (powerdownFailed = false)}
+					class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-sm text-text transition-colors hover:bg-surface"
+				>
+					Close
+				</button>
+			</div>
 		</div>
 	</Modal>
 

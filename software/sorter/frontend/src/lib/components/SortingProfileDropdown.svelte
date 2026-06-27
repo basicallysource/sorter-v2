@@ -11,7 +11,7 @@
 	import { formatRelativeTime } from '$lib/sorting-profiles/format';
 	import { ChevronDown } from 'lucide-svelte';
 	import Modal from '$lib/components/Modal.svelte';
-	import LoadingBoxes from '$lib/components/LoadingBoxes.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type SortingProfileSyncState = {
 		source?: 'hive' | 'local' | null;
@@ -523,7 +523,7 @@
 
 			<div>
 				{#if loading_quick_profiles && quick_profiles.length === 0}
-					<div class="px-3 py-3"><LoadingBoxes /></div>
+					<div class="px-3 py-3"><Spinner /></div>
 				{:else if quick_profiles.length === 0}
 					<div class="px-3 py-2 text-xs text-text-muted">No recent profiles yet.</div>
 				{:else}
@@ -574,7 +574,7 @@
 			</div>
 			<div>
 				{#if loading_quick_profiles && local_profiles.length === 0}
-					<div class="px-3 py-3"><LoadingBoxes /></div>
+					<div class="px-3 py-3"><Spinner /></div>
 				{:else if local_profiles.length === 0}
 					<div class="px-3 py-2 text-xs text-text-muted">No local profiles.</div>
 				{:else}

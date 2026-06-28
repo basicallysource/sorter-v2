@@ -119,7 +119,7 @@ SANITY_SAT_TOLERANCE = 30     # 0-255
 # floor glows bright, anything that isn't floor is darker. Defaults are CLI
 # overridable; the sweep prints the std distribution so they can be tuned.
 DEFAULT_MAX_HUE_STD = 12.0    # circular hue std, OpenCV 8-bit hue units
-DEFAULT_MAX_SAT_STD = 25.0    # saturation std, 0-255
+DEFAULT_MAX_SAT_STD = 15.0    # saturation std, 0-255
 DEFAULT_MAX_VAL_STD = 30.0    # value/brightness std, 0-255
 
 # Envelope percentile: the final envelope is [P, 100-P] instead of naive min/max,

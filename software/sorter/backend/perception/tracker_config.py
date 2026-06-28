@@ -476,7 +476,7 @@ TRACKER_SPECS: dict[str, "TrackerSpec"] = {
     ),
 }
 
-DEFAULT_TRACKER_TYPE = TrackerType.BYTETRACK.value
+DEFAULT_TRACKER_TYPE = TrackerType.ORDERED.value
 
 
 def specFor(tracker_type: str) -> TrackerSpec:

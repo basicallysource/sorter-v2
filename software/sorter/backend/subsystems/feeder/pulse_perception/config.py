@@ -6,10 +6,10 @@ class PulsePerceptionConfig:
     # +1 carries pieces toward the exit (camera-clockwise = forward motor
     # direction). Flip to -1 if a channel's stepper is wired the other way.
     forward_direction_sign: int = 1
-    move_speed_usteps_per_s: int = 1997
+    move_speed_usteps_per_s: int = 2000
     # Ignore moves smaller than this (noise) and clamp any single move to the
     # max so a bad config value can never spin a channel wildly.
-    min_move_output_deg: float = 2.0
+    min_move_output_deg: float = 0.1
     max_move_output_deg: float = 120.0
     # Drop-zone region: a piece is on the channel but not yet at the exit.
     # Pulse it forward this far, then pause this long, to carry the train
@@ -17,17 +17,17 @@ class PulsePerceptionConfig:
     # piece off the edge into the exit zone in one move (downstream-gated exit
     # handling owns that).
     drop_pulse_output_deg: float = 30.0
-    drop_pulse_pause_ms: int = 250
+    drop_pulse_pause_ms: int = 100
     # Exit region: a piece is at the exit edge and the downstream channel can
     # accept it. Nudge it off the edge one small pulse at a time, pausing
     # between pulses so the downstream channel registers the piece before we
     # push again. When downstream is NOT ready the channel holds still.
-    exit_pulse_output_deg: float = 3.0
-    exit_pulse_pause_ms: int = 300
+    exit_pulse_output_deg: float = 2.0
+    exit_pulse_pause_ms: int = 100
     # C1 (bulk feeder) has no vision zones: pulse it forward a fixed amount
     # whenever C2's drop zone is clear.
-    ch1_pulse_output_deg: float = 5.0
-    ch1_pulse_pause_ms: int = 800
+    ch1_pulse_output_deg: float = 1.0
+    ch1_pulse_pause_ms: int = 300
     # Gate C3 forward motion on the downstream classification channel being
     # ready to accept a piece (avoids double-drops into the same sector).
     gate_ch3_on_classification_ready: bool = True
@@ -40,7 +40,7 @@ class PulsePerceptionConfig:
     # upstream channel doesn't read the zone as empty and pulse another piece in
     # on top of one that's still there. Only ``in_drop`` is latched (not exit),
     # and only for C2 and C3. 0 disables (raw per-frame state).
-    drop_zone_persistence_ms: int = 1000
+    drop_zone_persistence_ms: int = 500
     # Greedy mode (per channel). In the default flow a channel only pulses a
     # piece forward while it sits in the drop zone, then idles until the piece
     # has reached the exit zone. In greedy mode the channel keeps pulsing a piece
@@ -50,8 +50,8 @@ class PulsePerceptionConfig:
     # the exit edge (advance_clearance_deg) and the exit hand-off stays
     # downstream-gated, so all the usual protections hold. C1 has no zones and is
     # unaffected. Settable independently per channel.
-    ch2_greedy_enabled: bool = False
-    ch3_greedy_enabled: bool = False
+    ch2_greedy_enabled: bool = True
+    ch3_greedy_enabled: bool = True
     # Pulse params used while greedily advancing a piece that has ALREADY left
     # the drop zone (the part of greedy mode the default flow doesn't do). A
     # piece still in the drop zone uses drop_pulse_* above; once it's past the

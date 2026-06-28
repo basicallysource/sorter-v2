@@ -23,18 +23,25 @@ import numpy as np
 
 from .arcs import (
     attributeBboxes,
+    bboxArea,
     bboxInsideChannelMask,
     bboxInsideMask,
+    bboxWithinAreaFraction,
+    bboxWithinMaskExtent,
+    comForwardToPreciseEntryDeg,
     comInPreciseZone,
     exitComForwardDeg,
     exitComForwardToCenterDeg,
     forwardClearanceToExitDeg,
+    mergeNearbyBboxes,
+    orderedPieceObservations,
 )
 from .capture import CaptureWorker, PerceptionFrame
 from .channel import ChannelDef
 from .detection import Detection
 from .runtime import InferenceRuntime
-from .state import ChannelState, LatestStateSlot
+from .state import ChannelState, LatestStateSlot, PieceObservation
+from .tracking import TrackerManager
 
 
 # Callable signature for the optional KnownObject emit hook (rising edge of
@@ -54,6 +61,31 @@ _NO_FRAME_SLEEP_S = 0.010
 # so the model only sees pixels inside the channel region (matching
 # VisionManager's crop-mask path). Gated on SORTER_POLYGON_CROP_MASK.
 _POLYGON_CROP_MASK = os.environ.get("SORTER_POLYGON_CROP_MASK", "0") == "1"
+
+
+# Drop detections whose bbox covers more than this fraction of the channel mask
+# area — implausibly massive hits (a hand, a shadow, the model latching onto the
+# whole channel). Override via env for tuning.
+_MAX_BBOX_MASK_AREA_FRACTION = float(
+    os.environ.get("SORTER_MAX_BBOX_MASK_AREA_FRACTION", "0.6")
+)
+# Drop detections whose bbox width OR height exceeds this fraction of the channel
+# mask's bounding extent. Catches long, skinny boxes (e.g. 80% wide / 20% tall)
+# that slip under the area limit. Override via env for tuning.
+_MAX_BBOX_MASK_DIM_FRACTION = float(
+    os.environ.get("SORTER_MAX_BBOX_MASK_DIM_FRACTION", "0.6")
+)
+# Throttle (seconds) for the average-bbox-size readout used to tune the filter.
+_BBOX_SIZE_LOG_THROTTLE_S = 5.0
+
+# The classification channel's detector over-segments a single piece — a box per
+# colour region of a multi-coloured brick, or a momentary split — which the C4
+# flow otherwise reads as several pieces / a false multi-drop. Merge on-channel
+# boxes that overlap or sit within this many pixels of each other into one piece
+# BEFORE tracking + zone attribution. C4 ONLY: the C2/C3 feeder logic counts raw
+# boxes per zone and would break if merged. Override via env for tuning.
+_CLASSIFICATION_CHANNEL_ID = 4
+_C4_BBOX_MERGE_GAP_PX = float(os.environ.get("SORTER_C4_BBOX_MERGE_GAP_PX", "14"))
 
 
 def _now_ms() -> float:
@@ -101,6 +133,7 @@ class InferenceWorker:
         runtime_stats: Optional[Any] = None,
         profiler: Optional[Any] = None,
         logger: Optional[Any] = None,
+        log_attribution: bool = False,
     ) -> None:
         # Construction-time invariant: the capture's source_id must match
         # the channel's. After this point the worker holds direct refs;
@@ -140,6 +173,7 @@ class InferenceWorker:
         self._runtime_stats = runtime_stats
         self._profiler = profiler
         self._logger = logger
+        self._log_attribution = log_attribution
 
         self._stop = threading.Event()
         self._thread = threading.Thread(
@@ -150,6 +184,17 @@ class InferenceWorker:
         self._last_frame_ts: float = -1.0
         self._was_in_exit: bool = False
         self._last_summary_log_ts: float = 0.0
+        self._last_size_log_ts: float = 0.0
+        # Channel mask area + bounding extent in pixels, precomputed once (mask
+        # is immutable). Used by the oversize-bbox filters and the size readout.
+        self._mask_area_px: float = float(int(np.count_nonzero(channel_def.mask)))
+        _ys, _xs = np.nonzero(channel_def.mask)
+        if _ys.size:
+            self._mask_w_extent: float = float(int(_xs.max() - _xs.min() + 1))
+            self._mask_h_extent: float = float(int(_ys.max() - _ys.min() + 1))
+        else:
+            self._mask_w_extent = 0.0
+            self._mask_h_extent = 0.0
 
         # Latest raw inference result — GIL-atomic tuple ref, same pattern as
         # LatestStateSlot. Written after every successful inference so the
@@ -166,6 +211,14 @@ class InferenceWorker:
         # secondary). GIL-atomic list ref. Display/tag only — the slot and
         # ``latest_raw`` stay primary-only, so the state machine is unaffected.
         self._latest_detections: Optional[list[Detection]] = None
+
+        # Per-channel cross-frame identity. Holds the operator-selected tracker
+        # (ByteTrack or the angular tracker) and hot-swaps it when the Settings
+        # page changes. Fed the final on-channel bboxes every cycle; assigns each
+        # a stable ``sv_bt_track_id`` that survives brief detector dropouts.
+        # Advisory — the slot/state machine read positions and zones, not
+        # identity; the id rides along on pieces/detections/overlay.
+        self._tracker = TrackerManager()
 
         # On-demand full-frame debug inference. When a request bumps this
         # timestamp, the loop ALSO runs the model on the WHOLE frame (no crop)
@@ -223,12 +276,19 @@ class InferenceWorker:
         membership. GIL-atomic read — display/tag only."""
         return self._latest_detections
 
-    def _tag_detections(self, all_bboxes: list) -> list[Detection]:
+    def _tag_detections(
+        self, all_bboxes: list, track_id_by_bbox: Optional[dict] = None
+    ) -> list[Detection]:
         """Wrap each in-crop bbox with its zone provenance: ``in_primary`` (inside
         the channel polygon mask) and the ids of any secondary zones whose mask
-        contains the bbox center. A few mask indices per bbox — cheap."""
+        contains the bbox center. A few mask indices per bbox — cheap.
+
+        ``track_id_by_bbox`` maps the on-channel (tracked) bboxes to their
+        ``sv_bt_track_id``; off-channel detections aren't tracked, so they fall
+        through to ``None``."""
         ch = self._channel_def
         zones = ch.secondary_zones
+        tids = track_id_by_bbox or {}
         out: list[Detection] = []
         for b in all_bboxes:
             bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
@@ -238,7 +298,14 @@ class InferenceWorker:
                 if zones
                 else ()
             )
-            out.append(Detection(bbox=bbox, in_primary=in_primary, secondary_zone_ids=sids))
+            out.append(
+                Detection(
+                    bbox=bbox,
+                    in_primary=in_primary,
+                    secondary_zone_ids=sids,
+                    sv_bt_track_id=tids.get(bbox),
+                )
+            )
         return out
 
     def request_full_frame_debug(self, ttl_s: float = 10.0) -> None:
@@ -315,7 +382,7 @@ class InferenceWorker:
         sizes are appended so it's obvious if precise_sections is empty
         (which would silently degrade exit_only → full exit union).
         """
-        if self._logger is None:
+        if self._logger is None or not self._log_attribution:
             return
         if not in_exit and not in_exit_majority:
             return
@@ -395,6 +462,45 @@ class InferenceWorker:
         except Exception:
             pass
 
+    def _maybe_log_bbox_sizes(self, bboxes: list, now_s: float) -> None:
+        """Throttled (~5s) average-bbox-size readout per channel, for tuning the
+        oversize filter. Reports sizes against the on-mask set BEFORE the area
+        filter so the full distribution (including the big hits being dropped) is
+        visible. Only fires when there are detections, so idle channels don't
+        flood the logs."""
+        if self._logger is None or not bboxes:
+            return
+        if now_s - self._last_size_log_ts < _BBOX_SIZE_LOG_THROTTLE_S:
+            return
+        self._last_size_log_ts = now_s
+        ch = self._channel_def
+        mask_area = self._mask_area_px or 1.0
+        mask_w = self._mask_w_extent or 1.0
+        mask_h = self._mask_h_extent or 1.0
+        areas = [bboxArea(b) for b in bboxes]
+        w_fracs = [(b[2] - b[0]) / mask_w for b in bboxes]
+        h_fracs = [(b[3] - b[1]) / mask_h for b in bboxes]
+        avg_area = sum(areas) / len(areas)
+        n_dropped = sum(
+            1
+            for b, a in zip(bboxes, areas)
+            if a > _MAX_BBOX_MASK_AREA_FRACTION * mask_area
+            or (b[2] - b[0]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_w
+            or (b[3] - b[1]) > _MAX_BBOX_MASK_DIM_FRACTION * mask_h
+        )
+        try:
+            self._logger.info(
+                f"[perception sizes ch={ch.channel_id} src={ch.camera_source_id}] "
+                f"n={len(bboxes)} avg_area_px={avg_area:.0f} "
+                f"avg_frac_area={avg_area / mask_area:.2f} "
+                f"max_frac_area={max(areas) / mask_area:.2f} "
+                f"max_frac_w={max(w_fracs):.2f} max_frac_h={max(h_fracs):.2f} "
+                f"limits(area={_MAX_BBOX_MASK_AREA_FRACTION:.2f},"
+                f"dim={_MAX_BBOX_MASK_DIM_FRACTION:.2f}) oversized_dropped={n_dropped}"
+            )
+        except Exception:
+            pass
+
     def _loop(self) -> None:
         while not self._stop.is_set():
             self.iterations += 1
@@ -432,23 +538,31 @@ class InferenceWorker:
                         crop = np.where(
                             mask_crop[:, :, None] > 0, crop, np.uint8(230)
                         )
-                    raw_bboxes = self._runtime.infer(
+                    scored = self._runtime.inferWithScores(
                         crop, conf_threshold=self._conf_threshold
                     )
-                    bboxes = [
-                        (int(b[0]) + cx1, int(b[1]) + cy1, int(b[2]) + cx1, int(b[3]) + cy1)
-                        for b in raw_bboxes
-                    ]
+                    bboxes = []
+                    score_by_bbox: dict = {}
+                    for b, s in scored:
+                        bb = (
+                            int(b[0]) + cx1, int(b[1]) + cy1,
+                            int(b[2]) + cx1, int(b[3]) + cy1,
+                        )
+                        bboxes.append(bb)
+                        score_by_bbox[bb] = s
                 else:
                     full = frame.bgr
                     if _POLYGON_CROP_MASK:
                         m = self._channel_def.mask
                         full = np.where(m[:, :, None] > 0, full, np.uint8(230))
-                    bboxes = list(
-                        self._runtime.infer(
-                            full, conf_threshold=self._conf_threshold
-                        )
-                    )
+                    bboxes = []
+                    score_by_bbox = {}
+                    for b, s in self._runtime.inferWithScores(
+                        full, conf_threshold=self._conf_threshold
+                    ):
+                        bb = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
+                        bboxes.append(bb)
+                        score_by_bbox[bb] = s
                 infer_ms = _now_ms() - infer_t0
 
                 # Every model detection in full-frame coords, BEFORE the
@@ -463,7 +577,57 @@ class InferenceWorker:
                 # same mask membership test attributeBboxes applies, so nothing
                 # downstream — n_pieces, the classification crop, latest_raw, the
                 # debug overlay — ever sees an off-channel detection.
-                bboxes = [b for b in bboxes if bboxInsideChannelMask(b, self._channel_def)]
+                on_mask = [
+                    b for b in bboxes if bboxInsideChannelMask(b, self._channel_def)
+                ]
+                # Then drop implausibly massive detections: anything covering more
+                # than _MAX_BBOX_MASK_AREA_FRACTION of the channel mask area, OR
+                # whose width/height exceeds _MAX_BBOX_MASK_DIM_FRACTION of the
+                # mask's extent (catches long, skinny boxes the area test misses).
+                # Logged (throttled) below against the pre-filter on-mask set so
+                # the thresholds can be tuned against real footage.
+                bboxes = [
+                    b
+                    for b in on_mask
+                    if bboxWithinAreaFraction(
+                        b, self._mask_area_px, _MAX_BBOX_MASK_AREA_FRACTION
+                    )
+                    and bboxWithinMaskExtent(
+                        b,
+                        self._mask_w_extent,
+                        self._mask_h_extent,
+                        _MAX_BBOX_MASK_DIM_FRACTION,
+                    )
+                ]
+
+                # Classification channel only: collapse the detector's
+                # over-segmentation (one piece drawn as several overlapping /
+                # adjacent boxes) into one box per physical piece, so tracking,
+                # the piece count and multi-drop detection all see one piece.
+                # ``pre_merge_bboxes`` keeps the originals for the overlay;
+                # ``merged_multi`` is the boxes that were actually fused (>1
+                # source), drawn distinctly. C2/C3 are left untouched.
+                pre_merge_bboxes = list(bboxes)
+                merged_multi: list = []
+                if self._channel_def.channel_id == _CLASSIFICATION_CHANNEL_ID:
+                    clusters = mergeNearbyBboxes(bboxes, _C4_BBOX_MERGE_GAP_PX)
+                    bboxes = [merged for merged, _members in clusters]
+                    merged_multi = [
+                        merged for merged, members in clusters if len(members) > 1
+                    ]
+
+                # Assign each final on-channel piece a stable ``sv_bt_track_id``.
+                # Called every cycle — including empty ones — so the tracker ages
+                # coasting tracks on the right cadence. Cheap for 1–2 boxes. Real
+                # detection scores drive ByteTrack's confidence-based association.
+                scores = [score_by_bbox.get(b, 1.0) for b in bboxes]
+                track_id_by_bbox = self._tracker.update(
+                    bboxes,
+                    scores,
+                    frame_bgr=frame.bgr,
+                    channel=self._channel_def,
+                    timestamp=frame.timestamp,
+                )
 
                 attribute_t0 = _now_ms()
                 in_drop, in_exit, in_precise, in_exit_majority, n_pieces, per_bbox_counts = attributeBboxes(
@@ -476,7 +640,22 @@ class InferenceWorker:
                 exit_com_forward_to_center_deg = exitComForwardToCenterDeg(
                     bboxes, self._channel_def
                 )
+                exit_com_forward_to_precise_deg = comForwardToPreciseEntryDeg(
+                    bboxes, self._channel_def
+                )
                 exit_com_in_precise = comInPreciseZone(bboxes, self._channel_def)
+                pieces = tuple(
+                    PieceObservation(
+                        com_forward_to_exit_deg=gap,
+                        com_section=sec,
+                        zone_code=zone_code,
+                        bbox=bbox,
+                        sv_bt_track_id=track_id_by_bbox.get(bbox),
+                    )
+                    for gap, sec, zone_code, bbox in orderedPieceObservations(
+                        bboxes, self._channel_def
+                    )
+                )
                 attribute_ms = _now_ms() - attribute_t0
 
                 state = ChannelState(
@@ -489,7 +668,9 @@ class InferenceWorker:
                     advance_clearance_deg=advance_clearance_deg,
                     exit_com_forward_deg=exit_com_forward_deg,
                     exit_com_forward_to_center_deg=exit_com_forward_to_center_deg,
+                    exit_com_forward_to_precise_deg=exit_com_forward_to_precise_deg,
                     exit_com_in_precise=exit_com_in_precise,
+                    pieces=pieces,
                 )
                 self._slot.write(state)
                 self._latest_raw = (list(bboxes), frame)
@@ -497,11 +678,22 @@ class InferenceWorker:
                 # provenance so the overlay can show foreign-zone hits and future
                 # consumers can ask which zone a piece is in. Off the hot read
                 # path — the slot above stays primary-only.
-                detections = self._tag_detections(raw_bboxes_full)
+                detections = self._tag_detections(raw_bboxes_full, track_id_by_bbox)
                 self._latest_detections = detections
                 self._latest_debug = {
                     "raw_bboxes": raw_bboxes_full,
                     "on_channel_bboxes": list(bboxes),
+                    # sv_bt_track_id per on-channel bbox, index-aligned to
+                    # ``on_channel_bboxes`` (None for any not-yet-confirmed track),
+                    # so the debug page can label boxes without a tuple-keyed map.
+                    "on_channel_track_ids": [track_id_by_bbox.get(b) for b in bboxes],
+                    # C4 box merge: the originals (what the model drew) and the
+                    # boxes that were actually fused (drawn distinctly on the feed,
+                    # with their track id). Empty/equal to on_channel_bboxes on
+                    # channels that don't merge.
+                    "pre_merge_bboxes": pre_merge_bboxes,
+                    "merged_bboxes": list(merged_multi),
+                    "merged_track_ids": [track_id_by_bbox.get(b) for b in merged_multi],
                     "detections": detections,
                     "crop_rect": self._crop_rect,
                     "frame": frame,
@@ -548,6 +740,7 @@ class InferenceWorker:
                     in_exit, in_precise, in_exit_majority, per_bbox_counts
                 )
                 self._maybe_log_summary(bboxes, in_drop, in_exit, n_pieces, time.time())
+                self._maybe_log_bbox_sizes(on_mask, time.time())
                 self._last_frame_ts = frame.timestamp
                 self.inferences += 1
 

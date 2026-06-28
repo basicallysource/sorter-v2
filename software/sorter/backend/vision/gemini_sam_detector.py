@@ -30,8 +30,10 @@ SUPPORTED_OPENROUTER_MODELS = (
 )
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # Gemini-3 flash typically returns in 3-6s; pro can spike past 15s on dense
-# scenes. Budget for pro and let the caller's rate-limit retry handle real hangs.
-OPENROUTER_API_TIMEOUT_S = 25.0
+# scenes. Budget for pro plus slow internet — the machine often runs on a poor
+# connection where a tight timeout turns a slow call into a hard failure. Let the
+# caller's rate-limit retry handle real hangs.
+OPENROUTER_API_TIMEOUT_S = 60.0
 
 
 def normalize_openrouter_model(model: str | None) -> str:

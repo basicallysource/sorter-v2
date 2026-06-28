@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from enum import Enum
 import uuid
 import time
@@ -20,6 +20,84 @@ class ClassificationStatus(str, Enum):
     multi_drop_fail = "multi_drop_fail"
 
 
+class ClassificationAttemptStrategy(str, Enum):
+    # Which parallel request produced the applied result. All requests for a
+    # piece are submitted at once (redundant, NOT sequential retries); the
+    # highest-confidence one wins and its label is recorded here.
+    # The full fused set: the used C4 burst frames plus any upstream (C2/C3)
+    # match crops the embedding search injected.
+    combined = "combined"
+    # Only the last (most-settled) C4 burst frame, sent alone.
+    single_burst = "single_burst"
+    # Only the single highest-similarity upstream (C2/C3) match crop, sent alone.
+    single_upstream = "single_upstream"
+    # Add a new parallel variant by adding the enum value here and a request in
+    # _buildClassifyRequests; the rest of the plumbing is strategy-agnostic.
+
+
+@dataclass
+class RecognitionImage:
+    # One image gathered for recognizing a piece. ``source`` is "c4_burst" for a
+    # classification-channel capture or "upstream" for a C2/C3 match crop fused
+    # in by the embedding search. ``used`` is True only when this exact image was
+    # actually submitted to Brickognize in the request whose result was applied.
+    # ``excluded_from_result`` is True when this image WAS submitted in a parallel
+    # request that lost (a different request scored higher) and was thus thrown
+    # out — distinct from ``used=False`` (kept for review, never sent).
+    image: str
+    source: str
+    used: bool = False
+    ts: Optional[float] = None
+    score: Optional[float] = None
+    excluded_from_result: bool = False
+    # Motion-blur / focus measure of this image: the variance of its Laplacian
+    # (higher = sharper, lower = blurrier). Computed for C4 burst crops at capture
+    # time so anything downstream can judge the image's validity without redecoding
+    # the JPEG. None when not measured (e.g. upstream match crops, older records).
+    sharpness: Optional[float] = None
+    # Physical channel the image came from: 4 for a C4 burst capture, 2 or 3 for
+    # an upstream match crop. None when unknown (older records).
+    channel: Optional[int] = None
+    # Wall-clock capture time of this image (epoch seconds). For a C4 burst this
+    # is the frame timestamp; for an upstream match it's when the crop was grabbed
+    # at C2/C3 (earlier than the piece reaching C4). The UI ages each pic against
+    # the owning KnownObject.created_at. None for older records.
+    created_at: Optional[float] = None
+
+
+@dataclass
+class ClassificationAttempt:
+    # One Brickognize call for a piece. A piece fans out several of these in
+    # parallel (combined, single_burst, single_upstream); they are redundant, not
+    # retries. The ``applied`` one is the highest-confidence call that recognized
+    # the piece.
+    strategy: "ClassificationAttemptStrategy"
+    n_burst: int
+    n_upstream: int
+    found: bool
+    # Human-facing name of the parallel request; equals the strategy value
+    # (combined / single_burst / single_upstream).
+    label: Optional[str] = None
+    # True for the one attempt whose result was applied to the piece (the
+    # highest-confidence found attempt, or the first call when nothing was found).
+    applied: bool = False
+    part_id: Optional[str] = None
+    # Brickognize's human name for the top item and its reference (stock) image
+    # URL, so the UI can show what this request thought it saw without re-querying.
+    part_name: Optional[str] = None
+    preview_url: Optional[str] = None
+    confidence: Optional[float] = None
+    # Top color this request returned (Brickognize reports colors per request).
+    color_id: Optional[str] = None
+    color_name: Optional[str] = None
+    error: Optional[str] = None
+    duration_s: Optional[float] = None
+    # Capture timestamps of the exact images submitted in this request. The UI
+    # resolves these against the recognition image set to show which crops went
+    # into each parallel call when a request row is expanded.
+    image_ts: List[float] = field(default_factory=list)
+
+
 @dataclass
 class KnownObject:
     uuid: str = field(default_factory=lambda: str(uuid.uuid4()))
@@ -27,6 +105,24 @@ class KnownObject:
     updated_at: float = field(default_factory=time.time)
     stage: PieceStage = PieceStage.created
     classification_status: ClassificationStatus = ClassificationStatus.pending
+    # Set when the Brickognize request itself failed (timeout / DNS / connection
+    # error on a flaky network) rather than succeeding with no match. The piece
+    # still routes as ``unknown`` (no part_id -> misc); this only changes the UI
+    # card label to "Request failed" so a network blip isn't read as a bad piece.
+    request_failed: bool = False
+    # Set when a piece's classification cycle was torn down before it ever
+    # produced a result (machine stop / reset mid-capture). The object was
+    # already emitted to the UI with a crop but will never be classified or
+    # distributed; the UI drops aborted pieces rather than leaving them stuck
+    # in the "capturing" phase forever.
+    aborted: bool = False
+    # Set by the broadcaster's stuck-piece reaper when a piece goes silent for
+    # longer than STUCK_PIECE_TIMEOUT_S without reaching the distributed stage
+    # while the machine is running (e.g. stuck "classified" but never
+    # distributed). Like ``aborted`` but time-based rather than teardown-driven;
+    # the UI drops dead pieces from the recent list. Self-clears if the piece
+    # later progresses and re-emits.
+    dead: bool = False
     part_id: Optional[str] = None
     part_name: Optional[str] = None
     part_category: Optional[str] = None
@@ -37,6 +133,24 @@ class KnownObject:
     # Largest single physical dimension (bbox x/y/z) in mm, resolved from Hive
     # part metadata at classification time. None when unknown.
     max_dimension_mm: Optional[float] = None
+    # Headline BrickLink "moving average" price (USD) for this part+color, resolved
+    # at classification time from the local parts.db (piece_metadata_db). None when
+    # the local DB is disabled or has no price. This is the only metadata-DB field
+    # the Recent Pieces card renders.
+    moving_avg_price: Optional[float] = None
+    # Full local-DB metadata blob (part info, BrickLink item, the four price
+    # buckets, etc.) — as much as parts.db carries. Kept for the detail view; the
+    # card shows only moving_avg_price. None when unavailable.
+    piece_metadata: Optional[Dict[str, Any]] = None
+    # Set by the distributor when the profile's high_value_routing override fired
+    # for this piece (moving_avg_price cleared the threshold), so it was rerouted
+    # into the high-value category's bin. Surfaced as a chip on the UI card.
+    high_value_routed: bool = False
+    # Live membership check against the active .bsx inventory, resolved at
+    # classification time. None = no active inventory / undecidable; True = the
+    # part+color is stocked; False = NOT in inventory (drives the badge and, when
+    # the profile's inventory_routing is on, reroutes to the not-in-inventory bin).
+    not_in_inventory: Optional[bool] = None
     # Set when the piece exceeds the global oversize limit: sent down the
     # center of the chute to the misc bottom bin instead of a real bin.
     too_big: bool = False
@@ -59,7 +173,19 @@ class KnownObject:
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
-    recognition_images: List[str] = field(default_factory=list)
+    # Every image gathered for recognition — C4 burst captures plus any upstream
+    # (C2/C3) match crops fused in by the embedding search — each flagged with
+    # whether it was actually submitted to Brickognize. The burst keeps all its
+    # frames; only the entries with used=True drove the classification.
+    recognition_image_set: List["RecognitionImage"] = field(default_factory=list)
+    # Record of each parallel Brickognize request for this piece (combined plus
+    # any single-image calls). They run concurrently, not as retries; the one
+    # flagged applied=True is the highest-confidence call that recognized it.
+    classification_attempts: List["ClassificationAttempt"] = field(default_factory=list)
+    # Which parallel request produced the applied result. None until
+    # classification runs. ``combined`` = the fused set won; ``single_burst`` /
+    # ``single_upstream`` = a lone-image call beat the fused set.
+    classification_strategy: Optional["ClassificationAttemptStrategy"] = None
     # Captured timestamps of the crops actually shipped to Brickognize for
     # classification (subset of the tracker's sector snapshots). The frontend
     # uses these to highlight which crops participated in the final call.

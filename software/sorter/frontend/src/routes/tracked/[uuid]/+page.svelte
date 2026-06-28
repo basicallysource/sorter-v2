@@ -4,9 +4,12 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
+	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
+	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
+	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
-	import type { KnownObjectData } from '$lib/api/events';
+	import type { KnownObjectData, ClassificationAttempt } from '$lib/api/events';
 	import type { components } from '$lib/api/rest';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
@@ -130,7 +133,15 @@
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number };
+	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null; channel?: number | null; sharpness?: number | null };
+
+	// Channel the image came from, for the corner badge: C4 burst capture, or
+	// C2/C3 upstream match. Falls back to "C2/3" for older upstream records that
+	// predate the channel being recorded.
+	function channelLabel(channel: number | null | undefined, role: string): string {
+		if (channel === 2 || channel === 3 || channel === 4) return `C${channel}`;
+		return role === 'upstream_match' ? 'C2/3' : 'C4';
+	}
 
 	// --- Tracker-backed crop fetch ----------------------------------------
 	// The "Captured Crops" gallery used to surface just top/bottom/thumbnail.
@@ -288,20 +299,43 @@
 				}
 			}
 
-			const recog = _fetchedPiece?.recognition_images ?? [];
+			// C4 burst captures + upstream (C2/C3) match crops, each already
+			// flagged by the backend with whether it was shipped to Brickognize.
+			// Upstream entries also carry the cosine similarity to the classified
+			// C4 frame they were matched against.
+			const recogSet = _fetchedPiece?.recognition_image_set ?? [];
+			const burstTotal = recogSet.filter((r) => r.source === 'c4_burst').length;
+			const upstreamTotal = recogSet.filter((r) => r.source === 'upstream').length;
 			let recogSeq = 0;
-			for (const recognition_image of recog) {
-				const src = dataImageUrl(recognition_image);
+			let upstreamSeq = 0;
+			for (const entry of recogSet) {
+				const src = dataImageUrl(entry.image);
 				if (!src) continue;
-				recogSeq += 1;
-				entries.push({
-					src,
-					role: 'recognition_capture',
-					ts: null,
-					used: false,
-					seq: recogSeq,
-					total: recog.length
-				});
+				if (entry.source === 'upstream') {
+					upstreamSeq += 1;
+					entries.push({
+						src,
+						role: 'upstream_match',
+						ts: entry.ts ?? null,
+						used: entry.used,
+						seq: upstreamSeq,
+						total: upstreamTotal,
+						score: entry.score,
+						channel: entry.channel ?? null
+					});
+				} else {
+					recogSeq += 1;
+					entries.push({
+						src,
+						role: 'recognition_capture',
+						ts: entry.ts ?? null,
+						used: entry.used,
+						seq: recogSeq,
+						total: burstTotal,
+						channel: entry.channel ?? 4,
+						sharpness: entry.sharpness ?? null
+					});
+				}
 			}
 
 			// Keep the classification chamber top/bottom snapshots as a fallback;
@@ -345,7 +379,17 @@
 
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
-	const usedCropCount = $derived(crops.reduce((n, c) => n + (c.used ? 1 : 0), 0));
+	// Latest C4 burst capture time — when the classification chamber snapped its
+	// pics. Used to report how old each upstream match was relative to it.
+	const c4SnapTs = $derived.by<number | null>(() => {
+		let ref: number | null = null;
+		for (const c of crops) {
+			if (c.role === 'recognition_capture' && typeof c.ts === 'number') {
+				ref = ref === null ? c.ts : Math.max(ref, c.ts);
+			}
+		}
+		return ref;
+	});
 
 	// --- Drop-zone burst --------------------------------------------------
 	// Pre+post-event frames from C3 + carousel captured when the piece fell
@@ -422,6 +466,7 @@
 
 	function formatRole(role: string): string {
 		if (role === 'recognition_capture') return 'Recognition Capture';
+		if (role === 'upstream_match') return 'Upstream Match (C2/C3)';
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
@@ -434,7 +479,92 @@
 		if (crop.role === 'recognition_capture' && crop.seq && crop.total) {
 			return `Burst ${crop.seq}/${crop.total}`;
 		}
+		if (crop.role === 'upstream_match' && crop.seq && crop.total) {
+			const sim = formatSimilarity(crop.score);
+			return sim ? `Upstream ${crop.seq}/${crop.total} · ${sim}` : `Upstream ${crop.seq}/${crop.total}`;
+		}
 		return formatRole(crop.role);
+	}
+
+	// Cosine similarity (0-1) of an upstream match to the classified C4 frame it
+	// was matched against, shown as a percent on the crop card.
+	function formatSimilarity(score: number | null | undefined): string {
+		if (score == null || !Number.isFinite(score)) return '';
+		return `${Math.round(score * 100)}% match`;
+	}
+
+	// Motion-blur / focus measure (Laplacian variance) of a burst crop; higher =
+	// sharper. Shown rounded — the absolute value is camera/lighting dependent, so
+	// it's mainly useful for comparing crops of the same piece.
+	function formatSharpness(sharpness: number | null | undefined): string {
+		if (sharpness == null || !Number.isFinite(sharpness)) return '';
+		return `${Math.round(sharpness)}`;
+	}
+
+	function cropInfoRows(crop: CropEntry): { label: string; value: string }[] {
+		const rows: { label: string; value: string }[] = [
+			{ label: 'Type', value: formatRole(crop.role) },
+			{ label: 'Shipped', value: crop.used ? 'Yes' : 'No' }
+		];
+		if (crop.score != null && Number.isFinite(crop.score)) {
+			rows.push({ label: 'Similarity', value: `${Math.round(crop.score * 100)}%` });
+		}
+		if (crop.sharpness != null && Number.isFinite(crop.sharpness)) {
+			rows.push({ label: 'Sharpness', value: formatSharpness(crop.sharpness) });
+		}
+		// For upstream crops, how long before the C4 chamber snap this view was
+		// captured — i.e. how stale the upstream match is relative to the frame
+		// that was actually classified.
+		if (crop.role === 'upstream_match' && crop.ts != null && c4SnapTs !== null) {
+			rows.push({ label: 'Age before C4', value: `${(c4SnapTs - crop.ts).toFixed(1)}s` });
+		}
+		if (crop.ts != null) {
+			rows.push({ label: 'Captured', value: formatAbsTs(crop.ts) });
+		}
+		return rows;
+	}
+
+	// The parallel Brickognize requests fired for this piece (combined + the
+	// single-image variants). They run concurrently, not as retries; the one
+	// flagged applied=True is the highest-confidence call whose result was used.
+	const attempts = $derived(piece?.classification_attempts ?? []);
+	// Which request rows are expanded to show their sent crops + stock photo.
+	let expandedAttempts = $state<Set<number>>(new Set());
+
+	function toggleAttempt(i: number): void {
+		const next = new Set(expandedAttempts);
+		if (next.has(i)) next.delete(i);
+		else next.add(i);
+		expandedAttempts = next;
+	}
+
+	function attemptName(a: ClassificationAttempt): string {
+		if (a.strategy === 'single_burst') return 'Single burst frame';
+		if (a.strategy === 'single_upstream') return 'Single upstream crop';
+		if (a.strategy === 'combined') return 'Combined (fused set)';
+		return a.label ?? a.strategy;
+	}
+
+	function attemptOutcome(a: ClassificationAttempt): string {
+		if (a.error) return 'error';
+		if (!a.found) return 'no match';
+		const pct = a.confidence != null ? ` · ${(a.confidence * 100).toFixed(0)}%` : '';
+		return `${a.part_id ?? '?'}${pct}`;
+	}
+
+	function attemptInputs(a: ClassificationAttempt): string {
+		const parts: string[] = [];
+		if (a.n_burst) parts.push(`${a.n_burst} burst`);
+		if (a.n_upstream) parts.push(`${a.n_upstream} upstream`);
+		return parts.length ? parts.join(' + ') : 'no images';
+	}
+
+	// The crops actually submitted in this request, resolved from the recognition
+	// set by matching the attempt's captured-image timestamps against each crop's.
+	function attemptImages(a: ClassificationAttempt): CropEntry[] {
+		const tss = a.image_ts ?? [];
+		if (tss.length === 0) return [];
+		return crops.filter((c) => c.ts != null && tsWasUsed(c.ts, tss));
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
@@ -445,6 +575,22 @@
 		if (pct >= 60) return 'text-warning/70';
 		return 'text-danger';
 	}
+
+	// Local-catalog (BrickLink) price formatter. Sub-cent values keep an extra
+	// digit so cheap parts don't collapse to "$0.00"; non-positive/missing → em-dash.
+	function fmtPrice(v: unknown): string {
+		if (typeof v !== 'number' || !isFinite(v) || v <= 0) return '—';
+		return v >= 0.01 ? `$${v.toFixed(2)}` : `$${v.toFixed(3)}`;
+	}
+
+	// The four BrickLink price buckets in display order: sold (last 6 months)
+	// first since that's what the routing headline prefers, then current listings.
+	const PRICE_BUCKETS: [string, string][] = [
+		['ord_used', 'Sold · Used'],
+		['ord_new', 'Sold · New'],
+		['inv_used', 'Listed · Used'],
+		['inv_new', 'Listed · New']
+	];
 
 	// Timeline: piece lifecycle events with absolute timestamps. We only show
 	// events that actually happened.
@@ -536,18 +682,36 @@
 							Multi-drop
 						</span>
 					{/if}
+					{#if piece.dead}
+						<span
+							class="inline-flex items-center border border-warning bg-warning/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark"
+							title="This piece went silent for too long without ever reaching the distributed stage, so the backend reaped it."
+						>
+							Timed out
+						</span>
+					{/if}
 				{/if}
 			</div>
-			{#if piece?.tracked_global_id != null}
+			<div class="flex flex-wrap items-center gap-3">
 				<a
-					href={`/tracked/${piece.tracked_global_id}`}
+					href={`/settings/tuning/upstream-match?uuid=${uuid}`}
 					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
-					title="Open tracker-level record (all angular crops)"
+					title="Find crops of this piece from the upstream channels (C2/C3)"
 				>
 					<ExternalLink size={14} />
-					Track #{piece.tracked_global_id}
+					Upstream match
 				</a>
-			{/if}
+				{#if piece?.tracked_global_id != null}
+					<a
+						href={`/tracked/${piece.tracked_global_id}`}
+						class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
+						title="Open tracker-level record (all angular crops)"
+					>
+						<ExternalLink size={14} />
+						Track #{piece.tracked_global_id}
+					</a>
+				{/if}
+			</div>
 		</header>
 
 		{#if !piece}
@@ -643,6 +807,89 @@
 				</div>
 			</section>
 
+			<!-- Pricing — every BrickLink bucket from the local parts.db catalog.
+			     The headline `moving_avg_price` (what routing uses) is the first
+			     non-empty of these, sold·new preferred; the table shows all four
+			     so you can see whatever source actually exists for this part. -->
+			{#if piece.piece_metadata}
+				{@const md = piece.piece_metadata as Record<string, any>}
+				{@const price = (md.price ?? null) as Record<string, any> | null}
+				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
+				<section class="border border-border bg-surface">
+					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+						Pricing — local catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
+					</div>
+					<div class="flex flex-col gap-3 p-3 text-sm">
+						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+							<span class="text-text-muted">Moving avg (routing)</span>
+							<span class="text-base font-semibold tabular-nums text-success">
+								{typeof md.moving_avg_price === 'number' ? fmtPrice(md.moving_avg_price) : '—'}
+							</span>
+							<span class="text-xs text-text-muted">first available · sold·new preferred</span>
+							<span class="border border-border bg-bg px-1.5 py-0.5 text-xs text-text-muted">
+								{md.price_color_specific ? 'this color' : 'all colors (most liquid)'}
+							</span>
+							{#if md.price_updated_at}
+								<span class="text-xs text-text-muted">synced {String(md.price_updated_at).slice(0, 10)}</span>
+							{/if}
+						</div>
+
+						{#if md.price_from_base_mold}
+							<div class="border border-warning/40 bg-warning/[0.08] px-2.5 py-1.5 text-sm text-text">
+								≈ Approximate — no market data for this exact print. Showing the base
+								mold <span class="font-mono">{md.price_from_base_mold}</span>{md.price_from_base_name
+									? ` (${md.price_from_base_name})`
+									: ''} price instead.
+							</div>
+						{/if}
+
+						{#if price}
+							<div class="overflow-x-auto">
+								<table class="w-full border-collapse text-sm">
+									<thead>
+										<tr class="text-text-muted">
+											<th class="border border-border px-2 py-1 text-left font-medium">Source</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Avg</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Wt avg</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Min</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Max</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Qty</th>
+											<th class="border border-border px-2 py-1 text-right font-medium">Lots</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each PRICE_BUCKETS as [key, label]}
+											{@const b = (price[key] ?? {}) as Record<string, any>}
+											<tr>
+												<td class="border border-border px-2 py-1 text-text">{label}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text">{fmtPrice(b.avg)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text">{fmtPrice(b.wavg)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{fmtPrice(b.min)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{fmtPrice(b.max)}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{b.qty ?? '—'}</td>
+												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{b.lots ?? '—'}</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						{:else}
+							<div class="text-text-muted">No price-guide rows for this part in the local catalog.</div>
+						{/if}
+
+						{#if bl}
+							<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
+								{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
+								{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
+								{#if bl.dim_x_studs && bl.dim_y_studs}<span>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span>{/if}
+								{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
+								{#if bl.is_obsolete}<span>obsolete</span>{/if}
+							</div>
+						{/if}
+					</div>
+				</section>
+			{/if}
+
 			<!-- Arrival snapshot: full carousel frame at the instant the piece
 			     first appeared on C4 (dropping in from C3), side-by-side with
 			     the Brickognize reference so the operator can eyeball whether
@@ -692,6 +939,145 @@
 				</section>
 			{/if}
 
+			<!-- Classification requests: the parallel Brickognize calls (combined +
+			     single-image variants). Each ran concurrently; the highest-confidence
+			     "found" call wins and is marked applied. Shows what every request
+			     returned, not just the winner, so a confused fused set vs. a clean
+			     lone frame is visible at a glance. -->
+			{#if attempts.length > 0}
+				<section class="border border-border bg-surface">
+					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+						Classification requests
+						<span class="ml-2 text-text-muted">{attempts.length}</span>
+					</div>
+					<div class="flex flex-col gap-2 p-3">
+						{#each attempts as a, ai (ai)}
+							{@const open = expandedAttempts.has(ai)}
+							{@const sent = attemptImages(a)}
+							<div
+								class={`border ${
+									a.applied ? 'border-primary' : 'border-border'
+								}`}
+							>
+								<button
+									type="button"
+									class={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm ${
+										a.applied ? 'bg-primary/[0.08]' : 'bg-bg hover:bg-surface'
+									}`}
+									onclick={() => toggleAttempt(ai)}
+								>
+									{#if open}
+										<ChevronDown class="h-4 w-4 shrink-0 text-text-muted" />
+									{:else}
+										<ChevronRight class="h-4 w-4 shrink-0 text-text-muted" />
+									{/if}
+									<span class="font-medium text-text">{attemptName(a)}</span>
+									<span class="text-text-muted">{attemptInputs(a)}</span>
+									<span
+										class={`tabular-nums ${
+											a.error
+												? 'text-danger'
+												: a.found
+													? 'font-medium text-text'
+													: 'text-text-muted'
+										}`}
+									>
+										{attemptOutcome(a)}
+									</span>
+									{#if a.found && a.part_name}
+										<span class="text-text-muted">{a.part_name}</span>
+									{/if}
+									{#if a.found && a.color_name}
+										<span class="text-text-muted">· {a.color_name}</span>
+									{/if}
+									{#if a.error}
+										<span class="text-text-muted">{a.error}</span>
+									{/if}
+									{#if a.duration_s != null}
+										<span class="text-text-muted tabular-nums">{a.duration_s.toFixed(2)}s</span>
+									{/if}
+									{#if a.applied}
+										<span
+											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+											title="This request's result was applied to the piece"
+										>
+											Applied
+										</span>
+									{/if}
+								</button>
+								{#if open}
+									<div class="flex flex-wrap gap-4 border-t border-border p-3">
+										<!-- What was sent to Brickognize for this request -->
+										<div class="flex flex-col gap-1.5">
+											<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+												Sent ({sent.length})
+											</div>
+											{#if sent.length === 0}
+												<div class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted">
+													crops aged out
+												</div>
+											{:else}
+												<div class="flex flex-wrap gap-2">
+													{#each sent as crop (cropKey(crop))}
+														<button
+															type="button"
+															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+															onclick={() => (zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
+														>
+															<div class="h-32 w-32 bg-white">
+																<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
+															</div>
+															<div class="px-1.5 py-1 text-xs text-text-muted">{formatCropLabel(crop)}</div>
+														</button>
+													{/each}
+												</div>
+											{/if}
+										</div>
+										<!-- What Brickognize returned for this request -->
+										<div class="flex flex-col gap-1.5">
+											<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+												Result
+											</div>
+											{#if a.error}
+												<div class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-bg p-2 text-center text-sm text-danger">
+													{a.error}
+												</div>
+											{:else if a.found}
+												<div class="flex gap-2">
+													{#if a.preview_url}
+														<button
+															type="button"
+															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+															onclick={() => (zoomImage = { src: a.preview_url as string, label: a.part_name ?? a.part_id ?? 'result' })}
+														>
+															<div class="h-32 w-32 bg-white">
+																<img src={a.preview_url} alt="brickognize reference" class="h-full w-full object-contain" loading="lazy" />
+															</div>
+														</button>
+													{/if}
+													<div class="flex flex-col gap-0.5 text-sm">
+														<span class="font-medium text-text tabular-nums">{a.part_id}</span>
+														{#if a.part_name}<span class="text-text-muted">{a.part_name}</span>{/if}
+														{#if a.confidence != null}
+															<span class="text-text-muted tabular-nums">{(a.confidence * 100).toFixed(0)}% match</span>
+														{/if}
+														{#if a.color_name}<span class="text-text-muted">Color: {a.color_name}</span>{/if}
+													</div>
+												</div>
+											{:else}
+												<div class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted">
+													no match
+												</div>
+											{/if}
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				</section>
+			{/if}
+
 			<!-- Image gallery + Brickognize reference -->
 			<section class="border border-border bg-surface">
 				<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
@@ -699,12 +1085,6 @@
 						Captured crops
 						<span class="ml-2 text-text-muted">{crops.length}</span>
 					</div>
-					{#if usedCropCount > 0}
-						<div class="flex items-center gap-2 text-text-muted">
-							<span class="inline-block h-3 w-3 border-2 border-primary"></span>
-							<span>{usedCropCount} shipped to Brickognize</span>
-						</div>
-					{/if}
 				</div>
 				<div class="p-3">
 					{#if crops.length === 0}
@@ -722,6 +1102,40 @@
 								>
 									<div class="relative aspect-square w-full bg-white">
 										<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
+										{#if crop.used}
+											<span
+												class="absolute left-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
+												title="Shipped to Brickognize for classification"
+											>
+												Used
+											</span>
+										{/if}
+										{#if crop.role === 'upstream_match' && formatSimilarity(crop.score)}
+											<span
+												class="absolute right-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums"
+												title="Cosine similarity to the classified C4 capture"
+											>
+												{formatSimilarity(crop.score)}
+											</span>
+										{:else if crop.sharpness != null}
+											<span
+												class="absolute right-1 top-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
+												title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
+											>
+												⌖ {formatSharpness(crop.sharpness)}
+											</span>
+										{/if}
+										<span
+											class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
+											title="Channel this image came from"
+										>
+											{channelLabel(crop.channel, crop.role)}
+										</span>
+										<ImageInfoBadge
+											class="absolute bottom-1 right-1 z-10"
+											src={crop.src}
+											rows={cropInfoRows(crop)}
+										/>
 									</div>
 									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
 										<span>{formatCropLabel(crop)}</span>
@@ -729,28 +1143,23 @@
 									</div>
 								</button>
 							{/each}
-							{#if piece.brickognize_preview_url || bricklink?.thumbnail_url}
-								{@const ref_src = bricklink?.thumbnail_url
-									? `https:${bricklink.thumbnail_url}`
-									: (piece.brickognize_preview_url as string)}
-								<button
-									type="button"
-									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-									onclick={() => (zoomImage = { src: ref_src, label: 'Brickognize reference' })}
-								>
-									<div class="relative aspect-square w-full bg-white">
-										<img src={ref_src} alt="reference" class="h-full w-full object-contain" loading="lazy" />
-									</div>
-									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-										<span>Brickognize ref.</span>
-										<span class="tabular-nums">{piece.part_id ?? ''}</span>
-									</div>
-								</button>
-							{/if}
 						</div>
 					{/if}
 				</div>
 			</section>
+
+			<!-- Scratch reclassify: pick crops, re-run Brickognize (not recorded) -->
+			{#if crops.length > 0}
+				<ReclassifyPanel
+					endpointBase={effectiveBase()}
+					images={crops.map((c) => ({
+						image: c.src,
+						label: formatCropLabel(c),
+						used: c.used,
+						score: c.score
+					}))}
+				/>
+			{/if}
 
 			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
 			{#if burstFrames.length > 0}
@@ -891,6 +1300,16 @@
 					</div>
 				</section>
 			{/if}
+
+			<!-- Upstream match (C2/C3) -->
+			<section class="flex flex-col border border-border bg-surface">
+				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+					Upstream match (C2/C3)
+				</div>
+				<div class="p-3">
+					<UpstreamMatchSearch initialUuid={uuid} autoShowAll />
+				</div>
+			</section>
 
 			<!-- Raw JSON toggle -->
 			<section class="border border-border bg-surface">

@@ -600,3 +600,48 @@ def delete_local_sorting_profile(filename: str) -> dict[str, Any]:
         except OSError as exc:
             raise HTTPException(status_code=500, detail=f"Could not delete profile: {exc}")
     return {"ok": True, "local_profiles": _list_local_profiles()}
+
+
+class RenameLocalSortingProfilePayload(BaseModel):
+    filename: str
+    name: str
+
+
+@router.post("/api/sorting-profiles/local/rename")
+def rename_local_sorting_profile(payload: RenameLocalSortingProfilePayload) -> dict[str, Any]:
+    new_name = (payload.name or "").strip()
+    if not new_name:
+        raise HTTPException(status_code=400, detail="New profile name is required.")
+
+    path = _safe_local_path(payload.filename)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Local profile not found.")
+
+    artifact = _load_local_artifact(path)
+    _atomic_write_json(str(path), {**artifact, "name": new_name})
+
+    # Only the display name changes; routing is untouched, so there's no need to
+    # reload the runtime profile. But if this is the active profile, keep the live
+    # artifact copy and the sync-state name in step so the UI doesn't show stale.
+    sync_state = getSortingProfileSyncState() or {}
+    is_active = (
+        sync_state.get("source") == "local"
+        and sync_state.get("local_filename") == path.name
+    )
+    if is_active and shared_state.gc_ref is not None:
+        runtime_path = shared_state.gc_ref.sorting_profile_path
+        if runtime_path and os.path.exists(runtime_path):
+            runtime_artifact = _load_local_artifact(Path(runtime_path))
+            _atomic_write_json(runtime_path, {**runtime_artifact, "name": new_name})
+        setSortingProfileSyncState({**sync_state, "profile_name": new_name})
+
+    status = _current_local_profile_status()
+    shared_state.publishSortingProfileStatus(status)
+    return {
+        "ok": True,
+        "renamed": True,
+        "is_active": is_active,
+        "name": new_name,
+        "local_profiles": _list_local_profiles(),
+        **status,
+    }

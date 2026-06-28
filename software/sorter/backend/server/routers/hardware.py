@@ -8,7 +8,12 @@ from typing import Any, Dict, List, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from blob_manager import getBinCategories, setBinCategories
+from blob_manager import (
+    getBinCategories,
+    setBinCategories,
+    getNotInInventoryBins,
+    setNotInInventoryBins,
+)
 from hardware.bus import MCUBus
 from irl.bin_layout import (
     getBinLayout,
@@ -19,6 +24,9 @@ from irl.bin_layout import (
     applyCategories,
     layoutMatchesCategories,
     mkLayoutFromConfig,
+    extractNotInInventory,
+    applyNotInInventory,
+    notInInventoryMatchesLayout,
     defaultMaxDimensionForBinCount,
     _LAYER_MAX_DIMENSION_DEFAULTS_MM,
 )
@@ -305,10 +313,28 @@ class ServoLayerLockPayload(BaseModel):
     angle: Optional[int] = None
 
 
+class ServoLayerClearPayload(BaseModel):
+    which: str = "both"  # "open" | "closed" | "both"
+
+
 class MoveToBinPayload(BaseModel):
     layer_index: int
     section_index: int
     bin_index: int
+
+
+class MoveToSectionPayload(BaseModel):
+    section_index: int
+
+
+class SectionEnabledPayload(BaseModel):
+    # scope "section" -> one section in one layer (needs layer_index + section_index)
+    # scope "column"  -> the same section index across every layer (needs section_index)
+    # scope "all"     -> every section in every layer
+    scope: str
+    layer_index: Optional[int] = None
+    section_index: Optional[int] = None
+    enabled: bool
 
 
 class BinScopePayload(BaseModel):
@@ -324,6 +350,23 @@ class ClearBinCategoriesPayload(BinScopePayload):
 
 class ClearBinContentsPayload(BinScopePayload):
     pass
+
+
+class AssignBinCategoriesPayload(BaseModel):
+    layer_index: int
+    section_index: int
+    bin_index: int
+    category_ids: List[str] = []
+
+
+class NotInInventoryModePayload(BinScopePayload):
+    # scope "bin" | "layer" | "all"; enabled toggles not-in-inventory mode.
+    enabled: bool = True
+
+
+class AutoAssignBinsPayload(BaseModel):
+    overlap: bool = False
+    window_days: float = 7.0
 
 
 class StorageLayerPayload(BaseModel):
@@ -748,12 +791,16 @@ def _storage_layer_settings_from_layout(layout: Any) -> Dict[str, Any]:
             "bin_size": bin_size,
             "enabled": enabled,
         }
-        servo_open = getattr(layer, "servo_open_angle", None)
-        servo_closed = getattr(layer, "servo_closed_angle", None)
+        # Calibration is sourced from the per-channel store (resolved via the
+        # layer's servo_channel_id), not the layer's deprecated angle fields.
+        from irl.bin_layout import calibratedAnglesForLayer, channelIdForLayer
+
+        servo_open, servo_closed = calibratedAnglesForLayer(layout, index - 1)
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
         max_dimension = getattr(layer, "max_dimension_mm", None)
         open_value = servo_open if isinstance(servo_open, int) else None
         closed_value = servo_closed if isinstance(servo_closed, int) else None
+        layer_entry["servo_channel_id"] = channelIdForLayer(layout, index - 1)
         layer_entry["servo_open_angle"] = open_value
         layer_entry["servo_closed_angle"] = closed_value
         layer_entry["calibrated"] = open_value is not None and closed_value is not None
@@ -817,6 +864,26 @@ def _apply_live_storage_layer_enabled(layers: List[Dict[str, Any]]) -> bool:
             if isinstance(max_dimension, (int, float)) and not isinstance(max_dimension, bool) and max_dimension > 0
             else None,
         )
+    return True
+
+
+def _apply_live_section_enabled(config: "BinLayoutConfig") -> bool:
+    # Mirror the persisted per-section on/off flags into the live runtime
+    # distribution layout so toggles take effect without a backend restart,
+    # exactly like _apply_live_storage_layer_enabled does for whole layers.
+    active_irl = _active_irl()
+    if active_irl is None:
+        return False
+    distribution_layout = getattr(active_irl, "distribution_layout", None)
+    runtime_layers = list(getattr(distribution_layout, "layers", [])) if distribution_layout is not None else []
+    if len(runtime_layers) != len(config.layers):
+        return False
+    for runtime_layer, layer_config in zip(runtime_layers, config.layers):
+        flags = layer_config.section_enabled or []
+        runtime_sections = list(getattr(runtime_layer, "sections", []))
+        for section_idx, runtime_section in enumerate(runtime_sections):
+            enabled = flags[section_idx] if section_idx < len(flags) else True
+            setattr(runtime_section, "enabled", bool(enabled))
     return True
 
 
@@ -1324,9 +1391,12 @@ def preview_layer_servo(
     invert = bool(payload.invert)
 
     layout = getBinLayout()
-    layer = layout.layers[layer_index] if 0 <= layer_index < len(layout.layers) else None
-    layer_open = getattr(layer, "servo_open_angle", None)
-    layer_closed = getattr(layer, "servo_closed_angle", None)
+    from irl.bin_layout import calibratedAnglesForLayer
+
+    if 0 <= layer_index < len(layout.layers):
+        layer_open, layer_closed = calibratedAnglesForLayer(layout, layer_index)
+    else:
+        layer_open = layer_closed = None
 
     try:
         if backend == "waveshare":
@@ -1498,31 +1568,70 @@ def lock_layer_servo_angle(layer_index: int, payload: ServoLayerLockPayload) -> 
     layout = getBinLayout()
     if layer_index < 0 or layer_index >= len(layout.layers):
         raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
-    layer = layout.layers[layer_index]
+    # Calibration is per-channel (machine-level), not stored on the layout — so
+    # locking an angle never touches bin_layout / geometry.
+    from irl.bin_layout import channelIdForLayer
+    from local_state import set_servo_channel_angle
+
+    channel_id = channelIdForLayer(layout, layer_index)
     if payload.which == "open":
-        layer.servo_open_angle = angle
+        set_servo_channel_angle(channel_id, "open", angle)
         if hasattr(servo, "set_open_angle"):
             servo.set_open_angle(angle)
     else:
-        layer.servo_closed_angle = angle
+        set_servo_channel_angle(channel_id, "closed", angle)
         if hasattr(servo, "set_closed_angle"):
             servo.set_closed_angle(angle)
-
-    try:
-        saveBinLayout(layout)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to persist locked angle: {e}")
 
     state = _servo_calibration_state(servo)
     return {
         "ok": True,
         "layer_index": layer_index,
+        "channel_id": channel_id,
         "which": payload.which,
         "angle": angle,
         **state,
         "feedback": _live_servo_feedback_for_layer(layer_index, servo),
         "message": (
             f"Layer {layer_index + 1} {payload.which} angle locked at {angle}°."
+        ),
+    }
+
+
+@router.post("/api/hardware-config/servo/layers/{layer_index}/clear")
+def clear_layer_servo_angle(layer_index: int, payload: ServoLayerClearPayload) -> Dict[str, Any]:
+    _ensure_not_homing("clear a servo angle")
+    if payload.which not in {"open", "closed", "both"}:
+        raise HTTPException(status_code=400, detail="which must be 'open', 'closed' or 'both'.")
+    servo = _live_servo_for_layer(layer_index)
+
+    layout = getBinLayout()
+    if layer_index < 0 or layer_index >= len(layout.layers):
+        raise HTTPException(status_code=404, detail=f"Unknown storage layer {layer_index + 1}.")
+    from irl.bin_layout import channelIdForLayer
+    from local_state import set_servo_channel_angle
+
+    channel_id = channelIdForLayer(layout, layer_index)
+    if payload.which in {"open", "both"}:
+        set_servo_channel_angle(channel_id, "open", None)
+        if hasattr(servo, "set_open_angle"):
+            servo.set_open_angle(None)
+    if payload.which in {"closed", "both"}:
+        set_servo_channel_angle(channel_id, "closed", None)
+        if hasattr(servo, "set_closed_angle"):
+            servo.set_closed_angle(None)
+
+    state = _servo_calibration_state(servo)
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "which": payload.which,
+        **state,
+        "feedback": _live_servo_feedback_for_layer(layer_index, servo),
+        "message": (
+            f"Layer {layer_index + 1} calibration cleared."
+            if payload.which == "both"
+            else f"Layer {layer_index + 1} {payload.which} angle cleared."
         ),
     }
 
@@ -1928,9 +2037,15 @@ def cancel_chute_find_endstop() -> Dict[str, Any]:
 
 
 def _live_chute() -> Any:
-    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
-        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
-    chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    # Mirror the chute home endpoint (find-endstop): resolve off the active
+    # runtime IRL, not a fully-published SorterController. This lets the chute
+    # be aimed after a no-homing /api/system/initialize (steppers up, nothing
+    # homed) — homing the chute alone is enough to use it, no cameras or full
+    # recover required.
+    irl = _active_irl()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized. Initialize or home the system first.")
+    chute = getattr(irl, "chute", None)
     if chute is None:
         raise HTTPException(status_code=503, detail="Chute subsystem not available.")
     return chute
@@ -2193,6 +2308,8 @@ def derive_chute_aiming_config(payload: ChuteAimingDerivePayload) -> Dict[str, A
 def move_chute_to_angle(payload: ChuteMoveToAnglePayload) -> Dict[str, Any]:
     _ensure_not_homing("move the chute")
     chute = _live_chute()
+    if not getattr(chute, "homed", False):
+        raise HTTPException(status_code=409, detail="Home the chute first.")
     angle = float(payload.angle)
     if angle < 0 or angle > 360:
         raise HTTPException(status_code=400, detail="angle must be between 0 and 360°.")
@@ -2214,6 +2331,8 @@ def move_chute_to_virtual_bin(payload: ChuteVirtualBinPayload) -> Dict[str, Any]
     # not-necessarily-installed layout using the canonical aiming formula.
     _ensure_not_homing("move the chute")
     chute = _live_chute()
+    if not getattr(chute, "homed", False):
+        raise HTTPException(status_code=409, detail="Home the chute first.")
     if payload.num_sections < 1 or payload.bins_in_section < 1:
         raise HTTPException(status_code=400, detail="num_sections and bins_in_section must be >= 1.")
     if payload.section_index < 0 or payload.section_index >= payload.num_sections:
@@ -2534,8 +2653,17 @@ def save_storage_layer_hardware_config(
         bin_size = cur_layer["bin_size"] if cur_layer else default_bin_size
         sections = [[bin_size] * bins_per_section for _ in range(section_count)]
 
+        # Preserve existing servo calibration when the payload omits it. A bin-count
+        # or enabled-flag change must NEVER null the angles — that silently wiped the
+        # layer-door calibration before (only recoverable from a config backup). To
+        # intentionally clear an angle, use /api/hardware-config/servo/layers/{i}/clear.
+        prior_layer = layout.layers[i] if i < len(layout.layers) else None
         servo_open = layer_update.get("servo_open_angle")
+        if not isinstance(servo_open, int):
+            servo_open = prior_layer.servo_open_angle if prior_layer else None
         servo_closed = layer_update.get("servo_closed_angle")
+        if not isinstance(servo_closed, int):
+            servo_closed = prior_layer.servo_closed_angle if prior_layer else None
         max_per_bin = layer_update.get("max_pieces_per_bin")
         max_per_bin_value = max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None
         max_dim = layer_update.get("max_dimension_mm")
@@ -2545,13 +2673,22 @@ def save_storage_layer_hardware_config(
             else None
         )
 
+        # Section count is preserved across this rebuild, so carry the existing
+        # per-section on/off flags through rather than resetting them to all-on.
+        prior_flags = layout.layers[i].section_enabled if i < len(layout.layers) else None
+        prior_section_enabled = list(prior_flags) if prior_flags is not None else None
+
         new_layer_configs.append(LayerConfig(
             sections=sections,
             enabled=enabled,
             servo_open_angle=servo_open if isinstance(servo_open, int) else None,
             servo_closed_angle=servo_closed if isinstance(servo_closed, int) else None,
+            # Carry the layer's servo channel reference through a rebuild (calibration
+            # itself lives per-channel and is untouched here).
+            servo_channel_id=prior_layer.servo_channel_id if prior_layer else None,
             max_pieces_per_bin=max_per_bin_value,
             max_dimension_mm=max_dim_value,
+            section_enabled=prior_section_enabled,
         ))
         if cur_layer:
             layout_changed = layout_changed or count != int(cur_layer["bin_count"])
@@ -2644,6 +2781,175 @@ def _apply_and_persist_bin_categories(categories: list[list[list[list[str]]]]) -
         return
 
     setBinCategories(categories)
+
+
+def _empty_not_in_inventory_from_config() -> list[list[list[bool]]]:
+    layout_config = getBinLayout()
+    return [
+        [[False for _ in section] for section in layer.sections]
+        for layer in layout_config.layers
+    ]
+
+
+def _current_not_in_inventory() -> list[list[list[bool]]]:
+    runtime_layout = _runtime_distribution_layout()
+    if runtime_layout is not None:
+        return extractNotInInventory(runtime_layout)
+
+    saved = getNotInInventoryBins()
+    if saved is not None:
+        reference_layout = mkLayoutFromConfig(getBinLayout())
+        if notInInventoryMatchesLayout(reference_layout, saved):
+            return saved
+
+    return _empty_not_in_inventory_from_config()
+
+
+def _apply_and_persist_not_in_inventory(flags: list[list[list[bool]]]) -> None:
+    runtime_layout = _runtime_distribution_layout()
+    if runtime_layout is not None and notInInventoryMatchesLayout(runtime_layout, flags):
+        applyNotInInventory(runtime_layout, flags)
+        setNotInInventoryBins(extractNotInInventory(runtime_layout))
+        return
+
+    setNotInInventoryBins(flags)
+
+
+def set_not_in_inventory_mode(
+    *, scope: str, layer_index: int | None, section_index: int | None,
+    bin_index: int | None, enabled: bool,
+) -> dict[str, Any]:
+    flags = _current_not_in_inventory()
+    if scope == "all":
+        for layer in flags:
+            for section in layer:
+                for i in range(len(section)):
+                    section[i] = enabled
+    elif scope == "layer":
+        if layer_index is None or layer_index < 0 or layer_index >= len(flags):
+            raise HTTPException(status_code=400, detail="Invalid layer index.")
+        for section in flags[layer_index]:
+            for i in range(len(section)):
+                section[i] = enabled
+    elif scope == "bin":
+        if (
+            layer_index is None or section_index is None or bin_index is None
+            or layer_index < 0 or layer_index >= len(flags)
+            or section_index < 0 or section_index >= len(flags[layer_index])
+            or bin_index < 0 or bin_index >= len(flags[layer_index][section_index])
+        ):
+            raise HTTPException(status_code=400, detail="Invalid bin coordinates.")
+        flags[layer_index][section_index][bin_index] = enabled
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported scope.")
+    _apply_and_persist_not_in_inventory(flags)
+    total = sum(1 for layer in flags for section in layer for b in section if b)
+    return {"ok": True, "scope": scope, "enabled": enabled, "not_in_inventory_bin_count": total}
+
+
+def _resolve_profile_category(ptc: dict, default_cat: str, part_id: str, color_id: str | None) -> str:
+    color = color_id if color_id else "any_color"
+    key = f"{color}-{part_id}"
+    if key in ptc:
+        return str(ptc[key])
+    any_key = f"any_color-{part_id}"
+    return str(ptc.get(any_key, default_cat))
+
+
+def auto_assign_bins(*, overlap: bool, window_days: float = 7.0) -> dict[str, Any]:
+    # Rank the active profile's categories by how many recently-distributed
+    # pieces hit them (re-mapped through the CURRENT profile, since the profile
+    # may have changed), then fill bins biggest-first: bottom layers (the larger
+    # bins) get the highest-volume categories. Not-in-inventory bins are left for
+    # the parallel pool. With overlap, leftover categories share bins.
+    import json
+    import os
+    import time
+    from collections import Counter
+    from sorting_profile import MISC_CATEGORY
+    from local_state import get_distributed_part_keys_since
+
+    gc = shared_state.gc_ref
+    path = getattr(gc, "sorting_profile_path", None) if gc is not None else None
+    if not path or not os.path.exists(path):
+        raise HTTPException(status_code=400, detail="No active sorting profile to assign from.")
+    with open(path) as handle:
+        artifact = json.load(handle)
+    ptc = artifact.get("part_to_category", {}) or {}
+    default_cat = str(artifact.get("default_category_id", MISC_CATEGORY))
+    cat_meta = artifact.get("categories", {}) or {}
+
+    keys = get_distributed_part_keys_since(time.time() - window_days * 86400.0)
+    tally: Counter[str] = Counter()
+    for part_id, color_id in keys:
+        if not part_id:
+            continue
+        cat = _resolve_profile_category(ptc, default_cat, part_id, color_id)
+        if cat and cat != MISC_CATEGORY and cat != default_cat:
+            tally[cat] += 1
+    ranked = [cat for cat, _ in tally.most_common()]
+
+    flags = _current_not_in_inventory()
+    current = _current_bin_categories()
+    layout_config = getBinLayout()
+
+    def _pool_targets(want_nii: bool) -> list[tuple[int, int, int]]:
+        out: list[tuple[int, int, int]] = []
+        for li, layer in enumerate(layout_config.layers):
+            if not getattr(layer, "enabled", True):
+                continue
+            section_flags = layer.section_enabled or [True] * len(layer.sections)
+            for si, section in enumerate(layer.sections):
+                if si < len(section_flags) and not section_flags[si]:
+                    continue
+                for bi in range(len(section)):
+                    if bool(flags[li][si][bi]) == want_nii:
+                        out.append((li, si, bi))
+        # Bottom layers first (they hold the larger bins), then section/bin order.
+        out.sort(key=lambda t: (-t[0], t[1], t[2]))
+        return out
+
+    normal_targets = _pool_targets(False)
+    nii_targets = _pool_targets(True)
+
+    new_cats = [[[list(b) for b in sec] for sec in layer] for layer in current]
+    for li, si, bi in normal_targets + nii_targets:
+        new_cats[li][si][bi] = []
+
+    def _assign_pool(targets: list[tuple[int, int, int]], pool: str) -> list[dict[str, Any]]:
+        n = len(targets)
+        out: list[dict[str, Any]] = []
+        if n == 0 or not ranked:
+            return out
+        chosen = ranked if overlap else ranked[:n]
+        for i, cat in enumerate(chosen):
+            li, si, bi = targets[i % n]
+            new_cats[li][si][bi].append(cat)
+            out.append({
+                "category_id": cat,
+                "name": (cat_meta.get(cat) or {}).get("name", cat),
+                "pieces": tally[cat],
+                "bin": [li, si, bi],
+                "pool": pool,
+            })
+        return out
+
+    main_assignments = _assign_pool(normal_targets, "main")
+    nii_assignments = _assign_pool(nii_targets, "not_in_inventory")
+    _apply_and_persist_bin_categories(new_cats)
+    assignments = main_assignments + nii_assignments
+    return {
+        "ok": True,
+        "main_bins": len(normal_targets),
+        "not_in_inventory_bins": len(nii_targets),
+        "main_assigned": len(main_assignments),
+        "not_in_inventory_assigned": len(nii_assignments),
+        "categories_ranked": len(ranked),
+        "total_pieces": sum(tally.values()),
+        "overlap": overlap,
+        "window_days": window_days,
+        "assignments": assignments,
+    }
 
 
 def _clear_passthrough_alert_if_owned() -> None:
@@ -2751,6 +3057,66 @@ def clear_bin_category_assignments(
     }
 
 
+def assign_bin_categories(
+    *,
+    layer_index: int,
+    section_index: int,
+    bin_index: int,
+    category_ids: list[str],
+) -> dict[str, Any]:
+    from sorting_profile import MISC_CATEGORY
+
+    categories = _current_bin_categories()
+
+    if layer_index < 0 or layer_index >= len(categories):
+        raise HTTPException(status_code=400, detail="Invalid layer index.")
+    if section_index < 0 or section_index >= len(categories[layer_index]):
+        raise HTTPException(status_code=400, detail="Invalid section index.")
+    if bin_index < 0 or bin_index >= len(categories[layer_index][section_index]):
+        raise HTTPException(status_code=400, detail="Invalid bin index.")
+
+    cleaned: list[str] = []
+    for category_id in category_ids:
+        if not isinstance(category_id, str):
+            raise HTTPException(status_code=400, detail="category_ids must be strings.")
+        category_id = category_id.strip()
+        if not category_id or category_id in cleaned:
+            continue
+        # MISC is the virtual discard passthrough, never a physical bin.
+        if category_id == MISC_CATEGORY:
+            raise HTTPException(
+                status_code=400,
+                detail="Misc is the discard passthrough and cannot be assigned to a bin.",
+            )
+        cleaned.append(category_id)
+
+    # A category lives in exactly one bin. Drop these category_ids from every
+    # other bin first so a manual assignment moves the category here rather than
+    # leaving a stale duplicate that the positioner would match first.
+    target = (layer_index, section_index, bin_index)
+    for li, layer in enumerate(categories):
+        for si, section in enumerate(layer):
+            for bi, existing in enumerate(section):
+                if (li, si, bi) == target or not existing:
+                    continue
+                section[bi] = [c for c in existing if c not in cleaned]
+
+    categories[layer_index][section_index][bin_index] = cleaned
+    _apply_and_persist_bin_categories(categories)
+    _clear_passthrough_alert_if_owned()
+    return {
+        "ok": True,
+        "layer_index": layer_index,
+        "section_index": section_index,
+        "bin_index": bin_index,
+        "category_ids": cleaned,
+        "message": (
+            f"Assigned {len(cleaned)} categor{'y' if len(cleaned) == 1 else 'ies'} "
+            f"to bin {bin_index + 1} on layer {layer_index + 1}."
+        ),
+    }
+
+
 def clear_bin_contents(
     *,
     scope: str,
@@ -2844,10 +3210,14 @@ def get_bins_layout() -> Dict[str, Any]:
                 global_bin += 1
         max_per_bin = getattr(layer, "max_pieces_per_bin", None)
         max_dimension = getattr(layer, "max_dimension_mm", None)
+        section_enabled = list(getattr(layer, "section_enabled", None) or [True] * len(sections))
+        if len(section_enabled) < len(sections):
+            section_enabled += [True] * (len(sections) - len(section_enabled))
         layers_out.append({
             "layer_index": layer_idx,
             "enabled": layer.enabled,
             "section_count": len(sections),
+            "section_enabled": section_enabled,
             "bin_count": global_bin,
             "max_pieces_per_bin": max_per_bin if isinstance(max_per_bin, int) and max_per_bin > 0 else None,
             "max_dimension_mm": (
@@ -2909,6 +3279,18 @@ def get_bins_layout() -> Dict[str, Any]:
     for layer_out in layers_out:
         for bin_out in layer_out["bins"]:
             bin_out.setdefault("category_ids", [])
+
+    # Overlay not-in-inventory mode flags (parallel bin pool).
+    nii_flags = _current_not_in_inventory()
+    for layer_out in layers_out:
+        li = layer_out["layer_index"]
+        for bin_out in layer_out["bins"]:
+            si = bin_out["section_index"]
+            bi = bin_out["bin_index"]
+            try:
+                bin_out["not_in_inventory"] = bool(nii_flags[li][si][bi])
+            except (IndexError, TypeError):
+                bin_out["not_in_inventory"] = False
 
     return {
         "ok": True,
@@ -2989,6 +3371,88 @@ def move_to_bin(payload: MoveToBinPayload) -> Dict[str, Any]:
     }
 
 
+@router.post("/api/bins/move-to-section")
+def move_to_section(payload: MoveToSectionPayload) -> Dict[str, Any]:
+    """Point the chute at the center of a section without opening any servo."""
+    _ensure_not_homing("point at a section")
+    if shared_state.controller_ref is None or not hasattr(shared_state.controller_ref, "irl"):
+        raise HTTPException(status_code=503, detail="Hardware controller not initialized.")
+    chute = getattr(shared_state.controller_ref.irl, "chute", None)
+    if chute is None:
+        raise HTTPException(status_code=503, detail="Chute subsystem not available.")
+    if payload.section_index < 0:
+        raise HTTPException(status_code=400, detail="section_index must be >= 0.")
+
+    # bins_in_section=1, bin_index=0 -> the midpoint of the section's usable arc.
+    target_angle = chute.angleForVirtualBin(payload.section_index, 0, 1)
+    if target_angle is None:
+        raise HTTPException(status_code=400, detail="Section is unreachable (angle out of range).")
+
+    try:
+        estimated_ms = chute.moveToAngle(target_angle)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chute move failed: {e}")
+
+    return {
+        "ok": True,
+        "target_angle": round(target_angle, 2),
+        "estimated_ms": estimated_ms,
+        "section_index": payload.section_index,
+    }
+
+
+@router.post("/api/bins/sections/enabled")
+def set_section_enabled(payload: SectionEnabledPayload) -> Dict[str, Any]:
+    """Enable/disable sections: a single section, a whole column (same section
+    index across every layer), or every section on the machine."""
+    if payload.scope not in {"section", "column", "all"}:
+        raise HTTPException(status_code=400, detail="scope must be 'section', 'column' or 'all'.")
+
+    layout = getBinLayout()
+    enabled = bool(payload.enabled)
+    changed = 0
+
+    def _set_layer_section(layer: LayerConfig, section_index: int) -> None:
+        nonlocal changed
+        flags = list(layer.section_enabled or [True] * len(layer.sections))
+        if 0 <= section_index < len(flags) and flags[section_index] != enabled:
+            flags[section_index] = enabled
+            layer.section_enabled = flags
+            changed += 1
+
+    if payload.scope == "section":
+        if payload.layer_index is None or payload.section_index is None:
+            raise HTTPException(status_code=400, detail="section scope needs layer_index and section_index.")
+        if payload.layer_index < 0 or payload.layer_index >= len(layout.layers):
+            raise HTTPException(status_code=404, detail=f"Unknown layer {payload.layer_index}.")
+        _set_layer_section(layout.layers[payload.layer_index], payload.section_index)
+    elif payload.scope == "column":
+        if payload.section_index is None:
+            raise HTTPException(status_code=400, detail="column scope needs section_index.")
+        for layer in layout.layers:
+            _set_layer_section(layer, payload.section_index)
+    else:  # all
+        for layer in layout.layers:
+            for section_index in range(len(layer.sections)):
+                _set_layer_section(layer, section_index)
+
+    if changed:
+        try:
+            saveBinLayout(layout)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed to persist section state: {e}")
+
+    applied_live = _apply_live_section_enabled(layout)
+    return {
+        "ok": True,
+        "scope": payload.scope,
+        "enabled": enabled,
+        "changed": changed,
+        "applied_live": applied_live,
+        "layout": get_bins_layout(),
+    }
+
+
 @router.post("/api/bins/categories/clear")
 def clear_bins_categories(payload: ClearBinCategoriesPayload) -> Dict[str, Any]:
     return clear_bin_category_assignments(
@@ -2996,6 +3460,32 @@ def clear_bins_categories(payload: ClearBinCategoriesPayload) -> Dict[str, Any]:
         layer_index=payload.layer_index,
         section_index=payload.section_index,
         bin_index=payload.bin_index,
+    )
+
+
+@router.post("/api/bins/categories/assign")
+def assign_bins_categories(payload: AssignBinCategoriesPayload) -> Dict[str, Any]:
+    return assign_bin_categories(
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+        category_ids=payload.category_ids,
+    )
+
+
+@router.post("/api/bins/auto-assign")
+def auto_assign_bins_route(payload: AutoAssignBinsPayload) -> Dict[str, Any]:
+    return auto_assign_bins(overlap=payload.overlap, window_days=payload.window_days)
+
+
+@router.post("/api/bins/not-in-inventory/set")
+def set_bins_not_in_inventory(payload: NotInInventoryModePayload) -> Dict[str, Any]:
+    return set_not_in_inventory_mode(
+        scope=payload.scope,
+        layer_index=payload.layer_index,
+        section_index=payload.section_index,
+        bin_index=payload.bin_index,
+        enabled=payload.enabled,
     )
 
 
@@ -3007,6 +3497,27 @@ def clear_bins_contents(payload: ClearBinContentsPayload) -> Dict[str, Any]:
         section_index=payload.section_index,
         bin_index=payload.bin_index,
     )
+
+
+@router.post("/api/bins/reset/layer/{layer_index}")
+def reset_bins_layer(layer_index: int) -> Dict[str, Any]:
+    # Full reset of one layer: drop its category assignments and empty its bins
+    # in a single server-side call, then hand back the fresh layout + contents so
+    # the UI can update without slow follow-up round-trips.
+    result = clear_bin_category_assignments(scope="layer", layer_index=layer_index)
+    result["layout"] = get_bins_layout()
+    result["bins"] = get_bin_contents().get("bins", [])
+    return result
+
+
+@router.post("/api/bins/reset/machine")
+def reset_bins_machine() -> Dict[str, Any]:
+    # Full machine reset: drop every assignment and empty every bin in one call,
+    # returning the fresh layout + (now empty) contents.
+    result = clear_bin_category_assignments(scope="all")
+    result["layout"] = get_bins_layout()
+    result["bins"] = get_bin_contents().get("bins", [])
+    return result
 
 
 @router.get("/api/bins/contents")

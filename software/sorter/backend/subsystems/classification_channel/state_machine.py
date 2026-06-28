@@ -63,6 +63,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         self.vision = vision
         self.event_queue = event_queue
         self.transport = transport
+        self.irl_config = irl_config
         self._mode: ClassificationChannelMode = getattr(
             irl_config.classification_channel_config,
             "mode",
@@ -72,6 +73,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         if self._dynamic_mode:
             self.transport.configureDynamicMode(irl_config.classification_channel_config)
         self.current_state = ClassificationChannelState.IDLE
+        # The two-piece codepath is a single self-contained controller (not a
+        # states_map); step()/cleanup() delegate to it when this mode is active.
+        self._two_piece = None
         if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
             self.states_map = buildRev01StatesMap(
                 irl=irl,
@@ -81,6 +85,24 @@ class ClassificationChannelStateMachine(BaseSubsystem):
                 transport=transport,
                 vision=vision,
                 event_queue=event_queue,
+            )
+        elif self._mode == ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01:
+            from subsystems.classification_channel.two_piece import (
+                TwoPieceClassificationChannel,
+            )
+            from subsystems.classification_channel.simple_state_machine_rev01.context import (
+                SimpleStateMachineRev01Context,
+            )
+            self.states_map = {}
+            self._two_piece = TwoPieceClassificationChannel(
+                irl,
+                irl_config,
+                gc,
+                shared,
+                transport,
+                vision,
+                event_queue,
+                SimpleStateMachineRev01Context(),
             )
         else:
             self.states_map = {
@@ -123,6 +145,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         self._stall_incident_raised = False
 
     def step(self) -> None:
+        if self._two_piece is not None:
+            self._two_piece.step()
+            return
         import time as _time
         _t0 = _time.perf_counter()
         self.gc.profiler.hit("classification.state_machine.step.calls")
@@ -215,22 +240,77 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             return
 
         stalled_ms = (now - self._last_progress_at) * 1000.0
-        if not self._stall_incident_raised and stalled_ms >= _STALL_INCIDENT_MS:
-            published = publish_classification_exit_stuck_incident(
-                self.gc,
-                piece=None,
-                jitter_attempts=0,
-                converge_ms=stalled_ms,
-            )
-            self._stall_incident_raised = bool(published)
+        if self._stall_incident_raised or stalled_ms < _STALL_INCIDENT_MS:
+            return
+
+        # Auto-resolve: when this incident is set to automatic handling, try to
+        # clear the channel ourselves (advance forward until the piece is gone,
+        # the same routine spoke-home uses) instead of stopping for an operator.
+        # Only fall through to the manual incident if that didn't clear it.
+        if self._tryAutoResolveStall(stalled_ms):
+            return
+
+        published = publish_classification_exit_stuck_incident(
+            self.gc,
+            piece=None,
+            jitter_attempts=0,
+            converge_ms=stalled_ms,
+        )
+        self._stall_incident_raised = bool(published)
+        self.logger.info(
+            f"ClassificationChannel: STALLED in {self.current_state.value} for "
+            f"{stalled_ms:.0f}ms with a piece on the channel — raised exit-stuck "
+            f"incident (published={self._stall_incident_raised})"
+        )
+
+    def _tryAutoResolveStall(self, stalled_ms: float) -> bool:
+        try:
+            from toml_config import incidentHandlingAutomatic
+
+            if not incidentHandlingAutomatic(CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND):
+                return False
+        except Exception:
+            return False
+
+        from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
+            clearChannelByAdvancing,
+        )
+
+        self.logger.info(
+            f"ClassificationChannel: STALLED in {self.current_state.value} for "
+            f"{stalled_ms:.0f}ms — auto-resolve enabled, advancing channel to clear the piece"
+        )
+        result = clearChannelByAdvancing(
+            self.gc, self.irl, self.irl_config, vision=self.vision
+        )
+        if result.cleared:
+            # Re-arm fresh: the blocking clear consumed real time, so the window
+            # restarts from now, not from the pre-clear timestamp.
+            self._last_progress_at = time.monotonic()
             self.logger.info(
-                f"ClassificationChannel: STALLED in {self.current_state.value} for "
-                f"{stalled_ms:.0f}ms with a piece on the channel — raised exit-stuck "
-                f"incident (published={self._stall_incident_raised})"
+                f"ClassificationChannel: auto-resolve cleared the channel after advancing "
+                f"{result.output_deg_moved:.0f}° — resuming feeding"
             )
+            return True
+        self.logger.warning(
+            f"ClassificationChannel: auto-resolve advanced {result.output_deg_moved:.0f}° but the "
+            f"channel is still occupied ({result.reason}) — falling back to the manual incident"
+        )
+        return False
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")
+        if self._two_piece is not None:
+            self._two_piece.cleanup()
+            return
+        # Tearing down mid-cycle (machine stop / standby): if a piece was
+        # photographed but never classified or distributed, mark it aborted so
+        # the UI drops it instead of leaving it stuck in "capturing" forever.
+        if self._mode == ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+            current = self.states_map[self.current_state]
+            abandon = getattr(current, "abandonInFlightObject", None)
+            if callable(abandon):
+                abandon("classification channel teardown")
         self.states_map[self.current_state].cleanup()
         if self._dynamic_mode and hasattr(self.transport, "resetDynamicState"):
             self.transport.resetDynamicState()

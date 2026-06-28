@@ -24,11 +24,20 @@ class RegionProviderType(Enum):
 class Timeouts:
     main_loop_sleep_ms: float
     heartbeat_interval_ms: float
+    # Cloud recognition (Brickognize) request timeouts, seconds: (connect, read).
+    # Deliberately generous — the machine often runs on slow/unreliable internet,
+    # where a short connect timeout made recognition fail outright (ConnectTimeout)
+    # instead of merely being slow. The read timeout still scales per extra image
+    # in brickognize._classifyImages.
+    brickognize_connect_s: float
+    brickognize_read_s: float
 
     def __init__(self):
         from defs.consts import LOOP_TICK_MS
         self.main_loop_sleep_ms = LOOP_TICK_MS
         self.heartbeat_interval_ms = 5000
+        self.brickognize_connect_s = 60.0
+        self.brickognize_read_s = 60.0
 
 
 class GlobalConfig:
@@ -37,6 +46,13 @@ class GlobalConfig:
     timeouts: Timeouts
     sorting_profile_path: str
     local_profiles_dir: str
+    # Directory of uploaded BrickStore inventory (.bsx) files + the active-pointer
+    # file. Used for "not in inventory" routing (see bsx_inventory.py).
+    bsx_files_dir: str
+    # Optional path to a local read-only copy of the profile-builder parts.db
+    # (PIECE_METADATA_DB_PATH). When set, piece metadata + BrickLink price guides
+    # are served off this file in addition to the network Hive path. None = off.
+    piece_metadata_db_path: Optional[str]
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -57,12 +73,14 @@ class GlobalConfig:
     classification_burst_dump_root: Optional[Path]
     classification_skew_dump_root: Optional[Path]
     max_log_bytes: int
+    log_perception_attribution: bool
     dump_logs_to_file: bool
     metrics_retention_days: float
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
         self.debug_level = 0
+        self.piece_metadata_db_path = None
         self.should_write_camera_feeds = False
         self.brickognize_dump_root: Optional[Path] = None
         self.classification_burst_dump_root: Optional[Path] = None
@@ -71,6 +89,11 @@ class GlobalConfig:
         # startup we delete whole old session .log files (oldest-first) until
         # the directory fits under this, so the SD card can't fill with logs.
         self.max_log_bytes = 1 * 1024 ** 3
+        # Per-frame perception attribution log (the verbose "[perception ch=N
+        # src=...] in_exit=... | section_sizes ... | bbox=(...) n_drop/n_exit_only/
+        # n_precise/n_in_mask ..." line from InferenceWorker._maybe_log_attribution).
+        # A frame-rate-firehose debug aid; off by default so it can't flood logs.
+        self.log_perception_attribution = False
         self.dump_logs_to_file = False
         # Age cap for the per-second metric snapshot tables in local_state.sqlite
         # (runtime_perf + profiler). The pruner deletes rows older than this; the
@@ -132,6 +155,17 @@ def mkGlobalConfig() -> GlobalConfig:
     gc.sorting_profile_path = str(backend_dir / "active_sorting_profile.json")
     gc.local_profiles_dir = str(backend_dir / "sorting_profiles")
     os.makedirs(gc.local_profiles_dir, exist_ok=True)
+    # Uploaded BrickStore inventory (.bsx) files for "not in inventory" routing.
+    gc.bsx_files_dir = str(backend_dir / "bsx_files")
+    os.makedirs(gc.bsx_files_dir, exist_ok=True)
+    # Optional local parts.db for piece metadata + pricing. Relative paths
+    # resolve against the backend dir so a machine-local copy under software/mine/
+    # can be referenced as ../mine/piece_metadata.db. Empty/unset = disabled.
+    piece_db = os.getenv("PIECE_METADATA_DB_PATH", "").strip()
+    if piece_db:
+        gc.piece_metadata_db_path = (
+            piece_db if os.path.isabs(piece_db) else str((backend_dir / piece_db).resolve())
+        )
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
     # Allow env-var fallback so the launching supervisor can flip these

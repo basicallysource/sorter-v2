@@ -12,7 +12,8 @@
 		Plus,
 		Trash2,
 		Keyboard,
-		Cog
+		Cog,
+		Eraser
 	} from 'lucide-svelte';
 	import ServoSpeedSettings from './ServoSpeedSettings.svelte';
 	import { onMount } from 'svelte';
@@ -221,6 +222,24 @@
 			statusMsg = result.message ?? `Layer ${layerIndex + 1} ${which} angle locked.`;
 		} else {
 			setLayer(layerIndex, { lockStatus: 'error', lockError: errorMsg ?? 'Save failed' });
+		}
+	}
+
+	async function clearAngles(layerIndex: number) {
+		// Reset this layer's calibration back to unknown — both open and closed
+		// angles are persisted as null on the backend.
+		setLayer(layerIndex, { lockStatus: 'saving', lockError: '' });
+		const result = await postLayerAction(layerIndex, 'clear', { which: 'both' });
+		if (result) {
+			setLayer(layerIndex, {
+				openAngle: typeof result.open_angle === 'number' ? result.open_angle : null,
+				closedAngle: typeof result.closed_angle === 'number' ? result.closed_angle : null,
+				lockStatus: 'idle',
+				lockError: ''
+			});
+			statusMsg = result.message ?? `Layer ${layerIndex + 1} calibration cleared.`;
+		} else {
+			setLayer(layerIndex, { lockStatus: 'error', lockError: errorMsg ?? 'Clear failed' });
 		}
 	}
 
@@ -581,6 +600,15 @@
 							disabled={loading || saving || layer.busy || !layerHasChannel(layer)}
 						>
 							<Lock size={14} /> Lock closed
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							onclick={() => clearAngles(layer.layerIndex)}
+							disabled={loading || saving || layer.busy || !layerIsCalibrated(layer)}
+							title="Clear this layer's calibration back to unknown"
+						>
+							<Eraser size={14} /> Clear
 						</Button>
 						{#if layer.lockStatus === 'saving'}
 							<span class="text-sm text-text-muted">Saving…</span>

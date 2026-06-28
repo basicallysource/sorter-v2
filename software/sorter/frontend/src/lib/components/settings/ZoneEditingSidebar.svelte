@@ -55,6 +55,12 @@
 					zones.
 				</div>
 				<div class="text-sm leading-6 text-text-muted">
+					Drag the purple <span class="font-medium text-text">Precise Start</span> and
+					<span class="font-medium text-text">Precise End</span> handles to set the
+					<span class="font-medium text-text">holding region</span> — the band just before the exit where
+					a piece waits while it is classified and the chute aims.
+				</div>
+				<div class="text-sm leading-6 text-text-muted">
 					Use <span class="font-medium text-text">Exit Outer</span> to pull only the exit edge inward
 					when the opening exposes the next plate.
 				</div>

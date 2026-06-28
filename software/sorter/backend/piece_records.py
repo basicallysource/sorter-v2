@@ -66,9 +66,19 @@ def _ensureInitialized() -> None:
                 "confidence REAL, "
                 "bin_x INTEGER, "
                 "bin_y INTEGER, "
-                "bin_z INTEGER"
+                "bin_z INTEGER, "
+                # 1 when the piece was reaped for going silent without ever
+                # reaching the distributed stage (see reapStuckPieces). Such
+                # rows have no bin; they are recorded so the history still shows
+                # what got stuck instead of silently dropping it.
+                "dead INTEGER NOT NULL DEFAULT 0"
                 ")"
             )
+            # Migrate DBs created before the dead column existed.
+            try:
+                conn.execute("ALTER TABLE piece_records ADD COLUMN dead INTEGER NOT NULL DEFAULT 0")
+            except sqlite3.OperationalError:
+                pass  # column already present
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_piece_records_seen "
                 "ON piece_records(seen_at)"
@@ -102,13 +112,14 @@ def recordPiece(
         bin_x, bin_y, bin_z = (int(dest[0]), int(dest[1]), int(dest[2]))
     seen_at = piece.get("created_at")
     recorded_at = piece.get("distributed_at") or time.time()
+    dead = 1 if piece.get("dead") else 0
     with _connection() as conn:
         conn.execute(
             "INSERT OR IGNORE INTO piece_records "
             "(uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
             "part_id, part_name, color_id, color_name, category_id, confidence, "
-            "bin_x, bin_y, bin_z) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "bin_x, bin_y, bin_z, dead) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 uuid_val,
                 run_id,
@@ -125,6 +136,7 @@ def recordPiece(
                 bin_x,
                 bin_y,
                 bin_z,
+                dead,
             ),
         )
         conn.commit()
@@ -156,6 +168,55 @@ def getOverview() -> dict[str, Any]:
     }
 
 
+def getValueStats(gc: Any) -> dict[str, Any]:
+    # Estimated BrickLink value of every identified piece ever recorded, computed
+    # on the fly from the local price DB — no stored price column / backfill
+    # needed. We group by (part_id, color_id) so each distinct part is priced once
+    # (the lookup is cached) and multiplied by its count, all-time and last-24h.
+    from piece_metadata_db import getLocalPieceMetadata
+
+    cutoff = time.time() - 86400.0
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT part_id, color_id, COUNT(*) AS n, "
+            "SUM(CASE WHEN COALESCE(recorded_at, seen_at) >= ? THEN 1 ELSE 0 END) AS n24 "
+            "FROM piece_records "
+            "WHERE part_id IS NOT NULL AND dead = 0 "
+            "GROUP BY part_id, color_id",
+            (cutoff,),
+        ).fetchall()
+
+    all_total = all_priced = 0
+    d24_total = d24_priced = 0
+    all_value = d24_value = 0.0
+    for r in rows:
+        n = int(r["n"] or 0)
+        n24 = int(r["n24"] or 0)
+        all_total += n
+        d24_total += n24
+        metadata = getLocalPieceMetadata(gc, r["part_id"], r["color_id"])
+        price = metadata.get("moving_avg_price") if metadata else None
+        if isinstance(price, (int, float)) and price > 0:
+            all_value += price * n
+            all_priced += n
+            d24_value += price * n24
+            d24_priced += n24
+
+    return {
+        "currency": "USD",
+        "all_time": {
+            "pieces": all_total,
+            "priced_pieces": all_priced,
+            "value_usd": round(all_value, 2),
+        },
+        "last_24h": {
+            "pieces": d24_total,
+            "priced_pieces": d24_priced,
+            "value_usd": round(d24_value, 2),
+        },
+    }
+
+
 def listPieces(*, offset: int = 0, limit: int = 50) -> tuple[int, list[dict[str, Any]]]:
     offset = max(0, offset)
     limit = max(1, min(limit, 200))
@@ -164,7 +225,7 @@ def listPieces(*, offset: int = 0, limit: int = 50) -> tuple[int, list[dict[str,
         total = int(total_row["c"]) if total_row else 0
         rows = conn.execute(
             "SELECT uuid, run_id, seen_at, classification_status, part_id, part_name, "
-            "color_id, color_name, category_id, confidence, bin_x, bin_y, bin_z "
+            "color_id, color_name, category_id, confidence, bin_x, bin_y, bin_z, dead "
             "FROM piece_records ORDER BY seen_at DESC LIMIT ? OFFSET ?",
             (limit, offset),
         ).fetchall()
@@ -188,6 +249,7 @@ def listPieces(*, offset: int = 0, limit: int = 50) -> tuple[int, list[dict[str,
                 "category_id": r["category_id"],
                 "confidence": r["confidence"],
                 "destination_bin": dest,
+                "dead": bool(r["dead"]),
             }
         )
     return total, pieces

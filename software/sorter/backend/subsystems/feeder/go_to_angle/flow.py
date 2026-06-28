@@ -448,10 +448,15 @@ class GoToAngleFeeding(BaseState):
         actions = cascade(c2, c3, c4)
 
         if cfg.enable_ch3:
-            # C3's downstream is the classification channel (C4). Ready = C4
-            # empty AND past the post-dispense admission window.
+            # C3's downstream is the classification channel (C4). The feeder does
+            # NOT define "ready" itself — the classification channel owns and
+            # exposes it (shared.classification_ready, set per its active mode:
+            # single-piece = whole channel empty, two-piece = drop zone clear).
+            # The feeder just asks. The only feeder-side gate is the post-dispense
+            # admission window (let an in-flight piece register first).
             c3_downstream_ready = (
-                c4.n_pieces == 0 and now_mono >= self._classification_pending_until
+                now_mono >= self._classification_pending_until
+                and self._classification_ready(cfg)
             )
             # Extra hold: if the classification camera sees a piece sitting in
             # C3's annotated exit zone (a secondary/foreign zone on channel 4)

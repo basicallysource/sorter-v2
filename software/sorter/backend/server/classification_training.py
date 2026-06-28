@@ -31,6 +31,14 @@ DEFAULT_PROCESSOR = "local_archive"
 LEGACY_PROCESSORS = {"gemini_sam"}
 SUPPORTED_PROCESSORS = {DEFAULT_PROCESSOR, *LEGACY_PROCESSORS}
 
+# Cap on how much captured imagery we keep on the local disk. Once exceeded we
+# delete the oldest samples first. Default 1 GiB; the operator can change it from
+# the sample-capture settings (None disables the cap entirely).
+DEFAULT_LOCAL_STORAGE_CAP_BYTES = 1024 * 1024 * 1024
+# Evict down to this fraction of the cap so we don't walk the whole tree on every
+# single saved frame once we're sitting at the limit.
+STORAGE_CAP_LOW_WATER = 0.9
+
 
 def _slugify(value: str) -> str:
     cleaned = re.sub(r"[^a-zA-Z0-9]+", "-", value.strip().lower()).strip("-")
@@ -70,6 +78,8 @@ class ClassificationTrainingManager:
         self._session_name: str | None = None
         self._session_dir: Path | None = None
         self._created_at: float | None = None
+        self._storage_cap_bytes: int | None = DEFAULT_LOCAL_STORAGE_CAP_BYTES
+        self._last_usage_bytes: int | None = None
         self._hive = HiveUploader()
         self._loadPersistedConfig()
 
@@ -81,6 +91,13 @@ class ClassificationTrainingManager:
         processor = saved.get("processor")
         if isinstance(processor, str) and processor in SUPPORTED_PROCESSORS:
             self._processor = processor
+
+        if "local_storage_cap_bytes" in saved:
+            cap = saved.get("local_storage_cap_bytes")
+            if isinstance(cap, (int, float)) and not isinstance(cap, bool) and cap > 0:
+                self._storage_cap_bytes = int(cap)
+            else:
+                self._storage_cap_bytes = None
 
         session_dir = saved.get("session_dir")
         session_id = saved.get("session_id")
@@ -110,6 +127,7 @@ class ClassificationTrainingManager:
                 "session_name": self._session_name,
                 "session_dir": str(self._session_dir) if self._session_dir is not None else None,
                 "created_at": self._created_at,
+                "local_storage_cap_bytes": self._storage_cap_bytes,
             }
         )
 
@@ -141,6 +159,32 @@ class ClassificationTrainingManager:
                 "processor": self._processor,
                 "session_id": self._session_id,
                 "session_name": self._session_name,
+            }
+
+    def getStorageStatus(self) -> dict[str, Any]:
+        with self._lock:
+            if self._last_usage_bytes is None:
+                self._last_usage_bytes = self._computeUsageBytes()
+            return {
+                "storage_cap_bytes": self._storage_cap_bytes,
+                "storage_used_bytes": self._last_usage_bytes,
+            }
+
+    def setStorageCapBytes(self, cap_bytes: int | None) -> dict[str, Any]:
+        with self._lock:
+            if isinstance(cap_bytes, (int, float)) and not isinstance(cap_bytes, bool) and cap_bytes > 0:
+                self._storage_cap_bytes = int(cap_bytes)
+            else:
+                self._storage_cap_bytes = None
+            self._persistConfig()
+            if self._last_usage_bytes is None:
+                self._last_usage_bytes = self._computeUsageBytes()
+            cap = self._storage_cap_bytes
+            if cap is not None and self._last_usage_bytes > cap:
+                self._evictToLowWaterLocked(cap)
+            return {
+                "storage_cap_bytes": self._storage_cap_bytes,
+                "storage_used_bytes": self._last_usage_bytes,
             }
 
     def captureCurrentFrame(self, camera: str) -> dict[str, Any]:
@@ -695,6 +739,80 @@ class ClassificationTrainingManager:
         path.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(path), image, [cv2.IMWRITE_JPEG_QUALITY, 92])
 
+    def _computeUsageBytes(self) -> int:
+        total = 0
+        if not TRAINING_ROOT.exists():
+            return 0
+        for path in TRAINING_ROOT.rglob("*"):
+            if not path.is_file():
+                continue
+            try:
+                total += path.stat().st_size
+            except OSError:
+                continue
+        return total
+
+    def _noteWriteAndEnforceLocked(self, added_bytes: int) -> None:
+        if self._last_usage_bytes is None:
+            self._last_usage_bytes = self._computeUsageBytes()
+        else:
+            self._last_usage_bytes += max(0, added_bytes)
+        cap = self._storage_cap_bytes
+        if cap is None or cap <= 0:
+            return
+        if self._last_usage_bytes > cap:
+            self._evictToLowWaterLocked(cap)
+
+    def _evictToLowWaterLocked(self, cap: int) -> None:
+        # Delete oldest sample files first until we're back under the low-water
+        # mark. manifest.json is tiny and identifies the session, so it's never a
+        # delete target — fully drained sessions get their dir removed wholesale.
+        low_water = int(cap * STORAGE_CAP_LOW_WATER)
+        entries: list[tuple[float, int, Path]] = []
+        total = 0
+        for path in TRAINING_ROOT.rglob("*"):
+            if not path.is_file() or path.name == "manifest.json":
+                continue
+            try:
+                stat = path.stat()
+            except OSError:
+                continue
+            entries.append((stat.st_mtime, stat.st_size, path))
+            total += stat.st_size
+
+        entries.sort(key=lambda item: item[0])
+        for _mtime, size, path in entries:
+            if total <= low_water:
+                break
+            try:
+                path.unlink()
+            except OSError:
+                continue
+            total -= size
+
+        active = self._session_dir.resolve() if self._session_dir is not None else None
+        self._pruneEmptySessionDirsLocked(active)
+        self._last_usage_bytes = total
+
+    def _pruneEmptySessionDirsLocked(self, active: Path | None) -> None:
+        if not TRAINING_ROOT.exists():
+            return
+        for session_dir in TRAINING_ROOT.iterdir():
+            if not session_dir.is_dir():
+                continue
+            if active is not None and session_dir.resolve() == active:
+                continue
+            has_payload = any(
+                path.is_file() and path.name != "manifest.json"
+                for path in session_dir.rglob("*")
+            )
+            if has_payload:
+                continue
+            try:
+                shutil.rmtree(session_dir)
+            except OSError:
+                continue
+
     def _archiveSample(
         self,
         *,
@@ -782,6 +900,22 @@ class ClassificationTrainingManager:
             full_frame_path=full_frame_path,
             overlay_path=None,
         )
+
+        added_bytes = 0
+        for written_path in (
+            top_zone_path,
+            bottom_zone_path,
+            top_frame_path,
+            bottom_frame_path,
+            dataset_image_path,
+            metadata_path,
+        ):
+            try:
+                added_bytes += written_path.stat().st_size
+            except OSError:
+                continue
+        with self._lock:
+            self._noteWriteAndEnforceLocked(added_bytes)
 
         return {
             "ok": True,

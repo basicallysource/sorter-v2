@@ -147,6 +147,7 @@ class RuntimeStatsCollector:
             "brickognize_empty_result": 0,
             "brickognize_timeout_total": 0,
         }
+        self._stuck_reaped_total: int = 0
         self._handoff_ghost_rejected_total: int = 0
         self._handoff_stale_pending_dropped_total: int = 0
         self._multi_drop_leader_wins_total: int = 0
@@ -283,6 +284,51 @@ class RuntimeStatsCollector:
         if entry is None:
             return None
         return dict(entry)
+
+    def reapStuckPieces(self, now: float, timeout_s: float) -> list[dict[str, Any]]:
+        """Flip long-silent, never-distributed pieces to ``dead`` and return them.
+
+        A piece that lands on C4 (or classifies) but never reaches the
+        distributed stage stops emitting KnownObject events, so it would sit in
+        the UI's recent-pieces list and the per-piece lookup forever. Any
+        in-flight piece whose last observation (``updated_at``) is older than
+        ``timeout_s`` is marked dead here — the time-based analogue of the
+        teardown ``aborted`` flag — so the caller can broadcast a final event
+        the UI drops on. Only runs while the machine is running; setting the
+        ``dead`` flag on the entry makes this idempotent per piece (a reaped
+        piece is skipped next pass). Returns the full lookup payloads (copies)
+        for the caller to slim and broadcast. The sole writer of the lookup is
+        the broadcaster thread, which also owns this call, so iterating it here
+        is safe.
+        """
+        if not self._is_running:
+            return []
+        reaped: list[dict[str, Any]] = []
+        for entry in self._known_object_lookup.values():
+            if entry.get("dead") or entry.get("aborted"):
+                continue
+            if entry.get("distributed_at") is not None:
+                continue
+            stage = getattr(entry.get("stage"), "value", entry.get("stage"))
+            if stage == "distributed":
+                continue
+            last_seen = entry.get("updated_at")
+            if not isinstance(last_seen, (int, float)):
+                last_seen = entry.get("created_at")
+            if not isinstance(last_seen, (int, float)):
+                continue
+            if now - float(last_seen) <= timeout_s:
+                continue
+            entry["dead"] = True
+            entry["updated_at"] = now
+            self._stuck_reaped_total += 1
+            self._last_updated_at = now
+            live = self._piece_by_uuid.get(str(entry.get("uuid") or ""))
+            if live is not None:
+                live["dead"] = True
+                live["updated_at"] = now
+            reaped.append(dict(entry))
+        return reaped
 
     def observeChannelExit(
         self,
@@ -939,6 +985,7 @@ class RuntimeStatsCollector:
             "stage_created": 0,
             "stage_distributing": 0,
             "stage_distributed": 0,
+            "stuck_reaped_total": int(self._stuck_reaped_total),
             "recognize_fired_total": int(self._recognizer_counts.get("recognize_fired_total", 0)),
             "recognize_skipped_no_crops": int(self._recognizer_counts.get("recognize_skipped_no_crops", 0)),
             "recognize_skipped_no_carousel_crops": int(

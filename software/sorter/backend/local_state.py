@@ -49,6 +49,7 @@ _STATE_KEY_MACHINE_ID = "machine_id"
 _STATE_KEY_STEPPER_POSITIONS = "stepper_positions"
 _STATE_KEY_SERVO_POSITIONS = "servo_positions"
 _STATE_KEY_BIN_CATEGORIES = "bin_categories"
+_STATE_KEY_NOT_IN_INVENTORY_BINS = "not_in_inventory_bins"
 _STATE_KEY_CHANNEL_POLYGONS = "channel_polygons"
 _STATE_KEY_CLASSIFICATION_POLYGONS = "classification_polygons"
 _STATE_KEY_CLASSIFICATION_TRAINING = "classification_training"
@@ -60,6 +61,9 @@ _STATE_KEY_SET_PROGRESS = "set_progress"
 _STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
+# Per-PWM-channel servo calibration ({channel_id: {"open": int, "closed": int}}).
+# Decoupled from bin_layout so switching/editing layouts never touches calibration.
+_STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 
@@ -355,6 +359,83 @@ def _migrate_renamed_state_keys(conn: sqlite3.Connection) -> None:
         conn.execute("DELETE FROM state_entries WHERE key = ?", (old_key,))
 
 
+def _migrate_servo_channels_and_bin_layouts(conn: sqlite3.Connection) -> None:
+    """ONE-TIME migration (2026-06-27): decouple servo calibration from the bin
+    layout. Moves the per-layer servo angles into a per-channel calibration store,
+    stamps each layer with a servo_channel_id (defaults to the layer index — the
+    historical 1:1 mapping), and snapshots the current layout into the bin_layouts
+    presets table as the active record. Idempotent (runs every boot via the
+    migration chain). SAFE TO DELETE once every machine has booted past this."""
+    import uuid
+
+    bin_layout = _get_json(conn, _STATE_KEY_BIN_LAYOUT)
+    calibration = _get_json(conn, _STATE_KEY_SERVO_CHANNEL_CALIBRATION)
+    if not isinstance(calibration, dict):
+        calibration = {}
+
+    layers = bin_layout.get("layers") if isinstance(bin_layout, dict) else None
+    if isinstance(layers, list):
+        cal_changed = False
+        layout_changed = False
+        for index, layer in enumerate(layers):
+            if not isinstance(layer, dict):
+                continue
+            channel = layer.get("servo_channel_id")
+            if not isinstance(channel, int):
+                channel = index
+                layer["servo_channel_id"] = channel
+                layout_changed = True
+            key = str(channel)
+            if key not in calibration:
+                open_angle = layer.get("servo_open_angle")
+                closed_angle = layer.get("servo_closed_angle")
+                if isinstance(open_angle, int) or isinstance(closed_angle, int):
+                    calibration[key] = {
+                        "open": open_angle if isinstance(open_angle, int) else None,
+                        "closed": closed_angle if isinstance(closed_angle, int) else None,
+                    }
+                    cal_changed = True
+        if cal_changed:
+            _set_json(conn, _STATE_KEY_SERVO_CHANNEL_CALIBRATION, calibration)
+        if layout_changed:
+            _set_json(conn, _STATE_KEY_BIN_LAYOUT, bin_layout)
+
+    row = conn.execute("SELECT COUNT(*) AS n FROM bin_layouts").fetchone()
+    if row is not None and int(row["n"]) == 0 and isinstance(layers, list):
+        categories = _get_json(conn, _STATE_KEY_BIN_CATEGORIES)
+        not_in_inventory = _get_json(conn, _STATE_KEY_NOT_IN_INVENTORY_BINS)
+        sync = _get_json(conn, _STATE_KEY_SORTING_PROFILE_SYNC)
+        sync = sync if isinstance(sync, dict) else {}
+        snapshot = {
+            "layers": [
+                {
+                    "sections": layer.get("sections"),
+                    "enabled": layer.get("enabled", True),
+                    "servo_channel_id": layer.get("servo_channel_id"),
+                    "max_pieces_per_bin": layer.get("max_pieces_per_bin"),
+                    "max_dimension_mm": layer.get("max_dimension_mm"),
+                    "section_enabled": layer.get("section_enabled"),
+                }
+                for layer in layers if isinstance(layer, dict)
+            ],
+            "bin_categories": categories,
+            "not_in_inventory_bins": not_in_inventory,
+        }
+        profile_name = sync.get("profile_name")
+        name = f"{profile_name} layout" if profile_name else "Current layout"
+        now = time.time()
+        conn.execute(
+            f"INSERT INTO bin_layouts({_BIN_LAYOUT_COLUMNS}) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                str(uuid.uuid4()), name,
+                sync.get("profile_id") or sync.get("local_filename"),
+                sync.get("source"),
+                json.dumps(snapshot), now, now, 1,
+            ),
+        )
+
+
 def initialize_local_state() -> None:
     with _STATE_INIT_LOCK:
         with _connection() as conn:
@@ -501,6 +582,18 @@ def initialize_local_state() -> None:
                 ")"
             )
             conn.execute(
+                "CREATE TABLE IF NOT EXISTS bin_layouts ("
+                "id TEXT PRIMARY KEY, "
+                "name TEXT NOT NULL, "
+                "profile_id TEXT, "
+                "profile_source TEXT, "
+                "layout_json TEXT NOT NULL, "
+                "created_at REAL NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "is_active INTEGER NOT NULL DEFAULT 0"
+                ")"
+            )
+            conn.execute(
                 "CREATE TABLE IF NOT EXISTS profiler_metric_snapshots ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 "run_id TEXT NOT NULL, "
@@ -550,6 +643,7 @@ def initialize_local_state() -> None:
             _migrate_misc_state_files(conn)
             _cleanup_machine_params_runtime_sections(conn)
             _migrate_renamed_state_keys(conn)
+            _migrate_servo_channels_and_bin_layouts(conn)
             conn.commit()
 
         # Keep one connection open so subsequent per-op closes don't checkpoint
@@ -734,6 +828,26 @@ def get_bin_categories() -> list[list[list[list[str]]]] | None:
 
 def set_bin_categories(categories: list[list[list[list[str]]]]) -> None:
     _write_state(_STATE_KEY_BIN_CATEGORIES, categories)
+
+
+def get_not_in_inventory_bins() -> list[list[list[bool]]] | None:
+    value = _read_state(_STATE_KEY_NOT_IN_INVENTORY_BINS)
+    return value if isinstance(value, list) else None
+
+
+def set_not_in_inventory_bins(flags: list[list[list[bool]]]) -> None:
+    _write_state(_STATE_KEY_NOT_IN_INVENTORY_BINS, flags)
+
+
+def get_distributed_part_keys_since(since_ts: float) -> list[tuple[str | None, str | None]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT part_id, color_id FROM piece_events "
+            "WHERE distributed_at >= ? AND part_id IS NOT NULL AND part_id != ''",
+            (float(since_ts),),
+        ).fetchall()
+    return [(row[0], row[1]) for row in rows]
 
 
 def get_channel_polygons() -> dict[str, Any] | None:
@@ -1066,6 +1180,38 @@ def _create_sorting_session_conn(
     return session
 
 
+def _carry_forward_bin_contents_conn(
+    conn: sqlite3.Connection, old_session_id: str, new_session_id: str
+) -> None:
+    """Copy physical bin contents (per-bin counts + per-item aggregates, with their
+    bin_epoch) from the prior session into the new one. Bins are physical — switching
+    a profile/layout must NOT appear to empty them. The only things that clear contents
+    are the explicit wipe endpoints (clear_current_session_bins), which run against the
+    current session *before* a new one is created, so a wiped bin carries forward empty."""
+    if not old_session_id or old_session_id == new_session_id:
+        return
+    now = time.time()
+    conn.execute(
+        "INSERT OR IGNORE INTO bin_state_current"
+        "(session_id, layer_index, section_index, bin_index, bin_epoch, piece_count, "
+        "unique_item_count, last_distributed_at, updated_at) "
+        "SELECT ?, layer_index, section_index, bin_index, bin_epoch, piece_count, "
+        "unique_item_count, last_distributed_at, ? FROM bin_state_current WHERE session_id = ?",
+        (new_session_id, now, old_session_id),
+    )
+    conn.execute(
+        "INSERT OR IGNORE INTO bin_item_aggregates"
+        "(session_id, layer_index, section_index, bin_index, item_key, part_id, color_id, "
+        "color_name, category_id, classification_status, count, last_distributed_at, "
+        "thumbnail, top_image, bottom_image, brickognize_preview_url) "
+        "SELECT ?, layer_index, section_index, bin_index, item_key, part_id, color_id, "
+        "color_name, category_id, classification_status, count, last_distributed_at, "
+        "thumbnail, top_image, bottom_image, brickognize_preview_url "
+        "FROM bin_item_aggregates WHERE session_id = ?",
+        (new_session_id, old_session_id),
+    )
+
+
 def _ensure_active_sorting_session_conn(
     conn: sqlite3.Connection,
     *,
@@ -1089,7 +1235,10 @@ def _ensure_active_sorting_session_conn(
     if force_new:
         _close_active_sorting_session_conn(conn, reason=reason)
 
-    return _create_sorting_session_conn(conn, sync_state=sync_state, reason=reason)
+    new_session = _create_sorting_session_conn(conn, sync_state=sync_state, reason=reason)
+    if force_new and active_session_id:
+        _carry_forward_bin_contents_conn(conn, active_session_id, new_session["id"])
+    return new_session
 
 
 def start_new_sorting_session(*, reason: str = "profile_activated") -> dict[str, Any]:
@@ -1553,6 +1702,160 @@ def get_bin_layout() -> dict[str, Any] | None:
 
 def set_bin_layout(layout: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_BIN_LAYOUT, dict(layout) if layout is not None else None)
+
+
+# ---- per-channel servo calibration (machine-level, decoupled from bin layout) ----
+
+def get_servo_channel_calibration() -> dict[str, dict[str, Any]]:
+    value = _read_state(_STATE_KEY_SERVO_CHANNEL_CALIBRATION)
+    return value if isinstance(value, dict) else {}
+
+
+def set_servo_channel_calibration(calibration: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_SERVO_CHANNEL_CALIBRATION, calibration)
+
+
+def set_servo_channel_angle(channel_id: Any, which: str, angle: int | None) -> None:
+    # which is "open" or "closed"; angle None clears that side
+    calibration = get_servo_channel_calibration()
+    key = str(channel_id)
+    entry = dict(calibration.get(key) or {})
+    entry[which] = angle
+    calibration[key] = entry
+    set_servo_channel_calibration(calibration)
+
+
+# ---- saved bin layouts (local presets, each tied to a profile) ----
+
+_BIN_LAYOUT_COLUMNS = (
+    "id, name, profile_id, profile_source, layout_json, created_at, updated_at, is_active"
+)
+
+
+def _bin_layout_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
+    try:
+        layout = json.loads(row["layout_json"])
+    except (TypeError, ValueError):
+        layout = None
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "profile_id": row["profile_id"],
+        "profile_source": row["profile_source"],
+        "layout": layout,
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "is_active": bool(row["is_active"]),
+    }
+
+
+def count_bin_layouts() -> int:
+    initialize_local_state()
+    with _connection() as conn:
+        return int(conn.execute("SELECT COUNT(*) AS n FROM bin_layouts").fetchone()["n"])
+
+
+def list_bin_layouts(profile_id: str | None = None) -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        if profile_id is not None:
+            rows = conn.execute(
+                f"SELECT {_BIN_LAYOUT_COLUMNS} FROM bin_layouts WHERE profile_id = ? "
+                "ORDER BY updated_at DESC",
+                (profile_id,),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                f"SELECT {_BIN_LAYOUT_COLUMNS} FROM bin_layouts ORDER BY updated_at DESC"
+            ).fetchall()
+    return [_bin_layout_row_to_dict(row) for row in rows]
+
+
+def get_bin_layout_record(layout_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT {_BIN_LAYOUT_COLUMNS} FROM bin_layouts WHERE id = ?",
+            (layout_id,),
+        ).fetchone()
+    return _bin_layout_row_to_dict(row) if row is not None else None
+
+
+def get_active_bin_layout_record() -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        row = conn.execute(
+            f"SELECT {_BIN_LAYOUT_COLUMNS} FROM bin_layouts WHERE is_active = 1 "
+            "ORDER BY updated_at DESC LIMIT 1"
+        ).fetchone()
+    return _bin_layout_row_to_dict(row) if row is not None else None
+
+
+def create_bin_layout(
+    *,
+    name: str,
+    layout: dict[str, Any],
+    profile_id: str | None = None,
+    profile_source: str | None = None,
+    make_active: bool = False,
+    layout_id: str | None = None,
+) -> dict[str, Any]:
+    import uuid
+
+    lid = layout_id or str(uuid.uuid4())
+    now = time.time()
+    initialize_local_state()
+    with _connection() as conn:
+        if make_active:
+            conn.execute("UPDATE bin_layouts SET is_active = 0")
+        conn.execute(
+            f"INSERT INTO bin_layouts({_BIN_LAYOUT_COLUMNS}) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?)",
+            (lid, name, profile_id, profile_source, json.dumps(layout), now, now,
+             1 if make_active else 0),
+        )
+        conn.commit()
+    record = get_bin_layout_record(lid)
+    assert record is not None
+    return record
+
+
+def update_bin_layout(
+    layout_id: str, *, name: str | None = None, layout: dict[str, Any] | None = None
+) -> dict[str, Any] | None:
+    initialize_local_state()
+    sets: list[str] = []
+    params: list[Any] = []
+    if name is not None:
+        sets.append("name = ?")
+        params.append(name)
+    if layout is not None:
+        sets.append("layout_json = ?")
+        params.append(json.dumps(layout))
+    if not sets:
+        return get_bin_layout_record(layout_id)
+    sets.append("updated_at = ?")
+    params.append(time.time())
+    params.append(layout_id)
+    with _connection() as conn:
+        conn.execute(f"UPDATE bin_layouts SET {', '.join(sets)} WHERE id = ?", params)
+        conn.commit()
+    return get_bin_layout_record(layout_id)
+
+
+def set_active_bin_layout(layout_id: str) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute("UPDATE bin_layouts SET is_active = 0")
+        conn.execute("UPDATE bin_layouts SET is_active = 1 WHERE id = ?", (layout_id,))
+        conn.commit()
+
+
+def delete_bin_layout(layout_id: str) -> None:
+    initialize_local_state()
+    with _connection() as conn:
+        conn.execute("DELETE FROM bin_layouts WHERE id = ?", (layout_id,))
+        conn.commit()
 
 
 def get_tailscale_hostname() -> str | None:

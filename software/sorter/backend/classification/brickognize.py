@@ -10,7 +10,11 @@ from global_config import GlobalConfig
 from .brickognize_types import BrickognizeResponse, BrickognizeItem, BrickognizeColor
 
 API_URL = "https://api.brickognize.com/predict/?predict_color=true"
-API_TIMEOUT_S = (3.0, 8.0)
+# Fallback (connect, read) timeouts in seconds for the rare gc-less call path.
+# When a GlobalConfig is available the live values come from gc.timeouts
+# (brickognize_connect_s / brickognize_read_s), which default to a generous 60 s
+# each so slow internet degrades to "slow" rather than "ConnectTimeout failure".
+API_TIMEOUT_S = (60.0, 60.0)
 # Brickognize rejects requests with more than this many query images. Callers
 # should pre-trim, but we hard-cap here too so a stray oversized batch degrades
 # (drops the tail) instead of erroring out the whole classification.
@@ -143,7 +147,7 @@ def _classifyImages(
         rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         img = Image.fromarray(rgb_image)
         img_bytes = io.BytesIO()
-        img.save(img_bytes, format="JPEG")
+        img.save(img_bytes, format="JPEG", quality=95, subsampling=0)
         payload_bytes = img_bytes.getvalue()
         if dump_dir is not None:
             label = dump_label or "img"
@@ -157,7 +161,11 @@ def _classifyImages(
     # Multi-image queries need proportionally more time — Brickognize runs
     # inference per view before combining. Add ~2 s read-timeout per
     # additional image on top of the single-image baseline.
-    connect_timeout, read_timeout = API_TIMEOUT_S
+    if gc is not None:
+        connect_timeout = gc.timeouts.brickognize_connect_s
+        read_timeout = gc.timeouts.brickognize_read_s
+    else:
+        connect_timeout, read_timeout = API_TIMEOUT_S
     read_timeout = read_timeout + max(0, len(files) - 1) * 2.0
     response = requests.post(
         API_URL,

@@ -10,6 +10,8 @@
 	let enabled = $state(false);
 	let annotate = $state(true);
 	let perMinute = $state(6);
+	let storageCapGb = $state(1);
+	let storageUsedMb = $state<number | null>(null);
 	let savedCount = $state(0);
 	let lastSavedAgeS = $state<number | null>(null);
 	let lastError = $state<string | null>(null);
@@ -32,6 +34,10 @@
 		annotate = payload?.annotate !== false;
 		const ivl = Number(payload?.interval_s);
 		if (Number.isFinite(ivl) && ivl > 0) perMinute = Math.round((60 / ivl) * 10) / 10;
+		const capMb = Number(payload?.storage_cap_mb);
+		if (Number.isFinite(capMb) && capMb > 0) storageCapGb = Math.round((capMb / 1024) * 100) / 100;
+		const usedMb = Number(payload?.storage_used_mb);
+		storageUsedMb = Number.isFinite(usedMb) ? usedMb : null;
 		savedCount = Number(payload?.saved_count) || 0;
 		const age = Number(payload?.last_saved_age_s);
 		lastSavedAgeS = Number.isFinite(age) ? age : null;
@@ -82,6 +88,11 @@
 	function saveRate(next: number) {
 		if (!Number.isFinite(next) || next <= 0) return;
 		void post({ interval_s: 60 / next });
+	}
+
+	function saveStorageCap(nextGb: number) {
+		if (!Number.isFinite(nextGb) || nextGb <= 0) return;
+		void post({ storage_cap_mb: Math.round(nextGb * 1024) });
 	}
 
 	onMount(() => {
@@ -152,6 +163,33 @@
 				class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
 			/>
 			<span class="text-sm text-text-muted">/min</span>
+		</span>
+	</label>
+
+	<label class="flex items-center justify-between gap-3 border border-border bg-bg px-3 py-2.5">
+		<span class="min-w-0">
+			<span class="block text-sm font-medium text-text">Local storage cap</span>
+			<span class="mt-0.5 block text-sm text-text-muted">
+				Keep at most this much captured imagery on disk. Once exceeded, the oldest
+				samples are deleted first.
+				{#if storageUsedMb !== null}
+					Currently using
+					<span class="text-text">{(storageUsedMb / 1024).toFixed(2)} GB</span>.
+				{/if}
+			</span>
+		</span>
+		<span class="flex shrink-0 items-center gap-2">
+			<input
+				type="number"
+				min="0.1"
+				max="500"
+				step="0.5"
+				value={storageCapGb}
+				disabled={loading || saving}
+				onchange={(event) => saveStorageCap(Number(event.currentTarget.value))}
+				class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
+			/>
+			<span class="text-sm text-text-muted">GB</span>
 		</span>
 	</label>
 

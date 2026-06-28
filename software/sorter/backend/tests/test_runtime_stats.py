@@ -209,5 +209,84 @@ class RuntimeStatsRecognizerCountersTests(unittest.TestCase):
         self.assertEqual(3, feeder["classification_zone_lost_total"])
 
 
+class RuntimeStatsReapStuckPiecesTests(unittest.TestCase):
+    def _running(self) -> RuntimeStatsCollector:
+        collector = RuntimeStatsCollector()
+        collector.setLifecycleState("running", now_wall=1.0, now_monotonic=1.0)
+        return collector
+
+    def test_reaps_silent_undistributed_piece_past_timeout(self) -> None:
+        collector = self._running()
+        collector.observeKnownObject(
+            {
+                "uuid": "piece-stuck",
+                "classification_status": "classified",
+                "stage": "created",
+                "created_at": 100.0,
+                "updated_at": 100.0,
+            }
+        )
+
+        # Still within the window: nothing reaped.
+        self.assertEqual([], collector.reapStuckPieces(now=120.0, timeout_s=30.0))
+        self.assertIsNone(collector.lookupKnownObject("piece-stuck").get("dead"))
+
+        reaped = collector.reapStuckPieces(now=131.0, timeout_s=30.0)
+        self.assertEqual(1, len(reaped))
+        self.assertEqual("piece-stuck", reaped[0]["uuid"])
+        self.assertTrue(reaped[0]["dead"])
+        self.assertTrue(collector.lookupKnownObject("piece-stuck")["dead"])
+        self.assertEqual(1, collector.snapshot()["counts"]["stuck_reaped_total"])
+
+    def test_reaping_is_idempotent_per_piece(self) -> None:
+        collector = self._running()
+        collector.observeKnownObject(
+            {"uuid": "p", "stage": "created", "created_at": 0.0, "updated_at": 0.0}
+        )
+        self.assertEqual(1, len(collector.reapStuckPieces(now=100.0, timeout_s=30.0)))
+        # Already dead — not reaped or counted again.
+        self.assertEqual([], collector.reapStuckPieces(now=200.0, timeout_s=30.0))
+        self.assertEqual(1, collector.snapshot()["counts"]["stuck_reaped_total"])
+
+    def test_does_not_reap_distributed_or_aborted_pieces(self) -> None:
+        collector = self._running()
+        collector.observeKnownObject(
+            {
+                "uuid": "done",
+                "stage": "distributed",
+                "distributed_at": 5.0,
+                "updated_at": 5.0,
+            }
+        )
+        collector.observeKnownObject(
+            {"uuid": "gone", "stage": "created", "aborted": True, "updated_at": 5.0}
+        )
+        self.assertEqual([], collector.reapStuckPieces(now=1000.0, timeout_s=30.0))
+
+    def test_no_reaping_while_not_running(self) -> None:
+        collector = RuntimeStatsCollector()
+        # Observed while not running: only the lookup is populated.
+        collector.observeKnownObject(
+            {"uuid": "p", "stage": "created", "updated_at": 0.0}
+        )
+        self.assertEqual([], collector.reapStuckPieces(now=1000.0, timeout_s=30.0))
+
+    def test_progress_after_reap_self_recovers(self) -> None:
+        collector = self._running()
+        collector.observeKnownObject(
+            {"uuid": "p", "stage": "created", "created_at": 0.0, "updated_at": 0.0}
+        )
+        self.assertEqual(1, len(collector.reapStuckPieces(now=100.0, timeout_s=30.0)))
+        self.assertTrue(collector.lookupKnownObject("p")["dead"])
+
+        # A later event for the same piece (it actually progressed) carries the
+        # model default dead=False, clearing the reaped flag.
+        collector.observeKnownObject(
+            {"uuid": "p", "stage": "distributed", "distributed_at": 101.0, "dead": False, "updated_at": 101.0}
+        )
+        self.assertFalse(collector.lookupKnownObject("p")["dead"])
+        self.assertEqual([], collector.reapStuckPieces(now=200.0, timeout_s=30.0))
+
+
 if __name__ == "__main__":
     unittest.main()

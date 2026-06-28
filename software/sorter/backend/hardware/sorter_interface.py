@@ -114,6 +114,10 @@ class StepperMotor:
         self.stallguard_sgthrs: int | None = None
         self.stallguard_tcoolthrs: int = 0xFFFFF
         self.stallguard_enabled: bool = False
+        # Live per-stepper stall state, mirrored from the firmware DIAG latch by the
+        # stall monitor each poll. The single source of truth for "is this motor
+        # stalled" — the operator incident and the per-stepper UI both derive from it.
+        self.stalled: bool = False
         # Per-stepper default acceleration, set from StepperConfig at init. Every
         # move re-asserts it (see _ensure_move_acceleration) so a move never runs
         # on a stale acceleration left behind by a prior operation. None means
@@ -391,6 +395,20 @@ class StepperMotor:
         if DISABLE_STALLGUARD:
             return
         self._dev.send_command(InterfaceCommandCode.STEPPER_CLEAR_STALL, self._channel, b'')
+
+    def read_stall_latched(self) -> bool:
+        """True iff the firmware currently latches a StallGuard/DIAG stall on this
+        channel. One UART round-trip reads the whole board's bitmask. The latch is
+        sticky until clear_stall(), and a set bit is an unambiguous TMC DIAG stall —
+        unlike a rejected move or a garbled ack. Raises on bus error so callers can
+        distinguish 'confirmed not stalled' from 'could not read'."""
+        if DISABLE_STALLGUARD:
+            return False
+        get_status = getattr(self._dev, "get_stall_status", None)
+        if not callable(get_status):
+            return False
+        mask = get_status()
+        return bool(mask & (1 << self._channel))
 
     @property
     def steps_per_revolution(self):

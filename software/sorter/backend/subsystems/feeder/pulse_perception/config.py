@@ -41,6 +41,24 @@ class PulsePerceptionConfig:
     # on top of one that's still there. Only ``in_drop`` is latched (not exit),
     # and only for C2 and C3. 0 disables (raw per-frame state).
     drop_zone_persistence_ms: int = 1000
+    # Greedy mode (per channel). In the default flow a channel only pulses a
+    # piece forward while it sits in the drop zone, then idles until the piece
+    # has reached the exit zone. In greedy mode the channel keeps pulsing a piece
+    # toward the exit as soon as it is seen ANYWHERE on the channel, so the piece
+    # is staged at the exit edge immediately and the drop zone clears sooner
+    # (letting the upstream channel feed again). The advance is still capped at
+    # the exit edge (advance_clearance_deg) and the exit hand-off stays
+    # downstream-gated, so all the usual protections hold. C1 has no zones and is
+    # unaffected. Settable independently per channel.
+    ch2_greedy_enabled: bool = False
+    ch3_greedy_enabled: bool = False
+    # Pulse params used while greedily advancing a piece that has ALREADY left
+    # the drop zone (the part of greedy mode the default flow doesn't do). A
+    # piece still in the drop zone uses drop_pulse_* above; once it's past the
+    # drop zone these take over until it reaches the exit edge. Defaulted to the
+    # drop-zone values so greedy mode behaves identically until tuned apart.
+    greedy_pulse_output_deg: float = 30.0
+    greedy_pulse_pause_ms: int = 250
 
 
 _DEFAULTS = PulsePerceptionConfig()
@@ -63,6 +81,10 @@ FIELD_META: list[dict] = [
     {"section": "Channels", "key": "enable_ch2", "label": "Enable C2", "type": "bool", "default": _DEFAULTS.enable_ch2},
     {"section": "Channels", "key": "enable_ch3", "label": "Enable C3", "type": "bool", "default": _DEFAULTS.enable_ch3},
     {"section": "Detection persistence", "key": "drop_zone_persistence_ms", "label": "C2/C3 drop-zone occupancy hold (ms)", "type": "int", "default": _DEFAULTS.drop_zone_persistence_ms},
+    {"section": "Greedy mode", "key": "ch2_greedy_enabled", "label": "C2 greedy (advance piece anywhere on channel)", "type": "bool", "default": _DEFAULTS.ch2_greedy_enabled},
+    {"section": "Greedy mode", "key": "ch3_greedy_enabled", "label": "C3 greedy (advance piece anywhere on channel)", "type": "bool", "default": _DEFAULTS.ch3_greedy_enabled},
+    {"section": "Greedy mode", "key": "greedy_pulse_output_deg", "label": "Greedy advance pulse distance (output deg)", "type": "float", "default": _DEFAULTS.greedy_pulse_output_deg},
+    {"section": "Greedy mode", "key": "greedy_pulse_pause_ms", "label": "Greedy advance pause between pulses (ms)", "type": "int", "default": _DEFAULTS.greedy_pulse_pause_ms},
 ]
 
 

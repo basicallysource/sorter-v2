@@ -21,6 +21,11 @@ from typing import Any, Mapping, Sequence
 import cv2
 import numpy as np
 
+# Lone exception to the standalone rule above: the C4 travel-direction flag is a
+# pure boolean shared with the feeder/SM sites so all three can never disagree.
+# defs.consts is a neutral pure-constant leaf, not the legacy stack.
+from defs.consts import CLASSIFICATION_CHANNEL_CLOCKWISE
+
 
 # Match the legacy section discretization so saved arcs continue to load
 # (360 single-degree sections around the channel center).
@@ -44,6 +49,19 @@ CHANNEL_REGISTRY: dict[int, tuple[str, str, str]] = {
 # primary ``mask`` or the arc section sets the cascade reads, so the subsystem
 # keeps acting on its own channel exactly as before.
 SECONDARY_ZONE_TYPES: frozenset[str] = frozenset({"drop", "exit", "precise"})
+
+
+# Channels whose piece travel runs REVERSE (decreasing relative angle / negative
+# motor degrees) toward the exit instead of forward. C4 (the carousel
+# classification channel) reverse-converges a piece a short distance to the
+# precise zone and then into the fall-off; C2/C3 feeder ejects stay forward. The
+# flag rides on ChannelDef so the forward-distance arc math (``arcs.py``) and the
+# eject/discharge consumers stay per-channel — see ``arcs._leadingExitApproach``.
+# C4 travels reverse only in the counter-clockwise build; clockwise makes it
+# forward like C2/C3. Driven by the single source of truth in defs.consts.
+REVERSE_TRAVEL_CHANNELS: frozenset[int] = (
+    frozenset() if CLASSIFICATION_CHANNEL_CLOCKWISE else frozenset({4})
+)
 
 
 @dataclass(frozen=True)
@@ -79,6 +97,11 @@ class ChannelDef:
     precise_sections: frozenset[int] = frozenset()
     # Foreign zones this camera observes — display/tag only, never acted on.
     secondary_zones: tuple[SecondaryZone, ...] = ()
+    # When True the piece travels REVERSE (decreasing relative angle) toward the
+    # exit, so the forward-distance arc math measures the gap to the FAR edge of
+    # the exit-only arc instead of the near edge (see ``arcs._leadingExitApproach``).
+    # Set per channel from ``REVERSE_TRAVEL_CHANNELS``; C2/C3 stay forward.
+    reverse: bool = False
 
     @property
     def has_zones(self) -> bool:
@@ -324,6 +347,7 @@ def buildChannelDef(
         exit_sections=exit_sections | precise_sections,
         precise_sections=precise_sections,
         secondary_zones=secondary_zones,
+        reverse=channel_id in REVERSE_TRAVEL_CHANNELS,
     )
 
 
@@ -356,6 +380,31 @@ def channelDefFromBlob(
         raw = secondary_zones.get(polygon_key)
         if isinstance(raw, (list, tuple)):
             secondary_entries = raw
+    # The classification channel travels the WHOLE ring; its saved freeform polygon
+    # is an unreliable partial wedge (measured ~48% — half the ring wrongly filtered
+    # out). Build its on-channel region from the SAME arc crop the dashboard uses
+    # (subsystems.feeder.analysis.channelArcCropPolygon): the forward arc from the
+    # drop zone to the end of the exit, with the lowered-radius exit cutout dropped
+    # — i.e. ~95% of the ring, only the small output-guide slice removed.
+    if polygon_key == "classification_channel":
+        try:
+            from subsystems.feeder.analysis import (
+                channelArcCropPolygon,
+                parseSavedChannelArcZones,
+            )
+
+            _zones = parseSavedChannelArcZones(
+                polygon_key, dict(channel_angles), dict(arc_params)
+            )
+            if _zones is not None:
+                polygon = channelArcCropPolygon(_zones)
+                _span = (_zones.exit_end_angle - _zones.drop_start_angle) % 360.0
+                print(
+                    f"[perception] classification-channel crop = {_span / 360.0 * 100:.0f}% of "
+                    f"the ring arc kept (arc {_span:.0f}deg, exit cutout dropped)"
+                )
+        except Exception as _exc:  # noqa: BLE001 — fall back to the saved polygon
+            print(f"[perception] classification arc-crop failed, using saved polygon: {_exc}")
     return buildChannelDef(
         channel_id=channel_id,
         polygon=np.asarray(polygon),

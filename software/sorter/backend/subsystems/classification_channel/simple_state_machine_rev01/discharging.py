@@ -5,7 +5,7 @@ from subsystems.classification_channel.states import ClassificationChannelState
 from subsystems.common.jitter_recovery import JitterParams, JitterPhase, JitterSequence
 
 from .base import Rev01BaseState
-from .constants import LOG_TAG
+from .constants import C4_TRAVEL_SIGN, LOG_TAG
 
 
 class Discharging(Rev01BaseState):
@@ -184,7 +184,9 @@ class Discharging(Rev01BaseState):
         move = min(max(0.0, move_gap), float(cfg.discharge_max_move_output_deg))
         if move <= 0.0:
             return None
-        self.startOutputMove(move, cfg.discharge_speed_usteps_per_s)
+        # Reverse: perception returns the gap as a positive advance-toward-the-
+        # fall-off magnitude; the physical move is negative output degrees.
+        self.startOutputMove(C4_TRAVEL_SIGN * move, cfg.discharge_speed_usteps_per_s)
         return None
 
     def _startJitter(self, cfg, now: float, falloff_ms: float) -> None:
@@ -262,7 +264,7 @@ class Discharging(Rev01BaseState):
         cfg = self.ctx.config
         if not self._kick_started:
             self.ctx.discharging_started_at = time.monotonic()
-            output_deg = float(cfg.kick_off_output_deg)
+            output_deg = C4_TRAVEL_SIGN * float(cfg.kick_off_output_deg)
             if not self.startOutputMove(output_deg, cfg.discharge_speed_usteps_per_s):
                 self.logger.error(f"{LOG_TAG} could not start discharge move — abort to IDLE")
                 return ClassificationChannelState.IDLE

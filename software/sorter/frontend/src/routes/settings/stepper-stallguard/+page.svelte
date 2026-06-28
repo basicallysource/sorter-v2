@@ -39,7 +39,7 @@
 	let error = $state<string | null>(null);
 	let notice = $state<string | null>(null);
 	let showCs = $state(false);
-	let showTstep = $state(false);
+	let showTstep = $state(true);
 
 	// Sweep form
 	type Profile = 'constant' | 'chute_random' | 'pulsed';
@@ -75,11 +75,15 @@
 	type Suggestion = {
 		stepper: string;
 		cruise_tstep: number;
+		measured_cruise_tstep: number | null;
 		unloaded_floor: number | null;
 		loaded_dip: number | null;
 		trigger_level: number | null;
 		suggested_sgthrs: number | null;
 		enough_data: boolean;
+		reliable: boolean;
+		realistic_floor: number | null;
+		speed: number | null;
 		unloaded_runs: number;
 		loaded_runs: number;
 		detail: string;
@@ -127,10 +131,14 @@
 		}
 	}
 
-	async function loadSuggestion(motor: string) {
+	async function loadSuggestion(motor: string, speed?: number | null) {
 		suggestion = null;
 		try {
-			const res = await fetch(`${base()}/stepper/${motor}/stallguard-suggestion`);
+			// Speed-match: the suggestion must only use runs at the SAME speed as the
+			// run being viewed — SG floor/dip/baseline all shift with speed, so mixing
+			// speeds produces a nonsense (and unstable) recommendation.
+			const qs = speed != null ? `?speed=${speed}` : '';
+			const res = await fetch(`${base()}/stepper/${motor}/stallguard-suggestion${qs}`);
 			if (!res.ok) return;
 			suggestion = await res.json();
 		} catch {
@@ -143,7 +151,7 @@
 		loadingSamples = true;
 		points = [];
 		error = null;
-		if (run.stepper_name) loadSuggestion(run.stepper_name);
+		if (run.stepper_name) loadSuggestion(run.stepper_name, run.params?.speed);
 		try {
 			const res = await fetch(`${base()}/api/stepper-telemetry/runs/${run.id}/samples`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -201,7 +209,7 @@
 			await loadSummary();
 			const fresh = runs.find((r) => r.id === data.run_id);
 			if (fresh) await selectRun(fresh);
-			else await loadSuggestion(swStepper);
+			else await loadSuggestion(swStepper, swSpeed);
 		} catch (e: any) {
 			error = e.message ?? 'Sweep failed';
 		} finally {
@@ -532,10 +540,10 @@
 					</div>
 					<div class="mb-3 flex items-center gap-4 text-sm">
 						<label class="flex items-center gap-2 text-text">
-							<input type="checkbox" bind:checked={showCs} class="accent-warning" /> CS_ACTUAL (norm.)
+							<input type="checkbox" bind:checked={showCs} class="accent-warning" /> CS_ACTUAL panel
 						</label>
 						<label class="flex items-center gap-2 text-text">
-							<input type="checkbox" bind:checked={showTstep} class="accent-success" /> TSTEP (norm.)
+							<input type="checkbox" bind:checked={showTstep} class="accent-success" /> TSTEP panel
 						</label>
 					</div>
 
@@ -546,6 +554,7 @@
 							{points}
 							triggerLevel={triggerLevel}
 							sgMean={selectedRun.sg_mean}
+							cruiseTstep={selectedRun.params?.cruise_tstep ?? null}
 							{showCs}
 							{showTstep}
 						/>
@@ -563,25 +572,47 @@
 								<span class="text-text">{suggestion.loaded_dip ?? '—'}</span>
 								<span class="text-text-muted">→ Trigger ≤:</span>
 								<span class="text-text">{suggestion.trigger_level ?? '—'}</span>
-								<span class="text-text-muted">Cruise TSTEP:</span>
+								<span class="text-text-muted">→ SGTHRS:</span>
+								<span class="text-text">{suggestion.suggested_sgthrs ?? '—'}</span>
+							</div>
+							<div class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+								<span class="text-text-muted">Measured cruise TSTEP:</span>
+								<span class="text-text">{suggestion.measured_cruise_tstep ?? '—'}</span>
+								<span class="text-text-muted">→ Gate TCOOLTHRS:</span>
 								<span class="text-text">{suggestion.cruise_tstep}</span>
+								<span class="text-text-muted">Real-motion floor:</span>
+								<span class="text-text">{suggestion.realistic_floor ?? '—'}</span>
 							</div>
 							<div class="mt-1 text-sm text-text-muted">
-								Geometric midpoint of the measured gap, from the latest unloaded + loaded test for this
-								motor.
+								SGTHRS = geometric midpoint of the measured floor/dip gap. TCOOLTHRS = measured
+								cruise TSTEP (fastest sustained) ×1.75, so the gate stays open through cruise but off
+								during accel/decel. Both written to machine.toml on Save — nothing assumed.
 							</div>
-							{#if !suggestion.enough_data}
+							{#if suggestion.enough_data && !suggestion.reliable}
+								<!-- Computable but the data says it won't work here — hard stop, not a nudge. -->
+								<div class="mt-3">
+									<Alert variant="danger">
+										<div class="font-semibold">
+											⚠ Not reliably tunable{suggestion.speed
+												? ` at ${suggestion.speed} µs/s`
+												: ''}
+										</div>
+										<div class="mt-1">{suggestion.detail}</div>
+									</Alert>
+								</div>
+							{:else if !suggestion.enough_data}
 								<Alert variant="warning">{suggestion.detail}</Alert>
 							{/if}
 							{#if suggestion.suggested_sgthrs != null}
+								{@const safe = suggestion.enough_data && suggestion.reliable}
 								<div class="mt-3">
 									<Button
-										variant={suggestion.enough_data ? 'secondary' : 'ghost'}
+										variant={safe ? 'secondary' : 'ghost'}
 										onclick={saveThreshold}
 										loading={savingThreshold}
 									>
-										Save{suggestion.enough_data ? '' : ' provisional'} SGTHRS={suggestion.suggested_sgthrs}
-										to machine.toml
+										{safe ? 'Save' : 'Save anyway (unreliable)'} SGTHRS={suggestion.suggested_sgthrs},
+										TCOOLTHRS={suggestion.cruise_tstep} to machine.toml
 									</Button>
 								</div>
 							{/if}

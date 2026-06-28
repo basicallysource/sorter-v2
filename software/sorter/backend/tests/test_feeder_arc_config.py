@@ -187,11 +187,14 @@ class FeederArcConfigTests(unittest.TestCase):
         self.assertEqual(342.0, zones.exit_end_inner_angle)
 
     def test_crop_polygon_excludes_exit_end_to_drop_start_opening(self) -> None:
+        # Forward (clockwise) channel: keeps drop_start -> exit_end, excludes the
+        # exit_end -> drop_start opening. (The classification carousel is CCW and
+        # is covered separately by the ccw crop test.)
         zones = parseSavedChannelArcZones(
-            "classification_channel",
-            {"classification_channel": 0.0},
+            "second",
+            {"second": 0.0},
             {
-                "classification_channel": {
+                "second": {
                     "center": [500, 400],
                     "inner_radius": 120,
                     "outer_radius": 260,
@@ -227,7 +230,10 @@ class FeederArcConfigTests(unittest.TestCase):
         exit_end_full_outer = _polar_tuple(zones.center, zones.outer_radius, 350)
 
         self.assertNotIn(gap_mid_outer, polygon_points)
-        self.assertNotIn(exit_end_full_outer, polygon_points)
+        # The cut now steps back up to the FULL radius radially, AT exit_end (so a
+        # full-radius point exists there); only the opening BEYOND exit_end toward
+        # drop_start stays excluded — see gap_mid_outer above.
+        self.assertIn(exit_end_full_outer, polygon_points)
         self.assertIn(drop_start_outer, polygon_points)
         self.assertIn(drop_start_inner, polygon_points)
         self.assertIn(exit_end_outer, polygon_points)

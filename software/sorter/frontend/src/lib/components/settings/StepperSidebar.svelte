@@ -10,6 +10,7 @@
 		persistStoredStepperPulseSetting
 	} from '$lib/settings/stepper-control';
 	import { Cog } from 'lucide-svelte';
+	import { Alert, Button } from '$lib/components/primitives';
 	import { onMount } from 'svelte';
 	import StepperPulseControls from './stepper/StepperPulseControls.svelte';
 	import StepperHoming from './stepper/StepperHoming.svelte';
@@ -116,6 +117,8 @@
 	let sgThrs = $state(50);
 	let sgTcoolthrs = $state(150);
 	let tmcDrvStatus = $state<Record<string, any> | null>(null);
+	let tmcStalled = $state(false);
+	let tmcClearingStall = $state(false);
 	let tmcLoading = $state(false);
 	let tmcSaving = $state(false);
 	let tmcLoaded = false;
@@ -543,11 +546,50 @@
 				if (typeof data.stallguard.tcoolthrs === 'number') sgTcoolthrs = data.stallguard.tcoolthrs;
 			}
 			tmcDrvStatus = data.drv_status ?? null;
+			tmcStalled = !!data.stalled;
 			tmcLoaded = true;
 		} catch {
 			// silent
 		} finally {
 			tmcLoading = false;
+		}
+	}
+
+	async function loadStallState() {
+		// Cheap per-poll read so the stall banner shows at the top without expanding
+		// Driver Settings, and updates live while you're on the page.
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/steppers/stall-state`);
+			if (!res.ok) return;
+			const data = await res.json();
+			const entry = data.steppers?.[stepperKey];
+			if (entry) tmcStalled = !!entry.stalled;
+		} catch {
+			// silent
+		}
+	}
+
+	async function clearStall() {
+		tmcClearingStall = true;
+		errorMsg = null;
+		statusMsg = '';
+		try {
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/stepper/${stepperKey}/clear-stall`,
+				{ method: 'POST' }
+			);
+			if (!res.ok) {
+				errorMsg = await readErrorMessage(res);
+				return;
+			}
+			tmcStalled = false;
+			statusMsg = 'Stall cleared.';
+			// Re-read so the badge reflects whether it re-latched (still jammed).
+			await loadStallState();
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Failed to clear stall';
+		} finally {
+			tmcClearingStall = false;
 		}
 	}
 
@@ -643,8 +685,10 @@
 
 	onMount(() => {
 		void loadSettings();
+		void loadStallState();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();
+			void loadStallState();
 		}, 500);
 		return () => clearInterval(interval);
 	});
@@ -708,6 +752,27 @@
 
 	<!-- Scrollable content -->
 	<div class="flex flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+		{#if tmcStalled}
+			<Alert variant="danger">
+				<div class="flex items-center justify-between gap-3">
+					<div>
+						<div class="font-semibold">⚠ {displayLabel} is stalled</div>
+						<div class="mt-1">
+							Stall detection latched and halted this motor. Clear the jam, then clear the
+							stall. The home reference was dropped — re-home before precise moves.
+						</div>
+					</div>
+					<Button
+						variant="danger"
+						size="sm"
+						loading={tmcClearingStall}
+						onclick={() => void clearStall()}
+					>
+						Clear stall
+					</Button>
+				</div>
+			</Alert>
+		{/if}
 		<StepperPulseControls
 			{stepperKey}
 			{keyboardShortcuts}

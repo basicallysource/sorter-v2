@@ -2,7 +2,8 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { ChevronDown, Play, Pause, Square } from 'lucide-svelte';
-	import { onDestroy, onMount } from 'svelte';
+	import { onDestroy, onMount, untrack } from 'svelte';
+	import ChuteStressTelemetryChart from './ChuteStressTelemetryChart.svelte';
 
 	type StressMode = 'sweep' | 'random';
 	type RunStatus =
@@ -11,7 +12,8 @@
 		| 'stopping'
 		| 'completed'
 		| 'stopped'
-		| 'failed';
+		| 'failed'
+		| 'stalled';
 
 	type RunRecord = {
 		id: string;
@@ -26,6 +28,7 @@
 		total_time_s: number;
 		error: string | null;
 		last_target_deg?: number | null;
+		stalled_at_deg?: number | null;
 	};
 
 	const CHUTE_STRESS_MAX_ANGLE = 345;
@@ -40,7 +43,7 @@
 
 	let open = $state(false);
 	let mode = $state<StressMode>('sweep');
-	let targetMaxDeg = $state(300);
+	let targetMaxDeg = $state(340);
 	let durationSec = $state(60);
 	let useMaxSpeed = $state(true);
 	let speedOverride = $state(operatingSpeed);
@@ -209,6 +212,8 @@
 				return 'Stopped';
 			case 'failed':
 				return 'Failed';
+			case 'stalled':
+				return 'Stalled';
 			default:
 				return status;
 		}
@@ -218,7 +223,7 @@
 		if (status === 'running') return 'text-primary';
 		if (status === 'paused' || status === 'stopping') return 'text-warning';
 		if (status === 'completed') return 'text-success dark:text-green-400';
-		if (status === 'failed') return 'text-danger dark:text-red-400';
+		if (status === 'failed' || status === 'stalled') return 'text-danger dark:text-red-400';
 		return 'text-text-muted';
 	}
 
@@ -253,22 +258,220 @@
 	});
 
 	$effect(() => {
-		// When the active run transitions away from running/paused, refresh the runs list
+		// When the active run transitions away from running/paused, refresh the runs list.
+		// untrack the body so this only depends on the status string — not on the
+		// machines context that loadRuns()/backendBase() read, which would otherwise
+		// re-fire this effect on every connection heartbeat.
 		const status = activeRun?.status;
-		if (status === 'completed' || status === 'stopped' || status === 'failed') {
-			void loadRuns();
-		}
+		const endedId = activeRun?.id;
+		const stallMsg = activeRun?.error;
+		untrack(() => {
+			if (status === 'stalled') {
+				errorMsg = stallMsg ?? 'Chute stalled — run halted.';
+			}
+			if (
+				status === 'completed' ||
+				status === 'stopped' ||
+				status === 'failed' ||
+				status === 'stalled'
+			) {
+				void loadRuns();
+				// One final silent refresh so the last flushed samples land after the
+				// live poller stops (it stops the moment the run goes inactive).
+				if (endedId && selectedRunId === endedId) void loadTelemetry(endedId, true);
+			}
+		});
 	});
 
 	onMount(() => {
 		void loadStatus();
 	});
 
-	onDestroy(stopPolling);
+	onDestroy(() => {
+		stopPolling();
+		stopTelemetryPolling();
+	});
 
 	const selectedRun = $derived(
 		selectedRunId ? runs.find((r) => r.id === selectedRunId) ?? null : null
 	);
+
+	type TelemetryPoint = {
+		x: number;
+		sg: number | null;
+		cs: number | null;
+		pwm: number | null;
+		tstep: number | null;
+		warn: boolean;
+	};
+
+	type DriverSettings = {
+		registers?: Record<string, number | null>;
+		decoded?: Record<string, Record<string, unknown>>;
+		configured?: Record<string, unknown>;
+	};
+
+	let telemetryPoints = $state<TelemetryPoint[]>([]);
+	let telemetrySettings = $state<DriverSettings | null>(null);
+	let telemetryRunId = $state<string | null>(null);
+	let telemetryLoading = $state(false);
+	let telemetryError = $state<string | null>(null);
+	let showSg = $state(true);
+	let showCs = $state(true);
+	let showPwm = $state(true);
+	let showTstep = $state(false);
+
+	function numOrNull(v: unknown): number | null {
+		return typeof v === 'number' && Number.isFinite(v) ? v : null;
+	}
+
+	function sampleWarn(drv: number | null): boolean {
+		if (drv == null) return false;
+		// otpw (bit0) or any over-temperature threshold flag (t120..t157, bits 8..11)
+		return (drv & ((1 << 0) | (1 << 8) | (1 << 9) | (1 << 10) | (1 << 11))) !== 0;
+	}
+
+	function seriesStat(key: 'sg' | 'cs' | 'pwm' | 'tstep'): {
+		min: number;
+		max: number;
+		last: number;
+	} | null {
+		const vals = telemetryPoints
+			.map((p) => p[key])
+			.filter((v): v is number => v != null && v >= 0);
+		if (vals.length === 0) return null;
+		return { min: Math.min(...vals), max: Math.max(...vals), last: vals[vals.length - 1] };
+	}
+
+	const sgStat = $derived(seriesStat('sg'));
+	const csStat = $derived(seriesStat('cs'));
+	const pwmStat = $derived(seriesStat('pwm'));
+	const tstepStat = $derived(seriesStat('tstep'));
+	const warnCount = $derived(telemetryPoints.filter((p) => p.warn).length);
+
+	function hex32(v: number | null | undefined): string {
+		if (v == null) return '--';
+		return `0x${(v >>> 0).toString(16).toUpperCase().padStart(8, '0')}`;
+	}
+
+	function decodedField(group: string, field: string): unknown {
+		return telemetrySettings?.decoded?.[group]?.[field];
+	}
+
+	function configuredCurrent(): Record<string, unknown> | null {
+		const c = telemetrySettings?.configured?.['last_set_current'];
+		return c && typeof c === 'object' ? (c as Record<string, unknown>) : null;
+	}
+
+	function snapshotTempBand(): string {
+		const drv = telemetrySettings?.decoded?.['drv_status'];
+		if (!drv) return '--';
+		if (drv['t157']) return '≥157°C';
+		if (drv['t150']) return '≥150°C';
+		if (drv['t143']) return '≥143°C';
+		if (drv['t120']) return '≥120°C';
+		return '<120°C';
+	}
+
+	async function loadTelemetry(runId: string, silent = false) {
+		// silent=true is used by the live poller during an active run: it updates the
+		// data in place and never touches loading/error state or clears the panel, so
+		// the UI can't swap blocks (which is what caused the height jitter).
+		if (!silent) {
+			telemetryLoading = true;
+			telemetryError = null;
+		}
+		try {
+			const res = await fetch(`${backendBase()}/api/chute/stress-test/runs/${runId}/telemetry`);
+			if (res.status === 404) {
+				if (!silent) {
+					telemetryPoints = [];
+					telemetrySettings = null;
+					telemetryRunId = null;
+					telemetryError = 'No driver telemetry recorded for this run yet.';
+				}
+				return;
+			}
+			if (!res.ok) {
+				if (!silent) telemetryError = await readError(res);
+				return;
+			}
+			const data = await res.json();
+			const run = data?.run ?? null;
+			telemetrySettings = (run?.params ?? null) as DriverSettings | null;
+			telemetryRunId = run?.id ?? null;
+			const rows: any[] = Array.isArray(data?.samples) ? data.samples : [];
+			const t0 = rows.length ? Number(rows[0].recorded_at) : 0;
+			telemetryPoints = rows.map((r) => ({
+				x: Number(r.recorded_at) - t0,
+				sg: numOrNull(r.sg_result),
+				cs: numOrNull(r.cs_actual),
+				pwm: r.pwm_scale != null ? (Number(r.pwm_scale) & 0xff) : null,
+				tstep: numOrNull(r.tstep),
+				warn: sampleWarn(r.drv_status_raw != null ? Number(r.drv_status_raw) : null)
+			}));
+		} catch (e: any) {
+			if (!silent) telemetryError = e?.message ?? 'Failed to load telemetry';
+		} finally {
+			if (!silent) telemetryLoading = false;
+		}
+	}
+
+	let lastTelemetryId: string | null = null;
+	$effect(() => {
+		// Depend ONLY on selectedRunId. untrack the body so loadTelemetry()'s call to
+		// backendBase() (which reads the machines context) doesn't make this effect
+		// re-fire on every context update and re-request telemetry in a loop.
+		const id = selectedRunId;
+		untrack(() => {
+			if (id) {
+				if (id !== lastTelemetryId) {
+					lastTelemetryId = id;
+					void loadTelemetry(id);
+				}
+			} else {
+				lastTelemetryId = null;
+				telemetryPoints = [];
+				telemetrySettings = null;
+				telemetryRunId = null;
+				telemetryError = null;
+			}
+		});
+	});
+
+	// True when the run currently being viewed is the one actively running.
+	const telemetryLive = $derived(active && activeRun != null && selectedRunId === activeRun.id);
+
+	// While a run is active, point the telemetry view at it (unless the user has
+	// explicitly selected a different past run to inspect).
+	$effect(() => {
+		const activeId = active ? activeRun?.id : null;
+		untrack(() => {
+			if (activeId && !selectedRunId) selectedRunId = activeId;
+		});
+	});
+
+	let telemetryPollHandle: ReturnType<typeof setInterval> | null = null;
+	function startTelemetryPolling() {
+		if (telemetryPollHandle !== null) return;
+		// Matches the backend recorder's ~2s DB flush. Silent refresh = update in
+		// place, no block swaps, no jitter.
+		telemetryPollHandle = setInterval(() => {
+			const id = selectedRunId;
+			if (id) void loadTelemetry(id, true);
+		}, 1500);
+	}
+	function stopTelemetryPolling() {
+		if (telemetryPollHandle !== null) {
+			clearInterval(telemetryPollHandle);
+			telemetryPollHandle = null;
+		}
+	}
+
+	$effect(() => {
+		if (open && telemetryLive) startTelemetryPolling();
+		else stopTelemetryPolling();
+	});
 </script>
 
 <div class="border-t border-border pt-4"></div>
@@ -511,6 +714,178 @@
 					{#if selectedRun.error}
 						<div class="mt-2 text-xs text-danger dark:text-red-400">
 							{selectedRun.error}
+						</div>
+					{/if}
+				</div>
+			{/if}
+
+			{#if selectedRunId}
+				<div class="flex flex-col gap-2 border-t border-border pt-3">
+					<div class="flex items-center justify-between">
+						<div class="flex items-center gap-2">
+							<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+								Driver Telemetry
+							</div>
+							{#if telemetryLive}
+								<span class="text-xs text-success dark:text-green-400">● live</span>
+							{/if}
+						</div>
+						<button
+							onclick={() => selectedRunId && void loadTelemetry(selectedRunId)}
+							class="cursor-pointer text-xs text-text-muted underline hover:text-text"
+						>
+							Refresh
+						</button>
+					</div>
+
+					{#if telemetryLoading}
+						<div class="text-sm text-text-muted">Loading telemetry…</div>
+					{:else if telemetryError}
+						<div class="text-sm text-text-muted">{telemetryError}</div>
+					{:else if telemetryPoints.length === 0}
+						<div class="text-sm text-text-muted">No telemetry samples for this run.</div>
+					{:else}
+						{#if telemetrySettings}
+							<div class="border border-border bg-bg px-3 py-2">
+								<div class="mb-1 text-xs font-semibold tracking-wider text-text-muted uppercase">
+									Driver settings (read from hardware at run start)
+								</div>
+								<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-text-muted">
+									<span>Chopper mode</span>
+									<span
+										class="text-right {decodedField('gconf', 'stealthchop')
+											? 'text-warning'
+											: 'text-text'}"
+									>
+										{decodedField('gconf', 'stealthchop') === undefined
+											? '--'
+											: decodedField('gconf', 'stealthchop')
+												? 'StealthChop'
+												: 'SpreadCycle'}
+									</span>
+									<span>Microsteps</span>
+									<span class="text-right text-text">
+										{decodedField('chopconf', 'microsteps') ?? '--'}
+									</span>
+									<span>Interpolate (256)</span>
+									<span class="text-right text-text">
+										{decodedField('chopconf', 'intpol') === undefined
+											? '--'
+											: decodedField('chopconf', 'intpol')
+												? 'on'
+												: 'off'}
+									</span>
+									<span>Run current (IRUN)</span>
+									<span class="text-right text-text">
+										{configuredCurrent()?.['irun'] ?? '--'} / 31
+									</span>
+									<span>Hold current (IHOLD)</span>
+									<span class="text-right text-text">
+										{configuredCurrent()?.['ihold'] ?? '--'} / 31
+									</span>
+									<span>CS_ACTUAL @ start</span>
+									<span class="text-right text-text">
+										{decodedField('drv_status', 'cs_actual') ?? '--'} / 31
+									</span>
+									<span>OT prewarn @ start</span>
+									<span
+										class="text-right {decodedField('drv_status', 'otpw')
+											? 'text-danger'
+											: 'text-text'}"
+									>
+										{decodedField('drv_status', 'otpw') === undefined
+											? '--'
+											: decodedField('drv_status', 'otpw')
+												? 'YES'
+												: 'no'}
+									</span>
+									<span>Driver temp @ start</span>
+									<span class="text-right text-text">{snapshotTempBand()}</span>
+								</div>
+								<div
+									class="mt-2 grid grid-cols-2 gap-x-3 gap-y-0.5 border-t border-border pt-1 text-xs text-text-muted"
+								>
+									<span>GCONF</span>
+									<span class="text-right font-mono text-text">
+										{hex32(telemetrySettings.registers?.['gconf'])}
+									</span>
+									<span>CHOPCONF</span>
+									<span class="text-right font-mono text-text">
+										{hex32(telemetrySettings.registers?.['chopconf'])}
+									</span>
+									<span>DRV_STATUS</span>
+									<span class="text-right font-mono text-text">
+										{hex32(telemetrySettings.registers?.['drv_status'])}
+									</span>
+									<span>PWM_SCALE</span>
+									<span class="text-right font-mono text-text">
+										{hex32(telemetrySettings.registers?.['pwm_scale'])}
+									</span>
+								</div>
+							</div>
+						{/if}
+
+						<div class="flex flex-wrap gap-x-3 gap-y-1 text-xs text-text">
+							<label class="flex items-center gap-1.5">
+								<input type="checkbox" bind:checked={showSg} class="h-3.5 w-3.5" />
+								<span class="inline-block h-2 w-2 bg-primary"></span> SG_RESULT
+							</label>
+							<label class="flex items-center gap-1.5">
+								<input type="checkbox" bind:checked={showPwm} class="h-3.5 w-3.5" />
+								<span class="inline-block h-2 w-2 bg-danger"></span> PWM_SCALE
+							</label>
+							<label class="flex items-center gap-1.5">
+								<input type="checkbox" bind:checked={showCs} class="h-3.5 w-3.5" />
+								<span class="inline-block h-2 w-2 bg-warning"></span> CS_ACTUAL
+							</label>
+							<label class="flex items-center gap-1.5">
+								<input type="checkbox" bind:checked={showTstep} class="h-3.5 w-3.5" />
+								<span class="inline-block h-2 w-2 bg-success"></span> TSTEP
+							</label>
+						</div>
+
+						<ChuteStressTelemetryChart
+							points={telemetryPoints}
+							{showSg}
+							{showCs}
+							{showPwm}
+							{showTstep}
+							height={260}
+						/>
+
+						<div class="text-xs text-text-muted">
+							Series are min–max normalized; ranges below are absolute. {telemetryPoints.length}
+							samples.
+						</div>
+						<div class="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-text-muted">
+							{#if sgStat}
+								<span><span class="mr-1 inline-block h-2 w-2 bg-primary"></span>SG_RESULT</span>
+								<span class="text-right text-text">
+									{sgStat.min}–{sgStat.max} (now {sgStat.last})
+								</span>
+							{/if}
+							{#if pwmStat}
+								<span><span class="mr-1 inline-block h-2 w-2 bg-danger"></span>PWM_SCALE</span>
+								<span class="text-right text-text">
+									{pwmStat.min}–{pwmStat.max} (now {pwmStat.last})
+								</span>
+							{/if}
+							{#if csStat}
+								<span><span class="mr-1 inline-block h-2 w-2 bg-warning"></span>CS_ACTUAL</span>
+								<span class="text-right text-text">
+									{csStat.min}–{csStat.max} (now {csStat.last})
+								</span>
+							{/if}
+							{#if tstepStat}
+								<span><span class="mr-1 inline-block h-2 w-2 bg-success"></span>TSTEP</span>
+								<span class="text-right text-text">
+									{tstepStat.min}–{tstepStat.max}
+								</span>
+							{/if}
+							<span>Over-temp / OT-prewarn samples</span>
+							<span class="text-right {warnCount > 0 ? 'text-danger' : 'text-text'}">
+								{warnCount}
+							</span>
 						</div>
 					{/if}
 				</div>

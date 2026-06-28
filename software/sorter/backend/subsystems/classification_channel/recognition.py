@@ -288,6 +288,11 @@ class ClassificationChannelRecognizer:
             if api_call_succeeded and part_id is None:
                 bump_counter("brickognize_empty_result")
 
+            # The request erroring (network / DNS / connection on a flaky network)
+            # is a "request failed", distinct from a genuine "unknown" no-match
+            # where Brickognize answered but nothing matched. Routing still treats
+            # it as unknown (no part_id -> misc); the flag only changes the label.
+            piece.request_failed = not api_call_succeeded
             resolved = transport.resolveClassification(
                 piece_uuid,
                 part_id,
@@ -321,6 +326,9 @@ class ClassificationChannelRecognizer:
             )
             if not resolved:
                 return
+            # A classification timeout is a network/request failure — flag it so
+            # the card reads "Request failed" rather than "Unknown piece".
+            piece.request_failed = True
             piece.updated_at = time.time()
             if event_queue is not None:
                 event_queue.put(knownObjectToEvent(piece))

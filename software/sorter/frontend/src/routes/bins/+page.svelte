@@ -2,14 +2,28 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { components } from '$lib/api/rest';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import BinLayoutSection from '$lib/components/bins/BinLayoutSection.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
+	import { Button, SelectMenu } from '$lib/components/primitives';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2 } from 'lucide-svelte';
+	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2, Plus, Tag, X } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
+	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
+	// local_filename rather than a profile_id; either identifies the profile a layout ties to.
+	const profileSync = $derived(
+		(manager.selectedMachine?.sortingProfileStatus as { sync_state?: Record<string, unknown> } | null)
+			?.sync_state ?? null
+	);
+	const activeProfileId = $derived(
+		(profileSync?.profile_id as string | undefined) ??
+			(profileSync?.local_filename as string | undefined) ??
+			null
+	);
+	const activeProfileName = $derived((profileSync?.profile_name as string | undefined) ?? '');
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	let activeBaseUrl = $state(baseUrl());
 
@@ -20,12 +34,14 @@
 		size: string;
 		angle: number;
 		category_ids: string[];
+		not_in_inventory?: boolean;
 	};
 
 	type LayerInfo = {
 		layer_index: number;
 		enabled: boolean;
 		section_count: number;
+		section_enabled?: boolean[];
 		bin_count: number;
 		max_pieces_per_bin: number | null;
 		bins: BinInfo[];
@@ -77,12 +93,25 @@
 	let statusMsg = $state('');
 	let clearingStates = $state<ClearingState[]>([]);
 	let togglingLayerKey = $state<number | null>(null);
+	let sectionBusyKey = $state<string | null>(null);
+	let pointingSectionKey = $state<string | null>(null);
 	let allowMultiCategory = $state(false);
 	let savingMultiCategory = $state(false);
+	let autoAssignBusy = $state(false);
+	let autoAssignResult = $state<string | null>(null);
 	let contentsByKey = $state<Record<string, BinContents>>({});
 	let detailsOpen = $state(false);
 	let detailsBin = $state<{ bin: BinInfo; layerIndex: number; contents: BinContents | null } | null>(null);
 	let bricklinkCache = $state<Map<string, BricklinkPartResponse | null>>(new Map());
+
+	// Manual category assignment editor (lives inside the bin details modal).
+	// assignSelected is the working set the operator is editing; it's seeded from
+	// the bin's saved category_ids when the modal opens and only changes on
+	// explicit user action, so the 2s layout refresh never clobbers an edit.
+	let assignSelected = $state<string[]>([]);
+	let assignSearch = $state('');
+	let savingAssign = $state(false);
+	let assignDropdownOpen = $state(false);
 
 	type SetProgressSummary = { total_needed: number; total_found: number; pct: number };
 	let setProgressByCategoryId = $state<Record<string, SetProgressSummary>>({});
@@ -123,6 +152,62 @@
 			allowMultiCategory = Boolean(data.allow_multiple_categories_per_bin);
 		} catch {
 			// Keep last known setting on transient failures.
+		}
+	}
+
+	let niiBusyLayer = $state<number | null>(null);
+	async function setLayerNotInInventory(layerIndex: number, enabled: boolean) {
+		niiBusyLayer = layerIndex;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/not-in-inventory/set`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope: 'layer', layer_index: layerIndex, enabled })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			await loadLayout();
+			statusMsg = enabled
+				? `Layer ${layerIndex + 1} is now a "not in inventory" layer.`
+				: `Layer ${layerIndex + 1} is back to normal sorting.`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update not-in-inventory mode';
+		} finally {
+			niiBusyLayer = null;
+		}
+	}
+
+	async function runAutoAssign(overlap: boolean) {
+		if (autoAssignBusy) return;
+		autoAssignBusy = true;
+		autoAssignResult = null;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/auto-assign`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ overlap })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			await loadLayout();
+			if (data.assigned === 0) {
+				autoAssignResult = data.message ?? 'Nothing to assign.';
+			} else {
+				autoAssignResult = `Assigned ${data.categories_ranked} categories across ${data.bins_used} bin${data.bins_used === 1 ? '' : 's'} from ${data.total_pieces} recent pieces${overlap ? ' (overlapping)' : ''}.`;
+			}
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Auto-assign failed';
+		} finally {
+			autoAssignBusy = false;
 		}
 	}
 
@@ -180,22 +265,28 @@
 		return setProgressByCategoryId[categoryIds[0]] ?? null;
 	}
 
+	function applyBinsContents(bins: unknown) {
+		const next: Record<string, BinContents> = {};
+		for (const entry of Array.isArray(bins) ? bins : []) {
+			if (!entry || typeof entry !== 'object' || typeof entry.bin_key !== 'string') continue;
+			next[entry.bin_key] = entry as BinContents;
+		}
+		contentsByKey = next;
+		// fetchBricklinkData is cached per part, so re-applying the full snapshot
+		// only hits the (slow) BrickLink API for parts we haven't seen yet.
+		for (const bin of Object.values(next)) {
+			for (const item of bin.items) {
+				if (item.part_id) void fetchBricklinkData(item.part_id);
+			}
+		}
+	}
+
 	async function loadBinContents() {
 		try {
 			const res = await fetch(`${baseUrl()}/api/bins/contents`);
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
-			const next: Record<string, BinContents> = {};
-			for (const entry of Array.isArray(data.bins) ? data.bins : []) {
-				if (!entry || typeof entry !== 'object' || typeof entry.bin_key !== 'string') continue;
-				next[entry.bin_key] = entry as BinContents;
-			}
-			contentsByKey = next;
-			for (const bin of Object.values(next)) {
-				for (const item of bin.items) {
-					if (item.part_id) void fetchBricklinkData(item.part_id);
-				}
-			}
+			applyBinsContents(data.bins);
 		} catch {
 			// Keep last known contents on transient failures.
 		}
@@ -358,8 +449,102 @@
 		const contents = contentsForBin(layerIndex, bin);
 		detailsBin = { layerIndex, bin, contents };
 		detailsOpen = true;
+		assignSelected = [...bin.category_ids];
+		assignSearch = '';
+		assignDropdownOpen = false;
 		for (const item of contents?.items ?? []) {
 			if (item.part_id) void fetchBricklinkData(item.part_id);
+		}
+	}
+
+	function availableCategories(): { id: string; name: string }[] {
+		const cats = sortingProfileStore.data?.categories ?? {};
+		return Object.entries(cats)
+			.map(([id, cat]) => ({ id, name: cat?.name ?? id }))
+			.sort((a, b) => a.name.localeCompare(b.name));
+	}
+
+	// Where each category is currently assigned across the persisted layout, so
+	// the picker can flag categories already living in another bin (assigning
+	// here will move them). Keyed by category_id → that bin's global index.
+	function categoryLocations(): Record<string, { layerIndex: number; globalIndex: number }> {
+		const map: Record<string, { layerIndex: number; globalIndex: number }> = {};
+		for (const layer of layers) {
+			for (const bin of layer.bins) {
+				for (const id of bin.category_ids) {
+					if (!(id in map)) {
+						map[id] = { layerIndex: layer.layer_index, globalIndex: bin.global_index };
+					}
+				}
+			}
+		}
+		return map;
+	}
+
+	function assignedElsewhereLabel(id: string): string | null {
+		const loc = categoryLocations()[id];
+		if (!loc) return null;
+		if (detailsBin && loc.globalIndex === detailsBin.bin.global_index) return null;
+		return `Bin ${loc.globalIndex + 1}`;
+	}
+
+	// Dropdown candidates: every profile category not already in the working set,
+	// filtered by the search box.
+	function pickableCategories(): { id: string; name: string }[] {
+		const query = assignSearch.trim().toLowerCase();
+		return availableCategories().filter((cat) => {
+			if (assignSelected.includes(cat.id)) return false;
+			if (!query) return true;
+			return cat.name.toLowerCase().includes(query) || cat.id.toLowerCase().includes(query);
+		});
+	}
+
+	function addAssignCategory(id: string) {
+		if (!assignSelected.includes(id)) assignSelected = [...assignSelected, id];
+		assignSearch = '';
+		assignDropdownOpen = false;
+	}
+
+	function removeAssignCategory(id: string) {
+		assignSelected = assignSelected.filter((c) => c !== id);
+	}
+
+	function assignDirty(): boolean {
+		if (!detailsBin) return false;
+		const current = [...detailsBin.bin.category_ids].sort();
+		const next = [...assignSelected].sort();
+		return current.length !== next.length || current.some((c, i) => c !== next[i]);
+	}
+
+	async function saveAssignment() {
+		if (!detailsBin || savingAssign) return;
+		savingAssign = true;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/categories/assign`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({
+					layer_index: detailsBin.layerIndex,
+					section_index: detailsBin.bin.section_index,
+					bin_index: detailsBin.bin.bin_index,
+					category_ids: assignSelected
+				})
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			assignSelected = Array.isArray(data.category_ids) ? data.category_ids : assignSelected;
+			assignDropdownOpen = false;
+			statusMsg = data?.message ?? 'Bin categories updated.';
+			await loadLayout();
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to assign categories';
+		} finally {
+			savingAssign = false;
 		}
 	}
 
@@ -495,6 +680,50 @@
 		}
 	}
 
+	// Dedicated full-reset path (layer or whole machine). The backend clears
+	// assignments + contents in one call and returns the fresh layout + contents,
+	// so we update state directly instead of firing extra GET round-trips.
+	async function runBinReset(
+		scope: 'all' | 'layer',
+		layerIndex: number | undefined,
+		confirmMessage: string,
+		busyKey: string
+	) {
+		if (movingTo || homing || togglingLayerKey !== null || hasClearingKey(busyKey)) return;
+		if (scope === 'all' ? hasAnyClearing() : isGlobalClearing()) return;
+		if (!window.confirm(confirmMessage)) return;
+
+		clearingStates = [
+			...clearingStates,
+			{ endpoint: 'categories/clear', scope, busyKey, layerIndex }
+		];
+		statusMsg = '';
+		error = null;
+		try {
+			const url =
+				scope === 'all'
+					? `${baseUrl()}/api/bins/reset/machine`
+					: `${baseUrl()}/api/bins/reset/layer/${layerIndex}`;
+			const res = await fetch(url, { method: 'POST' });
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			statusMsg = data?.message ?? 'Bins reset.';
+			if (data.layout) {
+				layers = data.layout.layers ?? layers;
+				currentAngle = data.layout.current_angle ?? null;
+				activeLayer = data.layout.active_layer ?? null;
+			}
+			applyBinsContents(data.bins);
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to reset bins';
+		} finally {
+			clearingStates = clearingStates.filter((state) => state.busyKey !== busyKey);
+		}
+	}
+
 	async function toggleLayerEnabled(layerIndex: number, enabled: boolean) {
 		if (movingTo || homing || hasAnyClearing() || togglingLayerKey !== null) return;
 		togglingLayerKey = layerIndex;
@@ -522,6 +751,78 @@
 			error = e instanceof Error ? e.message : 'Failed to update layer status';
 		} finally {
 			togglingLayerKey = null;
+		}
+	}
+
+	function sectionEnabled(layer: LayerInfo, sectionIndex: number): boolean {
+		return layer.section_enabled?.[sectionIndex] ?? true;
+	}
+
+	// A column (same section index across every layer) is "on" only when every
+	// layer has that section enabled.
+	function columnEnabled(sectionIndex: number): boolean {
+		return layers.every((layer) => sectionEnabled(layer, sectionIndex));
+	}
+
+	function maxSectionCount(): number {
+		return layers.reduce((max, layer) => Math.max(max, layer.section_count ?? 0), 0);
+	}
+
+	async function setSectionEnabled(
+		scope: 'section' | 'column' | 'all',
+		enabled: boolean,
+		opts: { layer_index?: number; section_index?: number },
+		busyKey: string
+	) {
+		if (movingTo || homing || hasAnyClearing() || sectionBusyKey !== null) return;
+		sectionBusyKey = busyKey;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/sections/enabled`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ scope, enabled, ...opts })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			if (data.layout?.layers) {
+				layers = data.layout.layers;
+				currentAngle = data.layout.current_angle ?? currentAngle;
+				activeLayer = data.layout.active_layer ?? activeLayer;
+			}
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to update section status';
+		} finally {
+			sectionBusyKey = null;
+		}
+	}
+
+	async function pointAtSection(sectionIndex: number) {
+		const busyKey = `point-${sectionIndex}`;
+		if (movingTo || homing || pointingSectionKey !== null) return;
+		pointingSectionKey = busyKey;
+		statusMsg = '';
+		error = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/move-to-section`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ section_index: sectionIndex })
+			});
+			if (!res.ok) {
+				const detail = await res.json().catch(() => null);
+				throw new Error(detail?.detail ?? `HTTP ${res.status}`);
+			}
+			const data = await res.json();
+			statusMsg = `Pointing chute at section ${sectionIndex + 1} (${data.target_angle}°).`;
+		} catch (e: unknown) {
+			error = e instanceof Error ? e.message : 'Failed to point at section';
+		} finally {
+			pointingSectionKey = null;
 		}
 	}
 
@@ -633,10 +934,9 @@
 				</button>
 				<button
 					onclick={() =>
-						void runBinAction(
-							'categories/clear',
+						void runBinReset(
 							'all',
-							{},
+							undefined,
 							'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
 							'reset-all'
 						)}
@@ -649,6 +949,8 @@
 				</button>
 			</div>
 		</div>
+
+		<BinLayoutSection baseUrl={baseUrl()} profileId={activeProfileId} profileName={activeProfileName} />
 
 		<div class="mb-4 flex items-center justify-between gap-4 border border-[#E2E0DB] bg-surface px-4 py-3">
 			<div class="pr-4">
@@ -674,6 +976,95 @@
 			</label>
 		</div>
 
+		<div class="mb-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+			<div class="flex flex-wrap items-center justify-between gap-4">
+				<div class="pr-4">
+					<div class="text-sm font-medium text-[#1A1A1A]">Auto-assign bins</div>
+					<div class="mt-0.5 text-sm text-[#66635C]">
+						Ranks the active profile's categories by how many recently-sorted pieces
+						hit them, then fills bins biggest-first — the larger bottom bins get the
+						highest-volume categories. Overwrites current normal-bin assignments;
+						not-in-inventory bins are left alone.
+					</div>
+				</div>
+				<div class="flex items-center gap-2">
+					<button
+						type="button"
+						onclick={() => void runAutoAssign(false)}
+						disabled={autoAssignBusy}
+						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{autoAssignBusy ? 'Assigning…' : 'Auto-assign'}
+					</button>
+					<button
+						type="button"
+						onclick={() => void runAutoAssign(true)}
+						disabled={autoAssignBusy}
+						title="Pack every ranked category in, sharing bins once they run out"
+						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+					>
+						{autoAssignBusy ? 'Assigning…' : 'Auto-assign + overlap'}
+					</button>
+				</div>
+			</div>
+			{#if autoAssignResult}
+				<div class="mt-2 text-sm text-[#66635C]">{autoAssignResult}</div>
+			{/if}
+		</div>
+
+		{#if !loading && layers.length > 0 && maxSectionCount() > 0}
+			<div class="mb-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+				<div class="mb-2 flex items-center justify-between gap-4">
+					<div>
+						<div class="text-sm font-medium text-[#1A1A1A]">Columns (sections across all layers)</div>
+						<div class="mt-0.5 text-sm text-[#66635C]">
+							Disable a whole column to stop sorting into that section on every layer, or
+							point the chute at it to find it.
+						</div>
+					</div>
+				</div>
+				<div class="flex flex-wrap gap-2">
+					{#each Array(maxSectionCount()) as _, sectionIndex}
+						{@const colOn = columnEnabled(sectionIndex)}
+						{@const colBusy = sectionBusyKey === `col-${sectionIndex}`}
+						<div class="flex items-center gap-2 border border-[#E2E0DB] {colOn ? 'bg-white' : 'bg-[#F2F0EB]'} px-3 py-1.5">
+							<span class="text-sm font-semibold {colOn ? 'text-[#1A1A1A]' : 'text-[#9A968E]'}">
+								Col {sectionIndex + 1}
+							</span>
+							<button
+								type="button"
+								role="switch"
+								aria-checked={colOn}
+								aria-label={colOn ? `Disable column ${sectionIndex + 1}` : `Enable column ${sectionIndex + 1}`}
+								onclick={() =>
+									void setSectionEnabled('column', !colOn, { section_index: sectionIndex }, `col-${sectionIndex}`)}
+								disabled={homing || !!movingTo || hasAnyClearing() || sectionBusyKey !== null}
+								class={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${colOn ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
+							>
+								<span class={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${colOn ? 'translate-x-5' : 'translate-x-1'}`}></span>
+							</button>
+							<button
+								type="button"
+								onclick={() => void pointAtSection(sectionIndex)}
+								disabled={homing || !!movingTo || pointingSectionKey !== null}
+								class="flex items-center justify-center border border-[#E2E0DB] bg-white p-1 text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+								title="Point chute at section {sectionIndex + 1}"
+							>
+								{#if pointingSectionKey === `point-${sectionIndex}`}
+									<Loader2 size={14} class="animate-spin" />
+								{:else}
+									<Crosshair size={14} />
+								{/if}
+							</button>
+							{#if colBusy}
+								<Loader2 size={14} class="animate-spin text-primary" />
+							{/if}
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
 		<StatusBanner message={statusMsg} variant="success" />
 		<StatusBanner message={error ?? ''} variant="error" />
 
@@ -686,6 +1077,7 @@
 				{#each layers as layer}
 					{@const isActive = activeLayer === layer.layer_index}
 					{@const layerBusy = isLayerClearing(layer.layer_index)}
+					{@const layerNii = layer.bins.length > 0 && layer.bins.every((b) => b.not_in_inventory)}
 					<div class="relative border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
 						{#if layerBusy}
 							<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/78 backdrop-blur-[1px]">
@@ -741,10 +1133,9 @@
 								<button
 									type="button"
 									onclick={() =>
-										void runBinAction(
-											'categories/clear',
+										void runBinReset(
 											'layer',
-											{ layer_index: layer.layer_index },
+											layer.layer_index,
 											`Please make sure layer ${layer.layer_index + 1} is physically empty first. This will remove all learned assignments from that layer and mark its bins as empty.`,
 											`reset-layer-${layer.layer_index}`
 										)}
@@ -754,7 +1145,57 @@
 									<ArchiveX size={14} />
 									{hasClearingKey(`reset-layer-${layer.layer_index}`) ? 'Resetting…' : 'Reset Layer'}
 								</button>
+								<button
+									type="button"
+									onclick={() => void setLayerNotInInventory(layer.layer_index, !layerNii)}
+									disabled={niiBusyLayer !== null}
+									title="Route pieces not in the active BrickLink inventory (.bsx) into this layer's bins"
+									class="flex items-center gap-2 border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {layerNii
+										? 'border-warning bg-warning/[0.12] text-warning'
+										: 'border-[#E2E0DB] bg-white text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+								>
+									{niiBusyLayer === layer.layer_index
+										? 'Saving…'
+										: layerNii
+											? 'Not-in-inventory: ON'
+											: 'Not-in-inventory mode'}
+								</button>
 							</div>
+						</div>
+						<div class="flex flex-wrap items-center gap-2 border-b border-[#E2E0DB] bg-[#FAFAF8] px-3 py-2">
+							<span class="text-xs font-semibold uppercase tracking-wide text-[#7A7770]">Sections</span>
+							{#each Array(layer.section_count) as _, sectionIndex}
+								{@const secOn = sectionEnabled(layer, sectionIndex)}
+								{@const secKey = `sec-${layer.layer_index}-${sectionIndex}`}
+								<div class="flex items-center gap-1.5 border border-[#E2E0DB] {secOn ? 'bg-white' : 'bg-[#F2F0EB]'} px-2 py-1">
+									<span class="text-sm {secOn ? 'text-[#1A1A1A]' : 'text-[#9A968E]'}">S{sectionIndex + 1}</span>
+									<button
+										type="button"
+										role="switch"
+										aria-checked={secOn}
+										aria-label={secOn ? `Disable layer ${layer.layer_index + 1} section ${sectionIndex + 1}` : `Enable layer ${layer.layer_index + 1} section ${sectionIndex + 1}`}
+										onclick={() =>
+											void setSectionEnabled('section', !secOn, { layer_index: layer.layer_index, section_index: sectionIndex }, secKey)}
+										disabled={homing || !!movingTo || hasAnyClearing() || sectionBusyKey !== null}
+										class={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${secOn ? 'bg-success' : 'bg-[#C9C6BF]'} disabled:cursor-not-allowed disabled:opacity-50`}
+									>
+										<span class={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${secOn ? 'translate-x-5' : 'translate-x-1'}`}></span>
+									</button>
+									<button
+										type="button"
+										onclick={() => void pointAtSection(sectionIndex)}
+										disabled={homing || !!movingTo || pointingSectionKey !== null}
+										class="flex items-center justify-center border border-[#E2E0DB] bg-white p-1 text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+										title="Point chute at section {sectionIndex + 1}"
+									>
+										{#if pointingSectionKey === `point-${sectionIndex}`}
+											<Loader2 size={13} class="animate-spin" />
+										{:else}
+											<Crosshair size={13} />
+										{/if}
+									</button>
+								</div>
+							{/each}
 						</div>
 						<div class="grid grid-cols-6 gap-3 p-3">
 							{#each layer.bins as bin}
@@ -767,7 +1208,13 @@
 								{@const previewItems = cardPreviewItems(contents)}
 								{@const setMeta = assignedSetMeta(bin.category_ids)}
 								{@const setProgress = setProgressFor(bin.category_ids)}
-								<div class="group relative flex h-full flex-col border border-[#E2E0DB] bg-white">
+								{@const secOn = sectionEnabled(layer, bin.section_index)}
+								<div class="group relative flex h-full flex-col border border-[#E2E0DB] bg-white {secOn ? '' : 'opacity-50'}">
+									{#if !secOn}
+										<div class="absolute right-1 top-1 z-10 bg-[#9A968E] px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wide text-white">
+											Section off
+										</div>
+									{/if}
 									{#if isClearing}
 										<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/82 backdrop-blur-[1px]">
 											<div class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-2 shadow-sm">
@@ -787,6 +1234,14 @@
 											{/if}
 										</div>
 										<div class="flex items-center gap-1.5">
+											<button
+												type="button"
+												onclick={() => openBinDetails(layer.layer_index, bin)}
+												class="border border-[#E2E0DB] bg-white/95 p-1.5 text-[#7A7770] transition-colors hover:bg-[#F7F6F3] hover:text-[#1A1A1A]"
+												title="Assign categories to this bin"
+											>
+												<Tag size={13} />
+											</button>
 											<button
 												type="button"
 												onclick={() => moveToBin(layer.layer_index, bin.section_index, bin.bin_index)}
@@ -956,6 +1411,104 @@
 						<div class="text-xs uppercase tracking-wide">Recorded Pieces</div>
 						<div class="mt-1 text-base font-medium text-text">{detailsBin.contents?.piece_count ?? 0} {(detailsBin.contents?.piece_count ?? 0) === 1 ? 'piece' : 'pieces'}</div>
 					</div>
+				</div>
+
+				<!-- Manual category assignment. Pick one or more sorting-profile
+				     categories to route into this bin. Assigning a category here
+				     removes it from any other bin (a category lives in one bin). -->
+				<div class="border border-border bg-bg p-4">
+					<div class="mb-2 flex items-center justify-between gap-3">
+						<div class="flex items-center gap-2 text-sm font-semibold text-text">
+							<Tag size={15} />
+							Assign categories
+						</div>
+						<Button
+							size="sm"
+							variant="primary"
+							loading={savingAssign}
+							disabled={!assignDirty()}
+							onclick={() => void saveAssignment()}
+						>
+							Save
+						</Button>
+					</div>
+					<p class="mb-3 text-sm text-text-muted">
+						Choose one or more categories from your sorting profile to route into this bin.
+						Assigning a category here moves it out of whatever bin it was in before.
+					</p>
+
+					<div class="flex flex-wrap items-center gap-2">
+						{#each assignSelected as id (id)}
+							{@const elsewhere = assignedElsewhereLabel(id)}
+							<span
+								class="inline-flex items-center gap-1.5 border border-primary bg-primary/[0.08] px-2 py-1 text-sm text-text"
+							>
+								{formatCategoryName(id) || id}
+								{#if elsewhere}
+									<span class="text-xs text-text-muted">(was {elsewhere})</span>
+								{/if}
+								<button
+									type="button"
+									class="text-text-muted transition-colors hover:text-danger"
+									onclick={() => removeAssignCategory(id)}
+									aria-label={`Remove ${formatCategoryName(id) || id}`}
+								>
+									<X size={13} />
+								</button>
+							</span>
+						{/each}
+
+						<SelectMenu
+							bind:open={assignDropdownOpen}
+							bind:search={assignSearch}
+							searchPlaceholder="Search categories…"
+							width={320}
+						>
+							{#snippet trigger()}
+								<span
+									class="inline-flex items-center gap-1 border border-border bg-white px-2 py-1 text-sm text-text transition-colors hover:bg-surface"
+								>
+									<Plus size={14} />
+									Add category
+								</span>
+							{/snippet}
+							{#if availableCategories().length === 0}
+								<div class="px-3 py-3 text-sm text-text-muted">
+									No categories in the active sorting profile.
+								</div>
+							{:else}
+								{#each pickableCategories() as cat (cat.id)}
+									{@const elsewhere = assignedElsewhereLabel(cat.id)}
+									<button
+										type="button"
+										onclick={() => addAssignCategory(cat.id)}
+										class="flex w-full items-center justify-between gap-2 border-b border-border bg-white px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-surface"
+									>
+										<span class="flex-1 text-text">{cat.name}</span>
+										{#if elsewhere}
+											<span
+												class="shrink-0 border border-border bg-surface px-1.5 py-0.5 text-xs text-text-muted"
+												title="Currently assigned here — adding will move it"
+											>
+												{elsewhere}
+											</span>
+										{/if}
+									</button>
+								{/each}
+								{#if pickableCategories().length === 0}
+									<div class="px-3 py-3 text-sm text-text-muted">
+										{assignSearch.trim() ? `No categories match “${assignSearch}”.` : 'All categories are already added.'}
+									</div>
+								{/if}
+							{/if}
+						</SelectMenu>
+					</div>
+
+					{#if assignSelected.length === 0}
+						<div class="mt-3 text-sm text-text-muted">
+							No categories assigned — matching pieces fall through to the discard bin.
+						</div>
+					{/if}
 				</div>
 
 				{#if setMeta}

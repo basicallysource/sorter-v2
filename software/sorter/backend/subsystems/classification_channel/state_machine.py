@@ -147,6 +147,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
     def step(self) -> None:
         if self._two_piece is not None:
             self._two_piece.step()
+            self._checkStall(time.monotonic())
             return
         import time as _time
         _t0 = _time.perf_counter()
@@ -209,9 +210,31 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             and active.get("kind") == CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
         )
 
+    def _progressMono(self) -> float:
+        # The "last forward progress" timestamp, sourced per active mode: the
+        # two-piece controller owns its own (phase changes / healthy waiting),
+        # the single-piece SM uses state transitions (_last_progress_at).
+        if self._two_piece is not None:
+            return self._two_piece.last_progress_mono
+        return self._last_progress_at
+
+    def _rearmProgress(self, now: float) -> None:
+        self._last_progress_at = now
+        if self._two_piece is not None:
+            self._two_piece.markProgress(now)
+
+    def _stallStateLabel(self) -> str:
+        if self._two_piece is not None:
+            return f"two_piece:{self._two_piece.phase_label}"
+        return self.current_state.value
+
     def _checkStall(self, now: float) -> None:
-        # Only the rev01 (active) path. Legacy/dynamic paths have their own flow.
-        if self._mode != ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01:
+        # The active paths only: single-piece rev01 and two-piece. Legacy/dynamic
+        # paths have their own flow.
+        if self._mode not in (
+            ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
+            ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01,
+        ):
             return
 
         # If we raised the incident and it's since been resolved (operator
@@ -219,7 +242,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # step — give the resumed flow a fresh window to make progress.
         if self._stall_incident_raised and not self._stallIncidentActive():
             self._stall_incident_raised = False
-            self._last_progress_at = now
+            self._rearmProgress(now)
             return
 
         perception_service = getattr(self.gc, "perception_service", None)
@@ -233,20 +256,27 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         if not occupied:
             # Channel clear -> not stuck. Re-arm and drop any raised incident
             # (the piece left / was removed).
-            self._last_progress_at = now
+            self._rearmProgress(now)
             if self._stall_incident_raised:
                 clear_classification_exit_stuck_incident(self.gc)
                 self._stall_incident_raised = False
             return
 
-        stalled_ms = (now - self._last_progress_at) * 1000.0
+        stalled_ms = (now - self._progressMono()) * 1000.0
         if self._stall_incident_raised or stalled_ms < _STALL_INCIDENT_MS:
             return
 
-        # Auto-resolve: when this incident is set to automatic handling, try to
-        # clear the channel ourselves (advance forward until the piece is gone,
-        # the same routine spoke-home uses) instead of stopping for an operator.
-        # Only fall through to the manual incident if that didn't clear it.
+        # Watchdog disabled for this incident kind -> leave it alone (re-arm so we
+        # don't re-evaluate the same stall every tick).
+        from toml_config import incidentHandlingOff
+
+        if incidentHandlingOff(CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND):
+            self._rearmProgress(now)
+            return
+
+        # Always try to clear the channel ourselves first: rotate forward until
+        # the pieces are gone (clearChannelByAdvancing, capped at 720°). Only if
+        # that budget is exhausted without clearing do we stop for an operator.
         if self._tryAutoResolveStall(stalled_ms):
             return
 
@@ -258,35 +288,32 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         )
         self._stall_incident_raised = bool(published)
         self.logger.info(
-            f"ClassificationChannel: STALLED in {self.current_state.value} for "
-            f"{stalled_ms:.0f}ms with a piece on the channel — raised exit-stuck "
-            f"incident (published={self._stall_incident_raised})"
+            f"ClassificationChannel: STALLED in {self._stallStateLabel()} for "
+            f"{stalled_ms:.0f}ms with a piece on the channel — auto-clear failed, "
+            f"raised exit-stuck incident (published={self._stall_incident_raised})"
         )
 
     def _tryAutoResolveStall(self, stalled_ms: float) -> bool:
-        try:
-            from toml_config import incidentHandlingAutomatic
-
-            if not incidentHandlingAutomatic(CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND):
-                return False
-        except Exception:
-            return False
-
         from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
             clearChannelByAdvancing,
         )
 
         self.logger.info(
-            f"ClassificationChannel: STALLED in {self.current_state.value} for "
-            f"{stalled_ms:.0f}ms — auto-resolve enabled, advancing channel to clear the piece"
+            f"ClassificationChannel: STALLED in {self._stallStateLabel()} for "
+            f"{stalled_ms:.0f}ms — advancing the channel to clear the piece(s)"
         )
         result = clearChannelByAdvancing(
             self.gc, self.irl, self.irl_config, vision=self.vision
         )
         if result.cleared:
+            now = time.monotonic()
+            # The two-piece controller still holds tracked pieces / a phase that
+            # the forced rotation just invalidated — reset it to a clean WAITING.
+            if self._two_piece is not None:
+                self._two_piece.cleanup()
             # Re-arm fresh: the blocking clear consumed real time, so the window
             # restarts from now, not from the pre-clear timestamp.
-            self._last_progress_at = time.monotonic()
+            self._rearmProgress(now)
             self.logger.info(
                 f"ClassificationChannel: auto-resolve cleared the channel after advancing "
                 f"{result.output_deg_moved:.0f}° — resuming feeding"
@@ -294,7 +321,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             return True
         self.logger.warning(
             f"ClassificationChannel: auto-resolve advanced {result.output_deg_moved:.0f}° but the "
-            f"channel is still occupied ({result.reason}) — falling back to the manual incident"
+            f"channel is still occupied ({result.reason}) — falling back to the operator alert"
         )
         return False
 

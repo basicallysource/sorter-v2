@@ -46,9 +46,10 @@ _STRAY_MISC_S = 4.0
 # pushing the clump out of the drop zone without a gap to size against.
 _STAGE_STEP_DEG = 25.0
 
-# Safety ceilings so a move that never resolves can't wedge the machine forever.
-_EJECT_TIMEOUT_S = 15.0
-_STAGE_TIMEOUT_S = 15.0
+# A move that never resolves (eject/stage wedged) is caught by the classification
+# state machine's no-progress stall watchdog (see ClassificationChannelStateMachine
+# ._checkStall), which rotates the channel clear and, failing that, alerts the
+# operator. So there are deliberately NO per-phase give-up timeouts here.
 
 
 class _Phase(Enum):
@@ -150,7 +151,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._phase = _Phase.WAITING
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
-        self._phase_started_at = 0.0
+        # Stall-watchdog progress signal: bumped on every phase change and on
+        # every tick we are healthily ready for the next piece. The classification
+        # state machine reads this to tell a wedged channel from a healthy idle.
+        self._last_progress_mono = time.monotonic()
         # Multi-feed debounce: consecutive distinct frames showing >1 drop-zone id.
         self._multi_drop_streak = 0
         self._multi_drop_last_ts = -1.0
@@ -177,6 +181,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         # clear AND the platter has settled — i.e. "rotation complete, drop empty".
         ready = self._phase == _Phase.WAITING and (not state.in_drop) and stopped
         self.setClassificationReady(ready, "waiting + drop clear + stopped")
+        # Being ready for the next piece IS progress: a head may legitimately sit
+        # in holding waiting for the feeder, which must not read as a stall.
+        if ready:
+            self._last_progress_mono = now
 
         # Classification results arrive on background threads — apply them every
         # tick regardless of phase.
@@ -190,7 +198,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         elif self._phase == _Phase.EJECTING:
             self._ejecting(state, stopped, now)
         elif self._phase == _Phase.STAGING:
-            self._staging(state, stopped, now)
+            self._staging(state, stopped)
 
     # ------------------------------------------------- perception reconciliation
 
@@ -449,17 +457,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             self._enterPhase(_Phase.STAGING)
             return
         gone_for = now - target.last_seen
-        timed_out = (now - self._phase_started_at) > _EJECT_TIMEOUT_S
-        if gone_for >= _EJECT_GONE_CONFIRM_S or timed_out:
+        if gone_for >= _EJECT_GONE_CONFIRM_S:
             # Track id gone (debounced) == the piece dropped off the fall-off ==
             # ejected. Commit it to distribution; the chute was already aimed.
             self.transport.advanceTransport()
-            if timed_out and gone_for < _EJECT_GONE_CONFIRM_S:
-                self.logger.warning(
-                    f"{LOG_TAG} EJECT timeout track={target.track_id} — committing anyway"
-                )
-            else:
-                self.logger.info(f"{LOG_TAG} ejected track={target.track_id} (id gone)")
+            self.logger.info(f"{LOG_TAG} ejected track={target.track_id} (id gone)")
             self._eject_target = None
             self._enterPhase(_Phase.STAGING)
             return
@@ -473,17 +475,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
                     C4_TRAVEL_SIGN * move, self.ctx.config.discharge_speed_usteps_per_s
                 )
 
-    def _staging(self, state, stopped: bool, now: float) -> None:
+    def _staging(self, state, stopped: bool) -> None:
         # Advance the platter until the DROP ZONE IS CLEAR — i.e. the new piece and
         # any multi-drop siblings have all left the drop zone (into the holding
         # area). Keying on "drop clear" rather than "one chosen piece reached
         # precise" is what moves a clump through together instead of stranding the
         # trailing piece.
-        if (now - self._phase_started_at) > _STAGE_TIMEOUT_S:
-            self.logger.warning(f"{LOG_TAG} STAGE timeout — giving up")
-            self._stage_target = None
-            self._enterPhase(_Phase.WAITING)
-            return
         if not stopped:
             return
         drop_clear = (not state.in_drop) and not any(
@@ -517,7 +514,21 @@ class TwoPieceClassificationChannel(Rev01BaseState):
 
     def _enterPhase(self, phase: _Phase) -> None:
         self._phase = phase
-        self._phase_started_at = time.monotonic()
+        # A phase change is the controller's forward-progress signal.
+        self._last_progress_mono = time.monotonic()
+
+    # ----------------------------------------------------------- stall watchdog
+
+    @property
+    def last_progress_mono(self) -> float:
+        return self._last_progress_mono
+
+    @property
+    def phase_label(self) -> str:
+        return self._phase.value
+
+    def markProgress(self, now: Optional[float] = None) -> None:
+        self._last_progress_mono = time.monotonic() if now is None else now
 
     # ------------------------------------------------------------------ helpers
 

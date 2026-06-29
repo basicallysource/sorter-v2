@@ -45,13 +45,13 @@ class Logger:
             self._log_file.write(line + "\n")
             self._log_file.flush()
 
-    def _addToBuffer(self, entry: LogEntry) -> None:
+    def _add_to_buffer(self, entry: LogEntry) -> None:
         with self._buffer_lock:
             self._buffer.append(entry)
             if len(self._buffer) >= self.buffer_size:
-                self._flushBuffer()
+                self._flush_buffer()
 
-    def _flushBuffer(self) -> None:
+    def _flush_buffer(self) -> None:
         if not self._buffer or self.upload_callback is None:
             return
 
@@ -67,13 +67,13 @@ class Logger:
 
     def error(self, msg: str, **kwargs) -> None:
         entry = LogEntry("ERROR", msg)
-        self._addToBuffer(entry)
+        self._add_to_buffer(entry)
         self._log("ERROR", msg)
 
     def warn(self, msg: str, **kwargs) -> None:
         if self.debug_level > 0:
             entry = LogEntry("WARN", msg)
-            self._addToBuffer(entry)
+            self._add_to_buffer(entry)
             self._log("WARN", msg)
 
     def warning(self, msg: str) -> None:
@@ -82,27 +82,27 @@ class Logger:
     def notice(self, msg: str) -> None:
         if self.debug_level > 1:
             entry = LogEntry("NOTICE", msg)
-            self._addToBuffer(entry)
+            self._add_to_buffer(entry)
             self._log("NOTICE", msg)
 
     def info(self, msg: str) -> None:
         if self.debug_level > 2:
             entry = LogEntry("INFO", msg)
-            self._addToBuffer(entry)
+            self._add_to_buffer(entry)
             self._log("INFO", msg)
 
     def debug(self, msg: str) -> None:
         if self.debug_level > 3:
             entry = LogEntry("DEBUG", msg)
-            self._addToBuffer(entry)
+            self._add_to_buffer(entry)
             self._log("DEBUG", msg)
 
-    def flushLogs(self) -> None:
+    def flush_logs(self) -> None:
         with self._buffer_lock:
-            self._flushBuffer()
+            self._flush_buffer()
 
     def _cleanup(self) -> None:
         # bug: at exit not all remaining logs get flushed
-        self.flushLogs()
+        self.flush_logs()
         if self._log_file:
             self._log_file.close()

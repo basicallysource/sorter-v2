@@ -46,7 +46,7 @@ class ClassificationStateMachine(BaseSubsystem):
                 irl, gc, shared, self.carousel, vision, event_queue, telemetry
             ),
         }
-        self.gc.profiler.enterState("classification", self.current_state.value)
+        self.gc.profiler.enter_state("classification", self.current_state.value)
 
     def step(self) -> None:
         self.gc.profiler.hit("classification.state_machine.step.calls")
@@ -63,8 +63,8 @@ class ClassificationStateMachine(BaseSubsystem):
             )
             self.states_map[self.current_state].cleanup()
             self.current_state = next_state
-            self.gc.profiler.enterState("classification", self.current_state.value)
+            self.gc.profiler.enter_state("classification", self.current_state.value)
 
     def cleanup(self) -> None:
-        self.gc.profiler.exitState("classification")
+        self.gc.profiler.exit_state("classification")
         self.states_map[self.current_state].cleanup()

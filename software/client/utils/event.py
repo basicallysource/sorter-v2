@@ -7,7 +7,7 @@ from defs.events import (
 )
 
 
-def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
+def known_object_to_event(obj: KnownObject) -> KnownObjectEvent:
     return KnownObjectEvent(
         tag="known_object",
         data=KnownObjectData(

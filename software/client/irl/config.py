@@ -14,11 +14,11 @@ from .bin_layout import (
     LayerConfig,
     DEFAULT_BIN_LAYOUT,
     DistributionLayout,
-    mkLayoutFromConfig,
+    make_layout_from_config,
 )
 from .parse_user_toml import (
-    loadMachineConfig,
-    applyStepperCurrentOverride,
+    load_machine_config,
+    apply_stepper_current_override,
 )
 
 
@@ -38,18 +38,10 @@ CLASSIFICATION_CAMERA_LOCK = {
     "saturation": 100.0,
 }
 
-# UVC product name of the classification top camera, used to lock its controls
-# out-of-band via the uvc-util utility on macOS (AVFoundation ignores OpenCV's
-# property sets, so the values above are no-ops there). On V4L2 (Linux) the locks
-# go through OpenCV directly and this is unused. Machine-specific.
-CLASSIFICATION_TOP_UVC_NAME = "Innomaker-U20CAM-1080p-S1"
-
-# Locked manual controls for the carousel camera. Same out-of-band lock mechanism
-# as the classification cameras (see CLASSIFICATION_CAMERA_LOCK / camera.py), so
-# the carousel scene reads a stable, consistent color/brightness for detection.
-# Fresh neutral starting point (autos off, controls at their UVC defaults) — tune
-# empirically for the carousel scene with scripts/calibrate_camera_color.py
-# --camera carousel, then re-capture the carousel baseline.
+# Locked manual controls for the carousel camera. Same V4L2 lock mechanism as the
+# classification camera (see CLASSIFICATION_CAMERA_LOCK / camera.py), so the carousel
+# scene reads a stable, consistent color/brightness for detection. Tune empirically
+# via the color-calibration step, then re-capture the carousel baseline.
 CAROUSEL_CAMERA_LOCK = {
     "auto_exposure": False,
     "exposure": 130.0,        # 130 lights on UVC exposure-time-abs default
@@ -60,13 +52,6 @@ CAROUSEL_CAMERA_LOCK = {
     "hue": 0.0,
     "saturation": 64.0,        # UVC saturation default
 }
-
-# UVC product name of the carousel camera, as reported by *uvc-util* (which can
-# differ from the AVFoundation/system_profiler name used for capture: this is the
-# Arducam, which uvc-util calls "USB 2.0 Camera" while AVFoundation calls it
-# "Arducam IMX323 USB2.0 Camera"). Must be a DIFFERENT physical camera than
-# CLASSIFICATION_TOP_UVC_NAME, or their locks fight over one camera.
-CAROUSEL_UVC_NAME = "USB 2.0 Camera"
 
 # Carousel detection method: "gray" keeps the legacy grayscale single-snapshot
 # diff (captureBaseline + CarouselDiffConfig); "hsv" uses the same HSV rotational-
@@ -90,9 +75,6 @@ class CameraConfig:
     gain: "float | None"
     hue: "float | None"
     saturation: "float | None"
-    # UVC product name for out-of-band control locking via uvc-util on macOS,
-    # where OpenCV/AVFoundation cannot set these properties. None => not used.
-    uvc_device_name: "str | None"
 
     def __init__(self):
         self.auto_exposure = None
@@ -103,7 +85,6 @@ class CameraConfig:
         self.gain = None
         self.hue = None
         self.saturation = None
-        self.uvc_device_name = None
 
 
 class StepperConfig:
@@ -205,11 +186,10 @@ class FeederConfig:
 
 
 class IRLConfig:
-    # Cameras are optional — a machine may not have a feeder, a bottom
-    # classification camera, etc. Absent ones are None and consumers degrade.
+    # Cameras are optional — a machine may not have a feeder, etc. Absent ones are
+    # None and consumers degrade.
     feeder_camera: "CameraConfig | None"
-    classification_camera_bottom: "CameraConfig | None"
-    classification_camera_top: "CameraConfig | None"
+    classification_camera: "CameraConfig | None"
     c_channel_2_camera: "CameraConfig | None"
     c_channel_3_camera: "CameraConfig | None"
     carousel_camera: "CameraConfig | None"
@@ -225,8 +205,7 @@ class IRLConfig:
     def __init__(self):
         self.feeder_config = FeederConfig()
         self.feeder_camera = None
-        self.classification_camera_bottom = None
-        self.classification_camera_top = None
+        self.classification_camera = None
         self.c_channel_2_camera = None
         self.c_channel_3_camera = None
         self.carousel_camera = None
@@ -247,7 +226,7 @@ class IRLInterface:
     def __init__(self):
         self.interfaces: dict[str, SorterInterface] = {}
 
-    def enableSteppers(self) -> None:
+    def enable_steppers(self) -> None:
         for stepper_name in [
             "first_c_channel_rotor",
             "second_c_channel_rotor",
@@ -259,7 +238,7 @@ class IRLInterface:
             if hasattr(self, attr):
                 getattr(self, attr).enabled = True
 
-    def disableSteppers(self) -> None:
+    def disable_steppers(self) -> None:
         for stepper_name in [
             "first_c_channel_rotor",
             "second_c_channel_rotor",
@@ -272,12 +251,12 @@ class IRLInterface:
                 getattr(self, attr).enabled = False
 
     def shutdown(self) -> None:
-        self.disableSteppers()
+        self.disable_steppers()
         for iface in self.interfaces.values():
             iface.shutdown()
 
 
-def mkCameraConfig(
+def make_camera_config(
     device_index: int,
     width: int = 1920,
     height: int = 1080,
@@ -290,7 +269,6 @@ def mkCameraConfig(
     gain: "float | None" = None,
     hue: "float | None" = None,
     saturation: "float | None" = None,
-    uvc_device_name: "str | None" = None,
 ) -> CameraConfig:
     camera_config = CameraConfig()
     camera_config.device_index = device_index
@@ -305,18 +283,17 @@ def mkCameraConfig(
     camera_config.gain = gain
     camera_config.hue = hue
     camera_config.saturation = saturation
-    camera_config.uvc_device_name = uvc_device_name
     return camera_config
 
 
-def mkStepperConfig(
+def make_stepper_config(
     default_steps_per_second: int = 2000,
     microsteps: int = 8,
 ) -> StepperConfig:
     return StepperConfig(default_steps_per_second, microsteps)
 
 
-def mkCarouselArucoTagConfig(
+def make_carousel_aruco_tag_config(
     c1: int, c2: int, c3: int, c4: int
 ) -> CarouselArucoTagConfig:
     config = CarouselArucoTagConfig()
@@ -327,7 +304,7 @@ def mkCarouselArucoTagConfig(
     return config
 
 
-def mkArucoTagConfig() -> ArucoTagConfig:
+def make_aruco_tag_config() -> ArucoTagConfig:
     config = ArucoTagConfig()
     # Channel 2 (second) - 3 tags: center, radius1, radius2
     config.second_c_channel_center_id = 20
@@ -350,76 +327,65 @@ def mkArucoTagConfig() -> ArucoTagConfig:
     config.third_c_channel_radius_ids = [14, 30]
     config.third_c_channel_radius_multiplier = 1.0
     # Carousel platforms - 4 tags per platform (corner1, corner2, corner3, corner4)
-    config.carousel_platform1 = mkCarouselArucoTagConfig(4, 2, 18, 9)
-    config.carousel_platform2 = mkCarouselArucoTagConfig(1, 32, 35, 8)
-    config.carousel_platform3 = mkCarouselArucoTagConfig(6, 16, 11, 0)
-    config.carousel_platform4 = mkCarouselArucoTagConfig(12, 22, 28, 5)
+    config.carousel_platform1 = make_carousel_aruco_tag_config(4, 2, 18, 9)
+    config.carousel_platform2 = make_carousel_aruco_tag_config(1, 32, 35, 8)
+    config.carousel_platform3 = make_carousel_aruco_tag_config(6, 16, 11, 0)
+    config.carousel_platform4 = make_carousel_aruco_tag_config(12, 22, 28, 5)
     return config
 
 
-def mkIRLConfig() -> IRLConfig:
+def make_irl_config() -> IRLConfig:
     irl_config = IRLConfig()
     # Resolve each role to its CURRENT cv2 index by stable camera identity
     # (name + USB location), since power cycles can reorder indices. Falls back
     # to the stored index if a camera can't be resolved. See camera_resolver.
-    from hardware.camera_resolver import resolveCameraSetup
-    camera_setup = resolveCameraSetup()
+    from hardware.camera_resolver import resolve_camera_setup
+    camera_setup = resolve_camera_setup()
 
     if not camera_setup:
         raise RuntimeError(
-            "No camera setup found. Run client/scripts/camera_setup.py first."
+            "No camera setup found. Assign cameras in the Setup wizard first."
         )
 
     # Cameras are optional: build each role only if it's assigned. Missing
     # cameras stay None and consumers (VisionManager) degrade gracefully, so a
     # machine without e.g. a feeder still runs.
-    def cameraIndex(role: str) -> "int | None":
+    def camera_index(role: str) -> "int | None":
         idx = camera_setup.get(role)
         if idx is None:
             print(f"[config] camera '{role}' not assigned; that subsystem is disabled.")
         return idx
 
-    feeder_idx = cameraIndex("feeder")
-    if feeder_idx is not None:
-        irl_config.feeder_camera = mkCameraConfig(device_index=feeder_idx)
-
-    bottom_idx = cameraIndex("classification_bottom")
-    if bottom_idx is not None:
-        irl_config.classification_camera_bottom = mkCameraConfig(
-            device_index=bottom_idx, width=9999, height=9999,
-            **CLASSIFICATION_CAMERA_LOCK,
-        )
-
-    top_idx = cameraIndex("classification_top")
-    if top_idx is not None:
-        irl_config.classification_camera_top = mkCameraConfig(
-            device_index=top_idx, width=9999, height=9999,
-            uvc_device_name=CLASSIFICATION_TOP_UVC_NAME,
+    # This machine has no single feeder camera (the feed is split across the dedicated
+    # c_channel_2 / c_channel_3 cameras) and ONE classification camera.
+    classification_idx = camera_index("classification")
+    if classification_idx is not None:
+        irl_config.classification_camera = make_camera_config(
+            device_index=classification_idx, width=9999, height=9999,
             **CLASSIFICATION_CAMERA_LOCK,
         )
 
     if "c_channel_2" in camera_setup:
-        irl_config.c_channel_2_camera = mkCameraConfig(device_index=camera_setup["c_channel_2"])
+        irl_config.c_channel_2_camera = make_camera_config(device_index=camera_setup["c_channel_2"])
     if "c_channel_3" in camera_setup:
-        irl_config.c_channel_3_camera = mkCameraConfig(device_index=camera_setup["c_channel_3"])
+        irl_config.c_channel_3_camera = make_camera_config(device_index=camera_setup["c_channel_3"])
     if "carousel" in camera_setup:
-        irl_config.carousel_camera = mkCameraConfig(
+        irl_config.carousel_camera = make_camera_config(
             device_index=camera_setup["carousel"], width=9999, height=9999,
-            uvc_device_name=CAROUSEL_UVC_NAME,
             **CAROUSEL_CAMERA_LOCK,
         )
 
-    irl_config.carousel_stepper = mkStepperConfig(default_steps_per_second=500, microsteps=16)
-    irl_config.chute_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
-    irl_config.first_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
-    irl_config.second_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
-    irl_config.third_c_channel_rotor_stepper = mkStepperConfig(default_steps_per_second=4000, microsteps=8)
+    irl_config.carousel_stepper = make_stepper_config(default_steps_per_second=500, microsteps=16)
+    irl_config.chute_stepper = make_stepper_config(default_steps_per_second=4000, microsteps=8)
+    irl_config.first_c_channel_rotor_stepper = make_stepper_config(default_steps_per_second=4000, microsteps=8)
+    irl_config.second_c_channel_rotor_stepper = make_stepper_config(default_steps_per_second=4000, microsteps=8)
+    irl_config.third_c_channel_rotor_stepper = make_stepper_config(default_steps_per_second=4000, microsteps=8)
 
-    irl_config.aruco_tags = mkArucoTagConfig()
+    irl_config.aruco_tags = make_aruco_tag_config()
     return irl_config
 
 
-def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
+def make_irl_interface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     """
     Initialize the hardware interface using SorterInterface directly.
 
@@ -427,7 +393,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     The firmware reports which steppers are available via stepper_names.
     """
     irl_interface = IRLInterface()
-    machine_config = loadMachineConfig(gc)
+    machine_config = load_machine_config(gc)
     stepper_current_overrides = machine_config.stepper_current_overrides
     config.carousel_trigger_score = machine_config.carousel_trigger_score
 
@@ -550,7 +516,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
                 f"Stepper '{stepper_name}' has no StepperConfig (attr='{attr}'), using defaults"
             )
 
-        applyStepperCurrentOverride(stepper, stepper_name, stepper_current_overrides, gc)
+        apply_stepper_current_override(stepper, stepper_name, stepper_current_overrides, gc)
 
         setattr(irl_interface, attr, stepper)
         gc.logger.info(
@@ -561,7 +527,7 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
     bin_layout = BinLayoutConfig(layers=[
         LayerConfig(sections=s) for s in machine_config.layer_sections
     ]) if machine_config.layer_sections else DEFAULT_BIN_LAYOUT
-    irl_interface.distribution_layout = mkLayoutFromConfig(bin_layout)
+    irl_interface.distribution_layout = make_layout_from_config(bin_layout)
 
     # Initialize servos directly from sorter_interface
     irl_interface.servos = []

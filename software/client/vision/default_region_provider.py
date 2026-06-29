@@ -29,7 +29,7 @@ class DefaultRegionProvider:
     def stop(self) -> None:
         pass
 
-    def getRegions(self, frame: np.ndarray) -> dict[RegionName, Region]:
+    def get_regions(self, frame: np.ndarray) -> dict[RegionName, Region]:
         h, w = frame.shape[:2]
         if (h, w) == self._cached_frame_shape and self._cached_regions:
             return self._cached_regions
@@ -49,7 +49,7 @@ class DefaultRegionProvider:
         self._cached_frame_shape = (h, w)
         return regions
 
-    def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
+    def annotate_frame(self, frame: np.ndarray) -> np.ndarray:
         annotated = frame.copy()
         half = DEFAULT_REGION_SIZE // 2
         for name, (cx, cy, color) in DEFAULT_REGION_POSITIONS.items():

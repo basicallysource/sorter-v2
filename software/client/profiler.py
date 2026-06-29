@@ -52,7 +52,7 @@ class _TimerContext:
         if self.start is None:
             return
         elapsed_ms = (time.perf_counter() - self.start) * 1000
-        self.profiler.observeDuration(self.name, elapsed_ms)
+        self.profiler.observe_duration(self.name, elapsed_ms)
 
 
 class Profiler:
@@ -82,7 +82,7 @@ class Profiler:
         if self.enabled:
             self._running = True
             self._report_thread = threading.Thread(
-                target=self._reportLoop,
+                target=self._report_loop,
                 daemon=True,
             )
             self._report_thread.start()
@@ -91,7 +91,7 @@ class Profiler:
     def timer(self, name: str) -> _TimerContext:
         return _TimerContext(self, name)
 
-    def startTimer(self, name: str, key: str = "") -> None:
+    def start_timer(self, name: str, key: str = "") -> None:
         if not self.enabled:
             return
         thread_id = threading.get_ident()
@@ -99,7 +99,7 @@ class Profiler:
         with self._lock:
             self._active_timers[timer_key] = time.perf_counter()
 
-    def endTimer(self, name: str, key: str = "") -> None:
+    def end_timer(self, name: str, key: str = "") -> None:
         if not self.enabled:
             return
         thread_id = threading.get_ident()
@@ -109,9 +109,9 @@ class Profiler:
         if start is None:
             return
         elapsed_ms = (time.perf_counter() - start) * 1000
-        self.observeDuration(name, elapsed_ms)
+        self.observe_duration(name, elapsed_ms)
 
-    def observeDuration(self, name: str, elapsed_ms: float) -> None:
+    def observe_duration(self, name: str, elapsed_ms: float) -> None:
         if not self.enabled:
             return
         with self._lock:
@@ -137,7 +137,7 @@ class Profiler:
                 self._counters[name] = stat
             stat.count += count
 
-    def observeValue(self, name: str, value: float) -> None:
+    def observe_value(self, name: str, value: float) -> None:
         if not self.enabled:
             return
         with self._lock:
@@ -171,7 +171,7 @@ class Profiler:
             if interval_ms > stat.max_ms:
                 stat.max_ms = interval_ms
 
-    def enterState(self, group: str, state: str) -> None:
+    def enter_state(self, group: str, state: str) -> None:
         if not self.enabled:
             return
         now_s = time.perf_counter()
@@ -180,18 +180,18 @@ class Profiler:
             prev_start = self._state_start_s.get(group)
             if prev_state is not None and prev_start is not None:
                 elapsed_ms = (now_s - prev_start) * 1000
-                self._addDurationUnlocked(
+                self._add_duration_unlocked(
                     f"state_duration_ms.{group}.{prev_state}", elapsed_ms
                 )
             self._state_name[group] = state
             self._state_start_s[group] = now_s
-            self._addCounterUnlocked(f"state_entry_count.{group}.{state}", 1)
+            self._add_counter_unlocked(f"state_entry_count.{group}.{state}", 1)
             if prev_state is not None and prev_state != state:
-                self._addCounterUnlocked(
+                self._add_counter_unlocked(
                     f"state_transition_count.{group}.{prev_state}->{state}", 1
                 )
 
-    def exitState(self, group: str) -> None:
+    def exit_state(self, group: str) -> None:
         if not self.enabled:
             return
         now_s = time.perf_counter()
@@ -201,13 +201,13 @@ class Profiler:
             if prev_state is None or prev_start is None:
                 return
             elapsed_ms = (now_s - prev_start) * 1000
-            self._addDurationUnlocked(
+            self._add_duration_unlocked(
                 f"state_duration_ms.{group}.{prev_state}", elapsed_ms
             )
             del self._state_name[group]
             del self._state_start_s[group]
 
-    def _addDurationUnlocked(self, name: str, elapsed_ms: float) -> None:
+    def _add_duration_unlocked(self, name: str, elapsed_ms: float) -> None:
         stat = self._durations.get(name)
         if stat is None:
             stat = DurationStat()
@@ -220,23 +220,23 @@ class Profiler:
         if elapsed_ms > stat.max_ms:
             stat.max_ms = elapsed_ms
 
-    def _addCounterUnlocked(self, name: str, count: int) -> None:
+    def _add_counter_unlocked(self, name: str, count: int) -> None:
         stat = self._counters.get(name)
         if stat is None:
             stat = CounterStat()
             self._counters[name] = stat
         stat.count += count
 
-    def _reportLoop(self) -> None:
+    def _report_loop(self) -> None:
         while self._running:
             time.sleep(self.report_interval_s)
             if not self._running:
                 break
-            report = self.getReport()
+            report = self.get_report()
             if report:
                 print(report)
 
-    def getReport(self) -> str:
+    def get_report(self) -> str:
         if not self.enabled:
             return ""
 

@@ -40,7 +40,7 @@ class DistributionStateMachine(BaseSubsystem):
             DistributionState.READY: Ready(irl, gc, shared),
             DistributionState.SENDING: Sending(irl, gc, shared, event_queue),
         }
-        self.gc.profiler.enterState("distribution", self.current_state.value)
+        self.gc.profiler.enter_state("distribution", self.current_state.value)
 
     def step(self) -> None:
         self.gc.profiler.hit("distribution.state_machine.step.calls")
@@ -57,8 +57,8 @@ class DistributionStateMachine(BaseSubsystem):
             )
             self.states_map[self.current_state].cleanup()
             self.current_state = next_state
-            self.gc.profiler.enterState("distribution", self.current_state.value)
+            self.gc.profiler.enter_state("distribution", self.current_state.value)
 
     def cleanup(self) -> None:
-        self.gc.profiler.exitState("distribution")
+        self.gc.profiler.exit_state("distribution")
         self.states_map[self.current_state].cleanup()

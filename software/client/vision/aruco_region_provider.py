@@ -62,46 +62,46 @@ class ArucoRegionProvider:
     def stop(self) -> None:
         self._tracker.stop()
 
-    def getTags(self) -> Dict[int, Tuple[float, float]]:
-        return self._tracker.getTags()
+    def get_tags(self) -> Dict[int, Tuple[float, float]]:
+        return self._tracker.get_tags()
 
-    def getRawTags(self) -> Dict[int, Tuple[float, float]]:
-        return self._tracker.getRawTags()
+    def get_raw_tags(self) -> Dict[int, Tuple[float, float]]:
+        return self._tracker.get_raw_tags()
 
-    def setSmoothingTimeSeconds(self, smoothing_time_s: float) -> None:
-        self._tracker.setSmoothingTimeSeconds(smoothing_time_s)
+    def set_smoothing_time_seconds(self, smoothing_time_s: float) -> None:
+        self._tracker.set_smoothing_time_seconds(smoothing_time_s)
 
-    def getRegions(self, frame: np.ndarray) -> dict[RegionName, Region]:
-        tags = self._tracker.getTags()
+    def get_regions(self, frame: np.ndarray) -> dict[RegionName, Region]:
+        tags = self._tracker.get_tags()
         h, w = frame.shape[:2]
         tag_key = f"{h}x{w}:" + str(sorted(tags.items()))
         if tag_key == self._cached_tag_key and self._cached_regions:
             return self._cached_regions
 
         aruco_config = self._irl_config.aruco_tags
-        geometry = _computeChannelGeometry(tags, aruco_config)
+        geometry = _compute_channel_geometry(tags, aruco_config)
         self._cached_geometry = geometry
         regions: dict[RegionName, Region] = {}
 
         if geometry.second_channel:
             ch = geometry.second_channel
-            ch_mask = _rasterizeChannel(h, w, ch)
+            ch_mask = _rasterize_channel(h, w, ch)
             regions[RegionName.CHANNEL_2] = Region(RegionName.CHANNEL_2, ch_mask)
-            dz_mask = _rasterizeChannelWedge(h, w, ch, DROPZONE_START_DEG, DROPZONE_END_DEG)
+            dz_mask = _rasterize_channel_wedge(h, w, ch, DROPZONE_START_DEG, DROPZONE_END_DEG)
             regions[RegionName.CHANNEL_2_DROPZONE] = Region(RegionName.CHANNEL_2_DROPZONE, dz_mask)
-            pr_mask = _rasterizeChannelWedge(h, w, ch, PRECISE_START_DEG, PRECISE_END_DEG)
+            pr_mask = _rasterize_channel_wedge(h, w, ch, PRECISE_START_DEG, PRECISE_END_DEG)
             regions[RegionName.CHANNEL_2_PRECISE] = Region(RegionName.CHANNEL_2_PRECISE, pr_mask)
 
         if geometry.third_channel:
             ch = geometry.third_channel
-            ch_mask = _rasterizeChannel(h, w, ch)
+            ch_mask = _rasterize_channel(h, w, ch)
             regions[RegionName.CHANNEL_3] = Region(RegionName.CHANNEL_3, ch_mask)
-            dz_mask = _rasterizeChannelWedge(h, w, ch, DROPZONE_START_DEG, DROPZONE_END_DEG)
+            dz_mask = _rasterize_channel_wedge(h, w, ch, DROPZONE_START_DEG, DROPZONE_END_DEG)
             regions[RegionName.CHANNEL_3_DROPZONE] = Region(RegionName.CHANNEL_3_DROPZONE, dz_mask)
-            pr_mask = _rasterizeChannelWedge(h, w, ch, PRECISE_START_DEG, PRECISE_END_DEG)
+            pr_mask = _rasterize_channel_wedge(h, w, ch, PRECISE_START_DEG, PRECISE_END_DEG)
             regions[RegionName.CHANNEL_3_PRECISE] = Region(RegionName.CHANNEL_3_PRECISE, pr_mask)
 
-        platform_corners = self._computeCarouselPlatformCorners(tags)
+        platform_corners = self._compute_carousel_platform_corners(tags)
         self._cached_platform_corners = platform_corners
         if platform_corners:
             plat_mask = np.zeros((h, w), dtype=np.uint8)
@@ -115,9 +115,9 @@ class ArucoRegionProvider:
         self._cached_tag_key = tag_key
         return regions
 
-    def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
+    def annotate_frame(self, frame: np.ndarray) -> np.ndarray:
         annotated = frame.copy()
-        tags = self._tracker.getTags()
+        tags = self._tracker.get_tags()
 
         # draw tag positions and IDs
         for tag_id, (cx, cy) in tags.items():
@@ -133,11 +133,11 @@ class ArucoRegionProvider:
                 3,
             )
 
-        annotated = self._annotateChannelGeometry(annotated)
-        annotated = self._annotateCarouselPlatform(annotated)
+        annotated = self._annotate_channel_geometry(annotated)
+        annotated = self._annotate_carousel_platform(annotated)
         return annotated
 
-    def _annotateChannelGeometry(self, annotated: np.ndarray) -> np.ndarray:
+    def _annotate_channel_geometry(self, annotated: np.ndarray) -> np.ndarray:
         geometry = self._cached_geometry
 
         for ch, color, label in [
@@ -190,14 +190,14 @@ class ArucoRegionProvider:
 
         return annotated
 
-    def _annotateCarouselPlatform(self, annotated: np.ndarray) -> np.ndarray:
+    def _annotate_carousel_platform(self, annotated: np.ndarray) -> np.ndarray:
         corners = self._cached_platform_corners
         if corners is None:
             return annotated
 
         color = (255, 255, 0)
         points = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
-        cv2.polylines(annotated, [points], isClosed=True, color=color, thickness=2)
+        cv2.polylines(annotated, [points], is_closed=True, color=color, thickness=2)
 
         center_x = int(np.mean([x for x, _ in corners]))
         center_y = int(np.mean([y for _, y in corners]))
@@ -207,10 +207,10 @@ class ArucoRegionProvider:
         )
         return annotated
 
-    def _computeCarouselPlatformCorners(
+    def _compute_carousel_platform_corners(
         self, aruco_tags: Dict[int, Tuple[float, float]]
     ) -> Optional[List[Tuple[float, float]]]:
-        platforms = self._getCarouselPlatforms(aruco_tags)
+        platforms = self._get_carousel_platforms(aruco_tags)
         if not platforms:
             return None
 
@@ -231,7 +231,7 @@ class ArucoRegionProvider:
             if distance > CAROUSEL_FEEDING_PLATFORM_DISTANCE_THRESHOLD_PX:
                 continue
 
-            expanded = _expandRectanglePerimeter(
+            expanded = _expand_rectangle_perimeter(
                 corners, CAROUSEL_FEEDING_PLATFORM_PERIMETER_EXPANSION_PX
             )
 
@@ -242,7 +242,7 @@ class ArucoRegionProvider:
             if area > CAROUSEL_FEEDING_PLATFORM_MAX_AREA_SQ_PX:
                 continue
 
-            valid, _ = _validateCornerAngles(
+            valid, _ = _validate_corner_angles(
                 expanded, CAROUSEL_FEEDING_PLATFORM_MIN_CORNER_ANGLE_DEG
             )
             if not valid:
@@ -252,7 +252,7 @@ class ArucoRegionProvider:
 
         return None
 
-    def _getCarouselPlatforms(
+    def _get_carousel_platforms(
         self, aruco_tags: Dict[int, Tuple[float, float]]
     ) -> List[Dict]:
         platforms: List[Dict] = []
@@ -394,7 +394,7 @@ def _compute_channel(
     return None
 
 
-def _computeChannelGeometry(
+def _compute_channel_geometry(
     aruco_tags: Dict[int, Tuple[float, float]],
     aruco_config: object,
 ) -> ChannelGeometry:
@@ -422,7 +422,7 @@ def _computeChannelGeometry(
 
 # --- Mask rasterization ---
 
-def _rasterizeChannel(h: int, w: int, ch: CircularChannel) -> np.ndarray:
+def _rasterize_channel(h: int, w: int, ch: CircularChannel) -> np.ndarray:
     mask = np.zeros((h, w), dtype=np.uint8)
     center = (int(ch.center[0]), int(ch.center[1]))
     if ch.shape == "ellipse" and ch.ellipse_axes is not None:
@@ -433,11 +433,11 @@ def _rasterizeChannel(h: int, w: int, ch: CircularChannel) -> np.ndarray:
     return mask > 0
 
 
-def _rasterizeChannelWedge(
+def _rasterize_channel_wedge(
     h: int, w: int, ch: CircularChannel,
     start_rel_deg: float, end_rel_deg: float,
 ) -> np.ndarray:
-    channel_mask = _rasterizeChannel(h, w, ch)
+    channel_mask = _rasterize_channel(h, w, ch)
 
     # angular mask: compute relative angle of each pixel from radius1
     ys, xs = np.mgrid[0:h, 0:w]
@@ -452,7 +452,7 @@ def _rasterizeChannelWedge(
 
 # --- Carousel platform helpers ---
 
-def _validateCornerAngles(
+def _validate_corner_angles(
     corners: List[Tuple[float, float]], min_angle_deg: float
 ) -> Tuple[bool, List[float]]:
     corners_array = np.array(corners)
@@ -472,7 +472,7 @@ def _validateCornerAngles(
     return valid, angles
 
 
-def _expandRectanglePerimeter(
+def _expand_rectangle_perimeter(
     corners: List[Tuple[float, float]], expansion_px: float
 ) -> List[Tuple[float, float]]:
     corners_array = np.array(corners)

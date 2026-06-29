@@ -1,16 +1,16 @@
 from typing import Optional
 import requests
 
-from .auth import getAuth
+from .auth import get_auth
 from .types import BricklinkPartData
 
 BL_API_BASE = "https://api.bricklink.com/api/store/v1"
 
 
-def getPartInfo(part_id: str) -> Optional[BricklinkPartData]:
+def get_part_info(part_id: str) -> Optional[BricklinkPartData]:
     url = f"{BL_API_BASE}/items/part/{part_id}"
     try:
-        response = requests.get(url, auth=getAuth(), timeout=10)
+        response = requests.get(url, auth=get_auth(), timeout=10)
         if response.status_code != 200:
             return None
         data = response.json()

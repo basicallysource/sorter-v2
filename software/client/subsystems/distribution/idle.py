@@ -16,7 +16,7 @@ class Idle(BaseState):
         carousel = self.shared.carousel
         if carousel is None:
             return None
-        piece = carousel.getPieceAtIntermediate()
+        piece = carousel.get_piece_at_intermediate()
         if piece is None:
             return None
 

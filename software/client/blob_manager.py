@@ -11,12 +11,14 @@ from typing import Any, Optional
 import cv2
 import numpy as np
 
-DATA_FILE = Path(__file__).parent / "data.json"
+from config_paths import CONFIG_DIR
+
+DATA_FILE = CONFIG_DIR / "data.json"
 _DATA_LOCK = threading.Lock()
-BLOB_DIR = Path(__file__).parent / "blob"
+BLOB_DIR = CONFIG_DIR / "blob"
 
 
-def _writeJsonAtomic(path: Path, data: dict[str, Any]) -> None:
+def _write_json_atomic(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp_path = tempfile.mkstemp(dir=path.parent, suffix=".json.tmp")
     try:
@@ -33,7 +35,7 @@ def _writeJsonAtomic(path: Path, data: dict[str, Any]) -> None:
         raise
 
 
-def loadData() -> dict[str, Any]:
+def load_data() -> dict[str, Any]:
     if not DATA_FILE.exists():
         return {}
     try:
@@ -43,139 +45,153 @@ def loadData() -> dict[str, Any]:
         return {}
 
 
-def saveData(data: dict[str, Any]) -> None:
-    _writeJsonAtomic(DATA_FILE, data)
+def save_data(data: dict[str, Any]) -> None:
+    _write_json_atomic(DATA_FILE, data)
 
 
-def getMachineId() -> str:
+def get_machine_id() -> str:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         if "machine_id" in data:
             return data["machine_id"]
 
         machine_id = str(uuid.uuid4())
         data["machine_id"] = machine_id
-        saveData(data)
+        save_data(data)
         return machine_id
 
 
-def getStepperPosition(name: str) -> int:
-    data = loadData()
+def get_stepper_position(name: str) -> int:
+    data = load_data()
     return data.get("stepper_positions", {}).get(name, 0)
 
 
-def setStepperPosition(name: str, position_steps: int) -> None:
+def set_stepper_position(name: str, position_steps: int) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         if "stepper_positions" not in data:
             data["stepper_positions"] = {}
         data["stepper_positions"][name] = position_steps
-        saveData(data)
+        save_data(data)
 
 
-def getServoPosition(name: str) -> int:
-    data = loadData()
+def get_servo_position(name: str) -> int:
+    data = load_data()
     return data.get("servo_positions", {}).get(name, 0)
 
 
-def setServoPosition(name: str, angle: int) -> None:
+def set_servo_position(name: str, angle: int) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         if "servo_positions" not in data:
             data["servo_positions"] = {}
         data["servo_positions"][name] = angle
-        saveData(data)
+        save_data(data)
 
 
-def getBinCategories() -> list[list[list[str | None]]] | None:
-    data = loadData()
+def get_bin_categories() -> list[list[list[str | None]]] | None:
+    data = load_data()
     return data.get("bin_categories")
 
 
-def setBinCategories(categories: list[list[list[str | None]]]) -> None:
+def set_bin_categories(categories: list[list[list[str | None]]]) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["bin_categories"] = categories
-        saveData(data)
+        save_data(data)
 
 
-def getMcuPath() -> str | None:
-    data = loadData()
+def get_mcu_path() -> str | None:
+    data = load_data()
     return data.get("mcu_path")
 
 
-def setMcuPath(path: str) -> None:
+def set_mcu_path(path: str) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["mcu_path"] = path
-        saveData(data)
+        save_data(data)
 
 
-def getCameraSetup() -> dict | None:
-    data = loadData()
+def get_camera_setup() -> dict | None:
+    data = load_data()
     return data.get("camera_setup")
 
 
-def setCameraSetup(setup: dict) -> None:
+def set_camera_setup(setup: dict) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["camera_setup"] = setup
-        saveData(data)
+        save_data(data)
 
 
-def getExcludedCameraIndices() -> list[int]:
-    data = loadData()
+def get_excluded_camera_indices() -> list[int]:
+    data = load_data()
     return data.get("excluded_camera_indices", [])
 
 
-def setExcludedCameraIndices(indices: list[int]) -> None:
+def set_excluded_camera_indices(indices: list[int]) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["excluded_camera_indices"] = sorted(set(indices))
-        saveData(data)
+        save_data(data)
 
 
-def getChannelPolygons() -> dict | None:
-    data = loadData()
+def get_channel_polygons() -> dict | None:
+    data = load_data()
     return data.get("channel_polygons")
 
 
-def setChannelPolygons(polygons: dict) -> None:
+def set_channel_polygons(polygons: dict) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["channel_polygons"] = polygons
-        saveData(data)
+        save_data(data)
 
 
-def getChuteCalibration() -> dict[str, float] | None:
-    data = loadData()
+def get_chute_calibration() -> dict[str, float] | None:
+    data = load_data()
     return data.get("chute_calibration")
 
 
-def setChuteCalibration(calibration: dict[str, float]) -> None:
+def set_chute_calibration(calibration: dict[str, float]) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["chute_calibration"] = calibration
-        saveData(data)
+        save_data(data)
 
 
-def getClassificationPolygons() -> dict | None:
-    data = loadData()
+def get_chute_wiggle_settings() -> dict:
+    """Chute wiggle params used during baseline capture (persisted, with defaults)."""
+    data = load_data()
+    s = data.get("chute_wiggle") or {}
+    return {"hz": float(s.get("hz", 5.0)), "steps": int(s.get("steps", 40))}
+
+
+def set_chute_wiggle_settings(hz: float, steps: int) -> None:
+    with _DATA_LOCK:
+        data = load_data()
+        data["chute_wiggle"] = {"hz": float(hz), "steps": int(steps)}
+        save_data(data)
+
+
+def get_classification_polygons() -> dict | None:
+    data = load_data()
     return data.get("classification_polygons")
 
 
-def setClassificationPolygons(polygons: dict) -> None:
+def set_classification_polygons(polygons: dict) -> None:
     with _DATA_LOCK:
-        data = loadData()
+        data = load_data()
         data["classification_polygons"] = polygons
-        saveData(data)
+        save_data(data)
 
 
-UNMAPPED_PARTS_FILE = Path(__file__).parent / "unmapped_parts.json"
+UNMAPPED_PARTS_FILE = CONFIG_DIR / "unmapped_parts.json"
 _UNMAPPED_LOCK = threading.Lock()
 
 
-def getUnmappedPartIds() -> set[str]:
+def get_unmapped_part_ids() -> set[str]:
     if not UNMAPPED_PARTS_FILE.exists():
         return set()
     try:
@@ -185,9 +201,9 @@ def getUnmappedPartIds() -> set[str]:
         return set()
 
 
-def addUnmappedPartId(part_id: str) -> None:
+def add_unmapped_part_id(part_id: str) -> None:
     with _UNMAPPED_LOCK:
-        ids = getUnmappedPartIds()
+        ids = get_unmapped_part_ids()
         if part_id in ids:
             return
         ids.add(part_id)
@@ -207,7 +223,7 @@ def addUnmappedPartId(part_id: str) -> None:
             raise
 
 
-CAMERA_NAMES = ["feeder", "classification_bottom", "classification_top"]
+CAMERA_NAMES = ["c_channel_2", "c_channel_3", "carousel", "classification"]
 
 
 class VideoRecorder:
@@ -231,10 +247,10 @@ class VideoRecorder:
         self._run_dir = BLOB_DIR / timestamp
         self._run_dir.mkdir(parents=True, exist_ok=True)
 
-        self._thread = threading.Thread(target=self._writerLoop, daemon=True)
+        self._thread = threading.Thread(target=self._writer_loop, daemon=True)
         self._thread.start()
 
-    def _getWriter(self, key: str, frame: np.ndarray) -> cv2.VideoWriter:
+    def _get_writer(self, key: str, frame: np.ndarray) -> cv2.VideoWriter:
         if key not in self._writers:
             h, w = frame.shape[:2]
             fourcc = cv2.VideoWriter_fourcc(*"mp4v")
@@ -242,13 +258,13 @@ class VideoRecorder:
             self._writers[key] = cv2.VideoWriter(str(path), fourcc, self._fps, (w, h))
         return self._writers[key]
 
-    def _writerLoop(self) -> None:
+    def _writer_loop(self) -> None:
         while True:
             item = self._queue.get()
             if item is None:
                 break
             key, frame, ts = item
-            writer = self._getWriter(key, frame)
+            writer = self._get_writer(key, frame)
 
             if key not in self._start_times:
                 self._start_times[key] = ts
@@ -270,7 +286,7 @@ class VideoRecorder:
             self._frame_counts[key] += 1
             self._last_frames[key] = frame
 
-    def writeFrame(
+    def write_frame(
         self, camera: str, raw: Optional[np.ndarray], annotated: Optional[np.ndarray]
     ) -> None:
         ts = time.time()

@@ -106,7 +106,7 @@ class Mog2ChannelDetector:
         self._last_detections = detections
         return detections
 
-    def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
+    def annotate_frame(self, frame: np.ndarray) -> np.ndarray:
         out = frame.copy()
 
         frame_h, frame_w = frame.shape[:2]

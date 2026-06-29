@@ -28,13 +28,13 @@ HUE_MAX_DISTANCE = HUE_PERIOD // 2  # 90
 HUE_DIFF_SCALE = 255.0 / HUE_MAX_DISTANCE
 
 
-def _hueCircularDistance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
+def _hue_circular_distance(a: np.ndarray, b: np.ndarray) -> np.ndarray:
     """Shortest distance between two OpenCV 8-bit hue arrays (period 180)."""
     d = np.abs(a - b)
     return np.minimum(d, HUE_PERIOD - d)
 
 
-def _hueArcDistance(h: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
+def _hue_arc_distance(h: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray:
     """Circular distance from hue `h` to the envelope arc [lo, hi]. Zero inside
     the arc, else the shortest circular distance to the nearer endpoint.
 
@@ -44,18 +44,18 @@ def _hueArcDistance(h: np.ndarray, lo: np.ndarray, hi: np.ndarray) -> np.ndarray
     near 0 (red) or 90, switch to a wrap-aware inside test. The distance itself
     is already wrap-aware via _hueCircularDistance."""
     inside = (h >= lo) & (h <= hi)
-    d = np.minimum(_hueCircularDistance(h, lo), _hueCircularDistance(h, hi))
+    d = np.minimum(_hue_circular_distance(h, lo), _hue_circular_distance(h, hi))
     return np.where(inside, 0, d)
 
 
-def _makePlatformMask(corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> np.ndarray:
+def _make_platform_mask(corners: List[Tuple[float, float]], shape: Tuple[int, ...]) -> np.ndarray:
     mask = np.zeros(shape[:2], dtype=np.uint8)
     pts = np.array([[int(x), int(y)] for x, y in corners], dtype=np.int32)
     cv2.fillPoly(mask, [pts], 255)
     return mask
 
 
-def _averageGrays(frames: List[np.ndarray]) -> np.ndarray:
+def _average_grays(frames: List[np.ndarray]) -> np.ndarray:
     acc = frames[0].astype(np.float32)
     for f in frames[1:]:
         acc += f.astype(np.float32)
@@ -131,7 +131,7 @@ class HeatmapDiff:
         new_w, new_h = int(w * self._scale), int(h * self._scale)
         return cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
 
-    def pushFrame(self, gray: np.ndarray) -> None:
+    def push_frame(self, gray: np.ndarray) -> None:
         now = time.time()
         if (now - self._last_ring_time) * 1000 >= CAPTURE_INTERVAL_MS:
             frame = gray if self._prescaled else self._downscale(gray)
@@ -139,20 +139,20 @@ class HeatmapDiff:
             self._last_ring_time = now
             self._cached_result = None
 
-    def _getAveraged(self, count: int) -> Optional[np.ndarray]:
+    def _get_averaged(self, count: int) -> Optional[np.ndarray]:
         n = min(count, len(self._gray_ring))
         if n == 0:
             return None
         frames = list(self._gray_ring)[-n:]
-        return _averageGrays(frames)
+        return _average_grays(frames)
 
-    def captureBaseline(
+    def capture_baseline(
         self,
         corners: List[Tuple[float, float]],
         shape: Tuple[int, ...],
         extra_mask: Optional[np.ndarray] = None,
     ) -> bool:
-        avg = self._getAveraged(BASELINE_FRAMES)
+        avg = self._get_averaged(BASELINE_FRAMES)
         if avg is None:
             return False
         if self._scale < 1.0:
@@ -162,7 +162,7 @@ class HeatmapDiff:
         else:
             scaled_corners = corners
             scaled_shape = shape
-        mask = _makePlatformMask(scaled_corners, scaled_shape)
+        mask = _make_platform_mask(scaled_corners, scaled_shape)
         # Optionally exclude unreliable (varying) pixels recorded during a
         # rotational sweep — the same stable-pixel mask the HSV path uses. The
         # mask is at calibration resolution, so fit it to the baseline mask.
@@ -182,7 +182,7 @@ class HeatmapDiff:
         self._cached_result = None
         return True
 
-    def setBaselineEnvelope(self, frames: List[np.ndarray], mask: np.ndarray) -> bool:
+    def set_baseline_envelope(self, frames: List[np.ndarray], mask: np.ndarray) -> bool:
         if not frames:
             return False
         stack = np.stack(frames, axis=0)
@@ -203,7 +203,7 @@ class HeatmapDiff:
         self._cached_result = None
         return True
 
-    def loadEnvelope(self, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray) -> None:
+    def load_envelope(self, baseline_min: np.ndarray, baseline_max: np.ndarray, mask: np.ndarray) -> None:
         # When prescaled, the caller already supplies working-resolution
         # envelopes (the baseline was captured at scale), so don't downscale.
         if self._scale < 1.0 and not self._prescaled:
@@ -221,7 +221,7 @@ class HeatmapDiff:
         self._baseline_timestamp = time.time()
         self._cached_result = None
 
-    def clearBaseline(self) -> None:
+    def clear_baseline(self) -> None:
         self._baseline_gray = None
         self._baseline_min = None
         self._baseline_max = None
@@ -231,7 +231,7 @@ class HeatmapDiff:
         self._gray_ring.clear()
         self._cached_result = None
 
-    def _envelopeDiffHS(
+    def _envelope_diff_hs(
         self, current: np.ndarray, bl_min: np.ndarray, bl_max: np.ndarray
     ) -> np.ndarray:
         """Saturation-gated hue/saturation(/value) envelope diff -> 0-255 map.
@@ -253,7 +253,7 @@ class HeatmapDiff:
         s_min = bl_min[:, :, 1].astype(np.int16)
         s_max = bl_max[:, :, 1].astype(np.int16)
 
-        h_dist = _hueArcDistance(h_cur, h_min, h_max)
+        h_dist = _hue_arc_distance(h_cur, h_min, h_max)
         h_diff = np.clip(h_dist * HUE_DIFF_SCALE, 0, 255)
 
         s_below = np.clip(s_min - s_cur, 0, 255)
@@ -274,7 +274,7 @@ class HeatmapDiff:
         combined = np.where(low_sat, non_hue, np.maximum(h_diff, non_hue))
         return combined.astype(np.uint8)
 
-    def _computeDiffMap(self) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
+    def _compute_diff_map(self) -> Optional[Tuple[np.ndarray, np.ndarray, np.ndarray]]:
         if self._cached_result is not None:
             return self._cached_result
 
@@ -284,7 +284,7 @@ class HeatmapDiff:
 
         if mask is None:
             return None
-        avg = self._getAveraged(self._current_frames)
+        avg = self._get_averaged(self._current_frames)
         if avg is None:
             return None
 
@@ -300,7 +300,7 @@ class HeatmapDiff:
         if bl_min is not None and bl_max is not None:
             current_masked = cv2.bitwise_and(avg, avg, mask=mask)
             if self._channel_mode in ("hs", "hsv"):
-                diff = self._envelopeDiffHS(current_masked, bl_min, bl_max)
+                diff = self._envelope_diff_hs(current_masked, bl_min, bl_max)
             else:
                 below = np.clip(
                     bl_min.astype(np.int16) - current_masked.astype(np.int16),
@@ -351,8 +351,8 @@ class HeatmapDiff:
         self._cached_result = result
         return result
 
-    def computeDiff(self) -> Tuple[float, int]:
-        result = self._computeDiffMap()
+    def compute_diff(self) -> Tuple[float, int]:
+        result = self._compute_diff_map()
         if result is None:
             return 0.0, 0
         diff, hot, _ = result
@@ -361,8 +361,8 @@ class HeatmapDiff:
         score = float(np.mean(diff[hot])) if hot_count >= self._min_hot_pixels else 0.0
         return score, hot_count
 
-    def computeBboxes(self, diff_thresh: float = 0) -> List[Tuple[int, int, int, int]]:
-        result = self._computeDiffMap()
+    def compute_bboxes(self, diff_thresh: float = 0) -> List[Tuple[int, int, int, int]]:
+        result = self._compute_diff_map()
         if result is None:
             return []
         diff, hot, _ = result
@@ -382,12 +382,12 @@ class HeatmapDiff:
             for x, y, w, h in [cv2.boundingRect(contour)]
         ]
 
-    def isTriggered(self) -> bool:
-        score, _ = self.computeDiff()
+    def is_triggered(self) -> bool:
+        score, _ = self.compute_diff()
         return score >= self._trigger_score
 
-    def annotateFrame(self, annotated: np.ndarray, label: str = "diff", text_y: int = 50) -> np.ndarray:
-        result = self._computeDiffMap()
+    def annotate_frame(self, annotated: np.ndarray, label: str = "diff", text_y: int = 50) -> np.ndarray:
+        result = self._compute_diff_map()
         if result is None:
             return annotated
         diff, hot, mask_bool = result
@@ -426,7 +426,7 @@ class HeatmapDiff:
         cv2.putText(out, f"{label}: {score:.1f} px:{hot_count}", (30, text_y),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, color, 2)
 
-        for x1, y1, x2, y2 in self.computeBboxes():
+        for x1, y1, x2, y2 in self.compute_bboxes():
             cv2.rectangle(out, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
         return out

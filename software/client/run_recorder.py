@@ -21,11 +21,11 @@ class RunRecorder:
         self.active_periods: list[dict[str, float]] = []
         self._current_active_start: Optional[float] = None
 
-    def markRunning(self) -> None:
+    def mark_running(self) -> None:
         if self._current_active_start is None:
             self._current_active_start = time.time()
 
-    def markPaused(self) -> None:
+    def mark_paused(self) -> None:
         if self._current_active_start is not None:
             self.active_periods.append({
                 "start": self._current_active_start,
@@ -33,11 +33,11 @@ class RunRecorder:
             })
             self._current_active_start = None
 
-    def recordPiece(self, piece: KnownObject) -> None:
+    def record_piece(self, piece: KnownObject) -> None:
         self.pieces.append(piece)
 
     def save(self) -> Path:
-        self.markPaused()
+        self.mark_paused()
         ended_at = time.time()
 
         pieces_data = []

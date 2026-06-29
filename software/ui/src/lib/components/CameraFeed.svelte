@@ -18,7 +18,7 @@
 </script>
 
 <div
-	class="dark:border-border-dark dark:bg-bg-dark flex h-full flex-col border border-border bg-bg"
+	class="dark:border-border-dark dark:bg-bg-dark flex flex-col border border-border bg-bg"
 >
 	<div
 		class="dark:bg-surface-dark flex flex-shrink-0 items-center justify-between bg-surface px-2 py-1 text-xs"
@@ -36,7 +36,7 @@
 			{/if}
 		</button>
 	</div>
-	<div class="dark:bg-surface-dark relative flex-1 overflow-hidden bg-surface">
+	<div class="dark:bg-surface-dark relative aspect-[16/9] w-full overflow-hidden bg-surface">
 		{#if image_src()}
 			<img src={image_src()} alt={camera} class="absolute inset-0 h-full w-full object-contain" />
 		{:else}

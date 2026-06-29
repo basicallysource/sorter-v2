@@ -55,11 +55,11 @@ class ClassificationAnalysisThread:
         if self._thread:
             self._thread.join(timeout=2.0)
 
-    def getBboxes(self) -> List[Tuple[int, int, int, int]]:
+    def get_bboxes(self) -> List[Tuple[int, int, int, int]]:
         with self._lock:
             return list(self._latest_bboxes)
 
-    def getCombinedBbox(self) -> Tuple[int, int, int, int] | None:
+    def get_combined_bbox(self) -> Tuple[int, int, int, int] | None:
         with self._lock:
             if not self._latest_bboxes:
                 return None
@@ -84,13 +84,13 @@ class ClassificationAnalysisThread:
 
                 if gray is not None:
                     with prof.timer(f"{prefix}.push_frame_ms"):
-                        self._heatmap.pushFrame(gray)
+                        self._heatmap.push_frame(gray)
 
                 bboxes: List[Tuple[int, int, int, int]] = []
                 if self._heatmap.has_baseline:
                     with prof.timer(f"{prefix}.compute_bboxes_ms"):
-                        raw_bboxes = self._heatmap.computeBboxes()
-                    prof.observeValue(f"{prefix}.raw_bbox_count", float(len(raw_bboxes)))
+                        raw_bboxes = self._heatmap.compute_bboxes()
+                    prof.observe_value(f"{prefix}.raw_bbox_count", float(len(raw_bboxes)))
                     for bbox in raw_bboxes:
                         w = bbox[2] - bbox[0]
                         h = bbox[3] - bbox[1]
@@ -99,7 +99,7 @@ class ClassificationAnalysisThread:
                             prof.hit(f"{prefix}.bbox_rejected")
                             continue
                         bboxes.append(bbox)
-                    prof.observeValue(f"{prefix}.bbox_count", float(len(bboxes)))
+                    prof.observe_value(f"{prefix}.bbox_count", float(len(bboxes)))
 
                 with self._lock:
                     self._latest_bboxes = bboxes

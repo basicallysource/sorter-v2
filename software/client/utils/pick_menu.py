@@ -1,4 +1,4 @@
-def pickMenu(options: list[str]) -> int | None:
+def pick_menu(options: list[str]) -> int | None:
     for i, option in enumerate(options):
         print(f"  [{i + 1}] {option}")
     try:

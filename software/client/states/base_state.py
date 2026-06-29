@@ -22,20 +22,20 @@ class BaseState(IStateMachine[T]):
         return None
 
     def cleanup(self) -> None:
-        self._stopExecutionThread()
+        self._stop_execution_thread()
 
-    def _ensureExecutionThreadStarted(self) -> None:
+    def _ensure_execution_thread_started(self) -> None:
         if self._execution_thread is None or not self._execution_thread.is_alive():
             self._stop_event.clear()
             self._execution_thread = threading.Thread(
-                target=self._executionLoop, daemon=True
+                target=self._execution_loop, daemon=True
             )
             self._execution_thread.start()
 
-    def _executionLoop(self) -> None:
+    def _execution_loop(self) -> None:
         pass
 
-    def _stopExecutionThread(self) -> None:
+    def _stop_execution_thread(self) -> None:
         if self._execution_thread is not None and self._execution_thread.is_alive():
             self._stop_event.set()
             self._execution_thread.join(timeout=THREAD_STOP_TIMEOUT_S)

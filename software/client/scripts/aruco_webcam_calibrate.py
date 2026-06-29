@@ -8,12 +8,12 @@ import sys
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from irl.config import mkArucoTagConfig
+from irl.config import make_aruco_tag_config
 
 
 # Get expected tag IDs from config
-def getExpectedTagIds():
-    config = mkArucoTagConfig()
+def get_expected_tag_ids():
+    config = make_aruco_tag_config()
     expected_ids = set()
 
     # Channel tags
@@ -71,7 +71,7 @@ PARAM_GRID = {
 }
 
 
-def createDetectorParams(config):
+def create_detector_params(config):
     params = aruco.DetectorParameters()
     params.minMarkerPerimeterRate = config["minMarkerPerimeterRate"]
     params.perspectiveRemovePixelPerCell = config["perspectiveRemovePixelPerCell"]
@@ -90,7 +90,7 @@ def createDetectorParams(config):
     return params
 
 
-def scoreDetection(detected_ids, expected_ids):
+def score_detection(detected_ids, expected_ids):
     detected_set = set(detected_ids) if detected_ids is not None else set()
     expected_found = len(detected_set & expected_ids)
     unexpected_found = len(detected_set - expected_ids)
@@ -100,8 +100,8 @@ def scoreDetection(detected_ids, expected_ids):
     return score, expected_found, unexpected_found
 
 
-def testParams(cap, aruco_dict, params_config, expected_ids, display_time_ms=500):
-    params = createDetectorParams(params_config)
+def test_params(cap, aruco_dict, params_config, expected_ids, display_time_ms=500):
+    params = create_detector_params(params_config)
     detector = aruco.ArucoDetector(aruco_dict, params)
 
     scores = []
@@ -129,7 +129,7 @@ def testParams(cap, aruco_dict, params_config, expected_ids, display_time_ms=500
             return -999, 0, 0
 
         # Calculate score for this frame
-        score, expected_found, unexpected_found = scoreDetection(
+        score, expected_found, unexpected_found = score_detection(
             ids.flatten() if ids is not None else None, expected_ids
         )
         scores.append(score)
@@ -189,8 +189,8 @@ def testParams(cap, aruco_dict, params_config, expected_ids, display_time_ms=500
 
 def main():
     # Resolve camera setup to current cv2 indices by stable identity.
-    from hardware.camera_resolver import resolveCameraSetup
-    camera_setup = resolveCameraSetup()
+    from hardware.camera_resolver import resolve_camera_setup
+    camera_setup = resolve_camera_setup()
     if not camera_setup:
         print("Error: No camera setup found. Run client/scripts/camera_setup.py first.")
         return
@@ -213,7 +213,7 @@ def main():
         return
 
     # Get expected tag IDs
-    expected_ids = getExpectedTagIds()
+    expected_ids = get_expected_tag_ids()
     print(f"Expected tag IDs: {sorted(expected_ids)}")
     print(f"Total expected tags: {len(expected_ids)}")
     print()
@@ -238,7 +238,7 @@ def main():
     }
 
     print("Testing baseline configuration...")
-    best_score, best_expected, best_unexpected = testParams(
+    best_score, best_expected, best_unexpected = test_params(
         cap, aruco_dict, best_config, expected_ids, display_time_ms=1000
     )
     print(
@@ -262,7 +262,7 @@ def main():
             test_config = best_config.copy()
             test_config[param_name] = value
 
-            score, expected_found, unexpected_found = testParams(
+            score, expected_found, unexpected_found = test_params(
                 cap, aruco_dict, test_config, expected_ids, display_time_ms=300
             )
 
@@ -341,7 +341,7 @@ def main():
     print("Showing best configuration. Press Ctrl+C to exit...")
 
     # Show best config continuously until user interrupts
-    params = createDetectorParams(best_config)
+    params = create_detector_params(best_config)
     detector = aruco.ArucoDetector(aruco_dict, params)
 
     try:
@@ -385,7 +385,7 @@ def main():
                     )
 
             # Calculate current stats
-            score, expected_found, unexpected_found = scoreDetection(
+            score, expected_found, unexpected_found = score_detection(
                 ids.flatten() if ids is not None else None, expected_ids
             )
 

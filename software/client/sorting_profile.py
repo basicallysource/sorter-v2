@@ -8,7 +8,7 @@ MISC_CATEGORY = "misc"
 
 class SortingProfile(ABC):
     @abstractmethod
-    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
+    def get_category_id_for_part(self, part_id: str, color_id: str = "any_color") -> str:
         pass
 
 
@@ -17,22 +17,22 @@ class JsonSortingProfile(SortingProfile):
         self._sorting_profile_path = gc.sorting_profile_path
         self.part_to_category: dict[str, str] = {}
         self.default_category_id = MISC_CATEGORY
-        self._loadData()
+        self._load_data()
 
-    def _loadData(self) -> None:
+    def _load_data(self) -> None:
         with open(self._sorting_profile_path, "r") as f:
             data = json.load(f)
         if "part_to_category" not in data:
             raise ValueError("sorting profile json missing part_to_category")
-        self._loadRuntimeSortingProfile(data)
+        self._load_runtime_sorting_profile(data)
 
-    def _loadRuntimeSortingProfile(self, data: dict) -> None:
+    def _load_runtime_sorting_profile(self, data: dict) -> None:
         self.default_category_id = str(data.get("default_category_id", MISC_CATEGORY))
         part_to_category = data.get("part_to_category", {})
         for part_id, category_id in part_to_category.items():
             self.part_to_category[str(part_id)] = str(category_id)
 
-    def getCategoryIdForPart(self, part_id: str, color_id: str = "any_color") -> str:
+    def get_category_id_for_part(self, part_id: str, color_id: str = "any_color") -> str:
         color_key = f"{color_id}-{part_id}"
         if color_key in self.part_to_category:
             return self.part_to_category[color_key]
@@ -40,5 +40,5 @@ class JsonSortingProfile(SortingProfile):
         return self.part_to_category.get(any_key, self.default_category_id)
 
 
-def mkSortingProfile(gc: GlobalConfig) -> SortingProfile:
+def make_sorting_profile(gc: GlobalConfig) -> SortingProfile:
     return JsonSortingProfile(gc)

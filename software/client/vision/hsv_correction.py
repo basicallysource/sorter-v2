@@ -37,7 +37,7 @@ import numpy as np
 HUE_ROTATION = 105  # H165 + 105 = 270 % 180 = 90
 
 
-def rotateHue(hsv: np.ndarray) -> np.ndarray:
+def rotate_hue(hsv: np.ndarray) -> np.ndarray:
     """Rotate the hue channel of an 8-bit HSV image by HUE_ROTATION (mod 180) so
     the magenta background moves off the 0/180 wrap. Returns a new array."""
     out = hsv.copy()
@@ -58,7 +58,7 @@ _IDENTITY = {
 }
 
 
-def loadHsvCorrection(path: Optional[Path] = None) -> Optional[dict]:
+def load_hsv_correction(path: Optional[Path] = None) -> Optional[dict]:
     """Load HSV correction parameters, or None if no file exists / it is empty.
 
     A None return means "no correction" and callers should treat the transform
@@ -85,7 +85,7 @@ def loadHsvCorrection(path: Optional[Path] = None) -> Optional[dict]:
     return corr
 
 
-def isNoop(corr: Optional[dict]) -> bool:
+def is_noop(corr: Optional[dict]) -> bool:
     """True if the correction is absent or equal to the identity transform."""
     if corr is None:
         return True
@@ -98,11 +98,11 @@ def isNoop(corr: Optional[dict]) -> bool:
     )
 
 
-def applyHsvCorrection(hsv: np.ndarray, corr: Optional[dict]) -> np.ndarray:
+def apply_hsv_correction(hsv: np.ndarray, corr: Optional[dict]) -> np.ndarray:
     """Apply the correction to an 8-bit HSV image. No-op (returns input) when
     corr is None or the identity. Hue wraps mod 180; S/V are scaled+offset then
     clipped to 0-255. Computation is done in float to avoid uint8 overflow."""
-    if isNoop(corr):
+    if is_noop(corr):
         return hsv
 
     h = hsv[:, :, 0].astype(np.float32)
@@ -120,7 +120,7 @@ def applyHsvCorrection(hsv: np.ndarray, corr: Optional[dict]) -> np.ndarray:
     return out
 
 
-def bgrToHsvScaled(
+def bgr_to_hsv_scaled(
     bgr: np.ndarray,
     scale: float,
     corr: Optional[dict],
@@ -143,6 +143,6 @@ def bgrToHsvScaled(
         h, w = bgr.shape[:2]
         bgr = cv2.resize(bgr, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
     hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
-    hsv = rotateHue(hsv)  # move magenta background off the 0/180 hue wrap
-    hsv = applyHsvCorrection(hsv, corr)
+    hsv = rotate_hue(hsv)  # move magenta background off the 0/180 hue wrap
+    hsv = apply_hsv_correction(hsv, corr)
     return hsv if keep_value else hsv[:, :, :2].copy()

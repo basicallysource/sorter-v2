@@ -40,7 +40,7 @@ class Rotating(BaseState):
     def step(self) -> Optional[ClassificationState]:
         if self._state_entered_at is None:
             self._state_entered_at = time.time()
-        piece_at_intermediate = self.carousel.getPieceAtIntermediate()
+        piece_at_intermediate = self.carousel.get_piece_at_intermediate()
         requires_distribution_ready = piece_at_intermediate is not None and (
             piece_at_intermediate.part_id is not None
             or piece_at_intermediate.classification_status
@@ -99,14 +99,14 @@ class Rotating(BaseState):
         if exiting:
             self.logger.info(f"Rotating: piece {exiting.uuid[:8]} exited carousel")
 
-        piece_at_exit = self.carousel.getPieceAtExit()
+        piece_at_exit = self.carousel.get_piece_at_exit()
         if piece_at_exit is not None:
             self.logger.info(
                 f"Rotating: piece {piece_at_exit.uuid[:8]} ready at exit for distribution"
             )
             self.shared.distribution_ready = False
 
-        piece_at_class = self.carousel.getPieceAtClassification()
+        piece_at_class = self.carousel.get_piece_at_classification()
         if piece_at_class is not None:
             self.logger.info(
                 f"Rotating: piece {piece_at_class.uuid[:8]} at classification position"

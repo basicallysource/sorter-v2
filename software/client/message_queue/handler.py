@@ -3,7 +3,7 @@ from defs.events import ServerToMainThreadEvent
 from sorter_controller import SorterController
 
 
-def handleServerToMainEvent(
+def handle_server_to_main_event(
     gc: GlobalConfig,
     controller: SorterController,
     event: ServerToMainThreadEvent,

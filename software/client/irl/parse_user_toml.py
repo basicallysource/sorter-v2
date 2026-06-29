@@ -37,7 +37,7 @@ class MachineConfig:
     carousel_trigger_score: float | None = None
 
 
-def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
+def load_machine_specific_params(gc: GlobalConfig) -> dict[str, object]:
     current_override_env_path = os.getenv(MACHINE_SPECIFIC_PARAMS_ENV_VAR)
 
     if not current_override_env_path:
@@ -85,7 +85,7 @@ def loadMachineSpecificParams(gc: GlobalConfig) -> dict[str, object]:
     return raw
 
 
-def _parseStepperCurrentOverrides(
+def _parse_stepper_current_overrides(
     gc: GlobalConfig,
     raw: dict[str, object],
 ) -> dict[str, tuple[int, int, int]]:
@@ -160,14 +160,14 @@ def _parseStepperCurrentOverrides(
     return overrides
 
 
-def _validateAngle(gc: GlobalConfig, name: str, value: object, default: int) -> int:
+def _validate_angle(gc: GlobalConfig, name: str, value: object, default: int) -> int:
     if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 180:
         return value
     gc.logger.warning(f"Invalid {name}={value!r}; expected int 0-180. Using default {default}.")
     return default
 
 
-def _validateLayerSections(gc: GlobalConfig, raw_sections: object, layer_idx: int) -> list[list[str]] | None:
+def _validate_layer_sections(gc: GlobalConfig, raw_sections: object, layer_idx: int) -> list[list[str]] | None:
     if not isinstance(raw_sections, list):
         gc.logger.warning(f"Layer {layer_idx} sections must be a list. Skipping layer.")
         return None
@@ -188,7 +188,7 @@ def _validateLayerSections(gc: GlobalConfig, raw_sections: object, layer_idx: in
     return sections
 
 
-def _parseAngleOverrides(gc: GlobalConfig, raw: object, name: str, default: int) -> dict[int, int]:
+def _parse_angle_overrides(gc: GlobalConfig, raw: object, name: str, default: int) -> dict[int, int]:
     if not isinstance(raw, dict):
         gc.logger.warning(f"{name} must be a table. Ignoring.")
         return {}
@@ -199,17 +199,17 @@ def _parseAngleOverrides(gc: GlobalConfig, raw: object, name: str, default: int)
         except (ValueError, TypeError):
             gc.logger.warning(f"Invalid layer index '{key}' in {name}. Skipping.")
             continue
-        overrides[idx] = _validateAngle(gc, f"{name}.{key}", value, default)
+        overrides[idx] = _validate_angle(gc, f"{name}.{key}", value, default)
     return overrides
 
 
-def loadMachineConfig(
+def load_machine_config(
     gc: GlobalConfig,
     machine_specific_params: dict[str, object] | None = None,
 ) -> MachineConfig:
     raw: object = machine_specific_params
     if raw is None:
-        raw = loadMachineSpecificParams(gc)
+        raw = load_machine_specific_params(gc)
 
     config = MachineConfig()
 
@@ -218,12 +218,12 @@ def loadMachineConfig(
 
     servo_params = raw.get("servo")
     if isinstance(servo_params, dict):
-        config.servo_open_angle = _validateAngle(
+        config.servo_open_angle = _validate_angle(
             gc, "servo.open_angle",
             servo_params.get("open_angle", DEFAULT_SERVO_OPEN_ANGLE),
             DEFAULT_SERVO_OPEN_ANGLE,
         )
-        config.servo_closed_angle = _validateAngle(
+        config.servo_closed_angle = _validate_angle(
             gc, "servo.closed_angle",
             servo_params.get("closed_angle", DEFAULT_SERVO_CLOSED_ANGLE),
             DEFAULT_SERVO_CLOSED_ANGLE,
@@ -236,17 +236,17 @@ def loadMachineConfig(
         raw_sections = layers_table.get("sections")
         if isinstance(raw_sections, list):
             for i, layer_sections in enumerate(raw_sections):
-                validated = _validateLayerSections(gc, layer_sections, i)
+                validated = _validate_layer_sections(gc, layer_sections, i)
                 if validated is not None:
                     config.layer_sections.append(validated)
 
         raw_open = layers_table.get("servo_open_angles")
         if raw_open is not None:
-            config.servo_open_angle_overrides = _parseAngleOverrides(gc, raw_open, "layers.servo_open_angles", config.servo_open_angle)
+            config.servo_open_angle_overrides = _parse_angle_overrides(gc, raw_open, "layers.servo_open_angles", config.servo_open_angle)
 
         raw_closed = layers_table.get("servo_closed_angles")
         if raw_closed is not None:
-            config.servo_closed_angle_overrides = _parseAngleOverrides(gc, raw_closed, "layers.servo_closed_angles", config.servo_closed_angle)
+            config.servo_closed_angle_overrides = _parse_angle_overrides(gc, raw_closed, "layers.servo_closed_angles", config.servo_closed_angle)
 
         raw_fbc = layers_table.get("first_bin_center")
         if isinstance(raw_fbc, (int, float)) and not isinstance(raw_fbc, bool):
@@ -272,12 +272,12 @@ def loadMachineConfig(
         if isinstance(raw_trigger, (int, float)) and not isinstance(raw_trigger, bool):
             config.carousel_trigger_score = float(raw_trigger)
 
-    config.stepper_current_overrides = _parseStepperCurrentOverrides(gc, raw)
+    config.stepper_current_overrides = _parse_stepper_current_overrides(gc, raw)
 
     return config
 
 
-def applyStepperCurrentOverride(
+def apply_stepper_current_override(
     stepper: "StepperMotor",
     stepper_name: str,
     overrides: dict[str, tuple[int, int, int]],

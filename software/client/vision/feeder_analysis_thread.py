@@ -43,7 +43,7 @@ class FeederAnalysisThread:
         if self._thread:
             self._thread.join(timeout=2.0)
 
-    def getDetections(self) -> list[ChannelDetection]:
+    def get_detections(self) -> list[ChannelDetection]:
         with self._lock:
             return list(self._latest_detections)
 
@@ -64,7 +64,7 @@ class FeederAnalysisThread:
                     with prof.timer("feeder_analysis.detect_ms"):
                         detections = self._detector.detect(gray)
 
-                prof.observeValue("feeder_analysis.detection_count", float(len(detections)))
+                prof.observe_value("feeder_analysis.detection_count", float(len(detections)))
 
                 with self._lock:
                     self._latest_detections = detections

@@ -21,14 +21,14 @@ def classify(
     callback: Callable[[Optional[str], str, str, Optional[float]], None],
 ) -> None:
     thread = threading.Thread(
-        target=_doClassify,
+        target=_do_classify,
         args=(gc, top_image, bottom_image, callback),
         daemon=True,
     )
     thread.start()
 
 
-def _doClassify(
+def _do_classify(
     gc: GlobalConfig,
     top_image: Optional[np.ndarray],
     bottom_image: Optional[np.ndarray],
@@ -41,13 +41,13 @@ def _doClassify(
             bottom_result = None
             if top_image is not None:
                 with gc.profiler.timer("classification.brickognize.top_ms"):
-                    top_result = _classifyImage(top_image)
+                    top_result = _classify_image(top_image)
             if bottom_image is not None:
                 with gc.profiler.timer("classification.brickognize.bottom_ms"):
-                    bottom_result = _classifyImage(bottom_image)
+                    bottom_result = _classify_image(bottom_image)
 
-        best_item = _pickBestItem(top_result, bottom_result)
-        best_color = _pickBestColor(top_result, bottom_result)
+        best_item = _pick_best_item(top_result, bottom_result)
+        best_color = _pick_best_color(top_result, bottom_result)
         color_id = best_color["id"] if best_color else ANY_COLOR
         color_name = best_color["name"] if best_color else ANY_COLOR_NAME
         if best_item:
@@ -64,7 +64,7 @@ def _doClassify(
         callback(None, ANY_COLOR, ANY_COLOR_NAME, None)
 
 
-def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
+def _classify_image(image: np.ndarray) -> BrickognizeResponse:
     rgb_image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(rgb_image)
     img_bytes = io.BytesIO()
@@ -86,7 +86,7 @@ def _classifyImage(image: np.ndarray) -> BrickognizeResponse:
     return result
 
 
-def _pickBestItem(
+def _pick_best_item(
     top_result: Optional[BrickognizeResponse],
     bottom_result: Optional[BrickognizeResponse],
 ) -> Optional[BrickognizeItem]:
@@ -100,7 +100,7 @@ def _pickBestItem(
     return max(all_items, key=lambda x: x.get("score", 0))
 
 
-def _pickBestColor(
+def _pick_best_color(
     top_result: Optional[BrickognizeResponse],
     bottom_result: Optional[BrickognizeResponse],
 ) -> Optional[BrickognizeColor]:

@@ -19,7 +19,7 @@ class ChannelAction(Enum):
     PULSE_PRECISE = "precise"
 
 
-def computeChannelGeometry(
+def compute_channel_geometry(
     saved_polygons: Dict[str, np.ndarray],
     channel_angles: Dict[str, float],
     channel_masks: Dict[str, np.ndarray],
@@ -53,25 +53,25 @@ def computeChannelGeometry(
     return geometry
 
 
-def _isInChannel(point: Tuple[float, float], ch: PolygonChannel) -> bool:
+def _is_in_channel(point: Tuple[float, float], ch: PolygonChannel) -> bool:
     x, y = int(point[0]), int(point[1])
     if 0 <= y < ch.mask.shape[0] and 0 <= x < ch.mask.shape[1]:
         return ch.mask[y, x] > 0
     return False
 
 
-def determineObjectChannel(
+def determine_object_channel(
     obj_center_image: Tuple[float, float],
     geometry: ChannelGeometry,
 ) -> PolygonChannel | None:
-    if geometry.third_channel and _isInChannel(obj_center_image, geometry.third_channel):
+    if geometry.third_channel and _is_in_channel(obj_center_image, geometry.third_channel):
         return geometry.third_channel
-    if geometry.second_channel and _isInChannel(obj_center_image, geometry.second_channel):
+    if geometry.second_channel and _is_in_channel(obj_center_image, geometry.second_channel):
         return geometry.second_channel
     return None
 
 
-def getBboxSections(bbox: Tuple[int, int, int, int], channel: PolygonChannel) -> set[int]:
+def get_bbox_sections(bbox: Tuple[int, int, int, int], channel: PolygonChannel) -> set[int]:
     x1, y1, x2, y2 = bbox
     mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
     points = [
@@ -97,14 +97,14 @@ class FeederAnalysis:
         self.ch2_dropzone_occupied = False
 
 
-def analyzeFeederChannels(
+def analyze_feeder_channels(
     gc: "GlobalConfig",
     detections: List[ChannelDetection],
 ) -> FeederAnalysis:
     result = FeederAnalysis()
 
     for det in detections:
-        sections = getBboxSections(det.bbox, det.channel)
+        sections = get_bbox_sections(det.bbox, det.channel)
 
         if det.channel_id == 3:
             if sections & set(CH3_DROPZONE_SECTIONS):

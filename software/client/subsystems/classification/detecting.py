@@ -41,7 +41,7 @@ class Detecting(BaseState):
             elapsed_ms = (now - self._entered_at) * 1000
             if elapsed_ms < WAIT_FOR_SETTLE_TO_TAKE_BASELINE_MS:
                 return None
-            if not self.vision.captureCarouselBaseline():
+            if not self.vision.capture_carousel_baseline():
                 return None
             self._baseline_pending = False
             self.logger.info("Detecting: captured heatmap baseline")
@@ -55,7 +55,7 @@ class Detecting(BaseState):
             self.logger.info(f"Detecting: classification_ready=True ({elapsed_since_enter:.0f}ms since enter)")
             return None
 
-        triggered, score, hot_px = self.vision.isCarouselTriggered()
+        triggered, score, hot_px = self.vision.is_carousel_triggered()
         if triggered:
             if self._detected_at is None:
                 self._detected_at = now
@@ -72,7 +72,7 @@ class Detecting(BaseState):
                 wait_ms = (now - self._ready_at) * 1000 if self._ready_at else 0
                 total_ms = (now - self._entered_at) * 1000 if self._entered_at else 0
                 self.logger.info(f"Detecting: confirmed -> ROTATING (wait_for_piece={wait_ms:.0f}ms, total={total_ms:.0f}ms)")
-                obj = self.carousel.addPieceAtFeeder()
+                obj = self.carousel.add_piece_at_feeder()
                 obj.feeding_started_at = self._ready_at
                 return ClassificationState.ROTATING
         else:
@@ -88,7 +88,7 @@ class Detecting(BaseState):
 
     def cleanup(self) -> None:
         super().cleanup()
-        self.vision.clearCarouselBaseline()
+        self.vision.clear_carousel_baseline()
         self._baseline_pending = True
         self._entered_at = None
         self._detected_at = None

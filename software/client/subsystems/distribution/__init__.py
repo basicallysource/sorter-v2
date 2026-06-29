@@ -6,9 +6,9 @@ from irl.bin_layout import (
     BinSection,
     Layer,
     DistributionLayout,
-    mkDefaultLayout,
-    extractCategories,
-    applyCategories,
-    layoutMatchesCategories,
+    make_default_layout,
+    extract_categories,
+    apply_categories,
+    layout_matches_categories,
 )
 from .chute import Chute, BinAddress

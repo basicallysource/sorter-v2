@@ -6,7 +6,7 @@ from irl.config import IRLInterface, IRLConfig
 CALIBRATION_REVERSE_PULSES = 10
 
 
-def calibrateFeederChannels(gc: GlobalConfig, irl: IRLInterface, irl_config: IRLConfig) -> None:
+def calibrate_feeder_channels(gc: GlobalConfig, irl: IRLInterface, irl_config: IRLConfig) -> None:
     gc.logger.info("Calibrating feeder channels (reverse pulse)...")
     fc = irl_config.feeder_config
 

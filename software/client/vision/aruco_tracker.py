@@ -96,24 +96,24 @@ class ArucoTracker:
         if self._thread:
             self._thread.join(timeout=2.0)
 
-    def getTags(self) -> Dict[int, Tuple[float, float]]:
+    def get_tags(self) -> Dict[int, Tuple[float, float]]:
         with self._lock:
             return dict(self._latest_tags)
 
-    def getRawTags(self) -> Dict[int, Tuple[float, float]]:
+    def get_raw_tags(self) -> Dict[int, Tuple[float, float]]:
         with self._lock:
             return dict(self._latest_raw_tags)
 
-    def getLastUpdateTimestamp(self) -> float:
+    def get_last_update_timestamp(self) -> float:
         with self._lock:
             return self._last_update_ts
 
-    def setSmoothingTimeSeconds(self, smoothing_time_s: float) -> None:
+    def set_smoothing_time_seconds(self, smoothing_time_s: float) -> None:
         safe_value = float(max(0.0, smoothing_time_s))
         with self._lock:
             self._smoothing_time_s = safe_value
 
-    def getSmoothingTimeSeconds(self) -> float:
+    def get_smoothing_time_seconds(self) -> float:
         with self._lock:
             return self._smoothing_time_s
 
@@ -144,7 +144,7 @@ class ArucoTracker:
         self, raw_frame: np.ndarray
     ) -> Tuple[Dict[int, Tuple[float, float]], Dict[int, Tuple[float, float]]]:
         self.gc.profiler.hit("aruco_tracker.detect.calls")
-        self.gc.profiler.startTimer("aruco_tracker.detect.total_ms")
+        self.gc.profiler.start_timer("aruco_tracker.detect.total_ms")
         with self.gc.profiler.timer("aruco_tracker.detect.cvt_color_ms"):
             gray = cv2.cvtColor(raw_frame, cv2.COLOR_BGR2GRAY)
 
@@ -153,7 +153,7 @@ class ArucoTracker:
             corners, ids, _ = detector.detectMarkers(gray)
 
         current_time = time.time()
-        smoothing_time_s = self.getSmoothingTimeSeconds()
+        smoothing_time_s = self.get_smoothing_time_seconds()
         raw_result: Dict[int, Tuple[float, float]] = {}
         result: Dict[int, Tuple[float, float]] = {}
         detected_ids = set()
@@ -231,6 +231,6 @@ class ArucoTracker:
             if current_time - ts > ARUCO_OUTLIER_REACQUIRE_TIMEOUT_S:
                 self._aruco_last_accepted_raw.pop(tag_id, None)
 
-        self.gc.profiler.observeValue("aruco_tracker.detected_count", float(len(result)))
-        self.gc.profiler.endTimer("aruco_tracker.detect.total_ms")
+        self.gc.profiler.observe_value("aruco_tracker.detected_count", float(len(result)))
+        self.gc.profiler.end_timer("aruco_tracker.detect.total_ms")
         return raw_result, result

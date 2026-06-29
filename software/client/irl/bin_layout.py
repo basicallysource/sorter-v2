@@ -66,7 +66,7 @@ DEFAULT_BIN_LAYOUT = BinLayoutConfig(
 )
 
 
-def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
+def make_layout_from_config(config: BinLayoutConfig) -> DistributionLayout:
     layers = []
     for layer_idx, layer_config in enumerate(config.layers):
         total_bins = sum(len(s) for s in layer_config.sections)
@@ -90,11 +90,11 @@ def mkLayoutFromConfig(config: BinLayoutConfig) -> DistributionLayout:
     return DistributionLayout(layers=layers)
 
 
-def mkDefaultLayout() -> DistributionLayout:
-    return mkLayoutFromConfig(DEFAULT_BIN_LAYOUT)
+def make_default_layout() -> DistributionLayout:
+    return make_layout_from_config(DEFAULT_BIN_LAYOUT)
 
 
-def extractCategories(layout: DistributionLayout) -> list[list[list[str | None]]]:
+def extract_categories(layout: DistributionLayout) -> list[list[list[str | None]]]:
     # Reverse so data.json layer order matches TOML config order (bottom-to-top),
     # since mkLayoutFromConfig stores layers top-first internally.
     result = [
@@ -104,7 +104,7 @@ def extractCategories(layout: DistributionLayout) -> list[list[list[str | None]]
     return list(reversed(result))
 
 
-def applyCategories(
+def apply_categories(
     layout: DistributionLayout, categories: list[list[list[str | None]]]
 ) -> None:
     # categories is in TOML order (bottom-to-top); reverse to match internal layout order.
@@ -115,7 +115,7 @@ def applyCategories(
                 b.category_id = reversed_categories[layer_idx][section_idx][bin_idx]
 
 
-def layoutMatchesCategories(
+def layout_matches_categories(
     layout: DistributionLayout, categories: list[list[list[str | None]]]
 ) -> bool:
     # categories is in TOML order (bottom-to-top); reverse to match internal layout order.

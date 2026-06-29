@@ -7,7 +7,7 @@ from enum import Enum
 from typing import TYPE_CHECKING
 from logger import Logger
 from profiler import Profiler
-from blob_manager import getMachineId
+from blob_manager import get_machine_id
 
 if TYPE_CHECKING:
     from run_recorder import RunRecorder
@@ -43,7 +43,7 @@ class GlobalConfig:
     region_provider: RegionProviderType
     profiler: Profiler
     rotary_channel_steppers_can_operate_in_parallel: bool
-    disable_video_streams: list[str]  # "feeder", "classification_bottom", "classification_top"
+    disable_video_streams: list[str]  # e.g. "feeder", "carousel", "classification"
     run_recorder: "RunRecorder"
     def __init__(self):
         self.debug_level = 0
@@ -51,15 +51,15 @@ class GlobalConfig:
         self.log_buffer_size = 100
         self.disable_chute = False
         self.rotary_channel_steppers_can_operate_in_parallel = False
-        self.disable_video_streams = ["classification_bottom"]
+        self.disable_video_streams = []
 
 
-def mkTimeouts() -> Timeouts:
+def make_timeouts() -> Timeouts:
     timeouts = Timeouts()
     return timeouts
 
 
-def mkGlobalConfig() -> GlobalConfig:
+def make_global_config() -> GlobalConfig:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--disable",
@@ -72,9 +72,9 @@ def mkGlobalConfig() -> GlobalConfig:
     gc = GlobalConfig()
     gc.debug_level = int(os.getenv("DEBUG_LEVEL", "0"))
     gc.log_buffer_size = int(os.getenv("LOG_BUFFER_SIZE", "100"))
-    gc.timeouts = mkTimeouts()
+    gc.timeouts = make_timeouts()
     gc.sorting_profile_path = os.environ["SORTING_PROFILE_PATH"]
-    gc.machine_id = getMachineId()
+    gc.machine_id = get_machine_id()
     gc.run_id = str(uuid.uuid4())
     gc.telemetry_enabled = os.getenv("TELEMETRY_ENABLED", "0") == "1"
     gc.telemetry_url = os.getenv("TELEMETRY_URL", "https://api.basically.website")
@@ -85,7 +85,7 @@ def mkGlobalConfig() -> GlobalConfig:
     from telemetry import Telemetry
 
     telemetry = Telemetry(gc)
-    gc.logger = Logger(gc.debug_level, gc.log_buffer_size, telemetry.uploadLogs)
+    gc.logger = Logger(gc.debug_level, gc.log_buffer_size, telemetry.upload_logs)
     gc.profiler = Profiler(
         enabled=os.getenv("PROFILER_ENABLED", "0") == "1",
         report_interval_s=float(os.getenv("PROFILER_REPORT_INTERVAL_S", "5")),

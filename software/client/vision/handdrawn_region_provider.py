@@ -1,7 +1,7 @@
 import numpy as np
 import cv2
 
-from blob_manager import getChannelPolygons
+from blob_manager import get_channel_polygons
 from defs.consts import (
     CHANNEL_SECTION_COUNT, CHANNEL_SECTION_DEG,
     CH2_DROPZONE_SECTIONS, CH2_PRECISE_SECTIONS,
@@ -23,7 +23,7 @@ DROPZONE_COLOR = (0, 200, 0)
 PRECISE_COLOR = (0, 100, 255)
 
 
-def _sectionsToAngularMask(
+def _sections_to_angular_mask(
     h: int, w: int,
     center_x: float, center_y: float,
     section_zero_angle: float,
@@ -53,10 +53,10 @@ class HanddrawnRegionProvider:
         self._cached_frame_shape = (0, 0)
         self._polygons = {}
         self._channel_angles = {}
-        self._loadPolygons()
+        self._load_polygons()
 
-    def _loadPolygons(self) -> None:
-        saved = getChannelPolygons()
+    def _load_polygons(self) -> None:
+        saved = get_channel_polygons()
         if saved is None:
             raise RuntimeError(
                 "No handdrawn regions found. Run the polygon editor first:\n"
@@ -77,7 +77,7 @@ class HanddrawnRegionProvider:
     def stop(self) -> None:
         pass
 
-    def getRegions(self, frame: np.ndarray) -> dict[RegionName, Region]:
+    def get_regions(self, frame: np.ndarray) -> dict[RegionName, Region]:
         h, w = frame.shape[:2]
         if (h, w) == self._cached_frame_shape and self._cached_regions:
             return self._cached_regions
@@ -87,7 +87,7 @@ class HanddrawnRegionProvider:
         second_pts = self._polygons.get("second_channel")
         if second_pts and len(second_pts) >= 3:
             second_angle = self._channel_angles.get("second", 0.0)
-            self._buildChannelRegions(
+            self._build_channel_regions(
                 h, w, second_pts, second_angle,
                 RegionName.CHANNEL_2,
                 RegionName.CHANNEL_2_DROPZONE,
@@ -100,7 +100,7 @@ class HanddrawnRegionProvider:
         third_pts = self._polygons.get("third_channel")
         if third_pts and len(third_pts) >= 3:
             third_angle = self._channel_angles.get("third", 0.0)
-            self._buildChannelRegions(
+            self._build_channel_regions(
                 h, w, third_pts, third_angle,
                 RegionName.CHANNEL_3,
                 RegionName.CHANNEL_3_DROPZONE,
@@ -123,7 +123,7 @@ class HanddrawnRegionProvider:
         self._cached_frame_shape = (h, w)
         return regions
 
-    def _buildChannelRegions(
+    def _build_channel_regions(
         self,
         h: int, w: int,
         pts_list: list[list[int]],
@@ -144,17 +144,17 @@ class HanddrawnRegionProvider:
         center_x = float(np.mean(pts[:, 0]))
         center_y = float(np.mean(pts[:, 1]))
 
-        dz_angular = _sectionsToAngularMask(
+        dz_angular = _sections_to_angular_mask(
             h, w, center_x, center_y, section_zero_angle, dropzone_sections,
         )
         regions[dropzone_name] = Region(dropzone_name, channel_bool & dz_angular)
 
-        pr_angular = _sectionsToAngularMask(
+        pr_angular = _sections_to_angular_mask(
             h, w, center_x, center_y, section_zero_angle, precise_sections,
         )
         regions[precise_name] = Region(precise_name, channel_bool & pr_angular)
 
-    def annotateFrame(self, frame: np.ndarray) -> np.ndarray:
+    def annotate_frame(self, frame: np.ndarray) -> np.ndarray:
         annotated = frame.copy()
 
         for poly_key, region_name, label, dz_sections, pr_sections in [
@@ -166,7 +166,7 @@ class HanddrawnRegionProvider:
                 continue
             pts = np.array(pts_list, dtype=np.int32)
             color = CHANNEL_COLORS[region_name]
-            cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
+            cv2.polylines(annotated, [pts], is_closed=True, color=color, thickness=2)
 
             center = np.mean(pts, axis=0)
             cx, cy = int(center[0]), int(center[1])
@@ -228,7 +228,7 @@ class HanddrawnRegionProvider:
         if carousel_pts and len(carousel_pts) >= 3:
             pts = np.array(carousel_pts, dtype=np.int32)
             color = CHANNEL_COLORS[RegionName.CAROUSEL_PLATFORM]
-            cv2.polylines(annotated, [pts], isClosed=True, color=color, thickness=2)
+            cv2.polylines(annotated, [pts], is_closed=True, color=color, thickness=2)
             cx = int(np.mean(pts[:, 0]))
             cy = int(np.mean(pts[:, 1]))
             cv2.putText(

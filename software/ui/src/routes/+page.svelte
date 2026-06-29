@@ -6,7 +6,7 @@
 	import SettingsModal from '$lib/components/SettingsModal.svelte';
 	import RuntimeVariablesModal from '$lib/components/RuntimeVariablesModal.svelte';
 	import MachineDropdown from '$lib/components/MachineDropdown.svelte';
-	import { Settings, Wrench, Pause, Play } from 'lucide-svelte';
+	import { Settings, Wrench, Pause, Play, SlidersHorizontal } from 'lucide-svelte';
 	import type { components } from '$lib/api/rest';
 	import { backendHttpBaseUrl, backendWsBaseUrl } from '$lib/backend';
 
@@ -18,6 +18,35 @@
 	let settings_open = $state(false);
 	let runtime_vars_open = $state(false);
 	let machine_state = $state<string>('initializing');
+
+	// Draggable split between the camera grid (left) and Recent Pieces (right).
+	// leftPct = % of the row width given to the cameras; the rest goes to Recent Pieces.
+	let leftPct = $state(60);
+	let splitContainer = $state<HTMLDivElement | null>(null);
+
+	// Cameras shown, in a stable order; only those currently delivering frames.
+	const CAMERA_ORDER = ['c_channel_2', 'c_channel_3', 'carousel', 'classification', 'feeder'];
+
+	function startDrag(e: PointerEvent) {
+		e.preventDefault();
+		const onMove = (ev: PointerEvent) => {
+			if (!splitContainer) return;
+			const rect = splitContainer.getBoundingClientRect();
+			const pct = ((ev.clientX - rect.left) / rect.width) * 100;
+			leftPct = Math.min(85, Math.max(25, pct));
+		};
+		const onUp = () => {
+			window.removeEventListener('pointermove', onMove);
+			window.removeEventListener('pointerup', onUp);
+			try {
+				localStorage.setItem('dashboard_left_pct', String(leftPct));
+			} catch {
+				/* ignore */
+			}
+		};
+		window.addEventListener('pointermove', onMove);
+		window.addEventListener('pointerup', onUp);
+	}
 
 	async function fetchState() {
 		try {
@@ -42,6 +71,8 @@
 	}
 
 	onMount(() => {
+		const stored = Number(localStorage.getItem('dashboard_left_pct'));
+		if (stored >= 25 && stored <= 85) leftPct = stored;
 		manager.connect(`${backendWsBaseUrl}/ws`);
 		fetchState();
 		const interval = setInterval(fetchState, 1000);
@@ -54,6 +85,13 @@
 		<h1 class="dark:text-text-dark text-2xl font-bold text-text">Sorter</h1>
 		<div class="flex items-center gap-2">
 			<MachineDropdown />
+			<a
+				href="/setup"
+				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
+				title="Setup & Calibration"
+			>
+				<SlidersHorizontal size={24} />
+			</a>
 			<button
 				onclick={togglePauseResume}
 				class="dark:text-text-dark dark:hover:bg-surface-dark p-2 text-text transition-colors hover:bg-surface"
@@ -83,55 +121,27 @@
 	</div>
 
 	{#if machine.machine}
-		{@const has_top = machine.frames.has('classification_top')}
-		{@const has_bottom = machine.frames.has('classification_bottom')}
-		{@const single_classification = (has_top ? 1 : 0) + (has_bottom ? 1 : 0) === 1}
-		{@const is_split_feeder = machine.frames.has('c_channel_2') || machine.frames.has('c_channel_3')}
-		{@const has_carousel = machine.frames.has('carousel')}
-		<div class="flex h-[60vh] gap-3">
-			{#if is_split_feeder}
-				<div class="flex min-w-0 flex-1 gap-3">
-					<div class="flex flex-1 flex-col gap-3">
-						<div class="flex-1"><CameraFeed camera="c_channel_2" /></div>
-						{#if has_carousel}
-							<div class="flex-1"><CameraFeed camera="carousel" /></div>
-						{/if}
-					</div>
-					<div class="flex flex-1 flex-col gap-3">
-						<div class="flex-1"><CameraFeed camera="c_channel_3" /></div>
-						{#if has_top}
-							<div class="flex-1"><CameraFeed camera="classification_top" /></div>
-						{/if}
-						{#if has_bottom}
-							<div class="flex-1"><CameraFeed camera="classification_bottom" /></div>
-						{/if}
-					</div>
-				</div>
-			{:else if single_classification}
-				<div class="flex min-w-0 flex-1 flex-col gap-3">
-					<div class="flex-1"><CameraFeed camera="feeder" /></div>
-					<div class="flex-1">
-						{#if has_top}
-							<CameraFeed camera="classification_top" />
-						{:else}
-							<CameraFeed camera="classification_bottom" />
-						{/if}
-					</div>
-				</div>
-			{:else}
-				<div class="flex min-w-0 flex-1 gap-3">
-					<div class="flex-1"><CameraFeed camera="feeder" /></div>
-					<div class="flex flex-1 flex-col gap-3">
-						<div class="flex-1">
-							<CameraFeed camera="classification_top" />
-						</div>
-						<div class="flex-1">
-							<CameraFeed camera="classification_bottom" />
-						</div>
-					</div>
-				</div>
-			{/if}
-			<div class="w-64 flex-shrink-0">
+		{@const cams = CAMERA_ORDER.filter((c) => machine.frames.has(c))}
+		<div bind:this={splitContainer} class="flex items-stretch">
+			<!-- Camera grid: 2 columns, each cell aspect-locked (no side whitespace).
+			     Scales with the splitter width. -->
+			<div class="grid grid-cols-2 content-start gap-3" style="width: {leftPct}%">
+				{#each cams as cam (cam)}
+					<CameraFeed camera={cam} />
+				{/each}
+			</div>
+
+			<!-- Draggable splitter: left = smaller cameras / wider list; right = bigger cameras. -->
+			<div
+				role="separator"
+				aria-orientation="vertical"
+				title="Drag to resize"
+				onpointerdown={startDrag}
+				class="dark:bg-border-dark mx-1.5 w-1.5 flex-shrink-0 cursor-col-resize rounded bg-border transition-colors hover:bg-blue-500"
+			></div>
+
+			<!-- Recent Pieces takes all remaining horizontal space. -->
+			<div class="min-w-0 flex-1">
 				<RecentObjects />
 			</div>
 		</div>

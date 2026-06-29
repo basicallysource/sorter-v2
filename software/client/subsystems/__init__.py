@@ -5,9 +5,9 @@ from .classification.state_machine import ClassificationStateMachine
 from .distribution.state_machine import DistributionStateMachine
 from irl.bin_layout import (
     DistributionLayout,
-    mkDefaultLayout,
-    mkLayoutFromConfig,
-    extractCategories,
-    applyCategories,
-    layoutMatchesCategories,
+    make_default_layout,
+    make_layout_from_config,
+    extract_categories,
+    apply_categories,
+    layout_matches_categories,
 )

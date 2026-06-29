@@ -273,7 +273,7 @@ class StepperMotor:
         steps = self.microsteps_for_degrees(degrees)
         return self.move_steps_blocking(steps, timeout_ms=timeout_ms)
 
-    def estimateMoveStepsMs(self, steps: int, max_speed: int = 5000) -> int:
+    def estimate_move_steps_ms(self, steps: int, max_speed: int = 5000) -> int:
         """Estimate the time (in milliseconds) it will take to move a given number of steps."""
         if steps == 0:
             return 0
@@ -281,10 +281,10 @@ class StepperMotor:
         estimated_seconds = steps / max_speed
         return max(1, int(estimated_seconds * 1000))
 
-    def estimateMoveDegreesMs(self, degrees: float, max_speed: int = 5000) -> int:
+    def estimate_move_degrees_ms(self, degrees: float, max_speed: int = 5000) -> int:
         """Estimate movement time for a move specified in degrees."""
         steps = self.microsteps_for_degrees(degrees)
-        return self.estimateMoveStepsMs(steps, max_speed=max_speed)
+        return self.estimate_move_steps_ms(steps, max_speed=max_speed)
 
     def microsteps_for_degrees(self, degrees: float) -> int:
         """Convert degrees to microsteps using current motor configuration."""
@@ -385,11 +385,11 @@ class ServoMotor:
         else:
             self.open()
 
-    def isOpen(self) -> bool:
+    def is_open(self) -> bool:
         """Check if servo is in open position."""
         return self._current_angle == self._open_angle
 
-    def isClosed(self) -> bool:
+    def is_closed(self) -> bool:
         """Check if servo is in closed position."""
         return self._current_angle == self._closed_angle
 
@@ -497,10 +497,10 @@ if __name__ == "__main__":
     import random
     import time
     from .bus import MCUBus
-    from global_config import mkGlobalConfig
+    from global_config import make_global_config
 
     _logging.basicConfig(level=_logging.INFO)
-    _gc = mkGlobalConfig()
+    _gc = make_global_config()
 
     interfaces: dict[str, SorterInterface] = {}
 

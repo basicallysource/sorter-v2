@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, StreamingResponse, Response
 from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import asyncio
@@ -23,7 +23,7 @@ from defs.events import (
     ResumeCommandEvent,
     ResumeCommandData,
 )
-from bricklink.api import getPartInfo
+from bricklink.api import get_part_info
 from global_config import GlobalConfig
 from runtime_variables import RuntimeVariables, VARIABLE_DEFS
 from irl.config import ArucoTagConfig, CarouselArucoTagConfig
@@ -44,39 +44,247 @@ controller_ref: Optional[Any] = None
 gc_ref: Optional[GlobalConfig] = None
 aruco_manager: Optional[ArucoConfigManager] = None
 vision_manager: Optional[Any] = None
+station_ref: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
 
+# Set during shutdown so long-lived MJPEG generators stop promptly instead of holding the
+# connection open and blocking uvicorn's graceful shutdown (the Ctrl-C "hang").
+shutdown_event = threading.Event()
 
-def setGlobalConfig(gc: GlobalConfig) -> None:
+
+def set_global_config(gc: GlobalConfig) -> None:
     global gc_ref
     gc_ref = gc
 
 
-def setRuntimeVariables(rv: RuntimeVariables) -> None:
+def set_runtime_variables(rv: RuntimeVariables) -> None:
     global runtime_vars
     runtime_vars = rv
 
 
-def setCommandQueue(q: queue.Queue) -> None:
+def set_command_queue(q: queue.Queue) -> None:
     global command_queue
     command_queue = q
 
 
-def setController(c: Any) -> None:
+def set_controller(c: Any) -> None:
     global controller_ref
     controller_ref = c
 
 
-def setArucoManager(mgr: ArucoConfigManager) -> None:
+def set_aruco_manager(mgr: ArucoConfigManager) -> None:
     global aruco_manager
     aruco_manager = mgr
     auto_calibrate()
 
 
-def setVisionManager(mgr: Any) -> None:
+def set_vision_manager(mgr: Any) -> None:
     global vision_manager
     vision_manager = mgr
     auto_calibrate()
+
+
+def set_station(s: Any) -> None:
+    global station_ref
+    station_ref = s
+
+
+@app.get("/station/state")
+def get_station_state() -> Dict[str, Any]:
+    """Current station mode + per-step readiness flags that drive the UI wizard gating."""
+    if station_ref is None:
+        raise HTTPException(status_code=503, detail="Station not initialized")
+    return station_ref.state()
+
+
+@app.post("/station/run")
+def post_station_run() -> Dict[str, Any]:
+    """Enter RUNNING. 409 with the missing prerequisites if the station isn't ready."""
+    from station import NotReadyError
+
+    if station_ref is None:
+        raise HTTPException(status_code=503, detail="Station not initialized")
+    try:
+        station_ref.start_run()
+    except NotReadyError as e:
+        raise HTTPException(status_code=409, detail={"error": "not_ready", "missing": e.missing})
+    return station_ref.state()
+
+
+@app.post("/station/stop")
+def post_station_stop() -> Dict[str, Any]:
+    """Stop the run and return to IDLE, releasing the hardware."""
+    if station_ref is None:
+        raise HTTPException(status_code=503, detail="Station not initialized")
+    station_ref.stop_run()
+    return station_ref.state()
+
+
+# ----- camera assignment (Setup step 1) ----------------------------------
+
+def _require_station() -> Any:
+    if station_ref is None:
+        raise HTTPException(status_code=503, detail="Station not initialized")
+    return station_ref
+
+
+def _require_camera_session() -> Any:
+    session = _require_station().camera_session
+    if session is None:
+        raise HTTPException(status_code=409, detail="No camera-assignment session active")
+    return session
+
+
+@app.post("/calibration/cameras/begin")
+def cameras_begin() -> Dict[str, Any]:
+    """Start a camera-assignment session (CALIBRATING) and probe attached cameras."""
+    station = _require_station()
+    try:
+        session = station.begin_camera_assignment()
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return {"cameras": session.list_cameras(), "status": session.status()}
+
+
+@app.get("/calibration/cameras/list")
+def cameras_list() -> Dict[str, Any]:
+    """Re-probe attached cameras within the active session."""
+    session = _require_camera_session()
+    return {"cameras": session.list_cameras(), "status": session.status()}
+
+
+@app.get("/calibration/cameras/stream/{index}")
+def cameras_stream(index: int) -> StreamingResponse:
+    """MJPEG preview of one camera so the user can see which physical unit it is."""
+    session = _require_camera_session()
+    return StreamingResponse(
+        session.stream(index, should_stop=shutdown_event.is_set),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+@app.post("/calibration/cameras/assign")
+def cameras_assign(role: str, index: int) -> Dict[str, Any]:
+    session = _require_camera_session()
+    try:
+        session.assign(role, index)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return session.status()
+
+
+@app.post("/calibration/cameras/unassign")
+def cameras_unassign(role: str) -> Dict[str, Any]:
+    session = _require_camera_session()
+    session.unassign(role)
+    return session.status()
+
+
+@app.post("/calibration/cameras/exclude")
+def cameras_exclude(index: int, excluded: bool = True) -> Dict[str, Any]:
+    session = _require_camera_session()
+    if excluded:
+        session.exclude(index)
+    else:
+        session.include(index)
+    return session.status()
+
+
+@app.post("/calibration/cameras/end")
+def cameras_end(save: bool = True) -> Dict[str, Any]:
+    """Finish the session: persist (or discard) the assignment and return to IDLE."""
+    station = _require_station()
+    station.end_camera_assignment(save=save)
+    return station.state()
+
+
+# ----- polygons (Setup step 2) -------------------------------------------
+
+def _require_polygon_session() -> Any:
+    session = _require_station().polygon_session
+    if session is None:
+        raise HTTPException(status_code=409, detail="No polygon session active")
+    return session
+
+
+@app.post("/calibration/polygons/begin")
+def polygons_begin() -> Dict[str, Any]:
+    """Start a polygon-editing session (opens the channel/classification cameras)."""
+    station = _require_station()
+    try:
+        session = station.begin_polygon_session()
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    return session.init_data()
+
+
+@app.get("/calibration/polygons/init")
+def polygons_init() -> Dict[str, Any]:
+    return _require_polygon_session().init_data()
+
+
+@app.get("/calibration/polygons/frame/{camera}")
+def polygons_frame(camera: str) -> Response:
+    """Single JPEG frame from one channel camera (the canvas polls this)."""
+    jpeg = _require_polygon_session().frame_jpeg(camera)
+    if jpeg is None:
+        return Response(status_code=204)
+    return Response(content=jpeg, media_type="image/jpeg")
+
+
+@app.post("/calibration/polygons/save")
+def polygons_save(payload: Dict[str, Any]) -> Dict[str, Any]:
+    _require_polygon_session().save(payload)
+    return {"ok": True}
+
+
+@app.post("/calibration/polygons/end")
+def polygons_end() -> Dict[str, Any]:
+    station = _require_station()
+    station.end_polygon_session(save=False)
+    return station.state()
+
+
+# ----- classification baseline "wiggle" (Setup step 3) -------------------
+
+@app.post("/calibration/baseline/start")
+def baseline_start(camera: str = "all", wipe: bool = True) -> Dict[str, Any]:
+    """Start the carousel sweep that captures the classification/carousel HSV baseline.
+    Moves hardware (carousel + chute). 409 if another calibration/run is active."""
+    station = _require_station()
+    try:
+        return station.start_baseline(camera=camera, wipe=wipe)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+
+
+@app.get("/calibration/baseline/status")
+def baseline_status() -> Dict[str, Any]:
+    """Progress of the running (or last) baseline job; {active:false} if none."""
+    status = _require_station().baseline_status()
+    if status is None:
+        return {"active": False}
+    return {"active": True, **status}
+
+
+@app.post("/calibration/baseline/cancel")
+def baseline_cancel() -> Dict[str, Any]:
+    station = _require_station()
+    station.cancel_baseline()
+    return station.state()
+
+
+@app.get("/calibration/baseline/chute-settings")
+def baseline_get_chute() -> Dict[str, Any]:
+    return _require_station().get_chute_settings()
+
+
+@app.post("/calibration/baseline/chute-settings")
+def baseline_set_chute(hz: float, steps: int) -> Dict[str, Any]:
+    """Update chute wiggle frequency (Hz) + amplitude (microsteps); applies live if running."""
+    return _require_station().set_chute_settings(hz, steps)
 
 
 def _build_runtime_aruco_config(config_dict: Dict[str, Any]) -> ArucoTagConfig:
@@ -158,8 +366,8 @@ def _sync_aruco_config_to_vision() -> Dict[str, Any]:
     runtime_config = _build_runtime_aruco_config(config_dict)
     vision_manager._irl_config.aruco_tags = runtime_config
     smoothing_time_s = aruco_manager.get_aruco_smoothing_time_s()
-    if hasattr(vision_manager, "setArucoSmoothingTimeSeconds"):
-        vision_manager.setArucoSmoothingTimeSeconds(smoothing_time_s)
+    if hasattr(vision_manager, "set_aruco_smoothing_time_seconds"):
+        vision_manager.set_aruco_smoothing_time_seconds(smoothing_time_s)
 
     return {
         "synced": True,
@@ -192,7 +400,7 @@ def auto_calibrate() -> Dict[str, Any]:
     assert vision_manager is not None
     try:
         # force region recomputation by fetching current regions
-        vision_manager.getRegions()
+        vision_manager.get_regions()
         return {
             "ok": True,
             "calibrated": True,
@@ -208,9 +416,20 @@ def auto_calibrate() -> Dict[str, Any]:
 
 
 @app.on_event("startup")
-async def onStartup() -> None:
+async def on_startup() -> None:
     global server_loop
     server_loop = asyncio.get_running_loop()
+
+
+@app.on_event("shutdown")
+def on_shutdown() -> None:
+    """Backstop cleanup for any shutdown path: stop streams and release all hardware."""
+    shutdown_event.set()
+    if station_ref is not None:
+        try:
+            station_ref.shutdown()
+        except Exception:
+            pass
 
 
 class HealthResponse(BaseModel):
@@ -244,7 +463,7 @@ class SortingProfileMetadataResponse(BaseModel):
 
 
 @app.get("/sorting-profile/metadata", response_model=SortingProfileMetadataResponse)
-def getSortingProfileMetadata() -> SortingProfileMetadataResponse:
+def get_sorting_profile_metadata() -> SortingProfileMetadataResponse:
     if gc_ref is None:
         raise HTTPException(status_code=500, detail="Global config not initialized")
     with open(gc_ref.sorting_profile_path, "r") as f:
@@ -288,7 +507,7 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
             active_connections.remove(websocket)
 
 
-async def broadcastEvent(event: dict) -> None:
+async def broadcast_event(event: dict) -> None:
     dead_connections = []
     for connection in active_connections[:]:
         try:
@@ -316,8 +535,8 @@ class BricklinkPartResponse(BaseModel):
 
 
 @app.get("/bricklink/part/{part_id}", response_model=BricklinkPartResponse)
-def getBricklinkPart(part_id: str) -> BricklinkPartResponse:
-    data = getPartInfo(part_id)
+def get_bricklink_part(part_id: str) -> BricklinkPartResponse:
+    data = get_part_info(part_id)
     if data is None:
         raise HTTPException(status_code=404, detail="Part not found")
     return BricklinkPartResponse(**data)
@@ -340,22 +559,22 @@ class RuntimeVariablesUpdateRequest(BaseModel):
 
 
 @app.get("/runtime-variables", response_model=RuntimeVariablesResponse)
-def getRuntimeVariables() -> RuntimeVariablesResponse:
+def get_runtime_variables() -> RuntimeVariablesResponse:
     if runtime_vars is None:
         raise HTTPException(status_code=500, detail="Runtime variables not initialized")
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.getAll())
+    return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.get_all())
 
 
 @app.post("/runtime-variables", response_model=RuntimeVariablesResponse)
-def updateRuntimeVariables(
+def update_runtime_variables(
     req: RuntimeVariablesUpdateRequest,
 ) -> RuntimeVariablesResponse:
     if runtime_vars is None:
         raise HTTPException(status_code=500, detail="Runtime variables not initialized")
-    runtime_vars.setAll(req.values)
+    runtime_vars.set_all(req.values)
     defs = {k: RuntimeVariableDef(**v) for k, v in VARIABLE_DEFS.items()}
-    return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.getAll())
+    return RuntimeVariablesResponse(definitions=defs, values=runtime_vars.get_all())
 
 
 class StateResponse(BaseModel):
@@ -363,7 +582,7 @@ class StateResponse(BaseModel):
 
 
 @app.get("/state", response_model=StateResponse)
-def getState() -> StateResponse:
+def get_state() -> StateResponse:
     if controller_ref is None:
         return StateResponse(state=SorterLifecycle.INITIALIZING.value)
     return StateResponse(state=controller_ref.state.value)
@@ -508,9 +727,9 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
         """Generator function that yields JPEG frames"""
         import time
         quality = 80  # JPEG quality (0-100)
-        
-        while True:
-            frame_obj = vm.getFrame(camera_name)
+
+        while not shutdown_event.is_set():
+            frame_obj = vm.get_frame(camera_name)
             if frame_obj is None:
                 # Send a placeholder frame if no frame available
                 placeholder = np.zeros((480, 640, 3), dtype=np.uint8)
@@ -523,7 +742,7 @@ def video_feed(camera_name: str, show_live_aruco_values: bool = False) -> Stream
 
                 if camera_name == "feeder" and show_live_aruco_values:
                     frame_to_encode = frame_to_encode.copy()
-                    raw_tags = vm.getFeederArucoTagsRaw()
+                    raw_tags = vm.get_feeder_aruco_tags_raw()
                     for tag_id, (center_x_f, center_y_f) in raw_tags.items():
                         center = (int(center_x_f), int(center_y_f))
                         cv2.circle(frame_to_encode, center, 5, (0, 0, 255), -1)

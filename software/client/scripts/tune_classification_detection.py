@@ -33,15 +33,15 @@ from dotenv import load_dotenv
 
 load_dotenv(Path(__file__).resolve().parent.parent.parent / ".env")
 
-from global_config import mkGlobalConfig
-from irl.config import mkIRLConfig, mkIRLInterface
+from global_config import make_global_config
+from irl.config import make_irl_config, make_irl_interface
 from vision import VisionManager
-from vision.heatmap_diff import _hueArcDistance, HUE_DIFF_SCALE
+from vision.heatmap_diff import _hue_arc_distance, HUE_DIFF_SCALE
 
 WINDOW = "classification detection tuner"
 
 
-def _inspectPixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
+def _inspect_pixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
                   v_lo=None, v_hi=None) -> None:
     """Print the H/S, envelope, and per-channel diff at a clicked point in the
     top-left (live) panel — turns 'why isn't it detected' into measured numbers.
@@ -66,7 +66,7 @@ def _inspectPixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
     h_min, s_min = int(bl_min[dy, dx, 0]), int(bl_min[dy, dx, 1])
     h_max, s_max = int(bl_max[dy, dx, 0]), int(bl_max[dy, dx, 1])
 
-    h_dist = float(_hueArcDistance(np.array(h_cur), np.array(h_min), np.array(h_max)))
+    h_dist = float(_hue_arc_distance(np.array(h_cur), np.array(h_min), np.array(h_max)))
     h_diff = min(255.0, h_dist * HUE_DIFF_SCALE)
     s_diff = max(0, s_min - s_cur, s_cur - s_max)
 
@@ -97,7 +97,7 @@ def _inspectPixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
     )
 
 
-def _panelLabel(img: np.ndarray, text: str) -> np.ndarray:
+def _panel_label(img: np.ndarray, text: str) -> np.ndarray:
     out = img.copy()
     cv2.rectangle(out, (0, 0), (out.shape[1], 22), (0, 0, 0), -1)
     cv2.putText(out, text, (6, 16), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
@@ -114,11 +114,11 @@ def main() -> int:
     # --disable); strip our flags so it doesn't choke.
     sys.argv = sys.argv[:1]
 
-    gc = mkGlobalConfig()
-    irl_config = mkIRLConfig()
-    irl = mkIRLInterface(irl_config, gc)
+    gc = make_global_config()
+    irl_config = make_irl_config()
+    irl = make_irl_interface(irl_config, gc)
     # No motion is needed for camera tuning — keep all steppers de-energized.
-    irl.disableSteppers()
+    irl.disable_steppers()
     vision = VisionManager(irl_config, gc, irl)
     vision.start()
 
@@ -126,7 +126,7 @@ def main() -> int:
     # carousel uses the generic getFrame accessor.
     frame_name = {"top": "classification_top", "bottom": "classification_bottom",
                   "carousel": "carousel"}[cam]
-    get_frame_prop = lambda: vision.getFrame(frame_name)
+    get_frame_prop = lambda: vision.get_frame(frame_name)
 
     print("waiting for camera frames (up to 15s)...")
     deadline = time.time() + 15.0
@@ -138,16 +138,16 @@ def main() -> int:
         return 1
 
     if cam == "carousel":
-        if not vision.loadCarouselHsvBaseline():
+        if not vision.load_carousel_hsv_baseline():
             print("ERROR: no carousel HSV baseline. Run: "
                   "scripts/calibrate_classification_baseline.py --camera carousel --wipe")
             vision.stop()
             return 1
         heatmap = vision._carousel_hsv_heatmap
         analysis = None
-        get_hs = vision._getLatestCarouselHSV
+        get_hs = vision._get_latest_carousel_hsv
     else:
-        if not vision.loadClassificationBaseline():
+        if not vision.load_classification_baseline():
             print("ERROR: no classification baseline loaded. "
                   "Run scripts/calibrate_classification_baseline.py --wipe first.")
             vision.stop()
@@ -161,9 +161,9 @@ def main() -> int:
         # Match the getter's channel count to the heatmap mode (hsv -> 3ch).
         hsv_mode = heatmap is not None and getattr(heatmap, "_channel_mode", "hs") == "hsv"
         if cam == "top":
-            get_hs = vision._getLatestClassificationTopHSV if hsv_mode else vision._getLatestClassificationTopHS
+            get_hs = vision._get_latest_classification_top_hsv if hsv_mode else vision._get_latest_classification_top_hs
         else:
-            get_hs = vision._getLatestClassificationBottomHSV if hsv_mode else vision._getLatestClassificationBottomHS
+            get_hs = vision._get_latest_classification_bottom_hsv if hsv_mode else vision._get_latest_classification_bottom_hs
 
     if heatmap is None or not heatmap.has_baseline:
         print(f"ERROR: {cam} heatmap/baseline not available")
@@ -208,13 +208,13 @@ def main() -> int:
         hs = get_hs()
         frame = get_frame_prop()
         if hs is not None:
-            heatmap.pushFrame(hs)
+            heatmap.push_frame(hs)
         # Invalidate the cache so the new thresholds take effect this iteration.
         heatmap._cached_result = None
-        result = heatmap._computeDiffMap()
+        result = heatmap._compute_diff_map()
 
         live = frame.raw if frame is not None else np.zeros((panel_h, panel_h, 3), np.uint8)
-        bboxes = heatmap.computeBboxes() if result is not None else []
+        bboxes = heatmap.compute_bboxes() if result is not None else []
         live_draw = live.copy()
         for x1, y1, x2, y2 in bboxes:
             cv2.rectangle(live_draw, (x1, y1), (x2, y2), (0, 255, 0), 3)
@@ -245,16 +245,16 @@ def main() -> int:
             mouse["click"] = None
             cx, cy = click
             if cx < panel_w and cy < panel_h and hs is not None:
-                _inspectPixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
+                _inspect_pixel(cx, cy, panel_w, panel_h, hs, heatmap, low_sat,
                               v_lo=v_lo, v_hi=v_hi)
 
         def fit(img):
             return cv2.resize(img, (panel_w, panel_h))
 
-        tl = _panelLabel(fit(live_draw), f"live  bboxes={len(bboxes)}")
-        tr = _panelLabel(fit(s_vis), f"saturation (red=low-sat<{low_sat})")
-        bl = _panelLabel(fit(diff_vis), f"raw diff (thresh={pixel_thresh})")
-        br = _panelLabel(fit(hot_vis), "hot mask")
+        tl = _panel_label(fit(live_draw), f"live  bboxes={len(bboxes)}")
+        tr = _panel_label(fit(s_vis), f"saturation (red=low-sat<{low_sat})")
+        bl = _panel_label(fit(diff_vis), f"raw diff (thresh={pixel_thresh})")
+        br = _panel_label(fit(hot_vis), "hot mask")
         grid = np.vstack([np.hstack([tl, tr]), np.hstack([bl, br])])
         cv2.imshow(WINDOW, grid)
 

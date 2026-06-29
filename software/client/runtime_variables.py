@@ -28,15 +28,15 @@ class RuntimeVariables:
             self._values[key] = value
         return True
 
-    def getAll(self) -> Dict[str, Any]:
+    def get_all(self) -> Dict[str, Any]:
         with self._lock:
             return dict(self._values)
 
-    def setAll(self, values: Dict[str, Any]) -> None:
+    def set_all(self, values: Dict[str, Any]) -> None:
         for key, val in values.items():
             self.set(key, val)
 
 
-def mkRuntimeVariables(gc) -> RuntimeVariables:
+def make_runtime_variables(gc) -> RuntimeVariables:
     rv = RuntimeVariables()
     return rv

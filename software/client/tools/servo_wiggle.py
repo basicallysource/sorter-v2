@@ -234,14 +234,14 @@ def main() -> None:
     args, remaining_args = parse_args()
     validate_args(args)
 
-    from global_config import mkGlobalConfig
+    from global_config import make_global_config
 
     # mkGlobalConfig parses sys.argv for its own flags (e.g. --disable),
     # so pass through only args not consumed by this script.
     original_argv = sys.argv[:]
     try:
         sys.argv = [original_argv[0], *remaining_args]
-        gc = mkGlobalConfig()
+        gc = make_global_config()
     finally:
         sys.argv = original_argv
     all_targets = discover_servo_targets(gc)

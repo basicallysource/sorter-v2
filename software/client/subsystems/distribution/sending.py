@@ -6,7 +6,7 @@ from subsystems.shared_variables import SharedVariables
 from .states import DistributionState
 from irl.config import IRLInterface
 from global_config import GlobalConfig
-from utils.event import knownObjectToEvent
+from utils.event import known_object_to_event
 from defs.known_object import PieceStage
 
 CHUTE_SETTLE_MS = 1500
@@ -29,7 +29,7 @@ class Sending(BaseState):
     def step(self) -> Optional[DistributionState]:
         if self.piece is None:
             carousel = self.shared.carousel
-            self.piece = carousel.getPieceAtExit() if carousel else None
+            self.piece = carousel.get_piece_at_exit() if carousel else None
             self.start_time = time.time()
 
         elapsed_ms = (time.time() - self.start_time) * 1000
@@ -41,8 +41,8 @@ class Sending(BaseState):
             self.piece.stage = PieceStage.distributed
             self.piece.distributed_at = time.time()
             self.piece.updated_at = time.time()
-            self.event_queue.put(knownObjectToEvent(self.piece))
-            self.gc.run_recorder.recordPiece(self.piece)
+            self.event_queue.put(known_object_to_event(self.piece))
+            self.gc.run_recorder.record_piece(self.piece)
         self.shared.distribution_ready = True
         return DistributionState.IDLE
 

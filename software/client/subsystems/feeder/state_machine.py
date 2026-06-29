@@ -27,7 +27,7 @@ class FeederStateMachine(BaseSubsystem):
             FeederState.IDLE: Idle(irl, gc, shared),
             FeederState.FEEDING: Feeding(irl, irl_config, gc, shared, vision),
         }
-        self.gc.profiler.enterState("feeder", self.current_state.value)
+        self.gc.profiler.enter_state("feeder", self.current_state.value)
 
     def step(self) -> None:
         self.gc.profiler.hit("feeder.state_machine.step.calls")
@@ -44,8 +44,8 @@ class FeederStateMachine(BaseSubsystem):
             )
             self.states_map[self.current_state].cleanup()
             self.current_state = next_state
-            self.gc.profiler.enterState("feeder", self.current_state.value)
+            self.gc.profiler.enter_state("feeder", self.current_state.value)
 
     def cleanup(self) -> None:
-        self.gc.profiler.exitState("feeder")
+        self.gc.profiler.exit_state("feeder")
         self.states_map[self.current_state].cleanup()

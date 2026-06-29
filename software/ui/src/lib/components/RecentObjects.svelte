@@ -4,8 +4,25 @@
 	import type { components } from '$lib/api/rest';
 	import Spinner from './Spinner.svelte';
 	import Badge from './Badge.svelte';
-	import { CircleHelp, TriangleAlert } from 'lucide-svelte';
+	import { CircleHelp, TriangleAlert, ZoomIn, ZoomOut } from 'lucide-svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
+	import { onMount } from 'svelte';
+
+	// Zoom for the whole list (thumbnails + text scale together). CSS `zoom` reflows
+	// properly so the scroll list stays usable. Persisted across reloads.
+	let scale = $state(1);
+	function adjustScale(delta: number) {
+		scale = Math.min(5, Math.max(0.6, Math.round((scale + delta) * 10) / 10));
+		try {
+			localStorage.setItem('recent_scale', String(scale));
+		} catch {
+			/* ignore */
+		}
+	}
+	onMount(() => {
+		const s = Number(localStorage.getItem('recent_scale'));
+		if (s >= 0.6 && s <= 5) scale = s;
+	});
 
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
 	type BadgeColor = 'gray' | 'yellow' | 'blue' | 'orange' | 'green' | 'red';
@@ -86,9 +103,6 @@
 		}
 	}
 
-	function formatBin(bin: [unknown, unknown, unknown]): string {
-		return `L${bin[0]}:S${bin[1]}:B${bin[2]}`;
-	}
 
 	function isMinimized(obj: KnownObjectData): boolean {
 		return obj.classification_status === 'unknown' || obj.classification_status === 'not_found';
@@ -99,11 +113,30 @@
 	class="dark:border-border-dark dark:bg-surface-dark flex h-full flex-col border border-border bg-surface"
 >
 	<div
-		class="dark:bg-surface-dark dark:text-text-dark dark:border-border-dark border-b border-border px-2 py-1 text-sm font-medium text-text"
+		class="dark:bg-surface-dark dark:text-text-dark dark:border-border-dark flex items-center justify-between border-b border-border px-2 py-1 text-sm font-medium text-text"
 	>
-		Recent Pieces
+		<span>Recent Pieces</span>
+		<div class="flex items-center gap-1">
+			<button
+				onclick={() => adjustScale(-0.1)}
+				title="Smaller"
+				class="dark:hover:bg-border-dark dark:text-text-dark p-1 text-text transition-colors hover:bg-border"
+			>
+				<ZoomOut size={14} />
+			</button>
+			<span class="dark:text-text-muted-dark w-9 text-center text-xs text-text-muted">
+				{Math.round(scale * 100)}%
+			</span>
+			<button
+				onclick={() => adjustScale(0.1)}
+				title="Larger"
+				class="dark:hover:bg-border-dark dark:text-text-dark p-1 text-text transition-colors hover:bg-border"
+			>
+				<ZoomIn size={14} />
+			</button>
+		</div>
 	</div>
-	<div class="flex-1 overflow-y-auto">
+	<div class="flex-1 overflow-y-auto" style="zoom: {scale}">
 		{#if objects.length === 0}
 			<div class="dark:text-text-muted-dark p-3 text-center text-sm text-text-muted">
 				No pieces yet
@@ -120,7 +153,7 @@
 						<button
 							type="button"
 							onclick={() => toggleExpand(obj.uuid)}
-							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-xs transition-colors hover:bg-surface"
+							class="dark:border-border-dark dark:bg-bg-dark dark:hover:bg-surface-dark flex w-full items-center gap-2 border border-border bg-bg px-2 py-1 text-left text-[9px] transition-colors hover:bg-surface"
 						>
 							{#if obj.classification_status === 'not_found'}
 								<TriangleAlert size={14} class="flex-shrink-0 text-yellow-500" />
@@ -166,23 +199,20 @@
 										<Spinner />
 									</div>
 								{/if}
-								<div class="flex min-w-0 flex-1 flex-col gap-1 text-xs">
-									<span class="dark:text-text-dark truncate font-mono text-text">
-										{obj.part_id ?? obj.uuid.slice(0, 8)}
-									</span>
+								<div class="flex min-w-0 flex-1 flex-col gap-0.5 text-[9px] leading-tight">
+									<div class="flex items-baseline justify-between gap-2">
+										<span class="dark:text-text-dark truncate font-mono text-text">
+											{obj.part_id ?? obj.uuid.slice(0, 8)}
+										</span>
+										{#if obj.color_name && obj.color_name !== 'Any Color'}
+											<span class="dark:text-text-muted-dark flex-shrink-0 text-text-muted">
+												{obj.color_name}
+											</span>
+										{/if}
+									</div>
 									{#if bl_data?.name}
 										<div class="dark:text-text-muted-dark truncate text-text-muted">
 											{bl_data.name}
-										</div>
-									{/if}
-									{#if obj.color_name && obj.color_name !== 'Any Color'}
-										<div class="dark:text-text-muted-dark truncate text-text-muted">
-											{obj.color_name}
-										</div>
-									{/if}
-									{#if category_name}
-										<div class="dark:text-text-muted-dark truncate text-text-muted">
-											{category_name}
 										</div>
 									{/if}
 									<div class="flex flex-wrap gap-1">
@@ -194,8 +224,8 @@
 										{#if obj.stage !== 'created'}
 											<Badge color={stageColor(obj.stage)}>{obj.stage}</Badge>
 										{/if}
-										{#if obj.destination_bin}
-											<Badge>{formatBin(obj.destination_bin)}</Badge>
+										{#if category_name}
+											<Badge>{category_name}</Badge>
 										{/if}
 									</div>
 								</div>

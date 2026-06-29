@@ -21,16 +21,16 @@ class Region:
         self.name = name
         self.mask = mask
 
-    def overlapCount(self, other_mask: np.ndarray) -> int:
+    def overlap_count(self, other_mask: np.ndarray) -> int:
         return int(np.count_nonzero(self.mask & other_mask))
 
-    def overlapFraction(self, other_mask: np.ndarray) -> float:
+    def overlap_fraction(self, other_mask: np.ndarray) -> float:
         other_count = int(np.count_nonzero(other_mask))
         if other_count == 0:
             return 0.0
-        return self.overlapCount(other_mask) / other_count
+        return self.overlap_count(other_mask) / other_count
 
-    def containsPoint(self, x: int, y: int) -> bool:
+    def contains_point(self, x: int, y: int) -> bool:
         if 0 <= y < self.mask.shape[0] and 0 <= x < self.mask.shape[1]:
             return bool(self.mask[y, x])
         return False
@@ -39,5 +39,5 @@ class Region:
 class RegionProvider(Protocol):
     def start(self) -> None: ...
     def stop(self) -> None: ...
-    def getRegions(self, frame: np.ndarray) -> dict[RegionName, Region]: ...
-    def annotateFrame(self, frame: np.ndarray) -> np.ndarray: ...
+    def get_regions(self, frame: np.ndarray) -> dict[RegionName, Region]: ...
+    def annotate_frame(self, frame: np.ndarray) -> np.ndarray: ...

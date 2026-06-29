@@ -732,6 +732,7 @@ class Positioning(BaseState):
         # A dropped serial write, a partial move, or a mid-flight power
         # glitch can leave the physical flap out of sync without us
         # noticing until a piece lands in the wrong bin.
+        opened_layers: list[int] = []
         for i, servo in enumerate(self.irl.servos):
             if i == target_layer_index or not self._isLayerUsable(i):
                 continue
@@ -739,6 +740,7 @@ class Positioning(BaseState):
                 if hasattr(servo, "apply_open_speed"):
                     servo.apply_open_speed()
                 servo.open()
+                opened_layers.append(i)
             except Exception as exc:
                 self._markLayerUnavailable(
                     i,
@@ -756,6 +758,13 @@ class Positioning(BaseState):
             )
             return False
 
+        # Single line capturing the full intended door state for this dispense,
+        # so a wrong-layer piece can be traced to exactly what the controller
+        # commanded (vs. what the flaps physically did, which is open-loop).
+        self.logger.info(
+            f"Door config: closed layer-{target_layer_index} (target), "
+            f"opened parked layers {opened_layers}"
+        )
         return True
 
     def _findOrAssignBinForCategory(

@@ -562,8 +562,17 @@ class ServoMotor:
         self._gc.logger.info(f"Servo '{self._name}' ch{self._channel}: move_to {angle}° (from {self._current_angle}°)")
         payload = struct.pack("<H", angle * 10)  # Convert degrees to 0.1° units, 2 bytes uint16
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO, self._channel, payload)
+        accepted = bool(res.payload[0])
+        if not accepted:
+            # Firmware rejected the move (servo not idle or disabled). The flap
+            # physically stays put, which otherwise leaves no trace — a piece
+            # can land in the wrong layer with an apparently clean log.
+            self._gc.logger.warning(
+                f"Servo '{self._name}' ch{self._channel}: move_to {angle}° REJECTED by firmware "
+                f"(servo busy or disabled) — flap did not move"
+            )
         self._current_angle = angle
-        return bool(res.payload[0])
+        return accepted
 
     def move_to_and_release(self, angle: int, max_duration_ms: int = 3500) -> bool:
         """Move the servo to a given angle and *guarantee* that PWM will stop.
@@ -593,9 +602,18 @@ class ServoMotor:
         # Wire format: position (0.1°) + max duration in milliseconds
         payload = struct.pack("<HH", angle * 10, max_duration_ms)
         res = self._dev.send_command(InterfaceCommandCode.SERVO_MOVE_TO_AND_RELEASE, self._channel, payload)
+        accepted = bool(res.payload[0])
+        if not accepted:
+            # Firmware rejected the move (servo not idle or disabled). The flap
+            # physically stays put, which otherwise leaves no trace — a piece
+            # can land in the wrong layer with an apparently clean log.
+            self._gc.logger.warning(
+                f"Servo '{self._name}' ch{self._channel}: move_to_and_release {angle}° REJECTED by firmware "
+                f"(servo busy or disabled) — flap did not move"
+            )
         self._current_angle = angle
         self._enabled = False  # Will be disabled once the move completes (or deadline hits)
-        return bool(res.payload[0])
+        return accepted
 
     @property
     def position(self) -> int:

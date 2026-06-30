@@ -508,7 +508,7 @@
 			? 'Request failed'
 			: is_unknown
 				? obj.classification_status === 'not_found'
-					? 'Not recognized by Brickognize'
+					? 'Not recognized'
 					: 'Unknown piece'
 				: has_name
 					? resolved_name!

@@ -3,11 +3,38 @@
 	import { Button, Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
+	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
 	import {
 		groupTuningSections,
 		type TuningFieldMeta,
+		type TuningPreset,
 		type TuningValues
 	} from '$lib/settings/tuning';
+
+	// Exit-pulse speed presets. The exit pulse is how hard C2/C3 meter a piece
+	// off the edge into the next channel; bigger nudges = faster hand-off but a
+	// higher chance of pushing two pieces through at once. Each preset only sets
+	// the two exit-pulse fields (merged over the current form, not auto-saved).
+	const exitPulsePresets: TuningPreset[] = [
+		{
+			label: 'Conservative (2°)',
+			description:
+				'Gentlest exit metering — 2° per pulse, 100 ms pause. Least chance of pushing two pieces into the classification channel at once; slowest hand-off. (Current default.)',
+			values: { exit_pulse_output_deg: 2, exit_pulse_pause_ms: 100 }
+		},
+		{
+			label: 'Balanced (4°)',
+			description:
+				'Middle ground — 4° per pulse, 100 ms pause. Faster exit hand-off with a modest double-feed risk.',
+			values: { exit_pulse_output_deg: 4, exit_pulse_pause_ms: 100 }
+		},
+		{
+			label: 'Aggressive (8°)',
+			description:
+				'Fastest exit metering — 8° per pulse, 100 ms pause. Highest throughput; most likely to push two pieces through together.',
+			values: { exit_pulse_output_deg: 8, exit_pulse_pause_ms: 100 }
+		}
+	];
 
 	let fields = $state<TuningFieldMeta[]>([]);
 	let values = $state<TuningValues>({});
@@ -78,6 +105,15 @@
 
 	{#if saved}
 		<Alert variant="success">Saved. Changes apply within ~1 second.</Alert>
+	{/if}
+
+	{#if !loading}
+		<SectionCard
+			title="Exit pulse speed"
+			description="One-click presets for how hard C2/C3 push a piece off the exit edge into the next channel. Clicking one fills in the exit-pulse fields below — review, then Save."
+		>
+			<TuningPresets presets={exitPulsePresets} bind:values />
+		</SectionCard>
 	{/if}
 
 	<SectionCard

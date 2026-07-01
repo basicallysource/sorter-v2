@@ -14,7 +14,7 @@ permalink: /getting-started/
 
 ## What Sorter V2 is
 
-Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, and the machine singulates each piece, classifies it by part number (and optionally color), and drops it into the correct bin. The entire project — CAD, PCB schematics, firmware, host software — is MIT-licensed. V1 exists as a reference but is no longer maintained; V2 is the active development target.
+Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, and the machine singulates each piece, classifies it by part number (and optionally color), and drops it into the correct bin. The project is source-available; see [CONTRIBUTING.md](../CONTRIBUTING.md) for licensing details. V1 exists as a reference but is no longer maintained; V2 is the active development target.
 
 ## Current status
 

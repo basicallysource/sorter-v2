@@ -9,7 +9,7 @@
 	import { getMachinesContext } from '$lib/machines/context';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { ArchiveX, Crosshair, FolderOutput, Home, Loader2, Plus, Tag, X } from 'lucide-svelte';
+	import { ArchiveX, ArrowLeft, Crosshair, Download, FolderOutput, History, Home, Loader2, Plus, Tag, X } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -115,6 +115,90 @@
 
 	type SetProgressSummary = { total_needed: number; total_found: number; pct: number };
 	let setProgressByCategoryId = $state<Record<string, SetProgressSummary>>({});
+
+	type SnapshotSummary = {
+		id: string;
+		status: string;
+		label?: string | null;
+		created_at: number;
+		closed_at?: number | null;
+		closed_reason?: string | null;
+		layer_count: number;
+		bin_count: number;
+		piece_count: number;
+	};
+
+	type SnapshotItem = Omit<BinContentItem, 'key'> & { item_key: string };
+
+	type SnapshotLayer = {
+		id: number;
+		layer_index: number;
+		section_index: number;
+		bin_index: number;
+		bin_epoch: number;
+		piece_count: number;
+		unique_item_count: number;
+		category_ids: string[];
+		flush_scope?: string | null;
+		flushed_at: number;
+		items: SnapshotItem[];
+	};
+
+	type SnapshotDetail = SnapshotSummary & { layers: SnapshotLayer[] };
+
+	let snapshotsOpen = $state(false);
+	let snapshots = $state<SnapshotSummary[]>([]);
+	let snapshotsLoading = $state(false);
+	let snapshotsError = $state<string | null>(null);
+	let snapshotDetail = $state<SnapshotDetail | null>(null);
+	let snapshotDetailLoading = $state(false);
+
+	async function loadSnapshots() {
+		snapshotsLoading = true;
+		snapshotsError = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/snapshots`);
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			const data = await res.json();
+			snapshots = data.snapshots ?? [];
+		} catch (e) {
+			snapshotsError = `Failed to load snapshots: ${e}`;
+		} finally {
+			snapshotsLoading = false;
+		}
+	}
+
+	function openSnapshots() {
+		snapshotDetail = null;
+		snapshotsOpen = true;
+		void loadSnapshots();
+	}
+
+	async function openSnapshotDetail(id: string) {
+		snapshotDetailLoading = true;
+		snapshotsError = null;
+		try {
+			const res = await fetch(`${baseUrl()}/api/bins/snapshots/${encodeURIComponent(id)}`);
+			if (!res.ok) throw new Error(`HTTP ${res.status}`);
+			snapshotDetail = await res.json();
+		} catch (e) {
+			snapshotsError = `Failed to load snapshot: ${e}`;
+		} finally {
+			snapshotDetailLoading = false;
+		}
+	}
+
+	function snapshotCsvUrl(id: string): string {
+		return `${baseUrl()}/api/bins/snapshots/${encodeURIComponent(id)}/export.csv`;
+	}
+
+	function currentContentsCsvUrl(): string {
+		return `${baseUrl()}/api/bins/contents/export.csv`;
+	}
+
+	function snapshotBinLabel(layer: SnapshotLayer): string {
+		return `Layer ${layer.layer_index + 1} · Section ${layer.section_index + 1} · Bin ${layer.bin_index + 1}`;
+	}
 
 	function baseUrl(): string {
 		return (
@@ -832,12 +916,25 @@
 		void loadSetProgress();
 		void loadBinSettings();
 		void sortingProfileStore.load(baseUrl()).catch(() => {});
+		// Skip polling while the tab is hidden — a backgrounded tab hammering
+		// these endpoints from a remote network can saturate the machine's uplink.
 		const interval = setInterval(() => {
+			if (document.hidden) return;
 			void loadLayout();
 			void loadBinContents();
 			void loadSetProgress();
 		}, 2000);
-		return () => clearInterval(interval);
+		const onVisibilityChange = () => {
+			if (document.hidden) return;
+			void loadLayout();
+			void loadBinContents();
+			void loadSetProgress();
+		};
+		document.addEventListener('visibilitychange', onVisibilityChange);
+		return () => {
+			clearInterval(interval);
+			document.removeEventListener('visibilitychange', onVisibilityChange);
+		};
 	});
 
 	$effect(() => {
@@ -907,6 +1004,23 @@
 				<h2 class="text-xl font-bold text-text">Bin Grid</h2>
 			</div>
 			<div class="flex items-center gap-3">
+				<a
+					href={currentContentsCsvUrl()}
+					download
+					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
+					title="Download current bin contents as CSV"
+				>
+					<Download size={16} />
+					Export CSV
+				</a>
+				<button
+					onclick={openSnapshots}
+					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
+					title="View snapshots of previously emptied bin contents"
+				>
+					<History size={16} />
+					Snapshots
+				</button>
 				<button
 					onclick={homeChute}
 					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
@@ -1393,6 +1507,138 @@
 			</div>
 		{/if}
 	</div>
+
+	<Modal bind:open={snapshotsOpen} title={snapshotDetail ? 'Snapshot Details' : 'Bin Snapshots'} wide={true}>
+		{#if snapshotsError}
+			<div class="mb-3 border border-danger bg-danger/[0.06] px-3 py-2 text-sm text-danger">{snapshotsError}</div>
+		{/if}
+		{#if snapshotDetail}
+			<div class="space-y-4">
+				<div class="flex items-center justify-between gap-3">
+					<button
+						type="button"
+						onclick={() => (snapshotDetail = null)}
+						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
+					>
+						<ArrowLeft size={14} />
+						All snapshots
+					</button>
+					<a
+						href={snapshotCsvUrl(snapshotDetail.id)}
+						download
+						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
+					>
+						<Download size={14} />
+						Export CSV
+					</a>
+				</div>
+				<div class="grid gap-4 border border-border bg-surface px-4 py-4 text-sm text-text-muted md:grid-cols-4">
+					<div>
+						<div class="text-xs uppercase tracking-wide">Status</div>
+						<div class="mt-1 text-base font-medium text-text capitalize">{snapshotDetail.status}</div>
+					</div>
+					<div>
+						<div class="text-xs uppercase tracking-wide">Started</div>
+						<div class="mt-1 text-base font-medium text-text">{formatLastSeen(snapshotDetail.created_at)}</div>
+					</div>
+					<div>
+						<div class="text-xs uppercase tracking-wide">Closed</div>
+						<div class="mt-1 text-base font-medium text-text">{formatLastSeen(snapshotDetail.closed_at)}</div>
+					</div>
+					<div>
+						<div class="text-xs uppercase tracking-wide">Pieces</div>
+						<div class="mt-1 text-base font-medium text-text">{snapshotDetail.piece_count}</div>
+					</div>
+				</div>
+				{#each snapshotDetail.layers as layer (layer.id)}
+					<div class="border border-border bg-bg p-4">
+						<div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+							<div class="text-sm font-semibold text-text">{snapshotBinLabel(layer)}</div>
+							<div class="flex items-center gap-2 text-xs text-text-muted">
+								<span class="border border-border bg-surface px-2 py-1">{layer.piece_count} {layer.piece_count === 1 ? 'piece' : 'pieces'}</span>
+								<span class="border border-border bg-surface px-2 py-1">emptied {formatLastSeen(layer.flushed_at)}</span>
+							</div>
+						</div>
+						{#if layer.category_ids.length > 0}
+							<div class="mb-3 text-sm text-text-muted">
+								Assigned: {layer.category_ids.map((id) => formatCategoryName(id) || id).join(', ')}
+							</div>
+						{/if}
+						{#if layer.items.length > 0}
+							<div class="overflow-x-auto">
+								<table class="w-full text-left text-sm">
+									<thead>
+										<tr class="border-b border-border text-xs uppercase tracking-wide text-text-muted">
+											<th class="py-1.5 pr-4">Part</th>
+											<th class="py-1.5 pr-4">Color</th>
+											<th class="py-1.5 pr-4">Category</th>
+											<th class="py-1.5 pr-4">Count</th>
+											<th class="py-1.5">Last seen</th>
+										</tr>
+									</thead>
+									<tbody>
+										{#each layer.items as item (item.item_key)}
+											<tr class="border-b border-border/60">
+												<td class="py-1.5 pr-4 font-medium text-text">{item.part_id ?? 'unknown'}</td>
+												<td class="py-1.5 pr-4">{item.color_name ?? item.color_id ?? 'n/a'}</td>
+												<td class="py-1.5 pr-4">{formatCategoryName(item.category_id) || item.category_id || 'n/a'}</td>
+												<td class="py-1.5 pr-4">{item.count}</td>
+												<td class="py-1.5">{formatLastSeen(item.last_distributed_at)}</td>
+											</tr>
+										{/each}
+									</tbody>
+								</table>
+							</div>
+						{/if}
+					</div>
+				{/each}
+			</div>
+		{:else if snapshotDetailLoading || snapshotsLoading}
+			<div class="flex items-center justify-center gap-2 py-10 text-sm text-text-muted">
+				<Loader2 size={16} class="animate-spin" />
+				Loading…
+			</div>
+		{:else if snapshots.length === 0}
+			<p class="py-8 text-center text-sm text-text-muted">
+				No snapshots yet. Emptying a bin (or all bins) automatically saves a snapshot of what was in it.
+			</p>
+		{:else}
+			<div class="space-y-2">
+				{#each snapshots as snapshot (snapshot.id)}
+					<div class="flex flex-wrap items-center justify-between gap-3 border border-border bg-bg px-4 py-3">
+						<div>
+							<div class="text-sm font-medium text-text">
+								{formatLastSeen(snapshot.closed_at ?? snapshot.created_at)}
+								{#if snapshot.status === 'open'}
+									<span class="ml-2 border border-primary bg-primary/[0.08] px-1.5 py-0.5 text-xs text-text">accumulating</span>
+								{/if}
+							</div>
+							<div class="mt-0.5 text-xs text-text-muted">
+								{snapshot.piece_count} {snapshot.piece_count === 1 ? 'piece' : 'pieces'} · {snapshot.bin_count} {snapshot.bin_count === 1 ? 'bin' : 'bins'} · {snapshot.layer_count} {snapshot.layer_count === 1 ? 'wipe' : 'wipes'}
+							</div>
+						</div>
+						<div class="flex items-center gap-2">
+							<button
+								type="button"
+								onclick={() => void openSnapshotDetail(snapshot.id)}
+								class="border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
+							>
+								View
+							</button>
+							<a
+								href={snapshotCsvUrl(snapshot.id)}
+								download
+								class="flex items-center gap-1.5 border border-[#E2E0DB] bg-white px-3 py-1.5 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
+							>
+								<Download size={13} />
+								CSV
+							</a>
+						</div>
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</Modal>
 
 	<Modal bind:open={detailsOpen} title={detailsBin ? `Bin ${detailsBin.bin.global_index + 1} Details` : 'Bin Details'} wide={true}>
 		{#if detailsBin}

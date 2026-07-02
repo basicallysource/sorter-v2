@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+import copy
+import csv
+import io
 import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from blob_manager import (
@@ -41,7 +45,14 @@ from irl.parse_user_toml import (
     DEFAULT_CHUTE_PILLAR_WIDTH_DEG,
     DEFAULT_CHUTE_SECTION_WIDTH_DEG,
 )
-from local_state import clear_current_session_bins, get_current_bin_contents_snapshot
+from local_state import (
+    clear_current_session_bins,
+    get_bin_snapshot,
+    get_bin_snapshot_pieces,
+    get_current_bin_contents_snapshot,
+    get_current_bin_pieces,
+    list_bin_snapshots,
+)
 from server import shared_state
 from server.routers.steppers import _stepper_mapping, _halt_stepper
 from server.waveshare_inventory import get_waveshare_inventory_manager
@@ -2983,6 +2994,9 @@ def clear_bin_category_assignments(
     bin_index: int | None = None,
 ) -> dict[str, Any]:
     categories = _current_bin_categories()
+    # Snapshot flushing records each bin's category assignment; grab it before
+    # the in-place clears below wipe it.
+    categories_before = copy.deepcopy(categories)
 
     if scope == "all":
         cleared_bins = 0
@@ -2994,7 +3008,7 @@ def clear_bin_category_assignments(
                     category_ids.clear()
         _apply_and_persist_bin_categories(categories)
         _clear_runtime_bin_contents(scope=scope)
-        clear_current_session_bins(scope=scope)
+        clear_current_session_bins(scope=scope, bin_categories=categories_before)
         return {
             "ok": True,
             "scope": scope,
@@ -3014,7 +3028,7 @@ def clear_bin_category_assignments(
                 category_ids.clear()
         _apply_and_persist_bin_categories(categories)
         _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
-        clear_current_session_bins(scope=scope, layer_index=layer_index)
+        clear_current_session_bins(scope=scope, layer_index=layer_index, bin_categories=categories_before)
         return {
             "ok": True,
             "scope": scope,
@@ -3045,6 +3059,7 @@ def clear_bin_category_assignments(
         layer_index=layer_index,
         section_index=section_index,
         bin_index=bin_index,
+        bin_categories=categories_before,
     )
     return {
         "ok": True,
@@ -3126,11 +3141,12 @@ def clear_bin_contents(
 ) -> dict[str, Any]:
     if scope == "all":
         _clear_runtime_bin_contents(scope=scope)
-        cleared = clear_current_session_bins(scope=scope)
+        cleared = clear_current_session_bins(scope=scope, bin_categories=_current_bin_categories())
         return {
             "ok": True,
             "scope": scope,
             "cleared_bins": int(cleared.get("cleared_bins", 0)),
+            "snapshot_id": cleared.get("snapshot_id"),
             "message": "Emptied all bins without changing their assignments.",
         }
 
@@ -3140,7 +3156,7 @@ def clear_bin_contents(
 
     if scope == "layer":
         _clear_runtime_bin_contents(scope=scope, layer_index=layer_index)
-        cleared = clear_current_session_bins(scope=scope, layer_index=layer_index)
+        cleared = clear_current_session_bins(scope=scope, layer_index=layer_index, bin_categories=categories)
         return {
             "ok": True,
             "scope": scope,
@@ -3162,6 +3178,7 @@ def clear_bin_contents(
         layer_index=layer_index,
         section_index=section_index,
         bin_index=bin_index,
+        bin_categories=categories,
     )
     _clear_runtime_bin_contents(
         scope=scope,
@@ -3520,19 +3537,135 @@ def reset_bins_machine() -> Dict[str, Any]:
     return result
 
 
-@router.get("/api/bins/contents")
-def get_bin_contents() -> Dict[str, Any]:
-    persisted = get_current_bin_contents_snapshot()
-    if persisted.get("bins"):
-        return persisted
+_PIECE_CSV_COLUMNS = [
+    "bl_part_id",
+    "bl_color_id",
+    "color_name",
+    "category_id_in_profile",
+    "profile_id",
+    "profile_name",
+    "classification_status",
+    "created_at",
+    "classified_at",
+    "distributed_at",
+    "layer_index",
+    "section_index",
+    "bin_index",
+    "bin_epoch",
+    "piece_uuid",
+    "brickognize_preview_url",
+]
 
-    collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
-    if collector is None or not hasattr(collector, "binContentsSnapshot"):
-        return persisted
-    try:
-        snapshot = collector.binContentsSnapshot()
-        if isinstance(snapshot, dict):
-            return snapshot
-        return persisted
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to build bin contents: {exc}")
+
+def _pieces_to_csv(pieces: list[dict[str, Any]], *, extra_columns: dict[str, Any] | None = None) -> str:
+    buffer = io.StringIO()
+    columns = _PIECE_CSV_COLUMNS + list(extra_columns.keys() if extra_columns else [])
+    writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
+    writer.writeheader()
+    for piece in pieces:
+        row = {
+            "bl_part_id": piece.get("part_id"),
+            "bl_color_id": piece.get("color_id"),
+            "color_name": piece.get("color_name"),
+            "category_id_in_profile": piece.get("category_id"),
+            "profile_id": piece.get("profile_id"),
+            "profile_name": piece.get("profile_name"),
+            "classification_status": piece.get("classification_status"),
+            "created_at": piece.get("created_at"),
+            "classified_at": piece.get("classified_at"),
+            "distributed_at": piece.get("distributed_at"),
+            "layer_index": piece.get("layer_index"),
+            "section_index": piece.get("section_index"),
+            "bin_index": piece.get("bin_index"),
+            "bin_epoch": piece.get("bin_epoch"),
+            "piece_uuid": piece.get("piece_uuid"),
+            "brickognize_preview_url": piece.get("brickognize_preview_url"),
+        }
+        if extra_columns:
+            row.update(extra_columns)
+        writer.writerow(row)
+    return buffer.getvalue()
+
+
+def _csv_response(content: str, filename: str) -> Response:
+    return Response(
+        content=content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@router.get("/api/bins/snapshots")
+def get_bin_snapshots() -> Dict[str, Any]:
+    return {"snapshots": list_bin_snapshots()}
+
+
+@router.get("/api/bins/snapshots/{snapshot_id}")
+def get_bin_snapshot_detail(snapshot_id: str, include_images: bool = False) -> Dict[str, Any]:
+    snapshot = get_bin_snapshot(snapshot_id)
+    if snapshot is None:
+        raise HTTPException(status_code=404, detail="Unknown snapshot.")
+    if not include_images:
+        for layer in snapshot.get("layers", []):
+            for item in layer.get("items", []):
+                for field in _BIN_ITEM_IMAGE_FIELDS:
+                    item.pop(field, None)
+    return snapshot
+
+
+@router.get("/api/bins/snapshots/{snapshot_id}/export.csv")
+def export_bin_snapshot_csv(snapshot_id: str) -> Response:
+    pieces = get_bin_snapshot_pieces(snapshot_id)
+    if pieces is None:
+        raise HTTPException(status_code=404, detail="Unknown snapshot.")
+    content = _pieces_to_csv(pieces, extra_columns={"snapshot_id": snapshot_id})
+    return _csv_response(content, f"bin-snapshot-{snapshot_id[:8]}.csv")
+
+
+@router.get("/api/bins/contents/export.csv")
+def export_current_bin_contents_csv() -> Response:
+    content = _pieces_to_csv(get_current_bin_pieces())
+    return _csv_response(content, "bin-contents-current.csv")
+
+
+_BIN_ITEM_IMAGE_FIELDS = ("thumbnail", "top_image", "bottom_image")
+
+
+def _strip_bin_content_images(payload: dict[str, Any]) -> dict[str, Any]:
+    # Inline base64 images blow the polled contents payload up to ~8MB, which
+    # saturated a deployed machine's uplink. brickognize_preview_url (a plain
+    # URL) stays; callers that truly need pixels pass include_images=true.
+    bins = payload.get("bins")
+    if not isinstance(bins, list):
+        return payload
+    for bin_entry in bins:
+        if not isinstance(bin_entry, dict):
+            continue
+        for list_key in ("items", "recent_pieces"):
+            entries = bin_entry.get(list_key)
+            if not isinstance(entries, list):
+                continue
+            for entry in entries:
+                if isinstance(entry, dict):
+                    for field in _BIN_ITEM_IMAGE_FIELDS:
+                        entry.pop(field, None)
+    return payload
+
+
+@router.get("/api/bins/contents")
+def get_bin_contents(include_images: bool = False) -> Dict[str, Any]:
+    persisted = get_current_bin_contents_snapshot()
+    result: Dict[str, Any] | None = None
+    if persisted.get("bins"):
+        result = persisted
+    else:
+        collector = getattr(shared_state.gc_ref, "runtime_stats", None) if shared_state.gc_ref is not None else None
+        if collector is None or not hasattr(collector, "binContentsSnapshot"):
+            result = persisted
+        else:
+            try:
+                snapshot = collector.binContentsSnapshot()
+                result = snapshot if isinstance(snapshot, dict) else persisted
+            except Exception as exc:
+                raise HTTPException(status_code=500, detail=f"Failed to build bin contents: {exc}")
+    return result if include_images else _strip_bin_content_images(result)

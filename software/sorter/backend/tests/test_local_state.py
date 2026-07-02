@@ -21,8 +21,12 @@ from local_state import (
     get_set_progress_state,
     get_servo_states,
     get_sorting_profile_sync_state,
+    get_bin_snapshot,
+    get_bin_snapshot_pieces,
+    get_current_bin_pieces,
     get_hive_config,
     initialize_local_state,
+    list_bin_snapshots,
     record_piece_distribution,
     remember_recent_known_object,
     start_new_sorting_session,
@@ -208,6 +212,81 @@ class LocalStateMigrationTests(unittest.TestCase):
         clear_current_session_bins(scope="bin", layer_index=0, section_index=0, bin_index=0)
         cleared = get_current_bin_contents_snapshot()
         self.assertEqual([], cleared["bins"])
+
+    def test_bin_snapshots_accumulate_layers_and_close_on_all_clear(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="test")
+
+        def _distribute(uuid: str, destination_bin: list[int], distributed_at: float, part_id: str) -> None:
+            record_piece_distribution(
+                {
+                    "uuid": uuid,
+                    "destination_bin": destination_bin,
+                    "distributed_at": distributed_at,
+                    "created_at": distributed_at - 5.0,
+                    "classified_at": distributed_at - 2.0,
+                    "part_id": part_id,
+                    "color_id": "15",
+                    "color_name": "White",
+                    "category_id": "bricks",
+                    "classification_status": "classified",
+                }
+            )
+
+        _distribute("piece-a", [0, 0, 0], 10.0, "3001")
+        _distribute("piece-b", [0, 0, 0], 12.0, "3002")
+        _distribute("piece-c", [0, 1, 2], 14.0, "3003")
+
+        current_pieces = get_current_bin_pieces()
+        self.assertEqual(["piece-a", "piece-b", "piece-c"], [p["piece_uuid"] for p in current_pieces])
+
+        bin_categories = [[[["bricks"], [], []], [[], [], ["plates"]]]]
+        clear_current_session_bins(
+            scope="bin", layer_index=0, section_index=0, bin_index=0, bin_categories=bin_categories
+        )
+
+        snapshots = list_bin_snapshots()
+        self.assertEqual(1, len(snapshots))
+        self.assertEqual("open", snapshots[0]["status"])
+        self.assertEqual(2, snapshots[0]["piece_count"])
+
+        _distribute("piece-d", [0, 0, 0], 16.0, "3004")
+        result = clear_current_session_bins(scope="all", bin_categories=bin_categories)
+        snapshot_id = result["snapshot_id"]
+        self.assertIsNotNone(snapshot_id)
+
+        snapshots = list_bin_snapshots()
+        self.assertEqual(1, len(snapshots))
+        self.assertEqual("closed", snapshots[0]["status"])
+        self.assertEqual(snapshot_id, snapshots[0]["id"])
+        self.assertEqual(4, snapshots[0]["piece_count"])
+        self.assertEqual(3, snapshots[0]["layer_count"])
+        self.assertEqual(2, snapshots[0]["bin_count"])
+
+        detail = get_bin_snapshot(snapshot_id)
+        self.assertEqual(3, len(detail["layers"]))
+        first_layer = detail["layers"][0]
+        self.assertEqual(["bricks"], first_layer["category_ids"])
+        self.assertEqual({"3001", "3002"}, {item["part_id"] for item in first_layer["items"]})
+        second_layer = detail["layers"][1]
+        self.assertEqual(["3004"], [item["part_id"] for item in second_layer["items"]])
+
+        pieces = get_bin_snapshot_pieces(snapshot_id)
+        self.assertEqual(
+            {"piece-a", "piece-b", "piece-c", "piece-d"},
+            {p["piece_uuid"] for p in pieces},
+        )
+        first_piece = next(p for p in pieces if p["piece_uuid"] == "piece-a")
+        self.assertEqual(5.0, first_piece["created_at"])
+        self.assertEqual(8.0, first_piece["classified_at"])
+        self.assertEqual(10.0, first_piece["distributed_at"])
+        self.assertIn("profile_id", first_piece)
+        self.assertIn("profile_name", first_piece)
+
+        self.assertEqual([], get_current_bin_pieces())
+
+        clear_current_session_bins(scope="all")
+        self.assertEqual(1, len(list_bin_snapshots()))
 
     def test_connection_context_closes_sqlite_connections(self) -> None:
         class FakeConnection:

@@ -20,6 +20,7 @@
 	let expanded = $state<number | null>(null);
 	let detail = $state<MachineConfigBackupDetail | null>(null);
 	let detailLoading = $state(false);
+	let openStateKey = $state<string | null>(null);
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
@@ -80,6 +81,15 @@
 		return Object.entries(ls)
 			.filter(([, v]) => v !== null && v !== undefined)
 			.map(([k]) => k);
+	}
+
+	function localStateJson(d: MachineConfigBackupDetail, key: string): string {
+		const ls = (d.payload?.local_state ?? {}) as Record<string, unknown>;
+		try {
+			return JSON.stringify(ls[key], null, 2);
+		} catch {
+			return String(ls[key]);
+		}
 	}
 
 	function tomlText(d: MachineConfigBackupDetail): string {
@@ -160,9 +170,22 @@
 											local_state
 										</div>
 										{#if localStateKeys(detail).length > 0}
-											<div class="mb-4 flex flex-wrap gap-2">
-												{#each localStateKeys(detail) as key}
-													<span class="bg-primary-light px-2 py-0.5 text-xs text-text">{key}</span>
+											<div class="mb-4 border border-border">
+												{#each localStateKeys(detail) as key (key)}
+													{@const d = detail}
+													<div class="border-b border-border last:border-b-0">
+														<button
+															type="button"
+															onclick={() => (openStateKey = openStateKey === key ? null : key)}
+															class="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface"
+														>
+															<span class="font-mono text-xs text-text">{key}</span>
+															<span class="ml-auto text-text-muted">{openStateKey === key ? '▾' : '▸'}</span>
+														</button>
+														{#if openStateKey === key}
+															<pre class="max-h-80 overflow-auto border-t border-border bg-surface p-3 text-xs text-text">{localStateJson(d, key)}</pre>
+														{/if}
+													</div>
 												{/each}
 											</div>
 										{:else}

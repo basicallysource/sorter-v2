@@ -23,6 +23,22 @@ class FeederMode(enum.Enum):
     # exit/drop handling is just "pulse a fixed distance, pause a fixed time"
     # per region — no fast-eject / COM closed loop / jitter recovery.
     PULSE_PERCEPTION_REV01 = "pulse_perception_rev01"
+    # B1 belt topology: a cleated conveyor (continuous velocity via
+    # move_at_speed, throttled by C3's perception fill level) replaces the
+    # C1/C2 pulsing entirely; C3 keeps the pulse-perception exit metering.
+    # Pairs with machine_setup "belt_feeder". See subsystems/feeder/belt/.
+    BELT_REV01 = "belt_rev01"
+
+
+# Feeder modes that read ChannelState from the rev04 perception service
+# (perception owns detection; legacy VisionManager paths stay off).
+PERCEPTION_NATIVE_FEEDER_MODES = frozenset(
+    {
+        FeederMode.GO_TO_ANGLE_REV01,
+        FeederMode.PULSE_PERCEPTION_REV01,
+        FeederMode.BELT_REV01,
+    }
+)
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError
@@ -608,6 +624,8 @@ class IRLInterface:
     c_channel_1_rotor_stepper: "StepperMotor"
     c_channel_2_rotor_stepper: "StepperMotor"
     c_channel_3_rotor_stepper: "StepperMotor"
+    # belt_feeder setups: alias for the C1 rotor stepper driving the B1 belt.
+    belt_stepper: "StepperMotor"
     fifth_stepper: "StepperMotor"
     servos: "list[ServoMotor]"
     chute: "Chute"
@@ -1289,7 +1307,11 @@ def _requiredCanonicalStepperNames(
     stepper_binding_overrides: dict[str, str],
 ) -> list[str]:
     logical_required: list[str] = ["chute"]
-    if machine_setup.automatic_feeder:
+    if machine_setup.uses_belt_feeder:
+        # The belt motor lives on the C1 rotor port; C2 has no motor in this
+        # topology.
+        logical_required.extend(["c_channel_1", "c_channel_3"])
+    elif machine_setup.automatic_feeder:
         logical_required.extend(["c_channel_1", "c_channel_2", "c_channel_3"])
     if machine_setup.uses_carousel_transport:
         logical_required.append("carousel")
@@ -1496,6 +1518,11 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         irl_interface.c_channel_4_rotor_stepper = irl_interface.carousel_stepper
         if config.machine_setup.uses_classification_channel:
             irl_interface.classification_channel_rotor_stepper = irl_interface.carousel_stepper
+
+    if config.machine_setup.uses_belt_feeder and hasattr(
+        irl_interface, "c_channel_1_rotor_stepper"
+    ):
+        irl_interface.belt_stepper = irl_interface.c_channel_1_rotor_stepper
 
     _apply_stepper_software_disable(gc, irl_interface)
 

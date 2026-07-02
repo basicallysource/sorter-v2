@@ -27,6 +27,7 @@ class MachineCapabilities:
     automatic_feeder: bool
     carousel_transport: bool
     classification_channel: bool
+    belt_feeder: bool
     carousel_endstop_required: bool
     runtime_supported: bool
 
@@ -83,6 +84,7 @@ def build_machine_profile(
             automatic_feeder=machine_setup_definition.automatic_feeder,
             carousel_transport=machine_setup_definition.uses_carousel_transport,
             classification_channel=machine_setup_definition.uses_classification_channel,
+            belt_feeder=machine_setup_definition.uses_belt_feeder,
             carousel_endstop_required=machine_setup_definition.requires_carousel_endstop,
             runtime_supported=machine_setup_definition.runtime_supported,
         ),

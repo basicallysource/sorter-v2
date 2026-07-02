@@ -17,6 +17,7 @@ from irl.config import (
     CameraPictureSettings,
     ClassificationChannelMode,
     FeederMode,
+    PERCEPTION_NATIVE_FEEDER_MODES,
     mkCameraConfig,
 )
 from defs.events import CameraName, FrameEvent, FrameData, FrameResultData
@@ -296,10 +297,7 @@ class VisionManager:
             if uses_classification_channel_setup
             else ("c_channel_2", "c_channel_3")
         )
-        perception_native_feeder = feeder_mode in (
-            FeederMode.GO_TO_ANGLE_REV01,
-            FeederMode.PULSE_PERCEPTION_REV01,
-        )
+        perception_native_feeder = feeder_mode in PERCEPTION_NATIVE_FEEDER_MODES
         run_auxiliary_detection = (
             not perception_native_feeder
             and classification_mode

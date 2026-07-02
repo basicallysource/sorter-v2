@@ -64,7 +64,7 @@ class FeedingModePayload(BaseModel):
 
 
 class MachineSetupPayload(BaseModel):
-    setup: Literal["classification_channel", "manual_carousel"]
+    setup: Literal["classification_channel", "manual_carousel", "belt_feeder"]
 
 
 class ClassificationChannelModePayload(BaseModel):
@@ -123,12 +123,19 @@ def _camera_assignments_from_config(config: Dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _camera_assignments_complete(camera_assignments: dict[str, Any]) -> bool:
+def _camera_assignments_complete(
+    camera_assignments: dict[str, Any], machine_setup_key: str | None = None
+) -> bool:
     layout = camera_assignments.get("layout")
     if layout not in {"default", "split_feeder"}:
         return False
     if layout == "split_feeder":
-        return all(camera_assignments.get(role) is not None for role in ("c_channel_2", "c_channel_3")) and (
+        # The belt topology has no C2 channel, so no C2 camera is required.
+        uses_belt = bool(
+            get_machine_setup_definition(machine_setup_key).uses_belt_feeder
+        )
+        feeder_roles = ("c_channel_3",) if uses_belt else ("c_channel_2", "c_channel_3")
+        return all(camera_assignments.get(role) is not None for role in feeder_roles) and (
             camera_assignments.get("classification_channel") is not None
             or camera_assignments.get("carousel") is not None
         )
@@ -181,6 +188,18 @@ def _persist_machine_setup(config: Dict[str, Any], setup_key: str) -> Dict[str, 
         **feeding,
         "mode": definition.feeding_mode,
     }
+
+    # The belt topology only works with the belt feeder subsystem (and vice
+    # versa: the belt flow needs the belt_stepper this setup binds), so keep
+    # the pair in lock-step when switching TO belt_feeder — and never leave a
+    # stale belt_rev01 behind when switching away.
+    feeder = config.get("feeder", {})
+    if not isinstance(feeder, dict):
+        feeder = {}
+    if definition.uses_belt_feeder:
+        config["feeder"] = {**feeder, "mode": FeederMode.BELT_REV01.value}
+    elif feeder.get("mode") == FeederMode.BELT_REV01.value:
+        config["feeder"] = {**feeder, "mode": FeederMode.GO_TO_ANGLE_REV01.value}
     return config
 
 
@@ -607,7 +626,7 @@ def get_setup_wizard_summary() -> Dict[str, Any]:
         "machine_named": bool(getMachineNickname()),
         "boards_detected": len(discovery["boards"]) > 0,
         "camera_layout_selected": camera_assignments["layout"] in {"default", "split_feeder"},
-        "cameras_assigned": _camera_assignments_complete(camera_assignments),
+        "cameras_assigned": _camera_assignments_complete(camera_assignments, machine_setup_key),
         "servo_configured": (
             servo_settings["backend"] == "waveshare"
             or bool(discovery["pca_available"])
@@ -662,7 +681,12 @@ def get_feeding_mode() -> Dict[str, Any]:
 @router.post("/api/feeding-mode")
 def set_feeding_mode(payload: FeedingModePayload) -> Dict[str, Any]:
     params_path, config = _read_machine_params_config()
-    if payload.mode == "manual_carousel":
+    current_setup_key = _machine_setup_key_from_config(config)
+    if get_machine_setup_definition(current_setup_key).feeding_mode == payload.mode:
+        # The current setup already feeds this way (e.g. belt_feeder is also
+        # auto_channels) — don't silently switch topologies.
+        next_setup_key = current_setup_key
+    elif payload.mode == "manual_carousel":
         next_setup_key = MANUAL_CAROUSEL_SETUP
     else:
         next_setup_key = CLASSIFICATION_CHANNEL_SETUP

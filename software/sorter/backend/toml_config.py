@@ -300,6 +300,36 @@ def setPulsePerceptionConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# B1 belt feeder tuning config
+# ---------------------------------------------------------------------------
+
+
+def getBeltFeederConfig() -> dict[str, Any]:
+    from subsystems.feeder.belt.config import BeltFeederConfig, configToDict
+    config = _read_toml()
+    section = config.get("feeder_belt")
+    defaults = configToDict(BeltFeederConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setBeltFeederConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.feeder.belt.config import BeltFeederConfig, configToDict
+    defaults = configToDict(BeltFeederConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("feeder_belt")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["feeder_belt"] = base
+
+    _update_toml(updater)
+    return getBeltFeederConfig()
+
+
+# ---------------------------------------------------------------------------
 # Upstream-match tuning config
 # ---------------------------------------------------------------------------
 

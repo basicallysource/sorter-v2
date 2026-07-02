@@ -18,12 +18,15 @@ from toml_config import (
     setTrackerConfig,
     getPulsePerceptionConfig,
     setPulsePerceptionConfig,
+    getBeltFeederConfig,
+    setBeltFeederConfig,
     getUpstreamMatchConfig,
     setUpstreamMatchConfig,
 )
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
 from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
+from subsystems.feeder.belt.config import FIELD_META as BELT_FEEDER_FIELD_META
 from perception.tracker_config import TRACKER_SPECS
 from perception.upstream_capture import (
     EMBED_MODEL,
@@ -81,6 +84,23 @@ def get_pulse_perception_config() -> dict[str, Any]:
 def set_pulse_perception_config(body: dict[str, Any]) -> dict[str, Any]:
     try:
         updated = setPulsePerceptionConfig(body)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"config": updated}
+
+
+@router.get("/api/tuning/feeder-belt")
+def get_belt_feeder_config() -> dict[str, Any]:
+    return {
+        "config": getBeltFeederConfig(),
+        "fields": BELT_FEEDER_FIELD_META,
+    }
+
+
+@router.post("/api/tuning/feeder-belt")
+def set_belt_feeder_config(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        updated = setBeltFeederConfig(body)
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"config": updated}

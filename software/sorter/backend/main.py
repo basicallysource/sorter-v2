@@ -44,6 +44,7 @@ from defs.events import RuntimeStatsEvent, RuntimeStatsData
 from irl.config import (
     ClassificationChannelMode,
     FeederMode,
+    PERCEPTION_NATIVE_FEEDER_MODES,
     mkIRLConfig,
     mkIRLInterface,
 )
@@ -124,7 +125,7 @@ def _noPowerModeActive(gc: GlobalConfig) -> bool:
 
 def _perceptionModeActive(irl_config) -> bool:
     """Rev04 perception stack: a perception-native feeder mode
-    (GO_TO_ANGLE_REV01 or PULSE_PERCEPTION_REV01) paired with the
+    (see PERCEPTION_NATIVE_FEEDER_MODES) paired with the
     SIMPLE_STATE_MACHINE_REV01 classification channel. The perception package
     owns detection for these pairs only; every other mode pair keeps using the
     legacy VisionManager paths."""
@@ -133,7 +134,7 @@ def _perceptionModeActive(irl_config) -> bool:
         getattr(irl_config, "classification_channel_config", None), "mode", None
     )
     return (
-        feeder_mode in (FeederMode.GO_TO_ANGLE_REV01, FeederMode.PULSE_PERCEPTION_REV01)
+        feeder_mode in PERCEPTION_NATIVE_FEEDER_MODES
         and cc_mode
         in (
             ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,
@@ -145,8 +146,8 @@ def _perceptionModeActive(irl_config) -> bool:
 def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     if not _perceptionModeActive(irl_config):
         gc.logger.info(
-            "Perception (rev04) inactive: mode pair is not "
-            "(GO_TO_ANGLE_REV01, SIMPLE_STATE_MACHINE_REV01). Legacy vision owns detection."
+            "Perception (rev04) inactive: feeder mode is not perception-native "
+            "or classification mode is not a REV01 state machine. Legacy vision owns detection."
         )
         return
 

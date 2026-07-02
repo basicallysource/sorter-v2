@@ -16,7 +16,7 @@ import {
 	CLASSIFICATION_CHANNEL_STEPPER_LABEL
 } from '$lib/settings/stepper-control';
 
-export type MachineSetupKey = 'classification_channel' | 'manual_carousel';
+export type MachineSetupKey = 'classification_channel' | 'manual_carousel' | 'belt_feeder';
 
 export type CameraRole =
 	| 'c_channel_2'
@@ -140,6 +140,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 		icon: SlidersHorizontal
 	},
 	{
+		href: '/settings/tuning/feeder-belt',
+		label: 'B1 Belt Feeder',
+		icon: SlidersHorizontal
+	},
+	{
 		href: '/settings/tuning/classification-channel',
 		label: 'Classification Channel',
 		icon: SlidersHorizontal
@@ -162,7 +167,8 @@ export const stationPageConfigs: StationPageConfig[] = [
 		href: '/settings/c-channel-1',
 		label: 'C-Channel 1',
 		icon: Wrench,
-		description: 'Bulk feed channel. This station only exposes manual stepper control.',
+		description:
+			'Bulk feed channel. This station only exposes manual stepper control. In the B1 belt topology the belt motor lives on this rotor port.',
 		cameraRoles: [],
 		zoneChannels: [],
 		stepperKeys: ['c_channel_1']
@@ -261,9 +267,13 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 
 export function settingsNavItemsForSetup(setup: MachineSetupKey): SettingsNavEntry[] {
 	const hiddenSlugs =
-		setup === 'classification_channel'
-			? new Set<StationSlug>(['carousel', 'classification-chamber'])
-			: new Set<StationSlug>(['classification-channel']);
+		setup === 'belt_feeder'
+			? // B1 belt topology: no C2 channel, no carousel/chamber. The belt
+				// motor is controlled via the C-Channel 1 station page.
+				new Set<StationSlug>(['c-channel-2', 'carousel', 'classification-chamber'])
+			: setup === 'classification_channel'
+				? new Set<StationSlug>(['carousel', 'classification-chamber'])
+				: new Set<StationSlug>(['classification-channel']);
 
 	return baseSettingsNavItems.filter((entry) => {
 		if (!('href' in entry)) return true;

@@ -55,7 +55,9 @@ echo "  ✓ code @ $(git rev-parse --short HEAD)"
 cd "$HIVE_DIR"
 $COMPOSE build backend frontend
 $COMPOSE run --rm backend alembic upgrade head    # explicit, visible migration
-$COMPOSE up -d
+# --force-recreate: `up -d` alone won't replace a running container when the
+# rebuilt image keeps the same :latest tag, so it would silently keep old code.
+$COMPOSE up -d --force-recreate backend frontend
 
 echo "  • health check…"
 ok=0

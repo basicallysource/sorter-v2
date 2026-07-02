@@ -40,6 +40,7 @@ class PieceImageStoreTests(unittest.TestCase):
         with piece_image_store._seen_lock:
             piece_image_store._seen_counts.clear()
             piece_image_store._seen_order.clear()
+            piece_image_store._flags_done.clear()
 
     def tearDown(self) -> None:
         if self._old_db is None:
@@ -52,10 +53,14 @@ class PieceImageStoreTests(unittest.TestCase):
     def drainQueue(self) -> None:
         while True:
             try:
-                piece_uuid, seq, item = piece_image_store._queue.get_nowait()
+                kind, piece_uuid, payload = piece_image_store._queue.get_nowait()
             except Exception:
                 return
-            piece_image_store._writeImage(piece_uuid, seq, item)
+            if kind == "image":
+                seq, item = payload
+                piece_image_store._writeImage(piece_uuid, seq, item)
+            elif kind == "flags":
+                piece_image_store._updateImageFlags(piece_uuid, payload)
 
     def test_writes_files_and_rows(self) -> None:
         piece_image_store.enqueueKnownObjectImages(makePayload("piece-a", 3))
@@ -142,6 +147,30 @@ class PieceImageStoreTests(unittest.TestCase):
         self.assertTrue(synced_row["synced"])
         self.assertTrue(piece_image_store.listPieceImages("piece-0")[0]["available_locally"])
         self.assertTrue(piece_image_store.listPieceImages("piece-1")[0]["available_locally"])
+
+    def test_flags_settle_after_classification(self) -> None:
+        payload = makePayload("piece-f", 3)
+        piece_image_store.enqueueKnownObjectImages(payload)
+        self.drainQueue()
+        rows = piece_image_store.listPieceImages("piece-f")
+        self.assertTrue(all(not r["used"] and not r["excluded_from_result"] for r in rows))
+
+        payload["recognition_image_set"][0]["used"] = True
+        payload["recognition_image_set"][1]["excluded_from_result"] = True
+        payload["recognition_image_set"][1]["score"] = 0.87
+        piece_image_store.enqueueKnownObjectImages(payload)
+        self.drainQueue()
+
+        rows = piece_image_store.listPieceImages("piece-f")
+        self.assertEqual(len(rows), 3)
+        self.assertTrue(rows[0]["used"])
+        self.assertTrue(rows[1]["excluded_from_result"])
+        self.assertAlmostEqual(rows[1]["score"], 0.87)
+        self.assertFalse(rows[2]["used"])
+
+        # Flags flush once per piece — a later observation doesn't re-enqueue.
+        piece_image_store.enqueueKnownObjectImages(payload)
+        self.assertTrue(piece_image_store._queue.empty())
 
     def test_stats(self) -> None:
         piece_image_store.enqueueKnownObjectImages(makePayload("piece-s", 2))

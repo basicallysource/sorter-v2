@@ -599,7 +599,13 @@ def get_piece_image(uuid: str, image_id: int) -> Any:
     path = piece_image_store.getImageFile(uuid, image_id)
     if path is None:
         raise HTTPException(status_code=404, detail="image not available locally")
-    return FileResponse(path, media_type="image/jpeg")
+    # The bytes behind a given image id never change, so let the browser cache
+    # them forever — repeat visits to /records render straight from its cache.
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 @app.get("/api/piece-images/stats")

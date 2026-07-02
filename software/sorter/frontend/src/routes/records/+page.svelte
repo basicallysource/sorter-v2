@@ -3,9 +3,9 @@
 	import { RefreshCw, ChevronLeft, ChevronRight, ExternalLink, FlaskConical } from 'lucide-svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
+	import { Skeleton } from '$lib/components/primitives';
 	import { getMachineContext } from '$lib/machines/context';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 	import type {
@@ -15,9 +15,28 @@
 		RecognitionImage
 	} from '$lib/api/events';
 
+	// One renderable crop, whether it came from the in-memory KnownObject lookup
+	// (base64 payload) or the on-disk piece-image store (file URL). Disk images
+	// survive reboots; memory ones additionally carry the raw base64 needed by
+	// the reclassify panel.
+	type DisplayImage = {
+		src: string;
+		source: string;
+		used: boolean;
+		excluded_from_result: boolean;
+		ts?: number | null;
+		score?: number | null;
+		channel?: number | null;
+		created_at?: number | null;
+		b64?: string | null;
+	};
+
 	type ImageState = {
 		status: 'loading' | 'ok' | 'missing';
-		images: RecognitionImage[];
+		// Where the crops were hydrated from. Memory has the full KnownObject
+		// (attempts, stock photo); disk is the durable fallback after restarts.
+		origin?: 'memory' | 'disk';
+		images: DisplayImage[];
 		strategy?: ClassificationAttemptStrategy | null;
 		attempts?: ClassificationAttempt[];
 		// Creation time of the owning KnownObject (epoch seconds) — the reference
@@ -26,6 +45,21 @@
 		// Brickognize stock photo of the identified part (remote URL), shown on the
 		// right of the contact sheet next to the crops we actually captured.
 		stockUrl?: string | null;
+	};
+
+	type DiskImage = {
+		id: number;
+		seq: number;
+		source: string | null;
+		channel: number | null;
+		ts: number | null;
+		created_at: number | null;
+		sharpness: number | null;
+		available_locally: boolean;
+		synced: boolean;
+		used: boolean;
+		excluded_from_result: boolean;
+		score: number | null;
 	};
 
 	type Overview = {
@@ -149,7 +183,7 @@
 			const json = await res.json();
 			pieces = Array.isArray(json?.pieces) ? json.pieces : [];
 			total = typeof json?.total === 'number' ? json.total : 0;
-			for (const p of pieces) void fetchImages(p.uuid);
+			startImageHydration(pieces);
 		} catch {
 			// ignore
 		} finally {
@@ -157,33 +191,106 @@
 		}
 	}
 
-	// The paginated record carries only classification results; its recognition
-	// crops (C4 burst + upstream C2/C3 matches) live in the in-memory lookup and
-	// are fetched per-uuid. Pieces aged out of that lookup return 404 → 'missing'.
-	async function fetchImages(uuid: string) {
+	// Hydrate crops for the page's pieces a few at a time instead of firing 100
+	// concurrent requests at the backend. A generation counter cancels in-flight
+	// work when the page changes.
+	const HYDRATE_CONCURRENCY = 6;
+	let hydrateGeneration = 0;
+
+	function startImageHydration(items: PieceItem[]) {
+		hydrateGeneration += 1;
+		const generation = hydrateGeneration;
+		const queue = items.map((p) => p);
+		const runWorker = async () => {
+			while (queue.length > 0 && generation === hydrateGeneration) {
+				const piece = queue.shift();
+				if (!piece) return;
+				await fetchImages(piece);
+			}
+		};
+		for (let i = 0; i < HYDRATE_CONCURRENCY; i++) void runWorker();
+	}
+
+	function memoryToDisplay(img: RecognitionImage): DisplayImage {
+		return {
+			src: `data:image/jpeg;base64,${img.image}`,
+			source: img.source,
+			used: img.used,
+			excluded_from_result: img.excluded_from_result ?? false,
+			ts: img.ts,
+			score: img.score,
+			channel: img.channel,
+			created_at: img.created_at,
+			b64: img.image
+		};
+	}
+
+	function diskToDisplay(uuid: string, img: DiskImage): DisplayImage {
+		return {
+			src: `${effectiveBase()}/api/pieces/${encodeURIComponent(uuid)}/images/${img.id}`,
+			source: img.source ?? 'c4_burst',
+			used: img.used,
+			excluded_from_result: img.excluded_from_result,
+			ts: img.ts,
+			score: img.score,
+			channel: img.channel,
+			created_at: img.created_at
+		};
+	}
+
+	// Crops hydrate memory-first, disk-fallback: the in-memory KnownObject lookup
+	// has the richest payload (attempts strip, stock photo, reclassify) but only
+	// spans the current process; the on-disk piece-image store covers everything
+	// since it was enabled — including pieces from before the last restart. Disk
+	// images are plain file URLs served immutable, so the browser caches them.
+	async function fetchImages(piece: PieceItem) {
+		const uuid = piece.uuid;
 		if (imagesByUuid[uuid]?.status === 'ok') return;
 		imagesByUuid = { ...imagesByUuid, [uuid]: { status: 'loading', images: [] } };
 		try {
 			const res = await fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(uuid)}`);
-			if (!res.ok) {
-				imagesByUuid = { ...imagesByUuid, [uuid]: { status: 'missing', images: [] } };
+			if (res.ok) {
+				const data = (await res.json()) as KnownObjectData;
+				imagesByUuid = {
+					...imagesByUuid,
+					[uuid]: {
+						status: 'ok',
+						origin: 'memory',
+						images: (data.recognition_image_set ?? []).map(memoryToDisplay),
+						strategy: data.classification_strategy ?? null,
+						attempts: data.classification_attempts ?? [],
+						createdAt: data.created_at ?? null,
+						stockUrl: data.brickognize_preview_url ?? null
+					}
+				};
 				return;
 			}
-			const data = (await res.json()) as KnownObjectData;
-			imagesByUuid = {
-				...imagesByUuid,
-				[uuid]: {
-					status: 'ok',
-					images: data.recognition_image_set ?? [],
-					strategy: data.classification_strategy ?? null,
-					attempts: data.classification_attempts ?? [],
-					createdAt: data.created_at ?? null,
-					stockUrl: data.brickognize_preview_url ?? null
-				}
-			};
 		} catch {
-			imagesByUuid = { ...imagesByUuid, [uuid]: { status: 'missing', images: [] } };
+			// fall through to the disk store
 		}
+		try {
+			const res = await fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(uuid)}/images`);
+			if (res.ok) {
+				const json = await res.json();
+				const rows: DiskImage[] = Array.isArray(json?.images) ? json.images : [];
+				const available = rows.filter((r) => r.available_locally);
+				if (available.length > 0) {
+					imagesByUuid = {
+						...imagesByUuid,
+						[uuid]: {
+							status: 'ok',
+							origin: 'disk',
+							images: available.map((r) => diskToDisplay(uuid, r)),
+							createdAt: piece.seen_at
+						}
+					};
+					return;
+				}
+			}
+		} catch {
+			// ignore
+		}
+		imagesByUuid = { ...imagesByUuid, [uuid]: { status: 'missing', images: [] } };
 	}
 
 	function refresh() {
@@ -260,10 +367,6 @@
 		return 'border-primary bg-primary/10 text-primary';
 	}
 
-	function dataImageUrl(payload: string | null | undefined): string | null {
-		return payload ? `data:image/jpeg;base64,${payload}` : null;
-	}
-
 	function lookupLegoColor(
 		color_id: string | null | undefined,
 		color_name: string | null | undefined
@@ -280,7 +383,7 @@
 		return null;
 	}
 
-	function sourceBadge(img: RecognitionImage): { label: string; cls: string } {
+	function sourceBadge(img: DisplayImage): { label: string; cls: string } {
 		const ch = img.channel;
 		if (img.source === 'upstream') {
 			// Upstream crops come from C2 or C3; fall back to "C2/3" for older
@@ -322,7 +425,7 @@
 
 	// Per-image visual state: produced the applied result, sent-then-dropped on a
 	// retry, or never shipped.
-	function imageState(img: RecognitionImage): 'used' | 'dropped' | 'unsent' {
+	function imageState(img: DisplayImage): 'used' | 'dropped' | 'unsent' {
 		if (img.used) return 'used';
 		if (img.excluded_from_result) return 'dropped';
 		return 'unsent';
@@ -330,14 +433,14 @@
 
 	// C4 burst frames first, then upstream matches — read left-to-right as
 	// "what the camera saw" followed by "what we pulled from upstream".
-	function sortImages(images: RecognitionImage[]): RecognitionImage[] {
+	function sortImages(images: DisplayImage[]): DisplayImage[] {
 		return [...images].sort((a, b) => {
 			if (a.source !== b.source) return a.source === 'c4_burst' ? -1 : 1;
 			return (a.ts ?? 0) - (b.ts ?? 0);
 		});
 	}
 
-	function imageCounts(images: RecognitionImage[]): { c4: number; upstream: number } {
+	function imageCounts(images: DisplayImage[]): { c4: number; upstream: number } {
 		let c4 = 0;
 		let upstream = 0;
 		for (const img of images) {
@@ -350,7 +453,7 @@
 	// Age of a pic in seconds relative to when the owning KnownObject was created.
 	// Upstream crops are captured before the piece reaches C4 (object creation),
 	// so they read "before"; C4 burst frames are snapped just after creation.
-	function imageAgeLabel(img: RecognitionImage, objCreatedAt: number | null): string | null {
+	function imageAgeLabel(img: DisplayImage, objCreatedAt: number | null): string | null {
 		if (typeof img.created_at !== 'number' || objCreatedAt === null) return null;
 		const delta = objCreatedAt - img.created_at;
 		const mag = Math.abs(delta).toFixed(1);
@@ -359,7 +462,7 @@
 	}
 
 	function imageInfoRows(
-		img: RecognitionImage,
+		img: DisplayImage,
 		objCreatedAt: number | null
 	): { label: string; value: string }[] {
 		const shipped =
@@ -687,7 +790,7 @@
 								{/if}
 								<span class="font-mono">{formatBin(p.destination_bin)}</span>
 								<span class="tabular-nums">{formatTimestamp(p.seen_at)}</span>
-								{#if img_state?.status === 'ok' && sorted.length > 0}
+								{#if img_state?.status === 'ok' && img_state.origin === 'memory' && sorted.length > 0}
 									<button
 										type="button"
 										onclick={() => toggleReclassify(p.uuid)}
@@ -729,20 +832,21 @@
 						<!-- Image contact sheet -->
 						<div class="p-3">
 							{#if img_state?.status === 'loading' || img_state === undefined}
-								<div class="flex items-center gap-2 text-sm text-text-muted">
-									<Spinner />
-									<span>Loading crops…</span>
+								<div class="flex flex-wrap gap-2">
+									{#each Array(4) as _, i (i)}
+										<Skeleton class="h-28 w-28" />
+									{/each}
 								</div>
 							{:else if img_state.status === 'missing' || sorted.length === 0}
 								<div class="text-sm text-text-muted">
-									Images unavailable (aged out of memory or none captured).
+									No stored images for this piece (recorded before image capture existed, or none taken).
 								</div>
 							{:else}
 								<div class="flex items-start gap-4">
 									<div class="flex flex-1 flex-wrap gap-2">
 									{#each sorted as img, i (i)}
 										{@const badge = sourceBadge(img)}
-										{@const src = dataImageUrl(img.image)}
+										{@const src = img.src}
 										{@const state = imageState(img)}
 										<div
 											class="relative flex flex-col border bg-white {state === 'used'
@@ -819,16 +923,18 @@
 							{/if}
 						</div>
 
-						{#if expandedReclassify.has(p.uuid) && img_state?.status === 'ok'}
+						{#if expandedReclassify.has(p.uuid) && img_state?.status === 'ok' && img_state.origin === 'memory'}
 							<div class="border-t border-border p-3">
 								<ReclassifyPanel
 									endpointBase={effectiveBase()}
-									images={sorted.map((img) => ({
-										image: img.image,
-										label: img.source === 'upstream' ? 'Upstream' : 'C4 burst',
-										used: img.used,
-										score: img.score
-									}))}
+									images={sorted
+										.filter((img) => typeof img.b64 === 'string')
+										.map((img) => ({
+											image: img.b64 as string,
+											label: img.source === 'upstream' ? 'Upstream' : 'C4 burst',
+											used: img.used,
+											score: img.score
+										}))}
 								/>
 							</div>
 						{/if}

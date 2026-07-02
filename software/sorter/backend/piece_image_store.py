@@ -39,10 +39,15 @@ _MAX_TOTAL_BYTES = 500 * 1024 * 1024
 # cumulative KnownObject observations. Bounded FIFO like the runtime lookup.
 _MAX_SEEN_UUIDS = 2000
 
-_queue: "queue.Queue[tuple[str, int, dict[str, Any]]]" = queue.Queue(maxsize=_QUEUE_MAX_ITEMS)
+# Queue items are ("image", uuid, (seq, item)) or ("flags", uuid, flags_list).
+_queue: "queue.Queue[tuple[str, str, Any]]" = queue.Queue(maxsize=_QUEUE_MAX_ITEMS)
 _seen_lock = threading.Lock()
 _seen_counts: dict[str, int] = {}
 _seen_order: list[str] = []
+# Pieces whose used/excluded_from_result/score flags were already flushed.
+# Those flags only settle once classification applies, well after the images
+# themselves were written, so they land as one late UPDATE pass per piece.
+_flags_done: set[str] = set()
 _worker_started = threading.Event()
 _logger: Any = None
 
@@ -124,9 +129,23 @@ def _ensureInitialized() -> None:
                 # Hive sync markers, written by the uploader once it exists.
                 "synced_at REAL, "
                 "hive_image_id TEXT, "
+                # Classification outcome flags, updated once per piece after
+                # the applied Brickognize result settles (see enqueue path).
+                "used INTEGER NOT NULL DEFAULT 0, "
+                "excluded_from_result INTEGER NOT NULL DEFAULT 0, "
+                "score REAL, "
                 "UNIQUE(piece_uuid, seq)"
                 ")"
             )
+            for column, decl in (
+                ("used", "INTEGER NOT NULL DEFAULT 0"),
+                ("excluded_from_result", "INTEGER NOT NULL DEFAULT 0"),
+                ("score", "REAL"),
+            ):
+                try:
+                    conn.execute(f"ALTER TABLE piece_images ADD COLUMN {column} {decl}")
+                except sqlite3.OperationalError:
+                    pass
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_piece_images_uuid "
                 "ON piece_images(piece_uuid)"
@@ -166,31 +185,68 @@ def enqueueKnownObjectImages(payload: dict[str, Any]) -> None:
     if not isinstance(piece_uuid, str) or not piece_uuid or not isinstance(images, list):
         return
     already = _noteNewImages(piece_uuid, len(images))
-    if len(images) <= already:
+    if len(images) > already:
+        _ensureWorker()
+        for seq in range(already, len(images)):
+            entry = images[seq]
+            if not isinstance(entry, dict):
+                continue
+            image_b64 = entry.get("image")
+            if not isinstance(image_b64, str) or not image_b64:
+                continue
+            item = {
+                "image": image_b64,
+                "source": entry.get("source"),
+                "channel": entry.get("channel"),
+                "ts": entry.get("ts"),
+                "created_at": entry.get("created_at"),
+                "sharpness": entry.get("sharpness"),
+            }
+            try:
+                _queue.put_nowait(("image", piece_uuid, (seq, item)))
+                with _stats_lock:
+                    _stats["enqueued"] += 1
+            except queue.Full:
+                with _stats_lock:
+                    _stats["dropped_queue_full"] += 1
+
+    _maybeEnqueueFlags(piece_uuid, images)
+
+
+def _maybeEnqueueFlags(piece_uuid: str, images: list[Any]) -> None:
+    # The used/excluded flags only become meaningful once a Brickognize result
+    # was applied; until then every image reads used=False. One observation
+    # with any flag set marks the piece settled and flushes all its flags.
+    with _seen_lock:
+        if piece_uuid in _flags_done:
+            return
+    settled = any(
+        isinstance(e, dict) and (e.get("used") or e.get("excluded_from_result"))
+        for e in images
+    )
+    if not settled:
         return
+    flags = [
+        (
+            seq,
+            1 if entry.get("used") else 0,
+            1 if entry.get("excluded_from_result") else 0,
+            entry.get("score") if isinstance(entry.get("score"), (int, float)) else None,
+        )
+        for seq, entry in enumerate(images)
+        if isinstance(entry, dict)
+    ]
     _ensureWorker()
-    for seq in range(already, len(images)):
-        entry = images[seq]
-        if not isinstance(entry, dict):
-            continue
-        image_b64 = entry.get("image")
-        if not isinstance(image_b64, str) or not image_b64:
-            continue
-        item = {
-            "image": image_b64,
-            "source": entry.get("source"),
-            "channel": entry.get("channel"),
-            "ts": entry.get("ts"),
-            "created_at": entry.get("created_at"),
-            "sharpness": entry.get("sharpness"),
-        }
-        try:
-            _queue.put_nowait((piece_uuid, seq, item))
-            with _stats_lock:
-                _stats["enqueued"] += 1
-        except queue.Full:
-            with _stats_lock:
-                _stats["dropped_queue_full"] += 1
+    try:
+        _queue.put_nowait(("flags", piece_uuid, flags))
+    except queue.Full:
+        with _stats_lock:
+            _stats["dropped_queue_full"] += 1
+        return
+    with _seen_lock:
+        _flags_done.add(piece_uuid)
+        while len(_flags_done) > _MAX_SEEN_UUIDS:
+            _flags_done.pop()
 
 
 def _ensureWorker() -> None:
@@ -207,21 +263,25 @@ def _ensureWorker() -> None:
 def _workerLoop() -> None:
     last_sweep = 0.0
     while True:
-        entry: tuple[str, int, dict[str, Any]] | None
+        entry: tuple[str, str, Any] | None
         try:
             entry = _queue.get(timeout=_RETENTION_SWEEP_INTERVAL_S)
         except queue.Empty:
             entry = None
         if entry is not None:
-            piece_uuid, seq, item = entry
+            kind, piece_uuid, payload = entry
             try:
-                _writeImage(piece_uuid, seq, item)
-                with _stats_lock:
-                    _stats["written"] += 1
+                if kind == "image":
+                    seq, item = payload
+                    _writeImage(piece_uuid, seq, item)
+                    with _stats_lock:
+                        _stats["written"] += 1
+                elif kind == "flags":
+                    _updateImageFlags(piece_uuid, payload)
             except Exception as exc:
                 with _stats_lock:
                     _stats["write_errors"] += 1
-                _log("warning", f"piece_image_store: failed to persist {piece_uuid[:8]}#{seq}: {exc}")
+                _log("warning", f"piece_image_store: failed to persist {kind} for {piece_uuid[:8]}: {exc}")
         now = time.monotonic()
         if now - last_sweep >= _RETENTION_SWEEP_INTERVAL_S:
             last_sweep = now
@@ -259,6 +319,18 @@ def _writeImage(piece_uuid: str, seq: int, item: dict[str, Any]) -> None:
                 len(raw),
                 rel_path,
             ),
+        )
+        conn.commit()
+
+
+def _updateImageFlags(piece_uuid: str, flags: list[tuple[int, int, int, Any]]) -> None:
+    if not flags:
+        return
+    with _connection() as conn:
+        conn.executemany(
+            "UPDATE piece_images SET used = ?, excluded_from_result = ?, score = ? "
+            "WHERE piece_uuid = ? AND seq = ?",
+            [(used, excluded, score, piece_uuid, seq) for seq, used, excluded, score in flags],
         )
         conn.commit()
 
@@ -314,7 +386,7 @@ def listPieceImages(piece_uuid: str) -> list[dict[str, Any]]:
     with _connection() as conn:
         rows = conn.execute(
             "SELECT id, piece_uuid, seq, source, channel, ts, created_at, sharpness, "
-            "bytes, deleted_at, synced_at, hive_image_id "
+            "bytes, deleted_at, synced_at, hive_image_id, used, excluded_from_result, score "
             "FROM piece_images WHERE piece_uuid = ? ORDER BY seq ASC",
             (piece_uuid,),
         ).fetchall()
@@ -332,6 +404,9 @@ def listPieceImages(piece_uuid: str) -> list[dict[str, Any]]:
             "available_locally": r["deleted_at"] is None,
             "synced": r["synced_at"] is not None,
             "hive_image_id": r["hive_image_id"],
+            "used": bool(r["used"]),
+            "excluded_from_result": bool(r["excluded_from_result"]),
+            "score": r["score"],
         }
         for r in rows
     ]

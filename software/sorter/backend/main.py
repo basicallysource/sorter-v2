@@ -299,6 +299,14 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 # carry only the slim form (see slimKnownObjectForSocket) so the
                 # per-piece payload stays bounded instead of growing quadratically.
                 gc.runtime_stats.observeKnownObject(obj_payload)
+                # Persist any newly appended recognition crops to disk (bounded
+                # enqueue; a dedicated worker does the decode + file/DB writes).
+                try:
+                    import piece_image_store
+
+                    piece_image_store.enqueueKnownObjectImages(obj_payload)
+                except Exception:
+                    pass
                 event_data = payload.get("data")
                 if isinstance(event_data, dict):
                     payload["data"] = slimKnownObjectForSocket(event_data)
@@ -450,6 +458,13 @@ def main() -> None:
         target=runBroadcaster, args=(gc,), daemon=True, name="ws-broadcaster"
     )
     broadcaster_thread.start()
+
+    try:
+        import piece_image_store
+
+        piece_image_store.configure(gc.logger)
+    except Exception:
+        pass
 
     with gc.profiler.timer("startup.camera_service_start_ms"):
         camera_service.start()

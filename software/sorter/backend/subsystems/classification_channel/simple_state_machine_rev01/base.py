@@ -167,7 +167,9 @@ class Rev01BaseState(BaseState):
 
     @staticmethod
     def encodeFrame(frame: np.ndarray) -> Optional[str]:
-        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        # Quality 90: these crops are persisted to disk (piece_image_store) and
+        # eventually synced to the Hive for training, so keep them near-lossless.
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
         if not ok:
             return None
         return base64.b64encode(buf).decode("utf-8")

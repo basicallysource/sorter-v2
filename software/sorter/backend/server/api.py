@@ -579,6 +579,36 @@ def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
         raise HTTPException(status_code=404, detail="not found")
 
 
+# Durable piece-image index (piece_image_store): unlike the in-memory
+# known-objects lookup above, these survive restarts and LRU eviction. Rows
+# whose local file was evicted by retention report available_locally=False;
+# once hive sync exists those will be re-fetchable from the Hive instead.
+@app.get("/api/pieces/{uuid}/images")
+def list_piece_images(uuid: str) -> Dict[str, Any]:
+    import piece_image_store
+
+    return {"piece_uuid": uuid, "images": piece_image_store.listPieceImages(uuid)}
+
+
+@app.get("/api/pieces/{uuid}/images/{image_id}")
+def get_piece_image(uuid: str, image_id: int) -> Any:
+    from fastapi.responses import FileResponse
+
+    import piece_image_store
+
+    path = piece_image_store.getImageFile(uuid, image_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="image not available locally")
+    return FileResponse(path, media_type="image/jpeg")
+
+
+@app.get("/api/piece-images/stats")
+def get_piece_image_stats() -> Dict[str, Any]:
+    import piece_image_store
+
+    return piece_image_store.getStats()
+
+
 class ClassifyRetryRequest(BaseModel):
     # base64 JPEGs (with or without a data: URI prefix). Order is preserved.
     images: List[str]

@@ -9,6 +9,12 @@
 		type TuningValues
 	} from '$lib/settings/tuning';
 
+	// Exit-pulse speed presets: one click sets the exit pulse distance (pause
+	// stays 100 ms). Conservative 2°, Balanced 4°, Aggressive 8°. Not auto-saved.
+	function applyExitPreset(deg: number) {
+		values = { ...values, exit_pulse_output_deg: deg, exit_pulse_pause_ms: 100 };
+	}
+
 	let fields = $state<TuningFieldMeta[]>([]);
 	let values = $state<TuningValues>({});
 	let loading = $state(true);
@@ -90,8 +96,23 @@
 			<div class="flex flex-col gap-8">
 				{#each sections as section}
 					<div class="flex flex-col gap-4">
-						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-							{section.name}
+						<div class="flex items-center gap-3">
+							<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+								{section.name}
+							</div>
+							{#if section.name === 'Exit pulse'}
+								<div class="flex gap-2">
+									<Button variant="secondary" size="sm" onclick={() => applyExitPreset(2)}>
+										Conservative
+									</Button>
+									<Button variant="secondary" size="sm" onclick={() => applyExitPreset(4)}>
+										Balanced
+									</Button>
+									<Button variant="secondary" size="sm" onclick={() => applyExitPreset(8)}>
+										Aggressive
+									</Button>
+								</div>
+							{/if}
 						</div>
 						{#each section.fields as field}
 							<TuningParamRow {field} bind:values />

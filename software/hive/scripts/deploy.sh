@@ -53,20 +53,32 @@ git reset --hard "origin/$BRANCH"          # tracked files only; ignored data/ u
 echo "  ✓ code @ $(git rev-parse --short HEAD)"
 
 cd "$HIVE_DIR"
+deploy_epoch="$(date +%s)"
 $COMPOSE build backend frontend
 $COMPOSE run --rm backend alembic upgrade head    # explicit, visible migration
 # --force-recreate: `up -d` alone won't replace a running container when the
 # rebuilt image keeps the same :latest tag, so it would silently keep old code.
 $COMPOSE up -d --force-recreate backend frontend
-# Verify each container actually picked up the freshly built image; re-recreate
-# any that didn't (observed flakiness where up left a service on the old image).
+# Verify each container was actually restarted after this deploy began. The
+# previous image-id comparison raced the :latest tag update and could pass
+# while a service silently kept old code (bit us on 2026-06-10) — the start
+# timestamp cannot lie.
 for svc in backend frontend; do
-  built="$(docker image inspect "hive-$svc:latest" --format '{{.Id}}' 2>/dev/null || true)"
-  running="$(docker inspect "hive-$svc" --format '{{.Image}}' 2>/dev/null || true)"
-  if [ -n "$built" ] && [ "$built" != "$running" ]; then
-    echo "  ! hive-$svc still on old image — recreating again"
+  for attempt in 1 2 3; do
+    started="$(docker inspect "hive-$svc" --format '{{.State.StartedAt}}' 2>/dev/null || true)"
+    started_epoch="$(date -d "$started" +%s 2>/dev/null || echo 0)"
+    if [ "$started_epoch" -ge "$deploy_epoch" ]; then
+      echo "  ✓ hive-$svc restarted ($started)"
+      break
+    fi
+    if [ "$attempt" = 3 ]; then
+      echo "  ✗ ABORT: hive-$svc still running pre-deploy container (started $started)"
+      exit 6
+    fi
+    echo "  ! hive-$svc still on pre-deploy container — recreating again ($attempt)"
     $COMPOSE up -d --force-recreate "$svc"
-  fi
+    sleep 3
+  done
 done
 
 echo "  • health check…"

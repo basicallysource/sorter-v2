@@ -50,6 +50,7 @@ from local_state import (
     get_bin_snapshot,
     get_bin_snapshot_pieces,
     get_current_bin_contents_snapshot,
+    get_current_bin_contents_version,
     get_current_bin_pieces,
     list_bin_snapshots,
 )
@@ -3620,6 +3621,13 @@ def export_bin_snapshot_csv(snapshot_id: str) -> Response:
         raise HTTPException(status_code=404, detail="Unknown snapshot.")
     content = _pieces_to_csv(pieces, extra_columns={"snapshot_id": snapshot_id})
     return _csv_response(content, f"bin-snapshot-{snapshot_id[:8]}.csv")
+
+
+@router.get("/api/bins/contents/version")
+def get_bin_contents_version() -> Dict[str, Any]:
+    # Cheap change token so the UI can poll frequently without pulling the full
+    # contents payload each tick; fetch /api/bins/contents only when this changes.
+    return {"version": get_current_bin_contents_version()}
 
 
 @router.get("/api/bins/contents/export.csv")

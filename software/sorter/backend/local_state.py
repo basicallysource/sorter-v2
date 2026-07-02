@@ -1728,6 +1728,24 @@ def get_current_bin_contents_snapshot() -> dict[str, Any]:
         return {"session": session, "bins": bins}
 
 
+def get_current_bin_contents_version() -> str:
+    initialize_local_state()
+    with _connection() as conn:
+        active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+        if not active_session_id:
+            return "none"
+        row = conn.execute(
+            "SELECT COUNT(*) AS n, COALESCE(MAX(updated_at), 0) AS max_updated, "
+            "COALESCE(SUM(bin_epoch), 0) AS epochs, COALESCE(SUM(piece_count), 0) AS pieces "
+            "FROM bin_state_current WHERE session_id = ?",
+            (active_session_id,),
+        ).fetchone()
+        return (
+            f"{active_session_id}:{int(row['n'])}:{float(row['max_updated'])}:"
+            f"{int(row['epochs'])}:{int(row['pieces'])}"
+        )
+
+
 def list_bin_snapshots() -> list[dict[str, Any]]:
     initialize_local_state()
     with _connection() as conn:

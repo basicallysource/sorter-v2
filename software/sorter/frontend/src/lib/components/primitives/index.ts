@@ -5,3 +5,5 @@ export { default as Tooltip } from './Tooltip.svelte';
 export { default as Popover } from './Popover.svelte';
 export { default as SelectMenu } from './SelectMenu.svelte';
 export { default as InfoTip } from './InfoTip.svelte';
+export { default as Skeleton } from './Skeleton.svelte';
+export { default as ToggleSwitch } from './ToggleSwitch.svelte';

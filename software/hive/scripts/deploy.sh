@@ -58,6 +58,16 @@ $COMPOSE run --rm backend alembic upgrade head    # explicit, visible migration
 # --force-recreate: `up -d` alone won't replace a running container when the
 # rebuilt image keeps the same :latest tag, so it would silently keep old code.
 $COMPOSE up -d --force-recreate backend frontend
+# Verify each container actually picked up the freshly built image; re-recreate
+# any that didn't (observed flakiness where up left a service on the old image).
+for svc in backend frontend; do
+  built="$(docker image inspect "hive-$svc:latest" --format '{{.Id}}' 2>/dev/null || true)"
+  running="$(docker inspect "hive-$svc" --format '{{.Image}}' 2>/dev/null || true)"
+  if [ -n "$built" ] && [ "$built" != "$running" ]; then
+    echo "  ! hive-$svc still on old image — recreating again"
+    $COMPOSE up -d --force-recreate "$svc"
+  fi
+done
 
 echo "  • health check…"
 ok=0

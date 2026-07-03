@@ -456,6 +456,24 @@ def main() -> None:
     )
     broadcaster_thread.start()
 
+    # Pre-warm the piece price cache off the request path. The first
+    # value/aggregates computation walks every historical (part, color) pair
+    # through parts.db (~60s serialized on the Pi's eMMC — part_bricklink_ids
+    # has no index); done here in the background so no records-page request
+    # ever pays it.
+    def warmPieceValueCaches() -> None:
+        try:
+            import piece_records
+
+            piece_records.getValueStats(gc)
+            piece_records.getAggregates(gc)
+        except Exception as exc:
+            gc.logger.warn(f"piece value cache pre-warm failed: {exc}")
+
+    threading.Thread(
+        target=warmPieceValueCaches, daemon=True, name="piece-value-prewarm"
+    ).start()
+
     try:
         import piece_image_store
 

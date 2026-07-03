@@ -3,8 +3,12 @@
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import BinDetailsModal from '$lib/components/bins/BinDetailsModal.svelte';
 	import BinLayoutSection from '$lib/components/bins/BinLayoutSection.svelte';
+	import BinsHeaderActions from '$lib/components/bins/BinsHeaderActions.svelte';
+	import BinSearchBar from '$lib/components/bins/BinSearchBar.svelte';
 	import ColumnsPanel from '$lib/components/bins/ColumnsPanel.svelte';
+	import DiscardBinCard from '$lib/components/bins/DiscardBinCard.svelte';
 	import LayerPanel from '$lib/components/bins/LayerPanel.svelte';
+	import { categoryLabel } from '$lib/components/bins/pieces';
 	import SnapshotsModal from '$lib/components/bins/SnapshotsModal.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from '$lib/components/bins/types';
 	import { Skeleton, ToggleSwitch } from '$lib/components/primitives';
@@ -13,7 +17,7 @@
 	import { bricklinkParts } from '$lib/stores/bricklinkParts.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { onMount } from 'svelte';
-	import { ArchiveX, Download, FolderOutput, History, Home, Loader2 } from 'lucide-svelte';
+	import { Loader2 } from 'lucide-svelte';
 
 	const manager = getMachinesContext();
 	// Active profile (id/name) — bin layouts are scoped to it. Local profiles carry a
@@ -61,6 +65,40 @@
 	let snapshotsOpen = $state(false);
 	let niiBusyLayer = $state<number | null>(null);
 	let setProgressByCategoryId = $state<Record<string, SetProgressSummary>>({});
+	let searchQuery = $state('');
+
+	const searchActive = $derived(searchQuery.trim().length > 0);
+
+	// Client-side "find a part": matches bin number, assigned category label, and
+	// the bin's grouped contents (part id, BrickLink part name, color name).
+	function binMatchesSearch(layerIndex: number, bin: BinInfo): boolean {
+		const query = searchQuery.trim().toLowerCase();
+		if (!query) return true;
+		if (String(bin.global_index + 1) === query) return true;
+		if (categoryLabel(bin.category_ids).toLowerCase().includes(query)) return true;
+		const contents = contentsForBin(layerIndex, bin);
+		if (!contents) return false;
+		for (const item of contents.items) {
+			if (item.part_id && item.part_id.toLowerCase().includes(query)) return true;
+			if (item.color_name && item.color_name.toLowerCase().includes(query)) return true;
+			const partName = bricklinkParts.get(item.part_id)?.name;
+			if (partName && partName.toLowerCase().includes(query)) return true;
+		}
+		return false;
+	}
+
+	const totalBinCount = $derived(layers.reduce((sum, layer) => sum + layer.bins.length, 0));
+
+	const searchMatchCount = $derived.by((): number | null => {
+		if (!searchActive) return null;
+		let count = 0;
+		for (const layer of layers) {
+			for (const bin of layer.bins) {
+				if (binMatchesSearch(layer.layer_index, bin)) count += 1;
+			}
+		}
+		return count;
+	});
 
 	function baseUrl(): string {
 		return (
@@ -656,6 +694,7 @@
 		homing = false;
 		clearingStates = [];
 		togglingLayerKey = null;
+		searchQuery = '';
 		void loadLayout();
 		void loadBinContents();
 		void loadSetProgress();
@@ -689,15 +728,15 @@
 	<AppHeader />
 	{#if isGlobalClearing()}
 		<div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4">
-			<div class="w-full max-w-md border border-[#E2E0DB] bg-white p-6 shadow-xl">
+			<div class="w-full max-w-md border border-border bg-surface p-6 shadow-xl">
 				<div class="flex items-start gap-4">
-					<div class="flex h-10 w-10 items-center justify-center border border-[#E2E0DB] bg-surface">
+					<div class="flex h-10 w-10 items-center justify-center border border-border bg-bg">
 						<Loader2 size={18} class="animate-spin text-primary" />
 					</div>
 					<div class="space-y-2">
-						<h3 class="text-lg font-semibold text-[#1A1A1A]">{globalClearingTitle()}</h3>
-						<p class="text-sm leading-6 text-[#66635C]">{globalClearingDescription()}</p>
-						<p class="text-xs uppercase tracking-wide text-[#8B887F]">Please wait while the sorter refreshes the bin state.</p>
+						<h3 class="text-lg font-semibold text-text">{globalClearingTitle()}</h3>
+						<p class="text-sm leading-6 text-text-muted">{globalClearingDescription()}</p>
+						<p class="text-xs uppercase tracking-wide text-text-muted">Please wait while the sorter refreshes the bin state.</p>
 					</div>
 				</div>
 			</div>
@@ -708,73 +747,38 @@
 			<div>
 				<h2 class="text-xl font-bold text-text">Bin Grid</h2>
 			</div>
-			<div class="flex items-center gap-3">
-				<a
-					href={currentContentsCsvUrl()}
-					download
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
-					title="Download current bin contents as CSV"
-				>
-					<Download size={16} />
-					Export CSV
-				</a>
-				<button
-					onclick={() => (snapshotsOpen = true)}
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3]"
-					title="View snapshots of previously emptied bin contents"
-				>
-					<History size={16} />
-					Snapshots
-				</button>
-				<button
-					onclick={homeChute}
-					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:opacity-50 disabled:cursor-not-allowed {homing ? 'animate-pulse' : ''}"
-					title="Home chute (find endstop)"
-				>
-					<Home size={16} />
-					{homing ? 'Homing...' : 'Home Chute'}
-				</button>
-				<button
-					onclick={() =>
-						void runBinAction(
-							'contents/clear',
-							'all',
-							{},
-							'Please make sure all physical bins are empty first. This will mark every bin on the machine as emptied, but keep the current profile-to-bin assignments in place.',
-							'empty-all'
-						)}
-					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-					title="Empty all bins but keep assignments"
-				>
-					<FolderOutput size={16} />
-					{hasClearingKey('empty-all') ? 'Emptying…' : 'Empty All Bins'}
-				</button>
-				<button
-					onclick={() =>
-						void runBinReset(
-							'all',
-							undefined,
-							'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
-							'reset-all'
-						)}
-					disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
-					class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-4 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-					title="Reset all bins and remove assignments"
-				>
-					<ArchiveX size={16} />
-					{hasClearingKey('reset-all') ? 'Resetting…' : 'Reset All Bins'}
-				</button>
-			</div>
+			<BinsHeaderActions
+				csvUrl={currentContentsCsvUrl()}
+				{homing}
+				emptyBusy={hasClearingKey('empty-all')}
+				resetBusy={hasClearingKey('reset-all')}
+				disabled={homing || !!movingTo || hasAnyClearing() || togglingLayerKey !== null}
+				onSnapshots={() => (snapshotsOpen = true)}
+				onHome={() => void homeChute()}
+				onEmptyAll={() =>
+					void runBinAction(
+						'contents/clear',
+						'all',
+						{},
+						'Please make sure all physical bins are empty first. This will mark every bin on the machine as emptied, but keep the current profile-to-bin assignments in place.',
+						'empty-all'
+					)}
+				onResetAll={() =>
+					void runBinReset(
+						'all',
+						undefined,
+						'Please make sure all physical bins are empty first. This will remove every learned bin assignment on the machine and mark all bins as empty.',
+						'reset-all'
+					)}
+			/>
 		</div>
 
 		<BinLayoutSection baseUrl={baseUrl()} profileId={activeProfileId} profileName={activeProfileName} />
 
-		<div class="mb-4 flex items-center justify-between gap-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+		<div class="mb-4 flex items-center justify-between gap-4 border border-border bg-surface px-4 py-3">
 			<div class="pr-4">
-				<div class="text-sm font-medium text-[#1A1A1A]">Allow multiple categories per bin</div>
-				<div class="mt-0.5 text-sm text-[#66635C]">
+				<div class="text-sm font-medium text-text">Allow multiple categories per bin</div>
+				<div class="mt-0.5 text-sm text-text-muted">
 					When every bin already has an assignment, keep sorting new categories by
 					combining them into existing bins (least-loaded first) instead of sending
 					them to the discard passthrough.
@@ -788,11 +792,11 @@
 			/>
 		</div>
 
-		<div class="mb-4 border border-[#E2E0DB] bg-surface px-4 py-3">
+		<div class="mb-4 border border-border bg-surface px-4 py-3">
 			<div class="flex flex-wrap items-center justify-between gap-4">
 				<div class="pr-4">
-					<div class="text-sm font-medium text-[#1A1A1A]">Auto-assign bins</div>
-					<div class="mt-0.5 text-sm text-[#66635C]">
+					<div class="text-sm font-medium text-text">Auto-assign bins</div>
+					<div class="mt-0.5 text-sm text-text-muted">
 						Ranks the active profile's categories by how many recently-sorted pieces
 						hit them, then fills bins biggest-first — the larger bottom bins get the
 						highest-volume categories. Overwrites current normal-bin assignments;
@@ -804,7 +808,7 @@
 						type="button"
 						onclick={() => void runAutoAssign(false)}
 						disabled={autoAssignBusy}
-						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{autoAssignBusy ? 'Assigning…' : 'Auto-assign'}
 					</button>
@@ -813,14 +817,14 @@
 						onclick={() => void runAutoAssign(true)}
 						disabled={autoAssignBusy}
 						title="Pack every ranked category in, sharing bins once they run out"
-						class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+						class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 					>
 						{autoAssignBusy ? 'Assigning…' : 'Auto-assign + overlap'}
 					</button>
 				</div>
 			</div>
 			{#if autoAssignResult}
-				<div class="mt-2 text-sm text-[#66635C]">{autoAssignResult}</div>
+				<div class="mt-2 text-sm text-text-muted">{autoAssignResult}</div>
 			{/if}
 		</div>
 
@@ -841,18 +845,22 @@
 		<StatusBanner message={statusMsg} variant="success" />
 		<StatusBanner message={error ?? ''} variant="error" />
 
+		{#if !loading && layers.length > 0}
+			<BinSearchBar bind:query={searchQuery} matchCount={searchMatchCount} totalBins={totalBinCount} />
+		{/if}
+
 		{#if loading}
 			<div class="flex flex-col gap-6">
 				{#each Array(2) as _layerUnused}
-					<div class="border border-[#E2E0DB]">
-						<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-4 py-3">
+					<div class="border border-border">
+						<div class="flex items-center justify-between border-b border-border bg-surface px-4 py-3">
 							<Skeleton class="h-6 w-40" />
 							<Skeleton class="h-9 w-72" />
 						</div>
 						<div class="grid grid-cols-6 gap-3 p-3">
 							{#each Array(6) as _binUnused}
-								<div class="flex flex-col border border-[#E2E0DB]">
-									<div class="border-b border-[#E2E0DB] bg-surface px-3 py-2">
+								<div class="flex flex-col border border-border">
+									<div class="border-b border-border bg-surface px-3 py-2">
 										<Skeleton class="h-5 w-3/4" />
 									</div>
 									<div class="grid grid-cols-4 gap-2 p-3">
@@ -860,7 +868,7 @@
 											<Skeleton class="aspect-square w-full" />
 										{/each}
 									</div>
-									<div class="flex items-center justify-between border-t border-[#E2E0DB] px-3 py-2">
+									<div class="flex items-center justify-between border-t border-border px-3 py-2">
 										<Skeleton class="h-4 w-16" />
 										<Skeleton class="h-4 w-12" />
 									</div>
@@ -871,7 +879,7 @@
 				{/each}
 			</div>
 		{:else if layers.length === 0}
-			<p class="text-[#7A7770]">No storage layers configured.</p>
+			<p class="text-text-muted">No storage layers configured.</p>
 		{:else}
 			<div class="flex flex-col gap-6">
 				{#each layers as layer (layer.layer_index)}
@@ -901,6 +909,8 @@
 						binClearingLabel={(bin) => binClearingLabel(layer.layer_index, bin.section_index, bin.bin_index)}
 						sectionEnabled={(sectionIndex) => sectionEnabled(layer, sectionIndex)}
 						moveDisabled={!!movingTo || homing || hasAnyClearing()}
+						{searchActive}
+						searchMatch={(bin) => binMatchesSearch(layer.layer_index, bin)}
 						onToggleEnabled={(enabled) => void toggleLayerEnabled(layer.layer_index, enabled)}
 						onEmptyLayer={() =>
 							void runBinAction(
@@ -947,25 +957,7 @@
 					/>
 				{/each}
 
-				<!-- Virtual passthrough "bin" — pieces without a matching
-				     rule fall through all layer doors to the discard
-				     bucket below the machine. Represented so the operator
-				     knows the output exists; not interactive, no real
-				     physical slot. -->
-				<div class="mt-4 flex flex-col border-2 border-dashed border-warning/50 bg-warning/[0.05]">
-					<div class="flex items-center justify-between border-b border-warning/30 bg-warning/10 px-3 py-2">
-						<span class="text-sm font-semibold uppercase tracking-wider text-warning-dark">
-							Discard Bin · Misc Passthrough
-						</span>
-						<span class="text-xs text-text-muted">virtual</span>
-					</div>
-					<div class="p-3 text-sm text-text-muted">
-						Pieces that don't match any sorting rule (or whose category
-						has no assigned bin) fall through all layer doors into the
-						discard bucket below the machine. Empty it manually when it
-						fills up.
-					</div>
-				</div>
+				<DiscardBinCard />
 			</div>
 		{/if}
 	</div>

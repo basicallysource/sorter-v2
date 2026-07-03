@@ -49,3 +49,13 @@ export function formatLastSeen(timestamp: number | null | undefined): string {
 	if (!timestamp) return 'n/a';
 	return new Date(timestamp * 1000).toLocaleString();
 }
+
+export function formatRelativeTime(timestamp: number | null | undefined): string | null {
+	if (!timestamp) return null;
+	const delta = Date.now() / 1000 - timestamp;
+	if (delta < 0) return 'just now';
+	if (delta < 60) return 'just now';
+	if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
+	if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
+	return `${Math.floor(delta / 86400)}d ago`;
+}

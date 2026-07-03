@@ -1,7 +1,8 @@
 <script lang="ts">
 	import { ToggleSwitch } from '$lib/components/primitives';
-	import { ArchiveX, Crosshair, FolderOutput, Loader2 } from 'lucide-svelte';
+	import { ArchiveX, FolderOutput, Loader2 } from 'lucide-svelte';
 	import BinCard from './BinCard.svelte';
+	import SectionGroup from './SectionGroup.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta, SetProgressSummary } from './types';
 
 	let {
@@ -28,6 +29,8 @@
 		binClearingLabel,
 		sectionEnabled,
 		moveDisabled,
+		searchActive = false,
+		searchMatch = () => true,
 		onToggleEnabled,
 		onEmptyLayer,
 		onResetLayer,
@@ -62,6 +65,8 @@
 		binClearingLabel: (bin: BinInfo) => string;
 		sectionEnabled: (sectionIndex: number) => boolean;
 		moveDisabled: boolean;
+		searchActive?: boolean;
+		searchMatch?: (bin: BinInfo) => boolean;
 		onToggleEnabled: (enabled: boolean) => void;
 		onEmptyLayer: () => void;
 		onResetLayer: () => void;
@@ -75,22 +80,39 @@
 	} = $props();
 
 	const layerNii = $derived(layer.bins.length > 0 && layer.bins.every((b) => b.not_in_inventory));
+
+	// The physical layer is a ring split into sections, each holding a few bins.
+	// Group the flat bins list back into sections so the grid mirrors the machine.
+	const sections = $derived.by((): { sectionIndex: number; bins: BinInfo[] }[] => {
+		const bySection = new Map<number, BinInfo[]>();
+		for (const bin of layer.bins) {
+			const list = bySection.get(bin.section_index) ?? [];
+			list.push(bin);
+			bySection.set(bin.section_index, list);
+		}
+		return Array.from({ length: layer.section_count }, (_, sectionIndex) => ({
+			sectionIndex,
+			bins: (bySection.get(sectionIndex) ?? []).sort((a, b) => a.bin_index - b.bin_index)
+		}));
+	});
 </script>
 
-<div class="relative border border-[#E2E0DB] {!layer.enabled ? 'opacity-60' : ''}">
+<div class="relative border border-border {!layer.enabled ? 'opacity-60' : ''}">
 	{#if layerBusy}
-		<div class="absolute inset-0 z-20 flex items-center justify-center bg-white/78 backdrop-blur-[1px]">
-			<div class="flex items-center gap-3 border border-[#E2E0DB] bg-white px-4 py-3 shadow-sm">
+		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/78 backdrop-blur-[1px]">
+			<div class="flex items-center gap-3 border border-border bg-surface px-4 py-3 shadow-sm">
 				<Loader2 size={16} class="animate-spin text-primary" />
-				<div class="text-sm font-medium text-[#1A1A1A]">{layerClearingLabel}</div>
+				<div class="text-sm font-medium text-text">{layerClearingLabel}</div>
 			</div>
 		</div>
 	{/if}
-	<div class="flex items-center justify-between border-b border-[#E2E0DB] bg-surface px-4 py-3">
+	<div class="flex items-center justify-between border-b border-border bg-bg px-4 py-3">
 		<div class="flex items-center gap-3">
-			<h3 class="text-base font-semibold text-[#1A1A1A]">
+			<h3 class="text-base font-semibold text-text">
 				Layer {layer.layer_index + 1}
-				<span class="ml-2 text-sm font-normal text-[#7A7770]">{layer.bin_count} bins</span>
+				<span class="ml-2 text-sm font-normal text-text-muted">
+					{layer.section_count} sections · {layer.bin_count} bins
+				</span>
 			</h3>
 		</div>
 		<div class="flex items-center gap-3">
@@ -110,7 +132,7 @@
 				type="button"
 				onclick={onEmptyLayer}
 				disabled={clearDisabled}
-				class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<FolderOutput size={14} />
 				{emptyBusy ? 'Emptying…' : 'Empty Layer'}
@@ -119,7 +141,7 @@
 				type="button"
 				onclick={onResetLayer}
 				disabled={clearDisabled}
-				class="flex items-center gap-2 border border-[#E2E0DB] bg-white px-3.5 py-2 text-sm font-medium text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
+				class="flex items-center gap-2 border border-border bg-surface px-3.5 py-2 text-sm font-medium text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:opacity-50"
 			>
 				<ArchiveX size={14} />
 				{resetBusy ? 'Resetting…' : 'Reset Layer'}
@@ -131,66 +153,50 @@
 				title="Route pieces not in the active BrickLink inventory (.bsx) into this layer's bins"
 				class="flex items-center gap-2 border px-3.5 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 {layerNii
 					? 'border-warning bg-warning/[0.12] text-warning'
-					: 'border-[#E2E0DB] bg-white text-[#1A1A1A] hover:bg-[#F7F6F3]'}"
+					: 'border-border bg-surface text-text hover:bg-bg'}"
 			>
 				{niiBusy ? 'Saving…' : layerNii ? 'Not-in-inventory: ON' : 'Not-in-inventory mode'}
 			</button>
 		</div>
 	</div>
-	<div class="flex flex-wrap items-center gap-2 border-b border-[#E2E0DB] bg-[#FAFAF8] px-3 py-2">
-		<span class="text-xs font-semibold uppercase tracking-wide text-[#7A7770]">Sections</span>
-		{#each Array(layer.section_count) as _unused, sectionIndex}
-			{@const secOn = sectionEnabled(sectionIndex)}
-			<div class="flex items-center gap-1.5 border border-[#E2E0DB] {secOn ? 'bg-white' : 'bg-[#F2F0EB]'} px-2 py-1">
-				<span class="text-sm {secOn ? 'text-[#1A1A1A]' : 'text-[#9A968E]'}">S{sectionIndex + 1}</span>
-				<ToggleSwitch
-					checked={secOn}
-					size="sm"
-					label={secOn
-						? `Disable layer ${layer.layer_index + 1} section ${sectionIndex + 1}`
-						: `Enable layer ${layer.layer_index + 1} section ${sectionIndex + 1}`}
-					disabled={sectionToggleDisabled}
-					onToggle={() => onToggleSection(sectionIndex, !secOn)}
-				/>
-				<button
-					type="button"
-					onclick={() => onPointSection(sectionIndex)}
-					disabled={pointDisabled}
-					class="flex items-center justify-center border border-[#E2E0DB] bg-white p-1 text-[#1A1A1A] transition-colors hover:bg-[#F7F6F3] disabled:cursor-not-allowed disabled:opacity-50"
-					title="Point chute at section {sectionIndex + 1}"
-				>
-					{#if pointingKey === `point-${sectionIndex}`}
-						<Loader2 size={13} class="animate-spin" />
-					{:else}
-						<Crosshair size={13} />
-					{/if}
-				</button>
-			</div>
-		{/each}
-	</div>
-	<div class="grid grid-cols-6 gap-3 p-3">
-		{#each layer.bins as bin (bin.global_index)}
-			{@const clearing = isClearingBin(bin)}
-			<BinCard
-				{bin}
-				layerEnabled={layer.enabled}
-				maxPiecesPerBin={layer.max_pieces_per_bin}
-				isCurrent={isCurrentBin(bin)}
-				isMoving={isMovingBin(bin)}
-				isClearing={clearing}
-				clearingLabel={binClearingLabel(bin)}
-				sectionOn={sectionEnabled(bin.section_index)}
-				contents={contentsFor(bin)}
-				{contentsLoaded}
-				setMeta={setMetaFor(bin)}
-				setProgress={setProgressFor(bin)}
-				moveDisabled={moveDisabled || !layer.enabled}
-				clearDisabled={clearDisabled || clearing}
-				onOpenDetails={() => onOpenDetails(bin)}
-				onMoveTo={() => onMoveTo(bin)}
-				onEmpty={() => onEmptyBin(bin)}
-				onReset={() => onResetBin(bin)}
-			/>
+	<div class="grid grid-cols-1 gap-3 p-3 md:grid-cols-2 2xl:grid-cols-3">
+		{#each sections as section (section.sectionIndex)}
+			<SectionGroup
+				layerIndex={layer.layer_index}
+				sectionIndex={section.sectionIndex}
+				bins={section.bins}
+				enabled={sectionEnabled(section.sectionIndex)}
+				toggleDisabled={sectionToggleDisabled}
+				{pointDisabled}
+				pointing={pointingKey === `point-${section.sectionIndex}`}
+				onToggle={(enabled) => onToggleSection(section.sectionIndex, enabled)}
+				onPoint={() => onPointSection(section.sectionIndex)}
+			>
+				{#snippet binCard(bin: BinInfo)}
+					{@const clearing = isClearingBin(bin)}
+					<BinCard
+						{bin}
+						layerEnabled={layer.enabled}
+						maxPiecesPerBin={layer.max_pieces_per_bin}
+						isCurrent={isCurrentBin(bin)}
+						isMoving={isMovingBin(bin)}
+						isClearing={clearing}
+						clearingLabel={binClearingLabel(bin)}
+						sectionOn={sectionEnabled(bin.section_index)}
+						contents={contentsFor(bin)}
+						{contentsLoaded}
+						setMeta={setMetaFor(bin)}
+						setProgress={setProgressFor(bin)}
+						moveDisabled={moveDisabled || !layer.enabled}
+						clearDisabled={clearDisabled || clearing}
+						searchState={searchActive ? (searchMatch(bin) ? 'match' : 'miss') : 'off'}
+						onOpenDetails={() => onOpenDetails(bin)}
+						onMoveTo={() => onMoveTo(bin)}
+						onEmpty={() => onEmptyBin(bin)}
+						onReset={() => onResetBin(bin)}
+					/>
+				{/snippet}
+			</SectionGroup>
 		{/each}
 	</div>
 </div>

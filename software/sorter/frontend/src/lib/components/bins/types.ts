@@ -18,8 +18,11 @@ export type LayerInfo = {
 	bins: BinInfo[];
 };
 
+// Grouped rows carry `key` on the in-memory (runtime_stats) path and
+// `item_key` on the persisted (sqlite) path — same value, different field name.
 export type BinContentItem = {
-	key: string;
+	key?: string | null;
+	item_key?: string | null;
 	part_id?: string | null;
 	color_id?: string | null;
 	color_name?: string | null;

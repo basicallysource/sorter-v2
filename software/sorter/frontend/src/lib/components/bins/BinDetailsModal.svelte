@@ -1,11 +1,13 @@
 <script lang="ts">
 	import Modal from '$lib/components/Modal.svelte';
+	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
 	import { Button, SelectMenu } from '$lib/components/primitives';
 	import { bricklinkParts } from '$lib/stores/bricklinkParts.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { Plus, Tag, X } from 'lucide-svelte';
 	import { categoryLabel, formatCategoryName, itemDisplayName, itemSecondaryText, pieceTooltip, previewUrl } from './pieces';
+	import QuantityBadge from './QuantityBadge.svelte';
 	import type { BinContents, BinInfo, LayerInfo, SetMeta } from './types';
 
 	let {
@@ -309,12 +311,15 @@
 								<div class="h-40 w-full">
 									<PieceThumb src={previewUrl(item)} alt={pieceTooltip(item)} fallbackText={item.part_id ?? '?'} />
 								</div>
-								<div class="absolute top-3 right-3 flex h-10 min-w-10 items-center justify-center bg-[#16A6B6] px-3 text-lg font-semibold text-white shadow-sm">
-									{item.count}
-								</div>
+								<QuantityBadge count={item.count} />
 							</div>
 							<div class="px-4 py-3">
-								<div class="text-base font-medium text-text">{itemDisplayName(item)}</div>
+								<div class="flex items-start justify-between gap-2">
+									<div class="text-base font-medium text-text">{itemDisplayName(item)}</div>
+									{#if item.classification_status && item.classification_status !== 'classified'}
+										<PieceStatusBadge status={item.classification_status} />
+									{/if}
+								</div>
 								<div class="mt-1 text-sm text-text-muted">{itemSecondaryText(item)}</div>
 								<div class="mt-2 text-sm text-text-muted">{formatCategoryName(item.category_id) || 'No category'}</div>
 							</div>

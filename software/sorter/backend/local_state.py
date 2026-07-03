@@ -58,7 +58,6 @@ _STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
 _STATE_KEY_SET_PROGRESS = "set_progress"
-_STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
 # Per-PWM-channel servo calibration ({channel_id: {"open": int, "closed": int}}).
@@ -69,8 +68,6 @@ _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
-
-_RECENT_KNOWN_OBJECTS_LIMIT = 10
 
 
 def local_state_db_path() -> Path:
@@ -654,46 +651,6 @@ def initialize_local_state() -> None:
                 "is_active INTEGER NOT NULL DEFAULT 0"
                 ")"
             )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS profiler_metric_snapshots ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "run_id TEXT NOT NULL, "
-                "recorded_at REAL NOT NULL, "
-                "metric_kind TEXT NOT NULL, "
-                "metric_name TEXT NOT NULL, "
-                "count INTEGER NOT NULL DEFAULT 0, "
-                "total_ms REAL, "
-                "min_ms REAL, "
-                "max_ms REAL, "
-                "last_ms REAL, "
-                "total_value REAL, "
-                "max_value REAL, "
-                "last_value REAL"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_profiler_metric_snapshots_run_time "
-                "ON profiler_metric_snapshots(run_id, recorded_at)"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_perf_metric_snapshots ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "run_id TEXT NOT NULL, "
-                "recorded_at REAL NOT NULL, "
-                "metric_name TEXT NOT NULL, "
-                "sample_count INTEGER NOT NULL DEFAULT 0, "
-                "avg_ms REAL, "
-                "med_ms REAL, "
-                "p90_ms REAL, "
-                "min_ms REAL, "
-                "max_ms REAL, "
-                "last_ms REAL"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_runtime_perf_metric_snapshots_run_time "
-                "ON runtime_perf_metric_snapshots(run_id, recorded_at)"
-            )
             schema_version = _get_meta(conn, "schema_version")
             if schema_version != str(_SCHEMA_VERSION):
                 _set_meta(conn, "schema_version", str(_SCHEMA_VERSION))
@@ -728,101 +685,50 @@ def _write_state(key: str, value: Any | None) -> None:
         conn.commit()
 
 
-def record_profiler_metric_snapshot(
-    run_id: str,
-    recorded_at: float,
-    rows: list[dict[str, Any]],
-) -> None:
-    if not rows:
-        return
-    initialize_local_state()
-    with _connection() as conn:
-        conn.executemany(
-            "INSERT INTO profiler_metric_snapshots("
-            "run_id, recorded_at, metric_kind, metric_name, count, total_ms, min_ms, max_ms, last_ms, total_value, max_value, last_value"
-            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    str(run_id),
-                    float(recorded_at),
-                    str(row.get("metric_kind") or ""),
-                    str(row.get("metric_name") or ""),
-                    int(row.get("count") or 0),
-                    row.get("total_ms"),
-                    row.get("min_ms"),
-                    row.get("max_ms"),
-                    row.get("last_ms"),
-                    row.get("total_value"),
-                    row.get("max_value"),
-                    row.get("last_value"),
-                )
-                for row in rows
-            ],
-        )
-        conn.commit()
+# Legacy per-second metric snapshot tables — writes moved to local_metrics.py
+# (its own sqlite file). These drained the live DB to 1.9GB on GBL; the pruner
+# thread empties them in small paced batches (never a blocking multi-GB DROP
+# that would stall the recordPiece hot path) and then drops them. Idempotent
+# across restarts; tolerates the tables already being gone.
+_LEGACY_METRIC_SNAPSHOT_TABLES = ("runtime_perf_metric_snapshots", "profiler_metric_snapshots")
 
 
-def record_runtime_perf_metric_snapshot(
-    run_id: str,
-    recorded_at: float,
-    rows: list[dict[str, Any]],
-) -> None:
-    if not rows:
-        return
-    initialize_local_state()
-    with _connection() as conn:
-        conn.executemany(
-            "INSERT INTO runtime_perf_metric_snapshots("
-            "run_id, recorded_at, metric_name, sample_count, avg_ms, med_ms, p90_ms, min_ms, max_ms, last_ms"
-            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    str(run_id),
-                    float(recorded_at),
-                    str(row.get("metric_name") or ""),
-                    int(row.get("sample_count") or 0),
-                    row.get("avg_ms"),
-                    row.get("med_ms"),
-                    row.get("p90_ms"),
-                    row.get("min_ms"),
-                    row.get("max_ms"),
-                    row.get("last_ms"),
-                )
-                for row in rows
-            ],
-        )
-        conn.commit()
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table,),
+    ).fetchone()
+    return row is not None
 
 
-# Per-second snapshot tables that grow unbounded; the pruner trims these by age.
-_METRIC_SNAPSHOT_TABLES = ("runtime_perf_metric_snapshots", "profiler_metric_snapshots")
-
-
-def prune_metric_snapshots(
-    cutoff_recorded_at: float,
+def drain_legacy_metric_snapshot_tables(
     batch_size: int = 5000,
     pacing_s: float = 0.05,
 ) -> dict[str, int]:
     initialize_local_state()
     deleted: dict[str, int] = {}
-    for table in _METRIC_SNAPSHOT_TABLES:
+    for table in _LEGACY_METRIC_SNAPSHOT_TABLES:
         removed = 0
         while True:
-            # Oldest rows have the lowest ids and sort first, so the LIMIT
-            # subquery finds expired rows at the front of the scan — batched and
-            # committed per-batch so we never hold a long write lock or build a
-            # huge WAL. Table name is a fixed constant, not user input.
             with _connection() as conn:
-                cur = conn.execute(
-                    f"DELETE FROM {table} WHERE id IN ("
-                    f"SELECT id FROM {table} WHERE recorded_at < ? LIMIT ?)",
-                    (float(cutoff_recorded_at), int(batch_size)),
-                )
-                n = cur.rowcount
-                conn.commit()
+                if not _table_exists(conn, table):
+                    n = None
+                    break_now = True
+                else:
+                    cur = conn.execute(
+                        f"DELETE FROM {table} WHERE rowid IN ("
+                        f"SELECT rowid FROM {table} LIMIT ?)",
+                        (int(batch_size),),
+                    )
+                    n = cur.rowcount
+                    conn.commit()
+                    break_now = not n or n < batch_size
+                    if break_now:
+                        conn.execute(f"DROP TABLE IF EXISTS {table}")
+                        conn.commit()
             if n and n > 0:
                 removed += n
-            if not n or n < batch_size:
+            if break_now:
                 break
             if pacing_s and pacing_s > 0:
                 time.sleep(pacing_s)
@@ -1050,17 +956,6 @@ def get_set_progress_state() -> dict[str, Any] | None:
 def set_set_progress_state(state: dict[str, Any] | None) -> None:
     normalized = dict(state) if isinstance(state, dict) else None
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
-
-
-def get_recent_known_objects() -> list[dict[str, Any]]:
-    value = _read_state(_STATE_KEY_RECENT_KNOWN_OBJECTS)
-    if not isinstance(value, list):
-        return []
-    result: list[dict[str, Any]] = []
-    for item in value:
-        if isinstance(item, dict) and isinstance(item.get("uuid"), str):
-            result.append(dict(item))
-    return result
 
 
 def get_ui_theme_color_id() -> str | None:
@@ -1978,19 +1873,6 @@ def import_bin_contents_snapshot(snapshot: dict[str, Any], *, reason: str = "sna
             )
         conn.commit()
         return {"imported_bins": imported_bins, "session_id": session_id}
-
-
-def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KNOWN_OBJECTS_LIMIT) -> None:
-    if not isinstance(obj, dict):
-        return
-    uuid = obj.get("uuid")
-    if not isinstance(uuid, str) or not uuid.strip():
-        return
-
-    normalized = {key: value for key, value in obj.items() if isinstance(key, str)}
-    existing = [entry for entry in get_recent_known_objects() if entry.get("uuid") != uuid]
-    next_entries = [normalized, *existing][: max(1, int(limit))]
-    _write_state(_STATE_KEY_RECENT_KNOWN_OBJECTS, next_entries)
 
 
 def get_bin_layout() -> dict[str, Any] | None:

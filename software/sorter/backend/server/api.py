@@ -11,14 +11,11 @@ from pathlib import Path
 from defs.events import (
     IdentityEvent,
     MachineIdentityData,
-    KnownObjectData,
-    KnownObjectEvent,
 )
 from blob_manager import (
     getApiKeys,
     getMachineId,
     getMachineNickname,
-    getRecentKnownObjects,
     getSortingProfileSyncState,
     setMachineNickname,
 )
@@ -42,7 +39,6 @@ from server.shared_state import (
     _getRuntimeVariables,
 )
 import server.shared_state as shared_state
-from utils.event import slimKnownObjectForSocket
 
 # ---------------------------------------------------------------------------
 # App creation
@@ -112,25 +108,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
 app.add_middleware(RequestLoggingMiddleware)
 
-BACKEND_PROCESS_STARTED_AT = time.time()
-
-
-def _sanitize_known_object_payload(payload: Dict[str, Any] | None) -> Dict[str, Any] | None:
-    if payload is None:
-        return None
-    return slimKnownObjectForSocket(payload)
-
-
-def _is_stale_incomplete_known_object(payload: Dict[str, Any] | None) -> bool:
-    if payload is None:
-        return False
-    status = payload.get("classification_status")
-    if status not in {"pending", "classifying"}:
-        return False
-    updated_at = payload.get("updated_at")
-    if not isinstance(updated_at, (int, float)):
-        return False
-    return float(updated_at) < BACKEND_PROCESS_STARTED_AT
 
 def _load_saved_api_keys_into_environment() -> None:
     saved_api_keys = getApiKeys()
@@ -152,6 +129,7 @@ from server.routers.system import router as system_router
 from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
+from server.routers.pieces import router as pieces_router
 from server.routers.runtimes import router as runtimes_router
 from server.routers.chute_stress import router as chute_stress_router
 from server.routers.tuning import router as tuning_router
@@ -170,6 +148,7 @@ app.include_router(system_router)
 app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
+app.include_router(pieces_router)
 app.include_router(runtimes_router)
 app.include_router(chute_stress_router)
 app.include_router(tuning_router)
@@ -554,33 +533,8 @@ def updateSortingProfileSetViewPartState(
     )
 
 
-# ---------------------------------------------------------------------------
-# Known-object lookup by uuid
-# ---------------------------------------------------------------------------
-#
-# The WS recent-objects ring and frontend `recentObjects` buffer are both
-# intentionally tiny (10 entries) — they're for the gallery, not for
-# persistence. The detail page at ``/tracked/<uuid>`` needs to render a
-# piece even after it's aged out of that ring, so this endpoint surfaces
-# the last observed KnownObject payload from the runtime-stats collector's
-# bounded in-memory LRU (~1000 entries) as the fallback source.
-
-
-@app.get("/api/known-objects/{uuid}", response_model=KnownObjectData)
-def get_known_object_by_uuid(uuid: str) -> KnownObjectData:
-    if shared_state.gc_ref is None or shared_state.gc_ref.runtime_stats is None:
-        raise HTTPException(status_code=404, detail="not found")
-    payload = shared_state.gc_ref.runtime_stats.lookupKnownObject(uuid)
-    if payload is None or _is_stale_incomplete_known_object(payload):
-        raise HTTPException(status_code=404, detail="not found")
-    try:
-        return KnownObjectData.model_validate(payload)
-    except Exception:
-        raise HTTPException(status_code=404, detail="not found")
-
-
 # Durable piece-image index (piece_image_store): unlike the in-memory
-# known-objects lookup above, these survive restarts and LRU eviction. Rows
+# known-object lookup behind /api/pieces/{uuid}, these survive restarts and LRU eviction. Rows
 # whose local file was evicted by retention report available_locally=False;
 # once hive sync exists those will be re-fetchable from the Hive instead.
 @app.get("/api/pieces/{uuid}/images")
@@ -698,25 +652,8 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
     identity_event = IdentityEvent(tag="identity", data=_getMachineIdentityData())
     await websocket.send_json(identity_event.model_dump())
-    import time as _time
-    _cutoff = _time.time() - 86400
-    for item in reversed(getRecentKnownObjects()):
-        try:
-            item = _sanitize_known_object_payload(item)
-            if item is None:
-                continue
-            if _is_stale_incomplete_known_object(item):
-                continue
-            created = item.get("created_at") or 0
-            if isinstance(created, (int, float)) and created < _cutoff:
-                continue
-            event = KnownObjectEvent(
-                tag="known_object",
-                data=KnownObjectData.model_validate(item),
-            )
-        except Exception:
-            continue
-        await websocket.send_json(event.model_dump())
+    # No known_object replay on connect — clients hydrate recent pieces via
+    # GET /api/pieces instead of a sqlite-backed ring of past events.
     if shared_state.runtime_stats_snapshot is not None:
         await websocket.send_json(
             {
@@ -872,112 +809,6 @@ def getRuntimeStatsRecord(record_id: str) -> RuntimeStatsResponse:
     if snapshot is None:
         raise HTTPException(status_code=404, detail="Record not found")
     return RuntimeStatsResponse(payload=snapshot)
-
-
-# ---------------------------------------------------------------------------
-# Records (durable per-piece sorting history, backed by the local_state DB)
-# ---------------------------------------------------------------------------
-
-
-class RecordsOverviewResponse(BaseModel):
-    total_runs: int
-    total_pieces: int
-    classified_pieces: int
-    distributed_pieces: int
-    unique_parts: int
-    unique_colors: int
-    first_seen: Optional[float]
-    last_seen: Optional[float]
-
-
-class RecordPieceItem(BaseModel):
-    uuid: str
-    run_id: str
-    seen_at: Optional[float]
-    classification_status: Optional[str]
-    part_id: Optional[str]
-    part_name: Optional[str]
-    color_id: Optional[str]
-    color_name: Optional[str]
-    category_id: Optional[str]
-    confidence: Optional[float]
-    destination_bin: Optional[List[int]]
-    # True when the piece was reaped for never reaching the distributed stage.
-    dead: bool = False
-
-
-class RecordsPiecesResponse(BaseModel):
-    total: int
-    offset: int
-    limit: int
-    pieces: List[RecordPieceItem]
-
-
-@app.get("/api/records/overview", response_model=RecordsOverviewResponse)
-def getRecordsOverview() -> RecordsOverviewResponse:
-    import piece_records
-
-    return RecordsOverviewResponse(**piece_records.getOverview())
-
-
-@app.get("/api/records/value")
-def getRecordsValue() -> Dict[str, Any]:
-    # Estimated BrickLink value of all recorded pieces (all-time + last 24h),
-    # priced on the fly from the local catalog. Returns zeros if the price DB is
-    # disabled or no pieces have been recorded.
-    import piece_records
-
-    gc = shared_state.gc_ref
-    if gc is None:
-        raise HTTPException(status_code=503, detail="not ready")
-    return piece_records.getValueStats(gc)
-
-
-@app.get("/api/records/pieces", response_model=RecordsPiecesResponse)
-def getRecordsPieces(offset: int = 0, limit: int = 50) -> RecordsPiecesResponse:
-    import piece_records
-
-    total, rows = piece_records.listPieces(offset=offset, limit=limit)
-    return RecordsPiecesResponse(
-        total=total,
-        offset=max(0, offset),
-        limit=max(1, min(limit, 200)),
-        pieces=[RecordPieceItem(**r) for r in rows],
-    )
-
-
-class LifetimeDayItem(BaseModel):
-    day: str
-    seconds_powered: float
-    seconds_sorted: float
-    pieces_seen: int
-    pieces_classified: int
-    pieces_distributed: int
-
-
-class LifetimeStatsResponse(BaseModel):
-    seconds_sorted: float
-    seconds_powered: float
-    pieces_seen: int
-    pieces_classified: int
-    pieces_distributed: int
-    overall_ppm: float
-    best_hour_ppm: float
-    active_days: int
-    first_hour: Optional[float]
-    last_hour: Optional[float]
-    daily: List[LifetimeDayItem]
-
-
-@app.get("/api/records/lifetime", response_model=LifetimeStatsResponse)
-def getRecordsLifetime(daily_days: int = 30) -> LifetimeStatsResponse:
-    import lifetime_stats
-
-    data = lifetime_stats.getOverview(daily_days=daily_days)
-    return LifetimeStatsResponse(
-        **{k: v for k, v in data.items() if k != "daily"},
-        daily=[LifetimeDayItem(**d) for d in data["daily"]],
-    )
 
 
 # ---------------------------------------------------------------------------

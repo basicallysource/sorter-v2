@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from local_state import (
     clear_current_session_bins,
+    drain_legacy_metric_snapshot_tables,
     get_api_keys,
     get_bin_categories,
     get_current_bin_contents_snapshot,
@@ -16,7 +17,6 @@ from local_state import (
     get_classification_polygons,
     get_classification_training_state,
     get_machine_id,
-    get_recent_known_objects,
     get_active_sorting_session,
     get_set_progress_state,
     get_servo_states,
@@ -28,7 +28,6 @@ from local_state import (
     initialize_local_state,
     list_bin_snapshots,
     record_piece_distribution,
-    remember_recent_known_object,
     start_new_sorting_session,
 )
 
@@ -156,16 +155,35 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertNotIn("hive", cleaned)
         self.assertNotIn("sorting_profile_sync", cleaned)
 
-    def test_recent_known_objects_are_persisted_and_deduplicated(self) -> None:
+    def test_drain_legacy_metric_snapshot_tables_empties_and_drops(self) -> None:
         initialize_local_state()
 
-        remember_recent_known_object({"uuid": "piece-1", "part_id": "3001", "updated_at": 1.0})
-        remember_recent_known_object({"uuid": "piece-2", "part_id": "3002", "updated_at": 2.0})
-        remember_recent_known_object({"uuid": "piece-1", "part_id": "3001", "updated_at": 3.0})
+        import sqlite3
 
-        recent = get_recent_known_objects()
-        self.assertEqual(["piece-1", "piece-2"], [entry["uuid"] for entry in recent])
-        self.assertEqual(3.0, recent[0]["updated_at"])
+        with sqlite3.connect(self.local_state_db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS runtime_perf_metric_snapshots ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, recorded_at REAL)"
+            )
+            conn.executemany(
+                "INSERT INTO runtime_perf_metric_snapshots(run_id, recorded_at) VALUES(?, ?)",
+                [("run-1", float(i)) for i in range(7)],
+            )
+            conn.commit()
+
+        deleted = drain_legacy_metric_snapshot_tables(batch_size=3, pacing_s=0.0)
+        self.assertEqual(7, deleted["runtime_perf_metric_snapshots"])
+        self.assertEqual(0, deleted["profiler_metric_snapshots"])
+
+        with sqlite3.connect(self.local_state_db_path) as conn:
+            remaining = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' "
+                "AND name IN ('runtime_perf_metric_snapshots', 'profiler_metric_snapshots')"
+            ).fetchall()
+        self.assertEqual([], remaining)
+
+        deleted_again = drain_legacy_metric_snapshot_tables(batch_size=3, pacing_s=0.0)
+        self.assertEqual(0, sum(deleted_again.values()))
 
     def test_sorting_sessions_persist_current_bin_state_and_recent_pieces(self) -> None:
         initialize_local_state()

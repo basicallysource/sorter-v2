@@ -25,6 +25,7 @@ class ClassificationStatus(str, Enum):
     unknown = "unknown"
     not_found = "not_found"
     multi_drop_fail = "multi_drop_fail"
+    failed = "failed"
 
 
 class HeartbeatData(BaseModel):

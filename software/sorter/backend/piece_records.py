@@ -79,6 +79,14 @@ def _ensureInitialized() -> None:
                 conn.execute("ALTER TABLE piece_records ADD COLUMN dead INTEGER NOT NULL DEFAULT 0")
             except sqlite3.OperationalError:
                 pass  # column already present
+            existing_columns = {
+                r["name"]
+                for r in conn.execute("PRAGMA table_info(piece_records)").fetchall()
+            }
+            if "brickognize_preview_url" not in existing_columns:
+                conn.execute(
+                    "ALTER TABLE piece_records ADD COLUMN brickognize_preview_url TEXT"
+                )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_piece_records_seen "
                 "ON piece_records(seen_at)"
@@ -118,8 +126,8 @@ def recordPiece(
             "INSERT OR IGNORE INTO piece_records "
             "(uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
             "part_id, part_name, color_id, color_name, category_id, confidence, "
-            "bin_x, bin_y, bin_z, dead) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "bin_x, bin_y, bin_z, dead, brickognize_preview_url) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 uuid_val,
                 run_id,
@@ -137,6 +145,7 @@ def recordPiece(
                 bin_y,
                 bin_z,
                 dead,
+                piece.get("brickognize_preview_url"),
             ),
         )
         conn.commit()
@@ -168,15 +177,68 @@ def getOverview() -> dict[str, Any]:
     }
 
 
+# Prices are static per (part_id, color_id) for a machine's lifetime, so a
+# process-wide dict avoids re-hitting parts.db for every request. Misses (no
+# metadata / no positive price) are cached as None so unknown parts don't
+# retrigger lookups either.
+_PRICE_CACHE: dict[tuple[Optional[str], Optional[str]], Optional[float]] = {}
+_PRICE_CACHE_LOCK = threading.Lock()
+
+
+def peekCachedPrice(part_id: Optional[str], color_id: Optional[str]) -> tuple[bool, Optional[float]]:
+    key = (part_id, color_id)
+    with _PRICE_CACHE_LOCK:
+        if key in _PRICE_CACHE:
+            return True, _PRICE_CACHE[key]
+    return False, None
+
+
+def getCachedPrice(gc: Any, part_id: Optional[str], color_id: Optional[str]) -> Optional[float]:
+    key = (part_id, color_id)
+    with _PRICE_CACHE_LOCK:
+        if key in _PRICE_CACHE:
+            return _PRICE_CACHE[key]
+    if part_id is None:
+        price_value: Optional[float] = None
+    else:
+        from piece_metadata_db import getLocalPieceMetadata
+
+        metadata = getLocalPieceMetadata(gc, part_id, color_id)
+        price = metadata.get("moving_avg_price") if metadata else None
+        price_value = float(price) if isinstance(price, (int, float)) and price > 0 else None
+    with _PRICE_CACHE_LOCK:
+        _PRICE_CACHE[key] = price_value
+    return price_value
+
+
+_VALUE_STATS_TTL_S = 60.0
+_VALUE_STATS_LOCK = threading.Lock()
+_value_stats_memo: Optional[tuple[float, tuple[int, int], dict[str, Any]]] = None
+
+
+def _pieceCountGuard(conn: sqlite3.Connection) -> tuple[int, int]:
+    row = conn.execute(
+        "SELECT COUNT(*) AS c, COALESCE(MAX(id), 0) AS m FROM piece_records"
+    ).fetchone()
+    return (int(row["c"] or 0), int(row["m"] or 0))
+
+
 def getValueStats(gc: Any) -> dict[str, Any]:
     # Estimated BrickLink value of every identified piece ever recorded, computed
     # on the fly from the local price DB — no stored price column / backfill
-    # needed. We group by (part_id, color_id) so each distinct part is priced once
-    # (the lookup is cached) and multiplied by its count, all-time and last-24h.
-    from piece_metadata_db import getLocalPieceMetadata
+    # needed. We group by (part_id, color_id) so each distinct part is priced
+    # once and multiplied by its count, all-time and last-24h. The full result is
+    # memoized (short TTL because the 24h window drifts) and invalidated the
+    # moment the table changes, so repeated dashboard polls are near-free.
+    global _value_stats_memo
 
     cutoff = time.time() - 86400.0
     with _connection() as conn:
+        guard = _pieceCountGuard(conn)
+        with _VALUE_STATS_LOCK:
+            memo = _value_stats_memo
+            if memo is not None and memo[1] == guard and time.time() < memo[0]:
+                return memo[2]
         rows = conn.execute(
             "SELECT part_id, color_id, COUNT(*) AS n, "
             "SUM(CASE WHEN COALESCE(recorded_at, seen_at) >= ? THEN 1 ELSE 0 END) AS n24 "
@@ -194,15 +256,14 @@ def getValueStats(gc: Any) -> dict[str, Any]:
         n24 = int(r["n24"] or 0)
         all_total += n
         d24_total += n24
-        metadata = getLocalPieceMetadata(gc, r["part_id"], r["color_id"])
-        price = metadata.get("moving_avg_price") if metadata else None
-        if isinstance(price, (int, float)) and price > 0:
+        price = getCachedPrice(gc, r["part_id"], r["color_id"])
+        if price is not None:
             all_value += price * n
             all_priced += n
             d24_value += price * n24
             d24_priced += n24
 
-    return {
+    result = {
         "currency": "USD",
         "all_time": {
             "pieces": all_total,
@@ -215,41 +276,375 @@ def getValueStats(gc: Any) -> dict[str, Any]:
             "value_usd": round(d24_value, 2),
         },
     }
+    with _VALUE_STATS_LOCK:
+        _value_stats_memo = (time.time() + _VALUE_STATS_TTL_S, guard, result)
+    return result
 
 
-def listPieces(*, offset: int = 0, limit: int = 50) -> tuple[int, list[dict[str, Any]]]:
-    offset = max(0, offset)
+# piece_images lives in the same DB file but is created lazily by
+# piece_image_store — a fresh install can query pieces before any image was
+# ever written, so the EXISTS subquery must be guarded. Once the table exists
+# it never goes away, so a positive check is cached for the process lifetime.
+_piece_images_table_seen = False
+
+
+def _hasPieceImagesTable(conn: sqlite3.Connection) -> bool:
+    global _piece_images_table_seen
+    if _piece_images_table_seen:
+        return True
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'piece_images'"
+    ).fetchone()
+    if row is not None:
+        _piece_images_table_seen = True
+        return True
+    return False
+
+
+_SUMMARY_COLUMNS = (
+    "id, uuid, run_id, seen_at, recorded_at, classification_status, "
+    "part_id, part_name, color_id, color_name, category_id, confidence, "
+    "bin_x, bin_y, bin_z, dead, brickognize_preview_url"
+)
+
+
+def _summarySelect(conn: sqlite3.Connection) -> str:
+    has_images_expr = (
+        "EXISTS(SELECT 1 FROM piece_images pi WHERE pi.piece_uuid = piece_records.uuid)"
+        if _hasPieceImagesTable(conn)
+        else "0"
+    )
+    return f"SELECT {_SUMMARY_COLUMNS}, {has_images_expr} AS has_images FROM piece_records"
+
+
+def _estValue(gc: Any, part_id: Optional[str], color_id: Optional[str]) -> Optional[float]:
+    if part_id is None:
+        return None
+    if gc is None:
+        _, price = peekCachedPrice(part_id, color_id)
+        return price
+    return getCachedPrice(gc, part_id, color_id)
+
+
+def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
+    bin_ref = (
+        {"x": int(row["bin_x"]), "y": int(row["bin_y"]), "z": int(row["bin_z"])}
+        if row["bin_x"] is not None
+        else None
+    )
+    return {
+        "uuid": row["uuid"],
+        "run_id": row["run_id"],
+        "seen_at": row["seen_at"],
+        "recorded_at": row["recorded_at"],
+        "classification_status": row["classification_status"],
+        "part_id": row["part_id"],
+        "part_name": row["part_name"],
+        "color_id": row["color_id"],
+        "color_name": row["color_name"],
+        "category_id": row["category_id"],
+        "confidence": row["confidence"],
+        "bin": bin_ref,
+        "dead": bool(row["dead"]),
+        "has_images": bool(row["has_images"]),
+        "preview_url": row["brickognize_preview_url"],
+        "est_value": _estValue(gc, row["part_id"], row["color_id"]),
+    }
+
+
+def _buildFilters(
+    *,
+    status: Optional[list[str]] = None,
+    part_id: Optional[str] = None,
+    color_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    dead: Optional[bool] = None,
+    date_from: Optional[float] = None,
+    date_to: Optional[float] = None,
+) -> tuple[list[str], list[Any]]:
+    clauses: list[str] = []
+    params: list[Any] = []
+    if status:
+        placeholders = ", ".join("?" for _ in status)
+        clauses.append(f"classification_status IN ({placeholders})")
+        params.extend(status)
+    if part_id is not None:
+        clauses.append("part_id = ?")
+        params.append(part_id)
+    if color_id is not None:
+        clauses.append("color_id = ?")
+        params.append(color_id)
+    if run_id is not None:
+        clauses.append("run_id = ?")
+        params.append(run_id)
+    if dead is not None:
+        clauses.append("dead = ?")
+        params.append(1 if dead else 0)
+    if date_from is not None:
+        clauses.append("seen_at >= ?")
+        params.append(float(date_from))
+    if date_to is not None:
+        clauses.append("seen_at <= ?")
+        params.append(float(date_to))
+    return clauses, params
+
+
+def listPieces(
+    gc: Any,
+    *,
+    limit: int = 100,
+    cursor: Optional[int] = None,
+    status: Optional[list[str]] = None,
+    part_id: Optional[str] = None,
+    color_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    dead: Optional[bool] = None,
+    date_from: Optional[float] = None,
+    date_to: Optional[float] = None,
+    sort: str = "recent",
+) -> dict[str, Any]:
+    # Keyset pagination on the autoincrement id: non-null, unique, and ≈
+    # recording order — unlike seen_at, which is nullable (NULL rows would
+    # silently vanish from a seen_at-keyed cursor).
     limit = max(1, min(limit, 200))
+    clauses, params = _buildFilters(
+        status=status,
+        part_id=part_id,
+        color_id=color_id,
+        run_id=run_id,
+        dead=dead,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+    page_clauses = list(clauses)
+    page_params = list(params)
+    if cursor is not None:
+        page_clauses.append("id < ?" if sort == "recent" else "id > ?")
+        page_params.append(int(cursor))
+    page_where = (" WHERE " + " AND ".join(page_clauses)) if page_clauses else ""
+    order = "id DESC" if sort == "recent" else "id ASC"
     with _connection() as conn:
-        total_row = conn.execute("SELECT COUNT(*) AS c FROM piece_records").fetchone()
-        total = int(total_row["c"]) if total_row else 0
+        total_row = conn.execute(
+            f"SELECT COUNT(*) AS c FROM piece_records{where}", params
+        ).fetchone()
+        total = int(total_row["c"] or 0)
         rows = conn.execute(
-            "SELECT uuid, run_id, seen_at, classification_status, part_id, part_name, "
-            "color_id, color_name, category_id, confidence, bin_x, bin_y, bin_z, dead "
-            "FROM piece_records ORDER BY seen_at DESC LIMIT ? OFFSET ?",
-            (limit, offset),
+            f"{_summarySelect(conn)}{page_where} ORDER BY {order} LIMIT ?",
+            page_params + [limit + 1],
         ).fetchall()
-    pieces: list[dict[str, Any]] = []
-    for r in rows:
-        dest = (
-            [r["bin_x"], r["bin_y"], r["bin_z"]]
-            if r["bin_x"] is not None
-            else None
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    items = [_rowToSummary(gc, r) for r in rows]
+    next_cursor = str(rows[-1]["id"]) if has_more and rows else None
+    return {"items": items, "next_cursor": next_cursor, "total": total}
+
+
+def getPieceSummaryByUuid(gc: Any, uuid_val: str) -> Optional[dict[str, Any]]:
+    with _connection() as conn:
+        row = conn.execute(
+            f"{_summarySelect(conn)} WHERE uuid = ?", (uuid_val,)
+        ).fetchone()
+    if row is None:
+        return None
+    return _rowToSummary(gc, row)
+
+
+def iterPieceSummaries(
+    gc: Any,
+    *,
+    status: Optional[list[str]] = None,
+    part_id: Optional[str] = None,
+    color_id: Optional[str] = None,
+    run_id: Optional[str] = None,
+    dead: Optional[bool] = None,
+    date_from: Optional[float] = None,
+    date_to: Optional[float] = None,
+    sort: str = "recent",
+    chunk_size: int = 1000,
+) -> Iterator[dict[str, Any]]:
+    # Full filtered export: keyset chunks on a short-lived connection each, so
+    # a multi-minute CSV download never pins one read transaction open against
+    # the live write path.
+    clauses, params = _buildFilters(
+        status=status,
+        part_id=part_id,
+        color_id=color_id,
+        run_id=run_id,
+        dead=dead,
+        date_from=date_from,
+        date_to=date_to,
+    )
+    order = "id DESC" if sort == "recent" else "id ASC"
+    cursor_id: Optional[int] = None
+    while True:
+        page_clauses = list(clauses)
+        page_params = list(params)
+        if cursor_id is not None:
+            page_clauses.append("id < ?" if sort == "recent" else "id > ?")
+            page_params.append(cursor_id)
+        page_where = (" WHERE " + " AND ".join(page_clauses)) if page_clauses else ""
+        with _connection() as conn:
+            rows = conn.execute(
+                f"{_summarySelect(conn)}{page_where} ORDER BY {order} LIMIT ?",
+                page_params + [chunk_size],
+            ).fetchall()
+        for row in rows:
+            yield _rowToSummary(gc, row)
+        if len(rows) < chunk_size:
+            return
+        cursor_id = int(rows[-1]["id"])
+
+
+_AGGREGATES_TTL_S = 60.0
+_AGGREGATES_LOCK = threading.Lock()
+_aggregates_memo: dict[int, tuple[float, tuple[int, int], dict[str, Any]]] = {}
+
+
+def getAggregates(gc: Any, *, days: int = 365) -> dict[str, Any]:
+    # One cached payload feeding every records-page chart. Same memo policy as
+    # getValueStats: short TTL plus a cheap row-count guard so a new piece
+    # invalidates immediately while idle dashboard polls stay near-free.
+    days = max(1, min(days, 3650))
+    now = time.time()
+    cutoff = now - days * 86400.0
+    with _connection() as conn:
+        guard = _pieceCountGuard(conn)
+        with _AGGREGATES_LOCK:
+            memo = _aggregates_memo.get(days)
+            if memo is not None and memo[1] == guard and now < memo[0]:
+                return memo[2]
+
+        per_day_rows = conn.execute(
+            "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, COUNT(*) AS cnt "
+            "FROM piece_records "
+            "WHERE dead = 0 AND seen_at IS NOT NULL AND seen_at >= ? "
+            "GROUP BY day ORDER BY day",
+            (cutoff,),
+        ).fetchall()
+        status_rows = conn.execute(
+            "SELECT CASE WHEN dead = 1 THEN 'dead' "
+            "ELSE COALESCE(classification_status, 'unknown') END AS status, "
+            "COUNT(*) AS cnt FROM piece_records GROUP BY 1 ORDER BY cnt DESC"
+        ).fetchall()
+        first_seen_rows = conn.execute(
+            "SELECT day, COUNT(*) AS cnt FROM ("
+            "SELECT date(MIN(seen_at), 'unixepoch', 'localtime') AS day "
+            "FROM piece_records "
+            "WHERE part_id IS NOT NULL AND seen_at IS NOT NULL "
+            "GROUP BY part_id"
+            ") WHERE day IS NOT NULL GROUP BY day ORDER BY day"
+        ).fetchall()
+        # lifetime_hourly is created lazily by lifetime_stats' first flush — a
+        # fresh install can hit this endpoint before it exists.
+        has_lifetime_table = (
+            conn.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'lifetime_hourly'"
+            ).fetchone()
+            is not None
         )
-        pieces.append(
+        sorted_seconds_rows = (
+            conn.execute(
+                "SELECT date(hour_start, 'unixepoch', 'localtime') AS day, "
+                "SUM(seconds_sorted) AS seconds_sorted "
+                "FROM lifetime_hourly WHERE hour_start >= ? GROUP BY day",
+                (cutoff,),
+            ).fetchall()
+            if has_lifetime_table
+            else []
+        )
+        distributed_rows = conn.execute(
+            "SELECT date(seen_at, 'unixepoch', 'localtime') AS day, COUNT(*) AS cnt "
+            "FROM piece_records "
+            "WHERE dead = 0 AND bin_x IS NOT NULL AND seen_at IS NOT NULL AND seen_at >= ? "
+            "GROUP BY day",
+            (cutoff,),
+        ).fetchall()
+        color_rows = conn.execute(
+            "SELECT color_id, MAX(color_name) AS color_name, COUNT(*) AS cnt "
+            "FROM piece_records WHERE color_id IS NOT NULL "
+            "GROUP BY color_id ORDER BY cnt DESC LIMIT 20"
+        ).fetchall()
+        part_rows = conn.execute(
+            "SELECT part_id, MAX(part_name) AS part_name, COUNT(*) AS cnt "
+            "FROM piece_records WHERE part_id IS NOT NULL "
+            "GROUP BY part_id ORDER BY cnt DESC LIMIT 20"
+        ).fetchall()
+        value_group_rows = conn.execute(
+            "SELECT date(COALESCE(recorded_at, seen_at), 'unixepoch', 'localtime') AS day, "
+            "part_id, color_id, COUNT(*) AS cnt "
+            "FROM piece_records "
+            "WHERE dead = 0 AND part_id IS NOT NULL "
+            "AND COALESCE(recorded_at, seen_at) >= ? "
+            "GROUP BY day, part_id, color_id",
+            (cutoff,),
+        ).fetchall()
+
+    unique_cumulative: list[dict[str, Any]] = []
+    running = 0
+    for r in first_seen_rows:
+        running += int(r["cnt"] or 0)
+        unique_cumulative.append({"date": r["day"], "count": running})
+
+    seconds_by_day = {
+        r["day"]: float(r["seconds_sorted"] or 0.0)
+        for r in sorted_seconds_rows
+        if r["day"] is not None
+    }
+    ppm_per_day: list[dict[str, Any]] = []
+    for r in distributed_rows:
+        day = r["day"]
+        seconds_sorted = seconds_by_day.get(day, 0.0)
+        # Under a minute of tracked sorting can't support a rate — mirrors the
+        # best-hour PPM guard so a stray piece in an idle day isn't a spike.
+        if day is None or seconds_sorted < 60.0:
+            continue
+        ppm_per_day.append(
+            {"date": day, "ppm": round(int(r["cnt"] or 0) * 60.0 / seconds_sorted, 2)}
+        )
+
+    value_by_day: dict[str, float] = {}
+    for r in value_group_rows:
+        day = r["day"]
+        if day is None:
+            continue
+        price = _estValue(gc, r["part_id"], r["color_id"])
+        if price is None:
+            continue
+        value_by_day[day] = value_by_day.get(day, 0.0) + price * int(r["cnt"] or 0)
+
+    result = {
+        "per_day": [
+            {"date": r["day"], "count": int(r["cnt"] or 0)}
+            for r in per_day_rows
+            if r["day"] is not None
+        ],
+        "status_breakdown": [
+            {"status": r["status"], "count": int(r["cnt"] or 0)} for r in status_rows
+        ],
+        "unique_parts_cumulative": unique_cumulative,
+        "ppm_per_day": ppm_per_day,
+        "per_color": [
             {
-                "uuid": r["uuid"],
-                "run_id": r["run_id"] or "",
-                "seen_at": r["seen_at"],
-                "classification_status": r["classification_status"],
-                "part_id": r["part_id"],
-                "part_name": r["part_name"],
                 "color_id": r["color_id"],
                 "color_name": r["color_name"],
-                "category_id": r["category_id"],
-                "confidence": r["confidence"],
-                "destination_bin": dest,
-                "dead": bool(r["dead"]),
+                "count": int(r["cnt"] or 0),
             }
-        )
-    return total, pieces
+            for r in color_rows
+        ],
+        "top_parts": [
+            {
+                "part_id": r["part_id"],
+                "part_name": r["part_name"],
+                "count": int(r["cnt"] or 0),
+            }
+            for r in part_rows
+        ],
+        "value_per_day": [
+            {"date": day, "value": round(value, 2)}
+            for day, value in sorted(value_by_day.items())
+        ],
+    }
+    with _AGGREGATES_LOCK:
+        _aggregates_memo[days] = (time.time() + _AGGREGATES_TTL_S, guard, result)
+    return result

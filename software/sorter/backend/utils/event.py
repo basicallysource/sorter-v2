@@ -15,7 +15,7 @@ from defs.events import (
 # Heavy, write-once KnownObject fields that exist for server-side lookup only
 # and must NOT travel over the live control socket. They are kept in the
 # in-memory lookup (runtime_stats) and served on demand by the per-piece detail
-# page via /api/known-objects/<uuid>. recognition_image_set in particular is a
+# page via /api/pieces/<uuid>. recognition_image_set in particular is a
 # list that grows one base64 crop per capture; re-broadcasting the whole list on every
 # capture made known_object payloads grow quadratically and backed up the socket
 # broadcaster. The live UI renders latest_captured_crop (bounded), not this list.

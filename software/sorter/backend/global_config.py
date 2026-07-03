@@ -75,7 +75,6 @@ class GlobalConfig:
     max_log_bytes: int
     log_perception_attribution: bool
     dump_logs_to_file: bool
-    metrics_retention_days: float
     def __init__(self):
         from runtime_stats import RuntimeStatsCollector
 
@@ -95,11 +94,6 @@ class GlobalConfig:
         # A frame-rate-firehose debug aid; off by default so it can't flood logs.
         self.log_perception_attribution = False
         self.dump_logs_to_file = False
-        # Age cap for the per-second metric snapshot tables in local_state.sqlite
-        # (runtime_perf + profiler). The pruner deletes rows older than this; the
-        # runtime-perf table writes one row/metric/second regardless of toggles,
-        # so without this the DB grows without bound (it hit 7 GB on one machine).
-        self.metrics_retention_days = 3.0
         self.disable_chute = False
         # On the restart branch we explicitly simulate the distributor: the
         # Waveshare layer-servo bus isn't reliably available, but C1-C4 must

@@ -30,6 +30,7 @@ class Idle(BaseState):
             ClassificationStatus.unknown,
             ClassificationStatus.not_found,
             ClassificationStatus.multi_drop_fail,
+            ClassificationStatus.failed,
         )
         is_unhandled = piece.stage != PieceStage.distributing
 

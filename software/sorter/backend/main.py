@@ -7,11 +7,10 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import (
-    get_api_keys,
-    record_profiler_metric_snapshot,
-    record_runtime_perf_metric_snapshot,
-    remember_recent_known_object,
+from local_state import get_api_keys
+from local_metrics import (
+    recordProfilerMetricSnapshot,
+    recordRuntimePerfMetricSnapshot,
 )
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
@@ -295,9 +294,9 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 obj_payload = command.data.model_dump()
                 # Detail-page lookup keeps the FULL object (incl. the cumulative
                 # recognition_image_set list) in memory, served via
-                # /api/known-objects/<uuid>. The live socket and the recent ring
-                # carry only the slim form (see slimKnownObjectForSocket) so the
-                # per-piece payload stays bounded instead of growing quadratically.
+                # /api/pieces/<uuid>. The live socket carries only the
+                # slim form (see slimKnownObjectForSocket) so the per-piece
+                # payload stays bounded instead of growing quadratically.
                 gc.runtime_stats.observeKnownObject(obj_payload)
                 # Persist any newly appended recognition crops to disk (bounded
                 # enqueue; a dedicated worker does the decode + file/DB writes).
@@ -310,7 +309,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 event_data = payload.get("data")
                 if isinstance(event_data, dict):
                     payload["data"] = slimKnownObjectForSocket(event_data)
-                remember_recent_known_object(slimKnownObjectForSocket(obj_payload))
                 # End-to-end backend latency for a piece update: wall-clock now
                 # minus when the piece was stamped (updated_at, set right before
                 # emit). This is the number that must be near-zero for the UI to
@@ -349,7 +347,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 time.time(), STUCK_PIECE_TIMEOUT_S
             ):
                 slim = slimKnownObjectForSocket(full_payload)
-                remember_recent_known_object(slim)
                 # Persist to the durable history so a stuck piece still shows up
                 # on /records (ordered by created_at) instead of vanishing —
                 # normally only distributed pieces get recorded.
@@ -941,7 +938,7 @@ def main() -> None:
                 current_time - last_runtime_perf_snapshot
                 >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
             ):
-                record_runtime_perf_metric_snapshot(
+                recordRuntimePerfMetricSnapshot(
                     gc.run_id,
                     current_time,
                     gc.runtime_stats.perfSnapshotRows(),
@@ -952,7 +949,7 @@ def main() -> None:
                 gc.profiler.enabled
                 and current_time - last_profiler_snapshot >= gc.profiler.report_interval_s
             ):
-                record_profiler_metric_snapshot(
+                recordProfilerMetricSnapshot(
                     gc.run_id,
                     current_time,
                     gc.profiler.snapshotRows(),

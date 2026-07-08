@@ -304,18 +304,18 @@
 			{#if !detailsBin.contents || detailsBin.contents.items.length === 0}
 				<div class="border border-border bg-bg px-4 py-4 text-sm text-text-muted">No detailed piece records for this bin yet.</div>
 			{:else}
-				<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+				<div class="grid gap-3 grid-cols-3 sm:grid-cols-4 lg:grid-cols-6">
 					{#each detailsBin.contents.items as item}
 						<div class="overflow-hidden border border-border bg-bg">
-							<div class="relative bg-surface p-4">
-								<div class="h-40 w-full">
+							<div class="relative bg-surface p-2">
+								<div class="h-24 w-full">
 									<PieceThumb src={previewUrl(item)} alt={pieceTooltip(item)} fallbackText={item.part_id ?? '?'} />
 								</div>
 								<QuantityBadge count={item.count} />
 							</div>
-							<div class="px-4 py-3">
+							<div class="px-2 py-2">
 								<div class="flex items-start justify-between gap-2">
-									<div class="text-base font-medium text-text">{itemDisplayName(item)}</div>
+									<div class="text-sm font-medium text-text">{itemDisplayName(item)}</div>
 									{#if item.classification_status && item.classification_status !== 'classified'}
 										<PieceStatusBadge status={item.classification_status} />
 									{/if}

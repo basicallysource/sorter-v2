@@ -600,11 +600,6 @@
 						<Spinner />
 					</div>
 				{/if}
-				{#if phase === 'capturing' || phase === 'tracking'}
-					<div class="absolute -right-1 -top-1">
-						<Spinner />
-					</div>
-				{/if}
 			</div>
 
 			<div class="flex min-w-0 flex-1 flex-col gap-1">

@@ -11,7 +11,6 @@
 		pieceToKnownObjectView,
 		isTerminalPiece,
 		type Piece,
-		type PieceDetailEnvelope,
 		type PiecesListResponse
 	} from '$lib/pieces';
 
@@ -281,11 +280,13 @@
 	}
 
 	// --- Recognition-view cycling -----------------------------------------
-	// The live piece entries carry only `latest_captured_crop` — the full
-	// `recognition_image_set` (every C4 burst frame + the upstream C2/C3
-	// matches) is slimmed off the socket and only served inside the `detail`
-	// tier of GET /api/pieces/{uuid}. While a piece is still being recognized we
-	// poll that endpoint and flash through every view it has so far, so the
+	// The live piece entries carry only `latest_captured_crop`. The full set of
+	// captured crops (every C4 burst frame + the upstream C2/C3 matches) is
+	// persisted to disk by piece_image_store and served as individual JPEGs via
+	// GET /api/pieces/{uuid}/images{,/<id>} — durable across eviction/restart and
+	// browser-cached (immutable), so hover works even for pieces that have
+	// already left the machine. While a piece is still being recognized we poll
+	// that endpoint and flash through every view it has so far, so the
 	// operator sees the burst frames (and, once classification runs, the
 	// fused-in upstream matches) animate in place instead of a single frozen
 	// crop. When the result lands we keep flashing for one full pass — long
@@ -324,15 +325,17 @@
 		fetchingUuids.add(uuid);
 		lastFetchMs[uuid] = Date.now();
 		try {
-			const res = await fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(uuid)}`);
+			const base = effectiveBase();
+			const res = await fetch(`${base}/api/pieces/${encodeURIComponent(uuid)}/images`);
 			if (!res.ok) return;
-			const env = (await res.json()) as PieceDetailEnvelope;
-			const imgs = (env.detail?.recognition_image_set ?? [])
-				.map((r) => {
-					const src = dataImageUrl(r.image);
-					return src ? { src } : null;
-				})
-				.filter((v): v is CycleImage => v !== null);
+			const env = (await res.json()) as {
+				images?: { id: number; available_locally?: boolean }[];
+			};
+			const imgs = (env.images ?? [])
+				.filter((r) => r.available_locally !== false)
+				.map((r): CycleImage => ({
+					src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${r.id}`
+				}));
 			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
 		} catch {
 			// Silent — the card just keeps showing the captured crop.

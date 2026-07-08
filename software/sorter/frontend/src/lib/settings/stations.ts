@@ -7,6 +7,7 @@ import {
 	Layers3,
 	Settings,
 	Shapes,
+	ShieldAlert,
 	SlidersHorizontal,
 	Wrench,
 	Zap
@@ -126,6 +127,12 @@ export const performanceNavItem: SettingsNavItem = {
 	href: '/settings/performance',
 	label: 'Performance',
 	icon: Gauge
+};
+
+export const incidentsNavItem: SettingsNavItem = {
+	href: '/settings/incidents',
+	label: 'Incidents',
+	icon: ShieldAlert
 };
 
 export const tuningNavItems: SettingsNavItem[] = [
@@ -251,6 +258,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	chuteNavItem,
 	storageLayersNavItem,
 	{ type: 'heading', label: 'Helpers' },
+	incidentsNavItem,
 	chuteAimingNavItem,
 	stallguardNavItem,
 	jitterTestNavItem,

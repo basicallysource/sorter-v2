@@ -316,6 +316,16 @@ class StepperMotor:
         if self.software_disabled and not force:
             self._gc.logger.debug(f"Stepper '{self._name}' ch{self._channel}: home() suppressed (software_disabled)")
             return
+        # Re-assert driver current before homing. A prior force-halt (jog auto-stop,
+        # jitter, stallguard sweep) disables the TMC chopper via DRV_SET_ENABLED;
+        # homing would otherwise run the firmware motion state machine against a
+        # de-energized motor that never turns and never trips the endstop, so `home`
+        # polls `stopped` until it times out. Firmware >= v0.7.0 self-heals this on
+        # any move; this keeps older firmware working. No-op cost when already on.
+        if force:
+            self.enable_force(True)
+        else:
+            self.enabled = True
         if isinstance(home_pin, DigitalInputPin):
             # If a DigitalInputPin object is provided, use its channel. ONLY IF IT BELONGS TO THE SAME INTERFACE.
             if home_pin._dev != self._dev:

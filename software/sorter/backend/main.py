@@ -297,7 +297,13 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 # /api/pieces/<uuid>. The live socket carries only the
                 # slim form (see slimKnownObjectForSocket) so the per-piece
                 # payload stays bounded instead of growing quadratically.
-                gc.runtime_stats.observeKnownObject(obj_payload)
+                try:
+                    gc.runtime_stats.observeKnownObject(obj_payload)
+                except Exception as exc:
+                    # Never let one malformed piece kill the broadcaster thread —
+                    # that would silently freeze the entire live feed for every
+                    # client until a restart. Skip this observation and continue.
+                    gc.logger.warning(f"observeKnownObject failed, skipping piece: {exc}")
                 # Persist any newly appended recognition crops to disk (bounded
                 # enqueue; a dedicated worker does the decode + file/DB writes).
                 try:
@@ -455,6 +461,44 @@ def main() -> None:
         target=runBroadcaster, args=(gc,), daemon=True, name="ws-broadcaster"
     )
     broadcaster_thread.start()
+
+    # Broadcast-liveness watchdog. The WS live feed (recent pieces, stall banner)
+    # is pushed only by the broadcaster on the single asyncio loop. If that loop
+    # wedges (MJPEG saturation or a blocking call), broadcasts stop silently and
+    # the feed freezes until restart — with no error anywhere in the logs. This
+    # runs on its own thread (so it survives a wedged loop) and turns that
+    # invisible freeze into one loud, timestamped WARN.
+    def _broadcastLivenessWatchdog() -> None:
+        import server.shared_state as ss
+
+        STALE_WARN_S = 10.0
+        CHECK_INTERVAL_S = 2.0
+        warned = False
+        while True:
+            time.sleep(CHECK_INTERVAL_S)
+            try:
+                last_ok = ss.last_broadcast_ok_ts
+                n_clients = len(ss.active_connections)
+                if last_ok <= 0.0 or n_clients == 0:
+                    warned = False
+                    continue
+                stale_s = time.time() - last_ok
+                if stale_s > STALE_WARN_S and not warned:
+                    gc.logger.warning(
+                        f"[broadcast-watchdog] no websocket broadcast for {stale_s:.1f}s "
+                        f"with {n_clients} client(s) connected — asyncio loop likely wedged "
+                        "(MJPEG saturation or a blocking call); live feed frozen until it clears"
+                    )
+                    warned = True
+                elif stale_s <= STALE_WARN_S and warned:
+                    gc.logger.info("[broadcast-watchdog] websocket broadcast recovered")
+                    warned = False
+            except Exception:
+                pass
+
+    threading.Thread(
+        target=_broadcastLivenessWatchdog, daemon=True, name="broadcast-watchdog"
+    ).start()
 
     # Pre-warm the piece price cache off the request path. The first
     # value/aggregates computation walks every historical (part, color) pair

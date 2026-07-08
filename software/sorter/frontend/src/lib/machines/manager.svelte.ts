@@ -276,7 +276,7 @@ export class MachineManager {
 			}
 
 			if (isHeartbeatEvent(event)) {
-				this.handleHeartbeat(machineId, event.data.timestamp);
+				this.handleHeartbeat(machineId);
 			} else if (isKnownObjectEvent(event)) {
 				this.handleKnownObject(machineId, event.data);
 			} else if (isCameraHealthEvent(event)) {
@@ -347,12 +347,17 @@ export class MachineManager {
 		this.machines = updated;
 	}
 
-	private handleHeartbeat(machineId: string, timestamp: number): void {
+	private handleHeartbeat(machineId: string): void {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
 
+		// Stamp with the client's own receive time (seconds), NOT the server's
+		// heartbeat timestamp. The staleness watchdog subtracts this from
+		// Date.now(), so trusting the Pi's clock made the check sensitive to
+		// clock skew between the browser and an RTC-less Pi. Measuring elapsed
+		// time on a single clock is skew-proof.
 		const updated = new Map(this.machines);
-		updated.set(machineId, { ...machine, lastHeartbeat: timestamp });
+		updated.set(machineId, { ...machine, lastHeartbeat: Date.now() / 1000 });
 		this.machines = updated;
 	}
 

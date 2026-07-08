@@ -66,15 +66,27 @@ def list_models(
     runtime: str | None = None,
     family: str | None = None,
     q: str | None = None,
+    include_experimental: bool = Query(
+        False,
+        description="Include experimental models. Hidden by default so operators don't install a test model by accident.",
+    ),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_READ)),
 ):
     query = _apply_visibility(db.query(DetectionModel), current_user)
+    if not include_experimental:
+        query = query.filter(DetectionModel.experimental.is_(False))
     if family:
         query = query.filter(DetectionModel.model_family == family)
     if q:
         like = f"%{q}%"
-        query = query.filter(or_(DetectionModel.name.ilike(like), DetectionModel.slug.ilike(like)))
+        query = query.filter(
+            or_(
+                DetectionModel.name.ilike(like),
+                DetectionModel.slug.ilike(like),
+                DetectionModel.codename.ilike(like),
+            )
+        )
     if runtime:
         query = query.filter(
             DetectionModel.variants.any(DetectionModelVariant.runtime == runtime)
@@ -190,6 +202,7 @@ def create_model(
         scopes=payload.scopes or [],
         training_metadata=payload.training_metadata,
         is_public=payload.is_public,
+        experimental=payload.experimental,
     )
     db.add(model)
     db.commit()

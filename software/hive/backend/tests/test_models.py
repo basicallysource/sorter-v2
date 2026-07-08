@@ -237,6 +237,36 @@ class TestMachineEndpoints:
         resp = client.get("/api/machine/models")
         assert resp.status_code in (401, 422)
 
+    def test_machine_search_matches_codename(
+        self,
+        client: TestClient,
+        db: Session,
+        machine_token: str,
+    ) -> None:
+        _register_user(client, "admin-codename@test.com", "Password123!", "Admin")
+        _login_user(client, "admin-codename@test.com", "Password123!")
+        _promote(db, "admin-codename@test.com", "admin")
+        _login_user(client, "admin-codename@test.com", "Password123!")
+        admin_headers = _auth_headers(client)
+        created = client.post(
+            "/api/models",
+            json={"slug": "codename-search", "name": "Detector", "model_family": "yolo", "is_public": True},
+            headers=admin_headers,
+        )
+        assert created.status_code == 200, created.text
+        codename = created.json()["codename"]
+
+        client.cookies.clear()
+        resp = client.get(
+            "/api/machine/models",
+            params={"q": codename},
+            headers={"Authorization": f"Bearer {machine_token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["items"]
+        assert any(item["slug"] == "codename-search" for item in items)
+        assert any(item["codename"] == codename for item in items)
+
 
 class TestDeleteModel:
     def test_delete_cascades(

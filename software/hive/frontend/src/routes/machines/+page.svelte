@@ -398,7 +398,7 @@ async function loadAssignmentProfile(profileId: string) {
 					</div>
 					<div class="min-w-0 flex-1">
 						<div class="flex items-center gap-2">
-							<h3 class="truncate text-sm font-semibold text-text">{machine.name}</h3>
+							<a href={`/machines/${machine.id}`} class="truncate text-sm font-semibold text-text hover:text-primary hover:underline">{machine.name}</a>
 							<span class="shrink-0 text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-success' : 'text-text-muted'}">
 								{isOnline ? 'Online' : 'Offline'}
 							</span>

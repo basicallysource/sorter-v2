@@ -30,6 +30,11 @@ backend/sorthive.db
 
 # Local runtime data
 backend/data/
+# Production bind-mount data (postgres datadir, parts.db, uploads). On the prod
+# host this lives inside the repo working tree, so it MUST stay ignored — a
+# `git stash -u` / `git clean -fdx` would otherwise wipe the live database.
+# See scripts/deploy.sh, which also never runs those commands.
+/data/
 
 # Node / Svelte
 node_modules/

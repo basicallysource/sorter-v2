@@ -180,29 +180,6 @@ class DropzoneIncidentTests(unittest.TestCase):
         self.assertEqual("carousel", stats.active_incident["role"])
         self.assertEqual(6254, stats.active_incident["global_id"])
 
-    def test_c4_automatic_ignore_notifies_callback_until_track_leaves(self) -> None:
-        setDashboardConfig({"incident_handling": {"channel_dropzone_stuck": "automatic"}})
-        stats = _RuntimeStats()
-        changes: list[tuple[int, int, bool]] = []
-        gc = SimpleNamespace(runtime_stats=stats, logger=_Logger())
-        manager = DropzoneStuckIncidentManager(
-            gc=gc,
-            on_ignored_change=lambda channel_id, global_id, ignored: changes.append(
-                (channel_id, global_id, ignored)
-            ),
-        )
-        det = _detection(channel_id=4, global_id=6254)
-
-        manager.update([det], 0.0, rotating_channel_ids={4})
-        self.assertFalse(manager.update([det], 5.0, rotating_channel_ids={4}))
-        self.assertIn((4, 6254), manager.ignored_detection_ids())
-        self.assertEqual((4, 6254, True), changes[-1])
-
-        manager.update([_detection(channel_id=4, global_id=6254, bbox=(10, 48, 20, 52))], 5.1, rotating_channel_ids={4})
-
-        self.assertNotIn((4, 6254), manager.ignored_detection_ids())
-        self.assertEqual((4, 6254, False), changes[-1])
-
     def test_wall_clock_time_without_rotation_does_not_publish_incident(self) -> None:
         stats = _RuntimeStats()
         gc = SimpleNamespace(runtime_stats=stats, logger=_Logger())
@@ -248,21 +225,10 @@ class DropzoneIncidentTests(unittest.TestCase):
         self.assertEqual(555, stats.active_incident["global_id"])
         self.assertEqual(5000, stats.active_incident["accumulated_motion_ms"])
 
-    def test_automatic_policy_ignores_stuck_track_without_active_incident(self) -> None:
-        setDashboardConfig({"incident_handling": {"channel_dropzone_stuck": "automatic"}})
-        stats = _RuntimeStats()
-        gc = SimpleNamespace(runtime_stats=stats, logger=_Logger())
-        manager = DropzoneStuckIncidentManager(gc=gc)
-        det = _detection()
-
-        manager.update([det], 0.0, rotating_channel_ids={2})
-        published = manager.update([det], 5.0, rotating_channel_ids={2})
-
-        self.assertFalse(published)
-        self.assertIsNone(stats.active_incident)
-        self.assertIn((2, 123), manager.ignored_detection_ids())
-
-    def test_off_policy_does_not_publish_or_ignore_stuck_track(self) -> None:
+    def test_dropzone_policy_is_no_longer_configurable(self) -> None:
+        # channel_dropzone_stuck is a legacy-only incident kind: it was removed
+        # from the configurable set, so off/automatic requests are dropped and
+        # the manager always behaves as manual (publishes for the operator).
         setDashboardConfig({"incident_handling": {"channel_dropzone_stuck": "off"}})
         stats = _RuntimeStats()
         gc = SimpleNamespace(runtime_stats=stats, logger=_Logger())
@@ -272,8 +238,8 @@ class DropzoneIncidentTests(unittest.TestCase):
         manager.update([det], 0.0, rotating_channel_ids={2})
         published = manager.update([det], 5.0, rotating_channel_ids={2})
 
-        self.assertFalse(published)
-        self.assertIsNone(stats.active_incident)
+        self.assertTrue(published)
+        self.assertEqual("channel_dropzone_stuck", stats.active_incident["kind"])
         self.assertNotIn((2, 123), manager.ignored_detection_ids())
 
     def test_manual_clear_does_not_ignore_track(self) -> None:

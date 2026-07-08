@@ -6,7 +6,8 @@
 	const EXIT_STUCK_INCIDENT_KIND = 'exit_stuck';
 	const INCIDENT_KIND_ALIASES: Record<string, string> = {
 		classification_exit_release: EXIT_STUCK_INCIDENT_KIND,
-		channel_exit_stuck: EXIT_STUCK_INCIDENT_KIND
+		channel_exit_stuck: EXIT_STUCK_INCIDENT_KIND,
+		classification_exit_stuck: EXIT_STUCK_INCIDENT_KIND
 	};
 
 	type IncidentHandlingMode = 'off' | 'manual' | 'automatic';
@@ -25,52 +26,12 @@
 		{
 			kind: EXIT_STUCK_INCIDENT_KIND,
 			label: 'Exit Stuck',
-			scope: 'C2/C3/C4',
-			description: 'A piece is not falling off the channel.',
+			scope: 'C4',
+			description: 'The classification channel stopped making progress with a piece on it.',
 			off_label: 'Do not raise exit-stuck incidents',
-			manual_label: 'Operator tunes release wiggle',
-			automatic_label: 'Run release wiggle automatically',
+			manual_label: 'Operator clears the stuck piece',
+			automatic_label: 'Rotate the channel forward until it clears',
 			automatic_supported: true
-		},
-		{
-			kind: 'channel_dropzone_stuck',
-			label: 'Dropzone Stuck',
-			scope: 'C2/C3/C4',
-			description: 'A piece is not moving as expected.',
-			off_label: 'Leave normal backpressure unchanged',
-			manual_label: 'Operator acknowledges ignore',
-			automatic_label: 'Ignore stuck track automatically',
-			automatic_supported: true
-		},
-		{
-			kind: 'c2_separation_needed',
-			label: 'Slip-Stick Separation',
-			scope: 'C2',
-			description: 'Pieces are not spreading out as expected.',
-			off_label: 'Do not raise separation incident',
-			manual_label: 'Operator reviews separation',
-			automatic_label: 'Automatic slip-stick separation',
-			automatic_supported: false
-		},
-		{
-			kind: 'bulk_feeder_stalled',
-			label: 'Bulk Feed Stalled',
-			scope: 'C1',
-			description: 'No pieces are reaching the next channel.',
-			off_label: 'Keep legacy bulk-feeder recovery hidden',
-			manual_label: 'Operator checks the bulk feeder',
-			automatic_label: 'Automatic bulk-feeder recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'feeder_detection_unavailable',
-			label: 'Detection Unavailable',
-			scope: 'C2/C3/C4',
-			description: 'Feeder camera detection is not reliable.',
-			off_label: 'Use hardware alert only',
-			manual_label: 'Operator restores detection',
-			automatic_label: 'Automatic camera recovery',
-			automatic_supported: false
 		},
 		{
 			kind: 'distribution_chute_jam',
@@ -101,57 +62,6 @@
 			manual_label: 'Operator assigns capacity or approves passthrough',
 			automatic_label: 'Automatic no-bin passthrough',
 			automatic_supported: false
-		},
-		{
-			kind: 'classification_unresolved',
-			label: 'Classification Unresolved',
-			scope: 'C4',
-			description: 'A piece reached the drop point without a resolved classification.',
-			off_label: 'Keep unknown fallback hidden',
-			manual_label: 'Operator reviews unresolved classifications',
-			automatic_label: 'Automatic unresolved-classification handling',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_multi_drop_collision',
-			label: 'Multi-Drop Collision',
-			scope: 'C4',
-			description: 'Multiple pieces reached the drop point together.',
-			off_label: 'Keep multi-drop fallback hidden',
-			manual_label: 'Operator reviews multi-drop collisions',
-			automatic_label: 'Automatic multi-drop handling',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_intake_request_timeout',
-			label: 'Intake Request Timeout',
-			scope: 'C4',
-			description: 'C4 requested a piece, but no handoff arrived.',
-			off_label: 'Retry C4 intake requests silently',
-			manual_label: 'Operator checks C3 to C4 handoff',
-			automatic_label: 'Automatic C4 handoff recovery',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_track_lost',
-			label: 'Track Lost',
-			scope: 'C4',
-			description: 'A tracked piece disappeared before the expected drop flow completed.',
-			off_label: 'Treat stale C4 tracks as diagnostics',
-			manual_label: 'Operator reviews lost C4 tracks',
-			automatic_label: 'Automatic track-loss handling',
-			automatic_supported: false
-		},
-		{
-			kind: 'classification_exit_stuck',
-			label: 'C4 Piece Stuck',
-			scope: 'C4',
-			description:
-				'A piece on the classification channel could not be discharged. Remove it, then resolve to resume.',
-			off_label: 'Do not raise C4 stuck incidents',
-			manual_label: 'Operator removes the stuck piece',
-			automatic_label: 'Advance the channel forward until the piece is gone',
-			automatic_supported: true
 		}
 	];
 

@@ -156,6 +156,8 @@ class Coordinator:
 
     def _classification_should_step_during_incident(self, incident: dict) -> bool:
         """C4 exit-release incidents own C4 motion, so they must keep ticking.
+        The C4 stall watchdog must also keep ticking: its step is what notices
+        the channel going clear and auto-resolves the incident.
 
         Other incidents are process-level holds: classification must not reopen
         the C3->C4 gate after the coordinator deliberately closed it.
@@ -165,6 +167,8 @@ class Coordinator:
         if kind == "classification_exit_release":
             return True
         if source_kind == "classification_exit_release":
+            return True
+        if source_kind == "c4_stall_watchdog":
             return True
         return (
             kind == "exit_stuck"

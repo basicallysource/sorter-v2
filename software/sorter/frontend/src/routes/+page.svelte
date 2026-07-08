@@ -16,7 +16,7 @@
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
-	import { AlertTriangle, Check, Eye, EyeOff, Info, Play, X } from 'lucide-svelte';
+	import { AlertTriangle, Check, Eye, EyeOff, Info, Play, RotateCcw, X } from 'lucide-svelte';
 
 	const SIDEBAR_MIN = 300;
 	const SIDEBAR_MAX = 900;
@@ -46,6 +46,8 @@
 	let exitIncidentActionError = $state<string | null>(null);
 	let stallIncidentActionPending = $state(false);
 	let stallIncidentActionError = $state<string | null>(null);
+	let rehomeIncidentActionPending = $state(false);
+	let rehomeIncidentActionError = $state<string | null>(null);
 	let exitReleaseOutputDeg = $state(EXIT_RELEASE_DEFAULTS.outputDeg);
 	let exitReleaseSpeed = $state(EXIT_RELEASE_DEFAULTS.speed);
 	let exitReleaseAcceleration = $state(EXIT_RELEASE_DEFAULTS.acceleration);
@@ -80,6 +82,7 @@
 	const runtimeStats = $derived((machine.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const exitIncident = $derived(normalizeExitIncident(runtimeStats.active_incident));
 	const stallIncident = $derived(stepperStallIncident(runtimeStats.active_incident));
+	const needsHomingIncident = $derived(chuteNeedsHomingIncident(runtimeStats.active_incident));
 
 	async function startSystem() {
 		const baseUrl = currentBackendBaseUrl();
@@ -151,6 +154,12 @@
 		return incident.kind === 'stepper_stall' ? incident : null;
 	}
 
+	function chuteNeedsHomingIncident(value: unknown): Record<string, unknown> | null {
+		if (!value || typeof value !== 'object') return null;
+		const incident = value as Record<string, unknown>;
+		return incident.kind === 'chute_needs_homing' ? incident : null;
+	}
+
 	function stallIncidentSteppersLabel(incident: Record<string, unknown> | null): string {
 		const steppers = incident?.steppers;
 		if (Array.isArray(steppers) && steppers.length > 0) {
@@ -159,25 +168,44 @@
 		return incidentString(incident, 'channel', 'a motor');
 	}
 
+	async function postStallAction(path: string, fallbackError: string): Promise<string | null> {
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}${path}`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			if (!response.ok || payload?.ok === false) {
+				return typeof payload?.detail === 'string' ? payload.detail : fallbackError;
+			}
+			return null;
+		} catch (e: any) {
+			return e?.message ?? fallbackError;
+		}
+	}
+
 	async function acknowledgeStallIncident() {
 		if (stallIncidentActionPending) return;
 		stallIncidentActionPending = true;
 		stallIncidentActionError = null;
-		try {
-			const response = await fetch(`${currentBackendBaseUrl()}/stall-incident/clear`, {
-				method: 'POST'
-			});
-			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-			if (!response.ok || payload?.ok === false) {
-				throw new Error(
-					typeof payload?.detail === 'string' ? payload.detail : 'Could not clear stall'
-				);
-			}
-		} catch (e: any) {
-			stallIncidentActionError = e?.message ?? 'Could not clear stall';
-		} finally {
-			stallIncidentActionPending = false;
-		}
+		stallIncidentActionError = await postStallAction('/stall-incident/clear', 'Could not clear stall');
+		stallIncidentActionPending = false;
+	}
+
+	async function rehomeAfterStall() {
+		if (stallIncidentActionPending) return;
+		stallIncidentActionPending = true;
+		stallIncidentActionError = null;
+		stallIncidentActionError = await postStallAction('/stall-incident/rehome', 'Could not re-home');
+		stallIncidentActionPending = false;
+	}
+
+	async function rehomeChute() {
+		if (rehomeIncidentActionPending) return;
+		rehomeIncidentActionPending = true;
+		rehomeIncidentActionError = null;
+		rehomeIncidentActionError = await postStallAction(
+			'/stall-incident/rehome',
+			'Could not re-home'
+		);
+		rehomeIncidentActionPending = false;
 	}
 
 	function normalizeExitIncident(value: unknown): Record<string, unknown> | null {
@@ -1320,8 +1348,14 @@
 											</div>
 										</div>
 										<div class="mt-1 text-xs text-text-muted">
-											A stepper stalled and the machine has stopped. Clear the jam, then
-											acknowledge to re-arm detection and resume.
+											{#if stallIncident.requires_rehome}
+												A stepper stalled and the machine paused. The chute lost its home
+												position, so it must be re-homed before sorting can resume. Clear
+												the jam, then re-home — or clear the stall now and re-home later.
+											{:else}
+												A stepper stalled and the machine paused. Clear the jam, then clear
+												the stall; resume from the header once it's cleared.
+											{/if}
 										</div>
 										{#if incidentString(stallIncident, 'operator_message')}
 											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
@@ -1332,15 +1366,36 @@
 								</div>
 							</div>
 							<div class="mt-3 flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									onclick={acknowledgeStallIncident}
-									disabled={stallIncidentActionPending}
-									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<Check size={13} />
-									Stall Cleared — Resume
-								</button>
+								{#if stallIncident.requires_rehome}
+									<button
+										type="button"
+										onclick={rehomeAfterStall}
+										disabled={stallIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<RotateCcw size={13} />
+										Stall Cleared — Re-home
+									</button>
+									<button
+										type="button"
+										onclick={acknowledgeStallIncident}
+										disabled={stallIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<Check size={13} />
+										Clear stall only
+									</button>
+								{:else}
+									<button
+										type="button"
+										onclick={acknowledgeStallIncident}
+										disabled={stallIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<Check size={13} />
+										Clear Stall
+									</button>
+								{/if}
 								<button
 									type="button"
 									onclick={() => openIncidentDetails(stallIncident, 'Motor Stall')}
@@ -1353,6 +1408,57 @@
 							</div>
 							{#if stallIncidentActionError}
 								<div class="mt-2 text-xs text-danger">{stallIncidentActionError}</div>
+							{/if}
+						</div>
+					{/if}
+					{#if needsHomingIncident}
+						<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
+									<div class="min-w-0">
+										<div class="flex flex-wrap items-center gap-2">
+											<div class="text-sm font-semibold text-text">Needs Homing</div>
+											<div
+												class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
+											>
+												Halted
+											</div>
+										</div>
+										<div class="mt-1 text-xs text-text-muted">
+											The chute lost its home position after a stall, so its location can't
+											be trusted. Re-home the chute to resume sorting.
+										</div>
+										{#if incidentString(needsHomingIncident, 'operator_message')}
+											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+												{incidentString(needsHomingIncident, 'operator_message')}
+											</div>
+										{/if}
+									</div>
+								</div>
+							</div>
+							<div class="mt-3 flex flex-wrap items-center gap-2">
+								<button
+									type="button"
+									onclick={rehomeChute}
+									disabled={rehomeIncidentActionPending}
+									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+								>
+									<RotateCcw size={13} />
+									Re-home Chute
+								</button>
+								<button
+									type="button"
+									onclick={() => openIncidentDetails(needsHomingIncident, 'Needs Homing')}
+									title="Incident details"
+									class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
+								>
+									<Info size={14} />
+									Details
+								</button>
+							</div>
+							{#if rehomeIncidentActionError}
+								<div class="mt-2 text-xs text-danger">{rehomeIncidentActionError}</div>
 							{/if}
 						</div>
 					{/if}

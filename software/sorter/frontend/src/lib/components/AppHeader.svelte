@@ -79,6 +79,15 @@
 			null
 	);
 	const machineState = $derived(manager.selectedMachine?.sorterState?.state ?? 'initializing');
+	const activeIncidentKind = $derived(
+		(
+			(manager.selectedMachine?.runtimeStats as Record<string, unknown> | null)
+				?.active_incident as Record<string, unknown> | null
+		)?.kind ?? null
+	);
+	const resumeBlockedByFault = $derived(
+		activeIncidentKind === 'stepper_stall' || activeIncidentKind === 'chute_needs_homing'
+	);
 	const hardwareState = $derived(
 		manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby'
 	);
@@ -158,7 +167,9 @@
 	}
 
 	async function togglePauseResume() {
-		const endpoint = machineState === 'paused' ? '/resume' : '/pause';
+		const resuming = machineState === 'paused' || hardwareState === 'initialized';
+		if (resuming && resumeBlockedByFault) return;
+		const endpoint = resuming ? '/resume' : '/pause';
 		try {
 			await fetch(`${currentBackendBaseUrl()}${endpoint}`, { method: 'POST' });
 		} catch {
@@ -413,12 +424,20 @@
 			<SortingProfileDropdown />
 
 			{#if hardwareState === 'ready' || hardwareState === 'initialized'}
+				{@const resuming = machineState === 'paused' || hardwareState === 'initialized'}
 				<button
 					onclick={togglePauseResume}
-					class="p-2 text-text transition-colors hover:bg-bg"
-					title={machineState === 'paused' || hardwareState === 'initialized' ? 'Resume' : 'Pause'}
+					disabled={resuming && resumeBlockedByFault}
+					class="p-2 text-text transition-colors hover:bg-bg disabled:cursor-not-allowed disabled:text-text-muted disabled:opacity-50 disabled:hover:bg-transparent"
+					title={resuming
+						? resumeBlockedByFault
+							? activeIncidentKind === 'chute_needs_homing'
+								? 'Re-home the chute before resuming'
+								: 'Clear the motor stall before resuming'
+							: 'Resume'
+						: 'Pause'}
 				>
-					{#if machineState === 'paused' || hardwareState === 'initialized'}
+					{#if resuming}
 						<Play size={20} />
 					{:else}
 						<Pause size={20} />

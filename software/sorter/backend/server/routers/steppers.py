@@ -180,6 +180,28 @@ def _ensure_runtime_ready(action: str) -> None:
         )
 
 
+def _ensure_no_blocking_fault(action: str) -> None:
+    from stepper_stall_monitor import (
+        STEPPER_STALL_INCIDENT_KIND,
+        CHUTE_NEEDS_HOMING_INCIDENT_KIND,
+    )
+
+    gc = shared_state.gc_ref
+    runtime_stats = getattr(gc, "runtime_stats", None) if gc is not None else None
+    incident = runtime_stats.activeIncident() if runtime_stats is not None else None
+    kind = incident.get("kind") if isinstance(incident, dict) else None
+    if kind == STEPPER_STALL_INCIDENT_KIND:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action}: a motor stall is unresolved. Clear the stall first.",
+        )
+    if kind == CHUTE_NEEDS_HOMING_INCIDENT_KIND:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Cannot {action}: the chute must be re-homed after a stall first.",
+        )
+
+
 def _ensure_manual_motion_allowed(action: str) -> None:
     state = shared_state.hardware_state
     if _hardware_worker_alive() or state in {"homing", "initializing"}:
@@ -529,6 +551,7 @@ def pause() -> CommandResponse:
 @router.post("/resume", response_model=CommandResponse)
 def resume() -> CommandResponse:
     _ensure_runtime_ready("resume the sorter")
+    _ensure_no_blocking_fault("resume the sorter")
     if shared_state.command_queue is None:
         raise HTTPException(status_code=500, detail="Command queue not initialized")
     event = ResumeCommandEvent(tag="resume", data=ResumeCommandData())
@@ -2016,3 +2039,77 @@ def clear_stall_incident() -> Dict[str, Any]:
     runtime_stats.clearActiveIncident(kind=STEPPER_STALL_INCIDENT_KIND)
     cleared = isinstance(active, dict) and active.get("kind") == STEPPER_STALL_INCIDENT_KIND
     return {"ok": True, "cleared": cleared, "kind": STEPPER_STALL_INCIDENT_KIND}
+
+
+@router.post("/stall-incident/rehome")
+def rehome_after_stall() -> Dict[str, Any]:
+    """Clear stall latches AND re-home the chute in place, then drop the hold.
+
+    A chute stall loses the home reference, so 'clear the stall' alone leaves the
+    machine in a `chute_needs_homing` hold. This is the one-shot 'clear + re-home'
+    the operator gets on the stall/needs-homing cards. The blocking incident is
+    kept active across the (blocking) home so the coordinator — which skips
+    distribution while any incident is active — never commands the chute out from
+    under the homing move. Only proceeds when such a hold is active, which
+    guarantees the coordinator is already parked."""
+    from stepper_stall_monitor import (
+        STEPPER_STALL_INCIDENT_KIND,
+        CHUTE_NEEDS_HOMING_INCIDENT_KIND,
+    )
+
+    from server.routers.hardware import _ensure_not_homing
+
+    _ensure_not_homing("re-home the chute")
+
+    gc = shared_state.gc_ref
+    runtime_stats = getattr(gc, "runtime_stats", None) if gc is not None else None
+    if runtime_stats is None or not hasattr(runtime_stats, "clearActiveIncident"):
+        raise HTTPException(status_code=503, detail="runtime stats unavailable")
+
+    ours = {STEPPER_STALL_INCIDENT_KIND, CHUTE_NEEDS_HOMING_INCIDENT_KIND}
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    active_kind = active.get("kind") if isinstance(active, dict) else None
+    if active_kind not in ours:
+        raise HTTPException(
+            status_code=409,
+            detail="No stall or needs-homing hold is active; nothing to re-home.",
+        )
+
+    irl = shared_state.getActiveIRL()
+    if irl is None:
+        raise HTTPException(status_code=503, detail="Hardware not initialized.")
+    chute = getattr(irl, "chute", None)
+    if chute is None or not hasattr(chute, "home"):
+        raise HTTPException(status_code=503, detail="Chute subsystem unavailable.")
+
+    for st in _armed_steppers():
+        try:
+            _clear_one_stall(st)
+        except Exception:
+            pass  # best-effort; a stuck latch just re-raises the stall hold
+
+    try:
+        irl.enableSteppers()
+    except Exception:
+        pass
+
+    try:
+        homed = bool(chute.home())
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chute re-home failed: {e}")
+    if not homed:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "Chute homing stopped before the endstop triggered. Clear any "
+                "obstruction and try again."
+            ),
+        )
+
+    # The chute is homed now; drop our hold immediately (the monitor would clear
+    # it on its next poll anyway, but don't make the operator watch it linger).
+    active_kind = runtime_stats.activeIncident()
+    active_kind = active_kind.get("kind") if isinstance(active_kind, dict) else None
+    if active_kind in ours:
+        runtime_stats.clearActiveIncident(kind=active_kind)
+    return {"ok": True, "homed": True}

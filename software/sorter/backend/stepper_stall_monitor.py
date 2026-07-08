@@ -20,6 +20,13 @@ auto-recovery: the latch only clears when something explicitly clears it (an
 operator action), because a real stall needs hands. A fresh stall also
 invalidates the affected subsystem's home reference (lost steps => unknown
 position), forcing a re-home.
+
+Because a chute stall loses the home reference, clearing the stall latch alone is
+NOT enough to resume sorting: the chute position is untrustworthy. So once the
+stall latch is gone but the chute is still unhomed, this monitor raises a
+follow-on blocking `chute_needs_homing` incident (a pure projection of
+`chute.homed`). It keeps the machine halted until the chute is re-homed, and
+auto-resolves the instant `chute.homed` becomes true again.
 """
 
 import time
@@ -27,6 +34,7 @@ import time
 from global_config import GlobalConfig
 
 STEPPER_STALL_INCIDENT_KIND = "stepper_stall"
+CHUTE_NEEDS_HOMING_INCIDENT_KIND = "chute_needs_homing"
 
 # Poll cadence. Runs on its own daemon thread (not the main loop) so the UART
 # round-trips never hitch 30 Hz operation. Each cycle issues one GET_STALL_STATUS
@@ -95,8 +103,52 @@ class StepperStallMonitor:
             self._invalidate_home(irl, newly)
         self._prev_stalled = now_stalled
 
-        # 3) The incident is a pure projection of the latch state.
-        self._sync_incident(now_stalled)
+        # A stall is a machine fault, not a soft hold: park the machine. Requesting
+        # the pause every poll while both stalled AND running is deliberate — it is
+        # the detection-side half of the invariant "a stalled machine never runs"
+        # (the other half is resume being refused while the incident is active). It
+        # self-limits: the pause lands within a main-loop tick and then the state is
+        # no longer RUNNING, so no further requests go out.
+        if now_stalled:
+            self._request_pause_if_running()
+
+        # 3) The incident is a pure projection of the latch state, plus the
+        #    derived "chute lost its home reference" hold. `homed` defaults to
+        #    True so a chute without the attribute never raises a spurious hold.
+        chute = getattr(irl, "chute", None)
+        chute_unhomed = chute is not None and not bool(getattr(chute, "homed", True))
+        self._sync_incident(now_stalled, chute_unhomed, self._controller_live())
+
+    def _request_pause_if_running(self) -> None:
+        try:
+            import server.shared_state as shared_state
+
+            controller = shared_state.controller_ref
+            if controller is None:
+                return
+            if getattr(getattr(controller, "state", None), "value", None) != "running":
+                return
+            q = shared_state.command_queue
+            if q is None:
+                return
+            from defs.events import PauseCommandEvent, PauseCommandData
+
+            q.put(PauseCommandEvent(tag="pause", data=PauseCommandData()))
+            self._gc.logger.warning("Stall while running -> requesting machine pause.")
+        except Exception:
+            pass
+
+    def _controller_live(self) -> bool:
+        # The chute is unhomed during the normal pre-home startup window too
+        # (a fresh IRL exists before its chute is homed). Only treat "unhomed"
+        # as an operator-blocking condition once a controller is published, i.e.
+        # the machine finished bringing up and is running/paused.
+        try:
+            import server.shared_state as shared_state
+
+            return shared_state.controller_ref is not None
+        except Exception:
+            return False
 
     def _invalidate_home(self, irl, names: set[str]) -> None:
         chute = getattr(irl, "chute", None)
@@ -109,26 +161,58 @@ class StepperStallMonitor:
             except Exception:
                 pass
 
-    def _sync_incident(self, stalled: set[str]) -> None:
+    def _sync_incident(
+        self, stalled: set[str], chute_unhomed: bool, controller_live: bool
+    ) -> None:
         rs = self._gc.runtime_stats
         active = rs.activeIncident()
         active_kind = active.get("kind") if isinstance(active, dict) else None
+        # Our two derived incidents. We freely transition between them (stall ->
+        # needs-homing once the latch clears, needs-homing -> stall on a fresh
+        # stall) but never stomp a third party's incident in the single slot.
+        ours = {STEPPER_STALL_INCIDENT_KIND, CHUTE_NEEDS_HOMING_INCIDENT_KIND}
         if stalled:
-            # Raise/refresh our incident — but never stomp a different incident.
-            if active is None or active_kind == STEPPER_STALL_INCIDENT_KIND:
+            if active is None or active_kind in ours:
                 names = sorted(stalled)
+                # A chute stall drops the home reference -> the resolution is a
+                # re-home, not a plain resume. Flag it so the UI offers re-home.
+                if chute_unhomed:
+                    message = (
+                        f"Motor stall detected on {', '.join(names)}. Clear the jam, "
+                        "then re-home the chute to resume sorting."
+                    )
+                else:
+                    message = (
+                        f"Motor stall detected on {', '.join(names)}. Clear the jam, "
+                        "then clear the stall to resume."
+                    )
                 rs.setActiveIncident(
                     {
                         "kind": STEPPER_STALL_INCIDENT_KIND,
                         "channel": names[0],
                         "steppers": names,
                         "status": "needs_manual_fix",
+                        "requires_rehome": bool(chute_unhomed),
+                        "operator_message": message,
+                    }
+                )
+            return
+        if chute_unhomed and controller_live:
+            # Latch is gone but the chute never got re-homed -> keep the machine
+            # halted with a dedicated needs-homing hold.
+            if active is None or active_kind in ours:
+                rs.setActiveIncident(
+                    {
+                        "kind": CHUTE_NEEDS_HOMING_INCIDENT_KIND,
+                        "channel": "chute_stepper",
+                        "status": "needs_manual_fix",
                         "operator_message": (
-                            f"Motor stall detected on {', '.join(names)}. Clear the jam, "
-                            "then clear the stall to resume."
+                            "The chute lost its home reference after a stall. "
+                            "Re-home the chute to resume sorting."
                         ),
                     }
                 )
-        elif active_kind == STEPPER_STALL_INCIDENT_KIND:
-            # Nothing latched anymore -> our incident is stale; resolve it.
-            rs.clearActiveIncident(kind=STEPPER_STALL_INCIDENT_KIND)
+            return
+        if active_kind in ours:
+            # Nothing latched and the chute is homed -> our incident is stale.
+            rs.clearActiveIncident(kind=active_kind)

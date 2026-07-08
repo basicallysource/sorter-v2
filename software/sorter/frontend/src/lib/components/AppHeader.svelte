@@ -73,6 +73,11 @@
 		});
 	}
 
+	const machineName = $derived(
+		manager.selectedMachine?.identity?.nickname ??
+			manager.selectedMachine?.identity?.machine_id.slice(0, 8) ??
+			null
+	);
 	const machineState = $derived(manager.selectedMachine?.sorterState?.state ?? 'initializing');
 	const hardwareState = $derived(
 		manager.selectedMachine?.systemStatus?.hardware_state ?? 'standby'
@@ -397,6 +402,14 @@
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
+			{#if machineName}
+				<span
+					class="flex items-center self-stretch border border-border px-2.5 text-sm font-medium text-text-muted"
+					title="Current machine"
+				>
+					{machineName}
+				</span>
+			{/if}
 			<SortingProfileDropdown />
 
 			{#if hardwareState === 'ready' || hardwareState === 'initialized'}

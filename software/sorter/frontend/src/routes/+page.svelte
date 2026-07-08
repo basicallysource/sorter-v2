@@ -823,6 +823,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Dashboard</title></svelte:head>
+
 <div class="min-h-screen bg-bg">
 	<AppHeader />
 	<div class="p-6">

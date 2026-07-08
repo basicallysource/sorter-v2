@@ -91,6 +91,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Feeder Pulse Perception Tuning</title></svelte:head>
+
 <div class="flex flex-col gap-6 p-6">
 	<div>
 		<div class="text-lg font-semibold text-text">Feeder — Simple Pulse Tuning</div>

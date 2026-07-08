@@ -359,6 +359,8 @@
 
 </script>
 
+<svelte:head><title>Sorter - Chute Aiming</title></svelte:head>
+
 <svelte:window onkeydown={handleKey} />
 
 {#snippet jogKey(glyph: string, label: string, delta: number, active: boolean)}

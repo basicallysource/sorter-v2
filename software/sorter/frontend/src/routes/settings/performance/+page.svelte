@@ -285,6 +285,8 @@
 	}
 </script>
 
+<svelte:head><title>Sorter - Performance</title></svelte:head>
+
 <div class="flex flex-col gap-6">
 	<SectionCard
 		title="Performance"

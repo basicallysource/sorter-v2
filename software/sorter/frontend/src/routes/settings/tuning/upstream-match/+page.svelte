@@ -145,6 +145,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Upstream Match Tuning</title></svelte:head>
+
 <div class="flex flex-col gap-6 p-6">
 	<div>
 		<div class="text-lg font-semibold text-text">Upstream Match (experimental)</div>

@@ -724,6 +724,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Bins</title></svelte:head>
+
 <div class="min-h-screen bg-bg">
 	<AppHeader />
 	{#if isGlobalClearing()}

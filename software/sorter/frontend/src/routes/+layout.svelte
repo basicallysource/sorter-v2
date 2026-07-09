@@ -2,6 +2,7 @@
 	import './layout.css';
 	import MachinesProvider from '$lib/components/MachinesProvider.svelte';
 	import MachineProvider from '$lib/components/MachineProvider.svelte';
+	import MachineTitle from '$lib/components/MachineTitle.svelte';
 	import BackendConnectionGuard from '$lib/components/BackendConnectionGuard.svelte';
 	import { settings } from '$lib/stores/settings';
 	import { loadThemeColor } from '$lib/stores/themeColor.svelte';
@@ -75,6 +76,7 @@
 <svelte:head><link rel="icon" type="image/x-icon" href="/favicon.ico" /></svelte:head>
 
 <MachinesProvider>
+	<MachineTitle />
 	<MachineProvider>
 		<BackendConnectionGuard />
 		{@render children()}

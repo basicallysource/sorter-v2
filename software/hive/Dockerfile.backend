@@ -8,17 +8,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN adduser --system --group --home /app app
-
-COPY backend/pyproject.toml backend/uv.lock ./
-RUN uv sync --frozen --no-dev --no-install-project
-
-COPY backend/ ./
-RUN chmod +x /app/docker-entrypoint.sh \
+# Create the runtime user and hand it /app + /data while both are still empty,
+# then build everything as that user. Avoids a final `chown -R app:app /app`,
+# which copied the entire .venv into a ~400 MB duplicate layer (and cost ~270s
+# to run). Everything below is app-owned from creation instead.
+RUN adduser --system --group --home /app app \
     && mkdir -p /data/uploads \
     && chown -R app:app /app /data
 
 USER app
+
+COPY --chown=app:app backend/pyproject.toml backend/uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY --chown=app:app backend/ ./
+RUN chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 8000
 

@@ -496,6 +496,30 @@ def iterPieceSummaries(
         cursor_id = int(rows[-1]["id"])
 
 
+_SYNC_COLUMNS = (
+    "id, uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
+    "part_id, part_name, color_id, color_name, category_id, confidence, "
+    "bin_x, bin_y, bin_z, dead, brickognize_preview_url"
+)
+
+
+def listRecordsAfter(id_cursor: int, limit: int) -> list[dict[str, Any]]:
+    # Full-fidelity rows ASC by id for the Hive sync worker's watermark cursor.
+    # id is the monotonic sync cursor; uuid is the natural upsert key on Hive.
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_SYNC_COLUMNS} FROM piece_records WHERE id > ? ORDER BY id ASC LIMIT ?",
+            (int(id_cursor), int(limit)),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def getMaxRecordId() -> int:
+    with _connection() as conn:
+        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM piece_records").fetchone()
+    return int(row["m"] or 0)
+
+
 _AGGREGATES_TTL_S = 60.0
 _AGGREGATES_LOCK = threading.Lock()
 _aggregates_memo: dict[int, tuple[float, tuple[int, int], dict[str, Any]]] = {}

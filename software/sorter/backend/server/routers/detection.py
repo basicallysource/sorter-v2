@@ -616,6 +616,16 @@ def _save_hive_targets(targets: list[dict[str, Any]], primary_target_id: str | N
     setHiveConfig({"targets": targets, "primary_target_id": primary_target_id})
 
 
+def _reloadHiveConsumers() -> dict[str, Any]:
+    # Reload both the sample uploader and the piece-history sync worker so a
+    # target add/remove/enable takes effect without a backend restart.
+    status = getClassificationTrainingManager().reloadHiveUploader()
+    gc = shared_state.gc_ref
+    if gc is not None and getattr(gc, "hive_sync_worker", None) is not None:
+        gc.hive_sync_worker.reload()
+    return status
+
+
 def _load_hive_primary_id() -> str | None:
     config = getHiveConfig() or {}
     primary = config.get("primary_target_id")
@@ -711,7 +721,7 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
         targets = [next_target if target.get("id") == target_id else target for target in targets]
 
     _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {"ok": True, "message": "Hive target saved.", "target_id": target_id}
 
 
@@ -719,7 +729,7 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
 def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, Any]:
     if not target_id:
         _save_hive_targets([])
-        getClassificationTrainingManager().reloadHiveUploader()
+        _reloadHiveConsumers()
         return {"ok": True, "message": "All Hive targets removed."}
 
     targets = _load_hive_targets()
@@ -728,7 +738,7 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
         raise HTTPException(404, "Hive target not found.")
 
     _save_hive_targets(next_targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {"ok": True, "message": "Hive target removed."}
 
 
@@ -791,7 +801,7 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
         }
     )
     _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {
         "ok": True,
         "target_id": target_id,
@@ -834,7 +844,7 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
         }
     )
     _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {
         "ok": True,
         "target_id": target_id,

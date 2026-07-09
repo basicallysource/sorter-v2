@@ -18,6 +18,7 @@ from app.routers import (
     machine_lookup,
     machine_models,
     machine_parts,
+    machine_sync,
     machines,
     models as models_router,
     profiles,
@@ -73,6 +74,7 @@ app.include_router(admin_parts.router)
 app.include_router(machines.router)
 app.include_router(machine_config_backups.router)
 app.include_router(machine_lookup.router)
+app.include_router(machine_sync.router)
 app.include_router(profiles.router)
 app.include_router(upload.router)
 app.include_router(samples.router)

@@ -1,5 +1,6 @@
 import hashlib
 import os
+import re
 import tempfile
 import uuid
 from pathlib import Path
@@ -36,6 +37,23 @@ def save_upload_file(
         _safe_path_component(session_id, "session id"),
         _safe_path_component(sample_id, "sample id"),
         f"{uuid.uuid4().hex}{suffix}",
+    )
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
+
+
+def save_piece_image_file(
+    machine_id: str, piece_uuid: str, seq: int, source: str | None, file: UploadFile, suffix: str
+) -> str:
+    # Deterministic key so a re-sent (piece_uuid, seq) overwrites in place
+    # instead of orphaning a random-uuid object each retry.
+    source_part = re.sub(r"[^a-z0-9_]", "", (source or "img").strip().lower()) or "img"
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "pieces",
+        _safe_path_component(piece_uuid, "piece uuid"),
+        f"{int(seq):02d}_{source_part}{suffix}",
     )
     file.file.seek(0)
     get_backend().write_stream(key, file.file, content_type=file.content_type)

@@ -150,6 +150,10 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # "progress" signal) and whether we've raised the stall incident.
         self._last_progress_at = time.monotonic()
         self._stall_incident_raised = False
+        # Operator pressed "Auto Resolve" on an active stall incident: the next
+        # step() runs the same rotate-to-clear routine the automatic policy
+        # uses, on the coordinator thread (never from the HTTP handler).
+        self._stall_resolve_requested = False
 
     def step(self) -> None:
         # While OUR stall incident is active the flow is frozen: only the
@@ -157,6 +161,9 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # removes the piece (or it finally falls off) — and nothing moves while
         # the operator's hands are in the machine.
         stall_hold = self._stall_incident_raised and c4_stall_incident_active(self.gc)
+        if stall_hold and self._stall_resolve_requested:
+            self._runRequestedStallResolve()
+            stall_hold = self._stall_incident_raised and c4_stall_incident_active(self.gc)
         if self._two_piece is not None:
             if not stall_hold:
                 self._two_piece.step()
@@ -317,6 +324,13 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             f"ClassificationChannel: STALLED in {self._watchdogStateLabel()} for "
             f"{stalled_ms:.0f}ms — auto-resolve enabled, advancing channel to clear the piece"
         )
+        return self._runStallClear()
+
+    def _runStallClear(self):
+        """The one stall-recovery action, shared by the automatic policy and the
+        operator's Auto Resolve button: rotate the channel forward
+        (occupancy-checked) until it clears or the budget runs out. Blocking;
+        must only run on the coordinator thread. Returns a ChannelClearResult."""
         max_output_deg = _STALL_AUTO_CLEAR_MAX_TURNS * 360.0
         if self._two_piece is not None:
             result = self._two_piece.attemptStallAutoClear(max_output_deg=max_output_deg)
@@ -337,15 +351,59 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             # restarts from now, not from the pre-clear timestamp.
             self._rearmProgress(time.monotonic())
             self.logger.info(
-                f"ClassificationChannel: auto-resolve cleared the channel after advancing "
-                f"{result.output_deg_moved:.0f}° — resuming feeding"
+                f"ClassificationChannel: stall clear advanced "
+                f"{result.output_deg_moved:.0f}° and the channel is empty — resuming"
             )
-            return result
-        self.logger.warning(
-            f"ClassificationChannel: auto-resolve advanced {result.output_deg_moved:.0f}° but the "
-            f"channel is still occupied ({result.reason}) — falling back to the manual incident"
-        )
+        else:
+            self.logger.warning(
+                f"ClassificationChannel: stall clear advanced {result.output_deg_moved:.0f}° but the "
+                f"channel is still occupied ({result.reason})"
+            )
         return result
+
+    def requestStallAutoResolve(self) -> bool:
+        """Called from the HTTP router when the operator presses Auto Resolve on
+        an active stall incident. Only sets a flag — the coordinator thread
+        performs the actual motion on its next step()."""
+        if not c4_stall_incident_active(self.gc):
+            return False
+        self._stall_resolve_requested = True
+        return True
+
+    def _runRequestedStallResolve(self) -> None:
+        self._stall_resolve_requested = False
+        runtime_stats = getattr(self.gc, "runtime_stats", None)
+        if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+            return
+        active = runtime_stats.activeIncident()
+        if not isinstance(active, dict) or active.get("kind") != C4_EXIT_STUCK_INCIDENT_KIND:
+            return
+        # Show the run in the popup (and lock its buttons) before the blocking
+        # clear starts.
+        running = dict(active)
+        running["status"] = "auto_release_running"
+        running["awaiting_operator"] = False
+        runtime_stats.setActiveIncident(running)
+        self.logger.info(
+            "ClassificationChannel: operator requested stall auto-resolve — "
+            "advancing channel to clear the piece"
+        )
+        result = self._runStallClear()
+        if result.cleared:
+            clear_c4_exit_stuck_incident(self.gc)
+            self._stall_incident_raised = False
+            return
+        failed = dict(running)
+        failed["status"] = "waiting_for_operator"
+        failed["awaiting_operator"] = True
+        failed["auto_clear_failed"] = True
+        failed["auto_clear_moved_deg"] = float(result.output_deg_moved)
+        failed["operator_message"] = (
+            "Auto resolve rotated the channel "
+            f"{result.output_deg_moved:.0f}° and it is still occupied. Remove the "
+            "piece (or clear the jam) to continue."
+        )
+        runtime_stats.setActiveIncident(failed)
 
     def cleanup(self) -> None:
         self.gc.profiler.exitState("classification")

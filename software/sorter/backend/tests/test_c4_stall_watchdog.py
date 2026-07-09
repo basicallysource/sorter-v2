@@ -92,6 +92,7 @@ def mkWatchdogSm(n_pieces: int = 1) -> ClassificationChannelStateMachine:
     sm._two_piece = FakeTwoPiece()
     sm._last_progress_at = time.monotonic()
     sm._stall_incident_raised = False
+    sm._stall_resolve_requested = False
     return sm
 
 
@@ -233,6 +234,54 @@ def test_step_freezes_flow_while_stall_incident_active(machine_params_env) -> No
     assert sm.gc.runtime_stats.activeIncident() is None
     sm.step()
     assert sm._two_piece.step_calls > 0
+
+
+def test_requested_auto_resolve_runs_clear_and_drops_incident(machine_params_env) -> None:
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+    stallOut(sm)
+    sm._checkStall(time.monotonic())
+    assert sm.gc.runtime_stats.activeIncident() is not None
+
+    assert sm.requestStallAutoResolve() is True
+    sm._two_piece.auto_clear_result = SimpleNamespace(
+        cleared=True, occupied_at_start=True, output_deg_moved=216.0, reason="cleared"
+    )
+    sm.step()
+
+    assert sm._two_piece.auto_clear_calls == 1
+    assert sm.gc.runtime_stats.activeIncident() is None
+    assert not sm._stall_incident_raised
+    assert not sm._stall_resolve_requested
+
+
+def test_requested_auto_resolve_failure_keeps_incident_with_details(machine_params_env) -> None:
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+    stallOut(sm)
+    sm._checkStall(time.monotonic())
+
+    assert sm.requestStallAutoResolve() is True
+    sm.step()
+
+    assert sm._two_piece.auto_clear_calls == 1
+    active = sm.gc.runtime_stats.activeIncident()
+    assert active is not None
+    assert active["kind"] == C4_EXIT_STUCK_INCIDENT_KIND
+    assert active["status"] == "waiting_for_operator"
+    assert active["awaiting_operator"] is True
+    assert active["auto_clear_failed"] is True
+    assert active["auto_clear_moved_deg"] == 720.0
+    # Still resolvable: the flow stays frozen and the watchdog keeps monitoring.
+    assert sm._two_piece.step_calls == 0
+
+
+def test_request_auto_resolve_rejected_without_incident(machine_params_env) -> None:
+    setExitStuckMode("manual")
+    sm = mkWatchdogSm(n_pieces=1)
+
+    assert sm.requestStallAutoResolve() is False
+    assert not sm._stall_resolve_requested
 
 
 def test_does_not_stomp_other_active_incident(machine_params_env) -> None:

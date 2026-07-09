@@ -708,9 +708,12 @@
 		writeExitReleaseTuning();
 	}
 
-	async function postExitIncidentAction(action: 'continue' | 'acknowledge' | 'clear') {
+	async function postExitIncidentAction(
+		action: 'continue' | 'acknowledge' | 'clear' | 'auto-resolve'
+	) {
 		const incident = exitIncident;
 		if (!incident || exitIncidentActionPending) return;
+		if (action === 'auto-resolve' && !isC4StallWatchdogIncident(incident)) return;
 		if (
 			incident.kind === 'channel_dropzone_stuck' &&
 			action !== 'acknowledge' &&
@@ -1310,6 +1313,17 @@
 									>
 										<Check size={13} />
 										Ignore Until Clear
+									</button>
+								{/if}
+								{#if isC4StallWatchdogIncident(exitIncident)}
+									<button
+										type="button"
+										onclick={() => postExitIncidentAction('auto-resolve')}
+										disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-warning px-3 py-1.5 text-xs font-semibold text-warning-dark transition-transform hover:bg-warning/90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<RotateCcw size={13} />
+										Auto Resolve
 									</button>
 								{/if}
 								<button

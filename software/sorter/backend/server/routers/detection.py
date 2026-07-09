@@ -1812,6 +1812,21 @@ def classification_channel_exit_incident_test_release(
     return {"ok": True, "release": result}
 
 
+@router.post("/api/classification-channel/exit-incident/auto-resolve")
+def classification_channel_exit_incident_auto_resolve() -> Dict[str, Any]:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
+    request = getattr(classification, "requestStallAutoResolve", None)
+    if not callable(request):
+        raise HTTPException(status_code=503, detail="Classification channel is not running.")
+    if not bool(request()):
+        raise HTTPException(
+            status_code=409, detail="No active C4 exit-stuck incident to auto-resolve."
+        )
+    return {"ok": True, "accepted": True}
+
+
 @router.post("/api/classification-channel/exit-incident/clear")
 def classification_channel_exit_incident_clear(
     payload: ClassificationExitIncidentActionPayload | None = None,

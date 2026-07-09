@@ -45,6 +45,19 @@ MICROSTEPS_PER_MOTOR_REV = 1600
 
 USTEPS_PER_OUTPUT_DEG = MICROSTEPS_PER_MOTOR_REV * CHANNEL_OUTPUT_GEAR_RATIO / 360.0
 
+# Firmware brake-underflow guard (Stepper.cpp motion_update_tick, BRAKING):
+# firmware without the signed-compare fix promotes a negative _current_speed to
+# unsigned when checking `<= _min_speed`, so a brake tick that steps the speed
+# below zero is never caught with min_speed 0 — BRAKING subtracts forever and
+# the motor runs away until power-cut (2026-07-09 kitbash incident). Guarantee
+# the catch on ANY firmware: keep min_speed at the firmware default (16) and an
+# acceleration whose per-motion-tick decrement (accel / 1000 Hz update rate)
+# stays below min_speed, so a speed move braking to 0 always lands inside
+# (0, min_speed] before it can cross zero. Commanded speeds are clamped above
+# min_speed so the limits stay valid.
+FIRMWARE_MIN_SPEED_USTEPS_PER_S = 16
+SAFE_ACCELERATION_USTEPS_PER_S2 = 10000
+
 # Re-read the tuning config from disk at most this often so the tuning page
 # takes effect live without a restart, without hammering the filesystem.
 _CONFIG_TTL_S = 1.0
@@ -97,19 +110,26 @@ class ConstantMovementFeeding(BaseState):
         return self._config
 
     def _setSpeed(self, label: str, stepper: "StepperMotor", speed_usteps: int) -> None:
+        if speed_usteps != 0:
+            sign = 1 if speed_usteps > 0 else -1
+            speed_usteps = sign * max(
+                abs(speed_usteps), FIRMWARE_MIN_SPEED_USTEPS_PER_S + 1
+            )
         name = stepper._name
         if self._applied_speed.get(name) == speed_usteps:
             return
         magnitude = abs(speed_usteps)
         if magnitude > 0 and self._applied_speed_limit.get(name) != magnitude:
             try:
-                stepper.set_speed_limits(0, magnitude)
+                stepper.set_speed_limits(FIRMWARE_MIN_SPEED_USTEPS_PER_S, magnitude)
                 self._applied_speed_limit[name] = magnitude
             except Exception as exc:
                 self.gc.logger.warning(
                     f"ConstantMovement: {label} speed limit set failed: {exc}"
                 )
-        success = stepper.move_at_speed(speed_usteps)
+        success = stepper.move_at_speed(
+            speed_usteps, acceleration=SAFE_ACCELERATION_USTEPS_PER_S2
+        )
         if success:
             self._applied_speed[name] = speed_usteps
             self.gc.logger.info(

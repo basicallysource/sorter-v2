@@ -316,7 +316,7 @@ void Stepper::motion_update_tick() {
                 _current_speed.store(_mc_speed.load());
                 _current_speed_frac = 0;
                 _state = STEPPER_CRUISING;
-            } else if ((_mc_speed < 0) && (_current_speed >= _max_speed)) { 
+            } else if ((_mc_speed < 0) && (_current_speed.load() >= (int32_t)_max_speed)) {
                 // Is distance move and reached max speed
                 _current_speed = _max_speed;
                 _current_speed_frac = 0;
@@ -348,8 +348,14 @@ void Stepper::motion_update_tick() {
             _current_speed_frac += _accel;
             _current_speed -= _current_speed_frac / STEP_MOTION_UPDATE_RATE_HZ;
             _current_speed_frac = _current_speed_frac % STEP_MOTION_UPDATE_RATE_HZ;
-            // Dont allow the speed to go below the minimum
-            if (_current_speed <= _min_speed) {
+            // Dont allow the speed to go below the minimum. _min_speed MUST be
+            // cast to signed here: _current_speed can step below zero when one
+            // brake tick (_accel / update rate) is larger than the remaining
+            // speed, and a signed/unsigned comparison would promote the
+            // negative speed to a huge unsigned value — the catch never fires,
+            // BRAKING keeps subtracting forever, and the motor accelerates
+            // unbounded (runaway) until power-cut.
+            if (_current_speed.load() <= (int32_t)_min_speed) {
                 _current_speed = _min_speed;
                 _current_speed_frac = 0;
                 // Check if we are reversing a speed move, in that case, flip the direction and accelerate!

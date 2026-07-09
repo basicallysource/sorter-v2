@@ -248,6 +248,16 @@ def _halt_stepper(stepper: Any, *, force: bool = False) -> None:
         try:
             is_stopped = stepper.stopped_force() if force and hasattr(stepper, "stopped_force") else stepper.stopped
             if not bool(is_stopped):
+                # Firmware brake-underflow guard: braking to zero with
+                # min_speed 0 (left behind by feeder pulse moves) can step
+                # _current_speed below zero, and pre-fix firmware misses the
+                # stop catch on the signed/unsigned compare — unbounded motor
+                # runaway. Raise the floor so the catch always fires.
+                if hasattr(stepper, "set_speed_limits"):
+                    try:
+                        stepper.set_speed_limits(16, 60000)
+                    except Exception:
+                        pass
                 result = stepper.move_at_speed(0, force=force)
                 stopped = stopped or bool(result)
                 if result is False:

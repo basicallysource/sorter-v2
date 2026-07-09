@@ -17,8 +17,10 @@ from .config import ConstantMovementConfig
 # Inverts the pulse model: instead of "stationary by default, pulse forward
 # when perception says go", each channel runs CONTINUOUSLY at its own constant
 # speed and is only STOPPED when a specific condition holds:
-#   - C1 stops while C2's drop zone is occupied
-#   - C2 stops while C3's drop zone is occupied
+#   - C1 stops while C2's drop zone is occupied (C1 has no camera, so we can't
+#     tell whether it has a piece at its edge — gate unconditionally)
+#   - C2 stops while a piece is at C2's exit edge AND C3's drop zone is
+#     occupied; a piece anywhere else on C2 keeps the channel running
 #   - C3 stops while a piece is at its exit edge AND the classification channel
 #     cannot accept it (drop zone occupied, not ready, or inside the
 #     post-dispense window). With nothing at the exit edge C3 keeps running
@@ -263,8 +265,10 @@ class ConstantMovementFeeding(BaseState):
             now,
         )
 
-        # C2: keep running unless C3's drop zone is occupied.
-        ch2_run = cfg.enable_ch2 and not c3.in_drop
+        # C2: keep running unless a piece is at C2's own exit edge (precise/exit
+        # band) while C3's drop zone is occupied. A piece elsewhere on C2 can't
+        # fall into C3 yet, so C3's state doesn't matter for it.
+        ch2_run = cfg.enable_ch2 and not (c2.in_exit and c3.in_drop)
         self._applyChannel(
             "ch2",
             self.irl.c_channel_2_rotor_stepper,

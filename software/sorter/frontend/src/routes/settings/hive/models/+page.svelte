@@ -4,6 +4,8 @@
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 </script>
 
+<svelte:head><title>Sorter - Detection Models</title></svelte:head>
+
 <div class="flex flex-col gap-8">
 	<!-- Page intro: kept slim so the hero inside HiveModelsSection takes
 	     visual ownership instead of competing with a redundant SectionCard. -->

@@ -201,16 +201,21 @@ def getOverview(*, daily_days: int = 30) -> dict[str, Any]:
             ).fetchone()
         # Best sustained throughput: the busiest single hour by distributed PPM,
         # ignoring hours with under a minute of sorting so a stray piece in an
-        # almost-idle hour can't masquerade as a record rate.
+        # almost-idle hour can't masquerade as a record rate. Piece counts are
+        # grouped per hour bucket in ONE pass over piece_records and joined to
+        # the hour rows — the old correlated per-bucket COUNT subquery re-scanned
+        # the index once per lifetime hour and dominated this endpoint's latency.
         best = conn.execute(
-            "SELECT MAX(hour_ppm) AS best_ppm FROM ("
-            "SELECT h.seconds_sorted AS s, "
-            "(SELECT COUNT(*) FROM piece_records p "
-            " WHERE p.bin_x IS NOT NULL "
-            " AND p.seen_at >= h.hour_start AND p.seen_at < h.hour_start + ?) * 60.0 / h.seconds_sorted AS hour_ppm "
-            "FROM lifetime_hourly h WHERE h.seconds_sorted >= 60"
-            ")",
-            (SECONDS_PER_HOUR,),
+            "SELECT MAX(pc.cnt * 60.0 / h.seconds_sorted) AS best_ppm "
+            "FROM lifetime_hourly h "
+            "JOIN ("
+            "SELECT CAST(seen_at / ? AS INTEGER) * ? AS hour_start, COUNT(*) AS cnt "
+            "FROM piece_records "
+            "WHERE bin_x IS NOT NULL AND seen_at IS NOT NULL AND seen_at >= 0 "
+            "GROUP BY 1"
+            ") pc ON pc.hour_start = h.hour_start "
+            "WHERE h.seconds_sorted >= 60",
+            (SECONDS_PER_HOUR, SECONDS_PER_HOUR),
         ).fetchone()
         time_by_day = _timeByDay(conn)
         pieces_by_day = _piecesByDay(conn, tracking_start) if tracking_start is not None else {}

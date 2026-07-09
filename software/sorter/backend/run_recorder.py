@@ -27,6 +27,7 @@ def _serializePiece(p: KnownObject) -> dict:
         "category_id": p.category_id,
         "confidence": p.confidence,
         "destination_bin": list(p.destination_bin) if p.destination_bin else None,
+        "brickognize_preview_url": p.brickognize_preview_url,
     }
 
 

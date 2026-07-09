@@ -6,11 +6,19 @@
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
 	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
+	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
+	import { Alert } from '$lib/components/primitives';
+	import {
+		diskToDisplay,
+		fetchDiskImages,
+		type DisplayImage
+	} from '$lib/components/records/piece-images';
 	import { getMachineContext } from '$lib/machines/context';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { KnownObjectData, ClassificationAttempt } from '$lib/api/events';
 	import type { components } from '$lib/api/rest';
+	import { pieceStore, type PieceDetailEnvelope, type PieceSummary } from '$lib/pieces';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 
 	type BricklinkPartResponse = components['schemas']['BricklinkPartResponse'];
@@ -28,26 +36,27 @@
 
 	// Piece lookup — sticky by UUID.
 	//
-	// recentObjects is the ring buffer the UI maintains from WS events. The
-	// manager rebuilds this array on every piece update and drops pending
-	// pieces that don't qualify for the gallery (see `shouldKeepRecentObject`
-	// in `machines/manager.svelte.ts`). This means a `find()` on the live
-	// buffer can flip null → non-null → null between ticks while the piece is
-	// still very much alive, which would cause the detail page to flash the
-	// "no longer in buffer" fallback and drop the crop gallery every time.
+	// The shared piece store is fed from WS events. Entries update on every
+	// piece event and live (ws-origin) payloads can be demoted/evicted, so a
+	// `find()` on the store can flip null → non-null → null between ticks while
+	// the piece is still very much alive, which would cause the detail page to
+	// flash the fallback and drop the crop gallery every time.
 	//
 	// To fix the flicker we cache the last known piece for this UUID in state.
 	// It survives transient null lookups and only gets cleared when the UUID
 	// itself changes (the user navigates to a different piece).
 	let _stickyPiece = $state<KnownObjectData | null>(null);
 
-	// Fallback hydration for pieces that have already aged out of the WS
-	// `recentObjects` ring. We fetch from the backend's persistent-lookup
-	// endpoint (`/api/known-objects/<uuid>`) exactly once per route UUID,
-	// and `piece` prefers the live ring if the WS ever re-surfaces it (the
-	// live payload keeps updating; the fetched snapshot is frozen).
+	// Fallback hydration for pieces that are no longer live: the tiered detail
+	// endpoint (`/api/pieces/<uuid>`) is fetched exactly once per route UUID.
+	// A memory hit carries the full KnownObject payload; a disk hit degrades to
+	// the durable summary + on-disk images ('summary_only').
 	let _fetchedPiece = $state<KnownObjectData | null>(null);
-	let _fetchStatus = $state<'idle' | 'loading' | 'ok' | 'not_found' | 'error'>('idle');
+	let _fetchStatus = $state<
+		'idle' | 'loading' | 'ok' | 'summary_only' | 'not_found' | 'error'
+	>('idle');
+	let _diskSummary = $state<PieceSummary | null>(null);
+	let _diskImages = $state<DisplayImage[]>([]);
 
 	$effect(() => {
 		// Reset whenever the route UUID changes. Reading `uuid` registers the
@@ -56,23 +65,25 @@
 		void uuid;
 		_stickyPiece = null;
 		_fetchedPiece = null;
+		_diskSummary = null;
+		_diskImages = [];
 		_fetchStatus = 'idle';
 	});
 
 	$effect(() => {
-		const list = ctx.machine?.recentObjects ?? [];
-		const found = list.find((o) => o.uuid === uuid) ?? null;
+		const entries = pieceStore.entriesFor(ctx.machine?.identity?.machine_id ?? null);
+		const found = entries.find((p) => p.uuid === uuid)?.ws ?? null;
 		if (found !== null) _stickyPiece = found;
 	});
 
-		// Kick off one persistent-lookup fetch per UUID even if the piece is still
-		// live in the WS buffer. The live payload intentionally stays lightweight;
-		// this fetch carries the heavier detail-only fields for this route.
+		// Kick off one detail fetch per UUID even if the piece is still live in
+		// the store. The live payload intentionally stays lightweight; this fetch
+		// carries the heavier detail-only fields for this route.
 		$effect(() => {
 			if (_fetchStatus !== 'idle') return;
 			const targetUuid = uuid;
 			_fetchStatus = 'loading';
-		void fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(targetUuid)}`)
+		void fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(targetUuid)}`)
 			.then(async (res) => {
 				// Ignore stale responses — the user may have navigated away.
 				if (targetUuid !== uuid) return;
@@ -84,8 +95,19 @@
 					_fetchStatus = 'error';
 					return;
 				}
-				_fetchedPiece = (await res.json()) as KnownObjectData;
-				_fetchStatus = 'ok';
+				const env = (await res.json()) as PieceDetailEnvelope;
+				if (targetUuid !== uuid) return;
+				if (env.detail_available && env.detail) {
+					_fetchedPiece = env.detail;
+					_fetchStatus = 'ok';
+					return;
+				}
+				_diskSummary = env.summary ?? { uuid: targetUuid };
+				_fetchStatus = 'summary_only';
+				const base = effectiveBase();
+				const disk = await fetchDiskImages(base, targetUuid).catch(() => []);
+				if (targetUuid !== uuid) return;
+				_diskImages = disk.map((d) => diskToDisplay(base, targetUuid, d));
 			})
 			.catch(() => {
 				if (targetUuid !== uuid) return;
@@ -630,27 +652,9 @@
 	);
 	const is_multi_drop = $derived(piece?.classification_status === 'multi_drop_fail');
 
-	function statusLabel(obj: KnownObjectData): string {
-		if (obj.stage === 'distributed') return 'Distributed';
-		if (obj.stage === 'distributing') return 'Distributing';
-		const s = obj.classification_status;
-		if (s === 'classifying') return 'Classifying';
-		if (s === 'classified') return 'Classified';
-		if (s === 'unknown') return 'Unknown';
-		if (s === 'not_found') return 'Not recognized';
-		if (s === 'multi_drop_fail') return 'Multi-drop fail';
-		return 'Pending';
-	}
-
-	function statusChipClass(obj: KnownObjectData): string {
-		if (obj.classification_status === 'multi_drop_fail') return 'border-danger text-danger';
-		if (obj.classification_status === 'unknown' || obj.classification_status === 'not_found') {
-			return 'border-warning text-warning-dark';
-		}
-		if (obj.stage === 'distributed') return 'border-text-muted text-text-muted';
-		if (obj.stage === 'distributing') return 'border-primary text-primary';
-		if (obj.classification_status === 'classified') return 'border-success text-success';
-		return 'border-border text-text-muted';
+	function formatSummaryBin(bin: PieceSummary['bin']): string {
+		if (!bin) return '—';
+		return `L${bin.x} · S${bin.y} · B${bin.z}`;
 	}
 </script>
 
@@ -674,22 +678,29 @@
 					{uuid.slice(0, 8)}
 				</span>
 				{#if piece}
-					<span class={`inline-flex items-center border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider ${statusChipClass(piece)}`}>
-						{statusLabel(piece)}
-					</span>
-					{#if is_multi_drop}
-						<span class="inline-flex items-center border border-danger bg-danger/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger">
-							Multi-drop
-						</span>
-					{/if}
-					{#if piece.dead}
+					{#if piece.stage === 'distributed'}
 						<span
-							class="inline-flex items-center border border-warning bg-warning/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark"
-							title="This piece went silent for too long without ever reaching the distributed stage, so the backend reaped it."
+							class="inline-flex items-center border border-border bg-surface px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted"
 						>
-							Timed out
+							Distributed
+						</span>
+					{:else if piece.stage === 'distributing'}
+						<span
+							class="inline-flex items-center border border-primary bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
+						>
+							Distributing
 						</span>
 					{/if}
+					<PieceStatusBadge
+						status={piece.classification_status}
+						requestFailed={Boolean(piece.request_failed)}
+						dead={Boolean(piece.dead)}
+					/>
+				{:else if _diskSummary}
+					<PieceStatusBadge
+						status={_diskSummary.classification_status}
+						dead={Boolean(_diskSummary.dead)}
+					/>
 				{/if}
 			</div>
 			<div class="flex flex-wrap items-center gap-3">
@@ -715,15 +726,126 @@
 		</header>
 
 		{#if !piece}
-			{#if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
+			{#if _fetchStatus === 'summary_only' && _diskSummary}
+				{@const ds = _diskSummary}
+				<Alert variant="info">
+					Live detail is unavailable — the backend has restarted since this piece was
+					processed. Showing the durable record and on-disk images instead.
+				</Alert>
+
+				<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+					<div class="flex flex-col border border-border bg-surface">
+						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+							Classification
+						</div>
+						<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
+							<span class="text-text-muted">Part ID</span>
+							<span class="font-mono text-text">{ds.part_id ?? '—'}</span>
+
+							<span class="text-text-muted">Name</span>
+							<span class="text-text">{ds.part_name ?? '—'}</span>
+
+							<span class="text-text-muted">Color</span>
+							<span class="text-text">
+								{ds.color_name && ds.color_name !== 'Any Color' ? ds.color_name : '—'}
+							</span>
+
+							<span class="text-text-muted">Category</span>
+							<span class="text-text">
+								{ds.category_id ? (sortingProfileStore.getCategoryName(ds.category_id) ?? '—') : '—'}
+							</span>
+
+							<span class="text-text-muted">Confidence</span>
+							<span class={`font-semibold tabular-nums ${confidenceClass(ds.confidence)}`}>
+								{typeof ds.confidence === 'number' ? `${(ds.confidence * 100).toFixed(0)}%` : '—'}
+							</span>
+						</div>
+					</div>
+
+					<div class="flex flex-col border border-border bg-surface">
+						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+							Record
+						</div>
+						<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
+							<span class="text-text-muted">Destination bin</span>
+							<span class="font-mono tabular-nums text-text">{formatSummaryBin(ds.bin)}</span>
+
+							<span class="text-text-muted">Est. value</span>
+							<span class="tabular-nums text-text">{fmtPrice(ds.est_value)}</span>
+
+							<span class="text-text-muted">Run</span>
+							<span class="font-mono text-text">{ds.run_id ?? '—'}</span>
+
+							<span class="text-text-muted">Seen</span>
+							<span class="text-text">
+								{ds.seen_at != null ? new Date(ds.seen_at * 1000).toLocaleString() : '—'}
+							</span>
+
+							<span class="text-text-muted">Recorded</span>
+							<span class="text-text">
+								{ds.recorded_at != null ? new Date(ds.recorded_at * 1000).toLocaleString() : '—'}
+							</span>
+						</div>
+					</div>
+				</section>
+
+				{#if _diskImages.length > 0 || ds.preview_url}
+					<section class="border border-border bg-surface">
+						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+							Stored images
+							<span class="ml-2 text-text-muted">{_diskImages.length}</span>
+						</div>
+						<div class="flex flex-wrap gap-2 p-3">
+							{#each _diskImages as img, i (i)}
+								<button
+									type="button"
+									class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
+										img.used ? 'border-2 border-primary' : 'border border-border'
+									}`}
+									onclick={() => (zoomImage = { src: img.src, label: img.source })}
+								>
+									<div class="h-32 w-32 bg-white">
+										<img
+											src={img.src}
+											alt={img.source}
+											class="h-full w-full object-contain"
+											loading="lazy"
+										/>
+									</div>
+									<div class="px-1.5 py-1 text-xs text-text-muted">
+										{img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst'}
+									</div>
+								</button>
+							{/each}
+							{#if ds.preview_url}
+								<button
+									type="button"
+									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+									onclick={() =>
+										(zoomImage = { src: ds.preview_url as string, label: 'Brickognize says' })}
+								>
+									<div class="h-32 w-32 bg-white">
+										<img
+											src={ds.preview_url}
+											alt="brickognize reference"
+											class="h-full w-full object-contain"
+											loading="lazy"
+										/>
+									</div>
+									<div class="px-1.5 py-1 text-xs text-text-muted">Brickognize says</div>
+								</button>
+							{/if}
+						</div>
+					</section>
+				{/if}
+			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
 					Loading piece…
 				</div>
 			{:else if _fetchStatus === 'not_found'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					This piece is no longer cached. The backend keeps the last ~1000
-					pieces in memory per session — once a piece ages out, its per-piece
-					data is gone. Go back to the
+					No trace of this piece — it isn't in backend memory, the durable piece
+					records, or the on-disk image store. Go back to the
 					<a href="/tracked" class="text-primary underline">tracker list</a>
 					for persistent track records.
 				</div>

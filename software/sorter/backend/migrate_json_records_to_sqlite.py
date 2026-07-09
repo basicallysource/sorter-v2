@@ -51,7 +51,7 @@ def main() -> int:
             )
             imported_runs += 1
 
-    piece_total, _ = piece_records.listPieces(offset=0, limit=1)
+    piece_total = piece_records.listPieces(None, limit=1)["total"]
     run_total = len(runtime_stat_records.listRuns(limit=2000))
     print(
         f"scanned {len(files)} files ({skipped_files} unreadable), "

@@ -19,6 +19,7 @@ import {
 	isCamerasConfigEvent,
 	isSortingProfileStatusEvent
 } from './types';
+import { mergeKnownObject, pieceStore } from '$lib/pieces';
 
 const RECONNECT_BASE_DELAY_MS = 1000;
 const RECONNECT_MAX_DELAY_MS = 30000;
@@ -26,64 +27,6 @@ const CONNECTION_WATCHDOG_INTERVAL_MS = 3000;
 const HEARTBEAT_STALE_MS = 15000;
 const RECENT_OBJECT_BUFFER_LIMIT = 32;
 const RECENT_OBJECT_REMOVAL_GRACE_MS = 1500;
-
-function newerCapturedCrop(
-	existing: KnownObjectData | undefined,
-	incoming: KnownObjectData
-): Pick<KnownObjectData, 'latest_captured_crop' | 'latest_captured_crop_ts'> {
-	const incoming_ts = incoming.latest_captured_crop_ts;
-	const existing_ts = existing?.latest_captured_crop_ts;
-	if (
-		incoming.latest_captured_crop &&
-		((typeof incoming_ts === 'number' && (existing_ts == null || incoming_ts >= existing_ts)) ||
-			!existing?.latest_captured_crop)
-	) {
-		return {
-			latest_captured_crop: incoming.latest_captured_crop,
-			latest_captured_crop_ts: incoming_ts ?? existing_ts ?? null
-		};
-	}
-	return {
-		latest_captured_crop: existing?.latest_captured_crop ?? incoming.latest_captured_crop,
-		latest_captured_crop_ts: existing_ts ?? incoming_ts
-	};
-}
-
-function mergeKnownObject(
-	existing: KnownObjectData | undefined,
-	incoming: KnownObjectData
-): KnownObjectData {
-	if (!existing) return incoming;
-	const captured_crop = newerCapturedCrop(existing, incoming);
-	return {
-		...existing,
-		...incoming,
-		first_carousel_seen_ts: incoming.first_carousel_seen_ts ?? existing.first_carousel_seen_ts,
-		first_carousel_seen_angle_deg:
-			incoming.first_carousel_seen_angle_deg ?? existing.first_carousel_seen_angle_deg,
-		classification_channel_zone_state:
-			incoming.classification_channel_zone_state ?? existing.classification_channel_zone_state,
-		classification_channel_zone_center_deg:
-			incoming.classification_channel_zone_center_deg ??
-			existing.classification_channel_zone_center_deg,
-		classification_channel_zone_half_width_deg:
-			incoming.classification_channel_zone_half_width_deg ??
-			existing.classification_channel_zone_half_width_deg,
-		classification_channel_exit_offset_deg:
-			incoming.classification_channel_exit_offset_deg ??
-			existing.classification_channel_exit_offset_deg,
-		...captured_crop,
-		thumbnail: incoming.thumbnail ?? existing.thumbnail,
-		top_image: incoming.top_image ?? existing.top_image,
-		bottom_image: incoming.bottom_image ?? existing.bottom_image,
-		drop_snapshot: incoming.drop_snapshot ?? existing.drop_snapshot,
-		brickognize_preview_url: incoming.brickognize_preview_url ?? existing.brickognize_preview_url,
-		brickognize_source_view: incoming.brickognize_source_view ?? existing.brickognize_source_view,
-		recognition_used_crop_ts: incoming.recognition_used_crop_ts?.length
-			? incoming.recognition_used_crop_ts
-			: existing.recognition_used_crop_ts
-	};
-}
 
 function shouldKeepRecentObject(obj: KnownObjectData): boolean {
 	// Aborted pieces had their classification cycle torn down before any result
@@ -333,7 +276,7 @@ export class MachineManager {
 			}
 
 			if (isHeartbeatEvent(event)) {
-				this.handleHeartbeat(machineId, event.data.timestamp);
+				this.handleHeartbeat(machineId);
 			} else if (isKnownObjectEvent(event)) {
 				this.handleKnownObject(machineId, event.data);
 			} else if (isCameraHealthEvent(event)) {
@@ -404,18 +347,29 @@ export class MachineManager {
 		this.machines = updated;
 	}
 
-	private handleHeartbeat(machineId: string, timestamp: number): void {
+	private handleHeartbeat(machineId: string): void {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
 
+		// Stamp with the client's own receive time (seconds), NOT the server's
+		// heartbeat timestamp. The staleness watchdog subtracts this from
+		// Date.now(), so trusting the Pi's clock made the check sensitive to
+		// clock skew between the browser and an RTC-less Pi. Measuring elapsed
+		// time on a single clock is skew-proof.
 		const updated = new Map(this.machines);
-		updated.set(machineId, { ...machine, lastHeartbeat: timestamp });
+		updated.set(machineId, { ...machine, lastHeartbeat: Date.now() / 1000 });
 		this.machines = updated;
 	}
 
 	private handleKnownObject(machineId: string, obj: KnownObjectData): void {
 		const machine = this.machines.get(machineId);
 		if (!machine) return;
+
+		// Every known_object event reduces into the shared piece store — the
+		// records page and RecentObjects both view it. Runs before the ring's
+		// early returns so dead pieces still reach the store (they exist as
+		// durable records) even though the ring drops them.
+		pieceStore.upsertFromWs(machineId, obj);
 
 		// Aborted (teardown) or dead (reaped by the backend after going silent
 		// too long without distributing): the piece will never progress. Drop it
@@ -524,6 +478,7 @@ export class MachineManager {
 			(data.hardware_state === 'standby' && machine.systemStatus?.hardware_state !== 'standby');
 		if (shouldClearRecentObjects) {
 			this.clearRecentRemovalTimersForMachine(machineId);
+			pieceStore.clearWsEntries(machineId);
 		}
 		const updated = new Map(this.machines);
 		updated.set(machineId, {

@@ -244,10 +244,24 @@ static auto steppers = make_stepper_array(std::make_index_sequence<STEPPER_COUNT
 // Starts false; set on first move or explicit enable so motors don't hold at boot.
 static bool stepper_hw_enabled[STEPPER_COUNT] = {};
 
+// Tracks whether each stepper's TMC chopper (CHOPCONF.TOFF) is on. This is a
+// SEPARATE enable gate from the nEN pin above: DRV_SET_ENABLED false cuts current
+// via the register (TOFF=0) but leaves nEN low, so without this tracking the next
+// move/home would step a current-less motor forever (state runs, shaft doesn't
+// turn, endstop never fires). Starts true to match enableDriver(true) in setup().
+static bool stepper_drv_current_on[STEPPER_COUNT];
+
 static void ensure_stepper_hw_enabled(int i) {
     if (!stepper_hw_enabled[i]) {
         gpio_put(STEPPER_nEN_PINS[i], 0);
         stepper_hw_enabled[i] = true;
+    }
+    // Re-energize the chopper if a prior DRV_SET_ENABLED false turned it off, so a
+    // move/home after a force-halt actually produces torque instead of silently
+    // running the motion state machine against a de-energized driver.
+    if (!stepper_drv_current_on[i]) {
+        tmc_drivers[i].enableDriver(true);
+        stepper_drv_current_on[i] = true;
     }
 }
 
@@ -446,6 +460,7 @@ void initialize_hardware() {
         steppers[i].setSpeedLimits(16, 4000);
         tmc_drivers[i].initialize();
         tmc_drivers[i].enableDriver(true);
+        stepper_drv_current_on[i] = true;
         tmc_drivers[i].setCurrent(0, 0, 0);
         tmc_drivers[i].setMicrosteps(MICROSTEP_8);
         tmc_drivers[i].enableStealthChop(true);
@@ -645,8 +660,14 @@ void CMDH_stepper_is_jittering(const BusMessage *msg, BusMessage *resp) {
 
 void CMDH_stepper_drv_set_enabled(const BusMessage *msg, BusMessage *resp) {
     bool enabled = msg->payload[0] != 0;
-    if (enabled) ensure_stepper_hw_enabled(msg->channel);
-    tmc_drivers[msg->channel].enableDriver(enabled);
+    if (enabled) {
+        // ensure_stepper_hw_enabled re-asserts the chopper (and tracks it), so
+        // don't write enableDriver(true) twice.
+        ensure_stepper_hw_enabled(msg->channel);
+    } else {
+        tmc_drivers[msg->channel].enableDriver(false);
+        stepper_drv_current_on[msg->channel] = false;
+    }
     resp->payload_length = 0;
 }
 

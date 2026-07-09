@@ -8,6 +8,8 @@
 	let { data }: { data: PageData } = $props();
 </script>
 
+<svelte:head><title>Sorter - {data.station?.slug ?? 'Settings'}</title></svelte:head>
+
 <div class="flex flex-col gap-6">
 	{#if data.station.zoneChannels.length > 0}
 		{@const primaryStepperKey = data.station.stepperKeys[0]}

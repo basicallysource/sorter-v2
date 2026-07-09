@@ -25,6 +25,19 @@ MACHINE_SPECIFIC_PARAMS_ENV_VAR = "MACHINE_SPECIFIC_PARAMS_PATH"
 DEFAULT_STEPPER_IRUN = 16
 DEFAULT_STEPPER_IHOLD = 4
 DEFAULT_STEPPER_IHOLD_DELAY = 8
+# Built-in per-motor current defaults (IRUN, IHOLD, IHOLD_DELAY), keyed by
+# canonical (physical) stepper name. Applied when machine.toml has no
+# [stepper_current_overrides.*] entry for that motor; motors not listed fall back
+# to the global DEFAULT_STEPPER_* values above. The c-channel feeder rotors run
+# cool (IRUN=4). "channel 4" is the classification-channel platter, which is
+# physically the carousel motor (c_channel_4_rotor aliases carousel), so it's
+# keyed under "carousel" and runs a bit warmer (IRUN=8). All hold at IHOLD=1.
+DEFAULT_STEPPER_CURRENTS: dict[str, tuple[int, int, int]] = {
+    "c_channel_1_rotor": (4, 1, DEFAULT_STEPPER_IHOLD_DELAY),
+    "c_channel_2_rotor": (4, 1, DEFAULT_STEPPER_IHOLD_DELAY),
+    "c_channel_3_rotor": (4, 1, DEFAULT_STEPPER_IHOLD_DELAY),
+    "carousel": (8, 1, DEFAULT_STEPPER_IHOLD_DELAY),
+}
 DEFAULT_CHUTE_FIRST_BIN_CENTER = 8.25
 DEFAULT_CHUTE_PILLAR_WIDTH_DEG = 8.25
 # Canonical chute aiming geometry (see subsystems/distribution/chute.py).
@@ -911,10 +924,9 @@ def applyStepperCurrentOverride(
 ) -> None:
     override = overrides.get(stepper_name)
     if override is None:
-        irun, ihold, ihold_delay = (
-            DEFAULT_STEPPER_IRUN,
-            DEFAULT_STEPPER_IHOLD,
-            DEFAULT_STEPPER_IHOLD_DELAY,
+        irun, ihold, ihold_delay = DEFAULT_STEPPER_CURRENTS.get(
+            stepper_name,
+            (DEFAULT_STEPPER_IRUN, DEFAULT_STEPPER_IHOLD, DEFAULT_STEPPER_IHOLD_DELAY),
         )
         source = "defaults"
     else:

@@ -1,12 +1,14 @@
 import {
 	Activity,
 	Camera,
+	CircuitBoard,
 	Cloud,
 	Cpu,
 	Gauge,
 	Layers3,
 	Settings,
 	Shapes,
+	ShieldAlert,
 	SlidersHorizontal,
 	Wrench,
 	Zap
@@ -104,6 +106,12 @@ export const chuteNavItem: SettingsNavItem = {
 	icon: Wrench
 };
 
+export const controlBoardNavItem: SettingsNavItem = {
+	href: '/settings/control-board',
+	label: 'Control Board',
+	icon: CircuitBoard
+};
+
 export const chuteAimingNavItem: SettingsNavItem = {
 	href: '/settings/chute-aiming',
 	label: 'Chute Aiming',
@@ -126,6 +134,12 @@ export const performanceNavItem: SettingsNavItem = {
 	href: '/settings/performance',
 	label: 'Performance',
 	icon: Gauge
+};
+
+export const incidentsNavItem: SettingsNavItem = {
+	href: '/settings/incidents',
+	label: 'Incidents',
+	icon: ShieldAlert
 };
 
 export const tuningNavItems: SettingsNavItem[] = [
@@ -249,8 +263,10 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
+	controlBoardNavItem,
 	storageLayersNavItem,
 	{ type: 'heading', label: 'Helpers' },
+	incidentsNavItem,
 	chuteAimingNavItem,
 	stallguardNavItem,
 	jitterTestNavItem,

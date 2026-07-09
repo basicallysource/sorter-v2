@@ -162,6 +162,8 @@
 	}
 </script>
 
+<svelte:head><title>Sorter - Jitter Test</title></svelte:head>
+
 <div class="mx-auto flex max-w-3xl flex-col gap-6 p-6">
 	<header class="flex flex-col gap-1">
 		<h1 class="text-xl font-semibold tracking-wide">Jitter Test</h1>

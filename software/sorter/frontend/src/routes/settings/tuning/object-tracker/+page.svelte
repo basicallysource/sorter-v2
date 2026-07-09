@@ -166,6 +166,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Object Tracker Tuning</title></svelte:head>
+
 <div class="flex flex-col gap-6 p-6">
 	<div>
 		<div class="text-lg font-semibold text-text">Object Tracker</div>

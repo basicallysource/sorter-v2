@@ -9,6 +9,8 @@ import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 </script>
 
+<svelte:head><title>Sorter - Settings</title></svelte:head>
+
 <div class="flex flex-col gap-6">
 	<SectionCard
 		title="Connection & Appearance"

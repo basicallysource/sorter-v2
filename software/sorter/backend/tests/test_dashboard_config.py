@@ -29,87 +29,82 @@ class DashboardConfigTests(unittest.TestCase):
         config = getDashboardConfig()
 
         self.assertFalse(config["show_sample_capture"])
-        self.assertEqual("manual", config["incident_handling"]["channel_dropzone_stuck"])
-        self.assertEqual("manual", config["incident_handling"]["exit_stuck"])
-        self.assertEqual("manual", config["incident_handling"]["bulk_feeder_stalled"])
-        self.assertEqual("manual", config["incident_handling"]["feeder_detection_unavailable"])
+        self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
         self.assertEqual("manual", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("manual", config["incident_handling"]["distribution_no_bin_available"])
-        self.assertEqual("manual", config["incident_handling"]["classification_unresolved"])
-        self.assertEqual("manual", config["incident_handling"]["classification_multi_drop_collision"])
-        self.assertEqual("manual", config["incident_handling"]["classification_intake_request_timeout"])
-        self.assertEqual("manual", config["incident_handling"]["classification_track_lost"])
-        self.assertTrue(any(item["kind"] == "channel_dropzone_stuck" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "exit_stuck" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "bulk_feeder_stalled" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "feeder_detection_unavailable" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "distribution_chute_jam" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "distribution_servo_bus_offline" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "distribution_no_bin_available" for item in config["incident_definitions"]))
-        self.assertTrue(any(item["kind"] == "classification_unresolved" for item in config["incident_definitions"]))
-        self.assertTrue(
-            any(item["kind"] == "classification_multi_drop_collision" for item in config["incident_definitions"])
+        definition_kinds = [item["kind"] for item in config["incident_definitions"]]
+        self.assertEqual(
+            [
+                "exit_stuck",
+                "distribution_chute_jam",
+                "distribution_servo_bus_offline",
+                "distribution_no_bin_available",
+            ],
+            definition_kinds,
         )
-        self.assertTrue(
-            any(item["kind"] == "classification_intake_request_timeout" for item in config["incident_definitions"])
-        )
-        self.assertTrue(any(item["kind"] == "classification_track_lost" for item in config["incident_definitions"]))
-        self.assertFalse(
-            any(item["kind"] == "classification_exit_release" for item in config["incident_definitions"])
-        )
-        self.assertFalse(any(item["kind"] == "channel_exit_stuck" for item in config["incident_definitions"]))
+
+    def test_dashboard_config_only_lists_default_codepath_kinds(self) -> None:
+        config = getDashboardConfig()
+
+        # Kinds only raised on legacy codepaths must not get a policy row.
+        for legacy_kind in (
+            "channel_dropzone_stuck",
+            "c2_separation_needed",
+            "bulk_feeder_stalled",
+            "feeder_detection_unavailable",
+            "classification_unresolved",
+            "classification_multi_drop_collision",
+            "classification_intake_request_timeout",
+            "classification_track_lost",
+            "classification_exit_stuck",
+            "classification_exit_release",
+            "channel_exit_stuck",
+        ):
+            self.assertNotIn(legacy_kind, config["incident_handling"])
+            self.assertFalse(
+                any(item["kind"] == legacy_kind for item in config["incident_definitions"])
+            )
 
     def test_dashboard_config_persists_valid_incident_modes_only(self) -> None:
         config = setDashboardConfig(
             {
                 "incident_handling": {
-                    "channel_dropzone_stuck": "automatic",
-                    "classification_exit_release": "automatic",
-                    "bulk_feeder_stalled": "off",
-                    "feeder_detection_unavailable": "manual",
+                    "classification_exit_release": "manual",
                     "distribution_chute_jam": "off",
                     "distribution_servo_bus_offline": "manual",
                     "distribution_no_bin_available": "off",
-                    "classification_unresolved": "off",
-                    "classification_multi_drop_collision": "manual",
-                    "classification_intake_request_timeout": "off",
-                    "classification_track_lost": "off",
+                    "bulk_feeder_stalled": "off",
                     "c2_separation_needed": "bogus",
                     "unknown_incident": "automatic",
                 }
             }
         )
 
-        self.assertEqual("automatic", config["incident_handling"]["channel_dropzone_stuck"])
-        self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
-        self.assertEqual("off", config["incident_handling"]["bulk_feeder_stalled"])
-        self.assertEqual("manual", config["incident_handling"]["feeder_detection_unavailable"])
+        self.assertEqual("manual", config["incident_handling"]["exit_stuck"])
         self.assertEqual("off", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("off", config["incident_handling"]["distribution_no_bin_available"])
-        self.assertEqual("off", config["incident_handling"]["classification_unresolved"])
-        self.assertEqual("manual", config["incident_handling"]["classification_multi_drop_collision"])
-        self.assertEqual("off", config["incident_handling"]["classification_intake_request_timeout"])
-        self.assertEqual("off", config["incident_handling"]["classification_track_lost"])
-        self.assertEqual("manual", config["incident_handling"]["c2_separation_needed"])
+        self.assertNotIn("bulk_feeder_stalled", config["incident_handling"])
+        self.assertNotIn("c2_separation_needed", config["incident_handling"])
         self.assertNotIn("unknown_incident", config["incident_handling"])
         self.assertNotIn("classification_exit_release", config["incident_handling"])
-        self.assertNotIn("channel_exit_stuck", config["incident_handling"])
-        self.assertTrue(incidentHandlingAutomatic("channel_dropzone_stuck"))
-        self.assertTrue(incidentHandlingAutomatic("classification_exit_release"))
-        self.assertTrue(incidentHandlingAutomatic("channel_exit_stuck"))
-        self.assertTrue(incidentHandlingOff("bulk_feeder_stalled"))
-        self.assertTrue(incidentHandlingOff("classification_unresolved"))
+        self.assertTrue(incidentHandlingOff("distribution_chute_jam"))
         self.assertTrue(incidentHandlingOff("distribution_no_bin_available"))
-        self.assertTrue(incidentHandlingOff("classification_intake_request_timeout"))
-        self.assertTrue(incidentHandlingOff("classification_track_lost"))
+        self.assertFalse(incidentHandlingAutomatic("exit_stuck"))
 
-        config = setDashboardConfig({"incident_handling": {"channel_exit_stuck": "off"}})
+        config = setDashboardConfig({"incident_handling": {"classification_exit_stuck": "off"}})
 
         self.assertEqual("off", config["incident_handling"]["exit_stuck"])
+        self.assertTrue(incidentHandlingOff("exit_stuck"))
         self.assertTrue(incidentHandlingOff("classification_exit_release"))
         self.assertTrue(incidentHandlingOff("channel_exit_stuck"))
+        self.assertTrue(incidentHandlingOff("classification_exit_stuck"))
+
+        config = setDashboardConfig({"incident_handling": {"exit_stuck": "automatic"}})
+
+        self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
+        self.assertTrue(incidentHandlingAutomatic("exit_stuck"))
 
 
 if __name__ == "__main__":

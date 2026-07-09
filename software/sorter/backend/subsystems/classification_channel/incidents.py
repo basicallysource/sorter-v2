@@ -9,7 +9,11 @@ CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
-CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND = "classification_exit_stuck"
+# The C4 stall watchdog shares the operator-facing "exit_stuck" kind (there is
+# no separate "C4 piece stuck" incident); source_kind identifies the watchdog
+# so its incidents are never confused with the legacy exit-release publishers.
+C4_EXIT_STUCK_INCIDENT_KIND = "exit_stuck"
+C4_STALL_WATCHDOG_SOURCE_KIND = "c4_stall_watchdog"
 
 
 def classification_fallback_incident_kind(
@@ -191,22 +195,35 @@ def publish_classification_track_lost_incident(
     return True
 
 
-def publish_classification_exit_stuck_incident(
+def c4_stall_incident_active(gc: Any) -> bool:
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "activeIncident"):
+        return False
+    try:
+        active = runtime_stats.activeIncident()
+    except Exception:
+        return False
+    return (
+        isinstance(active, dict)
+        and active.get("kind") == C4_EXIT_STUCK_INCIDENT_KIND
+        and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
+    )
+
+
+def publish_c4_exit_stuck_incident(
     gc: Any,
     *,
-    piece: Any,
-    jitter_attempts: int,
-    converge_ms: float,
+    stalled_ms: float,
+    stalled_state: str,
+    auto_clear_failed: bool = False,
+    auto_clear_moved_deg: float = 0.0,
 ) -> bool:
-    """Stall-watchdog incident: the C4 state machine made NO transition for the
-    watchdog window while perception still reads a piece on the channel — the
-    flow is wedged in some state. This is the ONLY remaining publisher of
-    ``classification_exit_stuck``; the discharge give-up path no longer raises an
-    incident (it settles and auto-credits instead). So any incident of this kind
-    is unambiguously the stall watchdog — the payload also carries
-    ``source="stall_watchdog"`` to make that explicit in logs/UI. Auto-clears
-    when perception sees the channel clear."""
-    kind = CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
+    """Stall-watchdog incident: the C4 flow made NO progress (no state/phase
+    change, no track-id change, no substantial piece movement) for the watchdog
+    window while perception still reads a piece on the channel. Auto-clears when
+    perception sees the channel clear. Never stomps a different active incident
+    (single slot)."""
+    kind = C4_EXIT_STUCK_INCIDENT_KIND
     if _incident_handling_off(kind):
         return False
 
@@ -220,12 +237,26 @@ def publish_classification_exit_stuck_incident(
             active = runtime_stats.activeIncident()
         except Exception:
             active = None
-    if isinstance(active, dict) and active.get("kind") == kind:
-        return True
+    if isinstance(active, dict):
+        return (
+            active.get("kind") == kind
+            and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
+        )
 
-    piece_uuid = str(getattr(piece, "uuid", "") or "")
+    if auto_clear_failed:
+        operator_message = (
+            "The classification channel stalled with a piece on it and rotating "
+            f"forward {auto_clear_moved_deg:.0f}° did not clear it. Remove the piece "
+            "(or clear the jam) to continue."
+        )
+    else:
+        operator_message = (
+            "The classification channel stopped making progress with a piece still "
+            "on it. Remove the piece (or clear the jam) to continue."
+        )
     payload: dict[str, Any] = {
         "kind": kind,
+        "source_kind": C4_STALL_WATCHDOG_SOURCE_KIND,
         "source": "stall_watchdog",
         "severity": "critical",
         "status": "waiting_for_operator",
@@ -234,29 +265,27 @@ def publish_classification_exit_stuck_incident(
         "channel": "c4",
         "role": "classification_channel",
         "channel_label": "C4",
-        "piece_uuid": piece_uuid,
-        "piece_short": piece_uuid[:8],
-        "jitter_attempts": int(jitter_attempts),
-        "stalled_ms": float(converge_ms),
+        "stalled_ms": float(stalled_ms),
+        "stalled_state": str(stalled_state),
+        "auto_clear_failed": bool(auto_clear_failed),
         "triggered_at": time.time(),
-        "rule": "c4_no_state_transition_with_piece_on_channel",
+        "rule": "c4_no_progress_with_piece_on_channel",
         "resolution": "operator_clear_stuck_c4_piece_then_auto_resumes",
-        "operator_message": (
-            "The C4 classification flow stopped making progress with a piece still "
-            "on the channel. Remove the piece (or clear the jam) to continue."
-        ),
+        "operator_message": operator_message,
     }
+    if auto_clear_failed:
+        payload["auto_clear_moved_deg"] = float(auto_clear_moved_deg)
     runtime_stats.setActiveIncident(payload)
     return True
 
 
-def clear_classification_exit_stuck_incident(gc: Any) -> None:
+def clear_c4_exit_stuck_incident(gc: Any) -> None:
+    if not c4_stall_incident_active(gc):
+        return
     runtime_stats = getattr(gc, "runtime_stats", None)
     if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
         try:
-            runtime_stats.clearActiveIncident(
-                kind=CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND
-            )
+            runtime_stats.clearActiveIncident(kind=C4_EXIT_STUCK_INCIDENT_KIND)
         except Exception:
             pass
 

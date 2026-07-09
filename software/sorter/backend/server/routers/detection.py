@@ -249,7 +249,7 @@ CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
-CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND = "classification_exit_stuck"
+C4_STALL_WATCHDOG_SOURCE_KIND = "c4_stall_watchdog"
 CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
 CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
@@ -1812,10 +1812,37 @@ def classification_channel_exit_incident_test_release(
     return {"ok": True, "release": result}
 
 
+@router.post("/api/classification-channel/exit-incident/auto-resolve")
+def classification_channel_exit_incident_auto_resolve() -> Dict[str, Any]:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
+    request = getattr(classification, "requestStallAutoResolve", None)
+    if not callable(request):
+        raise HTTPException(status_code=503, detail="Classification channel is not running.")
+    if not bool(request()):
+        raise HTTPException(
+            status_code=409, detail="No active C4 exit-stuck incident to auto-resolve."
+        )
+    return {"ok": True, "accepted": True}
+
+
 @router.post("/api/classification-channel/exit-incident/clear")
 def classification_channel_exit_incident_clear(
     payload: ClassificationExitIncidentActionPayload | None = None,
 ) -> Dict[str, Any]:
+    # The C4 stall watchdog's exit-stuck incident lives directly in
+    # runtime_stats (there is no exit-release runtime state to route through —
+    # in two-piece mode there is no states_map at all).
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if (
+        isinstance(active, dict)
+        and active.get("kind") == EXIT_STUCK_INCIDENT_KIND
+        and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
+    ):
+        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND)
+        return {"ok": True, "cleared": True, "kind": EXIT_STUCK_INCIDENT_KIND, "channel": "c4"}
     running = _classification_channel_running_state()
     try:
         result = running.clearExitReleaseIncident(
@@ -1837,7 +1864,6 @@ def classification_channel_fallback_incident_clear(
         CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
         CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
         CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
-        CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND,
     }
     if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
         for kind in fallback_kinds:

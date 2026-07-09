@@ -80,23 +80,12 @@
 		recovery: boolean;
 	};
 
-	type ConfigInfo = {
-		hardware_state: string;
-		no_power_development_mode: boolean;
-		machine_setup: string | null;
-		feeder_mode: string | null;
-		classification_channel_mode: string | null;
-		machine_toml_present?: boolean;
-	};
-
 	const manager = getMachinesContext();
 
 	let boards = $state<Board[]>([]);
 	let boardsMeta = $state<BoardsResponse | null>(null);
 	let boardsLoading = $state(false);
 	let boardsError = $state<string | null>(null);
-
-	let config = $state<ConfigInfo | null>(null);
 
 	let releases = $state<Release[]>([]);
 	let releasesLoading = $state(false);
@@ -203,16 +192,6 @@
 			boardsError = e?.message ?? 'Failed to load boards';
 		} finally {
 			boardsLoading = false;
-		}
-	}
-
-	async function loadConfig() {
-		try {
-			const res = await fetch(`${baseUrl()}/api/firmware/config`);
-			if (!res.ok) return;
-			config = await res.json();
-		} catch {
-			/* non-critical */
 		}
 	}
 
@@ -423,7 +402,6 @@
 		if (machineKey !== loadedMachineKey) {
 			loadedMachineKey = machineKey;
 			void loadBoards();
-			void loadConfig();
 			void loadReleases();
 			void loadLatestJob();
 		}
@@ -520,34 +498,6 @@
 			</div>
 		{/if}
 
-		{#if config}
-			<div class="mt-3 border-t border-border pt-3">
-				<dl class="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
-					<div>
-						<dt class="text-xs uppercase tracking-wider text-text-muted">Hardware state</dt>
-						<dd class="text-text">{boardsMeta?.hardware_state ?? config.hardware_state}</dd>
-					</div>
-					{#if config.machine_setup}
-						<div>
-							<dt class="text-xs uppercase tracking-wider text-text-muted">Machine setup</dt>
-							<dd class="text-text">{config.machine_setup}</dd>
-						</div>
-					{/if}
-					{#if config.feeder_mode}
-						<div>
-							<dt class="text-xs uppercase tracking-wider text-text-muted">Feeder mode</dt>
-							<dd class="text-text">{config.feeder_mode}</dd>
-						</div>
-					{/if}
-					{#if config.classification_channel_mode}
-						<div>
-							<dt class="text-xs uppercase tracking-wider text-text-muted">Classification</dt>
-							<dd class="text-text">{config.classification_channel_mode}</dd>
-						</div>
-					{/if}
-				</dl>
-			</div>
-		{/if}
 	</SectionCard>
 
 	<SectionCard

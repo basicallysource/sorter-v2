@@ -311,7 +311,11 @@ def get_firmware_config() -> Dict[str, Any]:
     try:
         from machine_setup import DEFAULT_MACHINE_SETUP
 
-        payload["machine_setup"] = getattr(DEFAULT_MACHINE_SETUP, "key", None)
+        payload["machine_setup"] = (
+            DEFAULT_MACHINE_SETUP
+            if isinstance(DEFAULT_MACHINE_SETUP, str)
+            else getattr(DEFAULT_MACHINE_SETUP, "key", None)
+        )
     except Exception:
         pass
     try:

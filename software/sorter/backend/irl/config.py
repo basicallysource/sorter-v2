@@ -672,6 +672,20 @@ class IRLInterface:
                 pass
         for iface in self.interfaces.values():
             iface.shutdown()
+        # Close the underlying serial buses so standby genuinely releases the
+        # ttys — otherwise the fds linger until GC and the firmware flasher (or
+        # the next discovery pass) races a stale open on the same port.
+        # Interfaces can share a bus (multi-address), so dedupe before closing.
+        seen_buses: set[int] = set()
+        for iface in self.interfaces.values():
+            bus = getattr(iface, "_bus", None)
+            if bus is None or id(bus) in seen_buses:
+                continue
+            seen_buses.add(id(bus))
+            try:
+                bus.close()
+            except Exception:
+                pass
 
 
 def mkCameraConfig(

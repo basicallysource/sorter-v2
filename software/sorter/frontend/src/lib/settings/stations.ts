@@ -1,6 +1,7 @@
 import {
 	Activity,
 	Camera,
+	CircuitBoard,
 	Cloud,
 	Cpu,
 	Gauge,
@@ -103,6 +104,12 @@ export const chuteNavItem: SettingsNavItem = {
 	href: '/settings/chute',
 	label: 'Chute',
 	icon: Wrench
+};
+
+export const controlBoardNavItem: SettingsNavItem = {
+	href: '/settings/control-board',
+	label: 'Control Board',
+	icon: CircuitBoard
 };
 
 export const chuteAimingNavItem: SettingsNavItem = {
@@ -256,6 +263,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
+	controlBoardNavItem,
 	storageLayersNavItem,
 	{ type: 'heading', label: 'Helpers' },
 	incidentsNavItem,

@@ -424,6 +424,71 @@ def getImageFile(piece_uuid: str, image_id: int) -> Optional[Path]:
     return abs_path if abs_path.is_file() else None
 
 
+def listImagesAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
+    # Full rows ASC by id for the Hive sync worker. Includes deleted_at so the
+    # worker knows file-present (upload pixels) vs evicted (metadata-only). The
+    # cursor is id > after_id (a per-target watermark), NOT synced_at — syncing
+    # to more than one hive means a row already sent to one target must still be
+    # visible to the others.
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, piece_uuid, seq, source, channel, ts, created_at, sharpness, "
+            "bytes, deleted_at, used, excluded_from_result, score "
+            "FROM piece_images WHERE id > ? ORDER BY id ASC LIMIT ?",
+            (int(after_id), int(limit)),
+        ).fetchall()
+    return [
+        {
+            "id": int(r["id"]),
+            "piece_uuid": r["piece_uuid"],
+            "seq": int(r["seq"]),
+            "source": r["source"],
+            "channel": r["channel"],
+            "ts": r["ts"],
+            "created_at": r["created_at"],
+            "sharpness": r["sharpness"],
+            "bytes": int(r["bytes"] or 0),
+            "evicted_locally": r["deleted_at"] is not None,
+            "used": bool(r["used"]),
+            "excluded_from_result": bool(r["excluded_from_result"]),
+            "score": r["score"],
+        }
+        for r in rows
+    ]
+
+
+def getImageFileById(image_id: int) -> Optional[Path]:
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT file_path, deleted_at FROM piece_images WHERE id = ?",
+            (int(image_id),),
+        ).fetchone()
+    if row is None or row["deleted_at"] is not None:
+        return None
+    abs_path = piece_images_dir() / str(row["file_path"])
+    return abs_path if abs_path.is_file() else None
+
+
+def getMaxImageId() -> int:
+    with _connection() as conn:
+        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM piece_images").fetchone()
+    return int(row["m"] or 0)
+
+
+def markImagesSyncedUpTo(max_id: int, synced_at: float) -> None:
+    # Retention hint only: stamp synced_at on rows at/below the min watermark
+    # across all enabled hive targets, so retention only evicts a crop once
+    # EVERY hive has it (retention prefers synced files). Not the sync cursor.
+    if max_id <= 0:
+        return
+    with _connection() as conn:
+        conn.execute(
+            "UPDATE piece_images SET synced_at = ? WHERE id <= ? AND synced_at IS NULL",
+            (float(synced_at), int(max_id)),
+        )
+        conn.commit()
+
+
 def getStats() -> dict[str, Any]:
     with _stats_lock:
         stats = dict(_stats)

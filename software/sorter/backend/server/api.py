@@ -136,6 +136,7 @@ from server.routers.tuning import router as tuning_router
 from server.routers.telemetry import router as telemetry_router
 from server.routers.tailscale import router as tailscale_router
 from server.routers.wifi import router as wifi_router
+from server.routers.firmware import router as firmware_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -155,6 +156,7 @@ app.include_router(tuning_router)
 app.include_router(telemetry_router)
 app.include_router(tailscale_router)
 app.include_router(wifi_router)
+app.include_router(firmware_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle

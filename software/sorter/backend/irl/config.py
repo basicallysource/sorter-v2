@@ -23,6 +23,12 @@ class FeederMode(enum.Enum):
     # exit/drop handling is just "pulse a fixed distance, pause a fixed time"
     # per region — no fast-eject / COM closed loop / jitter recovery.
     PULSE_PERCEPTION_REV01 = "pulse_perception_rev01"
+    # Constant-movement feeder on the perception stack. Inverts the pulse
+    # model: each channel runs continuously at its own constant speed and is
+    # only stopped when its downstream can't accept a piece (following
+    # channel's drop zone occupied; for C3, a piece at the exit edge while the
+    # classification channel is busy/not ready).
+    CONSTANT_MOVEMENT_REV01 = "constant_movement_rev01"
 
 from global_config import GlobalConfig
 from hardware.bus import MCUBus, MCUBusError

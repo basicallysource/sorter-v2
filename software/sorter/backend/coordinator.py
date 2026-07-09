@@ -445,6 +445,11 @@ class Coordinator:
                 self._hold_process_for_incident(active_incident)
                 prof.hit("coordinator.step.distribution_skipped.active_incident")
                 prof.hit("coordinator.step.feeder_skipped.active_incident")
+                # The feeder is not stepped during an incident; make sure any
+                # continuously-running channels (constant movement) are stopped.
+                feeder_hold = getattr(self.feeder, "hold_motion", None)
+                if feeder_hold is not None:
+                    feeder_hold()
                 if self._classification_should_step_during_incident(active_incident):
                     with prof.timer("coordinator.step.classification_ms"):
                         classification_started = time.perf_counter()
@@ -478,6 +483,9 @@ class Coordinator:
                 feeder_started = time.perf_counter()
                 if self.manual_feed_mode:
                     prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
+                    feeder_hold = getattr(self.feeder, "hold_motion", None)
+                    if feeder_hold is not None:
+                        feeder_hold()
                 else:
                     self.feeder.step()
                 self.gc.runtime_stats.observePerfMs(

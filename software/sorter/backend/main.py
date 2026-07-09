@@ -123,16 +123,21 @@ def _noPowerModeActive(gc: GlobalConfig) -> bool:
 
 def _perceptionModeActive(irl_config) -> bool:
     """Rev04 perception stack: a perception-native feeder mode
-    (GO_TO_ANGLE_REV01 or PULSE_PERCEPTION_REV01) paired with the
-    SIMPLE_STATE_MACHINE_REV01 classification channel. The perception package
-    owns detection for these pairs only; every other mode pair keeps using the
-    legacy VisionManager paths."""
+    (GO_TO_ANGLE_REV01, PULSE_PERCEPTION_REV01 or CONSTANT_MOVEMENT_REV01)
+    paired with the SIMPLE_STATE_MACHINE_REV01 classification channel. The
+    perception package owns detection for these pairs only; every other mode
+    pair keeps using the legacy VisionManager paths."""
     feeder_mode = getattr(getattr(irl_config, "feeder_config", None), "mode", None)
     cc_mode = getattr(
         getattr(irl_config, "classification_channel_config", None), "mode", None
     )
     return (
-        feeder_mode in (FeederMode.GO_TO_ANGLE_REV01, FeederMode.PULSE_PERCEPTION_REV01)
+        feeder_mode
+        in (
+            FeederMode.GO_TO_ANGLE_REV01,
+            FeederMode.PULSE_PERCEPTION_REV01,
+            FeederMode.CONSTANT_MOVEMENT_REV01,
+        )
         and cc_mode
         in (
             ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01,

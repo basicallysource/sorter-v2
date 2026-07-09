@@ -154,6 +154,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 		icon: SlidersHorizontal
 	},
 	{
+		href: '/settings/tuning/feeder-constant-movement',
+		label: 'Feeder Constant Movement',
+		icon: SlidersHorizontal
+	},
+	{
 		href: '/settings/tuning/classification-channel',
 		label: 'Classification Channel',
 		icon: SlidersHorizontal

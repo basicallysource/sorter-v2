@@ -300,6 +300,40 @@ def setPulsePerceptionConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Feeder constant-movement tuning config
+# ---------------------------------------------------------------------------
+
+
+def getConstantMovementConfig() -> dict[str, Any]:
+    from subsystems.feeder.constant_movement.config import (
+        ConstantMovementConfig, configToDict,
+    )
+    config = _read_toml()
+    section = config.get("feeder_constant_movement")
+    defaults = configToDict(ConstantMovementConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setConstantMovementConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.feeder.constant_movement.config import (
+        ConstantMovementConfig, configToDict,
+    )
+    defaults = configToDict(ConstantMovementConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("feeder_constant_movement")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["feeder_constant_movement"] = base
+
+    _update_toml(updater)
+    return getConstantMovementConfig()
+
+
+# ---------------------------------------------------------------------------
 # Upstream-match tuning config
 # ---------------------------------------------------------------------------
 

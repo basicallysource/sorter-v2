@@ -299,6 +299,7 @@ class VisionManager:
         perception_native_feeder = feeder_mode in (
             FeederMode.GO_TO_ANGLE_REV01,
             FeederMode.PULSE_PERCEPTION_REV01,
+            FeederMode.CONSTANT_MOVEMENT_REV01,
         )
         run_auxiliary_detection = (
             not perception_native_feeder

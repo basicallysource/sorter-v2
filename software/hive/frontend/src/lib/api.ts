@@ -56,6 +56,34 @@ export interface MachineStats {
 	parts_needed: number;
 }
 
+export interface FleetMachine {
+	id: string;
+	name: string;
+	description: string | null;
+	owner_id: string;
+	owner_email: string | null;
+	owner_display_name: string | null;
+	is_active: boolean;
+	archived_at: string | null;
+	last_seen_at: string | null;
+	last_seen_ip: string | null;
+	local_ui_port: string | null;
+	created_at: string | null;
+}
+
+export interface FleetMachineStats {
+	pieces_seen: number;
+	distributed: number;
+	classified: number;
+	unique_parts: number;
+	unique_colors: number;
+	first_seen: string | null;
+	last_seen: string | null;
+	active_seconds: number;
+	overall_ppm: number;
+	ontime_pct: number;
+}
+
 export interface MachineConfigBackupSummary {
 	id: string;
 	version: number;
@@ -772,6 +800,12 @@ export const api = {
 	},
 	getMachineStats() {
 		return request<Record<string, MachineStats>>('GET', '/api/machines/stats');
+	},
+	getAllMachines() {
+		return request<FleetMachine[]>('GET', '/api/admin/machines');
+	},
+	getAllMachineStats() {
+		return request<Record<string, FleetMachineStats>>('GET', '/api/admin/machines/stats');
 	},
 	createMachine(name: string, description?: string) {
 		return request<MachineWithToken>('POST', '/api/machines', { name, description });

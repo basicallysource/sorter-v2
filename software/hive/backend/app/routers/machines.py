@@ -134,6 +134,46 @@ def get_machine_stats(
     return result
 
 
+@router.get("/admin/machines")
+def admin_list_machines(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Every machine across ALL owners (admin-only fleet view)."""
+    machines = db.query(Machine).options(joinedload(Machine.owner)).order_by(Machine.created_at).all()
+    return [
+        {
+            "id": str(m.id),
+            "name": m.name,
+            "description": m.description,
+            "owner_id": str(m.owner_id),
+            "owner_email": m.owner.email if m.owner else None,
+            "owner_display_name": m.owner.display_name if m.owner else None,
+            "is_active": m.is_active,
+            "archived_at": m.archived_at.isoformat() if m.archived_at else None,
+            "last_seen_at": m.last_seen_at.isoformat() if m.last_seen_at else None,
+            "last_seen_ip": m.last_seen_ip,
+            "local_ui_port": m.local_ui_port,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in machines
+    ]
+
+
+@router.get("/admin/machines/stats")
+def admin_machine_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Per-machine lifetime metrics (pieces, PPM, on-time %) across ALL machines.
+
+    Computed entirely from synced piece records — see app.services.machine_fleet.
+    """
+    from app.services.machine_fleet import get_fleet_stats
+
+    return get_fleet_stats(db)
+
+
 @router.post("/machines", response_model=MachineWithTokenResponse)
 def create_machine(
     data: MachineCreate,

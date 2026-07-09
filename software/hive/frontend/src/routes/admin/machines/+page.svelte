@@ -109,7 +109,10 @@
 					<tr class="hover:bg-bg {machine.archived_at ? 'opacity-50' : ''}">
 						<td class="whitespace-nowrap px-4 py-3">
 							<div class="flex items-center gap-2">
-								<p class="text-sm font-medium text-text">{machine.name}</p>
+								<a
+										href={`/admin/machines/${machine.id}`}
+										class="text-sm font-medium text-primary hover:underline"
+									>{machine.name}</a>
 								{#if machine.archived_at}
 									<Badge text="Archived" variant="neutral" />
 								{:else if !machine.is_active}

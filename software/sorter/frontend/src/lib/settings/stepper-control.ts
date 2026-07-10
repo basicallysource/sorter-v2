@@ -28,6 +28,10 @@ export const STEPPER_GEAR_RATIOS: Record<StepperKey, number> = {
 export const CLASSIFICATION_CHANNEL_STEPPER_LABEL = 'Classification C-Channel (C4)';
 export const CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO = STEPPER_GEAR_RATIOS.c_channel_4;
 
+// B1 belt topology: the belt motor sits on the C1 rotor port but drives the
+// belt through a 4:1 reduction gearbox instead of the 130:12 rotor gearing.
+export const BELT_STEPPER_GEAR_RATIO = 4;
+
 export function stepperGearRatioForSetup(
 	stepperKey: StepperKey,
 	machineSetup?: MachineSetupKey
@@ -37,6 +41,9 @@ export function stepperGearRatioForSetup(
 		(stepperKey === 'carousel' && machineSetup === 'classification_channel')
 	) {
 		return CLASSIFICATION_CHANNEL_STEPPER_GEAR_RATIO;
+	}
+	if (stepperKey === 'c_channel_1' && machineSetup === 'belt_feeder') {
+		return BELT_STEPPER_GEAR_RATIO;
 	}
 	return STEPPER_GEAR_RATIOS[stepperKey] ?? 1;
 }

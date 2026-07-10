@@ -5,10 +5,11 @@
 	import { stepperLabels } from '$lib/settings/stations';
 	import type { EndstopConfig } from '$lib/settings/stations';
 	import {
-		STEPPER_GEAR_RATIOS,
 		loadStoredStepperPulseSetting,
-		persistStoredStepperPulseSetting
+		persistStoredStepperPulseSetting,
+		stepperGearRatioForSetup
 	} from '$lib/settings/stepper-control';
+	import type { MachineSetupKey } from '$lib/settings/stations';
 	import { Cog } from 'lucide-svelte';
 	import { Alert, Button } from '$lib/components/primitives';
 	import { onMount } from 'svelte';
@@ -98,7 +99,28 @@
 		persistStoredStepperPulseSetting(stepperKey, 'pulseDegrees', pulseDegrees);
 	});
 
-	const gearRatio = $derived(gearRatioOverride ?? STEPPER_GEAR_RATIOS[stepperKey]);
+	// Machine setup decides gearing for shared motor ports (carousel→C4,
+	// C1 rotor→belt); loaded per machine alongside the other settings.
+	let machineSetup = $state<MachineSetupKey | undefined>(undefined);
+	const gearRatio = $derived(
+		gearRatioOverride ?? stepperGearRatioForSetup(stepperKey, machineSetup)
+	);
+
+	async function loadMachineSetup() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/machine-setup`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			machineSetup =
+				payload?.setup === 'classification_channel' ||
+				payload?.setup === 'manual_carousel' ||
+				payload?.setup === 'belt_feeder'
+					? payload.setup
+					: undefined;
+		} catch {
+			// Fall back to the static per-key ratio.
+		}
+	}
 
 	// --- Endstop settings ---
 	let endstopActiveHigh = $state(false);
@@ -678,6 +700,7 @@
 		if (machineKey !== loadedMachineKey) {
 			loadedMachineKey = machineKey;
 			void loadSettings();
+			void loadMachineSetup();
 			tmcLoaded = false;
 			if (driverSettingsOpen) void loadTmcSettings();
 		}
@@ -685,6 +708,7 @@
 
 	onMount(() => {
 		void loadSettings();
+		void loadMachineSetup();
 		void loadStallState();
 		const interval = setInterval(() => {
 			if (endstop) void loadLiveStatus();

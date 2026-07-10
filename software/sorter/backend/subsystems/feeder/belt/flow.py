@@ -52,6 +52,11 @@ class BeltFeeding(PulsePerceptionFeeding):
         self._belt_running_since: float | None = None
         self._last_arrival_at: float = 0.0
         self._last_c3_pieces: int = 0
+        # Live introspection for the tuning page / debugging: one dict, updated
+        # in place every tick and reachable via gc (read by the tuning router).
+        self._status: dict = {"reason": "idle", "ts": 0.0}
+        self._last_blocked_reason: str | None = None
+        gc.belt_feeder_status = self._status
 
     def _cfg(self):
         # The C1/C2 rotors don't exist in the belt topology; the inherited C3
@@ -81,6 +86,7 @@ class BeltFeeding(PulsePerceptionFeeding):
     def _step_belt(self) -> None:
         stepper: "StepperMotor | None" = getattr(self.irl, "belt_stepper", None)
         if stepper is None:
+            self._publish_status(None, 0, None, "no_belt_stepper")
             return
         cfg = self._belt_cfg()
         now = time.monotonic()
@@ -89,6 +95,7 @@ class BeltFeeding(PulsePerceptionFeeding):
         if c3_pieces is None:
             # Perception not up yet — never run the belt blind.
             self._command_belt_speed(stepper, 0, cfg, now)
+            self._publish_status(cfg, 0, None, "no_perception")
             return
 
         if c3_pieces > self._last_c3_pieces:
@@ -98,6 +105,60 @@ class BeltFeeding(PulsePerceptionFeeding):
         target = self._target_speed(cfg, c3_pieces)
         self._command_belt_speed(stepper, target, cfg, now)
         self._check_jam(cfg, now)
+
+        if not cfg.enable_belt:
+            reason = "disabled"
+        elif target == 0:
+            reason = "stopped_c3_full"
+        elif target < abs(cfg.belt_speed_usteps_per_s):
+            reason = "throttled"
+        else:
+            reason = "running"
+        self._publish_status(cfg, target, c3_pieces, reason)
+
+    def _publish_status(
+        self,
+        cfg: BeltFeederConfig | None,
+        target: int,
+        c3_pieces: int | None,
+        reason: str,
+    ) -> None:
+        now = time.monotonic()
+        quiet_since = max(self._belt_running_since or 0.0, self._last_arrival_at)
+        self._status.update(
+            {
+                "ts": time.time(),
+                "reason": reason,
+                "commanded_speed_usteps_per_s": self._belt_cmd_speed,
+                "target_speed_usteps_per_s": target,
+                "base_speed_usteps_per_s": cfg.belt_speed_usteps_per_s if cfg else None,
+                "c3_pieces": c3_pieces,
+                "c3_full_speed_pieces": cfg.c3_full_speed_pieces if cfg else None,
+                "c3_stop_pieces": cfg.c3_stop_pieces if cfg else None,
+                "running_for_s": (
+                    round(now - self._belt_running_since, 1)
+                    if self._belt_running_since is not None
+                    else None
+                ),
+                "since_last_arrival_s": (
+                    round(now - self._last_arrival_at, 1) if self._last_arrival_at else None
+                ),
+                "jam_timeout_s": cfg.jam_timeout_s if cfg else None,
+                "jam_countdown_s": (
+                    round(max(0.0, cfg.jam_timeout_s - (now - quiet_since)), 1)
+                    if cfg and cfg.jam_timeout_s > 0 and self._belt_running_since is not None
+                    else None
+                ),
+            }
+        )
+        # Count blocked reasons on the change edge only (not per tick).
+        if reason in ("running", "throttled"):
+            self._last_blocked_reason = None
+        elif reason != self._last_blocked_reason:
+            self._last_blocked_reason = reason
+            runtime_stats = getattr(self.gc, "runtime_stats", None)
+            if runtime_stats is not None and hasattr(runtime_stats, "observeBlockedReason"):
+                runtime_stats.observeBlockedReason("belt", reason)
 
     def _c3_piece_count(self) -> int | None:
         perception_service = getattr(self.gc, "perception_service", None)
@@ -187,4 +248,5 @@ class BeltFeeding(PulsePerceptionFeeding):
                 self.gc.logger.warning(f"BeltFeeding: cleanup belt stop failed: {exc}")
             self._belt_cmd_speed = 0
             self._belt_running_since = None
+        self._status.update({"ts": time.time(), "reason": "idle"})
         super().cleanup()

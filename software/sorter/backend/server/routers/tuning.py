@@ -106,6 +106,18 @@ def set_belt_feeder_config(body: dict[str, Any]) -> dict[str, Any]:
     return {"config": updated}
 
 
+@router.get("/api/tuning/feeder-belt/status")
+def get_belt_feeder_status() -> dict[str, Any]:
+    """Live introspection of the B1 belt controller: commanded speed, C3 fill
+    level driving the ramp, jam countdown, and why the belt is (not) moving.
+    ``available`` is False until a BELT_REV01 feeder has run at least once."""
+    gc = shared_state.gc_ref
+    status = getattr(gc, "belt_feeder_status", None) if gc is not None else None
+    if not isinstance(status, dict):
+        return {"available": False, "status": None}
+    return {"available": True, "status": dict(status)}
+
+
 @router.get("/api/tuning/object-tracker")
 def get_object_tracker_config() -> dict[str, Any]:
     # All trackers up front so the UI can switch between them client-side; the

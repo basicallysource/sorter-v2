@@ -84,6 +84,45 @@ export interface FleetMachineStats {
 	ontime_pct: number;
 }
 
+export interface MachinePieceImageInfo {
+	seq: number;
+	source: string | null;
+	channel: number | null;
+	sharpness: number | null;
+	bytes: number | null;
+	used: boolean;
+	excluded_from_result: boolean;
+	score: number | null;
+	available: boolean;
+	evicted_locally: boolean;
+}
+
+export interface MachinePieceRecord {
+	piece_uuid: string;
+	local_id: number;
+	run_id: string | null;
+	seen_at: string | null;
+	recorded_at: string | null;
+	classification_status: string | null;
+	part_id: string | null;
+	part_name: string | null;
+	color_id: string | null;
+	color_name: string | null;
+	category_id: string | null;
+	confidence: number | null;
+	bin: { x: number | null; y: number | null; z: number | null };
+	dead: boolean;
+	brickognize_preview_url: string | null;
+	images: MachinePieceImageInfo[];
+}
+
+export interface MachinePiecesPage {
+	machine: { id: string; name: string; owner_email: string | null };
+	items: MachinePieceRecord[];
+	next_cursor: number | null;
+	total: number;
+}
+
 export interface MachineConfigBackupSummary {
 	id: string;
 	version: number;
@@ -806,6 +845,21 @@ export const api = {
 	},
 	getAllMachineStats() {
 		return request<Record<string, FleetMachineStats>>('GET', '/api/admin/machines/stats');
+	},
+	getMachinePieces(machineId: string, opts: { limit?: number; cursor?: number | null } = {}) {
+		const params = new URLSearchParams();
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.cursor != null) params.set('cursor', String(opts.cursor));
+		const qs = params.toString();
+		return request<MachinePiecesPage>(
+			'GET',
+			`/api/admin/machines/${machineId}/pieces${qs ? `?${qs}` : ''}`
+		);
+	},
+	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveApiPath(
+			`/api/admin/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
+		);
 	},
 	createMachine(name: string, description?: string) {
 		return request<MachineWithToken>('POST', '/api/machines', { name, description });

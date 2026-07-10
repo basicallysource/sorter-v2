@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.machine import Machine
+from app.models.machine_piece import MachinePiece
+from app.models.machine_piece_image import MachinePieceImage
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -23,7 +25,7 @@ from app.schemas.machine import (
 )
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
-from app.services.storage import delete_machine_files
+from app.services.storage import delete_machine_files, serve_stored_file
 
 router = APIRouter(prefix="/api", tags=["machines"])
 limiter = Limiter(key_func=get_remote_address)
@@ -172,6 +174,132 @@ def admin_machine_stats(
     from app.services.machine_fleet import get_fleet_stats
 
     return get_fleet_stats(db)
+
+
+PIECE_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+
+def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage]) -> dict[str, Any]:
+    return {
+        "piece_uuid": piece.piece_uuid,
+        "local_id": piece.local_id,
+        "run_id": piece.run_id,
+        "seen_at": piece.seen_at.isoformat() if piece.seen_at else None,
+        "recorded_at": piece.recorded_at.isoformat() if piece.recorded_at else None,
+        "classification_status": piece.classification_status,
+        "part_id": piece.part_id,
+        "part_name": piece.part_name,
+        "color_id": piece.color_id,
+        "color_name": piece.color_name,
+        "category_id": piece.category_id,
+        "confidence": piece.confidence,
+        "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
+        "dead": piece.dead,
+        "brickognize_preview_url": piece.brickognize_preview_url,
+        "images": [
+            {
+                "seq": im.seq,
+                "source": im.source,
+                "channel": im.channel,
+                "sharpness": im.sharpness,
+                "bytes": im.bytes,
+                "used": im.used,
+                "excluded_from_result": im.excluded_from_result,
+                "score": im.score,
+                # image_key is NULL once the crop was evicted from the machine's
+                # local store before syncing — the row rides up regardless, so
+                # the UI still knows the piece had N crops but can't show them.
+                "available": im.image_key is not None,
+                "evicted_locally": im.evicted_locally,
+            }
+            for im in images
+        ],
+    }
+
+
+@router.get("/admin/machines/{machine_id}/pieces")
+def admin_list_machine_pieces(
+    machine_id: UUID,
+    limit: int = Query(60, ge=1, le=200),
+    cursor: int | None = Query(None),
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Every synced piece for one machine, newest first — the fleet analogue of
+    the on-machine /records page. Keyset-paginated on the machine's local_id."""
+    machine = db.query(Machine).filter(Machine.id == machine_id).first()
+    if machine is None:
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+
+    query = db.query(MachinePiece).filter(MachinePiece.machine_id == machine_id)
+    if cursor is not None:
+        query = query.filter(MachinePiece.local_id < cursor)
+    pieces = query.order_by(MachinePiece.local_id.desc()).limit(limit + 1).all()
+
+    has_more = len(pieces) > limit
+    pieces = pieces[:limit]
+    next_cursor = pieces[-1].local_id if (has_more and pieces) else None
+
+    images_by_piece: dict[str, list[MachinePieceImage]] = {}
+    piece_uuids = [p.piece_uuid for p in pieces]
+    if piece_uuids:
+        images = (
+            db.query(MachinePieceImage)
+            .filter(
+                MachinePieceImage.machine_id == machine_id,
+                MachinePieceImage.piece_uuid.in_(piece_uuids),
+            )
+            .order_by(MachinePieceImage.seq.asc())
+            .all()
+        )
+        for im in images:
+            images_by_piece.setdefault(im.piece_uuid, []).append(im)
+
+    total = (
+        db.query(func.count(MachinePiece.id))
+        .filter(MachinePiece.machine_id == machine_id)
+        .scalar()
+        or 0
+    )
+
+    return {
+        "machine": {
+            "id": str(machine.id),
+            "name": machine.name,
+            "owner_email": machine.owner.email if machine.owner else None,
+        },
+        "items": [
+            _serialize_machine_piece(p, images_by_piece.get(p.piece_uuid, []))
+            for p in pieces
+        ],
+        "next_cursor": next_cursor,
+        "total": total,
+    }
+
+
+@router.get("/admin/machines/{machine_id}/pieces/{piece_uuid}/images/{seq}")
+def admin_get_machine_piece_image(
+    machine_id: UUID,
+    piece_uuid: str,
+    seq: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Stream one synced crop's bytes from object storage. Cookie-session admin
+    auth is enough for an <img> tag on a same-origin page."""
+    image = (
+        db.query(MachinePieceImage)
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid == piece_uuid,
+            MachinePieceImage.seq == seq,
+        )
+        .first()
+    )
+    if image is None or not image.image_key:
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+
+    return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
 
 
 @router.post("/machines", response_model=MachineWithTokenResponse)

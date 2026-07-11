@@ -152,20 +152,12 @@
 		{:else if loading}
 			<div class="mt-2 text-sm text-text-muted">Loading...</div>
 		{/if}
-	</div>
-
-	{#if currentUpdate}
-		<Alert variant="success">
-			<div class="flex items-center justify-between gap-3">
-				<div class="min-w-0">
-					<div class="font-medium text-text">Update available</div>
-					<div class="truncate text-text-muted">
-						{currentUpdate.name} → <span class="font-mono">{currentUpdate.sha}</span>
-						{#if currentUpdate.subject}
-							· {currentUpdate.subject}
-						{/if}
-					</div>
-				</div>
+		{#if currentUpdate}
+			<div class="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+				<span class="text-sm text-text-muted">
+					New version available —
+					<span class="font-mono text-text">{currentUpdate.sha}</span>
+				</span>
 				<Button
 					variant="success"
 					disabled={updatingRef !== null}
@@ -175,8 +167,8 @@
 					Update
 				</Button>
 			</div>
-		</Alert>
-	{/if}
+		{/if}
+	</div>
 
 	{#if payload?.fetch_error}
 		<Alert variant="warning">Could not fetch from origin: {payload.fetch_error}</Alert>
@@ -197,7 +189,7 @@
 	{#if payload && payload.available.length > 0}
 		<div class="border border-border">
 			<div class="border-b border-border bg-surface px-3 py-2">
-				<span class="text-sm font-medium text-text">Available versions</span>
+				<span class="text-sm font-medium text-text">Release channels</span>
 			</div>
 			<ul class="divide-y divide-border">
 				{#each payload.available as entry (entry.kind + entry.name)}
@@ -221,19 +213,17 @@
 								— {entry.subject} · {formatDate(entry.commit_unix)}
 							</div>
 						</div>
-						<Button
-							variant={entry.is_current && !entry.up_to_date ? 'primary' : 'secondary'}
-							size="sm"
-							disabled={updatingRef !== null || (entry.is_current && entry.up_to_date)}
-							loading={updatingRef === `${entry.kind}:${entry.name}`}
-							onclick={() => void applyUpdate(entry)}
-						>
-							{updatingRef === `${entry.kind}:${entry.name}`
-								? 'Updating...'
-								: entry.is_current
-									? 'Update'
-									: 'Switch'}
-						</Button>
+						{#if !entry.is_current}
+							<Button
+								variant="secondary"
+								size="sm"
+								disabled={updatingRef !== null}
+								loading={updatingRef === `${entry.kind}:${entry.name}`}
+								onclick={() => void applyUpdate(entry)}
+							>
+								{updatingRef === `${entry.kind}:${entry.name}` ? 'Switching...' : 'Switch'}
+							</Button>
+						{/if}
 					</li>
 				{/each}
 			</ul>

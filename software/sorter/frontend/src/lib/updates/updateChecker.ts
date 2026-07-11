@@ -22,6 +22,7 @@ const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 
 type VersionEntry = {
 	kind: 'branch' | 'tag';
+	channel?: string;
 	name: string;
 	sha: string;
 	is_current: boolean;
@@ -39,10 +40,11 @@ async function checkForUpdates(): Promise<void> {
 		if (current && !current.up_to_date) {
 			// Single update notification reflecting the latest target sha.
 			notifications.removeByPrefix(UPDATE_ID_PREFIX);
+			const label = current.channel ? `${current.channel} ${current.name}` : current.name;
 			notifications.push({
 				id: `${UPDATE_ID_PREFIX}${current.kind}:${current.name}:${current.sha}`,
 				title: 'Update available',
-				content: `${current.name} → ${current.sha}`,
+				content: `${label} → ${current.sha}`,
 				icon: Download,
 				color: 'success',
 				href: '/settings/versions'

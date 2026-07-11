@@ -24,6 +24,7 @@
 
 	type VersionEntry = {
 		kind: 'branch' | 'tag';
+		channel?: string;
 		name: string;
 		sha: string;
 		commit_unix: number;
@@ -52,6 +53,10 @@
 	// i.e. an update is available for whatever variant you're currently running.
 	const currentUpdate = $derived(
 		payload?.available.find((e) => e.is_current && !e.up_to_date) ?? null
+	);
+	// Which release channel (if any) the machine is currently sitting on.
+	const currentChannel = $derived(
+		payload?.available.find((e) => e.is_current && e.channel)?.channel ?? null
 	);
 
 	function httpBase(): string {
@@ -135,8 +140,12 @@
 		{#if payload}
 			<div class="mt-2 flex flex-col gap-0.5">
 				<div class="text-sm text-text-muted">
-					{payload.current.detached ? 'Version' : 'Branch'}:
-					<span class="font-mono text-text">{payload.current.ref}</span>
+					{#if currentChannel}
+						Channel: <span class="text-text capitalize">{currentChannel}</span>
+					{:else}
+						{payload.current.detached ? 'Version' : 'Branch'}:
+						<span class="font-mono text-text">{payload.current.ref}</span>
+					{/if}
 				</div>
 				<div class="text-sm text-text-muted">
 					Commit:
@@ -201,11 +210,16 @@
 						{/if}
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<span class="truncate font-mono text-sm text-text">{entry.name}</span>
+								{#if entry.channel}
+									<span class="shrink-0 text-sm font-medium text-text capitalize">{entry.channel}</span>
+									<span class="truncate font-mono text-xs text-text-muted">{entry.name}</span>
+								{:else}
+									<span class="truncate font-mono text-sm text-text">{entry.name}</span>
+								{/if}
 								{#if entry.is_current && entry.up_to_date}
 									<span class="shrink-0 text-xs text-success">up to date</span>
 								{:else if entry.is_current}
-									<span class="shrink-0 text-xs text-text-muted">current branch</span>
+									<span class="shrink-0 text-xs text-text-muted">current</span>
 								{/if}
 							</div>
 							<div class="truncate text-xs text-text-muted">

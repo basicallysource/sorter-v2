@@ -15,8 +15,11 @@ from pydantic import BaseModel
 
 router = APIRouter()
 
-RELEASE_TAG_PREFIX = "sorter/v"
-DEFAULT_BRANCH = "main"
+# Release channels are tag namespaces. A machine "on" a channel is sitting on
+# one of the channel's tags; updating moves it to that channel's newest tag.
+STABLE_TAG_PREFIX = "sorter/stable/v"
+CANARY_TAG_PREFIX = "sorter/canary/v"
+RELEASE_CHANNELS = (("stable", STABLE_TAG_PREFIX), ("canary", CANARY_TAG_PREFIX))
 MAX_TAGS_LISTED = 20
 GIT_TIMEOUT_S = 30.0
 GIT_FETCH_TIMEOUT_S = 90.0
@@ -104,61 +107,64 @@ def _currentInfo() -> Dict[str, Any]:
 
 
 def _branchEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
-    names: List[str] = []
+    # Only the branch the machine is actually on — no `main` unless that's it.
     current_branch = current.get("branch")
-    if isinstance(current_branch, str) and current_branch:
-        names.append(current_branch)
-    if DEFAULT_BRANCH not in names:
-        names.append(DEFAULT_BRANCH)
-
-    entries: List[Dict[str, Any]] = []
-    for name in names:
-        info = _commitInfo(f"origin/{name}")
-        if info is None:
-            continue
-        entries.append(
-            {
-                "kind": "branch",
-                "name": name,
-                "sha": info["sha"],
-                "commit_unix": info["commit_unix"],
-                "subject": info["subject"],
-                "is_current": name == current_branch,
-                "up_to_date": info["full_sha"] == current.get("full_sha"),
-            }
-        )
-    return entries
+    if not isinstance(current_branch, str) or not current_branch:
+        return []
+    info = _commitInfo(f"origin/{current_branch}")
+    if info is None:
+        return []
+    return [
+        {
+            "kind": "branch",
+            "name": current_branch,
+            "sha": info["sha"],
+            "commit_unix": info["commit_unix"],
+            "subject": info["subject"],
+            "is_current": True,
+            "up_to_date": info["full_sha"] == current.get("full_sha"),
+        }
+    ]
 
 
-def _tagEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _tagsForPrefix(prefix: str) -> List[Dict[str, Any]]:
     result = _git(
         "tag",
         "-l",
-        f"{RELEASE_TAG_PREFIX}*",
+        f"{prefix}*",
         "--sort=-creatordate",
-        "--format=%(refname:strip=2)%09%(creatordate:unix)",
+        "--format=%(refname:strip=2)",
     )
     if result.returncode != 0:
         return []
-
-    entries: List[Dict[str, Any]] = []
-    for line in result.stdout.strip().splitlines()[:MAX_TAGS_LISTED]:
-        parts = line.split("\t")
-        if len(parts) != 2:
-            continue
-        name = parts[0]
+    tags: List[Dict[str, Any]] = []
+    for name in result.stdout.strip().splitlines()[:MAX_TAGS_LISTED]:
         info = _commitInfo(f"refs/tags/{name}")
         if info is None:
             continue
+        tags.append({"name": name, **info})
+    return tags
+
+
+def _channelEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
+    head_full = current.get("full_sha")
+    entries: List[Dict[str, Any]] = []
+    for channel, prefix in RELEASE_CHANNELS:
+        tags = _tagsForPrefix(prefix)
+        if not tags:
+            continue
+        latest = tags[0]
+        on_channel = any(tag["full_sha"] == head_full for tag in tags)
         entries.append(
             {
                 "kind": "tag",
-                "name": name,
-                "sha": info["sha"],
-                "commit_unix": info["commit_unix"],
-                "subject": info["subject"],
-                "is_current": info["full_sha"] == current.get("full_sha"),
-                "up_to_date": info["full_sha"] == current.get("full_sha"),
+                "channel": channel,
+                "name": latest["name"],
+                "sha": latest["sha"],
+                "commit_unix": latest["commit_unix"],
+                "subject": latest["subject"],
+                "is_current": on_channel,
+                "up_to_date": on_channel and latest["full_sha"] == head_full,
             }
         )
     return entries
@@ -193,7 +199,7 @@ def get_versions(refresh: bool = False) -> Dict[str, Any]:
             fetch_error = result.stderr.strip() or "git fetch failed"
 
     current = _currentInfo()
-    available = _branchEntries(current) + _tagEntries(current)
+    available = _branchEntries(current) + _channelEntries(current)
     return {
         "ok": True,
         "current": current,
@@ -211,8 +217,11 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
         return {"ok": False, "message": f"Unknown ref kind: {req.kind}"}
     if not REF_NAME_PATTERN.match(req.name) or ".." in req.name:
         return {"ok": False, "message": f"Invalid ref name: {req.name}"}
-    if req.kind == "tag" and not req.name.startswith(RELEASE_TAG_PREFIX):
-        return {"ok": False, "message": f"Tags must start with {RELEASE_TAG_PREFIX}"}
+    if req.kind == "tag" and not any(
+        req.name.startswith(prefix) for _, prefix in RELEASE_CHANNELS
+    ):
+        allowed = " or ".join(prefix for _, prefix in RELEASE_CHANNELS)
+        return {"ok": False, "message": f"Release tags must start with {allowed}"}
 
     if not _update_lock.acquire(blocking=False):
         return {"ok": False, "message": f"Update already in progress: {_update_target}"}

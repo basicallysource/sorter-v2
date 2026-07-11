@@ -5,6 +5,7 @@ import {
 	Cloud,
 	Cpu,
 	Gauge,
+	GitBranch,
 	Layers3,
 	Settings,
 	Shapes,
@@ -98,6 +99,12 @@ export const hiveModelsNavItem: SettingsNavItem = {
 	href: '/settings/hive/models',
 	label: 'Models',
 	icon: Cpu
+};
+
+export const versionsNavItem: SettingsNavItem = {
+	href: '/settings/versions',
+	label: 'Versions',
+	icon: GitBranch
 };
 
 export const chuteNavItem: SettingsNavItem = {
@@ -265,6 +272,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
 	hiveNavItem,
 	hiveModelsNavItem,
+	versionsNavItem,
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,

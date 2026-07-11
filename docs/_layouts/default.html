@@ -12,12 +12,20 @@
     <div class="shell">
       <header class="site-header">
         <a class="brand" href="{{ '/' | relative_url }}">
-          <span class="brand-mark">SV2</span>
+          <img class="brand-logo" src="{{ '/assets/basically-logo.svg' | relative_url }}" alt="basically logo" width="26" height="24">
           <span>
             <strong>Sorter V2</strong>
             <small>Documentation</small>
           </span>
         </a>
+        <button type="button" class="construction-banner" aria-haspopup="dialog" aria-controls="construction-modal">
+          <span class="construction-banner-icon" aria-hidden="true">⚠</span>
+          <span class="construction-banner-text">
+            <strong>Under heavy construction</strong>
+            <small>Docs are incomplete &amp; may be inaccurate — don't build Sorter yet.</small>
+          </span>
+          <span class="construction-banner-chevron" aria-hidden="true">▾</span>
+        </button>
         <nav class="site-nav" aria-label="Primary">
           <a href="{{ '/' | relative_url }}"{% if page.slug == "home" %} aria-current="page"{% endif %}>Overview</a>
           {% for section in site.data.nav.sections %}
@@ -25,6 +33,22 @@
           {% endfor %}
         </nav>
       </header>
+
+      <dialog id="construction-modal" class="construction-modal">
+        <div class="construction-modal-inner">
+          <div class="construction-modal-head">
+            <h2>⚠ Under heavy construction</h2>
+            <form method="dialog">
+              <button class="construction-modal-close" aria-label="Close">✕</button>
+            </form>
+          </div>
+          <p>As of July 11, 2026, Sorter V2 is not yet in a position to be built.</p>
+          <p>The documentation that exists is incomplete. Any given page may be accurate, inaccurate, present only as an example, or badly out of date. We do not yet recommend that anyone attempt to build Sorter.</p>
+          <p class="construction-modal-discord">
+            For the most live updates on our progress, <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">join our Discord&nbsp;↗</a>.
+          </p>
+        </div>
+      </dialog>
 
       {% assign current_section = nil %}
       {% if page.section %}
@@ -79,6 +103,7 @@
           <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
           <a href="mailto:contact@basically.website">contact@basically.website</a>
           <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://discord.gg/6PZtqkwtaS" target="_blank" rel="noopener">Discord</a>
           <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
         </nav>
         <p class="site-footer-legal">
@@ -87,5 +112,16 @@
       </footer>
     </div>
     <script src="{{ '/assets/copy-code.js' | relative_url }}" defer></script>
+    <script>
+      (function () {
+        var modal = document.getElementById('construction-modal');
+        var opener = document.querySelector('.construction-banner');
+        if (!modal || !opener || typeof modal.showModal !== 'function') return;
+        opener.addEventListener('click', function () { modal.showModal(); });
+        modal.addEventListener('click', function (e) {
+          if (e.target === modal) modal.close();
+        });
+      })();
+    </script>
   </body>
 </html>

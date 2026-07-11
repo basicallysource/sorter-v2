@@ -2,7 +2,7 @@
 	import { page } from '$app/state';
 	import {
 		api,
-		type Machine,
+		type MachineOverview,
 		type MachineConfigBackupSummary,
 		type MachineConfigBackupDetail
 	} from '$lib/api';
@@ -12,7 +12,7 @@
 
 	const machineId = $derived(page.params.machine_id ?? '');
 
-	let machine = $state<Machine | null>(null);
+	let overview = $state<MachineOverview | null>(null);
 	let backups = $state<MachineConfigBackupSummary[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
@@ -21,6 +21,18 @@
 	let detail = $state<MachineConfigBackupDetail | null>(null);
 	let detailLoading = $state(false);
 	let openStateKey = $state<string | null>(null);
+
+	const machine = $derived(overview?.machine ?? null);
+	const stats = $derived(overview?.stats ?? null);
+	const isOwner = $derived(overview?.is_owner ?? false);
+	const isOnline = $derived(
+		!!machine?.last_seen_at && Date.now() - new Date(machine.last_seen_at).getTime() < 5 * 60 * 1000
+	);
+	const backLink = $derived(
+		overview && !overview.is_owner && overview.viewer_is_admin
+			? { href: '/admin/machines', label: '← All machines' }
+			: { href: '/machines', label: '← My Machines' }
+	);
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
@@ -31,6 +43,22 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
+	}
+
+	function num(n: number | null | undefined): string {
+		return n != null ? Math.round(n).toLocaleString() : '—';
+	}
+	function ppm(n: number | null | undefined): string {
+		return n && n > 0 ? n.toFixed(1) : '—';
+	}
+	function pct(n: number | null | undefined): string {
+		return n && n > 0 ? `${n.toFixed(1)}%` : '—';
+	}
+	function duration(seconds: number | null | undefined): string {
+		if (!seconds || seconds <= 0) return '—';
+		const h = seconds / 3600;
+		if (h >= 1) return `${h.toFixed(1)}h`;
+		return `${Math.round(seconds / 60)}m`;
 	}
 
 	function triggerVariant(trigger: string): 'success' | 'neutral' | 'warning' {
@@ -44,11 +72,19 @@
 		if (!id) return;
 		loading = true;
 		error = null;
-		Promise.all([api.getMachines({ scope: 'mine' }), api.getMachineConfigBackups(id)])
-			.then(([machines, backupList]) => {
-				machine = machines.find((m) => m.id === id) ?? null;
-				backups = backupList;
-				if (!machine) error = 'Machine not found (or not owned by you).';
+		backups = [];
+		overview = null;
+		api
+			.getMachineOverview(id)
+			.then((ov) => {
+				overview = ov;
+				// Config backups are owner-only on the backend; skip the call for
+				// admins viewing someone else's machine.
+				if (ov.is_owner) {
+					return api.getMachineConfigBackups(id).then((list) => {
+						backups = list;
+					});
+				}
 			})
 			.catch((err) => {
 				error = (err as { error?: string }).error || 'Failed to load machine.';
@@ -98,110 +134,230 @@
 	}
 </script>
 
-<div class="mx-auto max-w-4xl px-4 py-8">
-	<a href="/machines" class="text-sm text-text-muted hover:text-primary hover:underline">← Machines</a>
+<svelte:head>
+	<title>{machine ? `${machine.name} — Overview` : 'Machine'} · Hive</title>
+</svelte:head>
+
+<div class="mx-auto max-w-5xl px-4 py-8">
+	<a href={backLink.href} class="text-sm text-text-muted hover:text-primary hover:underline">{backLink.label}</a>
 
 	{#if loading}
 		<div class="mt-8 flex justify-center"><Spinner /></div>
 	{:else if error}
 		<div class="mt-6"><Alert variant="danger">{error}</Alert></div>
-	{:else if machine}
+	{:else if overview && machine}
+		<!-- Header -->
 		<header class="mt-3 border border-border bg-surface p-5">
 			<div class="flex items-start justify-between gap-4">
 				<div class="min-w-0">
-					<h1 class="text-xl font-semibold text-text">{machine.name}</h1>
+					<div class="flex items-center gap-2">
+						<span class="inline-block h-2.5 w-2.5 rounded-full {isOnline ? 'bg-success' : 'bg-border'}"></span>
+						<h1 class="truncate text-xl font-semibold text-text">{machine.name}</h1>
+						<span class="text-[10px] font-medium uppercase tracking-wider {isOnline ? 'text-success' : 'text-text-muted'}">
+							{isOnline ? 'Online' : 'Offline'}
+						</span>
+					</div>
 					{#if machine.description}
 						<p class="mt-1 text-sm text-text-muted">{machine.description}</p>
 					{/if}
+					{#if !isOwner && machine.owner.display_name}
+						<p class="mt-1 text-xs text-text-muted">
+							Owner: <span class="text-text">{machine.owner.display_name}</span>
+							{#if machine.owner.email}<span class="text-text-muted"> · {machine.owner.email}</span>{/if}
+						</p>
+					{/if}
 				</div>
-				<Badge text={machine.is_active ? 'Active' : 'Inactive'} variant={machine.is_active ? 'success' : 'neutral'} />
+				<div class="flex shrink-0 items-center gap-2">
+					{#if machine.archived_at}
+						<Badge text="Archived" variant="neutral" />
+					{:else}
+						<Badge text={machine.is_active ? 'Active' : 'Inactive'} variant={machine.is_active ? 'success' : 'neutral'} />
+					{/if}
+				</div>
 			</div>
-			<dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-3">
+
+			<dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
 				<div>
 					<dt class="text-text-muted">Last seen</dt>
 					<dd class="text-text">{formatDate(machine.last_seen_at)}</dd>
+				</div>
+				<div>
+					<dt class="text-text-muted">Registered</dt>
+					<dd class="text-text">{formatDate(machine.created_at)}</dd>
 				</div>
 				<div>
 					<dt class="text-text-muted">Token</dt>
 					<dd class="text-text">{machine.token_prefix}…</dd>
 				</div>
 				<div>
-					<dt class="text-text-muted">Added</dt>
-					<dd class="text-text">{formatDate(machine.created_at)}</dd>
+					<dt class="text-text-muted">Local UI</dt>
+					<dd class="text-text">
+						{#if machine.last_seen_ip}
+							<a
+								href={`http://${machine.last_seen_ip}:${machine.local_ui_port || '8000'}`}
+								target="_blank"
+								rel="noopener noreferrer"
+								class="text-primary hover:underline">Open ↗</a
+							>
+						{:else}
+							—
+						{/if}
+					</dd>
 				</div>
 			</dl>
 		</header>
 
+		<!-- Piece stats -->
 		<section class="mt-6">
 			<div class="flex items-baseline justify-between">
-				<h2 class="text-lg font-semibold text-text">Config backups</h2>
-				<span class="text-sm text-text-muted">{backups.length} version{backups.length === 1 ? '' : 's'}</span>
+				<h2 class="text-lg font-semibold text-text">Sorting</h2>
+				<a
+					href={`/machines/${machine.id}/pieces`}
+					class="text-sm text-primary hover:underline">View pieces →</a
+				>
 			</div>
-			<p class="mt-1 text-sm text-text-muted">
-				Versioned snapshots of this machine's settings. A new version is stored only when the config
-				actually changes.
+			<div class="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
+				{#each [
+					{ label: 'Pieces counted', value: num(stats?.pieces_seen) },
+					{ label: 'Distributed', value: num(stats?.distributed) },
+					{ label: 'Parts / min', value: ppm(stats?.overall_ppm) },
+					{ label: 'On-time', value: pct(stats?.ontime_pct) },
+					{ label: 'Active time', value: duration(stats?.active_seconds) },
+					{ label: 'Classified', value: num(stats?.classified) },
+					{ label: 'Unique parts', value: num(stats?.unique_parts) },
+					{ label: 'Unique colors', value: num(stats?.unique_colors) }
+				] as cell (cell.label)}
+					<div class="flex flex-col items-center bg-surface py-4">
+						<span class="text-xl font-bold text-text tabular-nums">{cell.value}</span>
+						<span class="mt-0.5 text-[10px] uppercase tracking-wider text-text-muted">{cell.label}</span>
+					</div>
+				{/each}
+			</div>
+			<p class="mt-2 text-xs text-text-muted">
+				First piece {formatDate(stats?.first_seen ?? null)} · Last piece {formatDate(stats?.last_seen ?? null)}.
+				PPM and on-time are inferred from synced piece timestamps (active sorting from piece density),
+				not the machine's exact powered clock.
 			</p>
+		</section>
 
-			{#if backups.length === 0}
-				<div class="mt-4 border border-border bg-surface p-6 text-center text-sm text-text-muted">
-					No backups yet. The machine pushes one automatically once its settings are saved.
-				</div>
-			{:else}
-				<div class="mt-4 border border-border bg-surface">
-					{#each backups as backup (backup.id)}
-						<div class="border-b border-border last:border-b-0">
-							<button
-								type="button"
-								onclick={() => toggle(backup.version)}
-								class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
-							>
-								<span class="font-mono text-sm font-semibold text-text">v{backup.version}</span>
-								<Badge text={backup.trigger} variant={triggerVariant(backup.trigger)} />
-								<span class="text-sm text-text-muted">{formatDate(backup.created_at)}</span>
-								<span class="ml-auto font-mono text-xs text-text-muted">{backup.content_hash.slice(0, 12)}</span>
-								<span class="text-text-muted">{expanded === backup.version ? '▾' : '▸'}</span>
-							</button>
-							{#if expanded === backup.version}
-								<div class="border-t border-border bg-bg px-4 py-3">
-									{#if detailLoading}
-										<div class="flex justify-center py-4"><Spinner /></div>
-									{:else if detail}
-										<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
-											local_state
-										</div>
-										{#if localStateKeys(detail).length > 0}
-											<div class="mb-4 border border-border">
-												{#each localStateKeys(detail) as key (key)}
-													{@const d = detail}
-													<div class="border-b border-border last:border-b-0">
-														<button
-															type="button"
-															onclick={() => (openStateKey = openStateKey === key ? null : key)}
-															class="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface"
-														>
-															<span class="font-mono text-xs text-text">{key}</span>
-															<span class="ml-auto text-text-muted">{openStateKey === key ? '▾' : '▸'}</span>
-														</button>
-														{#if openStateKey === key}
-															<pre class="max-h-80 overflow-auto border-t border-border bg-surface p-3 text-xs text-text">{localStateJson(d, key)}</pre>
-														{/if}
-													</div>
-												{/each}
-											</div>
-										{:else}
-											<p class="mb-4 text-sm text-text-muted">No local_state captured.</p>
-										{/if}
-										<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
-											machine_params.toml
-										</div>
-										<pre class="max-h-96 overflow-auto border border-border bg-surface p-3 text-xs text-text">{tomlText(detail) || '(empty)'}</pre>
-									{/if}
-								</div>
-							{/if}
-						</div>
-					{/each}
+		<!-- Sample capture -->
+		<section class="mt-6">
+			<h2 class="text-lg font-semibold text-text">Sample capture</h2>
+			<div class="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
+				{#each [
+					{ label: 'Samples', value: num(stats?.total_samples) },
+					{ label: 'Accepted', value: num(stats?.accepted_samples) },
+					{ label: 'Sessions', value: num(stats?.total_sessions) },
+					{
+						label: 'Accept rate',
+						value:
+							stats && stats.total_samples > 0
+								? `${Math.round((stats.accepted_samples / stats.total_samples) * 100)}%`
+								: '—'
+					}
+				] as cell (cell.label)}
+					<div class="flex flex-col items-center bg-surface py-4">
+						<span class="text-xl font-bold text-text tabular-nums">{cell.value}</span>
+						<span class="mt-0.5 text-[10px] uppercase tracking-wider text-text-muted">{cell.label}</span>
+					</div>
+				{/each}
+			</div>
+			{#if stats && stats.parts_needed > 0}
+				{@const found = stats.parts_found}
+				{@const needed = stats.parts_needed}
+				{@const p = Math.round((found / needed) * 100)}
+				<div class="mt-3 border border-border bg-surface px-4 py-3">
+					<div class="mb-1.5 flex items-center justify-between text-xs">
+						<span class="font-medium text-text">Set parts found</span>
+						<span class="font-mono text-text-muted">{found}/{needed} ({p}%)</span>
+					</div>
+					<div class="h-2 w-full bg-border">
+						<div class="h-full bg-success transition-all" style="width: {p}%"></div>
+					</div>
 				</div>
 			{/if}
+			<p class="mt-2 text-xs text-text-muted">
+				First capture {formatDate(stats?.first_capture ?? null)} · Last capture {formatDate(stats?.last_capture ?? null)}.
+			</p>
 		</section>
+
+		{#if stats?.computed_at}
+			<p class="mt-4 text-xs text-text-muted">Stats as of {formatDate(stats.computed_at)} (refreshed hourly).</p>
+		{/if}
+
+		<!-- Config backups (owner only) -->
+		{#if isOwner}
+			<section class="mt-8">
+				<div class="flex items-baseline justify-between">
+					<h2 class="text-lg font-semibold text-text">Config backups</h2>
+					<span class="text-sm text-text-muted">{backups.length} version{backups.length === 1 ? '' : 's'}</span>
+				</div>
+				<p class="mt-1 text-sm text-text-muted">
+					Versioned snapshots of this machine's settings. A new version is stored only when the config
+					actually changes.
+				</p>
+
+				{#if backups.length === 0}
+					<div class="mt-4 border border-border bg-surface p-6 text-center text-sm text-text-muted">
+						No backups yet. The machine pushes one automatically once its settings are saved.
+					</div>
+				{:else}
+					<div class="mt-4 border border-border bg-surface">
+						{#each backups as backup (backup.id)}
+							<div class="border-b border-border last:border-b-0">
+								<button
+									type="button"
+									onclick={() => toggle(backup.version)}
+									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
+								>
+									<span class="font-mono text-sm font-semibold text-text">v{backup.version}</span>
+									<Badge text={backup.trigger} variant={triggerVariant(backup.trigger)} />
+									<span class="text-sm text-text-muted">{formatDate(backup.created_at)}</span>
+									<span class="ml-auto font-mono text-xs text-text-muted">{backup.content_hash.slice(0, 12)}</span>
+									<span class="text-text-muted">{expanded === backup.version ? '▾' : '▸'}</span>
+								</button>
+								{#if expanded === backup.version}
+									<div class="border-t border-border bg-bg px-4 py-3">
+										{#if detailLoading}
+											<div class="flex justify-center py-4"><Spinner /></div>
+										{:else if detail}
+											<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
+												local_state
+											</div>
+											{#if localStateKeys(detail).length > 0}
+												<div class="mb-4 border border-border">
+													{#each localStateKeys(detail) as key (key)}
+														{@const d = detail}
+														<div class="border-b border-border last:border-b-0">
+															<button
+																type="button"
+																onclick={() => (openStateKey = openStateKey === key ? null : key)}
+																class="flex w-full items-center gap-2 px-3 py-2 text-left hover:bg-surface"
+															>
+																<span class="font-mono text-xs text-text">{key}</span>
+																<span class="ml-auto text-text-muted">{openStateKey === key ? '▾' : '▸'}</span>
+															</button>
+															{#if openStateKey === key}
+																<pre class="max-h-80 overflow-auto border-t border-border bg-surface p-3 text-xs text-text">{localStateJson(d, key)}</pre>
+															{/if}
+														</div>
+													{/each}
+												</div>
+											{:else}
+												<p class="mb-4 text-sm text-text-muted">No local_state captured.</p>
+											{/if}
+											<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
+												machine_params.toml
+											</div>
+											<pre class="max-h-96 overflow-auto border border-border bg-surface p-3 text-xs text-text">{tomlText(detail) || '(empty)'}</pre>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						{/each}
+					</div>
+				{/if}
+			</section>
+		{/if}
 	{/if}
 </div>

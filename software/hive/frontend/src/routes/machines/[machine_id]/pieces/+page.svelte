@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { auth } from '$lib/auth.svelte';
 	import { api, type MachinePieceRecord } from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -9,7 +7,7 @@
 
 	const PAGE_SIZE = 60;
 
-	const machineId = $derived(page.params.id ?? '');
+	const machineId = $derived(page.params.machine_id ?? '');
 
 	let machineName = $state<string>('');
 	let pieces = $state<MachinePieceRecord[]>([]);
@@ -21,10 +19,6 @@
 	let sentinel = $state<HTMLDivElement | null>(null);
 
 	$effect(() => {
-		if (!auth.isAdmin) {
-			goto('/');
-			return;
-		}
 		// Re-run the initial load whenever the route id changes.
 		void machineId;
 		void loadInitial();
@@ -118,11 +112,11 @@
 </script>
 
 <svelte:head>
-	<title>{machineName ? `${machineName} — Pieces` : 'Machine Pieces'} - Hive</title>
+	<title>{machineName ? `${machineName} — Pieces` : 'Machine Pieces'} · Hive</title>
 </svelte:head>
 
 <div class="mb-4">
-	<a href="/admin/machines" class="text-sm text-text-muted hover:text-text">← All machines</a>
+	<a href={`/machines/${machineId}`} class="text-sm text-text-muted hover:text-text">← Machine overview</a>
 </div>
 
 <div class="mb-6 flex items-end justify-between">

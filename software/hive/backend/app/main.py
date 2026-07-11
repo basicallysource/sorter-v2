@@ -31,6 +31,7 @@ from app.routers import (
 )
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
 from app.services.condition_worker import get_condition_worker
+from app.services.machine_stats import get_machine_stats_worker
 from app.services.teacher_worker import get_teacher_worker
 
 limiter = Limiter(key_func=get_remote_address)
@@ -42,11 +43,13 @@ async def lifespan(_app: FastAPI):
         get_profile_catalog_service().start_auto_sync_loop()
     get_teacher_worker().start()
     get_condition_worker().start()
+    get_machine_stats_worker().start()
     try:
         yield
     finally:
         get_teacher_worker().stop()
         get_condition_worker().stop()
+        get_machine_stats_worker().stop()
         service = get_existing_profile_catalog_service()
         if service is not None:
             service.stop_auto_sync_loop()

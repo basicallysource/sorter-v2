@@ -128,11 +128,13 @@ def _branchEntries(current: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 def _tagsForPrefix(prefix: str) -> List[Dict[str, Any]]:
+    # Version-descending so the channel's newest *release number* is first,
+    # independent of commit/tag dates (v1.10.0 > v1.9.0, not lexical).
     result = _git(
         "tag",
         "-l",
         f"{prefix}*",
-        "--sort=-creatordate",
+        "--sort=-v:refname",
         "--format=%(refname:strip=2)",
     )
     if result.returncode != 0:

@@ -379,6 +379,10 @@ class MachineStatsWorker:
         db = SessionLocal()
         try:
             count = refresh_cache(db)
+            # Same pass also maintains the per-day analytics substrate.
+            from app.services import analytics
+
+            analytics.refresh_daily_stats(db)
             self._update_state(
                 last_run_at=datetime.now(timezone.utc).isoformat(),
                 last_run_machines=count,

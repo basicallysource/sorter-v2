@@ -9,6 +9,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Alert } from '$lib/components/primitives';
+	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
 
 	const machineId = $derived(page.params.machine_id ?? '');
 
@@ -284,6 +285,12 @@
 		{#if stats?.computed_at}
 			<p class="mt-4 text-xs text-text-muted">Stats as of {formatDate(stats.computed_at)} (refreshed hourly).</p>
 		{/if}
+
+		<!-- Analytics (charts) -->
+		<section class="mt-8">
+			<h2 class="mb-3 text-lg font-semibold text-text">Analytics</h2>
+			<AnalyticsDashboard machineId={machine.id} showTotals={false} />
+		</section>
 
 		<!-- Config backups (owner only) -->
 		{#if isOwner}

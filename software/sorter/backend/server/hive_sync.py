@@ -13,18 +13,17 @@ so the same machine drains its full history into prod and staging independently.
 
 from __future__ import annotations
 
-import json
 import logging
 import threading
 import time
-from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
 import piece_image_store
 import piece_records
 from blob_manager import getHiveConfig
+from hive_telemetry import HiveTelemetryClient, telemetryAllows
 
 log = logging.getLogger(__name__)
 
@@ -91,39 +90,6 @@ def _imageToMeta(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-class _SyncClient:
-    def __init__(self, url: str, token: str) -> None:
-        self._url = url.rstrip("/")
-        self._session = requests.Session()
-        self._session.headers["Authorization"] = f"Bearer {token}"
-
-    def getState(self) -> dict[str, Any]:
-        response = self._session.get(f"{self._url}/api/machine/sync/state", timeout=15)
-        response.raise_for_status()
-        return response.json()
-
-    def pushRecords(self, records: list[dict[str, Any]]) -> int:
-        response = self._session.post(
-            f"{self._url}/api/machine/sync/piece-records",
-            json={"records": records},
-            timeout=60,
-        )
-        response.raise_for_status()
-        return int(response.json()["max_local_id"])
-
-    def pushImage(self, meta: dict[str, Any], file_path: Optional[Path]) -> int:
-        url = f"{self._url}/api/machine/sync/piece-image"
-        data = {"metadata": json.dumps(meta)}
-        if file_path is not None and file_path.is_file():
-            with open(file_path, "rb") as handle:
-                files = {"image": (file_path.name, handle.read(), "image/jpeg")}
-            response = self._session.post(url, data=data, files=files, timeout=60)
-        else:
-            response = self._session.post(url, data=data, timeout=60)
-        response.raise_for_status()
-        return int(response.json()["max_local_id"])
-
-
 class HiveSyncWorker:
     def __init__(self, gc: Any) -> None:
         self._gc = gc
@@ -182,7 +148,7 @@ class HiveSyncWorker:
             }
             if enabled:
                 try:
-                    state["client"] = _SyncClient(url, token)
+                    state["client"] = HiveTelemetryClient(url, token, target_id)
                     log.info("Hive sync enabled: %s (%s)", state["name"], url)
                 except Exception as exc:
                     state["enabled"] = False
@@ -226,25 +192,31 @@ class HiveSyncWorker:
     def _ensureState(self, target: dict[str, Any]) -> None:
         if target["state_ok"] and target["wm"][DATA_TYPE_RECORDS] is not None:
             return
-        state = target["client"].getState()
+        state = target["client"].getSyncState()
         for data_type in (DATA_TYPE_RECORDS, DATA_TYPE_IMAGES):
             raw = state.get(data_type) if isinstance(state, dict) else None
             value = raw.get("max_local_id") if isinstance(raw, dict) else 0
             target["wm"][data_type] = int(value or 0)
 
     def _drainRecords(self, target: dict[str, Any]) -> bool:
+        if not telemetryAllows(target["id"], "piece_metadata"):
+            return False
         wm = int(target["wm"][DATA_TYPE_RECORDS] or 0)
         if piece_records.getMaxRecordId() <= wm:
             return False
         rows = piece_records.listRecordsAfter(wm, RECORDS_BATCH)
         if not rows:
             return False
-        new_max = target["client"].pushRecords([_recordToPayload(r) for r in rows])
+        new_max = target["client"].pushPieceRecords([_recordToPayload(r) for r in rows])
         target["wm"][DATA_TYPE_RECORDS] = max(wm, int(new_max), int(rows[-1]["id"]))
         time.sleep(RECORDS_THROTTLE_S)
         return True
 
     def _drainImages(self, target: dict[str, Any]) -> bool:
+        # Skip instead of pushing metadata-only rows: with images disabled the
+        # watermark freezes here and the backlog drains if re-enabled later.
+        if not telemetryAllows(target["id"], "detection_images"):
+            return False
         wm = int(target["wm"][DATA_TYPE_IMAGES] or 0)
         if piece_image_store.getMaxImageId() <= wm:
             return False
@@ -253,7 +225,7 @@ class HiveSyncWorker:
             return False
         for row in rows:
             file_path = None if row["evicted_locally"] else piece_image_store.getImageFileById(row["id"])
-            new_max = target["client"].pushImage(_imageToMeta(row), file_path)
+            new_max = target["client"].pushPieceImage(_imageToMeta(row), file_path)
             target["wm"][DATA_TYPE_IMAGES] = max(int(target["wm"][DATA_TYPE_IMAGES] or 0), int(new_max), int(row["id"]))
             time.sleep(IMAGES_THROTTLE_S)
         return True

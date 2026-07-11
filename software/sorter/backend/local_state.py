@@ -234,6 +234,17 @@ def _normalize_hive_target(raw: Any, index: int) -> dict[str, Any] | None:
     }
     if isinstance(machine_id, str) and machine_id.strip():
         target["machine_id"] = machine_id.strip()
+    telemetry = raw.get("telemetry")
+    if isinstance(telemetry, dict):
+        # Per-target upload permissions; hive_telemetry owns the field set and
+        # defaults, so pass through any bool entries untouched.
+        normalized_telemetry = {
+            key: value
+            for key, value in telemetry.items()
+            if isinstance(key, str) and isinstance(value, bool)
+        }
+        if normalized_telemetry:
+            target["telemetry"] = normalized_telemetry
     return target
 
 

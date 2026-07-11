@@ -110,7 +110,7 @@
 						<td class="whitespace-nowrap px-4 py-3">
 							<div class="flex items-center gap-2">
 								<a
-										href={`/admin/machines/${machine.id}`}
+										href={`/machines/${machine.id}`}
 										class="text-sm font-medium text-primary hover:underline"
 									>{machine.name}</a>
 								{#if machine.archived_at}

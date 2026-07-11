@@ -84,6 +84,75 @@ export interface FleetMachineStats {
 	ontime_pct: number;
 }
 
+export interface MachineOverviewStats {
+	pieces_seen: number;
+	distributed: number;
+	classified: number;
+	unique_parts: number;
+	unique_colors: number;
+	first_seen: string | null;
+	last_seen: string | null;
+	active_seconds: number;
+	overall_ppm: number;
+	ontime_pct: number;
+	total_samples: number;
+	accepted_samples: number;
+	first_capture: string | null;
+	last_capture: string | null;
+	total_sessions: number;
+	parts_found: number;
+	parts_needed: number;
+	computed_at: string | null;
+}
+
+export interface MachineOverview {
+	machine: {
+		id: string;
+		name: string;
+		description: string | null;
+		is_active: boolean;
+		archived_at: string | null;
+		last_seen_at: string | null;
+		last_seen_ip: string | null;
+		local_ui_port: string | null;
+		created_at: string | null;
+		token_prefix: string;
+		hardware_info: Record<string, unknown> | null;
+		owner: { display_name: string | null; email: string | null };
+	};
+	stats: MachineOverviewStats;
+	is_owner: boolean;
+	viewer_is_admin: boolean;
+}
+
+export interface StorageBucket {
+	bytes: number;
+	files: number;
+}
+
+export interface ServerHealth {
+	storage: {
+		sample_images: StorageBucket;
+		piece_images: StorageBucket;
+		model_files: StorageBucket;
+		total_bytes: number;
+		total_files: number;
+		computed_at: number;
+		cached: boolean;
+	};
+	database: {
+		total_bytes: number | null;
+		dialect: string;
+		tables: { name: string; bytes: number; rows: number }[];
+	};
+	memory: {
+		total_bytes: number | null;
+		available_bytes: number | null;
+		used_bytes: number | null;
+		process_rss_bytes: number | null;
+	};
+}
+
 export interface MachinePieceImageInfo {
 	seq: number;
 	source: string | null;
@@ -840,6 +909,16 @@ export const api = {
 	getMachineStats() {
 		return request<Record<string, MachineStats>>('GET', '/api/machines/stats');
 	},
+	getMachineOverview(machineId: string) {
+		return request<MachineOverview>('GET', `/api/machines/${machineId}/overview`);
+	},
+	refreshAllMachineStats() {
+		return request<{ ok: boolean; refreshed: number }>('POST', '/api/admin/machines/stats/refresh');
+	},
+	getServerHealth(opts: { refreshStorage?: boolean } = {}) {
+		const qs = opts.refreshStorage ? '?refresh_storage=true' : '';
+		return request<ServerHealth>('GET', `/api/admin/server-health${qs}`);
+	},
 	getAllMachines() {
 		return request<FleetMachine[]>('GET', '/api/admin/machines');
 	},
@@ -853,12 +932,12 @@ export const api = {
 		const qs = params.toString();
 		return request<MachinePiecesPage>(
 			'GET',
-			`/api/admin/machines/${machineId}/pieces${qs ? `?${qs}` : ''}`
+			`/api/machines/${machineId}/pieces${qs ? `?${qs}` : ''}`
 		);
 	},
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveApiPath(
-			`/api/admin/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
+			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
 	createMachine(name: string, description?: string) {

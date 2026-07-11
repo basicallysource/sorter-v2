@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 import shutil
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import BinaryIO
+from typing import BinaryIO, Iterator
 
 from fastapi import HTTPException, Response
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
@@ -26,6 +27,12 @@ class StorageBackend(ABC):
 
     @abstractmethod
     def read_bytes(self, key: str) -> bytes: ...
+
+    @abstractmethod
+    def iter_sizes(self) -> Iterator[tuple[str, int]]:
+        """Yield (key, size_bytes) for every stored object. Used for storage
+        accounting on the admin server-health dashboard."""
+        ...
 
     @abstractmethod
     def serve(
@@ -75,6 +82,20 @@ class LocalStorageBackend(StorageBackend):
         if not str(full).startswith(str(base)):
             raise FileNotFoundError(key)
         return full.read_bytes()
+
+    def iter_sizes(self) -> Iterator[tuple[str, int]]:
+        base = self.base.resolve()
+        if not base.exists():
+            return
+        for root, _dirs, files in os.walk(base):
+            for name in files:
+                full = Path(root) / name
+                try:
+                    size = full.stat().st_size
+                except OSError:
+                    continue
+                key = str(full.relative_to(base)).replace(os.sep, "/")
+                yield key, size
 
     def serve(
         self,
@@ -161,6 +182,12 @@ class S3StorageBackend(StorageBackend):
         except self.client.exceptions.NoSuchKey as exc:
             raise FileNotFoundError(key) from exc
         return obj["Body"].read()
+
+    def iter_sizes(self) -> Iterator[tuple[str, int]]:
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket):
+            for obj in page.get("Contents", []):
+                yield obj["Key"], int(obj.get("Size", 0))
 
     def serve(
         self,

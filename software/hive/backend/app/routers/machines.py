@@ -23,8 +23,10 @@ from app.schemas.machine import (
     MachineUpdate,
     MachineWithTokenResponse,
 )
+from app.services import machine_stats
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
+from app.services.machine_stats import get_machine_stats_worker
 from app.services.storage import delete_machine_files, serve_stored_file
 
 router = APIRouter(prefix="/api", tags=["machines"])
@@ -169,11 +171,82 @@ def admin_machine_stats(
 ):
     """Per-machine lifetime metrics (pieces, PPM, on-time %) across ALL machines.
 
-    Computed entirely from synced piece records — see app.services.machine_fleet.
+    Served from the machine_stats_cache table, refreshed hourly by the
+    MachineStatsWorker (see app.services.machine_stats). Cold-start fallback:
+    if the cache has never been populated, compute it once here so the first
+    admin load isn't blank.
     """
-    from app.services.machine_fleet import get_fleet_stats
+    from app.models.machine_stats_cache import MachineStatsCache
 
-    return get_fleet_stats(db)
+    if db.query(MachineStatsCache.machine_id).first() is None:
+        try:
+            machine_stats.refresh_cache(db)
+        except Exception:
+            # A concurrent refresh (e.g. the boot-time worker pass) may have
+            # populated the cache between the check and here — just serve
+            # whatever is there rather than 500 on the insert race.
+            db.rollback()
+    return machine_stats.get_fleet_stats(db)
+
+
+@router.post("/admin/machines/stats/refresh")
+def admin_refresh_machine_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Force an immediate recompute of every machine's cached stats."""
+    count = machine_stats.refresh_cache(db)
+    return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
+
+
+def _machine_for_viewer(db: Session, machine_id: UUID, user: User) -> Machine:
+    """Fetch a machine the given user may view (its owner, or any admin).
+
+    Non-owners without the admin role get a 404 rather than a 403 so the
+    endpoint doesn't confirm the existence of other users' machines.
+    """
+    machine = db.query(Machine).options(joinedload(Machine.owner)).filter(Machine.id == machine_id).first()
+    if machine is None or (str(machine.owner_id) != str(user.id) and user.role != "admin"):
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+    return machine
+
+
+@router.get("/machines/{machine_id}/overview")
+def get_machine_overview(
+    machine_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dashboard overview for a single machine — metadata + cached stats.
+
+    Accessible to the machine's owner or any admin. Stats come from the
+    machine_stats_cache (lazily computed on a miss)."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+    stats = machine_stats.get_machine_stats(db, machine.id)
+    is_owner = str(machine.owner_id) == str(current_user.id)
+    return {
+        "machine": {
+            "id": str(machine.id),
+            "name": machine.name,
+            "description": machine.description,
+            "is_active": machine.is_active,
+            "archived_at": machine.archived_at.isoformat() if machine.archived_at else None,
+            "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
+            "last_seen_ip": machine.last_seen_ip,
+            "local_ui_port": machine.local_ui_port,
+            "created_at": machine.created_at.isoformat() if machine.created_at else None,
+            "token_prefix": machine.token_prefix,
+            "hardware_info": machine.hardware_info,
+            "owner": {
+                "display_name": machine.owner.display_name if machine.owner else None,
+                "email": machine.owner.email if machine.owner else None,
+            },
+        },
+        "stats": stats,
+        "is_owner": is_owner,
+        "viewer_is_admin": current_user.role == "admin",
+    }
 
 
 PIECE_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
@@ -217,19 +290,19 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
     }
 
 
-@router.get("/admin/machines/{machine_id}/pieces")
-def admin_list_machine_pieces(
+@router.get("/machines/{machine_id}/pieces")
+def list_machine_pieces(
     machine_id: UUID,
     limit: int = Query(60, ge=1, le=200),
     cursor: int | None = Query(None),
     db: Session = Depends(get_db),
-    admin: User = Depends(require_role("admin")),
+    current_user: User = Depends(get_current_user),
 ):
     """Every synced piece for one machine, newest first — the fleet analogue of
-    the on-machine /records page. Keyset-paginated on the machine's local_id."""
-    machine = db.query(Machine).filter(Machine.id == machine_id).first()
-    if machine is None:
-        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+    the on-machine /records page. Keyset-paginated on the machine's local_id.
+
+    Accessible to the machine's owner or any admin."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
 
     query = db.query(MachinePiece).filter(MachinePiece.machine_id == machine_id)
     if cursor is not None:
@@ -277,16 +350,17 @@ def admin_list_machine_pieces(
     }
 
 
-@router.get("/admin/machines/{machine_id}/pieces/{piece_uuid}/images/{seq}")
-def admin_get_machine_piece_image(
+@router.get("/machines/{machine_id}/pieces/{piece_uuid}/images/{seq}")
+def get_machine_piece_image(
     machine_id: UUID,
     piece_uuid: str,
     seq: int,
     db: Session = Depends(get_db),
-    admin: User = Depends(require_role("admin")),
+    current_user: User = Depends(get_current_user),
 ):
-    """Stream one synced crop's bytes from object storage. Cookie-session admin
-    auth is enough for an <img> tag on a same-origin page."""
+    """Stream one synced crop's bytes from object storage. Cookie-session auth
+    (owner or admin) is enough for an <img> tag on a same-origin page."""
+    _machine_for_viewer(db, machine_id, current_user)
     image = (
         db.query(MachinePieceImage)
         .filter(

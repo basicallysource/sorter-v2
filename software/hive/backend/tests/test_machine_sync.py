@@ -110,12 +110,11 @@ def test_admin_fleet_endpoints(client, db, machine_token, test_machine):
     # Non-admin (the member test_user) is forbidden.
     assert client.get("/api/admin/machines").status_code == 403
 
-    # Promote to admin and clear the fleet-stats cache so the new rows show.
+    # Promote to admin. The stats endpoint computes the cache on first read
+    # (cold-start fallback), so no manual cache priming is needed.
     user = db.query(User).filter(User.email == "member@test.com").first()
     user.role = "admin"
     db.commit()
-    from app.services import machine_fleet
-    machine_fleet._cache["value"] = None
 
     machines = client.get("/api/admin/machines").json()
     assert any(m["id"] == test_machine["id"] and m["owner_email"] == "member@test.com" for m in machines)

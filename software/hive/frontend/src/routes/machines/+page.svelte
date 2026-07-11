@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import { api, type Machine, type MachineProfileAssignment, type MachineStats, type MachineWithToken, type SortingProfileDetail, type SortingProfileSummary } from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
@@ -388,7 +389,14 @@ async function loadAssignmentProfile(profileId: string) {
 			{@const stats = machineStats[machine.id]}
 			{@const isOnline = machine.last_seen_at && (Date.now() - new Date(machine.last_seen_at).getTime()) < 5 * 60 * 1000}
 			{@const acceptRate = stats && stats.total_samples > 0 ? Math.round((stats.accepted_samples / stats.total_samples) * 100) : null}
-			<div class="flex flex-col border border-border bg-surface transition-colors hover:border-text-muted">
+			<!-- svelte-ignore a11y_no_static_element_interactions -->
+			<div
+				class="flex cursor-pointer flex-col border border-border bg-surface transition-colors hover:border-text-muted"
+				role="link"
+				tabindex="0"
+				onclick={() => goto(`/machines/${machine.id}`)}
+				onkeydown={(e) => { if (e.key === 'Enter') goto(`/machines/${machine.id}`); }}
+			>
 				<!-- Header -->
 				<div class="flex items-start gap-3 px-4 pt-4 pb-3">
 					<div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center {isOnline ? 'bg-success/10 text-success' : 'bg-border/60 text-text-muted'}">
@@ -411,6 +419,7 @@ async function loadAssignmentProfile(profileId: string) {
 						{#if machine.last_seen_ip}
 							<a href={`http://${machine.last_seen_ip}:${machine.local_ui_port || '8000'}`}
 								target="_blank" rel="noopener noreferrer"
+								onclick={(event) => event.stopPropagation()}
 								class="-mt-1 p-1.5 text-text-muted hover:text-primary" title="Open local UI">
 								<svg class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
 									<path fill-rule="evenodd" d="M4.25 5.5a.75.75 0 00-.75.75v8.5c0 .414.336.75.75.75h8.5a.75.75 0 00.75-.75v-4a.75.75 0 011.5 0v4A2.25 2.25 0 0112.75 17h-8.5A2.25 2.25 0 012 14.75v-8.5A2.25 2.25 0 014.25 4h5a.75.75 0 010 1.5h-5zm7.25-.75a.75.75 0 01.75-.75h3.5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0V6.31l-5.97 5.97a.75.75 0 01-1.06-1.06l5.97-5.97H12.25a.75.75 0 01-.75-.75z" clip-rule="evenodd" />
@@ -486,7 +495,7 @@ async function loadAssignmentProfile(profileId: string) {
 							<svg class="h-3.5 w-3.5 shrink-0 text-text-muted" viewBox="0 0 20 20" fill="currentColor">
 								<path fill-rule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5z" clip-rule="evenodd" />
 							</svg>
-								<a href={`/profiles/${assignment.profile.id}`} class="truncate font-medium text-text hover:text-primary hover:underline">{assignment.profile.name}</a>
+								<a href={`/profiles/${assignment.profile.id}`} onclick={(event) => event.stopPropagation()} class="truncate font-medium text-text hover:text-primary hover:underline">{assignment.profile.name}</a>
 							<span class="shrink-0 text-text-muted">v{assignment.desired_version.version_number}</span>
 							{#if assignment.active_version}
 								<Badge text="Synced" variant="success" />

@@ -31,11 +31,19 @@
 		}, 160);
 	}
 
+	// Washed-out token style (thin border + faint tint), matching the Alert /
+	// "Active" pills used across the site. The icon carries the saturated color.
 	const boxClass: Record<NotificationColor, string> = {
-		success: 'bg-success text-white hover:bg-success-hover',
-		primary: 'bg-primary text-primary-contrast hover:bg-primary-hover',
-		warning: 'bg-warning text-black',
-		danger: 'bg-danger text-white hover:bg-danger-hover'
+		success: 'border border-success/40 bg-success/[0.08] text-text hover:bg-success/[0.14]',
+		primary: 'border border-primary/40 bg-primary/[0.08] text-text hover:bg-primary/[0.14]',
+		warning: 'border border-warning/50 bg-warning/[0.1] text-text hover:bg-warning/[0.16]',
+		danger: 'border border-danger/40 bg-danger/[0.08] text-text hover:bg-danger/[0.14]'
+	};
+	const iconClass: Record<NotificationColor, string> = {
+		success: 'text-success',
+		primary: 'text-primary',
+		warning: 'text-warning',
+		danger: 'text-danger'
 	};
 
 	function activate(n: AppNotification): void {
@@ -59,7 +67,7 @@
 		<div class="group relative flex">
 			<button
 				type="button"
-				class="flex items-center gap-1.5 px-2.5 py-1 text-sm font-medium transition-colors {boxClass[
+				class="flex items-center gap-1.5 px-2.5 py-1 text-sm transition-colors {boxClass[
 					primary.color
 				]}"
 				title={primary.content ?? primary.title}
@@ -67,11 +75,11 @@
 			>
 				{#if primary.icon}
 					{@const Icon = primary.icon}
-					<Icon size={15} />
+					<Icon size={15} class={iconClass[primary.color]} />
 				{/if}
 				{primary.title}
 				{#if rest.length > 0}
-					<span class="ml-0.5 flex items-center gap-0.5 border-l border-white/30 pl-1.5">
+					<span class="ml-0.5 flex items-center gap-0.5 border-l border-border pl-1.5 text-text-muted">
 						+{rest.length}
 						<ChevronDown size={12} />
 					</span>

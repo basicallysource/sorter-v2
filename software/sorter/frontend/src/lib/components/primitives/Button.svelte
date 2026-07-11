@@ -31,7 +31,7 @@
 		secondary:
 			'border border-border bg-surface text-text hover:bg-bg',
 		success:
-			'border border-success bg-success text-white hover:border-success-hover hover:bg-success-hover',
+			'border border-success/50 bg-success/15 text-success hover:bg-success/25',
 		danger:
 			'border border-danger bg-danger text-primary-contrast hover:border-danger-hover hover:bg-danger-hover',
 		ghost:

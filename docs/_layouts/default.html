@@ -46,11 +46,7 @@
           <aside class="section-sidebar" aria-label="{{ current_section.title }} navigation">
             <p class="section-sidebar-kicker">{{ current_section.title }}</p>
             <nav>
-              {% for item in current_section.pages %}
-                {% assign item_url = item.url | relative_url %}
-                {% assign current_url = page.url | relative_url %}
-                <a href="{{ item.url | relative_url }}"{% if item_url == current_url %} aria-current="page"{% endif %}>{{ item.title }}</a>
-              {% endfor %}
+              {% include nav-tree.html items=current_section.pages %}
               {% if current_section.groups %}
                 {% for group in current_section.groups %}
                   <p class="section-sidebar-group">{{ group.title }}</p>
@@ -78,8 +74,15 @@
       {% endif %}
 
       <footer class="site-footer">
-        <p>
-          Source lives in <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs"><code>docs/</code></a>
+        <nav class="site-footer-links" aria-label="Footer">
+          <a href="https://basically.website/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <a href="https://basically.website/policies/terms-of-service" target="_blank" rel="noopener">Terms of Service</a>
+          <a href="mailto:contact@basically.website">contact@basically.website</a>
+          <a href="https://basically.website/?updates=1" target="_blank" rel="noopener">Get updates&nbsp;↗</a>
+          <a href="https://github.com/basicallysource/sorter-v2/tree/main/docs">Source&nbsp;(<code>docs/</code>)</a>
+        </nav>
+        <p class="site-footer-legal">
+          © basically. All rights reserved. LEGO® is a trademark of the LEGO Group of companies which does not sponsor, authorize, or endorse this site.
         </p>
       </footer>
     </div>

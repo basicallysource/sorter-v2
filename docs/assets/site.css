@@ -41,6 +41,9 @@ body {
   max-width: 1180px;
   margin: 0 auto;
   padding: 24px 20px 48px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .site-header {
@@ -111,7 +114,8 @@ body {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
 }
 
 .section-sidebar {
@@ -120,6 +124,7 @@ body {
   padding: 16px 14px 18px;
   position: sticky;
   top: 16px;
+  align-self: start;
 }
 
 .section-sidebar-kicker {
@@ -175,11 +180,36 @@ body {
   font-weight: 600;
 }
 
+/* Nested nav — depth comes from the <ul> nesting, indentation compounds. */
+.section-sidebar nav ul.nav-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.section-sidebar nav ul.nav-tree ul.nav-tree {
+  margin-left: 11px;
+  border-left: 1px solid var(--line);
+}
+.section-sidebar nav ul.nav-tree ul.nav-tree a {
+  padding-left: 12px;
+  font-size: 0.82rem;
+}
+
 .content {
   background: var(--surface);
   border: 1px solid var(--line);
   padding: 28px 30px 32px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* No-sidebar pages: the content card is a direct child of the shell, so it
+   grows to fill the viewport itself. Sidebar pages stretch via the grid. */
+.shell > .content {
+  flex: 1;
 }
 
 .kicker {
@@ -194,7 +224,7 @@ body {
 .page-title-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   margin: 0 0 14px;
 }
@@ -218,9 +248,16 @@ body {
 
 .page-meta {
   margin: 2.4rem 0 0;
-  padding: 16px 18px 18px;
   border: 1px solid var(--line);
   background: var(--bg);
+  padding: 16px 18px 18px;
+}
+
+/* Pin the meta footer to the bottom of the content card. On short pages the
+   auto top-margin absorbs the free space; on tall pages it collapses to 0 and
+   the preceding element's own bottom margin provides the gap. */
+.content > .page-meta {
+  margin-top: auto;
 }
 
 .page-meta dl {
@@ -478,9 +515,46 @@ tr:last-child td {
 }
 
 .site-footer {
-  padding: 20px 4px 0;
+  margin-top: 24px;
+  padding: 14px 4px 0;
+  border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+}
+
+.site-footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+
+.site-footer-links a:hover {
+  color: var(--ink);
+}
+
+.site-footer-links code {
+  font-size: 0.9em;
+}
+
+.site-footer-legal {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+  opacity: 0.8;
 }
 
 /* ─── Style guide swatches ─── */

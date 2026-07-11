@@ -76,7 +76,9 @@ def _active_seconds_by_machine(db: Session, machine_ids: list[Any] | None = None
         filter_sql = ""
         params: dict[str, Any] = {"idle": ACTIVE_GAP_IDLE_S}
         if machine_ids is not None:
-            filter_sql = "AND machine_id = ANY(:mids)"
+            # Cast the uuid column to text — the bound ids are strings, and
+            # Postgres has no uuid = text operator for the ANY() comparison.
+            filter_sql = "AND machine_id::text = ANY(:mids)"
             params["mids"] = [str(m) for m in machine_ids]
         result = db.execute(
             text(

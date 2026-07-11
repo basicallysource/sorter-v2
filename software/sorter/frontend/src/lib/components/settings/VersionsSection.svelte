@@ -24,6 +24,7 @@
 
 	type VersionEntry = {
 		kind: 'branch' | 'tag';
+		channel?: string;
 		name: string;
 		sha: string;
 		commit_unix: number;
@@ -47,6 +48,16 @@
 	let updateError = $state<string | null>(null);
 	let updateNotice = $state<string | null>(null);
 	let depsWarning = $state<string | null>(null);
+
+	// The ref this machine is on (branch or tag) that has moved on origin —
+	// i.e. an update is available for whatever variant you're currently running.
+	const currentUpdate = $derived(
+		payload?.available.find((e) => e.is_current && !e.up_to_date) ?? null
+	);
+	// Which release channel (if any) the machine is currently sitting on.
+	const currentChannel = $derived(
+		payload?.available.find((e) => e.is_current && e.channel)?.channel ?? null
+	);
 
 	function httpBase(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
@@ -129,8 +140,12 @@
 		{#if payload}
 			<div class="mt-2 flex flex-col gap-0.5">
 				<div class="text-sm text-text-muted">
-					{payload.current.detached ? 'Version' : 'Branch'}:
-					<span class="font-mono text-text">{payload.current.ref}</span>
+					{#if currentChannel}
+						Channel: <span class="text-text capitalize">{currentChannel}</span>
+					{:else}
+						{payload.current.detached ? 'Version' : 'Branch'}:
+						<span class="font-mono text-text">{payload.current.ref}</span>
+					{/if}
 				</div>
 				<div class="text-sm text-text-muted">
 					Commit:
@@ -145,6 +160,22 @@
 			</div>
 		{:else if loading}
 			<div class="mt-2 text-sm text-text-muted">Loading...</div>
+		{/if}
+		{#if currentUpdate}
+			<div class="mt-3 flex items-center justify-between gap-3 border-t border-border pt-3">
+				<span class="text-sm text-text-muted">
+					New version available —
+					<span class="font-mono text-text">{currentUpdate.sha}</span>
+				</span>
+				<Button
+					variant="success"
+					disabled={updatingRef !== null}
+					loading={updatingRef === `${currentUpdate.kind}:${currentUpdate.name}`}
+					onclick={() => void applyUpdate(currentUpdate)}
+				>
+					Update
+				</Button>
+			</div>
 		{/if}
 	</div>
 
@@ -167,7 +198,7 @@
 	{#if payload && payload.available.length > 0}
 		<div class="border border-border">
 			<div class="border-b border-border bg-surface px-3 py-2">
-				<span class="text-sm font-medium text-text">Available versions</span>
+				<span class="text-sm font-medium text-text">Release channels</span>
 			</div>
 			<ul class="divide-y divide-border">
 				{#each payload.available as entry (entry.kind + entry.name)}
@@ -179,11 +210,16 @@
 						{/if}
 						<div class="min-w-0 flex-1">
 							<div class="flex items-center gap-2">
-								<span class="truncate font-mono text-sm text-text">{entry.name}</span>
+								{#if entry.channel}
+									<span class="shrink-0 text-sm font-medium text-text capitalize">{entry.channel}</span>
+									<span class="truncate font-mono text-xs text-text-muted">{entry.name}</span>
+								{:else}
+									<span class="truncate font-mono text-sm text-text">{entry.name}</span>
+								{/if}
 								{#if entry.is_current && entry.up_to_date}
 									<span class="shrink-0 text-xs text-success">up to date</span>
 								{:else if entry.is_current}
-									<span class="shrink-0 text-xs text-text-muted">current branch</span>
+									<span class="shrink-0 text-xs text-text-muted">current</span>
 								{/if}
 							</div>
 							<div class="truncate text-xs text-text-muted">
@@ -191,19 +227,17 @@
 								— {entry.subject} · {formatDate(entry.commit_unix)}
 							</div>
 						</div>
-						<Button
-							variant={entry.is_current && !entry.up_to_date ? 'primary' : 'secondary'}
-							size="sm"
-							disabled={updatingRef !== null || (entry.is_current && entry.up_to_date)}
-							loading={updatingRef === `${entry.kind}:${entry.name}`}
-							onclick={() => void applyUpdate(entry)}
-						>
-							{updatingRef === `${entry.kind}:${entry.name}`
-								? 'Updating...'
-								: entry.is_current
-									? 'Update'
-									: 'Switch'}
-						</Button>
+						{#if !entry.is_current}
+							<Button
+								variant="secondary"
+								size="sm"
+								disabled={updatingRef !== null}
+								loading={updatingRef === `${entry.kind}:${entry.name}`}
+								onclick={() => void applyUpdate(entry)}
+							>
+								{updatingRef === `${entry.kind}:${entry.name}` ? 'Switching...' : 'Switch'}
+							</Button>
+						{/if}
 					</li>
 				{/each}
 			</ul>

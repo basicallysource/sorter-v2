@@ -9,8 +9,10 @@
 		waitForBackend
 	} from '$lib/backend';
 	import Modal from '$lib/components/Modal.svelte';
+	import NotificationsIndicator from '$lib/components/NotificationsIndicator.svelte';
 	import SortingProfileDropdown from '$lib/components/SortingProfileDropdown.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
+	import { userConfig } from '$lib/stores/userConfig.svelte';
 	import {
 		AlertTriangle,
 		ChevronDown,
@@ -73,11 +75,17 @@
 		});
 	}
 
-	const machineName = $derived(
+	const liveMachineName = $derived(
 		manager.selectedMachine?.identity?.nickname ??
 			manager.selectedMachine?.identity?.machine_id.slice(0, 8) ??
 			null
 	);
+	// Show the cached name instantly on load; swap to the live one once the
+	// WebSocket identity arrives, and cache it for next time.
+	const machineName = $derived(liveMachineName ?? userConfig.machineName);
+	$effect(() => {
+		if (liveMachineName) userConfig.setMachineName(liveMachineName);
+	});
 	const machineState = $derived(manager.selectedMachine?.sorterState?.state ?? 'initializing');
 	const activeIncidentKind = $derived(
 		(
@@ -413,6 +421,7 @@
 			</div>
 		</div>
 		<div class="flex items-center gap-2">
+			<NotificationsIndicator />
 			{#if machineName}
 				<span
 					class="flex items-center self-stretch border border-border px-2.5 text-sm font-medium text-text-muted"

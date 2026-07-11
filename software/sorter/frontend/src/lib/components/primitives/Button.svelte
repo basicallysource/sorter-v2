@@ -2,7 +2,7 @@
 	import type { Snippet } from 'svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 
-	type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
+	type Variant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost';
 	type Size = 'sm' | 'md';
 
 	let {
@@ -30,6 +30,8 @@
 			'border border-primary bg-primary text-primary-contrast hover:border-primary-hover hover:bg-primary-hover',
 		secondary:
 			'border border-border bg-surface text-text hover:bg-bg',
+		success:
+			'border border-success/50 bg-success/15 text-success hover:bg-success/25',
 		danger:
 			'border border-danger bg-danger text-primary-contrast hover:border-danger-hover hover:bg-danger-hover',
 		ghost:

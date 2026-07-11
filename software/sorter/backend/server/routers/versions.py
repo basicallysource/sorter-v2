@@ -194,7 +194,7 @@ def get_versions(refresh: bool = False) -> Dict[str, Any]:
     fetch_error: Optional[str] = None
     if refresh:
         result = _git(
-            "fetch", "--tags", "--prune", "--force", "origin",
+            "fetch", "--tags", "--prune", "--prune-tags", "--force", "origin",
             timeout=GIT_FETCH_TIMEOUT_S,
         )
         if result.returncode != 0:
@@ -231,7 +231,7 @@ def update_version(req: UpdateRequest) -> Dict[str, Any]:
         _update_target = f"{req.kind}:{req.name}"
 
         fetch = _git(
-            "fetch", "--tags", "--prune", "--force", "origin",
+            "fetch", "--tags", "--prune", "--prune-tags", "--force", "origin",
             timeout=GIT_FETCH_TIMEOUT_S,
         )
         if fetch.returncode != 0:

@@ -78,10 +78,6 @@ class SetProgressSyncWorker:
             self._wake_event.clear()
 
     def _sync_once(self) -> None:
-        # Reset the signature while blocked so re-enabling resends current state.
-        if not telemetryAllows("piece_metadata"):
-            self._last_sent_signature = None
-            return
         report = self._build_report()
         if report is None:
             self._last_sent_signature = None
@@ -89,7 +85,7 @@ class SetProgressSyncWorker:
         if report["signature"] == self._last_sent_signature:
             return
 
-        client = HiveTelemetryClient(report["url"], report["api_token"])
+        client = HiveTelemetryClient(report["url"], report["api_token"], report["target_id"])
         client.pushSetProgress(report["payload"])
         self._last_sent_signature = report["signature"]
         self._record_success()
@@ -119,6 +115,11 @@ class SetProgressSyncWorker:
         if target is None:
             return None
 
+        # Report None while blocked so the signature resets and re-enabling
+        # resends the current state.
+        if not telemetryAllows(target_id, "piece_metadata"):
+            return None
+
         controller = shared_state.controller_ref
         sorting_profile = getattr(getattr(controller, "coordinator", None), "sorting_profile", None)
         tracker = getattr(shared_state.gc_ref, "set_progress_tracker", None) if shared_state.gc_ref else None
@@ -145,6 +146,7 @@ class SetProgressSyncWorker:
         return {
             "url": str(target["url"]),
             "api_token": str(target["api_token"]),
+            "target_id": target_id,
             "payload": {
                 "version_id": version_id,
                 "artifact_hash": artifact_hash,

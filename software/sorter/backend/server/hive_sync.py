@@ -148,7 +148,7 @@ class HiveSyncWorker:
             }
             if enabled:
                 try:
-                    state["client"] = HiveTelemetryClient(url, token)
+                    state["client"] = HiveTelemetryClient(url, token, target_id)
                     log.info("Hive sync enabled: %s (%s)", state["name"], url)
                 except Exception as exc:
                     state["enabled"] = False
@@ -199,7 +199,7 @@ class HiveSyncWorker:
             target["wm"][data_type] = int(value or 0)
 
     def _drainRecords(self, target: dict[str, Any]) -> bool:
-        if not telemetryAllows("piece_metadata"):
+        if not telemetryAllows(target["id"], "piece_metadata"):
             return False
         wm = int(target["wm"][DATA_TYPE_RECORDS] or 0)
         if piece_records.getMaxRecordId() <= wm:
@@ -215,7 +215,7 @@ class HiveSyncWorker:
     def _drainImages(self, target: dict[str, Any]) -> bool:
         # Skip instead of pushing metadata-only rows: with images disabled the
         # watermark freezes here and the backlog drains if re-enabled later.
-        if not telemetryAllows("detection_images"):
+        if not telemetryAllows(target["id"], "detection_images"):
             return False
         wm = int(target["wm"][DATA_TYPE_IMAGES] or 0)
         if piece_image_store.getMaxImageId() <= wm:

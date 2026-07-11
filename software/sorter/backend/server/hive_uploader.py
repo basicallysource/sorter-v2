@@ -170,7 +170,7 @@ class HiveUploader:
 
             if enabled:
                 try:
-                    state["client"] = HiveTelemetryClient(url, token)
+                    state["client"] = HiveTelemetryClient(url, token, target_id)
                     state["server_reachable"] = bool(previous_state.get("server_reachable", True))
                     log.info("Hive uploader enabled: %s (%s)", state["name"], url)
                 except Exception as exc:
@@ -225,6 +225,15 @@ class HiveUploader:
         requested = {target_id for target_id in requested_target_ids if isinstance(target_id, str)}
         return [target_id for target_id in enabled_target_ids if target_id in requested]
 
+    def _resolve_upload_target_ids(self, target_ids: list[str] | None) -> list[str]:
+        with self._lock:
+            resolved = self._resolve_target_ids_locked(target_ids)
+        return [
+            target_id
+            for target_id in resolved
+            if telemetryAllows(target_id, "detection_images")
+        ]
+
     def enqueue(
         self,
         *,
@@ -237,12 +246,10 @@ class HiveUploader:
         overlay_path: str | None = None,
         target_ids: list[str] | None = None,
     ) -> None:
-        if not telemetryAllows("detection_images"):
+        resolved_target_ids = self._resolve_upload_target_ids(target_ids)
+        if not resolved_target_ids:
             return
         with self._lock:
-            resolved_target_ids = self._resolve_target_ids_locked(target_ids)
-            if not resolved_target_ids:
-                return
             for target_id in resolved_target_ids:
                 target = self._targets.get(target_id)
                 if target is not None:
@@ -276,12 +283,10 @@ class HiveUploader:
         overlay_path: str | None = None,
         target_ids: list[str] | None = None,
     ) -> None:
-        if not telemetryAllows("detection_images"):
+        resolved_target_ids = self._resolve_upload_target_ids(target_ids)
+        if not resolved_target_ids:
             return
         with self._lock:
-            resolved_target_ids = self._resolve_target_ids_locked(target_ids)
-            if not resolved_target_ids:
-                return
             for target_id in resolved_target_ids:
                 target = self._targets.get(target_id)
                 if target is not None:
@@ -309,12 +314,9 @@ class HiveUploader:
         session_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
     ) -> dict[str, Any]:
-        if not telemetryAllows("detection_images"):
-            return {"ok": False, "error": "Detection image uploads are disabled in the Hive upload settings."}
-        with self._lock:
-            resolved_target_ids = self._resolve_target_ids_locked(target_ids)
-            if not resolved_target_ids:
-                return {"ok": False, "error": "No enabled Hive target is available."}
+        resolved_target_ids = self._resolve_upload_target_ids(target_ids)
+        if not resolved_target_ids:
+            return {"ok": False, "error": "No enabled Hive target allows detection image uploads."}
         if not training_root.exists():
             return {"ok": False, "error": "Training root does not exist."}
 
@@ -560,7 +562,7 @@ class HiveUploader:
             if candidate.exists():
                 overlay_path = candidate
 
-        if not telemetryAllows("full_frames"):
+        if not telemetryAllows(target_id, "full_frames"):
             full_frame_path = None
             overlay_path = None
 

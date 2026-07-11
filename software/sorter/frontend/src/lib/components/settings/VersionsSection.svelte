@@ -48,6 +48,12 @@
 	let updateNotice = $state<string | null>(null);
 	let depsWarning = $state<string | null>(null);
 
+	// The ref this machine is on (branch or tag) that has moved on origin —
+	// i.e. an update is available for whatever variant you're currently running.
+	const currentUpdate = $derived(
+		payload?.available.find((e) => e.is_current && !e.up_to_date) ?? null
+	);
+
 	function httpBase(): string {
 		return machineHttpBaseUrlFromWsUrl(machine.machine?.url) ?? getBackendHttpBase();
 	}
@@ -147,6 +153,30 @@
 			<div class="mt-2 text-sm text-text-muted">Loading...</div>
 		{/if}
 	</div>
+
+	{#if currentUpdate}
+		<Alert variant="success">
+			<div class="flex items-center justify-between gap-3">
+				<div class="min-w-0">
+					<div class="font-medium text-text">Update available</div>
+					<div class="truncate text-text-muted">
+						{currentUpdate.name} → <span class="font-mono">{currentUpdate.sha}</span>
+						{#if currentUpdate.subject}
+							· {currentUpdate.subject}
+						{/if}
+					</div>
+				</div>
+				<Button
+					variant="success"
+					disabled={updatingRef !== null}
+					loading={updatingRef === `${currentUpdate.kind}:${currentUpdate.name}`}
+					onclick={() => void applyUpdate(currentUpdate)}
+				>
+					Update
+				</Button>
+			</div>
+		</Alert>
+	{/if}
 
 	{#if payload?.fetch_error}
 		<Alert variant="warning">Could not fetch from origin: {payload.fetch_error}</Alert>

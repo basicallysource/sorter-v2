@@ -49,7 +49,16 @@
 		uploader?: UploaderStatus | null;
 	};
 
+	type TelemetryField = {
+		key: string;
+		label: string;
+		description: string;
+		enabled: boolean;
+	};
+
 	let config = $state<HiveConfig | null>(null);
+	let telemetryFields = $state<TelemetryField[]>([]);
+	let telemetryTogglingKey = $state<string | null>(null);
 	let loading = $state(true);
 	let statusMsg = $state<string | null>(null);
 	let errorMsg = $state<string | null>(null);
@@ -221,13 +230,33 @@
 		regMachineDescription = '';
 	}
 
+	function parseTelemetryFields(raw: unknown): TelemetryField[] {
+		const data = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+		if (!Array.isArray(data.telemetry_fields)) return [];
+		return data.telemetry_fields.flatMap((entry) => {
+			if (!entry || typeof entry !== 'object') return [];
+			const field = entry as Record<string, unknown>;
+			if (typeof field.key !== 'string' || typeof field.label !== 'string') return [];
+			return [
+				{
+					key: field.key,
+					label: field.label,
+					description: typeof field.description === 'string' ? field.description : '',
+					enabled: field.enabled === true
+				}
+			];
+		});
+	}
+
 	async function loadConfig() {
 		loading = true;
 		errorMsg = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive`);
 			if (!res.ok) throw new Error(await res.text());
-			config = normalizeConfig(await res.json());
+			const raw = await res.json();
+			config = normalizeConfig(raw);
+			telemetryFields = parseTelemetryFields(raw);
 
 			if (editingTargetId) {
 				resetTargetForm(getTarget(editingTargetId));
@@ -236,6 +265,24 @@
 			errorMsg = e.message ?? 'Failed to load Hive config.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function handleToggleTelemetry(field: TelemetryField) {
+		telemetryTogglingKey = field.key;
+		clearMessages();
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/telemetry`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ fields: { [field.key]: !field.enabled } })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			telemetryFields = parseTelemetryFields(await res.json());
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Failed to update upload settings.';
+		} finally {
+			telemetryTogglingKey = null;
 		}
 	}
 
@@ -567,6 +614,35 @@
 				</button>
 			</div>
 		</div>
+
+		{#if telemetryFields.length > 0}
+			<div class="border border-border bg-surface px-3 py-3">
+				<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+					What gets uploaded
+				</div>
+				<div class="mt-1 text-sm text-text-muted">
+					Applies to every Hive target on this machine. Anything unchecked never leaves the
+					machine.
+				</div>
+				<div class="mt-3 grid gap-2.5">
+					{#each telemetryFields as field (field.key)}
+						<label class="flex cursor-pointer items-start gap-2.5">
+							<input
+								type="checkbox"
+								checked={field.enabled}
+								disabled={telemetryTogglingKey === field.key}
+								onchange={() => void handleToggleTelemetry(field)}
+								class="mt-0.5 h-4 w-4 border-border"
+							/>
+							<span class="min-w-0">
+								<span class="text-sm font-medium text-text">{field.label}</span>
+								<span class="block text-sm text-text-muted">{field.description}</span>
+							</span>
+						</label>
+					{/each}
+				</div>
+			</div>
+		{/if}
 
 		{#if targets.length === 0}
 			<div class="border border-border bg-surface px-3 py-3">

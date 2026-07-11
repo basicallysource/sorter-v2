@@ -14,6 +14,7 @@ from typing import Any
 import requests
 
 from blob_manager import getHiveConfig
+from hive_telemetry import HiveTelemetryClient, TelemetryBlocked, telemetryAllows
 from server.sample_payloads import build_sample_payload
 
 log = logging.getLogger(__name__)
@@ -102,168 +103,6 @@ def _resolve_archived_file_path(
     return None
 
 
-class _HiveClient:
-    def __init__(self, api_url: str, api_token: str) -> None:
-        self._url = api_url.rstrip("/")
-        self._session = requests.Session()
-        self._session.headers["Authorization"] = f"Bearer {api_token}"
-
-    def _send_sample_request(
-        self,
-        *,
-        method: str,
-        url: str,
-        source_session_id: str,
-        local_sample_id: str,
-        image_path: Path | None = None,
-        full_frame_path: Path | None = None,
-        overlay_path: Path | None = None,
-        source_role: str | None = None,
-        capture_reason: str | None = None,
-        captured_at: str | None = None,
-        session_name: str | None = None,
-        detection_algorithm: str | None = None,
-        detection_bboxes: Any = None,
-        detection_count: int | None = None,
-        detection_score: float | None = None,
-        sample_payload: dict[str, Any] | None = None,
-        extra_metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        metadata: dict[str, Any] = {
-            "source_session_id": source_session_id,
-            "local_sample_id": local_sample_id,
-        }
-        for key, value in [
-            ("source_role", source_role),
-            ("capture_reason", capture_reason),
-            ("captured_at", captured_at),
-            ("session_name", session_name),
-            ("detection_algorithm", detection_algorithm),
-            ("detection_bboxes", detection_bboxes),
-            ("detection_count", detection_count),
-            ("detection_score", detection_score),
-            ("sample_payload", sample_payload),
-        ]:
-            if value is not None:
-                metadata[key] = value
-        if extra_metadata:
-            metadata["extra_metadata"] = extra_metadata
-
-        handles: list[Any] = []
-        try:
-            files: dict[str, Any] = {}
-            if image_path is not None:
-                image_fh = open(image_path, "rb")
-                handles.append(image_fh)
-                files["image"] = (image_path.name, image_fh, "image/jpeg")
-            if full_frame_path and full_frame_path.exists():
-                full_frame_fh = open(full_frame_path, "rb")
-                handles.append(full_frame_fh)
-                files["full_frame"] = (full_frame_path.name, full_frame_fh, "image/jpeg")
-            if overlay_path and overlay_path.exists():
-                overlay_fh = open(overlay_path, "rb")
-                handles.append(overlay_fh)
-                files["overlay"] = (overlay_path.name, overlay_fh, "image/jpeg")
-
-            request = getattr(self._session, method.lower())
-            response = request(
-                url,
-                data={"metadata": json.dumps(metadata)},
-                files=files or None,
-                timeout=30,
-            )
-            response.raise_for_status()
-            return response.json()
-        finally:
-            for handle in handles:
-                handle.close()
-
-    def upload_sample(
-        self,
-        *,
-        source_session_id: str,
-        local_sample_id: str,
-        image_path: Path,
-        full_frame_path: Path | None = None,
-        overlay_path: Path | None = None,
-        source_role: str | None = None,
-        capture_reason: str | None = None,
-        captured_at: str | None = None,
-        session_name: str | None = None,
-        detection_algorithm: str | None = None,
-        detection_bboxes: Any = None,
-        detection_count: int | None = None,
-        detection_score: float | None = None,
-        sample_payload: dict[str, Any] | None = None,
-        extra_metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return self._send_sample_request(
-            method="POST",
-            url=f"{self._url}/api/machine/upload",
-            source_session_id=source_session_id,
-            local_sample_id=local_sample_id,
-            image_path=image_path,
-            full_frame_path=full_frame_path,
-            overlay_path=overlay_path,
-            source_role=source_role,
-            capture_reason=capture_reason,
-            captured_at=captured_at,
-            session_name=session_name,
-            detection_algorithm=detection_algorithm,
-            detection_bboxes=detection_bboxes,
-            detection_count=detection_count,
-            detection_score=detection_score,
-            sample_payload=sample_payload,
-            extra_metadata=extra_metadata,
-        )
-
-    def update_sample(
-        self,
-        *,
-        source_session_id: str,
-        local_sample_id: str,
-        image_path: Path | None = None,
-        full_frame_path: Path | None = None,
-        overlay_path: Path | None = None,
-        source_role: str | None = None,
-        capture_reason: str | None = None,
-        captured_at: str | None = None,
-        session_name: str | None = None,
-        detection_algorithm: str | None = None,
-        detection_bboxes: Any = None,
-        detection_count: int | None = None,
-        detection_score: float | None = None,
-        sample_payload: dict[str, Any] | None = None,
-        extra_metadata: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        return self._send_sample_request(
-            method="PATCH",
-            url=f"{self._url}/api/machine/upload/{source_session_id}/{local_sample_id}",
-            source_session_id=source_session_id,
-            local_sample_id=local_sample_id,
-            image_path=image_path,
-            full_frame_path=full_frame_path,
-            overlay_path=overlay_path,
-            source_role=source_role,
-            capture_reason=capture_reason,
-            captured_at=captured_at,
-            session_name=session_name,
-            detection_algorithm=detection_algorithm,
-            detection_bboxes=detection_bboxes,
-            detection_count=detection_count,
-            detection_score=detection_score,
-            sample_payload=sample_payload,
-            extra_metadata=extra_metadata,
-        )
-
-    def heartbeat(self) -> bool:
-        try:
-            response = self._session.post(f"{self._url}/api/machine/heartbeat", timeout=10)
-            return response.status_code < 500
-        except requests.RequestException:
-            return False
-
-
 def _is_transient(exc: Exception) -> bool:
     if isinstance(exc, (requests.ConnectionError, requests.Timeout)):
         return True
@@ -331,7 +170,7 @@ class HiveUploader:
 
             if enabled:
                 try:
-                    state["client"] = _HiveClient(url, token)
+                    state["client"] = HiveTelemetryClient(url, token)
                     state["server_reachable"] = bool(previous_state.get("server_reachable", True))
                     log.info("Hive uploader enabled: %s (%s)", state["name"], url)
                 except Exception as exc:
@@ -398,6 +237,8 @@ class HiveUploader:
         overlay_path: str | None = None,
         target_ids: list[str] | None = None,
     ) -> None:
+        if not telemetryAllows("detection_images"):
+            return
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
@@ -435,6 +276,8 @@ class HiveUploader:
         overlay_path: str | None = None,
         target_ids: list[str] | None = None,
     ) -> None:
+        if not telemetryAllows("detection_images"):
+            return
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
@@ -466,6 +309,8 @@ class HiveUploader:
         session_ids: list[str] | None = None,
         target_ids: list[str] | None = None,
     ) -> dict[str, Any]:
+        if not telemetryAllows("detection_images"):
+            return {"ok": False, "error": "Detection image uploads are disabled in the Hive upload settings."}
         with self._lock:
             resolved_target_ids = self._resolve_target_ids_locked(target_ids)
             if not resolved_target_ids:
@@ -715,6 +560,10 @@ class HiveUploader:
             if candidate.exists():
                 overlay_path = candidate
 
+        if not telemetryAllows("full_frames"):
+            full_frame_path = None
+            overlay_path = None
+
         metadata = job["metadata"]
         skip_keys = {
             "source_role",
@@ -787,11 +636,11 @@ class HiveUploader:
                     "extra_metadata": extra_metadata or None,
                 }
                 if operation == "update":
-                    client.update_sample(**request_kwargs)
+                    client.updateSample(**request_kwargs)
                 else:
                     if image_path is None:
                         raise FileNotFoundError("Upload job is missing the primary image path.")
-                    client.upload_sample(**request_kwargs)  # type: ignore[arg-type]
+                    client.uploadSample(**request_kwargs)  # type: ignore[arg-type]
                 with self._lock:
                     target = self._targets.get(target_id)
                     if target is not None:
@@ -801,6 +650,13 @@ class HiveUploader:
                         target["retry_after"] = 0.0
                         target["backoff_s"] = SERVER_DOWN_BACKOFF_S
                         self._decrement_queue_locked(target_id)
+                return
+            except TelemetryBlocked as exc:
+                # The field was toggled off after this job was queued — drop
+                # it silently, matching what enqueue() would have done.
+                with self._lock:
+                    self._decrement_queue_locked(target_id)
+                log.debug("Hive upload dropped for %s/%s: %s", job["session_id"], job["sample_id"], exc)
                 return
             except Exception as exc:
                 retry_missing_sample = (

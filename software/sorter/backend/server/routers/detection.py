@@ -29,6 +29,7 @@ from blob_manager import (
     setFeederDetectionConfig,
     setHiveConfig,
 )
+from hive_telemetry import setTelemetrySettings, telemetryFieldList
 from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
@@ -667,6 +668,7 @@ def get_hive_config() -> Dict[str, Any]:
         "configured_count": len(targets),
         "enabled_count": sum(1 for target in targets if bool(target.get("enabled", False))),
         "primary_target_id": primary_target_id,
+        "telemetry_fields": telemetryFieldList(),
         "targets": [
             {
                 "id": target["id"],
@@ -740,6 +742,19 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
     _save_hive_targets(next_targets)
     _reloadHiveConsumers()
     return {"ok": True, "message": "Hive target removed."}
+
+
+class HiveTelemetryPayload(BaseModel):
+    fields: Dict[str, bool]
+
+
+@router.post("/api/settings/hive/telemetry")
+def save_hive_telemetry(payload: HiveTelemetryPayload) -> Dict[str, Any]:
+    try:
+        setTelemetrySettings(payload.fields)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "telemetry_fields": telemetryFieldList()}
 
 
 class HivePrimaryPayload(BaseModel):

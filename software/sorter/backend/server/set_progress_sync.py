@@ -5,9 +5,8 @@ import logging
 import threading
 from typing import Any
 
-import requests
-
 from blob_manager import getHiveConfig, getSortingProfileSyncState, setSortingProfileSyncState
+from hive_telemetry import HiveTelemetryClient, telemetryAllows
 from server import shared_state
 
 log = logging.getLogger(__name__)
@@ -79,6 +78,10 @@ class SetProgressSyncWorker:
             self._wake_event.clear()
 
     def _sync_once(self) -> None:
+        # Reset the signature while blocked so re-enabling resends current state.
+        if not telemetryAllows("piece_metadata"):
+            self._last_sent_signature = None
+            return
         report = self._build_report()
         if report is None:
             self._last_sent_signature = None
@@ -86,17 +89,8 @@ class SetProgressSyncWorker:
         if report["signature"] == self._last_sent_signature:
             return
 
-        response = requests.post(
-            report["url"],
-            json=report["payload"],
-            headers={
-                "Authorization": f"Bearer {report['api_token']}",
-                "Content-Type": "application/json",
-            },
-            timeout=15,
-        )
-        if not response.ok:
-            raise RuntimeError(f"Progress sync failed: HTTP {response.status_code} {response.text}")
+        client = HiveTelemetryClient(report["url"], report["api_token"])
+        client.pushSetProgress(report["payload"])
         self._last_sent_signature = report["signature"]
         self._record_success()
 
@@ -149,7 +143,7 @@ class SetProgressSyncWorker:
             return None
 
         return {
-            "url": f"{str(target['url']).rstrip('/')}/api/machine/set-progress",
+            "url": str(target["url"]),
             "api_token": str(target["api_token"]),
             "payload": {
                 "version_id": version_id,

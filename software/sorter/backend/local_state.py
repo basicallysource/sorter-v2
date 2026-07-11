@@ -65,6 +65,7 @@ _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
+_STATE_KEY_HIVE_TELEMETRY = "hive_telemetry"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
@@ -865,6 +866,15 @@ def set_sample_collection_state(state: dict[str, Any] | None) -> None:
             if isinstance(key, str) and value is not None
         }
     _write_state(_STATE_KEY_SAMPLE_COLLECTION, normalized)
+
+
+def get_hive_telemetry() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_HIVE_TELEMETRY)
+    return value if isinstance(value, dict) else None
+
+
+def set_hive_telemetry(settings: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_HIVE_TELEMETRY, settings)
 
 
 def get_hive_config() -> dict[str, Any] | None:

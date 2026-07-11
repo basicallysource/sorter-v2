@@ -153,6 +153,53 @@ export interface ServerHealth {
 	};
 }
 
+export interface AnalyticsScope {
+	kind: 'machine' | 'my_fleet' | 'owner_fleet' | 'all' | string;
+	label: string;
+	machine_count: number;
+}
+
+export interface AnalyticsDayPoint {
+	day: string;
+	pieces_seen: number;
+	distributed: number;
+	active_seconds: number;
+	avg_ppm: number;
+	throughput_ppm: number;
+	capacity_per_day: number;
+	cumulative_pieces: number;
+	cumulative_distributed: number;
+	cumulative_machines: number;
+}
+
+export interface AnalyticsTotals {
+	machines: number;
+	pieces_seen: number;
+	distributed: number;
+	classified: number;
+	unique_parts: number;
+	unique_colors: number;
+	active_seconds: number;
+	overall_ppm: number;
+	capacity_recent: number;
+	first_day: string | null;
+	last_day: string | null;
+}
+
+export interface AnalyticsDistributions {
+	by_machine: { machine_id: string; label: string; value: number }[];
+	by_status: { label: string; value: number }[];
+	top_parts: { part_id: string | null; part_name: string | null; value: number }[];
+	top_colors: { color_id: string | null; color_name: string | null; value: number }[];
+}
+
+export interface Analytics {
+	scope: AnalyticsScope;
+	totals: AnalyticsTotals;
+	timeseries: AnalyticsDayPoint[];
+	distributions: AnalyticsDistributions;
+}
+
 export interface MachinePieceImageInfo {
 	seq: number;
 	source: string | null;
@@ -911,6 +958,14 @@ export const api = {
 	},
 	getMachineOverview(machineId: string) {
 		return request<MachineOverview>('GET', `/api/machines/${machineId}/overview`);
+	},
+	getAnalytics(params: { machineId?: string; ownerId?: string; scope?: 'mine' | 'all' } = {}) {
+		const sp = new URLSearchParams();
+		if (params.machineId) sp.set('machine_id', params.machineId);
+		if (params.ownerId) sp.set('owner_id', params.ownerId);
+		if (params.scope) sp.set('scope', params.scope);
+		const qs = sp.toString();
+		return request<Analytics>('GET', `/api/analytics${qs ? `?${qs}` : ''}`);
 	},
 	refreshAllMachineStats() {
 		return request<{ ok: boolean; refreshed: number }>('POST', '/api/admin/machines/stats/refresh');

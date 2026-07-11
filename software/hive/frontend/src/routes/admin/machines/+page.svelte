@@ -4,6 +4,7 @@
 	import { goto } from '$app/navigation';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
 
 	let machines = $state<FleetMachine[]>([]);
 	let stats = $state<Record<string, FleetMachineStats>>({});
@@ -73,6 +74,11 @@
 		{machines.length} machines · {num(fleetPieces)} pieces sorted
 	</span>
 </div>
+
+<section class="mb-8">
+	<h2 class="mb-3 text-lg font-semibold text-text">Fleet analytics</h2>
+	<AnalyticsDashboard scope="all" />
+</section>
 
 {#if error}
 	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>

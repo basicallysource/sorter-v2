@@ -4,6 +4,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import AnalyticsDashboard from '$lib/components/charts/AnalyticsDashboard.svelte';
 
 	let machines = $state<Machine[]>([]);
 	let loading = $state(true);
@@ -520,6 +521,13 @@ async function loadAssignmentProfile(profileId: string) {
 			</div>
 		{/each}
 	</div>
+{/if}
+
+{#if !loading && machines.length > 0}
+	<section class="mt-10">
+		<h2 class="mb-3 text-lg font-semibold text-text">Fleet analytics</h2>
+		<AnalyticsDashboard scope="mine" />
+	</section>
 {/if}
 
 <Modal open={showAddModal} title="Add Machine" onclose={() => { showAddModal = false; }}>

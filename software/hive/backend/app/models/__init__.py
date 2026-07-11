@@ -31,3 +31,4 @@ from app.models.machine_piece import MachinePiece  # noqa: E402, F401
 from app.models.machine_piece_image import MachinePieceImage  # noqa: E402, F401
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
+from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401

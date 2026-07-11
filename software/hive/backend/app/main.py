@@ -11,6 +11,7 @@ from app.errors import APIError, api_error_handler, http_exception_handler, unha
 from app.routers import (
     admin,
     admin_parts,
+    analytics,
     api_keys,
     auth,
     leaderboard,
@@ -74,6 +75,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.include_router(auth.router)
 app.include_router(admin.router)
 app.include_router(admin_parts.router)
+app.include_router(analytics.router)
 app.include_router(machines.router)
 app.include_router(machine_config_backups.router)
 app.include_router(machine_lookup.router)

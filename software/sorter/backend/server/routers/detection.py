@@ -29,7 +29,12 @@ from blob_manager import (
     setFeederDetectionConfig,
     setHiveConfig,
 )
-from hive_telemetry import setTelemetrySettings, telemetryFieldList
+from hive_telemetry import (
+    getTargetTelemetrySettings,
+    resetTargetTelemetrySettings,
+    setTargetTelemetrySettings,
+    telemetryFieldList,
+)
 from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
@@ -678,6 +683,7 @@ def get_hive_config() -> Dict[str, Any]:
                 "api_token_masked": _mask_hive_token(target.get("api_token")),
                 "enabled": bool(target.get("enabled", False)),
                 "is_primary": target["id"] == primary_target_id,
+                "telemetry": getTargetTelemetrySettings(target["id"]),
                 "uploader": (
                     dict(uploader_by_id[target["id"]])
                     if target["id"] in uploader_by_id
@@ -716,6 +722,8 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
         "machine_id": existing.get("machine_id") if existing else None,
         "enabled": payload.enabled,
     }
+    if existing and isinstance(existing.get("telemetry"), dict):
+        next_target["telemetry"] = existing["telemetry"]
 
     if existing is None:
         targets.append(next_target)
@@ -745,16 +753,21 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
 
 
 class HiveTelemetryPayload(BaseModel):
-    fields: Dict[str, bool]
+    target_id: str
+    fields: Dict[str, bool] = {}
+    reset: bool = False
 
 
 @router.post("/api/settings/hive/telemetry")
 def save_hive_telemetry(payload: HiveTelemetryPayload) -> Dict[str, Any]:
     try:
-        setTelemetrySettings(payload.fields)
+        if payload.reset:
+            settings = resetTargetTelemetrySettings(payload.target_id)
+        else:
+            settings = setTargetTelemetrySettings(payload.target_id, payload.fields)
     except ValueError as exc:
         raise HTTPException(400, str(exc))
-    return {"ok": True, "telemetry_fields": telemetryFieldList()}
+    return {"ok": True, "target_id": payload.target_id, "telemetry": settings}
 
 
 class HivePrimaryPayload(BaseModel):

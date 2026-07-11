@@ -1,4 +1,3 @@
-import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -10,9 +9,10 @@ from hive_telemetry import (
     TELEMETRY_FIELDS,
     TelemetryBlocked,
     defaultTelemetrySettings,
-    getTelemetrySettings,
+    getTargetTelemetrySettings,
     normalizeTelemetrySettings,
-    setTelemetrySettings,
+    resetTargetTelemetrySettings,
+    setTargetTelemetrySettings,
     telemetryAllows,
     telemetryFieldList,
 )
@@ -56,7 +56,7 @@ class _RecordingSession:
 
 
 def _client_with_session(payload: dict | None = None) -> tuple[HiveTelemetryClient, _RecordingSession]:
-    client = HiveTelemetryClient("https://hive.example", "token")
+    client = HiveTelemetryClient("https://hive.example", "token", "target-a")
     session = _RecordingSession(payload or {"max_local_id": 1})
     client._session = session  # type: ignore[assignment]
     return client, session
@@ -68,18 +68,40 @@ def _settings(**overrides: bool) -> dict[str, bool]:
     return settings
 
 
+class _InMemoryHiveConfig:
+    def __init__(self, config: dict) -> None:
+        self.config = config
+
+    def get(self) -> dict:
+        return self.config
+
+    def set(self, config: dict) -> None:
+        self.config = config
+
+
 class TelemetrySettingsTests(unittest.TestCase):
     def setUp(self) -> None:
-        self._old_db = os.environ.get("LOCAL_STATE_DB_PATH")
-        self._tmpdir = tempfile.TemporaryDirectory()
-        os.environ["LOCAL_STATE_DB_PATH"] = str(Path(self._tmpdir.name) / "state.sqlite")
+        store = _InMemoryHiveConfig(
+            {
+                "targets": [
+                    {"id": "target-a", "url": "https://a.example", "api_token": "t", "enabled": True},
+                    {"id": "target-b", "url": "https://b.example", "api_token": "t", "enabled": True},
+                ],
+                "primary_target_id": "target-a",
+            }
+        )
+        import local_state
+
+        self._patchers = [
+            patch.object(local_state, "get_hive_config", store.get),
+            patch.object(local_state, "set_hive_config", store.set),
+        ]
+        for patcher in self._patchers:
+            patcher.start()
 
     def tearDown(self) -> None:
-        if self._old_db is None:
-            os.environ.pop("LOCAL_STATE_DB_PATH", None)
-        else:
-            os.environ["LOCAL_STATE_DB_PATH"] = self._old_db
-        self._tmpdir.cleanup()
+        for patcher in self._patchers:
+            patcher.stop()
 
     def test_defaults_match_registry(self) -> None:
         defaults = defaultTelemetrySettings()
@@ -87,43 +109,53 @@ class TelemetrySettingsTests(unittest.TestCase):
             {field["key"] for field in TELEMETRY_FIELDS},
             set(defaults.keys()),
         )
-        self.assertFalse(defaults["machine_status"])
-        self.assertTrue(defaults["detection_images"])
+        self.assertTrue(all(defaults.values()))
+        self.assertNotIn("machine_status", defaults)
 
     def test_normalize_ignores_junk(self) -> None:
         normalized = normalizeTelemetrySettings(
             {"detection_images": False, "full_frames": "yes", "bogus": True}
         )
         self.assertFalse(normalized["detection_images"])
-        self.assertEqual(normalized["full_frames"], defaultTelemetrySettings()["full_frames"])
+        self.assertTrue(normalized["full_frames"])
         self.assertNotIn("bogus", normalized)
 
-    def test_set_and_get_roundtrip(self) -> None:
-        setTelemetrySettings({"detection_images": False, "machine_status": True})
-        settings = getTelemetrySettings()
-        self.assertFalse(settings["detection_images"])
-        self.assertTrue(settings["machine_status"])
-        self.assertFalse(telemetryAllows("detection_images"))
-        self.assertTrue(telemetryAllows("piece_metadata"))
+    def test_unknown_target_gets_defaults(self) -> None:
+        self.assertEqual(defaultTelemetrySettings(), getTargetTelemetrySettings("nope"))
+
+    def test_set_and_get_are_per_target(self) -> None:
+        setTargetTelemetrySettings("target-a", {"detection_images": False})
+        self.assertFalse(telemetryAllows("target-a", "detection_images"))
+        self.assertTrue(telemetryAllows("target-b", "detection_images"))
+        self.assertTrue(telemetryAllows("target-a", "piece_metadata"))
 
     def test_set_rejects_unknown_fields(self) -> None:
         with self.assertRaises(ValueError):
-            setTelemetrySettings({"nope": True})
+            setTargetTelemetrySettings("target-a", {"nope": True})
 
-    def test_field_list_reflects_settings(self) -> None:
-        setTelemetrySettings({"full_frames": False})
-        by_key = {field["key"]: field for field in telemetryFieldList()}
-        self.assertFalse(by_key["full_frames"]["enabled"])
-        self.assertTrue(by_key["detection_images"]["enabled"])
-        for field in by_key.values():
+    def test_set_rejects_unknown_target(self) -> None:
+        with self.assertRaises(ValueError):
+            setTargetTelemetrySettings("nope", {"detection_images": False})
+
+    def test_reset_restores_defaults(self) -> None:
+        setTargetTelemetrySettings("target-a", {"detection_images": False, "full_frames": False})
+        settings = resetTargetTelemetrySettings("target-a")
+        self.assertEqual(defaultTelemetrySettings(), settings)
+        self.assertEqual(defaultTelemetrySettings(), getTargetTelemetrySettings("target-a"))
+
+    def test_field_list_is_registry(self) -> None:
+        fields = telemetryFieldList()
+        self.assertEqual([f["key"] for f in TELEMETRY_FIELDS], [f["key"] for f in fields])
+        for field in fields:
             self.assertTrue(field["label"])
             self.assertTrue(field["description"])
+            self.assertNotIn("enabled", field)
 
 
 class TelemetryClientGatingTests(unittest.TestCase):
     def test_push_piece_records_blocked(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTelemetrySettings", return_value=_settings(piece_metadata=False)):
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(piece_metadata=False)):
             with self.assertRaises(TelemetryBlocked) as ctx:
                 client.pushPieceRecords([{"piece_uuid": "x"}])
         self.assertEqual("piece_metadata", ctx.exception.field)
@@ -131,14 +163,14 @@ class TelemetryClientGatingTests(unittest.TestCase):
 
     def test_push_piece_image_blocked(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTelemetrySettings", return_value=_settings(detection_images=False)):
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(detection_images=False)):
             with self.assertRaises(TelemetryBlocked):
                 client.pushPieceImage({"piece_uuid": "x"}, None)
         self.assertEqual([], session.calls)
 
     def test_push_set_progress_blocked(self) -> None:
         client, session = _client_with_session()
-        with patch.object(hive_telemetry, "getTelemetrySettings", return_value=_settings(piece_metadata=False)):
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(piece_metadata=False)):
             with self.assertRaises(TelemetryBlocked):
                 client.pushSetProgress({"version_id": "v"})
         self.assertEqual([], session.calls)
@@ -148,7 +180,7 @@ class TelemetryClientGatingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             image = Path(tmp) / "crop.jpg"
             image.write_bytes(b"jpg")
-            with patch.object(hive_telemetry, "getTelemetrySettings", return_value=_settings(detection_images=False)):
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(detection_images=False)):
                 with self.assertRaises(TelemetryBlocked):
                     client.uploadSample(
                         source_session_id="s",
@@ -165,7 +197,7 @@ class TelemetryClientGatingTests(unittest.TestCase):
             overlay = Path(tmp) / "overlay.jpg"
             for path in (image, frame, overlay):
                 path.write_bytes(b"jpg")
-            with patch.object(hive_telemetry, "getTelemetrySettings", return_value=_settings(full_frames=False)):
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings(full_frames=False)):
                 client.uploadSample(
                     source_session_id="s",
                     local_sample_id="a",
@@ -186,7 +218,7 @@ class TelemetryClientGatingTests(unittest.TestCase):
             frame = Path(tmp) / "frame.jpg"
             for path in (image, frame):
                 path.write_bytes(b"jpg")
-            with patch.object(hive_telemetry, "getTelemetrySettings", return_value=_settings()):
+            with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=_settings()):
                 client.uploadSample(
                     source_session_id="s",
                     local_sample_id="a",
@@ -200,7 +232,7 @@ class TelemetryClientGatingTests(unittest.TestCase):
     def test_get_sync_state_is_not_gated(self) -> None:
         client, session = _client_with_session(payload={"piece_records": {"max_local_id": 0}})
         all_off = {key: False for key in defaultTelemetrySettings()}
-        with patch.object(hive_telemetry, "getTelemetrySettings", return_value=all_off):
+        with patch.object(hive_telemetry, "getTargetTelemetrySettings", return_value=all_off):
             client.getSyncState()
         self.assertEqual(1, len(session.calls))
 

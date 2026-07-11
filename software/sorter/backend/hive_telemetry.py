@@ -1,13 +1,14 @@
 """Single choke point for everything this machine uploads to Hive targets.
 
 Every upload request declares which telemetry fields it carries, and a field
-that is disabled in the settings blocks the request here — at send time, so a
+that is disabled for the target blocks the request here — at send time, so a
 toggle also applies to jobs that were already queued. No other module may talk
 to the Hive upload endpoints directly; tests/test_hive_telemetry.py fails if
 one does.
 
 The field registry below is the source of truth for what CAN leave the
-machine. Adding a new kind of upload means adding a field here and routing the
+machine. Settings are per Hive target, stored on the target entry in the hive
+config. Adding a new kind of upload means adding a field here and routing the
 request through HiveTelemetryClient with that field declared.
 """
 
@@ -38,12 +39,6 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "description": "Classification results per piece (part, color, confidence, bin, timestamps) and set sorting progress.",
         "default": True,
     },
-    {
-        "key": "machine_status",
-        "label": "Machine status",
-        "description": "Hardware and machine status details. No status upload exists yet; the empty keep-alive ping that marks this machine online is always sent while a target is enabled.",
-        "default": False,
-    },
 )
 
 _TELEMETRY_FIELD_KEYS = tuple(field["key"] for field in TELEMETRY_FIELDS)
@@ -63,38 +58,57 @@ def normalizeTelemetrySettings(raw: Any) -> dict[str, bool]:
     return settings
 
 
-def getTelemetrySettings() -> dict[str, bool]:
-    from local_state import get_hive_telemetry
+def _findTarget(config: dict[str, Any] | None, target_id: str) -> dict[str, Any] | None:
+    targets = config.get("targets") if isinstance(config, dict) else None
+    if not isinstance(targets, list):
+        return None
+    for target in targets:
+        if isinstance(target, dict) and target.get("id") == target_id:
+            return target
+    return None
 
-    return normalizeTelemetrySettings(get_hive_telemetry())
+
+def getTargetTelemetrySettings(target_id: str) -> dict[str, bool]:
+    from local_state import get_hive_config
+
+    target = _findTarget(get_hive_config(), target_id)
+    return normalizeTelemetrySettings(target.get("telemetry") if target else None)
 
 
-def setTelemetrySettings(updates: dict[str, Any]) -> dict[str, bool]:
+def setTargetTelemetrySettings(target_id: str, updates: dict[str, Any]) -> dict[str, bool]:
     unknown = sorted(key for key in updates if key not in _TELEMETRY_FIELD_KEYS)
     if unknown:
         raise ValueError(f"Unknown telemetry fields: {', '.join(unknown)}")
 
-    from local_state import set_hive_telemetry
+    from local_state import get_hive_config, set_hive_config
 
-    settings = getTelemetrySettings()
+    config = get_hive_config() or {}
+    target = _findTarget(config, target_id)
+    if target is None:
+        raise ValueError(f"Unknown Hive target: {target_id}")
+
+    settings = normalizeTelemetrySettings(target.get("telemetry"))
     for key, value in updates.items():
         settings[key] = bool(value)
-    set_hive_telemetry(settings)
+    target["telemetry"] = settings
+    set_hive_config(config)
     return settings
 
 
-def telemetryAllows(field: str) -> bool:
-    return bool(getTelemetrySettings().get(field, False))
+def resetTargetTelemetrySettings(target_id: str) -> dict[str, bool]:
+    return setTargetTelemetrySettings(target_id, defaultTelemetrySettings())
+
+
+def telemetryAllows(target_id: str, field: str) -> bool:
+    return bool(getTargetTelemetrySettings(target_id).get(field, False))
 
 
 def telemetryFieldList() -> list[dict[str, Any]]:
-    settings = getTelemetrySettings()
     return [
         {
             "key": field["key"],
             "label": field["label"],
             "description": field["description"],
-            "enabled": settings[field["key"]],
         }
         for field in TELEMETRY_FIELDS
     ]
@@ -102,13 +116,14 @@ def telemetryFieldList() -> list[dict[str, Any]]:
 
 class TelemetryBlocked(Exception):
     def __init__(self, field: str) -> None:
-        super().__init__(f"Telemetry field '{field}' is disabled in the Hive upload settings.")
+        super().__init__(f"Telemetry field '{field}' is disabled for this Hive target.")
         self.field = field
 
 
 class HiveTelemetryClient:
-    def __init__(self, url: str, api_token: str) -> None:
+    def __init__(self, url: str, api_token: str, target_id: str) -> None:
         self._url = url.rstrip("/")
+        self._target_id = target_id
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {api_token}"
 
@@ -121,7 +136,7 @@ class HiveTelemetryClient:
         timeout: float,
         **kwargs: Any,
     ) -> requests.Response:
-        settings = getTelemetrySettings()
+        settings = getTargetTelemetrySettings(self._target_id)
         for field in fields:
             if not settings.get(field, False):
                 raise TelemetryBlocked(field)
@@ -190,7 +205,7 @@ class HiveTelemetryClient:
         # A sample IS a detection image plus its detection metadata, so the
         # whole request rides on detection_images; full-frame attachments are
         # stripped (not blocked) when full_frames is off.
-        settings = getTelemetrySettings()
+        settings = getTargetTelemetrySettings(self._target_id)
         if not settings.get("detection_images", False):
             raise TelemetryBlocked("detection_images")
         if not settings.get("full_frames", False):
@@ -268,7 +283,8 @@ class HiveTelemetryClient:
 
     def heartbeat(self) -> bool:
         # Empty keep-alive so target reachability shows in the UI; carries no
-        # machine data. A future status payload must be gated on machine_status.
+        # machine data. A future status upload must add a registry field and
+        # be gated on it.
         try:
             response = self._session.post(f"{self._url}/api/machine/heartbeat", timeout=10)
             return response.status_code < 500

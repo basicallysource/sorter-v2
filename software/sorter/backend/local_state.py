@@ -65,7 +65,6 @@ _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
-_STATE_KEY_HIVE_TELEMETRY = "hive_telemetry"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
@@ -235,6 +234,17 @@ def _normalize_hive_target(raw: Any, index: int) -> dict[str, Any] | None:
     }
     if isinstance(machine_id, str) and machine_id.strip():
         target["machine_id"] = machine_id.strip()
+    telemetry = raw.get("telemetry")
+    if isinstance(telemetry, dict):
+        # Per-target upload permissions; hive_telemetry owns the field set and
+        # defaults, so pass through any bool entries untouched.
+        normalized_telemetry = {
+            key: value
+            for key, value in telemetry.items()
+            if isinstance(key, str) and isinstance(value, bool)
+        }
+        if normalized_telemetry:
+            target["telemetry"] = normalized_telemetry
     return target
 
 
@@ -866,15 +876,6 @@ def set_sample_collection_state(state: dict[str, Any] | None) -> None:
             if isinstance(key, str) and value is not None
         }
     _write_state(_STATE_KEY_SAMPLE_COLLECTION, normalized)
-
-
-def get_hive_telemetry() -> dict[str, Any] | None:
-    value = _read_state(_STATE_KEY_HIVE_TELEMETRY)
-    return value if isinstance(value, dict) else None
-
-
-def set_hive_telemetry(settings: dict[str, Any]) -> None:
-    _write_state(_STATE_KEY_HIVE_TELEMETRY, settings)
 
 
 def get_hive_config() -> dict[str, Any] | None:

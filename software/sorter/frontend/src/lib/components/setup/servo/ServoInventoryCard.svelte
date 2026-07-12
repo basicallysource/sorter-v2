@@ -61,7 +61,7 @@
 		onSelect: () => void;
 		onAssignLayer: (layer: number) => void;
 		onPromote: () => void;
-		onCalibrate: () => void;
+		onCalibrate: (force: boolean) => void;
 		onToggleOpenClose: () => void;
 		onToggleInvert: () => void;
 		onNudge: (degrees: number) => void;
@@ -142,7 +142,7 @@
 				</span>
 				<span class={`inline-flex items-center gap-1 border px-2 py-1 font-medium ${layer > 0 ? 'border-border bg-bg text-text' : 'border-border bg-bg text-text-muted'}`}>
 					<span class={`h-1.5 w-1.5 rounded-full ${layer > 0 ? 'bg-text' : 'bg-text-muted'}`}></span>
-					Direction {layer > 0 ? (inverted ? 'reversed' : 'normal') : 'set after assignment'}
+					Open/close {layer > 0 ? (inverted ? 'swapped' : 'normal') : 'set after assignment'}
 				</span>
 			</div>
 		</div>
@@ -205,7 +205,7 @@
 		<div class="text-xs uppercase tracking-wider text-text-muted">Actions</div>
 		<div class="mt-2 flex flex-wrap items-center gap-2">
 			<button
-				onclick={onCalibrate}
+				onclick={() => onCalibrate(calibrated)}
 				disabled={!!busy}
 				class={`px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${calibrated ? 'setup-button-secondary text-text' : 'border border-primary bg-primary text-primary-contrast hover:bg-primary-hover'}`}
 			>
@@ -230,11 +230,11 @@
 				onclick={onToggleInvert}
 				disabled={!calibrated || layer === 0}
 				title={layer === 0
-					? 'Assign a layer first to remember this direction change'
-					: 'Use this if the gate opens when it should close'}
+					? 'Assign a layer first to remember this open/close change'
+					: 'Use this if the gate opens when it should close, or closes when it should open'}
 				class="setup-button-secondary px-3 py-1.5 text-xs font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
 			>
-				{inverted ? 'Direction reversed' : 'Reverse direction'}
+				{inverted ? 'Open/close swapped' : 'Reverse open/close'}
 			</button>
 		</div>
 

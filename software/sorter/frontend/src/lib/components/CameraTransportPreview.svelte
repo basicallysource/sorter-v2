@@ -10,6 +10,8 @@
 	} from '$lib/camera/transport-policy';
 	import { createEventDispatcher, onDestroy, untrack } from 'svelte';
 
+	const WEBRTC_MJPEG_FALLBACK_DELAY_MS = 8000;
+
 	type MediaSizeEvent = {
 		width: number;
 		height: number;
@@ -51,6 +53,8 @@
 	let webrtcLease: CameraWebrtcLease | null = null;
 	let mjpegRetry = $state(0);
 	let retryTimer: ReturnType<typeof setTimeout> | null = null;
+	let webrtcFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+	let webrtcFallbackDelayElapsed = $state(false);
 
 	const effectiveStreamEpoch = $derived(streamEpoch ?? ctx.machine?.cameraFeedEpoch ?? 0);
 	const usingWebrtc = $derived(rtcStream !== null);
@@ -66,6 +70,9 @@
 			webrtcTargetReady,
 			webrtcStatus
 		})
+	);
+	const delayedLegacyMjpegAllowed = $derived(
+		legacyMjpegAllowed && (!webrtcCandidate || webrtcFallbackDelayElapsed)
 	);
 	const fallbackMjpegSrc = $derived.by(() => {
 		if (mjpegRetry <= 0) return mjpegSrc;
@@ -134,6 +141,24 @@
 	});
 
 	$effect(() => {
+		const shouldDelayFallback =
+			webrtcCandidate && !webrtcTargetReady && webrtcStatus === 'unavailable';
+		if (!shouldDelayFallback) {
+			webrtcFallbackDelayElapsed = false;
+			if (webrtcFallbackTimer !== null) {
+				clearTimeout(webrtcFallbackTimer);
+				webrtcFallbackTimer = null;
+			}
+			return;
+		}
+		if (webrtcFallbackDelayElapsed || webrtcFallbackTimer !== null) return;
+		webrtcFallbackTimer = setTimeout(() => {
+			webrtcFallbackTimer = null;
+			webrtcFallbackDelayElapsed = true;
+		}, WEBRTC_MJPEG_FALLBACK_DELAY_MS);
+	});
+
+	$effect(() => {
 		if (!webrtcCandidate || typeof fetch === 'undefined') {
 			webrtcTargetReady = false;
 			webrtcStatus = 'idle';
@@ -171,6 +196,10 @@
 			clearTimeout(retryTimer);
 			retryTimer = null;
 		}
+		if (webrtcFallbackTimer !== null) {
+			clearTimeout(webrtcFallbackTimer);
+			webrtcFallbackTimer = null;
+		}
 		releaseWebrtcSession();
 	});
 </script>
@@ -186,7 +215,7 @@
 		onloadedmetadata={(event) => reportVideoSize(event.currentTarget)}
 		onresize={(event) => reportVideoSize(event.currentTarget)}
 	></video>
-{:else if legacyMjpegAllowed}
+{:else if delayedLegacyMjpegAllowed}
 	<img
 		bind:this={mjpegImage}
 		src={fallbackMjpegSrc}

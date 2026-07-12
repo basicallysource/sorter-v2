@@ -506,6 +506,9 @@
 		const index = stepIndex(stepId);
 		if (index <= 0) return true;
 		for (const previous of WIZARD_STEPS.slice(0, index)) {
+			// A friendly machine name is useful, but it must not block hardware
+			// bring-up or field diagnostics when a sorter is already connected.
+			if (previous.id === 'identity') continue;
 			if (!isStepComplete(previous.id)) return false;
 		}
 		return true;
@@ -1246,106 +1249,110 @@
 								Try Again
 							</button>
 						</div>
-					{:else if currentStepLocked()}
-						<div class="setup-panel px-4 py-4 text-sm text-text-muted">
-							This step keeps its own URL at
-							<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but it stays locked
-							until the previous steps are complete.
-						</div>
-					{:else if activeStepId === 'identity'}
-						<IdentityStep
-							machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
-							bind:mode={identityMode}
-							bind:nicknameDraft
-							{nameError}
-							{nameStatus}
-							officialHiveTarget={primaryHiveTarget}
-							defaultHiveUrl={DEFAULT_HIVE_URL}
-							bind:hiveUrl
-							{hiveConnecting}
-							{restoreBackups}
-							{restoreLoadingBackups}
-							bind:restoreSelectedVersion
-							bind:restoreIncludeCalibration
-							{restoreApplying}
-							{restoreError}
-							{restoreStatus}
-							{restoreApplied}
-							onConnectRestore={() => connectToSorthive('restore')}
-							onRefreshBackups={loadConfigBackups}
-							onRestore={applySelectedConfigBackup}
-						/>
-					{:else if activeStepId === 'theme'}
-						<ThemeStep />
-					{:else if activeStepId === 'discovery'}
-						<DiscoveryStep
-							usbDevices={wizard?.discovery.usb_devices ?? []}
-							issues={wizard?.discovery.issues ?? []}
-							{loadingWizard}
-							onRescan={loadWizard}
-						/>
-					{:else if activeStepId === 'cameras'}
-						<CamerasStep
-							cameraRoles={cameraRolesForLayout()}
-							roleLabels={ROLE_LABELS}
-							roleDescriptions={ROLE_DESCRIPTIONS}
-							optionalRoles={OPTIONAL_ROLES}
-							{roleSelections}
-							{reviewedZones}
-							{tunedPictures}
-							cameraChoices={cameraChoices()}
-							{selectedCameraLabel}
-							{savingAssignments}
-							{savingLayout}
-							{cameraError}
-							{cameraStatus}
-							onSelect={handleRoleSelection}
-							onOpenPictureSettings={openPictureSettings}
-							onOpenZoneEditor={openZoneEditor}
-							onSave={saveCameraAssignments}
-						/>
-					{:else if activeStepId === 'motion'}
-						<MotionStep
-							{hardwareState}
-							{hardwareError}
-							{homingStep}
-							{homingSystem}
-							stepperEntries={stepperEntries()}
-							{stepperBusy}
-							{togglingStepper}
-							{verifiedSteppers}
-							{stepperActionError}
-							boards={wizard?.discovery.boards ?? []}
-							bind:showStepperWiringHelp
-							onInitialize={initializeSteppers}
-							onPulse={pulseStepper}
-							onRecordObservedDirection={recordObservedDirection}
-						/>
-					{:else if activeStepId === 'calibration'}
-						<CalibrationStep bind:this={calibrationStepRef} />
-					{:else if activeStepId === 'servos'}
-						<SetupServoOnboardingSection
-							servoSource={effectiveServoSource}
-							discoveredServoSource={discoveredServoSource}
-							discoveredWaveshareServos={discoveredWaveshareServos}
-							onSaved={handleServoSaved}
-							onSourceChange={setServoSource}
-						/>
-					{:else if activeStepId === 'hive'}
-						<HiveStep
-							{hiveLoading}
-							officialHiveTarget={officialSorthiveTarget}
-							defaultHiveUrl={DEFAULT_HIVE_URL}
-							bind:hiveUrl
-							{hiveConnecting}
-							{hiveError}
-							{hiveStatus}
-							{machineDisplayName}
-							onConnect={connectToSorthive}
-							onSkip={skipSorthive}
-						/>
-					{:else if activeStepId === 'advanced'}
-						<AdvancedStep />
+					{:else}
+						{#if currentStepLocked()}
+							<div class="setup-panel mb-4 px-4 py-4 text-sm text-text-muted">
+								This step keeps its own URL at
+								<span class="font-mono text-text">{stepHref(activeStepId)}</span>, but advancing
+								still requires the previous steps to be complete.
+							</div>
+						{/if}
+
+						{#if activeStepId === 'identity'}
+							<IdentityStep
+								machineId={wizard?.machine.machine_id ?? machine.machine.identity?.machine_id ?? ''}
+								bind:mode={identityMode}
+								bind:nicknameDraft
+								{nameError}
+								{nameStatus}
+								officialHiveTarget={primaryHiveTarget}
+								defaultHiveUrl={DEFAULT_HIVE_URL}
+								bind:hiveUrl
+								{hiveConnecting}
+								{restoreBackups}
+								{restoreLoadingBackups}
+								bind:restoreSelectedVersion
+								bind:restoreIncludeCalibration
+								{restoreApplying}
+								{restoreError}
+								{restoreStatus}
+								{restoreApplied}
+								onConnectRestore={() => connectToSorthive('restore')}
+								onRefreshBackups={loadConfigBackups}
+								onRestore={applySelectedConfigBackup}
+							/>
+						{:else if activeStepId === 'theme'}
+							<ThemeStep />
+						{:else if activeStepId === 'discovery'}
+							<DiscoveryStep
+								usbDevices={wizard?.discovery.usb_devices ?? []}
+								issues={wizard?.discovery.issues ?? []}
+								{loadingWizard}
+								onRescan={loadWizard}
+							/>
+						{:else if activeStepId === 'cameras'}
+							<CamerasStep
+								cameraRoles={cameraRolesForLayout()}
+								roleLabels={ROLE_LABELS}
+								roleDescriptions={ROLE_DESCRIPTIONS}
+								optionalRoles={OPTIONAL_ROLES}
+								{roleSelections}
+								{reviewedZones}
+								{tunedPictures}
+								cameraChoices={cameraChoices()}
+								{selectedCameraLabel}
+								{savingAssignments}
+								{savingLayout}
+								{cameraError}
+								{cameraStatus}
+								onSelect={handleRoleSelection}
+								onOpenPictureSettings={openPictureSettings}
+								onOpenZoneEditor={openZoneEditor}
+								onSave={saveCameraAssignments}
+							/>
+						{:else if activeStepId === 'motion'}
+							<MotionStep
+								{hardwareState}
+								{hardwareError}
+								{homingStep}
+								{homingSystem}
+								stepperEntries={stepperEntries()}
+								{stepperBusy}
+								{togglingStepper}
+								{verifiedSteppers}
+								{stepperActionError}
+								boards={wizard?.discovery.boards ?? []}
+								bind:showStepperWiringHelp
+								onInitialize={initializeSteppers}
+								onPulse={pulseStepper}
+								onRecordObservedDirection={recordObservedDirection}
+							/>
+						{:else if activeStepId === 'calibration'}
+							<CalibrationStep bind:this={calibrationStepRef} />
+						{:else if activeStepId === 'servos'}
+							<SetupServoOnboardingSection
+								servoSource={effectiveServoSource}
+								discoveredServoSource={discoveredServoSource}
+								discoveredWaveshareServos={discoveredWaveshareServos}
+								onSaved={handleServoSaved}
+								onSourceChange={setServoSource}
+							/>
+						{:else if activeStepId === 'hive'}
+							<HiveStep
+								{hiveLoading}
+								officialHiveTarget={officialSorthiveTarget}
+								defaultHiveUrl={DEFAULT_HIVE_URL}
+								bind:hiveUrl
+								{hiveConnecting}
+								{hiveError}
+								{hiveStatus}
+								{machineDisplayName}
+								onConnect={connectToSorthive}
+								onSkip={skipSorthive}
+							/>
+						{:else if activeStepId === 'advanced'}
+							<AdvancedStep />
+						{/if}
 					{/if}
 
 					{@const isAdvanced = activeStepId === 'advanced'}

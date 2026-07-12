@@ -1867,10 +1867,9 @@ class CaptureThread:
         # wedges the RK3588 vendor kernel's USB host stack (observed as a
         # hard kernel lockup with 3 cameras). Serialize pipeline bring-up
         # across all CaptureThreads and keep a small gap between starts.
-        with _gstreamer_capture_start_gate():
-            return self._runGStreamerMppCaptureLocked(
-                source=source, width=width, height=height, fps=fps, fourcc=fourcc
-            )
+        return self._runGStreamerMppCaptureLocked(
+            source=source, width=width, height=height, fps=fps, fourcc=fourcc
+        )
 
     def _runGStreamerMppCaptureLocked(
         self,
@@ -1961,102 +1960,103 @@ class CaptureThread:
             config,
             raw_frame_callback=self._publish_gstreamer_raw_frame,
         )
-        try:
-            with self._cap_lock:
-                pending_detection_crop_rect = self._detection_crop_rect_xyxy
-            if pending_detection_crop_rect is not None:
-                runtime.set_detection_crop_rect(pending_detection_crop_rect)
-            settings_to_apply = self.getDeviceSettings() or default_auto_camera_device_settings()
-            applied_device_settings = apply_camera_device_settings(
-                None,
-                settings_to_apply,
-                source=source,
-            )
-            if applied_device_settings:
-                with self._device_settings_lock:
-                    self._device_settings = dict(applied_device_settings)
-            runtime.start()
-        except Exception as exc:
+        with _gstreamer_capture_start_gate():
             try:
-                runtime.stop()
-            except Exception:
-                pass
+                with self._cap_lock:
+                    pending_detection_crop_rect = self._detection_crop_rect_xyxy
+                if pending_detection_crop_rect is not None:
+                    runtime.set_detection_crop_rect(pending_detection_crop_rect)
+                settings_to_apply = self.getDeviceSettings() or default_auto_camera_device_settings()
+                applied_device_settings = apply_camera_device_settings(
+                    None,
+                    settings_to_apply,
+                    source=source,
+                )
+                if applied_device_settings:
+                    with self._device_settings_lock:
+                        self._device_settings = dict(applied_device_settings)
+                runtime.start()
+            except Exception as exc:
+                try:
+                    runtime.stop()
+                except Exception:
+                    pass
+                log.warning(
+                    "CaptureThread[%s] GStreamer MPP capture failed for logical video%s -> /dev/video%s: %s",
+                    self.name,
+                    source,
+                    actual_source,
+                    exc,
+                )
+                return False
+
+            with self._cap_lock:
+                self._cap = None
+                self._gst_runtime = runtime
+
+            # UVC firmware commonly resets or clamps controls around STREAMON, so
+            # the values applied before runtime.start() may no longer be on the
+            # sensor. Re-apply once the stream has settled; runs detached so the
+            # capture bring-up (and the start gate) is not delayed.
+            def _reapply_device_settings_after_streamon() -> None:
+                # Prefer the persisted config: the in-memory copy holds the
+                # pre-STREAMON readback, which may already be the clamped
+                # values we are trying to correct. Verify and retry — some
+                # cameras keep clamping for several seconds after stream start.
+                settings = dict(getattr(self._config, "device_settings", None) or {})
+                if not settings:
+                    return
+                numeric_intent = {
+                    key: float(value)
+                    for key, value in settings.items()
+                    if isinstance(value, (int, float)) and not isinstance(value, bool)
+                }
+                for delay in (2.0, 4.0, 6.0):
+                    time.sleep(delay)
+                    try:
+                        applied = apply_camera_device_settings(None, settings, source=source)
+                    except Exception:
+                        continue
+                    if not applied:
+                        continue
+                    with self._device_settings_lock:
+                        self._device_settings = dict(applied)
+                    mismatched = [
+                        key
+                        for key, intent in numeric_intent.items()
+                        if isinstance(applied.get(key), (int, float))
+                        and abs(float(applied[key]) - intent) > max(2.0, abs(intent) * 0.05)
+                    ]
+                    if not mismatched:
+                        return
+                    log.info(
+                        "CaptureThread[%s] device settings still clamped after stream start (%s) — retrying",
+                        self.name,
+                        ", ".join(sorted(mismatched)),
+                    )
+
+            threading.Thread(
+                target=_reapply_device_settings_after_streamon,
+                daemon=True,
+                name=f"{self.name}-settings-reapply",
+            ).start()
+
             log.warning(
-                "CaptureThread[%s] GStreamer MPP capture failed for logical video%s -> /dev/video%s: %s",
+                "CaptureThread[%s] using GStreamer MPP capture backend for logical video%s -> /dev/video%s (%sx%s@%s %s, h264=%sx%s, yolo=%s, rga=%s, direct_librga_preview=%s, direct_librga_yolo=%s)",
                 self.name,
                 source,
                 actual_source,
-                exc,
+                width,
+                height,
+                fps,
+                normalized_fourcc,
+                config.h264_output_dimensions()[0],
+                config.h264_output_dimensions()[1],
+                f"{detection_width}x{detection_height}" if detection_width and detection_height else "raw-ring",
+                config.elements.rga_converter or "none",
+                config.direct_librga_preview,
+                config.direct_librga_detection,
             )
-            return False
-
-        with self._cap_lock:
-            self._cap = None
-            self._gst_runtime = runtime
-
-        # UVC firmware commonly resets or clamps controls around STREAMON, so
-        # the values applied before runtime.start() may no longer be on the
-        # sensor. Re-apply once the stream has settled; runs detached so the
-        # capture bring-up (and the start gate) is not delayed.
-        def _reapply_device_settings_after_streamon() -> None:
-            # Prefer the persisted config: the in-memory copy holds the
-            # pre-STREAMON readback, which may already be the clamped
-            # values we are trying to correct. Verify and retry — some
-            # cameras keep clamping for several seconds after stream start.
-            settings = dict(getattr(self._config, "device_settings", None) or {})
-            if not settings:
-                return
-            numeric_intent = {
-                key: float(value)
-                for key, value in settings.items()
-                if isinstance(value, (int, float)) and not isinstance(value, bool)
-            }
-            for delay in (2.0, 4.0, 6.0):
-                time.sleep(delay)
-                try:
-                    applied = apply_camera_device_settings(None, settings, source=source)
-                except Exception:
-                    continue
-                if not applied:
-                    continue
-                with self._device_settings_lock:
-                    self._device_settings = dict(applied)
-                mismatched = [
-                    key
-                    for key, intent in numeric_intent.items()
-                    if isinstance(applied.get(key), (int, float))
-                    and abs(float(applied[key]) - intent) > max(2.0, abs(intent) * 0.05)
-                ]
-                if not mismatched:
-                    return
-                log.info(
-                    "CaptureThread[%s] device settings still clamped after stream start (%s) — retrying",
-                    self.name,
-                    ", ".join(sorted(mismatched)),
-                )
-
-        threading.Thread(
-            target=_reapply_device_settings_after_streamon,
-            daemon=True,
-            name=f"{self.name}-settings-reapply",
-        ).start()
-
-        log.warning(
-            "CaptureThread[%s] using GStreamer MPP capture backend for logical video%s -> /dev/video%s (%sx%s@%s %s, h264=%sx%s, yolo=%s, rga=%s, direct_librga_preview=%s, direct_librga_yolo=%s)",
-            self.name,
-            source,
-            actual_source,
-            width,
-            height,
-            fps,
-            normalized_fourcc,
-            config.h264_output_dimensions()[0],
-            config.h264_output_dimensions()[1],
-            f"{detection_width}x{detection_height}" if detection_width and detection_height else "raw-ring",
-            config.elements.rga_converter or "none",
-            config.direct_librga_preview,
-            config.direct_librga_detection,
-        )
         try:
             while not self._stop_event.is_set() and not self._reopen_event.is_set():
                 time.sleep(0.05)

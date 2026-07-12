@@ -1,13 +1,14 @@
 <script lang="ts">
+	import { Plus, Trash2 } from 'lucide-svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachinesContext } from '$lib/machines/context';
 	import { onMount } from 'svelte';
 	import SerialPortPanel from './servo/SerialPortPanel.svelte';
 	import ServoInventoryList from './servo/ServoInventoryList.svelte';
-	import PcaChannelMapping from './servo/PcaChannelMapping.svelte';
 	import ServoLayerCalibrator from '$lib/components/servo/ServoLayerCalibrator.svelte';
 
 	type ServoBackend = 'pca9685' | 'waveshare';
+	const MIN_WAVESHARE_CALIBRATED_SPAN = 80;
 
 	type HardwareIssue = {
 		kind: string;
@@ -49,6 +50,13 @@
 
 	type ServoSource = 'waveshare' | 'pca';
 
+	type StorageLayerDraft = {
+		bin_count: number;
+		enabled: boolean;
+		max_pieces_per_bin: number | null;
+		max_dimension_mm: number | null;
+	};
+
 	let {
 		servoSource = 'pca',
 		discoveredServoSource = 'pca',
@@ -87,7 +95,8 @@
 	let servoIssues = $state<HardwareIssue[]>([]);
 
 	let layerCount = $state<number>(0);
-	let storageLayers = $state<Array<{ bin_count: number; enabled: boolean }>>([]);
+	let storageLayers = $state<StorageLayerDraft[]>([]);
+	let allowedBinCounts = $state<number[]>([6, 12, 18, 30]);
 	// servoId → layer index (1-based). For PCA, channelId → layer index.
 	let layerByAssignment = $state<Record<number, number>>({});
 	// per-layer invert (1-based layer index → invert)
@@ -110,9 +119,8 @@
 	let selectedLayerIdx = $state<number | null>(null);
 	let nudgeDegrees = $state<number>(5);
 
-	// Effective number of assignable layers. If we have more servos on the bus
-	// than the configured storage layers, expand so every servo can be mapped.
-	const effectiveLayerCount = $derived(Math.max(layerCount, busServos.length));
+	const activeLayerCount = $derived(storageLayers.filter((layer) => layer.enabled).length);
+	const assignedLayerCount = $derived(usedLayersForBusServos().size);
 
 	function currentBackendBaseUrl(): string {
 		return (
@@ -129,10 +137,15 @@
 	}
 
 	function servoSetupState(servo: BusServo) {
+		const minLimit = typeof servo.min_limit === 'number' ? servo.min_limit : null;
+		const maxLimit = typeof servo.max_limit === 'number' ? servo.max_limit : null;
+		const hasStoredLimits = minLimit !== null && maxLimit !== null;
+		const span = hasStoredLimits ? maxLimit - minLimit : 0;
+		const looksLikeFactoryRange = hasStoredLimits && minLimit <= 5 && maxLimit >= 1017;
 		const calibrated =
-			typeof servo.min_limit === 'number' &&
-			typeof servo.max_limit === 'number' &&
-			(servo.max_limit ?? 0) - (servo.min_limit ?? 0) >= 20;
+			hasStoredLimits &&
+			span >= MIN_WAVESHARE_CALIBRATED_SPAN &&
+			!looksLikeFactoryRange;
 		const layer = layerByAssignment[servo.id] ?? 0;
 		const inverted = layer > 0 ? Boolean(invertByLayer[layer]) : false;
 		const isFactory = servo.id === 1 && suggestedNextId !== null;
@@ -197,6 +210,10 @@
 		const servo = payload?.servo ?? {};
 		const storageLayersRaw = Array.isArray(storage?.layers) ? storage.layers : [];
 		const servoChannels = Array.isArray(servo?.channels) ? servo.channels : [];
+		const persistedBackend = servo?.backend === 'waveshare' ? 'waveshare' : 'pca9685';
+		allowedBinCounts = Array.isArray(storage?.allowed_bin_counts)
+			? storage.allowed_bin_counts.filter((value: unknown): value is number => typeof value === 'number')
+			: [6, 12, 18, 30];
 
 		backend = servoSource === 'waveshare' ? 'waveshare' : 'pca9685';
 		openAngle = Number(servo.open_angle ?? 10);
@@ -217,19 +234,30 @@
 				)
 			: [];
 
-		layerCount = Math.max(storageLayersRaw.length, Number(servo.layer_count ?? 0));
-		storageLayers = storageLayersRaw.map((sl: any) => ({
-			bin_count: Number(sl?.bin_count ?? 12),
-			enabled: sl?.enabled !== false,
-		}));
+		layerCount =
+			storageLayersRaw.length > 0 ? storageLayersRaw.length : Number(servo.layer_count ?? 0);
+		storageLayers = Array.from({ length: layerCount }, (_, index) => {
+			const sl = storageLayersRaw[index] ?? {};
+			return {
+				bin_count: Number(sl?.bin_count ?? allowedBinCounts[0] ?? 12),
+				enabled: sl?.enabled !== false,
+				max_pieces_per_bin:
+					typeof sl?.max_pieces_per_bin === 'number' ? sl.max_pieces_per_bin : null,
+				max_dimension_mm: typeof sl?.max_dimension_mm === 'number' ? sl.max_dimension_mm : null
+			};
+		});
 
 		const newAssignments: Record<number, number> = {};
 		const newInverts: Record<number, boolean> = {};
-		for (let i = 0; i < layerCount; i++) {
-			const channel = servoChannels[i];
-			if (channel && typeof channel.id === 'number') {
-				newAssignments[channel.id] = i + 1;
-				newInverts[i + 1] = Boolean(channel.invert);
+		if (persistedBackend === backend) {
+			for (let i = 0; i < layerCount; i++) {
+				const channel = servoChannels[i];
+				if (channel && typeof channel.id === 'number') {
+					newAssignments[channel.id] = i + 1;
+					newInverts[i + 1] = Boolean(channel.invert);
+				} else if (channel) {
+					newInverts[i + 1] = Boolean(channel.invert);
+				}
 			}
 		}
 		layerByAssignment = newAssignments;
@@ -354,18 +382,26 @@
 		}
 	}
 
-	async function calibrateServo(servoId: number) {
+	async function calibrateServo(servoId: number, force = false) {
 		setBusy(servoId, 'calibrating');
 		errorMsg = null;
 		statusMsg = '';
 		try {
+			const query = force ? '?force=true' : '';
 			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/calibrate`,
+				`${currentBackendBaseUrl()}/api/hardware-config/waveshare/servos/${servoId}/calibrate${query}`,
 				{ method: 'POST' }
 			);
 			if (!res.ok) {
 				const text = await res.text();
-				throw new Error(text);
+				let detail = text || `Failed to calibrate servo ${servoId}`;
+				try {
+					const payload = JSON.parse(text);
+					detail = payload?.detail ?? detail;
+				} catch {
+					// Keep the raw response body when the backend did not return JSON.
+				}
+				throw new Error(detail);
 			}
 			const payload = await res.json();
 			statusMsg = payload?.message ?? `Servo ${servoId} calibrated.`;
@@ -511,6 +547,74 @@
 		layerByAssignment = next;
 	}
 
+	function assignedServoForLayer(layerIndex: number): number | null {
+		for (const [servoIdStr, assignedLayer] of Object.entries(layerByAssignment)) {
+			if (assignedLayer === layerIndex) {
+				const servoId = Number(servoIdStr);
+				if (backend === 'waveshare' && (servoId < 1 || servoId > 253)) return null;
+				return servoId;
+			}
+		}
+		return null;
+	}
+
+	function setStorageLayer(layerIndex: number, patch: Partial<StorageLayerDraft>) {
+		storageLayers = storageLayers.map((layer, index) =>
+			index + 1 === layerIndex ? { ...layer, ...patch } : layer
+		);
+	}
+
+	function addStorageLayer() {
+		storageLayers = [
+			...storageLayers,
+			{
+				bin_count: allowedBinCounts[0] ?? 12,
+				enabled: true,
+				max_pieces_per_bin: null,
+				max_dimension_mm: null
+			}
+		];
+		layerCount = storageLayers.length;
+	}
+
+	function removeStorageLayer(layerIndex: number) {
+		if (storageLayers.length <= 1) return;
+		storageLayers = storageLayers.filter((_, index) => index + 1 !== layerIndex);
+		layerCount = storageLayers.length;
+
+		const nextAssignments: Record<number, number> = {};
+		for (const [servoIdStr, assignedLayer] of Object.entries(layerByAssignment)) {
+			if (assignedLayer === layerIndex) continue;
+			nextAssignments[Number(servoIdStr)] = assignedLayer > layerIndex ? assignedLayer - 1 : assignedLayer;
+		}
+		layerByAssignment = nextAssignments;
+
+		const nextInverts: Record<number, boolean> = {};
+		const nextOpenAngles: Record<number, string> = {};
+		const nextClosedAngles: Record<number, string> = {};
+		const nextEstimatedAngles: Record<number, number> = {};
+		for (let oldLayer = 1; oldLayer <= layerCount + 1; oldLayer++) {
+			if (oldLayer === layerIndex) continue;
+			const newLayer = oldLayer > layerIndex ? oldLayer - 1 : oldLayer;
+			if (invertByLayer[oldLayer] !== undefined) nextInverts[newLayer] = invertByLayer[oldLayer];
+			if (openAngleByLayer[oldLayer] !== undefined) {
+				nextOpenAngles[newLayer] = openAngleByLayer[oldLayer];
+			}
+			if (closedAngleByLayer[oldLayer] !== undefined) {
+				nextClosedAngles[newLayer] = closedAngleByLayer[oldLayer];
+			}
+			if (estimatedAngleByLayer[oldLayer] !== undefined) {
+				nextEstimatedAngles[newLayer] = estimatedAngleByLayer[oldLayer];
+			}
+		}
+		invertByLayer = nextInverts;
+		openAngleByLayer = nextOpenAngles;
+		closedAngleByLayer = nextClosedAngles;
+		estimatedAngleByLayer = nextEstimatedAngles;
+		if (selectedLayerIdx === layerIndex) selectedLayerIdx = null;
+		if (selectedLayerIdx !== null && selectedLayerIdx > layerIndex) selectedLayerIdx -= 1;
+	}
+
 	function setInvertForLayer(layerIndex: number, invert: boolean) {
 		invertByLayer = { ...invertByLayer, [layerIndex]: invert };
 	}
@@ -533,7 +637,7 @@
 	function unassignedLayers(currentLayer: number): number[] {
 		const used = usedLayersForBusServos();
 		const result: number[] = [];
-		for (let i = 1; i <= effectiveLayerCount; i++) {
+		for (let i = 1; i <= layerCount; i++) {
 			if (!used.has(i) || i === currentLayer) {
 				result.push(i);
 			}
@@ -548,8 +652,8 @@
 		};
 	}
 
-	function buildChannelsForSave(): Array<{ id: number; invert: boolean }> {
-		const channels: Array<{ id: number; invert: boolean }> = [];
+	function buildChannelsForSave(): Array<{ id: number | null; invert: boolean }> {
+		const channels: Array<{ id: number | null; invert: boolean }> = [];
 		// Build a layer → servoId map, but only honour assignments that
 		// still point at a servo currently on the bus (when we have a bus).
 		const onBus = new Set(busServos.map((s) => s.id));
@@ -559,10 +663,9 @@
 			if (onBus.size > 0 && !onBus.has(servoId)) continue;
 			servoByLayer[layerIdx] = servoId;
 		}
-		const upper = Math.max(layerCount, effectiveLayerCount);
+		const upper = layerCount;
 		for (let layer = 1; layer <= upper; layer++) {
-			const id =
-				servoByLayer[layer] ?? (backend === 'waveshare' ? layer : layer - 1);
+			const id = servoByLayer[layer] ?? (backend === 'waveshare' ? null : layer - 1);
 			channels.push({
 				id,
 				invert: Boolean(invertByLayer[layer])
@@ -572,7 +675,14 @@
 	}
 
 	function buildStorageLayersForSave() {
-		const result: Array<{ bin_count: number; enabled: boolean; servo_open_angle: number | null; servo_closed_angle: number | null }> = [];
+		const result: Array<{
+			bin_count: number;
+			enabled: boolean;
+			servo_open_angle: number | null;
+			servo_closed_angle: number | null;
+			max_pieces_per_bin: number | null;
+			max_dimension_mm: number | null;
+		}> = [];
 		for (let i = 0; i < layerCount; i++) {
 			const sl = storageLayers[i];
 			const openStr = openAngleByLayer[i + 1] ?? '';
@@ -584,6 +694,8 @@
 				enabled: sl?.enabled ?? true,
 				servo_open_angle: openVal !== null && Number.isFinite(openVal) ? openVal : null,
 				servo_closed_angle: closedVal !== null && Number.isFinite(closedVal) ? closedVal : null,
+				max_pieces_per_bin: sl?.max_pieces_per_bin ?? null,
+				max_dimension_mm: sl?.max_dimension_mm ?? null
 			});
 		}
 		return result;
@@ -597,6 +709,15 @@
 			const channels = buildChannelsForSave();
 
 			const storageLayers = buildStorageLayersForSave();
+			if (backend === 'waveshare') {
+				for (let index = 0; index < storageLayers.length; index++) {
+					if (storageLayers[index].enabled && channels[index]?.id === null) {
+						throw new Error(
+							`Layer ${index + 1} is active but has no detected servo assigned. Assign a servo, disable the layer, or remove it.`
+						);
+					}
+				}
+			}
 			const storageRes = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/storage-layers`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
@@ -752,6 +873,108 @@
 			onScan={() => scanBus()}
 		/>
 
+		<div class="setup-panel p-4">
+			<div class="flex flex-wrap items-start justify-between gap-3">
+				<div class="min-w-0">
+					<div class="text-sm font-semibold text-text">Storage layers</div>
+					<div class="mt-1 text-sm text-text-muted">
+						{storageLayers.length} configured · {activeLayerCount} active · {assignedLayerCount}
+						assigned · {busServos.length} detected servo{busServos.length === 1 ? '' : 's'}
+					</div>
+				</div>
+				<button
+					type="button"
+					onclick={addStorageLayer}
+					disabled={saving || loading}
+					class="setup-button-secondary inline-flex min-h-10 items-center gap-2 px-3 py-2 text-sm font-medium text-text transition-colors disabled:cursor-not-allowed disabled:opacity-60"
+				>
+					<Plus size={15} /> Add layer
+				</button>
+			</div>
+
+			{#if activeLayerCount > busServos.length}
+				<div class="mt-3 border border-warning bg-[#FFF7E0] px-3 py-2 text-sm text-[#7A5A00]">
+					There are more active layers than detected servos. Assign more servos, disable unused
+					layers, or remove them before saving.
+				</div>
+			{/if}
+
+			{#if storageLayers.length === 0}
+				<div class="mt-4 border border-dashed border-border px-4 py-6 text-center text-sm text-text-muted">
+					No storage layers configured.
+				</div>
+			{:else}
+				<div class="mt-4 grid gap-2">
+					{#each storageLayers as layer, index}
+						{@const layerIndex = index + 1}
+						{@const assignedServoId = assignedServoForLayer(layerIndex)}
+						{@const assignedServoPresent =
+							assignedServoId !== null && busServos.some((servo) => servo.id === assignedServoId)}
+						<div
+							class="grid gap-3 border border-border bg-bg/40 px-3 py-3 md:grid-cols-[minmax(0,1fr)_auto_auto_auto] md:items-center"
+						>
+							<div class="min-w-0">
+								<div class="flex flex-wrap items-center gap-2">
+									<span class="text-sm font-semibold text-text">Layer {layerIndex}</span>
+									<span
+										class={`px-2 py-0.5 text-xs font-medium ${layer.enabled ? 'bg-success/10 text-success' : 'bg-surface text-text-muted'}`}
+									>
+										{layer.enabled ? 'Active' : 'Inactive'}
+									</span>
+								</div>
+								<div class="mt-1 text-sm text-text-muted">
+									{#if assignedServoId === null}
+										No servo assigned
+									{:else if assignedServoPresent}
+										Servo ID {assignedServoId}
+									{:else}
+										Servo ID {assignedServoId} not detected
+									{/if}
+								</div>
+							</div>
+
+							<label class="inline-flex min-h-10 items-center gap-2 text-sm text-text">
+								<input
+									class="setup-toggle"
+									type="checkbox"
+									checked={layer.enabled}
+									onchange={(event) =>
+										setStorageLayer(layerIndex, { enabled: event.currentTarget.checked })}
+									disabled={saving || loading}
+								/>
+								Active
+							</label>
+
+							<label class="inline-flex min-h-10 items-center gap-2 text-sm text-text-muted">
+								Bins
+								<select
+									value={String(layer.bin_count)}
+									onchange={(event) =>
+										setStorageLayer(layerIndex, { bin_count: Number(event.currentTarget.value) })}
+									disabled={saving || loading}
+									class="setup-control w-20 px-2 py-1 text-text"
+								>
+									{#each allowedBinCounts as count}
+										<option value={String(count)}>{count}</option>
+									{/each}
+								</select>
+							</label>
+
+							<button
+								type="button"
+								onclick={() => removeStorageLayer(layerIndex)}
+								disabled={saving || loading || storageLayers.length <= 1}
+								class="inline-flex min-h-10 items-center justify-center border border-danger/30 bg-danger/[0.06] px-3 py-2 text-danger transition-colors hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+								title="Remove Layer {layerIndex}"
+							>
+								<Trash2 size={15} />
+							</button>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
+
 		<ServoInventoryList
 			{busServos}
 			{highestSeenId}
@@ -768,7 +991,7 @@
 			{unassignedLayers}
 			onAssignLayer={assignLayer}
 			onPromote={(servoId) => promoteServoId(servoId, suggestedNextId!)}
-			onCalibrate={calibrateServo}
+			onCalibrate={(servoId, force) => calibrateServo(servoId, force)}
 			onToggleOpenClose={toggleOpenClose}
 			onToggleInvert={toggleInvertForLayer}
 			onNudge={(servoId, degrees) => void nudgeServo(servoId, degrees)}

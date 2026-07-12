@@ -61,7 +61,7 @@
 		unassignedLayers: (currentLayer: number) => number[];
 		onAssignLayer: (servoId: number, layer: number) => void;
 		onPromote: (servoId: number) => void;
-		onCalibrate: (servoId: number) => void;
+		onCalibrate: (servoId: number, force: boolean) => void;
 		onToggleOpenClose: (servoId: number) => void;
 		onToggleInvert: (layer: number) => void;
 		onNudge: (servoId: number, degrees: number) => void;
@@ -105,7 +105,7 @@
 					}}
 					onAssignLayer={(layerIdx) => onAssignLayer(servo.id, layerIdx)}
 					onPromote={() => onPromote(servo.id)}
-					onCalibrate={() => onCalibrate(servo.id)}
+					onCalibrate={(force) => onCalibrate(servo.id, force)}
 					onToggleOpenClose={() => onToggleOpenClose(servo.id)}
 					onToggleInvert={() => onToggleInvert(setup.layer)}
 					onNudge={(degrees) => onNudge(servo.id, degrees)}

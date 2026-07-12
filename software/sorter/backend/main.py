@@ -139,6 +139,31 @@ def _perceptionModeActive(irl_config) -> bool:
     )
 
 
+def _pausePerceptionInference(gc: GlobalConfig, reason: str) -> None:
+    service = getattr(gc, "perception_service", None)
+    if service is None:
+        return
+    try:
+        paused = service.pause_inference()
+    except Exception as exc:
+        gc.logger.warning(f"Failed to pause perception inference ({reason}): {exc}")
+        return
+    if paused:
+        gc.logger.info(f"Perception inference paused ({reason}); workers={paused}")
+
+
+def _resumePerceptionInference(gc: GlobalConfig, reason: str) -> None:
+    service = getattr(gc, "perception_service", None)
+    if service is None:
+        return
+    try:
+        service.resume_inference()
+    except Exception as exc:
+        gc.logger.warning(f"Failed to resume perception inference ({reason}): {exc}")
+        return
+    gc.logger.info(f"Perception inference resumed ({reason})")
+
+
 def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     if not _perceptionModeActive(irl_config):
         gc.logger.info(
@@ -162,10 +187,11 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         camera_service=camera_service,
         model_path_lookup=_lookup_model,
     )
-    service.start()
     gc.perception_service = service
+    _pausePerceptionInference(gc, "standby startup")
+    service.start()
     gc.logger.info(
-        f"Perception (rev04) started: channels={sorted(service.channels().keys())} "
+        f"Perception (rev04) started paused: channels={sorted(service.channels().keys())} "
         f"workers={sorted(service.workers().keys())}"
     )
 
@@ -442,6 +468,7 @@ def main() -> None:
 
         gc.logger.info(f"Cleaning up hardware runtime: {reason}")
         _drain_runtime_commands(reason)
+        _pausePerceptionInference(gc, reason)
         setHardwareRuntimeIRL(None)
 
         with controller_lock:
@@ -690,7 +717,12 @@ def main() -> None:
         with controller_lock:
             controller = next_controller
         setController(next_controller)
-        next_controller.start()
+        try:
+            _resumePerceptionInference(gc, "hardware ready")
+            next_controller.start()
+        except Exception:
+            _pausePerceptionInference(gc, "runtime start failed")
+            raise
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:

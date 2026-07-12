@@ -533,6 +533,8 @@ class VisionManager:
         )
         from vision.overlays.telemetry import TelemetryOverlay
 
+        perception_active = getattr(self.gc, "perception_service", None) is not None
+
         _ROLE_TO_POLY_KEY = {
             "c_channel_2": "second_channel",
             "c_channel_3": "third_channel",
@@ -597,6 +599,8 @@ class VisionManager:
                                 lambda r=role: self.getFeederIgnoredDetectionOverlayData(r)
                             )
                         )
+                        if perception_active:
+                            continue
                         if RAW_DETECTION_OVERLAY_ENABLED or use_raw_detections:
                             feed.add_overlay(
                                 DynamicDetectionOverlay(
@@ -622,9 +626,10 @@ class VisionManager:
                         # latest frame at capture fps with the last detection
                         # frozen, rather than pinning the stream to the detection
                         # frame (which throttled it to detection fps).
-                        carousel_feed.add_overlay(DynamicDetectionOverlay(
-                            lambda: self._getCarouselDynamicDetection(force=False)
-                        ))
+                        if not perception_active:
+                            carousel_feed.add_overlay(DynamicDetectionOverlay(
+                                lambda: self._getCarouselDynamicDetection(force=False)
+                            ))
                     elif self._carousel_heatmap.has_baseline:
                         carousel_feed.add_overlay(HeatmapOverlay(self._carousel_heatmap, label="carousel", text_y=80))
         else:

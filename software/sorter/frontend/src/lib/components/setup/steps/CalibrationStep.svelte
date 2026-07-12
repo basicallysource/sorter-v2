@@ -121,6 +121,39 @@
 		return 'border-border bg-bg text-text-muted';
 	}
 
+	function triggeredFromRawEndstop(rawHigh: boolean | null, activeHigh: boolean): boolean | null {
+		if (rawHigh === null) return null;
+		return rawHigh === activeHigh;
+	}
+
+	function applyCarouselPolarityToLive(activeHigh: boolean) {
+		carouselLive = {
+			...carouselLive,
+			endstop_active_high: activeHigh,
+			endstop_triggered:
+				triggeredFromRawEndstop(carouselLive.raw_endstop_high, activeHigh) ??
+				carouselLive.endstop_triggered
+		};
+	}
+
+	function applyChutePolarityToLive(activeHigh: boolean) {
+		chuteLive = {
+			...chuteLive,
+			endstop_active_high: activeHigh,
+			endstop_triggered:
+				triggeredFromRawEndstop(chuteLive.raw_endstop_high, activeHigh) ??
+				chuteLive.endstop_triggered
+		};
+	}
+
+	function refreshCarouselSettingsSoon() {
+		setTimeout(() => void loadCarouselSettings(), 250);
+	}
+
+	function refreshChuteSettingsSoon() {
+		setTimeout(() => void loadChuteSettings(), 250);
+	}
+
 	async function loadCarouselSettings() {
 		carouselLoading = true;
 		try {
@@ -129,20 +162,32 @@
 				fetch(`${currentBackendBaseUrl()}/api/hardware-config/carousel/live`)
 			]);
 			let configuredHomePinChannel: number | null = null;
+			let configuredEndstopActiveHigh: boolean | null = null;
 			if (configRes.ok) {
 				const configPayload = await configRes.json();
-				carouselEndstopActiveHigh = Boolean(configPayload?.endstop_active_high ?? false);
+				configuredEndstopActiveHigh = Boolean(configPayload?.endstop_active_high ?? false);
+				carouselEndstopActiveHigh = configuredEndstopActiveHigh;
 				configuredHomePinChannel = optionalChannel(configPayload?.home_pin_channel);
 			}
 			if (liveRes.ok) {
 				const livePayload = (await liveRes.json()) as CarouselLiveStatus;
+				const liveEndstopActiveHigh =
+					typeof livePayload.endstop_active_high === 'boolean'
+						? livePayload.endstop_active_high
+						: null;
+				const effectiveEndstopActiveHigh =
+					configuredEndstopActiveHigh ?? liveEndstopActiveHigh ?? carouselEndstopActiveHigh;
 				carouselLive = {
 					...livePayload,
+					endstop_active_high: effectiveEndstopActiveHigh,
+					endstop_triggered:
+						triggeredFromRawEndstop(
+							livePayload.raw_endstop_high,
+							effectiveEndstopActiveHigh
+						) ?? livePayload.endstop_triggered,
 					home_pin_channel: livePayload.home_pin_channel ?? configuredHomePinChannel
 				};
-				if (typeof livePayload.endstop_active_high === 'boolean') {
-					carouselEndstopActiveHigh = livePayload.endstop_active_high;
-				}
+				carouselEndstopActiveHigh = effectiveEndstopActiveHigh;
 			} else {
 				carouselLive = { ...carouselLive, home_pin_channel: configuredHomePinChannel };
 			}
@@ -159,22 +204,32 @@
 				fetch(`${currentBackendBaseUrl()}/api/hardware-config/chute/live`)
 			]);
 			let configuredHomePinChannel: number | null = null;
+			let configuredEndstopActiveHigh: boolean | null = null;
 			if (configRes.ok) {
 				const configPayload = await configRes.json();
 				chuteFirstBinCenter = Number(configPayload?.first_bin_center ?? 8.25);
 				chutePillarWidthDeg = Number(configPayload?.pillar_width_deg ?? 8.25);
-				chuteEndstopActiveHigh = Boolean(configPayload?.endstop_active_high ?? true);
+				configuredEndstopActiveHigh = Boolean(configPayload?.endstop_active_high ?? true);
+				chuteEndstopActiveHigh = configuredEndstopActiveHigh;
 				configuredHomePinChannel = optionalChannel(configPayload?.home_pin_channel);
 			}
 			if (liveRes.ok) {
 				const livePayload = (await liveRes.json()) as ChuteLiveStatus;
+				const liveEndstopActiveHigh =
+					typeof livePayload.endstop_active_high === 'boolean'
+						? livePayload.endstop_active_high
+						: null;
+				const effectiveEndstopActiveHigh =
+					configuredEndstopActiveHigh ?? liveEndstopActiveHigh ?? chuteEndstopActiveHigh;
 				chuteLive = {
 					...livePayload,
+					endstop_active_high: effectiveEndstopActiveHigh,
+					endstop_triggered:
+						triggeredFromRawEndstop(livePayload.raw_endstop_high, effectiveEndstopActiveHigh) ??
+						livePayload.endstop_triggered,
 					home_pin_channel: livePayload.home_pin_channel ?? configuredHomePinChannel
 				};
-				if (typeof livePayload.endstop_active_high === 'boolean') {
-					chuteEndstopActiveHigh = livePayload.endstop_active_high;
-				}
+				chuteEndstopActiveHigh = effectiveEndstopActiveHigh;
 			} else {
 				chuteLive = { ...chuteLive, home_pin_channel: configuredHomePinChannel };
 			}
@@ -205,12 +260,13 @@
 		carouselSaving = true;
 		carouselError = null;
 		carouselStatus = '';
+		const requestedEndstopActiveHigh = carouselEndstopActiveHigh;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/carousel`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
 				body: JSON.stringify({
-					endstop_active_high: carouselEndstopActiveHigh,
+					endstop_active_high: requestedEndstopActiveHigh,
 					stepper_direction_inverted: Boolean(carouselLive.stepper_direction_inverted ?? false)
 				})
 			});
@@ -218,6 +274,9 @@
 			const payload = await res.json();
 			carouselStatus = payload?.message ?? 'Carousel settings saved.';
 			await loadCarouselSettings();
+			carouselEndstopActiveHigh = requestedEndstopActiveHigh;
+			applyCarouselPolarityToLive(requestedEndstopActiveHigh);
+			refreshCarouselSettingsSoon();
 		} catch (e: any) {
 			carouselError = e.message ?? 'Failed to save carousel settings';
 		} finally {
@@ -245,12 +304,16 @@
 	}
 
 	async function flipCarouselPolarity() {
-		carouselEndstopActiveHigh = !carouselEndstopActiveHigh;
+		const nextEndstopActiveHigh = !carouselEndstopActiveHigh;
+		carouselEndstopActiveHigh = nextEndstopActiveHigh;
+		applyCarouselPolarityToLive(nextEndstopActiveHigh);
 		await saveCarouselSettings();
 	}
 
 	async function flipChutePolarity() {
-		chuteEndstopActiveHigh = !chuteEndstopActiveHigh;
+		const nextEndstopActiveHigh = !chuteEndstopActiveHigh;
+		chuteEndstopActiveHigh = nextEndstopActiveHigh;
+		applyChutePolarityToLive(nextEndstopActiveHigh);
 		await saveChuteSettings();
 	}
 
@@ -302,6 +365,7 @@
 		chuteSaving = true;
 		chuteError = null;
 		chuteStatus = '';
+		const requestedEndstopActiveHigh = chuteEndstopActiveHigh;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/hardware-config/chute`, {
 				method: 'POST',
@@ -309,13 +373,16 @@
 				body: JSON.stringify({
 					first_bin_center: chuteFirstBinCenter,
 					pillar_width_deg: chutePillarWidthDeg,
-					endstop_active_high: chuteEndstopActiveHigh
+					endstop_active_high: requestedEndstopActiveHigh
 				})
 			});
 			if (!res.ok) throw new Error(await res.text());
 			const payload = await res.json();
 			chuteStatus = payload?.message ?? 'Chute settings saved.';
 			await loadChuteSettings();
+			chuteEndstopActiveHigh = requestedEndstopActiveHigh;
+			applyChutePolarityToLive(requestedEndstopActiveHigh);
+			refreshChuteSettingsSoon();
 		} catch (e: any) {
 			chuteError = e.message ?? 'Failed to save chute settings';
 		} finally {

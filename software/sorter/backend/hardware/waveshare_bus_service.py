@@ -93,6 +93,9 @@ class WaveshareBusService:
     def set_pid(self, servo_id: int, p: int, d: int, i: int) -> bool:
         return self._execute(lambda bus: bus.set_pid(servo_id, p, d, i))
 
+    def set_punch(self, servo_id: int, punch: int) -> bool:
+        return self._execute(lambda bus: bus.set_punch(servo_id, punch))
+
     def set_torque(self, servo_id: int, enable: bool) -> bool:
         return self._execute(lambda bus: bus.set_torque(servo_id, enable), none_is_failure=True)
 
@@ -111,8 +114,8 @@ class WaveshareBusService:
     def set_id(self, old_id: int, new_id: int) -> bool:
         return self._execute(lambda bus: bus.set_id(old_id, new_id))
 
-    def calibrate_servo(self, servo_id: int) -> tuple[int, int]:
-        return self._execute(lambda bus: calibrate_servo_impl(bus, servo_id))
+    def calibrate_servo(self, servo_id: int, *, force: bool = False) -> tuple[int, int]:
+        return self._execute(lambda bus: calibrate_servo_impl(bus, servo_id, force=force))
 
     def soft_reset(self) -> bool:
         """Force a close + reopen of the underlying serial port and ping a

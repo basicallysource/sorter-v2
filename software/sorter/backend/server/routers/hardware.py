@@ -557,7 +557,10 @@ def _servo_settings_from_config(config: Dict[str, Any]) -> Dict[str, Any]:
     if port is not None and not isinstance(port, str):
         port = None
 
-    layer_count = _distribution_layer_count()
+    # Servo assignments are indexed by the persisted storage-layer layout.
+    # The live runtime layout can lag behind add/remove operations until the
+    # backend restarts, so using it here makes deleted layers reappear in setup.
+    layer_count = len(getBinLayout().layers)
     parsed_channels: List[Dict[str, Any]] = []
     channels_raw = servo.get("channels", [])
     if isinstance(channels_raw, list):
@@ -1672,7 +1675,7 @@ def set_waveshare_servo_id(servo_id: int, payload: ServoSetIdPayload) -> Dict[st
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/calibrate")
-def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
+def calibrate_waveshare_servo(servo_id: int, force: bool = False) -> Dict[str, Any]:
     """Auto-calibrate the open/close range of a single servo on the bus."""
     _ensure_not_homing("calibrate a Waveshare servo")
     if servo_id < 1 or servo_id > 253:
@@ -1686,10 +1689,18 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
         if not service.ping(servo_id):
             raise HTTPException(status_code=404, detail=f"No servo with ID {servo_id} found on the bus.")
 
+        existing_limits = service.read_angle_limits(servo_id)
+        existing_was_plausible = (
+            existing_limits is not None
+            and not _waveshare_limits_need_calibration(existing_limits[0], existing_limits[1])
+        )
         try:
-            safe_min, safe_max = service.calibrate_servo(servo_id)
+            safe_min, safe_max = service.calibrate_servo(servo_id, force=force)
         except Exception as exc:
-            raise HTTPException(status_code=500, detail=f"Calibration failed: {exc}")
+            message = str(exc)
+            status_code = 409 if "range too small" in message else 500
+            raise HTTPException(status_code=status_code, detail=f"Calibration failed: {message}")
+        reused_existing = (not force) and existing_was_plausible and existing_limits == (safe_min, safe_max)
 
         info = service.read_servo_info(servo_id)
         try:
@@ -1700,17 +1711,67 @@ def calibrate_waveshare_servo(servo_id: int) -> Dict[str, Any]:
             )
         except Exception:
             pass
+        kept_existing = force and existing_was_plausible and existing_limits == (safe_min, safe_max)
         return {
             "ok": True,
             "servo_id": servo_id,
             "limits": {"min": safe_min, "max": safe_max},
             "servo": info,
-            "message": f"Servo {servo_id} calibrated. Range {safe_min}–{safe_max} saved to EEPROM.",
+            "message": (
+                f"Servo {servo_id} already calibrated. Range {safe_min}–{safe_max} confirmed."
+                if reused_existing
+                else f"Servo {servo_id} kept existing calibration. Range {safe_min}–{safe_max} confirmed."
+                if kept_existing
+                else f"Servo {servo_id} recalibrated. Range {safe_min}–{safe_max} saved to EEPROM."
+                if force
+                else f"Servo {servo_id} calibrated. Range {safe_min}–{safe_max} saved to EEPROM."
+            ),
         }
     except HTTPException:
         raise
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to calibrate servo: {exc}")
+
+
+_WAVESHARE_SETUP_MOVE_TOLERANCE = 20
+_WAVESHARE_SERVO_RANGE_DEGREES = 300
+_WAVESHARE_MIN_USABLE_DEGREES = 70
+_WAVESHARE_MIN_USABLE_SPAN = (
+    1023 * _WAVESHARE_MIN_USABLE_DEGREES + _WAVESHARE_SERVO_RANGE_DEGREES - 1
+) // _WAVESHARE_SERVO_RANGE_DEGREES
+
+
+def _waveshare_limits_need_calibration(min_lim: int, max_lim: int) -> bool:
+    span = max_lim - min_lim
+    if span < _WAVESHARE_MIN_USABLE_SPAN:
+        return True
+    return min_lim <= 5 and max_lim >= 1017
+
+
+def _release_waveshare_torque(service: Any, servo_id: int) -> None:
+    try:
+        service.set_torque(servo_id, False)
+    except Exception:
+        pass
+
+
+def _verify_waveshare_reached(
+    service: Any,
+    servo_id: int,
+    target_position: int,
+) -> int:
+    actual_position = service.read_position(servo_id)
+    if actual_position is None:
+        raise HTTPException(status_code=500, detail="Could not verify servo position after move.")
+    if abs(actual_position - target_position) > _WAVESHARE_SETUP_MOVE_TOLERANCE:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Servo accepted the move command but stopped at {actual_position} "
+                f"instead of {target_position}. Check power and mechanical binding."
+            ),
+        )
+    return actual_position
 
 
 @router.post("/api/hardware-config/waveshare/servos/{servo_id}/move")
@@ -1739,7 +1800,7 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         if limits is None:
             raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
         min_lim, max_lim = limits
-        if max_lim - min_lim < 20:
+        if _waveshare_limits_need_calibration(min_lim, max_lim):
             raise HTTPException(
                 status_code=409,
                 detail="Servo has no calibrated range. Run auto-calibration first.",
@@ -1752,10 +1813,17 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
         else:
             position = (min_lim + max_lim) // 2
 
-        service.set_torque(servo_id, True)
-        time.sleep(0.01)
-        if not service.move_to(servo_id, position, 400):
-            raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            if not service.set_torque(servo_id, True):
+                raise HTTPException(status_code=500, detail="Could not enable servo torque.")
+            time.sleep(0.01)
+            if not service.move_to(servo_id, position, 400):
+                raise HTTPException(status_code=500, detail="move_to command failed.")
+            time.sleep(0.45)
+            actual_position = _verify_waveshare_reached(service, servo_id, position)
+        finally:
+            _release_waveshare_torque(service, servo_id)
+
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:
@@ -1766,6 +1834,7 @@ def move_waveshare_servo(servo_id: int, payload: ServoMovePayload) -> Dict[str, 
             "servo_id": servo_id,
             "position": target,
             "raw_position": position,
+            "actual_position": actual_position,
             "limits": {"min": min_lim, "max": max_lim},
             "message": f"Servo {servo_id} moved to {target} ({position}).",
         }
@@ -1794,7 +1863,7 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
             raise HTTPException(status_code=500, detail="Could not read servo angle limits.")
         min_lim, max_lim = limits
         range_size = max_lim - min_lim
-        if range_size < 20:
+        if _waveshare_limits_need_calibration(min_lim, max_lim):
             raise HTTPException(status_code=409, detail="Servo has no calibrated range. Run auto-calibration first.")
 
         current_pos = service.read_position(servo_id)
@@ -1804,10 +1873,17 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
         raw_delta = int(payload.degrees * range_size / 180)
         new_pos = max(0, min(1023, current_pos + raw_delta))
 
-        service.set_torque(servo_id, True)
-        time.sleep(0.01)
-        if not service.move_to(servo_id, new_pos, 200):
-            raise HTTPException(status_code=500, detail="move_to command failed.")
+        try:
+            if not service.set_torque(servo_id, True):
+                raise HTTPException(status_code=500, detail="Could not enable servo torque.")
+            time.sleep(0.01)
+            if not service.move_to(servo_id, new_pos, 200):
+                raise HTTPException(status_code=500, detail="move_to command failed.")
+            time.sleep(0.25)
+            actual_position = _verify_waveshare_reached(service, servo_id, new_pos)
+        finally:
+            _release_waveshare_torque(service, servo_id)
+
         try:
             get_waveshare_inventory_manager().trigger_refresh()
         except Exception:
@@ -1818,6 +1894,7 @@ def nudge_waveshare_servo(servo_id: int, payload: ServoNudgePayload) -> Dict[str
             "servo_id": servo_id,
             "degrees": payload.degrees,
             "raw_position": new_pos,
+            "actual_position": actual_position,
             "previous_position": current_pos,
             "limits": {"min": min_lim, "max": max_lim},
         }

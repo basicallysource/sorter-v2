@@ -17,6 +17,8 @@
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 	import { onDestroy, onMount, untrack } from 'svelte';
 
+	const WEBRTC_MJPEG_FALLBACK_DELAY_MS = 8000;
+
 	type ControlKey = 'annotations' | 'crop' | 'zones' | 'fullscreen';
 	type Point = [number, number];
 	type MediaViewport = {
@@ -173,9 +175,11 @@
 	let mediaContainerHeight = $state(0);
 	let retryTimer: ReturnType<typeof setTimeout> | null = null;
 	let metadataRetryTimer: ReturnType<typeof setTimeout> | null = null;
+	let webrtcFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 	let metadataSocket: WebSocket | null = null;
 	let webrtcLease: CameraWebrtcLease | null = null;
 	let resizeObserver: ResizeObserver | null = null;
+	let webrtcFallbackDelayElapsed = $state(false);
 
 	function wsBaseFromHttpBase(httpBase: string): string {
 		try {
@@ -322,6 +326,10 @@
 		}
 		if (metadataRetryTimer !== null) {
 			clearTimeout(metadataRetryTimer);
+		}
+		if (webrtcFallbackTimer !== null) {
+			clearTimeout(webrtcFallbackTimer);
+			webrtcFallbackTimer = null;
 		}
 		if (resizeObserver !== null) {
 			resizeObserver.disconnect();
@@ -540,6 +548,27 @@
 			webrtcStatus
 		})
 	);
+	const delayedLegacyMjpegAllowed = $derived(
+		legacyMjpegAllowed && (!webrtcCandidate || webrtcFallbackDelayElapsed)
+	);
+
+	$effect(() => {
+		const shouldDelayFallback =
+			webrtcCandidate && !webrtcTargetReady && webrtcStatus === 'unavailable';
+		if (!shouldDelayFallback) {
+			webrtcFallbackDelayElapsed = false;
+			if (webrtcFallbackTimer !== null) {
+				clearTimeout(webrtcFallbackTimer);
+				webrtcFallbackTimer = null;
+			}
+			return;
+		}
+		if (webrtcFallbackDelayElapsed || webrtcFallbackTimer !== null) return;
+		webrtcFallbackTimer = setTimeout(() => {
+			webrtcFallbackTimer = null;
+			webrtcFallbackDelayElapsed = true;
+		}, WEBRTC_MJPEG_FALLBACK_DELAY_MS);
+	});
 
 	$effect(() => {
 		if (!rtcVideo) return;
@@ -654,7 +683,7 @@
 					class="absolute inset-0 h-full w-full object-contain"
 					class:opacity-30={!is_healthy}
 				></video>
-			{:else if legacyMjpegAllowed && mediaLayout}
+			{:else if delayedLegacyMjpegAllowed && mediaLayout}
 				<img
 					src={mjpegSrc}
 					alt={display_label}
@@ -667,7 +696,7 @@
 					}}
 					onerror={scheduleStreamRetry}
 				/>
-			{:else if legacyMjpegAllowed}
+			{:else if delayedLegacyMjpegAllowed}
 				<img
 					src={mjpegSrc}
 					alt={display_label}

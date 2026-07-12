@@ -36,6 +36,10 @@ def _system_status_payload() -> Dict[str, Any]:
 
 _cpu_sample_lock = threading.Lock()
 _last_cpu_sample: tuple[int, int] | None = None  # (busy_ticks, total_ticks)
+_last_cpu_core_samples: list[tuple[int, int]] | None = None
+
+_process_sample_lock = threading.Lock()
+_last_process_cpu_sample: tuple[int, dict[int, tuple[int, str]]] | None = None
 
 
 def _read_cpu_ticks() -> Optional[tuple[int, int]]:
@@ -47,6 +51,31 @@ def _read_cpu_ticks() -> Optional[tuple[int, int]]:
     except (OSError, ValueError, IndexError):
         return None
     return sum(values) - idle, sum(values)
+
+
+def _cpu_busy_total(values: list[int]) -> tuple[int, int]:
+    idle = values[3] + (values[4] if len(values) > 4 else 0)
+    total = sum(values)
+    return total - idle, total
+
+
+def _read_cpu_core_ticks() -> Optional[list[tuple[int, int]]]:
+    samples: list[tuple[int, int]] = []
+    try:
+        with open("/proc/stat", "r", encoding="utf-8") as handle:
+            for line in handle:
+                fields = line.split()
+                if not fields:
+                    continue
+                label = fields[0]
+                if label == "cpu":
+                    continue
+                if not label.startswith("cpu") or not label[3:].isdigit():
+                    break
+                samples.append(_cpu_busy_total([int(v) for v in fields[1:]]))
+    except (OSError, ValueError, IndexError):
+        return None
+    return samples or None
 
 
 def _cpu_percent() -> Optional[float]:
@@ -65,15 +94,45 @@ def _cpu_percent() -> Optional[float]:
     return max(0.0, min(100.0, 100.0 * busy / total))
 
 
+def _cpu_core_percentages() -> Optional[list[float]]:
+    global _last_cpu_core_samples
+    sample = _read_cpu_core_ticks()
+    if sample is None:
+        return None
+    with _cpu_sample_lock:
+        last, _last_cpu_core_samples = _last_cpu_core_samples, sample
+    if last is None or len(last) != len(sample):
+        return None
+
+    percentages: list[float] = []
+    for current, previous in zip(sample, last):
+        busy = current[0] - previous[0]
+        total = current[1] - previous[1]
+        if total <= 0:
+            percentages.append(0.0)
+        else:
+            percentages.append(round(max(0.0, min(100.0, 100.0 * busy / total)), 1))
+    return percentages
+
+
 def _memory_info() -> Optional[Dict[str, int]]:
     try:
         info: Dict[str, int] = {}
         with open("/proc/meminfo", "r", encoding="utf-8") as handle:
             for line in handle:
                 key, _, rest = line.partition(":")
-                if key in ("MemTotal", "MemAvailable"):
+                if key in (
+                    "MemTotal",
+                    "MemAvailable",
+                    "Buffers",
+                    "Cached",
+                    "SReclaimable",
+                    "Shmem",
+                    "SwapTotal",
+                    "SwapFree",
+                ):
                     info[key] = int(rest.split()[0])  # kB
-                if len(info) == 2:
+                if len(info) == 8:
                     break
         total = info.get("MemTotal", 0)
         available = info.get("MemAvailable", 0)
@@ -81,22 +140,162 @@ def _memory_info() -> Optional[Dict[str, int]]:
         return None
     if total <= 0:
         return None
-    return {"total_mb": total // 1024, "used_mb": (total - available) // 1024}
+    cache = max(0, info.get("Cached", 0) + info.get("SReclaimable", 0) - info.get("Shmem", 0))
+    swap_total = info.get("SwapTotal", 0)
+    swap_free = info.get("SwapFree", 0)
+    return {
+        "total_mb": total // 1024,
+        "used_mb": (total - available) // 1024,
+        "available_mb": available // 1024,
+        "buffers_mb": info.get("Buffers", 0) // 1024,
+        "cache_mb": cache // 1024,
+        "swap_total_mb": swap_total // 1024,
+        "swap_used_mb": max(0, swap_total - swap_free) // 1024,
+    }
+
+
+def _read_process_cpu_ticks() -> Optional[dict[int, tuple[int, str]]]:
+    processes: dict[int, tuple[int, str]] = {}
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return None
+
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        try:
+            with open(f"/proc/{entry}/stat", "r", encoding="utf-8") as handle:
+                stat = handle.read()
+            name_start = stat.index("(") + 1
+            name_end = stat.rindex(")")
+            name = stat[name_start:name_end]
+            fields = stat[name_end + 2 :].split()
+            ticks = int(fields[11]) + int(fields[12])
+        except (OSError, ValueError, IndexError):
+            continue
+        processes[pid] = (ticks, name)
+    return processes
+
+
+def _process_memory_rows(total_mb: Optional[int], limit: int = 5) -> list[Dict[str, Any]]:
+    rows: list[Dict[str, Any]] = []
+    try:
+        entries = os.listdir("/proc")
+    except OSError:
+        return rows
+
+    for entry in entries:
+        if not entry.isdigit():
+            continue
+        pid = int(entry)
+        name = ""
+        rss_kb = 0
+        try:
+            with open(f"/proc/{entry}/status", "r", encoding="utf-8") as handle:
+                for line in handle:
+                    key, _, rest = line.partition(":")
+                    if key == "Name":
+                        name = rest.strip()
+                    elif key == "VmRSS":
+                        rss_kb = int(rest.split()[0])
+                    if name and rss_kb:
+                        break
+        except (OSError, ValueError, IndexError):
+            continue
+        if rss_kb <= 0:
+            continue
+        rss_mb = rss_kb // 1024
+        rows.append(
+            {
+                "pid": pid,
+                "name": name or str(pid),
+                "rss_mb": rss_mb,
+                "mem_pct": round((100.0 * rss_mb / total_mb), 1) if total_mb else None,
+            }
+        )
+
+    rows.sort(key=lambda row: row["rss_mb"], reverse=True)
+    return rows[:limit]
+
+
+def _process_load_breakdown(
+    *,
+    cpu_total_ticks: Optional[int],
+    cpu_count: Optional[int],
+    memory: Optional[Dict[str, int]],
+    limit: int = 5,
+) -> Dict[str, list[Dict[str, Any]]]:
+    global _last_process_cpu_sample
+    cpu_rows: list[Dict[str, Any]] = []
+    current = _read_process_cpu_ticks()
+
+    if current is not None and cpu_total_ticks is not None:
+        with _process_sample_lock:
+            last, _last_process_cpu_sample = _last_process_cpu_sample, (cpu_total_ticks, current)
+
+        if last is not None:
+            last_total, last_processes = last
+            total_delta = cpu_total_ticks - last_total
+            if total_delta > 0:
+                scale = 100.0 * (cpu_count or 1) / total_delta
+                for pid, (ticks, name) in current.items():
+                    previous = last_processes.get(pid)
+                    if previous is None:
+                        continue
+                    cpu_pct = max(0.0, (ticks - previous[0]) * scale)
+                    if cpu_pct < 0.1:
+                        continue
+                    cpu_rows.append(
+                        {
+                            "pid": pid,
+                            "name": name,
+                            "cpu_pct": round(cpu_pct, 1),
+                        }
+                    )
+                cpu_rows.sort(key=lambda row: row["cpu_pct"], reverse=True)
+                cpu_rows = cpu_rows[:limit]
+
+    return {
+        "cpu": cpu_rows,
+        "memory": _process_memory_rows(memory.get("total_mb") if memory else None, limit=limit),
+    }
 
 
 def _max_temperature_c() -> Optional[float]:
-    import glob
-
     best: Optional[float] = None
-    for path in glob.glob("/sys/class/thermal/thermal_zone*/temp"):
-        try:
-            with open(path, "r", encoding="utf-8") as handle:
-                temp = int(handle.read().strip()) / 1000.0
-        except (OSError, ValueError):
-            continue
+    for zone in _thermal_zones():
+        temp = zone.get("temp_c")
         if best is None or temp > best:
             best = temp
     return best
+
+
+def _thermal_zones() -> list[Dict[str, Any]]:
+    import glob
+
+    zones: list[Dict[str, Any]] = []
+    for path in sorted(glob.glob("/sys/class/thermal/thermal_zone*")):
+        name = os.path.basename(path)
+        try:
+            with open(os.path.join(path, "temp"), "r", encoding="utf-8") as handle:
+                temp_c = int(handle.read().strip()) / 1000.0
+        except (OSError, ValueError):
+            continue
+        try:
+            with open(os.path.join(path, "type"), "r", encoding="utf-8") as handle:
+                label = handle.read().strip()
+        except OSError:
+            label = name
+        zones.append(
+            {
+                "name": name,
+                "label": label or name,
+                "temp_c": round(temp_c, 1),
+            }
+        )
+    return zones
 
 
 def _npu_load_pct() -> Optional[float]:
@@ -117,15 +316,26 @@ def get_system_load() -> Dict[str, Any]:
         load1, load5, _ = os.getloadavg()
     except OSError:
         load1 = load5 = None
+    cpu_count = os.cpu_count()
+    memory = _memory_info()
+    cpu_total_sample = _read_cpu_ticks()
+    thermal_zones = _thermal_zones()
     return {
         "ok": True,
         "cpu_pct": _cpu_percent(),
+        "cpu_cores": _cpu_core_percentages(),
         "load1": round(load1, 2) if load1 is not None else None,
         "load5": round(load5, 2) if load5 is not None else None,
-        "cpu_count": os.cpu_count(),
-        "memory": _memory_info(),
-        "temp_c": _max_temperature_c(),
+        "cpu_count": cpu_count,
+        "memory": memory,
+        "temp_c": max((zone["temp_c"] for zone in thermal_zones), default=None),
+        "thermal_zones": thermal_zones,
         "npu_pct": _npu_load_pct(),
+        "processes": _process_load_breakdown(
+            cpu_total_ticks=cpu_total_sample[1] if cpu_total_sample else None,
+            cpu_count=cpu_count,
+            memory=memory,
+        ),
     }
 
 
@@ -757,6 +967,77 @@ def force_teacher_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
         return {"ok": False, "reason": "vision_not_initialized"}
     queued = bool(vm.forceQueueAuxiliaryTeacherCapture(role))
     return {"ok": True, "role": role, "queued": queued}
+
+
+def _camera_service_debug_state() -> Dict[str, Any]:
+    service = shared_state.camera_service
+    if service is None:
+        return {"ok": False, "reason": "camera_service_not_initialized"}
+    return {
+        "ok": True,
+        "started": bool(getattr(service, "_started", False)),
+        "health": service.get_health_status() if hasattr(service, "get_health_status") else {},
+    }
+
+
+def _camera_device_for_debug(role: str):
+    service = shared_state.camera_service
+    if service is None:
+        return None, {"ok": False, "reason": "camera_service_not_initialized"}
+    getter = getattr(service, "_device_for_role", None)
+    device = getter(role) if callable(getter) else service.get_device(role)
+    if device is None:
+        return None, {"ok": False, "reason": "camera_role_not_found", "role": role}
+    return device, None
+
+
+@router.get("/api/system/debug/camera-service")
+def get_camera_service_debug_state() -> Dict[str, Any]:
+    return _camera_service_debug_state()
+
+
+@router.post("/api/system/debug/camera-service/stop")
+def stop_camera_service_for_debug() -> Dict[str, Any]:
+    service = shared_state.camera_service
+    if service is None:
+        return {"ok": False, "reason": "camera_service_not_initialized"}
+    service.stop()
+    result = _camera_service_debug_state()
+    result["action"] = "stop"
+    return result
+
+
+@router.post("/api/system/debug/camera-service/start")
+def start_camera_service_for_debug() -> Dict[str, Any]:
+    service = shared_state.camera_service
+    if service is None:
+        return {"ok": False, "reason": "camera_service_not_initialized"}
+    service.start()
+    result = _camera_service_debug_state()
+    result["action"] = "start"
+    return result
+
+
+@router.post("/api/system/debug/camera-service/role/{role}/stop")
+def stop_camera_role_for_debug(role: str) -> Dict[str, Any]:
+    device, error = _camera_device_for_debug(role)
+    if error is not None:
+        return error
+    device.stop()
+    result = _camera_service_debug_state()
+    result.update({"action": "stop_role", "role": role})
+    return result
+
+
+@router.post("/api/system/debug/camera-service/role/{role}/start")
+def start_camera_role_for_debug(role: str) -> Dict[str, Any]:
+    device, error = _camera_device_for_debug(role)
+    if error is not None:
+        return error
+    device.start()
+    result = _camera_service_debug_state()
+    result.update({"action": "start_role", "role": role})
+    return result
 
 
 class ClientErrorPayload(BaseModel):

@@ -18,20 +18,12 @@ class Rev01Config:
     # gentle; tolerance is the |gap-to-precise-centre| at which we call it parked.
     precise_converge_speed_usteps_per_s: int = 5000
     precise_center_tolerance_deg: float = 4.0
-    # Blind-nudge (rotate-to-clear) while converging to precise: the reverse
-    # path crosses zones the C4 polygon cannot see (e.g. the discharge cut-out),
-    # where perception reports no piece (gap=None). After this grace without a
-    # detection keep issuing small reverse moves so the piece dead-reckons
-    # through the blind arc instead of stalling into the rotate timeout.
-    # 0 disables nudging (hold-and-wait behavior).
+    # Walled platter: when the piece is not detected during the converge
+    # (shadowed sector, polygon cut-out), the sector walls hold it in place —
+    # after this grace without a detection MOVING_TO_PRECISE simply proceeds
+    # to AWAITING instead of stalling into the rotate timeout. 0 = wait for
+    # the rotate timeout (legacy hold-and-wait).
     precise_blind_grace_ms: float = 1200.0
-    precise_blind_nudge_output_deg: float = 12.0
-    # Hard cap on CUMULATIVE blind travel. The blind arc between the drop zone
-    # and the precise band is geometrically bounded; if the piece has not
-    # re-emerged after this much dead-reckoning it is not in the blind arc —
-    # it fell off (or was taken off) — so stop nudging and move on immediately
-    # instead of grinding an empty platter into the rotate timeout.
-    precise_blind_travel_max_deg: float = 90.0
     # Legacy fixed discharge kick (only used on the non-perception fallback path).
     # The active perception path closed-loops onto the fall-off centre instead;
     # see ``discharge_*`` fields below.
@@ -150,9 +142,7 @@ FIELD_META: list[dict] = [
     {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms},
     {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s},
     {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg},
-    {"key": "precise_blind_grace_ms", "label": "Move-to-precise: blind-nudge grace (ms)", "type": "float", "default": _DEFAULTS.precise_blind_grace_ms, "description": "The reverse path to the precise band crosses arcs the camera polygon cannot see; after this long without a detection the converge keeps moving blind instead of waiting for the rotate timeout. 0 = hold and wait."},
-    {"key": "precise_blind_nudge_output_deg", "label": "Move-to-precise: blind nudge size (output deg)", "type": "float", "default": _DEFAULTS.precise_blind_nudge_output_deg, "description": "Size of each blind reverse move while the piece is inside an unobservable arc."},
-    {"key": "precise_blind_travel_max_deg", "label": "Move-to-precise: max cumulative blind travel (output deg)", "type": "float", "default": _DEFAULTS.precise_blind_travel_max_deg, "description": "If the piece has not re-emerged after this much blind travel it is no longer on the channel (fell off / removed) — stop nudging and proceed instead of waiting for the rotate timeout."},
+    {"key": "precise_blind_grace_ms", "label": "Move-to-precise: no-detection grace (ms)", "type": "float", "default": _DEFAULTS.precise_blind_grace_ms, "description": "If the piece is not detected for this long during the converge, proceed to AWAITING — the sector walls hold the piece, there is nothing to hunt for. 0 = wait for the rotate timeout."},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},

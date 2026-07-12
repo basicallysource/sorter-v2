@@ -23,7 +23,6 @@ class MovingToPrecise(Rev01BaseState):
         super().__init__(*args, **kwargs)
         self._started_at = 0.0
         self._last_gap_seen_at = 0.0
-        self._blind_travel_deg = 0.0
 
     def step(self) -> Optional[ClassificationChannelState]:
         perception_service = getattr(self.gc, "perception_service", None)
@@ -50,7 +49,12 @@ class MovingToPrecise(Rev01BaseState):
             return ClassificationChannelState.REV01_AWAITING_DISTRIBUTION
 
         gap = state.exit_com_forward_to_precise_deg
-        within_tol = gap is not None and abs(gap) <= float(cfg.precise_center_tolerance_deg)
+        # Walled-platter rule: the sectors hold the piece, so any position AT or
+        # PAST the precise entry (gap <= tolerance, including negative/overshot)
+        # counts as parked. C4 never reverses — backing up would carry the
+        # piece's sector across the intake, and forward "corrections" past the
+        # fall-off discharge it prematurely.
+        within_tol = gap is not None and gap <= float(cfg.precise_center_tolerance_deg)
         arrived = bool(state.exit_com_in_precise) or within_tol
 
         if arrived and not moving:
@@ -65,44 +69,29 @@ class MovingToPrecise(Rev01BaseState):
             return None
 
         if gap is None:
-            # No precise reading this frame. The reverse path crosses arcs the
-            # C4 polygon cannot observe (discharge cut-out), so a piece mid-way
-            # is EXPECTED to vanish for a stretch. Give detection a short grace,
-            # then dead-reckon: keep issuing small reverse moves until the piece
-            # re-emerges into a visible zone and the closed loop takes over.
+            # No detection this frame. On the walled platter the piece is
+            # parked wherever its sector is — there is nothing to hunt for, and
+            # blind moves risk carrying the sector over the fall-off. Give
+            # detection a short grace for the piece to re-appear, then simply
+            # proceed: AWAITING collects the result and DISCHARGING owns the
+            # (forward) move to the fall-off.
             grace_s = float(cfg.precise_blind_grace_ms) / 1000.0
             blind_since = max(self._last_gap_seen_at, self._started_at)
             if grace_s > 0 and now - blind_since >= grace_s:
-                nudge = abs(float(cfg.precise_blind_nudge_output_deg))
-                travel_cap = abs(float(cfg.precise_blind_travel_max_deg))
-                if nudge > 0 and self._blind_travel_deg + nudge > travel_cap:
-                    # The blind arc is geometrically bounded; this much travel
-                    # without a re-detection means the piece left the channel.
-                    self.logger.warning(
-                        f"{LOG_TAG} MOVING_TO_PRECISE piece lost after "
-                        f"{self._blind_travel_deg:.0f}° blind travel — proceeding to AWAITING"
-                    )
-                    self.stopStepper()
-                    return ClassificationChannelState.REV01_AWAITING_DISTRIBUTION
-                if nudge > 0:
-                    self._blind_travel_deg += nudge
-                    self.logger.info(
-                        f"{LOG_TAG} MOVING_TO_PRECISE blind nudge {nudge:.1f}° "
-                        f"(no detection for {(now - blind_since):.1f}s, "
-                        f"blind travel {self._blind_travel_deg:.0f}°)"
-                    )
-                    self.startOutputMove(
-                        C4_TRAVEL_SIGN * nudge, cfg.precise_converge_speed_usteps_per_s
-                    )
+                self.logger.info(
+                    f"{LOG_TAG} MOVING_TO_PRECISE no detection for "
+                    f"{(now - blind_since):.1f}s — sector holds the piece, "
+                    f"proceeding to AWAITING"
+                )
+                self.stopStepper()
+                return ClassificationChannelState.REV01_AWAITING_DISTRIBUTION
             return None
         self._last_gap_seen_at = now
-        self._blind_travel_deg = 0.0
 
-        # Sign carries direction: a negative gap (overshot the precise centre
-        # toward the exit) flips C4_TRAVEL_SIGN so the carousel backs up.
-        move = max(-float(cfg.discharge_max_move_output_deg),
-                   min(gap, float(cfg.discharge_max_move_output_deg)))
-        if abs(move) < float(cfg.precise_center_tolerance_deg):
+        # Forward-only: rotate the piece's sector up to the precise band, never
+        # back. Overshoot is handled by the arrived-check above, not by reversing.
+        move = min(gap, float(cfg.discharge_max_move_output_deg))
+        if move < float(cfg.precise_center_tolerance_deg):
             return None
         self.startOutputMove(C4_TRAVEL_SIGN * move, cfg.precise_converge_speed_usteps_per_s)
         return None
@@ -128,4 +117,3 @@ class MovingToPrecise(Rev01BaseState):
         self.stopStepper()
         self._started_at = 0.0
         self._last_gap_seen_at = 0.0
-        self._blind_travel_deg = 0.0

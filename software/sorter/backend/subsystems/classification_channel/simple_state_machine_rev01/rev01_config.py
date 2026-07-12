@@ -18,6 +18,14 @@ class Rev01Config:
     # gentle; tolerance is the |gap-to-precise-centre| at which we call it parked.
     precise_converge_speed_usteps_per_s: int = 5000
     precise_center_tolerance_deg: float = 4.0
+    # Blind-nudge (rotate-to-clear) while converging to precise: the reverse
+    # path crosses zones the C4 polygon cannot see (e.g. the discharge cut-out),
+    # where perception reports no piece (gap=None). After this grace without a
+    # detection keep issuing small reverse moves so the piece dead-reckons
+    # through the blind arc instead of stalling into the rotate timeout.
+    # 0 disables nudging (hold-and-wait behavior).
+    precise_blind_grace_ms: float = 1200.0
+    precise_blind_nudge_output_deg: float = 12.0
     # Legacy fixed discharge kick (only used on the non-perception fallback path).
     # The active perception path closed-loops onto the fall-off centre instead;
     # see ``discharge_*`` fields below.
@@ -136,6 +144,8 @@ FIELD_META: list[dict] = [
     {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms},
     {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s},
     {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg},
+    {"key": "precise_blind_grace_ms", "label": "Move-to-precise: blind-nudge grace (ms)", "type": "float", "default": _DEFAULTS.precise_blind_grace_ms, "description": "The reverse path to the precise band crosses arcs the camera polygon cannot see; after this long without a detection the converge keeps moving blind instead of waiting for the rotate timeout. 0 = hold and wait."},
+    {"key": "precise_blind_nudge_output_deg", "label": "Move-to-precise: blind nudge size (output deg)", "type": "float", "default": _DEFAULTS.precise_blind_nudge_output_deg, "description": "Size of each blind reverse move while the piece is inside an unobservable arc."},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},

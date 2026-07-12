@@ -22,6 +22,7 @@ class MovingToPrecise(Rev01BaseState):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._started_at = 0.0
+        self._last_gap_seen_at = 0.0
 
     def step(self) -> Optional[ClassificationChannelState]:
         perception_service = getattr(self.gc, "perception_service", None)
@@ -63,9 +64,25 @@ class MovingToPrecise(Rev01BaseState):
             return None
 
         if gap is None:
-            # No precise reading this frame (piece not detected / no precise arc).
-            # Hold and wait for a frame with a detection rather than nudge blind.
+            # No precise reading this frame. The reverse path crosses arcs the
+            # C4 polygon cannot observe (discharge cut-out), so a piece mid-way
+            # is EXPECTED to vanish for a stretch. Give detection a short grace,
+            # then dead-reckon: keep issuing small reverse moves until the piece
+            # re-emerges into a visible zone and the closed loop takes over.
+            grace_s = float(cfg.precise_blind_grace_ms) / 1000.0
+            blind_since = max(self._last_gap_seen_at, self._started_at)
+            if grace_s > 0 and now - blind_since >= grace_s:
+                nudge = abs(float(cfg.precise_blind_nudge_output_deg))
+                if nudge > 0:
+                    self.logger.info(
+                        f"{LOG_TAG} MOVING_TO_PRECISE blind nudge {nudge:.1f}° "
+                        f"(no detection for {(now - blind_since):.1f}s)"
+                    )
+                    self.startOutputMove(
+                        C4_TRAVEL_SIGN * nudge, cfg.precise_converge_speed_usteps_per_s
+                    )
             return None
+        self._last_gap_seen_at = now
 
         # Sign carries direction: a negative gap (overshot the precise centre
         # toward the exit) flips C4_TRAVEL_SIGN so the carousel backs up.
@@ -96,3 +113,4 @@ class MovingToPrecise(Rev01BaseState):
         super().cleanup()
         self.stopStepper()
         self._started_at = 0.0
+        self._last_gap_seen_at = 0.0

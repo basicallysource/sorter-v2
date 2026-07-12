@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: assembly-bottom-interface
 kicker: Bin frame — Bottom interface
-lede: The base the bin frame builds up from.
+lede: The component the chute rests on top of.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
 author: spencer
 parts_needed:

@@ -1,5 +1,6 @@
 .claude/
 AGENTS.md
+!docs/AGENTS.md
 .tmp-*
 
 machine.toml

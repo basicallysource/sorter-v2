@@ -244,8 +244,15 @@ def default_auto_camera_device_settings() -> dict[str, bool]:
 
 def _bool_from_capture_value(key: str, value: float) -> bool:
     if key == "auto_exposure" and platform.system() == "Linux":
+        # V4L2 exposure menus vary per camera: 1 is always Manual Mode, but
+        # "auto" may be 3 (Aperture Priority, the UVC norm), 0 (OBSBOT
+        # "Auto Mode"), or 2 (Shutter Priority). OpenCV additionally
+        # normalizes to 0.25 (manual) / 0.75 (auto). Manual is the only
+        # unambiguous state — everything else counts as auto.
+        if abs(value - 0.25) < 0.05:
+            return False
         rounded = round(value)
-        if abs(value - rounded) < 0.05 and rounded in {1, 3}:
+        if abs(value - rounded) < 0.05:
             return rounded != 1
         return value >= 0.5
     return value >= 0.5
@@ -283,15 +290,23 @@ def _try_v4l2ctl_set(source: int, key: str, value: bool | float) -> bool:
     if entry is None:
         return False
     ctrl_name, fmt = entry
-    try:
-        result = subprocess.run(
-            ["v4l2-ctl", "-d", f"/dev/video{source}", "-c", f"{ctrl_name}={fmt(value)}"],
-            capture_output=True,
-            timeout=2,
-        )
-        return result.returncode == 0
-    except Exception:
-        return False
+    candidates = [fmt(value)]
+    if key == "auto_exposure" and bool(value):
+        # Not every camera has Aperture Priority (3) — OBSBOT-style menus use
+        # 0 for plain Auto Mode. Fall back if the preferred value is rejected.
+        candidates.append("0")
+    for candidate in candidates:
+        try:
+            result = subprocess.run(
+                ["v4l2-ctl", "-d", f"/dev/video{source}", "-c", f"{ctrl_name}={candidate}"],
+                capture_output=True,
+                timeout=2,
+            )
+            if result.returncode == 0:
+                return True
+        except Exception:
+            return False
+    return False
 
 
 # OpenCV's V4L2 backend lies about menu controls (auto_exposure especially) on
@@ -330,7 +345,9 @@ def _try_v4l2ctl_get_bool(source: int, key: str) -> bool | None:
     except Exception:
         return None
     if key == "auto_exposure":
-        return n == 3
+        # 1 = Manual Mode is the only manual state; 0/2/3 are auto variants
+        # (see _bool_from_capture_value).
+        return n != 1
     return n != 0
 
 

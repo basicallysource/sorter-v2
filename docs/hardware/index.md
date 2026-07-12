@@ -5,17 +5,9 @@ type: landing
 section: hardware
 slug: hardware
 kicker: The Physical Machine
-lede: The mechanics, electronics, BOM, and assembly notes for the Sorter V2 hardware. This section is still a stub — content is being promoted here as it stabilizes.
+lede: Parts, sourcing, and step-by-step assembly for the physical Sorter V2 machine.
 permalink: /hardware/
 ---
 
-## Coming soon
-
-This section will cover:
-
-- **Mechanics** — chamber geometry, belt path, servo mounts, camera cage.
-- **Electronics** — stepper drivers, servo controller, limit switches, lighting, the camera and the AI HAT cabling.
-- **[Bill of materials]({{ 'hardware/BOM' | relative_url }})** — the canonical BOM with sources, part numbers, and substitutes.
-- **[Assembly]({{ '/hardware/assembly/' | relative_url }})** — the build order for the machine, structured like a set of instructions.
-
-Until those pages land, the authoritative place for hardware decisions is the per-machine profile files under `software/sorter/backend/irl/example_configs/` and the running `HANDOFF.md` at the repo root.
+- **[Assembly]({{ '/hardware/assembly/' | relative_url }})**: the build order, structured like a set of instructions.
+- **[Bill of materials](https://docs.google.com/spreadsheets/d/1aoxcyK0xa0i3iWYlO4u3-vsruOGU8V_U9XT65YhMZmY/edit?gid=0#gid=0)**: every part, with sources and part numbers.

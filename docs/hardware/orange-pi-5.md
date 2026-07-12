@@ -4,7 +4,7 @@ title: Orange Pi 5
 type: reference
 section: hardware
 slug: hardware-orange-pi-5
-kicker: Hardware — Compute
+kicker: Parts — Orange Pi 5
 lede: The Orange Pi 5 is the primary compute platform for Sorter. This page covers hardware selection, memory and storage requirements, and WiFi adapter options.
 permalink: /hardware/orange-pi-5/
 audience: self-builder

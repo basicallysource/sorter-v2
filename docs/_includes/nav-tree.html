@@ -1,0 +1,24 @@
+{%- comment -%}
+Recursively renders a nested sidebar nav list.
+
+Inputs:
+  include.items - a list of nav entries. Each entry has `title` and `url`, and
+                  may carry `children` (another list of the same shape).
+
+Nesting depth is expressed through the DOM (a <ul> per level), not a counter —
+Liquid `assign` variables leak across include boundaries, so a passed-down depth
+integer gets clobbered by the recursive call. Indentation is handled in CSS via
+the nested <ul> structure instead.
+{%- endcomment -%}
+{%- assign current_url = page.url | relative_url -%}
+<ul class="nav-tree">
+{%- for item in include.items -%}
+  {%- assign item_url = item.url | relative_url -%}
+  <li>
+    <a href="{{ item.url | relative_url }}"{% if item_url == current_url %} aria-current="page"{% endif %}>{{ item.title }}</a>
+    {%- if item.children -%}
+      {%- include nav-tree.html items=item.children -%}
+    {%- endif -%}
+  </li>
+{%- endfor -%}
+</ul>

@@ -7,12 +7,14 @@ kramdown:
 permalink: pretty
 exclude:
   - README.md
+  - AGENTS.md
   - Gemfile.lock
   - vendor
   - .bundle
   - ux-concept-sorting-profiles.md
   - local-jekyll.sh
   - scripts
+  - _img-src
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page front matter standard

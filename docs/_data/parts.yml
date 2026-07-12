@@ -1,0 +1,48 @@
+# Catalog of known parts, keyed by id. An assembly page lists what it needs with
+# `parts_needed: [{part: id, qty: N}, ...]` and the "Parts needed" block renders
+# each entry — primary image + name (linked to its detail page when one exists),
+# grouped by `category`, with any `notes` surfaced below.
+#
+# Fields: name (required), image, page, category, notes (all optional).
+#
+# ids, names, and render filenames mirror the sorter-v2-filament-calculator repo
+# so the two stay aligned for the eventual merge into this repo.
+
+lazy-susan:
+  name: Lazy Susan
+  category: Bearings
+  image: /assets/img/lazy-susan-top.jpg
+  page: /hardware/parts/lazy-susan/
+
+ls-mount-to-chute:
+  name: Lazy Susan chute mount
+  category: Printed parts
+  image: /assets/img/parts/ls-mount-to-chute.png
+  notes: Prepared with 4× M4 Ruthex long heat inserts.
+  heat_inserts:
+    - insert: m4-ruthex-long
+      qty: 4
+
+ls-bottom-static:
+  name: Lazy Susan bottom static
+  category: Printed parts
+  image: /assets/img/parts/ls-bottom-static.png
+  notes: Prepared with 4× M4 Ruthex long heat inserts.
+  heat_inserts:
+    - insert: m4-ruthex-long
+      qty: 4
+
+ls-washer:
+  name: Lazy Susan washer
+  category: Printed parts
+  image: /assets/img/parts/ls-washer.png
+
+m4-ruthex-long:
+  name: M4 Ruthex heat insert (long)
+  category: Heat inserts
+  image: /assets/img/parts/hardware/heat-inserts/m4-ruthex-long/insert.jpg
+
+m4-12mm-countersunk:
+  name: M4 × 12 mm countersunk screw
+  category: Screws
+  image: /assets/img/parts/hardware/screws/m4-12mm-countersunk.jpg

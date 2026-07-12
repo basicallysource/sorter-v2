@@ -1,0 +1,8 @@
+{%- comment -%}
+Numbered step heading: a small "Step N" tag above the step title (no em dash).
+Usage: {% include step.html n="1" title="Mount the thing" %}
+{%- endcomment -%}
+<h2 class="step-heading" id="step-{{ include.n }}">
+  <span class="step-tag">Step {{ include.n }}</span>
+  <span class="step-title">{{ include.title }}</span>
+</h2>

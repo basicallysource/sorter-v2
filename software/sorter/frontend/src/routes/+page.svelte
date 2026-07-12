@@ -188,9 +188,9 @@
 	let startSystemPending = $state(false);
 	let classification_view = $state<'top' | 'bottom'>('top');
 	let classification_layer = $state<'raw' | 'annotated'>('annotated');
-	let machineSetup = $state<'standard_carousel' | 'classification_channel' | 'manual_carousel'>(
-		'standard_carousel'
-	);
+	let machineSetup = $state<
+		'standard_carousel' | 'classification_channel' | 'manual_carousel' | 'belt_feeder'
+	>('standard_carousel');
 	let exitIncidentActionPending = $state(false);
 	let exitIncidentActionError = $state<string | null>(null);
 	let stallIncidentActionPending = $state(false);
@@ -217,7 +217,9 @@
 		machine.machine?.camerasConfig?.cameras ?? {}
 	);
 	const c4CameraRole = $derived(
-		machineSetup === 'classification_channel' || isConfigured('classification_channel')
+		machineSetup === 'classification_channel' ||
+			machineSetup === 'belt_feeder' ||
+			isConfigured('classification_channel')
 			? 'classification_channel'
 			: 'carousel'
 	);
@@ -1031,7 +1033,8 @@
 			if (
 				payload?.setup === 'classification_channel' ||
 				payload?.setup === 'manual_carousel' ||
-				payload?.setup === 'standard_carousel'
+				payload?.setup === 'standard_carousel' ||
+				payload?.setup === 'belt_feeder'
 			) {
 				machineSetup = payload.setup;
 			}
@@ -1118,7 +1121,8 @@
 		{#if machine.machine}
 			<div class="flex flex-col gap-3 lg:h-[calc(100vh-7rem)] lg:min-h-0 lg:flex-row">
 				{#if camera_layout === 'split_feeder'}
-					{@const uses_chamber = machineSetup !== 'classification_channel'}
+					{@const uses_chamber =
+						machineSetup !== 'classification_channel' && machineSetup !== 'belt_feeder'}
 					{@const has_cls_top = uses_chamber && isConfigured('classification_top')}
 					{@const has_cls_bottom = uses_chamber && isConfigured('classification_bottom')}
 					{@const classification_camera = preferredClassificationCamera(
@@ -1127,14 +1131,17 @@
 					)}
 					<div class="flex min-w-0 gap-3 max-lg:h-[30vh] lg:min-h-0 lg:flex-1">
 						<div class="contents">
-							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
-								<CameraFeed
-									camera="c_channel_2"
-									label={cameraLabel('c_channel_2')}
-									crop={cropFor('c_channel_2')}
-									controls={['annotations', 'zones', 'crop', 'fullscreen']}
-								/>
-							</div>
+							{#if machineSetup !== 'belt_feeder'}
+								<!-- B1 belt topology has no C2 channel — the dashboard shows C3 + C4 only. -->
+								<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
+									<CameraFeed
+										camera="c_channel_2"
+										label={cameraLabel('c_channel_2')}
+										crop={cropFor('c_channel_2')}
+										controls={['annotations', 'zones', 'crop', 'fullscreen']}
+									/>
+								</div>
+							{/if}
 							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 								<CameraFeed
 									camera="c_channel_3"

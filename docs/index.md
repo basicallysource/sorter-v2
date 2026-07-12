@@ -32,15 +32,6 @@ lede: The durable documentation layer for the Sorter V2 project — hardware, th
   </div>
 </div>
 
-## What's stable and what's a stub
-
-Right now the site is uneven on purpose:
-
-- **Lab** is the only section with real, promoted content — the April 6, 2026 detector findings plus the shared styleguide that keeps the Sorter UI, Hive, and this site visually consistent.
-- **Hardware**, **Sorter**, and **Hive** are still placeholder indexes. Their content is being promoted out of code comments, in-repo notes, and the handoff file as each area stabilizes.
-
-The durable rule: keep decisions and workflows in checked-in Markdown here, and treat every generated report or experiment bundle under `software/sorter/backend/blob/` as disposable working state unless a document in this site promotes it.
-
 ## Editing and publishing
 
 The site source lives in `docs/` and is deployed via GitHub Pages. To preview locally, run:

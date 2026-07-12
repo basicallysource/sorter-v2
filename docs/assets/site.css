@@ -350,6 +350,33 @@ body {
   font-weight: 600;
 }
 
+/* Author byline directly below the page header (moved out of the bottom
+   page-meta box). */
+.page-author {
+  margin: -6px 0 20px;
+  font-size: 0.86rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.page-author-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 10px;
+}
+
+.page-author a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.page-author a:hover {
+  text-decoration: underline;
+}
+
 .page-title-row {
   display: flex;
   flex-wrap: wrap;
@@ -872,18 +899,34 @@ tr:last-child td {
   margin: 1.3rem 0 1.7rem;
 }
 
-.callout {
+/* Scoped to the grid so these don't inherit the flex-row layout of the generic
+   info/warning `.callout` above — the title stacks over its description. */
+.callout-grid .callout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   padding: 16px 18px;
   border: 1px solid var(--line);
   background: var(--surface);
+  transition: border-color 0.15s ease;
 }
 
-.callout strong a {
+.callout-grid .callout:hover {
+  border-color: var(--muted);
+}
+
+.callout-grid .callout strong {
+  display: block;
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.callout-grid .callout strong a {
   text-decoration: none;
 }
 
-.callout p {
-  margin: 6px 0 0;
+.callout-grid .callout p {
+  margin: 8px 0 0;
   font-size: 0.88rem;
   color: var(--muted);
   line-height: 1.55;

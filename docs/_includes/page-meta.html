@@ -7,24 +7,11 @@ Suppressed when the page is a landing page or omits all metadata.
 
 {% assign meta_show = true %}
 {% if page.type == "landing" or page.type == nil %}{% assign meta_show = false %}{% endif %}
-{% if page.audience == nil and page.applies_to == nil and page.last_verified == nil and page.author == nil %}{% assign meta_show = false %}{% endif %}
+{% if page.audience == nil and page.applies_to == nil and page.last_verified == nil %}{% assign meta_show = false %}{% endif %}
 
 {% if meta_show %}
 <aside class="page-meta" aria-label="Page metadata">
   <dl>
-    {% if page.author %}
-    {% assign author = site.data.authors[page.author] %}
-    <div>
-      <dt>Author</dt>
-      <dd>
-        {% if author %}
-          {% if author.url %}<a href="{{ author.url }}" target="_blank" rel="noopener">{{ author.name }}</a>{% else %}{{ author.name }}{% endif %}
-        {% else %}
-          {{ page.author }}
-        {% endif %}
-      </dd>
-    </div>
-    {% endif %}
     {% if page.audience %}
     <div>
       <dt>Audience</dt>

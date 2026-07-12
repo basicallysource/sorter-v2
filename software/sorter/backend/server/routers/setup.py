@@ -212,7 +212,9 @@ def _current_stepper_direction_payload() -> list[dict[str, Any]]:
     active_irl = shared_state.getActiveIRL()
     entries: list[dict[str, Any]] = []
     logical_names = list(LOGICAL_STEPPER_BINDING_BASES.keys())
-    if _machine_setup_key_from_config(config) == CLASSIFICATION_CHANNEL_SETUP:
+    if get_machine_setup_definition(
+        _machine_setup_key_from_config(config)
+    ).uses_classification_channel:
         logical_names = [
             C4_LOGICAL_STEPPER if name == C4_BACKING_STEPPER else name
             for name in logical_names

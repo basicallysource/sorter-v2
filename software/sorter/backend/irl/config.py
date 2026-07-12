@@ -1074,13 +1074,13 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
         classification_channel_source = cameras_section.get("classification_channel")
         carousel_source = (
             classification_channel_source
-            if machine_setup.key == "classification_channel"
+            if machine_setup.uses_classification_channel
             and classification_channel_source is not None
             else cameras_section.get("carousel")
         )
         aux_camera_role = (
             "classification_channel"
-            if machine_setup.key == "classification_channel"
+            if machine_setup.uses_classification_channel
             else "carousel"
         )
 
@@ -1243,7 +1243,11 @@ def mkIRLConfig(machine_params: dict[str, object] | None = None) -> IRLConfig:
             color_profile=_color_profile("classification_top"),
         )
     
-    classification_channel_setup = machine_setup.key == "classification_channel"
+    # Capability, not key: any setup driving the classification C-channel off
+    # the carousel port (classification_channel, belt_feeder) needs the fast
+    # rotor profile — the key check silently left belt_feeder at 16 µsteps /
+    # 1000 µsteps/s, i.e. an ~8x slower C4.
+    classification_channel_setup = machine_setup.uses_classification_channel
     carousel_microsteps = 8 if classification_channel_setup else 16
     carousel_speed = 4000 if classification_channel_setup else 1000
     irl_config.carousel_stepper = mkStepperConfig(

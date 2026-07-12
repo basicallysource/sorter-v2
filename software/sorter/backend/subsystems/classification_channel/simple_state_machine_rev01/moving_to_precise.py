@@ -23,6 +23,7 @@ class MovingToPrecise(Rev01BaseState):
         super().__init__(*args, **kwargs)
         self._started_at = 0.0
         self._last_gap_seen_at = 0.0
+        self._blind_travel_deg = 0.0
 
     def step(self) -> Optional[ClassificationChannelState]:
         perception_service = getattr(self.gc, "perception_service", None)
@@ -73,16 +74,29 @@ class MovingToPrecise(Rev01BaseState):
             blind_since = max(self._last_gap_seen_at, self._started_at)
             if grace_s > 0 and now - blind_since >= grace_s:
                 nudge = abs(float(cfg.precise_blind_nudge_output_deg))
+                travel_cap = abs(float(cfg.precise_blind_travel_max_deg))
+                if nudge > 0 and self._blind_travel_deg + nudge > travel_cap:
+                    # The blind arc is geometrically bounded; this much travel
+                    # without a re-detection means the piece left the channel.
+                    self.logger.warning(
+                        f"{LOG_TAG} MOVING_TO_PRECISE piece lost after "
+                        f"{self._blind_travel_deg:.0f}° blind travel — proceeding to AWAITING"
+                    )
+                    self.stopStepper()
+                    return ClassificationChannelState.REV01_AWAITING_DISTRIBUTION
                 if nudge > 0:
+                    self._blind_travel_deg += nudge
                     self.logger.info(
                         f"{LOG_TAG} MOVING_TO_PRECISE blind nudge {nudge:.1f}° "
-                        f"(no detection for {(now - blind_since):.1f}s)"
+                        f"(no detection for {(now - blind_since):.1f}s, "
+                        f"blind travel {self._blind_travel_deg:.0f}°)"
                     )
                     self.startOutputMove(
                         C4_TRAVEL_SIGN * nudge, cfg.precise_converge_speed_usteps_per_s
                     )
             return None
         self._last_gap_seen_at = now
+        self._blind_travel_deg = 0.0
 
         # Sign carries direction: a negative gap (overshot the precise centre
         # toward the exit) flips C4_TRAVEL_SIGN so the carousel backs up.
@@ -114,3 +128,4 @@ class MovingToPrecise(Rev01BaseState):
         self.stopStepper()
         self._started_at = 0.0
         self._last_gap_seen_at = 0.0
+        self._blind_travel_deg = 0.0

@@ -26,6 +26,12 @@ class Rev01Config:
     # 0 disables nudging (hold-and-wait behavior).
     precise_blind_grace_ms: float = 1200.0
     precise_blind_nudge_output_deg: float = 12.0
+    # Hard cap on CUMULATIVE blind travel. The blind arc between the drop zone
+    # and the precise band is geometrically bounded; if the piece has not
+    # re-emerged after this much dead-reckoning it is not in the blind arc —
+    # it fell off (or was taken off) — so stop nudging and move on immediately
+    # instead of grinding an empty platter into the rotate timeout.
+    precise_blind_travel_max_deg: float = 90.0
     # Legacy fixed discharge kick (only used on the non-perception fallback path).
     # The active perception path closed-loops onto the fall-off centre instead;
     # see ``discharge_*`` fields below.
@@ -146,6 +152,7 @@ FIELD_META: list[dict] = [
     {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg},
     {"key": "precise_blind_grace_ms", "label": "Move-to-precise: blind-nudge grace (ms)", "type": "float", "default": _DEFAULTS.precise_blind_grace_ms, "description": "The reverse path to the precise band crosses arcs the camera polygon cannot see; after this long without a detection the converge keeps moving blind instead of waiting for the rotate timeout. 0 = hold and wait."},
     {"key": "precise_blind_nudge_output_deg", "label": "Move-to-precise: blind nudge size (output deg)", "type": "float", "default": _DEFAULTS.precise_blind_nudge_output_deg, "description": "Size of each blind reverse move while the piece is inside an unobservable arc."},
+    {"key": "precise_blind_travel_max_deg", "label": "Move-to-precise: max cumulative blind travel (output deg)", "type": "float", "default": _DEFAULTS.precise_blind_travel_max_deg, "description": "If the piece has not re-emerged after this much blind travel it is no longer on the channel (fell off / removed) — stop nudging and proceed instead of waiting for the rotate timeout."},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px},

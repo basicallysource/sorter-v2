@@ -1,15 +1,17 @@
 software/sorter/backend/bundled_models/**/*.onnx filter=lfs diff=lfs merge=lfs -text
 software/sorter/backend/bundled_models/**/*.bin filter=lfs diff=lfs merge=lfs -text
 
-# Docs site raster images (SVGs stay in regular git — they're text).
-docs/assets/**/*.png filter=lfs diff=lfs merge=lfs -text
-docs/assets/**/*.jpg filter=lfs diff=lfs merge=lfs -text
-docs/assets/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
-docs/assets/**/*.gif filter=lfs diff=lfs merge=lfs -text
-docs/assets/**/*.webp filter=lfs diff=lfs merge=lfs -text
-
-# Full-resolution image originals (not deployed; optimize_images.py derives the
-# web versions under docs/assets/img/ from these).
+# Deployed web images (docs/assets/) are committed as NORMAL git objects, NOT
+# LFS: Vercel does not materialize Git LFS objects on deploy, so LFS-tracked
+# assets serve as broken pointer files. The web versions are small (optimized by
+# scripts/optimize_images.py), so plain git is fine.
+#
+# Only the full-resolution originals below are LFS — they live in _img-src/ and
+# are never deployed, so Vercel never needs to resolve them.
+docs/_img-src/**/*.png filter=lfs diff=lfs merge=lfs -text
+docs/_img-src/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+docs/_img-src/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+docs/_img-src/**/*.webp filter=lfs diff=lfs merge=lfs -text
 docs/_img-src/**/*.png filter=lfs diff=lfs merge=lfs -text
 docs/_img-src/**/*.jpg filter=lfs diff=lfs merge=lfs -text
 docs/_img-src/**/*.jpeg filter=lfs diff=lfs merge=lfs -text

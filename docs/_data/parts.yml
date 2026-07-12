@@ -15,7 +15,7 @@ lazy-susan:
   page: /hardware/parts/lazy-susan/
 
 ls-mount-to-chute:
-  name: Lazy Susan — chute mount
+  name: Lazy Susan chute mount
   category: Printed parts
   image: /assets/img/parts/ls-mount-to-chute.png
   notes: Prepared with 4× M4 Ruthex long heat inserts.
@@ -24,7 +24,7 @@ ls-mount-to-chute:
       qty: 4
 
 ls-bottom-static:
-  name: Lazy Susan — bottom static
+  name: Lazy Susan bottom static
   category: Printed parts
   image: /assets/img/parts/ls-bottom-static.png
   notes: Prepared with 4× M4 Ruthex long heat inserts.
@@ -33,7 +33,7 @@ ls-bottom-static:
       qty: 4
 
 ls-washer:
-  name: Lazy Susan — washer
+  name: Lazy Susan washer
   category: Printed parts
   image: /assets/img/parts/ls-washer.png
 
@@ -46,7 +46,3 @@ m4-12mm-countersunk:
   name: M4 × 12 mm countersunk screw
   category: Screws
   image: /assets/img/parts/hardware/screws/m4-12mm-countersunk.jpg
-  notes: >-
-    These must be very tight — most electric screwdrivers won't tighten them
-    enough. They're a hassle to reach if they come loose, and machine vibration
-    can work them loose.

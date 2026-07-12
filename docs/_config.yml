@@ -7,6 +7,7 @@ kramdown:
 permalink: pretty
 exclude:
   - README.md
+  - AGENTS.md
   - Gemfile.lock
   - vendor
   - .bundle

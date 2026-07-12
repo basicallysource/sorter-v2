@@ -7,6 +7,7 @@ slug: assembly-bottom-interface
 kicker: Bin frame — Bottom interface
 lede: The base the bin frame builds up from.
 permalink: /hardware/assembly/distribution/bin-frame/bottom-interface/
+author: spencer
 parts_needed:
   - part: lazy-susan
   - part: ls-mount-to-chute
@@ -25,9 +26,9 @@ parts_needed:
     loading="lazy"></iframe>
 </div>
 
-## Step 1 — Mount the Lazy Susan to the chute mount
+{% include step.html n="1" title="Mount the Lazy Susan to the chute mount" %}
 
-Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. Line up a screw hole with a heat insert in the chute mount and drive the screw. Repeat around the disc.
+Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the screw. Repeat around the disc.
 
 <div class="img-row">
   <figure>
@@ -38,18 +39,23 @@ Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-
   </figure>
 </div>
 
-The Lazy Susan is two discs — inner and outer — that spin independently. One disc's screws go in from above, the other's from below. The chute mount and the bottom static part both have access holes lined up with the bearing, so you can reach both sides to drive the screws.
+The Lazy Susan is two discs, inner and outer, that spin independently. One disc's screws go in from above, the other's from below. The chute mount and the bottom static part both have access holes lined up with the bearing, so you can reach both sides to drive the screws.
+
+<div class="callout callout-warning">
+  <span class="callout-icon" aria-hidden="true">⚠</span>
+  <p>The M4 × 12 mm countersunk screws must be very tight. Most electric screwdrivers won't tighten them enough. They're a hassle to reach if they come loose, and machine vibration can work them loose.</p>
+</div>
 
 <img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/lazy-susan-on-chute-mount.jpg' | relative_url }}" alt="Lazy Susan bearing mounted on the chute mount with the spacer between them">
 
-## Step 2 — Mount the Lazy Susan to the bottom static part
+{% include step.html n="2" title="Mount the Lazy Susan to the bottom static part" %}
 
 The Lazy Susan's other disc screws down into the bottom static part. You reach those screws through a pass-through hole in the chute mount.
 
 <div class="img-row">
   <figure>
     <img src="{{ '/assets/img/assembly/bottom-interface/step2-holes-aligned.jpg' | relative_url }}" alt="Lazy Susan hole aligned with the pass-through hole, seen from the top">
-    <figcaption>Holes lined up — you can see through to the chute mount.</figcaption>
+    <figcaption>Holes lined up. You can see through to the chute mount.</figcaption>
   </figure>
   <figure>
     <img src="{{ '/assets/img/assembly/bottom-interface/step2-pass-through.jpg' | relative_url }}" alt="Pass-through hole in the chute mount with the screw reachable underneath">
@@ -73,7 +79,7 @@ Drive the first screw through the pass-through hole.
 
 <img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/step2-screwed-in.jpg' | relative_url }}" alt="First screw driven through the pass-through hole">
 
-Then rotate the chute with the Lazy Susan — turning it the way it turns in normal operation, not by forcing the whole assembly — to bring the pass-through hole to the next insert. Repeat for each screw.
+Then rotate the chute with the Lazy Susan, turning it the way it turns in normal operation, not by forcing the whole assembly, to bring the pass-through hole to the next insert. Repeat for all four screws.
 
 <div class="img-row">
   <figure>
@@ -87,4 +93,4 @@ Then rotate the chute with the Lazy Susan — turning it the way it turns in nor
 
 The finished bottom interface:
 
-<img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/complete.jpg' | relative_url }}" alt="The completed bottom interface — chute mount, Lazy Susan bearing, and bottom static part assembled">
+<img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/complete.jpg' | relative_url }}" alt="The completed bottom interface with chute mount, Lazy Susan bearing, and bottom static part assembled">

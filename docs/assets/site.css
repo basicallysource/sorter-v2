@@ -531,6 +531,56 @@ body {
   line-height: 1.6;
 }
 
+/* Numbered step heading: small tag over a larger title. */
+.step-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2.2rem 0 1rem;
+}
+
+.step-tag {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.step-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+/* Info / warning callout. */
+.callout {
+  display: flex;
+  gap: 10px;
+  margin: 1.4rem 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--muted);
+  background: var(--bg);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.callout-icon {
+  flex: none;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.callout p {
+  margin: 0;
+}
+
+.callout-warning {
+  border-left-color: #e3b341;
+}
+
 /* Two (or more) images sharing one full-width row; wraps on narrow screens. */
 .img-row {
   display: flex;

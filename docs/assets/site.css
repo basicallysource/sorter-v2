@@ -607,6 +607,7 @@ body {
   margin-top: 6px;
   font-size: 0.82rem;
   line-height: 1.4;
+  text-align: center;
   color: var(--muted);
 }
 

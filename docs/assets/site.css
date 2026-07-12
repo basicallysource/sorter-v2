@@ -557,6 +557,7 @@ body {
 /* Info / warning callout. */
 .callout {
   display: flex;
+  align-items: center;
   gap: 10px;
   margin: 1.4rem 0;
   padding: 12px 14px;
@@ -633,14 +634,14 @@ body {
   width: 100%;
   max-width: 440px;
   height: auto;
-  margin: 0 0 1.4rem;
+  margin: 0 auto 1.4rem;
   border: 1px solid var(--line);
 }
 
 .video-embed-portrait {
   max-width: 300px;
   aspect-ratio: 9 / 16;
-  margin: 1.4rem 0;
+  margin: 1.4rem auto;
 }
 
 .video-embed-wide {

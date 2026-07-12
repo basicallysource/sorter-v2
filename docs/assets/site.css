@@ -412,6 +412,200 @@ body {
   font-weight: 500;
 }
 
+.page-meta dd a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.page-meta dd a:hover {
+  text-decoration: underline;
+}
+
+/* Parts needed / Tools needed blocks at the top of a page. */
+.requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  margin: 0 0 1.8rem;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.requirements-title {
+  margin: 0 0 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.parts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parts-category {
+  margin: 12px 0 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.part-card {
+  display: flex;
+  flex-direction: column;
+  width: 108px;
+}
+
+.part-card-media {
+  position: relative;
+  width: 108px;
+  height: 108px;
+}
+
+.part-card-img {
+  width: 108px;
+  height: 108px;
+  object-fit: contain;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.part-card-qty {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--surface);
+  background: var(--ink);
+}
+
+.parts-notes {
+  margin: 14px 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.parts-notes strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.part-card-name {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.part-card-name a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.part-card-name a:hover {
+  text-decoration: underline;
+}
+
+.part-card-missing {
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+
+.tools-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Two (or more) images sharing one full-width row; wraps on narrow screens. */
+.img-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 1.4rem 0;
+}
+
+.img-row figure {
+  flex: 1 1 0;
+  min-width: 180px;
+  margin: 0;
+}
+
+.img-row img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+
+.img-row figcaption {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+/* Placeholder for an image that hasn't been provided yet. */
+.img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 1.4rem 0;
+  border: 1px dashed var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.img-row .img-placeholder {
+  margin: 0;
+}
+
+/* Inline documentation media. */
+.doc-figure {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  margin: 0 0 1.4rem;
+  border: 1px solid var(--line);
+}
+
+.video-embed-portrait {
+  max-width: 300px;
+  aspect-ratio: 9 / 16;
+  margin: 1.4rem 0;
+}
+
+.video-embed-wide {
+  aspect-ratio: 16 / 9;
+  margin: 1.4rem 0;
+}
+
+.video-embed-portrait iframe,
+.video-embed-wide iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
+}
+
 .lede {
   max-width: 72ch;
   font-size: 1.02rem;

@@ -1,0 +1,9 @@
+# Known authors, keyed by the id used in a page's `author:` front matter.
+#
+# A page (or, later, a section) sets `author: <id>` and the byline resolves
+# from here — so updating a name or link once updates it everywhere on the site.
+# Add new contributors as new keys.
+
+spencer:
+  name: Spencer Hubert
+  url: https://github.com/spencerhhubert

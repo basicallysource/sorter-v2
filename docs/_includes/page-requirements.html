@@ -1,0 +1,90 @@
+{%- comment -%}
+Renders optional "Parts needed" and "Tools needed" blocks at the top of a page.
+
+Front matter (both optional):
+  parts_needed:                - list of entries; each is either a bare part id
+    - part: <id>                 or a map {part: <id>, qty: <n>}.
+      qty: <n>
+  tools_needed: [string, ...]  - a plain list of tools.
+
+Parts are looked up in _data/parts.yml, grouped by their `category`, shown as
+cards (image + name, linked to a detail page when the part has one, with an
+optional quantity badge). Any `notes` on the listed parts are surfaced below.
+Unknown ids render the raw id so a missing catalog entry is visible, not silent.
+{%- endcomment -%}
+{% if page.parts_needed or page.tools_needed %}
+<div class="requirements">
+  {% if page.parts_needed %}
+  <section class="requirements-block">
+    <h2 class="requirements-title">Parts needed</h2>
+
+    {%- comment -%} Ordered, de-duplicated list of categories. {%- endcomment -%}
+    {% assign seen = "|" %}
+    {% assign ordered = "" %}
+    {% for entry in page.parts_needed %}
+      {% assign pid = entry.part | default: entry %}
+      {% assign part = site.data.parts[pid] %}
+      {% assign cat = part.category | default: "Other" %}
+      {% assign catkey = cat | append: "|" %}
+      {% unless seen contains catkey %}
+        {% assign seen = seen | append: catkey %}
+        {% assign ordered = ordered | append: cat | append: "~~" %}
+      {% endunless %}
+    {% endfor %}
+    {% assign cats = ordered | split: "~~" %}
+
+    {% for cat in cats %}
+      {% if cats.size > 1 or cat != "Other" %}<p class="parts-category">{{ cat }}</p>{% endif %}
+      <ul class="parts-list">
+        {% for entry in page.parts_needed %}
+          {% assign pid = entry.part | default: entry %}
+          {% assign part = site.data.parts[pid] %}
+          {% assign pcat = part.category | default: "Other" %}
+          {% if pcat == cat %}
+          <li class="part-card">
+            {% if part %}
+              <div class="part-card-media">
+                {% if part.image %}<img class="part-card-img" src="{{ part.image | relative_url }}" alt="{{ part.name }}">{% endif %}
+                {% if entry.qty %}<span class="part-card-qty">{{ entry.qty }}×</span>{% endif %}
+              </div>
+              <span class="part-card-name">
+                {% if part.page %}<a href="{{ part.page | relative_url }}">{{ part.name }}</a>{% else %}{{ part.name }}{% endif %}
+              </span>
+            {% else %}
+              <span class="part-card-name part-card-missing">{{ pid }}</span>
+            {% endif %}
+          </li>
+          {% endif %}
+        {% endfor %}
+      </ul>
+    {% endfor %}
+
+    {%- comment -%} Notes from any listed part that carries them. {%- endcomment -%}
+    {% assign notecount = 0 %}
+    {% for entry in page.parts_needed %}
+      {% assign pid = entry.part | default: entry %}
+      {% assign part = site.data.parts[pid] %}
+      {% if part.notes %}{% assign notecount = notecount | plus: 1 %}{% endif %}
+    {% endfor %}
+    {% if notecount > 0 %}
+    <ul class="parts-notes">
+      {% for entry in page.parts_needed %}
+        {% assign pid = entry.part | default: entry %}
+        {% assign part = site.data.parts[pid] %}
+        {% if part.notes %}<li><strong>{{ part.name }}:</strong> {{ part.notes }}</li>{% endif %}
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if page.tools_needed %}
+  <section class="requirements-block">
+    <h2 class="requirements-title">Tools needed</h2>
+    <ul class="tools-list">
+      {% for tool in page.tools_needed %}<li>{{ tool }}</li>{% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+</div>
+{% endif %}

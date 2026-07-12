@@ -44,3 +44,21 @@ For a local preview server on `http://127.0.0.1:4000`:
 ```bash
 ./local-jekyll.sh serve
 ```
+
+## Images
+
+Keep full-resolution originals in `docs/_img-src/`, mirroring the path they'll be
+served at under `docs/assets/img/`. Originals live in Git LFS and are never
+deployed (Jekyll ignores underscore-prefixed dirs).
+
+Regenerate the web-friendly versions before pushing whenever `_img-src` changes:
+
+```bash
+python3 docs/scripts/optimize_images.py
+```
+
+It downscales each original (long side ≤ 1600px) and writes a progressive JPEG
+(opaque images) or optimized PNG (transparent images) to the matching path under
+`docs/assets/img/`. Pages reference those `assets/img/...` paths — `.jpg` for
+photos, `.png` for transparent renders. Commit both the original and the
+generated web version.

@@ -19,8 +19,6 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
-      - title: Orange Pi 5
-        url: /hardware/orange-pi-5/
       - title: Assembly
         url: /hardware/assembly/
         children:
@@ -49,6 +47,24 @@ sections:
             url: /hardware/assembly/electronics/
           - title: Software setup
             url: /hardware/assembly/software-setup/
+      - title: Preparation
+        url: /hardware/preparation/
+      - title: Helpers
+        url: /hardware/helpers/
+        children:
+          - title: Preparing Lazy Susan
+            url: /hardware/helpers/lazy-susan/
+          - title: Preparing pulley gear mod
+            url: /hardware/helpers/pulley-gear-mod/
+          - title: Installing heat inserts
+            url: /hardware/helpers/heat-inserts/
+      - title: Parts
+        url: /hardware/parts/
+        children:
+          - title: Lazy Susan
+            url: /hardware/parts/lazy-susan/
+          - title: Orange Pi 5
+            url: /hardware/orange-pi-5/
 
   - id: sorter
     title: Sorter

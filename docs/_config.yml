@@ -13,6 +13,7 @@ exclude:
   - ux-concept-sorting-profiles.md
   - local-jekyll.sh
   - scripts
+  - _img-src
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page front matter standard

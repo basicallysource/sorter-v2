@@ -5,7 +5,7 @@ type: how-to
 section: hardware
 slug: assembly-chute-core
 kicker: Chute — Chute core
-lede: The chute assembly. Build one per layer. Contains its own layers (pending).
+lede: The chute assembly. Build one per layer.
 permalink: /hardware/assembly/distribution/chute/chute-core/
 ---
 

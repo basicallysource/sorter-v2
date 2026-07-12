@@ -1,2 +1,16 @@
 software/sorter/backend/bundled_models/**/*.onnx filter=lfs diff=lfs merge=lfs -text
 software/sorter/backend/bundled_models/**/*.bin filter=lfs diff=lfs merge=lfs -text
+
+# Docs site raster images (SVGs stay in regular git — they're text).
+docs/assets/**/*.png filter=lfs diff=lfs merge=lfs -text
+docs/assets/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+docs/assets/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+docs/assets/**/*.gif filter=lfs diff=lfs merge=lfs -text
+docs/assets/**/*.webp filter=lfs diff=lfs merge=lfs -text
+
+# Full-resolution image originals (not deployed; optimize_images.py derives the
+# web versions under docs/assets/img/ from these).
+docs/_img-src/**/*.png filter=lfs diff=lfs merge=lfs -text
+docs/_img-src/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+docs/_img-src/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+docs/_img-src/**/*.webp filter=lfs diff=lfs merge=lfs -text

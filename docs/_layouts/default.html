@@ -85,6 +85,7 @@
           </aside>
           <main class="content">
             {% include page-header.html %}
+            {% include page-requirements.html %}
             {{ content }}
             {% include page-meta.html %}
           </main>
@@ -92,6 +93,7 @@
       {% else %}
         <main class="content">
           {% include page-header.html %}
+          {% include page-requirements.html %}
           {{ content }}
           {% include page-meta.html %}
         </main>

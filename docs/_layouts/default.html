@@ -68,8 +68,12 @@
       {% if sidebar_has_content %}
         <div class="layout-with-sidebar">
           <aside class="section-sidebar" aria-label="{{ current_section.title }} navigation">
+            <button type="button" class="section-sidebar-toggle" aria-expanded="false" aria-controls="section-nav">
+              <span>{{ current_section.title }}</span>
+              <span class="section-sidebar-toggle-icon" aria-hidden="true">▾</span>
+            </button>
             <p class="section-sidebar-kicker">{{ current_section.title }}</p>
-            <nav>
+            <nav id="section-nav">
               {% include nav-tree.html items=current_section.pages %}
               {% if current_section.groups %}
                 {% for group in current_section.groups %}
@@ -122,6 +126,15 @@
         opener.addEventListener('click', function () { modal.showModal(); });
         modal.addEventListener('click', function (e) {
           if (e.target === modal) modal.close();
+        });
+      })();
+      (function () {
+        var toggle = document.querySelector('.section-sidebar-toggle');
+        if (!toggle) return;
+        var sidebar = toggle.closest('.section-sidebar');
+        toggle.addEventListener('click', function () {
+          var open = sidebar.classList.toggle('nav-open');
+          toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
         });
       })();
     </script>

@@ -261,6 +261,11 @@ body {
   color: var(--muted);
 }
 
+/* Mobile-only collapse toggle for the section sidebar (hidden on desktop). */
+.section-sidebar-toggle {
+  display: none;
+}
+
 .section-sidebar nav {
   display: flex;
   flex-direction: column;
@@ -975,18 +980,50 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  /* Sidebar collapses to a tap-to-open menu so it doesn't fill the screen. */
   .section-sidebar {
     position: static;
+    padding: 0;
   }
 
-  .section-sidebar nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 2px;
+  .section-sidebar-kicker {
+    display: none;
   }
 
-  .section-sidebar nav a {
-    flex: 0 0 auto;
+  .section-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .section-sidebar-toggle-icon {
+    font-size: 0.9rem;
+    letter-spacing: 0;
+    transition: transform 0.15s ease;
+  }
+
+  .section-sidebar-toggle[aria-expanded="true"] .section-sidebar-toggle-icon {
+    transform: rotate(180deg);
+  }
+
+  .section-sidebar > nav {
+    display: none;
+    padding: 0 10px 12px;
+  }
+
+  .section-sidebar.nav-open > nav {
+    display: flex;
   }
 }
 

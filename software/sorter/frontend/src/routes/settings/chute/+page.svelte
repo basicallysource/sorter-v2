@@ -2,6 +2,8 @@
 	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 </script>
 
+<svelte:head><title>Sorter - Chute</title></svelte:head>
+
 <div class="lg:max-w-[20rem]">
 	<StepperSidebar
 		stepperKey="chute"

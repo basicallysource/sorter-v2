@@ -110,10 +110,13 @@ CODENAME_POOL: tuple[str, ...] = (
 
 
 def next_codename(db: Session) -> str:
-    """Pick the next unused codename in pool order.
+    """Pick the next codename, advancing one INITIAL LETTER per release.
 
-    Falls through to a numeric suffix if every name has been used (years away).
-    Lookup is one indexed query against detection_models.codename — cheap.
+    Codenames read as a release order at a glance: Aqua → Bronze → Cherry → …,
+    one new starting letter each time. The pool carries a few alternates per
+    letter (e.g. Amber, Azure) that are only drawn once *every* letter has been
+    used at least once (a second lap), then a numeric suffix once even those run
+    out (years away). Lookup is one indexed query — cheap.
     """
     from app.models.detection_model import DetectionModel
 
@@ -123,6 +126,16 @@ def next_codename(db: Session) -> str:
         .filter(DetectionModel.codename.isnot(None))
         .all()
     }
+    # Primary path: first pool name whose initial letter hasn't been used yet,
+    # so the sequence steps A → B → C → … instead of filling a letter's
+    # alternates first.
+    used_initials = {name[0].upper() for name in used if name}
+    for name in CODENAME_POOL:
+        if name[0].upper() not in used_initials:
+            return name
+
+    # Every letter has been used at least once — fall through to the remaining
+    # per-letter alternates in pool order (the second lap).
     for name in CODENAME_POOL:
         if name not in used:
             return name

@@ -1,12 +1,15 @@
 import {
 	Activity,
 	Camera,
+	CircuitBoard,
 	Cloud,
 	Cpu,
 	Gauge,
+	GitBranch,
 	Layers3,
 	Settings,
 	Shapes,
+	ShieldAlert,
 	SlidersHorizontal,
 	Wrench,
 	Zap
@@ -100,10 +103,22 @@ export const hiveModelsNavItem: SettingsNavItem = {
 	icon: Cpu
 };
 
+export const versionsNavItem: SettingsNavItem = {
+	href: '/settings/versions',
+	label: 'Versions',
+	icon: GitBranch
+};
+
 export const chuteNavItem: SettingsNavItem = {
 	href: '/settings/chute',
 	label: 'Chute',
 	icon: Wrench
+};
+
+export const controlBoardNavItem: SettingsNavItem = {
+	href: '/settings/control-board',
+	label: 'Control Board',
+	icon: CircuitBoard
 };
 
 export const chuteAimingNavItem: SettingsNavItem = {
@@ -130,6 +145,12 @@ export const performanceNavItem: SettingsNavItem = {
 	icon: Gauge
 };
 
+export const incidentsNavItem: SettingsNavItem = {
+	href: '/settings/incidents',
+	label: 'Incidents',
+	icon: ShieldAlert
+};
+
 export const tuningNavItems: SettingsNavItem[] = [
 	{
 		href: '/settings/tuning/feeder-go-to-angle',
@@ -144,6 +165,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 	{
 		href: '/settings/tuning/feeder-belt',
 		label: 'B1 Belt Feeder',
+		icon: SlidersHorizontal
+	},
+	{
+		href: '/settings/tuning/feeder-constant-movement',
+		label: 'Feeder Constant Movement',
 		icon: SlidersHorizontal
 	},
 	{
@@ -274,11 +300,14 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
 	hiveNavItem,
 	hiveModelsNavItem,
+	versionsNavItem,
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,
 	chuteNavItem,
 	storageLayersNavItem,
+	controlBoardNavItem,
 	{ type: 'heading', label: 'Helpers' },
+	incidentsNavItem,
 	chuteAimingNavItem,
 	stallguardNavItem,
 	jitterTestNavItem,

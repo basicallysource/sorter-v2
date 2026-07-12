@@ -137,6 +137,7 @@ class HiveClient:
         q: str | None = None,
         page: int = 1,
         page_size: int = 30,
+        include_experimental: bool = False,
     ) -> dict:
         """GET /api/machine/models -- paginated catalog."""
         params: dict[str, Any] = {"page": page, "page_size": page_size}
@@ -148,6 +149,8 @@ class HiveClient:
             params["family"] = family
         if q:
             params["q"] = q
+        if include_experimental:
+            params["include_experimental"] = "true"
         return self._request("GET", "/api/machine/models", params=params)
 
     def get_model(self, model_id: str) -> dict:

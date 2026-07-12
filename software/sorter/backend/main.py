@@ -7,11 +7,10 @@ load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 from local_state import initialize_local_state
 initialize_local_state()
 
-from local_state import (
-    get_api_keys,
-    record_profiler_metric_snapshot,
-    record_runtime_perf_metric_snapshot,
-    remember_recent_known_object,
+from local_state import get_api_keys
+from local_metrics import (
+    recordProfilerMetricSnapshot,
+    recordRuntimePerfMetricSnapshot,
 )
 _saved_api_keys = get_api_keys()
 if _saved_api_keys.get("openrouter"):
@@ -296,14 +295,27 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 obj_payload = command.data.model_dump()
                 # Detail-page lookup keeps the FULL object (incl. the cumulative
                 # recognition_image_set list) in memory, served via
-                # /api/known-objects/<uuid>. The live socket and the recent ring
-                # carry only the slim form (see slimKnownObjectForSocket) so the
-                # per-piece payload stays bounded instead of growing quadratically.
-                gc.runtime_stats.observeKnownObject(obj_payload)
+                # /api/pieces/<uuid>. The live socket carries only the
+                # slim form (see slimKnownObjectForSocket) so the per-piece
+                # payload stays bounded instead of growing quadratically.
+                try:
+                    gc.runtime_stats.observeKnownObject(obj_payload)
+                except Exception as exc:
+                    # Never let one malformed piece kill the broadcaster thread —
+                    # that would silently freeze the entire live feed for every
+                    # client until a restart. Skip this observation and continue.
+                    gc.logger.warning(f"observeKnownObject failed, skipping piece: {exc}")
+                # Persist any newly appended recognition crops to disk (bounded
+                # enqueue; a dedicated worker does the decode + file/DB writes).
+                try:
+                    import piece_image_store
+
+                    piece_image_store.enqueueKnownObjectImages(obj_payload)
+                except Exception:
+                    pass
                 event_data = payload.get("data")
                 if isinstance(event_data, dict):
                     payload["data"] = slimKnownObjectForSocket(event_data)
-                remember_recent_known_object(slimKnownObjectForSocket(obj_payload))
                 # End-to-end backend latency for a piece update: wall-clock now
                 # minus when the piece was stamped (updated_at, set right before
                 # emit). This is the number that must be near-zero for the UI to
@@ -342,7 +354,6 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                 time.time(), STUCK_PIECE_TIMEOUT_S
             ):
                 slim = slimKnownObjectForSocket(full_payload)
-                remember_recent_known_object(slim)
                 # Persist to the durable history so a stuck piece still shows up
                 # on /records (ordered by created_at) instead of vanishing —
                 # normally only distributed pieces get recorded.
@@ -452,6 +463,69 @@ def main() -> None:
     )
     broadcaster_thread.start()
 
+    # Broadcast-liveness watchdog. The WS live feed (recent pieces, stall banner)
+    # is pushed only by the broadcaster on the single asyncio loop. If that loop
+    # wedges (MJPEG saturation or a blocking call), broadcasts stop silently and
+    # the feed freezes until restart — with no error anywhere in the logs. This
+    # runs on its own thread (so it survives a wedged loop) and turns that
+    # invisible freeze into one loud, timestamped WARN.
+    def _broadcastLivenessWatchdog() -> None:
+        import server.shared_state as ss
+
+        STALE_WARN_S = 10.0
+        CHECK_INTERVAL_S = 2.0
+        warned = False
+        while True:
+            time.sleep(CHECK_INTERVAL_S)
+            try:
+                last_ok = ss.last_broadcast_ok_ts
+                n_clients = len(ss.active_connections)
+                if last_ok <= 0.0 or n_clients == 0:
+                    warned = False
+                    continue
+                stale_s = time.time() - last_ok
+                if stale_s > STALE_WARN_S and not warned:
+                    gc.logger.warning(
+                        f"[broadcast-watchdog] no websocket broadcast for {stale_s:.1f}s "
+                        f"with {n_clients} client(s) connected — asyncio loop likely wedged "
+                        "(MJPEG saturation or a blocking call); live feed frozen until it clears"
+                    )
+                    warned = True
+                elif stale_s <= STALE_WARN_S and warned:
+                    gc.logger.info("[broadcast-watchdog] websocket broadcast recovered")
+                    warned = False
+            except Exception:
+                pass
+
+    threading.Thread(
+        target=_broadcastLivenessWatchdog, daemon=True, name="broadcast-watchdog"
+    ).start()
+
+    # Pre-warm the piece price cache off the request path. The first
+    # value/aggregates computation walks every historical (part, color) pair
+    # through parts.db (~60s serialized on the Pi's eMMC — part_bricklink_ids
+    # has no index); done here in the background so no records-page request
+    # ever pays it.
+    def warmPieceValueCaches() -> None:
+        try:
+            import piece_records
+
+            piece_records.getValueStats(gc)
+            piece_records.getAggregates(gc)
+        except Exception as exc:
+            gc.logger.warn(f"piece value cache pre-warm failed: {exc}")
+
+    threading.Thread(
+        target=warmPieceValueCaches, daemon=True, name="piece-value-prewarm"
+    ).start()
+
+    try:
+        import piece_image_store
+
+        piece_image_store.configure(gc.logger)
+    except Exception:
+        pass
+
     with gc.profiler.timer("startup.camera_service_start_ms"):
         camera_service.start()
     # Rev04: build the perception service BEFORE vision.start() so the
@@ -467,6 +541,12 @@ def main() -> None:
     sample_collector = SampleCollector(gc, camera_service)
     sample_collector.start()
     gc.sample_collector = sample_collector
+    # Reconciles local piece history (records + crops) up to every enabled Hive,
+    # watermark-based so months of backlog sync without redundant re-uploads.
+    from server.hive_sync import HiveSyncWorker
+    hive_sync_worker = HiveSyncWorker(gc)
+    hive_sync_worker.start()
+    gc.hive_sync_worker = hive_sync_worker
     with gc.profiler.timer("startup.vision_start_ms"):
         vision.start()
     with gc.profiler.timer("startup.waveshare_inventory_ms"):
@@ -927,7 +1007,7 @@ def main() -> None:
                 current_time - last_runtime_perf_snapshot
                 >= RUNTIME_STATS_BROADCAST_INTERVAL_MS / 1000.0
             ):
-                record_runtime_perf_metric_snapshot(
+                recordRuntimePerfMetricSnapshot(
                     gc.run_id,
                     current_time,
                     gc.runtime_stats.perfSnapshotRows(),
@@ -938,7 +1018,7 @@ def main() -> None:
                 gc.profiler.enabled
                 and current_time - last_profiler_snapshot >= gc.profiler.report_interval_s
             ):
-                record_profiler_metric_snapshot(
+                recordProfilerMetricSnapshot(
                     gc.run_id,
                     current_time,
                     gc.profiler.snapshotRows(),

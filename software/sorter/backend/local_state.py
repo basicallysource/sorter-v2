@@ -58,7 +58,6 @@ _STATE_KEY_SORTING_PROFILE_SYNC = "sorting_profile_sync"
 _STATE_KEY_API_KEYS = "api_keys"
 _STATE_KEY_SERVO_STATES = "servo_states"
 _STATE_KEY_SET_PROGRESS = "set_progress"
-_STATE_KEY_RECENT_KNOWN_OBJECTS = "recent_known_objects"
 _STATE_KEY_UI_THEME_COLOR_ID = "ui_theme_color_id"
 _STATE_KEY_BIN_LAYOUT = "bin_layout"
 # Per-PWM-channel servo calibration ({channel_id: {"open": int, "closed": int}}).
@@ -68,8 +67,7 @@ _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
-
-_RECENT_KNOWN_OBJECTS_LIMIT = 10
+_META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
 
 
 def local_state_db_path() -> Path:
@@ -165,6 +163,12 @@ def _get_meta(conn: sqlite3.Connection, key: str) -> str | None:
     return str(value) if value is not None else None
 
 
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
+    existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    if column not in existing:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+
+
 def _set_meta(conn: sqlite3.Connection, key: str, value: str) -> None:
     conn.execute(
         "INSERT INTO metadata(key, value) VALUES(?, ?) "
@@ -230,6 +234,17 @@ def _normalize_hive_target(raw: Any, index: int) -> dict[str, Any] | None:
     }
     if isinstance(machine_id, str) and machine_id.strip():
         target["machine_id"] = machine_id.strip()
+    telemetry = raw.get("telemetry")
+    if isinstance(telemetry, dict):
+        # Per-target upload permissions; hive_telemetry owns the field set and
+        # defaults, so pass through any bool entries untouched.
+        normalized_telemetry = {
+            key: value
+            for key, value in telemetry.items()
+            if isinstance(key, str) and isinstance(value, bool)
+        }
+        if normalized_telemetry:
+            target["telemetry"] = normalized_telemetry
     return target
 
 
@@ -515,6 +530,8 @@ def initialize_local_state() -> None:
                 "bin_index INTEGER NOT NULL, "
                 "bin_epoch INTEGER NOT NULL, "
                 "distributed_at REAL NOT NULL, "
+                "created_at REAL, "
+                "classified_at REAL, "
                 "part_id TEXT, "
                 "color_id TEXT, "
                 "color_name TEXT, "
@@ -528,6 +545,12 @@ def initialize_local_state() -> None:
                 "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE"
                 ")"
             )
+            _ensure_column(conn, "piece_events", "created_at", "REAL")
+            _ensure_column(conn, "piece_events", "classified_at", "REAL")
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_piece_events_bin_epoch "
+                "ON piece_events(session_id, layer_index, section_index, bin_index, bin_epoch)"
+            )
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS bin_events ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -540,6 +563,52 @@ def initialize_local_state() -> None:
                 "bin_epoch INTEGER, "
                 "details_json TEXT, "
                 "FOREIGN KEY(session_id) REFERENCES sorting_sessions(id) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS bin_snapshots ("
+                "id TEXT PRIMARY KEY, "
+                "status TEXT NOT NULL, "
+                "label TEXT, "
+                "created_at REAL NOT NULL, "
+                "closed_at REAL, "
+                "closed_reason TEXT"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS bin_snapshot_layers ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "snapshot_id TEXT NOT NULL, "
+                "session_id TEXT NOT NULL, "
+                "layer_index INTEGER NOT NULL, "
+                "section_index INTEGER NOT NULL, "
+                "bin_index INTEGER NOT NULL, "
+                "bin_epoch INTEGER NOT NULL, "
+                "piece_count INTEGER NOT NULL DEFAULT 0, "
+                "unique_item_count INTEGER NOT NULL DEFAULT 0, "
+                "category_ids_json TEXT, "
+                "flush_scope TEXT, "
+                "flushed_at REAL NOT NULL, "
+                "FOREIGN KEY(snapshot_id) REFERENCES bin_snapshots(id) ON DELETE CASCADE"
+                ")"
+            )
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS bin_snapshot_items ("
+                "snapshot_layer_id INTEGER NOT NULL, "
+                "item_key TEXT NOT NULL, "
+                "part_id TEXT, "
+                "color_id TEXT, "
+                "color_name TEXT, "
+                "category_id TEXT, "
+                "classification_status TEXT, "
+                "count INTEGER NOT NULL DEFAULT 0, "
+                "last_distributed_at REAL, "
+                "thumbnail TEXT, "
+                "top_image TEXT, "
+                "bottom_image TEXT, "
+                "brickognize_preview_url TEXT, "
+                "PRIMARY KEY(snapshot_layer_id, item_key), "
+                "FOREIGN KEY(snapshot_layer_id) REFERENCES bin_snapshot_layers(id) ON DELETE CASCADE"
                 ")"
             )
             conn.execute(
@@ -593,46 +662,6 @@ def initialize_local_state() -> None:
                 "is_active INTEGER NOT NULL DEFAULT 0"
                 ")"
             )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS profiler_metric_snapshots ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "run_id TEXT NOT NULL, "
-                "recorded_at REAL NOT NULL, "
-                "metric_kind TEXT NOT NULL, "
-                "metric_name TEXT NOT NULL, "
-                "count INTEGER NOT NULL DEFAULT 0, "
-                "total_ms REAL, "
-                "min_ms REAL, "
-                "max_ms REAL, "
-                "last_ms REAL, "
-                "total_value REAL, "
-                "max_value REAL, "
-                "last_value REAL"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_profiler_metric_snapshots_run_time "
-                "ON profiler_metric_snapshots(run_id, recorded_at)"
-            )
-            conn.execute(
-                "CREATE TABLE IF NOT EXISTS runtime_perf_metric_snapshots ("
-                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
-                "run_id TEXT NOT NULL, "
-                "recorded_at REAL NOT NULL, "
-                "metric_name TEXT NOT NULL, "
-                "sample_count INTEGER NOT NULL DEFAULT 0, "
-                "avg_ms REAL, "
-                "med_ms REAL, "
-                "p90_ms REAL, "
-                "min_ms REAL, "
-                "max_ms REAL, "
-                "last_ms REAL"
-                ")"
-            )
-            conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_runtime_perf_metric_snapshots_run_time "
-                "ON runtime_perf_metric_snapshots(run_id, recorded_at)"
-            )
             schema_version = _get_meta(conn, "schema_version")
             if schema_version != str(_SCHEMA_VERSION):
                 _set_meta(conn, "schema_version", str(_SCHEMA_VERSION))
@@ -667,101 +696,50 @@ def _write_state(key: str, value: Any | None) -> None:
         conn.commit()
 
 
-def record_profiler_metric_snapshot(
-    run_id: str,
-    recorded_at: float,
-    rows: list[dict[str, Any]],
-) -> None:
-    if not rows:
-        return
-    initialize_local_state()
-    with _connection() as conn:
-        conn.executemany(
-            "INSERT INTO profiler_metric_snapshots("
-            "run_id, recorded_at, metric_kind, metric_name, count, total_ms, min_ms, max_ms, last_ms, total_value, max_value, last_value"
-            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    str(run_id),
-                    float(recorded_at),
-                    str(row.get("metric_kind") or ""),
-                    str(row.get("metric_name") or ""),
-                    int(row.get("count") or 0),
-                    row.get("total_ms"),
-                    row.get("min_ms"),
-                    row.get("max_ms"),
-                    row.get("last_ms"),
-                    row.get("total_value"),
-                    row.get("max_value"),
-                    row.get("last_value"),
-                )
-                for row in rows
-            ],
-        )
-        conn.commit()
+# Legacy per-second metric snapshot tables — writes moved to local_metrics.py
+# (its own sqlite file). These drained the live DB to 1.9GB on GBL; the pruner
+# thread empties them in small paced batches (never a blocking multi-GB DROP
+# that would stall the recordPiece hot path) and then drops them. Idempotent
+# across restarts; tolerates the tables already being gone.
+_LEGACY_METRIC_SNAPSHOT_TABLES = ("runtime_perf_metric_snapshots", "profiler_metric_snapshots")
 
 
-def record_runtime_perf_metric_snapshot(
-    run_id: str,
-    recorded_at: float,
-    rows: list[dict[str, Any]],
-) -> None:
-    if not rows:
-        return
-    initialize_local_state()
-    with _connection() as conn:
-        conn.executemany(
-            "INSERT INTO runtime_perf_metric_snapshots("
-            "run_id, recorded_at, metric_name, sample_count, avg_ms, med_ms, p90_ms, min_ms, max_ms, last_ms"
-            ") VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-            [
-                (
-                    str(run_id),
-                    float(recorded_at),
-                    str(row.get("metric_name") or ""),
-                    int(row.get("sample_count") or 0),
-                    row.get("avg_ms"),
-                    row.get("med_ms"),
-                    row.get("p90_ms"),
-                    row.get("min_ms"),
-                    row.get("max_ms"),
-                    row.get("last_ms"),
-                )
-                for row in rows
-            ],
-        )
-        conn.commit()
+def _table_exists(conn: sqlite3.Connection, table: str) -> bool:
+    row = conn.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?",
+        (table,),
+    ).fetchone()
+    return row is not None
 
 
-# Per-second snapshot tables that grow unbounded; the pruner trims these by age.
-_METRIC_SNAPSHOT_TABLES = ("runtime_perf_metric_snapshots", "profiler_metric_snapshots")
-
-
-def prune_metric_snapshots(
-    cutoff_recorded_at: float,
+def drain_legacy_metric_snapshot_tables(
     batch_size: int = 5000,
     pacing_s: float = 0.05,
 ) -> dict[str, int]:
     initialize_local_state()
     deleted: dict[str, int] = {}
-    for table in _METRIC_SNAPSHOT_TABLES:
+    for table in _LEGACY_METRIC_SNAPSHOT_TABLES:
         removed = 0
         while True:
-            # Oldest rows have the lowest ids and sort first, so the LIMIT
-            # subquery finds expired rows at the front of the scan — batched and
-            # committed per-batch so we never hold a long write lock or build a
-            # huge WAL. Table name is a fixed constant, not user input.
             with _connection() as conn:
-                cur = conn.execute(
-                    f"DELETE FROM {table} WHERE id IN ("
-                    f"SELECT id FROM {table} WHERE recorded_at < ? LIMIT ?)",
-                    (float(cutoff_recorded_at), int(batch_size)),
-                )
-                n = cur.rowcount
-                conn.commit()
+                if not _table_exists(conn, table):
+                    n = None
+                    break_now = True
+                else:
+                    cur = conn.execute(
+                        f"DELETE FROM {table} WHERE rowid IN ("
+                        f"SELECT rowid FROM {table} LIMIT ?)",
+                        (int(batch_size),),
+                    )
+                    n = cur.rowcount
+                    conn.commit()
+                    break_now = not n or n < batch_size
+                    if break_now:
+                        conn.execute(f"DROP TABLE IF EXISTS {table}")
+                        conn.commit()
             if n and n > 0:
                 removed += n
-            if not n or n < batch_size:
+            if break_now:
                 break
             if pacing_s and pacing_s > 0:
                 time.sleep(pacing_s)
@@ -989,17 +967,6 @@ def get_set_progress_state() -> dict[str, Any] | None:
 def set_set_progress_state(state: dict[str, Any] | None) -> None:
     normalized = dict(state) if isinstance(state, dict) else None
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
-
-
-def get_recent_known_objects() -> list[dict[str, Any]]:
-    value = _read_state(_STATE_KEY_RECENT_KNOWN_OBJECTS)
-    if not isinstance(value, list):
-        return []
-    result: list[dict[str, Any]] = []
-    for item in value:
-        if isinstance(item, dict) and isinstance(item.get("uuid"), str):
-            result.append(dict(item))
-    return result
 
 
 def get_ui_theme_color_id() -> str | None:
@@ -1326,8 +1293,8 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
         )
 
         cursor = conn.execute(
-            "INSERT OR IGNORE INTO piece_events(session_id, piece_uuid, layer_index, section_index, bin_index, bin_epoch, distributed_at, part_id, color_id, color_name, category_id, classification_status, thumbnail, top_image, bottom_image, brickognize_preview_url) "
-            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT OR IGNORE INTO piece_events(session_id, piece_uuid, layer_index, section_index, bin_index, bin_epoch, distributed_at, created_at, classified_at, part_id, color_id, color_name, category_id, classification_status, thumbnail, top_image, bottom_image, brickognize_preview_url) "
+            "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 session_id,
                 piece_uuid,
@@ -1336,6 +1303,8 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
                 bin_index,
                 bin_epoch,
                 float(distributed_at),
+                piece.get("created_at"),
+                piece.get("classified_at"),
                 piece.get("part_id"),
                 piece.get("color_id"),
                 piece.get("color_name"),
@@ -1392,12 +1361,84 @@ def record_piece_distribution(piece: dict[str, Any]) -> None:
         conn.commit()
 
 
+def _get_or_create_open_bin_snapshot_conn(conn: sqlite3.Connection, now: float) -> str:
+    snapshot_id = _get_meta(conn, _META_KEY_OPEN_BIN_SNAPSHOT_ID)
+    if snapshot_id:
+        row = conn.execute(
+            "SELECT id FROM bin_snapshots WHERE id = ? AND status = 'open'",
+            (snapshot_id,),
+        ).fetchone()
+        if row is not None:
+            return str(row["id"])
+    snapshot_id = str(uuid.uuid4())
+    conn.execute(
+        "INSERT INTO bin_snapshots(id, status, created_at) VALUES(?, 'open', ?)",
+        (snapshot_id, now),
+    )
+    _set_meta(conn, _META_KEY_OPEN_BIN_SNAPSHOT_ID, snapshot_id)
+    return snapshot_id
+
+
+def _category_ids_json_for_bin(
+    bin_categories: Any, layer_index: int, section_index: int, bin_index: int
+) -> str | None:
+    try:
+        category_ids = bin_categories[layer_index][section_index][bin_index]
+    except (TypeError, IndexError, KeyError):
+        return None
+    if not isinstance(category_ids, list):
+        return None
+    return json.dumps([str(c) for c in category_ids])
+
+
+def _flush_bin_layer_to_snapshot_conn(
+    conn: sqlite3.Connection,
+    *,
+    snapshot_id: str,
+    session_id: str,
+    layer_index: int,
+    section_index: int,
+    bin_index: int,
+    bin_epoch: int,
+    piece_count: int,
+    unique_item_count: int,
+    category_ids_json: str | None,
+    flush_scope: str,
+    now: float,
+) -> None:
+    cursor = conn.execute(
+        "INSERT INTO bin_snapshot_layers(snapshot_id, session_id, layer_index, section_index, bin_index, bin_epoch, piece_count, unique_item_count, category_ids_json, flush_scope, flushed_at) "
+        "VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            snapshot_id,
+            session_id,
+            layer_index,
+            section_index,
+            bin_index,
+            bin_epoch,
+            piece_count,
+            unique_item_count,
+            category_ids_json,
+            flush_scope,
+            now,
+        ),
+    )
+    snapshot_layer_id = cursor.lastrowid
+    conn.execute(
+        "INSERT INTO bin_snapshot_items(snapshot_layer_id, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, thumbnail, top_image, bottom_image, brickognize_preview_url) "
+        "SELECT ?, item_key, part_id, color_id, color_name, category_id, classification_status, count, last_distributed_at, thumbnail, top_image, bottom_image, brickognize_preview_url "
+        "FROM bin_item_aggregates WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
+        (snapshot_layer_id, session_id, layer_index, section_index, bin_index),
+    )
+
+
 def clear_current_session_bins(
     *,
     scope: str,
     layer_index: int | None = None,
     section_index: int | None = None,
     bin_index: int | None = None,
+    bin_categories: Any | None = None,
 ) -> dict[str, Any]:
     initialize_local_state()
     with _connection() as conn:
@@ -1424,7 +1465,7 @@ def clear_current_session_bins(
             )
 
         rows = conn.execute(
-            f"SELECT layer_index, section_index, bin_index, bin_epoch, piece_count FROM bin_state_current WHERE {' AND '.join(where)}",
+            f"SELECT layer_index, section_index, bin_index, bin_epoch, piece_count, unique_item_count FROM bin_state_current WHERE {' AND '.join(where)}",
             tuple(params),
         ).fetchall()
 
@@ -1437,12 +1478,13 @@ def clear_current_session_bins(
                 bin_index=bin_index,
             )
             rows = conn.execute(
-                "SELECT layer_index, section_index, bin_index, bin_epoch, piece_count FROM bin_state_current WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
+                "SELECT layer_index, section_index, bin_index, bin_epoch, piece_count, unique_item_count FROM bin_state_current WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
                 (active_session_id, layer_index, section_index, bin_index),
             ).fetchall()
 
         cleared_bins = 0
         now = time.time()
+        snapshot_id: str | None = None
         for row in rows:
             li = int(row["layer_index"])
             si = int(row["section_index"])
@@ -1450,6 +1492,22 @@ def clear_current_session_bins(
             current_epoch = int(row["bin_epoch"])
             if int(row["piece_count"] or 0) > 0:
                 cleared_bins += 1
+                if snapshot_id is None:
+                    snapshot_id = _get_or_create_open_bin_snapshot_conn(conn, now)
+                _flush_bin_layer_to_snapshot_conn(
+                    conn,
+                    snapshot_id=snapshot_id,
+                    session_id=active_session_id,
+                    layer_index=li,
+                    section_index=si,
+                    bin_index=bi,
+                    bin_epoch=current_epoch,
+                    piece_count=int(row["piece_count"]),
+                    unique_item_count=int(row["unique_item_count"] or 0),
+                    category_ids_json=_category_ids_json_for_bin(bin_categories, li, si, bi),
+                    flush_scope=scope,
+                    now=now,
+                )
             conn.execute(
                 "UPDATE bin_state_current SET bin_epoch = ?, piece_count = 0, unique_item_count = 0, last_distributed_at = NULL, updated_at = ? WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
                 (current_epoch + 1, now, active_session_id, li, si, bi),
@@ -1458,6 +1516,24 @@ def clear_current_session_bins(
                 "DELETE FROM bin_item_aggregates WHERE session_id = ? AND layer_index = ? AND section_index = ? AND bin_index = ?",
                 (active_session_id, li, si, bi),
             )
+
+        closed_snapshot_id: str | None = None
+        if scope == "all":
+            open_snapshot_id = _get_meta(conn, _META_KEY_OPEN_BIN_SNAPSHOT_ID)
+            if open_snapshot_id:
+                has_layers = conn.execute(
+                    "SELECT 1 FROM bin_snapshot_layers WHERE snapshot_id = ? LIMIT 1",
+                    (open_snapshot_id,),
+                ).fetchone()
+                if has_layers is not None:
+                    conn.execute(
+                        "UPDATE bin_snapshots SET status = 'closed', closed_at = ?, closed_reason = ? WHERE id = ? AND status = 'open'",
+                        (now, "all_cleared", open_snapshot_id),
+                    )
+                    closed_snapshot_id = open_snapshot_id
+                else:
+                    conn.execute("DELETE FROM bin_snapshots WHERE id = ?", (open_snapshot_id,))
+                conn.execute("DELETE FROM metadata WHERE key = ?", (_META_KEY_OPEN_BIN_SNAPSHOT_ID,))
 
         conn.execute(
             "INSERT INTO bin_events(session_id, event_type, created_at, layer_index, section_index, bin_index, details_json) VALUES(?, ?, ?, ?, ?, ?, ?)",
@@ -1472,7 +1548,7 @@ def clear_current_session_bins(
             ),
         )
         conn.commit()
-        return {"ok": True, "cleared_bins": cleared_bins}
+        return {"ok": True, "cleared_bins": cleared_bins, "snapshot_id": closed_snapshot_id}
 
 
 def get_current_bin_piece_counts() -> dict[tuple[int, int, int], int]:
@@ -1556,6 +1632,134 @@ def get_current_bin_contents_snapshot() -> dict[str, Any]:
             )
 
         return {"session": session, "bins": bins}
+
+
+def get_current_bin_contents_version() -> str:
+    initialize_local_state()
+    with _connection() as conn:
+        active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+        if not active_session_id:
+            return "none"
+        row = conn.execute(
+            "SELECT COUNT(*) AS n, COALESCE(MAX(updated_at), 0) AS max_updated, "
+            "COALESCE(SUM(bin_epoch), 0) AS epochs, COALESCE(SUM(piece_count), 0) AS pieces "
+            "FROM bin_state_current WHERE session_id = ?",
+            (active_session_id,),
+        ).fetchone()
+        return (
+            f"{active_session_id}:{int(row['n'])}:{float(row['max_updated'])}:"
+            f"{int(row['epochs'])}:{int(row['pieces'])}"
+        )
+
+
+def list_bin_snapshots() -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT s.id, s.status, s.label, s.created_at, s.closed_at, s.closed_reason, "
+            "COUNT(l.id) AS layer_count, "
+            "COUNT(DISTINCT l.layer_index || ':' || l.section_index || ':' || l.bin_index) AS bin_count, "
+            "COALESCE(SUM(l.piece_count), 0) AS piece_count "
+            "FROM bin_snapshots s LEFT JOIN bin_snapshot_layers l ON l.snapshot_id = s.id "
+            "GROUP BY s.id ORDER BY s.created_at DESC",
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_bin_snapshot(snapshot_id: str) -> dict[str, Any] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        snapshot_row = conn.execute(
+            "SELECT * FROM bin_snapshots WHERE id = ?",
+            (snapshot_id,),
+        ).fetchone()
+        if snapshot_row is None:
+            return None
+
+        layer_rows = conn.execute(
+            "SELECT * FROM bin_snapshot_layers WHERE snapshot_id = ? ORDER BY layer_index, section_index, bin_index, flushed_at",
+            (snapshot_id,),
+        ).fetchall()
+
+        layers: list[dict[str, Any]] = []
+        for row in layer_rows:
+            layer = dict(row)
+            raw_category_ids = layer.pop("category_ids_json", None)
+            try:
+                layer["category_ids"] = json.loads(raw_category_ids) if raw_category_ids else []
+            except (TypeError, ValueError):
+                layer["category_ids"] = []
+            layer["items"] = [
+                dict(item)
+                for item in conn.execute(
+                    "SELECT * FROM bin_snapshot_items WHERE snapshot_layer_id = ? ORDER BY count DESC, last_distributed_at DESC",
+                    (int(layer["id"]),),
+                ).fetchall()
+            ]
+            layers.append(layer)
+
+        snapshot = dict(snapshot_row)
+        snapshot["layers"] = layers
+        snapshot["piece_count"] = sum(int(l["piece_count"] or 0) for l in layers)
+        return snapshot
+
+
+def get_bin_snapshot_pieces(snapshot_id: str) -> list[dict[str, Any]] | None:
+    initialize_local_state()
+    with _connection() as conn:
+        snapshot_row = conn.execute(
+            "SELECT id FROM bin_snapshots WHERE id = ?",
+            (snapshot_id,),
+        ).fetchone()
+        if snapshot_row is None:
+            return None
+        # Joining on session_id too: (bin, epoch) alone can collide with stale
+        # piece_events from unrelated past sessions (seen on real DBs), which
+        # inflates the piece list well past the bin's counter. The cost is that
+        # pieces logged under a pre-carry-forward session are omitted from the
+        # per-piece list; bin_snapshot_items stays the authoritative content record.
+        rows = conn.execute(
+            "SELECT l.id AS snapshot_layer_id, l.flushed_at, l.flush_scope, "
+            "p.piece_uuid, p.layer_index, p.section_index, p.bin_index, p.bin_epoch, "
+            "p.distributed_at, p.created_at, p.classified_at, "
+            "p.part_id, p.color_id, p.color_name, p.category_id, p.classification_status, "
+            "p.thumbnail, p.top_image, p.bottom_image, p.brickognize_preview_url, "
+            "s.profile_id, s.profile_name "
+            "FROM bin_snapshot_layers l "
+            "JOIN piece_events p ON p.session_id = l.session_id AND p.layer_index = l.layer_index "
+            "AND p.section_index = l.section_index AND p.bin_index = l.bin_index "
+            "AND p.bin_epoch = l.bin_epoch AND p.distributed_at <= l.flushed_at "
+            "LEFT JOIN sorting_sessions s ON s.id = p.session_id "
+            "WHERE l.snapshot_id = ? "
+            "GROUP BY p.piece_uuid "
+            "ORDER BY l.layer_index, l.section_index, l.bin_index, p.distributed_at",
+            (snapshot_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_current_bin_pieces() -> list[dict[str, Any]]:
+    initialize_local_state()
+    with _connection() as conn:
+        active_session_id = _get_meta(conn, _META_KEY_ACTIVE_SORTING_SESSION_ID)
+        if not active_session_id:
+            return []
+        rows = conn.execute(
+            "SELECT p.piece_uuid, p.layer_index, p.section_index, p.bin_index, p.bin_epoch, "
+            "p.distributed_at, p.created_at, p.classified_at, "
+            "p.part_id, p.color_id, p.color_name, p.category_id, p.classification_status, "
+            "p.thumbnail, p.top_image, p.bottom_image, p.brickognize_preview_url, "
+            "s.profile_id, s.profile_name "
+            "FROM bin_state_current b "
+            "JOIN piece_events p ON p.session_id = b.session_id AND p.layer_index = b.layer_index "
+            "AND p.section_index = b.section_index AND p.bin_index = b.bin_index AND p.bin_epoch = b.bin_epoch "
+            "LEFT JOIN sorting_sessions s ON s.id = p.session_id "
+            "WHERE b.session_id = ? AND b.piece_count > 0 "
+            "GROUP BY p.piece_uuid "
+            "ORDER BY b.layer_index, b.section_index, b.bin_index, p.distributed_at",
+            (active_session_id,),
+        ).fetchall()
+        return [dict(row) for row in rows]
 
 
 def import_bin_contents_snapshot(snapshot: dict[str, Any], *, reason: str = "snapshot_import") -> dict[str, Any]:
@@ -1680,19 +1884,6 @@ def import_bin_contents_snapshot(snapshot: dict[str, Any], *, reason: str = "sna
             )
         conn.commit()
         return {"imported_bins": imported_bins, "session_id": session_id}
-
-
-def remember_recent_known_object(obj: dict[str, Any], *, limit: int = _RECENT_KNOWN_OBJECTS_LIMIT) -> None:
-    if not isinstance(obj, dict):
-        return
-    uuid = obj.get("uuid")
-    if not isinstance(uuid, str) or not uuid.strip():
-        return
-
-    normalized = {key: value for key, value in obj.items() if isinstance(key, str)}
-    existing = [entry for entry in get_recent_known_objects() if entry.get("uuid") != uuid]
-    next_entries = [normalized, *existing][: max(1, int(limit))]
-    _write_state(_STATE_KEY_RECENT_KNOWN_OBJECTS, next_entries)
 
 
 def get_bin_layout() -> dict[str, Any] | None:

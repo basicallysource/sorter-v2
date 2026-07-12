@@ -2,11 +2,23 @@
 	import { getMachineContext } from '$lib/machines/context';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
+	import PieceStatusBadge from './PieceStatusBadge.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
+	import {
+		pieceStore,
+		pieceToKnownObjectView,
+		isTerminalPiece,
+		type Piece,
+		type PiecesListResponse
+	} from '$lib/pieces';
 
-	type LifecyclePhase = 'tracking' | 'capturing' | 'classified' | 'distributed';
+	// 'resolved' = the classification outcome is known (any status, good or bad)
+	// but the piece hasn't been delivered yet. The chip for it comes from
+	// PieceStatusBadge so a failed/unidentified piece can never read as the green
+	// success chip — the green is gated on classification_status === 'classified'.
+	type LifecyclePhase = 'tracking' | 'capturing' | 'resolved' | 'distributed';
 
 	const MAX_DELIVERED_PIECES = 8;
 	const RECENT_TERMINAL_DEDUPE_WINDOW_S = 15;
@@ -18,7 +30,7 @@
 	// freezes in the 'capturing'/'tracking' phase and never receives another
 	// event, so it would otherwise sit in this list forever. C4 processes one
 	// piece at a time: the live piece updates every frame and flips to
-	// 'classified' within seconds, so any OLDER pre-classification piece that
+	// 'resolved' within seconds, so any OLDER pre-classification piece that
 	// has had no event for this long has been abandoned and is dropped.
 	const STALE_CAPTURING_S = 15;
 	// A piece that classified but never reached distribution stops emitting
@@ -28,9 +40,44 @@
 	// arrives (e.g. backend wedged). Set slightly above the backend timeout so
 	// the authoritative `dead` event normally wins first.
 	const STALE_CLASSIFIED_S = 35;
+	const REST_FILL_LIMIT = 32;
 
 	const ctx = getMachineContext();
 	sortingProfileStore.load();
+
+	function effectiveBase(): string {
+		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
+	}
+
+	const machineId = $derived(ctx.machine?.identity?.machine_id ?? null);
+	const storePieces = $derived(pieceStore.entriesFor(machineId));
+
+	// Initial fill: the backend no longer replays recent pieces on WS connect —
+	// the durable records API is the source for "what happened before this
+	// session". One fetch per machine per app session.
+	$effect(() => {
+		const machine_id = machineId;
+		if (!machine_id || !pieceStore.needsRestFill(machine_id)) return;
+		pieceStore.markRestFilled(machine_id);
+		void fetch(`${effectiveBase()}/api/pieces?limit=${REST_FILL_LIMIT}`)
+			.then(async (res) => {
+				if (!res.ok) return;
+				const json = (await res.json()) as PiecesListResponse;
+				pieceStore.upsertFromRest(machine_id, json.items ?? []);
+			})
+			.catch(() => {
+				// Silent — the list just starts empty until live events arrive.
+			});
+	});
+
+	// C4 gate: live entries only show once observed on the classification
+	// channel. Rest-origin rows are EXEMPT — they are already-completed pieces
+	// from the durable store and don't carry first_carousel_seen_ts.
+	function inRecentView(p: Piece): boolean {
+		if (p.dead || p.ws?.aborted) return false;
+		if (p.ws) return p.ws.first_carousel_seen_ts != null;
+		return true;
+	}
 
 	function hasLocalPreview(obj: KnownObjectData): boolean {
 		return Boolean(
@@ -50,18 +97,22 @@
 		);
 	}
 
+	function isResolvedStatus(status: string | null | undefined): boolean {
+		return (
+			status === 'classified' ||
+			status === 'failed' ||
+			status === 'unknown' ||
+			status === 'not_found' ||
+			status === 'multi_drop_fail'
+		);
+	}
+
 	function lifecyclePhase(obj: KnownObjectData): LifecyclePhase {
-		// "Distributing" (in motion) still renders as Classified. Only fully-
+		// "Distributing" (in motion) still renders as resolved. Only fully-
 		// delivered pieces flip to 'distributed'.
-		if (isTerminalPiece(obj)) return 'distributed';
-		if (
-			obj.classification_status === 'classified' ||
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail' ||
-			obj.classified_at
-		) {
-			return 'classified';
+		if (isTerminalObject(obj)) return 'distributed';
+		if (isResolvedStatus(obj.classification_status) || obj.classified_at) {
+			return 'resolved';
 		}
 		if (hasCapturingEvidence(obj)) return 'capturing';
 		// Reliably tracked by the carousel tracker but no capture has started
@@ -72,29 +123,25 @@
 		return 'capturing';
 	}
 
-	function shouldShowInRecentPieces(obj: KnownObjectData): boolean {
-		// Recent Pieces is the C4 timeline: only show pieces that have
-		// actually been observed on the classification channel. Anything
-		// still upstream (C2/C3) is hidden until it lands on C4. The
-		// machine-manager buffer applies the same gate, so this is a
-		// belt-and-braces check for any stale entries.
-		return obj.first_carousel_seen_ts != null;
-	}
-
-	function isTerminalPiece(obj: KnownObjectData): boolean {
+	function isTerminalObject(obj: KnownObjectData): boolean {
 		return obj.stage === 'distributed' || obj.distributed_at != null;
 	}
 
 	function isUnresolvedTerminal(obj: KnownObjectData): boolean {
 		return (
+			obj.classification_status === 'failed' ||
 			obj.classification_status === 'unknown' ||
 			obj.classification_status === 'not_found' ||
 			obj.classification_status === 'multi_drop_fail'
 		);
 	}
 
-	function hasTerminalEvidence(obj: KnownObjectData): boolean {
-		if (!isTerminalPiece(obj)) return true;
+	function hasTerminalEvidence(p: Piece): boolean {
+		const obj = p.ws;
+		// Rest-origin rows always qualify — they are durable records; the card
+		// renders a neutral placeholder when no preview exists.
+		if (!obj) return true;
+		if (!isTerminalObject(obj)) return true;
 		if (!isUnresolvedTerminal(obj)) return true;
 		return Boolean(
 			obj.latest_captured_crop ||
@@ -104,16 +151,18 @@
 		);
 	}
 
-	function physicalPieceKey(obj: KnownObjectData): string {
-		const gid = obj.tracked_global_id;
-		return gid !== null && gid !== undefined ? `track:${gid}` : `uuid:${obj.uuid}`;
+	function physicalPieceKey(p: Piece): string {
+		const gid = p.ws?.tracked_global_id;
+		return gid !== null && gid !== undefined ? `track:${gid}` : `uuid:${p.uuid}`;
 	}
 
-	function lastEventTs(obj: KnownObjectData): number {
+	function lastEventTs(p: Piece): number {
+		const obj = pieceToKnownObjectView(p);
 		return obj.updated_at ?? obj.created_at ?? 0;
 	}
 
-	function terminalTs(obj: KnownObjectData): number {
+	function terminalTs(p: Piece): number {
+		const obj = pieceToKnownObjectView(p);
 		return obj.distributed_at ?? obj.updated_at ?? obj.classified_at ?? obj.created_at ?? 0;
 	}
 
@@ -140,25 +189,25 @@
 		return circularDiffDeg(center, C4_DROP_ANGLE_DEG);
 	}
 
-	function dedupeByPhysicalPiece(objects: KnownObjectData[]): KnownObjectData[] {
+	function dedupeByPhysicalPiece(pieces: Piece[]): Piece[] {
 		const seen = new Set<string>();
-		const deduped: KnownObjectData[] = [];
-		for (const obj of objects) {
-			const key = physicalPieceKey(obj);
+		const deduped: Piece[] = [];
+		for (const p of pieces) {
+			const key = physicalPieceKey(p);
 			if (seen.has(key)) continue;
 			seen.add(key);
-			deduped.push(obj);
+			deduped.push(p);
 		}
 		return deduped;
 	}
 
-	function sortActiveC4Pieces(a: KnownObjectData, b: KnownObjectData): number {
-		const aOffset = c4ExitApproachOffset(a);
-		const bOffset = c4ExitApproachOffset(b);
+	function sortActiveC4Pieces(a: Piece, b: Piece): number {
+		const aOffset = a.ws ? c4ExitApproachOffset(a.ws) : null;
+		const bOffset = b.ws ? c4ExitApproachOffset(b.ws) : null;
 		if (aOffset !== null && bOffset !== null && aOffset !== bOffset) {
 			return aOffset - bOffset;
 		}
-		const arrivalDiff = c4ArrivalTs(b) - c4ArrivalTs(a);
+		const arrivalDiff = (b.ws ? c4ArrivalTs(b.ws) : 0) - (a.ws ? c4ArrivalTs(a.ws) : 0);
 		if (arrivalDiff !== 0) return arrivalDiff;
 		return lastEventTs(b) - lastEventTs(a);
 	}
@@ -175,35 +224,36 @@
 		// Re-evaluate on the 1s tick so abandoned (frozen) pieces drop out of the
 		// list even when no new events are arriving.
 		void now_tick;
-		const all = (ctx.machine?.recentObjects ?? []).filter(shouldShowInRecentPieces);
+		const all = storePieces.filter(inRecentView);
 		// If a terminal event and a stale active split briefly coexist, keep
 		// the terminal row and suppress the old active identity.
 		const recent_terminal_keys = new Set<string>();
 		const now_s = Date.now() / 1000;
-		for (const o of all) {
-			if (!isTerminalPiece(o)) continue;
-			const ts = terminalTs(o);
+		for (const p of all) {
+			if (!isTerminalPiece(p)) continue;
+			const ts = terminalTs(p);
 			if (now_s - ts > RECENT_TERMINAL_DEDUPE_WINDOW_S) continue;
-			recent_terminal_keys.add(physicalPieceKey(o));
+			recent_terminal_keys.add(physicalPieceKey(p));
 		}
 
+		// Only live (ws-origin) entries can be active on the channel.
 		const freshest_first = all
-			.filter((o) => !isTerminalPiece(o))
-			.filter((o) => !recent_terminal_keys.has(physicalPieceKey(o)))
+			.filter((p) => p.ws != null && !isTerminalPiece(p))
+			.filter((p) => !recent_terminal_keys.has(physicalPieceKey(p)))
 			.sort((a, b) => lastEventTs(b) - lastEventTs(a));
 
 		// Drop orphaned pre-classification pieces (see STALE_CAPTURING_S). The
 		// freshest active piece is always kept — that's the one currently on the
 		// channel, which may legitimately sit pre-classification for a few
-		// seconds while Brickognize runs.
+		// seconds while the identification requests run.
 		const deduped = dedupeByPhysicalPiece(freshest_first);
-		const live = deduped.filter((o, i) => {
-			const phase = lifecyclePhase(o);
-			const stale_s = now_s - lastEventTs(o);
+		const live = deduped.filter((p, i) => {
+			const phase = lifecyclePhase(p.ws as KnownObjectData);
+			const stale_s = now_s - lastEventTs(p);
 			if (phase === 'capturing' || phase === 'tracking') {
 				return i === 0 || stale_s <= STALE_CAPTURING_S;
 			}
-			// Classified but not yet distributed — drop once it has gone silent
+			// Resolved but not yet distributed — drop once it has gone silent
 			// past the backstop window (see STALE_CLASSIFIED_S) so a stuck piece
 			// can't sit in the active list forever.
 			return stale_s <= STALE_CLASSIFIED_S;
@@ -213,8 +263,8 @@
 	});
 
 	const deliveredHistory = $derived.by(() => {
-		const freshest_first = (ctx.machine?.recentObjects ?? [])
-			.filter(shouldShowInRecentPieces)
+		const freshest_first = storePieces
+			.filter(inRecentView)
 			.filter(isTerminalPiece)
 			.filter(hasTerminalEvidence)
 			.sort((a, b) => terminalTs(b) - terminalTs(a));
@@ -227,17 +277,20 @@
 	}
 
 	// --- Recognition-view cycling -----------------------------------------
-	// The live `recentObjects` ring carries only `latest_captured_crop` — the
-	// full `recognition_image_set` (every C4 burst frame + the upstream C2/C3
-	// matches) is slimmed off the socket and only served by the per-piece detail
-	// endpoint. While a piece is still being recognized we poll that endpoint and
-	// flash through every view it has so far, so the operator sees the burst
-	// frames (and, once classification runs, the fused-in upstream matches)
-	// animate in place instead of a single frozen crop. When the result lands we
-	// keep flashing for one full pass — long enough to pick up the upstream crops
-	// that only appear at classification — before settling on the reference/stock
-	// photo. The classification TEXT updates independently and immediately off the
-	// socket; only the image well waits for the pass to finish.
+	// The live piece entries carry only `latest_captured_crop`. The full set of
+	// captured crops (every C4 burst frame + the upstream C2/C3 matches) is
+	// persisted to disk by piece_image_store and served as individual JPEGs via
+	// GET /api/pieces/{uuid}/images{,/<id>} — durable across eviction/restart and
+	// browser-cached (immutable), so hover works even for pieces that have
+	// already left the machine. While a piece is still being recognized we poll
+	// that endpoint and flash through every view it has so far, so the
+	// operator sees the burst frames (and, once classification runs, the
+	// fused-in upstream matches) animate in place instead of a single frozen
+	// crop. When the result lands we keep flashing for one full pass — long
+	// enough to pick up the upstream crops that only appear at classification —
+	// before settling on the reference/stock photo. The classification TEXT
+	// updates independently and immediately off the socket; only the image well
+	// waits for the pass to finish.
 	const CYCLE_MS = 300;
 	const FETCH_MS = 600;
 	const MIN_FINISH_MS = 1200; // keep flashing at least this long after the result
@@ -251,18 +304,8 @@
 		settled: boolean;
 	};
 
-	function effectiveBase(): string {
-		return machineHttpBaseUrlFromWsUrl(ctx.machine?.url) ?? getBackendHttpBase();
-	}
-
 	function isResultKnown(obj: KnownObjectData): boolean {
-		return (
-			obj.classification_status === 'classified' ||
-			obj.classification_status === 'unknown' ||
-			obj.classification_status === 'not_found' ||
-			obj.classification_status === 'multi_drop_fail' ||
-			Boolean(obj.classified_at)
-		);
+		return isResolvedStatus(obj.classification_status) || Boolean(obj.classified_at);
 	}
 
 	type CycleImage = { src: string };
@@ -279,15 +322,17 @@
 		fetchingUuids.add(uuid);
 		lastFetchMs[uuid] = Date.now();
 		try {
-			const res = await fetch(`${effectiveBase()}/api/known-objects/${encodeURIComponent(uuid)}`);
+			const base = effectiveBase();
+			const res = await fetch(`${base}/api/pieces/${encodeURIComponent(uuid)}/images`);
 			if (!res.ok) return;
-			const data = (await res.json()) as KnownObjectData;
-			const imgs = (data.recognition_image_set ?? [])
-				.map((r) => {
-					const src = dataImageUrl(r.image);
-					return src ? { src } : null;
-				})
-				.filter((v): v is CycleImage => v !== null);
+			const env = (await res.json()) as {
+				images?: { id: number; available_locally?: boolean }[];
+			};
+			const imgs = (env.images ?? [])
+				.filter((r) => r.available_locally !== false)
+				.map((r): CycleImage => ({
+					src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${r.id}`
+				}));
 			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
 		} catch {
 			// Silent — the card just keeps showing the captured crop.
@@ -305,12 +350,14 @@
 	}
 
 	function cycleStep(now_ms: number): void {
-		for (const obj of activeOnC4) {
-			const uuid = obj.uuid;
+		for (const p of activeOnC4) {
+			const obj = p.ws;
+			if (!obj) continue;
+			const uuid = p.uuid;
 			const result_known = isResultKnown(obj);
 			let e = anim[uuid];
 			if (!e) {
-				// A piece first seen already classified never flashed for us — show
+				// A piece first seen already resolved never flashed for us — show
 				// its stock photo straight away rather than animating after the fact.
 				anim[uuid] = {
 					raw: 0,
@@ -338,11 +385,11 @@
 				if ((pass_done && min_elapsed) || max_elapsed || no_imgs) e.settled = true;
 			}
 		}
-		// Prune state for pieces that have aged out of the live ring.
-		const ring = new Set((ctx.machine?.recentObjects ?? []).map((o) => o.uuid));
-		for (const k of Object.keys(anim)) if (!ring.has(k)) delete anim[k];
-		for (const k of Object.keys(imagesByUuid)) if (!ring.has(k)) delete imagesByUuid[k];
-		for (const k of Object.keys(lastFetchMs)) if (!ring.has(k)) delete lastFetchMs[k];
+		// Prune state for pieces that have aged out of the store.
+		const known = new Set(storePieces.map((p) => p.uuid));
+		for (const k of Object.keys(anim)) if (!known.has(k)) delete anim[k];
+		for (const k of Object.keys(imagesByUuid)) if (!known.has(k)) delete imagesByUuid[k];
+		for (const k of Object.keys(lastFetchMs)) if (!known.has(k)) delete lastFetchMs[k];
 	}
 
 	$effect(() => {
@@ -391,14 +438,6 @@
 		return `L${bin[0]} · S${bin[1]} · B${bin[2]}`;
 	}
 
-	function formatRelativeTime(ts: number | null | undefined): string {
-		if (!ts) return '';
-		const diff = Math.max(0, Date.now() / 1000 - ts);
-		if (diff < 60) return `${Math.round(diff)}s`;
-		if (diff < 3600) return `${Math.round(diff / 60)}m`;
-		return `${Math.round(diff / 3600)}h`;
-	}
-
 	function confidenceClass(conf: number): string {
 		// 4-tier grading per spec. There is no dedicated orange brand token, so
 		// 80-89 and 60-79 both use the warning amber — 60-79 uses a dimmer
@@ -428,19 +467,14 @@
 		return typeof y === 'number' && y > 0 ? y : null;
 	}
 
-	const PHASE_LABEL: Record<LifecyclePhase, string> = {
-		tracking: 'Tracking',
-		capturing: 'Capturing',
-		classified: 'Classified',
-		distributed: 'Distributed'
-	};
-
-	function phaseChipClass(phase: LifecyclePhase): string {
+	function phaseChip(phase: LifecyclePhase): { label: string; cls: string } {
 		// Sharp-edged chip, border + faint tinted bg + solid text. No rounded-*.
-		if (phase === 'tracking') return 'border-text-muted bg-text-muted/10 text-text-muted';
-		if (phase === 'capturing') return 'border-primary bg-primary/10 text-primary';
-		if (phase === 'classified') return 'border-success bg-success/10 text-success';
-		return 'border-border bg-surface text-text-muted';
+		// 'resolved' never lands here — it renders as PieceStatusBadge instead.
+		if (phase === 'tracking')
+			return { label: 'Tracking', cls: 'border-text-muted bg-text-muted/10 text-text-muted' };
+		if (phase === 'capturing')
+			return { label: 'Capturing', cls: 'border-primary bg-primary/10 text-primary' };
+		return { label: 'Distributed', cls: 'border-border bg-surface text-text-muted' };
 	}
 
 	// Normalize a color id or name to a LEGO_COLORS entry. Brickognize and
@@ -465,7 +499,8 @@
 
 </script>
 
-{#snippet pieceCard(obj: KnownObjectData)}
+{#snippet pieceCard(p: Piece)}
+	{@const obj = pieceToKnownObjectView(p)}
 	{@const phase = lifecyclePhase(obj)}
 	{@const captured = capturedCropUrl(obj, phase)}
 	{@const preview = obj.brickognize_preview_url ?? null}
@@ -474,7 +509,8 @@
 	{@const is_unknown =
 		obj.classification_status === 'unknown' ||
 		obj.classification_status === 'not_found'}
-	{@const is_request_failed = Boolean(obj.request_failed)}
+	{@const is_failed =
+		obj.classification_status === 'failed' || Boolean(obj.request_failed)}
 	{@const is_multi_drop = obj.classification_status === 'multi_drop_fail'}
 	{@const is_too_big = Boolean(obj.too_big) || Boolean(obj.too_big_for_layer)}
 	{@const too_big_label = obj.too_big_for_layer ? 'Too big for layer' : 'Too big'}
@@ -496,8 +532,8 @@
 	{@const has_name = Boolean(resolved_name) && !is_unknown && !is_multi_drop}
 	{@const primary_text = is_multi_drop
 		? 'Multi drop — rejected'
-		: is_request_failed
-			? 'Request failed'
+		: is_failed
+			? 'ID failed'
 			: is_unknown
 				? obj.classification_status === 'not_found'
 					? 'Not recognized'
@@ -505,13 +541,11 @@
 				: has_name
 					? resolved_name!
 					: (obj.part_id ?? obj.uuid.slice(0, 8))}
-	{@const primary_class = is_multi_drop
+	{@const primary_class = is_multi_drop || is_failed
 		? 'text-danger'
-		: is_request_failed
-			? 'text-warning'
-			: is_unknown
-				? 'text-text-muted'
-				: 'text-text'}
+		: is_unknown
+			? 'text-text-muted'
+			: 'text-text'}
 
 	{@const base_src = is_classified_ok ? reference_src : captured}
 	<!-- Flash through every recognition view (burst frames + upstream matches)
@@ -550,13 +584,14 @@
 								: 'opacity-0'}"
 						/>
 					{/if}
+				{:else if phase === 'distributed'}
+					<!-- Terminal piece with nothing to show (e.g. a durable summary of an
+					     unidentified piece) — a spinner here would imply waiting. -->
+					<div class="flex h-full w-full items-center justify-center text-xs text-text-muted">
+						no image
+					</div>
 				{:else}
 					<div class="flex h-full w-full items-center justify-center">
-						<Spinner />
-					</div>
-				{/if}
-				{#if phase === 'capturing' || phase === 'tracking'}
-					<div class="absolute -top-1 -right-1">
 						<Spinner />
 					</div>
 				{/if}
@@ -603,14 +638,22 @@
 				{/if}
 
 				<div class="mt-0.5 flex flex-wrap items-center gap-1.5">
-					<!-- Phase chip -->
-					<span
-						class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold tracking-wider uppercase {phaseChipClass(
-							phase
-						)}"
-					>
-						{PHASE_LABEL[phase]}
-					</span>
+					<!-- Phase / status chip. The classification outcome renders through
+					     the shared badge; the green success chip is impossible for
+					     failed/unidentified pieces. -->
+					{#if phase === 'resolved' || (phase === 'distributed' && obj.classification_status !== 'classified')}
+						<PieceStatusBadge
+							status={obj.classification_status}
+							requestFailed={Boolean(obj.request_failed)}
+						/>
+					{:else}
+						{@const chip = phaseChip(phase)}
+						<span
+							class="inline-flex items-center border px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider {chip.cls}"
+						>
+							{chip.label}
+						</span>
+					{/if}
 
 					<!-- Too-big chip — recognized piece rerouted to misc for size -->
 					{#if is_too_big}
@@ -708,8 +751,8 @@
 		{:else}
 			<div class="flex flex-col gap-1 p-1">
 				<!-- Active C4 pieces: farthest from exit at top, nearest exit above line. -->
-				{#each activeOnC4 as obj (obj.uuid)}
-					{@render pieceCard(obj)}
+				{#each activeOnC4 as p (p.uuid)}
+					{@render pieceCard(p)}
 				{/each}
 
 				<!-- Exit divider -->
@@ -722,8 +765,8 @@
 				</div>
 
 				<!-- Delivered/rejected history: newest-first directly under the line. -->
-				{#each deliveredHistory as obj (obj.uuid)}
-					{@render pieceCard(obj)}
+				{#each deliveredHistory as p (p.uuid)}
+					{@render pieceCard(p)}
 				{/each}
 			</div>
 		{/if}

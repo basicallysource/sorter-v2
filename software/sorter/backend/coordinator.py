@@ -156,6 +156,8 @@ class Coordinator:
 
     def _classification_should_step_during_incident(self, incident: dict) -> bool:
         """C4 exit-release incidents own C4 motion, so they must keep ticking.
+        The C4 stall watchdog must also keep ticking: its step is what notices
+        the channel going clear and auto-resolves the incident.
 
         Other incidents are process-level holds: classification must not reopen
         the C3->C4 gate after the coordinator deliberately closed it.
@@ -165,6 +167,8 @@ class Coordinator:
         if kind == "classification_exit_release":
             return True
         if source_kind == "classification_exit_release":
+            return True
+        if source_kind == "c4_stall_watchdog":
             return True
         return (
             kind == "exit_stuck"
@@ -441,6 +445,11 @@ class Coordinator:
                 self._hold_process_for_incident(active_incident)
                 prof.hit("coordinator.step.distribution_skipped.active_incident")
                 prof.hit("coordinator.step.feeder_skipped.active_incident")
+                # The feeder is not stepped during an incident; make sure any
+                # continuously-running channels (constant movement) are stopped.
+                feeder_hold = getattr(self.feeder, "hold_motion", None)
+                if feeder_hold is not None:
+                    feeder_hold()
                 if self._classification_should_step_during_incident(active_incident):
                     with prof.timer("coordinator.step.classification_ms"):
                         classification_started = time.perf_counter()
@@ -474,6 +483,9 @@ class Coordinator:
                 feeder_started = time.perf_counter()
                 if self.manual_feed_mode:
                     prof.hit("coordinator.step.feeder_skipped.manual_feed_mode")
+                    feeder_hold = getattr(self.feeder, "hold_motion", None)
+                    if feeder_hold is not None:
+                        feeder_hold()
                 else:
                     self.feeder.step()
                 self.gc.runtime_stats.observePerfMs(

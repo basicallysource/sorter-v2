@@ -29,6 +29,12 @@ from blob_manager import (
     setFeederDetectionConfig,
     setHiveConfig,
 )
+from hive_telemetry import (
+    getTargetTelemetrySettings,
+    resetTargetTelemetrySettings,
+    setTargetTelemetrySettings,
+    telemetryFieldList,
+)
 from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
@@ -249,7 +255,7 @@ CLASSIFICATION_UNRESOLVED_INCIDENT_KIND = "classification_unresolved"
 CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND = "classification_multi_drop_collision"
 CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND = "classification_intake_request_timeout"
 CLASSIFICATION_TRACK_LOST_INCIDENT_KIND = "classification_track_lost"
-CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND = "classification_exit_stuck"
+C4_STALL_WATCHDOG_SOURCE_KIND = "c4_stall_watchdog"
 CHANNEL_EXIT_RELEASE_GEAR_RATIO = 130.0 / 12.0
 CHANNEL_EXIT_RELEASE_SETTLE_S = 0.12
 
@@ -616,6 +622,16 @@ def _save_hive_targets(targets: list[dict[str, Any]], primary_target_id: str | N
     setHiveConfig({"targets": targets, "primary_target_id": primary_target_id})
 
 
+def _reloadHiveConsumers() -> dict[str, Any]:
+    # Reload both the sample uploader and the piece-history sync worker so a
+    # target add/remove/enable takes effect without a backend restart.
+    status = getClassificationTrainingManager().reloadHiveUploader()
+    gc = shared_state.gc_ref
+    if gc is not None and getattr(gc, "hive_sync_worker", None) is not None:
+        gc.hive_sync_worker.reload()
+    return status
+
+
 def _load_hive_primary_id() -> str | None:
     config = getHiveConfig() or {}
     primary = config.get("primary_target_id")
@@ -657,6 +673,7 @@ def get_hive_config() -> Dict[str, Any]:
         "configured_count": len(targets),
         "enabled_count": sum(1 for target in targets if bool(target.get("enabled", False))),
         "primary_target_id": primary_target_id,
+        "telemetry_fields": telemetryFieldList(),
         "targets": [
             {
                 "id": target["id"],
@@ -666,6 +683,7 @@ def get_hive_config() -> Dict[str, Any]:
                 "api_token_masked": _mask_hive_token(target.get("api_token")),
                 "enabled": bool(target.get("enabled", False)),
                 "is_primary": target["id"] == primary_target_id,
+                "telemetry": getTargetTelemetrySettings(target["id"]),
                 "uploader": (
                     dict(uploader_by_id[target["id"]])
                     if target["id"] in uploader_by_id
@@ -704,6 +722,8 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
         "machine_id": existing.get("machine_id") if existing else None,
         "enabled": payload.enabled,
     }
+    if existing and isinstance(existing.get("telemetry"), dict):
+        next_target["telemetry"] = existing["telemetry"]
 
     if existing is None:
         targets.append(next_target)
@@ -711,7 +731,7 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
         targets = [next_target if target.get("id") == target_id else target for target in targets]
 
     _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {"ok": True, "message": "Hive target saved.", "target_id": target_id}
 
 
@@ -719,7 +739,7 @@ def save_hive_config(payload: HiveTargetPayload) -> Dict[str, Any]:
 def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, Any]:
     if not target_id:
         _save_hive_targets([])
-        getClassificationTrainingManager().reloadHiveUploader()
+        _reloadHiveConsumers()
         return {"ok": True, "message": "All Hive targets removed."}
 
     targets = _load_hive_targets()
@@ -728,8 +748,26 @@ def clear_hive_config(target_id: str | None = Query(default=None)) -> Dict[str, 
         raise HTTPException(404, "Hive target not found.")
 
     _save_hive_targets(next_targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {"ok": True, "message": "Hive target removed."}
+
+
+class HiveTelemetryPayload(BaseModel):
+    target_id: str
+    fields: Dict[str, bool] = {}
+    reset: bool = False
+
+
+@router.post("/api/settings/hive/telemetry")
+def save_hive_telemetry(payload: HiveTelemetryPayload) -> Dict[str, Any]:
+    try:
+        if payload.reset:
+            settings = resetTargetTelemetrySettings(payload.target_id)
+        else:
+            settings = setTargetTelemetrySettings(payload.target_id, payload.fields)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+    return {"ok": True, "target_id": payload.target_id, "telemetry": settings}
 
 
 class HivePrimaryPayload(BaseModel):
@@ -791,7 +829,7 @@ def hive_register(payload: HiveRegisterPayload) -> Dict[str, Any]:
         }
     )
     _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {
         "ok": True,
         "target_id": target_id,
@@ -834,7 +872,7 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
         }
     )
     _save_hive_targets(targets)
-    getClassificationTrainingManager().reloadHiveUploader()
+    _reloadHiveConsumers()
     return {
         "ok": True,
         "target_id": target_id,
@@ -1802,10 +1840,37 @@ def classification_channel_exit_incident_test_release(
     return {"ok": True, "release": result}
 
 
+@router.post("/api/classification-channel/exit-incident/auto-resolve")
+def classification_channel_exit_incident_auto_resolve() -> Dict[str, Any]:
+    controller = shared_state.controller_ref
+    coordinator = getattr(controller, "coordinator", None) if controller is not None else None
+    classification = getattr(coordinator, "classification", None) if coordinator is not None else None
+    request = getattr(classification, "requestStallAutoResolve", None)
+    if not callable(request):
+        raise HTTPException(status_code=503, detail="Classification channel is not running.")
+    if not bool(request()):
+        raise HTTPException(
+            status_code=409, detail="No active C4 exit-stuck incident to auto-resolve."
+        )
+    return {"ok": True, "accepted": True}
+
+
 @router.post("/api/classification-channel/exit-incident/clear")
 def classification_channel_exit_incident_clear(
     payload: ClassificationExitIncidentActionPayload | None = None,
 ) -> Dict[str, Any]:
+    # The C4 stall watchdog's exit-stuck incident lives directly in
+    # runtime_stats (there is no exit-release runtime state to route through —
+    # in two-piece mode there is no states_map at all).
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if (
+        isinstance(active, dict)
+        and active.get("kind") == EXIT_STUCK_INCIDENT_KIND
+        and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
+    ):
+        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND)
+        return {"ok": True, "cleared": True, "kind": EXIT_STUCK_INCIDENT_KIND, "channel": "c4"}
     running = _classification_channel_running_state()
     try:
         result = running.clearExitReleaseIncident(
@@ -1827,7 +1892,6 @@ def classification_channel_fallback_incident_clear(
         CLASSIFICATION_MULTI_DROP_COLLISION_INCIDENT_KIND,
         CLASSIFICATION_INTAKE_TIMEOUT_INCIDENT_KIND,
         CLASSIFICATION_TRACK_LOST_INCIDENT_KIND,
-        CLASSIFICATION_EXIT_STUCK_INCIDENT_KIND,
     }
     if not isinstance(active, dict) or active.get("kind") not in fallback_kinds:
         for kind in fallback_kinds:

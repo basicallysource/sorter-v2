@@ -56,6 +56,201 @@ export interface MachineStats {
 	parts_needed: number;
 }
 
+export interface FleetMachine {
+	id: string;
+	name: string;
+	description: string | null;
+	owner_id: string;
+	owner_email: string | null;
+	owner_display_name: string | null;
+	is_active: boolean;
+	archived_at: string | null;
+	last_seen_at: string | null;
+	last_seen_ip: string | null;
+	local_ui_port: string | null;
+	created_at: string | null;
+}
+
+export interface FleetMachineStats {
+	pieces_seen: number;
+	distributed: number;
+	classified: number;
+	unique_parts: number;
+	unique_colors: number;
+	first_seen: string | null;
+	last_seen: string | null;
+	active_seconds: number;
+	overall_ppm: number;
+	ontime_pct: number;
+}
+
+export interface MachineOverviewStats {
+	pieces_seen: number;
+	distributed: number;
+	classified: number;
+	unique_parts: number;
+	unique_colors: number;
+	first_seen: string | null;
+	last_seen: string | null;
+	active_seconds: number;
+	overall_ppm: number;
+	ontime_pct: number;
+	total_samples: number;
+	accepted_samples: number;
+	first_capture: string | null;
+	last_capture: string | null;
+	total_sessions: number;
+	parts_found: number;
+	parts_needed: number;
+	computed_at: string | null;
+}
+
+export interface MachineOverview {
+	machine: {
+		id: string;
+		name: string;
+		description: string | null;
+		is_active: boolean;
+		archived_at: string | null;
+		last_seen_at: string | null;
+		last_seen_ip: string | null;
+		local_ui_port: string | null;
+		created_at: string | null;
+		token_prefix: string;
+		hardware_info: Record<string, unknown> | null;
+		owner: { display_name: string | null; email: string | null };
+	};
+	stats: MachineOverviewStats;
+	is_owner: boolean;
+	viewer_is_admin: boolean;
+}
+
+export interface StorageBucket {
+	bytes: number;
+	files: number;
+}
+
+export interface ServerHealth {
+	storage: {
+		sample_images: StorageBucket;
+		piece_images: StorageBucket;
+		model_files: StorageBucket;
+		total_bytes: number;
+		total_files: number;
+		computed_at: number;
+		cached: boolean;
+	};
+	database: {
+		total_bytes: number | null;
+		dialect: string;
+		tables: { name: string; bytes: number; rows: number }[];
+	};
+	memory: {
+		total_bytes: number | null;
+		available_bytes: number | null;
+		used_bytes: number | null;
+		process_rss_bytes: number | null;
+	};
+}
+
+export interface AnalyticsScope {
+	kind: 'machine' | 'my_fleet' | 'owner_fleet' | 'all' | string;
+	label: string;
+	machine_count: number;
+}
+
+export interface AnalyticsDayPoint {
+	day: string;
+	pieces_seen: number;
+	distributed: number;
+	active_seconds: number;
+	avg_ppm: number;
+	throughput_ppm: number;
+	capacity_per_day: number;
+	cumulative_pieces: number;
+	cumulative_distributed: number;
+	cumulative_machines: number;
+}
+
+export interface AnalyticsTotals {
+	machines: number;
+	pieces_seen: number;
+	distributed: number;
+	classified: number;
+	unique_parts: number;
+	unique_colors: number;
+	active_seconds: number;
+	overall_ppm: number;
+	capacity_recent: number;
+	first_day: string | null;
+	last_day: string | null;
+}
+
+export interface AnalyticsDistributions {
+	by_machine: { machine_id: string; label: string; value: number }[];
+	by_status: { label: string; value: number }[];
+	top_parts: { part_id: string | null; part_name: string | null; value: number }[];
+	top_colors: { color_id: string | null; color_name: string | null; value: number }[];
+}
+
+export interface Analytics {
+	scope: AnalyticsScope;
+	totals: AnalyticsTotals;
+	timeseries: AnalyticsDayPoint[];
+	distributions: AnalyticsDistributions;
+}
+
+export interface MachinePieceImageInfo {
+	seq: number;
+	source: string | null;
+	channel: number | null;
+	sharpness: number | null;
+	bytes: number | null;
+	used: boolean;
+	excluded_from_result: boolean;
+	score: number | null;
+	available: boolean;
+	evicted_locally: boolean;
+}
+
+export interface MachinePieceRecord {
+	piece_uuid: string;
+	local_id: number;
+	run_id: string | null;
+	seen_at: string | null;
+	recorded_at: string | null;
+	classification_status: string | null;
+	part_id: string | null;
+	part_name: string | null;
+	color_id: string | null;
+	color_name: string | null;
+	category_id: string | null;
+	confidence: number | null;
+	bin: { x: number | null; y: number | null; z: number | null };
+	dead: boolean;
+	brickognize_preview_url: string | null;
+	images: MachinePieceImageInfo[];
+}
+
+export interface MachinePiecesPage {
+	machine: { id: string; name: string; owner_email: string | null };
+	items: MachinePieceRecord[];
+	next_cursor: number | null;
+	total: number;
+}
+
+export interface MachineConfigBackupSummary {
+	id: string;
+	version: number;
+	content_hash: string;
+	trigger: string;
+	created_at: string;
+}
+
+export interface MachineConfigBackupDetail extends MachineConfigBackupSummary {
+	payload: Record<string, unknown>;
+}
+
 export interface Sample {
 	id: string;
 	machine_id: string;
@@ -761,6 +956,45 @@ export const api = {
 	getMachineStats() {
 		return request<Record<string, MachineStats>>('GET', '/api/machines/stats');
 	},
+	getMachineOverview(machineId: string) {
+		return request<MachineOverview>('GET', `/api/machines/${machineId}/overview`);
+	},
+	getAnalytics(params: { machineId?: string; ownerId?: string; scope?: 'mine' | 'all' } = {}) {
+		const sp = new URLSearchParams();
+		if (params.machineId) sp.set('machine_id', params.machineId);
+		if (params.ownerId) sp.set('owner_id', params.ownerId);
+		if (params.scope) sp.set('scope', params.scope);
+		const qs = sp.toString();
+		return request<Analytics>('GET', `/api/analytics${qs ? `?${qs}` : ''}`);
+	},
+	refreshAllMachineStats() {
+		return request<{ ok: boolean; refreshed: number }>('POST', '/api/admin/machines/stats/refresh');
+	},
+	getServerHealth(opts: { refreshStorage?: boolean } = {}) {
+		const qs = opts.refreshStorage ? '?refresh_storage=true' : '';
+		return request<ServerHealth>('GET', `/api/admin/server-health${qs}`);
+	},
+	getAllMachines() {
+		return request<FleetMachine[]>('GET', '/api/admin/machines');
+	},
+	getAllMachineStats() {
+		return request<Record<string, FleetMachineStats>>('GET', '/api/admin/machines/stats');
+	},
+	getMachinePieces(machineId: string, opts: { limit?: number; cursor?: number | null } = {}) {
+		const params = new URLSearchParams();
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.cursor != null) params.set('cursor', String(opts.cursor));
+		const qs = params.toString();
+		return request<MachinePiecesPage>(
+			'GET',
+			`/api/machines/${machineId}/pieces${qs ? `?${qs}` : ''}`
+		);
+	},
+	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveApiPath(
+			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
+		);
+	},
 	createMachine(name: string, description?: string) {
 		return request<MachineWithToken>('POST', '/api/machines', { name, description });
 	},
@@ -775,6 +1009,12 @@ export const api = {
 	},
 	purgeMachineData(id: string) {
 		return request<{ ok: boolean; deleted_sessions: number; deleted_samples: number }>('POST', `/api/machines/${id}/purge`);
+	},
+	getMachineConfigBackups(id: string) {
+		return request<MachineConfigBackupSummary[]>('GET', `/api/machines/${id}/config-backups`);
+	},
+	getMachineConfigBackup(id: string, version: number) {
+		return request<MachineConfigBackupDetail>('GET', `/api/machines/${id}/config-backups/${version}`);
 	},
 
 	// Samples
@@ -1058,12 +1298,6 @@ export const api = {
 	}) {
 		return request<SortingProfileVersion>('POST', `/api/profiles/${id}/versions`, data);
 	},
-	publishSortingProfileVersion(profileId: string, versionId: string) {
-		return request<SortingProfileVersion>('POST', `/api/profiles/${profileId}/versions/${versionId}/publish`);
-	},
-	getSortingProfileArtifact(profileId: string, versionId: string) {
-		return request<{ artifact: Record<string, unknown> }>('GET', `/api/profiles/${profileId}/versions/${versionId}/artifact`);
-	},
 	saveSortingProfileToLibrary(id: string) {
 		return request<{ ok: boolean }>('POST', `/api/profiles/${id}/library`);
 	},
@@ -1073,15 +1307,6 @@ export const api = {
 	forkSortingProfile(id: string, data: { name?: string | null; description?: string | null; add_to_library?: boolean }, versionId?: string) {
 		const qs = versionId ? `?${new URLSearchParams({ version_id: versionId }).toString()}` : '';
 		return request<SortingProfileDetail>('POST', `/api/profiles/${id}/fork${qs}`, data);
-	},
-	previewSortingProfile(data: {
-		name?: string;
-		description?: string | null;
-		default_category_id?: string;
-		rules: SortingProfileRule[];
-		fallback_mode: SortingProfileFallbackMode;
-	}) {
-		return request<Record<string, unknown>>('POST', '/api/profiles/preview', data);
 	},
 	previewSortingRule(data: {
 		name?: string;
@@ -1235,6 +1460,7 @@ export const api = {
 		runtime?: string;
 		family?: string;
 		q?: string;
+		include_experimental?: boolean;
 	} = {}) {
 		const searchParams = new URLSearchParams();
 		for (const [key, val] of Object.entries(params)) {
@@ -1251,21 +1477,6 @@ export const api = {
 	modelVariantDownloadUrl(modelId: string, variantId: string) {
 		return resolveApiPath(`/api/models/${modelId}/variants/${variantId}/download`);
 	},
-	createModel(payload: {
-		slug: string;
-		name: string;
-		description?: string | null;
-		model_family: string;
-		scopes?: string[];
-		training_metadata?: Record<string, unknown>;
-		is_public?: boolean;
-	}) {
-		return request<{ id: string; slug: string; version: number }>('POST', '/api/models', payload);
-	},
-	deleteModel(id: string) {
-		return request<void>('DELETE', `/api/models/${id}`);
-	},
-
 	// Teacher (admin-only re-detection jobs)
 	createTeacherJob(filter: TeacherJobFilter, openrouter_model?: string) {
 		return request<TeacherJobSummary>('POST', '/api/admin/teacher/jobs', {
@@ -1297,17 +1508,6 @@ export const api = {
 	},
 	listTeacherModels() {
 		return request<TeacherModelInfo[]>('GET', '/api/admin/teacher/models');
-	},
-	listTeacherPrompts() {
-		return request<TeacherPromptEntry[]>('GET', '/api/admin/teacher/prompts');
-	},
-	saveTeacherPrompt(zone: string, kind: string, content: string) {
-		return request<TeacherPromptEntry>('PUT', `/api/admin/teacher/prompts/${zone}/${kind}`, {
-			content
-		});
-	},
-	resetTeacherPrompt(zone: string, kind: string) {
-		return request<TeacherPromptEntry>('DELETE', `/api/admin/teacher/prompts/${zone}/${kind}`);
 	},
 	getSampleTeacherPrompt(sampleId: string, openrouter_model: string) {
 		const qs = new URLSearchParams({ openrouter_model }).toString();
@@ -1406,6 +1606,7 @@ export interface DetectionModelSummary {
 	model_family: string;
 	scopes: string[] | null;
 	is_public: boolean;
+	experimental: boolean;
 	published_at: string;
 	updated_at: string;
 	variant_runtimes: string[];
@@ -1499,16 +1700,6 @@ export interface TeacherModelInfo {
 	display_name: string;
 	adapter_kind: string;
 	notes: string;
-}
-
-export interface TeacherPromptEntry {
-	zone: string;
-	kind: string; // 'chat' | 'perceptron'
-	content: string;
-	is_custom: boolean;
-	default_content: string;
-	updated_at: string | null;
-	updated_by_display_name: string | null;
 }
 
 export interface TeacherPreviewDetection {

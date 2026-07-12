@@ -75,6 +75,7 @@ class Message:
 class BaseCommandCode:
     INIT = 0x00
     PING = 0x01
+    REBOOT_BOOTLOADER = 0x02
     GET_OBSERVABILITY = 0x03
     GET_VERSION = 0x04
 
@@ -99,6 +100,42 @@ class MCUBus:
 
         self._serial = serial.Serial(port, baudrate=baudrate, timeout=timeout)
         self._lock = Lock()
+        self._port = port
+
+    @property
+    def port(self) -> str:
+        return self._port
+
+    @property
+    def is_open(self) -> bool:
+        return bool(self._serial.is_open)
+
+    def close(self) -> None:
+        # Releases the tty fd so an external actor (e.g. the firmware flasher
+        # waiting for the Pico to re-enumerate) sees a clean device. Safe to
+        # call twice. Any in-flight send_command finishes first via the lock.
+        with self._lock:
+            try:
+                self._serial.close()
+            except Exception:
+                pass
+
+    def send_command_no_response(
+        self, address: int, command: int, channel: int, payload: bytes = b""
+    ) -> None:
+        # For commands after which the MCU cannot reply (e.g. REBOOT_BOOTLOADER
+        # 0x02 — the chip resets into the UF2 bootloader immediately). A normal
+        # send_command would burn its timeout waiting for a response that will
+        # never come, then raise.
+        message = (
+            struct.pack("<BBBB", address, command, channel, len(payload)) + payload
+        )
+        message += struct.pack("<I", crc32(message))
+        encoded_message = cobs.encode(message) + b"\x00"
+        with self._lock:
+            self._serial.reset_input_buffer()
+            self._serial.write(encoded_message)
+            self._serial.flush()
 
     def send_command(
         self,

@@ -553,6 +553,8 @@
 	}
 </script>
 
+<svelte:head><title>Sorter - Runtime</title></svelte:head>
+
 <div class="min-h-screen bg-bg p-6">
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">

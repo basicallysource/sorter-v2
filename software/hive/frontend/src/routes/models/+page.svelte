@@ -43,7 +43,11 @@
 				scope: filterScope || undefined,
 				runtime: filterRuntime || undefined,
 				family: filterFamily || undefined,
-				q: query || undefined
+				q: query || undefined,
+				// Show experimental models in the web catalog — they are flagged with a
+				// badge rather than hidden. (The sorter's /api/machine/models still
+				// hides them by default so operators don't install one by accident.)
+				include_experimental: true
 			});
 		} catch (err: unknown) {
 			const apiErr = err as { error?: string };

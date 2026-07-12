@@ -66,6 +66,9 @@ class Settings(BaseSettings):
     CONDITION_WORKER_POLL_INTERVAL_S: float = 5.0
     CONDITION_WORKER_BATCH_SIZE: int = 5
     CONDITION_WORKER_MIN_INTERVAL_S: float = 0.20
+    # How often the background worker recomputes per-machine dashboard stats
+    # (machine_stats_cache). Clamped to a 60s floor in the worker.
+    MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None

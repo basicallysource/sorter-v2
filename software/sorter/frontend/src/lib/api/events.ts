@@ -41,7 +41,7 @@ export interface ClassificationAttempt {
   image_ts?: number[];
 }
 export type PieceStage = "created" | "distributing" | "distributed";
-export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail";
+export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail" | "failed";
 
 export interface FrameData {
   camera: CameraName;

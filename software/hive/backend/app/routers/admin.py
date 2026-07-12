@@ -1,15 +1,29 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.deps import get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
+from app.services.server_health import get_server_health
 from app.services.storage import delete_machine_files
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.get("/server-health")
+def server_health(
+    refresh_storage: bool = Query(False),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Storage usage (sample vs piece images vs models), DB size, and memory.
+
+    Storage figures are cached for a few minutes since they require walking the
+    whole object store; pass refresh_storage=true to force a fresh walk."""
+    return get_server_health(db, refresh_storage=refresh_storage)
 
 
 @router.get("/users", response_model=list[UserResponse])

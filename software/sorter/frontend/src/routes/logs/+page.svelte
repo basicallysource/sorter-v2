@@ -246,6 +246,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Logs</title></svelte:head>
+
 <div class="min-h-screen bg-bg">
 	<AppHeader />
 	<div class="p-4 sm:p-6">

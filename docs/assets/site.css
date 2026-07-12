@@ -41,15 +41,136 @@ body {
   max-width: 1180px;
   margin: 0 auto;
   padding: 24px 20px 48px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
 }
 
 .site-header {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  justify-content: space-between;
   gap: 18px;
   margin-bottom: 24px;
+}
+
+.site-header > .site-nav {
+  margin-left: auto;
+}
+
+/* Under-construction warning banner, sits beside the brand. */
+.construction-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: #fdf3d3;
+  border: 1px solid #e3b341;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.construction-banner:hover {
+  background: #fbe9b0;
+  border-color: #d9a520;
+}
+
+.construction-banner-icon {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.construction-banner-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.construction-banner-text strong {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.construction-banner-text small {
+  font-size: 0.68rem;
+  line-height: 1.3;
+  white-space: nowrap;
+  color: var(--muted);
+}
+
+.construction-banner-chevron {
+  margin-left: auto;
+  padding-left: 4px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.construction-modal {
+  max-width: 480px;
+  width: calc(100% - 32px);
+  padding: 0;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid #e3b341;
+  border-top: 4px solid #e3b341;
+}
+
+.construction-modal::backdrop {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.construction-modal-inner {
+  padding: 22px 24px 24px;
+}
+
+.construction-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.construction-modal-head h2 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.construction-modal-close {
+  padding: 4px;
+  font: inherit;
+  line-height: 1;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.construction-modal-close:hover {
+  color: var(--ink);
+}
+
+.construction-modal p {
+  margin: 0 0 12px;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.construction-modal-discord {
+  margin-bottom: 0;
+}
+
+.construction-modal-discord a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.construction-modal-discord a:hover {
+  text-decoration: underline;
 }
 
 .brand {
@@ -58,6 +179,12 @@ body {
   gap: 12px;
   text-decoration: none;
   color: inherit;
+}
+
+.brand-logo {
+  display: block;
+  height: 24px;
+  width: auto;
 }
 
 .brand strong,
@@ -111,7 +238,8 @@ body {
   display: grid;
   grid-template-columns: 220px minmax(0, 1fr);
   gap: 20px;
-  align-items: start;
+  align-items: stretch;
+  flex: 1;
 }
 
 .section-sidebar {
@@ -120,6 +248,7 @@ body {
   padding: 16px 14px 18px;
   position: sticky;
   top: 16px;
+  align-self: start;
 }
 
 .section-sidebar-kicker {
@@ -130,6 +259,11 @@ body {
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: var(--muted);
+}
+
+/* Mobile-only collapse toggle for the section sidebar (hidden on desktop). */
+.section-sidebar-toggle {
+  display: none;
 }
 
 .section-sidebar nav {
@@ -175,11 +309,36 @@ body {
   font-weight: 600;
 }
 
+/* Nested nav — depth comes from the <ul> nesting, indentation compounds. */
+.section-sidebar nav ul.nav-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.section-sidebar nav ul.nav-tree ul.nav-tree {
+  margin-left: 11px;
+  border-left: 1px solid var(--line);
+}
+.section-sidebar nav ul.nav-tree ul.nav-tree a {
+  padding-left: 12px;
+  font-size: 0.82rem;
+}
+
 .content {
   background: var(--surface);
   border: 1px solid var(--line);
   padding: 28px 30px 32px;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* No-sidebar pages: the content card is a direct child of the shell, so it
+   grows to fill the viewport itself. Sidebar pages stretch via the grid. */
+.shell > .content {
+  flex: 1;
 }
 
 .kicker {
@@ -191,10 +350,37 @@ body {
   font-weight: 600;
 }
 
+/* Author byline directly below the page header (moved out of the bottom
+   page-meta box). */
+.page-author {
+  margin: -6px 0 20px;
+  font-size: 0.86rem;
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.page-author-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-right: 10px;
+}
+
+.page-author a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.page-author a:hover {
+  text-decoration: underline;
+}
+
 .page-title-row {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   gap: 14px;
   margin: 0 0 14px;
 }
@@ -218,9 +404,16 @@ body {
 
 .page-meta {
   margin: 2.4rem 0 0;
-  padding: 16px 18px 18px;
   border: 1px solid var(--line);
   background: var(--bg);
+  padding: 16px 18px 18px;
+}
+
+/* Pin the meta footer to the bottom of the content card. On short pages the
+   auto top-margin absorbs the free space; on tall pages it collapses to 0 and
+   the preceding element's own bottom margin provides the gap. */
+.content > .page-meta {
+  margin-top: auto;
 }
 
 .page-meta dl {
@@ -249,6 +442,252 @@ body {
   font-size: 0.86rem;
   color: var(--ink);
   font-weight: 500;
+}
+
+.page-meta dd a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.page-meta dd a:hover {
+  text-decoration: underline;
+}
+
+/* Parts needed / Tools needed blocks at the top of a page. */
+.requirements {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px 40px;
+  margin: 0 0 1.8rem;
+  padding: 16px 18px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+}
+
+.requirements-title {
+  margin: 0 0 10px;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.parts-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.parts-category {
+  margin: 12px 0 6px;
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.part-card {
+  display: flex;
+  flex-direction: column;
+  width: 108px;
+}
+
+.part-card-media {
+  position: relative;
+  width: 108px;
+  height: 108px;
+}
+
+.part-card-img {
+  width: 108px;
+  height: 108px;
+  object-fit: contain;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.part-card-qty {
+  position: absolute;
+  top: 0;
+  left: 0;
+  padding: 2px 7px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--surface);
+  background: var(--ink);
+}
+
+.parts-notes {
+  margin: 14px 0 0;
+  padding-left: 1.1rem;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.parts-notes strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.part-card-name {
+  margin-top: 6px;
+  font-size: 0.76rem;
+  line-height: 1.3;
+  color: var(--ink);
+}
+
+.part-card-name a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.part-card-name a:hover {
+  text-decoration: underline;
+}
+
+.part-card-missing {
+  color: var(--muted);
+  font-family: ui-monospace, monospace;
+}
+
+.tools-list {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+/* Numbered step heading: small tag over a larger title. */
+.step-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2.2rem 0 1rem;
+}
+
+.step-tag {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.step-title {
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--ink);
+}
+
+/* Info / warning callout. */
+.callout {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 1.4rem 0;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--muted);
+  background: var(--bg);
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.callout-icon {
+  flex: none;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.callout p {
+  margin: 0;
+}
+
+.callout-warning {
+  border-left-color: #e3b341;
+}
+
+/* Two (or more) images sharing one full-width row; wraps on narrow screens. */
+.img-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 1.4rem 0;
+}
+
+.img-row figure {
+  flex: 1 1 0;
+  min-width: 180px;
+  margin: 0;
+}
+
+.img-row img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+
+.img-row figcaption {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  text-align: center;
+  color: var(--muted);
+}
+
+/* Placeholder for an image that hasn't been provided yet. */
+.img-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin: 1.4rem 0;
+  border: 1px dashed var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.img-row .img-placeholder {
+  margin: 0;
+}
+
+/* Inline documentation media. */
+.doc-figure {
+  display: block;
+  width: 100%;
+  max-width: 440px;
+  height: auto;
+  margin: 0 auto 1.4rem;
+  border: 1px solid var(--line);
+}
+
+.video-embed-portrait {
+  max-width: 300px;
+  aspect-ratio: 9 / 16;
+  margin: 1.4rem auto;
+}
+
+.video-embed-wide {
+  aspect-ratio: 16 / 9;
+  margin: 1.4rem 0;
+}
+
+.video-embed-portrait iframe,
+.video-embed-wide iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--line);
 }
 
 .lede {
@@ -460,27 +899,80 @@ tr:last-child td {
   margin: 1.3rem 0 1.7rem;
 }
 
-.callout {
+/* Scoped to the grid so these don't inherit the flex-row layout of the generic
+   info/warning `.callout` above — the title stacks over its description. */
+.callout-grid .callout {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
   padding: 16px 18px;
   border: 1px solid var(--line);
   background: var(--surface);
+  transition: border-color 0.15s ease;
 }
 
-.callout strong a {
+.callout-grid .callout:hover {
+  border-color: var(--muted);
+}
+
+.callout-grid .callout strong {
+  display: block;
+  font-size: 0.98rem;
+  line-height: 1.3;
+}
+
+.callout-grid .callout strong a {
   text-decoration: none;
 }
 
-.callout p {
-  margin: 6px 0 0;
+.callout-grid .callout p {
+  margin: 8px 0 0;
   font-size: 0.88rem;
   color: var(--muted);
   line-height: 1.55;
 }
 
 .site-footer {
-  padding: 20px 4px 0;
+  margin-top: 24px;
+  padding: 14px 4px 0;
+  border-top: 1px solid var(--line);
   color: var(--muted);
-  font-size: 0.84rem;
+  font-size: 0.78rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.site-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px 18px;
+}
+
+.site-footer-links a {
+  color: var(--muted);
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+
+.site-footer-links a:hover {
+  color: var(--ink);
+}
+
+.site-footer-links code {
+  font-size: 0.9em;
+}
+
+.site-footer-legal {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 0.72rem;
+  line-height: 1.5;
+  color: var(--muted);
+  opacity: 0.8;
 }
 
 /* ─── Style guide swatches ─── */
@@ -531,23 +1023,63 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 
+  /* Sidebar collapses to a tap-to-open menu so it doesn't fill the screen. */
   .section-sidebar {
     position: static;
+    padding: 0;
   }
 
-  .section-sidebar nav {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 2px;
+  .section-sidebar-kicker {
+    display: none;
   }
 
-  .section-sidebar nav a {
-    flex: 0 0 auto;
+  .section-sidebar-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 12px 14px;
+    font: inherit;
+    font-size: 0.66rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .section-sidebar-toggle-icon {
+    font-size: 0.9rem;
+    letter-spacing: 0;
+    transition: transform 0.15s ease;
+  }
+
+  .section-sidebar-toggle[aria-expanded="true"] .section-sidebar-toggle-icon {
+    transform: rotate(180deg);
+  }
+
+  .section-sidebar > nav {
+    display: none;
+    padding: 0 10px 12px;
+  }
+
+  .section-sidebar.nav-open > nav {
+    display: flex;
   }
 }
 
 @media (max-width: 740px) {
   .content {
     padding: 22px 18px 26px;
+  }
+
+  .site-header > .site-nav {
+    margin-left: 0;
+  }
+
+  .construction-banner-text small {
+    white-space: normal;
   }
 }

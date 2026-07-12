@@ -43,6 +43,11 @@ _MOVING_AVG_PREFERENCE = (
 _conn: Optional[sqlite3.Connection] = None
 _conn_failed = False
 _conn_lock = threading.Lock()
+# One shared connection + check_same_thread=False is NOT safe for concurrent
+# execute() from Python — parallel lookups (value stats cold fill racing the
+# classification pipeline) raised "bad parameter or other API misuse" and
+# returned wrong/None results. Every query must hold this lock.
+_query_lock = threading.Lock()
 
 # Per-process cache keyed by (part_num, color_key). Stores the resolved metadata
 # dict, or None for parts the local DB doesn't know about, so repeated event
@@ -67,9 +72,9 @@ def _getConn(gc: GlobalConfig) -> Optional[sqlite3.Connection]:
             return None
         try:
             # immutable=1: the file is a static snapshot we only read, so skip
-            # all locking/WAL machinery. check_same_thread=False because the
-            # backend queries from multiple worker threads; sqlite serializes
-            # reads internally and every access here is read-only.
+            # all locking/WAL machinery. check_same_thread=False so worker
+            # threads can share it, but Python-level execute() calls are NOT
+            # thread-safe on one connection — callers serialize via _query_lock.
             _conn = sqlite3.connect(
                 f"file:{path}?mode=ro&immutable=1", uri=True, check_same_thread=False
             )
@@ -297,7 +302,8 @@ def getLocalPieceMetadata(
         return None
 
     try:
-        result = _query(conn, part_num, color_key)
+        with _query_lock:
+            result = _query(conn, part_num, color_key)
     except Exception as exc:
         gc.logger.warn(f"piece metadata lookup failed for {part_num}: {exc}")
         return None

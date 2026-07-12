@@ -8,15 +8,15 @@
 		machineWsUrlFromHttpBaseUrl
 	} from '$lib/backend';
 	import AppHeader from '$lib/components/AppHeader.svelte';
+	import CameraChannelControls from '$lib/components/CameraChannelControls.svelte';
 	import CameraFeed from '$lib/components/CameraFeed.svelte';
 	import CollapsibleSection from '$lib/components/CollapsibleSection.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import RecentObjects from '$lib/components/RecentObjects.svelte';
 	import ResizeHandle from '$lib/components/ResizeHandle.svelte';
 	import SidebarBottomTabs from '$lib/components/SidebarBottomTabs.svelte';
-	import SortingStatusCard from '$lib/components/SortingStatusCard.svelte';
 	import { buildDashboardFeedCrops, type DashboardFeedCrop } from '$lib/dashboard/crops';
-	import { AlertTriangle, Check, Eye, EyeOff, Info, Play, X } from 'lucide-svelte';
+	import { AlertTriangle, Check, Eye, EyeOff, Info, Play, RotateCcw, X } from 'lucide-svelte';
 
 	const SIDEBAR_MIN = 300;
 	const SIDEBAR_MAX = 900;
@@ -177,7 +177,6 @@
 			automatic_supported: true
 		}
 	];
-
 	const machine = getMachineContext();
 	const manager = getMachinesContext();
 
@@ -195,6 +194,8 @@
 	let exitIncidentActionError = $state<string | null>(null);
 	let stallIncidentActionPending = $state(false);
 	let stallIncidentActionError = $state<string | null>(null);
+	let rehomeIncidentActionPending = $state(false);
+	let rehomeIncidentActionError = $state<string | null>(null);
 	let exitReleaseOutputDeg = $state(EXIT_RELEASE_DEFAULTS.outputDeg);
 	let exitReleaseSpeed = $state(EXIT_RELEASE_DEFAULTS.speed);
 	let exitReleaseAcceleration = $state(EXIT_RELEASE_DEFAULTS.acceleration);
@@ -235,6 +236,7 @@
 	const runtimeStats = $derived((machine.machine?.runtimeStats ?? {}) as Record<string, unknown>);
 	const exitIncident = $derived(normalizeExitIncident(runtimeStats.active_incident));
 	const stallIncident = $derived(stepperStallIncident(runtimeStats.active_incident));
+	const needsHomingIncident = $derived(chuteNeedsHomingIncident(runtimeStats.active_incident));
 
 	async function startSystem() {
 		const baseUrl = currentBackendBaseUrl();
@@ -306,6 +308,12 @@
 		return incident.kind === 'stepper_stall' ? incident : null;
 	}
 
+	function chuteNeedsHomingIncident(value: unknown): Record<string, unknown> | null {
+		if (!value || typeof value !== 'object') return null;
+		const incident = value as Record<string, unknown>;
+		return incident.kind === 'chute_needs_homing' ? incident : null;
+	}
+
 	function stallIncidentSteppersLabel(incident: Record<string, unknown> | null): string {
 		const steppers = incident?.steppers;
 		if (Array.isArray(steppers) && steppers.length > 0) {
@@ -314,25 +322,44 @@
 		return incidentString(incident, 'channel', 'a motor');
 	}
 
+	async function postStallAction(path: string, fallbackError: string): Promise<string | null> {
+		try {
+			const response = await fetch(`${currentBackendBaseUrl()}${path}`, { method: 'POST' });
+			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
+			if (!response.ok || payload?.ok === false) {
+				return typeof payload?.detail === 'string' ? payload.detail : fallbackError;
+			}
+			return null;
+		} catch (e: any) {
+			return e?.message ?? fallbackError;
+		}
+	}
+
 	async function acknowledgeStallIncident() {
 		if (stallIncidentActionPending) return;
 		stallIncidentActionPending = true;
 		stallIncidentActionError = null;
-		try {
-			const response = await fetch(`${currentBackendBaseUrl()}/stall-incident/clear`, {
-				method: 'POST'
-			});
-			const payload = (await response.json().catch(() => null)) as Record<string, unknown> | null;
-			if (!response.ok || payload?.ok === false) {
-				throw new Error(
-					typeof payload?.detail === 'string' ? payload.detail : 'Could not clear stall'
-				);
-			}
-		} catch (e: any) {
-			stallIncidentActionError = e?.message ?? 'Could not clear stall';
-		} finally {
-			stallIncidentActionPending = false;
-		}
+		stallIncidentActionError = await postStallAction('/stall-incident/clear', 'Could not clear stall');
+		stallIncidentActionPending = false;
+	}
+
+	async function rehomeAfterStall() {
+		if (stallIncidentActionPending) return;
+		stallIncidentActionPending = true;
+		stallIncidentActionError = null;
+		stallIncidentActionError = await postStallAction('/stall-incident/rehome', 'Could not re-home');
+		stallIncidentActionPending = false;
+	}
+
+	async function rehomeChute() {
+		if (rehomeIncidentActionPending) return;
+		rehomeIncidentActionPending = true;
+		rehomeIncidentActionError = null;
+		rehomeIncidentActionError = await postStallAction(
+			'/stall-incident/rehome',
+			'Could not re-home'
+		);
+		rehomeIncidentActionPending = false;
 	}
 
 	function normalizeExitIncident(value: unknown): Record<string, unknown> | null {
@@ -351,8 +378,7 @@
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
 			incident.kind === 'classification_intake_request_timeout' ||
-			incident.kind === 'classification_track_lost' ||
-			incident.kind === 'classification_exit_stuck'
+			incident.kind === 'classification_track_lost'
 			? incident
 			: null;
 	}
@@ -486,6 +512,10 @@
 		return exitIncidentSourceKind(incident) === 'classification_exit_release';
 	}
 
+	function isC4StallWatchdogIncident(incident: Record<string, unknown> | null): boolean {
+		return exitIncidentSourceKind(incident) === 'c4_stall_watchdog';
+	}
+
 	function incidentHandlingValue(
 		handling: Record<string, unknown>,
 		definitionKind: string
@@ -593,8 +623,7 @@
 			incident.kind === 'classification_unresolved' ||
 			incident.kind === 'classification_multi_drop_collision' ||
 			incident.kind === 'classification_intake_request_timeout' ||
-			incident.kind === 'classification_track_lost' ||
-			incident.kind === 'classification_exit_stuck'
+			incident.kind === 'classification_track_lost'
 		) {
 			return `${currentBackendBaseUrl()}/api/classification-channel/fallback-incident`;
 		}
@@ -662,9 +691,6 @@
 		if (incident?.kind === 'classification_track_lost') {
 			return 'Track Lost';
 		}
-		if (incident?.kind === 'classification_exit_stuck') {
-			return 'C4 Piece Stuck';
-		}
 		return 'Exit Stuck';
 	}
 
@@ -718,8 +744,8 @@
 		if (incident?.kind === 'classification_track_lost') {
 			return 'A tracked piece disappeared before the expected drop flow completed.';
 		}
-		if (incident?.kind === 'classification_exit_stuck') {
-			return 'A piece is stuck on the classification channel and could not be discharged. Remove it from the channel, then resolve to resume feeding.';
+		if (isC4StallWatchdogIncident(incident)) {
+			return 'The classification channel stopped making progress with a piece on it. Remove the piece (or clear the jam), then resolve to resume.';
 		}
 		return 'A piece is not falling off the channel.';
 	}
@@ -739,6 +765,7 @@
 		if (incident?.kind === 'distribution_chute_jam') return 'Elapsed';
 		if (incident?.kind === 'distribution_servo_bus_offline') return 'Offline';
 		if (incident?.kind === 'channel_dropzone_stuck') return 'Motion';
+		if (isC4StallWatchdogIncident(incident)) return 'Stalled';
 		return isChannelExitStuckIncident(incident) ? 'Stall' : 'Offset';
 	}
 
@@ -790,6 +817,10 @@
 		) {
 			return incidentString(incident, 'classification_status', '-');
 		}
+		if (isC4StallWatchdogIncident(incident)) {
+			const stalled = incidentNumber(incident, 'stalled_ms');
+			return stalled === null ? '-' : `${(stalled / 1000).toFixed(0)} s`;
+		}
 		return fmtIncidentNumber(incidentNumber(incident, 'center_offset_deg'), ' deg');
 	}
 
@@ -809,6 +840,7 @@
 			incident?.kind === 'distribution_servo_bus_offline'
 		)
 			return 'Detail';
+		if (isC4StallWatchdogIncident(incident)) return 'State';
 		return incident?.kind === 'c2_separation_needed' ? 'Motion' : 'Overlap';
 	}
 
@@ -847,6 +879,9 @@
 			incident?.kind === 'classification_multi_drop_collision'
 		) {
 			return incidentString(incident, 'reason', '-');
+		}
+		if (isC4StallWatchdogIncident(incident)) {
+			return incidentString(incident, 'stalled_state', '-');
 		}
 		return fmtIncidentNumber((incidentNumber(incident, 'overlap_ratio') ?? 0) * 100, '%', 0);
 	}
@@ -938,9 +973,12 @@
 		writeExitReleaseTuning();
 	}
 
-	async function postExitIncidentAction(action: 'continue' | 'acknowledge' | 'clear') {
+	async function postExitIncidentAction(
+		action: 'continue' | 'acknowledge' | 'clear' | 'auto-resolve'
+	) {
 		const incident = exitIncident;
 		if (!incident || exitIncidentActionPending) return;
+		if (action === 'auto-resolve' && !isC4StallWatchdogIncident(incident)) return;
 		if (
 			incident.kind === 'channel_dropzone_stuck' &&
 			action !== 'acknowledge' &&
@@ -1012,6 +1050,29 @@
 		}
 	}
 
+	async function loadDashboardConfig(baseUrl: string) {
+		try {
+			const res = await fetch(`${baseUrl}/api/system/dashboard-config`);
+			if (!res.ok) return;
+			const payload = await res.json();
+			const definitions = normalizeIncidentDefinitions(payload?.incident_definitions);
+			incidentDefinitions = definitions;
+			const handling =
+				payload?.incident_handling && typeof payload.incident_handling === 'object'
+					? (payload.incident_handling as Record<string, unknown>)
+					: {};
+			const nextHandling: Record<string, IncidentHandlingMode> = {};
+			for (const definition of definitions) {
+				nextHandling[definition.kind] = normalizeIncidentMode(
+					incidentHandlingValue(handling, definition.kind)
+				);
+			}
+			incidentHandling = nextHandling;
+		} catch {
+			// ignore transient shell fetch issues
+		}
+	}
+
 	async function fetchDashboardCrops(baseUrl: string) {
 		try {
 			const res = await fetch(`${baseUrl}/api/polygons`);
@@ -1043,29 +1104,6 @@
 		}
 	}
 
-	async function loadDashboardConfig(baseUrl: string) {
-		try {
-			const res = await fetch(`${baseUrl}/api/system/dashboard-config`);
-			if (!res.ok) return;
-			const payload = await res.json();
-			const definitions = normalizeIncidentDefinitions(payload?.incident_definitions);
-			incidentDefinitions = definitions;
-			const handling =
-				payload?.incident_handling && typeof payload.incident_handling === 'object'
-					? (payload.incident_handling as Record<string, unknown>)
-					: {};
-			const nextHandling: Record<string, IncidentHandlingMode> = {};
-			for (const definition of definitions) {
-				nextHandling[definition.kind] = normalizeIncidentMode(
-					incidentHandlingValue(handling, definition.kind)
-				);
-			}
-			incidentHandling = nextHandling;
-		} catch {
-			// ignore transient shell fetch issues
-		}
-	}
-
 	$effect(() => {
 		if (!machine.machine) {
 			dashboardCrops = {};
@@ -1077,8 +1115,8 @@
 		if (cropBaseUrl === baseUrl) return;
 		cropBaseUrl = baseUrl;
 		void fetchDashboardCrops(baseUrl);
-		void loadMachineSetup(baseUrl);
 		void loadDashboardConfig(baseUrl);
+		void loadMachineSetup(baseUrl);
 	});
 
 	const CAMERA_LABELS: Record<string, string> = {
@@ -1109,11 +1147,13 @@
 		if (machine.machine) {
 			const baseUrl = currentBackendBaseUrl();
 			void fetchDashboardCrops(baseUrl);
-			void loadMachineSetup(baseUrl);
 			void loadDashboardConfig(baseUrl);
+			void loadMachineSetup(baseUrl);
 		}
 	});
 </script>
+
+<svelte:head><title>Sorter - Dashboard</title></svelte:head>
 
 <div class="min-h-screen bg-bg">
 	<AppHeader />
@@ -1132,29 +1172,33 @@
 					{@const stacked = machineSetup === 'belt_feeder'}
 					<!-- B1 belt topology has no C2 channel — only C3 + C4 remain, and two
 					     streams read better stacked than side by side. -->
-					<div
-						class="flex min-w-0 gap-3 lg:min-h-0 lg:flex-1 {stacked
-							? 'flex-col max-lg:h-[60vh]'
-							: 'max-lg:h-[30vh]'}"
-					>
-						<div class="contents">
+					<div class="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+						<div class="flex min-h-0 flex-1 gap-3">
 							{#if !stacked}
-								<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
+								<div class="min-w-0 flex-1">
 									<CameraFeed
 										camera="c_channel_2"
 										label={cameraLabel('c_channel_2')}
 										crop={cropFor('c_channel_2')}
 										controls={['annotations', 'zones', 'crop', 'fullscreen']}
-									/>
+									>
+										{#snippet headerActions()}
+											<CameraChannelControls stepperKey="c_channel_2" />
+										{/snippet}
+									</CameraFeed>
 								</div>
 							{/if}
-							<div class="min-h-0 min-w-0 flex-1 {stacked ? '' : 'max-lg:aspect-video lg:aspect-auto'}">
+							<div class="min-w-0 flex-1">
 								<CameraFeed
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
 									crop={cropFor('c_channel_3')}
 									controls={['annotations', 'zones', 'crop', 'fullscreen']}
-								/>
+								>
+									{#snippet headerActions()}
+										<CameraChannelControls stepperKey="c_channel_3" />
+									{/snippet}
+								</CameraFeed>
 							</div>
 						</div>
 						<div class="contents">
@@ -1164,7 +1208,11 @@
 									label={cameraLabel(c4CameraRole)}
 									crop={cropFor(c4CameraRole)}
 									controls={['annotations', 'zones', 'crop', 'fullscreen']}
-								/>
+								>
+									{#snippet headerActions()}
+										<CameraChannelControls stepperKey="c_channel_4" />
+									{/snippet}
+								</CameraFeed>
 							</div>
 							{#if classification_camera}
 								<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
@@ -1571,6 +1619,17 @@
 										Ignore Until Clear
 									</button>
 								{/if}
+								{#if isC4StallWatchdogIncident(exitIncident)}
+									<button
+										type="button"
+										onclick={() => postExitIncidentAction('auto-resolve')}
+										disabled={exitIncidentActionPending || exitIncidentMotionBusy(exitIncident)}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-warning px-3 py-1.5 text-xs font-semibold text-warning-dark transition-transform hover:bg-warning/90 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<RotateCcw size={13} />
+										Auto Resolve
+									</button>
+								{/if}
 								<button
 									type="button"
 									onclick={() => postExitIncidentAction('clear')}
@@ -1613,8 +1672,14 @@
 											</div>
 										</div>
 										<div class="mt-1 text-xs text-text-muted">
-											A stepper stalled and the machine has stopped. Clear the jam, then acknowledge
-											to re-arm detection and resume.
+											{#if stallIncident.requires_rehome}
+												A stepper stalled and the machine paused. The chute lost its home
+												position, so it must be re-homed before sorting can resume. Clear
+												the jam, then re-home — or clear the stall now and re-home later.
+											{:else}
+												A stepper stalled and the machine paused. Clear the jam, then clear
+												the stall; resume from the header once it's cleared.
+											{/if}
 										</div>
 										{#if incidentString(stallIncident, 'operator_message')}
 											<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
@@ -1625,15 +1690,36 @@
 								</div>
 							</div>
 							<div class="mt-3 flex flex-wrap items-center gap-2">
-								<button
-									type="button"
-									onclick={acknowledgeStallIncident}
-									disabled={stallIncidentActionPending}
-									class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
-								>
-									<Check size={13} />
-									Stall Cleared — Resume
-								</button>
+								{#if stallIncident.requires_rehome}
+									<button
+										type="button"
+										onclick={rehomeAfterStall}
+										disabled={stallIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<RotateCcw size={13} />
+										Stall Cleared — Re-home
+									</button>
+									<button
+										type="button"
+										onclick={acknowledgeStallIncident}
+										disabled={stallIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<Check size={13} />
+										Clear stall only
+									</button>
+								{:else}
+									<button
+										type="button"
+										onclick={acknowledgeStallIncident}
+										disabled={stallIncidentActionPending}
+										class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+									>
+										<Check size={13} />
+										Clear Stall
+									</button>
+								{/if}
 								<button
 									type="button"
 									onclick={() => openIncidentDetails(stallIncident, 'Motor Stall')}
@@ -1649,86 +1735,130 @@
 							{/if}
 						</div>
 					{/if}
-					<CollapsibleSection title="Incidents" storageKey="incidents" class="max-lg:order-last">
-						<div class="flex flex-col gap-2">
-							{#each incidentDefinitions as definition (definition.kind)}
-								{@const mode = incidentMode(definition.kind)}
-								{@const active = incidentDefinitionActive(definition)}
-								<div class="border border-border bg-bg px-3 py-2">
-									<div class="flex items-start justify-between gap-3">
-										<div class="min-w-0">
-											<div class="flex flex-wrap items-center gap-2">
-												<div class="text-xs font-semibold text-text">{definition.label}</div>
-												{#if definition.scope}
-													<div class="bg-surface px-1.5 py-0.5 text-[10px] text-text-muted">
-														{definition.scope}
-													</div>
-												{/if}
-												{#if active}
-													<div
-														class="bg-warning px-1.5 py-0.5 text-[10px] font-semibold text-warning-dark uppercase"
-													>
-														Active
-													</div>
-												{/if}
-											</div>
-											<div class="mt-1 text-sm text-text-muted">{definition.description}</div>
-										</div>
-										<div class="flex shrink-0 overflow-hidden">
-											<button
-												type="button"
-												onclick={() => void saveIncidentMode(definition.kind, 'off')}
-												disabled={incidentPolicySaving === definition.kind}
-												class={incidentModeButtonClass(mode === 'off')}
-											>
-												Off
-											</button>
-											<button
-												type="button"
-												onclick={() => void saveIncidentMode(definition.kind, 'manual')}
-												disabled={incidentPolicySaving === definition.kind}
-												class={incidentModeButtonClass(mode === 'manual')}
-											>
-												Manual
-											</button>
-											<button
-												type="button"
-												onclick={() => void saveIncidentMode(definition.kind, 'automatic')}
-												disabled={!definition.automatic_supported ||
-													incidentPolicySaving === definition.kind}
-												class={incidentModeButtonClass(
-													mode === 'automatic',
-													!definition.automatic_supported
-												)}
-												title={definition.automatic_supported
-													? definition.automatic_label
-													: 'Manual only'}
-											>
-												Auto
-											</button>
-										</div>
-									</div>
+{#if needsHomingIncident}
+	<div class="shrink-0 border border-danger/50 bg-danger/10 px-4 py-3">
+		<div class="flex items-start justify-between gap-3">
+			<div class="flex min-w-0 items-start gap-2">
+				<AlertTriangle size={17} class="mt-0.5 shrink-0 text-danger" />
+				<div class="min-w-0">
+					<div class="flex flex-wrap items-center gap-2">
+						<div class="text-sm font-semibold text-text">Needs Homing</div>
+						<div
+							class="bg-danger px-1.5 py-0.5 text-[10px] font-semibold text-white uppercase"
+						>
+							Halted
+						</div>
+					</div>
+					<div class="mt-1 text-xs text-text-muted">
+						The chute lost its home position after a stall, so its location can't
+						be trusted. Re-home the chute to resume sorting.
+					</div>
+					{#if incidentString(needsHomingIncident, 'operator_message')}
+						<div class="mt-2 bg-danger/10 px-2 py-1.5 text-xs text-danger">
+							{incidentString(needsHomingIncident, 'operator_message')}
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+		<div class="mt-3 flex flex-wrap items-center gap-2">
+			<button
+				type="button"
+				onclick={rehomeChute}
+				disabled={rehomeIncidentActionPending}
+				class="inline-flex min-h-10 items-center gap-1.5 bg-bg px-3 py-1.5 text-xs font-medium text-text shadow-[inset_0_0_0_1px_var(--color-border)] transition-transform hover:bg-surface active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-50"
+			>
+				<RotateCcw size={13} />
+				Re-home Chute
+			</button>
+			<button
+				type="button"
+				onclick={() => openIncidentDetails(needsHomingIncident, 'Needs Homing')}
+				title="Incident details"
+				class="ml-auto inline-flex min-h-10 items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-text-muted transition-colors hover:bg-bg/70 hover:text-text"
+			>
+				<Info size={14} />
+				Details
+			</button>
+		</div>
+		{#if rehomeIncidentActionError}
+			<div class="mt-2 text-xs text-danger">{rehomeIncidentActionError}</div>
+		{/if}
+	</div>
+{/if}
+<CollapsibleSection title="Incidents" storageKey="incidents" class="max-lg:order-last">
+	<div class="flex flex-col gap-2">
+		{#each incidentDefinitions as definition (definition.kind)}
+			{@const mode = incidentMode(definition.kind)}
+			{@const active = incidentDefinitionActive(definition)}
+			<div class="border border-border bg-bg px-3 py-2">
+				<div class="flex items-start justify-between gap-3">
+					<div class="min-w-0">
+						<div class="flex flex-wrap items-center gap-2">
+							<div class="text-xs font-semibold text-text">{definition.label}</div>
+							{#if definition.scope}
+								<div class="bg-surface px-1.5 py-0.5 text-[10px] text-text-muted">
+									{definition.scope}
 								</div>
-							{/each}
-							{#if incidentPolicyError}
-								<div class="text-xs text-danger">{incidentPolicyError}</div>
+							{/if}
+							{#if active}
+								<div
+									class="bg-warning px-1.5 py-0.5 text-[10px] font-semibold text-warning-dark uppercase"
+								>
+									Active
+								</div>
 							{/if}
 						</div>
-					</CollapsibleSection>
-					<CollapsibleSection
-						title="Recent Pieces"
-						storageKey="recent"
-						grow
-						class="max-lg:order-first"
-					>
-						<RecentObjects />
-					</CollapsibleSection>
-					<CollapsibleSection title="Bins" storageKey="bins">
-						{#snippet actions()}
-							<a href="/profiles" class="text-xs text-text-muted hover:text-text">Profiles</a>
-							<a href="/bins" class="text-xs text-text-muted hover:text-text">Bins</a>
-						{/snippet}
-						<SortingStatusCard />
+						<div class="mt-1 text-sm text-text-muted">{definition.description}</div>
+					</div>
+					<div class="flex shrink-0 overflow-hidden">
+						<button
+							type="button"
+							onclick={() => void saveIncidentMode(definition.kind, 'off')}
+							disabled={incidentPolicySaving === definition.kind}
+							class={incidentModeButtonClass(mode === 'off')}
+						>
+							Off
+						</button>
+						<button
+							type="button"
+							onclick={() => void saveIncidentMode(definition.kind, 'manual')}
+							disabled={incidentPolicySaving === definition.kind}
+							class={incidentModeButtonClass(mode === 'manual')}
+						>
+							Manual
+						</button>
+						<button
+							type="button"
+							onclick={() => void saveIncidentMode(definition.kind, 'automatic')}
+							disabled={!definition.automatic_supported ||
+								incidentPolicySaving === definition.kind}
+							class={incidentModeButtonClass(
+								mode === 'automatic',
+								!definition.automatic_supported
+							)}
+							title={definition.automatic_supported
+								? definition.automatic_label
+								: 'Manual only'}
+						>
+							Auto
+						</button>
+					</div>
+				</div>
+			</div>
+		{/each}
+		{#if incidentPolicyError}
+			<div class="text-xs text-danger">{incidentPolicyError}</div>
+		{/if}
+	</div>
+</CollapsibleSection>
+<CollapsibleSection
+	title="Recent Pieces"
+	storageKey="recent"
+	grow
+	class="max-lg:order-first"
+>
+<RecentObjects />
 					</CollapsibleSection>
 					<CollapsibleSection title="Runtime" storageKey="runtimeTabs">
 						<SidebarBottomTabs />

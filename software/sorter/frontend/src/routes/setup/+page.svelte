@@ -964,6 +964,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - Setup</title></svelte:head>
+
 <div class="min-h-screen overflow-x-hidden bg-bg">
 	<AppHeader />
 	<div class="mx-auto flex max-w-[1500px] flex-col gap-6 px-4 py-6 sm:px-6">

@@ -12,6 +12,8 @@ from sqlalchemy.orm import Session, joinedload
 from app.deps import get_current_machine, get_current_user, get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.machine import Machine
+from app.models.machine_piece import MachinePiece
+from app.models.machine_piece_image import MachinePieceImage
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -21,9 +23,11 @@ from app.schemas.machine import (
     MachineUpdate,
     MachineWithTokenResponse,
 )
+from app.services import machine_stats
 from app.services.auth import generate_machine_token, verify_password
 from app.services.machine_set_progress import build_set_progress_inventory_index, summarize_machine_set_progress
-from app.services.storage import delete_machine_files
+from app.services.machine_stats import get_machine_stats_worker
+from app.services.storage import delete_machine_files, serve_stored_file
 
 router = APIRouter(prefix="/api", tags=["machines"])
 limiter = Limiter(key_func=get_remote_address)
@@ -132,6 +136,244 @@ def get_machine_stats(
         }
 
     return result
+
+
+@router.get("/admin/machines")
+def admin_list_machines(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Every machine across ALL owners (admin-only fleet view)."""
+    machines = db.query(Machine).options(joinedload(Machine.owner)).order_by(Machine.created_at).all()
+    return [
+        {
+            "id": str(m.id),
+            "name": m.name,
+            "description": m.description,
+            "owner_id": str(m.owner_id),
+            "owner_email": m.owner.email if m.owner else None,
+            "owner_display_name": m.owner.display_name if m.owner else None,
+            "is_active": m.is_active,
+            "archived_at": m.archived_at.isoformat() if m.archived_at else None,
+            "last_seen_at": m.last_seen_at.isoformat() if m.last_seen_at else None,
+            "last_seen_ip": m.last_seen_ip,
+            "local_ui_port": m.local_ui_port,
+            "created_at": m.created_at.isoformat() if m.created_at else None,
+        }
+        for m in machines
+    ]
+
+
+@router.get("/admin/machines/stats")
+def admin_machine_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+):
+    """Per-machine lifetime metrics (pieces, PPM, on-time %) across ALL machines.
+
+    Served from the machine_stats_cache table, refreshed hourly by the
+    MachineStatsWorker (see app.services.machine_stats). Cold-start fallback:
+    if the cache has never been populated, compute it once here so the first
+    admin load isn't blank.
+    """
+    from app.models.machine_stats_cache import MachineStatsCache
+
+    if db.query(MachineStatsCache.machine_id).first() is None:
+        try:
+            machine_stats.refresh_cache(db)
+        except Exception:
+            # A concurrent refresh (e.g. the boot-time worker pass) may have
+            # populated the cache between the check and here — just serve
+            # whatever is there rather than 500 on the insert race.
+            db.rollback()
+    return machine_stats.get_fleet_stats(db)
+
+
+@router.post("/admin/machines/stats/refresh")
+def admin_refresh_machine_stats(
+    db: Session = Depends(get_db),
+    admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Force an immediate recompute of every machine's cached stats."""
+    count = machine_stats.refresh_cache(db)
+    return {"ok": True, "refreshed": count, "worker": get_machine_stats_worker().status()}
+
+
+def _machine_for_viewer(db: Session, machine_id: UUID, user: User) -> Machine:
+    """Fetch a machine the given user may view (its owner, or any admin).
+
+    Non-owners without the admin role get a 404 rather than a 403 so the
+    endpoint doesn't confirm the existence of other users' machines.
+    """
+    machine = db.query(Machine).options(joinedload(Machine.owner)).filter(Machine.id == machine_id).first()
+    if machine is None or (str(machine.owner_id) != str(user.id) and user.role != "admin"):
+        raise APIError(404, "Machine not found", "MACHINE_NOT_FOUND")
+    return machine
+
+
+@router.get("/machines/{machine_id}/overview")
+def get_machine_overview(
+    machine_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Dashboard overview for a single machine — metadata + cached stats.
+
+    Accessible to the machine's owner or any admin. Stats come from the
+    machine_stats_cache (lazily computed on a miss)."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+    stats = machine_stats.get_machine_stats(db, machine.id)
+    is_owner = str(machine.owner_id) == str(current_user.id)
+    return {
+        "machine": {
+            "id": str(machine.id),
+            "name": machine.name,
+            "description": machine.description,
+            "is_active": machine.is_active,
+            "archived_at": machine.archived_at.isoformat() if machine.archived_at else None,
+            "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
+            "last_seen_ip": machine.last_seen_ip,
+            "local_ui_port": machine.local_ui_port,
+            "created_at": machine.created_at.isoformat() if machine.created_at else None,
+            "token_prefix": machine.token_prefix,
+            "hardware_info": machine.hardware_info,
+            "owner": {
+                "display_name": machine.owner.display_name if machine.owner else None,
+                "email": machine.owner.email if machine.owner else None,
+            },
+        },
+        "stats": stats,
+        "is_owner": is_owner,
+        "viewer_is_admin": current_user.role == "admin",
+    }
+
+
+PIECE_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
+
+
+def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage]) -> dict[str, Any]:
+    return {
+        "piece_uuid": piece.piece_uuid,
+        "local_id": piece.local_id,
+        "run_id": piece.run_id,
+        "seen_at": piece.seen_at.isoformat() if piece.seen_at else None,
+        "recorded_at": piece.recorded_at.isoformat() if piece.recorded_at else None,
+        "classification_status": piece.classification_status,
+        "part_id": piece.part_id,
+        "part_name": piece.part_name,
+        "color_id": piece.color_id,
+        "color_name": piece.color_name,
+        "category_id": piece.category_id,
+        "confidence": piece.confidence,
+        "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
+        "dead": piece.dead,
+        "brickognize_preview_url": piece.brickognize_preview_url,
+        "images": [
+            {
+                "seq": im.seq,
+                "source": im.source,
+                "channel": im.channel,
+                "sharpness": im.sharpness,
+                "bytes": im.bytes,
+                "used": im.used,
+                "excluded_from_result": im.excluded_from_result,
+                "score": im.score,
+                # image_key is NULL once the crop was evicted from the machine's
+                # local store before syncing — the row rides up regardless, so
+                # the UI still knows the piece had N crops but can't show them.
+                "available": im.image_key is not None,
+                "evicted_locally": im.evicted_locally,
+            }
+            for im in images
+        ],
+    }
+
+
+@router.get("/machines/{machine_id}/pieces")
+def list_machine_pieces(
+    machine_id: UUID,
+    limit: int = Query(60, ge=1, le=200),
+    cursor: int | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Every synced piece for one machine, newest first — the fleet analogue of
+    the on-machine /records page. Keyset-paginated on the machine's local_id.
+
+    Accessible to the machine's owner or any admin."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+
+    query = db.query(MachinePiece).filter(MachinePiece.machine_id == machine_id)
+    if cursor is not None:
+        query = query.filter(MachinePiece.local_id < cursor)
+    pieces = query.order_by(MachinePiece.local_id.desc()).limit(limit + 1).all()
+
+    has_more = len(pieces) > limit
+    pieces = pieces[:limit]
+    next_cursor = pieces[-1].local_id if (has_more and pieces) else None
+
+    images_by_piece: dict[str, list[MachinePieceImage]] = {}
+    piece_uuids = [p.piece_uuid for p in pieces]
+    if piece_uuids:
+        images = (
+            db.query(MachinePieceImage)
+            .filter(
+                MachinePieceImage.machine_id == machine_id,
+                MachinePieceImage.piece_uuid.in_(piece_uuids),
+            )
+            .order_by(MachinePieceImage.seq.asc())
+            .all()
+        )
+        for im in images:
+            images_by_piece.setdefault(im.piece_uuid, []).append(im)
+
+    total = (
+        db.query(func.count(MachinePiece.id))
+        .filter(MachinePiece.machine_id == machine_id)
+        .scalar()
+        or 0
+    )
+
+    return {
+        "machine": {
+            "id": str(machine.id),
+            "name": machine.name,
+            "owner_email": machine.owner.email if machine.owner else None,
+        },
+        "items": [
+            _serialize_machine_piece(p, images_by_piece.get(p.piece_uuid, []))
+            for p in pieces
+        ],
+        "next_cursor": next_cursor,
+        "total": total,
+    }
+
+
+@router.get("/machines/{machine_id}/pieces/{piece_uuid}/images/{seq}")
+def get_machine_piece_image(
+    machine_id: UUID,
+    piece_uuid: str,
+    seq: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Stream one synced crop's bytes from object storage. Cookie-session auth
+    (owner or admin) is enough for an <img> tag on a same-origin page."""
+    _machine_for_viewer(db, machine_id, current_user)
+    image = (
+        db.query(MachinePieceImage)
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid == piece_uuid,
+            MachinePieceImage.seq == seq,
+        )
+        .first()
+    )
+    if image is None or not image.image_key:
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+
+    return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
 
 
 @router.post("/machines", response_model=MachineWithTokenResponse)

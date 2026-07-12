@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DetectionModelSummary } from '$lib/api';
+	import Badge from './Badge.svelte';
 
 	interface Props {
 		model: DetectionModelSummary;
@@ -103,9 +104,16 @@
 				{model.slug} · v{model.version} · {relativeTime(model.published_at)}
 			</p>
 		</div>
-		{#if !model.is_public}
-			<span class="self-start border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
-		{/if}
+		<div class="flex shrink-0 flex-col items-end gap-1 self-start">
+			{#if model.experimental}
+				<Badge text="Experimental" variant="warning" />
+			{:else}
+				<Badge text="Stable" variant="success" />
+			{/if}
+			{#if !model.is_public}
+				<span class="border border-[var(--color-border)] bg-[var(--color-bg)] px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
+			{/if}
+		</div>
 	</div>
 
 	<!-- Metric pills — three columns: mAP50, mAP50_95, Recall -->

@@ -330,6 +330,40 @@ def setBeltFeederConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
+# Feeder constant-movement tuning config
+# ---------------------------------------------------------------------------
+
+
+def getConstantMovementConfig() -> dict[str, Any]:
+    from subsystems.feeder.constant_movement.config import (
+        ConstantMovementConfig, configToDict,
+    )
+    config = _read_toml()
+    section = config.get("feeder_constant_movement")
+    defaults = configToDict(ConstantMovementConfig())
+    if isinstance(section, dict):
+        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
+    return defaults
+
+
+def setConstantMovementConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    from subsystems.feeder.constant_movement.config import (
+        ConstantMovementConfig, configToDict,
+    )
+    defaults = configToDict(ConstantMovementConfig())
+    valid = {k: v for k, v in updates.items() if k in defaults}
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("feeder_constant_movement")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["feeder_constant_movement"] = base
+
+    _update_toml(updater)
+    return getConstantMovementConfig()
+
+
+# ---------------------------------------------------------------------------
 # Upstream-match tuning config
 # ---------------------------------------------------------------------------
 
@@ -446,72 +480,29 @@ _INCIDENT_EXIT_STUCK = "exit_stuck"
 _INCIDENT_KIND_ALIASES: dict[str, str] = {
     "classification_exit_release": _INCIDENT_EXIT_STUCK,
     "channel_exit_stuck": _INCIDENT_EXIT_STUCK,
+    "classification_exit_stuck": _INCIDENT_EXIT_STUCK,
 }
+# Only kinds that can actually fire on the default codepath
+# (PULSE_PERCEPTION_REV01 feeder + TWO_PIECE_STATE_MACHINE_REV01 classification
+# + distribution). Legacy-only kinds (dropzone stuck, bulk feeder, DYNAMIC
+# classification fallbacks, ...) get no policy row: their publishers never run
+# on the default setup.
 _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
-    _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_MANUAL,
-    "channel_dropzone_stuck": _INCIDENT_MODE_MANUAL,
-    "c2_separation_needed": _INCIDENT_MODE_MANUAL,
-    "bulk_feeder_stalled": _INCIDENT_MODE_MANUAL,
-    "feeder_detection_unavailable": _INCIDENT_MODE_MANUAL,
+    _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
     "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
     "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
-    "classification_unresolved": _INCIDENT_MODE_MANUAL,
-    "classification_multi_drop_collision": _INCIDENT_MODE_MANUAL,
-    "classification_intake_request_timeout": _INCIDENT_MODE_MANUAL,
-    "classification_track_lost": _INCIDENT_MODE_MANUAL,
-    "classification_exit_stuck": _INCIDENT_MODE_MANUAL,
 }
 _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
     {
         "kind": _INCIDENT_EXIT_STUCK,
         "label": "Exit Stuck",
-        "scope": "C2/C3/C4",
-        "description": "A piece is not falling off the channel.",
+        "scope": "C4",
+        "description": "The classification channel stopped making progress with a piece on it.",
         "off_label": "Do not raise exit-stuck incidents",
-        "manual_label": "Operator tunes release wiggle",
-        "automatic_label": "Run release wiggle automatically",
+        "manual_label": "Operator clears the stuck piece",
+        "automatic_label": "Rotate the channel forward until it clears",
         "automatic_supported": True,
-    },
-    {
-        "kind": "channel_dropzone_stuck",
-        "label": "Dropzone Stuck",
-        "scope": "C2/C3/C4",
-        "description": "A piece is not moving as expected.",
-        "off_label": "Leave normal backpressure unchanged",
-        "manual_label": "Operator acknowledges ignore",
-        "automatic_label": "Ignore stuck track automatically",
-        "automatic_supported": True,
-    },
-    {
-        "kind": "c2_separation_needed",
-        "label": "Slip-Stick Separation",
-        "scope": "C2",
-        "description": "Pieces are not spreading out as expected.",
-        "off_label": "Do not raise separation incident",
-        "manual_label": "Operator reviews separation",
-        "automatic_label": "Automatic slip-stick separation",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "bulk_feeder_stalled",
-        "label": "Bulk Feed Stalled",
-        "scope": "C1",
-        "description": "No pieces are reaching the next channel.",
-        "off_label": "Keep legacy bulk-feeder recovery hidden",
-        "manual_label": "Operator checks the bulk feeder",
-        "automatic_label": "Automatic bulk-feeder recovery",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "feeder_detection_unavailable",
-        "label": "Detection Unavailable",
-        "scope": "C2/C3/C4",
-        "description": "Feeder camera detection is not reliable.",
-        "off_label": "Use hardware alert only",
-        "manual_label": "Operator restores detection",
-        "automatic_label": "Automatic camera recovery",
-        "automatic_supported": False,
     },
     {
         "kind": "distribution_chute_jam",
@@ -542,56 +533,6 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "manual_label": "Operator assigns capacity or approves passthrough",
         "automatic_label": "Automatic no-bin passthrough",
         "automatic_supported": False,
-    },
-    {
-        "kind": "classification_unresolved",
-        "label": "Classification Unresolved",
-        "scope": "C4",
-        "description": "A piece reached the drop point without a resolved classification.",
-        "off_label": "Keep unknown fallback hidden",
-        "manual_label": "Operator reviews unresolved classifications",
-        "automatic_label": "Automatic unresolved-classification handling",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "classification_multi_drop_collision",
-        "label": "Multi-Drop Collision",
-        "scope": "C4",
-        "description": "Multiple pieces reached the drop point together.",
-        "off_label": "Keep multi-drop fallback hidden",
-        "manual_label": "Operator reviews multi-drop collisions",
-        "automatic_label": "Automatic multi-drop handling",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "classification_intake_request_timeout",
-        "label": "Intake Request Timeout",
-        "scope": "C4",
-        "description": "C4 requested a piece, but no handoff arrived.",
-        "off_label": "Retry C4 intake requests silently",
-        "manual_label": "Operator checks C3 to C4 handoff",
-        "automatic_label": "Automatic C4 handoff recovery",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "classification_track_lost",
-        "label": "Track Lost",
-        "scope": "C4",
-        "description": "A tracked piece disappeared before the expected drop flow completed.",
-        "off_label": "Treat stale C4 tracks as diagnostics",
-        "manual_label": "Operator reviews lost C4 tracks",
-        "automatic_label": "Automatic track-loss handling",
-        "automatic_supported": False,
-    },
-    {
-        "kind": "classification_exit_stuck",
-        "label": "C4 Piece Stuck",
-        "scope": "C4",
-        "description": "A piece on the classification channel could not be discharged. Remove it, then resolve to resume.",
-        "off_label": "Do not raise C4 stuck incidents",
-        "manual_label": "Operator removes the stuck piece",
-        "automatic_label": "Advance the channel forward until the piece is gone",
-        "automatic_supported": True,
     },
 )
 

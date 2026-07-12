@@ -5,6 +5,7 @@
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
 	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
 	import { onDestroy } from 'svelte';
+	import type { Snippet } from 'svelte';
 
 	type ControlKey = 'annotations' | 'color' | 'crop' | 'zones' | 'fullscreen';
 
@@ -21,7 +22,8 @@
 		defaultCropped = undefined,
 		defaultZones = true,
 		controls = ['annotations'],
-		layer = $bindable('annotated')
+		layer = $bindable('annotated'),
+		headerActions = null
 	}: {
 		camera: string;
 		label?: string;
@@ -36,6 +38,7 @@
 		defaultZones?: boolean;
 		controls?: ControlKey[];
 		layer?: 'raw' | 'annotated';
+		headerActions?: Snippet | null;
 	} = $props();
 
 	const ctx = getMachineContext();
@@ -176,6 +179,11 @@
 			class="setup-card-header flex flex-shrink-0 items-center justify-between px-3 py-2 text-sm"
 		>
 			<span class="font-medium text-text">{display_label}</span>
+			{#if headerActions}
+				<div class="flex shrink-0 items-center gap-1">
+					{@render headerActions()}
+				</div>
+			{/if}
 		</div>
 	{/if}
 	<div

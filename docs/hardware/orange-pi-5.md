@@ -4,7 +4,7 @@ title: Orange Pi 5
 type: reference
 section: hardware
 slug: hardware-orange-pi-5
-kicker: Hardware — Compute
+kicker: Parts — Orange Pi 5
 lede: The Orange Pi 5 is the primary compute platform for Sorter. This page covers hardware selection, memory and storage requirements, and WiFi adapter options.
 permalink: /hardware/orange-pi-5/
 audience: self-builder
@@ -17,7 +17,7 @@ last_verified: 2026-05-19
   <p>The Orange Pi 5 is the required compute board for Sorter. SorterOS is built on top of the official Ubuntu image provided by Orange Pi for this board.</p>
 </div>
 
-<img src="http://www.orangepi.org/img/pi5-fix/pi5-01.png" alt="Orange Pi 5 single-board computer" style="max-width: 480px; width: 100%; display: block; margin: 1.6rem 0; border: 1px solid var(--line);">
+<img src="/assets/pi5-01.png" alt="Orange Pi 5 single-board computer" style="max-width: 480px; width: 100%; display: block; margin: 1.6rem 0; border: 1px solid var(--line);">
 
 ## Why the Orange Pi 5
 

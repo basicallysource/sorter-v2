@@ -167,7 +167,9 @@ class Rev01BaseState(BaseState):
 
     @staticmethod
     def encodeFrame(frame: np.ndarray) -> Optional[str]:
-        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        # Quality 90: these crops are persisted to disk (piece_image_store) and
+        # eventually synced to the Hive for training, so keep them near-lossless.
+        ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 90])
         if not ok:
             return None
         return base64.b64encode(buf).decode("utf-8")
@@ -674,13 +676,16 @@ class Rev01BaseState(BaseState):
 
         obj.request_failed = False
         if error is not None:
-            obj.classification_status = ClassificationStatus.unknown
             # A transport error (Brickognize timeout / DNS / connection failure on
             # a flaky network) means the request failed, not that the piece is
-            # unidentifiable — flag it so the card reads "Request failed". The
-            # local-pipeline sentinels ("no_captures"/"no_result") are not network
-            # failures, so they stay plain "unknown".
-            if error not in ("no_captures", "no_result"):
+            # unidentifiable — a distinct `failed` status so it never renders as
+            # classified. The local-pipeline sentinels ("no_captures"/"no_result")
+            # are not network failures, so they stay plain "unknown". The
+            # request_failed flag is kept for compat with existing consumers.
+            if error in ("no_captures", "no_result"):
+                obj.classification_status = ClassificationStatus.unknown
+            else:
+                obj.classification_status = ClassificationStatus.failed
                 obj.request_failed = True
         elif isinstance(result, dict):
             items = result.get("items", [])

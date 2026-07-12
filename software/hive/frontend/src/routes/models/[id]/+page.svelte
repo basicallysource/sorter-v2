@@ -2,6 +2,7 @@
 	import { page } from '$app/state';
 	import { api, type DetectionModelDetail, type DetectionModelVariant } from '$lib/api';
 	import ModelTrainingReport from '$lib/components/ModelTrainingReport.svelte';
+	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 
 	let model = $state<DetectionModelDetail | null>(null);
@@ -185,9 +186,16 @@
 						<p class="mt-0.5 text-sm text-[var(--color-text-muted)]">{model.name}</p>
 					{/if}
 				</div>
-				{#if !model.is_public}
-					<span class="self-start border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-0.5 text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
-				{/if}
+				<div class="flex shrink-0 flex-col items-end gap-1 self-start">
+					{#if model.experimental}
+						<Badge text="Experimental" variant="warning" />
+					{:else}
+						<Badge text="Stable" variant="success" />
+					{/if}
+					{#if !model.is_public}
+						<span class="border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-0.5 text-[11px] uppercase tracking-wider text-[var(--color-text-muted)]">Private</span>
+					{/if}
+				</div>
 			</div>
 
 			<!-- Metric pills — 4 columns including Precision, since the detail page has room -->

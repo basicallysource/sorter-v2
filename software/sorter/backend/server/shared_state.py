@@ -36,6 +36,13 @@ vision_manager: Optional[Any] = None
 # healthy LAN a send is sub-millisecond, so this only ever fires for genuinely
 # stuck clients.
 _BROADCAST_SEND_TIMEOUT_S = 0.25
+
+# Liveness of the websocket broadcast pipeline. Stamped at the top of every
+# broadcastEvent — reaching there means the single asyncio loop actually ran the
+# coroutine. A watchdog thread (main.py) compares this against wall-clock: if
+# clients are connected but nothing has broadcast for a while, the loop is wedged
+# (MJPEG saturation or a blocking call) and the live feed is silently frozen.
+last_broadcast_ok_ts: float = 0.0
 camera_service: Optional[Any] = None
 pulse_locks: Dict[str, threading.Lock] = {}
 distribution_no_bin_passthrough_approvals: set[str] = set()
@@ -189,6 +196,10 @@ def consumeDistributionNoBinPassthrough(piece_uuid: str | None) -> bool:
 
 async def broadcastEvent(event: dict) -> None:
     global runtime_stats_snapshot, system_status_snapshot, sorter_state_snapshot, cameras_config_snapshot, sorting_profile_status_snapshot
+    global last_broadcast_ok_ts
+    # Stamped before the no-clients early-return so heartbeats keep it fresh even
+    # with zero connections; the watchdog only warns when clients are attached.
+    last_broadcast_ok_ts = time.time()
     tag = event.get("tag")
     data = event.get("data") if isinstance(event.get("data"), dict) else None
     if tag == "runtime_stats" and data is not None:

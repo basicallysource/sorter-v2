@@ -23,6 +23,12 @@ class FeederMode(enum.Enum):
     # exit/drop handling is just "pulse a fixed distance, pause a fixed time"
     # per region — no fast-eject / COM closed loop / jitter recovery.
     PULSE_PERCEPTION_REV01 = "pulse_perception_rev01"
+    # Constant-movement feeder on the perception stack. Inverts the pulse
+    # model: each channel runs continuously at its own constant speed and is
+    # only stopped when its downstream can't accept a piece (following
+    # channel's drop zone occupied; for C3, a piece at the exit edge while the
+    # classification channel is busy/not ready).
+    CONSTANT_MOVEMENT_REV01 = "constant_movement_rev01"
     # B1 belt topology: a cleated conveyor (continuous velocity via
     # move_at_speed, throttled by C3's perception fill level) replaces the
     # C1/C2 pulsing entirely; C3 keeps the pulse-perception exit metering.
@@ -36,6 +42,7 @@ PERCEPTION_NATIVE_FEEDER_MODES = frozenset(
     {
         FeederMode.GO_TO_ANGLE_REV01,
         FeederMode.PULSE_PERCEPTION_REV01,
+        FeederMode.CONSTANT_MOVEMENT_REV01,
         FeederMode.BELT_REV01,
     }
 )
@@ -336,7 +343,7 @@ class ClassificationChannelConfig:
     post_distribute_cooldown_s: float
 
     def __init__(self) -> None:
-        self.mode = ClassificationChannelMode.SIMPLE_STATE_MACHINE_REV01
+        self.mode = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01
         # Keep C4 pipelined instead of serialised: target one piece in the
         # intake/drop zone and three more spread across the platter on the way
         # to the exit. Zone hard-guards still prevent same-sector loading.
@@ -529,7 +536,7 @@ class FeederConfig:
     first_rotor_jam_max_cycles: int
 
     def __init__(self):
-        self.mode = FeederMode.GO_TO_ANGLE_REV01
+        self.mode = FeederMode.PULSE_PERCEPTION_REV01
         self.first_rotor = RotorPulseConfig(
             steps=100,
             microsteps_per_second=2000,
@@ -690,6 +697,20 @@ class IRLInterface:
                 pass
         for iface in self.interfaces.values():
             iface.shutdown()
+        # Close the underlying serial buses so standby genuinely releases the
+        # ttys — otherwise the fds linger until GC and the firmware flasher (or
+        # the next discovery pass) races a stale open on the same port.
+        # Interfaces can share a bus (multi-address), so dedupe before closing.
+        seen_buses: set[int] = set()
+        for iface in self.interfaces.values():
+            bus = getattr(iface, "_bus", None)
+            if bus is None or id(bus) in seen_buses:
+                continue
+            seen_buses.add(id(bus))
+            try:
+                bus.close()
+            except Exception:
+                pass
 
 
 def mkCameraConfig(

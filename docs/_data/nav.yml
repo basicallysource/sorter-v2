@@ -19,8 +19,74 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
-      - title: Orange Pi 5
-        url: /hardware/orange-pi-5/
+      - title: Preparation
+        url: /hardware/preparation/
+      - title: Assembly
+        url: /hardware/assembly/
+        children:
+          - title: Distribution
+            url: /hardware/assembly/distribution/
+            children:
+              - title: Bin frame
+                url: /hardware/assembly/distribution/bin-frame/
+                children:
+                  - title: Bottom interface
+                    url: /hardware/assembly/distribution/bin-frame/bottom-interface/
+                  - title: Bottom two layers
+                    url: /hardware/assembly/distribution/bin-frame/bottom-two-layers/
+                  - title: Regular layers
+                    url: /hardware/assembly/distribution/bin-frame/regular-layers/
+              - title: Top interface
+                url: /hardware/assembly/distribution/top-interface/
+              - title: Chute
+                url: /hardware/assembly/distribution/chute/
+                children:
+                  - title: Chute core
+                    url: /hardware/assembly/distribution/chute/chute-core/
+                  - title: Door module
+                    url: /hardware/assembly/distribution/chute/door-module/
+                  - title: MG995 servo
+                    url: /hardware/assembly/distribution/chute/mg995-servo/
+                    children:
+                      - title: Servo mount
+                        url: /hardware/assembly/distribution/chute/mg995-servo/servo-mount/
+                      - title: How to install
+                        url: /hardware/assembly/distribution/chute/mg995-servo/how-to-install/
+                  - title: Funnel
+                    url: /hardware/assembly/distribution/chute/funnel/
+                  - title: PCB
+                    url: /hardware/assembly/distribution/chute/pcb/
+                  - title: Layer connectors
+                    url: /hardware/assembly/distribution/chute/layer-connectors/
+          - title: Feeder
+            url: /hardware/assembly/feeder/
+            children:
+              - title: C-Channel
+                url: /hardware/assembly/feeder/c-channel/
+              - title: Classification chamber
+                url: /hardware/assembly/feeder/classification-chamber/
+              - title: Arranging C-Channels
+                url: /hardware/assembly/feeder/arranging-c-channels/
+          - title: Electronics
+            url: /hardware/assembly/electronics/
+          - title: Software setup
+            url: /hardware/assembly/software-setup/
+      - title: Helpers
+        url: /hardware/helpers/
+        children:
+          - title: Preparing Lazy Susan
+            url: /hardware/helpers/lazy-susan/
+          - title: Preparing pulley gear mod
+            url: /hardware/helpers/pulley-gear-mod/
+          - title: Installing heat inserts
+            url: /hardware/helpers/heat-inserts/
+      - title: Parts
+        url: /hardware/parts/
+        children:
+          - title: Lazy Susan
+            url: /hardware/parts/lazy-susan/
+          - title: Orange Pi 5
+            url: /hardware/orange-pi-5/
 
   - id: sorter
     title: Sorter

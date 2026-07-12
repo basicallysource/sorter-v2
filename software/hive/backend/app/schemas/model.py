@@ -29,6 +29,7 @@ class DetectionModelSummary(BaseModel):
     model_family: str
     scopes: list[str] | None = None
     is_public: bool
+    experimental: bool = False
     published_at: datetime
     updated_at: datetime
     variant_runtimes: list[str] = Field(default_factory=list)
@@ -68,6 +69,7 @@ class DetectionModelCreateRequest(BaseModel):
     scopes: list[str] | None = None
     training_metadata: dict[str, Any] | None = None
     is_public: bool = True
+    experimental: bool = False
 
 
 class DetectionModelCreateResponse(BaseModel):
@@ -84,6 +86,7 @@ class DetectionModelUpdateRequest(BaseModel):
     scopes: list[str] | None = None
     training_metadata: dict[str, Any] | None = None
     is_public: bool | None = None
+    experimental: bool | None = None
     codename: str | None = Field(
         default=None, min_length=1, max_length=40,
         description="Codename override. Must be unique across all models.",

@@ -66,6 +66,12 @@ class FeederStateMachine(BaseSubsystem):
                 FeederState.IDLE: Idle(irl, gc, shared),
                 FeederState.FEEDING: PulsePerceptionFeeding(irl, irl_config, gc, shared, vision),
             }
+        elif self._mode == FeederMode.CONSTANT_MOVEMENT_REV01:
+            from .constant_movement.flow import ConstantMovementFeeding
+            self.states_map = {
+                FeederState.IDLE: Idle(irl, gc, shared),
+                FeederState.FEEDING: ConstantMovementFeeding(irl, irl_config, gc, shared, vision),
+            }
         elif self._mode == FeederMode.BELT_REV01:
             from .belt.flow import BeltFeeding
             self.states_map = {
@@ -79,6 +85,16 @@ class FeederStateMachine(BaseSubsystem):
             self.gc.runtime_stats.observeStateTransition(
                 "feeder", None, self.current_state.value
             )
+
+    def hold_motion(self) -> None:
+        """Stop any continuous feeder motion while the coordinator is not
+        stepping this subsystem (active incident, manual feed mode). Pulse-based
+        flows are inherently stopped between steps, so this is a no-op unless
+        the active state runs motors continuously (constant movement)."""
+        state = self.states_map.get(self.current_state)
+        hold = getattr(state, "hold_motion", None)
+        if hold is not None:
+            hold()
 
     def step(self) -> None:
         self.gc.profiler.hit("feeder.state_machine.step.calls")

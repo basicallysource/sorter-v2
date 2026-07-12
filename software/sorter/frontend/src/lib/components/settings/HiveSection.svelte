@@ -8,7 +8,8 @@
 		DEFAULT_HIVE_URL,
 		defaultHiveTargetName
 	} from '$lib/hive/link-flow';
-	import { Cloud, Link2, Pencil, Plus, RefreshCw, Star, Trash2, Upload } from 'lucide-svelte';
+	import { Cloud, Link2, Pencil, Plus, RefreshCw, Shield, Star, Trash2, Upload } from 'lucide-svelte';
+	import Modal from '$lib/components/Modal.svelte';
 
 	const machine = getMachineContext();
 
@@ -30,6 +31,7 @@
 		api_token_masked: string | null;
 		enabled: boolean;
 		is_primary: boolean;
+		telemetry: Record<string, boolean>;
 		uploader: UploaderStatus;
 	};
 
@@ -49,7 +51,16 @@
 		uploader?: UploaderStatus | null;
 	};
 
+	type TelemetryField = {
+		key: string;
+		label: string;
+		description: string;
+	};
+
 	let config = $state<HiveConfig | null>(null);
+	let telemetryFields = $state<TelemetryField[]>([]);
+	let uploadsTargetId = $state<string | null>(null);
+	let telemetrySaving = $state(false);
 	let loading = $state(true);
 	let statusMsg = $state<string | null>(null);
 	let errorMsg = $state<string | null>(null);
@@ -85,6 +96,15 @@
 	let pairMachineName = $state('');
 
 	const targets = $derived(config?.targets ?? []);
+
+	function normalizeTelemetry(raw: unknown): Record<string, boolean> {
+		if (!raw || typeof raw !== 'object') return {};
+		return Object.fromEntries(
+			Object.entries(raw as Record<string, unknown>).filter(
+				([, value]) => typeof value === 'boolean'
+			)
+		) as Record<string, boolean>;
+	}
 
 	function emptyUploaderStatus(enabled: boolean): UploaderStatus {
 		return {
@@ -131,6 +151,7 @@
 							typeof target.api_token_masked === 'string' ? target.api_token_masked : null,
 						enabled,
 						is_primary: Boolean(target.is_primary),
+						telemetry: normalizeTelemetry(target.telemetry),
 						uploader: {
 							...emptyUploaderStatus(enabled),
 							...(uploaderRaw ?? {})
@@ -178,6 +199,7 @@
 						typeof legacy.api_token_masked === 'string' ? legacy.api_token_masked : null,
 					enabled,
 					is_primary: true,
+					telemetry: {},
 					uploader: {
 						...emptyUploaderStatus(enabled),
 						...(legacy.uploader ?? {})
@@ -221,13 +243,68 @@
 		regMachineDescription = '';
 	}
 
+	function parseTelemetryFields(raw: unknown): TelemetryField[] {
+		const data = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+		if (!Array.isArray(data.telemetry_fields)) return [];
+		return data.telemetry_fields.flatMap((entry) => {
+			if (!entry || typeof entry !== 'object') return [];
+			const field = entry as Record<string, unknown>;
+			if (typeof field.key !== 'string' || typeof field.label !== 'string') return [];
+			return [
+				{
+					key: field.key,
+					label: field.label,
+					description: typeof field.description === 'string' ? field.description : ''
+				}
+			];
+		});
+	}
+
+	function targetAllows(target: HiveTarget, key: string): boolean {
+		return target.telemetry[key] !== false;
+	}
+
+	async function postTelemetry(target: HiveTarget, body: Record<string, unknown>) {
+		telemetrySaving = true;
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/telemetry`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ target_id: target.id, ...body })
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const data = await res.json();
+			const telemetry = normalizeTelemetry(data?.telemetry);
+			if (config) {
+				config = {
+					...config,
+					targets: config.targets.map((t) => (t.id === target.id ? { ...t, telemetry } : t))
+				};
+			}
+		} catch (e: any) {
+			errorMsg = e.message ?? 'Failed to update upload settings.';
+		} finally {
+			telemetrySaving = false;
+		}
+	}
+
+	function handleToggleTelemetry(target: HiveTarget, field: TelemetryField) {
+		void postTelemetry(target, { fields: { [field.key]: !targetAllows(target, field.key) } });
+	}
+
+	function handleResetTelemetry(target: HiveTarget) {
+		void postTelemetry(target, { reset: true });
+	}
+
 	async function loadConfig() {
 		loading = true;
 		errorMsg = null;
 		try {
 			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive`);
 			if (!res.ok) throw new Error(await res.text());
-			config = normalizeConfig(await res.json());
+			const raw = await res.json();
+			config = normalizeConfig(raw);
+			telemetryFields = parseTelemetryFields(raw);
 
 			if (editingTargetId) {
 				resetTargetForm(getTarget(editingTargetId));
@@ -621,6 +698,18 @@
 								</button>
 								<button
 									type="button"
+									onclick={() => {
+										clearMessages();
+										uploadsTargetId = target.id;
+									}}
+									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+									title="Choose what this Sorter uploads to this Hive"
+								>
+									<Shield size={12} />
+									Uploads
+								</button>
+								<button
+									type="button"
 									onclick={() => void handleBackfill(target)}
 									disabled={backfillingTargetId === target.id || !target.enabled}
 									class="inline-flex items-center gap-1.5 border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
@@ -727,13 +816,15 @@
 			</div>
 		{/if}
 
-		{#if editingTargetId}
-			<div class="grid gap-3 border border-border bg-surface px-3 py-3">
-				<div class="text-sm font-medium text-text">
-					{editingTargetId === 'new'
-						? 'Add Hive Target'
-						: `Edit ${getTarget(editingTargetId)?.name ?? 'Hive Target'}`}
-				</div>
+		{#if editingTargetId !== null}
+			<Modal
+				open={true}
+				title={editingTargetId === 'new'
+					? 'Add Hive Target'
+					: `Edit ${getTarget(editingTargetId)?.name ?? 'Hive Target'}`}
+				on:close={closeForms}
+			>
+				<div class="grid gap-3">
 				<input
 					bind:value={targetName}
 					type="text"
@@ -755,11 +846,7 @@
 					class="border border-border bg-bg px-2 py-1.5 font-mono text-sm text-text"
 				/>
 				<label class="flex items-center gap-2 text-xs text-text-muted">
-					<input
-						bind:checked={targetEnabled}
-						type="checkbox"
-						class="h-4 w-4 rounded border-border"
-					/>
+					<input bind:checked={targetEnabled} type="checkbox" class="h-4 w-4 border-border" />
 					Send live samples to this target immediately
 				</label>
 				<div class="flex justify-end gap-2">
@@ -782,6 +869,57 @@
 					</button>
 				</div>
 			</div>
+		</Modal>
+		{/if}
+
+		{#if getTarget(uploadsTargetId)}
+			{@const uploadsTarget = getTarget(uploadsTargetId)!}
+			<Modal
+				open={true}
+				title={`Uploads to ${uploadsTarget.name}`}
+				on:close={() => (uploadsTargetId = null)}
+			>
+				<div class="grid gap-3">
+					<div class="text-sm text-text-muted">
+						Choose what this Sorter is allowed to upload to this Hive. Anything unchecked never
+						leaves the machine. Changes apply immediately, including to uploads already queued.
+					</div>
+					<div class="grid gap-2.5">
+						{#each telemetryFields as field (field.key)}
+							<label class="flex cursor-pointer items-start gap-2.5">
+								<input
+									type="checkbox"
+									checked={targetAllows(uploadsTarget, field.key)}
+									disabled={telemetrySaving}
+									onchange={() => handleToggleTelemetry(uploadsTarget, field)}
+									class="mt-0.5 h-4 w-4 border-border"
+								/>
+								<span class="min-w-0">
+									<span class="text-sm font-medium text-text">{field.label}</span>
+									<span class="block text-sm text-text-muted">{field.description}</span>
+								</span>
+							</label>
+						{/each}
+					</div>
+					<div class="flex items-center justify-between gap-2 border-t border-border pt-3">
+						<button
+							type="button"
+							onclick={() => handleResetTelemetry(uploadsTarget)}
+							disabled={telemetrySaving}
+							class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-50"
+						>
+							Reset to defaults
+						</button>
+						<button
+							type="button"
+							onclick={() => (uploadsTargetId = null)}
+							class="border border-border bg-bg px-3 py-1.5 text-xs text-text transition-colors hover:bg-surface"
+						>
+							Done
+						</button>
+					</div>
+				</div>
+			</Modal>
 		{/if}
 
 		{#if showPairForm}

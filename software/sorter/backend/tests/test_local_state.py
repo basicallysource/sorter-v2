@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from local_state import (
     clear_current_session_bins,
+    drain_legacy_metric_snapshot_tables,
     get_api_keys,
     get_bin_categories,
     get_current_bin_contents_snapshot,
@@ -16,15 +17,17 @@ from local_state import (
     get_classification_polygons,
     get_classification_training_state,
     get_machine_id,
-    get_recent_known_objects,
     get_active_sorting_session,
     get_set_progress_state,
     get_servo_states,
     get_sorting_profile_sync_state,
+    get_bin_snapshot,
+    get_bin_snapshot_pieces,
+    get_current_bin_pieces,
     get_hive_config,
     initialize_local_state,
+    list_bin_snapshots,
     record_piece_distribution,
-    remember_recent_known_object,
     start_new_sorting_session,
 )
 
@@ -152,16 +155,35 @@ class LocalStateMigrationTests(unittest.TestCase):
         self.assertNotIn("hive", cleaned)
         self.assertNotIn("sorting_profile_sync", cleaned)
 
-    def test_recent_known_objects_are_persisted_and_deduplicated(self) -> None:
+    def test_drain_legacy_metric_snapshot_tables_empties_and_drops(self) -> None:
         initialize_local_state()
 
-        remember_recent_known_object({"uuid": "piece-1", "part_id": "3001", "updated_at": 1.0})
-        remember_recent_known_object({"uuid": "piece-2", "part_id": "3002", "updated_at": 2.0})
-        remember_recent_known_object({"uuid": "piece-1", "part_id": "3001", "updated_at": 3.0})
+        import sqlite3
 
-        recent = get_recent_known_objects()
-        self.assertEqual(["piece-1", "piece-2"], [entry["uuid"] for entry in recent])
-        self.assertEqual(3.0, recent[0]["updated_at"])
+        with sqlite3.connect(self.local_state_db_path) as conn:
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS runtime_perf_metric_snapshots ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, run_id TEXT, recorded_at REAL)"
+            )
+            conn.executemany(
+                "INSERT INTO runtime_perf_metric_snapshots(run_id, recorded_at) VALUES(?, ?)",
+                [("run-1", float(i)) for i in range(7)],
+            )
+            conn.commit()
+
+        deleted = drain_legacy_metric_snapshot_tables(batch_size=3, pacing_s=0.0)
+        self.assertEqual(7, deleted["runtime_perf_metric_snapshots"])
+        self.assertEqual(0, deleted["profiler_metric_snapshots"])
+
+        with sqlite3.connect(self.local_state_db_path) as conn:
+            remaining = conn.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table' "
+                "AND name IN ('runtime_perf_metric_snapshots', 'profiler_metric_snapshots')"
+            ).fetchall()
+        self.assertEqual([], remaining)
+
+        deleted_again = drain_legacy_metric_snapshot_tables(batch_size=3, pacing_s=0.0)
+        self.assertEqual(0, sum(deleted_again.values()))
 
     def test_sorting_sessions_persist_current_bin_state_and_recent_pieces(self) -> None:
         initialize_local_state()
@@ -208,6 +230,81 @@ class LocalStateMigrationTests(unittest.TestCase):
         clear_current_session_bins(scope="bin", layer_index=0, section_index=0, bin_index=0)
         cleared = get_current_bin_contents_snapshot()
         self.assertEqual([], cleared["bins"])
+
+    def test_bin_snapshots_accumulate_layers_and_close_on_all_clear(self) -> None:
+        initialize_local_state()
+        start_new_sorting_session(reason="test")
+
+        def _distribute(uuid: str, destination_bin: list[int], distributed_at: float, part_id: str) -> None:
+            record_piece_distribution(
+                {
+                    "uuid": uuid,
+                    "destination_bin": destination_bin,
+                    "distributed_at": distributed_at,
+                    "created_at": distributed_at - 5.0,
+                    "classified_at": distributed_at - 2.0,
+                    "part_id": part_id,
+                    "color_id": "15",
+                    "color_name": "White",
+                    "category_id": "bricks",
+                    "classification_status": "classified",
+                }
+            )
+
+        _distribute("piece-a", [0, 0, 0], 10.0, "3001")
+        _distribute("piece-b", [0, 0, 0], 12.0, "3002")
+        _distribute("piece-c", [0, 1, 2], 14.0, "3003")
+
+        current_pieces = get_current_bin_pieces()
+        self.assertEqual(["piece-a", "piece-b", "piece-c"], [p["piece_uuid"] for p in current_pieces])
+
+        bin_categories = [[[["bricks"], [], []], [[], [], ["plates"]]]]
+        clear_current_session_bins(
+            scope="bin", layer_index=0, section_index=0, bin_index=0, bin_categories=bin_categories
+        )
+
+        snapshots = list_bin_snapshots()
+        self.assertEqual(1, len(snapshots))
+        self.assertEqual("open", snapshots[0]["status"])
+        self.assertEqual(2, snapshots[0]["piece_count"])
+
+        _distribute("piece-d", [0, 0, 0], 16.0, "3004")
+        result = clear_current_session_bins(scope="all", bin_categories=bin_categories)
+        snapshot_id = result["snapshot_id"]
+        self.assertIsNotNone(snapshot_id)
+
+        snapshots = list_bin_snapshots()
+        self.assertEqual(1, len(snapshots))
+        self.assertEqual("closed", snapshots[0]["status"])
+        self.assertEqual(snapshot_id, snapshots[0]["id"])
+        self.assertEqual(4, snapshots[0]["piece_count"])
+        self.assertEqual(3, snapshots[0]["layer_count"])
+        self.assertEqual(2, snapshots[0]["bin_count"])
+
+        detail = get_bin_snapshot(snapshot_id)
+        self.assertEqual(3, len(detail["layers"]))
+        first_layer = detail["layers"][0]
+        self.assertEqual(["bricks"], first_layer["category_ids"])
+        self.assertEqual({"3001", "3002"}, {item["part_id"] for item in first_layer["items"]})
+        second_layer = detail["layers"][1]
+        self.assertEqual(["3004"], [item["part_id"] for item in second_layer["items"]])
+
+        pieces = get_bin_snapshot_pieces(snapshot_id)
+        self.assertEqual(
+            {"piece-a", "piece-b", "piece-c", "piece-d"},
+            {p["piece_uuid"] for p in pieces},
+        )
+        first_piece = next(p for p in pieces if p["piece_uuid"] == "piece-a")
+        self.assertEqual(5.0, first_piece["created_at"])
+        self.assertEqual(8.0, first_piece["classified_at"])
+        self.assertEqual(10.0, first_piece["distributed_at"])
+        self.assertIn("profile_id", first_piece)
+        self.assertIn("profile_name", first_piece)
+
+        self.assertEqual([], get_current_bin_pieces())
+
+        clear_current_session_bins(scope="all")
+        self.assertEqual(1, len(list_bin_snapshots()))
 
     def test_connection_context_closes_sqlite_connections(self) -> None:
         class FakeConnection:

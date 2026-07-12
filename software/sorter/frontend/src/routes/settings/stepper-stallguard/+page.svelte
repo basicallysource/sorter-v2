@@ -284,6 +284,8 @@
 	});
 </script>
 
+<svelte:head><title>Sorter - StallGuard</title></svelte:head>
+
 <svelte:window onkeydown={onKeydown} />
 
 <div class="flex flex-col gap-6 p-6">

@@ -10,6 +10,10 @@ from defs.known_object import (
 )
 
 from .simple_state_machine_rev01.base import Rev01BaseState
+from .simple_state_machine_rev01.channel_clear import (
+    ChannelClearResult,
+    clearChannelByAdvancing,
+)
 from .simple_state_machine_rev01.constants import C4_TRAVEL_SIGN
 from .simple_state_machine_rev01.context import SimpleStateMachineRev01Context
 
@@ -50,6 +54,11 @@ _STAGE_STEP_DEG = 25.0
 _EJECT_TIMEOUT_S = 15.0
 _STAGE_TIMEOUT_S = 15.0
 
+# Stall-watchdog progress signal: a tracked piece's gap-to-exit must change by
+# more than this (output deg) to count as the piece actually moving. Well above
+# per-frame detection jitter on a stationary piece, well below any real nudge.
+_PROGRESS_MOVE_DEG = 5.0
+
 
 class _Phase(Enum):
     # Platter STOPPED. Observe, photograph the drop-zone piece, classify, and aim
@@ -73,6 +82,9 @@ class _TrackedPiece:
         self.zone = _ZONE_NONE
         self.bbox: tuple[int, int, int, int] = (0, 0, 0, 0)
         self.gap_to_exit: Optional[float] = None
+        # Gap at the last time this piece was credited with real movement (the
+        # stall watchdog's "has it moved substantially" reference point).
+        self.progress_gap: Optional[float] = None
         self.created_at = now
         self.last_seen = now
         # Burst capture (drop zone only) has finished -> safe to rotate the piece
@@ -151,6 +163,13 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._eject_target: Optional[_TrackedPiece] = None
         self._stage_target: Optional[_TrackedPiece] = None
         self._phase_started_at = 0.0
+        # Stall-watchdog progress signal (read by ClassificationChannelStateMachine):
+        # last time the flow demonstrably moved forward — a real piece leaving
+        # the channel, substantial piece movement, or a capture/classify/place
+        # milestone. Deliberately NOT credited: phase changes (timeout ping-pong),
+        # new track ids appearing, churn tracks retiring, and motor moves whose
+        # piece never moved — those are exactly the wedges the watchdog must catch.
+        self.last_progress_at = time.monotonic()
         # Multi-feed debounce: consecutive distinct frames showing >1 drop-zone id.
         self._multi_drop_streak = 0
         self._multi_drop_last_ts = -1.0
@@ -158,6 +177,54 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._multi_drop_seq = 0
         self.ctx.reset()
         self.ctx.known_object = None
+
+    # ------------------------------------------------------------- watchdog API
+
+    def noteProgress(self) -> None:
+        self.last_progress_at = time.monotonic()
+
+    def phaseName(self) -> str:
+        return self._phase.value
+
+    def attemptStallAutoClear(self, *, max_output_deg: float) -> ChannelClearResult:
+        """Forced recovery for a wedged channel: rotate forward (occupancy-checked,
+        blocking) until perception sees the channel empty or the budget runs out.
+        A placed head is committed to distribution first — the chute is already
+        aimed for it, so the forced rotation drops it exactly where the normal
+        eject would have. Everything else on the channel falls wherever the chute
+        happens to point; their in-flight objects are abandoned."""
+        placed = next((tp for tp in self._pieces.values() if tp.placed), None)
+        if placed is not None:
+            obj = placed.known_object
+            if obj is not None and obj.stage == PieceStage.distributing:
+                self.transport.advanceTransport()
+                self.logger.info(
+                    f"{LOG_TAG} stall auto-clear: committed placed head "
+                    f"track={placed.track_id} to distribution"
+                )
+        result = clearChannelByAdvancing(
+            self.gc,
+            self.irl,
+            self.irl_config,
+            vision=self.cv._vision,
+            max_output_deg=max_output_deg,
+            label=LOG_TAG,
+        )
+        if result.cleared:
+            for tp in self._pieces.values():
+                try:
+                    tp.worker.abandonInFlightObject(
+                        "stall auto-clear forced the piece off the channel"
+                    )
+                except Exception:
+                    pass
+            self._pieces = {}
+            self._eject_target = None
+            self._stage_target = None
+            self._multi_drop_streak = 0
+            self._multi_drop_last_ts = -1.0
+            self._enterPhase(_Phase.WAITING)
+        return result
 
     # ------------------------------------------------------------------ main
 
@@ -210,6 +277,14 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             tp.bbox = (int(b[0]), int(b[1]), int(b[2]), int(b[3]))
             tp.gap_to_exit = po.com_forward_to_exit_deg
             tp.last_seen = now
+            # Watchdog progress: the piece physically moved a substantial amount.
+            if tp.gap_to_exit is not None:
+                gap = float(tp.gap_to_exit)
+                if tp.progress_gap is None:
+                    tp.progress_gap = gap
+                elif abs(gap - tp.progress_gap) > _PROGRESS_MOVE_DEG:
+                    tp.progress_gap = gap
+                    self.noteProgress()
 
         self._retireGonePieces(now)
         self._flagDoubleFeeds(state)
@@ -250,6 +325,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             # (photographed but never classified/distributed) is dropped from the
             # UI — e.g. a stray that fell off before it could be processed.
             tp.worker.abandonInFlightObject("track id gone (left channel)")
+            # Watchdog progress: a REAL piece (one that became a UI object) left
+            # the channel. Churn tracks (no KnownObject) get no credit, so id
+            # flapping can't mask a wedge.
+            if tp.known_object is not None:
+                self.noteProgress()
             self.logger.info(f"{LOG_TAG} retired piece track={tid}")
 
     def _flagDoubleFeeds(self, state) -> None:
@@ -284,6 +364,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         tp.multi_drop_group = group
         tp.capture_done = True
         tp.result_applied = True
+        self.noteProgress()
         self._ensureKnownObject(tp)
         obj = tp.known_object
         if obj is not None:
@@ -336,6 +417,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             done, reason = tp.worker.burstCaptureComplete(ctx, now)
             if done:
                 tp.capture_done = True
+                self.noteProgress()
                 ctx.classify_started_at = now
                 caps = list(ctx.captured_crops)
                 if caps:
@@ -360,10 +442,12 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             if result is not None or error is not None:
                 tp.worker.updateKnownObjectWithResult(result, error)
                 tp.result_applied = True
+                self.noteProgress()
             elif (now - ctx.classify_started_at) > ctx.config.classify_timeout_s:
                 self.logger.error(f"{LOG_TAG} classify timeout track={tp.track_id} -> unknown")
                 tp.worker.updateKnownObjectWithResult(None, "timeout")
                 tp.result_applied = True
+                self.noteProgress()
 
     def _aimChuteForHead(self, now: float) -> None:
         # Hand the head to distribution so the chute aims while the next piece is
@@ -402,6 +486,7 @@ class TwoPieceClassificationChannel(Rev01BaseState):
             obj.classification_status = ClassificationStatus.unknown
         self.transport.placePieceForDistribution(obj)
         tp.placed = True
+        self.noteProgress()
         self.logger.info(
             f"{LOG_TAG} aiming chute for head track={tp.track_id} "
             f"(status={obj.classification_status})"
@@ -516,6 +601,11 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         )
 
     def _enterPhase(self, phase: _Phase) -> None:
+        # Deliberately NOT a watchdog progress credit: the eject/stage timeouts
+        # re-enter phases every _*_TIMEOUT_S, so a wedged piece would ping-pong
+        # STAGING <-> WAITING forever and never trip the stall incident. Real
+        # progress is credited where pieces demonstrably move or complete a
+        # milestone instead.
         self._phase = phase
         self._phase_started_at = time.monotonic()
 
@@ -567,5 +657,8 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         self._stage_target = None
         self._multi_drop_streak = 0
         self._multi_drop_last_ts = -1.0
+        # Fresh watchdog window on the next start — a pause must not count
+        # toward "stalled".
+        self.last_progress_at = time.monotonic()
         self.ctx.reset()
         self.ctx.known_object = None

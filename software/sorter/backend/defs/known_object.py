@@ -18,6 +18,10 @@ class ClassificationStatus(str, Enum):
     unknown = "unknown"
     not_found = "not_found"
     multi_drop_fail = "multi_drop_fail"
+    # The identification request itself failed (Brickognize timeout / DNS /
+    # connection error) — distinct from not_found (service answered, no match)
+    # and unknown (local pipeline never produced a result to send).
+    failed = "failed"
 
 
 class ClassificationAttemptStrategy(str, Enum):

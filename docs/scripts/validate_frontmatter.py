@@ -38,7 +38,7 @@ ALLOWED_TYPES = (
 )
 
 EXCLUDED_DIRS = {"_site", "vendor", ".bundle", "scripts", "_includes", "_layouts", "_data", "assets"}
-EXCLUDED_FILES = {"README.md", "ux-concept-sorting-profiles.md"}
+EXCLUDED_FILES = {"README.md", "AGENTS.md", "ux-concept-sorting-profiles.md"}
 
 FRONT_MATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 

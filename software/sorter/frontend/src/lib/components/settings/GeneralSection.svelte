@@ -62,12 +62,12 @@
 	let machineSetupError = $state<string | null>(null);
 	let machineSetupStatus = $state('');
 
-	let classificationMode = $state('simple_state_machine_rev01');
+	let classificationMode = $state('two_piece_state_machine_rev01');
 	let savingClassificationMode = $state(false);
 	let classificationModeError = $state<string | null>(null);
 	let classificationModeStatus = $state('');
 
-	let feederMode = $state('go_to_angle_rev01');
+	let feederMode = $state('pulse_perception_rev01');
 	let savingFeederMode = $state(false);
 	let feederModeError = $state<string | null>(null);
 	let feederModeStatus = $state('');
@@ -142,6 +142,7 @@
 		const labels: Record<string, string> = {
 			go_to_angle_rev01: 'Go to Angle',
 			pulse_perception_rev01: 'Simple Pulse',
+			constant_movement_rev01: 'Constant Movement',
 			drop_zone_reactive_rev01: 'Drop Zone Reactive'
 		};
 		return labels[mode] ?? mode;
@@ -442,7 +443,7 @@
 									}`}
 								>
 									{classificationModeLabel(mode)}
-									{#if mode === 'simple_state_machine_rev01'}
+									{#if mode === 'two_piece_state_machine_rev01'}
 										<span
 											class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-xs font-medium tracking-wider text-primary uppercase"
 										>
@@ -462,7 +463,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['go_to_angle_rev01', 'pulse_perception_rev01'] as mode}
+							{#each ['go_to_angle_rev01', 'pulse_perception_rev01', 'constant_movement_rev01'] as mode}
 								<button
 									onclick={() => saveFeederMode(mode)}
 									disabled={savingFeederMode}
@@ -473,7 +474,7 @@
 									}`}
 								>
 									{feederModeLabel(mode)}
-									{#if mode === 'go_to_angle_rev01'}
+									{#if mode === 'pulse_perception_rev01'}
 										<span
 											class="border border-primary/40 bg-primary/10 px-1.5 py-0.5 text-xs font-medium tracking-wider text-primary uppercase"
 										>

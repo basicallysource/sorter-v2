@@ -20,6 +20,8 @@ from toml_config import (
     setPulsePerceptionConfig,
     getBeltFeederConfig,
     setBeltFeederConfig,
+    getConstantMovementConfig,
+    setConstantMovementConfig,
     getUpstreamMatchConfig,
     setUpstreamMatchConfig,
 )
@@ -27,6 +29,7 @@ from subsystems.classification_channel.simple_state_machine_rev01.rev01_config i
 from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
 from subsystems.feeder.belt.config import FIELD_META as BELT_FEEDER_FIELD_META
+from subsystems.feeder.constant_movement.config import FIELD_META as CONSTANT_MOVEMENT_FIELD_META
 from perception.tracker_config import TRACKER_SPECS
 from perception.upstream_capture import (
     EMBED_MODEL,
@@ -116,6 +119,23 @@ def get_belt_feeder_status() -> dict[str, Any]:
     if not isinstance(status, dict):
         return {"available": False, "status": None}
     return {"available": True, "status": dict(status)}
+
+
+@router.get("/api/tuning/feeder-constant-movement")
+def get_constant_movement_config() -> dict[str, Any]:
+    return {
+        "config": getConstantMovementConfig(),
+        "fields": CONSTANT_MOVEMENT_FIELD_META,
+    }
+
+
+@router.post("/api/tuning/feeder-constant-movement")
+def set_constant_movement_config(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        updated = setConstantMovementConfig(body)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"config": updated}
 
 
 @router.get("/api/tuning/object-tracker")

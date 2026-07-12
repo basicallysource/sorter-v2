@@ -1129,10 +1129,16 @@
 						has_cls_top,
 						has_cls_bottom
 					)}
-					<div class="flex min-w-0 gap-3 max-lg:h-[30vh] lg:min-h-0 lg:flex-1">
+					{@const stacked = machineSetup === 'belt_feeder'}
+					<!-- B1 belt topology has no C2 channel — only C3 + C4 remain, and two
+					     streams read better stacked than side by side. -->
+					<div
+						class="flex min-w-0 gap-3 lg:min-h-0 lg:flex-1 {stacked
+							? 'flex-col max-lg:h-[60vh]'
+							: 'max-lg:h-[30vh]'}"
+					>
 						<div class="contents">
-							{#if machineSetup !== 'belt_feeder'}
-								<!-- B1 belt topology has no C2 channel — the dashboard shows C3 + C4 only. -->
+							{#if !stacked}
 								<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
 									<CameraFeed
 										camera="c_channel_2"
@@ -1142,7 +1148,7 @@
 									/>
 								</div>
 							{/if}
-							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
+							<div class="min-h-0 min-w-0 flex-1 {stacked ? '' : 'max-lg:aspect-video lg:aspect-auto'}">
 								<CameraFeed
 									camera="c_channel_3"
 									label={cameraLabel('c_channel_3')}
@@ -1152,7 +1158,7 @@
 							</div>
 						</div>
 						<div class="contents">
-							<div class="min-w-0 flex-1 max-lg:aspect-video lg:aspect-auto">
+							<div class="min-h-0 min-w-0 flex-1 {stacked ? '' : 'max-lg:aspect-video lg:aspect-auto'}">
 								<CameraFeed
 									camera={c4CameraRole}
 									label={cameraLabel(c4CameraRole)}

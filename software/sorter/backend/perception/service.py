@@ -82,6 +82,36 @@ _DEFAULT_CONF_THRESHOLDS: dict[int, float] = {
 }
 
 
+def _conf_thresholds_from_toml() -> dict[int, float]:
+    """Per-channel detector confidence overrides from machine TOML:
+
+    [perception.conf_thresholds]
+    4 = 0.25
+
+    A too-low threshold on an empty channel makes the detector flicker on
+    platter texture, which the C4 state machine then chases as a phantom
+    piece (capture cycle -> MOVING_TO_PRECISE timeout loop)."""
+    try:
+        from toml_config import _read_toml
+
+        section = _read_toml().get("perception")
+        raw = section.get("conf_thresholds") if isinstance(section, dict) else None
+        if not isinstance(raw, dict):
+            return {}
+        result: dict[int, float] = {}
+        for key, value in raw.items():
+            try:
+                channel = int(key)
+                conf = float(value)
+            except (TypeError, ValueError):
+                continue
+            if 0.0 < conf <= 1.0:
+                result[channel] = conf
+        return result
+    except Exception:
+        return {}
+
+
 class PerceptionService:
     """Owns the perception workers, slots, and channel defs.
 
@@ -839,6 +869,7 @@ def build(
     permanently strands a slow camera anymore.
     """
     resolved_conf: Dict[int, float] = dict(_DEFAULT_CONF_THRESHOLDS)
+    resolved_conf.update(_conf_thresholds_from_toml())
     if conf_thresholds:
         resolved_conf.update(conf_thresholds)
     ctx = _ReconcileContext(

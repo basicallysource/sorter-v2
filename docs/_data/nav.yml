@@ -19,6 +19,8 @@ sections:
     pages:
       - title: Overview
         url: /hardware/
+      - title: Preparation
+        url: /hardware/preparation/
       - title: Assembly
         url: /hardware/assembly/
         children:
@@ -47,8 +49,6 @@ sections:
             url: /hardware/assembly/electronics/
           - title: Software setup
             url: /hardware/assembly/software-setup/
-      - title: Preparation
-        url: /hardware/preparation/
       - title: Helpers
         url: /hardware/helpers/
         children:

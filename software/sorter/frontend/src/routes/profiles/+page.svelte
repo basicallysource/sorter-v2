@@ -4,16 +4,19 @@
 	import ProfileApplyModal from '$lib/components/profiles/ProfileApplyModal.svelte';
 	import BsxSection from '$lib/components/profiles/BsxSection.svelte';
 	import ProfileCard from '$lib/components/profiles/ProfileCard.svelte';
+	import ProfileCardSkeleton from '$lib/components/profiles/ProfileCardSkeleton.svelte';
 	import ProfileDetailsModal from '$lib/components/profiles/ProfileDetailsModal.svelte';
 	import ProfilePagination from '$lib/components/profiles/ProfilePagination.svelte';
-	import Spinner from '$lib/components/Spinner.svelte';
+	import Skeleton from '$lib/components/primitives/Skeleton.svelte';
 	import StatusBanner from '$lib/components/StatusBanner.svelte';
 	import { getMachinesContext } from '$lib/machines/context';
 	import {
 		applyLocalProfile,
 		applyProfile,
 		deleteLocalProfile,
-		fetchLibrary,
+		fetchLocalLibrary,
+		fetchLocalProfileMeta,
+		fetchTargetLibrary,
 		fetchProfileDetail,
 		reloadRuntimeProfile as callReloadRuntime,
 		uploadLocalProfile,
@@ -36,11 +39,11 @@
 	const manager = getMachinesContext();
 	const PROFILE_PAGE_SIZE_OPTIONS = [12, 24, 48] as const;
 
-	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let success = $state<string | null>(null);
 	let warning = $state<string | null>(null);
 	let library = $state<SortingProfileLibraryResponse | null>(null);
+	let targetLoading = $state<Record<string, boolean>>({});
 	let detailCache = $state<Record<string, SortingProfileDetail>>({});
 	let detailErrors = $state<Record<string, string>>({});
 	let selectedVersionIds = $state<Record<string, string>>({});
@@ -85,16 +88,115 @@
 		return `${targetId}:${profileId}:${versionId}`;
 	}
 
-	async function loadLibrary() {
-		loading = true;
+	// Tier 1 — fast local read: target metadata, active sync state, and local
+	// profile filenames. No Hive network and no multi-MB parse, so this returns
+	// in milliseconds and the page can skeleton everything at once. Local
+	// profile counts/names arrive later via loadLocalMetas().
+	async function loadLocal() {
 		error = null;
 		try {
-			library = await fetchLibrary(baseUrl());
+			const local = await fetchLocalLibrary(baseUrl());
+			// Merge into existing state so a background refresh doesn't wipe
+			// already-loaded target profiles or local-profile metadata.
+			const prevTargets = new Map((library?.targets ?? []).map((t) => [t.id, t]));
+			const prevLocals = new Map((library?.local_profiles ?? []).map((p) => [p.filename, p]));
+			library = {
+				...local,
+				targets: local.targets.map((meta) => {
+					const existing = prevTargets.get(meta.id);
+					return existing && existing.profiles.length > 0
+						? {
+								...meta,
+								profiles: existing.profiles,
+								assignment: existing.assignment,
+								error: existing.error
+							}
+						: meta;
+				}),
+				local_profiles: local.local_profiles.map((lp) => {
+					const prev = prevLocals.get(lp.filename);
+					// Keep loaded counts/name if the file is unchanged (same mtime).
+					return prev && prev.rule_count != null && prev.updated_at === lp.updated_at
+						? {
+								...lp,
+								name: prev.name,
+								description: prev.description,
+								profile_type: prev.profile_type,
+								rule_count: prev.rule_count,
+								category_count: prev.category_count,
+								part_count: prev.part_count,
+								artifact_hash: prev.artifact_hash
+							}
+						: lp;
+				})
+			};
+			void loadLocalMetas();
 		} catch (e: unknown) {
 			error = e instanceof Error ? e.message : 'Failed to load sorting profile library';
-		} finally {
-			loading = false;
 		}
+	}
+
+	// Tier 1b — fill in local profile names/counts, one cheap (cached) request
+	// per file that still lacks them. Runs in parallel; cards show a placeholder
+	// until their meta lands.
+	async function loadLocalMetas() {
+		if (!library) return;
+		const pending = library.local_profiles.filter((p) => p.rule_count == null && !p.error);
+		await Promise.all(
+			pending.map(async (profile) => {
+				try {
+					const meta = await fetchLocalProfileMeta(baseUrl(), profile.filename);
+					if (!library) return;
+					library = {
+						...library,
+						local_profiles: library.local_profiles.map((p) =>
+							p.filename === profile.filename ? { ...p, ...meta } : p
+						)
+					};
+				} catch {
+					// Leave as-is; the card falls back to the filename.
+				}
+			})
+		);
+	}
+
+	// Tier 2 — one target's Hive profiles. Called per enabled target in
+	// parallel; updates just that target's slice as it resolves.
+	async function loadTarget(targetId: string) {
+		targetLoading = { ...targetLoading, [targetId]: true };
+		try {
+			const result = await fetchTargetLibrary(baseUrl(), targetId);
+			if (library) {
+				library = {
+					...library,
+					targets: library.targets.map((t) => (t.id === targetId ? { ...t, ...result } : t))
+				};
+			}
+		} catch (e: unknown) {
+			const message = e instanceof Error ? e.message : 'Failed to load profiles';
+			if (library) {
+				library = {
+					...library,
+					targets: library.targets.map((t) => (t.id === targetId ? { ...t, error: message } : t))
+				};
+			}
+		} finally {
+			const { [targetId]: _ignore, ...rest } = targetLoading;
+			targetLoading = rest;
+		}
+	}
+
+	function loadAllTargets() {
+		if (!library) return;
+		for (const target of library.targets) {
+			if (target.enabled) void loadTarget(target.id);
+		}
+	}
+
+	// Full refresh: fast local first, then fan out the Hive fetches.
+	async function loadLibrary() {
+		await loadLocal();
+		loadAllTargets();
 	}
 
 	async function loadProfileDetail(
@@ -342,14 +444,15 @@
 	}
 
 	function searchableProfileText(profile: SortingProfileSummary): string {
-		const ruleBits = (profile.latest_published_version ?? profile.latest_version)?.rules_summary
-			?.filter((rule) => !rule.disabled)
-			.flatMap((rule) => [
-				rule.name,
-				rule.set_num,
-				rule.set_meta?.name,
-				rule.set_meta?.year != null ? String(rule.set_meta.year) : null
-			]) ?? [];
+		const ruleBits =
+			(profile.latest_published_version ?? profile.latest_version)?.rules_summary
+				?.filter((rule) => !rule.disabled)
+				.flatMap((rule) => [
+					rule.name,
+					rule.set_num,
+					rule.set_meta?.name,
+					rule.set_meta?.year != null ? String(rule.set_meta.year) : null
+				]) ?? [];
 		const owner = profile.owner;
 		return [
 			profile.name,
@@ -431,6 +534,17 @@
 		return library.targets.filter((target) => Boolean(target.error));
 	}
 
+	// True while any enabled target's Hive fetch is still in flight — drives the
+	// skeleton cards. Suppressed during search so placeholders don't masquerade
+	// as unfiltered results.
+	function showTargetSkeletons(): boolean {
+		return Object.keys(targetLoading).length > 0 && !normalizedSearchQuery();
+	}
+
+	function skeletonCardCount(): number {
+		return filteredProfileEntries().length > 0 ? 3 : 6;
+	}
+
 	function selectedVersionIdFor(targetId: string, profileId: string): string | null {
 		return selectedVersionIds[detailKey(targetId, profileId)] ?? null;
 	}
@@ -451,7 +565,7 @@
 
 	function activeDetailsModalSummary(): SortingProfileDetail | null {
 		const key = activeDetailsModalKey();
-		return key ? detailCache[key] ?? null : null;
+		return key ? (detailCache[key] ?? null) : null;
 	}
 
 	function activeDetailsModalDetail(): SortingProfileDetail | null {
@@ -476,7 +590,7 @@
 			return versionDetailErrors[versionKey];
 		}
 		const key = activeDetailsModalKey();
-		return key ? detailErrors[key] ?? null : null;
+		return key ? (detailErrors[key] ?? null) : null;
 	}
 
 	function activeDetailsModalLoading(): boolean {
@@ -529,19 +643,17 @@
 		await handleVersionSelection(target, profile, versionId);
 	}
 
-	/** Auto-load profile detail for the currently visible cards. */
-	async function autoLoadVisibleDetails() {
+	/** Auto-load profile detail for the currently visible cards, in parallel. */
+	function autoLoadVisibleDetails() {
 		if (!library) return;
 		for (const entry of paginatedProfileEntries()) {
 			const target = entry.target;
 			const profile = entry.profile;
 			const key = detailKey(target.id, profile.id);
 			if (!detailCache[key] && !detailErrors[key] && !loadingDetailKeys[key]) {
-				try {
-					await loadProfileDetail(target.id, profile);
-				} catch {
-					// Silently ignore — user can retry manually
-				}
+				// Fire-and-forget; each card shows its own loading state until
+				// its detail lands. Errors are surfaced per-card via detailErrors.
+				void loadProfileDetail(target.id, profile);
 			}
 		}
 	}
@@ -550,6 +662,8 @@
 		const currentUrl = manager.selectedMachine?.url ?? '';
 		if (currentUrl === lastMachineUrl) return;
 		lastMachineUrl = currentUrl;
+		library = null;
+		targetLoading = {};
 		detailCache = {};
 		detailErrors = {};
 		selectedVersionIds = {};
@@ -567,14 +681,21 @@
 	// Auto-load versions whenever the visible card set changes.
 	$effect(() => {
 		if (library && library.targets.length > 0) {
-			void autoLoadVisibleDetails();
+			autoLoadVisibleDetails();
 		}
 	});
 
 	onMount(() => {
 		void loadLibrary();
-		const interval = setInterval(() => void loadLibrary(), 10000);
-		return () => clearInterval(interval);
+		// Poll the cheap local tier often (active-profile + local-profile
+		// changes); refresh the expensive Hive tier on a slower cadence to
+		// spare the CPU-bound backend.
+		const localPoll = setInterval(() => void loadLocal(), 10000);
+		const hivePoll = setInterval(() => loadAllTargets(), 60000);
+		return () => {
+			clearInterval(localPoll);
+			clearInterval(hivePoll);
+		};
 	});
 </script>
 
@@ -587,7 +708,7 @@
 	<div class="p-4 sm:p-6">
 		<div class="mb-4 flex flex-wrap items-center justify-between gap-3">
 			<h2 class="text-xl font-bold text-text">Sorting Profiles</h2>
-			<div class="flex min-w-[24rem] max-w-[36rem] flex-1 items-center justify-end gap-2">
+			<div class="flex max-w-[36rem] min-w-[24rem] flex-1 items-center justify-end gap-2">
 				<input
 					id="profile-search"
 					type="search"
@@ -622,106 +743,118 @@
 			onchange={handleUploadFile}
 		/>
 
-		{#if library}
-			<div class="mb-6">
-				<BsxSection baseUrl={baseUrl()} />
+		<div class="mb-6">
+			<BsxSection baseUrl={baseUrl()} />
+		</div>
+		<div class="mb-6">
+			<div class="mb-3 flex items-center justify-between gap-3">
+				<h3 class="text-sm font-semibold tracking-wider text-text-muted uppercase">
+					Local profiles
+				</h3>
+				<button
+					type="button"
+					onclick={() => fileInput?.click()}
+					disabled={uploading}
+					class="flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+				>
+					<Upload size={14} />
+					{uploading ? 'Uploading…' : 'Upload JSON'}
+				</button>
 			</div>
-			<div class="mb-6">
-				<div class="mb-3 flex items-center justify-between gap-3">
-					<h3 class="text-sm font-semibold uppercase tracking-wider text-text-muted">
-						Local profiles
-					</h3>
-					<button
-						type="button"
-						onclick={() => fileInput?.click()}
-						disabled={uploading}
-						class="flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
-					>
-						<Upload size={14} />
-						{uploading ? 'Uploading…' : 'Upload JSON'}
-					</button>
-				</div>
 
-				{#if localProfiles().length === 0}
-					<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
-						No local profiles saved yet. Upload a profile JSON to keep it on this machine.
-					</div>
-				{:else}
-					<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-						{#each localProfiles() as profile}
-							<div
-								class="setup-card-shell flex h-full flex-col overflow-hidden border transition-colors {profile.is_active
-									? 'border-success ring-1 ring-success/20'
-									: 'border-border hover:border-text-muted'}"
-							>
-								<div class="setup-card-header px-3 py-2 text-sm">
-									<div class="flex items-start justify-between gap-3">
-										<div class="min-w-0 flex-1">
-											<div class="truncate text-sm font-semibold text-text">
-												{profile.name || profile.filename}
-											</div>
-											<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
-												<span class="font-mono">local:{profile.filename}</span>
-												{#if profile.is_active}
-													<span
-														class="border border-success/30 bg-success/10 px-1.5 py-0.5 font-medium uppercase tracking-wide text-success"
-														>Active</span
-													>
-												{/if}
-											</div>
+			{#if library == null}
+				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+					{#each Array(2) as _}
+						<ProfileCardSkeleton />
+					{/each}
+				</div>
+			{:else if localProfiles().length === 0}
+				<div class="border border-border bg-surface px-4 py-6 text-center text-sm text-text-muted">
+					No local profiles saved yet. Upload a profile JSON to keep it on this machine.
+				</div>
+			{:else}
+				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+					{#each localProfiles() as profile}
+						<div
+							class="setup-card-shell flex h-full flex-col overflow-hidden border transition-colors {profile.is_active
+								? 'border-success ring-1 ring-success/20'
+								: 'border-border hover:border-text-muted'}"
+						>
+							<div class="setup-card-header px-3 py-2 text-sm">
+								<div class="flex items-start justify-between gap-3">
+									<div class="min-w-0 flex-1">
+										<div class="truncate text-sm font-semibold text-text">
+											{profile.name || profile.filename}
 										</div>
-										<div class="flex shrink-0 items-center gap-2">
-											<button
-												type="button"
-												onclick={() => requestApplyLocal(profile)}
-												disabled={localApplyingFilename === profile.filename || Boolean(profile.error)}
-												class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
-											>
-												{localApplyingFilename === profile.filename ? 'Activating…' : 'activate'}
-											</button>
-											<button
-												type="button"
-												onclick={() => {
-													pendingDelete = profile;
-													localDeleteOpen = true;
-												}}
-												disabled={deletingFilename === profile.filename}
-												title="Delete local profile"
-												class="border border-border bg-white p-2 text-text-muted transition-colors hover:bg-bg hover:text-danger disabled:opacity-50"
-											>
-												<Trash2 size={16} />
-											</button>
+										<div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+											<span class="font-mono">local:{profile.filename}</span>
+											{#if profile.is_active}
+												<span
+													class="border border-success/30 bg-success/10 px-1.5 py-0.5 font-medium tracking-wide text-success uppercase"
+													>Active</span
+												>
+											{/if}
 										</div>
 									</div>
-								</div>
-								<div class="setup-card-body border-t border-border px-4 py-3 text-xs text-text-muted">
-									{#if profile.error}
-										<span class="text-amber-700 dark:text-amber-300">Unreadable: {profile.error}</span>
-									{:else}
-										<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
-											{#if profile.rule_count != null}<span>{profile.rule_count} rules</span>{/if}
-											{#if profile.category_count != null}
-												<span aria-hidden="true">·</span>
-												<span>{profile.category_count} categories</span>
-											{/if}
-											{#if profile.profile_type}
-												<span aria-hidden="true">·</span>
-												<span>{profile.profile_type}</span>
-											{/if}
-										</div>
-									{/if}
+									<div class="flex shrink-0 items-center gap-2">
+										<button
+											type="button"
+											onclick={() => requestApplyLocal(profile)}
+											disabled={localApplyingFilename === profile.filename ||
+												Boolean(profile.error)}
+											class="border border-border bg-white px-3 py-2 text-sm text-text transition-colors hover:bg-bg disabled:opacity-50"
+										>
+											{localApplyingFilename === profile.filename ? 'Activating…' : 'activate'}
+										</button>
+										<button
+											type="button"
+											onclick={() => {
+												pendingDelete = profile;
+												localDeleteOpen = true;
+											}}
+											disabled={deletingFilename === profile.filename}
+											title="Delete local profile"
+											class="border border-border bg-white p-2 text-text-muted transition-colors hover:bg-bg hover:text-danger disabled:opacity-50"
+										>
+											<Trash2 size={16} />
+										</button>
+									</div>
 								</div>
 							</div>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		{/if}
+							<div class="setup-card-body border-t border-border px-4 py-3 text-xs text-text-muted">
+								{#if profile.error}
+									<span class="text-amber-700 dark:text-amber-300">Unreadable: {profile.error}</span
+									>
+								{:else if profile.rule_count == null}
+									<Skeleton class="h-3.5 w-32" />
+								{:else}
+									<div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+										{#if profile.rule_count != null}<span>{profile.rule_count} rules</span>{/if}
+										{#if profile.category_count != null}
+											<span aria-hidden="true">·</span>
+											<span>{profile.category_count} categories</span>
+										{/if}
+										{#if profile.profile_type}
+											<span aria-hidden="true">·</span>
+											<span>{profile.profile_type}</span>
+										{/if}
+									</div>
+								{/if}
+							</div>
+						</div>
+					{/each}
+				</div>
+			{/if}
+		</div>
 
-		{#if loading && !library}
-			<Spinner />
-		{:else if !library}
-			<p class="text-text-muted">No sorting profile data available.</p>
+		{#if library == null}
+			{#if !error}
+				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+					{#each Array(6) as _}
+						<ProfileCardSkeleton />
+					{/each}
+				</div>
+			{/if}
 		{:else if library.targets.length === 0}
 			<p class="text-sm text-text-muted">
 				No Hive targets are configured on this machine right now.
@@ -749,7 +882,7 @@
 				</div>
 			{/if}
 
-			{#if filteredProfileEntries().length > 0}
+			{#if filteredProfileEntries().length > 0 || showTargetSkeletons()}
 				<div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
 					{#each paginatedProfileEntries() as entry}
 						{@const key = detailKey(entry.target.id, entry.profile.id)}
@@ -760,9 +893,9 @@
 							detailError={detailErrors[key]}
 							syncState={library.sync_state}
 							selectedVersionId={selectedVersionIds[key] ?? null}
-							applyingKey={applyingKey}
+							{applyingKey}
 							cardKey={key}
-							openVersionMenuKey={openVersionMenuKey}
+							{openVersionMenuKey}
 							onOpenDetails={() => void openProfileDetails(entry.target, entry.profile)}
 							onApply={() => void requestApplyProfile(entry.target, entry.profile)}
 							onApplyVersion={(versionId) =>
@@ -770,23 +903,30 @@
 							onToggleVersionMenu={() => toggleVersionMenu(key)}
 						/>
 					{/each}
+					{#if showTargetSkeletons()}
+						{#each Array(skeletonCardCount()) as _}
+							<ProfileCardSkeleton />
+						{/each}
+					{/if}
 				</div>
 
-				<ProfilePagination
-					pageSize={pageSize}
-					pageSizeOptions={PROFILE_PAGE_SIZE_OPTIONS}
-					currentPage={currentListPage()}
-					totalPages={totalPages()}
-					summary={paginationSummary()}
-					visiblePageNumbers={visiblePageNumbers()}
-					onPageSizeChange={(size) => {
-						pageSize = size;
-						currentPage = 1;
-					}}
-					onPageChange={(page) => {
-						currentPage = Math.min(Math.max(page, 1), totalPages());
-					}}
-				/>
+				{#if filteredProfileEntries().length > 0}
+					<ProfilePagination
+						{pageSize}
+						pageSizeOptions={PROFILE_PAGE_SIZE_OPTIONS}
+						currentPage={currentListPage()}
+						totalPages={totalPages()}
+						summary={paginationSummary()}
+						visiblePageNumbers={visiblePageNumbers()}
+						onPageSizeChange={(size) => {
+							pageSize = size;
+							currentPage = 1;
+						}}
+						onPageChange={(page) => {
+							currentPage = Math.min(Math.max(page, 1), totalPages());
+						}}
+					/>
+				{/if}
 			{/if}
 		{/if}
 	</div>
@@ -823,12 +963,12 @@
 				<p class="text-sm text-text-muted">Choose how bins should be initialized.</p>
 				<div class="flex flex-col gap-2 border border-border bg-bg p-3 text-sm text-text-muted">
 					<div>
-						<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin;
-						categories are assigned as pieces arrive.
+						<span class="font-medium text-text">Reset (dynamic)</span> — clear every bin; categories are
+						assigned as pieces arrive.
 					</div>
 					<div>
-						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the
-						order of the profile's rules.
+						<span class="font-medium text-text">Pre-assign (rule order)</span> — seed bins in the order
+						of the profile's rules.
 					</div>
 				</div>
 				<div class="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
@@ -863,8 +1003,8 @@
 			{@const profile = pendingDelete}
 			<div class="flex flex-col gap-4">
 				<p class="text-sm text-text">
-					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this
-					machine? This removes the saved JSON file.
+					Delete <span class="font-semibold">{profile.name || profile.filename}</span> from this machine?
+					This removes the saved JSON file.
 				</p>
 				<div class="flex items-center justify-end gap-2 border-t border-border pt-3">
 					<button

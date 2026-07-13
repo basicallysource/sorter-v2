@@ -923,6 +923,52 @@ export interface PartsDbCategory {
 	actual_part_count: number;
 }
 
+export interface BrickLinkColor {
+	id: number;
+	name: string;
+	rgb: string | null;
+	is_trans: boolean;
+}
+
+export interface ColorLabelStats {
+	total_labelable: number;
+	labeled_by_me: number;
+	total_labels: number;
+}
+
+export interface ColorLabelPixelGuess {
+	method: string;
+	rgb: string;
+	sample_count: number;
+	color_id: number;
+	color_name: string;
+	match_rgb: string | null;
+}
+
+export interface ColorLabelQueueImage {
+	seq: number;
+	source: string | null;
+	used: boolean;
+	score: number | null;
+}
+
+export interface ColorLabelQueueItem {
+	machine_id: string;
+	machine_name: string | null;
+	piece_uuid: string;
+	recorded_at: string | null;
+	seen_at: string | null;
+	part: { part_id: string | null; part_name: string | null };
+	pixel_guess: ColorLabelPixelGuess | null;
+	images: ColorLabelQueueImage[];
+	my_label: { color_id: number; notes: string | null } | null;
+}
+
+export interface ColorLabelQueue {
+	items: ColorLabelQueueItem[];
+	has_more: boolean;
+}
+
 export const api = {
 	// Auth
 	register(email: string, password: string, display_name: string) {
@@ -993,6 +1039,40 @@ export const api = {
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveApiPath(
 			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
+		);
+	},
+
+	// Color labeling
+	colorLabelColors() {
+		return request<{ results: BrickLinkColor[] }>('GET', '/api/color-labels/colors');
+	},
+	colorLabelStats() {
+		return request<ColorLabelStats>('GET', '/api/color-labels/stats');
+	},
+	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
+		const params = new URLSearchParams();
+		if (opts.onlyUnlabeled === false) params.set('only_unlabeled', 'false');
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.offset) params.set('offset', String(opts.offset));
+		const qs = params.toString();
+		return request<ColorLabelQueue>('GET', `/api/color-labels/queue${qs ? `?${qs}` : ''}`);
+	},
+	submitColorLabel(body: { machine_id: string; piece_uuid: string; color_id: number; notes?: string | null }) {
+		return request<{ ok: boolean; created: boolean; labeled_by_me: number }>(
+			'POST',
+			'/api/color-labels',
+			body
+		);
+	},
+	deleteColorLabel(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/color-labels/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveApiPath(
+			`/api/color-labels/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
 	createMachine(name: string, description?: string) {

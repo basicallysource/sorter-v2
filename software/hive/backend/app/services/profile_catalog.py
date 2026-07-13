@@ -355,6 +355,42 @@ class ProfileCatalogService:
             )
         return colors
 
+    def list_bricklink_colors(self) -> list[dict[str, Any]]:
+        """The BrickLink color palette, derived from the Rebrickable `colors`
+        catalog's external ids (parts.db has no BrickLink-colors table).
+
+        brickognize predictions and machine piece color_ids are in BrickLink
+        color space, so this is the palette the color-labeling UI picks from.
+        Each Rebrickable color carries a BrickLink ext_ids/ext_descrs pair; we
+        flatten those to BL id + BL name and borrow the Rebrickable rgb/is_trans
+        as the swatch. First Rebrickable mapping wins on a BL-id collision."""
+        by_bl_id: dict[int, dict[str, Any]] = {}
+        for rb_color_id, color in sorted(self._parts_data.colors.items()):
+            bricklink = color.get("external_ids", {}).get("BrickLink", {})
+            if not isinstance(bricklink, dict):
+                continue
+            ext_ids = bricklink.get("ext_ids", [])
+            ext_descrs = bricklink.get("ext_descrs", [])
+            if not isinstance(ext_ids, list):
+                continue
+            for index, raw_bl_id in enumerate(ext_ids):
+                try:
+                    bl_id = int(raw_bl_id)
+                except (TypeError, ValueError):
+                    continue
+                if bl_id in by_bl_id:
+                    continue
+                descr = ext_descrs[index] if isinstance(ext_descrs, list) and index < len(ext_descrs) else None
+                bl_name = descr[0] if isinstance(descr, list) and descr else color.get("name") or str(bl_id)
+                by_bl_id[bl_id] = {
+                    "id": bl_id,
+                    "name": bl_name,
+                    "rgb": color.get("rgb"),
+                    "is_trans": bool(color.get("is_trans", False)),
+                    "rb_color_id": rb_color_id,
+                }
+        return [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
+
     def import_bricklink_csv(self, csv_content: str, filename: str | None = None) -> dict[str, Any]:
         if not isinstance(csv_content, str) or not csv_content.strip():
             raise APIError(400, "CSV content is required", "PROFILE_CATALOG_CSV_EMPTY")

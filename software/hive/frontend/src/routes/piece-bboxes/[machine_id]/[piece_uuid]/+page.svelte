@@ -519,4 +519,27 @@
 		</div>
 	</div>
 
+	<!-- How-to for labelers -->
+	<div class="mt-8 border border-border bg-surface p-5">
+		<h2 class="mb-3 text-2xl font-bold text-text">Directions</h2>
+		<ul class="flex flex-col gap-2 text-sm text-text">
+			<li class="flex gap-2">
+				<span class="shrink-0 text-primary">→</span>
+				<span>Use the crop images from <span class="font-medium">both channels</span> to judge the piece's true color.</span>
+			</li>
+			<li class="flex gap-2">
+				<span class="shrink-0 text-primary">→</span>
+				<span>Pick the correct color from the sidebar. If you can tell it, that's enough — you can skip the same-piece step.</span>
+			</li>
+			<li class="flex gap-2">
+				<span class="shrink-0 text-primary">→</span>
+				<span>Under <span class="font-medium">Same piece across channels</span>, keep or add the upstream crops that show this same physical piece. Don't bother if you can already see the whole piece in its own bbox.</span>
+			</li>
+			<li class="flex gap-2">
+				<span class="shrink-0 text-primary">→</span>
+				<span>Try to do <span class="font-medium">both</span> for each piece. If one has incomplete info — you can't tell the color, or can't find the piece in the earlier pictures — just do the half you're sure of and hit <span class="font-medium">Continue</span>.</span>
+			</li>
+		</ul>
+	</div>
+
 {/if}

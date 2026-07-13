@@ -81,7 +81,13 @@
 							href="/samples"
 							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') || page.url.pathname === '/review' ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
-							Samples
+							Channel Samples
+						</a>
+						<a
+							href="/piece-bboxes"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/piece-bboxes') ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+						>
+							Piece Samples
 						</a>
 						<a
 							href="/models"

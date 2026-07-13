@@ -29,6 +29,7 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
+from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
@@ -251,6 +252,14 @@ def list_pieces(
         )
     )
     has_candidates = _has_candidates_exists()
+    # A piece this user rejected is handled — drop it from their queue.
+    my_rejection = exists().where(
+        and_(
+            PieceRejection.machine_id == MachinePiece.machine_id,
+            PieceRejection.piece_uuid == MachinePiece.piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+    )
 
     q = (
         db.query(
@@ -269,7 +278,7 @@ def list_pieces(
             crop_cnt_sq,
             and_(crop_cnt_sq.c.mid == MachinePiece.machine_id, crop_cnt_sq.c.puid == MachinePiece.piece_uuid),
         )
-        .filter(MachinePiece.dead.is_(False), _available_image_exists())
+        .filter(MachinePiece.dead.is_(False), _available_image_exists(), ~my_rejection)
     )
     if machine_id is not None:
         q = q.filter(MachinePiece.machine_id == machine_id)
@@ -383,6 +392,15 @@ def piece_detail(
         )
         .first()
     )
+    rejection = (
+        db.query(PieceRejection)
+        .filter(
+            PieceRejection.machine_id == machine_id,
+            PieceRejection.piece_uuid == piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+        .first()
+    )
     return {
         "machine_id": str(machine_id),
         "machine_name": machine_name,
@@ -395,6 +413,7 @@ def piece_detail(
             {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
         ],
         "my_label": None if label is None else {"color_id": label.color_id, "notes": label.notes},
+        "my_rejection": None if rejection is None else {"reasons": list(rejection.reasons or [])},
     }
 
 
@@ -773,5 +792,89 @@ def delete_piece_crop_link(
     if link is None:
         raise APIError(404, "Crop link not found", "CROP_LINK_NOT_FOUND")
     db.delete(link)
+    db.commit()
+    return {"ok": True}
+
+
+# --- Reject a piece's bbox sample --------------------------------------------
+#
+# Flags the sample itself as unusable (as opposed to labeling color / same-piece).
+# Rejected pieces drop out of the rejecter's queue (see list_pieces).
+
+_REJECT_REASONS = {"no_piece", "multiple_pieces"}
+
+
+class RejectionPayload(BaseModel):
+    machine_id: UUID
+    piece_uuid: str = Field(min_length=1)
+    reasons: list[str] = Field(min_length=1)
+
+
+@router.post("/piece-rejection")
+def save_piece_rejection(
+    payload: RejectionPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Create or update this user's rejection of a piece's bbox sample, with one
+    or more reason codes."""
+    reasons = [r for r in dict.fromkeys(payload.reasons) if r in _REJECT_REASONS]
+    if not reasons:
+        raise APIError(400, "No valid rejection reasons", "REJECT_REASONS_INVALID")
+
+    piece = (
+        db.query(MachinePiece.id)
+        .filter(MachinePiece.machine_id == payload.machine_id, MachinePiece.piece_uuid == payload.piece_uuid)
+        .first()
+    )
+    if piece is None:
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    now = datetime.now(timezone.utc)
+    rejection = (
+        db.query(PieceRejection)
+        .filter(
+            PieceRejection.machine_id == payload.machine_id,
+            PieceRejection.piece_uuid == payload.piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if rejection is None:
+        rejection = PieceRejection(
+            machine_id=payload.machine_id,
+            piece_uuid=payload.piece_uuid,
+            labeler_id=current_user.id,
+            reasons=reasons,
+        )
+        db.add(rejection)
+        created = True
+    else:
+        rejection.reasons = reasons
+        rejection.updated_at = now
+        created = False
+    db.commit()
+    return {"ok": True, "created": created, "reasons": reasons}
+
+
+@router.delete("/piece-rejection/{machine_id}/{piece_uuid}")
+def delete_piece_rejection(
+    machine_id: UUID,
+    piece_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    rejection = (
+        db.query(PieceRejection)
+        .filter(
+            PieceRejection.machine_id == machine_id,
+            PieceRejection.piece_uuid == piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if rejection is None:
+        raise APIError(404, "Rejection not found", "REJECTION_NOT_FOUND")
+    db.delete(rejection)
     db.commit()
     return {"ok": True}

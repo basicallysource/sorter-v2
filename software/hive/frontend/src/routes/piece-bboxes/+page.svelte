@@ -34,10 +34,18 @@
 	let machines = $state<Machine[]>([]);
 	let sort = $state<ColorLabelSort>('priority');
 	let machineId = $state<string | null>(null);
-	let withCandidates = $state(false);
+	// Default: only feed pieces that actually have a same-piece candidate list.
+	let withCandidates = $state(true);
 	let items = $state<ColorLabelPieceCard[]>([]);
 	let hasMore = $state(true);
 	let offset = 0;
+	// Guards against duplicate keys — offset paging over a shifting/ties-heavy
+	// order can re-return a piece, which would crash the keyed {#each}.
+	let seenKeys = new Set<string>();
+
+	function cardKey(c: ColorLabelPieceCard): string {
+		return `${c.machine_id}|${c.piece_uuid}`;
+	}
 	let loading = $state(true);
 	let fetchingMore = $state(false);
 	let error = $state<string | null>(null);
@@ -77,6 +85,7 @@
 		loading = true;
 		error = null;
 		items = [];
+		seenKeys = new Set();
 		offset = 0;
 		hasMore = true;
 		try {
@@ -85,9 +94,14 @@
 				api.colorLabelPieces({ sort, machineId, withCandidates, limit: BATCH, offset: 0 })
 			]);
 			stats = s;
-			items = page.items;
 			offset = page.items.length;
 			hasMore = page.has_more;
+			for (const c of page.items) {
+				if (!seenKeys.has(cardKey(c))) {
+					seenKeys.add(cardKey(c));
+					items.push(c);
+				}
+			}
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to load dashboard');
 		} finally {
@@ -102,7 +116,9 @@
 			const page = await api.colorLabelPieces({ sort, machineId, withCandidates, limit: BATCH, offset });
 			offset += page.items.length;
 			hasMore = page.has_more;
-			items = [...items, ...page.items];
+			const fresh = page.items.filter((c) => !seenKeys.has(cardKey(c)));
+			for (const c of fresh) seenKeys.add(cardKey(c));
+			items = [...items, ...fresh];
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to load more pieces');
 		} finally {

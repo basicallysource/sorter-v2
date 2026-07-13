@@ -24,7 +24,7 @@ export async function getColors(): Promise<BrickLinkColor[]> {
 export type NavFilters = { sort: ColorLabelSort; machineId?: string | null; withCandidates?: boolean };
 
 let queue: PieceKey[] = [];
-let filters: NavFilters = { sort: 'priority' };
+let filters: NavFilters = { sort: 'priority', withCandidates: true };
 let nextOffset = 0;
 let hasMore = true;
 let loading = false;

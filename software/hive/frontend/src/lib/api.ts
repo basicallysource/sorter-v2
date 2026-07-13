@@ -1007,7 +1007,10 @@ export interface ColorLabelPieceDetail {
 	pixel_guess: ColorLabelPixelGuess | null;
 	images: ColorLabelQueueImage[];
 	my_label: { color_id: number; notes: string | null } | null;
+	my_rejection: { reasons: string[] } | null;
 }
+
+export type RejectReason = 'no_piece' | 'multiple_pieces';
 
 export interface ColorLabelPixelGuess {
 	method: string;
@@ -1239,6 +1242,19 @@ export const api = {
 			'POST',
 			'/api/labeling/piece-crop-link',
 			body
+		);
+	},
+	savePieceRejection(body: { machine_id: string; piece_uuid: string; reasons: string[] }) {
+		return request<{ ok: boolean; created: boolean; reasons: string[] }>(
+			'POST',
+			'/api/labeling/piece-rejection',
+			body
+		);
+	},
+	deletePieceRejection(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/piece-rejection/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	deletePieceCropLink(machineId: string, pieceUuid: string) {

@@ -9,6 +9,10 @@
 	import * as nav from '$lib/colorLabelNav';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Button } from '$lib/components/primitives';
+	import ArrowRight from 'lucide-svelte/icons/arrow-right';
+	import Check from 'lucide-svelte/icons/check';
+	import Link2 from 'lucide-svelte/icons/link-2';
+	import Palette from 'lucide-svelte/icons/palette';
 
 	const BATCH = 60;
 
@@ -116,7 +120,7 @@
 		</p>
 	</div>
 	<Button variant="primary" size="sm" onclick={startLabeling} disabled={loading || items.length === 0}>
-		Start labeling →
+		Start labeling <ArrowRight size={14} />
 	</Button>
 </div>
 
@@ -207,16 +211,20 @@
 						<span class="text-xs text-text-muted">no image</span>
 					{/if}
 					{#if card.my_color}
-						<span class="absolute right-1 top-1 bg-success px-1 text-xs leading-tight text-white">✓</span>
+						<span class="absolute right-1 top-1 flex items-center bg-success p-0.5 text-white" title="you labeled this"><Check size={12} /></span>
 					{/if}
 				</div>
 				<div class="mt-1.5 truncate text-sm text-text" title={card.part.part_name ?? card.part.part_id ?? ''}>
 					{card.part.part_name || card.part.part_id || 'Unidentified'}
 				</div>
 				<div class="mt-1 flex items-center gap-2 text-xs text-text-muted">
-					<span title="color labels by users">🎨 {card.color_label_count}</span>
-					<span title="same-piece labels by users">🔗 {card.crop_link_count}</span>
-					<span class="ml-auto">· {card.machine_name ?? 'machine'}</span>
+					<span class="flex items-center gap-1" title="color labels by users">
+						<Palette size={13} />{card.color_label_count}
+					</span>
+					<span class="flex items-center gap-1" title="same-piece labels by users">
+						<Link2 size={13} />{card.crop_link_count}
+					</span>
+					<span class="ml-auto truncate">· {card.machine_name ?? 'machine'}</span>
 				</div>
 			</button>
 		{/each}

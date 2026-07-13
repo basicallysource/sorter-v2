@@ -10,6 +10,10 @@
 	import * as nav from '$lib/colorLabelNav';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Button } from '$lib/components/primitives';
+	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import ArrowRight from 'lucide-svelte/icons/arrow-right';
+	import Check from 'lucide-svelte/icons/check';
+	import Sparkles from 'lucide-svelte/icons/sparkles';
 
 	const SIMILAR_COUNT = 10;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
@@ -225,7 +229,9 @@
 <svelte:window on:keydown={onKey} />
 
 <div class="mb-4 flex items-center justify-between gap-3">
-	<a href="/color-labels" class="text-sm text-text-muted hover:text-text">← All pieces</a>
+	<a href="/color-labels" class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
+		<ArrowLeft size={14} /> All pieces
+	</a>
 	{#if pos.total > 0 && pos.index >= 0}
 		<span class="text-xs text-text-muted tabular-nums">{pos.index + 1} of {pos.total}{pos.hasMore ? '+' : ''}</span>
 	{/if}
@@ -358,11 +364,11 @@
 								</div>
 							{/if}
 							<span class="flex items-center gap-1 text-xs {selected ? 'text-text' : 'text-text-muted'}">
-								{#if selected}<span class="text-success">✓</span>{/if}
+								{#if selected}<Check size={12} class="text-success" />{/if}
 								C{c.channel}·{c.dt}s
 							</span>
 							{#if c.predicted}
-								<span class="absolute right-0.5 top-0.5 bg-info/80 px-1 text-xs uppercase leading-tight text-white">ai</span>
+								<span class="absolute right-0.5 top-0.5 flex items-center bg-info/80 p-0.5 text-white" title="our prediction"><Sparkles size={11} /></span>
 							{/if}
 						</button>
 					{/each}
@@ -375,8 +381,8 @@
 			<div class="mb-3 flex items-center justify-between">
 				<span class="text-sm font-medium text-text">True color</span>
 				<div class="flex gap-1.5">
-					<Button variant="ghost" size="sm" onclick={goPrev}>← Back</Button>
-					<Button variant="secondary" size="sm" onclick={goNext} disabled={submitting}>Skip →</Button>
+					<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
+					<Button variant="secondary" size="sm" onclick={goNext} disabled={submitting}>Skip <ArrowRight size={14} /></Button>
 				</div>
 			</div>
 

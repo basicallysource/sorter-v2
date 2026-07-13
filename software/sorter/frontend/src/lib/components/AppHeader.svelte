@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import {
 		getBackendHttpBase,
 		getBackendWsBase,
@@ -574,10 +575,7 @@
 				<div
 					class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info"
 				>
-					<div
-						class="h-4 w-4 animate-spin border-2 border-current border-t-transparent"
-						style="border-radius: 50%;"
-					></div>
+					<Spinner size={16} />
 				</div>
 				<div class="min-w-0 flex-1">
 					<div class="flex items-center justify-between gap-3">
@@ -740,10 +738,7 @@
 
 	<Modal open={restartingBackend} title="Restarting backend..." dismissible={false}>
 		<div class="flex flex-col items-center gap-4 py-4">
-			<div
-				class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent"
-				style="border-radius: 50%;"
-			></div>
+			<Spinner size={24} class="text-primary" />
 			<div class="text-sm text-text-muted">Waiting for the service to come back online.</div>
 		</div>
 	</Modal>
@@ -791,10 +786,7 @@
 
 	<Modal open={poweringDown} title="Powering down..." dismissible={false}>
 		<div class="flex flex-col items-center gap-4 py-4 text-center">
-			<div
-				class="h-6 w-6 animate-spin border-2 border-primary border-t-transparent"
-				style="border-radius: 50%;"
-			></div>
+			<Spinner size={24} class="text-primary" />
 			<div class="text-sm text-text">The machine is shutting down.</div>
 			<div class="text-sm text-text-muted">
 				This page will stop responding shortly. Linux can take up to about 2 minutes to fully power
@@ -835,10 +827,7 @@
 				<div
 					class="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-info/[0.08] text-info"
 				>
-					<div
-						class="h-4 w-4 animate-spin border-2 border-current border-t-transparent"
-						style="border-radius: 50%;"
-					></div>
+					<Spinner size={16} />
 				</div>
 				<div>
 					<div class="text-xs font-semibold tracking-wider text-info uppercase">Current step</div>

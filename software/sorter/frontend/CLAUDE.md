@@ -6,14 +6,19 @@ sharp-edged and dense. When adding or editing components, follow these rules.
 ## Sharp edges — no `rounded-*`
 
 Do not use any Tailwind `rounded-*` utility, and do not set `border-radius` in
-CSS. The only exceptions are:
+CSS. The only exception is:
 
-- `src/lib/components/Spinner.svelte` — circular spinner uses `rounded-full`.
 - `src/lib/components/MachineDropdown.svelte` — machine status dot uses
   `rounded-full`.
 
 Any other rounded corner is a bug. The style guide at `/styleguide` is the
 source of truth.
+
+The shared loading indicator is `src/lib/components/Spinner.svelte` — four
+sharp squares, one lit at a time, snapping clockwise. It is the *only* loading
+animation in the app: import it and pass a `size` rather than hand-rolling a
+`border-current` ring or spinning a lucide `Loader2`. It inherits color via
+`currentColor`.
 
 ## No left-accent borders
 

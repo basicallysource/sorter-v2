@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
 	import { RefreshCw } from 'lucide-svelte';
@@ -486,10 +487,7 @@
 											{#each threadCountsFor(opt.id) as threadN (threadN)}
 												{#if benchmarkCurrent === resultKey(opt.id, threadN, selectedModel)}
 													<div class="flex items-center gap-1.5 text-sm text-primary">
-														<div
-															class="h-3 w-3 animate-spin border-2 border-current border-t-transparent"
-															style="border-radius: 50%;"
-														></div>
+														<Spinner size={12} />
 														<span>running {threadN} thread{threadN === 1 ? '' : 's'}…</span>
 													</div>
 												{/if}

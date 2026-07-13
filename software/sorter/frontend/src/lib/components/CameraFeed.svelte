@@ -3,7 +3,8 @@
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import type { DashboardFeedCrop } from '$lib/dashboard/crops';
 	import StreamControlsOverlay from '$lib/components/StreamControlsOverlay.svelte';
-	import { WifiOff, Loader2, VideoOff } from 'lucide-svelte';
+	import { WifiOff, VideoOff } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { onDestroy } from 'svelte';
 	import type { Snippet } from 'svelte';
 
@@ -203,7 +204,7 @@
 			<div class="absolute inset-0 flex items-center justify-center">
 				<div class="flex flex-col items-center gap-2 text-center">
 					{#if health === 'reconnecting'}
-						<Loader2 size={28} class="animate-spin text-text-muted" />
+						<Spinner size={28} class="text-text-muted" />
 						<span class="text-sm font-medium text-text-muted">Reconnecting...</span>
 					{:else if health === 'offline'}
 						<WifiOff size={28} class="text-text-muted" />

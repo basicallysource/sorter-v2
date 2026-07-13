@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { Loader2, AlertTriangle, Home } from 'lucide-svelte';
+	import { AlertTriangle, Home } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 
 	let {
@@ -38,7 +39,7 @@
 			</div>
 		{:else if homing}
 			<div class="flex items-center gap-3 border border-warning bg-warning/10 px-4 py-3 text-sm text-warning-dark">
-				<Loader2 size={18} class="animate-spin shrink-0" />
+				<Spinner size={18} class="shrink-0" />
 				<div class="flex flex-col">
 					<span class="font-medium">Homing in progress…</span>
 					<span class="text-xs text-warning-dark/80">

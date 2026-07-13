@@ -1,7 +1,8 @@
 <script lang="ts">
 	import PieceThumb from '$lib/components/PieceThumb.svelte';
 	import { Skeleton } from '$lib/components/primitives';
-	import { ArchiveX, Crosshair, FolderOutput, Loader2, Tag } from 'lucide-svelte';
+	import { ArchiveX, Crosshair, FolderOutput, Tag } from 'lucide-svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { categoryLabel, formatLastSeen, formatRelativeTime, pieceTooltip, previewUrl } from './pieces';
 	import QuantityBadge from './QuantityBadge.svelte';
 	import type { BinContentItem, BinContents, BinInfo, SetMeta, SetProgressSummary } from './types';
@@ -77,7 +78,7 @@
 	{#if isClearing}
 		<div class="absolute inset-0 z-20 flex items-center justify-center bg-surface/82 backdrop-blur-[1px]">
 			<div class="flex items-center gap-2 border border-border bg-surface px-3 py-2 shadow-sm">
-				<Loader2 size={14} class="animate-spin text-primary" />
+				<Spinner size={14} class="text-primary" />
 				<span class="text-xs font-semibold uppercase tracking-wide text-text">{clearingLabel}</span>
 			</div>
 		</div>

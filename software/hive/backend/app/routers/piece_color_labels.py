@@ -13,7 +13,7 @@ Rebrickable `colors` external ids). Labels live in Postgres (piece_color_labels)
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -29,8 +29,10 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
+from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.services.channel_crop_lookup import find_possible_crops
+from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.storage import serve_stored_file
@@ -83,37 +85,42 @@ def list_colors(
 
 @router.get("/stats")
 def label_stats(
+    machine_id: UUID | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Dashboard rollup: overall progress plus a histogram of how many distinct
-    labelers have color-labeled each piece (drives the coverage chart)."""
-    total_labelable = _labelable_query(db).count()
+    labelers have color-labeled each piece (drives the coverage chart). Scoped to
+    one machine when machine_id is given, matching the grid's machine filter."""
+    labelable_q = _labelable_query(db)
+    if machine_id is not None:
+        labelable_q = labelable_q.filter(MachinePiece.machine_id == machine_id)
+    total_labelable = labelable_q.count()
 
-    labeled_by_me = (
-        db.query(func.count(PieceColorLabel.id))
-        .filter(PieceColorLabel.labeler_id == current_user.id)
-        .scalar()
-        or 0
-    )
-    crop_links_by_me = (
-        db.query(func.count(PieceCropLink.id))
-        .filter(PieceCropLink.labeler_id == current_user.id)
-        .scalar()
-        or 0
-    )
-    total_color_labels = db.query(func.count(PieceColorLabel.id)).scalar() or 0
-    total_crop_links = db.query(func.count(PieceCropLink.id)).scalar() or 0
+    def _color_q():
+        q = db.query(PieceColorLabel)
+        return q.filter(PieceColorLabel.machine_id == machine_id) if machine_id is not None else q
+
+    def _crop_q():
+        q = db.query(PieceCropLink)
+        return q.filter(PieceCropLink.machine_id == machine_id) if machine_id is not None else q
+
+    labeled_by_me = _color_q().filter(PieceColorLabel.labeler_id == current_user.id).count()
+    crop_links_by_me = _crop_q().filter(PieceCropLink.labeler_id == current_user.id).count()
+    total_color_labels = _color_q().count()
+    total_crop_links = _crop_q().count()
 
     # Distinct pieces touched (one row per labeler per piece, so a grouped count).
     color_pieces_sq = (
-        db.query(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        _color_q()
+        .with_entities(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
         .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
         .subquery()
     )
     color_labeled_pieces = db.query(func.count()).select_from(color_pieces_sq).scalar() or 0
     crop_pieces_sq = (
-        db.query(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
+        _crop_q()
+        .with_entities(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
         .group_by(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
         .subquery()
     )
@@ -121,7 +128,8 @@ def label_stats(
 
     # Histogram: pieces by number of distinct color-labelers (1 / 2 / 3+).
     per_piece = (
-        db.query(func.count(PieceColorLabel.id).label("n"))
+        _color_q()
+        .with_entities(func.count(PieceColorLabel.id).label("n"))
         .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
         .subquery()
     )
@@ -156,7 +164,30 @@ def label_stats(
     }
 
 
+# Window (before/after the piece's arrival) in which a same-piece candidate crop
+# could exist — mirrors the shared lookup params so ordering agrees with what the
+# labeling view actually surfaces.
+_CANDIDATE_WINDOW = timedelta(seconds=DEFAULT_PARAMS.lookback_window_s)
+_CANDIDATE_SLOP = timedelta(seconds=DEFAULT_PARAMS.fwd_slop_s)
+
+
+def _has_candidates_exists():
+    """Correlated EXISTS: this piece's machine has at least one channel crop
+    within its arrival window — i.e. the same-piece panel will have candidates.
+    Cheap via the (machine_id, ts) index; arrival approximated by seen_at."""
+    arrival = func.coalesce(MachinePiece.seen_at, MachinePiece.recorded_at)
+    return exists().where(
+        and_(
+            MachineChannelCrop.machine_id == MachinePiece.machine_id,
+            MachineChannelCrop.ts.isnot(None),
+            MachineChannelCrop.ts >= arrival - _CANDIDATE_WINDOW,
+            MachineChannelCrop.ts <= arrival + _CANDIDATE_SLOP,
+        )
+    )
+
+
 _PIECE_SORTS = {
+    "priority",
     "recent",
     "oldest",
     "least_color",
@@ -169,17 +200,22 @@ _PIECE_SORTS = {
 
 @router.get("/pieces")
 def list_pieces(
-    sort: str = Query("recent"),
+    sort: str = Query("priority"),
     limit: int = Query(60, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    machine_id: UUID | None = Query(None),
+    with_candidates: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Sortable grid of labelable pieces with per-piece label/crop-link counts,
-    for the dashboard. Sorts: recent, oldest, least/most_color, least/most_crop,
-    needs_me (pieces this user hasn't color-labeled first)."""
+    for the dashboard. Sorts: priority (has same-piece candidates first, then
+    fewest color labels — spreads effort where it's useful), recent, oldest,
+    least/most_color, least/most_crop, needs_me (this user's unlabeled first).
+    Optional machine_id filter and with_candidates (only pieces that have
+    same-piece candidate crops)."""
     if sort not in _PIECE_SORTS:
-        sort = "recent"
+        sort = "priority"
 
     color_cnt_sq = (
         db.query(
@@ -215,6 +251,15 @@ def list_pieces(
             PieceCropLink.labeler_id == current_user.id,
         )
     )
+    has_candidates = _has_candidates_exists()
+    # A piece this user rejected is handled — drop it from their queue.
+    my_rejection = exists().where(
+        and_(
+            PieceRejection.machine_id == MachinePiece.machine_id,
+            PieceRejection.piece_uuid == MachinePiece.piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+    )
 
     q = (
         db.query(
@@ -223,6 +268,7 @@ def list_pieces(
             crop_cnt.label("crop_cnt"),
             my_color.label("my_color"),
             my_crop.label("my_crop"),
+            has_candidates.label("has_candidates"),
         )
         .outerjoin(
             color_cnt_sq,
@@ -232,11 +278,19 @@ def list_pieces(
             crop_cnt_sq,
             and_(crop_cnt_sq.c.mid == MachinePiece.machine_id, crop_cnt_sq.c.puid == MachinePiece.piece_uuid),
         )
-        .filter(MachinePiece.dead.is_(False), _available_image_exists())
+        .filter(MachinePiece.dead.is_(False), _available_image_exists(), ~my_rejection)
     )
+    if machine_id is not None:
+        q = q.filter(MachinePiece.machine_id == machine_id)
+    if with_candidates:
+        q = q.filter(has_candidates)
 
     recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
-    if sort == "recent":
+    if sort == "priority":
+        # Candidates first, then the least-color-labeled — pushes effort to pieces
+        # that are both useful (have crops to link) and under-labeled.
+        q = q.order_by(has_candidates.desc(), color_cnt.asc(), *recent_order)
+    elif sort == "recent":
         q = q.order_by(*recent_order)
     elif sort == "oldest":
         q = q.order_by(MachinePiece.recorded_at.asc().nullsfirst(), MachinePiece.created_at.asc())
@@ -279,7 +333,7 @@ def list_pieces(
                 thumb_seq[f"{mid}|{puid}"] = seq
 
     items = []
-    for p, ccnt, xcnt, mc, mx in rows:
+    for p, ccnt, xcnt, mc, mx, has_c in rows:
         items.append(
             {
                 "machine_id": str(p.machine_id),
@@ -292,6 +346,7 @@ def list_pieces(
                 "crop_link_count": int(xcnt),
                 "my_color": bool(mc),
                 "my_crop": bool(mx),
+                "has_candidates": bool(has_c),
                 "thumb_seq": thumb_seq.get(f"{p.machine_id}|{p.piece_uuid}"),
             }
         )
@@ -337,6 +392,15 @@ def piece_detail(
         )
         .first()
     )
+    rejection = (
+        db.query(PieceRejection)
+        .filter(
+            PieceRejection.machine_id == machine_id,
+            PieceRejection.piece_uuid == piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+        .first()
+    )
     return {
         "machine_id": str(machine_id),
         "machine_name": machine_name,
@@ -349,6 +413,7 @@ def piece_detail(
             {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
         ],
         "my_label": None if label is None else {"color_id": label.color_id, "notes": label.notes},
+        "my_rejection": None if rejection is None else {"reasons": list(rejection.reasons or [])},
     }
 
 
@@ -727,5 +792,89 @@ def delete_piece_crop_link(
     if link is None:
         raise APIError(404, "Crop link not found", "CROP_LINK_NOT_FOUND")
     db.delete(link)
+    db.commit()
+    return {"ok": True}
+
+
+# --- Reject a piece's bbox sample --------------------------------------------
+#
+# Flags the sample itself as unusable (as opposed to labeling color / same-piece).
+# Rejected pieces drop out of the rejecter's queue (see list_pieces).
+
+_REJECT_REASONS = {"no_piece", "multiple_pieces"}
+
+
+class RejectionPayload(BaseModel):
+    machine_id: UUID
+    piece_uuid: str = Field(min_length=1)
+    reasons: list[str] = Field(min_length=1)
+
+
+@router.post("/piece-rejection")
+def save_piece_rejection(
+    payload: RejectionPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Create or update this user's rejection of a piece's bbox sample, with one
+    or more reason codes."""
+    reasons = [r for r in dict.fromkeys(payload.reasons) if r in _REJECT_REASONS]
+    if not reasons:
+        raise APIError(400, "No valid rejection reasons", "REJECT_REASONS_INVALID")
+
+    piece = (
+        db.query(MachinePiece.id)
+        .filter(MachinePiece.machine_id == payload.machine_id, MachinePiece.piece_uuid == payload.piece_uuid)
+        .first()
+    )
+    if piece is None:
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    now = datetime.now(timezone.utc)
+    rejection = (
+        db.query(PieceRejection)
+        .filter(
+            PieceRejection.machine_id == payload.machine_id,
+            PieceRejection.piece_uuid == payload.piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if rejection is None:
+        rejection = PieceRejection(
+            machine_id=payload.machine_id,
+            piece_uuid=payload.piece_uuid,
+            labeler_id=current_user.id,
+            reasons=reasons,
+        )
+        db.add(rejection)
+        created = True
+    else:
+        rejection.reasons = reasons
+        rejection.updated_at = now
+        created = False
+    db.commit()
+    return {"ok": True, "created": created, "reasons": reasons}
+
+
+@router.delete("/piece-rejection/{machine_id}/{piece_uuid}")
+def delete_piece_rejection(
+    machine_id: UUID,
+    piece_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    rejection = (
+        db.query(PieceRejection)
+        .filter(
+            PieceRejection.machine_id == machine_id,
+            PieceRejection.piece_uuid == piece_uuid,
+            PieceRejection.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if rejection is None:
+        raise APIError(404, "Rejection not found", "REJECTION_NOT_FOUND")
+    db.delete(rejection)
     db.commit()
     return {"ok": True}

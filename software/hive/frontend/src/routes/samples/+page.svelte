@@ -13,7 +13,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import Modal from '$lib/components/Modal.svelte';
 	import { Button } from '$lib/components/primitives';
-	import FilterGroup from '$lib/components/sample/FilterGroup.svelte';
+	import FilterGroup from '$lib/components/FilterGroup.svelte';
 	import SampleCard from '$lib/components/SampleCard.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import {

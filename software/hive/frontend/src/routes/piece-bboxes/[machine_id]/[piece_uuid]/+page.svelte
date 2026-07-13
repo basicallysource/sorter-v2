@@ -12,13 +12,20 @@
 	import { Button } from '$lib/components/primitives';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
+	import Ban from 'lucide-svelte/icons/ban';
 	import Check from 'lucide-svelte/icons/check';
+	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 	import Circle from 'lucide-svelte/icons/circle';
 	import CircleCheck from 'lucide-svelte/icons/circle-check';
 	import CircleDot from 'lucide-svelte/icons/circle-dot';
 	import Sparkles from 'lucide-svelte/icons/sparkles';
 
 	type CharState = 'empty' | 'progress' | 'ready';
+
+	const REJECT_REASONS: { value: string; label: string }[] = [
+		{ value: 'no_piece', label: 'No piece in the frame' },
+		{ value: 'multiple_pieces', label: 'Multiple pieces in the frame' }
+	];
 
 	const SIMILAR_COUNT = 8;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
@@ -51,6 +58,12 @@
 	let cropSaved = $state(false); // a selection is committed to the db
 	let cropDirty = $state(false); // toggled since last save/load
 	let cropError = $state<string | null>(null);
+
+	// Reject-this-bbox-sample
+	let rejectOpen = $state(false);
+	let rejecting = $state(false);
+	let rejectReasons = $state<Set<string>>(new Set());
+	let rejected = $state(false); // this user already rejected the piece
 
 	const guessColorId = $derived.by(() => {
 		const id = detail?.pixel_guess?.color_id;
@@ -154,6 +167,9 @@
 			if (pieceKey !== k) return; // navigated away mid-load
 			detail = d;
 			myColorId = d.my_label?.color_id ?? null;
+			rejectOpen = false;
+			rejected = d.my_rejection != null;
+			rejectReasons = new Set(d.my_rejection?.reasons ?? []);
 			cropCandidates = crops.candidates;
 			cropArrivalTs = crops.arrival_ts;
 			cropDirty = false;
@@ -247,6 +263,34 @@
 		await goNext();
 	}
 
+	function toggleReason(reason: string) {
+		const s = new Set(rejectReasons);
+		if (s.has(reason)) s.delete(reason);
+		else s.add(reason);
+		rejectReasons = s;
+	}
+
+	// Reject the bbox sample with the chosen reason(s), then move on.
+	async function submitReject() {
+		if (rejecting || rejectReasons.size === 0) return;
+		rejecting = true;
+		error = null;
+		try {
+			await api.savePieceRejection({
+				machine_id: machineId,
+				piece_uuid: pieceUuid,
+				reasons: [...rejectReasons]
+			});
+			rejected = true;
+			rejectOpen = false;
+			await goNext();
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to reject piece');
+		} finally {
+			rejecting = false;
+		}
+	}
+
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
 		if (e.key === 'Enter') {
@@ -318,6 +362,44 @@
 		</div>
 		<div class="ml-auto flex items-center gap-2">
 			<span class="hidden text-xs text-text-muted md:inline">Enter · →/Space skip · ← back</span>
+			<!-- Reject this bbox sample (with reason(s)) — left of the skip/continue CTA -->
+			<div class="relative">
+				<Button
+					variant={rejected ? 'danger' : 'secondary'}
+					size="sm"
+					onclick={() => (rejectOpen = !rejectOpen)}
+				>
+					<Ban size={14} /> {rejected ? 'Rejected' : 'Reject'} <ChevronDown size={13} />
+				</Button>
+				{#if rejectOpen}
+					<div class="absolute right-0 z-30 mt-1 w-64 border border-border bg-surface p-2 shadow-lg">
+						<div class="mb-1 px-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+							Reject sample — why?
+						</div>
+						{#each REJECT_REASONS as r (r.value)}
+							<label class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-text hover:bg-bg">
+								<input
+									type="checkbox"
+									checked={rejectReasons.has(r.value)}
+									onchange={() => toggleReason(r.value)}
+								/>
+								{r.label}
+							</label>
+						{/each}
+						<div class="mt-2 flex justify-end">
+							<Button
+								variant="danger"
+								size="sm"
+								loading={rejecting}
+								disabled={rejectReasons.size === 0}
+								onclick={submitReject}
+							>
+								Reject &amp; next
+							</Button>
+						</div>
+					</div>
+				{/if}
+			</div>
 			<Button
 				variant={touched.length > 0 ? 'primary' : 'secondary'}
 				size="sm"

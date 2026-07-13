@@ -120,6 +120,8 @@ sections:
             url: /sorter/dev-flow/
           - title: Sorting profile reference
             url: /sorter/profile-reference/
+          - title: What leaves the machine
+            url: /sorter/what-leaves-the-machine/
 
   - id: hive
     title: Hive

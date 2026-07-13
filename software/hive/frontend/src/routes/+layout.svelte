@@ -19,7 +19,7 @@
 
 	// /machine-ip-lookup is an unlisted, login-free rendezvous page used by the
 	// SorterOS onboarding flow — a fresh sorter has no Hive account yet.
-	const publicRoutes = ['/login', '/register', '/machine-ip-lookup'];
+	const publicRoutes = ['/login', '/register', '/machine-ip-lookup', '/forget'];
 
 	function currentPathWithSearch(): string {
 		return `${page.url.pathname}${page.url.search}`;

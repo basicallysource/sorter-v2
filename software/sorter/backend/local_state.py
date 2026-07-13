@@ -65,6 +65,7 @@ _STATE_KEY_BIN_LAYOUT = "bin_layout"
 _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
+_STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
@@ -757,6 +758,29 @@ def set_machine_id(machine_id: str) -> None:
     if not normalized:
         raise ValueError("machine_id must be a non-empty string")
     _write_state(_STATE_KEY_MACHINE_ID, normalized)
+
+
+# The anonymous install identity for the status ping (status_ping.py). Kept
+# deliberately SEPARATE from machine_id: machine_id is sent to Hive at account
+# registration and is therefore account-linked, whereas this id is random,
+# never joined to an account, and is the only handle carried by the anonymous
+# ping. Keeping the two apart is what lets an operator wipe their anonymous
+# footprint (the Hive "forget" form) without touching registered machine data.
+# created_at is stamped once, the first time the id is generated, so the server
+# learns when this install first came online even if we only hear from it later.
+def get_or_create_telemetry_install() -> dict[str, Any]:
+    existing = _read_state(_STATE_KEY_TELEMETRY_INSTALL)
+    if isinstance(existing, dict):
+        install_id = existing.get("install_id")
+        created_at = existing.get("created_at")
+        if isinstance(install_id, str) and install_id.strip():
+            return {
+                "install_id": install_id,
+                "created_at": float(created_at) if isinstance(created_at, (int, float)) else None,
+            }
+    record = {"install_id": str(uuid.uuid4()), "created_at": time.time()}
+    _write_state(_STATE_KEY_TELEMETRY_INSTALL, record)
+    return record
 
 
 def get_stepper_positions() -> dict[str, int]:

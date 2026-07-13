@@ -8,5 +8,10 @@ export default defineConfig({
 		proxy: {
 			'/api': 'http://localhost:8002'
 		}
+	},
+	// lucide-svelte ships uncompiled .svelte icon files; keep it in Vite's SSR
+	// pipeline so they're compiled rather than handed to Node's ESM loader.
+	ssr: {
+		noExternal: ['lucide-svelte']
 	}
 });

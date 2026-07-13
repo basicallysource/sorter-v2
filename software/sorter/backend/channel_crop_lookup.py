@@ -5,18 +5,11 @@ at time T), find the upstream C2/C3 bbox crops that are plausibly the same
 physical piece — cheaply, by time + channel + distance-to-exit, without
 embeddings or cross-channel tracking.
 
-Model (calibrated on a real kitbash run, 19 pieces traced by eye):
-  - A piece is reliably captured in the C3 exit/precise band (small COM-to-exit
-    degrees) ~0.2..7s before its C4 arrival (median ~3s; up to ~13s if it
-    stalls). This is 'the bbox that just disappeared' — highest confidence.
-  - Its earlier C3 crops (mid/drop, larger degrees) extend back to ~T-18s,
-    progressively contaminated by the pieces queued behind it.
-  - C2 rarely contains the specific piece within the window; keep a wide,
-    low-weight net so we don't exclude it when present (superset), expect noise.
-  - Track ids are unreliable (often absent, reused across pieces) — not used.
-
-The result is a SUPERSET ranked by confidence: the true crops are (almost)
-always included; the top of the list is dominated by the correct piece.
+The scoring model + all of its parameters live in channel_crop_lookup_params
+(shared byte-for-byte with hive). This module just resolves the piece's arrival
+time and runs that scorer over the local crop store. The result is a SUPERSET
+ranked by confidence: the true crops are (almost) always included; the top of
+the list is dominated by the correct piece.
 """
 
 from __future__ import annotations
@@ -24,54 +17,17 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import channel_crop_store
-
-CLASSIFICATION_CHANNEL_ID = 4
-
-ZONE_EXIT = 2
-ZONE_PRECISE = 3
-EXIT_DEG = 20.0
-C3_EXIT_LOOKBACK = 16.0
-C3_LOOKBACK = 22.0
-C2_LOOKBACK = 60.0
-FWD_SLOP = 1.5
-PEAK_DT = 3.0
+from channel_crop_lookup_params import DEFAULT_PARAMS, ChannelCropLookupParams, isPredicted, scoreCrop
 
 
-def _atExit(zone: Optional[int], deg: Optional[float]) -> bool:
-    return zone in (ZONE_EXIT, ZONE_PRECISE) or (deg is not None and abs(deg) < EXIT_DEG)
-
-
-def scoreCrop(crop: dict[str, Any], arrival_ts: float) -> Optional[float]:
-    ts = crop.get("ts")
-    if ts is None:
-        return None
-    dt = arrival_ts - ts
-    if dt < -FWD_SLOP:
-        return None
-    channel = crop.get("channel")
-    zone = crop.get("zone_code")
-    deg = crop.get("com_forward_to_exit_deg")
-    if channel == 3:
-        if _atExit(zone, deg) and dt <= C3_EXIT_LOOKBACK:
-            return max(0.5, 0.9 - abs(dt - PEAK_DT) * 0.028)
-        if dt <= C3_LOOKBACK:
-            return max(0.15, 0.5 - dt * 0.014)
-        return None
-    if channel == 2:
-        if 2.0 <= dt <= C2_LOOKBACK:
-            return max(0.05, 0.32 - dt * 0.003)
-        return None
-    return None
-
-
-def _arrivalTs(gc: Any, piece_uuid: str) -> Optional[float]:
+def _arrivalTs(gc: Any, piece_uuid: str, p: ChannelCropLookupParams) -> Optional[float]:
     # When the piece reached the classification channel: earliest C4 crop ts,
     # else earliest crop ts of any kind, else the piece record's seen_at.
     try:
         import piece_image_store
 
         images = piece_image_store.listPieceImages(piece_uuid)
-        c4 = [im["ts"] for im in images if im.get("channel") == CLASSIFICATION_CHANNEL_ID and im.get("ts")]
+        c4 = [im["ts"] for im in images if im.get("channel") == p.classification_channel_id and im.get("ts")]
         if c4:
             return float(min(c4))
         any_ts = [im["ts"] for im in images if im.get("ts")]
@@ -91,14 +47,16 @@ def _arrivalTs(gc: Any, piece_uuid: str) -> Optional[float]:
     return None
 
 
-def findPossibleCrops(gc: Any, piece_uuid: str, limit: int = 40) -> dict[str, Any]:
-    arrival_ts = _arrivalTs(gc, piece_uuid)
+def findPossibleCrops(
+    gc: Any, piece_uuid: str, limit: int = 40, p: ChannelCropLookupParams = DEFAULT_PARAMS
+) -> dict[str, Any]:
+    arrival_ts = _arrivalTs(gc, piece_uuid, p)
     if arrival_ts is None:
         return {"arrival_ts": None, "candidates": []}
-    crops = channel_crop_store.listCropsByTimeRange(arrival_ts - C2_LOOKBACK, arrival_ts + FWD_SLOP)
+    crops = channel_crop_store.listCropsByTimeRange(arrival_ts - p.lookback_window_s, arrival_ts + p.fwd_slop_s)
     scored: list[dict[str, Any]] = []
     for crop in crops:
-        s = scoreCrop(crop, arrival_ts)
+        s = scoreCrop(crop, arrival_ts, p)
         if s is None:
             continue
         scored.append(
@@ -112,6 +70,7 @@ def findPossibleCrops(gc: Any, piece_uuid: str, limit: int = 40) -> dict[str, An
                 "track_id": crop["track_id"],
                 "sharpness": crop["sharpness"],
                 "score": round(s, 3),
+                "predicted": isPredicted(s, p),
             }
         )
     scored.sort(key=lambda c: c["score"], reverse=True)

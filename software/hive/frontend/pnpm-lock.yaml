@@ -11,6 +11,9 @@ importers:
       '@annotorious/annotorious':
         specifier: ^3.8.0
         version: 3.8.0
+      lucide-svelte:
+        specifier: ^0.562.0
+        version: 0.562.0(svelte@5.55.1)
       marked:
         specifier: ^17.0.6
         version: 17.0.6
@@ -778,6 +781,12 @@ packages:
   locate-character@3.0.0:
     resolution: {integrity: sha512-SW13ws7BjaeJ6p7Q6CO2nchbYEc3X3J6WrmTTDto7yMPqVSZTUyY5Tjbid+Ab8gLnATtygYtiDIJGQRRn2ZOiA==}
 
+  lucide-svelte@0.562.0:
+    resolution: {integrity: sha512-kSJDH/55lf0mun/o4nqWBXOcq0fWYzPeIjbTD97ywoeumAB9kWxtM06gC7oynqjtK3XhAljWSz5RafIzPEYIQA==}
+    deprecated: Package deprecated. Please use @lucide/svelte instead.
+    peerDependencies:
+      svelte: ^3 || ^4 || ^5.0.0-next.42
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -1508,6 +1517,10 @@ snapshots:
       lightningcss-win32-x64-msvc: 1.32.0
 
   locate-character@3.0.0: {}
+
+  lucide-svelte@0.562.0(svelte@5.55.1):
+    dependencies:
+      svelte: 5.55.1
 
   magic-string@0.30.21:
     dependencies:

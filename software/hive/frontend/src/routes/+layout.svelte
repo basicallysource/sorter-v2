@@ -19,7 +19,7 @@
 
 	// /machine-ip-lookup is an unlisted, login-free rendezvous page used by the
 	// SorterOS onboarding flow — a fresh sorter has no Hive account yet.
-	const publicRoutes = ['/login', '/register', '/machine-ip-lookup'];
+	const publicRoutes = ['/login', '/register', '/machine-ip-lookup', '/forget'];
 
 	function currentPathWithSearch(): string {
 		return `${page.url.pathname}${page.url.search}`;
@@ -81,7 +81,13 @@
 							href="/samples"
 							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/samples') || page.url.pathname === '/review' ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
 						>
-							Samples
+							Channel Samples
+						</a>
+						<a
+							href="/piece-bboxes"
+							class="px-3 py-1.5 text-sm font-medium {page.url.pathname.startsWith('/piece-bboxes') ? 'border-b-2 border-primary text-primary' : 'text-[var(--color-text-muted)] hover:text-[var(--color-text)] hover:bg-[var(--color-bg)]'}"
+						>
+							Piece Samples
 						</a>
 						<a
 							href="/models"

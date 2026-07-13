@@ -20,7 +20,7 @@
 
 	type CharState = 'empty' | 'progress' | 'ready';
 
-	const SIMILAR_COUNT = 12;
+	const SIMILAR_COUNT = 8;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
 	// Non-basic finishes: a piece is far likelier a plain solid color than a
 	// pearl/metallic/trans/etc, so these get down-weighted in the "closest" list.
@@ -175,21 +175,21 @@
 	}
 
 	function gotoKey(k: nav.PieceKey) {
-		void goto(`/labeling/${k.machine_id}/${encodeURIComponent(k.piece_uuid)}`);
+		void goto(`/piece-bboxes/${k.machine_id}/${encodeURIComponent(k.piece_uuid)}`);
 	}
 
 	async function goNext() {
 		search = '';
 		const next = await nav.nextAfter({ machine_id: machineId, piece_uuid: pieceUuid });
 		if (next) gotoKey(next);
-		else void goto('/labeling');
+		else void goto('/piece-bboxes');
 	}
 
 	async function goPrev() {
 		search = '';
 		const prev = await nav.prevBefore({ machine_id: machineId, piece_uuid: pieceUuid });
 		if (prev) gotoKey(prev);
-		else void goto('/labeling');
+		else void goto('/piece-bboxes');
 	}
 
 	// Pick a color: writes immediately and highlights with a check. Does NOT
@@ -277,7 +277,7 @@
 <svelte:window on:keydown={onKey} />
 
 <div class="mb-4 flex items-center justify-between gap-3">
-	<a href="/labeling" class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
+	<a href="/piece-bboxes" class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
 		<ArrowLeft size={14} /> All pieces
 	</a>
 	{#if pos.total > 0 && pos.index >= 0}
@@ -306,9 +306,33 @@
 		<p class="text-sm text-text-muted">Piece not found.</p>
 	</div>
 {:else}
-	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
-		<!-- Piece under review -->
-		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-1">
+	<!-- Summary + advance (top): reflects what's done across every characteristic -->
+	<div class="mb-4 flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-surface p-3">
+		<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+			{#each characteristics as ch (ch.key)}
+				<span class="flex items-center gap-1.5 text-sm text-text-muted">
+					{ch.label}: {@render statusBadge(ch.state)}
+				</span>
+			{/each}
+		</div>
+		<div class="ml-auto flex items-center gap-2">
+			<span class="hidden text-xs text-text-muted md:inline">Enter · →/Space skip · ← back</span>
+			<Button
+				variant={touched.length > 0 ? 'primary' : 'secondary'}
+				size="sm"
+				loading={cropSaving}
+				onclick={commitAndAdvance}
+			>
+				{ctaLabel} <ArrowRight size={14} />
+			</Button>
+		</div>
+	</div>
+
+	<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+		<div class="flex min-w-0 flex-col gap-6 lg:flex-1">
+			<!-- Piece under review -->
+			<div class="border border-border bg-surface p-4">
 			<div class="mb-3 flex flex-wrap items-center gap-2">
 				<span class="text-sm font-medium text-text">
 					{detail.part.part_name || detail.part.part_id || 'Unidentified'}
@@ -356,8 +380,8 @@
 			</div>
 		</div>
 
-		<!-- Same physical piece across the upstream channels -->
-		<div class="border bg-surface p-4 lg:col-start-1 lg:row-start-2 {stateBorder(piecesState)}">
+			<!-- Same physical piece across the upstream channels -->
+			<div class="border bg-surface p-4 {stateBorder(piecesState)}">
 			<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
 				<div class="flex items-center gap-2">
 					<span class="text-sm font-medium text-text">Same piece across channels</span>
@@ -425,10 +449,11 @@
 					{/each}
 				</div>
 			{/if}
+			</div>
 		</div>
 
 		<!-- Color picker -->
-		<div class="flex flex-col border bg-surface p-4 lg:col-start-2 lg:row-start-1 lg:row-span-2 {stateBorder(colorState)}">
+		<div class="flex flex-col border bg-surface p-4 lg:w-96 {stateBorder(colorState)}">
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<span class="text-sm font-medium text-text">True color</span>
 				{@render statusBadge(colorState)}
@@ -437,7 +462,7 @@
 			{#snippet colorRow(color: BrickLinkColor, isGuess: boolean)}
 				{@const selected = color.id === myColorId}
 				<button
-					class="flex items-center gap-2 border px-2 py-1.5 text-left hover:border-primary disabled:opacity-50 {selected
+					class="flex items-center gap-2 border px-2 py-0.5 text-left hover:border-primary disabled:opacity-50 {selected
 						? 'border-success bg-success/10'
 						: isGuess
 							? 'border-info/60 bg-info/[0.06]'
@@ -447,13 +472,13 @@
 					disabled={submitting}
 				>
 					<span
-						class="h-6 w-6 shrink-0 border border-border {color.is_trans ? 'opacity-70' : ''}"
+						class="h-5 w-5 shrink-0 border border-border {color.is_trans ? 'opacity-70' : ''}"
 						style={`background:#${color.rgb ?? '000'}`}
 					></span>
 					<span class="min-w-0 flex-1 truncate text-sm {selected ? 'text-text' : 'text-text-muted'}">
 						{color.name}{#if isGuess}<span class="ml-1 text-xs text-info">· guess</span>{/if}
 					</span>
-					{#if selected}<Check size={15} class="shrink-0 text-success" />{/if}
+					{#if selected}<Check size={14} class="shrink-0 text-success" />{/if}
 				</button>
 			{/snippet}
 
@@ -468,7 +493,7 @@
 
 			{#if !search.trim() && similarColors.length > 0}
 				<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">Closest to guess</div>
-				<div class="mb-3 flex flex-col gap-1">
+				<div class="mb-3 flex flex-col gap-0.5">
 					{#each similarColors as color (color.id)}
 						{@render colorRow(color, false)}
 					{/each}
@@ -483,7 +508,7 @@
 				class="mb-3 w-full border border-border bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
 			/>
 
-			<div class="flex max-h-[46vh] flex-col gap-1 overflow-y-auto pr-1">
+			<div class="flex max-h-[46vh] flex-col gap-0.5 overflow-y-auto pr-1">
 				{#each filteredColors as color (color.id)}
 					{@render colorRow(color, false)}
 				{/each}
@@ -494,32 +519,4 @@
 		</div>
 	</div>
 
-	<!-- Summary + advance: reflects what's done across every characteristic -->
-	<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-surface p-3">
-		<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
-		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
-			{#each characteristics as ch (ch.key)}
-				<span class="flex items-center gap-1.5 text-sm text-text-muted">
-					{ch.label}: {@render statusBadge(ch.state)}
-				</span>
-			{/each}
-		</div>
-		<div class="ml-auto flex items-center gap-2">
-			<span class="hidden text-xs text-text-muted sm:inline">Enter</span>
-			<Button
-				variant={touched.length > 0 ? 'primary' : 'secondary'}
-				size="sm"
-				loading={cropSaving}
-				onclick={commitAndAdvance}
-			>
-				{ctaLabel} <ArrowRight size={14} />
-			</Button>
-		</div>
-	</div>
-
-	<div class="mt-2 text-xs text-text-muted">
-		Keys: <span class="text-text">Enter</span> {ctaLabel.toLowerCase()} ·
-		<span class="text-text">→</span>/<span class="text-text">Space</span> skip ·
-		<span class="text-text">←</span> back
-	</div>
 {/if}

@@ -96,7 +96,7 @@
 		// Seed the working list so the piece view can step through this same
 		// order, then jump in.
 		nav.seed(items, sort, offset, hasMore);
-		void goto(`/labeling/${card.machine_id}/${encodeURIComponent(card.piece_uuid)}`);
+		void goto(`/piece-bboxes/${card.machine_id}/${encodeURIComponent(card.piece_uuid)}`);
 	}
 
 	function startLabeling() {

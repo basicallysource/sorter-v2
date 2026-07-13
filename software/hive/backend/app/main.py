@@ -14,6 +14,7 @@ from app.routers import (
     analytics,
     api_keys,
     auth,
+    installs,
     leaderboard,
     machine_config_backups,
     machine_lookup,
@@ -80,6 +81,7 @@ app.include_router(analytics.router)
 app.include_router(machines.router)
 app.include_router(machine_config_backups.router)
 app.include_router(machine_lookup.router)
+app.include_router(installs.router)
 app.include_router(machine_sync.router)
 app.include_router(profiles.router)
 app.include_router(upload.router)

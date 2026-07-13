@@ -35,3 +35,4 @@ from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
 from app.models.piece_color_label import PieceColorLabel  # noqa: E402, F401
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember  # noqa: E402, F401
+from app.models.install import Install  # noqa: E402, F401

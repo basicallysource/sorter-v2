@@ -60,6 +60,23 @@ def save_piece_image_file(
     return key
 
 
+def save_channel_crop_file(
+    machine_id: str, local_id: int, channel: int | None, file: UploadFile, suffix: str
+) -> str:
+    # Deterministic key keyed on the machine's crop id so a re-send overwrites
+    # in place. Unlabeled crops group under channel_crops/ch{n}/.
+    channel_part = f"ch{int(channel)}" if channel is not None else "chx"
+    key = _join_key(
+        _safe_path_component(machine_id, "machine id"),
+        "channel_crops",
+        channel_part,
+        f"{int(local_id)}{suffix}",
+    )
+    file.file.seek(0)
+    get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
+
+
 def delete_sample_files(sample) -> None:
     backend = get_backend()
     for path in (sample.image_path, sample.full_frame_path, sample.overlay_path):

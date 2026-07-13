@@ -20,6 +20,7 @@ from typing import Any
 
 import requests
 
+import channel_crop_store
 import piece_image_store
 import piece_records
 from blob_manager import getHiveConfig
@@ -29,14 +30,19 @@ log = logging.getLogger(__name__)
 
 DATA_TYPE_RECORDS = "piece_records"
 DATA_TYPE_IMAGES = "piece_images"
+DATA_TYPE_CROPS = "channel_crops"
 
 RECORDS_BATCH = 500
 # Images push one file per request (multipart), so a small chunk per cycle keeps
 # each pass short and interleaves fairly across targets.
 IMAGES_CHUNK = 10
+CROPS_CHUNK = 10
 
 RECORDS_THROTTLE_S = 0.15
 IMAGES_THROTTLE_S = 0.8
+# Channel crops are high-volume but small; push them a touch faster than piece
+# images so the backlog keeps up with capture during a run.
+CROPS_THROTTLE_S = 0.3
 IDLE_POLL_S = 10.0
 
 SERVER_DOWN_BACKOFF_S = 10.0
@@ -87,6 +93,22 @@ def _imageToMeta(row: dict[str, Any]) -> dict[str, Any]:
         "used": row["used"],
         "excluded_from_result": row["excluded_from_result"],
         "score": row["score"],
+    }
+
+
+def _cropToMeta(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "local_id": row["id"],
+        "channel": row["channel"],
+        "ts": row["ts"],
+        "captured_at": row["created_at"],
+        "track_id": row["track_id"],
+        "com_forward_to_exit_deg": row["com_forward_to_exit_deg"],
+        "com_section": row["com_section"],
+        "zone_code": row["zone_code"],
+        "sharpness": row["sharpness"],
+        "bbox": row["bbox"],
+        "bytes": row["bytes"],
     }
 
 
@@ -141,7 +163,7 @@ class HiveSyncWorker:
                 "enabled": enabled,
                 "client": None,
                 "state_ok": False,
-                "wm": dict(prev.get("wm", {DATA_TYPE_RECORDS: None, DATA_TYPE_IMAGES: None})),
+                "wm": dict(prev.get("wm", {DATA_TYPE_RECORDS: None, DATA_TYPE_IMAGES: None, DATA_TYPE_CROPS: None})),
                 "backoff_s": float(prev.get("backoff_s", SERVER_DOWN_BACKOFF_S)),
                 "retry_after": float(prev.get("retry_after", 0.0)),
                 "last_error": prev.get("last_error"),
@@ -178,7 +200,12 @@ class HiveSyncWorker:
                 continue
             try:
                 self._ensureState(target)
-                progressed = self._drainRecords(target) or self._drainImages(target)
+                # Drain channel crops on its own leg rather than short-circuited
+                # behind records/images: piece-image capture is continuous during
+                # a run, so an `or` chain would starve crops behind that backlog.
+                records_or_images = self._drainRecords(target) or self._drainImages(target)
+                crops = self._drainChannelCrops(target)
+                progressed = records_or_images or crops
                 target["state_ok"] = True
                 target["backoff_s"] = SERVER_DOWN_BACKOFF_S
                 target["last_error"] = None
@@ -193,7 +220,7 @@ class HiveSyncWorker:
         if target["state_ok"] and target["wm"][DATA_TYPE_RECORDS] is not None:
             return
         state = target["client"].getSyncState()
-        for data_type in (DATA_TYPE_RECORDS, DATA_TYPE_IMAGES):
+        for data_type in (DATA_TYPE_RECORDS, DATA_TYPE_IMAGES, DATA_TYPE_CROPS):
             raw = state.get(data_type) if isinstance(state, dict) else None
             value = raw.get("max_local_id") if isinstance(raw, dict) else 0
             target["wm"][data_type] = int(value or 0)
@@ -230,16 +257,45 @@ class HiveSyncWorker:
             time.sleep(IMAGES_THROTTLE_S)
         return True
 
+    def _drainChannelCrops(self, target: dict[str, Any]) -> bool:
+        # Gated on its own channel_crops field (default off) so experimental
+        # crops never leak to production — enable it per-target. With it off the
+        # watermark freezes here and the backlog drains if enabled later.
+        if not telemetryAllows(target["id"], "channel_crops"):
+            return False
+        wm = int(target["wm"][DATA_TYPE_CROPS] or 0)
+        if channel_crop_store.getMaxCropId() <= wm:
+            return False
+        rows = channel_crop_store.listCropsAfter(wm, CROPS_CHUNK)
+        if not rows:
+            return False
+        for row in rows:
+            file_path = None if row["evicted_locally"] else channel_crop_store.getCropFileById(row["id"])
+            new_max = target["client"].pushChannelCrop(_cropToMeta(row), file_path)
+            target["wm"][DATA_TYPE_CROPS] = max(int(target["wm"][DATA_TYPE_CROPS] or 0), int(new_max), int(row["id"]))
+            time.sleep(CROPS_THROTTLE_S)
+        return True
+
     def _markImageRetention(self, targets: list[dict[str, Any]]) -> None:
-        # Stamp synced_at up to the MIN image watermark across enabled targets so
-        # retention only evicts a crop once EVERY hive has it.
-        watermarks = [
-            int(t["wm"][DATA_TYPE_IMAGES])
-            for t in targets
-            if t["state_ok"] and t["wm"][DATA_TYPE_IMAGES] is not None
-        ]
-        if watermarks and len(watermarks) == len(targets):
-            piece_image_store.markImagesSyncedUpTo(min(watermarks), time.time())
+        # Stamp synced_at up to the MIN watermark across enabled targets so
+        # retention only evicts a crop once EVERY hive has it — per store.
+        def _min_wm(data_type: str) -> int | None:
+            watermarks = [
+                int(t["wm"][data_type])
+                for t in targets
+                if t["state_ok"] and t["wm"][data_type] is not None
+            ]
+            if watermarks and len(watermarks) == len(targets):
+                return min(watermarks)
+            return None
+
+        now = time.time()
+        images_wm = _min_wm(DATA_TYPE_IMAGES)
+        if images_wm is not None:
+            piece_image_store.markImagesSyncedUpTo(images_wm, now)
+        crops_wm = _min_wm(DATA_TYPE_CROPS)
+        if crops_wm is not None:
+            channel_crop_store.markSyncedUpTo(crops_wm, now)
 
     def _backoff(self, target: dict[str, Any], exc: Exception) -> None:
         target["state_ok"] = False  # re-fetch watermark on recovery (handles a hive DB reset)

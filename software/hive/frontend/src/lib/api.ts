@@ -239,6 +239,29 @@ export interface MachinePiecesPage {
 	total: number;
 }
 
+export interface MachineChannelCropInfo {
+	local_id: number;
+	channel: number | null;
+	ts: string | null;
+	captured_at: string | null;
+	track_id: number | null;
+	com_forward_to_exit_deg: number | null;
+	com_section: number | null;
+	zone_code: number | null;
+	sharpness: number | null;
+	bbox: (number | null)[];
+	bytes: number | null;
+	available: boolean;
+	evicted_locally: boolean;
+}
+
+export interface MachineChannelCropsPage {
+	machine: { id: string; name: string; owner_email: string | null };
+	items: MachineChannelCropInfo[];
+	next_cursor: number | null;
+	total: number;
+}
+
 export interface MachineConfigBackupSummary {
 	id: string;
 	version: number;
@@ -1040,6 +1063,24 @@ export const api = {
 		return resolveApiPath(
 			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
+	},
+	getMachineChannelCrops(
+		machineId: string,
+		opts: { limit?: number; cursor?: number | null; channel?: number | null; zoneCode?: number | null } = {}
+	) {
+		const params = new URLSearchParams();
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.cursor != null) params.set('cursor', String(opts.cursor));
+		if (opts.channel != null) params.set('channel', String(opts.channel));
+		if (opts.zoneCode != null) params.set('zone_code', String(opts.zoneCode));
+		const qs = params.toString();
+		return request<MachineChannelCropsPage>(
+			'GET',
+			`/api/machines/${machineId}/channel-crops${qs ? `?${qs}` : ''}`
+		);
+	},
+	machineChannelCropImageUrl(machineId: string, localId: number) {
+		return resolveApiPath(`/api/machines/${machineId}/channel-crops/${localId}/image`);
 	},
 
 	// Color labeling

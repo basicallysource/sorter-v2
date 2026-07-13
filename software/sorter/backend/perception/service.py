@@ -362,6 +362,17 @@ class PerceptionService:
         on_channel = [b for b in bboxes if bboxInsideChannelMask(b, channel)]
         return on_channel, frame
 
+    def read_pieces_and_frame(self, channel_id: int):
+        """Latest ``(pieces, PerceptionFrame)`` for this channel — the per-piece
+        PieceObservation tuple (bbox + com_forward_to_exit_deg + zone_code +
+        sv_bt_track_id) with the exact frame it was computed against, written
+        together in the worker's hot loop. Returns ``None`` if the worker hasn't
+        completed a cycle yet. GIL-atomic read; callers must not mutate."""
+        worker = self._workers.get(channel_id)
+        if worker is None:
+            return None
+        return worker.latest_pieces_frame
+
     def read_detections(self, channel_id: int):
         """Latest in-crop ``Detection`` list for this channel, each tagged with
         ``in_primary`` and the secondary-zone ids it falls in. Display/tag only —

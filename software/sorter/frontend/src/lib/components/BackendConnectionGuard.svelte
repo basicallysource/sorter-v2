@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import {
 		getBackendWsBase,
 		getBackendHttpBase,
@@ -187,10 +188,7 @@
 						The backend is restarting. Waiting for it to come back online...
 					</div>
 					<div class="mt-3 flex items-center gap-2 text-xs text-text-muted">
-						<div
-							class="h-3.5 w-3.5 animate-spin border-2 border-current border-t-transparent"
-							style="border-radius: 50%;"
-						></div>
+						<Spinner size={14} />
 						Reconnecting...
 					</div>
 				{:else}

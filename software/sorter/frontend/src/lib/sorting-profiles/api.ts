@@ -21,6 +21,50 @@ export async function fetchLibrary(baseUrl: string): Promise<SortingProfileLibra
 	return unwrap<SortingProfileLibraryResponse>(res);
 }
 
+// Fast tier: local profiles + active sync state + target metadata (no Hive
+// network). Targets come back with empty `profiles` — fill them via
+// fetchTargetLibrary per target.
+export async function fetchLocalLibrary(baseUrl: string): Promise<SortingProfileLibraryResponse> {
+	const res = await fetch(`${baseUrl}/api/sorting-profiles/local`);
+	return unwrap<SortingProfileLibraryResponse>(res);
+}
+
+// Hive tier: one target's profile summaries + assignment. Call per target in
+// parallel so a slow target doesn't block the rest.
+export async function fetchTargetLibrary(
+	baseUrl: string,
+	targetId: string
+): Promise<HiveTargetLibrary> {
+	const res = await fetch(
+		`${baseUrl}/api/sorting-profiles/targets/${encodeURIComponent(targetId)}/library`
+	);
+	return unwrap<HiveTargetLibrary>(res);
+}
+
+// Lazy per-card metadata (name + counts) for a local profile. The fast /local
+// endpoint omits these to avoid parsing the multi-MB file; fetch them per card.
+export type LocalProfileMeta = {
+	filename: string;
+	name?: string | null;
+	description?: string | null;
+	profile_type?: string | null;
+	rule_count?: number | null;
+	category_count?: number | null;
+	part_count?: number | null;
+	artifact_hash?: string | null;
+	error?: string | null;
+};
+
+export async function fetchLocalProfileMeta(
+	baseUrl: string,
+	filename: string
+): Promise<LocalProfileMeta> {
+	const res = await fetch(
+		`${baseUrl}/api/sorting-profiles/local/${encodeURIComponent(filename)}/meta`
+	);
+	return unwrap<LocalProfileMeta>(res);
+}
+
 export async function fetchProfileDetail(
 	baseUrl: string,
 	targetId: string,
@@ -90,10 +134,9 @@ export async function uploadLocalProfile(
 }
 
 export async function deleteLocalProfile(baseUrl: string, filename: string): Promise<void> {
-	const res = await fetch(
-		`${baseUrl}/api/sorting-profiles/local/${encodeURIComponent(filename)}`,
-		{ method: 'DELETE' }
-	);
+	const res = await fetch(`${baseUrl}/api/sorting-profiles/local/${encodeURIComponent(filename)}`, {
+		method: 'DELETE'
+	});
 	if (!res.ok) {
 		const body = (await res.json().catch(() => null)) as JsonError | null;
 		throw new Error(body?.detail ?? `HTTP ${res.status}`);
@@ -116,7 +159,9 @@ export function visibleVersions(detail: SortingProfileDetail): SortingProfileVer
 	return detail.is_owner ? detail.versions : detail.versions.filter((v) => v.is_published);
 }
 
-export function displayVersion(profile: SortingProfileSummary): SortingProfileVersionSummary | null {
+export function displayVersion(
+	profile: SortingProfileSummary
+): SortingProfileVersionSummary | null {
 	return profile.latest_published_version ?? profile.latest_version;
 }
 

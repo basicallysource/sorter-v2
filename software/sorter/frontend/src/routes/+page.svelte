@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import { getMachineContext, getMachinesContext } from '$lib/machines/context';
 	import {
 		getBackendHttpBase,
@@ -1112,10 +1113,7 @@
 								</div>
 							{:else if hardwareState === 'homing'}
 								<div class="flex items-center gap-3">
-									<div
-										class="h-4 w-4 animate-spin border-2 border-primary border-t-transparent"
-										style="border-radius: 50%;"
-									></div>
+									<Spinner size={16} class="text-primary" />
 									<div>
 										<div class="text-sm font-medium text-text">Homing...</div>
 										<div class="text-xs text-text-muted">

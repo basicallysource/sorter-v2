@@ -22,6 +22,7 @@ from app.routers import (
     machine_sync,
     machines,
     models as models_router,
+    piece_color_labels,
     profiles,
     review,
     samples,
@@ -89,6 +90,7 @@ app.include_router(stats.router)
 app.include_router(models_router.router)
 app.include_router(machine_models.router)
 app.include_router(machine_parts.router)
+app.include_router(piece_color_labels.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
 app.include_router(leaderboard.router)

@@ -992,6 +992,33 @@ export interface ColorLabelQueue {
 	has_more: boolean;
 }
 
+// A "possibly the same piece" upstream C2/C3 crop candidate, ranked by the
+// shared time/angle heuristic. `predicted` = the machine's default selection.
+export interface PossibleCropCandidate {
+	local_id: number;
+	channel: number | null;
+	ts: string | null;
+	dt: number | null;
+	zone_code: number | null;
+	com_forward_to_exit_deg: number | null;
+	sharpness: number | null;
+	score: number;
+	predicted: boolean;
+	available: boolean;
+}
+
+export interface PieceCropLinkMember {
+	local_id: number;
+	is_same: boolean;
+	was_predicted: boolean;
+}
+
+export interface PossibleCropsResult {
+	arrival_ts: string | null;
+	candidates: PossibleCropCandidate[];
+	my_link: PieceCropLinkMember[];
+}
+
 export const api = {
 	// Auth
 	register(email: string, password: string, display_name: string) {
@@ -1114,6 +1141,35 @@ export const api = {
 	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveApiPath(
 			`/api/color-labels/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
+		);
+	},
+
+	// Same-piece-across-channels labeling (layered on the color-label page)
+	possibleCrops(machineId: string, pieceUuid: string) {
+		return request<PossibleCropsResult>(
+			'GET',
+			`/api/color-labels/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	channelCropLabelImageUrl(machineId: string, localId: number) {
+		return resolveApiPath(`/api/color-labels/channel-crops/${machineId}/${localId}/image`);
+	},
+	savePieceCropLink(body: {
+		machine_id: string;
+		piece_uuid: string;
+		arrival_ts?: number | null;
+		members: PieceCropLinkMember[];
+	}) {
+		return request<{ ok: boolean; created: boolean; same_count: number; member_count: number }>(
+			'POST',
+			'/api/color-labels/piece-crop-link',
+			body
+		);
+	},
+	deletePieceCropLink(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/color-labels/piece-crop-link/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	createMachine(name: string, description?: string) {

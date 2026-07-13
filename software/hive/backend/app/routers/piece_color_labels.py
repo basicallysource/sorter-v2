@@ -24,10 +24,13 @@ from sqlalchemy.orm import Session
 from app.deps import get_current_user, get_db
 from app.errors import APIError
 from app.models.machine import Machine
+from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.piece_color_label import PieceColorLabel
+from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
 from app.models.user import User
+from app.services.channel_crop_lookup import find_possible_crops
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.storage import serve_stored_file
@@ -306,3 +309,172 @@ def get_piece_image(
     if image is None or not image.image_key:
         raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
     return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
+
+
+# --- Same-piece-across-channels labeling -------------------------------------
+#
+# A second, independent labeling task layered on the same page: which upstream
+# C2/C3 crops (machine_channel_crops) are the SAME physical piece as this
+# classified piece. The time/angle heuristic (services.channel_crop_lookup,
+# shared byte-for-byte with the sorter) proposes a ranked candidate set with a
+# pre-selected prediction; the labeler keeps/drops/adds and accepts. Stored as
+# piece_crop_links (+ members) — training data for a future tracking model,
+# saved separately from the color label (accepting one does not touch the other).
+
+
+def _my_link_members(db: Session, machine_id: UUID, piece_uuid: str, labeler_id: UUID) -> list[dict]:
+    link = (
+        db.query(PieceCropLink)
+        .filter(
+            PieceCropLink.machine_id == machine_id,
+            PieceCropLink.piece_uuid == piece_uuid,
+            PieceCropLink.labeler_id == labeler_id,
+        )
+        .first()
+    )
+    if link is None:
+        return []
+    members = db.query(PieceCropLinkMember).filter(PieceCropLinkMember.link_id == link.id).all()
+    return [
+        {"local_id": m.crop_local_id, "is_same": m.is_same, "was_predicted": m.was_predicted}
+        for m in members
+    ]
+
+
+@router.get("/possible-crops/{machine_id}/{piece_uuid}")
+def possible_crops(
+    machine_id: UUID,
+    piece_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Ranked "possibly the same piece" C2/C3 candidates for a classified piece,
+    plus this labeler's saved selection (if any) so the UI can restore it."""
+    result = find_possible_crops(db, machine_id, piece_uuid)
+    result["my_link"] = _my_link_members(db, machine_id, piece_uuid, current_user.id)
+    return result
+
+
+@router.get("/channel-crops/{machine_id}/{local_id}/image")
+def get_channel_crop_image(
+    machine_id: UUID,
+    local_id: int,
+    db: Session = Depends(get_db),
+    _user: User = Depends(get_current_user),
+) -> object:
+    """Stream one upstream-channel crop. Any authenticated user may view it —
+    same-piece labeling is a community task over the synced fleet, like the color
+    crops above (unlike the owner-gated /machines/... channel-crop route)."""
+    crop = (
+        db.query(MachineChannelCrop)
+        .filter(
+            MachineChannelCrop.machine_id == machine_id,
+            MachineChannelCrop.local_id == local_id,
+        )
+        .first()
+    )
+    if crop is None or not crop.image_key:
+        raise APIError(404, "Crop image not found", "CROP_IMAGE_NOT_FOUND")
+    return serve_stored_file(crop.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
+
+
+class CropLinkMemberIn(BaseModel):
+    local_id: int
+    is_same: bool
+    was_predicted: bool = False
+
+
+class CropLinkPayload(BaseModel):
+    machine_id: UUID
+    piece_uuid: str = Field(min_length=1)
+    arrival_ts: float | None = None
+    members: list[CropLinkMemberIn]
+
+
+@router.post("/piece-crop-link")
+def save_piece_crop_link(
+    payload: CropLinkPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Create or replace the current user's same-piece crop selection for a
+    piece. Sent the full presented candidate set (each with the labeler's verdict
+    and whether it was a prediction); replaces any prior members wholesale."""
+    piece = (
+        db.query(MachinePiece.id)
+        .filter(
+            MachinePiece.machine_id == payload.machine_id,
+            MachinePiece.piece_uuid == payload.piece_uuid,
+        )
+        .first()
+    )
+    if piece is None:
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    now = datetime.now(timezone.utc)
+    link = (
+        db.query(PieceCropLink)
+        .filter(
+            PieceCropLink.machine_id == payload.machine_id,
+            PieceCropLink.piece_uuid == payload.piece_uuid,
+            PieceCropLink.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if link is None:
+        link = PieceCropLink(
+            machine_id=payload.machine_id,
+            piece_uuid=payload.piece_uuid,
+            labeler_id=current_user.id,
+            arrival_ts=payload.arrival_ts,
+        )
+        db.add(link)
+        db.flush()
+        created = True
+    else:
+        link.arrival_ts = payload.arrival_ts
+        link.updated_at = now
+        db.query(PieceCropLinkMember).filter(PieceCropLinkMember.link_id == link.id).delete()
+        created = False
+
+    # Dedup on local_id (last verdict wins) — the unique constraint would reject
+    # a repeat, and the client shouldn't present the same crop twice anyway.
+    seen: dict[int, CropLinkMemberIn] = {}
+    for m in payload.members:
+        seen[m.local_id] = m
+    for m in seen.values():
+        db.add(
+            PieceCropLinkMember(
+                link_id=link.id,
+                crop_local_id=m.local_id,
+                is_same=m.is_same,
+                was_predicted=m.was_predicted,
+            )
+        )
+    db.commit()
+
+    same_count = sum(1 for m in seen.values() if m.is_same)
+    return {"ok": True, "created": created, "same_count": same_count, "member_count": len(seen)}
+
+
+@router.delete("/piece-crop-link/{machine_id}/{piece_uuid}")
+def delete_piece_crop_link(
+    machine_id: UUID,
+    piece_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    link = (
+        db.query(PieceCropLink)
+        .filter(
+            PieceCropLink.machine_id == machine_id,
+            PieceCropLink.piece_uuid == piece_uuid,
+            PieceCropLink.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if link is None:
+        raise APIError(404, "Crop link not found", "CROP_LINK_NOT_FOUND")
+    db.delete(link)
+    db.commit()
+    return {"ok": True}

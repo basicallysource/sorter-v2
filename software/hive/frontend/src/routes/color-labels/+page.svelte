@@ -3,7 +3,8 @@
 		api,
 		type BrickLinkColor,
 		type ColorLabelQueueItem,
-		type ColorLabelStats
+		type ColorLabelStats,
+		type PossibleCropCandidate
 	} from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -28,6 +29,20 @@
 	let fetchingMore = $state(false);
 	let submitting = $state(false);
 	let error = $state<string | null>(null);
+
+	// "Same piece across channels" — a second, independent labeling task on the
+	// same piece: which upstream C2/C3 crops are the same physical piece. The
+	// heuristic pre-selects `predicted` candidates; the labeler toggles and hits
+	// Accept (a separate save from the color; Enter only accepts the color).
+	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
+	let cropCandidates = $state<PossibleCropCandidate[]>([]);
+	let cropSelected = $state<Set<number>>(new Set());
+	let cropArrivalTs: string | null = null;
+	let cropForKey = ''; // piece the crop state belongs to (guards async races)
+	let cropLoading = $state(false);
+	let cropSaving = $state(false);
+	let cropSaved = $state(false);
+	let cropError = $state<string | null>(null);
 
 	const current = $derived(items[index] ?? null);
 
@@ -208,8 +223,85 @@
 		}
 	}
 
+	async function loadCrops(it: ColorLabelQueueItem, k: string) {
+		cropForKey = k;
+		cropLoading = true;
+		cropSaved = false;
+		cropError = null;
+		cropCandidates = [];
+		cropSelected = new Set();
+		cropArrivalTs = null;
+		try {
+			const res = await api.possibleCrops(it.machine_id, it.piece_uuid);
+			if (cropForKey !== k) return; // a newer piece began loading; drop stale result
+			cropCandidates = res.candidates;
+			cropArrivalTs = res.arrival_ts;
+			const savedPos = res.my_link.filter((m) => m.is_same).map((m) => m.local_id);
+			if (res.my_link.length > 0) {
+				// Restore a prior decision (positives that are still in the candidate set).
+				const present = new Set(res.candidates.map((c) => c.local_id));
+				cropSelected = new Set(savedPos.filter((id) => present.has(id)));
+				cropSaved = true;
+			} else {
+				cropSelected = new Set(res.candidates.filter((c) => c.predicted).map((c) => c.local_id));
+			}
+		} catch (e: unknown) {
+			if (cropForKey === k) cropError = errMsg(e, 'Failed to load candidate crops');
+		} finally {
+			if (cropForKey === k) cropLoading = false;
+		}
+	}
+
+	function toggleCrop(localId: number) {
+		const s = new Set(cropSelected);
+		if (s.has(localId)) s.delete(localId);
+		else s.add(localId);
+		cropSelected = s;
+		cropSaved = false;
+	}
+
+	async function saveCrops() {
+		const it = current;
+		if (!it || cropSaving || cropCandidates.length === 0) return;
+		const k = key(it);
+		cropSaving = true;
+		cropError = null;
+		// Send the full presented set, not just positives — is_same=false crops are
+		// human-verified hard negatives, valuable training signal.
+		const members = cropCandidates.map((c) => ({
+			local_id: c.local_id,
+			is_same: cropSelected.has(c.local_id),
+			was_predicted: c.predicted
+		}));
+		try {
+			await api.savePieceCropLink({
+				machine_id: it.machine_id,
+				piece_uuid: it.piece_uuid,
+				arrival_ts: cropArrivalTs ? Date.parse(cropArrivalTs) / 1000 : null,
+				members
+			});
+			if (cropForKey === k) cropSaved = true;
+		} catch (e: unknown) {
+			if (cropForKey === k) cropError = errMsg(e, 'Failed to save selection');
+		} finally {
+			if (cropForKey === k) cropSaving = false;
+		}
+	}
+
 	$effect(() => {
 		void loadAll();
+	});
+
+	// Reload same-piece candidates whenever the current piece changes.
+	$effect(() => {
+		const it = current;
+		if (!it) {
+			cropForKey = '';
+			cropCandidates = [];
+			cropSelected = new Set();
+			return;
+		}
+		void loadCrops(it, key(it));
 	});
 </script>
 
@@ -253,9 +345,11 @@
 		</div>
 	</div>
 {:else}
-	<div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+	<!-- Two columns: left stacks the piece card over its same-piece crops; the
+	     tall palette spans both rows on the right so nothing falls below the fold. -->
+	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
 		<!-- Piece under review -->
-		<div class="border border-border bg-surface p-4">
+		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-1">
 			<div class="mb-3 flex flex-wrap items-center gap-2">
 				<span class="text-sm font-medium text-text">
 					{current.part.part_name || current.part.part_id || 'Unidentified'}
@@ -306,7 +400,7 @@
 		</div>
 
 		<!-- Palette picker -->
-		<div class="flex flex-col border border-border bg-surface p-4">
+		<div class="flex flex-col border border-border bg-surface p-4 lg:col-start-2 lg:row-start-1 lg:row-span-2">
 			<div class="mb-3 flex items-center justify-between">
 				<span class="text-sm font-medium text-text">True color</span>
 				<div class="flex gap-1.5">
@@ -376,10 +470,80 @@
 				<p class="py-4 text-center text-xs text-text-muted">No colors match “{search}”.</p>
 			{/if}
 		</div>
+	<!-- Same physical piece across the upstream channels (independent save) -->
+		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-2">
+		<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
+			<span class="text-sm font-medium text-text">Same piece across channels</span>
+			<div class="flex items-center gap-2">
+				{#if cropSaved}
+					<span class="text-xs text-success">Saved</span>
+				{/if}
+				<span class="text-xs text-text-muted tabular-nums">
+					{cropSelected.size} of {cropCandidates.length} selected
+				</span>
+				<Button
+					variant="primary"
+					size="sm"
+					loading={cropSaving}
+					disabled={cropCandidates.length === 0 || cropLoading}
+					onclick={saveCrops}
+				>
+					Accept selection
+				</Button>
+			</div>
+		</div>
+		<p class="mb-3 text-sm text-text-muted">
+			Our guess of which upstream C2/C3 crops are this same physical piece, ranked by a
+			time-and-angle heuristic. Keep or drop our picks and add any we missed, then
+			<span class="font-medium">Accept</span> — saved separately from the color (Enter only saves the color).
+		</p>
+
+		{#if cropLoading}
+			<div class="flex justify-center py-8"><Spinner /></div>
+		{:else if cropError}
+			<div class="bg-primary/8 p-3 text-sm text-primary">{cropError}</div>
+		{:else if cropCandidates.length === 0}
+			<p class="py-4 text-sm text-text-muted">No candidate crops in range for this piece.</p>
+		{:else}
+			<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
+				{#each cropCandidates as c (c.local_id)}
+					{@const selected = cropSelected.has(c.local_id)}
+					<button
+						type="button"
+						onclick={() => toggleCrop(c.local_id)}
+						title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${c.predicted ? ' · our pick' : ''}`}
+						class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
+							? 'border-success bg-success/10'
+							: 'border-border opacity-70 hover:opacity-100'}"
+					>
+						{#if c.available}
+							<img
+								src={api.channelCropLabelImageUrl(current.machine_id, c.local_id)}
+								alt={`crop ${c.local_id}`}
+								loading="lazy"
+								class="h-16 w-16 bg-transparent object-contain"
+							/>
+						{:else}
+							<div class="flex h-16 w-16 items-center justify-center border border-dashed border-border text-xs text-text-muted">
+								evicted
+							</div>
+						{/if}
+						<span class="flex items-center gap-1 text-xs {selected ? 'text-text' : 'text-text-muted'}">
+							{#if selected}<span class="text-success">✓</span>{/if}
+							C{c.channel}·{c.dt}s
+						</span>
+						{#if c.predicted}
+							<span class="absolute right-0.5 top-0.5 bg-info/80 px-1 text-xs uppercase leading-tight text-white">ai</span>
+						{/if}
+					</button>
+				{/each}
+			</div>
+		{/if}
+		</div>
 	</div>
 
 	<div class="mt-3 flex items-center gap-3 text-xs text-text-muted">
 		{#if submitting}<Spinner />{/if}
-		<span>Keys: <span class="text-text">Enter</span> accept prediction · <span class="text-text">→</span>/<span class="text-text">Space</span> skip · <span class="text-text">←</span> back</span>
+		<span>Keys: <span class="text-text">Enter</span> accept color · <span class="text-text">→</span>/<span class="text-text">Space</span> skip · <span class="text-text">←</span> back</span>
 	</div>
 {/if}

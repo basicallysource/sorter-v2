@@ -966,6 +966,7 @@ export interface ColorLabelStats {
 }
 
 export type ColorLabelSort =
+	| 'priority'
 	| 'recent'
 	| 'oldest'
 	| 'least_color'
@@ -985,6 +986,7 @@ export interface ColorLabelPieceCard {
 	crop_link_count: number;
 	my_color: boolean;
 	my_crop: boolean;
+	has_candidates: boolean;
 	thumb_seq: number | null;
 }
 
@@ -1162,8 +1164,9 @@ export const api = {
 	colorLabelColors() {
 		return request<{ results: BrickLinkColor[] }>('GET', '/api/labeling/colors');
 	},
-	colorLabelStats() {
-		return request<ColorLabelStats>('GET', '/api/labeling/stats');
+	colorLabelStats(opts: { machineId?: string | null } = {}) {
+		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
+		return request<ColorLabelStats>('GET', `/api/labeling/stats${qs}`);
 	},
 	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
 		const params = new URLSearchParams();
@@ -1173,11 +1176,21 @@ export const api = {
 		const qs = params.toString();
 		return request<ColorLabelQueue>('GET', `/api/labeling/queue${qs ? `?${qs}` : ''}`);
 	},
-	colorLabelPieces(opts: { sort?: ColorLabelSort; limit?: number; offset?: number } = {}) {
+	colorLabelPieces(
+		opts: {
+			sort?: ColorLabelSort;
+			limit?: number;
+			offset?: number;
+			machineId?: string | null;
+			withCandidates?: boolean;
+		} = {}
+	) {
 		const params = new URLSearchParams();
 		if (opts.sort) params.set('sort', opts.sort);
 		if (opts.limit) params.set('limit', String(opts.limit));
 		if (opts.offset) params.set('offset', String(opts.offset));
+		if (opts.machineId) params.set('machine_id', opts.machineId);
+		if (opts.withCandidates) params.set('with_candidates', 'true');
 		const qs = params.toString();
 		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
 	},

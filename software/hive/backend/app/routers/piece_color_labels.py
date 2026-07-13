@@ -13,7 +13,7 @@ Rebrickable `colors` external ids). Labels live in Postgres (piece_color_labels)
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -31,6 +31,7 @@ from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
 from app.models.user import User
 from app.services.channel_crop_lookup import find_possible_crops
+from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.storage import serve_stored_file
@@ -83,37 +84,42 @@ def list_colors(
 
 @router.get("/stats")
 def label_stats(
+    machine_id: UUID | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Dashboard rollup: overall progress plus a histogram of how many distinct
-    labelers have color-labeled each piece (drives the coverage chart)."""
-    total_labelable = _labelable_query(db).count()
+    labelers have color-labeled each piece (drives the coverage chart). Scoped to
+    one machine when machine_id is given, matching the grid's machine filter."""
+    labelable_q = _labelable_query(db)
+    if machine_id is not None:
+        labelable_q = labelable_q.filter(MachinePiece.machine_id == machine_id)
+    total_labelable = labelable_q.count()
 
-    labeled_by_me = (
-        db.query(func.count(PieceColorLabel.id))
-        .filter(PieceColorLabel.labeler_id == current_user.id)
-        .scalar()
-        or 0
-    )
-    crop_links_by_me = (
-        db.query(func.count(PieceCropLink.id))
-        .filter(PieceCropLink.labeler_id == current_user.id)
-        .scalar()
-        or 0
-    )
-    total_color_labels = db.query(func.count(PieceColorLabel.id)).scalar() or 0
-    total_crop_links = db.query(func.count(PieceCropLink.id)).scalar() or 0
+    def _color_q():
+        q = db.query(PieceColorLabel)
+        return q.filter(PieceColorLabel.machine_id == machine_id) if machine_id is not None else q
+
+    def _crop_q():
+        q = db.query(PieceCropLink)
+        return q.filter(PieceCropLink.machine_id == machine_id) if machine_id is not None else q
+
+    labeled_by_me = _color_q().filter(PieceColorLabel.labeler_id == current_user.id).count()
+    crop_links_by_me = _crop_q().filter(PieceCropLink.labeler_id == current_user.id).count()
+    total_color_labels = _color_q().count()
+    total_crop_links = _crop_q().count()
 
     # Distinct pieces touched (one row per labeler per piece, so a grouped count).
     color_pieces_sq = (
-        db.query(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        _color_q()
+        .with_entities(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
         .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
         .subquery()
     )
     color_labeled_pieces = db.query(func.count()).select_from(color_pieces_sq).scalar() or 0
     crop_pieces_sq = (
-        db.query(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
+        _crop_q()
+        .with_entities(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
         .group_by(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
         .subquery()
     )
@@ -121,7 +127,8 @@ def label_stats(
 
     # Histogram: pieces by number of distinct color-labelers (1 / 2 / 3+).
     per_piece = (
-        db.query(func.count(PieceColorLabel.id).label("n"))
+        _color_q()
+        .with_entities(func.count(PieceColorLabel.id).label("n"))
         .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
         .subquery()
     )
@@ -156,7 +163,30 @@ def label_stats(
     }
 
 
+# Window (before/after the piece's arrival) in which a same-piece candidate crop
+# could exist — mirrors the shared lookup params so ordering agrees with what the
+# labeling view actually surfaces.
+_CANDIDATE_WINDOW = timedelta(seconds=DEFAULT_PARAMS.lookback_window_s)
+_CANDIDATE_SLOP = timedelta(seconds=DEFAULT_PARAMS.fwd_slop_s)
+
+
+def _has_candidates_exists():
+    """Correlated EXISTS: this piece's machine has at least one channel crop
+    within its arrival window — i.e. the same-piece panel will have candidates.
+    Cheap via the (machine_id, ts) index; arrival approximated by seen_at."""
+    arrival = func.coalesce(MachinePiece.seen_at, MachinePiece.recorded_at)
+    return exists().where(
+        and_(
+            MachineChannelCrop.machine_id == MachinePiece.machine_id,
+            MachineChannelCrop.ts.isnot(None),
+            MachineChannelCrop.ts >= arrival - _CANDIDATE_WINDOW,
+            MachineChannelCrop.ts <= arrival + _CANDIDATE_SLOP,
+        )
+    )
+
+
 _PIECE_SORTS = {
+    "priority",
     "recent",
     "oldest",
     "least_color",
@@ -169,17 +199,22 @@ _PIECE_SORTS = {
 
 @router.get("/pieces")
 def list_pieces(
-    sort: str = Query("recent"),
+    sort: str = Query("priority"),
     limit: int = Query(60, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    machine_id: UUID | None = Query(None),
+    with_candidates: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Sortable grid of labelable pieces with per-piece label/crop-link counts,
-    for the dashboard. Sorts: recent, oldest, least/most_color, least/most_crop,
-    needs_me (pieces this user hasn't color-labeled first)."""
+    for the dashboard. Sorts: priority (has same-piece candidates first, then
+    fewest color labels — spreads effort where it's useful), recent, oldest,
+    least/most_color, least/most_crop, needs_me (this user's unlabeled first).
+    Optional machine_id filter and with_candidates (only pieces that have
+    same-piece candidate crops)."""
     if sort not in _PIECE_SORTS:
-        sort = "recent"
+        sort = "priority"
 
     color_cnt_sq = (
         db.query(
@@ -215,6 +250,7 @@ def list_pieces(
             PieceCropLink.labeler_id == current_user.id,
         )
     )
+    has_candidates = _has_candidates_exists()
 
     q = (
         db.query(
@@ -223,6 +259,7 @@ def list_pieces(
             crop_cnt.label("crop_cnt"),
             my_color.label("my_color"),
             my_crop.label("my_crop"),
+            has_candidates.label("has_candidates"),
         )
         .outerjoin(
             color_cnt_sq,
@@ -234,9 +271,17 @@ def list_pieces(
         )
         .filter(MachinePiece.dead.is_(False), _available_image_exists())
     )
+    if machine_id is not None:
+        q = q.filter(MachinePiece.machine_id == machine_id)
+    if with_candidates:
+        q = q.filter(has_candidates)
 
     recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
-    if sort == "recent":
+    if sort == "priority":
+        # Candidates first, then the least-color-labeled — pushes effort to pieces
+        # that are both useful (have crops to link) and under-labeled.
+        q = q.order_by(has_candidates.desc(), color_cnt.asc(), *recent_order)
+    elif sort == "recent":
         q = q.order_by(*recent_order)
     elif sort == "oldest":
         q = q.order_by(MachinePiece.recorded_at.asc().nullsfirst(), MachinePiece.created_at.asc())
@@ -279,7 +324,7 @@ def list_pieces(
                 thumb_seq[f"{mid}|{puid}"] = seq
 
     items = []
-    for p, ccnt, xcnt, mc, mx in rows:
+    for p, ccnt, xcnt, mc, mx, has_c in rows:
         items.append(
             {
                 "machine_id": str(p.machine_id),
@@ -292,6 +337,7 @@ def list_pieces(
                 "crop_link_count": int(xcnt),
                 "my_color": bool(mc),
                 "my_crop": bool(mx),
+                "has_candidates": bool(has_c),
                 "thumb_seq": thumb_seq.get(f"{p.machine_id}|{p.piece_uuid}"),
             }
         )

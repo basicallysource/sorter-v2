@@ -21,8 +21,10 @@ export async function getColors(): Promise<BrickLinkColor[]> {
 	return colorsCache;
 }
 
+export type NavFilters = { sort: ColorLabelSort; machineId?: string | null; withCandidates?: boolean };
+
 let queue: PieceKey[] = [];
-let sort: ColorLabelSort = 'needs_me';
+let filters: NavFilters = { sort: 'priority' };
 let nextOffset = 0;
 let hasMore = true;
 let loading = false;
@@ -35,9 +37,9 @@ function indexOf(k: PieceKey): number {
 	return queue.findIndex((q) => sameKey(q, k));
 }
 
-export function seed(items: PieceKey[], sortUsed: ColorLabelSort, offsetAfter: number, more: boolean): void {
+export function seed(items: PieceKey[], f: NavFilters, offsetAfter: number, more: boolean): void {
 	queue = items.map((k) => ({ machine_id: k.machine_id, piece_uuid: k.piece_uuid }));
-	sort = sortUsed;
+	filters = f;
 	nextOffset = offsetAfter;
 	hasMore = more;
 }
@@ -46,7 +48,13 @@ async function fetchMore(): Promise<boolean> {
 	if (loading || !hasMore) return false;
 	loading = true;
 	try {
-		const page = await api.colorLabelPieces({ sort, limit: 60, offset: nextOffset });
+		const page = await api.colorLabelPieces({
+			sort: filters.sort,
+			machineId: filters.machineId,
+			withCandidates: filters.withCandidates,
+			limit: 60,
+			offset: nextOffset
+		});
 		nextOffset += page.items.length;
 		hasMore = page.has_more;
 		for (const it of page.items) {

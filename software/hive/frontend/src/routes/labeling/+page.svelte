@@ -96,7 +96,7 @@
 		// Seed the working list so the piece view can step through this same
 		// order, then jump in.
 		nav.seed(items, sort, offset, hasMore);
-		void goto(`/color-labels/${card.machine_id}/${encodeURIComponent(card.piece_uuid)}`);
+		void goto(`/labeling/${card.machine_id}/${encodeURIComponent(card.piece_uuid)}`);
 	}
 
 	function startLabeling() {
@@ -109,14 +109,14 @@
 </script>
 
 <svelte:head>
-	<title>Color Labeling · Hive</title>
+	<title>Piece Labeling · Hive</title>
 </svelte:head>
 
 <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
 	<div>
-		<h1 class="text-2xl font-bold text-text">Color Labeling</h1>
+		<h1 class="text-2xl font-bold text-text">Piece Labeling</h1>
 		<p class="text-sm text-text-muted">
-			Label the true BrickLink color of each synced piece — and which upstream crops are the same piece.
+			Label each synced piece — its true BrickLink color and which upstream crops are the same piece.
 		</p>
 	</div>
 	<Button variant="primary" size="sm" onclick={startLabeling} disabled={loading || items.length === 0}>

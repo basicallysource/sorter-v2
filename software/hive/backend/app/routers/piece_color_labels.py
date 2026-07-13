@@ -35,7 +35,7 @@ from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.storage import serve_stored_file
 
-router = APIRouter(prefix="/api/color-labels", tags=["color-labels"])
+router = APIRouter(prefix="/api/labeling", tags=["labeling"])
 
 PIECE_IMAGE_CACHE_CONTROL = "public, max-age=31536000, immutable"
 

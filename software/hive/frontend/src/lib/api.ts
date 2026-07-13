@@ -1160,10 +1160,10 @@ export const api = {
 
 	// Color labeling
 	colorLabelColors() {
-		return request<{ results: BrickLinkColor[] }>('GET', '/api/color-labels/colors');
+		return request<{ results: BrickLinkColor[] }>('GET', '/api/labeling/colors');
 	},
 	colorLabelStats() {
-		return request<ColorLabelStats>('GET', '/api/color-labels/stats');
+		return request<ColorLabelStats>('GET', '/api/labeling/stats');
 	},
 	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
 		const params = new URLSearchParams();
@@ -1171,7 +1171,7 @@ export const api = {
 		if (opts.limit) params.set('limit', String(opts.limit));
 		if (opts.offset) params.set('offset', String(opts.offset));
 		const qs = params.toString();
-		return request<ColorLabelQueue>('GET', `/api/color-labels/queue${qs ? `?${qs}` : ''}`);
+		return request<ColorLabelQueue>('GET', `/api/labeling/queue${qs ? `?${qs}` : ''}`);
 	},
 	colorLabelPieces(opts: { sort?: ColorLabelSort; limit?: number; offset?: number } = {}) {
 		const params = new URLSearchParams();
@@ -1179,30 +1179,30 @@ export const api = {
 		if (opts.limit) params.set('limit', String(opts.limit));
 		if (opts.offset) params.set('offset', String(opts.offset));
 		const qs = params.toString();
-		return request<ColorLabelPiecesPage>('GET', `/api/color-labels/pieces${qs ? `?${qs}` : ''}`);
+		return request<ColorLabelPiecesPage>('GET', `/api/labeling/pieces${qs ? `?${qs}` : ''}`);
 	},
 	colorLabelPieceDetail(machineId: string, pieceUuid: string) {
 		return request<ColorLabelPieceDetail>(
 			'GET',
-			`/api/color-labels/piece/${machineId}/${encodeURIComponent(pieceUuid)}`
+			`/api/labeling/piece/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	submitColorLabel(body: { machine_id: string; piece_uuid: string; color_id: number; notes?: string | null }) {
 		return request<{ ok: boolean; created: boolean; labeled_by_me: number }>(
 			'POST',
-			'/api/color-labels',
+			'/api/labeling',
 			body
 		);
 	},
 	deleteColorLabel(machineId: string, pieceUuid: string) {
 		return request<{ ok: boolean }>(
 			'DELETE',
-			`/api/color-labels/${machineId}/${encodeURIComponent(pieceUuid)}`
+			`/api/labeling/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveApiPath(
-			`/api/color-labels/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
+			`/api/labeling/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
 
@@ -1210,11 +1210,11 @@ export const api = {
 	possibleCrops(machineId: string, pieceUuid: string) {
 		return request<PossibleCropsResult>(
 			'GET',
-			`/api/color-labels/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}`
+			`/api/labeling/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	channelCropLabelImageUrl(machineId: string, localId: number) {
-		return resolveApiPath(`/api/color-labels/channel-crops/${machineId}/${localId}/image`);
+		return resolveApiPath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
 	},
 	savePieceCropLink(body: {
 		machine_id: string;
@@ -1224,14 +1224,14 @@ export const api = {
 	}) {
 		return request<{ ok: boolean; created: boolean; same_count: number; member_count: number }>(
 			'POST',
-			'/api/color-labels/piece-crop-link',
+			'/api/labeling/piece-crop-link',
 			body
 		);
 	},
 	deletePieceCropLink(machineId: string, pieceUuid: string) {
 		return request<{ ok: boolean }>(
 			'DELETE',
-			`/api/color-labels/piece-crop-link/${machineId}/${encodeURIComponent(pieceUuid)}`
+			`/api/labeling/piece-crop-link/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	createMachine(name: string, description?: string) {

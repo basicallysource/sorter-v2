@@ -13,10 +13,19 @@
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
 	import Check from 'lucide-svelte/icons/check';
+	import Circle from 'lucide-svelte/icons/circle';
+	import CircleCheck from 'lucide-svelte/icons/circle-check';
+	import CircleDot from 'lucide-svelte/icons/circle-dot';
 	import Sparkles from 'lucide-svelte/icons/sparkles';
 
-	const SIMILAR_COUNT = 10;
+	type CharState = 'empty' | 'progress' | 'ready';
+
+	const SIMILAR_COUNT = 12;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
+	// Non-basic finishes: a piece is far likelier a plain solid color than a
+	// pearl/metallic/trans/etc, so these get down-weighted in the "closest" list.
+	const EXOTIC_FINISH =
+		/pearl|metallic|chrome|satin|trans|glow|speckle|glitter|glitr|milky|opal|iridescent|holo|copper|bionicle|\bgold\b|\bsilver\b/i;
 
 	const machineId = $derived(page.params.machine_id ?? '');
 	const pieceUuid = $derived(page.params.piece_uuid ?? '');
@@ -39,13 +48,39 @@
 	let cropArrivalTs: string | null = null;
 	let cropLoading = $state(false);
 	let cropSaving = $state(false);
-	let cropSaved = $state(false);
+	let cropSaved = $state(false); // a selection is committed to the db
+	let cropDirty = $state(false); // toggled since last save/load
 	let cropError = $state<string | null>(null);
 
 	const guessColorId = $derived.by(() => {
 		const id = detail?.pixel_guess?.color_id;
 		return id != null && colorsById.has(id) ? id : null;
 	});
+
+	// --- Per-characteristic completion state (extensible) ---------------------
+	const colorState = $derived<CharState>(myColorId != null ? 'ready' : 'empty');
+	const piecesState = $derived<CharState>(
+		cropCandidates.length === 0 ? 'empty' : cropDirty ? 'progress' : cropSaved ? 'ready' : 'empty'
+	);
+	// Add future piece characteristics here; the summary bar + CTA derive from it.
+	const characteristics = $derived([
+		{ key: 'color', label: 'Color', state: colorState },
+		{ key: 'pieces', label: 'Same piece', state: piecesState }
+	]);
+	const touched = $derived(characteristics.filter((c) => c.state !== 'empty'));
+	const ctaLabel = $derived.by(() => {
+		if (touched.length === 0) return 'Skip';
+		if (touched.length === characteristics.length) return 'Continue';
+		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
+	});
+
+	function stateBorder(state: CharState): string {
+		return state === 'ready'
+			? 'border-success/40'
+			: state === 'progress'
+				? 'border-warning/50'
+				: 'border-border';
+	}
 
 	const filteredColors = $derived.by(() => {
 		const q = search.trim().toLowerCase();
@@ -80,6 +115,12 @@
 
 	const labById = $derived(new Map(colors.map((c) => [c.id, hexToLab(c.rgb)] as const)));
 
+	function isExotic(c: BrickLinkColor): boolean {
+		return c.is_trans || EXOTIC_FINISH.test(c.name);
+	}
+
+	// Rank the palette against the guess, but push exotic finishes way down so the
+	// shortlist is dominated by plain solid colors (a piece is rarely pearl/metal).
 	const similarColors = $derived.by(() => {
 		const target = hexToLab(detail?.pixel_guess?.rgb ?? null);
 		if (!target) return [] as BrickLinkColor[];
@@ -88,7 +129,7 @@
 			.map((c) => {
 				const lab = labById.get(c.id)!;
 				const d = Math.hypot(lab[0] - target[0], lab[1] - target[1], lab[2] - target[2]);
-				return { color: c, d };
+				return { color: c, d: d + (isExotic(c) ? 55 : 0) };
 			})
 			.sort((a, b) => a.d - b.d)
 			.slice(0, SIMILAR_COUNT)
@@ -115,6 +156,7 @@
 			myColorId = d.my_label?.color_id ?? null;
 			cropCandidates = crops.candidates;
 			cropArrivalTs = crops.arrival_ts;
+			cropDirty = false;
 			const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
 			if (crops.my_link.length > 0) {
 				const present = new Set(crops.candidates.map((c) => c.local_id));
@@ -133,30 +175,32 @@
 	}
 
 	function gotoKey(k: nav.PieceKey) {
-		void goto(`/color-labels/${k.machine_id}/${encodeURIComponent(k.piece_uuid)}`);
+		void goto(`/labeling/${k.machine_id}/${encodeURIComponent(k.piece_uuid)}`);
 	}
 
 	async function goNext() {
+		search = '';
 		const next = await nav.nextAfter({ machine_id: machineId, piece_uuid: pieceUuid });
 		if (next) gotoKey(next);
-		else void goto('/color-labels');
+		else void goto('/labeling');
 	}
 
 	async function goPrev() {
+		search = '';
 		const prev = await nav.prevBefore({ machine_id: machineId, piece_uuid: pieceUuid });
 		if (prev) gotoKey(prev);
-		else void goto('/color-labels');
+		else void goto('/labeling');
 	}
 
-	async function saveColor(colorId: number, advance: boolean) {
+	// Pick a color: writes immediately and highlights with a check. Does NOT
+	// advance — the summary bar / Enter is what moves on.
+	async function pickColor(colorId: number) {
 		if (submitting) return;
 		submitting = true;
 		error = null;
 		try {
 			await api.submitColorLabel({ machine_id: machineId, piece_uuid: pieceUuid, color_id: colorId });
 			myColorId = colorId;
-			search = '';
-			if (advance) await goNext();
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to save color');
 		} finally {
@@ -169,7 +213,7 @@
 		if (s.has(localId)) s.delete(localId);
 		else s.add(localId);
 		cropSelected = s;
-		cropSaved = false;
+		cropDirty = true;
 	}
 
 	async function saveCrops() {
@@ -189,6 +233,7 @@
 				members
 			});
 			cropSaved = true;
+			cropDirty = false;
 		} catch (e: unknown) {
 			cropError = errMsg(e, 'Failed to save selection');
 		} finally {
@@ -196,14 +241,17 @@
 		}
 	}
 
+	// The summary action: commit anything still in progress, then move on.
+	async function commitAndAdvance() {
+		if (cropDirty) await saveCrops();
+		await goNext();
+	}
+
 	function onKey(e: KeyboardEvent) {
 		if (e.target instanceof HTMLInputElement) return;
 		if (e.key === 'Enter') {
 			e.preventDefault();
-			if (guessColorId == null) return;
-			if (e.ctrlKey || e.metaKey) void saveCrops(); // accept same-piece selection
-			else if (e.shiftKey) void saveColor(guessColorId, false); // accept color, stay
-			else void saveColor(guessColorId, true); // accept color, move on
+			void commitAndAdvance();
 		} else if (e.key === 'ArrowRight' || e.key === ' ') {
 			e.preventDefault();
 			void goNext();
@@ -229,13 +277,23 @@
 <svelte:window on:keydown={onKey} />
 
 <div class="mb-4 flex items-center justify-between gap-3">
-	<a href="/color-labels" class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
+	<a href="/labeling" class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
 		<ArrowLeft size={14} /> All pieces
 	</a>
 	{#if pos.total > 0 && pos.index >= 0}
 		<span class="text-xs text-text-muted tabular-nums">{pos.index + 1} of {pos.total}{pos.hasMore ? '+' : ''}</span>
 	{/if}
 </div>
+
+{#snippet statusBadge(state: CharState)}
+	{#if state === 'ready'}
+		<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Ready</span>
+	{:else if state === 'progress'}
+		<span class="flex items-center gap-1 text-xs text-warning"><CircleDot size={13} /> In progress</span>
+	{:else}
+		<span class="flex items-center gap-1 text-xs text-text-muted"><Circle size={13} /> Not started</span>
+	{/if}
+{/snippet}
 
 {#if error}
 	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
@@ -248,7 +306,7 @@
 		<p class="text-sm text-text-muted">Piece not found.</p>
 	</div>
 {:else}
-	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_24rem]">
 		<!-- Piece under review -->
 		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-1">
 			<div class="mb-3 flex flex-wrap items-center gap-2">
@@ -259,13 +317,6 @@
 					<span class="text-xs text-text-muted">#{detail.part.part_id}</span>
 				{/if}
 				<span class="text-xs text-text-muted">· {detail.machine_name ?? 'machine'}</span>
-				{#if myColorId != null}
-					{@const mc = colorsById.get(myColorId)}
-					<span class="ml-auto flex items-center gap-1 text-xs text-success">
-						<span class="inline-block h-3 w-3 border border-border" style={`background:#${mc?.rgb ?? '000'}`}></span>
-						labeled {mc?.name ?? myColorId}
-					</span>
-				{/if}
 			</div>
 
 			<div class="flex flex-wrap gap-2">
@@ -288,7 +339,7 @@
 						title={`average pixel color #${detail.pixel_guess.rgb}`}
 					></span>
 					<div class="min-w-0 text-xs text-text-muted">
-						<div class="uppercase tracking-wide text-[10px]">Pixel-average guess</div>
+						<div class="text-xs font-semibold uppercase tracking-wider">Pixel-average guess</div>
 						<div class="mt-0.5 flex items-center gap-1.5">
 							{#if guessColorId != null}
 								{@const gc = colorsById.get(guessColorId)}
@@ -305,32 +356,32 @@
 			</div>
 		</div>
 
-		<!-- Same physical piece across the upstream channels (independent save) -->
-		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-2">
+		<!-- Same physical piece across the upstream channels -->
+		<div class="border bg-surface p-4 lg:col-start-1 lg:row-start-2 {stateBorder(piecesState)}">
 			<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
-				<span class="text-sm font-medium text-text">Same piece across channels</span>
 				<div class="flex items-center gap-2">
-					{#if cropSaved}
-						<span class="text-xs text-success">Saved</span>
-					{/if}
+					<span class="text-sm font-medium text-text">Same piece across channels</span>
+					{@render statusBadge(piecesState)}
+				</div>
+				<div class="flex items-center gap-2">
 					<span class="text-xs text-text-muted tabular-nums">
 						{cropSelected.size} of {cropCandidates.length} selected
 					</span>
 					<Button
-						variant="primary"
+						variant={cropDirty ? 'primary' : 'secondary'}
 						size="sm"
 						loading={cropSaving}
 						disabled={cropCandidates.length === 0 || cropLoading}
 						onclick={saveCrops}
 					>
-						Accept selection
+						Accept
 					</Button>
 				</div>
 			</div>
 			<p class="mb-3 text-sm text-text-muted">
 				Our guess of which upstream C2/C3 crops are this same physical piece, ranked by a
 				time-and-angle heuristic. Keep or drop our picks and add any we missed, then
-				<span class="font-medium">Accept</span> (Ctrl/⌘+Enter) — saved separately from the color.
+				<span class="font-medium">Accept</span>.
 			</p>
 
 			{#if cropLoading}
@@ -376,61 +427,53 @@
 			{/if}
 		</div>
 
-		<!-- Palette picker -->
-		<div class="flex flex-col border border-border bg-surface p-4 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-			<div class="mb-3 flex items-center justify-between">
+		<!-- Color picker -->
+		<div class="flex flex-col border bg-surface p-4 lg:col-start-2 lg:row-start-1 lg:row-span-2 {stateBorder(colorState)}">
+			<div class="mb-3 flex items-center justify-between gap-2">
 				<span class="text-sm font-medium text-text">True color</span>
-				<div class="flex gap-1.5">
-					<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
-					<Button variant="secondary" size="sm" onclick={goNext} disabled={submitting}>Skip <ArrowRight size={14} /></Button>
-				</div>
+				{@render statusBadge(colorState)}
 			</div>
 
-			{#if guessColorId != null}
-				{@const gc = colorsById.get(guessColorId)}
+			{#snippet colorRow(color: BrickLinkColor, isGuess: boolean)}
+				{@const selected = color.id === myColorId}
 				<button
-					class="mb-3 flex items-center gap-2 border border-success/60 bg-success/8 px-3 py-2 text-sm text-text hover:bg-success/15 disabled:opacity-50"
-					onclick={() => saveColor(guessColorId!, true)}
-					disabled={submitting}
-				>
-					<span class="inline-block h-4 w-4 border border-border" style={`background:#${gc?.rgb ?? '000'}`}></span>
-					<span>Use guess — <span class="font-medium">{gc?.name}</span></span>
-					<span class="ml-auto text-xs text-text-muted">Enter</span>
-				</button>
-			{/if}
-
-			{#snippet swatch(color: BrickLinkColor)}
-				<button
-					class="group flex flex-col items-center gap-1 border p-1 hover:border-primary disabled:opacity-50 {color.id ===
-					myColorId
-						? 'border-success'
-						: color.id === guessColorId
-							? 'border-info'
+					class="flex items-center gap-2 border px-2 py-1.5 text-left hover:border-primary disabled:opacity-50 {selected
+						? 'border-success bg-success/10'
+						: isGuess
+							? 'border-info/60 bg-info/[0.06]'
 							: 'border-border'}"
 					title={`${color.name} (${color.id})`}
-					onclick={() => saveColor(color.id, true)}
+					onclick={() => pickColor(color.id)}
 					disabled={submitting}
 				>
 					<span
-						class="h-9 w-full border border-border {color.is_trans ? 'opacity-70' : ''}"
+						class="h-6 w-6 shrink-0 border border-border {color.is_trans ? 'opacity-70' : ''}"
 						style={`background:#${color.rgb ?? '000'}`}
 					></span>
-					<span class="w-full truncate text-center text-[10px] leading-tight text-text-muted group-hover:text-text">
-						{color.name}
+					<span class="min-w-0 flex-1 truncate text-sm {selected ? 'text-text' : 'text-text-muted'}">
+						{color.name}{#if isGuess}<span class="ml-1 text-xs text-info">· guess</span>{/if}
 					</span>
+					{#if selected}<Check size={15} class="shrink-0 text-success" />{/if}
 				</button>
 			{/snippet}
 
-			{#if !search.trim() && similarColors.length > 0}
-				<div class="mb-3">
-					<div class="mb-1.5 text-xs font-medium text-text-muted">Closest to guess</div>
-					<div class="grid grid-cols-4 gap-1.5">
-						{#each similarColors as color (color.id)}
-							{@render swatch(color)}
-						{/each}
+			{#if guessColorId != null}
+				{@const gc = colorsById.get(guessColorId)}
+				{#if gc}
+					<div class="mb-3">
+						{@render colorRow(gc, true)}
 					</div>
+				{/if}
+			{/if}
+
+			{#if !search.trim() && similarColors.length > 0}
+				<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">Closest to guess</div>
+				<div class="mb-3 flex flex-col gap-1">
+					{#each similarColors as color (color.id)}
+						{@render colorRow(color, false)}
+					{/each}
 				</div>
-				<div class="mb-2 text-xs font-medium text-text-muted">All colors</div>
+				<div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">All colors</div>
 			{/if}
 
 			<input
@@ -440,25 +483,43 @@
 				class="mb-3 w-full border border-border bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
 			/>
 
-			<div class="grid max-h-[52vh] grid-cols-4 gap-1.5 overflow-y-auto pr-1">
+			<div class="flex max-h-[46vh] flex-col gap-1 overflow-y-auto pr-1">
 				{#each filteredColors as color (color.id)}
-					{@render swatch(color)}
+					{@render colorRow(color, false)}
 				{/each}
 			</div>
 			{#if filteredColors.length === 0}
-				<p class="py-4 text-center text-xs text-text-muted">No colors match “{search}”.</p>
+				<p class="py-4 text-center text-sm text-text-muted">No colors match “{search}”.</p>
 			{/if}
 		</div>
 	</div>
 
-	<div class="mt-3 flex flex-wrap items-center gap-3 text-xs text-text-muted">
-		{#if submitting}<Spinner />{/if}
-		<span>
-			Keys: <span class="text-text">Enter</span> save color + next ·
-			<span class="text-text">Shift+Enter</span> save color, stay ·
-			<span class="text-text">Ctrl/⌘+Enter</span> accept same-piece ·
-			<span class="text-text">→</span>/<span class="text-text">Space</span> skip ·
-			<span class="text-text">←</span> back
-		</span>
+	<!-- Summary + advance: reflects what's done across every characteristic -->
+	<div class="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border border-border bg-surface p-3">
+		<Button variant="ghost" size="sm" onclick={goPrev}><ArrowLeft size={14} /> Back</Button>
+		<div class="flex flex-wrap items-center gap-x-4 gap-y-1">
+			{#each characteristics as ch (ch.key)}
+				<span class="flex items-center gap-1.5 text-sm text-text-muted">
+					{ch.label}: {@render statusBadge(ch.state)}
+				</span>
+			{/each}
+		</div>
+		<div class="ml-auto flex items-center gap-2">
+			<span class="hidden text-xs text-text-muted sm:inline">Enter</span>
+			<Button
+				variant={touched.length > 0 ? 'primary' : 'secondary'}
+				size="sm"
+				loading={cropSaving}
+				onclick={commitAndAdvance}
+			>
+				{ctaLabel} <ArrowRight size={14} />
+			</Button>
+		</div>
+	</div>
+
+	<div class="mt-2 text-xs text-text-muted">
+		Keys: <span class="text-text">Enter</span> {ctaLabel.toLowerCase()} ·
+		<span class="text-text">→</span>/<span class="text-text">Space</span> skip ·
+		<span class="text-text">←</span> back
 	</div>
 {/if}

@@ -2,7 +2,7 @@
 // Seeded from whatever order the dashboard grid is showing (so you label in that
 // order), and lazily extended from the same sorted endpoint when you reach the
 // end. A module singleton so the order survives client-side navigation between
-// /color-labels and /color-labels/[machine_id]/[piece_uuid].
+// /labeling and /labeling/[machine_id]/[piece_uuid].
 
 import { api, type BrickLinkColor, type ColorLabelSort } from '$lib/api';
 

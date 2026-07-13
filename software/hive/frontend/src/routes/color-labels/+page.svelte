@@ -1,119 +1,43 @@
 <script lang="ts">
+	import { goto } from '$app/navigation';
 	import {
 		api,
-		type BrickLinkColor,
-		type ColorLabelQueueItem,
-		type ColorLabelStats,
-		type PossibleCropCandidate
+		type ColorLabelPieceCard,
+		type ColorLabelSort,
+		type ColorLabelStats
 	} from '$lib/api';
-	import Badge from '$lib/components/Badge.svelte';
+	import * as nav from '$lib/colorLabelNav';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Button } from '$lib/components/primitives';
 
-	const BATCH = 30;
-	const PREFETCH_WITHIN = 5;
-	const SIMILAR_COUNT = 10;
+	const BATCH = 60;
 
-	let colors = $state<BrickLinkColor[]>([]);
-	let colorsById = $derived(new Map(colors.map((c) => [c.id, c])));
+	const SORTS: { value: ColorLabelSort; label: string }[] = [
+		{ value: 'needs_me', label: 'Needs my label' },
+		{ value: 'least_color', label: 'Fewest color labels' },
+		{ value: 'most_color', label: 'Most color labels' },
+		{ value: 'least_crop', label: 'Fewest same-piece labels' },
+		{ value: 'most_crop', label: 'Most same-piece labels' },
+		{ value: 'recent', label: 'Newest' },
+		{ value: 'oldest', label: 'Oldest' }
+	];
+
 	let stats = $state<ColorLabelStats | null>(null);
-
-	let items = $state<ColorLabelQueueItem[]>([]);
-	let shownKeys = new Set<string>();
-	let fetchOffset = 0;
+	let sort = $state<ColorLabelSort>('needs_me');
+	let items = $state<ColorLabelPieceCard[]>([]);
 	let hasMore = $state(true);
-	let index = $state(0);
-
-	let search = $state('');
+	let offset = 0;
 	let loading = $state(true);
 	let fetchingMore = $state(false);
-	let submitting = $state(false);
 	let error = $state<string | null>(null);
 
-	// "Same piece across channels" — a second, independent labeling task on the
-	// same piece: which upstream C2/C3 crops are the same physical piece. The
-	// heuristic pre-selects `predicted` candidates; the labeler toggles and hits
-	// Accept (a separate save from the color; Enter only accepts the color).
-	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
-	let cropCandidates = $state<PossibleCropCandidate[]>([]);
-	let cropSelected = $state<Set<number>>(new Set());
-	let cropArrivalTs: string | null = null;
-	let cropForKey = ''; // piece the crop state belongs to (guards async races)
-	let cropLoading = $state(false);
-	let cropSaving = $state(false);
-	let cropSaved = $state(false);
-	let cropError = $state<string | null>(null);
-
-	const current = $derived(items[index] ?? null);
-
-	// The pixel-average guess's nearest catalog color (used to highlight it and
-	// for the one-click accept). Always a valid palette id when present.
-	const guessColorId = $derived.by(() => {
-		const id = current?.pixel_guess?.color_id;
-		return id != null && colorsById.has(id) ? id : null;
+	const coverage = $derived.by(() => {
+		if (!stats || stats.total_labelable === 0) return 0;
+		return Math.round((stats.color_labeled_pieces / stats.total_labelable) * 100);
 	});
 
-	const filteredColors = $derived.by(() => {
-		const q = search.trim().toLowerCase();
-		if (!q) return colors;
-		return colors.filter(
-			(c) => c.name.toLowerCase().includes(q) || String(c.id) === q
-		);
-	});
-
-	// Perceptual color distance (CIE Lab / deltaE76) so the "closest to guess"
-	// shortcut surfaces colors a human would actually confuse with the pixel
-	// average (e.g. Tan vs Dark Tan) rather than RGB-nearest.
-	function hexToLab(hex: string | null): [number, number, number] | null {
-		if (!hex) return null;
-		const m = hex.replace('#', '');
-		if (m.length < 6) return null;
-		const r = parseInt(m.slice(0, 2), 16);
-		const g = parseInt(m.slice(2, 4), 16);
-		const b = parseInt(m.slice(4, 6), 16);
-		if ([r, g, b].some(Number.isNaN)) return null;
-		const lin = (c: number) => {
-			c /= 255;
-			return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-		};
-		const R = lin(r);
-		const G = lin(g);
-		const B = lin(b);
-		const X = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
-		const Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
-		const Z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
-		const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
-		const fx = f(X);
-		const fy = f(Y);
-		const fz = f(Z);
-		return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
-	}
-
-	const labById = $derived(
-		new Map(colors.map((c) => [c.id, hexToLab(c.rgb)] as const))
-	);
-
-	// Rank the palette against the raw pixel-average RGB (more precise than the
-	// already-rounded nearest color), excluding that nearest color since it's the
-	// prominent one-click option.
-	const similarColors = $derived.by(() => {
-		const target = hexToLab(current?.pixel_guess?.rgb ?? null);
-		if (!target) return [] as BrickLinkColor[];
-		return colors
-			.filter((c) => c.id !== guessColorId && labById.get(c.id) != null)
-			.map((c) => {
-				const lab = labById.get(c.id)!;
-				const d = Math.hypot(lab[0] - target[0], lab[1] - target[1], lab[2] - target[2]);
-				return { color: c, d };
-			})
-			.sort((a, b) => a.d - b.d)
-			.slice(0, SIMILAR_COUNT)
-			.map((x) => x.color);
-	});
-
-	function key(it: ColorLabelQueueItem): string {
-		return `${it.machine_id}|${it.piece_uuid}`;
-	}
+	const hist = $derived(stats?.labeler_histogram ?? { '0': 0, '1': 0, '2': 0, '3+': 0 });
+	const histTotal = $derived(Math.max(1, stats?.total_labelable ?? 1));
 
 	function errMsg(e: unknown, fallback: string): string {
 		return e && typeof e === 'object' && 'error' in e
@@ -125,23 +49,19 @@
 		loading = true;
 		error = null;
 		items = [];
-		shownKeys = new Set();
-		fetchOffset = 0;
+		offset = 0;
 		hasMore = true;
-		index = 0;
 		try {
-			const [colorsRes, statsRes] = await Promise.all([
-				api.colorLabelColors(),
-				api.colorLabelStats()
+			const [s, page] = await Promise.all([
+				api.colorLabelStats(),
+				api.colorLabelPieces({ sort, limit: BATCH, offset: 0 })
 			]);
-			// Drop non-answers: id<=0 is "(Not Applicable)"/[Unknown]; "Mx …" is
-			// Modulex, a separate non-Lego system. (Speckle/Pearl/Chrome/Trans are
-			// real Lego finishes and stay.)
-			colors = colorsRes.results.filter((c) => c.id > 0 && !c.name.startsWith('Mx '));
-			stats = statsRes;
-			await fetchMore();
+			stats = s;
+			items = page.items;
+			offset = page.items.length;
+			hasMore = page.has_more;
 		} catch (e: unknown) {
-			error = errMsg(e, 'Failed to load labeling queue');
+			error = errMsg(e, 'Failed to load dashboard');
 		} finally {
 			loading = false;
 		}
@@ -151,16 +71,10 @@
 		if (fetchingMore || !hasMore) return;
 		fetchingMore = true;
 		try {
-			const res = await api.colorLabelQueue({ onlyUnlabeled: true, limit: BATCH, offset: fetchOffset });
-			fetchOffset += BATCH;
-			hasMore = res.has_more;
-			for (const it of res.items) {
-				const k = key(it);
-				if (!shownKeys.has(k)) {
-					shownKeys.add(k);
-					items.push(it);
-				}
-			}
+			const page = await api.colorLabelPieces({ sort, limit: BATCH, offset });
+			offset += page.items.length;
+			hasMore = page.has_more;
+			items = [...items, ...page.items];
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to load more pieces');
 		} finally {
@@ -168,140 +82,25 @@
 		}
 	}
 
-	function maybePrefetch() {
-		if (hasMore && items.length - index <= PREFETCH_WITHIN) void fetchMore();
+	function changeSort(next: ColorLabelSort) {
+		if (next === sort) return;
+		sort = next;
+		void loadAll();
 	}
 
-	function advance() {
-		if (index < items.length - 1) index += 1;
-		else index = items.length; // past the end → "all done" state
-		maybePrefetch();
+	function open(card: ColorLabelPieceCard) {
+		// Seed the working list so the piece view can step through this same
+		// order, then jump in.
+		nav.seed(items, sort, offset, hasMore);
+		void goto(`/color-labels/${card.machine_id}/${encodeURIComponent(card.piece_uuid)}`);
 	}
 
-	async function label(colorId: number) {
-		if (!current || submitting) return;
-		submitting = true;
-		error = null;
-		const it = current;
-		try {
-			const res = await api.submitColorLabel({
-				machine_id: it.machine_id,
-				piece_uuid: it.piece_uuid,
-				color_id: colorId
-			});
-			if (stats) stats.labeled_by_me = res.labeled_by_me;
-			search = '';
-			advance();
-		} catch (e: unknown) {
-			error = errMsg(e, 'Failed to save label');
-		} finally {
-			submitting = false;
-		}
-	}
-
-	function skip() {
-		if (!current) return;
-		search = '';
-		advance();
-	}
-
-	function back() {
-		if (index > 0) index -= 1;
-	}
-
-	function onKey(e: KeyboardEvent) {
-		if (e.target instanceof HTMLInputElement) return;
-		if (e.key === 'Enter' && guessColorId != null) {
-			e.preventDefault();
-			void label(guessColorId);
-		} else if (e.key === 'ArrowRight' || e.key === ' ') {
-			e.preventDefault();
-			skip();
-		} else if (e.key === 'ArrowLeft') {
-			e.preventDefault();
-			back();
-		}
-	}
-
-	async function loadCrops(it: ColorLabelQueueItem, k: string) {
-		cropForKey = k;
-		cropLoading = true;
-		cropSaved = false;
-		cropError = null;
-		cropCandidates = [];
-		cropSelected = new Set();
-		cropArrivalTs = null;
-		try {
-			const res = await api.possibleCrops(it.machine_id, it.piece_uuid);
-			if (cropForKey !== k) return; // a newer piece began loading; drop stale result
-			cropCandidates = res.candidates;
-			cropArrivalTs = res.arrival_ts;
-			const savedPos = res.my_link.filter((m) => m.is_same).map((m) => m.local_id);
-			if (res.my_link.length > 0) {
-				// Restore a prior decision (positives that are still in the candidate set).
-				const present = new Set(res.candidates.map((c) => c.local_id));
-				cropSelected = new Set(savedPos.filter((id) => present.has(id)));
-				cropSaved = true;
-			} else {
-				cropSelected = new Set(res.candidates.filter((c) => c.predicted).map((c) => c.local_id));
-			}
-		} catch (e: unknown) {
-			if (cropForKey === k) cropError = errMsg(e, 'Failed to load candidate crops');
-		} finally {
-			if (cropForKey === k) cropLoading = false;
-		}
-	}
-
-	function toggleCrop(localId: number) {
-		const s = new Set(cropSelected);
-		if (s.has(localId)) s.delete(localId);
-		else s.add(localId);
-		cropSelected = s;
-		cropSaved = false;
-	}
-
-	async function saveCrops() {
-		const it = current;
-		if (!it || cropSaving || cropCandidates.length === 0) return;
-		const k = key(it);
-		cropSaving = true;
-		cropError = null;
-		// Send the full presented set, not just positives — is_same=false crops are
-		// human-verified hard negatives, valuable training signal.
-		const members = cropCandidates.map((c) => ({
-			local_id: c.local_id,
-			is_same: cropSelected.has(c.local_id),
-			was_predicted: c.predicted
-		}));
-		try {
-			await api.savePieceCropLink({
-				machine_id: it.machine_id,
-				piece_uuid: it.piece_uuid,
-				arrival_ts: cropArrivalTs ? Date.parse(cropArrivalTs) / 1000 : null,
-				members
-			});
-			if (cropForKey === k) cropSaved = true;
-		} catch (e: unknown) {
-			if (cropForKey === k) cropError = errMsg(e, 'Failed to save selection');
-		} finally {
-			if (cropForKey === k) cropSaving = false;
-		}
+	function startLabeling() {
+		if (items.length > 0) open(items[0]);
 	}
 
 	$effect(() => {
 		void loadAll();
-	});
-
-	// Reload same-piece candidates whenever the current piece changes.
-	$effect(() => {
-		const it = current;
-		if (!it) {
-			cropForKey = '';
-			cropCandidates = [];
-			cropSelected = new Set();
-			return;
-		}
-		void loadCrops(it, key(it));
 	});
 </script>
 
@@ -309,241 +108,125 @@
 	<title>Color Labeling · Hive</title>
 </svelte:head>
 
-<svelte:window on:keydown={onKey} />
-
-<div class="mb-6 flex items-end justify-between">
+<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
 	<div>
 		<h1 class="text-2xl font-bold text-text">Color Labeling</h1>
 		<p class="text-sm text-text-muted">
-			Pick the true BrickLink color of each synced piece. A
-			<span class="font-medium">pixel-average guess</span> from the crops is offered as a starting point.
+			Label the true BrickLink color of each synced piece — and which upstream crops are the same piece.
 		</p>
 	</div>
-	{#if stats}
-		<div class="text-right text-sm text-text-muted">
-			<div><span class="text-text tabular-nums">{stats.labeled_by_me.toLocaleString()}</span> labeled by you</div>
-			<div><span class="text-text tabular-nums">{stats.total_labelable.toLocaleString()}</span> labelable · {stats.total_labels.toLocaleString()} total</div>
-		</div>
-	{/if}
+	<Button variant="primary" size="sm" onclick={startLabeling} disabled={loading || items.length === 0}>
+		Start labeling →
+	</Button>
 </div>
 
 {#if error}
 	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
 {/if}
 
+<!-- Compact dashboard -->
+{#if stats}
+	<div class="mb-6 grid gap-3 border border-border bg-surface p-4 sm:grid-cols-[minmax(0,1fr)_auto]">
+		<div>
+			<div class="flex flex-wrap items-baseline gap-x-6 gap-y-1">
+				<div>
+					<span class="text-2xl font-bold text-text tabular-nums">{coverage}%</span>
+					<span class="text-sm text-text-muted">color-labeled</span>
+				</div>
+				<div class="text-sm text-text-muted">
+					<span class="text-text tabular-nums">{stats.color_labeled_pieces.toLocaleString()}</span>
+					of {stats.total_labelable.toLocaleString()} pieces ·
+					<span class="text-text tabular-nums">{stats.crop_linked_pieces.toLocaleString()}</span> same-piece
+				</div>
+			</div>
+			<!-- Coverage by number of labelers -->
+			<div class="mt-3 flex h-3 w-full overflow-hidden border border-border">
+				<div class="bg-success" style={`width:${(hist['3+'] / histTotal) * 100}%`} title={`3+ labelers: ${hist['3+']}`}></div>
+				<div class="bg-success/70" style={`width:${(hist['2'] / histTotal) * 100}%`} title={`2 labelers: ${hist['2']}`}></div>
+				<div class="bg-success/40" style={`width:${(hist['1'] / histTotal) * 100}%`} title={`1 labeler: ${hist['1']}`}></div>
+				<div class="bg-border" style={`width:${(hist['0'] / histTotal) * 100}%`} title={`unlabeled: ${hist['0']}`}></div>
+			</div>
+			<div class="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-text-muted">
+				<span><span class="mr-1 inline-block h-2 w-2 bg-success align-middle"></span>3+ ({hist['3+']})</span>
+				<span><span class="mr-1 inline-block h-2 w-2 bg-success/70 align-middle"></span>2 ({hist['2']})</span>
+				<span><span class="mr-1 inline-block h-2 w-2 bg-success/40 align-middle"></span>1 ({hist['1']})</span>
+				<span><span class="mr-1 inline-block h-2 w-2 bg-border align-middle"></span>0 ({hist['0'].toLocaleString()})</span>
+			</div>
+		</div>
+		<div class="flex gap-6 border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-6 sm:pt-0">
+			<div>
+				<div class="text-xl font-bold text-text tabular-nums">{stats.labeled_by_me.toLocaleString()}</div>
+				<div class="text-xs text-text-muted">your colors</div>
+			</div>
+			<div>
+				<div class="text-xl font-bold text-text tabular-nums">{stats.crop_links_by_me.toLocaleString()}</div>
+				<div class="text-xs text-text-muted">your same-piece</div>
+			</div>
+		</div>
+	</div>
+{/if}
+
+<!-- Sort + grid -->
+<div class="mb-3 flex flex-wrap items-center gap-2">
+	<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Sort</span>
+	{#each SORTS as s (s.value)}
+		<button
+			class="border px-2.5 py-1 text-sm {sort === s.value
+				? 'border-primary bg-primary/8 text-text'
+				: 'border-border text-text-muted hover:text-text'}"
+			onclick={() => changeSort(s.value)}
+		>
+			{s.label}
+		</button>
+	{/each}
+</div>
+
 {#if loading}
 	<div class="flex justify-center py-16"><Spinner /></div>
-{:else if !current}
+{:else if items.length === 0}
 	<div class="border border-border bg-surface p-10 text-center">
-		<p class="text-sm text-text-muted">
-			{items.length === 0
-				? 'No pieces with crops available to label yet.'
-				: 'All caught up — no more unlabeled pieces.'}
-		</p>
-		<div class="mt-4 flex justify-center">
-			<Button variant="secondary" size="sm" onclick={loadAll}>Reload</Button>
-		</div>
+		<p class="text-sm text-text-muted">No labelable pieces yet.</p>
 	</div>
 {:else}
-	<!-- Two columns: left stacks the piece card over its same-piece crops; the
-	     tall palette spans both rows on the right so nothing falls below the fold. -->
-	<div class="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
-		<!-- Piece under review -->
-		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-1">
-			<div class="mb-3 flex flex-wrap items-center gap-2">
-				<span class="text-sm font-medium text-text">
-					{current.part.part_name || current.part.part_id || 'Unidentified'}
-				</span>
-				{#if current.part.part_id}
-					<span class="text-xs text-text-muted">#{current.part.part_id}</span>
-				{/if}
-				<span class="text-xs text-text-muted">· {current.machine_name ?? 'machine'}</span>
-			</div>
-
-			<!-- Crops -->
-			<div class="flex flex-wrap gap-2">
-				{#each current.images as img (img.seq)}
-					<img
-						src={api.colorLabelImageUrl(current.machine_id, current.piece_uuid, img.seq)}
-						alt={`crop ${img.seq}`}
-						loading="lazy"
-						title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
-						class="h-28 w-28 border-2 bg-transparent object-contain {img.used ? 'border-success' : 'border-border'}"
-					/>
-				{/each}
-			</div>
-
-			<!-- Pixel-average guess computed from the crops above -->
-			<div class="mt-4 flex items-center gap-3 border-t border-border pt-3">
-				{#if current.pixel_guess}
-					<span
-						class="h-10 w-10 shrink-0 border border-border"
-						style={`background:#${current.pixel_guess.rgb}`}
-						title={`average pixel color #${current.pixel_guess.rgb}`}
-					></span>
-					<div class="min-w-0 text-xs text-text-muted">
-						<div class="uppercase tracking-wide text-[10px]">Pixel-average guess</div>
-						<div class="mt-0.5 flex items-center gap-1.5">
-							{#if guessColorId != null}
-								{@const gc = colorsById.get(guessColorId)}
-								<span class="inline-block h-3.5 w-3.5 border border-border" style={`background:#${gc?.rgb ?? '000'}`}></span>
-							{/if}
-							<span class="text-text">{current.pixel_guess.color_name}</span>
-							<span>({current.pixel_guess.color_id})</span>
-							<span class="ml-2">nearest of {current.pixel_guess.sample_count} crop{current.pixel_guess.sample_count === 1 ? '' : 's'}</span>
-						</div>
-					</div>
-				{:else}
-					<span class="text-xs text-text-muted">No pixel guess — crops unavailable.</span>
-				{/if}
-			</div>
-		</div>
-
-		<!-- Palette picker -->
-		<div class="flex flex-col border border-border bg-surface p-4 lg:col-start-2 lg:row-start-1 lg:row-span-2">
-			<div class="mb-3 flex items-center justify-between">
-				<span class="text-sm font-medium text-text">True color</span>
-				<div class="flex gap-1.5">
-					<Button variant="ghost" size="sm" onclick={back} disabled={index === 0}>← Back</Button>
-					<Button variant="secondary" size="sm" onclick={skip} disabled={submitting}>Skip →</Button>
+	<div class="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+		{#each items as card (card.machine_id + '|' + card.piece_uuid)}
+			<button
+				type="button"
+				onclick={() => open(card)}
+				class="group flex flex-col border border-border bg-surface p-2 text-left hover:border-primary"
+			>
+				<div class="relative flex h-24 w-full items-center justify-center bg-bg">
+					{#if card.thumb_seq != null}
+						<img
+							src={api.colorLabelImageUrl(card.machine_id, card.piece_uuid, card.thumb_seq)}
+							alt={card.part.part_name ?? 'piece'}
+							loading="lazy"
+							class="h-24 w-full bg-transparent object-contain"
+						/>
+					{:else}
+						<span class="text-xs text-text-muted">no image</span>
+					{/if}
+					{#if card.my_color}
+						<span class="absolute right-1 top-1 bg-success px-1 text-xs leading-tight text-white">✓</span>
+					{/if}
 				</div>
-			</div>
-
-			{#if guessColorId != null}
-				{@const gc = colorsById.get(guessColorId)}
-				<button
-					class="mb-3 flex items-center gap-2 border border-success/60 bg-success/8 px-3 py-2 text-sm text-text hover:bg-success/15 disabled:opacity-50"
-					onclick={() => label(guessColorId!)}
-					disabled={submitting}
-				>
-					<span class="inline-block h-4 w-4 border border-border" style={`background:#${gc?.rgb ?? '000'}`}></span>
-					<span>Use guess — <span class="font-medium">{gc?.name}</span></span>
-					<span class="ml-auto text-xs text-text-muted">Enter</span>
-				</button>
-			{/if}
-
-			{#snippet swatch(color: BrickLinkColor)}
-				<button
-					class="group flex flex-col items-center gap-1 border p-1 hover:border-primary disabled:opacity-50 {color.id ===
-					guessColorId
-						? 'border-success'
-						: 'border-border'}"
-					title={`${color.name} (${color.id})`}
-					onclick={() => label(color.id)}
-					disabled={submitting}
-				>
-					<span
-						class="h-9 w-full border border-border {color.is_trans ? 'opacity-70' : ''}"
-						style={`background:#${color.rgb ?? '000'}`}
-					></span>
-					<span class="w-full truncate text-center text-[10px] leading-tight text-text-muted group-hover:text-text">
-						{color.name}
-					</span>
-				</button>
-			{/snippet}
-
-			{#if !search.trim() && similarColors.length > 0}
-				<div class="mb-3">
-					<div class="mb-1.5 text-xs font-medium text-text-muted">Closest to guess</div>
-					<div class="grid grid-cols-4 gap-1.5">
-						{#each similarColors as color (color.id)}
-							{@render swatch(color)}
-						{/each}
-					</div>
+				<div class="mt-1.5 truncate text-sm text-text" title={card.part.part_name ?? card.part.part_id ?? ''}>
+					{card.part.part_name || card.part.part_id || 'Unidentified'}
 				</div>
-				<div class="mb-2 text-xs font-medium text-text-muted">All colors</div>
-			{/if}
-
-			<input
-				type="text"
-				bind:value={search}
-				placeholder="Search colors…"
-				class="mb-3 w-full border border-border bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
-			/>
-
-			<div class="grid max-h-[60vh] grid-cols-4 gap-1.5 overflow-y-auto pr-1">
-				{#each filteredColors as color (color.id)}
-					{@render swatch(color)}
-				{/each}
-			</div>
-			{#if filteredColors.length === 0}
-				<p class="py-4 text-center text-xs text-text-muted">No colors match “{search}”.</p>
-			{/if}
-		</div>
-	<!-- Same physical piece across the upstream channels (independent save) -->
-		<div class="border border-border bg-surface p-4 lg:col-start-1 lg:row-start-2">
-		<div class="mb-1 flex flex-wrap items-center justify-between gap-2">
-			<span class="text-sm font-medium text-text">Same piece across channels</span>
-			<div class="flex items-center gap-2">
-				{#if cropSaved}
-					<span class="text-xs text-success">Saved</span>
-				{/if}
-				<span class="text-xs text-text-muted tabular-nums">
-					{cropSelected.size} of {cropCandidates.length} selected
-				</span>
-				<Button
-					variant="primary"
-					size="sm"
-					loading={cropSaving}
-					disabled={cropCandidates.length === 0 || cropLoading}
-					onclick={saveCrops}
-				>
-					Accept selection
-				</Button>
-			</div>
-		</div>
-		<p class="mb-3 text-sm text-text-muted">
-			Our guess of which upstream C2/C3 crops are this same physical piece, ranked by a
-			time-and-angle heuristic. Keep or drop our picks and add any we missed, then
-			<span class="font-medium">Accept</span> — saved separately from the color (Enter only saves the color).
-		</p>
-
-		{#if cropLoading}
-			<div class="flex justify-center py-8"><Spinner /></div>
-		{:else if cropError}
-			<div class="bg-primary/8 p-3 text-sm text-primary">{cropError}</div>
-		{:else if cropCandidates.length === 0}
-			<p class="py-4 text-sm text-text-muted">No candidate crops in range for this piece.</p>
-		{:else}
-			<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
-				{#each cropCandidates as c (c.local_id)}
-					{@const selected = cropSelected.has(c.local_id)}
-					<button
-						type="button"
-						onclick={() => toggleCrop(c.local_id)}
-						title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${c.predicted ? ' · our pick' : ''}`}
-						class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
-							? 'border-success bg-success/10'
-							: 'border-border opacity-70 hover:opacity-100'}"
-					>
-						{#if c.available}
-							<img
-								src={api.channelCropLabelImageUrl(current.machine_id, c.local_id)}
-								alt={`crop ${c.local_id}`}
-								loading="lazy"
-								class="h-16 w-16 bg-transparent object-contain"
-							/>
-						{:else}
-							<div class="flex h-16 w-16 items-center justify-center border border-dashed border-border text-xs text-text-muted">
-								evicted
-							</div>
-						{/if}
-						<span class="flex items-center gap-1 text-xs {selected ? 'text-text' : 'text-text-muted'}">
-							{#if selected}<span class="text-success">✓</span>{/if}
-							C{c.channel}·{c.dt}s
-						</span>
-						{#if c.predicted}
-							<span class="absolute right-0.5 top-0.5 bg-info/80 px-1 text-xs uppercase leading-tight text-white">ai</span>
-						{/if}
-					</button>
-				{/each}
-			</div>
-		{/if}
-		</div>
+				<div class="mt-1 flex items-center gap-2 text-xs text-text-muted">
+					<span title="color labels by users">🎨 {card.color_label_count}</span>
+					<span title="same-piece labels by users">🔗 {card.crop_link_count}</span>
+					<span class="ml-auto">· {card.machine_name ?? 'machine'}</span>
+				</div>
+			</button>
+		{/each}
 	</div>
 
-	<div class="mt-3 flex items-center gap-3 text-xs text-text-muted">
-		{#if submitting}<Spinner />{/if}
-		<span>Keys: <span class="text-text">Enter</span> accept color · <span class="text-text">→</span>/<span class="text-text">Space</span> skip · <span class="text-text">←</span> back</span>
+	<div class="mt-4 flex justify-center">
+		{#if hasMore}
+			<Button variant="secondary" size="sm" loading={fetchingMore} onclick={fetchMore}>Load more</Button>
+		{:else}
+			<span class="text-xs text-text-muted">End of list · {items.length} shown</span>
+		{/if}
 	</div>
 {/if}

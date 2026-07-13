@@ -85,19 +85,270 @@ def list_colors(
 def label_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> dict[str, int]:
+) -> dict:
+    """Dashboard rollup: overall progress plus a histogram of how many distinct
+    labelers have color-labeled each piece (drives the coverage chart)."""
     total_labelable = _labelable_query(db).count()
+
     labeled_by_me = (
         db.query(func.count(PieceColorLabel.id))
         .filter(PieceColorLabel.labeler_id == current_user.id)
         .scalar()
         or 0
     )
-    total_labels = db.query(func.count(PieceColorLabel.id)).scalar() or 0
+    crop_links_by_me = (
+        db.query(func.count(PieceCropLink.id))
+        .filter(PieceCropLink.labeler_id == current_user.id)
+        .scalar()
+        or 0
+    )
+    total_color_labels = db.query(func.count(PieceColorLabel.id)).scalar() or 0
+    total_crop_links = db.query(func.count(PieceCropLink.id)).scalar() or 0
+
+    # Distinct pieces touched (one row per labeler per piece, so a grouped count).
+    color_pieces_sq = (
+        db.query(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    color_labeled_pieces = db.query(func.count()).select_from(color_pieces_sq).scalar() or 0
+    crop_pieces_sq = (
+        db.query(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
+        .group_by(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
+        .subquery()
+    )
+    crop_linked_pieces = db.query(func.count()).select_from(crop_pieces_sq).scalar() or 0
+
+    # Histogram: pieces by number of distinct color-labelers (1 / 2 / 3+).
+    per_piece = (
+        db.query(func.count(PieceColorLabel.id).label("n"))
+        .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    buckets = dict(
+        db.query(
+            func.least(per_piece.c.n, 3).label("bucket"),
+            func.count().label("cnt"),
+        )
+        .group_by(func.least(per_piece.c.n, 3))
+        .all()
+    )
+    labelers_1 = int(buckets.get(1, 0))
+    labelers_2 = int(buckets.get(2, 0))
+    labelers_3plus = int(buckets.get(3, 0))
+    labelers_0 = max(0, total_labelable - color_labeled_pieces)
+
     return {
         "total_labelable": total_labelable,
         "labeled_by_me": int(labeled_by_me),
-        "total_labels": int(total_labels),
+        "crop_links_by_me": int(crop_links_by_me),
+        "total_labels": int(total_color_labels),
+        "total_color_labels": int(total_color_labels),
+        "total_crop_links": int(total_crop_links),
+        "color_labeled_pieces": int(color_labeled_pieces),
+        "crop_linked_pieces": int(crop_linked_pieces),
+        "labeler_histogram": {
+            "0": labelers_0,
+            "1": labelers_1,
+            "2": labelers_2,
+            "3+": labelers_3plus,
+        },
+    }
+
+
+_PIECE_SORTS = {
+    "recent",
+    "oldest",
+    "least_color",
+    "most_color",
+    "least_crop",
+    "most_crop",
+    "needs_me",
+}
+
+
+@router.get("/pieces")
+def list_pieces(
+    sort: str = Query("recent"),
+    limit: int = Query(60, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Sortable grid of labelable pieces with per-piece label/crop-link counts,
+    for the dashboard. Sorts: recent, oldest, least/most_color, least/most_crop,
+    needs_me (pieces this user hasn't color-labeled first)."""
+    if sort not in _PIECE_SORTS:
+        sort = "recent"
+
+    color_cnt_sq = (
+        db.query(
+            PieceColorLabel.machine_id.label("mid"),
+            PieceColorLabel.piece_uuid.label("puid"),
+            func.count().label("cnt"),
+        )
+        .group_by(PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    crop_cnt_sq = (
+        db.query(
+            PieceCropLink.machine_id.label("mid"),
+            PieceCropLink.piece_uuid.label("puid"),
+            func.count().label("cnt"),
+        )
+        .group_by(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
+        .subquery()
+    )
+    color_cnt = func.coalesce(color_cnt_sq.c.cnt, 0)
+    crop_cnt = func.coalesce(crop_cnt_sq.c.cnt, 0)
+    my_color = exists().where(
+        and_(
+            PieceColorLabel.machine_id == MachinePiece.machine_id,
+            PieceColorLabel.piece_uuid == MachinePiece.piece_uuid,
+            PieceColorLabel.labeler_id == current_user.id,
+        )
+    )
+    my_crop = exists().where(
+        and_(
+            PieceCropLink.machine_id == MachinePiece.machine_id,
+            PieceCropLink.piece_uuid == MachinePiece.piece_uuid,
+            PieceCropLink.labeler_id == current_user.id,
+        )
+    )
+
+    q = (
+        db.query(
+            MachinePiece,
+            color_cnt.label("color_cnt"),
+            crop_cnt.label("crop_cnt"),
+            my_color.label("my_color"),
+            my_crop.label("my_crop"),
+        )
+        .outerjoin(
+            color_cnt_sq,
+            and_(color_cnt_sq.c.mid == MachinePiece.machine_id, color_cnt_sq.c.puid == MachinePiece.piece_uuid),
+        )
+        .outerjoin(
+            crop_cnt_sq,
+            and_(crop_cnt_sq.c.mid == MachinePiece.machine_id, crop_cnt_sq.c.puid == MachinePiece.piece_uuid),
+        )
+        .filter(MachinePiece.dead.is_(False), _available_image_exists())
+    )
+
+    recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
+    if sort == "recent":
+        q = q.order_by(*recent_order)
+    elif sort == "oldest":
+        q = q.order_by(MachinePiece.recorded_at.asc().nullsfirst(), MachinePiece.created_at.asc())
+    elif sort == "least_color":
+        q = q.order_by(color_cnt.asc(), *recent_order)
+    elif sort == "most_color":
+        q = q.order_by(color_cnt.desc(), *recent_order)
+    elif sort == "least_crop":
+        q = q.order_by(crop_cnt.asc(), *recent_order)
+    elif sort == "most_crop":
+        q = q.order_by(crop_cnt.desc(), *recent_order)
+    elif sort == "needs_me":
+        q = q.order_by(my_color.asc(), color_cnt.asc(), *recent_order)
+
+    rows = q.offset(offset).limit(limit + 1).all()
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+
+    pieces = [r[0] for r in rows]
+    machine_ids = {p.machine_id for p in pieces}
+    machine_names = {
+        mid: name
+        for mid, name in db.query(Machine.id, Machine.name).filter(Machine.id.in_(machine_ids)).all()
+    } if machine_ids else {}
+
+    # Lowest available seq per piece → grid thumbnail.
+    thumb_seq: dict[str, int] = {}
+    piece_uuids = [p.piece_uuid for p in pieces]
+    if piece_uuids:
+        for mid, puid, seq in (
+            db.query(MachinePieceImage.machine_id, MachinePieceImage.piece_uuid, func.min(MachinePieceImage.seq))
+            .filter(
+                MachinePieceImage.piece_uuid.in_(piece_uuids),
+                MachinePieceImage.image_key.isnot(None),
+            )
+            .group_by(MachinePieceImage.machine_id, MachinePieceImage.piece_uuid)
+            .all()
+        ):
+            if mid in machine_ids:
+                thumb_seq[f"{mid}|{puid}"] = seq
+
+    items = []
+    for p, ccnt, xcnt, mc, mx in rows:
+        items.append(
+            {
+                "machine_id": str(p.machine_id),
+                "machine_name": machine_names.get(p.machine_id),
+                "piece_uuid": p.piece_uuid,
+                "part": {"part_id": p.part_id, "part_name": p.part_name},
+                "recorded_at": p.recorded_at.isoformat() if p.recorded_at else None,
+                "seen_at": p.seen_at.isoformat() if p.seen_at else None,
+                "color_label_count": int(ccnt),
+                "crop_link_count": int(xcnt),
+                "my_color": bool(mc),
+                "my_crop": bool(mx),
+                "thumb_seq": thumb_seq.get(f"{p.machine_id}|{p.piece_uuid}"),
+            }
+        )
+
+    return {"items": items, "has_more": has_more, "offset": offset, "sort": sort}
+
+
+@router.get("/piece/{machine_id}/{piece_uuid}")
+def piece_detail(
+    machine_id: UUID,
+    piece_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Everything the single-piece labeling view needs: the piece, its crops, the
+    pixel-average guess, and THIS user's saved color label (so revisiting a piece
+    by URL restores what they'd set, rather than a fresh unlabeled view)."""
+    piece = (
+        db.query(MachinePiece)
+        .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
+        .first()
+    )
+    if piece is None:
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    machine_name = db.query(Machine.name).filter(Machine.id == machine_id).scalar()
+    images = (
+        db.query(MachinePieceImage)
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid == piece_uuid,
+            MachinePieceImage.image_key.isnot(None),
+        )
+        .order_by(MachinePieceImage.seq.asc())
+        .all()
+    )
+    label = (
+        db.query(PieceColorLabel)
+        .filter(
+            PieceColorLabel.machine_id == machine_id,
+            PieceColorLabel.piece_uuid == piece_uuid,
+            PieceColorLabel.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    return {
+        "machine_id": str(machine_id),
+        "machine_name": machine_name,
+        "piece_uuid": piece_uuid,
+        "part": {"part_id": piece.part_id, "part_name": piece.part_name},
+        "recorded_at": piece.recorded_at.isoformat() if piece.recorded_at else None,
+        "seen_at": piece.seen_at.isoformat() if piece.seen_at else None,
+        "pixel_guess": guess_piece_color(images),
+        "images": [
+            {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
+        ],
+        "my_label": None if label is None else {"color_id": label.color_id, "notes": label.notes},
     }
 
 

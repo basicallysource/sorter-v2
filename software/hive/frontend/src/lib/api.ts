@@ -957,6 +957,54 @@ export interface ColorLabelStats {
 	total_labelable: number;
 	labeled_by_me: number;
 	total_labels: number;
+	crop_links_by_me: number;
+	total_color_labels: number;
+	total_crop_links: number;
+	color_labeled_pieces: number;
+	crop_linked_pieces: number;
+	labeler_histogram: { '0': number; '1': number; '2': number; '3+': number };
+}
+
+export type ColorLabelSort =
+	| 'recent'
+	| 'oldest'
+	| 'least_color'
+	| 'most_color'
+	| 'least_crop'
+	| 'most_crop'
+	| 'needs_me';
+
+export interface ColorLabelPieceCard {
+	machine_id: string;
+	machine_name: string | null;
+	piece_uuid: string;
+	part: { part_id: string | null; part_name: string | null };
+	recorded_at: string | null;
+	seen_at: string | null;
+	color_label_count: number;
+	crop_link_count: number;
+	my_color: boolean;
+	my_crop: boolean;
+	thumb_seq: number | null;
+}
+
+export interface ColorLabelPiecesPage {
+	items: ColorLabelPieceCard[];
+	has_more: boolean;
+	offset: number;
+	sort: ColorLabelSort;
+}
+
+export interface ColorLabelPieceDetail {
+	machine_id: string;
+	machine_name: string | null;
+	piece_uuid: string;
+	part: { part_id: string | null; part_name: string | null };
+	recorded_at: string | null;
+	seen_at: string | null;
+	pixel_guess: ColorLabelPixelGuess | null;
+	images: ColorLabelQueueImage[];
+	my_label: { color_id: number; notes: string | null } | null;
 }
 
 export interface ColorLabelPixelGuess {
@@ -1124,6 +1172,20 @@ export const api = {
 		if (opts.offset) params.set('offset', String(opts.offset));
 		const qs = params.toString();
 		return request<ColorLabelQueue>('GET', `/api/color-labels/queue${qs ? `?${qs}` : ''}`);
+	},
+	colorLabelPieces(opts: { sort?: ColorLabelSort; limit?: number; offset?: number } = {}) {
+		const params = new URLSearchParams();
+		if (opts.sort) params.set('sort', opts.sort);
+		if (opts.limit) params.set('limit', String(opts.limit));
+		if (opts.offset) params.set('offset', String(opts.offset));
+		const qs = params.toString();
+		return request<ColorLabelPiecesPage>('GET', `/api/color-labels/pieces${qs ? `?${qs}` : ''}`);
+	},
+	colorLabelPieceDetail(machineId: string, pieceUuid: string) {
+		return request<ColorLabelPieceDetail>(
+			'GET',
+			`/api/color-labels/piece/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
 	},
 	submitColorLabel(body: { machine_id: string; piece_uuid: string; color_id: number; notes?: string | null }) {
 		return request<{ ok: boolean; created: boolean; labeled_by_me: number }>(

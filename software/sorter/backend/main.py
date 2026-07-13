@@ -188,6 +188,18 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     except Exception as exc:
         gc.logger.warning(f"Failed to start upstream-crop store: {exc}")
 
+    try:
+        import channel_crop_store
+        from perception.channel_crop_capture import ChannelCropCollector
+
+        channel_crop_store.configure(gc.logger)
+        collector = ChannelCropCollector(perception_service=service, logger=gc.logger)
+        collector.start()
+        service.channel_crop_collector = collector
+        gc.logger.info("Channel-crop capture collector started.")
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start channel-crop collector: {exc}")
+
 
 def runServer(gc: GlobalConfig) -> None:
     # Bind to loopback by default. Setting SORTER_API_HOST=0.0.0.0 (or a

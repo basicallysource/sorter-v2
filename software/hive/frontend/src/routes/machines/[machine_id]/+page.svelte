@@ -212,10 +212,16 @@
 		<section class="mt-6">
 			<div class="flex items-baseline justify-between">
 				<h2 class="text-lg font-semibold text-text">Sorting</h2>
-				<a
-					href={`/machines/${machine.id}/pieces`}
-					class="text-sm text-primary hover:underline">View pieces →</a
-				>
+				<div class="flex items-baseline gap-4">
+					<a
+						href={`/machines/${machine.id}/channel-crops`}
+						class="text-sm text-primary hover:underline">Channel crops →</a
+					>
+					<a
+						href={`/machines/${machine.id}/pieces`}
+						class="text-sm text-primary hover:underline">View pieces →</a
+					>
+				</div>
 			</div>
 			<div class="mt-3 grid grid-cols-2 gap-px border border-border bg-border sm:grid-cols-4">
 				{#each [

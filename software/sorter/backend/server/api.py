@@ -566,6 +566,33 @@ def get_piece_image(uuid: str, image_id: int) -> Any:
     )
 
 
+@app.get("/api/pieces/{uuid}/possible-crops")
+def get_possible_crops(uuid: str) -> Dict[str, Any]:
+    # 'Possibly the same piece': upstream C2/C3 crops that are plausibly this
+    # classified piece, found by time + channel + distance-to-exit (no
+    # embeddings). Returns a confidence-ranked superset.
+    import channel_crop_lookup
+
+    gc = shared_state.gc_ref
+    return {"piece_uuid": uuid, **channel_crop_lookup.findPossibleCrops(gc, uuid)}
+
+
+@app.get("/api/channel-crops/{crop_id}/image")
+def get_channel_crop_image(crop_id: int) -> Any:
+    from fastapi.responses import FileResponse
+
+    import channel_crop_store
+
+    path = channel_crop_store.getCropFileById(crop_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="crop not available locally")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 @app.get("/api/piece-images/stats")
 def get_piece_image_stats() -> Dict[str, Any]:
     import piece_image_store

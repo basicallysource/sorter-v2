@@ -14,6 +14,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.user import User
 from app.schemas.machine import (
     MachineCreate,
@@ -374,6 +375,97 @@ def get_machine_piece_image(
         raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
 
     return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
+
+
+def _serialize_channel_crop(crop: MachineChannelCrop) -> dict[str, Any]:
+    return {
+        "local_id": crop.local_id,
+        "channel": crop.channel,
+        "ts": crop.ts.isoformat() if crop.ts else None,
+        "captured_at": crop.captured_at.isoformat() if crop.captured_at else None,
+        "track_id": crop.track_id,
+        "com_forward_to_exit_deg": crop.com_forward_to_exit_deg,
+        "com_section": crop.com_section,
+        "zone_code": crop.zone_code,
+        "sharpness": crop.sharpness,
+        "bbox": [crop.bbox_x1, crop.bbox_y1, crop.bbox_x2, crop.bbox_y2],
+        "bytes": crop.bytes,
+        # image_key is NULL once the crop was evicted from the machine's local
+        # store before syncing — the row rides up regardless.
+        "available": crop.image_key is not None,
+        "evicted_locally": crop.evicted_locally,
+    }
+
+
+@router.get("/machines/{machine_id}/channel-crops")
+def list_machine_channel_crops(
+    machine_id: UUID,
+    limit: int = Query(120, ge=1, le=500),
+    cursor: int | None = Query(None),
+    channel: int | None = Query(None),
+    zone_code: int | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Unlabeled C2/C3 bbox crops synced from one machine, newest first.
+    Keyset-paginated on the machine's local crop id. Optional channel / zone_code
+    filters. Accessible to the machine's owner or any admin."""
+    machine = _machine_for_viewer(db, machine_id, current_user)
+
+    query = db.query(MachineChannelCrop).filter(MachineChannelCrop.machine_id == machine_id)
+    if channel is not None:
+        query = query.filter(MachineChannelCrop.channel == channel)
+    if zone_code is not None:
+        query = query.filter(MachineChannelCrop.zone_code == zone_code)
+    if cursor is not None:
+        query = query.filter(MachineChannelCrop.local_id < cursor)
+    crops = query.order_by(MachineChannelCrop.local_id.desc()).limit(limit + 1).all()
+
+    has_more = len(crops) > limit
+    crops = crops[:limit]
+    next_cursor = crops[-1].local_id if (has_more and crops) else None
+
+    total = (
+        db.query(func.count(MachineChannelCrop.id))
+        .filter(MachineChannelCrop.machine_id == machine_id)
+        .scalar()
+        or 0
+    )
+
+    return {
+        "machine": {
+            "id": str(machine.id),
+            "name": machine.name,
+            "owner_email": machine.owner.email if machine.owner else None,
+        },
+        "items": [_serialize_channel_crop(c) for c in crops],
+        "next_cursor": next_cursor,
+        "total": total,
+    }
+
+
+@router.get("/machines/{machine_id}/channel-crops/{local_id}/image")
+def get_machine_channel_crop_image(
+    machine_id: UUID,
+    local_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Stream one synced channel crop's bytes. Cookie-session auth (owner or
+    admin) is enough for an <img> tag on a same-origin page."""
+    _machine_for_viewer(db, machine_id, current_user)
+    crop = (
+        db.query(MachineChannelCrop)
+        .filter(
+            MachineChannelCrop.machine_id == machine_id,
+            MachineChannelCrop.local_id == local_id,
+        )
+        .first()
+    )
+    if crop is None or not crop.image_key:
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+
+    return serve_stored_file(crop.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
 
 
 @router.post("/machines", response_model=MachineWithTokenResponse)

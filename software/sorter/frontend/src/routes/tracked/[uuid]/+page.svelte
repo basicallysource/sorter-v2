@@ -58,6 +58,22 @@
 	let _diskSummary = $state<PieceSummary | null>(null);
 	let _diskImages = $state<DisplayImage[]>([]);
 
+	// 'Possibly the same piece': cheap time/angle lookup over the unlabeled
+	// C2/C3 channel crops (no embeddings). Confidence-ranked superset.
+	type PossibleCrop = {
+		id: number;
+		channel: number | null;
+		ts: number | null;
+		dt: number;
+		zone_code: number | null;
+		com_forward_to_exit_deg: number | null;
+		track_id: number | null;
+		sharpness: number | null;
+		score: number;
+	};
+	let _possibleCrops = $state<PossibleCrop[]>([]);
+	let _possibleStatus = $state<'idle' | 'loading' | 'ok' | 'error'>('idle');
+
 	$effect(() => {
 		// Reset whenever the route UUID changes. Reading `uuid` registers the
 		// dependency; the body clears the sticky cache so a different route
@@ -68,7 +84,35 @@
 		_diskSummary = null;
 		_diskImages = [];
 		_fetchStatus = 'idle';
+		_possibleCrops = [];
+		_possibleStatus = 'idle';
 	});
+
+	$effect(() => {
+		if (_possibleStatus !== 'idle') return;
+		const targetUuid = uuid;
+		_possibleStatus = 'loading';
+		void fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(targetUuid)}/possible-crops`)
+			.then(async (res) => {
+				if (targetUuid !== uuid) return;
+				if (!res.ok) {
+					_possibleStatus = 'error';
+					return;
+				}
+				const data = (await res.json()) as { candidates?: PossibleCrop[] };
+				if (targetUuid !== uuid) return;
+				_possibleCrops = data.candidates ?? [];
+				_possibleStatus = 'ok';
+			})
+			.catch(() => {
+				if (targetUuid === uuid) _possibleStatus = 'error';
+			});
+	});
+
+	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
+	function possibleCropSrc(id: number): string {
+		return `${effectiveBase()}/api/channel-crops/${id}/image`;
+	}
 
 	$effect(() => {
 		const entries = pieceStore.entriesFor(ctx.machine?.identity?.machine_id ?? null);
@@ -1456,6 +1500,74 @@
 				{/if}
 			</section>
 		{/if}
+
+		<!-- Possibly the same piece: cheap time/angle lookup over C2/C3 crops.
+		     Rendered for any UUID (live or disk-fallback) — it only needs the
+		     piece's arrival time, not the live detail payload. -->
+		<section class="border border-border bg-surface">
+			<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+				<div class="font-medium text-text">
+					Possibly the same piece
+					<span class="ml-2 text-text-muted">{_possibleCrops.length}</span>
+				</div>
+				<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
+			</div>
+			<div class="p-3">
+				{#if _possibleStatus === 'loading'}
+					<div class="text-sm text-text-muted">Searching…</div>
+				{:else if _possibleStatus === 'error'}
+					<div class="text-sm text-text-muted">Lookup unavailable.</div>
+				{:else if _possibleCrops.length === 0}
+					<div class="text-sm text-text-muted">
+						No upstream crops found near this piece's arrival time.
+					</div>
+				{:else}
+					<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));">
+						{#each _possibleCrops as crop (crop.id)}
+							<button
+								type="button"
+								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+								title={`C${crop.channel} · ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : '?'} · ${crop.com_forward_to_exit_deg != null ? crop.com_forward_to_exit_deg.toFixed(0) + '° to exit' : ''} · ${crop.dt >= 0 ? crop.dt.toFixed(1) + 's before arrival' : Math.abs(crop.dt).toFixed(1) + 's after'} · score ${crop.score.toFixed(2)}`}
+								onclick={() =>
+									(zoomImage = {
+										src: possibleCropSrc(crop.id),
+										label: `C${crop.channel} ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : ''} · ${crop.dt.toFixed(1)}s · score ${crop.score.toFixed(2)}`
+									})}
+							>
+								<div class="relative aspect-square w-full bg-white">
+									<img
+										src={possibleCropSrc(crop.id)}
+										alt={`crop ${crop.id}`}
+										class="h-full w-full object-contain"
+										loading="lazy"
+									/>
+									<span
+										class="absolute right-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums"
+										title="Same-piece confidence (higher = more likely this piece)"
+									>
+										{crop.score.toFixed(2)}
+									</span>
+									<span
+										class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
+										title="Channel and zone the crop came from"
+									>
+										C{crop.channel}{crop.zone_code != null ? ` ${ZONE_LABEL[crop.zone_code]}` : ''}
+									</span>
+								</div>
+								<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
+									<span class="tabular-nums">{crop.dt >= 0 ? `−${crop.dt.toFixed(1)}s` : `+${Math.abs(crop.dt).toFixed(1)}s`}</span>
+									<span class="tabular-nums"
+										>{crop.com_forward_to_exit_deg != null
+											? `${crop.com_forward_to_exit_deg.toFixed(0)}°`
+											: ''}</span
+									>
+								</div>
+							</button>
+						{/each}
+					</div>
+				{/if}
+			</div>
+		</section>
 	</div>
 </div>
 

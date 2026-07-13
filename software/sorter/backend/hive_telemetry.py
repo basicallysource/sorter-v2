@@ -39,6 +39,12 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "description": "Classification results per piece (part, color, confidence, bin, timestamps) and set sorting progress.",
         "default": True,
     },
+    {
+        "key": "channel_crops",
+        "label": "Channel crops (C2/C3)",
+        "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. Off by default — experimental, high volume.",
+        "default": False,
+    },
 )
 
 _TELEMETRY_FIELD_KEYS = tuple(field["key"] for field in TELEMETRY_FIELDS)
@@ -166,6 +172,21 @@ class HiveTelemetryClient:
             "POST",
             "/api/machine/sync/piece-image",
             fields=("detection_images",),
+            data={"metadata": json.dumps(meta)},
+            files=files,
+            timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
+    def pushChannelCrop(self, meta: dict[str, Any], file_path: Path | None) -> int:
+        files = None
+        if file_path is not None and file_path.is_file():
+            with open(file_path, "rb") as handle:
+                files = {"image": (file_path.name, handle.read(), "image/jpeg")}
+        response = self._request(
+            "POST",
+            "/api/machine/sync/channel-crop",
+            fields=("channel_crops",),
             data={"metadata": json.dumps(meta)},
             files=files,
             timeout=60,

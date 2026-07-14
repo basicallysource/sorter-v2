@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { api, type MachineLabeledPiece } from '$lib/api';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import ZoomImage from '$lib/components/ZoomImage.svelte';
 
 	// Color-range reference column: other already-labeled pieces on THIS machine,
 	// human ground-truth only (never model output), sorted into a hue gradient so
@@ -66,10 +67,9 @@
 				>
 					<div class="flex h-12 w-12 shrink-0 items-center justify-center bg-bg">
 						{#if it.thumb_seq != null}
-							<img
+							<ZoomImage
 								src={api.machineLabeledPieceImageUrl(machineId, it.piece_uuid, it.thumb_seq)}
 								alt={it.color_name}
-								loading="lazy"
 								class="h-12 w-12 bg-transparent object-contain"
 							/>
 						{/if}

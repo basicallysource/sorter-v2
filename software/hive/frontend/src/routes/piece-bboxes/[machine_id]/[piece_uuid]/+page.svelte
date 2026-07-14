@@ -12,6 +12,7 @@
 	import * as nav from '$lib/colorLabelNav';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import ZoomImage from '$lib/components/ZoomImage.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
@@ -606,10 +607,9 @@
 
 			<div class="flex flex-wrap gap-2">
 				{#each detail.images as img (img.seq)}
-					<img
+					<ZoomImage
 						src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
 						alt={`crop ${img.seq}`}
-						loading="lazy"
 						title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
 						class="h-28 w-28 border-2 bg-transparent object-contain {img.used ? 'border-success' : 'border-border'}"
 					/>

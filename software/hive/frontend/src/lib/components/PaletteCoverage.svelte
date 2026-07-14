@@ -20,7 +20,7 @@
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let open = $state(false);
-	let showAll = $state(false);
+	let showAll = $state(true);
 
 	function isExotic(c: ColorCoverageEntry): boolean {
 		return c.is_trans || EXOTIC_FINISH.test(c.name);
@@ -143,33 +143,7 @@
 					</div>
 				</div>
 
-				<!-- Gaps: what we're missing -->
-				{#if gaps.length > 0}
-					<div class="mb-1.5 flex items-baseline gap-2">
-						<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Coverage gaps</span>
-						<span class="text-xs text-text-muted">
-							no labeled pieces yet · {solidGapCount} solid
-						</span>
-					</div>
-					<div class="mb-4 flex flex-wrap gap-1.5">
-						{#each gaps as c (c.id)}
-							<span
-								class="flex items-center gap-1.5 border border-dashed border-border bg-bg py-0.5 pl-0.5 pr-1.5"
-								title={`${c.name} (${c.id}) — no labeled pieces`}
-							>
-								<span
-									class="h-4 w-4 shrink-0 border border-border {c.is_trans ? 'opacity-70' : ''}"
-									style={`background:#${c.rgb ?? '000'}`}
-								></span>
-								<span class="max-w-[9rem] truncate text-xs text-text-muted">{c.name}</span>
-							</span>
-						{/each}
-					</div>
-				{:else}
-					<p class="mb-4 text-sm text-text-muted">Every palette color has at least one labeled piece.</p>
-				{/if}
-
-				<!-- Full palette, clustered by hue -->
+				<!-- Full palette, clustered by hue (open by default) -->
 				<button
 					type="button"
 					class="mb-2 flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-text-muted hover:text-text"
@@ -179,7 +153,7 @@
 					Full palette ({totalColors})
 				</button>
 				{#if showAll}
-					<div class="flex flex-wrap gap-1">
+					<div class="mb-4 flex flex-wrap gap-1">
 						{#each sortedByHue as c (c.id)}
 							<span
 								class="flex h-9 w-9 flex-col items-center justify-center border text-[10px] leading-none tabular-nums {c.pieces ===
@@ -197,6 +171,32 @@
 							</span>
 						{/each}
 					</div>
+				{/if}
+
+				<!-- Gaps: what we're missing -->
+				{#if gaps.length > 0}
+					<div class="mb-1.5 flex items-baseline gap-2">
+						<span class="text-xs font-semibold uppercase tracking-wider text-text-muted">Coverage gaps</span>
+						<span class="text-xs text-text-muted">
+							no labeled pieces yet · {solidGapCount} solid
+						</span>
+					</div>
+					<div class="flex flex-wrap gap-1.5">
+						{#each gaps as c (c.id)}
+							<span
+								class="flex items-center gap-1.5 border border-dashed border-border bg-bg py-0.5 pl-0.5 pr-1.5"
+								title={`${c.name} (${c.id}) — no labeled pieces`}
+							>
+								<span
+									class="h-4 w-4 shrink-0 border border-border {c.is_trans ? 'opacity-70' : ''}"
+									style={`background:#${c.rgb ?? '000'}`}
+								></span>
+								<span class="max-w-[9rem] truncate text-xs text-text-muted">{c.name}</span>
+							</span>
+						{/each}
+					</div>
+				{:else}
+					<p class="text-sm text-text-muted">Every palette color has at least one labeled piece.</p>
 				{/if}
 			{/if}
 		</div>

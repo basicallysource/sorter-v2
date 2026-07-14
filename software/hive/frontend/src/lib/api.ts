@@ -1002,6 +1002,16 @@ export interface ColorLabelPrediction {
 	color_name: string | null;
 }
 
+export interface ColorModelPrediction {
+	method: string;
+	model_name: string;
+	color_id: number;
+	color_name: string | null;
+	rgb: string | null;
+	confidence: number;
+	sample_count: number;
+}
+
 export interface ColorLabelCorrection {
 	correctable: boolean;
 	part_correct: boolean | null;
@@ -1026,6 +1036,7 @@ export interface ColorLabelPieceDetail {
 	recorded_at: string | null;
 	seen_at: string | null;
 	pixel_guess: ColorLabelPixelGuess | null;
+	model_prediction: ColorModelPrediction | null;
 	images: ColorLabelQueueImage[];
 	my_label: { color_id: number; notes: string | null } | null;
 	my_rejection: { reasons: string[] } | null;
@@ -1066,6 +1077,25 @@ export interface ColorLabelQueueItem {
 export interface ColorLabelQueue {
 	items: ColorLabelQueueItem[];
 	has_more: boolean;
+}
+
+export interface ColorModel {
+	id: string;
+	filename: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	sha256: string;
+	class_count: number;
+	input_size: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface ColorModelsResponse {
+	models: ColorModel[];
+	model_dir: string;
 }
 
 // A "possibly the same piece" upstream C2/C3 crop candidate, ranked by the
@@ -1295,6 +1325,23 @@ export const api = {
 		return request<{ ok: boolean }>(
 			'DELETE',
 			`/api/labeling/piece-crop-link/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+
+	// Color models (admin): scan/list the models on disk and pick the active one.
+	listColorModels() {
+		return request<ColorModelsResponse>('GET', '/api/color-models');
+	},
+	activateColorModel(modelId: string) {
+		return request<{ ok: boolean; model: ColorModel }>(
+			'POST',
+			`/api/color-models/${modelId}/activate`
+		);
+	},
+	deactivateColorModel(modelId: string) {
+		return request<{ ok: boolean; model: ColorModel }>(
+			'POST',
+			`/api/color-models/${modelId}/deactivate`
 		);
 	},
 	createMachine(name: string, description?: string) {

@@ -35,6 +35,7 @@ from app.models.user import User
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
+from app.services.color_predictor import predict as predict_piece_color
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.storage import serve_stored_file
@@ -426,6 +427,9 @@ def piece_detail(
         "recorded_at": piece.recorded_at.isoformat() if piece.recorded_at else None,
         "seen_at": piece.seen_at.isoformat() if piece.seen_at else None,
         "pixel_guess": guess_piece_color(images),
+        # Learned prediction from the globally-active color model, if one is set.
+        # None → the UI falls back to the pixel-average guess alone.
+        "model_prediction": predict_piece_color(db, images),
         "images": [
             {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
         ],

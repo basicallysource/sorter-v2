@@ -74,8 +74,19 @@
 	// but Brickognize didn't accept it), or danger (the request itself failed).
 	let feedback = $state<{ variant: 'success' | 'warning' | 'danger'; text: string } | null>(null);
 
+	// The suggestion that seeds the picker: prefer the active color model's
+	// prediction, fall back to the pixel-average guess. Both are still shown in
+	// the piece panel; this just drives which one highlights in the color list.
+	const suggestion = $derived.by(() => {
+		const mp = detail?.model_prediction;
+		if (mp) return { color_id: mp.color_id, rgb: mp.rgb };
+		const pg = detail?.pixel_guess;
+		if (pg) return { color_id: pg.color_id, rgb: pg.rgb };
+		return null;
+	});
+
 	const guessColorId = $derived.by(() => {
-		const id = detail?.pixel_guess?.color_id;
+		const id = suggestion?.color_id;
 		return id != null && colorsById.has(id) ? id : null;
 	});
 
@@ -144,7 +155,7 @@
 	// Rank the palette against the guess, but push exotic finishes way down so the
 	// shortlist is dominated by plain solid colors (a piece is rarely pearl/metal).
 	const similarColors = $derived.by(() => {
-		const target = hexToLab(detail?.pixel_guess?.rgb ?? null);
+		const target = hexToLab(suggestion?.rgb ?? null);
 		if (!target) return [] as BrickLinkColor[];
 		return colors
 			.filter((c) => c.id !== guessColorId && labById.get(c.id) != null)
@@ -484,27 +495,55 @@
 				{/each}
 			</div>
 
-			<div class="mt-4 flex items-center gap-3 border-t border-border pt-3">
-				{#if detail.pixel_guess}
-					<span
-						class="h-10 w-10 shrink-0 border border-border"
-						style={`background:#${detail.pixel_guess.rgb}`}
-						title={`average pixel color #${detail.pixel_guess.rgb}`}
-					></span>
-					<div class="min-w-0 text-xs text-text-muted">
-						<div class="text-xs font-semibold uppercase tracking-wider">Pixel-average guess</div>
-						<div class="mt-0.5 flex items-center gap-1.5">
-							{#if guessColorId != null}
-								{@const gc = colorsById.get(guessColorId)}
-								<span class="inline-block h-3.5 w-3.5 border border-border" style={`background:#${gc?.rgb ?? '000'}`}></span>
-							{/if}
-							<span class="text-text">{detail.pixel_guess.color_name}</span>
-							<span>({detail.pixel_guess.color_id})</span>
-							<span class="ml-2">nearest of {detail.pixel_guess.sample_count} crop{detail.pixel_guess.sample_count === 1 ? '' : 's'}</span>
+			<div class="mt-4 flex flex-col gap-3 border-t border-border pt-3">
+				<!-- Model prediction (primary, when a color model is active) -->
+				{#if detail.model_prediction}
+					{@const mp = detail.model_prediction}
+					<div class="flex items-center gap-3">
+						<span
+							class="h-10 w-10 shrink-0 border border-border"
+							style={`background:#${mp.rgb ?? '888888'}`}
+							title={`model color #${mp.rgb ?? '?'}`}
+						></span>
+						<div class="min-w-0 text-xs text-text-muted">
+							<div class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider">
+								<Sparkles size={12} class="text-info" /> Model prediction
+								<span class="font-normal normal-case text-text-muted">· {mp.model_name}</span>
+							</div>
+							<div class="mt-0.5 flex items-center gap-1.5">
+								<span class="text-text">{mp.color_name ?? mp.color_id}</span>
+								<span>({mp.color_id})</span>
+								<span class="ml-2">{Math.round(mp.confidence * 100)}% · {mp.sample_count} crop{mp.sample_count === 1 ? '' : 's'}</span>
+							</div>
 						</div>
 					</div>
-				{:else}
-					<span class="text-xs text-text-muted">No pixel guess — crops unavailable.</span>
+				{/if}
+
+				<!-- Pixel-average guess (secondary reference when a model is active) -->
+				{#if detail.pixel_guess}
+					<div class="flex items-center gap-3 {detail.model_prediction ? 'opacity-70' : ''}">
+						<span
+							class="h-10 w-10 shrink-0 border border-border"
+							style={`background:#${detail.pixel_guess.rgb}`}
+							title={`average pixel color #${detail.pixel_guess.rgb}`}
+						></span>
+						<div class="min-w-0 text-xs text-text-muted">
+							<div class="text-xs font-semibold uppercase tracking-wider">Pixel-average guess</div>
+							<div class="mt-0.5 flex items-center gap-1.5">
+								{#if detail.pixel_guess.color_id != null && colorsById.has(detail.pixel_guess.color_id)}
+									{@const pc = colorsById.get(detail.pixel_guess.color_id)}
+									<span class="inline-block h-3.5 w-3.5 border border-border" style={`background:#${pc?.rgb ?? '000'}`}></span>
+								{/if}
+								<span class="text-text">{detail.pixel_guess.color_name}</span>
+								<span>({detail.pixel_guess.color_id})</span>
+								<span class="ml-2">nearest of {detail.pixel_guess.sample_count} crop{detail.pixel_guess.sample_count === 1 ? '' : 's'}</span>
+							</div>
+						</div>
+					</div>
+				{/if}
+
+				{#if !detail.model_prediction && !detail.pixel_guess}
+					<span class="text-xs text-text-muted">No suggestion — crops unavailable.</span>
 				{/if}
 			</div>
 		</div>

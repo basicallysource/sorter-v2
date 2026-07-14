@@ -95,9 +95,9 @@
 <div class="space-y-5">
 	<div class="flex flex-wrap items-center justify-between gap-3">
 		<div>
-			<h1 class="text-2xl font-bold text-text">Reviewer leaderboard</h1>
+			<h1 class="text-2xl font-bold text-text">Contributor leaderboard</h1>
 			<p class="mt-1 text-sm text-text-muted">
-				Who's keeping the queue flowing. Period switches the ranking; clicks open a reviewer's full stats + achievements.
+				Ranked by total contributions — sample reviews plus piece labels (color + same-piece). Period switches the ranking; clicks open full stats + achievements.
 			</p>
 		</div>
 		<div class="flex border border-border bg-surface text-xs">
@@ -119,15 +119,15 @@
 		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
 	{:else if !data || data.entries.length === 0}
 		<div class="border border-border bg-surface px-3 py-10 text-center text-sm text-text-muted">
-			No reviews in this period yet. Be the first.
+			No contributions in this period yet. Be the first.
 		</div>
 	{:else}
 		<div class="border border-border bg-surface">
-			<div class="grid grid-cols-[40px_1fr_120px_150px_140px] items-center gap-3 border-b border-border bg-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
+			<div class="grid grid-cols-[40px_1fr_90px_150px_120px] items-center gap-3 border-b border-border bg-bg px-4 py-2 text-[10px] font-semibold uppercase tracking-wider text-text-muted">
 				<span>Rank</span>
-				<span>Reviewer</span>
-				<span class="text-right">Reviews</span>
-				<span class="text-right">✓ Accept · ✗ Reject</span>
+				<span>Contributor</span>
+				<span class="text-right">Total</span>
+				<span class="text-right">Samples · Pieces</span>
 				<span class="text-right">Last activity</span>
 			</div>
 			{#each data.entries as entry, idx (entry.user_id)}
@@ -135,7 +135,7 @@
 				{@const medal = medalFor(idx)}
 				<a
 					href={profileHref(entry)}
-					class="grid grid-cols-[40px_1fr_120px_150px_140px] items-center gap-3 border-b border-border px-4 py-2.5 text-sm transition-colors hover:bg-bg {isMe ? 'bg-primary-light/30' : ''} last:border-b-0"
+					class="grid grid-cols-[40px_1fr_90px_150px_120px] items-center gap-3 border-b border-border px-4 py-2.5 text-sm transition-colors hover:bg-bg {isMe ? 'bg-primary-light/30' : ''} last:border-b-0"
 				>
 					<span class="text-center text-base font-semibold tabular-nums text-text">
 						{medal ?? idx + 1}
@@ -157,10 +157,13 @@
 						</span>
 					</span>
 					<span class="text-right text-base font-bold tabular-nums text-text">
-						{entry.total_reviews.toLocaleString()}
+						{entry.total_contributions.toLocaleString()}
 					</span>
 					<span class="text-right text-xs tabular-nums text-text-muted">
-						<span class="text-success">{entry.accepts}</span> · <span class="text-primary">{entry.rejects}</span>
+						<span title="sample reviews">{entry.total_reviews.toLocaleString()}</span>
+						· <span class="text-primary" title="piece color labels + same-piece links">
+							{(entry.piece_color_labels + entry.piece_crop_links).toLocaleString()}
+						</span>
 					</span>
 					<span class="text-right text-xs text-text-muted">{relativeTime(entry.last_review_at)}</span>
 				</a>

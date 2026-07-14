@@ -49,6 +49,9 @@ def list_leaderboard(
                 total_reviews=r.total_reviews,
                 accepts=r.accepts,
                 rejects=r.rejects,
+                piece_color_labels=r.piece_color_labels,
+                piece_crop_links=r.piece_crop_links,
+                total_contributions=r.total_contributions,
                 last_review_at=r.last_review_at,
             )
             for r in rows
@@ -73,6 +76,9 @@ def get_profile(
         total_reviews=profile.total_reviews,
         accepts=profile.accepts,
         rejects=profile.rejects,
+        piece_color_labels=profile.piece_color_labels,
+        piece_crop_links=profile.piece_crop_links,
+        total_contributions=profile.total_contributions,
         agreement_rate=profile.agreement_rate,
         machines_covered=profile.machines_covered,
         current_streak_days=profile.current_streak_days,

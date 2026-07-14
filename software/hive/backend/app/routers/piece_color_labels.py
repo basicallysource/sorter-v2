@@ -55,11 +55,24 @@ def _available_image_exists():
     )
 
 
+# Don't serve a piece until it's this old — the same-piece channel crops upload
+# after the piece and take a while, so a too-fresh piece would show an incomplete
+# candidate list.
+_MIN_PIECE_AGE = timedelta(minutes=15)
+
+
+def _old_enough():
+    cutoff = datetime.now(timezone.utc) - _MIN_PIECE_AGE
+    return func.coalesce(MachinePiece.seen_at, MachinePiece.recorded_at, MachinePiece.created_at) <= cutoff
+
+
 def _labelable_query(db: Session):
-    # A piece is labelable if it isn't a dead/spurious record and has a crop.
+    # A piece is labelable if it isn't a dead/spurious record, has a crop, and is
+    # old enough for its channel crops to have synced.
     return db.query(MachinePiece).filter(
         MachinePiece.dead.is_(False),
         _available_image_exists(),
+        _old_enough(),
     )
 
 
@@ -278,7 +291,7 @@ def list_pieces(
             crop_cnt_sq,
             and_(crop_cnt_sq.c.mid == MachinePiece.machine_id, crop_cnt_sq.c.puid == MachinePiece.piece_uuid),
         )
-        .filter(MachinePiece.dead.is_(False), _available_image_exists(), ~my_rejection)
+        .filter(MachinePiece.dead.is_(False), _available_image_exists(), _old_enough(), ~my_rejection)
     )
     if machine_id is not None:
         q = q.filter(MachinePiece.machine_id == machine_id)

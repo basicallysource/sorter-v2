@@ -1815,6 +1815,9 @@ export interface LeaderboardEntry {
 	total_reviews: number;
 	accepts: number;
 	rejects: number;
+	piece_color_labels: number;
+	piece_crop_links: number;
+	total_contributions: number;
 	last_review_at: string | null;
 }
 
@@ -1841,6 +1844,9 @@ export interface ReviewerProfile {
 	total_reviews: number;
 	accepts: number;
 	rejects: number;
+	piece_color_labels: number;
+	piece_crop_links: number;
+	total_contributions: number;
 	agreement_rate: number | null;
 	machines_covered: number;
 	current_streak_days: number;

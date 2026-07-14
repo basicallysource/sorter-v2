@@ -23,6 +23,7 @@ from app.models.sorting_profile_ai_message import SortingProfileAiMessage  # noq
 from app.models.machine_profile_assignment import MachineProfileAssignment  # noqa: E402, F401
 from app.models.machine_set_progress import MachineSetProgress  # noqa: E402, F401
 from app.models.machine_config_backup import MachineConfigBackup  # noqa: E402, F401
+from app.models.machine_hardware_report import MachineHardwareReport  # noqa: E402, F401
 from app.models.detection_model import DetectionModel, DetectionModelVariant  # noqa: E402, F401
 from app.models.user_api_key import UserApiKey  # noqa: E402, F401
 from app.models.teacher_job import TeacherJob, TeacherJobItem  # noqa: E402, F401

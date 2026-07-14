@@ -593,7 +593,14 @@ def heartbeat(
         machine.last_seen_ip = client_ip
     if data is not None:
         if "hardware_info" in data.model_fields_set:
-            machine.hardware_info = data.hardware_info
+            if isinstance(data.hardware_info, dict) and data.hardware_info.get("schema_version") is not None:
+                # A machine-specs snapshot: summarize for the dashboard + append
+                # the full snapshot to the spec history.
+                from app.machine_hardware import record_hardware_report
+
+                record_hardware_report(db, machine, data.hardware_info)
+            else:
+                machine.hardware_info = data.hardware_info
         local_ui_port = data.local_ui_port if "local_ui_port" in data.model_fields_set else None
         if local_ui_port is None and isinstance(data.hardware_info, dict) and "hardware_info" in data.model_fields_set:
             raw_port = data.hardware_info.get("local_ui_port")

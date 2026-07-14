@@ -18,6 +18,12 @@ class Settings(BaseSettings):
     # reconciled into the color_models table; the active one serves piece-color
     # predictions. Model bytes are uploaded here out of band (not through the API).
     COLOR_MODEL_DIR: str = "data/color_models"
+    # Local dir scanned for piece_link matcher models. Each model is a pair of
+    # ONNX graphs (`*.encoder.onnx` + `*.head.onnx`, grouped by their baked
+    # `hive.name`); one row per pair is reconciled into the link_models table.
+    # The active one scores "same physical piece" upstream crops in the labeling
+    # view in place of the time/angle heuristic. Uploaded here out of band.
+    LINK_MODEL_DIR: str = "data/link_models"
     STORAGE_BACKEND: str = "local"
     S3_BUCKET: str = ""
     S3_ENDPOINT_URL: str = ""

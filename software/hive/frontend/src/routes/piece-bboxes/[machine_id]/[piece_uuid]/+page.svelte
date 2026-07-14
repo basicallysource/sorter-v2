@@ -63,10 +63,11 @@
 	let cropSaved = $state(false); // a selection is committed to the db
 	let cropDirty = $state(false); // toggled since last save/load
 	let cropError = $state<string | null>(null);
-	// Which model drove the pre-selection: the time/angle heuristic or a stored
-	// vision-model prediction. The AI "Run" action is open to admins or anyone
-	// with their own OpenRouter key on file.
-	let predictionSource = $state<'ai' | 'heuristic'>('heuristic');
+	// Which source drove the pre-selection: the time/angle heuristic, the active
+	// link matcher model, or a stored vision-model (AI) prediction. The AI "Run"
+	// action is open to admins or anyone with their own OpenRouter key on file.
+	let predictionSource = $state<'ai' | 'model' | 'heuristic'>('heuristic');
+	let linkModel = $state<string | null>(null); // active link model name when source === 'model'
 	let aiReasoning = $state<string | null>(null);
 	let aiRunning = $state(false);
 	const canRunAi = $derived(auth.isAdmin || auth.user?.openrouter_configured === true);
@@ -216,14 +217,28 @@
 		}
 	}
 
+	// Whether a candidate is the active source's pre-selected pick: the AI's
+	// verdict, the link model's pick, or the time/angle heuristic's flag.
+	function isPredictionPick(
+		c: import('$lib/api').PossibleCropCandidate,
+		source: 'ai' | 'model' | 'heuristic'
+	): boolean {
+		if (source === 'ai') return c.ai_same === true;
+		if (source === 'model') return c.model_same === true;
+		return c.predicted;
+	}
+
+	const SOURCE_PICK_LABEL = { ai: 'AI', model: 'model', heuristic: 'heuristic' } as const;
+
 	// Load a possible-crops result into state. If the user already saved a
-	// selection, restore it; otherwise pre-select the AI's picks when a stored
-	// prediction exists, else the time/angle heuristic's picks.
+	// selection, restore it; otherwise pre-select the active source's picks — the
+	// AI's stored prediction, else the link model's scores, else the heuristic.
 	function applyCrops(crops: import('$lib/api').PossibleCropsResult, preferAi = false) {
 		cropCandidates = crops.candidates;
 		cropArrivalTs = crops.arrival_ts;
 		cropDirty = false;
 		predictionSource = crops.prediction_source;
+		linkModel = crops.link_model;
 		aiReasoning = crops.ai_reasoning;
 		const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
 		// A just-run AI prediction overrides the saved selection in the UI so the
@@ -233,9 +248,9 @@
 			cropSelected = new Set(savedPos.filter((id) => present.has(id)));
 			cropSaved = true;
 		} else {
-			const useAi = preferAi || crops.prediction_source === 'ai';
+			const source = preferAi ? 'ai' : crops.prediction_source;
 			cropSelected = new Set(
-				crops.candidates.filter((c) => (useAi ? c.ai_same === true : c.predicted)).map((c) => c.local_id)
+				crops.candidates.filter((c) => isPredictionPick(c, source)).map((c) => c.local_id)
 			);
 			cropSaved = crops.my_link.length > 0;
 		}
@@ -714,6 +729,11 @@
 					<span class="text-text-muted">
 						Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
 					</span>
+				{:else if predictionSource === 'model'}
+					<Sparkles size={12} class="shrink-0 text-info" />
+					<span class="text-text-muted">
+						Picks from the link matcher model{linkModel ? ` (${linkModel})` : ''}.{canRunAi ? ' Run AI for a vision-model guess.' : ''}
+					</span>
 				{:else}
 					<span class="text-text-muted">
 						Picks from the time-and-angle heuristic.{canRunAi ? ' Run AI for a vision-model guess.' : ''}
@@ -731,11 +751,11 @@
 				<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
 					{#each cropCandidates as c (c.local_id)}
 						{@const selected = cropSelected.has(c.local_id)}
-						{@const isPick = predictionSource === 'ai' ? c.ai_same === true : c.predicted}
+						{@const isPick = isPredictionPick(c, predictionSource)}
 						<button
 							type="button"
 							onclick={() => toggleCrop(c.local_id)}
-							title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${isPick ? (predictionSource === 'ai' ? ' · AI pick' : ' · heuristic pick') : ''}`}
+							title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${predictionSource === 'model' && c.model_score != null ? ` · model ${c.model_score}` : ''}${isPick ? ` · ${SOURCE_PICK_LABEL[predictionSource]} pick` : ''}`}
 							class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
 								? 'border-success bg-success/10'
 								: 'border-border opacity-70 hover:opacity-100'}"
@@ -759,7 +779,7 @@
 							{#if isPick}
 								<span
 									class="absolute right-0.5 top-0.5 flex items-center bg-info/80 p-0.5 text-white"
-									title={predictionSource === 'ai' ? 'AI prediction' : 'heuristic prediction'}
+									title={`${SOURCE_PICK_LABEL[predictionSource]} prediction`}
 								>
 									<Sparkles size={11} />
 								</span>

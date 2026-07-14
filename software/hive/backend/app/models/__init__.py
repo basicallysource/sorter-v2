@@ -40,4 +40,5 @@ from app.models.piece_crop_ai_prediction import PieceCropAiPrediction  # noqa: E
 from app.models.piece_rejection import PieceRejection  # noqa: E402, F401
 from app.models.install import Install  # noqa: E402, F401
 from app.models.color_model import ColorModel  # noqa: E402, F401
+from app.models.link_model import LinkModel  # noqa: E402, F401
 from app.models.access_window import AccessWindow  # noqa: E402, F401

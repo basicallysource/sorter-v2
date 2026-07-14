@@ -39,6 +39,7 @@ from app.services.brickognize_feedback import submit_color_feedback, submit_part
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.color_predictor import predict as predict_piece_color
+from app.services import link_predictor
 from app.services.piece_crop_ai_matcher import (
     DEFAULT_MATCH_MODEL,
     AiMatchError,
@@ -1152,32 +1153,61 @@ def _ai_prediction(db: Session, machine_id: UUID, piece_uuid: str) -> PieceCropA
 
 
 def _possible_crops_result(db: Session, machine_id: UUID, piece_uuid: str, labeler_id: UUID) -> dict:
-    """Heuristic candidate set for a piece, annotated with this labeler's saved
-    selection and the stored AI prediction (if any).
+    """The heuristic's time-window candidate set for a piece, annotated with this
+    labeler's saved selection and whichever same-piece prediction is in force.
 
-    Each candidate keeps the heuristic's `predicted` flag (untouched — it feeds
-    the was_predicted training signal). When an AI prediction exists we add
-    `ai_same` per candidate (True/False for crops the model was shown, None for
-    any it didn't see) and set `prediction_source='ai'`; the UI pre-selects
-    `ai_same` over `predicted` when present, falling back to the heuristic."""
+    Three prediction sources, in precedence order:
+    - `ai`    — a stored vision-model (VLM) prediction exists for this piece (an
+                explicit per-piece oracle run); `ai_same` per candidate.
+    - `model` — a link matcher model is active; it scores every candidate crop
+                (`model_score`) and its picks (`model_same`, score ≥ threshold)
+                supersede the heuristic. Candidates are re-ranked by that score.
+    - `heuristic` — neither; the time/angle `predicted` flag drives selection.
+
+    Each candidate always keeps the heuristic's `predicted` flag untouched — it
+    feeds the was_predicted training signal regardless of which source the UI
+    pre-selects from."""
     result = find_possible_crops(db, machine_id, piece_uuid)
     result["my_link"] = _my_link_members(db, machine_id, piece_uuid, labeler_id)
+    candidates = result.get("candidates", [])
+
+    def _reset(c: dict) -> None:
+        c["ai_same"] = None
+        c["model_same"] = None
+        c["model_score"] = None
 
     ai = _ai_prediction(db, machine_id, piece_uuid)
+    model_pred = link_predictor.predict(db, machine_id, piece_uuid, candidates) if ai is None else None
+
+    result["ai_model"] = None
+    result["ai_reasoning"] = None
+    result["link_model"] = None
+
     if ai is not None:
         same_ids = set(ai.same_local_ids or [])
         shown_ids = set(ai.candidate_local_ids or [])
-        for c in result.get("candidates", []):
+        for c in candidates:
+            _reset(c)
             c["ai_same"] = (c["local_id"] in same_ids) if c["local_id"] in shown_ids else None
         result["prediction_source"] = "ai"
         result["ai_model"] = ai.model
         result["ai_reasoning"] = ai.reasoning
+    elif model_pred is not None:
+        scores = model_pred["scores"]
+        threshold = model_pred["threshold"]
+        for c in candidates:
+            _reset(c)
+            s = scores.get(c["local_id"])
+            c["model_score"] = round(s, 3) if s is not None else None
+            c["model_same"] = (s >= threshold) if s is not None else None
+        # re-rank by model score (scored crops first, best first); unscored keep order
+        candidates.sort(key=lambda c: (c["model_score"] is not None, c["model_score"] or 0.0), reverse=True)
+        result["prediction_source"] = "model"
+        result["link_model"] = model_pred["model_name"]
     else:
-        for c in result.get("candidates", []):
-            c["ai_same"] = None
+        for c in candidates:
+            _reset(c)
         result["prediction_source"] = "heuristic"
-        result["ai_model"] = None
-        result["ai_reasoning"] = None
     return result
 
 

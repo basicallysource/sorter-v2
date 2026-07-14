@@ -1177,11 +1177,36 @@ export interface ColorModelsResponse {
 	model_dir: string;
 }
 
-// A "possibly the same piece" upstream C2/C3 crop candidate, ranked by the
-// shared time/angle heuristic. `predicted` = the heuristic's default selection.
-// `ai_same` = a stored vision-model verdict (true/false for crops it was shown,
-// null when it wasn't shown this crop or no AI prediction has been run). The UI
-// pre-selects `ai_same` over `predicted` when a prediction exists.
+// A piece_link matcher model: a pair of ONNX graphs (encoder + head) grouped by
+// name. The active one scores same-piece upstream crops in the labeling view.
+export interface LinkModel {
+	id: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	encoder_filename: string;
+	head_filename: string;
+	sha256: string;
+	input_size: number;
+	embed_dim: number;
+	meta_dim: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface LinkModelsResponse {
+	models: LinkModel[];
+	model_dir: string;
+}
+
+// A "possibly the same piece" upstream C2/C3 crop candidate. `score` +
+// `predicted` are the shared time/angle heuristic's confidence and default
+// selection (kept untouched — they feed the was_predicted training signal).
+// `ai_same` = a stored vision-model (VLM) verdict; `model_same`/`model_score` =
+// the active link matcher model's pick and probability (null when not scored /
+// no model active). The UI pre-selects, in precedence order, `ai_same` →
+// `model_same` → `predicted`, per `prediction_source`.
 export interface PossibleCropCandidate {
 	local_id: number;
 	channel: number | null;
@@ -1193,6 +1218,8 @@ export interface PossibleCropCandidate {
 	score: number;
 	predicted: boolean;
 	ai_same: boolean | null;
+	model_same: boolean | null;
+	model_score: number | null;
 	available: boolean;
 }
 
@@ -1206,9 +1233,11 @@ export interface PossibleCropsResult {
 	arrival_ts: string | null;
 	candidates: PossibleCropCandidate[];
 	my_link: PieceCropLinkMember[];
-	prediction_source: 'ai' | 'heuristic';
+	prediction_source: 'ai' | 'model' | 'heuristic';
 	ai_model: string | null;
 	ai_reasoning: string | null;
+	// Name of the active link matcher model when prediction_source === 'model'.
+	link_model: string | null;
 	// Present only on the ai-predict POST response.
 	ai_cost_usd?: number | null;
 	ai_elapsed_ms?: number | null;
@@ -1482,6 +1511,24 @@ export const api = {
 		return request<{ ok: boolean; model: ColorModel }>(
 			'POST',
 			`/api/color-models/${modelId}/deactivate`
+		);
+	},
+
+	// Link models (admin): scan/list the piece_link matcher pairs on disk and
+	// pick the active one that scores same-piece crops in the labeling view.
+	listLinkModels() {
+		return request<LinkModelsResponse>('GET', '/api/link-models');
+	},
+	activateLinkModel(modelId: string) {
+		return request<{ ok: boolean; model: LinkModel }>(
+			'POST',
+			`/api/link-models/${modelId}/activate`
+		);
+	},
+	deactivateLinkModel(modelId: string) {
+		return request<{ ok: boolean; model: LinkModel }>(
+			'POST',
+			`/api/link-models/${modelId}/deactivate`
 		);
 	},
 	createMachine(name: string, description?: string) {

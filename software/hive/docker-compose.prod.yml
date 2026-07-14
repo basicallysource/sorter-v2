@@ -57,6 +57,9 @@ services:
       # Color-classifier ONNX models, uploaded out of band (scp) and scanned
       # into the color_models table. Bind-mounted so they survive recreates.
       - ./data/color_models:/app/data/color_models
+      # piece_link matcher models (encoder+head ONNX pairs), uploaded out of band
+      # (scp) and scanned into the link_models table. Bind-mounted to survive recreates.
+      - ./data/link_models:/app/data/link_models
     networks:
       - default
       - web

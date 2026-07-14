@@ -163,14 +163,34 @@ def recordPiece(
     recorded_at = piece.get("distributed_at") or time.time()
     dead = 1 if piece.get("dead") else 0
     with _connection() as conn:
+        # Upsert (not INSERT OR IGNORE): a piece can be recorded early by the
+        # correction API straight from memory (so a just-classified piece is
+        # correctable before it distributes), then re-recorded at distribution
+        # with its bin. On conflict we refresh the classification/bin columns but
+        # NEVER touch the correction columns (part_correct, color_corrected_id,
+        # *_feedback_submitted, correction_updated_at) so a recorded correction
+        # survives the distribution write.
         conn.execute(
-            "INSERT OR IGNORE INTO piece_records "
+            "INSERT INTO piece_records "
             "(uuid, run_id, machine_id, seen_at, recorded_at, classification_status, "
             "part_id, part_name, color_id, color_name, category_id, confidence, "
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
             "brickognize_color_rank) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(uuid) DO UPDATE SET "
+            "run_id=excluded.run_id, machine_id=excluded.machine_id, "
+            "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
+            "classification_status=excluded.classification_status, "
+            "part_id=excluded.part_id, part_name=excluded.part_name, "
+            "color_id=excluded.color_id, color_name=excluded.color_name, "
+            "category_id=excluded.category_id, confidence=excluded.confidence, "
+            "bin_x=excluded.bin_x, bin_y=excluded.bin_y, bin_z=excluded.bin_z, "
+            "dead=excluded.dead, brickognize_preview_url=excluded.brickognize_preview_url, "
+            "brickognize_listing_id=excluded.brickognize_listing_id, "
+            "brickognize_item_rank=excluded.brickognize_item_rank, "
+            "brickognize_item_type=excluded.brickognize_item_type, "
+            "brickognize_color_rank=excluded.brickognize_color_rank",
             (
                 uuid_val,
                 run_id,

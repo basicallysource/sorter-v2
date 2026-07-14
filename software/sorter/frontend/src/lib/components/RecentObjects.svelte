@@ -63,11 +63,13 @@
 	// shared PieceCorrection component in a modal. The summary is derived live
 	// from the store so a correction updates in place.
 	let correctingUuid = $state<string | null>(null);
-	const correctingSummary = $derived.by<PieceSummary | null>(() => {
+	const correctingPiece = $derived.by<Piece | null>(() => {
 		if (!correctingUuid) return null;
-		const p = storePieces.find((x) => x.uuid === correctingUuid);
-		return p ? pieceToSummary(p) : null;
+		return storePieces.find((x) => x.uuid === correctingUuid) ?? null;
 	});
+	const correctingSummary = $derived(
+		correctingPiece ? pieceToSummary(correctingPiece) : null
+	);
 	const correctionOpen = $derived(correctingSummary !== null);
 
 	function openCorrection(uuid: string, event: MouseEvent) {
@@ -812,6 +814,48 @@
 
 <Modal open={correctionOpen} title="Correct prediction" on:close={() => (correctingUuid = null)}>
 	{#if correctingSummary}
+		{@const capturedSrc =
+			dataImageUrl(
+				correctingPiece?.ws?.thumbnail ?? correctingPiece?.ws?.latest_captured_crop
+			) ?? correctingSummary.preview_url}
+		{@const legoColor = lookupLegoColor(
+			correctingSummary.color_id,
+			correctingSummary.color_name
+		)}
+		<div class="mb-3 flex items-center gap-3 border-b border-border pb-3">
+			{#if capturedSrc}
+				<img
+					src={capturedSrc}
+					alt=""
+					class="h-16 w-16 flex-shrink-0 border border-border object-cover"
+				/>
+			{/if}
+			<div class="flex min-w-0 flex-col gap-1">
+				<span class="truncate text-sm font-semibold text-text">
+					{correctingSummary.part_name ?? correctingSummary.part_id ?? 'Unknown part'}
+				</span>
+				{#if correctingSummary.part_id && correctingSummary.part_name}
+					<span class="font-mono text-xs text-text-muted">{correctingSummary.part_id}</span>
+				{/if}
+				<span class="inline-flex items-center gap-1.5 text-sm text-text">
+					{#if legoColor}
+						<span
+							class="inline-block h-3.5 w-3.5 flex-shrink-0 border border-border"
+							style:background-color={legoColor.hex}
+						></span>
+					{/if}
+					<span>{correctingSummary.color_name ?? '—'}</span>
+				</span>
+			</div>
+			{#if correctingSummary.preview_url}
+				<img
+					src={correctingSummary.preview_url}
+					alt="Brickognize reference"
+					title="Brickognize reference image"
+					class="ml-auto h-16 w-16 flex-shrink-0 border border-border bg-surface object-contain"
+				/>
+			{/if}
+		</div>
 		<PieceCorrection
 			piece={correctingSummary}
 			endpointBase={effectiveBase()}

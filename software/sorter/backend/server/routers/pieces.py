@@ -401,6 +401,48 @@ class CorrectionResponse(BaseModel):
     submit_error: Optional[str] = None
 
 
+def _ensurePieceRecorded(gc: Any, uuid: str) -> None:
+    # A piece is correctable the instant it's classified (the live payload
+    # carries the Brickognize listing), which is BEFORE it's written to
+    # piece_records at distribution. If a correction lands in that window,
+    # persist the piece straight from the in-memory KnownObject so the correction
+    # has a row to attach to. recordPiece upserts, so the later distribution write
+    # still fills in the bin.
+    import piece_records
+
+    if gc is None or getattr(gc, "runtime_stats", None) is None:
+        return
+    payload = gc.runtime_stats.lookupKnownObject(uuid)
+    if payload is None:
+        return
+    status = payload.get("classification_status")
+    if isinstance(status, Enum):
+        status = status.value
+    piece_records.recordPiece(
+        {
+            "uuid": uuid,
+            "created_at": payload.get("created_at"),
+            "distributed_at": payload.get("distributed_at"),
+            "classification_status": status,
+            "part_id": payload.get("part_id"),
+            "part_name": payload.get("part_name"),
+            "color_id": payload.get("color_id"),
+            "color_name": payload.get("color_name"),
+            "category_id": payload.get("category_id"),
+            "confidence": payload.get("confidence"),
+            "destination_bin": payload.get("destination_bin"),
+            "dead": payload.get("dead"),
+            "brickognize_preview_url": payload.get("brickognize_preview_url"),
+            "brickognize_listing_id": payload.get("brickognize_listing_id"),
+            "brickognize_item_rank": payload.get("brickognize_item_rank"),
+            "brickognize_item_type": payload.get("brickognize_item_type"),
+            "brickognize_color_rank": payload.get("brickognize_color_rank"),
+        },
+        run_id=getattr(gc, "run_id", None),
+        machine_id=getattr(gc, "machine_id", None),
+    )
+
+
 @router.post("/api/pieces/{uuid}/correction", response_model=CorrectionResponse)
 def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionResponse:
     import piece_records
@@ -411,6 +453,10 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
 
     gc = shared_state.gc_ref
     ctx = piece_records.getCorrectionContext(uuid)
+    if ctx is None:
+        # Not recorded yet — persist it from memory, then retry.
+        _ensurePieceRecorded(gc, uuid)
+        ctx = piece_records.getCorrectionContext(uuid)
     if ctx is None:
         raise HTTPException(status_code=404, detail="not found")
 

@@ -153,12 +153,12 @@
 		}
 	}
 
-	async function confirmColor() {
-		if (colorBusy || !selectedId) return;
+	async function submitColor(id: string | null) {
+		if (colorBusy || !id) return;
 		colorBusy = true;
 		feedback = null;
 		try {
-			const resp = await postCorrection({ color_corrected_id: selectedId, submit: true });
+			const resp = await postCorrection({ color_corrected_id: id, submit: true });
 			if (resp) {
 				applyResponse(resp, 'Color correction', resp.color_submitted);
 				pickerOpen = false;
@@ -168,6 +168,17 @@
 		} finally {
 			colorBusy = false;
 		}
+	}
+
+	// One click: the predicted color is right (submits the prediction, which
+	// Brickognize records as an accept).
+	function acceptPredictedColor() {
+		void submitColor(predictedColorId);
+	}
+
+	// The dropdown's Confirm: submit whatever the user staged (possibly different).
+	function confirmColor() {
+		void submitColor(selectedId);
 	}
 
 	function chooseColor(id: string) {
@@ -184,11 +195,18 @@
 	const partSent = $derived(Boolean(piece.part_feedback_submitted));
 	const colorSent = $derived(Boolean(piece.color_feedback_submitted));
 
-	// The color currently shown on the trigger button: the committed correction
-	// if any, otherwise the Brickognize prediction.
-	const shownColorId = $derived(committedColorId ?? predictedColorId);
-	const shownColorName = $derived(colorNameFor(shownColorId) ?? piece.color_name ?? null);
-	const shownColorHex = $derived(swatchHex(colorRgbFor(shownColorId)));
+	// The Brickognize-predicted color (what "Yes" accepts).
+	const predictedColorName = $derived(colorNameFor(predictedColorId) ?? piece.color_name ?? null);
+	const predictedColorHex = $derived(swatchHex(colorRgbFor(predictedColorId)));
+	// The committed correction, if the user chose a different color.
+	const committedColorName = $derived(colorNameFor(committedColorId));
+	const committedColorHex = $derived(swatchHex(colorRgbFor(committedColorId)));
+	const acceptedPrediction = $derived(
+		committedColorId != null && committedColorId === predictedColorId
+	);
+	const correctedToDifferent = $derived(
+		committedColorId != null && committedColorId !== predictedColorId
+	);
 
 	const gap = $derived(compact ? 'gap-2' : 'gap-3');
 </script>
@@ -247,36 +265,62 @@
 		<div class="flex flex-col gap-1.5">
 			<div class="flex flex-wrap items-center gap-2">
 				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
-					True color
+					Color correct?
+				</span>
+				<!-- The predicted color, with a one-click "yes it's right". -->
+				<span
+					class="inline-flex items-center gap-1.5 text-sm text-text"
+					title="Brickognize predicted this color"
+				>
+					{#if predictedColorHex}
+						<span
+							class="inline-block h-3.5 w-3.5 border border-border"
+							style:background-color={predictedColorHex}
+						></span>
+					{/if}
+					<span>{predictedColorName ?? '—'}</span>
 				</span>
 				<button
 					type="button"
-					onclick={() => (pickerOpen ? closePicker() : openPicker())}
-					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2 py-1 text-sm text-text transition-colors hover:bg-bg"
+					onclick={acceptPredictedColor}
+					disabled={colorBusy || predictedColorId == null}
+					title="The predicted color is correct"
+					aria-label="Mark predicted color correct"
+					class="inline-flex items-center gap-1 border border-border px-2 py-1 text-sm transition-colors disabled:opacity-50 {acceptedPrediction
+						? 'bg-success/15 text-success'
+						: 'text-text-muted hover:text-success'}"
 				>
-					{#if shownColorHex}
+					<Check size={14} />
+					Yes
+				</button>
+				<!-- Or open the dropdown to submit a different, correct color. -->
+				<button
+					type="button"
+					onclick={() => (pickerOpen ? closePicker() : openPicker())}
+					title="Pick the correct color instead"
+					class="inline-flex items-center gap-1.5 border px-2 py-1 text-sm transition-colors {correctedToDifferent
+						? 'border-danger/50 bg-danger/[0.12] text-danger'
+						: 'border-border bg-surface text-text-muted hover:bg-bg'}"
+				>
+					{#if correctedToDifferent && committedColorHex}
 						<span
 							class="inline-block h-3.5 w-3.5 border border-border"
-							style:background-color={shownColorHex}
+							style:background-color={committedColorHex}
 						></span>
-					{/if}
-					<span>{shownColorName ?? 'Pick a color'}</span>
-				</button>
-				{#if committedColorId}
-					{#if colorSent}
-						<span
-							class="inline-flex items-center border border-success/50 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-success uppercase"
-							title="This color correction has been sent to Brickognize"
-						>
-							Sent
-						</span>
 					{:else}
-						<span
-							class="inline-flex items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
-						>
-							Locked in
-						</span>
+						<Search size={14} />
 					{/if}
+					<span>{correctedToDifferent ? committedColorName : 'No — pick color'}</span>
+				</button>
+				{#if colorBusy}
+					<Spinner size={12} />
+				{:else if colorSent}
+					<span
+						class="inline-flex items-center border border-success/50 bg-success/[0.12] px-1.5 py-0.5 text-xs font-semibold tracking-wider text-success uppercase"
+						title="This color correction has been sent to Brickognize"
+					>
+						Sent
+					</span>
 				{/if}
 			</div>
 

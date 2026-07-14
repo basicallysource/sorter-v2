@@ -95,16 +95,30 @@
 				</div>
 			</div>
 
-			<!-- Metric pills -->
-			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-4">
+			<!-- Contributions breakdown: samples vs pieces (kept separate) -->
+			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
 				<div class="bg-surface px-4 py-3">
-					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total reviews</div>
+					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Total contributions</div>
+					<div class="text-2xl font-bold text-text">{profile.total_contributions.toLocaleString()}</div>
+					<div class="text-[11px] text-text-muted">reviews + piece labels</div>
+				</div>
+				<div class="bg-surface px-4 py-3">
+					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Sample reviews</div>
 					<div class="text-2xl font-bold text-text">{profile.total_reviews.toLocaleString()}</div>
 					<div class="text-[11px] text-text-muted">
 						<span class="text-success">{profile.accepts}</span> ✓ ·
 						<span class="text-primary">{profile.rejects}</span> ✗
 					</div>
 				</div>
+				<div class="bg-surface px-4 py-3">
+					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Piece labels</div>
+					<div class="text-2xl font-bold text-text">{(profile.piece_color_labels + profile.piece_crop_links).toLocaleString()}</div>
+					<div class="text-[11px] text-text-muted">{profile.piece_color_labels} color · {profile.piece_crop_links} same-piece</div>
+				</div>
+			</div>
+
+			<!-- Review quality metrics -->
+			<div class="grid grid-cols-2 gap-px border-t border-border bg-border sm:grid-cols-3">
 				<div class="bg-surface px-4 py-3">
 					<div class="text-[10px] font-semibold uppercase tracking-wider text-text-muted">Agreement</div>
 					<div class="text-2xl font-bold text-text">{pct(profile.agreement_rate)}</div>

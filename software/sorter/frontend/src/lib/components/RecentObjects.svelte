@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
+	import { Wand2 } from 'lucide-svelte';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
+	import Modal from './Modal.svelte';
+	import PieceCorrection from './PieceCorrection.svelte';
 	import PieceStatusBadge from './PieceStatusBadge.svelte';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
@@ -9,8 +12,10 @@
 	import {
 		pieceStore,
 		pieceToKnownObjectView,
+		pieceToSummary,
 		isTerminalPiece,
 		type Piece,
+		type PieceSummary,
 		type PiecesListResponse
 	} from '$lib/pieces';
 
@@ -51,6 +56,29 @@
 
 	const machineId = $derived(ctx.machine?.identity?.machine_id ?? null);
 	const storePieces = $derived(pieceStore.entriesFor(machineId));
+
+	// --- Brickognize correction modal -------------------------------------
+	// The recent-piece cards are links to the detail page; opening the correction
+	// UI must not navigate. A small wand button on correctable cards opens the
+	// shared PieceCorrection component in a modal. The summary is derived live
+	// from the store so a correction updates in place.
+	let correctingUuid = $state<string | null>(null);
+	const correctingSummary = $derived.by<PieceSummary | null>(() => {
+		if (!correctingUuid) return null;
+		const p = storePieces.find((x) => x.uuid === correctingUuid);
+		return p ? pieceToSummary(p) : null;
+	});
+	const correctionOpen = $derived(correctingSummary !== null);
+
+	function openCorrection(uuid: string, event: MouseEvent) {
+		event.preventDefault();
+		event.stopPropagation();
+		correctingUuid = uuid;
+	}
+
+	function onCorrectionUpdated(summary: PieceSummary) {
+		if (machineId) pieceStore.upsertFromRest(machineId, [summary]);
+	}
 
 	// Initial fill: the backend no longer replays recent pieces on WS connect —
 	// the durable records API is the source for "what happened before this
@@ -610,11 +638,24 @@
 					<span class="truncate text-sm font-semibold {primary_class}">
 						{primary_text}
 					</span>
-					{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
-						<span class="flex-shrink-0 text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
-							{(obj.confidence * 100).toFixed(0)}%
-						</span>
-					{/if}
+					<div class="flex flex-shrink-0 items-center gap-2">
+						{#if typeof obj.confidence === 'number' && !is_unknown && !is_multi_drop}
+							<span class="text-sm font-semibold tabular-nums {confidenceClass(obj.confidence)}">
+								{(obj.confidence * 100).toFixed(0)}%
+							</span>
+						{/if}
+						{#if p.correctable}
+							<button
+								type="button"
+								onclick={(e) => openCorrection(obj.uuid, e)}
+								class="inline-flex items-center text-text-muted transition-colors hover:text-primary"
+								title="Correct this Brickognize prediction"
+								aria-label="Correct prediction"
+							>
+								<Wand2 size={14} />
+							</button>
+						{/if}
+					</div>
 				</div>
 
 				{#if has_name && obj.part_id}
@@ -768,3 +809,13 @@
 		{/if}
 	</div>
 </div>
+
+<Modal open={correctionOpen} title="Correct prediction" on:close={() => (correctingUuid = null)}>
+	{#if correctingSummary}
+		<PieceCorrection
+			piece={correctingSummary}
+			endpointBase={effectiveBase()}
+			onUpdated={onCorrectionUpdated}
+		/>
+	{/if}
+</Modal>

@@ -163,6 +163,16 @@ class HiveTelemetryClient:
         )
         return int(response.json()["max_local_id"])
 
+    def pushPieceCorrections(self, records: list[dict[str, Any]]) -> int:
+        response = self._request(
+            "POST",
+            "/api/machine/sync/piece-corrections",
+            fields=("piece_metadata",),
+            json={"records": records},
+            timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
     def pushPieceImage(self, meta: dict[str, Any], file_path: Path | None) -> int:
         files = None
         if file_path is not None and file_path.is_file():

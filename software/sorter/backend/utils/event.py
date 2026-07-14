@@ -79,6 +79,10 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             drop_snapshot=obj.drop_snapshot,
             brickognize_preview_url=obj.brickognize_preview_url,
             brickognize_source_view=obj.brickognize_source_view,
+            brickognize_listing_id=obj.brickognize_listing_id,
+            brickognize_item_rank=obj.brickognize_item_rank,
+            brickognize_item_type=obj.brickognize_item_type,
+            brickognize_color_rank=obj.brickognize_color_rank,
             recognition_used_crop_ts=list(obj.recognition_used_crop_ts or []),
             recognition_image_set=[
                 RecognitionImage(

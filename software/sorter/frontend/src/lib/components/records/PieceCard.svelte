@@ -3,6 +3,7 @@
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
+	import PieceCorrection from '$lib/components/PieceCorrection.svelte';
 	import { Skeleton } from '$lib/components/primitives';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
 	import type { ClassificationAttempt, ClassificationAttemptStrategy } from '$lib/api/events';
@@ -15,6 +16,7 @@
 		endpointBase,
 		reclassifyOpen = false,
 		onToggleReclassify,
+		onPieceCorrected,
 		liveCrop = null
 	}: {
 		piece: PieceSummary;
@@ -22,6 +24,9 @@
 		endpointBase: string;
 		reclassifyOpen?: boolean;
 		onToggleReclassify?: () => void;
+		// Called with the fresh summary after a correction so the parent can
+		// update its list in place without a refetch.
+		onPieceCorrected?: (summary: PieceSummary) => void;
 		// Newest captured crop off the live socket — shown for in-flight pieces
 		// that haven't been hydrated from the detail endpoint yet.
 		liveCrop?: string | null;
@@ -381,6 +386,12 @@
 			</div>
 		{/if}
 	</div>
+
+	{#if piece.correctable}
+		<div class="border-t border-border bg-bg p-3">
+			<PieceCorrection {piece} {endpointBase} onUpdated={onPieceCorrected} />
+		</div>
+	{/if}
 
 	{#if reclassifyOpen && imgState?.status === 'ok' && imgState.origin === 'memory'}
 		<div class="border-t border-border p-3">

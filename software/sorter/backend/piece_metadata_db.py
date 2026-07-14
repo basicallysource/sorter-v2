@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -116,6 +117,64 @@ def _movingAvg(price: dict[str, dict[str, Any]]) -> Optional[float]:
         if isinstance(value, (int, float)) and value > 0:
             return round(float(value), 4)
     return None
+
+
+_bricklink_colors_cache: Optional[list[dict[str, Any]]] = None
+_bricklink_colors_lock = threading.Lock()
+
+
+def listBrickLinkColors(gc: GlobalConfig) -> list[dict[str, Any]]:
+    # BrickLink color palette derived from the Rebrickable `colors` catalog's
+    # external ids (same derivation as Hive's profile_catalog.list_bricklink_colors).
+    # Brickognize predictions and piece color_ids live in BrickLink color space,
+    # so this is the palette the correction dropdown picks from. First Rebrickable
+    # mapping wins on a BL-id collision. Cached for the process lifetime (the DB is
+    # a static read-only snapshot).
+    global _bricklink_colors_cache
+    with _bricklink_colors_lock:
+        if _bricklink_colors_cache is not None:
+            return _bricklink_colors_cache
+    conn = _getConn(gc)
+    if conn is None:
+        return []
+    with _query_lock:
+        rows = conn.execute(
+            "SELECT id, name, rgb, is_trans, extra FROM colors ORDER BY id"
+        ).fetchall()
+    by_bl_id: dict[int, dict[str, Any]] = {}
+    for row in rows:
+        extra: Any = {}
+        if row["extra"]:
+            try:
+                extra = json.loads(row["extra"])
+            except (ValueError, TypeError):
+                extra = {}
+        bricklink = extra.get("external_ids", {}).get("BrickLink", {}) if isinstance(extra, dict) else {}
+        if not isinstance(bricklink, dict):
+            continue
+        ext_ids = bricklink.get("ext_ids", [])
+        ext_descrs = bricklink.get("ext_descrs", [])
+        if not isinstance(ext_ids, list):
+            continue
+        for index, raw_bl_id in enumerate(ext_ids):
+            try:
+                bl_id = int(raw_bl_id)
+            except (TypeError, ValueError):
+                continue
+            if bl_id in by_bl_id:
+                continue
+            descr = ext_descrs[index] if isinstance(ext_descrs, list) and index < len(ext_descrs) else None
+            bl_name = descr[0] if isinstance(descr, list) and descr else (row["name"] or str(bl_id))
+            by_bl_id[bl_id] = {
+                "id": bl_id,
+                "name": bl_name,
+                "rgb": row["rgb"],
+                "is_trans": bool(row["is_trans"]),
+            }
+    result = [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
+    with _bricklink_colors_lock:
+        _bricklink_colors_cache = result
+    return result
 
 
 def _selectPriceRow(

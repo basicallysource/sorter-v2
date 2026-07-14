@@ -997,6 +997,27 @@ export interface ColorLabelPiecesPage {
 	sort: ColorLabelSort;
 }
 
+export interface ColorLabelPrediction {
+	color_id: string | null;
+	color_name: string | null;
+}
+
+export interface ColorLabelCorrection {
+	correctable: boolean;
+	part_correct: boolean | null;
+	color_corrected_id: string | null;
+	part_feedback_submitted: boolean;
+	color_feedback_submitted: boolean;
+}
+
+export interface BrickognizeFeedbackResponse {
+	ok: boolean;
+	part_submitted: boolean;
+	color_submitted: boolean;
+	submit_error: string | null;
+	correction: ColorLabelCorrection;
+}
+
 export interface ColorLabelPieceDetail {
 	machine_id: string;
 	machine_name: string | null;
@@ -1008,6 +1029,8 @@ export interface ColorLabelPieceDetail {
 	images: ColorLabelQueueImage[];
 	my_label: { color_id: number; notes: string | null } | null;
 	my_rejection: { reasons: string[] } | null;
+	prediction: ColorLabelPrediction;
+	correction: ColorLabelCorrection;
 }
 
 export type RejectReason = 'no_piece' | 'multiple_pieces';
@@ -1214,6 +1237,17 @@ export const api = {
 		return request<{ ok: boolean }>(
 			'DELETE',
 			`/api/labeling/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	submitBrickognizeFeedback(
+		machineId: string,
+		pieceUuid: string,
+		body: { part_correct?: boolean | null; color_corrected_id?: number | null }
+	) {
+		return request<BrickognizeFeedbackResponse>(
+			'POST',
+			`/api/labeling/piece/${machineId}/${encodeURIComponent(pieceUuid)}/brickognize-feedback`,
+			body
 		);
 	},
 	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {

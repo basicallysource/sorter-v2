@@ -100,6 +100,15 @@ class ClassificationAttempt:
     # resolves these against the recognition image set to show which crops went
     # into each parallel call when a request row is expanded.
     image_ts: List[float] = field(default_factory=list)
+    # Brickognize's per-request search id, needed to submit a correction for this
+    # request's result (the feedback API keys on it). None on error/older records.
+    listing_id: Optional[str] = None
+    # Zero-based rank of this request's top item/color in Brickognize's original
+    # response (the item_rank/color_rank the feedback API expects). ``item_type``
+    # is Brickognize's type for the top item ("part"/"set"/"fig"/"sticker").
+    item_rank: Optional[int] = None
+    item_type: Optional[str] = None
+    color_rank: Optional[int] = None
 
 
 @dataclass
@@ -177,6 +186,18 @@ class KnownObject:
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    # Correction-submission provenance, copied from the APPLIED Brickognize
+    # request so a user correction can be sent back to Brickognize's feedback API
+    # without re-querying. ``brickognize_listing_id`` is the applied request's
+    # search id; ``brickognize_item_rank``/``brickognize_item_type`` describe the
+    # applied top item's position/type in that response; ``brickognize_color_rank``
+    # is the applied top color's position. Brickognize's feedback API only
+    # accepts/rejects a specific ranked result, so these scalars are all a
+    # part-or-color correction needs. None until a request is applied / on error.
+    brickognize_listing_id: Optional[str] = None
+    brickognize_item_rank: Optional[int] = None
+    brickognize_item_type: Optional[str] = None
+    brickognize_color_rank: Optional[int] = None
     # Every image gathered for recognition — C4 burst captures plus any upstream
     # (C2/C3) match crops fused in by the embedding search — each flagged with
     # whether it was actually submitted to Brickognize. The burst keeps all its

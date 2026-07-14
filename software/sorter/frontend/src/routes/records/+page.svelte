@@ -51,6 +51,14 @@
 		expandedReclassify = next;
 	}
 
+	// A correction returns the fresh summary. Update the rest-loaded page list in
+	// place and feed the store so live rows (and RecentObjects) reflect it too.
+	function onPieceCorrected(summary: PieceSummary) {
+		items = items.map((it) => (it.uuid === summary.uuid ? { ...it, ...summary } : it));
+		const mid = ctx.machine?.identity?.machine_id ?? null;
+		if (mid) pieceStore.upsertFromRest(mid, [summary]);
+	}
+
 	let pageNum = $derived(pageIndex + 1);
 	let pageCount = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
 	let rangeStart = $derived(pageIndex * PAGE_SIZE + 1);
@@ -173,8 +181,20 @@
 		}
 		for (const item of items) {
 			const s = storeByUuid.get(item.uuid);
+			// A live-seen piece keeps its store view (fresh crop/status), but the
+			// correction state is DB-authoritative — take it from the REST item so a
+			// live WS event (which carries no verdict) can't blank it out.
 			rows.push({
-				piece: s?.ws ? pieceToSummary(s) : item,
+				piece: s?.ws
+					? {
+							...pieceToSummary(s),
+							correctable: item.correctable,
+							part_correct: item.part_correct,
+							color_corrected_id: item.color_corrected_id,
+							part_feedback_submitted: item.part_feedback_submitted,
+							color_feedback_submitted: item.color_feedback_submitted
+						}
+					: item,
 				live: false,
 				liveCrop: null
 			});
@@ -347,6 +367,7 @@
 						liveCrop={row.liveCrop}
 						reclassifyOpen={expandedReclassify.has(row.piece.uuid)}
 						onToggleReclassify={() => toggleReclassify(row.piece.uuid)}
+						{onPieceCorrected}
 					/>
 				{/each}
 			</div>

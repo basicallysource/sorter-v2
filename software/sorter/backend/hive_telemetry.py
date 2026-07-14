@@ -42,8 +42,8 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
     {
         "key": "channel_crops",
         "label": "Channel crops (C2/C3)",
-        "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. Off by default — experimental, high volume.",
-        "default": False,
+        "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. High volume.",
+        "default": True,
     },
 )
 

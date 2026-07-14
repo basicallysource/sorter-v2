@@ -1026,6 +1026,21 @@ export interface ColorLabelPiecesPage {
 	sort: ColorLabelSort;
 }
 
+export interface MachineLabeledPiece {
+	piece_uuid: string;
+	thumb_seq: number | null;
+	color_id: number;
+	color_name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	label_count: number;
+}
+
+export interface MachineLabeledPiecesResponse {
+	items: MachineLabeledPiece[];
+	total: number;
+}
+
 export interface ColorLabelPrediction {
 	color_id: string | null;
 	color_name: string | null;
@@ -1360,6 +1375,25 @@ export const api = {
 	},
 	channelCropLabelImageUrl(machineId: string, localId: number) {
 		return resolveImagePath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
+	},
+
+	// Same-machine labeled reference pieces (color-range calibration column)
+	machineLabeledPieces(
+		machineId: string,
+		opts: { anchorPiece: string; excludePiece?: string | null; limit?: number }
+	) {
+		const params = new URLSearchParams({ anchor_piece: opts.anchorPiece });
+		if (opts.excludePiece) params.set('exclude_piece', opts.excludePiece);
+		if (opts.limit) params.set('limit', String(opts.limit));
+		return request<MachineLabeledPiecesResponse>(
+			'GET',
+			`/api/labeling/machine/${machineId}/labeled-pieces?${params.toString()}`
+		);
+	},
+	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveImagePath(
+			`/api/labeling/machine/${machineId}/labeled-pieces/${encodeURIComponent(pieceUuid)}/image?seq=${seq}`
+		);
 	},
 	savePieceCropLink(body: {
 		machine_id: string;

@@ -10,6 +10,7 @@
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
+	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
@@ -507,6 +508,11 @@
 	</div>
 
 	<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+		<!-- Reference column: this machine's already-labeled colors (ground truth) -->
+		<aside class="shrink-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-52 lg:overflow-y-auto">
+			<MachineLabeledPieces {machineId} {pieceUuid} />
+		</aside>
+
 		<div class="flex min-w-0 flex-col gap-6 lg:flex-1">
 			<!-- Piece under review -->
 			<div class="border border-border bg-surface p-4">

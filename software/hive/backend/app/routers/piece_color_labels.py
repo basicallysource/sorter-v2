@@ -14,6 +14,7 @@ Rebrickable `colors` external ids). Labels live in Postgres (piece_color_labels)
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -45,8 +46,10 @@ from app.services.piece_crop_ai_matcher import (
     store_prediction,
 )
 from app.services.access_window import (
+    _machine_owned_by,
     apply_piece_access,
     channel_crop_access_visible,
+    is_unrestricted,
     piece_access_visible,
     piece_access_visible_by_key,
     scope_to_piece_access,
@@ -906,6 +909,161 @@ def get_piece_image(
     machine's owner (unlike the owner-gated /machines/... image route) — but only
     within the caller's visibility window (admins unrestricted)."""
     if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+    image = (
+        db.query(MachinePieceImage)
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid == piece_uuid,
+            MachinePieceImage.seq == seq,
+        )
+        .first()
+    )
+    if image is None or not image.image_key:
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+    return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
+
+
+# --- Same-machine labeled reference set ---------------------------------------
+#
+# The reviewing view shows a column of OTHER already-labeled pieces from the same
+# machine, so a labeler can calibrate: "this machine's dark tan looks like THIS,
+# so the lighter one I'm looking at is probably plain tan." Only human-labeled
+# pieces (ground truth), never model outputs. This intentionally reaches past a
+# reviewer's normal visibility window — the exemplars are already vetted, and
+# seeing the machine's full color range is the whole point — but stays gated:
+# members still only see machines they own.
+
+
+def _labeled_reference_visible(db: Session, user: User, machine_id: UUID, piece_uuid: str) -> bool:
+    """Gate for a same-machine labeled reference piece/image. Admins and machine
+    owners always. Reviewers may view any piece that actually carries a human
+    color label (the deliberate window bypass — bounded to vetted exemplars)."""
+    if is_unrestricted(user.role):
+        return True
+    if _machine_owned_by(db, machine_id, user):
+        return True
+    if user.role == "reviewer":
+        return (
+            db.query(PieceColorLabel.id)
+            .filter(
+                PieceColorLabel.machine_id == machine_id,
+                PieceColorLabel.piece_uuid == piece_uuid,
+                PieceColorLabel.color_id.isnot(None),
+            )
+            .first()
+            is not None
+        )
+    return False
+
+
+def _lab_hue_key(rgb_hex: str | None) -> tuple[int, float, float]:
+    """Sort key that reads a color column as a gradient: near-neutral grays first
+    (by lightness), then chromatic colors by hue angle. Keeps look-alike colors
+    (tan / dark tan) adjacent so the eye can compare them."""
+    if not rgb_hex:
+        return (2, 0.0, 0.0)
+    h = rgb_hex.replace("#", "")
+    if len(h) < 6:
+        return (2, 0.0, 0.0)
+    try:
+        rgb = np.array([int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)], dtype=np.float64)
+    except ValueError:
+        return (2, 0.0, 0.0)
+    lab = _srgb_to_lab(rgb)
+    L, a, b = float(lab[0]), float(lab[1]), float(lab[2])
+    if math.hypot(a, b) < 8:
+        return (0, L, 0.0)
+    return (1, math.atan2(b, a), L)
+
+
+@router.get("/machine/{machine_id}/labeled-pieces")
+def machine_labeled_pieces(
+    machine_id: UUID,
+    anchor_piece: str = Query(..., min_length=1),
+    exclude_piece: str | None = Query(None),
+    limit: int = Query(200, ge=1, le=400),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
+) -> dict:
+    """Other human-labeled pieces on the same machine, one per piece (the
+    most-agreed color), sorted into a hue gradient — the color-range reference
+    column on the labeling view. Gated on access to the anchor piece being
+    reviewed; the reference set itself ignores a reviewer's window on purpose."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, anchor_piece):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    rows = (
+        db.query(PieceColorLabel.piece_uuid, PieceColorLabel.color_id, func.count().label("n"))
+        .filter(
+            PieceColorLabel.machine_id == machine_id,
+            PieceColorLabel.color_id.isnot(None),
+        )
+        .group_by(PieceColorLabel.piece_uuid, PieceColorLabel.color_id)
+        .all()
+    )
+    # Per piece, the color with the most labeler agreement (ties → lower id).
+    best: dict[str, tuple[int, int]] = {}
+    for puid, cid, n in rows:
+        if exclude_piece and puid == exclude_piece:
+            continue
+        if cid is None:
+            continue
+        cur = best.get(puid)
+        if cur is None or n > cur[0] or (n == cur[0] and cid < cur[1]):
+            best[puid] = (int(n), int(cid))
+    if not best:
+        return {"items": [], "total": 0}
+
+    piece_uuids = list(best.keys())
+    thumb: dict[str, int] = dict(
+        db.query(MachinePieceImage.piece_uuid, func.min(MachinePieceImage.seq))
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid.in_(piece_uuids),
+            MachinePieceImage.image_key.isnot(None),
+        )
+        .group_by(MachinePieceImage.piece_uuid)
+        .all()
+    )
+    palette = {c["id"]: c for c in get_profile_catalog_service().list_bricklink_colors()}
+
+    items = []
+    for puid, (n, cid) in best.items():
+        if puid not in thumb:
+            continue  # no viewable crop — skip (nothing to show in the column)
+        col = palette.get(cid)
+        rgb = col.get("rgb") if col else None
+        items.append(
+            {
+                "piece_uuid": puid,
+                "thumb_seq": thumb[puid],
+                "color_id": cid,
+                "color_name": col["name"] if col else str(cid),
+                "rgb": rgb,
+                "is_trans": bool(col.get("is_trans", False)) if col else False,
+                "label_count": n,
+            }
+        )
+    total = len(items)
+    items.sort(key=lambda it: _lab_hue_key(it["rgb"]))
+    return {"items": items[:limit], "total": total}
+
+
+@router.get("/machine/{machine_id}/labeled-pieces/{piece_uuid}/image")
+def get_reference_image(
+    machine_id: UUID,
+    piece_uuid: str,
+    seq: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_image")),
+) -> object:
+    """Thumbnail for a same-machine labeled reference piece. Gated by
+    ``_labeled_reference_visible`` — the reviewer window bypass, bounded to
+    pieces that actually carry a human label."""
+    if not _labeled_reference_visible(db, current_user, machine_id, piece_uuid):
         raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
     image = (
         db.query(MachinePieceImage)

@@ -205,6 +205,68 @@ def label_stats(
     }
 
 
+@router.get("/color-coverage")
+def color_coverage(
+    machine_id: UUID | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
+) -> dict:
+    """Per-color coverage across the whole BrickLink palette: how many distinct
+    pieces have been color-labeled as each color, scoped to the caller's
+    visibility (admins see everything). Every palette color is returned, including
+    the ones with zero labels — that's the point of the chart: it reveals which
+    colors are well-covered and which are rare/missing in the labeled data."""
+    scoped = scope_to_piece_access(
+        db, db.query(PieceColorLabel), current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
+    )
+    if machine_id is not None:
+        scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
+
+    # Distinct (machine, piece) per color — a piece labeled by three people counts
+    # once toward that color's coverage.
+    per_piece = (
+        scoped.with_entities(
+            PieceColorLabel.color_id,
+            PieceColorLabel.machine_id,
+            PieceColorLabel.piece_uuid,
+        )
+        .group_by(PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    piece_counts = dict(
+        db.query(per_piece.c.color_id, func.count()).group_by(per_piece.c.color_id).all()
+    )
+    label_counts = dict(
+        scoped.with_entities(PieceColorLabel.color_id, func.count())
+        .group_by(PieceColorLabel.color_id)
+        .all()
+    )
+
+    palette = get_profile_catalog_service().list_bricklink_colors()
+    colors = []
+    covered = 0
+    for c in palette:
+        pieces = int(piece_counts.get(c["id"], 0))
+        if pieces > 0:
+            covered += 1
+        colors.append(
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "rgb": c.get("rgb"),
+                "is_trans": bool(c.get("is_trans", False)),
+                "pieces": pieces,
+                "labels": int(label_counts.get(c["id"], 0)),
+            }
+        )
+    return {
+        "colors": colors,
+        "total_colors": len(palette),
+        "covered_colors": covered,
+    }
+
+
 # Window (before/after the piece's arrival) in which a same-piece candidate crop
 # could exist — mirrors the shared lookup params so ordering agrees with what the
 # labeling view actually surfaces.

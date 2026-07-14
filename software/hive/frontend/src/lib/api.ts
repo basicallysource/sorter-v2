@@ -978,6 +978,21 @@ export interface ColorLabelStats {
 	labeler_histogram: { '0': number; '1': number; '2': number; '3+': number };
 }
 
+export interface ColorCoverageEntry {
+	id: number;
+	name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	pieces: number;
+	labels: number;
+}
+
+export interface ColorCoverageResponse {
+	colors: ColorCoverageEntry[];
+	total_colors: number;
+	covered_colors: number;
+}
+
 export type ColorLabelSort =
 	| 'priority'
 	| 'recent'
@@ -986,6 +1001,7 @@ export type ColorLabelSort =
 	| 'most_color'
 	| 'least_crop'
 	| 'most_crop'
+	| 'rare_color'
 	| 'needs_me';
 
 export interface ColorLabelPieceCard {
@@ -1261,6 +1277,10 @@ export const api = {
 	colorLabelStats(opts: { machineId?: string | null } = {}) {
 		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
 		return request<ColorLabelStats>('GET', `/api/labeling/stats${qs}`);
+	},
+	colorCoverage(opts: { machineId?: string | null } = {}) {
+		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
+		return request<ColorCoverageResponse>('GET', `/api/labeling/color-coverage${qs}`);
 	},
 	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
 		const params = new URLSearchParams();

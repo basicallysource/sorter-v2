@@ -34,6 +34,7 @@ from app.schemas.sample import (
     SaveSampleClassificationRequest,
     SaveSampleClassificationResponse,
 )
+from app.services.access_window import apply_sample_access, sample_access_visible
 from app.services.storage import delete_sample_files, serve_stored_file
 from app.services.sample_payloads import (
     is_classification_payload,
@@ -86,6 +87,10 @@ def _visible_sample_query(
         query = query.filter(Sample.archived_at.is_(None))
     if scope == "mine":
         query = query.filter(Sample.machine.has(owner_id=current_user.id))
+    # Access rule: members only ever see their own machines' samples (regardless
+    # of scope=all); reviewers and admins see everything. Prevents a random
+    # registrant from enumerating the whole corpus.
+    query = apply_sample_access(db, query, current_user)
     return query
 
 
@@ -249,6 +254,15 @@ def attach_my_reviews(items: list, db: Session, viewer_id) -> None:
 def _get_sample_for_read(db: Session, sample_id: UUID) -> Sample:
     sample = db.query(Sample).filter(Sample.id == sample_id).first()
     if not sample:
+        raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
+    return sample
+
+
+def _get_sample_for_read_scoped(db: Session, sample_id: UUID, current_user: User) -> Sample:
+    """Single-sample read gated by access: members only their own machines'
+    samples (404 otherwise, so they can't probe existence); reviewers/admins any."""
+    sample = _get_sample_for_read(db, sample_id)
+    if not sample_access_visible(db, current_user, sample):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
     return sample
 
@@ -780,7 +794,7 @@ def get_similar_samples(
     from sqlalchemy import text
 
     target = db.query(Sample).filter(Sample.id == sample_id).first()
-    if target is None:
+    if target is None or not sample_access_visible(db, current_user, target):
         raise APIError(404, "Sample not found", "SAMPLE_NOT_FOUND")
     if target.phash is None:
         # No hash to compare against. Return an empty list rather than
@@ -792,14 +806,18 @@ def get_similar_samples(
     # bits. We rank by distance, drop self + archived rows + nulls, and
     # cap by ``max_distance`` so a wildly different image doesn't surface.
     bit_distance = text("bit_count(samples.phash # :target_phash)")
-    rows = (
+    similar_q = (
         db.query(Sample, bit_distance.label("distance"))
         .filter(Sample.machine.has(Machine.archived_at.is_(None)))
         .filter(Sample.archived_at.is_(None))
         .filter(Sample.phash.isnot(None))
         .filter(Sample.id != target.id)
         .filter(bit_distance <= int(max_distance))
-        .order_by(text("distance"))
+    )
+    # Members only get similar hits among their own machines' samples.
+    similar_q = apply_sample_access(db, similar_q, current_user)
+    rows = (
+        similar_q.order_by(text("distance"))
         .params(target_phash=int(target.phash))
         .limit(limit)
         .all()
@@ -822,7 +840,7 @@ def get_sample(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
     attach_my_reviews([sample], db, current_user.id)
 
     data = SampleDetailResponse.model_validate(sample)
@@ -1169,7 +1187,7 @@ def get_sample_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
 
     return serve_stored_file(sample.image_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})
 
@@ -1180,7 +1198,7 @@ def get_sample_full_frame(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
     if not sample.full_frame_path:
         raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
 
@@ -1193,7 +1211,7 @@ def get_sample_overlay(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
 ):
-    sample = _get_sample_for_read(db, sample_id)
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
     if not sample.overlay_path:
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 

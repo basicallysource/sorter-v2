@@ -1148,6 +1148,21 @@ export interface PossibleCropsResult {
 	ai_elapsed_ms?: number | null;
 }
 
+export interface AccessWindow {
+	role: string;
+	entity: string;
+	anchor: 'oldest' | 'newest';
+	size: number;
+	offset: number;
+	source: 'override' | 'default';
+	updated_at: string | null;
+}
+
+export interface AccessWindowsResponse {
+	admin: string;
+	windows: AccessWindow[];
+}
+
 export const api = {
 	// Auth
 	register(email: string, password: string, display_name: string) {
@@ -1791,6 +1806,14 @@ export const api = {
 	},
 	deleteUser(id: string) {
 		return request<void>('DELETE', `/api/admin/users/${id}`);
+	},
+
+	// Admin: access windows (how much of the piece-bbox dataset each role can see)
+	getAccessWindows() {
+		return request<AccessWindowsResponse>('GET', '/api/admin/access-windows');
+	},
+	updateAccessWindow(role: string, entity: string, data: { anchor: string; size: number; offset: number }) {
+		return request<AccessWindowsResponse>('PUT', `/api/admin/access-windows/${role}/${entity}`, data);
 	},
 
 	// Admin: parts catalog DB browser

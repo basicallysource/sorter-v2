@@ -43,8 +43,16 @@ from app.services.piece_crop_ai_matcher import (
     match_piece_crops,
     store_prediction,
 )
+from app.services.access_window import (
+    apply_piece_access,
+    channel_crop_access_visible,
+    piece_access_visible,
+    piece_access_visible_by_key,
+    scope_to_piece_access,
+)
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
+from app.services.rate_limit import rate_limit
 from app.services.secrets import decrypt_secret
 from app.services.storage import serve_stored_file
 
@@ -114,22 +122,29 @@ def label_stats(
     machine_id: UUID | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Dashboard rollup: overall progress plus a histogram of how many distinct
     labelers have color-labeled each piece (drives the coverage chart). Scoped to
-    one machine when machine_id is given, matching the grid's machine filter."""
-    labelable_q = _labelable_query(db)
+    one machine when machine_id is given, matching the grid's machine filter, and
+    to the caller's visibility window (so a member's dashboard reflects only their
+    slice, not global fleet totals; admins see everything)."""
+    labelable_q = apply_piece_access(db, _labelable_query(db), current_user)
     if machine_id is not None:
         labelable_q = labelable_q.filter(MachinePiece.machine_id == machine_id)
     total_labelable = labelable_q.count()
 
     def _color_q():
         q = db.query(PieceColorLabel)
-        return q.filter(PieceColorLabel.machine_id == machine_id) if machine_id is not None else q
+        if machine_id is not None:
+            q = q.filter(PieceColorLabel.machine_id == machine_id)
+        return scope_to_piece_access(db, q, current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
 
     def _crop_q():
         q = db.query(PieceCropLink)
-        return q.filter(PieceCropLink.machine_id == machine_id) if machine_id is not None else q
+        if machine_id is not None:
+            q = q.filter(PieceCropLink.machine_id == machine_id)
+        return scope_to_piece_access(db, q, current_user, PieceCropLink.machine_id, PieceCropLink.piece_uuid)
 
     labeled_by_me = _color_q().filter(PieceColorLabel.labeler_id == current_user.id).count()
     crop_links_by_me = _crop_q().filter(PieceCropLink.labeler_id == current_user.id).count()
@@ -233,6 +248,7 @@ def list_pieces(
     with_candidates: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Sortable grid of labelable pieces with per-piece label/crop-link counts,
     for the dashboard. Sorts: priority (has same-piece candidates first, then
@@ -310,6 +326,7 @@ def list_pieces(
         q = q.filter(MachinePiece.machine_id == machine_id)
     if with_candidates:
         q = q.filter(has_candidates)
+    q = apply_piece_access(db, q, current_user)
 
     recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
     if sort == "priority":
@@ -386,6 +403,7 @@ def piece_detail(
     piece_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Everything the single-piece labeling view needs: the piece, its crops, the
     pixel-average guess, and THIS user's saved color label (so revisiting a piece
@@ -395,7 +413,7 @@ def piece_detail(
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
         .first()
     )
-    if piece is None:
+    if piece is None or not piece_access_visible(db, current_user, piece):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     machine_name = db.query(Machine.name).filter(Machine.id == machine_id).scalar()
@@ -485,7 +503,7 @@ def submit_brickognize_feedback(
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
         .first()
     )
-    if piece is None:
+    if piece is None or not piece_access_visible(db, current_user, piece):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
     if not piece.brickognize_listing_id:
         raise APIError(400, "Piece has no Brickognize listing to correct", "NOT_CORRECTABLE")
@@ -576,13 +594,14 @@ def label_queue(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Pieces to color-label, newest first.
 
     With only_unlabeled=true (default) the labeler's already-labeled pieces drop
     out, so the client just re-fetches from the top as it works — no cursor. Set
     only_unlabeled=false to browse the full set (use offset to page)."""
-    query = _labelable_query(db)
+    query = apply_piece_access(db, _labelable_query(db), current_user)
 
     if only_unlabeled:
         my_label = exists().where(
@@ -684,15 +703,7 @@ def submit_label(
     if payload.color_id not in valid_ids:
         raise APIError(400, f"Unknown BrickLink color id {payload.color_id}", "COLOR_ID_INVALID")
 
-    piece = (
-        db.query(MachinePiece.id)
-        .filter(
-            MachinePiece.machine_id == payload.machine_id,
-            MachinePiece.piece_uuid == payload.piece_uuid,
-        )
-        .first()
-    )
-    if piece is None:
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     now = datetime.now(timezone.utc)
@@ -760,11 +771,15 @@ def get_piece_image(
     piece_uuid: str,
     seq: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_image")),
 ) -> object:
     """Stream one synced crop. Any authenticated user may view it — color
     labeling is a community task over the whole synced fleet, not just the
-    machine's owner (unlike the owner-gated /machines/... image route)."""
+    machine's owner (unlike the owner-gated /machines/... image route) — but only
+    within the caller's visibility window (admins unrestricted)."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
     image = (
         db.query(MachinePieceImage)
         .filter(
@@ -856,9 +871,12 @@ def possible_crops(
     piece_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Ranked "possibly the same piece" C2/C3 candidates for a classified piece,
     plus this labeler's saved selection (if any) and any stored AI prediction."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
     return _possible_crops_result(db, machine_id, piece_uuid, current_user.id)
 
 
@@ -880,6 +898,8 @@ def run_ai_predict(
 
     Open to admins and to any labeler who has added their own OpenRouter key
     (which pays for the call) — mirroring the sample teacher's key gating."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
     if current_user.role != "admin" and not current_user.openrouter_configured:
         raise APIError(
             403,
@@ -916,11 +936,14 @@ def get_channel_crop_image(
     machine_id: UUID,
     local_id: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_image")),
 ) -> object:
     """Stream one upstream-channel crop. Any authenticated user may view it —
     same-piece labeling is a community task over the synced fleet, like the color
-    crops above (unlike the owner-gated /machines/... channel-crop route)."""
+    crops above (unlike the owner-gated /machines/... channel-crop route) — but
+    only within the caller's visibility window (admins unrestricted). Channel
+    crops are keyed by a guessable integer local_id, so this gate matters."""
     crop = (
         db.query(MachineChannelCrop)
         .filter(
@@ -929,7 +952,7 @@ def get_channel_crop_image(
         )
         .first()
     )
-    if crop is None or not crop.image_key:
+    if crop is None or not crop.image_key or not channel_crop_access_visible(db, current_user, crop):
         raise APIError(404, "Crop image not found", "CROP_IMAGE_NOT_FOUND")
     return serve_stored_file(crop.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
 
@@ -956,15 +979,7 @@ def save_piece_crop_link(
     """Create or replace the current user's same-piece crop selection for a
     piece. Sent the full presented candidate set (each with the labeler's verdict
     and whether it was a prediction); replaces any prior members wholesale."""
-    piece = (
-        db.query(MachinePiece.id)
-        .filter(
-            MachinePiece.machine_id == payload.machine_id,
-            MachinePiece.piece_uuid == payload.piece_uuid,
-        )
-        .first()
-    )
-    if piece is None:
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     now = datetime.now(timezone.utc)
@@ -1062,12 +1077,7 @@ def save_piece_rejection(
     if not reasons:
         raise APIError(400, "No valid rejection reasons", "REJECT_REASONS_INVALID")
 
-    piece = (
-        db.query(MachinePiece.id)
-        .filter(MachinePiece.machine_id == payload.machine_id, MachinePiece.piece_uuid == payload.piece_uuid)
-        .first()
-    )
-    if piece is None:
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     now = datetime.now(timezone.utc)

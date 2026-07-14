@@ -209,6 +209,23 @@ def label_stats(
     }
 
 
+def _labelable_palette_colors() -> list[dict]:
+    """The palette minus non-standard families the machine never meaningfully
+    sorts: Modulex ("Mx …", a separate brick system), Fabuland (its own toy
+    line), and id<=0 ("(Not Applicable)"/[Unknown]). Charting their coverage or
+    hunting them as rare colors is just noise."""
+    out = []
+    for c in get_profile_catalog_service().list_bricklink_colors():
+        cid = c.get("id")
+        if not isinstance(cid, int) or cid <= 0:
+            continue
+        name = str(c.get("name", ""))
+        if name.startswith("Mx ") or name.startswith("Fabuland"):
+            continue
+        out.append(c)
+    return out
+
+
 @router.get("/color-coverage")
 def color_coverage(
     machine_id: UUID | None = Query(None),
@@ -247,7 +264,7 @@ def color_coverage(
         .all()
     )
 
-    palette = get_profile_catalog_service().list_bricklink_colors()
+    palette = _labelable_palette_colors()
     colors = []
     covered = 0
     for c in palette:
@@ -334,7 +351,7 @@ def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) 
         db.query(per_piece.c.color_id, func.count()).group_by(per_piece.c.color_id).all()
     )
 
-    palette = [c for c in get_profile_catalog_service().list_bricklink_colors() if c.get("rgb")]
+    palette = [c for c in _labelable_palette_colors() if c.get("rgb")]
     rgbs = []
     ids = []
     for c in palette:

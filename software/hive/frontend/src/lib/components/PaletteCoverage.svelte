@@ -19,7 +19,7 @@
 	let coveredColors = $state(0);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let open = $state(true);
+	let open = $state(false);
 	let showAll = $state(false);
 
 	function isExotic(c: ColorCoverageEntry): boolean {

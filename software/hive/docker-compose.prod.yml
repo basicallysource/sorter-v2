@@ -54,6 +54,9 @@ services:
       # so it survives container recreates — otherwise every redeploy wipes it
       # and forces a full multi-hour re-sync from Rebrickable.
       - ./data/profile_builder:/app/data/profile_builder
+      # Color-classifier ONNX models, uploaded out of band (scp) and scanned
+      # into the color_models table. Bind-mounted so they survive recreates.
+      - ./data/color_models:/app/data/color_models
     networks:
       - default
       - web

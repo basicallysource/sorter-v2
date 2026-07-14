@@ -181,8 +181,20 @@
 		}
 		for (const item of items) {
 			const s = storeByUuid.get(item.uuid);
+			// A live-seen piece keeps its store view (fresh crop/status), but the
+			// correction state is DB-authoritative — take it from the REST item so a
+			// live WS event (which carries no verdict) can't blank it out.
 			rows.push({
-				piece: s?.ws ? pieceToSummary(s) : item,
+				piece: s?.ws
+					? {
+							...pieceToSummary(s),
+							correctable: item.correctable,
+							part_correct: item.part_correct,
+							color_corrected_id: item.color_corrected_id,
+							part_feedback_submitted: item.part_feedback_submitted,
+							color_feedback_submitted: item.color_feedback_submitted
+						}
+					: item,
 				live: false,
 				liveCrop: null
 			});

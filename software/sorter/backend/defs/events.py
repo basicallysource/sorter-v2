@@ -164,6 +164,14 @@ class KnownObjectData(BaseModel):
     drop_snapshot: Optional[str] = None
     brickognize_preview_url: Optional[str] = None
     brickognize_source_view: Optional[str] = None
+    # Correction provenance from the applied request. brickognize_listing_id being
+    # set is what makes a piece "correctable" in the UI (the client can only submit
+    # a correction when we captured the listing). Carried on the live payload so a
+    # freshly classified piece is correctable immediately, before it's recorded.
+    brickognize_listing_id: Optional[str] = None
+    brickognize_item_rank: Optional[int] = None
+    brickognize_item_type: Optional[str] = None
+    brickognize_color_rank: Optional[int] = None
     # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
     # whether it was actually submitted to Brickognize.
     recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)

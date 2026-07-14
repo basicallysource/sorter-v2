@@ -153,8 +153,9 @@ function pieceFromKnownObject(obj: KnownObjectData): Piece {
 		),
 		preview_url: obj.brickognize_preview_url ?? null,
 		est_value: obj.moving_avg_price ?? null,
-		// WS events don't carry correction state; it's backfilled from REST.
-		correctable: false,
+		// A live piece is correctable the moment a Brickognize listing is captured.
+		// The verdict/submitted state is DB-only and backfilled from REST.
+		correctable: Boolean(obj.brickognize_listing_id),
 		part_correct: null,
 		color_corrected_id: null,
 		part_feedback_submitted: false,

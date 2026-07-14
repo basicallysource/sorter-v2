@@ -131,6 +131,8 @@ export interface KnownObjectData {
   drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
+  // Set when a Brickognize listing was captured — makes the piece correctable.
+  brickognize_listing_id?: string | null;
   recognition_image_set?: RecognitionImage[];
   classification_attempts?: ClassificationAttempt[];
   classification_strategy?: ClassificationAttemptStrategy | null;

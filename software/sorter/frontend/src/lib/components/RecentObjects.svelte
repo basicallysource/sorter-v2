@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { getMachineContext } from '$lib/machines/context';
+	import { untrack } from 'svelte';
 	import { Wand2 } from 'lucide-svelte';
 	import type { KnownObjectData } from '$lib/api/events';
 	import Spinner from './Spinner.svelte';
 	import Modal from './Modal.svelte';
 	import PieceCorrection from './PieceCorrection.svelte';
 	import PieceStatusBadge from './PieceStatusBadge.svelte';
+	import { fetchPieceImageState, type DisplayImage } from './records/piece-images';
 	import { sortingProfileStore } from '$lib/stores/sortingProfile.svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { LEGO_COLORS, type LegoColor } from '$lib/lego-colors';
@@ -81,6 +83,31 @@
 	function onCorrectionUpdated(summary: PieceSummary) {
 		if (machineId) pieceStore.upsertFromRest(machineId, [summary]);
 	}
+
+	// The C4 burst crops we captured for the piece being corrected — shown in the
+	// modal alongside the Brickognize prediction. Fetched once per opened piece;
+	// `untrack` keeps a correction success (which updates correctingSummary) from
+	// re-triggering this fetch.
+	let modalBurstImages = $state<DisplayImage[]>([]);
+	let modalImagesLoading = $state(false);
+	let modalImagesRequestId = 0;
+	$effect(() => {
+		const uuid = correctingUuid;
+		if (!uuid) {
+			modalBurstImages = [];
+			modalImagesLoading = false;
+			return;
+		}
+		const seen_at = untrack(() => correctingSummary?.seen_at ?? null);
+		const requestId = ++modalImagesRequestId;
+		modalBurstImages = [];
+		modalImagesLoading = true;
+		void fetchPieceImageState(effectiveBase(), uuid, seen_at).then((state) => {
+			if (requestId !== modalImagesRequestId) return;
+			modalBurstImages = state.images.filter((img) => img.source === 'c4_burst');
+			modalImagesLoading = false;
+		});
+	});
 
 	// Initial fill: the backend no longer replays recent pieces on WS connect —
 	// the durable records API is the source for "what happened before this
@@ -647,11 +674,21 @@
 							</span>
 						{/if}
 						{#if p.correctable}
+							{@const submittedCount =
+								(p.part_feedback_submitted ? 1 : 0) + (p.color_feedback_submitted ? 1 : 0)}
 							<button
 								type="button"
 								onclick={(e) => openCorrection(obj.uuid, e)}
-								class="inline-flex items-center text-text-muted transition-colors hover:text-primary"
-								title="Correct this Brickognize prediction"
+								class="inline-flex items-center transition-colors {submittedCount === 2
+									? 'text-success'
+									: submittedCount === 1
+										? 'text-warning'
+										: 'text-text-muted hover:text-primary'}"
+								title={submittedCount === 2
+									? 'Correction sent to Brickognize (2/2)'
+									: submittedCount === 1
+										? 'Correction sent to Brickognize (1/2) — click to finish'
+										: 'Correct this Brickognize prediction'}
 								aria-label="Correct prediction"
 							>
 								<Wand2 size={14} />
@@ -827,7 +864,7 @@
 				<img
 					src={capturedSrc}
 					alt=""
-					class="h-16 w-16 flex-shrink-0 border border-border object-cover"
+					class="h-16 w-16 flex-shrink-0 border border-border object-contain"
 				/>
 			{/if}
 			<div class="flex min-w-0 flex-col gap-1">
@@ -856,6 +893,33 @@
 				/>
 			{/if}
 		</div>
+
+		<!-- The C4 burst crops we captured — never cropped (object-contain), square
+		     boxes letterboxed with a transparent bar rather than a solid fill. -->
+		{#if modalImagesLoading}
+			<div class="mb-3 flex items-center gap-2 text-sm text-text-muted">
+				<Spinner size={14} /> Loading captured photos…
+			</div>
+		{:else if modalBurstImages.length > 0}
+			<div class="mb-3 flex flex-col gap-1.5">
+				<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+					Captured photos
+				</span>
+				<div class="flex flex-wrap gap-1.5">
+					{#each modalBurstImages as img (img.src)}
+						<div class="h-16 w-16 flex-shrink-0 border border-border">
+							<img
+								src={img.src}
+								alt="captured crop"
+								class="h-full w-full object-contain"
+								loading="lazy"
+							/>
+						</div>
+					{/each}
+				</div>
+			</div>
+		{/if}
+
 		<PieceCorrection
 			piece={correctingSummary}
 			endpointBase={effectiveBase()}

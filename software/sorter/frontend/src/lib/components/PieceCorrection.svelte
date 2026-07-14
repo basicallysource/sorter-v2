@@ -400,8 +400,12 @@
 			{/if}
 		</div>
 
-		{#if feedback}
-			<Alert variant={feedback.variant}>{feedback.text}</Alert>
-		{/if}
+		<!-- Reserve the banner's height whether or not it's showing — a success
+		     message appearing after a click must not reflow the surrounding modal. -->
+		<div class="mt-1 min-h-[2.75rem]">
+			{#if feedback}
+				<Alert variant={feedback.variant}>{feedback.text}</Alert>
+			{/if}
+		</div>
 	</div>
 {/if}

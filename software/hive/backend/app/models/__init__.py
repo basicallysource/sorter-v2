@@ -37,3 +37,4 @@ from app.models.piece_color_label import PieceColorLabel  # noqa: E402, F401
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember  # noqa: E402, F401
 from app.models.piece_rejection import PieceRejection  # noqa: E402, F401
 from app.models.install import Install  # noqa: E402, F401
+from app.models.color_model import ColorModel  # noqa: E402, F401

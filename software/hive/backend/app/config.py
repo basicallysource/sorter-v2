@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://hive:hive_dev@localhost:5432/hive"
     JWT_SECRET: str | None = None
     UPLOAD_DIR: str = "data/uploads"
+    # Local dir scanned for color-classifier models (`.onnx`). One row per file is
+    # reconciled into the color_models table; the active one serves piece-color
+    # predictions. Model bytes are uploaded here out of band (not through the API).
+    COLOR_MODEL_DIR: str = "data/color_models"
     STORAGE_BACKEND: str = "local"
     S3_BUCKET: str = ""
     S3_ENDPOINT_URL: str = ""

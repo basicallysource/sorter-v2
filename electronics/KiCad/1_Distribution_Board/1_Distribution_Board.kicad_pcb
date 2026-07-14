@@ -10,7 +10,7 @@
 	(title_block
 		(title "1_Distribution Board")
 		(date "2026-06-04")
-		(rev "1.3")
+		(rev "1.3-pnp1")
 		(company "basically")
 	)
 	(layers

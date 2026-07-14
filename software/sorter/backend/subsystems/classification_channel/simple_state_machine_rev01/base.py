@@ -506,6 +506,18 @@ class Rev01BaseState(BaseState):
                     image_ts=[
                         s.rec.ts for s in req.images if s.rec.ts is not None
                     ],
+                    listing_id=(
+                        result.get("listing_id") if isinstance(result, dict) else None
+                    ),
+                    item_rank=(
+                        top.get("rank") if isinstance(top, dict) else None
+                    ),
+                    item_type=(
+                        top.get("type") if isinstance(top, dict) else None
+                    ),
+                    color_rank=(
+                        top_color.get("rank") if isinstance(top_color, dict) else None
+                    ),
                 )
             )
             attempt_reqs.append(req)
@@ -690,6 +702,11 @@ class Rev01BaseState(BaseState):
         elif isinstance(result, dict):
             items = result.get("items", [])
             colors = result.get("colors", [])
+            # Correction provenance from the applied request: the search id, so a
+            # later user correction can be submitted to Brickognize's feedback API
+            # without re-querying. Per-result ranks are set alongside the applied
+            # item/color below.
+            obj.brickognize_listing_id = result.get("listing_id")
             if items:
                 best = items[0]
                 obj.part_id = best.get("id")
@@ -697,6 +714,8 @@ class Rev01BaseState(BaseState):
                 obj.part_category = best.get("category")
                 obj.confidence = best.get("score")
                 obj.brickognize_preview_url = best.get("img_url")
+                obj.brickognize_item_rank = best.get("rank")
+                obj.brickognize_item_type = best.get("type")
                 obj.classification_status = ClassificationStatus.classified
             else:
                 obj.classification_status = ClassificationStatus.not_found
@@ -704,6 +723,7 @@ class Rev01BaseState(BaseState):
                 best_color = max(colors, key=lambda c: c.get("score", 0))
                 obj.color_id = str(best_color.get("id", "any_color"))
                 obj.color_name = str(best_color.get("name", "Any Color"))
+                obj.brickognize_color_rank = best_color.get("rank")
         else:
             obj.classification_status = ClassificationStatus.unknown
 

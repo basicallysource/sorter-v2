@@ -13,6 +13,7 @@ Rebrickable `colors` external ids). Labels live in Postgres (piece_color_labels)
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -31,11 +32,14 @@ from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
+from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.storage import serve_stored_file
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/labeling", tags=["labeling"])
 
@@ -427,6 +431,129 @@ def piece_detail(
         ],
         "my_label": None if label is None else {"color_id": label.color_id, "notes": label.notes},
         "my_rejection": None if rejection is None else {"reasons": list(rejection.reasons or [])},
+        # Brickognize prediction + correction state. correctable is True only
+        # when a listing id was captured (a prerequisite for submitting feedback).
+        "prediction": {
+            "color_id": piece.color_id,
+            "color_name": piece.color_name,
+        },
+        "correction": {
+            "correctable": piece.brickognize_listing_id is not None,
+            "part_correct": piece.part_correct,
+            "color_corrected_id": piece.color_corrected_id,
+            "part_feedback_submitted": bool(piece.part_feedback_submitted),
+            "color_feedback_submitted": bool(piece.color_feedback_submitted),
+        },
+    }
+
+
+class BrickognizeFeedbackPayload(BaseModel):
+    # Fields present are applied and submitted; absent fields are left alone.
+    # part_correct: True/False marks the part prediction right/wrong.
+    # color_corrected_id: the picked true BrickLink color; if omitted, this
+    # user's saved color label (piece_color_labels) is used as the true color.
+    part_correct: bool | None = None
+    color_corrected_id: int | None = None
+
+
+@router.post("/piece/{machine_id}/{piece_uuid}/brickognize-feedback")
+def submit_brickognize_feedback(
+    machine_id: UUID,
+    piece_uuid: str,
+    payload: BrickognizeFeedbackPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Send a piece's part and/or color correction back to Brickognize's feedback
+    API and record that it was submitted. Gated on a captured listing id; each
+    channel is sent at most once (the *_feedback_submitted flags). The verdict is
+    written onto the piece regardless of whether the network call succeeds."""
+    piece = (
+        db.query(MachinePiece)
+        .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
+        .first()
+    )
+    if piece is None:
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+    if not piece.brickognize_listing_id:
+        raise APIError(400, "Piece has no Brickognize listing to correct", "NOT_CORRECTABLE")
+
+    part_submitted = False
+    color_submitted = False
+    submit_error: str | None = None
+
+    # Part feedback: a recorded verdict, not yet sent, with the applied item rank.
+    if payload.part_correct is not None:
+        piece.part_correct = payload.part_correct
+        if (
+            not piece.part_feedback_submitted
+            and piece.brickognize_item_rank is not None
+            and piece.part_id
+        ):
+            try:
+                submit_part_feedback(
+                    listing_id=piece.brickognize_listing_id,
+                    item_id=piece.part_id,
+                    item_rank=piece.brickognize_item_rank,
+                    item_type=piece.brickognize_item_type,
+                    is_correct=bool(piece.part_correct),
+                )
+                piece.part_feedback_submitted = True
+                part_submitted = True
+            except Exception as exc:
+                submit_error = f"part: {exc}"
+                log.warning("Brickognize part feedback failed for %s: %s", piece_uuid, exc)
+
+    # Color feedback: use the passed corrected color, else this user's saved true
+    # color. Equal to the prediction confirms it; different rejects it.
+    corrected = payload.color_corrected_id
+    if corrected is None:
+        my_label = (
+            db.query(PieceColorLabel)
+            .filter(
+                PieceColorLabel.machine_id == machine_id,
+                PieceColorLabel.piece_uuid == piece_uuid,
+                PieceColorLabel.labeler_id == current_user.id,
+            )
+            .first()
+        )
+        corrected = my_label.color_id if my_label is not None else None
+    if corrected is not None:
+        piece.color_corrected_id = str(corrected)
+        if (
+            not piece.color_feedback_submitted
+            and piece.brickognize_color_rank is not None
+            and piece.color_id
+        ):
+            try:
+                is_correct = str(corrected) == str(piece.color_id)
+                submit_color_feedback(
+                    listing_id=piece.brickognize_listing_id,
+                    color_id=piece.color_id,
+                    color_rank=piece.brickognize_color_rank,
+                    is_correct=is_correct,
+                )
+                piece.color_feedback_submitted = True
+                color_submitted = True
+            except Exception as exc:
+                prev = f"{submit_error}; " if submit_error else ""
+                submit_error = f"{prev}color: {exc}"
+                log.warning("Brickognize color feedback failed for %s: %s", piece_uuid, exc)
+
+    piece.correction_updated_at = datetime.now(timezone.utc)
+    db.commit()
+    return {
+        "ok": True,
+        "part_submitted": part_submitted,
+        "color_submitted": color_submitted,
+        "submit_error": submit_error,
+        "correction": {
+            "correctable": True,
+            "part_correct": piece.part_correct,
+            "color_corrected_id": piece.color_corrected_id,
+            "part_feedback_submitted": bool(piece.part_feedback_submitted),
+            "color_feedback_submitted": bool(piece.color_feedback_submitted),
+        },
     }
 
 

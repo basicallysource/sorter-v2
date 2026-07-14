@@ -31,8 +31,11 @@ log = logging.getLogger(__name__)
 DATA_TYPE_RECORDS = "piece_records"
 DATA_TYPE_IMAGES = "piece_images"
 DATA_TYPE_CROPS = "channel_crops"
+DATA_TYPE_CORRECTIONS = "piece_corrections"
 
 RECORDS_BATCH = 500
+CORRECTIONS_BATCH = 500
+CORRECTIONS_THROTTLE_S = 0.15
 # Images push one file per request (multipart), so a small chunk per cycle keeps
 # each pass short and interleaves fairly across targets.
 IMAGES_CHUNK = 10
@@ -76,6 +79,26 @@ def _recordToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "bin_z": row["bin_z"],
         "dead": bool(row["dead"]),
         "brickognize_preview_url": row["brickognize_preview_url"],
+        # Correction provenance from the applied Brickognize request, so a
+        # correction entered on Hive can be submitted to Brickognize there.
+        "brickognize_listing_id": row["brickognize_listing_id"],
+        "brickognize_item_rank": row["brickognize_item_rank"],
+        "brickognize_item_type": row["brickognize_item_type"],
+        "brickognize_color_rank": row["brickognize_color_rank"],
+    }
+
+
+def _correctionToPayload(row: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "piece_uuid": row["piece_uuid"],
+        "local_id": row["id"],
+        "part_correct": (
+            None if row["part_correct"] is None else bool(row["part_correct"])
+        ),
+        "color_corrected_id": row["color_corrected_id"],
+        "part_feedback_submitted": bool(row["part_feedback_submitted"]),
+        "color_feedback_submitted": bool(row["color_feedback_submitted"]),
+        "updated_at": row["updated_at"],
     }
 
 
@@ -163,7 +186,7 @@ class HiveSyncWorker:
                 "enabled": enabled,
                 "client": None,
                 "state_ok": False,
-                "wm": dict(prev.get("wm", {DATA_TYPE_RECORDS: None, DATA_TYPE_IMAGES: None, DATA_TYPE_CROPS: None})),
+                "wm": dict(prev.get("wm", {DATA_TYPE_RECORDS: None, DATA_TYPE_IMAGES: None, DATA_TYPE_CROPS: None, DATA_TYPE_CORRECTIONS: None})),
                 "backoff_s": float(prev.get("backoff_s", SERVER_DOWN_BACKOFF_S)),
                 "retry_after": float(prev.get("retry_after", 0.0)),
                 "last_error": prev.get("last_error"),
@@ -205,7 +228,8 @@ class HiveSyncWorker:
                 # a run, so an `or` chain would starve crops behind that backlog.
                 records_or_images = self._drainRecords(target) or self._drainImages(target)
                 crops = self._drainChannelCrops(target)
-                progressed = records_or_images or crops
+                corrections = self._drainCorrections(target)
+                progressed = records_or_images or crops or corrections
                 target["state_ok"] = True
                 target["backoff_s"] = SERVER_DOWN_BACKOFF_S
                 target["last_error"] = None
@@ -220,7 +244,12 @@ class HiveSyncWorker:
         if target["state_ok"] and target["wm"][DATA_TYPE_RECORDS] is not None:
             return
         state = target["client"].getSyncState()
-        for data_type in (DATA_TYPE_RECORDS, DATA_TYPE_IMAGES, DATA_TYPE_CROPS):
+        for data_type in (
+            DATA_TYPE_RECORDS,
+            DATA_TYPE_IMAGES,
+            DATA_TYPE_CROPS,
+            DATA_TYPE_CORRECTIONS,
+        ):
             raw = state.get(data_type) if isinstance(state, dict) else None
             value = raw.get("max_local_id") if isinstance(raw, dict) else 0
             target["wm"][data_type] = int(value or 0)
@@ -274,6 +303,25 @@ class HiveSyncWorker:
             new_max = target["client"].pushChannelCrop(_cropToMeta(row), file_path)
             target["wm"][DATA_TYPE_CROPS] = max(int(target["wm"][DATA_TYPE_CROPS] or 0), int(new_max), int(row["id"]))
             time.sleep(CROPS_THROTTLE_S)
+        return True
+
+    def _drainCorrections(self, target: dict[str, Any]) -> bool:
+        # Correction edits are piece metadata, so they follow the same gate as
+        # piece_records. The append-only piece_corrections log gives a clean
+        # monotonic cursor; Hive upserts the latest edit per piece.
+        if not telemetryAllows(target["id"], "piece_metadata"):
+            return False
+        wm = int(target["wm"][DATA_TYPE_CORRECTIONS] or 0)
+        if piece_records.getMaxCorrectionId() <= wm:
+            return False
+        rows = piece_records.listCorrectionsAfter(wm, CORRECTIONS_BATCH)
+        if not rows:
+            return False
+        new_max = target["client"].pushPieceCorrections(
+            [_correctionToPayload(r) for r in rows]
+        )
+        target["wm"][DATA_TYPE_CORRECTIONS] = max(wm, int(new_max), int(rows[-1]["id"]))
+        time.sleep(CORRECTIONS_THROTTLE_S)
         return True
 
     def _markImageRetention(self, targets: list[dict[str, Any]]) -> None:

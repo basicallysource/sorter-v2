@@ -23,6 +23,13 @@ export type PieceSummary = {
 	has_images?: boolean;
 	preview_url?: string | null;
 	est_value?: number | null;
+	// Brickognize correction fields. `correctable` is only true when a listing
+	// was captured for this piece — the correction UI is gated on it.
+	correctable?: boolean;
+	part_correct?: boolean | null;
+	color_corrected_id?: string | null;
+	part_feedback_submitted?: boolean;
+	color_feedback_submitted?: boolean;
 };
 
 // GET /api/pieces/{uuid} — tiered envelope. `detail` is the full KnownObject
@@ -61,6 +68,13 @@ export type Piece = {
 	has_images: boolean;
 	preview_url: string | null;
 	est_value: number | null;
+	// Brickognize correction state — only meaningful for rest-origin summaries;
+	// live WS events don't carry it, so it's backfilled from REST.
+	correctable: boolean;
+	part_correct: boolean | null;
+	color_corrected_id: string | null;
+	part_feedback_submitted: boolean;
+	color_feedback_submitted: boolean;
 	ws: KnownObjectData | null;
 };
 
@@ -109,6 +123,11 @@ function pieceFromSummary(s: PieceSummary): Piece {
 		has_images: Boolean(s.has_images),
 		preview_url: s.preview_url ?? null,
 		est_value: s.est_value ?? null,
+		correctable: Boolean(s.correctable),
+		part_correct: s.part_correct ?? null,
+		color_corrected_id: s.color_corrected_id ?? null,
+		part_feedback_submitted: Boolean(s.part_feedback_submitted),
+		color_feedback_submitted: Boolean(s.color_feedback_submitted),
 		ws: null
 	};
 }
@@ -134,6 +153,12 @@ function pieceFromKnownObject(obj: KnownObjectData): Piece {
 		),
 		preview_url: obj.brickognize_preview_url ?? null,
 		est_value: obj.moving_avg_price ?? null,
+		// WS events don't carry correction state; it's backfilled from REST.
+		correctable: false,
+		part_correct: null,
+		color_corrected_id: null,
+		part_feedback_submitted: false,
+		color_feedback_submitted: false,
 		ws: obj
 	};
 }
@@ -155,7 +180,12 @@ export function pieceToSummary(p: Piece): PieceSummary {
 		dead: p.dead,
 		has_images: p.has_images,
 		preview_url: p.preview_url,
-		est_value: p.est_value
+		est_value: p.est_value,
+		correctable: p.correctable,
+		part_correct: p.part_correct,
+		color_corrected_id: p.color_corrected_id,
+		part_feedback_submitted: p.part_feedback_submitted,
+		color_feedback_submitted: p.color_feedback_submitted
 	};
 }
 
@@ -303,6 +333,12 @@ class PieceStore {
 			merged.est_value = merged.est_value ?? existing.est_value;
 			merged.preview_url = merged.preview_url ?? existing.preview_url;
 			merged.has_images = merged.has_images || existing.has_images;
+			// Correction state only comes from REST; a live event mustn't wipe it.
+			merged.correctable = merged.correctable || existing.correctable;
+			merged.part_correct = existing.part_correct;
+			merged.color_corrected_id = existing.color_corrected_id;
+			merged.part_feedback_submitted = existing.part_feedback_submitted;
+			merged.color_feedback_submitted = existing.color_feedback_submitted;
 		}
 		let next: Piece[];
 		if (idx >= 0) {
@@ -335,7 +371,14 @@ class PieceStore {
 					recorded_at: existing.recorded_at ?? s.recorded_at ?? null,
 					est_value: existing.est_value ?? s.est_value ?? null,
 					preview_url: existing.preview_url ?? s.preview_url ?? null,
-					has_images: existing.has_images || Boolean(s.has_images)
+					has_images: existing.has_images || Boolean(s.has_images),
+					correctable: existing.correctable || Boolean(s.correctable),
+					part_correct: s.part_correct ?? existing.part_correct,
+					color_corrected_id: s.color_corrected_id ?? existing.color_corrected_id,
+					part_feedback_submitted:
+						existing.part_feedback_submitted || Boolean(s.part_feedback_submitted),
+					color_feedback_submitted:
+						existing.color_feedback_submitted || Boolean(s.color_feedback_submitted)
 				};
 			} else {
 				next[idx] = pieceFromSummary(s);

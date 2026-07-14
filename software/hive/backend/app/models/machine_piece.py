@@ -31,6 +31,22 @@ class MachinePiece(Base):
     bin_z = Column(Integer, nullable=True)
     dead = Column(Boolean, nullable=False, default=False)
     brickognize_preview_url = Column(String, nullable=True)
+    # Correction provenance from the applied Brickognize request, synced from the
+    # machine alongside the prediction. Needed to address a correction to
+    # Brickognize's feedback API (which keys on the listing id + result rank).
+    brickognize_listing_id = Column(String, nullable=True)
+    brickognize_item_rank = Column(Integer, nullable=True)
+    brickognize_item_type = Column(String, nullable=True)
+    brickognize_color_rank = Column(Integer, nullable=True)
+    # User correction, synced from the machine (piece_corrections stream) and/or
+    # set here on Hive. part_correct is NULL (unreviewed) / true / false;
+    # color_corrected_id is the picked true BrickLink color id; the *_submitted
+    # flags record whether the correction was sent to Brickognize.
+    part_correct = Column(Boolean, nullable=True)
+    color_corrected_id = Column(String, nullable=True)
+    part_feedback_submitted = Column(Boolean, nullable=False, default=False)
+    color_feedback_submitted = Column(Boolean, nullable=False, default=False)
+    correction_updated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (

@@ -4,12 +4,13 @@
 	import {
 		api,
 		type BrickLinkColor,
+		type ColorLabelCorrection,
 		type ColorLabelPieceDetail,
 		type PossibleCropCandidate
 	} from '$lib/api';
 	import * as nav from '$lib/colorLabelNav';
 	import Spinner from '$lib/components/Spinner.svelte';
-	import { Button } from '$lib/components/primitives';
+	import { Alert, Button } from '$lib/components/primitives';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
 	import Ban from 'lucide-svelte/icons/ban';
@@ -64,6 +65,14 @@
 	let rejecting = $state(false);
 	let rejectReasons = $state<Set<string>>(new Set());
 	let rejected = $state(false); // this user already rejected the piece
+
+	// Brickognize part/color correction feedback
+	let correction = $state<ColorLabelCorrection | null>(null);
+	let partVerdict = $state<boolean | null>(null); // pending part right/wrong choice
+	let sendingFeedback = $state(false);
+	// Result banner after a send: success (reached Brickognize), warning (saved
+	// but Brickognize didn't accept it), or danger (the request itself failed).
+	let feedback = $state<{ variant: 'success' | 'warning' | 'danger'; text: string } | null>(null);
 
 	const guessColorId = $derived.by(() => {
 		const id = detail?.pixel_guess?.color_id;
@@ -170,6 +179,9 @@
 			rejectOpen = false;
 			rejected = d.my_rejection != null;
 			rejectReasons = new Set(d.my_rejection?.reasons ?? []);
+			correction = d.correction;
+			partVerdict = d.correction.part_correct;
+			feedback = null;
 			cropCandidates = crops.candidates;
 			cropArrivalTs = crops.arrival_ts;
 			cropDirty = false;
@@ -288,6 +300,41 @@
 			error = errMsg(e, 'Failed to reject piece');
 		} finally {
 			rejecting = false;
+		}
+	}
+
+	// Send the part verdict (and, unless already sent, the corrected color) to
+	// Brickognize. Passes the user's selected true color explicitly so a save
+	// isn't required first; the server falls back to the saved label if omitted.
+	async function sendBrickognizeFeedback() {
+		if (sendingFeedback || !correction) return;
+		sendingFeedback = true;
+		feedback = null;
+		try {
+			const body: { part_correct?: boolean | null; color_corrected_id?: number | null } = {};
+			if (!correction.part_feedback_submitted && partVerdict != null) {
+				body.part_correct = partVerdict;
+			}
+			if (!correction.color_feedback_submitted && myColorId != null) {
+				body.color_corrected_id = myColorId;
+			}
+			const res = await api.submitBrickognizeFeedback(machineId, pieceUuid, body);
+			correction = res.correction;
+			partVerdict = res.correction.part_correct;
+			if (res.submit_error) {
+				feedback = {
+					variant: 'warning',
+					text: `Saved, but Brickognize didn't accept it: ${res.submit_error}`
+				};
+			} else if (res.part_submitted || res.color_submitted) {
+				feedback = { variant: 'success', text: 'Correction sent to Brickognize.' };
+			} else {
+				feedback = { variant: 'success', text: 'Correction saved.' };
+			}
+		} catch (e: unknown) {
+			feedback = { variant: 'danger', text: errMsg(e, 'Failed to send correction') };
+		} finally {
+			sendingFeedback = false;
 		}
 	}
 
@@ -534,8 +581,10 @@
 			</div>
 		</div>
 
+		<!-- Sidebar: color picker + Brickognize correction -->
+		<div class="flex flex-col gap-6 lg:w-96">
 		<!-- Color picker -->
-		<div class="flex flex-col border bg-surface p-4 lg:w-96 {stateBorder(colorState)}">
+		<div class="flex flex-col border bg-surface p-4 {stateBorder(colorState)}">
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<span class="text-sm font-medium text-text">True color</span>
 				{@render statusBadge(colorState)}
@@ -598,6 +647,103 @@
 			{#if filteredColors.length === 0}
 				<p class="py-4 text-center text-sm text-text-muted">No colors match “{search}”.</p>
 			{/if}
+		</div>
+
+		<!-- Brickognize correction — only when the piece has a Brickognize listing -->
+		{#if correction?.correctable}
+			{@const partSent = correction.part_feedback_submitted}
+			{@const colorSent = correction.color_feedback_submitted}
+			{@const canSendPart = !partSent && partVerdict != null}
+			{@const canSendColor = !colorSent && myColorId != null}
+			<div class="flex flex-col border border-border bg-surface p-4">
+				<div class="mb-3 flex items-center justify-between gap-2">
+					<span class="text-sm font-medium text-text">Correct Brickognize</span>
+					{#if partSent && colorSent}
+						<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Sent</span>
+					{/if}
+				</div>
+
+				<!-- Predicted part + verdict -->
+				<div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Predicted part</div>
+				<div class="mb-2 flex items-center gap-2 text-sm text-text">
+					<span class="truncate">{detail.part.part_name || detail.part.part_id || 'Unidentified'}</span>
+					{#if detail.part.part_id}
+						<span class="text-xs text-text-muted">#{detail.part.part_id}</span>
+					{/if}
+				</div>
+
+				<div class="mb-3 flex items-center gap-2">
+					<Button
+						variant={partVerdict === true ? 'primary' : 'secondary'}
+						size="sm"
+						disabled={partSent}
+						onclick={() => (partVerdict = true)}
+					>
+						<Check size={14} /> Correct
+					</Button>
+					<Button
+						variant={partVerdict === false ? 'danger' : 'secondary'}
+						size="sm"
+						disabled={partSent}
+						onclick={() => (partVerdict = false)}
+					>
+						<Ban size={14} /> Wrong
+					</Button>
+					{#if partSent}
+						<span class="ml-auto flex items-center gap-1 text-xs text-success" title="already sent to Brickognize">
+							<CircleCheck size={13} /> sent
+						</span>
+					{/if}
+				</div>
+
+				<!-- Predicted color + corrected color -->
+				<div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Color</div>
+				<div class="mb-3 flex flex-col gap-1 text-sm">
+					<div class="flex items-center gap-2 text-text-muted">
+						<span>Predicted:</span>
+						<span class="text-text">{detail.prediction.color_name ?? '—'}</span>
+						{#if detail.prediction.color_id}<span class="text-xs">({detail.prediction.color_id})</span>{/if}
+					</div>
+					<div class="flex items-center gap-2 text-text-muted">
+						<span>Corrected to:</span>
+						{#if myColorId != null}
+							{@const cc = colorsById.get(myColorId)}
+							<span class="inline-block h-3.5 w-3.5 border border-border" style={`background:#${cc?.rgb ?? '000'}`}></span>
+							<span class="text-text">{cc?.name ?? myColorId}</span>
+						{:else if colorSent && correction.color_corrected_id}
+							<span class="text-text">{correction.color_corrected_id}</span>
+						{:else}
+							<span class="text-text-muted">pick a true color above</span>
+						{/if}
+						{#if colorSent}
+							<span class="ml-auto flex items-center gap-1 text-xs text-success" title="already sent to Brickognize">
+								<CircleCheck size={13} /> sent
+							</span>
+						{/if}
+					</div>
+				</div>
+
+				{#if feedback}
+					<div class="mb-2">
+						<Alert variant={feedback.variant}>{feedback.text}</Alert>
+					</div>
+				{/if}
+
+				<Button
+					variant="primary"
+					size="sm"
+					loading={sendingFeedback}
+					disabled={!canSendPart && !canSendColor}
+					onclick={sendBrickognizeFeedback}
+				>
+					{#if partSent && colorSent}
+						Sent to Brickognize
+					{:else}
+						Send correction to Brickognize
+					{/if}
+				</Button>
+			</div>
+		{/if}
 		</div>
 	</div>
 

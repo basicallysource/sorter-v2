@@ -20,6 +20,8 @@ def test_sync_state_starts_empty(client, machine_token):
     assert resp.json() == {
         "piece_records": {"max_local_id": 0},
         "piece_images": {"max_local_id": 0},
+        "channel_crops": {"max_local_id": 0},
+        "piece_corrections": {"max_local_id": 0},
     }
 
 
@@ -43,6 +45,65 @@ def test_piece_records_upsert_is_idempotent(client, machine_token):
 
     state = client.get("/api/machine/sync/state", headers=_bearer(machine_token)).json()
     assert state["piece_records"]["max_local_id"] == 11
+
+
+def test_piece_corrections_update_machine_piece(client, machine_token):
+    base = 1_760_000_000.0
+    # A classified piece with Brickognize provenance must exist first.
+    client.post(
+        "/api/machine/sync/piece-records",
+        headers=_bearer(machine_token),
+        json={"records": [{
+            "piece_uuid": "pc1", "local_id": 20, "classification_status": "classified",
+            "part_id": "3001", "color_id": "5", "brickognize_listing_id": "res-abc",
+            "brickognize_item_rank": 0, "brickognize_item_type": "part",
+            "brickognize_color_rank": 1,
+        }]},
+    )
+    r = client.post(
+        "/api/machine/sync/piece-corrections",
+        headers=_bearer(machine_token),
+        json={"records": [{
+            "piece_uuid": "pc1", "local_id": 1, "part_correct": False,
+            "color_corrected_id": "7", "part_feedback_submitted": True,
+            "color_feedback_submitted": False, "updated_at": base,
+        }]},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"max_local_id": 1, "upserted": 1}
+
+    from app.models.machine_piece import MachinePiece
+    from tests.conftest import TestingSessionLocal
+    s: Session = TestingSessionLocal()
+    try:
+        piece = s.query(MachinePiece).filter_by(piece_uuid="pc1").first()
+        assert piece.part_correct is False
+        assert piece.color_corrected_id == "7"
+        assert piece.part_feedback_submitted is True
+        assert piece.color_feedback_submitted is False
+        assert piece.brickognize_listing_id == "res-abc"
+    finally:
+        s.close()
+
+    # A later re-sync carrying submitted=False must NOT un-mark the flag (OR'd).
+    client.post(
+        "/api/machine/sync/piece-corrections",
+        headers=_bearer(machine_token),
+        json={"records": [{
+            "piece_uuid": "pc1", "local_id": 2, "part_correct": False,
+            "color_corrected_id": "7", "part_feedback_submitted": False,
+            "color_feedback_submitted": False, "updated_at": base + 1,
+        }]},
+    )
+    s = TestingSessionLocal()
+    try:
+        piece = s.query(MachinePiece).filter_by(piece_uuid="pc1").first()
+        assert piece.part_feedback_submitted is True
+    finally:
+        s.close()
+
+    state = client.get("/api/machine/sync/state", headers=_bearer(machine_token)).json()
+    assert state["piece_corrections"]["max_local_id"] == 2
 
 
 def test_piece_records_update_on_conflict(client, machine_token):

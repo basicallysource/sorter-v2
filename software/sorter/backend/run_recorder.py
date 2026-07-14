@@ -28,6 +28,11 @@ def _serializePiece(p: KnownObject) -> dict:
         "confidence": p.confidence,
         "destination_bin": list(p.destination_bin) if p.destination_bin else None,
         "brickognize_preview_url": p.brickognize_preview_url,
+        # Correction-submission provenance from the applied Brickognize request.
+        "brickognize_listing_id": p.brickognize_listing_id,
+        "brickognize_item_rank": p.brickognize_item_rank,
+        "brickognize_item_type": p.brickognize_item_type,
+        "brickognize_color_rank": p.brickognize_color_rank,
     }
 
 

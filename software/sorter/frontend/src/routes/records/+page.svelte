@@ -51,6 +51,14 @@
 		expandedReclassify = next;
 	}
 
+	// A correction returns the fresh summary. Update the rest-loaded page list in
+	// place and feed the store so live rows (and RecentObjects) reflect it too.
+	function onPieceCorrected(summary: PieceSummary) {
+		items = items.map((it) => (it.uuid === summary.uuid ? { ...it, ...summary } : it));
+		const mid = ctx.machine?.identity?.machine_id ?? null;
+		if (mid) pieceStore.upsertFromRest(mid, [summary]);
+	}
+
 	let pageNum = $derived(pageIndex + 1);
 	let pageCount = $derived(Math.max(1, Math.ceil(total / PAGE_SIZE)));
 	let rangeStart = $derived(pageIndex * PAGE_SIZE + 1);
@@ -347,6 +355,7 @@
 						liveCrop={row.liveCrop}
 						reclassifyOpen={expandedReclassify.has(row.piece.uuid)}
 						onToggleReclassify={() => toggleReclassify(row.piece.uuid)}
+						{onPieceCorrected}
 					/>
 				{/each}
 			</div>

@@ -10,3 +10,10 @@ export {
 	type PieceDetailEnvelope,
 	type PiecesListResponse
 } from './store.svelte';
+
+export {
+	fetchLegoColors,
+	swatchHex,
+	swatchTextColor,
+	type BrickLinkColor
+} from './colors';

@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, Request, UploadFile
 from pydantic import BaseModel
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from sqlalchemy import or_, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
@@ -27,13 +28,19 @@ limiter = Limiter(key_func=get_remote_address)
 DATA_TYPE_PIECE_RECORDS = "piece_records"
 DATA_TYPE_PIECE_IMAGES = "piece_images"
 DATA_TYPE_CHANNEL_CROPS = "channel_crops"
+DATA_TYPE_PIECE_CORRECTIONS = "piece_corrections"
 
 # Columns updated on conflict — everything except the identity/immutable set
-# (id, machine_id, piece_uuid[, seq], created_at).
+# (id, machine_id, piece_uuid[, seq], created_at). The correction columns
+# (part_correct, color_corrected_id, *_feedback_submitted, correction_updated_at)
+# are intentionally NOT here: they arrive on the separate piece_corrections
+# stream, so a plain piece_records re-sync must not clobber them.
 _PIECE_UPDATE_COLS = (
     "local_id", "run_id", "seen_at", "recorded_at", "classification_status",
     "part_id", "part_name", "color_id", "color_name", "category_id", "confidence",
     "bin_x", "bin_y", "bin_z", "dead", "brickognize_preview_url",
+    "brickognize_listing_id", "brickognize_item_rank", "brickognize_item_type",
+    "brickognize_color_rank",
 )
 _IMAGE_UPDATE_COLS = (
     "local_id", "source", "channel", "ts", "captured_at", "sharpness", "bytes",
@@ -108,10 +115,28 @@ class PieceRecordIn(BaseModel):
     bin_z: int | None = None
     dead: bool = False
     brickognize_preview_url: str | None = None
+    brickognize_listing_id: str | None = None
+    brickognize_item_rank: int | None = None
+    brickognize_item_type: str | None = None
+    brickognize_color_rank: int | None = None
 
 
 class PieceRecordsBatch(BaseModel):
     records: list[PieceRecordIn]
+
+
+class PieceCorrectionIn(BaseModel):
+    piece_uuid: str
+    local_id: int
+    part_correct: bool | None = None
+    color_corrected_id: str | None = None
+    part_feedback_submitted: bool = False
+    color_feedback_submitted: bool = False
+    updated_at: float | None = None
+
+
+class PieceCorrectionsBatch(BaseModel):
+    records: list[PieceCorrectionIn]
 
 
 class PieceImageMeta(BaseModel):
@@ -154,6 +179,7 @@ def get_sync_state(
         DATA_TYPE_PIECE_RECORDS: {"max_local_id": by_type.get(DATA_TYPE_PIECE_RECORDS, 0)},
         DATA_TYPE_PIECE_IMAGES: {"max_local_id": by_type.get(DATA_TYPE_PIECE_IMAGES, 0)},
         DATA_TYPE_CHANNEL_CROPS: {"max_local_id": by_type.get(DATA_TYPE_CHANNEL_CROPS, 0)},
+        DATA_TYPE_PIECE_CORRECTIONS: {"max_local_id": by_type.get(DATA_TYPE_PIECE_CORRECTIONS, 0)},
     }
 
 
@@ -199,6 +225,10 @@ def sync_piece_records(
                 "bin_z": rec.bin_z,
                 "dead": rec.dead,
                 "brickognize_preview_url": rec.brickognize_preview_url,
+                "brickognize_listing_id": rec.brickognize_listing_id,
+                "brickognize_item_rank": rec.brickognize_item_rank,
+                "brickognize_item_type": rec.brickognize_item_type,
+                "brickognize_color_rank": rec.brickognize_color_rank,
                 "created_at": now,
             }
         )
@@ -208,6 +238,61 @@ def sync_piece_records(
     machine.last_seen_at = now
     db.commit()
     return {"max_local_id": new_max, "upserted": len(rows)}
+
+
+@router.post("/piece-corrections")
+@limiter.limit("300/minute")
+def sync_piece_corrections(
+    request: Request,
+    payload: PieceCorrectionsBatch,
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, int]:
+    if not payload.records:
+        row = (
+            db.query(MachineSyncState)
+            .filter(
+                MachineSyncState.machine_id == machine.id,
+                MachineSyncState.data_type == DATA_TYPE_PIECE_CORRECTIONS,
+            )
+            .first()
+        )
+        return {"max_local_id": row.max_local_id if row else 0, "upserted": 0}
+
+    now = _now()
+    batch_max = 0
+    upserted = 0
+    # Update-only onto the existing machine_pieces row (the correction stream
+    # carries no piece identity beyond the uuid). The piece is always classified
+    # and synced before it can be corrected, so the row exists. The submitted
+    # flags are OR'd, never overwritten, so a correction already submitted on Hive
+    # is not un-marked by a later machine re-sync (one-way sync, no flag regress).
+    for rec in payload.records:
+        batch_max = max(batch_max, rec.local_id)
+        result = db.execute(
+            update(MachinePiece)
+            .where(
+                MachinePiece.machine_id == machine.id,
+                MachinePiece.piece_uuid == rec.piece_uuid,
+            )
+            .values(
+                part_correct=rec.part_correct,
+                color_corrected_id=rec.color_corrected_id,
+                part_feedback_submitted=or_(
+                    MachinePiece.part_feedback_submitted, rec.part_feedback_submitted
+                ),
+                color_feedback_submitted=or_(
+                    MachinePiece.color_feedback_submitted, rec.color_feedback_submitted
+                ),
+                correction_updated_at=_ts(rec.updated_at) or now,
+            )
+        )
+        upserted += int(result.rowcount or 0)
+
+    new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_CORRECTIONS, batch_max)
+    machine.last_seen_at = now
+    db.commit()
+    return {"max_local_id": new_max, "upserted": upserted}
 
 
 @router.post("/piece-image")

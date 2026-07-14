@@ -1099,7 +1099,10 @@ export interface ColorModelsResponse {
 }
 
 // A "possibly the same piece" upstream C2/C3 crop candidate, ranked by the
-// shared time/angle heuristic. `predicted` = the machine's default selection.
+// shared time/angle heuristic. `predicted` = the heuristic's default selection.
+// `ai_same` = a stored vision-model verdict (true/false for crops it was shown,
+// null when it wasn't shown this crop or no AI prediction has been run). The UI
+// pre-selects `ai_same` over `predicted` when a prediction exists.
 export interface PossibleCropCandidate {
 	local_id: number;
 	channel: number | null;
@@ -1110,6 +1113,7 @@ export interface PossibleCropCandidate {
 	sharpness: number | null;
 	score: number;
 	predicted: boolean;
+	ai_same: boolean | null;
 	available: boolean;
 }
 
@@ -1123,6 +1127,12 @@ export interface PossibleCropsResult {
 	arrival_ts: string | null;
 	candidates: PossibleCropCandidate[];
 	my_link: PieceCropLinkMember[];
+	prediction_source: 'ai' | 'heuristic';
+	ai_model: string | null;
+	ai_reasoning: string | null;
+	// Present only on the ai-predict POST response.
+	ai_cost_usd?: number | null;
+	ai_elapsed_ms?: number | null;
 }
 
 export const api = {
@@ -1291,6 +1301,13 @@ export const api = {
 		return request<PossibleCropsResult>(
 			'GET',
 			`/api/labeling/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	runAiPredict(machineId: string, pieceUuid: string, model?: string) {
+		return request<PossibleCropsResult>(
+			'POST',
+			`/api/labeling/possible-crops/${machineId}/${encodeURIComponent(pieceUuid)}/ai-predict`,
+			model ? { model } : {}
 		);
 	},
 	channelCropLabelImageUrl(machineId: string, localId: number) {

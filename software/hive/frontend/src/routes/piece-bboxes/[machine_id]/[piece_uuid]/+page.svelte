@@ -8,6 +8,7 @@
 		type ColorLabelPieceDetail,
 		type PossibleCropCandidate
 	} from '$lib/api';
+	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
@@ -59,6 +60,13 @@
 	let cropSaved = $state(false); // a selection is committed to the db
 	let cropDirty = $state(false); // toggled since last save/load
 	let cropError = $state<string | null>(null);
+	// Which model drove the pre-selection: the time/angle heuristic or a stored
+	// vision-model prediction. The AI "Run" action is open to admins or anyone
+	// with their own OpenRouter key on file.
+	let predictionSource = $state<'ai' | 'heuristic'>('heuristic');
+	let aiReasoning = $state<string | null>(null);
+	let aiRunning = $state(false);
+	const canRunAi = $derived(auth.isAdmin || auth.user?.openrouter_configured === true);
 
 	// Reject-this-bbox-sample
 	let rejectOpen = $state(false);
@@ -193,23 +201,52 @@
 			correction = d.correction;
 			partVerdict = d.correction.part_correct;
 			feedback = null;
-			cropCandidates = crops.candidates;
-			cropArrivalTs = crops.arrival_ts;
-			cropDirty = false;
-			const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
-			if (crops.my_link.length > 0) {
-				const present = new Set(crops.candidates.map((c) => c.local_id));
-				cropSelected = new Set(savedPos.filter((id) => present.has(id)));
-				cropSaved = true;
-			} else {
-				cropSelected = new Set(crops.candidates.filter((c) => c.predicted).map((c) => c.local_id));
-				cropSaved = false;
-			}
+			applyCrops(crops);
 			pos = nav.position({ machine_id: mid, piece_uuid: puid });
 		} catch (e: unknown) {
 			if (pieceKey === k) error = errMsg(e, 'Failed to load piece');
 		} finally {
 			if (pieceKey === k) loading = false;
+		}
+	}
+
+	// Load a possible-crops result into state. If the user already saved a
+	// selection, restore it; otherwise pre-select the AI's picks when a stored
+	// prediction exists, else the time/angle heuristic's picks.
+	function applyCrops(crops: import('$lib/api').PossibleCropsResult, preferAi = false) {
+		cropCandidates = crops.candidates;
+		cropArrivalTs = crops.arrival_ts;
+		cropDirty = false;
+		predictionSource = crops.prediction_source;
+		aiReasoning = crops.ai_reasoning;
+		const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
+		// A just-run AI prediction overrides the saved selection in the UI so the
+		// labeler can review the fresh picks; on plain load, a saved selection wins.
+		if (crops.my_link.length > 0 && !preferAi) {
+			const present = new Set(crops.candidates.map((c) => c.local_id));
+			cropSelected = new Set(savedPos.filter((id) => present.has(id)));
+			cropSaved = true;
+		} else {
+			const useAi = preferAi || crops.prediction_source === 'ai';
+			cropSelected = new Set(
+				crops.candidates.filter((c) => (useAi ? c.ai_same === true : c.predicted)).map((c) => c.local_id)
+			);
+			cropSaved = crops.my_link.length > 0;
+		}
+	}
+
+	async function runAiPredict() {
+		if (aiRunning || cropCandidates.length === 0) return;
+		aiRunning = true;
+		cropError = null;
+		try {
+			const crops = await api.runAiPredict(machineId, pieceUuid);
+			applyCrops(crops, true);
+			cropDirty = true; // AI picks are a fresh suggestion; prompt a save
+		} catch (e: unknown) {
+			cropError = errMsg(e, 'AI prediction failed');
+		} finally {
+			aiRunning = false;
 		}
 	}
 
@@ -559,6 +596,17 @@
 					<span class="text-xs text-text-muted tabular-nums">
 						{cropSelected.size} of {cropCandidates.length} selected
 					</span>
+					{#if canRunAi}
+						<Button
+							variant="secondary"
+							size="sm"
+							loading={aiRunning}
+							disabled={cropCandidates.length === 0 || cropLoading}
+							onclick={runAiPredict}
+						>
+							<span class="flex items-center gap-1"><Sparkles size={13} /> Run AI</span>
+						</Button>
+					{/if}
 					<Button
 						variant={cropDirty ? 'primary' : 'secondary'}
 						size="sm"
@@ -570,10 +618,21 @@
 					</Button>
 				</div>
 			</div>
-			<p class="mb-3 text-sm text-text-muted">
-				Our guess of which upstream C2/C3 crops are this same physical piece, ranked by a
-				time-and-angle heuristic. Keep or drop our picks and add any we missed, then
-				<span class="font-medium">Accept</span>.
+			<p class="mb-2 text-sm text-text-muted">
+				Our guess of which upstream C2/C3 crops are this same physical piece. Keep or drop
+				the picks and add any we missed, then <span class="font-medium">Accept</span>.
+			</p>
+			<p class="mb-3 flex items-center gap-1.5 text-xs">
+				{#if predictionSource === 'ai'}
+					<Sparkles size={12} class="shrink-0 text-info" />
+					<span class="text-text-muted">
+						Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
+					</span>
+				{:else}
+					<span class="text-text-muted">
+						Picks from the time-and-angle heuristic.{canRunAi ? ' Run AI for a vision-model guess.' : ''}
+					</span>
+				{/if}
 			</p>
 
 			{#if cropLoading}
@@ -586,10 +645,11 @@
 				<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
 					{#each cropCandidates as c (c.local_id)}
 						{@const selected = cropSelected.has(c.local_id)}
+						{@const isPick = predictionSource === 'ai' ? c.ai_same === true : c.predicted}
 						<button
 							type="button"
 							onclick={() => toggleCrop(c.local_id)}
-							title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${c.predicted ? ' · our pick' : ''}`}
+							title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${isPick ? (predictionSource === 'ai' ? ' · AI pick' : ' · heuristic pick') : ''}`}
 							class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
 								? 'border-success bg-success/10'
 								: 'border-border opacity-70 hover:opacity-100'}"
@@ -610,8 +670,13 @@
 								{#if selected}<Check size={12} class="text-success" />{/if}
 								C{c.channel}·{c.dt}s
 							</span>
-							{#if c.predicted}
-								<span class="absolute right-0.5 top-0.5 flex items-center bg-info/80 p-0.5 text-white" title="our prediction"><Sparkles size={11} /></span>
+							{#if isPick}
+								<span
+									class="absolute right-0.5 top-0.5 flex items-center bg-info/80 p-0.5 text-white"
+									title={predictionSource === 'ai' ? 'AI prediction' : 'heuristic prediction'}
+								>
+									<Sparkles size={11} />
+								</span>
 							{/if}
 						</button>
 					{/each}

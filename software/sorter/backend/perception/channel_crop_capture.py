@@ -65,8 +65,10 @@ class ChannelCropCaptureConfig:
             _ZONE_NONE: _ZoneCadence(advance_deg=18.0, max_captures=2),
         }
     )
-    # C2 is far upstream — Spencer wants roughly two crops per pass, no more.
-    c2_cadence: _ZoneCadence = _ZoneCadence(advance_deg=25.0, max_captures=2)
+    # C2 is far upstream — up to two crops per pass, no more. advance_deg is
+    # ~30% tighter than the original 25.0 so captures recur sooner and more
+    # passes reach their second crop (roughly 30% more C2 crops overall).
+    c2_cadence: _ZoneCadence = _ZoneCadence(advance_deg=19.2, max_captures=2)
 
 
 @dataclass

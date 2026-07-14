@@ -85,27 +85,33 @@
 	}
 
 	// The C4 burst crops we captured for the piece being corrected — shown in the
-	// modal alongside the Brickognize prediction. Fetched once per opened piece;
-	// `untrack` keeps a correction success (which updates correctingSummary) from
-	// re-triggering this fetch.
+	// modal alongside the Brickognize prediction. Fetched once per opened piece.
+	// `correctingUuid` is the ONLY thing this effect should react to; everything
+	// else the body touches (correctingSummary, effectiveBase() -> ctx.machine)
+	// must stay inside `untrack` or the effect re-fires — and resets/reloads the
+	// gallery — every time that unrelated reactive state changes (e.g. the
+	// machine context ticking on a heartbeat), not just when the piece changes.
 	let modalBurstImages = $state<DisplayImage[]>([]);
 	let modalImagesLoading = $state(false);
 	let modalImagesRequestId = 0;
 	$effect(() => {
 		const uuid = correctingUuid;
-		if (!uuid) {
+		untrack(() => {
+			if (!uuid) {
+				modalBurstImages = [];
+				modalImagesLoading = false;
+				return;
+			}
+			const seen_at = correctingSummary?.seen_at ?? null;
+			const base = effectiveBase();
+			const requestId = ++modalImagesRequestId;
 			modalBurstImages = [];
-			modalImagesLoading = false;
-			return;
-		}
-		const seen_at = untrack(() => correctingSummary?.seen_at ?? null);
-		const requestId = ++modalImagesRequestId;
-		modalBurstImages = [];
-		modalImagesLoading = true;
-		void fetchPieceImageState(effectiveBase(), uuid, seen_at).then((state) => {
-			if (requestId !== modalImagesRequestId) return;
-			modalBurstImages = state.images.filter((img) => img.source === 'c4_burst');
-			modalImagesLoading = false;
+			modalImagesLoading = true;
+			void fetchPieceImageState(base, uuid, seen_at).then((state) => {
+				if (requestId !== modalImagesRequestId) return;
+				modalBurstImages = state.images.filter((img) => img.source === 'c4_burst');
+				modalImagesLoading = false;
+			});
 		});
 	});
 

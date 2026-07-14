@@ -23,6 +23,7 @@
 
 	const SORTS: { value: ColorLabelSort; label: string }[] = [
 		{ value: 'priority', label: 'Priority (candidates, least-labeled)' },
+		{ value: 'rare_color', label: 'Likely rare color (low-confidence, near a rare color)' },
 		{ value: 'needs_me', label: 'Needs my label' },
 		{ value: 'least_color', label: 'Fewest color labels' },
 		{ value: 'most_color', label: 'Most color labels' },

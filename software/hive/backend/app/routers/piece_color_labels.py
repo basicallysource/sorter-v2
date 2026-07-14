@@ -17,9 +17,10 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import numpy as np
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, exists, func
+from sqlalchemy import and_, exists, false, func
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_user, get_db, verify_csrf
@@ -50,7 +51,7 @@ from app.services.access_window import (
     piece_access_visible_by_key,
     scope_to_piece_access,
 )
-from app.services.pixel_color import guess_piece_color
+from app.services.pixel_color import _srgb_to_lab, guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
 from app.services.rate_limit import rate_limit
 from app.services.secrets import decrypt_secret
@@ -297,8 +298,63 @@ _PIECE_SORTS = {
     "most_color",
     "least_crop",
     "most_crop",
+    "rare_color",
     "needs_me",
 }
+
+# A color is "rare" (under-covered) if this many or fewer distinct pieces have
+# been labeled with it. A predicted color counts as a rare-color *candidate* when
+# it sits within this CIE-Lab distance of some rare color — the pixel/model may
+# have landed on a nearby common color when the piece is actually the rare one.
+_RARE_PIECE_THRESHOLD = 3
+_RARE_LAB_NEAR = 22.0
+
+
+def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) -> set[str]:
+    """BrickLink color ids (as stored on the piece — strings) that are worth
+    surfacing when hunting rare colors: every under-covered color, plus any color
+    close to one in Lab space. Pieces whose Brickognize color prediction is one of
+    these are the ones most likely to actually be a rare color the model fumbled."""
+    scoped = scope_to_piece_access(
+        db, db.query(PieceColorLabel), user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
+    )
+    if machine_id is not None:
+        scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
+    per_piece = (
+        scoped.with_entities(
+            PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
+        )
+        .group_by(PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    piece_counts = dict(
+        db.query(per_piece.c.color_id, func.count()).group_by(per_piece.c.color_id).all()
+    )
+
+    palette = [c for c in get_profile_catalog_service().list_bricklink_colors() if c.get("rgb")]
+    rgbs = []
+    ids = []
+    for c in palette:
+        h = str(c["rgb"]).replace("#", "")
+        if len(h) < 6:
+            continue
+        try:
+            rgbs.append([int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)])
+        except ValueError:
+            continue
+        ids.append(c["id"])
+    if not rgbs:
+        return set()
+
+    labs = _srgb_to_lab(np.array(rgbs, dtype=np.float64))
+    rare_mask = np.array([int(piece_counts.get(cid, 0)) <= _RARE_PIECE_THRESHOLD for cid in ids])
+    if not rare_mask.any():
+        return set()
+    rare_labs = labs[rare_mask]
+    # Min Lab distance from each palette color to any rare color; keep those within
+    # the near threshold (rare colors themselves are distance 0, so included).
+    dists = np.linalg.norm(labs[:, None, :] - rare_labs[None, :, :], axis=2).min(axis=1)
+    return {str(ids[i]) for i in range(len(ids)) if dists[i] <= _RARE_LAB_NEAR}
 
 
 @router.get("/pieces")
@@ -390,6 +446,11 @@ def list_pieces(
         q = q.filter(has_candidates)
     q = apply_piece_access(db, q, current_user)
 
+    if sort == "rare_color":
+        # Only pieces whose predicted color is (near) an under-covered color.
+        rare_ids = _rare_candidate_color_ids(db, current_user, machine_id)
+        q = q.filter(MachinePiece.color_id.in_(rare_ids)) if rare_ids else q.filter(false())
+
     recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
     if sort == "priority":
         # Candidates first, then the least-color-labeled — pushes effort to pieces
@@ -407,6 +468,10 @@ def list_pieces(
         q = q.order_by(crop_cnt.asc(), *recent_order)
     elif sort == "most_crop":
         q = q.order_by(crop_cnt.desc(), *recent_order)
+    elif sort == "rare_color":
+        # Least-confident predictions first — those are the likeliest to be the
+        # rare color the model missed. Nulls (no confidence) sort last.
+        q = q.order_by(MachinePiece.confidence.asc().nullslast(), *recent_order)
     elif sort == "needs_me":
         q = q.order_by(my_color.asc(), color_cnt.asc(), *recent_order)
 

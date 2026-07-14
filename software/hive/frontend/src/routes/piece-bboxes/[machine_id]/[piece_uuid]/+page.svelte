@@ -115,6 +115,8 @@
 	const ctaLabel = $derived.by(() => {
 		if (touched.length === 0) return 'Skip';
 		if (touched.length === characteristics.length) return 'Continue';
+		// An "I can't tell" color isn't something to "accept" — just move on.
+		if (cantTell && touched.length === 1 && touched[0].key === 'color') return 'Move on';
 		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
 	});
 

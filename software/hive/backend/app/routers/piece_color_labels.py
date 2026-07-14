@@ -22,13 +22,14 @@ from pydantic import BaseModel, Field
 from sqlalchemy import and_, exists, func
 from sqlalchemy.orm import Session
 
-from app.deps import get_current_user, get_db
+from app.deps import get_current_user, get_db, verify_csrf
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.piece_color_label import PieceColorLabel
+from app.models.piece_crop_ai_prediction import PieceCropAiPrediction
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
@@ -36,8 +37,15 @@ from app.services.brickognize_feedback import submit_color_feedback, submit_part
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.color_predictor import predict as predict_piece_color
+from app.services.piece_crop_ai_matcher import (
+    DEFAULT_MATCH_MODEL,
+    AiMatchError,
+    match_piece_crops,
+    store_prediction,
+)
 from app.services.pixel_color import guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
+from app.services.secrets import decrypt_secret
 from app.services.storage import serve_stored_file
 
 log = logging.getLogger(__name__)
@@ -801,6 +809,47 @@ def _my_link_members(db: Session, machine_id: UUID, piece_uuid: str, labeler_id:
     ]
 
 
+def _ai_prediction(db: Session, machine_id: UUID, piece_uuid: str) -> PieceCropAiPrediction | None:
+    return (
+        db.query(PieceCropAiPrediction)
+        .filter(
+            PieceCropAiPrediction.machine_id == machine_id,
+            PieceCropAiPrediction.piece_uuid == piece_uuid,
+        )
+        .first()
+    )
+
+
+def _possible_crops_result(db: Session, machine_id: UUID, piece_uuid: str, labeler_id: UUID) -> dict:
+    """Heuristic candidate set for a piece, annotated with this labeler's saved
+    selection and the stored AI prediction (if any).
+
+    Each candidate keeps the heuristic's `predicted` flag (untouched — it feeds
+    the was_predicted training signal). When an AI prediction exists we add
+    `ai_same` per candidate (True/False for crops the model was shown, None for
+    any it didn't see) and set `prediction_source='ai'`; the UI pre-selects
+    `ai_same` over `predicted` when present, falling back to the heuristic."""
+    result = find_possible_crops(db, machine_id, piece_uuid)
+    result["my_link"] = _my_link_members(db, machine_id, piece_uuid, labeler_id)
+
+    ai = _ai_prediction(db, machine_id, piece_uuid)
+    if ai is not None:
+        same_ids = set(ai.same_local_ids or [])
+        shown_ids = set(ai.candidate_local_ids or [])
+        for c in result.get("candidates", []):
+            c["ai_same"] = (c["local_id"] in same_ids) if c["local_id"] in shown_ids else None
+        result["prediction_source"] = "ai"
+        result["ai_model"] = ai.model
+        result["ai_reasoning"] = ai.reasoning
+    else:
+        for c in result.get("candidates", []):
+            c["ai_same"] = None
+        result["prediction_source"] = "heuristic"
+        result["ai_model"] = None
+        result["ai_reasoning"] = None
+    return result
+
+
 @router.get("/possible-crops/{machine_id}/{piece_uuid}")
 def possible_crops(
     machine_id: UUID,
@@ -809,10 +858,57 @@ def possible_crops(
     current_user: User = Depends(get_current_user),
 ) -> dict:
     """Ranked "possibly the same piece" C2/C3 candidates for a classified piece,
-    plus this labeler's saved selection (if any) so the UI can restore it."""
-    result = find_possible_crops(db, machine_id, piece_uuid)
-    result["my_link"] = _my_link_members(db, machine_id, piece_uuid, current_user.id)
-    return result
+    plus this labeler's saved selection (if any) and any stored AI prediction."""
+    return _possible_crops_result(db, machine_id, piece_uuid, current_user.id)
+
+
+class AiPredictRequest(BaseModel):
+    model: str | None = None
+
+
+@router.post("/possible-crops/{machine_id}/{piece_uuid}/ai-predict")
+def run_ai_predict(
+    machine_id: UUID,
+    piece_uuid: str,
+    payload: AiPredictRequest | None = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+) -> dict:
+    """Run the vision model NOW to guess which candidate crops are the same piece,
+    store it, and return the refreshed candidate set with the AI's picks applied.
+
+    Open to admins and to any labeler who has added their own OpenRouter key
+    (which pays for the call) — mirroring the sample teacher's key gating."""
+    if current_user.role != "admin" and not current_user.openrouter_configured:
+        raise APIError(
+            403,
+            "Add your OpenRouter API key on your profile to run AI predictions.",
+            "OPENROUTER_KEY_MISSING",
+        )
+    api_key = decrypt_secret(current_user.openrouter_api_key_encrypted)
+    if not api_key:
+        raise APIError(
+            400,
+            "Set your OpenRouter API key on your profile to run AI predictions.",
+            "OPENROUTER_KEY_MISSING",
+        )
+
+    model = (payload.model if payload else None) or DEFAULT_MATCH_MODEL
+    try:
+        result = match_piece_crops(db, machine_id, piece_uuid, api_key, model=model)
+    except AiMatchError as exc:
+        raise APIError(422, f"AI prediction could not run: {exc}", "AI_PREDICT_FAILED") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise APIError(502, f"AI prediction failed: {exc}", "AI_PREDICT_ERROR") from exc
+
+    store_prediction(db, machine_id, piece_uuid, result)
+    db.commit()
+
+    refreshed = _possible_crops_result(db, machine_id, piece_uuid, current_user.id)
+    refreshed["ai_cost_usd"] = result.get("cost_usd")
+    refreshed["ai_elapsed_ms"] = result.get("elapsed_ms")
+    return refreshed
 
 
 @router.get("/channel-crops/{machine_id}/{local_id}/image")

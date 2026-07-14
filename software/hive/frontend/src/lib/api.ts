@@ -105,6 +105,41 @@ export interface MachineOverviewStats {
 	computed_at: string | null;
 }
 
+export interface MachineCameraSpec {
+	model?: string | null;
+	width?: number | null;
+	height?: number | null;
+	fps?: number | null;
+	fourcc?: string | null;
+}
+
+export interface MachineControllerBoardSpec {
+	family?: string | null;
+	role?: string | null;
+	device_name?: string | null;
+	port?: string | null;
+}
+
+export interface MachineHardwareSpecs {
+	schema_version?: number | null;
+	booted_at?: string | null;
+	captured_at?: string | null;
+	platform?: {
+		model?: string | null;
+		arch?: string | null;
+		os?: { name?: string | null; sorter_os_version?: string | null } | null;
+	} | null;
+	software?: { version?: string | null; channel?: string | null; commit?: string | null } | null;
+	system?: { ram_bytes?: number | null; disk_total_bytes?: number | null; cpu_count?: number | null } | null;
+	config?: {
+		machine_setup?: string | null;
+		feeder_mode?: string | null;
+		classification_channel_mode?: string | null;
+	} | null;
+	cameras?: Record<string, MachineCameraSpec> | null;
+	controller_boards?: Record<string, MachineControllerBoardSpec> | null;
+}
+
 export interface MachineOverview {
 	machine: {
 		id: string;
@@ -117,7 +152,7 @@ export interface MachineOverview {
 		local_ui_port: string | null;
 		created_at: string | null;
 		token_prefix: string;
-		hardware_info: Record<string, unknown> | null;
+		hardware_info: MachineHardwareSpecs | null;
 		owner: { display_name: string | null; email: string | null };
 	};
 	stats: MachineOverviewStats;
@@ -1082,7 +1117,7 @@ export interface ColorLabelPieceDetail {
 	pixel_guess: ColorLabelPixelGuess | null;
 	model_prediction: ColorModelPrediction | null;
 	images: ColorLabelQueueImage[];
-	my_label: { color_id: number; notes: string | null } | null;
+	my_label: { color_id: number | null; cant_tell: boolean; notes: string | null } | null;
 	my_rejection: { reasons: string[] } | null;
 	prediction: ColorLabelPrediction;
 	correction: ColorLabelCorrection;
@@ -1115,7 +1150,7 @@ export interface ColorLabelQueueItem {
 	part: { part_id: string | null; part_name: string | null };
 	pixel_guess: ColorLabelPixelGuess | null;
 	images: ColorLabelQueueImage[];
-	my_label: { color_id: number; notes: string | null } | null;
+	my_label: { color_id: number | null; notes: string | null } | null;
 }
 
 export interface ColorLabelQueue {
@@ -1329,7 +1364,13 @@ export const api = {
 			`/api/labeling/piece/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
-	submitColorLabel(body: { machine_id: string; piece_uuid: string; color_id: number; notes?: string | null }) {
+	submitColorLabel(body: {
+		machine_id: string;
+		piece_uuid: string;
+		color_id?: number | null;
+		cant_tell?: boolean;
+		notes?: string | null;
+	}) {
 		return request<{ ok: boolean; created: boolean; labeled_by_me: number }>(
 			'POST',
 			'/api/labeling',

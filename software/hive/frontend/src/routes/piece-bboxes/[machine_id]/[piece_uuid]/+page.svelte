@@ -46,6 +46,7 @@
 
 	let detail = $state<ColorLabelPieceDetail | null>(null);
 	let myColorId = $state<number | null>(null); // saved color for THIS piece (restored)
+	let cantTell = $state(false); // saved "I can't tell" answer for THIS piece
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
@@ -100,7 +101,7 @@
 	});
 
 	// --- Per-characteristic completion state (extensible) ---------------------
-	const colorState = $derived<CharState>(myColorId != null ? 'ready' : 'empty');
+	const colorState = $derived<CharState>(myColorId != null || cantTell ? 'ready' : 'empty');
 	const piecesState = $derived<CharState>(
 		cropCandidates.length === 0 ? 'empty' : cropDirty ? 'progress' : cropSaved ? 'ready' : 'empty'
 	);
@@ -196,6 +197,7 @@
 			if (pieceKey !== k) return; // navigated away mid-load
 			detail = d;
 			myColorId = d.my_label?.color_id ?? null;
+			cantTell = d.my_label?.cant_tell ?? false;
 			rejectOpen = false;
 			rejected = d.my_rejection != null;
 			rejectReasons = new Set(d.my_rejection?.reasons ?? []);
@@ -278,11 +280,74 @@
 		try {
 			await api.submitColorLabel({ machine_id: machineId, piece_uuid: pieceUuid, color_id: colorId });
 			myColorId = colorId;
+			cantTell = false;
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to save color');
 		} finally {
 			submitting = false;
 		}
+	}
+
+	// "I can't tell" — a real answer (color is indeterminate), saved like a color
+	// pick. Clears any concrete color for this piece.
+	async function pickCantTell() {
+		if (submitting) return;
+		if (cantTell) {
+			// Toggle off: remove the answer entirely.
+			await clearColorAnswer();
+			return;
+		}
+		submitting = true;
+		error = null;
+		try {
+			await api.submitColorLabel({ machine_id: machineId, piece_uuid: pieceUuid, cant_tell: true });
+			cantTell = true;
+			myColorId = null;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to save');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	async function clearColorAnswer() {
+		if (submitting) return;
+		submitting = true;
+		error = null;
+		try {
+			if (myColorId != null || cantTell) await api.deleteColorLabel(machineId, pieceUuid);
+			myColorId = null;
+			cantTell = false;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to clear');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	// Skip: discard whatever was recorded for this piece (a skip almost always
+	// means the earlier input was a mistake) and move on without saving.
+	async function skipAndReset() {
+		if (myColorId != null || cantTell) {
+			try {
+				await api.deleteColorLabel(machineId, pieceUuid);
+			} catch {
+				/* already gone */
+			}
+		}
+		if (cropSaved) {
+			try {
+				await api.deletePieceCropLink(machineId, pieceUuid);
+			} catch {
+				/* already gone */
+			}
+		}
+		myColorId = null;
+		cantTell = false;
+		cropSelected = new Set();
+		cropSaved = false;
+		cropDirty = false;
+		await goNext();
 	}
 
 	function toggleCrop(localId: number) {
@@ -406,7 +471,7 @@
 			void commitAndAdvance();
 		} else if (e.key === 'ArrowRight' || e.key === ' ') {
 			e.preventDefault();
-			void goNext();
+			void skipAndReset();
 		} else if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			void goPrev();
@@ -469,7 +534,7 @@
 			{/each}
 		</div>
 		<div class="ml-auto flex items-center gap-2">
-			<span class="hidden text-xs text-text-muted md:inline">Enter · →/Space skip · ← back</span>
+			<span class="hidden text-xs text-text-muted md:inline">Enter accept · →/Space skip · ← back</span>
 			<!-- Reject this bbox sample (with reason(s)) — left of the skip/continue CTA -->
 			<div class="relative">
 				<Button
@@ -508,14 +573,15 @@
 					</div>
 				{/if}
 			</div>
-			<Button
-				variant={touched.length > 0 ? 'primary' : 'secondary'}
-				size="sm"
-				loading={cropSaving}
-				onclick={commitAndAdvance}
-			>
-				{ctaLabel} <ArrowRight size={14} />
-			</Button>
+			<!-- Skip is always available; skipping resets whatever was recorded for
+			     this piece (see skipAndReset). Accept/Continue appears once the
+			     labeler has actually entered something. -->
+			<Button variant="ghost" size="sm" onclick={skipAndReset}>Skip</Button>
+			{#if touched.length > 0}
+				<Button variant="primary" size="sm" loading={cropSaving} onclick={commitAndAdvance}>
+					{ctaLabel} <ArrowRight size={14} />
+				</Button>
+			{/if}
 		</div>
 	</div>
 
@@ -736,6 +802,19 @@
 					{#if selected}<Check size={14} class="shrink-0 text-success" />{/if}
 				</button>
 			{/snippet}
+
+			<!-- "I can't tell" — an explicit indeterminate-color answer -->
+			<button
+				class="mb-3 flex items-center gap-2 border px-2 py-1 text-left text-sm hover:border-primary disabled:opacity-50 {cantTell
+					? 'border-success bg-success/10 text-text'
+					: 'border-border text-text-muted'}"
+				onclick={pickCantTell}
+				disabled={submitting}
+			>
+				<Ban size={14} class="shrink-0 {cantTell ? 'text-success' : 'text-text-muted'}" />
+				<span class="flex-1">I can't tell the color</span>
+				{#if cantTell}<Check size={14} class="shrink-0 text-success" />{/if}
+			</button>
 
 			{#if guessColorId != null}
 				{@const gc = colorsById.get(guessColorId)}

@@ -223,7 +223,7 @@ def color_coverage(
     colors are well-covered and which are rare/missing in the labeled data."""
     scoped = scope_to_piece_access(
         db, db.query(PieceColorLabel), current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
-    )
+    ).filter(PieceColorLabel.color_id.isnot(None))  # exclude "I can't tell" answers
     if machine_id is not None:
         scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
 
@@ -320,7 +320,7 @@ def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) 
     these are the ones most likely to actually be a rare color the model fumbled."""
     scoped = scope_to_piece_access(
         db, db.query(PieceColorLabel), user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
-    )
+    ).filter(PieceColorLabel.color_id.isnot(None))  # "I can't tell" answers aren't a color
     if machine_id is not None:
         scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
     per_piece = (
@@ -589,7 +589,9 @@ def piece_detail(
         "images": [
             {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
         ],
-        "my_label": None if label is None else {"color_id": label.color_id, "notes": label.notes},
+        "my_label": None
+        if label is None
+        else {"color_id": label.color_id, "cant_tell": bool(label.cant_tell), "notes": label.notes},
         "my_rejection": None if rejection is None else {"reasons": list(rejection.reasons or [])},
         # Brickognize prediction + correction state. correctable is True only
         # when a listing id was captured (a prerequisite for submitting feedback).
@@ -818,7 +820,10 @@ def label_queue(
 class ColorLabelPayload(BaseModel):
     machine_id: UUID
     piece_uuid: str = Field(min_length=1)
-    color_id: int
+    # A concrete BrickLink color, OR cant_tell=True for "I can't tell" (an
+    # indeterminate-color answer). Exactly one of the two must be provided.
+    color_id: int | None = None
+    cant_tell: bool = False
     notes: str | None = None
 
 
@@ -828,10 +833,17 @@ def submit_label(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """Create or update the current user's color label for a piece."""
-    valid_ids = {c["id"] for c in get_profile_catalog_service().list_bricklink_colors()}
-    if payload.color_id not in valid_ids:
-        raise APIError(400, f"Unknown BrickLink color id {payload.color_id}", "COLOR_ID_INVALID")
+    """Create or update the current user's color label for a piece — either a
+    concrete BrickLink color or an "I can't tell" answer."""
+    if payload.cant_tell:
+        color_id = None
+    else:
+        if payload.color_id is None:
+            raise APIError(400, "A color_id or cant_tell is required", "COLOR_REQUIRED")
+        valid_ids = {c["id"] for c in get_profile_catalog_service().list_bricklink_colors()}
+        if payload.color_id not in valid_ids:
+            raise APIError(400, f"Unknown BrickLink color id {payload.color_id}", "COLOR_ID_INVALID")
+        color_id = payload.color_id
 
     if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
@@ -851,13 +863,15 @@ def submit_label(
             machine_id=payload.machine_id,
             piece_uuid=payload.piece_uuid,
             labeler_id=current_user.id,
-            color_id=payload.color_id,
+            color_id=color_id,
+            cant_tell=payload.cant_tell,
             notes=payload.notes,
         )
         db.add(label)
         created = True
     else:
-        label.color_id = payload.color_id
+        label.color_id = color_id
+        label.cant_tell = payload.cant_tell
         label.notes = payload.notes
         label.updated_at = now
         created = False

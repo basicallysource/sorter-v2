@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
 from app.models import Base
@@ -30,7 +30,10 @@ class PieceColorLabel(Base):
     machine_id = Column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
     piece_uuid = Column(String, nullable=False)
     labeler_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    color_id = Column(Integer, nullable=False)
+    # color_id is null exactly when cant_tell is set — the labeler looked and the
+    # color is genuinely indeterminate (a real answer, not an absent label).
+    color_id = Column(Integer, nullable=True)
+    cant_tell = Column(Boolean, nullable=False, default=False)
     notes = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(

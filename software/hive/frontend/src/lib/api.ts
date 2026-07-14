@@ -739,6 +739,19 @@ function resolveApiPath(path: string): string {
 	return `${base}${path}`;
 }
 
+// Stored-image endpoints briefly shipped a 1-year `immutable` Cache-Control that
+// (in S3 redirect mode) landed on the 307 redirect, poisoning browser caches
+// with presigned URLs that expire in an hour — thumbnails then 403'd forever
+// and a reload couldn't evict an `immutable` entry. Bump this to change the URL
+// and force a one-time re-fetch past those poisoned entries. Only needs bumping
+// again if a stale long-lived cache header ever ships anew.
+const IMAGE_CACHE_BUST = '2';
+
+function resolveImagePath(path: string): string {
+	const sep = path.includes('?') ? '&' : '?';
+	return resolveApiPath(`${path}${sep}cb=${IMAGE_CACHE_BUST}`);
+}
+
 function getCsrfToken(): string | null {
 	const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
 	return match ? decodeURIComponent(match[1]) : null;
@@ -1203,7 +1216,7 @@ export const api = {
 		);
 	},
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
-		return resolveApiPath(
+		return resolveImagePath(
 			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
@@ -1223,7 +1236,7 @@ export const api = {
 		);
 	},
 	machineChannelCropImageUrl(machineId: string, localId: number) {
-		return resolveApiPath(`/api/machines/${machineId}/channel-crops/${localId}/image`);
+		return resolveImagePath(`/api/machines/${machineId}/channel-crops/${localId}/image`);
 	},
 
 	// Color labeling
@@ -1291,7 +1304,7 @@ export const api = {
 		);
 	},
 	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {
-		return resolveApiPath(
+		return resolveImagePath(
 			`/api/labeling/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
@@ -1311,7 +1324,7 @@ export const api = {
 		);
 	},
 	channelCropLabelImageUrl(machineId: string, localId: number) {
-		return resolveApiPath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
+		return resolveImagePath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
 	},
 	savePieceCropLink(body: {
 		machine_id: string;

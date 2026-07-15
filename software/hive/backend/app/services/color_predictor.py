@@ -36,7 +36,10 @@ from app.services.storage_backend import get_backend
 log = logging.getLogger(__name__)
 
 MAX_SAMPLES = 5
+MAX_PREDICT_IMAGES = 8
 _HIVE_KIND = "color_classifier"
+# camera channel number -> embedding index the multiview models were trained with
+_CHANNEL_EMB_IDS = {2: 0, 3: 1, 4: 2}
 
 
 def model_dir() -> Path:
@@ -50,6 +53,7 @@ class _Loaded:
     output_name: str
     input_size: int
     class_ids: list[int]
+    multiview: bool = False
 
 
 _lock = threading.Lock()
@@ -213,6 +217,7 @@ def _load(row: ColorModel) -> _Loaded | None:
         output_name=meta.get("hive.output_name") or session.get_outputs()[0].name,
         input_size=input_size,
         class_ids=class_ids,
+        multiview=meta.get("hive.multiview") == "1",
     )
     with _lock:
         _session_cache[key] = loaded
@@ -237,6 +242,27 @@ def _palette() -> dict[int, dict[str, Any]]:
     }
 
 
+def _run_model(loaded: _Loaded, batch: list[np.ndarray], channels: list[int]) -> np.ndarray:
+    """Mean softmax over the crops. Single-view models get one batched forward;
+    multiview models get all crops as one piece-level set with the camera-channel
+    ids the model was trained with."""
+    if loaded.multiview:
+        x = np.stack(batch, axis=0)[None, ...]
+        feeds = {
+            "images": x,
+            "channels": np.array([[_CHANNEL_EMB_IDS.get(c, 2) for c in channels]], dtype=np.int64),
+            "mask": np.ones((1, len(batch)), dtype=bool),
+        }
+        logits = loaded.session.run([loaded.output_name], feeds)[0]
+    else:
+        x = np.stack(batch, axis=0)
+        logits = loaded.session.run([loaded.output_name], {loaded.input_name: x})[0]
+    logits = logits - logits.max(axis=1, keepdims=True)
+    probs = np.exp(logits)
+    probs /= probs.sum(axis=1, keepdims=True)
+    return probs.mean(axis=0)
+
+
 def predict(db: Session, images: list) -> dict[str, Any] | None:
     """Model color prediction for one piece's crops, or None when no model is
     active / the model can't be loaded / no crop is readable."""
@@ -252,6 +278,7 @@ def predict(db: Session, images: list) -> dict[str, Any] | None:
     chosen = (used or with_key)[:MAX_SAMPLES]
 
     batch: list[np.ndarray] = []
+    channels: list[int] = []
     for im in chosen:
         try:
             data = get_backend().read_bytes(im.image_key)
@@ -260,21 +287,15 @@ def predict(db: Session, images: list) -> dict[str, Any] | None:
         arr = _preprocess(data, loaded.input_size)
         if arr is not None:
             batch.append(arr)
+            channels.append(getattr(im, "channel", None) or 4)
     if not batch:
         return None
 
-    x = np.stack(batch, axis=0)
-    logits = loaded.session.run([loaded.output_name], {loaded.input_name: x})[0]
-    logits = logits - logits.max(axis=1, keepdims=True)
-    probs = np.exp(logits)
-    probs /= probs.sum(axis=1, keepdims=True)
-    mean_probs = probs.mean(axis=0)
+    mean_probs = _run_model(loaded, batch, channels)
     idx = int(np.argmax(mean_probs))
     if idx >= len(loaded.class_ids):
         return None
     color_id = loaded.class_ids[idx]
-    confidence = float(mean_probs[idx])
-
     color = _palette().get(color_id)
     return {
         "method": "color_model",
@@ -282,7 +303,58 @@ def predict(db: Session, images: list) -> dict[str, Any] | None:
         "color_id": color_id,
         "color_name": color["name"] if color else None,
         "rgb": (color.get("rgb") or "").replace("#", "") if color else None,
-        "confidence": confidence,
+        "confidence": float(mean_probs[idx]),
+        "sample_count": len(batch),
+    }
+
+
+def predict_bytes(db: Session, images: list[bytes], channels: list[int]) -> dict[str, Any] | None:
+    """Prediction over raw uploaded crop bytes (the machine API path). ``channels``
+    holds the camera channel number (2/3/4) per image, same order. Returns None
+    when no model is active / loadable or no image decodes. Includes top-3
+    alternatives so the caller can reason about close calls."""
+    row = get_active(db)
+    if row is None:
+        return None
+    loaded = _load(row)
+    if loaded is None:
+        return None
+
+    batch: list[np.ndarray] = []
+    kept_channels: list[int] = []
+    for data, channel in zip(images[:MAX_PREDICT_IMAGES], channels[:MAX_PREDICT_IMAGES]):
+        arr = _preprocess(data, loaded.input_size)
+        if arr is not None:
+            batch.append(arr)
+            kept_channels.append(channel)
+    if not batch:
+        return None
+
+    mean_probs = _run_model(loaded, batch, kept_channels)
+    order = np.argsort(-mean_probs)
+    palette = _palette()
+
+    def entry(idx: int) -> dict[str, Any] | None:
+        if idx >= len(loaded.class_ids):
+            return None
+        color_id = loaded.class_ids[idx]
+        color = palette.get(color_id)
+        return {
+            "color_id": color_id,
+            "color_name": color["name"] if color else None,
+            "rgb": (color.get("rgb") or "").replace("#", "") if color else None,
+            "confidence": float(mean_probs[idx]),
+        }
+
+    top = entry(int(order[0]))
+    if top is None:
+        return None
+    return {
+        "method": "color_model",
+        "model_name": row.name,
+        "multiview": loaded.multiview,
+        **top,
+        "top": [e for i in order[:3] if (e := entry(int(i))) is not None],
         "sample_count": len(batch),
     }
 

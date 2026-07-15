@@ -348,10 +348,10 @@ class _TargetSyncer:
         return True
 
     def _drainChannelCrops(self) -> bool:
-        # Gated on its own channel_crops field (default off) so experimental
-        # crops never leak to production — enable it per-target. With it off the
-        # watermark freezes here and the backlog drains if enabled later.
-        if not telemetryAllows(self._id, "channel_crops"):
+        # Gated on its own upstream_channel_crops field so crops only leave the
+        # machine when the target allows it. With it off the watermark freezes
+        # here and the backlog drains if it is enabled later.
+        if not telemetryAllows(self._id, "upstream_channel_crops"):
             return False
         wm = int(self._wm[DATA_TYPE_CROPS] or 0)
         if channel_crop_store.getMaxCropId() <= wm:

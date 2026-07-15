@@ -40,10 +40,10 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "default": True,
     },
     {
-        "key": "channel_crops",
+        "key": "upstream_channel_crops",
         "label": "Channel crops (C2/C3)",
-        "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. Off by default — experimental, high volume.",
-        "default": False,
+        "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. High volume.",
+        "default": True,
     },
     {
         "key": "machine_specs",
@@ -202,7 +202,7 @@ class HiveTelemetryClient:
         response = self._request(
             "POST",
             "/api/machine/sync/channel-crop",
-            fields=("channel_crops",),
+            fields=("upstream_channel_crops",),
             data={"metadata": json.dumps(meta)},
             files=files,
             timeout=60,

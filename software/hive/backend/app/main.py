@@ -28,6 +28,7 @@ from app.routers import (
     models as models_router,
     piece_color_labels,
     profiles,
+    public_stats,
     review,
     samples,
     sets,
@@ -98,6 +99,7 @@ app.include_router(machine_parts.router)
 app.include_router(piece_color_labels.router)
 app.include_router(color_models.router)
 app.include_router(color_predict.router)
+app.include_router(public_stats.router)
 app.include_router(link_models.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)

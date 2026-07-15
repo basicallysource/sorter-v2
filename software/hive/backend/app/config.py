@@ -84,6 +84,11 @@ class Settings(BaseSettings):
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None
     SECRET_ENCRYPTION_KEY: str | None = None
     DEV_SECRET_DIR: str = "data/dev-secrets"
+    # Shared secret for the service-to-service aggregate-stats API
+    # (app.routers.public_stats). A caller presenting this key gets the same
+    # aggregate analytics an admin sees on the all-machines page. Empty disables
+    # the endpoint (503).
+    PUBLIC_STATS_API_KEY: str = ""
     MAX_MODEL_FILE_SIZE: int = 2 * 1024 * 1024 * 1024
     ALLOWED_MODEL_RUNTIMES: tuple[str, ...] = ("onnx", "ncnn", "hailo", "pytorch", "rknn")
 

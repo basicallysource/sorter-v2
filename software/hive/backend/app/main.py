@@ -16,6 +16,7 @@ from app.routers import (
     auth,
     color_models,
     color_predict,
+    fleet,
     installs,
     leaderboard,
     link_models,
@@ -98,6 +99,7 @@ app.include_router(machine_parts.router)
 app.include_router(piece_color_labels.router)
 app.include_router(color_models.router)
 app.include_router(color_predict.router)
+app.include_router(fleet.router)
 app.include_router(link_models.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)

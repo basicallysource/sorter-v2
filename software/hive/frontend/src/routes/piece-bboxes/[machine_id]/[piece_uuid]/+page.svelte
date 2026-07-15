@@ -10,7 +10,9 @@
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
+	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import ZoomImage from '$lib/components/ZoomImage.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
 	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
@@ -45,6 +47,7 @@
 
 	let detail = $state<ColorLabelPieceDetail | null>(null);
 	let myColorId = $state<number | null>(null); // saved color for THIS piece (restored)
+	let cantTell = $state(false); // saved "I can't tell" answer for THIS piece
 	let loading = $state(true);
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
@@ -60,10 +63,11 @@
 	let cropSaved = $state(false); // a selection is committed to the db
 	let cropDirty = $state(false); // toggled since last save/load
 	let cropError = $state<string | null>(null);
-	// Which model drove the pre-selection: the time/angle heuristic or a stored
-	// vision-model prediction. The AI "Run" action is open to admins or anyone
-	// with their own OpenRouter key on file.
-	let predictionSource = $state<'ai' | 'heuristic'>('heuristic');
+	// Which source drove the pre-selection: the time/angle heuristic, the active
+	// link matcher model, or a stored vision-model (AI) prediction. The AI "Run"
+	// action is open to admins or anyone with their own OpenRouter key on file.
+	let predictionSource = $state<'ai' | 'model' | 'heuristic'>('heuristic');
+	let linkModel = $state<string | null>(null); // active link model name when source === 'model'
 	let aiReasoning = $state<string | null>(null);
 	let aiRunning = $state(false);
 	const canRunAi = $derived(auth.isAdmin || auth.user?.openrouter_configured === true);
@@ -99,7 +103,7 @@
 	});
 
 	// --- Per-characteristic completion state (extensible) ---------------------
-	const colorState = $derived<CharState>(myColorId != null ? 'ready' : 'empty');
+	const colorState = $derived<CharState>(myColorId != null || cantTell ? 'ready' : 'empty');
 	const piecesState = $derived<CharState>(
 		cropCandidates.length === 0 ? 'empty' : cropDirty ? 'progress' : cropSaved ? 'ready' : 'empty'
 	);
@@ -112,6 +116,8 @@
 	const ctaLabel = $derived.by(() => {
 		if (touched.length === 0) return 'Skip';
 		if (touched.length === characteristics.length) return 'Continue';
+		// An "I can't tell" color isn't something to "accept" — just move on.
+		if (cantTell && touched.length === 1 && touched[0].key === 'color') return 'Move on';
 		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
 	});
 
@@ -195,6 +201,7 @@
 			if (pieceKey !== k) return; // navigated away mid-load
 			detail = d;
 			myColorId = d.my_label?.color_id ?? null;
+			cantTell = d.my_label?.cant_tell ?? false;
 			rejectOpen = false;
 			rejected = d.my_rejection != null;
 			rejectReasons = new Set(d.my_rejection?.reasons ?? []);
@@ -210,14 +217,28 @@
 		}
 	}
 
+	// Whether a candidate is the active source's pre-selected pick: the AI's
+	// verdict, the link model's pick, or the time/angle heuristic's flag.
+	function isPredictionPick(
+		c: import('$lib/api').PossibleCropCandidate,
+		source: 'ai' | 'model' | 'heuristic'
+	): boolean {
+		if (source === 'ai') return c.ai_same === true;
+		if (source === 'model') return c.model_same === true;
+		return c.predicted;
+	}
+
+	const SOURCE_PICK_LABEL = { ai: 'AI', model: 'model', heuristic: 'heuristic' } as const;
+
 	// Load a possible-crops result into state. If the user already saved a
-	// selection, restore it; otherwise pre-select the AI's picks when a stored
-	// prediction exists, else the time/angle heuristic's picks.
+	// selection, restore it; otherwise pre-select the active source's picks — the
+	// AI's stored prediction, else the link model's scores, else the heuristic.
 	function applyCrops(crops: import('$lib/api').PossibleCropsResult, preferAi = false) {
 		cropCandidates = crops.candidates;
 		cropArrivalTs = crops.arrival_ts;
 		cropDirty = false;
 		predictionSource = crops.prediction_source;
+		linkModel = crops.link_model;
 		aiReasoning = crops.ai_reasoning;
 		const savedPos = crops.my_link.filter((m) => m.is_same).map((m) => m.local_id);
 		// A just-run AI prediction overrides the saved selection in the UI so the
@@ -227,9 +248,9 @@
 			cropSelected = new Set(savedPos.filter((id) => present.has(id)));
 			cropSaved = true;
 		} else {
-			const useAi = preferAi || crops.prediction_source === 'ai';
+			const source = preferAi ? 'ai' : crops.prediction_source;
 			cropSelected = new Set(
-				crops.candidates.filter((c) => (useAi ? c.ai_same === true : c.predicted)).map((c) => c.local_id)
+				crops.candidates.filter((c) => isPredictionPick(c, source)).map((c) => c.local_id)
 			);
 			cropSaved = crops.my_link.length > 0;
 		}
@@ -277,11 +298,74 @@
 		try {
 			await api.submitColorLabel({ machine_id: machineId, piece_uuid: pieceUuid, color_id: colorId });
 			myColorId = colorId;
+			cantTell = false;
 		} catch (e: unknown) {
 			error = errMsg(e, 'Failed to save color');
 		} finally {
 			submitting = false;
 		}
+	}
+
+	// "I can't tell" — a real answer (color is indeterminate), saved like a color
+	// pick. Clears any concrete color for this piece.
+	async function pickCantTell() {
+		if (submitting) return;
+		if (cantTell) {
+			// Toggle off: remove the answer entirely.
+			await clearColorAnswer();
+			return;
+		}
+		submitting = true;
+		error = null;
+		try {
+			await api.submitColorLabel({ machine_id: machineId, piece_uuid: pieceUuid, cant_tell: true });
+			cantTell = true;
+			myColorId = null;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to save');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	async function clearColorAnswer() {
+		if (submitting) return;
+		submitting = true;
+		error = null;
+		try {
+			if (myColorId != null || cantTell) await api.deleteColorLabel(machineId, pieceUuid);
+			myColorId = null;
+			cantTell = false;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to clear');
+		} finally {
+			submitting = false;
+		}
+	}
+
+	// Skip: discard whatever was recorded for this piece (a skip almost always
+	// means the earlier input was a mistake) and move on without saving.
+	async function skipAndReset() {
+		if (myColorId != null || cantTell) {
+			try {
+				await api.deleteColorLabel(machineId, pieceUuid);
+			} catch {
+				/* already gone */
+			}
+		}
+		if (cropSaved) {
+			try {
+				await api.deletePieceCropLink(machineId, pieceUuid);
+			} catch {
+				/* already gone */
+			}
+		}
+		myColorId = null;
+		cantTell = false;
+		cropSelected = new Set();
+		cropSaved = false;
+		cropDirty = false;
+		await goNext();
 	}
 
 	function toggleCrop(localId: number) {
@@ -317,9 +401,24 @@
 		}
 	}
 
+	// When the labeler's true color disagrees with Brickognize's own color guess,
+	// quietly send a "color incorrect" correction to Brickognize. Fire-and-forget:
+	// the server records it regardless of the network result, and we're leaving the
+	// piece. We never surface Brickognize's predicted color in the UI — this just
+	// compares against it under the hood. Skips when it agrees (don't spam) or when
+	// Brickognize had no color to contradict.
+	function autoSubmitColorDisagreement() {
+		if (!correction?.correctable || correction.color_feedback_submitted) return;
+		if (myColorId == null) return;
+		const predicted = detail?.prediction.color_id;
+		if (predicted == null || String(myColorId) === String(predicted)) return;
+		void api.submitBrickognizeFeedback(machineId, pieceUuid, { color_corrected_id: myColorId });
+	}
+
 	// The summary action: commit anything still in progress, then move on.
 	async function commitAndAdvance() {
 		if (cropDirty) await saveCrops();
+		autoSubmitColorDisagreement();
 		await goNext();
 	}
 
@@ -351,20 +450,17 @@
 		}
 	}
 
-	// Send the part verdict (and, unless already sent, the corrected color) to
-	// Brickognize. Passes the user's selected true color explicitly so a save
-	// isn't required first; the server falls back to the saved label if omitted.
+	// Send the PART verdict to Brickognize. (Color feedback is handled
+	// automatically on advance — see autoSubmitColorDisagreement — and its
+	// prediction is never shown here.)
 	async function sendBrickognizeFeedback() {
 		if (sendingFeedback || !correction) return;
 		sendingFeedback = true;
 		feedback = null;
 		try {
-			const body: { part_correct?: boolean | null; color_corrected_id?: number | null } = {};
+			const body: { part_correct?: boolean | null } = {};
 			if (!correction.part_feedback_submitted && partVerdict != null) {
 				body.part_correct = partVerdict;
-			}
-			if (!correction.color_feedback_submitted && myColorId != null) {
-				body.color_corrected_id = myColorId;
 			}
 			const res = await api.submitBrickognizeFeedback(machineId, pieceUuid, body);
 			correction = res.correction;
@@ -374,10 +470,10 @@
 					variant: 'warning',
 					text: `Saved, but Brickognize didn't accept it: ${res.submit_error}`
 				};
-			} else if (res.part_submitted || res.color_submitted) {
-				feedback = { variant: 'success', text: 'Correction sent to Brickognize.' };
+			} else if (res.part_submitted) {
+				feedback = { variant: 'success', text: 'Sent to Brickognize.' };
 			} else {
-				feedback = { variant: 'success', text: 'Correction saved.' };
+				feedback = { variant: 'success', text: 'Saved.' };
 			}
 		} catch (e: unknown) {
 			feedback = { variant: 'danger', text: errMsg(e, 'Failed to send correction') };
@@ -393,7 +489,7 @@
 			void commitAndAdvance();
 		} else if (e.key === 'ArrowRight' || e.key === ' ') {
 			e.preventDefault();
-			void goNext();
+			void skipAndReset();
 		} else if (e.key === 'ArrowLeft') {
 			e.preventDefault();
 			void goPrev();
@@ -456,7 +552,7 @@
 			{/each}
 		</div>
 		<div class="ml-auto flex items-center gap-2">
-			<span class="hidden text-xs text-text-muted md:inline">Enter · →/Space skip · ← back</span>
+			<span class="hidden text-xs text-text-muted md:inline">Enter accept · →/Space skip · ← back</span>
 			<!-- Reject this bbox sample (with reason(s)) — left of the skip/continue CTA -->
 			<div class="relative">
 				<Button
@@ -495,18 +591,24 @@
 					</div>
 				{/if}
 			</div>
-			<Button
-				variant={touched.length > 0 ? 'primary' : 'secondary'}
-				size="sm"
-				loading={cropSaving}
-				onclick={commitAndAdvance}
-			>
-				{ctaLabel} <ArrowRight size={14} />
-			</Button>
+			<!-- Skip is always available; skipping resets whatever was recorded for
+			     this piece (see skipAndReset). Accept/Continue appears once the
+			     labeler has actually entered something. -->
+			<Button variant="ghost" size="sm" onclick={skipAndReset}>Skip</Button>
+			{#if touched.length > 0}
+				<Button variant="primary" size="sm" loading={cropSaving} onclick={commitAndAdvance}>
+					{ctaLabel} <ArrowRight size={14} />
+				</Button>
+			{/if}
 		</div>
 	</div>
 
 	<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
+		<!-- Reference column: this machine's already-labeled colors (ground truth) -->
+		<aside class="shrink-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-52 lg:overflow-y-auto">
+			<MachineLabeledPieces {machineId} {pieceUuid} />
+		</aside>
+
 		<div class="flex min-w-0 flex-col gap-6 lg:flex-1">
 			<!-- Piece under review -->
 			<div class="border border-border bg-surface p-4">
@@ -522,10 +624,9 @@
 
 			<div class="flex flex-wrap gap-2">
 				{#each detail.images as img (img.seq)}
-					<img
+					<ZoomImage
 						src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
 						alt={`crop ${img.seq}`}
-						loading="lazy"
 						title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
 						class="h-28 w-28 border-2 bg-transparent object-contain {img.used ? 'border-success' : 'border-border'}"
 					/>
@@ -628,6 +729,11 @@
 					<span class="text-text-muted">
 						Picks from a vision model{aiReasoning ? `: ${aiReasoning}` : '.'}
 					</span>
+				{:else if predictionSource === 'model'}
+					<Sparkles size={12} class="shrink-0 text-info" />
+					<span class="text-text-muted">
+						Picks from the link matcher model{linkModel ? ` (${linkModel})` : ''}.{canRunAi ? ' Run AI for a vision-model guess.' : ''}
+					</span>
 				{:else}
 					<span class="text-text-muted">
 						Picks from the time-and-angle heuristic.{canRunAi ? ' Run AI for a vision-model guess.' : ''}
@@ -645,11 +751,11 @@
 				<div class="flex max-h-[42vh] flex-wrap gap-2 overflow-y-auto pr-1">
 					{#each cropCandidates as c (c.local_id)}
 						{@const selected = cropSelected.has(c.local_id)}
-						{@const isPick = predictionSource === 'ai' ? c.ai_same === true : c.predicted}
+						{@const isPick = isPredictionPick(c, predictionSource)}
 						<button
 							type="button"
 							onclick={() => toggleCrop(c.local_id)}
-							title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${isPick ? (predictionSource === 'ai' ? ' · AI pick' : ' · heuristic pick') : ''}`}
+							title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${predictionSource === 'model' && c.model_score != null ? ` · model ${c.model_score}` : ''}${isPick ? ` · ${SOURCE_PICK_LABEL[predictionSource]} pick` : ''}`}
 							class="relative flex flex-col items-center gap-1 border-2 p-1 hover:border-primary {selected
 								? 'border-success bg-success/10'
 								: 'border-border opacity-70 hover:opacity-100'}"
@@ -673,7 +779,7 @@
 							{#if isPick}
 								<span
 									class="absolute right-0.5 top-0.5 flex items-center bg-info/80 p-0.5 text-white"
-									title={predictionSource === 'ai' ? 'AI prediction' : 'heuristic prediction'}
+									title={`${SOURCE_PICK_LABEL[predictionSource]} prediction`}
 								>
 									<Sparkles size={11} />
 								</span>
@@ -685,10 +791,12 @@
 			</div>
 		</div>
 
-		<!-- Sidebar: color picker + Brickognize correction -->
-		<div class="flex flex-col gap-6 lg:w-96">
+		<!-- Sidebar: color picker + Brickognize correction. Sticky, capped to the
+		     viewport; the color list fills the space and scrolls internally so the
+		     Brickognize box below always stays on-screen. -->
+		<div class="flex flex-col gap-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-96">
 		<!-- Color picker -->
-		<div class="flex flex-col border bg-surface p-4 {stateBorder(colorState)}">
+		<div class="flex min-h-0 flex-1 flex-col border bg-surface p-4 {stateBorder(colorState)}">
 			<div class="mb-3 flex items-center justify-between gap-2">
 				<span class="text-sm font-medium text-text">True color</span>
 				{@render statusBadge(colorState)}
@@ -717,6 +825,19 @@
 				</button>
 			{/snippet}
 
+			<!-- "I can't tell" — an explicit indeterminate-color answer -->
+			<button
+				class="mb-3 flex items-center gap-2 border px-2 py-1 text-left text-sm hover:border-primary disabled:opacity-50 {cantTell
+					? 'border-success bg-success/10 text-text'
+					: 'border-border text-text-muted'}"
+				onclick={pickCantTell}
+				disabled={submitting}
+			>
+				<Ban size={14} class="shrink-0 {cantTell ? 'text-success' : 'text-text-muted'}" />
+				<span class="flex-1">I can't tell the color</span>
+				{#if cantTell}<Check size={14} class="shrink-0 text-success" />{/if}
+			</button>
+
 			{#if guessColorId != null}
 				{@const gc = colorsById.get(guessColorId)}
 				{#if gc}
@@ -743,7 +864,7 @@
 				class="mb-3 w-full border border-border bg-bg px-3 py-1.5 text-sm text-text placeholder:text-text-muted focus:border-primary focus:outline-none"
 			/>
 
-			<div class="flex max-h-[46vh] flex-col gap-0.5 overflow-y-auto pr-1">
+			<div class="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-1">
 				{#each filteredColors as color (color.id)}
 					{@render colorRow(color, false)}
 				{/each}
@@ -753,22 +874,22 @@
 			{/if}
 		</div>
 
-		<!-- Brickognize correction — only when the piece has a Brickognize listing -->
+		<!-- Brickognize part correction — only when the piece has a Brickognize
+		     listing. Color feedback is sent automatically on advance when the
+		     labeler's true color disagrees with Brickognize's (its predicted color
+		     is intentionally not shown). -->
 		{#if correction?.correctable}
 			{@const partSent = correction.part_feedback_submitted}
-			{@const colorSent = correction.color_feedback_submitted}
 			{@const canSendPart = !partSent && partVerdict != null}
-			{@const canSendColor = !colorSent && myColorId != null}
-			<div class="flex flex-col border border-border bg-surface p-4">
+			<div class="flex shrink-0 flex-col border border-border bg-surface p-4">
 				<div class="mb-3 flex items-center justify-between gap-2">
-					<span class="text-sm font-medium text-text">Correct Brickognize</span>
-					{#if partSent && colorSent}
+					<span class="text-sm font-medium text-text">Is this the right part?</span>
+					{#if partSent}
 						<span class="flex items-center gap-1 text-xs text-success"><CircleCheck size={13} /> Sent</span>
 					{/if}
 				</div>
 
 				<!-- Predicted part + verdict -->
-				<div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Predicted part</div>
 				<div class="mb-2 flex items-center gap-2 text-sm text-text">
 					<span class="truncate">{detail.part.part_name || detail.part.part_id || 'Unidentified'}</span>
 					{#if detail.part.part_id}
@@ -800,33 +921,6 @@
 					{/if}
 				</div>
 
-				<!-- Predicted color + corrected color -->
-				<div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">Color</div>
-				<div class="mb-3 flex flex-col gap-1 text-sm">
-					<div class="flex items-center gap-2 text-text-muted">
-						<span>Predicted:</span>
-						<span class="text-text">{detail.prediction.color_name ?? '—'}</span>
-						{#if detail.prediction.color_id}<span class="text-xs">({detail.prediction.color_id})</span>{/if}
-					</div>
-					<div class="flex items-center gap-2 text-text-muted">
-						<span>Corrected to:</span>
-						{#if myColorId != null}
-							{@const cc = colorsById.get(myColorId)}
-							<span class="inline-block h-3.5 w-3.5 border border-border" style={`background:#${cc?.rgb ?? '000'}`}></span>
-							<span class="text-text">{cc?.name ?? myColorId}</span>
-						{:else if colorSent && correction.color_corrected_id}
-							<span class="text-text">{correction.color_corrected_id}</span>
-						{:else}
-							<span class="text-text-muted">pick a true color above</span>
-						{/if}
-						{#if colorSent}
-							<span class="ml-auto flex items-center gap-1 text-xs text-success" title="already sent to Brickognize">
-								<CircleCheck size={13} /> sent
-							</span>
-						{/if}
-					</div>
-				</div>
-
 				{#if feedback}
 					<div class="mb-2">
 						<Alert variant={feedback.variant}>{feedback.text}</Alert>
@@ -837,13 +931,13 @@
 					variant="primary"
 					size="sm"
 					loading={sendingFeedback}
-					disabled={!canSendPart && !canSendColor}
+					disabled={!canSendPart}
 					onclick={sendBrickognizeFeedback}
 				>
-					{#if partSent && colorSent}
+					{#if partSent}
 						Sent to Brickognize
 					{:else}
-						Send correction to Brickognize
+						Send to Brickognize
 					{/if}
 				</Button>
 			</div>

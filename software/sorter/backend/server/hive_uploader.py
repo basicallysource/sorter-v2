@@ -23,6 +23,14 @@ UPLOAD_MAX_RETRIES = 3
 UPLOAD_RETRY_BASE_S = 2.0
 UPLOAD_THROTTLE_S = 0.8
 HEARTBEAT_INTERVAL_S = 30.0
+# How often the heartbeat also carries a full machine-specs snapshot. The first
+# heartbeat after start always sends one (so every restart lands a fresh
+# timestamped report), then only every half hour to keep the history table from
+# growing on each keep-alive. The server hash-dedupes anyway. When the snapshot
+# is still incomplete because hardware hasn't finished coming up (no controller
+# boards discovered yet), retry on the shorter interval until it fills in.
+SPECS_INTERVAL_S = 1800.0
+SPECS_RETRY_INTERVAL_S = 60.0
 SERVER_DOWN_BACKOFF_S = 10.0
 SERVER_DOWN_MAX_BACKOFF_S = 120.0
 
@@ -119,6 +127,7 @@ class HiveUploader:
         self._reload_config()
         self._worker = threading.Thread(target=self._worker_loop, daemon=True, name="hive-uploader")
         self._worker.start()
+        self._specs_next_at = 0.0  # 0 => send specs on the first heartbeat
         self._heartbeat_thread = threading.Thread(
             target=self._heartbeat_loop,
             daemon=True,
@@ -493,9 +502,17 @@ class HiveUploader:
                     if target.get("enabled") and target.get("client") is not None
                 ]
 
+            # Build the specs snapshot at most once per cycle (identical across
+            # targets); the client drops it per-target if the field is off.
+            machine_specs = None
+            if heartbeat_targets and time.time() >= self._specs_next_at:
+                machine_specs = self._collect_machine_specs()
+                complete = bool(machine_specs and machine_specs.get("controller_boards"))
+                self._specs_next_at = time.time() + (SPECS_INTERVAL_S if complete else SPECS_RETRY_INTERVAL_S)
+
             for target_id, target_name, client in heartbeat_targets:
                 try:
-                    reachable = client.heartbeat()
+                    reachable = client.heartbeat(machine_specs=machine_specs)
                 except Exception:
                     reachable = False
 
@@ -513,6 +530,16 @@ class HiveUploader:
                     log.info("Hive server is back online: %s", target_name)
                 elif not reachable and not was_down:
                     log.warning("Hive server is unreachable: %s", target_name)
+
+    @staticmethod
+    def _collect_machine_specs() -> dict[str, Any] | None:
+        try:
+            from machine_specs import buildMachineSpecs
+
+            return buildMachineSpecs()
+        except Exception as exc:
+            log.debug("Machine specs collection failed: %s", exc)
+            return None
 
     def _worker_loop(self) -> None:
         while True:

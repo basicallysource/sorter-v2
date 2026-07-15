@@ -14,12 +14,14 @@ Rebrickable `colors` external ids). Labels live in Postgres (piece_color_labels)
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+import numpy as np
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, exists, func
+from sqlalchemy import and_, exists, false, func
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_user, get_db, verify_csrf
@@ -37,14 +39,25 @@ from app.services.brickognize_feedback import submit_color_feedback, submit_part
 from app.services.channel_crop_lookup import find_possible_crops
 from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.color_predictor import predict as predict_piece_color
+from app.services import link_predictor
 from app.services.piece_crop_ai_matcher import (
     DEFAULT_MATCH_MODEL,
     AiMatchError,
     match_piece_crops,
     store_prediction,
 )
-from app.services.pixel_color import guess_piece_color
+from app.services.access_window import (
+    _machine_owned_by,
+    apply_piece_access,
+    channel_crop_access_visible,
+    is_unrestricted,
+    piece_access_visible,
+    piece_access_visible_by_key,
+    scope_to_piece_access,
+)
+from app.services.pixel_color import _srgb_to_lab, guess_piece_color
 from app.services.profile_catalog import get_profile_catalog_service
+from app.services.rate_limit import rate_limit
 from app.services.secrets import decrypt_secret
 from app.services.storage import serve_stored_file
 
@@ -114,22 +127,29 @@ def label_stats(
     machine_id: UUID | None = Query(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Dashboard rollup: overall progress plus a histogram of how many distinct
     labelers have color-labeled each piece (drives the coverage chart). Scoped to
-    one machine when machine_id is given, matching the grid's machine filter."""
-    labelable_q = _labelable_query(db)
+    one machine when machine_id is given, matching the grid's machine filter, and
+    to the caller's visibility window (so a member's dashboard reflects only their
+    slice, not global fleet totals; admins see everything)."""
+    labelable_q = apply_piece_access(db, _labelable_query(db), current_user)
     if machine_id is not None:
         labelable_q = labelable_q.filter(MachinePiece.machine_id == machine_id)
     total_labelable = labelable_q.count()
 
     def _color_q():
         q = db.query(PieceColorLabel)
-        return q.filter(PieceColorLabel.machine_id == machine_id) if machine_id is not None else q
+        if machine_id is not None:
+            q = q.filter(PieceColorLabel.machine_id == machine_id)
+        return scope_to_piece_access(db, q, current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
 
     def _crop_q():
         q = db.query(PieceCropLink)
-        return q.filter(PieceCropLink.machine_id == machine_id) if machine_id is not None else q
+        if machine_id is not None:
+            q = q.filter(PieceCropLink.machine_id == machine_id)
+        return scope_to_piece_access(db, q, current_user, PieceCropLink.machine_id, PieceCropLink.piece_uuid)
 
     labeled_by_me = _color_q().filter(PieceColorLabel.labeler_id == current_user.id).count()
     crop_links_by_me = _crop_q().filter(PieceCropLink.labeler_id == current_user.id).count()
@@ -190,6 +210,85 @@ def label_stats(
     }
 
 
+def _labelable_palette_colors() -> list[dict]:
+    """The palette minus non-standard families the machine never meaningfully
+    sorts: Modulex ("Mx …", a separate brick system), Fabuland (its own toy
+    line), and id<=0 ("(Not Applicable)"/[Unknown]). Charting their coverage or
+    hunting them as rare colors is just noise."""
+    out = []
+    for c in get_profile_catalog_service().list_bricklink_colors():
+        cid = c.get("id")
+        if not isinstance(cid, int) or cid <= 0:
+            continue
+        name = str(c.get("name", ""))
+        if name.startswith("Mx ") or name.startswith("Fabuland"):
+            continue
+        out.append(c)
+    return out
+
+
+@router.get("/color-coverage")
+def color_coverage(
+    machine_id: UUID | None = Query(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
+) -> dict:
+    """Per-color coverage across the whole BrickLink palette: how many distinct
+    pieces have been color-labeled as each color, scoped to the caller's
+    visibility (admins see everything). Every palette color is returned, including
+    the ones with zero labels — that's the point of the chart: it reveals which
+    colors are well-covered and which are rare/missing in the labeled data."""
+    scoped = scope_to_piece_access(
+        db, db.query(PieceColorLabel), current_user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
+    ).filter(PieceColorLabel.color_id.isnot(None))  # exclude "I can't tell" answers
+    if machine_id is not None:
+        scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
+
+    # Distinct (machine, piece) per color — a piece labeled by three people counts
+    # once toward that color's coverage.
+    per_piece = (
+        scoped.with_entities(
+            PieceColorLabel.color_id,
+            PieceColorLabel.machine_id,
+            PieceColorLabel.piece_uuid,
+        )
+        .group_by(PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    piece_counts = dict(
+        db.query(per_piece.c.color_id, func.count()).group_by(per_piece.c.color_id).all()
+    )
+    label_counts = dict(
+        scoped.with_entities(PieceColorLabel.color_id, func.count())
+        .group_by(PieceColorLabel.color_id)
+        .all()
+    )
+
+    palette = _labelable_palette_colors()
+    colors = []
+    covered = 0
+    for c in palette:
+        pieces = int(piece_counts.get(c["id"], 0))
+        if pieces > 0:
+            covered += 1
+        colors.append(
+            {
+                "id": c["id"],
+                "name": c["name"],
+                "rgb": c.get("rgb"),
+                "is_trans": bool(c.get("is_trans", False)),
+                "pieces": pieces,
+                "labels": int(label_counts.get(c["id"], 0)),
+            }
+        )
+    return {
+        "colors": colors,
+        "total_colors": len(palette),
+        "covered_colors": covered,
+    }
+
+
 # Window (before/after the piece's arrival) in which a same-piece candidate crop
 # could exist — mirrors the shared lookup params so ordering agrees with what the
 # labeling view actually surfaces.
@@ -220,8 +319,63 @@ _PIECE_SORTS = {
     "most_color",
     "least_crop",
     "most_crop",
+    "rare_color",
     "needs_me",
 }
+
+# A color is "rare" (under-covered) if this many or fewer distinct pieces have
+# been labeled with it. A predicted color counts as a rare-color *candidate* when
+# it sits within this CIE-Lab distance of some rare color — the pixel/model may
+# have landed on a nearby common color when the piece is actually the rare one.
+_RARE_PIECE_THRESHOLD = 3
+_RARE_LAB_NEAR = 22.0
+
+
+def _rare_candidate_color_ids(db: Session, user: User, machine_id: UUID | None) -> set[str]:
+    """BrickLink color ids (as stored on the piece — strings) that are worth
+    surfacing when hunting rare colors: every under-covered color, plus any color
+    close to one in Lab space. Pieces whose Brickognize color prediction is one of
+    these are the ones most likely to actually be a rare color the model fumbled."""
+    scoped = scope_to_piece_access(
+        db, db.query(PieceColorLabel), user, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
+    ).filter(PieceColorLabel.color_id.isnot(None))  # "I can't tell" answers aren't a color
+    if machine_id is not None:
+        scoped = scoped.filter(PieceColorLabel.machine_id == machine_id)
+    per_piece = (
+        scoped.with_entities(
+            PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid
+        )
+        .group_by(PieceColorLabel.color_id, PieceColorLabel.machine_id, PieceColorLabel.piece_uuid)
+        .subquery()
+    )
+    piece_counts = dict(
+        db.query(per_piece.c.color_id, func.count()).group_by(per_piece.c.color_id).all()
+    )
+
+    palette = [c for c in _labelable_palette_colors() if c.get("rgb")]
+    rgbs = []
+    ids = []
+    for c in palette:
+        h = str(c["rgb"]).replace("#", "")
+        if len(h) < 6:
+            continue
+        try:
+            rgbs.append([int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)])
+        except ValueError:
+            continue
+        ids.append(c["id"])
+    if not rgbs:
+        return set()
+
+    labs = _srgb_to_lab(np.array(rgbs, dtype=np.float64))
+    rare_mask = np.array([int(piece_counts.get(cid, 0)) <= _RARE_PIECE_THRESHOLD for cid in ids])
+    if not rare_mask.any():
+        return set()
+    rare_labs = labs[rare_mask]
+    # Min Lab distance from each palette color to any rare color; keep those within
+    # the near threshold (rare colors themselves are distance 0, so included).
+    dists = np.linalg.norm(labs[:, None, :] - rare_labs[None, :, :], axis=2).min(axis=1)
+    return {str(ids[i]) for i in range(len(ids)) if dists[i] <= _RARE_LAB_NEAR}
 
 
 @router.get("/pieces")
@@ -233,6 +387,7 @@ def list_pieces(
     with_candidates: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Sortable grid of labelable pieces with per-piece label/crop-link counts,
     for the dashboard. Sorts: priority (has same-piece candidates first, then
@@ -310,6 +465,12 @@ def list_pieces(
         q = q.filter(MachinePiece.machine_id == machine_id)
     if with_candidates:
         q = q.filter(has_candidates)
+    q = apply_piece_access(db, q, current_user)
+
+    if sort == "rare_color":
+        # Only pieces whose predicted color is (near) an under-covered color.
+        rare_ids = _rare_candidate_color_ids(db, current_user, machine_id)
+        q = q.filter(MachinePiece.color_id.in_(rare_ids)) if rare_ids else q.filter(false())
 
     recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
     if sort == "priority":
@@ -328,6 +489,10 @@ def list_pieces(
         q = q.order_by(crop_cnt.asc(), *recent_order)
     elif sort == "most_crop":
         q = q.order_by(crop_cnt.desc(), *recent_order)
+    elif sort == "rare_color":
+        # Least-confident predictions first — those are the likeliest to be the
+        # rare color the model missed. Nulls (no confidence) sort last.
+        q = q.order_by(MachinePiece.confidence.asc().nullslast(), *recent_order)
     elif sort == "needs_me":
         q = q.order_by(my_color.asc(), color_cnt.asc(), *recent_order)
 
@@ -386,6 +551,7 @@ def piece_detail(
     piece_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Everything the single-piece labeling view needs: the piece, its crops, the
     pixel-average guess, and THIS user's saved color label (so revisiting a piece
@@ -395,7 +561,7 @@ def piece_detail(
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
         .first()
     )
-    if piece is None:
+    if piece is None or not piece_access_visible(db, current_user, piece):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     machine_name = db.query(Machine.name).filter(Machine.id == machine_id).scalar()
@@ -441,7 +607,9 @@ def piece_detail(
         "images": [
             {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
         ],
-        "my_label": None if label is None else {"color_id": label.color_id, "notes": label.notes},
+        "my_label": None
+        if label is None
+        else {"color_id": label.color_id, "cant_tell": bool(label.cant_tell), "notes": label.notes},
         "my_rejection": None if rejection is None else {"reasons": list(rejection.reasons or [])},
         # Brickognize prediction + correction state. correctable is True only
         # when a listing id was captured (a prerequisite for submitting feedback).
@@ -485,7 +653,7 @@ def submit_brickognize_feedback(
         .filter(MachinePiece.machine_id == machine_id, MachinePiece.piece_uuid == piece_uuid)
         .first()
     )
-    if piece is None:
+    if piece is None or not piece_access_visible(db, current_user, piece):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
     if not piece.brickognize_listing_id:
         raise APIError(400, "Piece has no Brickognize listing to correct", "NOT_CORRECTABLE")
@@ -576,13 +744,14 @@ def label_queue(
     offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Pieces to color-label, newest first.
 
     With only_unlabeled=true (default) the labeler's already-labeled pieces drop
     out, so the client just re-fetches from the top as it works — no cursor. Set
     only_unlabeled=false to browse the full set (use offset to page)."""
-    query = _labelable_query(db)
+    query = apply_piece_access(db, _labelable_query(db), current_user)
 
     if only_unlabeled:
         my_label = exists().where(
@@ -669,7 +838,10 @@ def label_queue(
 class ColorLabelPayload(BaseModel):
     machine_id: UUID
     piece_uuid: str = Field(min_length=1)
-    color_id: int
+    # A concrete BrickLink color, OR cant_tell=True for "I can't tell" (an
+    # indeterminate-color answer). Exactly one of the two must be provided.
+    color_id: int | None = None
+    cant_tell: bool = False
     notes: str | None = None
 
 
@@ -679,20 +851,19 @@ def submit_label(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> dict:
-    """Create or update the current user's color label for a piece."""
-    valid_ids = {c["id"] for c in get_profile_catalog_service().list_bricklink_colors()}
-    if payload.color_id not in valid_ids:
-        raise APIError(400, f"Unknown BrickLink color id {payload.color_id}", "COLOR_ID_INVALID")
+    """Create or update the current user's color label for a piece — either a
+    concrete BrickLink color or an "I can't tell" answer."""
+    if payload.cant_tell:
+        color_id = None
+    else:
+        if payload.color_id is None:
+            raise APIError(400, "A color_id or cant_tell is required", "COLOR_REQUIRED")
+        valid_ids = {c["id"] for c in get_profile_catalog_service().list_bricklink_colors()}
+        if payload.color_id not in valid_ids:
+            raise APIError(400, f"Unknown BrickLink color id {payload.color_id}", "COLOR_ID_INVALID")
+        color_id = payload.color_id
 
-    piece = (
-        db.query(MachinePiece.id)
-        .filter(
-            MachinePiece.machine_id == payload.machine_id,
-            MachinePiece.piece_uuid == payload.piece_uuid,
-        )
-        .first()
-    )
-    if piece is None:
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     now = datetime.now(timezone.utc)
@@ -710,13 +881,15 @@ def submit_label(
             machine_id=payload.machine_id,
             piece_uuid=payload.piece_uuid,
             labeler_id=current_user.id,
-            color_id=payload.color_id,
+            color_id=color_id,
+            cant_tell=payload.cant_tell,
             notes=payload.notes,
         )
         db.add(label)
         created = True
     else:
-        label.color_id = payload.color_id
+        label.color_id = color_id
+        label.cant_tell = payload.cant_tell
         label.notes = payload.notes
         label.updated_at = now
         created = False
@@ -760,11 +933,170 @@ def get_piece_image(
     piece_uuid: str,
     seq: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_image")),
 ) -> object:
     """Stream one synced crop. Any authenticated user may view it — color
     labeling is a community task over the whole synced fleet, not just the
-    machine's owner (unlike the owner-gated /machines/... image route)."""
+    machine's owner (unlike the owner-gated /machines/... image route) — but only
+    within the caller's visibility window (admins unrestricted)."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+    image = (
+        db.query(MachinePieceImage)
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid == piece_uuid,
+            MachinePieceImage.seq == seq,
+        )
+        .first()
+    )
+    if image is None or not image.image_key:
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
+    return serve_stored_file(image.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
+
+
+# --- Same-machine labeled reference set ---------------------------------------
+#
+# The reviewing view shows a column of OTHER already-labeled pieces from the same
+# machine, so a labeler can calibrate: "this machine's dark tan looks like THIS,
+# so the lighter one I'm looking at is probably plain tan." Only human-labeled
+# pieces (ground truth), never model outputs. This intentionally reaches past a
+# reviewer's normal visibility window — the exemplars are already vetted, and
+# seeing the machine's full color range is the whole point — but stays gated:
+# members still only see machines they own.
+
+
+def _labeled_reference_visible(db: Session, user: User, machine_id: UUID, piece_uuid: str) -> bool:
+    """Gate for a same-machine labeled reference piece/image. Admins and machine
+    owners always. Reviewers may view any piece that actually carries a human
+    color label (the deliberate window bypass — bounded to vetted exemplars)."""
+    if is_unrestricted(user.role):
+        return True
+    if _machine_owned_by(db, machine_id, user):
+        return True
+    if user.role == "reviewer":
+        return (
+            db.query(PieceColorLabel.id)
+            .filter(
+                PieceColorLabel.machine_id == machine_id,
+                PieceColorLabel.piece_uuid == piece_uuid,
+                PieceColorLabel.color_id.isnot(None),
+            )
+            .first()
+            is not None
+        )
+    return False
+
+
+def _lab_hue_key(rgb_hex: str | None) -> tuple[int, float, float]:
+    """Sort key that reads a color column as a gradient: near-neutral grays first
+    (by lightness), then chromatic colors by hue angle. Keeps look-alike colors
+    (tan / dark tan) adjacent so the eye can compare them."""
+    if not rgb_hex:
+        return (2, 0.0, 0.0)
+    h = rgb_hex.replace("#", "")
+    if len(h) < 6:
+        return (2, 0.0, 0.0)
+    try:
+        rgb = np.array([int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16)], dtype=np.float64)
+    except ValueError:
+        return (2, 0.0, 0.0)
+    lab = _srgb_to_lab(rgb)
+    L, a, b = float(lab[0]), float(lab[1]), float(lab[2])
+    if math.hypot(a, b) < 8:
+        return (0, L, 0.0)
+    return (1, math.atan2(b, a), L)
+
+
+@router.get("/machine/{machine_id}/labeled-pieces")
+def machine_labeled_pieces(
+    machine_id: UUID,
+    anchor_piece: str = Query(..., min_length=1),
+    exclude_piece: str | None = Query(None),
+    limit: int = Query(200, ge=1, le=400),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
+) -> dict:
+    """Other human-labeled pieces on the same machine, one per piece (the
+    most-agreed color), sorted into a hue gradient — the color-range reference
+    column on the labeling view. Gated on access to the anchor piece being
+    reviewed; the reference set itself ignores a reviewer's window on purpose."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, anchor_piece):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    rows = (
+        db.query(PieceColorLabel.piece_uuid, PieceColorLabel.color_id, func.count().label("n"))
+        .filter(
+            PieceColorLabel.machine_id == machine_id,
+            PieceColorLabel.color_id.isnot(None),
+        )
+        .group_by(PieceColorLabel.piece_uuid, PieceColorLabel.color_id)
+        .all()
+    )
+    # Per piece, the color with the most labeler agreement (ties → lower id).
+    best: dict[str, tuple[int, int]] = {}
+    for puid, cid, n in rows:
+        if exclude_piece and puid == exclude_piece:
+            continue
+        if cid is None:
+            continue
+        cur = best.get(puid)
+        if cur is None or n > cur[0] or (n == cur[0] and cid < cur[1]):
+            best[puid] = (int(n), int(cid))
+    if not best:
+        return {"items": [], "total": 0}
+
+    piece_uuids = list(best.keys())
+    thumb: dict[str, int] = dict(
+        db.query(MachinePieceImage.piece_uuid, func.min(MachinePieceImage.seq))
+        .filter(
+            MachinePieceImage.machine_id == machine_id,
+            MachinePieceImage.piece_uuid.in_(piece_uuids),
+            MachinePieceImage.image_key.isnot(None),
+        )
+        .group_by(MachinePieceImage.piece_uuid)
+        .all()
+    )
+    palette = {c["id"]: c for c in get_profile_catalog_service().list_bricklink_colors()}
+
+    items = []
+    for puid, (n, cid) in best.items():
+        if puid not in thumb:
+            continue  # no viewable crop — skip (nothing to show in the column)
+        col = palette.get(cid)
+        rgb = col.get("rgb") if col else None
+        items.append(
+            {
+                "piece_uuid": puid,
+                "thumb_seq": thumb[puid],
+                "color_id": cid,
+                "color_name": col["name"] if col else str(cid),
+                "rgb": rgb,
+                "is_trans": bool(col.get("is_trans", False)) if col else False,
+                "label_count": n,
+            }
+        )
+    total = len(items)
+    items.sort(key=lambda it: _lab_hue_key(it["rgb"]))
+    return {"items": items[:limit], "total": total}
+
+
+@router.get("/machine/{machine_id}/labeled-pieces/{piece_uuid}/image")
+def get_reference_image(
+    machine_id: UUID,
+    piece_uuid: str,
+    seq: int = Query(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_image")),
+) -> object:
+    """Thumbnail for a same-machine labeled reference piece. Gated by
+    ``_labeled_reference_visible`` — the reviewer window bypass, bounded to
+    pieces that actually carry a human label."""
+    if not _labeled_reference_visible(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Image not found", "IMAGE_NOT_FOUND")
     image = (
         db.query(MachinePieceImage)
         .filter(
@@ -821,32 +1153,61 @@ def _ai_prediction(db: Session, machine_id: UUID, piece_uuid: str) -> PieceCropA
 
 
 def _possible_crops_result(db: Session, machine_id: UUID, piece_uuid: str, labeler_id: UUID) -> dict:
-    """Heuristic candidate set for a piece, annotated with this labeler's saved
-    selection and the stored AI prediction (if any).
+    """The heuristic's time-window candidate set for a piece, annotated with this
+    labeler's saved selection and whichever same-piece prediction is in force.
 
-    Each candidate keeps the heuristic's `predicted` flag (untouched — it feeds
-    the was_predicted training signal). When an AI prediction exists we add
-    `ai_same` per candidate (True/False for crops the model was shown, None for
-    any it didn't see) and set `prediction_source='ai'`; the UI pre-selects
-    `ai_same` over `predicted` when present, falling back to the heuristic."""
+    Three prediction sources, in precedence order:
+    - `ai`    — a stored vision-model (VLM) prediction exists for this piece (an
+                explicit per-piece oracle run); `ai_same` per candidate.
+    - `model` — a link matcher model is active; it scores every candidate crop
+                (`model_score`) and its picks (`model_same`, score ≥ threshold)
+                supersede the heuristic. Candidates are re-ranked by that score.
+    - `heuristic` — neither; the time/angle `predicted` flag drives selection.
+
+    Each candidate always keeps the heuristic's `predicted` flag untouched — it
+    feeds the was_predicted training signal regardless of which source the UI
+    pre-selects from."""
     result = find_possible_crops(db, machine_id, piece_uuid)
     result["my_link"] = _my_link_members(db, machine_id, piece_uuid, labeler_id)
+    candidates = result.get("candidates", [])
+
+    def _reset(c: dict) -> None:
+        c["ai_same"] = None
+        c["model_same"] = None
+        c["model_score"] = None
 
     ai = _ai_prediction(db, machine_id, piece_uuid)
+    model_pred = link_predictor.predict(db, machine_id, piece_uuid, candidates) if ai is None else None
+
+    result["ai_model"] = None
+    result["ai_reasoning"] = None
+    result["link_model"] = None
+
     if ai is not None:
         same_ids = set(ai.same_local_ids or [])
         shown_ids = set(ai.candidate_local_ids or [])
-        for c in result.get("candidates", []):
+        for c in candidates:
+            _reset(c)
             c["ai_same"] = (c["local_id"] in same_ids) if c["local_id"] in shown_ids else None
         result["prediction_source"] = "ai"
         result["ai_model"] = ai.model
         result["ai_reasoning"] = ai.reasoning
+    elif model_pred is not None:
+        scores = model_pred["scores"]
+        threshold = model_pred["threshold"]
+        for c in candidates:
+            _reset(c)
+            s = scores.get(c["local_id"])
+            c["model_score"] = round(s, 3) if s is not None else None
+            c["model_same"] = (s >= threshold) if s is not None else None
+        # re-rank by model score (scored crops first, best first); unscored keep order
+        candidates.sort(key=lambda c: (c["model_score"] is not None, c["model_score"] or 0.0), reverse=True)
+        result["prediction_source"] = "model"
+        result["link_model"] = model_pred["model_name"]
     else:
-        for c in result.get("candidates", []):
-            c["ai_same"] = None
+        for c in candidates:
+            _reset(c)
         result["prediction_source"] = "heuristic"
-        result["ai_model"] = None
-        result["ai_reasoning"] = None
     return result
 
 
@@ -856,9 +1217,12 @@ def possible_crops(
     piece_uuid: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
     """Ranked "possibly the same piece" C2/C3 candidates for a classified piece,
     plus this labeler's saved selection (if any) and any stored AI prediction."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
     return _possible_crops_result(db, machine_id, piece_uuid, current_user.id)
 
 
@@ -880,6 +1244,8 @@ def run_ai_predict(
 
     Open to admins and to any labeler who has added their own OpenRouter key
     (which pays for the call) — mirroring the sample teacher's key gating."""
+    if not piece_access_visible_by_key(db, current_user, machine_id, piece_uuid):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
     if current_user.role != "admin" and not current_user.openrouter_configured:
         raise APIError(
             403,
@@ -916,11 +1282,14 @@ def get_channel_crop_image(
     machine_id: UUID,
     local_id: int,
     db: Session = Depends(get_db),
-    _user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_image")),
 ) -> object:
     """Stream one upstream-channel crop. Any authenticated user may view it —
     same-piece labeling is a community task over the synced fleet, like the color
-    crops above (unlike the owner-gated /machines/... channel-crop route)."""
+    crops above (unlike the owner-gated /machines/... channel-crop route) — but
+    only within the caller's visibility window (admins unrestricted). Channel
+    crops are keyed by a guessable integer local_id, so this gate matters."""
     crop = (
         db.query(MachineChannelCrop)
         .filter(
@@ -929,7 +1298,7 @@ def get_channel_crop_image(
         )
         .first()
     )
-    if crop is None or not crop.image_key:
+    if crop is None or not crop.image_key or not channel_crop_access_visible(db, current_user, crop):
         raise APIError(404, "Crop image not found", "CROP_IMAGE_NOT_FOUND")
     return serve_stored_file(crop.image_key, headers={"Cache-Control": PIECE_IMAGE_CACHE_CONTROL})
 
@@ -956,15 +1325,7 @@ def save_piece_crop_link(
     """Create or replace the current user's same-piece crop selection for a
     piece. Sent the full presented candidate set (each with the labeler's verdict
     and whether it was a prediction); replaces any prior members wholesale."""
-    piece = (
-        db.query(MachinePiece.id)
-        .filter(
-            MachinePiece.machine_id == payload.machine_id,
-            MachinePiece.piece_uuid == payload.piece_uuid,
-        )
-        .first()
-    )
-    if piece is None:
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     now = datetime.now(timezone.utc)
@@ -1062,12 +1423,7 @@ def save_piece_rejection(
     if not reasons:
         raise APIError(400, "No valid rejection reasons", "REJECT_REASONS_INVALID")
 
-    piece = (
-        db.query(MachinePiece.id)
-        .filter(MachinePiece.machine_id == payload.machine_id, MachinePiece.piece_uuid == payload.piece_uuid)
-        .first()
-    )
-    if piece is None:
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
         raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
 
     now = datetime.now(timezone.utc)

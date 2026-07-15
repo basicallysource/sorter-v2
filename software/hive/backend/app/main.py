@@ -15,8 +15,10 @@ from app.routers import (
     api_keys,
     auth,
     color_models,
+    color_predict,
     installs,
     leaderboard,
+    link_models,
     machine_config_backups,
     machine_lookup,
     machine_models,
@@ -95,6 +97,8 @@ app.include_router(machine_models.router)
 app.include_router(machine_parts.router)
 app.include_router(piece_color_labels.router)
 app.include_router(color_models.router)
+app.include_router(color_predict.router)
+app.include_router(link_models.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
 app.include_router(leaderboard.router)

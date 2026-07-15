@@ -1,12 +1,14 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.deps import get_db, require_role, verify_csrf
 from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
+from app.services import access_window
 from app.services.server_health import get_server_health
 from app.services.storage import delete_machine_files
 
@@ -83,3 +85,41 @@ def delete_user(
     db.delete(user)
     db.commit()
     return {"ok": True}
+
+
+class AccessWindowUpdate(BaseModel):
+    anchor: str
+    size: int = Field(ge=0)
+    offset: int = Field(ge=0)
+
+
+@router.get("/access-windows")
+def get_access_windows(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+):
+    """Effective piece-bbox visibility windows per (role, entity), with whether
+    each value is a live override or the code default. Admins are unrestricted."""
+    return access_window.list_effective_windows(db)
+
+
+@router.put("/access-windows/{role}/{entity}")
+def put_access_window(
+    role: str,
+    entity: str,
+    data: AccessWindowUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_role("admin")),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Set (upsert) the visibility window for a windowed role + entity. 'admin' is
+    unrestricted and cannot be given a window."""
+    if role not in access_window.WINDOWED_ROLES:
+        raise APIError(400, f"Role must be one of {access_window.WINDOWED_ROLES}", "INVALID_ROLE")
+    if entity not in access_window.ENTITIES:
+        raise APIError(400, f"Entity must be one of {access_window.ENTITIES}", "INVALID_ENTITY")
+    if data.anchor not in access_window.ANCHORS:
+        raise APIError(400, f"Anchor must be one of {access_window.ANCHORS}", "INVALID_ANCHOR")
+
+    access_window.set_window(db, role, entity, data.anchor, data.size, data.offset)
+    return access_window.list_effective_windows(db)

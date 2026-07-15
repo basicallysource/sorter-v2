@@ -7,8 +7,10 @@
 		type ColorLabelStats,
 		type Machine
 	} from '$lib/api';
+	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import FilterGroup from '$lib/components/FilterGroup.svelte';
+	import PaletteCoverage from '$lib/components/PaletteCoverage.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import { Button } from '$lib/components/primitives';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
@@ -21,6 +23,7 @@
 
 	const SORTS: { value: ColorLabelSort; label: string }[] = [
 		{ value: 'priority', label: 'Priority (candidates, least-labeled)' },
+		{ value: 'rare_color', label: 'Likely rare color (low-confidence, near a rare color)' },
 		{ value: 'needs_me', label: 'Needs my label' },
 		{ value: 'least_color', label: 'Fewest color labels' },
 		{ value: 'most_color', label: 'Most color labels' },
@@ -227,6 +230,12 @@
 			</div>
 		</div>
 	</div>
+{/if}
+
+<!-- Palette coverage — for reviewers/admins: which colors are well-covered vs
+     rare or missing in what's actually been labeled. -->
+{#if auth.isReviewer}
+	<PaletteCoverage {machineId} />
 {/if}
 
 {#snippet filterBtn(label: string, selected: boolean, onClick: () => void)}

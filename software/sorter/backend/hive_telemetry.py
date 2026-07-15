@@ -40,9 +40,15 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "default": True,
     },
     {
-        "key": "channel_crops",
+        "key": "upstream_channel_crops",
         "label": "Channel crops (C2/C3)",
         "description": "Unlabeled bbox crops of pieces on the upstream feeder channels, tagged with position for same-piece lookup. High volume.",
+        "default": True,
+    },
+    {
+        "key": "machine_specs",
+        "label": "Machine specs",
+        "description": "Basic hardware and software details — camera, controller board, platform and operating system — shown on the machine's dashboard and used for compatibility and support.",
         "default": True,
     },
 )
@@ -196,7 +202,7 @@ class HiveTelemetryClient:
         response = self._request(
             "POST",
             "/api/machine/sync/channel-crop",
-            fields=("channel_crops",),
+            fields=("upstream_channel_crops",),
             data={"metadata": json.dumps(meta)},
             files=files,
             timeout=60,
@@ -312,12 +318,17 @@ class HiveTelemetryClient:
             **kwargs,
         )
 
-    def heartbeat(self) -> bool:
-        # Empty keep-alive so target reachability shows in the UI; carries no
-        # machine data. A future status upload must add a registry field and
-        # be gated on it.
+    def heartbeat(self, machine_specs: dict[str, Any] | None = None) -> bool:
+        # Keep-alive so target reachability shows in the UI. It also carries the
+        # machine-specs snapshot when one is supplied and the "machine_specs"
+        # field is enabled for this target; reachability still works when the
+        # field is off (the body is simply omitted), so toggling specs off never
+        # makes the machine look offline.
+        body: dict[str, Any] | None = None
+        if machine_specs is not None and getTargetTelemetrySettings(self._target_id).get("machine_specs", False):
+            body = {"hardware_info": machine_specs}
         try:
-            response = self._session.post(f"{self._url}/api/machine/heartbeat", timeout=10)
+            response = self._session.post(f"{self._url}/api/machine/heartbeat", json=body, timeout=10)
             return response.status_code < 500
         except requests.RequestException:
             return False

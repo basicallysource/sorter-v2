@@ -214,9 +214,21 @@ class S3StorageBackend(StorageBackend):
                 # "Response content shorter than Content-Length" because the
                 # 307 has an empty body. Skip it — the actual S3 GET will
                 # set its own Content-Length.
-                if name.lower() == "content-length":
+                #
+                # Cache-Control from the caller (e.g. "immutable, max-age=1yr")
+                # describes the immutable image BYTES, not this redirect. The
+                # redirect carries a presigned URL that expires after
+                # presigned_expiry seconds, so caching it long-term makes the
+                # browser replay an expired signature — S3 answers 403 and the
+                # image silently breaks. Cap the redirect's own lifetime below
+                # the signature's, so a re-fetch remints a fresh URL in time.
+                if name.lower() in ("content-length", "cache-control"):
                     continue
                 response.headers[name] = value
+            # Buffer under the signature expiry to absorb modest clock skew and
+            # in-flight requests started just before the cached redirect lapses.
+            redirect_ttl = max(0, self.presigned_expiry - 300)
+            response.headers["Cache-Control"] = f"private, max-age={redirect_ttl}"
             return response
 
         try:

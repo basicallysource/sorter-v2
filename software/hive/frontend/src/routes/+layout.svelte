@@ -206,6 +206,16 @@
 										Color Models
 									</a>
 									<a
+										href="/admin/link-models"
+										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
+										onclick={() => { dropdownOpen = false; }}
+									>
+										<svg class="h-4 w-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+										</svg>
+										Link Models
+									</a>
+									<a
 										href="/admin/parts"
 										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
 										onclick={() => { dropdownOpen = false; }}
@@ -214,6 +224,16 @@
 											<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 5.25h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5m-16.5 4.5h16.5" />
 										</svg>
 										Parts Database
+									</a>
+									<a
+										href="/admin/access-windows"
+										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
+										onclick={() => { dropdownOpen = false; }}
+									>
+										<svg class="h-4 w-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+										</svg>
+										Access Windows
 									</a>
 									<a
 										href="/settings/catalog-sync"
@@ -245,7 +265,11 @@
 		</nav>
 	{/if}
 
-	<main class="mx-auto max-w-7xl px-4 py-6">
+	<!-- The single-piece labeling view runs wider — it carries a reference column,
+	     the piece, and the color picker side by side. -->
+	<main
+		class="mx-auto px-4 py-6 {/^\/piece-bboxes\/.+/.test(page.url.pathname) ? 'max-w-[100rem]' : 'max-w-7xl'}"
+	>
 		{@render children()}
 	</main>
 {/if}

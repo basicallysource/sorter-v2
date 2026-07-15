@@ -105,6 +105,41 @@ export interface MachineOverviewStats {
 	computed_at: string | null;
 }
 
+export interface MachineCameraSpec {
+	model?: string | null;
+	width?: number | null;
+	height?: number | null;
+	fps?: number | null;
+	fourcc?: string | null;
+}
+
+export interface MachineControllerBoardSpec {
+	family?: string | null;
+	role?: string | null;
+	device_name?: string | null;
+	port?: string | null;
+}
+
+export interface MachineHardwareSpecs {
+	schema_version?: number | null;
+	booted_at?: string | null;
+	captured_at?: string | null;
+	platform?: {
+		model?: string | null;
+		arch?: string | null;
+		os?: { name?: string | null; sorter_os_version?: string | null } | null;
+	} | null;
+	software?: { version?: string | null; channel?: string | null; commit?: string | null } | null;
+	system?: { ram_bytes?: number | null; disk_total_bytes?: number | null; cpu_count?: number | null } | null;
+	config?: {
+		machine_setup?: string | null;
+		feeder_mode?: string | null;
+		classification_channel_mode?: string | null;
+	} | null;
+	cameras?: Record<string, MachineCameraSpec> | null;
+	controller_boards?: Record<string, MachineControllerBoardSpec> | null;
+}
+
 export interface MachineOverview {
 	machine: {
 		id: string;
@@ -117,7 +152,7 @@ export interface MachineOverview {
 		local_ui_port: string | null;
 		created_at: string | null;
 		token_prefix: string;
-		hardware_info: Record<string, unknown> | null;
+		hardware_info: MachineHardwareSpecs | null;
 		owner: { display_name: string | null; email: string | null };
 	};
 	stats: MachineOverviewStats;
@@ -739,6 +774,19 @@ function resolveApiPath(path: string): string {
 	return `${base}${path}`;
 }
 
+// Stored-image endpoints briefly shipped a 1-year `immutable` Cache-Control that
+// (in S3 redirect mode) landed on the 307 redirect, poisoning browser caches
+// with presigned URLs that expire in an hour — thumbnails then 403'd forever
+// and a reload couldn't evict an `immutable` entry. Bump this to change the URL
+// and force a one-time re-fetch past those poisoned entries. Only needs bumping
+// again if a stale long-lived cache header ever ships anew.
+const IMAGE_CACHE_BUST = '2';
+
+function resolveImagePath(path: string): string {
+	const sep = path.includes('?') ? '&' : '?';
+	return resolveApiPath(`${path}${sep}cb=${IMAGE_CACHE_BUST}`);
+}
+
 function getCsrfToken(): string | null {
 	const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]*)/);
 	return match ? decodeURIComponent(match[1]) : null;
@@ -965,6 +1013,21 @@ export interface ColorLabelStats {
 	labeler_histogram: { '0': number; '1': number; '2': number; '3+': number };
 }
 
+export interface ColorCoverageEntry {
+	id: number;
+	name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	pieces: number;
+	labels: number;
+}
+
+export interface ColorCoverageResponse {
+	colors: ColorCoverageEntry[];
+	total_colors: number;
+	covered_colors: number;
+}
+
 export type ColorLabelSort =
 	| 'priority'
 	| 'recent'
@@ -973,6 +1036,7 @@ export type ColorLabelSort =
 	| 'most_color'
 	| 'least_crop'
 	| 'most_crop'
+	| 'rare_color'
 	| 'needs_me';
 
 export interface ColorLabelPieceCard {
@@ -995,6 +1059,21 @@ export interface ColorLabelPiecesPage {
 	has_more: boolean;
 	offset: number;
 	sort: ColorLabelSort;
+}
+
+export interface MachineLabeledPiece {
+	piece_uuid: string;
+	thumb_seq: number | null;
+	color_id: number;
+	color_name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	label_count: number;
+}
+
+export interface MachineLabeledPiecesResponse {
+	items: MachineLabeledPiece[];
+	total: number;
 }
 
 export interface ColorLabelPrediction {
@@ -1038,7 +1117,7 @@ export interface ColorLabelPieceDetail {
 	pixel_guess: ColorLabelPixelGuess | null;
 	model_prediction: ColorModelPrediction | null;
 	images: ColorLabelQueueImage[];
-	my_label: { color_id: number; notes: string | null } | null;
+	my_label: { color_id: number | null; cant_tell: boolean; notes: string | null } | null;
 	my_rejection: { reasons: string[] } | null;
 	prediction: ColorLabelPrediction;
 	correction: ColorLabelCorrection;
@@ -1071,7 +1150,7 @@ export interface ColorLabelQueueItem {
 	part: { part_id: string | null; part_name: string | null };
 	pixel_guess: ColorLabelPixelGuess | null;
 	images: ColorLabelQueueImage[];
-	my_label: { color_id: number; notes: string | null } | null;
+	my_label: { color_id: number | null; notes: string | null } | null;
 }
 
 export interface ColorLabelQueue {
@@ -1098,11 +1177,36 @@ export interface ColorModelsResponse {
 	model_dir: string;
 }
 
-// A "possibly the same piece" upstream C2/C3 crop candidate, ranked by the
-// shared time/angle heuristic. `predicted` = the heuristic's default selection.
-// `ai_same` = a stored vision-model verdict (true/false for crops it was shown,
-// null when it wasn't shown this crop or no AI prediction has been run). The UI
-// pre-selects `ai_same` over `predicted` when a prediction exists.
+// A piece_link matcher model: a pair of ONNX graphs (encoder + head) grouped by
+// name. The active one scores same-piece upstream crops in the labeling view.
+export interface LinkModel {
+	id: string;
+	name: string;
+	description: string | null;
+	kind: string;
+	encoder_filename: string;
+	head_filename: string;
+	sha256: string;
+	input_size: number;
+	embed_dim: number;
+	meta_dim: number;
+	file_size: number;
+	is_active: boolean;
+	updated_at: string | null;
+}
+
+export interface LinkModelsResponse {
+	models: LinkModel[];
+	model_dir: string;
+}
+
+// A "possibly the same piece" upstream C2/C3 crop candidate. `score` +
+// `predicted` are the shared time/angle heuristic's confidence and default
+// selection (kept untouched — they feed the was_predicted training signal).
+// `ai_same` = a stored vision-model (VLM) verdict; `model_same`/`model_score` =
+// the active link matcher model's pick and probability (null when not scored /
+// no model active). The UI pre-selects, in precedence order, `ai_same` →
+// `model_same` → `predicted`, per `prediction_source`.
 export interface PossibleCropCandidate {
 	local_id: number;
 	channel: number | null;
@@ -1114,6 +1218,8 @@ export interface PossibleCropCandidate {
 	score: number;
 	predicted: boolean;
 	ai_same: boolean | null;
+	model_same: boolean | null;
+	model_score: number | null;
 	available: boolean;
 }
 
@@ -1127,12 +1233,29 @@ export interface PossibleCropsResult {
 	arrival_ts: string | null;
 	candidates: PossibleCropCandidate[];
 	my_link: PieceCropLinkMember[];
-	prediction_source: 'ai' | 'heuristic';
+	prediction_source: 'ai' | 'model' | 'heuristic';
 	ai_model: string | null;
 	ai_reasoning: string | null;
+	// Name of the active link matcher model when prediction_source === 'model'.
+	link_model: string | null;
 	// Present only on the ai-predict POST response.
 	ai_cost_usd?: number | null;
 	ai_elapsed_ms?: number | null;
+}
+
+export interface AccessWindow {
+	role: string;
+	entity: string;
+	anchor: 'oldest' | 'newest';
+	size: number;
+	offset: number;
+	source: 'override' | 'default';
+	updated_at: string | null;
+}
+
+export interface AccessWindowsResponse {
+	admin: string;
+	windows: AccessWindow[];
 }
 
 export const api = {
@@ -1203,7 +1326,7 @@ export const api = {
 		);
 	},
 	machinePieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
-		return resolveApiPath(
+		return resolveImagePath(
 			`/api/machines/${machineId}/pieces/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
@@ -1223,7 +1346,7 @@ export const api = {
 		);
 	},
 	machineChannelCropImageUrl(machineId: string, localId: number) {
-		return resolveApiPath(`/api/machines/${machineId}/channel-crops/${localId}/image`);
+		return resolveImagePath(`/api/machines/${machineId}/channel-crops/${localId}/image`);
 	},
 
 	// Color labeling
@@ -1233,6 +1356,10 @@ export const api = {
 	colorLabelStats(opts: { machineId?: string | null } = {}) {
 		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
 		return request<ColorLabelStats>('GET', `/api/labeling/stats${qs}`);
+	},
+	colorCoverage(opts: { machineId?: string | null } = {}) {
+		const qs = opts.machineId ? `?machine_id=${opts.machineId}` : '';
+		return request<ColorCoverageResponse>('GET', `/api/labeling/color-coverage${qs}`);
 	},
 	colorLabelQueue(opts: { onlyUnlabeled?: boolean; limit?: number; offset?: number } = {}) {
 		const params = new URLSearchParams();
@@ -1266,7 +1393,13 @@ export const api = {
 			`/api/labeling/piece/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
-	submitColorLabel(body: { machine_id: string; piece_uuid: string; color_id: number; notes?: string | null }) {
+	submitColorLabel(body: {
+		machine_id: string;
+		piece_uuid: string;
+		color_id?: number | null;
+		cant_tell?: boolean;
+		notes?: string | null;
+	}) {
 		return request<{ ok: boolean; created: boolean; labeled_by_me: number }>(
 			'POST',
 			'/api/labeling',
@@ -1291,7 +1424,7 @@ export const api = {
 		);
 	},
 	colorLabelImageUrl(machineId: string, pieceUuid: string, seq: number) {
-		return resolveApiPath(
+		return resolveImagePath(
 			`/api/labeling/pieces/${machineId}/${encodeURIComponent(pieceUuid)}/images/${seq}`
 		);
 	},
@@ -1311,7 +1444,26 @@ export const api = {
 		);
 	},
 	channelCropLabelImageUrl(machineId: string, localId: number) {
-		return resolveApiPath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
+		return resolveImagePath(`/api/labeling/channel-crops/${machineId}/${localId}/image`);
+	},
+
+	// Same-machine labeled reference pieces (color-range calibration column)
+	machineLabeledPieces(
+		machineId: string,
+		opts: { anchorPiece: string; excludePiece?: string | null; limit?: number }
+	) {
+		const params = new URLSearchParams({ anchor_piece: opts.anchorPiece });
+		if (opts.excludePiece) params.set('exclude_piece', opts.excludePiece);
+		if (opts.limit) params.set('limit', String(opts.limit));
+		return request<MachineLabeledPiecesResponse>(
+			'GET',
+			`/api/labeling/machine/${machineId}/labeled-pieces?${params.toString()}`
+		);
+	},
+	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
+		return resolveImagePath(
+			`/api/labeling/machine/${machineId}/labeled-pieces/${encodeURIComponent(pieceUuid)}/image?seq=${seq}`
+		);
 	},
 	savePieceCropLink(body: {
 		machine_id: string;
@@ -1359,6 +1511,24 @@ export const api = {
 		return request<{ ok: boolean; model: ColorModel }>(
 			'POST',
 			`/api/color-models/${modelId}/deactivate`
+		);
+	},
+
+	// Link models (admin): scan/list the piece_link matcher pairs on disk and
+	// pick the active one that scores same-piece crops in the labeling view.
+	listLinkModels() {
+		return request<LinkModelsResponse>('GET', '/api/link-models');
+	},
+	activateLinkModel(modelId: string) {
+		return request<{ ok: boolean; model: LinkModel }>(
+			'POST',
+			`/api/link-models/${modelId}/activate`
+		);
+	},
+	deactivateLinkModel(modelId: string) {
+		return request<{ ok: boolean; model: LinkModel }>(
+			'POST',
+			`/api/link-models/${modelId}/deactivate`
 		);
 	},
 	createMachine(name: string, description?: string) {
@@ -1778,6 +1948,14 @@ export const api = {
 	},
 	deleteUser(id: string) {
 		return request<void>('DELETE', `/api/admin/users/${id}`);
+	},
+
+	// Admin: access windows (how much of the piece-bbox dataset each role can see)
+	getAccessWindows() {
+		return request<AccessWindowsResponse>('GET', '/api/admin/access-windows');
+	},
+	updateAccessWindow(role: string, entity: string, data: { anchor: string; size: number; offset: number }) {
+		return request<AccessWindowsResponse>('PUT', `/api/admin/access-windows/${role}/${entity}`, data);
 	},
 
 	// Admin: parts catalog DB browser

@@ -4,7 +4,14 @@
 // end. A module singleton so the order survives client-side navigation between
 // /piece-bboxes and /piece-bboxes/[machine_id]/[piece_uuid].
 
-import { api, type BrickLinkColor, type ColorLabelSort } from '$lib/api';
+import {
+	api,
+	type BrickLinkColor,
+	type ColorLabelPieceCard,
+	type ColorLabelSort,
+	type ColorLabelStats,
+	type Machine
+} from '$lib/api';
 
 export type PieceKey = { machine_id: string; piece_uuid: string };
 
@@ -22,6 +29,83 @@ export async function getColors(): Promise<BrickLinkColor[]> {
 }
 
 export type NavFilters = { sort: ColorLabelSort; machineId?: string | null; withCandidates?: boolean };
+
+const SORT_VALUES: ColorLabelSort[] = [
+	'priority',
+	'recent',
+	'oldest',
+	'least_color',
+	'most_color',
+	'least_crop',
+	'most_crop',
+	'rare_color',
+	'needs_me'
+];
+
+// Filters ↔ URL query params, so the dashboard's filter state survives
+// navigation (back from a piece lands on the same filtered list). Defaults
+// (priority / all machines / has-candidates) are omitted to keep URLs clean.
+export function filtersToSearch(f: NavFilters): string {
+	const params = new URLSearchParams();
+	if (f.sort !== 'priority') params.set('sort', f.sort);
+	if (f.machineId) params.set('machine', f.machineId);
+	if (f.withCandidates === false) params.set('candidates', '0');
+	return params.toString();
+}
+
+export function filtersFromSearch(sp: URLSearchParams): NavFilters {
+	const rawSort = sp.get('sort');
+	const sort = SORT_VALUES.includes(rawSort as ColorLabelSort) ? (rawSort as ColorLabelSort) : 'priority';
+	return {
+		sort,
+		machineId: sp.get('machine') || null,
+		withCandidates: sp.get('candidates') !== '0'
+	};
+}
+
+export function filtersKey(f: NavFilters): string {
+	return `${f.sort}|${f.machineId ?? ''}|${f.withCandidates === false ? 0 : 1}`;
+}
+
+// Where "back to the dashboard" should land: the list under the filters the
+// working queue was seeded from.
+export function dashboardUrl(): string {
+	const qs = filtersToSearch(filters);
+	return `/piece-bboxes${qs ? `?${qs}` : ''}`;
+}
+
+// Snapshot of the dashboard grid (items + stats + scroll) so returning from a
+// piece restores the exact list instantly; the page revalidates in the
+// background. Module singleton — survives client-side navigation like `queue`.
+export type GridSnapshot = {
+	key: string;
+	items: ColorLabelPieceCard[];
+	stats: ColorLabelStats | null;
+	offset: number;
+	hasMore: boolean;
+	scrollY: number;
+};
+
+let gridSnapshot: GridSnapshot | null = null;
+
+export function saveGrid(snap: GridSnapshot): void {
+	gridSnapshot = snap;
+}
+
+export function getGrid(key: string): GridSnapshot | null {
+	return gridSnapshot != null && gridSnapshot.key === key ? gridSnapshot : null;
+}
+
+// The machine list for the filter sidebar is fleet metadata that changes
+// rarely — cache it for the session instead of refetching on every visit.
+let machinesCache: Machine[] | null = null;
+
+export async function getMachinesCached(): Promise<Machine[]> {
+	if (machinesCache == null) {
+		machinesCache = await api.getMachines({ scope: 'all' });
+	}
+	return machinesCache;
+}
 
 let queue: PieceKey[] = [];
 let filters: NavFilters = { sort: 'priority', withCandidates: true };

@@ -3,6 +3,10 @@ services:
     image: postgres:16-alpine
     container_name: hive-postgres
     restart: unless-stopped
+    # Docker's default 64MB /dev/shm starves Postgres parallel workers on big
+    # scans (psycopg2 DiskFull: "could not resize shared memory segment") —
+    # took the labeling endpoints down on 2026-07-16.
+    shm_size: 1gb
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
+	import { goto, replaceState } from '$app/navigation';
+	import { page } from '$app/state';
+	import { onMount, tick } from 'svelte';
 	import {
 		api,
 		type ColorLabelPieceCard,
@@ -33,12 +35,16 @@
 		{ value: 'oldest', label: 'Oldest' }
 	];
 
+	// Filters initialize from the URL so a shared/back-navigated link restores
+	// the same list. Defaults: priority sort, all machines, has-candidates only.
+	const initialFilters = nav.filtersFromSearch(page.url.searchParams);
+
 	let stats = $state<ColorLabelStats | null>(null);
 	let machines = $state<Machine[]>([]);
-	let sort = $state<ColorLabelSort>('priority');
-	let machineId = $state<string | null>(null);
+	let sort = $state<ColorLabelSort>(initialFilters.sort);
+	let machineId = $state<string | null>(initialFilters.machineId ?? null);
 	// Default: only feed pieces that actually have a same-piece candidate list.
-	let withCandidates = $state(true);
+	let withCandidates = $state(initialFilters.withCandidates !== false);
 	let items = $state<ColorLabelPieceCard[]>([]);
 	let hasMore = $state(true);
 	let offset = 0;
@@ -82,6 +88,51 @@
 
 	function currentFilters(): nav.NavFilters {
 		return { sort, machineId, withCandidates };
+	}
+
+	// Mirror the filters into the URL (replace, not push — filter tweaks aren't
+	// history entries) so back-nav from a piece returns to this exact list.
+	function syncUrl() {
+		const qs = nav.filtersToSearch(currentFilters());
+		replaceState(`/piece-bboxes${qs ? `?${qs}` : ''}`, {});
+	}
+
+	function snapshot(): nav.GridSnapshot {
+		return {
+			key: nav.filtersKey(currentFilters()),
+			items: $state.snapshot(items) as ColorLabelPieceCard[],
+			stats: stats ? ($state.snapshot(stats) as ColorLabelStats) : null,
+			offset,
+			hasMore,
+			scrollY: window.scrollY
+		};
+	}
+
+	// Re-fetch what a restored snapshot is showing (first pages + stats) and
+	// swap it in quietly — stale-while-revalidate, no spinner, no scroll jump.
+	async function revalidate(key: string) {
+		try {
+			const limit = Math.min(Math.max(items.length, BATCH), 200);
+			const [s, pageRes] = await Promise.all([
+				api.colorLabelStats({ machineId }),
+				api.colorLabelPieces({ sort, machineId, withCandidates, limit, offset: 0 })
+			]);
+			if (nav.filtersKey(currentFilters()) !== key) return;
+			stats = s;
+			seenKeys = new Set();
+			const fresh: ColorLabelPieceCard[] = [];
+			for (const c of pageRes.items) {
+				if (!seenKeys.has(cardKey(c))) {
+					seenKeys.add(cardKey(c));
+					fresh.push(c);
+				}
+			}
+			items = fresh;
+			offset = pageRes.items.length;
+			hasMore = pageRes.has_more;
+		} catch {
+			// Keep showing the snapshot — it was good enough to render.
+		}
 	}
 
 	async function loadAll() {
@@ -132,22 +183,27 @@
 	function setSort(next: ColorLabelSort) {
 		if (next === sort) return;
 		sort = next;
+		syncUrl();
 		void loadAll();
 	}
 	function setMachine(next: string | null) {
 		if (next === machineId) return;
 		machineId = next;
+		syncUrl();
 		void loadAll();
 	}
 	function setWithCandidates(next: boolean) {
 		if (next === withCandidates) return;
 		withCandidates = next;
+		syncUrl();
 		void loadAll();
 	}
 
 	function open(card: ColorLabelPieceCard) {
-		// Seed the working list so the piece view steps through this same filtered
-		// order, then jump in.
+		// Snapshot the grid so coming back restores this exact list + scroll
+		// instantly, and seed the working list so the piece view steps through
+		// this same filtered order. Then jump in.
+		nav.saveGrid(snapshot());
 		nav.seed(items, currentFilters(), offset, hasMore);
 		void goto(`/piece-bboxes/${card.machine_id}/${encodeURIComponent(card.piece_uuid)}`);
 	}
@@ -155,19 +211,33 @@
 		if (items.length > 0) open(items[0]);
 	}
 
-	$effect(() => {
-		void loadAll();
-	});
+	onMount(() => {
+		const key = nav.filtersKey(currentFilters());
+		const snap = nav.getGrid(key);
+		if (snap) {
+			// Instant restore, then quietly re-fetch in the background.
+			stats = snap.stats;
+			items = [...snap.items];
+			seenKeys = new Set(snap.items.map(cardKey));
+			offset = snap.offset;
+			hasMore = snap.hasMore;
+			loading = false;
+			// After paint, so it lands after SvelteKit's own popstate scroll
+			// restoration (which has a stale position from before the grid
+			// existed) — last write wins.
+			void tick().then(() =>
+				requestAnimationFrame(() => window.scrollTo(0, snap.scrollY))
+			);
+			void revalidate(key);
+		} else {
+			void loadAll();
+		}
 
-	// Machines list for the filter — fetched once, independent of the filters.
-	$effect(() => {
-		void (async () => {
-			try {
-				machines = await api.getMachines({ scope: 'all' });
-			} catch {
-				machines = [];
-			}
-		})();
+		// Machines list for the filter — session-cached, independent of filters.
+		void nav
+			.getMachinesCached()
+			.then((m) => (machines = m))
+			.catch(() => (machines = []));
 	});
 </script>
 

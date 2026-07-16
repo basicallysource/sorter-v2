@@ -1,5 +1,6 @@
 import time
 import queue
+import random
 from typing import Optional
 import server.shared_state as shared_state
 from states.base_state import BaseState
@@ -778,6 +779,12 @@ class Positioning(BaseState):
         from local_state import get_current_bin_piece_counts
 
         piece_counts = get_current_bin_piece_counts()
+        # A category may be assigned to more than one bin (the same category_id
+        # appears in several bins' category_ids). When that happens we spread the
+        # load by picking uniformly at random among every reachable, non-full bin
+        # holding it — so N bins each take ~1/N of the pieces. Collected across
+        # the whole scan; the pick happens after the loop.
+        matching_candidates: list[BinAddress] = []
         first_unassigned: Optional[tuple[BinAddress, "Bin"]] = None
         # Least-loaded shared-bin candidate, used only when every bin is
         # already assigned and multi-category bins are enabled: (num_categories,
@@ -824,7 +831,8 @@ class Positioning(BaseState):
                         and category_id in b.category_ids
                         and not is_full
                     ):
-                        return address, False
+                        matching_candidates.append(address)
+                        continue
                     if b.category_ids:
                         bins_with_cats += 1
                     if is_full:
@@ -856,6 +864,12 @@ class Positioning(BaseState):
                     "every layer servo is unreachable"
                 )
             return None, False
+
+        # Category is assigned to one or more bins: route to one of them. With a
+        # single bin this is just that bin; with several it is a uniform random
+        # choice, so a category spanning N bins fills them at an even ~1/N rate.
+        if matching_candidates:
+            return random.choice(matching_candidates), False
 
         # MISC must never claim or use a real bin. The discard bucket below
         # the chute (rendered in the UI as the virtual Discard Bin) is what

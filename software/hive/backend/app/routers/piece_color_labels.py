@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import math
+import time
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -102,6 +103,32 @@ def _labelable_query(db: Session):
     )
 
 
+# The labelable-piece count is a full scan over machine_pieces with a
+# per-row image EXISTS — by far the heaviest part of the stats rollup (it's
+# the query that tipped Postgres over when /dev/shm ran out). It only changes
+# as new pieces sync in, never from labeling activity, so a short TTL cache is
+# safe and keeps every label-derived counter in the response live-accurate.
+_LABELABLE_COUNT_TTL_S = 300.0
+_labelable_count_cache: dict[tuple[object, str | None], tuple[float, int]] = {}
+
+
+def _cached_labelable_count(db: Session, user: User, machine_id: UUID | None) -> int:
+    key = (user.id, str(machine_id) if machine_id is not None else None)
+    hit = _labelable_count_cache.get(key)
+    now = time.monotonic()
+    if hit is not None and now - hit[0] < _LABELABLE_COUNT_TTL_S:
+        return hit[1]
+    q = apply_piece_access(db, _labelable_query(db), user)
+    if machine_id is not None:
+        q = q.filter(MachinePiece.machine_id == machine_id)
+    count = q.count()
+    if len(_labelable_count_cache) > 512:
+        for k in [k for k, (ts, _) in _labelable_count_cache.items() if now - ts >= _LABELABLE_COUNT_TTL_S]:
+            _labelable_count_cache.pop(k, None)
+    _labelable_count_cache[key] = (now, count)
+    return count
+
+
 class ColorOut(BaseModel):
     id: int
     name: str
@@ -134,10 +161,7 @@ def label_stats(
     one machine when machine_id is given, matching the grid's machine filter, and
     to the caller's visibility window (so a member's dashboard reflects only their
     slice, not global fleet totals; admins see everything)."""
-    labelable_q = apply_piece_access(db, _labelable_query(db), current_user)
-    if machine_id is not None:
-        labelable_q = labelable_q.filter(MachinePiece.machine_id == machine_id)
-    total_labelable = labelable_q.count()
+    total_labelable = _cached_labelable_count(db, current_user, machine_id)
 
     def _color_q():
         q = db.query(PieceColorLabel)

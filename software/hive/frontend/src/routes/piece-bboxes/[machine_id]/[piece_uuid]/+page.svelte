@@ -279,14 +279,14 @@
 		search = '';
 		const next = await nav.nextAfter({ machine_id: machineId, piece_uuid: pieceUuid });
 		if (next) gotoKey(next);
-		else void goto('/piece-bboxes');
+		else void goto(nav.dashboardUrl());
 	}
 
 	async function goPrev() {
 		search = '';
 		const prev = await nav.prevBefore({ machine_id: machineId, piece_uuid: pieceUuid });
 		if (prev) gotoKey(prev);
-		else void goto('/piece-bboxes');
+		else void goto(nav.dashboardUrl());
 	}
 
 	// Pick a color: writes immediately and highlights with a check. Does NOT
@@ -512,7 +512,7 @@
 <svelte:window on:keydown={onKey} />
 
 <div class="mb-4 flex items-center justify-between gap-3">
-	<a href="/piece-bboxes" class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
+	<a href={nav.dashboardUrl()} class="flex items-center gap-1 text-sm text-text-muted hover:text-text">
 		<ArrowLeft size={14} /> All pieces
 	</a>
 	{#if pos.total > 0 && pos.index >= 0}

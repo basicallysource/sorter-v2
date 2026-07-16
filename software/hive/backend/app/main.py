@@ -37,6 +37,7 @@ from app.routers import (
     upload,
 )
 from app.services.profile_catalog import get_existing_profile_catalog_service, get_profile_catalog_service
+from app.services.candidate_matview import get_candidate_matview_worker
 from app.services.condition_worker import get_condition_worker
 from app.services.machine_stats import get_machine_stats_worker
 from app.services.teacher_worker import get_teacher_worker
@@ -51,9 +52,11 @@ async def lifespan(_app: FastAPI):
     get_teacher_worker().start()
     get_condition_worker().start()
     get_machine_stats_worker().start()
+    get_candidate_matview_worker().start()
     try:
         yield
     finally:
+        get_candidate_matview_worker().stop()
         get_teacher_worker().stop()
         get_condition_worker().stop()
         get_machine_stats_worker().stop()

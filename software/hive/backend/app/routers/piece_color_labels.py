@@ -22,7 +22,10 @@ from uuid import UUID
 import numpy as np
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import and_, exists, false, func
+from sqlalchemy import String, and_, exists, false, func
+from sqlalchemy import column as sa_column
+from sqlalchemy import table as sa_table
+from sqlalchemy.dialects.postgresql import UUID as PGUUID
 from sqlalchemy.orm import Session
 
 from app.deps import get_current_user, get_db, verify_csrf
@@ -38,7 +41,6 @@ from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
 from app.services.channel_crop_lookup import find_possible_crops
-from app.services.channel_crop_lookup_params import DEFAULT_PARAMS
 from app.services.color_predictor import predict as predict_piece_color
 from app.services import link_predictor
 from app.services.piece_crop_ai_matcher import (
@@ -313,26 +315,17 @@ def color_coverage(
     }
 
 
-# Window (before/after the piece's arrival) in which a same-piece candidate crop
-# could exist — mirrors the shared lookup params so ordering agrees with what the
-# labeling view actually surfaces.
-_CANDIDATE_WINDOW = timedelta(seconds=DEFAULT_PARAMS.lookback_window_s)
-_CANDIDATE_SLOP = timedelta(seconds=DEFAULT_PARAMS.fwd_slop_s)
-
-
-def _has_candidates_exists():
-    """Correlated EXISTS: this piece's machine has at least one channel crop
-    within its arrival window — i.e. the same-piece panel will have candidates.
-    Cheap via the (machine_id, ts) index; arrival approximated by seen_at."""
-    arrival = func.coalesce(MachinePiece.seen_at, MachinePiece.recorded_at)
-    return exists().where(
-        and_(
-            MachineChannelCrop.machine_id == MachinePiece.machine_id,
-            MachineChannelCrop.ts.isnot(None),
-            MachineChannelCrop.ts >= arrival - _CANDIDATE_WINDOW,
-            MachineChannelCrop.ts <= arrival + _CANDIDATE_SLOP,
-        )
-    )
+# "Has same-piece candidates" — a channel crop exists within the piece's
+# arrival window (DEFAULT_PARAMS lookback/slop). Computed live this was a
+# correlated EXISTS that Postgres planned as a machine_id-only hash semi join
+# (scanning each machine's whole crop set per piece, >100s); it's precomputed
+# into the piece_has_candidates materialized view instead (a8c1d2e3f4a5
+# migration, refreshed by CandidateMatviewWorker) and hash-joined here.
+_piece_has_candidates = sa_table(
+    "piece_has_candidates",
+    sa_column("machine_id", PGUUID(as_uuid=True)),
+    sa_column("piece_uuid", String),
+)
 
 
 _PIECE_SORTS = {
@@ -456,7 +449,9 @@ def list_pieces(
             PieceCropLink.labeler_id == current_user.id,
         )
     )
-    has_candidates = _has_candidates_exists()
+    # LEFT JOIN against the precomputed matview: one hash build, O(1) per piece —
+    # both the with_candidates filter and the priority sort key come from it.
+    has_candidates = _piece_has_candidates.c.machine_id.isnot(None)
     # A piece this user rejected is handled — drop it from their queue.
     my_rejection = exists().where(
         and_(
@@ -482,6 +477,13 @@ def list_pieces(
         .outerjoin(
             crop_cnt_sq,
             and_(crop_cnt_sq.c.mid == MachinePiece.machine_id, crop_cnt_sq.c.puid == MachinePiece.piece_uuid),
+        )
+        .outerjoin(
+            _piece_has_candidates,
+            and_(
+                _piece_has_candidates.c.machine_id == MachinePiece.machine_id,
+                _piece_has_candidates.c.piece_uuid == MachinePiece.piece_uuid,
+            ),
         )
         .filter(MachinePiece.dead.is_(False), _available_image_exists(), _old_enough(), ~my_rejection)
     )

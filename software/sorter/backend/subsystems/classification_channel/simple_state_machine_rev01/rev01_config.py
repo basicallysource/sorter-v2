@@ -24,11 +24,12 @@ class Rev01Config:
     kick_off_output_deg: float = 180.0
     discharge_speed_usteps_per_s: int = 5000
     crop_padding_px: int = 15
-    # Hard ceiling on burst frames GRABBED at rest. With require_sharp_capture on
-    # this is the fallback cap — capture normally stops earlier, the instant a
-    # sharp frame lands. Set high enough to leave room to wait out the motion blur
-    # right after a piece settles (~30 fps, so 20 frames ≈ 0.66 s of headroom).
-    max_captures: int = 20
+    # Hard ceiling on burst frames GRABBED at rest. With require_sharp_capture
+    # off (the default) this is what ends the burst — 4 frames ≈ 130 ms at
+    # 30 fps, well inside the capture_at_rest_ms window — so every piece gets
+    # exactly this many frames. With require_sharp_capture on it's only the
+    # fallback cap; capture stops the instant a sharp frame lands.
+    max_captures: int = 4
     # Motion-blur gate. Keep grabbing frames AT REST until at least one crop is
     # sharp — Laplacian variance of the bbox crop >= min_sharpness_laplacian_var —
     # then stop and classify. Bounds: never exceed max_captures frames or
@@ -36,9 +37,11 @@ class Rev01Config:
     # captured is still what gets sent (sharpest-frame selection below), so a
     # mis-tuned floor only costs latency, never correctness. The floor is
     # camera/lighting/piece dependent — watch the per-capture "sharp=" log values
-    # and tune. Set require_sharp_capture False to restore the old fixed-window
-    # behavior (stop at capture_at_rest_ms / max_captures, send the last frame).
-    require_sharp_capture: bool = True
+    # and tune. Off by default: a sharp first frame ends the burst at ONE image,
+    # so classify_burst_count > 1 never gets its frames; the fixed-window
+    # behavior (stop at capture_at_rest_ms / max_captures) guarantees the full
+    # burst instead.
+    require_sharp_capture: bool = False
     min_sharpness_laplacian_var: float = 25.0
     # Hard time cap on the keep-waiting-for-sharp loop (only used when
     # require_sharp_capture is on).
@@ -47,9 +50,9 @@ class Rev01Config:
     # anchored for the upstream similarity search and sent to Brickognize. With
     # require_sharp_capture on these are the SHARPEST N crops (least motion blur);
     # otherwise the most-recent (last-N, most-settled) N. The rest of the burst is
-    # kept on the piece for review but did not influence the result. 1 = a single
-    # frame (the sharpest).
-    classify_burst_count: int = 1
+    # kept on the piece for review but did not influence the result. Default
+    # matches max_captures so the whole burst is used.
+    classify_burst_count: int = 4
     # Alongside the fused "combined" call, fire extra single-image Brickognize
     # requests IN PARALLEL and keep whichever result scores highest. These are
     # redundant, not sequential retries: a lone clean frame frequently recognizes

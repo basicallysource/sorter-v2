@@ -2,10 +2,19 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
+	import { ToggleSwitch } from '$lib/components/primitives';
+	import SettingRow from '$lib/components/settings/SettingRow.svelte';
 
 	const machine = getMachineContext();
 
 	const STATUS_POLL_MS = 3000;
+
+	// Backend defaults (classification_training.py) — drive the changed-from-
+	// default highlight + revert on each row.
+	const DEFAULT_ENABLED = false;
+	const DEFAULT_ANNOTATE = true;
+	const DEFAULT_PER_MINUTE = 6;
+	const DEFAULT_STORAGE_CAP_GB = 1;
 
 	let enabled = $state(false);
 	let annotate = $state(true);
@@ -105,93 +114,85 @@
 	});
 </script>
 
-<div class="flex flex-col gap-3">
-	<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
-		<input
-			type="checkbox"
+<div class="flex flex-col gap-2">
+	<SettingRow
+		label="Capture training frames"
+		description="Snapshots the latest frame from every live camera at the rate below and feeds each into the classification pipeline — saved to a session, queued, and uploaded to Hive. Runs in any machine mode without changing sorting behavior; it only reads camera frames. The setting persists across restarts."
+		changed={enabled !== DEFAULT_ENABLED}
+		defaultLabel={DEFAULT_ENABLED ? 'on' : 'off'}
+		onRevert={() => saveEnabled(DEFAULT_ENABLED)}
+	>
+		<ToggleSwitch
 			checked={enabled}
+			label="Capture training frames"
 			disabled={loading || saving || !initialized}
-			onchange={(event) => saveEnabled(event.currentTarget.checked)}
-			class="mt-0.5 h-4 w-4 accent-sky-500"
+			onToggle={() => saveEnabled(!enabled)}
 		/>
-		<span class="min-w-0">
-			<span class="block text-sm font-medium text-text">Capture training frames</span>
-			<span class="mt-0.5 block text-sm text-text-muted">
-				Snapshots the latest frame from every live camera at the rate below and feeds
-				each into the classification pipeline — saved to a session, queued, and
-				uploaded to Hive. Runs in any machine mode without changing sorting behavior;
-				it only reads camera frames. Off by default; the setting persists across
-				restarts.
-			</span>
-		</span>
-	</label>
+	</SettingRow>
 
-	<label class="flex items-start gap-3 border border-border bg-bg px-3 py-2.5 text-sm text-text">
-		<input
-			type="checkbox"
+	<SettingRow
+		label="Annotate with OpenRouter"
+		description="Run the Gemini (gemini_sam) detector on each frame before upload so samples arrive in Hive as teacher captures. Adds an OpenRouter call per frame per camera. If off (or no API key), frames upload as raw samples."
+		changed={annotate !== DEFAULT_ANNOTATE}
+		defaultLabel={DEFAULT_ANNOTATE ? 'on' : 'off'}
+		onRevert={() => saveAnnotate(DEFAULT_ANNOTATE)}
+	>
+		<ToggleSwitch
 			checked={annotate}
+			label="Annotate with OpenRouter"
 			disabled={loading || saving || !initialized}
-			onchange={(event) => saveAnnotate(event.currentTarget.checked)}
-			class="mt-0.5 h-4 w-4 accent-sky-500"
+			onToggle={() => saveAnnotate(!annotate)}
 		/>
-		<span class="min-w-0">
-			<span class="block text-sm font-medium text-text">Annotate with OpenRouter</span>
-			<span class="mt-0.5 block text-sm text-text-muted">
-				Run the Gemini (gemini_sam) detector on each frame before upload so samples
-				arrive in Hive as teacher captures. Adds an OpenRouter call per frame per
-				camera. If off (or no API key), frames upload as raw samples.
-			</span>
-		</span>
-	</label>
+	</SettingRow>
 
-	<label class="flex items-center justify-between gap-3 border border-border bg-bg px-3 py-2.5">
-		<span class="min-w-0">
-			<span class="block text-sm font-medium text-text">Capture rate</span>
-			<span class="mt-0.5 block text-sm text-text-muted">
-				Frames per minute per camera. Default 6 (one every 10s).
-			</span>
-		</span>
-		<span class="flex shrink-0 items-center gap-2">
-			<input
-				type="number"
-				min="0.1"
-				max="600"
-				step="1"
-				value={perMinute}
-				disabled={loading || saving || !initialized}
-				onchange={(event) => saveRate(Number(event.currentTarget.value))}
-				class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
-			/>
-			<span class="text-sm text-text-muted">/min</span>
-		</span>
-	</label>
+	<SettingRow
+		label="Capture rate"
+		description="Frames per minute per camera. Default 6 (one every 10s)."
+		forId="sample-capture-rate"
+		changed={perMinute !== DEFAULT_PER_MINUTE}
+		defaultLabel={String(DEFAULT_PER_MINUTE)}
+		onRevert={() => saveRate(DEFAULT_PER_MINUTE)}
+	>
+		<input
+			id="sample-capture-rate"
+			type="number"
+			min="0.1"
+			max="600"
+			step="1"
+			value={perMinute}
+			disabled={loading || saving || !initialized}
+			onchange={(event) => saveRate(Number(event.currentTarget.value))}
+			class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
+		/>
+		<span class="text-sm text-text-muted">/min</span>
+	</SettingRow>
 
-	<label class="flex items-center justify-between gap-3 border border-border bg-bg px-3 py-2.5">
-		<span class="min-w-0">
-			<span class="block text-sm font-medium text-text">Local storage cap</span>
-			<span class="mt-0.5 block text-sm text-text-muted">
-				Keep at most this much captured imagery on disk. Once exceeded, the oldest
-				samples are deleted first.
-				{#if storageUsedMb !== null}
-					Currently using
-					<span class="text-text">{(storageUsedMb / 1024).toFixed(2)} GB</span>.
-				{/if}
+	<SettingRow
+		label="Local storage cap"
+		description="Keep at most this much captured imagery on disk. Once exceeded, the oldest samples are deleted first."
+		forId="sample-capture-storage-cap"
+		changed={storageCapGb !== DEFAULT_STORAGE_CAP_GB}
+		defaultLabel="{DEFAULT_STORAGE_CAP_GB} GB"
+		onRevert={() => saveStorageCap(DEFAULT_STORAGE_CAP_GB)}
+	>
+		{#if storageUsedMb !== null}
+			<span class="text-sm text-text-muted">
+				using {(storageUsedMb / 1024).toFixed(2)} GB ·
 			</span>
-		</span>
-		<span class="flex shrink-0 items-center gap-2">
-			<input
-				type="number"
-				min="0.1"
-				max="500"
-				step="0.5"
-				value={storageCapGb}
-				disabled={loading || saving}
-				onchange={(event) => saveStorageCap(Number(event.currentTarget.value))}
-				class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
-			/>
-			<span class="text-sm text-text-muted">GB</span>
-		</span>
-	</label>
+		{/if}
+		<input
+			id="sample-capture-storage-cap"
+			type="number"
+			min="0.1"
+			max="500"
+			step="0.5"
+			value={storageCapGb}
+			disabled={loading || saving}
+			onchange={(event) => saveStorageCap(Number(event.currentTarget.value))}
+			class="w-20 border border-border bg-bg px-2 py-1 text-right text-sm text-text outline-none focus:border-primary"
+		/>
+		<span class="text-sm text-text-muted">GB</span>
+	</SettingRow>
 
 	{#if !initialized && !loading}
 		<div class="text-sm text-text-muted">

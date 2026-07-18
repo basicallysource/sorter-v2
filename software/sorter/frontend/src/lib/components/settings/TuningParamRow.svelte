@@ -1,11 +1,13 @@
 <script lang="ts">
-	import { Input, InfoTip } from '$lib/components/primitives';
+	import { Input, ToggleSwitch } from '$lib/components/primitives';
+	import SettingRow from '$lib/components/settings/SettingRow.svelte';
 	import type { TuningFieldMeta, TuningValues } from '$lib/settings/tuning';
 
-	// One tunable parameter: label, an info icon explaining it (when the backend
-	// supplies a description), the default hint, and a number/checkbox input.
-	// Shared by every tuning page. `values` is the page's reactive config object;
-	// this row writes the edited value straight back into it.
+	// One tunable parameter row, shared by every tuning page. Wraps SettingRow:
+	// info icon from the backend FIELD_META description, changed-from-default
+	// highlight, and a revert button that puts the default back (still needs
+	// Save to persist, same as any other edit). `values` is the page's reactive
+	// config object; this row writes edits straight back into it.
 	let {
 		field,
 		values = $bindable()
@@ -13,25 +15,38 @@
 		field: TuningFieldMeta;
 		values: TuningValues;
 	} = $props();
+
+	const changed = $derived(
+		field.type === 'bool'
+			? Boolean(values[field.key]) !== Boolean(field.default)
+			: Number(values[field.key]) !== Number(field.default)
+	);
+
+	const defaultLabel = $derived(
+		field.type === 'bool' ? (field.default ? 'on' : 'off') : String(field.default)
+	);
+
+	function revert() {
+		values[field.key] = field.default;
+	}
 </script>
 
-<div class="flex items-center gap-4">
-	<label class="flex w-72 items-center gap-1.5 text-sm text-text" for={field.key}>
-		<span>{field.label}</span>
-		{#if field.description}
-			<InfoTip text={field.description} />
-		{/if}
-		<span class="ml-auto shrink-0 text-xs text-text-muted">(default: {field.default})</span>
-	</label>
+<SettingRow
+	label={field.label}
+	description={field.description}
+	forId={field.key}
+	{changed}
+	{defaultLabel}
+	onRevert={revert}
+>
 	{#if field.type === 'bool'}
-		<input
-			id={field.key}
-			type="checkbox"
+		<ToggleSwitch
 			checked={Boolean(values[field.key])}
-			onchange={(e) => (values[field.key] = e.currentTarget.checked)}
+			label={field.label}
+			onToggle={() => (values[field.key] = !values[field.key])}
 		/>
 	{:else}
-		<div class="w-40">
+		<div class="w-36">
 			<!-- Function binding coerces the number|boolean store to a real number
 			     (the numeric branch only renders for non-bool fields). -->
 			<Input
@@ -41,4 +56,4 @@
 			/>
 		</div>
 	{/if}
-</div>
+</SettingRow>

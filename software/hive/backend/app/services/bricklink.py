@@ -37,9 +37,11 @@ def fetch_price_guide_batch(
 
     Beware the quantity fields: despite the names, `unit_quantity` is the number
     of individual pieces listed and `total_quantity` is the number of lots — the
-    opposite of what BrickLink's storefront API documents. Verified against
-    parts.db (Plate 1x3 in Tan: unit_quantity 723978, total_quantity 4044; the
-    reverse reading would mean 723k separate lots of one plate)."""
+    opposite of what BrickLink's storefront API documents. Confirmed against a
+    live call (Plate 1x3 in Light Bluish Gray: unit_quantity 679255,
+    total_quantity 3999; the reverse reading would mean 679k separate lots of one
+    plate). The inventory lot count also saturates around 4000, so `*_quantity`
+    on a common part is a sample ceiling, not a true total — rank by pieces."""
     if not api_key:
         raise BrickLinkError("BL_AFFILIATE_API_KEY is not configured")
     if len(combos) > PRICE_GUIDE_BATCH_SIZE:

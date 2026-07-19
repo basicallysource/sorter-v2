@@ -4,7 +4,8 @@
 		api,
 		type MachineOverview,
 		type MachineConfigBackupSummary,
-		type MachineConfigBackupDetail
+		type MachineConfigBackupDetail,
+		type MachineCameraSpec
 	} from '$lib/api';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -79,6 +80,37 @@
 		const res = cam.width && cam.height ? `${cam.width}×${cam.height}` : null;
 		const fps = cam.fps ? `${cam.fps} fps` : null;
 		return [res, fps].filter(Boolean).join(' · ') || '—';
+	}
+
+	// Color correction is a build-time kill switch on the machine, so a profile
+	// can be calibrated and switched on locally yet still never touch a frame.
+	// Report what actually happens, then what was configured.
+	function colorCorrectionLabel(cam: MachineCameraSpec): string {
+		const profile = cam.calibration?.color_profile;
+		if (!profile) return 'Color: —';
+		if (profile.applied) return 'Color: corrected';
+		if (profile.globally_enabled === false) {
+			return profile.calibrated
+				? 'Color: off in build (calibrated)'
+				: 'Color: off in build';
+		}
+		if (profile.calibrated) {
+			return profile.enabled ? 'Color: corrected' : 'Color: off (calibrated)';
+		}
+		return 'Color: not calibrated';
+	}
+
+	function calibrationDetail(cam: MachineCameraSpec): string {
+		const calibration = cam.calibration;
+		if (!calibration) return '';
+		const parts: string[] = [];
+		const settings = calibration.device_settings;
+		if (settings && Object.keys(settings).length > 0) {
+			parts.push(`${Object.keys(settings).length} device settings`);
+		}
+		const picture = calibration.picture_settings;
+		if (picture && Object.keys(picture).length > 0) parts.push('orientation set');
+		return parts.join(' · ');
 	}
 
 	function boardLabel(board: {
@@ -457,6 +489,10 @@
 										<dd class="text-text-muted">
 											{cam.model || 'Camera'}
 											<span class="block tabular-nums">{resolution(cam)}</span>
+											<span class="block">{colorCorrectionLabel(cam)}</span>
+											{#if calibrationDetail(cam)}
+												<span class="block">{calibrationDetail(cam)}</span>
+											{/if}
 										</dd>
 									</div>
 								{/each}

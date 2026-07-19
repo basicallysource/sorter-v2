@@ -19,8 +19,8 @@ from sqlalchemy.orm import Session
 from app.models.machine import Machine
 from app.models.machine_hardware_report import MachineHardwareReport
 
-# Camera fields the dashboard shows (model + capture format).
-_SUMMARY_CAMERA_KEYS = ("model", "width", "height", "fps", "fourcc")
+# Camera fields the dashboard shows (model + capture format + calibration state).
+_SUMMARY_CAMERA_KEYS = ("model", "width", "height", "fps", "fourcc", "calibration")
 
 
 def _summary_cameras(cameras: Any) -> dict[str, Any]:

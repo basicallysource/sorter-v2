@@ -4,6 +4,18 @@ import time
 from dataclasses import dataclass
 
 
+# Master kill switch for the per-camera color correction pipeline (CCM +
+# response LUT + gamma). Deliberately a hardcoded constant — not an env var and
+# not a machine.toml key — so no deployed machine can silently be running the
+# correction. Suspected cause of the wildly off-color images some machines
+# report; flip to True in the source and redeploy to re-enable it everywhere.
+#
+# Disabling only gates *application* of the profile. Calibrated profiles stay
+# persisted in [camera_color_profiles] untouched, so turning this back on
+# restores every machine's existing calibration as-is.
+COLOR_CORRECTION_ENABLED = False
+
+
 class ClassificationChannelMode(enum.Enum):
     CLASSIC_CAROUSEL = "classic_carousel"
     DYNAMIC = "dynamic"

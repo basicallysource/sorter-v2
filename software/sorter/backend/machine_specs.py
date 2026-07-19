@@ -25,7 +25,9 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-SCHEMA_VERSION = 1
+# 2: per-camera `calibration` block (color profile summary + device/picture
+# settings + capture mode).
+SCHEMA_VERSION = 2
 
 BOOT_ID = str(uuid.uuid4())
 _BOOTED_AT = datetime.now(timezone.utc).isoformat()
@@ -110,10 +112,97 @@ def _liveCameras() -> dict[str, Any]:
     return cameras
 
 
+def _machineParamsTable(section: str) -> dict[str, Any]:
+    try:
+        from toml_config import loadTomlFile
+
+        params_path = os.getenv("MACHINE_SPECIFIC_PARAMS_PATH")
+        if not params_path or not os.path.exists(params_path):
+            return {}
+        raw = loadTomlFile(params_path)
+        if not isinstance(raw, dict):
+            return {}
+        table = raw.get(section)
+        return table if isinstance(table, dict) else {}
+    except Exception:
+        return {}
+
+
+def _colorProfileSummary(raw: Any) -> dict[str, Any]:
+    # Summary, not the raw profile: the response LUTs are 256 floats per channel
+    # and would dwarf the rest of the snapshot. The 3x3 matrix and bias are small
+    # and are the part worth eyeballing when a machine reports off-color images.
+    from irl.config import COLOR_CORRECTION_ENABLED
+
+    summary: dict[str, Any] = {
+        "globally_enabled": COLOR_CORRECTION_ENABLED,
+        "calibrated": False,
+        "enabled": False,
+        "applied": False,
+        "matrix": None,
+        "bias": None,
+        "has_response_lut": False,
+        "has_gamma": False,
+    }
+    if not isinstance(raw, dict):
+        return summary
+    summary["calibrated"] = True
+    summary["enabled"] = bool(raw.get("enabled", False))
+    # What the pipeline actually does, as opposed to what the config asks for.
+    summary["applied"] = summary["enabled"] and COLOR_CORRECTION_ENABLED
+    matrix = raw.get("matrix")
+    if isinstance(matrix, list):
+        summary["matrix"] = matrix
+    bias = raw.get("bias")
+    if isinstance(bias, list):
+        summary["bias"] = bias
+    summary["has_response_lut"] = any(
+        isinstance(raw.get(key), list) for key in ("response_lut_r", "response_lut_g", "response_lut_b")
+    )
+    summary["has_gamma"] = any(
+        isinstance(raw.get(key), list) for key in ("gamma_a", "gamma_exp", "gamma_b")
+    )
+    return summary
+
+
+def _calibrationByRole() -> dict[str, dict[str, Any]]:
+    # Per-camera calibration state: the color correction summary plus the other
+    # persisted per-role calibrations (device controls, orientation, capture
+    # mode). Keyed by role so it can be merged onto whichever camera map wins.
+    color_profiles = _machineParamsTable("camera_color_profiles")
+    device_settings = _machineParamsTable("camera_device_settings")
+    picture_settings = _machineParamsTable("camera_picture_settings")
+    capture_modes = _machineParamsTable("camera_capture_modes")
+
+    roles = set(color_profiles) | set(device_settings) | set(picture_settings) | set(capture_modes)
+    result: dict[str, dict[str, Any]] = {}
+    for role in roles:
+        result[str(role)] = {
+            "color_profile": _colorProfileSummary(color_profiles.get(role)),
+            "device_settings": device_settings.get(role) if isinstance(device_settings.get(role), dict) else None,
+            "picture_settings": picture_settings.get(role) if isinstance(picture_settings.get(role), dict) else None,
+            "capture_mode": capture_modes.get(role) if isinstance(capture_modes.get(role), dict) else None,
+        }
+    return result
+
+
+def _withCalibration(cameras: dict[str, Any]) -> dict[str, Any]:
+    calibration = _calibrationByRole()
+    for role, entry in cameras.items():
+        if isinstance(entry, dict):
+            entry["calibration"] = calibration.get(str(role)) or {
+                "color_profile": _colorProfileSummary(None),
+                "device_settings": None,
+                "picture_settings": None,
+                "capture_mode": None,
+            }
+    return cameras
+
+
 def _cameras() -> dict[str, Any]:
     live = _liveCameras()
     if live:
-        return live
+        return _withCalibration(live)
     # Fall back to the TOML setup when the camera service isn't up yet.
     try:
         from blob_manager import getCameraSetup
@@ -130,7 +219,7 @@ def _cameras() -> dict[str, Any]:
         entry = _cameraEntry(value)
         if entry["device_index"] is not None or entry["url"] is not None:
             cameras[role] = entry
-    return cameras
+    return _withCalibration(cameras)
 
 
 def _controllerBoards() -> dict[str, Any]:

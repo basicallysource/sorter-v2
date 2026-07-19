@@ -164,6 +164,7 @@
 	let calibrationOpenrouterModel = $state(loadStoredCalibrationOpenrouterModel());
 	let calibrationApplyColorProfile = $state(loadStoredCalibrationApplyColorProfile());
 	let colorProfile = $state<CameraColorProfile | null>(null);
+	let colorCorrectionGloballyEnabled = $state(true);
 	let colorProfileLoading = $state(false);
 	let colorProfileRemoving = $state(false);
 	let colorProfileToggling = $state(false);
@@ -435,6 +436,7 @@
 			if (!res.ok) throw new Error(await res.text());
 			const data = await res.json();
 			colorProfile = normalizeCameraColorProfile(data.profile);
+			colorCorrectionGloballyEnabled = data.globally_enabled !== false;
 		} catch {
 			colorProfile = null;
 		} finally {
@@ -993,6 +995,7 @@
 							loading={colorProfileLoading}
 							removing={colorProfileRemoving}
 							toggling={colorProfileToggling}
+							globallyEnabled={colorCorrectionGloballyEnabled}
 							onReset={removeColorProfile}
 							onToggleEnabled={toggleColorProfileEnabled}
 						/>
@@ -1001,6 +1004,7 @@
 							<CalibrationPanel
 								bind:calibrationMethod
 								bind:calibrationApplyColorProfile
+								colorCorrectionGloballyEnabled={colorCorrectionGloballyEnabled}
 								{calibrating}
 								{saving}
 								{hasCamera}

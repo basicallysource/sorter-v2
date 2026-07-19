@@ -17,6 +17,7 @@ _PICTURE_NONIDENTITY_LOGGED = False
 _COLOR_ACTIVE_LOGGED = False
 
 from irl.config import (
+    COLOR_CORRECTION_ENABLED,
     CameraConfig,
     CameraColorProfile,
     CameraPictureSettings,
@@ -653,6 +654,12 @@ def apply_camera_color_profile(
     frame: np.ndarray,
     profile: CameraColorProfile | None,
 ) -> np.ndarray:
+    # Single choke point for every correction path (capture loop, calibration
+    # captures, direct stream) — gating here means the kill switch cannot be
+    # bypassed by a caller that reaches for a profile directly.
+    if not COLOR_CORRECTION_ENABLED:
+        return frame
+
     if profile is None or not getattr(profile, "enabled", False):
         return frame
 
@@ -1011,7 +1018,9 @@ class CaptureThread:
             "identity"
             if _picture_settings_is_identity(_initial_pic)
             else f"rotation={getattr(_initial_pic, 'rotation', '?')} flip_h={getattr(_initial_pic, 'flip_horizontal', '?')} flip_v={getattr(_initial_pic, 'flip_vertical', '?')}",
-            "enabled" if getattr(_initial_col, "enabled", False) else "disabled",
+            "globally-disabled"
+            if not COLOR_CORRECTION_ENABLED
+            else ("enabled" if getattr(_initial_col, "enabled", False) else "disabled"),
         )
         last_expected_frame_at = 0.0
         # Some UVC cameras (especially on Linux with MJPG) reset device controls

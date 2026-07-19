@@ -48,7 +48,7 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
     {
         "key": "machine_specs",
         "label": "Machine specs",
-        "description": "Basic hardware and software details — camera, controller board, platform and operating system — shown on the machine's dashboard and used for compatibility and support.",
+        "description": "Basic hardware and software details — camera, controller board, platform, operating system, and per-camera calibration state — shown on the machine's dashboard and used for compatibility and support.",
         "default": True,
     },
 )

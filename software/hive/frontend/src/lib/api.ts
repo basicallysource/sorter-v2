@@ -105,12 +105,31 @@ export interface MachineOverviewStats {
 	computed_at: string | null;
 }
 
+export interface MachineCameraColorProfileSpec {
+	globally_enabled?: boolean | null;
+	calibrated?: boolean | null;
+	enabled?: boolean | null;
+	applied?: boolean | null;
+	matrix?: number[][] | null;
+	bias?: number[] | null;
+	has_response_lut?: boolean | null;
+	has_gamma?: boolean | null;
+}
+
+export interface MachineCameraCalibrationSpec {
+	color_profile?: MachineCameraColorProfileSpec | null;
+	device_settings?: Record<string, number | boolean> | null;
+	picture_settings?: Record<string, number | boolean> | null;
+	capture_mode?: Record<string, number | string> | null;
+}
+
 export interface MachineCameraSpec {
 	model?: string | null;
 	width?: number | null;
 	height?: number | null;
 	fps?: number | null;
 	fourcc?: string | null;
+	calibration?: MachineCameraCalibrationSpec | null;
 }
 
 export interface MachineControllerBoardSpec {

@@ -39,6 +39,7 @@ from vision.channel_alignment import (
 from hardware.macos_camera_registry import refresh_macos_cameras
 from irl.bin_layout import getBinLayout
 from irl.config import (
+    COLOR_CORRECTION_ENABLED,
     cameraColorProfileToDict,
     cameraDeviceSettingsToDict,
     cameraPictureSettingsToDict,
@@ -4290,6 +4291,9 @@ def get_camera_color_profile(role: str) -> Dict[str, Any]:
         "ok": True,
         "role": role,
         "profile": profile,
+        # Saved profiles are still returned when the kill switch is off so the
+        # UI can show what was calibrated while making clear nothing applies.
+        "globally_enabled": COLOR_CORRECTION_ENABLED,
     }
 
 

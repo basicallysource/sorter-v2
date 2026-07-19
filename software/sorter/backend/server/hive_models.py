@@ -364,7 +364,7 @@ def list_remote_models_all(**filters: Any) -> dict:
     for target in resolve_targets():
         try:
             target_page = list_remote_models(target["id"], **per_target_filters)
-        except (HiveError, ValueError) as exc:
+        except Exception as exc:
             errors.append({"target_id": target["id"], "target_url": target.get("url") or "", "error": str(exc)})
             continue
         items = target_page.get("items") if isinstance(target_page, dict) else None

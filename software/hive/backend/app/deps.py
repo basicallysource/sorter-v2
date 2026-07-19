@@ -7,6 +7,7 @@ from fastapi import Cookie, Depends, Header, HTTPException, Request
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
+from app.models.device import Device
 from app.models.machine import Machine
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
@@ -66,6 +67,23 @@ def get_current_machine(
     if machine is None:
         raise HTTPException(status_code=401, detail="Invalid machine token")
     return machine
+
+
+def get_current_device(
+    db: Session = Depends(get_db),
+    authorization: str = Header(...),
+) -> Device:
+    """Auth for the hosted-services layer (silently enrolled sorters). Same
+    bearer scheme as machines but against the devices table — a machine token
+    does not grant device endpoints, and vice versa."""
+    if not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Invalid authorization header")
+    raw_token = authorization[7:]
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+    device = db.query(Device).filter(Device.token_hash == token_hash, Device.is_active.is_(True)).first()
+    if device is None:
+        raise HTTPException(status_code=401, detail="Invalid device token")
+    return device
 
 
 def require_role(*roles: str):

@@ -16,6 +16,7 @@ from app.routers import (
     auth,
     color_models,
     color_predict,
+    devices,
     installs,
     leaderboard,
     link_models,
@@ -89,6 +90,7 @@ app.include_router(machines.router)
 app.include_router(machine_config_backups.router)
 app.include_router(machine_lookup.router)
 app.include_router(installs.router)
+app.include_router(devices.router)
 app.include_router(machine_sync.router)
 app.include_router(profiles.router)
 app.include_router(upload.router)

@@ -1,4 +1,5 @@
 import hashlib
+import io
 import os
 import re
 import tempfile
@@ -74,6 +75,24 @@ def save_channel_crop_file(
     )
     file.file.seek(0)
     get_backend().write_stream(key, file.file, content_type=file.content_type)
+    return key
+
+
+def save_color_predict_bytes(
+    device_id: str, prediction_id: str, seq: int, channel: int | None, data: bytes, suffix: str
+) -> str:
+    # Hosted-services images live under a devices/ root, NOT under a bare
+    # machine-id prefix — device data must never mix into an account machine's
+    # namespace (delete_machine_files wipes by machine-id prefix).
+    channel_part = f"ch{int(channel)}" if channel is not None else "chx"
+    key = _join_key(
+        "devices",
+        _safe_path_component(device_id, "device id"),
+        "color_predict",
+        _safe_path_component(prediction_id, "prediction id"),
+        f"{int(seq):02d}_{channel_part}{suffix}",
+    )
+    get_backend().write_stream(key, io.BytesIO(data), content_type="image/jpeg" if suffix == ".jpg" else "image/png")
     return key
 
 

@@ -352,6 +352,11 @@ def predict_bytes(db: Session, images: list[bytes], channels: list[int]) -> dict
     return {
         "method": "color_model",
         "model_name": row.name,
+        # Provenance for the prediction log: reconcile() mutates/deletes rows as
+        # files change on disk, so the sha is the durable revision identity.
+        "model_id": str(row.id),
+        "model_filename": row.filename,
+        "model_sha256": row.sha256,
         "multiview": loaded.multiview,
         **top,
         "top": [e for i in order[:3] if (e := entry(int(i))) is not None],

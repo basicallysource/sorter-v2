@@ -1869,7 +1869,7 @@ def classification_channel_exit_incident_clear(
         and active.get("kind") == EXIT_STUCK_INCIDENT_KIND
         and active.get("source_kind") == C4_STALL_WATCHDOG_SOURCE_KIND
     ):
-        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND)
+        runtime_stats.clearActiveIncident(kind=EXIT_STUCK_INCIDENT_KIND, resolved_by="operator")
         return {"ok": True, "cleared": True, "kind": EXIT_STUCK_INCIDENT_KIND, "channel": "c4"}
     running = _classification_channel_running_state()
     try:
@@ -1917,6 +1917,7 @@ def classification_channel_fallback_incident_clear(
             if isinstance(active.get("piece_uuid"), str)
             else None
         ),
+        resolved_by="operator",
     )
     return {
         "ok": True,
@@ -2278,7 +2279,10 @@ def feeder_channel_exit_incident_clear(
     if requested_channel is not None and requested_channel != active_channel:
         raise HTTPException(status_code=400, detail="The active exit incident belongs to another channel.")
 
-    runtime_stats.clearActiveIncident(kind=str(active.get("kind") or CHANNEL_EXIT_STUCK_INCIDENT_KIND))
+    runtime_stats.clearActiveIncident(
+        kind=str(active.get("kind") or CHANNEL_EXIT_STUCK_INCIDENT_KIND),
+        resolved_by="operator",
+    )
     return {"ok": True, "cleared": True, "channel": active_channel}
 
 
@@ -2342,7 +2346,7 @@ def feeder_ch2_separation_incident_clear(
     if requested_channel is not None and requested_channel != "c2":
         raise HTTPException(status_code=400, detail="The active separation incident belongs to C2.")
 
-    runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(kind=C2_SEPARATION_INCIDENT_KIND, resolved_by="operator")
     return {"ok": True, "cleared": True, "channel": "c2"}
 
 
@@ -2360,7 +2364,7 @@ def feeder_bulk_feed_incident_clear(
     if requested_channel is not None and requested_channel not in {"c1", "ch1", "bulk_feeder"}:
         raise HTTPException(status_code=400, detail="The active bulk-feed incident belongs to C1.")
 
-    runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(kind=BULK_FEEDER_STALLED_INCIDENT_KIND, resolved_by="operator")
     return {"ok": True, "cleared": True, "channel": "c1"}
 
 
@@ -2372,7 +2376,9 @@ def feeder_detection_incident_clear() -> Dict[str, Any]:
         runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
         return {"ok": True, "cleared": False, "reason": "no_active_incident"}
 
-    runtime_stats.clearActiveIncident(kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(
+        kind=FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND, resolved_by="operator"
+    )
     return {"ok": True, "cleared": True, "channel": "feeder"}
 
 
@@ -2398,7 +2404,7 @@ def distribution_incident_clear() -> Dict[str, Any]:
                 approver(active.get("piece_uuid") if isinstance(active.get("piece_uuid"), str) else None)
             except Exception:
                 pass
-    runtime_stats.clearActiveIncident(kind=kind)
+    runtime_stats.clearActiveIncident(kind=kind, resolved_by="operator")
     return {"ok": True, "cleared": True, "kind": kind, "channel": "distribution"}
 
 

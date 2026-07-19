@@ -36,11 +36,13 @@ from global_config import GlobalConfig
 DEFAULT_ENDPOINT = "https://hive.basically.website"
 ENROLL_PATH = "/api/devices/enroll"
 COLOR_PREDICT_PATH = "/api/devices/color-predict"
+PING_PATH = "/api/devices/ping"
 
 # Tight on purpose — the classification path runs on a ~12 s total budget in
 # parallel with Brickognize, and a fallback color always exists.
 ENROLL_TIMEOUT_S = (5.0, 10.0)
 PREDICT_TIMEOUT_S = (3.0, 8.0)
+PING_TIMEOUT_S = (5.0, 15.0)
 MAX_PREDICT_IMAGES = 8
 
 # After a failed enroll, don't retry on every piece — the service being down
@@ -57,7 +59,20 @@ def _endpoint() -> str:
     return base.rstrip("/")
 
 
-def _enroll(gc: GlobalConfig, state: dict[str, Any]) -> Optional[dict[str, Any]]:
+# The status pinger runs without a GlobalConfig (it starts from the server's
+# startup hook, before/independent of the machine loop), so gc is Optional
+# everywhere here and logging degrades to silence without one.
+def _logInfo(gc: Optional[GlobalConfig], message: str) -> None:
+    if gc is not None:
+        gc.logger.info(message)
+
+
+def _logWarn(gc: Optional[GlobalConfig], message: str) -> None:
+    if gc is not None:
+        gc.logger.warn(message)
+
+
+def _enroll(gc: Optional[GlobalConfig], state: dict[str, Any]) -> Optional[dict[str, Any]]:
     global _last_enroll_failure_at
     device_key = state.get("device_key")
     if not isinstance(device_key, str) or not device_key.strip():
@@ -72,7 +87,7 @@ def _enroll(gc: GlobalConfig, state: dict[str, Any]) -> Optional[dict[str, Any]]
         body = response.json()
     except Exception as e:
         _last_enroll_failure_at = time.time()
-        gc.logger.warn(f"basically services: device enroll failed: {e}")
+        _logWarn(gc, f"basically services: device enroll failed: {e}")
         return None
     record = {
         "device_key": device_key,
@@ -81,11 +96,11 @@ def _enroll(gc: GlobalConfig, state: dict[str, Any]) -> Optional[dict[str, Any]]
         "enrolled_at": time.time(),
     }
     local_state.set_basically_services_state(record)
-    gc.logger.info(f"basically services: enrolled device {record['device_id']}")
+    _logInfo(gc, f"basically services: enrolled device {record['device_id']}")
     return record
 
 
-def _deviceState(gc: GlobalConfig) -> Optional[dict[str, Any]]:
+def _deviceState(gc: Optional[GlobalConfig]) -> Optional[dict[str, Any]]:
     with _enroll_lock:
         state = local_state.get_basically_services_state()
         token = state.get("token")
@@ -136,5 +151,38 @@ def predictColor(
         response.raise_for_status()
         return response.json()
     except Exception as e:
-        gc.logger.warn(f"basically services: color predict failed: {e}")
+        _logWarn(gc, f"basically services: color predict failed: {e}")
         return None
+
+
+def pingStatus(gc: Optional[GlobalConfig], payload: dict[str, Any]) -> bool:
+    """Send the hourly machine status report (status_ping.buildPayload) to the
+    device ping endpoint. Best-effort: enrolls the device if needed, retries
+    once through a silent re-enroll on 401, and returns False on any failure
+    without raising — a skipped ping loses nothing since the next one carries
+    the same cumulative counters."""
+    state = _deviceState(gc)
+    if state is None:
+        return False
+
+    def post(token: str) -> requests.Response:
+        return requests.post(
+            _endpoint() + PING_PATH,
+            headers={"Authorization": f"Bearer {token}"},
+            json=payload,
+            timeout=PING_TIMEOUT_S,
+        )
+
+    try:
+        response = post(state["token"])
+        if response.status_code == 401:
+            with _enroll_lock:
+                refreshed = _enroll(gc, local_state.get_basically_services_state())
+            if refreshed is None:
+                return False
+            response = post(refreshed["token"])
+        response.raise_for_status()
+        return True
+    except Exception as e:
+        _logWarn(gc, f"basically services: status ping failed: {e}")
+        return False

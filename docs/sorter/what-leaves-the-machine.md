@@ -25,17 +25,22 @@ recognizer and there is currently no way to sort without it — no off switch.
 The request carries the image and nothing else — no account, no machine
 identifier.
 
-## Status ping — anonymous, on by default
+## Status ping — on by default
 
 Once an hour (and shortly after the backend starts), the machine sends a small
-anonymous report to `hive.basically.website` so we know how many machines exist,
+status report to `hive.basically.website` so we know how many machines exist,
 whether they're online, what software they run, and roughly how much they sort.
 It runs whether or not you've connected a Hive account.
 
-It is keyed by a **random install ID** generated on the machine, and not the
-machine's local network details. We can tell one install apart from another and
-see the IP it connected from (which gives an approximate country/region, the
-same as any web request).
+To send it, the machine silently enrolls a **device identity** with
+`hive.basically.website` the first time: a random key generated on the machine,
+exchanged for a token. This is not an account and creates none — it only lets
+the server keep one record per machine instead of trusting self-reported ids.
+The report also carries a **random install ID** generated on the machine — that
+ID is your handle for viewing and deleting the data (below). Neither is derived
+from the machine's network details. We can tell one machine apart from another
+and see the IP it connected from (which gives an approximate country/region,
+the same as any web request).
 
 **If you've registered a Hive account,** the ping additionally includes your
 account machine IDs — the same IDs you already gave Hive when you registered —
@@ -72,9 +77,21 @@ ping is on or off, and the exact JSON that would be sent.
 
 **Deleting it:** copy your install ID from `/telemetry` and paste it into
 [hive.basically.website/forget](https://hive.basically.website/forget). That
-erases everything tied to that ID. (Turning the ping off stops future pings but
-doesn't delete what was already sent — use the form for that.) We also age old
-records out on our side over time; the form is there if you want it gone now.
+erases all status-report data tied to that ID. (Turning the ping off stops
+future pings but doesn't delete what was already sent — use the form for that.)
+We also age old records out on our side over time; the form is there if you
+want it gone now.
+
+## basically color model — off until you select it
+
+In Settings → Tuning → Classification Providers you can switch color
+prediction from Brickognize to the hosted color model at
+`hive.basically.website`. With it selected, the same cropped piece photos that
+go to Brickognize are also sent there (under the device identity above), and
+**are stored on our side** along with the prediction — that's what trains the
+next revision of the color model. Nothing else is sent: crops, camera channel
+numbers, and the piece's internal id. Switch the provider back to Brickognize
+and this traffic stops entirely.
 
 ## Hive — optional, off until you connect it
 

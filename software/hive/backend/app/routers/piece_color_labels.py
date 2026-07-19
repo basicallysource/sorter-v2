@@ -1428,7 +1428,7 @@ def delete_piece_crop_link(
 # Flags the sample itself as unusable (as opposed to labeling color / same-piece).
 # Rejected pieces drop out of the rejecter's queue (see list_pieces).
 
-_REJECT_REASONS = {"no_piece", "multiple_pieces"}
+_REJECT_REASONS = {"no_piece", "multiple_pieces", "not_lego"}
 
 
 class RejectionPayload(BaseModel):

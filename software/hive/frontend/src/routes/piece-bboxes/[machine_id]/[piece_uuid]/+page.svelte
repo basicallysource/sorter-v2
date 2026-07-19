@@ -28,7 +28,8 @@
 
 	const REJECT_REASONS: { value: string; label: string }[] = [
 		{ value: 'no_piece', label: 'No piece in the frame' },
-		{ value: 'multiple_pieces', label: 'Multiple pieces in the frame' }
+		{ value: 'multiple_pieces', label: 'Multiple pieces in the frame' },
+		{ value: 'not_lego', label: 'Not a real Lego piece' }
 	];
 
 	const SIMILAR_COUNT = 8;

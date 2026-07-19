@@ -11,8 +11,9 @@ class PieceRejection(Base):
     """A labeler's rejection of a piece's bbox sample — the crop is unusable for
     labeling. Distinct from a color label or same-piece link: it flags the sample
     itself. `reasons` is a list of reason codes (currently "no_piece" /
-    "multiple_pieces"), so multiple can apply and more can be added later. One
-    rejection per (machine, piece, labeler), mirroring the other label tables.
+    "multiple_pieces" / "not_lego"), so multiple can apply and more can be added
+    later. One rejection per (machine, piece, labeler), mirroring the other
+    label tables.
     """
 
     __tablename__ = "piece_rejections"

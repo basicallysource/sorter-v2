@@ -9,7 +9,7 @@
 		type PartBrickLinkColor,
 		type PossibleCropCandidate
 	} from '$lib/api';
-	import { hexToLab, isExoticFinish, labDistance, similarColors as labNeighbours } from '$lib/colorLab';
+	import { hexToLab, isExoticFinish, labDistance } from '$lib/colorLab';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
@@ -145,22 +145,12 @@
 	let blLoading = $state(false);
 	let blError = $state<string | null>(null);
 	let blSource = $state<'live' | 'cache'>('cache');
-	const blByColorId = $derived(new Map(blItems.map((it) => [it.color_id, it])));
 
-	// Exactly the colors the column will show, so the backend prices those live.
-	// Without this the answer comes from a cache that's missing most colors —
-	// which is how a part sold 387k times in dark bluish gray showed up as absent.
-	const blColorIds = $derived.by(() => {
-		const guess = guessColorId != null ? (colorsById.get(guessColorId) ?? null) : null;
-		if (!guess) return [] as number[];
-		return [guess.id, ...labNeighbours(colors, guess).map((c) => c.id)];
-	});
-
-	async function loadBrickLink(partId: string, colorIds: number[]) {
+	async function loadBrickLink(partId: string) {
 		blLoading = true;
 		blError = null;
 		try {
-			const res = await api.partBrickLinkColors(partId, { limit: 100, colorIds });
+			const res = await api.partBrickLinkColors(partId, 250);
 			blItems = res.items;
 			blItemNo = res.item_no;
 			blUpdatedAt = res.updated_at;
@@ -174,13 +164,12 @@
 
 	$effect(() => {
 		const partId = detail?.part.part_id ?? null;
-		const colorIds = blColorIds;
 		if (!partId) {
 			blItems = [];
 			blItemNo = null;
 			return;
 		}
-		void loadBrickLink(partId, colorIds);
+		void loadBrickLink(partId);
 	});
 
 	function isExotic(c: BrickLinkColor): boolean {

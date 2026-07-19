@@ -175,33 +175,14 @@ class PartColorAvailabilityResponse(BaseModel):
 @router.get("/part/{part_id}/bricklink-colors", response_model=PartColorAvailabilityResponse)
 def part_bricklink_colors(
     part_id: str,
-    limit: int = Query(24, ge=1, le=100),
-    colors: str | None = Query(None, description="Comma-separated BL color ids to price live"),
+    limit: int = Query(100, ge=1, le=250),
     _user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
 ) -> PartColorAvailabilityResponse:
-    """Which colors this part is actually sold in on BrickLink, ranked by pieces
-    for sale — a prior for the labeler ("this mold basically only exists in gray
-    and black"). Public catalog data, so no per-machine access gate.
-
-    `colors` asks for a live price-guide call covering exactly those color ids,
-    which is the only way to get the shortlist right: the parts.db cache averages
-    ~1.5 colors per item and skips most modern ones."""
-    color_ids: list[int] = []
-    if colors:
-        for raw in colors.split(","):
-            raw = raw.strip()
-            if raw:
-                try:
-                    color_ids.append(int(raw))
-                except ValueError:
-                    raise APIError(400, "colors must be comma-separated integers", "BAD_COLOR_IDS")
-        if len(color_ids) > 100:
-            raise APIError(400, "at most 100 colors may be priced at once", "TOO_MANY_COLORS")
-
-    result = get_profile_catalog_service().bricklink_part_colors(
-        part_id, limit=limit, color_ids=color_ids or None
-    )
+    """Every color this part is actually sold in on BrickLink, ranked by pieces
+    for sale — the labeler's prior for what this mold even exists in. Priced live
+    across the full palette; public catalog data, so no per-machine access gate."""
+    result = get_profile_catalog_service().bricklink_part_colors(part_id, limit=limit)
     return PartColorAvailabilityResponse(
         part_id=result["part_id"],
         item_no=result["item_no"],

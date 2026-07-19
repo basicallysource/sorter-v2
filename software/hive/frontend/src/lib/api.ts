@@ -1501,16 +1501,11 @@ export const api = {
 		);
 	},
 	// BrickLink for-sale color mix for a part (labeling prior column)
-	partBrickLinkColors(partId: string, opts?: { limit?: number; colorIds?: number[] }) {
-		const params = new URLSearchParams();
-		if (opts?.limit) params.set('limit', String(opts.limit));
-		// Asking for specific colors makes the backend price them live; the cache
-		// is missing most (item, color) combos.
-		if (opts?.colorIds?.length) params.set('colors', opts.colorIds.join(','));
-		const qs = params.toString();
+	partBrickLinkColors(partId: string, limit?: number) {
+		const qs = limit ? `?limit=${limit}` : '';
 		return request<PartBrickLinkColorsResponse>(
 			'GET',
-			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${qs ? `?${qs}` : ''}`
+			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${qs}`
 		);
 	},
 	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {

@@ -392,46 +392,45 @@ class ProfileCatalogService:
                 }
         return [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
 
-    def bricklink_part_colors(
-        self, part_id: str, limit: int = 24, color_ids: list[int] | None = None
-    ) -> dict[str, Any]:
-        """Colors this part is stocked in on BrickLink, most pieces for sale first.
+    def bricklink_part_colors(self, part_id: str, limit: int = 24) -> dict[str, Any]:
+        """Every color this part is stocked in on BrickLink, most pieces for sale
+        first, priced live across the whole palette.
 
-        With `color_ids`, prices exactly those colors live off the API — the only
-        way to get an answer for the specific colors a labeler is choosing
-        between, since the parts.db cache is missing most (item, color) combos.
-        Without it, or with no key configured, falls back to the cache."""
+        Deliberately not a shortlist. The palette is ~214 colors, a batch holds
+        500 and answers in ~0.2s, so there is no reason to guess which colors to
+        ask about — and guessing was actively harmful: filtering the query to
+        colors near a solid guess hid the pearl/metallic finishes that some molds
+        exclusively exist in (98347 is sold in Flat Silver and Pearl Dark Gray;
+        a Dark Bluish Gray guess suppressed both). Falls back to the parts.db
+        cache when no key is configured or the call fails."""
+        palette = {c["id"]: c for c in self.list_bricklink_colors()}
+
         with self._lock:
             result = bricklink.part_color_availability(self._conn, part_id, limit=limit)
 
         result["source"] = "cache"
-        if color_ids and self._config.bla_api_key and result["item_no"]:
+        if self._config.bla_api_key and result["item_no"]:
             try:
                 live = bricklink.fetch_color_quantities(
-                    self._config.bla_api_key, result["item_no"], color_ids
+                    self._config.bla_api_key, result["item_no"], sorted(palette)
                 )
             except bricklink.BrickLinkError:
                 live = {}
             if live:
-                cached = {it["color_id"]: it for it in result["items"]}
-                merged = [
+                items = [
                     {"color_id": color_id, **quantities}
                     for color_id, quantities in live.items()
                     if quantities["qty"] > 0
                 ]
-                # Anything cached but not asked about still belongs in the list —
-                # the "all colors" view reads the same payload.
-                merged.extend(it for cid, it in cached.items() if cid not in live)
-                merged.sort(key=lambda it: it["qty"], reverse=True)
-                total = sum(it["qty"] for it in merged)
-                for it in merged:
+                items.sort(key=lambda it: it["qty"], reverse=True)
+                total = sum(it["qty"] for it in items)
+                for it in items:
                     it["share"] = (it["qty"] / total) if total else 0.0
-                result["items"] = merged[:limit]
+                result["items"] = items[:limit]
                 result["total_qty"] = total
                 result["source"] = "live"
                 result["updated_at"] = None
 
-        palette = {c["id"]: c for c in self.list_bricklink_colors()}
         for item in result["items"]:
             color = palette.get(item["color_id"])
             item["color_name"] = color["name"] if color else str(item["color_id"])

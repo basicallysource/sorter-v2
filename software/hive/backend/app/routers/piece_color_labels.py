@@ -761,9 +761,23 @@ def piece_detail(
             if part_label.part_num
             else None,
         },
-        # The machine's own predicted mold, resolved against the catalog the same
-        # way — the picker shows it as the incumbent to accept or replace.
-        "predicted_part": get_profile_catalog_service().part_summary(piece.part_id) if piece.part_id else None,
+        # Brickognize's own predicted mold. Resolve against the catalog for the
+        # image/category, but a catalog-mirror miss must not erase the fact that
+        # Brickognize DID produce an answer — fall back to the bare id/name so
+        # the picker still offers it as the incumbent to accept or replace, and
+        # only shows "couldn't identify" when Brickognize truly gave nothing.
+        "predicted_part": (
+            get_profile_catalog_service().part_summary(piece.part_id)
+            or {
+                "part_num": piece.part_id,
+                "name": piece.part_name,
+                "part_cat_id": None,
+                "category_name": None,
+                "part_img_url": None,
+            }
+        )
+        if piece.part_id
+        else None,
         # Brickognize prediction + correction state. correctable is True only
         # when a listing id was captured (a prerequisite for submitting feedback).
         "prediction": {

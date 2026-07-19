@@ -78,6 +78,10 @@ class PieceSummary(BaseModel):
     color_corrected_id: Optional[str] = None
     part_feedback_submitted: bool = False
     color_feedback_submitted: bool = False
+    # Which service actually produced this piece's color / mold. None on rows
+    # recorded before the providers were selectable.
+    color_provider: Optional[str] = None
+    mold_provider: Optional[str] = None
 
 
 class PiecesListResponse(BaseModel):
@@ -437,6 +441,8 @@ def _ensurePieceRecorded(gc: Any, uuid: str) -> None:
             "brickognize_item_rank": payload.get("brickognize_item_rank"),
             "brickognize_item_type": payload.get("brickognize_item_type"),
             "brickognize_color_rank": payload.get("brickognize_color_rank"),
+            "color_provider": payload.get("color_provider"),
+            "mold_provider": payload.get("mold_provider"),
         },
         run_id=getattr(gc, "run_id", None),
         machine_id=getattr(gc, "machine_id", None),
@@ -578,6 +584,8 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
         # the recent list — the correction state itself lives only in the DB, so
         # it defaults to unreviewed here.
         correctable=payload.get("brickognize_listing_id") is not None,
+        color_provider=payload.get("color_provider"),
+        mold_provider=payload.get("mold_provider"),
     )
 
 

@@ -2,12 +2,8 @@
 	import { getBackendHttpBase } from '$lib/backend';
 	import { Button, Alert } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
-
-	type ProviderInfo = {
-		id: string;
-		label: string;
-		description: string;
-	};
+	import ProviderSelect from '$lib/components/settings/ProviderSelect.svelte';
+	import type { ProviderInfo } from '$lib/components/settings/ProviderSelect.svelte';
 
 	let colorProviders = $state<ProviderInfo[]>([]);
 	let moldProviders = $state<ProviderInfo[]>([]);
@@ -78,11 +74,11 @@
 	});
 </script>
 
-<svelte:head><title>Sorter - Classification Providers</title></svelte:head>
+<svelte:head><title>Sorter - Providers</title></svelte:head>
 
 <div class="flex flex-col gap-6 p-6">
 	<div>
-		<div class="text-lg font-semibold text-text">Classification Providers</div>
+		<div class="text-lg font-semibold text-text">Providers</div>
 		<div class="mt-1 text-sm text-text-muted">
 			Which service identifies each piece's mold, and which predicts its color. The two run in
 			parallel during classification; if a remote color provider is slow or unreachable the piece
@@ -105,17 +101,7 @@
 			title="Color prediction"
 			description="Which service answers what color is this piece."
 		>
-			<div class="flex flex-wrap gap-2">
-				{#each colorProviders as p}
-					<Button
-						variant={selectedColor === p.id ? 'primary' : 'secondary'}
-						size="sm"
-						onclick={() => (selectedColor = p.id)}
-					>
-						{p.label}{p.id === activeColor ? ' (current)' : ''}
-					</Button>
-				{/each}
-			</div>
+			<ProviderSelect options={colorProviders} bind:selected={selectedColor} active={activeColor} />
 			{#if currentColor}
 				<div class="mt-3 text-sm text-text-muted">{currentColor.description}</div>
 			{/if}
@@ -125,17 +111,7 @@
 			title="Mold detection"
 			description="Which service answers what part is this piece."
 		>
-			<div class="flex flex-wrap gap-2">
-				{#each moldProviders as p}
-					<Button
-						variant={selectedMold === p.id ? 'primary' : 'secondary'}
-						size="sm"
-						onclick={() => (selectedMold = p.id)}
-					>
-						{p.label}{p.id === activeMold ? ' (current)' : ''}
-					</Button>
-				{/each}
-			</div>
+			<ProviderSelect options={moldProviders} bind:selected={selectedMold} active={activeMold} />
 			{#if currentMold}
 				<div class="mt-3 text-sm text-text-muted">{currentMold.description}</div>
 			{/if}

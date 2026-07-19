@@ -133,6 +133,12 @@ export interface KnownObjectData {
   brickognize_source_view?: string | null;
   // Set when a Brickognize listing was captured — makes the piece correctable.
   brickognize_listing_id?: string | null;
+  // Which service actually produced the applied color / mold. Reflects what
+  // answered, not what was configured — a hosted color provider that times out
+  // leaves this as "brickognize". null on pieces classified before providers
+  // were recorded.
+  color_provider?: string | null;
+  mold_provider?: string | null;
   recognition_image_set?: RecognitionImage[];
   classification_attempts?: ClassificationAttempt[];
   classification_strategy?: ClassificationAttemptStrategy | null;

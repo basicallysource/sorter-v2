@@ -40,7 +40,7 @@ _PIECE_UPDATE_COLS = (
     "part_id", "part_name", "color_id", "color_name", "category_id", "confidence",
     "bin_x", "bin_y", "bin_z", "dead", "brickognize_preview_url",
     "brickognize_listing_id", "brickognize_item_rank", "brickognize_item_type",
-    "brickognize_color_rank",
+    "brickognize_color_rank", "color_provider", "mold_provider",
 )
 _IMAGE_UPDATE_COLS = (
     "local_id", "source", "channel", "ts", "captured_at", "sharpness", "bytes",
@@ -119,6 +119,8 @@ class PieceRecordIn(BaseModel):
     brickognize_item_rank: int | None = None
     brickognize_item_type: str | None = None
     brickognize_color_rank: int | None = None
+    color_provider: str | None = None
+    mold_provider: str | None = None
 
 
 class PieceRecordsBatch(BaseModel):
@@ -229,6 +231,8 @@ def sync_piece_records(
                 "brickognize_item_rank": rec.brickognize_item_rank,
                 "brickognize_item_type": rec.brickognize_item_type,
                 "brickognize_color_rank": rec.brickognize_color_rank,
+                "color_provider": rec.color_provider,
+                "mold_provider": rec.mold_provider,
                 "created_at": now,
             }
         )

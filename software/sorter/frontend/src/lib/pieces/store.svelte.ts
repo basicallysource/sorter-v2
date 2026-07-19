@@ -30,6 +30,10 @@ export type PieceSummary = {
 	color_corrected_id?: string | null;
 	part_feedback_submitted?: boolean;
 	color_feedback_submitted?: boolean;
+	// Which service actually produced this piece's color / mold. Null on rows
+	// recorded before the providers were selectable.
+	color_provider?: string | null;
+	mold_provider?: string | null;
 };
 
 // GET /api/pieces/{uuid} — tiered envelope. `detail` is the full KnownObject

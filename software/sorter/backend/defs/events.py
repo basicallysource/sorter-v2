@@ -172,6 +172,11 @@ class KnownObjectData(BaseModel):
     brickognize_item_rank: Optional[int] = None
     brickognize_item_type: Optional[str] = None
     brickognize_color_rank: Optional[int] = None
+    # Which service actually produced the applied color / mold. Reflects what
+    # answered, not what was configured — a hosted color provider that times out
+    # leaves this as "brickognize".
+    color_provider: Optional[str] = None
+    mold_provider: Optional[str] = None
     # C4 burst captures + any upstream (C2/C3) match crops, each flagged with
     # whether it was actually submitted to Brickognize.
     recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)

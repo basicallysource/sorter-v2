@@ -130,6 +130,10 @@ def _recordToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "brickognize_item_rank": row["brickognize_item_rank"],
         "brickognize_item_type": row["brickognize_item_type"],
         "brickognize_color_rank": row["brickognize_color_rank"],
+        # Which service actually produced this piece's color / mold, so Hive can
+        # compare provider accuracy against user corrections.
+        "color_provider": row["color_provider"],
+        "mold_provider": row["mold_provider"],
     }
 
 

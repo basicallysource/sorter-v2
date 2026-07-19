@@ -33,6 +33,9 @@ def _serializePiece(p: KnownObject) -> dict:
         "brickognize_item_rank": p.brickognize_item_rank,
         "brickognize_item_type": p.brickognize_item_type,
         "brickognize_color_rank": p.brickognize_color_rank,
+        # Which service actually produced the applied color / mold.
+        "color_provider": p.color_provider,
+        "mold_provider": p.mold_provider,
     }
 
 

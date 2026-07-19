@@ -633,6 +633,18 @@
 		return crops.filter((c) => c.ts != null && tsWasUsed(c.ts, tss));
 	}
 
+	// Which service actually answered for this piece. Pieces classified before
+	// providers were recorded have no value — "—" rather than a guess.
+	const PROVIDER_LABELS: Record<string, string> = {
+		brickognize: 'Brickognize',
+		hive_basically: 'basically color model'
+	};
+
+	function providerLabel(id: string | null | undefined): string {
+		if (!id) return '—';
+		return PROVIDER_LABELS[id] ?? id;
+	}
+
 	function confidenceClass(conf: number | null | undefined): string {
 		if (conf == null) return 'text-text-muted';
 		const pct = conf * 100;
@@ -794,6 +806,12 @@
 								{ds.color_name && ds.color_name !== 'Any Color' ? ds.color_name : '—'}
 							</span>
 
+							<span class="text-text-muted">Color source</span>
+							<span class="text-text">{providerLabel(ds.color_provider)}</span>
+
+							<span class="text-text-muted">Mold source</span>
+							<span class="text-text">{providerLabel(ds.mold_provider)}</span>
+
 							<span class="text-text-muted">Category</span>
 							<span class="text-text">
 								{ds.category_id ? (sortingProfileStore.getCategoryName(ds.category_id) ?? '—') : '—'}
@@ -924,6 +942,12 @@
 						<span class="text-text">
 							{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
 						</span>
+
+						<span class="text-text-muted">Color source</span>
+						<span class="text-text">{providerLabel(piece.color_provider)}</span>
+
+						<span class="text-text-muted">Mold source</span>
+						<span class="text-text">{providerLabel(piece.mold_provider)}</span>
 
 						<span class="text-text-muted">Category</span>
 						<span class="text-text">{cat_name ?? '—'}</span>

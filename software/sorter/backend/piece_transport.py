@@ -315,6 +315,9 @@ class ClassificationChannelTransport(PieceTransport):
         obj.category_id = None
         obj.destination_bin = None
         obj.confidence = None
+        # No classification survives, so no provider produced one.
+        obj.color_provider = None
+        obj.mold_provider = None
         obj.classification_status = status
         obj.classified_at = time.time()
         obj.updated_at = time.time()

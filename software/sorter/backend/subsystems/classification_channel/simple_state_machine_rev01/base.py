@@ -10,6 +10,11 @@ import cv2
 import numpy as np
 
 from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
+from classification.providers import (
+    COLOR_PROVIDER_BRICKOGNIZE,
+    COLOR_PROVIDER_HIVE_BASICALLY,
+    MOLD_PROVIDER_BRICKOGNIZE,
+)
 from defs.known_object import (
     ClassificationAttempt,
     ClassificationAttemptStrategy,
@@ -25,7 +30,7 @@ from subsystems.classification_channel.five_sector_platter import C4FiveSectorPl
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
 
-from .constants import LOG_TAG
+from .constants import HOSTED_COLOR_JOIN_BUDGET_S, LOG_TAG
 from .context import SimpleStateMachineRev01Context
 from .vision import Rev01Vision
 
@@ -350,8 +355,12 @@ class Rev01BaseState(BaseState):
                     with self.ctx.classify_lock:
                         self.ctx.classification_error = "no_captures"
                     return
+                # The hosted color provider (when selected) runs alongside the
+                # Brickognize fan-out rather than after it, so choosing it costs
+                # no extra wall-clock unless it is slower than Brickognize.
+                hosted_color = self._maybeStartHostedColorPredict(sendable, piece_uuid)
                 requests = self._buildClassifyRequests(sendable)
-                self._runClassifyRequests(requests, piece_uuid)
+                self._runClassifyRequests(requests, piece_uuid, hosted_color)
             except Exception as exc:
                 with self.ctx.classify_lock:
                     self.ctx.classification_error = str(exc)
@@ -452,8 +461,91 @@ class Rev01BaseState(BaseState):
                 th.join()
         return [r for r in out if r is not None]
 
+    def _maybeStartHostedColorPredict(
+        self, sendable: list[_SendImage], piece_uuid: Optional[str]
+    ) -> Optional[dict]:
+        # Fires the hosted color request on its own thread so it overlaps the
+        # Brickognize fan-out. Returns None (and costs nothing) unless a hosted
+        # provider is actually selected.
+        # Imported lazily: basically_services pulls in local_state, and this
+        # module is imported by the state machine at boot.
+        import basically_services
+        from toml_config import getClassificationProviders
+
+        if getClassificationProviders()["color_provider"] != COLOR_PROVIDER_HIVE_BASICALLY:
+            return None
+        holder: dict = {"started_at": time.monotonic()}
+
+        def run() -> None:
+            blobs: list[bytes] = []
+            channels: list[int] = []
+            for s in sendable:
+                ok, buf = cv2.imencode(".jpg", s.bgr)
+                if not ok:
+                    continue
+                blobs.append(buf.tobytes())
+                # Burst frames are C4 by definition; upstream crops carry the
+                # channel they were captured on.
+                channels.append(4 if s.rec.source == "c4_burst" else int(s.rec.channel or 4))
+            if not blobs:
+                return
+            try:
+                result = basically_services.predictColor(
+                    self.gc,
+                    blobs,
+                    channels,
+                    client_info={"piece_uuid": piece_uuid} if piece_uuid else None,
+                )
+            except Exception as exc:
+                self.logger.warning(f"{LOG_TAG} hosted color predict failed: {exc}")
+                return
+            if result is not None:
+                holder["result"] = result
+
+        thread = threading.Thread(target=run, daemon=True, name="hosted-color-predict")
+        holder["thread"] = thread
+        thread.start()
+        return holder
+
+    def _resolveHostedColor(self, hosted_color: Optional[dict]) -> None:
+        # Joins the hosted request within its budget and records BOTH the color
+        # override and which provider actually answered. A timeout or a bad
+        # payload is not an error: the piece keeps Brickognize's color and is
+        # recorded as brickognize-sourced, so the stored provenance always
+        # reflects what really produced the color rather than what was configured.
+        if hosted_color is None:
+            self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
+            self.ctx.hosted_color = None
+            return
+        remaining = max(
+            0.0,
+            HOSTED_COLOR_JOIN_BUDGET_S - (time.monotonic() - hosted_color["started_at"]),
+        )
+        hosted_color["thread"].join(remaining)
+        result = hosted_color.get("result")
+        color_id = result.get("color_id") if isinstance(result, dict) else None
+        color_name = result.get("color_name") if isinstance(result, dict) else None
+        if color_id is None or not color_name:
+            self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
+            self.ctx.hosted_color = None
+            self.logger.info(
+                f"{LOG_TAG} hosted color unavailable within "
+                f"{HOSTED_COLOR_JOIN_BUDGET_S:.0f}s — falling back to Brickognize's color"
+            )
+            return
+        # Hive returns BrickLink color ids as ints; the sorting profile (and
+        # Brickognize) key on the same ids as strings.
+        self.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
+        self.ctx.hosted_color = (str(color_id), str(color_name))
+        self.logger.info(
+            f"{LOG_TAG} hosted color applied: {color_name} ({color_id})"
+        )
+
     def _runClassifyRequests(
-        self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
+        self,
+        requests: list[_ClassifyRequest],
+        piece_uuid: Optional[str],
+        hosted_color: Optional[dict] = None,
     ) -> None:
         # Fire every request concurrently and apply one result. No sequential
         # retries: the calls are redundant and run in parallel. The combined
@@ -575,6 +667,11 @@ class Rev01BaseState(BaseState):
                 f"{LOG_TAG} all {len(requests)} classify requests errored"
             )
 
+        # MUST settle before _finalizeAttempts publishes classification_result:
+        # AWAITING_DISTRIBUTION polls for that field, not for this thread, so a
+        # provider resolved afterwards could miss the piece entirely.
+        self._resolveHostedColor(hosted_color)
+        self.ctx.mold_provider = MOLD_PROVIDER_BRICKOGNIZE
         self._finalizeAttempts(requests, attempts, attempt_reqs, applied)
 
     def _finalizeAttempts(
@@ -724,8 +821,16 @@ class Rev01BaseState(BaseState):
                 obj.color_id = str(best_color.get("id", "any_color"))
                 obj.color_name = str(best_color.get("name", "Any Color"))
                 obj.brickognize_color_rank = best_color.get("rank")
+            # A hosted provider's answer overrides Brickognize's color (the
+            # per-attempt records keep Brickognize's, so both remain visible).
+            if self.ctx.hosted_color is not None:
+                obj.color_id, obj.color_name = self.ctx.hosted_color
+                obj.brickognize_color_rank = None
         else:
             obj.classification_status = ClassificationStatus.unknown
+
+        obj.color_provider = self.ctx.color_provider
+        obj.mold_provider = self.ctx.mold_provider
 
         obj.classified_at = time.time()
 

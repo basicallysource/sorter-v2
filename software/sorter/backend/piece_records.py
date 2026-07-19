@@ -104,6 +104,11 @@ def _ensureInitialized() -> None:
                 ("part_feedback_submitted", "INTEGER NOT NULL DEFAULT 0"),
                 ("color_feedback_submitted", "INTEGER NOT NULL DEFAULT 0"),
                 ("correction_updated_at", "REAL"),
+                # Which service actually produced this piece's color / mold (see
+                # classification.providers). NULL on rows written before the
+                # providers were selectable.
+                ("color_provider", "TEXT"),
+                ("mold_provider", "TEXT"),
             ):
                 if _col not in existing_columns:
                     conn.execute(
@@ -176,8 +181,8 @@ def recordPiece(
             "part_id, part_name, color_id, color_name, category_id, confidence, "
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-            "brickognize_color_rank) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "brickognize_color_rank, color_provider, mold_provider) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(uuid) DO UPDATE SET "
             "run_id=excluded.run_id, machine_id=excluded.machine_id, "
             "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
@@ -190,7 +195,9 @@ def recordPiece(
             "brickognize_listing_id=excluded.brickognize_listing_id, "
             "brickognize_item_rank=excluded.brickognize_item_rank, "
             "brickognize_item_type=excluded.brickognize_item_type, "
-            "brickognize_color_rank=excluded.brickognize_color_rank",
+            "brickognize_color_rank=excluded.brickognize_color_rank, "
+            "color_provider=excluded.color_provider, "
+            "mold_provider=excluded.mold_provider",
             (
                 uuid_val,
                 run_id,
@@ -213,6 +220,8 @@ def recordPiece(
                 piece.get("brickognize_item_rank"),
                 piece.get("brickognize_item_type"),
                 piece.get("brickognize_color_rank"),
+                piece.get("color_provider"),
+                piece.get("mold_provider"),
             ),
         )
         conn.commit()
@@ -373,7 +382,8 @@ _SUMMARY_COLUMNS = (
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, part_correct, color_corrected_id, "
-    "part_feedback_submitted, color_feedback_submitted"
+    "part_feedback_submitted, color_feedback_submitted, "
+    "color_provider, mold_provider"
 )
 
 
@@ -430,6 +440,8 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_corrected_id": row["color_corrected_id"],
         "part_feedback_submitted": bool(row["part_feedback_submitted"]),
         "color_feedback_submitted": bool(row["color_feedback_submitted"]),
+        "color_provider": row["color_provider"],
+        "mold_provider": row["mold_provider"],
     }
 
 
@@ -582,7 +594,7 @@ _SYNC_COLUMNS = (
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-    "brickognize_color_rank"
+    "brickognize_color_rank, color_provider, mold_provider"
 )
 
 

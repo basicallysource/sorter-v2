@@ -3,6 +3,7 @@ from typing import Optional
 
 import numpy as np
 
+from classification.providers import DEFAULT_COLOR_PROVIDER, DEFAULT_MOLD_PROVIDER
 from defs.known_object import (
     ClassificationAttempt,
     ClassificationAttemptStrategy,
@@ -52,6 +53,14 @@ class SimpleStateMachineRev01Context:
         self.discharging_started_at: float = 0.0
         self.classification_result: object = None
         self.classification_error: Optional[str] = None
+        # Which service actually produced the color/mold applied to this piece.
+        # color_provider is only the configured provider if that provider
+        # answered in time — a hosted-provider timeout falls back to Brickognize
+        # and is recorded as such (see base._resolveHostedColor). hosted_color
+        # carries the remote (color_id, color_name) to override Brickognize's.
+        self.color_provider: str = DEFAULT_COLOR_PROVIDER
+        self.mold_provider: str = DEFAULT_MOLD_PROVIDER
+        self.hosted_color: Optional[tuple[str, str]] = None
         self.classify_thread: Optional[threading.Thread] = None
         self.classify_lock = threading.Lock()
         self.known_object: Optional[KnownObject] = None
@@ -100,6 +109,9 @@ class SimpleStateMachineRev01Context:
         self.discharging_started_at = 0.0
         self.classification_result = None
         self.classification_error = None
+        self.color_provider = DEFAULT_COLOR_PROVIDER
+        self.mold_provider = DEFAULT_MOLD_PROVIDER
+        self.hosted_color = None
         self.classify_thread = None
         self.known_object = None
         self.multi_feed_detected = False

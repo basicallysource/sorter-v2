@@ -198,6 +198,13 @@ class KnownObject:
     brickognize_item_rank: Optional[int] = None
     brickognize_item_type: Optional[str] = None
     brickognize_color_rank: Optional[int] = None
+    # Which service actually produced the applied color / mold (see
+    # classification.providers). These record what ANSWERED, not what was
+    # configured: a hosted provider that times out leaves color_provider as
+    # "brickognize", since that is whose color the piece was sorted on. None
+    # until classification runs.
+    color_provider: Optional[str] = None
+    mold_provider: Optional[str] = None
     # Every image gathered for recognition — C4 burst captures plus any upstream
     # (C2/C3) match crops fused in by the embedding search — each flagged with
     # whether it was actually submitted to Brickognize. The burst keeps all its

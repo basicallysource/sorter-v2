@@ -83,6 +83,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             brickognize_item_rank=obj.brickognize_item_rank,
             brickognize_item_type=obj.brickognize_item_type,
             brickognize_color_rank=obj.brickognize_color_rank,
+            color_provider=obj.color_provider,
+            mold_provider=obj.mold_provider,
             recognition_used_crop_ts=list(obj.recognition_used_crop_ts or []),
             recognition_image_set=[
                 RecognitionImage(

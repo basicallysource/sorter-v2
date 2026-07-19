@@ -423,7 +423,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Classification Channel Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['simple_state_machine_rev01', 'two_piece_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
+							{#each ['two_piece_state_machine_rev01', 'simple_state_machine_rev01', 'classic_carousel', 'dynamic'] as mode}
 								<button
 									onclick={() => saveClassificationMode(mode)}
 									disabled={savingClassificationMode}
@@ -452,7 +452,7 @@
 					<div>
 						<div class="mb-1.5 text-xs font-medium text-text">Feeder Mode</div>
 						<div class="flex flex-wrap gap-2">
-							{#each ['go_to_angle_rev01', 'pulse_perception_rev01', 'constant_movement_rev01'] as mode}
+							{#each ['pulse_perception_rev01', 'go_to_angle_rev01', 'constant_movement_rev01'] as mode}
 								<button
 									onclick={() => saveFeederMode(mode)}
 									disabled={savingFeederMode}

@@ -167,6 +167,7 @@ class PartColorAvailabilityResponse(BaseModel):
     part_id: str
     item_no: str | None = None
     updated_at: str | None = None
+    source: str = "cache"
     total_qty: int
     items: list[PartColorAvailabilityOut]
 
@@ -175,17 +176,37 @@ class PartColorAvailabilityResponse(BaseModel):
 def part_bricklink_colors(
     part_id: str,
     limit: int = Query(24, ge=1, le=100),
+    colors: str | None = Query(None, description="Comma-separated BL color ids to price live"),
     _user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
 ) -> PartColorAvailabilityResponse:
     """Which colors this part is actually sold in on BrickLink, ranked by pieces
     for sale — a prior for the labeler ("this mold basically only exists in gray
-    and black"). Public catalog data, so no per-machine access gate."""
-    result = get_profile_catalog_service().bricklink_part_colors(part_id, limit=limit)
+    and black"). Public catalog data, so no per-machine access gate.
+
+    `colors` asks for a live price-guide call covering exactly those color ids,
+    which is the only way to get the shortlist right: the parts.db cache averages
+    ~1.5 colors per item and skips most modern ones."""
+    color_ids: list[int] = []
+    if colors:
+        for raw in colors.split(","):
+            raw = raw.strip()
+            if raw:
+                try:
+                    color_ids.append(int(raw))
+                except ValueError:
+                    raise APIError(400, "colors must be comma-separated integers", "BAD_COLOR_IDS")
+        if len(color_ids) > 100:
+            raise APIError(400, "at most 100 colors may be priced at once", "TOO_MANY_COLORS")
+
+    result = get_profile_catalog_service().bricklink_part_colors(
+        part_id, limit=limit, color_ids=color_ids or None
+    )
     return PartColorAvailabilityResponse(
         part_id=result["part_id"],
         item_no=result["item_no"],
         updated_at=result["updated_at"],
+        source=result.get("source", "cache"),
         total_qty=result["total_qty"],
         items=[PartColorAvailabilityOut(**it) for it in result["items"]],
     )

@@ -392,11 +392,45 @@ class ProfileCatalogService:
                 }
         return [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
 
-    def bricklink_part_colors(self, part_id: str, limit: int = 24) -> dict[str, Any]:
-        """Colors this part is stocked in on BrickLink, most pieces for sale
-        first, decorated with the same BL palette the labeling UI picks from."""
+    def bricklink_part_colors(
+        self, part_id: str, limit: int = 24, color_ids: list[int] | None = None
+    ) -> dict[str, Any]:
+        """Colors this part is stocked in on BrickLink, most pieces for sale first.
+
+        With `color_ids`, prices exactly those colors live off the API — the only
+        way to get an answer for the specific colors a labeler is choosing
+        between, since the parts.db cache is missing most (item, color) combos.
+        Without it, or with no key configured, falls back to the cache."""
         with self._lock:
             result = bricklink.part_color_availability(self._conn, part_id, limit=limit)
+
+        result["source"] = "cache"
+        if color_ids and self._config.bla_api_key and result["item_no"]:
+            try:
+                live = bricklink.fetch_color_quantities(
+                    self._config.bla_api_key, result["item_no"], color_ids
+                )
+            except bricklink.BrickLinkError:
+                live = {}
+            if live:
+                cached = {it["color_id"]: it for it in result["items"]}
+                merged = [
+                    {"color_id": color_id, **quantities}
+                    for color_id, quantities in live.items()
+                    if quantities["qty"] > 0
+                ]
+                # Anything cached but not asked about still belongs in the list —
+                # the "all colors" view reads the same payload.
+                merged.extend(it for cid, it in cached.items() if cid not in live)
+                merged.sort(key=lambda it: it["qty"], reverse=True)
+                total = sum(it["qty"] for it in merged)
+                for it in merged:
+                    it["share"] = (it["qty"] / total) if total else 0.0
+                result["items"] = merged[:limit]
+                result["total_qty"] = total
+                result["source"] = "live"
+                result["updated_at"] = None
+
         palette = {c["id"]: c for c in self.list_bricklink_colors()}
         for item in result["items"]:
             color = palette.get(item["color_id"])

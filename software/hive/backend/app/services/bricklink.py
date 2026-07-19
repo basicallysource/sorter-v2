@@ -80,6 +80,75 @@ def fetch_price_guide_batch(
     raise BrickLinkError(f"price_guide_batch failed: {last_exc}")
 
 
+_live_cache: dict[tuple[str, int], tuple[float, dict[str, int]]] = {}
+LIVE_CACHE_TTL_SECONDS = 6 * 3600
+LIVE_CACHE_MAX_ENTRIES = 50_000
+
+
+def _entry_quantities(entry: dict[str, Any]) -> dict[str, int]:
+    new = entry.get("inventory_new") or {}
+    used = entry.get("inventory_used") or {}
+    qty_new = int(new.get("unit_quantity") or 0)
+    qty_used = int(used.get("unit_quantity") or 0)
+    return {
+        "qty": qty_new + qty_used,
+        "qty_new": qty_new,
+        "qty_used": qty_used,
+        "lots": int(new.get("total_quantity") or 0) + int(used.get("total_quantity") or 0),
+    }
+
+
+def fetch_color_quantities(
+    api_key: str,
+    item_no: str,
+    color_ids: Sequence[int],
+    item_type: str = "PART",
+    now: float | None = None,
+) -> dict[int, dict[str, int]]:
+    """Live pieces-for-sale for specific colors of one item, TTL-cached in memory.
+
+    The cached price guide in parts.db can't answer this: it only holds the combos
+    BrickStore's import happened to know about (~1.5 colors per item, skewed to
+    pre-2004 catalog colors), so the modern color a labeler is deciding between is
+    usually absent — 2877 in Dark Bluish Gray and 3069 in Reddish Brown are both
+    missing from it while the API reports 387k and 366k pieces for sale."""
+    now = time.time() if now is None else now
+    out: dict[int, dict[str, int]] = {}
+    stale: list[int] = []
+    for color_id in color_ids:
+        hit = _live_cache.get((item_no, color_id))
+        if hit and now - hit[0] < LIVE_CACHE_TTL_SECONDS:
+            out[color_id] = hit[1]
+        else:
+            stale.append(color_id)
+
+    for start in range(0, len(stale), PRICE_GUIDE_BATCH_SIZE):
+        chunk = stale[start:start + PRICE_GUIDE_BATCH_SIZE]
+        entries = fetch_price_guide_batch(api_key, [(item_no, cid, item_type) for cid in chunk])
+        priced = {
+            int(e["color_id"]): _entry_quantities(e)
+            for e in entries
+            if e.get("item", {}).get("no") == item_no and e.get("color_id") is not None
+        }
+        # Colors the API declined to price aren't sold in that color — cache the
+        # zero too, or every page view re-asks for the same known-empty combos.
+        for color_id in chunk:
+            quantities = priced.get(color_id, {"qty": 0, "qty_new": 0, "qty_used": 0, "lots": 0})
+            _live_cache[(item_no, color_id)] = (now, quantities)
+            out[color_id] = quantities
+
+    if len(_live_cache) > LIVE_CACHE_MAX_ENTRIES:
+        for key in [k for k, (at, _) in _live_cache.items() if now - at >= LIVE_CACHE_TTL_SECONDS]:
+            del _live_cache[key]
+        # Still oversized means heavy live traffic inside one TTL window; drop the
+        # oldest half rather than let a long-lived process grow without bound.
+        if len(_live_cache) > LIVE_CACHE_MAX_ENTRIES:
+            oldest = sorted(_live_cache, key=lambda k: _live_cache[k][0])
+            for key in oldest[: len(_live_cache) // 2]:
+                del _live_cache[key]
+    return out
+
+
 def resolve_item_no(conn: sqlite3.Connection, part_id: str) -> str | None:
     """Machine piece part_ids come from Brickognize, which speaks BrickLink item
     numbers — so a direct hit is the common case. The part_num fallbacks cover

@@ -6,8 +6,10 @@
 		type BrickLinkColor,
 		type ColorLabelCorrection,
 		type ColorLabelPieceDetail,
+		type PartBrickLinkColor,
 		type PossibleCropCandidate
 	} from '$lib/api';
+	import { hexToLab, isExoticFinish, labDistance, similarColors as labNeighbours } from '$lib/colorLab';
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
@@ -35,10 +37,6 @@
 
 	const SIMILAR_COUNT = 8;
 	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
-	// Non-basic finishes: a piece is far likelier a plain solid color than a
-	// pearl/metallic/trans/etc, so these get down-weighted in the "closest" list.
-	const EXOTIC_FINISH =
-		/pearl|metallic|chrome|satin|trans|glow|speckle|glitter|glitr|milky|opal|iridescent|holo|copper|bionicle|\bgold\b|\bsilver\b/i;
 
 	const machineId = $derived(page.params.machine_id ?? '');
 	const pieceUuid = $derived(page.params.piece_uuid ?? '');
@@ -137,35 +135,56 @@
 		return colors.filter((c) => c.name.toLowerCase().includes(q) || String(c.id) === q);
 	});
 
-	function hexToLab(hex: string | null): [number, number, number] | null {
-		if (!hex) return null;
-		const m = hex.replace('#', '');
-		if (m.length < 6) return null;
-		const r = parseInt(m.slice(0, 2), 16);
-		const g = parseInt(m.slice(2, 4), 16);
-		const b = parseInt(m.slice(4, 6), 16);
-		if ([r, g, b].some(Number.isNaN)) return null;
-		const lin = (c: number) => {
-			c /= 255;
-			return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
-		};
-		const R = lin(r);
-		const G = lin(g);
-		const B = lin(b);
-		const X = (R * 0.4124 + G * 0.3576 + B * 0.1805) / 0.95047;
-		const Y = R * 0.2126 + G * 0.7152 + B * 0.0722;
-		const Z = (R * 0.0193 + G * 0.1192 + B * 0.9505) / 1.08883;
-		const f = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
-		const fx = f(X);
-		const fy = f(Y);
-		const fz = f(Z);
-		return [116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)];
-	}
-
 	const labById = $derived(new Map(colors.map((c) => [c.id, hexToLab(c.rgb)] as const)));
 
+	// BrickLink for-sale mix for this part. Owned here rather than in the sidebar
+	// because the numbers matter most next to the colors you're choosing between.
+	let blItems = $state<PartBrickLinkColor[]>([]);
+	let blItemNo = $state<string | null>(null);
+	let blUpdatedAt = $state<string | null>(null);
+	let blLoading = $state(false);
+	let blError = $state<string | null>(null);
+	let blSource = $state<'live' | 'cache'>('cache');
+	const blByColorId = $derived(new Map(blItems.map((it) => [it.color_id, it])));
+
+	// Exactly the colors the column will show, so the backend prices those live.
+	// Without this the answer comes from a cache that's missing most colors —
+	// which is how a part sold 387k times in dark bluish gray showed up as absent.
+	const blColorIds = $derived.by(() => {
+		const guess = guessColorId != null ? (colorsById.get(guessColorId) ?? null) : null;
+		if (!guess) return [] as number[];
+		return [guess.id, ...labNeighbours(colors, guess).map((c) => c.id)];
+	});
+
+	async function loadBrickLink(partId: string, colorIds: number[]) {
+		blLoading = true;
+		blError = null;
+		try {
+			const res = await api.partBrickLinkColors(partId, { limit: 100, colorIds });
+			blItems = res.items;
+			blItemNo = res.item_no;
+			blUpdatedAt = res.updated_at;
+			blSource = res.source;
+		} catch {
+			blError = 'Failed to load';
+		} finally {
+			blLoading = false;
+		}
+	}
+
+	$effect(() => {
+		const partId = detail?.part.part_id ?? null;
+		const colorIds = blColorIds;
+		if (!partId) {
+			blItems = [];
+			blItemNo = null;
+			return;
+		}
+		void loadBrickLink(partId, colorIds);
+	});
+
 	function isExotic(c: BrickLinkColor): boolean {
-		return c.is_trans || EXOTIC_FINISH.test(c.name);
+		return isExoticFinish(c.name, c.is_trans);
 	}
 
 	// Rank the palette against the guess, but push exotic finishes way down so the
@@ -177,13 +196,13 @@
 			.filter((c) => c.id !== guessColorId && labById.get(c.id) != null)
 			.map((c) => {
 				const lab = labById.get(c.id)!;
-				const d = Math.hypot(lab[0] - target[0], lab[1] - target[1], lab[2] - target[2]);
-				return { color: c, d: d + (isExotic(c) ? 55 : 0) };
+				return { color: c, d: labDistance(lab, target) + (isExotic(c) ? 55 : 0) };
 			})
 			.sort((a, b) => a.d - b.d)
 			.slice(0, SIMILAR_COUNT)
 			.map((x) => x.color);
 	});
+
 
 	function errMsg(e: unknown, fallback: string): string {
 		return e && typeof e === 'object' && 'error' in e
@@ -615,7 +634,17 @@
 				<MachineLabeledPieces {machineId} {pieceUuid} />
 			</div>
 			<div class="min-w-0 flex-1 lg:overflow-y-auto">
-				<PartBrickLinkColors partId={detail.part.part_id} partName={detail.part.part_name} />
+				<PartBrickLinkColors
+					palette={colors}
+					items={blItems}
+					{guessColorId}
+					partName={detail.part.part_name}
+					itemNo={blItemNo}
+					updatedAt={blUpdatedAt}
+					source={blSource}
+					loading={blLoading}
+					error={blError}
+				/>
 			</div>
 		</aside>
 

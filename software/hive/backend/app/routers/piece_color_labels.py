@@ -22,7 +22,7 @@ from uuid import UUID
 import numpy as np
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
-from sqlalchemy import String, and_, exists, false, func
+from sqlalchemy import String, and_, exists, false, func, or_
 from sqlalchemy import column as sa_column
 from sqlalchemy import table as sa_table
 from sqlalchemy.dialects.postgresql import UUID as PGUUID
@@ -37,6 +37,7 @@ from app.models.machine_piece_image import MachinePieceImage
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
+from app.models.piece_part_label import PiecePartLabel
 from app.models.piece_rejection import PieceRejection
 from app.models.user import User
 from app.services.brickognize_feedback import submit_color_feedback, submit_part_feedback
@@ -219,10 +220,18 @@ def label_stats(
             q = q.filter(PieceCropLink.machine_id == machine_id)
         return scope_to_piece_access(db, q, current_user, PieceCropLink.machine_id, PieceCropLink.piece_uuid)
 
+    def _part_q():
+        q = db.query(PiecePartLabel)
+        if machine_id is not None:
+            q = q.filter(PiecePartLabel.machine_id == machine_id)
+        return scope_to_piece_access(db, q, current_user, PiecePartLabel.machine_id, PiecePartLabel.piece_uuid)
+
     labeled_by_me = _color_q().filter(PieceColorLabel.labeler_id == current_user.id).count()
     crop_links_by_me = _crop_q().filter(PieceCropLink.labeler_id == current_user.id).count()
+    part_labels_by_me = _part_q().filter(PiecePartLabel.labeler_id == current_user.id).count()
     total_color_labels = _color_q().count()
     total_crop_links = _crop_q().count()
+    total_part_labels = _part_q().count()
 
     # Distinct pieces touched (one row per labeler per piece, so a grouped count).
     color_pieces_sq = (
@@ -239,6 +248,13 @@ def label_stats(
         .subquery()
     )
     crop_linked_pieces = db.query(func.count()).select_from(crop_pieces_sq).scalar() or 0
+    part_pieces_sq = (
+        _part_q()
+        .with_entities(PiecePartLabel.machine_id, PiecePartLabel.piece_uuid)
+        .group_by(PiecePartLabel.machine_id, PiecePartLabel.piece_uuid)
+        .subquery()
+    )
+    part_labeled_pieces = db.query(func.count()).select_from(part_pieces_sq).scalar() or 0
 
     # Histogram: pieces by number of distinct color-labelers (1 / 2 / 3+).
     per_piece = (
@@ -264,11 +280,14 @@ def label_stats(
         "total_labelable": total_labelable,
         "labeled_by_me": int(labeled_by_me),
         "crop_links_by_me": int(crop_links_by_me),
+        "part_labels_by_me": int(part_labels_by_me),
         "total_labels": int(total_color_labels),
         "total_color_labels": int(total_color_labels),
         "total_crop_links": int(total_crop_links),
+        "total_part_labels": int(total_part_labels),
         "color_labeled_pieces": int(color_labeled_pieces),
         "crop_linked_pieces": int(crop_linked_pieces),
+        "part_labeled_pieces": int(part_labeled_pieces),
         "labeler_histogram": {
             "0": labelers_0,
             "1": labelers_1,
@@ -378,7 +397,10 @@ _PIECE_SORTS = {
     "most_color",
     "least_crop",
     "most_crop",
+    "least_part",
+    "most_part",
     "rare_color",
+    "unidentified",
     "needs_me",
 }
 
@@ -448,12 +470,13 @@ def list_pieces(
     current_user: User = Depends(get_current_user),
     _rl: None = Depends(rate_limit("labeling_list")),
 ) -> dict:
-    """Sortable grid of labelable pieces with per-piece label/crop-link counts,
-    for the dashboard. Sorts: priority (has same-piece candidates first, then
-    fewest color labels — spreads effort where it's useful), recent, oldest,
-    least/most_color, least/most_crop, needs_me (this user's unlabeled first).
-    Optional machine_id filter and with_candidates (only pieces that have
-    same-piece candidate crops)."""
+    """Sortable grid of labelable pieces with per-piece label/crop-link/part-label
+    counts, for the dashboard. Sorts: priority (has same-piece candidates first,
+    then fewest color labels — spreads effort where it's useful), recent, oldest,
+    least/most_color, least/most_crop, least/most_part, unidentified (pieces the
+    machine couldn't name — the part-correction queue), needs_me (this user's
+    unlabeled first). Optional machine_id filter and with_candidates (only pieces
+    that have same-piece candidate crops)."""
     if sort not in _PIECE_SORTS:
         sort = "priority"
 
@@ -475,8 +498,18 @@ def list_pieces(
         .group_by(PieceCropLink.machine_id, PieceCropLink.piece_uuid)
         .subquery()
     )
+    part_cnt_sq = (
+        db.query(
+            PiecePartLabel.machine_id.label("mid"),
+            PiecePartLabel.piece_uuid.label("puid"),
+            func.count().label("cnt"),
+        )
+        .group_by(PiecePartLabel.machine_id, PiecePartLabel.piece_uuid)
+        .subquery()
+    )
     color_cnt = func.coalesce(color_cnt_sq.c.cnt, 0)
     crop_cnt = func.coalesce(crop_cnt_sq.c.cnt, 0)
+    part_cnt = func.coalesce(part_cnt_sq.c.cnt, 0)
     my_color = exists().where(
         and_(
             PieceColorLabel.machine_id == MachinePiece.machine_id,
@@ -489,6 +522,13 @@ def list_pieces(
             PieceCropLink.machine_id == MachinePiece.machine_id,
             PieceCropLink.piece_uuid == MachinePiece.piece_uuid,
             PieceCropLink.labeler_id == current_user.id,
+        )
+    )
+    my_part = exists().where(
+        and_(
+            PiecePartLabel.machine_id == MachinePiece.machine_id,
+            PiecePartLabel.piece_uuid == MachinePiece.piece_uuid,
+            PiecePartLabel.labeler_id == current_user.id,
         )
     )
     # LEFT JOIN against the precomputed matview: one hash build, O(1) per piece —
@@ -511,6 +551,8 @@ def list_pieces(
             my_color.label("my_color"),
             my_crop.label("my_crop"),
             has_candidates.label("has_candidates"),
+            part_cnt.label("part_cnt"),
+            my_part.label("my_part"),
         )
         .outerjoin(
             color_cnt_sq,
@@ -519,6 +561,10 @@ def list_pieces(
         .outerjoin(
             crop_cnt_sq,
             and_(crop_cnt_sq.c.mid == MachinePiece.machine_id, crop_cnt_sq.c.puid == MachinePiece.piece_uuid),
+        )
+        .outerjoin(
+            part_cnt_sq,
+            and_(part_cnt_sq.c.mid == MachinePiece.machine_id, part_cnt_sq.c.puid == MachinePiece.piece_uuid),
         )
         .outerjoin(
             _piece_has_candidates,
@@ -539,6 +585,10 @@ def list_pieces(
         # Only pieces whose predicted color is (near) an under-covered color.
         rare_ids = _rare_candidate_color_ids(db, current_user, machine_id)
         q = q.filter(MachinePiece.color_id.in_(rare_ids)) if rare_ids else q.filter(false())
+    elif sort == "unidentified":
+        # The part-correction queue: the machine never named these, so there's no
+        # mold to confirm or reject — only a human can fill one in.
+        q = q.filter(or_(MachinePiece.part_id.is_(None), MachinePiece.part_id == ""))
 
     recent_order = (MachinePiece.recorded_at.desc().nullslast(), MachinePiece.created_at.desc())
     if sort == "priority":
@@ -557,6 +607,14 @@ def list_pieces(
         q = q.order_by(crop_cnt.asc(), *recent_order)
     elif sort == "most_crop":
         q = q.order_by(crop_cnt.desc(), *recent_order)
+    elif sort == "least_part":
+        q = q.order_by(part_cnt.asc(), *recent_order)
+    elif sort == "most_part":
+        q = q.order_by(part_cnt.desc(), *recent_order)
+    elif sort == "unidentified":
+        # Already filtered to unidentified pieces; least-labeled first so the
+        # queue drains rather than re-showing the same ones.
+        q = q.order_by(part_cnt.asc(), *recent_order)
     elif sort == "rare_color":
         # Least-confident predictions first — those are the likeliest to be the
         # rare color the model missed. Nulls (no confidence) sort last.
@@ -592,7 +650,7 @@ def list_pieces(
                 thumb_seq[f"{mid}|{puid}"] = seq
 
     items = []
-    for p, ccnt, xcnt, mc, mx, has_c in rows:
+    for p, ccnt, xcnt, mc, mx, has_c, pcnt, mp in rows:
         items.append(
             {
                 "machine_id": str(p.machine_id),
@@ -603,8 +661,10 @@ def list_pieces(
                 "seen_at": p.seen_at.isoformat() if p.seen_at else None,
                 "color_label_count": int(ccnt),
                 "crop_link_count": int(xcnt),
+                "part_label_count": int(pcnt),
                 "my_color": bool(mc),
                 "my_crop": bool(mx),
+                "my_part": bool(mp),
                 "has_candidates": bool(has_c),
                 "thumb_seq": thumb_seq.get(f"{p.machine_id}|{p.piece_uuid}"),
             }
@@ -661,6 +721,15 @@ def piece_detail(
         )
         .first()
     )
+    part_label = (
+        db.query(PiecePartLabel)
+        .filter(
+            PiecePartLabel.machine_id == machine_id,
+            PiecePartLabel.piece_uuid == piece_uuid,
+            PiecePartLabel.labeler_id == current_user.id,
+        )
+        .first()
+    )
     return {
         "machine_id": str(machine_id),
         "machine_name": machine_name,
@@ -679,6 +748,22 @@ def piece_detail(
         if label is None
         else {"color_id": label.color_id, "cant_tell": bool(label.cant_tell), "notes": label.notes},
         "my_rejection": None if rejection is None else {"reasons": list(rejection.reasons or [])},
+        # This user's part correction, with the catalog entry resolved so the UI
+        # can render the picked mold without a second round trip. part is None
+        # for a cant_tell answer, or if the part later left the catalog.
+        "my_part_label": None
+        if part_label is None
+        else {
+            "part_num": part_label.part_num,
+            "cant_tell": bool(part_label.cant_tell),
+            "notes": part_label.notes,
+            "part": get_profile_catalog_service().part_summary(part_label.part_num)
+            if part_label.part_num
+            else None,
+        },
+        # The machine's own predicted mold, resolved against the catalog the same
+        # way — the picker shows it as the incumbent to accept or replace.
+        "predicted_part": get_profile_catalog_service().part_summary(piece.part_id) if piece.part_id else None,
         # Brickognize prediction + correction state. correctable is True only
         # when a listing id was captured (a prerequisite for submitting feedback).
         "prediction": {
@@ -1540,5 +1625,132 @@ def delete_piece_rejection(
     if rejection is None:
         raise APIError(404, "Rejection not found", "REJECTION_NOT_FOUND")
     db.delete(rejection)
+    db.commit()
+    return {"ok": True}
+
+
+# --- Correcting a piece's part (mold) ----------------------------------------
+#
+# The part sibling of the color label above. machine_pieces.part_correct could
+# only record that Brickognize got the mold wrong; it had nowhere to say what the
+# piece actually is, and a piece that came back unidentified (part_id NULL) had
+# nothing to record at all. A labeler searches the parts catalog and picks the
+# true mold; like color, each labeler gets their own row so several people can
+# correct the same piece independently.
+#
+# Stored separately from the color label and the crop link — accepting one does
+# not touch the others. Submitting the verdict on to Brickognize's feedback API
+# stays the caller's move (POST .../brickognize-feedback), mirroring how the UI
+# reports a color disagreement.
+
+
+class PartLabelPayload(BaseModel):
+    machine_id: UUID
+    piece_uuid: str = Field(min_length=1)
+    # A catalog part_num, OR cant_tell=True for "I can't identify this mold".
+    # Exactly one of the two must be provided.
+    part_num: str | None = None
+    cant_tell: bool = False
+    notes: str | None = None
+
+
+@router.post("/piece-part-label")
+def submit_part_label(
+    payload: PartLabelPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Create or update the current user's part correction for a piece — either a
+    concrete catalog part or an "I can't tell" answer."""
+    catalog = get_profile_catalog_service()
+    part: dict | None = None
+    if payload.cant_tell:
+        part_num = None
+    else:
+        if not payload.part_num:
+            raise APIError(400, "A part_num or cant_tell is required", "PART_REQUIRED")
+        part = catalog.part_summary(payload.part_num)
+        if part is None:
+            raise APIError(400, f"Unknown part {payload.part_num}", "PART_NUM_INVALID")
+        part_num = part["part_num"]
+
+    if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
+        raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+
+    # Snapshot what the machine had predicted, so the label still reads as
+    # "human disagreed with X" if the piece is later re-synced.
+    predicted_part_num = (
+        db.query(MachinePiece.part_id)
+        .filter(
+            MachinePiece.machine_id == payload.machine_id,
+            MachinePiece.piece_uuid == payload.piece_uuid,
+        )
+        .scalar()
+    )
+
+    now = datetime.now(timezone.utc)
+    label = (
+        db.query(PiecePartLabel)
+        .filter(
+            PiecePartLabel.machine_id == payload.machine_id,
+            PiecePartLabel.piece_uuid == payload.piece_uuid,
+            PiecePartLabel.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if label is None:
+        label = PiecePartLabel(
+            machine_id=payload.machine_id,
+            piece_uuid=payload.piece_uuid,
+            labeler_id=current_user.id,
+            part_num=part_num,
+            cant_tell=payload.cant_tell,
+            predicted_part_num=predicted_part_num,
+            notes=payload.notes,
+        )
+        db.add(label)
+        created = True
+    else:
+        label.part_num = part_num
+        label.cant_tell = payload.cant_tell
+        label.predicted_part_num = predicted_part_num
+        label.notes = payload.notes
+        label.updated_at = now
+        created = False
+    db.commit()
+
+    part_labeled_by_me = (
+        db.query(func.count(PiecePartLabel.id))
+        .filter(PiecePartLabel.labeler_id == current_user.id)
+        .scalar()
+        or 0
+    )
+    return {
+        "ok": True,
+        "created": created,
+        "part": part,
+        "part_labeled_by_me": int(part_labeled_by_me),
+    }
+
+
+@router.delete("/piece-part-label/{machine_id}/{piece_uuid}")
+def delete_part_label(
+    machine_id: UUID,
+    piece_uuid: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    label = (
+        db.query(PiecePartLabel)
+        .filter(
+            PiecePartLabel.machine_id == machine_id,
+            PiecePartLabel.piece_uuid == piece_uuid,
+            PiecePartLabel.labeler_id == current_user.id,
+        )
+        .first()
+    )
+    if label is None:
+        raise APIError(404, "Part label not found", "PART_LABEL_NOT_FOUND")
+    db.delete(label)
     db.commit()
     return {"ok": True}

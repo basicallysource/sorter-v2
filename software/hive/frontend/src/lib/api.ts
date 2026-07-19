@@ -755,6 +755,13 @@ export interface ProfileCatalogColor {
 	is_trans: boolean;
 }
 
+export interface ProfileCatalogCategory {
+	id: number;
+	name: string;
+	part_count: number | null;
+	actual_part_count: number | null;
+}
+
 export interface BrickLinkCsvImportResult {
 	parts: CustomSetPart[];
 	imported_rows: number;
@@ -1147,6 +1154,22 @@ export interface BrickognizeFeedbackResponse {
 	correction: ColorLabelCorrection;
 }
 
+/** A catalog part resolved for display — what the part picker renders. */
+export interface PartSummary {
+	part_num: string;
+	name: string | null;
+	part_cat_id: number | null;
+	category_name: string | null;
+	part_img_url: string | null;
+}
+
+export interface PiecePartLabel {
+	part_num: string | null;
+	cant_tell: boolean;
+	notes: string | null;
+	part: PartSummary | null;
+}
+
 export interface ColorLabelPieceDetail {
 	machine_id: string;
 	machine_name: string | null;
@@ -1159,6 +1182,8 @@ export interface ColorLabelPieceDetail {
 	images: ColorLabelQueueImage[];
 	my_label: { color_id: number | null; cant_tell: boolean; notes: string | null } | null;
 	my_rejection: { reasons: string[] } | null;
+	my_part_label: PiecePartLabel | null;
+	predicted_part: PartSummary | null;
 	prediction: ColorLabelPrediction;
 	correction: ColorLabelCorrection;
 }
@@ -1450,6 +1475,29 @@ export const api = {
 		return request<{ ok: boolean }>(
 			'DELETE',
 			`/api/labeling/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+
+	// Part (mold) correction — the part sibling of the color label. Stored per
+	// labeler, so several people can correct the same piece independently.
+	submitPartLabel(body: {
+		machine_id: string;
+		piece_uuid: string;
+		part_num?: string | null;
+		cant_tell?: boolean;
+		notes?: string | null;
+	}) {
+		return request<{
+			ok: boolean;
+			created: boolean;
+			part: PartSummary | null;
+			part_labeled_by_me: number;
+		}>('POST', '/api/labeling/piece-part-label', body);
+	},
+	deletePartLabel(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/piece-part-label/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
 	submitBrickognizeFeedback(
@@ -1831,6 +1879,10 @@ export const api = {
 			'GET',
 			`/api/profile-catalog/search-parts${qs ? '?' + qs : ''}`
 		);
+	},
+
+	profileCatalogCategories() {
+		return request<{ results: ProfileCatalogCategory[] }>('GET', '/api/profile-catalog/categories');
 	},
 
 	searchProfileCatalogSets(query: string, params: { min_year?: number; max_year?: number } = {}) {

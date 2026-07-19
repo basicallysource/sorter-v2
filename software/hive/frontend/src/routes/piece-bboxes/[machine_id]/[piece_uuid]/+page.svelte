@@ -7,6 +7,7 @@
 		type ColorLabelCorrection,
 		type ColorLabelPieceDetail,
 		type PartBrickLinkColor,
+		type PartSummary,
 		type PossibleCropCandidate
 	} from '$lib/api';
 	import { hexToLab, isExoticFinish, labDistance } from '$lib/colorLab';
@@ -14,6 +15,7 @@
 	import * as nav from '$lib/colorLabelNav';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
 	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
+	import PiecePartPicker from '$lib/components/PiecePartPicker.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ZoomImage from '$lib/components/ZoomImage.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
@@ -72,6 +74,11 @@
 	let aiRunning = $state(false);
 	const canRunAi = $derived(auth.isAdmin || auth.user?.openrouter_configured === true);
 
+	// Part (mold) correction — this user's answer for THIS piece, restored on load
+	let myPart = $state<PartSummary | null>(null);
+	let partCantTell = $state(false);
+	let partSaving = $state(false);
+
 	// Reject-this-bbox-sample
 	let rejectOpen = $state(false);
 	let rejecting = $state(false);
@@ -107,17 +114,27 @@
 	const piecesState = $derived<CharState>(
 		cropCandidates.length === 0 ? 'empty' : cropDirty ? 'progress' : cropSaved ? 'ready' : 'empty'
 	);
+	const partState = $derived<CharState>(myPart != null || partCantTell ? 'ready' : 'empty');
 	// Add future piece characteristics here; the summary bar + CTA derive from it.
 	const characteristics = $derived([
+		{ key: 'part', label: 'Part', state: partState },
 		{ key: 'color', label: 'Color', state: colorState },
 		{ key: 'pieces', label: 'Same piece', state: piecesState }
 	]);
 	const touched = $derived(characteristics.filter((c) => c.state !== 'empty'));
+	// An "I can't tell" isn't something to "accept" — if that's the only thing
+	// recorded, the CTA is just "move on".
+	const onlyCantTells = $derived(
+		touched.length > 0 &&
+			touched.every(
+				(c) =>
+					(c.key === 'color' && cantTell) || (c.key === 'part' && partCantTell && myPart == null)
+			)
+	);
 	const ctaLabel = $derived.by(() => {
 		if (touched.length === 0) return 'Skip';
 		if (touched.length === characteristics.length) return 'Continue';
-		// An "I can't tell" color isn't something to "accept" — just move on.
-		if (cantTell && touched.length === 1 && touched[0].key === 'color') return 'Move on';
+		if (onlyCantTells) return 'Move on';
 		return 'Accept ' + touched.map((c) => c.label.toLowerCase()).join(' + ');
 	});
 
@@ -163,7 +180,10 @@
 	}
 
 	$effect(() => {
-		const partId = detail?.part.part_id ?? null;
+		// A human part correction wins over the machine's guess — it's better
+		// ground truth, and for an unidentified piece it's the only thing that can
+		// populate this column at all. Re-runs when the correction changes.
+		const partId = myPart?.part_num ?? detail?.part.part_id ?? null;
 		if (!partId) {
 			blItems = [];
 			blItemNo = null;
@@ -212,6 +232,8 @@
 			detail = d;
 			myColorId = d.my_label?.color_id ?? null;
 			cantTell = d.my_label?.cant_tell ?? false;
+			myPart = d.my_part_label?.part ?? null;
+			partCantTell = d.my_part_label?.cant_tell ?? false;
 			rejectOpen = false;
 			rejected = d.my_rejection != null;
 			rejectReasons = new Set(d.my_rejection?.reasons ?? []);
@@ -353,6 +375,68 @@
 		}
 	}
 
+	// --- Part (mold) correction -----------------------------------------------
+	// Same contract as the color picker: every choice writes immediately, nothing
+	// advances on its own. Picking a part that isn't the machine's guess is also
+	// reported to Brickognize as a wrong-part verdict (see commitAndAdvance).
+
+	async function pickPart(partNum: string) {
+		if (partSaving) return;
+		partSaving = true;
+		error = null;
+		try {
+			const res = await api.submitPartLabel({
+				machine_id: machineId,
+				piece_uuid: pieceUuid,
+				part_num: partNum
+			});
+			myPart = res.part;
+			partCantTell = false;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to save part');
+		} finally {
+			partSaving = false;
+		}
+	}
+
+	async function pickPartCantTell() {
+		if (partSaving) return;
+		if (partCantTell) {
+			await clearPartAnswer();
+			return;
+		}
+		partSaving = true;
+		error = null;
+		try {
+			await api.submitPartLabel({
+				machine_id: machineId,
+				piece_uuid: pieceUuid,
+				cant_tell: true
+			});
+			partCantTell = true;
+			myPart = null;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to save');
+		} finally {
+			partSaving = false;
+		}
+	}
+
+	async function clearPartAnswer() {
+		if (partSaving) return;
+		partSaving = true;
+		error = null;
+		try {
+			if (myPart != null || partCantTell) await api.deletePartLabel(machineId, pieceUuid);
+			myPart = null;
+			partCantTell = false;
+		} catch (e: unknown) {
+			error = errMsg(e, 'Failed to clear');
+		} finally {
+			partSaving = false;
+		}
+	}
+
 	// Skip: discard whatever was recorded for this piece (a skip almost always
 	// means the earlier input was a mistake) and move on without saving.
 	async function skipAndReset() {
@@ -370,8 +454,17 @@
 				/* already gone */
 			}
 		}
+		if (myPart != null || partCantTell) {
+			try {
+				await api.deletePartLabel(machineId, pieceUuid);
+			} catch {
+				/* already gone */
+			}
+		}
 		myColorId = null;
 		cantTell = false;
+		myPart = null;
+		partCantTell = false;
 		cropSelected = new Set();
 		cropSaved = false;
 		cropDirty = false;
@@ -438,10 +531,23 @@
 		void api.submitBrickognizeFeedback(machineId, pieceUuid, { color_corrected_id: myColorId });
 	}
 
+	// Same idea for the mold: naming a different part than Brickognize did IS a
+	// wrong-part verdict, so report it rather than making the labeler also click
+	// through the "Is this the right part?" panel. Agreement is left to that
+	// panel — auto-sending it would spam the feedback API with confirmations.
+	function autoSubmitPartDisagreement() {
+		if (!correction?.correctable || correction.part_feedback_submitted) return;
+		if (myPart == null) return;
+		const predicted = detail?.part.part_id;
+		if (predicted == null || myPart.part_num === predicted) return;
+		void api.submitBrickognizeFeedback(machineId, pieceUuid, { part_correct: false });
+	}
+
 	// The summary action: commit anything still in progress, then move on.
 	async function commitAndAdvance() {
 		if (cropDirty) await saveCrops();
 		autoSubmitColorDisagreement();
+		autoSubmitPartDisagreement();
 		await goNext();
 	}
 
@@ -640,7 +746,7 @@
 					palette={colors}
 					items={blItems}
 					{guessColorId}
-					partName={detail.part.part_name}
+					partName={myPart?.name ?? detail.part.part_name}
 					itemNo={blItemNo}
 					updatedAt={blUpdatedAt}
 					source={blSource}
@@ -853,6 +959,27 @@
 		     viewport; the color list fills the space and scrolls internally so the
 		     Brickognize box below always stays on-screen. -->
 		<div class="flex flex-col gap-6 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-96">
+		<!-- Part picker. Sized by its content (with its own scroll cap) rather than
+		     flex-1 — the sidebar is a capped-height flex column, and two flex-1
+		     children collapse each other to nothing. -->
+		<div class="flex shrink-0 flex-col border bg-surface p-4 {stateBorder(partState)}">
+			<div class="mb-3 flex items-center justify-between gap-2">
+				<span class="text-sm font-medium text-text">True part</span>
+				{@render statusBadge(partState)}
+			</div>
+			<div class="max-h-[55vh] overflow-y-auto">
+				<PiecePartPicker
+					predictedPart={detail.predicted_part}
+					selectedPart={myPart}
+					cantTell={partCantTell}
+					saving={partSaving}
+					onPick={(partNum) => void pickPart(partNum)}
+					onCantTell={() => void pickPartCantTell()}
+					onClear={() => void clearPartAnswer()}
+				/>
+			</div>
+		</div>
+
 		<!-- Color picker -->
 		<div class="flex min-h-0 flex-1 flex-col border bg-surface p-4 {stateBorder(colorState)}">
 			<div class="mb-3 flex items-center justify-between gap-2">
@@ -1014,6 +1141,10 @@
 			<li class="flex gap-2">
 				<span class="shrink-0 text-primary">→</span>
 				<span>Pick the correct color from the sidebar. If you can tell it, that's enough — you can skip the same-piece step.</span>
+			</li>
+			<li class="flex gap-2">
+				<span class="shrink-0 text-primary">→</span>
+				<span>Under <span class="font-medium">True part</span>, confirm the mold the machine guessed, or search the catalog for the right one. If the piece came back unidentified, search for what it actually is.</span>
 			</li>
 			<li class="flex gap-2">
 				<span class="shrink-0 text-primary">→</span>

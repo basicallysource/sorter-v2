@@ -325,6 +325,28 @@ def searchParts(conn, query, cat_filter=None, limit=50, offset=0):
     count_sql = f"SELECT COUNT(*) FROM parts p WHERE {where}"
     total = conn.execute(count_sql, params).fetchone()[0]
 
+    # Rank exact/prefix hits above incidental substring hits. Ordering by
+    # part_num alone is lexical, so searching "3069" put 3069 itself behind
+    # every longer number that happens to sort lower, and a human picking a part
+    # never saw what they typed on page one. Shorter names first within a tier
+    # keeps the plain mold ("Tile 1 x 2") above its printed variants.
+    if query_lower:
+        order_sql = (
+            "CASE "
+            "WHEN LOWER(p.part_num) = ? THEN 0 "
+            "WHEN EXISTS (SELECT 1 FROM part_bricklink_ids pb "
+            "WHERE pb.part_num = p.part_num AND LOWER(pb.item_no) = ?) THEN 1 "
+            "WHEN LOWER(p.part_num) LIKE ? THEN 2 "
+            "WHEN LOWER(p.name) = ? THEN 3 "
+            "WHEN LOWER(p.name) LIKE ? THEN 4 "
+            "ELSE 5 END, LENGTH(p.name), p.part_num"
+        )
+        prefix_val = f"{query_lower}%"
+        order_params = [query_lower, query_lower, prefix_val, query_lower, prefix_val]
+    else:
+        order_sql = "p.part_num"
+        order_params = []
+
     sql = (
         f"SELECT p.part_num, p.name, p.part_cat_id, p.year_from, p.year_to, "
         f"p.part_img_url, p.part_url, p.external_ids, c.name, "
@@ -333,8 +355,9 @@ def searchParts(conn, query, cat_filter=None, limit=50, offset=0):
         f"LEFT JOIN part_bricklink_ids pbi ON pbi.part_num = p.part_num AND pbi.is_primary = 1 "
         f"LEFT JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
         f"LEFT JOIN bricklink_categories bc ON bc.id = bi.category_id "
-        f"WHERE {where} ORDER BY p.part_num LIMIT ? OFFSET ?"
+        f"WHERE {where} ORDER BY {order_sql} LIMIT ? OFFSET ?"
     )
+    params.extend(order_params)
     params.extend([limit, offset])
 
     results = []

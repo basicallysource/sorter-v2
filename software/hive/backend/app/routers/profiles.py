@@ -57,6 +57,7 @@ from app.services.profile_ai import (
 from app.services.secrets import decrypt_secret
 from app.services.machine_set_progress import summarize_machine_set_progress
 from app.services.profile_catalog import PROFILE_CATALOG_SYNC_TYPES, get_profile_catalog_service
+from app.services.rate_limit import rate_limit
 
 router = APIRouter(prefix="/api", tags=["profiles"])
 logger = logging.getLogger("uvicorn.error").getChild("profiles")
@@ -125,8 +126,17 @@ def search_profile_catalog_parts(
     limit: int = 100,
     offset: int = 0,
     _current_user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("catalog_search")),
 ):
     return get_profile_catalog_service().search_parts(q, cat_id, limit, offset)
+
+
+@router.get("/profile-catalog/categories")
+def list_profile_catalog_categories(_current_user: User = Depends(get_current_user)):
+    """The Rebrickable part categories, for narrowing a part search. Served to any
+    signed-in user — the admin parts-db route is the same list behind a role gate,
+    and the part-correction picker needs it without making labelers admins."""
+    return {"results": get_profile_catalog_service().admin_list_categories()}
 
 
 @router.get("/profile-catalog/search-sets")

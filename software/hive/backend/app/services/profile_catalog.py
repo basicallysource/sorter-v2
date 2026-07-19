@@ -323,6 +323,27 @@ class ProfileCatalogService:
         results, total = profile_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
         return {"results": results, "total": total, "offset": offset, "limit": limit}
 
+    def part_summary(self, part_num: str) -> dict[str, Any] | None:
+        """Name/category/thumbnail for one part, or None if it isn't in the
+        catalog — the existence check a submitted part correction is validated
+        against, and what the UI renders for an already-picked part.
+
+        Reads the in-memory parts mirror, so it's a dict lookup rather than a
+        query; admin_get_part hits sqlite four times to also assemble BrickLink
+        items and price-guide counts, which a label summary doesn't need."""
+        part = self._parts_data.parts.get(part_num)
+        if part is None:
+            return None
+        cat_id = part.get("part_cat_id")
+        category = self._parts_data.categories.get(cat_id) if cat_id is not None else None
+        return {
+            "part_num": part["part_num"],
+            "name": part.get("name"),
+            "part_cat_id": cat_id,
+            "category_name": (category or {}).get("name"),
+            "part_img_url": part.get("part_img_url"),
+        }
+
     def admin_overview(self) -> dict[str, Any]:
         overview = profile_db.adminCatalogOverview(self._conn)
         overview["sync"] = self.status()

@@ -66,6 +66,7 @@ _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
+_STATE_KEY_BASICALLY_SERVICES = "basically_services"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
 _META_KEY_OPEN_BIN_SNAPSHOT_ID = "open_bin_snapshot_id"
@@ -781,6 +782,20 @@ def get_or_create_telemetry_install() -> dict[str, Any]:
     record = {"install_id": str(uuid.uuid4()), "created_at": time.time()}
     _write_state(_STATE_KEY_TELEMETRY_INSTALL, record)
     return record
+
+
+# Hosted-services enrollment on the main hive (basically_services.py). Separate
+# from both the Hive account targets (an account object) and the anonymous
+# telemetry install id (which must stay unlinkable). device_key is the stable
+# secret that lets a re-enroll find the same server-side device row; token is
+# the bearer credential the enroll call returned.
+def get_basically_services_state() -> dict[str, Any]:
+    value = _read_state(_STATE_KEY_BASICALLY_SERVICES)
+    return dict(value) if isinstance(value, dict) else {}
+
+
+def set_basically_services_state(record: dict[str, Any]) -> None:
+    _write_state(_STATE_KEY_BASICALLY_SERVICES, record)
 
 
 def get_stepper_positions() -> dict[str, int]:

@@ -22,7 +22,10 @@ from toml_config import (
     setConstantMovementConfig,
     getUpstreamMatchConfig,
     setUpstreamMatchConfig,
+    getClassificationProviders,
+    setClassificationProviders,
 )
+from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
 from subsystems.feeder.go_to_angle.config import FIELD_META as GO_TO_ANGLE_FIELD_META
 from subsystems.feeder.pulse_perception.config import FIELD_META as PULSE_PERCEPTION_FIELD_META
@@ -104,6 +107,37 @@ def set_constant_movement_config(body: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return {"config": updated}
+
+
+@router.get("/api/tuning/classification-providers")
+def get_classification_providers() -> dict[str, Any]:
+    active = getClassificationProviders()
+    return {
+        "active": active,
+        "color_providers": [
+            {"id": s.id, "label": s.label, "description": s.description}
+            for s in COLOR_PROVIDER_SPECS.values()
+        ],
+        "mold_providers": [
+            {"id": s.id, "label": s.label, "description": s.description}
+            for s in MOLD_PROVIDER_SPECS.values()
+        ],
+    }
+
+
+@router.post("/api/tuning/classification-providers")
+def set_classification_providers(body: dict[str, Any]) -> dict[str, Any]:
+    try:
+        if "color_provider" in body and body["color_provider"] not in COLOR_PROVIDER_SPECS:
+            raise ValueError(f"unknown color provider: {body['color_provider']}")
+        if "mold_provider" in body and body["mold_provider"] not in MOLD_PROVIDER_SPECS:
+            raise ValueError(f"unknown mold provider: {body['mold_provider']}")
+        setClassificationProviders(body)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return get_classification_providers()
 
 
 @router.get("/api/tuning/object-tracker")

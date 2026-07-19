@@ -266,6 +266,40 @@ def setTrackerConfig(tracker_type: str, updates: dict[str, Any]) -> dict[str, An
 
 
 # ---------------------------------------------------------------------------
+# Classification providers (mold + color)
+# ---------------------------------------------------------------------------
+
+
+def getClassificationProviders() -> dict[str, str]:
+    from classification.providers import normalizeColorProvider, normalizeMoldProvider
+    config = _read_toml()
+    section = config.get("classification_providers")
+    section = section if isinstance(section, dict) else {}
+    return {
+        "color_provider": normalizeColorProvider(section.get("color_provider")),
+        "mold_provider": normalizeMoldProvider(section.get("mold_provider")),
+    }
+
+
+def setClassificationProviders(updates: dict[str, Any]) -> dict[str, str]:
+    from classification.providers import normalizeColorProvider, normalizeMoldProvider
+    valid: dict[str, str] = {}
+    if "color_provider" in updates:
+        valid["color_provider"] = normalizeColorProvider(updates.get("color_provider"))
+    if "mold_provider" in updates:
+        valid["mold_provider"] = normalizeMoldProvider(updates.get("mold_provider"))
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("classification_providers")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["classification_providers"] = base
+
+    _update_toml(updater)
+    return getClassificationProviders()
+
+
+# ---------------------------------------------------------------------------
 # Feeder pulse-perception tuning config
 # ---------------------------------------------------------------------------
 

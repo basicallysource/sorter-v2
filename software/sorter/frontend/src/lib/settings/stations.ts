@@ -171,6 +171,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 		icon: SlidersHorizontal
 	},
 	{
+		href: '/settings/tuning/classification-providers',
+		label: 'Classification Providers',
+		icon: SlidersHorizontal
+	},
+	{
 		href: '/settings/tuning/upstream-match',
 		label: 'Upstream Match',
 		icon: SlidersHorizontal

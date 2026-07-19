@@ -397,6 +397,19 @@
 		cropDirty = true;
 	}
 
+	function selectNoCrops() {
+		cropSelected = new Set();
+		cropDirty = true;
+	}
+
+	// "None of these are the piece" — clearing the picks and committing in one
+	// click. An empty selection is a real answer (the piece has no upstream
+	// counterpart), not an un-answered state, so it still goes through saveCrops.
+	async function rejectAllCrops() {
+		selectNoCrops();
+		await saveCrops();
+	}
+
 	async function saveCrops() {
 		if (cropSaving || cropCandidates.length === 0) return;
 		cropSaving = true;
@@ -736,6 +749,23 @@
 					<span class="text-xs text-text-muted tabular-nums">
 						{cropSelected.size} of {cropCandidates.length} selected
 					</span>
+					<Button
+						variant="secondary"
+						size="sm"
+						disabled={cropSelected.size === 0 || cropLoading}
+						onclick={selectNoCrops}
+					>
+						Select none
+					</Button>
+					<Button
+						variant="secondary"
+						size="sm"
+						loading={cropSaving}
+						disabled={cropCandidates.length === 0 || cropLoading}
+						onclick={rejectAllCrops}
+					>
+						None of these
+					</Button>
 					{#if canRunAi}
 						<Button
 							variant="secondary"

@@ -35,7 +35,7 @@ def _ensure_parent_dir(path: str) -> None:
 @dataclass
 class CatalogConfig:
     rebrickable_api_key: str
-    bl_affiliate_api_key: str
+    bla_api_key: str
     db_path: str
     brickstore_db_path: str
     ldraw_library_dir: str
@@ -47,7 +47,7 @@ class ProfileCatalogService:
         _ensure_parent_dir(db_path)
         self._config = CatalogConfig(
             rebrickable_api_key=settings.REBRICKABLE_API_KEY,
-            bl_affiliate_api_key=settings.BL_AFFILIATE_API_KEY,
+            bla_api_key=settings.BLA_API_KEY,
             db_path=db_path,
             brickstore_db_path=os.path.expanduser(settings.SORTING_PROFILE_BRICKSTORE_DB_PATH),
             ldraw_library_dir=os.path.expanduser(settings.SORTING_PROFILE_LDRAW_LIBRARY_DIR),

@@ -6,12 +6,12 @@ from typing import Any, Sequence
 
 import requests
 
-# The affiliate API is the only BrickLink API we hold a credential for (a single
-# `api_key` query param — no OAuth consumer/token pair), so everything here goes
-# through it. Docs are not public; the request/response shapes below were derived
-# from the price sync that has been populating parts.db since 2026-06.
-AFFILIATE_BASE_URL = "https://api.bricklink.com/api/affiliate/v1"
-PRICE_GUIDE_BATCH_URL = f"{AFFILIATE_BASE_URL}/price_guide_batch"
+# BLA is the only BrickLink API we hold a credential for (a single `api_key`
+# query param — no OAuth consumer/token pair), so everything here goes through
+# it. Docs are not public; the request/response shapes below were derived from
+# the price sync that has been populating parts.db since 2026-06.
+BLA_BASE_URL = "https://api.bricklink.com/api/affiliate/v1"
+PRICE_GUIDE_BATCH_URL = f"{BLA_BASE_URL}/price_guide_batch"
 PRICE_GUIDE_BATCH_SIZE = 500
 PRICE_GUIDE_THROTTLE_SECONDS = 0.5
 PRICE_GUIDE_RETRIES = 5
@@ -35,6 +35,11 @@ def fetch_price_guide_batch(
                             "max_price", "total_price", "total_qty_price"},
          "inventory_used": {...}, "ordered_new": {...}, "ordered_used": {...}}
 
+    Combos it can't price (unknown item, item/color pair that doesn't exist) are
+    dropped from the response rather than reported — a batch of 2 with one bogus
+    item_no comes back with 1 entry and no error. Always key the response back by
+    (item_no, color_id) instead of zipping it against the request.
+
     Beware the quantity fields: despite the names, `unit_quantity` is the number
     of individual pieces listed and `total_quantity` is the number of lots — the
     opposite of what BrickLink's storefront API documents. Confirmed against a
@@ -43,7 +48,7 @@ def fetch_price_guide_batch(
     plate). The inventory lot count also saturates around 4000, so `*_quantity`
     on a common part is a sample ceiling, not a true total — rank by pieces."""
     if not api_key:
-        raise BrickLinkError("BL_AFFILIATE_API_KEY is not configured")
+        raise BrickLinkError("BLA_API_KEY is not configured")
     if len(combos) > PRICE_GUIDE_BATCH_SIZE:
         raise BrickLinkError(f"batch of {len(combos)} exceeds {PRICE_GUIDE_BATCH_SIZE}")
 
@@ -94,7 +99,7 @@ def resolve_item_no(conn: sqlite3.Connection, part_id: str) -> str | None:
 
 def part_color_availability(conn: sqlite3.Connection, part_id: str, limit: int = 24) -> dict[str, Any]:
     """Which colors this part is actually stocked in on BrickLink, ranked by how
-    many pieces are for sale. Reads the cached affiliate price guide in parts.db
+    many pieces are for sale. Reads the cached price guide in parts.db
     rather than calling the API — the whole catalog is already synced there, and
     a labeling page cannot wait on a network round trip per piece.
 

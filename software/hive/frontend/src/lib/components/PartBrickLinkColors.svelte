@@ -5,7 +5,7 @@
 	// Marketplace prior for the labeler: which colors this mold is actually sold
 	// in on BrickLink, by pieces currently for sale. A part that only exists in
 	// black and yellow makes an ambiguous dark crop a much easier call. Data is
-	// the cached affiliate price guide in parts.db, not a live API call.
+	// the cached price guide in parts.db, not a live API call.
 	let { partId, partName }: { partId: string | null; partName?: string | null } = $props();
 
 	let items = $state<PartBrickLinkColor[]>([]);

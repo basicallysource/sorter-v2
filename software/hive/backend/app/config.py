@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     GITHUB_REDIRECT_URI: str | None = None
     GITHUB_OAUTH_STATE_EXPIRE_MINUTES: int = 10
     REBRICKABLE_API_KEY: str = ""
-    BL_AFFILIATE_API_KEY: str = ""
+    BLA_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
     SORTING_PROFILE_BRICKSTORE_DB_PATH: str = "~/Library/Caches/BrickStore/database-v12"
     SORTING_PROFILE_LDRAW_LIBRARY_DIR: str = "ldraw_lib"

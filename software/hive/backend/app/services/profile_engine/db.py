@@ -641,11 +641,11 @@ def importBrickstoreDb(conn, brickstore_db_path, only_minifigs=False):
     return {"categories": len(db_data["categories"]), "items": imported, "minifigs": minifigs, "skipped": skipped}
 
 
-# --- bricklink affiliate price sync ---
+# --- bricklink price sync ---
 
-BL_AFFILIATE_BATCH_URL = "https://api.bricklink.com/api/affiliate/v1/price_guide_batch"
-BL_AFFILIATE_BATCH_SIZE = 500
-BL_AFFILIATE_THROTTLE_SECONDS = 0.5
+BLA_BATCH_URL = "https://api.bricklink.com/api/affiliate/v1/price_guide_batch"
+BLA_BATCH_SIZE = 500
+BLA_THROTTLE_SECONDS = 0.5
 
 
 def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, only_types=None):
@@ -680,16 +680,16 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, on
     updated = 0
     batches_sent = 0
 
-    for batch_start in range(0, total, BL_AFFILIATE_BATCH_SIZE):
+    for batch_start in range(0, total, BLA_BATCH_SIZE):
         if should_stop_fn and should_stop_fn():
             return {"total": total, "updated": updated, "batches": batches_sent, "stopped": True}
 
-        batch = combos[batch_start:batch_start + BL_AFFILIATE_BATCH_SIZE]
+        batch = combos[batch_start:batch_start + BLA_BATCH_SIZE]
         body = [{"color_id": cid,
                  "item": {"no": item_no, "type": "MINIFIG" if itype == "MINIFIG" else "PART"}}
                 for item_no, cid, _, itype in batch]
 
-        time.sleep(BL_AFFILIATE_THROTTLE_SECONDS)
+        time.sleep(BLA_THROTTLE_SECONDS)
         # Retry transient network failures (flaky DNS / connection resets) with
         # backoff rather than aborting the whole multi-thousand-combo sync on a
         # single hiccup. Only connection-level errors are retried; an HTTP error
@@ -698,7 +698,7 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, on
         for attempt in range(5):
             try:
                 resp = requests.post(
-                    BL_AFFILIATE_BATCH_URL,
+                    BLA_BATCH_URL,
                     params={
                         "currency_code": "USD",
                         "precision": "4",
@@ -757,7 +757,7 @@ def syncBricklinkPrices(conn, api_key, should_stop_fn=None, progress_fn=None, on
 
 
 def _upsertPriceGuide(conn, item_no, bl_color_id, rb_color_id, entry):
-    # entry is the affiliate API response for one (item, color)
+    # entry is the BLA response for one (item, color)
     # compute avg = total_price / total_quantity, wavg = total_qty_price / unit_quantity
     vals = {"item_no": item_no, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
     for api_key, col_prefix in [

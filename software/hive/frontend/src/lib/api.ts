@@ -1095,6 +1095,26 @@ export interface MachineLabeledPiecesResponse {
 	total: number;
 }
 
+export interface PartBrickLinkColor {
+	color_id: number;
+	color_name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	qty: number;
+	qty_new: number;
+	qty_used: number;
+	lots: number;
+	share: number;
+}
+
+export interface PartBrickLinkColorsResponse {
+	part_id: string;
+	item_no: string | null;
+	updated_at: string | null;
+	total_qty: number;
+	items: PartBrickLinkColor[];
+}
+
 export interface ColorLabelPrediction {
 	color_id: string | null;
 	color_name: string | null;
@@ -1477,6 +1497,14 @@ export const api = {
 		return request<MachineLabeledPiecesResponse>(
 			'GET',
 			`/api/labeling/machine/${machineId}/labeled-pieces?${params.toString()}`
+		);
+	},
+	// BrickLink for-sale color mix for a part (labeling prior column)
+	partBrickLinkColors(partId: string, limit?: number) {
+		const params = limit ? `?limit=${limit}` : '';
+		return request<PartBrickLinkColorsResponse>(
+			'GET',
+			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${params}`
 		);
 	},
 	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {

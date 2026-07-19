@@ -151,6 +151,46 @@ def list_colors(
     return ColorsResponse(results=[ColorOut(**c) for c in colors])
 
 
+class PartColorAvailabilityOut(BaseModel):
+    color_id: int
+    color_name: str
+    rgb: str | None = None
+    is_trans: bool = False
+    qty: int
+    qty_new: int
+    qty_used: int
+    lots: int
+    share: float
+
+
+class PartColorAvailabilityResponse(BaseModel):
+    part_id: str
+    item_no: str | None = None
+    updated_at: str | None = None
+    total_qty: int
+    items: list[PartColorAvailabilityOut]
+
+
+@router.get("/part/{part_id}/bricklink-colors", response_model=PartColorAvailabilityResponse)
+def part_bricklink_colors(
+    part_id: str,
+    limit: int = Query(24, ge=1, le=100),
+    _user: User = Depends(get_current_user),
+    _rl: None = Depends(rate_limit("labeling_list")),
+) -> PartColorAvailabilityResponse:
+    """Which colors this part is actually sold in on BrickLink, ranked by pieces
+    for sale — a prior for the labeler ("this mold basically only exists in gray
+    and black"). Public catalog data, so no per-machine access gate."""
+    result = get_profile_catalog_service().bricklink_part_colors(part_id, limit=limit)
+    return PartColorAvailabilityResponse(
+        part_id=result["part_id"],
+        item_no=result["item_no"],
+        updated_at=result["updated_at"],
+        total_qty=result["total_qty"],
+        items=[PartColorAvailabilityOut(**it) for it in result["items"]],
+    )
+
+
 @router.get("/stats")
 def label_stats(
     machine_id: UUID | None = Query(None),

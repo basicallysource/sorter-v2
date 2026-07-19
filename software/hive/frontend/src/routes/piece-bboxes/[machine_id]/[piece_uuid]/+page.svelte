@@ -11,6 +11,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import * as nav from '$lib/colorLabelNav';
 	import MachineLabeledPieces from '$lib/components/MachineLabeledPieces.svelte';
+	import PartBrickLinkColors from '$lib/components/PartBrickLinkColors.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
 	import ZoomImage from '$lib/components/ZoomImage.svelte';
 	import { Alert, Button } from '$lib/components/primitives';
@@ -605,9 +606,17 @@
 	</div>
 
 	<div class="flex flex-col gap-6 lg:flex-row lg:items-start">
-		<!-- Reference column: this machine's already-labeled colors (ground truth) -->
-		<aside class="shrink-0 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:w-52 lg:overflow-y-auto">
-			<MachineLabeledPieces {machineId} {pieceUuid} />
+		<!-- Reference columns: this machine's already-labeled colors (ground truth)
+		     and the part's real-world color mix on BrickLink (marketplace prior) -->
+		<!-- Each column scrolls on its own: the labeled-piece list is long, the
+		     BrickLink list is ~20 rows and should stay put while you scroll it. -->
+		<aside class="flex shrink-0 flex-col gap-4 sm:flex-row lg:sticky lg:top-4 lg:h-[calc(100vh-2rem)] lg:w-[26rem]">
+			<div class="min-w-0 flex-1 lg:overflow-y-auto">
+				<MachineLabeledPieces {machineId} {pieceUuid} />
+			</div>
+			<div class="min-w-0 flex-1 lg:overflow-y-auto">
+				<PartBrickLinkColors partId={detail.part.part_id} partName={detail.part.part_name} />
+			</div>
 		</aside>
 
 		<div class="flex min-w-0 flex-col gap-6 lg:flex-1">

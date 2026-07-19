@@ -32,6 +32,20 @@
 		}
 	}
 
+	const MAX_PER_COLOR = 2;
+
+	// The reference column is for calibrating color, not browsing every piece — a
+	// machine with 100 dark bluish gray pieces would otherwise bury every other hue.
+	let shown = $derived.by(() => {
+		const seen = new Map<number, number>();
+		return items.filter((it) => {
+			const n = seen.get(it.color_id) ?? 0;
+			if (n >= MAX_PER_COLOR) return false;
+			seen.set(it.color_id, n + 1);
+			return true;
+		});
+	});
+
 	$effect(() => {
 		const mid = machineId;
 		const puid = pieceUuid;
@@ -59,7 +73,7 @@
 		<p class="p-4 text-sm text-text-muted">This machine has no pieces labeled yet.</p>
 	{:else}
 		<div class="flex flex-col">
-			{#each items as it (it.piece_uuid)}
+			{#each shown as it (it.piece_uuid)}
 				<a
 					href={`/piece-bboxes/${machineId}/${encodeURIComponent(it.piece_uuid)}`}
 					class="flex items-center gap-2 border-b border-border px-2 py-1.5 last:border-b-0 hover:bg-bg"

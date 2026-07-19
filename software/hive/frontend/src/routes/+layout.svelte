@@ -268,7 +268,7 @@
 	<!-- The single-piece labeling view runs wider — it carries a reference column,
 	     the piece, and the color picker side by side. -->
 	<main
-		class="mx-auto px-4 py-6 {/^\/piece-bboxes\/.+/.test(page.url.pathname) ? 'max-w-[100rem]' : 'max-w-7xl'}"
+		class="mx-auto px-4 py-6 {/^\/piece-bboxes\/.+/.test(page.url.pathname) ? 'max-w-[120rem]' : 'max-w-7xl'}"
 	>
 		{@render children()}
 	</main>

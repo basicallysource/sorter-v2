@@ -15,6 +15,7 @@ from typing import Any
 
 from app.config import settings
 from app.errors import APIError
+from app.services import bricklink
 from app.services.profile_engine import db as profile_db
 from app.services.profile_engine import parts_cache as profile_parts_cache
 from app.services.profile_engine import rule_engine as profile_rule_engine
@@ -390,6 +391,19 @@ class ProfileCatalogService:
                     "rb_color_id": rb_color_id,
                 }
         return [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
+
+    def bricklink_part_colors(self, part_id: str, limit: int = 24) -> dict[str, Any]:
+        """Colors this part is stocked in on BrickLink, most pieces for sale
+        first, decorated with the same BL palette the labeling UI picks from."""
+        with self._lock:
+            result = bricklink.part_color_availability(self._conn, part_id, limit=limit)
+        palette = {c["id"]: c for c in self.list_bricklink_colors()}
+        for item in result["items"]:
+            color = palette.get(item["color_id"])
+            item["color_name"] = color["name"] if color else str(item["color_id"])
+            item["rgb"] = color.get("rgb") if color else None
+            item["is_trans"] = bool(color.get("is_trans", False)) if color else False
+        return result
 
     def import_bricklink_csv(self, csv_content: str, filename: str | None = None) -> dict[str, Any]:
         if not isinstance(csv_content, str) or not csv_content.strip():

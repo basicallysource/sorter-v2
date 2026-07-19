@@ -1,12 +1,20 @@
 """Public, unauthenticated endpoints for the anonymous sorter fleet.
 
+DEPRECATED as a system: the anonymous installs concept has merged into the
+Device identity (routers/devices.py) — new software pings /api/devices/ping
+under a device token, and the first such ping absorbs this table's row for its
+install_id. These endpoints stay only for machines running pre-merge software.
+
 `POST /api/installs/ping` — a machine's hourly "I exist / I'm online" report
-(status_ping.py on the machine). No auth: an unregistered machine has no token,
-and the whole point is to hear from every machine, registered or not. The row is
-keyed by the machine-chosen install_id and carries no account-linked identity.
+(legacy status_ping.py on the machine). No auth: an unregistered machine has no
+token, and the whole point is to hear from every machine, registered or not.
+The row is keyed by the machine-chosen install_id.
 
 `POST /api/installs/forget` — the deletion path behind the public /forget page:
-paste an install_id, the matching row is erased. Idempotent.
+paste an install_id, everything held for it is erased — the legacy installs row
+AND the telemetry columns of any device that absorbed it. Idempotent. The
+device's service identity (enrollment, color-prediction logs) is not touched;
+those are governed by the color-provider opt-in, not the status ping.
 
 Both are rate limited per source IP.
 """
@@ -146,9 +154,57 @@ def ping(data: InstallPing, request: Request, db: Session = Depends(get_db)) -> 
     return {"ok": True}
 
 
+_DEVICE_TELEMETRY_FIELDS = (
+    "first_ping_at",
+    "last_ping_reason",
+    "reported_created_at",
+    "country",
+    "region",
+    "software_version",
+    "channel",
+    "commit",
+    "os_name",
+    "sorter_os_version",
+    "hw_model",
+    "ram_bytes",
+    "cpu_temp_c",
+    "disk_free_bytes",
+    "disk_total_bytes",
+    "machine_setup",
+    "feeder_mode",
+    "classification_channel_mode",
+    "pieces_seen",
+    "pieces_classified",
+    "pieces_distributed",
+    "seconds_powered",
+    "seconds_sorted",
+    "best_hour_ppm",
+    "registered",
+    "process_uptime_s",
+    "system_uptime_s",
+    "local_machine_id",
+    "accounts",
+    "last_ping_payload",
+)
+
+
 @router.post("/forget")
 @limiter.limit("30/minute")
 def forget(data: ForgetRequest, request: Request, db: Session = Depends(get_db)) -> dict[str, Any]:
+    from app.models.device import Device
+
     deleted = db.query(Install).filter(Install.install_id == data.install_id).delete()
+
+    # The install may have been absorbed into a device (post-merge software):
+    # honor the same promise by wiping the device's telemetry and unlinking the
+    # id. Future pings from that machine start a fresh telemetry record unless
+    # the operator sets SORTER_BASE_REPORTING_OFF.
+    devices = db.query(Device).filter(Device.install_id == data.install_id).all()
+    for device in devices:
+        device.install_id = None
+        device.ping_count = 0
+        for field in _DEVICE_TELEMETRY_FIELDS:
+            setattr(device, field, None)
+
     db.commit()
-    return {"ok": True, "deleted": int(deleted)}
+    return {"ok": True, "deleted": int(deleted) + len(devices)}

@@ -34,6 +34,9 @@ export type PieceSummary = {
 	// recorded before the providers were selectable.
 	color_provider?: string | null;
 	mold_provider?: string | null;
+	// Operator-flagged capture issues — reason codes matching Hive's
+	// piece_rejections vocabulary ("no_piece" / "multiple_pieces" / "not_lego").
+	rejection_reasons?: string[] | null;
 };
 
 // GET /api/pieces/{uuid} — tiered envelope. `detail` is the full KnownObject
@@ -79,6 +82,7 @@ export type Piece = {
 	color_corrected_id: string | null;
 	part_feedback_submitted: boolean;
 	color_feedback_submitted: boolean;
+	rejection_reasons: string[];
 	ws: KnownObjectData | null;
 };
 
@@ -132,6 +136,7 @@ function pieceFromSummary(s: PieceSummary): Piece {
 		color_corrected_id: s.color_corrected_id ?? null,
 		part_feedback_submitted: Boolean(s.part_feedback_submitted),
 		color_feedback_submitted: Boolean(s.color_feedback_submitted),
+		rejection_reasons: s.rejection_reasons ?? [],
 		ws: null
 	};
 }
@@ -164,6 +169,7 @@ function pieceFromKnownObject(obj: KnownObjectData): Piece {
 		color_corrected_id: null,
 		part_feedback_submitted: false,
 		color_feedback_submitted: false,
+		rejection_reasons: [],
 		ws: obj
 	};
 }
@@ -190,7 +196,8 @@ export function pieceToSummary(p: Piece): PieceSummary {
 		part_correct: p.part_correct,
 		color_corrected_id: p.color_corrected_id,
 		part_feedback_submitted: p.part_feedback_submitted,
-		color_feedback_submitted: p.color_feedback_submitted
+		color_feedback_submitted: p.color_feedback_submitted,
+		rejection_reasons: p.rejection_reasons
 	};
 }
 
@@ -344,6 +351,7 @@ class PieceStore {
 			merged.color_corrected_id = existing.color_corrected_id;
 			merged.part_feedback_submitted = existing.part_feedback_submitted;
 			merged.color_feedback_submitted = existing.color_feedback_submitted;
+			merged.rejection_reasons = existing.rejection_reasons;
 		}
 		let next: Piece[];
 		if (idx >= 0) {
@@ -383,7 +391,8 @@ class PieceStore {
 					part_feedback_submitted:
 						existing.part_feedback_submitted || Boolean(s.part_feedback_submitted),
 					color_feedback_submitted:
-						existing.color_feedback_submitted || Boolean(s.color_feedback_submitted)
+						existing.color_feedback_submitted || Boolean(s.color_feedback_submitted),
+					rejection_reasons: s.rejection_reasons ?? existing.rejection_reasons
 				};
 			} else {
 				next[idx] = pieceFromSummary(s);

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import BigInteger, Boolean, Column, DateTime, Float, ForeignKey, Index, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 
-from app.models import Base
+from app.models import JSON_VARIANT, Base
 
 
 class MachinePiece(Base):
@@ -53,6 +53,11 @@ class MachinePiece(Base):
     part_feedback_submitted = Column(Boolean, nullable=False, default=False)
     color_feedback_submitted = Column(Boolean, nullable=False, default=False)
     correction_updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Operator-flagged capture issues, synced from the machine alongside the
+    # correction above. A JSON list of reason codes (no_piece / multiple_pieces /
+    # not_lego) — the same vocabulary as piece_rejections.reasons, so a machine
+    # operator's verdict and a Hive labeler's verdict mean the same thing.
+    rejection_reasons = Column(JSON_VARIANT, nullable=True)
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (

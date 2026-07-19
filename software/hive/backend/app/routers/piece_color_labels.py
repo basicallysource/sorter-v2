@@ -790,6 +790,10 @@ def piece_detail(
             "color_corrected_id": piece.color_corrected_id,
             "part_feedback_submitted": bool(piece.part_feedback_submitted),
             "color_feedback_submitted": bool(piece.color_feedback_submitted),
+            # Capture issues the machine operator flagged (no_piece /
+            # multiple_pieces / not_lego) — same vocabulary as my_rejection.reasons
+            # below, but this is the machine's own verdict, not a labeler's.
+            "rejection_reasons": list(piece.rejection_reasons or []),
         },
     }
 

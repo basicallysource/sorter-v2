@@ -148,6 +148,7 @@ def _correctionToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "part_feedback_submitted": bool(row["part_feedback_submitted"]),
         "color_feedback_submitted": bool(row["color_feedback_submitted"]),
         "updated_at": row["updated_at"],
+        "rejection_reasons": row["rejection_reasons"],
     }
 
 

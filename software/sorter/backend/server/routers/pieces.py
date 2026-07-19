@@ -82,6 +82,9 @@ class PieceSummary(BaseModel):
     # recorded before the providers were selectable.
     color_provider: Optional[str] = None
     mold_provider: Optional[str] = None
+    # Operator-flagged capture issues — reason codes matching Hive's
+    # piece_rejections vocabulary ("no_piece" / "multiple_pieces" / "not_lego").
+    rejection_reasons: List[str] = []
 
 
 class PiecesListResponse(BaseModel):
@@ -389,10 +392,15 @@ def listPieces(
 
 class CorrectionRequest(BaseModel):
     # Fields present in the request body are applied; absent fields are left
-    # unchanged (so the part check/x and the color dropdown can be saved
-    # independently). part_correct null clears the piece back to unreviewed.
+    # unchanged (so the part check/x, the color dropdown, and the capture-issue
+    # flags can be saved independently). part_correct null clears the piece back
+    # to unreviewed.
     part_correct: Optional[bool] = None
     color_corrected_id: Optional[str] = None
+    # Operator-flagged capture issues ("no_piece" / "multiple_pieces" /
+    # "not_lego"); an empty list clears all flags. Never sent to Brickognize —
+    # recorded locally and synced to Hive alongside the other correction fields.
+    rejection_reasons: Optional[List[str]] = None
     # When true (default), any pending (verdict recorded, not yet submitted)
     # correction is sent to Brickognize now. The verdict is always recorded.
     submit: bool = True
@@ -469,13 +477,16 @@ def submitPieceCorrection(uuid: str, body: CorrectionRequest) -> CorrectionRespo
     fields = body.model_fields_set
     set_part = "part_correct" in fields
     set_color = "color_corrected_id" in fields
-    if set_part or set_color:
+    set_rejection_reasons = "rejection_reasons" in fields
+    if set_part or set_color or set_rejection_reasons:
         piece_records.setPieceCorrection(
             uuid,
             set_part=set_part,
             part_correct=body.part_correct,
             set_color=set_color,
             color_corrected_id=body.color_corrected_id,
+            set_rejection_reasons=set_rejection_reasons,
+            rejection_reasons=body.rejection_reasons,
         )
         ctx = piece_records.getCorrectionContext(uuid) or ctx
 

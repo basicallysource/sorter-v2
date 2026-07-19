@@ -43,6 +43,15 @@
 		submit_error: string | null;
 	};
 
+	// Operator-flagged capture issues. Reason codes match Hive's piece_rejections
+	// vocabulary (no_piece / multiple_pieces / not_lego) so the two systems agree
+	// on what these strings mean once synced. Multiple can apply at once.
+	const REJECTION_REASONS: { code: string; label: string }[] = [
+		{ code: 'not_lego', label: 'Not Lego' },
+		{ code: 'multiple_pieces', label: 'Multiple pieces in frame' },
+		{ code: 'no_piece', label: 'No piece in frame' }
+	];
+
 	let colors = $state<BrickLinkColor[]>([]);
 	let colorsLoading = $state(false);
 	let colorsError = $state<string | null>(null);
@@ -108,6 +117,7 @@
 	async function postCorrection(body: {
 		part_correct?: boolean | null;
 		color_corrected_id?: string | null;
+		rejection_reasons?: string[] | null;
 		submit?: boolean;
 	}): Promise<CorrectionResponse | null> {
 		const res = await fetch(
@@ -150,6 +160,32 @@
 			feedback = { variant: 'danger', text: 'Failed to reach the machine — nothing was saved.' };
 		} finally {
 			partBusy = false;
+		}
+	}
+
+	let rejectionBusy = $state(false);
+	const rejectionReasons = $derived(new Set(piece.rejection_reasons ?? []));
+
+	async function toggleRejectionReason(code: string) {
+		if (rejectionBusy) return;
+		rejectionBusy = true;
+		feedback = null;
+		const next = new Set(rejectionReasons);
+		if (next.has(code)) next.delete(code);
+		else next.add(code);
+		try {
+			const resp = await postCorrection({
+				rejection_reasons: Array.from(next),
+				submit: true
+			});
+			if (resp) {
+				onUpdated?.(resp.summary);
+				feedback = { variant: 'success', text: 'Issue flags saved.' };
+			}
+		} catch {
+			feedback = { variant: 'danger', text: 'Failed to reach the machine — nothing was saved.' };
+		} finally {
+			rejectionBusy = false;
 		}
 	}
 
@@ -397,6 +433,36 @@
 						</Button>
 					</div>
 				</div>
+			{/if}
+		</div>
+
+		<!-- Capture-issue flags -->
+		<div class="flex flex-wrap items-center gap-2">
+			<span class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+				Report issue
+			</span>
+			<div class="flex border border-border">
+				{#each REJECTION_REASONS as reason, i (reason.code)}
+					{@const active = rejectionReasons.has(reason.code)}
+					<button
+						type="button"
+						onclick={() => toggleRejectionReason(reason.code)}
+						disabled={rejectionBusy}
+						aria-pressed={active}
+						title={`Flag this capture: ${reason.label}`}
+						class="inline-flex items-center gap-1 px-2 py-1 text-sm transition-colors disabled:opacity-50 {i <
+						REJECTION_REASONS.length - 1
+							? 'border-r border-border'
+							: ''} {active
+							? 'bg-danger/15 text-danger'
+							: 'text-text-muted hover:text-danger'}"
+					>
+						{reason.label}
+					</button>
+				{/each}
+			</div>
+			{#if rejectionBusy}
+				<Spinner size={12} />
 			{/if}
 		</div>
 

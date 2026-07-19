@@ -1144,6 +1144,11 @@ export interface ColorLabelCorrection {
 	color_corrected_id: string | null;
 	part_feedback_submitted: boolean;
 	color_feedback_submitted: boolean;
+	// Capture issues the machine operator flagged (no_piece / multiple_pieces /
+	// not_lego) — same reason codes as PieceRejection.reasons, but this is the
+	// machine's own verdict, not a labeler's. Present on the piece-detail
+	// envelope; absent from the brickognize-feedback response.
+	rejection_reasons?: string[];
 }
 
 export interface BrickognizeFeedbackResponse {

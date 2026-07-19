@@ -135,6 +135,9 @@ class PieceCorrectionIn(BaseModel):
     part_feedback_submitted: bool = False
     color_feedback_submitted: bool = False
     updated_at: float | None = None
+    # Operator-flagged capture issues (no_piece / multiple_pieces / not_lego) —
+    # same reason codes as piece_rejections.reasons.
+    rejection_reasons: list[str] | None = None
 
 
 class PieceCorrectionsBatch(BaseModel):
@@ -289,6 +292,7 @@ def sync_piece_corrections(
                     MachinePiece.color_feedback_submitted, rec.color_feedback_submitted
                 ),
                 correction_updated_at=_ts(rec.updated_at) or now,
+                rejection_reasons=rec.rejection_reasons,
             )
         )
         upserted += int(result.rowcount or 0)

@@ -181,6 +181,11 @@ export const tuningNavItems: SettingsNavItem[] = [
 		href: '/settings/tuning/object-tracker',
 		label: 'Object Tracker',
 		icon: SlidersHorizontal
+	},
+	{
+		href: '/settings/tuning/piece-link',
+		label: 'Piece Link (experimental)',
+		icon: SlidersHorizontal
 	}
 ];
 

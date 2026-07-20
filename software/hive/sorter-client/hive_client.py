@@ -134,6 +134,7 @@ class HiveClient:
         scope: str | None = None,
         runtime: str | None = None,
         family: str | None = None,
+        purpose: str | None = None,
         q: str | None = None,
         page: int = 1,
         page_size: int = 30,
@@ -147,6 +148,8 @@ class HiveClient:
             params["runtime"] = runtime
         if family:
             params["family"] = family
+        if purpose:
+            params["purpose"] = purpose
         if q:
             params["q"] = q
         if include_experimental:

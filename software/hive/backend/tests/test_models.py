@@ -55,6 +55,85 @@ class TestCreateModel:
         assert r2.json()["version"] == 2
         assert r2.json()["id"] != r1.json()["id"]
 
+    def test_defaults_to_detection_purpose(
+        self, client: TestClient, admin_headers: dict[str, str]
+    ) -> None:
+        r = client.post(
+            "/api/models",
+            json={"slug": "foo", "name": "Foo", "model_family": "yolo"},
+            headers=admin_headers,
+        )
+        assert r.status_code == 200, r.text
+        detail = client.get(f"/api/models/{r.json()['id']}", headers=admin_headers)
+        assert detail.json()["purpose"] == "detection"
+
+    def test_rejects_unknown_purpose(
+        self, client: TestClient, admin_headers: dict[str, str]
+    ) -> None:
+        resp = client.post(
+            "/api/models",
+            json={"slug": "foo", "name": "Foo", "model_family": "yolo", "purpose": "nonsense"},
+            headers=admin_headers,
+        )
+        assert resp.status_code == 400
+        assert resp.json()["code"] == "UNSUPPORTED_PURPOSE"
+
+
+class TestPurposeFilter:
+    def _publish(self, client, admin_headers, slug: str, purpose: str) -> str:
+        r = client.post(
+            "/api/models",
+            json={
+                "slug": slug,
+                "name": slug,
+                "model_family": "yolo" if purpose == "detection" else "piece_link_matcher",
+                "purpose": purpose,
+            },
+            headers=admin_headers,
+        )
+        assert r.status_code == 200, r.text
+        return r.json()["id"]
+
+    def test_filters_catalog_by_purpose(
+        self, client: TestClient, admin_headers: dict[str, str]
+    ) -> None:
+        self._publish(client, admin_headers, "detector", "detection")
+        self._publish(client, admin_headers, "link-v3", "piece_link")
+
+        everything = client.get("/api/models", headers=admin_headers).json()
+        assert {i["slug"] for i in everything["items"]} == {"detector", "link-v3"}
+
+        only_link = client.get("/api/models?purpose=piece_link", headers=admin_headers).json()
+        assert [i["slug"] for i in only_link["items"]] == ["link-v3"]
+
+        only_detection = client.get("/api/models?purpose=detection", headers=admin_headers).json()
+        assert [i["slug"] for i in only_detection["items"]] == ["detector"]
+
+    def test_machine_catalog_filters_by_purpose(
+        self,
+        client: TestClient,
+        db: Session,
+        machine_token: str,
+    ) -> None:
+        # The machine fixture takes over the client session, so the admin has to
+        # be established after it — same ordering as TestMachineEndpoints.
+        _register_user(client, "admin@test.com", "Password123!", "Admin")
+        _login_user(client, "admin@test.com", "Password123!")
+        _promote(db, "admin@test.com", "admin")
+        _login_user(client, "admin@test.com", "Password123!")
+        admin_headers = _auth_headers(client)
+
+        self._publish(client, admin_headers, "detector", "detection")
+        self._publish(client, admin_headers, "link-v3", "piece_link")
+        client.cookies.clear()
+
+        resp = client.get(
+            "/api/machine/models?purpose=piece_link",
+            headers={"Authorization": f"Bearer {machine_token}"},
+        )
+        assert resp.status_code == 200, resp.text
+        assert [i["slug"] for i in resp.json()["items"]] == ["link-v3"]
+
 
 class TestVariantUpload:
     def _create_model(self, client, admin_headers) -> str:

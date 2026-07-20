@@ -24,22 +24,26 @@ def _seed_hive_model(
     model_family: str,
     scopes: list[str],
     imgsz: int = 320,
+    purpose: str | None = None,
 ) -> Path:
     entry = tmp_path / f"hive-{name}"
     (entry / "exports").mkdir(parents=True)
     (entry / "exports" / "best.onnx").write_bytes(b"not a real onnx")
+    hive_meta = {
+        "target_id": "target-1",
+        "model_id": "abc",
+        "variant_runtime": "onnx",
+        "sha256": "deadbeef",
+        "downloaded_at": "2026-04-17T00:00:00+00:00",
+    }
+    if purpose is not None:
+        hive_meta["purpose"] = purpose
     meta = {
         "name": name,
         "model_family": model_family,
         "scopes": scopes,
         "imgsz": imgsz,
-        "hive": {
-            "target_id": "target-1",
-            "model_id": "abc",
-            "variant_runtime": "onnx",
-            "sha256": "deadbeef",
-            "downloaded_at": "2026-04-17T00:00:00+00:00",
-        },
+        "hive": hive_meta,
     }
     (entry / "run.json").write_text(json.dumps(meta))
     return entry
@@ -68,6 +72,35 @@ def test_unsupported_family_is_skipped(tmp_path, monkeypatch):
 
     ids = [a.id for a in registry.all_detection_algorithms()]
     assert not any(a.startswith("hive:") for a in ids)
+
+
+def test_non_detection_purpose_is_skipped(tmp_path, monkeypatch):
+    """Hive publishes several purposes into one catalog and the sorter installs
+    them all the same way. Only detection models become detection algorithms."""
+    monkeypatch.setattr(registry, "HIVE_MODELS_DIR", tmp_path)
+    _seed_hive_model(
+        tmp_path,
+        name="link-v3",
+        model_family="piece_link_matcher",
+        scopes=[],
+        purpose="piece_link",
+    )
+    registry.invalidate_registry()
+
+    ids = [a.id for a in registry.all_detection_algorithms()]
+    assert not any(a.startswith("hive:") for a in ids)
+
+
+def test_absent_purpose_reads_as_detection(tmp_path, monkeypatch):
+    """Models installed before Hive grew the field predate any other purpose."""
+    monkeypatch.setattr(registry, "HIVE_MODELS_DIR", tmp_path)
+    _seed_hive_model(
+        tmp_path, name="legacy", model_family="yolo", scopes=["classification_chamber"]
+    )
+    registry.invalidate_registry()
+
+    ids = [a.id for a in registry.all_detection_algorithms()]
+    assert any(a.startswith("hive:") for a in ids), ids
 
 
 def test_scope_mapping_feeder(tmp_path, monkeypatch):

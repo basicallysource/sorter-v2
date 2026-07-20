@@ -73,6 +73,17 @@ HIVE_SENTINEL_KEY = "hive"
 # ``compatible: False`` in the installed list so the UI can disable Activate.
 DEPLOYABLE_RUNTIMES: frozenset[str] = frozenset({"onnx", "ncnn", "hailo", "rknn"})
 
+# What a model is FOR. Hive publishes this per model; the download/install path
+# is identical across purposes and only the consumer differs. Models installed
+# before Hive grew the field predate any non-detection purpose, so absence reads
+# as ``detection``.
+PURPOSE_DETECTION = "detection"
+PURPOSE_PIECE_LINK = "piece_link"
+DEFAULT_PURPOSE = PURPOSE_DETECTION
+# Purposes nothing on the machine consumes yet. They install and sit inert; the
+# UI greys them out rather than offering an Activate that would do nothing.
+INERT_PURPOSES: frozenset[str] = frozenset({PURPOSE_PIECE_LINK})
+
 
 def set_local_models_dir(path: Path) -> None:
     """Test hook: override the installation directory at runtime.
@@ -275,9 +286,14 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
         )
 
         variant_runtime = hive_meta.get("variant_runtime")
+        raw_purpose = hive_meta.get("purpose")
+        purpose = raw_purpose if isinstance(raw_purpose, str) and raw_purpose else DEFAULT_PURPOSE
         compatible = (
             isinstance(variant_runtime, str)
             and variant_runtime.lower() in DEPLOYABLE_RUNTIMES
+            # An inert-purpose model is installed correctly but has no consumer
+            # on the machine yet, so it can't be activated against a scope.
+            and purpose not in INERT_PURPOSES
         )
 
         results.append(
@@ -286,6 +302,8 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
                 "target_id": hive_meta.get("target_id"),
                 "model_id": hive_meta.get("model_id"),
                 "variant_runtime": variant_runtime,
+                "purpose": purpose,
+                "inert": purpose in INERT_PURPOSES,
                 "sha256": hive_meta.get("sha256"),
                 "downloaded_at": hive_meta.get("downloaded_at"),
                 "trained_at": trained_at if isinstance(trained_at, str) else None,
@@ -719,15 +737,18 @@ class DownloadJobManager:
             self._update(job_id, status="failed", error=str(exc))
             return
 
-        # Post-processing: extract ncnn tarballs so the model is usable in-place.
-        if runtime == "ncnn" and self._looks_like_tarball(dest_path):
+        # Post-processing: extract tarballs so the model is usable in-place.
+        # ncnn always ships this way; a piece_link model ships its encoder+head
+        # pair as one onnx-runtime tarball. Gate on the file, not the runtime —
+        # a plain single-file artifact is never a tarball.
+        if self._looks_like_tarball(dest_path):
             try:
                 self._safe_extract_tarball(dest_path, exports_dir)
             except Exception as exc:
                 self._update(
                     job_id,
                     status="failed",
-                    error=f"ncnn extraction failed: {exc}",
+                    error=f"{runtime} extraction failed: {exc}",
                 )
                 return
 
@@ -740,6 +761,7 @@ class DownloadJobManager:
                 sha256=digest,
                 detail=detail,
                 variant=variant,
+                purpose=detail.get("purpose") if isinstance(detail, dict) else None,
             )
         except Exception as exc:
             self._update(job_id, status="failed", error=f"run.json write failed: {exc}")
@@ -792,6 +814,7 @@ class DownloadJobManager:
         sha256: str,
         detail: dict,
         variant: dict | None = None,
+        purpose: str | None = None,
     ) -> None:
         run_path = dest_dir / "run.json"
         # Merge with existing run.json if one was included inside a tarball.
@@ -828,6 +851,7 @@ class DownloadJobManager:
             "target_id": target_id,
             "model_id": model_id,
             "variant_runtime": variant_runtime,
+            "purpose": purpose or DEFAULT_PURPOSE,
             "sha256": sha256,
             "downloaded_at": _now_iso(),
         }

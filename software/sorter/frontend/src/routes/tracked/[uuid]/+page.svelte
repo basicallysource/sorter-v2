@@ -1546,7 +1546,10 @@
 						No upstream crops found near this piece's arrival time.
 					</div>
 				{:else}
-					<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));">
+					<div
+						class="grid max-h-72 gap-1.5 overflow-y-auto"
+						style="grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));"
+					>
 						{#each _possibleCrops as crop (crop.id)}
 							<button
 								type="button"
@@ -1566,25 +1569,11 @@
 										loading="lazy"
 									/>
 									<span
-										class="absolute right-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums"
+										class="absolute right-0.5 top-0.5 bg-primary px-1 text-xs font-semibold text-white tabular-nums"
 										title="Same-piece confidence (higher = more likely this piece)"
 									>
 										{crop.score.toFixed(2)}
 									</span>
-									<span
-										class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
-										title="Channel and zone the crop came from"
-									>
-										C{crop.channel}{crop.zone_code != null ? ` ${ZONE_LABEL[crop.zone_code]}` : ''}
-									</span>
-								</div>
-								<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-									<span class="tabular-nums">{crop.dt >= 0 ? `−${crop.dt.toFixed(1)}s` : `+${Math.abs(crop.dt).toFixed(1)}s`}</span>
-									<span class="tabular-nums"
-										>{crop.com_forward_to_exit_deg != null
-											? `${crop.com_forward_to_exit_deg.toFixed(0)}°`
-											: ''}</span
-									>
 								</div>
 							</button>
 						{/each}

@@ -397,6 +397,28 @@
 				.map((r): CycleImage => ({
 					src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${r.id}`
 				}));
+			// Plus the piece-link model's USED picks (fused into the applied
+			// request) — the confident upstream views of this same piece. The
+			// rest of its guesses stay off the hover.
+			try {
+				const linkRes = await fetch(
+					`${base}/api/pieces/${encodeURIComponent(uuid)}/link-images`
+				);
+				if (linkRes.ok) {
+					const linkEnv = (await linkRes.json()) as {
+						images?: { id: number; used?: boolean; available_locally?: boolean }[];
+					};
+					for (const r of linkEnv.images ?? []) {
+						if (r.used && r.available_locally !== false) {
+							imgs.push({
+								src: `${base}/api/pieces/${encodeURIComponent(uuid)}/link-images/${r.id}`
+							});
+						}
+					}
+				}
+			} catch {
+				// burst-only hover is fine
+			}
 			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
 		} catch {
 			// Silent — the card just keeps showing the captured crop.

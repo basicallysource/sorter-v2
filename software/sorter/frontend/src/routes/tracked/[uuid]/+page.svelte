@@ -13,6 +13,7 @@
 	import {
 		diskToDisplay,
 		fetchDiskImages,
+		fetchDiskLinkImages,
 		type DisplayImage
 	} from '$lib/components/records/piece-images';
 	import { getMachineContext } from '$lib/machines/context';
@@ -95,8 +96,11 @@
 				_fetchStatus = 'summary_only';
 				const base = effectiveBase();
 				const disk = await fetchDiskImages(base, targetUuid).catch(() => []);
+				const linkDisk = await fetchDiskLinkImages(base, targetUuid).catch(() => []);
 				if (targetUuid !== uuid) return;
-				_diskImages = disk.map((d) => diskToDisplay(base, targetUuid, d));
+				// Ground truth + the link model's guesses, merged for display only
+				// (they live in separate stores).
+				_diskImages = [...disk.map((d) => diskToDisplay(base, targetUuid, d)), ...linkDisk];
 			})
 			.catch(() => {
 				if (targetUuid !== uuid) return;
@@ -699,25 +703,37 @@
 		mold_provider?: string | null;
 		category_id?: string | null;
 		confidence?: number | null;
+		color_confidence?: number | null;
 		source_view?: string | null;
 	}): InfoRow[] {
+		// Mold and color are scored by (potentially) different providers, so each
+		// confidence sits directly under the source that produced it. A single
+		// "Confidence" row read as covering both, which it never did.
 		const rows: InfoRow[] = [
 			{ label: 'Part ID', value: o.part_id ?? '—', mono: true },
 			{ label: 'Name', value: o.part_name ?? '—' },
+			{ label: 'Mold source', value: providerLabel(o.mold_provider) },
+			{
+				label: 'Mold confidence',
+				value: typeof o.confidence === 'number' ? `${(o.confidence * 100).toFixed(0)}%` : '—',
+				valueClass: `font-semibold tabular-nums ${confidenceClass(o.confidence)}`
+			},
 			{
 				label: 'Color',
 				value: o.color_name && o.color_name !== 'Any Color' ? o.color_name : '—'
 			},
 			{ label: 'Color source', value: providerLabel(o.color_provider) },
-			{ label: 'Mold source', value: providerLabel(o.mold_provider) },
+			{
+				label: 'Color confidence',
+				value:
+					typeof o.color_confidence === 'number'
+						? `${(o.color_confidence * 100).toFixed(0)}%`
+						: '—',
+				valueClass: `font-semibold tabular-nums ${confidenceClass(o.color_confidence)}`
+			},
 			{
 				label: 'Category',
 				value: o.category_id ? (sortingProfileStore.getCategoryName(o.category_id) ?? '—') : '—'
-			},
-			{
-				label: 'Confidence',
-				value: typeof o.confidence === 'number' ? `${(o.confidence * 100).toFixed(0)}%` : '—',
-				valueClass: `font-semibold tabular-nums ${confidenceClass(o.confidence)}`
 			}
 		];
 		if (o.source_view) rows.push({ label: 'Source view', value: o.source_view });
@@ -971,6 +987,7 @@
 						mold_provider: piece.mold_provider,
 						category_id: piece.category_id,
 						confidence: piece.confidence,
+						color_confidence: piece.color_confidence,
 						source_view: piece.brickognize_source_view
 					})}
 					image={refImageSrc}

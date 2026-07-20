@@ -88,6 +88,40 @@ export async function fetchDiskImages(base: string, uuid: string): Promise<DiskI
 	return rows.filter((r) => r.available_locally);
 }
 
+// Piece-link model guesses live in their own store (/link-images) so they can
+// never mix with ground truth; for DISPLAY they're merged into the same list,
+// tagged source='link_match'.
+export async function fetchDiskLinkImages(base: string, uuid: string): Promise<DisplayImage[]> {
+	try {
+		const res = await fetch(`${base}/api/pieces/${encodeURIComponent(uuid)}/link-images`);
+		if (!res.ok) return [];
+		const json = await res.json();
+		const rows: {
+			id: number;
+			channel: number | null;
+			ts: number | null;
+			created_at: number | null;
+			score: number | null;
+			used: boolean;
+			available_locally: boolean;
+		}[] = Array.isArray(json?.images) ? json.images : [];
+		return rows
+			.filter((r) => r.available_locally)
+			.map((r) => ({
+				src: `${base}/api/pieces/${encodeURIComponent(uuid)}/link-images/${r.id}`,
+				source: 'link_match',
+				used: r.used,
+				excluded_from_result: false,
+				ts: r.ts,
+				score: r.score,
+				channel: r.channel,
+				created_at: r.created_at
+			}));
+	} catch {
+		return [];
+	}
+}
+
 // Crops hydrate through the tiered detail endpoint: a memory hit carries the
 // richest payload (attempts strip, stock photo, reclassify b64) but only spans
 // the current backend process; the on-disk piece-image store covers everything
@@ -108,7 +142,10 @@ export async function fetchPieceImageState(
 				return {
 					status: 'ok',
 					origin: 'memory',
-					images: (env.detail.recognition_image_set ?? []).map(memoryToDisplay),
+					images: [
+						...(env.detail.recognition_image_set ?? []).map(memoryToDisplay),
+						...(env.detail.link_match_image_set ?? []).map(memoryToDisplay)
+					],
 					strategy: env.detail.classification_strategy ?? null,
 					attempts: env.detail.classification_attempts ?? [],
 					createdAt: env.detail.created_at ?? null,
@@ -121,11 +158,12 @@ export async function fetchPieceImageState(
 	}
 	try {
 		const available = await fetchDiskImages(base, uuid);
-		if (available.length > 0) {
+		const linkImages = await fetchDiskLinkImages(base, uuid);
+		if (available.length > 0 || linkImages.length > 0) {
 			return {
 				status: 'ok',
 				origin: 'disk',
-				images: available.map((r) => diskToDisplay(base, uuid, r)),
+				images: [...available.map((r) => diskToDisplay(base, uuid, r)), ...linkImages],
 				createdAt: seen_at,
 				stockUrl: stock_url
 			};

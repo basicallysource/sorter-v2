@@ -845,3 +845,38 @@ def migrateFromDataJson() -> None:
     from local_state import initialize_local_state
 
     initialize_local_state()
+
+
+# ---------------------------------------------------------------------------
+# Piece-link matching (experimental)
+# ---------------------------------------------------------------------------
+
+
+def getLinkMatchingConfig() -> dict[str, Any]:
+    # Off by default: the matcher is experimental and costs an ONNX pass per
+    # classified piece. ``algorithm`` is an installed piece_link model's
+    # local_id; empty means "use whichever one is installed".
+    config = _read_toml()
+    section = config.get("link_matching")
+    section = section if isinstance(section, dict) else {}
+    return {
+        "enabled": bool(section.get("enabled", False)),
+        "algorithm": str(section.get("algorithm") or ""),
+    }
+
+
+def setLinkMatchingConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    valid: dict[str, Any] = {}
+    if "enabled" in updates:
+        valid["enabled"] = bool(updates.get("enabled"))
+    if "algorithm" in updates:
+        valid["algorithm"] = str(updates.get("algorithm") or "")
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("link_matching")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["link_matching"] = base
+
+    _update_toml(updater)
+    return getLinkMatchingConfig()

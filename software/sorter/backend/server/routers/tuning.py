@@ -20,6 +20,8 @@ from toml_config import (
     setConstantMovementConfig,
     getClassificationProviders,
     setClassificationProviders,
+    getLinkMatchingConfig,
+    setLinkMatchingConfig,
 )
 from classification.providers import COLOR_PROVIDER_SPECS, MOLD_PROVIDER_SPECS
 from subsystems.classification_channel.simple_state_machine_rev01.rev01_config import FIELD_META
@@ -168,3 +170,39 @@ def set_object_tracker_config(body: dict[str, Any]) -> dict[str, Any]:
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return get_object_tracker_config()
+
+
+@router.get("/api/tuning/link-matching")
+def get_link_matching() -> dict[str, Any]:
+    import link_matcher
+    import server.hive_models as hive_models
+
+    installed = [
+        {
+            "local_id": e.get("local_id"),
+            "name": e.get("name"),
+            "model_id": e.get("model_id"),
+            "downloaded_at": e.get("downloaded_at"),
+        }
+        for e in hive_models.list_installed_models()
+        if e.get("purpose") == hive_models.PURPOSE_PIECE_LINK
+    ]
+    return {
+        "config": getLinkMatchingConfig(),
+        "installed": installed,
+        "meta_features": link_matcher.META_FEATURES,
+    }
+
+
+@router.post("/api/tuning/link-matching")
+def set_link_matching(body: dict[str, Any]) -> dict[str, Any]:
+    import link_matcher
+
+    try:
+        updated = setLinkMatchingConfig(body)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    # Drop cached sessions so switching models (or re-enabling after a failed
+    # load) takes effect without a restart.
+    link_matcher.invalidateCache()
+    return {"config": updated}

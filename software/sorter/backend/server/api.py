@@ -579,12 +579,31 @@ def get_piece_image(uuid: str, image_id: int) -> Any:
 @app.get("/api/pieces/{uuid}/possible-crops")
 def get_possible_crops(uuid: str) -> Dict[str, Any]:
     # 'Possibly the same piece': upstream C2/C3 crops that are plausibly this
-    # classified piece, found by time + channel + distance-to-exit (no
-    # embeddings). Returns a confidence-ranked superset.
+    # classified piece, found by time + channel + distance-to-exit. Returns a
+    # confidence-ranked superset.
+    #
+    # When an experimental piece_link model is enabled it re-ranks that same
+    # candidate set by appearance + the same time/position features and the
+    # response gains prediction_source="model" plus per-candidate model_score.
+    # It can only reorder what the heuristic found, never recover a dropped
+    # crop, so the heuristic stays the recall net.
     import channel_crop_lookup
+    import link_matcher
 
     gc = shared_state.gc_ref
-    return {"piece_uuid": uuid, **channel_crop_lookup.findPossibleCrops(gc, uuid)}
+    try:
+        matched = link_matcher.matchForPiece(gc, uuid)
+    except Exception:
+        # Never let the experimental path break the review page.
+        gc.logger.debug("link matcher failed; falling back to heuristic", exc_info=True)
+        matched = None
+    if matched is not None:
+        return {"piece_uuid": uuid, **matched}
+    return {
+        "piece_uuid": uuid,
+        "prediction_source": "heuristic",
+        **channel_crop_lookup.findPossibleCrops(gc, uuid),
+    }
 
 
 @app.get("/api/channel-crops/{crop_id}/image")

@@ -57,7 +57,9 @@
 	let _diskImages = $state<DisplayImage[]>([]);
 
 	// 'Possibly the same piece': cheap time/angle lookup over the unlabeled
-	// C2/C3 channel crops (no embeddings). Confidence-ranked superset.
+	// C2/C3 channel crops. Confidence-ranked superset. When an experimental
+	// piece_link model is enabled the backend re-ranks that same set by
+	// appearance and each candidate carries model_score / model_same.
 	type PossibleCrop = {
 		id: number;
 		channel: number | null;
@@ -68,9 +70,13 @@
 		track_id: number | null;
 		sharpness: number | null;
 		score: number;
+		model_score?: number;
+		model_same?: boolean;
 	};
 	let _possibleCrops = $state<PossibleCrop[]>([]);
 	let _possibleStatus = $state<'idle' | 'loading' | 'ok' | 'error'>('idle');
+	let _possibleSource = $state<'heuristic' | 'model'>('heuristic');
+	let _possibleModel = $state<string | null>(null);
 
 	$effect(() => {
 		// Reset whenever the route UUID changes. Reading `uuid` registers the
@@ -84,6 +90,8 @@
 		_fetchStatus = 'idle';
 		_possibleCrops = [];
 		_possibleStatus = 'idle';
+		_possibleSource = 'heuristic';
+		_possibleModel = null;
 	});
 
 	$effect(() => {
@@ -97,9 +105,15 @@
 					_possibleStatus = 'error';
 					return;
 				}
-				const data = (await res.json()) as { candidates?: PossibleCrop[] };
+				const data = (await res.json()) as {
+					candidates?: PossibleCrop[];
+					prediction_source?: string;
+					link_model?: string;
+				};
 				if (targetUuid !== uuid) return;
 				_possibleCrops = data.candidates ?? [];
+				_possibleSource = data.prediction_source === 'model' ? 'model' : 'heuristic';
+				_possibleModel = data.link_model ?? null;
 				_possibleStatus = 'ok';
 			})
 			.catch(() => {
@@ -1468,7 +1482,19 @@
 						Possibly the same piece
 						<span class="ml-2 text-text-muted">{_possibleCrops.length}</span>
 					</div>
-					<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
+					{#if _possibleSource === 'model'}
+						<span class="flex items-center gap-2 text-sm text-text-muted">
+							<span
+								class="bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning"
+								title="Experimental piece-link model — it re-ranks the heuristic's candidates, it can't find new ones"
+							>
+								Model
+							</span>
+							{_possibleModel ?? 'piece link'} · ranked by match probability
+						</span>
+					{:else}
+						<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
+					{/if}
 				</div>
 				<div class="p-3">
 					{#if _possibleStatus === 'loading'}
@@ -1492,7 +1518,7 @@
 									onclick={() =>
 										(zoomImage = {
 											src: possibleCropSrc(crop.id),
-											label: `C${crop.channel} ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : ''} · ${crop.dt.toFixed(1)}s · score ${crop.score.toFixed(2)}`
+											label: `C${crop.channel} ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : ''} · ${crop.dt.toFixed(1)}s · ${crop.model_score != null ? 'model ' + crop.model_score.toFixed(3) : 'score ' + crop.score.toFixed(2)}`
 										})}
 								>
 									<div class="relative aspect-square w-full bg-white">

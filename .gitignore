@@ -32,4 +32,7 @@ software/sorteros/v3/build/.env
 /test.db
 /test-profile-parts.db
 
+# Postgres snapshots taken before deploys/migrations — local only, often large
+/backups/
+
 .DS_Store

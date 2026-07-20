@@ -345,6 +345,14 @@ class _TargetSyncer:
         for row in rows:
             if self._stop.is_set():
                 break
+            # Model guesses must never be uploaded as piece images — they would
+            # land in Hive's labeling gallery as "this IS the piece" and poison
+            # the training data. New code writes them to piece_link_images, but
+            # rows from the window where they landed in piece_images get skipped
+            # here (watermark still advances so the backlog drains past them).
+            if row.get("source") == "link_match":
+                self._wm[DATA_TYPE_IMAGES] = max(int(self._wm[DATA_TYPE_IMAGES] or 0), int(row["id"]))
+                continue
             file_path = None if row["evicted_locally"] else piece_image_store.getImageFileById(row["id"])
             with self._gate.slot():
                 new_max = self._client.pushPieceImage(_imageToMeta(row), file_path)

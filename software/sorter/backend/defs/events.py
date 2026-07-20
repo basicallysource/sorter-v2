@@ -178,6 +178,10 @@ class KnownObjectData(BaseModel):
     # C4 burst captures, each flagged with
     # whether it was actually submitted to Brickognize.
     recognition_image_set: List["RecognitionImage"] = Field(default_factory=list)
+    # Piece-link model guesses (C2/C3 crops scored as the same piece). Kept
+    # separate from recognition_image_set so ground-truth burst images and model
+    # guesses can never mix in storage, sync, or training data.
+    link_match_image_set: List["RecognitionImage"] = Field(default_factory=list)
     # Per-request Brickognize record; the requests fan out in parallel (combined +
     # single-image calls), not as retries. The applied one is flagged.
     # ``classification_strategy`` is which request won (``combined`` = the fused

@@ -178,6 +178,12 @@
 	}
 
 	const sorted = $derived(imgState?.status === 'ok' ? sortImages(imgState.images) : []);
+	// The records list is a compact scan of many pieces, so it shows only the
+	// images that actually produced the result. Everything else the piece
+	// carries -- unshipped burst frames, link-match candidates from C2/C3 --
+	// belongs on the detail page, not here; showing all of them turned each row
+	// into 40+ thumbnails of unrelated pieces.
+	const shown = $derived(sorted.filter((img) => img.used));
 	const objCreatedAt = $derived(imgState?.createdAt ?? null);
 	const lego_color = $derived(lookupLegoColor(piece.color_id, piece.color_name));
 	const est_value_text = $derived(formatEstValue(piece.est_value));
@@ -240,7 +246,9 @@
 
 		<span class="ml-auto flex items-center gap-3 text-xs text-text-muted">
 			{#if imgState?.status === 'ok' && sorted.length > 0}
-				<span class="tabular-nums">{sorted.length} C4</span>
+				<span class="tabular-nums" title="Images that produced the result, of all stored for this piece">
+					{shown.length} of {sorted.length} used
+				</span>
 			{/if}
 			<span class="font-mono">{formatBin(piece.bin)}</span>
 			<span class="tabular-nums">{formatTimestamp(piece.seen_at)}</span>
@@ -302,14 +310,14 @@
 					<Skeleton class="h-28 w-28" />
 				{/each}
 			</div>
-		{:else if imgState.status === 'missing' || (sorted.length === 0 && !imgState.stockUrl)}
+		{:else if imgState.status === 'missing' || (shown.length === 0 && !imgState.stockUrl)}
 			<div class="text-sm text-text-muted">
 				No stored images for this piece (recorded before image capture existed, or none taken).
 			</div>
 		{:else}
 			<div class="flex items-start gap-4">
 				<div class="flex flex-1 flex-wrap gap-2">
-					{#each sorted as img, i (i)}
+					{#each shown as img, i (i)}
 						{@const badge = sourceBadge(img)}
 						{@const src = img.src}
 						{@const state = imageState(img)}
@@ -325,7 +333,7 @@
 									? 'Sent in a parallel request that lost — thrown out'
 									: 'Captured, not shipped'}
 						>
-							<div class="h-28 w-28 bg-white {state === 'dropped' ? 'opacity-50' : ''}">
+							<div class="h-16 w-16 bg-white {state === 'dropped' ? 'opacity-50' : ''}">
 								{#if src}
 									<img {src} alt={img.source} class="h-full w-full object-contain" loading="lazy" />
 								{/if}

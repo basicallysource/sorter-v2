@@ -80,6 +80,12 @@ def piece_images_dir() -> Path:
     return local_state_db_path().parent / "piece_images"
 
 
+def piece_link_images_dir() -> Path:
+    # Model-guess crops live in their own tree so they can never be confused
+    # with (or globbed up with) the ground-truth piece_images files.
+    return local_state_db_path().parent / "piece_link_images"
+
+
 def _connect() -> sqlite3.Connection:
     db_path = local_state_db_path()
     db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -147,6 +153,29 @@ def _ensureInitialized() -> None:
                 except sqlite3.OperationalError:
                     pass
             conn.execute(
+                # Piece-link model guesses. A separate table on purpose: no
+                # synced_at / hive_image_id columns exist here because these
+                # rows are never uploaded as piece images.
+                "CREATE TABLE IF NOT EXISTS piece_link_images ("
+                "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+                "piece_uuid TEXT NOT NULL, "
+                "seq INTEGER NOT NULL, "
+                "channel INTEGER, "
+                "ts REAL, "
+                "created_at REAL NOT NULL, "
+                "score REAL, "
+                "used INTEGER NOT NULL DEFAULT 0, "
+                "bytes INTEGER NOT NULL, "
+                "file_path TEXT NOT NULL, "
+                "deleted_at REAL, "
+                "UNIQUE(piece_uuid, seq)"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_piece_link_images_uuid "
+                "ON piece_link_images(piece_uuid)"
+            )
+            conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_piece_images_uuid "
                 "ON piece_images(piece_uuid)"
             )
@@ -193,6 +222,11 @@ def enqueueKnownObjectImages(payload: dict[str, Any]) -> None:
                 continue
             image_b64 = entry.get("image")
             if not isinstance(image_b64, str) or not image_b64:
+                continue
+            # HARD GUARD: piece_images is ground truth (C4 burst -> Hive ->
+            # training data). Model guesses must never enter it, whatever a
+            # caller puts in recognition_image_set.
+            if entry.get("source") == "link_match":
                 continue
             item = {
                 "image": image_b64,
@@ -276,6 +310,11 @@ def _workerLoop() -> None:
                     _writeImage(piece_uuid, seq, item)
                     with _stats_lock:
                         _stats["written"] += 1
+                elif kind == "link_image":
+                    seq, item = payload
+                    _writeLinkImage(piece_uuid, seq, item)
+                    with _stats_lock:
+                        _stats["written"] += 1
                 elif kind == "flags":
                     _updateImageFlags(piece_uuid, payload)
             except Exception as exc:
@@ -321,6 +360,127 @@ def _writeImage(piece_uuid: str, seq: int, item: dict[str, Any]) -> None:
             ),
         )
         conn.commit()
+
+
+_link_seen_lock = threading.Lock()
+_link_seen_counts: dict[str, int] = {}
+_link_seen_order: list[str] = []
+
+
+def enqueueKnownObjectLinkImages(payload: dict[str, Any]) -> None:
+    """Persist the piece-link model's guesses from link_match_image_set.
+
+    Entirely parallel to enqueueKnownObjectImages but writing to the separate
+    piece_link_images table + directory — these are model guesses, not ground
+    truth, and nothing here is ever synced to Hive as a piece image."""
+    piece_uuid = payload.get("uuid")
+    images = payload.get("link_match_image_set")
+    if not isinstance(piece_uuid, str) or not piece_uuid or not isinstance(images, list):
+        return
+    with _link_seen_lock:
+        already = _link_seen_counts.get(piece_uuid)
+        if already is None:
+            _link_seen_order.append(piece_uuid)
+            while len(_link_seen_order) > _MAX_SEEN_UUIDS:
+                evicted = _link_seen_order.pop(0)
+                _link_seen_counts.pop(evicted, None)
+            already = 0
+        if len(images) > already:
+            _link_seen_counts[piece_uuid] = len(images)
+    if len(images) <= already:
+        return
+    _ensureWorker()
+    for seq in range(already, len(images)):
+        entry = images[seq]
+        if not isinstance(entry, dict):
+            continue
+        image_b64 = entry.get("image")
+        if not isinstance(image_b64, str) or not image_b64:
+            continue
+        item = {
+            "image": image_b64,
+            "channel": entry.get("channel"),
+            "ts": entry.get("ts"),
+            "created_at": entry.get("created_at"),
+            "score": entry.get("score"),
+            "used": entry.get("used"),
+        }
+        try:
+            _queue.put_nowait(("link_image", piece_uuid, (seq, item)))
+            with _stats_lock:
+                _stats["enqueued"] += 1
+        except queue.Full:
+            with _stats_lock:
+                _stats["dropped_queue_full"] += 1
+
+
+def _writeLinkImage(piece_uuid: str, seq: int, item: dict[str, Any]) -> None:
+    raw = base64.b64decode(item["image"], validate=False)
+    # Distinct filename shape from piece_images on purpose ("linkguess"), so a
+    # stray glob or manual copy can never pass one off as a burst frame.
+    rel_path = f"{piece_uuid}/{seq:02d}_linkguess.jpg"
+    abs_path = piece_link_images_dir() / rel_path
+    abs_path.parent.mkdir(parents=True, exist_ok=True)
+    abs_path.write_bytes(raw)
+
+    created_at = item.get("created_at")
+    if not isinstance(created_at, (int, float)):
+        created_at = time.time()
+    with _connection() as conn:
+        conn.execute(
+            "INSERT OR IGNORE INTO piece_link_images "
+            "(piece_uuid, seq, channel, ts, created_at, score, used, bytes, file_path) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (
+                piece_uuid,
+                seq,
+                item.get("channel") if isinstance(item.get("channel"), int) else None,
+                item.get("ts") if isinstance(item.get("ts"), (int, float)) else None,
+                float(created_at),
+                item.get("score") if isinstance(item.get("score"), (int, float)) else None,
+                1 if item.get("used") else 0,
+                len(raw),
+                rel_path,
+            ),
+        )
+        conn.commit()
+
+
+def listPieceLinkImages(piece_uuid: str) -> list[dict[str, Any]]:
+    if not isinstance(piece_uuid, str) or not piece_uuid:
+        return []
+    with _connection() as conn:
+        rows = conn.execute(
+            "SELECT id, piece_uuid, seq, channel, ts, created_at, score, used, "
+            "bytes, deleted_at, file_path "
+            "FROM piece_link_images WHERE piece_uuid = ? ORDER BY seq ASC",
+            (piece_uuid,),
+        ).fetchall()
+    return [
+        {
+            "id": int(r["id"]),
+            "seq": int(r["seq"]),
+            "channel": r["channel"],
+            "ts": r["ts"],
+            "created_at": r["created_at"],
+            "score": r["score"],
+            "used": bool(r["used"]),
+            "available_locally": r["deleted_at"] is None,
+        }
+        for r in rows
+    ]
+
+
+def getLinkImageFileById(image_id: int) -> Optional[Path]:
+    with _connection() as conn:
+        r = conn.execute(
+            "SELECT file_path, deleted_at FROM piece_link_images WHERE id = ?",
+            (int(image_id),),
+        ).fetchone()
+    if r is None or r["deleted_at"] is not None or not r["file_path"]:
+        return None
+    path = piece_link_images_dir() / str(r["file_path"])
+    return path if path.is_file() else None
 
 
 def _updateImageFlags(piece_uuid: str, flags: list[tuple[int, int, int, Any]]) -> None:
@@ -377,6 +537,55 @@ def _retentionSweep() -> None:
         _log(
             "info",
             f"piece_image_store: retention evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
+        )
+    _linkRetentionSweep()
+
+
+# Model guesses are strictly less precious than ground truth, so they get a
+# smaller budget and evict oldest-first (nothing syncs, so no synced tier).
+_MAX_LINK_TOTAL_BYTES = 200 * 1024 * 1024
+
+
+def _linkRetentionSweep() -> None:
+    with _connection() as conn:
+        row = conn.execute(
+            "SELECT COALESCE(SUM(bytes), 0) AS total FROM piece_link_images WHERE deleted_at IS NULL"
+        ).fetchone()
+        total = int(row["total"]) if row is not None else 0
+        if total <= _MAX_LINK_TOTAL_BYTES:
+            return
+        overage = total - _MAX_LINK_TOTAL_BYTES
+        rows = conn.execute(
+            "SELECT id, file_path, bytes FROM piece_link_images WHERE deleted_at IS NULL "
+            "ORDER BY created_at ASC LIMIT 500"
+        ).fetchall()
+        now = time.time()
+        freed = 0
+        evicted = 0
+        for r in rows:
+            if freed >= overage:
+                break
+            abs_path = piece_link_images_dir() / str(r["file_path"])
+            try:
+                abs_path.unlink(missing_ok=True)
+                parent = abs_path.parent
+                if parent != piece_link_images_dir() and not any(parent.iterdir()):
+                    parent.rmdir()
+            except OSError:
+                pass
+            conn.execute(
+                "UPDATE piece_link_images SET deleted_at = ? WHERE id = ?",
+                (now, int(r["id"])),
+            )
+            freed += int(r["bytes"] or 0)
+            evicted += 1
+        conn.commit()
+    if evicted:
+        with _stats_lock:
+            _stats["evicted_files"] += evicted
+        _log(
+            "info",
+            f"piece_image_store: link retention evicted {evicted} files ({freed / 1024 / 1024:.1f} MB)",
         )
 
 

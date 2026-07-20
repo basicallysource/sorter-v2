@@ -202,6 +202,13 @@ class KnownObject:
     # with whether it was actually submitted to Brickognize. The burst keeps all
     # its frames; only the entries with used=True drove the classification.
     recognition_image_set: List["RecognitionImage"] = field(default_factory=list)
+    # Upstream C2/C3 crops the piece-link model scored as this same physical
+    # piece. DELIBERATELY a separate list from recognition_image_set: that set
+    # is ground truth ("these pixels ARE the piece", the C4 burst) and feeds
+    # piece_images -> Hive -> training data. Link matches are model GUESSES and
+    # must never travel that pipeline — they persist to their own table/files
+    # and are never uploaded as piece images.
+    link_match_image_set: List["RecognitionImage"] = field(default_factory=list)
     # Record of each parallel Brickognize request for this piece (combined plus
     # any single-image calls). They run concurrently, not as retries; the one
     # flagged applied=True is the highest-confidence call that recognized it.

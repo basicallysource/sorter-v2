@@ -137,6 +137,7 @@ export interface KnownObjectData {
   color_provider?: string | null;
   mold_provider?: string | null;
   recognition_image_set?: RecognitionImage[];
+  link_match_image_set?: RecognitionImage[];
   classification_attempts?: ClassificationAttempt[];
   classification_strategy?: ClassificationAttemptStrategy | null;
   recognition_used_crop_ts?: number[];

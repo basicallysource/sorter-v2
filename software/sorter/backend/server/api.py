@@ -558,6 +558,32 @@ def list_piece_images(uuid: str) -> Dict[str, Any]:
     return {"piece_uuid": uuid, "images": piece_image_store.listPieceImages(uuid)}
 
 
+@app.get("/api/pieces/{uuid}/link-images")
+def list_piece_link_images(uuid: str) -> Dict[str, Any]:
+    # Piece-link model guesses (C2/C3 crops scored as this piece). A separate
+    # endpoint from /images on purpose — that one serves ground-truth burst
+    # frames only, and nothing downstream may conflate the two.
+    import piece_image_store
+
+    return {"piece_uuid": uuid, "images": piece_image_store.listPieceLinkImages(uuid)}
+
+
+@app.get("/api/pieces/{uuid}/link-images/{image_id}")
+def get_piece_link_image(uuid: str, image_id: int) -> Any:
+    from fastapi.responses import FileResponse
+
+    import piece_image_store
+
+    path = piece_image_store.getLinkImageFileById(image_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="link image not available locally")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 @app.get("/api/pieces/{uuid}/images/{image_id}")
 def get_piece_image(uuid: str, image_id: int) -> Any:
     from fastapi.responses import FileResponse

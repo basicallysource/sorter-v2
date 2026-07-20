@@ -315,6 +315,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                     import piece_image_store
 
                     piece_image_store.enqueueKnownObjectImages(obj_payload)
+                    piece_image_store.enqueueKnownObjectLinkImages(obj_payload)
                 except Exception:
                     pass
                 event_data = payload.get("data")

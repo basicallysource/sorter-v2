@@ -20,7 +20,7 @@ from defs.events import (
 # capture made known_object payloads grow quadratically and backed up the socket
 # broadcaster. The live UI renders latest_captured_crop (bounded), not this list.
 # Add a field here to drop it from the live socket without touching call sites.
-KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_image_set"})
+KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_image_set", "link_match_image_set"})
 
 
 def slimKnownObjectForSocket(data: dict[str, Any]) -> dict[str, Any]:
@@ -99,6 +99,20 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                     sharpness=getattr(r, "sharpness", None),
                 )
                 for r in (obj.recognition_image_set or [])
+            ],
+            link_match_image_set=[
+                RecognitionImage(
+                    image=r.image,
+                    source=r.source,
+                    used=r.used,
+                    ts=r.ts,
+                    score=r.score,
+                    channel=r.channel,
+                    created_at=getattr(r, "created_at", None),
+                    excluded_from_result=getattr(r, "excluded_from_result", False),
+                    sharpness=getattr(r, "sharpness", None),
+                )
+                for r in (obj.link_match_image_set or [])
             ],
             classification_attempts=[
                 ClassificationAttempt(

@@ -334,47 +334,49 @@
 			}
 		}
 
-		// Two sources on the same piece:
-		//   c4_burst   — classification-channel frames; `used` = actually
-		//                shipped to Brickognize, i.e. what produced the result.
-		//   link_match — upstream C2/C3 crops the piece-link model scored as
-		//                the same physical piece. Never sent to Brickognize,
-		//                so `used` is always false; `score` is the model's
-		//                probability and drives their highlighting instead.
+		// Two DELIBERATELY separate lists on the piece:
+		//   recognition_image_set — ground truth, the C4 burst; `used` =
+		//     shipped to Brickognize in the applied request. This list feeds
+		//     piece_images -> Hive -> training data.
+		//   link_match_image_set  — the piece-link model's GUESSES from C2/C3.
+		//     Separate field, separate storage, never synced as piece images,
+		//     so they can never poison the ground truth. `used` marks guesses
+		//     that were fused into the applied request.
 		const recogSet = _fetchedPiece?.recognition_image_set ?? [];
-		const burstTotal = recogSet.filter((r) => r.source === 'c4_burst').length;
-		const linkTotal = recogSet.filter((r) => r.source === 'link_match').length;
+		const burstTotal = recogSet.length;
 		let recogSeq = 0;
-		let linkSeq = 0;
 		for (const entry of recogSet) {
 			const src = dataImageUrl(entry.image);
 			if (!src) continue;
-			if (entry.source === 'link_match') {
-				linkSeq += 1;
-				entries.push({
-					src,
-					role: 'link_match',
-					ts: entry.ts ?? null,
-					used: false,
-					seq: linkSeq,
-					total: linkTotal,
-					score: entry.score ?? null,
-					channel: entry.channel ?? null,
-					sharpness: entry.sharpness ?? null
-				});
-			} else {
-				recogSeq += 1;
-				entries.push({
-					src,
-					role: 'recognition_capture',
-					ts: entry.ts ?? null,
-					used: entry.used ?? false,
-					seq: recogSeq,
-					total: burstTotal,
-					channel: entry.channel ?? 4,
-					sharpness: entry.sharpness ?? null
-				});
-			}
+			recogSeq += 1;
+			entries.push({
+				src,
+				role: 'recognition_capture',
+				ts: entry.ts ?? null,
+				used: entry.used ?? false,
+				seq: recogSeq,
+				total: burstTotal,
+				channel: entry.channel ?? 4,
+				sharpness: entry.sharpness ?? null
+			});
+		}
+		const linkSet = _fetchedPiece?.link_match_image_set ?? [];
+		let linkSeq = 0;
+		for (const entry of linkSet) {
+			const src = dataImageUrl(entry.image);
+			if (!src) continue;
+			linkSeq += 1;
+			entries.push({
+				src,
+				role: 'link_match',
+				ts: entry.ts ?? null,
+				used: entry.used ?? false,
+				seq: linkSeq,
+				total: linkSet.length,
+				score: entry.score ?? null,
+				channel: entry.channel ?? null,
+				sharpness: entry.sharpness ?? null
+			});
 		}
 
 		// Keep the classification chamber top/bottom snapshots as a fallback;

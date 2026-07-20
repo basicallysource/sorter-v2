@@ -335,6 +335,17 @@ def sync_piece_image(
     except (json.JSONDecodeError, ValueError) as exc:
         raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
 
+    # Piece images are ground truth ("these pixels ARE the piece") and feed the
+    # labeling galleries and training exports. Piece-link model GUESSES must
+    # never enter that pipeline — refuse them here regardless of what the
+    # machine's software version sends, but ack with an advanced watermark so an
+    # un-updated sorter drains past them instead of retrying forever.
+    if meta.source == "link_match":
+        new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_IMAGES, meta.local_id)
+        machine.last_seen_at = _now()
+        db.commit()
+        return {"max_local_id": new_max, "image_stored": False, "rejected_source": "link_match"}
+
     image_key: str | None = None
     evicted_locally = image is None
     if image is not None:

@@ -152,6 +152,34 @@ def test_piece_image_with_and_without_file(client, machine_token, upload_dir):
     assert imgs["p2"].image_key is None and imgs["p2"].evicted_locally is True
 
 
+def test_piece_image_rejects_link_match_source(client, machine_token, upload_dir):
+    # Link-model guesses must never enter machine_piece_images (they would show
+    # in labeling galleries as "this IS the piece" and poison training data).
+    # The endpoint acks with an advanced watermark so an un-updated sorter
+    # drains past them instead of retrying forever — but stores nothing.
+    img = make_test_image(fmt="jpeg")
+    meta = {"piece_uuid": "pl", "seq": 0, "local_id": 200, "source": "link_match",
+            "channel": 2, "score": 0.97}
+    r = client.post(
+        "/api/machine/sync/piece-image",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps(meta)},
+        files={"image": ("crop.jpg", img, "image/jpeg")},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["image_stored"] is False
+    assert body["rejected_source"] == "link_match"
+    assert body["max_local_id"] == 200
+
+    from app.models.machine_piece_image import MachinePieceImage
+    from tests.conftest import TestingSessionLocal
+    s: Session = TestingSessionLocal()
+    n = s.query(MachinePieceImage).filter(MachinePieceImage.piece_uuid == "pl").count()
+    s.close()
+    assert n == 0
+
+
 def test_sync_requires_machine_token(client):
     assert client.get("/api/machine/sync/state").status_code == 422  # missing Authorization
     assert client.get("/api/machine/sync/state", headers=_bearer("bogus")).status_code == 401

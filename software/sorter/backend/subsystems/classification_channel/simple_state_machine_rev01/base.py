@@ -826,7 +826,11 @@ class Rev01BaseState(BaseState):
         if obj is not None and attached:
             with self.ctx.classify_lock:
                 if self.ctx.known_object is obj:
-                    obj.recognition_image_set.extend(attached)
+                    # NOT recognition_image_set. That list is ground truth (the
+                    # C4 burst) and feeds piece_images -> Hive -> training data;
+                    # model guesses live on their own list and never enter that
+                    # pipeline.
+                    obj.link_match_image_set.extend(attached)
         self.logger.info(
             f"{LOG_TAG} link match: {len(attached)} scored, {len(sendable)} fused into request"
         )

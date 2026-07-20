@@ -18,6 +18,7 @@ from app.errors import APIError
 from app.models.machine import Machine
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_sync_state import MachineSyncState
 from app.services.storage import save_channel_crop_file, save_piece_image_file, validate_image
@@ -292,10 +293,27 @@ def sync_piece_corrections(
                     MachinePiece.color_feedback_submitted, rec.color_feedback_submitted
                 ),
                 correction_updated_at=_ts(rec.updated_at) or now,
-                rejection_reasons=rec.rejection_reasons,
             )
         )
         upserted += int(result.rowcount or 0)
+        # Capture-issue flags: replace-all per piece, since the machine sends the
+        # complete set it wants on every edit. None means the machine predates the
+        # field and isn't reporting flags — leave whatever is already there rather
+        # than reading "not reported" as "operator cleared them".
+        if result.rowcount and rec.rejection_reasons is not None:
+            db.query(MachinePieceRejectionReason).filter(
+                MachinePieceRejectionReason.machine_id == machine.id,
+                MachinePieceRejectionReason.piece_uuid == rec.piece_uuid,
+            ).delete(synchronize_session=False)
+            for reason in dict.fromkeys(rec.rejection_reasons):
+                db.add(
+                    MachinePieceRejectionReason(
+                        machine_id=machine.id,
+                        piece_uuid=rec.piece_uuid,
+                        reason=reason,
+                        created_at=now,
+                    )
+                )
 
     new_max = _advance_watermark(db, machine.id, DATA_TYPE_PIECE_CORRECTIONS, batch_max)
     machine.last_seen_at = now

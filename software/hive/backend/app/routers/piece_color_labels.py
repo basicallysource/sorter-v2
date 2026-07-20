@@ -34,6 +34,7 @@ from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
+from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.piece_color_label import PieceColorLabel
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember
@@ -730,6 +731,16 @@ def piece_detail(
         )
         .first()
     )
+    operator_rejection_reasons = [
+        r
+        for (r,) in db.query(MachinePieceRejectionReason.reason)
+        .filter(
+            MachinePieceRejectionReason.machine_id == machine_id,
+            MachinePieceRejectionReason.piece_uuid == piece_uuid,
+        )
+        .order_by(MachinePieceRejectionReason.reason)
+        .all()
+    ]
     return {
         "machine_id": str(machine_id),
         "machine_name": machine_name,
@@ -791,9 +802,10 @@ def piece_detail(
             "part_feedback_submitted": bool(piece.part_feedback_submitted),
             "color_feedback_submitted": bool(piece.color_feedback_submitted),
             # Capture issues the machine operator flagged (no_piece /
-            # multiple_pieces / not_lego) — same vocabulary as my_rejection.reasons
-            # below, but this is the machine's own verdict, not a labeler's.
-            "rejection_reasons": list(piece.rejection_reasons or []),
+            # multiple_pieces / not_lego / blurry) — same vocabulary as
+            # my_rejection.reasons, but this is the machine's own verdict, not a
+            # labeler's.
+            "rejection_reasons": operator_rejection_reasons,
         },
     }
 

@@ -110,20 +110,40 @@ def _ensureInitialized() -> None:
                 # providers were selectable.
                 ("color_provider", "TEXT"),
                 ("mold_provider", "TEXT"),
-                # Operator-flagged capture issues — a JSON-encoded list of reason
-                # codes ("no_piece" / "multiple_pieces" / "not_lego"), matching the
-                # vocabulary of Hive's piece_rejections table so the two systems
-                # agree on what these strings mean.
-                ("rejection_reasons", "TEXT"),
             ):
                 if _col not in existing_columns:
                     conn.execute(
                         f"ALTER TABLE piece_records ADD COLUMN {_col} {_ddl}"
                     )
+            # Operator-flagged capture issues, one row per (piece, reason) so the
+            # flags are queryable — "how many pieces were flagged blurry this
+            # week" is a GROUP BY, not a scan-and-parse over blobs. Reason codes
+            # are free-form slugs; the first three ("no_piece" / "multiple_pieces"
+            # / "not_lego") match Hive's piece_rejections vocabulary so an
+            # operator's verdict and a Hive labeler's verdict mean the same thing.
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_rejection_reasons ("
+                "piece_uuid TEXT NOT NULL, "
+                "reason TEXT NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "PRIMARY KEY (piece_uuid, reason)"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_piece_rejection_reasons_reason "
+                "ON piece_rejection_reasons(reason)"
+            )
             # Append-only log of correction edits, drained to Hive by the sync
             # worker on its own watermark (id). Each edit appends a fresh row so
             # the monotonic id advances even when the same piece is corrected
             # twice (e.g. mark, then submit); Hive upserts the latest per piece.
+            #
+            # rejection_reasons is a JSON list HERE and only here: a journal row
+            # is one atomic snapshot of a piece's state at an instant, and the
+            # drain reads by id in batches (CORRECTIONS_BATCH). Splitting one
+            # edit's reasons across several journal rows would let a batch
+            # boundary land mid-edit and sync a partial set to Hive. Both ends
+            # store the reasons as rows; only the message between them is a list.
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS piece_corrections ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -398,7 +418,7 @@ _SUMMARY_COLUMNS = (
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, part_correct, color_corrected_id, "
     "part_feedback_submitted, color_feedback_submitted, "
-    "color_provider, mold_provider, rejection_reasons"
+    "color_provider, mold_provider"
 )
 
 
@@ -408,17 +428,59 @@ def _summarySelect(conn: sqlite3.Connection) -> str:
         if _hasPieceImagesTable(conn)
         else "0"
     )
-    return f"SELECT {_SUMMARY_COLUMNS}, {has_images_expr} AS has_images FROM piece_records"
+    return (
+        f"SELECT {_SUMMARY_COLUMNS}, {has_images_expr} AS has_images, "
+        f"{_REJECTION_REASONS_EXPR} AS rejection_reasons FROM piece_records"
+    )
 
 
 def _parseRejectionReasons(raw: Optional[str]) -> list[str]:
+    # Only for reading the piece_corrections journal, whose payload is a JSON
+    # snapshot. The authoritative store is the piece_rejection_reasons table.
     if not raw:
         return []
     try:
         parsed = json.loads(raw)
     except (TypeError, ValueError):
         return []
-    return [str(r) for r in parsed] if isinstance(parsed, list) else []
+    return sorted(str(r) for r in parsed) if isinstance(parsed, list) else []
+
+
+def _readRejectionReasons(conn: sqlite3.Connection, uuid_val: str) -> list[str]:
+    rows = conn.execute(
+        "SELECT reason FROM piece_rejection_reasons WHERE piece_uuid = ? ORDER BY reason",
+        (uuid_val,),
+    ).fetchall()
+    return [r["reason"] for r in rows]
+
+
+def _writeRejectionReasons(
+    conn: sqlite3.Connection, uuid_val: str, reasons: Optional[list[str]]
+) -> None:
+    # Replace-all: the UI sends the complete set it wants on the piece, so
+    # clearing a flag is an absent code rather than a separate delete call.
+    conn.execute("DELETE FROM piece_rejection_reasons WHERE piece_uuid = ?", (uuid_val,))
+    now = time.time()
+    for reason in dict.fromkeys(reasons or []):
+        conn.execute(
+            "INSERT INTO piece_rejection_reasons (piece_uuid, reason, updated_at) "
+            "VALUES (?, ?, ?)",
+            (uuid_val, str(reason), now),
+        )
+
+
+# Reason codes are lowercase slugs, so a comma-joined GROUP_CONCAT round-trips
+# safely. Correlated rather than a JOIN so it composes with the existing
+# filtered/paginated summary queries without changing their row cardinality.
+_REJECTION_REASONS_EXPR = (
+    "(SELECT GROUP_CONCAT(r.reason) FROM piece_rejection_reasons r "
+    "WHERE r.piece_uuid = piece_records.uuid)"
+)
+
+
+def _splitRejectionReasons(raw: Optional[str]) -> list[str]:
+    # GROUP_CONCAT order is unspecified in sqlite — sort here for a stable shape.
+    return sorted(p for p in (raw or "").split(",") if p)
 
 
 def _estValue(gc: Any, part_id: Optional[str], color_id: Optional[str]) -> Optional[float]:
@@ -467,7 +529,7 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_feedback_submitted": bool(row["color_feedback_submitted"]),
         "color_provider": row["color_provider"],
         "mold_provider": row["mold_provider"],
-        "rejection_reasons": _parseRejectionReasons(row["rejection_reasons"]),
+        "rejection_reasons": _splitRejectionReasons(row["rejection_reasons"]),
     }
 
 
@@ -649,16 +711,17 @@ _CORRECTION_CONTEXT_COLUMNS = (
     "uuid, part_id, color_id, color_name, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
     "brickognize_color_rank, part_correct, color_corrected_id, "
-    "part_feedback_submitted, color_feedback_submitted, rejection_reasons"
+    "part_feedback_submitted, color_feedback_submitted"
 )
 
 
 def _appendCorrectionLog(conn: sqlite3.Connection, uuid_val: str) -> None:
     # Snapshot the current correction state into the append-only sync log so the
-    # Hive sync worker's watermark advances and picks up this edit.
+    # Hive sync worker's watermark advances and picks up this edit. The reasons
+    # are collapsed to a JSON list here on purpose — see the schema comment.
     row = conn.execute(
         "SELECT part_correct, color_corrected_id, part_feedback_submitted, "
-        "color_feedback_submitted, correction_updated_at, rejection_reasons "
+        "color_feedback_submitted, correction_updated_at "
         "FROM piece_records WHERE uuid = ?",
         (uuid_val,),
     ).fetchone()
@@ -675,7 +738,7 @@ def _appendCorrectionLog(conn: sqlite3.Connection, uuid_val: str) -> None:
             row["part_feedback_submitted"],
             row["color_feedback_submitted"],
             row["correction_updated_at"] if row["correction_updated_at"] is not None else time.time(),
-            row["rejection_reasons"],
+            json.dumps(_readRejectionReasons(conn, uuid_val)),
         ),
     )
 
@@ -692,7 +755,6 @@ def getCorrectionContext(uuid_val: str) -> Optional[dict[str, Any]]:
     d["part_correct"] = None if d["part_correct"] is None else bool(d["part_correct"])
     d["part_feedback_submitted"] = bool(d["part_feedback_submitted"])
     d["color_feedback_submitted"] = bool(d["color_feedback_submitted"])
-    d["rejection_reasons"] = _parseRejectionReasons(d["rejection_reasons"])
     return d
 
 
@@ -719,9 +781,6 @@ def setPieceCorrection(
     if set_color:
         sets.append("color_corrected_id = ?")
         params.append(str(color_corrected_id) if color_corrected_id is not None else None)
-    if set_rejection_reasons:
-        sets.append("rejection_reasons = ?")
-        params.append(json.dumps(rejection_reasons) if rejection_reasons else None)
     params.append(uuid_val)
     with _connection() as conn:
         cur = conn.execute(
@@ -730,6 +789,8 @@ def setPieceCorrection(
         if cur.rowcount == 0:
             conn.commit()
             return False
+        if set_rejection_reasons:
+            _writeRejectionReasons(conn, uuid_val, rejection_reasons)
         _appendCorrectionLog(conn, uuid_val)
         conn.commit()
     return True

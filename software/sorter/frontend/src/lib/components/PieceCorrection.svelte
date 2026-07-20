@@ -43,13 +43,17 @@
 		submit_error: string | null;
 	};
 
-	// Operator-flagged capture issues. Reason codes match Hive's piece_rejections
-	// vocabulary (no_piece / multiple_pieces / not_lego) so the two systems agree
-	// on what these strings mean once synced. Multiple can apply at once.
+	// Operator-flagged capture issues. The first three reason codes match Hive's
+	// piece_rejections vocabulary (no_piece / multiple_pieces / not_lego) so the
+	// two systems agree on what those strings mean once synced. "blurry" is
+	// Sorter-only — the machine-side rejection_reasons column has no fixed enum,
+	// so it just rides along; nothing in Hive validates against it. Multiple can
+	// apply at once.
 	const REJECTION_REASONS: { code: string; label: string }[] = [
 		{ code: 'not_lego', label: 'Not Lego' },
 		{ code: 'multiple_pieces', label: 'Multiple pieces in frame' },
-		{ code: 'no_piece', label: 'No piece in frame' }
+		{ code: 'no_piece', label: 'No piece in frame' },
+		{ code: 'blurry', label: 'Blurry' }
 	];
 
 	let colors = $state<BrickLinkColor[]>([]);

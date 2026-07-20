@@ -56,6 +56,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             color_name=obj.color_name,
             category_id=obj.category_id,
             confidence=obj.confidence,
+            color_confidence=obj.color_confidence,
             max_dimension_mm=obj.max_dimension_mm,
             moving_avg_price=obj.moving_avg_price,
             piece_metadata=obj.piece_metadata,

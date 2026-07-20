@@ -105,6 +105,7 @@ export interface KnownObjectData {
   color_name?: string;
   category_id?: string | null;
   confidence?: number | null;
+  color_confidence?: number | null;
   max_dimension_mm?: number | null;
   moving_avg_price?: number | null;
   piece_metadata?: {

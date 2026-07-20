@@ -135,7 +135,15 @@ class KnownObject:
     color_id: str = "any_color"
     color_name: str = "Any Color"
     category_id: Optional[str] = None
+    # Two independent scores, because color and mold can come from different
+    # providers (see color_provider/mold_provider). ``confidence`` is the MOLD
+    # score only — Brickognize's top-item score. ``color_confidence`` is the
+    # applied color's own score: Brickognize's top-color score, or the hosted
+    # color model's softmax probability when that provider answered. Never
+    # collapse the two into one number; a 53% mold match says nothing about how
+    # sure we are of the color.
     confidence: Optional[float] = None
+    color_confidence: Optional[float] = None
     # Largest single physical dimension (bbox x/y/z) in mm, resolved from Hive
     # part metadata at classification time. None when unknown.
     max_dimension_mm: Optional[float] = None

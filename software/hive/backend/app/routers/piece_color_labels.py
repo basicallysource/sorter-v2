@@ -617,9 +617,13 @@ def list_pieces(
         # queue drains rather than re-showing the same ones.
         q = q.order_by(part_cnt.asc(), *recent_order)
     elif sort == "rare_color":
-        # Least-confident predictions first — those are the likeliest to be the
-        # rare color the model missed. Nulls (no confidence) sort last.
-        q = q.order_by(MachinePiece.confidence.asc().nullslast(), *recent_order)
+        # Least-confident COLOR predictions first — those are the likeliest to be
+        # the rare color the model missed. This deliberately reads
+        # color_confidence, not confidence: the latter is the mold score, which
+        # says nothing about how sure we were of the color. Pieces synced before
+        # the two were split have no color score and sort last, since they carry
+        # no color-rarity signal at all.
+        q = q.order_by(MachinePiece.color_confidence.asc().nullslast(), *recent_order)
     elif sort == "needs_me":
         q = q.order_by(my_color.asc(), color_cnt.asc(), *recent_order)
 

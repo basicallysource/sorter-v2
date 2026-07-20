@@ -68,6 +68,18 @@ def test_hosted_color_answer_is_recorded_and_overrides() -> None:
     assert base.ctx.hosted_color == ("11", "Black")
 
 
+def test_hosted_color_confidence_is_kept() -> None:
+    base = _base()
+
+    base._resolveHostedColor(
+        _settledHolder(
+            {"color_id": 11, "color_name": "Black", "confidence": 0.72}
+        )
+    )
+
+    assert base.ctx.hosted_color_confidence == 0.72
+
+
 def test_hosted_color_timeout_falls_back_and_records_brickognize() -> None:
     # The provider was configured but produced nothing — the piece is sorted on
     # Brickognize's color, so that is what must be recorded.
@@ -94,6 +106,7 @@ def test_known_object_records_provider_and_hosted_color_wins() -> None:
     base = _base()
     base.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
     base.ctx.hosted_color = ("11", "Black")
+    base.ctx.hosted_color_confidence = 0.72
     piece = KnownObject(uuid="u1")
     base.ctx.known_object = piece
     base.ctx.captured_crops = []
@@ -112,6 +125,11 @@ def test_known_object_records_provider_and_hosted_color_wins() -> None:
     assert piece.color_name == "Black"
     assert piece.color_provider == COLOR_PROVIDER_HIVE_BASICALLY
     assert piece.mold_provider == MOLD_PROVIDER_BRICKOGNIZE
+    # Mold and color are scored separately: the item score stays the mold
+    # confidence, and the winning provider's own score becomes the color
+    # confidence — Brickognize's 0.8 for Red must not leak through.
+    assert piece.confidence == 0.9
+    assert piece.color_confidence == 0.72
 
 
 def test_known_object_keeps_brickognize_color_without_hosted_answer() -> None:
@@ -134,3 +152,7 @@ def test_known_object_keeps_brickognize_color_without_hosted_answer() -> None:
     assert piece.color_id == "5"
     assert piece.color_name == "Red"
     assert piece.color_provider == COLOR_PROVIDER_BRICKOGNIZE
+    # With no hosted answer, Brickognize's own color score is the color
+    # confidence — still distinct from the item score.
+    assert piece.confidence == 0.9
+    assert piece.color_confidence == 0.8

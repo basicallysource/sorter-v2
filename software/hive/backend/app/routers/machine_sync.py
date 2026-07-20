@@ -39,7 +39,7 @@ DATA_TYPE_PIECE_CORRECTIONS = "piece_corrections"
 _PIECE_UPDATE_COLS = (
     "local_id", "run_id", "seen_at", "recorded_at", "classification_status",
     "part_id", "part_name", "color_id", "color_name", "category_id", "confidence",
-    "bin_x", "bin_y", "bin_z", "dead", "brickognize_preview_url",
+    "color_confidence", "bin_x", "bin_y", "bin_z", "dead", "brickognize_preview_url",
     "brickognize_listing_id", "brickognize_item_rank", "brickognize_item_type",
     "brickognize_color_rank", "color_provider", "mold_provider",
 )
@@ -110,7 +110,10 @@ class PieceRecordIn(BaseModel):
     color_id: str | None = None
     color_name: str | None = None
     category_id: str | None = None
+    # Mold score and the applied color's own score — separate providers can
+    # produce them, so they are never interchangeable.
     confidence: float | None = None
+    color_confidence: float | None = None
     bin_x: int | None = None
     bin_y: int | None = None
     bin_z: int | None = None
@@ -226,6 +229,7 @@ def sync_piece_records(
                 "color_name": rec.color_name,
                 "category_id": rec.category_id,
                 "confidence": rec.confidence,
+                "color_confidence": rec.color_confidence,
                 "bin_x": rec.bin_x,
                 "bin_y": rec.bin_y,
                 "bin_z": rec.bin_z,

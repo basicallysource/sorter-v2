@@ -65,7 +65,10 @@ class PieceSummary(BaseModel):
     color_id: Optional[str] = None
     color_name: Optional[str] = None
     category_id: Optional[str] = None
+    # Mold score (Brickognize's top item) and the applied color's own score,
+    # which can come from a different provider — see color_provider below.
     confidence: Optional[float] = None
+    color_confidence: Optional[float] = None
     bin: Optional[BinRef] = None
     dead: bool = False
     has_images: bool = False
@@ -268,7 +271,8 @@ _CSV_COLUMNS = [
     "color_id",
     "color_name",
     "category_id",
-    "confidence",
+    "mold_confidence",
+    "color_confidence",
     "bin_x",
     "bin_y",
     "bin_z",
@@ -338,6 +342,11 @@ def exportPiecesCsv(
                     s.get("color_name") or "",
                     s.get("category_id") or "",
                     s.get("confidence") if s.get("confidence") is not None else "",
+                    (
+                        s.get("color_confidence")
+                        if s.get("color_confidence") is not None
+                        else ""
+                    ),
                     bin_ref.get("x", ""),
                     bin_ref.get("y", ""),
                     bin_ref.get("z", ""),
@@ -442,6 +451,7 @@ def _ensurePieceRecorded(gc: Any, uuid: str) -> None:
             "color_name": payload.get("color_name"),
             "category_id": payload.get("category_id"),
             "confidence": payload.get("confidence"),
+            "color_confidence": payload.get("color_confidence"),
             "destination_bin": payload.get("destination_bin"),
             "dead": payload.get("dead"),
             "brickognize_preview_url": payload.get("brickognize_preview_url"),
@@ -586,6 +596,7 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
         color_name=payload.get("color_name"),
         category_id=payload.get("category_id"),
         confidence=payload.get("confidence"),
+        color_confidence=payload.get("color_confidence"),
         bin=bin_ref,
         dead=bool(payload.get("dead")),
         has_images=bool(payload.get("recognition_image_set")),

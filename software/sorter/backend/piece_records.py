@@ -110,6 +110,9 @@ def _ensureInitialized() -> None:
                 # providers were selectable.
                 ("color_provider", "TEXT"),
                 ("mold_provider", "TEXT"),
+                # The applied color's own score, kept apart from the mold score
+                # in `confidence`. NULL on rows written before the split.
+                ("color_confidence", "REAL"),
             ):
                 if _col not in existing_columns:
                     conn.execute(
@@ -216,8 +219,8 @@ def recordPiece(
             "part_id, part_name, color_id, color_name, category_id, confidence, "
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-            "brickognize_color_rank, color_provider, mold_provider) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "brickognize_color_rank, color_provider, mold_provider, color_confidence) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(uuid) DO UPDATE SET "
             "run_id=excluded.run_id, machine_id=excluded.machine_id, "
             "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
@@ -232,7 +235,8 @@ def recordPiece(
             "brickognize_item_type=excluded.brickognize_item_type, "
             "brickognize_color_rank=excluded.brickognize_color_rank, "
             "color_provider=excluded.color_provider, "
-            "mold_provider=excluded.mold_provider",
+            "mold_provider=excluded.mold_provider, "
+            "color_confidence=excluded.color_confidence",
             (
                 uuid_val,
                 run_id,
@@ -257,6 +261,7 @@ def recordPiece(
                 piece.get("brickognize_color_rank"),
                 piece.get("color_provider"),
                 piece.get("mold_provider"),
+                piece.get("color_confidence"),
             ),
         )
         conn.commit()
@@ -418,7 +423,7 @@ _SUMMARY_COLUMNS = (
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, part_correct, color_corrected_id, "
     "part_feedback_submitted, color_feedback_submitted, "
-    "color_provider, mold_provider"
+    "color_provider, mold_provider, color_confidence"
 )
 
 
@@ -510,6 +515,7 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_name": row["color_name"],
         "category_id": row["category_id"],
         "confidence": row["confidence"],
+        "color_confidence": row["color_confidence"],
         "bin": bin_ref,
         "dead": bool(row["dead"]),
         "has_images": bool(row["has_images"]),
@@ -682,7 +688,7 @@ _SYNC_COLUMNS = (
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-    "brickognize_color_rank, color_provider, mold_provider"
+    "brickognize_color_rank, color_provider, mold_provider, color_confidence"
 )
 
 

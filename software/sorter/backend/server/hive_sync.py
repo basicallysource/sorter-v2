@@ -119,6 +119,7 @@ def _recordToPayload(row: dict[str, Any]) -> dict[str, Any]:
         "color_name": row["color_name"],
         "category_id": row["category_id"],
         "confidence": row["confidence"],
+        "color_confidence": row["color_confidence"],
         "bin_x": row["bin_x"],
         "bin_y": row["bin_y"],
         "bin_z": row["bin_z"],

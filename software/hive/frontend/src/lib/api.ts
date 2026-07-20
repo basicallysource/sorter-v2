@@ -279,7 +279,10 @@ export interface MachinePieceRecord {
 	color_id: string | null;
 	color_name: string | null;
 	category_id: string | null;
+	// Mold score and the applied color's own score. Separate providers can
+	// produce them, so they are never the same number.
 	confidence: number | null;
+	color_confidence: number | null;
 	bin: { x: number | null; y: number | null; z: number | null };
 	dead: boolean;
 	brickognize_preview_url: string | null;

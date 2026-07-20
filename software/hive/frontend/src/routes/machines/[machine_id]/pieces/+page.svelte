@@ -197,7 +197,10 @@
 
 					<div class="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-text-muted">
 						<span>Color: <span class="text-text">{piece.color_name || piece.color_id || '—'}</span></span>
-						<span>Conf: <span class="text-text tabular-nums">{conf(piece.confidence)}</span></span>
+						<!-- Mold and color are scored by separate providers; a single "Conf"
+						     read as covering both, which it never did. -->
+						<span>Mold conf: <span class="text-text tabular-nums">{conf(piece.confidence)}</span></span>
+						<span>Color conf: <span class="text-text tabular-nums">{conf(piece.color_confidence)}</span></span>
 						{#if bin}
 							<span>Bin: <span class="text-text tabular-nums">{bin}</span></span>
 						{/if}

@@ -52,10 +52,13 @@ class SimpleStateMachineRev01Context:
         # color_provider is only the configured provider if that provider
         # answered in time — a hosted-provider timeout falls back to Brickognize
         # and is recorded as such (see base._resolveHostedColor). hosted_color
-        # carries the remote (color_id, color_name) to override Brickognize's.
+        # carries the remote (color_id, color_name) to override Brickognize's,
+        # and hosted_color_confidence that provider's own score for it — kept
+        # apart from the mold score so neither is mistaken for the other.
         self.color_provider: str = DEFAULT_COLOR_PROVIDER
         self.mold_provider: str = DEFAULT_MOLD_PROVIDER
         self.hosted_color: Optional[tuple[str, str]] = None
+        self.hosted_color_confidence: Optional[float] = None
         self.classify_thread: Optional[threading.Thread] = None
         self.classify_lock = threading.Lock()
         self.known_object: Optional[KnownObject] = None
@@ -106,6 +109,7 @@ class SimpleStateMachineRev01Context:
         self.color_provider = DEFAULT_COLOR_PROVIDER
         self.mold_provider = DEFAULT_MOLD_PROVIDER
         self.hosted_color = None
+        self.hosted_color_confidence = None
         self.classify_thread = None
         self.known_object = None
         self.multi_feed_detected = False

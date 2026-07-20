@@ -131,7 +131,11 @@ class KnownObjectData(BaseModel):
     color_id: str = "any_color"
     color_name: str = "Any Color"
     category_id: Optional[str] = None
+    # Mold and color are scored independently and can come from different
+    # providers — ``confidence`` is Brickognize's top-item (mold) score,
+    # ``color_confidence`` the applied color's own score.
     confidence: Optional[float] = None
+    color_confidence: Optional[float] = None
     max_dimension_mm: Optional[float] = None
     # Headline BrickLink moving-average price (USD) from the local parts.db, plus
     # the full local-DB metadata blob. moving_avg_price is what the Recent Pieces

@@ -504,6 +504,7 @@ class Rev01BaseState(BaseState):
         if hosted_color is None:
             self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
             self.ctx.hosted_color = None
+            self.ctx.hosted_color_confidence = None
             return
         remaining = max(
             0.0,
@@ -513,9 +514,11 @@ class Rev01BaseState(BaseState):
         result = hosted_color.get("result")
         color_id = result.get("color_id") if isinstance(result, dict) else None
         color_name = result.get("color_name") if isinstance(result, dict) else None
+        confidence = result.get("confidence") if isinstance(result, dict) else None
         if color_id is None or not color_name:
             self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
             self.ctx.hosted_color = None
+            self.ctx.hosted_color_confidence = None
             self.logger.info(
                 f"{LOG_TAG} hosted color unavailable within "
                 f"{HOSTED_COLOR_JOIN_BUDGET_S:.0f}s — falling back to Brickognize's color"
@@ -525,8 +528,16 @@ class Rev01BaseState(BaseState):
         # Brickognize) key on the same ids as strings.
         self.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
         self.ctx.hosted_color = (str(color_id), str(color_name))
+        self.ctx.hosted_color_confidence = (
+            float(confidence) if isinstance(confidence, (int, float)) else None
+        )
         self.logger.info(
             f"{LOG_TAG} hosted color applied: {color_name} ({color_id})"
+            + (
+                f" @ {self.ctx.hosted_color_confidence:.2f}"
+                if self.ctx.hosted_color_confidence is not None
+                else ""
+            )
         )
 
     def _runClassifyRequests(
@@ -746,11 +757,16 @@ class Rev01BaseState(BaseState):
                 best_color = max(colors, key=lambda c: c.get("score", 0))
                 obj.color_id = str(best_color.get("id", "any_color"))
                 obj.color_name = str(best_color.get("name", "Any Color"))
+                obj.color_confidence = best_color.get("score")
                 obj.brickognize_color_rank = best_color.get("rank")
             # A hosted provider's answer overrides Brickognize's color (the
             # per-attempt records keep Brickognize's, so both remain visible).
+            # Its score replaces Brickognize's too — color_confidence must always
+            # describe the color actually applied, never a score from the
+            # provider that lost.
             if self.ctx.hosted_color is not None:
                 obj.color_id, obj.color_name = self.ctx.hosted_color
+                obj.color_confidence = self.ctx.hosted_color_confidence
                 obj.brickognize_color_rank = None
         else:
             obj.classification_status = ClassificationStatus.unknown

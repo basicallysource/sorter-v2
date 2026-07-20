@@ -25,7 +25,14 @@ class MachinePiece(Base):
     color_id = Column(String, nullable=True)
     color_name = Column(String, nullable=True)
     category_id = Column(String, nullable=True)
+    # Two independent scores. `confidence` is the MOLD score (Brickognize's top
+    # item); `color_confidence` is the applied color's own score, which may come
+    # from a different provider entirely (see color_provider/mold_provider). They
+    # must stay separate for provider accuracy to mean anything — scoring the
+    # color model against a Brickognize mold score compares nothing. NULL on rows
+    # synced before the split.
     confidence = Column(Float, nullable=True)
+    color_confidence = Column(Float, nullable=True)
     bin_x = Column(Integer, nullable=True)
     bin_y = Column(Integer, nullable=True)
     bin_z = Column(Integer, nullable=True)

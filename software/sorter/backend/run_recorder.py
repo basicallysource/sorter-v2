@@ -26,6 +26,7 @@ def _serializePiece(p: KnownObject) -> dict:
         "color_name": p.color_name,
         "category_id": p.category_id,
         "confidence": p.confidence,
+        "color_confidence": p.color_confidence,
         "destination_bin": list(p.destination_bin) if p.destination_bin else None,
         "brickognize_preview_url": p.brickognize_preview_url,
         # Correction-submission provenance from the applied Brickognize request.

@@ -17,7 +17,11 @@ export type PieceSummary = {
 	color_id?: string | null;
 	color_name?: string | null;
 	category_id?: string | null;
+	// Mold score (Brickognize's top item) and the applied color's own score.
+	// They come from independently selectable providers, so they are never the
+	// same number and must not be shown as one "confidence".
 	confidence?: number | null;
+	color_confidence?: number | null;
 	bin?: BinRef | null;
 	dead?: boolean;
 	has_images?: boolean;
@@ -70,6 +74,7 @@ export type Piece = {
 	color_name: string | null;
 	category_id: string | null;
 	confidence: number | null;
+	color_confidence: number | null;
 	bin: BinRef | null;
 	dead: boolean;
 	has_images: boolean;
@@ -126,6 +131,7 @@ function pieceFromSummary(s: PieceSummary): Piece {
 		color_name: s.color_name ?? null,
 		category_id: s.category_id ?? null,
 		confidence: s.confidence ?? null,
+		color_confidence: s.color_confidence ?? null,
 		bin: s.bin ?? null,
 		dead: Boolean(s.dead),
 		has_images: Boolean(s.has_images),
@@ -155,6 +161,7 @@ function pieceFromKnownObject(obj: KnownObjectData): Piece {
 		color_name: obj.color_name ?? null,
 		category_id: obj.category_id ?? null,
 		confidence: obj.confidence ?? null,
+		color_confidence: obj.color_confidence ?? null,
 		bin: binFromDestination(obj.destination_bin),
 		dead: Boolean(obj.dead),
 		has_images: Boolean(
@@ -187,6 +194,7 @@ export function pieceToSummary(p: Piece): PieceSummary {
 		color_name: p.color_name,
 		category_id: p.category_id,
 		confidence: p.confidence,
+		color_confidence: p.color_confidence,
 		bin: p.bin,
 		dead: p.dead,
 		has_images: p.has_images,
@@ -227,6 +235,7 @@ export function pieceToKnownObjectView(p: Piece): KnownObjectData {
 		color_name: p.color_name ?? undefined,
 		category_id: p.category_id,
 		confidence: p.confidence,
+		color_confidence: p.color_confidence,
 		moving_avg_price: p.est_value,
 		destination_bin: p.bin ? [p.bin.x, p.bin.y, p.bin.z] : null,
 		brickognize_preview_url: p.preview_url,

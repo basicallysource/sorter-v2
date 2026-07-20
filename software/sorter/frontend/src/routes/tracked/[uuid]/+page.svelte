@@ -794,33 +794,53 @@
 						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
 							Classification
 						</div>
-						<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-							<span class="text-text-muted">Part ID</span>
-							<span class="font-mono text-text">{ds.part_id ?? '—'}</span>
+						<div class="grid grid-cols-[1fr_auto]">
+							<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
+								<span class="text-text-muted">Part ID</span>
+								<span class="font-mono text-text">{ds.part_id ?? '—'}</span>
 
-							<span class="text-text-muted">Name</span>
-							<span class="text-text">{ds.part_name ?? '—'}</span>
+								<span class="text-text-muted">Name</span>
+								<span class="text-text">{ds.part_name ?? '—'}</span>
 
-							<span class="text-text-muted">Color</span>
-							<span class="text-text">
-								{ds.color_name && ds.color_name !== 'Any Color' ? ds.color_name : '—'}
-							</span>
+								<span class="text-text-muted">Color</span>
+								<span class="text-text">
+									{ds.color_name && ds.color_name !== 'Any Color' ? ds.color_name : '—'}
+								</span>
 
-							<span class="text-text-muted">Color source</span>
-							<span class="text-text">{providerLabel(ds.color_provider)}</span>
+								<span class="text-text-muted">Color source</span>
+								<span class="text-text">{providerLabel(ds.color_provider)}</span>
 
-							<span class="text-text-muted">Mold source</span>
-							<span class="text-text">{providerLabel(ds.mold_provider)}</span>
+								<span class="text-text-muted">Mold source</span>
+								<span class="text-text">{providerLabel(ds.mold_provider)}</span>
 
-							<span class="text-text-muted">Category</span>
-							<span class="text-text">
-								{ds.category_id ? (sortingProfileStore.getCategoryName(ds.category_id) ?? '—') : '—'}
-							</span>
+								<span class="text-text-muted">Category</span>
+								<span class="text-text">
+									{ds.category_id ? (sortingProfileStore.getCategoryName(ds.category_id) ?? '—') : '—'}
+								</span>
 
-							<span class="text-text-muted">Confidence</span>
-							<span class={`font-semibold tabular-nums ${confidenceClass(ds.confidence)}`}>
-								{typeof ds.confidence === 'number' ? `${(ds.confidence * 100).toFixed(0)}%` : '—'}
-							</span>
+								<span class="text-text-muted">Confidence</span>
+								<span class={`font-semibold tabular-nums ${confidenceClass(ds.confidence)}`}>
+									{typeof ds.confidence === 'number' ? `${(ds.confidence * 100).toFixed(0)}%` : '—'}
+								</span>
+							</div>
+							{#if ds.preview_url}
+								<button
+									type="button"
+									class="flex items-center justify-center border-l border-border bg-bg p-3 hover:bg-surface"
+									onclick={() =>
+										(zoomImage = {
+											src: ds.preview_url as string,
+											label: ds.part_name ?? ds.part_id ?? 'Brickognize reference'
+										})}
+								>
+									<img
+										src={ds.preview_url}
+										alt="brickognize reference"
+										class="relative h-24 w-24 cursor-zoom-in object-contain transition-transform duration-150 hover:z-30 hover:scale-150"
+										loading="lazy"
+									/>
+								</button>
+							{/if}
 						</div>
 					</div>
 
@@ -851,55 +871,40 @@
 					</div>
 				</section>
 
-				{#if _diskImages.length > 0 || ds.preview_url}
-					<section class="border border-border bg-surface">
-						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-							Stored images
-							<span class="ml-2 text-text-muted">{_diskImages.length}</span>
-						</div>
-						<div class="flex flex-wrap gap-2 p-3">
-							{#each _diskImages as img, i (i)}
-								<button
-									type="button"
-									class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
-										img.used ? 'border-2 border-primary' : 'border border-border'
-									}`}
-									onclick={() => (zoomImage = { src: img.src, label: img.source })}
-								>
-									<div class="h-32 w-32 bg-white">
-										<img
-											src={img.src}
-											alt={img.source}
-											class="h-full w-full object-contain"
-											loading="lazy"
-										/>
-									</div>
-									<div class="px-1.5 py-1 text-xs text-text-muted">
-										{img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst'}
-									</div>
-								</button>
-							{/each}
-							{#if ds.preview_url}
-								<button
-									type="button"
-									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-									onclick={() =>
-										(zoomImage = { src: ds.preview_url as string, label: 'Brickognize says' })}
-								>
-									<div class="h-32 w-32 bg-white">
-										<img
-											src={ds.preview_url}
-											alt="brickognize reference"
-											class="h-full w-full object-contain"
-											loading="lazy"
-										/>
-									</div>
-									<div class="px-1.5 py-1 text-xs text-text-muted">Brickognize says</div>
-								</button>
-							{/if}
-						</div>
-					</section>
-				{/if}
+				<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+					{#if _diskImages.length > 0}
+						<section class="flex flex-col border border-border bg-surface">
+							<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+								Stored images
+								<span class="ml-2 text-text-muted">{_diskImages.length}</span>
+							</div>
+							<div class="flex flex-wrap gap-2 p-3">
+								{#each _diskImages as img, i (i)}
+									<button
+										type="button"
+										class={`flex flex-col overflow-visible bg-bg text-left hover:border-primary/70 ${
+											img.used ? 'border-2 border-primary' : 'border border-border'
+										}`}
+										onclick={() => (zoomImage = { src: img.src, label: img.source })}
+									>
+										<div class="h-32 w-32 bg-white">
+											<img
+												src={img.src}
+												alt={img.source}
+												class="relative h-full w-full cursor-zoom-in object-contain transition-transform duration-150 hover:z-30 hover:scale-150"
+												loading="lazy"
+											/>
+										</div>
+										<div class="px-1.5 py-1 text-xs text-text-muted">
+											{img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst'}
+										</div>
+									</button>
+								{/each}
+							</div>
+						</section>
+					{/if}
+					{@render possibleCropsSection()}
+				</div>
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
 					Loading piece…
@@ -1527,60 +1532,68 @@
 
 		<!-- Possibly the same piece: cheap time/angle lookup over C2/C3 crops.
 		     Rendered for any UUID (live or disk-fallback) — it only needs the
-		     piece's arrival time, not the live detail payload. -->
-		<section class="border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
-				<div class="font-medium text-text">
-					Possibly the same piece
-					<span class="ml-2 text-text-muted">{_possibleCrops.length}</span>
+		     piece's arrival time, not the live detail payload. Defined as a
+		     snippet so the disk-fallback branch can place it side-by-side with
+		     "Stored images"; every other branch renders it full-width below. -->
+		{#snippet possibleCropsSection()}
+			<section class="flex flex-col border border-border bg-surface">
+				<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+					<div class="font-medium text-text">
+						Possibly the same piece
+						<span class="ml-2 text-text-muted">{_possibleCrops.length}</span>
+					</div>
+					<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
 				</div>
-				<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
-			</div>
-			<div class="p-3">
-				{#if _possibleStatus === 'loading'}
-					<div class="text-sm text-text-muted">Searching…</div>
-				{:else if _possibleStatus === 'error'}
-					<div class="text-sm text-text-muted">Lookup unavailable.</div>
-				{:else if _possibleCrops.length === 0}
-					<div class="text-sm text-text-muted">
-						No upstream crops found near this piece's arrival time.
-					</div>
-				{:else}
-					<div
-						class="grid max-h-72 gap-1.5 overflow-y-auto"
-						style="grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));"
-					>
-						{#each _possibleCrops as crop (crop.id)}
-							<button
-								type="button"
-								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-								title={`C${crop.channel} · ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : '?'} · ${crop.com_forward_to_exit_deg != null ? crop.com_forward_to_exit_deg.toFixed(0) + '° to exit' : ''} · ${crop.dt >= 0 ? crop.dt.toFixed(1) + 's before arrival' : Math.abs(crop.dt).toFixed(1) + 's after'} · score ${crop.score.toFixed(2)}`}
-								onclick={() =>
-									(zoomImage = {
-										src: possibleCropSrc(crop.id),
-										label: `C${crop.channel} ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : ''} · ${crop.dt.toFixed(1)}s · score ${crop.score.toFixed(2)}`
-									})}
-							>
-								<div class="relative aspect-square w-full bg-white">
-									<img
-										src={possibleCropSrc(crop.id)}
-										alt={`crop ${crop.id}`}
-										class="h-full w-full object-contain"
-										loading="lazy"
-									/>
-									<span
-										class="absolute right-0.5 top-0.5 bg-primary px-1 text-xs font-semibold text-white tabular-nums"
-										title="Same-piece confidence (higher = more likely this piece)"
-									>
-										{crop.score.toFixed(2)}
-									</span>
-								</div>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</section>
+				<div class="p-3">
+					{#if _possibleStatus === 'loading'}
+						<div class="text-sm text-text-muted">Searching…</div>
+					{:else if _possibleStatus === 'error'}
+						<div class="text-sm text-text-muted">Lookup unavailable.</div>
+					{:else if _possibleCrops.length === 0}
+						<div class="text-sm text-text-muted">
+							No upstream crops found near this piece's arrival time.
+						</div>
+					{:else}
+						<div
+							class="grid max-h-72 gap-1.5 overflow-y-auto"
+							style="grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));"
+						>
+							{#each _possibleCrops as crop (crop.id)}
+								<button
+									type="button"
+									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+									title={`C${crop.channel} · ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : '?'} · ${crop.com_forward_to_exit_deg != null ? crop.com_forward_to_exit_deg.toFixed(0) + '° to exit' : ''} · ${crop.dt >= 0 ? crop.dt.toFixed(1) + 's before arrival' : Math.abs(crop.dt).toFixed(1) + 's after'} · score ${crop.score.toFixed(2)}`}
+									onclick={() =>
+										(zoomImage = {
+											src: possibleCropSrc(crop.id),
+											label: `C${crop.channel} ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : ''} · ${crop.dt.toFixed(1)}s · score ${crop.score.toFixed(2)}`
+										})}
+								>
+									<div class="relative aspect-square w-full bg-white">
+										<img
+											src={possibleCropSrc(crop.id)}
+											alt={`crop ${crop.id}`}
+											class="relative h-full w-full cursor-zoom-in object-contain transition-transform duration-150 hover:z-30 hover:scale-150"
+											loading="lazy"
+										/>
+										<span
+											class="absolute right-0.5 top-0.5 bg-primary px-1 text-xs font-semibold text-white tabular-nums"
+											title="Same-piece confidence (higher = more likely this piece)"
+										>
+											{crop.score.toFixed(2)}
+										</span>
+									</div>
+								</button>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</section>
+		{/snippet}
+
+		{#if !(_fetchStatus === 'summary_only' && _diskSummary)}
+			{@render possibleCropsSection()}
+		{/if}
 	</div>
 </div>
 

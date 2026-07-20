@@ -110,6 +110,22 @@
 
 	let piece = $derived(_stickyPiece ?? _fetchedPiece);
 
+	// The detail fetch is one-shot per UUID, but a LIVE piece keeps evolving
+	// after the page opens: the burst grows, classification lands, used flags
+	// settle, link matches attach. The slim WS payload signals each change via
+	// updated_at without carrying the image sets — so when it moves past the
+	// snapshot we fetched, re-arm the fetch. Guarded by recording the trigger
+	// value first, so a fetch that returns older data can't loop.
+	let _refetchedForUpdatedAt = 0;
+	$effect(() => {
+		const upd = _stickyPiece?.updated_at ?? 0;
+		if (upd <= 0) return;
+		if (_fetchStatus === 'idle' || _fetchStatus === 'loading') return;
+		if (upd <= _refetchedForUpdatedAt) return;
+		_refetchedForUpdatedAt = upd;
+		_fetchStatus = 'idle';
+	});
+
 	let bricklink = $state<BricklinkPartResponse | null>(null);
 
 	let showRawJson = $state(false);
@@ -1544,7 +1560,7 @@
 							{/if}
 							{#if typeof piece.confidence === 'number'}
 								<div class={`tabular-nums ${confidenceClass(piece.confidence)}`}>
-									Confidence {(piece.confidence * 100).toFixed(0)}%
+									Mold confidence {(piece.confidence * 100).toFixed(0)}%
 								</div>
 							{/if}
 						</div>

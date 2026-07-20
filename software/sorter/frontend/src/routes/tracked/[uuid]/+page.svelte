@@ -720,7 +720,7 @@
 
 <div class="min-h-screen bg-bg">
 	<AppHeader />
-	<div class="flex flex-col gap-4 p-4 sm:p-6">
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 sm:p-6">
 		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
 			<div class="flex flex-wrap items-center gap-3">
 				<a

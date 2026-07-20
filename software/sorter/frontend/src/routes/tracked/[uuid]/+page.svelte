@@ -60,6 +60,31 @@
 	let _diskSummary = $state<PieceSummary | null>(null);
 	let _diskImages = $state<DisplayImage[]>([]);
 
+	let _refetchedForUpdatedAt = 0;
+	let _refetchTimer: ReturnType<typeof setTimeout> | null = null;
+
+	// SvelteKit reuses this component when navigating /tracked/<a> ->
+	// /tracked/<b>, so none of the per-piece state above resets on its own.
+	// Without this, _fetchStatus stays 'ok' (the new piece never fetches its
+	// detail, so it renders the OLD piece's image sets) and
+	// _refetchedForUpdatedAt — an absolute timestamp from the old piece — can
+	// block the refetch effect below for the new piece entirely.
+	let _resetForUuid = '';
+	$effect(() => {
+		if (uuid === _resetForUuid) return;
+		_resetForUuid = uuid;
+		_stickyPiece = null;
+		_fetchedPiece = null;
+		_diskSummary = null;
+		_diskImages = [];
+		_refetchedForUpdatedAt = 0;
+		if (_refetchTimer !== null) {
+			clearTimeout(_refetchTimer);
+			_refetchTimer = null;
+		}
+		_fetchStatus = 'idle';
+	});
+
 	$effect(() => {
 		const entries = pieceStore.entriesFor(ctx.machine?.identity?.machine_id ?? null);
 		const found = entries.find((p) => p.uuid === uuid)?.ws ?? null;
@@ -115,15 +140,21 @@
 	// settle, link matches attach. The slim WS payload signals each change via
 	// updated_at without carrying the image sets — so when it moves past the
 	// snapshot we fetched, re-arm the fetch. Guarded by recording the trigger
-	// value first, so a fetch that returns older data can't loop.
-	let _refetchedForUpdatedAt = 0;
+	// value first, so a fetch that returns older data can't loop. Trailing
+	// 750ms debounce: emits can arrive in quick bursts and every re-fetch
+	// pulls the full multi-MB b64 payload, so wait for a quiet gap instead of
+	// re-fetching on each tick.
 	$effect(() => {
 		const upd = _stickyPiece?.updated_at ?? 0;
 		if (upd <= 0) return;
 		if (_fetchStatus === 'idle' || _fetchStatus === 'loading') return;
 		if (upd <= _refetchedForUpdatedAt) return;
 		_refetchedForUpdatedAt = upd;
-		_fetchStatus = 'idle';
+		if (_refetchTimer !== null) clearTimeout(_refetchTimer);
+		_refetchTimer = setTimeout(() => {
+			_refetchTimer = null;
+			_fetchStatus = 'idle';
+		}, 750);
 	});
 
 	let bricklink = $state<BricklinkPartResponse | null>(null);
@@ -158,6 +189,7 @@
 	});
 	onDestroy(() => {
 		if (timerId !== null) clearInterval(timerId);
+		if (_refetchTimer !== null) clearTimeout(_refetchTimer);
 	});
 
 	function dataImageUrl(payload: string | null | undefined): string | null {

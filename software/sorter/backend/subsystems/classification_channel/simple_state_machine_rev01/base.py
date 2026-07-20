@@ -814,9 +814,12 @@ class Rev01BaseState(BaseState):
                 self.gc, piece_uuid, anchor_bgr, arrival_ts
             )
         except Exception as exc:
-            self.logger.debug(f"{LOG_TAG} link match failed: {exc}")
+            self.logger.warning(f"{LOG_TAG} link match failed: {exc}")
+            return []
+        if scored is None:
             return []
         if not scored:
+            self.logger.info(f"{LOG_TAG} link match: no C2/C3 candidates in window")
             return []
 
         obj = self.ctx.known_object

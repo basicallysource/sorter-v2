@@ -190,7 +190,7 @@
 				type="text"
 				bind:value={query}
 				oninput={scheduleSearch}
-				placeholder="Name or number — plate 1 x 3, 3623"
+				placeholder="Name or number — plate 1x3, 3623"
 				class="w-full border border-border bg-surface py-2 pr-2 pl-8 text-sm text-text focus:border-primary focus:outline-none"
 			/>
 		</div>

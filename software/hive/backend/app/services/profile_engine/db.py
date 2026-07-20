@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sqlite3
 import glob as glob_mod
 import time
@@ -10,6 +11,23 @@ from .brickstore_db import parseDatabase
 
 
 MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "migrations")
+
+# "2x4" is how a human writes a size; the catalog only ever spells it "2 x 4".
+# Normalizing both sides is the single biggest reason search used to miss.
+DIMENSION_RE = re.compile(r"(?<=\d)\s*[x×]\s*(?=\d)")
+# Everything that isn't a letter, digit or fraction slash becomes a separator,
+# so "Brick, Modified" and "(Cheese Slope)" tokenize like the words they are.
+SEPARATOR_RE = re.compile(r"[^a-z0-9/]+")
+NUMERIC_TOKEN_RE = re.compile(r"^\d+(?:/\d+)?$")
+# Printed and decorated variants are ~60% of the catalog and are almost never
+# what a labeler wants, so they sort below the plain mold they decorate. The
+# part number is the reliable tell — most variant names never say "print".
+VARIANT_NAME_RE = re.compile(r"\b(print|printed|sticker|pattern|decorated)\b")
+VARIANT_PART_NUM_RE = re.compile(r"(pr|pat|ps)\d")
+# Non-System lines the sorter doesn't handle. Demoted, not hidden.
+OFF_SYSTEM_RE = re.compile(
+    r"^(duplo|modulex|znap|fabuland|primo|quatro|belville|scala|clikits|galidor|homemaker)\b"
+)
 
 
 class PartsData:
@@ -149,6 +167,9 @@ def reloadPartsData(conn, parts_data):
     parts_data.colors = _loadColors(conn)
     parts_data.parts = loadPartsDict(conn)
     parts_data.rb_to_bl_color = _buildRbToBlColorMap(parts_data.colors)
+    # This is the one "catalog changed" hook every sync already goes through, so
+    # rebuilding here is what keeps the search index from ever going stale.
+    rebuildPartSearch(conn)
     row = conn.execute("SELECT value FROM meta WHERE key='api_total_parts'").fetchone()
     parts_data.api_total_parts = int(row[0]) if row else None
     parts_data.generation += 1
@@ -300,18 +321,108 @@ def loadPartsDict(conn):
     return parts
 
 
+def _normalizeSearchText(text):
+    lowered = DIMENSION_RE.sub(" x ", (text or "").lower())
+    return " ".join(SEPARATOR_RE.sub(" ", lowered).split())
+
+
+def _searchTokens(normalized_query):
+    # A size is one token, not three. Split "1 x 2" into "1", "x", "2" and every
+    # name containing a 1 and a 2 anywhere matches, which is how "slope 1x2" used
+    # to bury the actual 1 x 2 slopes under sails and tyres.
+    words = normalized_query.split()
+    tokens = []
+    i = 0
+    while i < len(words):
+        if (
+            NUMERIC_TOKEN_RE.match(words[i])
+            and i + 2 < len(words)
+            and words[i + 1] == "x"
+            and NUMERIC_TOKEN_RE.match(words[i + 2])
+        ):
+            phrase = [words[i], "x", words[i + 2]]
+            i += 3
+            while i + 1 < len(words) and words[i] == "x" and NUMERIC_TOKEN_RE.match(words[i + 1]):
+                phrase.extend(["x", words[i + 1]])
+                i += 2
+            tokens.append((" ".join(phrase), "dimension"))
+        elif NUMERIC_TOKEN_RE.match(words[i]):
+            tokens.append((words[i], "number"))
+            i += 1
+        else:
+            tokens.append((words[i], "word"))
+            i += 1
+    return tokens
+
+
+def _isVariantPart(normalized_name, part_num):
+    return bool(VARIANT_NAME_RE.search(normalized_name) or VARIANT_PART_NUM_RE.search(part_num.lower()))
+
+
+def rebuildPartSearch(conn):
+    color_counts = {}
+    for part_num, count in conn.execute(
+        "SELECT pb.part_num, COUNT(DISTINCT bic.bl_color_id) FROM part_bricklink_ids pb "
+        "JOIN bricklink_item_colors bic ON bic.item_no = pb.item_no GROUP BY pb.part_num"
+    ):
+        color_counts[part_num] = count
+
+    bricklink_ids = {}
+    for part_num, item_no in conn.execute("SELECT part_num, item_no FROM part_bricklink_ids"):
+        bricklink_ids.setdefault(part_num, []).append(item_no)
+
+    rows = []
+    for part_num, name in conn.execute("SELECT part_num, name FROM parts").fetchall():
+        name_text = _normalizeSearchText(name)
+        id_text = _normalizeSearchText(" ".join([part_num] + bricklink_ids.get(part_num, [])))
+        rows.append((
+            part_num,
+            f" {name_text} ",
+            f" {id_text} ",
+            len(name_text.split()),
+            1 if _isVariantPart(name_text, part_num) else 0,
+            1 if OFF_SYSTEM_RE.match(name_text) else 0,
+            color_counts.get(part_num, 0),
+        ))
+
+    # One transaction: WAL readers keep seeing the old index until the commit, so
+    # a rebuild never exposes an empty table to a search in flight.
+    conn.execute("DELETE FROM part_search")
+    conn.executemany(
+        "INSERT INTO part_search (part_num, name_text, id_text, word_count, is_variant, is_off_system, popularity) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        rows,
+    )
+    conn.commit()
+    return len(rows)
+
+
 def searchParts(conn, query, cat_filter=None, limit=50, offset=0):
-    query_lower = query.lower().strip() if query else ""
+    normalized_query = _normalizeSearchText(query)
     conditions = []
     params = []
 
-    if query_lower:
-        conditions.append(
-            "(LOWER(p.name) LIKE ? OR LOWER(p.part_num) LIKE ? OR EXISTS "
-            "(SELECT 1 FROM part_bricklink_ids pb WHERE pb.part_num = p.part_num AND LOWER(pb.item_no) LIKE ?))"
-        )
-        like_val = f"%{query_lower}%"
-        params.extend([like_val, like_val, like_val])
+    # Every token has to hit, in any order, so "2x4 brick" and "brick 2x4" are
+    # the same search. Words match on a word prefix (so "bric" still finds
+    # bricks); bare numbers must match a whole word in the name, or a part
+    # number prefix, so "technic axle 3" doesn't drag in every axle 32.
+    for token, kind in _searchTokens(normalized_query):
+        if kind == "dimension":
+            # The catalog is not consistent about which side comes first — a
+            # brick is "Brick 1 x 2" but the slope of the same footprint is
+            # "Slope 45° 2 x 1" — so a size matches either way round.
+            sizes = token.split(" x ")
+            patterns = [f"% {token} %"]
+            if len(sizes) == 2 and sizes[0] != sizes[1]:
+                patterns.append(f"% {sizes[1]} x {sizes[0]} %")
+            conditions.append("(" + " OR ".join(["s.name_text LIKE ?"] * len(patterns)) + ")")
+            params.extend(patterns)
+        elif kind == "number":
+            conditions.append("(s.name_text LIKE ? OR s.id_text LIKE ?)")
+            params.extend([f"% {token} %", f"% {token}%"])
+        else:
+            conditions.append("(s.name_text LIKE ? OR s.id_text LIKE ?)")
+            params.extend([f"% {token}%", f"% {token}%"])
 
     if cat_filter is not None:
         conditions.append("p.part_cat_id = ?")
@@ -321,43 +432,53 @@ def searchParts(conn, query, cat_filter=None, limit=50, offset=0):
         return [], 0
 
     where = " AND ".join(conditions)
+    from_sql = "parts p JOIN part_search s ON s.part_num = p.part_num"
 
-    count_sql = f"SELECT COUNT(*) FROM parts p WHERE {where}"
+    count_sql = f"SELECT COUNT(*) FROM {from_sql} WHERE {where}"
     total = conn.execute(count_sql, params).fetchone()[0]
 
-    # Rank exact/prefix hits above incidental substring hits. Ordering by
-    # part_num alone is lexical, so searching "3069" put 3069 itself behind
-    # every longer number that happens to sort lower, and a human picking a part
-    # never saw what they typed on page one. Shorter names first within a tier
-    # keeps the plain mold ("Tile 1 x 2") above its printed variants.
-    if query_lower:
-        order_sql = (
+    # Rank in the order a human scans: what you typed, then plain molds over
+    # printed variants, then the mold that exists in the most colors (a good
+    # proxy for "the common one"), then the shortest name.
+    order_terms = []
+    tier_params = []
+    if normalized_query:
+        order_terms.append(
             "CASE "
-            "WHEN LOWER(p.part_num) = ? THEN 0 "
-            "WHEN EXISTS (SELECT 1 FROM part_bricklink_ids pb "
-            "WHERE pb.part_num = p.part_num AND LOWER(pb.item_no) = ?) THEN 1 "
-            "WHEN LOWER(p.part_num) LIKE ? THEN 2 "
-            "WHEN LOWER(p.name) = ? THEN 3 "
-            "WHEN LOWER(p.name) LIKE ? THEN 4 "
-            "ELSE 5 END, LENGTH(p.name), p.part_num"
+            "WHEN s.id_text LIKE ? THEN 0 "
+            "WHEN s.id_text LIKE ? THEN 1 "
+            "WHEN s.name_text = ? THEN 2 "
+            "WHEN s.name_text LIKE ? THEN 3 "
+            "ELSE 4 END"
         )
-        prefix_val = f"{query_lower}%"
-        order_params = [query_lower, query_lower, prefix_val, query_lower, prefix_val]
-    else:
-        order_sql = "p.part_num"
-        order_params = []
+        tier_params = [
+            f"% {normalized_query} %",
+            f"% {normalized_query}%",
+            f" {normalized_query} ",
+            f" {normalized_query}%",
+        ]
+    order_terms.extend([
+        "s.is_variant",
+        "s.is_off_system",
+        "CASE WHEN s.popularity >= 40 THEN 0 WHEN s.popularity >= 10 THEN 1 "
+        "WHEN s.popularity >= 2 THEN 2 ELSE 3 END",
+        "s.word_count",
+        "LENGTH(p.name)",
+        "p.part_num",
+    ])
+    order_sql = ", ".join(order_terms)
 
     sql = (
         f"SELECT p.part_num, p.name, p.part_cat_id, p.year_from, p.year_to, "
         f"p.part_img_url, p.part_url, p.external_ids, c.name, "
         f"bi.name, bc.name "
-        f"FROM parts p LEFT JOIN categories c ON c.id = p.part_cat_id "
+        f"FROM {from_sql} LEFT JOIN categories c ON c.id = p.part_cat_id "
         f"LEFT JOIN part_bricklink_ids pbi ON pbi.part_num = p.part_num AND pbi.is_primary = 1 "
         f"LEFT JOIN bricklink_items bi ON bi.item_no = pbi.item_no "
         f"LEFT JOIN bricklink_categories bc ON bc.id = bi.category_id "
         f"WHERE {where} ORDER BY {order_sql} LIMIT ? OFFSET ?"
     )
-    params.extend(order_params)
+    params.extend(tier_params)
     params.extend([limit, offset])
 
     results = []

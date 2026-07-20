@@ -22,7 +22,7 @@ dependencies = [
     "openai>=2.30.0",
     "opencv-python>=4.13.0.92",
     "pillow>=12.1.0",
-    "pydantic-to-typescript>=2.0.0",
+    "pydantic-to-typescript==2.0.0",
     "pyright>=1.1.408",
     # HW JPEG decode (vision/gst_capture.py -> GStreamer mppjpegdec) on the
     # Orange Pi 5 only. Marker keeps these off Mac dev, where `import gi` is

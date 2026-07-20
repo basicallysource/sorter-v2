@@ -320,6 +320,16 @@ class Rev01BaseState(BaseState):
         chosen = [i for i in self._selectBurstIndices(all_captures, n_use) if i < len(burst_entries)]
         used_entries = [burst_entries[i] for i in chosen]
         burst_crops = [all_captures[i] for i in chosen]
+        stamps = list(self.ctx.captured_crop_timestamps)
+        # Arrival at C4. Every candidate's dt feature is measured against this,
+        # so it has to be the FIRST burst frame, not the sharpest or the last.
+        arrival_ts = float(stamps[0]) if stamps else float(time.time())
+        # Sharpest burst frame is the anchor the matcher compares against.
+        anchor_bgr = (
+            burst_crops[max(range(len(burst_crops)), key=lambda i: self.sharpness(burst_crops[i]))]
+            if burst_crops
+            else None
+        )
 
         def _run() -> None:
             try:
@@ -331,6 +341,16 @@ class Rev01BaseState(BaseState):
                     with self.ctx.classify_lock:
                         self.ctx.classification_error = "no_captures"
                     return
+                # Upstream C2/C3 views of this same piece, found by the
+                # piece-link model. They are fused into the request alongside the
+                # burst, so they must be resolved BEFORE the fan-out — the burst
+                # gives up slots so the total stays under Brickognize's limit.
+                sendable += self._gatherLinkMatches(
+                    piece_uuid,
+                    anchor_bgr,
+                    arrival_ts,
+                    max_inject=MAX_QUERY_IMAGES - len(sendable),
+                )
                 # The hosted color provider (when selected) runs alongside the
                 # Brickognize fan-out rather than after it, so choosing it costs
                 # no extra wall-clock unless it is slower than Brickognize.
@@ -446,8 +466,10 @@ class Rev01BaseState(BaseState):
                 if not ok:
                     continue
                 blobs.append(buf.tobytes())
-                # Everything sent is a C4 burst frame.
-                channels.append(4)
+                # Burst frames are C4 by definition; a fused link match carries
+                # the upstream channel it was captured on, which the colour
+                # provider uses to pick per-channel calibration.
+                channels.append(4 if s.rec.source == "c4_burst" else int(s.rec.channel or 4))
             if not blobs:
                 return
             try:
@@ -746,55 +768,63 @@ class Rev01BaseState(BaseState):
             obj.classification_strategy = self.ctx.classification_strategy
 
         self.emitKnownObject()
-        self._spawnLinkMatch(obj, frames)
 
-    def _spawnLinkMatch(self, obj, frames: list[np.ndarray]) -> None:
-        # Experimental piece-link matching, off unless [link_matching] enables
-        # it. Runs on its own thread and re-emits when it lands: it costs an
-        # ONNX pass per candidate and this is the state-machine thread, and the
-        # piece is already fully classified so nothing downstream waits on it.
-        if not frames:
-            return
-        anchor = frames[max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))]
-        stamps = list(self.ctx.captured_crop_timestamps)
-        # Arrival at C4 = the first burst frame's timestamp. dt is measured
-        # against this, so getting it from the wrong end of the burst would
-        # shift every candidate's meta features.
-        arrival_ts = float(stamps[0]) if stamps else float(time.time())
-        piece_uuid = obj.uuid
+    def _gatherLinkMatches(
+        self,
+        piece_uuid: Optional[str],
+        anchor_bgr,
+        arrival_ts: float,
+        max_inject: int,
+    ) -> list["_SendImage"]:
+        """Upstream C2/C3 views of this piece, scored by the piece-link model.
 
-        def _run() -> None:
-            try:
-                import link_matcher
+        Every scored candidate is attached to the KnownObject so the detail page
+        can show the whole ranked list; only the top ``max_inject`` picks above
+        the model's threshold are returned as sendable and actually fused into
+        the Brickognize request. Best-effort — any failure yields none and
+        classification proceeds on the burst alone.
+        """
+        if anchor_bgr is None or max_inject <= 0 or not piece_uuid:
+            return []
+        try:
+            import link_matcher
 
-                scored = link_matcher.matchForPieceLive(
-                    self.gc, piece_uuid, anchor, arrival_ts
-                )
-                if not scored:
-                    return
-                images = [
-                    r
-                    for r in (self._linkCropToRecognitionImage(c) for c in scored)
-                    if r is not None
-                ]
-                if not images:
-                    return
-                with self.ctx.classify_lock:
-                    # The piece may have been replaced while we were scoring.
-                    if self.ctx.known_object is not obj:
-                        return
-                    obj.recognition_image_set.extend(images)
-                used = sum(1 for r in images if r.used)
-                self.logger.info(
-                    f"{LOG_TAG} link match: {len(images)} crops, {used} above threshold"
-                )
-                self.emitKnownObject()
-            except Exception as exc:
-                self.logger.debug(f"{LOG_TAG} link match failed: {exc}")
+            scored = link_matcher.matchForPieceLive(
+                self.gc, piece_uuid, anchor_bgr, arrival_ts
+            )
+        except Exception as exc:
+            self.logger.debug(f"{LOG_TAG} link match failed: {exc}")
+            return []
+        if not scored:
+            return []
 
-        threading.Thread(target=_run, daemon=True).start()
+        obj = self.ctx.known_object
+        sendable: list[_SendImage] = []
+        attached: list[RecognitionImage] = []
+        for cand in scored:
+            decoded = self._linkCropToRecognitionImage(cand)
+            if decoded is None:
+                continue
+            rec, bgr = decoded
+            # Only the model's own picks are worth an image slot. Injecting a
+            # crop of a DIFFERENT piece actively corrupts the classification, so
+            # a below-threshold candidate is attached for review but never sent.
+            if bool(cand.get("model_same")) and len(sendable) < max_inject:
+                sendable.append(_SendImage(bgr, rec))
+            attached.append(rec)
 
-    def _linkCropToRecognitionImage(self, cand: dict) -> Optional[RecognitionImage]:
+        if obj is not None and attached:
+            with self.ctx.classify_lock:
+                if self.ctx.known_object is obj:
+                    obj.recognition_image_set.extend(attached)
+        self.logger.info(
+            f"{LOG_TAG} link match: {len(attached)} scored, {len(sendable)} fused into request"
+        )
+        return sendable
+
+    def _linkCropToRecognitionImage(
+        self, cand: dict
+    ) -> Optional[tuple[RecognitionImage, np.ndarray]]:
         import base64
 
         import channel_crop_store
@@ -806,22 +836,24 @@ class Rev01BaseState(BaseState):
             raw = path.read_bytes()
         except OSError:
             return None
+        bgr = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if bgr is None or bgr.size == 0:
+            return None
         ts = cand.get("ts")
-        return RecognitionImage(
+        rec = RecognitionImage(
             image=base64.b64encode(raw).decode("ascii"),
             source="link_match",
-            # ``used`` means "was submitted to Brickognize in the winning
-            # request". Link matches are not sent, so it stays False — the model
-            # thinking a crop is the same piece is a different claim, and
-            # conflating them would make the UI's used-highlighting lie about
-            # what actually produced the result. ``score`` carries the model's
-            # probability and the UI highlights on that instead.
+            # Left False here. _finalizeAttempts flips it to True for whichever
+            # images ended up in the winning request, exactly as it does for the
+            # burst — so "used" keeps meaning "this drove the result" across both
+            # sources.
             used=False,
             score=cand.get("model_score"),
             channel=int(cand["channel"]) if cand.get("channel") is not None else None,
             ts=float(ts) if isinstance(ts, (int, float)) else None,
             created_at=float(ts) if isinstance(ts, (int, float)) else None,
         )
+        return rec, bgr
 
     def _applyHiveSizeMetadata(self, obj) -> None:
         # Resolve physical dimensions from the primary Hive target and flag the

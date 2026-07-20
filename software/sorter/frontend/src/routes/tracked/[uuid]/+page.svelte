@@ -59,76 +59,6 @@
 	let _diskSummary = $state<PieceSummary | null>(null);
 	let _diskImages = $state<DisplayImage[]>([]);
 
-	// 'Possibly the same piece': cheap time/angle lookup over the unlabeled
-	// C2/C3 channel crops. Confidence-ranked superset. When an experimental
-	// piece_link model is enabled the backend re-ranks that same set by
-	// appearance and each candidate carries model_score / model_same.
-	type PossibleCrop = {
-		id: number;
-		channel: number | null;
-		ts: number | null;
-		dt: number;
-		zone_code: number | null;
-		com_forward_to_exit_deg: number | null;
-		track_id: number | null;
-		sharpness: number | null;
-		score: number;
-		model_score?: number;
-		model_same?: boolean;
-	};
-	let _possibleCrops = $state<PossibleCrop[]>([]);
-	let _possibleStatus = $state<'idle' | 'loading' | 'ok' | 'error'>('idle');
-	let _possibleSource = $state<'heuristic' | 'model'>('heuristic');
-	let _possibleModel = $state<string | null>(null);
-
-	$effect(() => {
-		// Reset whenever the route UUID changes. Reading `uuid` registers the
-		// dependency; the body clears the sticky cache so a different route
-		// doesn't briefly show the previous piece's crops.
-		void uuid;
-		_stickyPiece = null;
-		_fetchedPiece = null;
-		_diskSummary = null;
-		_diskImages = [];
-		_fetchStatus = 'idle';
-		_possibleCrops = [];
-		_possibleStatus = 'idle';
-		_possibleSource = 'heuristic';
-		_possibleModel = null;
-	});
-
-	$effect(() => {
-		if (_possibleStatus !== 'idle') return;
-		const targetUuid = uuid;
-		_possibleStatus = 'loading';
-		void fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(targetUuid)}/possible-crops`)
-			.then(async (res) => {
-				if (targetUuid !== uuid) return;
-				if (!res.ok) {
-					_possibleStatus = 'error';
-					return;
-				}
-				const data = (await res.json()) as {
-					candidates?: PossibleCrop[];
-					prediction_source?: string;
-					link_model?: string;
-				};
-				if (targetUuid !== uuid) return;
-				_possibleCrops = data.candidates ?? [];
-				_possibleSource = data.prediction_source === 'model' ? 'model' : 'heuristic';
-				_possibleModel = data.link_model ?? null;
-				_possibleStatus = 'ok';
-			})
-			.catch(() => {
-				if (targetUuid === uuid) _possibleStatus = 'error';
-			});
-	});
-
-	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
-	function possibleCropSrc(id: number): string {
-		return `${effectiveBase()}/api/channel-crops/${id}/image`;
-	}
-
 	$effect(() => {
 		const entries = pieceStore.entriesFor(ctx.machine?.identity?.machine_id ?? null);
 		const found = entries.find((p) => p.uuid === uuid)?.ws ?? null;
@@ -853,8 +783,8 @@
 		}))
 	);
 
-	const cropThumbs = $derived<Thumb<CropEntry>[]>(
-		crops.map((c) => ({
+	function toThumb(c: CropEntry): Thumb<CropEntry> {
+		return {
 			key: cropKey(c),
 			src: c.src,
 			alt: c.role,
@@ -863,18 +793,32 @@
 			caption: formatCropLabel(c),
 			captionRight: formatAbsTs(c.ts),
 			ref: c
-		}))
+		};
+	}
+
+	// The two sources, shown separately: the C4 burst the chamber captured, and
+	// the upstream C2/C3 views of the same piece. In both, `used` (a stroke on
+	// the tile) means the image was actually shipped to Brickognize in the
+	// request whose result was applied.
+	const burstThumbs = $derived<Thumb<CropEntry>[]>(
+		crops.filter((c) => c.role === 'recognition_capture').map(toThumb)
 	);
 
-	const possibleThumbs = $derived<Thumb<PossibleCrop>[]>(
-		_possibleCrops.map((crop) => ({
-			key: String(crop.id),
-			src: possibleCropSrc(crop.id),
-			alt: `crop ${crop.id}`,
-			title: `C${crop.channel} · ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : '?'} · ${crop.com_forward_to_exit_deg != null ? crop.com_forward_to_exit_deg.toFixed(0) + '° to exit' : ''} · ${crop.dt >= 0 ? crop.dt.toFixed(1) + 's before arrival' : Math.abs(crop.dt).toFixed(1) + 's after'} · score ${crop.score.toFixed(2)}`,
-			ref: crop
-		}))
+	// Link matches first, ranked by the model's probability; then any other
+	// upstream crop the tracker happened to keep, which carries no score.
+	const otherChannelThumbs = $derived<Thumb<CropEntry>[]>(
+		crops
+			.filter((c) => c.role !== 'recognition_capture')
+			.slice()
+			.sort((a, b) => {
+				const sa = a.role === 'link_match' ? (a.score ?? -1) : -2;
+				const sb = b.role === 'link_match' ? (b.score ?? -1) : -2;
+				return sb - sa;
+			})
+			.map(toThumb)
 	);
+	const linkMatchCount = $derived(crops.filter((c) => c.role === 'link_match').length);
+
 </script>
 
 <svelte:head>
@@ -979,7 +923,6 @@
 							</div>
 						</section>
 					{/if}
-					{@render possibleCropsSection()}
 				</div>
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
@@ -1328,51 +1271,87 @@
 				</section>
 			{/if}
 
+					{#snippet cropOverlay(item: Thumb<CropEntry>)}
+						{#if item.ref.used}
+							<span
+								class="absolute top-1 left-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
+								title="Shipped to Brickognize for classification"
+							>
+								Used
+							</span>
+						{/if}
+						{#if item.ref.sharpness != null}
+							<span
+								class="absolute top-1 right-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
+								title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
+							>
+								⌖ {formatSharpness(item.ref.sharpness)}
+							</span>
+						{/if}
+						<span
+							class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
+							title="Channel this image came from"
+						>
+							{channelLabel(item.ref.channel)}
+						</span>
+						<ImageInfoBadge
+							class="absolute right-1 bottom-1 z-10"
+							src={item.src}
+							rows={cropInfoRows(item.ref)}
+						/>
+					{/snippet}
 			<!-- Image gallery + Brickognize reference -->
 			<section class="border border-border bg-surface">
 				<div
 					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
 				>
 					<div class="font-medium text-text">
-						Captured crops
-						<span class="ml-2 text-text-muted">{crops.length}</span>
+						Classification burst
+						<span class="ml-2 text-text-muted">{burstThumbs.length}</span>
 					</div>
+					<span class="text-sm text-text-muted">C4 · outlined = used for classification</span>
 				</div>
 				<div class="p-3">
-					{#if cropThumbs.length === 0}
-						<div class="text-sm text-text-muted">No crops available for this piece.</div>
+					{#if burstThumbs.length === 0}
+						<div class="text-sm text-text-muted">No burst frames for this piece.</div>
 					{:else}
-						{#snippet cropOverlay(item: Thumb<CropEntry>)}
-							{#if item.ref.used}
-								<span
-									class="absolute top-1 left-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
-									title="Shipped to Brickognize for classification"
-								>
-									Used
-								</span>
-							{/if}
-							{#if item.ref.sharpness != null}
-								<span
-									class="absolute top-1 right-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
-									title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
-								>
-									⌖ {formatSharpness(item.ref.sharpness)}
-								</span>
-							{/if}
-							<span
-								class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
-								title="Channel this image came from"
-							>
-								{channelLabel(item.ref.channel)}
-							</span>
-							<ImageInfoBadge
-								class="absolute right-1 bottom-1 z-10"
-								src={item.src}
-								rows={cropInfoRows(item.ref)}
-							/>
-						{/snippet}
 						<PieceThumbGrid
-							items={cropThumbs}
+							items={burstThumbs}
+							minPx={120}
+							overlay={cropOverlay}
+							onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
+						/>
+					{/if}
+				</div>
+			</section>
+
+			<!-- The same physical piece as seen upstream, ranked by the piece-link
+			     model. Outlined tiles were fused into the Brickognize request
+			     alongside the burst; the rest are shown for review. -->
+			<section class="border border-border bg-surface">
+				<div
+					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+				>
+					<div class="font-medium text-text">
+						Other channels
+						<span class="ml-2 text-text-muted">{otherChannelThumbs.length}</span>
+					</div>
+					<span class="text-sm text-text-muted">
+						{#if linkMatchCount > 0}
+							C2/C3 · ranked by match probability · outlined = used for classification
+						{:else}
+							C2/C3
+						{/if}
+					</span>
+				</div>
+				<div class="p-3">
+					{#if otherChannelThumbs.length === 0}
+						<div class="text-sm text-text-muted">
+							No upstream views of this piece.
+						</div>
+					{:else}
+						<PieceThumbGrid
+							items={otherChannelThumbs}
 							minPx={120}
 							overlay={cropOverlay}
 							onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
@@ -1560,72 +1539,6 @@
 						)}</pre>
 				{/if}
 			</section>
-		{/if}
-
-		<!-- Possibly the same piece: cheap time/angle lookup over C2/C3 crops.
-		     Rendered for any UUID (live or disk-fallback) — it only needs the
-		     piece's arrival time, not the live detail payload. Defined as a
-		     snippet so the disk-fallback branch can place it side-by-side with
-		     "Stored images"; every other branch renders it full-width below. -->
-		{#snippet possibleCropsSection()}
-			<section class="flex flex-col border border-border bg-surface">
-				<div
-					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
-				>
-					<div class="font-medium text-text">
-						Possibly the same piece
-						<span class="ml-2 text-text-muted">{_possibleCrops.length}</span>
-					</div>
-					{#if _possibleSource === 'model'}
-						<span class="flex items-center gap-2 text-sm text-text-muted">
-							<span
-								class="bg-warning/20 px-2 py-0.5 text-xs font-semibold tracking-wider text-warning-dark uppercase dark:text-warning"
-								title="Experimental piece-link model — it re-ranks the heuristic's candidates, it can't find new ones"
-							>
-								Model
-							</span>
-							{_possibleModel ?? 'piece link'} · ranked by match probability
-						</span>
-					{:else}
-						<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
-					{/if}
-				</div>
-				<div class="p-3">
-					{#if _possibleStatus === 'loading'}
-						<div class="text-sm text-text-muted">Searching…</div>
-					{:else if _possibleStatus === 'error'}
-						<div class="text-sm text-text-muted">Lookup unavailable.</div>
-					{:else if _possibleCrops.length === 0}
-						<div class="text-sm text-text-muted">
-							No upstream crops found near this piece's arrival time.
-						</div>
-					{:else}
-						{#snippet possibleOverlay(item: Thumb<PossibleCrop>)}
-							<span
-								class="absolute top-0.5 right-0.5 bg-primary px-1 text-xs font-semibold text-white tabular-nums"
-								title="Same-piece confidence (higher = more likely this piece)"
-							>
-								{item.ref.score.toFixed(2)}
-							</span>
-						{/snippet}
-						<PieceThumbGrid
-							items={possibleThumbs}
-							minPx={64}
-							gridClass="max-h-72 overflow-y-auto"
-							overlay={possibleOverlay}
-							onZoom={(t) =>
-								(zoomImage = {
-									src: t.src,
-									label: `C${t.ref.channel} ${t.ref.zone_code != null ? ZONE_LABEL[t.ref.zone_code] : ''} · ${t.ref.dt.toFixed(1)}s · ${t.ref.model_score != null ? 'model ' + t.ref.model_score.toFixed(3) : 'score ' + t.ref.score.toFixed(2)}`
-								})}
-						/>
-					{/if}
-				</div>
-			</section>
-		{/snippet}
-
-		{#if !(_fetchStatus === 'summary_only' && _diskSummary)}
-			{@render possibleCropsSection()}
 		{/if}
 	</div>
 </div>

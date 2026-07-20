@@ -104,7 +104,6 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                 ClassificationAttempt(
                     strategy=ClassificationAttemptStrategy(a.strategy),
                     n_burst=a.n_burst,
-                    n_upstream=a.n_upstream,
                     found=a.found,
                     label=a.label,
                     applied=a.applied,

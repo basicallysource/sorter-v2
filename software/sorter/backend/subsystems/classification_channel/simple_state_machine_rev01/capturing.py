@@ -174,9 +174,8 @@ class Capturing(Rev01BaseState):
 
         self.ctx.classify_started_at = now
         all_captures = list(self.ctx.captured_crops)
-        # Burst selection + upstream-match injection happen on the classify
-        # thread (selectRecognitionCrops needs the upstream count to know how
-        # many burst slots are left), so we hand it the full burst here.
+        # Burst selection happens on the classify thread, so we hand it the full
+        # burst here.
         if all_captures:
             self.logger.info(
                 f"{LOG_TAG} CAPTURING -> MOVING_TO_PRECISE "

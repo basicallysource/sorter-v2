@@ -177,18 +177,6 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     )
 
     try:
-        from perception.upstream_capture import UpstreamCropStore, configFromDict
-        from toml_config import getUpstreamMatchConfig
-
-        store = UpstreamCropStore(perception_service=service, logger=gc.logger)
-        store.configure(configFromDict(getUpstreamMatchConfig()))
-        store.start()
-        service.upstream_store = store
-        gc.logger.info("Perception upstream-crop store started.")
-    except Exception as exc:
-        gc.logger.warning(f"Failed to start upstream-crop store: {exc}")
-
-    try:
         import channel_crop_store
         from perception.channel_crop_capture import ChannelCropCollector
 

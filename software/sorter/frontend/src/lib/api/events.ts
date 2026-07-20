@@ -5,28 +5,45 @@
 /* Do not modify it by hand - just update the pydantic models and then re-run the script
 */
 
-export type CameraName = "feeder" | "classification_bottom" | "classification_top" | "c_channel_2" | "c_channel_3" | "carousel";
+export type ClassificationAttemptStrategy = "combined" | "single_burst";
+export type CameraName =
+  | "feeder"
+  | "classification_bottom"
+  | "classification_top"
+  | "c_channel_2"
+  | "c_channel_3"
+  | "carousel";
+export type PieceStage = "created" | "distributing" | "distributed";
+export type ClassificationStatus =
+  | "pending"
+  | "classifying"
+  | "classified"
+  | "unknown"
+  | "not_found"
+  | "multi_drop_fail"
+  | "failed";
 
-export interface RecognitionImage {
-  image: string;
-  source: "c4_burst" | "upstream";
-  used: boolean;
-  ts?: number | null;
-  score?: number | null;
-  excluded_from_result?: boolean;
-  // Physical channel: 4 for a C4 burst capture, 2 or 3 for an upstream match.
-  channel?: number | null;
-  // Wall-clock capture time (epoch seconds); aged against KnownObject.created_at.
-  created_at?: number | null;
-  // Motion-blur / focus measure: variance of the image's Laplacian (higher =
-  // sharper). Set for C4 burst crops; null for upstream crops / older records.
-  sharpness?: number | null;
+export interface CameraHealthData {
+  cameras: {
+    [k: string]: string;
+  };
 }
-export type ClassificationAttemptStrategy = "combined" | "single_burst" | "single_upstream";
+export interface CameraHealthEvent {
+  tag: "camera_health";
+  data: CameraHealthData;
+}
+export interface CamerasConfigData {
+  cameras: {
+    [k: string]: number | string | null;
+  };
+}
+export interface CamerasConfigEvent {
+  tag: "cameras_config";
+  data: CamerasConfigData;
+}
 export interface ClassificationAttempt {
   strategy: ClassificationAttemptStrategy;
   n_burst: number;
-  n_upstream: number;
   found: boolean;
   label?: string | null;
   applied?: boolean;
@@ -40,9 +57,6 @@ export interface ClassificationAttempt {
   duration_s?: number | null;
   image_ts?: number[];
 }
-export type PieceStage = "created" | "distributing" | "distributed";
-export type ClassificationStatus = "pending" | "classifying" | "classified" | "unknown" | "not_found" | "multi_drop_fail" | "failed";
-
 export interface FrameData {
   camera: CameraName;
   timestamp: number;
@@ -81,16 +95,8 @@ export interface KnownObjectData {
   updated_at: number;
   stage: PieceStage;
   classification_status: ClassificationStatus;
-  // Set by the backend when a piece's cycle was torn down before it ever
-  // classified or distributed (machine stop / reset mid-capture). Such pieces
-  // are dropped from the UI rather than left stuck in the "capturing" phase.
-  // True when the Brickognize request failed (timeout/DNS/connection on a flaky
-  // network) rather than succeeding with no match. Card shows "Request failed".
   request_failed?: boolean;
   aborted?: boolean;
-  // Set when the backend reaps a piece that went silent for too long without
-  // reaching the distributed stage (the time-based analogue of `aborted`). The
-  // UI drops dead pieces from the recent list.
   dead?: boolean;
   part_id?: string | null;
   part_name?: string | null;
@@ -100,18 +106,11 @@ export interface KnownObjectData {
   category_id?: string | null;
   confidence?: number | null;
   max_dimension_mm?: number | null;
-  // Headline BrickLink moving-average price (USD) from the local parts.db. This
-  // is the only metadata-DB field the Recent Pieces card renders. null when the
-  // local DB is disabled or has no price for this part.
   moving_avg_price?: number | null;
-  // Full local-DB metadata blob (part info, BrickLink item, price buckets, etc.)
-  // packaged for the detail view; the card shows only moving_avg_price.
-  piece_metadata?: Record<string, unknown> | null;
-  // True when the profile's high_value_routing override rerouted this piece into
-  // the high-value category's bin. Drives the "High value" chip on the card.
+  piece_metadata?: {
+    [k: string]: unknown;
+  } | null;
   high_value_routed?: boolean;
-  // Live .bsx inventory membership: undefined/null = no active inventory; true =
-  // stocked; false = NOT in inventory. Drives the "Not in inventory" badge.
   not_in_inventory?: boolean | null;
   too_big?: boolean;
   too_big_for_layer?: boolean;
@@ -131,12 +130,10 @@ export interface KnownObjectData {
   drop_snapshot?: string | null;
   brickognize_preview_url?: string | null;
   brickognize_source_view?: string | null;
-  // Set when a Brickognize listing was captured — makes the piece correctable.
   brickognize_listing_id?: string | null;
-  // Which service actually produced the applied color / mold. Reflects what
-  // answered, not what was configured — a hosted color provider that times out
-  // leaves this as "brickognize". null on pieces classified before providers
-  // were recorded.
+  brickognize_item_rank?: number | null;
+  brickognize_item_type?: string | null;
+  brickognize_color_rank?: number | null;
   color_provider?: string | null;
   mold_provider?: string | null;
   recognition_image_set?: RecognitionImage[];
@@ -159,56 +156,20 @@ export interface KnownObjectData {
   distribution_positioned_at?: number | null;
   distributed_at?: number | null;
 }
+export interface RecognitionImage {
+  image: string;
+  source: string;
+  used?: boolean;
+  ts?: number | null;
+  score?: number | null;
+  excluded_from_result?: boolean;
+  channel?: number | null;
+  created_at?: number | null;
+  sharpness?: number | null;
+}
 export interface KnownObjectEvent {
   tag: "known_object";
   data: KnownObjectData;
-}
-export interface CameraHealthData {
-  cameras: Record<string, string>;
-}
-export interface CameraHealthEvent {
-  tag: "camera_health";
-  data: CameraHealthData;
-}
-export interface RuntimeStatsData {
-  payload: Record<string, unknown>;
-}
-export interface RuntimeStatsEvent {
-  tag: "runtime_stats";
-  data: RuntimeStatsData;
-}
-export interface SystemStatusData {
-  hardware_state: string;
-  hardware_error: string | null;
-  homing_step: string | null;
-  no_power_development_mode: boolean;
-}
-export interface SystemStatusEvent {
-  tag: "system_status";
-  data: SystemStatusData;
-}
-export interface SorterStateData {
-  state: string;
-  camera_layout: string | null;
-}
-export interface SorterStateEvent {
-  tag: "sorter_state";
-  data: SorterStateData;
-}
-export interface CamerasConfigData {
-  cameras: Record<string, number | string | null>;
-}
-export interface CamerasConfigEvent {
-  tag: "cameras_config";
-  data: CamerasConfigData;
-}
-export interface SortingProfileStatusData {
-  sync_state: Record<string, unknown>;
-  local_profile: Record<string, unknown>;
-}
-export interface SortingProfileStatusEvent {
-  tag: "sorting_profile_status";
-  data: SortingProfileStatusData;
 }
 export interface PauseCommandData {}
 export interface PauseCommandEvent {
@@ -219,6 +180,52 @@ export interface ResumeCommandData {}
 export interface ResumeCommandEvent {
   tag: "resume";
   data: ResumeCommandData;
+}
+export interface RuntimeStatsData {
+  payload: {
+    [k: string]: unknown;
+  };
+}
+export interface RuntimeStatsEvent {
+  tag: "runtime_stats";
+  data: RuntimeStatsData;
+}
+export interface SetProfilerEnabledData {
+  enabled: boolean;
+}
+export interface SetProfilerEnabledEvent {
+  tag: "set_profiler_enabled";
+  data: SetProfilerEnabledData;
+}
+export interface SorterStateData {
+  state: string;
+  camera_layout?: string | null;
+}
+export interface SorterStateEvent {
+  tag: "sorter_state";
+  data: SorterStateData;
+}
+export interface SortingProfileStatusData {
+  sync_state: {
+    [k: string]: unknown;
+  };
+  local_profile: {
+    [k: string]: unknown;
+  };
+}
+export interface SortingProfileStatusEvent {
+  tag: "sorting_profile_status";
+  data: SortingProfileStatusData;
+}
+export interface SystemStatusData {
+  hardware_state: string;
+  hardware_error?: string | null;
+  homing_step?: string | null;
+  no_power_development_mode?: boolean;
+}
+export interface SystemStatusEvent {
+  tag: "system_status";
+  data: SystemStatusData;
 }
 
 export type SocketEvent = HeartbeatEvent | FrameEvent | IdentityEvent | KnownObjectEvent | CameraHealthEvent | SystemStatusEvent | SorterStateEvent | CamerasConfigEvent | SortingProfileStatusEvent | RuntimeStatsEvent;

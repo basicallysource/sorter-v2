@@ -8,7 +8,6 @@ from defs.known_object import (
     ClassificationAttempt,
     ClassificationAttemptStrategy,
     KnownObject,
-    RecognitionImage,
 )
 
 from .rev01_config import Rev01Config, configFromDict
@@ -37,10 +36,6 @@ class SimpleStateMachineRev01Context:
         # when it spawns the classify thread, read by AWAITING_DISTRIBUTION when
         # it dumps the burst artifacts (the spawn/apply split spans two states).
         self.selected_captures: list[np.ndarray] = []
-        # Upstream (C2/C3) match crops the classify thread fused into the
-        # Brickognize call, extended onto the KnownObject's recognition_image_set
-        # when the result lands (the spawn/apply split spans two states).
-        self.upstream_recognition_images: list[RecognitionImage] = []
         # Per-attempt Brickognize record and the winning strategy, produced by the
         # classify thread's retry runner and applied onto the KnownObject when the
         # result lands (the spawn/apply split spans two states).
@@ -99,7 +94,6 @@ class SimpleStateMachineRev01Context:
         self.captured_crop_timestamps = []
         self.captured_crop_sharpness = []
         self.selected_captures = []
-        self.upstream_recognition_images = []
         self.classification_attempts = []
         self.classification_strategy = None
         self.last_capture_frame_ts = 0.0

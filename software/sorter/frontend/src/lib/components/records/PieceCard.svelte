@@ -85,14 +85,7 @@
 		return null;
 	}
 
-	function sourceBadge(img: DisplayImage): { label: string; cls: string } {
-		const ch = img.channel;
-		if (img.source === 'upstream') {
-			// Upstream crops come from C2 or C3; fall back to "C2/3" for older
-			// records captured before the channel was recorded.
-			const label = ch === 2 || ch === 3 ? `C${ch}` : 'C2/3';
-			return { label, cls: 'border-warning/60 bg-warning/[0.12] text-warning' };
-		}
+	function sourceBadge(): { label: string; cls: string } {
 		return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
 	}
 
@@ -104,7 +97,6 @@
 	): { label: string } | null {
 		if (!strategy || strategy === 'combined') return null;
 		if (strategy === 'single_burst') return { label: 'WON · BURST ALONE' };
-		if (strategy === 'single_upstream') return { label: 'WON · UPSTREAM ALONE' };
 		return { label: `WON · ${strategy}` };
 	}
 
@@ -131,28 +123,13 @@
 		return 'unsent';
 	}
 
-	// C4 burst frames first, then upstream matches — read left-to-right as
-	// "what the camera saw" followed by "what we pulled from upstream".
+	// Chronological — read left-to-right as what the camera saw.
 	function sortImages(images: DisplayImage[]): DisplayImage[] {
-		return [...images].sort((a, b) => {
-			if (a.source !== b.source) return a.source === 'c4_burst' ? -1 : 1;
-			return (a.ts ?? 0) - (b.ts ?? 0);
-		});
-	}
-
-	function imageCounts(images: DisplayImage[]): { c4: number; upstream: number } {
-		let c4 = 0;
-		let upstream = 0;
-		for (const img of images) {
-			if (img.source === 'upstream') upstream += 1;
-			else c4 += 1;
-		}
-		return { c4, upstream };
+		return [...images].sort((a, b) => (a.ts ?? 0) - (b.ts ?? 0));
 	}
 
 	// Age of a pic in seconds relative to when the owning KnownObject was created.
-	// Upstream crops are captured before the piece reaches C4 (object creation),
-	// so they read "before"; C4 burst frames are snapped just after creation.
+	// C4 burst frames are snapped just after creation.
 	function imageAgeLabel(img: DisplayImage, objCreatedAt: number | null): string | null {
 		if (typeof img.created_at !== 'number' || objCreatedAt === null) return null;
 		const delta = objCreatedAt - img.created_at;
@@ -171,12 +148,9 @@
 				? 'Sent, lost to a higher-scoring request'
 				: 'No';
 		const rows: { label: string; value: string }[] = [
-			{ label: 'Source', value: img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst' },
+			{ label: 'Source', value: 'C4 burst' },
 			{ label: 'Shipped', value: shipped }
 		];
-		if (img.source === 'upstream' && typeof img.score === 'number') {
-			rows.push({ label: 'Similarity', value: `${(img.score * 100).toFixed(0)}%` });
-		}
 		const age = imageAgeLabel(img, objCreatedAt);
 		if (age !== null) {
 			rows.push({ label: 'Age', value: age });
@@ -185,7 +159,6 @@
 	}
 
 	const sorted = $derived(imgState?.status === 'ok' ? sortImages(imgState.images) : []);
-	const counts = $derived(imageCounts(sorted));
 	const objCreatedAt = $derived(imgState?.createdAt ?? null);
 	const lego_color = $derived(lookupLegoColor(piece.color_id, piece.color_name));
 	const est_value_text = $derived(formatEstValue(piece.est_value));
@@ -248,7 +221,7 @@
 
 		<span class="ml-auto flex items-center gap-3 text-xs text-text-muted">
 			{#if imgState?.status === 'ok' && sorted.length > 0}
-				<span class="tabular-nums">{counts.c4} C4 · {counts.upstream} upstream</span>
+				<span class="tabular-nums">{sorted.length} C4</span>
 			{/if}
 			<span class="font-mono">{formatBin(piece.bin)}</span>
 			<span class="tabular-nums">{formatTimestamp(piece.seen_at)}</span>
@@ -318,7 +291,7 @@
 			<div class="flex items-start gap-4">
 				<div class="flex flex-1 flex-wrap gap-2">
 					{#each sorted as img, i (i)}
-						{@const badge = sourceBadge(img)}
+						{@const badge = sourceBadge()}
 						{@const src = img.src}
 						{@const state = imageState(img)}
 						<div
@@ -354,10 +327,6 @@
 										class="inline-flex items-center border border-danger/60 bg-danger/[0.12] px-1 py-0.5 text-xs font-semibold uppercase tracking-wider text-danger"
 									>
 										Dropped
-									</span>
-								{:else if img.source === 'upstream' && typeof img.score === 'number'}
-									<span class="text-xs tabular-nums text-text-muted">
-										{(img.score * 100).toFixed(0)}%
 									</span>
 								{/if}
 							</div>
@@ -401,7 +370,7 @@
 					.filter((img) => typeof img.b64 === 'string')
 					.map((img) => ({
 						image: img.b64 as string,
-						label: img.source === 'upstream' ? 'Upstream' : 'C4 burst',
+						label: 'C4 burst',
 						used: img.used,
 						score: img.score
 					}))}

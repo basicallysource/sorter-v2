@@ -47,24 +47,21 @@ class Rev01Config:
     # require_sharp_capture is on).
     capture_max_wait_ms: float = 1000.0
     # Of the captured burst, how many frames to actually USE for classification —
-    # anchored for the upstream similarity search and sent to Brickognize. With
-    # require_sharp_capture on these are the SHARPEST N crops (least motion blur);
+    # i.e. sent to Brickognize. With require_sharp_capture on these are the
+    # SHARPEST N crops (least motion blur);
     # otherwise the most-recent (last-N, most-settled) N. The rest of the burst is
     # kept on the piece for review but did not influence the result. Default
     # matches max_captures so the whole burst is used.
     classify_burst_count: int = 4
-    # Alongside the fused "combined" call, fire extra single-image Brickognize
-    # requests IN PARALLEL and keep whichever result scores highest. These are
+    # Alongside the "combined" call, fire an extra single-image Brickognize
+    # request IN PARALLEL and keep whichever result scores highest. These are
     # redundant, not sequential retries: a lone clean frame frequently recognizes
-    # a piece the fused set confuses, and firing every variant concurrently costs
-    # the same wall-clock as the slowest single call. A single-image request that
-    # would duplicate the combined call (e.g. combined is already one burst frame)
-    # is skipped.
+    # a piece the combined set confuses, and firing every variant concurrently
+    # costs the same wall-clock as the slowest single call. A single-image request
+    # that would duplicate the combined call (e.g. combined is already one burst
+    # frame) is skipped.
     # single_burst: also send just the last (most-settled) C4 burst frame, alone.
     classify_parallel_single_burst: bool = True
-    # single_upstream: also send just the single highest-similarity upstream
-    # (C2/C3) match crop, alone. A no-op when no upstream was injected.
-    classify_parallel_single_upstream: bool = True
     rotate_timeout_s: float = 30.0
     classify_timeout_s: float = 30.0
     presence_streak_to_start: int = 2
@@ -146,11 +143,10 @@ FIELD_META: list[dict] = [
     {"key": "require_sharp_capture", "label": "Keep capturing until a sharp (non-blurry) frame", "type": "bool", "default": _DEFAULTS.require_sharp_capture, "description": "On: keep grabbing frames until one clears the sharpness floor, then stop immediately — which can end the burst at a single image under good lighting. Off: grab a fixed burst (frame ceiling / at-rest window) with no blur check."},
     {"key": "min_sharpness_laplacian_var", "label": "Sharpness floor (Laplacian variance of bbox crop)", "type": "float", "default": _DEFAULTS.min_sharpness_laplacian_var, "description": "Blur threshold for the sharp-frame gate: a crop must score at least this (Laplacian variance) to count as sharp. Camera/lighting dependent — watch the per-capture \"sharp=\" log values to tune. Only used when the gate is on."},
     {"key": "capture_max_wait_ms", "label": "Max wait for a sharp frame (ms)", "type": "float", "default": _DEFAULTS.capture_max_wait_ms, "description": "Hard time cap on waiting for a sharp frame. If nothing clears the floor in time, the sharpest crop captured is used anyway. Only used when the sharp-frame gate is on."},
-    {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count, "description": "Of the captured burst, how many frames are actually sent to Brickognize and anchored for the upstream similarity search. Picks the sharpest N when the sharp-frame gate is on, the last (most settled) N otherwise. Can't exceed what the burst captured."},
+    {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count, "description": "Of the captured burst, how many frames are actually sent to Brickognize. Picks the sharpest N when the sharp-frame gate is on, the last (most settled) N otherwise. Can't exceed what the burst captured."},
     {"key": "classify_parallel_single_burst", "label": "Also classify the last burst frame alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_burst, "description": "Alongside the combined multi-image request, also send just the last burst frame as its own Brickognize call and keep whichever result scores highest. A lone clean frame often recognizes a piece the fused set confuses; costs no extra wall-clock."},
-    {"key": "classify_parallel_single_upstream", "label": "Also classify the top upstream crop alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_upstream, "description": "Alongside the combined request, also send the single best upstream (C2/C3) match crop as its own Brickognize call and keep the highest-scoring result. Does nothing when no upstream match was found."},
     {"key": "rotate_timeout_s", "label": "Rotate timeout (s)", "type": "float", "default": _DEFAULTS.rotate_timeout_s, "description": "Give up on a rotation move if the stepper hasn't reported done within this long (raises an incident instead of hanging)."},
-    {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s, "description": "Give up on the classification request (Brickognize + upstream search) after this long; the piece is sent to MISC."},
+    {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s, "description": "Give up on the Brickognize classification request after this long; the piece is sent to MISC."},
     {"key": "presence_streak_to_start", "label": "Presence streak to start rotation", "type": "int", "default": _DEFAULTS.presence_streak_to_start, "description": "Consecutive frames a piece must be detected before the channel starts processing it. Filters one-frame detector blips."},
     {"key": "empty_streak_to_abort", "label": "Empty streak to abort rotation", "type": "int", "default": _DEFAULTS.empty_streak_to_abort, "description": "Consecutive empty frames during rotation before concluding the piece is gone and aborting the cycle."},
     {"key": "idle_clear_confirm_reads", "label": "Idle: zero-read streak to confirm clear (open feed gate)", "type": "int", "default": _DEFAULTS.idle_clear_confirm_reads, "description": "Consecutive zero-piece reads in IDLE required before declaring the channel clear and letting C3 feed the next piece. Guards against a one-frame detector dropout causing a double feed."},

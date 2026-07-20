@@ -178,11 +178,6 @@ export const tuningNavItems: SettingsNavItem[] = [
 		icon: SlidersHorizontal
 	},
 	{
-		href: '/settings/tuning/upstream-match',
-		label: 'Upstream Match',
-		icon: SlidersHorizontal
-	},
-	{
 		href: '/settings/tuning/object-tracker',
 		label: 'Object Tracker',
 		icon: SlidersHorizontal

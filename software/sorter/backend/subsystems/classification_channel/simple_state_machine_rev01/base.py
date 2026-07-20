@@ -280,15 +280,10 @@ class Rev01BaseState(BaseState):
     # (which applies the result) — the spawn/apply split spans two states, and
     # all handoff flows through ``self.ctx``.
 
-    def selectRecognitionCrops(
-        self, crops: list[np.ndarray], max_images: Optional[int] = None
-    ) -> list[np.ndarray]:
+    def selectRecognitionCrops(self, crops: list[np.ndarray]) -> list[np.ndarray]:
         # Hard-cap at the Brickognize per-request image limit regardless of the
         # configured max_captures — over the limit the API errors the whole call.
-        # ``max_images`` lets the caller reserve slots for injected upstream
-        # matches (the total across both must stay <= MAX_QUERY_IMAGES).
-        cap = MAX_QUERY_IMAGES if max_images is None else max_images
-        n = min(self.ctx.config.max_captures, cap)
+        n = min(self.ctx.config.max_captures, MAX_QUERY_IMAGES)
         if n <= 0 or not crops:
             return []
         if len(crops) <= n:
@@ -303,21 +298,19 @@ class Rev01BaseState(BaseState):
         return [crops[idx] for idx in chosen_indices]
 
     def spawnClassifyThread(self, all_captures: list[np.ndarray]) -> None:
-        # Runs entirely off the state-machine thread: the upstream-match search
-        # is a paid, blocking HTTP call (embed the burst, KNN the vec DB), so it
-        # MUST NOT run on the main loop. The thread fuses any upstream matches
-        # with the C4 burst — bursts give up slots so the total never exceeds
-        # Brickognize's 8-image limit — then fires the parallel request fan-out
-        # (the fused combined call plus single-image calls). The combined call's
-        # result is kept whenever it recognizes the piece at all; otherwise the
-        # highest-confidence single-image call wins (see _runClassifyRequests).
+        # Runs entirely off the state-machine thread: the Brickognize fan-out is
+        # blocking HTTP and MUST NOT run on the main loop. Fires the parallel
+        # request fan-out (the combined call plus single-image calls). The
+        # combined call's result is kept whenever it recognizes the piece at all;
+        # otherwise the highest-confidence single-image call wins (see
+        # _runClassifyRequests).
         obj = self.ctx.known_object
         piece_uuid = obj.uuid if obj is not None else None
-        # classify_burst_count frames drive classification: they anchor the
-        # upstream-similarity search and are the C4 images sent to Brickognize.
-        # _selectBurstIndices picks the sharpest (least motion-blurred) frames when
-        # require_sharp_capture is on, the most-settled tail otherwise. The rest of
-        # the burst is kept on the KnownObject (used=False) for review.
+        # classify_burst_count frames drive classification: they are the C4 images
+        # sent to Brickognize. _selectBurstIndices picks the sharpest (least
+        # motion-blurred) frames when require_sharp_capture is on, the most-settled
+        # tail otherwise. The rest of the burst is kept on the KnownObject
+        # (used=False) for review.
         n_use = max(1, int(self.ctx.config.classify_burst_count))
         burst_entries = (
             [r for r in obj.recognition_image_set if r.source == "c4_burst"]
@@ -326,30 +319,13 @@ class Rev01BaseState(BaseState):
         )
         chosen = [i for i in self._selectBurstIndices(all_captures, n_use) if i < len(burst_entries)]
         used_entries = [burst_entries[i] for i in chosen]
-        anchor_b64s = [e.image for e in used_entries]
         burst_crops = [all_captures[i] for i in chosen]
-        ref_ts = float(
-            (obj.first_carousel_seen_ts or obj.created_at)
-            if obj is not None
-            else time.time()
-        )
 
         def _run() -> None:
             try:
-                upstream_bgr, upstream_images = self._gatherUpstreamMatches(
-                    anchor_b64s, ref_ts, max_inject=MAX_QUERY_IMAGES - len(burst_crops)
-                )
-                with self.ctx.classify_lock:
-                    self.ctx.upstream_recognition_images = list(upstream_images)
-                # Pair each sendable image with its RecognitionImage. The used
-                # upstream entries (flagged by the store) align 1:1, in order,
-                # with upstream_bgr.
+                # Pair each sendable image with its RecognitionImage.
                 sendable: list[_SendImage] = [
                     _SendImage(bgr, rec) for bgr, rec in zip(burst_crops, used_entries)
-                ]
-                used_upstream = [r for r in upstream_images if r.used]
-                sendable += [
-                    _SendImage(bgr, rec) for bgr, rec in zip(upstream_bgr, used_upstream)
                 ]
                 if not sendable:
                     with self.ctx.classify_lock:
@@ -375,13 +351,11 @@ class Rev01BaseState(BaseState):
         # redundant, not sequential retries — a lone clean frame frequently
         # recognizes a piece the fused set confuses, and firing every variant
         # concurrently costs the same wall-clock as the slowest single call.
-        #   combined        — the full fused set (used burst frames + used upstream)
+        #   combined        — the full set of used burst frames
         #   single_burst    — only the last (most-settled) burst frame, alone
-        #   single_upstream — only the single highest-similarity upstream crop, alone
         # A single-image request equal to the combined call (e.g. combined is
         # already just one burst frame) is skipped so we never pay for a duplicate.
         burst = [s for s in sendable if s.rec.source == "c4_burst"]
-        upstream = [s for s in sendable if s.rec.source == "upstream"]
         requests: list[_ClassifyRequest] = [
             _ClassifyRequest(
                 ClassificationAttemptStrategy.combined, "combined", list(sendable)
@@ -396,18 +370,6 @@ class Rev01BaseState(BaseState):
                         ClassificationAttemptStrategy.single_burst,
                         "single_burst",
                         [last_burst],
-                    )
-                )
-        if getattr(cfg, "classify_parallel_single_upstream", True) and upstream:
-            top_upstream = max(
-                upstream, key=lambda s: s.rec.score if s.rec.score is not None else -1.0
-            )
-            if not (len(sendable) == 1 and sendable[0] is top_upstream):
-                requests.append(
-                    _ClassifyRequest(
-                        ClassificationAttemptStrategy.single_upstream,
-                        "single_upstream",
-                        [top_upstream],
                     )
                 )
         return requests
@@ -484,9 +446,8 @@ class Rev01BaseState(BaseState):
                 if not ok:
                     continue
                 blobs.append(buf.tobytes())
-                # Burst frames are C4 by definition; upstream crops carry the
-                # channel they were captured on.
-                channels.append(4 if s.rec.source == "c4_burst" else int(s.rec.channel or 4))
+                # Everything sent is a C4 burst frame.
+                channels.append(4)
             if not blobs:
                 return
             try:
@@ -549,7 +510,7 @@ class Rev01BaseState(BaseState):
     ) -> None:
         # Fire every request concurrently and apply one result. No sequential
         # retries: the calls are redundant and run in parallel. The combined
-        # (fused burst + upstream) call is preferred whenever it recognizes the
+        # (full burst set) call is preferred whenever it recognizes the
         # piece at all — it has the most context, so we trust it over a
         # higher-confidence lone-image call. Only if combined came back empty does
         # the highest-confidence single-image call win. The applied request's
@@ -577,7 +538,6 @@ class Rev01BaseState(BaseState):
                     strategy=req.strategy,
                     label=req.label,
                     n_burst=sum(1 for s in req.images if s.rec.source == "c4_burst"),
-                    n_upstream=sum(1 for s in req.images if s.rec.source == "upstream"),
                     found=top is not None,
                     part_id=top.get("id") if isinstance(top, dict) else None,
                     part_name=top.get("name") if isinstance(top, dict) else None,
@@ -627,7 +587,7 @@ class Rev01BaseState(BaseState):
 
         applied: Optional[tuple[_ClassifyRequest, dict]] = None
         if found:
-            # Prefer the combined (fused burst + upstream) request whenever it
+            # Prefer the combined (full burst set) request whenever it
             # recognized the piece at all — it sees the most context, so we trust
             # any result it returns over a higher-confidence lone-image call. Only
             # when the combined call came back empty do we fall back to the
@@ -715,67 +675,6 @@ class Rev01BaseState(BaseState):
             f"(attempts={[(a.label, a.found) for a in attempts]})"
         )
 
-    def _gatherUpstreamMatches(
-        self, anchor_b64s: list[str], ref_ts: float, max_inject: int
-    ) -> tuple[list[np.ndarray], list[RecognitionImage]]:
-        # Returns (decoded BGR crops to SEND to Brickognize, wrapped
-        # RecognitionImages for the KnownObject/UI). The store grabs
-        # classify_top_n matches and flags the most-similar classify_use_n as
-        # used; we send only the used crops (capped by max_inject for the 8-image
-        # limit) but attach ALL grabbed crops to the piece for review, each with
-        # its cosine similarity to the anchor (the classified C4 frame).
-        # Best-effort: any failure yields none.
-        store = getattr(getattr(self.gc, "perception_service", None), "upstream_store", None)
-        if store is None:
-            return [], []
-        try:
-            candidates = store.matchForClassification(anchor_b64s, ref_ts)
-        except Exception as exc:
-            self.logger.warning(f"{LOG_TAG} upstream match failed: {exc}")
-            return [], []
-        bgr_list: list[np.ndarray] = []
-        image_list: list[RecognitionImage] = []
-        for cand in candidates:
-            b64 = cand.get("jpeg_b64") if isinstance(cand, dict) else None
-            if not isinstance(b64, str) or not b64:
-                continue
-            img = self._decodeB64Jpeg(b64)
-            if img is None or img.size == 0:
-                continue
-            score = cand.get("score")
-            used = bool(cand.get("used")) and len(bgr_list) < max_inject
-            if used:
-                bgr_list.append(img)
-            chan = cand.get("channel_id")
-            cap_ts = cand.get("ts")
-            cap_ts = float(cap_ts) if isinstance(cap_ts, (int, float)) else None
-            image_list.append(
-                RecognitionImage(
-                    image=b64,
-                    source="upstream",
-                    used=used,
-                    score=float(score) if isinstance(score, (int, float)) else None,
-                    channel=int(chan) if isinstance(chan, (int, float)) else None,
-                    ts=cap_ts,
-                    created_at=cap_ts,
-                )
-            )
-        if image_list:
-            self.logger.info(
-                f"{LOG_TAG} upstream match: grabbed {len(image_list)}, using "
-                f"{len(bgr_list)} (scores={[r.score for r in image_list]})"
-            )
-        return bgr_list, image_list
-
-    @staticmethod
-    def _decodeB64Jpeg(b64: str) -> Optional[np.ndarray]:
-        try:
-            raw = base64.b64decode(b64)
-            arr = np.frombuffer(raw, dtype=np.uint8)
-            return cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        except Exception:
-            return None
-
     def updateKnownObjectWithResult(self, result: object, error: Optional[str]) -> None:
         obj = self.ctx.known_object
         if obj is None:
@@ -843,7 +742,6 @@ class Rev01BaseState(BaseState):
             obj.thumbnail = self.encodeFrame(frames[best_idx])
 
         with self.ctx.classify_lock:
-            obj.recognition_image_set.extend(self.ctx.upstream_recognition_images)
             obj.classification_attempts = list(self.ctx.classification_attempts)
             obj.classification_strategy = self.ctx.classification_strategy
 

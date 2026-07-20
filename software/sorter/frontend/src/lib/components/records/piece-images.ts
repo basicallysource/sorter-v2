@@ -57,7 +57,7 @@ export function memoryToDisplay(img: RecognitionImage): DisplayImage {
 	return {
 		src: `data:image/jpeg;base64,${img.image}`,
 		source: img.source,
-		used: img.used,
+		used: img.used ?? false,
 		excluded_from_result: img.excluded_from_result ?? false,
 		ts: img.ts,
 		score: img.score,

@@ -344,17 +344,15 @@
 
 	// --- Recognition-view cycling -----------------------------------------
 	// The live piece entries carry only `latest_captured_crop`. The full set of
-	// captured crops (every C4 burst frame + the upstream C2/C3 matches) is
+	// captured crops (every C4 burst frame) is
 	// persisted to disk by piece_image_store and served as individual JPEGs via
 	// GET /api/pieces/{uuid}/images{,/<id>} — durable across eviction/restart and
 	// browser-cached (immutable), so hover works even for pieces that have
 	// already left the machine. While a piece is still being recognized we poll
 	// that endpoint and flash through every view it has so far, so the
-	// operator sees the burst frames (and, once classification runs, the
-	// fused-in upstream matches) animate in place instead of a single frozen
-	// crop. When the result lands we keep flashing for one full pass — long
-	// enough to pick up the upstream crops that only appear at classification —
-	// before settling on the reference/stock photo. The classification TEXT
+	// operator sees the burst frames animate in place instead of a single frozen
+	// crop. When the result lands we keep flashing for one full pass before
+	// settling on the reference/stock photo. The classification TEXT
 	// updates independently and immediately off the socket; only the image well
 	// waits for the pass to finish.
 	const CYCLE_MS = 300;
@@ -660,7 +658,7 @@
 			: 'text-text'}
 
 	{@const base_src = is_classified_ok ? reference_src : captured}
-	<!-- Flash through every recognition view (burst frames + upstream matches)
+	<!-- Flash through every recognition view (burst frames)
 	     while the piece is being recognized and during the finish pass; hover
 	     scrubs the same views. -->
 	{@const view = viewFor(obj, phase, base_src)}

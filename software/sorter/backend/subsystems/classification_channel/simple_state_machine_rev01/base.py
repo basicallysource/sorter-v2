@@ -746,6 +746,82 @@ class Rev01BaseState(BaseState):
             obj.classification_strategy = self.ctx.classification_strategy
 
         self.emitKnownObject()
+        self._spawnLinkMatch(obj, frames)
+
+    def _spawnLinkMatch(self, obj, frames: list[np.ndarray]) -> None:
+        # Experimental piece-link matching, off unless [link_matching] enables
+        # it. Runs on its own thread and re-emits when it lands: it costs an
+        # ONNX pass per candidate and this is the state-machine thread, and the
+        # piece is already fully classified so nothing downstream waits on it.
+        if not frames:
+            return
+        anchor = frames[max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))]
+        stamps = list(self.ctx.captured_crop_timestamps)
+        # Arrival at C4 = the first burst frame's timestamp. dt is measured
+        # against this, so getting it from the wrong end of the burst would
+        # shift every candidate's meta features.
+        arrival_ts = float(stamps[0]) if stamps else float(time.time())
+        piece_uuid = obj.uuid
+
+        def _run() -> None:
+            try:
+                import link_matcher
+
+                scored = link_matcher.matchForPieceLive(
+                    self.gc, piece_uuid, anchor, arrival_ts
+                )
+                if not scored:
+                    return
+                images = [
+                    r
+                    for r in (self._linkCropToRecognitionImage(c) for c in scored)
+                    if r is not None
+                ]
+                if not images:
+                    return
+                with self.ctx.classify_lock:
+                    # The piece may have been replaced while we were scoring.
+                    if self.ctx.known_object is not obj:
+                        return
+                    obj.recognition_image_set.extend(images)
+                used = sum(1 for r in images if r.used)
+                self.logger.info(
+                    f"{LOG_TAG} link match: {len(images)} crops, {used} above threshold"
+                )
+                self.emitKnownObject()
+            except Exception as exc:
+                self.logger.debug(f"{LOG_TAG} link match failed: {exc}")
+
+        threading.Thread(target=_run, daemon=True).start()
+
+    def _linkCropToRecognitionImage(self, cand: dict) -> Optional[RecognitionImage]:
+        import base64
+
+        import channel_crop_store
+
+        path = channel_crop_store.getCropFileById(int(cand["id"]))
+        if path is None or not path.is_file():
+            return None
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return None
+        ts = cand.get("ts")
+        return RecognitionImage(
+            image=base64.b64encode(raw).decode("ascii"),
+            source="link_match",
+            # ``used`` means "was submitted to Brickognize in the winning
+            # request". Link matches are not sent, so it stays False — the model
+            # thinking a crop is the same piece is a different claim, and
+            # conflating them would make the UI's used-highlighting lie about
+            # what actually produced the result. ``score`` carries the model's
+            # probability and the UI highlights on that instead.
+            used=False,
+            score=cand.get("model_score"),
+            channel=int(cand["channel"]) if cand.get("channel") is not None else None,
+            ts=float(ts) if isinstance(ts, (int, float)) else None,
+            created_at=float(ts) if isinstance(ts, (int, float)) else None,
+        )
 
     def _applyHiveSizeMetadata(self, obj) -> None:
         # Resolve physical dimensions from the primary Hive target and flag the

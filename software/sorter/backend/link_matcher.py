@@ -264,6 +264,29 @@ def matchForPiece(
     }
 
 
+def matchForPieceLive(
+    gc: Any, piece_uuid: str, anchor_bgr: Any, arrival_ts: float, limit: int = 40
+) -> Optional[list[dict[str, Any]]]:
+    """Live path, called as a piece finishes classifying.
+
+    Takes the anchor from memory and the arrival time from the C4 frame, because
+    neither the piece's images nor its record are on disk yet at this point.
+    """
+    model = resolveActiveModel(gc)
+    if model is None:
+        return None
+
+    import channel_crop_lookup
+
+    found = channel_crop_lookup.findPossibleCropsAt(float(arrival_ts), limit=limit)
+    candidates = found.get("candidates") or []
+    if not candidates:
+        return []
+    return scoreCandidates(
+        gc, model, piece_uuid, candidates, anchor_bgr=anchor_bgr
+    )
+
+
 def _preprocess(path: Path, size: int):
     import numpy as np
     from PIL import Image
@@ -328,14 +351,30 @@ def _anchorPath(piece_uuid: str, classification_channel_id: int) -> Optional[Pat
     return None
 
 
+def _preprocessBgr(bgr, size: int):
+    """Same preprocessing as _preprocess, for an in-memory BGR frame. The live
+    path has the C4 crop in hand before it ever reaches disk."""
+    import cv2
+    import numpy as np
+
+    resized = cv2.resize(bgr, (size, size), interpolation=cv2.INTER_LINEAR)
+    rgb = cv2.cvtColor(resized, cv2.COLOR_BGR2RGB)
+    arr = np.asarray(rgb, dtype="float32") / 255.0
+    return arr.transpose(2, 0, 1)
+
+
 def scoreCandidates(
     gc: Any,
     model: LoadedLinkModel,
     piece_uuid: str,
     candidates: list[dict[str, Any]],
     classification_channel_id: int = 4,
+    anchor_bgr: Any = None,
 ) -> Optional[list[dict[str, Any]]]:
     """Attach ``model_score`` / ``model_same`` to each candidate, best-effort.
+
+    ``anchor_bgr`` supplies the anchor from memory (the live path); otherwise it
+    is read from piece_image_store (the review path).
 
     Returns None when the model could not be run at all (no anchor pixels, no
     readable candidate crops) so the caller can fall back to the heuristic
@@ -348,10 +387,23 @@ def scoreCandidates(
     if not candidates:
         return []
 
-    anchor_path = _anchorPath(piece_uuid, classification_channel_id)
-    if anchor_path is None:
-        gc.logger.debug(f"[link] {piece_uuid}: no anchor image available")
-        return None
+    anchor = None
+    if anchor_bgr is not None:
+        try:
+            anchor = _preprocessBgr(anchor_bgr, model.input_size)
+        except Exception as exc:
+            gc.logger.debug(f"[link] {piece_uuid}: anchor preprocess failed: {exc}")
+            anchor = None
+    if anchor is None:
+        anchor_path = _anchorPath(piece_uuid, classification_channel_id)
+        if anchor_path is None:
+            gc.logger.debug(f"[link] {piece_uuid}: no anchor image available")
+            return None
+        try:
+            anchor = _preprocess(anchor_path, model.input_size)
+        except Exception as exc:
+            gc.logger.debug(f"[link] {piece_uuid}: anchor read failed: {exc}")
+            return None
 
     usable: list[dict[str, Any]] = []
     crops = []
@@ -372,7 +424,6 @@ def scoreCandidates(
         return None
 
     try:
-        anchor = _preprocess(anchor_path, model.input_size)
         emb_anchor = model.encoder.run(
             None, {model.encoder_input: anchor[None, ...]}
         )[0]

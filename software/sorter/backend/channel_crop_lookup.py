@@ -53,6 +53,18 @@ def findPossibleCrops(
     arrival_ts = _arrivalTs(gc, piece_uuid, p)
     if arrival_ts is None:
         return {"arrival_ts": None, "candidates": []}
+    return findPossibleCropsAt(arrival_ts, limit=limit, p=p)
+
+
+def findPossibleCropsAt(
+    arrival_ts: float, limit: int = 40, p: ChannelCropLookupParams = DEFAULT_PARAMS
+) -> dict[str, Any]:
+    """Same lookup with the arrival time supplied directly.
+
+    The live path knows the C4 frame timestamp already and runs BEFORE the
+    piece's images reach disk, so it cannot go through ``_arrivalTs`` (which
+    reads piece_image_store).
+    """
     crops = channel_crop_store.listCropsByTimeRange(arrival_ts - p.lookback_window_s, arrival_ts + p.fwd_slop_s)
     scored: list[dict[str, Any]] = []
     for crop in crops:

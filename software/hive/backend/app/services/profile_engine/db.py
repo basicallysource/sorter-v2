@@ -36,6 +36,7 @@ class PartsData:
     bricklink_categories: dict[int, dict]
     colors: dict[int, dict]
     rb_to_bl_color: dict[int, int]
+    bl_to_rb_part: dict[str, str]
     api_total_parts: int | None
 
     generation: int
@@ -46,6 +47,7 @@ class PartsData:
         self.bricklink_categories = {}
         self.colors = {}
         self.rb_to_bl_color = {}
+        self.bl_to_rb_part = {}
         self.api_total_parts = None
         self.generation = 0
 
@@ -167,12 +169,26 @@ def reloadPartsData(conn, parts_data):
     parts_data.colors = _loadColors(conn)
     parts_data.parts = loadPartsDict(conn)
     parts_data.rb_to_bl_color = _buildRbToBlColorMap(parts_data.colors)
+    parts_data.bl_to_rb_part = _buildBlToRbPartMap(parts_data.parts)
     # This is the one "catalog changed" hook every sync already goes through, so
     # rebuilding here is what keeps the search index from ever going stale.
     rebuildPartSearch(conn)
     row = conn.execute("SELECT value FROM meta WHERE key='api_total_parts'").fetchone()
     parts_data.api_total_parts = int(row[0]) if row else None
     parts_data.generation += 1
+
+
+def _buildBlToRbPartMap(parts):
+    # Brickognize answers in BrickLink item numbers (4073), the catalog is keyed
+    # on Rebrickable part numbers (6141) — without this, every BrickLink-only id
+    # looks like an unknown part. First writer wins: a BrickLink item shared by
+    # several Rebrickable molds keeps whichever the parts mirror lists first,
+    # which is stable across reloads because loadPartsDict is ordered.
+    mapping = {}
+    for part_num, part in parts.items():
+        for item_no in part.get("external_ids", {}).get("BrickLink", []):
+            mapping.setdefault(item_no, part_num)
+    return mapping
 
 
 def _buildRbToBlColorMap(colors):

@@ -36,8 +36,15 @@ def _catalog() -> ProfileCatalogService:
                 "part_cat_id": 19,
                 "part_img_url": "https://img.example/3069b.png",
             },
+            "6141": {
+                "part_num": "6141",
+                "name": "Plate Round 1 x 1 with Solid Stud",
+                "part_cat_id": 14,
+                "part_img_url": "https://img.example/6141.png",
+            },
         },
         categories={14: {"id": 14, "name": "Plates"}, 19: {"id": 19, "name": "Tiles"}},
+        bl_to_rb_part={"4073": "6141"},
     )
     return service
 
@@ -127,6 +134,22 @@ def test_cant_tell_is_a_stored_answer(client, db, test_machine, auth_headers, ca
     row = db.query(PiecePartLabel).filter(PiecePartLabel.piece_uuid == "piece-2").one()
     assert row.cant_tell is True
     assert row.part_num is None
+
+
+def test_bricklink_part_num_resolves_to_the_rebrickable_mold(
+    client, db, test_machine, auth_headers, catalog
+):
+    # Brickognize predicts BrickLink ids, so confirming a machine guess submits
+    # '4073' for what the catalog knows as 6141. Store the Rebrickable id.
+    mid = test_machine["id"]
+    _make_piece(db, mid, "piece-bl", part_id="4073")
+
+    resp = _post_label(client, auth_headers, mid, "piece-bl", part_num="4073")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["part"]["part_num"] == "6141"
+
+    row = db.query(PiecePartLabel).filter(PiecePartLabel.piece_uuid == "piece-bl").one()
+    assert row.part_num == "6141"
 
 
 def test_unknown_part_is_rejected(client, db, test_machine, auth_headers, catalog):

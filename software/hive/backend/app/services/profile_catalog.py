@@ -330,8 +330,17 @@ class ProfileCatalogService:
 
         Reads the in-memory parts mirror, so it's a dict lookup rather than a
         query; admin_get_part hits sqlite four times to also assemble BrickLink
-        items and price-guide counts, which a label summary doesn't need."""
+        items and price-guide counts, which a label summary doesn't need.
+
+        Accepts a BrickLink item number too, resolving it to the Rebrickable
+        mold — Brickognize predicts in BrickLink ids, so a piece whose machine
+        guess was '4073' has to find 'Plate Round 1 x 1 with Solid Stud' (6141)
+        here or it can't be confirmed at all. The returned part_num is always
+        the Rebrickable one, so labels store a single id space."""
         part = self._parts_data.parts.get(part_num)
+        if part is None:
+            rb_part_num = self._parts_data.bl_to_rb_part.get(part_num)
+            part = self._parts_data.parts.get(rb_part_num) if rb_part_num else None
         if part is None:
             return None
         cat_id = part.get("part_cat_id")

@@ -85,8 +85,27 @@
 		return null;
 	}
 
-	function sourceBadge(): { label: string; cls: string } {
-		return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
+	// Corner badge for an image's channel. An unrecorded channel reads as
+	// unknown rather than defaulting to C4 — a link-match crop from C2/C3
+	// labelled "C4 burst" is a lie about where the pixels came from.
+	function sourceBadge(img: DisplayImage): { label: string; cls: string } {
+		const ch = img.channel;
+		if (img.source === 'c4_burst') {
+			return { label: 'C4', cls: 'border-border bg-surface text-text-muted' };
+		}
+		const label = ch === 2 || ch === 3 ? `C${ch}` : '—';
+		return { label, cls: 'border-warning/60 bg-warning/[0.12] text-warning-dark' };
+	}
+
+	function sourceLabel(source: string | null | undefined, channel?: number | null): string {
+		if (source === 'c4_burst') return 'C4 burst';
+		if (source === 'link_match') {
+			return channel === 2 || channel === 3 ? `Link match · C${channel}` : 'Link match';
+		}
+		if (source === 'upstream') {
+			return channel === 2 || channel === 3 ? `Upstream · C${channel}` : 'Upstream';
+		}
+		return source || 'unknown';
 	}
 
 	// Badge shown on the result header when classification needed a retry. null
@@ -148,7 +167,7 @@
 				? 'Sent, lost to a higher-scoring request'
 				: 'No';
 		const rows: { label: string; value: string }[] = [
-			{ label: 'Source', value: 'C4 burst' },
+			{ label: 'Source', value: sourceLabel(img.source, img.channel) },
 			{ label: 'Shipped', value: shipped }
 		];
 		const age = imageAgeLabel(img, objCreatedAt);
@@ -291,7 +310,7 @@
 			<div class="flex items-start gap-4">
 				<div class="flex flex-1 flex-wrap gap-2">
 					{#each sorted as img, i (i)}
-						{@const badge = sourceBadge()}
+						{@const badge = sourceBadge(img)}
 						{@const src = img.src}
 						{@const state = imageState(img)}
 						<div
@@ -370,7 +389,7 @@
 					.filter((img) => typeof img.b64 === 'string')
 					.map((img) => ({
 						image: img.b64 as string,
-						label: 'C4 burst',
+						label: sourceLabel(img.source, img.channel),
 						used: img.used,
 						score: img.score
 					}))}

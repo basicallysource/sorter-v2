@@ -156,10 +156,26 @@
 		sharpness?: number | null;
 	};
 
-	// Channel the image came from, for the corner badge.
+	// Channel the image came from, for the corner badge. Never guess: an image
+	// whose channel wasn't recorded is shown as unknown rather than silently
+	// claiming C4, which is how every upstream crop ended up labelled as a
+	// classification-chamber burst frame.
 	function channelLabel(channel: number | null | undefined): string {
 		if (channel === 2 || channel === 3 || channel === 4) return `C${channel}`;
-		return 'C4';
+		return '—';
+	}
+
+	// Human label for an image's origin, derived from what was actually
+	// recorded on it.
+	function sourceLabel(source: string | null | undefined, channel?: number | null): string {
+		if (source === 'c4_burst') return 'C4 burst';
+		if (source === 'link_match') {
+			return channel === 2 || channel === 3 ? `Link match · C${channel}` : 'Link match';
+		}
+		if (source === 'upstream') {
+			return channel === 2 || channel === 3 ? `Upstream · C${channel}` : 'Upstream';
+		}
+		return source || 'unknown';
 	}
 
 	// --- Tracker-backed crop fetch ----------------------------------------
@@ -777,7 +793,7 @@
 			key: String(i),
 			src: img.src,
 			alt: img.source,
-			caption: 'C4 burst',
+			caption: sourceLabel(img.source, img.channel),
 			used: img.used,
 			ref: img
 		}))

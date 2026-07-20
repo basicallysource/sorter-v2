@@ -34,6 +34,11 @@ from .constants import HOSTED_COLOR_JOIN_BUDGET_S, LOG_TAG
 from .context import SimpleStateMachineRev01Context
 from .vision import Rev01Vision
 
+# Ceiling on link-match crops kept per piece. The model's picks are normally a
+# handful; this only bounds a pathological frame where it matches half the
+# window, so one piece can't dump dozens of JPEGs into the image store.
+MAX_LINK_ATTACH = 8
+
 
 @dataclass
 class _SendImage:
@@ -801,15 +806,20 @@ class Rev01BaseState(BaseState):
         obj = self.ctx.known_object
         sendable: list[_SendImage] = []
         attached: list[RecognitionImage] = []
-        for cand in scored:
+        # Attach ONLY the model's own picks. The candidate set is the heuristic's
+        # whole time window — 40+ crops, nearly all of them other pieces scoring
+        # ~0 — and keeping them all would attach dozens of junk JPEGs to every
+        # piece, push them over the websocket, evict real captures at the
+        # piece_images size cap, and sync the lot to Hive.
+        picks = [c for c in scored if bool(c.get("model_same"))][:MAX_LINK_ATTACH]
+        for cand in picks:
             decoded = self._linkCropToRecognitionImage(cand)
             if decoded is None:
                 continue
             rec, bgr = decoded
-            # Only the model's own picks are worth an image slot. Injecting a
-            # crop of a DIFFERENT piece actively corrupts the classification, so
-            # a below-threshold candidate is attached for review but never sent.
-            if bool(cand.get("model_same")) and len(sendable) < max_inject:
+            # Injecting a crop of a DIFFERENT piece actively corrupts the
+            # classification, which is why only picks ever get an image slot.
+            if len(sendable) < max_inject:
                 sendable.append(_SendImage(bgr, rec))
             attached.append(rec)
 

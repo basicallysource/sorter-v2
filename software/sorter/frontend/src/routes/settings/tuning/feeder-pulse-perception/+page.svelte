@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
+	import { Button, Alert, Input } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import TuningParamRow from '$lib/components/settings/TuningParamRow.svelte';
 	import TuningPresets from '$lib/components/settings/TuningPresets.svelte';
@@ -45,6 +45,160 @@
 
 	let sections = $derived(groupTuningSections(fields));
 
+	type AutotuneParamMeta = {
+		key: string;
+		type: string;
+		min: number;
+		max: number;
+		label: string;
+	};
+	type AutotuneTrial = {
+		id: number;
+		trial_index: number;
+		kind: string;
+		params_json: Record<string, number>;
+		status: string;
+		measured_s: number;
+		pieces_delivered: number;
+		incidents: number;
+		double_drops: number;
+		pieces_per_min: number | null;
+		score: number | null;
+	};
+	type AutotuneStatus = {
+		state: 'running' | 'idle';
+		machine_running: boolean;
+		run: {
+			id: string;
+			status: string;
+			best_trial_id: number | null;
+		} | null;
+		current_trial: {
+			trial_index: number;
+			kind: string;
+			params: Record<string, number>;
+			measured_s: number;
+			duration_s: number;
+			pieces_delivered: number;
+			double_drops: number;
+			waiting_for_machine: boolean;
+		} | null;
+		best_trial: {
+			trial_index: number;
+			params: Record<string, number>;
+			score: number;
+			pieces_per_min: number | null;
+		} | null;
+		trials: AutotuneTrial[];
+		tunable_params: AutotuneParamMeta[];
+	};
+
+	let autotune = $state<AutotuneStatus | null>(null);
+	let autotuneError = $state<string | null>(null);
+	let autotuneBusy = $state(false);
+	let trialDurationS = $state(120);
+	let incidentWeight = $state(10);
+	let doubleDropWeight = $state(3);
+	let selectedParams = $state<Record<string, boolean>>({});
+
+	function paramLabel(key: string): string {
+		return autotune?.tunable_params.find((p) => p.key === key)?.label ?? key;
+	}
+
+	async function loadAutotune() {
+		try {
+			const res = await fetch(
+				`${getBackendHttpBase()}/api/tuning/feeder-pulse-perception/autotune`
+			);
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.detail ?? `HTTP ${res.status}`);
+			}
+			const data: AutotuneStatus = await res.json();
+			autotune = data;
+			autotuneError = null;
+			if (Object.keys(selectedParams).length === 0) {
+				const next: Record<string, boolean> = {};
+				for (const meta of data.tunable_params) next[meta.key] = true;
+				selectedParams = next;
+			}
+		} catch (e: any) {
+			autotuneError = e.message ?? 'Failed to load auto-tune status';
+		}
+	}
+
+	async function startAutotune() {
+		autotuneBusy = true;
+		autotuneError = null;
+		try {
+			const param_keys = Object.entries(selectedParams)
+				.filter(([, on]) => on)
+				.map(([key]) => key);
+			if (param_keys.length === 0) throw new Error('Select at least one parameter to tune');
+			const res = await fetch(
+				`${getBackendHttpBase()}/api/tuning/feeder-pulse-perception/autotune/start`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({
+						trial_duration_s: Number(trialDurationS),
+						incident_weight: Number(incidentWeight),
+						double_drop_weight: Number(doubleDropWeight),
+						param_keys
+					})
+				}
+			);
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.detail ?? `HTTP ${res.status}`);
+			}
+			autotune = await res.json();
+		} catch (e: any) {
+			autotuneError = e.message ?? 'Failed to start auto-tune';
+		} finally {
+			autotuneBusy = false;
+		}
+	}
+
+	async function stopAutotune(apply: 'baseline' | 'best' | 'keep') {
+		autotuneBusy = true;
+		autotuneError = null;
+		try {
+			const res = await fetch(
+				`${getBackendHttpBase()}/api/tuning/feeder-pulse-perception/autotune/stop`,
+				{
+					method: 'POST',
+					headers: { 'Content-Type': 'application/json' },
+					body: JSON.stringify({ apply })
+				}
+			);
+			if (!res.ok) {
+				const body = await res.json().catch(() => ({}));
+				throw new Error(body.detail ?? `HTTP ${res.status}`);
+			}
+			autotune = await res.json();
+			// The tuner restores/applies config as it winds down — refresh the form
+			// shortly after so it shows what is actually live.
+			setTimeout(() => {
+				load();
+				loadAutotune();
+			}, 2000);
+		} catch (e: any) {
+			autotuneError = e.message ?? 'Failed to stop auto-tune';
+		} finally {
+			autotuneBusy = false;
+		}
+	}
+
+	function loadTrialIntoForm(params: Record<string, number>) {
+		values = { ...values, ...params };
+	}
+
+	function fmt(value: number | null | undefined, digits = 1): string {
+		if (value === null || value === undefined) return '—';
+		return value.toFixed(digits);
+	}
+
 	async function load() {
 		loading = true;
 		error = null;
@@ -88,6 +242,13 @@
 
 	$effect(() => {
 		load();
+		loadAutotune();
+	});
+
+	$effect(() => {
+		if (autotune?.state !== 'running') return;
+		const interval = setInterval(loadAutotune, 2000);
+		return () => clearInterval(interval);
 	});
 </script>
 
@@ -117,6 +278,178 @@
 			<TuningPresets presets={exitPulsePresets} bind:values />
 		</SectionCard>
 	{/if}
+
+	<SectionCard
+		title="Auto-tune"
+		description="Searches for the fastest pulse parameters on this machine. Each trial applies a candidate config, measures pieces/min into the classification channel while sorting is running, and penalizes incidents and double-drops. Start sorting from the dashboard first — trials only measure while the machine is running."
+	>
+		{#if autotuneError}
+			<Alert variant="danger">{autotuneError}</Alert>
+		{/if}
+
+		{#if autotune?.state === 'running'}
+			<div class="flex flex-col gap-4">
+				{#if !autotune.machine_running}
+					<Alert variant="warning">
+						Machine is not running — the trial clock is paused. Start sorting to resume
+						measurement.
+					</Alert>
+				{/if}
+
+				{#if autotune.current_trial}
+					<div class="text-sm text-text">
+						<span class="font-semibold">
+							Trial {autotune.current_trial.trial_index}
+						</span>
+						<span class="text-text-muted">({autotune.current_trial.kind})</span>
+						— {fmt(autotune.current_trial.measured_s, 0)}s /
+						{fmt(autotune.current_trial.duration_s, 0)}s measured,
+						{autotune.current_trial.pieces_delivered} pieces,
+						{autotune.current_trial.double_drops} double-drops
+					</div>
+					<div class="text-sm text-text-muted">
+						{#each Object.entries(autotune.current_trial.params) as [key, value]}
+							<div>{paramLabel(key)}: <span class="font-mono">{value}</span></div>
+						{/each}
+					</div>
+				{:else}
+					<div class="text-sm text-text-muted">Preparing first trial…</div>
+				{/if}
+
+				<div class="flex flex-wrap gap-3">
+					<Button
+						variant="danger"
+						onclick={() => stopAutotune('baseline')}
+						loading={autotuneBusy}
+					>
+						Stop & restore baseline
+					</Button>
+					<Button
+						variant="secondary"
+						onclick={() => stopAutotune('best')}
+						disabled={autotuneBusy || !autotune.best_trial}
+					>
+						Stop & apply best
+					</Button>
+				</div>
+			</div>
+		{:else}
+			<div class="flex flex-col gap-4">
+				<div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+					<label class="flex flex-col gap-1 text-sm text-text">
+						Trial length (s)
+						<Input type="number" bind:value={trialDurationS} />
+					</label>
+					<label class="flex flex-col gap-1 text-sm text-text">
+						Incident penalty (pieces)
+						<Input type="number" bind:value={incidentWeight} />
+					</label>
+					<label class="flex flex-col gap-1 text-sm text-text">
+						Double-drop penalty (pieces)
+						<Input type="number" bind:value={doubleDropWeight} />
+					</label>
+				</div>
+
+				{#if autotune}
+					<div class="flex flex-col gap-1">
+						<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+							Parameters to tune
+						</div>
+						<div class="grid grid-cols-1 gap-1 sm:grid-cols-2">
+							{#each autotune.tunable_params as meta}
+								<label class="flex items-center gap-2 text-sm text-text">
+									<input type="checkbox" bind:checked={selectedParams[meta.key]} />
+									{meta.label}
+									<span class="text-text-muted">[{meta.min}–{meta.max}]</span>
+								</label>
+							{/each}
+						</div>
+					</div>
+				{/if}
+
+				<div class="flex gap-3">
+					<Button variant="primary" onclick={startAutotune} loading={autotuneBusy}>
+						Start auto-tune
+					</Button>
+				</div>
+			</div>
+		{/if}
+
+		{#if autotune?.best_trial}
+			<div class="mt-6 flex flex-col gap-2">
+				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+					Best so far
+				</div>
+				<div class="text-sm text-text">
+					Trial {autotune.best_trial.trial_index} — score
+					<span class="font-semibold">{fmt(autotune.best_trial.score, 2)}</span>
+					({fmt(autotune.best_trial.pieces_per_min, 2)} pieces/min)
+				</div>
+				<div class="text-sm text-text-muted">
+					{#each Object.entries(autotune.best_trial.params) as [key, value]}
+						<div>{paramLabel(key)}: <span class="font-mono">{value}</span></div>
+					{/each}
+				</div>
+				<div class="flex gap-3">
+					<Button
+						variant="secondary"
+						size="sm"
+						onclick={() => loadTrialIntoForm(autotune!.best_trial!.params)}
+					>
+						Load into form
+					</Button>
+				</div>
+			</div>
+		{/if}
+
+		{#if autotune && autotune.trials.length > 0}
+			<div class="mt-6 flex flex-col gap-2">
+				<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
+					Trials
+				</div>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm text-text">
+						<thead>
+							<tr class="text-left text-text-muted">
+								<th class="py-1 pr-3 font-normal">#</th>
+								<th class="py-1 pr-3 font-normal">Kind</th>
+								<th class="py-1 pr-3 font-normal">Measured</th>
+								<th class="py-1 pr-3 font-normal">Pieces</th>
+								<th class="py-1 pr-3 font-normal">P/min</th>
+								<th class="py-1 pr-3 font-normal">Inc</th>
+								<th class="py-1 pr-3 font-normal">Dbl</th>
+								<th class="py-1 pr-3 font-normal">Score</th>
+								<th class="py-1 font-normal"></th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each autotune.trials as trial (trial.id)}
+								<tr class="border-t border-text-muted/20">
+									<td class="py-1 pr-3">{trial.trial_index}</td>
+									<td class="py-1 pr-3">{trial.kind}</td>
+									<td class="py-1 pr-3">{fmt(trial.measured_s, 0)}s</td>
+									<td class="py-1 pr-3">{trial.pieces_delivered}</td>
+									<td class="py-1 pr-3">{fmt(trial.pieces_per_min, 2)}</td>
+									<td class="py-1 pr-3">{trial.incidents}</td>
+									<td class="py-1 pr-3">{trial.double_drops}</td>
+									<td class="py-1 pr-3 font-semibold">{fmt(trial.score, 2)}</td>
+									<td class="py-1">
+										<Button
+											variant="ghost"
+											size="sm"
+											onclick={() => loadTrialIntoForm(trial.params_json)}
+										>
+											Load
+										</Button>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{/if}
+	</SectionCard>
 
 	<SectionCard
 		title="Parameters"

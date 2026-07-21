@@ -84,6 +84,79 @@ def set_pulse_perception_config(body: dict[str, Any]) -> dict[str, Any]:
     return {"config": updated}
 
 
+@router.get("/api/tuning/feeder-pulse-perception/autotune")
+def get_pulse_perception_autotune_status() -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    try:
+        return getAutoTuner().status()
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/start")
+def start_pulse_perception_autotune(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    try:
+        return getAutoTuner().start(body or {})
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/stop")
+def stop_pulse_perception_autotune(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    apply = (body or {}).get("apply", "baseline")
+    if apply not in ("baseline", "best", "keep"):
+        raise HTTPException(status_code=400, detail="apply must be baseline, best, or keep")
+    try:
+        return getAutoTuner().stop(apply)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=str(exc))
+
+
+@router.get("/api/tuning/feeder-pulse-perception/autotune/runs")
+def list_pulse_perception_autotune_runs(limit: int = 50) -> dict[str, Any]:
+    import local_state
+
+    return {"runs": local_state.listFeederAutotuneRuns(limit=limit)}
+
+
+@router.get("/api/tuning/feeder-pulse-perception/autotune/runs/{run_id}")
+def get_pulse_perception_autotune_run(run_id: str) -> dict[str, Any]:
+    import local_state
+
+    run = local_state.getFeederAutotuneRun(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    return {"run": run, "trials": local_state.listFeederAutotuneTrials(run_id)}
+
+
+@router.post("/api/tuning/feeder-pulse-perception/autotune/apply-best")
+def apply_pulse_perception_autotune_best(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    import local_state
+
+    run_id = (body or {}).get("run_id")
+    if not isinstance(run_id, str) or not run_id:
+        runs = local_state.listFeederAutotuneRuns(limit=1)
+        if not runs:
+            raise HTTPException(status_code=404, detail="no auto-tune runs found")
+        run_id = runs[0]["id"]
+    run = local_state.getFeederAutotuneRun(run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="run not found")
+    best_trial_id = run.get("best_trial_id")
+    if best_trial_id is None:
+        raise HTTPException(status_code=404, detail="run has no best trial yet")
+    trial = local_state.getFeederAutotuneTrial(int(best_trial_id))
+    if trial is None or not trial.get("params_json"):
+        raise HTTPException(status_code=404, detail="best trial not found")
+    updated = setPulsePerceptionConfig(trial["params_json"])
+    return {"config": updated, "applied_trial": trial}
+
+
 @router.get("/api/tuning/feeder-constant-movement")
 def get_constant_movement_config() -> dict[str, Any]:
     return {

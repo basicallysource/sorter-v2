@@ -124,6 +124,11 @@ class PulsePerceptionFeeding(BaseState):
         return success
 
     def _on_ch3_dispense(self) -> None:
+        try:
+            from .autotune import noteDispense
+            noteDispense()
+        except Exception:
+            pass
         if hasattr(self.shared, "publish_piece_delivered"):
             try:
                 self.shared.publish_piece_delivered(

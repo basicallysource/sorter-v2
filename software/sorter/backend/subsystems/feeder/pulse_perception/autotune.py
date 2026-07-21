@@ -61,10 +61,28 @@ _DISPENSE_DEBOUNCE_S = 1.2
 def noteDispense() -> None:
     global _dispense_count, _last_dispense_mono
     now = time.monotonic()
+    accepted = False
     with _dispense_lock:
         if now - _last_dispense_mono >= _DISPENSE_DEBOUNCE_S:
             _dispense_count += 1
             _last_dispense_mono = now
+            accepted = True
+    try:
+        import sim_data_store
+
+        # Raw edges included (debounced=False) — they measure detector flicker,
+        # which a simulation model needs to reproduce observation noise.
+        sim_data_store.record(
+            {
+                "type": "event",
+                "kind": "c3_dispense",
+                "t": time.time(),
+                "mono": now,
+                "debounced": accepted,
+            }
+        )
+    except Exception:
+        pass
     _ensureStartupRecovery()
     _maybeResumeBackground()
 
@@ -568,6 +586,20 @@ class FeederAutoTuner:
                 "double_drops": double_drops,
                 "waiting_for_machine": waiting,
             }
+
+
+def currentTrialInfo() -> dict[str, Any] | None:
+    """Light snapshot for the sim-data capture stream: which tuner mode is
+    active (if any) and the live trial. None when no tuner exists yet."""
+    tuner = _tuner
+    if tuner is None:
+        return None
+    with tuner._lock:
+        running = tuner._thread is not None and tuner._thread.is_alive()
+        return {
+            "mode": tuner._mode if running else None,
+            "trial": dict(tuner._live) if tuner._live is not None else None,
+        }
 
 
 _tuner_lock = threading.Lock()

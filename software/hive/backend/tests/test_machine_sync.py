@@ -22,6 +22,7 @@ def test_sync_state_starts_empty(client, machine_token):
         "piece_images": {"max_local_id": 0},
         "channel_crops": {"max_local_id": 0},
         "piece_corrections": {"max_local_id": 0},
+        "sim_data_segments": {"max_local_id": 0},
     }
 
 
@@ -178,6 +179,62 @@ def test_piece_image_rejects_link_match_source(client, machine_token, upload_dir
     n = s.query(MachinePieceImage).filter(MachinePieceImage.piece_uuid == "pl").count()
     s.close()
     assert n == 0
+
+
+def test_sim_data_segment_with_and_without_file(client, machine_token, upload_dir):
+    import gzip
+
+    payload = gzip.compress(b'{"type":"meta","t":1.0}\n{"type":"state","ch":2}\n')
+    meta = {
+        "local_id": 5,
+        "started_at": 1_760_000_000.0,
+        "ended_at": 1_760_000_600.0,
+        "records": 2,
+        "bytes": len(payload),
+        "machine_setup": "classification_channel",
+        "feeder_mode": "PULSE_PERCEPTION_REV01",
+        "classification_mode": "TWO_PIECE_STATE_MACHINE_REV01",
+        "autotune_mode": "background",
+    }
+    r = client.post(
+        "/api/machine/sync/sim-data-segment",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps(meta)},
+        files={"data": ("5.jsonl.gz", payload, "application/gzip")},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"max_local_id": 5, "data_stored": True}
+
+    # Metadata-only (evicted locally): no file, still recorded.
+    r2 = client.post(
+        "/api/machine/sync/sim-data-segment",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps({"local_id": 6, "records": 0})},
+    )
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["data_stored"] is False
+
+    # Non-gzip payload is rejected.
+    r3 = client.post(
+        "/api/machine/sync/sim-data-segment",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps({"local_id": 7})},
+        files={"data": ("7.jsonl.gz", b"not gzip", "application/gzip")},
+    )
+    assert r3.status_code == 400
+
+    state = client.get("/api/machine/sync/state", headers=_bearer(machine_token)).json()
+    assert state["sim_data_segments"] == {"max_local_id": 6}
+
+    from app.models.machine_sim_data_segment import MachineSimDataSegment
+    from tests.conftest import TestingSessionLocal
+    s: Session = TestingSessionLocal()
+    segments = {seg.local_id: seg for seg in s.query(MachineSimDataSegment).all()}
+    s.close()
+    assert segments[5].data_key and segments[5].evicted_locally is False
+    assert segments[5].feeder_mode == "PULSE_PERCEPTION_REV01"
+    assert segments[5].autotune_mode == "background"
+    assert segments[6].data_key is None and segments[6].evicted_locally is True
 
 
 def test_sync_requires_machine_token(client):

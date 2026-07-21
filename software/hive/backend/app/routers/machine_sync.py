@@ -20,8 +20,15 @@ from app.models.machine_piece import MachinePiece
 from app.models.machine_piece_image import MachinePieceImage
 from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason
 from app.models.machine_channel_crop import MachineChannelCrop
+from app.models.machine_sim_data_segment import MachineSimDataSegment
 from app.models.machine_sync_state import MachineSyncState
-from app.services.storage import save_channel_crop_file, save_piece_image_file, validate_image
+from app.services.storage import (
+    save_channel_crop_file,
+    save_piece_image_file,
+    save_sim_data_file,
+    validate_gzip,
+    validate_image,
+)
 
 router = APIRouter(prefix="/api/machine/sync", tags=["machine-sync"])
 limiter = Limiter(key_func=get_remote_address)
@@ -30,6 +37,7 @@ DATA_TYPE_PIECE_RECORDS = "piece_records"
 DATA_TYPE_PIECE_IMAGES = "piece_images"
 DATA_TYPE_CHANNEL_CROPS = "channel_crops"
 DATA_TYPE_PIECE_CORRECTIONS = "piece_corrections"
+DATA_TYPE_SIM_DATA = "sim_data_segments"
 
 # Columns updated on conflict — everything except the identity/immutable set
 # (id, machine_id, piece_uuid[, seq], created_at). The correction columns
@@ -51,6 +59,11 @@ _CHANNEL_CROP_UPDATE_COLS = (
     "channel", "ts", "captured_at", "track_id", "com_forward_to_exit_deg",
     "com_section", "zone_code", "sharpness", "bbox_x1", "bbox_y1", "bbox_x2",
     "bbox_y2", "bytes", "image_key", "evicted_locally",
+)
+_SIM_DATA_UPDATE_COLS = (
+    "started_at", "ended_at", "records", "bytes", "machine_setup",
+    "feeder_mode", "classification_mode", "autotune_mode", "data_key",
+    "evicted_locally",
 )
 
 
@@ -163,6 +176,19 @@ class PieceImageMeta(BaseModel):
     score: float | None = None
 
 
+class SimDataSegmentMeta(BaseModel):
+    local_id: int
+    created_at: float | None = None
+    started_at: float | None = None
+    ended_at: float | None = None
+    records: int | None = None
+    bytes: int | None = None
+    machine_setup: str | None = None
+    feeder_mode: str | None = None
+    classification_mode: str | None = None
+    autotune_mode: str | None = None
+
+
 class ChannelCropMeta(BaseModel):
     local_id: int
     channel: int | None = None
@@ -189,6 +215,7 @@ def get_sync_state(
         DATA_TYPE_PIECE_IMAGES: {"max_local_id": by_type.get(DATA_TYPE_PIECE_IMAGES, 0)},
         DATA_TYPE_CHANNEL_CROPS: {"max_local_id": by_type.get(DATA_TYPE_CHANNEL_CROPS, 0)},
         DATA_TYPE_PIECE_CORRECTIONS: {"max_local_id": by_type.get(DATA_TYPE_PIECE_CORRECTIONS, 0)},
+        DATA_TYPE_SIM_DATA: {"max_local_id": by_type.get(DATA_TYPE_SIM_DATA, 0)},
     }
 
 
@@ -435,3 +462,49 @@ def sync_channel_crop(
     machine.last_seen_at = now
     db.commit()
     return {"max_local_id": new_max, "image_stored": image is not None}
+
+
+@router.post("/sim-data-segment")
+@limiter.limit("120/minute")
+def sync_sim_data_segment(
+    request: Request,
+    metadata: str = Form(...),
+    data: UploadFile | None = File(default=None),
+    db: Session = Depends(get_db),
+    machine: Machine = Depends(get_current_machine),
+) -> dict[str, Any]:
+    try:
+        meta = SimDataSegmentMeta.model_validate(json.loads(metadata))
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
+
+    data_key: str | None = None
+    evicted_locally = data is None
+    if data is not None:
+        validate_gzip(data)
+        data_key = save_sim_data_file(str(machine.id), meta.local_id, data)
+
+    now = _now()
+    row = {
+        "id": uuid4(),
+        "machine_id": machine.id,
+        "local_id": meta.local_id,
+        "started_at": _ts(meta.started_at),
+        "ended_at": _ts(meta.ended_at),
+        "records": meta.records,
+        "bytes": meta.bytes,
+        "machine_setup": meta.machine_setup,
+        "feeder_mode": meta.feeder_mode,
+        "classification_mode": meta.classification_mode,
+        "autotune_mode": meta.autotune_mode,
+        "data_key": data_key,
+        "evicted_locally": evicted_locally,
+        "created_at": now,
+    }
+    # Metadata-only re-sends must not wipe a previously stored data_key.
+    update_cols = _SIM_DATA_UPDATE_COLS if data is not None else tuple(c for c in _SIM_DATA_UPDATE_COLS if c != "data_key")
+    _upsert(db, MachineSimDataSegment, [row], ["machine_id", "local_id"], update_cols)
+    new_max = _advance_watermark(db, machine.id, DATA_TYPE_SIM_DATA, meta.local_id)
+    machine.last_seen_at = now
+    db.commit()
+    return {"max_local_id": new_max, "data_stored": data is not None}

@@ -94,6 +94,22 @@ class DigitalOutputPin:
     def channel(self):
         return self._channel
 
+def _simDataRecordCommand(payload: dict) -> None:
+    # Feeder-dynamics capture: every motor command is half of a (state, action)
+    # transition. No-op unless a capture segment is open (machine sorting).
+    try:
+        import time as _time
+
+        import sim_data_store
+
+        payload["type"] = "cmd"
+        payload["t"] = _time.time()
+        payload["mono"] = _time.monotonic()
+        sim_data_store.record(payload)
+    except Exception:
+        pass
+
+
 class StepperMotor:
     def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
@@ -167,6 +183,16 @@ class StepperMotor:
             self._current_position_steps += steps
         else:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
+        _simDataRecordCommand(
+            {
+                "cmd": "move_steps",
+                "stepper": self._name,
+                "steps": steps,
+                "deg": round(self.degrees_for_microsteps(steps), 3),
+                "accel": self._applied_acceleration,
+                "success": success,
+            }
+        )
         return success
     
     def move_at_speed(self, speed: int, *, acceleration: int | None = None, force: bool = False) -> bool:
@@ -192,6 +218,15 @@ class StepperMotor:
         success = bool(res.payload[0])
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) FAILED")
+        _simDataRecordCommand(
+            {
+                "cmd": "move_at_speed",
+                "stepper": self._name,
+                "speed": speed,
+                "accel": self._applied_acceleration,
+                "success": success,
+            }
+        )
         return success
 
     def jitter(self, amplitude_steps: int, cycles: int, speed: int, acceleration: int, *, force: bool = False) -> bool:
@@ -217,6 +252,17 @@ class StepperMotor:
         success = len(res.payload) > 0 and bool(res.payload[0])
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: jitter was not acknowledged")
+        _simDataRecordCommand(
+            {
+                "cmd": "jitter",
+                "stepper": self._name,
+                "amplitude_steps": amplitude,
+                "cycles": int(cycles),
+                "speed": int(speed),
+                "accel": int(acceleration),
+                "success": success,
+            }
+        )
         return success
 
     def jitter_degrees(self, amplitude_degrees: float, cycles: int, speed: int, acceleration: int, *, force: bool = False) -> bool:
@@ -237,6 +283,14 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
+        _simDataRecordCommand(
+            {
+                "cmd": "set_speed_limits",
+                "stepper": self._name,
+                "min_speed": min_speed,
+                "max_speed": max_speed,
+            }
+        )
 
     def set_acceleration(self, acceleration: int) -> None:
         """Set the acceleration for the stepper in microsteps per second squared."""
@@ -244,6 +298,9 @@ class StepperMotor:
         payload = struct.pack("<I", acceleration)  # 4 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
         self._applied_acceleration = int(acceleration)
+        _simDataRecordCommand(
+            {"cmd": "set_acceleration", "stepper": self._name, "accel": int(acceleration)}
+        )
 
     def set_default_acceleration(self, acceleration: int) -> None:
         """Store the per-stepper default acceleration (µsteps/s²) that every move

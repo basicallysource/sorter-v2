@@ -46,6 +46,12 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "default": True,
     },
     {
+        "key": "feeder_dynamics",
+        "label": "Feeder dynamics (sim data)",
+        "description": "Compressed logs of piece positions (from the vision model) and motor commands while sorting, stamped with the machine's settings at capture time. No images. Used to train feeder control and simulation models.",
+        "default": True,
+    },
+    {
         "key": "machine_specs",
         "label": "Machine specs",
         "description": "Basic hardware and software details — camera, controller board, platform, operating system, and per-camera calibration state — shown on the machine's dashboard and used for compatibility and support.",
@@ -206,6 +212,21 @@ class HiveTelemetryClient:
             data={"metadata": json.dumps(meta)},
             files=files,
             timeout=60,
+        )
+        return int(response.json()["max_local_id"])
+
+    def pushSimDataSegment(self, meta: dict[str, Any], file_path: Path | None) -> int:
+        files = None
+        if file_path is not None and file_path.is_file():
+            with open(file_path, "rb") as handle:
+                files = {"data": (file_path.name, handle.read(), "application/gzip")}
+        response = self._request(
+            "POST",
+            "/api/machine/sync/sim-data-segment",
+            fields=("feeder_dynamics",),
+            data={"metadata": json.dumps(meta)},
+            files=files,
+            timeout=120,
         )
         return int(response.json()["max_local_id"])
 

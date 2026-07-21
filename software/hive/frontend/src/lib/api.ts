@@ -84,6 +84,61 @@ export interface FleetMachineStats {
 	ontime_pct: number;
 }
 
+export interface ControlDataBucket {
+	segments: number;
+	records: number;
+	bytes: number;
+	hours: number;
+	with_file: number;
+	evicted: number;
+	autotune_session: number;
+	autotune_background: number;
+	plain: number;
+	first_started_at: string | null;
+	last_ended_at: string | null;
+	machine_setups: string[];
+	feeder_modes: string[];
+	classification_modes: string[];
+}
+
+export interface ControlDataMachineRow extends ControlDataBucket {
+	machine_id: string;
+	name: string;
+	owner_email: string | null;
+}
+
+export interface ControlDataDimensionRow {
+	value: string | null;
+	segments: number;
+	records: number;
+	bytes: number;
+	hours: number;
+	machines: number;
+}
+
+export interface ControlDataRecentSegment {
+	machine_id: string;
+	machine_name: string;
+	local_id: number;
+	started_at: string | null;
+	ended_at: string | null;
+	duration_s: number;
+	records: number;
+	bytes: number;
+	machine_setup: string | null;
+	feeder_mode: string | null;
+	autotune_mode: string | null;
+	has_file: boolean;
+	created_at: string | null;
+}
+
+export interface ControlDataSummary {
+	totals: ControlDataBucket & { machines: number };
+	machines: ControlDataMachineRow[];
+	dimensions: Record<string, ControlDataDimensionRow[]>;
+	recent: ControlDataRecentSegment[];
+}
+
 export interface MachineOverviewStats {
 	pieces_seen: number;
 	distributed: number;
@@ -1387,6 +1442,9 @@ export const api = {
 	},
 	getAllMachineStats() {
 		return request<Record<string, FleetMachineStats>>('GET', '/api/admin/machines/stats');
+	},
+	getControlDataSummary() {
+		return request<ControlDataSummary>('GET', '/api/admin/control-data/summary');
 	},
 	getMachinePieces(machineId: string, opts: { limit?: number; cursor?: number | null } = {}) {
 		const params = new URLSearchParams();

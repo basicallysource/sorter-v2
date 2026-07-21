@@ -503,8 +503,12 @@
 						<Input type="number" bind:value={maxDoubleDropPct} />
 					</label>
 					<label class="flex flex-col gap-1 text-sm text-text">
-						Incident penalty (pieces)
+						Jam cost (pieces per incident)
 						<Input type="number" bind:value={incidentWeight} />
+						<span class="text-sm text-text-muted">
+							If a jam/stall incident opens during a trial, its score is docked as if
+							it had delivered this many fewer pieces.
+						</span>
 					</label>
 				</div>
 

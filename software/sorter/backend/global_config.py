@@ -49,10 +49,6 @@ class GlobalConfig:
     # Directory of uploaded BrickStore inventory (.bsx) files + the active-pointer
     # file. Used for "not in inventory" routing (see bsx_inventory.py).
     bsx_files_dir: str
-    # Optional path to a local read-only copy of the profile-builder parts.db
-    # (PIECE_METADATA_DB_PATH). When set, piece metadata + BrickLink price guides
-    # are served off this file in addition to the network Hive path. None = off.
-    piece_metadata_db_path: Optional[str]
     should_write_camera_feeds: bool
     machine_id: str
     run_id: str
@@ -79,7 +75,6 @@ class GlobalConfig:
         from runtime_stats import RuntimeStatsCollector
 
         self.debug_level = 0
-        self.piece_metadata_db_path = None
         self.should_write_camera_feeds = False
         self.brickognize_dump_root: Optional[Path] = None
         self.classification_burst_dump_root: Optional[Path] = None
@@ -156,14 +151,6 @@ def mkGlobalConfig() -> GlobalConfig:
     # Uploaded BrickStore inventory (.bsx) files for "not in inventory" routing.
     gc.bsx_files_dir = str(backend_dir / "bsx_files")
     os.makedirs(gc.bsx_files_dir, exist_ok=True)
-    # Optional local parts.db for piece metadata + pricing. Relative paths
-    # resolve against the backend dir so a machine-local copy under software/mine/
-    # can be referenced as ../mine/piece_metadata.db. Empty/unset = disabled.
-    piece_db = os.getenv("PIECE_METADATA_DB_PATH", "").strip()
-    if piece_db:
-        gc.piece_metadata_db_path = (
-            piece_db if os.path.isabs(piece_db) else str((backend_dir / piece_db).resolve())
-        )
     gc.machine_id = getMachineId()
     gc.run_id = str(uuid.uuid4())
     # Allow env-var fallback so the launching supervisor can flip these

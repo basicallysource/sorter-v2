@@ -777,8 +777,7 @@ class Rev01BaseState(BaseState):
         obj.classified_at = time.time()
 
         if obj.classification_status == ClassificationStatus.classified and obj.part_id:
-            self._applyHiveSizeMetadata(obj)
-            self._applyLocalPieceMetadata(obj)
+            self._applyHivePieceMetadata(obj)
 
         if frames:
             best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
@@ -888,19 +887,27 @@ class Rev01BaseState(BaseState):
         )
         return rec, bgr
 
-    def _applyHiveSizeMetadata(self, obj) -> None:
-        # Resolve physical dimensions from the primary Hive target and flag the
-        # piece as too_big when any single axis exceeds the oversize limit. Hive
-        # being unreachable must never block classification — best effort only.
+    def _applyHivePieceMetadata(self, obj) -> None:
+        # One fetch from Hive (via the persistent metadata cache) resolves this
+        # piece's metadata + BrickLink pricing AND its physical dimensions: stash
+        # the full blob + moving-average price, and flag too_big when any single
+        # axis exceeds the oversize limit. Hive being unreachable (and the cache
+        # cold) must never block classification — best effort only.
+        self._applyBsxInventoryFlag(obj)
         try:
             from hive_metadata import (
                 OVERSIZE_MAX_DIMENSION_MM,
-                getMetadataForPieceFromHive,
+                getPieceMetadata,
                 isOversize,
                 maxDimensionMm,
             )
 
-            metadata = getMetadataForPieceFromHive(self.gc, obj.part_id)
+            metadata = getPieceMetadata(self.gc, obj.part_id, obj.color_id)
+            if metadata is None:
+                return
+            obj.piece_metadata = metadata
+            obj.moving_avg_price = metadata.get("moving_avg_price")
+
             max_dim = maxDimensionMm(metadata)
             if max_dim is None:
                 return
@@ -912,24 +919,7 @@ class Rev01BaseState(BaseState):
                     f"({max_dim:.1f}mm > {OVERSIZE_MAX_DIMENSION_MM}mm) -> misc bottom bin"
                 )
         except Exception as exc:
-            self.gc.logger.warn(f"hive size metadata lookup failed: {exc}")
-
-    def _applyLocalPieceMetadata(self, obj) -> None:
-        # Additive, local-only: pull metadata + BrickLink pricing for this
-        # part+color straight off the local parts.db copy and stash it on the
-        # piece. Temporary convenience alongside the network Hive path; a missing
-        # DB or absent part must never affect classification.
-        self._applyBsxInventoryFlag(obj)
-        try:
-            from piece_metadata_db import getLocalPieceMetadata
-
-            metadata = getLocalPieceMetadata(self.gc, obj.part_id, obj.color_id)
-            if metadata is None:
-                return
-            obj.piece_metadata = metadata
-            obj.moving_avg_price = metadata.get("moving_avg_price")
-        except Exception as exc:
-            self.gc.logger.warn(f"local piece metadata lookup failed: {exc}")
+            self.gc.logger.warn(f"hive piece metadata lookup failed: {exc}")
 
     def _applyBsxInventoryFlag(self, obj) -> None:
         # Live membership test against the active .bsx inventory. Brickognize ids

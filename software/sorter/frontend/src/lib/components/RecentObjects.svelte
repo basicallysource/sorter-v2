@@ -538,7 +538,7 @@
 		return 'text-danger';
 	}
 
-	// BrickLink moving-average price (USD) from the local parts.db. Sub-dollar
+	// BrickLink moving-average price (USD) from Hive. Sub-dollar
 	// pieces (most bricks) get an extra decimal so they don't all collapse to
 	// "$0.00"; a dollar and up reads as plain currency.
 	function formatPrice(price: number): string {
@@ -773,7 +773,7 @@
 								title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold
 									? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
-									: 'BrickLink moving-average price (local catalog)'}
+									: 'BrickLink moving-average price (Hive catalog)'}
 							>
 								{(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold

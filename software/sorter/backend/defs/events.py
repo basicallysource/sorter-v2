@@ -137,9 +137,10 @@ class KnownObjectData(BaseModel):
     confidence: Optional[float] = None
     color_confidence: Optional[float] = None
     max_dimension_mm: Optional[float] = None
-    # Headline BrickLink moving-average price (USD) from the local parts.db, plus
-    # the full local-DB metadata blob. moving_avg_price is what the Recent Pieces
-    # card renders; piece_metadata carries the rest for the detail view.
+    # Headline BrickLink moving-average price (USD) from Hive, plus the full
+    # metadata blob. moving_avg_price is what the Recent Pieces card renders;
+    # piece_metadata carries the rest (BrickLink item, price buckets, dimensions)
+    # for the detail view.
     moving_avg_price: Optional[float] = None
     piece_metadata: Optional[Dict[str, Any]] = None
     # True when the profile's high_value_routing override rerouted this piece into

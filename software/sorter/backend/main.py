@@ -507,10 +507,10 @@ def main() -> None:
     ).start()
 
     # Pre-warm the piece price cache off the request path. The first
-    # value/aggregates computation walks every historical (part, color) pair
-    # through parts.db (~60s serialized on the Pi's eMMC — part_bricklink_ids
-    # has no index); done here in the background so no records-page request
-    # ever pays it.
+    # value/aggregates computation revalues every historical (part, color) pair
+    # via one batch request to Hive (hive_metadata.getBatchMovingAvgPrices),
+    # served from the persistent price cache; done here in the background so no
+    # records-page request ever pays the first cold fill.
     def warmPieceValueCaches() -> None:
         try:
             import piece_records

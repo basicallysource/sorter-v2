@@ -250,13 +250,13 @@ class ColorsResponse(BaseModel):
 @router.get("/api/pieces/colors", response_model=ColorsResponse)
 def getPieceColors() -> ColorsResponse:
     # BrickLink color palette for the correction dropdown (searchable list of all
-    # LEGO colors). Sourced from the local parts.db; empty when it's unavailable.
-    import piece_metadata_db
+    # LEGO colors). Fetched from Hive; empty when Hive is unavailable.
+    import hive_metadata
 
     gc = shared_state.gc_ref
     if gc is None:
         return ColorsResponse(results=[])
-    colors = piece_metadata_db.listBrickLinkColors(gc)
+    colors = hive_metadata.listBrickLinkColors(gc)
     return ColorsResponse(results=[ColorOption(**c) for c in colors])
 
 
@@ -570,7 +570,7 @@ def _summaryFromMemory(gc: Any, payload: Dict[str, Any]) -> PieceSummary:
     # HOT PATH: RecentObjects polls this per active piece every 600ms during
     # sorting. Everything here must come from the in-memory payload / process
     # state — zero sqlite. est_value uses the dict-hit-only price peek; a cache
-    # miss stays null rather than touching parts.db.
+    # miss stays null rather than hitting Hive.
     from piece_records import peekCachedPrice
 
     part_id = payload.get("part_id")

@@ -58,14 +58,31 @@ class HiveClient:
             payload["local_ui_port"] = str(local_ui_port)
         return self._request("POST", "/api/machine/heartbeat", json=payload)
 
-    def get_part_metadata(self, part_num: str) -> dict:
-        """GET /api/machine/parts/{part_num} -- part metadata incl. the
-        resolved physical ``dimensions`` block (mm).
+    def get_part_metadata(self, part_num: str, color_id: int | None = None) -> dict:
+        """GET /api/machine/parts/{part_num} -- flattened per-piece metadata:
+        part identity, BrickLink item, the color-selected price + moving average,
+        and the resolved physical ``dimensions`` block (mm). ``color_id`` (a
+        BrickLink color id) selects the color-specific price row when given.
 
         Short (connect, read) timeout: this runs per piece in the
         classification path, so a hung/slow Hive must fail fast rather than
         stall sorting. The caller treats any failure as "no metadata"."""
-        return self._request("GET", f"/api/machine/parts/{part_num}", timeout=(2, 4))
+        params = {"color_id": color_id} if color_id is not None else None
+        return self._request(
+            "GET", f"/api/machine/parts/{part_num}", params=params, timeout=(2, 4)
+        )
+
+    def batch_piece_prices(self, pairs: list[dict]) -> dict:
+        """POST /api/machine/parts/prices -- moving-average price for many
+        (part_num, color_id) pairs in one request. Returns {"prices": [...]}."""
+        return self._request(
+            "POST", "/api/machine/parts/prices", json={"pairs": pairs}, timeout=(2, 10)
+        )
+
+    def list_bricklink_colors(self) -> dict:
+        """GET /api/machine/bricklink-colors -- the BrickLink color palette
+        (id/name/rgb/is_trans) for the machine's color-correction dropdown."""
+        return self._request("GET", "/api/machine/bricklink-colors", timeout=(2, 8))
 
     def upload_sample(
         self,

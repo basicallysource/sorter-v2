@@ -148,13 +148,14 @@ class KnownObject:
     # part metadata at classification time. None when unknown.
     max_dimension_mm: Optional[float] = None
     # Headline BrickLink "moving average" price (USD) for this part+color, resolved
-    # at classification time from the local parts.db (piece_metadata_db). None when
-    # the local DB is disabled or has no price. This is the only metadata-DB field
-    # the Recent Pieces card renders.
+    # at classification time from Hive (hive_metadata, served via the persistent
+    # metadata cache). None when Hive is unreachable and the cache is cold, or the
+    # part has no price. This is the only metadata field the Recent Pieces card
+    # renders.
     moving_avg_price: Optional[float] = None
-    # Full local-DB metadata blob (part info, BrickLink item, the four price
-    # buckets, etc.) — as much as parts.db carries. Kept for the detail view; the
-    # card shows only moving_avg_price. None when unavailable.
+    # Full metadata blob from Hive (part info, BrickLink item, the four price
+    # buckets, dimensions, etc.). Kept for the detail view; the card shows only
+    # moving_avg_price. None when unavailable.
     piece_metadata: Optional[Dict[str, Any]] = None
     # Set by the distributor when the profile's high_value_routing override fired
     # for this piece (moving_avg_price cleared the threshold), so it was rerouted

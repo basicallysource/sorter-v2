@@ -1283,6 +1283,243 @@ def getPartColorPrice(conn, part_num, rb_color_id, condition="used"):
     return row[0] if row and row[0] is not None else None
 
 
+# --- Per-piece metadata + price selection ------------------------------------
+# Flattened metadata a sorter needs for one classified piece (part identity,
+# BrickLink item, and a single color-selected price with a moving average).
+# This logic used to live on the machine in piece_metadata_db.py, reading a local
+# parts.db copy; it now lives here so the machine gets it over the API and the
+# catalog schema stays server-side. The output dict shape is a contract with the
+# sorter UI — keep the keys stable.
+
+# BrickLink price-guide values are synced in USD (profile_engine sync uses
+# currency_code="USD").
+PIECE_PRICE_CURRENCY = "USD"
+
+# The four price-guide buckets, each carrying lots/qty/min/max/avg/wavg.
+# inv_* = current open listings; ord_* = last 6 months of completed sales.
+_PIECE_PRICE_GROUPS = ("inv_new", "inv_used", "ord_new", "ord_used")
+
+# Headline "moving average": prefer 6-month sold NEW qty-weighted, then sold-used,
+# then fall back to current listings so we surface something whenever any data
+# exists. Sold always beats listed; within each, new before used.
+_PIECE_MOVING_AVG_PREFERENCE = (
+    ("ord_new", "wavg"),
+    ("ord_new", "avg"),
+    ("ord_used", "wavg"),
+    ("ord_used", "avg"),
+    ("inv_new", "wavg"),
+    ("inv_new", "avg"),
+    ("inv_used", "wavg"),
+    ("inv_used", "avg"),
+)
+
+# BrickLink printed/patterned-part suffix (6201pb01, 3068bpr0223, 970c00px1).
+# Stripping it yields the base mold; used only as a price fallback when the exact
+# printed item has no market data of its own.
+_PIECE_PRINT_SUFFIX_RE = re.compile(r"(pb|pr|px|pat)\d.*$")
+
+
+def _pieceRowsAsDicts(cursor):
+    cols = [c[0] for c in cursor.description]
+    return [dict(zip(cols, row)) for row in cursor.fetchall()]
+
+
+def _piecePriceGroup(row, group):
+    return {
+        "lots": row.get(f"{group}_lots"),
+        "qty": row.get(f"{group}_qty"),
+        "min": row.get(f"{group}_min"),
+        "max": row.get(f"{group}_max"),
+        "avg": row.get(f"{group}_avg"),
+        "wavg": row.get(f"{group}_wavg"),
+    }
+
+
+def _pieceMovingAvg(price):
+    for group, field in _PIECE_MOVING_AVG_PREFERENCE:
+        value = price.get(group, {}).get(field)
+        if isinstance(value, (int, float)) and value > 0:
+            return round(float(value), 4)
+    return None
+
+
+def _pieceBaseMold(item_no):
+    base = _PIECE_PRINT_SUFFIX_RE.sub("", item_no)
+    return base if base and base != item_no else None
+
+
+def _pieceSelectPriceRow(rows, color_key):
+    if not rows:
+        return None, False
+    if color_key is not None:
+        # Brickognize reports a BrickLink color id; match that first, then fall
+        # back to the Rebrickable color id (each row carries both).
+        for field in ("bl_color_id", "rb_color_id"):
+            matched = [r for r in rows if r.get(field) == color_key]
+            if matched:
+                return matched[0], True
+    # No usable color: pick the most-liquid color as the representative price.
+    best = max(rows, key=lambda r: (r.get("inv_new_qty") or 0) + (r.get("inv_used_qty") or 0))
+    return best, False
+
+
+def _pieceResolvePrice(conn, item_no, color_key):
+    rows = _pieceRowsAsDicts(
+        conn.execute("SELECT * FROM price_guides WHERE item_no = ?", (item_no,))
+    )
+    row, color_specific = _pieceSelectPriceRow(rows, color_key)
+    if row is None:
+        return None
+    price = {group: _piecePriceGroup(row, group) for group in _PIECE_PRICE_GROUPS}
+    return {
+        "price": price,
+        "color_specific": color_specific,
+        "updated_at": row.get("updated_at"),
+        "moving_avg": _pieceMovingAvg(price),
+    }
+
+
+def pieceMetadata(conn, part_num, color_key):
+    # Flattened metadata + color-selected price for one part. Returns None when the
+    # part number matches neither a Rebrickable part nor a BrickLink item.
+    prow = conn.execute(
+        "SELECT p.part_num, p.name, p.year_from, p.year_to, p.part_img_url, "
+        "p.part_url, c.name AS category "
+        "FROM parts p LEFT JOIN categories c ON c.id = p.part_cat_id "
+        "WHERE p.part_num = ?",
+        (part_num,),
+    ).fetchone()
+
+    # Resolve the BrickLink item_no that carries the price. Brickognize returns a
+    # BrickLink-style catalog number; for plain parts it equals the Rebrickable
+    # part_num, but printed parts diverge and figs use the minifig no.
+    #   1. The id is a Rebrickable part: use its primary BrickLink map.
+    #   2. The id is itself a BrickLink item number: price by it directly.
+    item_no = None
+    if prow is not None:
+        bl_id_row = conn.execute(
+            "SELECT item_no FROM part_bricklink_ids WHERE part_num = ? "
+            "ORDER BY is_primary DESC LIMIT 1",
+            (part_num,),
+        ).fetchone()
+        if bl_id_row is not None:
+            item_no = bl_id_row[0]
+    if item_no is None:
+        direct = conn.execute(
+            "SELECT item_no FROM bricklink_items WHERE item_no = ?", (part_num,)
+        ).fetchone()
+        if direct is not None:
+            item_no = direct[0]
+
+    if prow is None and item_no is None:
+        return None
+
+    metadata = {
+        "source": "hive",
+        "part_num": prow[0] if prow is not None else part_num,
+        "name": prow[1] if prow is not None else None,
+        "category": prow[6] if prow is not None else None,
+        "year_from": prow[2] if prow is not None else None,
+        "year_to": prow[3] if prow is not None else None,
+        "img_url": prow[4] if prow is not None else None,
+        "part_url": prow[5] if prow is not None else None,
+        "bricklink": None,
+        "color_id": color_key,
+        "price_currency": PIECE_PRICE_CURRENCY,
+        "price_color_specific": False,
+        "price_updated_at": None,
+        "moving_avg_price": None,
+        "price": None,
+        # When the exact printed item has no market data, these name the base mold
+        # whose price we substituted (else None). The UI flags it as approximate.
+        "price_from_base_mold": None,
+        "price_from_base_name": None,
+        # Best-available physical dimensions (mm) with a source/confidence flag —
+        # the machine uses bbox for oversize routing.
+        "dimensions": resolvePartDimensions(conn, part_num),
+    }
+
+    if item_no is None:
+        return metadata
+
+    bl_item = conn.execute(
+        "SELECT bi.item_no, bi.name, bi.weight, bi.dim_x_studs, bi.dim_y_studs, "
+        "bi.year_released, bi.is_obsolete, bc.name AS category "
+        "FROM bricklink_items bi LEFT JOIN bricklink_categories bc "
+        "ON bc.id = bi.category_id WHERE bi.item_no = ?",
+        (item_no,),
+    ).fetchone()
+    if bl_item is not None:
+        metadata["bricklink"] = {
+            "item_no": bl_item[0],
+            "name": bl_item[1],
+            "weight_g": bl_item[2],
+            "dim_x_studs": bl_item[3],
+            "dim_y_studs": bl_item[4],
+            "year_released": bl_item[5],
+            "is_obsolete": bool(bl_item[6]) if bl_item[6] is not None else None,
+            "category": bl_item[7],
+        }
+        # No Rebrickable part row (printed-part id mismatch): fall back to the
+        # BrickLink name/category so the piece still has a usable label.
+        if metadata["name"] is None:
+            metadata["name"] = bl_item[1]
+        if metadata["category"] is None:
+            metadata["category"] = bl_item[7]
+
+    exact = _pieceResolvePrice(conn, item_no, color_key)
+    if exact is not None and exact["moving_avg"] is not None:
+        chosen = exact
+    else:
+        # Exact (printed) item has no market data of its own. Fall back to the base
+        # mold's price (6201pb01 -> 6201), flagged so the UI marks it approximate.
+        base = _pieceBaseMold(item_no)
+        base_priced = _pieceResolvePrice(conn, base, color_key) if base else None
+        if base_priced is not None and base_priced["moving_avg"] is not None:
+            chosen = base_priced
+            metadata["price_from_base_mold"] = base
+            base_row = conn.execute(
+                "SELECT name FROM bricklink_items WHERE item_no = ?", (base,)
+            ).fetchone()
+            metadata["price_from_base_name"] = base_row[0] if base_row else None
+        else:
+            chosen = exact  # may carry an all-empty block (renders as dashes) or None
+
+    if chosen is not None:
+        metadata["price"] = chosen["price"]
+        # color-specificity only means something for the exact item, not a
+        # substituted base-mold price.
+        metadata["price_color_specific"] = (
+            chosen["color_specific"] if metadata["price_from_base_mold"] is None else False
+        )
+        metadata["price_updated_at"] = chosen["updated_at"]
+        metadata["moving_avg_price"] = chosen["moving_avg"]
+
+    return metadata
+
+
+def batchPieceMovingAvg(conn, pairs):
+    # Resolve just the moving-average price for many (part_num, color_id) pairs in
+    # one call — the machine revalues its whole piece history this way. color_id is
+    # an optional int (BrickLink color id) or None. Unknown parts yield None.
+    out = []
+    cache = {}
+    for pair in pairs:
+        part_num = pair.get("part_num")
+        color_key = pair.get("color_id")
+        if isinstance(color_key, str):
+            try:
+                color_key = int(color_key)
+            except ValueError:
+                color_key = None
+        key = (part_num, color_key)
+        if key not in cache:
+            meta = pieceMetadata(conn, part_num, color_key) if part_num else None
+            cache[key] = meta.get("moving_avg_price") if meta else None
+        out.append({"part_num": part_num, "color_id": color_key, "moving_avg_price": cache[key]})
+    return out
+
+
 def adminListCategories(conn):
     rows = conn.execute(
         "SELECT c.id, c.name, c.part_count, "

@@ -838,7 +838,7 @@
 	}
 
 	// Catalog reference shot for the identified part — BrickLink's photo when the
-	// local catalog has one, else whatever Brickognize returned. Shown once, in
+	// Hive catalog has one, else whatever Brickognize returned. Shown once, in
 	// the Classification card, the same way the disk view shows `preview_url`.
 	const refImageSrc = $derived<string | null>(
 		bricklink?.thumbnail_url
@@ -1057,7 +1057,7 @@
 				/>
 			</section>
 
-			<!-- Pricing — every BrickLink bucket from the local parts.db catalog.
+			<!-- Pricing — every BrickLink bucket from the Hive catalog.
 			     The headline `moving_avg_price` (what routing uses) is the first
 			     non-empty of these, sold·new preferred; the table shows all four
 			     so you can see whatever source actually exists for this part. -->
@@ -1067,7 +1067,7 @@
 				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
 				<section class="border border-border bg-surface">
 					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Pricing — local catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
+						Pricing — Hive catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
 					</div>
 					<div class="flex flex-col gap-3 p-3 text-sm">
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -1144,7 +1144,7 @@
 							</div>
 						{:else}
 							<div class="text-text-muted">
-								No price-guide rows for this part in the local catalog.
+								No price-guide rows for this part in the Hive catalog.
 							</div>
 						{/if}
 

@@ -210,7 +210,7 @@
 		{#if est_value_text}
 			<span
 				class="text-sm font-semibold tabular-nums text-success"
-				title="BrickLink moving-average price (local catalog)"
+				title="BrickLink moving-average price (Hive catalog)"
 			>
 				{est_value_text}
 			</span>

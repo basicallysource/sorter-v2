@@ -13,7 +13,7 @@ class SortingProfile(ABC):
         pass
 
     # Optional price-based override: a profile may declare a high_value_routing
-    # block that reroutes any piece whose local-DB moving-average price clears a
+    # block that reroutes any piece whose Hive moving-average price clears a
     # threshold into a chosen category (and thus that category's bin). Returns
     # the override category id, or None when not applicable. Base impl = off.
     def highValueCategoryId(self, price: Optional[float]) -> Optional[str]:

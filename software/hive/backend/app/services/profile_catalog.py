@@ -370,6 +370,17 @@ class ProfileCatalogService:
     def admin_get_part(self, part_num: str) -> dict[str, Any] | None:
         return profile_db.adminGetPart(self._conn, part_num)
 
+    def piece_metadata(self, part_num: str, color_id: int | None = None) -> dict[str, Any] | None:
+        """Flattened per-piece metadata + color-selected price (and physical
+        dimensions) for the machine. None when the id matches no part/item."""
+        with self._lock:
+            return profile_db.pieceMetadata(self._conn, part_num, color_id)
+
+    def batch_piece_prices(self, pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Moving-average price for many (part_num, color_id) pairs in one call."""
+        with self._lock:
+            return profile_db.batchPieceMovingAvg(self._conn, pairs)
+
     def admin_list_categories(self) -> list[dict[str, Any]]:
         return profile_db.adminListCategories(self._conn)
 

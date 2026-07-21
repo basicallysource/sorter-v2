@@ -294,7 +294,7 @@ def getOverview() -> dict[str, Any]:
 
 
 # Prices are static per (part_id, color_id) for a machine's lifetime, so a
-# process-wide dict avoids re-hitting parts.db for every request. Misses (no
+# process-wide dict avoids re-hitting Hive for every request. Misses (no
 # metadata / no positive price) are cached as None so unknown parts don't
 # retrigger lookups either.
 _PRICE_CACHE: dict[tuple[Optional[str], Optional[str]], Optional[float]] = {}
@@ -317,9 +317,9 @@ def getCachedPrice(gc: Any, part_id: Optional[str], color_id: Optional[str]) -> 
     if part_id is None:
         price_value: Optional[float] = None
     else:
-        from piece_metadata_db import getLocalPieceMetadata
+        from hive_metadata import getPieceMetadata
 
-        metadata = getLocalPieceMetadata(gc, part_id, color_id)
+        metadata = getPieceMetadata(gc, part_id, color_id)
         price = metadata.get("moving_avg_price") if metadata else None
         price_value = float(price) if isinstance(price, (int, float)) and price > 0 else None
     with _PRICE_CACHE_LOCK:
@@ -364,6 +364,18 @@ def getValueStats(gc: Any) -> dict[str, Any]:
             (cutoff,),
         ).fetchall()
 
+    # Revalue every distinct (part, color) in one batch request to Hive (served
+    # from the persistent price cache; misses filled in a single round-trip),
+    # rather than a per-part lookup. Warm the in-process price cache from it so
+    # later peekCachedPrice hits on the sorting hot path are free.
+    from hive_metadata import getBatchMovingAvgPrices
+
+    price_pairs = [(r["part_id"], r["color_id"]) for r in rows]
+    batch_prices = getBatchMovingAvgPrices(gc, price_pairs)
+    with _PRICE_CACHE_LOCK:
+        for (part_id, color_id), value in batch_prices.items():
+            _PRICE_CACHE[(part_id, color_id)] = value
+
     all_total = all_priced = 0
     d24_total = d24_priced = 0
     all_value = d24_value = 0.0
@@ -372,7 +384,7 @@ def getValueStats(gc: Any) -> dict[str, Any]:
         n24 = int(r["n24"] or 0)
         all_total += n
         d24_total += n24
-        price = getCachedPrice(gc, r["part_id"], r["color_id"])
+        price = batch_prices.get((r["part_id"], r["color_id"]))
         if price is not None:
             all_value += price * n
             all_priced += n

@@ -117,6 +117,31 @@ def stop_pulse_perception_autotune(body: dict[str, Any] | None = None) -> dict[s
         raise HTTPException(status_code=503, detail=str(exc))
 
 
+@router.post("/api/tuning/feeder-pulse-perception/autotune/background")
+def set_pulse_perception_autotune_background(body: dict[str, Any] | None = None) -> dict[str, Any]:
+    from subsystems.feeder.pulse_perception.autotune import getAutoTuner
+
+    body = body or {}
+    enabled = bool(body.get("enabled"))
+    try:
+        tuner = getAutoTuner()
+        if enabled:
+            return tuner.enableBackground(body)
+        apply = body.get("apply", "baseline")
+        if apply not in ("baseline", "best", "keep"):
+            raise HTTPException(status_code=400, detail="apply must be baseline, best, or keep")
+        return tuner.disableBackground(apply)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+
+
+@router.get("/api/tuning/feeder-pulse-perception/autotune/dataset")
+def get_pulse_perception_autotune_dataset(limit: int = 5000) -> dict[str, Any]:
+    import local_state
+
+    return {"trials": local_state.listFeederAutotuneDataset(limit=limit)}
+
+
 @router.get("/api/tuning/feeder-pulse-perception/autotune/runs")
 def list_pulse_perception_autotune_runs(limit: int = 50) -> dict[str, Any]:
     import local_state

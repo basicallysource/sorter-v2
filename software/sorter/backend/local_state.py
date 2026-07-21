@@ -706,10 +706,14 @@ def initialize_local_state() -> None:
                 "incidents INTEGER NOT NULL DEFAULT 0, "
                 "double_drops INTEGER NOT NULL DEFAULT 0, "
                 "pieces_per_min REAL, "
+                "double_drop_rate REAL, "
+                "feasible INTEGER, "
                 "score REAL, "
                 "FOREIGN KEY(run_id) REFERENCES feeder_autotune_runs(id) ON DELETE CASCADE"
                 ")"
             )
+            _ensure_column(conn, "feeder_autotune_trials", "double_drop_rate", "REAL")
+            _ensure_column(conn, "feeder_autotune_trials", "feasible", "INTEGER")
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_feeder_autotune_trials_run "
                 "ON feeder_autotune_trials(run_id, trial_index)"
@@ -2506,8 +2510,23 @@ _FEEDER_AUTOTUNE_RUN_COLUMNS = (
 
 _FEEDER_AUTOTUNE_TRIAL_COLUMNS = (
     "id, run_id, trial_index, kind, params_json, started_at, ended_at, status, "
-    "measured_s, pieces_delivered, incidents, double_drops, pieces_per_min, score"
+    "measured_s, pieces_delivered, incidents, double_drops, pieces_per_min, "
+    "double_drop_rate, feasible, score"
 )
+
+_STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND = "feeder_autotune_background"
+
+
+def getFeederAutotuneBackground() -> dict[str, Any] | None:
+    value = _read_state(_STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND)
+    return value if isinstance(value, dict) else None
+
+
+def setFeederAutotuneBackground(record: dict[str, Any] | None) -> None:
+    _write_state(
+        _STATE_KEY_FEEDER_AUTOTUNE_BACKGROUND,
+        dict(record) if isinstance(record, dict) else None,
+    )
 
 
 def _feederAutotuneRunRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -2532,6 +2551,8 @@ def _feederAutotuneTrialRowToDict(row: sqlite3.Row | None) -> dict[str, Any] | N
         out["params_json"] = json.loads(raw) if isinstance(raw, str) and raw else {}
     except json.JSONDecodeError:
         out["params_json"] = {}
+    feasible = out.get("feasible")
+    out["feasible"] = bool(feasible) if feasible is not None else None
     return out
 
 
@@ -2648,6 +2669,8 @@ def finalizeFeederAutotuneTrial(
     incidents: int,
     double_drops: int,
     pieces_per_min: float | None,
+    double_drop_rate: float | None = None,
+    feasible: bool | None = None,
     score: float | None,
 ) -> None:
     initialize_local_state()
@@ -2655,7 +2678,8 @@ def finalizeFeederAutotuneTrial(
         conn.execute(
             "UPDATE feeder_autotune_trials SET status = ?, ended_at = ?, "
             "measured_s = ?, pieces_delivered = ?, incidents = ?, double_drops = ?, "
-            "pieces_per_min = ?, score = ? WHERE id = ?",
+            "pieces_per_min = ?, double_drop_rate = ?, feasible = ?, score = ? "
+            "WHERE id = ?",
             (
                 status,
                 time.time(),
@@ -2664,6 +2688,8 @@ def finalizeFeederAutotuneTrial(
                 int(incidents),
                 int(double_drops),
                 pieces_per_min,
+                double_drop_rate,
+                None if feasible is None else int(feasible),
                 score,
                 int(trial_id),
             ),
@@ -2689,6 +2715,20 @@ def listFeederAutotuneTrials(run_id: str, limit: int = 500) -> list[dict[str, An
             f"SELECT {_FEEDER_AUTOTUNE_TRIAL_COLUMNS} FROM feeder_autotune_trials "
             "WHERE run_id = ? ORDER BY trial_index DESC LIMIT ?",
             (run_id, int(limit)),
+        ).fetchall()
+    return [
+        d for d in (_feederAutotuneTrialRowToDict(r) for r in rows) if d is not None
+    ]
+
+
+def listFeederAutotuneDataset(limit: int = 5000) -> list[dict[str, Any]]:
+    """All completed trials across every run — the accumulated tuning dataset."""
+    initialize_local_state()
+    with _connection() as conn:
+        rows = conn.execute(
+            f"SELECT {_FEEDER_AUTOTUNE_TRIAL_COLUMNS} FROM feeder_autotune_trials "
+            "WHERE status = 'done' ORDER BY started_at DESC LIMIT ?",
+            (int(limit),),
         ).fetchall()
     return [
         d for d in (_feederAutotuneTrialRowToDict(r) for r in rows) if d is not None

@@ -25,13 +25,17 @@ TUNABLE_PARAMS: list[dict[str, Any]] = [
 
 _TUNABLE_BY_KEY = {meta["key"]: meta for meta in TUNABLE_PARAMS}
 
+# Scoring is a constrained objective, not a weighted blend: a trial whose
+# double-drop rate (events per delivered piece) exceeds max_double_drop_rate is
+# infeasible and can never become "best" no matter how fast it fed. Among
+# feasible trials, highest pieces/min (minus a jam/incident penalty) wins.
 DEFAULT_SETTINGS: dict[str, Any] = {
     "trial_duration_s": 120.0,
     "settle_s": 3.0,
     "explore_probability": 0.25,
     "sigma_fraction": 0.15,
     "incident_weight": 10.0,
-    "double_drop_weight": 3.0,
+    "max_double_drop_rate": 0.05,
     "max_trials": 0,
     "param_keys": [meta["key"] for meta in TUNABLE_PARAMS],
 }
@@ -51,6 +55,7 @@ def noteDispense() -> None:
     with _dispense_lock:
         _dispense_count += 1
     _ensureStartupRecovery()
+    _maybeResumeBackground()
 
 
 def dispenseCount() -> int:
@@ -60,13 +65,17 @@ def dispenseCount() -> int:
 
 _recovery_done = False
 _recovery_lock = threading.Lock()
+# Persisted background-exploration record ({enabled, settings, baseline_config,
+# enabled_at}), mirrored in memory so per-dispense checks never hit sqlite.
+_background_state: dict[str, Any] | None = None
 
 
 def _ensureStartupRecovery() -> None:
     # A backend restart mid-run leaves the machine on whatever candidate config
     # the last trial wrote. Restore the run's baseline so a random candidate
-    # never silently becomes the persistent config.
-    global _recovery_done
+    # never silently becomes the persistent config. Background exploration is
+    # resumed separately (_maybeResumeBackground) once gc is available.
+    global _recovery_done, _background_state
     if _recovery_done:
         return
     with _recovery_lock:
@@ -82,8 +91,24 @@ def _ensureStartupRecovery() -> None:
                 baseline = run.get("baseline_config")
                 if isinstance(baseline, dict) and baseline:
                     setPulsePerceptionConfig(baseline)
+            persisted = local_state.getFeederAutotuneBackground()
+            _background_state = persisted if isinstance(persisted, dict) else None
         except Exception:
             pass
+
+
+def _maybeResumeBackground() -> None:
+    state = _background_state
+    if not state or not state.get("enabled"):
+        return
+    try:
+        tuner = getAutoTuner()
+    except Exception:
+        return
+    try:
+        tuner.resumeBackground(state)
+    except Exception:
+        pass
 
 
 def normalizeSettings(raw: dict[str, Any] | None) -> dict[str, Any]:
@@ -91,7 +116,7 @@ def normalizeSettings(raw: dict[str, Any] | None) -> dict[str, Any]:
     settings["param_keys"] = list(DEFAULT_SETTINGS["param_keys"])
     if not isinstance(raw, dict):
         return settings
-    for key in ("trial_duration_s", "settle_s", "explore_probability", "sigma_fraction", "incident_weight", "double_drop_weight"):
+    for key in ("trial_duration_s", "settle_s", "explore_probability", "sigma_fraction", "incident_weight", "max_double_drop_rate"):
         value = raw.get(key)
         if isinstance(value, (int, float)) and not isinstance(value, bool):
             settings[key] = float(value)
@@ -107,6 +132,7 @@ def normalizeSettings(raw: dict[str, Any] | None) -> dict[str, Any]:
     settings["settle_s"] = min(30.0, max(0.0, settings["settle_s"]))
     settings["explore_probability"] = min(1.0, max(0.0, settings["explore_probability"]))
     settings["sigma_fraction"] = min(0.5, max(0.02, settings["sigma_fraction"]))
+    settings["max_double_drop_rate"] = min(0.5, max(0.0, settings["max_double_drop_rate"]))
     return settings
 
 
@@ -137,21 +163,38 @@ def sampleCandidate(
     return ("explore" if explore else "refine"), params
 
 
-def computeScore(
+def computeTrialMetrics(
     *,
     measured_s: float,
     pieces_delivered: int,
     incidents: int,
     double_drops: int,
     incident_weight: float,
-    double_drop_weight: float,
-) -> tuple[float | None, float | None]:
+    max_double_drop_rate: float,
+) -> dict[str, Any]:
     if measured_s <= 0:
-        return None, None
+        return {
+            "pieces_per_min": None,
+            "double_drop_rate": None,
+            "feasible": False,
+            "score": None,
+        }
     minutes = measured_s / 60.0
     ppm = pieces_delivered / minutes
-    score = ppm - incident_weight * (incidents / minutes) - double_drop_weight * (double_drops / minutes)
-    return round(ppm, 3), round(score, 3)
+    if pieces_delivered > 0:
+        dd_rate = double_drops / pieces_delivered
+    else:
+        dd_rate = 1.0 if double_drops > 0 else 0.0
+    feasible = dd_rate <= max_double_drop_rate
+    score: float | None = None
+    if feasible:
+        score = round(ppm - incident_weight * (incidents / minutes), 3)
+    return {
+        "pieces_per_min": round(ppm, 3),
+        "double_drop_rate": round(dd_rate, 4),
+        "feasible": feasible,
+        "score": score,
+    }
 
 
 class FeederAutoTuner:
@@ -163,25 +206,92 @@ class FeederAutoTuner:
         self._apply_on_stop: str = "baseline"
         self._run: dict[str, Any] | None = None
         self._settings: dict[str, Any] = dict(DEFAULT_SETTINGS)
+        self._mode: str = "session"
         self._best: dict[str, Any] | None = None
         self._live: dict[str, Any] | None = None
         self._rng = random.Random()
 
     def start(self, raw_settings: dict[str, Any] | None) -> dict[str, Any]:
         _ensureStartupRecovery()
+        if _background_state and _background_state.get("enabled"):
+            raise RuntimeError(
+                "background exploration is enabled — disable it before starting a tuning session"
+            )
+        from toml_config import getPulsePerceptionConfig
+
+        self._startRun(
+            normalizeSettings(raw_settings), getPulsePerceptionConfig(), mode="session"
+        )
+        return self.status()
+
+    def enableBackground(self, raw_settings: dict[str, Any] | None) -> dict[str, Any]:
+        global _background_state
+        _ensureStartupRecovery()
         import local_state
         from toml_config import getPulsePerceptionConfig
 
         with self._lock:
+            if self._thread is not None and self._thread.is_alive() and self._mode == "session":
+                raise RuntimeError("a tuning session is running — stop it first")
+        settings = normalizeSettings(raw_settings)
+        # Background sampling is pure exploration: the goal is coverage of the
+        # space for the dataset, not convergence.
+        settings["explore_probability"] = 1.0
+        settings["max_trials"] = 0
+        baseline = getPulsePerceptionConfig()
+        record = {
+            "enabled": True,
+            "settings": settings,
+            "baseline_config": baseline,
+            "enabled_at": time.time(),
+        }
+        local_state.setFeederAutotuneBackground(record)
+        _background_state = record
+        try:
+            self._startRun(settings, baseline, mode="background")
+        except RuntimeError:
+            pass
+        return self.status()
+
+    def resumeBackground(self, record: dict[str, Any]) -> None:
+        settings = normalizeSettings(record.get("settings"))
+        settings["explore_probability"] = 1.0
+        settings["max_trials"] = 0
+        baseline = record.get("baseline_config")
+        if not isinstance(baseline, dict) or not baseline:
+            return
+        try:
+            self._startRun(settings, baseline, mode="background")
+        except RuntimeError:
+            pass
+
+    def disableBackground(self, apply: str = "baseline") -> dict[str, Any]:
+        global _background_state
+        import local_state
+
+        local_state.setFeederAutotuneBackground(None)
+        _background_state = None
+        with self._lock:
+            if self._thread is not None and self._thread.is_alive() and self._mode == "background":
+                if apply in ("baseline", "best", "keep"):
+                    self._apply_on_stop = apply
+                self._stop_event.set()
+        return self.status()
+
+    def _startRun(
+        self, settings: dict[str, Any], baseline: dict[str, Any], *, mode: str
+    ) -> None:
+        import local_state
+
+        with self._lock:
             if self._thread is not None and self._thread.is_alive():
                 raise RuntimeError("auto-tune is already running")
-            settings = normalizeSettings(raw_settings)
-            baseline = getPulsePerceptionConfig()
-            run = local_state.createFeederAutotuneRun(baseline, settings)
+            run = local_state.createFeederAutotuneRun(baseline, {**settings, "mode": mode})
             if run is None:
                 raise RuntimeError("failed to create auto-tune run")
             self._run = run
             self._settings = settings
+            self._mode = mode
             self._best = None
             self._live = None
             self._apply_on_stop = "baseline"
@@ -190,7 +300,6 @@ class FeederAutoTuner:
                 target=self._threadMain, name="feeder-autotune", daemon=True
             )
             self._thread.start()
-        return self.status()
 
     def stop(self, apply: str = "baseline") -> dict[str, Any]:
         with self._lock:
@@ -209,14 +318,17 @@ class FeederAutoTuner:
             live = dict(self._live) if self._live is not None else None
             best = dict(self._best) if self._best is not None else None
             settings = dict(self._settings)
+            mode = self._mode
         trials: list[dict[str, Any]] = []
         if run is not None:
             trials = local_state.listFeederAutotuneTrials(run["id"], limit=200)
             fresh = local_state.getFeederAutotuneRun(run["id"])
             if fresh is not None:
                 run = fresh
+        background = _background_state if _background_state else None
         return {
             "state": "running" if running else "idle",
+            "mode": mode if running else None,
             "machine_running": self._machineRunning(),
             "run": run,
             "settings": settings,
@@ -224,6 +336,11 @@ class FeederAutoTuner:
             "best_trial": best,
             "trials": trials,
             "tunable_params": TUNABLE_PARAMS,
+            "background": {
+                "enabled": bool(background and background.get("enabled")),
+                "enabled_at": background.get("enabled_at") if background else None,
+                "settings": background.get("settings") if background else None,
+            },
         }
 
     def _machineRunning(self) -> bool:
@@ -369,13 +486,13 @@ class FeederAutoTuner:
 
         pieces = dispenseCount() - pieces_at_start
         incidents = self._incidentCountBetween(wall_start, time.time())
-        ppm, score = computeScore(
+        metrics = computeTrialMetrics(
             measured_s=measured,
             pieces_delivered=pieces,
             incidents=incidents,
             double_drops=double_drops,
             incident_weight=float(settings["incident_weight"]),
-            double_drop_weight=float(settings["double_drop_weight"]),
+            max_double_drop_rate=float(settings["max_double_drop_rate"]),
         )
         aborted = measured < 0.5 * duration
         local_state.finalizeFeederAutotuneTrial(
@@ -385,15 +502,19 @@ class FeederAutoTuner:
             pieces_delivered=pieces,
             incidents=incidents,
             double_drops=double_drops,
-            pieces_per_min=ppm,
-            score=None if aborted else score,
+            pieces_per_min=metrics["pieces_per_min"],
+            double_drop_rate=metrics["double_drop_rate"],
+            feasible=metrics["feasible"],
+            score=None if aborted else metrics["score"],
         )
         self.gc.logger.info(
             f"FeederAutotune: trial {trial_index} ({kind}) done measured={measured:.0f}s "
             f"pieces={pieces} incidents={incidents} double_drops={double_drops} "
-            f"ppm={ppm} score={score} aborted={aborted}"
+            f"ppm={metrics['pieces_per_min']} dd_rate={metrics['double_drop_rate']} "
+            f"feasible={metrics['feasible']} score={metrics['score']} aborted={aborted}"
         )
-        if not aborted and score is not None:
+        score = metrics["score"]
+        if not aborted and metrics["feasible"] and score is not None:
             with self._lock:
                 if self._best is None or score > self._best["score"]:
                     self._best = {
@@ -402,7 +523,8 @@ class FeederAutoTuner:
                         "kind": kind,
                         "params": dict(params),
                         "score": score,
-                        "pieces_per_min": ppm,
+                        "pieces_per_min": metrics["pieces_per_min"],
+                        "double_drop_rate": metrics["double_drop_rate"],
                         "measured_s": round(measured, 1),
                         "pieces_delivered": pieces,
                         "incidents": incidents,

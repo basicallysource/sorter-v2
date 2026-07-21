@@ -5,7 +5,7 @@ import unittest
 
 from subsystems.feeder.pulse_perception.autotune import (
     TUNABLE_PARAMS,
-    computeScore,
+    computeTrialMetrics,
     normalizeSettings,
     sampleCandidate,
 )
@@ -46,26 +46,56 @@ class FeederAutotuneSamplerTests(unittest.TestCase):
 
 
 class FeederAutotuneScoreTests(unittest.TestCase):
-    def test_score_penalizes_incidents_and_double_drops(self) -> None:
-        ppm, clean = computeScore(
+    def test_clean_trial_scores_ppm(self) -> None:
+        metrics = computeTrialMetrics(
             measured_s=120.0, pieces_delivered=20, incidents=0, double_drops=0,
-            incident_weight=10.0, double_drop_weight=3.0,
+            incident_weight=10.0, max_double_drop_rate=0.05,
         )
-        self.assertEqual(ppm, 10.0)
-        self.assertEqual(clean, 10.0)
-        _, penalized = computeScore(
-            measured_s=120.0, pieces_delivered=20, incidents=1, double_drops=2,
-            incident_weight=10.0, double_drop_weight=3.0,
+        self.assertEqual(metrics["pieces_per_min"], 10.0)
+        self.assertEqual(metrics["double_drop_rate"], 0.0)
+        self.assertTrue(metrics["feasible"])
+        self.assertEqual(metrics["score"], 10.0)
+
+    def test_double_drop_rate_over_cap_is_infeasible(self) -> None:
+        metrics = computeTrialMetrics(
+            measured_s=120.0, pieces_delivered=20, incidents=0, double_drops=2,
+            incident_weight=10.0, max_double_drop_rate=0.05,
         )
-        self.assertEqual(penalized, 10.0 - 10.0 * 0.5 - 3.0 * 1.0)
+        self.assertEqual(metrics["double_drop_rate"], 0.1)
+        self.assertFalse(metrics["feasible"])
+        self.assertIsNone(metrics["score"])
+        self.assertEqual(metrics["pieces_per_min"], 10.0)
+
+    def test_rate_at_cap_is_feasible(self) -> None:
+        metrics = computeTrialMetrics(
+            measured_s=120.0, pieces_delivered=20, incidents=0, double_drops=1,
+            incident_weight=10.0, max_double_drop_rate=0.05,
+        )
+        self.assertEqual(metrics["double_drop_rate"], 0.05)
+        self.assertTrue(metrics["feasible"])
+
+    def test_incidents_penalize_feasible_score(self) -> None:
+        metrics = computeTrialMetrics(
+            measured_s=120.0, pieces_delivered=20, incidents=1, double_drops=0,
+            incident_weight=10.0, max_double_drop_rate=0.05,
+        )
+        self.assertEqual(metrics["score"], 10.0 - 10.0 * 0.5)
 
     def test_zero_measurement_gives_none(self) -> None:
-        ppm, score = computeScore(
+        metrics = computeTrialMetrics(
             measured_s=0.0, pieces_delivered=0, incidents=0, double_drops=0,
-            incident_weight=10.0, double_drop_weight=3.0,
+            incident_weight=10.0, max_double_drop_rate=0.05,
         )
-        self.assertIsNone(ppm)
-        self.assertIsNone(score)
+        self.assertIsNone(metrics["pieces_per_min"])
+        self.assertIsNone(metrics["score"])
+        self.assertFalse(metrics["feasible"])
+
+    def test_double_drops_with_zero_pieces_infeasible(self) -> None:
+        metrics = computeTrialMetrics(
+            measured_s=60.0, pieces_delivered=0, incidents=0, double_drops=1,
+            incident_weight=10.0, max_double_drop_rate=0.05,
+        )
+        self.assertFalse(metrics["feasible"])
 
 
 class FeederAutotuneSettingsTests(unittest.TestCase):
@@ -87,6 +117,12 @@ class FeederAutotuneSettingsTests(unittest.TestCase):
         )
         self.assertEqual(settings["param_keys"], ["drop_pulse_output_deg"])
         self.assertEqual(settings["max_trials"], 5)
+
+    def test_max_double_drop_rate_clamped(self) -> None:
+        settings = normalizeSettings({"max_double_drop_rate": 3.0})
+        self.assertEqual(settings["max_double_drop_rate"], 0.5)
+        settings = normalizeSettings({"max_double_drop_rate": 0.02})
+        self.assertEqual(settings["max_double_drop_rate"], 0.02)
 
 
 class FeederAutotuneStorageTests(unittest.TestCase):
@@ -114,6 +150,8 @@ class FeederAutotuneStorageTests(unittest.TestCase):
                     incidents=0,
                     double_drops=1,
                     pieces_per_min=12.0,
+                    double_drop_rate=1 / 12,
+                    feasible=False,
                     score=9.0,
                 )
                 local_state.setFeederAutotuneBestTrial(run["id"], trial_id)
@@ -125,9 +163,22 @@ class FeederAutotuneStorageTests(unittest.TestCase):
                 trials = local_state.listFeederAutotuneTrials(run["id"])
                 self.assertEqual(len(trials), 1)
                 self.assertEqual(trials[0]["pieces_delivered"], 12)
+                self.assertEqual(trials[0]["feasible"], False)
+                self.assertAlmostEqual(trials[0]["double_drop_rate"], 1 / 12)
                 self.assertEqual(
                     trials[0]["params_json"], {"drop_pulse_output_deg": 30.0}
                 )
+                dataset = local_state.listFeederAutotuneDataset()
+                self.assertEqual(len(dataset), 1)
+
+                local_state.setFeederAutotuneBackground(
+                    {"enabled": True, "settings": {}, "baseline_config": {}}
+                )
+                self.assertTrue(
+                    local_state.getFeederAutotuneBackground()["enabled"]
+                )
+                local_state.setFeederAutotuneBackground(None)
+                self.assertIsNone(local_state.getFeederAutotuneBackground())
 
                 interrupted_run = local_state.createFeederAutotuneRun(
                     {"drop_pulse_output_deg": 25.0}, {}

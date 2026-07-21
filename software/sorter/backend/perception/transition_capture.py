@@ -1,11 +1,11 @@
-"""Feeder-dynamics ("sim data") capture collector.
+"""Feeder-dynamics ("control data") capture collector.
 
 Streams the perception state of every channel — per-piece COM positions, zones,
-bboxes, track ids — into sim_data_store segments while the machine is actively
+bboxes, track ids — into control_data_store segments while the machine is actively
 sorting. Together with the stepper-command records emitted by the hardware
 layer (hardware/sorter_interface.py) and the config-change records written
 here, a segment is a full (state, action) transition log: the raw material for
-displacement models, feeder controllers, and eventually a learned simulator.
+better feeder control models.
 
 Capture is intentionally passive: it never moves anything, never changes
 config, and works the same whether the pulse-perception auto-tuner is idle,
@@ -25,7 +25,7 @@ import time
 from pathlib import Path
 from typing import Any, Optional
 
-import sim_data_store
+import control_data_store
 
 _POLL_INTERVAL_S = 0.02
 _CONFIG_WATCH_INTERVAL_S = 2.0
@@ -58,10 +58,10 @@ def _gitSha() -> str | None:
 
 
 def _captureEnabled() -> bool:
-    return os.getenv("SIM_DATA_CAPTURE", "1").strip() not in ("0", "false", "no")
+    return os.getenv("CONTROL_DATA_CAPTURE", "1").strip() not in ("0", "false", "no")
 
 
-class SimDataCollector:
+class ControlDataCollector:
     def __init__(self, *, perception_service: Any, gc: Any, irl_config: Any) -> None:
         self._service = perception_service
         self._gc = gc
@@ -82,7 +82,7 @@ class SimDataCollector:
             return
         self._stop.clear()
         self._thread = threading.Thread(
-            target=self._loop, daemon=True, name="sim-data-collector"
+            target=self._loop, daemon=True, name="control-data-collector"
         )
         self._thread.start()
 
@@ -91,10 +91,10 @@ class SimDataCollector:
         if self._thread is not None:
             self._thread.join(timeout=timeout)
         self._thread = None
-        sim_data_store.endSegment()
+        control_data_store.endSegment()
 
     def stats(self) -> dict[str, Any]:
-        return sim_data_store.getStats()
+        return control_data_store.getStats()
 
     def _isSorting(self) -> bool:
         try:
@@ -112,7 +112,7 @@ class SimDataCollector:
                 self._tick()
             except Exception as exc:
                 try:
-                    self._gc.logger.warning(f"[sim-data] collector tick failed: {exc}")
+                    self._gc.logger.warning(f"[control-data] collector tick failed: {exc}")
                 except Exception:
                     pass
                 self._stop.wait(1.0)
@@ -123,19 +123,19 @@ class SimDataCollector:
         sorting = _captureEnabled() and self._isSorting()
 
         if not sorting:
-            if sim_data_store.segmentOpen():
+            if control_data_store.segmentOpen():
                 if self._not_sorting_since is None:
                     self._not_sorting_since = now
                 elif now - self._not_sorting_since >= _STOP_SORTING_GRACE_S:
-                    sim_data_store.endSegment()
+                    control_data_store.endSegment()
                     self._resetSegmentState()
             else:
                 self._stop.wait(0.3)
             return
 
         self._not_sorting_since = None
-        if not sim_data_store.segmentOpen():
-            if sim_data_store.beginSegment(self._buildMeta()):
+        if not control_data_store.segmentOpen():
+            if control_data_store.beginSegment(self._buildMeta()):
                 self._segment_opened_at = now
                 self._frame_info_sent.clear()
                 self._last_config_snapshot = ""
@@ -146,13 +146,13 @@ class SimDataCollector:
 
         if now - self._last_flush >= _FLUSH_INTERVAL_S:
             self._last_flush = now
-            sim_data_store.flush()
+            control_data_store.flush()
 
         if (
-            sim_data_store.activeBytes() >= _SEGMENT_ROTATE_RAW_BYTES
+            control_data_store.activeBytes() >= _SEGMENT_ROTATE_RAW_BYTES
             or now - self._segment_opened_at >= _SEGMENT_ROTATE_MAX_AGE_S
         ):
-            sim_data_store.endSegment()
+            control_data_store.endSegment()
             self._resetSegmentState()
 
     def _resetSegmentState(self) -> None:
@@ -182,7 +182,7 @@ class SimDataCollector:
                 continue
             self._last_had_pieces[channel_id] = has_pieces
             self._maybeFrameInfo(channel_id)
-            sim_data_store.record(
+            control_data_store.record(
                 {
                     "type": "state",
                     "t": wall,
@@ -222,7 +222,7 @@ class SimDataCollector:
                 self._frame_info_sent.discard(channel_id)
                 return
             h, w = bgr.shape[:2]
-            sim_data_store.record(
+            control_data_store.record(
                 {"type": "frame_info", "t": time.time(), "ch": channel_id, "w": int(w), "h": int(h)}
             )
         except Exception:
@@ -241,7 +241,7 @@ class SimDataCollector:
         if encoded == self._last_config_snapshot:
             return
         self._last_config_snapshot = encoded
-        sim_data_store.record({"type": "config", "t": time.time(), **snapshot})
+        control_data_store.record({"type": "config", "t": time.time(), **snapshot})
 
     def _configSnapshot(self) -> dict[str, Any]:
         out: dict[str, Any] = {}

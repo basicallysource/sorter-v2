@@ -94,18 +94,18 @@ class DigitalOutputPin:
     def channel(self):
         return self._channel
 
-def _simDataRecordCommand(payload: dict) -> None:
+def _controlDataRecordCommand(payload: dict) -> None:
     # Feeder-dynamics capture: every motor command is half of a (state, action)
     # transition. No-op unless a capture segment is open (machine sorting).
     try:
         import time as _time
 
-        import sim_data_store
+        import control_data_store
 
         payload["type"] = "cmd"
         payload["t"] = _time.time()
         payload["mono"] = _time.monotonic()
-        sim_data_store.record(payload)
+        control_data_store.record(payload)
     except Exception:
         pass
 
@@ -183,7 +183,7 @@ class StepperMotor:
             self._current_position_steps += steps
         else:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_steps({steps}) FAILED")
-        _simDataRecordCommand(
+        _controlDataRecordCommand(
             {
                 "cmd": "move_steps",
                 "stepper": self._name,
@@ -218,7 +218,7 @@ class StepperMotor:
         success = bool(res.payload[0])
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: move_at_speed({speed}) FAILED")
-        _simDataRecordCommand(
+        _controlDataRecordCommand(
             {
                 "cmd": "move_at_speed",
                 "stepper": self._name,
@@ -252,7 +252,7 @@ class StepperMotor:
         success = len(res.payload) > 0 and bool(res.payload[0])
         if not success:
             self._gc.logger.error(f"Stepper '{self._name}' ch{self._channel}: jitter was not acknowledged")
-        _simDataRecordCommand(
+        _controlDataRecordCommand(
             {
                 "cmd": "jitter",
                 "stepper": self._name,
@@ -283,7 +283,7 @@ class StepperMotor:
         self._gc.logger.info(f"Stepper '{self._name}' ch{self._channel}: set_speed_limits min={min_speed} max={max_speed} µsteps/s")
         payload = struct.pack("<II", min_speed, max_speed) # 8 bytes, two little-endian unsigned integers
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_SPEED_LIMITS, self._channel, payload)
-        _simDataRecordCommand(
+        _controlDataRecordCommand(
             {
                 "cmd": "set_speed_limits",
                 "stepper": self._name,
@@ -298,7 +298,7 @@ class StepperMotor:
         payload = struct.pack("<I", acceleration)  # 4 bytes, little-endian unsigned integer
         self._dev.send_command(InterfaceCommandCode.STEPPER_SET_ACCELERATION, self._channel, payload)
         self._applied_acceleration = int(acceleration)
-        _simDataRecordCommand(
+        _controlDataRecordCommand(
             {"cmd": "set_acceleration", "stepper": self._name, "accel": int(acceleration)}
         )
 

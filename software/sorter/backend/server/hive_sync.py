@@ -38,7 +38,7 @@ import requests
 import channel_crop_store
 import piece_image_store
 import piece_records
-import sim_data_store
+import control_data_store
 from blob_manager import getHiveConfig
 from hive_telemetry import HiveTelemetryClient, telemetryAllows
 
@@ -48,7 +48,7 @@ DATA_TYPE_RECORDS = "piece_records"
 DATA_TYPE_IMAGES = "piece_images"
 DATA_TYPE_CROPS = "channel_crops"
 DATA_TYPE_CORRECTIONS = "piece_corrections"
-DATA_TYPE_SIM_DATA = "sim_data_segments"
+DATA_TYPE_CONTROL_DATA = "control_data_segments"
 
 RECORDS_BATCH = 500
 CORRECTIONS_BATCH = 500
@@ -67,11 +67,11 @@ RECORDS_THROTTLE_S = 0.15
 CORRECTIONS_THROTTLE_S = 0.15
 IMAGES_THROTTLE_S = 0.8
 CROPS_THROTTLE_S = 0.3
-# Sim-data segments are multi-MB gzip files; push them one at a time with a
+# Control-data segments are multi-MB gzip files; push them one at a time with a
 # generous pause while sorting so a backlog never competes with a live run.
-SIM_DATA_CHUNK = 1
-SIM_DATA_CHUNK_IDLE = 5
-SIM_DATA_THROTTLE_S = 2.0
+CONTROL_DATA_CHUNK = 1
+CONTROL_DATA_CHUNK_IDLE = 5
+CONTROL_DATA_THROTTLE_S = 2.0
 # Idle: standby, so upload back-to-back. The concurrency gate still bounds how
 # many run at once.
 IDLE_THROTTLE_S = 0.0
@@ -177,7 +177,7 @@ def _imageToMeta(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _simSegmentToMeta(row: dict[str, Any]) -> dict[str, Any]:
+def _controlSegmentToMeta(row: dict[str, Any]) -> dict[str, Any]:
     return {
         "local_id": row["id"],
         "created_at": row["created_at"],
@@ -264,12 +264,12 @@ class _TargetSyncer:
             DATA_TYPE_IMAGES: None,
             DATA_TYPE_CROPS: None,
             DATA_TYPE_CORRECTIONS: None,
-            DATA_TYPE_SIM_DATA: None,
+            DATA_TYPE_CONTROL_DATA: None,
         }
-        # Set when the target 404s the sim-data endpoint (hive not yet
+        # Set when the target 404s the control-data endpoint (hive not yet
         # migrated); disables that leg for this process so one un-upgraded
         # target never backoffs the whole sync loop.
-        self._sim_data_unsupported = False
+        self._control_data_unsupported = False
         self._state_ok = False
         self._backoff_s = SERVER_DOWN_BACKOFF_S
         self._wake = threading.Event()
@@ -318,9 +318,9 @@ class _TargetSyncer:
         records_or_images = self._drainRecords() or self._drainImages()
         crops = self._drainChannelCrops()
         corrections = self._drainCorrections()
-        sim_data = self._drainSimData()
+        control_data = self._drainControlData()
         self._state_ok = True
-        progressed = records_or_images or crops or corrections or sim_data
+        progressed = records_or_images or crops or corrections or control_data
         if progressed:
             self._mark_retention()
         return progressed
@@ -334,7 +334,7 @@ class _TargetSyncer:
             DATA_TYPE_IMAGES,
             DATA_TYPE_CROPS,
             DATA_TYPE_CORRECTIONS,
-            DATA_TYPE_SIM_DATA,
+            DATA_TYPE_CONTROL_DATA,
         ):
             raw = state.get(data_type) if isinstance(state, dict) else None
             value = raw.get("max_local_id") if isinstance(raw, dict) else 0
@@ -413,39 +413,39 @@ class _TargetSyncer:
             self._throttle(CROPS_THROTTLE_S)
         return True
 
-    def _drainSimData(self) -> bool:
+    def _drainControlData(self) -> bool:
         # Feeder-dynamics segments ride their own feeder_dynamics field. With
         # it off the watermark freezes here and the backlog drains if enabled
         # later. Evicted segments ride up metadata-only so counts stay
         # complete.
-        if self._sim_data_unsupported or not telemetryAllows(self._id, "feeder_dynamics"):
+        if self._control_data_unsupported or not telemetryAllows(self._id, "feeder_dynamics"):
             return False
-        wm = int(self._wm[DATA_TYPE_SIM_DATA] or 0)
-        if sim_data_store.getMaxSegmentId() <= wm:
+        wm = int(self._wm[DATA_TYPE_CONTROL_DATA] or 0)
+        if control_data_store.getMaxSegmentId() <= wm:
             return False
-        chunk = SIM_DATA_CHUNK if _machineBusy(self._gc) else SIM_DATA_CHUNK_IDLE
-        rows = sim_data_store.listSegmentsAfter(wm, chunk)
+        chunk = CONTROL_DATA_CHUNK if _machineBusy(self._gc) else CONTROL_DATA_CHUNK_IDLE
+        rows = control_data_store.listSegmentsAfter(wm, chunk)
         if not rows:
             return False
         for row in rows:
             if self._stop.is_set():
                 break
-            file_path = None if row["evicted_locally"] else sim_data_store.getSegmentFileById(row["id"])
+            file_path = None if row["evicted_locally"] else control_data_store.getSegmentFileById(row["id"])
             try:
                 with self._gate.slot():
-                    new_max = self._client.pushSimDataSegment(_simSegmentToMeta(row), file_path)
+                    new_max = self._client.pushControlDataSegment(_controlSegmentToMeta(row), file_path)
             except requests.HTTPError as exc:
                 if exc.response is not None and exc.response.status_code in (404, 405):
-                    self._sim_data_unsupported = True
+                    self._control_data_unsupported = True
                     log.warning(
-                        "hive_sync: %s does not accept sim-data segments yet "
+                        "hive_sync: %s does not accept control-data segments yet "
                         "(HTTP %s) — leg disabled until restart",
                         self._name, exc.response.status_code,
                     )
                     return False
                 raise
-            self._wm[DATA_TYPE_SIM_DATA] = max(int(self._wm[DATA_TYPE_SIM_DATA] or 0), int(new_max), int(row["id"]))
-            self._throttle(SIM_DATA_THROTTLE_S)
+            self._wm[DATA_TYPE_CONTROL_DATA] = max(int(self._wm[DATA_TYPE_CONTROL_DATA] or 0), int(new_max), int(row["id"]))
+            self._throttle(CONTROL_DATA_THROTTLE_S)
         return True
 
     def _drainCorrections(self) -> bool:
@@ -589,6 +589,6 @@ class HiveSyncWorker:
         crops_wm = _min_wm(DATA_TYPE_CROPS)
         if crops_wm is not None:
             channel_crop_store.markSyncedUpTo(crops_wm, now)
-        sim_wm = _min_wm(DATA_TYPE_SIM_DATA)
+        sim_wm = _min_wm(DATA_TYPE_CONTROL_DATA)
         if sim_wm is not None:
-            sim_data_store.markSyncedUpTo(sim_wm, now)
+            control_data_store.markSyncedUpTo(sim_wm, now)

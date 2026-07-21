@@ -1,4 +1,4 @@
-"""Durable store for feeder-dynamics ("sim data") capture segments.
+"""Durable store for feeder-dynamics ("control data") capture segments.
 
 A segment is a gzipped JSONL file of timestamped records — perception piece
 states, stepper commands, config changes, dispense events — captured while the
@@ -69,12 +69,12 @@ def _log(level: str, message: str) -> None:
         pass
 
 
-def sim_data_dir() -> Path:
-    return local_state_db_path().parent / "sim_data"
+def control_data_dir() -> Path:
+    return local_state_db_path().parent / "control_data"
 
 
 def _active_dir() -> Path:
-    return sim_data_dir() / "active"
+    return control_data_dir() / "active"
 
 
 def _connect() -> sqlite3.Connection:
@@ -108,7 +108,7 @@ def _ensureInitialized() -> None:
         conn = _connect()
         try:
             conn.execute(
-                "CREATE TABLE IF NOT EXISTS sim_data_segments ("
+                "CREATE TABLE IF NOT EXISTS control_data_segments ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
                 "created_at REAL NOT NULL, "
                 "started_at REAL, "
@@ -122,7 +122,7 @@ def _ensureInitialized() -> None:
                 "feeder_mode TEXT, "
                 "classification_mode TEXT, "
                 "autotune_mode TEXT, "
-                # Path relative to sim_data_dir().
+                # Path relative to control_data_dir().
                 "file_path TEXT NOT NULL, "
                 "deleted_at REAL, "
                 "synced_at REAL, "
@@ -130,8 +130,8 @@ def _ensureInitialized() -> None:
                 ")"
             )
             conn.execute(
-                "CREATE INDEX IF NOT EXISTS idx_sim_data_segments_live "
-                "ON sim_data_segments(created_at) WHERE deleted_at IS NULL"
+                "CREATE INDEX IF NOT EXISTS idx_control_data_segments_live "
+                "ON control_data_segments(created_at) WHERE deleted_at IS NULL"
             )
             conn.commit()
             _initialized = True
@@ -150,7 +150,7 @@ def beginSegment(meta: dict[str, Any]) -> bool:
             path = _active_dir() / f"seg_{int(time.time() * 1000)}.jsonl"
             handle = open(path, "a", encoding="utf-8")
         except OSError as exc:
-            _log("warning", f"sim_data_store: failed to open segment: {exc}")
+            _log("warning", f"control_data_store: failed to open segment: {exc}")
             return False
         _active_file = handle
         _active_path = path
@@ -159,7 +159,7 @@ def beginSegment(meta: dict[str, Any]) -> bool:
         _active_records = 0
         _active_bytes = 0
         _writeLocked({"type": "meta", **meta})
-    _log("info", f"sim_data_store: segment started ({path.name})")
+    _log("info", f"control_data_store: segment started ({path.name})")
     return True
 
 
@@ -184,7 +184,7 @@ def _writeLocked(obj: dict[str, Any]) -> None:
     except Exception as exc:
         with _stats_lock:
             _stats["write_errors"] += 1
-        _log("warning", f"sim_data_store: write failed: {exc}")
+        _log("warning", f"control_data_store: write failed: {exc}")
 
 
 def flush() -> None:
@@ -234,7 +234,7 @@ def endSegment() -> Optional[int]:
     try:
         _retentionSweep()
     except Exception as exc:
-        _log("warning", f"sim_data_store: retention sweep failed: {exc}")
+        _log("warning", f"control_data_store: retention sweep failed: {exc}")
     return segment_id
 
 
@@ -251,12 +251,12 @@ def _finalizeSegmentFile(
             shutil.copyfileobj(src, dst)
         gz_bytes = gz_tmp.stat().st_size
     except OSError as exc:
-        _log("warning", f"sim_data_store: compress failed for {raw_path.name}: {exc}")
+        _log("warning", f"control_data_store: compress failed for {raw_path.name}: {exc}")
         return None
 
     with _connection() as conn:
         cur = conn.execute(
-            "INSERT INTO sim_data_segments "
+            "INSERT INTO control_data_segments "
             "(created_at, started_at, ended_at, records, bytes, machine_setup, "
             "feeder_mode, classification_mode, autotune_mode, file_path) "
             "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, '')",
@@ -274,18 +274,18 @@ def _finalizeSegmentFile(
         )
         segment_id = int(cur.lastrowid or 0)
         rel_path = f"{segment_id}.jsonl.gz"
-        abs_path = sim_data_dir() / rel_path
+        abs_path = control_data_dir() / rel_path
         try:
             abs_path.parent.mkdir(parents=True, exist_ok=True)
             gz_tmp.rename(abs_path)
             raw_path.unlink(missing_ok=True)
         except OSError as exc:
-            _log("warning", f"sim_data_store: finalize move failed: {exc}")
-            conn.execute("DELETE FROM sim_data_segments WHERE id = ?", (segment_id,))
+            _log("warning", f"control_data_store: finalize move failed: {exc}")
+            conn.execute("DELETE FROM control_data_segments WHERE id = ?", (segment_id,))
             conn.commit()
             return None
         conn.execute(
-            "UPDATE sim_data_segments SET file_path = ? WHERE id = ?",
+            "UPDATE control_data_segments SET file_path = ? WHERE id = ?",
             (rel_path, segment_id),
         )
         conn.commit()
@@ -293,7 +293,7 @@ def _finalizeSegmentFile(
         _stats["segments_closed"] += 1
     _log(
         "info",
-        f"sim_data_store: segment {segment_id} closed "
+        f"control_data_store: segment {segment_id} closed "
         f"({records} records, {gz_bytes / 1024:.0f} KB gzipped)",
     )
     return segment_id
@@ -333,24 +333,24 @@ def recoverOrphanedSegments() -> int:
             continue
         if _finalizeSegmentFile(path, meta, started_at, records, path.stat().st_mtime if path.exists() else time.time()) is not None:
             recovered += 1
-    for stale in sim_data_dir().glob("active/*.jsonl.gz.tmp"):
+    for stale in control_data_dir().glob("active/*.jsonl.gz.tmp"):
         stale.unlink(missing_ok=True)
     if recovered:
-        _log("info", f"sim_data_store: recovered {recovered} orphaned segments")
+        _log("info", f"control_data_store: recovered {recovered} orphaned segments")
     return recovered
 
 
 def _retentionSweep() -> None:
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COALESCE(SUM(bytes), 0) AS total FROM sim_data_segments WHERE deleted_at IS NULL"
+            "SELECT COALESCE(SUM(bytes), 0) AS total FROM control_data_segments WHERE deleted_at IS NULL"
         ).fetchone()
         total = int(row["total"]) if row is not None else 0
         if total <= _RETENTION_MAX_TOTAL_BYTES:
             return
         overage = total - _RETENTION_MAX_TOTAL_BYTES
         rows = conn.execute(
-            "SELECT id, file_path, bytes FROM sim_data_segments WHERE deleted_at IS NULL "
+            "SELECT id, file_path, bytes FROM control_data_segments WHERE deleted_at IS NULL "
             "ORDER BY (synced_at IS NULL) ASC, created_at ASC LIMIT 500"
         ).fetchall()
         now = time.time()
@@ -359,13 +359,13 @@ def _retentionSweep() -> None:
         for r in rows:
             if freed >= overage:
                 break
-            abs_path = sim_data_dir() / str(r["file_path"])
+            abs_path = control_data_dir() / str(r["file_path"])
             try:
                 abs_path.unlink(missing_ok=True)
             except OSError:
                 pass
             conn.execute(
-                "UPDATE sim_data_segments SET deleted_at = ? WHERE id = ?",
+                "UPDATE control_data_segments SET deleted_at = ? WHERE id = ?",
                 (now, int(r["id"])),
             )
             freed += int(r["bytes"] or 0)
@@ -376,7 +376,7 @@ def _retentionSweep() -> None:
             _stats["evicted_files"] += evicted
         _log(
             "info",
-            f"sim_data_store: retention evicted {evicted} segments ({freed / 1024 / 1024:.1f} MB)",
+            f"control_data_store: retention evicted {evicted} segments ({freed / 1024 / 1024:.1f} MB)",
         )
 
 
@@ -400,7 +400,7 @@ def listSegmentsAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
         rows = conn.execute(
             "SELECT id, created_at, started_at, ended_at, records, bytes, machine_setup, "
             "feeder_mode, classification_mode, autotune_mode, deleted_at "
-            "FROM sim_data_segments WHERE id > ? ORDER BY id ASC LIMIT ?",
+            "FROM control_data_segments WHERE id > ? ORDER BY id ASC LIMIT ?",
             (int(after_id), int(limit)),
         ).fetchall()
     out = []
@@ -414,18 +414,18 @@ def listSegmentsAfter(after_id: int, limit: int) -> list[dict[str, Any]]:
 def getSegmentFileById(segment_id: int) -> Optional[Path]:
     with _connection() as conn:
         row = conn.execute(
-            "SELECT file_path, deleted_at FROM sim_data_segments WHERE id = ?",
+            "SELECT file_path, deleted_at FROM control_data_segments WHERE id = ?",
             (int(segment_id),),
         ).fetchone()
     if row is None or row["deleted_at"] is not None or not row["file_path"]:
         return None
-    abs_path = sim_data_dir() / str(row["file_path"])
+    abs_path = control_data_dir() / str(row["file_path"])
     return abs_path if abs_path.is_file() else None
 
 
 def getMaxSegmentId() -> int:
     with _connection() as conn:
-        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM sim_data_segments").fetchone()
+        row = conn.execute("SELECT COALESCE(MAX(id), 0) AS m FROM control_data_segments").fetchone()
     return int(row["m"] or 0)
 
 
@@ -434,7 +434,7 @@ def markSyncedUpTo(max_id: int, synced_at: float) -> None:
         return
     with _connection() as conn:
         conn.execute(
-            "UPDATE sim_data_segments SET synced_at = ? WHERE id <= ? AND synced_at IS NULL",
+            "UPDATE control_data_segments SET synced_at = ? WHERE id <= ? AND synced_at IS NULL",
             (float(synced_at), int(max_id)),
         )
         conn.commit()
@@ -449,7 +449,7 @@ def getStats() -> dict[str, Any]:
         stats["active_bytes"] = _active_bytes if _active_file is not None else 0
     with _connection() as conn:
         row = conn.execute(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total FROM sim_data_segments "
+            "SELECT COUNT(*) AS n, COALESCE(SUM(bytes), 0) AS total FROM control_data_segments "
             "WHERE deleted_at IS NULL"
         ).fetchone()
         stats["live_segments"] = int(row["n"]) if row is not None else 0

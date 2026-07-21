@@ -7,26 +7,26 @@ import unittest
 from pathlib import Path
 
 
-class SimDataStoreTests(unittest.TestCase):
+class ControlDataStoreTests(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         os.environ["LOCAL_STATE_DB_PATH"] = os.path.join(self._tmp.name, "state.sqlite")
         import local_state
-        import sim_data_store
+        import control_data_store
 
         importlib.reload(local_state)
-        importlib.reload(sim_data_store)
-        self.store = sim_data_store
+        importlib.reload(control_data_store)
+        self.store = control_data_store
 
     def tearDown(self) -> None:
         self.store.endSegment()
         os.environ.pop("LOCAL_STATE_DB_PATH", None)
         self._tmp.cleanup()
         import local_state
-        import sim_data_store
+        import control_data_store
 
         importlib.reload(local_state)
-        importlib.reload(sim_data_store)
+        importlib.reload(control_data_store)
 
     def test_record_without_segment_is_noop(self) -> None:
         self.store.record({"type": "state", "ch": 2})

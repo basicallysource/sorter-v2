@@ -78,12 +78,12 @@ def save_channel_crop_file(
     return key
 
 
-def save_sim_data_file(machine_id: str, local_id: int, file: UploadFile) -> str:
+def save_control_data_file(machine_id: str, local_id: int, file: UploadFile) -> str:
     # Deterministic key keyed on the machine's segment id so a re-send
     # overwrites in place. Feeder-dynamics capture segments (gzipped JSONL).
     key = _join_key(
         _safe_path_component(machine_id, "machine id"),
-        "sim_data",
+        "control_data",
         f"{int(local_id)}.jsonl.gz",
     )
     file.file.seek(0)
@@ -92,10 +92,10 @@ def save_sim_data_file(machine_id: str, local_id: int, file: UploadFile) -> str:
 
 
 GZIP_MAGIC = b"\x1f\x8b"
-MAX_SIM_DATA_FILE_SIZE = 100 * 1024 * 1024
+MAX_CONTROL_DATA_FILE_SIZE = 100 * 1024 * 1024
 
 
-def validate_gzip(file: UploadFile, max_size: int = MAX_SIM_DATA_FILE_SIZE) -> None:
+def validate_gzip(file: UploadFile, max_size: int = MAX_CONTROL_DATA_FILE_SIZE) -> None:
     header = file.file.read(2)
     file.file.seek(0)
     if header != GZIP_MAGIC:

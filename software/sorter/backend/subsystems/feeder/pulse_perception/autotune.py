@@ -68,11 +68,11 @@ def noteDispense() -> None:
             _last_dispense_mono = now
             accepted = True
     try:
-        import sim_data_store
+        import control_data_store
 
         # Raw edges included (debounced=False) — they measure detector flicker,
-        # which a simulation model needs to reproduce observation noise.
-        sim_data_store.record(
+        # which a control model needs to see as observation noise.
+        control_data_store.record(
             {
                 "type": "event",
                 "kind": "c3_dispense",
@@ -589,7 +589,7 @@ class FeederAutoTuner:
 
 
 def currentTrialInfo() -> dict[str, Any] | None:
-    """Light snapshot for the sim-data capture stream: which tuner mode is
+    """Light snapshot for the control-data capture stream: which tuner mode is
     active (if any) and the live trial. None when no tuner exists yet."""
     tuner = _tuner
     if tuner is None:

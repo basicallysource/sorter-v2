@@ -7,8 +7,8 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.models import Base
 
 
-class MachineSimDataSegment(Base):
-    """A feeder-dynamics ("sim data") capture segment synced up from a machine.
+class MachineControlDataSegment(Base):
+    """A feeder-dynamics ("control data") capture segment synced up from a machine.
 
     Each segment is a gzipped JSONL file of timestamped records — perception
     piece states (bboxes/COM positions from the vision model), stepper
@@ -17,10 +17,10 @@ class MachineSimDataSegment(Base):
     of the machine context (setup, feeder/classification modes, tuning
     configs, polygons, code version); the columns here are just the summary
     needed to filter segments without opening files. Training data for feeder
-    control / simulation models.
+    control models.
     """
 
-    __tablename__ = "machine_sim_data_segments"
+    __tablename__ = "machine_control_data_segments"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     machine_id = Column(UUID(as_uuid=True), ForeignKey("machines.id", ondelete="CASCADE"), nullable=False)
@@ -44,7 +44,7 @@ class MachineSimDataSegment(Base):
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (
-        UniqueConstraint("machine_id", "local_id", name="uq_machine_sim_data_segments_machine_local"),
-        Index("ix_machine_sim_data_segments_machine_local_id", "machine_id", "local_id"),
-        Index("ix_machine_sim_data_segments_machine_started", "machine_id", "started_at"),
+        UniqueConstraint("machine_id", "local_id", name="uq_machine_control_data_segments_machine_local"),
+        Index("ix_machine_control_data_segments_machine_local_id", "machine_id", "local_id"),
+        Index("ix_machine_control_data_segments_machine_started", "machine_id", "started_at"),
     )

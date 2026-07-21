@@ -189,19 +189,19 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         gc.logger.warning(f"Failed to start channel-crop collector: {exc}")
 
     try:
-        import sim_data_store
-        from perception.transition_capture import SimDataCollector
+        import control_data_store
+        from perception.transition_capture import ControlDataCollector
 
-        sim_data_store.configure(gc.logger)
-        sim_data_store.recoverOrphanedSegments()
-        sim_collector = SimDataCollector(
+        control_data_store.configure(gc.logger)
+        control_data_store.recoverOrphanedSegments()
+        sim_collector = ControlDataCollector(
             perception_service=service, gc=gc, irl_config=irl_config
         )
         sim_collector.start()
-        service.sim_data_collector = sim_collector
-        gc.logger.info("Sim-data (feeder dynamics) capture collector started.")
+        service.control_data_collector = sim_collector
+        gc.logger.info("Control-data (feeder dynamics) capture collector started.")
     except Exception as exc:
-        gc.logger.warning(f"Failed to start sim-data collector: {exc}")
+        gc.logger.warning(f"Failed to start control-data collector: {exc}")
 
 
 def runServer(gc: GlobalConfig) -> None:

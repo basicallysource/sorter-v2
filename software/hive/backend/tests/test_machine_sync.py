@@ -22,7 +22,7 @@ def test_sync_state_starts_empty(client, machine_token):
         "piece_images": {"max_local_id": 0},
         "channel_crops": {"max_local_id": 0},
         "piece_corrections": {"max_local_id": 0},
-        "sim_data_segments": {"max_local_id": 0},
+        "control_data_segments": {"max_local_id": 0},
     }
 
 
@@ -181,7 +181,7 @@ def test_piece_image_rejects_link_match_source(client, machine_token, upload_dir
     assert n == 0
 
 
-def test_sim_data_segment_with_and_without_file(client, machine_token, upload_dir):
+def test_control_data_segment_with_and_without_file(client, machine_token, upload_dir):
     import gzip
 
     payload = gzip.compress(b'{"type":"meta","t":1.0}\n{"type":"state","ch":2}\n')
@@ -197,7 +197,7 @@ def test_sim_data_segment_with_and_without_file(client, machine_token, upload_di
         "autotune_mode": "background",
     }
     r = client.post(
-        "/api/machine/sync/sim-data-segment",
+        "/api/machine/sync/control-data-segment",
         headers=_bearer(machine_token),
         data={"metadata": json.dumps(meta)},
         files={"data": ("5.jsonl.gz", payload, "application/gzip")},
@@ -207,7 +207,7 @@ def test_sim_data_segment_with_and_without_file(client, machine_token, upload_di
 
     # Metadata-only (evicted locally): no file, still recorded.
     r2 = client.post(
-        "/api/machine/sync/sim-data-segment",
+        "/api/machine/sync/control-data-segment",
         headers=_bearer(machine_token),
         data={"metadata": json.dumps({"local_id": 6, "records": 0})},
     )
@@ -216,7 +216,7 @@ def test_sim_data_segment_with_and_without_file(client, machine_token, upload_di
 
     # Non-gzip payload is rejected.
     r3 = client.post(
-        "/api/machine/sync/sim-data-segment",
+        "/api/machine/sync/control-data-segment",
         headers=_bearer(machine_token),
         data={"metadata": json.dumps({"local_id": 7})},
         files={"data": ("7.jsonl.gz", b"not gzip", "application/gzip")},
@@ -224,12 +224,12 @@ def test_sim_data_segment_with_and_without_file(client, machine_token, upload_di
     assert r3.status_code == 400
 
     state = client.get("/api/machine/sync/state", headers=_bearer(machine_token)).json()
-    assert state["sim_data_segments"] == {"max_local_id": 6}
+    assert state["control_data_segments"] == {"max_local_id": 6}
 
-    from app.models.machine_sim_data_segment import MachineSimDataSegment
+    from app.models.machine_control_data_segment import MachineControlDataSegment
     from tests.conftest import TestingSessionLocal
     s: Session = TestingSessionLocal()
-    segments = {seg.local_id: seg for seg in s.query(MachineSimDataSegment).all()}
+    segments = {seg.local_id: seg for seg in s.query(MachineControlDataSegment).all()}
     s.close()
     assert segments[5].data_key and segments[5].evicted_locally is False
     assert segments[5].feeder_mode == "PULSE_PERCEPTION_REV01"

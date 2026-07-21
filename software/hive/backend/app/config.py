@@ -79,6 +79,10 @@ class Settings(BaseSettings):
     # How often the background worker recomputes per-machine dashboard stats
     # (machine_stats_cache). Clamped to a 60s floor in the worker.
     MACHINE_STATS_REFRESH_INTERVAL_MINUTES: int = 60
+    # How often the background worker walks the object store for the admin
+    # server-health page (server_storage_cache). The walk lists every S3 key so
+    # it's slow; a few hours is plenty. Clamped to a 5min floor in the worker.
+    SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 180
     DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None

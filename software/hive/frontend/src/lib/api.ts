@@ -191,8 +191,8 @@ export interface ServerHealth {
 		model_files: StorageBucket;
 		total_bytes: number;
 		total_files: number;
-		computed_at: number;
-		cached: boolean;
+		computed_at: number | null;
+		pending: boolean;
 	};
 	database: {
 		total_bytes: number | null;

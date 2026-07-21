@@ -125,6 +125,24 @@ class FeederAutotuneSettingsTests(unittest.TestCase):
         self.assertEqual(settings["max_double_drop_rate"], 0.02)
 
 
+class FeederAutotuneDispenseDebounceTests(unittest.TestCase):
+    def test_flicker_edges_are_debounced(self) -> None:
+        from subsystems.feeder.pulse_perception import autotune
+
+        with autotune._dispense_lock:
+            autotune._dispense_count = 0
+            autotune._last_dispense_mono = 0.0
+        start = autotune.dispenseCount()
+        autotune.noteDispense()
+        autotune.noteDispense()
+        autotune.noteDispense()
+        self.assertEqual(autotune.dispenseCount() - start, 1)
+        with autotune._dispense_lock:
+            autotune._last_dispense_mono = 0.0
+        autotune.noteDispense()
+        self.assertEqual(autotune.dispenseCount() - start, 2)
+
+
 class FeederAutotuneStorageTests(unittest.TestCase):
     def test_run_and_trial_roundtrip(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

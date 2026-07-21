@@ -48,12 +48,23 @@ _TICK_S = 0.2
 
 _dispense_lock = threading.Lock()
 _dispense_count = 0
+_last_dispense_mono = 0.0
+
+# The dispense signal is a falling edge of C3's per-frame in_exit boolean; a
+# 1-2 frame detector dropout while a piece sits at the exit edge fires a
+# phantom edge. Real dispenses are >= 1.5s apart (C3 is frozen by the
+# post-dispense admission window), so anything faster is detector flicker.
+# Kitbash 2026-07-21: ~75 counted vs 64 actually distributed in 17min.
+_DISPENSE_DEBOUNCE_S = 1.2
 
 
 def noteDispense() -> None:
-    global _dispense_count
+    global _dispense_count, _last_dispense_mono
+    now = time.monotonic()
     with _dispense_lock:
-        _dispense_count += 1
+        if now - _last_dispense_mono >= _DISPENSE_DEBOUNCE_S:
+            _dispense_count += 1
+            _last_dispense_mono = now
     _ensureStartupRecovery()
     _maybeResumeBackground()
 

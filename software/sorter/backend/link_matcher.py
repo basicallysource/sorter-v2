@@ -363,6 +363,18 @@ def _preprocessBgr(bgr, size: int):
     return arr.transpose(2, 0, 1)
 
 
+def _configuredThreshold(model: LoadedLinkModel) -> float:
+    # The machine setting wins over the threshold baked into the model at
+    # publish time; the baked value is only the fallback if the config read
+    # fails.
+    try:
+        from toml_config import getLinkMatchingConfig
+
+        return float(getLinkMatchingConfig()["min_confidence"])
+    except Exception:
+        return model.predict_threshold
+
+
 def scoreCandidates(
     gc: Any,
     model: LoadedLinkModel,
@@ -445,11 +457,12 @@ def scoreCandidates(
         return None
 
     flat = np.asarray(probs).reshape(-1)
+    threshold = _configuredThreshold(model)
     scored: list[dict[str, Any]] = []
     for cand, p in zip(usable, flat):
         entry = dict(cand)
         entry["model_score"] = round(float(p), 4)
-        entry["model_same"] = bool(float(p) >= model.predict_threshold)
+        entry["model_same"] = bool(float(p) >= threshold)
         scored.append(entry)
     scored.sort(key=lambda c: c["model_score"], reverse=True)
     return scored

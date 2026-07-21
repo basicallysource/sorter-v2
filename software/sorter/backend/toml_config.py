@@ -852,16 +852,27 @@ def migrateFromDataJson() -> None:
 # ---------------------------------------------------------------------------
 
 
+DEFAULT_LINK_MIN_CONFIDENCE = 0.95
+
+
 def getLinkMatchingConfig() -> dict[str, Any]:
     # Off by default: the matcher is experimental and costs an ONNX pass per
     # classified piece. ``algorithm`` is an installed piece_link model's
     # local_id; empty means "use whichever one is installed".
+    # ``min_confidence`` overrides the threshold baked into the model at
+    # publish time (0.5 for link-v3) — fused/preselected picks must score at
+    # or above it.
     config = _read_toml()
     section = config.get("link_matching")
     section = section if isinstance(section, dict) else {}
+    raw = section.get("min_confidence")
+    min_confidence = (
+        float(raw) if isinstance(raw, (int, float)) else DEFAULT_LINK_MIN_CONFIDENCE
+    )
     return {
         "enabled": bool(section.get("enabled", False)),
         "algorithm": str(section.get("algorithm") or ""),
+        "min_confidence": min(max(min_confidence, 0.0), 1.0),
     }
 
 
@@ -871,6 +882,11 @@ def setLinkMatchingConfig(updates: dict[str, Any]) -> dict[str, Any]:
         valid["enabled"] = bool(updates.get("enabled"))
     if "algorithm" in updates:
         valid["algorithm"] = str(updates.get("algorithm") or "")
+    if "min_confidence" in updates:
+        value = float(updates.get("min_confidence"))  # type: ignore[arg-type]
+        if not (0.0 <= value <= 1.0):
+            raise ValueError("min_confidence must be between 0 and 1")
+        valid["min_confidence"] = value
 
     def updater(config: dict[str, Any]) -> None:
         existing = config.get("link_matching")

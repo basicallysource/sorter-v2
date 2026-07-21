@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { getBackendHttpBase } from '$lib/backend';
-	import { Button, Alert } from '$lib/components/primitives';
+	import { Button, Alert, Input } from '$lib/components/primitives';
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 
 	type InstalledLinkModel = {
@@ -12,6 +12,7 @@
 
 	let enabled = $state(false);
 	let algorithm = $state('');
+	let minConfidence = $state(0.95);
 	let installed = $state<InstalledLinkModel[]>([]);
 	let metaFeatures = $state('');
 	let loading = $state(true);
@@ -36,6 +37,7 @@
 			const data = await res.json();
 			enabled = Boolean(data.config?.enabled);
 			algorithm = String(data.config?.algorithm ?? '');
+			minConfidence = Number(data.config?.min_confidence ?? 0.95);
 			installed = data.installed ?? [];
 			metaFeatures = String(data.meta_features ?? '');
 			loaded = true;
@@ -51,15 +53,17 @@
 		error = null;
 		saved = false;
 		try {
+			const min_confidence = Math.min(Math.max(Number(minConfidence) || 0, 0), 1);
 			const res = await fetch(`${getBackendHttpBase()}/api/tuning/link-matching`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
-				body: JSON.stringify({ enabled, algorithm })
+				body: JSON.stringify({ enabled, algorithm, min_confidence })
 			});
 			if (!res.ok) throw new Error(`HTTP ${res.status}`);
 			const data = await res.json();
 			enabled = Boolean(data.config?.enabled);
 			algorithm = String(data.config?.algorithm ?? '');
+			minConfidence = Number(data.config?.min_confidence ?? 0.95);
 			saved = true;
 			setTimeout(() => (saved = false), 3000);
 		} catch (e: any) {
@@ -143,6 +147,24 @@
 					</span>
 				</span>
 			</label>
+
+			<div class="mt-4 flex flex-col gap-1">
+				<label for="link-min-confidence" class="text-sm font-medium text-text">
+					Minimum confidence
+				</label>
+				<span class="text-sm text-text-muted">
+					Crops must score at or above this (0–1) to count as the same piece — below it they
+					are still shown on the piece detail page, just unchecked and never fused into
+					classification. Overrides the cutoff baked into the model (0.5 for link-v3).
+				</span>
+				<Input
+					id="link-min-confidence"
+					type="number"
+					bind:value={minConfidence}
+					disabled={!hasModel}
+					class="max-w-32"
+				/>
+			</div>
 		</SectionCard>
 
 		{#if hasModel}

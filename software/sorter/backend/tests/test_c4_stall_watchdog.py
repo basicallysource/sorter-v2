@@ -45,6 +45,24 @@ class FakePerception:
         return SimpleNamespace(n_pieces=self.n_pieces)
 
 
+class FakeStepper:
+    def __init__(self) -> None:
+        self.moves: list[float] = []
+        self.enabled = False
+        self.stopped = True
+
+    def set_speed_limits(self, lo: int, hi: int) -> None:
+        pass
+
+    def move_degrees_blocking(self, degrees: float, timeout_ms: int = 5000) -> bool:
+        self.moves.append(float(degrees))
+        return True
+
+    def move_degrees(self, degrees: float) -> bool:
+        self.moves.append(float(degrees))
+        return True
+
+
 class FakeTwoPiece:
     def __init__(self) -> None:
         self.last_progress_at = time.monotonic()
@@ -86,12 +104,19 @@ def mkWatchdogSm(n_pieces: int = 1) -> ClassificationChannelStateMachine:
     sm.gc = SimpleNamespace(
         runtime_stats=FakeRuntimeStats(),
         perception_service=FakePerception(n_pieces),
+        logger=logging.getLogger("test_c4_stall_watchdog"),
     )
     sm.logger = logging.getLogger("test_c4_stall_watchdog")
+    sm.irl = SimpleNamespace(
+        c_channel_1_rotor_stepper=FakeStepper(),
+        c_channel_2_rotor_stepper=FakeStepper(),
+        c_channel_3_rotor_stepper=FakeStepper(),
+    )
     sm._mode = ClassificationChannelMode.TWO_PIECE_STATE_MACHINE_REV01
     sm._two_piece = FakeTwoPiece()
     sm._last_progress_at = time.monotonic()
     sm._stall_incident_raised = False
+    sm._phantom_nudge_attempts = 0
     sm._stall_resolve_requested = False
     return sm
 
@@ -191,19 +216,60 @@ def test_automatic_mode_clears_channel_without_incident(machine_params_env) -> N
     assert not sm._stall_incident_raised
 
 
-def test_automatic_mode_falls_back_to_incident_when_clear_fails(machine_params_env) -> None:
+def test_automatic_mode_nudges_upstream_feeder_before_incident(machine_params_env) -> None:
+    from subsystems.classification_channel.state_machine import _PHANTOM_NUDGE_MAX_ATTEMPTS
+
     setExitStuckMode("automatic")
     sm = mkWatchdogSm(n_pieces=1)
-    stallOut(sm)
 
+    # Rotating the platter can't clear it (phantom hung at the feeder hand-off):
+    # each stall window nudges the upstream feeder and returns to normal flow
+    # instead of bothering the operator.
+    for attempt in range(1, _PHANTOM_NUDGE_MAX_ATTEMPTS + 1):
+        stallOut(sm)
+        sm._checkStall(time.monotonic())
+        assert sm.gc.runtime_stats.activeIncident() is None
+        assert sm._phantom_nudge_attempts == attempt
+
+    # The rotor adjacent to the classification channel (C3 by default) was
+    # nudged once per attempt — never the platter's own carousel.
+    assert len(sm.irl.c_channel_3_rotor_stepper.moves) == _PHANTOM_NUDGE_MAX_ATTEMPTS
+    assert sm.irl.c_channel_1_rotor_stepper.moves == []
+
+    # Budget exhausted: the next stall escalates to the operator incident.
+    stallOut(sm)
     sm._checkStall(time.monotonic())
 
-    assert sm._two_piece.auto_clear_calls == 1
     active = sm.gc.runtime_stats.activeIncident()
     assert active is not None
     assert active["kind"] == C4_EXIT_STUCK_INCIDENT_KIND
     assert active["auto_clear_failed"] is True
     assert active["auto_clear_moved_deg"] == 720.0
+    assert sm._stall_incident_raised
+    # The platter auto-clear ran every window (each nudge attempt + escalation).
+    assert sm._two_piece.auto_clear_calls == _PHANTOM_NUDGE_MAX_ATTEMPTS + 1
+    # Reset once handed to the operator: a later stall gets a fresh nudge budget.
+    assert sm._phantom_nudge_attempts == 0
+
+
+def test_phantom_nudge_recovers_without_incident(machine_params_env) -> None:
+    setExitStuckMode("automatic")
+    sm = mkWatchdogSm(n_pieces=1)
+    stallOut(sm)
+
+    sm._checkStall(time.monotonic())
+    # Platter clear failed -> feeder nudged, no incident raised.
+    assert sm.gc.runtime_stats.activeIncident() is None
+    assert sm._phantom_nudge_attempts == 1
+    assert len(sm.irl.c_channel_3_rotor_stepper.moves) == 1
+
+    # The nudge freed (or seated) the piece: the channel now reads empty. The
+    # next window re-arms, forgets the nudge budget, and never raises anything.
+    sm.gc.perception_service.n_pieces = 0
+    sm._checkStall(time.monotonic())
+
+    assert sm.gc.runtime_stats.activeIncident() is None
+    assert sm._phantom_nudge_attempts == 0
 
 
 def test_off_mode_never_raises(machine_params_env) -> None:

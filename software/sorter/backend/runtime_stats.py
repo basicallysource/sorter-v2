@@ -460,6 +460,44 @@ class RuntimeStatsCollector:
             except Exception:
                 pass
 
+    def recordAutoResolvedIncident(
+        self,
+        incident: dict[str, Any],
+        *,
+        resolved_by: str = "auto",
+    ) -> None:
+        """Durably log an incident the machine detected and cleared itself before
+        it ever needed the operator, so it never occupied the single active slot.
+
+        The active-incident slot is the one operator-facing hold blocking flow
+        right now; auto-recovered incidents (a C4 stall the watchdog rotated
+        clear, a feeder jam an upstream nudge freed) come and go without ever
+        landing there, so the slot-coupled openIncident path never saw them.
+        This opens and immediately resolves a row in the same durable log the
+        dashboard reads — recording that the incident happened and how it
+        resolved — without touching the active slot.
+        ``triggered_at``/``resolved_at`` in the payload drive the recorded
+        duration; both default to now (zero duration) when the publisher does
+        not supply the episode's real span."""
+        payload = dict(incident)
+        now = float(time.time())
+        payload["updated_at"] = now
+        payload.setdefault("triggered_at", now)
+        if not payload.get("source"):
+            payload["source"] = self._deriveIncidentSource()
+        resolved_at = payload.get("resolved_at")
+        resolved_at = float(resolved_at) if isinstance(resolved_at, (int, float)) else now
+        self._last_updated_at = now
+        try:
+            import incident_records
+
+            row_id = incident_records.openIncident(payload)
+            incident_records.resolveIncident(
+                row_id, resolved_by=resolved_by, resolved_at=resolved_at
+            )
+        except Exception:
+            pass
+
     def observeHandoffGhostReject(self, **_meta: Any) -> None:
         """Increment the cumulative cross-camera ghost-reject counter.
 

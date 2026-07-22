@@ -8,6 +8,7 @@ from subsystems.feeder.incidents import FEEDER_JAM_INCIDENT_KIND
 class _FakeRuntimeStats:
     def __init__(self) -> None:
         self._active = None
+        self.auto_resolved: list[dict] = []
 
     def setActiveIncident(self, incident: dict) -> None:
         self._active = dict(incident)
@@ -21,6 +22,9 @@ class _FakeRuntimeStats:
         if kind is not None and self._active.get("kind") != kind:
             return
         self._active = None
+
+    def recordAutoResolvedIncident(self, incident: dict, *, resolved_by="auto") -> None:
+        self.auto_resolved.append({**incident, "resolved_by": resolved_by})
 
 
 class _FakeLogger:
@@ -139,6 +143,47 @@ class FeederStuckWatchdogTests(unittest.TestCase):
         self._observe(wd, gc, up, cfg, pos=50.0, wants=True, now=6.0)
         self.assertEqual(len(up.moves), 2)
         self.assertIsNone(gc.runtime_stats.activeIncident())
+
+    def test_nudge_that_frees_piece_is_recorded_as_auto_resolved(self) -> None:
+        gc = _FakeGC()
+        up = _FakeStepper()
+        wd = FeederStuckWatchdog(gc)
+        cfg = _cfg()
+
+        # Stall, nudge once, then the piece advances (the nudge freed it).
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=0.0)
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=2.0)
+        self.assertEqual(len(up.moves), 1)
+        self._observe(wd, gc, up, cfg, pos=30.0, wants=True, now=3.0)
+
+        # Never escalated to an operator hold, but the freed jam is logged.
+        self.assertIsNone(gc.runtime_stats.activeIncident())
+        recorded = gc.runtime_stats.auto_resolved
+        self.assertEqual(len(recorded), 1)
+        row = recorded[0]
+        self.assertEqual(row["kind"], FEEDER_JAM_INCIDENT_KIND)
+        self.assertEqual(row["status"], "auto_resolved")
+        self.assertEqual(row["channel_label"], "C2")
+        self.assertEqual(row["nudge_attempts"], 1)
+        self.assertEqual(row["resolved_by"], "auto")
+        self.assertGreater(row["resolved_at"], row["triggered_at"])
+
+    def test_escalated_jam_is_not_double_logged_as_auto_resolved(self) -> None:
+        gc = _FakeGC()
+        up = _FakeStepper()
+        wd = FeederStuckWatchdog(gc)
+        cfg = _cfg()
+
+        # Drive to an operator jam, then the operator frees it (piece advances).
+        self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=0.0)
+        for t in (2.0, 4.0, 6.0, 8.0):
+            self._observe(wd, gc, up, cfg, pos=40.0, wants=True, now=t)
+        self.assertEqual(gc.runtime_stats.activeIncident()["kind"], FEEDER_JAM_INCIDENT_KIND)
+        self._observe(wd, gc, up, cfg, pos=30.0, wants=True, now=10.0)
+
+        # The active-slot clear path owns that resolution; no auto-resolved row.
+        self.assertIsNone(gc.runtime_stats.activeIncident())
+        self.assertEqual(gc.runtime_stats.auto_resolved, [])
 
     def test_disabled_watchdog_does_nothing(self) -> None:
         gc = _FakeGC()

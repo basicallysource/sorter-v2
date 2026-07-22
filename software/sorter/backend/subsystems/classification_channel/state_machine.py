@@ -12,6 +12,7 @@ from subsystems.classification_channel.incidents import (
     c4_stall_incident_active,
     clear_c4_exit_stuck_incident,
     publish_c4_exit_stuck_incident,
+    record_c4_exit_stuck_auto_resolved,
 )
 
 # General no-progress watchdog: if a piece is physically on the classification
@@ -287,6 +288,12 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # Only fall through to the manual incident if that didn't clear it.
         auto_result = self._tryAutoResolveStall(stalled_ms)
         if auto_result is not None and auto_result.cleared:
+            record_c4_exit_stuck_auto_resolved(
+                self.gc,
+                stalled_ms=stalled_ms,
+                stalled_state=self._watchdogStateLabel(),
+                moved_deg=auto_result.output_deg_moved,
+            )
             return
 
         published = publish_c4_exit_stuck_incident(

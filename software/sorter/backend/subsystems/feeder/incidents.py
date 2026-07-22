@@ -103,6 +103,57 @@ def publish_feeder_jam_incident(
     return True
 
 
+def record_feeder_jam_auto_resolved(
+    gc: Any,
+    *,
+    channel_id: int,
+    channel_label: str,
+    upstream_label: str,
+    nudge_attempts: int,
+    no_progress_ms: float = 0.0,
+) -> None:
+    """Log a feeder jam the automatic watchdog freed with upstream nudges — the
+    piece started advancing again before the nudges were exhausted, so it never
+    escalated to an operator-facing hold. Recorded as a resolved incident (never
+    occupies the active slot) so the durable log and the dashboard still reflect
+    the jam and that nudging cleared it. Only called after nudges actually ran in
+    automatic mode, so there is no off-mode gate here. ``no_progress_ms`` is the
+    monotonic span the piece was stuck; it is folded back from wall-clock now so
+    the durable row's triggered_at/resolved_at stay on the same clock."""
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "recordAutoResolvedIncident"):
+        return
+    now = time.time()
+    channel = f"c{int(channel_id)}"
+    runtime_stats.recordAutoResolvedIncident(
+        {
+            "kind": FEEDER_JAM_INCIDENT_KIND,
+            "source_kind": FEEDER_JAM_SOURCE_KIND,
+            "source": "feeder_stuck_watchdog",
+            "severity": "critical",
+            "status": "auto_resolved",
+            "awaiting_operator": False,
+            "scope": "feeder",
+            "channel": channel,
+            "role": f"c_channel_{int(channel_id)}",
+            "channel_label": str(channel_label),
+            "upstream_label": str(upstream_label),
+            "nudge_attempts": int(nudge_attempts),
+            "no_progress_ms": float(no_progress_ms),
+            "triggered_at": now - max(0.0, float(no_progress_ms)) / 1000.0,
+            "resolved_at": now,
+            "rule": "downstream_channel_pulsing_but_piece_not_advancing",
+            "resolution": "auto_freed_by_upstream_nudge",
+            "operator_message": (
+                f"{channel_label} could not advance a piece hung at the "
+                f"{upstream_label} → {channel_label} hand-off; nudging {upstream_label} "
+                f"{int(nudge_attempts)}× freed it and the feeder resumed on its own."
+            ),
+        },
+        resolved_by="auto",
+    )
+
+
 def clear_feeder_jam_incident(gc: Any, *, channel_label: str | None = None) -> None:
     if not feeder_jam_incident_active(gc, channel_label=channel_label):
         return

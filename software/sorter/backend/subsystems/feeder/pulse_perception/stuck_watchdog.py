@@ -8,6 +8,7 @@ from subsystems.feeder.incidents import (
     clear_feeder_jam_incident,
     feeder_jam_incident_active,
     publish_feeder_jam_incident,
+    record_feeder_jam_auto_resolved,
 )
 
 # Motor-shaft to channel-output gear ratio. One output (LEGO wheel) degree needs
@@ -33,6 +34,10 @@ class _ChannelStuckState:
     # Upstream nudges already spent on the CURRENT stall. Reset on progress, on
     # the piece leaving, or once the operator resolves the raised jam.
     nudge_attempts: int
+    # Monotonic time the current stall was first detected as stuck (the moment of
+    # the first nudge). Drives the recorded duration of an auto-freed jam. None
+    # until the first nudge; cleared on every _reset.
+    stall_started_at: Optional[float] = None
 
 
 class FeederStuckWatchdog:
@@ -108,7 +113,12 @@ class FeederStuckWatchdog:
             return
 
         if not piece_present:
-            # Channel clear -> nothing to be stuck on.
+            # Channel clear -> nothing to be stuck on. If nudges preceded the
+            # piece leaving, the nudge pushed it the rest of the way off: an
+            # auto-resolved jam, same as forward progress.
+            self._record_auto_resolved_if_nudged(
+                tracker, channel_id, channel_label, upstream_label, now
+            )
             self._reset(channel_id, now, leading_pos_deg)
             return
 
@@ -119,10 +129,16 @@ class FeederStuckWatchdog:
 
         advanced = tracker.ref_pos_deg - float(leading_pos_deg)
         if advanced >= cfg.stuck_progress_epsilon_deg:
-            # Real forward progress: the channel is doing its job.
+            # Real forward progress: the channel is doing its job. If nudges got
+            # it here, the automatic watchdog just freed a jam without ever
+            # escalating — record it so it lands in the durable log / dashboard.
+            self._record_auto_resolved_if_nudged(
+                tracker, channel_id, channel_label, upstream_label, now
+            )
             tracker.ref_pos_deg = leading_pos_deg
             tracker.last_progress_at = now
             tracker.nudge_attempts = 0
+            tracker.stall_started_at = None
             return
 
         if not wants_advance:
@@ -141,6 +157,10 @@ class FeederStuckWatchdog:
             cfg.stuck_max_nudge_attempts
         ):
             moved = self._nudge_upstream(upstream_stepper, cfg)
+            if tracker.nudge_attempts == 0:
+                # First nudge of this stall: remember when it started (monotonic)
+                # so an auto-freed jam records its real duration.
+                tracker.stall_started_at = now - stalled_ms / 1000.0
             tracker.nudge_attempts += 1
             tracker.last_progress_at = now
             tracker.ref_pos_deg = leading_pos_deg
@@ -174,6 +194,34 @@ class FeederStuckWatchdog:
             )
         # Keep ref so the active-incident branch can detect the piece moving once
         # the operator frees it; don't reset the clock (incident now owns it).
+
+    def _record_auto_resolved_if_nudged(
+        self,
+        tracker: _ChannelStuckState,
+        channel_id: int,
+        channel_label: str,
+        upstream_label: str,
+        now: float,
+    ) -> None:
+        if tracker.nudge_attempts <= 0:
+            return
+        if feeder_jam_incident_active(self.gc, channel_label=channel_label):
+            # An operator-facing jam is active for this channel; its own clear
+            # path records the resolution. Don't double-log.
+            return
+        no_progress_ms = (
+            (now - tracker.stall_started_at) * 1000.0
+            if tracker.stall_started_at is not None
+            else 0.0
+        )
+        record_feeder_jam_auto_resolved(
+            self.gc,
+            channel_id=channel_id,
+            channel_label=channel_label,
+            upstream_label=upstream_label,
+            nudge_attempts=tracker.nudge_attempts,
+            no_progress_ms=no_progress_ms,
+        )
 
     def _nudge_upstream(
         self, upstream_stepper: Any, cfg: PulsePerceptionConfig

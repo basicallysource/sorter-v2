@@ -101,7 +101,7 @@
 	function resolvedByLabel(value: string | null): string {
 		if (value === 'operator') return 'Operator';
 		if (value === 'superseded') return 'Superseded';
-		if (value === 'system') return 'Auto';
+		if (value === 'auto' || value === 'system') return 'Auto';
 		return '—';
 	}
 

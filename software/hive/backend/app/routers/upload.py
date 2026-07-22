@@ -11,6 +11,7 @@ from app.deps import get_current_machine, get_db
 from app.errors import APIError
 from app.models.machine import Machine
 from app.models.sample import Sample
+from app.models.sample_channel_geometry import SampleChannelGeometry
 from app.models.upload_session import UploadSession
 from app.schemas.sample import SampleResponse
 from app.schemas.upload import UploadMetadata
@@ -37,6 +38,90 @@ def _parse_upload_metadata(metadata: str) -> UploadMetadata:
         return UploadMetadata.model_validate(json.loads(metadata))
     except (json.JSONDecodeError, Exception) as exc:
         raise APIError(400, f"Invalid metadata: {exc}", "INVALID_METADATA") from exc
+
+
+def _num(value) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    return None
+
+
+def _int(value) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return int(value)
+    return None
+
+
+def _build_channel_geometry(meta: UploadMetadata) -> SampleChannelGeometry | None:
+    """Parse the machine's per-sample channel geometry into typed columns. The
+    wire shape mirrors the sorter's channel_polygons blob for one source_role:
+    polygon as a list of [x, y] points, center as [cx, cy], radii/angles flat,
+    and arc_zones as a list of {zone_type, start/end outer+inner angles}.
+    Returns None when the payload carries no usable geometry.
+    """
+    geom = meta.channel_geometry
+    if not isinstance(geom, dict):
+        return None
+
+    polygon_x: list[float] | None = None
+    polygon_y: list[float] | None = None
+    polygon = geom.get("polygon")
+    if isinstance(polygon, list) and polygon:
+        xs: list[float] = []
+        ys: list[float] = []
+        for point in polygon:
+            if isinstance(point, (list, tuple)) and len(point) >= 2:
+                x = _num(point[0])
+                y = _num(point[1])
+                if x is not None and y is not None:
+                    xs.append(x)
+                    ys.append(y)
+        if xs:
+            polygon_x, polygon_y = xs, ys
+
+    center = geom.get("center")
+    center_x = center_y = None
+    if isinstance(center, (list, tuple)) and len(center) >= 2:
+        center_x = _num(center[0])
+        center_y = _num(center[1])
+
+    source_role = geom.get("source_role")
+    reverse = geom.get("reverse")
+    row = SampleChannelGeometry(
+        source_role=source_role if isinstance(source_role, str) else meta.source_role,
+        frame_width=_int(geom.get("frame_width")),
+        frame_height=_int(geom.get("frame_height")),
+        polygon_x=polygon_x,
+        polygon_y=polygon_y,
+        center_x=center_x,
+        center_y=center_y,
+        inner_radius=_num(geom.get("inner_radius")),
+        outer_radius=_num(geom.get("outer_radius")),
+        exit_outer_radius=_num(geom.get("exit_outer_radius")),
+        section_zero_angle_deg=_num(geom.get("section_zero_angle_deg")),
+        reverse=reverse if isinstance(reverse, bool) else None,
+    )
+
+    arc_zones = geom.get("arc_zones")
+    if isinstance(arc_zones, list):
+        for zone in arc_zones:
+            if not isinstance(zone, dict):
+                continue
+            zone_type = zone.get("zone_type")
+            if zone_type not in ("drop", "exit", "precise"):
+                continue
+            setattr(row, f"{zone_type}_start_outer_angle", _num(zone.get("start_outer_angle")))
+            setattr(row, f"{zone_type}_end_outer_angle", _num(zone.get("end_outer_angle")))
+            setattr(row, f"{zone_type}_start_inner_angle", _num(zone.get("start_inner_angle")))
+            setattr(row, f"{zone_type}_end_inner_angle", _num(zone.get("end_inner_angle")))
+
+    if polygon_x is None and center_x is None and row.outer_radius is None:
+        return None
+    return row
 
 
 def _get_or_create_upload_session(db: Session, machine: Machine, meta: UploadMetadata) -> UploadSession:
@@ -296,6 +381,7 @@ def upload_sample(
             "detection_score": meta.detection_score,
         },
     )
+    sample.channel_geometry = _build_channel_geometry(meta)
     db.add(sample)
 
     session.sample_count += 1

@@ -1,5 +1,5 @@
-from sqlalchemy import JSON
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, Float
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -8,6 +8,10 @@ class Base(DeclarativeBase):
 
 
 JSON_VARIANT = JSON().with_variant(JSONB, "postgresql")
+# A real Postgres float[] in production; JSON only as the sqlite-test shim (the
+# test suite runs on sqlite via create_all, which has no ARRAY type). Mirrors
+# JSON_VARIANT — the production column is a genuine typed array, not JSONB.
+FLOAT_ARRAY_VARIANT = ARRAY(Float()).with_variant(JSON(), "sqlite")
 
 
 from app.models.user import User  # noqa: E402, F401
@@ -16,6 +20,7 @@ from app.models.machine import Machine  # noqa: E402, F401
 from app.models.upload_session import UploadSession  # noqa: E402, F401
 from app.models.sample import Sample  # noqa: E402, F401
 from app.models.sample_review import SampleReview  # noqa: E402, F401
+from app.models.sample_channel_geometry import SampleChannelGeometry  # noqa: E402, F401
 from app.models.sorting_profile import SortingProfile  # noqa: E402, F401
 from app.models.sorting_profile_version import SortingProfileVersion  # noqa: E402, F401
 from app.models.sorting_profile_library_entry import SortingProfileLibraryEntry  # noqa: E402, F401

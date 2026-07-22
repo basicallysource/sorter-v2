@@ -612,8 +612,12 @@ class HiveUploader:
             "preferred_camera",
             "archive_mode",
             "sample_payload",
+            "channel_geometry",
         }
         extra_metadata = {key: value for key, value in metadata.items() if key not in skip_keys and value is not None}
+        channel_geometry = metadata.get("channel_geometry")
+        if not isinstance(channel_geometry, dict):
+            channel_geometry = None
         sample_payload = metadata.get("sample_payload")
         if not isinstance(sample_payload, dict):
             sample_payload = build_sample_payload(
@@ -663,6 +667,7 @@ class HiveUploader:
                     "detection_score": _safe_float(metadata.get("detection_score")),
                     "sample_payload": sample_payload,
                     "extra_metadata": extra_metadata or None,
+                    "channel_geometry": channel_geometry,
                 }
                 if operation == "update":
                     client.updateSample(**request_kwargs)

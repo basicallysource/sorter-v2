@@ -259,6 +259,7 @@ class HiveTelemetryClient:
         detection_score: float | None = None,
         sample_payload: dict[str, Any] | None = None,
         extra_metadata: dict[str, Any] | None = None,
+        channel_geometry: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         # A sample IS a detection image plus its detection metadata, so the
         # whole request rides on detection_images; full-frame attachments are
@@ -284,6 +285,7 @@ class HiveTelemetryClient:
             ("detection_count", detection_count),
             ("detection_score", detection_score),
             ("sample_payload", sample_payload),
+            ("channel_geometry", channel_geometry),
         ]:
             if value is not None:
                 metadata[key] = value

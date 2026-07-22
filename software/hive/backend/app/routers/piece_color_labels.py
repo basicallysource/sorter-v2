@@ -1586,10 +1586,13 @@ def delete_piece_crop_link(
 
 # --- Reject a piece's bbox sample --------------------------------------------
 #
-# Flags the sample itself as unusable (as opposed to labeling color / same-piece).
-# Rejected pieces drop out of the rejecter's queue (see list_pieces).
-
-_REJECT_REASONS = {"no_piece", "multiple_pieces", "not_lego"}
+# Flags an attribute of the sample itself (as opposed to labeling color /
+# same-piece). Every code here currently counts as a reject, so a flagged piece
+# drops out of the rejecter's queue (see list_pieces) — the sample data is kept,
+# it's just handled. "assembly" (parts built into one unit) and "pieces_entangled"
+# (separate parts stuck together) are reject reasons too. "blurry" is sorter-only
+# and not offered in the Hive labeler UI, so it stays out of this set.
+_REJECT_REASONS = {"no_piece", "multiple_pieces", "not_lego", "assembly", "pieces_entangled"}
 
 
 class RejectionPayload(BaseModel):

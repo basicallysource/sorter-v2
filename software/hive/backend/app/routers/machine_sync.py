@@ -152,8 +152,8 @@ class PieceCorrectionIn(BaseModel):
     part_feedback_submitted: bool = False
     color_feedback_submitted: bool = False
     updated_at: float | None = None
-    # Operator-flagged capture issues (no_piece / multiple_pieces / not_lego) —
-    # same reason codes as piece_rejections.reasons.
+    # Operator-flagged sample attributes (no_piece / multiple_pieces / not_lego /
+    # assembly / pieces_entangled / blurry) — same codes as piece_rejections.reasons.
     rejection_reasons: list[str] | None = None
 
 

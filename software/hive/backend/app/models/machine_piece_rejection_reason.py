@@ -14,10 +14,11 @@ class MachinePieceRejectionReason(Base):
 
     Synced from the machine's piece_corrections stream, which carries the whole
     reason set per edit and is applied replace-all here. Reason codes are
-    free-form slugs; the first three ("no_piece" / "multiple_pieces" /
-    "not_lego") match the piece_rejections vocabulary, so an operator's verdict
-    and a Hive labeler's verdict mean the same thing. Distinct from
-    PieceRejection: that one is per-labeler and set on Hive.
+    free-form slugs; most ("no_piece" / "multiple_pieces" / "not_lego" /
+    "assembly" / "pieces_entangled") match the piece_rejections vocabulary, so an
+    operator's verdict and a Hive labeler's verdict mean the same thing
+    ("blurry" is Sorter-only). Distinct from PieceRejection: that one is
+    per-labeler and set on Hive.
     """
 
     __tablename__ = "machine_piece_rejection_reasons"

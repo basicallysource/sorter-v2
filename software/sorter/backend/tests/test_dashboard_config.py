@@ -30,6 +30,7 @@ class DashboardConfigTests(unittest.TestCase):
 
         self.assertFalse(config["show_sample_capture"])
         self.assertEqual("automatic", config["incident_handling"]["exit_stuck"])
+        self.assertEqual("automatic", config["incident_handling"]["feeder_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_chute_jam"])
         self.assertEqual("manual", config["incident_handling"]["distribution_servo_bus_offline"])
         self.assertEqual("manual", config["incident_handling"]["distribution_no_bin_available"])
@@ -37,6 +38,7 @@ class DashboardConfigTests(unittest.TestCase):
         self.assertEqual(
             [
                 "exit_stuck",
+                "feeder_jam",
                 "distribution_chute_jam",
                 "distribution_servo_bus_offline",
                 "distribution_no_bin_available",

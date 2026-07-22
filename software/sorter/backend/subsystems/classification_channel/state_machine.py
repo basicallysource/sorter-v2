@@ -29,13 +29,6 @@ from subsystems.classification_channel.incidents import (
 # dwell (rotate/classify/discharge all transition within a few seconds).
 _STALL_INCIDENT_MS = 30000.0
 _STALL_AUTO_CLEAR_MAX_TURNS = 2
-# Phantom drop-zone recovery. When rotating the platter can't clear a stall, the
-# piece is almost always hung at the feeder->classification hand-off (the C4
-# camera sees it in the drop zone but it isn't on the platter). Before raising
-# the operator incident, nudge the upstream feeder rotor a couple degrees and
-# return to normal flow to see if that frees it (or seats it as a real,
-# classifiable piece). Retry across this many stall windows, then escalate.
-_PHANTOM_NUDGE_MAX_ATTEMPTS = 3
 from subsystems.classification_channel.running import Running
 from subsystems.classification_channel.simple_state_machine_rev01 import (
     buildRev01StatesMap,
@@ -157,9 +150,6 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # "progress" signal) and whether we've raised the stall incident.
         self._last_progress_at = time.monotonic()
         self._stall_incident_raised = False
-        # How many upstream-feeder phantom nudges we've spent on the current
-        # stall. Reset whenever the channel clears or the operator resolves it.
-        self._phantom_nudge_attempts = 0
         # Operator pressed "Auto Resolve" on an active stall incident: the next
         # step() runs the same rotate-to-clear routine the automatic policy
         # uses, on the coordinator thread (never from the HTTP handler).
@@ -259,7 +249,6 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # step — give the resumed flow a fresh window to make progress.
         if self._stall_incident_raised and not c4_stall_incident_active(self.gc):
             self._stall_incident_raised = False
-            self._phantom_nudge_attempts = 0
             self._rearmProgress(now)
             return
 
@@ -275,7 +264,6 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             # Channel clear -> not stuck. Re-arm and drop any raised incident
             # (the piece left / was removed).
             self._rearmProgress(now)
-            self._phantom_nudge_attempts = 0
             if self._stall_incident_raised:
                 clear_c4_exit_stuck_incident(self.gc)
                 self._stall_incident_raised = False
@@ -299,31 +287,7 @@ class ClassificationChannelStateMachine(BaseSubsystem):
         # Only fall through to the manual incident if that didn't clear it.
         auto_result = self._tryAutoResolveStall(stalled_ms)
         if auto_result is not None and auto_result.cleared:
-            self._phantom_nudge_attempts = 0
             return
-
-        # Rotating the platter couldn't clear it, and automatic handling is on
-        # (auto_result is not None). The "piece" is almost certainly a phantom
-        # hung at the feeder->classification hand-off, not on the platter. Nudge
-        # the upstream feeder a couple degrees and return to normal flow to see
-        # if that frees it (or seats it as a real, classifiable piece). Only
-        # after a few failed nudges do we escalate to the operator.
-        if auto_result is not None and self._phantom_nudge_attempts < _PHANTOM_NUDGE_MAX_ATTEMPTS:
-            from subsystems.classification_channel.simple_state_machine_rev01.channel_clear import (
-                nudgeUpstreamFeederOnce,
-            )
-
-            moved_deg = nudgeUpstreamFeederOnce(self.gc, self.irl)
-            if moved_deg is not None:
-                self._phantom_nudge_attempts += 1
-                self._rearmProgress(now)
-                self.logger.info(
-                    f"ClassificationChannel: dropzone still occupied after channel "
-                    f"advance — nudged upstream feeder {moved_deg:.1f}° (attempt "
-                    f"{self._phantom_nudge_attempts}/{_PHANTOM_NUDGE_MAX_ATTEMPTS}), "
-                    f"resuming to re-check"
-                )
-                return
 
         published = publish_c4_exit_stuck_incident(
             self.gc,
@@ -335,9 +299,6 @@ class ClassificationChannelStateMachine(BaseSubsystem):
             ),
         )
         self._stall_incident_raised = bool(published)
-        # Handed off to the operator (or a rival incident owns the slot): a fresh
-        # stall later gets its own full budget of automatic nudges.
-        self._phantom_nudge_attempts = 0
         if not published:
             # Another incident owns the slot (or stats are unavailable). Re-arm
             # so we retry after a full window instead of every tick.

@@ -248,6 +248,7 @@ CHANNEL_DROPZONE_STUCK_INCIDENT_KIND = "channel_dropzone_stuck"
 C2_SEPARATION_INCIDENT_KIND = "c2_separation_needed"
 BULK_FEEDER_STALLED_INCIDENT_KIND = "bulk_feeder_stalled"
 FEEDER_DETECTION_UNAVAILABLE_INCIDENT_KIND = "feeder_detection_unavailable"
+FEEDER_JAM_INCIDENT_KIND = "feeder_jam"
 DISTRIBUTION_CHUTE_JAM_INCIDENT_KIND = "distribution_chute_jam"
 DISTRIBUTION_SERVO_BUS_OFFLINE_INCIDENT_KIND = "distribution_servo_bus_offline"
 DISTRIBUTION_NO_BIN_AVAILABLE_INCIDENT_KIND = "distribution_no_bin_available"
@@ -2284,6 +2285,24 @@ def feeder_channel_exit_incident_clear(
         resolved_by="operator",
     )
     return {"ok": True, "cleared": True, "channel": active_channel}
+
+
+@router.post("/api/feeder/jam-incident/clear")
+def feeder_jam_incident_clear(
+    payload: ChannelExitIncidentActionPayload | None = None,
+) -> Dict[str, Any]:
+    runtime_stats = _runtime_stats_or_503()
+    active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
+    if not isinstance(active, dict) or active.get("kind") != FEEDER_JAM_INCIDENT_KIND:
+        runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND)
+        return {"ok": True, "cleared": False, "reason": "no_active_incident"}
+
+    requested = None if payload is None else payload.channel
+    if requested is not None and str(requested).lower() != str(active.get("channel") or "").lower():
+        raise HTTPException(status_code=400, detail="The active feeder jam belongs to another channel.")
+
+    runtime_stats.clearActiveIncident(kind=FEEDER_JAM_INCIDENT_KIND, resolved_by="operator")
+    return {"ok": True, "cleared": True, "kind": FEEDER_JAM_INCIDENT_KIND, "channel": active.get("channel")}
 
 
 @router.post("/api/feeder/channel-dropzone-incident/acknowledge")

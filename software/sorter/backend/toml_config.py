@@ -461,8 +461,10 @@ _INCIDENT_KIND_ALIASES: dict[str, str] = {
 # + distribution). Legacy-only kinds (dropzone stuck, bulk feeder, DYNAMIC
 # classification fallbacks, ...) get no policy row: their publishers never run
 # on the default setup.
+_INCIDENT_FEEDER_JAM = "feeder_jam"
 _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
+    _INCIDENT_FEEDER_JAM: _INCIDENT_MODE_AUTOMATIC,
     "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
     "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
@@ -476,6 +478,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "off_label": "Do not raise exit-stuck incidents",
         "manual_label": "Operator clears the stuck piece",
         "automatic_label": "Rotate the channel forward until it clears",
+        "automatic_supported": True,
+    },
+    {
+        "kind": _INCIDENT_FEEDER_JAM,
+        "label": "Feeder Jam",
+        "scope": "Feeder",
+        "description": "A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
+        "off_label": "Do not detect feeder hand-off jams",
+        "manual_label": "Call the operator as soon as a channel is stuck",
+        "automatic_label": "Nudge the upstream channel to free it, then call the operator",
         "automatic_supported": True,
     },
     {

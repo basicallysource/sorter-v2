@@ -275,10 +275,10 @@
 		</nav>
 	{/if}
 
-	<!-- The single-piece labeling view runs wider — it carries a reference column,
-	     the piece, and the color picker side by side. -->
+	<!-- Piece labeling carries a reference column, the piece, and the color picker
+	     side by side — let it use the full window width rather than capping it. -->
 	<main
-		class="mx-auto px-4 py-6 {/^\/piece-bboxes\/.+/.test(page.url.pathname) ? 'max-w-[120rem]' : 'max-w-7xl'}"
+		class="mx-auto px-4 py-6 {page.url.pathname.startsWith('/piece-bboxes') ? 'w-full' : 'max-w-7xl'}"
 	>
 		{@render children()}
 	</main>

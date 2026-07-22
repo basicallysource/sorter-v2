@@ -426,6 +426,7 @@ export interface SampleMachineSummary {
 export interface SampleDetail extends Sample {
 	has_full_frame: boolean;
 	has_overlay: boolean;
+	has_channel_geometry: boolean;
 	machine: SampleMachineSummary | null;
 }
 
@@ -1891,6 +1892,9 @@ export const api = {
 	},
 	sampleOverlayUrl(id: string) {
 		return resolveApiPath(`/api/samples/${id}/assets/overlay`);
+	},
+	sampleChannelCropUrl(id: string, mask = true) {
+		return resolveApiPath(`/api/samples/${id}/assets/channel-crop?mask=${mask}`);
 	},
 
 	// Review

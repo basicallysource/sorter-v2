@@ -4,7 +4,7 @@
 
 	type Bbox = { x: number; y: number; w: number; h: number };
 	type PaletteColor = { stroke: string; fill: string };
-	type ViewMode = 'image' | 'full_frame' | 'overlay' | 'annotate';
+	type ViewMode = 'image' | 'full_frame' | 'channel_crop' | 'overlay' | 'annotate';
 
 	interface Props {
 		sample: SampleDetail;
@@ -44,6 +44,12 @@
 			<img
 				src={api.sampleFullFrameUrl(sample.id)}
 				alt="Full frame"
+				class="w-full"
+			/>
+		{:else if activeView === 'channel_crop' && sample.has_channel_geometry}
+			<img
+				src={api.sampleChannelCropUrl(sample.id)}
+				alt="Channel crop"
 				class="w-full"
 			/>
 		{:else if activeView === 'overlay' && sample.has_overlay}

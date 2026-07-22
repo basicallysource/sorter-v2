@@ -1268,7 +1268,29 @@ export interface ColorLabelPixelGuess {
 	match_rgb: string | null;
 }
 
-export interface ColorLabelQueueImage {
+// Per-image, per-labeler quality flags: a "high quality" star plus "not good
+// enough for classification" reasons. Recorded on individual crops (see
+// submitImageQuality) so we can later filter e.g. every motion-blurred crop.
+export interface ImageQualityFlags {
+	high_quality: boolean;
+	low_resolution: boolean;
+	motion_blur: boolean;
+	not_contained: boolean;
+	no_piece_in_frame: boolean;
+	other_bad: boolean;
+}
+
+export type ImageQualityReason = Exclude<keyof ImageQualityFlags, 'high_quality'>;
+
+export const IMAGE_QUALITY_REASONS: { code: ImageQualityReason; label: string }[] = [
+	{ code: 'low_resolution', label: 'Too low resolution' },
+	{ code: 'motion_blur', label: 'Motion blur' },
+	{ code: 'not_contained', label: 'Piece not fully in frame' },
+	{ code: 'no_piece_in_frame', label: 'No piece in this frame' },
+	{ code: 'other_bad', label: 'Not good enough (other)' }
+];
+
+export interface ColorLabelQueueImage extends ImageQualityFlags {
 	seq: number;
 	source: string | null;
 	used: boolean;
@@ -1341,7 +1363,7 @@ export interface LinkModelsResponse {
 // the active link matcher model's pick and probability (null when not scored /
 // no model active). The UI pre-selects, in precedence order, `ai_same` →
 // `model_same` → `predicted`, per `prediction_source`.
-export interface PossibleCropCandidate {
+export interface PossibleCropCandidate extends ImageQualityFlags {
 	local_id: number;
 	channel: number | null;
 	ts: string | null;
@@ -1656,6 +1678,23 @@ export const api = {
 		return request<{ ok: boolean }>(
 			'DELETE',
 			`/api/labeling/piece-rejection/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	// Per-image quality flags for one crop. Post the whole flag set each time;
+	// an all-false set clears (deletes) the row server-side.
+	submitImageQuality(
+		body: {
+			machine_id: string;
+			crop_kind: 'piece_image' | 'channel_crop';
+			piece_uuid?: string;
+			seq?: number;
+			crop_local_id?: number;
+		} & Partial<ImageQualityFlags>
+	) {
+		return request<{ ok: boolean; created?: boolean; deleted?: boolean }>(
+			'POST',
+			'/api/labeling/image-quality',
+			body
 		);
 	},
 	deletePieceCropLink(machineId: string, pieceUuid: string) {

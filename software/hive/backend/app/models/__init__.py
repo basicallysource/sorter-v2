@@ -42,6 +42,7 @@ from app.models.piece_part_label import PiecePartLabel  # noqa: E402, F401
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember  # noqa: E402, F401
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction  # noqa: E402, F401
 from app.models.piece_rejection import PieceRejection  # noqa: E402, F401
+from app.models.image_quality_label import ImageQualityLabel  # noqa: E402, F401
 from app.models.install import Install  # noqa: E402, F401
 from app.models.device import Device  # noqa: E402, F401
 from app.models.color_prediction import ColorPrediction  # noqa: E402, F401

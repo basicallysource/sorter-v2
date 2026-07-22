@@ -30,6 +30,12 @@ from sqlalchemy.orm import Session
 
 from app.deps import get_current_user, get_db, verify_csrf
 from app.errors import APIError
+from app.models.image_quality_label import (
+    CROP_KIND_CHANNEL_CROP,
+    CROP_KIND_PIECE_IMAGE,
+    IMAGE_QUALITY_FLAG_FIELDS,
+    ImageQualityLabel,
+)
 from app.models.machine import Machine
 from app.models.machine_channel_crop import MachineChannelCrop
 from app.models.machine_piece import MachinePiece
@@ -745,6 +751,16 @@ def piece_detail(
         .order_by(MachinePieceRejectionReason.reason)
         .all()
     ]
+    # This user's per-image quality flags for these crops, keyed by seq.
+    image_quality = {
+        lbl.seq: lbl
+        for lbl in db.query(ImageQualityLabel).filter(
+            ImageQualityLabel.crop_kind == CROP_KIND_PIECE_IMAGE,
+            ImageQualityLabel.machine_id == machine_id,
+            ImageQualityLabel.piece_uuid == piece_uuid,
+            ImageQualityLabel.labeler_id == current_user.id,
+        )
+    }
     return {
         "machine_id": str(machine_id),
         "machine_name": machine_name,
@@ -757,7 +773,14 @@ def piece_detail(
         # None → the UI falls back to the pixel-average guess alone.
         "model_prediction": predict_piece_color(db, images),
         "images": [
-            {"seq": im.seq, "source": im.source, "used": im.used, "score": im.score} for im in images
+            {
+                "seq": im.seq,
+                "source": im.source,
+                "used": im.used,
+                "score": im.score,
+                **_image_quality_state(image_quality.get(im.seq)),
+            }
+            for im in images
         ],
         "my_label": None
         if label is None
@@ -1395,6 +1418,25 @@ def _possible_crops_result(db: Session, machine_id: UUID, piece_uuid: str, label
         for c in candidates:
             _reset(c)
         result["prediction_source"] = "heuristic"
+
+    # This labeler's per-image quality flags for the candidate crops, keyed by
+    # local_id, so the star / not-good-enough marks persist on the grid.
+    local_ids = [c["local_id"] for c in candidates]
+    quality_labels = (
+        {
+            lbl.crop_local_id: lbl
+            for lbl in db.query(ImageQualityLabel).filter(
+                ImageQualityLabel.crop_kind == CROP_KIND_CHANNEL_CROP,
+                ImageQualityLabel.machine_id == machine_id,
+                ImageQualityLabel.crop_local_id.in_(local_ids),
+                ImageQualityLabel.labeler_id == labeler_id,
+            )
+        }
+        if local_ids
+        else {}
+    )
+    for c in candidates:
+        c.update(_image_quality_state(quality_labels.get(c["local_id"])))
     return result
 
 
@@ -1664,6 +1706,114 @@ def delete_piece_rejection(
     db.delete(rejection)
     db.commit()
     return {"ok": True}
+
+
+# --- Per-image quality labels ------------------------------------------------
+#
+# A labeler's judgement of a single CROP (not the whole piece): a `high_quality`
+# star and/or "not good enough for classification" reason flags. Recorded per
+# (image, labeler) so the flags stay queryable columns for building image-quality
+# training data. Covers both the piece's own crops (machine_piece_images, keyed
+# by seq) and the same-piece channel candidates (machine_channel_crops, keyed by
+# local_id) via crop_kind. Saved state is echoed back per-image in piece_detail
+# and _possible_crops_result.
+
+
+def _image_quality_state(label: "ImageQualityLabel | None") -> dict:
+    """The per-image flags for a read response — all False when the crop is unmarked."""
+    if label is None:
+        return {f: False for f in IMAGE_QUALITY_FLAG_FIELDS}
+    return {f: bool(getattr(label, f)) for f in IMAGE_QUALITY_FLAG_FIELDS}
+
+
+class ImageQualityPayload(BaseModel):
+    machine_id: UUID
+    # 'piece_image' (needs piece_uuid + seq) or 'channel_crop' (needs crop_local_id).
+    crop_kind: str
+    piece_uuid: str | None = None
+    seq: int | None = None
+    crop_local_id: int | None = None
+    high_quality: bool = False
+    low_resolution: bool = False
+    motion_blur: bool = False
+    not_contained: bool = False
+    no_piece_in_frame: bool = False
+    other_bad: bool = False
+
+
+@router.post("/image-quality")
+def submit_image_quality(
+    payload: ImageQualityPayload,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Upsert this user's quality flags for one crop. The client posts the whole
+    flag set each time; when every flag is False the row is deleted, so an unmarked
+    crop leaves nothing behind."""
+    flags = {f: bool(getattr(payload, f)) for f in IMAGE_QUALITY_FLAG_FIELDS}
+
+    if payload.crop_kind == CROP_KIND_PIECE_IMAGE:
+        if not payload.piece_uuid or payload.seq is None:
+            raise APIError(400, "piece_uuid and seq are required", "IMAGE_KEY_INVALID")
+        if not piece_access_visible_by_key(db, current_user, payload.machine_id, payload.piece_uuid):
+            raise APIError(404, "Piece not found", "PIECE_NOT_FOUND")
+        key = and_(
+            ImageQualityLabel.crop_kind == CROP_KIND_PIECE_IMAGE,
+            ImageQualityLabel.machine_id == payload.machine_id,
+            ImageQualityLabel.piece_uuid == payload.piece_uuid,
+            ImageQualityLabel.seq == payload.seq,
+            ImageQualityLabel.labeler_id == current_user.id,
+        )
+        key_cols = {"piece_uuid": payload.piece_uuid, "seq": payload.seq, "crop_local_id": None}
+    elif payload.crop_kind == CROP_KIND_CHANNEL_CROP:
+        if payload.crop_local_id is None:
+            raise APIError(400, "crop_local_id is required", "IMAGE_KEY_INVALID")
+        crop = (
+            db.query(MachineChannelCrop)
+            .filter(
+                MachineChannelCrop.machine_id == payload.machine_id,
+                MachineChannelCrop.local_id == payload.crop_local_id,
+            )
+            .first()
+        )
+        if crop is None or not channel_crop_access_visible(db, current_user, crop):
+            raise APIError(404, "Crop not found", "CROP_NOT_FOUND")
+        key = and_(
+            ImageQualityLabel.crop_kind == CROP_KIND_CHANNEL_CROP,
+            ImageQualityLabel.machine_id == payload.machine_id,
+            ImageQualityLabel.crop_local_id == payload.crop_local_id,
+            ImageQualityLabel.labeler_id == current_user.id,
+        )
+        key_cols = {"piece_uuid": None, "seq": None, "crop_local_id": payload.crop_local_id}
+    else:
+        raise APIError(400, f"Unknown crop_kind {payload.crop_kind}", "CROP_KIND_INVALID")
+
+    label = db.query(ImageQualityLabel).filter(key).first()
+
+    if not any(flags.values()):
+        if label is not None:
+            db.delete(label)
+            db.commit()
+            return {"ok": True, "deleted": True}
+        return {"ok": True, "deleted": False}
+
+    if label is None:
+        label = ImageQualityLabel(
+            machine_id=payload.machine_id,
+            labeler_id=current_user.id,
+            crop_kind=payload.crop_kind,
+            **key_cols,
+            **flags,
+        )
+        db.add(label)
+        created = True
+    else:
+        for f, v in flags.items():
+            setattr(label, f, v)
+        label.updated_at = datetime.now(timezone.utc)
+        created = False
+    db.commit()
+    return {"ok": True, "created": created}
 
 
 # --- Correcting a piece's part (mold) ----------------------------------------

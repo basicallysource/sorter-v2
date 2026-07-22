@@ -7,9 +7,12 @@
 <script lang="ts">
 	import {
 		api,
+		IMAGE_QUALITY_REASONS,
 		type BrickLinkColor,
 		type ColorLabelCorrection,
 		type ColorLabelPieceDetail,
+		type ImageQualityFlags,
+		type ImageQualityReason,
 		type PartBrickLinkColor,
 		type PartSummary,
 		type PossibleCropCandidate
@@ -31,7 +34,9 @@
 	import Circle from 'lucide-svelte/icons/circle';
 	import CircleCheck from 'lucide-svelte/icons/circle-check';
 	import CircleDot from 'lucide-svelte/icons/circle-dot';
+	import Flag from 'lucide-svelte/icons/flag';
 	import Sparkles from 'lucide-svelte/icons/sparkles';
+	import Star from 'lucide-svelte/icons/star';
 	import X from 'lucide-svelte/icons/x';
 
 	type CharState = 'empty' | 'progress' | 'ready';
@@ -117,6 +122,13 @@
 	let rejecting = $state(false);
 	let rejectReasons = $state<Set<string>>(new Set());
 	let rejected = $state(false); // this user already rejected the piece
+
+	// Per-image quality (star + "not good enough" reasons), saved per crop. One
+	// reasons dropdown open at a time, keyed `${kind}:${id}`; positioned fixed so
+	// it escapes the candidate grid's overflow clipping.
+	let qualityMenuOpenFor = $state<string | null>(null);
+	let qualityMenuPos = $state<{ top: number; left: number }>({ top: 0, left: 0 });
+	let qualitySavingFor = $state<string | null>(null);
 
 	// Brickognize part/color correction feedback
 	let correction = $state<ColorLabelCorrection | null>(null);
@@ -616,6 +628,75 @@
 		}
 	}
 
+	// --- Per-image quality flags ----------------------------------------------
+	// Two independent controls on each crop: a "high quality" star and a
+	// "not good enough for classification" reasons dropdown. Every toggle posts the
+	// whole flag set for that crop; an all-false set clears the row server-side.
+	function qualityBody(obj: ImageQualityFlags, kind: 'piece_image' | 'channel_crop', id: number) {
+		const flags = {
+			high_quality: obj.high_quality,
+			low_resolution: obj.low_resolution,
+			motion_blur: obj.motion_blur,
+			not_contained: obj.not_contained,
+			no_piece_in_frame: obj.no_piece_in_frame,
+			other_bad: obj.other_bad
+		};
+		return kind === 'piece_image'
+			? { machine_id: machineId, crop_kind: kind, piece_uuid: pieceUuid, seq: id, ...flags }
+			: { machine_id: machineId, crop_kind: kind, crop_local_id: id, ...flags };
+	}
+
+	async function persistQuality(
+		obj: ImageQualityFlags,
+		kind: 'piece_image' | 'channel_crop',
+		id: number,
+		revert: () => void
+	) {
+		const key = `${kind}:${id}`;
+		qualitySavingFor = key;
+		try {
+			await api.submitImageQuality(qualityBody(obj, kind, id));
+		} catch (e: unknown) {
+			revert();
+			error = errMsg(e, 'Failed to save image quality');
+		} finally {
+			qualitySavingFor = null;
+		}
+	}
+
+	async function toggleStar(obj: ImageQualityFlags, kind: 'piece_image' | 'channel_crop', id: number) {
+		if (qualitySavingFor === `${kind}:${id}`) return;
+		const prev = obj.high_quality;
+		obj.high_quality = !prev;
+		await persistQuality(obj, kind, id, () => {
+			obj.high_quality = prev;
+		});
+	}
+
+	async function toggleQualityReason(
+		obj: ImageQualityFlags,
+		kind: 'piece_image' | 'channel_crop',
+		id: number,
+		code: ImageQualityReason
+	) {
+		if (qualitySavingFor === `${kind}:${id}`) return;
+		const prev = obj[code];
+		obj[code] = !prev;
+		await persistQuality(obj, kind, id, () => {
+			obj[code] = prev;
+		});
+	}
+
+	function openQualityMenu(key: string, e: MouseEvent) {
+		if (qualityMenuOpenFor === key) {
+			qualityMenuOpenFor = null;
+			return;
+		}
+		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+		qualityMenuPos = { top: r.bottom + 4, left: r.left };
+		qualityMenuOpenFor = key;
+	}
+
 	// Send the PART verdict to Brickognize. (Color feedback is handled
 	// automatically on advance — see autoSubmitColorDisagreement — and its
 	// prediction is never shown here.)
@@ -683,6 +764,75 @@
 		<span class="flex items-center gap-1 text-xs text-warning"><CircleDot size={13} /> In progress</span>
 	{:else}
 		<span class="flex items-center gap-1 text-xs text-text-muted"><Circle size={13} /> Not started</span>
+	{/if}
+{/snippet}
+
+<!-- Per-crop quality controls: a high-quality star and a not-good-enough reasons
+     dropdown, saved per image. Rendered as a sibling overlay (not nested in the
+     candidate tile's button) and a fixed-position menu so it isn't clipped. -->
+{#snippet qualityOverlay(obj: ImageQualityFlags, kind: 'piece_image' | 'channel_crop', id: number)}
+	{@const key = `${kind}:${id}`}
+	{@const badCount = IMAGE_QUALITY_REASONS.filter((r) => obj[r.code]).length}
+	<div class="absolute left-0.5 top-0.5 z-10 flex gap-0.5">
+		<button
+			type="button"
+			title={obj.high_quality ? 'High quality — click to unset' : 'Mark high quality'}
+			aria-label="Mark high quality"
+			aria-pressed={obj.high_quality}
+			onclick={() => toggleStar(obj, kind, id)}
+			disabled={qualitySavingFor === key}
+			class="flex items-center bg-surface/90 p-0.5 hover:text-warning disabled:opacity-50 {obj.high_quality
+				? 'text-warning'
+				: 'text-text-muted'}"
+		>
+			<Star size={13} fill={obj.high_quality ? 'currentColor' : 'none'} />
+		</button>
+		<button
+			type="button"
+			title="Not good enough for classification"
+			aria-label="Not good enough for classification"
+			onclick={(e) => openQualityMenu(key, e)}
+			disabled={qualitySavingFor === key}
+			class="flex items-center gap-0.5 bg-surface/90 p-0.5 hover:text-danger disabled:opacity-50 {badCount >
+			0
+				? 'text-danger'
+				: 'text-text-muted'}"
+		>
+			<Flag size={13} fill={badCount > 0 ? 'currentColor' : 'none'} />
+			{#if badCount > 0}<span class="text-xs leading-none">{badCount}</span>{/if}
+		</button>
+	</div>
+	{#if qualityMenuOpenFor === key}
+		<div
+			class="fixed z-50 w-56 border border-border bg-surface p-2 shadow-lg"
+			style={`top:${qualityMenuPos.top}px;left:${qualityMenuPos.left}px`}
+		>
+			<div class="mb-1 flex items-center justify-between px-1">
+				<span class="text-xs font-semibold uppercase tracking-wider text-text-muted"
+					>Not good enough — why?</span
+				>
+				<button
+					type="button"
+					class="text-text-muted hover:text-text"
+					aria-label="Close"
+					onclick={() => (qualityMenuOpenFor = null)}
+				>
+					<X size={13} />
+				</button>
+			</div>
+			{#each IMAGE_QUALITY_REASONS as r (r.code)}
+				<label
+					class="flex cursor-pointer items-center gap-2 px-1 py-1 text-sm text-text hover:bg-bg"
+				>
+					<input
+						type="checkbox"
+						checked={obj[r.code]}
+						onchange={() => toggleQualityReason(obj, kind, id, r.code)}
+					/>
+					{r.label}
+				</label>
+			{/each}
+		</div>
 	{/if}
 {/snippet}
 
@@ -793,14 +943,17 @@
 
 			<div class="flex flex-wrap gap-2">
 				{#each detail.images as img (img.seq)}
-					<ZoomImage
-						src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
-						alt={`crop ${img.seq}`}
-						title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
-						class="h-28 w-28 border-2 bg-transparent object-contain {img.used
-							? 'border-success'
-							: 'border-border'}"
-					/>
+					<div class="relative">
+						<ZoomImage
+							src={api.colorLabelImageUrl(machineId, pieceUuid, img.seq)}
+							alt={`crop ${img.seq}`}
+							title={`seq ${img.seq}${img.source ? ` · ${img.source}` : ''}`}
+							class="h-28 w-28 border-2 bg-transparent object-contain {img.used
+								? 'border-success'
+								: 'border-border'}"
+						/>
+						{@render qualityOverlay(img, 'piece_image', img.seq)}
+					</div>
 				{/each}
 			</div>
 
@@ -959,7 +1112,8 @@
 				{#each cropCandidates as c (c.local_id)}
 					{@const selected = cropSelected.has(c.local_id)}
 					{@const isPick = isPredictionPick(c, predictionSource)}
-					<button
+					<div class="relative">
+						<button
 						type="button"
 						onclick={() => toggleCrop(c.local_id)}
 						title={`C${c.channel} · ${ZONE_LABEL[c.zone_code ?? 0] ?? '?'} · ${c.dt != null ? c.dt + 's before arrival' : 'unknown dt'} · ${c.com_forward_to_exit_deg != null ? Math.round(c.com_forward_to_exit_deg) + '° to exit' : ''} · score ${c.score}${predictionSource === 'model' && c.model_score != null ? ` · model ${c.model_score}` : ''}${isPick ? ` · ${SOURCE_PICK_LABEL[predictionSource]} pick` : ''}`}
@@ -993,7 +1147,9 @@
 								<Sparkles size={11} />
 							</span>
 						{/if}
-					</button>
+						</button>
+						{@render qualityOverlay(c, 'channel_crop', c.local_id)}
+					</div>
 				{/each}
 			</div>
 		{/if}

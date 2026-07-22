@@ -189,10 +189,13 @@ def make_test_image(width: int = 100, height: int = 100, fmt: str = "png") -> io
 
         sig = b"\x89PNG\r\n\x1a\n"
         ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-        # Raw image data: filter byte 0 + RGB per pixel per row
+        # Raw image data: filter byte 0 + RGB per pixel per row. Mid-gray (160)
+        # so the sample lands in the "normal" exposure bucket — pure red (luma
+        # ~76) reads as underexposed and gets hidden by the default exposure
+        # filter on list/review-queue endpoints.
         raw = b""
         for _ in range(height):
-            raw += b"\x00" + b"\xff\x00\x00" * width
+            raw += b"\x00" + b"\xa0\xa0\xa0" * width
         idat = zlib.compress(raw)
         png = sig + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
         buf = io.BytesIO(png)

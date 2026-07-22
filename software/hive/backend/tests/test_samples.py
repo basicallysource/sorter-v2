@@ -62,7 +62,9 @@ class TestListSamples:
         _upload_sample(client, machine_token, "sess-list", "s1")
         _upload_sample(client, machine_token, "sess-list", "s2")
 
-        resp = client.get("/api/samples", headers=auth_headers)
+        # /api/samples defaults to annotated="teacher" (only teacher-validated
+        # samples); these raw uploads only show under annotated=all.
+        resp = client.get("/api/samples", params={"annotated": "all"}, headers=auth_headers)
         assert resp.status_code == 200
         data = resp.json()
         items = data if isinstance(data, list) else data.get("items", [])
@@ -93,10 +95,11 @@ class TestListSamples:
             capture_reason="channel_move_complete",
         )
 
+        # annotated=all so the raw uploads aren't hidden by the teacher default.
         # Filter by source_role
         resp = client.get(
             "/api/samples",
-            params={"source_role": "classification_chamber"},
+            params={"source_role": "classification_chamber", "annotated": "all"},
             headers=auth_headers,
         )
         assert resp.status_code == 200
@@ -107,7 +110,7 @@ class TestListSamples:
         # Filter by capture_reason
         resp_capture = client.get(
             "/api/samples",
-            params={"capture_reason": "channel_move_complete"},
+            params={"capture_reason": "channel_move_complete", "annotated": "all"},
             headers=auth_headers,
         )
         assert resp_capture.status_code == 200
@@ -119,7 +122,7 @@ class TestListSamples:
         # Filter by review_status
         resp2 = client.get(
             "/api/samples",
-            params={"review_status": "unreviewed"},
+            params={"review_status": "unreviewed", "annotated": "all"},
             headers=auth_headers,
         )
         assert resp2.status_code == 200

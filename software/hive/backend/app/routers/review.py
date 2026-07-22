@@ -149,11 +149,14 @@ def get_next_review(
     # property involved, just bit dispersion.
     from sqlalchemy import text as sa_text
 
-    sample = (
-        query.order_by(sa_text("md5(samples.id::text || :viewer_seed)"))
-        .params(viewer_seed=str(current_user.id))
-        .first()
-    )
+    # md5(id::text || seed) is Postgres-only (md5(), ::text cast). On SQLite
+    # (tests) fall back to a plain deterministic per-user order — the shuffle
+    # quality only matters in prod, which is always Postgres.
+    if db.get_bind().dialect.name == "postgresql":
+        order_expr = sa_text("md5(samples.id::text || :viewer_seed)")
+    else:
+        order_expr = sa_text("samples.id || :viewer_seed")
+    sample = query.order_by(order_expr).params(viewer_seed=str(current_user.id)).first()
 
     if not sample:
         return None
@@ -170,6 +173,10 @@ def create_or_update_review(
     current_user: User = Depends(get_current_user),
     _csrf: None = Depends(verify_csrf),
 ):
+    # Reviewing is a reviewer/admin action — a plain member (even a machine's
+    # own owner) doesn't get to vote on sample labels.
+    if current_user.role not in ("admin", "reviewer"):
+        raise APIError(403, "Only reviewers can review samples", "REVIEW_FORBIDDEN")
     if data.decision not in ("accept", "reject"):
         raise APIError(400, "Decision must be 'accept' or 'reject'", "INVALID_DECISION")
 

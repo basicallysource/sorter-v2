@@ -176,14 +176,16 @@ def apply_annotated_filter(query, annotated: str | None):
       - 'teacher' — has a teacher_rerun audit entry (training-ready)
       - 'raw'     — no teacher_rerun yet (likely still needs a pass)
       - anything else / None — no filter
-
-    Uses PostgreSQL JSONB containment (``?`` operator). Live + dev both
-    run postgres; this isn't tested on SQLite.
     """
 
     if annotated not in {"teacher", "raw"}:
         return query
-    has_teacher = Sample.extra_metadata.op("?")("teacher_rerun")
+    # `col["teacher_rerun"] IS NOT NULL` is the portable key-exists check: it
+    # renders `->` on Postgres JSONB and `json_extract` on SQLite. (The raw JSONB
+    # `?` operator would be tighter but collides with the SQLite bind-parameter
+    # placeholder, breaking the test dialect.) teacher_rerun's value is always a
+    # non-null audit dict, so key-exists and value-not-null coincide here.
+    has_teacher = Sample.extra_metadata["teacher_rerun"].isnot(None)
     if annotated == "teacher":
         return query.filter(has_teacher)
     return query.filter(~has_teacher | Sample.extra_metadata.is_(None))

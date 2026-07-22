@@ -123,45 +123,35 @@ class TestSubmitReview:
 
 
 class TestReviewAggregation:
-    def test_two_accepts_make_accepted(
+    def test_unanimous_accepts_make_accepted(
         self,
         client: TestClient,
         machine_token: str,
         upload_dir: str,
         db: Session,
     ) -> None:
+        # Consensus needs MIN_REVIEWS_FOR_CONSENSUS (3) agreeing reviews.
         sample = _upload_sample(client, machine_token, "sess-2a", "s1")
         sample_id = sample["id"]
 
-        # Reviewer A accepts
-        rev_a = _make_reviewer(client, db, "reva@test.com")
-        _login_user(client, rev_a["email"], rev_a["password"])
-        headers_a = _auth_headers(client)
-        resp_a = client.post(
-            f"/api/review/samples/{sample_id}",
-            json={"decision": "accept"},
-            headers=headers_a,
-        )
-        assert resp_a.status_code in (200, 201)
+        headers = None
+        for i, email in enumerate(("reva@test.com", "revb@test.com", "revc@test.com")):
+            rev = _make_reviewer(client, db, email)
+            _login_user(client, rev["email"], rev["password"])
+            headers = _auth_headers(client)
+            resp = client.post(
+                f"/api/review/samples/{sample_id}",
+                json={"decision": "accept"},
+                headers=headers,
+            )
+            assert resp.status_code in (200, 201)
 
-        # Reviewer B accepts
-        rev_b = _make_reviewer(client, db, "revb@test.com")
-        _login_user(client, rev_b["email"], rev_b["password"])
-        headers_b = _auth_headers(client)
-        resp_b = client.post(
-            f"/api/review/samples/{sample_id}",
-            json={"decision": "accept"},
-            headers=headers_b,
-        )
-        assert resp_b.status_code in (200, 201)
-
-        # Check sample status is now accepted
-        # Need a logged-in user to view samples
-        detail = client.get(f"/api/samples/{sample_id}", headers=headers_b)
+        # Check sample status is now accepted (reuse the last reviewer's session).
+        detail = client.get(f"/api/samples/{sample_id}", headers=headers)
         assert detail.status_code == 200
         assert detail.json()["review_status"] == "accepted"
 
-    def test_two_rejects_make_rejected(
+    def test_unanimous_rejects_make_rejected(
         self,
         client: TestClient,
         machine_token: str,
@@ -171,25 +161,18 @@ class TestReviewAggregation:
         sample = _upload_sample(client, machine_token, "sess-2r", "s1")
         sample_id = sample["id"]
 
-        rev_a = _make_reviewer(client, db, "rejA@test.com")
-        _login_user(client, rev_a["email"], rev_a["password"])
-        client.post(
-            f"/api/review/samples/{sample_id}",
-            json={"decision": "reject"},
-            headers=_auth_headers(client),
-        )
+        headers = None
+        for email in ("rejA@test.com", "rejB@test.com", "rejC@test.com"):
+            rev = _make_reviewer(client, db, email)
+            _login_user(client, rev["email"], rev["password"])
+            headers = _auth_headers(client)
+            client.post(
+                f"/api/review/samples/{sample_id}",
+                json={"decision": "reject"},
+                headers=headers,
+            )
 
-        rev_b = _make_reviewer(client, db, "rejB@test.com")
-        _login_user(client, rev_b["email"], rev_b["password"])
-        client.post(
-            f"/api/review/samples/{sample_id}",
-            json={"decision": "reject"},
-            headers=_auth_headers(client),
-        )
-
-        detail = client.get(
-            f"/api/samples/{sample_id}", headers=_auth_headers(client)
-        )
+        detail = client.get(f"/api/samples/{sample_id}", headers=headers)
         assert detail.status_code == 200
         assert detail.json()["review_status"] == "rejected"
 
@@ -203,25 +186,23 @@ class TestReviewAggregation:
         sample = _upload_sample(client, machine_token, "sess-mix", "s1")
         sample_id = sample["id"]
 
-        rev_a = _make_reviewer(client, db, "mixA@test.com")
-        _login_user(client, rev_a["email"], rev_a["password"])
-        client.post(
-            f"/api/review/samples/{sample_id}",
-            json={"decision": "accept"},
-            headers=_auth_headers(client),
-        )
+        # 3 reviews (consensus reached) that don't all agree → conflict.
+        headers = None
+        for email, decision in (
+            ("mixA@test.com", "accept"),
+            ("mixB@test.com", "reject"),
+            ("mixC@test.com", "accept"),
+        ):
+            rev = _make_reviewer(client, db, email)
+            _login_user(client, rev["email"], rev["password"])
+            headers = _auth_headers(client)
+            client.post(
+                f"/api/review/samples/{sample_id}",
+                json={"decision": decision},
+                headers=headers,
+            )
 
-        rev_b = _make_reviewer(client, db, "mixB@test.com")
-        _login_user(client, rev_b["email"], rev_b["password"])
-        client.post(
-            f"/api/review/samples/{sample_id}",
-            json={"decision": "reject"},
-            headers=_auth_headers(client),
-        )
-
-        detail = client.get(
-            f"/api/samples/{sample_id}", headers=_auth_headers(client)
-        )
+        detail = client.get(f"/api/samples/{sample_id}", headers=headers)
         assert detail.status_code == 200
         assert detail.json()["review_status"] == "conflict"
 

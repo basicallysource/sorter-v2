@@ -7,6 +7,7 @@ from defs.known_object import (
     PieceStage,
     RecognitionImage,
 )
+from subsystems.classification_channel import crop_quality
 from subsystems.classification_channel.states import ClassificationChannelState
 
 from .base import Rev01BaseState
@@ -136,15 +137,18 @@ class Capturing(Rev01BaseState):
         if crop is None:
             return
         sharp = self.sharpness(crop)
+        quality = crop_quality.scoreCrop(crop)
         self.ctx.captured_crops.append(crop)
         self.ctx.captured_crop_timestamps.append(frame_ts)
         self.ctx.captured_crop_sharpness.append(sharp)
+        self.ctx.captured_crop_quality.append(quality)
         self.ctx.last_capture_frame_ts = frame_ts
         elapsed = now - self.ctx.capturing_started_at
         self.logger.info(
             f"{LOG_TAG} capture #{len(self.ctx.captured_crops)} "
             f"(t+{elapsed:.2f}s, ts={frame_ts:.3f}, bbox={primary_bbox}, "
-            f"shape={crop.shape}, sharp={sharp:.0f})"
+            f"shape={crop.shape}, sharp={sharp:.0f}, fft={quality.fft_hf_ratio:.3f}, "
+            f"lpn={quality.lap_var_piece_norm:.3f}, mask={quality.mask_frac:.2f})"
         )
         if self.ctx.known_object is not None:
             encoded = self.encodeFrame(crop)

@@ -10,8 +10,9 @@ class Rev01Config:
     capture_sweep_output_deg: float = 180.0
     # How long CAPTURING photographs the piece AT REST before spawning the
     # Brickognize request and starting the reverse move to the precise zone. The
-    # burst denoises / lets selectRecognitionCrops pick the sharpest frames; the
-    # piece does not rotate, so the views are near-identical.
+    # burst deliberately over-captures; crop_quality.selectBurstIndices decides
+    # afterwards which frames are worth sending. The piece does not rotate, so
+    # the views are near-identical.
     capture_at_rest_ms: float = 350.0
     # Reverse converge to the precise staging zone (MOVING_TO_PRECISE). Slower
     # than the discharge converge so the approach into the narrow precise band is
@@ -24,34 +25,16 @@ class Rev01Config:
     kick_off_output_deg: float = 180.0
     discharge_speed_usteps_per_s: int = 5000
     crop_padding_px: int = 15
-    # Hard ceiling on burst frames GRABBED at rest. With require_sharp_capture
-    # off (the default) this is what ends the burst — 4 frames ≈ 130 ms at
-    # 30 fps, well inside the capture_at_rest_ms window — so every piece gets
-    # exactly this many frames. With require_sharp_capture on it's only the
-    # fallback cap; capture stops the instant a sharp frame lands.
-    max_captures: int = 4
-    # Motion-blur gate. Keep grabbing frames AT REST until at least one crop is
-    # sharp — Laplacian variance of the bbox crop >= min_sharpness_laplacian_var —
-    # then stop and classify. Bounds: never exceed max_captures frames or
-    # capture_max_wait_ms. If no frame ever clears the floor, the sharpest crop
-    # captured is still what gets sent (sharpest-frame selection below), so a
-    # mis-tuned floor only costs latency, never correctness. The floor is
-    # camera/lighting/piece dependent — watch the per-capture "sharp=" log values
-    # and tune. Off by default: a sharp first frame ends the burst at ONE image,
-    # so classify_burst_count > 1 never gets its frames; the fixed-window
-    # behavior (stop at capture_at_rest_ms / max_captures) guarantees the full
-    # burst instead.
-    require_sharp_capture: bool = False
-    min_sharpness_laplacian_var: float = 25.0
-    # Hard time cap on the keep-waiting-for-sharp loop (only used when
-    # require_sharp_capture is on).
-    capture_max_wait_ms: float = 1000.0
-    # Of the captured burst, how many frames to actually USE for classification —
-    # i.e. sent to Brickognize. With require_sharp_capture on these are the
-    # SHARPEST N crops (least motion blur);
-    # otherwise the most-recent (last-N, most-settled) N. The rest of the burst is
-    # kept on the piece for review but did not influence the result. Default
-    # matches max_captures so the whole burst is used.
+    # Hard ceiling on burst frames GRABBED at rest — this is what ends the burst
+    # (6 frames ≈ 200 ms at 30 fps, inside the capture_at_rest_ms window).
+    # Deliberately more than classify_burst_count: the extra frames give the
+    # quality selection more to choose from.
+    max_captures: int = 6
+    # CEILING on burst frames sent to Brickognize. The within-burst quality
+    # selection (crop_quality.selectBurstIndices) picks which — and often sends
+    # FEWER, when part of the burst is motion-blurred or the piece isn't fully
+    # in the crop. The rest of the burst is kept on the piece for review but
+    # did not influence the result.
     classify_burst_count: int = 4
     # Alongside the "combined" call, fire an extra single-image Brickognize
     # request IN PARALLEL and keep whichever result scores highest. These are
@@ -133,17 +116,14 @@ _DEFAULTS = Rev01Config()
 FIELD_META: list[dict] = [
     {"key": "rotate_speed_usteps_per_s", "label": "Rotate speed (µsteps/s)", "type": "int", "default": _DEFAULTS.rotate_speed_usteps_per_s, "description": "Motor speed for normal C4 platter rotation (microsteps per second). Higher moves pieces faster but can fling light pieces."},
     {"key": "capture_sweep_output_deg", "label": "Capture sweep (output deg, legacy)", "type": "float", "default": _DEFAULTS.capture_sweep_output_deg, "description": "Legacy non-perception fallback only: single fixed move used to sweep a piece past the camera. Unused on the active perception path."},
-    {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms, "description": "With the sharp-frame gate OFF, how long the piece is photographed at rest. The burst ends at this window or the frame ceiling, whichever comes first (~30 fps, so 350 ms fits ~10 frames)."},
+    {"key": "capture_at_rest_ms", "label": "Capture-at-rest window (ms)", "type": "float", "default": _DEFAULTS.capture_at_rest_ms, "description": "How long the piece is photographed at rest. The burst ends at this window or the frame ceiling, whichever comes first (~30 fps, so 350 ms fits ~10 frames)."},
     {"key": "precise_converge_speed_usteps_per_s", "label": "Move-to-precise converge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.precise_converge_speed_usteps_per_s, "description": "Motor speed for the reverse converge into the narrow precise staging band. Slower than normal rotation so the approach is gentle."},
     {"key": "precise_center_tolerance_deg", "label": "Move-to-precise: precise-centre tolerance (output deg)", "type": "float", "default": _DEFAULTS.precise_center_tolerance_deg, "description": "How close (in output degrees) the piece must be to the centre of the precise band to count as parked."},
     {"key": "kick_off_output_deg", "label": "Kick-off move (output deg)", "type": "float", "default": _DEFAULTS.kick_off_output_deg, "description": "Legacy non-perception fallback only: fixed move that shoves the piece off the channel at discharge. The active path closed-loops onto the fall-off centre instead."},
     {"key": "discharge_speed_usteps_per_s", "label": "Discharge speed (µsteps/s)", "type": "int", "default": _DEFAULTS.discharge_speed_usteps_per_s, "description": "Motor speed for discharge moves (driving the piece into the fall-off zone)."},
     {"key": "crop_padding_px", "label": "Crop padding (px)", "type": "int", "default": _DEFAULTS.crop_padding_px, "description": "Extra pixels added around the detected bounding box when cropping the piece image sent to classification."},
-    {"key": "max_captures", "label": "Burst frames to grab per piece (hard ceiling)", "type": "int", "default": _DEFAULTS.max_captures, "description": "Most frames the at-rest burst will ever grab for one piece. With the sharp-frame gate off (the default) this is what ends the burst, so every piece gets exactly this many frames; with it on, this is only the fallback cap."},
-    {"key": "require_sharp_capture", "label": "Keep capturing until a sharp (non-blurry) frame", "type": "bool", "default": _DEFAULTS.require_sharp_capture, "description": "On: keep grabbing frames until one clears the sharpness floor, then stop immediately — which can end the burst at a single image under good lighting. Off: grab a fixed burst (frame ceiling / at-rest window) with no blur check."},
-    {"key": "min_sharpness_laplacian_var", "label": "Sharpness floor (Laplacian variance of bbox crop)", "type": "float", "default": _DEFAULTS.min_sharpness_laplacian_var, "description": "Blur threshold for the sharp-frame gate: a crop must score at least this (Laplacian variance) to count as sharp. Camera/lighting dependent — watch the per-capture \"sharp=\" log values to tune. Only used when the gate is on."},
-    {"key": "capture_max_wait_ms", "label": "Max wait for a sharp frame (ms)", "type": "float", "default": _DEFAULTS.capture_max_wait_ms, "description": "Hard time cap on waiting for a sharp frame. If nothing clears the floor in time, the sharpest crop captured is used anyway. Only used when the sharp-frame gate is on."},
-    {"key": "classify_burst_count", "label": "Burst frames to use for classification (last N)", "type": "int", "default": _DEFAULTS.classify_burst_count, "description": "Of the captured burst, how many frames are actually sent to Brickognize. Picks the sharpest N when the sharp-frame gate is on, the last (most settled) N otherwise. Can't exceed what the burst captured."},
+    {"key": "max_captures", "label": "Burst frames to grab per piece (hard ceiling)", "type": "int", "default": _DEFAULTS.max_captures, "description": "Most frames the at-rest burst will ever grab for one piece — this is what ends the burst. Deliberately more than the classification ceiling so the quality selection has frames to choose from."},
+    {"key": "classify_burst_count", "label": "Burst frames to use for classification (ceiling)", "type": "int", "default": _DEFAULTS.classify_burst_count, "description": "Most burst frames ever sent to Brickognize. The automatic quality selection picks which frames — and often sends fewer, when part of the burst is motion-blurred or the piece isn't fully in the crop."},
     {"key": "classify_parallel_single_burst", "label": "Also classify the last burst frame alone, in parallel (keep best)", "type": "bool", "default": _DEFAULTS.classify_parallel_single_burst, "description": "Alongside the combined multi-image request, also send just the last burst frame as its own Brickognize call and keep whichever result scores highest. A lone clean frame often recognizes a piece the fused set confuses; costs no extra wall-clock."},
     {"key": "rotate_timeout_s", "label": "Rotate timeout (s)", "type": "float", "default": _DEFAULTS.rotate_timeout_s, "description": "Give up on a rotation move if the stepper hasn't reported done within this long (raises an incident instead of hanging)."},
     {"key": "classify_timeout_s", "label": "Classify timeout (s)", "type": "float", "default": _DEFAULTS.classify_timeout_s, "description": "Give up on the Brickognize classification request after this long; the piece is sent to MISC."},

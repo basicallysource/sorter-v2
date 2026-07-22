@@ -10,6 +10,8 @@ from defs.known_object import (
     KnownObject,
 )
 
+from subsystems.classification_channel.crop_quality import CropQuality
+
 from .rev01_config import Rev01Config, configFromDict
 
 
@@ -29,9 +31,14 @@ class SimpleStateMachineRev01Context:
         self.captured_crops: list[np.ndarray] = []
         self.captured_crop_timestamps: list[float] = []
         # Laplacian-variance sharpness of each captured crop (higher = sharper),
-        # index-aligned with captured_crops. Drives the keep-capturing-until-sharp
-        # stop condition and the sharpest-frame selection sent to Brickognize.
+        # index-aligned with captured_crops. Informational only (logs + the
+        # per-image `sharpness` field synced to Hive); selection uses
+        # captured_crop_quality.
         self.captured_crop_sharpness: list[float] = []
+        # Crop-quality metrics per captured crop, index-aligned with
+        # captured_crops. Drives which burst frames ship to Brickognize
+        # (crop_quality.selectBurstIndices) and the anchor/thumbnail choice.
+        self.captured_crop_quality: list[CropQuality] = []
         # The subset actually submitted to Brickognize — selected by CAPTURING
         # when it spawns the classify thread, read by AWAITING_DISTRIBUTION when
         # it dumps the burst artifacts (the spawn/apply split spans two states).
@@ -96,6 +103,7 @@ class SimpleStateMachineRev01Context:
         self.captured_crops = []
         self.captured_crop_timestamps = []
         self.captured_crop_sharpness = []
+        self.captured_crop_quality = []
         self.selected_captures = []
         self.classification_attempts = []
         self.classification_strategy = None

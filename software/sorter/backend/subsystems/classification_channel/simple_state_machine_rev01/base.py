@@ -26,6 +26,7 @@ from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
 from states.base_state import BaseState
+from subsystems.classification_channel import crop_quality
 from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
@@ -192,47 +193,37 @@ class Rev01BaseState(BaseState):
     @staticmethod
     def burstCaptureComplete(ctx, now: float) -> tuple[bool, str]:
         # Shared stop condition for the at-rest burst (single-piece CAPTURING and
-        # the two-piece incoming worker). With require_sharp_capture on, keep
-        # grabbing frames until at least one crop clears the motion-blur floor,
-        # bounded by max_captures and capture_max_wait_ms; otherwise fall back to
-        # the old fixed window (capture_at_rest_ms / max_captures). Returns
+        # the two-piece incoming worker): a plain fixed window — grab frames
+        # until max_captures or capture_at_rest_ms, whichever first. No sharpness
+        # gate: the burst deliberately over-captures and selectBurstIndices
+        # decides afterwards which frames are worth sending. Returns
         # (done, reason) so callers can log why the burst ended.
         cfg = ctx.config
         n = len(ctx.captured_crops)
         if n <= 0:
             return False, ""
         elapsed_ms = (now - ctx.capturing_started_at) * 1000.0
-        if not getattr(cfg, "require_sharp_capture", False):
-            if n >= cfg.max_captures:
-                return True, "frame_cap"
-            if elapsed_ms >= cfg.capture_at_rest_ms:
-                return True, "window"
-            return False, ""
-        floor = float(cfg.min_sharpness_laplacian_var)
-        if any(s >= floor for s in ctx.captured_crop_sharpness):
-            return True, "sharp"
         if n >= cfg.max_captures:
             return True, "frame_cap"
-        if elapsed_ms >= float(cfg.capture_max_wait_ms):
-            return True, "time_cap"
+        if elapsed_ms >= cfg.capture_at_rest_ms:
+            return True, "window"
         return False, ""
 
     def _selectBurstIndices(self, crops: list[np.ndarray], n_use: int) -> list[int]:
-        # Which burst frames drive classification. With require_sharp_capture on,
-        # the SHARPEST n_use crops (least motion blur); otherwise the last n_use
-        # (most-settled tail) to preserve the legacy behavior. Returned in capture
-        # order so the anchors/sent images stay chronological.
+        # Which burst frames drive classification: crop_quality's within-burst
+        # relative selection (containment filter + rank-combined sharpness
+        # metrics + relative-margin acceptance), which may ship FEWER than n_use
+        # frames when part of the burst is junk. Returned in capture order so
+        # the anchors/sent images stay chronological. Falls back to the
+        # most-settled tail if the quality list is somehow misaligned.
         total = len(crops)
         n = max(1, min(int(n_use), total)) if total else 0
         if n == 0:
             return []
-        cfg = self.ctx.config
-        sharp = self.ctx.captured_crop_sharpness
-        if getattr(cfg, "require_sharp_capture", False) and len(sharp) == total:
-            order = sorted(range(total), key=lambda i: sharp[i], reverse=True)
-        else:
-            order = list(reversed(range(total)))
-        return sorted(order[:n])
+        qualities = self.ctx.captured_crop_quality
+        if len(qualities) == total:
+            return crop_quality.selectBurstIndices(qualities, n)
+        return sorted(list(reversed(range(total)))[:n])
 
     def anyBboxInExitZone(
         self, bboxes: list[tuple[int, int, int, int]]
@@ -311,11 +302,11 @@ class Rev01BaseState(BaseState):
         # _runClassifyRequests).
         obj = self.ctx.known_object
         piece_uuid = obj.uuid if obj is not None else None
-        # classify_burst_count frames drive classification: they are the C4 images
-        # sent to Brickognize. _selectBurstIndices picks the sharpest (least
-        # motion-blurred) frames when require_sharp_capture is on, the most-settled
-        # tail otherwise. The rest of the burst is kept on the KnownObject
-        # (used=False) for review.
+        # Up to classify_burst_count frames drive classification: they are the
+        # C4 images sent to Brickognize. _selectBurstIndices runs the
+        # within-burst quality selection, which ships FEWER frames when part of
+        # the burst is motion-blurred or the piece isn't contained. The rest of
+        # the burst is kept on the KnownObject (used=False) for review.
         n_use = max(1, int(self.ctx.config.classify_burst_count))
         burst_entries = (
             [r for r in obj.recognition_image_set if r.source == "c4_burst"]
@@ -329,12 +320,16 @@ class Rev01BaseState(BaseState):
         # Arrival at C4. Every candidate's dt feature is measured against this,
         # so it has to be the FIRST burst frame, not the sharpest or the last.
         arrival_ts = float(stamps[0]) if stamps else float(time.time())
-        # Sharpest burst frame is the anchor the matcher compares against.
-        anchor_bgr = (
-            burst_crops[max(range(len(burst_crops)), key=lambda i: self.sharpness(burst_crops[i]))]
-            if burst_crops
-            else None
-        )
+        # Best-quality burst frame is the anchor the matcher compares against.
+        anchor_bgr = None
+        if burst_crops:
+            qualities = self.ctx.captured_crop_quality
+            best = (
+                crop_quality.bestIndex([qualities[i] for i in chosen])
+                if len(qualities) == len(all_captures)
+                else None
+            )
+            anchor_bgr = burst_crops[best] if best is not None else burst_crops[-1]
 
         def _run() -> None:
             try:
@@ -780,7 +775,14 @@ class Rev01BaseState(BaseState):
             self._applyHivePieceMetadata(obj)
 
         if frames:
-            best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
+            qualities = self.ctx.captured_crop_quality
+            best_idx = (
+                crop_quality.bestIndex(qualities)
+                if len(qualities) == len(frames)
+                else None
+            )
+            if best_idx is None:
+                best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
             obj.thumbnail = self.encodeFrame(frames[best_idx])
 
         with self.ctx.classify_lock:

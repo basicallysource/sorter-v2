@@ -74,6 +74,7 @@ class SampleMachineSummary(BaseModel):
 class SampleDetailResponse(SampleResponse):
     has_full_frame: bool = False
     has_overlay: bool = False
+    has_channel_geometry: bool = False
     machine: SampleMachineSummary | None = None
 
     @field_validator("machine", mode="before")

@@ -1,6 +1,6 @@
 """add sample channel geometry
 
-Revision ID: d4e5f6a7b8c9
+Revision ID: a3c5e7b9d1f4
 Revises: c7e2a9b4f1d3
 Create Date: 2026-07-22 12:00:00.000000
 
@@ -22,7 +22,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 
-revision: str = "d4e5f6a7b8c9"
+revision: str = "a3c5e7b9d1f4"
 down_revision: Union[str, None] = "c7e2a9b4f1d3"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None

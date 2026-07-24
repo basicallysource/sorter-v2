@@ -11,6 +11,7 @@ Auth is a static key in `settings.PUBLIC_STATS_API_KEY`, presented as either
 """
 
 import hmac
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from sqlalchemy import func
@@ -62,9 +63,31 @@ def get_public_stats(db: Session = Depends(get_db)):
     data = analytics.get_analytics(db, ids)
     return {
         "scope": {"kind": "all", "label": "All machines", "machine_count": len(ids)},
+        "last_24h_pieces": _rolling_24h_pieces(db, ids),
         **_local_day_in_progress(db, ids),
         **data,
     }
+
+
+def _rolling_24h_pieces(db: Session, ids: list) -> int:
+    """Pieces seen in the trailing 24 hours — a rolling window, not a calendar day.
+
+    Preferred over either day-in-progress number for a live readout: it never
+    resets to 0 at a midnight the reader doesn't share, so no zone has to agree
+    with any other. Uses the (machine_id, seen_at) index; rows with a NULL
+    seen_at drop out of the comparison, same as everywhere else.
+    """
+    if not ids:
+        return 0
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    return int(
+        db.query(func.count())
+        .select_from(MachinePiece)
+        .filter(MachinePiece.machine_id.in_(ids))
+        .filter(MachinePiece.seen_at >= cutoff)
+        .scalar()
+        or 0
+    )
 
 
 def _local_day_in_progress(db: Session, ids: list) -> dict:

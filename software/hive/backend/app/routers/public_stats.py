@@ -13,15 +13,24 @@ Auth is a static key in `settings.PUBLIC_STATS_API_KEY`, presented as either
 import hmac
 
 from fastapi import APIRouter, Depends, Header, HTTPException
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.deps import get_db
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
+from app.models.machine_piece import MachinePiece
 from app.services import analytics
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
+
+# The sorter fleet's local zone. The daily table buckets by UTC date, which makes
+# "today" roll over mid-afternoon local time; the widget's UTC/local mismatch then
+# showed 0 all evening. We additionally expose the day-in-progress and its piece
+# count in this zone so the client can label a real local calendar day. Keep in
+# sync with the widget's `SorterStats.sorterTimeZone`.
+PUBLIC_STATS_LOCAL_TZ = "America/Los_Angeles"
 
 
 def require_stats_key(
@@ -53,5 +62,26 @@ def get_public_stats(db: Session = Depends(get_db)):
     data = analytics.get_analytics(db, ids)
     return {
         "scope": {"kind": "all", "label": "All machines", "machine_count": len(ids)},
+        **_local_day_in_progress(db, ids),
         **data,
     }
+
+
+def _local_day_in_progress(db: Session, ids: list) -> dict:
+    """Day-in-progress and its piece count bucketed in PUBLIC_STATS_LOCAL_TZ.
+
+    Postgres only (prod); the local-zone date math relies on ``timezone()``.
+    Elsewhere (SQLite tests) return nothing and the client keeps its UTC fallback.
+    """
+    if db.bind.dialect.name != "postgresql":
+        return {}
+    today_local = db.query(func.date(func.timezone(PUBLIC_STATS_LOCAL_TZ, func.now()))).scalar()
+    piece_local_date = func.date(func.timezone(PUBLIC_STATS_LOCAL_TZ, MachinePiece.seen_at))
+    pieces = (
+        db.query(func.count())
+        .select_from(MachinePiece)
+        .filter(MachinePiece.machine_id.in_(ids))
+        .filter(piece_local_date == today_local)
+        .scalar()
+    ) or 0
+    return {"last_day_local": today_local.isoformat(), "last_day_local_pieces": int(pieces)}

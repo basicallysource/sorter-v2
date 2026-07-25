@@ -26,6 +26,24 @@ parts_needed:
     loading="lazy"></iframe>
 </div>
 
+The bottom interface stacks the chute mount, a spacer ring, the Lazy Susan bearing, and the bottom static part. Here it is exploded into its components:
+
+<div class="img-row">
+  <figure>
+    <img src="{{ '/assets/img/assembly/bottom-interface/exploded-view.png' | relative_url }}" alt="Exploded view of the bottom interface: chute mount on top, spacer ring, Lazy Susan bearing, and the corner mounting brackets below">
+  </figure>
+  <figure>
+    <img src="{{ '/assets/img/assembly/bottom-interface/exploded-view-detail.png' | relative_url }}" alt="Close-up exploded view of the bottom interface parts separating from the mounting brackets">
+  </figure>
+</div>
+
+Once assembled, it mounts into the machine frame:
+
+<figure class="doc-figure">
+  <img src="{{ '/assets/img/assembly/bottom-interface/mounted-in-frame.png' | relative_url }}" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
+  <figcaption>Diagram pictures courtesy of Adrianbaker in the basically Discord.</figcaption>
+</figure>
+
 {% include step.html n="1" title="Mount the Lazy Susan to the chute mount" %}
 
 Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-susan/' | relative_url }}) on top. You need to remove the Lazy Susan's rubber tabs first (see [Preparing Lazy Susan]({{ '/hardware/helpers/lazy-susan/' | relative_url }})). Line up a screw hole with a heat insert in the chute mount and drive the screw. Repeat around the disc.

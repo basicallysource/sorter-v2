@@ -39,10 +39,12 @@ The bottom interface stacks the chute mount, a spacer ring, the Lazy Susan beari
 
 Once assembled, it mounts into the machine frame:
 
-<figure class="doc-figure">
-  <img src="{{ '/assets/img/assembly/bottom-interface/mounted-in-frame.png' | relative_url }}" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
-  <figcaption>Diagram pictures courtesy of Adrianbaker in the basically Discord.</figcaption>
-</figure>
+<div class="img-row">
+  <figure>
+    <img src="{{ '/assets/img/assembly/bottom-interface/mounted-in-frame.png' | relative_url }}" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
+    <figcaption>Diagram pictures courtesy of Adrianbaker in the basically Discord.</figcaption>
+  </figure>
+</div>
 
 {% include step.html n="1" title="Mount the Lazy Susan to the chute mount" %}
 

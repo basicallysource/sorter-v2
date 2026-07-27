@@ -55,7 +55,12 @@ echo "  ✓ code @ $(git rev-parse --short HEAD)"
 cd "$HIVE_DIR"
 deploy_epoch="$(date +%s)"
 $COMPOSE build backend frontend
-$COMPOSE run --rm backend alembic upgrade head    # explicit, visible migration
+# `-T` + `</dev/null`: this whole remote block is fed to `bash -s` over ssh via a
+# heredoc, so the script IS this process's stdin. Without detaching stdin here,
+# `docker compose run` reads/consumes the rest of the heredoc (the recreate loop,
+# restart verification, and health check below) — they silently never execute and
+# the deploy prints "Deploy OK" while leaving the OLD containers running.
+$COMPOSE run --rm -T backend alembic upgrade head </dev/null   # explicit, visible migration
 # --force-recreate: `up -d` alone won't replace a running container when the
 # rebuilt image keeps the same :latest tag, so it would silently keep old code.
 $COMPOSE up -d --force-recreate backend frontend

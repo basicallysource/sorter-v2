@@ -23,7 +23,7 @@ set -euo pipefail
 
 # ------------------------------------------------------------------ config
 
-LIVE_HOST="${LIVE_HOST:-root@45.55.232.164}"
+LIVE_HOST="${LIVE_HOST:-root@100.116.70.1}"
 LIVE_REPO="${LIVE_REPO:-/basically/sorter/sorter-v2/software/hive}"
 LIVE_BACKEND_CONTAINER="${LIVE_BACKEND_CONTAINER:-hive-backend}"
 LIVE_PG_CONTAINER="${LIVE_PG_CONTAINER:-hive-postgres}"

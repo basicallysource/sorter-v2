@@ -14,7 +14,7 @@
 #   - Records the live SHA and rolls back if the post-deploy health check fails.
 set -euo pipefail
 
-HOST="${HIVE_HOST:-root@45.55.232.164}"
+HOST="${HIVE_HOST:-root@100.116.70.1}"
 REPO="${HIVE_REPO:-/basically/sorter/sorter-v2}"
 BRANCH="${1:-${HIVE_BRANCH:-sorthive}}"
 HEALTH_URL="${HIVE_HEALTH_URL:-https://hive.basically.website/api/health}"   # public 200; /api/models needs auth

@@ -1,0 +1,12 @@
+{%- comment -%}
+Footnote block for affiliate-link.html. Put at the bottom of any page that
+uses affiliate links; renders nothing if the page has none.
+{%- endcomment -%}
+{%- if affiliate_notes -%}
+<div class="affiliate-notes" id="affiliate-notes">
+  <p>* Links marked with an asterisk carry our Amazon affiliate tag — as an Amazon Associate we earn from qualifying purchases. The same listings without the tag:</p>
+  <ul>
+    {{ affiliate_notes }}
+  </ul>
+</div>
+{%- endif -%}

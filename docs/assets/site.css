@@ -661,6 +661,34 @@ body {
   margin: 0;
 }
 
+/* Affiliate product links: main link carries the referral tag, asterisk jumps
+   to a bottom-of-page footnote with the non-affiliate listings. */
+.affiliate-star a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.affiliate-star a:hover {
+  color: var(--ink);
+}
+
+.affiliate-notes {
+  margin-top: 2.4rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--line);
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+
+.affiliate-notes p {
+  margin: 0 0 0.4rem;
+}
+
+.affiliate-notes ul {
+  margin: 0;
+  padding-left: 1.4rem;
+}
+
 /* Inline documentation media. */
 .doc-figure {
   display: block;

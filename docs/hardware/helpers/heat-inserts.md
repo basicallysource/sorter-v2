@@ -21,3 +21,5 @@ Easiest with a {% include affiliate-link.html url="https://www.amazon.com/Vertic
     allowfullscreen
     loading="lazy"></iframe>
 </div>
+
+{% include affiliate-footnotes.html %}

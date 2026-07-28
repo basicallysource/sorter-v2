@@ -661,6 +661,18 @@ body {
   margin: 0;
 }
 
+/* Affiliate product links: main link carries the referral tag, tiny link opts out. */
+.affiliate-link-plain {
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
+.affiliate-link-plain:hover {
+  color: var(--ink);
+}
+
 /* Inline documentation media. */
 .doc-figure {
   display: block;

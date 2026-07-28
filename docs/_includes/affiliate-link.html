@@ -1,0 +1,11 @@
+{%- comment -%}
+Product link with the project's Amazon affiliate tag, plus a tiny link to the
+same listing without the tag.
+Usage: {% include affiliate-link.html url="https://www.amazon.com/dp/XXXX" text="heat-set insert press" %}
+{%- endcomment -%}
+{%- if include.url contains "?" -%}
+  {%- assign affiliate_url = include.url | append: "&tag=sorterv2-20" -%}
+{%- else -%}
+  {%- assign affiliate_url = include.url | append: "?tag=sorterv2-20" -%}
+{%- endif -%}
+<span class="affiliate-link"><a href="{{ affiliate_url }}" target="_blank" rel="noopener">{{ include.text }}</a>&nbsp;<a class="affiliate-link-plain" href="{{ include.url }}" target="_blank" rel="noopener" title="The same listing, without the referral tag">not&nbsp;affiliate</a></span>{%- comment -%}{%- endcomment -%}

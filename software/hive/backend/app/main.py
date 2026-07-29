@@ -11,6 +11,8 @@ from app.errors import APIError, api_error_handler, http_exception_handler, unha
 from app.routers import (
     admin,
     admin_parts,
+    ai_models,
+    ai_usage,
     analytics,
     api_keys,
     auth,
@@ -115,6 +117,8 @@ app.include_router(link_models.router)
 app.include_router(api_keys.router)
 app.include_router(teacher.router)
 app.include_router(leaderboard.router)
+app.include_router(ai_models.router)
+app.include_router(ai_usage.router)
 
 
 @app.get("/api/health")

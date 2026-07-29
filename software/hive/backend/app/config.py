@@ -83,7 +83,9 @@ class Settings(BaseSettings):
     # server-health page (server_storage_cache). The walk lists every S3 key so
     # it's slow; a few hours is plenty. Clamped to a 5min floor in the worker.
     SERVER_STORAGE_REFRESH_INTERVAL_MINUTES: int = 180
-    DEFAULT_AI_MODEL: str = "anthropic/claude-sonnet-4.6"
+    # Best intelligence-per-dollar on OpenRouter as of 2026-07 (~$0.7/M in,
+    # ~$2.2/M out). Frontend settings page mirrors this in aiModelGroups.
+    DEFAULT_AI_MODEL: str = "z-ai/glm-5.2"
     PROFILE_AI_PROMPT_CACHE_ENABLED: bool = True
     PROFILE_AI_PROMPT_CACHE_TTL: str | None = None
     SECRET_ENCRYPTION_KEY: str | None = None

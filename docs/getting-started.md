@@ -14,7 +14,7 @@ permalink: /getting-started/
 
 ## What Sorter V2 is
 
-Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, and the machine singulates each piece, classifies it by part number (and optionally color), and drops it into the correct bin. The project is source-available; see [CONTRIBUTING.md](../CONTRIBUTING.md) for licensing details. V1 exists as a reference but is no longer maintained; V2 is the active development target.
+Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, and the machine singulates each piece, classifies it by part number (and optionally color), and drops it into the correct bin. The project is source-available; see [CONTRIBUTING.md](https://github.com/basicallysource/sorter-v2/blob/main/CONTRIBUTING.md) for licensing details. V1 exists as a reference but is no longer maintained; V2 is the active development target.
 
 ## Current status
 
@@ -34,19 +34,7 @@ Sorter V2 is an open-source LEGO sorting machine. Feed bulk LEGO into a hopper, 
 
 ### Hardware
 
-| Item | Details | Approx. cost |
-|------|---------|-------------|
-| Raspberry Pi 5 | Main host computer (vision, logic, coordination) | $80 |
-| AI accelerator | Hailo-8 AI HAT (Pi 5) or RKNN (Orange Pi 5) | $25-70 |
-| Cameras | 3× OV9732 100° wide-angle USB cameras | $30 (3-pack) |
-| Stepper motors + drivers | 3× steppers, TMC2209 drivers on shared UART bus | $40 |
-| Servos | ST3215 serial bus servos for distribution | $30 |
-| 3D-printed parts | Structural and mechanical — PLA/PETG | Filament cost |
-| Extrusion + fasteners | 2020 aluminum extrusion, M3 heat-set inserts, M8 bolts | $50 |
-| Vibration motor | RS-385 DC 12V for feeder | $5 |
-| Springs | ISO 10243 die springs (8×4×20mm yellow, from 3D printer suppliers) | $5 |
-
-**Total materials target:** ~$500. Everything is off-the-shelf, 3D-printable, or laser-cuttable.
+A full bill of materials is still being finalized alongside the build guide (currently a stub — see [Current status](#current-status)). At a high level the machine is built from an Orange Pi host, several stepper motors driving the C-channel feeder and rotating bin tower, `basically` controller boards, USB cameras, and 3D-printed structural parts on 2020 aluminum extrusion — all off-the-shelf, 3D-printable, or laser-cuttable. Detailed part choices and costs will be published with the build guide.
 
 ### Tools
 

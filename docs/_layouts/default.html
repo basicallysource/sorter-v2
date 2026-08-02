@@ -4,7 +4,28 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% if page.title %}{{ page.title }} | {% endif %}{{ site.title }}</title>
-    <meta name="description" content="{{ page.description | default: site.description }}">
+    {%- assign meta_description = page.description | default: page.lede | default: site.description %}
+    {%- comment %} First image in the page content becomes the social preview. {% endcomment %}
+    {%- assign og_image = '' %}
+    {%- assign img_parts = content | split: '<img' %}
+    {%- if img_parts.size > 1 %}
+      {%- assign src_parts = img_parts[1] | split: 'src="' %}
+      {%- if src_parts.size > 1 %}
+        {%- assign og_image = src_parts[1] | split: '"' | first %}
+      {%- endif %}
+    {%- endif %}
+    <meta name="description" content="{{ meta_description }}">
+    <meta property="og:site_name" content="{{ site.title }}">
+    <meta property="og:type" content="{% if page.title %}article{% else %}website{% endif %}">
+    <meta property="og:title" content="{{ page.title | default: site.title }}">
+    <meta property="og:description" content="{{ meta_description }}">
+    <meta property="og:url" content="{{ page.url | absolute_url }}">
+    {%- if og_image != '' %}
+    <meta property="og:image" content="{{ og_image | absolute_url }}">
+    <meta name="twitter:card" content="summary_large_image">
+    {%- else %}
+    <meta name="twitter:card" content="summary">
+    {%- endif %}
     <link rel="icon" href="{{ '/assets/favicon.svg' | relative_url }}" type="image/svg+xml">
     <link rel="stylesheet" href="{{ '/assets/site.css' | relative_url }}">
   </head>

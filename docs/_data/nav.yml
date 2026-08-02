@@ -112,6 +112,8 @@ sections:
             url: /sorter/tutorials/first-sort-run/
           - title: Camera calibration
             url: /sorter/camera-calibration/
+          - title: Shutting down the machine
+            url: /sorter/safe-shutdown/
           - title: Troubleshooting
             url: /sorter/troubleshooting/
       - title: Under the hood

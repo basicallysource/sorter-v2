@@ -244,6 +244,13 @@ class BackendSupervisor:
 
     def _clear_bytecode_caches(self) -> int:
         cleared = 0
+        cache_prefix = self._environment.get("PYTHONPYCACHEPREFIX")
+        if cache_prefix and Path(cache_prefix).is_dir():
+            try:
+                shutil.rmtree(cache_prefix)
+                cleared += 1
+            except OSError:
+                pass
         for root, dirs, _files in os.walk(self._cwd):
             dirs[:] = [d for d in dirs if d not in (".venv", "node_modules", ".git")]
             if "__pycache__" in dirs:

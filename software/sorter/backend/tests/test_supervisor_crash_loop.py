@@ -168,16 +168,18 @@ def test_real_crashing_subprocess_captures_stderr_and_clears_cache(tmp_path):
 
 
 def test_clear_bytecode_caches_skips_venv(tmp_path):
-    backend = tmp_path
+    backend = tmp_path / "backend"
     (backend / "perception" / "__pycache__").mkdir(parents=True)
     (backend / "perception" / "__pycache__" / "capture.cpython-312.pyc").write_bytes(
         b"garbage"
     )
     (backend / ".venv" / "lib" / "__pycache__").mkdir(parents=True)
+    cache_prefix = tmp_path / "pycache-prefix"
+    (cache_prefix / "sub").mkdir(parents=True)
     supervisor = BackendSupervisor(
         command=["backend"],
         cwd=backend,
-        environment={},
+        environment={"PYTHONPYCACHEPREFIX": str(cache_prefix)},
         backend_health_url="http://127.0.0.1:1/health",
         health_interval_s=999.0,
         health_timeout_s=0.01,
@@ -187,6 +189,7 @@ def test_clear_bytecode_caches_skips_venv(tmp_path):
 
     cleared = supervisor._clear_bytecode_caches()
 
-    assert cleared == 1
+    assert cleared == 2
     assert not (backend / "perception" / "__pycache__").exists()
+    assert not cache_prefix.exists()
     assert (backend / ".venv" / "lib" / "__pycache__").exists()

@@ -9,7 +9,7 @@ lede: Pressing brass heat-set inserts into printed parts.
 permalink: /hardware/helpers/heat-inserts/
 ---
 
-<img class="doc-figure" src="{{ '/assets/img/tools/heat-insert-press.jpg' | relative_url }}" alt="Benchtop heat-set insert press with a set of tips">
+<img class="doc-figure" src="https://img.basically.website/web/tools/heat-insert-press.jpg" alt="Benchtop heat-set insert press with a set of tips">
 
 Easiest with a {% include affiliate-link.html url="https://www.amazon.com/Vertical-Machine-Heat-Insertion-Threaded-Components/dp/B0FRXF1ZH6" text="heat-set insert press" %}. You can also use a regular soldering iron.
 

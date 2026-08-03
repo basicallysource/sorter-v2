@@ -51,7 +51,7 @@ changes; markdown/CSS/includes hot-reload.
 
 - **Step heading:** `{% include step.html n="1" title="Mount the thing" %}`
   → a small "Step 1" tag over the title.
-- **Figure:** `<img class="doc-figure" src="{{ '/assets/img/…' | relative_url }}" alt="…">`
+- **Figure:** `<img class="doc-figure" src="https://img.basically.website/web/…" alt="…">`
 - **Side-by-side images** (share one full-width row, wrap on mobile):
   ```html
   <div class="img-row">
@@ -80,29 +80,31 @@ changes; markdown/CSS/includes hot-reload.
 
 ## Images — the workflow
 
-Ask the user **which folder the pics are in** (Downloads, Desktop, VLC
-Snapshots, etc.). Then do all of this yourself:
+**Images are not in git.** Originals and web versions live in the
+`basically-docs` DO Spaces bucket, served at `https://img.basically.website`
+(Cloudflare Worker in `scripts/img-worker/`). Ask the user **which folder the
+pics are in** (Downloads, Desktop, VLC Snapshots, etc.). Then do all of this
+yourself:
 
 1. **Look at each image** (Read tool) to understand what it shows before naming.
-2. **Keep the original** in `_img-src/`, mirroring the path it'll be served at.
-   Example: an image for `/assets/img/assembly/bottom-interface/step1.jpg`
-   has its original at `_img-src/assembly/bottom-interface/step1.png`
-   (same base name; original keeps its true extension). `_img-src/` is Git LFS
-   and never deployed (Jekyll ignores underscore dirs).
-3. **Generate web versions:** `python3 scripts/optimize_images.py`. It downscales
-   (long side ≤ 1600px) and writes to `assets/img/…` — **opaque → `.jpg`**,
-   **transparent → `.png`**. Reference the web path in the page with the
-   extension the script produced (photos are `.jpg`, transparent renders `.png`).
-4. Commit **both** the original and the generated web version. **Only the
-   originals (`_img-src/`) are LFS.** The deployed web versions under
-   `docs/assets/` are committed as **normal git blobs** — Vercel does not
-   materialize LFS objects on deploy, so LFS-tracked images serve as broken
-   pointer files. Keep web images small enough for plain git (that's what
-   `optimize_images.py` is for).
+2. **Upload it:**
+   ```bash
+   python3 docs/scripts/upload_image.py <original-file> assembly/<page>/<name>
+   ```
+   The script generates the web version (long side ≤ 1600px, **opaque →
+   `.jpg`**, **transparent → `.png`**), uploads the full-res original to
+   `originals/<path>` and the web version to `web/<path>`, and prints both URLs.
+   Credentials: `~/.config/basically/do-spaces.env`.
+3. **Reference the printed web URL** in the page:
+   `https://img.basically.website/web/<path>.<jpg|png>`. Plain URL, no Liquid.
+4. Nothing image-related gets committed. The URL works identically on PR
+   previews and production, since the bucket is branch-independent.
 
-Name images by what they show (`step2-hole-red-square.jpg`), not by source
-filename. Group step images under `assets/img/assembly/<page>/`, part renders
-under `assets/img/parts/…`, tools under `assets/img/tools/`.
+**Names are immutable.** The CDN caches for 30 days, so if an image's content
+changes, upload under a new name and update the reference — never reuse a name
+(the script refuses to overwrite unless `--force`). Name images by what they
+show (`step2-hole-red-square`), not by source filename. Group step images under
+`assembly/<page>/`, part renders under `parts/…`, tools under `tools/`.
 
 ## Parts
 
@@ -128,10 +130,18 @@ two merge cleanly later.
 the byline resolves in the meta footer. Add a contributor once here; every page
 crediting them updates automatically.
 
-## Deploy
+## Deploy and PR previews
 
-Vercel builds from `docs/`. **Vercel does not resolve Git LFS**, so deployed
-files must be normal git blobs (see Images). The LFS originals in `_img-src/`
-are fine because they're excluded from the build. Run `optimize_images.py`
-before pushing when `_img-src` changed. Commit only when verified; push only
-when asked.
+Vercel builds from `docs/`. Push to `main` deploys production. **Every push to
+any other branch gets an automatic preview deployment** — no setup per PR. The
+stable per-branch URL is:
+
+    https://sorter-v2-docs-git-<branch>-spencer-huberts-projects.vercel.app
+
+It always tracks the branch's latest push, is publicly viewable (no Vercel
+login), and is the link to hand to reviewers. Each individual push also gets
+its own frozen per-deployment URL (visible in the PR checks) if a reviewer
+should sign off on one exact snapshot. Images render identically on previews
+and production because they come from `img.basically.website`, not the repo.
+
+Commit only when verified; push only when asked.

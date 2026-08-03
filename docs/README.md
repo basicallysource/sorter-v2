@@ -1,64 +1,51 @@
 # Documentation Site
 
-This directory is the canonical source for the project documentation site that is intended to publish to GitHub Pages.
+Jekyll static site, the canonical source for Sorter project documentation.
+Deployed via Vercel.
 
-## What lives here
+## Publishing and PR previews
 
-- durable detector benchmark conclusions
-- model and artifact documentation
-- target conversion workflows
-- the Pages site layout and styling
-
-## Publishing
-
-The GitHub Pages workflow lives in:
-
-- `../.github/workflows/documentation-pages.yml`
-
-It builds from `docs/`.
+- Push to `main` → production deploy.
+- Push to any other branch → automatic preview deployment. The stable
+  per-branch preview URL is
+  `https://sorter-v2-docs-git-<branch>-spencer-huberts-projects.vercel.app`,
+  publicly viewable, always tracking the branch's latest push. Send that link
+  to reviewers; merge to `main` once approved.
 
 ## Local preview
 
-If you want to preview locally:
-
 ```bash
-cd docs
-bundle install
-bundle exec jekyll serve
+./docs/serve.sh start
 ```
 
-If local Ruby gets in the way, use the Docker-based workflow described below. The GitHub Pages workflow is the authoritative CI build path.
-
-## Local Docker build
-
-The most reliable local test path is a disposable Ruby 3.1 container:
-
-```bash
-./local-jekyll.sh build
-```
-
-This gives you a real local build check without needing GitHub Pages to be enabled yet.
-
-For a local preview server on `http://127.0.0.1:4000`:
-
-```bash
-./local-jekyll.sh serve
-```
+Runs Jekyll at `http://localhost:4000` with livereload. `./serve.sh
+{status|logs|restart|stop}`. For a containerized build check without local
+Ruby: `./docs/local-jekyll.sh build` (or `serve`).
 
 ## Images
 
-Keep full-resolution originals in `docs/_img-src/`, mirroring the path they'll be
-served at under `docs/assets/img/`. Originals live in Git LFS and are never
-deployed (Jekyll ignores underscore-prefixed dirs).
+Images are **not stored in git**. Full-resolution originals and web-optimized
+versions live in the `basically-docs` DigitalOcean Spaces bucket, served
+through a Cloudflare Worker (`docs/scripts/img-worker/`) at
+`https://img.basically.website`.
 
-Regenerate the web-friendly versions before pushing whenever `_img-src` changes:
+To add an image:
 
 ```bash
-python3 docs/scripts/optimize_images.py
+python3 docs/scripts/upload_image.py <original-file> <dest-path>
 ```
 
-It downscales each original (long side ≤ 1600px) and writes a progressive JPEG
-(opaque images) or optimized PNG (transparent images) to the matching path under
-`docs/assets/img/`. Pages reference those `assets/img/...` paths — `.jpg` for
-photos, `.png` for transparent renders. Commit both the original and the
-generated web version.
+Example: `python3 docs/scripts/upload_image.py ~/Downloads/IMG_1234.jpg
+assembly/top-interface/step1` uploads the original to `originals/…` and a
+web-friendly version (long side ≤ 1600px, opaque → progressive `.jpg`,
+transparent → `.png`) to `web/…`, then prints the URLs. Reference the printed
+`https://img.basically.website/web/…` URL in the page.
+
+Names are immutable (the CDN caches for 30 days): if an image's content
+changes, upload it under a new name. The script refuses to overwrite an
+existing name unless `--force`.
+
+Credentials live in `~/.config/basically/do-spaces.env` (`SPACES_KEY` /
+`SPACES_SECRET`), not in the repo.
+
+See `AGENTS.md` in this directory for the full authoring playbook.

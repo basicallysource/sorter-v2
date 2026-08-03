@@ -33,3 +33,5 @@ software/sorteros/v3/build/.env
 /test-profile-parts.db
 
 .DS_Store
+
+docs/scripts/__pycache__/

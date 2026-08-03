@@ -34,7 +34,7 @@ lede: The durable documentation layer for the Sorter V2 project — hardware, th
 
 ## Editing and publishing
 
-The site source lives in `docs/` and is deployed via GitHub Pages. To preview locally, run:
+The site source lives in `docs/` and is deployed via Vercel. To preview locally, run:
 
 ```bash
 ./docs/local-jekyll.sh serve

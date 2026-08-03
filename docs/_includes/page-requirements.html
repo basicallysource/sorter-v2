@@ -44,7 +44,7 @@ Unknown ids render the raw id so a missing catalog entry is visible, not silent.
           <li class="part-card">
             {% if part %}
               <div class="part-card-media">
-                {% if part.image %}<img class="part-card-img" src="{{ part.image | relative_url }}" alt="{{ part.name }}">{% endif %}
+                {% if part.image %}<img class="part-card-img" src="{{ part.image }}" alt="{{ part.name }}">{% endif %}
                 {% if entry.qty %}<span class="part-card-qty">{{ entry.qty }}×</span>{% endif %}
               </div>
               <span class="part-card-name">

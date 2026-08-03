@@ -30,10 +30,10 @@ The bottom interface stacks the chute mount, a spacer ring, the Lazy Susan beari
 
 <div class="img-row">
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/exploded-view.png' | relative_url }}" alt="Exploded view of the bottom interface: chute mount on top, spacer ring, Lazy Susan bearing, and the corner mounting brackets below">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/exploded-view.png" alt="Exploded view of the bottom interface: chute mount on top, spacer ring, Lazy Susan bearing, and the corner mounting brackets below">
   </figure>
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/exploded-view-detail.png' | relative_url }}" alt="Close-up exploded view of the bottom interface parts separating from the mounting brackets">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/exploded-view-detail.png" alt="Close-up exploded view of the bottom interface parts separating from the mounting brackets">
   </figure>
 </div>
 
@@ -41,7 +41,7 @@ Once assembled, it mounts into the machine frame:
 
 <div class="img-row">
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/mounted-in-frame.png' | relative_url }}" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/mounted-in-frame.png" alt="The bottom interface assembly mounted into the aluminum extrusion machine frame">
     <figcaption>Diagram pictures courtesy of Adrianbaker in the basically Discord.</figcaption>
   </figure>
 </div>
@@ -52,10 +52,10 @@ Set the spacer on the chute mount and the [Lazy Susan]({{ '/hardware/parts/lazy-
 
 <div class="img-row">
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step1-line-up-hole.jpg' | relative_url }}" alt="Lining up the first screw hole with the chute mount's heat insert">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step1-line-up-hole.jpg" alt="Lining up the first screw hole with the chute mount's heat insert">
   </figure>
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step1-drive-screw.jpg' | relative_url }}" alt="Driving the screw into the chute mount">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step1-drive-screw.jpg" alt="Driving the screw into the chute mount">
   </figure>
 </div>
 
@@ -66,7 +66,7 @@ The Lazy Susan is two discs, inner and outer, that spin independently. One disc'
   <p>The M4 × 12 mm countersunk screws must be very tight. Most electric screwdrivers won't tighten them enough. They're a hassle to reach if they come loose, and machine vibration can work them loose.</p>
 </div>
 
-<img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/lazy-susan-on-chute-mount.jpg' | relative_url }}" alt="Lazy Susan bearing mounted on the chute mount with the spacer between them">
+<img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/lazy-susan-on-chute-mount.jpg" alt="Lazy Susan bearing mounted on the chute mount with the spacer between them">
 
 {% include step.html n="2" title="Mount the Lazy Susan to the bottom static part" %}
 
@@ -74,11 +74,11 @@ The Lazy Susan's other disc screws down into the bottom static part. You reach t
 
 <div class="img-row">
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step2-holes-aligned.jpg' | relative_url }}" alt="Lazy Susan hole aligned with the pass-through hole, seen from the top">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step2-holes-aligned.jpg" alt="Lazy Susan hole aligned with the pass-through hole, seen from the top">
     <figcaption>Holes lined up. You can see through to the chute mount.</figcaption>
   </figure>
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step2-pass-through.jpg' | relative_url }}" alt="Pass-through hole in the chute mount with the screw reachable underneath">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step2-pass-through.jpg" alt="Pass-through hole in the chute mount with the screw reachable underneath">
     <figcaption>The pass-through hole lets a screwdriver reach the screw.</figcaption>
   </figure>
 </div>
@@ -87,30 +87,30 @@ Set the chute mount + Lazy Susan assembly onto the bottom static part and line u
 
 <div class="img-row">
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step2-place-chute-adapter.jpg' | relative_url }}" alt="Placing the chute mount and Lazy Susan assembly onto the bottom static part">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step2-place-chute-adapter.jpg" alt="Placing the chute mount and Lazy Susan assembly onto the bottom static part">
   </figure>
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step2-hole-red-square.jpg' | relative_url }}" alt="Pass-through hole lined up over the heat insert, marked with a red square">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step2-hole-red-square.jpg" alt="Pass-through hole lined up over the heat insert, marked with a red square">
     <figcaption>Line up over the marked hole (red square).</figcaption>
   </figure>
 </div>
 
 Drive the first screw through the pass-through hole.
 
-<img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/step2-screwed-in.jpg' | relative_url }}" alt="First screw driven through the pass-through hole">
+<img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/step2-screwed-in.jpg" alt="First screw driven through the pass-through hole">
 
 Then rotate the chute with the Lazy Susan, turning it the way it turns in normal operation, not by forcing the whole assembly, to bring the pass-through hole to the next insert. Repeat for all four screws.
 
 <div class="img-row">
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step2-rotate-90.jpg' | relative_url }}" alt="Rotating the chute with the Lazy Susan to the next screw position">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step2-rotate-90.jpg" alt="Rotating the chute with the Lazy Susan to the next screw position">
   </figure>
   <figure>
-    <img src="{{ '/assets/img/assembly/bottom-interface/step2-after-rotate.jpg' | relative_url }}" alt="Pass-through hole lined up over the next heat insert after rotating">
+    <img src="https://img.basically.website/web/assembly/bottom-interface/step2-after-rotate.jpg" alt="Pass-through hole lined up over the next heat insert after rotating">
     <figcaption>Pass-through hole now over the next insert.</figcaption>
   </figure>
 </div>
 
 The finished bottom interface:
 
-<img class="doc-figure" src="{{ '/assets/img/assembly/bottom-interface/complete.jpg' | relative_url }}" alt="The completed bottom interface with chute mount, Lazy Susan bearing, and bottom static part assembled">
+<img class="doc-figure" src="https://img.basically.website/web/assembly/bottom-interface/complete.jpg" alt="The completed bottom interface with chute mount, Lazy Susan bearing, and bottom static part assembled">

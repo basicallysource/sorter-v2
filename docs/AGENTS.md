@@ -94,7 +94,14 @@ yourself:
    The script generates the web version (long side ≤ 1600px, **opaque →
    `.jpg`**, **transparent → `.png`**), uploads the full-res original to
    `originals/<path>` and the web version to `web/<path>`, and prints both URLs.
-   Credentials: `~/.config/basically/do-spaces.env`.
+   Needs Pillow and boto3.
+
+   **Credentials** come from either the `SPACES_KEY` / `SPACES_SECRET` env vars
+   or `~/.config/basically/do-spaces.env` (`KEY=VALUE` lines). The env vars win.
+   If you're an agent running somewhere other than Spencer's Mac, you almost
+   certainly have neither — ask Spencer for a Spaces key scoped to the
+   `basically-docs` bucket rather than assuming you can't add images. Never
+   commit the credentials.
 3. **Reference the printed web URL** in the page:
    `https://img.basically.website/web/<path>.<jpg|png>`. Plain URL, no Liquid.
 4. Nothing image-related gets committed. The URL works identically on PR

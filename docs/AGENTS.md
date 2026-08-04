@@ -101,11 +101,26 @@ yourself:
    If you're an agent running somewhere other than Spencer's Mac, you almost
    certainly have neither — ask Spencer for a Spaces key scoped to the
    `basically-docs` bucket rather than assuming you can't add images. Never
-   commit the credentials.
+   commit the credentials. If a key genuinely isn't available, say so and use
+   `img-placeholder` divs (below) instead of guessing or embedding the image
+   data directly in the page.
 3. **Reference the printed web URL** in the page:
    `https://img.basically.website/web/<path>.<jpg|png>`. Plain URL, no Liquid.
 4. Nothing image-related gets committed. The URL works identically on PR
    previews and production, since the bucket is branch-independent.
+
+**A contributor's file sometimes carries images embedded as base64 data URIs**
+(e.g. `![alt](data:image/jpeg;base64,...)`) instead of as separate
+attachments. Same workflow applies, decode first: extract each data URI to
+its own file, then upload that file with `upload_image.py` like any other
+original. Don't leave the base64 inline in the page, it defeats "images are
+not in git" and bloats the repo.
+
+**A printed part's catalog image (`_data/parts.yml`'s `image:` field) can
+often be pulled from `parts-calculator`'s own renders** instead of asking for
+a fresh photo: that repo's `static/renders/<part-id>.png` is a real OrcaSlicer
+thumbnail for every printed part in its catalog. Upload it the same way,
+under `parts/<page>/<part-id>`.
 
 **Names are immutable.** The CDN caches for 30 days, so if an image's content
 changes, upload under a new name and update the reference — never reuse a name

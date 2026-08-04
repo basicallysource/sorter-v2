@@ -50,16 +50,19 @@ m4-12mm-countersunk:
 ext-bracket-left:
   name: External bracket — side
   category: Printed parts
+  image: https://img.basically.website/web/parts/external-bracket/ext-bracket-left.png
   page: /hardware/assembly/distribution/external-bracket/
 
 ext-bracket-bottom-vertical:
   name: External bracket — bottom vertical
   category: Printed parts
+  image: https://img.basically.website/web/parts/external-bracket/ext-bracket-bottom-vertical.png
   page: /hardware/assembly/distribution/external-bracket/
 
 ext-bracket-cover:
   name: External bracket — cover
   category: Printed parts
+  image: https://img.basically.website/web/parts/external-bracket/ext-bracket-cover.png
   page: /hardware/assembly/distribution/external-bracket/
 
 scr-m5-16-shcs:

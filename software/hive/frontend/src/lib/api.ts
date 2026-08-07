@@ -793,6 +793,47 @@ export interface ProfileCatalogStatus {
 	types: Record<string, CatalogSyncTypeState>;
 }
 
+export interface AiModelOption {
+	id: string;
+	name: string;
+	input_per_million: number | null;
+	output_per_million: number | null;
+	// Blended price relative to the baseline model; null when OpenRouter didn't
+	// price the model (e.g. the catalog fetch failed and nothing was cached).
+	cost_factor: number | null;
+	cost_factor_label: string | null;
+	context_length: number | null;
+}
+
+export interface AiModelGroup {
+	label: string;
+	models: AiModelOption[];
+}
+
+export interface AiModelCatalog {
+	default_model: string;
+	baseline_model: string;
+	pricing_available: boolean;
+	groups: AiModelGroup[];
+}
+
+export interface AiUsageTotals {
+	cost_usd: number;
+	prompt_tokens: number;
+	completion_tokens: number;
+	total_tokens: number;
+	call_count: number;
+	message_count: number;
+}
+
+export interface AiUsageSummary {
+	week: AiUsageTotals;
+	month: AiUsageTotals;
+	year: AiUsageTotals;
+	all_time: AiUsageTotals;
+	since: string | null;
+}
+
 export interface ProfileCatalogSearchResult {
 	part_num: string;
 	name: string;
@@ -1961,6 +2002,15 @@ export const api = {
 		preferred_teacher_model?: string | null;
 	}) {
 		return request<User>('PATCH', '/api/auth/me', data);
+	},
+
+	// AI models
+	listAiModels(refresh = false) {
+		return request<AiModelCatalog>('GET', `/api/ai/models${refresh ? '?refresh=true' : ''}`);
+	},
+
+	getAiUsage() {
+		return request<AiUsageSummary>('GET', '/api/ai/usage');
 	},
 
 	// Profile Catalog

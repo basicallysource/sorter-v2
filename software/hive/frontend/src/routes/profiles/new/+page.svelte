@@ -3,6 +3,7 @@
 	import { auth } from '$lib/auth.svelte';
 	import { goto } from '$app/navigation';
 	import SetSearch from '$lib/components/profile/SetSearch.svelte';
+	import { uuid } from '$lib/uuid';
 
 	type SetResult = {
 		set_num: string;
@@ -34,7 +35,7 @@
 
 	function makeSetRule(set: SetResult): SortingProfileRule {
 		return {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			rule_type: 'set',
 			name: set.name,
 			match_mode: 'all',

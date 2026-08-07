@@ -44,6 +44,39 @@ import { Button, Alert, Tooltip } from '$lib/components/primitives';
 
 Extend primitives rather than re-deriving their styles inline. If a one-off needs a new variant, add it to the primitive and showcase it in `src/routes/styleguide/+page.svelte`.
 
+## Icons — always `lucide-svelte`, never hand-written SVG
+
+`lucide-svelte` is a dependency. Every icon comes from it, imported per-icon so
+the bundle stays small:
+
+```svelte
+import Pencil from 'lucide-svelte/icons/pencil';
+…
+<Pencil size={16} />
+```
+
+**Never paste an inline `<svg><path d="…">` into a component.** Hand-rolled path
+data is unreviewable, renders at the wrong optical weight next to real icons, and
+has repeatedly come out visually wrong. If Lucide doesn't have the icon, say so
+rather than drawing one. Inline SVGs still present in older files are legacy —
+replace them with the Lucide equivalent when you touch that markup.
+
+## Verifying dev Hive — use Claude in Chrome
+
+Dev Hive runs on this Mac (frontend [http://flux.tailf1686d.ts.net:5174](http://flux.tailf1686d.ts.net:5174)).
+**Always verify Hive changes with the `mcp__claude-in-chrome__*` tools.** Every
+interesting route is behind auth, so the browser the extension is connected to
+has to be signed in as the agent account (`claude@sorterdev.com`, see
+`sorter-v2-agent-notes/documentation/projects/hive/dev-hive.md`). Agents cannot
+type passwords — if a route bounces to `/login`, say so and have Spencer sign
+that browser in once; the session then persists for later sessions.
+
+Do **not** use the Browser pane (`preview_start` / `mcp__Claude_Browser__*`) for
+Hive: it has no session, so every authed route renders "Profile not found", and
+it does not need its own dev server — one is already running on `:5174` with HMR,
+so edits are live the moment they're saved. Do not build throwaway static HTML
+mockups to eyeball a change; look at the real page.
+
 ## Svelte 5 conventions
 
 - Props: `let { foo, onclose }: Props = $props();`

@@ -78,8 +78,9 @@ export HIVE_FRONTEND_IMAGE=ghcr.io/basicallysource/hive-frontend:v0.1.0
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d
 ```
 
-then hand the host over to the release agent per
-[scripts/CUTOVER.md](scripts/CUTOVER.md).
+then hand the host over to the release agent. How that was done for the current
+prod box is recorded in [scripts/CUTOVER.md](scripts/CUTOVER.md) — that file is
+a historical record, not a runbook to re-run.
 
 The production stack expects:
 - Traefik running on the external Docker network `web`

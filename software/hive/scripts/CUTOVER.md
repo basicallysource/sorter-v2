@@ -1,17 +1,43 @@
-# Hive deploy cutover runbook
+# Hive deploy cutover — record of what was done, 2026-08-07
 
-Moves Hive from "build on the prod box from a git checkout" to "CI builds
-images, prod installs published releases". Run top to bottom. Every command is
-literal — nothing here is left as an exercise.
+**This is history, not a runbook. It has already been carried out — do not run
+it.** It records how Hive moved from "build on the prod box from a git checkout"
+to "CI builds images, prod installs published releases", on 2026-08-07. Kept
+because the reasoning and the recovery procedures are still worth having.
 
-**Host:** `root@100.116.70.1` (tailnet `balloon`; public `45.55.232.164` serves
-only 80/443, so you must be on the tailnet).
-**Nothing in this runbook restarts Postgres.** The database container is never
-touched, before or after cutover.
+- **To deploy Hive today:** push a tag — `software/hive/scripts/release.sh`. See
+  [README.md](README.md), which is the current operational doc.
+- **To stand up a brand-new Hive host:** the steps below are still broadly the
+  shape of it, but read them as a description rather than a script — versions,
+  paths and the two deviations noted below have moved on.
+
+`hive/v0.1.0` was the first release cut this way and went live 2026-08-07
+(commit `7edd14ea`).
+
+**Host:** `root@100.116.70.1` (tailnet `balloon`). SSH is tailnet-only; there is
+no inbound tcp/22, and 80/443 accept Cloudflare ranges only, so the public IP
+is not reachable directly. See
+`sorter-v2-agent-notes/documentation/projects/hive/prod-access.md`.
+
+**Nothing here restarted Postgres.** The database container was never touched,
+before or after cutover — it has held its uptime straight through.
+
+## Where this was deviated from, and why
+
+Two things below were **not** done as written. The text is left in place so the
+reasoning is still legible, with the actual outcome marked at each spot.
+
+| Step | Written as | Actually done |
+|---|---|---|
+| 1.3 | Make both GHCR packages **public** | **Kept private.** The box got a read-only credential instead — see 1.3. |
+| 2.5 | `HIVE_BACKUP_KEEP_DAYS=30`, `KEEP_MIN=7` | **3 and 3.** The off-box copy is the durable one — see 2.5. |
 
 ---
 
-## 0. What is there today (verified 2026-08-07, read-only)
+## 0. What was there before the cutover
+
+*Historical snapshot — state as of 2026-08-07, **pre-cutover**. None of this
+describes the box today.*
 
 | | |
 |---|---|
@@ -56,7 +82,33 @@ It builds both images, pushes them to GHCR, then publishes the release. That
 ordering is deliberate: prod polls for *releases*, so a release that exists is
 always one whose images exist.
 
-### 1.3 Make both packages public — REQUIRED
+### 1.3 Package visibility — NOT done as written
+
+> **DEVIATION. The packages were kept PRIVATE.** The instruction below to make
+> them public was not followed. Do not "fix" the packages by making them public
+> — that would undo a deliberate decision.
+>
+> What was actually done: visibility left private, and the box was given a
+> read-only credential.
+>
+> - A classic PAT with **only `read:packages`**.
+> - `docker login ghcr.io` on prod, stored in root-only
+>   `/root/.docker/config.json` (mode 600).
+> - The same token set as **`HIVE_GITHUB_TOKEN`** in `/etc/hive-release.env`
+>   (mode 600) — note the name, `HIVE_GITHUB_TOKEN`, which is what
+>   `hive_release_agent.py` reads. This also authenticates the releases API and
+>   so lifts polling off the anonymous 60 requests/hour rate limit, which a
+>   60-second timer would otherwise sit uncomfortably close to.
+>
+> Verify it is still private — this should print `403`:
+>
+> ```bash
+> tok=$(curl -s "https://ghcr.io/token?scope=repository:basicallysource/hive-backend:pull&service=ghcr.io" | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+> curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $tok" \
+>   https://ghcr.io/v2/basicallysource/hive-backend/manifests/v0.1.0
+> ```
+
+*Original text, not followed:*
 
 GHCR packages are created **private** even from a public repo. Prod pulls
 anonymously, so until you do this, every poll fails with `denied`.
@@ -72,16 +124,13 @@ The images contain only public repo source; `.dockerignore` excludes `.env*`,
 and every secret is injected at runtime from `.env.prod`. Nothing sensitive is
 in a layer.
 
-Verify from anywhere, no login:
+### 1.4 Who can cut a release
 
-```bash
-docker manifest inspect ghcr.io/basicallysource/hive-backend:v0.1.0 >/dev/null && echo PUBLIC_OK
-```
-
-> Alternative if you'd rather keep them private: leave visibility alone, create
-> a classic PAT with only `read:packages`, and add `HIVE_GHCR_TOKEN=<pat>` to
-> `/etc/hive-release.env` plus a `docker login ghcr.io -u <user> --password-stdin`
-> on prod. Public is one click and one fewer credential to rotate; prefer it.
+Repository ruleset **"Release tags — maintainers and admins only"** restricts
+creating `hive/v*`, `firmware/v*` and `sorteros/v*` tags to maintainers and
+admins, and blocks their deletion. Deploy rights are therefore not the same
+thing as write access to the repo — someone can merge to `main` without being
+able to ship it.
 
 ---
 
@@ -162,6 +211,8 @@ HIVE_BACKUP_DIR=/basically/backups/hive-db
 HIVE_BACKUP_KEEP_DAYS=30
 HIVE_BACKUP_KEEP_MIN=7
 HIVE_HEALTH_URL=https://hive.basically.website/api/health
+# NOTE: the 30/7 above were overridden to 3/3 by the second block below.
+# The live values are 3 and 3 — see the DEVIATION note there.
 HIVE_PG_CONTAINER=hive-postgres
 HIVE_COMPOSE_PROJECT=hive
 EOF
@@ -190,6 +241,15 @@ HIVE_BACKUP_KEEP_DAYS=3
 HIVE_BACKUP_KEEP_MIN=3
 EOF
 ```
+
+> **DEVIATION (retention).** These last two lines are the ones that took effect
+> — **3 days, floor of the 3 newest**, not the 30/7 written in the first block.
+> Verified live: `HIVE_BACKUP_KEEP_DAYS=3`, `HIVE_BACKUP_KEEP_MIN=3`. The code's
+> own defaults are 30/7; the box deliberately does not use them. Short on
+> purpose — 30 days of dumps is ~9 GB on a 77 GB disk that was already at 76%,
+> and the off-box Space is the durable copy. The Spaces key is `hive-backups-rw`,
+> scoped `readwrite` to `sorter-hive-backups` only; the bucket is private
+> (anonymous GET → 403).
 
 ### 2.6 Install the systemd units
 
@@ -248,10 +308,18 @@ docker ps --filter name=hive- --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
 curl -fsS https://hive.basically.website/api/health && echo
 ```
 
-`docker ps` must now show `ghcr.io/basicallysource/hive-*@sha256:...` as the
-images — that is the proof prod is running CI's build and not a local one. Then
-click through the site: log in, open a sorting profile, load a labeling page
-(exercises Postgres and S3).
+Prod must be running CI's build and not a local one. Note that `docker ps`
+shows a bare image **ID** here, not the `ghcr.io/...@sha256:...` reference —
+an image pulled by digest carries no tag for `docker ps` to print. Ask
+`docker inspect` for the real reference:
+
+```bash
+docker inspect hive-backend hive-frontend --format '{{.Name}} {{.Config.Image}}'
+```
+
+That prints `ghcr.io/basicallysource/hive-backend@sha256:...`, which is the
+actual proof. Then click through the site: log in, open a sorting profile, load
+a labeling page (exercises Postgres and S3).
 
 ### 2.9 Arm the timer
 
@@ -265,7 +333,13 @@ journalctl -u hive-release -f     # ctrl-c when you've seen a quiet poll
 
 From here, `software/hive/scripts/release.sh vX.Y.Z` is the entire deploy.
 
-### 2.10 Decommission the old path
+### 2.10 Decommission the old path — STILL OUTSTANDING
+
+> **Not done.** As of 2026-08-07 the old on-box images
+> (`hive-{backend,frontend}:{latest,rollback}`) and
+> `data.fresh-empty-20260609/` are all still present. Nothing depends on them
+> and nothing breaks by leaving them; disk is at 70% (24 G free), so the
+> pressure that motivated this has eased. Still worth reclaiming eventually.
 
 Only after a *second* release has been cut and installed by the timer on its
 own. Nothing here is urgent; the checkout is harmless once it is no longer the
@@ -288,7 +362,15 @@ while `data/` lives there.** That is exactly the 2026-06-09 wipe.
 
 ---
 
-## Optional (recommended, later): move the data out of the git checkout
+## Move the data out of the git checkout — STILL OUTSTANDING
+
+> **Not done.** `HIVE_DATA_DIR` is still
+> `/basically/sorter/sorter-v2/software/hive/data` — the live Postgres data
+> directory remains inside the git checkout. This is the arrangement that caused
+> the 2026-06-09 wipe. Removing git from the deploy path (which *is* done)
+> closes the path that actually triggered it, but not the arrangement itself.
+> Moving it is agreed and deferred. Tracked in
+> `sorter-v2-agent-notes/documentation/projects/hive/backups.md`.
 
 Closes the original landmine for good. Needs a few minutes of downtime and a
 fresh backup. Do it on its own, not during cutover.

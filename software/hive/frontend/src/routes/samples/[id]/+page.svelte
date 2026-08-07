@@ -39,9 +39,9 @@
 	let showDeleteModal = $state(false);
 
 	// Image view toggle — persisted via ?view= query param
-	type ViewMode = 'image' | 'full_frame' | 'overlay' | 'annotate';
+	type ViewMode = 'image' | 'full_frame' | 'channel_crop' | 'overlay' | 'annotate';
 	type ImageRenderAsset = 'image' | 'full_frame';
-	const validViews: ViewMode[] = ['image', 'full_frame', 'overlay', 'annotate'];
+	const validViews: ViewMode[] = ['image', 'full_frame', 'channel_crop', 'overlay', 'annotate'];
 
 	function readViewFromUrl(): ViewMode {
 		const v = page.url.searchParams.get('view');
@@ -565,6 +565,14 @@
 						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'full_frame' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
 					>
 						Full Frame
+					</button>
+				{/if}
+				{#if sample.has_channel_geometry}
+					<button
+						onclick={() => setView('channel_crop')}
+						class="px-3 py-1.5 text-xs font-medium transition-colors {activeView === 'channel_crop' ? 'bg-surface text-text' : 'text-text-muted hover:text-text'}"
+					>
+						Channel Crop
 					</button>
 				{/if}
 				{#if sample.has_overlay}

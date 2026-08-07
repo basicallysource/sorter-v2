@@ -4,14 +4,16 @@
 	import { ArrowLeft, ChevronDown, ChevronRight, ExternalLink } from 'lucide-svelte';
 	import AppHeader from '$lib/components/AppHeader.svelte';
 	import TrackPathComposite from '$lib/components/TrackPathComposite.svelte';
-	import UpstreamMatchSearch from '$lib/components/UpstreamMatchSearch.svelte';
 	import ImageInfoBadge from '$lib/components/ImageInfoBadge.svelte';
 	import PieceStatusBadge from '$lib/components/PieceStatusBadge.svelte';
 	import ReclassifyPanel from '$lib/components/ReclassifyPanel.svelte';
-	import { Alert } from '$lib/components/primitives';
+	import PieceInfoCard from '$lib/components/pieces/PieceInfoCard.svelte';
+	import PieceThumbGrid from '$lib/components/pieces/PieceThumbGrid.svelte';
+	import type { InfoRow, Thumb } from '$lib/components/pieces/types';
 	import {
 		diskToDisplay,
 		fetchDiskImages,
+		fetchDiskLinkImages,
 		type DisplayImage
 	} from '$lib/components/records/piece-images';
 	import { getMachineContext } from '$lib/machines/context';
@@ -52,67 +54,36 @@
 	// A memory hit carries the full KnownObject payload; a disk hit degrades to
 	// the durable summary + on-disk images ('summary_only').
 	let _fetchedPiece = $state<KnownObjectData | null>(null);
-	let _fetchStatus = $state<
-		'idle' | 'loading' | 'ok' | 'summary_only' | 'not_found' | 'error'
-	>('idle');
+	let _fetchStatus = $state<'idle' | 'loading' | 'ok' | 'summary_only' | 'not_found' | 'error'>(
+		'idle'
+	);
 	let _diskSummary = $state<PieceSummary | null>(null);
 	let _diskImages = $state<DisplayImage[]>([]);
 
-	// 'Possibly the same piece': cheap time/angle lookup over the unlabeled
-	// C2/C3 channel crops (no embeddings). Confidence-ranked superset.
-	type PossibleCrop = {
-		id: number;
-		channel: number | null;
-		ts: number | null;
-		dt: number;
-		zone_code: number | null;
-		com_forward_to_exit_deg: number | null;
-		track_id: number | null;
-		sharpness: number | null;
-		score: number;
-	};
-	let _possibleCrops = $state<PossibleCrop[]>([]);
-	let _possibleStatus = $state<'idle' | 'loading' | 'ok' | 'error'>('idle');
+	let _refetchedForUpdatedAt = 0;
+	let _refetchTimer: ReturnType<typeof setTimeout> | null = null;
 
+	// SvelteKit reuses this component when navigating /tracked/<a> ->
+	// /tracked/<b>, so none of the per-piece state above resets on its own.
+	// Without this, _fetchStatus stays 'ok' (the new piece never fetches its
+	// detail, so it renders the OLD piece's image sets) and
+	// _refetchedForUpdatedAt — an absolute timestamp from the old piece — can
+	// block the refetch effect below for the new piece entirely.
+	let _resetForUuid = '';
 	$effect(() => {
-		// Reset whenever the route UUID changes. Reading `uuid` registers the
-		// dependency; the body clears the sticky cache so a different route
-		// doesn't briefly show the previous piece's crops.
-		void uuid;
+		if (uuid === _resetForUuid) return;
+		_resetForUuid = uuid;
 		_stickyPiece = null;
 		_fetchedPiece = null;
 		_diskSummary = null;
 		_diskImages = [];
+		_refetchedForUpdatedAt = 0;
+		if (_refetchTimer !== null) {
+			clearTimeout(_refetchTimer);
+			_refetchTimer = null;
+		}
 		_fetchStatus = 'idle';
-		_possibleCrops = [];
-		_possibleStatus = 'idle';
 	});
-
-	$effect(() => {
-		if (_possibleStatus !== 'idle') return;
-		const targetUuid = uuid;
-		_possibleStatus = 'loading';
-		void fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(targetUuid)}/possible-crops`)
-			.then(async (res) => {
-				if (targetUuid !== uuid) return;
-				if (!res.ok) {
-					_possibleStatus = 'error';
-					return;
-				}
-				const data = (await res.json()) as { candidates?: PossibleCrop[] };
-				if (targetUuid !== uuid) return;
-				_possibleCrops = data.candidates ?? [];
-				_possibleStatus = 'ok';
-			})
-			.catch(() => {
-				if (targetUuid === uuid) _possibleStatus = 'error';
-			});
-	});
-
-	const ZONE_LABEL: Record<number, string> = { 0: 'mid', 1: 'drop', 2: 'exit', 3: 'precise' };
-	function possibleCropSrc(id: number): string {
-		return `${effectiveBase()}/api/channel-crops/${id}/image`;
-	}
 
 	$effect(() => {
 		const entries = pieceStore.entriesFor(ctx.machine?.identity?.machine_id ?? null);
@@ -120,13 +91,13 @@
 		if (found !== null) _stickyPiece = found;
 	});
 
-		// Kick off one detail fetch per UUID even if the piece is still live in
-		// the store. The live payload intentionally stays lightweight; this fetch
-		// carries the heavier detail-only fields for this route.
-		$effect(() => {
-			if (_fetchStatus !== 'idle') return;
-			const targetUuid = uuid;
-			_fetchStatus = 'loading';
+	// Kick off one detail fetch per UUID even if the piece is still live in
+	// the store. The live payload intentionally stays lightweight; this fetch
+	// carries the heavier detail-only fields for this route.
+	$effect(() => {
+		if (_fetchStatus !== 'idle') return;
+		const targetUuid = uuid;
+		_fetchStatus = 'loading';
 		void fetch(`${effectiveBase()}/api/pieces/${encodeURIComponent(targetUuid)}`)
 			.then(async (res) => {
 				// Ignore stale responses — the user may have navigated away.
@@ -150,8 +121,11 @@
 				_fetchStatus = 'summary_only';
 				const base = effectiveBase();
 				const disk = await fetchDiskImages(base, targetUuid).catch(() => []);
+				const linkDisk = await fetchDiskLinkImages(base, targetUuid).catch(() => []);
 				if (targetUuid !== uuid) return;
-				_diskImages = disk.map((d) => diskToDisplay(base, targetUuid, d));
+				// Ground truth + the link model's guesses, merged for display only
+				// (they live in separate stores).
+				_diskImages = [...disk.map((d) => diskToDisplay(base, targetUuid, d)), ...linkDisk];
 			})
 			.catch(() => {
 				if (targetUuid !== uuid) return;
@@ -160,6 +134,28 @@
 	});
 
 	let piece = $derived(_stickyPiece ?? _fetchedPiece);
+
+	// The detail fetch is one-shot per UUID, but a LIVE piece keeps evolving
+	// after the page opens: the burst grows, classification lands, used flags
+	// settle, link matches attach. The slim WS payload signals each change via
+	// updated_at without carrying the image sets — so when it moves past the
+	// snapshot we fetched, re-arm the fetch. Guarded by recording the trigger
+	// value first, so a fetch that returns older data can't loop. Trailing
+	// 750ms debounce: emits can arrive in quick bursts and every re-fetch
+	// pulls the full multi-MB b64 payload, so wait for a quiet gap instead of
+	// re-fetching on each tick.
+	$effect(() => {
+		const upd = _stickyPiece?.updated_at ?? 0;
+		if (upd <= 0) return;
+		if (_fetchStatus === 'idle' || _fetchStatus === 'loading') return;
+		if (upd <= _refetchedForUpdatedAt) return;
+		_refetchedForUpdatedAt = upd;
+		if (_refetchTimer !== null) clearTimeout(_refetchTimer);
+		_refetchTimer = setTimeout(() => {
+			_refetchTimer = null;
+			_fetchStatus = 'idle';
+		}, 750);
+	});
 
 	let bricklink = $state<BricklinkPartResponse | null>(null);
 
@@ -193,20 +189,45 @@
 	});
 	onDestroy(() => {
 		if (timerId !== null) clearInterval(timerId);
+		if (_refetchTimer !== null) clearTimeout(_refetchTimer);
 	});
 
 	function dataImageUrl(payload: string | null | undefined): string | null {
 		return payload ? `data:image/jpeg;base64,${payload}` : null;
 	}
 
-	type CropEntry = { src: string; role: string; ts: number | null; used: boolean; seq?: number; total?: number; score?: number | null; channel?: number | null; sharpness?: number | null };
+	type CropEntry = {
+		src: string;
+		role: string;
+		ts: number | null;
+		used: boolean;
+		seq?: number;
+		total?: number;
+		score?: number | null;
+		channel?: number | null;
+		sharpness?: number | null;
+	};
 
-	// Channel the image came from, for the corner badge: C4 burst capture, or
-	// C2/C3 upstream match. Falls back to "C2/3" for older upstream records that
-	// predate the channel being recorded.
-	function channelLabel(channel: number | null | undefined, role: string): string {
+	// Channel the image came from, for the corner badge. Never guess: an image
+	// whose channel wasn't recorded is shown as unknown rather than silently
+	// claiming C4, which is how every upstream crop ended up labelled as a
+	// classification-chamber burst frame.
+	function channelLabel(channel: number | null | undefined): string {
 		if (channel === 2 || channel === 3 || channel === 4) return `C${channel}`;
-		return role === 'upstream_match' ? 'C2/3' : 'C4';
+		return '—';
+	}
+
+	// Human label for an image's origin, derived from what was actually
+	// recorded on it.
+	function sourceLabel(source: string | null | undefined, channel?: number | null): string {
+		if (source === 'c4_burst') return 'C4 burst';
+		if (source === 'link_match') {
+			return channel === 2 || channel === 3 ? `Link match · C${channel}` : 'Link match';
+		}
+		if (source === 'upstream') {
+			return channel === 2 || channel === 3 ? `Upstream · C${channel}` : 'Upstream';
+		}
+		return source || 'unknown';
 	}
 
 	// --- Tracker-backed crop fetch ----------------------------------------
@@ -350,9 +371,9 @@
 		const entries: CropEntry[] = [];
 		const usedList = _cachedUsedTs;
 
-			if (trackDetail) {
-				for (const seg of trackDetail.segments ?? []) {
-					for (const snap of seg.sector_snapshots ?? []) {
+		if (trackDetail) {
+			for (const seg of trackDetail.segments ?? []) {
+				for (const snap of seg.sector_snapshots ?? []) {
 					const src = dataImageUrl(snap.piece_jpeg_b64 ?? snap.jpeg_b64);
 					if (!src) continue;
 					entries.push({
@@ -362,49 +383,55 @@
 						used: snap.captured_ts != null ? tsWasUsed(snap.captured_ts, usedList) : false
 					});
 				}
-				}
 			}
+		}
 
-			// C4 burst captures + upstream (C2/C3) match crops, each already
-			// flagged by the backend with whether it was shipped to Brickognize.
-			// Upstream entries also carry the cosine similarity to the classified
-			// C4 frame they were matched against.
-			const recogSet = _fetchedPiece?.recognition_image_set ?? [];
-			const burstTotal = recogSet.filter((r) => r.source === 'c4_burst').length;
-			const upstreamTotal = recogSet.filter((r) => r.source === 'upstream').length;
-			let recogSeq = 0;
-			let upstreamSeq = 0;
-			for (const entry of recogSet) {
-				const src = dataImageUrl(entry.image);
-				if (!src) continue;
-				if (entry.source === 'upstream') {
-					upstreamSeq += 1;
-					entries.push({
-						src,
-						role: 'upstream_match',
-						ts: entry.ts ?? null,
-						used: entry.used,
-						seq: upstreamSeq,
-						total: upstreamTotal,
-						score: entry.score,
-						channel: entry.channel ?? null
-					});
-				} else {
-					recogSeq += 1;
-					entries.push({
-						src,
-						role: 'recognition_capture',
-						ts: entry.ts ?? null,
-						used: entry.used,
-						seq: recogSeq,
-						total: burstTotal,
-						channel: entry.channel ?? 4,
-						sharpness: entry.sharpness ?? null
-					});
-				}
-			}
+		// Two DELIBERATELY separate lists on the piece:
+		//   recognition_image_set — ground truth, the C4 burst; `used` =
+		//     shipped to Brickognize in the applied request. This list feeds
+		//     piece_images -> Hive -> training data.
+		//   link_match_image_set  — the piece-link model's GUESSES from C2/C3.
+		//     Separate field, separate storage, never synced as piece images,
+		//     so they can never poison the ground truth. `used` marks guesses
+		//     that were fused into the applied request.
+		const recogSet = _fetchedPiece?.recognition_image_set ?? [];
+		const burstTotal = recogSet.length;
+		let recogSeq = 0;
+		for (const entry of recogSet) {
+			const src = dataImageUrl(entry.image);
+			if (!src) continue;
+			recogSeq += 1;
+			entries.push({
+				src,
+				role: 'recognition_capture',
+				ts: entry.ts ?? null,
+				used: entry.used ?? false,
+				seq: recogSeq,
+				total: burstTotal,
+				channel: entry.channel ?? 4,
+				sharpness: entry.sharpness ?? null
+			});
+		}
+		const linkSet = _fetchedPiece?.link_match_image_set ?? [];
+		let linkSeq = 0;
+		for (const entry of linkSet) {
+			const src = dataImageUrl(entry.image);
+			if (!src) continue;
+			linkSeq += 1;
+			entries.push({
+				src,
+				role: 'link_match',
+				ts: entry.ts ?? null,
+				used: entry.used ?? false,
+				seq: linkSeq,
+				total: linkSet.length,
+				score: entry.score ?? null,
+				channel: entry.channel ?? null,
+				sharpness: entry.sharpness ?? null
+			});
+		}
 
-			// Keep the classification chamber top/bottom snapshots as a fallback;
+		// Keep the classification chamber top/bottom snapshots as a fallback;
 		// they aren't in the tracker history (they come from the snapping
 		// station, not the polar tracker).
 		const top = dataImageUrl(piece.top_image);
@@ -434,9 +461,7 @@
 		// on tracker crops (identified by ts) — the b64 payload for a given
 		// captured_ts never changes mid-track and hashing it would defeat the
 		// stabilization.
-		const sig = entries
-			.map((c) => `${cropKey(c)}|${c.used ? 1 : 0}`)
-			.join(';');
+		const sig = entries.map((c) => `${cropKey(c)}|${c.used ? 1 : 0}`).join(';');
 		if (sig !== _cachedCropsSig) {
 			_cachedCropsSig = sig;
 			_cachedCrops = entries;
@@ -446,7 +471,7 @@
 	const crops = $derived(_cachedCrops);
 	const usedCropTs = $derived(_cachedUsedTs);
 	// Latest C4 burst capture time — when the classification chamber snapped its
-	// pics. Used to report how old each upstream match was relative to it.
+	// pics.
 	const c4SnapTs = $derived.by<number | null>(() => {
 		let ref: number | null = null;
 		for (const c of crops) {
@@ -476,9 +501,7 @@
 			selectedBurstIdx = Math.max(0, burstFrames.length - 1);
 		}
 	});
-	const selectedBurstFrame = $derived<BurstFrame | null>(
-		burstFrames[selectedBurstIdx] ?? null
-	);
+	const selectedBurstFrame = $derived<BurstFrame | null>(burstFrames[selectedBurstIdx] ?? null);
 	const burstDurationLabel = $derived.by<string>(() => {
 		if (burstFrames.length < 2) return '';
 		const first = burstFrames[0].captured_ts;
@@ -502,8 +525,11 @@
 		if (!ts) return '—';
 		try {
 			const d = new Date(ts * 1000);
-			return d.toLocaleTimeString(undefined, { hour12: false }) + '.' +
-				String(d.getMilliseconds()).padStart(3, '0');
+			return (
+				d.toLocaleTimeString(undefined, { hour12: false }) +
+				'.' +
+				String(d.getMilliseconds()).padStart(3, '0')
+			);
 		} catch {
 			return String(ts);
 		}
@@ -532,7 +558,7 @@
 
 	function formatRole(role: string): string {
 		if (role === 'recognition_capture') return 'Recognition Capture';
-		if (role === 'upstream_match') return 'Upstream Match (C2/C3)';
+		if (role === 'link_match') return 'Link Match (C2/C3)';
 		if (role === 'classification_top') return 'Classification Top';
 		if (role === 'classification_bottom') return 'Classification Bottom';
 		if (role === 'carousel') return 'Classification Channel';
@@ -545,16 +571,17 @@
 		if (crop.role === 'recognition_capture' && crop.seq && crop.total) {
 			return `Burst ${crop.seq}/${crop.total}`;
 		}
-		if (crop.role === 'upstream_match' && crop.seq && crop.total) {
-			const sim = formatSimilarity(crop.score);
-			return sim ? `Upstream ${crop.seq}/${crop.total} · ${sim}` : `Upstream ${crop.seq}/${crop.total}`;
+		if (crop.role === 'link_match' && crop.seq && crop.total) {
+			const pct = formatMatchProbability(crop.score);
+			return pct ? `Link ${crop.seq}/${crop.total} · ${pct}` : `Link ${crop.seq}/${crop.total}`;
 		}
 		return formatRole(crop.role);
 	}
 
-	// Cosine similarity (0-1) of an upstream match to the classified C4 frame it
-	// was matched against, shown as a percent on the crop card.
-	function formatSimilarity(score: number | null | undefined): string {
+	// The piece-link model's P(same physical piece). Distinct from `used`: these
+	// crops never went to Brickognize, so this is the model's claim, not a
+	// record of what produced the classification.
+	function formatMatchProbability(score: number | null | undefined): string {
 		if (score == null || !Number.isFinite(score)) return '';
 		return `${Math.round(score * 100)}% match`;
 	}
@@ -570,19 +597,21 @@
 	function cropInfoRows(crop: CropEntry): { label: string; value: string }[] {
 		const rows: { label: string; value: string }[] = [
 			{ label: 'Type', value: formatRole(crop.role) },
-			{ label: 'Shipped', value: crop.used ? 'Yes' : 'No' }
+			{
+				label: 'Shipped',
+				value:
+					crop.role === 'link_match'
+						? 'No — link matches are not sent to Brickognize'
+						: crop.used
+							? 'Yes'
+							: 'No'
+			}
 		];
-		if (crop.score != null && Number.isFinite(crop.score)) {
-			rows.push({ label: 'Similarity', value: `${Math.round(crop.score * 100)}%` });
+		if (crop.role === 'link_match' && crop.score != null) {
+			rows.push({ label: 'Model match', value: formatMatchProbability(crop.score) });
 		}
 		if (crop.sharpness != null && Number.isFinite(crop.sharpness)) {
 			rows.push({ label: 'Sharpness', value: formatSharpness(crop.sharpness) });
-		}
-		// For upstream crops, how long before the C4 chamber snap this view was
-		// captured — i.e. how stale the upstream match is relative to the frame
-		// that was actually classified.
-		if (crop.role === 'upstream_match' && crop.ts != null && c4SnapTs !== null) {
-			rows.push({ label: 'Age before C4', value: `${(c4SnapTs - crop.ts).toFixed(1)}s` });
 		}
 		if (crop.ts != null) {
 			rows.push({ label: 'Captured', value: formatAbsTs(crop.ts) });
@@ -606,7 +635,6 @@
 
 	function attemptName(a: ClassificationAttempt): string {
 		if (a.strategy === 'single_burst') return 'Single burst frame';
-		if (a.strategy === 'single_upstream') return 'Single upstream crop';
 		if (a.strategy === 'combined') return 'Combined (fused set)';
 		return a.label ?? a.strategy;
 	}
@@ -621,7 +649,6 @@
 	function attemptInputs(a: ClassificationAttempt): string {
 		const parts: string[] = [];
 		if (a.n_burst) parts.push(`${a.n_burst} burst`);
-		if (a.n_upstream) parts.push(`${a.n_upstream} upstream`);
 		return parts.length ? parts.join(' + ') : 'no images';
 	}
 
@@ -631,6 +658,18 @@
 		const tss = a.image_ts ?? [];
 		if (tss.length === 0) return [];
 		return crops.filter((c) => c.ts != null && tsWasUsed(c.ts, tss));
+	}
+
+	// Which service actually answered for this piece. Pieces classified before
+	// providers were recorded have no value — "—" rather than a guess.
+	const PROVIDER_LABELS: Record<string, string> = {
+		brickognize: 'Brickognize',
+		hive_basically: 'basically color model'
+	};
+
+	function providerLabel(id: string | null | undefined): string {
+		if (!id) return '—';
+		return PROVIDER_LABELS[id] ?? id;
 	}
 
 	function confidenceClass(conf: number | null | undefined): string {
@@ -691,8 +730,7 @@
 	);
 
 	const is_unknown = $derived(
-		piece?.classification_status === 'unknown' ||
-			piece?.classification_status === 'not_found'
+		piece?.classification_status === 'unknown' || piece?.classification_status === 'not_found'
 	);
 	const is_multi_drop = $derived(piece?.classification_status === 'multi_drop_fail');
 
@@ -700,6 +738,169 @@
 		if (!bin) return '—';
 		return `L${bin.x} · S${bin.y} · B${bin.z}`;
 	}
+
+	// --- Card row builders -------------------------------------------------
+	// The live (in-memory) and disk-fallback views describe the same piece from
+	// two payload shapes. Both normalize into these row lists and render through
+	// PieceInfoCard, so the two views can't drift apart the way they had.
+	function classificationRows(o: {
+		part_id?: string | null;
+		part_name?: string | null;
+		color_name?: string | null;
+		color_provider?: string | null;
+		mold_provider?: string | null;
+		category_id?: string | null;
+		confidence?: number | null;
+		color_confidence?: number | null;
+		source_view?: string | null;
+	}): InfoRow[] {
+		// Mold and color are scored by (potentially) different providers, so each
+		// confidence sits directly under the source that produced it. A single
+		// "Confidence" row read as covering both, which it never did.
+		const rows: InfoRow[] = [
+			{ label: 'Part ID', value: o.part_id ?? '—', mono: true },
+			{ label: 'Name', value: o.part_name ?? '—' },
+			{ label: 'Mold source', value: providerLabel(o.mold_provider) },
+			{
+				label: 'Mold confidence',
+				value: typeof o.confidence === 'number' ? `${(o.confidence * 100).toFixed(0)}%` : '—',
+				valueClass: `font-semibold tabular-nums ${confidenceClass(o.confidence)}`
+			},
+			{
+				label: 'Color',
+				value: o.color_name && o.color_name !== 'Any Color' ? o.color_name : '—'
+			},
+			{ label: 'Color source', value: providerLabel(o.color_provider) },
+			{
+				label: 'Color confidence',
+				value:
+					typeof o.color_confidence === 'number'
+						? `${(o.color_confidence * 100).toFixed(0)}%`
+						: '—',
+				valueClass: `font-semibold tabular-nums ${confidenceClass(o.color_confidence)}`
+			},
+			{
+				label: 'Category',
+				value: o.category_id ? (sortingProfileStore.getCategoryName(o.category_id) ?? '—') : '—'
+			}
+		];
+		if (o.source_view) rows.push({ label: 'Source view', value: o.source_view });
+		return rows;
+	}
+
+	// One "Record" card for both views — each field appears only when the
+	// payload actually carries it, rather than two hand-maintained card bodies.
+	function recordRows(o: {
+		stage?: string | null;
+		bin_label: string;
+		est_value?: number | null;
+		run_id?: string | null;
+		tracked_global_id?: number | null;
+		seen_at?: number | null;
+		recorded_at?: number | null;
+		updated_at?: number | null;
+	}): InfoRow[] {
+		const rows: InfoRow[] = [];
+		if (o.stage) rows.push({ label: 'Stage', value: o.stage });
+		rows.push({
+			label: 'Destination bin',
+			value: o.bin_label,
+			valueClass: 'font-mono tabular-nums text-text'
+		});
+		if (o.est_value != null) {
+			rows.push({
+				label: 'Est. value',
+				value: fmtPrice(o.est_value),
+				valueClass: 'tabular-nums text-text'
+			});
+		}
+		if (o.run_id) rows.push({ label: 'Run', value: o.run_id, mono: true });
+		if (o.tracked_global_id != null) {
+			rows.push({
+				label: 'Tracker',
+				value: String(o.tracked_global_id),
+				valueClass: 'font-mono tabular-nums text-text'
+			});
+		}
+		if (o.seen_at != null) {
+			rows.push({ label: 'Seen', value: new Date(o.seen_at * 1000).toLocaleString() });
+		}
+		if (o.recorded_at != null) {
+			rows.push({ label: 'Recorded', value: new Date(o.recorded_at * 1000).toLocaleString() });
+		}
+		if (o.updated_at != null) {
+			rows.push({
+				label: 'Last update',
+				value: `${formatAbsTs(o.updated_at)} (${formatRelativeTime(o.updated_at)})`
+			});
+		}
+		return rows;
+	}
+
+	// Catalog reference shot for the identified part — BrickLink's photo when the
+	// Hive catalog has one, else whatever Brickognize returned. Shown once, in
+	// the Classification card, the same way the disk view shows `preview_url`.
+	const refImageSrc = $derived<string | null>(
+		bricklink?.thumbnail_url
+			? `https:${bricklink.thumbnail_url}`
+			: (piece?.brickognize_preview_url ?? null)
+	);
+
+	// Destination bin reads as the discard bin for pieces that were never
+	// identified — they still get routed, just not to a part-specific bin.
+	function liveBinLabel(): string {
+		if (piece?.destination_bin) return formatBin(piece.destination_bin);
+		if (is_unknown || is_multi_drop) return 'discard bin';
+		return '—';
+	}
+
+	const diskThumbs = $derived<Thumb<DisplayImage>[]>(
+		_diskImages.map((img, i) => ({
+			key: String(i),
+			src: img.src,
+			alt: img.source,
+			caption: sourceLabel(img.source, img.channel),
+			used: img.used,
+			ref: img
+		}))
+	);
+
+	function toThumb(c: CropEntry): Thumb<CropEntry> {
+		return {
+			key: cropKey(c),
+			src: c.src,
+			alt: c.role,
+			title: c.used ? 'Shipped to Brickognize for classification' : formatCropLabel(c),
+			used: c.used,
+			caption: formatCropLabel(c),
+			captionRight: formatAbsTs(c.ts),
+			ref: c
+		};
+	}
+
+	// The two sources, shown separately: the C4 burst the chamber captured, and
+	// the upstream C2/C3 views of the same piece. In both, `used` (a stroke on
+	// the tile) means the image was actually shipped to Brickognize in the
+	// request whose result was applied.
+	const burstThumbs = $derived<Thumb<CropEntry>[]>(
+		crops.filter((c) => c.role === 'recognition_capture').map(toThumb)
+	);
+
+	// Link matches first, ranked by the model's probability; then any other
+	// upstream crop the tracker happened to keep, which carries no score.
+	const otherChannelThumbs = $derived<Thumb<CropEntry>[]>(
+		crops
+			.filter((c) => c.role !== 'recognition_capture')
+			.slice()
+			.sort((a, b) => {
+				const sa = a.role === 'link_match' ? (a.score ?? -1) : -2;
+				const sb = b.role === 'link_match' ? (b.score ?? -1) : -2;
+				return sb - sa;
+			})
+			.map(toThumb)
+	);
+	const linkMatchCount = $derived(crops.filter((c) => c.role === 'link_match').length);
+
 </script>
 
 <svelte:head>
@@ -708,7 +909,7 @@
 
 <div class="min-h-screen bg-bg">
 	<AppHeader />
-	<div class="flex flex-col gap-4 p-4 sm:p-6">
+	<div class="mx-auto flex w-full max-w-[1600px] flex-col gap-4 p-4 sm:p-6">
 		<header class="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
 			<div class="flex flex-wrap items-center gap-3">
 				<a
@@ -724,13 +925,13 @@
 				{#if piece}
 					{#if piece.stage === 'distributed'}
 						<span
-							class="inline-flex items-center border border-border bg-surface px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted"
+							class="inline-flex items-center border border-border bg-surface px-2 py-0.5 text-xs font-semibold tracking-wider text-text-muted uppercase"
 						>
 							Distributed
 						</span>
 					{:else if piece.stage === 'distributing'}
 						<span
-							class="inline-flex items-center border border-primary bg-primary/10 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-primary"
+							class="inline-flex items-center border border-primary bg-primary/10 px-2 py-0.5 text-xs font-semibold tracking-wider text-primary uppercase"
 						>
 							Distributing
 						</span>
@@ -748,14 +949,6 @@
 				{/if}
 			</div>
 			<div class="flex flex-wrap items-center gap-3">
-				<a
-					href={`/settings/tuning/upstream-match?uuid=${uuid}`}
-					class="inline-flex items-center gap-1.5 border border-border bg-surface px-2.5 py-1.5 text-sm text-text-muted hover:text-text"
-					title="Find crops of this piece from the upstream channels (C2/C3)"
-				>
-					<ExternalLink size={14} />
-					Upstream match
-				</a>
 				{#if piece?.tracked_global_id != null}
 					<a
 						href={`/tracked/${piece.tracked_global_id}`}
@@ -772,124 +965,55 @@
 		{#if !piece}
 			{#if _fetchStatus === 'summary_only' && _diskSummary}
 				{@const ds = _diskSummary}
-				<Alert variant="info">
-					Live detail is unavailable — the backend has restarted since this piece was
-					processed. Showing the durable record and on-disk images instead.
-				</Alert>
-
 				<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-					<div class="flex flex-col border border-border bg-surface">
-						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-							Classification
-						</div>
-						<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-							<span class="text-text-muted">Part ID</span>
-							<span class="font-mono text-text">{ds.part_id ?? '—'}</span>
-
-							<span class="text-text-muted">Name</span>
-							<span class="text-text">{ds.part_name ?? '—'}</span>
-
-							<span class="text-text-muted">Color</span>
-							<span class="text-text">
-								{ds.color_name && ds.color_name !== 'Any Color' ? ds.color_name : '—'}
-							</span>
-
-							<span class="text-text-muted">Category</span>
-							<span class="text-text">
-								{ds.category_id ? (sortingProfileStore.getCategoryName(ds.category_id) ?? '—') : '—'}
-							</span>
-
-							<span class="text-text-muted">Confidence</span>
-							<span class={`font-semibold tabular-nums ${confidenceClass(ds.confidence)}`}>
-								{typeof ds.confidence === 'number' ? `${(ds.confidence * 100).toFixed(0)}%` : '—'}
-							</span>
-						</div>
-					</div>
-
-					<div class="flex flex-col border border-border bg-surface">
-						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-							Record
-						</div>
-						<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-							<span class="text-text-muted">Destination bin</span>
-							<span class="font-mono tabular-nums text-text">{formatSummaryBin(ds.bin)}</span>
-
-							<span class="text-text-muted">Est. value</span>
-							<span class="tabular-nums text-text">{fmtPrice(ds.est_value)}</span>
-
-							<span class="text-text-muted">Run</span>
-							<span class="font-mono text-text">{ds.run_id ?? '—'}</span>
-
-							<span class="text-text-muted">Seen</span>
-							<span class="text-text">
-								{ds.seen_at != null ? new Date(ds.seen_at * 1000).toLocaleString() : '—'}
-							</span>
-
-							<span class="text-text-muted">Recorded</span>
-							<span class="text-text">
-								{ds.recorded_at != null ? new Date(ds.recorded_at * 1000).toLocaleString() : '—'}
-							</span>
-						</div>
-					</div>
+					<PieceInfoCard
+						title="Classification"
+						rows={classificationRows(ds)}
+						image={ds.preview_url}
+						imageAlt="brickognize reference"
+						onImageClick={() =>
+							(zoomImage = {
+								src: ds.preview_url as string,
+								label: ds.part_name ?? ds.part_id ?? 'Brickognize reference'
+							})}
+					/>
+					<PieceInfoCard
+						title="Record"
+						rows={recordRows({
+							bin_label: formatSummaryBin(ds.bin),
+							est_value: ds.est_value,
+							run_id: ds.run_id,
+							seen_at: ds.seen_at,
+							recorded_at: ds.recorded_at
+						})}
+					/>
 				</section>
 
-				{#if _diskImages.length > 0 || ds.preview_url}
-					<section class="border border-border bg-surface">
-						<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-							Stored images
-							<span class="ml-2 text-text-muted">{_diskImages.length}</span>
-						</div>
-						<div class="flex flex-wrap gap-2 p-3">
-							{#each _diskImages as img, i (i)}
-								<button
-									type="button"
-									class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
-										img.used ? 'border-2 border-primary' : 'border border-border'
-									}`}
-									onclick={() => (zoomImage = { src: img.src, label: img.source })}
-								>
-									<div class="h-32 w-32 bg-white">
-										<img
-											src={img.src}
-											alt={img.source}
-											class="h-full w-full object-contain"
-											loading="lazy"
-										/>
-									</div>
-									<div class="px-1.5 py-1 text-xs text-text-muted">
-										{img.source === 'upstream' ? 'Upstream (C2/C3)' : 'C4 burst'}
-									</div>
-								</button>
-							{/each}
-							{#if ds.preview_url}
-								<button
-									type="button"
-									class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-									onclick={() =>
-										(zoomImage = { src: ds.preview_url as string, label: 'Brickognize says' })}
-								>
-									<div class="h-32 w-32 bg-white">
-										<img
-											src={ds.preview_url}
-											alt="brickognize reference"
-											class="h-full w-full object-contain"
-											loading="lazy"
-										/>
-									</div>
-									<div class="px-1.5 py-1 text-xs text-text-muted">Brickognize says</div>
-								</button>
-							{/if}
-						</div>
-					</section>
-				{/if}
+				<div class="grid grid-cols-1 gap-3 lg:grid-cols-2">
+					{#if diskThumbs.length > 0}
+						<section class="flex flex-col border border-border bg-surface">
+							<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
+								Stored images
+								<span class="ml-2 text-text-muted">{diskThumbs.length}</span>
+							</div>
+							<div class="p-3">
+								<PieceThumbGrid
+									items={diskThumbs}
+									minPx={120}
+									onZoom={(t) => (zoomImage = { src: t.src, label: t.ref.source })}
+								/>
+							</div>
+						</section>
+					{/if}
+				</div>
 			{:else if _fetchStatus === 'loading' || _fetchStatus === 'idle'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
 					Loading piece…
 				</div>
 			{:else if _fetchStatus === 'not_found'}
 				<div class="border border-border bg-surface p-4 text-sm text-text-muted">
-					No trace of this piece — it isn't in backend memory, the durable piece
-					records, or the on-disk image store. Go back to the
+					No trace of this piece — it isn't in backend memory, the durable piece records, or the
+					on-disk image store. Go back to the
 					<a href="/tracked" class="text-primary underline">tracker list</a>
 					for persistent track records.
 				</div>
@@ -901,79 +1025,39 @@
 		{:else}
 			<!-- Identity & classification summary -->
 			<section class="grid grid-cols-1 gap-3 lg:grid-cols-2">
-				<div class="flex flex-col border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Classification
-					</div>
-					<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-						<span class="text-text-muted">Part ID</span>
-						<span class="font-mono text-text">{piece.part_id ?? '—'}</span>
-
-						<span class="text-text-muted">Name</span>
-						<span class="text-text">
-							{#if piece.part_name}
-								{piece.part_name}
-							{:else if bricklink?.name}
-								{bricklink.name}
-							{:else}
-								—
-							{/if}
-						</span>
-
-						<span class="text-text-muted">Color</span>
-						<span class="text-text">
-							{piece.color_name && piece.color_name !== 'Any Color' ? piece.color_name : '—'}
-						</span>
-
-						<span class="text-text-muted">Category</span>
-						<span class="text-text">{cat_name ?? '—'}</span>
-
-						<span class="text-text-muted">Confidence</span>
-						<span class={`font-semibold tabular-nums ${confidenceClass(piece.confidence)}`}>
-							{typeof piece.confidence === 'number'
-								? `${(piece.confidence * 100).toFixed(0)}%`
-								: '—'}
-						</span>
-
-						<span class="text-text-muted">Source view</span>
-						<span class="text-text">{piece.brickognize_source_view ?? '—'}</span>
-					</div>
-				</div>
-
-				<div class="flex flex-col border border-border bg-surface">
-					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Routing
-					</div>
-					<div class="grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 px-3 py-3 text-sm">
-						<span class="text-text-muted">Stage</span>
-						<span class="text-text">{piece.stage}</span>
-
-						<span class="text-text-muted">Destination bin</span>
-						<span class="font-mono tabular-nums text-text">
-							{#if piece.destination_bin}
-								{formatBin(piece.destination_bin)}
-							{:else if is_unknown || is_multi_drop}
-								<span class="text-text-muted">discard bin</span>
-							{:else}
-								—
-							{/if}
-						</span>
-
-						<span class="text-text-muted">Tracker</span>
-						<span class="font-mono tabular-nums text-text">
-							{piece.tracked_global_id ?? '—'}
-						</span>
-
-						<span class="text-text-muted">Last update</span>
-						<span class="text-text">
-							{formatAbsTs(piece.updated_at)}
-							<span class="ml-1 text-text-muted">({formatRelativeTime(piece.updated_at)})</span>
-						</span>
-					</div>
-				</div>
+				<PieceInfoCard
+					title="Classification"
+					rows={classificationRows({
+						part_id: piece.part_id,
+						part_name: piece.part_name ?? bricklink?.name ?? null,
+						color_name: piece.color_name,
+						color_provider: piece.color_provider,
+						mold_provider: piece.mold_provider,
+						category_id: piece.category_id,
+						confidence: piece.confidence,
+						color_confidence: piece.color_confidence,
+						source_view: piece.brickognize_source_view
+					})}
+					image={refImageSrc}
+					imageAlt="brickognize reference"
+					onImageClick={() =>
+						(zoomImage = {
+							src: refImageSrc as string,
+							label: piece.part_name ?? piece.part_id ?? 'Brickognize reference'
+						})}
+				/>
+				<PieceInfoCard
+					title="Record"
+					rows={recordRows({
+						stage: piece.stage,
+						bin_label: liveBinLabel(),
+						tracked_global_id: piece.tracked_global_id,
+						updated_at: piece.updated_at
+					})}
+				/>
 			</section>
 
-			<!-- Pricing — every BrickLink bucket from the local parts.db catalog.
+			<!-- Pricing — every BrickLink bucket from the Hive catalog.
 			     The headline `moving_avg_price` (what routing uses) is the first
 			     non-empty of these, sold·new preferred; the table shows all four
 			     so you can see whatever source actually exists for this part. -->
@@ -983,12 +1067,12 @@
 				{@const bl = (md.bricklink ?? null) as Record<string, any> | null}
 				<section class="border border-border bg-surface">
 					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-						Pricing — local catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
+						Pricing — Hive catalog{md.price_currency ? ` · BrickLink ${md.price_currency}` : ''}
 					</div>
 					<div class="flex flex-col gap-3 p-3 text-sm">
 						<div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
 							<span class="text-text-muted">Moving avg (routing)</span>
-							<span class="text-base font-semibold tabular-nums text-success">
+							<span class="text-base font-semibold text-success tabular-nums">
 								{typeof md.moving_avg_price === 'number' ? fmtPrice(md.moving_avg_price) : '—'}
 							</span>
 							<span class="text-xs text-text-muted">first available · sold·new preferred</span>
@@ -996,16 +1080,19 @@
 								{md.price_color_specific ? 'this color' : 'all colors (most liquid)'}
 							</span>
 							{#if md.price_updated_at}
-								<span class="text-xs text-text-muted">synced {String(md.price_updated_at).slice(0, 10)}</span>
+								<span class="text-xs text-text-muted"
+									>synced {String(md.price_updated_at).slice(0, 10)}</span
+								>
 							{/if}
 						</div>
 
 						{#if md.price_from_base_mold}
-							<div class="border border-warning/40 bg-warning/[0.08] px-2.5 py-1.5 text-sm text-text">
-								≈ Approximate — no market data for this exact print. Showing the base
-								mold <span class="font-mono">{md.price_from_base_mold}</span>{md.price_from_base_name
-									? ` (${md.price_from_base_name})`
-									: ''} price instead.
+							<div
+								class="border border-warning/40 bg-warning/[0.08] px-2.5 py-1.5 text-sm text-text"
+							>
+								≈ Approximate — no market data for this exact print. Showing the base mold <span
+									class="font-mono">{md.price_from_base_mold}</span
+								>{md.price_from_base_name ? ` (${md.price_from_base_name})` : ''} price instead.
 							</div>
 						{/if}
 
@@ -1028,26 +1115,46 @@
 											{@const b = (price[key] ?? {}) as Record<string, any>}
 											<tr>
 												<td class="border border-border px-2 py-1 text-text">{label}</td>
-												<td class="border border-border px-2 py-1 text-right tabular-nums text-text">{fmtPrice(b.avg)}</td>
-												<td class="border border-border px-2 py-1 text-right tabular-nums text-text">{fmtPrice(b.wavg)}</td>
-												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{fmtPrice(b.min)}</td>
-												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{fmtPrice(b.max)}</td>
-												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{b.qty ?? '—'}</td>
-												<td class="border border-border px-2 py-1 text-right tabular-nums text-text-muted">{b.lots ?? '—'}</td>
+												<td class="border border-border px-2 py-1 text-right text-text tabular-nums"
+													>{fmtPrice(b.avg)}</td
+												>
+												<td class="border border-border px-2 py-1 text-right text-text tabular-nums"
+													>{fmtPrice(b.wavg)}</td
+												>
+												<td
+													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													>{fmtPrice(b.min)}</td
+												>
+												<td
+													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													>{fmtPrice(b.max)}</td
+												>
+												<td
+													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													>{b.qty ?? '—'}</td
+												>
+												<td
+													class="border border-border px-2 py-1 text-right text-text-muted tabular-nums"
+													>{b.lots ?? '—'}</td
+												>
 											</tr>
 										{/each}
 									</tbody>
 								</table>
 							</div>
 						{:else}
-							<div class="text-text-muted">No price-guide rows for this part in the local catalog.</div>
+							<div class="text-text-muted">
+								No price-guide rows for this part in the Hive catalog.
+							</div>
 						{/if}
 
 						{#if bl}
 							<div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-text-muted">
 								{#if bl.item_no}<span>BL item {bl.item_no}</span>{/if}
 								{#if bl.weight_g}<span>{bl.weight_g} g</span>{/if}
-								{#if bl.dim_x_studs && bl.dim_y_studs}<span>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span>{/if}
+								{#if bl.dim_x_studs && bl.dim_y_studs}<span
+										>{bl.dim_x_studs}×{bl.dim_y_studs} studs</span
+									>{/if}
 								{#if bl.year_released}<span>since {bl.year_released}</span>{/if}
 								{#if bl.is_obsolete}<span>obsolete</span>{/if}
 							</div>
@@ -1056,51 +1163,31 @@
 				</section>
 			{/if}
 
-			<!-- Arrival snapshot: full carousel frame at the instant the piece
-			     first appeared on C4 (dropping in from C3), side-by-side with
-			     the Brickognize reference so the operator can eyeball whether
-			     the classification was right. -->
-			{#if piece.drop_snapshot || piece.brickognize_preview_url || bricklink?.thumbnail_url}
-				{@const ref_drop_src = bricklink?.thumbnail_url
-					? `https:${bricklink.thumbnail_url}`
-					: (piece.brickognize_preview_url ?? null)}
+			<!-- Arrival snapshot: full carousel frame at the instant the piece first
+			     appeared on C4 (dropping in from C3). The catalog reference shot
+			     lives in the Classification card, so this is just the one photo. -->
+			{#if piece.drop_snapshot}
+				{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
 				<section class="border border-border bg-surface">
 					<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
 						Arrival snapshot
 					</div>
-					<div class="flex flex-wrap gap-3 p-3">
-						{#if piece.drop_snapshot}
-							{@const drop_src = dataImageUrl(piece.drop_snapshot) as string}
-							<button
-								type="button"
-								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-								onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
-							>
-								<div class="relative flex h-64 w-64 items-center justify-center bg-white">
-									<img src={drop_src} alt="arrival snapshot" class="h-full w-full object-contain" loading="lazy" />
-								</div>
-								<div class="px-2 py-1.5 text-sm text-text-muted">At arrival</div>
-							</button>
-						{:else}
-							<div class="flex h-64 w-64 items-center justify-center border border-border bg-bg text-sm text-text-muted">
-								No snapshot captured
+					<div class="p-3">
+						<button
+							type="button"
+							class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
+							onclick={() => (zoomImage = { src: drop_src, label: 'At arrival' })}
+						>
+							<div class="flex h-40 w-40 items-center justify-center bg-white">
+								<img
+									src={drop_src}
+									alt="arrival snapshot"
+									class="h-full w-full cursor-zoom-in object-contain"
+									loading="lazy"
+								/>
 							</div>
-						{/if}
-						{#if ref_drop_src}
-							<button
-								type="button"
-								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-								onclick={() => (zoomImage = { src: ref_drop_src, label: 'Brickognize says' })}
-							>
-								<div class="relative flex h-64 w-64 items-center justify-center bg-white">
-									<img src={ref_drop_src} alt="brickognize reference" class="h-full w-full object-contain" loading="lazy" />
-								</div>
-								<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-sm text-text-muted">
-									<span>Brickognize says</span>
-									<span class="tabular-nums">{piece.part_id ?? ''}</span>
-								</div>
-							</button>
-						{/if}
+							<div class="px-2 py-1.5 text-xs text-text-muted">At arrival</div>
+						</button>
 					</div>
 				</section>
 			{/if}
@@ -1120,11 +1207,7 @@
 						{#each attempts as a, ai (ai)}
 							{@const open = expandedAttempts.has(ai)}
 							{@const sent = attemptImages(a)}
-							<div
-								class={`border ${
-									a.applied ? 'border-primary' : 'border-border'
-								}`}
-							>
+							<div class={`border ${a.applied ? 'border-primary' : 'border-border'}`}>
 								<button
 									type="button"
 									class={`flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-left text-sm ${
@@ -1164,7 +1247,7 @@
 									{/if}
 									{#if a.applied}
 										<span
-											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-white"
+											class="ml-auto bg-primary px-1.5 py-0.5 text-xs font-semibold tracking-wider text-white uppercase"
 											title="This request's result was applied to the piece"
 										>
 											Applied
@@ -1175,11 +1258,13 @@
 									<div class="flex flex-wrap gap-4 border-t border-border p-3">
 										<!-- What was sent to Brickognize for this request -->
 										<div class="flex flex-col gap-1.5">
-											<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+											<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 												Sent ({sent.length})
 											</div>
 											{#if sent.length === 0}
-												<div class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted">
+												<div
+													class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted"
+												>
 													crops aged out
 												</div>
 											{:else}
@@ -1188,12 +1273,20 @@
 														<button
 															type="button"
 															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-															onclick={() => (zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
+															onclick={() =>
+																(zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
 														>
 															<div class="h-32 w-32 bg-white">
-																<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
+																<img
+																	src={crop.src}
+																	alt={crop.role}
+																	class="h-full w-full object-contain"
+																	loading="lazy"
+																/>
 															</div>
-															<div class="px-1.5 py-1 text-xs text-text-muted">{formatCropLabel(crop)}</div>
+															<div class="px-1.5 py-1 text-xs text-text-muted">
+																{formatCropLabel(crop)}
+															</div>
 														</button>
 													{/each}
 												</div>
@@ -1201,11 +1294,13 @@
 										</div>
 										<!-- What Brickognize returned for this request -->
 										<div class="flex flex-col gap-1.5">
-											<div class="text-xs font-semibold uppercase tracking-wider text-text-muted">
+											<div class="text-xs font-semibold tracking-wider text-text-muted uppercase">
 												Result
 											</div>
 											{#if a.error}
-												<div class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-bg p-2 text-center text-sm text-danger">
+												<div
+													class="flex h-32 w-32 items-center justify-center border border-danger/40 bg-bg p-2 text-center text-sm text-danger"
+												>
 													{a.error}
 												</div>
 											{:else if a.found}
@@ -1214,10 +1309,19 @@
 														<button
 															type="button"
 															class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-															onclick={() => (zoomImage = { src: a.preview_url as string, label: a.part_name ?? a.part_id ?? 'result' })}
+															onclick={() =>
+																(zoomImage = {
+																	src: a.preview_url as string,
+																	label: a.part_name ?? a.part_id ?? 'result'
+																})}
 														>
 															<div class="h-32 w-32 bg-white">
-																<img src={a.preview_url} alt="brickognize reference" class="h-full w-full object-contain" loading="lazy" />
+																<img
+																	src={a.preview_url}
+																	alt="brickognize reference"
+																	class="h-full w-full object-contain"
+																	loading="lazy"
+																/>
 															</div>
 														</button>
 													{/if}
@@ -1225,13 +1329,19 @@
 														<span class="font-medium text-text tabular-nums">{a.part_id}</span>
 														{#if a.part_name}<span class="text-text-muted">{a.part_name}</span>{/if}
 														{#if a.confidence != null}
-															<span class="text-text-muted tabular-nums">{(a.confidence * 100).toFixed(0)}% match</span>
+															<span class="text-text-muted tabular-nums"
+																>{(a.confidence * 100).toFixed(0)}% match</span
+															>
 														{/if}
-														{#if a.color_name}<span class="text-text-muted">Color: {a.color_name}</span>{/if}
+														{#if a.color_name}<span class="text-text-muted"
+																>Color: {a.color_name}</span
+															>{/if}
 													</div>
 												</div>
 											{:else}
-												<div class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted">
+												<div
+													class="flex h-32 w-32 items-center justify-center border border-border bg-bg text-sm text-text-muted"
+												>
 													no match
 												</div>
 											{/if}
@@ -1244,72 +1354,91 @@
 				</section>
 			{/if}
 
+					{#snippet cropOverlay(item: Thumb<CropEntry>)}
+						{#if item.ref.used}
+							<span
+								class="absolute top-1 left-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
+								title="Shipped to Brickognize for classification"
+							>
+								Used
+							</span>
+						{/if}
+						{#if item.ref.sharpness != null}
+							<span
+								class="absolute top-1 right-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
+								title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
+							>
+								⌖ {formatSharpness(item.ref.sharpness)}
+							</span>
+						{/if}
+						<span
+							class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
+							title="Channel this image came from"
+						>
+							{channelLabel(item.ref.channel)}
+						</span>
+						<ImageInfoBadge
+							class="absolute right-1 bottom-1 z-10"
+							src={item.src}
+							rows={cropInfoRows(item.ref)}
+						/>
+					{/snippet}
 			<!-- Image gallery + Brickognize reference -->
 			<section class="border border-border bg-surface">
-				<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+				<div
+					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+				>
 					<div class="font-medium text-text">
-						Captured crops
-						<span class="ml-2 text-text-muted">{crops.length}</span>
+						Classification burst
+						<span class="ml-2 text-text-muted">{burstThumbs.length}</span>
 					</div>
+					<span class="text-sm text-text-muted">C4 · outlined = used for classification</span>
 				</div>
 				<div class="p-3">
-					{#if crops.length === 0}
-						<div class="text-sm text-text-muted">No crops available for this piece.</div>
+					{#if burstThumbs.length === 0}
+						<div class="text-sm text-text-muted">No burst frames for this piece.</div>
 					{:else}
-						<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
-							{#each crops as crop (cropKey(crop))}
-								<button
-									type="button"
-									class={`flex flex-col bg-bg text-left hover:border-primary/70 ${
-										crop.used ? 'border-2 border-primary' : 'border border-border'
-									}`}
-									title={crop.used ? 'Shipped to Brickognize for classification' : formatCropLabel(crop)}
-									onclick={() => (zoomImage = { src: crop.src, label: formatCropLabel(crop) })}
-								>
-									<div class="relative aspect-square w-full bg-white">
-										<img src={crop.src} alt={crop.role} class="h-full w-full object-contain" loading="lazy" />
-										{#if crop.used}
-											<span
-												class="absolute left-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white"
-												title="Shipped to Brickognize for classification"
-											>
-												Used
-											</span>
-										{/if}
-										{#if crop.role === 'upstream_match' && formatSimilarity(crop.score)}
-											<span
-												class="absolute right-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums"
-												title="Cosine similarity to the classified C4 capture"
-											>
-												{formatSimilarity(crop.score)}
-											</span>
-										{:else if crop.sharpness != null}
-											<span
-												class="absolute right-1 top-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg tabular-nums"
-												title="Sharpness (Laplacian variance) — higher is sharper / less motion blur"
-											>
-												⌖ {formatSharpness(crop.sharpness)}
-											</span>
-										{/if}
-										<span
-											class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
-											title="Channel this image came from"
-										>
-											{channelLabel(crop.channel, crop.role)}
-										</span>
-										<ImageInfoBadge
-											class="absolute bottom-1 right-1 z-10"
-											src={crop.src}
-											rows={cropInfoRows(crop)}
-										/>
-									</div>
-									<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-										<span>{formatCropLabel(crop)}</span>
-										<span class="tabular-nums">{formatAbsTs(crop.ts)}</span>
-									</div>
-								</button>
-							{/each}
+						<PieceThumbGrid
+							items={burstThumbs}
+							minPx={120}
+							overlay={cropOverlay}
+							onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
+						/>
+					{/if}
+				</div>
+			</section>
+
+			<!-- The same physical piece as seen upstream, ranked by the piece-link
+			     model. Outlined tiles were fused into the Brickognize request
+			     alongside the burst; the rest are shown for review. -->
+			<section class="border border-border bg-surface">
+				<div
+					class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+				>
+					<div class="font-medium text-text">
+						Other channels
+						<span class="ml-2 text-text-muted">{otherChannelThumbs.length}</span>
+					</div>
+					<span class="text-sm text-text-muted">
+						{#if linkMatchCount > 0}
+							C2/C3 · ranked by match probability · outlined = used for classification
+						{:else}
+							C2/C3
+						{/if}
+					</span>
+				</div>
+				<div class="p-3">
+					{#if otherChannelThumbs.length === 0}
+						<div class="text-sm text-text-muted">
+							No upstream views of this piece.
 						</div>
+					{:else}
+						<PieceThumbGrid
+							items={otherChannelThumbs}
+							minPx={120}
+							overlay={cropOverlay}
+							onZoom={(t) => (zoomImage = { src: t.src, label: formatCropLabel(t.ref) })}
+						/>
 					{/if}
 				</div>
 			</section>
@@ -1321,8 +1450,7 @@
 					images={crops.map((c) => ({
 						image: c.src,
 						label: formatCropLabel(c),
-						used: c.used,
-						score: c.score
+						used: c.used
 					}))}
 				/>
 			{/if}
@@ -1330,7 +1458,9 @@
 			<!-- Drop burst: fashion-shoot sequence from the C3→C4 fall -->
 			{#if burstFrames.length > 0}
 				<section class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+					<div
+						class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+					>
 						<span class="font-medium text-text">Drop Burst</span>
 						<span class="text-text-muted">
 							<span class="tabular-nums">{burstFrames.length}</span>
@@ -1350,11 +1480,15 @@
 								loading="lazy"
 							/>
 							<div class="flex items-center gap-2 text-sm text-text-muted">
-								<span class={`font-semibold uppercase tracking-wider ${burstRoleClass(selectedBurstFrame.role)}`}>
+								<span
+									class={`font-semibold tracking-wider uppercase ${burstRoleClass(selectedBurstFrame.role)}`}
+								>
 									{burstRoleLabel(selectedBurstFrame.role)}
 								</span>
 								<span class="tabular-nums">{formatAbsTs(selectedBurstFrame.captured_ts)}</span>
-								<span class="text-text-muted">· frame {selectedBurstIdx + 1} / {burstFrames.length}</span>
+								<span class="text-text-muted"
+									>· frame {selectedBurstIdx + 1} / {burstFrames.length}</span
+								>
 							</div>
 						</div>
 					{/if}
@@ -1362,7 +1496,7 @@
 						{#each burstFrames as frame, idx (frame.captured_ts + '|' + idx)}
 							<button
 								type="button"
-								class={`flex h-32 flex-col flex-shrink-0 bg-bg text-left hover:border-primary/70 ${
+								class={`flex h-32 flex-shrink-0 flex-col bg-bg text-left hover:border-primary/70 ${
 									idx === selectedBurstIdx ? 'border-2 border-primary' : 'border border-border'
 								}`}
 								onclick={() => (selectedBurstIdx = idx)}
@@ -1383,7 +1517,9 @@
 			<!-- Track path (pie-chart composite) -->
 			{#if piece.tracked_global_id != null}
 				<section class="border border-border bg-surface">
-					<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
+					<div
+						class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm"
+					>
 						<span class="font-medium text-text">Track path</span>
 						<a
 							href={`/tracked/${piece.tracked_global_id}`}
@@ -1395,10 +1531,7 @@
 						</a>
 					</div>
 					<div class="p-3">
-						<TrackPathComposite
-							globalId={piece.tracked_global_id}
-							usedCropTs={usedCropTs}
-						/>
+						<TrackPathComposite globalId={piece.tracked_global_id} {usedCropTs} />
 					</div>
 				</section>
 			{/if}
@@ -1416,13 +1549,13 @@
 						<ol class="flex flex-col">
 							{#each timeline as ev, idx (idx)}
 								<li class="relative flex items-baseline gap-3 border-l border-border pl-4">
-									<span class="absolute -left-[5px] top-1.5 h-2 w-2 bg-primary"></span>
+									<span class="absolute top-1.5 -left-[5px] h-2 w-2 bg-primary"></span>
 									<span class="min-w-[12rem] text-sm text-text">{ev.label}</span>
-									<span class="font-mono text-sm tabular-nums text-text-muted">
+									<span class="font-mono text-sm text-text-muted tabular-nums">
 										{formatAbsTs(ev.ts)}
 									</span>
 									{#if idx > 0}
-										<span class="font-mono text-xs tabular-nums text-text-muted">
+										<span class="font-mono text-xs text-text-muted tabular-nums">
 											{formatRelSec(ev.ts, anchor)}
 										</span>
 									{/if}
@@ -1459,23 +1592,13 @@
 							{/if}
 							{#if typeof piece.confidence === 'number'}
 								<div class={`tabular-nums ${confidenceClass(piece.confidence)}`}>
-									Confidence {(piece.confidence * 100).toFixed(0)}%
+									Mold confidence {(piece.confidence * 100).toFixed(0)}%
 								</div>
 							{/if}
 						</div>
 					</div>
 				</section>
 			{/if}
-
-			<!-- Upstream match (C2/C3) -->
-			<section class="flex flex-col border border-border bg-surface">
-				<div class="border-b border-border bg-bg px-3 py-2 text-sm font-medium text-text">
-					Upstream match (C2/C3)
-				</div>
-				<div class="p-3">
-					<UpstreamMatchSearch initialUuid={uuid} autoShowAll />
-				</div>
-			</section>
 
 			<!-- Raw JSON toggle -->
 			<section class="border border-border bg-surface">
@@ -1500,74 +1623,6 @@
 				{/if}
 			</section>
 		{/if}
-
-		<!-- Possibly the same piece: cheap time/angle lookup over C2/C3 crops.
-		     Rendered for any UUID (live or disk-fallback) — it only needs the
-		     piece's arrival time, not the live detail payload. -->
-		<section class="border border-border bg-surface">
-			<div class="flex items-center justify-between border-b border-border bg-bg px-3 py-2 text-sm">
-				<div class="font-medium text-text">
-					Possibly the same piece
-					<span class="ml-2 text-text-muted">{_possibleCrops.length}</span>
-				</div>
-				<span class="text-sm text-text-muted">upstream C2/C3 · ranked by confidence</span>
-			</div>
-			<div class="p-3">
-				{#if _possibleStatus === 'loading'}
-					<div class="text-sm text-text-muted">Searching…</div>
-				{:else if _possibleStatus === 'error'}
-					<div class="text-sm text-text-muted">Lookup unavailable.</div>
-				{:else if _possibleCrops.length === 0}
-					<div class="text-sm text-text-muted">
-						No upstream crops found near this piece's arrival time.
-					</div>
-				{:else}
-					<div class="grid gap-2" style="grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));">
-						{#each _possibleCrops as crop (crop.id)}
-							<button
-								type="button"
-								class="flex flex-col border border-border bg-bg text-left hover:border-primary/70"
-								title={`C${crop.channel} · ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : '?'} · ${crop.com_forward_to_exit_deg != null ? crop.com_forward_to_exit_deg.toFixed(0) + '° to exit' : ''} · ${crop.dt >= 0 ? crop.dt.toFixed(1) + 's before arrival' : Math.abs(crop.dt).toFixed(1) + 's after'} · score ${crop.score.toFixed(2)}`}
-								onclick={() =>
-									(zoomImage = {
-										src: possibleCropSrc(crop.id),
-										label: `C${crop.channel} ${crop.zone_code != null ? ZONE_LABEL[crop.zone_code] : ''} · ${crop.dt.toFixed(1)}s · score ${crop.score.toFixed(2)}`
-									})}
-							>
-								<div class="relative aspect-square w-full bg-white">
-									<img
-										src={possibleCropSrc(crop.id)}
-										alt={`crop ${crop.id}`}
-										class="h-full w-full object-contain"
-										loading="lazy"
-									/>
-									<span
-										class="absolute right-1 top-1 bg-primary px-1.5 py-0.5 text-xs font-semibold text-white tabular-nums"
-										title="Same-piece confidence (higher = more likely this piece)"
-									>
-										{crop.score.toFixed(2)}
-									</span>
-									<span
-										class="absolute bottom-1 left-1 bg-text/80 px-1 py-0.5 text-xs font-semibold text-bg"
-										title="Channel and zone the crop came from"
-									>
-										C{crop.channel}{crop.zone_code != null ? ` ${ZONE_LABEL[crop.zone_code]}` : ''}
-									</span>
-								</div>
-								<div class="flex items-center justify-between gap-2 px-2 py-1.5 text-xs text-text-muted">
-									<span class="tabular-nums">{crop.dt >= 0 ? `−${crop.dt.toFixed(1)}s` : `+${Math.abs(crop.dt).toFixed(1)}s`}</span>
-									<span class="tabular-nums"
-										>{crop.com_forward_to_exit_deg != null
-											? `${crop.com_forward_to_exit_deg.toFixed(0)}°`
-											: ''}</span
-									>
-								</div>
-							</button>
-						{/each}
-					</div>
-				{/if}
-			</div>
-		</section>
 	</div>
 </div>
 

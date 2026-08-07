@@ -664,11 +664,14 @@ def get_sample_capture() -> Dict[str, Any]:
 
 @router.post("/api/system/sample-capture")
 def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
-    """Standalone training-image capture: one enable toggle + a target rate.
+    """Standalone training-image capture: one enable toggle + a cadence.
 
     Independent of machine mode and of the legacy sample_collection_mode
-    feeder bypass. ``enabled`` flips picture-taking on/off; ``rate_hz`` or
-    ``interval_s`` sets the cadence (default 1 every 2s). Both persist.
+    feeder bypass. ``enabled`` flips picture-taking on/off. Cadence is either
+    the decay schedule (``decay_enabled`` + ``burst_interval_s`` /
+    ``floor_interval_s`` / ``ramp_hours`` / ``jitter_frac``, default) or a
+    fixed rate (``rate_hz`` / ``interval_s``, default 10s). ``reset_decay``
+    re-arms the burst. All persist.
     """
     if "storage_cap_mb" in payload and payload.get("storage_cap_mb") is not None:
         from server.classification_training import getClassificationTrainingManager
@@ -692,6 +695,17 @@ def set_sample_capture(payload: Dict[str, Any]) -> Dict[str, Any]:
             result.update({"ok": False, "reason": "invalid_rate", "message": str(exc)})
             result.update(_sample_storage_payload())
             return result
+    decay_keys = ("decay_enabled", "burst_interval_s", "floor_interval_s", "ramp_hours", "jitter_frac")
+    if any(key in payload for key in decay_keys):
+        collector.setDecayConfig(
+            decay_enabled=bool(payload["decay_enabled"]) if "decay_enabled" in payload else None,
+            burst_interval_s=float(payload["burst_interval_s"]) if payload.get("burst_interval_s") is not None else None,
+            floor_interval_s=float(payload["floor_interval_s"]) if payload.get("floor_interval_s") is not None else None,
+            ramp_hours=float(payload["ramp_hours"]) if payload.get("ramp_hours") is not None else None,
+            jitter_frac=float(payload["jitter_frac"]) if payload.get("jitter_frac") is not None else None,
+        )
+    if payload.get("reset_decay"):
+        collector.resetDecay()
     if "annotate" in payload:
         collector.setAnnotate(bool(payload.get("annotate")))
     if "enabled" in payload:

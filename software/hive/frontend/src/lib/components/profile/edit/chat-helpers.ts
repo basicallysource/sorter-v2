@@ -116,6 +116,7 @@ function aiMessagePerformance(message: SortingProfileAiMessage): {
 	toolMs: number | null;
 	roundCount: number | null;
 	toolCallCount: number | null;
+	cost: number | null;
 } | null {
 	const performance = message.usage?.performance;
 	if (!isRecord(performance)) return null;
@@ -124,8 +125,14 @@ function aiMessagePerformance(message: SortingProfileAiMessage): {
 	const toolMs = asNumber(performance.tool_ms);
 	const roundCount = asNumber(performance.round_count);
 	const toolCallCount = asNumber(performance.tool_call_count);
+	const cost = asNumber(performance.cost);
 	if (totalMs === null && llmMs === null && toolMs === null) return null;
-	return { totalMs, llmMs, toolMs, roundCount, toolCallCount };
+	return { totalMs, llmMs, toolMs, roundCount, toolCallCount, cost };
+}
+
+export function formatCost(cost: number): string {
+	if (cost < 0.01) return `$${cost.toFixed(4)}`;
+	return `$${cost.toFixed(2)}`;
 }
 
 export function aiMessagePerformanceLabel(message: SortingProfileAiMessage): string | null {
@@ -140,6 +147,7 @@ export function aiMessagePerformanceLabel(message: SortingProfileAiMessage): str
 	if (tool && perf.toolMs && perf.toolMs > 0) parts.push(`Tools ${tool}`);
 	if (typeof perf.roundCount === 'number' && perf.roundCount > 1) parts.push(`${perf.roundCount} rounds`);
 	if (typeof perf.toolCallCount === 'number' && perf.toolCallCount > 0) parts.push(`${perf.toolCallCount} tool calls`);
+	if (typeof perf.cost === 'number' && perf.cost > 0) parts.push(formatCost(perf.cost));
 	return parts.length > 0 ? parts.join(' · ') : null;
 }
 

@@ -297,6 +297,97 @@ class TestDownloadJobManager:
         assert final.get("status") == "done", final
         assert (tmp_path / "hive-model-1-ncnn" / "exports" / "best_ncnn_model" / "model.bin").exists()
 
+    def test_piece_link_model_installs_inert(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """A piece_link model is an encoder+head pair shipped as one onnx-runtime
+        tarball. It must install like any other model but report itself inert, so
+        the UI greys it out instead of offering an Activate that does nothing."""
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        _configure_target(monkeypatch)
+
+        detail = _make_detail()
+        detail["purpose"] = "piece_link"
+        detail["model_family"] = "piece_link_matcher"
+        detail["training_metadata"] = {"input_size": 96, "embed_dim": 64, "meta_dim": 11}
+        detail["variants"] = [
+            {
+                "id": "variant-onnx",
+                "runtime": "onnx",
+                "file_name": "link-v3.tar.gz",
+                "file_size": 1234,
+                "sha256": "expected-sha",
+                "format_meta": {"archive": "tar.gz", "members": ["encoder.onnx", "head.onnx"]},
+                "uploaded_at": "2026-04-01T00:00:00Z",
+            }
+        ]
+
+        def _downloader(
+            model_id: str,
+            variant_id: str,
+            dest_path: Path,
+            on_progress: Callable[[int, int], None] | None,
+            expected_sha256: str | None,
+        ) -> str:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            with tarfile.open(dest_path, "w:gz") as tar:
+                for member in ("encoder.onnx", "head.onnx"):
+                    payload = f"fake-{member}".encode()
+                    info = tarfile.TarInfo(member)
+                    info.size = len(payload)
+                    tar.addfile(info, io.BytesIO(payload))
+            if on_progress is not None:
+                size = dest_path.stat().st_size
+                on_progress(size, size)
+            return "expected-sha"
+
+        stub = _StubClient(detail=detail, downloader=_downloader)
+        _install_stub_client(monkeypatch, stub)
+
+        manager = hive_models.DownloadJobManager()
+        final = manager.wait_for_terminal(manager.enqueue("hive-a", "model-1"), timeout=5.0)
+        assert final.get("status") == "done", final
+
+        exports = tmp_path / "hive-model-1-onnx" / "exports"
+        # Extraction is gated on the file being a tarball, not on runtime == ncnn.
+        assert (exports / "encoder.onnx").exists()
+        assert (exports / "head.onnx").exists()
+
+        run_json = json.loads((tmp_path / "hive-model-1-onnx" / "run.json").read_text())
+        assert run_json[hive_models.HIVE_SENTINEL_KEY]["purpose"] == "piece_link"
+
+        installed = hive_models.list_installed_models()
+        assert len(installed) == 1
+        assert installed[0]["purpose"] == "piece_link"
+        assert installed[0]["inert"] is True
+        # Nothing consumes it, so it must not present as activatable.
+        assert installed[0]["compatible"] is False
+
+    def test_purpose_defaults_to_detection_for_models_installed_before_the_field(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        entry = tmp_path / "hive-legacy-onnx"
+        entry.mkdir()
+        (entry / "run.json").write_text(
+            json.dumps(
+                {
+                    "name": "Legacy",
+                    "model_family": "yolo",
+                    hive_models.HIVE_SENTINEL_KEY: {
+                        "target_id": "hive-a",
+                        "model_id": "legacy",
+                        "variant_runtime": "onnx",
+                        "sha256": "abc",
+                    },
+                }
+            )
+        )
+        installed = hive_models.list_installed_models()
+        assert installed[0]["purpose"] == "detection"
+        assert installed[0]["inert"] is False
+        assert installed[0]["compatible"] is True
+
     def test_ncnn_tarball_rejects_path_traversal(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:

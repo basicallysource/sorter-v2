@@ -1,9 +1,11 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
-	import { api } from '$lib/api';
+	import { api, type AiModelCatalog } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
+	import ModelSelect from '$lib/components/primitives/ModelSelect.svelte';
+	import AiUsagePanel from '$lib/components/AiUsagePanel.svelte';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -89,10 +91,23 @@
 
 	// AI / OpenRouter
 	let openrouterApiKey = $state('');
-	let preferredAiModel = $state(auth.user?.preferred_ai_model ?? 'anthropic/claude-sonnet-4.6');
+	let preferredAiModel = $state(auth.user?.preferred_ai_model ?? '');
 	let aiError = $state<string | null>(null);
 	let aiSaved = $state(false);
 	let aiSaving = $state(false);
+	let aiCatalog = $state<AiModelCatalog | null>(null);
+
+	$effect(() => {
+		void (async () => {
+			try {
+				const catalog = await api.listAiModels();
+				aiCatalog = catalog;
+				if (!preferredAiModel) preferredAiModel = catalog.default_model;
+			} catch {
+				aiCatalog = null;
+			}
+		})();
+	});
 
 	// Perceptron (admin-only teacher path that bypasses OpenRouter)
 	let perceptronApiKey = $state('');
@@ -140,16 +155,6 @@
 			teacherSettingSaving = false;
 		}
 	}
-
-	const aiModelOptions = [
-		'anthropic/claude-haiku-4-5',
-		'anthropic/claude-sonnet-4.6',
-		'anthropic/claude-3.7-sonnet',
-		'openai/gpt-5.4',
-		'google/gemini-3.1-pro-preview',
-		'google/gemini-3-flash-preview',
-		'google/gemini-3.5-flash'
-	];
 
 	async function handleSaveName() {
 		nameError = null;
@@ -478,17 +483,31 @@
 				</div>
 
 				<div>
-					<label for="preferred-model" class="block text-sm text-text-muted">Preferred Model</label>
-					<select
-						id="preferred-model"
-						bind:value={preferredAiModel}
-						class="mt-1 w-full border border-border px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-					>
-						{#each aiModelOptions as model}
-							<option value={model}>{model}</option>
-						{/each}
-					</select>
+					<label for="preferred-model" class="mb-1 block text-sm text-text-muted">
+						Preferred Model
+					</label>
+					{#if aiCatalog}
+						<ModelSelect
+							id="preferred-model"
+							bind:value={preferredAiModel}
+							groups={aiCatalog.groups}
+							baselineModel={aiCatalog.baseline_model}
+						/>
+					{:else}
+						<input
+							id="preferred-model"
+							type="text"
+							bind:value={preferredAiModel}
+							placeholder="OpenRouter model id"
+							class="w-full border border-border px-3 py-2 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+						/>
+						<p class="mt-1 text-xs text-text-muted">
+							Model list unavailable — enter an OpenRouter model id manually.
+						</p>
+					{/if}
 				</div>
+
+				<AiUsagePanel />
 
 				{#if aiError}
 					<div class="bg-primary/8 p-3 text-sm text-primary">{aiError}</div>

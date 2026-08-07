@@ -10,6 +10,11 @@ import cv2
 import numpy as np
 
 from classification.brickognize import MAX_QUERY_IMAGES, _classifyImages
+from classification.providers import (
+    COLOR_PROVIDER_BRICKOGNIZE,
+    COLOR_PROVIDER_HIVE_BASICALLY,
+    MOLD_PROVIDER_BRICKOGNIZE,
+)
 from defs.known_object import (
     ClassificationAttempt,
     ClassificationAttemptStrategy,
@@ -21,13 +26,19 @@ from global_config import GlobalConfig
 from irl.config import IRLConfig, IRLInterface
 from piece_transport import ClassificationChannelTransport
 from states.base_state import BaseState
+from subsystems.classification_channel import crop_quality
 from subsystems.classification_channel.five_sector_platter import C4FiveSectorPlatter
 from subsystems.shared_variables import SharedVariables
 from utils.event import knownObjectToEvent
 
-from .constants import LOG_TAG
+from .constants import HOSTED_COLOR_JOIN_BUDGET_S, LOG_TAG
 from .context import SimpleStateMachineRev01Context
 from .vision import Rev01Vision
+
+# Ceiling on link-match crops kept per piece. The model's picks are normally a
+# handful; this only bounds a pathological frame where it matches half the
+# window, so one piece can't dump dozens of JPEGs into the image store.
+MAX_LINK_ATTACH = 8
 
 
 @dataclass
@@ -182,47 +193,37 @@ class Rev01BaseState(BaseState):
     @staticmethod
     def burstCaptureComplete(ctx, now: float) -> tuple[bool, str]:
         # Shared stop condition for the at-rest burst (single-piece CAPTURING and
-        # the two-piece incoming worker). With require_sharp_capture on, keep
-        # grabbing frames until at least one crop clears the motion-blur floor,
-        # bounded by max_captures and capture_max_wait_ms; otherwise fall back to
-        # the old fixed window (capture_at_rest_ms / max_captures). Returns
+        # the two-piece incoming worker): a plain fixed window — grab frames
+        # until max_captures or capture_at_rest_ms, whichever first. No sharpness
+        # gate: the burst deliberately over-captures and selectBurstIndices
+        # decides afterwards which frames are worth sending. Returns
         # (done, reason) so callers can log why the burst ended.
         cfg = ctx.config
         n = len(ctx.captured_crops)
         if n <= 0:
             return False, ""
         elapsed_ms = (now - ctx.capturing_started_at) * 1000.0
-        if not getattr(cfg, "require_sharp_capture", False):
-            if n >= cfg.max_captures:
-                return True, "frame_cap"
-            if elapsed_ms >= cfg.capture_at_rest_ms:
-                return True, "window"
-            return False, ""
-        floor = float(cfg.min_sharpness_laplacian_var)
-        if any(s >= floor for s in ctx.captured_crop_sharpness):
-            return True, "sharp"
         if n >= cfg.max_captures:
             return True, "frame_cap"
-        if elapsed_ms >= float(cfg.capture_max_wait_ms):
-            return True, "time_cap"
+        if elapsed_ms >= cfg.capture_at_rest_ms:
+            return True, "window"
         return False, ""
 
     def _selectBurstIndices(self, crops: list[np.ndarray], n_use: int) -> list[int]:
-        # Which burst frames drive classification. With require_sharp_capture on,
-        # the SHARPEST n_use crops (least motion blur); otherwise the last n_use
-        # (most-settled tail) to preserve the legacy behavior. Returned in capture
-        # order so the anchors/sent images stay chronological.
+        # Which burst frames drive classification: crop_quality's within-burst
+        # relative selection (containment filter + rank-combined sharpness
+        # metrics + relative-margin acceptance), which may ship FEWER than n_use
+        # frames when part of the burst is junk. Returned in capture order so
+        # the anchors/sent images stay chronological. Falls back to the
+        # most-settled tail if the quality list is somehow misaligned.
         total = len(crops)
         n = max(1, min(int(n_use), total)) if total else 0
         if n == 0:
             return []
-        cfg = self.ctx.config
-        sharp = self.ctx.captured_crop_sharpness
-        if getattr(cfg, "require_sharp_capture", False) and len(sharp) == total:
-            order = sorted(range(total), key=lambda i: sharp[i], reverse=True)
-        else:
-            order = list(reversed(range(total)))
-        return sorted(order[:n])
+        qualities = self.ctx.captured_crop_quality
+        if len(qualities) == total:
+            return crop_quality.selectBurstIndices(qualities, n)
+        return sorted(list(reversed(range(total)))[:n])
 
     def anyBboxInExitZone(
         self, bboxes: list[tuple[int, int, int, int]]
@@ -275,15 +276,10 @@ class Rev01BaseState(BaseState):
     # (which applies the result) — the spawn/apply split spans two states, and
     # all handoff flows through ``self.ctx``.
 
-    def selectRecognitionCrops(
-        self, crops: list[np.ndarray], max_images: Optional[int] = None
-    ) -> list[np.ndarray]:
+    def selectRecognitionCrops(self, crops: list[np.ndarray]) -> list[np.ndarray]:
         # Hard-cap at the Brickognize per-request image limit regardless of the
         # configured max_captures — over the limit the API errors the whole call.
-        # ``max_images`` lets the caller reserve slots for injected upstream
-        # matches (the total across both must stay <= MAX_QUERY_IMAGES).
-        cap = MAX_QUERY_IMAGES if max_images is None else max_images
-        n = min(self.ctx.config.max_captures, cap)
+        n = min(self.ctx.config.max_captures, MAX_QUERY_IMAGES)
         if n <= 0 or not crops:
             return []
         if len(crops) <= n:
@@ -298,20 +294,18 @@ class Rev01BaseState(BaseState):
         return [crops[idx] for idx in chosen_indices]
 
     def spawnClassifyThread(self, all_captures: list[np.ndarray]) -> None:
-        # Runs entirely off the state-machine thread: the upstream-match search
-        # is a paid, blocking HTTP call (embed the burst, KNN the vec DB), so it
-        # MUST NOT run on the main loop. The thread fuses any upstream matches
-        # with the C4 burst — bursts give up slots so the total never exceeds
-        # Brickognize's 8-image limit — then fires the parallel request fan-out
-        # (the fused combined call plus single-image calls). The combined call's
-        # result is kept whenever it recognizes the piece at all; otherwise the
-        # highest-confidence single-image call wins (see _runClassifyRequests).
+        # Runs entirely off the state-machine thread: the Brickognize fan-out is
+        # blocking HTTP and MUST NOT run on the main loop. Fires the parallel
+        # request fan-out (the combined call plus single-image calls). The
+        # combined call's result is kept whenever it recognizes the piece at all;
+        # otherwise the highest-confidence single-image call wins (see
+        # _runClassifyRequests).
         obj = self.ctx.known_object
         piece_uuid = obj.uuid if obj is not None else None
-        # classify_burst_count frames drive classification: they anchor the
-        # upstream-similarity search and are the C4 images sent to Brickognize.
-        # _selectBurstIndices picks the sharpest (least motion-blurred) frames when
-        # require_sharp_capture is on, the most-settled tail otherwise. The rest of
+        # Up to classify_burst_count frames drive classification: they are the
+        # C4 images sent to Brickognize. _selectBurstIndices runs the
+        # within-burst quality selection, which ships FEWER frames when part of
+        # the burst is motion-blurred or the piece isn't contained. The rest of
         # the burst is kept on the KnownObject (used=False) for review.
         n_use = max(1, int(self.ctx.config.classify_burst_count))
         burst_entries = (
@@ -321,37 +315,48 @@ class Rev01BaseState(BaseState):
         )
         chosen = [i for i in self._selectBurstIndices(all_captures, n_use) if i < len(burst_entries)]
         used_entries = [burst_entries[i] for i in chosen]
-        anchor_b64s = [e.image for e in used_entries]
         burst_crops = [all_captures[i] for i in chosen]
-        ref_ts = float(
-            (obj.first_carousel_seen_ts or obj.created_at)
-            if obj is not None
-            else time.time()
-        )
+        stamps = list(self.ctx.captured_crop_timestamps)
+        # Arrival at C4. Every candidate's dt feature is measured against this,
+        # so it has to be the FIRST burst frame, not the sharpest or the last.
+        arrival_ts = float(stamps[0]) if stamps else float(time.time())
+        # Best-quality burst frame is the anchor the matcher compares against.
+        anchor_bgr = None
+        if burst_crops:
+            qualities = self.ctx.captured_crop_quality
+            best = (
+                crop_quality.bestIndex([qualities[i] for i in chosen])
+                if len(qualities) == len(all_captures)
+                else None
+            )
+            anchor_bgr = burst_crops[best] if best is not None else burst_crops[-1]
 
         def _run() -> None:
             try:
-                upstream_bgr, upstream_images = self._gatherUpstreamMatches(
-                    anchor_b64s, ref_ts, max_inject=MAX_QUERY_IMAGES - len(burst_crops)
-                )
-                with self.ctx.classify_lock:
-                    self.ctx.upstream_recognition_images = list(upstream_images)
-                # Pair each sendable image with its RecognitionImage. The used
-                # upstream entries (flagged by the store) align 1:1, in order,
-                # with upstream_bgr.
+                # Pair each sendable image with its RecognitionImage.
                 sendable: list[_SendImage] = [
                     _SendImage(bgr, rec) for bgr, rec in zip(burst_crops, used_entries)
-                ]
-                used_upstream = [r for r in upstream_images if r.used]
-                sendable += [
-                    _SendImage(bgr, rec) for bgr, rec in zip(upstream_bgr, used_upstream)
                 ]
                 if not sendable:
                     with self.ctx.classify_lock:
                         self.ctx.classification_error = "no_captures"
                     return
+                # Upstream C2/C3 views of this same piece, found by the
+                # piece-link model. They are fused into the request alongside the
+                # burst, so they must be resolved BEFORE the fan-out — the burst
+                # gives up slots so the total stays under Brickognize's limit.
+                sendable += self._gatherLinkMatches(
+                    piece_uuid,
+                    anchor_bgr,
+                    arrival_ts,
+                    max_inject=MAX_QUERY_IMAGES - len(sendable),
+                )
+                # The hosted color provider (when selected) runs alongside the
+                # Brickognize fan-out rather than after it, so choosing it costs
+                # no extra wall-clock unless it is slower than Brickognize.
+                hosted_color = self._maybeStartHostedColorPredict(sendable, piece_uuid)
                 requests = self._buildClassifyRequests(sendable)
-                self._runClassifyRequests(requests, piece_uuid)
+                self._runClassifyRequests(requests, piece_uuid, hosted_color)
             except Exception as exc:
                 with self.ctx.classify_lock:
                     self.ctx.classification_error = str(exc)
@@ -366,13 +371,11 @@ class Rev01BaseState(BaseState):
         # redundant, not sequential retries — a lone clean frame frequently
         # recognizes a piece the fused set confuses, and firing every variant
         # concurrently costs the same wall-clock as the slowest single call.
-        #   combined        — the full fused set (used burst frames + used upstream)
+        #   combined        — the full set of used burst frames
         #   single_burst    — only the last (most-settled) burst frame, alone
-        #   single_upstream — only the single highest-similarity upstream crop, alone
         # A single-image request equal to the combined call (e.g. combined is
         # already just one burst frame) is skipped so we never pay for a duplicate.
         burst = [s for s in sendable if s.rec.source == "c4_burst"]
-        upstream = [s for s in sendable if s.rec.source == "upstream"]
         requests: list[_ClassifyRequest] = [
             _ClassifyRequest(
                 ClassificationAttemptStrategy.combined, "combined", list(sendable)
@@ -387,18 +390,6 @@ class Rev01BaseState(BaseState):
                         ClassificationAttemptStrategy.single_burst,
                         "single_burst",
                         [last_burst],
-                    )
-                )
-        if getattr(cfg, "classify_parallel_single_upstream", True) and upstream:
-            top_upstream = max(
-                upstream, key=lambda s: s.rec.score if s.rec.score is not None else -1.0
-            )
-            if not (len(sendable) == 1 and sendable[0] is top_upstream):
-                requests.append(
-                    _ClassifyRequest(
-                        ClassificationAttemptStrategy.single_upstream,
-                        "single_upstream",
-                        [top_upstream],
                     )
                 )
         return requests
@@ -452,12 +443,107 @@ class Rev01BaseState(BaseState):
                 th.join()
         return [r for r in out if r is not None]
 
+    def _maybeStartHostedColorPredict(
+        self, sendable: list[_SendImage], piece_uuid: Optional[str]
+    ) -> Optional[dict]:
+        # Fires the hosted color request on its own thread so it overlaps the
+        # Brickognize fan-out. Returns None (and costs nothing) unless a hosted
+        # provider is actually selected.
+        # Imported lazily: basically_services pulls in local_state, and this
+        # module is imported by the state machine at boot.
+        import basically_services
+        from toml_config import getClassificationProviders
+
+        if getClassificationProviders()["color_provider"] != COLOR_PROVIDER_HIVE_BASICALLY:
+            return None
+        holder: dict = {"started_at": time.monotonic()}
+
+        def run() -> None:
+            blobs: list[bytes] = []
+            channels: list[int] = []
+            for s in sendable:
+                ok, buf = cv2.imencode(".jpg", s.bgr)
+                if not ok:
+                    continue
+                blobs.append(buf.tobytes())
+                # Burst frames are C4 by definition; a fused link match carries
+                # the upstream channel it was captured on, which the colour
+                # provider uses to pick per-channel calibration.
+                channels.append(4 if s.rec.source == "c4_burst" else int(s.rec.channel or 4))
+            if not blobs:
+                return
+            try:
+                result = basically_services.predictColor(
+                    self.gc,
+                    blobs,
+                    channels,
+                    client_info={"piece_uuid": piece_uuid} if piece_uuid else None,
+                )
+            except Exception as exc:
+                self.logger.warning(f"{LOG_TAG} hosted color predict failed: {exc}")
+                return
+            if result is not None:
+                holder["result"] = result
+
+        thread = threading.Thread(target=run, daemon=True, name="hosted-color-predict")
+        holder["thread"] = thread
+        thread.start()
+        return holder
+
+    def _resolveHostedColor(self, hosted_color: Optional[dict]) -> None:
+        # Joins the hosted request within its budget and records BOTH the color
+        # override and which provider actually answered. A timeout or a bad
+        # payload is not an error: the piece keeps Brickognize's color and is
+        # recorded as brickognize-sourced, so the stored provenance always
+        # reflects what really produced the color rather than what was configured.
+        if hosted_color is None:
+            self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
+            self.ctx.hosted_color = None
+            self.ctx.hosted_color_confidence = None
+            return
+        remaining = max(
+            0.0,
+            HOSTED_COLOR_JOIN_BUDGET_S - (time.monotonic() - hosted_color["started_at"]),
+        )
+        hosted_color["thread"].join(remaining)
+        result = hosted_color.get("result")
+        color_id = result.get("color_id") if isinstance(result, dict) else None
+        color_name = result.get("color_name") if isinstance(result, dict) else None
+        confidence = result.get("confidence") if isinstance(result, dict) else None
+        if color_id is None or not color_name:
+            self.ctx.color_provider = COLOR_PROVIDER_BRICKOGNIZE
+            self.ctx.hosted_color = None
+            self.ctx.hosted_color_confidence = None
+            self.logger.info(
+                f"{LOG_TAG} hosted color unavailable within "
+                f"{HOSTED_COLOR_JOIN_BUDGET_S:.0f}s — falling back to Brickognize's color"
+            )
+            return
+        # Hive returns BrickLink color ids as ints; the sorting profile (and
+        # Brickognize) key on the same ids as strings.
+        self.ctx.color_provider = COLOR_PROVIDER_HIVE_BASICALLY
+        self.ctx.hosted_color = (str(color_id), str(color_name))
+        self.ctx.hosted_color_confidence = (
+            float(confidence) if isinstance(confidence, (int, float)) else None
+        )
+        self.logger.info(
+            f"{LOG_TAG} hosted color applied: {color_name} ({color_id})"
+            + (
+                f" @ {self.ctx.hosted_color_confidence:.2f}"
+                if self.ctx.hosted_color_confidence is not None
+                else ""
+            )
+        )
+
     def _runClassifyRequests(
-        self, requests: list[_ClassifyRequest], piece_uuid: Optional[str]
+        self,
+        requests: list[_ClassifyRequest],
+        piece_uuid: Optional[str],
+        hosted_color: Optional[dict] = None,
     ) -> None:
         # Fire every request concurrently and apply one result. No sequential
         # retries: the calls are redundant and run in parallel. The combined
-        # (fused burst + upstream) call is preferred whenever it recognizes the
+        # (full burst set) call is preferred whenever it recognizes the
         # piece at all — it has the most context, so we trust it over a
         # higher-confidence lone-image call. Only if combined came back empty does
         # the highest-confidence single-image call win. The applied request's
@@ -485,7 +571,6 @@ class Rev01BaseState(BaseState):
                     strategy=req.strategy,
                     label=req.label,
                     n_burst=sum(1 for s in req.images if s.rec.source == "c4_burst"),
-                    n_upstream=sum(1 for s in req.images if s.rec.source == "upstream"),
                     found=top is not None,
                     part_id=top.get("id") if isinstance(top, dict) else None,
                     part_name=top.get("name") if isinstance(top, dict) else None,
@@ -535,7 +620,7 @@ class Rev01BaseState(BaseState):
 
         applied: Optional[tuple[_ClassifyRequest, dict]] = None
         if found:
-            # Prefer the combined (fused burst + upstream) request whenever it
+            # Prefer the combined (full burst set) request whenever it
             # recognized the piece at all — it sees the most context, so we trust
             # any result it returns over a higher-confidence lone-image call. Only
             # when the combined call came back empty do we fall back to the
@@ -575,6 +660,11 @@ class Rev01BaseState(BaseState):
                 f"{LOG_TAG} all {len(requests)} classify requests errored"
             )
 
+        # MUST settle before _finalizeAttempts publishes classification_result:
+        # AWAITING_DISTRIBUTION polls for that field, not for this thread, so a
+        # provider resolved afterwards could miss the piece entirely.
+        self._resolveHostedColor(hosted_color)
+        self.ctx.mold_provider = MOLD_PROVIDER_BRICKOGNIZE
         self._finalizeAttempts(requests, attempts, attempt_reqs, applied)
 
     def _finalizeAttempts(
@@ -617,67 +707,6 @@ class Rev01BaseState(BaseState):
             f"{LOG_TAG} classify done: applied [{strategy.value}] "
             f"(attempts={[(a.label, a.found) for a in attempts]})"
         )
-
-    def _gatherUpstreamMatches(
-        self, anchor_b64s: list[str], ref_ts: float, max_inject: int
-    ) -> tuple[list[np.ndarray], list[RecognitionImage]]:
-        # Returns (decoded BGR crops to SEND to Brickognize, wrapped
-        # RecognitionImages for the KnownObject/UI). The store grabs
-        # classify_top_n matches and flags the most-similar classify_use_n as
-        # used; we send only the used crops (capped by max_inject for the 8-image
-        # limit) but attach ALL grabbed crops to the piece for review, each with
-        # its cosine similarity to the anchor (the classified C4 frame).
-        # Best-effort: any failure yields none.
-        store = getattr(getattr(self.gc, "perception_service", None), "upstream_store", None)
-        if store is None:
-            return [], []
-        try:
-            candidates = store.matchForClassification(anchor_b64s, ref_ts)
-        except Exception as exc:
-            self.logger.warning(f"{LOG_TAG} upstream match failed: {exc}")
-            return [], []
-        bgr_list: list[np.ndarray] = []
-        image_list: list[RecognitionImage] = []
-        for cand in candidates:
-            b64 = cand.get("jpeg_b64") if isinstance(cand, dict) else None
-            if not isinstance(b64, str) or not b64:
-                continue
-            img = self._decodeB64Jpeg(b64)
-            if img is None or img.size == 0:
-                continue
-            score = cand.get("score")
-            used = bool(cand.get("used")) and len(bgr_list) < max_inject
-            if used:
-                bgr_list.append(img)
-            chan = cand.get("channel_id")
-            cap_ts = cand.get("ts")
-            cap_ts = float(cap_ts) if isinstance(cap_ts, (int, float)) else None
-            image_list.append(
-                RecognitionImage(
-                    image=b64,
-                    source="upstream",
-                    used=used,
-                    score=float(score) if isinstance(score, (int, float)) else None,
-                    channel=int(chan) if isinstance(chan, (int, float)) else None,
-                    ts=cap_ts,
-                    created_at=cap_ts,
-                )
-            )
-        if image_list:
-            self.logger.info(
-                f"{LOG_TAG} upstream match: grabbed {len(image_list)}, using "
-                f"{len(bgr_list)} (scores={[r.score for r in image_list]})"
-            )
-        return bgr_list, image_list
-
-    @staticmethod
-    def _decodeB64Jpeg(b64: str) -> Optional[np.ndarray]:
-        try:
-            raw = base64.b64decode(b64)
-            arr = np.frombuffer(raw, dtype=np.uint8)
-            return cv2.imdecode(arr, cv2.IMREAD_COLOR)
-        except Exception:
-            return None
 
     def updateKnownObjectWithResult(self, result: object, error: Optional[str]) -> None:
         obj = self.ctx.known_object
@@ -723,40 +752,164 @@ class Rev01BaseState(BaseState):
                 best_color = max(colors, key=lambda c: c.get("score", 0))
                 obj.color_id = str(best_color.get("id", "any_color"))
                 obj.color_name = str(best_color.get("name", "Any Color"))
+                obj.color_confidence = best_color.get("score")
                 obj.brickognize_color_rank = best_color.get("rank")
+            # A hosted provider's answer overrides Brickognize's color (the
+            # per-attempt records keep Brickognize's, so both remain visible).
+            # Its score replaces Brickognize's too — color_confidence must always
+            # describe the color actually applied, never a score from the
+            # provider that lost.
+            if self.ctx.hosted_color is not None:
+                obj.color_id, obj.color_name = self.ctx.hosted_color
+                obj.color_confidence = self.ctx.hosted_color_confidence
+                obj.brickognize_color_rank = None
         else:
             obj.classification_status = ClassificationStatus.unknown
+
+        obj.color_provider = self.ctx.color_provider
+        obj.mold_provider = self.ctx.mold_provider
 
         obj.classified_at = time.time()
 
         if obj.classification_status == ClassificationStatus.classified and obj.part_id:
-            self._applyHiveSizeMetadata(obj)
-            self._applyLocalPieceMetadata(obj)
+            self._applyHivePieceMetadata(obj)
 
         if frames:
-            best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
+            qualities = self.ctx.captured_crop_quality
+            best_idx = (
+                crop_quality.bestIndex(qualities)
+                if len(qualities) == len(frames)
+                else None
+            )
+            if best_idx is None:
+                best_idx = max(range(len(frames)), key=lambda i: self.sharpness(frames[i]))
             obj.thumbnail = self.encodeFrame(frames[best_idx])
 
         with self.ctx.classify_lock:
-            obj.recognition_image_set.extend(self.ctx.upstream_recognition_images)
             obj.classification_attempts = list(self.ctx.classification_attempts)
             obj.classification_strategy = self.ctx.classification_strategy
 
         self.emitKnownObject()
 
-    def _applyHiveSizeMetadata(self, obj) -> None:
-        # Resolve physical dimensions from the primary Hive target and flag the
-        # piece as too_big when any single axis exceeds the oversize limit. Hive
-        # being unreachable must never block classification — best effort only.
+    def _gatherLinkMatches(
+        self,
+        piece_uuid: Optional[str],
+        anchor_bgr,
+        arrival_ts: float,
+        max_inject: int,
+    ) -> list["_SendImage"]:
+        """Upstream C2/C3 views of this piece, scored by the piece-link model.
+
+        Every scored candidate is attached to the KnownObject so the detail page
+        can show the whole ranked list; only the top ``max_inject`` picks above
+        the model's threshold are returned as sendable and actually fused into
+        the Brickognize request. Best-effort — any failure yields none and
+        classification proceeds on the burst alone.
+        """
+        if anchor_bgr is None or max_inject <= 0 or not piece_uuid:
+            return []
+        try:
+            import link_matcher
+
+            scored = link_matcher.matchForPieceLive(
+                self.gc, piece_uuid, anchor_bgr, arrival_ts
+            )
+        except Exception as exc:
+            self.logger.warning(f"{LOG_TAG} link match failed: {exc}")
+            return []
+        if scored is None:
+            return []
+        if not scored:
+            self.logger.info(f"{LOG_TAG} link match: no C2/C3 candidates in window")
+            return []
+
+        obj = self.ctx.known_object
+        sendable: list[_SendImage] = []
+        attached: list[RecognitionImage] = []
+        # Attach ONLY the model's own picks. The candidate set is the heuristic's
+        # whole time window — 40+ crops, nearly all of them other pieces scoring
+        # ~0 — and keeping them all would attach dozens of junk JPEGs to every
+        # piece, push them over the websocket, evict real captures at the
+        # piece_images size cap, and sync the lot to Hive.
+        picks = [c for c in scored if bool(c.get("model_same"))][:MAX_LINK_ATTACH]
+        for cand in picks:
+            decoded = self._linkCropToRecognitionImage(cand)
+            if decoded is None:
+                continue
+            rec, bgr = decoded
+            # Injecting a crop of a DIFFERENT piece actively corrupts the
+            # classification, which is why only picks ever get an image slot.
+            if len(sendable) < max_inject:
+                sendable.append(_SendImage(bgr, rec))
+            attached.append(rec)
+
+        if obj is not None and attached:
+            with self.ctx.classify_lock:
+                if self.ctx.known_object is obj:
+                    # NOT recognition_image_set. That list is ground truth (the
+                    # C4 burst) and feeds piece_images -> Hive -> training data;
+                    # model guesses live on their own list and never enter that
+                    # pipeline.
+                    obj.link_match_image_set.extend(attached)
+        self.logger.info(
+            f"{LOG_TAG} link match: {len(attached)} scored, {len(sendable)} fused into request"
+        )
+        return sendable
+
+    def _linkCropToRecognitionImage(
+        self, cand: dict
+    ) -> Optional[tuple[RecognitionImage, np.ndarray]]:
+        import base64
+
+        import channel_crop_store
+
+        path = channel_crop_store.getCropFileById(int(cand["id"]))
+        if path is None or not path.is_file():
+            return None
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            return None
+        bgr = cv2.imdecode(np.frombuffer(raw, dtype=np.uint8), cv2.IMREAD_COLOR)
+        if bgr is None or bgr.size == 0:
+            return None
+        ts = cand.get("ts")
+        rec = RecognitionImage(
+            image=base64.b64encode(raw).decode("ascii"),
+            source="link_match",
+            # Left False here. _finalizeAttempts flips it to True for whichever
+            # images ended up in the winning request, exactly as it does for the
+            # burst — so "used" keeps meaning "this drove the result" across both
+            # sources.
+            used=False,
+            score=cand.get("model_score"),
+            channel=int(cand["channel"]) if cand.get("channel") is not None else None,
+            ts=float(ts) if isinstance(ts, (int, float)) else None,
+            created_at=float(ts) if isinstance(ts, (int, float)) else None,
+        )
+        return rec, bgr
+
+    def _applyHivePieceMetadata(self, obj) -> None:
+        # One fetch from Hive (via the persistent metadata cache) resolves this
+        # piece's metadata + BrickLink pricing AND its physical dimensions: stash
+        # the full blob + moving-average price, and flag too_big when any single
+        # axis exceeds the oversize limit. Hive being unreachable (and the cache
+        # cold) must never block classification — best effort only.
+        self._applyBsxInventoryFlag(obj)
         try:
             from hive_metadata import (
                 OVERSIZE_MAX_DIMENSION_MM,
-                getMetadataForPieceFromHive,
+                getPieceMetadata,
                 isOversize,
                 maxDimensionMm,
             )
 
-            metadata = getMetadataForPieceFromHive(self.gc, obj.part_id)
+            metadata = getPieceMetadata(self.gc, obj.part_id, obj.color_id)
+            if metadata is None:
+                return
+            obj.piece_metadata = metadata
+            obj.moving_avg_price = metadata.get("moving_avg_price")
+
             max_dim = maxDimensionMm(metadata)
             if max_dim is None:
                 return
@@ -768,24 +921,7 @@ class Rev01BaseState(BaseState):
                     f"({max_dim:.1f}mm > {OVERSIZE_MAX_DIMENSION_MM}mm) -> misc bottom bin"
                 )
         except Exception as exc:
-            self.gc.logger.warn(f"hive size metadata lookup failed: {exc}")
-
-    def _applyLocalPieceMetadata(self, obj) -> None:
-        # Additive, local-only: pull metadata + BrickLink pricing for this
-        # part+color straight off the local parts.db copy and stash it on the
-        # piece. Temporary convenience alongside the network Hive path; a missing
-        # DB or absent part must never affect classification.
-        self._applyBsxInventoryFlag(obj)
-        try:
-            from piece_metadata_db import getLocalPieceMetadata
-
-            metadata = getLocalPieceMetadata(self.gc, obj.part_id, obj.color_id)
-            if metadata is None:
-                return
-            obj.piece_metadata = metadata
-            obj.moving_avg_price = metadata.get("moving_avg_price")
-        except Exception as exc:
-            self.gc.logger.warn(f"local piece metadata lookup failed: {exc}")
+            self.gc.logger.warn(f"hive piece metadata lookup failed: {exc}")
 
     def _applyBsxInventoryFlag(self, obj) -> None:
         # Live membership test against the active .bsx inventory. Brickognize ids

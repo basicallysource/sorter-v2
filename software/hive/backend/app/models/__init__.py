@@ -1,5 +1,5 @@
-from sqlalchemy import JSON
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import JSON, Float
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import DeclarativeBase
 
 
@@ -8,6 +8,10 @@ class Base(DeclarativeBase):
 
 
 JSON_VARIANT = JSON().with_variant(JSONB, "postgresql")
+# A real Postgres float[] in production; JSON only as the sqlite-test shim (the
+# test suite runs on sqlite via create_all, which has no ARRAY type). Mirrors
+# JSON_VARIANT — the production column is a genuine typed array, not JSONB.
+FLOAT_ARRAY_VARIANT = ARRAY(Float()).with_variant(JSON(), "sqlite")
 
 
 from app.models.user import User  # noqa: E402, F401
@@ -16,6 +20,7 @@ from app.models.machine import Machine  # noqa: E402, F401
 from app.models.upload_session import UploadSession  # noqa: E402, F401
 from app.models.sample import Sample  # noqa: E402, F401
 from app.models.sample_review import SampleReview  # noqa: E402, F401
+from app.models.sample_channel_geometry import SampleChannelGeometry  # noqa: E402, F401
 from app.models.sorting_profile import SortingProfile  # noqa: E402, F401
 from app.models.sorting_profile_version import SortingProfileVersion  # noqa: E402, F401
 from app.models.sorting_profile_library_entry import SortingProfileLibraryEntry  # noqa: E402, F401
@@ -30,15 +35,23 @@ from app.models.teacher_job import TeacherJob, TeacherJobItem  # noqa: E402, F40
 from app.models.teacher_prompt import TeacherPrompt  # noqa: E402, F401
 from app.models.machine_piece import MachinePiece  # noqa: E402, F401
 from app.models.machine_piece_image import MachinePieceImage  # noqa: E402, F401
+from app.models.machine_piece_rejection_reason import MachinePieceRejectionReason  # noqa: E402, F401
 from app.models.machine_channel_crop import MachineChannelCrop  # noqa: E402, F401
+from app.models.machine_control_data_segment import MachineControlDataSegment  # noqa: E402, F401
 from app.models.machine_sync_state import MachineSyncState  # noqa: E402, F401
 from app.models.machine_stats_cache import MachineStatsCache  # noqa: E402, F401
 from app.models.machine_daily_stats import MachineDailyStats  # noqa: E402, F401
+from app.models.server_storage_cache import ServerStorageCache  # noqa: E402, F401
 from app.models.piece_color_label import PieceColorLabel  # noqa: E402, F401
+from app.models.piece_part_label import PiecePartLabel  # noqa: E402, F401
 from app.models.piece_crop_link import PieceCropLink, PieceCropLinkMember  # noqa: E402, F401
 from app.models.piece_crop_ai_prediction import PieceCropAiPrediction  # noqa: E402, F401
 from app.models.piece_rejection import PieceRejection  # noqa: E402, F401
+from app.models.image_quality_label import ImageQualityLabel  # noqa: E402, F401
 from app.models.install import Install  # noqa: E402, F401
+from app.models.device import Device  # noqa: E402, F401
+from app.models.color_prediction import ColorPrediction  # noqa: E402, F401
 from app.models.color_model import ColorModel  # noqa: E402, F401
 from app.models.link_model import LinkModel  # noqa: E402, F401
 from app.models.access_window import AccessWindow  # noqa: E402, F401
+from app.models.ai_usage_event import AiUsageEvent  # noqa: E402, F401

@@ -7,6 +7,7 @@ import {
 	Gauge,
 	GitBranch,
 	Layers3,
+	Network,
 	Settings,
 	Shapes,
 	ShieldAlert,
@@ -97,8 +98,14 @@ export const hiveNavItem: SettingsNavItem = {
 
 export const hiveModelsNavItem: SettingsNavItem = {
 	href: '/settings/hive/models',
-	label: 'Models',
+	label: 'Local Models',
 	icon: Cpu
+};
+
+export const classificationProvidersNavItem: SettingsNavItem = {
+	href: '/settings/providers',
+	label: 'Providers',
+	icon: Network
 };
 
 export const versionsNavItem: SettingsNavItem = {
@@ -171,13 +178,13 @@ export const tuningNavItems: SettingsNavItem[] = [
 		icon: SlidersHorizontal
 	},
 	{
-		href: '/settings/tuning/upstream-match',
-		label: 'Upstream Match',
+		href: '/settings/tuning/object-tracker',
+		label: 'Object Tracker',
 		icon: SlidersHorizontal
 	},
 	{
-		href: '/settings/tuning/object-tracker',
-		label: 'Object Tracker',
+		href: '/settings/tuning/piece-link',
+		label: 'Piece Link (experimental)',
 		icon: SlidersHorizontal
 	}
 ];
@@ -272,6 +279,7 @@ const baseSettingsNavItems: SettingsNavEntry[] = [
 	generalNavItem,
 	hiveNavItem,
 	hiveModelsNavItem,
+	classificationProvidersNavItem,
 	versionsNavItem,
 	{ type: 'heading', label: 'Hardware' },
 	...stationPageConfigs,

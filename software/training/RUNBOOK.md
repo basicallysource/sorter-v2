@@ -243,7 +243,7 @@ Frontend dev locally is hot-reloaded by Vite. To roll prod:
 
 ```bash
 git push origin <branch>
-ssh root@45.55.232.164 "
+ssh root@100.116.70.1 "
   cd /basically/sorter/sorter-v2 &&
   git pull --ff-only origin sorthive &&
   cd software/hive &&

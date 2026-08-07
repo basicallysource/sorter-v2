@@ -1,6 +1,8 @@
 # Hive ops: deploy & backup
 
-Prod host: `root@45.55.232.164` · repo `/basically/sorter/sorter-v2` · stack
+Prod host: `root@100.116.70.1` (tailscale, hostname `balloon`; since 2026-07-27
+public SSH is closed — the public IP 45.55.232.164 serves only 80/443, so you
+must be on the tailnet to deploy) · repo `/basically/sorter/sorter-v2` · stack
 `software/hive/docker-compose.prod.yml` (traefik + hive-backend + hive-frontend +
 hive-postgres). Sample **images live in S3**; the **DB** (sample metadata,
 models, users, reviews) and **parts.db** live on the droplet.

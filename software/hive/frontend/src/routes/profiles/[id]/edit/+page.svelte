@@ -37,6 +37,9 @@
 		type ToolResultListItem
 	} from '$lib/components/profile/edit/chat-helpers';
 	import { renderMarkdown } from '$lib/markdown';
+	import { uuid } from '$lib/uuid';
+	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import Pencil from 'lucide-svelte/icons/pencil';
 
 	const ANY_COLOR_ID = -1;
 
@@ -248,6 +251,28 @@
 		}
 	});
 
+	let nameDraft = $state('');
+	let nameInput: HTMLInputElement | undefined = $state(undefined);
+
+	async function renameProfile() {
+		if (!profile) return;
+		const newName = nameDraft.trim();
+		if (!newName) {
+			nameDraft = profile.name;
+			return;
+		}
+		if (newName === profile.name) {
+			nameDraft = newName;
+			return;
+		}
+		try {
+			profile = await api.updateSortingProfile(profile.id, { name: newName });
+			nameDraft = profile.name;
+		} catch {
+			nameDraft = profile.name;
+		}
+	}
+
 	async function loadProfile() {
 		if (!profileId) return;
 		loading = true;
@@ -255,6 +280,7 @@
 		try {
 			const detail = await api.getSortingProfile(profileId);
 			profile = detail;
+			nameDraft = detail.name;
 			hydrateWorkingState(detail);
 			void ensureCatalogColorsLoaded();
 			if (detail.is_owner) {
@@ -471,7 +497,7 @@
 
 	function makeRule(name = 'New Category'): SortingProfileRule {
 		return {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			name,
 			match_mode: 'all',
 			conditions: [],
@@ -482,7 +508,7 @@
 
 	function makeCustomSetRule(name = 'Custom Set'): SortingProfileRule {
 		const rule: SortingProfileRule = {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			rule_type: 'set',
 			set_source: 'custom',
 			name,
@@ -525,7 +551,7 @@
 
 	function addSetRule(set: { set_num: string; name: string; year: number; num_parts: number; img_url: string | null }) {
 		const newRule: SortingProfileRule = {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			rule_type: 'set',
 			set_source: 'rebrickable',
 			name: set.name,
@@ -728,7 +754,7 @@
 	function addCondition(ruleId: string) {
 		withRules((rules) => {
 			updateRuleList(rules, ruleId, (rule) => {
-				rule.conditions.push({ id: crypto.randomUUID(), field: 'part_num', op: 'eq', value: '' });
+				rule.conditions.push({ id: uuid(), field: 'part_num', op: 'eq', value: '' });
 			});
 		});
 	}
@@ -947,7 +973,7 @@
 
 		// Show user message immediately
 		const tempUserMsg: SortingProfileAiMessage = {
-			id: crypto.randomUUID(),
+			id: uuid(),
 			role: 'user',
 			content: userMsg,
 			model: null,
@@ -1084,27 +1110,34 @@
 	<div class="mb-4 flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<a href={`/profiles/${profile.id}`} class="text-text-muted hover:text-text" title="Back to profile">
-				<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-					<path fill-rule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clip-rule="evenodd" />
-				</svg>
+				<ArrowLeft size={20} />
 			</a>
 			<div>
-				<input
-					type="text"
-					value={profile.name}
-					onblur={async (e) => {
-						const newName = (e.currentTarget as HTMLInputElement).value.trim();
-						if (newName && newName !== profile!.name) {
-							try {
-								const updated = await api.updateSortingProfile(profile!.id, { name: newName });
-								profile = updated;
-							} catch { /* ignore */ }
-						}
-					}}
-					onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
-					class="border-0 bg-transparent text-xl font-bold text-text outline-none focus:border-b-2 focus:border-primary w-full"
-				/>
-				<span class="text-xs text-text-muted">v{profile.current_version.version_number}</span>
+				<div class="group flex items-center gap-1.5">
+					<!-- the hidden span sizes the grid cell so the input hugs the name and the pencil sits right after it -->
+					<div class="inline-grid items-center">
+						<span aria-hidden="true" class="invisible col-start-1 row-start-1 whitespace-pre border-b-2 border-transparent px-1 text-xl font-bold">{nameDraft || 'Untitled Profile'}</span>
+						<input
+							type="text"
+							bind:this={nameInput}
+							bind:value={nameDraft}
+							title="Click to rename"
+							onblur={renameProfile}
+							onkeydown={(e) => { if (e.key === 'Enter') (e.currentTarget as HTMLInputElement).blur(); }}
+							class="col-start-1 row-start-1 w-full min-w-0 border-0 border-b-2 border-transparent bg-transparent px-1 text-xl font-bold text-text outline-none group-hover:border-border focus:border-primary"
+						/>
+					</div>
+					<button
+						type="button"
+						title="Rename profile"
+						aria-label="Rename profile"
+						class="text-text-muted opacity-50 transition hover:text-text group-hover:opacity-100"
+						onclick={() => { nameInput?.focus(); nameInput?.select(); }}
+					>
+						<Pencil size={16} />
+					</button>
+				</div>
+				<span class="ml-1 text-xs text-text-muted">v{profile.current_version.version_number}</span>
 			</div>
 		</div>
 		<div class="relative">

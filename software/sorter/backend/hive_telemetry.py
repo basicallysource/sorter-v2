@@ -46,9 +46,15 @@ TELEMETRY_FIELDS: tuple[dict[str, Any], ...] = (
         "default": True,
     },
     {
+        "key": "feeder_dynamics",
+        "label": "Feeder dynamics (control data)",
+        "description": "Compressed logs of piece positions (from the vision model) and motor commands while sorting, stamped with the machine's settings at capture time. No images. Used to improve feeder control.",
+        "default": True,
+    },
+    {
         "key": "machine_specs",
         "label": "Machine specs",
-        "description": "Basic hardware and software details — camera, controller board, platform and operating system — shown on the machine's dashboard and used for compatibility and support.",
+        "description": "Basic hardware and software details — camera, controller board, platform, operating system, and per-camera calibration state — shown on the machine's dashboard and used for compatibility and support.",
         "default": True,
     },
 )
@@ -209,6 +215,21 @@ class HiveTelemetryClient:
         )
         return int(response.json()["max_local_id"])
 
+    def pushControlDataSegment(self, meta: dict[str, Any], file_path: Path | None) -> int:
+        files = None
+        if file_path is not None and file_path.is_file():
+            with open(file_path, "rb") as handle:
+                files = {"data": (file_path.name, handle.read(), "application/gzip")}
+        response = self._request(
+            "POST",
+            "/api/machine/sync/control-data-segment",
+            fields=("feeder_dynamics",),
+            data={"metadata": json.dumps(meta)},
+            files=files,
+            timeout=120,
+        )
+        return int(response.json()["max_local_id"])
+
     def pushSetProgress(self, payload: dict[str, Any]) -> None:
         self._request(
             "POST",
@@ -238,6 +259,7 @@ class HiveTelemetryClient:
         detection_score: float | None = None,
         sample_payload: dict[str, Any] | None = None,
         extra_metadata: dict[str, Any] | None = None,
+        channel_geometry: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         # A sample IS a detection image plus its detection metadata, so the
         # whole request rides on detection_images; full-frame attachments are
@@ -263,6 +285,7 @@ class HiveTelemetryClient:
             ("detection_count", detection_count),
             ("detection_score", detection_score),
             ("sample_payload", sample_payload),
+            ("channel_geometry", channel_geometry),
         ]:
             if value is not None:
                 metadata[key] = value

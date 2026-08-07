@@ -26,6 +26,7 @@ class DetectionModelSummary(BaseModel):
     codename_color: str | None = None  # hex, derived from codename via codenames.color_for
     name: str
     description: str | None = None
+    purpose: str = "detection"
     model_family: str
     scopes: list[str] | None = None
     is_public: bool
@@ -65,6 +66,10 @@ class DetectionModelCreateRequest(BaseModel):
     slug: str = Field(..., min_length=1, max_length=120)
     name: str = Field(..., min_length=1, max_length=200)
     description: str | None = None
+    purpose: str = Field(
+        default="detection",
+        description="What the model is for: 'detection' or 'piece_link'.",
+    )
     model_family: str = Field(..., min_length=1, max_length=50)
     scopes: list[str] | None = None
     training_metadata: dict[str, Any] | None = None

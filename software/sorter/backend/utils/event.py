@@ -20,7 +20,7 @@ from defs.events import (
 # capture made known_object payloads grow quadratically and backed up the socket
 # broadcaster. The live UI renders latest_captured_crop (bounded), not this list.
 # Add a field here to drop it from the live socket without touching call sites.
-KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_image_set"})
+KNOWN_OBJECT_LOOKUP_ONLY_FIELDS = frozenset({"recognition_image_set", "link_match_image_set"})
 
 
 def slimKnownObjectForSocket(data: dict[str, Any]) -> dict[str, Any]:
@@ -56,6 +56,7 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             color_name=obj.color_name,
             category_id=obj.category_id,
             confidence=obj.confidence,
+            color_confidence=obj.color_confidence,
             max_dimension_mm=obj.max_dimension_mm,
             moving_avg_price=obj.moving_avg_price,
             piece_metadata=obj.piece_metadata,
@@ -83,6 +84,8 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
             brickognize_item_rank=obj.brickognize_item_rank,
             brickognize_item_type=obj.brickognize_item_type,
             brickognize_color_rank=obj.brickognize_color_rank,
+            color_provider=obj.color_provider,
+            mold_provider=obj.mold_provider,
             recognition_used_crop_ts=list(obj.recognition_used_crop_ts or []),
             recognition_image_set=[
                 RecognitionImage(
@@ -98,11 +101,24 @@ def knownObjectToEvent(obj: KnownObject) -> KnownObjectEvent:
                 )
                 for r in (obj.recognition_image_set or [])
             ],
+            link_match_image_set=[
+                RecognitionImage(
+                    image=r.image,
+                    source=r.source,
+                    used=r.used,
+                    ts=r.ts,
+                    score=r.score,
+                    channel=r.channel,
+                    created_at=getattr(r, "created_at", None),
+                    excluded_from_result=getattr(r, "excluded_from_result", False),
+                    sharpness=getattr(r, "sharpness", None),
+                )
+                for r in (obj.link_match_image_set or [])
+            ],
             classification_attempts=[
                 ClassificationAttempt(
                     strategy=ClassificationAttemptStrategy(a.strategy),
                     n_burst=a.n_burst,
-                    n_upstream=a.n_upstream,
                     found=a.found,
                     label=a.label,
                     applied=a.applied,

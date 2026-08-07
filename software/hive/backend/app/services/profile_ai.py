@@ -219,6 +219,14 @@ class AiProgressEvent:
 
 
 @dataclass
+class AiTextResult:
+    text: str
+    model: str
+    usage: dict[str, Any] | None
+    generation_id: str | None = None
+
+
+@dataclass
 class AiProposalResult:
     content: str
     proposal: dict[str, Any] | None
@@ -320,7 +328,8 @@ def generate_profile_ai_proposal(
         messages.extend(normalized_history)
         messages.append({"role": "user", "content": message})
 
-        total_usage: dict[str, int] = {}
+        total_usage: dict[str, Any] = {}
+        generation_ids: list[str] = []
         final_model = model
         tool_trace: list[AiToolTraceEntry] = []
         set_search_observations: list[dict[str, Any]] = []
@@ -344,6 +353,8 @@ def generate_profile_ai_proposal(
             llm_total_ms += llm_ms
             final_model = response.model
             _accumulate_usage(total_usage, response.usage)
+            if response.generation_id:
+                generation_ids.append(response.generation_id)
             response_cache_metrics = _usage_cache_metrics(response.usage)
             aggregate_cache_metrics = _usage_cache_metrics(total_usage)
 
@@ -357,6 +368,8 @@ def generate_profile_ai_proposal(
                 "total_tokens": total_usage.get("total_tokens"),
                 "cached_tokens": aggregate_cache_metrics.get("cached_tokens", 0),
                 "cache_write_tokens": aggregate_cache_metrics.get("cache_write_tokens", 0),
+                "cost": _coerce_cost((response.usage or {}).get("cost")),
+                "total_cost": total_usage.get("cost"),
             }
             rounds.append(round_summary)
             _log_ai_event(
@@ -455,6 +468,8 @@ def generate_profile_ai_proposal(
             "tool_ms": round(tool_total_ms, 1),
             "total_ms": _elapsed_ms(started_at),
             **_usage_cache_metrics(total_usage),
+            "cost": total_usage.get("cost"),
+            "generation_ids": generation_ids,
             "rounds": rounds,
         }
         _log_ai_event(
@@ -549,7 +564,8 @@ def generate_profile_ai_proposal_streaming(
         messages.extend(normalized_history)
         messages.append({"role": "user", "content": message})
 
-        total_usage: dict[str, int] = {}
+        total_usage: dict[str, Any] = {}
+        generation_ids: list[str] = []
         final_model = model
         tool_trace: list[AiToolTraceEntry] = []
         set_search_observations: list[dict[str, Any]] = []
@@ -575,6 +591,8 @@ def generate_profile_ai_proposal_streaming(
             llm_total_ms += llm_ms
             final_model = response.model
             _accumulate_usage(total_usage, response.usage)
+            if response.generation_id:
+                generation_ids.append(response.generation_id)
             response_cache_metrics = _usage_cache_metrics(response.usage)
             aggregate_cache_metrics = _usage_cache_metrics(total_usage)
 
@@ -588,6 +606,8 @@ def generate_profile_ai_proposal_streaming(
                 "total_tokens": total_usage.get("total_tokens"),
                 "cached_tokens": aggregate_cache_metrics.get("cached_tokens", 0),
                 "cache_write_tokens": aggregate_cache_metrics.get("cache_write_tokens", 0),
+                "cost": _coerce_cost((response.usage or {}).get("cost")),
+                "total_cost": total_usage.get("cost"),
             }
             rounds.append(round_summary)
             _log_ai_event(
@@ -701,6 +721,8 @@ def generate_profile_ai_proposal_streaming(
             "tool_ms": round(tool_total_ms, 1),
             "total_ms": _elapsed_ms(started_at),
             **_usage_cache_metrics(total_usage),
+            "cost": total_usage.get("cost"),
+            "generation_ids": generation_ids,
             "rounds": rounds,
         }
         _log_ai_event(
@@ -742,6 +764,11 @@ def _accumulate_usage(total: dict[str, Any], usage: dict[str, Any] | None) -> No
     for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
         if key in usage:
             total[key] = total.get(key, 0) + int(usage[key])
+    # OpenRouter reports cost per call in credits (USD); one chat turn can span
+    # several calls, so the message-level cost is their sum.
+    cost = _coerce_cost(usage.get("cost"))
+    if cost is not None:
+        total["cost"] = round(float(total.get("cost") or 0.0) + cost, 10)
     details = usage.get("prompt_tokens_details")
     if isinstance(details, dict):
         total_details = total.setdefault("prompt_tokens_details", {})
@@ -749,6 +776,15 @@ def _accumulate_usage(total: dict[str, Any], usage: dict[str, Any] | None) -> No
             for key in ("cached_tokens", "cache_write_tokens"):
                 if key in details:
                     total_details[key] = int(total_details.get(key, 0)) + int(details[key])
+
+
+def _coerce_cost(value: Any) -> float | None:
+    if value is None or isinstance(value, bool):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
 
 
 def _elapsed_ms(started_at: float) -> float:
@@ -1703,7 +1739,7 @@ def generate_change_note(
     api_key: str,
     user_message: str,
     proposal: dict[str, Any],
-) -> str:
+) -> AiTextResult:
     """Use Haiku to generate a concise change note from the user request and AI proposal."""
     summary = proposal.get("summary", "")
 
@@ -1743,7 +1779,12 @@ def generate_change_note(
         temperature=0.0,
         max_tokens=120,
     )
-    return resp.content.strip().strip('"')
+    return AiTextResult(
+        text=resp.content.strip().strip('"'),
+        model=resp.model,
+        usage=resp.usage,
+        generation_id=resp.generation_id,
+    )
 
 
 def generate_change_note_from_diff(
@@ -1751,7 +1792,7 @@ def generate_change_note_from_diff(
     api_key: str,
     old_rules: list[dict[str, Any]],
     new_rules: list[dict[str, Any]],
-) -> str:
+) -> AiTextResult:
     """Use Haiku to generate a concise change note by comparing old and new rule trees."""
 
     def _rule_names(rules: list[dict[str, Any]]) -> set[str]:
@@ -1815,7 +1856,12 @@ def generate_change_note_from_diff(
         temperature=0.0,
         max_tokens=120,
     )
-    return resp.content.strip().strip('"')
+    return AiTextResult(
+        text=resp.content.strip().strip('"'),
+        model=resp.model,
+        usage=resp.usage,
+        generation_id=resp.generation_id,
+    )
 
 
 def _prompt_rule_snapshot(rule: dict[str, Any] | None, *, expand_custom_parts: bool = False) -> dict[str, Any] | None:

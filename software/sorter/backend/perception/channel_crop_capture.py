@@ -117,7 +117,6 @@ class ChannelCropCollector:
 
     def _isSorting(self) -> bool:
         # Only collect while actively sorting (RUNNING) — pieces aren't flowing
-        # otherwise. Mirrors UpstreamCropStore._isSorting.
         try:
             from server import shared_state
             from defs.sorter_controller import SorterLifecycle

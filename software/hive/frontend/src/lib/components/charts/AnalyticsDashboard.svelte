@@ -83,16 +83,34 @@
 	}
 
 	const statusSegments = $derived<DonutSegment[]>(
-		(data?.distributions.by_status ?? []).map((s) => ({ label: s.label, value: s.value, color: statusColor(s.label) }))
+		(data?.distributions.by_status ?? []).map((s) => ({ key: s.label, label: s.label, value: s.value, color: statusColor(s.label) }))
 	);
-	const machineSegments = $derived<DonutSegment[]>(
-		(data?.distributions.by_machine ?? []).map((m, i) => ({ label: m.label, value: m.value, color: PALETTE[i % PALETTE.length] }))
-	);
+	const machineSegments = $derived.by<DonutSegment[]>(() => {
+		const rows = data?.distributions.by_machine ?? [];
+		// Machine names aren't unique across the fleet — tag the collisions so the
+		// legend doesn't show three identical rows.
+		const dupes = new Set(rows.map((m) => m.label).filter((l, i, all) => all.indexOf(l) !== i));
+		return rows.map((m, i) => ({
+			key: m.machine_id,
+			label: dupes.has(m.label) ? `${m.label} · ${m.machine_id.slice(0, 6)}` : m.label,
+			value: m.value,
+			color: PALETTE[i % PALETTE.length]
+		}));
+	});
 	const topParts = $derived<BarItem[]>(
-		(data?.distributions.top_parts ?? []).map((p) => ({ label: p.part_name || p.part_id || '—', sublabel: p.part_id, value: p.value }))
+		(data?.distributions.top_parts ?? []).map((p, i) => ({
+			key: p.part_id ?? `part-${i}`,
+			label: p.part_name || p.part_id || '—',
+			sublabel: p.part_id,
+			value: p.value
+		}))
 	);
 	const topColors = $derived<BarItem[]>(
-		(data?.distributions.top_colors ?? []).map((c) => ({ label: c.color_name || c.color_id || '—', value: c.value }))
+		(data?.distributions.top_colors ?? []).map((c, i) => ({
+			key: c.color_id ?? `color-${i}`,
+			label: c.color_name || c.color_id || '—',
+			value: c.value
+		}))
 	);
 
 	function num(n: number | null | undefined): string {

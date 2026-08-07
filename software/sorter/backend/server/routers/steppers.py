@@ -2046,7 +2046,7 @@ def clear_stall_incident() -> Dict[str, Any]:
             pass  # best-effort; the monitor re-reads and a stuck latch re-raises
 
     active = runtime_stats.activeIncident() if hasattr(runtime_stats, "activeIncident") else None
-    runtime_stats.clearActiveIncident(kind=STEPPER_STALL_INCIDENT_KIND)
+    runtime_stats.clearActiveIncident(kind=STEPPER_STALL_INCIDENT_KIND, resolved_by="operator")
     cleared = isinstance(active, dict) and active.get("kind") == STEPPER_STALL_INCIDENT_KIND
     return {"ok": True, "cleared": cleared, "kind": STEPPER_STALL_INCIDENT_KIND}
 
@@ -2121,5 +2121,5 @@ def rehome_after_stall() -> Dict[str, Any]:
     active_kind = runtime_stats.activeIncident()
     active_kind = active_kind.get("kind") if isinstance(active_kind, dict) else None
     if active_kind in ours:
-        runtime_stats.clearActiveIncident(kind=active_kind)
+        runtime_stats.clearActiveIncident(kind=active_kind, resolved_by="operator")
     return {"ok": True, "homed": True}

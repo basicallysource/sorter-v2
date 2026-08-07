@@ -15,6 +15,7 @@ from typing import Any
 
 from app.config import settings
 from app.errors import APIError
+from app.services import bricklink
 from app.services.profile_engine import db as profile_db
 from app.services.profile_engine import parts_cache as profile_parts_cache
 from app.services.profile_engine import rule_engine as profile_rule_engine
@@ -34,7 +35,7 @@ def _ensure_parent_dir(path: str) -> None:
 @dataclass
 class CatalogConfig:
     rebrickable_api_key: str
-    bl_affiliate_api_key: str
+    bla_api_key: str
     db_path: str
     brickstore_db_path: str
     ldraw_library_dir: str
@@ -46,7 +47,7 @@ class ProfileCatalogService:
         _ensure_parent_dir(db_path)
         self._config = CatalogConfig(
             rebrickable_api_key=settings.REBRICKABLE_API_KEY,
-            bl_affiliate_api_key=settings.BL_AFFILIATE_API_KEY,
+            bla_api_key=settings.BLA_API_KEY,
             db_path=db_path,
             brickstore_db_path=os.path.expanduser(settings.SORTING_PROFILE_BRICKSTORE_DB_PATH),
             ldraw_library_dir=os.path.expanduser(settings.SORTING_PROFILE_LDRAW_LIBRARY_DIR),
@@ -322,6 +323,36 @@ class ProfileCatalogService:
         results, total = profile_db.searchParts(self._conn, query, cat_filter=cat_id, limit=limit, offset=offset)
         return {"results": results, "total": total, "offset": offset, "limit": limit}
 
+    def part_summary(self, part_num: str) -> dict[str, Any] | None:
+        """Name/category/thumbnail for one part, or None if it isn't in the
+        catalog — the existence check a submitted part correction is validated
+        against, and what the UI renders for an already-picked part.
+
+        Reads the in-memory parts mirror, so it's a dict lookup rather than a
+        query; admin_get_part hits sqlite four times to also assemble BrickLink
+        items and price-guide counts, which a label summary doesn't need.
+
+        Accepts a BrickLink item number too, resolving it to the Rebrickable
+        mold — Brickognize predicts in BrickLink ids, so a piece whose machine
+        guess was '4073' has to find 'Plate Round 1 x 1 with Solid Stud' (6141)
+        here or it can't be confirmed at all. The returned part_num is always
+        the Rebrickable one, so labels store a single id space."""
+        part = self._parts_data.parts.get(part_num)
+        if part is None:
+            rb_part_num = self._parts_data.bl_to_rb_part.get(part_num)
+            part = self._parts_data.parts.get(rb_part_num) if rb_part_num else None
+        if part is None:
+            return None
+        cat_id = part.get("part_cat_id")
+        category = self._parts_data.categories.get(cat_id) if cat_id is not None else None
+        return {
+            "part_num": part["part_num"],
+            "name": part.get("name"),
+            "part_cat_id": cat_id,
+            "category_name": (category or {}).get("name"),
+            "part_img_url": part.get("part_img_url"),
+        }
+
     def admin_overview(self) -> dict[str, Any]:
         overview = profile_db.adminCatalogOverview(self._conn)
         overview["sync"] = self.status()
@@ -338,6 +369,17 @@ class ProfileCatalogService:
 
     def admin_get_part(self, part_num: str) -> dict[str, Any] | None:
         return profile_db.adminGetPart(self._conn, part_num)
+
+    def piece_metadata(self, part_num: str, color_id: int | None = None) -> dict[str, Any] | None:
+        """Flattened per-piece metadata + color-selected price (and physical
+        dimensions) for the machine. None when the id matches no part/item."""
+        with self._lock:
+            return profile_db.pieceMetadata(self._conn, part_num, color_id)
+
+    def batch_piece_prices(self, pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Moving-average price for many (part_num, color_id) pairs in one call."""
+        with self._lock:
+            return profile_db.batchPieceMovingAvg(self._conn, pairs)
 
     def admin_list_categories(self) -> list[dict[str, Any]]:
         return profile_db.adminListCategories(self._conn)
@@ -390,6 +432,52 @@ class ProfileCatalogService:
                     "rb_color_id": rb_color_id,
                 }
         return [by_bl_id[bl_id] for bl_id in sorted(by_bl_id)]
+
+    def bricklink_part_colors(self, part_id: str, limit: int = 24) -> dict[str, Any]:
+        """Every color this part is stocked in on BrickLink, most pieces for sale
+        first, priced live across the whole palette.
+
+        Deliberately not a shortlist. The palette is ~214 colors, a batch holds
+        500 and answers in ~0.2s, so there is no reason to guess which colors to
+        ask about — and guessing was actively harmful: filtering the query to
+        colors near a solid guess hid the pearl/metallic finishes that some molds
+        exclusively exist in (98347 is sold in Flat Silver and Pearl Dark Gray;
+        a Dark Bluish Gray guess suppressed both). Falls back to the parts.db
+        cache when no key is configured or the call fails."""
+        palette = {c["id"]: c for c in self.list_bricklink_colors()}
+
+        with self._lock:
+            result = bricklink.part_color_availability(self._conn, part_id, limit=limit)
+
+        result["source"] = "cache"
+        if self._config.bla_api_key and result["item_no"]:
+            try:
+                live = bricklink.fetch_color_quantities(
+                    self._config.bla_api_key, result["item_no"], sorted(palette)
+                )
+            except bricklink.BrickLinkError:
+                live = {}
+            if live:
+                items = [
+                    {"color_id": color_id, **quantities}
+                    for color_id, quantities in live.items()
+                    if quantities["qty"] > 0
+                ]
+                items.sort(key=lambda it: it["qty"], reverse=True)
+                total = sum(it["qty"] for it in items)
+                for it in items:
+                    it["share"] = (it["qty"] / total) if total else 0.0
+                result["items"] = items[:limit]
+                result["total_qty"] = total
+                result["source"] = "live"
+                result["updated_at"] = None
+
+        for item in result["items"]:
+            color = palette.get(item["color_id"])
+            item["color_name"] = color["name"] if color else str(item["color_id"])
+            item["rgb"] = color.get("rgb") if color else None
+            item["is_trans"] = bool(color.get("is_trans", False)) if color else False
+        return result
 
     def import_bricklink_csv(self, csv_content: str, filename: str | None = None) -> dict[str, Any]:
         if not isinstance(csv_content, str) or not csv_content.strip():

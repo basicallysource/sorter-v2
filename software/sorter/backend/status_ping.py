@@ -1,11 +1,15 @@
-"""Machine status report — the periodic "here's this machine" sent to Hive.
+"""Machine status report — the periodic "here's this machine" sent to the main
+hive.
 
-Sent shortly after start and then hourly to a hardcoded default endpoint, so a
-machine reports its version, hardware, config, and usage whether or not a Hive
-account is configured. It carries a per-install id
-(local_state.get_or_create_telemetry_install); a registered machine also
-attaches its account machine id(s) so the report lines up with the machine in
-the account.
+Sent shortly after start and then hourly via the device identity
+(basically_services.pingStatus → POST /api/devices/ping), so a machine reports
+its version, hardware, config, and usage whether or not a Hive account is
+configured. The payload still carries the per-install telemetry id
+(local_state.get_or_create_telemetry_install) — that id is the operator-facing
+handle shown at /telemetry and accepted by the public /forget page, and it
+links any pre-merge anonymous install row to the device on first ping. A
+registered machine also attaches its account machine id(s) so the report lines
+up with the machine in the account.
 
 Everything here is best-effort and must never touch the sorting path: a failed
 report, an unreachable server, or a missing /proc file degrades to a smaller
@@ -16,7 +20,9 @@ buildPayload() below, and it is documented field-for-field on the docs site
 ("What leaves the machine"). If you add a field here, add it there too.
 
 Turning it off: set SORTER_BASE_REPORTING_OFF=1 in the machine environment. The
-sender thread then never starts.
+sender thread then never starts. (This gates only the status report — the
+color-provider device traffic is governed by the provider selection in
+Settings.)
 """
 
 from __future__ import annotations
@@ -28,11 +34,6 @@ import threading
 import time
 from typing import Any, Optional
 
-import requests
-
-DEFAULT_ENDPOINT = "https://hive.basically.website"
-PING_PATH = "/api/installs/ping"
-
 # First ping fires after a jittered delay so a boot storm (a lab on one power
 # strip coming back after an outage) doesn't hit the server in lockstep, and so
 # the network / Tailscale has time to settle after boot. Then hourly, with a
@@ -41,7 +42,6 @@ INITIAL_DELAY_MIN_S = 120.0
 INITIAL_DELAY_MAX_S = 300.0
 INTERVAL_S = 3600.0
 INTERVAL_JITTER_S = 300.0
-REQUEST_TIMEOUT_S = 15.0
 
 _OFF_VALUES = {"1", "true", "yes", "on"}
 
@@ -53,12 +53,6 @@ def reportingEnabled() -> bool:
     if raw is not None and raw.strip().lower() in _OFF_VALUES:
         return False
     return True
-
-
-def _endpoint() -> str:
-    override = os.getenv("SORTER_BASE_REPORTING_URL")
-    base = override.strip() if isinstance(override, str) and override.strip() else DEFAULT_ENDPOINT
-    return base.rstrip("/") + PING_PATH
 
 
 def _readFirstLine(path: str) -> Optional[str]:
@@ -327,8 +321,10 @@ class StatusPinger:
         if not reportingEnabled():
             return
         try:
+            import basically_services
+
             payload = buildPayload(reason)
-            requests.post(_endpoint(), json=payload, timeout=REQUEST_TIMEOUT_S)
+            basically_services.pingStatus(None, payload)
         except Exception:
             # Silent by design — an offline machine skips this ping and the next
             # one (carrying the same cumulative counters) loses nothing.

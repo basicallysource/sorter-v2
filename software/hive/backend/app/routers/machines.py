@@ -267,6 +267,7 @@ def _serialize_machine_piece(piece: MachinePiece, images: list[MachinePieceImage
         "color_name": piece.color_name,
         "category_id": piece.category_id,
         "confidence": piece.confidence,
+        "color_confidence": piece.color_confidence,
         "bin": {"x": piece.bin_x, "y": piece.bin_y, "z": piece.bin_z},
         "dead": piece.dead,
         "brickognize_preview_url": piece.brickognize_preview_url,

@@ -279,6 +279,52 @@ def publish_c4_exit_stuck_incident(
     return True
 
 
+def record_c4_exit_stuck_auto_resolved(
+    gc: Any,
+    *,
+    stalled_ms: float,
+    stalled_state: str,
+    moved_deg: float,
+) -> None:
+    """Log a C4 stall that the automatic watchdog cleared on its own — it rotated
+    the channel forward until perception saw it empty, so it never escalated to
+    an operator-facing hold. Recorded as a resolved incident (never occupies the
+    active slot) so the durable log and the dashboard still reflect that it
+    happened and how it was cleared. Only reached in automatic mode after a
+    successful clear, so there is no off-mode gate here."""
+    runtime_stats = getattr(gc, "runtime_stats", None)
+    if runtime_stats is None or not hasattr(runtime_stats, "recordAutoResolvedIncident"):
+        return
+    now = time.time()
+    runtime_stats.recordAutoResolvedIncident(
+        {
+            "kind": C4_EXIT_STUCK_INCIDENT_KIND,
+            "source_kind": C4_STALL_WATCHDOG_SOURCE_KIND,
+            "source": "stall_watchdog",
+            "severity": "critical",
+            "status": "auto_resolved",
+            "awaiting_operator": False,
+            "scope": "classification",
+            "channel": "c4",
+            "role": "classification_channel",
+            "channel_label": "C4",
+            "stalled_ms": float(stalled_ms),
+            "stalled_state": str(stalled_state),
+            "auto_clear_failed": False,
+            "auto_clear_moved_deg": float(moved_deg),
+            "triggered_at": now - max(0.0, float(stalled_ms)) / 1000.0,
+            "resolved_at": now,
+            "rule": "c4_no_progress_with_piece_on_channel",
+            "resolution": "auto_cleared_by_advancing_channel",
+            "operator_message": (
+                "The classification channel stalled with a piece on it; the machine "
+                f"rotated it forward {moved_deg:.0f}° to clear it and resumed on its own."
+            ),
+        },
+        resolved_by="auto",
+    )
+
+
 def clear_c4_exit_stuck_incident(gc: Any) -> None:
     if not c4_stall_incident_active(gc):
         return

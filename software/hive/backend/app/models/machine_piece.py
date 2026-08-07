@@ -25,7 +25,14 @@ class MachinePiece(Base):
     color_id = Column(String, nullable=True)
     color_name = Column(String, nullable=True)
     category_id = Column(String, nullable=True)
+    # Two independent scores. `confidence` is the MOLD score (Brickognize's top
+    # item); `color_confidence` is the applied color's own score, which may come
+    # from a different provider entirely (see color_provider/mold_provider). They
+    # must stay separate for provider accuracy to mean anything — scoring the
+    # color model against a Brickognize mold score compares nothing. NULL on rows
+    # synced before the split.
     confidence = Column(Float, nullable=True)
+    color_confidence = Column(Float, nullable=True)
     bin_x = Column(Integer, nullable=True)
     bin_y = Column(Integer, nullable=True)
     bin_z = Column(Integer, nullable=True)
@@ -38,6 +45,12 @@ class MachinePiece(Base):
     brickognize_item_rank = Column(Integer, nullable=True)
     brickognize_item_type = Column(String, nullable=True)
     brickognize_color_rank = Column(Integer, nullable=True)
+    # Which service actually produced the applied color / mold on the machine
+    # (see the sorter's classification.providers). Records what ANSWERED, not
+    # what was configured, so provider accuracy can be scored against the
+    # corrections below. NULL on rows synced before providers were selectable.
+    color_provider = Column(String, nullable=True)
+    mold_provider = Column(String, nullable=True)
     # User correction, synced from the machine (piece_corrections stream) and/or
     # set here on Hive. part_correct is NULL (unreviewed) / true / false;
     # color_corrected_id is the picked true BrickLink color id; the *_submitted
@@ -47,6 +60,8 @@ class MachinePiece(Base):
     part_feedback_submitted = Column(Boolean, nullable=False, default=False)
     color_feedback_submitted = Column(Boolean, nullable=False, default=False)
     correction_updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Operator-flagged capture issues live in machine_piece_rejection_reasons,
+    # one row per (piece, reason) — see MachinePieceRejectionReason.
     created_at = Column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))
 
     __table_args__ = (

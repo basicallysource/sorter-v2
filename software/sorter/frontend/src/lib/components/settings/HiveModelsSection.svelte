@@ -19,9 +19,11 @@
 		version: number;
 		name: string;
 		description: string | null;
+		purpose?: string;
 		model_family: string;
 		scopes: string[] | null;
 		is_public: boolean;
+		experimental?: boolean;
 		published_at: string;
 		updated_at: string;
 		variant_runtimes: string[];
@@ -49,6 +51,9 @@
 		target_id: string | null;
 		model_id: string;
 		variant_runtime: string;
+		purpose?: string;
+		// Installed correctly, but nothing on this machine consumes it yet.
+		inert?: boolean;
 		sha256: string;
 		name: string;
 		model_family: string;
@@ -86,6 +91,28 @@
 	const RUNTIME_OPTIONS = ['', 'onnx', 'ncnn', 'hailo', 'rknn', 'pytorch'] as const;
 	const PAGE_SIZE = 20;
 
+	// Hive publishes models for several purposes into one catalog. Detection
+	// models drive the pipeline; piece-link matchers download and install fine
+	// but nothing consumes them on the machine yet, so they're shown inert.
+	const PURPOSE_OPTIONS = [
+		{ value: '', label: 'All purposes' },
+		{ value: 'detection', label: 'Detection' },
+		{ value: 'piece_link', label: 'Piece link (experimental)' }
+	] as const;
+	const INERT_PURPOSES = new Set(['piece_link']);
+	const PURPOSE_LABELS: Record<string, string> = {
+		detection: 'Detection',
+		piece_link: 'Piece link'
+	};
+
+	function purposeOf(item: { purpose?: string }): string {
+		return item.purpose || 'detection';
+	}
+
+	function isInert(item: { purpose?: string; inert?: boolean }): boolean {
+		return item.inert === true || INERT_PURPOSES.has(purposeOf(item));
+	}
+
 	let targets = $state<HiveTarget[]>([]);
 	// selectedTargetId is no longer used for browsing — the Browse Hive view
 	// aggregates across every configured target and each row carries its own
@@ -103,6 +130,8 @@
 	let scopeFilter = $state('');
 	let runtimeFilter = $state('');
 	let familyFilter = $state('');
+	let purposeFilter = $state('');
+	let includeExperimental = $state(false);
 
 	let page = $state(1);
 	let models = $state<ModelSummary[]>([]);
@@ -232,6 +261,13 @@
 			if (scopeFilter.trim()) params.set('scope', scopeFilter.trim());
 			if (runtimeFilter) params.set('runtime', runtimeFilter);
 			if (familyFilter.trim()) params.set('family', familyFilter.trim());
+			if (purposeFilter) params.set('purpose', purposeFilter);
+			// Every piece-link matcher is published experimental, so asking for
+			// that purpose implies you want experimental rows — otherwise the
+			// filter would always come back empty.
+			if (includeExperimental || INERT_PURPOSES.has(purposeFilter)) {
+				params.set('include_experimental', 'true');
+			}
 			params.set('page', String(page));
 			params.set('page_size', String(PAGE_SIZE));
 			const res = await fetch(`${getBackendHttpBase()}/api/hive/models?${params.toString()}`);
@@ -369,6 +405,8 @@
 		scopeFilter = '';
 		runtimeFilter = '';
 		familyFilter = '';
+		purposeFilter = '';
+		includeExperimental = false;
 		page = 1;
 	}
 
@@ -451,6 +489,10 @@
 		const candidates = installed.filter(
 			(entry) =>
 				!entry.bundled &&
+				// An inert model has no scope to be active against, so "no active
+				// assignment" doesn't mean unused — it means not wired up yet.
+				// Sweeping those would delete a model the operator just fetched.
+				!isInert(entry) &&
 				(entry.compatible === false || activeLabelsFor(entry).length === 0)
 		);
 		if (candidates.length === 0) {
@@ -540,6 +582,8 @@
 			void scopeFilter;
 			void runtimeFilter;
 			void familyFilter;
+			void purposeFilter;
+			void includeExperimental;
 			void page;
 			void loadModels();
 		}
@@ -699,6 +743,16 @@
 							class="w-full border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text focus:border-primary focus:outline-none"
 						/>
 					</div>
+					<select
+						bind:value={purposeFilter}
+						onchange={onFilterChange}
+						class="border border-border bg-surface px-3 py-2 text-sm text-text"
+						aria-label="Model purpose"
+					>
+						{#each PURPOSE_OPTIONS as opt}
+							<option value={opt.value}>{opt.label}</option>
+						{/each}
+					</select>
 					<details class="group">
 						<summary class="cursor-pointer list-none border border-border bg-surface px-3 py-2 text-sm text-text-muted transition-colors hover:bg-bg">
 							<span class="inline-flex items-center gap-1.5">
@@ -734,6 +788,15 @@
 								class="border border-border bg-surface px-3 py-2 text-sm text-text"
 							/>
 						</div>
+						<label class="mt-2 flex items-center gap-2 text-sm text-text-muted">
+							<input
+								type="checkbox"
+								bind:checked={includeExperimental}
+								onchange={onFilterChange}
+								class="border border-border"
+							/>
+							Include experimental models
+						</label>
 					</details>
 				</div>
 
@@ -747,7 +810,7 @@
 								: ''}
 						{/if}
 					</span>
-					{#if query || scopeFilter || runtimeFilter || familyFilter}
+					{#if query || scopeFilter || runtimeFilter || familyFilter || purposeFilter || includeExperimental}
 						<button
 							type="button"
 							onclick={resetFilters}
@@ -795,7 +858,22 @@
 												Installed
 											</span>
 										{/if}
+										{#if model.experimental}
+											<span class="inline-flex items-center gap-1 bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
+												Experimental
+											</span>
+										{/if}
+										{#if isInert(model)}
+											<span class="inline-flex items-center gap-1 border border-border px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+												{PURPOSE_LABELS[purposeOf(model)] ?? purposeOf(model)}
+											</span>
+										{/if}
 									</div>
+									{#if isInert(model)}
+										<p class="mt-1 text-sm text-text-muted">
+											Downloads and installs, but nothing on this machine uses it yet.
+										</p>
+									{/if}
 									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
 										<span>{model.model_family}</span>
 										<span aria-hidden="true">·</span>
@@ -945,7 +1023,11 @@
 													Bundled
 												</span>
 											{/if}
-											{#if !isCompatible}
+											{#if isInert(entry)}
+												<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
+													{PURPOSE_LABELS[purposeOf(entry)] ?? purposeOf(entry)}
+												</span>
+											{:else if !isCompatible}
 												<Tooltip text={`Variant runtime "${entry.variant_runtime}" cannot be loaded by the sorter — only ONNX, NCNN, Hailo and RKNN are deployable.`}>
 													<span class="inline-flex items-center bg-warning/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-warning-dark dark:text-warning">
 														Not supported
@@ -953,6 +1035,11 @@
 												</Tooltip>
 											{/if}
 										</div>
+										{#if isInert(entry)}
+											<p class="mt-1 text-sm text-text-muted">
+												Installed and inert — no part of the sorting pipeline reads this model yet.
+											</p>
+										{/if}
 										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
 											<span>{entry.model_family}</span>
 											<span aria-hidden="true">·</span>
@@ -981,7 +1068,11 @@
 									</div>
 
 									<div class="flex flex-wrap items-center gap-2">
-										{#if !isCompatible}
+										{#if isInert(entry)}
+											<span class="px-3 py-1.5 text-xs text-text-muted">
+												Not wired up yet
+											</span>
+										{:else if !isCompatible}
 											<span class="px-3 py-1.5 text-xs text-text-muted">
 												Cannot activate
 											</span>

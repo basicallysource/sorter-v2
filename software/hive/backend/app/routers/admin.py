@@ -9,7 +9,7 @@ from app.errors import APIError
 from app.models.user import User
 from app.schemas.auth import AdminUpdateUserRequest, UserResponse
 from app.services import access_window
-from app.services.server_health import get_server_health
+from app.services.server_health import get_server_health, get_storage_stats_worker
 from app.services.storage import delete_machine_files
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -23,9 +23,13 @@ def server_health(
 ):
     """Storage usage (sample vs piece images vs models), DB size, and memory.
 
-    Storage figures are cached for a few minutes since they require walking the
-    whole object store; pass refresh_storage=true to force a fresh walk."""
-    return get_server_health(db, refresh_storage=refresh_storage)
+    Storage figures come from a cache a background worker walks on a slow
+    cadence — reading them is instant. refresh_storage=true just nudges that
+    worker to walk again soon and returns the current cache immediately (the
+    walk itself is far too slow to run inside the request)."""
+    if refresh_storage:
+        get_storage_stats_worker().wake()
+    return get_server_health(db)
 
 
 @router.get("/users", response_model=list[UserResponse])

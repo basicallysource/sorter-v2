@@ -40,6 +40,10 @@ def list_models_machine(
     scope: str | None = None,
     runtime: str | None = None,
     family: str | None = None,
+    purpose: str | None = Query(
+        None,
+        description="Filter by what the model is for. Omit to list every purpose.",
+    ),
     q: str | None = None,
     include_experimental: bool = Query(
         False,
@@ -59,6 +63,8 @@ def list_models_machine(
     )
     if not include_experimental:
         query = query.filter(DetectionModel.experimental.is_(False))
+    if purpose:
+        query = query.filter(DetectionModel.purpose == purpose)
     if family:
         query = query.filter(DetectionModel.model_family == family)
     if q:

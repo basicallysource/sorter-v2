@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy import case, distinct, func
 from sqlalchemy.orm import Session
 
@@ -35,7 +35,9 @@ from app.schemas.sample import (
     SaveSampleClassificationResponse,
 )
 from app.services.access_window import apply_sample_access, sample_access_visible
+from app.services.channel_crop_render import render_channel_crop
 from app.services.storage import delete_sample_files, serve_stored_file
+from app.services.storage_backend import get_backend
 from app.services.sample_payloads import (
     is_classification_payload,
     set_manual_annotations,
@@ -176,14 +178,16 @@ def apply_annotated_filter(query, annotated: str | None):
       - 'teacher' — has a teacher_rerun audit entry (training-ready)
       - 'raw'     — no teacher_rerun yet (likely still needs a pass)
       - anything else / None — no filter
-
-    Uses PostgreSQL JSONB containment (``?`` operator). Live + dev both
-    run postgres; this isn't tested on SQLite.
     """
 
     if annotated not in {"teacher", "raw"}:
         return query
-    has_teacher = Sample.extra_metadata.op("?")("teacher_rerun")
+    # `col["teacher_rerun"] IS NOT NULL` is the portable key-exists check: it
+    # renders `->` on Postgres JSONB and `json_extract` on SQLite. (The raw JSONB
+    # `?` operator would be tighter but collides with the SQLite bind-parameter
+    # placeholder, breaking the test dialect.) teacher_rerun's value is always a
+    # non-null audit dict, so key-exists and value-not-null coincide here.
+    has_teacher = Sample.extra_metadata["teacher_rerun"].isnot(None)
     if annotated == "teacher":
         return query.filter(has_teacher)
     return query.filter(~has_teacher | Sample.extra_metadata.is_(None))
@@ -846,6 +850,11 @@ def get_sample(
     data = SampleDetailResponse.model_validate(sample)
     data.has_full_frame = sample.full_frame_path is not None
     data.has_overlay = sample.overlay_path is not None
+    data.has_channel_geometry = bool(
+        sample.full_frame_path is not None
+        and sample.channel_geometry is not None
+        and sample.channel_geometry.polygon_x
+    )
     return data
 
 
@@ -1216,3 +1225,32 @@ def get_sample_overlay(
         raise APIError(404, "Overlay not found", "ASSET_NOT_FOUND")
 
     return serve_stored_file(sample.overlay_path, headers={"Cache-Control": ASSET_CACHE_CONTROL})
+
+
+@router.get("/{sample_id}/assets/channel-crop")
+def get_sample_channel_crop(
+    sample_id: UUID,
+    mask: bool = Query(default=True),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_SAMPLES_READ)),
+):
+    # Derived on demand from the retained full frame + the sample's channel
+    # geometry. mask=true white-fills outside the channel polygon (distillation
+    # view); mask=false keeps the raw crop rectangle.
+    sample = _get_sample_for_read_scoped(db, sample_id, current_user)
+    if not sample.full_frame_path:
+        raise APIError(404, "Full frame not found", "ASSET_NOT_FOUND")
+    geom = sample.channel_geometry
+    if geom is None or not geom.polygon_x:
+        raise APIError(404, "No channel geometry for this sample", "GEOMETRY_NOT_FOUND")
+
+    raw = get_backend().read_bytes(sample.full_frame_path)
+    rendered = render_channel_crop(raw, geom, mask_outside=mask)
+    if rendered is None:
+        raise APIError(422, "Could not render channel crop from geometry", "RENDER_FAILED")
+
+    return Response(
+        content=rendered,
+        media_type="image/jpeg",
+        headers={"Cache-Control": ASSET_CACHE_CONTROL},
+    )

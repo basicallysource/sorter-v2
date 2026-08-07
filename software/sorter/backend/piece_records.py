@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 import threading
 import time
@@ -104,15 +105,48 @@ def _ensureInitialized() -> None:
                 ("part_feedback_submitted", "INTEGER NOT NULL DEFAULT 0"),
                 ("color_feedback_submitted", "INTEGER NOT NULL DEFAULT 0"),
                 ("correction_updated_at", "REAL"),
+                # Which service actually produced this piece's color / mold (see
+                # classification.providers). NULL on rows written before the
+                # providers were selectable.
+                ("color_provider", "TEXT"),
+                ("mold_provider", "TEXT"),
+                # The applied color's own score, kept apart from the mold score
+                # in `confidence`. NULL on rows written before the split.
+                ("color_confidence", "REAL"),
             ):
                 if _col not in existing_columns:
                     conn.execute(
                         f"ALTER TABLE piece_records ADD COLUMN {_col} {_ddl}"
                     )
+            # Operator-flagged capture issues, one row per (piece, reason) so the
+            # flags are queryable — "how many pieces were flagged blurry this
+            # week" is a GROUP BY, not a scan-and-parse over blobs. Reason codes
+            # are free-form slugs; the first three ("no_piece" / "multiple_pieces"
+            # / "not_lego") match Hive's piece_rejections vocabulary so an
+            # operator's verdict and a Hive labeler's verdict mean the same thing.
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS piece_rejection_reasons ("
+                "piece_uuid TEXT NOT NULL, "
+                "reason TEXT NOT NULL, "
+                "updated_at REAL NOT NULL, "
+                "PRIMARY KEY (piece_uuid, reason)"
+                ")"
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_piece_rejection_reasons_reason "
+                "ON piece_rejection_reasons(reason)"
+            )
             # Append-only log of correction edits, drained to Hive by the sync
             # worker on its own watermark (id). Each edit appends a fresh row so
             # the monotonic id advances even when the same piece is corrected
             # twice (e.g. mark, then submit); Hive upserts the latest per piece.
+            #
+            # rejection_reasons is a JSON list HERE and only here: a journal row
+            # is one atomic snapshot of a piece's state at an instant, and the
+            # drain reads by id in batches (CORRECTIONS_BATCH). Splitting one
+            # edit's reasons across several journal rows would let a batch
+            # boundary land mid-edit and sync a partial set to Hive. Both ends
+            # store the reasons as rows; only the message between them is a list.
             conn.execute(
                 "CREATE TABLE IF NOT EXISTS piece_corrections ("
                 "id INTEGER PRIMARY KEY AUTOINCREMENT, "
@@ -121,9 +155,18 @@ def _ensureInitialized() -> None:
                 "color_corrected_id TEXT, "
                 "part_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
                 "color_feedback_submitted INTEGER NOT NULL DEFAULT 0, "
-                "updated_at REAL NOT NULL"
+                "updated_at REAL NOT NULL, "
+                "rejection_reasons TEXT"
                 ")"
             )
+            existing_correction_columns = {
+                r["name"]
+                for r in conn.execute("PRAGMA table_info(piece_corrections)").fetchall()
+            }
+            if "rejection_reasons" not in existing_correction_columns:
+                conn.execute(
+                    "ALTER TABLE piece_corrections ADD COLUMN rejection_reasons TEXT"
+                )
             conn.execute(
                 "CREATE INDEX IF NOT EXISTS idx_piece_corrections_uuid "
                 "ON piece_corrections(piece_uuid)"
@@ -176,8 +219,8 @@ def recordPiece(
             "part_id, part_name, color_id, color_name, category_id, confidence, "
             "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
             "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-            "brickognize_color_rank) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
+            "brickognize_color_rank, color_provider, mold_provider, color_confidence) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) "
             "ON CONFLICT(uuid) DO UPDATE SET "
             "run_id=excluded.run_id, machine_id=excluded.machine_id, "
             "seen_at=excluded.seen_at, recorded_at=excluded.recorded_at, "
@@ -190,7 +233,10 @@ def recordPiece(
             "brickognize_listing_id=excluded.brickognize_listing_id, "
             "brickognize_item_rank=excluded.brickognize_item_rank, "
             "brickognize_item_type=excluded.brickognize_item_type, "
-            "brickognize_color_rank=excluded.brickognize_color_rank",
+            "brickognize_color_rank=excluded.brickognize_color_rank, "
+            "color_provider=excluded.color_provider, "
+            "mold_provider=excluded.mold_provider, "
+            "color_confidence=excluded.color_confidence",
             (
                 uuid_val,
                 run_id,
@@ -213,6 +259,9 @@ def recordPiece(
                 piece.get("brickognize_item_rank"),
                 piece.get("brickognize_item_type"),
                 piece.get("brickognize_color_rank"),
+                piece.get("color_provider"),
+                piece.get("mold_provider"),
+                piece.get("color_confidence"),
             ),
         )
         conn.commit()
@@ -245,7 +294,7 @@ def getOverview() -> dict[str, Any]:
 
 
 # Prices are static per (part_id, color_id) for a machine's lifetime, so a
-# process-wide dict avoids re-hitting parts.db for every request. Misses (no
+# process-wide dict avoids re-hitting Hive for every request. Misses (no
 # metadata / no positive price) are cached as None so unknown parts don't
 # retrigger lookups either.
 _PRICE_CACHE: dict[tuple[Optional[str], Optional[str]], Optional[float]] = {}
@@ -268,9 +317,9 @@ def getCachedPrice(gc: Any, part_id: Optional[str], color_id: Optional[str]) -> 
     if part_id is None:
         price_value: Optional[float] = None
     else:
-        from piece_metadata_db import getLocalPieceMetadata
+        from hive_metadata import getPieceMetadata
 
-        metadata = getLocalPieceMetadata(gc, part_id, color_id)
+        metadata = getPieceMetadata(gc, part_id, color_id)
         price = metadata.get("moving_avg_price") if metadata else None
         price_value = float(price) if isinstance(price, (int, float)) and price > 0 else None
     with _PRICE_CACHE_LOCK:
@@ -315,6 +364,18 @@ def getValueStats(gc: Any) -> dict[str, Any]:
             (cutoff,),
         ).fetchall()
 
+    # Revalue every distinct (part, color) in one batch request to Hive (served
+    # from the persistent price cache; misses filled in a single round-trip),
+    # rather than a per-part lookup. Warm the in-process price cache from it so
+    # later peekCachedPrice hits on the sorting hot path are free.
+    from hive_metadata import getBatchMovingAvgPrices
+
+    price_pairs = [(r["part_id"], r["color_id"]) for r in rows]
+    batch_prices = getBatchMovingAvgPrices(gc, price_pairs)
+    with _PRICE_CACHE_LOCK:
+        for (part_id, color_id), value in batch_prices.items():
+            _PRICE_CACHE[(part_id, color_id)] = value
+
     all_total = all_priced = 0
     d24_total = d24_priced = 0
     all_value = d24_value = 0.0
@@ -323,7 +384,7 @@ def getValueStats(gc: Any) -> dict[str, Any]:
         n24 = int(r["n24"] or 0)
         all_total += n
         d24_total += n24
-        price = getCachedPrice(gc, r["part_id"], r["color_id"])
+        price = batch_prices.get((r["part_id"], r["color_id"]))
         if price is not None:
             all_value += price * n
             all_priced += n
@@ -373,7 +434,8 @@ _SUMMARY_COLUMNS = (
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, part_correct, color_corrected_id, "
-    "part_feedback_submitted, color_feedback_submitted"
+    "part_feedback_submitted, color_feedback_submitted, "
+    "color_provider, mold_provider, color_confidence"
 )
 
 
@@ -383,7 +445,59 @@ def _summarySelect(conn: sqlite3.Connection) -> str:
         if _hasPieceImagesTable(conn)
         else "0"
     )
-    return f"SELECT {_SUMMARY_COLUMNS}, {has_images_expr} AS has_images FROM piece_records"
+    return (
+        f"SELECT {_SUMMARY_COLUMNS}, {has_images_expr} AS has_images, "
+        f"{_REJECTION_REASONS_EXPR} AS rejection_reasons FROM piece_records"
+    )
+
+
+def _parseRejectionReasons(raw: Optional[str]) -> list[str]:
+    # Only for reading the piece_corrections journal, whose payload is a JSON
+    # snapshot. The authoritative store is the piece_rejection_reasons table.
+    if not raw:
+        return []
+    try:
+        parsed = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    return sorted(str(r) for r in parsed) if isinstance(parsed, list) else []
+
+
+def _readRejectionReasons(conn: sqlite3.Connection, uuid_val: str) -> list[str]:
+    rows = conn.execute(
+        "SELECT reason FROM piece_rejection_reasons WHERE piece_uuid = ? ORDER BY reason",
+        (uuid_val,),
+    ).fetchall()
+    return [r["reason"] for r in rows]
+
+
+def _writeRejectionReasons(
+    conn: sqlite3.Connection, uuid_val: str, reasons: Optional[list[str]]
+) -> None:
+    # Replace-all: the UI sends the complete set it wants on the piece, so
+    # clearing a flag is an absent code rather than a separate delete call.
+    conn.execute("DELETE FROM piece_rejection_reasons WHERE piece_uuid = ?", (uuid_val,))
+    now = time.time()
+    for reason in dict.fromkeys(reasons or []):
+        conn.execute(
+            "INSERT INTO piece_rejection_reasons (piece_uuid, reason, updated_at) "
+            "VALUES (?, ?, ?)",
+            (uuid_val, str(reason), now),
+        )
+
+
+# Reason codes are lowercase slugs, so a comma-joined GROUP_CONCAT round-trips
+# safely. Correlated rather than a JOIN so it composes with the existing
+# filtered/paginated summary queries without changing their row cardinality.
+_REJECTION_REASONS_EXPR = (
+    "(SELECT GROUP_CONCAT(r.reason) FROM piece_rejection_reasons r "
+    "WHERE r.piece_uuid = piece_records.uuid)"
+)
+
+
+def _splitRejectionReasons(raw: Optional[str]) -> list[str]:
+    # GROUP_CONCAT order is unspecified in sqlite — sort here for a stable shape.
+    return sorted(p for p in (raw or "").split(",") if p)
 
 
 def _estValue(gc: Any, part_id: Optional[str], color_id: Optional[str]) -> Optional[float]:
@@ -413,6 +527,7 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_name": row["color_name"],
         "category_id": row["category_id"],
         "confidence": row["confidence"],
+        "color_confidence": row["color_confidence"],
         "bin": bin_ref,
         "dead": bool(row["dead"]),
         "has_images": bool(row["has_images"]),
@@ -430,6 +545,9 @@ def _rowToSummary(gc: Any, row: sqlite3.Row) -> dict[str, Any]:
         "color_corrected_id": row["color_corrected_id"],
         "part_feedback_submitted": bool(row["part_feedback_submitted"]),
         "color_feedback_submitted": bool(row["color_feedback_submitted"]),
+        "color_provider": row["color_provider"],
+        "mold_provider": row["mold_provider"],
+        "rejection_reasons": _splitRejectionReasons(row["rejection_reasons"]),
     }
 
 
@@ -582,7 +700,7 @@ _SYNC_COLUMNS = (
     "part_id, part_name, color_id, color_name, category_id, confidence, "
     "bin_x, bin_y, bin_z, dead, brickognize_preview_url, "
     "brickognize_listing_id, brickognize_item_rank, brickognize_item_type, "
-    "brickognize_color_rank"
+    "brickognize_color_rank, color_provider, mold_provider, color_confidence"
 )
 
 
@@ -617,7 +735,8 @@ _CORRECTION_CONTEXT_COLUMNS = (
 
 def _appendCorrectionLog(conn: sqlite3.Connection, uuid_val: str) -> None:
     # Snapshot the current correction state into the append-only sync log so the
-    # Hive sync worker's watermark advances and picks up this edit.
+    # Hive sync worker's watermark advances and picks up this edit. The reasons
+    # are collapsed to a JSON list here on purpose — see the schema comment.
     row = conn.execute(
         "SELECT part_correct, color_corrected_id, part_feedback_submitted, "
         "color_feedback_submitted, correction_updated_at "
@@ -629,7 +748,7 @@ def _appendCorrectionLog(conn: sqlite3.Connection, uuid_val: str) -> None:
     conn.execute(
         "INSERT INTO piece_corrections "
         "(piece_uuid, part_correct, color_corrected_id, part_feedback_submitted, "
-        "color_feedback_submitted, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        "color_feedback_submitted, updated_at, rejection_reasons) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (
             uuid_val,
             row["part_correct"],
@@ -637,6 +756,7 @@ def _appendCorrectionLog(conn: sqlite3.Connection, uuid_val: str) -> None:
             row["part_feedback_submitted"],
             row["color_feedback_submitted"],
             row["correction_updated_at"] if row["correction_updated_at"] is not None else time.time(),
+            json.dumps(_readRejectionReasons(conn, uuid_val)),
         ),
     )
 
@@ -663,11 +783,13 @@ def setPieceCorrection(
     part_correct: Optional[bool] = None,
     set_color: bool = False,
     color_corrected_id: Optional[str] = None,
+    set_rejection_reasons: bool = False,
+    rejection_reasons: Optional[list[str]] = None,
 ) -> bool:
-    # Update the user's correction verdict on a piece. ``set_part``/``set_color``
-    # gate which fields change so the part check/x and the color dropdown can be
-    # edited independently. Appends to the sync log. Returns False if no such
-    # piece exists.
+    # Update the user's correction verdict on a piece. ``set_part``/``set_color``/
+    # ``set_rejection_reasons`` gate which fields change so the part check/x, the
+    # color dropdown, and the capture-issue flags can be edited independently.
+    # Appends to the sync log. Returns False if no such piece exists.
     now = time.time()
     sets = ["correction_updated_at = ?"]
     params: list[Any] = [now]
@@ -685,6 +807,8 @@ def setPieceCorrection(
         if cur.rowcount == 0:
             conn.commit()
             return False
+        if set_rejection_reasons:
+            _writeRejectionReasons(conn, uuid_val, rejection_reasons)
         _appendCorrectionLog(conn, uuid_val)
         conn.commit()
     return True
@@ -722,11 +846,17 @@ def listCorrectionsAfter(id_cursor: int, limit: int) -> list[dict[str, Any]]:
     with _connection() as conn:
         rows = conn.execute(
             "SELECT id, piece_uuid, part_correct, color_corrected_id, "
-            "part_feedback_submitted, color_feedback_submitted, updated_at "
+            "part_feedback_submitted, color_feedback_submitted, updated_at, "
+            "rejection_reasons "
             "FROM piece_corrections WHERE id > ? ORDER BY id ASC LIMIT ?",
             (int(id_cursor), int(limit)),
         ).fetchall()
-    return [dict(r) for r in rows]
+    out = []
+    for r in rows:
+        d = dict(r)
+        d["rejection_reasons"] = _parseRejectionReasons(d["rejection_reasons"])
+        out.append(d)
+    return out
 
 
 def getMaxCorrectionId() -> int:

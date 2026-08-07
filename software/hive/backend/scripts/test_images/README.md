@@ -9,7 +9,7 @@ Storage backend on prod is DigitalOcean Spaces. Use the running backend containe
 generate a presigned URL, then curl it locally:
 
 ```bash
-ssh root@45.55.232.164 'docker exec hive-backend python -c "
+ssh root@100.116.70.1 'docker exec hive-backend python -c "
 import boto3, os
 client = boto3.client(\"s3\",
     endpoint_url=os.environ[\"S3_ENDPOINT_URL\"],
@@ -25,7 +25,7 @@ print(client.generate_presigned_url(\"get_object\",
 Find `<SAMPLE_IMAGE_PATH>` with:
 
 ```bash
-ssh root@45.55.232.164 'docker exec hive-postgres psql -U hive -d hive -tAc \
+ssh root@100.116.70.1 'docker exec hive-postgres psql -U hive -d hive -tAc \
   "SELECT image_path FROM samples WHERE source_role = '\''classification_channel'\'' \
    ORDER BY uploaded_at DESC LIMIT 5"'
 ```

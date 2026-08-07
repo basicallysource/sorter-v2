@@ -9,6 +9,7 @@
 		type ValueStats
 	} from '$lib/components/records/RecordsStats.svelte';
 	import RecordsCharts from '$lib/components/records/RecordsCharts.svelte';
+	import IncidentsReport from '$lib/components/records/IncidentsReport.svelte';
 	import DailyTable from '$lib/components/records/DailyTable.svelte';
 	import PieceCard from '$lib/components/records/PieceCard.svelte';
 	import { fetchPieceImageState, type ImageState } from '$lib/components/records/piece-images';
@@ -331,6 +332,8 @@
 		<RecordsStats {overview} {lifetime} {value} />
 
 		<RecordsCharts endpointBase={effectiveBase()} />
+
+		<IncidentsReport endpointBase={effectiveBase()} />
 
 		<DailyTable
 			daily={lifetime?.daily ?? []}

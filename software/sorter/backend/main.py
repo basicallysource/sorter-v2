@@ -177,18 +177,6 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
     )
 
     try:
-        from perception.upstream_capture import UpstreamCropStore, configFromDict
-        from toml_config import getUpstreamMatchConfig
-
-        store = UpstreamCropStore(perception_service=service, logger=gc.logger)
-        store.configure(configFromDict(getUpstreamMatchConfig()))
-        store.start()
-        service.upstream_store = store
-        gc.logger.info("Perception upstream-crop store started.")
-    except Exception as exc:
-        gc.logger.warning(f"Failed to start upstream-crop store: {exc}")
-
-    try:
         import channel_crop_store
         from perception.channel_crop_capture import ChannelCropCollector
 
@@ -199,6 +187,21 @@ def _maybeStartPerception(gc: GlobalConfig, irl_config, camera_service) -> None:
         gc.logger.info("Channel-crop capture collector started.")
     except Exception as exc:
         gc.logger.warning(f"Failed to start channel-crop collector: {exc}")
+
+    try:
+        import control_data_store
+        from perception.transition_capture import ControlDataCollector
+
+        control_data_store.configure(gc.logger)
+        control_data_store.recoverOrphanedSegments()
+        sim_collector = ControlDataCollector(
+            perception_service=service, gc=gc, irl_config=irl_config
+        )
+        sim_collector.start()
+        service.control_data_collector = sim_collector
+        gc.logger.info("Control-data (feeder dynamics) capture collector started.")
+    except Exception as exc:
+        gc.logger.warning(f"Failed to start control-data collector: {exc}")
 
 
 def runServer(gc: GlobalConfig) -> None:
@@ -327,6 +330,7 @@ def runBroadcaster(gc: GlobalConfig) -> None:
                     import piece_image_store
 
                     piece_image_store.enqueueKnownObjectImages(obj_payload)
+                    piece_image_store.enqueueKnownObjectLinkImages(obj_payload)
                 except Exception:
                     pass
                 event_data = payload.get("data")
@@ -518,10 +522,10 @@ def main() -> None:
     ).start()
 
     # Pre-warm the piece price cache off the request path. The first
-    # value/aggregates computation walks every historical (part, color) pair
-    # through parts.db (~60s serialized on the Pi's eMMC — part_bricklink_ids
-    # has no index); done here in the background so no records-page request
-    # ever pays it.
+    # value/aggregates computation revalues every historical (part, color) pair
+    # via one batch request to Hive (hive_metadata.getBatchMovingAvgPrices),
+    # served from the persistent price cache; done here in the background so no
+    # records-page request ever pays the first cold fill.
     def warmPieceValueCaches() -> None:
         try:
             import piece_records

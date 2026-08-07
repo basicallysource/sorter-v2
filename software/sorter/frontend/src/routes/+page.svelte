@@ -219,6 +219,7 @@
 			incident.kind === 'c2_separation_needed' ||
 			incident.kind === 'bulk_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
+			incident.kind === 'feeder_jam' ||
 			incident.kind === 'distribution_chute_jam' ||
 			incident.kind === 'distribution_servo_bus_offline' ||
 			incident.kind === 'distribution_no_bin_available' ||
@@ -350,6 +351,9 @@
 		if (incident.kind === 'feeder_detection_unavailable') {
 			return `${currentBackendBaseUrl()}/api/feeder/detection-incident`;
 		}
+		if (incident.kind === 'feeder_jam') {
+			return `${currentBackendBaseUrl()}/api/feeder/jam-incident`;
+		}
 		if (
 			incident.kind === 'distribution_chute_jam' ||
 			incident.kind === 'distribution_servo_bus_offline' ||
@@ -377,6 +381,7 @@
 			incident.kind === 'c2_separation_needed' ||
 			incident.kind === 'bulk_feeder_stalled' ||
 			incident.kind === 'feeder_detection_unavailable' ||
+			incident.kind === 'feeder_jam' ||
 			incident.kind === 'distribution_chute_jam' ||
 			incident.kind === 'distribution_servo_bus_offline' ||
 			incident.kind === 'distribution_no_bin_available'
@@ -429,6 +434,9 @@
 		if (incident?.kind === 'classification_track_lost') {
 			return 'Track Lost';
 		}
+		if (incident?.kind === 'feeder_jam') {
+			return 'Feeder Jam';
+		}
 		return 'Exit Stuck';
 	}
 
@@ -460,6 +468,13 @@
 		}
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			return 'Feeder camera detection is not reliable.';
+		}
+		if (incident?.kind === 'feeder_jam') {
+			return incidentString(
+				incident,
+				'operator_message',
+				'A piece is jammed at a feeder hand-off. Clear the jam to continue.'
+			);
 		}
 		if (incident?.kind === 'distribution_chute_jam') {
 			return 'The distribution chute did not finish moving.';
@@ -500,6 +515,7 @@
 		if (incident?.kind === 'c2_separation_needed') return 'Tracks';
 		if (incident?.kind === 'bulk_feeder_stalled') return 'Stall';
 		if (incident?.kind === 'feeder_detection_unavailable') return 'Unavailable';
+		if (incident?.kind === 'feeder_jam') return 'Stalled';
 		if (incident?.kind === 'distribution_chute_jam') return 'Elapsed';
 		if (incident?.kind === 'distribution_servo_bus_offline') return 'Offline';
 		if (incident?.kind === 'channel_dropzone_stuck') return 'Motion';
@@ -528,6 +544,10 @@
 		if (incident?.kind === 'feeder_detection_unavailable') {
 			const unavailable = incidentNumber(incident, 'unavailable_ms');
 			return unavailable === null ? '-' : `${unavailable.toFixed(0)} ms`;
+		}
+		if (incident?.kind === 'feeder_jam') {
+			const stalled = incidentNumber(incident, 'no_progress_ms');
+			return stalled === null ? '-' : `${stalled.toFixed(0)} ms`;
 		}
 		if (incident?.kind === 'distribution_chute_jam') {
 			const elapsed = incidentNumber(incident, 'elapsed_ms');

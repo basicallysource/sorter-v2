@@ -130,6 +130,7 @@ from server.routers.setup import router as setup_router
 from server.routers.logs import router as logs_router
 from server.routers.hive_models import router as hive_models_router
 from server.routers.pieces import router as pieces_router
+from server.routers.incidents import router as incidents_router
 from server.routers.runtimes import router as runtimes_router
 from server.routers.chute_stress import router as chute_stress_router
 from server.routers.tuning import router as tuning_router
@@ -152,6 +153,7 @@ app.include_router(setup_router)
 app.include_router(logs_router)
 app.include_router(hive_models_router)
 app.include_router(pieces_router)
+app.include_router(incidents_router)
 app.include_router(runtimes_router)
 app.include_router(chute_stress_router)
 app.include_router(tuning_router)
@@ -556,6 +558,32 @@ def list_piece_images(uuid: str) -> Dict[str, Any]:
     return {"piece_uuid": uuid, "images": piece_image_store.listPieceImages(uuid)}
 
 
+@app.get("/api/pieces/{uuid}/link-images")
+def list_piece_link_images(uuid: str) -> Dict[str, Any]:
+    # Piece-link model guesses (C2/C3 crops scored as this piece). A separate
+    # endpoint from /images on purpose — that one serves ground-truth burst
+    # frames only, and nothing downstream may conflate the two.
+    import piece_image_store
+
+    return {"piece_uuid": uuid, "images": piece_image_store.listPieceLinkImages(uuid)}
+
+
+@app.get("/api/pieces/{uuid}/link-images/{image_id}")
+def get_piece_link_image(uuid: str, image_id: int) -> Any:
+    from fastapi.responses import FileResponse
+
+    import piece_image_store
+
+    path = piece_image_store.getLinkImageFileById(image_id)
+    if path is None:
+        raise HTTPException(status_code=404, detail="link image not available locally")
+    return FileResponse(
+        path,
+        media_type="image/jpeg",
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
+
+
 @app.get("/api/pieces/{uuid}/images/{image_id}")
 def get_piece_image(uuid: str, image_id: int) -> Any:
     from fastapi.responses import FileResponse
@@ -577,12 +605,31 @@ def get_piece_image(uuid: str, image_id: int) -> Any:
 @app.get("/api/pieces/{uuid}/possible-crops")
 def get_possible_crops(uuid: str) -> Dict[str, Any]:
     # 'Possibly the same piece': upstream C2/C3 crops that are plausibly this
-    # classified piece, found by time + channel + distance-to-exit (no
-    # embeddings). Returns a confidence-ranked superset.
+    # classified piece, found by time + channel + distance-to-exit. Returns a
+    # confidence-ranked superset.
+    #
+    # When an experimental piece_link model is enabled it re-ranks that same
+    # candidate set by appearance + the same time/position features and the
+    # response gains prediction_source="model" plus per-candidate model_score.
+    # It can only reorder what the heuristic found, never recover a dropped
+    # crop, so the heuristic stays the recall net.
     import channel_crop_lookup
+    import link_matcher
 
     gc = shared_state.gc_ref
-    return {"piece_uuid": uuid, **channel_crop_lookup.findPossibleCrops(gc, uuid)}
+    try:
+        matched = link_matcher.matchForPiece(gc, uuid)
+    except Exception:
+        # Never let the experimental path break the review page.
+        gc.logger.debug("link matcher failed; falling back to heuristic", exc_info=True)
+        matched = None
+    if matched is not None:
+        return {"piece_uuid": uuid, **matched}
+    return {
+        "piece_uuid": uuid,
+        "prediction_source": "heuristic",
+        **channel_crop_lookup.findPossibleCrops(gc, uuid),
+    }
 
 
 @app.get("/api/channel-crops/{crop_id}/image")

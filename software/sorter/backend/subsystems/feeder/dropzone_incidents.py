@@ -176,7 +176,9 @@ class DropzoneStuckIncidentManager:
         self._candidates.pop(key, None)
         runtime_stats = getattr(self._gc, "runtime_stats", None)
         if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
-            runtime_stats.clearActiveIncident(kind=CHANNEL_DROPZONE_STUCK_INCIDENT_KIND)
+            runtime_stats.clearActiveIncident(
+                kind=CHANNEL_DROPZONE_STUCK_INCIDENT_KIND, resolved_by="operator"
+            )
         return {
             "ok": True,
             "acknowledged": True,
@@ -193,7 +195,9 @@ class DropzoneStuckIncidentManager:
         self._clear_ignored(key)
         runtime_stats = getattr(self._gc, "runtime_stats", None)
         if runtime_stats is not None and hasattr(runtime_stats, "clearActiveIncident"):
-            runtime_stats.clearActiveIncident(kind=CHANNEL_DROPZONE_STUCK_INCIDENT_KIND)
+            runtime_stats.clearActiveIncident(
+                kind=CHANNEL_DROPZONE_STUCK_INCIDENT_KIND, resolved_by="operator"
+            )
         return {
             "ok": True,
             "cleared": True,

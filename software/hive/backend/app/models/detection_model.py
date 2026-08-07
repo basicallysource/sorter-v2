@@ -18,6 +18,10 @@ from sqlalchemy.orm import relationship
 
 from app.models import Base, JSON_VARIANT
 
+PURPOSE_DETECTION = "detection"
+PURPOSE_PIECE_LINK = "piece_link"
+MODEL_PURPOSES = (PURPOSE_DETECTION, PURPOSE_PIECE_LINK)
+
 
 class DetectionModel(Base):
     __tablename__ = "detection_models"
@@ -28,6 +32,10 @@ class DetectionModel(Base):
     version = Column(Integer, nullable=False, default=1)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
+    # What the model is FOR, as opposed to model_family (how it's built). The
+    # publish/store/download/install machinery is identical across purposes; only
+    # the consumer on the machine differs, so they share one table.
+    purpose = Column(String, nullable=False, default=PURPOSE_DETECTION, server_default=PURPOSE_DETECTION)
     model_family = Column(String, nullable=False)
     scopes = Column(JSON_VARIANT, nullable=True)
     training_metadata = Column(JSON_VARIANT, nullable=True)
@@ -67,6 +75,11 @@ class DetectionModel(Base):
         Index("ix_detection_models_model_family", "model_family"),
         Index("ix_detection_models_is_public", "is_public"),
         Index("ix_detection_models_experimental", "experimental"),
+        Index("ix_detection_models_purpose", "purpose"),
+        CheckConstraint(
+            "purpose IN ('detection', 'piece_link')",
+            name="ck_detection_models_purpose",
+        ),
     )
 
 

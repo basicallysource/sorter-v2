@@ -9,6 +9,7 @@ from defs.known_object import (
     RecognitionImage,
 )
 
+from . import crop_quality
 from .simple_state_machine_rev01.base import Rev01BaseState
 from .simple_state_machine_rev01.channel_clear import (
     ChannelClearResult,
@@ -622,8 +623,10 @@ class TwoPieceClassificationChannel(Rev01BaseState):
         if crop is None:
             return
         sharp = self.sharpness(crop)
+        quality = crop_quality.scoreCrop(crop)
         ctx.captured_crops.append(crop)
         ctx.captured_crop_sharpness.append(sharp)
+        ctx.captured_crop_quality.append(quality)
         ctx.captured_crop_timestamps.append(frame_ts)
         ctx.last_capture_frame_ts = frame_ts
         obj = ctx.known_object

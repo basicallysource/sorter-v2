@@ -344,17 +344,15 @@
 
 	// --- Recognition-view cycling -----------------------------------------
 	// The live piece entries carry only `latest_captured_crop`. The full set of
-	// captured crops (every C4 burst frame + the upstream C2/C3 matches) is
+	// captured crops (every C4 burst frame) is
 	// persisted to disk by piece_image_store and served as individual JPEGs via
 	// GET /api/pieces/{uuid}/images{,/<id>} — durable across eviction/restart and
 	// browser-cached (immutable), so hover works even for pieces that have
 	// already left the machine. While a piece is still being recognized we poll
 	// that endpoint and flash through every view it has so far, so the
-	// operator sees the burst frames (and, once classification runs, the
-	// fused-in upstream matches) animate in place instead of a single frozen
-	// crop. When the result lands we keep flashing for one full pass — long
-	// enough to pick up the upstream crops that only appear at classification —
-	// before settling on the reference/stock photo. The classification TEXT
+	// operator sees the burst frames animate in place instead of a single frozen
+	// crop. When the result lands we keep flashing for one full pass before
+	// settling on the reference/stock photo. The classification TEXT
 	// updates independently and immediately off the socket; only the image well
 	// waits for the pass to finish.
 	const CYCLE_MS = 300;
@@ -399,6 +397,28 @@
 				.map((r): CycleImage => ({
 					src: `${base}/api/pieces/${encodeURIComponent(uuid)}/images/${r.id}`
 				}));
+			// Plus the piece-link model's USED picks (fused into the applied
+			// request) — the confident upstream views of this same piece. The
+			// rest of its guesses stay off the hover.
+			try {
+				const linkRes = await fetch(
+					`${base}/api/pieces/${encodeURIComponent(uuid)}/link-images`
+				);
+				if (linkRes.ok) {
+					const linkEnv = (await linkRes.json()) as {
+						images?: { id: number; used?: boolean; available_locally?: boolean }[];
+					};
+					for (const r of linkEnv.images ?? []) {
+						if (r.used && r.available_locally !== false) {
+							imgs.push({
+								src: `${base}/api/pieces/${encodeURIComponent(uuid)}/link-images/${r.id}`
+							});
+						}
+					}
+				}
+			} catch {
+				// burst-only hover is fine
+			}
 			if (imgs.length > 0) imagesByUuid = { ...imagesByUuid, [uuid]: imgs };
 		} catch {
 			// Silent — the card just keeps showing the captured crop.
@@ -518,7 +538,7 @@
 		return 'text-danger';
 	}
 
-	// BrickLink moving-average price (USD) from the local parts.db. Sub-dollar
+	// BrickLink moving-average price (USD) from Hive. Sub-dollar
 	// pieces (most bricks) get an extra decimal so they don't all collapse to
 	// "$0.00"; a dollar and up reads as plain currency.
 	function formatPrice(price: number): string {
@@ -550,6 +570,47 @@
 	// BrickLink both use slug-ish ids (e.g. "white", "light-bluish-gray"), and
 	// `color_name` is the canonical display name. Try id first, fall back to
 	// name match (case-insensitive).
+	// --- Multi-drop grouping ----------------------------------------------
+	// A multi drop rejects every piece involved, and each one used to get its own
+	// full-size red card — a wall of alarm for what is physically ONE event. Runs
+	// of adjacent multi-drop pieces (the list is already time-ordered, so a run is
+	// one drop) collapse into a single subdued card with the crops stacked.
+	type Row =
+		| { kind: 'piece'; piece: Piece }
+		| { kind: 'multi_drop'; pieces: Piece[] };
+
+	const MULTI_DROP_STACK_MAX = 4;
+
+	function isMultiDropPiece(p: Piece): boolean {
+		return pieceToKnownObjectView(p).classification_status === 'multi_drop_fail';
+	}
+
+	function groupRows(pieces: Piece[]): Row[] {
+		const rows: Row[] = [];
+		for (const p of pieces) {
+			if (!isMultiDropPiece(p)) {
+				rows.push({ kind: 'piece', piece: p });
+				continue;
+			}
+			const last = rows[rows.length - 1];
+			if (last && last.kind === 'multi_drop') last.pieces.push(p);
+			else rows.push({ kind: 'multi_drop', pieces: [p] });
+		}
+		return rows;
+	}
+
+	const activeRows = $derived(groupRows(activeOnC4));
+	const deliveredRows = $derived(groupRows(deliveredHistory));
+
+	function rowKey(row: Row): string {
+		return row.kind === 'piece' ? row.piece.uuid : `md:${row.pieces[0].uuid}`;
+	}
+
+	function multiDropThumb(p: Piece): string | null {
+		const obj = pieceToKnownObjectView(p);
+		return capturedCropUrl(obj, lifecyclePhase(obj));
+	}
+
 	function lookupLegoColor(
 		color_id: string | null | undefined,
 		color_name: string | null | undefined
@@ -619,7 +680,7 @@
 			: 'text-text'}
 
 	{@const base_src = is_classified_ok ? reference_src : captured}
-	<!-- Flash through every recognition view (burst frames + upstream matches)
+	<!-- Flash through every recognition view (burst frames)
 	     while the piece is being recognized and during the finish pass; hover
 	     scrubs the same views. -->
 	{@const view = viewFor(obj, phase, base_src)}
@@ -712,7 +773,7 @@
 								title={(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold
 									? `Approximate — base mold ${(obj.piece_metadata as Record<string, unknown>).price_from_base_mold} price (no data for this exact print)`
-									: 'BrickLink moving-average price (local catalog)'}
+									: 'BrickLink moving-average price (Hive catalog)'}
 							>
 								{(obj.piece_metadata as Record<string, unknown> | null | undefined)
 									?.price_from_base_mold
@@ -827,6 +888,70 @@
 	</a>
 {/snippet}
 
+{#snippet multiDropCard(pieces: Piece[])}
+	{@const first = pieces[0]}
+	{@const obj = pieceToKnownObjectView(first)}
+	{@const phase = lifecyclePhase(obj)}
+	{@const thumbs = pieces.map(multiDropThumb).filter((s) => s !== null) as string[]}
+	{@const shown = thumbs.slice(0, MULTI_DROP_STACK_MAX)}
+	{@const extra = pieces.length - shown.length}
+
+	<a
+		href={`/tracked/${obj.uuid}`}
+		class="block border border-border bg-bg transition-colors hover:border-primary/70"
+	>
+		<div class="flex items-center gap-3 p-2">
+			<!-- Crops from the drop, overlapped into one horizontal stack so the
+			     whole event reads as a single object rather than N alarming cards. -->
+			<div class="flex flex-shrink-0 items-center">
+				{#if shown.length > 0}
+					{#each shown as src, i}
+						<div
+							class="relative h-14 w-14 flex-shrink-0 border border-border bg-white {i > 0
+								? '-ml-9'
+								: ''}"
+							style:z-index={shown.length - i}
+						>
+							<img src={src} alt="rejected piece" class="h-full w-full object-contain" />
+						</div>
+					{/each}
+				{:else}
+					<div
+						class="flex h-14 w-14 flex-shrink-0 items-center justify-center border border-border bg-white text-xs text-text-muted"
+					>
+						no image
+					</div>
+				{/if}
+				{#if extra > 0}
+					<span class="ml-1 text-xs tabular-nums text-text-muted">+{extra}</span>
+				{/if}
+			</div>
+
+			<div class="flex min-w-0 flex-1 items-center gap-2">
+				<div class="flex min-w-0 flex-col gap-0.5">
+					<span class="truncate text-sm text-text-muted">
+						Multi drop{pieces.length > 1 ? ` — ${pieces.length} pieces` : ''}
+					</span>
+					<span
+						class="inline-flex w-fit items-center border border-border bg-surface px-1.5 py-0.5 text-xs font-semibold uppercase tracking-wider text-text-muted"
+						title="Pieces overlapped on the classification channel and were rejected without identification"
+					>
+						rejected
+					</span>
+				</div>
+
+				{#if phase === 'distributed'}
+					<span
+						class="ml-auto flex-shrink-0 border border-border bg-surface px-1.5 py-0.5 font-mono text-xs text-text-muted"
+					>
+						discard bin
+					</span>
+				{/if}
+			</div>
+		</div>
+	</a>
+{/snippet}
+
 <div class="setup-card-shell flex h-full flex-col border">
 	<div class="setup-card-header px-3 py-2 text-sm font-medium text-text">Recent Pieces</div>
 	<div class="flex-1 overflow-y-auto">
@@ -835,8 +960,12 @@
 		{:else}
 			<div class="flex flex-col gap-1 p-1">
 				<!-- Active C4 pieces: farthest from exit at top, nearest exit above line. -->
-				{#each activeOnC4 as p (p.uuid)}
-					{@render pieceCard(p)}
+				{#each activeRows as row (rowKey(row))}
+					{#if row.kind === 'multi_drop'}
+						{@render multiDropCard(row.pieces)}
+					{:else}
+						{@render pieceCard(row.piece)}
+					{/if}
 				{/each}
 
 				<!-- Exit divider -->
@@ -847,8 +976,12 @@
 				</div>
 
 				<!-- Delivered/rejected history: newest-first directly under the line. -->
-				{#each deliveredHistory as p (p.uuid)}
-					{@render pieceCard(p)}
+				{#each deliveredRows as row (rowKey(row))}
+					{#if row.kind === 'multi_drop'}
+						{@render multiDropCard(row.pieces)}
+					{:else}
+						{@render pieceCard(row.piece)}
+					{/if}
 				{/each}
 			</div>
 		{/if}

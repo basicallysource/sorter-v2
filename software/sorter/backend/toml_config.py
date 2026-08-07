@@ -266,6 +266,40 @@ def setTrackerConfig(tracker_type: str, updates: dict[str, Any]) -> dict[str, An
 
 
 # ---------------------------------------------------------------------------
+# Classification providers (mold + color)
+# ---------------------------------------------------------------------------
+
+
+def getClassificationProviders() -> dict[str, str]:
+    from classification.providers import normalizeColorProvider, normalizeMoldProvider
+    config = _read_toml()
+    section = config.get("classification_providers")
+    section = section if isinstance(section, dict) else {}
+    return {
+        "color_provider": normalizeColorProvider(section.get("color_provider")),
+        "mold_provider": normalizeMoldProvider(section.get("mold_provider")),
+    }
+
+
+def setClassificationProviders(updates: dict[str, Any]) -> dict[str, str]:
+    from classification.providers import normalizeColorProvider, normalizeMoldProvider
+    valid: dict[str, str] = {}
+    if "color_provider" in updates:
+        valid["color_provider"] = normalizeColorProvider(updates.get("color_provider"))
+    if "mold_provider" in updates:
+        valid["mold_provider"] = normalizeMoldProvider(updates.get("mold_provider"))
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("classification_providers")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["classification_providers"] = base
+
+    _update_toml(updater)
+    return getClassificationProviders()
+
+
+# ---------------------------------------------------------------------------
 # Feeder pulse-perception tuning config
 # ---------------------------------------------------------------------------
 
@@ -331,36 +365,6 @@ def setConstantMovementConfig(updates: dict[str, Any]) -> dict[str, Any]:
 
     _update_toml(updater)
     return getConstantMovementConfig()
-
-
-# ---------------------------------------------------------------------------
-# Upstream-match tuning config
-# ---------------------------------------------------------------------------
-
-
-def getUpstreamMatchConfig() -> dict[str, Any]:
-    from perception.upstream_capture import UpstreamMatchConfig, configToDict
-    config = _read_toml()
-    section = config.get("upstream_match")
-    defaults = configToDict(UpstreamMatchConfig())
-    if isinstance(section, dict):
-        return {**defaults, **{k: v for k, v in section.items() if k in defaults}}
-    return defaults
-
-
-def setUpstreamMatchConfig(updates: dict[str, Any]) -> dict[str, Any]:
-    from perception.upstream_capture import UpstreamMatchConfig, configToDict
-    defaults = configToDict(UpstreamMatchConfig())
-    valid = {k: v for k, v in updates.items() if k in defaults}
-
-    def updater(config: dict[str, Any]) -> None:
-        existing = config.get("upstream_match")
-        base = dict(existing) if isinstance(existing, dict) else {}
-        base.update(valid)
-        config["upstream_match"] = base
-
-    _update_toml(updater)
-    return getUpstreamMatchConfig()
 
 
 # ---------------------------------------------------------------------------
@@ -457,8 +461,10 @@ _INCIDENT_KIND_ALIASES: dict[str, str] = {
 # + distribution). Legacy-only kinds (dropzone stuck, bulk feeder, DYNAMIC
 # classification fallbacks, ...) get no policy row: their publishers never run
 # on the default setup.
+_INCIDENT_FEEDER_JAM = "feeder_jam"
 _INCIDENT_HANDLING_DEFAULTS: dict[str, str] = {
     _INCIDENT_EXIT_STUCK: _INCIDENT_MODE_AUTOMATIC,
+    _INCIDENT_FEEDER_JAM: _INCIDENT_MODE_AUTOMATIC,
     "distribution_chute_jam": _INCIDENT_MODE_MANUAL,
     "distribution_servo_bus_offline": _INCIDENT_MODE_MANUAL,
     "distribution_no_bin_available": _INCIDENT_MODE_MANUAL,
@@ -472,6 +478,16 @@ _INCIDENT_DEFINITIONS: tuple[dict[str, Any], ...] = (
         "off_label": "Do not raise exit-stuck incidents",
         "manual_label": "Operator clears the stuck piece",
         "automatic_label": "Rotate the channel forward until it clears",
+        "automatic_supported": True,
+    },
+    {
+        "kind": _INCIDENT_FEEDER_JAM,
+        "label": "Feeder Jam",
+        "scope": "Feeder",
+        "description": "A feeder channel keeps trying to advance a piece that will not move — it is hung at the previous channel's hand-off.",
+        "off_label": "Do not detect feeder hand-off jams",
+        "manual_label": "Call the operator as soon as a channel is stuck",
+        "automatic_label": "Nudge the upstream channel to free it, then call the operator",
         "automatic_supported": True,
     },
     {
@@ -841,3 +857,54 @@ def migrateFromDataJson() -> None:
     from local_state import initialize_local_state
 
     initialize_local_state()
+
+
+# ---------------------------------------------------------------------------
+# Piece-link matching (experimental)
+# ---------------------------------------------------------------------------
+
+
+DEFAULT_LINK_MIN_CONFIDENCE = 0.95
+
+
+def getLinkMatchingConfig() -> dict[str, Any]:
+    # Off by default: the matcher is experimental and costs an ONNX pass per
+    # classified piece. ``algorithm`` is an installed piece_link model's
+    # local_id; empty means "use whichever one is installed".
+    # ``min_confidence`` overrides the threshold baked into the model at
+    # publish time (0.5 for link-v3) — fused/preselected picks must score at
+    # or above it.
+    config = _read_toml()
+    section = config.get("link_matching")
+    section = section if isinstance(section, dict) else {}
+    raw = section.get("min_confidence")
+    min_confidence = (
+        float(raw) if isinstance(raw, (int, float)) else DEFAULT_LINK_MIN_CONFIDENCE
+    )
+    return {
+        "enabled": bool(section.get("enabled", False)),
+        "algorithm": str(section.get("algorithm") or ""),
+        "min_confidence": min(max(min_confidence, 0.0), 1.0),
+    }
+
+
+def setLinkMatchingConfig(updates: dict[str, Any]) -> dict[str, Any]:
+    valid: dict[str, Any] = {}
+    if "enabled" in updates:
+        valid["enabled"] = bool(updates.get("enabled"))
+    if "algorithm" in updates:
+        valid["algorithm"] = str(updates.get("algorithm") or "")
+    if "min_confidence" in updates:
+        value = float(updates.get("min_confidence"))  # type: ignore[arg-type]
+        if not (0.0 <= value <= 1.0):
+            raise ValueError("min_confidence must be between 0 and 1")
+        valid["min_confidence"] = value
+
+    def updater(config: dict[str, Any]) -> None:
+        existing = config.get("link_matching")
+        base = dict(existing) if isinstance(existing, dict) else {}
+        base.update(valid)
+        config["link_matching"] = base
+
+    _update_toml(updater)
+    return getLinkMatchingConfig()

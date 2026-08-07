@@ -186,6 +186,14 @@ def _discover_model_algorithms(
             continue
 
         hive_info = meta.get("hive") or {}
+        # Hive publishes models for several purposes into one catalog and the
+        # sorter installs them all the same way. Only detection models become
+        # detection algorithms. Absent purpose predates the field, so it's a
+        # detection model.
+        purpose = str(hive_info.get("purpose") or "detection").lower()
+        if purpose != "detection":
+            continue
+
         model_family = str(meta.get("model_family") or "").lower()
         if model_family not in {"yolo", "nanodet"}:
             log.info("Skipping %s model %s — unsupported family %r", kind, entry.name, model_family)

@@ -84,6 +84,61 @@ export interface FleetMachineStats {
 	ontime_pct: number;
 }
 
+export interface ControlDataBucket {
+	segments: number;
+	records: number;
+	bytes: number;
+	hours: number;
+	with_file: number;
+	evicted: number;
+	autotune_session: number;
+	autotune_background: number;
+	plain: number;
+	first_started_at: string | null;
+	last_ended_at: string | null;
+	machine_setups: string[];
+	feeder_modes: string[];
+	classification_modes: string[];
+}
+
+export interface ControlDataMachineRow extends ControlDataBucket {
+	machine_id: string;
+	name: string;
+	owner_email: string | null;
+}
+
+export interface ControlDataDimensionRow {
+	value: string | null;
+	segments: number;
+	records: number;
+	bytes: number;
+	hours: number;
+	machines: number;
+}
+
+export interface ControlDataRecentSegment {
+	machine_id: string;
+	machine_name: string;
+	local_id: number;
+	started_at: string | null;
+	ended_at: string | null;
+	duration_s: number;
+	records: number;
+	bytes: number;
+	machine_setup: string | null;
+	feeder_mode: string | null;
+	autotune_mode: string | null;
+	has_file: boolean;
+	created_at: string | null;
+}
+
+export interface ControlDataSummary {
+	totals: ControlDataBucket & { machines: number };
+	machines: ControlDataMachineRow[];
+	dimensions: Record<string, ControlDataDimensionRow[]>;
+	recent: ControlDataRecentSegment[];
+}
+
 export interface MachineOverviewStats {
 	pieces_seen: number;
 	distributed: number;
@@ -105,12 +160,31 @@ export interface MachineOverviewStats {
 	computed_at: string | null;
 }
 
+export interface MachineCameraColorProfileSpec {
+	globally_enabled?: boolean | null;
+	calibrated?: boolean | null;
+	enabled?: boolean | null;
+	applied?: boolean | null;
+	matrix?: number[][] | null;
+	bias?: number[] | null;
+	has_response_lut?: boolean | null;
+	has_gamma?: boolean | null;
+}
+
+export interface MachineCameraCalibrationSpec {
+	color_profile?: MachineCameraColorProfileSpec | null;
+	device_settings?: Record<string, number | boolean> | null;
+	picture_settings?: Record<string, number | boolean> | null;
+	capture_mode?: Record<string, number | string> | null;
+}
+
 export interface MachineCameraSpec {
 	model?: string | null;
 	width?: number | null;
 	height?: number | null;
 	fps?: number | null;
 	fourcc?: string | null;
+	calibration?: MachineCameraCalibrationSpec | null;
 }
 
 export interface MachineControllerBoardSpec {
@@ -172,8 +246,8 @@ export interface ServerHealth {
 		model_files: StorageBucket;
 		total_bytes: number;
 		total_files: number;
-		computed_at: number;
-		cached: boolean;
+		computed_at: number | null;
+		pending: boolean;
 	};
 	database: {
 		total_bytes: number | null;
@@ -260,7 +334,10 @@ export interface MachinePieceRecord {
 	color_id: string | null;
 	color_name: string | null;
 	category_id: string | null;
+	// Mold score and the applied color's own score. Separate providers can
+	// produce them, so they are never the same number.
 	confidence: number | null;
+	color_confidence: number | null;
 	bin: { x: number | null; y: number | null; z: number | null };
 	dead: boolean;
 	brickognize_preview_url: string | null;
@@ -349,6 +426,7 @@ export interface SampleMachineSummary {
 export interface SampleDetail extends Sample {
 	has_full_frame: boolean;
 	has_overlay: boolean;
+	has_channel_geometry: boolean;
 	machine: SampleMachineSummary | null;
 }
 
@@ -715,6 +793,47 @@ export interface ProfileCatalogStatus {
 	types: Record<string, CatalogSyncTypeState>;
 }
 
+export interface AiModelOption {
+	id: string;
+	name: string;
+	input_per_million: number | null;
+	output_per_million: number | null;
+	// Blended price relative to the baseline model; null when OpenRouter didn't
+	// price the model (e.g. the catalog fetch failed and nothing was cached).
+	cost_factor: number | null;
+	cost_factor_label: string | null;
+	context_length: number | null;
+}
+
+export interface AiModelGroup {
+	label: string;
+	models: AiModelOption[];
+}
+
+export interface AiModelCatalog {
+	default_model: string;
+	baseline_model: string;
+	pricing_available: boolean;
+	groups: AiModelGroup[];
+}
+
+export interface AiUsageTotals {
+	cost_usd: number;
+	prompt_tokens: number;
+	completion_tokens: number;
+	total_tokens: number;
+	call_count: number;
+	message_count: number;
+}
+
+export interface AiUsageSummary {
+	week: AiUsageTotals;
+	month: AiUsageTotals;
+	year: AiUsageTotals;
+	all_time: AiUsageTotals;
+	since: string | null;
+}
+
 export interface ProfileCatalogSearchResult {
 	part_num: string;
 	name: string;
@@ -734,6 +853,13 @@ export interface ProfileCatalogColor {
 	name: string;
 	rgb: string | null;
 	is_trans: boolean;
+}
+
+export interface ProfileCatalogCategory {
+	id: number;
+	name: string;
+	part_count: number | null;
+	actual_part_count: number | null;
 }
 
 export interface BrickLinkCsvImportResult {
@@ -1076,6 +1202,27 @@ export interface MachineLabeledPiecesResponse {
 	total: number;
 }
 
+export interface PartBrickLinkColor {
+	color_id: number;
+	color_name: string;
+	rgb: string | null;
+	is_trans: boolean;
+	qty: number;
+	qty_new: number;
+	qty_used: number;
+	lots: number;
+	share: number;
+}
+
+export interface PartBrickLinkColorsResponse {
+	part_id: string;
+	item_no: string | null;
+	updated_at: string | null;
+	source: 'live' | 'cache';
+	total_qty: number;
+	items: PartBrickLinkColor[];
+}
+
 export interface ColorLabelPrediction {
 	color_id: string | null;
 	color_name: string | null;
@@ -1097,6 +1244,12 @@ export interface ColorLabelCorrection {
 	color_corrected_id: string | null;
 	part_feedback_submitted: boolean;
 	color_feedback_submitted: boolean;
+	// Sample attributes the machine operator flagged (no_piece / multiple_pieces /
+	// not_lego / assembly / pieces_entangled / blurry) — same codes as
+	// PieceRejection.reasons, but this is the machine's own verdict, not a
+	// labeler's. Present on the piece-detail envelope; absent from the
+	// brickognize-feedback response.
+	rejection_reasons?: string[];
 }
 
 export interface BrickognizeFeedbackResponse {
@@ -1105,6 +1258,22 @@ export interface BrickognizeFeedbackResponse {
 	color_submitted: boolean;
 	submit_error: string | null;
 	correction: ColorLabelCorrection;
+}
+
+/** A catalog part resolved for display — what the part picker renders. */
+export interface PartSummary {
+	part_num: string;
+	name: string | null;
+	part_cat_id: number | null;
+	category_name: string | null;
+	part_img_url: string | null;
+}
+
+export interface PiecePartLabel {
+	part_num: string | null;
+	cant_tell: boolean;
+	notes: string | null;
+	part: PartSummary | null;
 }
 
 export interface ColorLabelPieceDetail {
@@ -1119,11 +1288,18 @@ export interface ColorLabelPieceDetail {
 	images: ColorLabelQueueImage[];
 	my_label: { color_id: number | null; cant_tell: boolean; notes: string | null } | null;
 	my_rejection: { reasons: string[] } | null;
+	my_part_label: PiecePartLabel | null;
+	predicted_part: PartSummary | null;
 	prediction: ColorLabelPrediction;
 	correction: ColorLabelCorrection;
 }
 
-export type RejectReason = 'no_piece' | 'multiple_pieces';
+export type RejectReason =
+	| 'no_piece'
+	| 'multiple_pieces'
+	| 'not_lego'
+	| 'assembly'
+	| 'pieces_entangled';
 
 export interface ColorLabelPixelGuess {
 	method: string;
@@ -1134,7 +1310,29 @@ export interface ColorLabelPixelGuess {
 	match_rgb: string | null;
 }
 
-export interface ColorLabelQueueImage {
+// Per-image, per-labeler quality flags: a "high quality" star plus "not good
+// enough for classification" reasons. Recorded on individual crops (see
+// submitImageQuality) so we can later filter e.g. every motion-blurred crop.
+export interface ImageQualityFlags {
+	high_quality: boolean;
+	low_resolution: boolean;
+	motion_blur: boolean;
+	not_contained: boolean;
+	no_piece_in_frame: boolean;
+	other_bad: boolean;
+}
+
+export type ImageQualityReason = Exclude<keyof ImageQualityFlags, 'high_quality'>;
+
+export const IMAGE_QUALITY_REASONS: { code: ImageQualityReason; label: string }[] = [
+	{ code: 'low_resolution', label: 'Too low resolution' },
+	{ code: 'motion_blur', label: 'Motion blur' },
+	{ code: 'not_contained', label: 'Piece not fully in frame' },
+	{ code: 'no_piece_in_frame', label: 'No piece in this frame' },
+	{ code: 'other_bad', label: 'Not good enough (other)' }
+];
+
+export interface ColorLabelQueueImage extends ImageQualityFlags {
 	seq: number;
 	source: string | null;
 	used: boolean;
@@ -1207,7 +1405,7 @@ export interface LinkModelsResponse {
 // the active link matcher model's pick and probability (null when not scored /
 // no model active). The UI pre-selects, in precedence order, `ai_same` →
 // `model_same` → `predicted`, per `prediction_source`.
-export interface PossibleCropCandidate {
+export interface PossibleCropCandidate extends ImageQualityFlags {
 	local_id: number;
 	channel: number | null;
 	ts: string | null;
@@ -1315,6 +1513,9 @@ export const api = {
 	getAllMachineStats() {
 		return request<Record<string, FleetMachineStats>>('GET', '/api/admin/machines/stats');
 	},
+	getControlDataSummary() {
+		return request<ControlDataSummary>('GET', '/api/admin/control-data/summary');
+	},
 	getMachinePieces(machineId: string, opts: { limit?: number; cursor?: number | null } = {}) {
 		const params = new URLSearchParams();
 		if (opts.limit) params.set('limit', String(opts.limit));
@@ -1412,6 +1613,29 @@ export const api = {
 			`/api/labeling/${machineId}/${encodeURIComponent(pieceUuid)}`
 		);
 	},
+
+	// Part (mold) correction — the part sibling of the color label. Stored per
+	// labeler, so several people can correct the same piece independently.
+	submitPartLabel(body: {
+		machine_id: string;
+		piece_uuid: string;
+		part_num?: string | null;
+		cant_tell?: boolean;
+		notes?: string | null;
+	}) {
+		return request<{
+			ok: boolean;
+			created: boolean;
+			part: PartSummary | null;
+			part_labeled_by_me: number;
+		}>('POST', '/api/labeling/piece-part-label', body);
+	},
+	deletePartLabel(machineId: string, pieceUuid: string) {
+		return request<{ ok: boolean }>(
+			'DELETE',
+			`/api/labeling/piece-part-label/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
 	submitBrickognizeFeedback(
 		machineId: string,
 		pieceUuid: string,
@@ -1460,6 +1684,14 @@ export const api = {
 			`/api/labeling/machine/${machineId}/labeled-pieces?${params.toString()}`
 		);
 	},
+	// BrickLink for-sale color mix for a part (labeling prior column)
+	partBrickLinkColors(partId: string, limit?: number) {
+		const qs = limit ? `?limit=${limit}` : '';
+		return request<PartBrickLinkColorsResponse>(
+			'GET',
+			`/api/labeling/part/${encodeURIComponent(partId)}/bricklink-colors${qs}`
+		);
+	},
 	machineLabeledPieceImageUrl(machineId: string, pieceUuid: string, seq: number) {
 		return resolveImagePath(
 			`/api/labeling/machine/${machineId}/labeled-pieces/${encodeURIComponent(pieceUuid)}/image?seq=${seq}`
@@ -1488,6 +1720,23 @@ export const api = {
 		return request<{ ok: boolean }>(
 			'DELETE',
 			`/api/labeling/piece-rejection/${machineId}/${encodeURIComponent(pieceUuid)}`
+		);
+	},
+	// Per-image quality flags for one crop. Post the whole flag set each time;
+	// an all-false set clears (deletes) the row server-side.
+	submitImageQuality(
+		body: {
+			machine_id: string;
+			crop_kind: 'piece_image' | 'channel_crop';
+			piece_uuid?: string;
+			seq?: number;
+			crop_local_id?: number;
+		} & Partial<ImageQualityFlags>
+	) {
+		return request<{ ok: boolean; created?: boolean; deleted?: boolean }>(
+			'POST',
+			'/api/labeling/image-quality',
+			body
 		);
 	},
 	deletePieceCropLink(machineId: string, pieceUuid: string) {
@@ -1685,6 +1934,9 @@ export const api = {
 	sampleOverlayUrl(id: string) {
 		return resolveApiPath(`/api/samples/${id}/assets/overlay`);
 	},
+	sampleChannelCropUrl(id: string, mask = true) {
+		return resolveApiPath(`/api/samples/${id}/assets/channel-crop?mask=${mask}`);
+	},
 
 	// Review
 	getNextReview(
@@ -1752,6 +2004,15 @@ export const api = {
 		return request<User>('PATCH', '/api/auth/me', data);
 	},
 
+	// AI models
+	listAiModels(refresh = false) {
+		return request<AiModelCatalog>('GET', `/api/ai/models${refresh ? '?refresh=true' : ''}`);
+	},
+
+	getAiUsage() {
+		return request<AiUsageSummary>('GET', '/api/ai/usage');
+	},
+
 	// Profile Catalog
 	getProfileCatalogStatus() {
 		return request<ProfileCatalogStatus>('GET', '/api/profile-catalog/status');
@@ -1783,6 +2044,10 @@ export const api = {
 			'GET',
 			`/api/profile-catalog/search-parts${qs ? '?' + qs : ''}`
 		);
+	},
+
+	profileCatalogCategories() {
+		return request<{ results: ProfileCatalogCategory[] }>('GET', '/api/profile-catalog/categories');
 	},
 
 	searchProfileCatalogSets(query: string, params: { min_year?: number; max_year?: number } = {}) {

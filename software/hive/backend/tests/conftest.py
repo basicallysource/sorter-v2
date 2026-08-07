@@ -28,6 +28,7 @@ from app.models import Base  # noqa: E402
 from app.models.user import User  # noqa: E402
 from app.models.machine import Machine  # noqa: E402
 from app.routers.auth import limiter as auth_limiter  # noqa: E402
+from app.routers.devices import limiter as devices_limiter  # noqa: E402
 from app.routers.machines import limiter as machine_limiter  # noqa: E402
 from app.routers.upload import limiter as upload_limiter  # noqa: E402
 
@@ -69,6 +70,7 @@ def client(db: Session) -> TestClient:
     app.dependency_overrides[get_db] = _override_get_db
     app.state.limiter.enabled = False
     auth_limiter.enabled = False
+    devices_limiter.enabled = False
     machine_limiter.enabled = False
     upload_limiter.enabled = False
     c = TestClient(app)
@@ -76,6 +78,7 @@ def client(db: Session) -> TestClient:
     app.dependency_overrides.clear()
     app.state.limiter.enabled = True
     auth_limiter.enabled = True
+    devices_limiter.enabled = True
     machine_limiter.enabled = True
     upload_limiter.enabled = True
 
@@ -161,6 +164,17 @@ def machine_token(test_machine: dict) -> str:
     return test_machine["raw_token"]
 
 
+@pytest.fixture()
+def device_token(client: TestClient) -> str:
+    """Enroll a hosted-services device and return its raw bearer token."""
+    resp = client.post(
+        "/api/devices/enroll",
+        json={"device_key": "test-device-key-0123456789abcdef"},
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()["token"]
+
+
 def make_test_image(width: int = 100, height: int = 100, fmt: str = "png") -> io.BytesIO:
     """Create a minimal valid PNG or JPEG image for upload tests."""
     if fmt == "png":
@@ -175,10 +189,13 @@ def make_test_image(width: int = 100, height: int = 100, fmt: str = "png") -> io
 
         sig = b"\x89PNG\r\n\x1a\n"
         ihdr = struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
-        # Raw image data: filter byte 0 + RGB per pixel per row
+        # Raw image data: filter byte 0 + RGB per pixel per row. Mid-gray (160)
+        # so the sample lands in the "normal" exposure bucket — pure red (luma
+        # ~76) reads as underexposed and gets hidden by the default exposure
+        # filter on list/review-queue endpoints.
         raw = b""
         for _ in range(height):
-            raw += b"\x00" + b"\xff\x00\x00" * width
+            raw += b"\x00" + b"\xa0\xa0\xa0" * width
         idat = zlib.compress(raw)
         png = sig + _chunk(b"IHDR", ihdr) + _chunk(b"IDAT", idat) + _chunk(b"IEND", b"")
         buf = io.BytesIO(png)

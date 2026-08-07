@@ -29,6 +29,11 @@ LIMITS: dict[str, dict[str, int | None]] = {
     "labeling_image": {"member": 120, "reviewer": 600, "admin": None},
     # Metadata list/detail calls that enumerate the set.
     "labeling_list": {"member": 30, "reviewer": 180, "admin": None},
+    # Parts-catalog typeahead. Not an exfil concern (public catalog data) — this
+    # caps cost: each search is a full 81k-row scan on the one shared sqlite
+    # connection. Sized well above a 300ms-debounced typist so only a runaway
+    # client hits it.
+    "catalog_search": {"member": 120, "reviewer": 300, "admin": None},
 }
 
 

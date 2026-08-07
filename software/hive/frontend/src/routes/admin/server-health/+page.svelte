@@ -9,6 +9,7 @@
 	let loading = $state(true);
 	let refreshing = $state(false);
 	let error = $state<string | null>(null);
+	let refreshQueued = $state(false);
 
 	$effect(() => {
 		if (!auth.isAdmin) {
@@ -24,6 +25,7 @@
 		else loading = true;
 		try {
 			health = await api.getServerHealth({ refreshStorage });
+			if (refreshStorage) refreshQueued = true;
 		} catch (e: unknown) {
 			error = e && typeof e === 'object' && 'error' in e ? String((e as { error: unknown }).error) : 'Failed to load server health';
 		} finally {
@@ -62,7 +64,7 @@
 	);
 
 	function storageAsOf(): string {
-		if (!health) return '';
+		if (!health || health.storage.computed_at == null) return 'not yet computed';
 		return new Date(health.storage.computed_at * 1000).toLocaleString();
 	}
 </script>
@@ -83,6 +85,13 @@
 	<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{error}</div>
 {/if}
 
+{#if refreshQueued}
+	<div class="mb-4 bg-info/8 p-3 text-sm text-info">
+		Storage refresh queued — a background walk of the object store is running. Reload in a few
+		minutes to see the updated figures.
+	</div>
+{/if}
+
 {#if loading}
 	<div class="flex justify-center py-12"><Spinner /></div>
 {:else if health}
@@ -93,7 +102,9 @@
 			<span class="text-2xl font-bold text-text tabular-nums">{bytes(storageTotal)}</span>
 		</div>
 		<p class="mt-0.5 text-xs text-text-muted">
-			{num(health.storage.total_files)} files · as of {storageAsOf()}{health.storage.cached ? ' (cached)' : ''}
+			{num(health.storage.total_files)} files · as of {storageAsOf()}{health.storage.pending
+				? ' · first walk in progress'
+				: ''}
 		</p>
 
 		<!-- Stacked proportion bar -->

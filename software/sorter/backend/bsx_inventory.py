@@ -14,8 +14,8 @@ from global_config import GlobalConfig
 # BrickStore/BrickStock inventory (.bsx) support. A .bsx is the XML export of a
 # real BrickLink store's on-hand inventory. Each <Item> carries a BrickLink
 # ItemID + ColorID + on-hand Qty. We use it as the *inverse* of a parts list:
-# a classified piece (which Brickognize reports in the SAME BrickLink id space —
-# see piece_metadata_db) is "not in inventory" when its (item_id, color_id) is
+# a classified piece (which Brickognize reports in the SAME BrickLink id space)
+# is "not in inventory" when its (item_id, color_id) is
 # absent from the active .bsx. The lookup is a live, in-memory set membership
 # test; swapping the active .bsx changes routing with no profile recompile.
 #

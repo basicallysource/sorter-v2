@@ -24,6 +24,7 @@ class OpenRouterResponse:
     usage: dict[str, Any] | None
     tool_calls: list[ToolCall] = field(default_factory=list)
     finish_reason: str | None = None
+    generation_id: str | None = None
 
 
 def run_openrouter_chat(
@@ -42,6 +43,10 @@ def run_openrouter_chat(
         "messages": messages,
         "temperature": temperature,
         "max_tokens": max_tokens,
+        # Without this OpenRouter returns token counts but no price, and the
+        # only other way to get the cost of a call is a follow-up request to
+        # /generation with the generation id.
+        "usage": {"include": True},
     }
     if response_format is not None:
         payload["response_format"] = response_format
@@ -69,16 +74,16 @@ def run_openrouter_chat(
     except HTTPError as exc:
         raw = exc.read().decode(errors="replace")
         try:
-            payload = json.loads(raw)
+            error_payload = json.loads(raw)
         except json.JSONDecodeError:
-            payload = None
+            error_payload = None
         message = None
-        if isinstance(payload, dict):
-            error_obj = payload.get("error")
+        if isinstance(error_payload, dict):
+            error_obj = error_payload.get("error")
             if isinstance(error_obj, dict):
                 message = error_obj.get("message")
             if not message:
-                message = payload.get("message")
+                message = error_payload.get("message")
         raise APIError(
             502,
             f"OpenRouter request failed: {message or f'HTTP {exc.code}'}",
@@ -119,4 +124,5 @@ def run_openrouter_chat(
         usage=data.get("usage") if isinstance(data.get("usage"), dict) else None,
         tool_calls=parsed_tool_calls,
         finish_reason=finish_reason,
+        generation_id=str(data["id"]) if data.get("id") else None,
     )

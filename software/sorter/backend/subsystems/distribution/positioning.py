@@ -157,7 +157,7 @@ class Positioning(BaseState):
                 category_id = self.sorting_profile.getCategoryIdForPart(piece.part_id, piece.color_id)
             else:
                 category_id = MISC_CATEGORY
-            # High-value override: a piece whose local-DB moving-average price
+            # High-value override: a piece whose Hive moving-average price
             # clears the profile's high_value_routing threshold is rerouted into
             # the configured category (e.g. Yellow/Orange Tiles), so it lands in
             # that category's bin regardless of its normal classification.

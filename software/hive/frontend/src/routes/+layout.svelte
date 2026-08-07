@@ -176,6 +176,16 @@
 										All Machines
 									</a>
 									<a
+										href="/admin/control-data"
+										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
+										onclick={() => { dropdownOpen = false; }}
+									>
+										<svg class="h-4 w-4 text-[var(--color-text-muted)]" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+											<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375m16.5 5.625c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125" />
+										</svg>
+										Control Data
+									</a>
+									<a
 										href="/admin/server-health"
 										class="flex items-center gap-2 px-4 py-2 text-sm text-[var(--color-text)] hover:bg-[var(--color-bg)]"
 										onclick={() => { dropdownOpen = false; }}
@@ -265,10 +275,10 @@
 		</nav>
 	{/if}
 
-	<!-- The single-piece labeling view runs wider — it carries a reference column,
-	     the piece, and the color picker side by side. -->
+	<!-- Piece labeling carries a reference column, the piece, and the color picker
+	     side by side — let it use the full window width rather than capping it. -->
 	<main
-		class="mx-auto px-4 py-6 {/^\/piece-bboxes\/.+/.test(page.url.pathname) ? 'max-w-[100rem]' : 'max-w-7xl'}"
+		class="mx-auto px-4 py-6 {page.url.pathname.startsWith('/piece-bboxes') ? 'w-full' : 'max-w-7xl'}"
 	>
 		{@render children()}
 	</main>

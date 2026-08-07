@@ -12,6 +12,7 @@ from typing import Any
 
 from fastapi import APIRouter
 
+import basically_services
 import status_ping
 
 router = APIRouter()
@@ -25,6 +26,6 @@ def get_status_ping_status() -> dict[str, Any]:
         "enabled": enabled,
         "install_id": install["install_id"],
         "created_at": install.get("created_at"),
-        "endpoint": status_ping._endpoint(),
+        "endpoint": basically_services._endpoint() + basically_services.PING_PATH,
         "sample_payload": status_ping.buildPayload("preview"),
     }

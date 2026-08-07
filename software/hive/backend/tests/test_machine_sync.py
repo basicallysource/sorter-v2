@@ -22,6 +22,7 @@ def test_sync_state_starts_empty(client, machine_token):
         "piece_images": {"max_local_id": 0},
         "channel_crops": {"max_local_id": 0},
         "piece_corrections": {"max_local_id": 0},
+        "control_data_segments": {"max_local_id": 0},
     }
 
 
@@ -150,6 +151,90 @@ def test_piece_image_with_and_without_file(client, machine_token, upload_dir):
     s.close()
     assert imgs["p1"].image_key and imgs["p1"].evicted_locally is False
     assert imgs["p2"].image_key is None and imgs["p2"].evicted_locally is True
+
+
+def test_piece_image_rejects_link_match_source(client, machine_token, upload_dir):
+    # Link-model guesses must never enter machine_piece_images (they would show
+    # in labeling galleries as "this IS the piece" and poison training data).
+    # The endpoint acks with an advanced watermark so an un-updated sorter
+    # drains past them instead of retrying forever — but stores nothing.
+    img = make_test_image(fmt="jpeg")
+    meta = {"piece_uuid": "pl", "seq": 0, "local_id": 200, "source": "link_match",
+            "channel": 2, "score": 0.97}
+    r = client.post(
+        "/api/machine/sync/piece-image",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps(meta)},
+        files={"image": ("crop.jpg", img, "image/jpeg")},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["image_stored"] is False
+    assert body["rejected_source"] == "link_match"
+    assert body["max_local_id"] == 200
+
+    from app.models.machine_piece_image import MachinePieceImage
+    from tests.conftest import TestingSessionLocal
+    s: Session = TestingSessionLocal()
+    n = s.query(MachinePieceImage).filter(MachinePieceImage.piece_uuid == "pl").count()
+    s.close()
+    assert n == 0
+
+
+def test_control_data_segment_with_and_without_file(client, machine_token, upload_dir):
+    import gzip
+
+    payload = gzip.compress(b'{"type":"meta","t":1.0}\n{"type":"state","ch":2}\n')
+    meta = {
+        "local_id": 5,
+        "started_at": 1_760_000_000.0,
+        "ended_at": 1_760_000_600.0,
+        "records": 2,
+        "bytes": len(payload),
+        "machine_setup": "classification_channel",
+        "feeder_mode": "PULSE_PERCEPTION_REV01",
+        "classification_mode": "TWO_PIECE_STATE_MACHINE_REV01",
+        "autotune_mode": "background",
+    }
+    r = client.post(
+        "/api/machine/sync/control-data-segment",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps(meta)},
+        files={"data": ("5.jsonl.gz", payload, "application/gzip")},
+    )
+    assert r.status_code == 200, r.text
+    assert r.json() == {"max_local_id": 5, "data_stored": True}
+
+    # Metadata-only (evicted locally): no file, still recorded.
+    r2 = client.post(
+        "/api/machine/sync/control-data-segment",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps({"local_id": 6, "records": 0})},
+    )
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["data_stored"] is False
+
+    # Non-gzip payload is rejected.
+    r3 = client.post(
+        "/api/machine/sync/control-data-segment",
+        headers=_bearer(machine_token),
+        data={"metadata": json.dumps({"local_id": 7})},
+        files={"data": ("7.jsonl.gz", b"not gzip", "application/gzip")},
+    )
+    assert r3.status_code == 400
+
+    state = client.get("/api/machine/sync/state", headers=_bearer(machine_token)).json()
+    assert state["control_data_segments"] == {"max_local_id": 6}
+
+    from app.models.machine_control_data_segment import MachineControlDataSegment
+    from tests.conftest import TestingSessionLocal
+    s: Session = TestingSessionLocal()
+    segments = {seg.local_id: seg for seg in s.query(MachineControlDataSegment).all()}
+    s.close()
+    assert segments[5].data_key and segments[5].evicted_locally is False
+    assert segments[5].feeder_mode == "PULSE_PERCEPTION_REV01"
+    assert segments[5].autotune_mode == "background"
+    assert segments[6].data_key is None and segments[6].evicted_locally is True
 
 
 def test_sync_requires_machine_token(client):

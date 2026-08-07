@@ -16,7 +16,7 @@ from app.deps import (
     verify_csrf,
 )
 from app.errors import APIError
-from app.models.detection_model import DetectionModel, DetectionModelVariant
+from app.models.detection_model import MODEL_PURPOSES, DetectionModel, DetectionModelVariant
 from app.models.user import User
 from app.schemas.model import (
     DetectionModelCreateRequest,
@@ -65,6 +65,10 @@ def list_models(
     scope: str | None = None,
     runtime: str | None = None,
     family: str | None = None,
+    purpose: str | None = Query(
+        None,
+        description="Filter by what the model is for. Omit to list every purpose.",
+    ),
     q: str | None = None,
     include_experimental: bool = Query(
         False,
@@ -76,6 +80,8 @@ def list_models(
     query = _apply_visibility(db.query(DetectionModel), current_user)
     if not include_experimental:
         query = query.filter(DetectionModel.experimental.is_(False))
+    if purpose:
+        query = query.filter(DetectionModel.purpose == purpose)
     if family:
         query = query.filter(DetectionModel.model_family == family)
     if q:
@@ -181,6 +187,8 @@ def create_model(
     _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
     _csrf: None = Depends(verify_csrf),
 ):
+    if payload.purpose not in MODEL_PURPOSES:
+        raise APIError(400, "Unsupported purpose", "UNSUPPORTED_PURPOSE")
     prev = (
         db.query(func.max(DetectionModel.version))
         .filter(DetectionModel.slug == payload.slug)
@@ -198,6 +206,7 @@ def create_model(
         codename=codename,
         name=payload.name,
         description=payload.description,
+        purpose=payload.purpose,
         model_family=payload.model_family,
         scopes=payload.scopes or [],
         training_metadata=payload.training_metadata,

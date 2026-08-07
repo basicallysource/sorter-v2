@@ -134,7 +134,9 @@ Per-camera image transform settings applied after capture.
 
 ## `[[gpio_leds]]`
 
-Digital output pins that are driven HIGH on boot and LOW on shutdown. One entry per pin. Useful for status LEDs wired to the basically or SKR Pico boards.
+Wiring only: which digital output channels have LEDs on them. One entry per pin.
+
+Whether those LEDs are on, how bright they are, and whether they light up at startup are **not** configured here — they are set from Settings → LEDs in the UI and stored in the machine's local state database.
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|

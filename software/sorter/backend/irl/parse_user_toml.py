@@ -1036,6 +1036,9 @@ def applyStepperStallguard(
     )
 
 
+# Wiring only — which board/channel an LED is soldered to. The runtime values an
+# operator changes (on/off, brightness, light-up-at-startup) live in
+# local_state.sqlite under the "led_control" key, not in machine.toml.
 VALID_GPIO_LED_BOARDS = {"feeder", "distribution", "any"}
 
 

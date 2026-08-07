@@ -1,14 +1,9 @@
 <script lang="ts">
 	import SectionCard from '$lib/components/settings/SectionCard.svelte';
 	import C4SectorOccupancyPanel from '$lib/components/settings/C4SectorOccupancyPanel.svelte';
-	import ChannelLedSection from '$lib/components/settings/ChannelLedSection.svelte';
 	import StepperSidebar from '$lib/components/settings/StepperSidebar.svelte';
 	import ZoneSection from '$lib/components/settings/ZoneSection.svelte';
 	import type { PageData } from './$types';
-
-	// The stations with a lighting hood of their own; the slug doubles as the
-	// backend channel key once dashes become underscores.
-	const LED_STATION_SLUGS = ['c-channel-2', 'c-channel-3', 'classification-channel'];
 
 	let { data }: { data: PageData } = $props();
 </script>
@@ -53,11 +48,5 @@
 				/>
 			{/each}
 		</div>
-	{/if}
-
-	{#if LED_STATION_SLUGS.includes(data.station.slug)}
-		<SectionCard title="LED" description="The light in this channel's hood.">
-			<ChannelLedSection channelKey={data.station.slug.replaceAll('-', '_')} />
-		</SectionCard>
 	{/if}
 </div>

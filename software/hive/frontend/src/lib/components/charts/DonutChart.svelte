@@ -1,7 +1,8 @@
 <script lang="ts">
 	// Hand-rolled SVG donut. Segments drawn with stroke-dasharray on a circle so
 	// there's no arc math; the legend carries the exact numbers.
-	export type DonutSegment = { label: string; value: number; color: string };
+	// `key` must be unique — labels are not (two machines can share a name).
+	export type DonutSegment = { key: string; label: string; value: number; color: string };
 
 	let {
 		segments,
@@ -39,7 +40,7 @@
 	<div class="flex flex-wrap items-center gap-4">
 		<svg viewBox="0 0 120 120" class="h-36 w-36 flex-shrink-0" role="img">
 			<circle cx="60" cy="60" r={R} fill="none" stroke="var(--color-border)" stroke-width={STROKE} />
-			{#each arcs as a (a.label)}
+			{#each arcs as a (a.key)}
 				<circle
 					cx="60"
 					cy="60"
@@ -64,7 +65,7 @@
 			{/if}
 		</svg>
 		<div class="flex min-w-0 flex-1 flex-col gap-1">
-			{#each arcs as a (a.label)}
+			{#each arcs as a (a.key)}
 				<div class="flex items-center gap-2 text-sm">
 					<span class="h-3 w-3 flex-shrink-0 border border-border" style:background-color={a.color}></span>
 					<span class="truncate text-text">{a.label}</span>

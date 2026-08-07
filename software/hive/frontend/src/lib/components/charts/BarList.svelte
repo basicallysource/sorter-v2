@@ -1,6 +1,7 @@
 <script lang="ts">
 	// Horizontal bar list for ranked categorical data (top parts, top colors).
-	export type BarItem = { label: string; sublabel?: string | null; value: number; swatch?: string | null };
+	// `key` must be unique — labels are not (two colors can share a name).
+	export type BarItem = { key: string; label: string; sublabel?: string | null; value: number; swatch?: string | null };
 
 	let {
 		items,
@@ -17,7 +18,7 @@
 	<div class="flex h-24 items-center justify-center text-sm text-text-muted">No data yet.</div>
 {:else}
 	<div class="flex flex-col gap-1.5">
-		{#each items as item (item.label + (item.sublabel ?? ''))}
+		{#each items as item (item.key)}
 			<div class="flex items-center gap-2 text-sm">
 				{#if item.swatch}
 					<span class="h-3 w-3 flex-shrink-0 border border-border" style:background-color={item.swatch}></span>

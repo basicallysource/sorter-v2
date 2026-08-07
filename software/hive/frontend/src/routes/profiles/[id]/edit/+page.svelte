@@ -1100,7 +1100,7 @@
 </svelte:head>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !profile}
 	<Alert variant="danger">Profile not found.</Alert>
 {:else if !profile.current_version}
@@ -1154,7 +1154,7 @@
 							onkeydown={(e) => { if (e.key === 'Enter') void saveVersion(); }} />
 						{#if suggestingNote}
 							<div class="absolute right-2.5 top-1/2 -translate-y-1/2">
-								<div class="h-3.5 w-3.5 animate-spin border-2 border-border border-t-[#7A7770]" style="border-radius: 50%"></div>
+								<Spinner size={14} class="text-text-muted" />
 							</div>
 						{/if}
 					</div>
@@ -1230,7 +1230,7 @@
 			{/if}
 			<div class="flex-1 overflow-y-auto">
 				{#if previewLoading}
-					<div class="flex items-center justify-center p-8"><Spinner /></div>
+					<div class="flex items-center justify-center p-8"><Spinner size={32} /></div>
 				{:else if displayRules.length === 0}
 					<div class="p-4 text-center text-sm text-text-muted">
 						No rules yet. Use chat to generate categories, or add one manually.

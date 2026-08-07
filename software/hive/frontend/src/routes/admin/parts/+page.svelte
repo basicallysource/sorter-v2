@@ -251,7 +251,7 @@
 
 <!-- Results -->
 {#if loading}
-	<div class="flex justify-center py-12"><Spinner /></div>
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
 {:else}
 	<div class="mb-2 flex items-center justify-between text-sm text-text-muted">
 		<span>{fmt(total)} parts</span>
@@ -319,7 +319,7 @@
 <!-- Detail modal -->
 <Modal open={detailOpen} title={detail ? `${detail.part.part_num} — ${detail.part.name}` : 'Part detail'} onclose={() => (detailOpen = false)}>
 	{#if detailLoading}
-		<div class="flex justify-center py-8"><Spinner /></div>
+		<div class="flex justify-center py-8"><Spinner size={32} /></div>
 	{:else if detail}
 		<div class="space-y-4">
 			<div class="flex gap-3">

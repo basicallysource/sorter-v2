@@ -1102,7 +1102,7 @@
 		</p>
 
 		{#if cropLoading}
-			<div class="flex justify-center py-8"><Spinner /></div>
+			<div class="flex justify-center py-8"><Spinner size={32} /></div>
 		{:else if cropError}
 			<div class="bg-primary/8 p-3 text-sm text-primary">{cropError}</div>
 		{:else if cropCandidates.length === 0}
@@ -1424,7 +1424,7 @@
 {/if}
 
 {#if loading}
-	<div class="flex justify-center py-16"><Spinner /></div>
+	<div class="flex justify-center py-16"><Spinner size={32} /></div>
 {:else if !detail}
 	<div class="border border-border bg-surface p-10 text-center">
 		<p class="text-sm text-text-muted">Piece not found.</p>

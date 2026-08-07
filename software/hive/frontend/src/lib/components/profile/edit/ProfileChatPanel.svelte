@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { renderMarkdown } from '$lib/markdown';
+	import Spinner from '$lib/components/Spinner.svelte';
 	import type { SortingProfileAiMessage, SortingProfileDetail, SortingProfileVersion, AiToolTraceItem } from '$lib/api';
 
 	type ToolResultListItem = {
@@ -323,10 +324,7 @@
 										<div class="flex items-start gap-2">
 											<div class="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center {card.status === 'active' ? 'text-[#8A6D1F]' : 'text-success'}">
 												{#if card.status === 'active'}
-													<svg class="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none">
-														<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-														<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>
-													</svg>
+													<Spinner size={14} />
 												{:else}
 													<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
 														<path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd" />

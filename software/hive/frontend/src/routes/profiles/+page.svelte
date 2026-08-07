@@ -83,7 +83,7 @@
 {/if}
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if profiles.length === 0}
 	<div class="border border-border bg-surface p-6 text-sm text-text-muted">You have not created any profiles yet.</div>
 {:else}

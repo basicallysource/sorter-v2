@@ -482,7 +482,7 @@
 <svelte:window onkeydown={onWindowKeyDown} />
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !sample}
 	<p class="text-text-muted">Sample not found.</p>
 {:else}

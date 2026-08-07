@@ -380,7 +380,7 @@ async function loadAssignmentProfile(profileId: string) {
 {/if}
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if machines.length === 0}
 	<p class="text-text-muted">No machines yet. Add one to get started.</p>
 {:else}
@@ -663,7 +663,7 @@ async function loadAssignmentProfile(profileId: string) {
 >
 	<div class="space-y-4">
 		{#if assignmentLoading}
-			<Spinner />
+			<div class="flex justify-center p-8"><Spinner size={32} /></div>
 		{:else if accessibleProfiles.length === 0}
 			<p class="text-sm text-text-muted">
 				No profiles are available yet. Create one or save a public profile to your library first.

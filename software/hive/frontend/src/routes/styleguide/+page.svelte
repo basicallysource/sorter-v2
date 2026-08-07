@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Button, Alert, Tooltip } from '$lib/components/primitives';
+	import Spinner from '$lib/components/Spinner.svelte';
 </script>
 
 <svelte:head>
@@ -508,18 +509,27 @@
 	<section class="space-y-4">
 		<h2 class="text-lg font-semibold tracking-tight">Loading States</h2>
 		<div class="border border-[#E2E0DB] bg-surface p-6">
-			<div class="flex items-center gap-8">
+			<p class="mb-4 text-sm text-[#7A7770]">
+				<code class="bg-bg px-1">Spinner</code> is the <strong>only</strong> loading animation in Hive — four sharp squares, one lit at a time, snapping clockwise. Import it and pass a
+				<code class="bg-bg px-1">size</code> (px); never hand-roll an <code class="bg-bg px-1">animate-spin</code> ring. It inherits its color from
+				<code class="bg-bg px-1">currentColor</code>.
+			</p>
+			<div class="flex items-end gap-8">
 				<div class="flex flex-col items-center gap-2">
-					<div class="h-8 w-8 animate-spin border-4 border-[#E2E0DB] border-t-[#D01012]" style="border-radius: 50%"></div>
-					<span class="text-xs text-[#7A7770]">Page Spinner</span>
+					<Spinner size={32} class="text-primary" />
+					<span class="text-xs text-[#7A7770]">Page — size={32}</span>
 				</div>
 				<div class="flex flex-col items-center gap-2">
-					<div class="h-4 w-4 animate-spin border-2 border-[#E2E0DB] border-t-[#7A7770]" style="border-radius: 50%"></div>
-					<span class="text-xs text-[#7A7770]">Inline Spinner</span>
+					<Spinner size={16} />
+					<span class="text-xs text-[#7A7770]">Inline — size={16}</span>
 				</div>
 				<div class="flex flex-col items-center gap-2">
-					<div class="py-4 text-center text-xs text-[#7A7770]">Searching...</div>
-					<span class="text-xs text-[#7A7770]">Text Loading</span>
+					<Spinner size={12} class="text-[#7A7770]" />
+					<span class="text-xs text-[#7A7770]">Compact — size={12}</span>
+				</div>
+				<div class="flex flex-col items-center gap-2">
+					<div class="flex items-center gap-1.5 py-4 text-xs text-[#7A7770]"><Spinner size={12} /> Searching...</div>
+					<span class="text-xs text-[#7A7770]">Inline with label</span>
 				</div>
 			</div>
 		</div>
@@ -667,7 +677,7 @@
 				<div class="mr-8">
 					<div class="border border-[#00852B]/15 bg-[#00852B]/5 px-3 py-2 text-xs">
 						<div class="flex items-center gap-1.5 text-[#00852B]/60">
-							<div class="h-3 w-3 shrink-0 animate-spin border-2 border-[#00852B]/20 border-t-[#00852B]" style="border-radius: 50%"></div>
+							<Spinner size={12} />
 							Searching sets for "Minecraft"...
 						</div>
 					</div>

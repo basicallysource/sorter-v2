@@ -142,7 +142,7 @@
 </script>
 
 {#if loading}
-	<div class="flex justify-center py-10"><Spinner /></div>
+	<div class="flex justify-center py-10"><Spinner size={32} /></div>
 {:else if error}
 	<div class="bg-primary/8 p-3 text-sm text-primary">{error}</div>
 {:else if data}

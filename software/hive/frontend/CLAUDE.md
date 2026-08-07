@@ -26,9 +26,40 @@ Hive is a public community product, so it is permitted to be friendlier than the
 
 - Cards, panels, buttons, inputs, alerts, modals: **flat corners** (no `rounded-*`).
 - Pill chips and avatar circles are OK (`rounded-full` on a small badge or avatar).
-- `Spinner` uses `rounded-full` because a circular spinner is the primitive.
 
 When in doubt, prefer flat. The divergence from the Sorter design language is intentional.
+
+## Loading — `Spinner` is the only loading animation
+
+`src/lib/components/Spinner.svelte` is a port of the canonical Sorter spinner
+(`software/sorter/frontend/src/lib/components/Spinner.svelte`): four **sharp-cornered**
+squares in a 2x2, one lit at a time, snapping clockwise every quarter cycle. The motion
+is discrete (`linear`, not eased), it inherits color via `currentColor`, and it scales
+via a `size` prop (a px number, default `16`). It deliberately keeps animating under
+`prefers-reduced-motion` — a frozen indicator reads as a hung process.
+
+This is the *one* exception to Hive's "friendlier than Sorter" license: spinners are
+sharp-cornered, same as Sorter. There is no `rounded-full` here.
+
+It is the **only** loading animation in the app. Import it and pass a `size`:
+
+```svelte
+import Spinner from '$lib/components/Spinner.svelte';
+…
+<Spinner size={32} />                       <!-- page/block loading -->
+<Spinner size={12} class="text-text-muted" /> <!-- inline, next to a label -->
+```
+
+Never hand-roll a loading indicator: no `animate-spin`, no `border-current
+border-t-transparent` ring, no spinning lucide `Loader2`, no inline `<svg
+class="animate-spin">`, no CSS `@keyframes` rotation. `rg "animate-spin" src/` should
+return nothing.
+
+`Spinner` renders only the indicator — it does **not** center or pad itself. Wrap it
+where you need layout (`<div class="flex justify-center p-8"><Spinner size={32} /></div>`).
+
+Genuine skeleton loaders (content-shaped placeholder blocks) are a different thing and
+are fine; this rule is about spinning/looping indicators.
 
 ## Primitives
 

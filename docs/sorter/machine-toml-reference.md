@@ -131,14 +131,3 @@ Per-camera image transform settings applied after capture.
 | `rotation` | int (0, 90, 180, 270) | `0` | Clockwise rotation in degrees applied to every captured frame. |
 | `flip_horizontal` | bool | `false` | Mirror the image left-to-right. |
 | `flip_vertical` | bool | `false` | Flip the image top-to-bottom. |
-
-## `[[gpio_leds]]`
-
-Wiring only: which digital output channels have LEDs on them. One entry per pin.
-
-Whether those LEDs are on, how bright they are, and whether they light up at startup are **not** configured here — they are set from Settings → LEDs in the UI and stored in the machine's local state database.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `board` | `"feeder"` \| `"distribution"` \| `"any"` | — | Which board to target. `"any"` applies the same pin index to all connected boards. |
-| `pin` | int (≥ 0) | — | 0-based digital output channel index on the target board. |

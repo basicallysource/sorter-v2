@@ -66,10 +66,7 @@ _STATE_KEY_SERVO_CHANNEL_CALIBRATION = "servo_channel_calibration"
 _STATE_KEY_TAILSCALE_HOSTNAME = "tailscale_hostname"
 _STATE_KEY_SAMPLE_COLLECTION = "sample_collection"
 _STATE_KEY_TELEMETRY_INSTALL = "telemetry_install"
-# Runtime LED control (on/off, brightness, boot behavior). The *wiring* — which
-# board and which digital-output channel is an LED — stays in machine.toml under
-# [[gpio_leds]]; only the values an operator changes from the UI live here.
-_STATE_KEY_LED_CONTROL = "led_control"
+_STATE_KEY_LEDS = "leds"
 _STATE_KEY_BASICALLY_SERVICES = "basically_services"
 
 _META_KEY_ACTIVE_SORTING_SESSION_ID = "active_sorting_session_id"
@@ -1066,34 +1063,36 @@ def set_set_progress_state(state: dict[str, Any] | None) -> None:
     _write_state(_STATE_KEY_SET_PROGRESS, normalized)
 
 
-LED_CONTROL_DEFAULTS: dict[str, Any] = {
-    "enabled": True,
-    "brightness_percent": 100,
-    "on_at_boot": True,
-}
+# The three channels that can have a light of their own. "assignments" maps one
+# to the id of the board output driving it; "brightness" is keyed by output id,
+# not by channel, so channels sharing a pin cannot disagree about its duty.
+LED_CHANNEL_KEYS = ("c_channel_2", "c_channel_3", "classification_channel")
+LED_DEFAULT_BRIGHTNESS_PERCENT = 100
 
 
-def _normalize_led_control(raw: Any) -> dict[str, Any]:
-    merged = dict(LED_CONTROL_DEFAULTS)
-    if not isinstance(raw, dict):
-        return merged
-    if isinstance(raw.get("enabled"), bool):
-        merged["enabled"] = raw["enabled"]
-    if isinstance(raw.get("on_at_boot"), bool):
-        merged["on_at_boot"] = raw["on_at_boot"]
-    brightness = raw.get("brightness_percent")
-    if isinstance(brightness, (int, float)) and not isinstance(brightness, bool):
-        merged["brightness_percent"] = max(0, min(100, int(round(brightness))))
-    return merged
+def _normalize_leds(raw: Any) -> dict[str, Any]:
+    raw = raw if isinstance(raw, dict) else {}
+    assignments_raw = raw.get("assignments") if isinstance(raw.get("assignments"), dict) else {}
+    brightness_raw = raw.get("brightness") if isinstance(raw.get("brightness"), dict) else {}
+    assignments = {
+        key: assignments_raw.get(key) if isinstance(assignments_raw.get(key), str) else None
+        for key in LED_CHANNEL_KEYS
+    }
+    brightness = {
+        str(output_id): max(0, min(100, int(round(percent))))
+        for output_id, percent in brightness_raw.items()
+        if isinstance(percent, (int, float)) and not isinstance(percent, bool)
+    }
+    return {"assignments": assignments, "brightness": brightness}
 
 
-def get_led_control_state() -> dict[str, Any]:
-    return _normalize_led_control(_read_state(_STATE_KEY_LED_CONTROL))
+def get_led_state() -> dict[str, Any]:
+    return _normalize_leds(_read_state(_STATE_KEY_LEDS))
 
 
-def set_led_control_state(state: dict[str, Any]) -> dict[str, Any]:
-    normalized = _normalize_led_control(state)
-    _write_state(_STATE_KEY_LED_CONTROL, normalized)
+def set_led_state(state: dict[str, Any]) -> dict[str, Any]:
+    normalized = _normalize_leds(state)
+    _write_state(_STATE_KEY_LEDS, normalized)
     return normalized
 
 

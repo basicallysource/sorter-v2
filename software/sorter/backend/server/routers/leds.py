@@ -23,8 +23,11 @@ class LedSettingsPayload(BaseModel):
 
 
 def _ledController() -> Any | None:
-    controller = shared_state.controller_ref
-    irl = getattr(controller, "irl", None) if controller is not None else None
+    # getActiveIRL() falls back to the runtime IRL when the controller has no
+    # .irl of its own. Reading controller_ref directly misses that case, and the
+    # miss is silent: the endpoint takes the offline path and reports success
+    # while the LEDs keep whatever duty hardware init left them at.
+    irl = shared_state.getActiveIRL()
     return getattr(irl, "led_controller", None) if irl is not None else None
 
 

@@ -50,7 +50,7 @@
 
 {#if auth.loading && !auth.initialized}
 	<div class="flex min-h-screen items-center justify-center">
-		<Spinner />
+		<Spinner size={32} />
 	</div>
 {:else}
 	{#if auth.isAuthenticated}

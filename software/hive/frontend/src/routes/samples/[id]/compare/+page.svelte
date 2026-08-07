@@ -158,7 +158,7 @@
 </div>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if loadError}
 	<div class="border border-border bg-surface px-6 py-10 text-center text-sm text-text-muted">
 		{loadError}

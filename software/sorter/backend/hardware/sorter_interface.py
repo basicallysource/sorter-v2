@@ -8,6 +8,7 @@
 import os
 import time
 import json
+from typing import Protocol
 from .bus import MCUDevice, BaseCommandCode
 import struct
 from global_config import GlobalConfig
@@ -44,6 +45,7 @@ class InterfaceCommandCode(BaseCommandCode):
     # Digital I/O commands
     DIGITAL_READ = 0x30
     DIGITAL_WRITE = 0x31
+    DIGITAL_WRITE_PWM = 0x32  # payload: uint16 duty (0 = off, 65535 = full on)
     # Servo commands
     SERVO_MOVE_TO = 0x40
     SERVO_SET_SPEED_LIMITS = 0x41
@@ -71,25 +73,52 @@ class DigitalInputPin:
     def channel(self):
         return self._channel
     
+# Duty is a uint16 on the wire. The firmware wraps its PWM counter at 65534 so
+# that 0 is genuinely always-low and DIGITAL_OUTPUT_DUTY_MAX always-high.
+DIGITAL_OUTPUT_DUTY_MAX = 65535
+
+
+class DigitalOutputDevice(Protocol):
+    # The whole surface a digital output needs from its board. Narrower than
+    # MCUDevice because writes never inspect the response.
+    def send_command(self, command: int, channel: int, payload: bytes) -> object: ...
+
+
 class DigitalOutputPin:
-    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
+    def __init__(self, device: DigitalOutputDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._value = False
+        self._duty = 0
         self._enabled = True
         self._gc = gc
 
     @property
     def value(self):
         return self._value
-    
+
     @value.setter
     def value(self, value: bool):
         self._value = bool(value)
+        self._duty = DIGITAL_OUTPUT_DUTY_MAX if self._value else 0
         self._gc.logger.info(f"DigitalOutput ch{self._channel}: set value={self._value}")
         payload = struct.pack("<?", self._value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.DIGITAL_WRITE, self._channel, payload)
-    
+
+    @property
+    def duty(self) -> int:
+        return self._duty
+
+    def setDuty(self, duty: int) -> None:
+        clamped = max(0, min(DIGITAL_OUTPUT_DUTY_MAX, int(duty)))
+        payload = struct.pack("<H", clamped)
+        self._dev.send_command(
+            InterfaceCommandCode.DIGITAL_WRITE_PWM, self._channel, payload
+        )
+        self._duty = clamped
+        self._value = clamped > 0
+        self._gc.logger.info(f"DigitalOutput ch{self._channel}: set duty={clamped}")
+
     @property
     def channel(self):
         return self._channel

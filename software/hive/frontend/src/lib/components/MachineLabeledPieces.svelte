@@ -66,7 +66,7 @@
 	</div>
 
 	{#if loading}
-		<div class="flex justify-center py-8"><Spinner /></div>
+		<div class="flex justify-center py-8"><Spinner size={32} /></div>
 	{:else if error}
 		<div class="p-3 text-sm text-primary">{error}</div>
 	{:else if items.length === 0}

@@ -154,7 +154,7 @@
 	{/if}
 
 	{#if loading && !status}
-		<Spinner />
+		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if status}
 		<div class="mb-6 border border-border bg-bg p-4 text-sm text-text-muted">
 			<div class="flex flex-wrap gap-x-6 gap-y-1">

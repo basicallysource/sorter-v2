@@ -99,7 +99,7 @@
 
 {#if loading}
 	<div class="flex justify-center py-12">
-		<Spinner />
+		<Spinner size={32} />
 	</div>
 {:else}
 	<div class="overflow-hidden border border-border bg-surface">

@@ -151,6 +151,7 @@ target_link_libraries(sorter_interface_firmware
         pico_time
         hardware_i2c
         hardware_timer
+        hardware_pwm
         )
 
 pico_add_extra_outputs(sorter_interface_firmware)

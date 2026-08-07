@@ -207,7 +207,7 @@
 	</div>
 
 	{#if searching}
-		<div class="flex justify-center py-3"><Spinner /></div>
+		<div class="flex justify-center py-3"><Spinner size={24} /></div>
 	{:else if searched && results.length === 0}
 		<p class="py-3 text-center text-xs text-text-muted">No parts match.</p>
 	{:else if results.length > 0}

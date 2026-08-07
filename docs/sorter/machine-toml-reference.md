@@ -131,12 +131,3 @@ Per-camera image transform settings applied after capture.
 | `rotation` | int (0, 90, 180, 270) | `0` | Clockwise rotation in degrees applied to every captured frame. |
 | `flip_horizontal` | bool | `false` | Mirror the image left-to-right. |
 | `flip_vertical` | bool | `false` | Flip the image top-to-bottom. |
-
-## `[[gpio_leds]]`
-
-Digital output pins that are driven HIGH on boot and LOW on shutdown. One entry per pin. Useful for status LEDs wired to the basically or SKR Pico boards.
-
-| Key | Type | Default | Description |
-|-----|------|---------|-------------|
-| `board` | `"feeder"` \| `"distribution"` \| `"any"` | — | Which board to target. `"any"` applies the same pin index to all connected boards. |
-| `pin` | int (≥ 0) | — | 0-based digital output channel index on the target board. |

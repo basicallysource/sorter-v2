@@ -1,0 +1,17 @@
+[Unit]
+Description=poll for a new Hive release every minute
+
+[Timer]
+# A minute is the FLOOR on deploy latency, not the expected wait — this is the
+# only delivery mechanism, so there is no webhook whose absence could mean a
+# release never installs. Cheap to run this often: the agent sends the releases
+# API an If-None-Match, and 304s do not count against the rate limit, so a poll
+# with nothing to do costs one conditional request and no work.
+OnBootSec=90s
+OnUnitActiveSec=60s
+RandomizedDelaySec=20s
+AccuracySec=5s
+Persistent=true
+
+[Install]
+WantedBy=timers.target

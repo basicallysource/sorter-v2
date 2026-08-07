@@ -201,7 +201,7 @@
 	<a href={backLink.href} class="text-sm text-text-muted hover:text-primary hover:underline">{backLink.label}</a>
 
 	{#if loading}
-		<div class="mt-8 flex justify-center"><Spinner /></div>
+		<div class="mt-8 flex justify-center"><Spinner size={32} /></div>
 	{:else if error}
 		<div class="mt-6"><Alert variant="danger">{error}</Alert></div>
 	{:else if overview && machine}
@@ -390,7 +390,7 @@
 								{#if expanded === backup.version}
 									<div class="border-t border-border bg-bg px-4 py-3">
 										{#if detailLoading}
-											<div class="flex justify-center py-4"><Spinner /></div>
+											<div class="flex justify-center py-4"><Spinner size={24} /></div>
 										{:else if detail}
 											<div class="mb-2 text-xs font-semibold tracking-wider text-text-muted uppercase">
 												local_state

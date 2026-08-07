@@ -179,7 +179,7 @@
 		<div
 			class="flex flex-col items-center gap-4 border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-10 text-center"
 		>
-			<Spinner />
+			<Spinner size={32} />
 			<div class="text-[var(--color-text)]">Waiting for your sorter to come online…</div>
 			<p class="max-w-sm text-sm text-[var(--color-text-muted)]">
 				Make sure you've rejoined your normal Wi-Fi. As soon as the sorter connects to the same

@@ -1340,7 +1340,7 @@
 	<!-- Main content -->
 	<div class="min-w-0 flex-1">
 		{#if loading}
-			<Spinner />
+			<div class="flex justify-center p-8"><Spinner size={32} /></div>
 		{:else if !data || data.items.length === 0}
 			<div class="border border-border bg-surface px-6 py-12 text-center">
 				<svg class="mx-auto mb-3 h-10 w-10 text-border" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

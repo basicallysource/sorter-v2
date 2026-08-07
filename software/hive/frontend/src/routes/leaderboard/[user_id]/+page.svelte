@@ -66,7 +66,7 @@
 	</div>
 
 	{#if loading}
-		<Spinner />
+		<div class="flex justify-center p-8"><Spinner size={32} /></div>
 	{:else if error}
 		<div class="border border-danger bg-danger/10 px-3 py-2 text-sm text-danger">{error}</div>
 	{:else if profile}

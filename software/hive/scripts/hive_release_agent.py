@@ -26,7 +26,12 @@ DEPLOY_DIR = Path(os.environ.get("HIVE_DEPLOY_DIR", "/basically/hive"))
 BACKUP_DIR = Path(os.environ.get("HIVE_BACKUP_DIR", "/basically/backups/hive-db"))
 BACKUP_KEEP_DAYS = int(os.environ.get("HIVE_BACKUP_KEEP_DAYS", "30"))
 BACKUP_KEEP_MIN = int(os.environ.get("HIVE_BACKUP_KEEP_MIN", "7"))
+BACKUP_S3_BUCKET = os.environ.get("HIVE_BACKUP_S3_BUCKET", "")
 BACKUP_S3_PREFIX = os.environ.get("HIVE_BACKUP_S3_PREFIX", "")
+BACKUP_S3_ENDPOINT = os.environ.get("HIVE_BACKUP_S3_ENDPOINT", "")
+BACKUP_S3_REGION = os.environ.get("HIVE_BACKUP_S3_REGION", "")
+BACKUP_S3_ACCESS_KEY_ID = os.environ.get("HIVE_BACKUP_S3_ACCESS_KEY_ID", "")
+BACKUP_S3_SECRET_ACCESS_KEY = os.environ.get("HIVE_BACKUP_S3_SECRET_ACCESS_KEY", "")
 RELEASES_KEEP = int(os.environ.get("HIVE_RELEASES_KEEP", "5"))
 HEALTH_URL = os.environ.get("HIVE_HEALTH_URL", "https://hive.basically.website/api/health")
 PG_CONTAINER = os.environ.get("HIVE_PG_CONTAINER", "hive-postgres")
@@ -224,17 +229,23 @@ def verifyBackup(path: Path) -> None:
 
 
 def uploadBackup(path: Path) -> None:
-    if not BACKUP_S3_PREFIX or shutil.which("aws") is None:
+    if not BACKUP_S3_BUCKET:
         return
-    result = subprocess.run(
-        ["aws", "s3", "cp", str(path), f"{BACKUP_S3_PREFIX}/{path.name}"],
-        capture_output=True,
-        text=True,
+    # Raises rather than warns. Local retention is short precisely because the
+    # off-box copy is meant to be the durable one, so an upload that quietly
+    # fails is how you arrive back at having no backups without being told.
+    import boto3
+
+    client = boto3.client(
+        "s3",
+        endpoint_url=BACKUP_S3_ENDPOINT,
+        region_name=BACKUP_S3_REGION,
+        aws_access_key_id=BACKUP_S3_ACCESS_KEY_ID,
+        aws_secret_access_key=BACKUP_S3_SECRET_ACCESS_KEY,
     )
-    if result.returncode == 0:
-        log(f"  ✓ off-box copy → {BACKUP_S3_PREFIX}/{path.name}")
-    else:
-        log(f"  ! off-box copy failed (non-fatal): {result.stderr.strip()}")
+    key = f"{BACKUP_S3_PREFIX}{path.name}" if BACKUP_S3_PREFIX else path.name
+    client.upload_file(str(path), BACKUP_S3_BUCKET, key)
+    log(f"  ✓ off-box copy → s3://{BACKUP_S3_BUCKET}/{key}")
 
 
 def pruneBackups(cfg: AgentConfig) -> None:

@@ -60,7 +60,7 @@ wrote — see CUTOVER.md → "Restoring the database".
 |-------|------|-------|---------|
 | Pre-deploy | agent dumps + verifies before migrating; deploy aborts if it fails | `/basically/backups/hive-db/db-*-predeploy.dump` | every deploy |
 | Nightly | `hive-backup.timer` → same verified dump | `/basically/backups/hive-db/db-*-nightly.dump` | 03:15 daily |
-| Off-box (opt) | same dump uploaded | `$HIVE_BACKUP_S3_PREFIX` | with each dump |
+| Off-box | same dump uploaded; run fails if it does not land | `$HIVE_BACKUP_S3_BUCKET` | with each dump |
 | Off-box (manual) | `backup.sh` pulls DB + parts.db to your Mac | `./backups/` | on demand |
 | Images | app writes originals | S3 bucket | continuous |
 

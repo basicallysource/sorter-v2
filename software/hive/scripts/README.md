@@ -1,10 +1,15 @@
 # Hive ops: release & backup
 
-Prod host: `root@100.116.70.1` (tailscale, hostname `balloon`; the public IP
-45.55.232.164 serves only 80/443, so you must be on the tailnet to poke at the
-box) · deploy root `/basically/hive` · stack traefik + hive-backend +
-hive-frontend + hive-postgres. Sample **images live in S3**; the **DB** (sample
-metadata, models, users, reviews) and **parts.db** live on the droplet.
+Prod host: `root@100.116.70.1` (tailscale, hostname `balloon`) · deploy root
+`/basically/hive` · stack traefik + hive-backend + hive-frontend +
+hive-postgres. Sample **images live in S3**; the **DB** (sample metadata,
+models, users, reviews) and **parts.db** live on the droplet.
+
+**SSH is tailnet-only** — there is no inbound tcp/22 at all, and 80/443 accept
+Cloudflare ranges only, so the public IP is not reachable directly. Machines
+talk to Hive at `https://hive.basically.website` through Cloudflare and do
+**not** need to be on the tailnet; the tailnet is for administration. Details:
+`sorter-v2-agent-notes/documentation/projects/hive/prod-access.md`.
 
 ## Deploy
 
@@ -18,7 +23,21 @@ and publishes a GitHub Release carrying a digest-pinned manifest. Prod polls
 that release list every minute (`hive-release.timer`) and installs on its own,
 typically within a minute of the workflow finishing.
 
-Nothing is built on the prod box. Nothing is scp'd to it. There is no `deploy.sh`.
+Nothing is built on the prod box. Nothing is scp'd to it. No git command runs
+against the prod checkout as part of deploying. There is no `deploy.sh`.
+
+Two things worth knowing before you try to ship:
+
+- **Only maintainers and admins can cut a release.** The repository ruleset
+  "Release tags — maintainers and admins only" restricts creating `hive/v*`
+  (also `firmware/v*`, `sorteros/v*`) and blocks deleting them. Write access to
+  the repo is not the same as deploy rights.
+- **The GHCR packages are private.** Prod does not pull anonymously — it uses a
+  classic PAT with only `read:packages`, via `docker login ghcr.io` stored in
+  root-only `/root/.docker/config.json`, and the same token as
+  `HIVE_GITHUB_TOKEN` in `/etc/hive-release.env` (which also lifts the releases
+  API off the anonymous 60/hr rate limit). **Do not make the packages public** —
+  private is deliberate.
 
 Watch it land:
 
@@ -35,8 +54,10 @@ state. Any failure rolls back to the previously installed digests.
 
 `hive-postgres` is never recreated by a deploy (`--no-deps`).
 
-**Setting this up on a fresh box, or cutting over from the old build-on-prod
-deploy: see [CUTOVER.md](CUTOVER.md).**
+**How this was set up:** [CUTOVER.md](CUTOVER.md) is the record of the
+2026-08-07 cutover. It is history — it has been carried out and must not be run
+again — but it is the reference for standing up a fresh box and for the
+recovery procedures.
 
 ## Break-glass
 
@@ -66,8 +87,20 @@ wrote — see CUTOVER.md → "Restoring the database".
 
 Every dump is validated with `pg_restore --list`, not just a size check — a
 `pg_dump` whose pipe broke still exits 0 and still writes a nonzero file.
-Retention is 30 days but never fewer than the 7 newest dumps, so a quiet month
-cannot leave the directory empty.
+
+Local retention is **3 days, never fewer than the 3 newest dumps**
+(`HIVE_BACKUP_KEEP_DAYS=3`, `HIVE_BACKUP_KEEP_MIN=3` in `/etc/hive-release.env`).
+Note the code's own defaults are 30/7 — the box deliberately overrides them.
+Short on purpose: 30 days is ~9 GB on a 77 GB disk, and the **off-box copy is
+the durable one**. That is also why the S3 upload is required rather than
+best-effort — a backup run whose upload fails exits non-zero, because short
+local retention plus a silently-failing upload is how you end up with no
+backups and no signal.
+
+The Space is `sorter-hive-backups` (nyc3, **private** — anonymous GET returns
+403), written with a Spaces key `hive-backups-rw` scoped `readwrite` to that
+bucket **only**: a credential that writes backups must not also be able to
+delete them, or one leak takes the data and the recovery path together.
 
 Restore:
 
@@ -87,9 +120,10 @@ docker exec -i hive-postgres sh -c 'pg_restore -U $POSTGRES_USER -d $POSTGRES_DB
 The live Postgres datadir, parts.db, uploads and model files are bind-mounted
 from `${HIVE_DATA_DIR}` (set in `/basically/hive/.env.prod`). Deploys no longer
 touch a git checkout at all, so the 2026-06-09 failure mode below cannot recur
-through the deploy path — but until the optional move in CUTOVER.md is done, the
-data still physically sits inside `/basically/sorter/sorter-v2`. **Never run
-`git clean`, `git stash -u`, or `git reset --hard` in that checkout.**
+through the deploy path — but that move **has not been done**: `HIVE_DATA_DIR`
+is still `/basically/sorter/sorter-v2/software/hive/data`, so the live datadir
+physically sits inside the checkout. **Never run `git clean`, `git stash -u`, or
+`git reset --hard` in that checkout.**
 
 ## Post-mortem — 2026-06-09 DB wipe (recovered)
 

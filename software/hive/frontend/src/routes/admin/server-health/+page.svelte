@@ -93,7 +93,7 @@
 {/if}
 
 {#if loading}
-	<div class="flex justify-center py-12"><Spinner /></div>
+	<div class="flex justify-center py-12"><Spinner size={32} /></div>
 {:else if health}
 	<!-- Storage -->
 	<section class="border border-border bg-surface p-5">

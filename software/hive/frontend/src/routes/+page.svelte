@@ -49,7 +49,7 @@
 </div>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if stats}
 	<div class="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
 		<div class="border border-border bg-surface p-4">

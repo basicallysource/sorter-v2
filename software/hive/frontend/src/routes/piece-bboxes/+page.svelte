@@ -431,7 +431,7 @@
 			</div>
 
 			{#if loading}
-				<div class="flex justify-center py-16"><Spinner /></div>
+				<div class="flex justify-center py-16"><Spinner size={32} /></div>
 			{:else if items.length === 0}
 				<div class="border border-border bg-surface p-10 text-center">
 					<p class="text-sm text-text-muted">No labelable pieces match these filters.</p>

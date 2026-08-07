@@ -10,6 +10,7 @@
 		type MachineWithToken
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	type LinkMode = 'existing' | 'new';
 
@@ -346,7 +347,7 @@
 						class="inline-flex min-h-10 items-center justify-center gap-2 bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:cursor-not-allowed disabled:opacity-60"
 					>
 						{#if submitting}
-							<span class="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white"></span>
+							<Spinner size={14} />
 							Linking...
 						{:else}
 							<svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">

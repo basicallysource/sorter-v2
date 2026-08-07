@@ -133,7 +133,7 @@
 </div>
 
 {#if loading && jobs.length === 0}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if error && jobs.length === 0}
 	<div class="border border-border bg-surface px-6 py-12 text-center text-sm text-text-muted">
 		{error}

@@ -518,7 +518,7 @@
 </div>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if empty}
 	<div class="border border-border bg-surface p-10 text-center">
 		<p class="text-lg font-medium text-text">No more samples to review.</p>

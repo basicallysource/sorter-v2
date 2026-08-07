@@ -101,7 +101,7 @@
 	{/if}
 
 	{#if loading}
-		<div class="flex justify-center py-16"><Spinner /></div>
+		<div class="flex justify-center py-16"><Spinner size={32} /></div>
 	{:else if models.length === 0}
 		<div class="border border-border bg-surface px-4 py-10 text-center text-sm text-text-muted">
 			No color models found in the scan directory. Upload an <code>.onnx</code> file there and hit Rescan.

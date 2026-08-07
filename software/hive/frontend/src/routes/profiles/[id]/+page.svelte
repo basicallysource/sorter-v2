@@ -161,7 +161,7 @@
 <svelte:head><title>{profile ? `${profile.name} - Hive` : 'Sorting Profile - Hive'}</title></svelte:head>
 
 {#if loading}
-	<Spinner />
+	<div class="flex justify-center p-8"><Spinner size={32} /></div>
 {:else if !profile}
 	<div class="border border-primary/20 bg-primary-light p-4 text-sm text-primary">{error ?? 'Profile not found.'}</div>
 {:else}

@@ -154,7 +154,7 @@
 	<a href="/models" class="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text)]">← Back to models</a>
 
 	{#if loading}
-		<div class="flex justify-center py-12"><Spinner /></div>
+		<div class="flex justify-center py-12"><Spinner size={32} /></div>
 	{:else if error}
 		<div class="border border-primary bg-primary-light p-3 text-sm text-primary">{error}</div>
 	{:else if model}

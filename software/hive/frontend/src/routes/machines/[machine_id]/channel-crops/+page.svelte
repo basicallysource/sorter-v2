@@ -181,7 +181,7 @@
 
 {#if loading}
 	<div class="flex justify-center py-12">
-		<Spinner />
+		<Spinner size={32} />
 	</div>
 {:else if crops.length === 0}
 	<div class="border border-border bg-surface p-8 text-center text-sm text-text-muted">
@@ -221,7 +221,7 @@
 
 	<div class="flex justify-center py-6">
 		{#if loadingMore}
-			<Spinner />
+			<Spinner size={24} />
 		{:else if nextCursor != null}
 			<Button variant="secondary" size="sm" onclick={loadMore}>Load more</Button>
 		{:else}

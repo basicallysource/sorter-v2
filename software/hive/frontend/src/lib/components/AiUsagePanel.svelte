@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import { api, type AiUsageSummary, type AiUsageTotals } from '$lib/api';
+	import Spinner from '$lib/components/Spinner.svelte';
 
 	let summary = $state<AiUsageSummary | null>(null);
 	let loading = $state(true);
@@ -48,7 +49,7 @@
 	</div>
 
 	{#if loading}
-		<p class="text-xs text-text-muted">Loading…</p>
+		<p class="flex items-center gap-1.5 text-xs text-text-muted"><Spinner size={12} /> Loading…</p>
 	{:else if error}
 		<p class="text-xs text-text-muted">{error}</p>
 	{:else if summary}

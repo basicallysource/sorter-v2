@@ -127,7 +127,7 @@
 	{/if}
 
 	{#if loading && !data}
-		<div class="flex justify-center py-12"><Spinner /></div>
+		<div class="flex justify-center py-12"><Spinner size={32} /></div>
 	{:else if data && data.items.length === 0}
 		<div class="border border-dashed border-[var(--color-border)] p-8 text-center text-sm text-[var(--color-text-muted)]">
 			No models match the current filters.

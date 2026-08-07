@@ -155,7 +155,9 @@ c_channel_3 = 4
 carousel = true
 
 # --- GPIO LED pins ---
-# Pins that should be driven HIGH on boot and LOW on shutdown.
+# Wiring only: which digital output channels have LEDs on them.
+# On/off, brightness, and whether they light up at startup are set from
+# Settings -> LEDs in the UI, not here.
 # board = "feeder" | "distribution" | "any"
 #   "any" applies to every connected board that has the pin.
 # pin = digital output channel index (0-based)

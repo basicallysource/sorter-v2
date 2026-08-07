@@ -140,6 +140,7 @@ from server.routers.wifi import router as wifi_router
 from server.routers.firmware import router as firmware_router
 from server.routers.versions import router as versions_router
 from server.routers.status_ping import router as status_ping_router
+from server.routers.leds import router as leds_router
 
 app.include_router(hardware_router)
 app.include_router(steppers_router)
@@ -163,6 +164,7 @@ app.include_router(wifi_router)
 app.include_router(firmware_router)
 app.include_router(versions_router)
 app.include_router(status_ping_router)
+app.include_router(leds_router)
 
 # ---------------------------------------------------------------------------
 # Lifecycle

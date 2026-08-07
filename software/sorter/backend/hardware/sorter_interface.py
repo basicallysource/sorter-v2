@@ -8,7 +8,7 @@
 import os
 import time
 import json
-from .bus import MCUDevice, BaseCommandCode
+from .bus import MCUDevice, BaseCommandCode, MCUBusError
 import struct
 from global_config import GlobalConfig
 
@@ -44,6 +44,7 @@ class InterfaceCommandCode(BaseCommandCode):
     # Digital I/O commands
     DIGITAL_READ = 0x30
     DIGITAL_WRITE = 0x31
+    DIGITAL_WRITE_PWM = 0x32  # payload: uint16 duty (0 = off, 65535 = full on)
     # Servo commands
     SERVO_MOVE_TO = 0x40
     SERVO_SET_SPEED_LIMITS = 0x41
@@ -71,25 +72,68 @@ class DigitalInputPin:
     def channel(self):
         return self._channel
     
+# Duty is a uint16 on the wire. The firmware wraps its PWM counter at 65534 so
+# that 0 is genuinely always-low and DIGITAL_OUTPUT_DUTY_MAX always-high.
+DIGITAL_OUTPUT_DUTY_MAX = 65535
+
+
 class DigitalOutputPin:
     def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._value = False
+        self._duty = 0
         self._enabled = True
+        self._pwm_supported: bool | None = None
         self._gc = gc
 
     @property
     def value(self):
         return self._value
-    
+
     @value.setter
     def value(self, value: bool):
         self._value = bool(value)
+        self._duty = DIGITAL_OUTPUT_DUTY_MAX if self._value else 0
         self._gc.logger.info(f"DigitalOutput ch{self._channel}: set value={self._value}")
         payload = struct.pack("<?", self._value) # 1 byte, boolean
         self._dev.send_command(InterfaceCommandCode.DIGITAL_WRITE, self._channel, payload)
-    
+
+    @property
+    def duty(self) -> int:
+        return self._duty
+
+    @property
+    def pwm_supported(self) -> bool:
+        if self._pwm_supported is None:
+            self._pwm_supported = self._dev.supports_digital_output_pwm
+        return self._pwm_supported
+
+    def setDuty(self, duty: int) -> None:
+        clamped = max(0, min(DIGITAL_OUTPUT_DUTY_MAX, int(duty)))
+        if not self.pwm_supported:
+            self.value = clamped > 0
+            return
+        payload = struct.pack("<H", clamped)
+        try:
+            self._dev.send_command(
+                InterfaceCommandCode.DIGITAL_WRITE_PWM, self._channel, payload
+            )
+        except MCUBusError as exc:
+            # Firmware predating DIGITAL_IO/WRITE_PWM (0x32) answers with an
+            # error frame instead of acting, so a board that was never reflashed
+            # degrades to plain on/off for the rest of this process.
+            self._pwm_supported = False
+            self._gc.logger.warning(
+                f"DigitalOutput ch{self._channel}: firmware rejected PWM write ({exc}). "
+                "Falling back to on/off for this output."
+            )
+            self.value = clamped > 0
+            return
+        self._duty = clamped
+        self._value = clamped > 0
+        self._gc.logger.info(f"DigitalOutput ch{self._channel}: set duty={clamped}")
+
     @property
     def channel(self):
         return self._channel
@@ -865,6 +909,7 @@ class SorterInterface(MCUDevice):
         super().__init__(bus, address)
         self._gc = gc
         self._observability_info: dict | None = None
+        self._digital_output_pwm: bool | None = None
         # Obtain the device information to populate the internal objects
         retries = 5
         while retries > 0:
@@ -910,6 +955,21 @@ class SorterInterface(MCUDevice):
             return 0
         res = self.send_command(InterfaceCommandCode.STEPPER_GET_STALL_STATUS, 0, b"")
         return res.payload[0] if res.payload else 0
+
+    @property
+    def supports_digital_output_pwm(self) -> bool:
+        if self._digital_output_pwm is None:
+            try:
+                info = self.get_observability_info()
+            except Exception as exc:
+                self._gc.logger.warning(
+                    f"Could not read observability from {self._name} to check PWM "
+                    f"support ({exc}). Assuming on/off only."
+                )
+                self._digital_output_pwm = False
+            else:
+                self._digital_output_pwm = bool(info.get("digital_output_pwm", False))
+        return self._digital_output_pwm
 
     def get_observability_info(self, *, force_refresh: bool = False) -> dict:
         if self._observability_info is not None and not force_refresh:

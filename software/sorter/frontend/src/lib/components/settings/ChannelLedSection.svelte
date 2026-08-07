@@ -91,9 +91,7 @@
 	{#if errorMsg}
 		<Alert variant="danger">{errorMsg}</Alert>
 	{:else if !loading && outputs.length === 0}
-		<Alert variant="info">
-			No control board on this machine exposes an LED output, so there is nothing to assign.
-		</Alert>
+		<Alert variant="info">No LED outputs are available to assign right now.</Alert>
 	{/if}
 
 	<SettingRow

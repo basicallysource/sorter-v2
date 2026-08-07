@@ -3,13 +3,17 @@ Description=Sorter Backend
 Documentation=https://basicallysource.github.io/sorter-v2/sorter/installation/
 After=network-online.target
 Wants=network-online.target
-StartLimitBurst=3
-StartLimitIntervalSec=60
+# No start-rate limit: field machines get power-cut and must keep retrying
+# instead of giving up forever after 3 fast failures (see sorter-ui-dev).
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
 User=__USER__
 WorkingDirectory=__SOFTWARE_DIR__/sorter/backend
+# Bytecode caches on tmpfs — power-cut corruption of an on-disk .pyc once
+# crash-looped the backend forever (bbs-01, 2026-08-01); see sorter-backend-dev.
+Environment=PYTHONPYCACHEPREFIX=/tmp/sorter-pycache
 # .env uses "export FOO=bar" syntax; systemd EnvironmentFile= doesn't handle
 # the export keyword — source through bash so both forms work correctly.
 ExecStart=/bin/bash -c "set -a; source __SOFTWARE_DIR__/.env; exec __UV_BIN__ run python supervisor.py"

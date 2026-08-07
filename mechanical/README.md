@@ -1,6 +1,8 @@
 # basically Sorter - Mechanical
 
-The CAD is not finished and nothing has been exported or committed to this repository yet.
+The CAD is not finished. The CAD exports live in [basicallysource/parts-calculator](https://github.com/basicallysource/parts-calculator/) right now, but will eventually get merged into this repository.
+
+[Parts calculator](https://parts-calculator.basically.website/)
 
 The CAD lives in OnShape. The top-level folder is private, and we're not even sure it's possible to make it public. If you'd like access, join the [Discord](https://discord.gg/6PZtqkwtaS).
 

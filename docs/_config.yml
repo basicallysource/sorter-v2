@@ -1,5 +1,6 @@
 title: Sorter V2 Documentation
-description: Detector runtime findings, model artifacts, and target conversion workflows.
+description: Documentation for Sorter, the LEGO sorting machine. Assembly, operation, and software.
+url: https://docs.basically.website
 encoding: utf-8
 markdown: kramdown
 kramdown:
@@ -14,7 +15,6 @@ exclude:
   - ux-concept-sorting-profiles.md
   - local-jekyll.sh
   - scripts
-  - _img-src
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Page front matter standard

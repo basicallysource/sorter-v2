@@ -10,7 +10,7 @@ permalink: /hardware/helpers/lazy-susan/
 author: spencer
 ---
 
-<img class="doc-figure" src="{{ '/assets/img/helpers/lazy-susan.jpg' | relative_url }}" alt="8-inch lazy Susan bearing; the rubber foot to remove is boxed in red">
+<img class="doc-figure" src="https://img.basically.website/web/helpers/lazy-susan.jpg" alt="8-inch lazy Susan bearing; the rubber foot to remove is boxed in red">
 
 Background on the part — sourcing, load rating, the 8" variant — is on the [Lazy Susan part page]({{ '/hardware/parts/lazy-susan/' | relative_url }}).
 

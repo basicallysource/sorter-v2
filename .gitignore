@@ -36,3 +36,5 @@ software/sorteros/v3/build/.env
 /backups/
 
 .DS_Store
+
+docs/scripts/__pycache__/

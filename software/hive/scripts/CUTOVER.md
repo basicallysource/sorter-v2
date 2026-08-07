@@ -168,12 +168,27 @@ EOF
 chmod 600 /etc/hive-release.env
 ```
 
-Optional off-box backup copies — set this only if you have an S3 target and the
-`aws` CLI is installed and credentialed; the agent treats the upload as
-best-effort and never fails a deploy on it:
+Off-box backup copies. Uses boto3 (already present on the box) against any
+S3-compatible endpoint — DigitalOcean Spaces here. Give the key access to the
+backup bucket **only**: if the key that writes backups can also be used to
+delete them, a single leaked credential takes your data and your recovery path
+together.
+
+Setting `HIVE_BACKUP_S3_BUCKET` makes the upload **required** — a backup run
+whose upload fails exits non-zero rather than warning. That is deliberate:
+local retention is short because the off-box copy is the durable one, so an
+upload that silently fails is how you end up with no backups and no signal.
 
 ```bash
-# echo 'HIVE_BACKUP_S3_PREFIX=s3://<bucket>/hive-db' >> /etc/hive-release.env
+cat >> /etc/hive-release.env <<'EOF'
+HIVE_BACKUP_S3_BUCKET=sorter-hive-backups
+HIVE_BACKUP_S3_ENDPOINT=https://nyc3.digitaloceanspaces.com
+HIVE_BACKUP_S3_REGION=nyc3
+HIVE_BACKUP_S3_ACCESS_KEY_ID=<spaces key scoped to that bucket>
+HIVE_BACKUP_S3_SECRET_ACCESS_KEY=<its secret>
+HIVE_BACKUP_KEEP_DAYS=3
+HIVE_BACKUP_KEEP_MIN=3
+EOF
 ```
 
 ### 2.6 Install the systemd units

@@ -1,0 +1,151 @@
+name: Hive Release
+
+# Pushing a `hive/vX.Y.Z` tag is the ONLY thing that ships Hive. This workflow
+# builds both images, pushes them to GHCR, and then publishes the GitHub
+# Release. The ordering matters: prod polls for releases, so a release that
+# exists is a release whose images are already in the registry. There is no
+# window where prod can see a version it cannot install.
+
+on:
+  push:
+    tags:
+      - 'hive/v*'
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Derive version
+        id: ver
+        run: |
+          VER=${GITHUB_REF_NAME#hive/}
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          echo "backend_image=${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/hive-backend" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=${REGISTRY}/${GITHUB_REPOSITORY_OWNER}/hive-frontend" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # linux/amd64 only: the prod droplet is x86_64. Building arm64 too would
+      # roughly double a ~6 min backend build for an image nothing pulls.
+      - name: Build and push backend
+        id: backend
+        uses: docker/build-push-action@v6
+        with:
+          context: software/hive
+          file: software/hive/Dockerfile.backend
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ver.outputs.backend_image }}:${{ steps.ver.outputs.version }}
+            ${{ steps.ver.outputs.backend_image }}:latest
+          cache-from: type=gha,scope=hive-backend
+          cache-to: type=gha,mode=max,scope=hive-backend
+
+      - name: Build and push frontend
+        id: frontend
+        uses: docker/build-push-action@v6
+        with:
+          context: software/hive
+          file: software/hive/Dockerfile.frontend
+          platforms: linux/amd64
+          push: true
+          provenance: false
+          tags: |
+            ${{ steps.ver.outputs.frontend_image }}:${{ steps.ver.outputs.version }}
+            ${{ steps.ver.outputs.frontend_image }}:latest
+          cache-from: type=gha,scope=hive-frontend
+          cache-to: type=gha,mode=max,scope=hive-frontend
+
+      # The manifest pins DIGESTS, not tags. Prod pulls by digest, so what runs
+      # is bit-identical to what this job built even if someone later moves the
+      # `:vX.Y.Z` tag. The `latest` tags above exist only for humans poking at
+      # the registry — nothing in the deploy path reads them.
+      - name: Build release manifest
+        run: |
+          cat > hive-release.json <<EOF
+          {
+            "version": "${{ steps.ver.outputs.version }}",
+            "tag": "${GITHUB_REF_NAME}",
+            "commit": "${GITHUB_SHA}",
+            "built_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "run_url": "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}",
+            "images": {
+              "backend": "${{ steps.ver.outputs.backend_image }}@${{ steps.backend.outputs.digest }}",
+              "frontend": "${{ steps.ver.outputs.frontend_image }}@${{ steps.frontend.outputs.digest }}"
+            }
+          }
+          EOF
+          python3 -c 'import json,sys; json.load(open("hive-release.json"))'
+          cp software/hive/docker-compose.prod.yml docker-compose.prod.yml
+          # Shipped as an asset so the version of the installer that a release
+          # was built against is always recoverable next to it. Prod does NOT
+          # auto-apply this — the installer updating itself mid-install is a
+          # foot-gun; see the "Updating the agent" section of CUTOVER.md.
+          cp software/hive/scripts/hive_release_agent.py hive_release_agent.py
+          cat hive-release.json
+
+      - name: Build hive-only release notes
+        run: |
+          CURRENT="$GITHUB_REF_NAME"
+          PREV=$(git tag -l 'hive/v*' | sort -V | awk -v cur="$CURRENT" '$0==cur{print prev} {prev=$0}')
+          HIVE_DIR=software/hive
+          if [ -n "$PREV" ]; then
+            echo "## Hive changes since ${PREV#hive/}" > RELEASE_NOTES.md
+            RANGE="${PREV}..HEAD"
+          else
+            echo "## Hive changes" > RELEASE_NOTES.md
+            RANGE="HEAD"
+          fi
+          echo "" >> RELEASE_NOTES.md
+          CHANGES=$(git log --full-history --no-merges --pretty=format:'- %s (%h)' "$RANGE" -- "$HIVE_DIR")
+          if [ -n "$CHANGES" ]; then
+            echo "$CHANGES" >> RELEASE_NOTES.md
+          else
+            echo "_No hive changes since the previous release._" >> RELEASE_NOTES.md
+          fi
+          cat >> RELEASE_NOTES.md <<'EOF'
+
+          ## Deploy
+
+          Prod (`hive.basically.website`) polls this repo's releases every minute
+          and installs the newest `hive/v*` one on its own. Nothing to run by
+          hand. Watch it land:
+
+          ```
+          journalctl -u hive-release -f
+          ```
+
+          `hive-release.json` pins the exact image digests this release installs.
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "Hive ${{ steps.ver.outputs.version }}"
+          generate_release_notes: false
+          body_path: RELEASE_NOTES.md
+          files: |
+            hive-release.json
+            docker-compose.prod.yml
+            hive_release_agent.py

@@ -87,13 +87,12 @@ from .parse_user_toml import (
     loadCarouselCalibrationConfig,
     loadChuteCalibrationConfig,
     loadCameraLayoutConfig,
-    loadGpioLedsConfig,
     applyStepperCurrentOverride,
     applyStepperStallguard,
 )
-from .leds import LedController, bindGpioLeds
+from .leds import LedController, discoverLedOutputs
 from blob_manager import getBinCategories
-from local_state import get_servo_states, set_servo_states
+from local_state import get_led_state, get_servo_states, set_servo_states
 
 HARDWARE_INIT_COMMAND_ATTEMPTS = 4
 HARDWARE_INIT_RETRY_DELAY_S = 0.2
@@ -1346,11 +1345,8 @@ def mkIRLInterface(config: IRLConfig, gc: GlobalConfig) -> IRLInterface:
         board.board_key: board for board in control_boards
     }
 
-    gpio_led_configs = loadGpioLedsConfig(gc, machine_specific_params)
-    irl_interface.led_controller = LedController(
-        gc, bindGpioLeds(gc, control_boards, gpio_led_configs)
-    )
-    irl_interface.led_controller.applyBootState()
+    irl_interface.led_controller = LedController(gc, discoverLedOutputs(gc, control_boards))
+    irl_interface.led_controller.apply(get_led_state())
 
     stepper_entries: list[tuple[str, str, "StepperMotor", "ControlBoard"]] = []
     feeder_board: "ControlBoard | None" = None

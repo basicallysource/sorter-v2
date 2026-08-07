@@ -153,19 +153,3 @@ c_channel_3 = 4
 
 [stepper_direction_inverts]
 carousel = true
-
-# --- GPIO LED pins ---
-# Wiring only: which digital output channels have LEDs on them.
-# On/off, brightness, and whether they light up at startup are set from
-# Settings -> LEDs in the UI, not here.
-# board = "feeder" | "distribution" | "any"
-#   "any" applies to every connected board that has the pin.
-# pin = digital output channel index (0-based)
-#
-# [[gpio_leds]]
-# board = "feeder"
-# pin = 1
-#
-# [[gpio_leds]]
-# board = "any"
-# pin = 0

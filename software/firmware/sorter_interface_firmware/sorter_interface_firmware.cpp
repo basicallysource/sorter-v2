@@ -318,12 +318,21 @@ int dump_observability(char *buf, size_t buf_size) {
     char diag_pins_buf[128];
     int diag_pins_len = append_stepper_diag_pins_json(diag_pins_buf, sizeof(diag_pins_buf));
 
+    char led_gpios_buf[64];
+    int led_len = snprintf(led_gpios_buf, sizeof(led_gpios_buf), "[");
+    for (int i = 0; i < LED_OUTPUT_COUNT && led_len > 0; i++) {
+        led_len += snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len,
+                            "%s%d", i == 0 ? "" : ",", digital_output_pins[i]);
+    }
+    snprintf(led_gpios_buf + led_len, sizeof(led_gpios_buf) - led_len, "]");
+
     int n_bytes = snprintf(
         buf,
         buf_size,
-        "{\"hw\":\"%s\",\"diag_pins\":%s,\"digital_output_pwm\":true}",
+        "{\"hw\":\"%s\",\"diag_pins\":%s,\"led_gpios\":%s}",
         HW_ID,
-        diag_pins_len > 0 ? diag_pins_buf : "[]");
+        diag_pins_len > 0 ? diag_pins_buf : "[]",
+        led_gpios_buf);
 
     if (n_bytes >= 0 && (size_t)n_bytes < buf_size) {
         return n_bytes;

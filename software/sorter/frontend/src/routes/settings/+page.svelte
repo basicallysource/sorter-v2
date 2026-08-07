@@ -4,7 +4,6 @@ import ApiKeysSection from '$lib/components/settings/ApiKeysSection.svelte';
 import SampleCaptureSection from '$lib/components/settings/SampleCaptureSection.svelte';
 import SampleStorageSection from '$lib/components/settings/SampleStorageSection.svelte';
 import TailscaleSection from '$lib/components/settings/TailscaleSection.svelte';
-import LedsSection from '$lib/components/settings/LedsSection.svelte';
 import WifiSection from '$lib/components/settings/WifiSection.svelte';
 import SectionCard from '$lib/components/settings/SectionCard.svelte';
 import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
@@ -45,13 +44,6 @@ import LegoColorPicker from '$lib/components/LegoColorPicker.svelte';
 				</a>
 			</div>
 		</div>
-	</SectionCard>
-
-	<SectionCard
-		title="LEDs"
-		description="Control the machine's LED lighting: on/off, brightness, and whether it comes on at startup."
-	>
-		<LedsSection />
 	</SectionCard>
 
 	<SectionCard

@@ -2,10 +2,14 @@
 	import { onDestroy, onMount } from 'svelte';
 	import { getBackendHttpBase, machineHttpBaseUrlFromWsUrl } from '$lib/backend';
 	import { getMachineContext } from '$lib/machines/context';
-	import { Alert } from '$lib/components/primitives';
-	import SettingRow from '$lib/components/settings/SettingRow.svelte';
+	import { Alert, InfoTip } from '$lib/components/primitives';
 
 	let { channelKey }: { channelKey: string } = $props();
+
+	// SettingRow puts label and control on one line with the control shrink-0,
+	// which squeezes the label out of a 20rem sidebar. This panel stacks instead.
+	const outputId = `led-output-${channelKey}`;
+	const brightnessId = `led-brightness-${channelKey}`;
 
 	const CHANNEL_LABELS: Record<string, string> = {
 		c_channel_2: 'C-Channel 2',
@@ -94,43 +98,47 @@
 		<Alert variant="info">No LED outputs are available to assign right now.</Alert>
 	{/if}
 
-	<SettingRow
-		label="Output"
-		description="Which board GPIO drives this channel's light. Several channels may share one GPIO — it is one physical pin."
-	>
+	<div class="flex flex-col gap-1.5 border border-border bg-bg px-3 py-2.5">
+		<label class="flex items-center gap-1.5 text-sm font-medium text-text" for={outputId}>
+			<span>Output</span>
+			<InfoTip
+				text="Which board GPIO drives this channel's light. Several channels may share one GPIO — it is one physical pin."
+			/>
+		</label>
 		<select
+			id={outputId}
 			value={assigned ?? ''}
 			disabled={loading || outputs.length === 0}
-			aria-label="LED output"
 			onchange={(e) => saveOutput(e.currentTarget.value || null)}
-			class="w-56 border border-border bg-bg px-2 py-1.5 text-sm text-text"
+			class="w-full border border-border bg-bg px-2 py-1.5 text-sm text-text"
 		>
 			<option value="">Not assigned</option>
 			{#each outputs as output (output.output_id)}
 				<option value={output.output_id}>{output.board_role} board — GPIO {output.gpio}</option>
 			{/each}
 		</select>
-	</SettingRow>
+	</div>
 
-	<SettingRow
-		label="Brightness"
-		description="PWM duty driven onto the assigned GPIO. 0% is off — there is no separate on/off."
-	>
+	<div class="flex flex-col gap-1.5 border border-border bg-bg px-3 py-2.5">
+		<label class="flex items-center gap-1.5 text-sm font-medium text-text" for={brightnessId}>
+			<span>Brightness</span>
+			<InfoTip text="PWM duty driven onto the assigned GPIO. 0% is off — there is no separate on/off." />
+		</label>
 		<div class="flex items-center gap-3">
 			<input
+				id={brightnessId}
 				type="range"
 				min="0"
 				max="100"
 				step="1"
 				value={percent}
 				disabled={loading || !assigned}
-				aria-label="LED brightness percent"
 				oninput={(e) => saveBrightness(Number(e.currentTarget.value))}
-				class="w-40"
+				class="min-w-0 flex-1"
 			/>
-			<span class="w-12 shrink-0 text-right text-sm text-text tabular-nums">{percent}%</span>
+			<span class="w-10 shrink-0 text-right text-sm text-text tabular-nums">{percent}%</span>
 		</div>
-	</SettingRow>
+	</div>
 
 	{#if sharedWith.length > 0}
 		<div class="border border-border bg-bg px-3 py-2.5 text-sm text-text-muted">

@@ -19,9 +19,11 @@ Click the dropdown at the top right of the UI and select **Full Machine Power Do
 
 ## Option 2: the button on the Orange Pi
 
-Press the small black button on the side of the Orange Pi (circled below).
+Press the small black button on the side of the Orange Pi once (circled below). That begins the shutdown procedure.
 
 <img class="doc-figure" src="https://img.basically.website/web/sorter/safe-shutdown/orange-pi-power-button.jpg" alt="Orange Pi 5 board with the side power button circled in red">
+
+You'll know it's shut down when the red and green light on the board have stopped blinking.
 
 With either option, the full shutdown takes about a minute and a half. Wait for it to finish before flipping the switch or unplugging the machine.
 

@@ -2,49 +2,60 @@ import importlib
 import os
 import tempfile
 import unittest
+from collections.abc import Sequence
 from typing import Any
 
 from hardware.bus import MCUBusError
 from hardware.sorter_interface import DIGITAL_OUTPUT_DUTY_MAX, DigitalOutputPin
 from irl.leds import BoundLed, LedController, bindGpioLeds, brightnessPercentToDuty
 from irl.parse_user_toml import GpioLedConfig
+from machine_platform.control_board import BoardIdentity
 
 
 class FakeDevice:
+    # Structurally a sorter_interface.DigitalOutputDevice.
     def __init__(self, pwm_supported: bool = True, reject_pwm: bool = False) -> None:
-        self.supports_digital_output_pwm = pwm_supported
+        self._pwm_supported = pwm_supported
         self.reject_pwm = reject_pwm
         self.commands: list[tuple[int, int, bytes]] = []
 
-    def send_command(self, command: int, channel: int, payload: bytes) -> Any:
+    @property
+    def supports_digital_output_pwm(self) -> bool:
+        return self._pwm_supported
+
+    def send_command(self, command: int, channel: int, payload: bytes) -> object:
         if int(command) == 0x32 and self.reject_pwm:
             raise MCUBusError("Unknown command")
         self.commands.append((int(command), channel, payload))
         return None
 
 
-class FakeBoardIdentity:
-    def __init__(self, role: str, device_name: str) -> None:
-        self.role = role
-        self.device_name = device_name
-
-
 class FakeBoardInterface:
-    def __init__(self, digital_outputs: tuple) -> None:
+    def __init__(self, digital_outputs: Sequence[DigitalOutputPin]) -> None:
         self.digital_outputs = digital_outputs
 
 
 class FakeBoard:
-    def __init__(self, role: str, device_name: str, digital_outputs: tuple) -> None:
-        self.identity = FakeBoardIdentity(role, device_name)
+    # Structurally a leds.LedCapableBoard — the real ControlBoard ABC demands a
+    # whole SorterInterface, which these tests have no use for.
+    def __init__(
+        self, role: str, device_name: str, digital_outputs: Sequence[DigitalOutputPin]
+    ) -> None:
+        self.identity = BoardIdentity(
+            family="basically",
+            role=role,
+            device_name=device_name,
+            port="/dev/null",
+            address=0,
+        )
         self.interface = FakeBoardInterface(digital_outputs)
 
 
 class FakeLogger:
-    def info(self, *args: Any, **kwargs: Any) -> None:
+    def info(self, message: str) -> None:
         pass
 
-    def warning(self, *args: Any, **kwargs: Any) -> None:
+    def warning(self, message: str) -> None:
         pass
 
 

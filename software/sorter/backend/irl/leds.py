@@ -1,5 +1,6 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol
 
 from global_config import GlobalConfig
 from hardware.sorter_interface import DIGITAL_OUTPUT_DUTY_MAX
@@ -8,12 +9,27 @@ from local_state import (
     get_led_control_state,
     set_led_control_state,
 )
+from machine_platform.control_board import BoardIdentity
 
 if TYPE_CHECKING:
     from hardware.sorter_interface import DigitalOutputPin
-    from machine_platform.control_board import ControlBoard
 
     from .parse_user_toml import GpioLedConfig
+
+
+class DigitalOutputHost(Protocol):
+    @property
+    def digital_outputs(self) -> "Sequence[DigitalOutputPin]": ...
+
+
+class LedCapableBoard(Protocol):
+    # Structural rather than the ControlBoard ABC: binding LEDs only ever reads
+    # the board's name/role and its digital outputs.
+    @property
+    def identity(self) -> BoardIdentity: ...
+
+    @property
+    def interface(self) -> DigitalOutputHost: ...
 
 
 def brightnessPercentToDuty(brightness_percent: int) -> int:
@@ -30,7 +46,7 @@ class BoundLed:
 
 
 class LedController:
-    def __init__(self, gc: GlobalConfig, leds: list[BoundLed]) -> None:
+    def __init__(self, gc: GlobalConfig, leds: Sequence[BoundLed]) -> None:
         self._gc = gc
         self._leds = leds
         self._state = get_led_control_state()
@@ -112,8 +128,8 @@ class LedController:
 
 def bindGpioLeds(
     gc: GlobalConfig,
-    control_boards: "list[ControlBoard]",
-    led_configs: "list[GpioLedConfig]",
+    control_boards: Sequence[LedCapableBoard],
+    led_configs: "Sequence[GpioLedConfig]",
 ) -> list[BoundLed]:
     bound: list[BoundLed] = []
     for cfg in led_configs:

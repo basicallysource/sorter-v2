@@ -8,6 +8,7 @@
 import os
 import time
 import json
+from typing import Protocol
 from .bus import MCUDevice, BaseCommandCode, MCUBusError
 import struct
 from global_config import GlobalConfig
@@ -77,8 +78,18 @@ class DigitalInputPin:
 DIGITAL_OUTPUT_DUTY_MAX = 65535
 
 
+class DigitalOutputDevice(Protocol):
+    # The whole surface a digital output needs from its board. Narrower than
+    # MCUDevice because writes never inspect the response, and it keeps the
+    # PWM capability flag typed instead of getattr-probed.
+    @property
+    def supports_digital_output_pwm(self) -> bool: ...
+
+    def send_command(self, command: int, channel: int, payload: bytes) -> object: ...
+
+
 class DigitalOutputPin:
-    def __init__(self, device: MCUDevice, channel: int, gc: GlobalConfig):
+    def __init__(self, device: DigitalOutputDevice, channel: int, gc: GlobalConfig):
         self._dev = device
         self._channel = channel
         self._value = False
@@ -105,9 +116,11 @@ class DigitalOutputPin:
 
     @property
     def pwm_supported(self) -> bool:
-        if self._pwm_supported is None:
-            self._pwm_supported = self._dev.supports_digital_output_pwm
-        return self._pwm_supported
+        cached = self._pwm_supported
+        if cached is None:
+            cached = self._dev.supports_digital_output_pwm
+            self._pwm_supported = cached
+        return cached
 
     def setDuty(self, duty: int) -> None:
         clamped = max(0, min(DIGITAL_OUTPUT_DUTY_MAX, int(duty)))
@@ -958,18 +971,21 @@ class SorterInterface(MCUDevice):
 
     @property
     def supports_digital_output_pwm(self) -> bool:
-        if self._digital_output_pwm is None:
-            try:
-                info = self.get_observability_info()
-            except Exception as exc:
-                self._gc.logger.warning(
-                    f"Could not read observability from {self._name} to check PWM "
-                    f"support ({exc}). Assuming on/off only."
-                )
-                self._digital_output_pwm = False
-            else:
-                self._digital_output_pwm = bool(info.get("digital_output_pwm", False))
-        return self._digital_output_pwm
+        cached = self._digital_output_pwm
+        if cached is not None:
+            return cached
+        try:
+            info = self.get_observability_info()
+        except Exception as exc:
+            self._gc.logger.warning(
+                f"Could not read observability from {self._name} to check PWM "
+                f"support ({exc}). Assuming on/off only."
+            )
+            supported = False
+        else:
+            supported = bool(info.get("digital_output_pwm", False))
+        self._digital_output_pwm = supported
+        return supported
 
     def get_observability_info(self, *, force_refresh: bool = False) -> dict:
         if self._observability_info is not None and not force_refresh:

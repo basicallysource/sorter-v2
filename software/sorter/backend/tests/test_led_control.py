@@ -263,5 +263,38 @@ class LedControllerTests(unittest.TestCase):
         self.assertEqual(controller.state["brightness_percent"], 100)
 
 
+class LedRouterLookupTest(unittest.TestCase):
+    # The router reaching for shared_state.controller_ref.irl directly shipped a
+    # silent failure: with hardware up but the controller carrying no .irl, the
+    # lookup returned None, so every write took the offline path and reported
+    # success while the LEDs stayed at whatever duty hardware init set.
+    def setUp(self) -> None:
+        from server import shared_state
+
+        self.shared_state = shared_state
+        self.prior_controller = shared_state.controller_ref
+        self.prior_irl = shared_state.hardware_runtime_irl
+
+    def tearDown(self) -> None:
+        self.shared_state.controller_ref = self.prior_controller
+        self.shared_state.hardware_runtime_irl = self.prior_irl
+
+    def test_controller_found_via_runtime_irl_when_controller_has_no_irl(self) -> None:
+        from server.routers import leds as leds_router
+
+        sentinel = object()
+
+        class IrlWithLeds:
+            led_controller = sentinel
+
+        class ControllerWithoutIrl:
+            pass
+
+        self.shared_state.controller_ref = ControllerWithoutIrl()
+        self.shared_state.setHardwareRuntimeIRL(IrlWithLeds())
+
+        self.assertIs(leds_router._ledController(), sentinel)
+
+
 if __name__ == "__main__":
     unittest.main()

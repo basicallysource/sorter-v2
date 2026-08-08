@@ -58,19 +58,19 @@ jobs:
 
       - run: pip install wireviz==0.4.1 boto3
 
-      # The runner image ships its own dot in /usr/local/bin, which shadows
-      # apt's. Prepending /usr/bin makes the pinned package win from the next
-      # step on; the render step asserts it, so a version change is a loud
-      # failure and a deliberate one-line bump, never drift.
+      # Asserted on the PACKAGE version, not `dot -V`: Ubuntu's graphviz
+      # 2.42.2-9ubuntu0.1 self-reports "2.43.0 (0)" (upstream bumped version.h
+      # mid-cycle), so the binary's own string can't tell pinned from drifted.
+      # The assert makes a future package change a loud failure and a
+      # deliberate one-line bump, never drift.
       - run: |
           sudo apt-get update
           sudo apt-get install -y graphviz=2.42.2-9ubuntu0.1
-          echo "/usr/bin" >> "$GITHUB_PATH"
-
-      - run: |
           dot -V
-          dot -V 2>&1 | grep -qF '2.42.2' || { echo '::error::dot is not the pinned graphviz 2.42.2'; exit 1; }
-          ./electronics/wire_harness/build-harness.sh
+          dpkg-query -W -f='${Version}\n' graphviz
+          [ "$(dpkg-query -W -f='${Version}' graphviz)" = "2.42.2-9ubuntu0.1" ] || { echo '::error::graphviz package is not the pinned 2.42.2-9ubuntu0.1'; exit 1; }
+
+      - run: ./electronics/wire_harness/build-harness.sh
 
       - name: Publish to the assets bucket
         # Same-repo refs only: fork PRs have no secrets, so they stop at the

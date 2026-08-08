@@ -87,6 +87,14 @@ The wire IDs (`W1`, `L3p`, `S1-S4`, `CH`, `RIB`) are the join key across the
 schedule, the order spec, and the drawings. Renaming one means renaming it
 everywhere.
 
+## Legacy files
+
+`10_pin.yaml` / `10pin.png` and `4_pin.yaml` / `4pin.png` are standalone
+connector definitions from before this pipeline, kept deliberately (Spencer,
+2026-08-08). They are not part of the rendered set: the build only picks up
+`*.yml`, and their PNGs are grandfathered committed renders. Do not delete
+them as cleanup, and do not take them as precedent for committing new renders.
+
 ## Status
 
 Nothing here has been validated against the physical machine. Guessed values

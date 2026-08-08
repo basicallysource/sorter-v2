@@ -56,6 +56,14 @@ Disaster recovery, if the bucket is ever lost or defaced: rotate the key, run
 the workflow on main (`workflow_dispatch`), done. Photos elsewhere in the
 bucket come back from the gravity mirror.
 
+## Linking someone to a preview
+
+Take the preview URL from Vercel's own PR comment or check, never by deriving
+it from the branch name: Vercel truncates long branch names to fit DNS's
+63-character label limit, so a derived
+`sorter-v2-docs-git-<branch>-...vercel.app` hostname can simply not resolve.
+The wireviz page on that preview is `/hardware/electronics/wireviz/`.
+
 ## Adding a drawing
 
 1. New `<name>.yml` source here.

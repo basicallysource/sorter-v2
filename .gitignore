@@ -1,6 +1,7 @@
 .claude/
-AGENTS.md
-!docs/AGENTS.md
+# Machine-local agent notes (private: machine names, tailnet, access details).
+# The committed AGENTS.md files are public.
+AGENTS.local.md
 .tmp-*
 
 machine.toml
@@ -28,6 +29,11 @@ software/sorteros/v3/build/.env
 /docs/.sass-cache/
 /docs/vendor/
 /docs/.bundle/
+
+# Rendered WireViz output. build-harness.sh generates it from the YAML sources
+# beside it; upload-harness.py puts it in the basically-docs bucket and prints
+# the URLs the docs reference. Never committed: no images go into git history.
+/electronics/wire_harness/out/
 /data/
 /test.db
 /test-profile-parts.db

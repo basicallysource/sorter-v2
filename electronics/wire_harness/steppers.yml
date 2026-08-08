@@ -1,0 +1,50 @@
+metadata:
+  title: Sorter V2 - stepper cables
+  description: >
+    Channel stepper crossover cable (x4) and chute stepper cable.
+    Values marked GUESS are guesses, not measurements.
+
+connectors:
+  BOARD_S:
+    type: JST PH 4-pin (PHR-4)
+    subtype: female
+    pinlabels: [A2, A1, B1, B2]
+    notes: basically board v1.3 J23/J27/J31/J35 - one cable per jack, x4 identical
+  MOTOR_LEAD:
+    type: XH2.54 4-pin inline male (clone)
+    subtype: male
+    pinlabels: [A2, B1, A1, B2]
+    notes: mates the StepperOnline shipped motor lead, which interleaves the coils
+  BOARD_CH:
+    type: JST PH 4-pin (PHR-4)
+    subtype: female
+    pinlabels: [A2, A1, B1, B2]
+    notes: basically board v1.3 J39
+  CH_LEADS:
+    type: Bare tinned leads, labeled 1-4
+    pinlabels: [A2, A1, B1, B2]
+    notes: splice to chute stepper flying leads - find coil pairs with a multimeter first
+
+cables:
+  S:
+    category: cable
+    gauge: 24 AWG
+    length: 40 in
+    colors: [BK, RD, GN, BU]
+    notes: S1-S4, qty 4. Gauge = GUESS (JST-PH contact limit). NOT straight-through, see crossover.
+  CH:
+    category: cable
+    gauge: 24 AWG
+    length: 40 in
+    colors: [BK, GN, RD, BU]
+    notes: qty 1. Gauge = GUESS. Length = GUESS (copied from channel cables). Straight-through.
+
+connections:
+  -
+    - BOARD_S: [1-4]
+    - S: [1-4]
+    - MOTOR_LEAD: [1, 3, 2, 4]
+  -
+    - BOARD_CH: [1-4]
+    - CH: [1-4]
+    - CH_LEADS: [1-4]

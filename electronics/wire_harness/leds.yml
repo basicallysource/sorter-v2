@@ -1,0 +1,104 @@
+metadata:
+  title: Sorter V2 - LED drops and limit switch
+  description: >
+    LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p, and the limit
+    switch cable. Values marked GUESS are guesses, not measurements.
+
+connectors:
+  BOARD_L1: &dupont
+    type: Dupont 1x2 female, 2.54 mm
+    pinlabels: [+24V, GND]
+    notes: on basically board v1.3. GUESS - verify which pin is +
+  BOARD_L2: *dupont
+  BOARD_L3: *dupont
+  LJ1: &ledjack
+    type: DC jack 5.5x2.1 female, inline
+    pinlabels: [+24V (tip), GND (sleeve)]
+    notes: unplug point
+  LJ2: *ledjack
+  LJ3: *ledjack
+  LP1: &ledplug
+    type: DC plug 5.5x2.1 male
+    pinlabels: [+24V (tip), GND (sleeve)]
+  LP2: *ledplug
+  LP3: *ledplug
+  COB1: &cob
+    type: Solder pads
+    pinlabels: [+24V, GND]
+    notes: COB board - solder direct
+  COB2: *cob
+  STRIP:
+    type: Solder pads
+    pinlabels: [+24V, GND]
+    notes: LED strip, 6000K - solder direct
+  BOARD_LIM:
+    type: Dupont 1x2 female, 2.54 mm
+    pinlabels: [SIG, GND]
+    notes: on basically board v1.3. GUESS - verify pin order
+  SW:
+    type: Bare tinned leads
+    pinlabels: [SIG, GND]
+    notes: solder to limit switch lugs
+
+cables:
+  L1: &feed
+    gauge: 22 AWG
+    length: 36 in
+    colors: [RD, BK]
+    notes: LED feed. Gauge = GUESS
+  L2: *feed
+  L3: *feed
+  L1P: &pig
+    gauge: 22 AWG
+    length: 6 in
+    colors: [RD, BK]
+    notes: LED pigtail. Gauge = GUESS
+  L2P: *pig
+  L3P: *pig
+  LIM:
+    gauge: 22 AWG
+    length: 24 in
+    colors: [WH, BK]
+    notes: limit switch. Gauge = GUESS
+
+connections:
+  -
+    - BOARD_L1: [1-2]
+    - L1: [1-2]
+    - LJ1: [1-2]
+  -
+    - BOARD_L2: [1-2]
+    - L2: [1-2]
+    - LJ2: [1-2]
+  -
+    - BOARD_L3: [1-2]
+    - L3: [1-2]
+    - LJ3: [1-2]
+  -
+    - LP1: [1-2]
+    - L1P: [1-2]
+    - COB1: [1-2]
+  -
+    - LP2: [1-2]
+    - L2P: [1-2]
+    - COB2: [1-2]
+  -
+    - LP3: [1-2]
+    - L3P: [1-2]
+    - STRIP: [1-2]
+  -
+    - BOARD_LIM: [1-2]
+    - LIM: [1-2]
+    - SW: [1-2]
+  -
+    - LJ1
+    - <==>
+    - LP1
+  -
+    - LJ2
+    - <==>
+    - LP2
+  -
+    - LJ3
+    - <==>
+    - LP3

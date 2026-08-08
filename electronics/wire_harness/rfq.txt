@@ -1,0 +1,56 @@
+RFQ - Sorter V2 wire harness
+=============================================================
+STATUS: DRAFT - NOT VALIDATED. Values marked GUESS in the
+drawings are engineering guesses, not measurements. Do not
+start production without a confirmed revision.
+=============================================================
+
+1. WHAT THIS IS
+Custom cable assemblies for one machine (a parts sorter).
+3 drawing sets are attached (PDF/PNG/SVG/HTML, generated with
+WireViz), each with its own BOM (TSV):
+  - power     : PSU pigtails PJ1-PJ6, load cables W1-W5
+  - steppers  : channel stepper crossover cable S (x4), chute cable CH
+  - leds      : LED feeds L1-L3, pigtails L1P-L3P, limit switch LIM
+
+2. QUANTITY
+2 full sets (i.e. every cable in the drawings x2).
+Per set: 6x PJ, 1x W1, 1x W2, 1x W3, 2x W4/W5, 3x LED feed,
+3x LED pigtail, 1x LIM, 4x S, 1x CH  = 23 cables.
+Quote 2 sets and price breaks at 10 / 50 sets.
+
+3. WIRE SPEC
+- UL1007 stranded tinned copper, 300V, or RoHS equivalent.
+- Gauges per drawing: 18 AWG (PJ), 22 AWG (W, L, LIM), 24 AWG (S, CH).
+- Colors per drawing (red=+24V, black=GND on power pairs;
+  steppers BK/RD/GN/BU as drawn).
+- No UL certification / no IPC-A-620 class required. Hobby-grade
+  quality is acceptable; continuity test each cable.
+
+4. CONNECTORS
+- JST XHP-2 + SXH-001T-P0.6, JST PHR-4 + SPH-002T-P0.5S
+  (clone equivalents acceptable).
+- DC barrel 5.5 x 2.1 mm, center-positive: male moulded plugs,
+  female inline jacks, female panel-mount jacks (>=5A).
+- "XH2.54 4-pin inline male" = the common clone wire-to-wire
+  XH housing with male pins.
+- Dupont = generic 2.54 mm female socket housing + crimps.
+- Fork terminals: insulated, 22-16 AWG, M3.5 stud (TBC).
+- Ends marked "bare tinned": strip 5 mm and tin, no connector.
+
+5. IMPORTANT - CROSSOVER CABLE
+Cable S (steppers drawing) is NOT straight-through:
+board pin 2 -> motor pin 3, board pin 3 -> motor pin 2,
+pins 1 and 4 straight. See the drawing.
+All other cables are straight-through pin 1 -> pin 1.
+
+6. TOLERANCES, LABELS, PACKAGING
+- Length tolerance +/-10 mm (+/-25 mm acceptable on >=36 in).
+- Label each cable near end A with its ID (W1, S, CH, ...).
+- Bag per cable type. No other packaging requirement.
+
+7. QUESTIONS WE EXPECT / PRE-ANSWERED
+- Samples first? Yes - treat the 2 sets as the sample run.
+- Brand of wire/connector? Any RoHS clone is fine.
+- Drawings in DWG/PDF? PDF attached; no DWG exists.
+- Test requirement? 100% continuity; no hipot needed.

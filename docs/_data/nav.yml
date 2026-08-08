@@ -69,10 +69,19 @@ sections:
                 url: /hardware/assembly/feeder/classification-chamber/
               - title: Arranging C-Channels
                 url: /hardware/assembly/feeder/arranging-c-channels/
-          - title: Electronics
-            url: /hardware/assembly/electronics/
           - title: Software setup
             url: /hardware/assembly/software-setup/
+      - title: Electronics
+        url: /hardware/electronics/
+        children:
+          - title: Stepper connectors
+            url: /hardware/electronics/steppers/
+          - title: Order spec
+            url: /hardware/electronics/order/
+          - title: WireViz drawings
+            url: /hardware/electronics/wireviz/
+          - title: Setup photos
+            url: /hardware/electronics/setup/
       - title: Helpers
         url: /hardware/helpers/
         children:

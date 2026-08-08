@@ -1,0 +1,30 @@
+# The drawings on the WireViz page, in display order.
+#
+# `name` is the basename of every artifact for a drawing:
+# electronics/wire_harness/<name>.yml is the source, and the published outputs
+# live in the assets bucket at <harness_base>/<name>.{png,svg,pdf,html,bom.tsv,yml},
+# where harness_base is derived per-build from the git ref by
+# docs/_plugins/harness.rb. CI renders and publishes on any harness change;
+# nothing rendered lives in this repo and nothing here needs updating when a
+# drawing's content changes.
+#
+# Adding a drawing: a new YAML source, an entry here, and an entry in the
+# `drawings` list in electronics/wire_harness/build-harness.sh (the supplier
+# zip's member list).
+
+drawings:
+  - name: power
+    title: 24V power distribution
+    caption: >-
+      PSU box pigtails PJ1-PJ6 and load cables W1-W5. Dashed arrows are barrel
+      jack/plug mates. J6 is the unassigned spare.
+  - name: steppers
+    title: Stepper cables
+    caption: >-
+      The S1-S4 crossover cable (the red/green cross mid-cable is the inner-two
+      swap) and the straight-through chute cable to bare labeled leads.
+  - name: leds
+    title: LED drops and limit switch
+    caption: >-
+      LED feeds L1-L3 to their unplug-point jacks, pigtails L1p-L3p to the COB
+      boards and strip, and the limit switch cable.

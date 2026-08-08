@@ -1,0 +1,76 @@
+name: Harness drawings
+
+# Renders the WireViz harness from electronics/wire_harness/*.yml and publishes
+# it to the assets bucket under this ref's name (harness/<branch>/...). The
+# docs derive the same prefix from the ref they're building
+# (docs/_plugins/harness.rb), so a PR's Vercel preview shows the PR's drawings
+# and production shows main's. Nothing rendered is ever committed to git, and
+# nothing is ever committed back to the branch.
+#
+# The path filter is safe here because this job's inputs are completely
+# enumerable: the sources, the build script (in the same directory), and the
+# toolchain pins, which live in THIS file.
+#
+# Both tool versions are pinned because they are part of the rendered output:
+# WireViz stamps its version into every .gv and .html, and graphviz shifts
+# glyph positions between versions. CI is the canonical renderer; a local
+# render on a different graphviz looks slightly different, and the next CI run
+# for that ref quietly normalizes it. Bump the pins deliberately, never by
+# drift.
+#
+# Fork PRs: GitHub withholds secrets, so the upload step is skipped and the
+# fork gets a render-only check (proof the YAML builds). A maintainer's next
+# push to the merged result publishes for real.
+#
+# SPACES_KEY/SPACES_SECRET is a key scoped to the basically-docs bucket only.
+# Worst case if it leaks is defacing public docs assets: rotate the key, re-run
+# this workflow on main (workflow_dispatch), restore photos from the gravity
+# mirror. The bucket holds nothing irreplaceable that isn't mirrored.
+
+on:
+  pull_request:
+    paths:
+      - 'electronics/wire_harness/**'
+      - '.github/workflows/harness.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'electronics/wire_harness/**'
+      - '.github/workflows/harness.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: harness-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  render:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - run: pip install wireviz==0.4.1 boto3
+
+      - run: |
+          sudo apt-get update
+          sudo apt-get install -y graphviz=2.42.2-9ubuntu0.1
+          dot -V
+
+      - run: ./electronics/wire_harness/build-harness.sh
+
+      - name: Publish to the assets bucket
+        # Same-repo refs only: fork PRs have no secrets, so they stop at the
+        # render (which is the actual correctness check anyway).
+        if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          SPACES_KEY: ${{ secrets.SPACES_KEY }}
+          SPACES_SECRET: ${{ secrets.SPACES_SECRET }}
+          REF: ${{ github.head_ref || github.ref_name }}
+        run: python3 electronics/wire_harness/upload-harness.py --ref "$REF"

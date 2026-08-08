@@ -1046,6 +1046,128 @@ tr:last-child td {
   line-height: 1.45;
 }
 
+/* ── Electronics pages ─────────────────────────────────────────────────────
+   Wire harness, stepper connectors, order spec, WireViz. These carry denser
+   reference material than an assembly page: keyed spec lists, wire schedules
+   whose IDs need to be findable at a glance, and inline SVG pin diagrams. */
+
+/* Key/value spec block. Two columns on desktop, stacked once it gets tight. */
+.spec-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 18px;
+  margin: 1.2rem 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+.spec-list dt {
+  font-weight: 600;
+  color: var(--muted);
+}
+.spec-list dd {
+  margin: 0;
+}
+
+/* Wire IDs (W1, L3p, S1-S4) are the join key between the schedule, the order
+   spec and the WireViz drawings, so they get monospace to stay scannable. */
+.wire-id {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.84rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* An unresolved value: a guess, an over-long run, something to verify. */
+.flagged {
+  color: var(--primary);
+  font-style: italic;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* Figures that hold a drawing rather than a photo. Wider than .doc-figure,
+   which is capped at 440px for part shots. */
+.harness-figure {
+  margin: 1.4rem 0;
+}
+.harness-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.harness-figure figcaption {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+/* Inline SVG diagrams. A fixed viewBox would overflow the content column on a
+   phone, so the wide one scrolls inside its own box rather than the page. */
+.diagram {
+  margin: 0;
+  background: var(--surface);
+}
+.diagram svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+.diagram-wide {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  padding: 10px;
+}
+.diagram-wide svg {
+  min-width: 720px;
+}
+.diagram-inline {
+  margin: 1.2rem 0;
+}
+.diagram-inline figcaption {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+/* Download rows under each drawing. */
+.download-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0.9rem 0 1.6rem;
+  font-size: 0.85rem;
+}
+.download-line span {
+  color: var(--muted);
+}
+
+/* Setup photos: as-built reference shots, two up. */
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  margin: 1.4rem 0;
+}
+.photo-grid figure {
+  margin: 0;
+}
+.photo-grid img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+}
+.photo-grid figcaption {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
 @media (max-width: 880px) {
   .layout-with-sidebar {
     grid-template-columns: 1fr;
@@ -1109,5 +1231,14 @@ tr:last-child td {
 
   .construction-banner-text small {
     white-space: normal;
+  }
+
+  .spec-list {
+    grid-template-columns: 1fr;
+    gap: 2px 0;
+  }
+
+  .spec-list dd {
+    margin-bottom: 10px;
   }
 }

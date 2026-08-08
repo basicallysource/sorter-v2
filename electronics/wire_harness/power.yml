@@ -1,0 +1,150 @@
+metadata:
+  title: Sorter V2 - 24V power distribution
+  description: >
+    PSU box pigtails (PSU-J) and the load cables W1-W5.
+    Values marked GUESS are guesses, not measurements.
+
+connectors:
+  PSU:
+    type: LRS-350-24 output, screw terminals
+    subtype: fork terminals
+    pinlabels: [+24V, GND (-V)]
+    notes: 6 pigtails land on the same output screws
+  J1: &jack
+    type: DC jack 5.5x2.1 female, panel-mount
+    pinlabels: [+24V (tip), GND (sleeve)]
+  J2: *jack
+  J3: *jack
+  J4: *jack
+  J5: *jack
+  J6:
+    <<: *jack
+    notes: spare output, unassigned (GUESS - confirm no missing load)
+  P1: &plug
+    type: DC plug 5.5x2.1 male
+    pinlabels: [+24V (tip), GND (sleeve)]
+  P2: *plug
+  P3: *plug
+  P4: *plug
+  P5: *plug
+  BOARD_PWR:
+    type: JST XH 2-pin (XHP-2)
+    subtype: female
+    pinlabels: [+24V, GND]
+    notes: basically board 24V in. GUESS - verify XH vs VH and which pin is +
+  HUB:
+    type: DC plug 5.5x2.1 male
+    pinlabels: [+24V (tip), GND (sleeve)]
+    notes: into the Waveshare hub jack. GUESS - verify 2.1 vs 2.5 mm
+  BUCK:
+    type: Bare tinned leads
+    pinlabels: [+24V, GND]
+    notes: splice to the 24V-5V USB-C buck input leads
+  FAN1: &fan
+    type: Bare tinned leads
+    pinlabels: [+24V, GND]
+    notes: splice to fan lead (cut off its XH plug)
+  FAN2: *fan
+
+cables:
+  PJ1: &pigtail
+    gauge: 18 AWG
+    length: 4 in
+    colors: [RD, BK]
+    notes: PSU-J pigtail, inside PSU box. Gauge = GUESS
+  PJ2: *pigtail
+  PJ3: *pigtail
+  PJ4: *pigtail
+  PJ5: *pigtail
+  PJ6: *pigtail
+  W1:
+    gauge: 22 AWG
+    length: 36 in
+    colors: [RD, BK]
+    notes: board 24V in. Gauge = GUESS. Length deliberately long
+  W2:
+    gauge: 22 AWG
+    length: 12 in
+    colors: [RD, BK]
+    notes: USB hub, double-male. Gauge = GUESS
+  W3:
+    gauge: 22 AWG
+    length: 6 in
+    colors: [RD, BK]
+    notes: Orange Pi buck. Gauge = GUESS
+  W4:
+    gauge: 22 AWG
+    length: 36 in
+    colors: [RD, BK]
+    notes: fan. Gauge = GUESS. Length deliberately long
+  W5:
+    gauge: 22 AWG
+    length: 36 in
+    colors: [RD, BK]
+    notes: fan. Gauge = GUESS. Length deliberately long
+
+connections:
+  -
+    - PSU: [1-2]
+    - PJ1: [1-2]
+    - J1: [1-2]
+  -
+    - PSU: [1-2]
+    - PJ2: [1-2]
+    - J2: [1-2]
+  -
+    - PSU: [1-2]
+    - PJ3: [1-2]
+    - J3: [1-2]
+  -
+    - PSU: [1-2]
+    - PJ4: [1-2]
+    - J4: [1-2]
+  -
+    - PSU: [1-2]
+    - PJ5: [1-2]
+    - J5: [1-2]
+  -
+    - PSU: [1-2]
+    - PJ6: [1-2]
+    - J6: [1-2]
+  -
+    - P1: [1-2]
+    - W1: [1-2]
+    - BOARD_PWR: [1-2]
+  -
+    - P2: [1-2]
+    - W2: [1-2]
+    - HUB: [1-2]
+  -
+    - P3: [1-2]
+    - W3: [1-2]
+    - BUCK: [1-2]
+  -
+    - P4: [1-2]
+    - W4: [1-2]
+    - FAN1: [1-2]
+  -
+    - P5: [1-2]
+    - W5: [1-2]
+    - FAN2: [1-2]
+  -
+    - J1
+    - <==>
+    - P1
+  -
+    - J2
+    - <==>
+    - P2
+  -
+    - J3
+    - <==>
+    - P3
+  -
+    - J4
+    - <==>
+    - P4
+  -
+    - J5
+    - <==>
+    - P5

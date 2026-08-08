@@ -128,6 +128,24 @@ changes, upload under a new name and update the reference — never reuse a name
 show (`step2-hole-red-square`), not by source filename. Group step images under
 `assembly/<page>/`, part renders under `parts/…`, tools under `tools/`.
 
+## The WireViz harness
+
+Same rule as photos, nothing rendered is in the repo, but unlike photos there
+is no upload step at all: CI owns the whole pipeline.
+
+Sources live in `electronics/wire_harness/`. On any PR or main push touching
+them, `.github/workflows/harness.yml` renders and publishes to the assets
+bucket under the branch name, and `_plugins/harness.rb` makes this build's
+pages link the prefix for the ref being built (`site.harness_base`, plus
+`site.harness_v`, a per-deploy cache-buster every harness URL must carry). So
+a branch preview shows the branch's drawings, production shows main's, and
+there is nothing to update in `docs/` when a drawing's content changes.
+
+`_data/harness.yml` is just the display list (name, title, caption per
+drawing). Adding a drawing: new YAML source, an entry there, and an entry in
+the `drawings` list inside `build-harness.sh`. Full pipeline doc:
+`electronics/wire_harness/AGENTS.md`.
+
 ## Parts
 
 `_data/parts.yml` is the catalog, keyed by id. Fields: `name`, `image`,

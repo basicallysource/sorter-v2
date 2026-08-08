@@ -1,7 +1,13 @@
 # AGENTS.md
 
-Instructions for agents and contributors working in this repo. Deliberately
-thin right now; sections get filled in as the systems they describe land.
+**This file is committed to the public repo.** Anything here must be generally
+useful documentation for any agent or contributor working in this repository:
+how things build, where things live, what the conventions are. Nothing
+specific to one person's machines, accounts, or setup goes in this file; that
+belongs in the gitignored `AGENTS.local.md`.
+
+Deliberately thin right now; sections get filled in as the systems they
+describe land.
 
 - `electronics/wire_harness/AGENTS.md`: the wire harness, and the derived-asset
   pipeline (sources in git, renders in the assets bucket, CI publishes).

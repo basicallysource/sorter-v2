@@ -2254,8 +2254,12 @@ export const api = {
 	listApiKeys() {
 		return request<ApiKeySummary[]>('GET', '/api/auth/api-keys');
 	},
-	createApiKey(name: string, scopes?: string[]) {
-		return request<ApiKeyCreateResponse>('POST', '/api/auth/api-keys', { name, scopes });
+	createApiKey(name: string, scopes: string[], expiresInDays?: number) {
+		return request<ApiKeyCreateResponse>('POST', '/api/auth/api-keys', {
+			name,
+			scopes,
+			expires_in_days: expiresInDays
+		});
 	},
 	revokeApiKey(id: string) {
 		return request<{ ok: boolean }>('DELETE', `/api/auth/api-keys/${id}`);
@@ -2440,6 +2444,7 @@ export interface ApiKeySummary {
 	scopes: string[] | null;
 	created_at: string;
 	last_used_at: string | null;
+	expires_at: string | null;
 	revoked_at: string | null;
 }
 

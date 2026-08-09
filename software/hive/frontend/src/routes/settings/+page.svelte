@@ -32,6 +32,22 @@
 	let apiKeysLoading = $state(false);
 	let apiKeyJustCreated = $state<{ name: string; token: string } | null>(null);
 
+	const API_KEY_SCOPES: { scope: string; label: string }[] = [
+		{ scope: 'models:read', label: 'Read models' },
+		{ scope: 'models:write', label: 'Write models' },
+		{ scope: 'samples:read', label: 'Read samples' },
+		{ scope: 'samples:write', label: 'Write samples' },
+		{ scope: 'keys:manage', label: 'Manage API keys' }
+	];
+	let apiKeySelectedScopes = $state<string[]>([]);
+	let apiKeyExpiresInDays = $state('');
+
+	function toggleApiKeyScope(scope: string) {
+		apiKeySelectedScopes = apiKeySelectedScopes.includes(scope)
+			? apiKeySelectedScopes.filter((s) => s !== scope)
+			: [...apiKeySelectedScopes, scope];
+	}
+
 	async function loadApiKeys() {
 		try {
 			apiKeys = await api.listApiKeys();
@@ -48,11 +64,26 @@
 			apiKeysError = 'Name is required';
 			return;
 		}
+		if (apiKeySelectedScopes.length === 0) {
+			apiKeysError = 'Select at least one scope';
+			return;
+		}
+		const expiresRaw = apiKeyExpiresInDays.trim();
+		let expiresInDays: number | undefined;
+		if (expiresRaw) {
+			expiresInDays = Number(expiresRaw);
+			if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 3650) {
+				apiKeysError = 'Expiry must be a whole number of days (1–3650)';
+				return;
+			}
+		}
 		apiKeysLoading = true;
 		try {
-			const resp = await api.createApiKey(name);
+			const resp = await api.createApiKey(name, apiKeySelectedScopes, expiresInDays);
 			apiKeyJustCreated = { name: resp.summary.name, token: resp.raw_token };
 			apiKeyName = '';
+			apiKeySelectedScopes = [];
+			apiKeyExpiresInDays = '';
 			await loadApiKeys();
 		} catch (e: any) {
 			apiKeysError = e.error || 'Failed to create API key';
@@ -666,7 +697,7 @@
 			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-1 font-semibold text-text">Personal Access Tokens</h2>
 				<p class="mb-4 text-sm text-text-muted">
-					Use a token to authenticate from CLI tools (e.g. the training hub). Tokens inherit your account's permissions — treat them like a password.
+					Use a token to authenticate from CLI tools, bots, and agents. A token can only do what its scopes allow — grant the minimum it needs, and treat it like a password.
 				</p>
 
 				{#if apiKeyJustCreated}
@@ -686,24 +717,52 @@
 					<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{apiKeysError}</div>
 				{/if}
 
-				<form onsubmit={handleCreateApiKey} class="mb-6 flex flex-wrap items-end gap-2">
-					<label class="flex flex-col gap-1 text-xs text-text-muted">
-						<span>Token name</span>
-						<input
-							type="text"
-							bind:value={apiKeyName}
-							placeholder="e.g. marc-laptop-training"
-							class="border border-border bg-bg px-2 py-1 text-sm text-text"
-							required
-						/>
-					</label>
-					<button
-						type="submit"
-						disabled={apiKeysLoading}
-						class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-					>
-						{apiKeysLoading ? 'Creating...' : 'Create token'}
-					</button>
+				<form onsubmit={handleCreateApiKey} class="mb-6 flex flex-col gap-3">
+					<div class="flex flex-wrap items-end gap-2">
+						<label class="flex flex-col gap-1 text-xs text-text-muted">
+							<span>Token name</span>
+							<input
+								type="text"
+								bind:value={apiKeyName}
+								placeholder="e.g. marc-laptop-training"
+								class="border border-border bg-bg px-2 py-1 text-sm text-text"
+								required
+							/>
+						</label>
+						<label class="flex flex-col gap-1 text-xs text-text-muted">
+							<span>Expires in (days, optional)</span>
+							<input
+								type="text"
+								inputmode="numeric"
+								bind:value={apiKeyExpiresInDays}
+								placeholder="never"
+								class="w-32 border border-border bg-bg px-2 py-1 text-sm text-text"
+							/>
+						</label>
+						<button
+							type="submit"
+							disabled={apiKeysLoading}
+							class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+						>
+							{apiKeysLoading ? 'Creating...' : 'Create token'}
+						</button>
+					</div>
+					<div class="flex flex-col gap-1 text-xs text-text-muted">
+						<span>Scopes (at least one)</span>
+						<div class="flex flex-wrap gap-x-4 gap-y-1">
+							{#each API_KEY_SCOPES as { scope, label } (scope)}
+								<label class="flex items-center gap-1.5 text-sm text-text">
+									<input
+										type="checkbox"
+										checked={apiKeySelectedScopes.includes(scope)}
+										onchange={() => toggleApiKeyScope(scope)}
+									/>
+									<span class="font-mono text-xs">{scope}</span>
+									<span class="text-xs text-text-muted">— {label}</span>
+								</label>
+							{/each}
+						</div>
+					</div>
 				</form>
 
 				{#if apiKeys.length === 0}
@@ -715,8 +774,10 @@
 								<tr>
 									<th class="px-3 py-2">Name</th>
 									<th class="px-3 py-2">Token</th>
+									<th class="px-3 py-2">Scopes</th>
 									<th class="px-3 py-2">Created</th>
 									<th class="px-3 py-2">Last used</th>
+									<th class="px-3 py-2">Expires</th>
 									<th class="px-3 py-2">Status</th>
 									<th class="px-3 py-2"></th>
 								</tr>
@@ -726,11 +787,15 @@
 									<tr class="border-b border-border last:border-b-0">
 										<td class="px-3 py-2 font-mono">{key.name}</td>
 										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.token_prefix}…</td>
+										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.scopes?.join(', ') ?? '—'}</td>
 										<td class="px-3 py-2">{formatDate(key.created_at)}</td>
 										<td class="px-3 py-2">{formatDate(key.last_used_at)}</td>
+										<td class="px-3 py-2">{key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>
 										<td class="px-3 py-2">
 											{#if key.revoked_at}
 												<span class="text-text-muted">Revoked</span>
+											{:else if key.expires_at && new Date(key.expires_at) <= new Date()}
+												<span class="text-warning">Expired</span>
 											{:else}
 												<span class="text-success">Active</span>
 											{/if}

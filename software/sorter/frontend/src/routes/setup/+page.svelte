@@ -604,28 +604,6 @@
 		goToNextStep();
 	}
 
-	// An unnamed machine starts the naming step from the name it already picked
-	// for itself at firstboot (sorter-dark-azure-brick-… reads back as "Dark
-	// Azure Brick"), or a fresh roll on a machine that never got one. Anyone
-	// who clicks past this step still ends up with a name of their own, and it
-	// is the same name Hive gets later.
-	// `roll` is the shuffle button: the caller wants a name they have not seen,
-	// so it overwrites the field instead of only filling an empty one.
-	async function suggestNickname(roll = false) {
-		try {
-			const res = await fetch(
-				`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name${roll ? '?roll=1' : ''}`
-			);
-			if (!res.ok) return;
-			const data = await res.json();
-			const suggestion = typeof data?.name === 'string' ? data.name.trim() : '';
-			if (!suggestion) return;
-			if (roll || !nicknameDraft.trim()) nicknameDraft = suggestion;
-		} catch {
-			// Leave it empty; the step still asks for a name.
-		}
-	}
-
 	async function loadWizard() {
 		loadingWizard = true;
 		wizardError = null;
@@ -637,8 +615,9 @@
 			hardwareState = payload.hardware.state;
 			hardwareError = payload.hardware.error;
 			homingStep = payload.hardware.homing_step;
-			nicknameDraft = payload.machine.nickname ?? '';
-			if (!nicknameDraft.trim()) void suggestNickname();
+			// An unnamed machine keeps whatever the naming step suggested rather
+			// than being blanked back out by a reload of the wizard state.
+			nicknameDraft = payload.machine.nickname ?? nicknameDraft;
 			const configuredLayout = payload.config.camera_assignments.layout;
 			selectedLayout =
 				configuredLayout === 'split_feeder'
@@ -1054,7 +1033,7 @@
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
-							onSuggestAnother={() => void suggestNickname(true)}
+							backendBaseUrl={currentBackendBaseUrl()}
 						/>
 					{:else if activeStepId === 'theme'}
 						<ThemeStep />

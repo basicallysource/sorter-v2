@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
-	import { api, type AiModelCatalog, type AuthOptions, type UserIdentitySummary } from '$lib/api';
+	import { api, type AiModelCatalog, type AuthOptions, type Machine, type UserIdentitySummary } from '$lib/api';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
@@ -92,11 +92,23 @@
 	];
 	let apiKeySelectedScopes = $state<string[]>([]);
 	let apiKeyExpiresInDays = $state('');
+	let apiKeyMachines = $state<Machine[]>([]);
+	let apiKeySelectedMachines = $state<string[]>([]);
 
 	function toggleApiKeyScope(scope: string) {
 		apiKeySelectedScopes = apiKeySelectedScopes.includes(scope)
 			? apiKeySelectedScopes.filter((s) => s !== scope)
 			: [...apiKeySelectedScopes, scope];
+	}
+
+	function toggleApiKeyMachine(id: string) {
+		apiKeySelectedMachines = apiKeySelectedMachines.includes(id)
+			? apiKeySelectedMachines.filter((m) => m !== id)
+			: [...apiKeySelectedMachines, id];
+	}
+
+	function machineName(id: string): string {
+		return apiKeyMachines.find((m) => m.id === id)?.name ?? `${id.slice(0, 8)}…`;
 	}
 
 	async function loadApiKeys() {
@@ -130,11 +142,17 @@
 		}
 		apiKeysLoading = true;
 		try {
-			const resp = await api.createApiKey(name, apiKeySelectedScopes, expiresInDays);
+			const resp = await api.createApiKey(
+				name,
+				apiKeySelectedScopes,
+				expiresInDays,
+				apiKeySelectedMachines.length > 0 ? apiKeySelectedMachines : undefined
+			);
 			apiKeyJustCreated = { name: resp.summary.name, token: resp.raw_token };
 			apiKeyName = '';
 			apiKeySelectedScopes = [];
 			apiKeyExpiresInDays = '';
+			apiKeySelectedMachines = [];
 			await loadApiKeys();
 		} catch (e: any) {
 			apiKeysError = e.error || 'Failed to create API key';
@@ -168,6 +186,14 @@
 	$effect(() => {
 		if (auth.user?.role === 'admin') {
 			void loadApiKeys();
+			void api
+				.getMachines({ scope: 'mine' })
+				.then((m) => {
+					apiKeyMachines = m;
+				})
+				.catch(() => {
+					apiKeyMachines = [];
+				});
 		}
 	});
 
@@ -863,6 +889,23 @@
 							{/each}
 						</div>
 					</div>
+					{#if apiKeyMachines.length > 0}
+						<div class="flex flex-col gap-1 text-xs text-text-muted">
+							<span>Limit to machines (optional — none selected = all your access)</span>
+							<div class="flex flex-wrap gap-x-4 gap-y-1">
+								{#each apiKeyMachines as machine (machine.id)}
+									<label class="flex items-center gap-1.5 text-sm text-text">
+										<input
+											type="checkbox"
+											checked={apiKeySelectedMachines.includes(machine.id)}
+											onchange={() => toggleApiKeyMachine(machine.id)}
+										/>
+										{machine.name}
+									</label>
+								{/each}
+							</div>
+						</div>
+					{/if}
 				</form>
 
 				{#if apiKeys.length === 0}
@@ -875,6 +918,7 @@
 									<th class="px-3 py-2">Name</th>
 									<th class="px-3 py-2">Token</th>
 									<th class="px-3 py-2">Scopes</th>
+									<th class="px-3 py-2">Machines</th>
 									<th class="px-3 py-2">Created</th>
 									<th class="px-3 py-2">Last used</th>
 									<th class="px-3 py-2">Expires</th>
@@ -888,6 +932,9 @@
 										<td class="px-3 py-2 font-mono">{key.name}</td>
 										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.token_prefix}…</td>
 										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.scopes?.join(', ') ?? '—'}</td>
+										<td class="px-3 py-2 text-xs text-text-muted">
+											{key.machine_ids?.length ? key.machine_ids.map(machineName).join(', ') : 'All'}
+										</td>
 										<td class="px-3 py-2">{formatDate(key.created_at)}</td>
 										<td class="px-3 py-2">{formatDate(key.last_used_at)}</td>
 										<td class="px-3 py-2">{key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>

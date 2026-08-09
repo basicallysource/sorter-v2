@@ -5,9 +5,19 @@
 	interface Props {
 		options: AuthOptions | null;
 		next?: string;
+		/** Provider name to badge with "Last used" (login page only). */
+		lastUsed?: string | null;
 	}
 
-	let { options, next }: Props = $props();
+	let { options, next, lastUsed = null }: Props = $props();
+
+	function rememberMethod(method: string) {
+		try {
+			localStorage.setItem('hive:last-login-method', method);
+		} catch {
+			/* private mode etc. — cosmetic feature, ignore */
+		}
+	}
 
 	const providers = $derived(
 		options
@@ -30,10 +40,14 @@
 		{#each providers as provider (provider.name)}
 			<a
 				href={api.oauthLoginUrl(provider.name, next)}
-				class="flex w-full items-center justify-center gap-3 border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
+				onclick={() => rememberMethod(provider.name)}
+				class="relative flex w-full items-center justify-center gap-3 border border-border px-4 py-2 text-sm font-medium text-text hover:bg-bg"
 			>
 				<BrandMark brand={provider.name} />
 				{provider.label}
+				{#if lastUsed === provider.name}
+					<span class="absolute right-2 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary">Last used</span>
+				{/if}
 			</a>
 		{/each}
 	</div>

@@ -11,8 +11,14 @@
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
 	let authOptions = $state<AuthOptions | null>(null);
+	let lastMethod = $state<string | null>(null);
 
 	onMount(async () => {
+		try {
+			lastMethod = localStorage.getItem('hive:last-login-method');
+		} catch {
+			lastMethod = null;
+		}
 		try {
 			authOptions = await api.authOptions();
 		} catch {
@@ -40,6 +46,11 @@
 		if (result) {
 			error = result;
 		} else {
+			try {
+				localStorage.setItem('hive:last-login-method', 'password');
+			} catch {
+				/* cosmetic */
+			}
 			goto(safeNextPath());
 		}
 	}
@@ -85,13 +96,16 @@
 			<button
 				type="submit"
 				disabled={submitting}
-				class="w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+				class="relative w-full bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
 			>
 				{submitting ? 'Signing in...' : 'Sign in'}
+				{#if lastMethod === 'password'}
+					<span class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-white">Last used</span>
+				{/if}
 			</button>
 		</form>
 
-		<OAuthButtons options={authOptions} next={safeNextPath()} />
+		<OAuthButtons options={authOptions} next={safeNextPath()} lastUsed={lastMethod} />
 
 		<p class="mt-4 text-center text-sm text-text-muted">
 			Don't have an account?

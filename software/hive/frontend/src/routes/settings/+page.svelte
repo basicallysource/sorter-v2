@@ -1,11 +1,13 @@
 <script lang="ts">
 	import { auth } from '$lib/auth.svelte';
-	import { api, type AiModelCatalog } from '$lib/api';
+	import { api, type AiModelCatalog, type AuthOptions, type UserIdentitySummary } from '$lib/api';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/state';
 	import Modal from '$lib/components/Modal.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import ModelSelect from '$lib/components/primitives/ModelSelect.svelte';
 	import AiUsagePanel from '$lib/components/AiUsagePanel.svelte';
+	import BrandMark from '$lib/components/BrandMark.svelte';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -23,6 +25,55 @@
 	let passwordError = $state<string | null>(null);
 	let passwordSaved = $state(false);
 
+	// Connected accounts (OAuth identities)
+	const OAUTH_PROVIDER_LABELS: Record<string, string> = { github: 'GitHub', discord: 'Discord' };
+	let identities = $state<UserIdentitySummary[]>([]);
+	let authOptions = $state<AuthOptions | null>(null);
+	// Link-flow failures land back here as /settings?error=...
+	let identitiesError = $state<string | null>(page.url.searchParams.get('error'));
+
+	async function loadIdentities() {
+		try {
+			identities = await api.listIdentities();
+		} catch {
+			/* non-blocking */
+		}
+	}
+
+	$effect(() => {
+		if (auth.user) {
+			void loadIdentities();
+			void api
+				.authOptions()
+				.then((o) => {
+					authOptions = o;
+				})
+				.catch(() => {
+					authOptions = null;
+				});
+		}
+	});
+
+	function identityFor(provider: string): UserIdentitySummary | undefined {
+		return identities.find((i) => i.provider === provider);
+	}
+
+	function providerEnabled(provider: string): boolean {
+		if (!authOptions) return false;
+		return provider === 'github' ? authOptions.github_enabled : authOptions.discord_enabled;
+	}
+
+	async function handleUnlink(provider: 'github' | 'discord') {
+		identitiesError = null;
+		if (!confirm(`Disconnect ${OAUTH_PROVIDER_LABELS[provider]} from your account?`)) return;
+		try {
+			await api.unlinkIdentity(provider);
+			await loadIdentities();
+		} catch (e: any) {
+			identitiesError = e.error || 'Failed to disconnect';
+		}
+	}
+
 	// API keys (personal access tokens)
 	import type { ApiKeySummary } from '$lib/api';
 
@@ -31,6 +82,22 @@
 	let apiKeysError = $state<string | null>(null);
 	let apiKeysLoading = $state(false);
 	let apiKeyJustCreated = $state<{ name: string; token: string } | null>(null);
+
+	const API_KEY_SCOPES: { scope: string; label: string }[] = [
+		{ scope: 'models:read', label: 'Read models' },
+		{ scope: 'models:write', label: 'Write models' },
+		{ scope: 'samples:read', label: 'Read samples' },
+		{ scope: 'samples:write', label: 'Write samples' },
+		{ scope: 'keys:manage', label: 'Manage API keys' }
+	];
+	let apiKeySelectedScopes = $state<string[]>([]);
+	let apiKeyExpiresInDays = $state('');
+
+	function toggleApiKeyScope(scope: string) {
+		apiKeySelectedScopes = apiKeySelectedScopes.includes(scope)
+			? apiKeySelectedScopes.filter((s) => s !== scope)
+			: [...apiKeySelectedScopes, scope];
+	}
 
 	async function loadApiKeys() {
 		try {
@@ -48,11 +115,26 @@
 			apiKeysError = 'Name is required';
 			return;
 		}
+		if (apiKeySelectedScopes.length === 0) {
+			apiKeysError = 'Select at least one scope';
+			return;
+		}
+		const expiresRaw = apiKeyExpiresInDays.trim();
+		let expiresInDays: number | undefined;
+		if (expiresRaw) {
+			expiresInDays = Number(expiresRaw);
+			if (!Number.isInteger(expiresInDays) || expiresInDays < 1 || expiresInDays > 3650) {
+				apiKeysError = 'Expiry must be a whole number of days (1–3650)';
+				return;
+			}
+		}
 		apiKeysLoading = true;
 		try {
-			const resp = await api.createApiKey(name);
+			const resp = await api.createApiKey(name, apiKeySelectedScopes, expiresInDays);
 			apiKeyJustCreated = { name: resp.summary.name, token: resp.raw_token };
 			apiKeyName = '';
+			apiKeySelectedScopes = [];
+			apiKeyExpiresInDays = '';
 			await loadApiKeys();
 		} catch (e: any) {
 			apiKeysError = e.error || 'Failed to create API key';
@@ -452,6 +534,55 @@
 			</form>
 		</div>
 
+		<!-- Connected accounts (OAuth identities) -->
+		{#if identities.length > 0 || providerEnabled('github') || providerEnabled('discord')}
+		<div class="border border-border bg-surface p-6">
+			<h2 class="mb-1 font-semibold text-text">Connected Accounts</h2>
+			<p class="mb-4 text-sm text-text-muted">
+				Link other sign-in methods to this account. A connected Discord account also verifies you on the community server.
+			</p>
+
+			{#if identitiesError}
+				<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{identitiesError}</div>
+			{/if}
+
+			<div class="flex flex-col gap-2">
+				{#each ['github', 'discord'] as const as provider (provider)}
+					{@const linked = identityFor(provider)}
+					{#if linked}
+						<div class="flex items-center justify-between border border-border px-3 py-2">
+							<div class="flex items-center gap-3">
+								<BrandMark brand={provider} size={20} />
+								{#if linked.avatar_url}
+									<img src={linked.avatar_url} alt="" class="h-6 w-6 rounded-full" />
+								{/if}
+								<div>
+									<div class="text-sm font-medium text-text">{OAUTH_PROVIDER_LABELS[provider]}</div>
+									<div class="text-xs text-text-muted">
+										Connected{linked.provider_login ? ` as ${linked.provider_login}` : ''}
+									</div>
+								</div>
+							</div>
+							<button
+								onclick={() => handleUnlink(provider)}
+								class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
+								type="button"
+							>Disconnect</button>
+						</div>
+					{:else if providerEnabled(provider)}
+						<a
+							href={api.oauthLinkUrl(provider)}
+							class="flex items-center gap-3 border border-border px-3 py-2 text-sm font-medium text-text hover:bg-bg"
+						>
+							<BrandMark brand={provider} size={20} />
+							Add your {OAUTH_PROVIDER_LABELS[provider]}
+						</a>
+					{/if}
+				{/each}
+			</div>
+		</div>
+		{/if}
+
 		<!-- AI Section -->
 		<div class="border border-border bg-surface p-6">
 			<h2 class="mb-4 font-semibold text-text">AI Assistant</h2>
@@ -540,7 +671,7 @@
 
 		{#if auth.user.role === 'admin'}
 			<!-- Catalog sync dashboard (admin-only dedicated page) -->
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-2 font-semibold text-text">Catalog Sync</h2>
 				<p class="mb-4 text-sm text-text-muted">
 					Sync the Rebrickable parts / categories / colors catalog and BrickLink prices, with
@@ -555,7 +686,7 @@
 			</div>
 
 			<!-- Perceptron native API key (teacher-only, admin scope) -->
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-4 font-semibold text-text">Perceptron Teacher</h2>
 				<p class="mb-4 text-sm text-text-muted">
 					Used for the Perceptron Mk1 teacher path, which calls Perceptron's native API
@@ -616,7 +747,7 @@
 			</div>
 
 			<!-- Default Teacher Model — separate from the AI Assistant chat model -->
-			<div class="border border-border bg-white p-6">
+			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-4 font-semibold text-text">Default Teacher Model</h2>
 				<p class="mb-4 text-sm text-text-muted">
 					Used for re-running the Gemini/Perceptron/etc. teacher across samples. Separate
@@ -666,7 +797,7 @@
 			<div class="border border-border bg-surface p-6">
 				<h2 class="mb-1 font-semibold text-text">Personal Access Tokens</h2>
 				<p class="mb-4 text-sm text-text-muted">
-					Use a token to authenticate from CLI tools (e.g. the training hub). Tokens inherit your account's permissions — treat them like a password.
+					Use a token to authenticate from CLI tools, bots, and agents. A token can only do what its scopes allow — grant the minimum it needs, and treat it like a password.
 				</p>
 
 				{#if apiKeyJustCreated}
@@ -686,24 +817,52 @@
 					<div class="mb-4 bg-primary/8 p-3 text-sm text-primary">{apiKeysError}</div>
 				{/if}
 
-				<form onsubmit={handleCreateApiKey} class="mb-6 flex flex-wrap items-end gap-2">
-					<label class="flex flex-col gap-1 text-xs text-text-muted">
-						<span>Token name</span>
-						<input
-							type="text"
-							bind:value={apiKeyName}
-							placeholder="e.g. marc-laptop-training"
-							class="border border-border bg-bg px-2 py-1 text-sm text-text"
-							required
-						/>
-					</label>
-					<button
-						type="submit"
-						disabled={apiKeysLoading}
-						class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
-					>
-						{apiKeysLoading ? 'Creating...' : 'Create token'}
-					</button>
+				<form onsubmit={handleCreateApiKey} class="mb-6 flex flex-col gap-3">
+					<div class="flex flex-wrap items-end gap-2">
+						<label class="flex flex-col gap-1 text-xs text-text-muted">
+							<span>Token name</span>
+							<input
+								type="text"
+								bind:value={apiKeyName}
+								placeholder="e.g. marc-laptop-training"
+								class="border border-border bg-bg px-2 py-1 text-sm text-text"
+								required
+							/>
+						</label>
+						<label class="flex flex-col gap-1 text-xs text-text-muted">
+							<span>Expires in (days, optional)</span>
+							<input
+								type="text"
+								inputmode="numeric"
+								bind:value={apiKeyExpiresInDays}
+								placeholder="never"
+								class="w-32 border border-border bg-bg px-2 py-1 text-sm text-text"
+							/>
+						</label>
+						<button
+							type="submit"
+							disabled={apiKeysLoading}
+							class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+						>
+							{apiKeysLoading ? 'Creating...' : 'Create token'}
+						</button>
+					</div>
+					<div class="flex flex-col gap-1 text-xs text-text-muted">
+						<span>Scopes (at least one)</span>
+						<div class="flex flex-wrap gap-x-4 gap-y-1">
+							{#each API_KEY_SCOPES as { scope, label } (scope)}
+								<label class="flex items-center gap-1.5 text-sm text-text">
+									<input
+										type="checkbox"
+										checked={apiKeySelectedScopes.includes(scope)}
+										onchange={() => toggleApiKeyScope(scope)}
+									/>
+									<span class="font-mono text-xs">{scope}</span>
+									<span class="text-xs text-text-muted">— {label}</span>
+								</label>
+							{/each}
+						</div>
+					</div>
 				</form>
 
 				{#if apiKeys.length === 0}
@@ -715,8 +874,10 @@
 								<tr>
 									<th class="px-3 py-2">Name</th>
 									<th class="px-3 py-2">Token</th>
+									<th class="px-3 py-2">Scopes</th>
 									<th class="px-3 py-2">Created</th>
 									<th class="px-3 py-2">Last used</th>
+									<th class="px-3 py-2">Expires</th>
 									<th class="px-3 py-2">Status</th>
 									<th class="px-3 py-2"></th>
 								</tr>
@@ -726,11 +887,15 @@
 									<tr class="border-b border-border last:border-b-0">
 										<td class="px-3 py-2 font-mono">{key.name}</td>
 										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.token_prefix}…</td>
+										<td class="px-3 py-2 font-mono text-xs text-text-muted">{key.scopes?.join(', ') ?? '—'}</td>
 										<td class="px-3 py-2">{formatDate(key.created_at)}</td>
 										<td class="px-3 py-2">{formatDate(key.last_used_at)}</td>
+										<td class="px-3 py-2">{key.expires_at ? formatDate(key.expires_at) : 'Never'}</td>
 										<td class="px-3 py-2">
 											{#if key.revoked_at}
 												<span class="text-text-muted">Revoked</span>
+											{:else if key.expires_at && new Date(key.expires_at) <= new Date()}
+												<span class="text-warning">Expired</span>
 											{:else}
 												<span class="text-success">Active</span>
 											{/if}

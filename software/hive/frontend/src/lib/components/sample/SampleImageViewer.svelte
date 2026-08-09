@@ -31,7 +31,7 @@
 	}: Props = $props();
 </script>
 
-<div class="overflow-hidden border border-border bg-gray-950">
+<div class="overflow-hidden border border-border bg-canvas">
 	<div class="relative">
 		{#if activeView === 'image'}
 			<img

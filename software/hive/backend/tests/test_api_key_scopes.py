@@ -29,11 +29,12 @@ def _create_api_key(
     headers: dict[str, str],
     *,
     name: str,
-    scopes: list[str] | None = None,
+    scopes: list[str],
+    expires_in_days: int | None = None,
 ) -> str:
-    payload: dict[str, object] = {"name": name}
-    if scopes is not None:
-        payload["scopes"] = scopes
+    payload: dict[str, object] = {"name": name, "scopes": scopes}
+    if expires_in_days is not None:
+        payload["expires_in_days"] = expires_in_days
     response = client.post("/api/auth/api-keys", json=payload, headers=headers)
     assert response.status_code == 200, response.text
     return response.json()["raw_token"]
@@ -130,18 +131,137 @@ class TestApiKeyScopes:
         assert annotate_response.status_code == 403
         assert "samples:write" in annotate_response.json()["error"]
 
-    def test_unscoped_api_key_remains_full_access_for_existing_clients(
+    def test_create_requires_at_least_one_scope(
         self,
         client: TestClient,
         db: Session,
     ) -> None:
         admin_headers = _login_admin(client, db)
-        token = _create_api_key(client, admin_headers, name="legacy-full-access")
-        key_headers = {"Authorization": f"Bearer {token}"}
+        response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "no-scopes"},
+            headers=admin_headers,
+        )
+        assert response.status_code == 422
 
         response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "empty-scopes", "scopes": []},
+            headers=admin_headers,
+        )
+        assert response.status_code == 422
+
+    def test_legacy_scopeless_key_grants_nothing(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        import hashlib
+
+        from app.models.user_api_key import UserApiKey
+
+        admin_headers = _login_admin(client, db)
+        user = db.query(User).filter(User.email == "admin-scopes@test.com").first()
+        assert user is not None
+        raw_token = "hv_legacy-scopeless-token"
+        db.add(
+            UserApiKey(
+                user_id=user.id,
+                name="legacy",
+                token_prefix=raw_token[:9],
+                token_hash=hashlib.sha256(raw_token.encode()).hexdigest(),
+                scopes=None,
+            )
+        )
+        db.commit()
+
+        response = client.get(
             "/api/models",
-            json={"slug": "legacy-key-model", "name": "Legacy Key", "model_family": "yolo"},
+            headers={"Authorization": f"Bearer {raw_token}"},
+        )
+        assert response.status_code == 403
+        assert "models:read" in response.json()["error"]
+
+    def test_expired_key_is_rejected(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        from datetime import datetime, timedelta, timezone
+
+        from app.models.user_api_key import UserApiKey
+
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client,
+            admin_headers,
+            name="short-lived",
+            scopes=["models:read"],
+            expires_in_days=1,
+        )
+        key_headers = {"Authorization": f"Bearer {token}"}
+        assert client.get("/api/models", headers=key_headers).status_code == 200
+
+        key = db.query(UserApiKey).filter(UserApiKey.name == "short-lived").first()
+        assert key is not None
+        assert key.expires_at is not None
+        key.expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        db.commit()
+
+        response = client.get("/api/models", headers=key_headers)
+        assert response.status_code == 401
+        assert "expired" in response.json()["error"].lower()
+
+    def test_keys_manage_scope_lets_bots_mint_and_revoke_keys(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        admin_headers = _login_admin(client, db)
+        bot_token = _create_api_key(
+            client,
+            admin_headers,
+            name="key-minter",
+            scopes=["keys:manage"],
+        )
+        bot_headers = {"Authorization": f"Bearer {bot_token}"}
+
+        create_response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "minted-by-bot", "scopes": ["models:read"]},
+            headers=bot_headers,
+        )
+        assert create_response.status_code == 200, create_response.text
+        minted_id = create_response.json()["summary"]["id"]
+
+        list_response = client.get("/api/auth/api-keys", headers=bot_headers)
+        assert list_response.status_code == 200
+        assert any(item["id"] == minted_id for item in list_response.json())
+
+        revoke_response = client.delete(f"/api/auth/api-keys/{minted_id}", headers=bot_headers)
+        assert revoke_response.status_code == 200
+        list_after = client.get("/api/auth/api-keys", headers=bot_headers)
+        minted = next(item for item in list_after.json() if item["id"] == minted_id)
+        assert minted["revoked_at"] is not None
+
+    def test_key_without_keys_manage_cannot_touch_keys_api(
+        self,
+        client: TestClient,
+        db: Session,
+    ) -> None:
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(
+            client,
+            admin_headers,
+            name="models-only",
+            scopes=["models:read"],
+        )
+        key_headers = {"Authorization": f"Bearer {token}"}
+
+        assert client.get("/api/auth/api-keys", headers=key_headers).status_code == 403
+        response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "sneaky", "scopes": ["models:read"]},
             headers=key_headers,
         )
-        assert response.status_code == 200, response.text
+        assert response.status_code == 403

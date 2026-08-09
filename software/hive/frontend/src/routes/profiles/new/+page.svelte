@@ -157,10 +157,10 @@
 
 		{#if profileType === 'rule'}
 			{#if !hasOpenRouter}
-				<div class="border border-warning/30 bg-warning/[0.1] p-4 text-sm text-[#A16207]">
+				<div class="border border-warning/30 bg-warning/[0.1] p-4 text-sm text-warning-strong">
 					<strong>AI Assistant requires an OpenRouter API key.</strong>
 					You can still create a profile and edit rules manually, or
-					<a href="/settings" class="font-medium underline hover:text-[#A16207]">configure your API key</a> first.
+					<a href="/settings" class="font-medium underline hover:text-warning-strong">configure your API key</a> first.
 				</div>
 			{/if}
 		{:else}

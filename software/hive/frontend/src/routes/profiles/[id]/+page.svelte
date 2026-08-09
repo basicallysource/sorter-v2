@@ -196,7 +196,7 @@
 		</div>
 
 		{#if error}<div class="border border-primary/20 bg-primary-light p-3 text-sm text-primary">{error}</div>{/if}
-		{#if success}<div class="border border-success/20 bg-[#F0F9F5] p-3 text-sm text-success">{success}</div>{/if}
+		{#if success}<div class="border border-success/20 bg-success/[0.08] p-3 text-sm text-success">{success}</div>{/if}
 
 		<!-- Action Buttons -->
 		<div class="flex flex-wrap gap-2">
@@ -332,7 +332,7 @@
 								<div>
 									<div class="flex flex-wrap items-center gap-2">
 										<span class="text-sm font-semibold text-text">v{v.version_number}</span>
-										{#if v.is_published}<span class="border border-success/20 bg-[#F0F9F5] px-2 py-0.5 text-xs font-medium text-success">Published</span>{/if}
+										{#if v.is_published}<span class="border border-success/20 bg-success/[0.08] px-2 py-0.5 text-xs font-medium text-success">Published</span>{/if}
 										{#if v.label}<span class="border border-border bg-bg px-2 py-0.5 text-xs font-medium text-text-muted">{v.label}</span>{/if}
 									</div>
 									{#if v.change_note}<p class="mt-1 text-sm text-text-muted">{v.change_note}</p>{/if}

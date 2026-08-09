@@ -1008,11 +1008,11 @@
 <!-- Stats bar -->
 {#if stats && stats.total_samples > 0}
 	{@const segments = [
-		{ key: 'accepted', label: 'Accepted', count: stats.accepted_samples, color: '#00852B' },
-		{ key: 'rejected', label: 'Rejected', count: stats.rejected_samples, color: '#D01012' },
-		{ key: 'in_review', label: 'Needs more reviews', count: stats.in_review_samples, color: '#0055BF' },
-		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: '#FFD500' },
-		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: '#E2E0DB' },
+		{ key: 'accepted', label: 'Accepted', count: stats.accepted_samples, color: 'var(--color-success)' },
+		{ key: 'rejected', label: 'Rejected', count: stats.rejected_samples, color: 'var(--color-primary)' },
+		{ key: 'in_review', label: 'Needs more reviews', count: stats.in_review_samples, color: 'var(--color-info)' },
+		{ key: 'conflict', label: 'Conflict', count: stats.conflict_samples, color: 'var(--color-warning)' },
+		{ key: 'unreviewed', label: 'Unreviewed', count: stats.unreviewed_samples, color: 'var(--color-border)' },
 	]}
 	<div class="mb-5 border border-border bg-surface">
 		<!-- Stacked bar -->

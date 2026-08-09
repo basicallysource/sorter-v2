@@ -111,7 +111,7 @@
 						</div>
 						<div class="flex shrink-0 items-center gap-1.5">
 							{#if profile.source}
-								<span class="border border-warning/30 bg-warning/[0.1] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#A16207]">Fork</span>
+								<span class="border border-warning/30 bg-warning/[0.1] px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-warning-strong">Fork</span>
 							{/if}
 							<span class="border border-border bg-bg px-1.5 py-0.5 text-[10px] font-medium text-text-muted">v{profile.latest_version_number}</span>
 						</div>
@@ -223,7 +223,7 @@
 				<button
 					onclick={confirmDelete}
 					disabled={deleting}
-					class="bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-[#7A1517] disabled:opacity-50"
+					class="bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
 				>{deleting ? 'Deleting...' : 'Delete'}</button>
 			</div>
 		</div>

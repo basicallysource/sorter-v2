@@ -209,8 +209,8 @@
 					</div>
 					{#if customSetImportStatus[rule.id]}
 						<div class="mb-3 border px-3 py-2 text-xs {customSetImportStatus[rule.id].tone === 'error'
-							? 'border-[#F4C7C7] bg-primary/8 text-danger'
-							: 'border-[#CDE5D5] bg-[#F2FAF5] text-[#2F6B42]'}">
+							? 'border-danger/25 bg-primary/8 text-danger'
+							: 'border-success/25 bg-success/[0.08] text-success'}">
 							{customSetImportStatus[rule.id].text}
 						</div>
 					{/if}

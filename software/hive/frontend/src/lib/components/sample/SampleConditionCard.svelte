@@ -96,7 +96,7 @@
 	}
 
 	function compositionTone(summary: ConditionSummary): string {
-		if (summary.composition === 'multi_part') return 'border-warning/40 bg-warning/15 text-[#A16207]';
+		if (summary.composition === 'multi_part') return 'border-warning/40 bg-warning/15 text-warning-strong';
 		if (summary.composition === 'empty_or_not_lego' || summary.composition === 'uncertain') {
 			return 'border-border bg-bg text-text-muted';
 		}
@@ -108,7 +108,7 @@
 			return 'border-primary/30 bg-primary/8 text-primary';
 		}
 		if (summary.condition === 'damaged' || summary.flags.damaged || summary.condition === 'dirty' || summary.flags.dirty) {
-			return 'border-warning/40 bg-warning/15 text-[#A16207]';
+			return 'border-warning/40 bg-warning/15 text-warning-strong';
 		}
 		if (summary.condition === 'clean_ok' || summary.condition === 'minor_wear' || summary.flags.clean) {
 			return 'border-success/30 bg-success/10 text-success';
@@ -118,7 +118,7 @@
 
 	function flagTone(active: boolean, risk = false): string {
 		if (!active) return 'border-border bg-bg text-text-muted opacity-60';
-		if (risk) return 'border-warning/40 bg-warning/15 text-[#A16207]';
+		if (risk) return 'border-warning/40 bg-warning/15 text-warning-strong';
 		return 'border-border bg-surface text-text';
 	}
 
@@ -169,7 +169,7 @@
 					<div class="text-[10px] font-semibold uppercase tracking-wide text-text-muted">Issues</div>
 					<div class="flex flex-wrap gap-1.5">
 						{#each conditionSummary.issues as issue}
-							<span class="border border-warning/40 bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-[#A16207]">
+							<span class="border border-warning/40 bg-warning/15 px-2 py-0.5 text-[11px] font-medium text-warning-strong">
 								{issue}
 							</span>
 						{/each}

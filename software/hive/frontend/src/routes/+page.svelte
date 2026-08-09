@@ -73,8 +73,8 @@
 			<p class="text-2xl font-bold font-mono text-primary">{stats.rejected_samples}</p>
 		</div>
 		<div class="border border-border bg-surface p-4">
-			<p class="flex items-center gap-2 text-sm font-medium text-[#B8960C]"><span class="inline-block h-2.5 w-2.5 bg-warning"></span>Conflict</p>
-			<p class="text-2xl font-bold font-mono text-[#B8960C]">{stats.conflict_samples}</p>
+			<p class="flex items-center gap-2 text-sm font-medium text-warning-strong"><span class="inline-block h-2.5 w-2.5 bg-warning"></span>Conflict</p>
+			<p class="text-2xl font-bold font-mono text-warning-strong">{stats.conflict_samples}</p>
 		</div>
 		<div class="border border-border bg-surface p-4">
 			<p class="flex items-center gap-2 text-sm font-medium text-text-muted"><span class="inline-block h-2.5 w-2.5 bg-text-muted"></span>Total Machines</p>

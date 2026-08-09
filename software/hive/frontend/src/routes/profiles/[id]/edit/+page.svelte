@@ -1209,7 +1209,7 @@
 			</div>
 			{#if isPreview}
 				<div class="flex items-center justify-between border-b border-warning/30 bg-warning/[0.1] px-4 py-2">
-					<span class="text-xs font-medium text-[#A16207]">
+					<span class="text-xs font-medium text-warning-strong">
 						Viewing v{previewVersion?.version_number}
 						{#if previewVersion?.change_note}
 							— {previewVersion.change_note}

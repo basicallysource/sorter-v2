@@ -15,7 +15,16 @@
 	/* warning yellow is the LEGO accent; for readable copy on white use the dark amber pair. */
 	--color-warning-strong: #92400E;
 	--color-warning-bg: #FEF3C7;
+	/* Ink for text sitting on the *fixed* LEGO yellow (`bg-warning`, e.g. the "Raw"
+	   chip over a sample photo). That background never flips, so neither does this —
+	   there is deliberately no `.dark` override. For yellow tints over a themed
+	   surface use `text-warning-strong`, which does flip. */
+	--color-warning-ink: #92400E;
 	--color-info: #0055BF;
+	/* Media backdrop for image/annotation viewers. Deliberately near-black in BOTH
+	   themes — a photo canvas reads better on a dark mat regardless of the app theme —
+	   so it has no `.dark` override below. Use it instead of a raw Tailwind neutral. */
+	--color-canvas: #0A0A0B;
 
 	--font-sans: 'IBM Plex Sans', system-ui, sans-serif;
 	--font-mono: 'IBM Plex Mono', monospace;
@@ -33,6 +42,11 @@
 	--color-text: #f3efe8;
 	--color-text-muted: #b7afa2;
 	--color-primary-light: #341517;
+	/* The light-theme amber pair is tuned for readable copy on white and is unreadable
+	   on the dark surface (both fail contrast there), so it flips: light amber ink on a
+	   deep amber wash. */
+	--color-warning-strong: #E7B84B;
+	--color-warning-bg: #3A2E12;
 }
 
 @layer base {
@@ -74,8 +88,8 @@
 	}
 
 	.chat-message-user {
-		border: 1px solid color-mix(in srgb, #0055bf 30%, var(--color-border));
-		background: color-mix(in srgb, #0055bf 10%, var(--color-surface));
+		border: 1px solid color-mix(in srgb, var(--color-info) 30%, var(--color-border));
+		background: color-mix(in srgb, var(--color-info) 10%, var(--color-surface));
 		color: var(--color-text);
 	}
 

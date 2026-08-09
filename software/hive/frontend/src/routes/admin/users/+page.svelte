@@ -140,7 +140,7 @@
 							<div class="flex items-center justify-end gap-2">
 								<button
 									onclick={() => toggleActive(user)}
-									class="text-xs font-medium {user.is_active ? 'text-[#A16207] hover:text-[#A16207]' : 'text-success hover:text-success'}"
+									class="text-xs font-medium {user.is_active ? 'text-warning-strong hover:text-warning-strong' : 'text-success hover:text-success'}"
 									title={user.is_active ? 'Deactivate' : 'Activate'}
 								>
 									{user.is_active ? 'Deactivate' : 'Activate'}

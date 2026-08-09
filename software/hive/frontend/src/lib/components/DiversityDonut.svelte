@@ -50,12 +50,14 @@
 		return `M ${x1} ${y1} A ${rOuter} ${rOuter} 0 ${large} 1 ${x2} ${y2} L ${x3} ${y3} A ${rInner} ${rInner} 0 ${large} 0 ${x4} ${y4} Z`;
 	}
 
+	// Coverage ramp. The endpoints are theme tokens; the two midpoints are data-viz
+	// ramp stops with no token equivalent and read the same in either theme.
 	function fillColor(fill: number): string {
-		if (fill >= 1) return '#00852B';
+		if (fill >= 1) return 'var(--color-success)';
 		if (fill >= 0.6) return '#7AAE3D';
 		if (fill >= 0.3) return '#FFA500';
-		if (fill > 0) return '#D01012';
-		return '#E2E0DB';
+		if (fill > 0) return 'var(--color-primary)';
+		return 'var(--color-border)';
 	}
 
 	const coveragePct = $derived(Math.round(coverage * 100));
@@ -67,7 +69,9 @@
 			{@const filledOuter = innerR + (outerR - innerR) * seg.fill}
 			<path
 				d={arc(seg.start, seg.end, outerR, innerR)}
-				fill={seg.ignored ? '#EBE9E4' : '#F2F0EB'}
+				fill={seg.ignored
+					? 'color-mix(in srgb, var(--color-border) 55%, var(--color-surface))'
+					: 'color-mix(in srgb, var(--color-border) 40%, var(--color-surface))'}
 				opacity={seg.ignored ? 0.6 : 1}
 			/>
 			{#if !seg.ignored && seg.fill > 0}

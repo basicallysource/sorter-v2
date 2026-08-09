@@ -619,10 +619,10 @@
 		<div class="flex flex-wrap items-center gap-2">
 			<div class="inline-flex border border-border bg-bg p-1">
 				<button type="button" onclick={() => { activeTool = 'rectangle'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 				>Rectangle</button>
 				<button type="button" onclick={() => { activeTool = 'polygon'; }}
-					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+					class="px-3 py-1.5 text-xs font-medium transition-colors {activeTool === 'polygon' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 				>Polygon</button>
 			</div>
 			<button type="button" onclick={() => { void saveAnnotations(); }} disabled={saving || !isDirty}

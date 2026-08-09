@@ -9,19 +9,19 @@ start production without a confirmed revision.
 Custom cable assemblies for one machine (a parts sorter).
 3 drawing sets are attached (PDF/PNG/SVG/HTML, generated with
 WireViz), each with its own BOM (TSV):
-  - power     : PSU pigtails PJ1-PJ6, load cables W1-W5
+  - power     : PSU pigtails PJ1-PJ3, load cables W1-W3
   - steppers  : channel stepper crossover cable S (x4), chute cable CH
   - leds      : LED feeds L1-L3, pigtails L1P-L3P, limit switch LIM
 
 2. QUANTITY
 2 full sets (i.e. every cable in the drawings x2).
-Per set: 6x PJ, 1x W1, 1x W2, 1x W3, 2x W4/W5, 3x LED feed,
-3x LED pigtail, 1x LIM, 4x S, 1x CH  = 23 cables.
+Per set: 3x PJ, 1x W1, 1x W2, 1x W3, 3x LED feed,
+3x LED pigtail, 1x LIM, 4x S, 1x CH  = 18 cables.
 Quote 2 sets and price breaks at 10 / 50 sets.
 
 3. WIRE SPEC
 - UL1007 stranded tinned copper, 300V, or RoHS equivalent.
-- Gauges per drawing: 18 AWG (PJ, W1), 22 AWG (W2-W5, L, LIM),
+- Gauges per drawing: 18 AWG (PJ, W1), 22 AWG (W2, W3, L, LIM),
   24 AWG (S, CH).
 - Colors per drawing (red=+24V, black=GND on power pairs;
   steppers BU/GN/RD/BK as drawn).
@@ -39,8 +39,11 @@ Quote 2 sets and price breaks at 10 / 50 sets.
 - Dupont = generic 2.54 mm female socket housing + crimps.
   LIM board end is a 3-position housing with only positions 1
   and 2 populated, so it cannot be fitted backwards.
-- LIM switch end: insulated female blade/faston quick-connect,
-  1/10 in, 22 AWG. No soldering.
+- LIM switch end: fully insulated female quick-connect
+  receptacle, #187 series (4.75 x 0.5 mm / .187 x .020 in tab),
+  22 AWG. Mates the Omron V-155-1C25 limit switch. No
+  soldering. Fully insulated because the switch is SPDT and one
+  of its three tabs is left unused.
 - Spade/fork terminals (PSU end): 18 AWG, M3.5 stud, 8 mm wide
   MAX so they fit the MeanWell LRS-350-24 screw terminals.
 - Ends marked "bare tinned": strip 5 mm and tin, no connector.

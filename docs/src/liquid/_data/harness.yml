@@ -16,8 +16,9 @@ drawings:
   - name: power
     title: 24V power distribution
     caption: >-
-      PSU box pigtails PJ1-PJ6 and load cables W1-W5. Dashed arrows are barrel
-      jack/plug mates. J6 is the unassigned spare.
+      PSU box pigtails PJ1-PJ3 and load cables W1-W3, one per 24V load: the
+      board, the USB hub and the Orange Pi buck. Dashed arrows are barrel
+      jack/plug mates.
   - name: steppers
     title: Stepper cables
     caption: >-

@@ -44,6 +44,6 @@ def test_date_uses_published_at_in_iso_format() -> None:
     assert name == "lego-detect_v3_2026-01-09_hailo.hef"
 
 
-def test_preserves_compound_extension_first_segment_only() -> None:
+def test_preserves_full_compound_tar_gz_extension() -> None:
     name = build_download_filename(_model(), _variant("pytorch", "weights.tar.gz"))
-    assert name == "lego-detect_v3_2026-04-28_pytorch.gz"
+    assert name == "lego-detect_v3_2026-04-28_pytorch.tar.gz"

@@ -11,7 +11,7 @@
 <div class="border border-border bg-surface">
 	<div class="flex items-center justify-between border-b border-border px-4 py-2.5">
 		<h2 class="text-xs font-semibold uppercase tracking-wider text-text-muted">Annotator</h2>
-		<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-[#A16207]' : annotatorApi.hasSavedBaseline ? 'text-success' : 'text-text-muted'}">
+		<span class="text-[11px] font-medium {annotatorApi.isDirty ? 'text-warning-strong' : annotatorApi.hasSavedBaseline ? 'text-success' : 'text-text-muted'}">
 			{#if annotatorApi.isDirty}Unsaved{:else if annotatorApi.hasSavedBaseline}Saved{:else}Not saved{/if}
 		</span>
 	</div>
@@ -34,7 +34,7 @@
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
 				<span class="text-[10px]">Delete</span>
 			</button>
-			<button onclick={() => annotatorApi.clearAll()} class="flex flex-col items-center gap-1 border border-warning/30 px-1 py-2 text-[#A16207] transition-colors hover:bg-warning/[0.1]" title="Clear all">
+			<button onclick={() => annotatorApi.clearAll()} class="flex flex-col items-center gap-1 border border-warning/30 px-1 py-2 text-warning-strong transition-colors hover:bg-warning/[0.1]" title="Clear all">
 				<svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
 				<span class="text-[10px]">Clear</span>
 			</button>

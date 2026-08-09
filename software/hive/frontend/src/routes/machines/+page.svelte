@@ -563,7 +563,7 @@ async function loadAssignmentProfile(profileId: string) {
 
 <Modal open={showTokenModal} title="API Token" onclose={() => { showTokenModal = false; }}>
 	<div class="space-y-4">
-		<div class="bg-warning/12 p-3 text-sm text-[#A16207]">
+		<div class="bg-warning/12 p-3 text-sm text-warning-strong">
 			Save this token now. It will not be shown again.
 		</div>
 		<div class="flex items-center gap-2">

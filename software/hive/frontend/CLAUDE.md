@@ -12,12 +12,31 @@ Color tokens are defined in `src/app.css` via `@theme`:
 | `bg`, `surface`, `border` | Neutrals (app bg, cards, dividers) |
 | `text`, `text-muted` | Foreground |
 | `danger`, `success`, `warning`, `info` | Status |
+| `warning-strong`, `warning-bg` | Readable amber ink + wash for warning copy (flips with the theme) |
+| `warning-ink` | Amber ink for text on the *fixed* LEGO yellow (`bg-warning`); theme-independent |
+| `canvas` | Near-black media backdrop for image/annotation viewers; theme-independent |
 
 Use them via Tailwind utilities: `bg-primary`, `text-text-muted`, `border-border`, `bg-success/[0.06]`, etc.
 
-**Do not** introduce raw `bg-[#...]` / `text-[#...]` / `border-[#...]` literals. The only places where raw hex is allowed:
+### Dark mode
+
+Dark mode is a `.dark` class on `<html>` (set by `src/app.html` + `src/routes/+layout.svelte`
+from `$lib/stores/theme`), and `.dark` in `src/app.css` **re-points the `--color-*` variables**.
+So a component is dark-mode-correct precisely when it uses the tokens: `bg-white` renders a white
+card on a dark page, and any hex literal is frozen to whichever theme it was picked for.
+
+Two tokens are deliberately theme-*independent* (`canvas`, `warning-ink`) because they sit on
+content that does not flip — a photo, or the fixed LEGO yellow. Everything else flips.
+
+**Do not** introduce raw `bg-[#...]` / `text-[#...]` / `border-[#...]` literals, and do not reach
+for Tailwind's stock palette (`bg-white`, `text-black`, `bg-gray-950`, …) — none of it is
+theme-aware. The only places where raw color values are allowed:
 - `src/routes/styleguide/+page.svelte` — the palette needs the literal values for display.
-- `src/lib/components/Badge.svelte` — one legacy warm-yellow `#A16207` text; migrate if you touch it.
+- Data-viz palettes drawn over sample photos: `src/lib/components/sample/bbox-helpers.ts`,
+  the annotator box palette, the model-compare palette, and the two untokenised midpoints of
+  the coverage ramp in `Sparkline.svelte` / `DiversityDonut.svelte`. These are categorical,
+  never sit on a themed surface, and have no token equivalent.
+- Modal/overlay scrims (`bg-black/50`) and chips floating on a photo.
 - Static assets / SVG / favicons.
 
 ## Sharp edges (softer than Sorter)

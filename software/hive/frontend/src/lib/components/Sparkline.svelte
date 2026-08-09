@@ -32,7 +32,14 @@
 
 	const last = $derived(values.length > 0 ? values[values.length - 1] : 0);
 	const color = $derived(
-		last >= 1 ? '#00852B' : last >= 0.6 ? '#7AAE3D' : last >= 0.3 ? '#FFA500' : '#D01012'
+		// Same coverage ramp as DiversityDonut: token endpoints, untokenised midpoints.
+		last >= 1
+			? 'var(--color-success)'
+			: last >= 0.6
+				? '#7AAE3D'
+				: last >= 0.3
+					? '#FFA500'
+					: 'var(--color-primary)'
 	);
 </script>
 
@@ -44,7 +51,7 @@
 				x2="100"
 				y1={100 - g}
 				y2={100 - g}
-				stroke="#D1CFCA"
+				class="stroke-border"
 				stroke-width="1"
 				stroke-dasharray="2,2"
 				vector-effect="non-scaling-stroke"

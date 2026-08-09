@@ -146,8 +146,8 @@
 						</span>
 					</div>
 					<svg viewBox="0 0 {14 * (profile.daily_counts.length - 1 || 1)} 30" class="block h-10 w-full" preserveAspectRatio="none">
-						<path d={spark(profile.daily_counts)} fill="rgba(208,16,18,0.10)" />
-						<path d={sparkLine(profile.daily_counts)} fill="none" stroke="#D01012" stroke-width="1.5" />
+						<path d={spark(profile.daily_counts)} class="fill-primary/10" />
+						<path d={sparkLine(profile.daily_counts)} fill="none" class="stroke-primary" stroke-width="1.5" />
 					</svg>
 				</div>
 			{/if}
@@ -169,7 +169,7 @@
 							<div class="flex items-center gap-2">
 								<span class="text-sm font-semibold text-text">{a.name}</span>
 								<span class="border px-1 py-0.5 text-[9px] uppercase tracking-wider {
-									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-[#A16207]'
+									a.tier === 'gold' ? 'border-warning/30 bg-warning/10 text-warning-strong'
 									: a.tier === 'silver' ? 'border-border bg-bg text-text-muted'
 									: 'border-border bg-bg text-text-muted'
 								}">{a.tier}</span>

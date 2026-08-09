@@ -97,7 +97,7 @@
 			case 'done':
 				return 'bg-success text-white';
 			case 'error':
-				return 'bg-warning-strong text-white';
+				return 'bg-warning-strong text-bg';
 			case 'skipped':
 				return 'bg-border text-text';
 			case 'pending':

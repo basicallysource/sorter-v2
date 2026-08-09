@@ -2,6 +2,10 @@ export type Bbox = { x: number; y: number; w: number; h: number };
 export type PaletteColor = { stroke: string; fill: string };
 
 export const proposalPalette: readonly PaletteColor[] = [
+	// Categorical annotation palette. These are drawn on top of the sample photo, never
+	// on a themed surface, so they are deliberately theme-independent literals rather
+	// than design tokens (there are no per-category tokens, and the hues have to stay
+	// distinguishable from each other regardless of light/dark).
 	{ stroke: '#22c55e', fill: 'rgba(34, 197, 94, 0.10)' },
 	{ stroke: '#06b6d4', fill: 'rgba(6, 182, 212, 0.10)' },
 	{ stroke: '#f97316', fill: 'rgba(249, 115, 22, 0.10)' },

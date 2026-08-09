@@ -28,9 +28,13 @@ def upgrade() -> None:
         "user_api_keys",
         sa.Column("expires_at", sa.DateTime(timezone=True), nullable=True),
     )
+    # Legacy rows store empty scopes as EITHER SQL NULL or JSON null (SQLAlchemy
+    # JSON columns persist Python None as JSON null by default) — prod has both
+    # shapes. Catch both, or JSON-null keys survive un-revoked but deny-all,
+    # showing "Active" in the UI while silently granting nothing.
     op.execute(
         "UPDATE user_api_keys SET revoked_at = CURRENT_TIMESTAMP "
-        "WHERE revoked_at IS NULL AND scopes IS NULL"
+        "WHERE revoked_at IS NULL AND (scopes IS NULL OR scopes = 'null'::jsonb)"
     )
 
 

@@ -41,4 +41,8 @@ last_verified: 2026-07-12
   <a href="{{ b }}/{{ d.name }}.yml{{ v }}" download>YAML source</a>
 </p>
 
+<div class="bom" data-bom="{{ b }}/{{ d.name }}.bom.tsv{{ v }}">
+  <p class="bom-status">Loading the bill of materials for {{ d.title }}</p>
+</div>
+
 {% endfor %}

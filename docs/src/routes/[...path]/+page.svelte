@@ -48,6 +48,59 @@
 			wrap.appendChild(btn);
 		}
 	});
+
+	// Bills of materials on the WireViz page.
+	//
+	// The BOMs are build artifacts in the assets bucket, not files in this repo,
+	// so they are fetched in the browser rather than baked in at build time. A
+	// build-time fetch would race the harness render job: both start on the same
+	// push, and a docs build that wins the race would bake in a missing or stale
+	// table and keep serving it until something else triggers a deploy. Fetching
+	// here cannot go silently stale, and the TSV download link above each table
+	// is the fallback when this does not run.
+	$effect(() => {
+		p.url; // rerun per page — {@html} replaces the DOM on navigation
+		if (!contentEl) return;
+		for (const host of contentEl.querySelectorAll<HTMLElement>('[data-bom]')) {
+			if (host.dataset.bomDone) continue;
+			host.dataset.bomDone = '1';
+			const url = host.dataset.bom!;
+			const fail = (msg: string) => {
+				host.innerHTML = '';
+				const p = document.createElement('p');
+				p.className = 'bom-status';
+				p.textContent = msg;
+				host.appendChild(p);
+			};
+			fetch(url)
+				.then((r) => (r.ok ? r.text() : Promise.reject(new Error(String(r.status)))))
+				.then((tsv) => {
+					const rows = tsv
+						.split('\n')
+						.map((line) => line.replace(/\r$/, ''))
+						.filter((line) => line.trim() !== '')
+						.map((line) => line.split('\t'));
+					if (rows.length < 2) return fail('This drawing has no bill of materials.');
+					const [head, ...body] = rows;
+					const width = Math.max(head.length, ...body.map((r) => r.length));
+					const table = document.createElement('table');
+					const thead = table.createTHead().insertRow();
+					for (let i = 0; i < width; i++) {
+						const th = document.createElement('th');
+						th.textContent = head[i] ?? '';
+						thead.appendChild(th);
+					}
+					const tbody = table.createTBody();
+					for (const r of body) {
+						const tr = tbody.insertRow();
+						for (let i = 0; i < width; i++) tr.insertCell().textContent = r[i] ?? '';
+					}
+					host.innerHTML = '';
+					host.appendChild(table);
+				})
+				.catch(() => fail('The bill of materials could not be loaded. Use the BOM (TSV) link above.'));
+		}
+	});
 </script>
 
 <svelte:head>

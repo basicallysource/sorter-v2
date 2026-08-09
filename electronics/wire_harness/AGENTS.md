@@ -125,6 +125,23 @@ sees it.
 ` #` opens a YAML comment. It renders as a truncated string with a trailing
 comma and nothing errors.
 
+## The BOM tables on the WireViz page
+
+Each drawing's `.bom.tsv` is rendered as a table under its image. **It is
+fetched in the browser, not baked in at build time**, by the `$effect` in
+`docs/src/routes/[...path]/+page.svelte` that picks up
+`<div class="bom" data-bom="...">` placeholders.
+
+Build-time was rejected for a specific reason: the docs build and the harness
+render both start on the same push, so a docs build that wins the race would
+bake in a missing or stale table and keep serving it until some unrelated push
+triggered another deploy. That is the silent-staleness failure this pipeline
+already had once. Fetching at read time cannot go stale, and the `BOM (TSV)`
+download link above each table is the fallback when the fetch does not run.
+
+The bucket sends `access-control-allow-origin: *`, so the cross-origin fetch is
+fine, and the URL carries `?v=` so it is served immutable.
+
 ## Where this shows up in the docs
 
 Four pages under `docs/src/content/hardware/electronics/`:

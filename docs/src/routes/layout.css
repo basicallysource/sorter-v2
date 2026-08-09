@@ -1227,6 +1227,47 @@ blockquote {
 	color: var(--muted);
 }
 
+/* Bills of materials, fetched from the assets bucket at read time. */
+.bom {
+	margin: 0 0 1.6rem;
+}
+.bom table {
+	width: 100%;
+	border-collapse: collapse;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	display: block;
+	overflow-x: auto;
+	font-size: 0.82rem;
+}
+.bom thead {
+	background: #f1efe9;
+}
+.bom th,
+.bom td {
+	text-align: left;
+	padding: 7px 10px;
+	border-bottom: 1px solid var(--line);
+	min-width: 0;
+	white-space: nowrap;
+}
+.bom th:nth-child(2),
+.bom td:nth-child(2) {
+	white-space: normal;
+	min-width: 220px;
+}
+.bom th {
+	font-weight: 600;
+}
+.bom tr:last-child td {
+	border-bottom: 0;
+}
+.bom-status {
+	margin: 0;
+	font-size: 0.82rem;
+	color: var(--muted);
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 880px) {

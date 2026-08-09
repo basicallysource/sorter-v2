@@ -164,10 +164,10 @@
 
 <div class="mx-auto flex min-h-screen w-full max-w-xl flex-col justify-center gap-6 px-5 py-10">
 	<div class="text-center">
-		<div class="font-mono text-sm tracking-wider text-[var(--color-text-muted)] uppercase">
+		<div class="font-mono text-sm tracking-wider text-text-muted uppercase">
 			SorterOS onboarding
 		</div>
-		<h1 class="mt-1 text-2xl font-bold text-[var(--color-text)]">Find your sorter</h1>
+		<h1 class="mt-1 text-2xl font-bold text-text">Find your sorter</h1>
 	</div>
 
 	{#if phase === 'invalid'}
@@ -177,32 +177,32 @@
 		</Alert>
 	{:else if phase === 'waiting'}
 		<div
-			class="flex flex-col items-center gap-4 border border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-10 text-center"
+			class="flex flex-col items-center gap-4 border border-border bg-surface px-6 py-10 text-center"
 		>
 			<Spinner size={32} />
-			<div class="text-[var(--color-text)]">Waiting for your sorter to come online…</div>
-			<p class="max-w-sm text-sm text-[var(--color-text-muted)]">
+			<div class="text-text">Waiting for your sorter to come online…</div>
+			<p class="max-w-sm text-sm text-text-muted">
 				Make sure you've rejoined your normal Wi-Fi. As soon as the sorter connects to the same
 				network it will report its address here — this stays private, the address is encrypted end
 				to end and only your browser can read it.
 			</p>
-			<div class="font-mono text-xs text-[var(--color-text-muted)]">
+			<div class="font-mono text-xs text-text-muted">
 				{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, '0')} elapsed
 			</div>
 		</div>
 	{:else if phase === 'found' && info}
 		<div
-			class="flex flex-col items-center gap-5 border border-[var(--color-success)]/40 bg-[var(--color-success)]/[0.06] px-6 py-10 text-center"
+			class="flex flex-col items-center gap-5 border border-success/40 bg-success/[0.06] px-6 py-10 text-center"
 		>
-			<div class="text-lg font-semibold text-[var(--color-text)]">Your sorter is online! 🎉</div>
+			<div class="text-lg font-semibold text-text">Your sorter is online! 🎉</div>
 			{#if info.hostname}
-				<div class="font-mono text-sm text-[var(--color-text-muted)]">{info.hostname}</div>
+				<div class="font-mono text-sm text-text-muted">{info.hostname}</div>
 			{/if}
-			<div class="font-mono text-base break-all text-[var(--color-text)]">{sorterUrl()}</div>
+			<div class="font-mono text-base break-all text-text">{sorterUrl()}</div>
 			<a href={sorterUrl()} class="w-full max-w-xs">
 				<Button variant="primary">Open the sorter →</Button>
 			</a>
-			<p class="max-w-sm text-xs text-[var(--color-text-muted)]">
+			<p class="max-w-sm text-xs text-text-muted">
 				Bookmark this address — it's your sorter's dashboard on your local network.
 			</p>
 		</div>

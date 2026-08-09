@@ -4,7 +4,7 @@
 
 <button
 	type="button"
-	class="inline-flex items-center gap-2 border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1.5 text-sm font-medium text-[var(--color-text)] hover:bg-[var(--color-bg)]"
+	class="inline-flex items-center gap-2 border border-border bg-surface px-3 py-1.5 text-sm font-medium text-text hover:bg-bg"
 	aria-label={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
 	title={$theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
 	onclick={() => theme.toggle($theme)}
@@ -16,7 +16,7 @@
 		</svg>
 		<span>Light</span>
 	{:else}
-		<svg class="h-4 w-4 text-[var(--color-text-muted)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+		<svg class="h-4 w-4 text-text-muted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
 			<path stroke-linecap="round" stroke-linejoin="round" d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z" />
 		</svg>
 		<span>Dark</span>

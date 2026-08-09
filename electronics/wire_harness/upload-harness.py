@@ -5,7 +5,7 @@
 
 Uploads everything in out/ to harness/<ref>/ in the basically-docs Space,
 overwriting whatever that ref held before. The docs build derives the same
-prefix from the ref it is building (docs/_plugins/harness.rb), so a branch's
+prefix from the ref it is building (resolveHarness() in docs/src/lib/server/content.ts), so a branch's
 Vercel preview shows that branch's drawings and production (main) shows main's.
 Nothing rendered is ever committed to git.
 

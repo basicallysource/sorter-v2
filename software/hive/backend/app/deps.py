@@ -30,6 +30,11 @@ API_KEY_SCOPE_KEYS_MANAGE = "keys:manage"
 # every key that can draw a public counter can also enumerate owners.
 API_KEY_SCOPE_STATS_READ = "stats:read"
 API_KEY_SCOPE_FLEET_READ = "fleet:read"
+# The third tier: who is doing the labelling. Separate from fleet:read because
+# it is a different population — machine owners are customers, contributors are
+# anyone who has ever reviewed a sample — and a key that should see one has no
+# business seeing the other.
+API_KEY_SCOPE_CONTRIBUTORS_READ = "contributors:read"
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
@@ -39,6 +44,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_KEYS_MANAGE,
         API_KEY_SCOPE_STATS_READ,
         API_KEY_SCOPE_FLEET_READ,
+        API_KEY_SCOPE_CONTRIBUTORS_READ,
     }
 )
 

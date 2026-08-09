@@ -5,6 +5,12 @@ aggregates — totals, a daily time-series, distributions — with no machine an
 no person in the payload. This is what a consumer that is itself public may
 hold: the website's headline numbers, a widget, anything cached at an edge.
 
+**`GET /contributors` is the people tier** (scope `contributors:read`): who
+has been labelling and reviewing, over four windows, with a linked Discord
+identity where that person linked one. A third scope rather than reusing
+`fleet:read`, because machine owners and contributors are different
+populations and a key that should see one has no business seeing the other.
+
 **`GET /fleet` is the identified tier** (scope `fleet:read`): the roster. Which
 machines exist, how much each has sorted, and the owner's Discord where that
 owner linked one. Only for consumers whose credential is kept as well as the
@@ -35,6 +41,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.deps import (
     API_KEY_PREFIX,
+    API_KEY_SCOPE_CONTRIBUTORS_READ,
     API_KEY_SCOPE_FLEET_READ,
     API_KEY_SCOPE_STATS_READ,
     _resolve_api_key,
@@ -43,8 +50,9 @@ from app.deps import (
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
+from app.models.user import User
 from app.models.user_identity import UserIdentity
-from app.services import analytics, machine_stats
+from app.services import analytics, leaderboard, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -105,6 +113,20 @@ def require_stats_key(
     """The anonymous tier: aggregates only, so the legacy secret still opens it."""
     _require_scope(
         db, _presented_key(authorization, x_stats_key), API_KEY_SCOPE_STATS_READ, allow_legacy=True
+    )
+
+
+def require_contributors_key(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    x_stats_key: str | None = Header(default=None),
+) -> None:
+    """The people tier: names and Discord ids, so a scoped key or nothing."""
+    _require_scope(
+        db,
+        _presented_key(authorization, x_stats_key),
+        API_KEY_SCOPE_CONTRIBUTORS_READ,
+        allow_legacy=False,
     )
 
 
@@ -265,3 +287,84 @@ def _local_day_in_progress(db: Session, ids: list) -> dict:
         .scalar()
     ) or 0
     return {"last_day_local": today_local.isoformat(), "last_day_local_pieces": int(pieces)}
+
+
+# The windows served in one response. A consumer drawing a leaderboard wants
+# all of them at once — asking four times for four rankings of the same people
+# is four round trips and four chances for them to disagree.
+CONTRIBUTOR_PERIODS = ("24h", "7d", "30d", "all")
+
+# How deep each ranking goes. Well past anything a Discord message will show,
+# and short enough that four rankings stay one cheap response.
+CONTRIBUTOR_LIMIT = 50
+
+
+@router.get("/contributors", dependencies=[Depends(require_contributors_key)])
+def get_public_contributors(db: Session = Depends(get_db)):
+    """Who has been labelling, over every window, with Discord where linked.
+
+    WHAT IS DELIBERATELY NOT HERE. No email, obviously. No hive user id: a
+    consumer of this needs to rank people and name the ones who opted in, and
+    a stable internal identifier for everybody else is a correlation handle it
+    has no use for. **And no avatar_url**, which is the non-obvious one — hive
+    stores whatever avatar the person's OAuth provider gave, and a Discord
+    avatar URL has that person's Discord snowflake embedded in the path.
+    Serving it would hand out the Discord id of people who never linked their
+    account, which is the exact thing the linkage is supposed to be their
+    choice about.
+
+    So an unlinked contributor is a display name and some counts, and nothing
+    that reaches back to a person.
+    """
+    out: dict[str, list[dict]] = {}
+    linked: dict[str, dict] = {}
+    for period in CONTRIBUTOR_PERIODS:
+        rows = leaderboard.get_leaderboard(db, period=period, limit=CONTRIBUTOR_LIMIT)
+        ids = [r.user_id for r in rows]
+        discord = _discord_by_user(db, ids)
+        entries = []
+        for r in rows:
+            d = discord.get(str(r.user_id))
+            if d is not None:
+                linked[d["id"]] = d
+            entries.append(
+                {
+                    "display_name": r.display_name,
+                    "role": r.role,
+                    "total_contributions": r.total_contributions,
+                    "total_reviews": r.total_reviews,
+                    "piece_color_labels": r.piece_color_labels,
+                    "piece_crop_links": r.piece_crop_links,
+                    "last_activity_at": r.last_review_at.isoformat() if r.last_review_at else None,
+                    "discord": d,
+                }
+            )
+        out[period] = entries
+    return {
+        "periods": out,
+        "limit": CONTRIBUTOR_LIMIT,
+        "discord_linked_count": len(linked),
+    }
+
+
+def _discord_by_user(db: Session, user_ids: list) -> dict[str, dict]:
+    """The Discord identity for each of these users, where they linked one.
+
+    Same join and the same opt-in rule as the fleet roster: absent means the
+    person did not link, not merely that we are not showing it.
+    """
+    if not user_ids:
+        return {}
+    rows = (
+        db.query(User.id, UserIdentity.provider_user_id, UserIdentity.provider_login)
+        .join(
+            UserIdentity,
+            and_(UserIdentity.user_id == User.id, UserIdentity.provider == "discord"),
+        )
+        .filter(User.id.in_(user_ids))
+        .all()
+    )
+    return {
+        str(uid): {"id": provider_id, "login": login}
+        for uid, provider_id, login in rows
+    }

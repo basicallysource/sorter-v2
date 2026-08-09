@@ -8,6 +8,9 @@
 	import ModelSelect from '$lib/components/primitives/ModelSelect.svelte';
 	import AiUsagePanel from '$lib/components/AiUsagePanel.svelte';
 	import BrandMark from '$lib/components/BrandMark.svelte';
+	import Copy from 'lucide-svelte/icons/copy';
+	import Check from 'lucide-svelte/icons/check';
+	import X from 'lucide-svelte/icons/x';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -82,6 +85,13 @@
 	let apiKeysError = $state<string | null>(null);
 	let apiKeysLoading = $state(false);
 	let apiKeyJustCreated = $state<{ name: string; token: string } | null>(null);
+	let apiKeyCopied = $state(false);
+
+	async function copyApiKey() {
+		if (!apiKeyJustCreated) return;
+		await navigator.clipboard.writeText(apiKeyJustCreated.token);
+		apiKeyCopied = true;
+	}
 
 	const API_KEY_SCOPES: { scope: string; label: string }[] = [
 		{ scope: 'models:read', label: 'Read models' },
@@ -150,6 +160,7 @@
 				apiKeySelectedMachines.length > 0 ? apiKeySelectedMachines : undefined
 			);
 			apiKeyJustCreated = { name: resp.summary.name, token: resp.raw_token };
+			apiKeyCopied = false;
 			apiKeyName = '';
 			apiKeySelectedScopes = [];
 			apiKeyExpiresInDays = '';
@@ -835,15 +846,30 @@
 				</p>
 
 				{#if apiKeyJustCreated}
-					<div class="mb-4 max-w-3xl border border-warning/40 bg-warning/[0.06] p-3 text-sm text-text">
-						<div class="mb-2 font-semibold">Copy this token now — it won't be shown again.</div>
-						<div class="mb-2 text-text-muted">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
-						<code class="block select-all break-all bg-bg p-2 font-mono text-xs">{apiKeyJustCreated.token}</code>
+					<div class="relative mb-4 max-w-3xl border border-warning/40 bg-warning/[0.06] p-3 pr-10 text-sm text-text">
 						<button
 							onclick={() => { apiKeyJustCreated = null; }}
-							class="mt-3 border border-border px-3 py-1 text-xs text-text-muted hover:text-text"
+							class="absolute right-2 top-2 p-1 text-text-muted hover:text-text"
 							type="button"
-						>Dismiss</button>
+							aria-label="Dismiss"
+						><X size={16} /></button>
+						<div class="mb-2 font-semibold">Copy this token now — it won't be shown again.</div>
+						<div class="mb-2 text-text-muted">Name: <span class="font-mono">{apiKeyJustCreated.name}</span></div>
+						<div class="relative">
+							<code class="block select-all break-all bg-bg p-2 pr-10 font-mono text-xs">{apiKeyJustCreated.token}</code>
+							<button
+								onclick={copyApiKey}
+								class="absolute right-1 top-1 p-1 text-text-muted hover:text-text"
+								type="button"
+								aria-label={apiKeyCopied ? 'Copied' : 'Copy token'}
+							>
+								{#if apiKeyCopied}
+									<Check size={16} class="text-success" />
+								{:else}
+									<Copy size={16} />
+								{/if}
+							</button>
+						</div>
 					</div>
 				{/if}
 

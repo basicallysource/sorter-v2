@@ -40,4 +40,5 @@ last_verified: 2026-07-12
   <a href="{{ b }}/{{ d.name }}.bom.tsv{{ v }}" download>BOM (TSV)</a> ·
   <a href="{{ b }}/{{ d.name }}.yml{{ v }}" download>YAML source</a>
 </p>
+
 {% endfor %}

@@ -27,4 +27,5 @@ drawings:
     title: LED drops and limit switch
     caption: >-
       LED feeds L1-L3 to their unplug-point jacks, pigtails L1p-L3p to the COB
-      boards and strip, and the limit switch cable.
+      boards and strip, and the limit switch cable (keyed 1x3 dupont at the
+      board, push-on blade terminals at the switch).

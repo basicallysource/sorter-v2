@@ -35,7 +35,12 @@ Quote 2 sets and price breaks at 10 / 50 sets.
   acceptable.
 - DC barrel 5.5 x 2.1 mm, center-positive: male moulded plugs,
   female inline jacks, female panel-mount jacks (>=5A).
+  2.1 mm pin, NOT 2.5 mm. The two do not mate.
 - Dupont = generic 2.54 mm female socket housing + crimps.
+  LIM board end is a 3-position housing with only positions 1
+  and 2 populated, so it cannot be fitted backwards.
+- LIM switch end: insulated female blade/faston quick-connect,
+  1/10 in, 22 AWG. No soldering.
 - Spade/fork terminals (PSU end): 18 AWG, M3.5 stud, 8 mm wide
   MAX so they fit the MeanWell LRS-350-24 screw terminals.
 - Ends marked "bare tinned": strip 5 mm and tin, no connector.
@@ -51,6 +56,10 @@ All other cables are straight-through pin 1 -> pin 1.
 6. TOLERANCES, LABELS, PACKAGING
 - Length tolerance +/-10 mm (+/-25 mm acceptable on >=36 in).
 - Label each cable near end A with its ID (W1, S, CH, ...).
+  Label S1-S4 at BOTH ends: four identical cables land within
+  inches of each other at both the board and the motors, and
+  they are unrecoverable once unplugged. Printed wrap-around
+  laser labels or printed heat-shrink are both fine.
 - Bag per cable type. No other packaging requirement.
 
 7. QUESTIONS WE EXPECT / PRE-ANSWERED

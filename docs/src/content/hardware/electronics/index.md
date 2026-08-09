@@ -176,7 +176,7 @@ J6 output is unassigned. Confirm spare or missing load.
 
 ### 4.3 &nbsp; LEDs (from basically board v1.3)
 
-Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module.
+Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC jack (the unplug point), then a 6 in male-DC pigtail into the module. The strip end uses a solderless clamp-on connector rather than soldering to pads.
 
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
@@ -200,7 +200,7 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 <table>
   <thead><tr><th>ID</th><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">LIM</td><td>Limit switch</td><td>basically board v1.3, 2x1 dupont</td><td>Limit switch</td><td>2</td><td>24 in</td></tr>
+    <tr><td class="wire-id">LIM</td><td>Limit switch</td><td>basically board v1.3, 1x3 dupont (position 3 empty)</td><td>Limit switch blade tabs, push-on</td><td>2</td><td>24 in</td></tr>
     <tr><td class="wire-id">S1-4</td><td>Stepper, channels 1-4 (×4)</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Stepper, JST-PH 6-pin (PHR-6), positions 1·4·3·6</td><td>4</td><td>1 m</td></tr>
     <tr><td class="wire-id">CH</td><td>Chute stepper</td><td>basically board v1.3, JST-PH 4-pin (PHR-4)</td><td>Chute stepper, flying leads, needs prep</td><td>4</td><td>40 in <span class="flagged">guess</span></td></tr>
   </tbody>
@@ -208,7 +208,7 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 
 <div class="callout callout-warning">
   <span class="callout-icon" aria-hidden="true">⚠</span>
-  <p><b>Done:</b> the stepper cables are JST-PH 4-pin at the board, not 4x1 dupont. The channel cables follow Jon's Stepper_Harness drawing.</p>
+  <p><b>Done, and here is why:</b> the stepper cables are JST-PH 4-pin at the board, not 4x1 dupont. Dupont contacts do not take side load. The wires leave at an angle, that depresses the spring contact, the connection goes loose, resistance goes up and it heats. Two of these have already burned up on real machines. JST-PH takes the side load without damage.</p>
 </div>
 
 ### 4.5 &nbsp; Servo adapter (ribbon)
@@ -229,8 +229,9 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 - DC 12V/24V to 5V USB-C buck converter, 5A 25W, powers Orange Pi 5 &middot; [link](https://www.amazon.com/dp/B0FV3P6KLS)
 - WINSINN 40mm 24V fan (4010), ships XH2.54-2PIN, re-terminated to male DC jack &middot; [link](https://www.amazon.com/dp/B0757RPCN9)
 - uxcell 16-pin IDC flat ribbon cable, FC/FC, 2.54 mm, 1 m, gray &middot; [link](https://www.amazon.com/dp/B07S2W4N9T)
-- Waveshare 4-port USB hub, 24V model
+- Waveshare 4-port USB hub, 24V model (USB 3.2 version, not the 5V industrial one, which cannot take 24V in)
 - Orange Pi 5
+- USB cables, Pi to hub and hub to Pico: 3 ft or shorter is plenty, but they must be data cables. A lot of short USB cables are power-only.
 
 ## 6 &nbsp; Connector and terminal types
 
@@ -239,17 +240,19 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 - DC barrel jack, female: PSU outputs, LED unplug junctions
 - DC barrel jack, male: load pigtails, LED pigtails
 - JST-VH female (VHR-2): basically board v1.3 24V input (W1)
-- 2x1 dupont (2.54 mm): LED drops (L1-L3), limit switch
+- 2x1 dupont (2.54 mm): LED drops (L1-L3)
+- 1x3 dupont (2.54 mm), 2 positions populated: limit switch board end, keyed so it cannot go on backwards
+- Blade / faston quick-connect, 1/10 in: limit switch end
 - JST-PH 4-pin (PHR-4): steppers at the board, J23, J27, J31, J35, J39
 - JST-PH 6-pin (PHR-6): the NEMA 17 motor socket, cable S motor end
 - 16-pin IDC (FC), 2.54 mm: ribbon to first servo adapter board
 
 ## 7 &nbsp; Open items
 
-1. **Lengths.** W1, W4, W5 are 36 in and longer than necessary. Pick final lengths and cut.
-2. **Board 24V input polarity.** The connector is JST-VH (VHR-2) per Jon's drawing; confirm which pin is +24V against the silkscreen.
-3. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.
-4. **How many PSU output jacks.** This page and the power drawing have 6 (5 loads plus a spare). Jon's DC_PSU_Harness is drawn as 3 per PSU build. Confirm the count before ordering jacks.
+1. **Fans, and how many PSU outputs.** The Orange Pi has its own fan output, so W4 and W5 may come out of the harness entirely. Drop them and the PSU box needs 3 jacks (board, Pi buck, USB hub), which is what Jon's DC_PSU_Harness assumes; keep them and it needs 5 plus a spare, which is what the drawing has. Settle this before ordering jacks.
+2. **Lengths.** W1, W4, W5 are 36 in and longer than necessary. Pick final lengths and cut.
+3. **Board 24V input polarity.** The connector is JST-VH (VHR-2) per Jon's drawing; confirm which pin is +24V against the silkscreen.
+4. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.
 5. **Gauge per segment.** Current draw per load is needed to spec gauge.
 6. **SKU reduction.** Once gauges are known, standardize on as few gauges and connector types as possible.
 

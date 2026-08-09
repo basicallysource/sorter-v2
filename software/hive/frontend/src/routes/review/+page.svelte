@@ -460,7 +460,7 @@
 
 	function formatDate(value: string | null | undefined) {
 		if (!value) return '—';
-		return new Date(value).toLocaleString('de-DE', {
+		return new Date(value).toLocaleString('en-US', {
 			day: '2-digit',
 			month: '2-digit',
 			year: 'numeric',

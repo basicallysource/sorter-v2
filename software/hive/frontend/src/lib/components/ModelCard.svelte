@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { DetectionModelSummary } from '$lib/api';
+	import { relativeTime } from '$lib/time';
 	import Badge from './Badge.svelte';
 
 	interface Props {
@@ -56,23 +57,6 @@
 
 	const arch = $derived(typeof modelMeta?.architecture === 'string' ? (modelMeta.architecture as string) : null);
 	const imgsz = $derived(asInt(modelMeta?.imgsz));
-
-	function relativeTime(iso: string): string {
-		const then = new Date(iso).getTime();
-		if (!Number.isFinite(then)) return '';
-		const diffMs = Date.now() - then;
-		const sec = Math.round(diffMs / 1000);
-		if (sec < 60) return 'gerade eben';
-		const min = Math.round(sec / 60);
-		if (min < 60) return `vor ${min} min`;
-		const hr = Math.round(min / 60);
-		if (hr < 24) return `vor ${hr} Std`;
-		const days = Math.round(hr / 24);
-		if (days < 7) return `vor ${days} Tag${days === 1 ? '' : 'en'}`;
-		const weeks = Math.round(days / 7);
-		if (weeks < 5) return `vor ${weeks} Woche${weeks === 1 ? '' : 'n'}`;
-		return new Date(iso).toLocaleDateString('de-DE', { year: 'numeric', month: 'short', day: 'numeric' });
-	}
 
 	function formatPct(v: number | null): string {
 		return v === null ? '—' : v.toFixed(3);

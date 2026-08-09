@@ -9,6 +9,7 @@ class ApiKeySummary(BaseModel):
     name: str
     token_prefix: str
     scopes: list[str] | None = None
+    machine_ids: list[str] | None = None
     created_at: datetime
     last_used_at: datetime | None = None
     expires_at: datetime | None = None
@@ -22,6 +23,9 @@ class ApiKeyCreateRequest(BaseModel):
     # Deny-by-default: a key grants exactly these scopes, so at least one is required.
     scopes: list[str] = Field(..., min_length=1)
     expires_in_days: int | None = Field(default=None, ge=1, le=3650)
+    # Optional machine whitelist; omitted/None = the key sees whatever its owner
+    # sees. When present, every id must be a machine the creator owns.
+    machine_ids: list[UUID] | None = Field(default=None, max_length=100)
 
 
 class ApiKeyCreateResponse(BaseModel):

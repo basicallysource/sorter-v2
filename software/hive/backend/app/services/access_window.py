@@ -24,6 +24,7 @@ Enforcement shape:
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass
 
 from sqlalchemy import and_, func, or_, select, tuple_
@@ -72,6 +73,28 @@ _DENY = Window(ANCHOR_OLDEST, 0, 0)
 
 def is_unrestricted(role: str) -> bool:
     return role == "admin"
+
+
+# --- API-key machine whitelist -------------------------------------------------
+# An API key may carry a machine whitelist (user_api_keys.machine_ids), attached
+# to the resolved User as a transient attribute by app.deps. It caps EVERY role
+# — an admin's constrained key still only sees the whitelisted machines — so it
+# is checked before any role-based early return below.
+
+def _key_machine_constraint(user: User) -> frozenset[str] | None:
+    """None = cookie session or unconstrained key. A frozenset (possibly empty)
+    means only these machine ids are visible."""
+    return getattr(user, "_api_key_machine_ids", None)
+
+
+def _constraint_uuids(constraint: frozenset[str]) -> list[uuid.UUID]:
+    out = []
+    for value in constraint:
+        try:
+            out.append(uuid.UUID(value))
+        except (TypeError, ValueError):
+            continue
+    return out
 
 
 def resolve_window(db: Session, role: str, entity: str) -> Window | None:
@@ -169,6 +192,9 @@ def apply_piece_access(db: Session, query, user: User):
     """Narrow a MachinePiece query to what ``user`` may see: admins everything;
     members only their own machines' pieces; reviewers their own PLUS the reviewer
     visibility window (rolling slice of everyone's)."""
+    constraint = _key_machine_constraint(user)
+    if constraint is not None:
+        query = query.filter(MachinePiece.machine_id.in_(_constraint_uuids(constraint)))
     if is_unrestricted(user.role):
         return query
     owned = MachinePiece.machine_id.in_(_owned_machine_ids(user))
@@ -182,6 +208,9 @@ def apply_piece_access(db: Session, query, user: User):
 def scope_to_piece_access(db: Session, query, user: User, machine_col, piece_uuid_col):
     """Owner-or-window scoping for piece-derived tables (labels, crop-links) that
     key off (machine_id, piece_uuid)."""
+    constraint = _key_machine_constraint(user)
+    if constraint is not None:
+        query = query.filter(machine_col.in_(_constraint_uuids(constraint)))
     if is_unrestricted(user.role):
         return query
     owned = machine_col.in_(_owned_machine_ids(user))
@@ -195,6 +224,9 @@ def scope_to_piece_access(db: Session, query, user: User, machine_col, piece_uui
 
 
 def piece_access_visible(db: Session, user: User, piece: MachinePiece) -> bool:
+    constraint = _key_machine_constraint(user)
+    if constraint is not None and str(piece.machine_id) not in constraint:
+        return False
     if is_unrestricted(user.role):
         return True
     if _machine_owned_by(db, piece.machine_id, user):
@@ -209,6 +241,9 @@ def piece_access_visible(db: Session, user: User, piece: MachinePiece) -> bool:
 def piece_access_visible_by_key(db: Session, user: User, machine_id, piece_uuid: str) -> bool:
     """Access gate for endpoints keyed by (machine_id, piece_uuid) that don't
     already hold the row. Missing piece reads as not-visible (caller 404s)."""
+    constraint = _key_machine_constraint(user)
+    if constraint is not None and str(machine_id) not in constraint:
+        return False
     if is_unrestricted(user.role):
         return True
     piece = (
@@ -222,6 +257,9 @@ def piece_access_visible_by_key(db: Session, user: User, machine_id, piece_uuid:
 
 
 def channel_crop_access_visible(db: Session, user: User, crop: MachineChannelCrop) -> bool:
+    constraint = _key_machine_constraint(user)
+    if constraint is not None and str(crop.machine_id) not in constraint:
+        return False
     if is_unrestricted(user.role):
         return True
     if _machine_owned_by(db, crop.machine_id, user):
@@ -238,12 +276,18 @@ def channel_crop_access_visible(db: Session, user: User, crop: MachineChannelCro
 # anti-scrape rule that matters — random members only see their own — is enforced.)
 
 def apply_sample_access(db: Session, query, user: User):
+    constraint = _key_machine_constraint(user)
+    if constraint is not None:
+        query = query.filter(Sample.machine_id.in_(_constraint_uuids(constraint)))
     if user.role in ("admin", "reviewer"):
         return query
     return query.filter(Sample.machine.has(Machine.owner_id == user.id))
 
 
 def sample_access_visible(db: Session, user: User, sample: Sample) -> bool:
+    constraint = _key_machine_constraint(user)
+    if constraint is not None and str(sample.machine_id) not in constraint:
+        return False
     if user.role in ("admin", "reviewer"):
         return True
     return sample.machine is not None and str(sample.machine.owner_id) == str(user.id)

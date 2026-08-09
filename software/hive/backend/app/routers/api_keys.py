@@ -15,6 +15,7 @@ from app.deps import (
     verify_csrf,
 )
 from app.errors import APIError
+from app.models.machine import Machine
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
 from app.schemas.api_key import (
@@ -65,6 +66,21 @@ def create_api_key(
     scopes = normalize_api_key_scopes(payload.scopes)
     if not scopes:
         raise APIError(400, "API key must have at least one scope", "API_KEY_SCOPES_REQUIRED")
+    machine_ids: list[str] | None = None
+    if payload.machine_ids is not None:
+        requested = {str(machine_id) for machine_id in payload.machine_ids}
+        if not requested:
+            raise APIError(400, "Machine list may not be empty — omit it for an unrestricted key", "API_KEY_MACHINES_EMPTY")
+        owned = {
+            str(machine_id)
+            for (machine_id,) in db.query(Machine.id)
+            .filter(Machine.owner_id == current_user.id, Machine.id.in_(payload.machine_ids))
+            .all()
+        }
+        unknown = requested - owned
+        if unknown:
+            raise APIError(400, "API key can only be scoped to machines you own", "API_KEY_MACHINES_NOT_OWNED")
+        machine_ids = sorted(requested)
     expires_at = None
     if payload.expires_in_days is not None:
         expires_at = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
@@ -75,6 +91,7 @@ def create_api_key(
         token_prefix=token_prefix,
         token_hash=token_hash,
         scopes=scopes,
+        machine_ids=machine_ids,
         expires_at=expires_at,
     )
     db.add(key)

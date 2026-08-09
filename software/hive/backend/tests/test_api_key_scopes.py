@@ -244,6 +244,81 @@ class TestApiKeyScopes:
         minted = next(item for item in list_after.json() if item["id"] == minted_id)
         assert minted["revoked_at"] is not None
 
+    def test_machine_scoped_key_only_sees_that_machines_samples(
+        self,
+        client: TestClient,
+        db: Session,
+        test_machine: dict,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample_id = _upload_sample(client, machine_token, "scoped-s1")
+        admin_headers = _login_admin(client, db)
+
+        # Admin's key scoped to a machine the admin does NOT own: the constraint
+        # caps even an admin credential, so the other owner's sample is invisible.
+        other_machine_resp = client.post(
+            "/api/machines",
+            json={"name": "Admin Sorter", "description": "admin's own"},
+            headers=admin_headers,
+        )
+        assert other_machine_resp.status_code in (200, 201)
+        own_machine_id = other_machine_resp.json()["id"]
+
+        response = client.post(
+            "/api/auth/api-keys",
+            json={"name": "one-machine", "scopes": ["samples:read"], "machine_ids": [own_machine_id]},
+            headers=admin_headers,
+        )
+        assert response.status_code == 200, response.text
+        key_headers = {"Authorization": f"Bearer {response.json()['raw_token']}"}
+
+        listing = client.get("/api/samples?annotated=all", headers=key_headers)
+        assert listing.status_code == 200
+        assert all(item["id"] != sample_id for item in listing.json().get("items", []))
+
+        detail = client.get(f"/api/samples/{sample_id}", headers=key_headers)
+        assert detail.status_code == 404
+
+        # Same admin via cookie session still sees everything — the cap is on
+        # the credential, not the account.
+        cookie_detail = client.get(f"/api/samples/{sample_id}", headers=admin_headers)
+        assert cookie_detail.status_code == 200
+
+    def test_unconstrained_admin_key_still_sees_all(
+        self,
+        client: TestClient,
+        db: Session,
+        machine_token: str,
+        upload_dir: str,
+    ) -> None:
+        sample_id = _upload_sample(client, machine_token, "scoped-s2")
+        admin_headers = _login_admin(client, db)
+        token = _create_api_key(client, admin_headers, name="all-machines", scopes=["samples:read"])
+        key_headers = {"Authorization": f"Bearer {token}"}
+        detail = client.get(f"/api/samples/{sample_id}", headers=key_headers)
+        assert detail.status_code == 200
+
+    def test_key_creation_rejects_unowned_machines(
+        self,
+        client: TestClient,
+        db: Session,
+        test_machine: dict,
+    ) -> None:
+        # test_machine belongs to test_user; the admin does not own it.
+        admin_headers = _login_admin(client, db)
+        response = client.post(
+            "/api/auth/api-keys",
+            json={
+                "name": "sneaky-machine-scope",
+                "scopes": ["samples:read"],
+                "machine_ids": [test_machine["id"]],
+            },
+            headers=admin_headers,
+        )
+        assert response.status_code == 400
+        assert response.json()["code"] == "API_KEY_MACHINES_NOT_OWNED"
+
     def test_key_without_keys_manage_cannot_touch_keys_api(
         self,
         client: TestClient,

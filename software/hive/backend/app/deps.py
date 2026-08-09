@@ -54,6 +54,11 @@ def get_current_user(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+    # Stamp explicitly: User instances can be shared across requests via the
+    # session identity map, so every auth path must set the credential's
+    # machine constraint rather than assume a fresh instance (None = cookie
+    # session, unconstrained).
+    user._api_key_machine_ids = None
     return user
 
 
@@ -135,7 +140,18 @@ def normalize_api_key_scopes(scopes: list[str] | None) -> list[str] | None:
     return normalized or None
 
 
-def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str]]:
+def _parse_key_machine_ids(raw: object) -> frozenset[str] | None:
+    """Machine whitelist stored on the key row. None = unconstrained; an empty
+    or malformed list collapses to an impossible constraint rather than
+    silently widening access."""
+    if raw is None:
+        return None
+    if not isinstance(raw, list):
+        return frozenset()
+    return frozenset(str(v) for v in raw if isinstance(v, str) and v)
+
+
+def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str], frozenset[str] | None]:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     key = (
         db.query(UserApiKey)
@@ -158,7 +174,11 @@ def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str]]
     db.commit()
     # Deny-by-default: a key grants exactly its stored scopes; a key with no
     # scopes (legacy rows) grants nothing.
-    return user, frozenset(normalize_api_key_scopes(key.scopes) or [])
+    return (
+        user,
+        frozenset(normalize_api_key_scopes(key.scopes) or []),
+        _parse_key_machine_ids(key.machine_ids),
+    )
 
 
 def get_current_user_or_api_key(
@@ -183,9 +203,13 @@ def get_current_user_or_api_key(
     if authorization and authorization.startswith("Bearer "):
         raw = authorization[7:].strip()
         if raw.startswith(API_KEY_PREFIX):
-            user, scopes = _resolve_api_key(db, raw)
+            user, scopes, machine_ids = _resolve_api_key(db, raw)
             request.state.auth_via_api_key = True
             request.state.api_key_scopes = scopes
+            # Transient, request-scoped attribute read by the access helpers in
+            # services/access_window.py — the credential's machine whitelist
+            # rides with the user object so every visibility check sees it.
+            user._api_key_machine_ids = machine_ids
             return user
     if not access_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -199,6 +223,7 @@ def get_current_user_or_api_key(
     user = db.query(User).filter(User.id == user_id).first()
     if user is None or not user.is_active:
         raise HTTPException(status_code=401, detail="User not found or inactive")
+    user._api_key_machine_ids = None
     return user
 
 

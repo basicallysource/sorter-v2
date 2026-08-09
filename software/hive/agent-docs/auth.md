@@ -44,6 +44,18 @@ surface means adding a scope for it, not reusing a vaguely-related one.
 Roles (`member` / `reviewer` / `admin` on `users.role`) still apply on top:
 a key never grants more than the owning user's role allows.
 
+**Machine-scoped keys**: a key may carry a machine whitelist
+(`user_api_keys.machine_ids`, null = unconstrained). The resolved constraint
+rides on the request's `User` object as a transient `_api_key_machine_ids`
+attribute — every auth path stamps it (None for cookie sessions), and the
+access helpers in `services/access_window.py` check it *before* any
+role-based early return, so a constrained key is strictly less powerful than
+its owner even for admins. Creation validates the ids against machines the
+creator owns. Enforced on samples, pieces, piece-derived tables, and channel
+crops — i.e. all machine-owned data reachable by API keys today. If a new
+surface becomes key-accessible and machine-owned, wire it through those
+helpers (or replicate the constraint check) — don't skip it.
+
 ## Sessions & sign-in identities
 
 Every sign-in method resolves to a `users` row. Access token is a short-lived

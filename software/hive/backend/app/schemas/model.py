@@ -104,3 +104,37 @@ class DetectionModelVariantUploadResponse(BaseModel):
     file_name: str
     file_size: int
     sha256: str
+
+
+class DatasetSampleRef(BaseModel):
+    sample_id: UUID
+    split: str = Field(..., pattern="^(train|val)$")
+
+
+class ModelDatasetSamplesAttachRequest(BaseModel):
+    """Bulk-record which Hive samples a model's dataset was built from."""
+    samples: list[DatasetSampleRef] = Field(..., min_length=1, max_length=20000)
+    replace: bool = Field(
+        default=False,
+        description="Drop any previously recorded samples for this model first.",
+    )
+
+
+class ModelDatasetSamplesAttachResponse(BaseModel):
+    attached: int
+    skipped_unknown: int  # sample IDs not present in this Hive (e.g. deleted since training)
+    total_recorded: int
+
+
+class ModelDatasetMachine(BaseModel):
+    machine_id: UUID
+    machine_name: str
+    train_samples: int
+    val_samples: int
+    total: int
+    share: float  # fraction of the model's recorded samples
+
+
+class ModelDatasetMachinesResponse(BaseModel):
+    machines: list[ModelDatasetMachine]
+    total_recorded: int

@@ -1,6 +1,11 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { api, type DetectionModelDetail, type DetectionModelVariant } from '$lib/api';
+	import {
+		api,
+		type DetectionModelDetail,
+		type DetectionModelVariant,
+		type ModelDatasetMachine
+	} from '$lib/api';
 	import ModelTrainingReport from '$lib/components/ModelTrainingReport.svelte';
 	import Badge from '$lib/components/Badge.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
@@ -8,6 +13,10 @@
 	let model = $state<DetectionModelDetail | null>(null);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+	// Structured per-machine dataset composition (models published with sample
+	// recording). Empty for older models — the metadata blob covers those.
+	let datasetMachines = $state<ModelDatasetMachine[]>([]);
+	let datasetRecorded = $state(0);
 
 	$effect(() => {
 		const id = page.params.id;
@@ -25,6 +34,15 @@
 			error = apiErr?.error || 'Failed to load model';
 		} finally {
 			loading = false;
+		}
+		try {
+			const ds = await api.getModelDatasetMachines(id);
+			datasetMachines = ds.machines;
+			datasetRecorded = ds.total_recorded;
+		} catch {
+			// Non-fatal: page renders from training_metadata alone.
+			datasetMachines = [];
+			datasetRecorded = 0;
 		}
 	}
 
@@ -51,21 +69,58 @@
 	const precision = $derived(asNumber(best?.precision));
 
 	const samples = $derived(asInt(datasetMeta?.total) ?? asInt(datasetMeta?.train_samples));
-	const machineCount = $derived(asInt(asRecord(datasetMeta?.machines)?.count));
+
+	// Rows for the Dataset Machines section: the structured per-sample recording
+	// when the model has one, else parsed out of the metadata blob so older
+	// models still show their composition.
+	type MachineRow = {
+		name: string;
+		train: number | null;
+		val: number | null;
+		total: number;
+		share: number;
+	};
+	const machineRows = $derived.by<MachineRow[]>(() => {
+		if (datasetMachines.length > 0) {
+			return datasetMachines.map((m) => ({
+				name: m.machine_name,
+				train: m.train_samples,
+				val: m.val_samples,
+				total: m.total,
+				share: m.share
+			}));
+		}
+		const dist = asRecord(asRecord(datasetMeta?.machines)?.distribution_after_balance);
+		if (!dist) return [];
+		const rows: MachineRow[] = [];
+		for (const [name, value] of Object.entries(dist)) {
+			const txt = typeof value === 'string' ? value : String(value);
+			const match = txt.match(/(\d[\d.,]*)/);
+			if (match)
+				rows.push({
+					name,
+					train: null,
+					val: null,
+					total: parseInt(match[1].replace(/[.,]/g, ''), 10),
+					share: 0
+				});
+		}
+		const total = rows.reduce((acc, r) => acc + r.total, 0);
+		for (const r of rows) r.share = total ? r.total / total : 0;
+		return rows.sort((a, b) => b.total - a.total);
+	});
+
+	const machineCount = $derived(
+		machineRows.length > 0 ? machineRows.length : asInt(asRecord(datasetMeta?.machines)?.count)
+	);
 
 	const arch = $derived(typeof modelMeta?.architecture === 'string' ? (modelMeta.architecture as string) : null);
 	const imgsz = $derived(asInt(modelMeta?.imgsz));
 
-	// Same diversity-score formula as the card — Shannon entropy of per-machine shares.
+	// Same diversity-score formula as the card — Shannon entropy of per-machine
+	// shares — but fed from machineRows so it works for both sources.
 	const diversityScore = $derived.by<number | null>(() => {
-		const dist = asRecord(asRecord(datasetMeta?.machines)?.distribution_after_balance);
-		if (!dist) return null;
-		const counts: number[] = [];
-		for (const value of Object.values(dist)) {
-			const txt = typeof value === 'string' ? value : String(value);
-			const match = txt.match(/(\d[\d.,]*)/);
-			if (match) counts.push(parseInt(match[1].replace(/[.,]/g, ''), 10));
-		}
+		const counts = machineRows.map((r) => r.total);
 		if (counts.length < 2) return counts.length === 1 ? 0 : null;
 		const total = counts.reduce((a, b) => a + b, 0);
 		if (total === 0) return null;
@@ -304,6 +359,63 @@
 							<span class="border border-border bg-bg px-1.5 py-0.5 font-mono text-[11px] text-text">{scope}</span>
 						{/each}
 					</div>
+				{/if}
+			</section>
+		{/if}
+
+		<!-- Machines in the dataset — structured per-sample recording when present,
+			 else derived from the training_metadata blob -->
+		{#if machineRows.length > 0}
+			<section class="border border-border bg-surface">
+				<div class="flex items-baseline justify-between border-b border-border px-5 py-3">
+					<h2 class="text-sm font-semibold uppercase tracking-wider text-text-muted">Dataset machines</h2>
+					<span class="text-xs text-text-muted">
+						{machineRows.length} machine{machineRows.length === 1 ? '' : 's'}{#if datasetRecorded > 0}&nbsp;· {datasetRecorded.toLocaleString()} samples recorded{/if}
+					</span>
+				</div>
+				<div class="overflow-x-auto">
+					<table class="w-full text-sm">
+						<thead>
+							<tr class="border-b border-border text-left text-[10px] uppercase tracking-wider text-text-muted">
+								<th class="px-5 py-2 font-medium">Machine</th>
+								<th class="px-3 py-2 text-right font-medium">Train</th>
+								<th class="px-3 py-2 text-right font-medium">Val</th>
+								<th class="px-3 py-2 text-right font-medium">Total</th>
+								<th class="w-1/3 px-5 py-2 font-medium">Share</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each machineRows as row (row.name)}
+								<tr class="border-b border-border last:border-b-0">
+									<td class="px-5 py-2 text-text">{row.name}</td>
+									<td class="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
+										{row.train !== null ? row.train.toLocaleString() : '—'}
+									</td>
+									<td class="px-3 py-2 text-right font-mono tabular-nums text-text-muted">
+										{row.val !== null ? row.val.toLocaleString() : '—'}
+									</td>
+									<td class="px-3 py-2 text-right font-mono font-semibold tabular-nums text-text">
+										{row.total.toLocaleString()}
+									</td>
+									<td class="px-5 py-2">
+										<div class="flex items-center gap-2">
+											<div class="h-1.5 flex-1 bg-bg">
+												<div class="h-full bg-primary" style="width: {(row.share * 100).toFixed(1)}%"></div>
+											</div>
+											<span class="w-12 text-right font-mono text-[11px] tabular-nums text-text-muted">
+												{(row.share * 100).toFixed(1)}%
+											</span>
+										</div>
+									</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+				{#if datasetRecorded === 0}
+					<p class="border-t border-border px-5 py-2 text-[11px] text-text-muted">
+						From training metadata — this model predates per-sample dataset recording.
+					</p>
 				{/if}
 			</section>
 		{/if}

@@ -530,10 +530,59 @@ def publish(**kwargs) -> None:
             benchmark_json=Path(benchmark_json) if benchmark_json else None,
             model_key=model_key,
         )
+        # Publish also records per-sample dataset provenance from this dir.
+        kwargs["dataset_dir"] = dataset_dir
 
     from training.hive import publish as publish_mod
 
     sys.exit(publish_mod.cli(kwargs))
+
+
+@main.command("attach-samples")
+@click.option("--model-id", required=True, help="Hive model UUID to record the dataset against.")
+@click.option("--dataset-dir", required=True, type=click.Path(exists=True, file_okay=False))
+@click.option("--hive-url", required=True)
+@click.option("--token", default=None, help="Hive API key; falls back to stored token for this URL.")
+@click.option(
+    "--replace/--append",
+    default=True,
+    help="Replace any previously recorded samples for this model (default) or append.",
+)
+def attach_samples(model_id: str, dataset_dir: str, hive_url: str, token: str | None, replace: bool) -> None:
+    """Backfill per-sample dataset provenance for an already-published model.
+
+    Reads the sample UUIDs from <dataset-dir>/labels/{train,val}/*.txt stems —
+    the same source `train publish --dataset-dir` uses at publish time.
+    """
+    from pathlib import Path
+
+    from training import auth
+    from training.hive.publish import _ATTACH_CHUNK, collect_dataset_sample_refs
+
+    api_key = token or auth.get_token(hive_url)
+    if not api_key:
+        click.echo(f"No stored API key for {hive_url}; run `train auth login` or pass --token.", err=True)
+        sys.exit(1)
+
+    sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "hive" / "sorter-client"))
+    from hive_client import HiveAdminClient
+
+    client = HiveAdminClient(hive_url, api_key=api_key)
+    refs = collect_dataset_sample_refs(Path(dataset_dir))
+    if not refs:
+        click.echo("No sample-UUID label stems found under the dataset dir.", err=True)
+        sys.exit(1)
+    attached = unknown = 0
+    for i in range(0, len(refs), _ATTACH_CHUNK):
+        result = client.attach_dataset_samples(
+            model_id, refs[i : i + _ATTACH_CHUNK], replace=(replace and i == 0)
+        )
+        attached += result.get("attached", 0)
+        unknown = result.get("skipped_unknown", 0) + unknown
+    click.echo(
+        f"Recorded {attached}/{len(refs)} samples on model {model_id}"
+        + (f" ({unknown} unknown to this Hive)" if unknown else "")
+    )
 
 
 @main.command("benchmark")

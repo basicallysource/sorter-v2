@@ -64,6 +64,53 @@ def _tar_directory(src_dir: Path) -> Path:
     return Path(tmp.name)
 
 
+_ATTACH_CHUNK = 5000
+
+
+def collect_dataset_sample_refs(dataset_dir: Path) -> list[dict]:
+    """Sample refs [{sample_id, split}] from a built dataset's label stems.
+
+    Label files are named by Hive sample UUID (that's how `train build` writes
+    them); anything that doesn't parse as a UUID (stray files, non-Hive
+    sources) is skipped with a note rather than failing the publish.
+    """
+    import uuid as uuid_mod
+
+    refs: list[dict] = []
+    skipped = 0
+    for split in ("train", "val"):
+        for label in sorted((dataset_dir / "labels" / split).glob("*.txt")):
+            try:
+                sid = str(uuid_mod.UUID(label.stem))
+            except ValueError:
+                skipped += 1
+                continue
+            refs.append({"sample_id": sid, "split": split})
+    if skipped:
+        print(f"  dataset-samples: skipped {skipped} non-UUID label stems", file=sys.stderr)
+    return refs
+
+
+def attach_dataset_samples(client, model_id: str, dataset_dir: Path) -> None:
+    """Record the dataset's per-sample provenance on the published model."""
+    refs = collect_dataset_sample_refs(dataset_dir)
+    if not refs:
+        print("  dataset-samples: none found — skipping", file=sys.stderr)
+        return
+    total_attached = 0
+    skipped_unknown = 0
+    for i in range(0, len(refs), _ATTACH_CHUNK):
+        chunk = refs[i : i + _ATTACH_CHUNK]
+        result = client.attach_dataset_samples(model_id, chunk, replace=(i == 0))
+        total_attached += result.get("attached", 0)
+        skipped_unknown += result.get("skipped_unknown", 0)
+    print(
+        f"  dataset-samples: recorded {total_attached}/{len(refs)}"
+        + (f" ({skipped_unknown} unknown to this Hive)" if skipped_unknown else ""),
+        file=sys.stderr,
+    )
+
+
 def _load_run_metadata(run_dir: Path) -> dict:
     run_json = run_dir / "run.json"
     if not run_json.exists():
@@ -137,6 +184,7 @@ def _run_publish(
     password: str | None = None,
     api_key: str | None = None,
     is_public: bool,
+    dataset_dir: Path | None = None,
 ) -> int:
     run_dir = run_dir.resolve()
     meta = _load_run_metadata(run_dir)
@@ -192,6 +240,14 @@ def _run_publish(
                 except OSError:
                     pass
 
+    if dataset_dir is not None:
+        print("Recording dataset sample provenance", file=sys.stderr)
+        try:
+            attach_dataset_samples(client, model_id, dataset_dir)
+        except HiveError as exc:
+            # Older Hives don't have the endpoint yet — the publish itself is done.
+            print(f"  dataset-samples: not recorded ({exc})", file=sys.stderr)
+
     print(f"Published {slug} v{created['version']} ({len(variants)} variants)", file=sys.stderr)
     return 0
 
@@ -235,6 +291,7 @@ def cli(kwargs: dict) -> int:
         password=password,
         api_key=api_key,
         is_public=kwargs.get("public", True),
+        dataset_dir=Path(kwargs["dataset_dir"]) if kwargs.get("dataset_dir") else None,
     )
 
 

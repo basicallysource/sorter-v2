@@ -17,6 +17,9 @@ from app.deps import (
 )
 from app.errors import APIError
 from app.models.detection_model import MODEL_PURPOSES, DetectionModel, DetectionModelVariant
+from app.models.machine import Machine
+from app.models.model_dataset_sample import ModelDatasetSample
+from app.models.sample import Sample
 from app.models.user import User
 from app.schemas.model import (
     DetectionModelCreateRequest,
@@ -27,6 +30,10 @@ from app.schemas.model import (
     DetectionModelSummary,
     DetectionModelVariantDetail,
     DetectionModelVariantUploadResponse,
+    ModelDatasetMachine,
+    ModelDatasetMachinesResponse,
+    ModelDatasetSamplesAttachRequest,
+    ModelDatasetSamplesAttachResponse,
 )
 from app.services.storage import (
     build_download_filename,
@@ -217,6 +224,117 @@ def create_model(
     db.commit()
     db.refresh(model)
     return DetectionModelCreateResponse(id=model.id, slug=model.slug, version=model.version, codename=model.codename)
+
+
+@router.post("/{model_id}/dataset-samples", response_model=ModelDatasetSamplesAttachResponse)
+def attach_dataset_samples(
+    model_id: UUID,
+    payload: ModelDatasetSamplesAttachRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_WRITE)),
+    _csrf: None = Depends(verify_csrf),
+):
+    """Record which Hive samples a model's dataset was built from.
+
+    Called by the training-side publisher (repeatedly, in chunks) after the
+    variants are uploaded. Idempotent: already-recorded (model, sample) pairs
+    are left in place, so a retried chunk can't duplicate. Sample IDs that
+    don't exist on this Hive are skipped and counted rather than failing the
+    whole batch — a dataset built weeks ago may reference since-deleted
+    samples.
+    """
+    model = db.query(DetectionModel).filter(DetectionModel.id == model_id).first()
+    if model is None:
+        raise APIError(404, "Model not found", "MODEL_NOT_FOUND")
+
+    if payload.replace:
+        db.query(ModelDatasetSample).filter(ModelDatasetSample.model_id == model_id).delete()
+
+    requested = {ref.sample_id: ref.split for ref in payload.samples}
+    known_ids = {
+        row[0]
+        for row in db.query(Sample.id).filter(Sample.id.in_(requested.keys())).all()
+    }
+    existing_ids = {
+        row[0]
+        for row in db.query(ModelDatasetSample.sample_id)
+        .filter(
+            ModelDatasetSample.model_id == model_id,
+            ModelDatasetSample.sample_id.in_(known_ids),
+        )
+        .all()
+    }
+    to_insert = known_ids - existing_ids
+    db.bulk_save_objects(
+        [
+            ModelDatasetSample(model_id=model_id, sample_id=sid, split=requested[sid])
+            for sid in to_insert
+        ]
+    )
+    db.commit()
+
+    total = (
+        db.query(func.count(ModelDatasetSample.sample_id))
+        .filter(ModelDatasetSample.model_id == model_id)
+        .scalar()
+    )
+    return ModelDatasetSamplesAttachResponse(
+        attached=len(to_insert),
+        skipped_unknown=len(requested) - len(known_ids),
+        total_recorded=total or 0,
+    )
+
+
+@router.get("/{model_id}/dataset-machines", response_model=ModelDatasetMachinesResponse)
+def get_dataset_machines(
+    model_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_MODELS_READ)),
+):
+    """Per-machine composition of a model's recorded dataset.
+
+    Aggregated live from the model_dataset_samples join, so it reflects the
+    machines as they are named now. Empty when the model predates sample
+    recording — the UI falls back to the training_metadata blob then.
+    """
+    model = (
+        _apply_visibility(db.query(DetectionModel), current_user)
+        .filter(DetectionModel.id == model_id)
+        .first()
+    )
+    if model is None:
+        raise APIError(404, "Model not found", "MODEL_NOT_FOUND")
+
+    rows = (
+        db.query(
+            Machine.id,
+            Machine.name,
+            func.count(ModelDatasetSample.sample_id).filter(ModelDatasetSample.split == "train"),
+            func.count(ModelDatasetSample.sample_id).filter(ModelDatasetSample.split == "val"),
+            func.count(ModelDatasetSample.sample_id),
+        )
+        .select_from(ModelDatasetSample)
+        .join(Sample, Sample.id == ModelDatasetSample.sample_id)
+        .join(Machine, Machine.id == Sample.machine_id)
+        .filter(ModelDatasetSample.model_id == model_id)
+        .group_by(Machine.id, Machine.name)
+        .order_by(func.count(ModelDatasetSample.sample_id).desc())
+        .all()
+    )
+    total = sum(r[4] for r in rows)
+    machines = [
+        ModelDatasetMachine(
+            machine_id=r[0],
+            machine_name=r[1],
+            train_samples=r[2],
+            val_samples=r[3],
+            total=r[4],
+            share=(r[4] / total) if total else 0.0,
+        )
+        for r in rows
+    ]
+    return ModelDatasetMachinesResponse(machines=machines, total_recorded=total)
 
 
 @router.post("/{model_id}/variants", response_model=DetectionModelVariantUploadResponse)

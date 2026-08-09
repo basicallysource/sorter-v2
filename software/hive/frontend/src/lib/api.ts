@@ -2308,6 +2308,9 @@ export const api = {
 	getModel(id: string) {
 		return request<DetectionModelDetail>('GET', `/api/models/${id}`);
 	},
+	getModelDatasetMachines(id: string) {
+		return request<ModelDatasetMachinesResponse>('GET', `/api/models/${id}/dataset-machines`);
+	},
 	modelVariantDownloadUrl(modelId: string, variantId: string) {
 		return resolveApiPath(`/api/models/${modelId}/variants/${variantId}/download`);
 	},
@@ -2456,6 +2459,20 @@ export interface DetectionModelSummary {
 export interface DetectionModelDetail extends DetectionModelSummary {
 	training_metadata: Record<string, unknown> | null;
 	variants: DetectionModelVariant[];
+}
+
+export interface ModelDatasetMachine {
+	machine_id: string;
+	machine_name: string;
+	train_samples: number;
+	val_samples: number;
+	total: number;
+	share: number;
+}
+
+export interface ModelDatasetMachinesResponse {
+	machines: ModelDatasetMachine[];
+	total_recorded: number;
 }
 
 export interface ApiKeySummary {

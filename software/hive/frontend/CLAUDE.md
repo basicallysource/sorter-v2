@@ -31,7 +31,9 @@ content that does not flip — a photo, or the fixed LEGO yellow. Everything els
 **Do not** introduce raw `bg-[#...]` / `text-[#...]` / `border-[#...]` literals, and do not reach
 for Tailwind's stock palette (`bg-white`, `text-black`, `bg-gray-950`, …) — none of it is
 theme-aware. The only places where raw color values are allowed:
-- `src/routes/styleguide/+page.svelte` — the palette needs the literal values for display.
+- The palette swatch section of `src/routes/styleguide/+page.svelte` — the swatches need
+  the literal hex values for display. The component demos on the rest of that page use
+  tokens like everything else, so the styleguide renders correctly in both themes.
 - Data-viz palettes drawn over sample photos: `src/lib/components/sample/bbox-helpers.ts`,
   the annotator box palette, the model-compare palette, and the two untokenised midpoints of
   the coverage ramp in `Sparkline.svelte` / `DiversityDonut.svelte`. These are categorical,
@@ -45,7 +47,7 @@ The ecosystem is several separate web UIs that people keep open side by side:
 Hive, the docs site, and the machine's own UI. A tab strip full of identical
 basically bricks tells you nothing, so **the mark is constant and the color
 carries the identity**: the basically brick (black outline, white fill) on a
-full-bleed colored disc.
+full-bleed colored square.
 
 | Site | Color | Palette token |
 |---|---|---|
@@ -62,9 +64,16 @@ The brick comes from `~/Documents/basically/logos/square zoomed.png`, the
 outlined-and-white-filled version of the logo (transparent outside the brick).
 Composite it, do not redraw it: building the mark from `basically-logo.svg`
 means adding stroke weight to keep the lines alive at small sizes, and that
-comes out visibly too bold. Crop to the alpha bbox, size the brick to 88% of
-the disc radius (corner-to-center), center it, and render each output size at
-its own resolution rather than downscaling one master.
+comes out visibly too bold. Crop to the alpha bbox, size the brick to 92% of
+the frame width, center it, and render each output size at its own resolution
+rather than downscaling one master.
+
+The field is a **sharp-cornered square**, not a disc and not a rounded rect. A
+square gives the color roughly a third more area than a circle inscribed in the
+same box, which is what makes the site readable at 16px; it also matches the
+flat-corner rule below and Sorter's `no rounded-*`. 92% leaves a colored margin
+that survives against a white browser toolbar — at 96% the brick's corners
+effectively touch the edge.
 
 Each site ships four files from its static dir:
 
@@ -182,4 +191,4 @@ pnpm --dir software/hive/frontend check
 pnpm --dir software/hive/frontend build
 ```
 
-Both must stay green. `rg "bg-\[#" src/` outside the styleguide should return ~nothing.
+Both must stay green. `rg "bg-\[#" src/` outside the styleguide's palette swatches should return ~nothing.

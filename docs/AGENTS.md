@@ -14,7 +14,7 @@ data files, and includes all hot-reload; restart after changing
 ## Favicon — the docs site color is yellow
 
 Every web UI in the ecosystem shows the same basically brick on a full-bleed
-colored disc, and the color says which site you are looking at: Hive is red, a
+colored square, and the color says which site you are looking at: Hive is red, a
 machine is blue, the docs site is **yellow** (`#FFD500`). The convention, the
 asset spec, and the rules for adding a site live in
 `software/hive/frontend/CLAUDE.md` § Favicons. Assets are

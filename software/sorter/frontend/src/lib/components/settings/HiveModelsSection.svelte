@@ -17,6 +17,10 @@
 		id: string;
 		slug: string;
 		version: number;
+		// Hive's human-friendly handle ("Ember") plus the swatch color it renders
+		// alongside it. Null for models published before codenames existed.
+		codename?: string | null;
+		codename_color?: string | null;
 		name: string;
 		description: string | null;
 		purpose?: string;
@@ -50,6 +54,10 @@
 		local_id: string;
 		target_id: string | null;
 		model_id: string;
+		// Recorded in run.json at download time; absent for bundled models and
+		// for installs that predate the field.
+		codename?: string | null;
+		codename_color?: string | null;
 		variant_runtime: string;
 		purpose?: string;
 		// Installed correctly, but nothing on this machine consumes it yet.
@@ -111,6 +119,18 @@
 
 	function isInert(item: { purpose?: string; inert?: boolean }): boolean {
 		return item.inert === true || INERT_PURPOSES.has(purposeOf(item));
+	}
+
+	// Hive identifies a model by its codename ("Ember") and a color swatch, with
+	// the long descriptive name as the subtitle. Mirror that here so a model
+	// reads the same on both sites. Anything without a codename — bundled
+	// models, pre-codename publishes — keeps the descriptive name as its title.
+	function titleOf(item: { codename?: string | null; name: string }): string {
+		return item.codename || item.name;
+	}
+
+	function subtitleOf(item: { codename?: string | null; name: string }): string | null {
+		return item.codename ? item.name : null;
 	}
 
 	let targets = $state<HiveTarget[]>([]);
@@ -839,6 +859,13 @@
 							>
 								<div class="min-w-0 flex-1">
 									<div class="flex flex-wrap items-center gap-2">
+										{#if model.codename_color}
+											<span
+												class="h-3 w-3 shrink-0 border border-border"
+												style={`background-color: ${model.codename_color}`}
+												aria-hidden="true"
+											></span>
+										{/if}
 										{#if browseHref}
 											<a
 												href={browseHref}
@@ -847,10 +874,10 @@
 												class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
 												title={`Open in source Hive: ${browseHref}`}
 											>
-												{model.name}
+												{titleOf(model)}
 											</a>
 										{:else}
-											<span class="font-mono text-sm font-medium text-text">{model.name}</span>
+											<span class="font-mono text-sm font-medium text-text">{titleOf(model)}</span>
 										{/if}
 										{#if model.installed}
 											<span class="inline-flex items-center gap-1 bg-text-muted/20 px-2 py-0.5 text-xs font-semibold uppercase tracking-wider text-text">
@@ -875,6 +902,10 @@
 										</p>
 									{/if}
 									<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+										{#if subtitleOf(model)}
+											<span class="font-mono text-text">{subtitleOf(model)}</span>
+											<span aria-hidden="true">·</span>
+										{/if}
 										<span>{model.model_family}</span>
 										<span aria-hidden="true">·</span>
 										<span>v{model.version}</span>
@@ -1003,6 +1034,13 @@
 								<div class="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
 									<div class="min-w-0 flex-1">
 										<div class="flex flex-wrap items-center gap-2">
+											{#if entry.codename_color}
+												<span
+													class="h-3 w-3 shrink-0 border border-border"
+													style={`background-color: ${entry.codename_color}`}
+													aria-hidden="true"
+												></span>
+											{/if}
 											{#if detailHref}
 												<a
 													href={detailHref}
@@ -1011,11 +1049,11 @@
 													class="font-mono text-sm font-medium text-text hover:text-primary hover:underline"
 													title={`Open in source Hive: ${detailHref}`}
 												>
-													{entry.name}
+													{titleOf(entry)}
 												</a>
 											{:else}
 												<span class="font-mono text-sm font-medium text-text">
-													{entry.name}
+													{titleOf(entry)}
 												</span>
 											{/if}
 											{#if entry.bundled}
@@ -1041,6 +1079,10 @@
 											</p>
 										{/if}
 										<div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-text-muted">
+											{#if subtitleOf(entry)}
+												<span class="font-mono text-text">{subtitleOf(entry)}</span>
+												<span aria-hidden="true">·</span>
+											{/if}
 											<span>{entry.model_family}</span>
 											<span aria-hidden="true">·</span>
 											<span>{entry.variant_runtime}</span>

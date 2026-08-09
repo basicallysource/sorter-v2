@@ -504,3 +504,109 @@ class TestRemoveInstalledModel:
         (target / "run.json").write_text("{}")
         hive_models.remove_installed_model("hive-abc")
         assert not target.exists()
+
+
+# ---------------------------------------------------------------------------
+# Codenames — Hive's human-readable identity carried onto the machine
+# ---------------------------------------------------------------------------
+
+
+class TestCodenames:
+    def test_download_records_codename_and_color(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        _configure_target(monkeypatch)
+
+        detail = {**_make_detail(), "codename": "Ember", "codename_color": "#E25822"}
+
+        def _downloader(
+            model_id: str,
+            variant_id: str,
+            dest_path: Path,
+            on_progress: Callable[[int, int], None] | None,
+            expected_sha256: str | None,
+        ) -> str:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+            dest_path.write_bytes(b"bytes")
+            return "expected-sha"
+
+        _install_stub_client(monkeypatch, _StubClient(detail=detail, downloader=_downloader))
+
+        manager = hive_models.DownloadJobManager()
+        job_id = manager.enqueue("hive-a", "model-1")
+        assert manager.wait_for_terminal(job_id, timeout=5.0).get("status") == "done"
+
+        sentinel = json.loads((tmp_path / "hive-model-1-onnx" / "run.json").read_text())[
+            hive_models.HIVE_SENTINEL_KEY
+        ]
+        assert sentinel["codename"] == "Ember"
+        assert sentinel["codename_color"] == "#E25822"
+
+        installed = hive_models.list_installed_models()
+        assert installed[0]["codename"] == "Ember"
+        assert installed[0]["codename_color"] == "#E25822"
+
+    def test_installs_predating_the_field_report_none(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        _write_legacy_install(tmp_path)
+
+        installed = hive_models.list_installed_models()
+        assert installed[0]["codename"] is None
+        assert installed[0]["codename_color"] is None
+
+    def test_browsing_backfills_a_legacy_install(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(hive_models, "LOCAL_MODELS_DIR", tmp_path)
+        _configure_target(monkeypatch)
+        run_path = _write_legacy_install(tmp_path)
+
+        stub = _StubClient(detail=_make_detail())
+        stub.list_models = lambda **_: {  # type: ignore[method-assign]
+            "items": [
+                {
+                    "id": "model-1",
+                    "name": "Test Detector",
+                    "codename": "Ember",
+                    "codename_color": "#E25822",
+                }
+            ],
+            "total": 1,
+            "page": 1,
+            "page_size": 30,
+            "pages": 1,
+        }
+        _install_stub_client(monkeypatch, stub)
+
+        page = hive_models.list_remote_models("hive-a")
+        assert page["items"][0]["installed"] is True
+
+        sentinel = json.loads(run_path.read_text())[hive_models.HIVE_SENTINEL_KEY]
+        assert sentinel["codename"] == "Ember"
+        assert sentinel["codename_color"] == "#E25822"
+        assert hive_models.list_installed_models()[0]["codename"] == "Ember"
+
+
+def _write_legacy_install(root: Path) -> Path:
+    """An installed model whose run.json predates the codename fields."""
+    dest = root / "hive-model-1-onnx"
+    (dest / "exports").mkdir(parents=True)
+    run_path = dest / "run.json"
+    run_path.write_text(
+        json.dumps(
+            {
+                "name": "Test Detector",
+                "model_family": "yolo",
+                hive_models.HIVE_SENTINEL_KEY: {
+                    "target_id": "hive-a",
+                    "model_id": "model-1",
+                    "variant_runtime": "onnx",
+                    "sha256": "abc",
+                },
+            }
+        )
+    )
+    return run_path

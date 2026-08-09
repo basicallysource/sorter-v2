@@ -41,7 +41,7 @@
 
 	function formatDate(iso: string | null): string {
 		if (!iso) return '—';
-		return new Date(iso).toLocaleString('de-DE', {
+		return new Date(iso).toLocaleString('en-US', {
 			year: 'numeric',
 			month: 'short',
 			day: 'numeric',

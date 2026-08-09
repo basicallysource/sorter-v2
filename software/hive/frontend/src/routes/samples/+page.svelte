@@ -619,7 +619,7 @@
 		return {
 			remainingLabel: formatRemaining(remaining),
 			rate,
-			startedAtLabel: new Date(job.started_at).toLocaleTimeString('de-DE', {
+			startedAtLabel: new Date(job.started_at).toLocaleTimeString('en-US', {
 				hour: '2-digit', minute: '2-digit'
 			})
 		};

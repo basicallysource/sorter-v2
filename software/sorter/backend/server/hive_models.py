@@ -301,6 +301,13 @@ def _scan_models_dir(root: Path, *, bundled: bool) -> list[dict]:
                 "local_id": child.name,
                 "target_id": hive_meta.get("target_id"),
                 "model_id": hive_meta.get("model_id"),
+                # Hive's human-friendly handle ("Ember") and its swatch color,
+                # captured at download time so the installed list can identify a
+                # model the same way Hive does without going back to the network.
+                # Absent for repo-bundled models and for installs that predate
+                # this field — see ``_backfill_codenames``.
+                "codename": hive_meta.get("codename"),
+                "codename_color": hive_meta.get("codename_color"),
                 "variant_runtime": variant_runtime,
                 "purpose": purpose,
                 "inert": purpose in INERT_PURPOSES,
@@ -340,25 +347,76 @@ def _installed_index() -> set[tuple[str, str]]:
     return index
 
 
+def _backfill_codenames(target_id: str, items: list[dict], entries: list[dict]) -> None:
+    """Write codenames into run.json for installs that predate the field.
+
+    Downloads have carried ``codename`` / ``codename_color`` in their run.json
+    since those became part of the Hive payload, but anything installed before
+    then knows only its model id. Rather than spend a network call on the
+    Installed tab — which otherwise works with no Hive reachable — we top those
+    entries up opportunistically while browsing the catalog, where the answer is
+    already in hand. Best-effort: a run.json we cannot rewrite is left alone and
+    retried on the next browse.
+    """
+    stale = [
+        entry
+        for entry in entries
+        if not entry.get("codename")
+        and not entry.get("bundled")
+        and entry.get("target_id") == target_id
+    ]
+    if not stale:
+        return
+
+    by_model_id = {
+        item["id"]: item
+        for item in items
+        if isinstance(item.get("id"), str) and isinstance(item.get("codename"), str)
+    }
+    for entry in stale:
+        remote = by_model_id.get(entry.get("model_id"))
+        if remote is None:
+            continue
+        run_path = Path(entry["path"]) / "run.json"
+        payload = _read_run_json(run_path)
+        if payload is None or not isinstance(payload.get(HIVE_SENTINEL_KEY), dict):
+            continue
+        payload[HIVE_SENTINEL_KEY]["codename"] = remote.get("codename")
+        payload[HIVE_SENTINEL_KEY]["codename_color"] = remote.get("codename_color")
+        try:
+            tmp_path = run_path.with_suffix(".json.tmp")
+            tmp_path.write_text(json.dumps(payload, indent=2, sort_keys=True))
+            os.replace(tmp_path, run_path)
+        except OSError:
+            log.debug("codename backfill failed for %s", run_path, exc_info=True)
+
+
 def list_remote_models(target_id: str, **filters: Any) -> dict:
     """Fetch the remote model catalog for ``target_id`` and tag installs."""
     client, target = _get_client_for_target(target_id)
     page = client.list_models(**filters)
 
-    installed = _installed_index()
+    # One scan feeds both the installed tagging and the codename backfill —
+    # walking the model dirs means stat'ing every weight file, so don't do it
+    # twice per browse.
+    entries = list_installed_models()
+    installed = {
+        (entry["target_id"], entry["model_id"])
+        for entry in entries
+        if isinstance(entry.get("target_id"), str) and isinstance(entry.get("model_id"), str)
+    }
     items = page.get("items") if isinstance(page, dict) else None
     if isinstance(items, list):
-        for item in items:
-            if not isinstance(item, dict):
-                continue
+        dicts = [item for item in items if isinstance(item, dict)]
+        for item in dicts:
             model_id = item.get("id")
-            if isinstance(model_id, str):
-                item["installed"] = (target_id, model_id) in installed
-            else:
-                item["installed"] = False
+            item["installed"] = (
+                isinstance(model_id, str) and (target_id, model_id) in installed
+            )
             item["target_id"] = target_id
             item["target_url"] = target.get("url")
             item["target_name"] = target.get("name")
+        _backfill_codenames(target_id, dicts, entries)
     return page
 
 
@@ -847,6 +905,9 @@ class DownloadJobManager:
         if variant_runtime and "runtime" not in base:
             base["runtime"] = variant_runtime
 
+        codename = detail.get("codename") if isinstance(detail, dict) else None
+        codename_color = detail.get("codename_color") if isinstance(detail, dict) else None
+
         base[HIVE_SENTINEL_KEY] = {
             "target_id": target_id,
             "model_id": model_id,
@@ -854,6 +915,12 @@ class DownloadJobManager:
             "purpose": purpose or DEFAULT_PURPOSE,
             "sha256": sha256,
             "downloaded_at": _now_iso(),
+            # Carried over so the installed list can show the same identity Hive
+            # does (codename + color swatch) with no network round-trip.
+            "codename": codename if isinstance(codename, str) and codename else None,
+            "codename_color": (
+                codename_color if isinstance(codename_color, str) and codename_color else None
+            ),
         }
 
         dest_dir.mkdir(parents=True, exist_ok=True)

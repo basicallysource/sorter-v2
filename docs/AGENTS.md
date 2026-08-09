@@ -208,13 +208,25 @@ contributor once here; every page crediting them updates automatically.
 
 ## Deploy and PR previews
 
-Vercel builds from `docs/` (project `sorter-v2-docs`, root directory `docs`);
-`vercel.json` here overrides the dashboard's old Jekyll preset with
-`npm run build` → `build/`. Push to `main` deploys production
-(docs.basically.website). **Every push to any other branch gets an automatic
-preview deployment** — no setup per PR. Take the preview URL from Vercel's PR
-comment or check (never derive it from the branch name; long names get
-truncated). Images render identically on previews and production because
-they come from `img.basically.website`, not the repo.
+**Cloudflare Pages** builds from `docs/` — project `sorter-v2-docs`, root
+directory `docs`, `npm run build` → `build/`, `NODE_VERSION=22`. Push to
+`main` deploys production (docs.basically.website). **Every push to any other
+branch gets an automatic preview deployment** — no setup per PR. Take the
+preview URL from the PR comment or check (never derive it from the branch
+name; long names get truncated). Images render identically on previews and
+production because they come from `img.basically.website`, not the repo.
+
+Moved off Vercel on 2026-08-09. Two reasons, in order: static asset requests
+on Pages are unmetered, and the site was generating ~40k Vercel edge requests
+a day against a 100-deploy-a-day Hobby account that had already rate-limited
+itself out of deploying; and everything else the docs depend on
+(`img.basically.website`, the DNS, the cache purge) already lives in the same
+Cloudflare account. The site is `@sveltejs/adapter-static` with
+`trailingSlash: 'always'` set in SvelteKit rather than in host config, so
+there was nothing host-specific to port. `vercel.json` is gone. If you are
+about to move it again, the thing that breaks silently is `resolveHarness()`
+in `src/lib/server/content.ts`: it reads the branch and sha from host env
+vars, and on a host that sets neither it falls back to a detached HEAD and
+quietly points every harness image at `main` with no cache-buster.
 
 Commit only when verified; push only when asked.

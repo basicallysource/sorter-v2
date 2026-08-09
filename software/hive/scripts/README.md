@@ -54,6 +54,17 @@ state. Any failure rolls back to the previously installed digests.
 
 `hive-postgres` is never recreated by a deploy (`--no-deps`).
 
+**Old images are pruned after a successful install.** A backend image is
+1.36 GB and every release pulls a new one *by digest*, which leaves the old
+one untagged but **not dangling** — so `docker image prune` does nothing for
+it and they accumulate one per deploy. On 2026-08-09 that took the 77 GB disk
+to 96% and killed a deploy at the pre-deploy `pg_dump` with `no space left on
+device`: v0.1.9 was built, published, and never installed. The agent now
+deletes hive images that no container is using and that are older than
+`HIVE_IMAGE_KEEP_HOURS` (48), so a rollback inside that window is a restart
+rather than a re-pull. It names the two hive repositories only — never
+`prune -a`, which would also take traefik and postgres.
+
 **How this was set up:** [CUTOVER.md](CUTOVER.md) is the record of the
 2026-08-07 cutover. It is history — it has been carried out and must not be run
 again — but it is the reference for standing up a fresh box and for the

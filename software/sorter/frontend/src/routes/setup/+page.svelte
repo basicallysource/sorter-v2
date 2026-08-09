@@ -604,6 +604,24 @@
 		goToNextStep();
 	}
 
+	// An unnamed machine starts the naming step from the name it already picked
+	// for itself at firstboot (sorter-dark-azure-brick-… reads back as "Dark
+	// Azure Brick"), or a fresh roll on a machine that never got one. Anyone
+	// who clicks past this step still ends up with a name of their own, and it
+	// is the same name Hive gets later.
+	async function suggestNickname() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name`);
+			if (!res.ok) return;
+			const data = await res.json();
+			if (typeof data?.name === 'string' && data.name.trim() && !nicknameDraft.trim()) {
+				nicknameDraft = data.name.trim();
+			}
+		} catch {
+			// Leave it empty; the step still asks for a name.
+		}
+	}
+
 	async function loadWizard() {
 		loadingWizard = true;
 		wizardError = null;
@@ -616,6 +634,7 @@
 			hardwareError = payload.hardware.error;
 			homingStep = payload.hardware.homing_step;
 			nicknameDraft = payload.machine.nickname ?? '';
+			if (!nicknameDraft.trim()) void suggestNickname();
 			const configuredLayout = payload.config.camera_assignments.layout;
 			selectedLayout =
 				configuredLayout === 'split_feeder'
@@ -670,10 +689,9 @@
 		hiveConnecting = true;
 		hiveError = null;
 		hiveStatus = null;
-		const machineName =
-			(wizard?.machine.nickname ?? '').trim() ||
-			nicknameDraft.trim() ||
-			(wizard?.machine.machine_id ?? '');
+		// No name yet means no suggestion: Hive rolls one rather than showing
+		// the machine id, which reads as a serial number in a machine list.
+		const machineName = (wizard?.machine.nickname ?? '').trim() || nicknameDraft.trim();
 		try {
 			beginHiveLink({
 				hiveUrl: url,

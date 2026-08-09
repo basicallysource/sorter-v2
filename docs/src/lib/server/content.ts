@@ -44,8 +44,13 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 // Same ref resolution as resolveHarness() in docs/src/lib/server/content.ts: CI env first, local git
 // branch as fallback, so a branch preview links its own harness renders.
 function resolveHarness(): { base: string; v: string } {
-	let ref = process.env.VERCEL_GIT_COMMIT_REF ?? '';
-	let sha = process.env.VERCEL_GIT_COMMIT_SHA ?? '';
+	// Cloudflare Pages first, then Vercel, then the local checkout. Do not drop
+	// a host's variables when we move: both of these fall back to '' silently,
+	// and an empty ref points every harness image at main while an empty sha
+	// removes the cache-buster entirely. That combination is exactly the
+	// stale-drawing bug of 2026-08-09, with no error to notice.
+	let ref = process.env.CF_PAGES_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
+	let sha = process.env.CF_PAGES_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? '';
 	try {
 		if (!ref) ref = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
 		if (!sha) sha = execSync('git rev-parse HEAD').toString().trim();

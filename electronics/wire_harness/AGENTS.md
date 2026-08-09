@@ -18,9 +18,22 @@ bucket, addressed by git ref:
 Refs are mutable, exactly like git branches: pushing to a branch overwrites
 that branch's prefix. The docs derive the prefix for whatever ref they're
 building (`resolveHarness()` in `docs/src/lib/server/content.ts`), so a PR preview shows the PR's
-drawings and production shows main's. Objects carry a short cache TTL and the
-docs append a per-deploy `?v=` buster, so nobody ever sees a stale drawing for
-more than about a minute.
+drawings and production shows main's.
+
+`img.basically.website` is a Cloudflare Worker in front of the bucket, and it
+keys its cache on the full URL including `?v=`, so a re-rendered drawing shows
+up as soon as a deploy stamps a new `v`. Every response carries
+`x-img-cache: hit|miss`, and that header is the evidence when somebody says a
+drawing looks stale:
+
+    curl -sI "https://img.basically.website/harness/main/power.png?v=<sha>" | grep -i x-img-cache
+
+(An earlier version of this file blamed the Cloudflare zone for ignoring query
+strings. It was the worker dropping the query string before its subrequest to
+Spaces; fixed 2026-08-09.) The origin is public and never cached, so it is the
+tiebreaker if the two ever disagree:
+
+    https://basically-docs.nyc3.digitaloceanspaces.com/harness/<ref>/power.png
 
 That last sentence was false from the day it was written until 2026-08-09, and
 it is worth knowing why, because the failure was silent and cost a day of
@@ -72,11 +85,16 @@ bucket come back from the gravity mirror.
 
 ## Linking someone to a preview
 
-Take the preview URL from Vercel's own PR comment or check, never by deriving
-it from the branch name: Vercel truncates long branch names to fit DNS's
-63-character label limit, so a derived
-`sorter-v2-docs-git-<branch>-...vercel.app` hostname can simply not resolve.
-The wireviz page on that preview is `/hardware/electronics/wireviz/`.
+**The docs are on Cloudflare Pages.** Take the preview URL from the
+`cloudflare-workers-and-pages[bot]` comment on the PR, never by deriving one:
+Pages names a deployment by a hash you cannot predict, and the check's own
+`details_url` is the dashboard rather than the site. The comment carries no URL
+at all while the build is running, so re-read it rather than concluding there
+is no preview. The wireviz page on that preview is
+`/hardware/electronics/wireviz/`.
+
+A dead `Vercel - sorter-v2-docs` check still goes green on these PRs and is not
+the docs site any more. Ignore it.
 
 ## Adding a drawing
 
@@ -84,6 +102,54 @@ The wireviz page on that preview is `/hardware/electronics/wireviz/`.
 2. Add `<name>` to the `drawings` list in `build-harness.sh` (the supplier
    zip's member list).
 3. Add an entry (name, title, caption) to `docs/src/liquid/_data/harness.yml`.
+
+**Overview drawings and sub-harnesses.** A drawing that is one buildable
+assembly out of a bigger diagram carries `of: <parent name>` in
+`harness.yml`. The WireViz page renders those one heading level down, so the
+overview comes first and the assemblies a vendor actually quotes sit under
+it. `power` works this way: it is the whole 24V distribution, and
+`psu-pigtail` and `board-power` are the two cables it is made of. Keep a
+sub-harness next to its parent in the list, the page follows list order.
+
+They deliberately restate values that also appear on the parent. If you
+change a length, gauge or connector, change it in both.
+
+## Keep notes narrow
+
+**Every `notes:` and `description:` is a quoted string with explicit `\n`
+line breaks, wrapped at about 46 characters.** WireViz does not wrap: one long
+note becomes one very wide table cell and the whole sheet stretches to fit it.
+Wrapping `leds` took it from 6031px wide to 3588, and `steppers` from 2727 to
+1753.
+
+So write:
+
+    notes: "Omron V-155-1C25, quick-connect (#187) tabs.\nThese push on, no soldering."
+
+not a `>` folded block, which YAML joins back into one line before WireViz ever
+sees it.
+
+**Quote anything containing `#`.** An unquoted `type: Quick-connect receptacle,
+#187 (4.75 x 0.5 mm tab)` silently becomes `Quick-connect receptacle,` because
+` #` opens a YAML comment. It renders as a truncated string with a trailing
+comma and nothing errors.
+
+## The BOM tables on the WireViz page
+
+Each drawing's `.bom.tsv` is rendered as a table under its image. **It is
+fetched in the browser, not baked in at build time**, by the `$effect` in
+`docs/src/routes/[...path]/+page.svelte` that picks up
+`<div class="bom" data-bom="...">` placeholders.
+
+Build-time was rejected for a specific reason: the docs build and the harness
+render both start on the same push, so a docs build that wins the race would
+bake in a missing or stale table and keep serving it until some unrelated push
+triggered another deploy. That is the silent-staleness failure this pipeline
+already had once. Fetching at read time cannot go stale, and the `BOM (TSV)`
+download link above each table is the fallback when the fetch does not run.
+
+The bucket sends `access-control-allow-origin: *`, so the cross-origin fetch is
+fine, and the URL carries `?v=` so it is served immutable.
 
 ## Where this shows up in the docs
 

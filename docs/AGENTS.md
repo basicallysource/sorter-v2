@@ -176,6 +176,14 @@ harness URL must carry). So a branch preview shows the branch's drawings,
 production shows main's, and there is nothing to update in `docs/` when a
 drawing's content changes.
 
+**`resolveHarness()` reads the host's branch env var, and that is not
+optional.** Both Pages and Vercel build from a detached HEAD, so the git
+fallback returns `HEAD` and everything collapses to `main`: previews then show
+main's drawings and any drawing added on the branch 404s. It reads
+`CF_PAGES_BRANCH` first, `VERCEL_GIT_COMMIT_REF` second, git last. If the site
+ever moves host again, add that host's variable at the front or previews break
+silently, which is exactly what the Pages move did.
+
 `src/liquid/_data/harness.yml` is just the display list (name, title, caption
 per drawing). Adding a drawing: new YAML source, an entry there, and an entry
 in the `drawings` list inside `build-harness.sh`. Full pipeline doc:

@@ -37,9 +37,9 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
 <table>
   <thead><tr><th>ID</th><th>Qty</th><th>Gauge</th><th>Length</th><th>Cond.</th><th>End A</th><th>End B</th><th>Notes</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">PSU-J</td><td>3</td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated spade/fork terminal, M3.5, 8 mm wide max</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box. Usually comes already attached to the jack, so buy the jacks with leads</td></tr>
-    <tr><td class="wire-id">W1</td><td>1</td><td>18 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>JST VHR-2 + SVH-21T-P1.1 contacts</td><td>Board 24V in. Pin 1 = +24V <span class="flagged">verify silkscreen</span></td></tr>
-    <tr><td class="wire-id">W2</td><td>1</td><td>22 AWG</td><td>12 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Male DC plug 5.5×2.1</td><td>USB hub. Double-male, center-positive both ends <span class="flagged">verify hub jack size</span></td></tr>
+    <tr><td class="wire-id">PSU-J</td><td>3</td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated spade/fork terminal, M3.5, 8 mm wide max (PSU screws 7/4, 8/5, 9/6)</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box. Usually comes already attached to the jack, so buy the jacks with leads</td></tr>
+    <tr><td class="wire-id">W1</td><td>1</td><td>18 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>JST VHR-2 + SVH-21T-P1.1 contacts</td><td>Board 24V in. Pin 1 = +24V, pin 2 = GND</td></tr>
+    <tr><td class="wire-id">W2</td><td>1</td><td>22 AWG</td><td>12 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Male DC plug 5.5×2.1</td><td>USB hub. Double-male, center-positive both ends</td></tr>
     <tr><td class="wire-id">W3</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Splice to USB-C buck input leads</td></tr>
     <tr><td class="wire-id">L1-L3</td><td>3</td><td>22 AWG</td><td>36 in</td><td>2</td><td>Dupont 1x2 female (2.54 mm)</td><td>Female inline DC jack 5.5×2.1</td><td>LED feed from board to unplug point</td></tr>
     <tr><td class="wire-id">L1p, L2p</td><td>2</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Solder to COB board pads</td></tr>
@@ -59,7 +59,7 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
 
 ### 3.1 &nbsp; 2-conductor power (PSU-J, W1-W3, L1-L3, pigtails)
 
-Barrel jacks and plugs are **5.5 × 2.1 mm** everywhere, confirmed against the Waveshare hub (part DC-044 on their wiki). 5.5 × 2.5 also exists and does not mate, so specify 2.1 on every line. Center/tip = +24V (red), sleeve = GND (black). W1 board end: VH pin 1 = +24V, pin 2 = GND, <span class="flagged">verify against board silkscreen before ordering</span>. LED feed dupont: pin 1 = +24V, pin 2 = GND, same caveat.
+Barrel jacks and plugs are **5.5 × 2.1 mm** everywhere, confirmed against the Waveshare hub (part DC-044 on their wiki). 5.5 × 2.5 also exists and does not mate, so specify 2.1 on every line. Center/tip = +24V (red), sleeve = GND (black). W1 board end: VH pin 1 = +24V, pin 2 = GND, confirmed. LED feed dupont: pin 1 = +24V, pin 2 = GND, <span class="flagged">not confirmed</span>.
 
 ### 3.2 &nbsp; Channel stepper cable S1-S4 (crossover)
 
@@ -129,7 +129,7 @@ Genuine JST part numbers given where they exist. Chinese-clone equivalents of al
     <tr><td>DC barrel male 5.5×2.1</td><td colspan="2">moulded plug w/ lead, or field-installable</td><td>W1-W3, L pigtails</td></tr>
     <tr><td>DC barrel female inline 5.5×2.1</td><td colspan="2">moulded inline jack</td><td>L1-L3 unplug points</td></tr>
     <tr><td>DC barrel female panel-mount 5.5×2.1</td><td colspan="2">panel-mount jack, ≥5 A</td><td>PSU box outputs J1-J3</td></tr>
-    <tr><td>Spade/fork terminal, insulated</td><td colspan="2">18 AWG, M3.5 stud, 8 mm wide max, must fit the LRS-350-24 output screws</td><td>PSU-J</td></tr>
+    <tr><td>Spade/fork terminal, insulated</td><td colspan="2">18 AWG, M3.5 stud, 8 mm wide max, must fit the LRS-350-24 terminal block (screws 4-6 are -V, 7-9 are +V)</td><td>PSU-J</td></tr>
   </tbody>
 </table>
 
@@ -142,7 +142,7 @@ Genuine JST part numbers given where they exist. Chinese-clone equivalents of al
 
 ## 7 &nbsp; Guesses to verify before sending
 
-1. **Board 24V input polarity:** which pin is +24V. The connector itself is settled as VH (VHR-2, 18 AWG).
+1. **LED feed dupont polarity:** which pin is +24V on `L1-L3` at the board. The board 24V input is settled (VH, pin 1 = +24V); these have not been checked.
 2. **Chute stepper cable:** 40 in copied from the channel steppers, and it is not covered by Jon's drawing at all.
 3. **LED drop count:** 3 feeds + 3 pigtails, per the schedule. Re-count against the machine.
 4. **Motor coil order:** the 1·4·3·6 map and the two empty positions come from Jon's drawing, not from a measurement. Check the coils with a multimeter first.

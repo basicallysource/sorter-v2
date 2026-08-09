@@ -41,14 +41,16 @@ for (const [path, raw] of Object.entries(dataFiles)) {
 	data[name] = yaml.load(raw);
 }
 
-// Same ref resolution as resolveHarness() in docs/src/lib/server/content.ts: CI env first, local git
-// branch as fallback, so a branch preview links its own harness renders.
+// CI env first, local git branch as fallback, so a branch preview links its own
+// harness renders rather than main's.
+//
+// The host's env vars are the only reliable source of the branch name: Pages and
+// Vercel both build from a detached HEAD, so `git rev-parse --abbrev-ref HEAD`
+// returns "HEAD" there and the fallback below sends everything to main. That is
+// what happened when the site moved to Pages and only the Vercel vars were read:
+// every PR preview showed main's drawings, and any drawing added on the branch
+// 404'd. Keep Pages first, Vercel second, git last.
 function resolveHarness(): { base: string; v: string } {
-	// Cloudflare Pages first, then Vercel, then the local checkout. Do not drop
-	// a host's variables when we move: both of these fall back to '' silently,
-	// and an empty ref points every harness image at main while an empty sha
-	// removes the cache-buster entirely. That combination is exactly the
-	// stale-drawing bug of 2026-08-09, with no error to notice.
 	let ref = process.env.CF_PAGES_BRANCH ?? process.env.VERCEL_GIT_COMMIT_REF ?? '';
 	let sha = process.env.CF_PAGES_COMMIT_SHA ?? process.env.VERCEL_GIT_COMMIT_SHA ?? '';
 	try {

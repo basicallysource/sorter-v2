@@ -1,17 +1,28 @@
-"""Service-to-service aggregate stats.
+"""Service-to-service fleet reporting, in two tiers.
 
-Exposes the same aggregate analytics an admin sees on the all-machines page
-(totals + daily time-series + distributions across every non-archived machine).
-Meant for other basically services (e.g. the public website) to pull headline
-numbers without a user session — regular Hive users cannot reach these
-aggregate stats through the normal analytics API.
+**`GET /stats` is the anonymous tier** (scope `stats:read`): fleet-wide
+aggregates — totals, a daily time-series, distributions — with no machine and
+no person in the payload. This is what a consumer that is itself public may
+hold: the website's headline numbers, a widget, anything cached at an edge.
 
-Auth, preferred: an `hv_*` API key carrying the `stats:read` scope, owned by an
-admin and not machine-constrained (a machine-limited key must not read
-fleet-wide aggregates). Legacy: the `settings.PUBLIC_STATS_API_KEY` shared
-secret, presented as `Authorization: Bearer <key>` or `X-Stats-Key: <key>` —
-kept only until every consumer holds a scoped key; delete the env var (and the
-legacy branch below) after cutover.
+**`GET /fleet` is the identified tier** (scope `fleet:read`): the roster. Which
+machines exist, how much each has sorted, and the owner's Discord where that
+owner linked one. Only for consumers whose credential is kept as well as the
+data is — the balloon box, Spencer's phone — never a public website.
+
+The split is enforced by SCOPE and not by convention, which is the whole point:
+a key minted for the website carries `stats:read` alone and is refused the
+roster, so leaking it costs aggregates rather than a list of owners. Both tiers
+additionally require the key's owner to be an admin and the key to be
+unconstrained; a machine-scoped key is strictly less powerful than its owner
+and must not read fleet-wide anything.
+
+Legacy: the `settings.PUBLIC_STATS_API_KEY` shared secret, presented as
+`Authorization: Bearer <key>` or `X-Stats-Key: <key>`. It opens the ANONYMOUS
+tier only — it predates the split, it is shared rather than per-consumer, and
+it must never be a way around the scope that protects the roster. Kept until
+every consumer holds a scoped key; delete the env var and the legacy branch
+below after cutover.
 """
 
 import hmac
@@ -22,12 +33,18 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.deps import API_KEY_PREFIX, API_KEY_SCOPE_STATS_READ, _resolve_api_key, get_db
+from app.deps import (
+    API_KEY_PREFIX,
+    API_KEY_SCOPE_FLEET_READ,
+    API_KEY_SCOPE_STATS_READ,
+    _resolve_api_key,
+    get_db,
+)
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
 from app.models.user_identity import UserIdentity
-from app.services import analytics
+from app.services import analytics, machine_stats
 
 router = APIRouter(prefix="/api/public", tags=["public-stats"])
 
@@ -39,21 +56,27 @@ router = APIRouter(prefix="/api/public", tags=["public-stats"])
 PUBLIC_STATS_LOCAL_TZ = "America/Los_Angeles"
 
 
-def require_stats_key(
-    db: Session = Depends(get_db),
-    authorization: str | None = Header(default=None),
-    x_stats_key: str | None = Header(default=None),
-) -> None:
+def _presented_key(authorization: str | None, x_stats_key: str | None) -> str:
     presented = x_stats_key
     if not presented and authorization and authorization.startswith("Bearer "):
         presented = authorization[7:]
-    presented = (presented or "").strip()
+    return (presented or "").strip()
 
-    # Preferred: a user API key with the stats:read scope.
+
+def _require_scope(db: Session, presented: str, scope: str, *, allow_legacy: bool) -> None:
+    """Admit an admin-owned, unconstrained `hv_*` key carrying `scope`.
+
+    `allow_legacy` says whether the shared secret is also accepted, and it is
+    false for every tier above the aggregates. A shared secret cannot be
+    revoked for one consumer or scoped to one tier, so letting it stand in for
+    a scope would undo the split it predates.
+    """
     if presented.startswith(API_KEY_PREFIX):
         user, scopes, machine_ids = _resolve_api_key(db, presented)
-        if API_KEY_SCOPE_STATS_READ not in scopes:
-            raise HTTPException(status_code=403, detail="API key is missing required scopes: stats:read")
+        if scope not in scopes:
+            raise HTTPException(
+                status_code=403, detail=f"API key is missing required scopes: {scope}"
+            )
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         if machine_ids is not None:
@@ -62,12 +85,38 @@ def require_stats_key(
             )
         return
 
+    if not allow_legacy:
+        raise HTTPException(
+            status_code=401, detail=f"This endpoint requires an API key with the {scope} scope"
+        )
     # Legacy shared secret — delete once every consumer holds a scoped key.
     configured = (settings.PUBLIC_STATS_API_KEY or "").strip()
     if not configured:
         raise HTTPException(status_code=503, detail="Public stats API is not configured")
     if not presented or not hmac.compare_digest(presented, configured):
         raise HTTPException(status_code=401, detail="Invalid stats API key")
+
+
+def require_stats_key(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    x_stats_key: str | None = Header(default=None),
+) -> None:
+    """The anonymous tier: aggregates only, so the legacy secret still opens it."""
+    _require_scope(
+        db, _presented_key(authorization, x_stats_key), API_KEY_SCOPE_STATS_READ, allow_legacy=True
+    )
+
+
+def require_fleet_key(
+    db: Session = Depends(get_db),
+    authorization: str | None = Header(default=None),
+    x_stats_key: str | None = Header(default=None),
+) -> None:
+    """The identified tier: machines and owners, so a scoped key or nothing."""
+    _require_scope(
+        db, _presented_key(authorization, x_stats_key), API_KEY_SCOPE_FLEET_READ, allow_legacy=False
+    )
 
 
 @router.get("/stats", dependencies=[Depends(require_stats_key)])
@@ -91,11 +140,21 @@ def get_public_stats(db: Session = Depends(get_db)):
     }
 
 
-@router.get("/fleet", dependencies=[Depends(require_stats_key)])
+@router.get("/fleet", dependencies=[Depends(require_fleet_key)])
 def get_public_fleet(db: Session = Depends(get_db)):
-    """The fleet roster: every non-archived machine, with the owner's Discord
-    identity attached only when that owner has linked one. Linking Discord is
-    the opt-in — an unlinked owner appears as an anonymous machine."""
+    """The fleet roster: every non-archived machine, what it has sorted, and the
+    owner's Discord identity attached only when that owner has linked one.
+
+    Linking Discord is the opt-in — an unlinked owner appears as an anonymous
+    machine, and no other owner field is ever served here (no email, no user id,
+    no display name), so an unlinked owner is not merely unnamed but absent.
+
+    The per-machine counters come from machine_stats_cache, which a worker
+    refreshes hourly; reading them costs one indexed table scan rather than a
+    recompute over machine_pieces. The trailing-24h count is computed live
+    because it is the one number a leaderboard wants fresh, and it is a single
+    grouped query over the (machine_id, seen_at) index.
+    """
     rows = (
         db.query(Machine, UserIdentity)
         .outerjoin(
@@ -109,6 +168,9 @@ def get_public_fleet(db: Session = Depends(get_db)):
         .order_by(Machine.created_at)
         .all()
     )
+    ids = [machine.id for machine, _ in rows]
+    lifetime = machine_stats.get_fleet_stats(db)
+    recent = _pieces_by_machine_24h(db, ids)
     machines = [
         {
             "id": str(machine.id),
@@ -116,6 +178,10 @@ def get_public_fleet(db: Session = Depends(get_db)):
             "is_active": machine.is_active,
             "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
             "created_at": machine.created_at.isoformat(),
+            "pieces_seen": int(lifetime.get(str(machine.id), {}).get("pieces_seen") or 0),
+            "distributed": int(lifetime.get(str(machine.id), {}).get("distributed") or 0),
+            "overall_ppm": float(lifetime.get(str(machine.id), {}).get("overall_ppm") or 0.0),
+            "last_24h_pieces": recent.get(str(machine.id), 0),
             "owner_discord": None
             if identity is None
             else {
@@ -131,6 +197,22 @@ def get_public_fleet(db: Session = Depends(get_db)):
         "machine_count": len(machines),
         "discord_linked_count": sum(1 for m in machines if m["owner_discord"] is not None),
     }
+
+
+def _pieces_by_machine_24h(db: Session, ids: list) -> dict[str, int]:
+    """Trailing-24h piece count per machine. Same window as the fleet-wide
+    number in /stats, so a leaderboard and the headline agree."""
+    if not ids:
+        return {}
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    rows = (
+        db.query(MachinePiece.machine_id, func.count())
+        .filter(MachinePiece.machine_id.in_(ids))
+        .filter(MachinePiece.seen_at >= cutoff)
+        .group_by(MachinePiece.machine_id)
+        .all()
+    )
+    return {str(mid): int(n) for mid, n in rows}
 
 
 def _rolling_24h_pieces(db: Session, ids: list) -> int:

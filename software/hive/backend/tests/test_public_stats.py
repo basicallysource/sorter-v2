@@ -119,6 +119,34 @@ class TestFleetRoster:
         monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
         assert client.get("/api/public/fleet").status_code in (401, 503)
 
+    def test_a_stats_only_key_cannot_read_the_roster(self, client, db, monkeypatch):
+        """The whole point of the two scopes: a key minted for a public consumer
+        draws the aggregates and is refused the list of machines and owners."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["stats:read"])
+        assert client.get("/api/public/stats", headers=_bearer(token)).status_code == 200
+        r = client.get("/api/public/fleet", headers=_bearer(token))
+        assert r.status_code == 403
+        assert "fleet:read" in r.json()["error"]
+
+    def test_a_fleet_only_key_cannot_read_the_aggregates(self, client, db, monkeypatch):
+        """And the reverse, so neither scope is quietly a superset of the other."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["fleet:read"])
+        assert client.get("/api/public/fleet", headers=_bearer(token)).status_code == 200
+        r = client.get("/api/public/stats", headers=_bearer(token))
+        assert r.status_code == 403
+        assert "stats:read" in r.json()["error"]
+
+    def test_the_legacy_shared_secret_does_not_open_the_roster(self, client, monkeypatch):
+        """It opens the anonymous tier and only that. A shared secret cannot be
+        revoked per consumer, so it must never stand in for fleet:read."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
+        assert client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY}).status_code == 200
+        assert client.get("/api/public/fleet", headers={"X-Stats-Key": STATS_KEY}).status_code == 401
+
     def test_roster_masks_unlinked_owners(self, client, db, monkeypatch):
         monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
         headers = self._admin_headers(client, db)
@@ -128,7 +156,7 @@ class TestFleetRoster:
             headers=headers,
         )
         assert m.status_code in (200, 201)
-        token = self._mint(client, headers, ["stats:read"])
+        token = self._mint(client, headers, ["fleet:read"])
 
         r = client.get("/api/public/fleet", headers=_bearer(token))
         assert r.status_code == 200, r.text
@@ -169,5 +197,24 @@ class TestFleetRoster:
             json={"name": "Scoped Sorter", "description": "d"},
             headers=headers,
         )
-        token = self._mint(client, headers, ["stats:read"], machine_ids=[m.json()["id"]])
+        token = self._mint(client, headers, ["fleet:read"], machine_ids=[m.json()["id"]])
         assert client.get("/api/public/fleet", headers=_bearer(token)).status_code == 403
+
+    def test_roster_carries_the_numbers_a_leaderboard_needs(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        m = client.post(
+            "/api/machines", json={"name": "Counting Sorter", "description": "d"}, headers=headers
+        )
+        assert m.status_code in (200, 201)
+        token = self._mint(client, headers, ["fleet:read"])
+        entry = next(
+            x
+            for x in client.get("/api/public/fleet", headers=_bearer(token)).json()["machines"]
+            if x["name"] == "Counting Sorter"
+        )
+        for field in ("pieces_seen", "distributed", "overall_ppm", "last_24h_pieces"):
+            assert field in entry, f"{field} missing from the roster entry"
+        # A machine that has never sorted reports zeros rather than nulls, so a
+        # consumer can sort on these without special-casing a fresh machine.
+        assert entry["pieces_seen"] == 0 and entry["last_24h_pieces"] == 0

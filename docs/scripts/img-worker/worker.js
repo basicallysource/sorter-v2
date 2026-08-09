@@ -22,21 +22,30 @@ export default {
     // Cache under this hostname, keyed on the full URL including `?v=`. Two
     // things depend on that: a new render is a new key, so the buster actually
     // busts; and the key is a basically.website URL, so the zone's purge_cache
-    // API can reach the object when we need to force it. The query string is
-    // deliberately not forwarded upstream — it identifies a version of the
-    // path, not a different object in the bucket.
+    // API can reach the object when we need to force it.
     const cache = caches.default;
     const key = new Request(url.toString(), { method: "GET" });
 
     let response = await cache.match(key);
     if (!response) {
-      const upstream = await fetch(ORIGIN + url.pathname);
+      // The subrequest must not be served from Cloudflare's own cache: that
+      // entry is keyed on the Spaces URL with no `?v=` in it, which is the
+      // exact staleness this worker exists to avoid — and .png is a
+      // default-cached extension, so it happens without anyone asking. Belt
+      // and braces: tell the edge not to cache it, and carry the buster
+      // upstream so the key differs anyway. Spaces ignores unknown query
+      // params on GET (verified), it just wants the path.
+      const upstream = await fetch(ORIGIN + url.pathname + url.search, {
+        cf: { cacheEverything: true, cacheTtlByStatus: { "200-599": -1 } },
+      });
       if (!upstream.ok) {
         return new Response("not found", { status: 404 });
       }
       const headers = new Headers(upstream.headers);
       headers.delete("x-amz-request-id");
       headers.delete("x-amz-id-2");
+      headers.delete("age");
+      headers.delete("cf-cache-status");
       headers.set("access-control-allow-origin", "*");
       headers.set("cache-control", url.searchParams.has("v") ? IMMUTABLE : MUTABLE);
       response = new Response(upstream.body, { status: upstream.status, headers });

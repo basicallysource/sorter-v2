@@ -18,9 +18,18 @@ bucket, addressed by git ref:
 Refs are mutable, exactly like git branches: pushing to a branch overwrites
 that branch's prefix. The docs derive the prefix for whatever ref they're
 building (`resolveHarness()` in `docs/src/lib/server/content.ts`), so a PR preview shows the PR's
-drawings and production shows main's. Objects carry a short cache TTL and the
-docs append a per-deploy `?v=` buster, so nobody ever sees a stale drawing for
-more than about a minute.
+drawings and production shows main's.
+
+**The `?v=` cache-buster does not work, so don't rely on it.**
+`img.basically.website` is behind Cloudflare and the zone ignores the query
+string in the cache key: a brand-new random `?v=` still returns
+`cf-cache-status: HIT` on whatever was cached, verified 2026-08-09 against an
+object 22 hours old. A re-rendered drawing can therefore sit behind the old one
+on a page anybody has already loaded, including a PR preview. Until a cache
+purge is wired into the workflow, check a render at the origin, which is public
+and never cached:
+
+    https://basically-docs.nyc3.digitaloceanspaces.com/harness/<ref>/power.png
 
 Permanent, content-addressed copies are a release-time concern (the lockfile
 mechanism in the unified parts plan), not a live-docs one. The bucket is
@@ -81,6 +90,26 @@ sub-harness next to its parent in the list, the page follows list order.
 
 They deliberately restate values that also appear on the parent. If you
 change a length, gauge or connector, change it in both.
+
+## Keep notes narrow
+
+**Every `notes:` and `description:` is a quoted string with explicit `\n`
+line breaks, wrapped at about 46 characters.** WireViz does not wrap: one long
+note becomes one very wide table cell and the whole sheet stretches to fit it.
+Wrapping `leds` took it from 6031px wide to 3588, and `steppers` from 2727 to
+1753.
+
+So write:
+
+    notes: "Omron V-155-1C25, quick-connect (#187) tabs.\nThese push on, no soldering."
+
+not a `>` folded block, which YAML joins back into one line before WireViz ever
+sees it.
+
+**Quote anything containing `#`.** An unquoted `type: Quick-connect receptacle,
+#187 (4.75 x 0.5 mm tab)` silently becomes `Quick-connect receptacle,` because
+` #` opens a YAML comment. It renders as a truncated string with a trailing
+comma and nothing errors.
 
 ## Where this shows up in the docs
 

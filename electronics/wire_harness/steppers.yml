@@ -1,17 +1,13 @@
 metadata:
   title: Sorter V2 - stepper cables
-  description: >
-    Channel stepper cable S (x4) and chute stepper cable CH.
-    S follows Jon's Stepper_Harness drawing (2026-08-08), which is the source
-    of truth for the channel cable. Values marked GUESS are guesses, not
-    measurements.
+  description: "Channel stepper cable S (x4) and chute stepper cable CH. S\nfollows Jon's Stepper_Harness drawing (2026-08-08), which is\nthe source of truth for the channel cable. Values marked\nGUESS are guesses, not measurements."
 
 connectors:
   BOARD_S:
     type: JST PH 4-pin (PHR-4)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, A1, B1, B2]
-    notes: basically board v1.3 J23/J27/J31/J35 - one cable per jack, x4 identical
+    notes: "basically board v1.3 J23/J27/J31/J35. One\ncable per jack, x4 identical."
     additional_components:
       - type: Terminal - SPH-002T-P0.5S
         qty: 1
@@ -22,9 +18,7 @@ connectors:
     type: JST PH 6-pin (PHR-6)
     subtype: 2.0mm pitch, female
     pinlabels: [A2, C1, B1, A1, C2, B2]
-    notes: >
-      The NEMA 17's own 6-pin PH socket. Pins 2 and 5 (C1, C2) are
-      unpopulated. Check coils with a multimeter before connecting.
+    notes: "The NEMA 17's own 6-pin PH socket. Pins 2 and\n5 (C1, C2) are unpopulated. Check coils with a\nmultimeter before connecting."
     additional_components:
       - type: Terminal - SPH-002T-P0.5S
         qty: 1
@@ -39,7 +33,7 @@ connectors:
   CH_LEADS:
     type: Bare tinned leads, labeled 1-4
     pinlabels: [A2, A1, B1, B2]
-    notes: splice to chute stepper flying leads - find coil pairs with a multimeter first
+    notes: "Splice to the chute stepper flying leads. Find\nthe coil pairs with a multimeter first."
 
 cables:
   S:
@@ -49,7 +43,7 @@ cables:
     length: 1 m
     wirecount: 4
     colors: [BU, GN, RD, BK]
-    notes: S1-S4, qty 4. NOT straight-through, see crossover.
+    notes: "S1-S4, qty 4. NOT straight-through, see\ncrossover."
     additional_components:
       - type: PVC Sleeving
         qty: 1
@@ -58,9 +52,7 @@ cables:
     gauge: 24 AWG
     length: 40 in
     colors: [BK, GN, RD, BU]
-    notes: >
-      qty 1. Gauge = GUESS. Length = GUESS. Straight-through.
-      Not covered by Jon's drawing.
+    notes: "qty 1. Straight-through. Not covered by Jon's\ndrawing, so unlike S both Gauge and Length\nhere are still GUESS."
 
 connections:
   -

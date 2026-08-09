@@ -1,10 +1,6 @@
 metadata:
   title: Sorter V2 - 24V power distribution
-  description: >
-    PSU box pigtails (PSU-J) and the load cables W1-W3.
-    The PSU end and the board end follow Jon's DC_PSU_Harness and
-    DC_basicallyV1_3_Harness drawings (2026-08-08), which are the source of
-    truth for those. Values marked GUESS are guesses, not measurements.
+  description: "PSU box pigtails PJ1-PJ3 and load cables W1-W3. The PSU end\nand the board end follow Jon's DC_PSU_Harness and\nDC_basicallyV1_3_Harness drawings (2026-08-08), which are\nthe source of truth for those. Values marked GUESS are\nguesses, not measurements."
 
 connectors:
   PSU:
@@ -59,12 +55,12 @@ cables:
     gauge: 22 AWG
     length: 12 in
     colors: [RD, BK]
-    notes: USB hub, double-male. Gauge = GUESS
+    notes: "USB hub, double-male. Gauge = GUESS, not\ncovered by Jon's drawings."
   W3:
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
-    notes: Orange Pi buck. Gauge = GUESS
+    notes: "Orange Pi buck. Gauge = GUESS, not covered by\nJon's drawings."
 
 connections:
   -

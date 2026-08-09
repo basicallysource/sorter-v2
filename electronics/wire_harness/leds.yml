@@ -1,20 +1,18 @@
 metadata:
   title: Sorter V2 - LED drops and limit switch
-  description: >
-    LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p, and the limit
-    switch cable. Values marked GUESS are guesses, not measurements.
+  description: "LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p,\nand the limit switch cable. Jon's 2026-08-08 drawings do not\ncover the LED drops, so apart from the limit switch\nterminals everything here is still Spencer's July 12th\nnotes. Values marked GUESS are guesses, not measurements."
 
 connectors:
   BOARD_L1: &dupont
     type: Dupont 1x2 female, 2.54 mm
     pinlabels: [+24V, GND]
-    notes: on basically board v1.3. GUESS - verify which pin is +
+    notes: "On basically board v1.3. GUESS - verify which\npin is +."
   BOARD_L2: *dupont
   BOARD_L3: *dupont
   LJ1: &ledjack
     type: DC jack 5.5x2.1 female, inline
     pinlabels: [+24V (tip), GND (sleeve)]
-    notes: unplug point
+    notes: "Unplug point."
   LJ2: *ledjack
   LJ3: *ledjack
   LP1: &ledplug
@@ -25,51 +23,42 @@ connectors:
   COB1: &cob
     type: Solder pads
     pinlabels: [+24V, GND]
-    notes: COB board - solder direct
+    notes: "COB board - solder direct."
   COB2: *cob
   STRIP:
     type: Solderless clamp-on strip connector
     pinlabels: [+24V, GND]
-    notes: >
-      LED strip, 6000K. Clamp-on connector instead of soldering. Pick the
-      variant with IDC crimp points on both sides so it takes the pigtail
-      wire as well as the strip.
+    notes: "LED strip, 6000K. Clamp-on connector instead\nof soldering. Pick the variant with IDC crimp\npoints on both sides so it takes the pigtail\nwire as well as the strip."
   BOARD_LIM:
     type: Dupont 1x3 female, 2.54 mm
     pincount: 3
     pinlabels: [SIG, GND, n/c]
-    notes: >
-      on basically board v1.3. Position 3 is deliberately unpopulated so the
-      plug cannot go on backwards. GUESS - verify pin order
+    notes: "On basically board v1.3. Position 3 is\ndeliberately unpopulated so the plug cannot go\non backwards. GUESS - verify pin order."
   SW:
-    type: Quick-connect receptacle, #187 (4.75 x 0.5 mm tab)
+    type: "Quick-connect receptacle, #187 (4.75 x 0.5 mm tab)"
     pinlabels: [SIG, GND]
-    notes: >
-      Omron V-155-1C25, quick-connect (#187) tabs - these push on, no
-      soldering. Fully insulated receptacles: the switch is SPDT and the
-      third tab is left unused. GUESS - which of COM/NC/NO the two
-      conductors land on.
+    notes: "Omron V-155-1C25, quick-connect (#187) tabs.\nThese push on, no soldering. Fully insulated:\nthe switch is SPDT and the third tab is\nunused. GUESS - which of COM/NC/NO the two\nconductors land on."
 
 cables:
   L1: &feed
     gauge: 22 AWG
     length: 36 in
     colors: [RD, BK]
-    notes: LED feed. Gauge = GUESS
+    notes: "LED feed. Gauge = GUESS, not covered by Jon's\ndrawings."
   L2: *feed
   L3: *feed
   L1P: &pig
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
-    notes: LED pigtail. Gauge = GUESS
+    notes: "LED pigtail. Gauge = GUESS, not covered by\nJon's drawings."
   L2P: *pig
   L3P: *pig
   LIM:
     gauge: 22 AWG
     length: 24 in
     colors: [WH, BK]
-    notes: limit switch. Gauge = GUESS
+    notes: "Limit switch. Gauge = GUESS, not covered by\nJon's drawings."
 
 connections:
   -

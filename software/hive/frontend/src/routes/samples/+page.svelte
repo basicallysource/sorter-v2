@@ -680,7 +680,7 @@
 			<button
 				type="button"
 				onclick={() => openArchiveModal(filterArchived === 'archived' ? 'unarchive' : 'archive')}
-				class="inline-flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium text-text hover:border-text hover:bg-text hover:text-white"
+				class="inline-flex items-center gap-2 border border-border px-4 py-2 text-sm font-medium text-text hover:border-text hover:bg-text hover:text-surface"
 				title={hasActiveFilters
 					? (filterArchived === 'archived'
 						? 'Unarchive every sample matching the current filter'

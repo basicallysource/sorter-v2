@@ -44,14 +44,14 @@
 		<button
 			type="button"
 			onclick={() => { annotatorApi.activeTool = 'rectangle'; }}
-			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'rectangle' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 		>
 			Rectangle
 		</button>
 		<button
 			type="button"
 			onclick={() => { annotatorApi.activeTool = 'polygon'; }}
-			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-text text-white' : 'text-text-muted hover:bg-surface'}"
+			class="px-3 py-1.5 text-xs font-medium transition-colors {annotatorApi.activeTool === 'polygon' ? 'bg-text text-surface' : 'text-text-muted hover:bg-surface'}"
 		>
 			Polygon
 		</button>

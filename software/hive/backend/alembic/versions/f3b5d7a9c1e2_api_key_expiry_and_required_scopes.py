@@ -5,9 +5,11 @@ Revises: a4d6f8b0c2e5
 Create Date: 2026-08-08 12:00:00.000000
 
 API keys move to deny-by-default: a key grants exactly its stored scopes, so a
-key with no scopes grants nothing. Existing scope-less keys are revoked here
-(rather than left silently dead) so they show as revoked in the UI. Also adds
-optional expiry.
+key with no scopes grants nothing. Existing ACTIVE scope-less keys are
+grandfathered with the four data scopes (models/samples read+write — strictly
+less than the full-account power they had before) so live consumers keep
+working through the deploy; anything new they'd need must be granted
+explicitly. Also adds optional expiry.
 
 """
 
@@ -30,10 +32,10 @@ def upgrade() -> None:
     )
     # Legacy rows store empty scopes as EITHER SQL NULL or JSON null (SQLAlchemy
     # JSON columns persist Python None as JSON null by default) — prod has both
-    # shapes. Catch both, or JSON-null keys survive un-revoked but deny-all,
-    # showing "Active" in the UI while silently granting nothing.
+    # shapes. Catch both, or JSON-null keys would sit "Active" while deny-all.
     op.execute(
-        "UPDATE user_api_keys SET revoked_at = CURRENT_TIMESTAMP "
+        "UPDATE user_api_keys SET scopes = "
+        "'[\"models:read\", \"models:write\", \"samples:read\", \"samples:write\"]'::jsonb "
         "WHERE revoked_at IS NULL AND (scopes IS NULL OR scopes = 'null'::jsonb)"
     )
 

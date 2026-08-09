@@ -1,6 +1,7 @@
 <script lang="ts">
 	import PageMeta from '$lib/components/PageMeta.svelte';
 	import Requirements from '$lib/components/Requirements.svelte';
+	import { parseBomTsv, buildBomTable } from '$lib/bom';
 
 	let { data } = $props();
 
@@ -48,6 +49,52 @@
 			wrap.appendChild(btn);
 		}
 	});
+
+	// Harness bills of materials, fetched in the browser.
+	//
+	// Each `<name>.bom.tsv` is a build artifact in the assets bucket, never in
+	// git, and CI renders it on a schedule the docs build cannot wait for: the
+	// harness workflow only fires on harness path changes, so a docs-only
+	// branch has no `harness/<ref>/` prefix at all, and on a harness branch the
+	// Vercel build starts on push while the render lands ~90s later. Baking the
+	// table in at build time would therefore be missing or stale on most
+	// previews and could never correct itself. Fetching client side makes the
+	// BOM behave exactly like the drawing images above it: whatever is in the
+	// bucket when you load the page. img.basically.website sends
+	// `access-control-allow-origin: *` on every response (scripts/img-worker).
+	$effect(() => {
+		p.url; // rerun per page: {@html} replaces the DOM on navigation
+		if (!contentEl) return;
+		let live = true;
+		for (const box of contentEl.querySelectorAll<HTMLElement>('.bom[data-bom-src]')) {
+			if (box.dataset.bomDone) continue;
+			box.dataset.bomDone = '1';
+			void fillBom(box, () => live);
+		}
+		return () => {
+			live = false;
+		};
+	});
+
+	async function fillBom(box: HTMLElement, live: () => boolean) {
+		const src = box.dataset.bomSrc!;
+		const status = box.querySelector('.bom-status');
+		try {
+			const res = await fetch(src);
+			if (!res.ok) throw new Error(String(res.status));
+			const rows = parseBomTsv(await res.text());
+			if (!live()) return;
+			if (rows.length < 2) throw new Error('empty');
+			status?.replaceWith(buildBomTable(rows, box.dataset.bomLabel ?? 'Bill of materials'));
+		} catch {
+			if (!live() || !status) return;
+			status.textContent = 'Not published for this build yet. ';
+			const link = document.createElement('a');
+			link.href = src;
+			link.textContent = 'Open the TSV';
+			status.appendChild(link);
+		}
+	}
 </script>
 
 <svelte:head>

@@ -163,6 +163,17 @@ harness URL must carry). So a branch preview shows the branch's drawings,
 production shows main's, and there is nothing to update in `docs/` when a
 drawing's content changes.
 
+Each drawing's bill of materials is shown inline on the WireViz page, fetched
+**in the browser** from `<harness_base>/<name>.bom.tsv` and turned into a table
+by `src/lib/bom.ts` (driven by an effect in `src/routes/[...path]/+page.svelte`,
+markup is the `.bom` div in `wireviz.md`). It is not baked in at build time on
+purpose: the harness workflow only runs on harness path changes and finishes
+well after Vercel starts, so a prerendered BOM would be missing or stale on most
+previews and could never correct itself. `img.basically.website` sends
+`access-control-allow-origin: *` on everything (`scripts/img-worker/worker.js`),
+which is what makes the fetch legal. When there is no render for the ref, the
+page says so and links the TSV.
+
 `src/liquid/_data/harness.yml` is just the display list (name, title, caption
 per drawing). Adding a drawing: new YAML source, an entry there, and an entry
 in the `drawings` list inside `build-harness.sh`. Full pipeline doc:

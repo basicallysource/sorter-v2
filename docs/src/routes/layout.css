@@ -1212,6 +1212,52 @@ blockquote {
 	color: var(--muted);
 }
 
+/* Harness bill of materials, filled in by the browser from the bucket's TSV
+   (see routes/[...path]/+page.svelte). Cells are narrower than the site's
+   default table so a 7-column BOM fits a phone; the table still scrolls
+   inside itself rather than dragging the page sideways. */
+.bom {
+	margin: 0 0 2rem;
+}
+.bom-title {
+	margin: 0;
+	font-size: 0.76rem;
+	font-weight: 600;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	color: var(--muted);
+}
+.bom-status {
+	margin: 0.5rem 0 0;
+	font-size: 0.875rem;
+	color: var(--muted);
+}
+.md-content .bom-table {
+	margin: 0.6rem 0 0;
+	table-layout: auto;
+}
+.md-content .bom-table th,
+.md-content .bom-table td {
+	min-width: 0;
+	padding: 7px 10px;
+	font-size: 0.82rem;
+	line-height: 1.4;
+	vertical-align: top;
+}
+.md-content .bom-table th {
+	font-size: 0.7rem;
+	white-space: nowrap;
+}
+.md-content .bom-table .bom-num,
+.md-content .bom-table .bom-unit {
+	white-space: nowrap;
+	width: 1%;
+}
+.md-content .bom-table .bom-num {
+	text-align: right;
+	font-variant-numeric: tabular-nums;
+}
+
 /* ── Responsive ────────────────────────────────────────────────────────── */
 
 @media (max-width: 880px) {

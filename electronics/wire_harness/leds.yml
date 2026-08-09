@@ -2,7 +2,9 @@ metadata:
   title: Sorter V2 - LED drops and limit switch
   description: >
     LED feeds L1-L3 (board to unplug point), pigtails L1p-L3p, and the limit
-    switch cable. Values marked GUESS are guesses, not measurements.
+    switch cable. Jon's 2026-08-08 drawings do not cover the LED drops, so
+    apart from the limit switch terminals everything here is still Spencer's
+    July 12th notes. Values marked GUESS are guesses, not measurements.
 
 connectors:
   BOARD_L1: &dupont

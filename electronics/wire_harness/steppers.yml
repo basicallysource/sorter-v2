@@ -59,8 +59,8 @@ cables:
     length: 40 in
     colors: [BK, GN, RD, BU]
     notes: >
-      qty 1. Gauge = GUESS. Length = GUESS. Straight-through.
-      Not covered by Jon's drawing.
+      qty 1. Straight-through. Not covered by Jon's drawing, so unlike S
+      above both Gauge and Length here are still GUESS.
 
 connections:
   -

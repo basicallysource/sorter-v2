@@ -64,12 +64,15 @@ cables:
     gauge: 22 AWG
     length: 12 in
     colors: [RD, BK]
-    notes: USB hub, double-male. Gauge = GUESS
+    notes: >
+      USB hub, double-male. Gauge = GUESS, not covered by Jon's drawings
+      (they cover the pigtail and the board feed only).
   W3:
     gauge: 22 AWG
     length: 6 in
     colors: [RD, BK]
-    notes: Orange Pi buck. Gauge = GUESS
+    notes: >
+      Orange Pi buck. Gauge = GUESS, not covered by Jon's drawings.
 
 connections:
   -

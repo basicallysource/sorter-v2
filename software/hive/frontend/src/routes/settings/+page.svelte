@@ -7,6 +7,7 @@
 	import Badge from '$lib/components/Badge.svelte';
 	import ModelSelect from '$lib/components/primitives/ModelSelect.svelte';
 	import AiUsagePanel from '$lib/components/AiUsagePanel.svelte';
+	import BrandMark from '$lib/components/BrandMark.svelte';
 
 	let showDeleteModal = $state(false);
 	let deleteError = $state<string | null>(null);
@@ -548,36 +549,34 @@
 			<div class="flex flex-col gap-2">
 				{#each ['github', 'discord'] as const as provider (provider)}
 					{@const linked = identityFor(provider)}
-					{#if linked || providerEnabled(provider)}
+					{#if linked}
 						<div class="flex items-center justify-between border border-border px-3 py-2">
 							<div class="flex items-center gap-3">
-								{#if linked?.avatar_url}
+								<BrandMark brand={provider} size={20} />
+								{#if linked.avatar_url}
 									<img src={linked.avatar_url} alt="" class="h-6 w-6 rounded-full" />
 								{/if}
 								<div>
 									<div class="text-sm font-medium text-text">{OAUTH_PROVIDER_LABELS[provider]}</div>
-									{#if linked}
-										<div class="text-xs text-text-muted">
-											Connected{linked.provider_login ? ` as ${linked.provider_login}` : ''}
-										</div>
-									{:else}
-										<div class="text-xs text-text-muted">Not connected</div>
-									{/if}
+									<div class="text-xs text-text-muted">
+										Connected{linked.provider_login ? ` as ${linked.provider_login}` : ''}
+									</div>
 								</div>
 							</div>
-							{#if linked}
-								<button
-									onclick={() => handleUnlink(provider)}
-									class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
-									type="button"
-								>Disconnect</button>
-							{:else}
-								<a
-									href={api.oauthLinkUrl(provider)}
-									class="border border-border px-2 py-1 text-xs text-text hover:bg-bg"
-								>Connect</a>
-							{/if}
+							<button
+								onclick={() => handleUnlink(provider)}
+								class="border border-primary/30 px-2 py-1 text-xs text-primary hover:bg-primary-light"
+								type="button"
+							>Disconnect</button>
 						</div>
+					{:else if providerEnabled(provider)}
+						<a
+							href={api.oauthLinkUrl(provider)}
+							class="flex items-center gap-3 border border-border px-3 py-2 text-sm font-medium text-text hover:bg-bg"
+						>
+							<BrandMark brand={provider} size={20} />
+							Add your {OAUTH_PROVIDER_LABELS[provider]}
+						</a>
 					{/if}
 				{/each}
 			</div>

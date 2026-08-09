@@ -10,18 +10,14 @@ connectors:
   F1:
     style: simple
     type: Spade terminal (fork/split ring)
-    subtype: 18 AWG, M3.5, 8mm wide MAX
-    notes: >
-      onto DC OUTPUT +V, one of screws 7-9 on the LRS-350-24 terminal
-      block. Must fit an M3.5 screw and be no wider than 8mm.
+    subtype: 18 AWG, M3.5, 8mm MAX
+    notes: "To +V: screw 7, 8 or 9"
     color: RD
   F2:
     style: simple
     type: Spade terminal (fork/split ring)
-    subtype: 18 AWG, M3.5, 8mm wide MAX
-    notes: >
-      onto DC OUTPUT -V, the matching screw of 4-6 (7 with 4, 8 with 5,
-      9 with 6).
+    subtype: 18 AWG, M3.5, 8mm MAX
+    notes: "To -V: the matching screw\n7+4, 8+5, 9+6"
     color: BK
   J1:
     type: DC jack 5.5x2.1 female, panel-mount
@@ -33,9 +29,7 @@ cables:
     gauge: 18 AWG
     length: 4 in
     colors: [RD, BK]
-    notes: >
-      Usually comes already attached to the panel-mount jack, so buy the
-      jacks with leads rather than having this made.
+    notes: "Usually comes attached to the jack already,\nso buy the jacks with leads rather than\nhaving this made"
 
 connections:
   -

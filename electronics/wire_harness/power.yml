@@ -8,17 +8,10 @@ metadata:
 
 connectors:
   PSU:
-    type: LRS-350-24, 9-position screw terminal block
-    subtype: spade terminal (fork/split ring), 18 AWG, M3.5, 8mm wide MAX
+    type: LRS-350-24 terminal block
     pincount: 9
-    pinlabels: [AC/L, AC/N, FG, -V1, -V2, -V3, +V1, +V2, +V3]
-    notes: >
-      Terminal numbering is MeanWell's own (LRS-350-SPEC, Terminal Pin No.
-      Assignment): 1 AC/L, 2 AC/N, 3 FG, 4-6 DC OUTPUT -V, 7-9 DC OUTPUT +V.
-      One pigtail per +V/-V screw pair, so 7 with 4, 8 with 5, 9 with 6.
-      Pins 1-3 are the mains side and are fed by the fused IEC inlet
-      switch's own leads, which come pre-terminated and are not part of
-      this harness.
+    pinlabels: [AC/L, AC/N, FG, -V, -V, -V, +V, +V, +V]
+    notes: "Screw numbers are MeanWell's (LRS-350-SPEC)\nOne pigtail per pair: 7+4, 8+5, 9+6\nScrews 1-3 are mains, on the IEC inlet's own leads\nTerminal spec: see the PSU output pigtail drawing"
   J1: &jack
     type: DC jack 5.5x2.1 female, panel-mount
     pinlabels: [+24V (tip), GND (sleeve)]
@@ -33,7 +26,7 @@ connectors:
     type: JST VH 2-pin (VHR-2)
     subtype: female
     pinlabels: [+24V, GND]
-    notes: basically board v1.3 24V input. GUESS - which pin is +
+    notes: "basically board v1.3 24V input\nGUESS - which pin is +"
     additional_components:
       - type: Terminal - SVH-21T-P1.1
         qty: 1
@@ -43,28 +36,25 @@ connectors:
   HUB:
     type: DC plug 5.5x2.1 male
     pinlabels: [+24V (tip), GND (sleeve)]
-    notes: into the Waveshare hub jack (DC-044, 5.5x2.1)
+    notes: "into the Waveshare hub jack\n(DC-044, 5.5x2.1)"
   BUCK:
     type: Bare tinned leads
     pinlabels: [+24V, GND]
-    notes: splice to the 24V-5V USB-C buck input leads
+    notes: "splice to the 24V-5V USB-C\nbuck input leads"
 
 cables:
   PJ1: &pigtail
     gauge: 18 AWG
     length: 4 in
     colors: [RD, BK]
-    notes: >
-      PSU-J pigtail, inside PSU box. Comes already attached to the
-      panel-mount jack, so buy the jacks with leads rather than having
-      these made.
+    notes: "PSU-J pigtail, inside the PSU box\nComes attached to the jack already, so buy\nthe jacks with leads rather than have these made"
   PJ2: *pigtail
   PJ3: *pigtail
   W1:
     gauge: 18 AWG
     length: 36 in
     colors: [RD, BK]
-    notes: board 24V in. Length deliberately long
+    notes: "board 24V in\nLength deliberately long"
   W2:
     gauge: 22 AWG
     length: 12 in

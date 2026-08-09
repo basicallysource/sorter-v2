@@ -38,11 +38,10 @@
 			<button
 				type="button"
 				onclick={onSuggestAnother}
-				title="Suggest another name"
-				aria-label="Suggest another name"
-				class="setup-control flex shrink-0 items-center justify-center px-3 text-text-muted transition-colors hover:text-text"
+				class="setup-control flex shrink-0 items-center gap-2 px-3 text-sm whitespace-nowrap text-text-muted transition-colors hover:text-text"
 			>
 				<Shuffle class="h-4 w-4" />
+				Generate New Name
 			</button>
 		</div>
 	</div>

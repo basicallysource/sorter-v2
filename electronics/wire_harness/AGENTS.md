@@ -20,14 +20,18 @@ that branch's prefix. The docs derive the prefix for whatever ref they're
 building (`resolveHarness()` in `docs/src/lib/server/content.ts`), so a PR preview shows the PR's
 drawings and production shows main's.
 
-**The `?v=` cache-buster does not work, so don't rely on it.**
-`img.basically.website` is behind Cloudflare and the zone ignores the query
-string in the cache key: a brand-new random `?v=` still returns
-`cf-cache-status: HIT` on whatever was cached, verified 2026-08-09 against an
-object 22 hours old. A re-rendered drawing can therefore sit behind the old one
-on a page anybody has already loaded, including a PR preview. Until a cache
-purge is wired into the workflow, check a render at the origin, which is public
-and never cached:
+`img.basically.website` is a Cloudflare Worker in front of the bucket, and it
+keys its cache on the full URL including `?v=`, so a re-rendered drawing shows
+up as soon as a deploy stamps a new `v`. Every response carries
+`x-img-cache: hit|miss`, and that header is the evidence when somebody says a
+drawing looks stale:
+
+    curl -sI "https://img.basically.website/harness/main/power.png?v=<sha>" | grep -i x-img-cache
+
+(An earlier version of this file blamed the Cloudflare zone for ignoring query
+strings. It was the worker dropping the query string before its subrequest to
+Spaces; fixed 2026-08-09.) The origin is public and never cached, so it is the
+tiebreaker if the two ever disagree:
 
     https://basically-docs.nyc3.digitaloceanspaces.com/harness/<ref>/power.png
 
@@ -81,11 +85,16 @@ bucket come back from the gravity mirror.
 
 ## Linking someone to a preview
 
-Take the preview URL from Vercel's own PR comment or check, never by deriving
-it from the branch name: Vercel truncates long branch names to fit DNS's
-63-character label limit, so a derived
-`sorter-v2-docs-git-<branch>-...vercel.app` hostname can simply not resolve.
-The wireviz page on that preview is `/hardware/electronics/wireviz/`.
+**The docs are on Cloudflare Pages.** Take the preview URL from the
+`cloudflare-workers-and-pages[bot]` comment on the PR, never by deriving one:
+Pages names a deployment by a hash you cannot predict, and the check's own
+`details_url` is the dashboard rather than the site. The comment carries no URL
+at all while the build is running, so re-read it rather than concluding there
+is no preview. The wireviz page on that preview is
+`/hardware/electronics/wireviz/`.
+
+A dead `Vercel - sorter-v2-docs` check still goes green on these PRs and is not
+the docs site any more. Ignore it.
 
 ## Adding a drawing
 

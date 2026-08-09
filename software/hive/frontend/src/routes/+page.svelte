@@ -82,7 +82,7 @@
 		</div>
 	</div>
 
-	<div class="flex gap-4">
+	<div class="flex flex-wrap gap-3 sm:gap-4">
 		<a
 			href="/profiles"
 			class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"

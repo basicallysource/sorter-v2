@@ -487,7 +487,7 @@
 			Arrow up accepts, arrow down rejects, arrow right skips, arrow left goes back{#if FEATURES.ANNOTATION_EDITING}, and <kbd class="border border-border bg-bg px-1.5 py-0.5 text-[11px] font-semibold text-text">D</kbd> toggles annotation{/if}.
 		</p>
 		{#if activeFilterChips.length > 0}
-			<div class="mt-2 flex flex-wrap items-center gap-2 text-[11px]">
+			<div class="mt-2 flex flex-wrap items-center gap-2 break-all text-[11px]">
 				<span class="text-text-muted">Scoped to:</span>
 				{#each activeFilterChips as [key, value] (key)}
 					<span class="border border-border bg-bg px-1.5 py-0.5 text-text-muted">
@@ -500,7 +500,7 @@
 	</div>
 	<!-- Kind switcher — flips the queue between regular detection samples and
 	     piece-condition crops without leaving the review page. -->
-	<div class="flex border border-border bg-surface text-xs">
+	<div class="flex flex-wrap border border-border bg-surface text-xs">
 		{#each [
 			{ value: '', label: 'All' },
 			{ value: 'regular', label: 'Regular' },

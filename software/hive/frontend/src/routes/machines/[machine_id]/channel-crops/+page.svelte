@@ -139,8 +139,8 @@
 	<a href={`/machines/${machineId}`} class="text-sm text-text-muted hover:text-text">← Machine overview</a>
 </div>
 
-<div class="mb-4 flex items-end justify-between">
-	<div>
+<div class="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
+	<div class="min-w-0">
 		<h1 class="text-2xl font-bold text-text">{machineName || 'Machine'}</h1>
 		<p class="text-sm text-text-muted">
 			Unlabeled C2/C3 bbox crops synced from this machine — tagged with the piece's

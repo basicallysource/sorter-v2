@@ -163,7 +163,7 @@
 			<!-- items-stretch + aspect-square on the swatch makes its height auto-match the
 				 text block's natural height (codename H1 + slug + name = ~3 lines) so the
 				 dot reads as a hero element proportional to its label. -->
-			<div class="flex items-stretch gap-4 border-b border-[var(--color-border)] px-5 py-4">
+			<div class="flex flex-wrap items-stretch gap-4 border-b border-[var(--color-border)] px-4 py-4 sm:flex-nowrap sm:px-5">
 				{#if model.codename_color}
 					<div class="flex shrink-0 items-center">
 						<span
@@ -200,7 +200,7 @@
 
 			<!-- Metric pills — 4 columns including Precision, since the detail page has room -->
 			{#if map50 !== null || map50_95 !== null || precision !== null || recall !== null}
-				<div class="grid grid-cols-4 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)]">
+				<div class="grid grid-cols-2 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-4">
 					<div class="bg-[var(--color-surface)] px-4 py-3">
 						<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">mAP50</div>
 						<div class="font-mono text-lg font-semibold text-[var(--color-text)]">{formatPct(map50)}</div>
@@ -222,7 +222,7 @@
 
 			<!-- Spec pills: Model / Samples / Diversity -->
 			{#if arch || imgsz || samples !== null || diversityScore !== null}
-				<div class="grid grid-cols-3 gap-px bg-[var(--color-border)]">
+				<div class="grid grid-cols-2 gap-px bg-[var(--color-border)] sm:grid-cols-3">
 					<div class="bg-[var(--color-surface)] px-4 py-3">
 						<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Model</div>
 						<div class="font-mono text-base font-semibold text-[var(--color-text)]">

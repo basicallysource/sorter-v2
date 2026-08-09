@@ -136,8 +136,8 @@
 	<title>Compare models · Sample · Hive</title>
 </svelte:head>
 
-<div class="mb-5 flex items-end justify-between gap-3">
-	<div>
+<div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+	<div class="min-w-0">
 		<div class="mb-1 text-xs text-text-muted">
 			<a href="/samples" class="hover:underline">Samples</a>
 			<span class="mx-1">/</span>
@@ -152,7 +152,7 @@
 			One image tile per model. Non-destructive — the sample's stored detection is not touched.
 		</p>
 	</div>
-	<div class="flex items-center gap-2">
+	<div class="flex shrink-0 items-center gap-2">
 		<Button variant="primary" size="sm" onclick={runAll}>Run all models</Button>
 	</div>
 </div>

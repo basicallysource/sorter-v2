@@ -360,8 +360,8 @@ async function loadAssignmentProfile(profileId: string) {
 	<title>Machines - Hive</title>
 </svelte:head>
 
-<div class="mb-6 flex items-center justify-between">
-	<div>
+<div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+	<div class="min-w-0">
 		<h1 class="text-2xl font-bold text-text">Machines</h1>
 		<p class="mt-1 text-sm text-text-muted">
 			Manage machine tokens and decide which sorting profile version each machine should pull.
@@ -369,7 +369,7 @@ async function loadAssignmentProfile(profileId: string) {
 	</div>
 	<button
 		onclick={() => { showAddModal = true; }}
-		class="bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+		class="shrink-0 bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
 	>
 		Add Machine
 	</button>
@@ -509,7 +509,7 @@ async function loadAssignmentProfile(profileId: string) {
 
 				<!-- Footer -->
 				<div class="mt-auto border-t border-border bg-bg px-4 py-2">
-					<div class="flex items-center justify-between text-[10px] text-text-muted">
+					<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 text-[10px] text-text-muted">
 						<span>Registered {formatUptime(machine.created_at)} ago</span>
 						{#if machine.last_seen_at}
 							<span>{isOnline ? 'Online now' : `Last seen ${new Date(machine.last_seen_at).toLocaleString()}`}</span>

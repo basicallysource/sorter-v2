@@ -197,7 +197,9 @@
 	<title>{machine ? `${machine.name} — Overview` : 'Machine'} · Hive</title>
 </svelte:head>
 
-<div class="mx-auto max-w-5xl px-4 py-8">
+<!-- No horizontal padding at mobile: the app shell already pads by 4, and a
+     second px-4 here costs 64px of a 390px screen. -->
+<div class="mx-auto max-w-5xl py-8 sm:px-4">
 	<a href={backLink.href} class="text-sm text-text-muted hover:text-primary hover:underline">{backLink.label}</a>
 
 	{#if loading}
@@ -268,9 +270,9 @@
 
 		<!-- Piece stats -->
 		<section class="mt-6">
-			<div class="flex items-baseline justify-between">
+			<div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
 				<h2 class="text-lg font-semibold text-text">Sorting</h2>
-				<div class="flex items-baseline gap-4">
+				<div class="flex flex-wrap items-baseline gap-4">
 					<a
 						href={`/machines/${machine.id}/channel-crops`}
 						class="text-sm text-primary hover:underline">Channel crops →</a
@@ -379,11 +381,11 @@
 								<button
 									type="button"
 									onclick={() => toggle(backup.version)}
-									class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-bg"
+									class="flex w-full flex-wrap items-center gap-x-3 gap-y-1 px-4 py-3 text-left hover:bg-bg"
 								>
 									<span class="font-mono text-sm font-semibold text-text">v{backup.version}</span>
 									<Badge text={backup.trigger} variant={triggerVariant(backup.trigger)} />
-									<span class="text-sm text-text-muted">{formatDate(backup.created_at)}</span>
+									<span class="min-w-0 truncate text-sm text-text-muted">{formatDate(backup.created_at)}</span>
 									<span class="ml-auto font-mono text-xs text-text-muted">{backup.content_hash.slice(0, 12)}</span>
 									<span class="text-text-muted">{expanded === backup.version ? '▾' : '▸'}</span>
 								</button>

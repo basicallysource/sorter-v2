@@ -63,6 +63,21 @@ router = APIRouter(prefix="/api/public", tags=["public-stats"])
 # sync with the widget's `SorterStats.sorterTimeZone`.
 PUBLIC_STATS_LOCAL_TZ = "America/Los_Angeles"
 
+# Lifetime pieces above which a machine is a REAL machine rather than a row in
+# the machines table.
+#
+# Registering is free and a registration proves nothing: a bench that was
+# powered on once, a duplicate somebody made while setting up, a unit that
+# never got past its first bag. Counting those in "the fleet" inflates the
+# denominator with machines that have never sorted anything, which makes every
+# ratio built on it — how many are live, how many owners have claimed theirs —
+# read worse than the truth and mean less than it should.
+#
+# 250 pieces is roughly one real run. It is deliberately low: the bar is "this
+# thing has actually sorted", not "this thing is impressive". Consumers get
+# BOTH counts and choose which to say — see the two counters on /fleet.
+ACTIVE_MACHINE_MIN_PIECES = 250
+
 
 def _presented_key(authorization: str | None, x_stats_key: str | None) -> str:
     presented = x_stats_key
@@ -179,6 +194,12 @@ def get_public_fleet(db: Session = Depends(get_db)):
     an hour-stale answer to that is a wrong one. The 30-day count is the one a
     leaderboard should rank on: a day is too short to mean much and a lifetime
     total is the same order forever.
+
+    Every non-archived machine is listed, each flagged `is_active` against
+    ACTIVE_MACHINE_MIN_PIECES, and both counts are returned. Filtering here
+    would be the wrong call — a consumer that wants to know how many
+    registrations exist can still ask — but `active_machine_count` is the
+    number meant for people, and the balloon board says only that one.
     """
     rows = (
         db.query(Machine, UserIdentity)
@@ -198,33 +219,53 @@ def get_public_fleet(db: Session = Depends(get_db)):
     recent = _pieces_by_machine_since(db, ids, hours=24)
     this_hour = _pieces_by_machine_since(db, ids, hours=1)
     this_month = _pieces_by_machine_since(db, ids, hours=24 * 30)
-    machines = [
-        {
-            "id": str(machine.id),
-            "name": machine.name,
-            "is_active": machine.is_active,
-            "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
-            "created_at": machine.created_at.isoformat(),
-            "pieces_seen": int(lifetime.get(str(machine.id), {}).get("pieces_seen") or 0),
-            "distributed": int(lifetime.get(str(machine.id), {}).get("distributed") or 0),
-            "overall_ppm": float(lifetime.get(str(machine.id), {}).get("overall_ppm") or 0.0),
-            "last_24h_pieces": recent.get(str(machine.id), 0),
-            "last_hour_pieces": this_hour.get(str(machine.id), 0),
-            "last_30d_pieces": this_month.get(str(machine.id), 0),
-            "owner_discord": None
-            if identity is None
-            else {
-                "id": identity.provider_user_id,
-                "login": identity.provider_login,
-                "avatar_url": identity.avatar_url,
-            },
-        }
-        for machine, identity in rows
-    ]
+    machines = []
+    for machine, identity in rows:
+        mid = str(machine.id)
+        stats_row = lifetime.get(mid, {})
+        pieces_seen = int(stats_row.get("pieces_seen") or 0)
+        machines.append(
+            {
+                "id": mid,
+                "name": machine.name,
+                # NOTE: this is the FLEET-ACTIVE predicate — has this machine
+                # sorted enough to be a real one (see ACTIVE_MACHINE_MIN_PIECES)
+                # — and NOT the machines table's enabled flag, which used to be
+                # served under this name and which no consumer of this endpoint
+                # ever read. One endpoint, one meaning of "active".
+                "is_active": pieces_seen > ACTIVE_MACHINE_MIN_PIECES,
+                "last_seen_at": machine.last_seen_at.isoformat() if machine.last_seen_at else None,
+                "created_at": machine.created_at.isoformat(),
+                "pieces_seen": pieces_seen,
+                "distributed": int(stats_row.get("distributed") or 0),
+                "overall_ppm": float(stats_row.get("overall_ppm") or 0.0),
+                "last_24h_pieces": recent.get(mid, 0),
+                "last_hour_pieces": this_hour.get(mid, 0),
+                "last_30d_pieces": this_month.get(mid, 0),
+                "owner_discord": None
+                if identity is None
+                else {
+                    "id": identity.provider_user_id,
+                    "login": identity.provider_login,
+                    "avatar_url": identity.avatar_url,
+                },
+            }
+        )
+    active = [m for m in machines if m["is_active"]]
+    # Two counts, and a consumer says whichever it means. REGISTERED is the row
+    # count and is the wrong number to put in front of people — it counts
+    # benches that have never sorted a piece. ACTIVE is the fleet as anybody
+    # would describe it out loud. The linked counts are given per population so
+    # a ratio is never built out of two different denominators.
     return {
         "machines": machines,
-        "machine_count": len(machines),
-        "discord_linked_count": sum(1 for m in machines if m["owner_discord"] is not None),
+        "active_threshold_pieces": ACTIVE_MACHINE_MIN_PIECES,
+        "registered_machine_count": len(machines),
+        "active_machine_count": len(active),
+        "registered_discord_linked_count": sum(
+            1 for m in machines if m["owner_discord"] is not None
+        ),
+        "active_discord_linked_count": sum(1 for m in active if m["owner_discord"] is not None),
     }
 
 

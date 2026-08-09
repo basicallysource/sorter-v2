@@ -163,7 +163,7 @@ class TestFleetRoster:
         body = r.json()
         mine = next(x for x in body["machines"] if x["name"] == "Roster Sorter")
         assert mine["owner_discord"] is None
-        assert body["machine_count"] == len(body["machines"])
+        assert body["registered_machine_count"] == len(body["machines"])
 
         # Link a Discord identity to the owner; the roster now names them.
         from app.models.user import User
@@ -187,7 +187,7 @@ class TestFleetRoster:
             "login": "spencer",
             "avatar_url": None,
         }
-        assert r.json()["discord_linked_count"] >= 1
+        assert r.json()["registered_discord_linked_count"] >= 1
 
     def test_machine_scoped_key_rejected(self, client, db, monkeypatch):
         monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
@@ -220,6 +220,51 @@ class TestFleetRoster:
         # consumer can sort on these without special-casing a fresh machine.
         assert entry["pieces_seen"] == 0 and entry["last_24h_pieces"] == 0
         assert entry["last_hour_pieces"] == 0
+
+    def test_a_machine_is_active_only_once_it_has_really_sorted(
+        self, client, db, monkeypatch, machine_token
+    ):
+        """Registering is free, so the roster separates rows from real machines.
+
+        Both counts are served: the registered one for anybody who genuinely
+        wants it, the active one for anybody about to say a number out loud.
+        """
+        from app.routers import public_stats
+        from app.services import machine_stats
+
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        # Three pieces stands in for the real 250 — the point under test is the
+        # comparison, not the constant, and 251 inserts would only be slower.
+        monkeypatch.setattr(public_stats, "ACTIVE_MACHINE_MIN_PIECES", 2)
+        headers = self._admin_headers(client, db)
+        # A registration that never sorts anything — the exact thing the
+        # threshold exists to keep out of the number people are shown.
+        client.post(
+            "/api/machines", json={"name": "Bench Sorter", "description": "d"}, headers=headers
+        )
+        token = self._mint(client, headers, ["fleet:read"])
+
+        body = client.get("/api/public/fleet", headers=_bearer(token)).json()
+        assert body["active_threshold_pieces"] == 2
+        assert body["active_machine_count"] == 0
+        assert body["registered_machine_count"] == len(body["machines"])
+        assert all(not m["is_active"] for m in body["machines"])
+
+        now = time.time()
+        _sync(client, machine_token, [
+            {"piece_uuid": f"real-{i}", "local_id": i, "seen_at": now - 60 * i,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"}
+            for i in range(1, 4)
+        ])
+        # The roster reads the hourly cache rather than recomputing, so the
+        # worker's pass has to happen before the machine can look real.
+        machine_stats.refresh_cache(db)
+
+        body = client.get("/api/public/fleet", headers=_bearer(token)).json()
+        sorted_one = max(body["machines"], key=lambda m: m["pieces_seen"])
+        assert sorted_one["pieces_seen"] == 3 and sorted_one["is_active"]
+        assert body["active_machine_count"] == 1
+        assert body["registered_machine_count"] > body["active_machine_count"]
 
     def test_the_hour_window_is_narrower_than_the_day(self, client, db, monkeypatch, machine_token):
         """A machine that sorted this morning but not this hour is powered on,

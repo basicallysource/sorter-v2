@@ -27,7 +27,11 @@ Design philosophy: **a key grants exactly what its scopes say, nothing more.**
   grants nothing.
 - Scope vocabulary lives in `deps.py` (`VALID_API_KEY_SCOPES`): currently
   `models:read`, `models:write`, `samples:read`, `samples:write`,
-  `keys:manage`.
+  `keys:manage`, `stats:read`.
+- `stats:read` (admin-owned, non-machine-constrained keys only) grants the
+  aggregate stats endpoint (`routers/public_stats.py`) — the replacement for
+  the legacy `PUBLIC_STATS_API_KEY` shared secret, which stays accepted only
+  until consumers cut over; then delete the env var and the legacy branch.
 - Keys may carry an optional `expires_at`; expired keys 401.
 - Revocation is a tombstone (`revoked_at`), not a delete, so the UI can show
   history.

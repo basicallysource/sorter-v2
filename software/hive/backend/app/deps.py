@@ -19,6 +19,7 @@ API_KEY_SCOPE_MODELS_WRITE = "models:write"
 API_KEY_SCOPE_SAMPLES_READ = "samples:read"
 API_KEY_SCOPE_SAMPLES_WRITE = "samples:write"
 API_KEY_SCOPE_KEYS_MANAGE = "keys:manage"
+API_KEY_SCOPE_STATS_READ = "stats:read"
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
@@ -26,6 +27,7 @@ VALID_API_KEY_SCOPES = frozenset(
         API_KEY_SCOPE_SAMPLES_READ,
         API_KEY_SCOPE_SAMPLES_WRITE,
         API_KEY_SCOPE_KEYS_MANAGE,
+        API_KEY_SCOPE_STATS_READ,
     }
 )
 

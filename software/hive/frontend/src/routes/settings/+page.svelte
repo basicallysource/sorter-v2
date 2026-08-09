@@ -88,7 +88,8 @@
 		{ scope: 'models:write', label: 'Write models' },
 		{ scope: 'samples:read', label: 'Read samples' },
 		{ scope: 'samples:write', label: 'Write samples' },
-		{ scope: 'keys:manage', label: 'Manage API keys' }
+		{ scope: 'keys:manage', label: 'Manage API keys' },
+		{ scope: 'stats:read', label: 'Read aggregate stats' }
 	];
 	let apiKeySelectedScopes = $state<string[]>([]);
 	let apiKeyExpiresInDays = $state('');

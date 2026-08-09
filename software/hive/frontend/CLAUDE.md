@@ -47,7 +47,7 @@ The ecosystem is several separate web UIs that people keep open side by side:
 Hive, the docs site, and the machine's own UI. A tab strip full of identical
 basically bricks tells you nothing, so **the mark is constant and the color
 carries the identity**: the basically brick (black outline, white fill) on a
-full-bleed colored disc.
+full-bleed colored square.
 
 | Site | Color | Palette token |
 |---|---|---|
@@ -64,9 +64,16 @@ The brick comes from `~/Documents/basically/logos/square zoomed.png`, the
 outlined-and-white-filled version of the logo (transparent outside the brick).
 Composite it, do not redraw it: building the mark from `basically-logo.svg`
 means adding stroke weight to keep the lines alive at small sizes, and that
-comes out visibly too bold. Crop to the alpha bbox, size the brick to 88% of
-the disc radius (corner-to-center), center it, and render each output size at
-its own resolution rather than downscaling one master.
+comes out visibly too bold. Crop to the alpha bbox, size the brick to 92% of
+the frame width, center it, and render each output size at its own resolution
+rather than downscaling one master.
+
+The field is a **sharp-cornered square**, not a disc and not a rounded rect. A
+square gives the color roughly a third more area than a circle inscribed in the
+same box, which is what makes the site readable at 16px; it also matches the
+flat-corner rule below and Sorter's `no rounded-*`. 92% leaves a colored margin
+that survives against a white browser toolbar — at 96% the brick's corners
+effectively touch the edge.
 
 Each site ships four files from its static dir:
 

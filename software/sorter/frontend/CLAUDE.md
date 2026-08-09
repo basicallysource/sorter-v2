@@ -6,7 +6,7 @@ sharp-edged and dense. When adding or editing components, follow these rules.
 ## Favicon — the machine's site color is blue
 
 Every web UI in the ecosystem shows the same basically brick on a full-bleed
-colored disc, and the color says which site you are looking at: Hive is red,
+colored square, and the color says which site you are looking at: Hive is red,
 the docs site is yellow, a machine is **blue** (`#0055BF`, `--color-info`).
 The convention, the asset spec, and the rules for adding a site live in
 `software/hive/frontend/CLAUDE.md` § Favicons. Assets are `static/favicon.ico`,

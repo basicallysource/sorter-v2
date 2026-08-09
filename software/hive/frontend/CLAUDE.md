@@ -31,7 +31,9 @@ content that does not flip — a photo, or the fixed LEGO yellow. Everything els
 **Do not** introduce raw `bg-[#...]` / `text-[#...]` / `border-[#...]` literals, and do not reach
 for Tailwind's stock palette (`bg-white`, `text-black`, `bg-gray-950`, …) — none of it is
 theme-aware. The only places where raw color values are allowed:
-- `src/routes/styleguide/+page.svelte` — the palette needs the literal values for display.
+- The palette swatch section of `src/routes/styleguide/+page.svelte` — the swatches need
+  the literal hex values for display. The component demos on the rest of that page use
+  tokens like everything else, so the styleguide renders correctly in both themes.
 - Data-viz palettes drawn over sample photos: `src/lib/components/sample/bbox-helpers.ts`,
   the annotator box palette, the model-compare palette, and the two untokenised midpoints of
   the coverage ramp in `Sparkline.svelte` / `DiversityDonut.svelte`. These are categorical,
@@ -182,4 +184,4 @@ pnpm --dir software/hive/frontend check
 pnpm --dir software/hive/frontend build
 ```
 
-Both must stay green. `rg "bg-\[#" src/` outside the styleguide should return ~nothing.
+Both must stay green. `rg "bg-\[#" src/` outside the styleguide's palette swatches should return ~nothing.

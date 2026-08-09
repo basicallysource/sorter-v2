@@ -37,15 +37,14 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
 <table>
   <thead><tr><th>ID</th><th>Qty</th><th>Gauge</th><th>Length</th><th>Cond.</th><th>End A</th><th>End B</th><th>Notes</th></tr></thead>
   <tbody>
-    <tr><td class="wire-id">PSU-J</td><td>6 <span class="flagged">count</span></td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated spade/fork terminal, M3.5, 8 mm wide max</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box. Usually comes already attached to the jack, so buy the jacks with leads</td></tr>
+    <tr><td class="wire-id">PSU-J</td><td>3</td><td>18 AWG</td><td>4 in</td><td>2</td><td>2× insulated spade/fork terminal, M3.5, 8 mm wide max</td><td>Panel-mount female DC jack 5.5×2.1</td><td>Lives inside the PSU box. Usually comes already attached to the jack, so buy the jacks with leads</td></tr>
     <tr><td class="wire-id">W1</td><td>1</td><td>18 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>JST VHR-2 + SVH-21T-P1.1 contacts</td><td>Board 24V in. Pin 1 = +24V <span class="flagged">verify silkscreen</span></td></tr>
     <tr><td class="wire-id">W2</td><td>1</td><td>22 AWG</td><td>12 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Male DC plug 5.5×2.1</td><td>USB hub. Double-male, center-positive both ends <span class="flagged">verify hub jack size</span></td></tr>
     <tr><td class="wire-id">W3</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Splice to USB-C buck input leads</td></tr>
-    <tr><td class="wire-id">W4, W5</td><td>2</td><td>22 AWG</td><td>36 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Splice to fan leads (cut off the fan's XH plug)</td></tr>
     <tr><td class="wire-id">L1-L3</td><td>3</td><td>22 AWG</td><td>36 in</td><td>2</td><td>Dupont 1x2 female (2.54 mm)</td><td>Female inline DC jack 5.5×2.1</td><td>LED feed from board to unplug point</td></tr>
     <tr><td class="wire-id">L1p, L2p</td><td>2</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Solder to COB board pads</td></tr>
-    <tr><td class="wire-id">L3p</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Solder to LED strip (6000K) pads</td></tr>
-    <tr><td class="wire-id">LIM</td><td>1</td><td>22 AWG</td><td>24 in</td><td>2</td><td>Dupont 1x2 female (2.54 mm)</td><td>Bare, tinned</td><td>Solder to limit switch lugs</td></tr>
+    <tr><td class="wire-id">L3p</td><td>1</td><td>22 AWG</td><td>6 in</td><td>2</td><td>Male DC plug 5.5×2.1</td><td>Bare, tinned</td><td>Into a solderless clamp-on strip connector (6000K strip)</td></tr>
+    <tr><td class="wire-id">LIM</td><td>1</td><td>22 AWG</td><td>24 in</td><td>2</td><td>Dupont 1x3 female (2.54 mm), position 3 empty</td><td>2× insulated quick-connect receptacle, #187</td><td>Pushes onto the switch tabs, no soldering. Empty third position keys the board end</td></tr>
     <tr><td class="wire-id">S1-S4</td><td>4</td><td>24 AWG</td><td>1 m</td><td>4</td><td>JST PHR-4 + SPH-002T contacts</td><td>JST PHR-6 + SPH-002T contacts</td><td>Crossover cable, pin map 3.2. Into the motor's own 6-pin socket. 4-wire bundle in PVC sleeving</td></tr>
     <tr><td class="wire-id">CH</td><td>1</td><td>24 AWG</td><td>40 in <span class="flagged">guess</span></td><td>4</td><td>JST PHR-4 + SPH-002T contacts</td><td>Bare, tinned, 4 leads labeled 1-4</td><td>Splice to chute stepper flying leads, pin map 3.3</td></tr>
   </tbody>
@@ -58,9 +57,9 @@ One row = one buildable cable SKU. End A is the PSU/board side. "Bare" ends are 
 
 ## 3 &nbsp; Pin maps
 
-### 3.1 &nbsp; 2-conductor power (PSU-J, W1-W5, L1-L3, pigtails)
+### 3.1 &nbsp; 2-conductor power (PSU-J, W1-W3, L1-L3, pigtails)
 
-Barrel jacks and plugs: center/tip = +24V (red), sleeve = GND (black). W1 board end: VH pin 1 = +24V, pin 2 = GND, <span class="flagged">verify against board silkscreen before ordering</span>. LED feed dupont: pin 1 = +24V, pin 2 = GND, same caveat.
+Barrel jacks and plugs are **5.5 × 2.1 mm** everywhere, confirmed against the Waveshare hub (part DC-044 on their wiki). 5.5 × 2.5 also exists and does not mate, so specify 2.1 on every line. Center/tip = +24V (red), sleeve = GND (black). W1 board end: VH pin 1 = +24V, pin 2 = GND, <span class="flagged">verify against board silkscreen before ordering</span>. LED feed dupont: pin 1 = +24V, pin 2 = GND, same caveat.
 
 ### 3.2 &nbsp; Channel stepper cable S1-S4 (crossover)
 
@@ -105,10 +104,9 @@ Rendered harness drawings, BOMs, downloads, and the full supplier package live o
 Some parts come with their own fixed leads or solder pads, so the harness can't fully land on them. Those cables are ordered with one end bare and tinned, and joined on the machine:
 
 - **24V to 5V USB-C buck** (W3): converter has fixed input leads, so splice.
-- **40mm fans** (W4, W5): ship with their own XH2.54-terminated lead, so cut the plug off and splice.
 - **Chute stepper** (CH): flying leads out of the motor, so splice.
-- **COB boards / LED strip** (L1p-L3p): solder pads, so solder direct.
-- **Limit switch** (LIM): solder lugs, so solder direct.
+- **COB boards** (L1p, L2p): solder pads, so solder direct.
+- **LED strip** (L3p): a solderless clamp-on connector bites onto the cut strip, so no soldering. Pick the variant with IDC crimp points on both sides and it takes the pigtail wire too.
 
 <div class="callout">
   <span class="callout-icon" aria-hidden="true">›</span>
@@ -125,10 +123,12 @@ Genuine JST part numbers given where they exist. Chinese-clone equivalents of al
     <tr><td>JST VH 2-pin</td><td>VHR-2</td><td>SVH-21T-P1.1 (16-22 AWG)</td><td>W1 board end</td></tr>
     <tr><td>JST PH 4-pin</td><td>PHR-4</td><td>SPH-002T-P0.5S (24-28 AWG)</td><td>S1-S4, CH board ends</td></tr>
     <tr><td>JST PH 6-pin</td><td>PHR-6</td><td>SPH-002T-P0.5S (24-28 AWG)</td><td>S1-S4 motor end, into the NEMA 17 socket</td></tr>
-    <tr><td>Dupont 1x2 female, 2.54 mm</td><td colspan="2">generic dupont housing + female crimps (any vendor stocks these)</td><td>L1-L3, LIM board ends</td></tr>
-    <tr><td>DC barrel male 5.5×2.1</td><td colspan="2">moulded plug w/ lead, or field-installable</td><td>W1-W5, L pigtails</td></tr>
+    <tr><td>Dupont 1x2 female, 2.54 mm</td><td colspan="2">generic dupont housing + female crimps (any vendor stocks these)</td><td>L1-L3 board ends</td></tr>
+    <tr><td>Dupont 1x3 female, 2.54 mm</td><td colspan="2">generic housing + female crimps, only 2 positions populated</td><td>LIM board end (the empty position keys it)</td></tr>
+    <tr><td>Quick-connect receptacle, #187</td><td colspan="2">fully insulated female, 4.75 × 0.5 mm (.187 × .020 in) tab, 22 AWG</td><td>LIM switch end (Omron V-155-1C25)</td></tr>
+    <tr><td>DC barrel male 5.5×2.1</td><td colspan="2">moulded plug w/ lead, or field-installable</td><td>W1-W3, L pigtails</td></tr>
     <tr><td>DC barrel female inline 5.5×2.1</td><td colspan="2">moulded inline jack</td><td>L1-L3 unplug points</td></tr>
-    <tr><td>DC barrel female panel-mount 5.5×2.1</td><td colspan="2">panel-mount jack, ≥5 A</td><td>PSU box outputs J1-J6</td></tr>
+    <tr><td>DC barrel female panel-mount 5.5×2.1</td><td colspan="2">panel-mount jack, ≥5 A</td><td>PSU box outputs J1-J3</td></tr>
     <tr><td>Spade/fork terminal, insulated</td><td colspan="2">18 AWG, M3.5 stud, 8 mm wide max, must fit the LRS-350-24 output screws</td><td>PSU-J</td></tr>
   </tbody>
 </table>
@@ -138,12 +138,12 @@ Genuine JST part numbers given where they exist. Chinese-clone equivalents of al
 - **Custom harness vendor** (Alibaba "custom cable assembly", or a US quick-turn shop): send them sections 1-3 and 5 as the drawing. Expect MOQ 50-100 pcs per line item from China; small US shops and some AliExpress custom-cable storefronts will do 5-10.
 - **Low volume alternative:** buy pre-crimped PH / XH / dupont leads plus housings and assemble. The only labor a vendor saves is crimping.
 - The rationale for every guess in this spec: steppers draw ≤1.5 A/phase (24 AWG ok at these lengths), no single barrel-plug load exceeds ~3 A (22 AWG ok), PSU box pigtails carry worst-case single-load current (18 AWG).
+- The 24V distribution feeds three loads: the board, the USB hub, and the Orange Pi buck. The cooling fans are not on it, they run off the Pi or the board.
 
 ## 7 &nbsp; Guesses to verify before sending
 
 1. **Board 24V input polarity:** which pin is +24V. The connector itself is settled as VH (VHR-2, 18 AWG).
-2. **USB hub barrel size:** W2 assumes the Waveshare hub jack is 5.5×2.1. Could be 5.5×2.5.
-3. **Chute stepper cable:** 40 in copied from the channel steppers, and it is not covered by Jon's drawing at all.
-4. **LED drop count:** 3 feeds + 3 pigtails, per the schedule. Re-count against the machine.
-5. **PSU output jack count:** 6 here (5 loads plus a spare) against 3 in Jon's DC_PSU_Harness. Settle this before ordering jacks.
-6. **Motor coil order:** the 1·4·3·6 map and the two empty positions come from Jon's drawing, not from a measurement. Check the coils with a multimeter first.
+2. **Chute stepper cable:** 40 in copied from the channel steppers, and it is not covered by Jon's drawing at all.
+3. **LED drop count:** 3 feeds + 3 pigtails, per the schedule. Re-count against the machine.
+4. **Motor coil order:** the 1·4·3·6 map and the two empty positions come from Jon's drawing, not from a measurement. Check the coils with a multimeter first.
+5. **Limit switch contact:** the switch (Omron V-155-1C25) is SPDT with three tabs and the harness lands on two. Confirm which pair, COM+NC or COM+NO, against the board.

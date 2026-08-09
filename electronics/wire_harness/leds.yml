@@ -28,17 +28,27 @@ connectors:
     notes: COB board - solder direct
   COB2: *cob
   STRIP:
-    type: Solder pads
+    type: Solderless clamp-on strip connector
     pinlabels: [+24V, GND]
-    notes: LED strip, 6000K - solder direct
+    notes: >
+      LED strip, 6000K. Clamp-on connector instead of soldering. Pick the
+      variant with IDC crimp points on both sides so it takes the pigtail
+      wire as well as the strip.
   BOARD_LIM:
-    type: Dupont 1x2 female, 2.54 mm
-    pinlabels: [SIG, GND]
-    notes: on basically board v1.3. GUESS - verify pin order
+    type: Dupont 1x3 female, 2.54 mm
+    pincount: 3
+    pinlabels: [SIG, GND, n/c]
+    notes: >
+      on basically board v1.3. Position 3 is deliberately unpopulated so the
+      plug cannot go on backwards. GUESS - verify pin order
   SW:
-    type: Bare tinned leads
+    type: Quick-connect receptacle, #187 (4.75 x 0.5 mm tab)
     pinlabels: [SIG, GND]
-    notes: solder to limit switch lugs
+    notes: >
+      Omron V-155-1C25, quick-connect (#187) tabs - these push on, no
+      soldering. Fully insulated receptacles: the switch is SPDT and the
+      third tab is left unused. GUESS - which of COM/NC/NO the two
+      conductors land on.
 
 cables:
   L1: &feed

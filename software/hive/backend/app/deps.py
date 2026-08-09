@@ -18,12 +18,14 @@ API_KEY_SCOPE_MODELS_READ = "models:read"
 API_KEY_SCOPE_MODELS_WRITE = "models:write"
 API_KEY_SCOPE_SAMPLES_READ = "samples:read"
 API_KEY_SCOPE_SAMPLES_WRITE = "samples:write"
+API_KEY_SCOPE_KEYS_MANAGE = "keys:manage"
 VALID_API_KEY_SCOPES = frozenset(
     {
         API_KEY_SCOPE_MODELS_READ,
         API_KEY_SCOPE_MODELS_WRITE,
         API_KEY_SCOPE_SAMPLES_READ,
         API_KEY_SCOPE_SAMPLES_WRITE,
+        API_KEY_SCOPE_KEYS_MANAGE,
     }
 )
 
@@ -133,29 +135,30 @@ def normalize_api_key_scopes(scopes: list[str] | None) -> list[str] | None:
     return normalized or None
 
 
-def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str] | None] | None:
+def _resolve_api_key(db: Session, raw_token: str) -> tuple[User, frozenset[str]]:
     token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
     key = (
         db.query(UserApiKey)
-        .filter(
-            UserApiKey.token_hash == token_hash,
-            UserApiKey.revoked_at.is_(None),
-        )
+        .filter(UserApiKey.token_hash == token_hash)
         .first()
     )
-    if key is None:
-        return None
+    if key is None or key.revoked_at is not None:
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key")
+    expires_at = key.expires_at
+    if expires_at is not None:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=timezone.utc)
+        if expires_at <= datetime.now(timezone.utc):
+            raise HTTPException(status_code=401, detail="API key expired")
     user = db.query(User).filter(User.id == key.user_id, User.is_active.is_(True)).first()
     if user is None:
-        return None
+        raise HTTPException(status_code=401, detail="Invalid or revoked API key")
     key.last_used_at = datetime.now(timezone.utc)
     db.add(key)
     db.commit()
-    return user, (
-        frozenset(normalized)
-        if (normalized := normalize_api_key_scopes(key.scopes))
-        else None
-    )
+    # Deny-by-default: a key grants exactly its stored scopes; a key with no
+    # scopes (legacy rows) grants nothing.
+    return user, frozenset(normalize_api_key_scopes(key.scopes) or [])
 
 
 def get_current_user_or_api_key(
@@ -167,17 +170,20 @@ def get_current_user_or_api_key(
     """Resolve a user from either the session cookie or an Authorization Bearer `hv_*` API key.
 
     Machine tokens (raw hex) are rejected here — this dep is for human users only.
+
+    API keys are deny-by-default: any endpoint that accepts them MUST also
+    declare its required scopes via ``require_api_key_scopes`` — this dep alone
+    only authenticates; without the scope guard a key-authed request will be
+    rejected by ``require_api_key_scopes`` elsewhere or silently over-granted
+    here, so keep the pair together.
     """
     request.state.auth_via_api_key = False
-    request.state.api_key_scopes = None
+    request.state.api_key_scopes = frozenset()
 
     if authorization and authorization.startswith("Bearer "):
         raw = authorization[7:].strip()
         if raw.startswith(API_KEY_PREFIX):
-            resolved = _resolve_api_key(db, raw)
-            if resolved is None:
-                raise HTTPException(status_code=401, detail="Invalid or revoked API key")
-            user, scopes = resolved
+            user, scopes = _resolve_api_key(db, raw)
             request.state.auth_via_api_key = True
             request.state.api_key_scopes = scopes
             return user
@@ -221,10 +227,7 @@ def require_api_key_scopes(*required_scopes: str):
         if not getattr(request.state, "auth_via_api_key", False):
             return current_user
 
-        granted_scopes: frozenset[str] | None = getattr(request.state, "api_key_scopes", None)
-        if granted_scopes is None:
-            return current_user
-
+        granted_scopes: frozenset[str] = getattr(request.state, "api_key_scopes", frozenset()) or frozenset()
         missing = [scope for scope in normalized_required if scope not in granted_scopes]
         if missing:
             raise HTTPException(

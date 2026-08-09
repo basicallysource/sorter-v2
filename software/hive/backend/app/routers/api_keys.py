@@ -1,12 +1,19 @@
 import hashlib
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.deps import get_current_user, get_db, normalize_api_key_scopes, require_role, verify_csrf
+from app.deps import (
+    API_KEY_SCOPE_KEYS_MANAGE,
+    get_db,
+    normalize_api_key_scopes,
+    require_api_key_scopes,
+    require_role_flex,
+    verify_csrf,
+)
 from app.errors import APIError
 from app.models.user import User
 from app.models.user_api_key import UserApiKey
@@ -37,7 +44,7 @@ def _apply_visibility(query, current_user: User):
 @router.get("", response_model=list[ApiKeySummary])
 def list_api_keys(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_KEYS_MANAGE)),
 ):
     keys = (
         _apply_visibility(db.query(UserApiKey), current_user)
@@ -51,17 +58,24 @@ def list_api_keys(
 def create_api_key(
     payload: ApiKeyCreateRequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
+    current_user: User = Depends(require_role_flex("admin")),
+    _scope_guard: User = Depends(require_api_key_scopes(API_KEY_SCOPE_KEYS_MANAGE)),
     _csrf: None = Depends(verify_csrf),
 ):
-    raw_token, token_hash, token_prefix = _generate_token()
     scopes = normalize_api_key_scopes(payload.scopes)
+    if not scopes:
+        raise APIError(400, "API key must have at least one scope", "API_KEY_SCOPES_REQUIRED")
+    expires_at = None
+    if payload.expires_in_days is not None:
+        expires_at = datetime.now(timezone.utc) + timedelta(days=payload.expires_in_days)
+    raw_token, token_hash, token_prefix = _generate_token()
     key = UserApiKey(
         user_id=current_user.id,
         name=payload.name.strip(),
         token_prefix=token_prefix,
         token_hash=token_hash,
         scopes=scopes,
+        expires_at=expires_at,
     )
     db.add(key)
     db.commit()
@@ -76,7 +90,7 @@ def create_api_key(
 def revoke_api_key(
     key_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(require_api_key_scopes(API_KEY_SCOPE_KEYS_MANAGE)),
     _csrf: None = Depends(verify_csrf),
 ):
     key = (

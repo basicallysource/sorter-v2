@@ -1,0 +1,38 @@
+metadata:
+  title: Sorter V2 - PSU output pigtail
+  description: >
+    One PSU output pigtail, x3 per PSU build. The buildable sub-harness for
+    PJ1-PJ3 on the 24V power distribution drawing. From Jon's DC_PSU_Harness
+    (2026-08-08).
+
+connectors:
+  F1: &spade
+    style: simple
+    type: Spade terminal (fork/split ring)
+    subtype: 18 AWG, M3.5, 8mm wide MAX
+    notes: must fit the MeanWell LRS-350-24 screw terminals
+    color: RD
+  F2: *spade
+  J1:
+    type: DC jack 5.5x2.1 female, panel-mount
+    pinlabels: [+24V (tip), GND (sleeve)]
+    notes: panel-mount into the PSU enclosure
+
+cables:
+  PJ1:
+    gauge: 18 AWG
+    length: 4 in
+    colors: [RD, BK]
+    notes: >
+      Usually comes already attached to the panel-mount jack, so buy the
+      jacks with leads rather than having this made.
+
+connections:
+  -
+    - F1: [1]
+    - PJ1: [1]
+    - J1: [1]
+  -
+    - F2: [1]
+    - PJ1: [2]
+    - J1: [2]

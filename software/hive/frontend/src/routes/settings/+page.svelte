@@ -578,7 +578,11 @@
 
 			<!-- Connected accounts (OAuth identities) -->
 			{#if identities.length > 0 || providerEnabled('github') || providerEnabled('discord')}
-			<div class="border border-border bg-surface p-6">
+			<!-- The id is a link target: balloon's fleet board in Discord points a
+			     "Claim your machine" button at /settings#connected-accounts, so the
+			     person arrives at this panel rather than at the top of a long page.
+			     Renaming it breaks that button silently. -->
+			<div id="connected-accounts" class="scroll-mt-6 border border-border bg-surface p-6">
 				<h2 class="mb-1 font-semibold text-text">Connected Accounts</h2>
 				<p class="mb-4 text-sm text-text-muted">
 					Link other sign-in methods to this account. A connected Discord account also verifies you on the community server.

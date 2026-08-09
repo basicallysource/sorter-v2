@@ -149,11 +149,12 @@ def get_public_fleet(db: Session = Depends(get_db)):
     machine, and no other owner field is ever served here (no email, no user id,
     no display name), so an unlinked owner is not merely unnamed but absent.
 
-    The per-machine counters come from machine_stats_cache, which a worker
-    refreshes hourly; reading them costs one indexed table scan rather than a
-    recompute over machine_pieces. The trailing-24h count is computed live
-    because it is the one number a leaderboard wants fresh, and it is a single
-    grouped query over the (machine_id, seen_at) index.
+    The per-machine lifetime counters come from machine_stats_cache, which a
+    worker refreshes hourly; reading them costs one indexed table scan rather
+    than a recompute over machine_pieces. The trailing-hour and trailing-24h
+    counts are computed live off the (machine_id, seen_at) index, because they
+    are what a consumer uses to say whether a machine is working RIGHT NOW and
+    an hour-stale answer to that is a wrong one.
     """
     rows = (
         db.query(Machine, UserIdentity)
@@ -170,7 +171,8 @@ def get_public_fleet(db: Session = Depends(get_db)):
     )
     ids = [machine.id for machine, _ in rows]
     lifetime = machine_stats.get_fleet_stats(db)
-    recent = _pieces_by_machine_24h(db, ids)
+    recent = _pieces_by_machine_since(db, ids, hours=24)
+    this_hour = _pieces_by_machine_since(db, ids, hours=1)
     machines = [
         {
             "id": str(machine.id),
@@ -182,6 +184,7 @@ def get_public_fleet(db: Session = Depends(get_db)):
             "distributed": int(lifetime.get(str(machine.id), {}).get("distributed") or 0),
             "overall_ppm": float(lifetime.get(str(machine.id), {}).get("overall_ppm") or 0.0),
             "last_24h_pieces": recent.get(str(machine.id), 0),
+            "last_hour_pieces": this_hour.get(str(machine.id), 0),
             "owner_discord": None
             if identity is None
             else {
@@ -199,12 +202,16 @@ def get_public_fleet(db: Session = Depends(get_db)):
     }
 
 
-def _pieces_by_machine_24h(db: Session, ids: list) -> dict[str, int]:
-    """Trailing-24h piece count per machine. Same window as the fleet-wide
-    number in /stats, so a leaderboard and the headline agree."""
+def _pieces_by_machine_since(db: Session, ids: list, *, hours: int) -> dict[str, int]:
+    """Piece count per machine over a trailing window.
+
+    The 24h call uses the same window as the fleet-wide number in /stats, so a
+    leaderboard and the headline agree. The 1h call is what tells a consumer a
+    machine is actually sorting rather than merely powered on.
+    """
     if not ids:
         return {}
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
     rows = (
         db.query(MachinePiece.machine_id, func.count())
         .filter(MachinePiece.machine_id.in_(ids))

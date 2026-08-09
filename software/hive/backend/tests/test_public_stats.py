@@ -214,7 +214,7 @@ class TestFleetRoster:
             if x["name"] == "Counting Sorter"
         )
         for field in ("pieces_seen", "distributed", "overall_ppm", "last_24h_pieces",
-                      "last_hour_pieces"):
+                      "last_hour_pieces", "last_30d_pieces"):
             assert field in entry, f"{field} missing from the roster entry"
         # A machine that has never sorted reports zeros rather than nulls, so a
         # consumer can sort on these without special-casing a fresh machine.
@@ -238,3 +238,5 @@ class TestFleetRoster:
         mine = max(body["machines"], key=lambda m: m["last_24h_pieces"])
         assert mine["last_24h_pieces"] == 2
         assert mine["last_hour_pieces"] == 1
+        # The month contains both, so the windows nest rather than overlap.
+        assert mine["last_30d_pieces"] == 2

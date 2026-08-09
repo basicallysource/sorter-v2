@@ -71,6 +71,8 @@ body {
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 
 .shell {
+	/* Measured into place by +layout.svelte; this is the pre-hydration guess. */
+	--header-height: 48px;
 	max-width: 1180px;
 	margin: 0 auto;
 	padding: 24px 20px 48px;
@@ -288,6 +290,13 @@ body {
 	position: sticky;
 	top: 16px;
 	align-self: start;
+	display: flex;
+	flex-direction: column;
+	/* Its top edge sits below the header (24px shell padding + header + 24px
+	   header margin), so the viewport-height cap has to subtract all of that or
+	   it overhangs the bottom of the screen until you scroll. 16px to spare. */
+	max-height: calc(100vh - var(--header-height) - 64px);
+	max-height: calc(100dvh - var(--header-height) - 64px);
 }
 
 .section-sidebar-kicker {
@@ -307,6 +316,12 @@ body {
 .section-sidebar nav {
 	display: flex;
 	flex-direction: column;
+	/* The tree is taller than the viewport in some sections (Hardware), so it
+	   scrolls on its own instead of dragging the page with it. */
+	min-height: 0;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
 }
 
 .section-sidebar-group {
@@ -1222,6 +1237,7 @@ blockquote {
 	.section-sidebar {
 		position: static;
 		padding: 0;
+		max-height: none;
 	}
 
 	.section-sidebar-kicker {
@@ -1258,6 +1274,7 @@ blockquote {
 	.section-sidebar > nav {
 		display: none;
 		padding: 0 10px 12px;
+		overflow-y: visible;
 	}
 
 	.section-sidebar.nav-open > nav {

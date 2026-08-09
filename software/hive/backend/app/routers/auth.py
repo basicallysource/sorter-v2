@@ -2,6 +2,7 @@ import hashlib
 import logging
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
+from uuid import UUID
 
 from fastapi import APIRouter, Cookie, Depends, Query, Request, Response
 from fastapi.responses import RedirectResponse
@@ -15,22 +16,22 @@ from app.errors import APIError
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
 from app.schemas.auth import LoginRequest, RegisterRequest, UpdateProfileRequest, UserResponse
+from app.models.user_identity import UserIdentity
 from app.services.auth import (
-    build_github_authorize_url,
-    clear_github_oauth_cookies,
     clear_auth_cookies,
+    clear_oauth_cookies,
     create_access_token,
     create_refresh_token,
-    exchange_github_code,
-    fetch_github_identity,
+    decode_access_token,
     generate_csrf_token,
     generate_oauth_state,
     hash_password,
     sanitize_redirect_target,
     set_auth_cookies,
-    set_github_oauth_cookies,
+    set_oauth_cookies,
     verify_password,
 )
+from app.services.oauth_providers import OAuthIdentity, enabled_oauth_providers, get_oauth_provider
 from app.services.secrets import encrypt_secret
 from app.services.storage import delete_machine_files
 
@@ -62,9 +63,10 @@ def _app_redirect_url(path: str) -> str:
     return f"{settings.public_app_url}{path}"
 
 
-def _oauth_error_redirect(message: str) -> RedirectResponse:
-    response = RedirectResponse(url=_app_redirect_url(f"/login?{urlencode({'error': message})}"), status_code=303)
-    clear_github_oauth_cookies(response)
+def _oauth_error_redirect(provider: str, message: str, intent: str = "login") -> RedirectResponse:
+    target = "/settings" if intent == "link" else "/login"
+    response = RedirectResponse(url=_app_redirect_url(f"{target}?{urlencode({'error': message})}"), status_code=303)
+    clear_oauth_cookies(response, provider)
     return response
 
 
@@ -157,94 +159,250 @@ def me(current_user: User = Depends(get_current_user)):
     return current_user
 
 
-@router.get("/github")
-def github_login(next: str | None = Query(default=None)):
-    if not settings.github_oauth_enabled:
-        return _oauth_error_redirect("GitHub login is not configured")
+@router.get("/options")
+def auth_options():
+    providers = enabled_oauth_providers()
+    return {f"{name}_enabled": enabled for name, enabled in providers.items()}
+
+
+def _oauth_start(provider_name: str, next_path: str | None, intent: str) -> RedirectResponse:
+    provider = get_oauth_provider(provider_name)
+    if provider is None or not provider.enabled:
+        return _oauth_error_redirect(provider_name, f"{provider_name.capitalize()} login is not configured", intent)
 
     state = generate_oauth_state()
-    response = RedirectResponse(url=build_github_authorize_url(state), status_code=302)
-    set_github_oauth_cookies(response, state, next)
+    response = RedirectResponse(url=provider.build_authorize_url(state), status_code=302)
+    set_oauth_cookies(response, provider_name, state, next_path, intent)
     return response
 
 
-@router.get("/options")
-def auth_options():
-    return {"github_enabled": settings.github_oauth_enabled}
+def _cookie_session_user(request: Request, db: Session) -> User | None:
+    """Resolve the logged-in user from the access-token cookie without raising.
+
+    Callbacks arrive as top-level redirects, so a 401 JSON body would strand
+    the browser — link-flow failures redirect with an error message instead.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        return None
+    payload = decode_access_token(token)
+    if payload is None:
+        return None
+    try:
+        user_id = UUID(str(payload["sub"]))
+    except (KeyError, TypeError, ValueError):
+        return None
+    user = db.query(User).filter(User.id == user_id).first()
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
+def _apply_identity_profile(user: User, identity: OAuthIdentity, row: UserIdentity) -> None:
+    row.provider_login = identity.login or row.provider_login
+    row.avatar_url = identity.avatar_url or row.avatar_url
+    if not user.avatar_url and identity.avatar_url:
+        user.avatar_url = identity.avatar_url
+    if not user.display_name and identity.display_name:
+        user.display_name = identity.display_name
+
+
+def _oauth_callback(
+    provider_name: str,
+    request: Request,
+    db: Session,
+    code: str | None,
+    state: str | None,
+    error: str | None,
+    error_description: str | None,
+):
+    intent = request.cookies.get(f"{provider_name}_oauth_intent") or "login"
+    display = provider_name.capitalize()
+
+    if error:
+        return _oauth_error_redirect(provider_name, error_description or f"{display} login was cancelled", intent)
+
+    provider = get_oauth_provider(provider_name)
+    if provider is None or not provider.enabled:
+        return _oauth_error_redirect(provider_name, f"{display} login is not configured", intent)
+
+    cookie_state = request.cookies.get(f"{provider_name}_oauth_state")
+    if not code or not state or not cookie_state or state != cookie_state:
+        return _oauth_error_redirect(provider_name, f"{display} login could not be verified", intent)
+
+    try:
+        access_token = provider.exchange_code(code, state)
+        identity = provider.fetch_identity(access_token)
+    except APIError as exc:
+        logger.warning("%s OAuth failed: %s (%s)", display, exc.error_message, exc.error_code)
+        return _oauth_error_redirect(provider_name, exc.error_message, intent)
+    except Exception:
+        logger.exception("%s OAuth callback unexpected failure", display)
+        return _oauth_error_redirect(provider_name, f"{display} login failed unexpectedly", intent)
+
+    existing = (
+        db.query(UserIdentity)
+        .filter(
+            UserIdentity.provider == provider_name,
+            UserIdentity.provider_user_id == identity.provider_user_id,
+        )
+        .first()
+    )
+    next_cookie = request.cookies.get(f"{provider_name}_oauth_next")
+
+    if intent == "link":
+        current_user = _cookie_session_user(request, db)
+        if current_user is None:
+            return _oauth_error_redirect(provider_name, f"Sign in before connecting {display}", intent)
+        if existing is not None and existing.user_id != current_user.id:
+            return _oauth_error_redirect(
+                provider_name, f"That {display} account is already linked to a different Hive account", intent
+            )
+        row = existing or current_user.identity_for(provider_name)
+        if row is not None and row.provider_user_id != identity.provider_user_id:
+            return _oauth_error_redirect(
+                provider_name, f"A different {display} account is already connected — disconnect it first", intent
+            )
+        if row is None:
+            row = UserIdentity(
+                user_id=current_user.id,
+                provider=provider_name,
+                provider_user_id=identity.provider_user_id,
+            )
+            db.add(row)
+        _apply_identity_profile(current_user, identity, row)
+        db.commit()
+
+        redirect_target = sanitize_redirect_target(next_cookie) if next_cookie else "/settings"
+        response = RedirectResponse(url=_app_redirect_url(redirect_target), status_code=303)
+        clear_oauth_cookies(response, provider_name)
+        return response
+
+    # Sign-in flow
+    if existing is not None:
+        user = db.query(User).filter(User.id == existing.user_id).first()
+        if user is None:
+            return _oauth_error_redirect(provider_name, f"{display} login failed unexpectedly", intent)
+        row = existing
+    else:
+        if not identity.email:
+            return _oauth_error_redirect(provider_name, f"{display} account has no verified email address", intent)
+        user = db.query(User).filter(User.email == identity.email).first()
+        if user is not None and user.identity_for(provider_name) is not None:
+            return _oauth_error_redirect(
+                provider_name, f"This email is already linked to a different {display} account", intent
+            )
+        if user is None:
+            user = User(
+                email=identity.email,
+                password_hash=None,
+                display_name=identity.display_name,
+                role="member",
+                is_active=True,
+                avatar_url=identity.avatar_url,
+            )
+            db.add(user)
+            db.flush()
+        row = UserIdentity(
+            user_id=user.id,
+            provider=provider_name,
+            provider_user_id=identity.provider_user_id,
+        )
+        db.add(row)
+
+    if not user.is_active:
+        return _oauth_error_redirect(provider_name, "Account is deactivated", intent)
+
+    _apply_identity_profile(user, identity, row)
+    db.commit()
+    db.refresh(user)
+
+    redirect_target = sanitize_redirect_target(next_cookie)
+    response = RedirectResponse(url=_app_redirect_url(redirect_target), status_code=303)
+    _issue_session(response, db, user)
+    clear_oauth_cookies(response, provider_name)
+    return response
+
+
+@router.get("/github")
+def github_login(next: str | None = Query(default=None)):
+    return _oauth_start("github", next, "login")
+
+
+@router.get("/github/link")
+def github_link(next: str | None = Query(default=None)):
+    return _oauth_start("github", next or "/settings", "link")
 
 
 @router.get("/github/callback")
 def github_callback(
+    request: Request,
     code: str | None = Query(default=None),
     state: str | None = Query(default=None),
     error: str | None = Query(default=None),
     error_description: str | None = Query(default=None),
-    github_oauth_state: str | None = Cookie(default=None),
-    github_oauth_next: str | None = Cookie(default=None),
     db: Session = Depends(get_db),
 ):
-    if error:
-        message = error_description or "GitHub login was cancelled"
-        return _oauth_error_redirect(message)
+    return _oauth_callback("github", request, db, code, state, error, error_description)
 
-    if not settings.github_oauth_enabled:
-        return _oauth_error_redirect("GitHub login is not configured")
 
-    if not code or not state or not github_oauth_state or state != github_oauth_state:
-        return _oauth_error_redirect("GitHub login could not be verified")
+@router.get("/discord")
+def discord_login(next: str | None = Query(default=None)):
+    return _oauth_start("discord", next, "login")
 
-    try:
-        access_token = exchange_github_code(code, state)
-        identity = fetch_github_identity(access_token)
-    except APIError as exc:
-        logger.warning("GitHub OAuth failed: %s (%s)", exc.error_message, exc.error_code)
-        return _oauth_error_redirect(exc.error_message)
-    except Exception:
-        logger.exception("GitHub OAuth callback unexpected failure")
-        return _oauth_error_redirect("GitHub login failed unexpectedly")
 
-    github_id = identity["github_id"]
-    email = identity["email"]
+@router.get("/discord/link")
+def discord_link(next: str | None = Query(default=None)):
+    return _oauth_start("discord", next or "/settings", "link")
 
-    if not isinstance(github_id, str) or not isinstance(email, str):
-        return _oauth_error_redirect("GitHub login returned incomplete account data")
 
-    user = db.query(User).filter(User.github_id == github_id).first()
-    if user is None:
-        user = db.query(User).filter(User.email == email).first()
-        if user is not None and user.github_id and user.github_id != github_id:
-            return _oauth_error_redirect("This email is already linked to a different GitHub account")
-        if user is None:
-            user = User(
-                email=email,
-                password_hash=None,
-                display_name=identity["display_name"] if isinstance(identity["display_name"], str) else None,
-                role="member",
-                is_active=True,
-                github_id=github_id,
-                github_login=identity["github_login"] if isinstance(identity["github_login"], str) else None,
-                avatar_url=identity["avatar_url"] if isinstance(identity["avatar_url"], str) else None,
-            )
-            db.add(user)
-        else:
-            user.github_id = github_id
+@router.get("/discord/callback")
+def discord_callback(
+    request: Request,
+    code: str | None = Query(default=None),
+    state: str | None = Query(default=None),
+    error: str | None = Query(default=None),
+    error_description: str | None = Query(default=None),
+    db: Session = Depends(get_db),
+):
+    return _oauth_callback("discord", request, db, code, state, error, error_description)
 
-    if not user.is_active:
-        return _oauth_error_redirect("Account is deactivated")
 
-    user.github_login = identity["github_login"] if isinstance(identity["github_login"], str) else user.github_login
-    user.avatar_url = identity["avatar_url"] if isinstance(identity["avatar_url"], str) else user.avatar_url
-    if not user.display_name and isinstance(identity["display_name"], str):
-        user.display_name = identity["display_name"]
+@router.get("/identities")
+def list_identities(current_user: User = Depends(get_current_user)):
+    return [
+        {
+            "provider": identity.provider,
+            "provider_login": identity.provider_login,
+            "avatar_url": identity.avatar_url,
+            "created_at": identity.created_at,
+        }
+        for identity in current_user.identities
+    ]
 
+
+@router.delete("/identities/{provider}")
+def unlink_identity(
+    provider: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    _csrf: None = Depends(verify_csrf),
+):
+    identity = current_user.identity_for(provider)
+    if identity is None:
+        raise APIError(404, "No linked account for that provider", "IDENTITY_NOT_FOUND")
+
+    remaining_sign_in_methods = (1 if current_user.password_hash else 0) + len(current_user.identities) - 1
+    if remaining_sign_in_methods < 1:
+        raise APIError(
+            400,
+            "Set a password or connect another sign-in method before disconnecting this one",
+            "LAST_SIGN_IN_METHOD",
+        )
+
+    db.delete(identity)
     db.commit()
-    db.refresh(user)
-
-    redirect_target = sanitize_redirect_target(github_oauth_next)
-    response = RedirectResponse(url=_app_redirect_url(redirect_target), status_code=303)
-    _issue_session(response, db, user)
-    clear_github_oauth_cookies(response)
-    return response
+    return {"ok": True}
 
 
 @router.patch("/me", response_model=UserResponse)

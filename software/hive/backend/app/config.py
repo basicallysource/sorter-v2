@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     GITHUB_CLIENT_SECRET: str | None = None
     GITHUB_REDIRECT_URI: str | None = None
     GITHUB_OAUTH_STATE_EXPIRE_MINUTES: int = 10
+    DISCORD_CLIENT_ID: str | None = None
+    DISCORD_CLIENT_SECRET: str | None = None
+    DISCORD_REDIRECT_URI: str | None = None
     REBRICKABLE_API_KEY: str = ""
     BLA_API_KEY: str = ""
     SORTING_PROFILE_PARTS_DB_PATH: str = "data/profile_builder/parts.db"
@@ -111,6 +114,16 @@ class Settings(BaseSettings):
     @property
     def github_oauth_enabled(self) -> bool:
         return bool(self.GITHUB_CLIENT_ID and self.GITHUB_CLIENT_SECRET)
+
+    @property
+    def discord_redirect_uri(self) -> str:
+        if self.DISCORD_REDIRECT_URI:
+            return self.DISCORD_REDIRECT_URI
+        return f"{self.public_app_url}/api/auth/discord/callback"
+
+    @property
+    def discord_oauth_enabled(self) -> bool:
+        return bool(self.DISCORD_CLIENT_ID and self.DISCORD_CLIENT_SECRET)
 
     @property
     def environment(self) -> str:

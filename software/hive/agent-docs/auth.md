@@ -1,6 +1,6 @@
 # Hive auth & permissions
 
-Last verified against the code: 2026-08-08. If you touch auth, re-verify and
+Last verified against the code: 2026-08-09. If you touch auth, re-verify and
 update this doc in the same change.
 
 ## The four credential types
@@ -44,24 +44,56 @@ surface means adding a scope for it, not reusing a vaguely-related one.
 Roles (`member` / `reviewer` / `admin` on `users.role`) still apply on top:
 a key never grants more than the owning user's role allows.
 
-## Sessions
+## Sessions & sign-in identities
 
-Email+password and GitHub OAuth both resolve to a `users` row
-(`backend/app/routers/auth.py`). Access token is a short-lived JWT in a
-cookie; refresh tokens are persisted and rotated. Non-GET cookie-authed
-requests require the CSRF header/cookie pair (`verify_csrf`); Bearer-authed
-requests are exempt (self-authenticating).
+Every sign-in method resolves to a `users` row. Access token is a short-lived
+JWT in a cookie; refresh tokens are persisted and rotated. Non-GET
+cookie-authed requests require the CSRF header/cookie pair (`verify_csrf`);
+Bearer-authed requests are exempt (self-authenticating).
+
+Sign-in methods:
+
+- **Email + password** — `users.password_hash`.
+- **OAuth (GitHub, Discord)** — one `user_identities` row per linked
+  provider: `(user_id, provider, provider_user_id)`, unique per provider
+  account (an external account belongs to at most one user) and per
+  `(user_id, provider)` (one linked account of each provider per user).
+  `users.github_id/github_login` no longer exist; `User.github_login` is a
+  compatibility property reading the github identity, still served in
+  user/profile responses.
+
+Provider adapters live in `backend/app/services/oauth_providers.py` — each
+implements authorize-URL / code-exchange / identity-fetch and returns a
+normalized `OAuthIdentity`. Router code (`routers/auth.py`) is
+provider-agnostic. Adding a provider = one adapter + settings entries
+(`<PROVIDER>_CLIENT_ID/SECRET`, enabled-flag property in `config.py`).
+
+Two OAuth entry points per provider:
+
+- **Sign-in**: `/api/auth/{provider}` → callback resolves by identity row,
+  falls back to verified-email merge (attaches the identity to the matching
+  account), else creates a user. Returning users are matched by identity, so
+  a changed provider email never forks the account.
+- **Link**: `/api/auth/{provider}/link` (logged-in browser) → same dance,
+  but the callback attaches the identity to the *current* user and redirects
+  to /settings. This is the Discord-verification primitive: a
+  `user_identities` row for discord is proof the Hive account controls that
+  Discord user. Errors (identity already claimed, no session) redirect to
+  /settings?error=….
+
+`GET /api/auth/identities` lists the current user's linked identities;
+`DELETE /api/auth/identities/{provider}` unlinks, refusing to remove the last
+remaining sign-in method (`LAST_SIGN_IN_METHOD`). `/api/auth/options` reports
+`{provider}_enabled` flags to the frontend (login/register buttons, settings
+Connected Accounts card).
 
 ## Where things are headed (so you don't design against the grain)
 
 Planned direction, tracked in the sorter-v2-agent-notes repo (task
 `hive-auth-permissions-overhaul-2026-08-08`):
 
-- A `user_identities` table (provider, provider_user_id) replacing the
-  provider-specific columns on `users`, so one account can link multiple
-  sign-in methods (GitHub, Discord, …).
-- Discord OAuth both as sign-in and as account-link, the link doubling as
-  "verify this Hive account owns this Discord user" for the community server.
+- Discord server verification / role sync built on linked identities (bot
+  looks up members by discord `provider_user_id`).
 - Machine-scoped API keys: keys constrained to specific machines the user
   can access, for agents that should only see one sorter.
 - Unifying the token plumbing (mint/hash/expiry/revocation) shared by user

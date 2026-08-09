@@ -337,12 +337,29 @@
 		pairMachineName = '';
 	}
 
+	// This Sorter's own name for itself — its nickname, or the words in its
+	// Tailscale device name. Hive falls back to rolling one of its own when we
+	// have nothing to offer, so a failed lookup is not worth surfacing.
+	async function loadSuggestedMachineName() {
+		try {
+			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name`);
+			if (!res.ok) return;
+			const data = await res.json();
+			if (typeof data?.name === 'string' && data.name.trim() && !pairMachineName.trim()) {
+				pairMachineName = data.name.trim();
+			}
+		} catch {
+			// Leave the field empty; Hive names the machine instead.
+		}
+	}
+
 	function openPairForm() {
 		clearMessages();
 		editingTargetId = null;
 		showRegisterForm = false;
 		showPairForm = true;
 		resetPairForm();
+		void loadSuggestedMachineName();
 	}
 
 	function closeForms() {
@@ -954,7 +971,7 @@
 					<input
 						bind:value={pairMachineName}
 						type="text"
-						placeholder="Lego Sorter"
+						placeholder="Hive names this machine if you leave it blank"
 						class="border border-border bg-bg px-2 py-1.5 text-sm text-text"
 					/>
 				</label>

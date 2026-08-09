@@ -11,10 +11,12 @@
 	} from '$lib/api';
 	import { auth } from '$lib/auth.svelte';
 	import Spinner from '$lib/components/Spinner.svelte';
+	import { randomMachineName } from '$lib/machineName';
+	import Shuffle from 'lucide-svelte/icons/shuffle';
 
 	type LinkMode = 'existing' | 'new';
 
-	let machineName = $state(page.url.searchParams.get('suggested_machine_name') || 'Lego Sorter');
+	let machineName = $state(page.url.searchParams.get('suggested_machine_name') || randomMachineName());
 	let description = $state('');
 	let error = $state<string | null>(null);
 	let submitting = $state(false);
@@ -308,16 +310,29 @@
 				</div>
 
 				{#if linkMode === 'new'}
-					<label class="grid gap-1">
-						<span class="text-sm font-medium text-text">Machine name in Hive</span>
-						<input
-							bind:value={machineName}
-							type="text"
-							required
-							disabled={submitting}
-							class="border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
-						/>
-					</label>
+					<div class="grid gap-1">
+						<label for="machine-name" class="text-sm font-medium text-text">Machine name in Hive</label>
+						<div class="flex items-stretch gap-2">
+							<input
+								id="machine-name"
+								bind:value={machineName}
+								type="text"
+								required
+								disabled={submitting}
+								class="min-w-0 flex-1 border border-border bg-surface px-3 py-2 text-sm text-text focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none disabled:opacity-60 dark:bg-bg"
+							/>
+							<button
+								type="button"
+								onclick={() => { machineName = randomMachineName(); }}
+								disabled={submitting}
+								title="Suggest another name"
+								aria-label="Suggest another name"
+								class="flex shrink-0 items-center justify-center border border-border bg-surface px-3 text-text-muted transition-colors hover:bg-bg hover:text-text disabled:opacity-60 dark:bg-bg dark:hover:bg-surface"
+							>
+								<Shuffle class="h-4 w-4" />
+							</button>
+						</div>
+					</div>
 
 					<label class="grid gap-1">
 						<span class="text-sm font-medium text-text">Description <span class="text-text-muted">(optional)</span></span>

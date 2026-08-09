@@ -23,6 +23,7 @@ from blob_manager import (
     getClassificationDetectionConfig,
     getFeederDetectionConfig,
     getHiveConfig,
+    getMachineNickname,
     setApiKeys,
     setCarouselDetectionConfig,
     setClassificationDetectionConfig,
@@ -38,6 +39,8 @@ from hive_telemetry import (
 from perception.overlay import drawChannelZones
 from server import shared_state
 from server.classification_training import getClassificationTrainingManager
+from server.machine_naming import display_name_from_hostname, random_display_name
+from server.routers.tailscale import current_hostname
 from vision.detection_registry import (
     detection_algorithm_definition,
     detection_algorithm_options,
@@ -882,6 +885,27 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
         "machine_name": payload.machine_name,
         "token_prefix": payload.token_prefix or api_token[:8],
     }
+
+
+@router.get("/api/settings/hive/suggested-machine-name")
+def hive_suggested_machine_name() -> Dict[str, Any]:
+    """The name to hand Hive when the user has not typed one on the link page.
+
+    A sorter usually already has an identity: the nickname from setup, or the
+    words in the Tailscale device name it picked at firstboot. Reuse that so the
+    same machine reads the same everywhere, and only roll a fresh name when
+    there is nothing to reuse — anything is better than every machine in every
+    fleet arriving as "Lego Sorter".
+    """
+    nickname = (getMachineNickname() or "").strip()
+    if nickname:
+        return {"ok": True, "name": nickname, "source": "nickname"}
+
+    from_hostname = display_name_from_hostname(current_hostname())
+    if from_hostname:
+        return {"ok": True, "name": from_hostname, "source": "tailscale"}
+
+    return {"ok": True, "name": random_display_name(), "source": "generated"}
 
 
 @router.post("/api/settings/hive/backfill")

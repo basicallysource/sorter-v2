@@ -17,12 +17,12 @@ last_verified: 2026-07-12
 
 <p class="download-line">
   <a href="{{ site.harness_base }}/sorter-v2-harness-rfq.zip{{ site.harness_v }}" download><b>↓ sorter-v2-harness-rfq.zip</b></a>
-  <span>cover sheet + 3 drawings (PDF/PNG/SVG/HTML) + 3 BOMs (TSV) + WireViz YAML sources</span>
+  <span>cover sheet + every drawing (PDF/PNG/SVG/HTML) + a BOM per drawing (TSV) + WireViz YAML sources</span>
 </p>
 
 {% assign b = site.harness_base %}{% assign v = site.harness_v %}
 {% for d in site.data.harness.drawings %}
-## {{ d.title }}
+{% if d.of %}### {{ d.title }}{% else %}## {{ d.title }}{% endif %}
 
 <figure class="harness-figure">
   <a href="{{ b }}/{{ d.name }}.png{{ v }}" target="_blank" rel="noopener">

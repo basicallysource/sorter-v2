@@ -18,7 +18,19 @@ drawings:
     caption: >-
       PSU box pigtails PJ1-PJ3 and load cables W1-W3, one per 24V load: the
       board, the USB hub and the Orange Pi buck. Dashed arrows are barrel
-      jack/plug mates.
+      jack/plug mates. This is the overview; the two buildable sub-harnesses
+      it is made of are below it.
+  - name: psu-pigtail
+    title: PSU output pigtail
+    of: power
+    caption: >-
+      One output pigtail, x3 per PSU build. Spade terminals onto the PSU screw
+      block, panel-mount jack on the other end.
+  - name: board-power
+    title: 24V to basically board v1.3
+    of: power
+    caption: >-
+      The board's own feed, W1 on the overview: barrel plug to JST VHR-2.
   - name: steppers
     title: Stepper cables
     caption: >-

@@ -85,6 +85,17 @@ The wireviz page on that preview is `/hardware/electronics/wireviz/`.
    zip's member list).
 3. Add an entry (name, title, caption) to `docs/src/liquid/_data/harness.yml`.
 
+**Overview drawings and sub-harnesses.** A drawing that is one buildable
+assembly out of a bigger diagram carries `of: <parent name>` in
+`harness.yml`. The WireViz page renders those one heading level down, so the
+overview comes first and the assemblies a vendor actually quotes sit under
+it. `power` works this way: it is the whole 24V distribution, and
+`psu-pigtail` and `board-power` are the two cables it is made of. Keep a
+sub-harness next to its parent in the list, the page follows list order.
+
+They deliberately restate values that also appear on the parent. If you
+change a length, gauge or connector, change it in both.
+
 ## Where this shows up in the docs
 
 Four pages under `docs/src/content/hardware/electronics/`:

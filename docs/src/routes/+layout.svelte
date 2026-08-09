@@ -7,6 +7,10 @@
 
 	let modal: HTMLDialogElement | undefined = $state();
 	let sidebarOpen = $state(false);
+	// The header scrolls away above the sticky sidebar, so the sidebar's height
+	// cap has to subtract it. It wraps at narrow widths, so measure it rather
+	// than hard-coding a number; layout.css carries a fallback until this lands.
+	let headerHeight = $state(0);
 
 	const fm = $derived(page.data.page?.fm ?? {});
 	const currentUrl = $derived(page.url.pathname);
@@ -17,8 +21,8 @@
 	);
 </script>
 
-<div class="shell">
-	<header class="site-header">
+<div class="shell" style={headerHeight ? `--header-height: ${headerHeight}px` : undefined}>
+	<header class="site-header" bind:clientHeight={headerHeight}>
 		<a class="brand" href="/">
 			<img class="brand-logo" src="/assets/basically-logo.svg" alt="basically logo" width="26" height="24" />
 			<span>

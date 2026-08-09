@@ -71,6 +71,8 @@ body {
 /* ── Shell ─────────────────────────────────────────────────────────────── */
 
 .shell {
+	/* Measured into place by +layout.svelte; this is the pre-hydration guess. */
+	--header-height: 48px;
 	max-width: 1180px;
 	margin: 0 auto;
 	padding: 24px 20px 48px;
@@ -290,7 +292,11 @@ body {
 	align-self: start;
 	display: flex;
 	flex-direction: column;
-	max-height: calc(100vh - 32px);
+	/* Its top edge sits below the header (24px shell padding + header + 24px
+	   header margin), so the viewport-height cap has to subtract all of that or
+	   it overhangs the bottom of the screen until you scroll. 16px to spare. */
+	max-height: calc(100vh - var(--header-height) - 64px);
+	max-height: calc(100dvh - var(--header-height) - 64px);
 }
 
 .section-sidebar-kicker {

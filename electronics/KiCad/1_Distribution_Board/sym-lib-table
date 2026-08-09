@@ -1,4 +1,6 @@
 (sym_lib_table
   (version 7)
   (lib (name "EasyEDA")(type "KiCad")(uri "${KIPRJMOD}/LCSC/EasyEDA.kicad_sym")(options "")(descr ""))
+  (lib (name "JAW")(type "KiCad")(uri "${KIPRJMOD}/../Libraries/symbols/JAW.kicad_sym")(options "")(descr ""))
+  (lib (name "TMC2209_SILENTSTEPSTICK")(type "KiCad")(uri "${KIPRJMOD}/../Libraries/Footprints from others/SNAPEDA/TMC2209_SILENTSTEPSTICK/TMC2209_SILENTSTEPSTICK.kicad_sym")(options "")(descr ""))
 )

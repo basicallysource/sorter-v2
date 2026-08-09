@@ -26,8 +26,13 @@ export default {
     const cache = caches.default;
     const key = new Request(url.toString(), { method: "GET" });
 
+    // `x-img-cache` is the only window into this cache from outside. Without
+    // it the 2026-08-09 staleness took hours to pin down, because a stale
+    // object and a fresh one are indistinguishable over the wire.
     let response = await cache.match(key);
+    let hit = true;
     if (!response) {
+      hit = false;
       // The subrequest must not be served from Cloudflare's own cache: that
       // entry is keyed on the Spaces URL with no `?v=` in it, which is the
       // exact staleness this worker exists to avoid — and .png is a
@@ -52,9 +57,11 @@ export default {
       ctx.waitUntil(cache.put(key, response.clone()));
     }
 
-    if (request.method === "HEAD") {
-      return new Response(null, { status: response.status, headers: response.headers });
-    }
+    response = new Response(request.method === "HEAD" ? null : response.body, {
+      status: response.status,
+      headers: response.headers,
+    });
+    response.headers.set("x-img-cache", hit ? "hit" : "miss");
     return response;
   },
 };

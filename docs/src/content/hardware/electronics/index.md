@@ -23,7 +23,9 @@ Wire IDs match the schedule tables. Open items are in section 7.
   <dt>Model</dt><dd>MEAN WELL LRS-350-24</dd>
   <dt>Output</dt><dd>24V, 14.6A, 350.4W, single output</dd>
   <dt>Enclosure</dt><dd>Custom 3D-printed box, fused AC input</dd>
-  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max) onto the PSU output</dd>
+  <dt>Terminal block</dt><dd>9-position, MEAN WELL's own numbering: <b>1</b> AC/L, <b>2</b> AC/N, <b>3</b> FG, <b>4-6</b> DC OUTPUT -V, <b>7-9</b> DC OUTPUT +V (LRS-350-SPEC)</dd>
+  <dt>DC outputs</dt><dd>3 × female DC jack, each a 4 in 18 AWG pigtail with 2 × spade/fork terminals (M3.5, 8 mm wide max). One pigtail per +V/-V screw pair: 7 with 4, 8 with 5, 9 with 6</dd>
+  <dt>AC input</dt><dd>Screws 1, 2, 3. Fed by the fused IEC inlet switch's own pre-terminated leads, so there is no cable to make</dd>
   <dt>Loads</dt><dd>basically board v1.3, the USB hub, and the Orange Pi buck converter. One jack each, no spare</dd>
   <dt>Not on this bus</dt><dd>The cooling fans. They run off the Orange Pi or basically board v1.3 instead, so their voltage follows whichever pins are free (5V is likely sufficient). They are still needed: the Pi and the board end up in a box with no airflow but the fan. See <a href="#7--open-items">open items</a></dd>
 </dl>
@@ -142,7 +144,7 @@ The PSU box is an assembly: the MEAN WELL LRS-350-24, a fused mains inlet switch
   <thead><tr><th>Segment</th><th>From</th><th>To</th><th>Cond.</th><th>Length</th><th>Gauge</th></tr></thead>
   <tbody>
     <tr><td>Mains inlet</td><td>Fused inlet switch (3Dman, 10A fuse)</td><td>PSU AC input (L / N / earth)</td><td>3</td><td>-</td><td>18 AWG</td></tr>
-    <tr><td>DC output jacks (×3)</td><td>PSU 24V output, 2× spade/fork terminal (M3.5, 8 mm max)</td><td>Female DC jack</td><td>2</td><td>4 in</td><td>18 AWG</td></tr>
+    <tr><td>DC output jacks (×3)</td><td>PSU screws 7/4, 8/5, 9/6 — 2× spade/fork terminal (M3.5, 8 mm max)</td><td>Female DC jack</td><td>2</td><td>4 in</td><td>18 AWG</td></tr>
   </tbody>
 </table>
 

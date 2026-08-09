@@ -286,6 +286,21 @@ class HiveAdminClient:
         """POST /api/models."""
         return self._request("POST", "/api/models", json=payload)
 
+    def attach_dataset_samples(
+        self, model_id: str, samples: list[dict], replace: bool = False
+    ) -> dict:
+        """POST /api/models/{id}/dataset-samples.
+
+        ``samples`` is ``[{"sample_id": <uuid>, "split": "train"|"val"}, ...]``.
+        Idempotent server-side; ``replace=True`` drops previously recorded rows
+        first (use on the first chunk of a re-publish).
+        """
+        return self._request(
+            "POST",
+            f"/api/models/{model_id}/dataset-samples",
+            json={"samples": samples, "replace": replace},
+        )
+
     def upload_variant(
         self,
         model_id: str,

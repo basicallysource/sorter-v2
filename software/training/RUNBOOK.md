@@ -219,6 +219,14 @@ Key flags:
   `training_metadata` (model + dataset + selection + benchmarks) from
   `build.json` + `track_*_results.json`. **Always pass it.** Without it
   the Hive UI's hero cards stay blank.
+- `--dataset-dir` also records **per-sample dataset provenance**: the sample
+  UUIDs under `labels/{train,val}/` get written to Hive's
+  `model_dataset_samples` table, which powers the "Dataset machines" section
+  on the model page (queryable joins, not metadata prose). For a model that
+  was published without it, backfill later with
+  `uv run train attach-samples --model-id <id> --dataset-dir <dir> --hive-url <url>`
+  — the dataset dir on the Lambda NFS (`/lambda/nfs/one/sorter-npu/...`)
+  survives instance termination, so this works whenever a box is next up.
 - `--benchmark-json` adds the CPU/CoreML latency block.
 - `--model-key A7` picks the right entry when the track ran several
   models — match the `A1/A3/A5/A7/A8` label from `track_a_results.json`.

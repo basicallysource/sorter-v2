@@ -213,8 +213,28 @@ class TestFleetRoster:
             for x in client.get("/api/public/fleet", headers=_bearer(token)).json()["machines"]
             if x["name"] == "Counting Sorter"
         )
-        for field in ("pieces_seen", "distributed", "overall_ppm", "last_24h_pieces"):
+        for field in ("pieces_seen", "distributed", "overall_ppm", "last_24h_pieces",
+                      "last_hour_pieces"):
             assert field in entry, f"{field} missing from the roster entry"
         # A machine that has never sorted reports zeros rather than nulls, so a
         # consumer can sort on these without special-casing a fresh machine.
         assert entry["pieces_seen"] == 0 and entry["last_24h_pieces"] == 0
+        assert entry["last_hour_pieces"] == 0
+
+    def test_the_hour_window_is_narrower_than_the_day(self, client, db, monkeypatch, machine_token):
+        """A machine that sorted this morning but not this hour is powered on,
+        not working — the two counters have to be able to disagree."""
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["fleet:read"])
+        now = time.time()
+        _sync(client, machine_token, [
+            {"piece_uuid": "h-now", "local_id": 1, "seen_at": now - 60,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"},
+            {"piece_uuid": "h-old", "local_id": 2, "seen_at": now - 5 * 3600,
+             "classification_status": "classified", "part_id": "3001", "color_id": "5"},
+        ])
+        body = client.get("/api/public/fleet", headers=_bearer(token)).json()
+        mine = max(body["machines"], key=lambda m: m["last_24h_pieces"])
+        assert mine["last_24h_pieces"] == 2
+        assert mine["last_hour_pieces"] == 1

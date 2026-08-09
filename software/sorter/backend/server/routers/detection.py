@@ -888,7 +888,7 @@ def hive_link(payload: HiveLinkPayload) -> Dict[str, Any]:
 
 
 @router.get("/api/settings/hive/suggested-machine-name")
-def hive_suggested_machine_name() -> Dict[str, Any]:
+def hive_suggested_machine_name(roll: bool = False) -> Dict[str, Any]:
     """The name to hand Hive when the user has not typed one on the link page.
 
     A sorter usually already has an identity: the nickname from setup, or the
@@ -896,7 +896,14 @@ def hive_suggested_machine_name() -> Dict[str, Any]:
     same machine reads the same everywhere, and only roll a fresh name when
     there is nothing to reuse — anything is better than every machine in every
     fleet arriving as "Lego Sorter".
+
+    ``roll=1`` skips straight to a fresh name: that is someone pressing the
+    shuffle button because they want a different one, and handing back the name
+    they are trying to get away from would make the button look broken.
     """
+    if roll:
+        return {"ok": True, "name": random_display_name(), "source": "generated"}
+
     nickname = (getMachineNickname() or "").strip()
     if nickname:
         return {"ok": True, "name": nickname, "source": "nickname"}

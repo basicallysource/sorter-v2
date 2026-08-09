@@ -609,14 +609,18 @@
 	// Azure Brick"), or a fresh roll on a machine that never got one. Anyone
 	// who clicks past this step still ends up with a name of their own, and it
 	// is the same name Hive gets later.
-	async function suggestNickname() {
+	// `roll` is the shuffle button: the caller wants a name they have not seen,
+	// so it overwrites the field instead of only filling an empty one.
+	async function suggestNickname(roll = false) {
 		try {
-			const res = await fetch(`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name`);
+			const res = await fetch(
+				`${currentBackendBaseUrl()}/api/settings/hive/suggested-machine-name${roll ? '?roll=1' : ''}`
+			);
 			if (!res.ok) return;
 			const data = await res.json();
-			if (typeof data?.name === 'string' && data.name.trim() && !nicknameDraft.trim()) {
-				nicknameDraft = data.name.trim();
-			}
+			const suggestion = typeof data?.name === 'string' ? data.name.trim() : '';
+			if (!suggestion) return;
+			if (roll || !nicknameDraft.trim()) nicknameDraft = suggestion;
 		} catch {
 			// Leave it empty; the step still asks for a name.
 		}
@@ -1050,6 +1054,7 @@
 							bind:nicknameDraft
 							{nameError}
 							{nameStatus}
+							onSuggestAnother={() => void suggestNickname(true)}
 						/>
 					{:else if activeStepId === 'theme'}
 						<ThemeStep />

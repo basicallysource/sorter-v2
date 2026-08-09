@@ -1,14 +1,18 @@
 <script lang="ts">
+	import { Shuffle } from 'lucide-svelte';
+
 	let {
 		machineId,
 		nicknameDraft = $bindable(),
 		nameError,
-		nameStatus
+		nameStatus,
+		onSuggestAnother
 	}: {
 		machineId: string;
 		nicknameDraft: string;
 		nameError: string | null;
 		nameStatus: string;
+		onSuggestAnother: () => void;
 	} = $props();
 
 	const MACHINE_NAME_INPUT_ID = 'setup-machine-name';
@@ -23,13 +27,24 @@
 		<label for={MACHINE_NAME_INPUT_ID} class="mb-2 block text-sm font-medium text-text">
 			Machine name
 		</label>
-		<input
-			id={MACHINE_NAME_INPUT_ID}
-			type="text"
-			bind:value={nicknameDraft}
-			placeholder="e.g. Sorting Bench A"
-			class="setup-control w-full px-3 py-2 text-sm text-text"
-		/>
+		<div class="flex items-stretch gap-2">
+			<input
+				id={MACHINE_NAME_INPUT_ID}
+				type="text"
+				bind:value={nicknameDraft}
+				placeholder="e.g. Sorting Bench A"
+				class="setup-control min-w-0 flex-1 px-3 py-2 text-sm text-text"
+			/>
+			<button
+				type="button"
+				onclick={onSuggestAnother}
+				title="Suggest another name"
+				aria-label="Suggest another name"
+				class="setup-control flex shrink-0 items-center justify-center px-3 text-text-muted transition-colors hover:text-text"
+			>
+				<Shuffle class="h-4 w-4" />
+			</button>
+		</div>
 	</div>
 	{#if nameError}
 		<div class="text-sm text-danger">{nameError}</div>

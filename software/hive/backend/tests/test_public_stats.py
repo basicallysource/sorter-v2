@@ -46,3 +46,61 @@ def test_last_24h_is_a_rolling_window(client, monkeypatch, machine_token):
     body = r.json()
     assert body["last_24h_pieces"] == 2
     assert body["totals"]["pieces_seen"] == 4
+
+
+class TestStatsScopeKeys:
+    """hv_* API keys with stats:read replace the shared secret (kept for legacy)."""
+
+    def _admin_headers(self, client, db):
+        from app.models.user import User
+        from tests.conftest import _auth_headers, _login_user, _register_user
+
+        _register_user(client, "stats-admin@test.com", "Password123!", "Stats Admin")
+        _login_user(client, "stats-admin@test.com", "Password123!")
+        user = db.query(User).filter(User.email == "stats-admin@test.com").first()
+        user.role = "admin"
+        db.commit()
+        _login_user(client, "stats-admin@test.com", "Password123!")
+        return _auth_headers(client)
+
+    def _mint(self, client, headers, scopes, machine_ids=None):
+        payload = {"name": "stats-key", "scopes": scopes}
+        if machine_ids is not None:
+            payload["machine_ids"] = machine_ids
+        r = client.post("/api/auth/api-keys", json=payload, headers=headers)
+        assert r.status_code == 200, r.text
+        return r.json()["raw_token"]
+
+    def test_stats_read_key_accepted_without_env_secret(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["stats:read"])
+        r = client.get("/api/public/stats", headers=_bearer(token))
+        assert r.status_code == 200, r.text
+        assert "last_24h_pieces" in r.json()
+
+    def test_key_without_stats_scope_403s(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        token = self._mint(client, headers, ["models:read"])
+        r = client.get("/api/public/stats", headers=_bearer(token))
+        assert r.status_code == 403
+        assert "stats:read" in r.json()["error"]
+
+    def test_machine_scoped_key_cannot_read_fleet_stats(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        m = client.post(
+            "/api/machines",
+            json={"name": "Stats Sorter", "description": "d"},
+            headers=headers,
+        )
+        assert m.status_code in (200, 201)
+        token = self._mint(client, headers, ["stats:read"], machine_ids=[m.json()["id"]])
+        r = client.get("/api/public/stats", headers=_bearer(token))
+        assert r.status_code == 403
+
+    def test_legacy_secret_still_accepted(self, client, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
+        r = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY})
+        assert r.status_code == 200

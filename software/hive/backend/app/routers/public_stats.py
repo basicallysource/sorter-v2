@@ -1,13 +1,17 @@
 """Service-to-service aggregate stats.
 
-A single shared-secret endpoint that exposes the same aggregate analytics an admin
-sees on the all-machines page (totals + daily time-series + distributions across
-every non-archived machine). Meant for other basically services (e.g. the public
-website) to pull headline numbers without a user session — regular Hive users
-cannot reach these aggregate stats through the normal analytics API.
+Exposes the same aggregate analytics an admin sees on the all-machines page
+(totals + daily time-series + distributions across every non-archived machine).
+Meant for other basically services (e.g. the public website) to pull headline
+numbers without a user session — regular Hive users cannot reach these
+aggregate stats through the normal analytics API.
 
-Auth is a static key in `settings.PUBLIC_STATS_API_KEY`, presented as either
-`Authorization: Bearer <key>` or an `X-Stats-Key: <key>` header.
+Auth, preferred: an `hv_*` API key carrying the `stats:read` scope, owned by an
+admin and not machine-constrained (a machine-limited key must not read
+fleet-wide aggregates). Legacy: the `settings.PUBLIC_STATS_API_KEY` shared
+secret, presented as `Authorization: Bearer <key>` or `X-Stats-Key: <key>` —
+kept only until every consumer holds a scoped key; delete the env var (and the
+legacy branch below) after cutover.
 """
 
 import hmac
@@ -18,7 +22,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.deps import get_db
+from app.deps import API_KEY_PREFIX, API_KEY_SCOPE_STATS_READ, _resolve_api_key, get_db
 from app.models.machine import Machine
 from app.models.machine_daily_stats import MachineDailyStats
 from app.models.machine_piece import MachinePiece
@@ -35,16 +39,33 @@ PUBLIC_STATS_LOCAL_TZ = "America/Los_Angeles"
 
 
 def require_stats_key(
+    db: Session = Depends(get_db),
     authorization: str | None = Header(default=None),
     x_stats_key: str | None = Header(default=None),
 ) -> None:
-    configured = (settings.PUBLIC_STATS_API_KEY or "").strip()
-    if not configured:
-        raise HTTPException(status_code=503, detail="Public stats API is not configured")
     presented = x_stats_key
     if not presented and authorization and authorization.startswith("Bearer "):
         presented = authorization[7:]
-    if not presented or not hmac.compare_digest(presented.strip(), configured):
+    presented = (presented or "").strip()
+
+    # Preferred: a user API key with the stats:read scope.
+    if presented.startswith(API_KEY_PREFIX):
+        user, scopes, machine_ids = _resolve_api_key(db, presented)
+        if API_KEY_SCOPE_STATS_READ not in scopes:
+            raise HTTPException(status_code=403, detail="API key is missing required scopes: stats:read")
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        if machine_ids is not None:
+            raise HTTPException(
+                status_code=403, detail="Machine-scoped API keys cannot read fleet-wide stats"
+            )
+        return
+
+    # Legacy shared secret — delete once every consumer holds a scoped key.
+    configured = (settings.PUBLIC_STATS_API_KEY or "").strip()
+    if not configured:
+        raise HTTPException(status_code=503, detail="Public stats API is not configured")
+    if not presented or not hmac.compare_digest(presented, configured):
         raise HTTPException(status_code=401, detail="Invalid stats API key")
 
 

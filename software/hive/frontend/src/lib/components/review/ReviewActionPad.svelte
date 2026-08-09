@@ -31,7 +31,7 @@
 <div class="border border-border bg-surface p-4">
 	<div class="space-y-2 text-xs">
 		{#if FEATURES.ANNOTATION_EDITING}
-			<div class="flex items-center justify-center gap-2">
+			<div class="flex flex-wrap items-center justify-center gap-2">
 				<button
 					type="button"
 					onclick={onToggleAnnotate}

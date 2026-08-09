@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import X from 'lucide-svelte/icons/x';
 
 	interface Props {
 		open: boolean;
@@ -28,27 +29,21 @@
 	>
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="mx-4 w-full max-w-lg bg-surface p-6"
+			class="mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto bg-surface p-4 sm:p-6"
 			role="dialog"
 			aria-modal="true"
 			tabindex="-1"
 			onkeydown={(e) => e.stopPropagation()}
 			onclick={(e) => e.stopPropagation()}
 		>
-			<div class="mb-4 flex items-center justify-between">
-				<h2 class="text-lg font-semibold text-text">{title}</h2>
+			<div class="mb-4 flex items-start justify-between gap-3">
+				<h2 class="min-w-0 text-lg font-semibold text-text">{title}</h2>
 				<button
 					onclick={onclose}
 					aria-label="Close"
-					class="text-text-muted hover:text-text"
+					class="shrink-0 text-text-muted hover:text-text"
 				>
-					<svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-						<path
-							fill-rule="evenodd"
-							d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-							clip-rule="evenodd"
-						/>
-					</svg>
+					<X size={20} />
 				</button>
 			</div>
 			{@render children()}

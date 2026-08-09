@@ -137,9 +137,9 @@
 	<!-- Body — 3 columns matching the metric grid above: Model · Samples · Rigs -->
 	{#if arch || imgsz || samples !== null || machineCount !== null}
 		<div class="grid grid-cols-3 gap-px bg-[var(--color-border)]">
-			<div class="bg-[var(--color-surface)] px-3 py-2">
+			<div class="min-w-0 bg-[var(--color-surface)] px-3 py-2">
 				<div class="text-[10px] uppercase tracking-wider text-[var(--color-text-muted)]">Model</div>
-				<div class="font-mono text-sm font-semibold text-[var(--color-text)]">
+				<div class="truncate font-mono text-xs font-semibold text-[var(--color-text)] sm:text-sm">
 					{#if arch && imgsz}{arch} @ {imgsz}
 					{:else if arch}{arch}
 					{:else if imgsz}{imgsz}×{imgsz}

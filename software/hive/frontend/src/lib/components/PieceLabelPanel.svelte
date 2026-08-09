@@ -693,7 +693,11 @@
 			return;
 		}
 		const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
-		qualityMenuPos = { top: r.bottom + 4, left: r.left };
+		// The menu is 14rem wide and position:fixed, so on a phone a trigger past
+		// ~x:166 would hang it off the right edge. Clamp it into the viewport.
+		const MENU_WIDTH = 224;
+		const maxLeft = Math.max(8, window.innerWidth - MENU_WIDTH - 8);
+		qualityMenuPos = { top: r.bottom + 4, left: Math.min(r.left, maxLeft) };
 		qualityMenuOpenFor = key;
 	}
 
@@ -874,7 +878,7 @@
 				</span>
 			{/each}
 		</div>
-		<div class="ml-auto flex items-center gap-2">
+		<div class="flex flex-wrap items-center gap-2 sm:ml-auto">
 			<span class="hidden text-xs text-text-muted xl:inline">Enter accept · →/Space skip · ← back</span>
 			<!-- Reject this bbox sample (with reason(s)) — left of the skip/continue CTA -->
 			<div class="relative">

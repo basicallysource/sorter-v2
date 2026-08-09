@@ -104,3 +104,70 @@ class TestStatsScopeKeys:
         monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", STATS_KEY)
         r = client.get("/api/public/stats", headers={"X-Stats-Key": STATS_KEY})
         assert r.status_code == 200
+
+
+class TestFleetRoster:
+    """/api/public/fleet — machines with owner Discord identity where linked."""
+
+    def _admin_headers(self, client, db):
+        return TestStatsScopeKeys._admin_headers(TestStatsScopeKeys(), client, db)
+
+    def _mint(self, client, headers, scopes, machine_ids=None):
+        return TestStatsScopeKeys._mint(TestStatsScopeKeys(), client, headers, scopes, machine_ids)
+
+    def test_requires_key(self, client, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        assert client.get("/api/public/fleet").status_code in (401, 503)
+
+    def test_roster_masks_unlinked_owners(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        m = client.post(
+            "/api/machines",
+            json={"name": "Roster Sorter", "description": "d"},
+            headers=headers,
+        )
+        assert m.status_code in (200, 201)
+        token = self._mint(client, headers, ["stats:read"])
+
+        r = client.get("/api/public/fleet", headers=_bearer(token))
+        assert r.status_code == 200, r.text
+        body = r.json()
+        mine = next(x for x in body["machines"] if x["name"] == "Roster Sorter")
+        assert mine["owner_discord"] is None
+        assert body["machine_count"] == len(body["machines"])
+
+        # Link a Discord identity to the owner; the roster now names them.
+        from app.models.user import User
+        from app.models.user_identity import UserIdentity
+
+        user = db.query(User).filter(User.email == "stats-admin@test.com").first()
+        db.add(
+            UserIdentity(
+                user_id=user.id,
+                provider="discord",
+                provider_user_id="123456789012345678",
+                provider_login="spencer",
+            )
+        )
+        db.commit()
+
+        r = client.get("/api/public/fleet", headers=_bearer(token))
+        mine = next(x for x in r.json()["machines"] if x["name"] == "Roster Sorter")
+        assert mine["owner_discord"] == {
+            "id": "123456789012345678",
+            "login": "spencer",
+            "avatar_url": None,
+        }
+        assert r.json()["discord_linked_count"] >= 1
+
+    def test_machine_scoped_key_rejected(self, client, db, monkeypatch):
+        monkeypatch.setattr(settings, "PUBLIC_STATS_API_KEY", "")
+        headers = self._admin_headers(client, db)
+        m = client.post(
+            "/api/machines",
+            json={"name": "Scoped Sorter", "description": "d"},
+            headers=headers,
+        )
+        token = self._mint(client, headers, ["stats:read"], machine_ids=[m.json()["id"]])
+        assert client.get("/api/public/fleet", headers=_bearer(token)).status_code == 403

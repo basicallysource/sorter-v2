@@ -240,7 +240,7 @@ Each LED drop is two segments: a 2x1 dupont feed from the board to a female DC j
 
 1. **How the fans are powered.** They are wanted: the Pi and the board end up in a box with no airflow but the fan. They are just not on the 24V bus, so they run off the Pi or the board and the voltage follows the available pins. 5V is likely sufficient (Spencer, 2026-08-09).
 2. **Lengths.** W1 is 36 in and longer than necessary. Pick a final length and cut.
-3. **Board 24V input polarity.** The connector is JST-VH (VHR-2) per Jon's drawing; confirm which pin is +24V against the silkscreen.
+3. **LED feed polarity.** Which dupont pin is +24V on `L1-L3`. The board's own 24V input is settled: JST-VH (VHR-2), pin 1 = +24V, pin 2 = GND.
 4. **Missing LED wire(s).** Re-count the LED drops against the actual LEDs.
 5. **Gauge per segment.** Current draw per load is needed to spec gauge.
 6. **SKU reduction.** Once gauges are known, standardize on as few gauges and connector types as possible.

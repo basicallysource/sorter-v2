@@ -26,7 +26,7 @@ connectors:
     type: JST VH 2-pin (VHR-2)
     subtype: female
     pinlabels: [+24V, GND]
-    notes: "basically board v1.3 24V input\nGUESS - which pin is +"
+    notes: "basically board v1.3 24V input\nPin 1 = +24V, pin 2 = GND"
     additional_components:
       - type: Terminal - SVH-21T-P1.1
         qty: 1

@@ -154,7 +154,9 @@ def get_public_fleet(db: Session = Depends(get_db)):
     than a recompute over machine_pieces. The trailing-hour and trailing-24h
     counts are computed live off the (machine_id, seen_at) index, because they
     are what a consumer uses to say whether a machine is working RIGHT NOW and
-    an hour-stale answer to that is a wrong one.
+    an hour-stale answer to that is a wrong one. The 30-day count is the one a
+    leaderboard should rank on: a day is too short to mean much and a lifetime
+    total is the same order forever.
     """
     rows = (
         db.query(Machine, UserIdentity)
@@ -173,6 +175,7 @@ def get_public_fleet(db: Session = Depends(get_db)):
     lifetime = machine_stats.get_fleet_stats(db)
     recent = _pieces_by_machine_since(db, ids, hours=24)
     this_hour = _pieces_by_machine_since(db, ids, hours=1)
+    this_month = _pieces_by_machine_since(db, ids, hours=24 * 30)
     machines = [
         {
             "id": str(machine.id),
@@ -185,6 +188,7 @@ def get_public_fleet(db: Session = Depends(get_db)):
             "overall_ppm": float(lifetime.get(str(machine.id), {}).get("overall_ppm") or 0.0),
             "last_24h_pieces": recent.get(str(machine.id), 0),
             "last_hour_pieces": this_hour.get(str(machine.id), 0),
+            "last_30d_pieces": this_month.get(str(machine.id), 0),
             "owner_discord": None
             if identity is None
             else {
